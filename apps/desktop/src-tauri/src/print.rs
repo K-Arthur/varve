@@ -42,6 +42,14 @@ pub struct PrintJobResult {
     pub success: bool,
 }
 
+/// Output options for one submitted PDF job.
+pub struct PrintSettings {
+    pub copies: u32,
+    pub duplex: bool,
+    pub color_mode: String,
+    pub page_size: String,
+}
+
 /// Enumerate available printers via `lpstat -p`.
 ///
 /// Returns an empty vec if `lpstat` is not available or fails.
@@ -125,10 +133,7 @@ pub fn print_pdf(
     printer_name: &str,
     pdf_bytes: &[u8],
     job_title: &str,
-    copies: u32,
-    duplex: bool,
-    color_mode: &str,
-    page_size: &str,
+    settings: PrintSettings,
 ) -> PrintJobResult {
     // Write PDF to a temp file for lp to consume. The name carries the
     // process id and a timestamp so two Varve processes printing at once can
@@ -156,24 +161,24 @@ pub fn print_pdf(
     cmd.arg("-d").arg(printer_name);
     cmd.arg("-t").arg(job_title);
 
-    if copies > 1 {
-        cmd.arg(format!("-n {}", copies));
+    if settings.copies > 1 {
+        cmd.arg(format!("-n {}", settings.copies));
     }
 
-    if duplex {
+    if settings.duplex {
         cmd.arg("-o").arg("sides=two-sided-long-edge");
     } else {
         cmd.arg("-o").arg("sides=one-sided");
     }
 
-    if color_mode == "grayscale" {
+    if settings.color_mode == "grayscale" {
         cmd.arg("-o").arg("ColorModel=Gray");
     } else {
         cmd.arg("-o").arg("ColorModel=RGB");
     }
 
-    if !page_size.is_empty() && page_size != "auto" {
-        cmd.arg("-o").arg(format!("media={page_size}"));
+    if !settings.page_size.is_empty() && settings.page_size != "auto" {
+        cmd.arg("-o").arg(format!("media={}", settings.page_size));
     }
 
     cmd.arg(tmp_path.to_str().unwrap_or(""));
@@ -189,7 +194,7 @@ pub fn print_pdf(
             // Parse job ID from "request id is <name>-<id> (1 file(s))"
             let job_id = stdout
                 .split_whitespace()
-                .filter_map(|w| w.split('-').last())
+                .filter_map(|w| w.split('-').next_back())
                 .filter_map(|s| s.parse::<u32>().ok())
                 .next()
                 .unwrap_or(0);
