@@ -82,11 +82,8 @@ fn looks_like_absolute_native_path(value: &str) -> bool {
 }
 
 fn redact_native_path_token(value: &str) -> String {
-    let trimmed = value.trim_end_matches(|character| character == ')' || character == ',');
-    let basename = trimmed
-        .rsplit(|character| character == '/' || character == '\\')
-        .next()
-        .unwrap_or(trimmed);
+    let trimmed = value.trim_end_matches([')', ',']);
+    let basename = trimmed.rsplit(['/', '\\']).next().unwrap_or(trimmed);
     if basename.is_empty() {
         "<path>".to_owned()
     } else {
@@ -109,10 +106,7 @@ fn write_emergency_record(info: &std::panic::PanicHookInfo<'_>) {
     };
     let (file, line) = match info.location() {
         Some(loc) => (
-            loc.file()
-                .rsplit(|character| character == '/' || character == '\\')
-                .next()
-                .unwrap_or(loc.file()),
+            loc.file().rsplit(['/', '\\']).next().unwrap_or(loc.file()),
             loc.line(),
         ),
         None => ("unknown", 0u32),

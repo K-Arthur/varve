@@ -207,7 +207,7 @@ fn directory_writable(path: &Path) -> bool {
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        return metadata.permissions().mode() & 0o222 != 0;
+        metadata.permissions().mode() & 0o222 != 0
     }
     #[cfg(not(unix))]
     {

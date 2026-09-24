@@ -35,16 +35,14 @@ fn main() {
     // disable the built-in manifest and embed it manually via plain
     // `rustc-link-arg`, which applies to every linkable artifact including
     // tests. See apps/desktop/src-tauri/windows-app-manifest.xml.
-    let mut attributes = tauri_build::Attributes::new();
     #[cfg(target_os = "windows")]
-    {
-        attributes = attributes.windows_attributes(
-            tauri_build::WindowsAttributes::new_without_app_manifest(),
-        );
+    let attributes = {
         add_manifest();
-    }
+        tauri_build::Attributes::new()
+            .windows_attributes(tauri_build::WindowsAttributes::new_without_app_manifest())
+    };
     #[cfg(not(target_os = "windows"))]
-    let attributes = attributes;
+    let attributes = tauri_build::Attributes::new();
     tauri_build::try_build(attributes).expect("failed to run build script");
 }
 
@@ -52,9 +50,7 @@ fn main() {
 fn add_manifest() {
     static WINDOWS_MANIFEST_FILE: &str = "windows-app-manifest.xml";
 
-    let manifest = std::env::current_dir()
-        .unwrap()
-        .join(WINDOWS_MANIFEST_FILE);
+    let manifest = std::env::current_dir().unwrap().join(WINDOWS_MANIFEST_FILE);
 
     println!("cargo:rerun-if-changed={}", manifest.display());
     // Embed the Windows application manifest file.

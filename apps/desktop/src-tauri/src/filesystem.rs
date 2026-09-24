@@ -197,43 +197,6 @@ pub fn validate_portable_relative_path(value: &str) -> Result<Vec<&str>, FsError
     Ok(components)
 }
 
-/// Generate a cross-platform filename for data Varve creates itself.  User
-/// selected filenames are never passed through this function.
-pub fn generated_filename(stem: &str, extension: &str) -> String {
-    let mut value = stem
-        .chars()
-        .map(|character| match character {
-            '<' | '>' | ':' | '"' | '/' | '\\' | '|' | '?' | '*' => '_',
-            character if character.is_control() => '_',
-            character => character,
-        })
-        .collect::<String>();
-    while value.ends_with('.') || value.ends_with(' ') {
-        value.pop();
-    }
-    if value.is_empty() || value == "." || value == ".." {
-        value = "untitled".to_owned();
-    }
-    let reserved = value
-        .split_once('.')
-        .map(|(base, _)| base)
-        .unwrap_or(&value)
-        .to_ascii_uppercase();
-    if matches!(reserved.as_str(), "CON" | "PRN" | "AUX" | "NUL")
-        || (reserved.len() == 4
-            && (reserved.starts_with("COM") || reserved.starts_with("LPT"))
-            && reserved.as_bytes()[3].is_ascii_digit())
-    {
-        value.insert(0, '_');
-    }
-    let extension = extension.trim_start_matches('.');
-    if extension.is_empty() {
-        value
-    } else {
-        format!("{value}.{extension}")
-    }
-}
-
 /// Diagnostics-only path rendering.  It is intentionally lossy and must not
 /// be used for filesystem identity or security checks.
 pub fn display_path(path: &Path) -> String {
@@ -284,24 +247,7 @@ pub fn replace_file(temporary: &Path, destination: &Path) -> Result<(), FsError>
 
 #[cfg(test)]
 mod tests {
-    use super::{generated_filename, validate_portable_relative_path, validate_storage_key};
-
-    #[test]
-    fn generated_names_handle_windows_reserved_names_and_suffixes() {
-        assert_eq!(generated_filename("CON", "json"), "_CON.json");
-        assert_eq!(generated_filename("name. ", ".varve"), "name.varve");
-        assert_eq!(
-            generated_filename("design:final", "png"),
-            "design_final.png"
-        );
-        assert_eq!(generated_filename("设计 🎨", "varve"), "设计 🎨.varve");
-    }
-
-    #[test]
-    fn generated_names_have_a_safe_fallback() {
-        assert_eq!(generated_filename("..", "tmp"), "untitled.tmp");
-        assert_eq!(generated_filename("***", ""), "___");
-    }
+    use super::{validate_portable_relative_path, validate_storage_key};
 
     #[test]
     fn storage_keys_are_not_paths() {

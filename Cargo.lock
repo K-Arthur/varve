@@ -3557,6 +3557,7 @@ dependencies = [
  "dirs-next",
  "image",
  "ort",
+ "varve-bgremove",
 ]
 
 [[package]]
