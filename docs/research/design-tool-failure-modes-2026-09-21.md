@@ -1,6 +1,6 @@
 # Design-tool failure modes and Varve responses
 
-Date: 2026-09-21
+Date: 2026-09-23
 
 This is a failure-informed product and marketing note, not a market-share
 survey. Public forum and complaint pages are anecdotal evidence of pain, so
@@ -47,3 +47,13 @@ The public-facing summary is now reflected in the [press and brand-assets
 page](https://varve.studio/press), while the detailed limitations remain in the
 [file-format guide](https://varve.studio/docs/file-formats) and [known
 issues](https://varve.studio/support/known-issues).
+
+## Marketing wording review (2026-09-23)
+
+The homepage, About page, and product page now describe the native Linux app
+and desktop runtimes without an unqualified speed promise. The troubleshooting
+page directs users to the platform capability report and performance guide;
+actual responsiveness depends on the document, renderer, display cadence, and
+device. This follows the repository's published rendering evidence contract
+and keeps the local-first message separate from guarantees about backups or
+recovery.

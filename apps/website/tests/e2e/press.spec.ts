@@ -12,7 +12,7 @@ test('press page keeps the trust boundary readable on a narrow viewport', async 
   await expect(page.getByRole('heading', { name: 'Trust and product boundaries' })).toBeVisible();
   await expect(page.getByText('Core editing is local.')).toBeVisible();
   await expect(page.getByText('Exports are not magic.')).toBeVisible();
-  await expect(page.locator('.press-page')).toHaveScreenshot('press-page-mobile.png', {
+  await expect(page).toHaveScreenshot('press-page-mobile.png', {
     fullPage: true,
     maxDiffPixelRatio: 0.02,
   });

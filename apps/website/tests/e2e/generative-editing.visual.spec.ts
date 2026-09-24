@@ -22,7 +22,11 @@ test.describe('generative editing marketing pages', () => {
     await evidenceImages.first().scrollIntoViewIfNeeded();
     await evidenceImages.last().scrollIntoViewIfNeeded();
     await expect
-      .poll(() => evidenceImages.evaluateAll((images) => images.map((image) => image.naturalWidth)))
+      .poll(() =>
+        evidenceImages.evaluateAll((images) =>
+          images.map((image) => (image instanceof HTMLImageElement ? image.naturalWidth : -1)),
+        ),
+      )
       .toEqual([640, 640]);
     await expect(page.locator('.before-after-grid figcaption')).toHaveText([
       'Source photograph · 640px review copy',
