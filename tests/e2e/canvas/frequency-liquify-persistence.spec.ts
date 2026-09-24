@@ -147,6 +147,25 @@ async function exportPng(page: Page, outputPath: string): Promise<Buffer> {
 test('frequency separation and Liquify survive save/reopen and export', async ({
   page,
 }, testInfo) => {
+  await page.addInitScript(() => {
+    const originalWarn = console.warn;
+    Object.defineProperty(window, '__historyWarningStacks', {
+      configurable: false,
+      value: [] as string[],
+    });
+    console.warn = (...args: Parameters<typeof console.warn>) => {
+      const warning = String(args[0]);
+      if (
+        warning.includes('updateDoc called outside transaction') ||
+        warning.includes('[history] capture failed')
+      ) {
+        (window as unknown as { __historyWarningStacks: string[] }).__historyWarningStacks.push(
+          new Error().stack ?? 'stack unavailable',
+        );
+      }
+      originalWarn.apply(console, args);
+    };
+  });
   await openRetouchFixture(page);
   await page.locator('.editor-menubar__doc-name-text').click();
   const name = page.getByRole('textbox', { name: 'Document name', exact: true });
@@ -208,7 +227,7 @@ test('frequency separation and Liquify survive save/reopen and export', async ({
           interactions?: {
             summary: () => {
               count: number;
-              pointerToPresent: { count: number; p50: number; p95: number; max: number };
+              inputToCommit: { count: number; p50: number; p95: number; max: number };
               total: { count: number; p50: number; p95: number; max: number };
             };
           };
@@ -226,9 +245,17 @@ test('frequency separation and Liquify survive save/reopen and export', async ({
     JSON.stringify(interactionSummary, null, 2),
   );
   console.log(`Liquify interaction summary: ${JSON.stringify(interactionSummary)}`);
+  const historyWarningStacks = await page.evaluate(
+    () => (window as unknown as { __historyWarningStacks: string[] }).__historyWarningStacks,
+  );
+  await testInfo.attach('history-warning-stacks.json', {
+    body: JSON.stringify(historyWarningStacks, null, 2),
+    contentType: 'application/json',
+  });
+  expect(historyWarningStacks).toEqual([]);
   expect(interactionSummary?.count).toBeGreaterThan(0);
-  expect(interactionSummary?.pointerToPresent.count).toBeGreaterThan(0);
-  expect(interactionSummary?.pointerToPresent.p95).toBeGreaterThanOrEqual(0);
+  expect(interactionSummary?.inputToCommit.count).toBeGreaterThan(0);
+  expect(interactionSummary?.inputToCommit.p95).toBeGreaterThanOrEqual(0);
   const committedHash = await assertFullRedrawIsStable(page);
   await page.getByTestId('editor-canvas').screenshot({
     path: testInfo.outputPath('frequency-liquify-after.png'),

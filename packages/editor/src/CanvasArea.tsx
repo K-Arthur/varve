@@ -642,7 +642,17 @@ export function CanvasArea({
       try {
         const { createPerformanceWorkload } = await import('./performance/workloadCorpus');
         const workload = createPerformanceWorkload(id as never);
-        editorRef.current.updateDoc(() => workload.document);
+        editorRef.current.beginTransaction();
+        try {
+          editorRef.current.updateDoc((currentDocument) => ({
+            ...workload.document,
+            // A performance workload replaces the scene content, not the
+            // document identity. Persistent history is scoped to that id.
+            id: currentDocument.id,
+          }));
+        } finally {
+          editorRef.current.commitTransaction();
+        }
         requestContentDrawRef.current?.('fixture-apply', 'scene-mutation');
         return {
           ok: true,
