@@ -227,7 +227,9 @@ test.describe('Toolbar surface review', () => {
     expect(badge).not.toBeNull();
     expect(badge!.kbd).toMatch(/^[A-Za-z]$/);
     await page.keyboard.press(badge!.kbd.toLowerCase());
-    await expect(page.locator(`${PALETTE} [data-tool="rect"]`)).toHaveClass(/--active/);
+    // The tool button's persistent-selection class is `--pressed` (shared
+    // ToggleButton vocabulary); `--active` was the pre-migration name.
+    await expect(page.locator(`${PALETTE} [data-tool="rect"]`)).toHaveClass(/--pressed/);
 
     // D11: the drawing row exposes visible values.
     await page.keyboard.press('Control+Shift+3');

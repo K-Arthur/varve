@@ -169,19 +169,15 @@ export async function dragCropHandle(
 }
 
 /**
- * Change a fill's paint type through the Fill section's compact type menu.
+ * Change a fill's paint type through the Fill section's labelled type select.
  *
- * The row trigger is an icon button whose accessible name is
- * "Fill type: <current>" ("Fill 2 type: …" for stacked fills); the menu
- * options are radios. Replaces the former full-width "Fill type" combobox.
+ * The select is labelled "Fill type" ("Fill 2 type" for stacked fills); its
+ * listbox options are the four supported paint types.
  */
 export async function selectFillType(page: Page, type: string, fillIndex = 0): Promise<void> {
-  const label = fillIndex === 0 ? 'Fill type:' : `Fill ${fillIndex + 1} type:`;
-  await page
-    .getByRole('button', { name: new RegExp(`^${label}`, 'i') })
-    .first()
-    .click();
-  await page.getByRole('menuitemradio', { name: type, exact: true }).click();
+  const label = fillIndex === 0 ? 'Fill type' : `Fill ${fillIndex + 1} type`;
+  await page.getByRole('combobox', { name: label, exact: true }).click();
+  await page.getByRole('option', { name: type, exact: true }).click();
   await page.waitForTimeout(200);
 }
 
