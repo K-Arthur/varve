@@ -296,12 +296,14 @@ export function usePersistentHistory(options: UsePersistentHistoryOptions): Pers
     const capturedSelection = [...selectionRef.current];
     const attachment = attachPromiseRef.current;
     void Promise.resolve(attachment)
-      .then(() =>
-        sessionRef.current?.capture(before, currentDocument, capturedSelection, {
+      .then(() => {
+        const session = sessionRef.current;
+        if (!session || session.documentId !== documentId) return;
+        return session.capture(before, currentDocument, capturedSelection, {
           label,
           kind: 'modify',
-        }),
-      )
+        });
+      })
       .then(() => bump())
       .catch((err) => console.warn('[history] watcher capture failed', err));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -362,10 +364,10 @@ export function usePersistentHistory(options: UsePersistentHistoryOptions): Pers
 
   const capture = useCallback((before: Document, after: Document, label: string, kind: string) => {
     const run = async () => {
-      await attachPromiseRef.current;
-      const session = sessionRef.current;
-      if (!session) return;
       try {
+        await attachPromiseRef.current;
+        const session = sessionRef.current;
+        if (!session || session.documentId !== before.id || after.id !== before.id) return;
         await session.capture(before, after, selectionRef.current, { label, kind });
         bump();
       } catch (err) {

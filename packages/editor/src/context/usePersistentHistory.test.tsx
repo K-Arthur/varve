@@ -78,6 +78,53 @@ describe('persistent history session isolation', () => {
     }
   });
 
+  it('does not capture a previous document into the next session after a late attach', async () => {
+    const first = createDocument('First', true);
+    const edited = { ...first, name: 'Edited while attaching' };
+    const second = createDocument('Second', true);
+    let finish!: () => void;
+    const pending = new Promise<void>((resolve) => {
+      finish = resolve;
+    });
+    const originalAttach = EditorHistorySession.prototype.attach;
+    const attach = vi
+      .spyOn(EditorHistorySession.prototype, 'attach')
+      .mockImplementation(async function (this: EditorHistorySession, document) {
+        if (document.id === first.id) await pending;
+        return originalAttach.call(this, document);
+      });
+    const capture = vi.spyOn(EditorHistorySession.prototype, 'capture');
+    const inTransactionRef = { current: false };
+    const historySkipRef = { current: false };
+    const { result, rerender } = renderHook(
+      ({ document }) =>
+        usePersistentHistory({
+          document,
+          selection: [],
+          patch: vi.fn(),
+          inTransactionRef,
+          historySkipRef,
+        }),
+      { initialProps: { document: first } },
+    );
+    try {
+      await waitFor(() => expect(attach).toHaveBeenCalledOnce());
+      rerender({ document: edited });
+      rerender({ document: second });
+      await waitFor(() => expect(result.current.session?.documentId).toBe(second.id));
+      await waitFor(() => expect(result.current.attached).toBe(true));
+      await act(async () => {
+        finish();
+        await pending;
+      });
+      expect(capture).not.toHaveBeenCalled();
+      expect(await result.current.steps()).toHaveLength(1);
+    } finally {
+      attach.mockRestore();
+      capture.mockRestore();
+    }
+  });
+
   it.each(['undo', 'redo', 'checkout', 'switchBranch'] as const)(
     'does not apply %s completed after switching documents',
     async (method) => {
