@@ -42,13 +42,28 @@ describe('ContactLink', () => {
   it('leaves modified clicks to the browser', async () => {
     vi.mocked(openVarveContact).mockClear();
     render(<ContactLink channel="feedback" />);
+    const link = screen.getByRole('link');
+    let preventedBeforeBrowserHandoff: boolean | undefined;
+    // jsdom cannot open the new tab implied by Ctrl/Cmd-click. Observe the
+    // event after React, record whether the component intercepted it, then
+    // stop jsdom's unsupported navigation at the browser boundary.
+    document.addEventListener(
+      'click',
+      (event) => {
+        if (event.target !== link) return;
+        preventedBeforeBrowserHandoff = event.defaultPrevented;
+        event.preventDefault();
+      },
+      { once: true },
+    );
 
     // Ctrl/Cmd-click means "open this yourself" — intercepting it would
     // break a behaviour the user explicitly asked for. fireEvent is used
     // here because the modifier has to be set on the click event itself.
-    fireEvent.click(screen.getByRole('link'), { ctrlKey: true });
+    fireEvent.click(link, { ctrlKey: true });
 
     expect(openVarveContact).not.toHaveBeenCalled();
+    expect(preventedBeforeBrowserHandoff).toBe(false);
   });
 
   it('supports custom label text while keeping the mail target', () => {

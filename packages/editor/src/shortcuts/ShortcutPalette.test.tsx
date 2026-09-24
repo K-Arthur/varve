@@ -192,11 +192,22 @@ describe('export/import', () => {
   it('export button triggers keymap generation', async () => {
     URL.createObjectURL = vi.fn().mockReturnValue('blob:mock');
     URL.revokeObjectURL = vi.fn();
+    const clickedAnchors: HTMLAnchorElement[] = [];
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (
+      this: HTMLAnchorElement,
+    ) {
+      clickedAnchors.push(this);
+    });
 
     renderPalette();
     await userEvent.click(screen.getByRole('button', { name: 'Export keymap' }));
 
     expect(URL.createObjectURL).toHaveBeenCalled();
+    expect(clickedAnchors).toHaveLength(1);
+    expect(clickedAnchors[0]).toMatchObject({
+      download: 'strata-keymap.json',
+      href: 'blob:mock',
+    });
   });
 
   it('import button opens file picker', () => {
