@@ -69,7 +69,7 @@ pub fn stable_diffusion_3_medium() -> Result<ConfigsBuilder, ApiError> {
 
     let mut config = ConfigBuilder::default();
 
-    config.cfg_scale(4.5).steps(30).height(1024).width(1024);
+    config.cfg_scale(4.5_f32).steps(30).height(1024).width(1024);
 
     let mut model_config = ModelConfigBuilder::default();
 
@@ -159,7 +159,7 @@ fn flux_1_clip_vae(
         .vae(vae_path)
         .clip_l(clip_l_path)
         .vae_tiling(true);
-    config.cfg_scale(1.).steps(steps).height(1024).width(1024);
+    config.cfg_scale(1.0_f32).steps(steps).height(1024).width(1024);
 
     Ok((config, model_config))
 }
@@ -170,7 +170,7 @@ pub fn sd_turbo() -> Result<ConfigsBuilder, ApiError> {
     let mut config = ConfigsBuilder::default();
 
     config.1.model(model_path);
-    config.0.guidance(0.).cfg_scale(1.).steps(4);
+    config.0.guidance(0.0_f32).cfg_scale(1.0_f32).steps(4);
 
     Ok(config)
 }
@@ -182,7 +182,7 @@ pub fn sdxl_turbo_1_0() -> Result<ConfigsBuilder, ApiError> {
     let mut config = ConfigsBuilder::default();
 
     config.1.model(model_path);
-    config.0.guidance(0.).cfg_scale(1.).steps(4);
+    config.0.guidance(0.0_f32).cfg_scale(1.0_f32).steps(4);
     sdxl_vae_fp16_fix(config)
 }
 
@@ -191,7 +191,7 @@ pub fn stable_diffusion_3_5_large() -> Result<ConfigsBuilder, ApiError> {
 }
 
 pub fn stable_diffusion_3_5_large_turbo() -> Result<ConfigsBuilder, ApiError> {
-    stable_diffusion_3_5("large-turbo", "large_turbo", 4, 0.)
+    stable_diffusion_3_5("large-turbo", "large_turbo", 4, 0.0_f32)
 }
 
 pub fn stable_diffusion_3_5_medium() -> Result<ConfigsBuilder, ApiError> {
@@ -255,7 +255,7 @@ pub fn juggernaut_xl_11() -> Result<ConfigsBuilder, ApiError> {
         .0
         .sampling_method(SampleMethod::DPM2_SAMPLE_METHOD)
         .steps(20)
-        .guidance(6.)
+        .guidance(6.0_f32)
         .height(1024)
         .width(1024);
 
@@ -268,7 +268,7 @@ pub fn flux_1_mini(sd_type: Flux1MiniWeight) -> Result<ConfigsBuilder, ApiError>
     let clip_l_path = download_file_hf_hub("Green-Sky/flux.1-schnell-GGUF", "clip_l-q8_0.gguf")?;
     let mut builder = flux_1_clip_vae(vae_path, clip_l_path, 20)?;
     builder.1.diffusion_model(model_path);
-    builder.0.cfg_scale(1.);
+    builder.0.cfg_scale(1.0_f32);
     match sd_type {
         Flux1MiniWeight::F32 => t5xxl_fp16_flux_1(builder),
         Flux1MiniWeight::Q8_0 => t5xxl_q8_0_flux_1(builder),
@@ -304,7 +304,7 @@ pub fn chroma(sd_type: ChromaWeight) -> Result<ConfigsBuilder, ApiError> {
         .vae(vae_path)
         .vae_tiling(true);
     config
-        .cfg_scale(4.)
+        .cfg_scale(4.0_f32)
         .sampling_method(SampleMethod::EULER_SAMPLE_METHOD)
         .steps(20)
         .height(512)
@@ -345,7 +345,7 @@ pub fn nitro_sd_realism(sd_type: NitroSDRealismWeight) -> Result<ConfigsBuilder,
         .model(model_path)
         .timestep_shift(250)
         .scheduler(scheduler_t::SGM_UNIFORM_SCHEDULER);
-    config.cfg_scale(1.).steps(1).height(1024).width(1024);
+    config.cfg_scale(1.0_f32).steps(1).height(1024).width(1024);
     Ok((config, model_config))
 }
 
@@ -371,7 +371,7 @@ pub fn nitro_sd_vibrant(sd_type: NitroSDVibrantWeight) -> Result<ConfigsBuilder,
         .model(model_path)
         .timestep_shift(500)
         .scheduler(scheduler_t::SGM_UNIFORM_SCHEDULER);
-    config.cfg_scale(1.).steps(1).height(1024).width(1024);
+    config.cfg_scale(1.0_f32).steps(1).height(1024).width(1024);
     Ok((config, model_config))
 }
 
@@ -397,7 +397,7 @@ pub fn diff_instruct_star(sd_type: DiffInstructStarWeight) -> Result<ConfigsBuil
         .model(model_path)
         .timestep_shift(400)
         .scheduler(scheduler_t::SGM_UNIFORM_SCHEDULER);
-    config.cfg_scale(1.).steps(1).height(1024).width(1024);
+    config.cfg_scale(1.0_f32).steps(1).height(1024).width(1024);
     Ok((config, model_config))
 }
 
@@ -442,7 +442,7 @@ pub fn chroma_radiance(sd_type: ChromaRadianceWeight) -> Result<ConfigsBuilder, 
 
     model_config.model(model_path);
     config
-        .cfg_scale(4.)
+        .cfg_scale(4.0_f32)
         .sampling_method(SampleMethod::EULER_SAMPLE_METHOD);
     t5xxl_fp16_flux_1((config, model_config))
 }
@@ -467,7 +467,7 @@ pub fn ssd_1b(sd_type: SSD1BWeight) -> Result<ConfigsBuilder, ApiError> {
     let mut model_config = ModelConfigBuilder::default();
 
     model_config.model(model);
-    config.cfg_scale(9.).height(1024).width(1024);
+    config.cfg_scale(9.0_f32).height(1024).width(1024);
     Ok((config, model_config))
 }
 
@@ -498,7 +498,7 @@ pub fn flux_2_dev(sd_type: Flux2Weight) -> Result<ConfigsBuilder, ApiError> {
         .vae(vae)
         .vae_tiling(true);
     config
-        .cfg_scale(1.)
+        .cfg_scale(1.0_f32)
         .sampling_method(SampleMethod::EULER_SAMPLE_METHOD);
 
     offload_params_to_cpu((config, model_config))
@@ -604,7 +604,7 @@ pub fn z_image_turbo(sd_type: ZImageTurboWeight) -> Result<ConfigsBuilder, ApiEr
         .flash_attention(true)
         .vae(vae)
         .vae_tiling(true);
-    config.steps(9).cfg_scale(1.).height(1024).width(512);
+    config.steps(9).cfg_scale(1.0_f32).height(1024).width(512);
 
     Ok((config, model_config))
 }
@@ -691,10 +691,10 @@ pub fn qwen_image(sd_type: QwenImageWeight) -> Result<ConfigsBuilder, ApiError> 
         .vae(vae)
         .flash_attention(true)
         .vae_tiling(true)
-        .flow_shift(3.0);
+        .flow_shift(3.0_f32);
     config
         .sampling_method(SampleMethod::EULER_SAMPLE_METHOD)
-        .cfg_scale(2.5)
+        .cfg_scale(2.5_f32)
         .height(1024)
         .width(1024);
 
@@ -814,7 +814,7 @@ pub fn ovis_image(sd_type: OvisImageWeight) -> Result<ConfigsBuilder, ApiError> 
         .vae(vae)
         .flash_attention(true)
         .vae_tiling(true);
-    config.steps(20).cfg_scale(5.).height(512).width(512);
+    config.steps(20).cfg_scale(5.0_f32).height(512).width(512);
 
     offload_params_to_cpu((config, model_config))
 }
@@ -849,7 +849,7 @@ pub fn dream_shaper_xl_2_1_turbo() -> Result<ConfigsBuilder, ApiError> {
         .0
         .sampling_method(SampleMethod::DPM2_SAMPLE_METHOD)
         .steps(6)
-        .guidance(2.)
+        .guidance(2.0_f32)
         .height(1024)
         .width(1024);
 
@@ -876,7 +876,7 @@ pub fn twinflow_z_image_turbo(
         .scheduler(Scheduler::SMOOTHSTEP_SCHEDULER);
     config
         .steps(3)
-        .cfg_scale(1.)
+        .cfg_scale(1.0_f32)
         .height(1024)
         .width(512)
         .sampling_method(SampleMethod::DPM2_SAMPLE_METHOD);
@@ -969,7 +969,7 @@ pub fn sdxs512_dream_shaper(sd_type: SDXS512DreamShaperWeight) -> Result<Configs
     let mut model_config = ModelConfigBuilder::default();
 
     model_config.model(model);
-    config.steps(1).cfg_scale(1.).height(512).width(512);
+    config.steps(1).cfg_scale(1.0_f32).height(512).width(512);
 
     Ok((config, model_config))
 }
@@ -989,7 +989,7 @@ pub fn flux_2_klein_4b(sd_type: Flux2Klein4BWeight) -> Result<ConfigsBuilder, Ap
         .vae(vae)
         .flash_attention(true)
         .vae_tiling(true);
-    config.cfg_scale(1.).steps(4).height(1024).width(1024);
+    config.cfg_scale(1.0_f32).steps(4).height(1024).width(1024);
 
     offload_params_to_cpu((config, model_config))
 }
@@ -1032,7 +1032,7 @@ pub fn flux_2_klein_base_4b(sd_type: Flux2KleinBase4BWeight) -> Result<ConfigsBu
         .vae(vae)
         .flash_attention(true)
         .vae_tiling(true);
-    config.cfg_scale(4.).steps(20).height(1024).width(1024);
+    config.cfg_scale(4.0_f32).steps(20).height(1024).width(1024);
 
     offload_params_to_cpu((config, model_config))
 }
@@ -1083,7 +1083,7 @@ pub fn flux_2_klein_9b(sd_type: Flux2Klein9BWeight) -> Result<ConfigsBuilder, Ap
         .vae(vae)
         .flash_attention(true)
         .vae_tiling(true);
-    config.cfg_scale(1.).steps(4).height(1024).width(1024);
+    config.cfg_scale(1.0_f32).steps(4).height(1024).width(1024);
 
     offload_params_to_cpu((config, model_config))
 }
@@ -1126,7 +1126,7 @@ pub fn flux_2_klein_base_9b(sd_type: Flux2KleinBase9BWeight) -> Result<ConfigsBu
         .vae(vae)
         .flash_attention(true)
         .vae_tiling(true);
-    config.cfg_scale(4.).steps(20).height(1024).width(1024);
+    config.cfg_scale(4.0_f32).steps(20).height(1024).width(1024);
 
     offload_params_to_cpu((config, model_config))
 }
@@ -1161,7 +1161,7 @@ pub fn segmind_vega() -> Result<ConfigsBuilder, ApiError> {
     let mut model_config = ModelConfigBuilder::default();
 
     model_config.model(model).vae_tiling(true);
-    config.guidance(9.).steps(25).height(1024).width(1024);
+    config.guidance(9.0_f32).steps(25).height(1024).width(1024);
 
     Ok((config, model_config))
 }
@@ -1180,7 +1180,7 @@ pub fn anima(sd_type: AnimaWeight) -> Result<ConfigsBuilder, ApiError> {
         .llm(llm)
         .vae(vae)
         .vae_tiling(true);
-    config.cfg_scale(4.).steps(30).height(1024).width(1024);
+    config.cfg_scale(4.0_f32).steps(30).height(1024).width(1024);
 
     Ok((config, model_config))
 }
@@ -1280,7 +1280,7 @@ pub fn anima2(sd_type: Anima2Weight) -> Result<ConfigsBuilder, ApiError> {
         .llm(llm)
         .vae(vae)
         .vae_tiling(true);
-    config.cfg_scale(4.).steps(30).height(1024).width(1024);
+    config.cfg_scale(4.0_f32).steps(30).height(1024).width(1024);
 
     Ok((config, model_config))
 }
@@ -1343,7 +1343,7 @@ pub fn ernie_image(sd_type: ErnieImageWeight) -> Result<ConfigsBuilder, ApiError
         .vae(vae)
         .diffusion_flash_attention(true)
         .vae_tiling(true);
-    config.cfg_scale(5.).steps(20).height(1024).width(1024);
+    config.cfg_scale(5.0_f32).steps(20).height(1024).width(1024);
 
     Ok((config, model_config))
 }
@@ -1360,7 +1360,7 @@ pub fn ernie_image_turbo(sd_type: ErnieImageWeight) -> Result<ConfigsBuilder, Ap
         .vae(vae)
         .diffusion_flash_attention(true)
         .vae_tiling(true);
-    config.cfg_scale(1.).steps(8).height(1024).width(1024);
+    config.cfg_scale(1.0_f32).steps(8).height(1024).width(1024);
 
     Ok((config, model_config))
 }
@@ -1524,7 +1524,7 @@ pub fn hi_dream_o1_image_dev() -> Result<ConfigsBuilder, ApiError> {
     let mut config = ConfigBuilder::default();
     let mut model_config = ModelConfigBuilder::default();
     model_config.model(model);
-    config.cfg_scale(1.0).steps(20).height(1024).width(1024);
+    config.cfg_scale(1.0_f32).steps(20).height(1024).width(1024);
 
     Ok((config, model_config))
 }
@@ -1537,7 +1537,7 @@ pub fn hi_dream_o1_image() -> Result<ConfigsBuilder, ApiError> {
     let mut config = ConfigBuilder::default();
     let mut model_config = ModelConfigBuilder::default();
     model_config.model(model);
-    config.cfg_scale(1.0).steps(20).height(1024).width(1024);
+    config.cfg_scale(1.0_f32).steps(20).height(1024).width(1024);
 
     Ok((config, model_config))
 }
@@ -1552,12 +1552,12 @@ pub fn long_cat_image(sd_type: LongCatImageWeight) -> Result<ConfigsBuilder, Api
         .diffusion_model(model)
         .llm(llm)
         .vae(vae)
-        .flow_shift(3.)
+        .flow_shift(3.0_f32)
         .diffusion_flash_attention(true);
 
     config
         .sampling_method(SampleMethod::EULER_SAMPLE_METHOD)
-        .cfg_scale(5.)
+        .cfg_scale(5.0_f32)
         .steps(20)
         .height(512)
         .width(512);
@@ -1687,7 +1687,7 @@ pub fn lens_turbo() -> Result<ConfigsBuilder, ApiError> {
         .llm(llm)
         .vae(vae)
         .diffusion_flash_attention(true);
-    config.cfg_scale(1.).steps(4).height(512).width(512);
+    config.cfg_scale(1.0_f32).steps(4).height(512).width(512);
 
     Ok((config, model_config))
 }
@@ -1703,7 +1703,7 @@ pub fn lens() -> Result<ConfigsBuilder, ApiError> {
         .llm(llm)
         .vae(vae)
         .diffusion_flash_attention(true);
-    config.cfg_scale(5.).height(512).width(512);
+    config.cfg_scale(5.0_f32).height(512).width(512);
 
     Ok((config, model_config))
 }

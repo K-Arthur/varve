@@ -79,7 +79,7 @@ pub fn lcm_lora_sd_1_5(mut builder: ConfigsBuilder) -> Result<ConfigsBuilder, Ap
             multiplier: 1.0,
         }],
     );
-    builder.0.cfg_scale(1.).steps(8);
+    builder.0.cfg_scale(1.0_f32).steps(8);
     Ok(builder)
 }
 
@@ -101,7 +101,7 @@ pub fn lcm_lora_sdxl_base_1_0(mut builder: ConfigsBuilder) -> Result<ConfigsBuil
     );
     builder
         .0
-        .cfg_scale(2.)
+        .cfg_scale(2.0_f32)
         .steps(8)
         .sampling_method(SampleMethod::LCM_SAMPLE_METHOD);
     Ok(builder)
@@ -304,7 +304,7 @@ pub fn lcm_lora_ssd_1b(mut builder: ConfigsBuilder) -> Result<ConfigsBuilder, Ap
             multiplier: 1.0,
         }],
     );
-    builder.0.cfg_scale(1.).steps(8);
+    builder.0.cfg_scale(1.0_f32).steps(8);
     Ok(builder)
 }
 
@@ -350,7 +350,7 @@ pub fn lcm_lora_segmind_vega_rt(mut builder: ConfigsBuilder) -> Result<ConfigsBu
             multiplier: 1.0,
         }],
     );
-    builder.0.guidance(0.).steps(4);
+    builder.0.guidance(0.0_f32).steps(4);
     Ok(builder)
 }
 
@@ -369,7 +369,7 @@ pub fn lora_anima_8_steps_turbo(mut builder: ConfigsBuilder) -> Result<ConfigsBu
             multiplier: 1.0,
         }],
     );
-    builder.0.cfg_scale(1.).steps(8);
+    builder.0.cfg_scale(1.0_f32).steps(8);
     Ok(builder)
 }
 

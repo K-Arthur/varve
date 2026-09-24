@@ -202,6 +202,13 @@ Full-suite execution locally requires a stated reason. `verify:full` exits
 with code 2 (not a pass/fail) unless `VARVE_FULL_GATE=1` or
 `VARVE_FULL_GATE_REASON` is set. "Just to be safe" is not a reason.
 
+The full gate runs workspace Cargo tests and Clippy through
+`scripts/cargo-with-generative-bindgen.mjs`, matching the affected Rust lanes
+and desktop helper build. That wrapper supplies the repository's stdio shim
+to bindgen so Clang 22 does not emit invalid layouts for glibc's private
+`_IO_FILE` type. Keep full-gate Rust commands on this wrapper instead of
+invoking raw `cargo test` or `cargo clippy`.
+
 ## Impact configuration
 
 `validation-impact.config.mjs` at the repo root holds the EXCEPTIONAL risk

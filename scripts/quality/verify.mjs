@@ -272,20 +272,42 @@ function main() {
     ];
     if (statuses.some((s) => s !== 0)) process.exit(statuses.find((s) => s !== 0));
     const heavy = [
-      ['pnpm', 'test:ci:tools'],
-      ['pnpm', 'exec', 'vitest', 'run'],
-      ['cargo', 'test', '--workspace', '--all-targets'],
-      ['cargo', 'clippy', '--workspace', '--all-targets', '--', '-D', 'warnings'],
-      ['pnpm', 'exec', 'playwright', 'test', '--project=chromium'],
-      ['pnpm', 'e2e:visual'],
+      { label: 'CI tooling tests', argv: ['pnpm', 'test:ci:tools'] },
+      { label: 'JavaScript unit tests', argv: ['pnpm', 'exec', 'vitest', 'run'] },
+      {
+        label: 'Rust workspace tests',
+        argv: [
+          'node',
+          'scripts/cargo-with-generative-bindgen.mjs',
+          'test',
+          '--workspace',
+          '--all-targets',
+        ],
+      },
+      {
+        label: 'Rust workspace Clippy',
+        argv: [
+          'node',
+          'scripts/cargo-with-generative-bindgen.mjs',
+          'clippy',
+          '--workspace',
+          '--all-targets',
+          '--',
+          '-D',
+          'warnings',
+        ],
+      },
+      {
+        label: 'Chromium E2E',
+        argv: ['pnpm', 'exec', 'playwright', 'test', '--project=chromium'],
+      },
+      { label: 'Visual E2E', argv: ['pnpm', 'e2e:visual'] },
     ];
-    for (const h of heavy) {
+    for (const { label, argv } of heavy) {
       // heavy-lease takes a LABEL before `--` and the full command after it.
-      // The label is the first argv token ('pnpm' for 'pnpm test:ci:tools'),
-      // but the command must be the ENTIRE argv — passing the remainder
-      // (`h.slice(1)`) spawned 'test:ci:tools' as a bare executable and
-      // failed with ENOENT before the gate could run.
-      const st = cmd(['node', 'scripts/quality/heavy-lease.mjs', h[0], '--', ...h]);
+      // Pass the complete command after `--`; splitting its executable from
+      // the argv would spawn a bare subcommand such as `test:ci:tools`.
+      const st = cmd(['node', 'scripts/quality/heavy-lease.mjs', label, '--', ...argv]);
       if (st !== 0) process.exit(st);
     }
     console.log('Full gate passed.');
