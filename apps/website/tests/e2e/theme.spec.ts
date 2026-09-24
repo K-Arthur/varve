@@ -371,7 +371,7 @@ test.describe('hero visibility', () => {
       const subtitleText = await subtitle.textContent();
       expect(subtitleText).toContain('vector, layout, typography, motion, and print');
       expect(subtitleText).toContain('files that stay on your machine');
-      expect(subtitleText).toContain('native Linux performance');
+      expect(subtitleText).toContain('native Linux app');
 
       const localFirstTitle = page.locator('.local-first-title');
       await expect(localFirstTitle).toBeVisible();
