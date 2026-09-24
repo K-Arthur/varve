@@ -30,7 +30,14 @@
   flex: 1;
   height: 6px;
   border-radius: var(--radius-pill);
-  background: linear-gradient(90deg, #2d6cdf, #4ecdc4 50%, #e14b3b);
+  /* Domain scale: encodes document depth (near -> mid -> far), so it is
+   * intentionally theme-invariant — see the domain tokens in tokens.css. */
+  background: linear-gradient(
+    90deg,
+    var(--color-depth-scale-near),
+    var(--color-depth-scale-mid) 50%,
+    var(--color-depth-scale-far)
+  );
 }
 
 .insp-depth-histogram {

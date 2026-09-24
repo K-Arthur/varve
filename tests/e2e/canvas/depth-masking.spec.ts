@@ -1,26 +1,22 @@
 /**
  * Standalone depth-mask workflow — real browser coverage.
  *
- * This deliberately imports a small canonical Varve scalar resource instead
- * of invoking inference. It proves the model-free path users need after a
- * saved map has been accepted: source selection, contained preview/picking,
- * persistent mask commit, undo/redo, scalar export, and project reopen.
+ * This imports a real architectural photograph and a canonical Varve scalar
+ * resource instead of invoking inference. It proves the model-free path users
+ * need after a saved map has been accepted: source selection, contained
+ * preview/picking, persistent mask commit, undo/redo, scalar and PNG export,
+ * and project reopen.
  */
 import { readFile } from 'node:fs/promises';
-import { createRequire } from 'node:module';
-import { join } from 'node:path';
+import path from 'node:path';
 import { expect, test } from '@playwright/test';
-import { importImageFile } from '../helpers/editor-helpers';
 import { navigateToEditor } from '../shared';
 
-const requireFromEngine = createRequire(join(process.cwd(), 'packages', 'engine', 'package.json'));
-const { PNG } = requireFromEngine('pngjs') as {
-  PNG: { sync: { read(input: Buffer): { width: number; height: number; data: Buffer } } };
-};
-
 const CONTENT_CANVAS = 'canvas.editor-canvas__content-layer';
+const SOURCE_WIDTH = 1920;
+const SOURCE_HEIGHT = 1280;
 
-function makeRampResource(): Record<string, unknown> {
+function makeRampResource(sourceWidth: number, sourceHeight: number): Record<string, unknown> {
   const width = 100;
   const height = 100;
   const scalar = Buffer.alloc(width * height * 2);
@@ -39,6 +35,16 @@ function makeRampResource(): Record<string, unknown> {
     nearFarConvention: 'nearIsLow',
     inferenceVersion: 1,
     preprocessingVersion: 1,
+    registration: {
+      schemaVersion: 1,
+      sourceWidth,
+      sourceHeight,
+      mapWidth: width,
+      mapHeight: height,
+      coordinateSpace: 'source-image-pixels',
+      orientation: 'top-left',
+      sourceToMap: [width / sourceWidth, 0, 0, height / sourceHeight, 0, 0],
+    },
     dataBase64: scalar.toString('base64'),
     byteLength: scalar.byteLength,
   };
@@ -50,6 +56,22 @@ async function openDepthMask(page: import('@playwright/test').Page) {
   await expect(trigger).toBeVisible({ timeout: 15000 });
   if ((await trigger.getAttribute('aria-expanded')) === 'false') await trigger.click();
   return page.getByRole('group', { name: 'Depth Mask' });
+}
+
+async function openInspectorTab(
+  page: import('@playwright/test').Page,
+  label: string,
+): Promise<void> {
+  const tab = page.getByRole('tab', { name: label, exact: true });
+  if (await tab.isVisible()) {
+    await tab.click();
+    return;
+  }
+  await page.getByRole('button', { name: /^More inspector tabs/ }).click();
+  await page
+    .getByRole('menu', { name: 'More inspector tabs' })
+    .getByRole('menuitem', { name: label, exact: true })
+    .click();
 }
 
 async function canvasSignature(page: import('@playwright/test').Page): Promise<string> {
@@ -80,12 +102,27 @@ test.describe('standalone depth masking', () => {
     page,
   }, testInfo) => {
     test.setTimeout(180000);
+    const historyWarnings: string[] = [];
+    page.on('console', (message) => {
+      if (
+        message.type() === 'warning' &&
+        message.text().includes('updateDoc called outside transaction')
+      ) {
+        historyWarnings.push(message.text());
+      }
+    });
     await navigateToEditor(page, '/', { waitUntil: 'commit', startupTimeout: 300000 });
-    await importImageFile(page, 'test-image.png');
+    await page
+      .locator('#file-import-input')
+      .setInputFiles(path.resolve(process.cwd(), 'tests/e2e/fixtures/real-life-architecture.jpg'));
+    await page.getByRole('treeitem').first().waitFor({ timeout: 15000 });
     await page.getByRole('treeitem').first().click();
 
     const section = await openDepthMask(page);
-    const resource = makeRampResource();
+    await expect(
+      page.getByRole('list', { name: 'Canvas objects' }).getByRole('listitem').first(),
+    ).toHaveAttribute('aria-label', new RegExp(`${SOURCE_WIDTH} x ${SOURCE_HEIGHT}`));
+    const resource = makeRampResource(SOURCE_WIDTH, SOURCE_HEIGHT);
     const importInput = section.locator('input[aria-label="Import Varve scalar depth map"]');
     await importInput.setInputFiles({
       name: 'ramp.vdepth.json',
@@ -149,27 +186,31 @@ test.describe('standalone depth masking', () => {
     expect(exported.nearFarConvention).toBe('nearIsLow');
     expect(exported.byteLength).toBe(resource.byteLength);
 
-    // Numeric depth and rendered appearance are separate products. Verify
-    // that the accepted mask also survives the existing PNG export route.
-    await page.getByRole('tab', { name: 'Export', exact: true }).click();
-    const pngGroup = page.locator('.spec-export__group').filter({ hasText: 'PNG' }).first();
-    await pngGroup.getByRole('button', { name: 'PNG', exact: true }).click();
-    const appearanceDownload = page.waitForEvent('download', { timeout: 60000 });
-    await page.getByRole('button', { name: /download/i }).click();
+    // Scalar depth and rendered appearance are separate products. Verify the
+    // accepted mask also survives the ordinary PNG export route, using the
+    // encoded file's own signature and IHDR dimensions rather than a mocked
+    // export callback.
+    await openInspectorTab(page, 'Export');
+    await page
+      .getByRole('radiogroup', { name: 'Export format' })
+      .getByRole('radio', { name: 'PNG' })
+      .check();
+    const appearanceDownload = page.waitForEvent('download', { timeout: 60_000 });
+    await page.getByRole('button', { name: 'Download PNG', exact: true }).click();
     const appearance = await appearanceDownload;
     const appearancePath = await appearance.path();
     expect(appearancePath).toBeTruthy();
     const appearanceBytes = await readFile(appearancePath!);
     expect(appearanceBytes.subarray(0, 8)).toEqual(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
-    const appearancePng = PNG.sync.read(appearanceBytes);
-    expect(appearancePng.width).toBeGreaterThan(0);
-    expect(appearancePng.height).toBeGreaterThan(0);
+    expect(appearanceBytes.toString('ascii', 12, 16)).toBe('IHDR');
+    expect(appearanceBytes.readUInt32BE(16)).toBeGreaterThan(0);
+    expect(appearanceBytes.readUInt32BE(20)).toBeGreaterThan(0);
 
     // The existing Mask surface remains the refinement owner; painting is a
     // later operation and does not require regenerating or changing depth.
     // The Properties panel's inline tab is labelled Design; Properties is the
     // panel's historical name, not a tab label at this viewport.
-    await page.getByRole('tab', { name: 'Design', exact: true }).click();
+    await openInspectorTab(page, 'Design');
     await expect(page.getByRole('button', { name: /mask/i }).first()).toBeVisible({
       timeout: 15000,
     });
@@ -195,6 +236,7 @@ test.describe('standalone depth masking', () => {
     ).toBeVisible({
       timeout: 15000,
     });
+    expect(historyWarnings).toEqual([]);
     await testInfo.attach('depth-mask-workflow.json', {
       body: JSON.stringify({ before, after, exportedBytes: exported.byteLength }, null, 2),
       contentType: 'application/json',

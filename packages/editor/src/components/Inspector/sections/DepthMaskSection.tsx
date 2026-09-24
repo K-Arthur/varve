@@ -200,7 +200,7 @@ export interface DepthMaskSectionProps {
 }
 
 export function DepthMaskSection({ nodes, targetNode }: DepthMaskSectionProps) {
-  const { state, updateDoc, announce } = useEditor();
+  const { state, updateDoc, groupCompoundOperation, announce } = useEditor();
   const target =
     targetNode ??
     (nodes.length === 1 && (isImageShape(nodes[0]!) || nodes[0]?.kind === 'adjustment')
@@ -395,10 +395,12 @@ export function DepthMaskSection({ nodes, targetNode }: DepthMaskSectionProps) {
           ? parsed.id
           : `depth-import-${cryptoId()}`;
         const resource = { ...(parsed as DepthMapResource), id };
-        updateDoc((doc) => ({
-          ...doc,
-          depthMaps: { ...(doc.depthMaps ?? {}), [id]: resource },
-        }));
+        groupCompoundOperation('Import depth map', () =>
+          updateDoc((doc) => ({
+            ...doc,
+            depthMaps: { ...(doc.depthMaps ?? {}), [id]: resource },
+          })),
+        );
         setSelectedMapId(id);
         setDepthData(aligned);
         setError(null);
@@ -409,7 +411,7 @@ export function DepthMaskSection({ nodes, targetNode }: DepthMaskSectionProps) {
         setError(cause instanceof Error ? cause.message : 'Depth map import failed');
       }
     },
-    [announce, source, state.document.depthMaps, updateDoc],
+    [announce, groupCompoundOperation, source, state.document.depthMaps, updateDoc],
   );
 
   const handlePreviewClick = useCallback(
@@ -502,43 +504,45 @@ export function DepthMaskSection({ nodes, targetNode }: DepthMaskSectionProps) {
           }
         : depthRecipe;
       let committed = false;
-      updateDoc((doc) => {
-        const currentNode = doc.nodes[target.id];
-        const currentResource = doc.depthMaps?.[selectedResource.id];
-        const currentSourceNode = doc.nodes[node.id];
-        const currentSourceAsset = source.fillAssetId
-          ? doc.assets?.[source.fillAssetId]
-          : undefined;
-        if (
-          currentNode !== target ||
-          currentSourceNode !== node ||
-          currentResource !== selectedResource ||
-          (selectedResource.sourceAssetId !== undefined &&
-            selectedResource.sourceAssetId !== source.fillAssetId) ||
-          (selectedResource.sourceHash !== undefined &&
-            currentSourceAsset?.hash !== selectedResource.sourceHash)
-        )
-          return doc;
-        const withCorrection = correctionAsset
-          ? {
-              ...doc,
-              rasterMaskAssets: {
-                ...(doc.rasterMaskAssets ?? {}),
-                [correctionAsset.id]: correctionAsset,
-              },
-            }
-          : doc;
-        const next = commitRasterMask(withCorrection, target.id, {
-          dataUrl,
-          width: depthData.width,
-          height: depthData.height,
-          sourceLocator: source.locator,
-          sourceIdentity: depthRecipe.sourceIdentity,
-          depthRecipe: recipeWithCorrection,
-        });
-        committed = next !== doc;
-        return next;
-      });
+      groupCompoundOperation('Apply depth mask', () =>
+        updateDoc((doc) => {
+          const currentNode = doc.nodes[target.id];
+          const currentResource = doc.depthMaps?.[selectedResource.id];
+          const currentSourceNode = doc.nodes[node.id];
+          const currentSourceAsset = source.fillAssetId
+            ? doc.assets?.[source.fillAssetId]
+            : undefined;
+          if (
+            currentNode !== target ||
+            currentSourceNode !== node ||
+            currentResource !== selectedResource ||
+            (selectedResource.sourceAssetId !== undefined &&
+              selectedResource.sourceAssetId !== source.fillAssetId) ||
+            (selectedResource.sourceHash !== undefined &&
+              currentSourceAsset?.hash !== selectedResource.sourceHash)
+          )
+            return doc;
+          const withCorrection = correctionAsset
+            ? {
+                ...doc,
+                rasterMaskAssets: {
+                  ...(doc.rasterMaskAssets ?? {}),
+                  [correctionAsset.id]: correctionAsset,
+                },
+              }
+            : doc;
+          const next = commitRasterMask(withCorrection, target.id, {
+            dataUrl,
+            width: depthData.width,
+            height: depthData.height,
+            sourceLocator: source.locator,
+            sourceIdentity: depthRecipe.sourceIdentity,
+            depthRecipe: recipeWithCorrection,
+          });
+          committed = next !== doc;
+          return next;
+        }),
+      );
       if (!committed) throw new Error('The source or depth resource changed; apply was discarded');
       setError(null);
       announce('Depth mask applied; source pixels and the accepted depth map remain unchanged');
@@ -549,6 +553,7 @@ export function DepthMaskSection({ nodes, targetNode }: DepthMaskSectionProps) {
     announce,
     depthData,
     hasExistingNonRasterMask,
+    groupCompoundOperation,
     node,
     range,
     replaceNonRasterMask,
@@ -720,7 +725,6 @@ export function DepthMaskSection({ nodes, targetNode }: DepthMaskSectionProps) {
                 max={100}
                 step={0.1}
                 unit="%"
-                rangeClassName="insp-range"
                 rangeAriaLabel="Depth mask near endpoint"
                 onChange={(value) => setRange((current) => ({ ...current, near: value }))}
               />
@@ -734,7 +738,6 @@ export function DepthMaskSection({ nodes, targetNode }: DepthMaskSectionProps) {
                 max={100}
                 step={0.1}
                 unit="%"
-                rangeClassName="insp-range"
                 rangeAriaLabel="Depth mask far endpoint"
                 onChange={(value) => setRange((current) => ({ ...current, far: value }))}
               />
@@ -748,7 +751,6 @@ export function DepthMaskSection({ nodes, targetNode }: DepthMaskSectionProps) {
                 max={50}
                 step={0.1}
                 unit="% depth"
-                rangeClassName="insp-range"
                 rangeAriaLabel="Depth mask near transition"
                 onChange={(value) => setRange((current) => ({ ...current, nearTransition: value }))}
               />
@@ -762,7 +764,6 @@ export function DepthMaskSection({ nodes, targetNode }: DepthMaskSectionProps) {
                 max={50}
                 step={0.1}
                 unit="% depth"
-                rangeClassName="insp-range"
                 rangeAriaLabel="Depth mask far transition"
                 onChange={(value) => setRange((current) => ({ ...current, farTransition: value }))}
               />
