@@ -806,7 +806,10 @@ function MenuInternal({
             }}
             onClick={() => {
               if (!entry.disabled) {
-                setOpenSubmenu(submenuOpen ? null : entry.id);
+                // Pointer entry already opens the branch before click. Keep
+                // activation idempotent so the first click does not close the
+                // submenu that hover just opened.
+                setOpenSubmenu(entry.id);
               }
             }}
           >

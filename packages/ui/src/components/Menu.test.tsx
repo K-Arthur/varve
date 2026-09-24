@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useRef, useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -337,6 +337,23 @@ describe('Menu', () => {
 // ---------------------------------------------------------------------------
 
 describe('Menu submenus', () => {
+  it('keeps a pointer-opened submenu open when its trigger is clicked', async () => {
+    render(<TestMenuWithSubmenus open onClose={vi.fn()} />);
+
+    // The portaled menu is hidden while FloatingPortal measures it in jsdom,
+    // so dispatch the browser's hover-then-click sequence directly.
+    const submenuTrigger = document.body.querySelector(
+      '[role="menuitem"][aria-haspopup="menu"]',
+    ) as HTMLElement | null;
+    expect(submenuTrigger).not.toBeNull();
+    fireEvent.mouseEnter(submenuTrigger!);
+    fireEvent.click(submenuTrigger!);
+
+    expect(submenuTrigger).toHaveAttribute('aria-expanded', 'true');
+    expect(document.body.querySelectorAll('[role="menu"]')).toHaveLength(2);
+    expect(document.body.textContent).toContain('File 1');
+  });
+
   it('opens submenu on ArrowRight and shows submenu items', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();

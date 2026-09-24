@@ -1,3 +1,4 @@
+import { inflateSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
 import {
   computeSourceRegionFromMaskBounds,
@@ -13,6 +14,55 @@ import {
   workingPixelBudgetForTier,
   workingRasterDimensions,
 } from './generationRaster';
+
+function decodeUnfilteredGrayscalePng(dataUrl: string) {
+  const bytes = Uint8Array.from(atob(dataUrl.split(',')[1] ?? ''), (value) => value.charCodeAt(0));
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  let width = 0;
+  let height = 0;
+  let bitDepth = 0;
+  let colorType = -1;
+  const idatChunks: Uint8Array[] = [];
+  let idatLength = 0;
+
+  for (let offset = 8; offset + 12 <= bytes.length; ) {
+    const chunkLength = view.getUint32(offset);
+    const chunkType = String.fromCharCode(...bytes.subarray(offset + 4, offset + 8));
+    const chunkStart = offset + 8;
+    const chunk = bytes.subarray(chunkStart, chunkStart + chunkLength);
+    if (chunkType === 'IHDR') {
+      const header = new DataView(chunk.buffer, chunk.byteOffset, chunk.byteLength);
+      width = header.getUint32(0);
+      height = header.getUint32(4);
+      bitDepth = chunk[8] ?? 0;
+      colorType = chunk[9] ?? -1;
+    } else if (chunkType === 'IDAT') {
+      idatChunks.push(chunk);
+      idatLength += chunk.length;
+    }
+    offset += chunkLength + 12;
+  }
+
+  if (width === 0 || height === 0 || bitDepth !== 8 || colorType !== 0) {
+    throw new Error('Expected an 8-bit grayscale PNG');
+  }
+
+  const compressed = new Uint8Array(idatLength);
+  let compressedOffset = 0;
+  for (const chunk of idatChunks) {
+    compressed.set(chunk, compressedOffset);
+    compressedOffset += chunk.length;
+  }
+
+  const scanlines = inflateSync(compressed);
+  const pixels = new Uint8Array(width * height);
+  for (let y = 0; y < height; y += 1) {
+    const rowOffset = y * (width + 1);
+    if (scanlines[rowOffset] !== 0) throw new Error('Expected PNG filter None');
+    pixels.set(scanlines.subarray(rowOffset + 1, rowOffset + width + 1), y * width);
+  }
+  return { width, height, pixels };
+}
 
 describe('bounded generative raster planning', () => {
   it('maps a preview selection to a padded source region', () => {
@@ -121,7 +171,10 @@ describe('bounded generative raster planning', () => {
     const coverage = Uint8Array.from([0, 64, 128, 255, 255, 128, 64, 0]);
     const exact = await encodeMaskCoverageAtSourceSize(coverage, 4, 2);
     const sameSizePreview = await encodePreviewMaskAtSourceSize(coverage, 4, 2, 4, 2);
-    expect(exact).toBe(sameSizePreview);
+    expect(decodeUnfilteredGrayscalePng(exact)).toEqual({ width: 4, height: 2, pixels: coverage });
+    expect(decodeUnfilteredGrayscalePng(sameSizePreview)).toEqual(
+      decodeUnfilteredGrayscalePng(exact),
+    );
   });
 
   it('honours cancellation before another source-resolution scanline', async () => {

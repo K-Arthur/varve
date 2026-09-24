@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { addChild, createDocument, type ManagedColor, makeShapeNode } from '@varve/scene';
 import * as React from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -132,6 +133,7 @@ describe('FillSection Redesign & Multi-Fill Controls', () => {
   });
 
   it('multi-fill stack: keeps per-fill blend mode in the labelled actions menu', async () => {
+    const user = userEvent.setup();
     const { nodeId, getCtx } = renderSelectedSection((nodes) => <FillSection nodes={nodes} />, {
       fills: [
         { type: 'solid', color: colorA, opacity: 1, blendMode: 'normal', visible: true },
@@ -139,12 +141,12 @@ describe('FillSection Redesign & Multi-Fill Controls', () => {
       ],
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Fill 2 actions' }));
-    fireEvent.click(await screen.findByRole('menuitem', { name: /Blend mode/ }));
+    await user.click(screen.getByRole('button', { name: 'Fill 2 actions' }));
+    await user.click(await screen.findByRole('menuitem', { name: /Blend mode/ }));
 
     // Select Multiply
     const multiplyOption = await screen.findByRole('menuitemradio', { name: 'Multiply' });
-    fireEvent.click(multiplyOption);
+    await user.click(multiplyOption);
 
     await waitFor(() => {
       const stored = getCtx()?.state.document.nodes[nodeId] as {

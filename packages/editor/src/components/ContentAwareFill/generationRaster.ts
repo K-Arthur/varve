@@ -337,7 +337,10 @@ async function encodeMaskRowsAsPng(
     for (let y = 0; y < height; y += 1) {
       if (signal?.aborted) throw new Error('Generative mask encoding was cancelled.');
       writeCoverageRow(y, row);
-      await writer.write(row);
+      // WritableStream may retain the chunk until the transform consumes it.
+      // Reusing the same backing buffer on the next iteration can therefore
+      // overwrite an earlier scanline before compression reads it.
+      await writer.write(row.slice());
     }
     await writer.close();
     const compressed = new Uint8Array(await compressedPromise);
@@ -388,7 +391,8 @@ export function encodeMaskCoverageAtSourceSize(
  * Uint8Array or ImageData. The preview mask is the editable representation;
  * the encoded grayscale PNG retains the source coordinate frame for
  * reopening. CompressionStream is used row-by-row so a large photograph
- * consumes only one scanline plus the compressed output in working memory.
+ * consumes only a bounded scanline buffer plus the compressed output in
+ * working memory.
  */
 export async function encodePreviewMaskAtSourceSize(
   previewMask: Uint8Array,
