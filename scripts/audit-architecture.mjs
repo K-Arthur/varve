@@ -22,9 +22,20 @@
  *   node scripts/audit-architecture.mjs --ci             # CI mode (fail on new issues)
  */
 
-import { execSync } from 'node:child_process';
-import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { execSync, spawnSync } from 'node:child_process';
+import {
+  closeSync,
+  existsSync,
+  mkdtempSync,
+  openSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { createRequire } from 'node:module';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 const ROOT = new URL('..', import.meta.url).pathname;
@@ -72,7 +83,50 @@ function run(cmd, opts = {}) {
   try {
     return execSync(cmd, { cwd: ROOT, encoding: 'utf-8', maxBuffer: 16 * 1024 * 1024, ...opts });
   } catch (e) {
+    if (e.killed || e.signal) {
+      throw new Error(`Command terminated before completing: ${cmd}`, { cause: e });
+    }
     return e.stdout || '';
+  }
+}
+
+/**
+ * Madge's CLI writes the JSON graph asynchronously and exits before a pipe
+ * reliably drains its final bytes. Redirect stdout to a temporary file so
+ * larger packages do not leave a syntactically truncated graph for JSON.parse.
+ */
+function runMadge(args, timeout = 120000) {
+  const directory = mkdtempSync(path.join(tmpdir(), 'varve-madge-'));
+  const outputPath = path.join(directory, 'graph.json');
+  const outputFd = openSync(outputPath, 'w');
+  try {
+    const result = spawnSync(process.execPath, [require.resolve('madge/bin/cli.js'), ...args], {
+      cwd: ROOT,
+      encoding: 'utf-8',
+      maxBuffer: 16 * 1024 * 1024,
+      stdio: ['ignore', outputFd, 'pipe'],
+      timeout,
+    });
+    if (result.error) throw result.error;
+    const output = readFileSync(outputPath, 'utf-8');
+    // `madge --circular --json` exits 1 when cycles are found. That is data
+    // for this audit, not a CLI failure; only accept the non-zero status when
+    // its captured JSON is complete and valid.
+    if (result.status !== 0) {
+      if (result.status === 1) {
+        try {
+          JSON.parse(output.trim());
+          return output;
+        } catch {
+          // Fall through to the diagnostic below.
+        }
+      }
+      throw new Error(`madge exited ${result.status}: ${result.stderr || 'no stderr output'}`);
+    }
+    return output;
+  } finally {
+    closeSync(outputFd);
+    rmSync(directory, { recursive: true, force: true });
   }
 }
 
@@ -112,10 +166,17 @@ async function checkCycles() {
       console.log(`  ⏭ ${name}: no entry at ${pkg.entry}`);
       continue;
     }
-    const out = run(
-      `npx madge --circular --extensions ts,tsx --ts-config tsconfig.base.json --json --no-color --no-spinner "${entryPath}"`,
-      { timeout: 120000 },
-    );
+    const out = runMadge([
+      '--circular',
+      '--extensions',
+      'ts,tsx',
+      '--ts-config',
+      'tsconfig.base.json',
+      '--json',
+      '--no-color',
+      '--no-spinner',
+      entryPath,
+    ]);
     try {
       const cycles = JSON.parse(out.trim());
       if (Array.isArray(cycles) && cycles.length > 0) {
@@ -150,10 +211,16 @@ async function checkInstability() {
 
     const baseDir = path.dirname(entryPath);
     // Get module dependency graph via madge JSON
-    const out = run(
-      `npx madge --json --extensions ts,tsx --ts-config tsconfig.base.json --no-color --no-spinner "${entryPath}"`,
-      { timeout: 120000 },
-    );
+    const out = runMadge([
+      '--json',
+      '--extensions',
+      'ts,tsx',
+      '--ts-config',
+      'tsconfig.base.json',
+      '--no-color',
+      '--no-spinner',
+      entryPath,
+    ]);
 
     try {
       const graph = JSON.parse(out.trim());

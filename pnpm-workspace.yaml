@@ -68,3 +68,14 @@ minimumReleaseAgeExclude:
 patchedDependencies:
   extract-zip@2.0.1: patches/extract-zip@2.0.1.patch
   jsdom@30.0.1: patches/jsdom@30.0.1.patch
+
+# These are narrow, tested compatibility allowances. Madge declares TypeScript
+# 5 as an optional peer; the architecture audit was exercised against this
+# repository's TypeScript 6 graph, including the large editor graph. Astro's
+# Tailwind 3 integration is deprecated and its peer range stops at Astro 5,
+# but remains in use to retain Tailwind 3 browser support; the Astro 7.2.1
+# website build has passed. Keep both allowances exact and revisit on upgrades.
+peerDependencyRules:
+  allowedVersions:
+    "madge>typescript": "6.0.3"
+    "@astrojs/tailwind>astro": "7.2.1"
