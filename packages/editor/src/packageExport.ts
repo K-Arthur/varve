@@ -15,8 +15,8 @@ import {
   type FontReference,
   type FontSourceKind,
   fontReferenceFromIdentity,
-  inheritedFontReference,
   fontReferenceKey,
+  inheritedFontReference,
 } from '@varve/engine/font';
 import { dataUrlToBytes } from '@varve/import';
 import {
