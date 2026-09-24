@@ -65,6 +65,11 @@ The staged pre-commit checkpoint is intentionally cheap and local.
 The exact-ref pre-push checkpoint is bounded and defers remote certification
 lanes explicitly.
 
+The local `@varve/editor` unit lane has a 20-minute ceiling. An exact-ref run
+covering 800 editor test files took 980 seconds with eight workers on the
+primary Linux development host (2026-09-23); the earlier 15-minute ceiling
+expired after all tests had passed and incorrectly blocked the push.
+
 ### Integration certification
 
 The stable remote check is authoritative for the exact integration SHA.
