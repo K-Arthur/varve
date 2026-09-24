@@ -415,6 +415,15 @@ describe('autoName', () => {
     doc = addNode(doc, r3);
     expect(autoName(doc, doc.nodes.s3!)).toBe('Rectangle 2');
   });
+
+  it('numbers panel-tool frames as Panels instead of Frames', () => {
+    const doc = createTestDoc();
+    expect(autoName(doc, makeFrameNode('p1', { name: 'Panel' }))).toBe('Panel 1');
+
+    let withFirst = addNode(doc, makeFrameNode('p1', { name: 'Panel 1' }));
+    withFirst = addNode(withFirst, makeFrameNode('p2', { name: 'Panel' }));
+    expect(autoName(withFirst, withFirst.nodes.p2!)).toBe('Panel 2');
+  });
 });
 
 describe('renameSelected', () => {
