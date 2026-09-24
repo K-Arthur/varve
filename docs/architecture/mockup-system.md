@@ -254,6 +254,10 @@ is a subject starter set, not a claim of photo-realistic product fidelity.
   current.
 - `isAssetReferenced` / `removeNode` retain snapshot bindings and template
   plate/mask assets; library templates are not pruned while unreferenced.
+- Asset pruning follows a referenced photo asset's `sourceAssetIds` through
+  the stored provenance chain, so a derived SDR rendition keeps its RAW/HDR
+  inputs available. The closure walk tracks visited ids to remain safe if a
+  malformed document contains a cycle.
 - Self/ancestor/indirect cycles are structurally impossible: a mockup
   surface binds a node id and renders it through the normal subtree replay;
   digests are cycle-guarded (`computeMockupSourceDigest` visited set).

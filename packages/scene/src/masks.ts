@@ -91,6 +91,13 @@ const PROVENANCE_RUNTIMES = [
   'native-accelerated',
 ] as const;
 const PROVENANCE_ORIGINS = ['native', 'legacy-background-removal-preview'] as const;
+const PROVENANCE_SCORE_SOURCES = [
+  'predicted-iou',
+  'stability',
+  'heuristic',
+  'model-iou',
+  'activation-heuristic',
+] as const;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -341,6 +348,20 @@ function validateProvenance(value: unknown): string | null {
     (typeof value.modelChecksum !== 'string' || !SHA256_PATTERN.test(value.modelChecksum))
   ) {
     return 'Raster mask provenance modelChecksum must be a lowercase SHA-256 digest';
+  }
+  if (
+    value.score !== undefined &&
+    (typeof value.score !== 'number' || !Number.isFinite(value.score))
+  ) {
+    return 'Raster mask provenance score must be finite';
+  }
+  if (
+    value.scoreSource !== undefined &&
+    !PROVENANCE_SCORE_SOURCES.includes(
+      value.scoreSource as (typeof PROVENANCE_SCORE_SOURCES)[number],
+    )
+  ) {
+    return 'Raster mask provenance scoreSource is unsupported';
   }
   if (
     value.confidence !== undefined &&

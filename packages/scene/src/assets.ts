@@ -34,9 +34,24 @@ interface AssetNodeMap {
           };
         };
       }>;
+      /** Mockup snapshot bindings reference embedded raster assets. */
+      mockup?: { surfaceBindings?: Record<string, { mode?: string; assetId?: string }> };
     }
   >;
+  assets?: Record<string, DocumentAsset>;
   paints?: Record<string, { fill: { type: string; image?: { assetId?: string } } }>;
+  /** Template plate images and clip/occlusion coverage masks. */
+  mockupTemplates?: Record<
+    string,
+    {
+      plateImage?: { assetId?: string };
+      surfaces?: Array<{
+        clipMaskAssetId?: string;
+        occlusionMaskAssetId?: string;
+        displacementAssetId?: string;
+      }>;
+    }
+  >;
   generativeEdits?: Record<
     string,
     {
@@ -403,50 +418,76 @@ export function findOrCreateEmbeddedAsset<T extends AssetDoc>(
   return { document: upsertAsset(doc, asset), assetId: asset.id };
 }
 
-/** True if any node, paint, or retained generative recipe references `assetId`. */
+/** True if any node, paint, retained generative recipe, mockup binding, or
+ *  mockup template references `assetId`. */
 export function isAssetReferenced(doc: AssetNodeMap, assetId: string): boolean {
+  const retained = new Set<string>();
+  const retain = (candidate: string | undefined) => {
+    if (candidate) retained.add(candidate);
+  };
+  const retainImage = (
+    image:
+      | {
+          assetId?: string;
+          photoSource?: {
+            sourceAssetIds?: string[];
+            derivedAssetId?: string;
+            masterAssetId?: string;
+          };
+        }
+      | undefined,
+  ) => {
+    retain(image?.assetId);
+    retain(image?.photoSource?.derivedAssetId);
+    retain(image?.photoSource?.masterAssetId);
+    for (const sourceId of image?.photoSource?.sourceAssetIds ?? []) retain(sourceId);
+  };
   for (const node of Object.values(doc.nodes)) {
-    for (const fill of node.fills ?? []) {
-      if (fill.type !== 'image') continue;
-      const image = fill.image;
-      if (
-        image?.assetId === assetId ||
-        image?.photoSource?.derivedAssetId === assetId ||
-        image?.photoSource?.masterAssetId === assetId ||
-        image?.photoSource?.sourceAssetIds?.includes(assetId)
-      ) {
-        return true;
+    for (const fill of node.fills ?? []) if (fill.type === 'image') retainImage(fill.image);
+    if (node.mockup?.surfaceBindings) {
+      for (const binding of Object.values(node.mockup.surfaceBindings)) {
+        if (binding.mode === 'snapshot') retain(binding.assetId);
       }
+    }
+  }
+  for (const template of Object.values(doc.mockupTemplates ?? {})) {
+    retain(template.plateImage?.assetId);
+    for (const surface of template.surfaces ?? []) {
+      retain(surface.clipMaskAssetId);
+      retain(surface.occlusionMaskAssetId);
+      retain(surface.displacementAssetId);
     }
   }
   if (doc.paints) {
     for (const paint of Object.values(doc.paints)) {
-      const image = paint.fill.image;
-      if (
-        paint.fill.type === 'image' &&
-        (image?.assetId === assetId ||
-          image?.photoSource?.derivedAssetId === assetId ||
-          image?.photoSource?.masterAssetId === assetId ||
-          image?.photoSource?.sourceAssetIds?.includes(assetId))
-      ) {
-        return true;
-      }
+      if (paint.fill.type === 'image') retainImage(paint.fill.image);
     }
   }
   for (const edit of Object.values(doc.generativeEdits ?? {})) {
-    if (edit.sourceAssetId === assetId || edit.sourceSnapshotAssetId === assetId) return true;
-    if (
-      edit.variations?.some(
-        (variation) =>
-          variation.assetId === assetId ||
-          variation.thumbnailAssetId === assetId ||
-          variation.contextAssetId === assetId,
-      )
-    ) {
-      return true;
+    retain(edit.sourceAssetId);
+    retain(edit.sourceSnapshotAssetId);
+    for (const variation of edit.variations ?? []) {
+      retain(variation.assetId);
+      retain(variation.thumbnailAssetId);
+      retain(variation.contextAssetId);
     }
   }
-  return false;
+  // A referenced derived image retains every immutable source in its
+  // provenance chain. The visited set makes malformed cyclic metadata safe.
+  const visited = new Set<string>();
+  const pending = [...retained];
+  while (pending.length > 0) {
+    const derivedId = pending.pop()!;
+    if (visited.has(derivedId)) continue;
+    visited.add(derivedId);
+    for (const sourceId of doc.assets?.[derivedId]?.photoSource?.sourceAssetIds ?? []) {
+      if (!retained.has(sourceId)) {
+        retained.add(sourceId);
+        pending.push(sourceId);
+      }
+    }
+  }
+  return retained.has(assetId);
 }
 
 /** Garbage-collect asset entries no longer referenced by any node or paint. */

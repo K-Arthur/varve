@@ -251,6 +251,107 @@ describe('isAssetReferenced / pruneUnusedAssets', () => {
     expect(isAssetReferenced(doc2, assetId)).toBe(true);
   });
 
+  it('retains mockup snapshots and every image asset owned by referenced templates', () => {
+    const doc = {
+      nodes: {
+        mockup: {
+          mockup: {
+            surfaceBindings: {
+              snapshot: { mode: 'snapshot', assetId: 'snapshot-asset' },
+              live: { mode: 'live', assetId: 'live-binding-asset' },
+            },
+          },
+        },
+      },
+      mockupTemplates: {
+        'user:phone': {
+          plateImage: { assetId: 'plate-asset' },
+          surfaces: [
+            {
+              clipMaskAssetId: 'clip-asset',
+              occlusionMaskAssetId: 'occlusion-asset',
+              displacementAssetId: 'displacement-asset',
+            },
+          ],
+        },
+      },
+    };
+
+    for (const assetId of [
+      'snapshot-asset',
+      'plate-asset',
+      'clip-asset',
+      'occlusion-asset',
+      'displacement-asset',
+    ]) {
+      expect(isAssetReferenced(doc, assetId)).toBe(true);
+    }
+    expect(isAssetReferenced(doc, 'live-binding-asset')).toBe(false);
+  });
+
+  it('retains source assets transitively through a referenced derived image', () => {
+    const original = createEmbeddedAsset({
+      dataUrl: DATA_URL_A,
+      mimeType: 'image/png',
+      naturalWidth: 10,
+      naturalHeight: 10,
+    });
+    const developedBase = createEmbeddedAsset({
+      dataUrl: DATA_URL_B,
+      mimeType: 'image/png',
+      naturalWidth: 10,
+      naturalHeight: 10,
+    });
+    const developed = {
+      ...developedBase,
+      photoSource: {
+        role: 'developed-raster' as const,
+        sourceAssetIds: [original.id],
+        sourceRevision: 'original-r1',
+      },
+    };
+    const displayBase = createEmbeddedAsset({
+      dataUrl: THUMBNAIL_DATA_URL,
+      mimeType: 'image/png',
+      naturalWidth: 10,
+      naturalHeight: 10,
+    });
+    const display = {
+      ...displayBase,
+      photoSource: {
+        role: 'sdr-rendition' as const,
+        sourceAssetIds: [developed.id],
+        sourceRevision: 'developed-r1',
+      },
+    };
+    const shape = makeShapeNode('derived-image', {
+      kind: 'rect',
+      x: 0,
+      y: 0,
+      w: 10,
+      h: 10,
+    });
+    shape.fills = [imageFill(THUMBNAIL_DATA_URL, { assetId: display.id })];
+    const doc = addNode(
+      {
+        ...createDocument('Provenance'),
+        assets: {
+          [original.id]: original,
+          [developed.id]: developed,
+          [display.id]: display,
+        },
+      },
+      shape,
+    );
+
+    expect(isAssetReferenced(doc, original.id)).toBe(true);
+    expect(pruneUnusedAssets(doc).assets).toEqual({
+      [original.id]: original,
+      [developed.id]: developed,
+      [display.id]: display,
+    });
+  });
+
   it('prunes assets no longer referenced by any node or paint', () => {
     const doc0 = createDocument('Test', true);
     const { document: doc1, assetId } = findOrCreateEmbeddedAsset(doc0, {
