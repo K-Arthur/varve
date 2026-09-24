@@ -64,6 +64,7 @@ update, not for someone reading the commit log.
   background, amber unknown) so the constraint regions are visible while
   painting. All operations run locally with no model, network, or new
   dependency.
+
 - **Frequency Separation and Liquify** — Two source-preserving raster
   retouching workflows. Frequency Separation converts a raster layer into a
   marked group of ordinary Tone and Detail layers; the render path recombines
@@ -145,7 +146,29 @@ update, not for someone reading the commit log.
   exactly, the full new border including corners is generated locally with the
   optional LaMa model (PatchMatch texture continuation otherwise), and large
   sources are generated at a device-budgeted proxy size then recomposed at full
-  resolution. Prompt-conditioned expansion remains gated.
+  resolution. The same source-safe surface provides Remove / Generative
+  Subtract as a bounded editable background reconstruction. Prompt-conditioned
+  expansion remains gated.
+- **RAW, bracket merge, and persistent photo retouching** — Photo/Image
+  Tuning can develop the verified classic DNG subset from sensor data, retain
+  immutable source bytes and versioned recipes, review exposure brackets with
+  separate radiance/fusion semantics, and export a range-bearing OpenEXR
+  master beside a disposable SDR rendition. Clone, heal, spot-heal, and patch
+  repairs remain on explicit raster layers with undo/reopen persistence;
+  unsupported camera variants, gain-map/PQ/HLG export, and physical HDR display
+  presentation remain clearly labeled as unsupported or unverified.
+- **Shape Builder** — A staged region-construction tool for overlapping filled
+  shapes and closed paths. Select eligible sources, then click or sweep the
+  regions you mean — including thin regions crossed between pointer samples —
+  and preview Merge, Erase, Extract, Create, and Divide with real output and
+  remainder overlays before committing one undoable transaction. Create
+  retains the sources and places the result above them; every committed result
+  is selected immediately, and a path result opens in Node Edit on
+  double-click. Rounded-rectangle rendering, per-source fill rules, compound
+  holes, disconnected components, mixed-scale artwork, and self-intersecting
+  paths are supported; open paths, visible strokes, masks, effects,
+  images/patterns, locked or hidden layers, and live Boolean groups explain the
+  required conversion instead of being silently altered.
 
 ### Changed
 
@@ -181,6 +204,18 @@ update, not for someone reading the commit log.
   distance transforms are bounded linear-time operations rather than
   radius-quadratic loops, and the guided filter uses O(N) sliding-window box
   statistics.
+
+- **Retouch target ownership and merged sampling** — Clone Stamp, Healing Brush,
+  Spot Heal, and Patch now refuse a locked layer or a selected non-pixel object
+  with a stated reason instead of silently editing another layer or fabricating
+  an empty one. Sampling scope is explicit (Current layer / Current and below /
+  All visible layers); merged sampling follows active-page paint order, excludes
+  hidden layers and ancestors, applies layer opacity and blend modes, and maps
+  transformed layers into the destination's local pixel space. The clone/heal
+  source marker and the live destination/refusal badge are now on the canvas,
+  the pointer-up position is stamped so fast strokes keep their tail, and
+  strokes whose pixels are byte-identical no-ops no longer bump tile versions
+  or leave a history step.
 - **Shaping and outline fidelity** — Browser replay keeps ligature-sensitive
   source runs intact; HarfBuzz/rustybuzz shaping now preserves UTF-16 clusters,
   numeric feature values, ranges, inferred direction, metrics, and face identity.
@@ -831,11 +866,3 @@ as an oversight.
 ### Fixed
 ### Security
 -->
-- **RAW, bracket merge, and persistent photo retouching** — Photo/Image
-  Tuning can develop the verified classic DNG subset from sensor data, retain
-  immutable source bytes and versioned recipes, review exposure brackets with
-  separate radiance/fusion semantics, and export a range-bearing OpenEXR
-  master beside a disposable SDR rendition. Clone, heal, spot-heal, and patch
-  repairs remain on explicit raster layers with undo/reopen persistence;
-  unsupported camera variants, gain-map/PQ/HLG export, and physical HDR display
-  presentation remain clearly labeled as unsupported or unverified.

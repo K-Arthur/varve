@@ -44,6 +44,14 @@ Painting resolves its raster target in this order:
 3. a new page-sized raster layer, parented to the containing frame when one is
    active.
 
+Clone Stamp, Healing Brush, Spot Heal, and Patch use the same resolver but with
+stricter ownership: an explicitly selected raster layer is the destination, a
+selected non-raster object (an image-filled shape, text, a vector node) is
+refused with a stated reason, and no implicit empty layer is created. Creating
+an empty destination while the user asked to edit a different object is how
+"it edited the wrong layer" reports start; the deliberate creation paths remain
+the Layers panel and Photo source → Prepare retouch layers.
+
 World samples are mapped through the inverse cached world transform before they
 enter raster tile compositing. Raster layers use sparse 128 by 128 RGBA tiles;
 the theoretical layer extent does not preallocate all tiles.
@@ -112,12 +120,17 @@ predicted tail. A confirmed sample always wins over an identical prediction.
 
 `normalizeInputEvent()` makes malformed browser fields safe before they reach
 tools. It preserves low pen pressure—including zero during hover/up—and uses a
-mouse/touch fallback only for pointer types without a pressure sensor. It
-retains tilt X/Y, magnitude, azimuth, altitude, twist, tangential pressure and
-contact geometry. `inputToStrokePoint()` forwards tilt magnitude and azimuth,
-uses a monotonic timestamp, and receives a short-window filtered velocity from
-`pointerDynamics.ts` rather than exposing raw `distance / dt` spikes to brush
-dynamics.
+constant-width/opacity fallback when pressure is disabled or unavailable. It
+retains the active `button`/`buttons` state, unknown/custom pointer types, tilt
+X/Y, magnitude, azimuth, altitude, twist, tangential pressure and contact
+geometry. Equal-position/equal-time samples are retained when dynamics or
+contact state changed, and throwing or missing optional sample APIs degrade to
+the primary event. Observed pressure/tilt/eraser capability is reported
+separately from API availability; a default `0.5` pressure sample is not proof
+of a pressure sensor. `inputToStrokePoint()` forwards tilt magnitude and
+azimuth, uses a monotonic timestamp, and receives a short-window filtered
+velocity from `pointerDynamics.ts` rather than exposing raw `distance / dt`
+spikes to brush dynamics.
 
 `pointerrawupdate` is intentionally not an input source yet. It overlaps with
 `pointermove` on Chromium and needs an explicit de-duplication/capture policy
@@ -307,10 +320,12 @@ drives both how much pigment moves and how fast the trail fades.
 The existing Smudge tool exposes this contract in its Brush inspector. `Mode`
 selects `sampling`, `mixing`, or `fingerpaint`; `Sample merged layers` is an
 explicit opt-in toggle, and the button state is part of the live brush
-settings rather than an invisible tool flag. Merged sampling uses the same
-read-only flattened composite Clone Stamp does. Deposits still land on the
-active target layer alone, so an artist can texture a blank layer from visible
-paint without accidentally painting the reference layers.
+settings rather than an invisible tool flag. Merged sampling shares the
+retouch tools' paint-order layer walk and read-only source/target separation,
+but its tile-only flatten does not map layer transforms or blend modes —
+retouch merged sampling does (see Clone Stamp and Healing Brush). Deposits
+still land on the active target layer alone, so an artist can texture a blank
+layer from visible paint without accidentally painting the reference layers.
 
 The merged snapshot is currently a bounded snapshot of visible raster-layer
 tiles in the active scene tree's paint order. It is not a renderer readback:
@@ -328,6 +343,36 @@ undoable, persisted, exportable and clipped like a brush stroke.
 Both sample a tile snapshot taken at stroke start. Sampling live target tiles
 would let a stroke consume its own output, smearing the result along the drag
 direction and making it depend on tile iteration order.
+
+Sampling scope is explicit and frozen per stroke:
+
+| Scope          | Reads                                                      |
+| -------------- | ---------------------------------------------------------- |
+| `current`      | the destination layer alone                                |
+| `below`        | the destination plus every contributing layer below it     |
+| `allVisible`   | every visible contributing layer on the active page        |
+
+The merged scopes are composed in scene paint order, exclude hidden layers and
+hidden ancestors, apply per-layer opacity, map transformed layers into the
+destination's local pixel space with bilinear inverse sampling, and evaluate
+each layer's declared blend mode through the shared engine `blend()`. They do
+not reproduce layer masks, clipping, group opacity, adjustment layers, or live
+effects; that requires a renderer-backed readback and is listed under
+Limitations rather than approximated by combining unrelated tile coordinates.
+A bounded work budget reports `truncated` instead of allocating without limit.
+
+Deposits always land on the destination layer alone, so merged sampling is
+non-destructive: the layers that contributed to the sample are never written
+back to.
+
+A stroke whose deposits are all byte-identical no-ops (self-clone, fully
+transparent source, zero coverage) returns the same node, keeps tile versions
+unchanged, and aborts its transaction rather than leaving a history step.
+
+The source anchor is stored in world space, so changing the destination layer
+between strokes re-anchors the source correctly instead of reusing numbers from
+another layer's local space. Aligned mode carries the source-to-cursor offset
+forward across strokes; non-aligned mode restarts from the original anchor.
 
 Healing takes texture from the source and colour from the destination by
 shifting the source's mean colour under the dab to the destination's — a
@@ -410,6 +455,15 @@ draining so fast the trail died before it left the shape it started in.
 - Smudge merged sampling does not yet include vector/group/effect content or
   transformed raster compositing; use a flattened raster copy when that source
   fidelity is required.
+- Retouch merged sampling maps layer transforms and blend modes, but layer
+  masks, clipping, group opacity, adjustment layers, and live effects still
+  require a renderer-backed readback and are not reproduced.
+- Clone/heal/spot/patch strokes use fixed brush dynamics; pen pressure and tilt
+  are carried by the shared stroke model but not mapped to retouch brush
+  parameters yet.
+- The clone-source marker and paint-target badge render through
+  `PaintOverlay` while a retouch tool is active; the marker tracks the world
+  anchor and the badge states the resolved destination or the refusal reason.
 - Mask painting supports the container-local form (`FrameNode`); masks in
   `source-image-pixels` space still go through `RefineMaskTool`.
 

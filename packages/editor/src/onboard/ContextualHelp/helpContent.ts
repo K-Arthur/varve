@@ -165,7 +165,7 @@ const LOCAL_HELP_CONTENT: Record<string, HelpArticle> = {
     id: 'tool:cloneStamp',
     title: 'Clone Stamp Tool',
     summary: 'Copy pixels from one area to another.',
-    body: 'Alt+click to set a source point, then paint to clone pixels from the source to the destination area. Useful for removing imperfections or duplicating texture.',
+    body: 'Alt+click to set a source point, then paint to clone pixels from the source to the destination area. Sampling scope chooses whether the frozen source reads the current layer, the layers below it, or every visible layer on the page. Deposits land only on the selected pixel layer; a locked layer or a non-pixel selection is refused with a reason instead of silently editing a different layer.',
     keywords: ['clone', 'stamp', 'copy', 'pixels', 'retouch', 'j'],
     category: 'Tools',
     related: ['tool:healBrush', 'tool:spotHeal'],
