@@ -301,6 +301,19 @@ export function duplicatePage(doc: Document, pageId: NodeId): Document {
     bleed: sourcePage.bleed,
     safeArea: sourcePage.safeArea,
     slug: sourcePage.slug,
+    rulerOrigin: sourcePage.rulerOrigin ? { ...sourcePage.rulerOrigin } : undefined,
+    masterPageId: sourcePage.masterPageId,
+    layout: sourcePage.layout
+      ? {
+          ...sourcePage.layout,
+          margins: { ...sourcePage.layout.margins },
+          columns: { ...sourcePage.layout.columns },
+          ...(sourcePage.layout.rows ? { rows: { ...sourcePage.layout.rows } } : {}),
+        }
+      : undefined,
+    masterOverrides: sourcePage.masterOverrides ? { ...sourcePage.masterOverrides } : undefined,
+    printSettings: sourcePage.printSettings ? { ...sourcePage.printSettings } : undefined,
+    placement: sourcePage.placement ? { ...sourcePage.placement } : undefined,
     backgrounds: newBackgrounds,
     contentRoot: newContentRootId,
   };

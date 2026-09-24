@@ -259,6 +259,47 @@ describe('Page operations', () => {
     expect(doc.nodes[dupChildren[0]!]?.layerColor).toBe('blue');
   });
 
+  it('duplicates publishing metadata without sharing nested page settings', () => {
+    const base = createDocument();
+    const original = firstPage(base);
+    const page = {
+      ...original,
+      rulerOrigin: { x: 12, y: 24 },
+      masterPageId: 'master-editorial',
+      layout: {
+        margins: { top: 20, bottom: 24, inside: 28, outside: 32 },
+        columns: { count: 3, gutter: 12 },
+        rows: { count: 4, gutter: 8 },
+        snapEnabled: true,
+      },
+      masterOverrides: {
+        'master-title': { masterNodeId: 'master-title', type: 'hidden' as const },
+      },
+      printSettings: { dpiOverride: 300, exportRotation: 90 as const },
+      placement: { x: 120, y: 240 },
+    };
+    const doc = { ...base, pages: [page] };
+    const duplicatedDoc = duplicatePage(doc, page.id);
+    const copy = pageAt(duplicatedDoc, 1);
+
+    expect(copy).toMatchObject({
+      rulerOrigin: page.rulerOrigin,
+      masterPageId: page.masterPageId,
+      layout: page.layout,
+      masterOverrides: page.masterOverrides,
+      printSettings: page.printSettings,
+      placement: page.placement,
+    });
+    expect(copy.rulerOrigin).not.toBe(page.rulerOrigin);
+    expect(copy.layout).not.toBe(page.layout);
+    expect(copy.layout?.margins).not.toBe(page.layout.margins);
+    expect(copy.layout?.columns).not.toBe(page.layout.columns);
+    expect(copy.layout?.rows).not.toBe(page.layout.rows);
+    expect(copy.masterOverrides).not.toBe(page.masterOverrides);
+    expect(copy.printSettings).not.toBe(page.printSettings);
+    expect(copy.placement).not.toBe(page.placement);
+  });
+
   it('duplicatePage creates separate node trees (no shared references)', () => {
     let doc = createDocument();
     const originalId = firstPage(doc).id;

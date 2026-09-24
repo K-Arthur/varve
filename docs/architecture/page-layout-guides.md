@@ -9,22 +9,26 @@ Varve has two related but distinct layout systems:
 Page layout values are canonical document pixels and resolve in this order:
 
 ```text
-document.pageLayout
+page.layout
   → assigned master.layout
-  → page.layout
+  → document.pageLayout
   → zero-margin, one-column default
 ```
 
 The resolver maps inside/outside margins to physical edges for facing pages,
-including RTL binding. It returns usable page bounds and equal-width columns;
-it does not change node transforms or content ownership. Invalid structural
-values are rejected by `page.set-layout`; margins or gutters that do not fit
-are retained as an explicit warning for the inspector/preflight to surface.
+including RTL binding. It returns usable page bounds, equal-width columns, and
+independent horizontal rows. The resolved source reports the winning override;
+malformed persisted settings fall back to the built-in layout and report that
+fallback as the source. It does not change node transforms or content
+ownership. Invalid structural values are rejected by page/master/document
+layout operations; margins or gutters that do not fit are retained as explicit
+warnings for the inspector/preflight to surface, with row and column overflow
+reported separately.
 
 The Page inspector writes page-local overrides through the typed page
-operation. The Page-tool overlay draws the resolved usable area and columns as
-view-only SVG geometry. It never enters the scene graph, layer tree, hit-test
-index, persistence as a node, or export payload.
+operation. The Page-tool overlay draws the resolved usable area, columns, and
+rows as view-only SVG geometry. It never enters the scene graph, layer tree,
+hit-test index, persistence as a node, or export payload.
 
 This distinction keeps page-layout publishing workflows separate from
 Figma-style frame organization. Full text reflow, column snapping, parent-page

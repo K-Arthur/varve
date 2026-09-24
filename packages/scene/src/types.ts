@@ -2427,6 +2427,17 @@ export interface PageLayoutSettings {
     count: number;
     gutter: number;
   };
+  /** Independent horizontal tracks; omitted means one full-width row. */
+  rows?: {
+    count: number;
+    gutter: number;
+  };
+  /** Display/snap styling is independent from frame auto-layout. */
+  display?: boolean;
+  snapEnabled?: boolean;
+  locked?: boolean;
+  color?: string;
+  opacity?: number;
 }
 
 // ── Arrange operations ─────────────────────────────────────────────────────────

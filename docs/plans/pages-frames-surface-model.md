@@ -1,7 +1,10 @@
 # Pages vs Frames — separating surfaces from containers
 
-Status: proposal. Written 2026-08-08 after the "images only render inside
-pages" report. Addresses a structural incoherence, not a single bug.
+Status: decisions implemented (2026-08-08); a few edge cases remain open (see
+"Decisions taken" below). The current-state contract is
+`docs/architecture/surface-model.md`. Written 2026-08-08 after the "images only
+render inside pages" report. Addresses a structural incoherence, not a single
+bug.
 
 ## The problem
 

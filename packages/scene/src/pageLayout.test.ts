@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { assignMasterToPage, createDocument, createMaster } from './document';
 import {
+  clearMasterPageLayout,
   clearPageLayout,
   DEFAULT_PAGE_LAYOUT,
   resolvePageLayout,
   setDocumentPageLayout,
+  setMasterPageLayout,
   setPageLayout,
   validatePageLayoutSettings,
 } from './pageLayout';
@@ -135,5 +137,53 @@ describe('page layout', () => {
     expect(resolved?.columns).toHaveLength(3);
     expect(resolved?.rows).toHaveLength(2);
     expect(resolved?.sharedSegments).toHaveLength(10);
+  });
+
+  it('labels invalid settings as the built-in fallback', () => {
+    // Model a legacy/corrupt document payload that bypassed the setter.
+    const invalidDoc = {
+      ...createDocument('Invalid rows'),
+      pageLayout: {
+        ...DEFAULT_PAGE_LAYOUT,
+        margins: { top: -1, bottom: 0, inside: 0, outside: 0 },
+      },
+    };
+    const page = invalidDoc.pages?.[0];
+    if (!page) throw new Error('expected default page');
+    const resolved = resolvePageLayout(invalidDoc, page.id);
+    expect(resolved?.source).toBe('built-in-default');
+  });
+
+  it('reports row gutter overflow separately from column overflow', () => {
+    const doc = setDocumentPageLayout(createDocument('Row overflow'), {
+      ...DEFAULT_PAGE_LAYOUT,
+      margins: { top: 500, bottom: 500, inside: 0, outside: 0 },
+      rows: { count: 3, gutter: 100 },
+    });
+    const page = doc.pages?.[0];
+    if (!page) throw new Error('expected default page');
+    const resolved = resolvePageLayout(doc, page.id);
+    expect(resolved?.issues.map((issue) => issue.code)).toContain('rows-exceed-usable-height');
+    expect(resolved?.issues.map((issue) => issue.code)).not.toContain(
+      'columns-exceed-usable-width',
+    );
+  });
+
+  it('sets and clears master layouts without mutating the input document', () => {
+    let doc = createDocument('Master layout');
+    const page = doc.pages?.[0];
+    if (!page) throw new Error('expected default page');
+    doc = createMaster(doc, { name: 'Grid', width: page.width, height: page.height });
+    const masterId = Object.keys(doc.masters ?? {})[0];
+    if (!masterId) throw new Error('expected master');
+    const original = doc;
+    const withLayout = setMasterPageLayout(doc, masterId, {
+      ...DEFAULT_PAGE_LAYOUT,
+      rows: { count: 4, gutter: 16 },
+    });
+    expect(withLayout).not.toBe(original);
+    expect(doc.masters?.[masterId]?.layout).toBeUndefined();
+    expect(withLayout.masters?.[masterId]?.layout?.rows).toEqual({ count: 4, gutter: 16 });
+    expect(clearMasterPageLayout(withLayout, masterId).masters?.[masterId]?.layout).toBeUndefined();
   });
 });

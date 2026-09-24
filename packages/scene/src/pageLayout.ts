@@ -24,8 +24,10 @@ export interface PageLayoutIssue {
   code:
     | 'invalid-value'
     | 'invalid-column-count'
+    | 'invalid-row-count'
     | 'margins-exceed-page'
-    | 'columns-exceed-usable-width';
+    | 'columns-exceed-usable-width'
+    | 'rows-exceed-usable-height';
   message: string;
 }
 
@@ -41,6 +43,13 @@ export interface PageColumnGuide {
   width: number;
 }
 
+export interface PageRowGuide {
+  y: number;
+  height: number;
+}
+
+export type PageLayoutSource = 'page-override' | 'master' | 'document-default' | 'built-in-default';
+
 export interface ResolvedPageLayout {
   /** Effective settings after document, master, and page precedence. */
   settings: PageLayoutSettings;
@@ -50,16 +59,30 @@ export interface ResolvedPageLayout {
   usableBounds: { x: number; y: number; width: number; height: number };
   /** Equal-width column guides inside the usable width. */
   columns: PageColumnGuide[];
+  /** Independent horizontal row guides. */
+  rows: PageRowGuide[];
+  /** Finite segments shared by renderer and page snapping. */
+  sharedSegments: Array<
+    | { axis: 'vertical'; x: number; y1: number; y2: number }
+    | { axis: 'horizontal'; y: number; x1: number; x2: number }
+  >;
   /** Non-fatal geometry warnings shown by the inspector/preflight. */
   issues: PageLayoutIssue[];
   /** Page side used to resolve inside/outside when facing pages are enabled. */
   pageSide: PageSide;
+  source: PageLayoutSource;
 }
 
 function cloneSettings(settings: PageLayoutSettings): PageLayoutSettings {
   return {
     margins: { ...settings.margins },
     columns: { ...settings.columns },
+    ...(settings.rows ? { rows: { ...settings.rows } } : {}),
+    ...(settings.display === undefined ? {} : { display: settings.display }),
+    ...(settings.snapEnabled === undefined ? {} : { snapEnabled: settings.snapEnabled }),
+    ...(settings.locked === undefined ? {} : { locked: settings.locked }),
+    ...(settings.color === undefined ? {} : { color: settings.color }),
+    ...(settings.opacity === undefined ? {} : { opacity: settings.opacity }),
   };
 }
 
@@ -115,6 +138,44 @@ export function validatePageLayoutSettings(input: unknown): PageLayoutIssue[] {
       message: 'Page layout gutter must be finite and non-negative',
     });
   }
+  const rows = value.rows;
+  if (rows !== undefined) {
+    if (typeof rows !== 'object' || rows === null) {
+      issues.push({ code: 'invalid-value', message: 'Page layout rows are invalid' });
+    } else {
+      if (
+        typeof rows.count !== 'number' ||
+        !Number.isInteger(rows.count) ||
+        rows.count < 1 ||
+        rows.count > MAX_PAGE_LAYOUT_COLUMNS
+      ) {
+        issues.push({
+          code: 'invalid-row-count',
+          message: `Page layout row count must be an integer from 1 to ${MAX_PAGE_LAYOUT_COLUMNS}`,
+        });
+      }
+      if (
+        typeof rows.gutter !== 'number' ||
+        !Number.isFinite(rows.gutter) ||
+        rows.gutter < 0 ||
+        rows.gutter > MAX_PAGE_LAYOUT_VALUE
+      ) {
+        issues.push({
+          code: 'invalid-value',
+          message: 'Page layout row gutter must be finite and non-negative',
+        });
+      }
+    }
+  }
+  if (
+    value.opacity !== undefined &&
+    (typeof value.opacity !== 'number' ||
+      !Number.isFinite(value.opacity) ||
+      value.opacity < 0 ||
+      value.opacity > 1)
+  ) {
+    issues.push({ code: 'invalid-value', message: 'Page layout opacity must be between 0 and 1' });
+  }
   return issues;
 }
 
@@ -122,16 +183,31 @@ export function isValidPageLayoutSettings(input: unknown): input is PageLayoutSe
   return validatePageLayoutSettings(input).length === 0;
 }
 
-function effectiveSettings(doc: Document, pageId: NodeId): PageLayoutSettings {
+function effectiveSettings(
+  doc: Document,
+  pageId: NodeId,
+): {
+  settings: PageLayoutSettings;
+  source: PageLayoutSource;
+} {
   const page = doc.pages?.find((candidate) => candidate.id === pageId);
   const master = page?.masterPageId ? doc.masters?.[page.masterPageId] : undefined;
+  const source: PageLayoutSource = page?.layout
+    ? 'page-override'
+    : master?.layout
+      ? 'master'
+      : doc.pageLayout
+        ? 'document-default'
+        : 'built-in-default';
   const candidate = page?.layout ?? master?.layout ?? doc.pageLayout ?? DEFAULT_PAGE_LAYOUT;
   // A malformed persisted extension must not make the Page tool crash. The
   // codec may preserve newer fields, but this resolver only consumes a fully
   // valid layout contract and falls back to the safe no-guide default.
-  return isValidPageLayoutSettings(candidate)
-    ? cloneSettings(candidate)
-    : cloneSettings(DEFAULT_PAGE_LAYOUT);
+  const valid = isValidPageLayoutSettings(candidate);
+  return {
+    settings: cloneSettings(valid ? candidate : DEFAULT_PAGE_LAYOUT),
+    source: valid ? source : 'built-in-default',
+  };
 }
 
 function physicalMargins(
@@ -156,7 +232,8 @@ export function resolvePageLayout(doc: Document, pageId: NodeId): ResolvedPageLa
   const page = doc.pages?.find((candidate) => candidate.id === pageId);
   if (!page) return null;
 
-  const settings = effectiveSettings(doc, pageId);
+  const resolved = effectiveSettings(doc, pageId);
+  const settings = resolved.settings;
   const structuralIssues = validatePageLayoutSettings(settings);
   const pageSide = getPageSide(doc, pageId);
   const margins = physicalMargins(settings, pageSide, doc.facingPages?.bindingDirection === 'rtl');
@@ -193,6 +270,42 @@ export function resolvePageLayout(doc: Document, pageId: NodeId): ResolvedPageLa
     width: columnWidth,
   }));
 
+  const rowsSettings = settings.rows ?? { count: 1, gutter: 0 };
+  const rowCount = Number.isInteger(rowsSettings.count) ? Math.max(1, rowsSettings.count) : 1;
+  const rowGutter = Number.isFinite(rowsSettings.gutter) ? Math.max(0, rowsSettings.gutter) : 0;
+  const totalRowGutter = Math.max(0, rowCount - 1) * rowGutter;
+  if (totalRowGutter > usableHeight) {
+    issues.push({
+      code: 'rows-exceed-usable-height',
+      message: 'Row gutters exceed the usable page height',
+    });
+  }
+  const rowHeight = Math.max(0, (usableHeight - totalRowGutter) / rowCount);
+  const rows = Array.from({ length: rowCount }, (_, index) => ({
+    y: margins.top + index * (rowHeight + rowGutter),
+    height: rowHeight,
+  }));
+  const sharedSegments = [
+    ...columns.flatMap((column) => [
+      { axis: 'vertical' as const, x: column.x, y1: margins.top, y2: margins.top + usableHeight },
+      {
+        axis: 'vertical' as const,
+        x: column.x + column.width,
+        y1: margins.top,
+        y2: margins.top + usableHeight,
+      },
+    ]),
+    ...rows.flatMap((row) => [
+      { axis: 'horizontal' as const, y: row.y, x1: margins.left, x2: margins.left + usableWidth },
+      {
+        axis: 'horizontal' as const,
+        y: row.y + row.height,
+        x1: margins.left,
+        x2: margins.left + usableWidth,
+      },
+    ]),
+  ];
+
   return {
     settings,
     margins,
@@ -203,8 +316,11 @@ export function resolvePageLayout(doc: Document, pageId: NodeId): ResolvedPageLa
       height: usableHeight,
     },
     columns,
+    rows,
+    sharedSegments,
     issues,
     pageSide,
+    source: resolved.source,
   };
 }
 
@@ -226,6 +342,32 @@ export function clearPageLayout(doc: Document, pageId: NodeId): Document {
   return {
     ...doc,
     pages: doc.pages.map((page) => (page.id === pageId ? { ...page, layout: undefined } : page)),
+  };
+}
+
+/** Set the layout defaults on a master page without touching derived pages. */
+export function setMasterPageLayout(
+  doc: Document,
+  masterId: NodeId,
+  layout: PageLayoutSettings,
+): Document {
+  if (!isValidPageLayoutSettings(layout) || !doc.masters?.[masterId]) return doc;
+  return {
+    ...doc,
+    masters: {
+      ...doc.masters,
+      [masterId]: { ...doc.masters[masterId]!, layout: cloneSettings(layout) },
+    },
+  };
+}
+
+/** Clear a master layout so pages fall back to document defaults. */
+export function clearMasterPageLayout(doc: Document, masterId: NodeId): Document {
+  const master = doc.masters?.[masterId];
+  if (!master?.layout) return doc;
+  return {
+    ...doc,
+    masters: { ...doc.masters, [masterId]: { ...master, layout: undefined } },
   };
 }
 
