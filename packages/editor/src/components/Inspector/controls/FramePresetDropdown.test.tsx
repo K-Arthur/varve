@@ -166,6 +166,25 @@ describe('FramePresetDropdown', () => {
     expect(screen.getAllByText('Instagram Post').length).toBeGreaterThanOrEqual(2);
   });
 
+  it('exposes comic, manga, and webtoon frame presets through the Comic chip', () => {
+    mocks.useEditor.mockReturnValue({
+      applyFramePreset: vi.fn(),
+      platform: 'browser',
+    });
+
+    render(<FramePresetDropdown frame={makeTestFrame('frame-1', 1234, 5678)} />);
+    fireEvent.click(screen.getByTestId('frame-preset-dropdown-trigger'));
+    const comicChip = document.querySelector(
+      '.insp-preset-chip[aria-label="Comic"]',
+    ) as HTMLElement;
+    expect(comicChip).toBeTruthy();
+    fireEvent.click(comicChip);
+
+    expect(screen.getByText('Comic print (A4)')).toBeInTheDocument();
+    expect(screen.getByText('Manga (A5)')).toBeInTheDocument();
+    expect(screen.getByText(/^Webtoon vertical \(1600 .* 8000\)$/)).toBeInTheDocument();
+  });
+
   it('calls toggleFavorite when clicking the star button on a preset', () => {
     mocks.useEditor.mockReturnValue({
       applyFramePreset: vi.fn(),

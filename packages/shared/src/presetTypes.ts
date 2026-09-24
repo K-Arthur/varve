@@ -26,6 +26,8 @@ export type PresetCategory =
   | 'paper'
   | 'icon-asset'
   | 'logo'
+  | 'comic'
+  | 'watch'
   | 'blank'
   | 'custom';
 

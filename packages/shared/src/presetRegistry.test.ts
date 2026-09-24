@@ -5,6 +5,7 @@ import {
   BUILTIN_PRESET_GROUPS,
   builtinCategories,
   findBuiltinPreset,
+  findMatchingPreset,
   flattenBuiltinPresets,
 } from './presetRegistry';
 
@@ -69,6 +70,19 @@ describe('BUILTIN_PRESET_GROUPS', () => {
     }
   });
 
+  it('comic presets describe page/strip defaults without pretending to be panel layouts', () => {
+    const comicGroup = BUILTIN_PRESET_GROUPS.find((g) => g.category === 'comic');
+    expect(comicGroup?.label).toBe('Comic pages & strips');
+    expect(comicGroup?.presets.map((preset) => preset.id)).toEqual([
+      'comic-print-a4',
+      'manga-a5',
+      'webtoon-vertical',
+    ]);
+    expect(findBuiltinPreset('comic-print-a4')?.description).toContain('print comics');
+    expect(findBuiltinPreset('manga-a5')?.description).toContain('right-to-left');
+    expect(findBuiltinPreset('webtoon-vertical')?.description).toContain('slice');
+  });
+
   it('the one non-square-pixel video preset carries a pixelAspectRatio != 1', () => {
     const ntsc = findBuiltinPreset('video-ntsc-dv');
     expect(ntsc?.pixelAspectRatio).toBeDefined();
@@ -102,5 +116,36 @@ describe('findBuiltinPreset', () => {
 describe('builtinCategories', () => {
   it('lists one category per group, in group order', () => {
     expect(builtinCategories()).toEqual(BUILTIN_PRESET_GROUPS.map((g) => g.category));
+  });
+});
+
+describe('findMatchingPreset', () => {
+  it('matches portrait dimensions exactly', () => {
+    const match = findMatchingPreset(393, 852);
+    expect(match).not.toBeNull();
+    expect(match?.preset.id).toBe('iphone-16');
+    expect(match?.isLandscape).toBe(false);
+  });
+
+  it('matches transposed landscape dimensions', () => {
+    const match = findMatchingPreset(852, 393);
+    expect(match).not.toBeNull();
+    expect(match?.preset.id).toBe('iphone-16');
+    expect(match?.isLandscape).toBe(true);
+  });
+
+  it('matches desktop preset', () => {
+    const match = findMatchingPreset(1440, 1024);
+    expect(match).not.toBeNull();
+    expect(match?.preset.name).toBe('Desktop');
+  });
+
+  it('returns null for arbitrary custom dimensions', () => {
+    expect(findMatchingPreset(512, 513)).toBeNull();
+  });
+
+  it('returns null for invalid/zero/negative dimensions', () => {
+    expect(findMatchingPreset(0, 0)).toBeNull();
+    expect(findMatchingPreset(-100, 200)).toBeNull();
   });
 });

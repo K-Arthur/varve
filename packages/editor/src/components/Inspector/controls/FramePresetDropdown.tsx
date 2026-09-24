@@ -3,7 +3,7 @@
  *
  * Displays the currently detected preset name (e.g. "iPhone 16", "Desktop",
  * "Mixed", or "Custom" if arbitrary dimensions). When opened, presents an instant
- * search field, category filter chips (All, Phone, Tablet, Desktop, Social, Print,
+ * search field, category filter chips (All, Phone, Desktop, Social, Comic, Print,
  * Custom, Favorites), Favorites/Recents, custom preset management, and dimension tags,
  * eliminating the long scrolling complaints common in Figma and Penpot.
  */
@@ -14,6 +14,7 @@ import {
   findMatchingPreset,
   type Preset,
   type PresetCategory,
+  type PresetGroup,
   physicalToPx,
 } from '@varve/shared';
 import { FloatingPortal, Icon, type IconName, Tooltip } from '@varve/ui';
@@ -31,6 +32,7 @@ const FRAME_CATEGORY_ORDER: readonly PresetGroup['category'][] = [
   'video-motion',
   'icon-asset',
   'paper',
+  'comic',
   'print',
 ];
 
@@ -40,6 +42,7 @@ export type FilterCategory =
   | 'phone'
   | 'desktop'
   | 'social'
+  | 'comic'
   | 'print'
   | 'custom';
 
@@ -55,6 +58,7 @@ export const CATEGORY_CHIPS: readonly CategoryChip[] = [
   { id: 'phone', label: 'Phone', icon: 'Smartphone' },
   { id: 'desktop', label: 'Desktop', icon: 'Monitor' },
   { id: 'social', label: 'Social', icon: 'Share2' },
+  { id: 'comic', label: 'Comic', icon: 'BookOpen' },
   { id: 'print', label: 'Print', icon: 'FileText' },
   { id: 'custom', label: 'Custom', icon: 'SlidersHorizontal' },
 ];
@@ -99,6 +103,8 @@ export function categoryMatchesFilter(category: PresetCategory, filter: FilterCa
       return category === 'desktop' || category === 'web' || category === 'presentation';
     case 'social':
       return category === 'social' || category === 'video-motion';
+    case 'comic':
+      return category === 'comic';
     case 'print':
       return category === 'print' || category === 'paper';
     case 'custom':
@@ -183,6 +189,8 @@ export function FramePresetDropdown({ frame, frames }: FramePresetDropdownProps)
         return 'FileText';
       case 'video-motion':
         return 'Film';
+      case 'comic':
+        return 'BookOpen';
       case 'custom':
         return 'SlidersHorizontal';
       default:
