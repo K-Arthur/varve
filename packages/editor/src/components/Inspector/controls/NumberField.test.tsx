@@ -3,7 +3,12 @@ import { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { EditorContextValue } from '../../../context/types';
 import { EditorCtx } from '../../../context/types';
-import { formatRestingValue, NumberField, stripFloatResidue } from './NumberField';
+import {
+  FieldSizingContext,
+  formatRestingValue,
+  NumberField,
+  stripFloatResidue,
+} from './NumberField';
 
 afterEach(cleanup);
 
@@ -282,6 +287,18 @@ describe('NumberField', () => {
     const input = screen.getByLabelText('Opacity (%)') as HTMLInputElement;
     expect(input.style.flex).toContain('0 1');
     expect(input.style.width).toContain('5ch');
+  });
+
+  it('fills its control column under the Inspector fill-sizing context', () => {
+    render(
+      <FieldSizingContext.Provider value="fill">
+        <NumberField label="Opacity" value={80} min={0} max={100} unit="%" onChange={() => {}} />
+      </FieldSizingContext.Provider>,
+    );
+    const input = screen.getByLabelText('Opacity (%)') as HTMLInputElement;
+    // No inline width: the row geometry (control column, pair cell) owns it.
+    expect(input.style.width).toBe('');
+    expect(input.style.flex).toBe('');
   });
 
   it('keeps a bound value inspectable and requires explicit unbinding to edit', () => {

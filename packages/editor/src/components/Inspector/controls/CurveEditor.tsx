@@ -8,7 +8,7 @@
  * Research basis: Photoshop Curves panel; SVG pointer-event compositing.
  */
 import type { CurvePoint, Histogram } from '@varve/engine';
-import { Icon } from '@varve/ui';
+import { Icon, SegmentedControl } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 const WIDTH = 300;
@@ -368,23 +368,13 @@ export function CurveEditor({
           justifyContent: 'space-between',
         }}
       >
-        <div className="insp-segmented" role="radiogroup" aria-label="Channel">
-          {CHANNELS.map((ch) => (
-            <label
-              key={ch.value}
-              className={`insp-segmented__btn${channel === ch.value ? ' insp-segmented__btn--active' : ''}`}
-              style={{ fontSize: 'var(--font-size-2xs)', padding: '0 var(--space-1)' }}
-            >
-              <input
-                type="radio"
-                name="curve-channel"
-                checked={channel === ch.value}
-                onChange={() => setChannel(ch.value)}
-              />
-              {ch.label}
-            </label>
-          ))}
-        </div>
+        <SegmentedControl
+          label="Channel"
+          value={channel}
+          options={CHANNELS}
+          onChange={setChannel}
+          className="insp-curve-channel"
+        />
         <button
           type="button"
           className="insp-inline-btn"

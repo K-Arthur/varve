@@ -9,12 +9,12 @@
  * in a single begin/commit transaction pair.
  */
 import type { SceneNode, TextNode } from '@varve/scene';
+import { SegmentedControl } from '@varve/ui';
 import { type PointerEvent as ReactPointerEvent, useCallback, useEffect, useRef } from 'react';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow } from '../controls/FieldRow';
 import { RangeValueControl } from '../controls/RangeValueControl';
-import { SegmentedControl } from '../controls/SegmentedControl';
 
 interface PathTextSectionProps {
   nodes: SceneNode[];

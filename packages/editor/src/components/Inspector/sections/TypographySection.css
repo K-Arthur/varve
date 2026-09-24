@@ -41,9 +41,11 @@
 
 /* The common typography spine is two-up only while both cells retain enough
  * room for a persistent label and a full compact control. At a narrower
- * inspector width auto-fit falls back to one column before text can clip. */
+ * inspector width auto-fit falls back to one column before text can clip.
+ * Start-align unequal controls so their labels share one plane. */
 .editor-inspector .typography__paired-fields {
   grid-template-columns: repeat(auto-fit, minmax(136px, 1fr));
+  align-items: start;
   gap: var(--space-2);
   min-width: 0;
 }
@@ -72,6 +74,9 @@
 .editor-inspector .typography-controls .typography__paired-fields .varve-segmented {
   min-width: 0;
   width: 100%;
+  /* Match the neighboring select so radio group geometry stays level. */
+  height: var(--insp-row-height);
+  box-sizing: border-box;
 }
 
 /* Collapsed-subsection badge: "3 set", "2 on", or a raw adjustment count.

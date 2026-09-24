@@ -17,10 +17,34 @@
  * `aria-describedby` error and does NOT commit.
  */
 import { evaluate } from '@varve/scene';
-import { type Ref, useCallback, useContext, useEffect, useId, useRef, useState } from 'react';
+import {
+  createContext,
+  type Ref,
+  useCallback,
+  useContext,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+} from 'react';
 import { EditorCtx } from '../../../context/types';
 import { describePropertyState, type InspectorPropertyState } from '../propertyState';
 import { TokenBindIndicator } from './TokenBindIndicator';
+
+/**
+ * How a numeric field is sized inside its control column.
+ *
+ * `intrinsic` (default): a bounded value gets the compact width from
+ * `compactFieldWidthCh`, so a dense floating toolbar does not stretch a
+ * three-digit field across its popover.
+ *
+ * `fill`: the field fills the column the row gives it. The Inspector sets
+ * this for its whole tab-panel subtree so control widths are owned by the row
+ * geometry (single column, pair cell, action gutter) instead of by each
+ * value's numeric range — measured 39px Opacity beside a 239px Blend mode
+ * read as disorganized sizing (2026-09-19).
+ */
+export const FieldSizingContext = createContext<'intrinsic' | 'fill'>('intrinsic');
 
 /** Pointer travel (CSS px) that turns a label press into a scrub, not a click. */
 const SCRUB_ACTIVATION_PX = 2;
@@ -251,7 +275,8 @@ export function NumberField({
     [aliases, clamp, onChange],
   );
 
-  const compactWidthCh = compactFieldWidthCh(min, max, step);
+  const fieldSizing = useContext(FieldSizingContext);
+  const compactWidthCh = fieldSizing === 'fill' ? null : compactFieldWidthCh(min, max, step);
 
   const visualMixed =
     mixed || propertyState?.kind === 'mixed' || propertyState?.kind === 'partially-applicable';

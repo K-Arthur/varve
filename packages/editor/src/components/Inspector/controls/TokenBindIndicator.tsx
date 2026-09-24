@@ -21,7 +21,7 @@ export interface TokenBindIndicatorProps {
 const CHIP_STYLE: React.CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
-  gap: 2,
+  gap: 'var(--space-05)',
   fontSize: 'var(--font-size-xs)',
   height: 18,
   padding: '0 4px',

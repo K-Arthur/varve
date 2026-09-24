@@ -8,6 +8,7 @@
 
 import type { TableCellDefinition, TableModel } from '@varve/scene';
 import { mergeCells, setCellStyle, setColumnSizing, setRowSizing, splitCell } from '@varve/scene';
+import { SegmentedControl } from '@varve/ui';
 import { useMemo } from 'react';
 import { useEditor } from '../../../context';
 import { cellCoordinateOf } from '../../../table/tableNav';
@@ -15,7 +16,6 @@ import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow } from '../controls/FieldRow';
 import { InspectorColorPopover } from '../controls/InspectorColorPopover';
 import { NumberField } from '../controls/NumberField';
-import { SegmentedControl } from '../controls/SegmentedControl';
 
 interface Props {
   tableId: string;

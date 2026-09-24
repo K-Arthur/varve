@@ -22,7 +22,7 @@ import {
   managedColorToCss,
   resolveBlendEvaluationSpace,
 } from '@varve/shared';
-import { Select, Switch } from '@varve/ui';
+import { SegmentedControl, Select, Switch } from '@varve/ui';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import {
@@ -37,7 +37,6 @@ import { LayerStatesSection } from '../../LayersPanel/LayerStatesSection';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { InspectorColorPopover } from '../controls/InspectorColorPopover';
 import { NumberField } from '../controls/NumberField';
-import { SegmentedControl } from '../controls/SegmentedControl';
 import { PagePrintSection } from '../sections/PagePrintSection';
 
 export function whiteForMode(mode: ColorMode): ManagedColor {
@@ -238,7 +237,7 @@ export function DocumentPanel() {
               { value: 'cmyk', label: 'CMYK' },
               { value: 'grayscale', label: 'Grayscale' },
             ]}
-            className="insp-segmented--distribute"
+            className="varve-segmented--distribute"
             onChange={(mode) => {
               if (documentColorMode === mode) return;
               beginTransaction();
@@ -264,7 +263,7 @@ export function DocumentPanel() {
               { value: 'float16', label: '16f' },
               { value: 'float32', label: '32f' },
             ]}
-            className="insp-segmented--distribute"
+            className="varve-segmented--distribute"
             onChange={(value) => {
               if (documentBitDepth === value) return;
               beginTransaction();
@@ -287,7 +286,7 @@ export function DocumentPanel() {
               { value: 'srgb', label: 'sRGB' },
               { value: 'linear', label: 'Linear' },
             ]}
-            className="insp-segmented--distribute"
+            className="varve-segmented--distribute"
             onChange={(value) => {
               if (workingSpace === value) return;
               beginTransaction();
@@ -309,7 +308,7 @@ export function DocumentPanel() {
               { value: 'legacy-srgb', label: 'Legacy sRGB' },
               { value: 'linear-srgb', label: 'Linear light' },
             ]}
-            className="insp-segmented--distribute"
+            className="varve-segmented--distribute"
             onChange={(value) => {
               if (blendEvaluationSpace === value) return;
               beginTransaction();
@@ -334,7 +333,7 @@ export function DocumentPanel() {
               { value: 'srgb', label: 'sRGB' },
               { value: 'hsl', label: 'HSL' },
             ]}
-            className="insp-segmented--distribute"
+            className="varve-segmented--distribute"
             onChange={(value) => {
               if (gradientInterpolation === value) return;
               beginTransaction();

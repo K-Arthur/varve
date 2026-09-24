@@ -5,6 +5,7 @@
  */
 
 import type { SpecUnit } from '@varve/shared';
+import { SegmentedControl } from '@varve/ui';
 import { useCallback, useState } from 'react';
 
 const STORAGE_KEY = 'strata-spec-unit';
@@ -28,26 +29,18 @@ export interface UnitSelectorProps {
 
 export function UnitSelector({ value, onChange }: UnitSelectorProps) {
   return (
-    <div className="spec-unit-selector" role="radiogroup" aria-label="Measurement unit">
-      {UNIT_OPTIONS.map((opt) => (
-        // biome-ignore lint/a11y/useSemanticElements: APG radiogroup pattern uses role="radio" on buttons
-        <button
-          key={opt.value}
-          type="button"
-          role="radio"
-          aria-checked={value === opt.value}
-          className="spec-unit-selector__btn"
-          onClick={() => {
-            onChange(opt.value);
-            try {
-              localStorage.setItem(STORAGE_KEY, opt.value);
-            } catch {}
-          }}
-        >
-          {opt.label}
-        </button>
-      ))}
-    </div>
+    <SegmentedControl
+      label="Measurement unit"
+      value={value}
+      options={UNIT_OPTIONS}
+      onChange={(unit) => {
+        onChange(unit);
+        try {
+          localStorage.setItem(STORAGE_KEY, unit);
+        } catch {}
+      }}
+      className="spec-unit-selector"
+    />
   );
 }
 

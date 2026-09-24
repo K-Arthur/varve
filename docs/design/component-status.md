@@ -31,10 +31,10 @@
 | Combobox | 🧪 | — | — | Not yet extracted |
 | Slider | ✅ | — | ✅ | APG slider pattern |
 | Tabs | ✅ | — | ✅ | APG tabs + roving tabindex |
-| SegmentedControl | ✅ | ✅ | — | APG radiogroup for short enumerations; contract in [radio-group-system.md](radio-group-system.md) |
+| SegmentedControl | ✅ | ✅ | ✅ | Canonical APG radiogroup for short enumerations; inset-pill style, `variant="pill"`, distributed tracks, per-option `hideLabel`/`tooltip`/`disabledReason`; contract in [radio-group-system.md](radio-group-system.md) |
 | Disclosure | 🧪 | ✅ | ✅ | APG disclosure; controlled/uncontrolled, compact/standard, keepMounted; focus restore on close (`useDisclosureFocusRestore`); contract in `docs/architecture/disclosure-system.md` |
 | Accordion | 🧪 | ✅ | ✅ | Coordinated disclosure group; single/multiple modes, collapsible single-selection; same focus/aria contract |
-| ViewModeSwitcher | ✅ | — | — | |
+| ViewModeSwitcher | ✅ | ✅ | — | Thin adapter over `SegmentedControl variant="pill"`; name survives the sub-640px label collapse (UX audit U5) |
 
 ## Overlays & feedback
 

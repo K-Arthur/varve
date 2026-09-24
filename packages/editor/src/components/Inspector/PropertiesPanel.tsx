@@ -38,6 +38,7 @@ import { PanelDetachButton, PanelDragHandle } from '../PanelDragHandle';
 import { AssetExportControls } from '../SpecPanel/AssetExportControls';
 import { CodeGenView } from '../SpecPanel/CodeGenView';
 import { DisclosureSection } from './controls/DisclosureSection';
+import { FieldSizingContext } from './controls/NumberField';
 import { InspectorContextHeader } from './InspectorContextHeader';
 import { InspectorTabBar } from './InspectorTabBar';
 import { deriveInspectorContext, type InspectorContext } from './inspectorContext';
@@ -308,7 +309,11 @@ export function PropertiesPanel() {
     setTab(nextTab as InspectorTab);
   };
 
-  return (
+  // Panel fields own their width from the row geometry (single column,
+  // pair cell, action gutter), not from each value's numeric range: a 39px
+  // Opacity beside a 239px Blend mode field read as disorganized sizing
+  // (2026-09-19). The provider covers every tab and legacy panel.
+  const panel = (
     <section
       className="editor-inspector"
       data-panel-root="inspector"
@@ -572,6 +577,7 @@ export function PropertiesPanel() {
       )}
     </section>
   );
+  return <FieldSizingContext.Provider value="fill">{panel}</FieldSizingContext.Provider>;
 }
 
 function LazyTabPanel({

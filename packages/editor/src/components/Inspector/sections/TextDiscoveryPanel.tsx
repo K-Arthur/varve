@@ -598,7 +598,7 @@ export function TextDiscoveryPanel({
               <label
                 key={detection.id}
                 className="insp-field__hint"
-                style={{ display: 'flex', gap: 6, alignItems: 'center' }}
+                style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}
               >
                 <input
                   type="radio"

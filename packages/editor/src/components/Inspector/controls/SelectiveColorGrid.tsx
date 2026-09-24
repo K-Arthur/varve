@@ -8,8 +8,14 @@
  * Research basis: Photoshop Selective Color panel.
  */
 import type { SelectiveColorParams, SelectiveColorTarget } from '@varve/engine';
+import { SegmentedControl } from '@varve/ui';
 import { useCallback } from 'react';
 import { NumberField } from './NumberField';
+
+const METHOD_OPTIONS: { value: 'absolute' | 'relative'; label: string }[] = [
+  { value: 'relative', label: 'Relative' },
+  { value: 'absolute', label: 'Absolute' },
+];
 
 const TARGETS: { target: SelectiveColorTarget; label: string; color: string }[] = [
   { target: 'red', label: 'Reds', color: '#e74c3c' },
@@ -85,26 +91,13 @@ export function SelectiveColorGrid({ value, onChange }: SelectiveColorGridProps)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-      <div
-        className="insp-segmented"
-        role="radiogroup"
-        aria-label="Method"
-        style={{ alignSelf: 'flex-start' }}
-      >
-        {(['relative', 'absolute'] as const).map((m) => (
-          <label
-            key={m}
-            className={`insp-segmented__btn${method === m ? ' insp-segmented__btn--active' : ''}`}
-          >
-            <input
-              type="radio"
-              name="adjustment-method"
-              checked={method === m}
-              onChange={() => setMethod(m)}
-            />
-            {m.charAt(0).toUpperCase() + m.slice(1)}
-          </label>
-        ))}
+      <div style={{ alignSelf: 'flex-start' }}>
+        <SegmentedControl
+          label="Method"
+          value={method}
+          options={METHOD_OPTIONS}
+          onChange={setMethod}
+        />
       </div>
       <div
         style={{

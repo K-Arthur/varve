@@ -17,7 +17,7 @@ import type {
 } from '@varve/engine';
 import type { ColorSwatch, SceneNode, ShapeNode } from '@varve/scene';
 import { imageShapeSrc, isImageShape, managedColorToHex } from '@varve/scene';
-import { Button, Select, Switch } from '@varve/ui';
+import { Button, SegmentedControl, Select, Switch } from '@varve/ui';
 import type { ChangeEvent } from 'react';
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { commitColorizationResult, planColorizeApply } from '../../../colorizationCommit';
@@ -71,6 +71,13 @@ const PREVIEW_MAX_DIMENSIONS: Record<QualityMode, number> = {
   quality: 1024,
   automatic: 1024,
 };
+
+const QUALITY_MODE_OPTIONS: { value: QualityMode; label: string }[] = [
+  { value: 'fast', label: 'Fast' },
+  { value: 'balanced', label: 'Balanced' },
+  { value: 'quality', label: 'Quality' },
+  { value: 'automatic', label: 'Automatic' },
+];
 
 const PHASE_LABELS: Record<ColorizationProgressPhase, string> = {
   preprocessing: 'Preparing source',
@@ -1206,30 +1213,16 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
         {workflow === 'photo' && (
           <fieldset className="colorize-section__quality-row">
             <legend className="insp-label">Quality</legend>
-            <div
-              className="colorize-section__quality-options"
-              role="radiogroup"
-              aria-label="Quality mode"
-            >
-              {(['fast', 'balanced', 'quality', 'automatic'] as QualityMode[]).map((mode) => (
-                <label
-                  key={mode}
-                  className={`insp-radio-btn${qualityMode === mode ? ' insp-radio-btn--active' : ''}`}
-                >
-                  <input
-                    type="radio"
-                    name="quality-mode"
-                    checked={qualityMode === mode}
-                    disabled={isProcessing}
-                    onChange={() => {
-                      setQualityMode(mode);
-                      invalidatePreview();
-                    }}
-                  />
-                  {mode.charAt(0).toUpperCase() + mode.slice(1)}
-                </label>
-              ))}
-            </div>
+            <SegmentedControl
+              label="Quality mode"
+              value={qualityMode}
+              options={QUALITY_MODE_OPTIONS}
+              onChange={(mode) => {
+                setQualityMode(mode);
+                invalidatePreview();
+              }}
+              disabled={isProcessing}
+            />
           </fieldset>
         )}
 

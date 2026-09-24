@@ -29,9 +29,11 @@ import { DisclosureSection } from '../controls/DisclosureSection';
 import type { SectionId } from '../sectionRegistry';
 
 /**
- * Frames are mostly screens, so device groups lead (as in Figma and Penpot);
- * print and photo sizes stay available further down. Unlisted groups keep
- * their registry order at the end.
+ * Frames commonly start from screen sizes, but the same shared control also
+ * exposes print, comic-page, and source-strip bounds. Device groups lead (as
+ * in Figma and Penpot); comic sizes sit before generic print sizes so their
+ * page/strip intent is visible without turning them into panel layouts.
+ * Unlisted groups keep their registry order at the end.
  */
 const FRAME_GROUP_ORDER: readonly PresetGroup['category'][] = [
   'mobile-tablet',
@@ -42,6 +44,7 @@ const FRAME_GROUP_ORDER: readonly PresetGroup['category'][] = [
   'video-motion',
   'icon-asset',
   'logo',
+  'comic',
   'print',
   'paper',
   'photo',

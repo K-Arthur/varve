@@ -23,13 +23,13 @@ import {
   setRowSizing,
   setZebra,
 } from '@varve/scene';
-import { Switch } from '@varve/ui';
+import { SegmentedControl, type SegmentedOption, Switch } from '@varve/ui';
 import { useMemo, useState } from 'react';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow, InspectorFieldGroup } from '../controls/FieldRow';
 import { NumberField } from '../controls/NumberField';
-import { SegmentedControl, type SegmentedOption } from '../controls/SegmentedControl';
+
 import { TableAppearanceSection } from './TableAppearanceSection';
 
 interface Props {
@@ -321,7 +321,11 @@ function ResponsiveRulesSection({
           </div>
         )}
         {rules.map((rule) => (
-          <div key={rule.id} className="insp-field-row__split" style={{ marginBottom: 4 }}>
+          <div
+            key={rule.id}
+            className="insp-field-row__split"
+            style={{ marginBottom: 'var(--space-1)' }}
+          >
             <span className="insp-inline-btn" style={{ cursor: 'default', fontWeight: 600 }}>
               {rule.condition.minWidth !== undefined ? `≥ ${rule.condition.minWidth}px` : ''}
               {rule.condition.minWidth !== undefined && rule.condition.maxWidth !== undefined
@@ -356,7 +360,7 @@ function ResponsiveRulesSection({
           <button
             type="button"
             className="insp-inline-btn"
-            style={{ marginTop: 4 }}
+            style={{ marginTop: 'var(--space-1)' }}
             onClick={() => setShowAdd(true)}
           >
             + Add breakpoint
@@ -368,7 +372,7 @@ function ResponsiveRulesSection({
               display: 'flex',
               flexDirection: 'column',
               gap: 'var(--space-2)',
-              marginTop: 4,
+              marginTop: 'var(--space-1)',
             }}
           >
             <div className="insp-field-row__split">

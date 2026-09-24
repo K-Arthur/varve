@@ -21,21 +21,20 @@ import type {
   LayoutStyle,
   SceneNode,
 } from '@varve/scene';
-import { Select, Switch } from '@varve/ui';
+import { SegmentedControl, type SegmentedOption, Select, Switch } from '@varve/ui';
 import { useMemo } from 'react';
 import { useEditor } from '../../../context';
 import { suggestAutoLayout } from '../../../intelligence/autoLayoutSuggestor';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow, InspectorFieldGroup } from '../controls/FieldRow';
 import { NumberField } from '../controls/NumberField';
-import type { SegmentedOption } from '../controls/SegmentedControl';
-import { SegmentedControl } from '../controls/SegmentedControl';
+
 import { commonValue, isMixed } from '../selection/selectionState';
 import { GridPlacementFields } from './GridPlacementFields';
 
 /* Alignment and justification are icon pickers: six abbreviated text segments
  * ("Spc/Ard/Evn") were unreadable, and six text options exceed the segmented
- * control's 2-5 text limit (Apple HIG, Primer). Icons + visually hidden full
+ * control's 2–5 text limit (Apple HIG, Primer). Icons + visually hidden full
  * labels keep one row, and the tooltip carries the full name. */
 const ALIGN_ITEMS_OPTIONS: readonly SegmentedOption<'start' | 'center' | 'end' | 'stretch'>[] = [
   { value: 'start', label: 'Align to top', icon: 'AlignStartVertical', hideLabel: true },

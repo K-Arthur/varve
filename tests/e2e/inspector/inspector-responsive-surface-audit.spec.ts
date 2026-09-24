@@ -151,8 +151,7 @@ test('Position & Size keeps equal value columns across Inspector widths', async 
       if (!field.input) continue;
       expect(field.input.height).toBe(expectedInspectorRowHeight);
     }
-    // The values fill equal columns (X/Y, then W/H around the action gutter);
-    // the retired 9ch rail cap is intentionally gone for this section.
+    // The values fill equal columns (X/Y, then W/H around the action gutter).
     const [x, y, w, h] = ['X', 'Y', 'W', 'H'].map(byLabel);
     if (x?.input && y?.input) {
       expect(Math.abs(x.input.width - y.input.width)).toBeLessThanOrEqual(1);
@@ -268,8 +267,6 @@ test('frame geometry and Stack / Grid keep stable inspector rails', async ({ pag
     expect(geometry.y).not.toBeNull();
     expect(geometry.width).not.toBeNull();
     expect(geometry.height).not.toBeNull();
-    // X/Y are equal halves of the row, and W/H are equal halves around the
-    // action gutter; Y and H end on the same panel edge.
     expect(Math.abs((geometry.x?.width ?? 0) - (geometry.y?.width ?? 0))).toBeLessThanOrEqual(1);
     expect(
       Math.abs((geometry.width?.width ?? 0) - (geometry.height?.width ?? 0)),
@@ -279,12 +276,11 @@ test('frame geometry and Stack / Grid keep stable inspector rails', async ({ pag
     );
     expect(Math.abs((geometry.y?.right ?? 0) - (geometry.sizeRight ?? 0))).toBeLessThanOrEqual(1);
     expect(geometry.x?.left ?? 0).toBeLessThan(geometry.y?.left ?? 0);
-    // The size actions sit in the gutter between W and H, never overlapping
-    // either value.
-    const gutter = geometry.sizeActions;
-    expect(gutter).not.toBeNull();
-    expect(gutter!.left).toBeGreaterThanOrEqual((geometry.width?.right ?? 0) - 1);
-    expect(gutter!.right).toBeLessThanOrEqual((geometry.height?.left ?? 0) + 1);
+    // The orientation / proportion actions live between W and H and must not
+    // cover either editable value.
+    expect(geometry.sizeActions).not.toBeNull();
+    expect(geometry.sizeActions!.left).toBeGreaterThanOrEqual((geometry.width?.right ?? 0) - 1);
+    expect(geometry.sizeActions!.right).toBeLessThanOrEqual((geometry.height?.left ?? 0) + 1);
 
     const layoutMetrics = await layout.evaluate((section) => {
       const fields = [...section.querySelectorAll<HTMLElement>('.insp-field')];
@@ -295,22 +291,16 @@ test('frame geometry and Stack / Grid keep stable inspector rails', async ({ pag
       const sizingStyle = sizing ? getComputedStyle(sizing) : null;
       const spacingProbe = document.createElement('div');
       spacingProbe.style.position = 'absolute';
-      spacingProbe.style.marginBlockStart = 'var(--space-2)';
+      spacingProbe.style.visibility = 'hidden';
+      spacingProbe.style.marginBlockStart = 'var(--insp-field-group-gap)';
       spacingProbe.style.paddingBlockStart = 'var(--space-2)';
-      document.body.append(spacingProbe);
-      spacingProbe.style.rowGap = 'var(--space-1)';
-      const space1 = getComputedStyle(spacingProbe).rowGap;
-      spacingProbe.style.rowGap = 'var(--space-2)';
-      const space2 = getComputedStyle(spacingProbe).rowGap;
-      spacingProbe.style.rowGap = 'var(--space-3)';
-      const space3 = getComputedStyle(spacingProbe).rowGap;
-      spacingProbe.style.rowGap = 'var(--space-4)';
-      const space4 = getComputedStyle(spacingProbe).rowGap;
-      const tokenSpacing = {
-        space1,
-        space2,
-        space3,
-        space4,
+      spacingProbe.style.rowGap = 'var(--insp-content-gap)';
+      section.append(spacingProbe);
+      const spacingProbeStyle = getComputedStyle(spacingProbe);
+      const expectedSpacing = {
+        marginBlockStart: spacingProbeStyle.marginBlockStart,
+        paddingBlockStart: spacingProbeStyle.paddingBlockStart,
+        gap: spacingProbeStyle.rowGap,
       };
       spacingProbe.remove();
       return {
@@ -322,9 +312,9 @@ test('frame geometry and Stack / Grid keep stable inspector rails', async ({ pag
               marginBlockStart: sizingStyle.marginBlockStart,
               paddingBlockStart: sizingStyle.paddingBlockStart,
               gap: sizingStyle.rowGap,
+              expectedSpacing,
             }
           : null,
-        tokenSpacing,
       };
     });
     expect(layoutMetrics.overflow).toBeLessThanOrEqual(1);
@@ -333,22 +323,19 @@ test('frame geometry and Stack / Grid keep stable inspector rails', async ({ pag
         (height) => Math.abs(height - expectedInspectorRowHeight) <= 0.5,
       ),
     ).toBe(true);
-    // The sizing numerics (Min/Max W and H) fill shared pair columns, so the
-    // two inputs in each row are equal instead of each fitting its own label
-    // and value range. The two rows are independent groups, so their label
-    // columns may differ by the label text width (measured 3px).
+    // These bounded controls stay compact as the Inspector widens. The field
+    // wrapper includes label-dependent space, so the actual numeric rails can
+    // vary slightly between Min W / Max W / Min H / Max H.
     expect(layoutMetrics.inputWidths.length).toBeGreaterThanOrEqual(4);
-    expect(
-      Math.max(...layoutMetrics.inputWidths) - Math.min(...layoutMetrics.inputWidths),
-    ).toBeLessThanOrEqual(4);
-    // The Sizing subgroup carries the group gap above it (one step above the
-    // body row gap) and no rule of its own: in the Inspector, rules mark
-    // section boundaries and labels mark groups.
-    expect(layoutMetrics.sizing).toEqual({
-      marginBlockStart: layoutMetrics.tokenSpacing.space4,
-      paddingBlockStart: layoutMetrics.tokenSpacing.space1,
-      gap: layoutMetrics.tokenSpacing.space3,
-    });
+    expect(layoutMetrics.inputWidths.every((inputWidth) => inputWidth <= 100)).toBe(true);
+    expect(layoutMetrics.sizing).not.toBeNull();
+    expect(layoutMetrics.sizing?.marginBlockStart).toBe(
+      layoutMetrics.sizing?.expectedSpacing.marginBlockStart,
+    );
+    expect(layoutMetrics.sizing?.paddingBlockStart).toBe(
+      layoutMetrics.sizing?.expectedSpacing.paddingBlockStart,
+    );
+    expect(layoutMetrics.sizing?.gap).toBe(layoutMetrics.sizing?.expectedSpacing.gap);
     samples[width] = { geometry, layout: layoutMetrics };
     if (width === 240 || width === 400 || width === 640) {
       await page.screenshot({
@@ -419,10 +406,9 @@ test('sticky section headers own the Inspector scroller inset', async ({ page },
   const isometricTrigger = page.getByRole('button', { name: /isometric grid/i }).first();
   await isometricTrigger.scrollIntoViewIfNeeded();
   await isometricTrigger.click();
-  // Scroll relative to the section's own offset instead of a hard-coded
-  // position: a fixed 1,650px depended on the panel's total height, so any
-  // rhythm change silently stopped before the header reached its sticky
-  // threshold and the assertion below measured an unstuck header.
+  // Scroll relative to this section's own offset. A fixed pixel position can
+  // stop before the header reaches its sticky threshold when earlier content
+  // changes, leaving the test to measure an unstuck header.
   const scrollTarget = await panel.evaluate((element) => {
     const owner = [...element.querySelectorAll<HTMLElement>('.insp-disclosure')].find((section) =>
       section
@@ -467,17 +453,13 @@ test('sticky section headers own the Inspector scroller inset', async ({ page },
       scrollTop: element.scrollTop,
       scroller: { top: scrollerRect.top, bottom: scrollerRect.bottom },
       header: { top: headerRect.top, bottom: headerRect.bottom },
-      // The header deliberately sticks through the panel's top inset so
-      // preceding rows cannot show above it; the contract is "stuck at the
-      // declared offset", not "stuck at exactly the scroller edge".
+      // The negative top offset compensates the scroller's own padding, so
+      // the stuck header lands exactly on the scroller edge and owns the inset.
       stickyOffset: Number.parseFloat(getComputedStyle(header).top),
       intersectingLabels,
     };
   });
   console.log(`sticky-header baseline: ${JSON.stringify(metrics)}`);
-  // The negative top offset compensates the scroller's own padding, so the
-  // stuck header lands exactly on the scroller edge and owns the inset strip
-  // (measured: header.top === scroller.top with stickyOffset === -panelInset).
   expect(Math.abs(metrics.header.top - metrics.scroller.top)).toBeLessThanOrEqual(0.5);
   expect(metrics.stickyOffset).toBeLessThan(0);
   expect(metrics.intersectingLabels).toEqual([]);

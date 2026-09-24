@@ -164,10 +164,7 @@ describe('PropertiesPanel canvas settings', () => {
 
   it('renders real document colour settings without exposing storage-root node counts', async () => {
     renderPanel();
-    expect(await screen.findByRole('radio', { name: 'RGB' }, { timeout: 15000 })).toHaveAttribute(
-      'aria-checked',
-      'true',
-    );
+    expect(await screen.findByRole('radio', { name: 'RGB' }, { timeout: 15000 })).toBeChecked();
     expect(screen.getByRole('radio', { name: 'CMYK' })).toBeTruthy();
     expect(screen.getByRole('radio', { name: 'Grayscale' })).toBeTruthy();
     expect(screen.queryByText(/nodes?/i)).toBeNull();

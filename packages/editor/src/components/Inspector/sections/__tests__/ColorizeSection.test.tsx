@@ -97,6 +97,25 @@ vi.mock('@varve/ui', () => ({
       {label}
     </label>
   ),
+  // Mirrors the canonical radiogroup contract: labelled group, one checked
+  // radio per option, disabled options skipped by the pointer path.
+  SegmentedControl: ({ label, value, options, onChange, disabled }) => (
+    <div role="radiogroup" aria-label={label}>
+      {(options ?? []).map((o: { value: string; label: string; disabled?: boolean }) => (
+        // biome-ignore lint/a11y/useSemanticElements: test double mirrors the canonical APG radiogroup markup
+        <button
+          key={o.value}
+          type="button"
+          role="radio"
+          aria-checked={o.value === value}
+          disabled={disabled || o.disabled}
+          onClick={() => onChange?.(o.value)}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  ),
 }));
 
 import { ColorizeSection } from '../ColorizeSection';

@@ -49,7 +49,8 @@ Allowed icon steps in Inspector markup and CSS: **12 / 14 / 16** (16 =
 panel reality, and every 9–11 and 13,15 use maps up/down to the nearest
 step. Icon size must be a **fixed step**, never `em`-relative: the measured
 drift (11/13/15px) is produced by `size="0.95em"` compounding with variable
-font sizes (root cause found at `controls/SegmentedControl.tsx:124` and
+font sizes (root cause found at
+`packages/ui/src/components/SegmentedControl.tsx` `size="0.95em"` icons and
 equivalents).
 
 ### 1.3 Changed component-tier tokens (typography)

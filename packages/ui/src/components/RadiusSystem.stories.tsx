@@ -40,9 +40,9 @@ function Gallery() {
           label="Alignment"
           value={alignment}
           options={[
-            { value: 'left', label: 'Left', icon: 'AlignLeft' },
-            { value: 'center', label: 'Center', icon: 'AlignCenter' },
-            { value: 'right', label: 'Right', icon: 'AlignRight' },
+            { value: 'left', label: 'Left', icon: 'TextAlignStart' },
+            { value: 'center', label: 'Center', icon: 'TextAlignCenter' },
+            { value: 'right', label: 'Right', icon: 'TextAlignEnd' },
           ]}
           onChange={setAlignment}
         />
