@@ -947,6 +947,7 @@ export type {
   MobileSamPoint,
   MobileSamPreprocessedImage,
   MobileSamPrompt,
+  MobileSamPromptInputs,
   MobileSamScoreSource,
   MobileSamTensor,
 } from './inference/models/mobileSam';

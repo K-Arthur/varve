@@ -44,6 +44,15 @@ export type MobileSamTensor = {
   dims: number[];
 };
 
+/** All prompt tensors emitted for the fixed MobileSAM decoder graph. */
+export type MobileSamPromptInputs = Record<string, MobileSamTensor> & {
+  point_coords: MobileSamTensor;
+  point_labels: MobileSamTensor;
+  mask_input: MobileSamTensor;
+  has_mask_input: MobileSamTensor;
+  orig_im_size: MobileSamTensor;
+};
+
 export type MobileSamScoreSource = 'predicted-iou';
 
 export type MobileSamMaskCandidate = {
@@ -159,7 +168,7 @@ export function encodeMobileSamPrompts(
   prompts: MobileSamPrompt,
   sourceWidth: number,
   sourceHeight: number,
-): Record<string, MobileSamTensor> {
+): MobileSamPromptInputs {
   validateDimensions(sourceWidth, sourceHeight);
   validateMobileSamPrompts(prompts);
   const resized = resizeLongestSideDimensions(sourceWidth, sourceHeight);

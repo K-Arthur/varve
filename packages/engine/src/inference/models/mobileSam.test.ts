@@ -2,11 +2,26 @@ import { describe, expect, it } from 'vitest';
 import {
   decodeMobileSamDecoderOutput,
   encodeMobileSamPrompts,
+  preprocessMobileSamImageData,
   resizeLongestSideDimensions,
   validateMobileSamPrompts,
 } from '../models/mobileSam';
 
 describe('MobileSAM ONNX contract', () => {
+  it('emits raw RGB HWC input with provider-owned longest-side resizing', () => {
+    const result = preprocessMobileSamImageData(
+      {
+        width: 2,
+        height: 1,
+        data: new Uint8ClampedArray([10, 20, 30, 0, 100, 110, 120, 255]),
+      } as ImageData,
+      2,
+    );
+    expect(result.width).toBe(2);
+    expect(result.height).toBe(1);
+    expect(Array.from(result.tensor)).toEqual([10, 20, 30, 100, 110, 120]);
+  });
+
   it('uses SAM ResizeLongestSide rounding and top-left padding geometry', () => {
     expect(resizeLongestSideDimensions(1920, 1080)).toEqual({
       width: 1024,

@@ -193,6 +193,7 @@ export type {
   MobileSamPoint,
   MobileSamPreprocessedImage,
   MobileSamPrompt,
+  MobileSamPromptInputs,
   MobileSamScoreSource,
   MobileSamTensor,
 } from './models/mobileSam';
