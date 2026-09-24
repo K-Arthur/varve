@@ -255,7 +255,57 @@ cd apps/desktop && pnpm tauri build --target aarch64-apple-darwin --bundles dmg 
 # cross-compile ARM AppImages.
 rustup target add aarch64-unknown-linux-gnu
 cd apps/desktop && pnpm tauri build --target aarch64-unknown-linux-gnu --bundles appimage,deb,rpm --ci
+```
 
+### Local ARM64 AppImage on an x86_64 host — emulated, test artifact only
+
+For a local test artifact (never release validation) the only route is an
+emulated aarch64 userland, because Tauri cannot cross-bundle an AppImage: its
+linuxdeploy/appimagetool toolchain runs on the target architecture.
+
+```sh
+# one-time: register qemu-user binfmt through Docker (no sudo needed)
+docker run --privileged --rm tonistiigi/binfmt --install arm64
+
+# arm64 Ubuntu 22.04 container (glibc 2.35 floor). FUSE is required: Tauri
+# spawns linuxdeploy's appimage output plugin as a nested AppImage and that
+# plugin does not inherit APPIMAGE_EXTRACT_AND_RUN.
+docker run -d --name varve-arm64 --platform linux/arm64 \
+  --device /dev/fuse --cap-add SYS_ADMIN --security-opt apparmor:unconfined \
+  -v <tree>:/work -v <cargo-cache>:/root/.cargo -v <rustup-cache>:/root/.rustup \
+  -w /work ubuntu:22.04 sleep infinity
+```
+
+Build the tree on **real disk, not `/tmp`** — on this host `/tmp` is a 12 GB
+tmpfs; a Rust target directory there fails with ENOSPC and consumes RAM.
+
+Container packages beyond the usual Tauri set — each missing one was a distinct
+build failure: `libclang-dev clang` (bindgen for `diffusion-rs-sys`), `cmake`
+(stable-diffusion.cpp/ggml), `xdg-utils` (the AppImage bundler requires
+`xdg-open`), `squashfs-tools` (appimagetool shells out to `mksquashfs`).
+
+Emulation gotchas:
+- `vite build` (rolldown) can deadlock in its thread pool under qemu. Run it
+  separately with `RAYON_NUM_THREADS=1 UV_THREADPOOL_SIZE=1` and then build
+  with `--config '{"build":{"beforeBuildCommand":"true"}}'` so Tauri does not
+  re-run it.
+- linuxdeploy aborting with `std::logic_error: subprocess failed (exit code 2)`
+  means the nested plugin AppImage could not mount (no FUSE) or `mksquashfs` is
+  absent.
+- If the nested AppImage still cannot exec, package directly with the native
+  x86_64 appimagetool — it is architecture-independent and `ARCH` selects the
+  runtime it embeds:
+  `ARCH=aarch64 appimagetool-x86_64.AppImage --no-appstream <AppDir>`
+  after copying the icon named by the desktop file's `Icon=` entry to the
+  AppDir root.
+- `NO_STRIP=1`, as on the host.
+
+The result bundles no GTK/WebKit (the AppDir only carries the app and its own
+`usr/lib/Varve` resources), so the prune step has nothing to remove, and being
+built on Ubuntu 22.04 it has the release glibc floor rather than the rolling
+host floor of a local x86_64 build.
+
+```sh
 # Windows ARM64 — use Windows with the C++ ARM64 MSVC build tools installed.
 rustup target add aarch64-pc-windows-msvc
 cd apps/desktop && pnpm tauri build --target aarch64-pc-windows-msvc --bundles nsis --ci
