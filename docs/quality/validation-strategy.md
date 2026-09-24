@@ -87,7 +87,7 @@ The frozen candidate check is the extended release evidence for one SHA.
 |---------|-------------|------|
 | `pnpm verify:plan` | Impact plan for current changes (dry run) | Always first |
 | `pnpm verify:plan --staged` | Plan for staged changes only | Before commit |
-| `pnpm verify:plan --since <ref>` | Plan against an arbitrary base | CI/branch work |
+| `pnpm verify:plan --since <ref>` | Plan the committed changes in `<ref>...HEAD`; excludes staged, unstaged, and untracked files | CI/branch work |
 | `pnpm verify:quick` | Tier 0 + Tier 1 (touched + direct tests) | Trivial/localized edits |
 | `pnpm verify:triage` | Tiers 0–4, but Playwright stops after five failures by default; still runs when a final full gate is required | First discovery pass after a large integration or merge batch |
 | `pnpm verify:affected` | Tiers 0–4, risk-aware | **Default inner loop for agents** |
@@ -105,6 +105,15 @@ The frozen candidate check is the extended release evidence for one SHA.
 | `just gate` | Full Cascade Review gate (kept as compatibility alias) | Human release gate |
 | `just gate-full` | Same as `verify:full`, requires `VARVE_FULL_GATE_REASON` | Human-facing full gate |
 | `just check-quick` / `just check-affected` | just wrappers for verify:quick/affected | just users |
+
+Without `--since`, the planner checks staged, unstaged, and untracked work
+when present; on a clean worktree it checks the branch against `origin/master`.
+The explicit ref comparison is an exact committed range, so unrelated local
+files do not change a branch or CI plan. A changed Playwright baseline under
+`<spec>.spec.ts-snapshots/` selects E2E typechecking followed by its existing
+owner spec. If that spec is absent, the planner retains the domain-wide E2E
+fallback. Changes to the shared Playwright global setup select the complete
+browser suite.
 
 `pnpm workflow:status` is read-only. Its structured output distinguishes
 `up-to-date`, `ahead-only`, `behind-only`, `diverged`, `missing-upstream`, and
@@ -171,6 +180,16 @@ net-file hash, outgoing-commit hash, lockfile hash, tool versions, policy
 version/hash, and a maximum six-hour age. They are a local cache only and
 cannot satisfy `CI / certification`, candidate certification, signing, or
 provenance. A dry run never writes a receipt.
+
+Local lane receipts in `.git/varve-validation/lane-receipts/` let a successful
+`pnpm verify:push --since origin/master` serve the same commit's Git pre-push
+hook, even though the two commands spell their refs differently. Lane reuse
+still requires the same remote, base/head/tree SHAs, net files, outgoing
+commits, lockfile, policy, tool versions, and selected lanes within six hours.
+Every invocation rebuilds the push plan and rechecks protected refs, release
+provenance, and complete outgoing history before reading either cache. A dry
+run or emergency override neither reads nor writes reusable lane evidence.
+Affected Playwright runs acquire the shared heavy-task lease and memory gate.
 
 Push operation history is separate from receipts and lives at
 `.git/varve-validation/operations/`. Each attempt gets a unique versioned

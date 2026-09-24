@@ -28,9 +28,11 @@ import { laneArgv, packageDirs } from './validation-lanes.mjs';
 import { PUSH_LANE_TIMEOUT_MS } from './validation-policy.mjs';
 import {
   commonGitDirectory,
+  readLaneReceipt,
   readReceipt,
   receiptIdentity,
   recordOverride,
+  writeLaneReceipt,
   writeReceipt,
 } from './validation-receipts.mjs';
 import { createValidationSnapshots } from './validation-snapshot.mjs';
@@ -320,11 +322,45 @@ export function runPushCheckpoint({
   }
 
   const overrideReason = String(process.env.VARVE_PUSH_OVERRIDE_REASON ?? '').trim();
-  const reusable = !overrideReason
+  const cacheAllowed = !overrideReason && !flags.dryRun;
+  const exactReceipt = cacheAllowed
     ? readReceipt(plan, { commonDir, git, cwd: ROOT, now })
-    : { reusable: false, reason: 'override-active' };
+    : { reusable: false };
+  const laneReceipt =
+    cacheAllowed && !exactReceipt.reusable
+      ? readLaneReceipt(plan, { commonDir, git, cwd: ROOT, now })
+      : { reusable: false };
+  const reusable = exactReceipt.reusable ? exactReceipt : laneReceipt;
   if (reusable.reusable) {
-    console.log(`Exact push checkpoint receipt reused (${reusable.path}).`);
+    const kind = exactReceipt.reusable ? 'Exact push checkpoint' : 'Local lane';
+    console.log(`${kind} receipt reused (${reusable.path}).`);
+    plan.execution = {
+      exactTree: true,
+      targets: [...new Set(plan.refs.map((ref) => ref.headSha).filter(Boolean))].map((sha) => ({
+        sha,
+        path: null,
+      })),
+      receiptReused: true,
+    };
+    const reusedArtifactPath = writePlanArtifact(plan, commonDir);
+    if (reusedArtifactPath) artifactPath = reusedArtifactPath;
+    if (laneReceipt.reusable && !exactReceipt.reusable) {
+      try {
+        writeReceipt(plan, {
+          commonDir,
+          git,
+          cwd: ROOT,
+          now,
+          commands: laneReceipt.receipt.commands,
+          outcomes: laneReceipt.receipt.outcomes,
+          durations: laneReceipt.receipt.durations,
+        });
+      } catch (error) {
+        console.warn(
+          `Local lane evidence passed but exact receipt cache was unavailable: ${error.message}`,
+        );
+      }
+    }
     console.log(
       'Remote certification remains authoritative; a local receipt never satisfies CI or release candidate checks.',
     );
@@ -446,18 +482,24 @@ export function runPushCheckpoint({
         `Override recorded in ${join(commonDir, 'varve-validation', 'overrides.ndjson')}.`,
       );
   } else if (!flags.dryRun) {
-    try {
-      writeReceipt(plan, {
-        commonDir,
-        git,
-        cwd: ROOT,
-        now,
-        commands: outcomes.map((outcome) => outcome.command),
-        outcomes: outcomes.map(({ lane, status }) => ({ lane, status })),
-        durations: Object.fromEntries(outcomes.map(({ lane, durationMs }) => [lane, durationMs])),
-      });
-    } catch (error) {
-      console.warn(`Push passed but receipt cache was unavailable: ${error.message}`);
+    const evidence = {
+      commonDir,
+      git,
+      cwd: ROOT,
+      now,
+      commands: outcomes.map((outcome) => outcome.command),
+      outcomes: outcomes.map(({ lane, status }) => ({ lane, status })),
+      durations: Object.fromEntries(outcomes.map(({ lane, durationMs }) => [lane, durationMs])),
+    };
+    for (const [kind, write] of [
+      ['exact', writeReceipt],
+      ['local lane', writeLaneReceipt],
+    ]) {
+      try {
+        write(plan, evidence);
+      } catch (error) {
+        console.warn(`Push passed but ${kind} receipt cache was unavailable: ${error.message}`);
+      }
     }
   } else {
     console.log('Dry run: no validation receipt was written.');

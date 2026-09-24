@@ -190,7 +190,9 @@ test.describe('Alignment and arrangement workflow', () => {
 
     const dismissHint = page.getByRole('button', { name: 'Dismiss hint' });
     if (await dismissHint.isVisible().catch(() => false)) {
-      await dismissHint.click();
+      // The transient hint can vanish between visibility and click checks.
+      // Its dismissal is incidental to the alignment assertions below.
+      await dismissHint.click({ timeout: 1000 }).catch(() => undefined);
       await dismissHint.waitFor({ state: 'hidden', timeout: 1000 }).catch(() => undefined);
     }
     await page.screenshot({ path: 'test-results/nested-frame-reference-alignment.png' });

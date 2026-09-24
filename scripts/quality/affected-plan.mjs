@@ -8,9 +8,9 @@
  * full-suite escalation decisions.
  *
  * Usage:
- *   pnpm verify:plan                      # uncommitted changes (staged+unstaged)
+ *   pnpm verify:plan                      # current worktree, or branch if clean
  *   pnpm verify:plan --staged             # staged changes only
- *   pnpm verify:plan --since origin/master
+ *   pnpm verify:plan --since origin/master # committed ref range only
  *   pnpm verify:plan --json               # machine-readable plan
  *   pnpm verify:plan --no-reverse         # skip reverse-dependent closure
  *   node scripts/quality/affected-plan.mjs --help
@@ -86,14 +86,7 @@ function gitChangedFiles({ base, staged }) {
   if (base) {
     const resolvedBase = resolvedCommit(base);
     if (!resolvedBase) throw new Error(`cannot resolve comparison base '${base}'`);
-    const out = gitPaths([
-      'diff',
-      '--name-only',
-      '--diff-filter=ACDMRTUXB',
-      `${resolvedBase}...HEAD`,
-    ]);
-    const untracked = gitPaths(['ls-files', '--others', '--exclude-standard']);
-    return [...new Set([...out, ...untracked])];
+    return gitPaths(['diff', '--name-only', '--diff-filter=ACDMRTUXB', `${resolvedBase}...HEAD`]);
   }
   // uncommitted (staged + unstaged + untracked)
   const stagedFiles = gitPaths(['diff', '--cached', '--name-only', '--diff-filter=ACDMRTUXB']);
@@ -366,6 +359,12 @@ function e2eDomainFor(path) {
   return null;
 }
 
+/** Playwright keeps each spec's baselines in `<spec>.spec.ts-snapshots/`. */
+function snapshotOwnerSpec(path) {
+  const owner = path.match(/^(tests\/e2e\/.+\.spec\.tsx?)-snapshots\/[^/]+$/)?.[1];
+  return owner && existsSync(join(ROOT, owner)) ? owner : null;
+}
+
 // ── plan construction ──────────────────────────────────────────────────────
 
 function buildPlan(files, { includeReverse = true } = {}) {
@@ -434,8 +433,15 @@ function buildPlan(files, { includeReverse = true } = {}) {
       // domain-local helper is narrower, but still affects every spec in
       // that domain. This prevents a helper edit being mislabeled as a
       // direct-spec-only change.
-      if (
+      const snapshotOwner = snapshotOwnerSpec(f);
+      if (snapshotOwner) {
+        // A baseline change exercises the same workflow as its owning spec.
+        // Keep the E2E compiler prerequisite ahead of Playwright.
+        directE2eFiles.add(snapshotOwner);
+        e2eTypecheckRequired = true;
+      } else if (
         f === 'tests/e2e/shared.ts' ||
+        f === 'tests/e2e/global-setup.ts' ||
         f.startsWith('tests/e2e/helpers/') ||
         f.startsWith('tests/e2e/fixtures/')
       ) {

@@ -6,7 +6,15 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { readReceipt, receiptPath, recordOverride, writeReceipt } from './validation-receipts.mjs';
+import {
+  laneReceiptIdentity,
+  readLaneReceipt,
+  readReceipt,
+  receiptPath,
+  recordOverride,
+  writeLaneReceipt,
+  writeReceipt,
+} from './validation-receipts.mjs';
 
 const commonDir = mkdtempSync(join(tmpdir(), 'varve-receipts-common-'));
 const tools = {
@@ -47,6 +55,47 @@ try {
   assert.ok(existsSync(written.path));
   assert.equal(written.path, receiptPath(basePlan, { commonDir, tools, now }));
   assert.equal(readReceipt(basePlan, { commonDir, tools, now: now + 1000 }).reusable, true);
+
+  // A manual --since check and the actual Git hook describe the same bytes
+  // using different ref names. Reuse only local lane results; the caller must
+  // still rebuild the push plan and enforce ref/history policy.
+  const manualSincePlan = structuredClone(basePlan);
+  manualSincePlan.refs[0].localRef = 'HEAD';
+  manualSincePlan.refs[0].remoteRef = 'refs/remotes/origin/master';
+  const laneWritten = writeLaneReceipt(manualSincePlan, { commonDir, tools, now });
+  assert.equal(readReceipt(basePlan, { commonDir, tools, now }).reusable, true);
+  assert.equal(readReceipt(manualSincePlan, { commonDir, tools, now }).reusable, false);
+  assert.equal(readLaneReceipt(basePlan, { commonDir, tools, now: now + 1000 }).reusable, true);
+  assert.equal(
+    laneReceiptIdentity(basePlan, { tools, now }).identityHash,
+    laneReceiptIdentity(manualSincePlan, { tools, now }).identityHash,
+  );
+  assert.ok(existsSync(laneWritten.path));
+
+  for (const field of ['baseSha', 'headSha', 'localSha', 'remoteSha', 'comparisonBaseSha']) {
+    const changed = structuredClone(basePlan);
+    changed.refs[0][field] = '7'.repeat(40);
+    assert.equal(readLaneReceipt(changed, { commonDir, tools, now }).reusable, false, field);
+  }
+  for (const field of [
+    'changedFileHash',
+    'outgoingCommitHash',
+    'lockfileHash',
+    'policyVersion',
+    'policyHash',
+  ]) {
+    const changed = structuredClone(basePlan);
+    changed[field] = '7'.repeat(changed[field].length);
+    assert.equal(readLaneReceipt(changed, { commonDir, tools, now }).reusable, false, field);
+  }
+  assert.equal(
+    readLaneReceipt(basePlan, { commonDir, tools: { ...tools, node: 'other' }, now }).reusable,
+    false,
+  );
+  assert.equal(
+    readLaneReceipt(basePlan, { commonDir, tools, now: now + 7 * 60 * 60 * 1000 }).reusable,
+    false,
+  );
 
   const strictPlan = {
     ...structuredClone(basePlan),

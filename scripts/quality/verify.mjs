@@ -80,6 +80,10 @@ function runVitestFiles(files) {
   return cmd(args);
 }
 
+function runLeasedPlaywright(args, label) {
+  return cmd(['node', 'scripts/quality/heavy-lease.mjs', label, '--', ...args]);
+}
+
 let e2eMaxFailures;
 
 function runE2ePaths(paths) {
@@ -106,7 +110,7 @@ function runE2ePaths(paths) {
     .map((project) => project.trim())
     .filter(Boolean);
   for (const project of projects) args.push(`--project=${project}`);
-  return cmd(args);
+  return runLeasedPlaywright(args, `e2e: ${paths.join(', ')}`);
 }
 
 function runE2eDomains(domains) {
@@ -183,7 +187,7 @@ function runLane(lane) {
   } else if (lane === 'e2e:all') {
     const args = ['pnpm', 'exec', 'playwright', 'test'];
     if (process.env.VARVE_E2E_WORKERS) args.push('--workers', process.env.VARVE_E2E_WORKERS);
-    status = cmd(args);
+    status = runLeasedPlaywright(args, lane);
   } else if (lane === 'e2e:visual') {
     const args = [
       'pnpm',
@@ -194,7 +198,7 @@ function runLane(lane) {
       '--project=chromium-visual-2x',
     ];
     if (process.env.VARVE_E2E_WORKERS) args.push('--workers', process.env.VARVE_E2E_WORKERS);
-    status = cmd(args);
+    status = runLeasedPlaywright(args, lane);
   } else if (lane === 'bench:render' || lane === 'bench:table' || lane === 'bench:table-layout') {
     const benchCmd = {
       'bench:render': 'pnpm bench:canvas',

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-/** Exact-identity local push receipts.  Receipts are a cache, never CI evidence. */
+/** Local push receipts. Receipts are a cache, never CI evidence. */
 
 import { appendFileSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { isAbsolute, join, resolve } from 'node:path';
@@ -34,6 +34,11 @@ export function commonGitDirectory({ git = createGitAdapter(), cwd = process.cwd
 export function receiptDirectory(options = {}) {
   const common = options.commonDir ?? commonGitDirectory(options);
   return join(common, 'varve-validation', 'receipts');
+}
+
+export function laneReceiptDirectory(options = {}) {
+  const common = options.commonDir ?? commonGitDirectory(options);
+  return join(common, 'varve-validation', 'lane-receipts');
 }
 
 export function receiptIdentity(plan, { tools = toolVersions(), now = Date.now() } = {}) {
@@ -79,24 +84,32 @@ export function receiptIdentity(plan, { tools = toolVersions(), now = Date.now()
   };
 }
 
+/**
+ * A manual --since check and Git's hook can validate the same outgoing trees
+ * under different ref spellings. Only the local lane evidence is shared: the
+ * push plan and ref/history policy are rebuilt before this cache is read.
+ */
+export function laneReceiptIdentity(plan, options = {}) {
+  const exact = receiptIdentity(plan, options);
+  const refs = exact.refs
+    .map(({ localRef: _localRef, remoteRef: _remoteRef, ...content }) => content)
+    .sort((a, b) => stable(a).localeCompare(stable(b)));
+  const identity = { ...exact, refs };
+  delete identity.identityHash;
+  delete identity.createdAt;
+  return {
+    ...identity,
+    identityHash: sha256(stable(identity)),
+    createdAt: exact.createdAt,
+  };
+}
+
 export function receiptPath(plan, options = {}) {
   const identity = receiptIdentity(plan, options);
   return join(receiptDirectory(options), `${identity.identityHash}.json`);
 }
 
-export function readReceipt(
-  plan,
-  {
-    commonDir,
-    git,
-    cwd,
-    now = Date.now(),
-    maxAgeMs = PUSH_LIMITS.receiptMaxAgeMs,
-    tools = toolVersions(),
-  } = {},
-) {
-  const identity = receiptIdentity(plan, { tools, now });
-  const path = join(receiptDirectory({ commonDir, git, cwd }), `${identity.identityHash}.json`);
+function readCachedReceipt(identity, path, now, maxAgeMs) {
   let receipt;
   try {
     receipt = JSON.parse(readFileSync(path, 'utf8'));
@@ -128,22 +141,39 @@ export function readReceipt(
   return { reusable: true, path, reason: 'exact-match', receipt };
 }
 
-export function writeReceipt(
+export function readReceipt(
   plan,
   {
     commonDir,
     git,
     cwd,
-    commands = [],
-    outcomes = [],
-    durations = {},
-    override = null,
     now = Date.now(),
+    maxAgeMs = PUSH_LIMITS.receiptMaxAgeMs,
     tools = toolVersions(),
   } = {},
 ) {
   const identity = receiptIdentity(plan, { tools, now });
-  const dir = receiptDirectory({ commonDir, git, cwd });
+  const path = join(receiptDirectory({ commonDir, git, cwd }), `${identity.identityHash}.json`);
+  return readCachedReceipt(identity, path, now, maxAgeMs);
+}
+
+export function readLaneReceipt(
+  plan,
+  {
+    commonDir,
+    git,
+    cwd,
+    now = Date.now(),
+    maxAgeMs = PUSH_LIMITS.receiptMaxAgeMs,
+    tools = toolVersions(),
+  } = {},
+) {
+  const identity = laneReceiptIdentity(plan, { tools, now });
+  const path = join(laneReceiptDirectory({ commonDir, git, cwd }), `${identity.identityHash}.json`);
+  return readCachedReceipt(identity, path, now, maxAgeMs);
+}
+
+function writeCachedReceipt(identity, dir, { commands, outcomes, durations, override, now }) {
   mkdirSync(dir, { recursive: true });
   const receipt = {
     schema: RECEIPT_SCHEMA,
@@ -161,6 +191,49 @@ export function writeReceipt(
   writeFileSync(temp, `${JSON.stringify(receipt, null, 2)}\n`, { encoding: 'utf8', mode: 0o600 });
   renameSync(temp, path);
   return { path, receipt };
+}
+
+export function writeReceipt(plan, options = {}) {
+  const {
+    commonDir,
+    git,
+    cwd,
+    commands = [],
+    outcomes = [],
+    durations = {},
+    override = null,
+    now = Date.now(),
+    tools = toolVersions(),
+  } = options;
+  const identity = receiptIdentity(plan, { tools, now });
+  return writeCachedReceipt(identity, receiptDirectory({ commonDir, git, cwd }), {
+    commands,
+    outcomes,
+    durations,
+    override,
+    now,
+  });
+}
+
+export function writeLaneReceipt(plan, options = {}) {
+  const {
+    commonDir,
+    git,
+    cwd,
+    commands = [],
+    outcomes = [],
+    durations = {},
+    now = Date.now(),
+    tools = toolVersions(),
+  } = options;
+  const identity = laneReceiptIdentity(plan, { tools, now });
+  return writeCachedReceipt(identity, laneReceiptDirectory({ commonDir, git, cwd }), {
+    commands,
+    outcomes,
+    durations,
+    override: null,
+    now,
+  });
 }
 
 export function recordOverride(reason, plan, { commonDir, git, cwd, now = Date.now() } = {}) {
