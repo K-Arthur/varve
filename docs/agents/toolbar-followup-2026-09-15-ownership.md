@@ -70,6 +70,22 @@ the affected closure per commit. The popover review's two additive lines on
 the text bar's More `FloatingPortal` (`initialFocus`, `yieldTabToAnchor`) are
 present in HEAD (committed with the quick-bars slice) as their note requested.
 
+## Cross-session note — popover review (2026-09-15, session C)
+
+The app-wide popover review fixed the shared `Popover`/`FloatingPortal`
+dismissal, focus, and Tab contracts (`docs/architecture/popover-system.md`).
+That work left **two additive lines** in your file
+`packages/editor/src/components/FloatingTextBar/FloatingTextBar.tsx`, on the
+"More text formatting" `FloatingPortal`: `initialFocus` and
+`yieldTabToAnchor`. They make the More panel focusable/reachable by keyboard
+and stop Tab from continuing at the portaled body end. They were deliberately
+not committed separately because the file is yours and mid-flight; the
+rendered contract spec (`tests/e2e/popovers/popover-contract.spec.ts`)
+exercises the same contract on the text bar's colour popover. Keep the two
+lines when you commit the file. The colour swatch popover needed no local
+change — the primitive now owns Escape even when focus is on the trigger,
+and keyboard opens move focus into the picker.
+
 ## Concurrency incident (recorded for the integration pass)
 
 At ~16:10, while this session was running its final E2E, the shared real
