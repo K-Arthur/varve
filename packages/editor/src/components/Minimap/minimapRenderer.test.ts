@@ -2,7 +2,7 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { computeMinimapTransform } from './minimapLayout';
-import { renderMinimapToCanvas, resolveMinimapColors } from './minimapRenderer';
+import { renderMinimap, renderMinimapToCanvas, resolveMinimapColors } from './minimapRenderer';
 
 function emptyScene() {
   return {
@@ -29,6 +29,67 @@ describe('minimapRenderer', () => {
 
     expect(colors.viewportFill).toBe('rgb(0 208 198)');
     expect(colors.viewportStroke).toBe('rgb(0 208 198)');
+  });
+
+  it('keeps hidden-node fills theme-aware and faint', () => {
+    let globalAlpha = 1;
+    let fillStyle = '';
+    const stack: Array<{ globalAlpha: number; fillStyle: string }> = [];
+    const fills: Array<{ alpha: number; color: string }> = [];
+    const context = {
+      setTransform: vi.fn(),
+      clearRect: vi.fn(),
+      fillRect: vi.fn(() => fills.push({ alpha: globalAlpha, color: fillStyle })),
+      save: vi.fn(() => stack.push({ globalAlpha, fillStyle })),
+      restore: vi.fn(() => {
+        const previous = stack.pop();
+        globalAlpha = previous?.globalAlpha ?? 1;
+        fillStyle = previous?.fillStyle ?? '';
+      }),
+      get globalAlpha() {
+        return globalAlpha;
+      },
+      set globalAlpha(value: number) {
+        globalAlpha = value;
+      },
+      get fillStyle() {
+        return fillStyle;
+      },
+      set fillStyle(value: string) {
+        fillStyle = value;
+      },
+    } as unknown as CanvasRenderingContext2D;
+    const colors = resolveMinimapColors((name, fallback) =>
+      name === '--color-text-disabled' ? 'oklch(0.58 0.025 261)' : fallback,
+    );
+    const transform = computeMinimapTransform({ x: 0, y: 0, w: 100, h: 100 }, 160, 120);
+
+    renderMinimap(
+      context,
+      {
+        ...emptyScene(),
+        entries: [
+          {
+            id: 'hidden-shape',
+            kind: 'rect',
+            bounds: { x: 10, y: 10, w: 20, h: 20 },
+            visible: false,
+            locked: false,
+            isFrame: false,
+            isContainer: false,
+            selected: false,
+            name: 'Hidden shape',
+            depth: 0,
+          },
+        ],
+      },
+      transform,
+      null,
+      colors,
+    );
+
+    expect(fills[1]).toEqual({ alpha: 0.15, color: 'oklch(0.58 0.025 261)' });
+    expect(globalAlpha).toBe(1);
   });
 
   it('does not reallocate the backing store when only the camera projection redraws', () => {
