@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import { renderHook } from '@testing-library/react';
 import { screenToWorld, worldToScreen } from '@varve/shared';
 import { describe, expect, it, vi } from 'vitest';
 import {
@@ -9,6 +10,7 @@ import {
   resizeCanvasBackingStore,
   subscribeToCanvasContextLifecycle,
   subscribeToDevicePixelRatio,
+  useCanvasGeometry,
 } from './canvasSurface';
 
 describe('canvas backing store', () => {
@@ -47,6 +49,41 @@ describe('canvas backing store', () => {
       toJSON: () => ({}),
     });
     expect(readCanvasGeometry(canvas)).toEqual({ left: 120, top: 80, width: 640, height: 360 });
+  });
+
+  it('resubscribes when the host replaces the canvas element', () => {
+    const makeCanvas = (left: number, width: number) => {
+      const canvas = document.createElement('canvas');
+      Object.defineProperties(canvas, {
+        clientWidth: { configurable: true, value: width },
+        clientHeight: { configurable: true, value: 360 },
+      });
+      vi.spyOn(canvas, 'getBoundingClientRect').mockReturnValue({
+        left,
+        top: 80,
+        width,
+        height: 360,
+        right: left + width,
+        bottom: 440,
+        x: left,
+        y: 80,
+        toJSON: () => ({}),
+      });
+      return canvas;
+    };
+    const canvasRef = { current: makeCanvas(120, 640) };
+    const { result, rerender, unmount } = renderHook(
+      ({ revision }) => useCanvasGeometry(canvasRef, undefined, revision),
+      { initialProps: { revision: 0 } },
+    );
+
+    expect(result.current.canvasSize).toEqual({ width: 640, height: 360 });
+    canvasRef.current = makeCanvas(24, 480);
+    rerender({ revision: 1 });
+
+    expect(result.current.canvasSize).toEqual({ width: 480, height: 360 });
+    expect(result.current.canvasRectRef.current).toEqual({ left: 24, top: 80 });
+    unmount();
   });
 
   it('preserves the viewport-centre world anchor through a rotated resize', () => {

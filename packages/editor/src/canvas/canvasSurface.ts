@@ -210,6 +210,8 @@ export function useCanvasGeometry(
     next: CanvasGeometry,
     anchor: CanvasViewportAnchor | null,
   ) => void,
+  /** Increment when the host replaces the canvas element/context. */
+  canvasRevision = 0,
 ): CanvasGeometryState {
   const canvasRectRef = useRef({ left: 0, top: 0 });
   const viewportAnchorRef = useRef<CanvasViewportAnchor | null>(null);
@@ -243,7 +245,7 @@ export function useCanvasGeometry(
     const canvas = canvasRef.current;
     if (!canvas) return;
     return subscribeToCanvasGeometry(canvas, applyCanvasGeometry);
-  }, [applyCanvasGeometry, canvasRef]);
+  }, [applyCanvasGeometry, canvasRef, canvasRevision]);
 
   return { canvasSize, canvasRectRef, viewportAnchorRef, refreshCanvasRect };
 }
