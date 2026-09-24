@@ -165,9 +165,25 @@ advertised as active.
 cargo test -p varve-accel
 cargo run --release -p varve-accel --example gpu_effect_bench
 cargo run --release -p varve-accel --example gpu_resample_bench
+cargo run --release -p varve-accel --example gpu_resample_bench -- <photo.png|photo.jpg> [output-dir]
 cargo run --release -p varve-accel --example gpu_visual_report
 cargo run --release -p varve-effects --example effect_cost
 ```
+
+The optional photo path benchmarks a real PNG/JPEG at 2×, checks output
+parity against the CPU resampler, and writes CPU, GPU, and 32× amplified
+difference PNGs to the optional output directory (default:
+`$TMPDIR/varve-gpu-resample-photo`).
+
+Real-photo check on CachyOS / AMD Radeon Graphics (RADV RENOIR), 2026-09-24:
+`tests/e2e/fixtures/real-life-architecture.jpg` (1920 × 1280) was enlarged to
+3840 × 2560. Bicubic measured 1405 ms CPU vs 56.6 ms GPU (24.8×); Lanczos3
+measured 1490 ms CPU vs 98.5 ms GPU (15.1×). Both had maximum channel
+difference of 1 LSB, with PSNR of 124.1 dB and 104.0 dB respectively. The
+CPU/GPU outputs were visually indistinguishable at full view, and both
+amplified difference images were black. Captures are local validation outputs
+in `/tmp/varve-gpu-resample-photo/`, not repository assets. Timings are from
+this device and image, not a general performance guarantee.
 
 `gpu_visual_report` writes CPU/GPU pairs and an amplified (24×) difference
 image to `reports/native-gpu/` for human inspection; the RGB-split difference
