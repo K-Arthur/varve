@@ -2,6 +2,7 @@ import { getImageFill, isImageShape } from '@varve/scene';
 import { MAX_ZOOM, MIN_ZOOM } from '@varve/shared';
 import { Icon, NumberInput, Select, Tooltip, TooltipProvider } from '@varve/ui';
 import { useRef, useState, useSyncExternalStore } from 'react';
+import { useDocumentAccent } from './appearance/useDocumentAccent';
 import { AIStatusIndicator } from './components/AIStatusIndicator/AIStatusIndicator';
 import { AuditBadge } from './components/AuditBadge';
 import { DebtBadge } from './components/DebtBadge';
@@ -108,6 +109,9 @@ export function StatusBar({ onOpenPalette }: StatusBarProps) {
     clearAllGuides,
   } = useEditor();
   const effectiveConfig = useEffectiveWorkspaceConfig(state.workspaceMode);
+  // Publishes the active page surface to the opt-in document-accent
+  // controller; inert unless appearance.accentSource is 'document'.
+  useDocumentAccent(state.document, state.currentPageId);
   const compositorDiag = useSyncExternalStore(
     subscribeCompositorDiagnostics,
     getCompositorDiagnosticsSnapshot,
