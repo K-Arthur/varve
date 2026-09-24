@@ -156,11 +156,10 @@ function flatten(plan) {
 const BIOME_EXTS = /\.(ts|tsx|js|jsx|mjs|cjs|json)$/;
 let CHANGED_FILES = [];
 
-function biomeTouchedArgs() {
-  const files = CHANGED_FILES.filter(
+function biomeTouchedFiles() {
+  return CHANGED_FILES.filter(
     (f) => !f.startsWith('.worktrees/') && BIOME_EXTS.test(f) && existsSync(f),
   );
-  return ['biome', 'check', ...files, '--no-errors-on-unmatched'];
 }
 
 function runLane(lane) {
@@ -168,10 +167,17 @@ function runLane(lane) {
   const isHeavy =
     HEAVY.has(lane) || lane.startsWith('rust-test:') || lane.startsWith('rust-clippy:');
   let status;
-  if (lane === 'format:touched') {
-    status = cmd([...biomeTouchedArgs(), '--formatter-enabled=true', '--linter-enabled=false']);
-  } else if (lane === 'lint:touched') {
-    status = cmd(biomeTouchedArgs());
+  if (lane === 'format:touched' || lane === 'lint:touched') {
+    const files = biomeTouchedFiles();
+    if (files.length === 0) {
+      console.log(`  [SKIP] ${lane}: no existing Biome-compatible changed files`);
+      status = 0;
+    } else {
+      const args = ['biome', 'check', ...files, '--no-errors-on-unmatched'];
+      if (lane === 'format:touched')
+        args.push('--formatter-enabled=true', '--linter-enabled=false');
+      status = cmd(args);
+    }
   } else if (lane.startsWith('js-unit:file:')) {
     status = runVitestFiles([lane.slice('js-unit:file:'.length)]);
   } else if (lane.startsWith('e2e:file:')) {

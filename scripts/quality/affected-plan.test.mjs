@@ -4,7 +4,7 @@
 
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -95,6 +95,46 @@ try {
   }
 } finally {
   rmSync(repo, { recursive: true, force: true });
+}
+
+// A docs-only change must not invoke Biome with no paths, because Biome
+// interprets that as a repository-wide scan. Exercise the actual verifier in
+// a Git repository with a staged document and runnable audit scripts.
+const docsRepo = mkdtempSync(join(tmpdir(), 'varve-docs-only-'));
+try {
+  const git = (args) =>
+    execFileSync('git', args, { cwd: docsRepo, encoding: 'utf8', stdio: 'pipe' }).trim();
+  git(['init', '-q']);
+  git(['config', 'user.name', 'Varve planner test']);
+  git(['config', 'user.email', 'planner@example.invalid']);
+  mkdirSync(join(docsRepo, 'scripts'));
+  mkdirSync(join(docsRepo, 'docs'));
+  writeFileSync(
+    join(docsRepo, 'package.json'),
+    JSON.stringify({
+      name: 'varve-docs-only-validation',
+      private: true,
+      scripts: {
+        'audit:docs': 'node scripts/audit-docs.mjs',
+        'audit:emoji': 'node scripts/audit-emoji.mjs',
+      },
+    }),
+  );
+  writeFileSync(join(docsRepo, 'scripts/audit-docs.mjs'), 'console.log("docs audit passed")\n');
+  writeFileSync(join(docsRepo, 'scripts/audit-emoji.mjs'), 'console.log("emoji audit passed")\n');
+  git(['add', '.']);
+  git(['commit', '-qm', 'base']);
+  writeFileSync(join(docsRepo, 'docs/capture.md'), '# Real docs-only change\n');
+  git(['add', 'docs/capture.md']);
+  const output = execFileSync(process.execPath, [verifierPath, 'quick', '--staged'], {
+    cwd: docsRepo,
+    encoding: 'utf8',
+  });
+  assert.match(output, /\[SKIP\] format:touched: no existing Biome-compatible changed files/);
+  assert.match(output, /\[SKIP\] lint:touched: no existing Biome-compatible changed files/);
+  assert.match(output, /docs audit passed/);
+} finally {
+  rmSync(docsRepo, { recursive: true, force: true });
 }
 
 console.log('affected plan tests passed');
