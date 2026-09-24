@@ -3201,9 +3201,9 @@ dependencies = [
 
 [[package]]
 name = "tintbox"
-version = "0.4.0"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "380c56a3637651c42f670223f6e856730bf5339864212869e7e3aff98a5fd212"
+checksum = "19d3b9ef45699a6c0e1a13529ddf9aadc23189d246846f8657cb1794f64cb82c"
 
 [[package]]
 name = "tinystr"
