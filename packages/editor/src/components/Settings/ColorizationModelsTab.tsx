@@ -82,9 +82,9 @@ export function ColorizationModelsTab() {
       <h3 className="colorization-models-section__title">Colorization Models</h3>
       <p className="colorization-models-section__hint">
         DDColor models propose plausible colors for grayscale photos. They are optional downloads
-        (Apache-2.0 licensed) and process locally once a model is verified. Tint, palette, mask,
-        and reference workflows do not need a model; line-art colorization is a separate,
-        currently deferred workflow.
+        (Apache-2.0 licensed) and process locally once a model is verified. Tint, palette, mask, and
+        reference workflows do not need a model; line-art colorization is a separate, currently
+        deferred workflow.
       </p>
       <RegionLoader label="Loading model status" loading={loading}>
         <ul className="bg-models-list" aria-label="Colorization models">

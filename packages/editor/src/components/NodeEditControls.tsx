@@ -44,10 +44,7 @@ const MODES: readonly { value: PathNodeMode; label: string; shortcut: string }[]
   { value: 'automatic', label: 'Automatic', shortcut: '⇧A' },
 ];
 
-function selectedPoint(
-  shape: EditablePathShape,
-  selected: ReadonlySet<number>,
-): PathPoint | null {
+function selectedPoint(shape: EditablePathShape, selected: ReadonlySet<number>): PathPoint | null {
   if (selected.size !== 1) return null;
   return pathPointAtIndex(pathRings(shape), [...selected][0]!);
 }
