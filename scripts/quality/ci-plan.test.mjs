@@ -3,6 +3,7 @@
 /** Canonical local/CI planner parity and bounded command construction tests. */
 
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -11,9 +12,13 @@ import { preflightCommands } from './ci-preflight.mjs';
 import { laneArgv } from './validation-lanes.mjs';
 import { CI_CATEGORIES, promisedLanesForCategories } from './validation-policy.mjs';
 
-const head = readFileSync('.git/HEAD', 'utf8').trim();
-assert.ok(head, 'test repository has a HEAD');
+// Linked worktrees have a .git pointer file, not a .git/HEAD path.
+const head = execFileSync('git', ['rev-parse', '--verify', 'HEAD^{commit}'], {
+  encoding: 'utf8',
+}).trim();
+assert.match(head, /^[0-9a-f]{40,64}$/, 'test repository has a commit HEAD');
 const actualHead = buildCiPlan({ base: 'HEAD', head: 'HEAD', profile: 'integration' }).commitSha;
+assert.equal(actualHead, head);
 const full = buildCiPlan({
   base: actualHead,
   head: actualHead,
