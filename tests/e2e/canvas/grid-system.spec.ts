@@ -77,7 +77,9 @@ test.describe('Grid system — real editor controls and visual overlay', () => {
     await page.screenshot({ path: 'test-results/grid-system-editor.png', fullPage: false });
   });
 
-  test('opens Guide Layouts with preview validation and Escape cancel', async ({ page }) => {
+  test('opens Guide Layouts with preview validation and Escape cancel', async ({
+    page,
+  }, testInfo) => {
     await navigateToEditor(page);
     await page.getByRole('menuitem', { name: 'View', exact: true }).click();
     const viewMenu = page.getByRole('menu', { name: 'View' });
@@ -89,6 +91,29 @@ test.describe('Grid system — real editor controls and visual overlay', () => {
       .click();
     const dialog = page.getByRole('dialog', { name: 'Guide Layouts' });
     await expect(dialog).toBeVisible();
+    await page.screenshot({
+      path: testInfo.outputPath('guide-layout-dialog-desktop.png'),
+    });
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    const responsiveMetrics = await dialog.evaluate((element) => {
+      const dialogRect = element.getBoundingClientRect();
+      const grid = element.querySelector<HTMLElement>('.guide-layout-dialog__grid');
+      if (!grid) throw new Error('Guide Layouts input grid not found');
+      return {
+        left: dialogRect.left,
+        right: dialogRect.right,
+        viewportWidth: window.innerWidth,
+        columns: getComputedStyle(grid).gridTemplateColumns.split(' ').length,
+      };
+    });
+    expect(responsiveMetrics.left).toBeGreaterThanOrEqual(0);
+    expect(responsiveMetrics.right).toBeLessThanOrEqual(responsiveMetrics.viewportWidth);
+    expect(responsiveMetrics.columns).toBe(2);
+    await page.screenshot({
+      path: testInfo.outputPath('guide-layout-dialog-mobile.png'),
+    });
+
     const count = dialog.locator('input').first();
     await count.fill('not-a-number');
     await expect(dialog.getByRole('button', { name: 'Apply' })).toBeDisabled();
