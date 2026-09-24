@@ -297,10 +297,7 @@ mod tests {
         let candidates = model_candidates(base, "upscale-realesrgan-anime");
 
         assert_eq!(candidates[0], base.join("upscale-realesrgan-anime"));
-        assert_eq!(
-            candidates[1],
-            base.join("upscale-realesrgan-anime.onnx")
-        );
+        assert_eq!(candidates[1], base.join("upscale-realesrgan-anime.onnx"));
         assert_eq!(candidates[2], base.join("realesrgan-anime-6b.onnx"));
     }
 }

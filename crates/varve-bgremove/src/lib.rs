@@ -18,9 +18,9 @@ pub mod model;
 pub mod runtime;
 
 #[cfg(feature = "ai")]
-pub mod webgpu_ep;
-#[cfg(feature = "ai")]
 pub mod session_pool;
+#[cfg(feature = "ai")]
+pub mod webgpu_ep;
 
 use image::DynamicImage;
 
