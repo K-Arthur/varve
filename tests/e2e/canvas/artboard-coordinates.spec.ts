@@ -23,9 +23,22 @@ import { dragOnCanvas, navigateToEditor } from '../shared';
 
 test.describe('Artboard-local coordinates', () => {
   test.describe.configure({ mode: 'serial' });
+  let autoRevealWasEnabled = false;
 
   test.beforeEach(async ({ page }) => {
     await navigateToEditor(page);
+    const autoReveal = page.getByRole('button', {
+      name: 'Auto-reveal canvas selection',
+    });
+    autoRevealWasEnabled = (await autoReveal.getAttribute('aria-pressed')) === 'true';
+  });
+
+  test.afterEach(async ({ page }) => {
+    if (!autoRevealWasEnabled) return;
+    const autoReveal = page.getByRole('button', {
+      name: 'Auto-reveal canvas selection',
+    });
+    if ((await autoReveal.getAttribute('aria-pressed')) === 'false') await autoReveal.click();
   });
 
   async function plainClick(
@@ -67,6 +80,28 @@ test.describe('Artboard-local coordinates', () => {
       .poll(async () => Number(await field.inputValue()), { timeout: 5000 })
       .toBeLessThan(expected + tolerance);
     return Number(await field.inputValue());
+  }
+
+  async function selectedOverlayBounds(page: import('@playwright/test').Page) {
+    const selectionRect = page.locator('svg:has(filter#selection-glow) rect').first();
+    await expect(selectionRect).toBeVisible();
+    const bounds = await selectionRect.boundingBox();
+    if (!bounds) throw new Error('selected object overlay has no screen bounds');
+    return bounds;
+  }
+
+  async function dragAtScreen(
+    page: import('@playwright/test').Page,
+    fromX: number,
+    fromY: number,
+    toX: number,
+    toY: number,
+  ) {
+    await page.mouse.move(fromX, fromY);
+    await page.mouse.down();
+    await page.mouse.move((fromX + toX) / 2, (fromY + toY) / 2, { steps: 5 });
+    await page.mouse.move(toX, toY, { steps: 5 });
+    await page.mouse.up();
   }
 
   test('child local X/Y is artboard-relative and survives artboard move', async ({ page }) => {
@@ -116,76 +151,112 @@ test.describe('Artboard-local coordinates', () => {
 
   test('cross-artboard drag reparents without teleport; undo/redo keeps world pose', async ({
     page,
-  }) => {
+  }, testInfo) => {
     test.setTimeout(120000);
-    // Artboard A at world (50,50) 400x300; Artboard B at (500,50) 400x300.
-    await page.keyboard.press('f');
-    await dragOnCanvas(page, 50, 50, 450, 350);
-
-    // Child inside A at local (60,60) — world (110,110).
-    await page.keyboard.press('r');
-    await dragOnCanvas(page, 110, 110, 250, 200);
-
-    // Create B only after the child is attached to A. Creating another
-    // artboard can recalculate the view, so creating the child afterwards
-    // from the old canvas box would place it outside A.
-    await page.keyboard.press('f');
-    await dragOnCanvas(page, 500, 50, 900, 350);
-
-    await page.keyboard.press('v');
-    await page.waitForTimeout(300);
-    // Both artboards must be visible for the cross-artboard gesture. Fit all
-    // also gives us the current zoom so the 500-world-pixel move can be
-    // converted to its screen-space equivalent.
-    await page.getByRole('button', { name: 'Fit all to viewport' }).click();
-    await page.waitForTimeout(500);
-
-    // Selection reveal is intentionally disabled here. Selecting the child
-    // through the layer tree gives us its actual post-layout screen bounds;
-    // the drag below then uses those bounds rather than assuming the camera
-    // stayed at its creation-time origin.
-    const autoRevealBtn = page.getByRole('button', {
+    // Use real screen geometry for setup. Artboard creation can change the
+    // camera, so fixed canvas-origin coordinates can put a shape into a
+    // different artboard even when the pointer gesture itself is valid.
+    const autoReveal = page.getByRole('button', {
       name: 'Auto-reveal canvas selection',
     });
-    await autoRevealBtn.click();
-    await expect(autoRevealBtn).toHaveAttribute('aria-pressed', 'false');
+    if (autoRevealWasEnabled) await autoReveal.click();
+    await expect(autoReveal).toHaveAttribute('aria-pressed', 'false');
+
+    const canvas = page.locator('canvas.editor-canvas__content-layer');
+    const canvasBox = await canvas.boundingBox();
+    if (!canvasBox) throw new Error('canvas must have screen bounds before artboard creation');
+    const frameWidth = Math.min(300, Math.floor((canvasBox.width - 65) / 2));
+    const frameHeight = Math.min(220, Math.floor(canvasBox.height - 60));
+    if (frameWidth < 160 || frameHeight < 120) {
+      throw new Error(
+        `canvas is too small for the two-artboard scenario: ${canvasBox.width}x${canvasBox.height}`,
+      );
+    }
+
+    const frameARow = page.locator('[role="treeitem"][data-layer-type="frame"]', {
+      hasText: 'Frame 1',
+    });
+    await page.keyboard.press('f');
+    await dragAtScreen(
+      page,
+      canvasBox.x + 20,
+      canvasBox.y + 30,
+      canvasBox.x + 20 + frameWidth,
+      canvasBox.y + 30 + frameHeight,
+    );
+    await page.keyboard.press('v');
+    await frameARow.click();
+    await expect(frameARow).toHaveAttribute('aria-selected', 'true');
+    const frameABox = await selectedOverlayBounds(page);
+    const frameAX = Number(await page.getByRole('spinbutton', { name: 'X (px)' }).inputValue());
+
+    // Draw a real child inside A using A's current overlay bounds. This makes
+    // its parent relationship independent of camera origin and zoom.
+    await page.keyboard.press('r');
+    await dragAtScreen(
+      page,
+      frameABox.x + frameABox.width * 0.2,
+      frameABox.y + frameABox.height * 0.2,
+      frameABox.x + frameABox.width * 0.58,
+      frameABox.y + frameABox.height * 0.58,
+    );
+
+    // Place B beside A using the live on-screen frame bounds, then expand A
+    // so selecting its child is independent of whichever frame is selected.
+    const frameBLeft = frameABox.x + frameABox.width + 15;
+    if (frameBLeft + frameWidth > canvasBox.x + canvasBox.width - 8) {
+      throw new Error('canvas does not have room to place the second artboard beside the first');
+    }
+    await page.keyboard.press('f');
+    await dragAtScreen(
+      page,
+      frameBLeft,
+      frameABox.y,
+      frameBLeft + frameWidth,
+      frameABox.y + frameHeight,
+    );
+    await page.keyboard.press('v');
+
     const frame2Row = page.locator('[role="treeitem"][data-layer-type="frame"]', {
       hasText: 'Frame 2',
     });
+    await frame2Row.click();
+    await expect(frame2Row).toHaveAttribute('aria-selected', 'true');
+    const frameBX = Number(await page.getByRole('spinbutton', { name: 'X (px)' }).inputValue());
+
+    if ((await frameARow.getAttribute('aria-expanded')) === 'false') {
+      await frameARow.getByRole('button', { name: 'Expand' }).click();
+    }
     const childRow = page.locator('[role="treeitem"][data-layer-type="shape"]', {
       hasText: 'Rectangle 1',
     });
     await expect(childRow).toHaveCount(1);
-    // Start from the frame selected by the frame tool and use the tree's
-    // arrow navigation. This follows the keyboard selection path without the
-    // row-pointer handler's revealSelection (fit-to-node) camera change.
-    await frame2Row.focus();
-    await expect(frame2Row).toBeFocused();
-    await page.keyboard.press('ArrowDown');
-    await page.keyboard.press('ArrowDown');
-    await page.keyboard.press('Enter');
-    await page.waitForTimeout(350);
+    await expect(childRow).toHaveAttribute('aria-level', '2');
+
+    // Fit both artboards before the move. From here, layer selection leaves
+    // the camera stable and the drag uses the selected child's real screen
+    // bounds.
+    await page.getByRole('button', { name: 'Fit all to viewport' }).click();
+    await page.waitForTimeout(500);
+    await childRow.click();
     await expect(childRow).toHaveAttribute('aria-selected', 'true');
 
-    const selectionRect = page.locator('svg:has(filter#selection-glow) rect').first();
-    const childBox = await selectionRect.boundingBox();
-    if (!childBox) throw new Error('selected child overlay not found');
+    const childX = Number(await page.getByRole('spinbutton', { name: 'X (px)' }).inputValue());
+    const childY = Number(await page.getByRole('spinbutton', { name: 'Y (px)' }).inputValue());
+    const childBox = await selectedOverlayBounds(page);
     const childCenter = {
       x: childBox.x + childBox.width / 2,
       y: childBox.y + childBox.height / 2,
     };
-    await readField(page, 'X', 60);
 
     const zoomPercent = Number(await page.locator('#menubar-zoom').inputValue());
-    const screenDelta = 500 * (zoomPercent / 100);
-    // A browser pointer stream quantizes the fractional screen delta to CSS
-    // pixels. At a fit-all zoom that can account for several world pixels,
-    // while a reparent teleport would be hundreds; keep the assertion tight
-    // enough to distinguish the two.
+    const targetLocalX = childX + 50;
+    const worldDelta = frameBX - frameAX + 50;
+    const screenDelta = worldDelta * (zoomPercent / 100);
     const reparentTolerance = 8;
-    // Drag the child 500 world px right into artboard B. Deriving the start
-    // from the overlay keeps the test correct if the viewport origin is
-    // fractional, while the zoom conversion keeps the world delta exact.
+    // Move the child into B while preserving its pointer-driven world pose.
+    // The destination is derived from the two live inspector positions, not
+    // from assumed world coordinates.
     // The hit tester normally resolves a click inside a frame to the frame.
     // Hold Ctrl only for pointer-down to resolve the child, then release it
     // before movement so SelectTool's normal drag-end auto-reparent path is
@@ -198,29 +269,46 @@ test.describe('Artboard-local coordinates', () => {
     await page.mouse.move(childCenter.x + screenDelta, childCenter.y, { steps: 10 });
     await page.mouse.up();
     await page.waitForTimeout(700);
+    if ((await frame2Row.getAttribute('aria-expanded')) === 'false') {
+      await frame2Row.getByRole('button', { name: 'Expand' }).click();
+    }
+    await childRow.click();
 
-    // The child follows the pointer by roughly +500 world px and is then
-    // reparented into B without an additional teleport. Its world X is now
-    // about 610, so its B-local X remains about 110 (not a second jump to the
-    // destination frame's origin).
-    await readField(page, 'X', 110, reparentTolerance);
-    await readField(page, 'Y', 60, 5);
+    // The child follows the pointer into B without a second jump during
+    // reparenting; its B-local X advances by the intentional 50 world px.
+    await readField(page, 'X', targetLocalX, reparentTolerance);
+    await readField(page, 'Y', childY, 5);
+    const afterDragBox = await selectedOverlayBounds(page);
+    expect(afterDragBox.x).toBeGreaterThan(childBox.x + screenDelta - 6);
+    expect(afterDragBox.x).toBeLessThan(childBox.x + screenDelta + 6);
+    await testInfo.attach('child-after-cross-artboard-drag', {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    });
 
-    // Undo the reparent: back in A at local (60,60).
+    // Undo restores the original parent-local coordinates and screen pose.
     await page.keyboard.press('Control+z');
     await page.waitForTimeout(600);
-    // The history operation can restore the prior primary selection. The
-    // camera no longer matters after the drag, so use the row directly to
-    // make the restored child authoritative in the inspector.
     await childRow.click();
-    await page.waitForTimeout(350);
-    await readField(page, 'X', 60);
+    await readField(page, 'X', childX, 4);
+    const afterUndoBox = await selectedOverlayBounds(page);
+    expect(afterUndoBox.x).toBeGreaterThan(childBox.x - 4);
+    expect(afterUndoBox.x).toBeLessThan(childBox.x + 4);
 
-    // Redo: back in B at (110, 60) — the world pose survived the cycle.
+    // Redo restores the destination parent and the same moved screen pose.
     await page.keyboard.press('Control+Shift+z');
     await page.waitForTimeout(600);
+    if ((await frame2Row.getAttribute('aria-expanded')) === 'false') {
+      await frame2Row.getByRole('button', { name: 'Expand' }).click();
+    }
     await childRow.click();
-    await page.waitForTimeout(350);
-    await readField(page, 'X', 110, reparentTolerance);
+    await readField(page, 'X', targetLocalX, reparentTolerance);
+    const afterRedoBox = await selectedOverlayBounds(page);
+    expect(afterRedoBox.x).toBeGreaterThan(afterDragBox.x - 4);
+    expect(afterRedoBox.x).toBeLessThan(afterDragBox.x + 4);
+    await testInfo.attach('child-after-cross-artboard-redo', {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    });
   });
 });

@@ -15,6 +15,14 @@ function layerRow(page: Page, text: string | RegExp): Locator {
   return page.getByRole('treeitem').filter({ hasText: text }).first();
 }
 
+async function selectedObjectBounds(page: Page) {
+  const selectionRect = page.locator('svg:has(filter#selection-glow) rect').first();
+  await expect(selectionRect).toBeVisible();
+  const bounds = await selectionRect.boundingBox();
+  if (!bounds) throw new Error('selected object overlay has no screen bounds');
+  return bounds;
+}
+
 /**
  * The app can perform one final boot navigation after DOMContentLoaded. Keep
  * this workflow independent from that startup race without weakening its
@@ -93,7 +101,7 @@ test.describe('Alignment and arrangement workflow', () => {
     });
   });
 
-  test('aligns a frame child to page and parent references without reparenting', async ({
+  test('aligns a frame child to canvas and parent references without reparenting', async ({
     page,
   }, testInfo) => {
     await navigateToStableEditor(page);
@@ -111,10 +119,8 @@ test.describe('Alignment and arrangement workflow', () => {
     await expect(frame).toBeVisible();
     await frame.click();
     await expect(page.getByRole('heading', { name: 'Align & distribute' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Align to page' })).toBeEnabled();
-    await expect(page.getByRole('button', { name: 'Align left edges' })).toBeDisabled();
-    const frameXField = page.getByRole('spinbutton', { name: /^x \(px\)$/i });
-    const frameX = Number(await frameXField.inputValue());
+    await expect(page.getByRole('button', { name: 'Align to canvas' })).toBeEnabled();
+    await expect(page.getByRole('button', { name: 'Align left edges to canvas' })).toBeEnabled();
     await page.keyboard.press('Escape');
 
     // Drawing inside the frame uses the supported canvas insertion path and
@@ -126,25 +132,29 @@ test.describe('Alignment and arrangement workflow', () => {
     await page.mouse.move(canvasBox.x + 340, canvasBox.y + 320);
     await page.mouse.up();
     await page.keyboard.press('Escape');
+    if ((await frame.getAttribute('aria-expanded')) === 'false') {
+      await frame.getByRole('button', { name: 'Expand' }).click();
+    }
     const rectangle = layerRow(page, /^Rectangle/);
     await expect(rectangle).toHaveAttribute('aria-level', '2');
 
     await rectangle.click();
     await expect(page.getByRole('heading', { name: 'Align & distribute' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Align left edges' })).toBeDisabled();
     const alignToFrame = page.getByRole('button', { name: 'Align to parent frame' });
     await expect(alignToFrame).toBeEnabled();
+    const alignLeftToFrame = page.getByRole('button', { name: 'Align left edges to parent frame' });
+    await expect(alignLeftToFrame).toBeEnabled();
     await alignToFrame.click();
-    await expect(page.getByRole('button', { name: 'Align left edges' })).toBeEnabled();
-    await page.getByRole('button', { name: 'Align left edges' }).click();
+    await alignLeftToFrame.click();
 
-    // A page reference remains explicit for a single child and does not
+    // A canvas reference remains explicit for a single child and does not
     // detach it from its frame. The active label is part of the user-visible
     // reference contract, not only internal state.
-    const alignToPage = page.getByRole('button', { name: 'Align to page' });
-    await alignToPage.click();
-    await expect(page.getByRole('button', { name: 'Align left edges' })).toBeEnabled();
-    await page.getByRole('button', { name: 'Align left edges' }).click();
+    const alignToCanvas = page.getByRole('button', { name: 'Align to canvas' });
+    await alignToCanvas.click();
+    const alignLeftToCanvas = page.getByRole('button', { name: 'Align left edges to canvas' });
+    await expect(alignLeftToCanvas).toBeEnabled();
+    await alignLeftToCanvas.click();
     await page.getByRole('button', { name: 'Fit all to viewport' }).click();
     await page.waitForTimeout(750);
 
@@ -152,16 +162,40 @@ test.describe('Alignment and arrangement workflow', () => {
     // and the screenshot proves the applied relationship is rendered.
     await expect(rectangle).toHaveAttribute('aria-level', '2');
     const xField = page.getByRole('spinbutton', { name: /^x \(px\)$/i });
-    // The inspector reports the child's parent-local X. Page-left is world
-    // X=0, so the local value plus the unchanged frame origin must be zero.
-    await expect.poll(async () => Number(await xField.inputValue()) + frameX).toBeCloseTo(0, 8);
-    await expect(page.getByRole('button', { name: 'Align to page (active)' })).toBeVisible();
-    await expect(canvas).toHaveScreenshot('nested-frame-reference-alignment.png', {
-      maxDiffPixels: 7000,
-    });
+    // The Design Canvas uses its content extents. With this frame as the only
+    // top-level object, its left edge defines the canvas-left boundary, so
+    // the child's parent-local X becomes zero while the frame stays in place.
+    await expect.poll(async () => Number(await xField.inputValue())).toBeCloseTo(0, 8);
+    await expect(page.getByRole('button', { name: 'Align to canvas (active)' })).toBeVisible();
+
+    // Compare the rendered bounds in the browser. The canvas target and the
+    // single root frame share their left edge in this document, so the child
+    // overlay must line up with the frame while staying at tree depth two.
+    const autoReveal = page.getByRole('button', { name: 'Auto-reveal canvas selection' });
+    const autoRevealWasEnabled = (await autoReveal.getAttribute('aria-pressed')) === 'true';
+    if (autoRevealWasEnabled) await autoReveal.click();
+    try {
+      await frame.click();
+      await expect(frame).toHaveAttribute('aria-selected', 'true');
+      const frameBounds = await selectedObjectBounds(page);
+      await rectangle.click();
+      await expect(rectangle).toHaveAttribute('aria-selected', 'true');
+      const rectangleBounds = await selectedObjectBounds(page);
+      expect(Math.abs(rectangleBounds.x - frameBounds.x)).toBeLessThan(2);
+    } finally {
+      if (autoRevealWasEnabled && (await autoReveal.getAttribute('aria-pressed')) === 'false') {
+        await autoReveal.click();
+      }
+    }
+
+    const dismissHint = page.getByRole('button', { name: 'Dismiss hint' });
+    if (await dismissHint.isVisible().catch(() => false)) {
+      await dismissHint.click();
+      await dismissHint.waitFor({ state: 'hidden', timeout: 1000 }).catch(() => undefined);
+    }
     await page.screenshot({ path: 'test-results/nested-frame-reference-alignment.png' });
     await testInfo.attach('nested-frame-reference-alignment', {
-      body: await page.screenshot(),
+      body: await canvas.screenshot(),
       contentType: 'image/png',
     });
   });
