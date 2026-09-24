@@ -17,6 +17,7 @@ agent work; this task stages only the files below).
 | Liquify scene state | `packages/scene/src/liquify*.ts` |
 | IR build integration | `packages/editor/src/render/liquifyFieldCache.ts` |
 | FS dialog | `packages/editor/src/components/FrequencySeparation/**` |
+| Shell integration | `packages/editor/src/components/Shell/index.ts` | Re-export `FrequencySeparationDialogHost`, already mounted by `Shell.tsx` |
 | Liquify tool + overlay | `packages/editor/src/tools/LiquifyTool.ts`, `packages/editor/src/components/Liquify/**` |
 | E2E | `tests/e2e/canvas/frequency-separation.spec.ts`, `tests/e2e/canvas/liquify.spec.ts` |
 | Docs | `docs/architecture/frequency-separation-liquify.md`, this file |

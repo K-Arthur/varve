@@ -1,5 +1,6 @@
 export { ColorConversionHost } from '../ColorConversion/ColorConversionHost';
 export { EffectStudioDialogHost } from '../EffectStudio/EffectStudioDialogHost';
+export { FrequencySeparationDialogHost } from '../FrequencySeparation/FrequencySeparationDialogHost';
 export { ImportProgress } from '../ImportProgress';
 export { ImportResults } from '../ImportResults';
 export { ThumbnailPickerHost } from '../ThumbnailPicker/ThumbnailPickerHost';
