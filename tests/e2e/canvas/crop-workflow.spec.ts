@@ -99,12 +99,18 @@ test.describe('Image crop workflow — trim, expand, convert, reset', () => {
     await page.getByRole('treeitem').first().click();
     await page.waitForTimeout(300);
 
-    // Scroll inspector down to expose Expand Bounds section
-    const inspectorPanel = page.locator('.inspector-panel');
-    if (await inspectorPanel.isVisible()) {
-      await inspectorPanel.evaluate((el) => (el.scrollTop = el.scrollHeight));
+    const expandBoundsSection = page.locator(
+      '.insp-disclosure[data-section-id="image-crop"][data-subsection-id="expandBounds"]',
+    );
+    await expect(expandBoundsSection).toBeVisible();
+    await expandBoundsSection.scrollIntoViewIfNeeded();
+    const expandBoundsToggle = expandBoundsSection.getByRole('button', {
+      name: 'Expand Bounds',
+      exact: true,
+    });
+    if ((await expandBoundsToggle.getAttribute('aria-expanded')) === 'false') {
+      await expandBoundsToggle.click();
     }
-    await page.waitForTimeout(300);
 
     // The Convert to Crop & Expand button should appear for images not in crop mode
     const convertBtn = page.getByRole('button', {
@@ -123,6 +129,9 @@ test.describe('Image crop workflow — trim, expand, convert, reset', () => {
 
     // At least one should be visible depending on current fit mode
     expect(convertVisible || expandVisible).toBe(true);
+    await expect(
+      expandBoundsSection.getByRole('button', { name: 'Generative Expand', exact: true }),
+    ).toBeVisible();
   });
 
   test('Trim to Subject button triggers via keyboard shortcut', async ({ page }) => {
