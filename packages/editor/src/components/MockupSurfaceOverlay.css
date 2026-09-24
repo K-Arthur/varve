@@ -36,7 +36,7 @@
   padding: var(--space-1) var(--space-2);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-pill, var(--radius-control-compact));
-  background: var(--surface-raised, var(--surface-muted));
+  background: var(--color-surface-raised, var(--color-surface-sunken));
   color: var(--text-primary);
   font-size: var(--font-size-xs);
   white-space: nowrap;
@@ -70,12 +70,12 @@
   display: block;
   border-radius: 50%;
   background: var(--color-accent-primary);
-  box-shadow: 0 0 0 2px var(--surface-raised, var(--surface-muted));
+  box-shadow: 0 0 0 2px var(--color-surface-raised, var(--color-surface-sunken));
 }
 
 .mockup-overlay__handle:focus-visible .mockup-overlay__handle-dot {
   box-shadow:
-    0 0 0 2px var(--surface-raised, var(--surface-muted)),
+    0 0 0 2px var(--color-surface-raised, var(--color-surface-sunken)),
     0 0 0 4px var(--color-accent-primary);
 }
 
@@ -90,7 +90,10 @@
   padding: var(--space-1) var(--space-2);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-control);
-  background: var(--elevation-surface-raised, var(--surface-raised, var(--surface-muted)));
+  background: var(
+    --elevation-surface-raised,
+    var(--color-surface-raised, var(--color-surface-sunken))
+  );
   box-shadow: var(--shadow-md);
   pointer-events: auto;
 }
@@ -130,7 +133,7 @@
   margin: 0;
   padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-control-compact);
-  background: var(--surface-muted);
+  background: var(--color-surface-sunken);
   color: var(--text-secondary);
   font-size: var(--font-size-xs);
 }

@@ -51,10 +51,7 @@
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control-compact);
   min-height: 96px;
-  background: repeating-conic-gradient(
-    var(--color-surface-checker-a, rgba(0, 0, 0, 0.06)) 0% 25%,
-    transparent 0% 50%
-  );
+  background: repeating-conic-gradient(var(--color-surface-checker-a) 0% 25%, transparent 0% 50%);
   background-size: 12px 12px;
   overflow: hidden;
 }

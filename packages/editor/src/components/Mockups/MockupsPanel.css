@@ -118,7 +118,7 @@
 .mockups-panel__chip--active {
   background: var(--color-accent-primary);
   border-color: var(--color-accent-primary);
-  color: var(--text-on-accent, #ffffff);
+  color: var(--text-on-accent);
 }
 .mockups-panel__chip--active:hover {
   background: var(--color-interactive-hover);

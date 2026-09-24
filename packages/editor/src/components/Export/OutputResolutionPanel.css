@@ -55,8 +55,8 @@
   padding: var(--space-1) var(--space-2);
   border: var(--border-micro);
   border-radius: var(--radius-control-compact);
-  background: var(--elevation-surface);
-  color: var(--color-text);
+  background: var(--color-surface-overlay);
+  color: var(--color-text-primary);
   font: inherit;
   font-size: var(--font-size-xs);
 }

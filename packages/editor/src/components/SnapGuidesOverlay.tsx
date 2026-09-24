@@ -20,7 +20,7 @@ function guideColor(type?: string, targetId?: string): string {
   }
   switch (type) {
     case 'midpoint':
-      return resolveCanvasColor('var(--color-feedback-success, #22c55e)');
+      return resolveCanvasColor('var(--color-feedback-success)');
     case 'size-match':
       return resolveCanvasColor('var(--color-canvas-guide)');
     default:

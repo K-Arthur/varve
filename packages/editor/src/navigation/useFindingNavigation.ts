@@ -437,7 +437,7 @@ function flashTarget(doc: Document, nodeId?: string): void {
       const ael = document.querySelector(`[data-layer-id="${aid}"]`);
       if (ael instanceof HTMLElement) {
         ael.style.transition = `background-color ${FLASH_DURATION_MS}ms ease-out`;
-        ael.style.backgroundColor = 'var(--color-accent-subtle, rgba(0, 128, 255, 0.08))';
+        ael.style.backgroundColor = 'var(--color-accent-subtle)';
         setTimeout(() => {
           ael.style.backgroundColor = '';
         }, FLASH_DURATION_MS);

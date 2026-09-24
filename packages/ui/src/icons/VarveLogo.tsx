@@ -44,9 +44,9 @@ export const VarveLogo = forwardRef<SVGSVGElement, VarveLogoProps>(function Varv
   return (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" {...commonProps}>
       <title>{label ?? 'Varve logo'}</title>
-      <path d="M20,26 H84 L92,46 H28 Z" fill="var(--color-brand-teal, #39D0C6)" />
-      <path d="M28,54 H92 L100,74 H36 Z" fill="var(--color-brand-sandstone, #E28C3C)" />
-      <path d="M36,82 H100 L108,102 H44 Z" fill="var(--color-brand-terracotta, #C54B3A)" />
+      <path d="M20,26 H84 L92,46 H28 Z" fill="var(--color-brand-teal)" />
+      <path d="M28,54 H92 L100,74 H36 Z" fill="var(--color-brand-sandstone)" />
+      <path d="M36,82 H100 L108,102 H44 Z" fill="var(--color-brand-terracotta)" />
     </svg>
   );
 });

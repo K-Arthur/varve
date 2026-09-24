@@ -291,7 +291,7 @@ function Handle({
       cy={point.y}
       r={active ? HANDLE_RADIUS + 2 : HANDLE_RADIUS}
       fill="var(--color-canvas-selection)"
-      stroke="var(--color-surface-raised, #fff)"
+      stroke="var(--color-surface-raised)"
       strokeWidth={2}
       role="button"
       tabIndex={0}

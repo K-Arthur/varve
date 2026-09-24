@@ -31,7 +31,7 @@
 
 .batch-rename-dialog__input:focus {
   border-color: var(--color-interactive-default);
-  box-shadow: 0 0 0 2px var(--color-accent-subtle, rgb(57 208 198 / 0.15));
+  box-shadow: 0 0 0 2px var(--color-accent-subtle);
 }
 
 .batch-rename-dialog__input--error {

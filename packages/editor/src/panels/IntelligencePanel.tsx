@@ -2174,7 +2174,7 @@ function PromoteDialog({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'var(--elevation-scrim, rgba(0,0,0,0.4))',
+        background: 'var(--elevation-scrim)',
       }}
       onClick={onClose}
       onKeyDown={(e) => {

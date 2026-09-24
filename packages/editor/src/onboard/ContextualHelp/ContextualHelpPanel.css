@@ -1,9 +1,9 @@
 .contextual-help-panel {
   position: fixed;
-  top: var(--menubar-height, 36px);
+  top: var(--menubar-total-height, 36px);
   right: 0;
   width: 320px;
-  height: calc(100vh - var(--menubar-height, 36px));
+  height: calc(100vh - var(--menubar-total-height, 36px));
   background: var(--elevation-surface-default);
   border-left: var(--border-micro);
   z-index: var(--z-overlay, 100);

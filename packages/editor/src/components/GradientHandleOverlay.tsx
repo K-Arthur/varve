@@ -329,7 +329,7 @@ export function GradientHandleOverlay({
             })}
             <HandleCircle
               point={startCanvas}
-              fill="var(--elevation-surface-default, #fff)"
+              fill="var(--elevation-surface-default)"
               active={isDragging(startKind)}
               handleKind={startKind}
               fillIndex={handle.fillIndex}

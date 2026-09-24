@@ -71,7 +71,7 @@
 .native-accel__error {
   margin: var(--space-2) 0 0;
   font-size: var(--font-size-xs);
-  color: var(--color-status-danger-text, var(--color-text-primary));
+  color: var(--color-text-danger, var(--color-text-primary));
 }
 .native-accel__actions {
   display: flex;

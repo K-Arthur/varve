@@ -131,14 +131,14 @@ function showOverlay(): void {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    background: 'color-mix(in oklch, var(--color-interactive-default, #3d9b8f) 12%, transparent)',
-    border: '3px dashed var(--color-interactive-default, #3d9b8f)',
+    background: 'color-mix(in oklch, var(--color-interactive-default) 12%, transparent)',
+    border: '3px dashed var(--color-interactive-default)',
     borderRadius: 'var(--radius-floating)',
     zIndex: '99999',
     pointerEvents: 'none',
     fontSize: '15px',
     fontWeight: '600',
-    color: 'var(--color-text-primary, #1a1a1a)',
+    color: 'var(--color-text-primary)',
     backdropFilter: 'blur(2px)',
   });
   overlayEl.textContent = 'Release to detach panel into a new window';

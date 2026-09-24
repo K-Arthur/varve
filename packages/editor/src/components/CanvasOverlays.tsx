@@ -785,7 +785,7 @@ export function CanvasOverlays({
             pointerEvents: 'none',
             minWidth: 132,
             padding: 'var(--space-2)',
-            border: '1px solid var(--color-border-accent)',
+            border: '1px solid var(--color-accent-primary)',
             borderRadius: 'var(--radius-surface)',
             background: 'var(--elevation-surface-raised)',
             color: 'var(--color-text-primary)',

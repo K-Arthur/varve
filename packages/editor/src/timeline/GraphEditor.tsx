@@ -422,7 +422,7 @@ export const GraphEditor: FC<GraphEditorProps> = ({
                           y1={y}
                           x2={x + kf.spatialTangents.ti[0] * plotWidth}
                           y2={y - kf.spatialTangents.ti[1] * plotHeight * 0.1}
-                          stroke="var(--color-accent-primary, #39d0c6)"
+                          stroke="var(--color-accent-primary)"
                           strokeWidth={1}
                           opacity={0.5}
                           aria-hidden
@@ -431,7 +431,7 @@ export const GraphEditor: FC<GraphEditorProps> = ({
                           cx={x + kf.spatialTangents.ti[0] * plotWidth}
                           cy={y - kf.spatialTangents.ti[1] * plotHeight * 0.1}
                           r={3}
-                          fill="var(--color-accent-primary, #39d0c6)"
+                          fill="var(--color-accent-primary)"
                           style={{ cursor: 'grab', pointerEvents: 'auto' }}
                           aria-hidden
                         />
@@ -441,7 +441,7 @@ export const GraphEditor: FC<GraphEditorProps> = ({
                           y1={y}
                           x2={x + kf.spatialTangents.to[0] * plotWidth}
                           y2={y - kf.spatialTangents.to[1] * plotHeight * 0.1}
-                          stroke="var(--color-accent-primary, #39d0c6)"
+                          stroke="var(--color-accent-primary)"
                           strokeWidth={1}
                           opacity={0.5}
                           aria-hidden
@@ -450,7 +450,7 @@ export const GraphEditor: FC<GraphEditorProps> = ({
                           cx={x + kf.spatialTangents.to[0] * plotWidth}
                           cy={y - kf.spatialTangents.to[1] * plotHeight * 0.1}
                           r={3}
-                          fill="var(--color-accent-primary, #39d0c6)"
+                          fill="var(--color-accent-primary)"
                           style={{ cursor: 'grab', pointerEvents: 'auto' }}
                           aria-hidden
                         />

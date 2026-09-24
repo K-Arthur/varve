@@ -143,7 +143,7 @@ export function CanvasNameLabels({
             fontFamily="var(--font-body, system-ui, sans-serif)"
             fontWeight={isFrame ? 600 : 500}
             paintOrder="stroke"
-            stroke="var(--color-surface-canvas, transparent)"
+            stroke="var(--color-surface-app, transparent)"
             strokeWidth={2}
             data-node-id={label.nodeId}
             data-instance-id={label.id}
