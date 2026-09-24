@@ -86,11 +86,7 @@ describe('canonical path editing', () => {
       points: [point(0, 0), point(100, 0)],
       contours: [
         [point(0, 0), point(100, 0)],
-        [
-          { ...point(20, 20), mode: 'automatic' },
-          point(80, 20),
-          point(50, 80),
-        ],
+        [{ ...point(20, 20), mode: 'automatic' }, point(80, 20), point(50, 80)],
       ],
       closed: false,
     };
