@@ -11,7 +11,7 @@
  *  - the preference persists across reload.
  *
  * The extraction math itself is covered by unit tests; this spec proves the
- * user-facing path works end to end.
+ * user-facing path works end to end through the contextual fill controls.
  */
 import { expect, type Page, test } from '@playwright/test';
 import { navigateToEditor } from '../shared';
@@ -87,8 +87,17 @@ async function expectCanvasPixelsUnchanged(page: Page): Promise<void> {
 }
 
 /** Draw one rectangle through the real tool, then recolour it saturated red
- *  through the real Inspector fill picker. */
+ *  through the contextual toolbar's fill picker. */
 async function drawSaturatedRectangle(page: Page) {
+  const historyWarnings: string[] = [];
+  page.on('console', (message) => {
+    if (
+      message.type() === 'warning' &&
+      message.text().includes('[history] updateDoc called outside transaction')
+    ) {
+      historyWarnings.push(message.text());
+    }
+  });
   const canvas = page.locator('canvas.editor-canvas__content-layer');
   await canvas.waitFor({ state: 'visible', timeout: 15000 });
   const box = await canvas.boundingBox();
@@ -103,8 +112,8 @@ async function drawSaturatedRectangle(page: Page) {
   await page.getByRole('treeitem').first().waitFor({ timeout: 5000 });
 
   await page
-    .getByRole('button', { name: /^Fill colour/, exact: false })
-    .first()
+    .getByRole('toolbar', { name: 'Contextual properties' })
+    .getByRole('button', { name: 'Fill colour' })
     .click();
   const hex = page.getByRole('textbox', { name: 'Hex color' });
   await hex.waitFor({ timeout: 5000 });
@@ -112,6 +121,7 @@ async function drawSaturatedRectangle(page: Page) {
   await hex.press('Enter');
   await page.keyboard.press('Escape'); // close the popover
   await page.keyboard.press('Escape'); // deselect
+  expect(historyWarnings).toEqual([]);
 }
 
 test('an empty page keeps the fixed accent while the mode is on', async ({ page }) => {

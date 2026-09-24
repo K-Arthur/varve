@@ -33,14 +33,25 @@ async function createRectWithGradient(page: import('@playwright/test').Page) {
 }
 
 /**
- * Switch the fill type through the Fill section's compact type menu.
+ * Switch the fill type through the Fill section's labelled type select.
  */
 async function switchFillToGradient(page: import('@playwright/test').Page) {
-  const typeTrigger = page.getByRole('button', { name: /^Fill type:/i }).first();
+  const typeTrigger = page.getByRole('combobox', { name: 'Fill type', exact: true }).first();
   if (await typeTrigger.isVisible({ timeout: 2000 }).catch(() => false)) {
     await selectFillType(page, 'Gradient');
     await page.waitForTimeout(500);
   }
+
+  // Gradient controls live in the swatch popover. The options section is
+  // disclosure-collapsed until the user opens it.
+  await page.getByRole('button', { name: 'Fill gradient', exact: true }).first().click();
+  const options = page.getByRole('button', { name: 'Gradient options', exact: true });
+  await expect(options).toBeVisible();
+  await options.click();
+  await expect(options).toHaveAttribute('aria-expanded', 'true');
+  await expect(
+    page.getByRole('combobox', { name: 'Gradient interpolation space', exact: true }),
+  ).toBeVisible();
 }
 
 /**
@@ -231,31 +242,61 @@ test.describe('Gradient editor accessibility', () => {
     expect(role).toBe('slider');
   });
 
-  test('gradient stop bar stays within a narrow properties panel', async ({ page }) => {
+  test('gradient editor stays inside a narrow viewport', async ({ page }, testInfo) => {
     await navigateToCleanEditor(page);
     await createRectWithGradient(page);
+    // Narrow the workspace after startup so the responsive navigation helper
+    // can finish its editor-ready check before the side panels adapt.
+    await page.setViewportSize({ width: 1024, height: 720 });
     await switchFillToGradient(page);
+    await page
+      .getByRole('combobox', { name: 'Gradient interpolation space', exact: true })
+      .scrollIntoViewIfNeeded();
 
     const metrics = await page.locator('.gradient-editor__bar').evaluate((bar) => {
-      const panel = bar.closest('#insp-tabpanel-properties');
+      const dialog = bar.closest('[role="dialog"]');
       const wrapper = bar.parentElement;
-      if (!panel || !wrapper) throw new Error('gradient bar containment elements not found');
+      if (!dialog || !wrapper) throw new Error('gradient popover containment elements not found');
       const barRect = bar.getBoundingClientRect();
-      const panelRect = panel.getBoundingClientRect();
+      const dialogRect = dialog.getBoundingClientRect();
       const wrapperRect = wrapper.getBoundingClientRect();
       return {
         barLeft: barRect.left,
         barRight: barRect.right,
-        panelLeft: panelRect.left,
-        panelRight: panelRect.right,
+        dialogLeft: dialogRect.left,
+        dialogRight: dialogRect.right,
         wrapperLeft: wrapperRect.left,
         wrapperRight: wrapperRect.right,
+        viewportWidth: window.innerWidth,
       };
     });
 
-    expect(metrics.barLeft).toBeGreaterThan(metrics.panelLeft);
-    expect(metrics.barRight).toBeLessThan(metrics.panelRight);
-    expect(metrics.wrapperLeft).toBeGreaterThanOrEqual(metrics.panelLeft);
-    expect(metrics.wrapperRight).toBeLessThanOrEqual(metrics.panelRight);
+    expect(metrics.barLeft).toBeGreaterThanOrEqual(metrics.dialogLeft);
+    expect(metrics.barRight).toBeLessThanOrEqual(metrics.dialogRight);
+    expect(metrics.wrapperLeft).toBeGreaterThanOrEqual(metrics.dialogLeft);
+    expect(metrics.wrapperRight).toBeLessThanOrEqual(metrics.dialogRight);
+    expect(metrics.dialogLeft).toBeGreaterThanOrEqual(0);
+    expect(metrics.dialogRight).toBeLessThanOrEqual(metrics.viewportWidth);
+    const midpoint = page.getByRole('slider', { name: 'Stop 1 midpoint' });
+    await expect(midpoint).toBeVisible();
+    await midpoint.scrollIntoViewIfNeeded();
+    const scrollMetrics = await page.locator('.insp-picker-dialog__body').evaluate((body) => {
+      const slider = body.querySelector<HTMLInputElement>('input[aria-label="Stop 1 midpoint"]');
+      if (!slider) throw new Error('gradient midpoint slider not found in the popover body');
+      const bodyRect = body.getBoundingClientRect();
+      const sliderRect = slider.getBoundingClientRect();
+      return {
+        bodyTop: bodyRect.top,
+        bodyBottom: bodyRect.bottom,
+        sliderTop: sliderRect.top,
+        sliderBottom: sliderRect.bottom,
+        scrollable: body.scrollHeight > body.clientHeight,
+      };
+    });
+    expect(scrollMetrics.scrollable).toBe(true);
+    expect(scrollMetrics.sliderTop).toBeGreaterThanOrEqual(scrollMetrics.bodyTop);
+    expect(scrollMetrics.sliderBottom).toBeLessThanOrEqual(scrollMetrics.bodyBottom);
+    await page.mouse.move(1018, 710);
+    await page.screenshot({ path: testInfo.outputPath('gradient-editor-narrow-viewport.png') });
   });
 });

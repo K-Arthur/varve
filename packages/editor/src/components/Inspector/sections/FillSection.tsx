@@ -264,9 +264,9 @@ export function FillSection({ nodes }: FillSectionProps) {
 
   const updateFill = useCallback(
     (index: number, fill: Fill) => {
-      updateSelectedFillAt(index, fill);
+      editor.groupCompoundOperation('Edit fill', () => updateSelectedFillAt(index, fill));
     },
-    [updateSelectedFillAt],
+    [editor.groupCompoundOperation, updateSelectedFillAt],
   );
 
   const addFill = useCallback(
@@ -757,7 +757,10 @@ function FillRow({
             onChange={() => undefined}
             gradient={{
               value: representativeGradient,
-              onChange: (g) => editor.updateSelectedFillGradientAt(index, g),
+              onChange: (g) =>
+                editor.groupCompoundOperation('Edit fill', () =>
+                  editor.updateSelectedFillGradientAt(index, g),
+                ),
               documentGradientInterpolation,
               mixedInterpolationSpace: gradientInterpMixed,
               mixedHue: gradientHueMixed,

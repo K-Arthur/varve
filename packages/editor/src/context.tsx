@@ -5511,14 +5511,16 @@ export function EditorProvider({
       setSelectedFill: (color) => {
         const sel = state.selection;
         if (sel.length === 0) return;
-        updateDoc((doc) => {
-          let d = doc;
-          for (const id of sel) {
-            const node = d.nodes[id];
-            if (!node) continue;
-            d = { ...d, nodes: { ...d.nodes, [id]: { ...node, fill: color } } };
-          }
-          return d;
+        groupCompoundOperation('Change fill color', () => {
+          updateDoc((doc) => {
+            let d = doc;
+            for (const id of sel) {
+              const node = d.nodes[id];
+              if (!node) continue;
+              d = { ...d, nodes: { ...d.nodes, [id]: { ...node, fill: color } } };
+            }
+            return d;
+          });
         });
       },
 
