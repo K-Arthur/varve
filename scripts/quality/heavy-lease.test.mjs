@@ -105,8 +105,7 @@ function waitForExit(child) {
   assert.doesNotMatch(out, /below the/);
 }
 
-// Reclaiming an over-age lock must not let its former owner delete the new
-// owner's lease when the former task eventually exits.
+// A long-running owner retains its lease even when the recorded timestamp is old.
 {
   const runtimeDirectory = mkdtempSync(join(tmpdir(), 'varve-heavy-lease-race-'));
   const releaseOldOwner = join(runtimeDirectory, 'release-old-owner');
@@ -114,15 +113,14 @@ function waitForExit(child) {
     ...process.env,
     XDG_RUNTIME_DIR: runtimeDirectory,
     VARVE_LEASE_MIN_MEM_MB: '0',
-    VARVE_LEASE_STALE: '0',
-    VARVE_LEASE_TIMEOUT: '5000',
+    VARVE_LEASE_TIMEOUT: '15000',
   };
   let oldOwner;
   let newOwner;
   try {
     const waitForSignal =
       `const fs = require('node:fs'); const signal = ${JSON.stringify(releaseOldOwner)}; ` +
-      'const deadline = Date.now() + 5000; const poll = () => { ' +
+      'const deadline = Date.now() + 20000; const poll = () => { ' +
       'if (fs.existsSync(signal)) return; if (Date.now() >= deadline) process.exit(2); ' +
       'setTimeout(poll, 10); }; poll();';
     oldOwner = spawn('node', [SCRIPT, 'old-owner', '--', 'node', '-e', waitForSignal], {
@@ -131,28 +129,76 @@ function waitForExit(child) {
     });
     const oldExit = waitForExit(oldOwner);
     const first = await waitForLease(runtimeDirectory, 'old-owner');
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    writeFileSync(
+      first.path,
+      JSON.stringify({ ...first.lease, startedAt: Date.now() - 60 * 60 * 1000 }, null, 2),
+    );
 
     newOwner = spawn(
       'node',
-      [SCRIPT, 'new-owner', '--', 'node', '-e', 'setTimeout(() => {}, 1200)'],
-      { env, stdio: 'ignore' },
+      [SCRIPT, 'new-owner', '--', 'node', '-e', 'console.log("new-owner-ran")'],
+      { env, stdio: ['ignore', 'pipe', 'pipe'] },
     );
     const newExit = waitForExit(newOwner);
-    const replacement = await waitForLease(runtimeDirectory, 'new-owner');
-    assert.notEqual(replacement.lease.leaseId, first.lease.leaseId);
+    let newOutput = '';
+    newOwner.stdout.setEncoding('utf8').on('data', (chunk) => (newOutput += chunk));
+    newOwner.stderr.setEncoding('utf8').on('data', (chunk) => (newOutput += chunk));
+    const waitDeadline = Date.now() + 5000;
+    while (!newOutput.includes('waiting for old-owner') && Date.now() < waitDeadline) {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    assert.match(newOutput, /waiting for old-owner/);
+    assert.doesNotMatch(newOutput, /reclaiming stale lease/);
+    assert.equal(
+      JSON.parse(readFileSync(first.path, 'utf-8')).leaseId,
+      first.lease.leaseId,
+      'old owner lease should remain while its PID is active',
+    );
 
     writeFileSync(releaseOldOwner, 'release');
     assert.equal((await oldExit).code, 0);
-    assert.equal(
-      JSON.parse(readFileSync(replacement.path, 'utf-8')).leaseId,
-      replacement.lease.leaseId,
-    );
     assert.equal((await newExit).code, 0);
-    assert.equal(existsSync(replacement.path), false);
+    assert.match(newOutput, /new-owner-ran/);
+    assert.equal(existsSync(first.path), false);
   } finally {
     oldOwner?.kill('SIGTERM');
     newOwner?.kill('SIGTERM');
+    rmSync(runtimeDirectory, { recursive: true, force: true });
+  }
+}
+
+// A finishing owner must not unlink a replacement lock with a different ID.
+{
+  const runtimeDirectory = mkdtempSync(join(tmpdir(), 'varve-heavy-lease-release-'));
+  const releaseOwner = join(runtimeDirectory, 'release-owner');
+  const env = {
+    ...process.env,
+    XDG_RUNTIME_DIR: runtimeDirectory,
+    VARVE_LEASE_MIN_MEM_MB: '0',
+    VARVE_LEASE_TIMEOUT: '5000',
+  };
+  let owner;
+  try {
+    const waitForSignal =
+      `const fs = require('node:fs'); const signal = ${JSON.stringify(releaseOwner)}; ` +
+      'const poll = () => { if (fs.existsSync(signal)) return; setTimeout(poll, 10); }; poll();';
+    owner = spawn('node', [SCRIPT, 'original-owner', '--', 'node', '-e', waitForSignal], {
+      env,
+      stdio: 'ignore',
+    });
+    const ownerExit = waitForExit(owner);
+    const original = await waitForLease(runtimeDirectory, 'original-owner');
+    const replacement = {
+      ...original.lease,
+      leaseId: 'replacement-lease-id',
+      label: 'replacement',
+    };
+    writeFileSync(original.path, JSON.stringify(replacement, null, 2));
+    writeFileSync(releaseOwner, 'release');
+    assert.equal((await ownerExit).code, 0);
+    assert.equal(JSON.parse(readFileSync(original.path, 'utf-8')).leaseId, replacement.leaseId);
+  } finally {
+    owner?.kill('SIGTERM');
     rmSync(runtimeDirectory, { recursive: true, force: true });
   }
 }

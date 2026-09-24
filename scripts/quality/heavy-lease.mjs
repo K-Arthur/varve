@@ -27,7 +27,8 @@
  *     override, not the default escape hatch for a slow wait.
  *
  * Lock file: $XDG_RUNTIME_DIR|/tmp/varve-leases/<common-gitdir-hash>.lock
- * Stale locks (older than 30 min or dead owner PID) are reclaimed.
+ * A lease is reclaimed only after its owner PID exits. Large builds can run
+ * for hours, so wall-clock age alone never makes an active owner stale.
  */
 
 import { execSync, spawn } from 'node:child_process';
@@ -37,7 +38,6 @@ import { freemem, homedir, platform, tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
 const MAX_WAIT_MS = Number(process.env.VARVE_LEASE_TIMEOUT ?? 600000);
-const STALE_MS = Number(process.env.VARVE_LEASE_STALE ?? 1800000);
 // Below this, a freshly-launched Chromium (~300-500MB RSS to first paint)
 // is a plausible OOM-kill candidate rather than a safe bet. Tune with
 // VARVE_LEASE_MIN_MEM_MB; the number is deliberately conservative because
@@ -140,7 +140,7 @@ async function acquire(label) {
         /* lost the race; loop */
       }
     } else {
-      if (!pidAlive(lease.pid) || Date.now() - lease.startedAt > STALE_MS) {
+      if (!pidAlive(lease.pid)) {
         console.warn(`heavy-lease: reclaiming stale lease (${JSON.stringify(lease)})`);
         try {
           unlinkSync(path);
@@ -161,8 +161,8 @@ async function acquire(label) {
 
 function release(path, leaseId) {
   try {
-    // A task that outlives STALE_MS may have had its lease reclaimed. It must
-    // not remove the replacement task's lock when it eventually exits.
+    // If an owner PID died and another task acquired the lock before this
+    // process handled its exit, never remove that replacement lease.
     if (leaseId && readLease(path)?.leaseId === leaseId) unlinkSync(path);
   } catch {
     /* already released */

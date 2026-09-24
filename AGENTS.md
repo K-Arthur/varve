@@ -407,6 +407,10 @@ long one: a mid-run crash on file 3 of 6 then costs re-running only that
 slice, not starting over, and each invocation gets its own fresh memory
 check at start.
 
+Active leases are never reclaimed by age. A large build can legitimately run
+for more than 30 minutes; reclaim only after its recorded owner PID exits. Do
+not delete a live lease to make room for another validation task.
+
 ### Standard nav helper for canvas specs
 ```ts
 async function navigateToEditor(page: import('@playwright/test').Page) {
