@@ -276,3 +276,23 @@ that the repository-wide matrix is a multi-hour exploratory run in this
 environment. It was not used as a pass/fail claim; the affected 66-test corpus
 and the focused responsive, drawing, website reflow, touch-target, and visual
 runs are the completed browser evidence for this change.
+
+## Additional website contrast and text-reflow check (2026-09-24)
+
+A fresh marketing-site browser pass exposed two regressions that had not been
+covered by the earlier evidence above:
+
+- The footer download CTA inherited the global anchor foreground because the
+  unlayered link rule outranked the shared layered button rule. The footer now
+  explicitly applies its dark-band foreground, surface, and hover colors.
+- At 200% text on a 320 CSS-pixel viewport, the long `React/Tailwind:` list
+  label in the export feature page and list content on the export guide could
+  widen the main content. Those list items now permit emergency wrapping.
+
+Both `pnpm build:website` and `pnpm build:website:pages` completed with zero
+Astro diagnostics. The route-wide contrast, 200% reflow, overflow, unresolved
+token, and code-surface checks passed **122/122** on both the GitHub Pages and
+custom-domain builds. Targeted axe home checks and download-page contrast also
+passed on both builds (**4/4**). The remaining marketing interaction and
+visual cases are still under triage; this bounded result does not certify the
+whole website E2E suite.

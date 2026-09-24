@@ -77,6 +77,7 @@
 
 .docs-section li {
   margin-block-end: var(--space-3);
+  overflow-wrap: anywhere;
 }
 
 .docs-section ul li {
