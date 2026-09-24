@@ -23,6 +23,10 @@ in `docs/screenshots/2026-09-17-toolbar-review/`. Every capture inspected
 directly; 3x crops for the ambiguous regions. A DOM geometry probe measured the
 command surfaces in both densities (`density-probe` results inline below).
 
+The later 2026-09-20 recapture is preserved separately in
+`docs/screenshots/2026-09-20-toolbar-recapture/` so these dated review images
+continue to show the original 2026-09-17 evidence.
+
 Not a defect (checked and cleared): crop keyboard activation failed only inside
 the capture because focus sat in the liquify popover (16-toolbar-crop.png);
 canvas `overflow` interplay verified by the 09-15 suite; text-bar session
@@ -104,4 +108,3 @@ invalid input to `0`, violating the numeric-field contract.
   labelled pill; the pill text carries the essential information).
 - The status bar is density-invariant by design (24px control floor pins the
   row); density reaches the four floating/docked command surfaces instead.
-
