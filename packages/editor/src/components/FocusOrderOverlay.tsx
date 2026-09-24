@@ -66,7 +66,11 @@ export function FocusOrderOverlay({ enabled, zoom, pan }: FocusOrderOverlayProps
             r={12}
             fill="var(--color-canvas-selection)"
             fillOpacity={0.85}
-            stroke="white"
+            /* The theme-inverted counter, not a fixed white: white-on-teal
+             * fails in the dark theme where the selection step is light
+             * (T(5)), and the counter token is exactly what the dual-tone
+             * canvas contract provides for this pairing. */
+            stroke="var(--color-canvas-handle-fill)"
             strokeWidth={2}
           />
           <text
@@ -74,7 +78,7 @@ export function FocusOrderOverlay({ enabled, zoom, pan }: FocusOrderOverlayProps
             y={entry.cy}
             textAnchor="middle"
             dominantBaseline="central"
-            fill="white"
+            fill="var(--color-canvas-handle-fill)"
             fontSize={11}
             fontWeight={700}
             style={{ fontFamily: 'system-ui, sans-serif' }}

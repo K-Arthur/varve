@@ -102,14 +102,20 @@ export function PalettePreviewDialog({
                 <p style={{ fontWeight: 600, marginBottom: 'var(--space-1)' }}>
                   Source palette ({sourceEntries.length} colors)
                 </p>
-                <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: 'var(--space-control)', flexWrap: 'wrap' }}>
                   {sourceEntries.map((entry, i) => (
                     <Tooltip
                       // biome-ignore lint/suspicious/noArrayIndexKey: palette entries have no unique id; names/colors can repeat
                       key={`src-${i}`}
                       label={`${entry.name ?? `Color ${i + 1}`}${entry.warning ? ` — ${entry.warning}` : ''}`}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 'var(--space-control)',
+                        }}
+                      >
                         <div
                           style={{
                             ...swatchStyle,
@@ -138,11 +144,17 @@ export function PalettePreviewDialog({
             {proposedEntries && proposedEntries.length > 0 && (
               <div style={{ marginBottom: 'var(--space-3)' }}>
                 <p style={{ fontWeight: 600, marginBottom: 'var(--space-1)' }}>Proposed palette</p>
-                <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: 'var(--space-control)', flexWrap: 'wrap' }}>
                   {proposedEntries.map((entry, i) => (
                     // biome-ignore lint/suspicious/noArrayIndexKey: palette entries have no unique id; names/colors can repeat
                     <Tooltip key={`dst-${i}`} label={entry.name ?? `Color ${i + 1}`}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 'var(--space-control)',
+                        }}
+                      >
                         <div
                           style={{
                             ...swatchStyle,
@@ -229,7 +241,7 @@ export function PalettePreviewDialog({
                 </summary>
                 <ScrollArea
                   viewportClassName="palette-preview-dialog__mappings"
-                  style={{ maxHeight: 200, marginTop: 4 }}
+                  style={{ maxHeight: 200, marginTop: 'var(--space-1)' }}
                 >
                   {mappingResult.mappings.map((m) => (
                     <div
@@ -237,7 +249,7 @@ export function PalettePreviewDialog({
                       style={{
                         display: 'flex',
                         alignItems: 'center',
-                        gap: 4,
+                        gap: 'var(--space-control)',
                         padding: '2px 0',
                         fontSize: '0.8em',
                       }}
@@ -259,7 +271,7 @@ export function PalettePreviewDialog({
                           height: 16,
                         }}
                       />
-                      <span style={{ opacity: 0.6, marginLeft: 4 }}>
+                      <span style={{ opacity: 0.6, marginLeft: 'var(--space-1)' }}>
                         &Delta;E {m.deltaE.toFixed(1)}
                       </span>
                       {m.contrastPreserved === false && (
