@@ -1,7 +1,9 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
+  "identifier": "dev.varve.desktop.wdio",
   "build": {
-    "beforeBuildCommand": "pnpm build:wdio"
+    "beforeBuildCommand": "pnpm build:wdio",
+    "frontendDist": "../dist"
   },
   "app": {
     "security": {

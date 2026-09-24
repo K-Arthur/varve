@@ -210,7 +210,9 @@ export interface ShapingCapabilities {
 ### Tauri IPC
 
 - `enumerate_system_fonts` — enumerate OS-installed fonts
-- `store_font_on_filesystem` — persist font to app data directory
+- `store_font_on_filesystem` — persist font to app data directory. Its
+  camelCase IPC arguments are grouped in a `request` object containing the
+  family, byte array, provider/licensing metadata, and optional project scope.
 - `load_font_from_filesystem` — read font from app data
 - `list_filesystem_fonts` — enumerate stored fonts with metadata
 - `remove_font_from_filesystem` — delete stored font

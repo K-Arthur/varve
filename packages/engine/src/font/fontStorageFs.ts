@@ -121,19 +121,21 @@ export async function storeFontOnFilesystem(
   }
 
   const result = await tauriInvoke('store_font_on_filesystem', {
-    family,
-    data: Array.from(new Uint8Array(data)),
-    providerId: meta?.providerId ?? null,
-    licenseName: meta?.licenseName ?? null,
-    licenseUrl: meta?.licenseUrl ?? null,
-    attribution: meta?.attribution ?? null,
-    version: meta?.version ?? null,
-    collectionIndex: meta?.collectionIndex ?? null,
-    postScriptName: meta?.postScriptName ?? null,
-    artifactHash: meta?.artifactHash ?? null,
-    faceKey: meta?.faceKey ?? null,
-    documentId: meta?.documentId ?? null,
-    scope: meta?.scope ?? null,
+    request: {
+      family,
+      data: Array.from(new Uint8Array(data)),
+      providerId: meta?.providerId ?? null,
+      licenseName: meta?.licenseName ?? null,
+      licenseUrl: meta?.licenseUrl ?? null,
+      attribution: meta?.attribution ?? null,
+      version: meta?.version ?? null,
+      collectionIndex: meta?.collectionIndex ?? null,
+      postScriptName: meta?.postScriptName ?? null,
+      artifactHash: meta?.artifactHash ?? null,
+      faceKey: meta?.faceKey ?? null,
+      documentId: meta?.documentId ?? null,
+      scope: meta?.scope ?? null,
+    },
   });
 
   return result as FontStorageFsMeta;
