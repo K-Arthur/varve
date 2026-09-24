@@ -7,6 +7,7 @@ import {
   getEffectiveBinding,
   isNativeActivationKeyTarget,
   SHORTCUT_DEFS,
+  shouldIgnoreHistoryShortcutTarget,
   shouldIgnoreShortcutTarget,
 } from './ShortcutManager';
 
@@ -78,7 +79,8 @@ export function useShortcuts(
     // such as NodeEditTool consume Escape/V/arrow keys first.
     const captureHistoryShortcut = (e: KeyboardEvent) => {
       if (!enabledRef.current) return;
-      if (e.defaultPrevented || shouldIgnoreShortcutTarget(e.target as Element | null)) return;
+      if (e.defaultPrevented || shouldIgnoreHistoryShortcutTarget(e.target as Element | null))
+        return;
       if (e.isComposing) return;
 
       const id = bindingMatchesEvent(e, getEffectiveBinding('undo'))

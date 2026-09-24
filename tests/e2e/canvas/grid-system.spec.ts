@@ -38,19 +38,41 @@ test.describe('Grid system — real editor controls and visual overlay', () => {
     await expect(snapPixels).toBeChecked();
     await expect(showLayoutGuides).toBeChecked();
 
-    await page.keyboard.press('f');
+    // The grid switches retain focus in the Inspector, where single-letter
+    // shortcuts are intentionally ignored. Select the Frame tool through its
+    // visible control so this test drives the same path a mouse user gets.
+    await page
+      .getByRole('button', { name: /^Frame\b/ })
+      .first()
+      .click();
     // Keep the drag clear of the empty-canvas onboarding card, which can
     // otherwise consume the pointer sequence before the first frame exists.
     await dragOnCanvas(page, 24, 24, 248, 168);
-    await page.keyboard.press('v');
-    await page.waitForTimeout(300);
+    const frameRow = page.getByRole('treeitem').first();
+    await expect(page.getByRole('treeitem')).toHaveCount(1);
+    await frameRow.click();
 
+    const historyWarnings: string[] = [];
+    page.on('console', (message) => {
+      const text = message.text();
+      if (message.type() === 'warning' && text.includes('updateDoc called outside transaction')) {
+        historyWarnings.push(text);
+      }
+    });
     const layoutGuides = page.getByRole('button', { name: 'Layout guides', exact: true });
     await layoutGuides.scrollIntoViewIfNeeded();
     await layoutGuides.click();
     await page.getByRole('button', { name: 'Add layout guide', exact: true }).click();
     await expect(page.locator('.insp-layout-guide-card')).toHaveCount(1);
-    await expect(page.getByRole('switch', { name: /show layout guide 1/i })).toBeChecked();
+    const showGuide = page.getByRole('switch', { name: /show layout guide 1/i });
+    await expect(showGuide).toBeChecked();
+    await showGuide.uncheck();
+    await expect(showGuide).not.toBeChecked();
+    await page.keyboard.press('Control+z');
+    await expect(showGuide).toBeChecked();
+    await page.keyboard.press('Control+Shift+z');
+    await expect(showGuide).not.toBeChecked();
+    expect(historyWarnings).toEqual([]);
 
     await page.screenshot({ path: 'test-results/grid-system-editor.png', fullPage: false });
   });
@@ -61,7 +83,10 @@ test.describe('Grid system — real editor controls and visual overlay', () => {
     const viewMenu = page.getByRole('menu', { name: 'View' });
     await expect(viewMenu).toBeVisible();
     await viewMenu.getByRole('menuitem', { name: 'Guides', exact: true }).hover();
-    await page.getByRole('menuitem', { name: /Guide Layouts/ }).click();
+    await page
+      .getByRole('menuitem', { name: /^Guide Layouts/ })
+      .first()
+      .click();
     const dialog = page.getByRole('dialog', { name: 'Guide Layouts' });
     await expect(dialog).toBeVisible();
     const count = dialog.locator('input').first();

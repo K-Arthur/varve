@@ -126,6 +126,9 @@ baseline grids, and isometric construction. They never move authored content.
 - Document-grid and isometric-grid setters own an edit transaction when the caller has not
   already opened one. Inspector number entry keeps the transaction open for the full focused
   edit, so typing creates one undo step and does not use the history fallback path.
+- Frame layout-guide setters also own a document transaction when invoked outside an existing
+  edit, and no-op guide updates do not create history entries. This keeps inspector visibility,
+  add, and remove actions on the same undoable document-history path.
 - `IsometricAxis.spacing` is deprecated and inert: per-family line spacing is derived from the
   basis, and an independent authored value could make the three families disagree.
 

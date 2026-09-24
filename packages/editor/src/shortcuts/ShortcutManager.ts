@@ -905,6 +905,17 @@ export function shouldIgnoreShortcutTarget(target: Element | null): boolean {
 }
 
 /**
+ * Undo and redo stay available when focus is on a native checkbox or radio
+ * input. Inspector switches retain that focus after activation, but they are
+ * not text-entry contexts; other global shortcuts remain suppressed there.
+ */
+export function shouldIgnoreHistoryShortcutTarget(target: Element | null): boolean {
+  if (!target) return false;
+  const toggleInput = target.closest?.('input[type="checkbox"],input[type="radio"]');
+  return shouldIgnoreShortcutTarget(toggleInput?.parentElement ?? target);
+}
+
+/**
  * Controls whose native activation uses the Space key. A global Space binding
  * (Varve uses Space for Play/Pause) must not `preventDefault()` that
  * activation while one of these has focus — APG requires Enter and Space to

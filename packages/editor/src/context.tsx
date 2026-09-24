@@ -8915,12 +8915,22 @@ export function EditorProvider({
       },
 
       setLayoutGrid: (frameId, grid) => {
-        if (stateRef.current.document.nodes[frameId]?.kind !== 'frame') return;
-        updateDoc((doc) => sceneSetLayoutGrid(doc, frameId, grid));
+        const current = stateRef.current.document;
+        if (current.nodes[frameId]?.kind !== 'frame') return;
+        const next = sceneSetLayoutGrid(current, frameId, grid);
+        if (next === current) return;
+        withOwnedDocumentTransaction(inTransactionRef, beginTransaction, commitTransaction, () => {
+          updateDoc(() => next);
+        });
       },
 
       removeLayoutGrid: (frameId, gridId) => {
-        updateDoc((doc) => sceneRemoveLayoutGrid(doc, frameId, gridId));
+        const current = stateRef.current.document;
+        const next = sceneRemoveLayoutGrid(current, frameId, gridId);
+        if (next === current) return;
+        withOwnedDocumentTransaction(inTransactionRef, beginTransaction, commitTransaction, () => {
+          updateDoc(() => next);
+        });
       },
 
       setSelectedMinWidth: (value) => {

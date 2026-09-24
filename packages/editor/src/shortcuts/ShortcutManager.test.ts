@@ -7,6 +7,7 @@ import {
   isNativeActivationKeyTarget,
   SHORTCUT_DEFS,
   shortcutFromEvent,
+  shouldIgnoreHistoryShortcutTarget,
   shouldIgnoreShortcutTarget,
 } from './ShortcutManager';
 
@@ -28,6 +29,15 @@ describe('shouldIgnoreShortcutTarget', () => {
       </div>
     `;
     const input = document.querySelector('input');
+    expect(shouldIgnoreShortcutTarget(input)).toBe(true);
+  });
+
+  it('allows history shortcuts from a focused checkbox without allowing other shortcuts', () => {
+    document.body.innerHTML = `
+      <label role="switch">Show layout guide <input type="checkbox" /></label>
+    `;
+    const input = document.querySelector('input');
+    expect(shouldIgnoreHistoryShortcutTarget(input)).toBe(false);
     expect(shouldIgnoreShortcutTarget(input)).toBe(true);
   });
 
