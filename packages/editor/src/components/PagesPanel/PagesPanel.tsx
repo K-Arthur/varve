@@ -78,7 +78,8 @@ export function PagesPanel() {
 }
 
 function PublishingPagesPanel() {
-  const { state, updateDoc, setActivePage, setCurrentPageId, getPageSide } = useEditor();
+  const { state, updateDoc, groupCompoundOperation, setActivePage, setCurrentPageId, getPageSide } =
+    useEditor();
   const effectiveConfig = useEffectiveWorkspaceConfig(state.workspaceMode);
 
   const doc = state.document;
@@ -130,39 +131,47 @@ function PublishingPagesPanel() {
   const handleAddPage = useCallback(() => {
     // Documents created from Home start with a Design Canvas; Print mode can
     // add the first Publishing Page without assuming pages already exist.
-    updateDoc((doc) => createPageCommand(doc, { name: `Page ${(doc.pages ?? []).length + 1}` }));
+    groupCompoundOperation('Create publishing page', () => {
+      updateDoc((doc) => createPageCommand(doc, { name: `Page ${(doc.pages ?? []).length + 1}` }));
+    });
     setCurrentPageId(null);
-  }, [updateDoc, setCurrentPageId]);
+  }, [groupCompoundOperation, updateDoc, setCurrentPageId]);
 
   const handleDuplicate = useCallback(
     (pageId: NodeId) => {
-      updateDoc((doc) => duplicatePageCommand(doc, pageId));
+      groupCompoundOperation('Duplicate publishing page', () => {
+        updateDoc((doc) => duplicatePageCommand(doc, pageId));
+      });
     },
-    [updateDoc],
+    [groupCompoundOperation, updateDoc],
   );
 
   const handleDelete = useCallback(
     (pageId: NodeId) => {
-      updateDoc((doc) => deletePageCommand(doc, pageId, 'move-to-pasteboard'));
+      groupCompoundOperation('Delete publishing page', () => {
+        updateDoc((doc) => deletePageCommand(doc, pageId, 'move-to-pasteboard'));
+      });
       setCurrentPageId(null);
     },
-    [updateDoc, setCurrentPageId],
+    [groupCompoundOperation, updateDoc, setCurrentPageId],
   );
 
   const handleMove = useCallback(
     (pageId: NodeId, dir: -1 | 1) => {
-      updateDoc((doc) => {
-        const ids = (doc.pages ?? []).map((p) => p.id);
-        const idx = ids.indexOf(pageId);
-        const swapIdx = idx + dir;
-        if (idx < 0 || swapIdx < 0 || swapIdx >= ids.length) return doc;
-        const next = [...ids];
-        const [moved] = next.splice(idx, 1);
-        next.splice(swapIdx, 0, moved as NodeId);
-        return reorderPagesCommand(doc, next);
+      groupCompoundOperation('Reorder publishing pages', () => {
+        updateDoc((doc) => {
+          const ids = (doc.pages ?? []).map((p) => p.id);
+          const idx = ids.indexOf(pageId);
+          const swapIdx = idx + dir;
+          if (idx < 0 || swapIdx < 0 || swapIdx >= ids.length) return doc;
+          const next = [...ids];
+          const [moved] = next.splice(idx, 1);
+          next.splice(swapIdx, 0, moved as NodeId);
+          return reorderPagesCommand(doc, next);
+        });
       });
     },
-    [updateDoc],
+    [groupCompoundOperation, updateDoc],
   );
 
   const handleNavigate = useCallback(

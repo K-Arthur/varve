@@ -74,6 +74,15 @@ than manually manipulating the in-memory stacks. Text input is a 500 ms typing
 burst (composition is atomic); focused NumberField wheel updates use a 200 ms
 idle window.
 
+Every user-facing persistent document mutation must enter a transaction,
+including small metadata changes such as page management and layer locking.
+Otherwise the document can look updated in the current session while
+persistent history reports `updateDoc called outside transaction` and falls
+back to in-memory capture. Related edits should share one named
+`groupCompoundOperation` boundary so Undo restores the complete user action.
+The PageNav, PagesPanel, and layer-lock flows are covered by focused component
+tests and browser checks that assert this warning is absent.
+
 ### Retention and recovery
 
 The tile store can contain harmless orphan blobs if a process fails after tile

@@ -89,8 +89,15 @@ test.describe('Inspect mode - axe-core scan', () => {
     const row = page.locator('[role="treeitem"]').first();
     await row.click();
     const lock = row.locator('.layers-row__toggle--locked-off');
+    const historyWarnings: string[] = [];
+    page.on('console', (message) => {
+      if (message.text().includes('updateDoc called outside transaction')) {
+        historyWarnings.push(message.text());
+      }
+    });
     await lock.click();
     await expect(row.locator('.layers-row__toggle--locked-on')).toBeVisible();
+    expect(historyWarnings).toEqual([]);
     await expect(page.locator('[data-inspector-restriction="locked"]').first()).toBeVisible({
       timeout: 5000,
     });

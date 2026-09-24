@@ -12,9 +12,16 @@ test.describe('Page context menu - axe-core scan', () => {
     await navigateToEditor(page);
     await page.getByRole('radio', { name: 'Print workspace' }).click();
 
+    const historyWarnings: string[] = [];
+    page.on('console', (message) => {
+      if (message.text().includes('updateDoc called outside transaction')) {
+        historyWarnings.push(message.text());
+      }
+    });
     await page.getByRole('button', { name: 'Add publishing page' }).click();
     const pageTab = page.getByRole('tab', { name: /^Publishing page:/i }).first();
     await pageTab.waitFor({ state: 'visible' });
+    expect(historyWarnings).toEqual([]);
     await pageTab.click({ button: 'right' });
 
     const menu = page.getByRole('menu');

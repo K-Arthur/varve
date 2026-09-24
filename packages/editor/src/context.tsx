@@ -6976,7 +6976,9 @@ export function EditorProvider({
       },
 
       setNodeLocked: (id, locked) => {
-        updateNodeProp(id, (n) => ({ ...n, locked }));
+        groupCompoundOperation('Change layer lock', () => {
+          updateNodeProp(id, (n) => ({ ...n, locked }));
+        });
       },
 
       setNodeVisible: (id, visible) => {
@@ -7055,7 +7057,9 @@ export function EditorProvider({
       },
 
       bulkSetNodeLocked: (ids, locked) => {
-        updateDoc((doc) => bulkSetNodeLockedDoc(doc, ids, locked));
+        groupCompoundOperation('Change layer locks', () => {
+          updateDoc((doc) => bulkSetNodeLockedDoc(doc, ids, locked));
+        });
       },
 
       bulkSetNodeVisible: (ids, visible) => {

@@ -67,6 +67,7 @@ function mockEditor(overrides: {
   activePageId?: string | null;
   currentPageId?: string | null;
   updateDoc?: ReturnType<typeof vi.fn>;
+  groupCompoundOperation?: ReturnType<typeof vi.fn>;
   setActivePage?: ReturnType<typeof vi.fn>;
   setCurrentPageId?: ReturnType<typeof vi.fn>;
 }) {
@@ -78,6 +79,8 @@ function mockEditor(overrides: {
       currentPageId: overrides.currentPageId ?? overrides.pages[0]?.id ?? null,
     },
     updateDoc: overrides.updateDoc ?? vi.fn(),
+    groupCompoundOperation:
+      overrides.groupCompoundOperation ?? vi.fn((_label: string, action: () => void) => action()),
     setActivePage: overrides.setActivePage ?? vi.fn(),
     setCurrentPageId: overrides.setCurrentPageId ?? vi.fn(),
   } as unknown as ReturnType<typeof useEditor>);
@@ -144,6 +147,25 @@ describe('PageNav', () => {
 
     render(<PageNav />);
     expect(screen.getByLabelText('Add publishing page')).toBeTruthy();
+  });
+
+  it('groups page creation into a persistent history transaction', () => {
+    const groupCompoundOperation = vi.fn((_label: string, action: () => void) => action());
+    const updateDoc = vi.fn();
+    mockEditor({
+      pages: [makePage('p1', 'Page 1')],
+      updateDoc,
+      groupCompoundOperation,
+    });
+
+    render(<PageNav />);
+    fireEvent.click(screen.getByRole('button', { name: 'Add publishing page' }));
+
+    expect(groupCompoundOperation).toHaveBeenCalledWith(
+      'Create publishing page',
+      expect.any(Function),
+    );
+    expect(updateDoc).toHaveBeenCalledTimes(1);
   });
 
   it('opens context menu on right-click with duplicate/delete', () => {

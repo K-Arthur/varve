@@ -68,6 +68,7 @@ function mockEditor(overrides: {
   masters?: Record<string, { name: string }>;
   sections?: Array<{ id: string; name: string; startPageOrder: string }>;
   updateDoc?: ReturnType<typeof vi.fn>;
+  groupCompoundOperation?: ReturnType<typeof vi.fn>;
   setActivePage?: ReturnType<typeof vi.fn>;
   setCurrentPageId?: ReturnType<typeof vi.fn>;
   setSelection?: ReturnType<typeof vi.fn>;
@@ -93,6 +94,8 @@ function mockEditor(overrides: {
       currentPageId: activePageId,
     },
     updateDoc: overrides.updateDoc ?? vi.fn(),
+    groupCompoundOperation:
+      overrides.groupCompoundOperation ?? vi.fn((_label: string, action: () => void) => action()),
     setActivePage: overrides.setActivePage ?? vi.fn(),
     setCurrentPageId: overrides.setCurrentPageId ?? vi.fn(),
     setSelection: overrides.setSelection ?? vi.fn(),
@@ -142,13 +145,18 @@ describe('PagesPanel', () => {
   });
 
   it('adds a page through updateDoc', () => {
+    const groupCompoundOperation = vi.fn((_label: string, action: () => void) => action());
     const updateDoc = vi.fn((fn: (doc: unknown) => unknown) =>
       fn({ pages: [makePage('p1', 'Page 1', 'a0')] }),
     );
-    mockEditor({ pages: [makePage('p1', 'Page 1', 'a0')], updateDoc });
+    mockEditor({ pages: [makePage('p1', 'Page 1', 'a0')], updateDoc, groupCompoundOperation });
     render(<PagesPanel />);
     fireEvent.click(screen.getByRole('button', { name: 'Add publishing page' }));
     expect(updateDoc).toHaveBeenCalled();
+    expect(groupCompoundOperation).toHaveBeenCalledWith(
+      'Create publishing page',
+      expect.any(Function),
+    );
   });
 
   it('duplicates a page through updateDoc', () => {

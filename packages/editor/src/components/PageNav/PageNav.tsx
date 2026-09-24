@@ -119,7 +119,15 @@ function SortablePageTab({
 }
 
 export function PageNav() {
-  const { state, updateDoc, setActivePage, setCurrentPageId, platform, showToast } = useEditor();
+  const {
+    state,
+    updateDoc,
+    groupCompoundOperation,
+    setActivePage,
+    setCurrentPageId,
+    platform,
+    showToast,
+  } = useEditor();
   const pages = state.document.pages ?? [];
   const currentId = state.document.activePageId ?? state.currentPageId;
   const platformRef = useRef(platform);
@@ -155,10 +163,12 @@ export function PageNav() {
 
   const handleAddPage = useCallback(() => {
     const count = pages.length + 1;
-    updateDoc((doc) => createPageCommand(doc, { name: `Page ${count}` }));
+    groupCompoundOperation('Create publishing page', () => {
+      updateDoc((doc) => createPageCommand(doc, { name: `Page ${count}` }));
+    });
     setCurrentPageId(null);
     pendingFocusRef.current = 'last';
-  }, [pages.length, updateDoc, setCurrentPageId]);
+  }, [pages.length, groupCompoundOperation, updateDoc, setCurrentPageId]);
 
   const handleSelectPage = useCallback(
     (pageId: string) => {
@@ -220,9 +230,11 @@ export function PageNav() {
       if (!over) return;
       const reordered = computeReorderedPageIds(pages, active.id as NodeId, over.id as NodeId);
       if (!reordered) return;
-      updateDoc((doc) => reorderPagesCommand(doc, reordered));
+      groupCompoundOperation('Reorder publishing pages', () => {
+        updateDoc((doc) => reorderPagesCommand(doc, reordered));
+      });
     },
-    [pages, updateDoc],
+    [pages, groupCompoundOperation, updateDoc],
   );
 
   const handleContextMenu = useCallback((e: React.MouseEvent, pageId: string) => {
@@ -252,22 +264,28 @@ export function PageNav() {
   const handleDeletePage = useCallback(() => {
     if (!ctxPageId) return;
     pendingFocusRef.current = 'active';
-    updateDoc((doc) => deletePageCommand(doc, ctxPageId, 'move-to-pasteboard'));
+    groupCompoundOperation('Delete publishing page', () => {
+      updateDoc((doc) => deletePageCommand(doc, ctxPageId, 'move-to-pasteboard'));
+    });
     closeContextMenu();
-  }, [ctxPageId, pages.length, updateDoc, closeContextMenu]);
+  }, [ctxPageId, groupCompoundOperation, updateDoc, closeContextMenu]);
 
   const handleDeletePageAndContents = useCallback(() => {
     if (!ctxPageId) return;
     pendingFocusRef.current = 'active';
-    updateDoc((doc) => deletePageCommand(doc, ctxPageId, 'delete-content'));
+    groupCompoundOperation('Delete publishing page and contents', () => {
+      updateDoc((doc) => deletePageCommand(doc, ctxPageId, 'delete-content'));
+    });
     closeContextMenu();
-  }, [ctxPageId, pages.length, updateDoc, closeContextMenu]);
+  }, [ctxPageId, groupCompoundOperation, updateDoc, closeContextMenu]);
 
   const handleDuplicatePage = useCallback(() => {
     if (!ctxPageId) return;
-    updateDoc((doc) => duplicatePageCommand(doc, ctxPageId));
+    groupCompoundOperation('Duplicate publishing page', () => {
+      updateDoc((doc) => duplicatePageCommand(doc, ctxPageId));
+    });
     closeContextMenu();
-  }, [ctxPageId, updateDoc, closeContextMenu]);
+  }, [ctxPageId, groupCompoundOperation, updateDoc, closeContextMenu]);
 
   const handleRenamePage = useCallback(async () => {
     if (!ctxPageId) return;
@@ -276,8 +294,10 @@ export function PageNav() {
     closeContextMenu();
     const nextName = await promptDialog('Rename page', page.name);
     if (nextName === null || !nextName.trim()) return;
-    updateDoc((doc) => renamePageCommand(doc, { pageId: ctxPageId, name: nextName }));
-  }, [ctxPageId, pages, updateDoc, closeContextMenu]);
+    groupCompoundOperation('Rename publishing page', () => {
+      updateDoc((doc) => renamePageCommand(doc, { pageId: ctxPageId, name: nextName }));
+    });
+  }, [ctxPageId, pages, groupCompoundOperation, updateDoc, closeContextMenu]);
 
   // Non-drag equivalent for reordering (WCAG 2.5.7 Dragging Movements):
   // dragging a page tab is the only other way to reorder pages, so every
@@ -289,10 +309,14 @@ export function PageNav() {
       const target = pages[direction === 'left' ? idx - 1 : idx + 1];
       if (idx === -1 || !target) return;
       const reordered = computeReorderedPageIds(pages, ctxPageId as NodeId, target.id);
-      if (reordered) updateDoc((doc) => reorderPagesCommand(doc, reordered));
+      if (reordered) {
+        groupCompoundOperation('Reorder publishing pages', () => {
+          updateDoc((doc) => reorderPagesCommand(doc, reordered));
+        });
+      }
       closeContextMenu();
     },
-    [ctxPageId, pages, updateDoc, closeContextMenu],
+    [ctxPageId, pages, groupCompoundOperation, updateDoc, closeContextMenu],
   );
 
   const ctxPageIdx = pages.findIndex((p) => p.id === ctxPageId);
