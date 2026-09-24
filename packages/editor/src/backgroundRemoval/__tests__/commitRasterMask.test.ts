@@ -102,6 +102,26 @@ describe('commitRasterMask', () => {
     });
   });
 
+  it('persists prompted-model scores without treating them as 0–1 confidence', () => {
+    const updated = commitRasterMask(makeDoc(), 'img-1', {
+      dataUrl: PNG_WHITE,
+      width: 1,
+      height: 1,
+      method: 'ai-quality',
+      modelId: 'mobile-sam',
+      score: 1.04,
+      scoreSource: 'predicted-iou',
+      generatedAt: 1000,
+    });
+
+    expect(updated.nodes['img-1']?.mask?.rasterMask?.provenance).toMatchObject({
+      modelId: 'mobile-sam',
+      score: 1.04,
+      scoreSource: 'predicted-iou',
+    });
+    expect(updated.nodes['img-1']?.mask?.rasterMask?.provenance).not.toHaveProperty('confidence');
+  });
+
   it('repairs stale imported source dimensions before attaching a valid mask', () => {
     const doc = makeDoc();
     const image = doc.nodes['img-1']!;

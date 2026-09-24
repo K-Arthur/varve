@@ -76,6 +76,12 @@ document `RasterMaskAsset` or a transient analytical `AreaSelection`. An
 empty smart-selection result is never committed silently; the session stays
 open so prompts can be corrected.
 
+When an accepted candidate is applied as a raster mask, its raw provider score
+and `scoreSource` are persisted separately from `confidence`. Score semantics
+are provider-specific: for example, predicted IoU is not a probability of user
+intent and may be outside the 0–1 range, so the commit path preserves it
+without coercion.
+
 A ready candidate is not implicitly trusted. The Inspector exposes the
 highlighted overlay and requires an explicit review confirmation. That
 confirmation is keyed to the decoded source fingerprint, current image mapping,

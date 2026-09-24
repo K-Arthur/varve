@@ -42,6 +42,9 @@ export interface RasterMaskCommitFields {
   modelVersion?: string;
   modelChecksum?: string;
   generatedAt?: number;
+  /** Raw provider score; unlike confidence, this may be outside 0–1. */
+  score?: BackgroundRemovalProvenance['score'];
+  scoreSource?: BackgroundRemovalProvenance['scoreSource'];
   confidence?: number;
   decontaminate?: boolean;
   /** Source locator and decoded dimensions captured with this mask. */
@@ -98,6 +101,8 @@ function makeProvenance(fields: RasterMaskCommitFields): BackgroundRemovalProven
     runtime: fields.runtime ?? 'typescript',
     generatedAt: fields.generatedAt ?? Date.now(),
     origin: 'native',
+    ...(fields.score !== undefined ? { score: fields.score } : {}),
+    ...(fields.scoreSource !== undefined ? { scoreSource: fields.scoreSource } : {}),
     ...(fields.confidence !== undefined ? { confidence: fields.confidence } : {}),
     ...(fields.decontaminate !== undefined ? { decontaminate: fields.decontaminate } : {}),
     ...(fields.modelId !== undefined ? { modelId: fields.modelId } : {}),
