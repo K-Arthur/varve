@@ -12,6 +12,10 @@ The capability is therefore enabled as **Expand (promptless, desktop local
 reconstruction)** in the shared generative-edit surface, with the declared
 content limits intact. The browser Fast/PatchMatch path is not enabled: its
 real-photograph output showed visible edge striping during visual review.
+The browser's AI-quality path remains behind local model download. The
+2026-09-16 CPU-node probe is limited evidence for LaMa reconstruction, not a
+browser-WASM quality qualification; users see that distinction before they can
+start generation.
 
 The existing **Remove** mode is the user-facing **Generative Subtract**
 operation: marked source pixels are reconstructed from their surrounding
@@ -66,9 +70,11 @@ the run. The harness lives at
 Two browser workflow lanes complement the native run:
 
 - `tests/e2e/caf/expand-real-photo.spec.ts` drives the real dialog on a
-  1632x1224 landscape and verifies that browser Expand is unavailable, the
-  Generate control is disabled, and the user-visible reason explains the
-  desktop/provider boundary. The previous browser generation run was retained
+  1632x1224 landscape and verifies that Fast-quality browser Expand is
+  unavailable, the Generate and Apply controls are disabled, and the reason
+  explains the quality-tier boundary. It then verifies that AI quality offers
+  the local-model download. It does not run generation. The previous browser
+  generation run was retained
   as rejected evidence because its 1664x1272 output showed edge striping;
   `tests/e2e/fixtures/generative-evidence/expand-2026-09-13/real-landscape-expand-unavailable.png`
   is the current boundary capture; its SHA-256 is recorded in the evidence
@@ -86,8 +92,8 @@ Two browser workflow lanes complement the native run:
 The browser Remove lane uses the Fast/PatchMatch local provider and proves the
 editor workflow, source-safe composition, persistence/export plumbing, and
 fallback behavior. Browser Expand is intentionally only a capability-boundary
-lane after the rejected visual result; the native qualification above is the
-model-backed Expand evidence.
+lane until the AI-quality path has real browser-WASM evidence; the native
+qualification above is the model-backed Expand evidence.
 
 ## Results
 

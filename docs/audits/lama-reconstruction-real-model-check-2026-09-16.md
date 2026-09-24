@@ -137,3 +137,13 @@ implemented.
   path above actually runs.
 - Not a re-review of the Fast/PatchMatch rejection itself, which stands
   unchanged.
+
+## Follow-up UI validation — 2026-09-24
+
+The real-photo browser gate passed on an isolated port: the Fast-quality
+Expand control stays disabled with the edge-quality explanation, and AI
+quality offers the local model download without claiming a generation result
+is qualified. The focused modal snapshot workflow passed 2/2 scenarios across
+11 real photographs, and the screenshots were reviewed. This validates the
+current UI boundary only; it does not close the browser-WASM generation gap
+above.
