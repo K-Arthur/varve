@@ -85,7 +85,19 @@ test('neutral partial-strength filter preserves a cutout through the real inspec
   await expect(strength).toHaveValue('25');
   await strength.fill('50');
   await strength.press('Enter');
-  await page.getByRole('tab', { name: 'Export', exact: true }).click();
+  const exportTab = page.getByRole('tab', { name: 'Export', exact: true });
+  if (await exportTab.count()) {
+    await exportTab.click();
+  } else {
+    // Narrow inspector rows move lower-priority tabs into the accessible More
+    // menu. Exercise the same path a detached-keyboard user gets at the
+    // reference viewport instead of assuming Export is always inline.
+    await page.getByRole('button', { name: /More inspector tabs/ }).click();
+    await page
+      .getByRole('menu', { name: 'More inspector tabs' })
+      .getByRole('menuitem', { name: 'Export', exact: true })
+      .click();
+  }
   await page
     .locator('.spec-export__group')
     .getByRole('radio', { name: 'PNG', exact: true })

@@ -63,6 +63,8 @@ device-specific evidence:
 - `53af2922b` — website E2E coverage for the constrained Image Treatments
   workflow, including desktop/mobile screenshots and both production base-path
   modes.
+- The current effects E2E also follows the inspector's responsive Export
+  overflow menu when the tab row cannot keep Export inline.
 
 ## Checkpoint measurements and visual evidence
 
@@ -80,6 +82,12 @@ Website E2E:
     apps/website/tests/e2e/image-treatments-feature.spec.ts \
     --project=ghpages --project=custom-domain --workers=1 --reporter=list
   2 tests passed (14.6 s)
+Editor effects E2E:
+  TMPDIR=<isolated> VARVE_E2E_PORT=1515 VARVE_DISABLE_HMR=1
+  VARVE_E2E_WORKERS=1 pnpm exec playwright test
+    tests/e2e/effects/filter-strength.spec.ts --project=chromium --reporter=list
+  1 test passed (3.9 min); import, filter edit/reset, undo/redo, responsive
+  inspector Export navigation, PNG download, and independent alpha checks ran.
 Render control benchmark:
   isolated jsdom replay bench, one worker
   100 rectangles: p50 7.90 ms, p95 23.09 ms
@@ -94,10 +102,22 @@ Inspected artifacts from the website run:
 
 The captures show the new low-end preview explanation, readable attachment
 choices, and a mobile single-column reflow without page-level overflow. Three
-fresh full-editor effects E2E attempts were stopped before editor setup by
+earlier full-editor effects E2E attempts were stopped before editor setup by
 unrelated, transient shared-worktree syntax/module-resolution failures in
-other agents' in-flight colorization and WebGPU files. Existing effect
-inspection artifacts were reviewed separately; physical touch, ChromeOS
+other agents' in-flight colorization and WebGPU files. A subsequent fresh run
+reached the real editor and passed the full effect/export workflow. The server
+still logged a transient parse warning from another agent's in-flight
+`workspaceStore.ts`; the browser run recovered and completed successfully.
+Inspected artifacts from that run:
+
+- `reports/effects-repair/strength-before.png`
+- `reports/effects-repair/strength-inspector.png`
+- `reports/effects-repair/strength-after.png`
+- `reports/effects-repair/strength-export.png`
+
+The before/after canvas captures were identical after the neutral reset. The
+independently decoded exported PNG was 200 × 161, with non-transparent bounds
+`[20, 20, 179, 140]` and alpha values `{0, 64, 128}`. Physical touch, ChromeOS
 browser, PWA, and Crostini effects evidence remains pending.
 
 ## Research record

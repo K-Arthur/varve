@@ -308,7 +308,7 @@ function PaletteEditor({
 
   return (
     <div className="adj-lut-editor">
-      <div className="adj-panel__effect-actions" style={{ marginBottom: 6 }}>
+      <div className="adj-panel__effect-actions" style={{ marginBottom: 'var(--space-2)' }}>
         <FilePickerButton
           variant="ghost"
           size="sm"
@@ -381,7 +381,7 @@ function Color3Row({
   return (
     <div className="adj-editor__row">
       <span className="adj-editor__label">{label}</span>
-      <div style={{ display: 'flex', gap: 4, flex: 1 }}>
+      <div style={{ display: 'flex', gap: 'var(--space-control)', flex: 1 }}>
         {(['R', 'G', 'B'] as const).map((ch, i) => (
           <input
             key={ch}
@@ -750,7 +750,7 @@ export function RgbSplitEditor({ adjustment, onChange }: LiveEffectEditorProps) 
         (['red', 'green', 'blue'] as const).map((ch) => (
           <div key={ch} className="adj-editor__row">
             <span className="adj-editor__label">{ch[0]!.toUpperCase() + ch.slice(1)} offset</span>
-            <div style={{ display: 'flex', gap: 4, flex: 1 }}>
+            <div style={{ display: 'flex', gap: 'var(--space-control)', flex: 1 }}>
               <input
                 type="number"
                 className="adj-editor__number"
