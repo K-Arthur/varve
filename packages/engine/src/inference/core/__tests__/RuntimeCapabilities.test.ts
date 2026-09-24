@@ -84,6 +84,10 @@ describe('RuntimeCapabilities', () => {
       },
     });
 
+    const syncCaps = getRuntimeCapabilitiesSync();
+    expect(syncCaps.os).toBe('chromeos');
+    expect(syncCaps.cpuArch).toBe('arm64');
+
     const caps = await getRuntimeCapabilities();
     expect(caps.os).toBe('chromeos');
     expect(caps.cpuArch).toBe('arm64');

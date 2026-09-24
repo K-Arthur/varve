@@ -264,7 +264,7 @@ LUT_3D_SIZE 3
 1.0 0.5 1.0
 0.0 1.0 1.0
 0.5 1.0 1.0
-1.0 1.0 1.0
+    1.0 1.0 1.0
 `;
 
   const valid1dCube = `TITLE "1D Test LUT"
