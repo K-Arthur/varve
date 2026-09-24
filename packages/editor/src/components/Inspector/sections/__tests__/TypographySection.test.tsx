@@ -84,7 +84,7 @@ describe('TypographySection direction', () => {
     renderSection(<TypographySection nodes={[node]} />);
     expandAdvancedTypography();
     const rtlBtn = screen.getByRole('radio', { name: 'RTL' });
-    expect(rtlBtn.getAttribute('aria-checked')).toBe('false');
+    expect(rtlBtn).not.toBeChecked();
   });
 
   it('shows RTL selected when node direction is rtl', () => {
@@ -92,7 +92,7 @@ describe('TypographySection direction', () => {
     renderSection(<TypographySection nodes={[node]} />);
     expandAdvancedTypography();
     const rtlBtn = screen.getByRole('radio', { name: 'RTL' });
-    expect(rtlBtn.getAttribute('aria-checked')).toBe('true');
+    expect(rtlBtn).toBeChecked();
   });
 
   it('fires onChange without error when a direction option is clicked', () => {

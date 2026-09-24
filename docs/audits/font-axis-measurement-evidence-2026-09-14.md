@@ -83,12 +83,3 @@ checks remain a real variable-font corpus through HarfBuzz/native shaping,
 main-thread/worker glyph and pixel oracle, exact instance export/clipboard and
 reopen, and WebKitGTK/Windows/macOS platform evidence. The optional Canvas
 properties are still runtime capabilities, not legal or license assertions.
-## Exact-face follow-up
-
-Commit `670d2bc17` carries the primitive `fontReference` into runs that do not
-override it and combines the exact face key with `textMeasureRevision()` in
-`TextLayoutIdentity.fontRevision`. A stored snapshot therefore cannot survive
-a project/system face replacement or a fallback-to-ready transition merely
-because its family name and source text are unchanged. The paragraph-layout
-suite adds coverage for the inherited `sha256:` face key and measurement
-revision.

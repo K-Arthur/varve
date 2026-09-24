@@ -324,6 +324,118 @@ describe('FontResolver', () => {
       });
     });
 
+    it('resolves a family-level weight request to the nearest available face', () => {
+      const catalog = new FontCatalog();
+      catalog.addEntry(
+        makeMeta({
+          identity: makeIdentity({ familyName: 'Arial', subfamilyName: 'Regular' }),
+        }),
+      );
+      catalog.addEntry(
+        makeMeta({
+          identity: makeIdentity({
+            familyName: 'Arial',
+            postScriptName: 'Arial-Bold',
+            subfamilyName: 'Bold',
+          }),
+        }),
+      );
+
+      const missing = resolver.detectMissing(
+        makeDoc([{ id: 'extra-bold', fontFamily: 'Arial', fontWeight: 800 }]),
+        catalog,
+      );
+
+      expect(missing).toEqual([]);
+    });
+
+    it('requires an explicit style to name a real face on the family', () => {
+      const catalog = new FontCatalog();
+      catalog.addEntry(
+        makeMeta({
+          identity: makeIdentity({ familyName: 'Arial', subfamilyName: 'Regular' }),
+        }),
+      );
+      catalog.addEntry(
+        makeMeta({
+          identity: makeIdentity({
+            familyName: 'Arial',
+            postScriptName: 'Arial-Bold',
+            subfamilyName: 'Bold',
+          }),
+        }),
+      );
+
+      const missing = resolver.detectMissing(
+        makeDoc([{ id: 'italic', fontFamily: 'Arial', fontWeight: 400, fontStyle: 'italic' }]),
+        catalog,
+      );
+
+      expect(missing).toHaveLength(1);
+      expect(missing[0]).toMatchObject({
+        familyName: 'Arial',
+        status: 'missing-face',
+        requestedStyle: 'italic',
+      });
+    });
+
+    it('resolves a family-only request to the regular face', () => {
+      const catalog = new FontCatalog();
+      catalog.addEntry(
+        makeMeta({
+          identity: makeIdentity({ familyName: 'Arial', subfamilyName: 'Regular' }),
+        }),
+      );
+      catalog.addEntry(
+        makeMeta({
+          identity: makeIdentity({
+            familyName: 'Arial',
+            postScriptName: 'Arial-Bold',
+            subfamilyName: 'Bold',
+          }),
+        }),
+      );
+
+      const missing = resolver.detectMissing(
+        makeDoc([{ id: 'plain', fontFamily: 'Arial' }]),
+        catalog,
+      );
+
+      expect(missing).toEqual([]);
+    });
+
+    it('clears a weight-only miss after the recommended family replacement', () => {
+      const catalog = new FontCatalog();
+      for (const [family, subfamily, postScriptName] of [
+        ['Arial', 'Regular', 'Arial-Regular'],
+        ['Arial', 'Bold', 'Arial-Bold'],
+        ['Helvetica', 'Regular', 'Helvetica-Regular'],
+      ] as const) {
+        catalog.addEntry(
+          makeMeta({
+            identity: makeIdentity({
+              contentHash: `${family}-${subfamily}`,
+              familyName: family,
+              postScriptName,
+              subfamilyName: subfamily,
+            }),
+          }),
+        );
+      }
+
+      const replaced = resolver.applyReplacement(
+        makeDoc([{ id: 'extra-bold', fontFamily: 'Arial', fontWeight: 800 }]),
+        {
+          original: 'Arial',
+          replacement: 'Helvetica',
+          applyToAll: true,
+          preserveOriginalReference: true,
+        },
+      );
+
+      expect(resolver.detectMissing(replaced, catalog)).toEqual([]);
+    });
+
     it('reports missing glyphs when parsed cmap coverage is known', () => {
       const catalog = new FontCatalog();
       catalog.addEntry(
@@ -353,6 +465,44 @@ describe('FontResolver', () => {
       expect(missing).toHaveLength(1);
       expect(missing[0]!.status).toBe('missing-glyph');
       expect(missing[0]!.missingGlyphs).toEqual(['Ж']);
+    });
+
+    it('finds one missing story face across every linked frame', () => {
+      const missing = resolver.detectMissing(
+        {
+          nodes: {
+            frameA: { id: 'frameA', kind: 'text' },
+            frameB: { id: 'frameB', kind: 'text' },
+          },
+          stories: {
+            story: {
+              id: 'story',
+              name: 'Linked story',
+              thread: ['frameA', 'frameB'],
+              content: {
+                paragraphs: [
+                  {
+                    runs: [
+                      {
+                        text: 'Linked copy',
+                        format: { fontFamily: 'Story Missing', fontWeight: 600 },
+                      },
+                    ],
+                  },
+                ],
+              },
+            },
+          },
+        },
+        new FontCatalog(),
+      );
+
+      expect(missing).toHaveLength(1);
+      expect(missing[0]).toMatchObject({
+        familyName: 'Story Missing',
+        requestedWeight: 600,
+        nodeIds: ['frameA', 'frameB'],
+      });
     });
   });
 
@@ -400,6 +550,56 @@ describe('FontResolver', () => {
       const libSub = subs.find((s) => s.familyName === 'Liberation Sans');
       expect(libSub).toBeDefined();
       expect(libSub!.matchQuality).toBe('compatible');
+    });
+
+    it('prefers a compatible family that can satisfy the requested weight', () => {
+      const catalog = new FontCatalog();
+      catalog.addEntry(
+        makeMeta({
+          identity: makeIdentity({
+            familyName: 'Helvetica',
+            postScriptName: 'Helvetica-Regular',
+            subfamilyName: 'Regular',
+          }),
+        }),
+      );
+      catalog.addEntry(
+        makeMeta({
+          identity: makeIdentity({
+            familyName: 'Liberation Sans',
+            postScriptName: 'LiberationSans-Regular',
+            subfamilyName: 'Regular',
+          }),
+        }),
+      );
+      catalog.addEntry(
+        makeMeta({
+          identity: makeIdentity({
+            familyName: 'Liberation Sans',
+            postScriptName: 'LiberationSans-Bold',
+            subfamilyName: 'Bold',
+          }),
+        }),
+      );
+
+      const subs = resolver.findSubstitutes(
+        {
+          familyName: 'Arial',
+          requestedWeight: 700,
+          requestedStyle: 'normal',
+          nodeIds: ['t1'],
+          status: 'missing-face',
+          substitutes: [],
+          originalReference: 'Arial',
+        },
+        catalog,
+      );
+
+      const liberationIndex = subs.findIndex((sub) => sub.familyName === 'Liberation Sans');
+      const helveticaIndex = subs.findIndex((sub) => sub.familyName === 'Helvetica');
+      expect(liberationIndex).toBeGreaterThanOrEqual(0);
+      expect(helveticaIndex).toBeGreaterThanOrEqual(0);
+      expect(liberationIndex).toBeLessThan(helveticaIndex);
     });
 
     it('returns no exact or compatible matches for unknown fonts', () => {
@@ -612,6 +812,45 @@ describe('FontResolver', () => {
       expect(updated.nodes.exact).toMatchObject({ fontFamily: 'Noto Sans' });
       expect((updated.nodes.exact as any).fontReference).toBeUndefined();
       expect(updated.nodes.other).toMatchObject({ fontFamily: 'Inter', fontReference: other });
+    });
+
+    it('replaces authoritative linked story runs while preserving the thread', () => {
+      const doc: ResolverDocument = {
+        nodes: {
+          frameA: { id: 'frameA', kind: 'text' },
+          frameB: { id: 'frameB', kind: 'text' },
+        },
+        stories: {
+          story: {
+            id: 'story',
+            name: 'Linked story',
+            thread: ['frameA', 'frameB'],
+            content: {
+              paragraphs: [
+                {
+                  runs: [
+                    { text: 'A linked run', format: { fontFamily: 'Old Story', fontWeight: 700 } },
+                    { text: ' stays', format: { fontFamily: 'Other Face' } },
+                  ],
+                },
+              ],
+            },
+          },
+        },
+      };
+
+      const updated = resolver.applyReplacement(doc, {
+        original: 'Old Story',
+        replacement: 'New Story',
+        applyToAll: true,
+        preserveOriginalReference: false,
+      });
+      const story = updated.stories?.story;
+      expect(story?.thread).toEqual(['frameA', 'frameB']);
+      expect(story?.content?.paragraphs[0]?.runs).toEqual([
+        { text: 'A linked run', format: { fontFamily: 'New Story', fontWeight: 700 } },
+        { text: ' stays', format: { fontFamily: 'Other Face' } },
+      ]);
     });
   });
 

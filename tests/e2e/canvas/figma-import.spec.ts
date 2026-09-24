@@ -292,4 +292,52 @@ test.describe('Figma import integration', () => {
     await expect(dialog).toHaveCount(0, { timeout: 30000 });
     await expect(page.locator('.layers-panel')).toContainText('Fontsource text');
   });
+
+  test('does not flag a registered family whose requested weight has no exact file', async ({
+    page,
+  }, testInfo) => {
+    await navigateToEditor(page);
+
+    // Regression: the registry ships Arial Regular and Bold only. An authored
+    // ExtraBold request (for example after a family replacement that carried
+    // the original weight) must resolve to the nearest available face instead
+    // of raising the Missing Fonts dialog on every open.
+    const fixture = {
+      name: 'Nearest weight resolution',
+      document: {
+        type: 'DOCUMENT',
+        children: [
+          {
+            id: 'page:1',
+            type: 'CANVAS',
+            name: 'Typography',
+            children: [
+              {
+                id: 'text:1',
+                type: 'TEXT',
+                name: 'Extra bold Arial',
+                characters: 'AVAILABLE',
+                absoluteBoundingBox: { x: 56, y: 56, width: 320, height: 72 },
+                style: { fontFamily: 'Arial', fontSize: 48, fontWeight: 800 },
+              },
+            ],
+          },
+        ],
+      },
+    };
+
+    await page.locator('#file-import-input').setInputFiles({
+      name: 'nearest-weight.fig',
+      mimeType: 'application/json',
+      buffer: Buffer.from(JSON.stringify(fixture), 'utf8'),
+    });
+
+    await expect(page.locator('.layers-panel')).toContainText('Extra bold Arial', {
+      timeout: 30000,
+    });
+    await dismissImportReport(page);
+    await expect(page.getByRole('dialog', { name: 'Missing Fonts' })).toHaveCount(0);
+    await expect(page.locator('.editor-canvas canvas, canvas').first()).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath('nearest-weight-no-dialog.png') });
+  });
 });

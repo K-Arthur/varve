@@ -70,6 +70,16 @@ describe('typography command adapter', () => {
     expect(current.updateNode).not.toHaveBeenCalled();
   });
 
+  it('does not open a history operation for an empty typography change', () => {
+    const current = surface();
+    applyTypographyChanges(current, 'text-1', {});
+
+    expect(current.groupCompoundOperation).not.toHaveBeenCalled();
+    expect(current.applyFormatToSelection).not.toHaveBeenCalled();
+    expect(current.updateNode).not.toHaveBeenCalled();
+    expect(current.setPendingFormat).not.toHaveBeenCalled();
+  });
+
   it('formats only the selected characters in one history transaction', () => {
     const current = surface();
     applyTypographyChanges(current, 'text-1', { fontWeight: 700, fontFamily: 'Inter' });

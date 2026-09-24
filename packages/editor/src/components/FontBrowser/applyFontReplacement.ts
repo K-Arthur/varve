@@ -6,9 +6,10 @@ import {
   FontResolver,
   fontReferenceKey,
   type ResolverDocument,
-  type ResolverTextNode,
+  type ResolverRichText,
 } from '@varve/engine/font';
-import type { Document } from '@varve/scene';
+import type { Document, RichText, TextNode } from '@varve/scene';
+import { toFontResolverDocument } from './fontResolverDocument';
 
 /**
  * Apply one reviewed font replacement and keep its provenance in the
@@ -46,23 +47,22 @@ export function applyFontReplacement(
   if (duplicateIndex >= 0) replacements[duplicateIndex] = replacement;
   else replacements.push(replacement);
 
-  const { manifest } = attachFontManifestToDocument(
-    {
-      nodes: updated.nodes,
-      styles: updated.styles,
-      fontManifest: {
-        version: 2,
-        fonts: doc.fontManifest?.fonts ?? [],
-        replacements,
-      },
-    } as Parameters<typeof attachFontManifestToDocument>[0],
-    catalog,
-  );
+  const manifestInput = {
+    nodes: updated.nodes,
+    styles: fontManifestStyles(updated.styles),
+    fontManifest: {
+      version: 2 as const,
+      fonts: doc.fontManifest?.fonts ?? [],
+      replacements,
+    },
+  };
+  const { manifest } = attachFontManifestToDocument(manifestInput, catalog);
 
   return {
     ...doc,
-    nodes: updated.nodes as Document['nodes'],
-    ...(updated.styles ? { styles: updated.styles as Document['styles'] } : {}),
+    nodes: updated.nodes,
+    ...(updated.styles ? { styles: updated.styles } : {}),
+    ...(updated.stories ? { stories: updated.stories } : {}),
     fontManifest: manifest,
   };
 }
@@ -88,6 +88,32 @@ export interface FontReplacementScope {
   nodeIds?: readonly string[];
 }
 
+type FontManifestTextStyle = {
+  type: 'text';
+  fontFamily?: string;
+  fontReference?: FontReference;
+  fontWeight?: number;
+  fontStyle?: string;
+};
+
+function fontManifestStyles(
+  styles: Document['styles'],
+): Record<string, FontManifestTextStyle> | undefined {
+  if (!styles) return undefined;
+  const textStyles: Record<string, FontManifestTextStyle> = {};
+  for (const [styleId, style] of Object.entries(styles)) {
+    if (style.type !== 'text') continue;
+    textStyles[styleId] = {
+      type: 'text',
+      fontFamily: style.fontFamily,
+      fontReference: style.fontReference,
+      fontWeight: style.fontWeight,
+      fontStyle: style.fontStyle,
+    };
+  }
+  return textStyles;
+}
+
 function replacementMatches(
   replacement: FontReplacement,
   family: string | undefined,
@@ -101,6 +127,105 @@ function replacementMatches(
   return family?.toLowerCase() === replacement.original.toLowerCase();
 }
 
+function isFontReference(value: unknown): value is FontReference {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'artifactHash' in value &&
+    typeof value.artifactHash === 'string' &&
+    (!('collectionIndex' in value) || typeof value.collectionIndex === 'number') &&
+    (!('postScriptName' in value) || typeof value.postScriptName === 'string')
+  );
+}
+
+function mergeResolverOutput(
+  doc: Document,
+  resolved: ResolverDocument,
+): {
+  nodes: Document['nodes'];
+  styles: Document['styles'] | undefined;
+  stories: Document['stories'] | undefined;
+} {
+  const nodes = { ...doc.nodes };
+  for (const [nodeId, updated] of Object.entries(resolved.nodes)) {
+    const original = doc.nodes[nodeId];
+    if (original?.kind !== 'text' || !isResolverTextNode(updated)) continue;
+    const { fontStyle: _fontStyle, richText, ...updatedFields } = updated;
+    nodes[nodeId] = {
+      ...original,
+      ...updatedFields,
+      richText: mergeResolverRichText(original.richText, richText),
+    };
+  }
+
+  const styles = doc.styles ? { ...doc.styles } : undefined;
+  if (styles && resolved.styles) {
+    for (const [styleId, updated] of Object.entries(resolved.styles)) {
+      const original = doc.styles?.[styleId];
+      if (original?.type !== 'text' || !isResolverTextStyle(updated)) continue;
+      const { fontStyle: _fontStyle, ...updatedFields } = updated;
+      styles[styleId] = { ...original, ...updatedFields };
+    }
+  }
+
+  const stories = mergeResolverStories(doc.stories, resolved.stories);
+  return { nodes, styles, stories };
+}
+
+function mergeResolverStories(
+  source: Document['stories'],
+  resolved: ResolverDocument['stories'],
+  storyIds?: ReadonlySet<string>,
+): Document['stories'] | undefined {
+  if (!source || !resolved) return source;
+  const stories = { ...source };
+  for (const [storyId, updated] of Object.entries(resolved)) {
+    if (storyIds && !storyIds.has(storyId)) continue;
+    const original = source[storyId];
+    if (!original || !updated) continue;
+    const { content, ...updatedFields } = updated;
+    stories[storyId] = {
+      ...original,
+      ...updatedFields,
+      content: mergeResolverRichText(original.content, content) ?? original.content,
+    };
+  }
+  return stories;
+}
+
+function isResolverTextNode(
+  node: ResolverDocument['nodes'][string],
+): node is Extract<ResolverDocument['nodes'][string], { kind: 'text' }> {
+  return node.kind === 'text';
+}
+
+function isResolverTextStyle(
+  style: NonNullable<ResolverDocument['styles']>[string] | undefined,
+): style is Extract<NonNullable<ResolverDocument['styles']>[string], { type: 'text' }> {
+  return style?.type === 'text';
+}
+
+function mergeResolverRichText(
+  original: RichText | undefined,
+  updated: ResolverRichText | undefined,
+): RichText | undefined {
+  if (!original || !updated) return original;
+  const paragraphs = original.paragraphs.map((paragraph, paragraphIndex) => {
+    const updatedParagraph = updated.paragraphs[paragraphIndex];
+    if (!updatedParagraph) return paragraph;
+    const runs = paragraph.runs.map((run, runIndex) => {
+      const updatedRun = updatedParagraph.runs[runIndex];
+      if (!updatedRun) return run;
+      const { format, ...updatedFields } = updatedRun;
+      if (!format) return { ...run, ...updatedFields };
+      const { fontStyle: _fontStyle, ...updatedFormat } = format;
+      return { ...run, ...updatedFields, format: { ...run.format, ...updatedFormat } };
+    });
+    return { ...paragraph, ...updatedParagraph, runs };
+  });
+  return { ...original, ...updated, paragraphs };
+}
+
 /**
  * Resolve a replacement against either the whole document or a selected set
  * of text nodes. Scoped operations materialize a linked text style onto the
@@ -112,17 +237,25 @@ function resolveReplacement(
   doc: Document,
   replacement: FontReplacement,
   scope: FontReplacementScope | undefined,
-): { nodes: Document['nodes']; styles: Document['styles'] | undefined } {
+): {
+  nodes: Document['nodes'];
+  styles: Document['styles'] | undefined;
+  stories: Document['stories'] | undefined;
+} {
   const resolver = new FontResolver();
   if (scope?.nodeIds !== undefined) {
-    if (scope.nodeIds.length === 0) return { nodes: doc.nodes, styles: doc.styles };
+    if (scope.nodeIds.length === 0) {
+      return { nodes: doc.nodes, styles: doc.styles, stories: doc.stories };
+    }
 
     const targetIds = new Set(scope.nodeIds);
     const scopedNodes = { ...doc.nodes };
     const styleBackedTargets = new Set<string>();
+    const scopedStoryIds = new Set<string>();
     for (const nodeId of targetIds) {
       const node = doc.nodes[nodeId];
       if (node?.kind !== 'text') continue;
+      if (node.storyBinding?.storyId) scopedStoryIds.add(node.storyBinding.storyId);
       const style = node.styleId ? doc.styles?.[node.styleId] : undefined;
       if (style?.type !== 'text') continue;
       const overrides = node.styleOverrides ?? {};
@@ -131,7 +264,7 @@ function resolveReplacement(
           ? overrides.fontFamily
           : (style.fontFamily ?? node.fontFamily);
       const effectiveReference =
-        (overrides.fontReference as FontReference | undefined) ??
+        (isFontReference(overrides.fontReference) ? overrides.fontReference : undefined) ??
         style.fontReference ??
         node.fontReference;
       if (!replacementMatches(replacement, effectiveFamily, effectiveReference)) continue;
@@ -143,19 +276,32 @@ function resolveReplacement(
       };
     }
 
+    const projected = toFontResolverDocument({ ...doc, nodes: scopedNodes });
+    const scopedStories: NonNullable<ResolverDocument['stories']> = {};
+    for (const storyId of scopedStoryIds) {
+      const story = projected.stories?.[storyId];
+      if (story) scopedStories[storyId] = story;
+    }
     const resolved = resolver.applyReplacement(
-      { nodes: scopedNodes, styles: undefined } as unknown as ResolverDocument,
+      {
+        ...projected,
+        styles: undefined,
+        stories: scopedStoryIds.size > 0 ? scopedStories : undefined,
+      },
       replacement,
     );
     const nodes = { ...doc.nodes };
     for (const nodeId of targetIds) {
       const updated = resolved.nodes[nodeId];
-      if (!updated) continue;
-      if (styleBackedTargets.has(nodeId) && updated.kind === 'text') {
-        // ResolverDocument intentionally keeps non-text nodes opaque. Once
-        // the discriminant is checked, retain the text-node shape so linked
-        // style overrides survive the scoped replacement.
-        const updatedText = updated as ResolverTextNode;
+      const original = doc.nodes[nodeId];
+      if (original?.kind !== 'text' || !updated || !isResolverTextNode(updated)) continue;
+      const { fontStyle: _fontStyle, richText, ...updatedFields } = updated;
+      let updatedText: TextNode = {
+        ...original,
+        ...updatedFields,
+        richText: mergeResolverRichText(original.richText, richText),
+      };
+      if (styleBackedTargets.has(nodeId)) {
         const styleOverrides = { ...(updatedText.styleOverrides ?? {}) };
         styleOverrides.fontFamily = replacement.replacement;
         if (replacement.replacementReference) {
@@ -163,22 +309,16 @@ function resolveReplacement(
         } else {
           delete styleOverrides.fontReference;
         }
-        nodes[nodeId] = { ...updatedText, styleOverrides } as Document['nodes'][string];
-      } else {
-        nodes[nodeId] = updated as Document['nodes'][string];
+        updatedText = { ...updatedText, styleOverrides };
       }
+      nodes[nodeId] = updatedText;
     }
-    return { nodes, styles: doc.styles };
+    const stories = mergeResolverStories(doc.stories, resolved.stories, scopedStoryIds);
+    return { nodes, styles: doc.styles, stories };
   }
 
-  const resolved = resolver.applyReplacement(
-    { nodes: doc.nodes, styles: doc.styles } as unknown as ResolverDocument,
-    replacement,
-  );
-  return {
-    nodes: resolved.nodes as Document['nodes'],
-    styles: resolved.styles as Document['styles'] | undefined,
-  };
+  const resolved = resolver.applyReplacement(toFontResolverDocument(doc), replacement);
+  return mergeResolverOutput(doc, resolved);
 }
 
 /**
@@ -229,22 +369,21 @@ export function restoreFontReplacement(
   const remaining = (doc.fontManifest?.replacements ?? []).filter(
     (existing) => !sameReplacement(existing, replacement),
   );
-  const { manifest } = attachFontManifestToDocument(
-    {
-      nodes: updated.nodes,
-      styles: updated.styles,
-      fontManifest: {
-        version: 2,
-        fonts: doc.fontManifest?.fonts ?? [],
-        replacements: remaining,
-      },
-    } as Parameters<typeof attachFontManifestToDocument>[0],
-    catalog,
-  );
+  const manifestInput = {
+    nodes: updated.nodes,
+    styles: fontManifestStyles(updated.styles),
+    fontManifest: {
+      version: 2 as const,
+      fonts: doc.fontManifest?.fonts ?? [],
+      replacements: remaining,
+    },
+  };
+  const { manifest } = attachFontManifestToDocument(manifestInput, catalog);
   return {
     ...doc,
-    nodes: updated.nodes as Document['nodes'],
-    ...(updated.styles ? { styles: updated.styles as Document['styles'] } : {}),
+    nodes: updated.nodes,
+    ...(updated.styles ? { styles: updated.styles } : {}),
+    ...(updated.stories ? { stories: updated.stories } : {}),
     fontManifest: manifest,
   };
 }

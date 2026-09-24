@@ -12,6 +12,7 @@ import {
   getStoredFontByIdentity,
   listStoredFonts,
   loadStoredFont,
+  releaseDocumentFontsInIndexedDb,
   removeStoredFont,
   removeStoredFontByIdentity,
   storeFont,
@@ -30,6 +31,8 @@ export interface FontStorageFsMeta {
   faceKey?: string;
   collectionIndex?: number;
   postScriptName?: string;
+  documentId?: string;
+  scope?: 'project' | 'persistent';
   integrity?: 'verified' | 'corrupt' | 'unknown';
 }
 
@@ -82,6 +85,8 @@ export async function storeFontOnFilesystem(
     postScriptName?: string;
     artifactHash?: string;
     faceKey?: string;
+    documentId?: string;
+    scope?: 'project' | 'persistent';
   },
 ): Promise<FontStorageFsMeta | null> {
   if (!isTauri()) {
@@ -96,6 +101,8 @@ export async function storeFontOnFilesystem(
       postScriptName: meta?.postScriptName,
       artifactHash: meta?.artifactHash,
       faceKey: meta?.faceKey,
+      documentId: meta?.documentId,
+      scope: meta?.scope,
     });
     return {
       family: stored.familyName,
@@ -107,6 +114,8 @@ export async function storeFontOnFilesystem(
       faceKey: stored.faceKey,
       collectionIndex: stored.metadata.collectionIndex,
       postScriptName: stored.metadata.postScriptName,
+      documentId: stored.metadata.documentId,
+      scope: stored.metadata.scope,
       integrity: stored.integrity,
     };
   }
@@ -123,6 +132,8 @@ export async function storeFontOnFilesystem(
     postScriptName: meta?.postScriptName ?? null,
     artifactHash: meta?.artifactHash ?? null,
     faceKey: meta?.faceKey ?? null,
+    documentId: meta?.documentId ?? null,
+    scope: meta?.scope ?? null,
   });
 
   return result as FontStorageFsMeta;
@@ -153,6 +164,8 @@ export async function loadFontFromFilesystem(
         faceKey: stored.faceKey,
         collectionIndex: stored.metadata.collectionIndex,
         postScriptName: stored.metadata.postScriptName,
+        documentId: stored.metadata.documentId,
+        scope: stored.metadata.scope,
         integrity: stored.integrity,
       },
     };
@@ -189,6 +202,8 @@ export async function listFilesystemFonts(): Promise<FontStorageFsMeta[]> {
       faceKey: s.faceKey,
       collectionIndex: s.metadata.collectionIndex,
       postScriptName: s.metadata.postScriptName,
+      documentId: s.metadata.documentId,
+      scope: s.metadata.scope,
       integrity: s.integrity,
     }));
   }
@@ -218,6 +233,12 @@ export async function removeFontFromFilesystem(
         ? null
         : portableFaceKey(familyOrIdentity.artifactHash, familyOrIdentity.collectionIndex),
   })) as boolean;
+}
+
+/** Release project-scoped font faces retained by a closed document. */
+export async function releaseDocumentFonts(documentId: string): Promise<number> {
+  if (!isTauri()) return releaseDocumentFontsInIndexedDb(documentId);
+  return (await tauriInvoke('release_document_fonts', { documentId })) as number;
 }
 
 /**

@@ -11,8 +11,10 @@ contract.
 catalog cannot satisfy an authored request:
 
 - `missing-family` when no catalog face has the requested family;
-- `missing-face` when the family exists but the requested weight/style or
-  collection member is unavailable;
+- `missing-face` when the family exists but an authored explicit style or an
+  unavailable collection member cannot be honored; family-level weight gaps
+  resolve to the nearest declared face (CSS Fonts Level 4 matching) instead of
+  failing, because the renderer uses that same nearest face;
 - `version-mismatch` when the requested PostScript name exists but the
   artifact hash differs;
 - `conflicting` when multiple local artifacts claim the requested variant;
@@ -22,6 +24,30 @@ Every result includes a recovery reason and a next action. Family-only
 resolution refuses to choose between duplicate regular artifacts. The dialog
 renders the reason and action before offering install, browse, or replacement
 controls, so a same-family match cannot be mistaken for an exact-face match.
+
+## Nearest-weight follow-up — 2026-09-14
+
+Opening a document whose text requested an installed family at an unregistered
+weight (for example `Arial 800` after a reviewed `Carrois Gothic → Arial`
+replacement carried the original weight) raised the dialog on every launch.
+Replacing it with the recommended compatible family kept the authored weight,
+so the same `missing-face` state followed the replacement and the dialog could
+never be cleared. Two resolver changes close that loop:
+
+- `resolveCatalogEntry` now matches family-level weight requests against the
+  nearest declared face (CSS Fonts Level 4 ordering, including the regular
+  default when no weight is authored). Exact `fontReference` requests and
+  explicit italic/normal style requests remain strict, so a portable artifact
+  identity or a missing italic sibling is still reported.
+- `findSubstitutes` orders equal-confidence candidates by whether their
+  registered faces can satisfy the authored weight/style, so the dialog's
+  default replacement no longer lands on another missing face.
+
+Regression coverage: four `detectMissing`/replacement cases and one
+`findSubstitutes` ordering case in `fontResolver.test.ts`, plus a Playwright
+import case (`figma-import.spec.ts`) asserting no dialog for an imported
+`Arial 800` text node. Focused runs: engine font + Font Browser suites
+(562 tests) and the Chromium case (1 passed).
 
 ## Validation
 

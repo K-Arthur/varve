@@ -33,19 +33,30 @@ export interface ResolverTextNode {
   fontWeight?: number;
   fontStyle?: string;
   text?: string;
-  richText?: {
-    paragraphs: Array<{
-      runs: Array<{
-        text: string;
-        format?: {
-          fontFamily?: string;
-          fontReference?: FontReference;
-          fontWeight?: number;
-          fontStyle?: string;
-        };
-      }>;
-    }>;
+  richText?: ResolverRichText;
+}
+
+export interface ResolverTextRun {
+  text: string;
+  format?: {
+    fontFamily?: string;
+    fontReference?: FontReference;
+    fontWeight?: number;
+    fontStyle?: string;
   };
+}
+
+export interface ResolverRichText {
+  paragraphs: Array<{ runs: ResolverTextRun[] }>;
+}
+
+/** Authoritative linked-story projection used by missing-font recovery. */
+export interface ResolverStory {
+  id: string;
+  name?: string;
+  thread: string[];
+  content?: ResolverRichText;
+  language?: string;
 }
 
 /** Minimal style shape used by the resolver. */
@@ -61,6 +72,7 @@ export interface ResolverTextStyle {
 export interface ResolverDocument {
   nodes: Record<string, ResolverTextNode | { id: string; kind: string }>;
   styles?: Record<string, ResolverTextStyle | { type: string; [key: string]: unknown }>;
+  stories?: Record<string, ResolverStory>;
 }
 
 // ---------------------------------------------------------------------------
@@ -177,6 +189,25 @@ export const FONT_COMPAT_MAP: Record<string, string[]> = {
 // Helpers
 // ---------------------------------------------------------------------------
 
+type FontResolutionReference = {
+  family: string;
+  fontReference?: FontReference;
+  weight?: number;
+  style?: string;
+  text?: string;
+};
+
+type MissingFamilyRecord = {
+  family: string;
+  fontReference?: FontReference;
+  nodeIds: string[];
+  weight?: number;
+  style?: string;
+  missingGlyphs: Set<string>;
+  status: MissingFontStatus;
+  diagnostic?: MissingFontDiagnostic;
+};
+
 function hasTextStyleFont(
   node: ResolverTextNode | { id: string; kind: string },
 ): node is ResolverTextNode {
@@ -225,20 +256,8 @@ function getFontFamiliesFromStyles(doc: ResolverDocument): Array<{
   return results;
 }
 
-function getFontFamiliesFromNode(node: ResolverTextNode): Array<{
-  family: string;
-  fontReference?: FontReference;
-  weight?: number;
-  style?: string;
-  text?: string;
-}> {
-  const results: Array<{
-    family: string;
-    fontReference?: FontReference;
-    weight?: number;
-    style?: string;
-    text?: string;
-  }> = [];
+function getFontFamiliesFromNode(node: ResolverTextNode): FontResolutionReference[] {
+  const results: FontResolutionReference[] = [];
 
   if (node.fontFamily) {
     results.push({
@@ -272,6 +291,76 @@ function getFontFamiliesFromNode(node: ResolverTextNode): Array<{
   return results;
 }
 
+function getFontFamiliesFromStory(
+  story: ResolverStory,
+  fallback?: Pick<ResolverTextNode, 'fontFamily' | 'fontReference' | 'fontWeight' | 'fontStyle'>,
+): FontResolutionReference[] {
+  const results: FontResolutionReference[] = [];
+  for (const paragraph of story.content?.paragraphs ?? []) {
+    for (const run of paragraph.runs) {
+      const family = run.format?.fontFamily ?? fallback?.fontFamily;
+      if (!family) continue;
+      results.push({
+        family,
+        fontReference: inheritedFontReference(
+          fallback?.fontFamily,
+          fallback?.fontReference,
+          run.format?.fontFamily,
+          run.format?.fontReference,
+        ),
+        weight: run.format?.fontWeight ?? fallback?.fontWeight,
+        style: run.format?.fontStyle ?? fallback?.fontStyle,
+        text: run.text,
+      });
+    }
+  }
+  return results;
+}
+
+function recordMissingReference(
+  familyNodes: Map<string, MissingFamilyRecord>,
+  catalog: FontCatalog,
+  reference: FontResolutionReference,
+  nodeIds: readonly string[],
+): void {
+  const key = reference.fontReference
+    ? `reference:${fontReferenceKey(reference.fontReference)}`
+    : `family:${reference.family.toLowerCase()}`;
+  const entry = resolveCatalogEntry(catalog, reference);
+  const missingGlyphs = entry ? findMissingGlyphs(reference.text, entry) : [];
+  if (entry && missingGlyphs.length === 0) return;
+
+  const classified = classifyMissingReference(catalog, reference);
+  const status: MissingFontStatus = missingGlyphs.length > 0 ? 'missing-glyph' : classified.status;
+  const diagnostic: MissingFontDiagnostic =
+    missingGlyphs.length > 0 ? missingFontDiagnostic('missing-glyph') : classified.diagnostic;
+  const existing = familyNodes.get(key);
+  if (existing) {
+    for (const nodeId of nodeIds) {
+      if (!existing.nodeIds.includes(nodeId)) existing.nodeIds.push(nodeId);
+    }
+    if (existing.weight === undefined) existing.weight = reference.weight;
+    if (existing.style === undefined) existing.style = reference.style;
+    for (const glyph of missingGlyphs) existing.missingGlyphs.add(glyph);
+    if (statusPriority(status) > statusPriority(existing.status)) {
+      existing.status = status;
+      existing.diagnostic = diagnostic;
+    }
+    return;
+  }
+
+  familyNodes.set(key, {
+    family: reference.family,
+    fontReference: reference.fontReference,
+    nodeIds: [...nodeIds],
+    weight: reference.weight,
+    style: reference.style,
+    missingGlyphs: new Set(missingGlyphs),
+    status,
+    diagnostic,
+  });
+}
+
 // ---------------------------------------------------------------------------
 // FontResolver
 // ---------------------------------------------------------------------------
@@ -283,60 +372,27 @@ export class FontResolver {
    * node IDs collected.
    */
   detectMissing(doc: ResolverDocument, catalog: FontCatalog): MissingFontInfo[] {
-    const familyNodes = new Map<
-      string,
-      {
-        family: string;
-        fontReference?: FontReference;
-        nodeIds: string[];
-        weight?: number;
-        style?: string;
-        missingGlyphs: Set<string>;
-        status: MissingFontStatus;
-        diagnostic?: MissingFontDiagnostic;
-      }
-    >();
+    const familyNodes = new Map<string, MissingFamilyRecord>();
 
     // Scan text nodes
     for (const node of Object.values(doc.nodes)) {
       if (node.kind !== 'text') continue;
 
       for (const reference of getFontFamiliesFromNode(node as ResolverTextNode)) {
-        const family = reference.family;
-        const key = reference.fontReference
-          ? `reference:${fontReferenceKey(reference.fontReference)}`
-          : `family:${family.toLowerCase()}`;
-        const entry = resolveCatalogEntry(catalog, reference);
-        const missingGlyphs = entry ? findMissingGlyphs(reference.text, entry) : [];
-        if (entry && missingGlyphs.length === 0) continue;
-        const classified = classifyMissingReference(catalog, reference);
-        const status: MissingFontStatus =
-          missingGlyphs.length > 0 ? 'missing-glyph' : classified.status;
-        const diagnostic: MissingFontDiagnostic =
-          missingGlyphs.length > 0 ? missingFontDiagnostic('missing-glyph') : classified.diagnostic;
+        recordMissingReference(familyNodes, catalog, reference, [node.id]);
+      }
+    }
 
-        const existing = familyNodes.get(key);
-        if (existing) {
-          if (!existing.nodeIds.includes(node.id)) existing.nodeIds.push(node.id);
-          if (existing.weight === undefined) existing.weight = reference.weight;
-          if (existing.style === undefined) existing.style = reference.style;
-          for (const glyph of missingGlyphs) existing.missingGlyphs.add(glyph);
-          if (statusPriority(status) > statusPriority(existing.status)) {
-            existing.status = status;
-            existing.diagnostic = diagnostic;
-          }
-        } else {
-          familyNodes.set(key, {
-            family,
-            fontReference: reference.fontReference,
-            nodeIds: [node.id],
-            weight: reference.weight,
-            style: reference.style,
-            missingGlyphs: new Set(missingGlyphs),
-            status,
-            diagnostic,
-          });
-        }
+    // Linked stories own their rich text; every visible frame is retained as
+    // an affected location so one replacement updates the authoritative text
+    // once while the UI can still navigate to each frame.
+    for (const story of Object.values(doc.stories ?? {})) {
+      const frameIds = story.thread ?? [];
+      const fallbackNode = frameIds
+        .map((frameId) => doc.nodes[frameId])
+        .find((node): node is ResolverTextNode => node?.kind === 'text');
+      for (const reference of getFontFamiliesFromStory(story, fallbackNode)) {
+        recordMissingReference(familyNodes, catalog, reference, frameIds);
       }
     }
 
@@ -519,7 +575,14 @@ export class FontResolver {
       }
     }
 
-    return allSubstitutes.sort((a, b) => b.confidence - a.confidence);
+    // Confidence tiers are authoritative; within one tier, prefer candidates
+    // whose registered faces can actually satisfy the authored weight/style so
+    // the dialog's default replacement does not land on another missing face.
+    return allSubstitutes.sort(
+      (a, b) =>
+        b.confidence - a.confidence ||
+        substituteVariantFit(b, missing) - substituteVariantFit(a, missing),
+    );
   }
 
   /**
@@ -607,10 +670,39 @@ export class FontResolver {
       }
     }
 
+    const updatedStories = doc.stories ? { ...doc.stories } : undefined;
+    if (updatedStories) {
+      for (const [id, story] of Object.entries(updatedStories)) {
+        if (!story.content) continue;
+        let storyChanged = false;
+        const paragraphs = story.content.paragraphs.map((paragraph) => {
+          let paragraphChanged = false;
+          const runs = paragraph.runs.map((run) => {
+            if (!matches(run.format?.fontFamily, run.format?.fontReference)) return run;
+            paragraphChanged = true;
+            return {
+              ...run,
+              format: replaceFormat(run.format ?? {}),
+            };
+          });
+          if (!paragraphChanged) return paragraph;
+          storyChanged = true;
+          return { ...paragraph, runs };
+        });
+        if (storyChanged) {
+          updatedStories[id] = {
+            ...story,
+            content: { ...story.content, paragraphs },
+          };
+        }
+      }
+    }
+
     return {
       ...doc,
       nodes: updatedNodes,
       styles: updatedStyles,
+      stories: updatedStories,
     } as ResolverDocument;
   }
 
@@ -649,22 +741,79 @@ function resolveCatalogEntry(
     .filter((entry) => entry.identity.familyName.toLowerCase() === familyKey);
   if (entries.length === 0) return undefined;
 
-  const requestedVariant = entries.filter((entry) => matchesRequestedVariant(entry, reference));
-  if (requestedVariant.length === 1) return requestedVariant[0];
-  if (requestedVariant.length > 1) return undefined;
-
-  // A family-only request has a useful deterministic default: the regular
-  // face. If multiple artifacts claim that same default, keep it unresolved
-  // so the user can choose an exact face instead of silently picking bytes.
-  if (reference.weight === undefined && reference.style === undefined) {
+  if (reference.weight !== undefined) {
+    const exactCandidates = entries.filter((entry) => matchesRequestedVariant(entry, reference));
+    // A request that omits the style still prefers the upright face, matching
+    // the CSS default, before the match can be called ambiguous.
+    const preferred =
+      reference.style === undefined && exactCandidates.length > 1
+        ? exactCandidates.filter((entry) => matchesRequestedVariant(entry, { style: 'normal' }))
+        : exactCandidates;
+    const pool = preferred.length > 0 ? preferred : exactCandidates;
+    if (pool.length === 1) return pool[0];
+    if (pool.length > 1) return undefined;
+  } else {
+    // No authored weight: the CSS default is regular (400). A family-only
+    // request must not fail because the family also has bold/italic siblings.
     const regular = entries.filter((entry) =>
-      matchesRequestedVariant(entry, { ...reference, weight: 400, style: 'normal' }),
+      matchesRequestedVariant(entry, { weight: 400, style: reference.style ?? 'normal' }),
     );
     if (regular.length === 1) return regular[0];
     if (regular.length > 1) return undefined;
-    return entries.length === 1 ? entries[0] : undefined;
   }
-  return undefined;
+
+  // Family-level weight matching follows CSS Fonts Level 4: the nearest
+  // declared weight resolves the request, so an installed family is not
+  // reported missing merely because the authored weight has no exact file.
+  // Exact artifact references and explicit styles remain strict above.
+  const styled =
+    reference.style === undefined
+      ? preferUprightEntries(entries)
+      : entries.filter((entry) => matchesRequestedVariant(entry, { style: reference.style }));
+  if (styled.length === 0) return undefined;
+  return selectNearestWeightEntry(styled, reference.weight ?? 400);
+}
+
+function preferUprightEntries(entries: FontCatalogEntry[]): FontCatalogEntry[] {
+  const upright = entries.filter((entry) => matchesRequestedVariant(entry, { style: 'normal' }));
+  return upright.length > 0 ? upright : entries;
+}
+
+/**
+ * Pick the face CSS would use for a requested weight, preferring exact, then
+ * the nearest heavier/lighter stop in spec order. Ambiguous weight groups
+ * stay unresolved so the user chooses the exact artifact.
+ */
+function selectNearestWeightEntry(
+  entries: FontCatalogEntry[],
+  target: number,
+): FontCatalogEntry | undefined {
+  const byWeight = new Map<number, FontCatalogEntry[]>();
+  for (const entry of entries) {
+    const weight = parseWeightFromSubfamily(entry.identity.subfamilyName);
+    const group = byWeight.get(weight);
+    if (group) group.push(entry);
+    else byWeight.set(weight, [entry]);
+  }
+  const weights = [...byWeight.keys()];
+  if (weights.length === 0) return undefined;
+
+  const ascending = (values: number[]) => values.sort((a, b) => a - b);
+  const descending = (values: number[]) => values.sort((a, b) => b - a);
+  const ordered =
+    target <= 500
+      ? [
+          ...ascending(weights.filter((weight) => weight >= target && weight <= 500)),
+          ...descending(weights.filter((weight) => weight < target)),
+          ...ascending(weights.filter((weight) => weight > 500)),
+        ]
+      : [
+          ...ascending(weights.filter((weight) => weight >= target)),
+          ...descending(weights.filter((weight) => weight < target)),
+        ];
+
+  const candidates = byWeight.get(ordered[0]!);
+  return candidates?.length === 1 ? candidates[0] : undefined;
 }
 
 function matchesRequestedVariant(
@@ -678,6 +827,25 @@ function matchesRequestedVariant(
     reference.style === undefined ||
     (wantsItalic ? subfamily.includes('italic') : !subfamily.includes('italic'));
   return (reference.weight === undefined || weight === reference.weight) && styleMatches;
+}
+
+/**
+ * Ordering score for candidates that share a confidence tier. A candidate
+ * whose registered faces include the authored style and a close weight is a
+ * better replacement than one that would immediately be missing again.
+ */
+function substituteVariantFit(substitute: FontSubstitute, missing: MissingFontInfo): number {
+  const wantsItalic = missing.requestedStyle?.toLowerCase() === 'italic';
+  const styleVariants =
+    missing.requestedStyle === undefined
+      ? substitute.availableVariants
+      : substitute.availableVariants.filter(
+          (variant) => (variant.style === 'italic') === wantsItalic,
+        );
+  if (styleVariants.length === 0) return 0;
+  const target = missing.requestedWeight ?? 400;
+  const distance = Math.min(...styleVariants.map((variant) => Math.abs(variant.weight - target)));
+  return 1 / (1 + distance);
 }
 
 function classifyMissingReference(

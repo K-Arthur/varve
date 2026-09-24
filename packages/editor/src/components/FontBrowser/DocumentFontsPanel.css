@@ -95,7 +95,7 @@
 
 .document-fonts-panel__scope button.is-active {
   background: var(--color-surface-raised);
-  box-shadow: var(--elevation-shadow-sm);
+  box-shadow: var(--elevation-shadow-raised);
   color: var(--color-text-primary);
   font-weight: var(--font-weight-semibold);
 }
@@ -187,7 +187,7 @@
 
 .document-fonts-panel__row-copy small {
   color: var(--color-text-muted);
-  font-size: var(--font-size-3xs);
+  font-size: var(--font-size-2xs);
 }
 
 .document-fonts-panel__row-copy small.is-exact {
@@ -205,7 +205,7 @@
   width: fit-content;
   padding: 1px var(--space-1);
   border-radius: var(--radius-control-compact);
-  font-size: var(--font-size-3xs);
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
   white-space: nowrap;
 }

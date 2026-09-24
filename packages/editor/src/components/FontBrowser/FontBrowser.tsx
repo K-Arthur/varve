@@ -49,6 +49,8 @@ export interface FontBrowserProps {
   showDownloadable?: boolean;
   maxHeight?: number;
   layout?: 'panel' | 'modal';
+  /** Project lifetime for explicitly installed downloadable faces. */
+  documentId?: string;
 }
 
 type SourceFilter = 'all' | 'system' | 'bundled' | 'project' | 'recent' | 'favorites';
@@ -300,6 +302,7 @@ export function FontBrowser({
   showDownloadable = false,
   maxHeight,
   layout = 'panel',
+  documentId,
 }: FontBrowserProps) {
   const semantic = useMemo(() => getFontSemanticCatalog(), []);
   const registry = useMemo(() => getFontRegistry(), []);
@@ -673,7 +676,9 @@ export function FontBrowser({
       setInstallingFamily(record.familyId);
       setInstallError(null);
       try {
-        await downloadAndApplyOnlineFont(record.familyName, 'fontsource', record.familyId);
+        await downloadAndApplyOnlineFont(record.familyName, 'fontsource', record.familyId, {
+          documentId,
+        });
         semantic.notifyExternalChange();
       } catch (error) {
         setInstallError(error instanceof Error ? error.message : 'Font installation failed.');

@@ -1,4 +1,4 @@
-import { inheritedFontReference, type FontReference } from '@varve/engine';
+import { type FontReference, inheritedFontReference } from '@varve/engine';
 import { buildAllVariantCaches, type Document, type SceneNode, type TextNode } from '@varve/scene';
 
 export interface DocumentFontUsage {

@@ -48,22 +48,3 @@ Result: 1 test passed. I inspected both generated captures:
 
 The browser run does not certify native component projection, linked-story
 splitting, or cross-page navigation. Those remain separate acceptance checks.
-
-## Website evidence
-
-The typography feature page and guide were rebuilt for both configured website
-base paths and exercised in Chromium:
-
-```text
-pnpm build:website
-pnpm build:website:pages
-CI=1 VARVE_WEBSITE_E2E_PORT=4337 VARVE_WEBSITE_E2E_PORT_ROOT=4338 \
-  npx playwright test apps/website/tests/e2e/typography-workflow.spec.ts \
-  -c playwright.website.config.ts --grep 'typography' --reporter=list --timeout=90000
-```
-
-Result: 14 tests passed across the GitHub Pages `/varve` project and the
-custom-domain `/` project. Desktop light/dark and 390px narrow-dark captures
-were generated for the feature and guide. Inspection found no horizontal
-overflow; the updated component-instance copy remains readable in the feature
-workflow-limits section and the guide's font-access section.

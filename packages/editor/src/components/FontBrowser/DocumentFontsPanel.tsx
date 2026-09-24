@@ -8,6 +8,7 @@ import {
 import type { Document } from '@varve/scene';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useEditor } from '../../context';
+import { isPublishingPageSurface } from '../../scene/activeWorkspace';
 import {
   applyFontReplacement,
   findRestorableFontReplacement,
@@ -160,7 +161,9 @@ export function DocumentFontsPanel() {
   const designCanvas = state.document.designCanvases?.find(
     (candidate) => candidate.id === state.document.activeDesignCanvasId,
   );
-  const activeSurface = state.workspaceMode === 'print' ? page : (designCanvas ?? page);
+  const activeSurface = isPublishingPageSurface(state.document, state.workspaceMode)
+    ? page
+    : (designCanvas ?? page);
   const activeSurfaceName = activeSurface?.name ?? 'current canvas';
   const usage = useMemo(
     () =>
@@ -201,7 +204,7 @@ export function DocumentFontsPanel() {
           </button>
           <span aria-current="page">Browse all fonts</span>
         </div>
-        <FontBrowser layout="panel" showDownloadable />
+        <FontBrowser layout="panel" showDownloadable documentId={state.document.id} />
       </div>
     );
   }
@@ -316,6 +319,7 @@ export function DocumentFontsPanel() {
         <FontBrowserDialog
           open
           selectedFamily={replacementTarget.family}
+          documentId={state.document.id}
           onClose={() => setReplacementTarget(null)}
           onSelect={(family) =>
             applyReplacement(replacementTarget, {

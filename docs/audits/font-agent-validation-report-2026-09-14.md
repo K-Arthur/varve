@@ -52,9 +52,9 @@ pnpm exec biome check <task-owned changed TypeScript files>
 pnpm exec vitest run packages/engine/src/font/fontFaceInheritance.test.ts packages/engine/src/font/fontResolver.test.ts packages/engine/src/text/paragraphLayout.test.ts packages/engine/src/textLayoutSnapshot.test.ts packages/editor/src/components/FontBrowser/documentFontUsage.test.ts packages/editor/src/packageExport.test.ts packages/editor/src/commands/__tests__/selectionCommands.test.ts packages/editor/src/components/SpecPanel/export.test.ts --config vitest.config.ts --pool=threads --maxWorkers=1 --reporter=dot
 pnpm exec vitest run packages/engine/src/font --config vitest.config.ts --pool=threads --maxWorkers=1 --reporter=dot
 pnpm exec vitest run packages/editor/src/components/FontBrowser --config vitest.config.ts --pool=threads --maxWorkers=1 --reporter=dot
-CI=1 TMPDIR=/home/kevina/varve-tmp VARVE_E2E_PORT=1744 VARVE_E2E_WORKERS=1 VARVE_DISABLE_HMR=1 VARVE_E2E_OUTPUT_DIR=font-toolbar-final-20260914-rerun npx playwright test tests/e2e/canvas/font-toolbar-visual.spec.ts --project=chromium --reporter=list --timeout=180000
-CI=1 TMPDIR=/home/kevina/varve-tmp VARVE_E2E_PORT=1745 VARVE_E2E_WORKERS=1 VARVE_DISABLE_HMR=1 VARVE_E2E_OUTPUT_DIR=font-typography-editing-20260914-rerun npx playwright test tests/e2e/canvas/typography-editing.spec.ts --project=chromium --reporter=list --timeout=180000
-CI=1 TMPDIR=/home/kevina/varve-tmp VARVE_E2E_PORT=1746 VARVE_E2E_WORKERS=1 VARVE_DISABLE_HMR=1 VARVE_E2E_OUTPUT_DIR=font-document-fonts-capabilities-20260914 npx playwright test tests/e2e/canvas/document-fonts-panel.spec.ts --project=chromium --reporter=list --timeout=180000
+CI=1 VARVE_E2E_PORT=1744 VARVE_E2E_WORKERS=1 VARVE_DISABLE_HMR=1 VARVE_E2E_OUTPUT_DIR=font-toolbar-final-20260914-rerun npx playwright test tests/e2e/canvas/font-toolbar-visual.spec.ts --project=chromium --reporter=list --timeout=180000
+CI=1 VARVE_E2E_PORT=1745 VARVE_E2E_WORKERS=1 VARVE_DISABLE_HMR=1 VARVE_E2E_OUTPUT_DIR=font-typography-editing-20260914-rerun npx playwright test tests/e2e/canvas/typography-editing.spec.ts --project=chromium --reporter=list --timeout=180000
+CI=1 VARVE_E2E_PORT=1746 VARVE_E2E_WORKERS=1 VARVE_DISABLE_HMR=1 VARVE_E2E_OUTPUT_DIR=font-document-fonts-capabilities-20260914 npx playwright test tests/e2e/canvas/document-fonts-panel.spec.ts --project=chromium --reporter=list --timeout=180000
 pnpm audit:docs
 pnpm audit:emoji
 pnpm audit:tokens
@@ -266,10 +266,12 @@ VARVE_WDIO_SPECS=./tests/wdio/font-native.e2e.ts pnpm test:desktop:native
 ```
 
 It stopped in `apps/desktop`'s `build:wdio` TypeScript step before launching
-Tauri. The errors are in concurrent/shared files (`Menubar.tsx`,
-`inputPipeline.ts`, `wheelClassifier.ts`, `applyFontReplacement.ts`,
+Tauri. After the linked-story type fixes in `be0fe69d47c12998b312c0d9f9595082a1800d27`,
+the remaining diagnostics are confined to concurrent/shared editor files
+(`Menubar.tsx`, `inputPipeline.ts`, `wheelClassifier.ts`,
 `ManageLayoutsDialog.tsx`, `geometry/vectorOps.ts`, `snapping.ts`, and
-`workspace/layoutVariants.ts`); no native WDIO pass is claimed. The executable
+`workspace/layoutVariants.ts`). No font file or font-recovery diagnostic
+remains in this build lane, but no native WDIO pass is claimed. The executable
 next check is to rerun this exact spec after that shared build lane is repaired.
 
 ## Website visual continuation — 2026-09-14
@@ -290,3 +292,230 @@ Passed: both builds (0 errors, five existing Astro hints) and **14/14**
 typography/FAQ cases across `/varve` and `/`. Desktop light/dark and narrow
 dark captures were inspected. The broader website suite and unrelated global
 visual snapshots remain outside this focused proof.
+
+## Linked-story replacement continuation — 2026-09-14
+
+Commits `61b4a27e364066d52f1e9c90d702c6a3873d8519`,
+`44ff38f9b39e5e03b89483e4dcdd173e542f03e0` route authoritative text
+stories through the same resolver used by ordinary text nodes, styles, and rich
+runs. Missing-font detection now retains every frame in a story thread as an
+affected location, while replacement updates the story's rich runs once. The
+editor adapter scopes the story projection to the selected frame set and merges
+the updated story back into the document without changing unrelated stories or
+the thread order. The controller now passes stories into its resolver projection
+so fonts used only by linked content reach the recovery dialog.
+
+Commands actually run:
+
+```text
+pnpm exec biome check packages/engine/src/font/fontResolver.ts packages/engine/src/font/index.ts packages/engine/src/font/fontResolver.test.ts packages/editor/src/components/FontBrowser/applyFontReplacement.ts packages/editor/src/components/FontBrowser/applyFontReplacement.test.ts
+pnpm exec vitest run packages/engine/src/font/fontResolver.test.ts packages/editor/src/components/FontBrowser/applyFontReplacement.test.ts --config vitest.config.ts --pool=threads --maxWorkers=1 --reporter=dot
+pnpm exec biome check packages/editor/src/components/FontBrowser/MissingFontController.tsx packages/editor/src/components/FontBrowser/MissingFontController.test.tsx
+pnpm exec vitest run packages/editor/src/components/FontBrowser/MissingFontController.test.tsx --config vitest.config.ts --pool=threads --maxWorkers=1 --reporter=dot
+```
+
+Passed: Biome and **50 focused tests**. This closes the linked-story
+detection/replacement component proof and moves acceptance scenario 13 to
+Partial. The editor test now also restores the authoritative story and removes
+its manifest entry. A one-step editor-history assertion, preview/cancel UI
+flow, durable save/reopen proof, and native restart evidence remain open. The
+follow-up test commit is `ea1e3fa246d9ce63ae19a521d5971134f755a9bc`.
+
+## Visual recheck — 2026-09-14
+
+The focused Chromium visual run was repeated on an isolated Vite port after the
+linked-story changes. It covers the quick font toolbar at DPR 1, 2, and 3 and
+the typography editing workflow, including empty-text cancellation and
+OpenType/cluster redraw.
+
+```text
+VARVE_E2E_PORT=1492 VARVE_E2E_WORKERS=1 npx playwright test tests/e2e/canvas/font-toolbar-visual.spec.ts tests/e2e/canvas/typography-editing.spec.ts --project=chromium --reporter=list
+```
+
+Passed: **6 tests** in 2.3 minutes. I inspected the light-open, dark-narrow,
+and high-contrast-open captures from
+`test-results/run-1396279-1492/`; the family field, weight, style, size, and
+swatch controls share the 32 px compact control token, the menu remains
+readable at all three DPRs, and the narrow menu scrolls without clipping the
+active row. The run also confirms the existing empty-text cleanup behavior and
+real OpenType redraw path. This is browser visual evidence; native WebKit,
+Windows WebView2, and macOS WKWebView proof remain platform dependencies.
+
+## Full-gate continuation — 2026-09-14
+
+Because `pnpm verify:plan` selected the required Tier 5 escalation for the
+shared workspace and validation-infrastructure changes, I reran the full gate
+after the linked-story and research commits:
+
+```text
+VARVE_FULL_GATE_REASON='font typography continuation: linked-story resolver/controller, primary-source UX research, and fresh quick-toolbar visual validation; planner escalated due shared workspace and validation-infrastructure changes' pnpm verify:full
+```
+
+The gate did not certify the repository. The full lint pass stopped on existing
+diagnostics in shared website/editor files, the architecture audit reported 14
+cycles and the current unstable-module/hub-budget baseline, and the affected
+engine typecheck stopped on `contentAwareFill/quickCleanup.test.ts` generic
+arity plus missing `LutTransform.size` in `lut*.test.ts`. The linked-story
+files are absent from the failure list; the earlier native WDIO build boundary
+has the same shared editor diagnostics. No unrelated files were changed to
+silence this gate.
+
+## Agent Validation Report — current continuation
+
+```text
+Changed scope: packages/engine/src/font/fontResolver.ts, font barrel/types and focused tests; packages/editor/src/components/FontBrowser/{applyFontReplacement,MissingFontController} and focused tests; font acceptance/validation/research documentation.
+Validation plan: pnpm verify:plan selected Tier 0–4 affected checks for 87 dirty files across editor, engine, desktop, website, scene, shared, and varve-accel; FULL-SUITE ESCALATION: YES because the shared worktree includes workspace/toolchain/validation-infrastructure changes.
+Commands actually run: focused Biome; focused Vitest (50 tests); apps/desktop TypeScript check; VARVE_WDIO_SPECS=./tests/wdio/font-native.e2e.ts pnpm test:desktop:native; VARVE_E2E_PORT=1492 VARVE_E2E_WORKERS=1 npx playwright test tests/e2e/canvas/font-toolbar-visual.spec.ts tests/e2e/canvas/typography-editing.spec.ts --project=chromium --reporter=list; pnpm verify:plan; pnpm verify:affected; pnpm audit:docs; pnpm audit:emoji; pnpm audit:tokens; VARVE_FULL_GATE_REASON='font typography continuation: linked-story resolver/controller, primary-source UX research, and fresh quick-toolbar visual validation; planner escalated due shared workspace and validation-infrastructure changes' pnpm verify:full.
+Passed: 50 focused resolver/controller/replacement tests; touched-file Biome; desktop TypeScript for the font path; browser visual 6/6; docs, emoji, and token audits.
+Skipped as unrelated: the affected closure after its escalation boundary; Windows WebView2/macOS WKWebView; native WDIO execution after the shared desktop build; broad website/global visual suites; live collaboration transport.
+Escalations: native WDIO stopped before Tauri on shared editor TypeScript errors; full gate stopped on shared lint diagnostics, 14 architecture cycles/budget reports, and existing engine quickCleanup/LUT type errors.
+Full suite run: yes
+If yes, reason: verify:plan required Tier 5 because the dirty tree includes workspace/toolchain/validation-infrastructure changes and this continuation crossed the resolver/document boundary.
+```
+
+## Contextual toolbar parity continuation — 2026-09-14
+
+The contextual text bar now exposes the same capability-gated Bold action as
+the floating text bar. It uses the shared registry-backed weight projection:
+static faces must provide a real 700 face, and variable faces must expose a
+compatible `wght` range. The control preserves the existing range/caret
+command adapter, so it does not bypass rich-text targeting. Contextual icons
+also use the 16px compact icon size used by the other editor toolbars.
+
+Focused component checks passed **7/7** after this change. The isolated
+Chromium visual run passed **6/6** at DPR 1/2/3, including light, dark narrow,
+and high-contrast captures. I inspected the latest captures and confirmed the
+new Bold control aligns with the family, weight, italic, size, and swatch
+controls without changing the menu bounds or clipping behavior:
+
+```text
+VARVE_E2E_PORT=1493 VARVE_E2E_WORKERS=1 npx playwright test tests/e2e/canvas/font-toolbar-visual.spec.ts tests/e2e/canvas/typography-editing.spec.ts --project=chromium --reporter=list
+```
+
+The current validation remains a browser proof. Native WebKitGTK, Windows
+WebView2, and macOS WKWebView still require their platform lanes.
+
+## Rich-range preview and commit — 2026-09-14
+
+The Chromium workflow exercises the real text editor and portaled font picker.
+It selects the first five characters of a text node, previews `Fraunces
+Variable`, confirms only that range changes, cancels with Escape and verifies
+the serialized runs are restored, then commits the same family and uses one
+undo to return to the original text. This is separate from the toolbar visual
+checks because it validates the edit transaction and rich-text range itself.
+
+```text
+CI=1 VARVE_E2E_PORT=1827 VARVE_E2E_WORKERS=1 VARVE_DISABLE_HMR=1 npx playwright test tests/e2e/canvas/typography-editing.spec.ts --project=chromium --reporter=list --timeout=120000 --retries=0 -g "font preview and commit stay scoped"
+```
+
+Result: **1 passed**. This Chromium result is browser-local evidence; native
+WebKitGTK, Windows WebView2, and macOS WKWebView still require their platform
+lanes.
+
+## Missing-face false positive and replacement loop — 2026-09-14
+
+A real saved project requests `Arial` at weight 800 after an earlier reviewed
+`Carrois Gothic → Arial` replacement carried the authored weight. The
+registry ships Arial Regular (400) and Bold (700) only, so exact variant
+matching reported `missing-face` on every open; the recommended compatible
+family kept the 800 weight and was flagged the same way, so the dialog could
+never be cleared. The local file path is intentionally omitted from this
+published evidence.
+
+Repairs:
+
+- family-level weight requests now resolve to the nearest declared face using
+  the CSS Fonts Level 4 ordering, including the regular default when no weight
+  is authored. Exact `fontReference` requests and explicit style requests stay
+  strict, so portable artifact identity and missing italic siblings are still
+  reported;
+- `findSubstitutes` orders equal-confidence candidates by face fit, so a
+  compatible family that actually has the authored weight/style is the default
+  replacement.
+
+Approach used to pin the root cause: the saved document was read directly and
+the only flagged record requested `Arial`, `fontWeight: 800`, and
+`fontStyle: normal`; a temporary resolver harness against
+`createFontCatalogFromRegistry(new FontRegistry())` reproduced the report and
+the post-replacement repeat before the fix.
+
+```text
+pnpm exec vitest run packages/engine/src/font packages/editor/src/components/FontBrowser --config vitest.config.ts --pool=threads --maxWorkers=1 --reporter=dot
+CI=1 VARVE_E2E_WORKERS=1 VARVE_E2E_PORT=1789 npx playwright test tests/e2e/canvas/figma-import.spec.ts --project=chromium --reporter=list -g "does not flag a registered family"
+pnpm exec biome check --write packages/engine/src/font/fontResolver.ts packages/engine/src/font/fontResolver.test.ts tests/e2e/canvas/figma-import.spec.ts
+pnpm typecheck:e2e
+pnpm --filter @varve/engine typecheck
+pnpm verify:plan
+pnpm verify:affected
+```
+
+Passed: engine font + Font Browser suites **562 tests / 45 files** (focused
+resolver/manifest/dialog slice repeated: **131 tests / 15 files**), Chromium
+regression case **1 passed**, touched-file Biome, and `typecheck:e2e`.
+`pnpm --filter @varve/engine typecheck` reports only the pre-existing unrelated
+`contentAwareFill/quickCleanup.test.ts` and `lut*.test.ts` diagnostics; no
+`fontResolver` error remains. `verify:affected` exited 2 at the documented
+shared-workspace full-gate escalation boundary.
+
+Skipped as unrelated: the full-suite closure required by the dirty shared
+workspace, native WebKitGTK/Windows/macOS lanes, and the broad E2E/visual
+suites.
+
+## Native test-overlay repair — 2026-09-14
+
+The final native investigation isolated an asset-root defect in the Tauri test
+overlay. `tauri.test.conf.json` now declares `build.frontendDist: "../dist"`,
+and `scripts/desktop/compatibility.test.mjs` parses the overlay and asserts the
+same value so a future merge cannot silently produce an `about:blank` WDIO
+window. The focused compatibility suite passed **16/16**. A feature-enabled
+Rust binary was rebuilt from the existing WDIO Vite bundle; native WebKit
+session certification remains pending because this host does not provide
+`WebKitWebDriver` or `tauri-driver` and the embedded probe still cannot be
+certified here.
+
+```text
+node --test scripts/desktop/compatibility.test.mjs
+cargo build --manifest-path apps/desktop/src-tauri/Cargo.toml --features wdio
+```
+
+The browser toolbar evidence remains the authoritative visual proof: the
+focused Chromium run passed 6/6 at DPR 1/2/3 with light, dark, high-contrast,
+and narrow captures inspected. No native pass is claimed from this host.
+
+## Final full-gate checkpoint — 2026-09-14
+
+The required Tier-5 checkpoint was run after the overlay repair:
+
+```text
+VARVE_FULL_GATE_REASON='font system final checkpoint: native WDIO test-overlay asset root and documented frontend/website/toolbar validation; planner escalated because shared workspace/toolchain/validation infrastructure is dirty' pnpm verify:full
+```
+
+The gate stopped in the workspace typecheck after the architecture audit. The
+reported failures are outside the font scope: `contentAwareFill/quickCleanup.test.ts`
+generic arguments, the concurrent `inference/models/mobileSam.test.ts`
+nullability assertions, and the existing `lut*.test.ts` `LutTransform.size`
+diagnostics. The audit also reported the existing 14 dependency cycles,
+unstable-module ceiling/budget reports, and hub-budget warnings. No font
+diagnostic was emitted. This is the final repository-wide validation result for
+this shared worktree; focused font and toolbar checks remain green above.
+
+## Integrated font rerun — 2026-09-23
+
+The current combined font changes were rerun after the linked-story projection
+and project-font lifecycle updates. The resolver adapter now explicitly
+projects scene text nodes, styles, and stories into the engine's minimal
+contract instead of asserting the complete scene document is equivalent.
+Document-close cleanup reports storage failures through the console rather
+than leaving a rejected promise unhandled.
+
+```text
+VARVE_TEST_WORKERS=2 pnpm exec vitest run packages/editor/src/components/FontBrowser packages/engine/src/font
+pnpm --filter @varve/editor typecheck
+pnpm --filter @varve/engine typecheck
+```
+
+Passed: **580 tests across 47 files**; editor and engine package typechecks;
+the earlier targeted Chromium font-toolbar visual run remains **6/6 passed**
+at DPR 1/2/3 with light, dark, high-contrast, and narrow captures inspected.
+The native filesystem lifecycle path and cross-platform WebView checks still
+need the native/platform validation listed in the project-lifecycle evidence.

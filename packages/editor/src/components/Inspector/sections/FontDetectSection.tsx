@@ -758,7 +758,7 @@ function ResultsList({
       <div className="insp-hint" role="status">
         <p>{result.message}</p>
         {result.qualityWarnings.length > 0 && (
-          <ul style={{ marginTop: 4, paddingLeft: 16 }}>
+          <ul style={{ marginTop: 'var(--space-1)', paddingLeft: 'var(--space-5)' }}>
             {result.qualityWarnings.map((w) => (
               <li key={w.code}>{w.message}</li>
             ))}
@@ -845,7 +845,7 @@ function ResultsList({
                 )}
                 <span className="font-detect-candidate__source">{candidate.source}</span>
               </div>
-              <div className="insp-actions" style={{ marginTop: 4 }}>
+              <div className="insp-actions" style={{ marginTop: 'var(--space-1)' }}>
                 {target && (
                   <Button
                     type="button"
