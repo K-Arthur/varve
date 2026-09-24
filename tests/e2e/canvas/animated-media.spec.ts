@@ -40,6 +40,11 @@ async function importGif(page: Page) {
     .locator('.layers-row', { hasText: 'gif-basic.gif' })
     .first()
     .waitFor({ timeout: 10000 });
+
+  const results = page.getByRole('dialog', { name: /import results/i });
+  await expect(results).toBeVisible();
+  await results.getByRole('button', { name: 'Close', exact: true }).last().click();
+  await expect(results).toBeHidden();
 }
 
 test('imports an animated GIF, plays, and scrubs frames', async ({ page }) => {

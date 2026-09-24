@@ -12,6 +12,20 @@ import { navigateToEditor, switchWorkspace } from '../shared';
 
 const PHOTO_PATH = path.resolve(__dirname, '..', 'fixtures', 'real-life-landscape.jpg');
 
+async function selectInspectorTab(page: import('@playwright/test').Page, label: string) {
+  const tab = page.getByRole('tab', { name: label, exact: true });
+  if (await tab.isVisible()) {
+    await tab.click();
+    return;
+  }
+
+  await page.getByRole('button', { name: /^More inspector tabs/ }).click();
+  await page
+    .getByRole('menu', { name: 'More inspector tabs' })
+    .getByRole('menuitem', { name: label, exact: true })
+    .click();
+}
+
 async function readEditorDocument(page: import('@playwright/test').Page): Promise<any> {
   return page.evaluate(() => {
     const root = document.querySelector('#root > *') as any;
@@ -434,18 +448,7 @@ test.describe('accepted generative edit portability', () => {
     // before restoring it. This proves the result is not only present in the
     // serialized record but also consumable by the normal raster exporter.
     await page.locator(`.layers-row[data-node-id="${nodeId}"]`).click();
-    const exportTab = page.locator('[role="tablist"] button[role="tab"]', {
-      hasText: /^export$/i,
-    });
-    if (await exportTab.isVisible({ timeout: 1000 }).catch(() => false)) {
-      await exportTab.click();
-    } else {
-      await page.getByRole('button', { name: /^More inspector tabs/ }).click();
-      await page
-        .getByRole('menu', { name: 'More inspector tabs' })
-        .getByRole('menuitem', { name: 'Export', exact: true })
-        .click();
-    }
+    await selectInspectorTab(page, 'Export');
     await page.getByRole('radio', { name: 'PNG', exact: true }).first().click();
     const exportDownloadPromise = page.waitForEvent('download', { timeout: 60_000 });
     await page.getByRole('button', { name: 'Download PNG', exact: true }).click();
@@ -463,7 +466,7 @@ test.describe('accepted generative edit portability', () => {
     // path to put the accepted edit back. The source asset must remain the
     // same immutable snapshot in both states.
     await switchWorkspace(page, 'Photo');
-    await page.getByRole('tab', { name: 'Adjustments', exact: true }).click();
+    await selectInspectorTab(page, 'Adjustments');
     const generativeSection = page.getByRole('button', {
       name: 'Generative Edit',
       exact: true,

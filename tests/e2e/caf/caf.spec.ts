@@ -516,12 +516,16 @@ test.describe('Content-Aware Fill dialog', () => {
     await expect(generateBtn).toBeEnabled();
   });
 
-  test('uses source image alpha as an editable mask source', async ({ page }) => {
+  test('guards a full-frame mask derived from an opaque source alpha', async ({ page }) => {
     await triggerCafDialog(page, nodeId);
     const dialog = page.locator('dialog.varve-dialog--caf[open]');
     await dialog.getByRole('button', { name: 'Use Image Alpha' }).click();
     await expect(dialog).toContainText('Using the source image alpha channel.');
-    await expect(page.getByRole('button', { name: /remove && fill/i })).toBeEnabled();
+    // The generated caf-test.png fixture is opaque, so its alpha selects the
+    // whole image. Keep the full-frame safety guard enabled for this case.
+    await expect(dialog).toContainText('100% selected');
+    await expect(dialog).toContainText(/edit region covers nearly the entire image/i);
+    await expect(page.getByRole('button', { name: /remove && fill/i })).toBeDisabled();
   });
 
   test('quality mode selection works', async ({ page }) => {
