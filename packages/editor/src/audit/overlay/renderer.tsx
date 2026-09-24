@@ -181,14 +181,14 @@ export function AuditOverlayRenderer({
                     height={20}
                     rx={4}
                     fill="var(--color-surface-overlay)"
-                    stroke="var(--color-border-default)"
+                    stroke="var(--color-border-subtle)"
                     strokeWidth={1}
                   />
                   <text
                     x={sx + 16}
                     y={sy + 4}
                     fontSize={11}
-                    fill="var(--color-text-default)"
+                    fill="var(--color-text-primary)"
                     fontFamily="var(--font-body, system-ui, sans-serif)"
                   >
                     {p.text}
@@ -208,7 +208,7 @@ export function AuditOverlayRenderer({
               height={24}
               rx={4}
               fill="var(--color-surface-overlay)"
-              stroke="var(--color-border-default)"
+              stroke="var(--color-border-subtle)"
               strokeWidth={1}
               opacity={0.9}
             />
@@ -316,15 +316,15 @@ function PrimitiveShape({ primitive, toScreen }: PrimitiveShapeProps) {
 function severityColor(severity: string): string {
   switch (severity) {
     case 'error':
-      return 'var(--color-feedback-danger, #d32f2f)';
+      return 'var(--color-feedback-danger)';
     case 'warning':
-      return 'var(--color-feedback-warning, #f57c00)';
+      return 'var(--color-feedback-warning)';
     case 'suggestion':
-      return 'var(--color-feedback-info, #1976d2)';
+      return 'var(--color-feedback-info)';
     case 'advisory':
-      return 'var(--color-feedback-success, #2e7d32)';
+      return 'var(--color-feedback-success)';
     default:
-      return 'var(--color-feedback-info, #1976d2)';
+      return 'var(--color-feedback-info)';
   }
 }
 

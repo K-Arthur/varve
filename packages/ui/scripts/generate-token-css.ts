@@ -16,7 +16,15 @@
  *   - @media forced-colors: active       → high-contrast honoring system colors
  */
 import { writeFileSync } from 'node:fs';
-import { SEMANTIC, type THEMES } from '../src/tokens/color';
+import {
+  BORDER_MICRO,
+  BORDER_MICRO_ACCENT,
+  ELEVATION_SCRIM,
+  ELEVATION_SHADOWS,
+  SEMANTIC,
+  SIGNATURE_ACCENTS,
+  type THEMES,
+} from '../src/tokens/color';
 import { oklchToCss } from '../src/tokens/contrast';
 import { ICON_CSS_CUSTOM_PROPERTIES } from '../src/tokens/iconTokens';
 import { COMPONENT_DIMENSIONS, COMPONENT_SIZES } from '../src/tokens/sizing';
@@ -31,6 +39,47 @@ function colorBlock(theme: string): string {
     ([token, oklch]) => `  --color-${kebab(token)}: ${oklchToCss(oklch)};`,
   );
   return lines.join('\n');
+}
+
+/** `oklch(L C H / A)` for alpha-composited theme recipes. */
+const alphaCss = (c: { color: { L: number; C: number; H: number }; alpha: number }) =>
+  `oklch(${c.color.L} ${c.color.C} ${c.color.H} / ${c.alpha})`;
+
+/**
+ * Theme-varying color values that are not flat semantic colors: elevation
+ * aliases, scrim, micro-borders, signature accents, and shadow stacks. All
+ * sourced from color.ts so the generator only composes them into CSS names.
+ */
+function themedColorBlock(theme: string): string {
+  const t = theme as (typeof THEMES)[number];
+  const scrim = ELEVATION_SCRIM[t];
+  const micro = BORDER_MICRO[t];
+  const microAccent = BORDER_MICRO_ACCENT[t];
+  const shadows = ELEVATION_SHADOWS[t];
+  const signature = SIGNATURE_ACCENTS[t];
+  return `  /* --- Elevation surfaces (aliases of the audited surface-* roles) --- */
+  --elevation-surface-sunken: var(--color-surface-sunken);
+  --elevation-surface-default: var(--color-surface-app);
+  --elevation-surface-raised: var(--color-surface-raised);
+  --elevation-surface-overlay: var(--color-surface-overlay);
+
+  /* --- Elevation shadows (theme-aware: dark needs more, HC uses rings) --- */
+  --elevation-shadow-subtle: ${shadows.subtle};
+  --elevation-shadow-small: ${shadows.small};
+  --elevation-shadow-raised: ${shadows.raised};
+  --elevation-shadow-overlay: ${shadows.overlay};
+
+  /* --- Scrim overlay (semi-transparent backdrop behind dialogs/popovers) --- */
+  --elevation-scrim: ${alphaCss(scrim)};
+
+  /* --- Micro-borders (hairline surface separation) --- */
+  --border-micro: ${micro.width} solid ${alphaCss(micro.color)};
+  --border-micro-accent: ${microAccent.width} solid ${alphaCss(microAccent.color)};
+
+  /* --- Signature accents (presentational identity; never text-on-surface) --- */
+  --color-signature-branch: ${oklchToCss(signature.branch)};
+  --color-signature-audit: ${oklchToCss(signature.audit)};
+  --color-signature-ai: ${oklchToCss(signature.ai)};`;
 }
 
 const spacingBlock = `
@@ -149,44 +198,20 @@ ${sizingBlock}
   --radius-2xl: var(--radius-device);
   --radius-pill: 9999px;
 
-  /* --- Elevation surfaces (100% opaque, hierarchical) --- */
-  --elevation-surface-sunken: oklch(0.95 0.008 260);
-  --elevation-surface-default: oklch(0.97 0.008 260);
-  --elevation-surface-raised: oklch(0.99 0.006 260);
-  --elevation-surface-overlay: oklch(1 0 0);
-
-  /* --- Elevation shadows (dark-theme adaptive) --- */
-  --elevation-shadow-raised: 0 4px 12px oklch(0 0 0 / 0.14);
-  --elevation-shadow-overlay: 0 12px 32px oklch(0 0 0 / 0.2);
+  /* --- Legacy shadows: aliases of the themed elevation scale so dark mode
+   * does not silently keep light-theme shadow opacities. --- */
+  --shadow-none: none;
+  --shadow-xs: var(--elevation-shadow-subtle);
+  --shadow-sm: var(--elevation-shadow-small);
+  --shadow-md: var(--elevation-shadow-raised);
+  --shadow-lg: var(--elevation-shadow-overlay);
+  --shadow-xl: var(--elevation-shadow-overlay);
 
   /* --- Elevation z-index --- */
   --elevation-z-sunken: 0;
   --elevation-z-default: 1;
   --elevation-z-raised: 100;
   --elevation-z-overlay: 1000;
-
-  /* --- Micro-borders (Linear-style 1px edges) --- */
-  --border-micro: 1px solid oklch(0 0 0 / 0.12);
-  --border-micro-accent: 1px solid oklch(0.779 0.1229 188.31 / 0.25);
-
-  /* --- Signature accent tokens (bespoke per-feature identity, P3-range) ---
-   * Used for icon tints, tab indicators, and status chips only.
-   * Do NOT use as text-on-background — these are presentational accents.
-   *   branch:  warm amber-gold   (version / branching concept)
-   *   audit:   muted violet      (accessibility / quality audit tab)
-   *   ai:      electric teal-P3  (on-device AI; distinct from brand teal)
-   */
-  --color-signature-branch: oklch(0.75 0.14 78);
-  --color-signature-audit: oklch(0.62 0.14 295);
-  --color-signature-ai: oklch(0.78 0.18 188);
-
-  /* --- Legacy shadows (kept for backward compat, prefer elevation-*) --- */
-  --shadow-none: none;
-  --shadow-xs: 0 1px 2px oklch(0 0 0 / 0.06);
-  --shadow-sm: 0 1px 2px oklch(0 0 0 / 0.1);
-  --shadow-md: 0 4px 12px oklch(0 0 0 / 0.14);
-  --shadow-lg: 0 12px 32px oklch(0 0 0 / 0.2);
-  --shadow-xl: 0 24px 48px oklch(0 0 0 / 0.25);
 
   /* --- Motion --- */
   --duration-instant: 50ms;
@@ -222,72 +247,32 @@ ${sizingBlock}
   --bp-xl: 1280px;
   --bp-2xl: 1536px;
 
-  /* --- Scrim overlay (semi-transparent backdrop behind dialogs/popovers) --- */
-  --elevation-scrim: oklch(0 0 0 / 0.55);
+  /* --- Theme-invariant domain colors ---
+   *
+   * Deliberately NOT themed. Adding a name here is the sanctioned way to keep
+   * a literal out of a component stylesheet; the justification bar is that the
+   * color encodes something the interface theme has no authority over:
+   *
+   *   media-viewer-*  An image/HDR preview is judged against a fixed neutral
+   *                   dark backdrop so the surrounding app theme cannot bias
+   *                   tonal perception. Same reasoning as the brand splash.
+   *   depth-scale-*   The depth-mask legend depicts *document* data
+   *                   (near -> mid -> far). The scale states absolute depth, so
+   *                   re-theming it would change what the legend says.
+   *
+   * Values are exact sRGB round-trips of the literals they replaced.
+   */
+  --color-media-viewer-backdrop: oklch(0.2543 0.0072 248.11);
+  --color-media-viewer-foreground: oklch(0.8525 0.0129 236.65);
+  --color-depth-scale-near: oklch(0.5569 0.1874 261.2);
+  --color-depth-scale-mid: oklch(0.7762 0.1116 188.54);
+  --color-depth-scale-far: oklch(0.6197 0.189 29.54);
 
   /* --- Compatibility aliases (canonical name → alias) --- */
   --color-surface-default: var(--color-surface-base);
   --color-on-accent: var(--color-text-on-accent);
   --color-accent-hover: var(--color-interactive-hover);
 `;
-
-const DARK_ELEVATION = `
-  /* Elevation surfaces (dark mode — front-lit: higher = brighter). */
-  --elevation-surface-sunken: oklch(0.12 0.008 260);
-  --elevation-surface-default: oklch(0.18 0.008 260);
-  --elevation-surface-raised: oklch(0.22 0.006 260);
-  --elevation-surface-overlay: oklch(0.27 0.005 260);
-
-  /* Elevation shadows (dark mode — more visible on dark bg). */
-  --elevation-shadow-raised: 0 4px 12px oklch(0 0 0 / 0.3);
-  --elevation-shadow-overlay: 0 12px 32px oklch(0 0 0 / 0.45);
-
-  /* Micro-borders (dark mode — more visible). */
-  --border-micro: 1px solid oklch(1 0 0 / 0.08);
-  --border-micro-accent: 1px solid oklch(0.779 0.1229 188.31 / 0.3);
-
-  /* Scrim overlay (dark mode — slightly more opaque for contrast). */
-  --elevation-scrim: oklch(0 0 0 / 0.65);
-
-  /* Signature accent tokens (dark mode — higher luminance for visibility on dark surfaces). */
-  --color-signature-branch: oklch(0.82 0.15 78);
-  --color-signature-audit: oklch(0.72 0.16 295);
-  --color-signature-ai: oklch(0.84 0.2 188);
-`;
-
-const HC_ELEVATION = `
-  /* Elevation surfaces (high-contrast — maximum separation). */
-  --elevation-surface-sunken: oklch(0 0 0);
-  --elevation-surface-default: oklch(0 0 0);
-  --elevation-surface-raised: oklch(0.15 0 0);
-  --elevation-surface-overlay: oklch(0.2 0 0);
-
-  /* Elevation shadows (HC — outline-style depth cues). */
-  --elevation-shadow-raised: 0 0 0 2px oklch(1 0 0);
-  --elevation-shadow-overlay: 0 0 0 3px oklch(1 0 0);
-
-  /* Micro-borders (HC — thicker, full-contrast edges). */
-  --border-micro: 2px solid oklch(1 0 0);
-  --border-micro-accent: 2px solid oklch(0.95 0.2 188);
-
-  /* Scrim overlay (HC — near-opaque for maximum separation). */
-  --elevation-scrim: oklch(0 0 0 / 0.7);
-
-  /* Signature accent tokens (HC — maximum-contrast yellow-green for all accents). */
-  --color-signature-branch: oklch(0.9519 0.2924 111.62);
-  --color-signature-audit: oklch(0.9519 0.2924 111.62);
-  --color-signature-ai: oklch(0.9519 0.2924 111.62);
-`;
-
-/** Map legacy --color-surface-* to canonical elevation tokens (overrides color.ts values). */
-/* No trailing newline: the alias block always sits directly before a closing
- * brace, and a trailing newline emits a blank line biome strips. */
-const SURFACE_ALIASES = `  /* Surface aliases — single elevation system (Neo-Bento redesign). */
-  --color-surface-app: var(--elevation-surface-default);
-  --color-surface-base: var(--elevation-surface-default);
-  --color-surface-raised: var(--elevation-surface-raised);
-  --color-surface-sunken: var(--elevation-surface-sunken);
-  --color-surface-overlay: var(--elevation-surface-overlay);`;
 
 /** Indent a generated block one extra level for nesting inside a media query. */
 function indent(block: string): string {
@@ -308,21 +293,19 @@ const css = `/* AUTO-GENERATED by packages/ui/scripts/generate-token-css.ts.
 ${colorBlock('light')}
 ${spacingBlock}
 ${NON_COLOR}
-${SURFACE_ALIASES}
+${themedColorBlock('light')}
 }
 
 [data-theme="dark"] {
 ${colorBlock('dark')}
 ${spacingBlock}
-${DARK_ELEVATION}
-${SURFACE_ALIASES}
+${themedColorBlock('dark')}
 }
 
 [data-theme="high-contrast"] {
 ${colorBlock('high-contrast')}
 ${spacingBlock}
-${HC_ELEVATION}
-${SURFACE_ALIASES}
+${themedColorBlock('high-contrast')}
 }
 
 /* Dark via system preference ONLY when no explicit in-app [data-theme] choice. */
@@ -330,8 +313,7 @@ ${SURFACE_ALIASES}
   :root:not([data-theme]) {
 ${indent(colorBlock('dark'))}
 ${indent(spacingBlock)}
-${indent(DARK_ELEVATION)}
-${indent(SURFACE_ALIASES)}
+${indent(themedColorBlock('dark'))}
   }
 }
 
@@ -342,8 +324,7 @@ ${indent(SURFACE_ALIASES)}
   :root:not([data-theme]) {
 ${indent(colorBlock('high-contrast'))}
 ${indent(spacingBlock)}
-${indent(HC_ELEVATION)}
-${indent(SURFACE_ALIASES)}
+${indent(themedColorBlock('high-contrast'))}
   }
 }
 
@@ -398,10 +379,10 @@ ${indent(SURFACE_ALIASES)}
     --color-text-subtle-on-sunken: GrayText;
     --color-text-subtle-on-overlay: GrayText;
     --color-hero-glow: transparent;
-    --elevation-surface-sunken: Canvas;
-    --elevation-surface-default: Canvas;
-    --elevation-surface-raised: Canvas;
-    --elevation-surface-overlay: Canvas;
+    /* Elevation surfaces are aliases of --color-surface-*, so overriding the
+     * semantic roles above is sufficient — do not restate them here. */
+    --elevation-shadow-subtle: none;
+    --elevation-shadow-small: none;
     --elevation-shadow-raised: none;
     --elevation-shadow-overlay: none;
     --border-micro: 1px solid ButtonBorder;

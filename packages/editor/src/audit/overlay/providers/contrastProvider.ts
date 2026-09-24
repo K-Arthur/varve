@@ -246,13 +246,13 @@ export function createContrastProvider(): OverlayProvider {
 function getSeverityColor(severity: AuditSeverity): string {
   switch (severity) {
     case 'error':
-      return 'var(--color-feedback-danger, #d32f2f)';
+      return 'var(--color-feedback-danger)';
     case 'warning':
-      return 'var(--color-feedback-warning, #f57c00)';
+      return 'var(--color-feedback-warning)';
     case 'suggestion':
-      return 'var(--color-feedback-info, #1976d2)';
+      return 'var(--color-feedback-info)';
     case 'advisory':
-      return 'var(--color-feedback-info, #1976d2)';
+      return 'var(--color-feedback-info)';
   }
 }
 

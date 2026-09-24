@@ -43,7 +43,7 @@ function severityBg(severity: CombinedPreflightSeverity): string {
     case 'warning':
       return 'color-mix(in oklab, var(--color-feedback-warning) 16%, transparent)';
     case 'info':
-      return 'var(--elevation-surface-sunken, rgba(128, 128, 128, 0.08))';
+      return 'var(--elevation-surface-sunken)';
   }
 }
 
@@ -237,7 +237,7 @@ export function PreflightWarnings() {
                       padding: 'var(--space-1) var(--space-2)',
                       fontSize: 'var(--font-size-xs)',
                       borderRadius: 'var(--radius-control-compact)',
-                      marginBottom: 2,
+                      marginBottom: 'var(--space-05)',
                       background: severityBg(group.severity),
                       display: 'flex',
                       alignItems: 'flex-start',

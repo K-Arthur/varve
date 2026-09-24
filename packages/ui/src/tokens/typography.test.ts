@@ -37,11 +37,10 @@ describe('typography source', () => {
 
     const stable = STABLE_STEPS.map((step) => px(FONT_SIZES[step]));
     for (let i = 1; i < stable.length; i += 1) {
-      expect(stable[i]).toBeGreaterThan(stable[i - 1]);
-    }
-    // Every adjacent pair must be visually distinguishable.
-    for (let i = 1; i < stable.length; i += 1) {
-      expect(stable[i] - stable[i - 1]).toBeGreaterThanOrEqual(1);
+      const previous = stable[i - 1] ?? 0;
+      const current = stable[i] ?? 0;
+      // Every adjacent pair must be strictly and visibly distinguishable.
+      expect(current - previous).toBeGreaterThanOrEqual(1);
     }
   });
 

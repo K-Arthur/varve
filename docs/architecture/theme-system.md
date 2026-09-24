@@ -83,9 +83,11 @@ Canvas overlays are a separate functional domain. Selection, guide, snapping,
 path-node, and transform indicators may use fixed hues or dual dark/light
 strokes when that is required to remain visible over arbitrary artwork. These
 values are intentional only when the overlay is excluded from export, colour
-sampling, and document persistence. Brand SVG artwork and the fixed dark
-startup loader are also intentional identity surfaces rather than themeable
-application chrome.
+sampling, and document persistence. Brand SVG artwork, the fixed dark
+startup loader, the image/HDR viewer backdrop, and the depth-mask data scale
+are also intentional identity surfaces rather than themeable application
+chrome; the last two are named in `tokens.css` under
+`Theme-invariant domain colors` so they have an owner and a stated reason.
 
 ## Representative migration map
 
@@ -93,11 +95,30 @@ application chrome.
 |---|---|
 | `--color-surface` / `#fff` | `--color-surface-base` |
 | `--color-surface-elevated` / `#f5f5f5` | `--color-surface-raised` |
+| `--color-surface-subtle` | `--color-surface-sunken` |
+| `--color-surface-selected` | `--color-interactive-selected-surface` |
+| `--elevation-surface` (as a shadowless surface) | `--color-surface-overlay` |
 | `--color-text` / `#1a1a1a` | `--color-text-primary` |
+| `--color-text-strong` / `--color-text-default` | `--color-text-primary` |
+| `--color-text-tertiary` | `--color-text-subtle` |
 | lowered parent `opacity` for secondary copy | `--color-text-secondary` or `--color-text-muted` |
 | `--color-border` / `#e0e0e0` | `--color-border-subtle` or `--color-border-strong`, according to purpose |
+| `--color-border-accent` | `--color-accent-primary` |
+| `--color-border-default` | `--color-border-subtle` |
+| `--color-border-error` / `--color-border-warning` | `--color-feedback-danger` / `--color-feedback-warning` |
+| `--color-feedback-error` / `--danger` / `--color-text-danger` | `--color-text-danger` |
+| `--color-feedback-info-strong` | `--color-text-info` |
+| `--color-accent-contrast` / `--color-text-primary-on-accent` | `--color-text-on-accent` |
+| `--color-stroke-subtle` | `--color-border-subtle` |
+| `--color-interactive-subtle` | `--color-accent-subtle` |
+| `--elevation-shadow-sm` | `--elevation-shadow-raised` |
+| `--line-height-normal` | `--font-line-normal` |
+| `--font-size-3xs` | `--font-size-2xs` |
+| `--space-1-5` | `--space-1` |
+| `--menubar-height` | `--menubar-total-height` |
 | local accent and focus literals | `--color-interactive-default` and `--color-interactive-focus-ring` |
 | local disabled opacity | `--color-text-disabled` + `--color-interactive-disabled` |
+| literal fallback on a defined token (`var(--color-x, #fff)`) | delete the fallback — the token is the value |
 
 The migration target is semantic intent, not a mechanical literal-to-token
 replacement. Authored and renderer colours stay in their owning domain.
@@ -120,7 +141,17 @@ replacement. Authored and renderer colours stay in their owning domain.
 ## Verification
 
 - `pnpm audit:tokens` verifies the declared WCAG 2.2 AA semantic pairs across
-  all three application themes.
+  all three application themes (315 pairs: text roles on every surface tier
+  they can land on, feedback graphics on every tier, and text-safe feedback
+  roles including the hover surface), then runs
+  `scripts/quality/audit-token-usage.mjs` for undefined custom-property
+  references and literal fallbacks on defined tokens.
+- `packages/ui/src/tokens/tokens.test.ts` proves the committed `tokens.css`
+  still matches `color.ts`, declares no custom property twice in a theme block,
+  keeps the `--elevation-surface-*` → `--color-surface-*` alias direction, and
+  never lets an elevation alias overwrite a semantic surface role.
+- `pnpm lint:css` bans hex colours and duplicate custom properties in the
+  design-system stylesheets.
 - `themeRuntime.test.ts` covers normalization, migration, resolution, blocked
   storage, semantic events, OS updates, and storage reconciliation.
 - `tests/e2e/settings/theme-lifecycle.spec.ts` covers first paint, System,

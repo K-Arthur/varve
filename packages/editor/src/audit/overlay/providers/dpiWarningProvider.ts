@@ -50,13 +50,13 @@ export function createDpiWarningProvider(): OverlayProvider {
           style: {
             strokeColor:
               severity === 'error'
-                ? 'var(--color-feedback-danger, #d32f2f)'
-                : 'var(--color-feedback-warning, #f57c00)',
+                ? 'var(--color-feedback-danger)'
+                : 'var(--color-feedback-warning)',
             strokeWidth: 1.5,
             fillColor:
               severity === 'error'
-                ? 'var(--color-feedback-danger, #d32f2f)'
-                : 'var(--color-feedback-warning, #f57c00)',
+                ? 'var(--color-feedback-danger)'
+                : 'var(--color-feedback-warning)',
             fillOpacity: 0.05,
             dashPattern: [5, 3],
           },

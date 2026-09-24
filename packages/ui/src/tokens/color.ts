@@ -286,6 +286,16 @@ export type SemanticToken =
   | 'feedback-warning'
   | 'feedback-danger'
   | 'feedback-info'
+  /* Text-safe feedback foregrounds (2026-09-19). `feedback-*` is graded at
+   * 3:1 (WCAG 1.4.11 non-text) and is correct for status dots, chips, fills,
+   * and borders — but components also render feedback colors as *text*, which
+   * needs 4.5:1 (WCAG 1.4.3). These four roles are tuned to clear AA on every
+   * surface tier including hover, so a status message is legible wherever it
+   * lands. Use `feedback-*` for graphics, `text-*` for words. */
+  | 'text-success'
+  | 'text-warning'
+  | 'text-danger'
+  | 'text-info'
   | 'accent-primary'
   | 'accent-default'
   | 'accent-teal'
@@ -382,14 +392,119 @@ const O = (i: number): Oklch => ORANGE[i - 1] as Oklch;
 const R = (i: number): Oklch => ROSE[i - 1] as Oklch;
 const I = (i: number): Oklch => INDIGO[i - 1] as Oklch;
 
+/**
+ * Alpha-composited theme value. These are *recipes* (a color plus a
+ * compositing alpha, or a shadow stack), not flat colors — they cannot be
+ * validated as WCAG contrast pairs, so they are kept here for single-sourcing
+ * rather than added to `SEMANTIC`/`CONTRAST_PAIRS`.
+ */
+export interface AlphaColor {
+  color: Oklch;
+  alpha: number;
+}
+
+/** Scrim behind dialogs and modal overlays. */
+export const ELEVATION_SCRIM: Record<Theme, AlphaColor> = {
+  light: { color: ok(0, 0, 0), alpha: 0.55 },
+  dark: { color: ok(0, 0, 0), alpha: 0.65 },
+  'high-contrast': { color: ok(0, 0, 0), alpha: 0.7 },
+};
+
+/**
+ * Micro-borders: the 1px hairline edges that separate docked shell surfaces
+ * without a full separator. High Contrast thickens them and switches to the
+ * theme's single accent so they survive the forced-colors substitution.
+ */
+export interface MicroBorder {
+  width: string;
+  color: AlphaColor;
+}
+
+export const BORDER_MICRO: Record<Theme, MicroBorder> = {
+  light: { width: '1px', color: { color: ok(0, 0, 0), alpha: 0.12 } },
+  dark: { width: '1px', color: { color: ok(1, 0, 0), alpha: 0.08 } },
+  'high-contrast': { width: '2px', color: { color: ok(1, 0, 0), alpha: 1 } },
+};
+
+export const BORDER_MICRO_ACCENT: Record<Theme, MicroBorder> = {
+  // Light/Dark composite the accent step T(6) at low alpha.
+  light: { width: '1px', color: { color: T(6), alpha: 0.25 } },
+  dark: { width: '1px', color: { color: T(6), alpha: 0.3 } },
+  // High Contrast needs a solid, high-luminance edge, not a wash.
+  'high-contrast': { width: '2px', color: { color: ok(0.95, 0.2, 188), alpha: 1 } },
+};
+
+/**
+ * Elevation shadows, themed. Dark surfaces need more opacity for the same
+ * perceived depth, and High Contrast replaces shadows with outline rings
+ * because translucent black reads as nothing against black.
+ */
+export interface ElevationShadows {
+  subtle: string;
+  small: string;
+  raised: string;
+  overlay: string;
+}
+
+export const ELEVATION_SHADOWS: Record<Theme, ElevationShadows> = {
+  light: {
+    subtle: '0 1px 2px oklch(0 0 0 / 0.06)',
+    small: '0 1px 2px oklch(0 0 0 / 0.1)',
+    raised: '0 4px 12px oklch(0 0 0 / 0.14)',
+    overlay: '0 12px 32px oklch(0 0 0 / 0.2)',
+  },
+  dark: {
+    subtle: '0 1px 2px oklch(0 0 0 / 0.3)',
+    small: '0 1px 2px oklch(0 0 0 / 0.4)',
+    raised: '0 4px 12px oklch(0 0 0 / 0.3)',
+    overlay: '0 12px 32px oklch(0 0 0 / 0.45)',
+  },
+  'high-contrast': {
+    subtle: '0 0 0 1px oklch(1 0 0)',
+    small: '0 0 0 1px oklch(1 0 0)',
+    raised: '0 0 0 2px oklch(1 0 0)',
+    overlay: '0 0 0 3px oklch(1 0 0)',
+  },
+};
+
+/**
+ * Signature accents: bespoke per-feature identity for icon tints, tab
+ * indicators, and status chips only. Presentational — never text-on-background
+ * and never a state color.
+ */
+export interface SignatureAccents {
+  branch: Oklch;
+  audit: Oklch;
+  ai: Oklch;
+}
+
+export const SIGNATURE_ACCENTS: Record<Theme, SignatureAccents> = {
+  // "branch" warm amber-gold (version/branching), "audit" muted violet,
+  // "ai" electric teal (distinct from brand teal).
+  light: { branch: ok(0.75, 0.14, 78), audit: ok(0.62, 0.14, 295), ai: ok(0.78, 0.18, 188) },
+  dark: { branch: ok(0.82, 0.15, 78), audit: ok(0.72, 0.16, 295), ai: ok(0.84, 0.2, 188) },
+  // High Contrast collapses every signature accent onto the single HC accent:
+  // decorative hue identity is not a state cue there.
+  'high-contrast': {
+    branch: ok(0.9519, 0.2924, 111.62),
+    audit: ok(0.9519, 0.2924, 111.62),
+    ai: ok(0.9519, 0.2924, 111.62),
+  },
+};
+
 /** Semantic value per theme. Each token maps to a concrete OKLCH value. */
 export const SEMANTIC: Record<Theme, Record<SemanticToken, Oklch>> = {
   light: {
-    'surface-app': N(2),
-    'surface-base': N(2),
-    'surface-raised': N(1),
-    'surface-sunken': N(3),
-    'surface-overlay': N(1),
+    /* Surface tiers are rendered as `--elevation-surface-*` aliases of these
+     * five roles, so the values here ARE what the browser paints and what the
+     * contrast audit validates. Before 2026-09-19 the elevation literals were
+     * maintained separately inside the CSS generator and overrode these
+     * values, which meant 11 of 15 audited surfaces were never rendered. */
+    'surface-app': ok(0.97, 0.008, 260), // tier 0 — workspace surround
+    'surface-base': ok(0.97, 0.008, 260), // tier 0 — canvas backdrop
+    'surface-raised': ok(0.99, 0.006, 260), // tier 2 — docked panels, menubar
+    'surface-sunken': ok(0.95, 0.008, 260), // tier 1 — recessed regions, status bar
+    'surface-overlay': ok(1, 0, 0), // tier 4 — floating surfaces, popovers
     'surface-hover': ok(0.88, 0.018, 258),
     'text-primary': N(12),
     'text-secondary': N(10),
@@ -438,10 +553,17 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Oklch>> = {
      * selection step and passes 3:1. */
     'canvas-guide': T(9),
     'canvas-drop-target': T(9),
-    'feedback-success': SUCCESS,
-    'feedback-warning': WARNING,
+    'feedback-success': ok(0.57, 0.12, 156),
+    /* Deeper than the dark-theme amber: on the light tiers (L 0.95-1.0) the
+     * shared WARNING step measured 2.96:1 on surface-sunken — a WCAG 1.4.11
+     * miss surfaced when feedback graphics gained per-tier pairs. */
+    'feedback-warning': ok(0.61, 0.1261, 79.82),
     'feedback-danger': DANGER,
     'feedback-info': INFO,
+    'text-success': ok(0.45, 0.105, 156),
+    'text-warning': ok(0.47, 0.094, 79.82),
+    'text-danger': ok(0.49, 0.175, 22.78),
+    'text-info': ok(0.47, 0.125, 248.02),
     'accent-primary': T(6),
     'accent-default': T(6),
     'accent-teal': T(6),
@@ -516,11 +638,13 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Oklch>> = {
     'text-on-warning': N(12),
   },
   dark: {
-    'surface-app': N(12),
-    'surface-base': N(12),
-    'surface-raised': N(11),
-    'surface-sunken': ok(0.1719, 0.0186, 259.66),
-    'surface-overlay': ok(0.1335, 0.0152, 259.32),
+    /* Dark surface tiers are front-lit: higher tier = brighter (see
+     * docs/architecture/design-token-system.md § Surface tiers). */
+    'surface-app': ok(0.18, 0.008, 260),
+    'surface-base': ok(0.18, 0.008, 260),
+    'surface-raised': ok(0.22, 0.006, 260),
+    'surface-sunken': ok(0.12, 0.008, 260),
+    'surface-overlay': ok(0.27, 0.005, 260),
     'surface-hover': ok(0.22, 0.02, 263),
     'text-primary': N(2),
     'text-secondary': N(4),
@@ -566,6 +690,10 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Oklch>> = {
     'feedback-warning': WARNING,
     'feedback-danger': DANGER,
     'feedback-info': INFO,
+    'text-success': ok(0.64, 0.1283, 156),
+    'text-warning': ok(0.66, 0.1261, 79.82),
+    'text-danger': ok(0.68, 0.1773, 22.78),
+    'text-info': ok(0.65, 0.132, 248.02),
     'accent-primary': T(6),
     'accent-default': T(6),
     'accent-teal': T(6),
@@ -644,9 +772,9 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Oklch>> = {
   'high-contrast': {
     'surface-app': ok(0.0, 0.0, 0),
     'surface-base': ok(0.0, 0.0, 0),
-    'surface-raised': ok(0.0971, 0.0, 0),
+    'surface-raised': ok(0.15, 0.0, 0),
     'surface-sunken': ok(0.0, 0.0, 0),
-    'surface-overlay': ok(0.0, 0.0, 0),
+    'surface-overlay': ok(0.2, 0.0, 0),
     'surface-hover': ok(0.25, 0.0, 0),
     'text-primary': ok(1.0, 0.0, 0),
     'text-secondary': ok(0.92, 0.0, 0),
@@ -692,6 +820,10 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Oklch>> = {
     'feedback-warning': ok(0.8446, 0.1616, 82.25),
     'feedback-danger': ok(0.6559, 0.1934, 27.47),
     'feedback-info': ok(0.7086, 0.1456, 250.24),
+    'text-success': ok(0.8649, 0.2979, 142.49),
+    'text-warning': ok(0.8446, 0.1616, 82.25),
+    'text-danger': ok(0.6559, 0.1934, 27.47),
+    'text-info': ok(0.7086, 0.1456, 250.24),
     'accent-primary': ok(0.9519, 0.2924, 111.62),
     'accent-default': ok(0.9519, 0.2924, 111.62),
     'accent-teal': ok(0.9519, 0.2924, 111.62),
@@ -952,8 +1084,39 @@ export const CONTRAST_PAIRS: readonly ContrastPair[] = [
   },
   { name: 'feedback-danger on surface-app', fg: 'feedback-danger', bg: 'surface-app', grade: 'UI' },
   { name: 'feedback-info on surface-app', fg: 'feedback-info', bg: 'surface-app', grade: 'UI' },
+  /* Feedback graphics must clear non-text contrast on *every* tier they can be
+   * drawn on, not just the workspace surround. */
+  ...(
+    ['feedback-success', 'feedback-warning', 'feedback-danger', 'feedback-info'] as const
+  ).flatMap((fg): ContrastPair[] => [
+    { name: `${fg} on surface-raised`, fg, bg: 'surface-raised', grade: 'UI' },
+    { name: `${fg} on surface-sunken`, fg, bg: 'surface-sunken', grade: 'UI' },
+    { name: `${fg} on surface-overlay`, fg, bg: 'surface-overlay', grade: 'UI' },
+  ]),
+  /* Text-safe feedback foregrounds: AA on every surface tier including the
+   * hover state, because a status message must stay legible after a pointer
+   * lands on its row. */
+  ...(['text-success', 'text-warning', 'text-danger', 'text-info'] as const).flatMap(
+    (fg): ContrastPair[] => [
+      { name: `${fg} on surface-app`, fg, bg: 'surface-app', grade: 'AA' },
+      { name: `${fg} on surface-raised`, fg, bg: 'surface-raised', grade: 'AA' },
+      { name: `${fg} on surface-sunken`, fg, bg: 'surface-sunken', grade: 'AA' },
+      { name: `${fg} on surface-overlay`, fg, bg: 'surface-overlay', grade: 'AA' },
+      {
+        name: `${fg} on interactive-hover-surface`,
+        fg,
+        bg: 'interactive-hover-surface',
+        grade: 'AA',
+      },
+    ],
+  ),
   { name: 'tree-row-selected on tree-row', fg: 'tree-row-selected', bg: 'tree-row', grade: 'UI' },
   { name: 'tree-row-hover on tree-row', fg: 'tree-row-hover', bg: 'tree-row', grade: 'UI' },
+  /* Non-text ink on panel surfaces. `text-muted` is also used as placeholder
+   * ink (layers-row thumbnails for nodes with nothing authored to show), so it
+   * must clear 3:1 on the raised row, not only on the app surround. */
+  { name: 'text-muted on surface-raised', fg: 'text-muted', bg: 'surface-raised', grade: 'UI' },
+  { name: 'text-muted on surface-sunken', fg: 'text-muted', bg: 'surface-sunken', grade: 'UI' },
   { name: 'tree-indent-guide on tree-row', fg: 'tree-indent-guide', bg: 'tree-row', grade: 'UI' },
   { name: 'layer-accent-frame on tree-row', fg: 'layer-accent-frame', bg: 'tree-row', grade: 'UI' },
   { name: 'layer-accent-group on tree-row', fg: 'layer-accent-group', bg: 'tree-row', grade: 'UI' },

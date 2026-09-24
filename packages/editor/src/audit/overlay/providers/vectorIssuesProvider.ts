@@ -40,9 +40,9 @@ export function createVectorIssuesProvider(): OverlayProvider {
           kind: 'rect',
           bounds,
           style: {
-            strokeColor: 'var(--color-feedback-danger, #d32f2f)',
+            strokeColor: 'var(--color-feedback-danger)',
             strokeWidth: 1,
-            fillColor: 'var(--color-feedback-danger, #d32f2f)',
+            fillColor: 'var(--color-feedback-danger)',
             fillOpacity: 0.04,
             dashPattern: [3, 3],
           },
@@ -57,13 +57,13 @@ export function createVectorIssuesProvider(): OverlayProvider {
               style: {
                 strokeColor:
                   issue.type === 'self-intersection'
-                    ? 'var(--color-feedback-danger, #d32f2f)'
-                    : 'var(--color-feedback-warning, #f57c00)',
+                    ? 'var(--color-feedback-danger)'
+                    : 'var(--color-feedback-warning)',
                 strokeWidth: 2,
                 fillColor:
                   issue.type === 'self-intersection'
-                    ? 'var(--color-feedback-danger, #d32f2f)'
-                    : 'var(--color-feedback-warning, #f57c00)',
+                    ? 'var(--color-feedback-danger)'
+                    : 'var(--color-feedback-warning)',
               },
               findingId: `vector-${nodeId}-${issue.type}-${issue.position.x}-${issue.position.y}`,
             });

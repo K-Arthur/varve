@@ -70,6 +70,65 @@ describe('tokens.css drift guard (OKLCH)', () => {
   });
 });
 
+/**
+ * The drift guard above reads the *first* `--color-x: oklch(...)` declaration
+ * per token, so a later redeclaration inside the same block is invisible to it.
+ * That blind spot is how 11 of 15 surface tokens came to be painted by
+ * generator-local literals while the audit validated the color.ts values.
+ * These tests assert the declaration is unique within its block and that the
+ * elevation aliases point *at* the semantic roles, never the reverse.
+ */
+describe('tokens.css has no shadowed or inverted declarations', () => {
+  const blocks = (() => {
+    const found: { selector: string; body: string }[] = [];
+    for (const m of tokensCss.matchAll(/(^|\n)([^{}]+)\{([^{}]*)\}/g)) {
+      found.push({ selector: (m[2] ?? '').trim().split('\n').pop()!.trim(), body: m[3] ?? '' });
+    }
+    return found;
+  })();
+
+  it('declares no custom property twice inside one theme block', () => {
+    for (const { selector, body } of blocks) {
+      const seen = new Set<string>();
+      const duplicates: string[] = [];
+      for (const line of body.split('\n')) {
+        const decl = line.match(/^\s*(--[a-zA-Z0-9_-]+)\s*:/);
+        if (!decl) continue;
+        if (seen.has(decl[1]!)) duplicates.push(decl[1]!);
+        seen.add(decl[1]!);
+      }
+      expect(duplicates, `${selector} redeclares ${duplicates.join(', ')}`).toEqual([]);
+    }
+  });
+
+  it('keeps elevation surfaces as aliases of the audited surface roles', () => {
+    const expected: Record<string, string> = {
+      '--elevation-surface-sunken': '--color-surface-sunken',
+      '--elevation-surface-default': '--color-surface-app',
+      '--elevation-surface-raised': '--color-surface-raised',
+      '--elevation-surface-overlay': '--color-surface-overlay',
+    };
+    for (const { selector, body } of blocks) {
+      for (const [alias, target] of Object.entries(expected)) {
+        const declared = body.match(new RegExp(`${alias}\\s*:\\s*([^;]+);`))?.[1]?.trim();
+        if (declared === undefined) continue;
+        // forced-colors blocks may legitimately resolve to system colors.
+        if (declared === 'Canvas') continue;
+        expect(declared, `${selector} ${alias}`).toBe(`var(${target})`);
+      }
+    }
+  });
+
+  it('never lets an elevation alias overwrite a --color- declaration', () => {
+    for (const { selector, body } of blocks) {
+      for (const line of body.split('\n')) {
+        const decl = line.match(/^\s*(--color-surface-[a-z]+)\s*:\s*var\(--elevation-/);
+        expect(decl, `${selector} inverts the alias direction: ${line.trim()}`).toBeNull();
+      }
+    }
+  });
+});
+
 describe('interaction semantic roles', () => {
   const roles = [
     'interactive-hover-surface',
