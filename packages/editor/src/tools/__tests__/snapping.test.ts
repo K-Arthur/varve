@@ -14,6 +14,23 @@ const THRESHOLD = 8;
 const box = (x: number, y: number, w: number, h: number) => ({ x, y, w, h });
 
 describe('snapPosition', () => {
+  it('projects onto a finite transformed layout segment with one 2-D correction', () => {
+    const result = snapPosition(96, 90, 20, 20, [], undefined, undefined, {
+      zoom: 1,
+      tolerancePx: 8,
+      layoutGuideSegments: [
+        {
+          start: { x: 100, y: 90 },
+          end: { x: 140, y: 130 },
+          id: 'layout-grid:rotated:1',
+          type: 'layout-grid',
+        },
+      ],
+    });
+    expect(result.x).toBeCloseTo(98);
+    expect(result.y).toBeCloseTo(88);
+    expect(result.guides[0]).toMatchObject({ type: 'layout-grid', label: 'Layout guide' });
+  });
   it('snaps left edge to left edge of target', () => {
     const result = snapPosition(3, 50, 100, 100, [box(0, 50, 100, 100)]);
     expect(result.x).toBe(0);
