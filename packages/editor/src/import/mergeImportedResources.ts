@@ -49,7 +49,10 @@ function allocateResourceId(doc: Document, occupied: Set<string>): { id: string;
 }
 
 function remapId(value: string | undefined, ids: Map<string, string>): string | undefined {
-  return value ? (ids.get(value) ?? value) : value;
+  // A missing mapping means the source resource was outside the transported
+  // closure. Never resolve that foreign id against a coincident destination
+  // id; callers either materialize an inline value or drop the reference.
+  return value ? ids.get(value) : undefined;
 }
 
 function resourcePayload(value: unknown): unknown {
@@ -124,22 +127,20 @@ function remapFill(fill: Fill, maps: ResourceMaps, assets: Document['assets']): 
   if (fill.type !== 'image' || !fill.image) return fill;
   const assetId = remapId(fill.image.assetId, maps.assetIds);
   const asset = assetId ? assets?.[assetId] : undefined;
-  const upscale = fill.image.upscale
-    ? {
-        ...fill.image.upscale,
-        sourceAssetId:
-          maps.assetIds.get(fill.image.upscale.sourceAssetId) ?? fill.image.upscale.sourceAssetId,
-        upscaleAssetId:
-          maps.assetIds.get(fill.image.upscale.upscaleAssetId) ?? fill.image.upscale.upscaleAssetId,
-      }
-    : undefined;
+  let upscale = fill.image.upscale;
+  if (upscale) {
+    const sourceAssetId = maps.assetIds.get(upscale.sourceAssetId);
+    const upscaleAssetId = maps.assetIds.get(upscale.upscaleAssetId);
+    upscale =
+      sourceAssetId && upscaleAssetId ? { ...upscale, sourceAssetId, upscaleAssetId } : undefined;
+  }
   return {
     ...fill,
     image: {
       ...fill.image,
-      ...(assetId ? { assetId } : {}),
+      ...(assetId ? { assetId } : { assetId: undefined }),
       ...(asset ? { src: asset.dataUrl } : {}),
-      ...(upscale ? { upscale } : {}),
+      ...(upscale ? { upscale } : { upscale: undefined }),
     },
   };
 }
@@ -236,10 +237,9 @@ function remapNodeAssetReferences(
               return [
                 surfaceId,
                 binding.assetId
-                  ? {
-                      ...binding,
-                      assetId: maps.assetIds.get(binding.assetId) ?? binding.assetId,
-                    }
+                  ? maps.assetIds.has(binding.assetId)
+                    ? { ...binding, assetId: maps.assetIds.get(binding.assetId)! }
+                    : null
                   : binding,
               ];
             })
@@ -256,30 +256,40 @@ function remapNodeAssetReferences(
 function remapGenerativeEditAssets(
   edit: import('@varve/scene').GenerativeEditRecord,
   maps: ResourceMaps,
-): import('@varve/scene').GenerativeEditRecord {
+): import('@varve/scene').GenerativeEditRecord | null {
   const remapMask = (assetId: string | undefined) => remapId(assetId, maps.rasterMaskAssetIds);
+  const maskAssetId = remapMask(edit.maskAssetId);
+  if (!maskAssetId) return null;
   return {
     ...edit,
     sourceAssetId: remapId(edit.sourceAssetId, maps.assetIds),
     sourceSnapshotAssetId: remapId(edit.sourceSnapshotAssetId, maps.assetIds),
-    maskAssetId: remapMask(edit.maskAssetId) ?? edit.maskAssetId,
+    maskAssetId,
     masks: {
       ...edit.masks,
-      userMaskAssetId: remapMask(edit.masks.userMaskAssetId) ?? edit.masks.userMaskAssetId,
-      inferenceMaskAssetId: remapMask(edit.masks.inferenceMaskAssetId),
-      compositeMaskAssetId: remapMask(edit.masks.compositeMaskAssetId),
-    },
-    variations: edit.variations.map((variation) => ({
-      ...variation,
-      assetId: remapId(variation.assetId, maps.assetIds) ?? variation.assetId,
-      ...(variation.thumbnailAssetId
-        ? {
-            thumbnailAssetId:
-              remapId(variation.thumbnailAssetId, maps.assetIds) ?? variation.thumbnailAssetId,
-          }
+      userMaskAssetId: remapMask(edit.masks.userMaskAssetId) ?? maskAssetId,
+      ...(remapMask(edit.masks.inferenceMaskAssetId)
+        ? { inferenceMaskAssetId: remapMask(edit.masks.inferenceMaskAssetId) }
         : {}),
-      contextAssetId: remapId(variation.contextAssetId, maps.assetIds),
-    })),
+      ...(remapMask(edit.masks.compositeMaskAssetId)
+        ? { compositeMaskAssetId: remapMask(edit.masks.compositeMaskAssetId) }
+        : {}),
+    },
+    variations: edit.variations.flatMap((variation) => {
+      const assetId = remapId(variation.assetId, maps.assetIds);
+      const thumbnailAssetId = remapId(variation.thumbnailAssetId, maps.assetIds);
+      const contextAssetId = remapId(variation.contextAssetId, maps.assetIds);
+      return assetId
+        ? [
+            {
+              ...variation,
+              assetId,
+              ...(thumbnailAssetId ? { thumbnailAssetId } : {}),
+              ...(contextAssetId ? { contextAssetId } : {}),
+            },
+          ]
+        : [];
+    }),
   };
 }
 
@@ -291,8 +301,9 @@ function mergeImportedAssets(target: Document, source: Document, maps: ResourceM
     const metadata = asset.metadata?.iccProfileId
       ? {
           ...asset.metadata,
-          iccProfileId:
-            maps.iccProfileIds.get(asset.metadata.iccProfileId) ?? asset.metadata.iccProfileId,
+          ...(maps.iccProfileIds.has(asset.metadata.iccProfileId)
+            ? { iccProfileId: maps.iccProfileIds.get(asset.metadata.iccProfileId)! }
+            : { iccProfileId: undefined }),
         }
       : asset.metadata;
     assets[id] = { ...asset, id, ...(metadata ? { metadata } : {}) };
@@ -404,7 +415,11 @@ function remapVariableValue(
 }
 
 function remapInteractionValue(value: unknown, nodeIds: Map<string, string>): unknown {
-  if (Array.isArray(value)) return value.map((entry) => remapInteractionValue(entry, nodeIds));
+  if (Array.isArray(value)) {
+    return value
+      .map((entry) => remapInteractionValue(entry, nodeIds))
+      .filter((entry) => entry !== undefined);
+  }
   if (!value || typeof value !== 'object') return value;
   const record = value as Record<string, unknown>;
   const result: Record<string, unknown> = {};
@@ -417,9 +432,15 @@ function remapInteractionValue(value: unknown, nodeIds: Map<string, string>): un
         key === 'containerId') &&
       typeof entry === 'string'
     ) {
-      result[key] = nodeIds.get(entry) ?? entry;
+      const mapped = nodeIds.get(entry);
+      // A supported node reference outside the transported closure must not
+      // be resolved against a coincident destination id. Dropping this field
+      // leaves the action inspectable while making the loss explicit to the
+      // interaction consumer, which can then ignore the incomplete action.
+      if (mapped) result[key] = mapped;
     } else {
-      result[key] = remapInteractionValue(entry, nodeIds);
+      const remapped = remapInteractionValue(entry, nodeIds);
+      if (remapped !== undefined) result[key] = remapped;
     }
   }
   return result;
@@ -662,7 +683,9 @@ function mergeGroup(
     };
     const importedEdit = generativeEdits[editId];
     if (importedEdit) {
-      generativeEdits[editId] = remapGenerativeEditAssets(importedEdit, maps);
+      const remapped = remapGenerativeEditAssets(importedEdit, maps);
+      if (remapped) generativeEdits[editId] = remapped;
+      else delete generativeEdits[editId];
     }
   }
   remapGenerativeEditLineage(generativeEdits, generativeIdMap);

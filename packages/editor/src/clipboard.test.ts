@@ -12,11 +12,20 @@ import {
   readClipboardUnified,
   readClipboardUnifiedWithFallback,
   readFromClipboardEvent,
+  restoreClipboardFontDependencies,
   WEB_VARVE_MIME,
   writeClipboard,
   writeClipboardOutcome,
   writeClipboardRepresentation,
 } from './clipboard';
+
+const { storeFontOnFilesystemMock } = vi.hoisted(() => ({
+  storeFontOnFilesystemMock: vi.fn(),
+}));
+vi.mock('@varve/engine/font', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@varve/engine/font')>();
+  return { ...actual, storeFontOnFilesystem: storeFontOnFilesystemMock };
+});
 
 // jsdom doesn't implement ClipboardEvent, DataTransfer, or Blob.arrayBuffer.
 // Polyfill what we need for testing.
@@ -1165,5 +1174,32 @@ describe('readFromClipboardEvent', () => {
         value: originalClipboard,
       });
     }
+  });
+});
+
+describe('restoreClipboardFontDependencies', () => {
+  it('stores pasted font bytes under the receiving document scope', async () => {
+    storeFontOnFilesystemMock.mockResolvedValue(undefined);
+    await restoreClipboardFontDependencies(
+      [
+        {
+          family: 'Clipboard Sans',
+          fontReference: { artifactHash: 'a'.repeat(64), collectionIndex: 0 },
+          status: 'embedded',
+          dataBase64: 'AQID',
+        },
+      ],
+      'receiving-document',
+    );
+
+    expect(storeFontOnFilesystemMock).toHaveBeenCalledWith(
+      'Clipboard Sans',
+      expect.any(ArrayBuffer),
+      expect.objectContaining({
+        providerId: 'clipboard',
+        documentId: 'receiving-document',
+        scope: 'project',
+      }),
+    );
   });
 });
