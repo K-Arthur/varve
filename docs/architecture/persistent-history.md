@@ -44,7 +44,10 @@ any undo/redo or reload cycle.
   `document.transaction-capture` plus, when tiles change, a
   `document.raster-delta`. The delta carries before/after content hashes and
   tile versions, while immutable pixel bytes live in the content-addressed
-  `RasterTileStore` (memory in tests, IndexedDB in browsers).
+  `RasterTileStore` (memory in tests, IndexedDB in browsers). If the browser
+  denies IndexedDB access, tile bytes and the history session use memory so
+  undo/redo remains available until the tab closes; none of that history
+  survives a reload.
 - Tile bytes are stored before their operation is appended. The editor replays
   the structural capture and tile delta against the pre-transaction document
   and compares the resulting canonical hash with the intended target before

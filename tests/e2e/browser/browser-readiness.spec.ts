@@ -72,16 +72,16 @@ async function dismissRecoveryDialog(page: Page): Promise<void> {
   }
 }
 
-/** Track WASM asset fetches (URL + response status) from now on. */
+/** Track WASM asset fetches, including MIME type so Vite's 200 HTML fallback cannot pass. */
 function trackWasmFetches(page: Page): {
   urls: string[];
   statuses: number[];
-  events: Array<{ url: string; status: number }>;
+  events: Array<{ url: string; status: number; contentType: string }>;
 } {
   const state = {
     urls: [] as string[],
     statuses: [] as number[],
-    events: [] as Array<{ url: string; status: number }>,
+    events: [] as Array<{ url: string; status: number; contentType: string }>,
   };
   page.on('request', (req) => {
     if (WASM_URL_RE.test(req.url())) state.urls.push(req.url());
@@ -89,7 +89,11 @@ function trackWasmFetches(page: Page): {
   page.on('response', (res) => {
     if (WASM_URL_RE.test(res.url())) {
       state.statuses.push(res.status());
-      state.events.push({ url: res.url(), status: res.status() });
+      state.events.push({
+        url: res.url(),
+        status: res.status(),
+        contentType: res.headers()['content-type'] ?? '',
+      });
     }
   });
   return state;
@@ -156,6 +160,10 @@ test.describe('browser build readiness', () => {
     expect(
       wasm.statuses.every((s) => s === 200),
       `wasm statuses: ${wasm.statuses.join(', ')}`,
+    ).toBe(true);
+    expect(
+      wasm.events.every((event) => event.contentType.startsWith('application/wasm')),
+      `wasm response types: ${wasm.events.map((event) => event.contentType).join(', ')}`,
     ).toBe(true);
     expect(warnings, 'no stub-fallback warning when the WASM engine is available').toEqual([]);
 
@@ -271,10 +279,12 @@ test.describe('browser build readiness', () => {
 
     const warnings: string[] = [];
     const crashDialogs: string[] = [];
+    const pageErrors: string[] = [];
     page.on('console', (msg) => {
       if (msg.type() === 'error') warnings.push(msg.text());
     });
     page.on('dialog', (d) => crashDialogs.push(d.message()));
+    page.on('pageerror', (error) => pageErrors.push(`${error.name}: ${error.message}`));
 
     await page.goto('/', { timeout: 120000, waitUntil: 'domcontentloaded' });
     await page.waitForSelector('.varve-home', { timeout: 45000 });
@@ -294,21 +304,31 @@ test.describe('browser build readiness', () => {
     await page.locator('.layers-panel').waitFor({ timeout: 60000 });
     await dismissRecoveryDialog(page);
 
-    // The editor still works end to end for the session — banner visible
-    // and the canvas renders. Canvas interactions may not land items in
-    // ephemeral mode; the banner itself is the primary audit evidence.
+    // The editor still works for this session, including history. The banner
+    // makes the loss of persistence on reload clear before any work begins.
     await page.locator('.layers-panel').waitFor({ timeout: 60000 });
     const canvas = page.locator('.editor-canvas canvas, canvas').first();
     const box = await canvas.boundingBox();
     expect(box).not.toBeNull();
     expect(box!.width).toBeGreaterThan(0);
+    const before = await page.getByRole('treeitem').count();
+    await page.keyboard.press('r');
+    await dragOnCanvas(page, 80, 80, 240, 180);
+    await page.keyboard.press('v');
+    await expect(page.getByRole('treeitem')).toHaveCount(before + 1, { timeout: 15000 });
+    await page.keyboard.press('Control+z');
+    await expect(page.getByRole('treeitem')).toHaveCount(before, { timeout: 15000 });
+    await page.keyboard.press('Control+Shift+z');
+    await expect(page.getByRole('treeitem')).toHaveCount(before + 1, { timeout: 15000 });
 
     await test.info().attach('storage-denial.json', {
-      body: JSON.stringify({ warnings, crashDialogs }, null, 2),
+      body: JSON.stringify({ warnings, crashDialogs, pageErrors }, null, 2),
       contentType: 'application/json',
     });
-    // No uncaught errors from the denial path itself.
+    // No uncaught errors from the denial path itself. Page errors are separate
+    // from console errors and caught a rejected background storage promise.
     expect(warnings).toEqual([]);
+    expect(pageErrors).toEqual([]);
   });
 
   test('corrupt persisted state does not break boot', async ({ page }) => {

@@ -128,7 +128,11 @@ test.describe('browser demo (/try)', () => {
   test('WASM engine loads in the demo', async ({ page }) => {
     const wasmUrls: string[] = [];
     page.on('response', (res) => {
-      if (/\/wasm\/varve_wasm.*_bg\.wasm$/.test(res.url()) && res.status() === 200) {
+      if (
+        /\/wasm\/varve_wasm.*_bg\.wasm$/.test(res.url()) &&
+        res.status() === 200 &&
+        (res.headers()['content-type'] ?? '').startsWith('application/wasm')
+      ) {
         wasmUrls.push(res.url());
       }
     });

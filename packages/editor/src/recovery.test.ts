@@ -11,7 +11,12 @@ import {
   makeRasterLayerNode,
 } from '@varve/scene';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getSharedRecoveryManager, MemoryRecoveryStorage, RecoveryManager } from './recovery';
+import {
+  getSharedRecoveryManager,
+  MemoryRecoveryStorage,
+  RecoveryManager,
+  ResilientRecoveryStorage,
+} from './recovery';
 
 describe('MemoryRecoveryStorage', () => {
   let storage: MemoryRecoveryStorage;
@@ -48,6 +53,26 @@ describe('MemoryRecoveryStorage', () => {
   it('list returns empty array for empty storage', async () => {
     const keys = await storage.list();
     expect(keys).toEqual([]);
+  });
+});
+
+describe('ResilientRecoveryStorage', () => {
+  it('keeps recovery points in session memory when IndexedDB is blocked', async () => {
+    vi.stubGlobal('indexedDB', {
+      open: () => {
+        throw new DOMException('Storage blocked', 'SecurityError');
+      },
+    });
+    try {
+      const storage = new ResilientRecoveryStorage();
+      await storage.save('recovery-blocked', 'data');
+      expect(await storage.list()).toEqual(['recovery-blocked']);
+      expect(await storage.load('recovery-blocked')).toBe('data');
+      await storage.delete('recovery-blocked');
+      expect(await storage.list()).toEqual([]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });
 

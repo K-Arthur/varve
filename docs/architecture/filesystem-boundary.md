@@ -214,7 +214,11 @@ hidden from the user's own file manager.
   they live outside browser storage.
 - **Private/incognito.** Treated as non-durable: storage may be unavailable or
   cleared at session end, so handles are session-only and the editor reports
-  ephemeral storage rather than a false "Saved".
+  ephemeral storage rather than a false "Saved". If IndexedDB rejects access,
+  recovery points, versioned backups, raster tiles, and undo history use
+  session memory. The browser readiness test draws a shape and verifies undo
+  and redo while storage is denied; the banner still tells users to save work
+  to a file before closing the tab.
 - **ChromeOS Linux (Crostini) is a separate route.** Storage inside the Linux
   container is not shared with the browser's origin storage; see
   `docs/release/chromeos-linux.md`.

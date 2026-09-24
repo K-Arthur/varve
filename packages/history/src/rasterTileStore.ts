@@ -16,8 +16,8 @@
  * mutable global index: the same `{nodeId}:{col}:{row}` legitimately points
  * to different content at different revisions.
  *
- * `createRasterTileStore` returns the IndexedDB backend when the browser API
- * is available and falls back to memory otherwise.
+ * `createRasterTileStore` uses IndexedDB when it can open a database and
+ * falls back to memory when storage access is denied.
  */
 import { sha256Hex } from '@varve/scene';
 import { type IDBPDatabase, openDB } from 'idb';
@@ -259,6 +259,45 @@ export class IndexedDbRasterTileStore implements RasterTileStore {
 
 // ── Factory ──────────────────────────────────────────────────────────────────
 
+/** Resolve storage once so an asynchronous IndexedDB denial never escapes the editor. */
+class ResilientRasterTileStore implements RasterTileStore {
+  private readonly backend: Promise<RasterTileStore> = openTileDb()
+    .then((db) => new IndexedDbRasterTileStore(db))
+    .catch(() => new MemoryRasterTileStore());
+
+  async put(entry: RasterTileEntry): Promise<string> {
+    return (await this.backend).put(entry);
+  }
+
+  async get(contentHash: string): Promise<Uint8ClampedArray | null> {
+    return (await this.backend).get(contentHash);
+  }
+
+  async has(contentHash: string): Promise<boolean> {
+    return (await this.backend).has(contentHash);
+  }
+
+  async putBatch(entries: RasterTileEntry[]): Promise<Map<string, string>> {
+    return (await this.backend).putBatch(entries);
+  }
+
+  async getBatch(hashes: string[]): Promise<Map<string, Uint8ClampedArray>> {
+    return (await this.backend).getBatch(hashes);
+  }
+
+  async deleteBatch(hashes: string[]): Promise<void> {
+    return (await this.backend).deleteBatch(hashes);
+  }
+
+  async listHashes(): Promise<string[]> {
+    return (await this.backend).listHashes();
+  }
+
+  async stats(): Promise<{ totalTiles: number; totalBytes: number }> {
+    return (await this.backend).stats();
+  }
+}
+
 /** Create a content-addressed raster tile store. Prefers IndexedDB when available. */
 export function createRasterTileStore(): RasterTileStore {
   // jsdom can expose a partial `indexedDB` shim without the IDB request
@@ -269,7 +308,7 @@ export function createRasterTileStore(): RasterTileStore {
     typeof IDBKeyRange !== 'undefined' &&
     typeof IDBRequest !== 'undefined'
   ) {
-    return new IndexedDbRasterTileStore();
+    return new ResilientRasterTileStore();
   }
   return new MemoryRasterTileStore();
 }

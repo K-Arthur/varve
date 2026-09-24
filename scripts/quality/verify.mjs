@@ -283,6 +283,10 @@ function main() {
     if (statuses.some((s) => s !== 0)) process.exit(statuses.find((s) => s !== 0));
     const heavy = [
       { label: 'CI tooling tests', argv: ['pnpm', 'test:ci:tools'] },
+      // CI builds these ignored artifacts before its browser jobs. A clean
+      // local checkout must do the same or Chromium silently exercises the
+      // pure-TS fallback instead of the production WASM engine.
+      { label: 'WASM browser artifacts', argv: ['just', 'wasm-build-all'] },
       { label: 'JavaScript unit tests', argv: ['pnpm', 'exec', 'vitest', 'run'] },
       {
         label: 'Rust workspace tests',

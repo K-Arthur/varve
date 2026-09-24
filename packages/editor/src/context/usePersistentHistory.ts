@@ -6,8 +6,8 @@
  * (genesis/recovery/reconciliation), serializes transaction captures behind
  * attach, and routes undo/redo/navigation through the revision store when
  * history is attached. Falls back to a memory store when IndexedDB is
- * unavailable (jsdom tests, exotic webviews) and degrades to no-ops when
- * the session fails to attach — the editor never blocks on history.
+ * unavailable or denies access (privacy modes), and degrades to no-ops for
+ * unrelated attach failures — the editor never blocks on history.
  *
  * The hook follows the AGENTS.md `context/useX.ts` pattern: all heavy state
  * lives here; context.tsx calls it once and threads the returned session
@@ -59,24 +59,35 @@ interface UsePersistentHistoryOptions {
 }
 
 /** Singleton store factory: IndexedDB when available, memory fallback. */
-function createStoreFactory(): () => HistoryStore {
+function createStoreFactory(): { get: () => HistoryStore; useMemory: () => HistoryStore } {
   let store: HistoryStore | null = null;
-  return () => {
-    if (store) return store;
-    const canUseIdb =
-      typeof indexedDB !== 'undefined' &&
-      typeof indexedDB.open === 'function' &&
-      typeof IDBKeyRange !== 'undefined';
-    if (canUseIdb) {
-      try {
-        store = createIndexedDbHistoryStore();
-        return store;
-      } catch {
-        // fall through to memory
+  let inMemory = false;
+  return {
+    get: () => {
+      if (store) return store;
+      const canUseIdb =
+        typeof indexedDB !== 'undefined' &&
+        typeof indexedDB.open === 'function' &&
+        typeof IDBKeyRange !== 'undefined';
+      if (canUseIdb) {
+        try {
+          store = createIndexedDbHistoryStore();
+          return store;
+        } catch {
+          // fall through to memory
+        }
       }
-    }
-    store = createMemoryHistoryStore();
-    return store;
+      store = createMemoryHistoryStore();
+      inMemory = true;
+      return store;
+    },
+    useMemory: () => {
+      if (!inMemory) {
+        store = createMemoryHistoryStore();
+        inMemory = true;
+      }
+      return store!;
+    },
   };
 }
 
@@ -122,7 +133,7 @@ export function usePersistentHistory(options: UsePersistentHistoryOptions): Pers
   const [reconciled, setReconciled] = useState(false);
   const [version, bump] = useReducer((v: number) => v + 1, 0);
 
-  const getStore = useMemo(() => createStoreFactory(), []);
+  const stores = useMemo(() => createStoreFactory(), []);
 
   // Disabled (auxiliary projection): never attach, never capture, never
   // touch the canonical history branch. All history stays in the primary.
@@ -196,13 +207,22 @@ export function usePersistentHistory(options: UsePersistentHistoryOptions): Pers
         cancelled = true;
       };
     }
-    const session = new EditorHistorySession({
-      store: getStore(),
+    let session = new EditorHistorySession({
+      store: stores.get(),
       documentId,
       authorActorId: 'local-user',
     });
     sessionRef.current = session;
-    const attachPromise = session.attach(document);
+    const attachPromise = session.attach(document).catch(async (error) => {
+      if (!(error instanceof DOMException && error.name === 'SecurityError')) throw error;
+      session = new EditorHistorySession({
+        store: stores.useMemory(),
+        documentId,
+        authorActorId: 'local-user',
+      });
+      await session.attach(document);
+      if (!cancelled && activeDocumentRef.current === documentId) sessionRef.current = session;
+    });
     const tracked = attachPromise
       .then(() => session)
       .catch((err) => {
@@ -230,6 +250,7 @@ export function usePersistentHistory(options: UsePersistentHistoryOptions): Pers
     void attachPromise
       .then(() => {
         if (cancelled) return;
+        sessionRef.current = session;
         setAttached(true);
         setReconciled(session.lastAttach?.reconciled ?? false);
         setAttachIssues(session.lastAttach?.issues ?? []);
@@ -245,7 +266,7 @@ export function usePersistentHistory(options: UsePersistentHistoryOptions): Pers
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [documentId, getStore]);
+  }, [documentId, stores]);
 
   /**
    * Document watcher: captures EVERY document reference change into the
@@ -259,11 +280,10 @@ export function usePersistentHistory(options: UsePersistentHistoryOptions): Pers
    *   commit boundary captures the whole step
    */
   useEffect(() => {
-    const session = sessionRef.current;
     const prev = prevDocumentRef.current;
     const currentDocument = document ?? null;
     prevDocumentRef.current = { documentId, document: currentDocument };
-    if (!session || !currentDocument) return;
+    if (!currentDocument) return;
     if (documentId !== prev.documentId) return;
     const before = prev.document;
     if (!before || before === currentDocument) return;
@@ -277,7 +297,10 @@ export function usePersistentHistory(options: UsePersistentHistoryOptions): Pers
     const attachment = attachPromiseRef.current;
     void Promise.resolve(attachment)
       .then(() =>
-        session.capture(before, currentDocument, capturedSelection, { label, kind: 'modify' }),
+        sessionRef.current?.capture(before, currentDocument, capturedSelection, {
+          label,
+          kind: 'modify',
+        }),
       )
       .then(() => bump())
       .catch((err) => console.warn('[history] watcher capture failed', err));
@@ -338,10 +361,10 @@ export function usePersistentHistory(options: UsePersistentHistoryOptions): Pers
   );
 
   const capture = useCallback((before: Document, after: Document, label: string, kind: string) => {
-    const session = sessionRef.current;
-    if (!session) return;
     const run = async () => {
       await attachPromiseRef.current;
+      const session = sessionRef.current;
+      if (!session) return;
       try {
         await session.capture(before, after, selectionRef.current, { label, kind });
         bump();

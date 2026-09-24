@@ -8,7 +8,7 @@
 
 import 'fake-indexeddb/auto';
 import { getStorageWriteMetrics, resetStorageWriteMetrics } from '@varve/platform';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { BackupService } from './backupService';
 import { createPersistenceRevision } from './persistence/documentRevision';
 
@@ -212,6 +212,23 @@ describe('BackupService automatic dedup', () => {
     service.markDirty(projectId, () => '{"manual":true}', 'Untitled', 1);
     expect((await service.backupAllDirty()).backedUp).toBe(1);
     expect((await service.getBackups(projectId)).length).toBe(1);
+  });
+
+  it('keeps session backups usable when IndexedDB denies open', async () => {
+    const open = vi.spyOn(indexedDB, 'open').mockImplementation(() => {
+      throw new DOMException('Storage blocked', 'SecurityError');
+    });
+    try {
+      service = new BackupService({ enabled: false });
+      await service.initialize();
+      const projectId = uniqueProjectId();
+      service.markDirty(projectId, () => '{"ephemeral":true}', 'Untitled', 1);
+      expect(await service.backupAllDirty()).toEqual({ backedUp: 1, failed: 0 });
+      expect((await service.getBackups(projectId)).length).toBe(1);
+      expect(service.getState().lastError).toMatch(/using memory/);
+    } finally {
+      open.mockRestore();
+    }
   });
 
   it('discards only the closed session revision', async () => {

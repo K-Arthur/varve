@@ -6,7 +6,7 @@
  * per-test database isolation.
  */
 import 'fake-indexeddb/auto';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   createRasterTileStore,
   hashTilePixels,
@@ -232,5 +232,20 @@ describe('createRasterTileStore (factory)', () => {
     expect(hash).toBe(entry.contentHash);
     const retrieved = await store.get(hash);
     expect(retrieved).toEqual(entry.pixels);
+  });
+
+  it('uses memory when IndexedDB denies an asynchronous open', async () => {
+    const open = vi.spyOn(indexedDB, 'open').mockImplementation(() => {
+      throw new DOMException('Storage blocked', 'SecurityError');
+    });
+    try {
+      const store = createRasterTileStore();
+      const entry = await computeHash(tileEntry('blocked:0:0'));
+      expect(await store.put(entry)).toBe(entry.contentHash);
+      expect(await store.get(entry.contentHash)).toEqual(entry.pixels);
+      expect(await store.stats()).toEqual({ totalTiles: 1, totalBytes: entry.pixels.byteLength });
+    } finally {
+      open.mockRestore();
+    }
   });
 });

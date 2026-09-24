@@ -175,6 +175,40 @@ export class IndexedDbRecoveryStorage implements RecoveryStorage {
   }
 }
 
+/** Keep recovery usable for the session when a privacy policy blocks IndexedDB. */
+export class ResilientRecoveryStorage implements RecoveryStorage {
+  private readonly persistent = new IndexedDbRecoveryStorage();
+  private readonly memory = new MemoryRecoveryStorage();
+  private denied = false;
+
+  private async use<T>(operation: (storage: RecoveryStorage) => Promise<T>): Promise<T> {
+    if (this.denied) return operation(this.memory);
+    try {
+      return await operation(this.persistent);
+    } catch (error) {
+      if (!(error instanceof DOMException && error.name === 'SecurityError')) throw error;
+      this.denied = true;
+      return operation(this.memory);
+    }
+  }
+
+  save(key: string, data: string): Promise<void> {
+    return this.use((storage) => storage.save(key, data));
+  }
+
+  load(key: string): Promise<string | null> {
+    return this.use((storage) => storage.load(key));
+  }
+
+  list(): Promise<string[]> {
+    return this.use((storage) => storage.list());
+  }
+
+  delete(key: string): Promise<void> {
+    return this.use((storage) => storage.delete(key));
+  }
+}
+
 export interface RecoverySessionMeta extends RecoverySession {
   nodeCount: number;
   sizeBytes: number;
@@ -400,7 +434,7 @@ export function getSharedRecoveryManager(): RecoveryManager {
   if (!sharedRecoveryManager) {
     const storage =
       typeof indexedDB !== 'undefined'
-        ? new IndexedDbRecoveryStorage()
+        ? new ResilientRecoveryStorage()
         : new MemoryRecoveryStorage();
     sharedRecoveryManager = new RecoveryManager(storage);
   }

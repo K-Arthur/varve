@@ -135,6 +135,16 @@ describe('validation infrastructure presence', () => {
     expect(verify).toMatch(/Final full gate required after triage\. Continuing/);
   });
 
+  it('builds real WASM artifacts before the full browser lane', () => {
+    const verify = readFileSync(join(ROOT, 'scripts/quality/verify.mjs'), 'utf-8');
+    const build = verify.indexOf(
+      "{ label: 'WASM browser artifacts', argv: ['just', 'wasm-build-all'] }",
+    );
+    const browser = verify.indexOf("label: 'Chromium E2E'");
+    expect(build).toBeGreaterThan(-1);
+    expect(browser).toBeGreaterThan(build);
+  });
+
   it('impact config parses and is not stale', () => {
     const { ok, errors } = auditImpactConfig();
     expect(errors, errors.join('\n')).toEqual([]);

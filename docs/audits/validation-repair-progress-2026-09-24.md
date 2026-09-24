@@ -1,8 +1,9 @@
 # Validation repair checkpoint — 2026-09-24
 
-Branch: `master`. Product and validation-code checkpoint: `4f93cb47f` (pushed).
-The final browser lanes are still running at this checkpoint; the results
-below distinguish completed checks from pending ones.
+Branch: `master`. Completed code checkpoint: `4f93cb47f` (pushed); this
+follow-up records the subsequently discovered WASM validation repair. The
+final full gate for that repair remains pending, so the results below
+distinguish completed checks from pending ones.
 
 ## Repair and validation ledger
 
@@ -14,7 +15,16 @@ below distinguish completed checks from pending ones.
 | Type safety | Full workspace and E2E TypeScript checks completed at `4f93cb47f`. | Both passed. |
 | Native code | Full Rust workspace tests and Clippy completed at `4f93cb47f`. | Both passed; GPU versus CPU resampling and effect tests ran in the native suite. |
 | Accessibility and docs | Token contrast, undefined token use, documentation links, and emoji audits were required by affected validation. | All passed; the token audit checked 315 pairs across light, dark, and high-contrast themes. Automated checks do not establish complete screen-reader conformance. |
-| Browser and visual | The full-gate browser launch first stopped because a Vite process from this task's interrupted affected run still owned port 1420. | That orphan was identified by process tree and stopped. Chromium is rerunning on isolated port 1422 under the heavy-task lease, one worker; visual lane remains pending. This was a port conflict, not a test assertion failure. |
+| Browser and visual | The full-gate browser launch first stopped because a Vite process from this task's interrupted affected run still owned port 1420. A second attempt from the clean checkout revealed repeated WASM fallback warnings: ignored binaries had not been built. | The orphan was stopped. The local full gate now builds baseline, SIMD, and colour WASM like CI, and browser readiness rejects a 200 HTML response at a `.wasm` URL. Generated artifacts passed both focused Chromium specs: 12/12 browser-readiness and 13/13 demo tests. Final broad browser and visual lanes remain pending. |
+| Denied browser storage | An affected Chromium rerun exposed a startup timeout in the IndexedDB-denial case. A focused trace then found unhandled `SecurityError` rejections from raster tiles, backups, and recovery; history also disabled undo. | Session-memory fallbacks now keep raster tiles, backups, recovery, and undo/redo available. The exact Chromium case creates a rectangle and verifies undo and redo with zero page errors. The startup timeout did not reproduce in focused reruns; broad validation remains pending. |
+
+The second broad Chromium attempt was stopped after this setup defect was
+confirmed; its fallback-renderer passes were not counted as native-WASM
+integration evidence. It also produced one document-accent startup timeout
+before the accent action began. The focused browser suite with real WASM
+completed without a startup timeout. The exact accent spec still needs a
+targeted rerun in the final checkpoint to distinguish load jitter from a
+reproducible application defect.
 
 The website's footer CTA, 200% text reflow, and reviewed visual baselines were
 committed earlier in this repair sequence (`3083b77cc`, `9d3d9b23d`,
@@ -38,6 +48,13 @@ These are documented, non-blocking diagnostics, not evidence of a failing
 style gate. If these blocks are reorganized later, compare computed styles and
 screenshots at the affected breakpoints and themes before changing their
 order. Do not suppress `noDescendingSpecificity` globally.
+
+`wasm-pack` also prints optional crate metadata and tool-version suggestions
+while building ignored application assets. Those artifacts are bundled into
+the app rather than published as standalone crates, and the build completes.
+The Playwright launcher prints a `NO_COLOR`/`FORCE_COLOR` environment warning;
+it does not affect browser assertions. Neither warning was hidden to obtain
+a passing gate.
 
 ## Complaint-informed website check
 

@@ -5,6 +5,36 @@ import { EditorHistorySession } from '../history/editorHistorySession';
 import { usePersistentHistory } from './usePersistentHistory';
 
 describe('persistent history session isolation', () => {
+  it('uses session history when IndexedDB denies access during attach', async () => {
+    const document = createDocument('Private browser', true);
+    const originalAttach = EditorHistorySession.prototype.attach;
+    let attempts = 0;
+    const attach = vi
+      .spyOn(EditorHistorySession.prototype, 'attach')
+      .mockImplementation(async function (this: EditorHistorySession, current) {
+        attempts++;
+        if (attempts === 1) throw new DOMException('Storage blocked', 'SecurityError');
+        return originalAttach.call(this, current);
+      });
+    try {
+      const { result } = renderHook(() =>
+        usePersistentHistory({
+          document,
+          selection: [],
+          patch: vi.fn(),
+          inTransactionRef: { current: false },
+          historySkipRef: { current: false },
+        }),
+      );
+      await waitFor(() => expect(result.current.attached).toBe(true));
+      expect(attempts).toBe(2);
+      expect(result.current.session?.attached).toBe(true);
+      expect(result.current.attachIssues).toEqual([]);
+    } finally {
+      attach.mockRestore();
+    }
+  });
+
   it('retains an edit made while persistent history is attaching', async () => {
     const first = createDocument('Before', true);
     const edited = { ...first, name: 'Edited during attach' };

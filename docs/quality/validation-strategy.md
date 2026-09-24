@@ -228,6 +228,13 @@ to bindgen so Clang 22 does not emit invalid layouts for glibc's private
 `_IO_FILE` type. Keep full-gate Rust commands on this wrapper instead of
 invoking raw `cargo test` or `cargo clippy`.
 
+The full gate builds the baseline, SIMD, and colour WASM artifacts with
+`just wasm-build-all` before browser validation, as CI does. These binaries
+are ignored build output, so a clean checkout otherwise serves Vite's HTML
+fallback at a `.wasm` URL and the editor silently exercises the TypeScript
+stub. Browser readiness checks require a WASM MIME response as well as HTTP
+200 to catch this false-positive.
+
 ## Impact configuration
 
 `validation-impact.config.mjs` at the repo root holds the EXCEPTIONAL risk

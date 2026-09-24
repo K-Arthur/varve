@@ -138,7 +138,18 @@ export class BackupService {
       this.startScheduler();
     }
     const epoch = this.lifecycleEpoch;
-    const info = await this.store.getStorageInfo();
+    let info: BackupStorageInfo;
+    try {
+      info = await this.store.getStorageInfo();
+    } catch {
+      // IndexedDB can exist yet reject open() in private or locked-down
+      // browser contexts. Keep backup operations usable for this session.
+      if (this.disposed || epoch !== this.lifecycleEpoch) return;
+      this.store = createBackupStore({ hasIndexedDb: false, platform: 'memory' });
+      this.engine = new BackupEngine(this.store);
+      info = await this.store.getStorageInfo();
+      this.state.lastError = 'Persistent backup storage unavailable; using memory for this session';
+    }
     if (this.disposed || epoch !== this.lifecycleEpoch) return;
     this.state.storageUsed = info.totalBytes;
     this.state.totalBackups = info.entryCount;
@@ -150,7 +161,12 @@ export class BackupService {
     this.lifecycleEpoch++;
     this.stopScheduler();
     await Promise.allSettled([...this.inFlight]);
-    await this.store?.close();
+    try {
+      await this.store?.close();
+    } catch {
+      // A denied IndexedDB open must not turn editor teardown into an
+      // unhandled rejection when React unmounts during initialization.
+    }
     this.engine = null;
     this.store = null;
   }
