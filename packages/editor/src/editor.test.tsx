@@ -431,20 +431,22 @@ describe('EditorContext', () => {
       expect(newFrame.transform[4]).toBe(120);
       expect(newFrame.transform[5]).toBe(120);
 
-      // Direct child rect must have offset transform (+20,+20 from original)
+      // Duplicating translates the cloned root; descendants keep their
+      // parent-relative transforms so the copy's internal layout matches the
+      // original. Every descendant therefore shifts +20,+20 in world space.
       const newChild1 = ctx?.state.document.nodes[newFrame.children[0]!] as SceneNode;
-      expect(newChild1.transform[4]).toBe(30); // was 10, now 30
-      expect(newChild1.transform[5]).toBe(30); // was 10, now 30
+      expect(newChild1.transform[4]).toBe(10);
+      expect(newChild1.transform[5]).toBe(10);
       expect(newChild1.name).toBe('Rect1 copy');
 
-      // The cloned group (second child) must also be offset and contain cloned children
+      // The cloned group (second child) must also be cloned and contain cloned children
       const newGroup = ctx?.state.document.nodes[newFrame.children[1]!] as SceneNode & {
         children: string[];
       };
       expect(newGroup).toBeDefined();
       expect(newGroup.name).toBe('InnerGroup copy');
-      expect(newGroup.transform[4]).toBe(20); // was 0, now 20
-      expect(newGroup.transform[5]).toBe(20); // was 0, now 20
+      expect(newGroup.transform[4]).toBe(0);
+      expect(newGroup.transform[5]).toBe(0);
 
       // The group's child must also be a clone (deep-cloned grandchild)
       expect(newGroup.children).toHaveLength(1);
@@ -452,8 +454,8 @@ describe('EditorContext', () => {
       const newChild2 = ctx?.state.document.nodes[newGroup.children[0]!] as SceneNode;
       expect(newChild2).toBeDefined();
       expect(newChild2.name).toBe('Rect2 copy');
-      expect(newChild2.transform[4]).toBe(25); // was 5, now 25
-      expect(newChild2.transform[5]).toBe(25); // was 5, now 25
+      expect(newChild2.transform[4]).toBe(5);
+      expect(newChild2.transform[5]).toBe(5);
 
       // Original nodes must still exist unchanged
       expect(ctx?.state.document.nodes.f1).toBeDefined();
@@ -578,6 +580,76 @@ describe('EditorContext', () => {
       if (duplicated?.kind !== 'group') throw new Error('Expected duplicated group');
       expect(duplicated.mask?.sourceNodeId).not.toBe('mask-source');
       expect(duplicated.children).toContain(duplicated.mask?.sourceNodeId);
+    });
+
+    it('remaps effect-mask sources and mints effect ids on the duplicate', async () => {
+      const {
+        addChild,
+        addNode,
+        createDefaultEffect,
+        createDocument,
+        makeGroupNode,
+        makeShapeNode,
+      } = await import('@varve/scene');
+
+      let doc = createDocument('dup-effect-mask-test');
+      doc = addNode(doc, makeGroupNode('g', { name: 'G' }));
+      doc = addChild(doc, 'g', makeShapeNode('matte', { kind: 'rect', x: 0, y: 0, w: 40, h: 40 }));
+      const content = makeShapeNode(
+        'content',
+        { kind: 'rect', x: 0, y: 0, w: 80, h: 80 },
+        {
+          effects: [
+            {
+              ...createDefaultEffect('dropShadow', 'fx-source'),
+              mask: {
+                source: { kind: 'scene-node', nodeId: 'matte' },
+                type: 'alpha',
+                coordinateSpace: 'world',
+              },
+            },
+          ],
+        },
+      );
+      doc = addChild(doc, 'g', content);
+
+      let ctx: ReturnType<typeof useEditor> | undefined;
+      function Test() {
+        ctx = useEditor();
+        return (
+          <button type="button" onClick={() => ctx?.duplicateSelected()}>
+            duplicate effect mask
+          </button>
+        );
+      }
+
+      render(
+        <EditorProvider initialDocumentJson={JSON.stringify(doc)}>
+          <Test />
+        </EditorProvider>,
+      );
+      await waitFor(() => expect(ctx).toBeDefined());
+      ctx?.setSelection('g');
+      await waitFor(() => expect(ctx?.state.selection).toEqual(['g']));
+      screen.getByText('duplicate effect mask').click();
+
+      await waitFor(() => expect(ctx?.state.selection[0]).not.toBe('g'));
+      const duplicated = ctx?.state.document.nodes[ctx.state.selection[0] ?? ''];
+      expect(duplicated?.kind).toBe('group');
+      if (duplicated?.kind !== 'group') throw new Error('Expected duplicated group');
+
+      const clonedMatteId = duplicated.children[0]!;
+      const clonedContent = ctx?.state.document.nodes[duplicated.children[1]!];
+      expect(clonedContent).toBeDefined();
+      const clonedEffect = (
+        clonedContent as {
+          effects?: Array<{ id?: string; mask?: { source?: { nodeId?: string } } }>;
+        }
+      ).effects?.[0];
+      expect(clonedEffect?.id).toBeTruthy();
+      expect(clonedEffect?.id).not.toBe('fx-source');
+      expect(clonedEffect?.mask?.source?.nodeId).toBe(clonedMatteId);
+      expect(clonedEffect?.mask?.source?.nodeId).not.toBe('matte');
     });
   });
 });

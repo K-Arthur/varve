@@ -4,7 +4,7 @@
  * Covers: stable IDs, availability predicates, default state, migration,
  * collapse/hide operations, and query helpers.
  */
-import type { SceneNode } from '@varve/scene';
+import { panelMetadata, type SceneNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import {
   CATEGORY_LABELS,
@@ -458,6 +458,55 @@ describe('Section availability predicates', () => {
     expect(def.isAvailable(baseCtx({ activeTool: 'frame', selectionKind: 'empty' }))).toBe(true);
     expect(def.isAvailable(baseCtx({ activeTool: 'select', selectionKind: 'empty' }))).toBe(false);
     expect(def.isAvailable(baseCtx({ activeTool: 'frame', selectionKind: 'single' }))).toBe(false);
+  });
+
+  it('panel-layouts supports division of one frame and joining multiple semantic panels', () => {
+    const def = getSectionDefinition('panel-layouts')!;
+    expect(
+      def.isAvailable(
+        baseCtx({ activeTool: 'panel', selectionKind: 'single', selectedNodes: [makeFrameNode()] }),
+      ),
+    ).toBe(true);
+    expect(
+      def.isAvailable(
+        baseCtx({
+          activeTool: 'panel',
+          selectionKind: 'multi',
+          selectedNodes: [
+            makeFrameNode({ panel: panelMetadata('panel-1') }),
+            makeFrameNode({ id: 'frame-2', panel: panelMetadata('panel-2') }),
+          ],
+        }),
+      ),
+    ).toBe(true);
+    expect(
+      def.isAvailable(
+        baseCtx({
+          activeTool: 'panel',
+          selectionKind: 'multi',
+          selectedNodes: [makeFrameNode(), makeFrameNode({ id: 'frame-2' })],
+        }),
+      ),
+    ).toBe(false);
+  });
+
+  it('callout is available only for a selected comic balloon group', () => {
+    const def = getSectionDefinition('callout')!;
+    const group = makeNode({
+      kind: 'group',
+      children: ['body', 'tail', 'text'],
+      callout: {
+        version: 1,
+        kind: 'speech',
+        bodyNodeId: 'body',
+        textNodeId: 'text',
+        tailNodeIds: ['tail'],
+        padding: 18,
+        parametric: true,
+      },
+    } as unknown as Partial<SceneNode>);
+    expect(def.isAvailable(baseCtx({ selectedNodes: [group] }))).toBe(true);
+    expect(def.isAvailable(baseCtx({ selectedNodes: [makeTextNode()] }))).toBe(false);
   });
 
   it('frame-resize is retired: preset resizing is owned by the Position & Size dropdown', () => {
