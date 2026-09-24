@@ -206,7 +206,7 @@ Canva, Sketch design systems and interaction paradigms.
 | `.bento-cell` | Neut-Bento card: radius-xl, micro-border, elevation-raised | components.css |
 | `.bento-cell--featured` | Hero cell: radius-2xl, micro-border-accent, elevation-overlay | components.css |
 | `.bento-span-2/3/full` | CSS Grid column span helpers | components.css |
-| `.bento-grid--3/--2` | Preset grid templates | components.css |
+| `.bento-grid--three/--two` | Preset grid templates | components.css |
 | `[data-density]` | Three-tier density system (compact/comfortable/cozy) | components.css |
 | `.varve-tip__shortcut` | Keyboard shortcut badge in tooltips | components.css |
 

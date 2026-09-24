@@ -2417,16 +2417,16 @@
   grid-row: span 2;
 }
 
-.bento-grid--3 {
+.bento-grid--three {
   grid-template-columns: repeat(3, 1fr);
 }
-.bento-grid--2 {
+.bento-grid--two {
   grid-template-columns: repeat(2, 1fr);
 }
 
 @media (max-width: 768px) {
-  .bento-grid--3,
-  .bento-grid--2 {
+  .bento-grid--three,
+  .bento-grid--two {
     grid-template-columns: 1fr;
   }
   .bento-span-2,
