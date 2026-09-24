@@ -140,14 +140,14 @@ Semantic tokens map to concrete OKLCH values per theme. CSS custom properties us
 | `surface-hover` | `oklch(0.22 ...)` | `oklch(0.88 ...)` | `oklch(0.25 0 0)` |
 
 **Text tokens:**
-| Token | Dark | Light | HC |
-|-------|------|-------|-----|
-| `text-primary` | near-white | near-black | pure white |
-| `text-secondary` | light gray | dark gray | `oklch(0.92 0 0)` |
-| `text-subtle` | mid gray | `oklch(0.46 ...)` | `oklch(0.78 0 0)` |
-| `text-muted` | mid gray | `oklch(0.43 ...)` | `oklch(0.858 0 0)` |
-| `text-disabled` | dark gray | `oklch(0.58 ...)` | `oklch(0.461 0 0)` |
-| `text-on-accent` | near-black | near-black | pure black |
+| Token            | Dark       | Light             | HC                 |
+| ------------------| ------------| -------------------| --------------------|
+| `text-primary`   | near-white | near-black        | pure white         |
+| `text-secondary` | light gray | dark gray         | `oklch(0.92 0 0)`  |
+| `text-subtle`    | mid gray   | `oklch(0.46 ...)` | `oklch(0.78 0 0)`  |
+| `text-muted`     | mid gray   | `oklch(0.43 ...)` | `oklch(0.858 0 0)` |
+| `text-disabled`  | dark gray  | `oklch(0.58 ...)` | `oklch(0.461 0 0)` |
+| `text-on-accent` | near-black | near-black        | pure black         |
 
 **Interactive tokens:**
 | Token | Dark | Light | HC |
