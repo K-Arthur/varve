@@ -71,7 +71,7 @@ describe('minimapRenderer', () => {
         entries: [
           {
             id: 'hidden-shape',
-            kind: 'rect',
+            kind: 'shape',
             bounds: { x: 10, y: 10, w: 20, h: 20 },
             visible: false,
             locked: false,
