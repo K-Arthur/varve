@@ -36,6 +36,7 @@ import {
 import { createValidationSnapshots } from './validation-snapshot.mjs';
 
 const ROOT = process.cwd();
+const BOUNDED_COMMAND_RUNNER = join(ROOT, 'scripts/quality/run-bounded-command.mjs');
 
 for (const [name, packageInfo] of Object.entries(loadPackages()))
   packageDirs[name] = packageInfo.dir;
@@ -89,10 +90,17 @@ function execute(
 ) {
   console.log(`    $ ${argv.map((part) => JSON.stringify(part)).join(' ')}`);
   if (dryRun) return 0;
-  const result = spawnSync(argv[0], argv.slice(1), {
-    ...commandArgs(cwd),
-    timeout: timeoutMs,
-  });
+  const result = spawnSync(
+    process.execPath,
+    [BOUNDED_COMMAND_RUNNER, String(timeoutMs), cwd, argv[0], ...argv.slice(1)],
+    {
+      ...commandArgs(cwd),
+      // The helper terminates the complete process group at timeoutMs and
+      // exits after its short forced-kill grace period. This outer timeout is
+      // only a fail-safe for a broken helper.
+      timeout: timeoutMs + 10_000,
+    },
+  );
   if (result.error) {
     const reason = result.signal
       ? `signal ${result.signal}`
@@ -103,6 +111,10 @@ function execute(
       `    spawn failed (${reason}); resources: ${availableParallelism()} CPUs, ` +
         `${Math.round(freemem() / 1024 / 1024)} MiB free / ${Math.round(totalmem() / 1024 / 1024)} MiB total`,
     );
+    return 1;
+  }
+  if (result.status === 124) {
+    console.error(`    command timed out after ${timeoutMs / 1000}s`);
     return 1;
   }
   if (result.signal) {

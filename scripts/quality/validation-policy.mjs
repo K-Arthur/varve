@@ -30,6 +30,7 @@ export const POLICY_FILES = [
   'scripts/quality/push-plan.mjs',
   'scripts/quality/pre-push.mjs',
   'scripts/quality/commit-checkpoint.mjs',
+  'scripts/quality/run-bounded-command.mjs',
   'scripts/quality/history-policy.mjs',
   'scripts/quality/validation-receipts.mjs',
   'scripts/quality/operation-history.mjs',
@@ -186,10 +187,11 @@ export const PUSH_LANE_TIMEOUT_MS = Object.freeze({
   'security-policy': 2 * 60 * 1000,
   'release-version': 2 * 60 * 1000,
   'product-truth': 2 * 60 * 1000,
-  // The editor package owns the bulk of the UI suite (800 files in the
-  // 2026-09-23 exact-ref run). That clean run took 980s with eight workers,
-  // so allow a bounded 20-minute package check on the primary Linux host.
-  'js-unit:@varve/editor': 20 * 60 * 1000,
+  // The editor package owns the bulk of the UI suite (801 files in the
+  // 2026-09-24 exact-ref run). Under concurrent ARM64 compilation it took
+  // 1528s with eight workers, so allow 30 minutes while keeping the lane
+  // bounded. The runner terminates the full process tree on expiry.
+  'js-unit:@varve/editor': 30 * 60 * 1000,
   models: 3 * 60 * 1000,
 });
 

@@ -67,8 +67,8 @@ assert.deepEqual(formatCommands, [
 ]);
 
 assert.ok(
-  PUSH_LANE_TIMEOUT_MS['js-unit:@varve/editor'] >= 20 * 60 * 1000,
-  'the editor package push check must allow its measured 980-second suite to finish',
+  PUSH_LANE_TIMEOUT_MS['js-unit:@varve/editor'] >= 30 * 60 * 1000,
+  'the editor package push check must allow its measured 1528-second suite to finish',
 );
 
 console.log('pre-push adapter tests passed');

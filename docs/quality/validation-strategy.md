@@ -65,10 +65,13 @@ The staged pre-commit checkpoint is intentionally cheap and local.
 The exact-ref pre-push checkpoint is bounded and defers remote certification
 lanes explicitly.
 
-The local `@varve/editor` unit lane has a 20-minute ceiling. An exact-ref run
-covering 800 editor test files took 980 seconds with eight workers on the
-primary Linux development host (2026-09-23); the earlier 15-minute ceiling
-expired after all tests had passed and incorrectly blocked the push.
+The local `@varve/editor` unit lane has a 30-minute ceiling. An exact-ref run
+covering 801 editor test files took 1,528 seconds with eight workers while an
+ARM64 release build was active (2026-09-24). The lane runner starts each
+command in an isolated process group and terminates its descendants when the
+deadline expires, so a timeout cannot leave Vitest workers running in the
+background. The 10K layer drop-target benchmark warms the resolver and uses
+the fastest of three full sweeps; its 150ms ceiling remains unchanged.
 
 ### Integration certification
 
