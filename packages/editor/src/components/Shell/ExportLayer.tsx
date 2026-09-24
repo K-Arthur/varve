@@ -24,6 +24,7 @@ import { type ExportProgressEvent, ExportService } from '../../exportService';
 import { buildPackageExport } from '../../packageExport';
 import { BatchBgRemoveDialog } from '../BatchBgRemoveDialog';
 import { ExportDialog } from '../Export/ExportDialog';
+import { GuideLayoutsDialogHost } from '../GuideLayouts/GuideLayoutsDialogHost';
 import { worldBBox } from '../SpecPanel/measurement';
 import { QuickConvertDialogHost } from './QuickConvertDialogHost';
 
@@ -454,6 +455,7 @@ export const ExportLayer = forwardRef<ExportLayerHandle, ExportLayerProps>(funct
         onNodeUpdate={applyPreparedCutout}
       />
       <QuickConvertDialogHost platform={platform} />
+      <GuideLayoutsDialogHost />
     </>
   );
 });

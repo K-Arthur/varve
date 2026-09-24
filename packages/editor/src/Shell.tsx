@@ -433,6 +433,7 @@ function ShellInner({
       onOpenFile: () => fileRef.current?.click(),
       onImportFile: fileImport.openPicker,
       onQuickConvert: () => window.dispatchEvent(new Event('varve:open-quick-convert')),
+      onOpenGuideLayouts: () => window.dispatchEvent(new Event('varve:open-guide-layouts')),
       onCustomizeWorkspace: () => setWorkspaceCustomizeOpen(true),
       onManageWorkspaceLayouts: () => setManageLayoutsOpen(true),
       onResizeImage: editor.openImageResizeDialog,
