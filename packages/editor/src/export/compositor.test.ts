@@ -1,7 +1,7 @@
 // @ts-nocheck
 
 import type { Document, SceneNode } from '@varve/scene';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   assessNodeCapability,
   CAPABILITY,
@@ -9,6 +9,24 @@ import {
   findFlattenBoundaries,
   mergeRasterExpansion,
 } from './compositor';
+
+vi.mock('@varve/engine', async () => {
+  const actual = await vi.importActual('@varve/engine');
+  return {
+    ...actual,
+    createRasterSurface: vi.fn(() => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 100;
+      canvas.height = 100;
+      return {
+        canvas,
+        context: canvas.getContext('2d'),
+        backend: 'html' as const,
+      };
+    }),
+    encodeRasterSurface: vi.fn(async () => new Blob(['fake-png-data'], { type: 'image/png' })),
+  };
+});
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -904,29 +922,6 @@ describe('findFlattenBoundaries', () => {
 });
 
 describe('composeFlattenedExportSnapshot', () => {
-  beforeEach(() => {
-    // Mock createRasterSurface and encodeRasterSurface
-    vi.mock('@varve/engine', async () => {
-      const actual = await vi.importActual('@varve/engine');
-      return {
-        ...actual,
-        createRasterSurface: vi.fn(() => {
-          const canvas = document.createElement('canvas');
-          canvas.width = 100;
-          canvas.height = 100;
-          return {
-            canvas,
-            context: canvas.getContext('2d'),
-            backend: 'html' as const,
-          };
-        }),
-        encodeRasterSurface: vi.fn(async () => {
-          return new Blob(['fake-png-data'], { type: 'image/png' });
-        }),
-      };
-    });
-  });
-
   afterEach(() => {
     vi.restoreAllMocks();
   });
