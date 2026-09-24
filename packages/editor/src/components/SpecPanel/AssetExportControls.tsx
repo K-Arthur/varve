@@ -24,14 +24,14 @@ import {
   materializePreset,
   type PlatformKind,
 } from '@varve/scene/export';
-import { CopyButton, Icon, type IconName, Select, Tooltip } from '@varve/ui';
+import { CopyButton, Icon, type IconName, SegmentedControl, Select, Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { isCapabilityRestricted } from '../../capabilities/restrictions';
 import { runBatchPreflight } from '../../exportService';
 import { suggestExportFormat } from '../../intelligence/exportAdvisor';
 import { buildJobs } from '../Export/ExportDialog';
 import { FormatBadge } from '../Export/FormatBadge';
-import { SegmentedControl } from '../Inspector/controls/SegmentedControl';
+
 import {
   buildFilename,
   downloadBlob,
@@ -419,12 +419,27 @@ export function AssetExportControls({
   useEffect(() => {
     if (_engine) {
       setEngine(_engine);
-    } else {
-      // `auto` prefers the native engine (desktop), then WASM, then the TS
-      // stub — the same preference every other export surface uses, so quick
-      // export cannot silently diverge from the canvas IR builder.
-      createEngine('auto').then(setEngine);
+      return;
     }
+
+    // `auto` prefers the native engine (desktop), then WASM, then the TS
+    // stub — the same preference every other export surface uses, so quick
+    // export cannot silently diverge from the canvas IR builder. Ignore late
+    // resolution after unmount and report initialization failures in the same
+    // live status used for export feedback.
+    let cancelled = false;
+    void createEngine('auto')
+      .then((createdEngine) => {
+        if (!cancelled) setEngine(createdEngine);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setMessage('Could not initialize the export engine. Reload the editor and try again.');
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [_engine]);
 
   // Resolve the exact SVG markup the save would write, so the copy action

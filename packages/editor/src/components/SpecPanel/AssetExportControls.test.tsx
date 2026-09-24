@@ -48,7 +48,7 @@ describe('AssetExportControls', () => {
     );
 
     // A vector rect shape suggests SVG (see exportAdvisor.ts isVectorNode branch).
-    expect(screen.getByRole('radio', { name: 'SVG' })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('radio', { name: 'SVG' })).toBeChecked();
   });
 
   it('shows the advisor reason in an accessible tooltip on focus', async () => {
@@ -93,10 +93,10 @@ describe('AssetExportControls', () => {
     };
 
     const { rerender } = render(<AssetExportControls node={vectorNode} doc={fullDoc} />);
-    expect(screen.getByRole('radio', { name: 'SVG' })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('radio', { name: 'SVG' })).toBeChecked();
 
     rerender(<AssetExportControls node={bigNode} doc={fullDoc} />);
-    expect(screen.getByRole('radio', { name: 'JPEG' })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('radio', { name: 'JPEG' })).toBeChecked();
   });
 
   it('labels the primary action with the platform verb and selected format', () => {
@@ -638,7 +638,7 @@ describe('AssetExportControls', () => {
       // Choosing a preset again clears the custom draft and hides the field.
       fireEvent.click(screen.getByRole('radio', { name: '2x' }));
       expect(screen.queryByLabelText(/Custom scale multiplier/i)).not.toBeInTheDocument();
-      expect(screen.getByRole('radio', { name: '2x' })).toHaveAttribute('aria-checked', 'true');
+      expect(screen.getByRole('radio', { name: '2x' })).toBeChecked();
     });
 
     it('names the exported object and offers the batch workspace for multi-selection', () => {
