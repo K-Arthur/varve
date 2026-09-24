@@ -48,10 +48,9 @@ and public issue reports describing touch/pen failures in other drawing tools.
 
 ## Validation status
 
-Synthetic unit and policy tests are passing. The first isolated Chromium E2E
-attempt was stopped after the shared machine kept it waiting for the home
-screen while another E2E/validation job was active; this is recorded as an
-environment limitation, not a product pass or fail. A quiet-port run and visual
-inspection are required before completion. Physical Lenovo Duet, USI Pen 2,
-PWA, and Crostini runs remain manual validation items unless hardware becomes
-available.
+Synthetic unit and policy tests passed, followed by an isolated Chromium run on
+port 1495: the second-finger, foreign-touch-during-pen, and post-pinch
+fresh-contact regressions passed 3/3. The Pen close-target and live-handle
+visual cases passed on isolated port 1500, and the resulting screenshots were
+opened and inspected. Physical Lenovo Duet, USI Pen 2, PWA, and Crostini runs
+remain manual validation items unless the hardware becomes available.
