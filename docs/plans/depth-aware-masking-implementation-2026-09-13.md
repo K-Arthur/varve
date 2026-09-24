@@ -1,9 +1,8 @@
 # Depth-aware masking implementation plan
 
 Status: core implementation complete on `master`; source-bound crop/fit
-placement and preserving combine defaults are covered by the final replay
-regression slice. Model-parity, real-photo
-edge-quality, and low-end-platform gates remain explicitly deferred. This plan
+placement and preserving combine defaults are covered by focused replay and
+browser regressions. Model-parity, real-photo edge-quality, and low-end-platform gates remain explicitly deferred. This plan
 was intentionally sliced so each commit left the existing editor usable. It is based on the research record
 in [`docs/research/depth-aware-masking-2026-09-13.md`](../research/depth-aware-masking-2026-09-13.md).
 
@@ -75,9 +74,9 @@ worktree is created: the requested integration branch is the existing
   coordinate mapper for canvas picks and reject clicks outside the displayed
   source.
 - Reuse existing mask painting/lasso/segmentation/matting primitives for the
-  shipped **Refine coverage** target. Keep **Correct depth** as a named,
-  unsupported correction-layer boundary until a continuous-field correction
-  resource is implemented; range changes do not erase coverage corrections.
+  shipped **Refine coverage** target. Keep **Correct depth** as an unsupported
+  continuous-field correction boundary until that resource exists; range
+  changes do not erase coverage corrections.
 - Expose Replace/Intersect/Add/Union/Subtract with a safe preserving default,
   before/after/bypass/reset, Escape/cancel, keyboard range controls and
   accessible disabled reasons.

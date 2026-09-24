@@ -131,7 +131,7 @@ The required evidence layers were exercised as follows:
 3. actual Chromium interaction, screenshots, save/reopen, scalar download,
    and decoded export inspection.
 
-Focused deterministic coverage (9 files, 100 tests) passed with:
+Focused deterministic coverage (9 files, 97 tests) passed with:
 
 ```text
 pnpm exec vitest run --pool=forks --maxWorkers=1 --no-file-parallelism \
@@ -197,8 +197,7 @@ and the focused website workflow passed (`1 passed (2.7s)`). The feature and
 guide were inspected at 1280px, and the guide was also inspected at 390px;
 the mobile capture had no horizontal overflow. The inspected captures are
 `reports/depth-aware-masking-2026-09-13/website/depth-aware-effects-feature-desktop.png`,
-`depth-aware-effects-docs-desktop.png`, and
-`depth-aware-effects-docs-mobile.png`.
+`depth-aware-effects-docs-desktop.png`, and `depth-aware-effects-docs-mobile.png`.
 
 The affected planner escalated because the shared scene/schema and validation
 surface was dirty. The requested full checkpoint was attempted with
@@ -218,6 +217,25 @@ The final depth integration records are the incremental commits
 workflow, persistence, and cancellation commits listed in the architecture
 record. The corresponding source, scalar, and UI changes remain on `master`;
 no new branch or parallel depth subsystem was created.
+
+### 2026-09-24 history transaction follow-up
+
+The real-photo depth-mask workflow now listens for history-bypass warnings and
+asserts that none occur. Import and apply mutations run in named compound
+history transactions. The Chromium scenario imports a real architecture photo,
+registers a scalar map, samples and applies a range, verifies the canvas change,
+checks undo and redo, exports both scalar and PNG results, then saves and
+reopens the document. The focused E2E passed 1/1 in 57.1 seconds; the focused
+depth workflow tests passed 4/4. Captures of the depth heatmap and masked result
+were opened and visually inspected.
+
+The E2E is run through the shared heavy-task lease, for example:
+
+```bash
+node scripts/quality/heavy-lease.mjs "e2e: depth mask real-photo history" -- \
+  npx playwright test tests/e2e/canvas/depth-masking.spec.ts --project=chromium \
+    --workers=1 --reporter=list
+```
 
 Commit `56e3e419` extends the canvas workflow spec to decode the actual PNG
 appearance export (magic bytes and dimensions) in addition to the scalar
