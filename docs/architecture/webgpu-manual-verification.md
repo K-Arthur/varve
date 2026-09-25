@@ -44,6 +44,10 @@ is adopted.
       keeps GPU and 2D content aligned.
 - [ ] **Resize the window:** present canvas + offscreen GPU canvas both resize; no stretched or
       black frame.
+- [ ] **Submit a large solid run and simulate a draw error:** rectangle chunks must
+      preserve overlap/order beyond 4 MiB. A synchronous GPU error must replay
+      the failed run and all later runs through Canvas2D without losing artwork;
+      Performance diagnostics must identify the draw failure.
 - [ ] **Force a device loss if your driver/tooling allows it** and confirm the status bar switches
       to "GPU lost · Canvas2D" (`CompositorDiagnostics.deviceLost`). Rendering must
       **continue** on Canvas2D without a remount (ownership invert). Reload only if you want to

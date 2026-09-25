@@ -42,7 +42,13 @@ has already been discarded by flattening.
 
 The present/content `<canvas>` **always** keeps a Canvas2D context. GPU work targets an offscreen canvas with a `webgpu` context; results are `drawImage`'d onto the 2D present surface. This was required because `CanvasArea.drawContent` needs `getContext('2d')` for board fill, camera, structural masks, and partial redraw — binding `webgpu` on the content canvas made `getContext('2d')` return null and blanked the editor when `preferWebGpu` was on.
 
-**Device loss** is now recoverable in place: tear down GPU resources, keep painting via Canvas2D on the same element. StatusBar shows "GPU lost · Canvas2D" and requests a fresh authoritative draw. Reload only to re-acquire the GPU. A ready device is reported separately from eligible items actually drawn by WebGPU in the last completed frame.
+**Device loss** is now recoverable in place: tear down GPU resources, keep painting via Canvas2D on the same element. StatusBar shows "GPU lost · Canvas2D" and requests a fresh authoritative draw. Reload only to re-acquire the GPU. A ready device is reported separately from eligible items submitted to WebGPU in the last completed frame.
+
+**Synchronous draw failure** also keeps the ordered Canvas2D surface: the failed
+GPU run and subsequent runs replay there after the device is torn down. Plain
+rectangles and circles use bounded 4 MiB vertex chunks, submitted before a
+pooled buffer is rewritten. The status records a fixed draw-failure reason;
+queued GPU work alone is not treated as proof of successful presentation.
 
 ## Minimum Supported Baseline (2026-07-11, consolidated 2026-07-12)
 

@@ -203,10 +203,10 @@ does not imply native GPU presentation.
 | Affine | Vertex shader uses kurbo/canvas `a·x+c·y+e` / `b·x+d·y+f` (`transform`/`transform2` attrs) |
 | Camera parity | `CameraUniform` includes `origin` + `rotation`; matches `buildWorldToScreenAffine` |
 | Power preference | Shared `selectWebGpuAdapter()` (high-performance then low-power; decline software) |
-| Perf | Vertex buffer pool (power-of-2); render bundle cache for solid rects; circle center/radius ride with each vertex, with a maximum 4 MiB rounded upload per ordered chunk |
+| Perf | Vertex buffer pool (power-of-2); render bundle cache for solid rects; both plain rectangles and circles use maximum 4 MiB rounded uploads per ordered chunk, submitted before pooled-buffer reuse |
 | Device loss | In-place Canvas2D continue; the loss callback publishes "GPU lost · Canvas2D" and requests an authoritative redraw |
 | Opt-in | `settings.render.preferWebGpu` (default false; Linux WebKitGTK stays Canvas2D) |
-| Diagnostics | Status bar and Performance tab distinguish device ready, GPU items drawn in the last completed frame, initialization fallback, and device loss; Canvas2D API use is not labeled CPU execution |
+| Diagnostics | Status bar and Performance tab distinguish device ready, GPU items submitted in the last completed frame, initialization/draw fallback, and device loss; Canvas2D API use is not labeled CPU execution |
 | Drift guard | `wgsl-drift.test.ts` keeps TS shaders ≡ `crates/varve-bridge/tests/wgsl_validation.rs` |
 
 ### Structural fallback planning

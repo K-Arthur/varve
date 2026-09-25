@@ -38,9 +38,11 @@ interface GpuVertex {
 }
 
 const LINE_HALF_WIDTH = 1.5;
+const SOLID_VERTEX_FLOATS = 12;
+const SOLID_VERTICES_PER_ITEM = 6;
 const CIRCLE_VERTEX_FLOATS = 15;
 const CIRCLE_VERTICES_PER_ITEM = 6;
-const MAX_CIRCLE_UPLOAD_BYTES = 4 * 1024 * 1024;
+const MAX_VERTEX_UPLOAD_BYTES = 4 * 1024 * 1024;
 const CIRCLE_QUAD_CORNERS = [
   [-1, -1],
   [1, -1],
@@ -112,13 +114,20 @@ function buildVertices(items: RenderItem[]): GpuVertex[] {
   return vertices;
 }
 
-/** Keep the rounded GPU allocation below both the device limit and a 4 MiB working cap. */
-export function maxCircleItemsPerUpload(maxBufferSize: number): number {
-  const capped = Math.min(Math.floor(maxBufferSize), MAX_CIRCLE_UPLOAD_BYTES);
-  if (!Number.isFinite(capped) || capped < CIRCLE_VERTICES_PER_ITEM * CIRCLE_VERTEX_FLOATS * 4)
-    return 0;
+/** Keep the rounded pooled allocation below the device limit and a 4 MiB working cap. */
+function maxItemsPerUpload(maxBufferSize: number, bytesPerItem: number): number {
+  const capped = Math.min(Math.floor(maxBufferSize), MAX_VERTEX_UPLOAD_BYTES);
+  if (!Number.isFinite(capped) || capped < bytesPerItem) return 0;
   const roundedBudget = 2 ** Math.floor(Math.log2(capped));
-  return Math.floor(roundedBudget / (CIRCLE_VERTICES_PER_ITEM * CIRCLE_VERTEX_FLOATS * 4));
+  return Math.floor(roundedBudget / bytesPerItem);
+}
+
+export function maxCircleItemsPerUpload(maxBufferSize: number): number {
+  return maxItemsPerUpload(maxBufferSize, CIRCLE_VERTICES_PER_ITEM * CIRCLE_VERTEX_FLOATS * 4);
+}
+
+export function maxSolidItemsPerUpload(maxBufferSize: number): number {
+  return maxItemsPerUpload(maxBufferSize, SOLID_VERTICES_PER_ITEM * SOLID_VERTEX_FLOATS * 4);
 }
 
 function flattenCircleVertices(items: readonly RenderItem[]): Float32Array {
@@ -432,6 +441,7 @@ export class WebGPUBackend {
     ) {
       const frame = this.currentFrame;
       if (frame) {
+        const maxBufferSize = this.device.limits.maxBufferSize;
         const plan = buildStructuralRenderPlan(items, frame.structure);
         this.fallbackIslandCount += plan.fallbackIslandCount;
         this.fallbackNodeCount += plan.fallbackNodeCount;
@@ -439,29 +449,51 @@ export class WebGPUBackend {
           this.fallbackReasons[reason] = (this.fallbackReasons[reason] ?? 0) + count;
         }
         for (const segment of plan.segments) {
-          const withinDeviceLimit: boolean =
-            segment.items[0]?.primitive.kind !== 'circle' ||
-            maxCircleItemsPerUpload(this.device.limits.maxBufferSize) > 0;
+          const primitiveKind = segment.items[0]?.primitive.kind;
+          const withinDeviceLimit =
+            primitiveKind === 'circle'
+              ? maxCircleItemsPerUpload(maxBufferSize) > 0
+              : primitiveKind === 'rect'
+                ? maxSolidItemsPerUpload(maxBufferSize) > 0
+                : true;
+          let drawFailed = false;
           if (
             segment.kind === 'webgpu-run' &&
             isGpuBatchSupported(segment.items) &&
-            withinDeviceLimit
+            withinDeviceLimit &&
+            this.gpuReady
           ) {
-            this.drawGpuItems([...segment.items], frame);
-            this.gpuDrawnThisFrame = true;
-            this.gpuItemsDrawnThisFrame += segment.items.length;
-            this.blitGpuToPresent();
-          } else {
-            if (segment.kind === 'webgpu-run') {
-              this.fallbackIslandCount++;
-              this.fallbackNodeCount += segment.items.length;
-              const reason = withinDeviceLimit ? 'unsupported-primitive' : 'resource-limit';
-              this.fallbackReasons[reason] = (this.fallbackReasons[reason] ?? 0) + 1;
+            const previouslyDrawn = this.gpuDrawnThisFrame;
+            try {
+              this.drawGpuItems([...segment.items], frame);
+              this.gpuDrawnThisFrame = true;
+              this.blitGpuToPresent();
+              this.gpuItemsDrawnThisFrame += segment.items.length;
+              continue;
+            } catch {
+              // A failed run has not been presented. Keep earlier ordered runs
+              // on the 2D surface and replay this run and every later one there.
+              this.gpuDrawnThisFrame = previouslyDrawn;
+              this.gpuReady = false;
+              this.initFailureReason = 'WebGPU draw failed';
+              this.teardownGpuOnly();
+              drawFailed = true;
             }
-            // Keep the complete semantic island on Canvas2D. No backend
-            // partition is allowed to reorder the compositor's paint order.
-            this.present?.drawVectorItems([...segment.items], colorOptions, imagePolicy);
           }
+          if (segment.kind === 'webgpu-run') {
+            this.fallbackIslandCount++;
+            this.fallbackNodeCount += segment.items.length;
+            const reason =
+              drawFailed || !this.gpuReady
+                ? 'gpu-draw-failed'
+                : withinDeviceLimit
+                  ? 'unsupported-primitive'
+                  : 'resource-limit';
+            this.fallbackReasons[reason] = (this.fallbackReasons[reason] ?? 0) + 1;
+          }
+          // Keep the complete semantic island on Canvas2D. No backend
+          // partition is allowed to reorder the compositor's paint order.
+          this.present?.drawVectorItems([...segment.items], colorOptions, imagePolicy);
         }
       }
       return;
@@ -646,13 +678,16 @@ export class WebGPUBackend {
     let firstPass = true;
 
     if (solidItems.length > 0) {
-      const solidVerts = buildVertices(solidItems);
-      if (solidVerts.length > 0) {
+      const maxItems = maxSolidItemsPerUpload(device.limits.maxBufferSize);
+      if (maxItems === 0) throw new Error('Solid vertex buffer exceeds device limit');
+      for (let start = 0; start < solidItems.length; start += maxItems) {
+        const end = Math.min(start + maxItems, solidItems.length);
+        const solidVerts = buildVertices(solidItems.slice(start, end));
         const data = flattenVertices(solidVerts);
-        this.lastFrameVertexBytes = data.byteLength;
+        this.lastFrameVertexBytes += data.byteLength;
         const hash = this.hashVertices(data);
         const vBuf = this.getOrCreateVertexBuffer(device, data.byteLength);
-        device.queue.writeBuffer(vBuf, 0, data.buffer.slice(0, data.byteLength) as ArrayBuffer);
+        device.queue.writeBuffer(vBuf, 0, data);
         let bundle = this.bundleCache.get(hash);
         if (!bundle) {
           const bundleEncoder = device.createRenderBundleEncoder({
@@ -682,6 +717,12 @@ export class WebGPUBackend {
         firstPass = false;
         pass.executeBundles([bundle]);
         pass.end();
+        if (end < solidItems.length) {
+          // The next chunk may reuse this pooled buffer. Submit before its
+          // queued write so the earlier bundle retains its own geometry.
+          device.queue.submit([encoder.finish()]);
+          encoder = device.createCommandEncoder();
+        }
       }
     }
 

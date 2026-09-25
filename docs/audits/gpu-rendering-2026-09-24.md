@@ -102,10 +102,10 @@ in Canvas2D versus `(128,117,135)` in WebGPU. Its screenshots under
 `/tmp/varve-gpu-chunk-final/` were inspected. This is a coverage/color
 comparison, not a frame-latency benchmark.
 
-Remaining scope: rectangle vertex preparation/pooling is still unbounded;
-WebGPU circle edges are more aliased than Canvas2D; the backend/status and
-marketing claims need the next milestone. Those are not implied to be fixed
-by the circle repair.
+At this first repair, rectangle vertex preparation was still unbounded and
+WebGPU circle edges were more aliased than Canvas2D. The later milestones
+below address the upload bound and backend/status claims. Circle edge parity
+remains open.
 
 ## Backend selection, status, and published copy
 
@@ -148,3 +148,50 @@ in light, dark, and narrow layouts. The product-page visual baselines changed
 only after that inspection and passed again without snapshot updates. The
 narrow Settings dialog snapshot was inspected, updated for the revised
 description, and passed again without snapshot updates.
+
+The affected website run passed 569 browser checks and initially failed the
+changed performance-page image plus two unrelated checks under shared load.
+The performance image was inspected and refreshed. A single-worker rerun of
+that image, the typography image, and the button-geometry checks passed all
+four selected cases without further changes.
+
+## Bounded solid geometry and synchronous draw recovery
+
+A hardware-browser A→B→A rectangle fixture passed before the final repair:
+the pooled buffer receives a fresh upload even when a cached render bundle is
+reused. This ruled out a suspected stale-bundle cause without changing that
+working path. Its final frame is saved at `/tmp/varve-gpu-rect-reuse.png`.
+
+A separate unit regression failed before repair because a simulated command
+encoder error escaped `WebGPUBackend.drawVectorItems`. That could abort the
+frame instead of replaying the affected ordered run on the already-owned 2D
+presentation canvas. The backend now tears down that GPU device, replays the
+failed and subsequent runs through Canvas2D, and records a fixed draw-failure
+reason. The test also checks that an unsupported island between two eligible
+runs keeps its paint order and that no stale GPU run is retried.
+
+Plain rectangles now use the same 4 MiB rounded vertex-allocation ceiling as
+circles. Each chunk is submitted before its pooled buffer is rewritten;
+device limits smaller than one item route the whole run to Canvas2D. The
+hardware-browser fixture drew 14,564 rectangles across the 14,563-item chunk
+boundary. At their translucent overlap, Canvas2D produced
+`srgba(93,20,166,0.752941)` and WebGPU produced
+`srgba(93,20,167,0.74902)`. The two PNGs at
+`/tmp/varve-gpu-rect-chunk-{reference,gpu}.png` were opened and inspected:
+both retain the overlap and paint order. These are pixel and upload-bound
+checks; no frame-latency improvement is claimed.
+
+## Native Linux visual evidence and limits
+
+The current frontend was opened through a fresh `tauri dev` rebuild under
+WebKitGTK in an isolated Xvfb/X11 session. A pointer drag created a 150×150
+rectangle, visible in the editor and layer list. The status read `Canvas2D`
+without a CPU claim, and General Settings described Linux's Canvas2D route.
+The inspected screenshots are under
+`/tmp/varve-gpu-native-current-2026-09-24/` (`editor.png`, `rect.png`,
+`settings.png`). This validates the native WebKitGTK UI and 2D interaction on
+this host, not Wayland presentation, GPU hardware execution, or a packaged
+release. Xvfb reported no DRI3 device. The first cold Vite dev load exceeded
+the app's 20-second startup watchdog; after the module graph warmed, Reload
+opened the editor. That development-server timeout is a separate limitation,
+not evidence that a packaged build fails to start.

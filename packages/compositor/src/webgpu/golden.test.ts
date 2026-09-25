@@ -2,7 +2,7 @@
 
 import type { RenderItem } from '@varve/engine';
 import { applyAffine } from '@varve/shared';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { Canvas2DBackend } from '../canvas2d/backend';
 import {
   applyItemAffine,
@@ -231,6 +231,53 @@ describe('WebGPU golden diff vs Canvas2D', () => {
     expect(pixelDiff(ref, out)).toBeLessThan(8);
     c2d.destroy();
     wgpu.destroy();
+  });
+
+  it('replays an eligible run on Canvas2D when GPU submission throws', async () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 128;
+    canvas.height = 128;
+    const backend = new WebGPUBackend();
+    await backend.init(canvas);
+    backend.beginFrame(frame, { applyCamera: false, clear: true });
+    const present = (backend as unknown as { present: Canvas2DBackend }).present;
+    const replay = vi.spyOn(present, 'drawVectorItems');
+
+    const destroyDevice = vi.fn();
+    Object.assign(backend, {
+      gpuReady: true,
+      device: { limits: { maxBufferSize: 4 * 1024 * 1024 }, destroy: destroyDevice },
+      context: {},
+      solidPipeline: {},
+      circlePipeline: {},
+      cameraBuffer: {},
+      cameraBindGroup: {},
+      gpuCanvas: document.createElement('canvas'),
+    });
+    const gpuDraw = vi
+      .spyOn(backend as unknown as { drawGpuItems: () => void }, 'drawGpuItems')
+      .mockImplementation(() => {
+        throw new Error('simulated command encoder failure');
+      });
+
+    expect(() =>
+      backend.drawVectorItems([FIXTURE_ITEMS[0]!, FIXTURE_ITEMS[2]!, FIXTURE_ITEMS[0]!]),
+    ).not.toThrow();
+    backend.endFrame();
+    expect(gpuDraw).toHaveBeenCalledTimes(1);
+    expect(replay).toHaveBeenCalledTimes(3);
+    expect(replay).toHaveBeenNthCalledWith(1, [FIXTURE_ITEMS[0]], undefined, undefined);
+    expect(replay).toHaveBeenNthCalledWith(2, [FIXTURE_ITEMS[2]], undefined, undefined);
+    expect(replay).toHaveBeenNthCalledWith(3, [FIXTURE_ITEMS[0]], undefined, undefined);
+    expect(backend.getDiagnostics()).toMatchObject({
+      gpuActive: false,
+      initFailureReason: 'WebGPU draw failed',
+      lastFrameGpuItems: 0,
+      fallbackIslandCount: 3,
+      fallbackReasons: { 'gpu-draw-failed': 2 },
+    });
+    expect(destroyDevice).toHaveBeenCalledTimes(1);
+    backend.destroy();
   });
 
   it('declines a software-emulated adapter before requesting a device', async () => {
