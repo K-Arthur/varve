@@ -54,6 +54,65 @@ describe('basic structure', () => {
   });
 });
 
+describe('value validation on parse', () => {
+  it('rejects a malformed typed value', () => {
+    const doc = parse('{"bg": {"$type": "color", "$value": "not-a-color"}}');
+    const diagnostic = doc.diagnostics.find((d) => d.code === 'codec.color.value-object');
+    expect(diagnostic?.severity).toBe('error');
+    expect(diagnostic?.pointer).toBe('/bg/$value');
+  });
+
+  it('validates values against the inherited group type', () => {
+    const doc = parse(
+      '{"size": {"$type": "dimension", "gap": {"$value": {"value": 4, "unit": "pt"}}}}',
+    );
+    expect(doc.diagnostics.some((d) => d.code === 'codec.dimension.unit')).toBe(true);
+  });
+
+  it('warns on out-of-range color components without blocking the token', () => {
+    const doc = parse(
+      '{"brand": {"$type": "color", "$value": {"colorSpace": "srgb", "components": [1.2, 0, 0]}}}',
+    );
+    const diagnostic = doc.diagnostics.find((d) => d.code === 'codec.color.component-range');
+    expect(diagnostic?.severity).toBe('warning');
+    expect(doc.diagnostics.filter((d) => d.severity === 'error')).toEqual([]);
+    expect(doc.tokens.brand?.value).toEqual({ colorSpace: 'srgb', components: [1.2, 0, 0] });
+  });
+
+  it('does not validate reference values', () => {
+    const doc = parse(
+      '{"base": {"$type": "color", "$value": {"colorSpace": "srgb", "components": [0, 0, 0]}}, "alias": {"$value": "{base}"}, "ptr": {"$ref": "#/base"}}',
+    );
+    expect(doc.diagnostics.filter((d) => d.severity === 'error')).toEqual([]);
+    expect(doc.tokens.alias?.isReference).toBe(true);
+    expect(doc.tokens.ptr?.isReference).toBe(true);
+  });
+
+  it('produces ordinary prototype-bearing values and extensions', () => {
+    // Parser containers are null-prototype for pollution safety; values that
+    // leave the parser must not be, or UI interpolation throws
+    // "Cannot convert object to primitive value".
+    const doc = parse(
+      '{"c": {"$type": "color", "$value": {"colorSpace": "srgb", "components": [1, 0, 0]}, "$extensions": {"org.example": {"x": 1}}}}',
+    );
+    const token = doc.tokens.c;
+    expect(token).toBeDefined();
+    expect(Object.getPrototypeOf(token?.value)).toBe(Object.prototype);
+    expect(Object.getPrototypeOf(token?.extensions)).toBe(Object.prototype);
+    expect(`${token?.value}`).toBe('[object Object]');
+    expect(() => JSON.stringify(token?.extensions)).not.toThrow();
+  });
+
+  it('downgrades value errors to warnings in compatibility mode', () => {
+    const doc = parse('{"bg": {"$type": "color", "$value": "not-a-color"}}', {
+      compatibility: true,
+    });
+    const diagnostic = doc.diagnostics.find((d) => d.code === 'codec.color.value-object');
+    expect(diagnostic?.severity).toBe('warning');
+    expect(doc.diagnostics.filter((d) => d.severity === 'error')).toEqual([]);
+  });
+});
+
 describe('root tokens', () => {
   it('parses $root tokens with $root in the path', () => {
     const doc = parse(

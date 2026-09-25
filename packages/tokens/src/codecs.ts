@@ -57,20 +57,29 @@ const STROKE_STYLE_STRINGS = new Set([
   'inset',
 ]);
 const LINE_CAPS = new Set(['round', 'butt', 'square']);
+/** CSS hex notations accepted as a warned legacy whole-value color shape. */
+const HEX_STRING = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
 
 export const codecs: Readonly<Record<TokenTypeKind, TokenTypeCodec>> = {
   color: {
     type: 'color',
     validate(value, ctx) {
-      // Hex-string shorthand used by format-module examples (e.g.
-      // "$value": "#0066cc" with $type color) — accepted as srgb + hex.
-      if (typeof value === 'string' && /^#[0-9a-fA-F]{6}$/.test(value)) {
-        const r = parseInt(value.slice(1, 3), 16) / 255;
-        const g = parseInt(value.slice(3, 5), 16) / 255;
-        const b = parseInt(value.slice(5, 7), 16) / 255;
+      // Whole-value hex strings are not the 2025.10 structured form (the
+      // Color module only defines the {colorSpace, components, alpha, hex}
+      // object), but they dominate real-world token files. They are accepted
+      // and flagged; the authored value is never rewritten here — codecs
+      // validate, they do not transform. Conversion to the structured form
+      // happens only on explicit canonical export.
+      if (typeof value === 'string' && HEX_STRING.test(value)) {
         return {
-          value: { colorSpace: 'srgb', components: [r, g, b], hex: value.toLowerCase() },
-          diagnostics: [],
+          value,
+          diagnostics: [
+            warn(
+              ctx,
+              'color.hex-string-form',
+              `"${value}" is a hex string, not the DTCG 2025.10 structured color form; retained as authored`,
+            ),
+          ],
         };
       }
       if (!isRecord(value))
@@ -90,6 +99,7 @@ export const codecs: Readonly<Record<TokenTypeKind, TokenTypeCodec>> = {
           `"${colorSpace}" requires ${spec.componentCount} components, got ${components.length}`,
         );
       }
+      const diagnostics: TokenDiagnostic[] = [];
       for (const component of components) {
         if (component === 'none') {
           if (!spec.allowsNone)
@@ -112,16 +122,27 @@ export const codecs: Readonly<Record<TokenTypeKind, TokenTypeCodec>> = {
           component < range.min ||
           (range.maxExclusive ? component >= range.max : component > range.max);
         if (outOfRange) {
-          return error(
-            ctx,
-            'color.component-range',
-            `Component ${i} of "${colorSpace}" is out of range [${range.min}, ${range.max}${range.maxExclusive ? ')' : ']'}`,
+          diagnostics.push(
+            warn(
+              ctx,
+              'color.component-range',
+              `Component ${i} of "${colorSpace}" is outside the documented range [${range.min}, ${range.max}${range.maxExclusive ? ')' : ']'} — retained as authored, may be unavailable for rendering or export`,
+            ),
           );
         }
       }
       if (alpha !== undefined) {
-        if (typeof alpha !== 'number' || !Number.isFinite(alpha) || alpha < 0 || alpha > 1) {
-          return error(ctx, 'color.alpha', 'alpha must be a number between 0 and 1');
+        if (typeof alpha !== 'number' || !Number.isFinite(alpha)) {
+          return error(ctx, 'color.alpha', 'alpha must be a finite number');
+        }
+        if (alpha < 0 || alpha > 1) {
+          diagnostics.push(
+            warn(
+              ctx,
+              'color.alpha',
+              `alpha ${alpha} is outside [0, 1] — retained as authored, may be unavailable for rendering or export`,
+            ),
+          );
         }
       }
       if (hex !== undefined) {
@@ -129,10 +150,7 @@ export const codecs: Readonly<Record<TokenTypeKind, TokenTypeCodec>> = {
           return error(ctx, 'color.hex', 'hex must be a 6-digit CSS hex color like #ff00ff');
         }
       }
-      const normalized = { colorSpace, components: [...components] };
-      if (alpha !== undefined) (normalized as Record<string, unknown>).alpha = alpha;
-      if (hex !== undefined) (normalized as Record<string, unknown>).hex = hex;
-      return { value: normalized, diagnostics: [] };
+      return { value, diagnostics };
     },
   },
   dimension: {
@@ -397,6 +415,18 @@ function error(ctx: CodecContext, code: string, message: string): CodecResult {
         pointer: ctx.pointer,
       },
     ],
+  };
+}
+
+/** A standards-domain concern without a normative MUST to reject: visible,
+ * but never allowed to block import or to rewrite the authored value. */
+function warn(ctx: CodecContext, code: string, message: string): TokenDiagnostic {
+  return {
+    severity: 'warning',
+    code: `codec.${code}`,
+    message,
+    sourceFileId: ctx.sourceFileId,
+    pointer: ctx.pointer,
   };
 }
 

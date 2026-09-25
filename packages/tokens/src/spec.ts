@@ -1,13 +1,17 @@
 /**
  * DTCG specification-version registry (2025.10 family).
  *
- * The 2025.10 family is the authoritative implementation baseline:
- * - "Design Tokens Format Module 2025.10" — Draft Community Group Report
+ * The 2025.10 family is the authoritative implementation baseline. All three
+ * modules were published together on 2025-10-28 as Final Community Group
+ * Reports and are marked "considered stable" by the DTCG:
+ * - "Design Tokens Format Module 2025.10" — Final Community Group Report
  * - "Design Tokens Color Module 2025.10" — Final Community Group Report
- * - "Design Tokens Resolver Module 2025.10" — Community Group Report
+ * - "Design Tokens Resolver Module 2025.10" — Final Community Group Report
  *
- * None of these are W3C Recommendations; none are on the W3C Standards
- * Track. Varve must never label them otherwise (ADR-0100 standards policy).
+ * None of these are W3C Recommendations or W3C Standards, and none are on
+ * the W3C Standards Track. Varve must never label them otherwise
+ * (ADR-0100 standards policy). Verified against
+ * https://www.designtokens.org/TR/2025.10/ (accessed 2026-09-25).
  *
  * Future draft support is gated behind an experimental adapter and must
  * never silently alter stable serialization.

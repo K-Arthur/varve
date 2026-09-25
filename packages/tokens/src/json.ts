@@ -58,6 +58,26 @@ export const JSON_MAX_BYTES = 16 * 1024 * 1024;
 export const JSON_MAX_DEPTH = 256;
 export const JSON_MAX_STRING = 1024 * 1024;
 
+/**
+ * Deep-copy a parsed value into ordinary prototype-bearing objects.
+ *
+ * Parsed containers are deliberately null-prototype (no `__proto__`
+ * pollution), but a null-prototype object throws
+ * "Cannot convert object to primitive value" the moment UI code interpolates
+ * it. Values therefore cross the parser boundary through this function —
+ * `sourceRoot` keeps its null prototype because only property lookup ever
+ * touches it. JSON input is a tree, so unbounded recursion is safe here.
+ */
+export function toPlainJson<T>(value: T): T {
+  if (value === null || typeof value !== 'object') return value;
+  if (Array.isArray(value)) return value.map((item) => toPlainJson(item)) as unknown as T;
+  const out: Record<string, unknown> = {};
+  for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
+    out[key] = toPlainJson(item);
+  }
+  return out as T;
+}
+
 export class JsonSyntaxError extends Error {
   constructor(
     readonly code: string,

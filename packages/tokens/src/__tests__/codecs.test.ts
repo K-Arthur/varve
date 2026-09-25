@@ -29,13 +29,46 @@ describe('color codec', () => {
     ).toEqual([]);
   });
 
-  it('rejects out-of-range components', () => {
-    expect(codes('color', { colorSpace: 'srgb', components: [1.5, 0, 0] })).toContain(
-      'codec.color.component-range',
-    );
-    expect(codes('color', { colorSpace: 'hsl', components: [360, 0, 0] })).toContain(
-      'codec.color.component-range',
-    );
+  it('warns on out-of-range components instead of rejecting them', () => {
+    // The Color module documents component ranges in a table but contains no
+    // normative MUST to reject out-of-range values, and its gamut-mapping
+    // section is explicitly non-normative. Range violations therefore stay
+    // visible without blocking import of otherwise valid files.
+    const srgb = check('color', { colorSpace: 'srgb', components: [1.5, 0, 0] });
+    expect(srgb.diagnostics.map((d) => d.code)).toContain('codec.color.component-range');
+    expect(srgb.diagnostics.every((d) => d.severity === 'warning')).toBe(true);
+    expect(srgb.value).toEqual({ colorSpace: 'srgb', components: [1.5, 0, 0] });
+
+    const hue = check('color', { colorSpace: 'hsl', components: [360, 0, 0] });
+    expect(hue.diagnostics.map((d) => d.code)).toContain('codec.color.component-range');
+    expect(hue.value).toBeDefined();
+
+    const oklch = check('color', { colorSpace: 'oklch', components: [0.7, 0.19, 360] });
+    expect(oklch.diagnostics.map((d) => d.code)).toContain('codec.color.component-range');
+    expect(oklch.value).toBeDefined();
+  });
+
+  it('warns on out-of-range alpha instead of rejecting it', () => {
+    const result = check('color', { colorSpace: 'srgb', components: [0, 0, 0], alpha: 1.5 });
+    expect(result.diagnostics.map((d) => d.code)).toContain('codec.color.alpha');
+    expect(result.diagnostics.every((d) => d.severity === 'warning')).toBe(true);
+    expect(result.value).toEqual({ colorSpace: 'srgb', components: [0, 0, 0], alpha: 1.5 });
+  });
+
+  it('warns when a whole-value hex string stands in for a structured color', () => {
+    const result = check('color', '#ff00ff');
+    expect(result.diagnostics.map((d) => d.code)).toContain('codec.color.hex-string-form');
+    expect(result.diagnostics.every((d) => d.severity === 'warning')).toBe(true);
+    expect(result.value).toBe('#ff00ff');
+  });
+
+  it('accepts CSS hex shorthand and alpha forms as a warned legacy shape', () => {
+    for (const hex of ['#fff', '#ff00', '#ff0000', '#ff000080']) {
+      const result = check('color', hex);
+      expect(result.diagnostics.map((d) => d.code)).toContain('codec.color.hex-string-form');
+      expect(result.value).toBe(hex);
+      expect(result.diagnostics.every((d) => d.severity === 'warning')).toBe(true);
+    }
   });
 
   it('rejects wrong component counts', () => {
@@ -50,13 +83,17 @@ describe('color codec', () => {
     );
   });
 
-  it('rejects bad alpha and hex', () => {
-    expect(codes('color', { colorSpace: 'srgb', components: [0, 0, 0], alpha: 1.5 })).toContain(
-      'codec.color.alpha',
+  it('rejects malformed color objects and hex fallbacks', () => {
+    expect(codes('color', 'not-a-color')).toContain('codec.color.value-object');
+    expect(codes('color', { colorSpace: 'srgb', components: ['x', 0, 0] })).toContain(
+      'codec.color.component-type',
     );
     expect(codes('color', { colorSpace: 'srgb', components: [0, 0, 0], hex: 'ff00ff' })).toContain(
       'codec.color.hex',
     );
+    expect(
+      codes('color', { colorSpace: 'srgb', components: [0, 0, 0], hex: '#ff00ff00' }),
+    ).toContain('codec.color.hex');
   });
 });
 

@@ -14,7 +14,8 @@
  * - curly-brace references target complete tokens (7.1.1)
  * - $ref JSON Pointer references (7.1.2), property-level (7.3)
  */
-import { type JsonSourceResult, parseJsonSource } from './json';
+import { validateTokenValue } from './codecs';
+import { type JsonSourceResult, parseJsonSource, toPlainJson } from './json';
 import {
   type DtcgSpecificationVersion,
   isStableTokenType,
@@ -483,7 +484,9 @@ function buildToken(
       }
     }
     extractNestedRefs(rawValue, path, sourceFileId, diagnostics, pointer, references, 0);
-    value = rawValue;
+    // Values leave the null-prototype parser graph here so downstream
+    // consumers can interpolate them safely.
+    value = toPlainJson(rawValue);
   }
 
   const deprecated =
@@ -506,6 +509,31 @@ function buildToken(
     line: loc.line,
     column: loc.column,
   };
+
+  // Per-type value grammar (format report §8/§9). Reference-bearing values
+  // are skipped: their shape is only meaningful after resolution, and the
+  // reference graph owns target existence and cycle checks. Compatibility
+  // import downgrades value errors to warnings so imperfect vendor files can
+  // still be recovered — the authored value is never rewritten either way.
+  if (type !== undefined && !isReference && references.length === 0) {
+    const validation = validateTokenValue(type, value, {
+      sourceFileId,
+      pointer: token.valuePointer,
+      path,
+    });
+    for (const diagnostic of validation.diagnostics) {
+      if (compatibility && diagnostic.severity === 'error') {
+        diagnostics.push({
+          ...diagnostic,
+          severity: 'warning',
+          message: `${diagnostic.message} — imported in compatibility mode`,
+        });
+      } else {
+        diagnostics.push(diagnostic);
+      }
+    }
+    if (validation.value !== undefined) token.value = validation.value;
+  }
   return token;
 }
 
@@ -596,7 +624,7 @@ function readExtensions(
     });
     return {};
   }
-  return raw as Record<string, unknown>;
+  return toPlainJson(raw) as Record<string, unknown>;
 }
 
 export interface CurlyParseResult {
