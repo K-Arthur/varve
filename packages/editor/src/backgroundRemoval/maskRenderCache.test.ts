@@ -1,5 +1,13 @@
-import { describe, expect, it } from 'vitest';
-import { maskRenderDimensions, maskRenderUrl } from './maskRenderCache';
+import { ImageCache } from '@varve/engine';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import {
+  addRasterMaskRenderSources,
+  maskRenderDimensions,
+  maskRenderUrl,
+  warmMaskRenderCache,
+} from './maskRenderCache';
+
+afterEach(() => vi.unstubAllGlobals());
 
 describe('mask render cache sizing', () => {
   it('keeps small masks at source resolution', () => {
@@ -23,5 +31,46 @@ describe('mask render cache sizing', () => {
     expect(maskRenderUrl('data:image/png;base64,full-resolution')).toBe(
       'data:image/png;base64,full-resolution',
     );
+  });
+
+  it('retains a warmed panoramic proxy only while its document mask is active', async () => {
+    class ImmediateImage {
+      onload: (() => void) | null = null;
+      naturalWidth = 2048;
+      naturalHeight = 410;
+      private currentSrc = '';
+
+      get src(): string {
+        return this.currentSrc;
+      }
+
+      set src(value: string) {
+        this.currentSrc = value;
+        queueMicrotask(() => this.onload?.());
+      }
+    }
+    vi.stubGlobal('Image', ImmediateImage);
+
+    const cache = new ImageCache();
+    const fullMaskUrl = 'data:image/png;base64,panoramic-mask';
+    const unrelatedUrl = 'data:image/png;base64,unrelated';
+    cache.setLoaded(fullMaskUrl, { naturalWidth: 3000, naturalHeight: 600 } as HTMLImageElement);
+    cache.setLoaded(unrelatedUrl, { naturalWidth: 1, naturalHeight: 1 } as HTMLImageElement);
+    await warmMaskRenderCache(cache, fullMaskUrl, 3000, 600);
+
+    const proxyUrl = maskRenderUrl(fullMaskUrl);
+    expect(proxyUrl).not.toBe(fullMaskUrl);
+    expect(cache.isLoaded(proxyUrl)).toBe(true);
+
+    const activeSources = new Set<string>();
+    addRasterMaskRenderSources(activeSources, [{ dataUrl: fullMaskUrl }]);
+    cache.retainSources(activeSources);
+    expect(cache.isLoaded(fullMaskUrl)).toBe(true);
+    expect(cache.isLoaded(proxyUrl)).toBe(true);
+    expect(cache.isLoaded(unrelatedUrl)).toBe(false);
+
+    cache.retainSources([]);
+    expect(cache.isLoaded(fullMaskUrl)).toBe(false);
+    expect(cache.isLoaded(proxyUrl)).toBe(false);
   });
 });

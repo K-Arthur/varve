@@ -44,6 +44,17 @@ export function maskRenderUrl(maskDataUrl: string): string {
   return maskRenderUrls.get(maskDataUrl) ?? maskDataUrl;
 }
 
+/** Keep both the document mask and its bounded live-canvas proxy for this frame. */
+export function addRasterMaskRenderSources(
+  sources: Set<string>,
+  masks: Iterable<{ dataUrl: string }>,
+): void {
+  for (const mask of masks) {
+    sources.add(mask.dataUrl);
+    sources.add(maskRenderUrl(mask.dataUrl));
+  }
+}
+
 function rememberMaskRenderUrl(maskDataUrl: string, renderUrl: string): void {
   maskRenderUrls.delete(maskDataUrl);
   maskRenderUrls.set(maskDataUrl, renderUrl);

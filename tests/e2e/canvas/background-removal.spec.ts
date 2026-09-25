@@ -392,7 +392,9 @@ test.describe('Background removal — all modes', () => {
     expect(box!.width).toBeGreaterThan(0);
   });
 
-  test('large panoramic image applies through the bounded mask render path', async ({ page }) => {
+  test('large panoramic image applies through the bounded mask render path', async ({
+    page,
+  }, testInfo) => {
     test.setTimeout(60000);
     await importTestImage(page, { width: 3000, height: 600 });
     const contentCanvas = page.getByTestId('editor-canvas');
@@ -413,6 +415,22 @@ test.describe('Background removal — all modes', () => {
         timeout: 15000,
       })
       .toBe(false);
+    const beforePath = testInfo.outputPath('panoramic-mask-before.png');
+    fs.writeFileSync(beforePath, beforeApply);
+    await testInfo.attach('panoramic-mask-before', { path: beforePath, contentType: 'image/png' });
+    const appliedPath = testInfo.outputPath('panoramic-mask-applied.png');
+    await contentCanvas.screenshot({ path: appliedPath });
+    await testInfo.attach('panoramic-mask-applied', {
+      path: appliedPath,
+      contentType: 'image/png',
+    });
+    const appliedHash = await canvasPixelHash(page);
+    await page.evaluate(() => window.__varvePerf?.forceFullRedraw());
+    await expect
+      .poll(() => canvasPixelHash(page), {
+        message: 'the panoramic mask should match an authoritative full redraw',
+      })
+      .toBe(appliedHash);
     await expect(page.getByRole('button', { name: 'Edit mask' })).toBeVisible();
   });
 
@@ -442,8 +460,12 @@ test.describe('Background removal — all modes', () => {
       .toBe(false);
     await expect(editor.getByLabel('Mask preview mode')).toBeVisible();
     await expect(editor.getByRole('button', { name: 'Refine Mask' })).toBeVisible();
-    await expect(editor.getByRole('button', { name: /Refine hair and fur edges/i })).toBeVisible();
-    await expect(editor.getByRole('button', { name: /Edit trimap/i })).toBeVisible();
+    await expect(
+      editor.getByRole('button', { name: 'Refine edges with the selected edge method' }),
+    ).toBeVisible();
+    await expect(
+      editor.getByRole('button', { name: 'Edit trimap for difficult edges' }),
+    ).toBeVisible();
 
     const selectionBounds = await page
       .locator('.editor-canvas svg[role="presentation"] > rect[fill="none"]')

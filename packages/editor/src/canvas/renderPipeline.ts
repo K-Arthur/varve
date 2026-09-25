@@ -50,6 +50,7 @@ import {
   resolveBlendEvaluationSpace,
   worldToScreen,
 } from '@varve/shared';
+import { addRasterMaskRenderSources } from '../backgroundRemoval/maskRenderCache';
 import type { EditorContextValue, EditorState } from '../context';
 import { isEditorInteractionActive } from '../performance/editorFrameRuntime';
 import {
@@ -564,8 +565,7 @@ export function renderContent(deps: RenderContentDeps): void {
     retainImageResourceHandles(Object.keys(doc.assets ?? {}));
     const activeImageSources = new Set<string>();
     for (const asset of Object.values(doc.assets ?? {})) activeImageSources.add(asset.dataUrl);
-    for (const asset of Object.values(doc.rasterMaskAssets ?? {}))
-      activeImageSources.add(asset.dataUrl);
+    addRasterMaskRenderSources(activeImageSources, Object.values(doc.rasterMaskAssets ?? {}));
     for (const source of perspectiveSurfaceCache.sources()) activeImageSources.add(source);
     for (const source of mockupSurfaceCacheRef.current?.sources() ?? []) {
       activeImageSources.add(source);
