@@ -86,6 +86,7 @@ test.describe('corner radius system', () => {
   }
 
   test('all static-page buttons use the shared control geometry', async ({ page }) => {
+    test.setTimeout(180_000); // Route corpus takes over a minute with one browser worker.
     await page.emulateMedia({ colorScheme: 'light', reducedMotion: 'reduce' });
     await seedTheme(page, 'light');
 

@@ -10,6 +10,7 @@ const WIDTHS = [320, 375, 430, 480, 600, 768, 900, 1280, 1920];
 const ROUTES = ['/', '/download', '/docs', '/features', '/support/faq', '/accessibility'];
 
 test('main content reflows without page-level horizontal overflow', async ({ page }) => {
+  test.setTimeout(120_000); // 54 route/viewport visits exceed the default under shared load.
   for (const width of WIDTHS) {
     await page.setViewportSize({ width, height: 800 });
     for (const route of ROUTES) {

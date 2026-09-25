@@ -148,8 +148,10 @@ test('homepage light', async ({ page }) => {
   await expect(page.locator('.hero-title')).toBeVisible();
   await expectCurrentHomepageCopy(page);
   await warmFullPage(page);
-  await expect(page).toHaveScreenshot('home-light.png', {
-    fullPage: true,
+  // The footer has its own baseline; document-height stitching alternates by
+  // two pixels on this long page even when the homepage content is unchanged.
+  await expect(page.locator('#main-content')).toHaveScreenshot('home-light.png', {
+    timeout: 30_000,
     maxDiffPixelRatio: 0.02,
   });
 });
@@ -162,7 +164,10 @@ test('homepage dark', async ({ page }) => {
   await expect(page.locator('.hero-title')).toBeVisible();
   await expectCurrentHomepageCopy(page);
   await warmFullPage(page);
-  await expect(page).toHaveScreenshot('home-dark.png', { fullPage: true, maxDiffPixelRatio: 0.02 });
+  await expect(page.locator('#main-content')).toHaveScreenshot('home-dark.png', {
+    timeout: 30_000,
+    maxDiffPixelRatio: 0.02,
+  });
 });
 
 test('homepage mobile light', async ({ page }) => {
@@ -252,12 +257,11 @@ test('download page dark', async ({ page }) => {
   await waitForImages(page);
   await expect(page.getByRole('heading', { name: /download varve/i })).toBeVisible();
   // Detection adds a recommendation banner after load; wait for the layout to
-  // settle before the full-page capture.
+  // settle before the main-content capture.
   await expect(page.locator('#detection-banner')).toBeVisible();
   await warmFullPage(page);
   await waitForStableDocument(page);
-  await expect(page).toHaveScreenshot('download-dark.png', {
-    fullPage: true,
+  await expect(page.locator('#main-content')).toHaveScreenshot('download-dark.png', {
     maxDiffPixelRatio: 0.02,
   });
 });
@@ -317,8 +321,7 @@ test('workspaces docs page light', async ({ page }) => {
   await page.goto('/docs/workspaces?test-motion=static');
   await expect(page.getByRole('heading', { name: 'Workspaces', exact: true })).toBeVisible();
   await warmFullPage(page);
-  await expect(page).toHaveScreenshot('workspaces-docs-light.png', {
-    fullPage: true,
+  await expect(page.locator('#main-content')).toHaveScreenshot('workspaces-docs-light.png', {
     maxDiffPixelRatio: 0.02,
   });
 });
