@@ -22,7 +22,7 @@ every route received an individual browser assertion.
 | Shared settings and theme/density lifecycle | Visually and browser verified | Light/dark/high-contrast settings and three repeated theme/density/dialog/document cycles passed; token contrast remains 315/315. |
 | Menus, overlays, Guide Layouts | Repaired and browser verified | The settled nested select, menu, selected layer, and 1×/2× canvas overlays were inspected. Modal, focus, no-target, and Escape checks pass. |
 | Detached-window chrome | Reviewed fallback; native smoke inapplicable | The high-contrast invalid-route state passed; this pass changed no native window integration. |
-| Website home/product/features/docs/support/learn/download/legal | Reviewed; changed home and product scenes verified | Both base paths build 105 pages. Eight reviewed homepage captures cover desktop/mobile light/dark; the inspected product scenes and current-copy homepage baselines have been refreshed. Broader site E2E remains in the final affected closure. |
+| Website home/product/features/docs/support/learn/download/legal | Reviewed; changed home and product scenes verified | Both base paths build 105 pages. Eight reviewed homepage captures cover desktop/mobile light/dark. The latest full E2E run passed 578/580; its two screenshot-wait failures had pixel-identical artifacts and passed on exact rerun after the assertion budget was corrected. |
 
 ## Findings and acceptance
 
@@ -37,6 +37,11 @@ every route received an individual browser assertion.
 | DS-07 | Medium | Real Home capture: a `Brand Starter` template query initially highlighted the shorter `Brand` project above it; Enter would navigate away from the requested template. | An exact name match is active ahead of earlier partial matches; ARIA state and Enter agree. |
 | DS-08 | High | `Quick Actions` is bound to Ctrl+Shift+semicolon with `key: ';'`, but the browser reports `key: ':'` for that keystroke; the onboarding tip also omits Shift and conflicts with the guide-visibility shortcut. | The physical shortcut opens the command surface; arrow movement updates the exposed active option; empty results and Escape remain stable. |
 | DS-09 | High | A real editor contrast probe caught the Light/Logo active workspace pill at **3.81:1** (label `rgb(248,245,239)` on `rgb(150,121,46)`) 120ms after switching. The final semantic token pair passes at 4.78:1, but the base `.workspace-dock__item` color/background transition lasts 150ms and also applies to the active pill. | The active foreground/background pair changes atomically; rendered contrast stays at least 4.5:1 through every workspace and theme switch, and the active pill has no color transition. |
+| DS-10 | Medium | Resources LibraryPanel renders an Uninstall button inside a row button. The nested interactive markup has an invalid focus tree and gives selection and removal overlapping keyboard targets. | Selection and Uninstall are separately named sibling buttons; Enter/Space invoke only the chosen action, and focus moves to the next surviving control when a library is removed. |
+| DS-11 | High | At 1280×720 the floating tool palette begins at x=295 while the open Resources panel ends at x=588, covering selected library details. The palette's z-index is one layer above the panel. | Details remain visible and hit-testable; the palette begins beyond the panel edge at its default and keyboard-resized widths, without hiding essential tools. |
+| DS-12 | High | The real import → uninstall → Ctrl+Z path leaves the library removed. Both actions bypass an owned transaction; an empty import materializes an absent optional `styles` map, producing an unreplayable history hash; and the docked Resources panel falsely declares `aria-modal="true"`, so the global shortcut handler suppresses Ctrl+Z within it. | Install and uninstall are transaction-captured; an empty import retains the absent styles field; Resources has non-modal semantics; the history round-trip passes and one Ctrl+Z restores the library. |
+| DS-13 | Medium | Chromium alternates the stitched document height of long website screenshots by 2–15px; the Workspaces capture even failed with pixel-identical expected and actual images. Homepage, Download, and Workspaces visual tests depend on this unstable full-page height. | Capture the intended main content region, retain separate header/footer coverage, inspect replacement baselines, and pass no-update visual checks. |
+| DS-14 | Low | The corner-radius corpus visits all static routes and the reflow corpus visits 54 route/viewport pairs. Their default 45-second test budget expires under shared load before an assertion fails. | Give only those route-wide cases bounded 180/120-second budgets and pass both base paths without reducing their route or viewport denominator. |
 
 ## Foundation repair evidence
 
@@ -59,7 +64,7 @@ favorite hit areas settle at 24 CSS pixels. The first geometry assertion
 sampled 23.67px during the shared floating layer's `scale(0.97)` entrance;
 the winning `min-height` declaration resolves to the 24px token after that
 animation. This was a transient measurement, so the regression test polls
-for the settled state. Affected validation is still pending.
+for the settled state.
 
 - `docs/screenshots/2026-09-24-design-system/guide-layouts-after-desktop.png`
 - `docs/screenshots/2026-09-24-design-system/guide-layouts-after-narrow.png`
@@ -147,10 +152,32 @@ after the review and then opened and inspected at their 1280px desktop and
 semantically, so a small future text change cannot hide within the pixel
 tolerance. The four focused homepage visual cases pass **4/4**.
 
+The Workspaces documentation now names the verified Resources Library
+controls and desktop panel placement. Both base-path builds still produce
+**105 pages**. Its 1280px rendered page was opened and inspected after the
+copy change; the new paragraph is readable, with no clipped content or
+horizontal overflow. The initial 4925px full-page baseline replaced the older
+4828px capture. A later browser run exposed alternating stitched document
+heights on this and three other long pages, including cases where the actual
+and expected pixels were identical. The four affected desktop baselines now
+capture `#main-content`; the header and footer retain separate snapshots and
+the full-page route screenshots above remain in the review set. All four new
+baselines were opened and inspected. The exact failure set passes **8/8**
+without update flags: both route-wide geometry/reflow cases under bounded
+per-test timeouts and the four stabilized visual comparisons. The website
+unit suite passes **239/239** and typecheck reports zero diagnostics. The
+planner-selected full E2E rerun passed **578/580**; the two homepage failures
+were screenshot-wait timeouts with **zero differing pixels** in their saved
+actual and expected images. After assigning those two long-element assertions
+a 30-second budget, their exact no-update rerun passed **2/2**. The other
+578 cases were already green, so the broad gate was not restarted again.
+
 - `docs/screenshots/2026-09-24-design-system/website/` — both base paths,
   both themes, desktop and mobile.
 - `apps/website/tests/e2e/visual.spec.ts-snapshots/home-light-ghpages-linux.png`
   and its dark/mobile peers — accepted current-copy baselines.
+- `apps/website/tests/e2e/visual.spec.ts-snapshots/workspaces-docs-light-ghpages-linux.png`
+  — accepted Resources documentation baseline.
 
 ## Application visual release matrix
 
@@ -203,13 +230,47 @@ hit targets, and the one-document invariant. Its early Light/Logo capture was
 opened and inspected:
 `docs/screenshots/2026-09-24-design-system/workspace-logo-contrast-after.png`.
 
+## Resources library workflow
+
+At 1280×720, the open Resources panel ended at x=588 while the floating
+palette began at x=295 and painted above selected library details. The
+before capture records the occlusion. The panel resize edge now publishes its
+current width to the editor shell; at desktop widths the palette occupies the
+remaining canvas area and yields the panel's stacking layer. In the inspected
+after capture, the palette begins at x=604, and the version and installation
+details are legible. The browser case also checks hit testing and repeats the
+geometry assertion after a keyboard resize. Below 900px, the existing
+Resources drawer keeps its overlay priority.
+
+The installed-library row had a nested Uninstall button inside its selection
+button. It now has separately named sibling controls: Enter selects and
+expands details, Space removes only the targeted library, and focus moves to
+Import File before the removed row disappears. The docked Resources panel no
+longer claims to be modal because focus can reach other editor controls. This
+also allows the existing global Ctrl+Z handler to run from a focused library
+control.
+
+The first import → uninstall → undo browser run exposed a deeper history
+failure. Install and uninstall now enter the existing owned document
+transaction, and an empty library import no longer creates an optional empty
+`styles` field that changed the history hash. The focused history and scene
+tests pass **23/23**. The final lease-wrapped Chromium case passes **1/1**
+through import, independent keyboard controls, default and resized panel
+placement, uninstall focus, and one-step Ctrl+Z restoration. Both images
+below were opened and inspected.
+
+- `docs/screenshots/2026-09-24-design-system/library-panel-before-overlay.png`
+- `docs/screenshots/2026-09-24-design-system/library-panel-after.png`
+
 ## Dispositions and limits
 
 | Item | Disposition | Evidence |
 |---|---|---|
 | DS-01 to DS-08 | **Fixed** | The repairs and focused acceptance checks above cover the radius roles, modal Guide Layouts workflow, Home routing and exact match, Quick Actions keyboard and ARIA state, current-copy homepage baselines, and screenshot manifest integrity. |
 | DS-09 | **Fixed** | The active pill's foreground/background pair snaps atomically; the rendered contrast and zero-duration transition assertions pass in Chromium. |
-| Raw spacing and sizing inventory | **Deferred debt** | The ratcheted counts (333 spacing declarations, 69 sizing declarations) predate this pass. Their audits pass and the reviewed consumers show no defect calling for a bulk substitution; mechanical replacement could change expert density without improving a verified workflow. |
+| DS-10 to DS-12 | **Fixed** | The library controls, palette placement, and history round-trip pass focused units and the real-browser workflow; inspected captures show the covered details before and their readable state after. |
+| DS-13 and DS-14 | **Fixed** | The four inspected main-content baselines and both complete route corpora pass the eight-case exact rerun; 578 other site cases passed the latest full run, and the two screenshot-wait cases passed their final exact rerun. |
+| Raw spacing and sizing inventory | **Deferred debt** | The starting count was 333 spacing declarations; the current audit reports 332 in 258 buckets after a separate Token Sync token-substitution commit. Sizing remains at 69 declarations in 54 buckets. Their audits pass, and the reviewed consumers show no defect calling for a bulk substitution; mechanical replacement could change expert density without improving a verified workflow. |
 | Adobe-style contextual bar loss on another monitor | **Untested hardware** | The in-browser selection-bar regression checks the canvas edge and click path. Physical multi-monitor movement, Windows display scaling, and a 4K panel were unavailable; the 1×/2× selection-overlay captures cover the available DPR comparison. |
 | Full-redraw pixel oracle | **Inapplicable** | None of this pass's owned product changes touch pixel reuse or frame admission. Concurrent renderer changes belong to another workstream and are validated separately. |
 | Linux Tauri native smoke | **Inapplicable** | This pass changed the browser E2E bootstrap, not Tauri window integration or native code. The detached-window fallback was exercised in Chromium. |
@@ -227,3 +288,67 @@ can be classified as design-system defects.
 
 Research-to-decision details are appended to
 `docs/research/design-system-overhaul-2026-09-17.md`.
+
+## Agent Validation Report
+
+**Changed scope:** Design-system audit/research and architecture docs; radius
+and shared Guide Layouts/Inspector controls; Home search and template workflow;
+Quick Actions; workspace dock; Resources library controls, placement, and
+history; website copy, screenshot contract, inspected captures, and visual
+baselines. The Resources repair is `c1adf5dd9`; its staged diff contained only
+the 15 owned paths, with no new `Shell.tsx` or `context.tsx` imports.
+
+**Validation plan:** `pnpm verify:plan` was run at each milestone. The final
+Resources plan selected touched-file format/lint, docs/emoji/spacing/sizing,
+E2E typecheck, four exact unit files, one exact Chromium workflow, editor and
+scene unit/typecheck lanes, and downstream package unit/typecheck lanes.
+`FULL-SUITE ESCALATION: NO`. Rust/native tests, the unrelated website E2E
+lane for that product commit, and the global visual suite were excluded by
+the planner; changed site and editor visuals were exercised separately.
+
+**Commands actually run, with results:**
+
+| Command | Result |
+|---|---|
+| `pnpm verify:plan` / `pnpm verify:plan --staged` | Milestone and final plans inspected; no final full-gate escalation. |
+| `pnpm verify:affected` / `pnpm verify:affected --staged` | Milestone affected checks passed except the final broad editor unit lane described below. Its Tier 0 and Tier 1 checks, including the exact Resources Chromium test, passed. |
+| `pnpm audit:docs`, `pnpm audit:emoji`, `pnpm audit:tokens`, `pnpm audit:radius`, `pnpm audit:spacing`, `pnpm audit:sizing` | Docs and emoji clean; token audit 315/315 contrast pairs and usage clean; radius zero violations; spacing and sizing within their ratcheted baselines. |
+| `node scripts/audit-architecture.mjs --ci`, `node scripts/audit-health.mjs --staged` | Passed. Existing hub import warnings remain; the Resources commit adds zero imports to the guarded hubs. |
+| `pnpm exec vitest run packages/editor/src/backgroundRemoval/maskRenderCache.test.ts packages/editor/src/canvas/__tests__/renderPipelineBaseline.test.ts --maxWorkers=1` | 2 files, 8 tests passed on the settled tree. |
+| `pnpm -r --filter @varve/editor --filter @varve/scene --filter @varve/desktop --filter @varve/ai --filter @varve/cli --filter @varve/codegen --filter @varve/collab --filter @varve/history --filter @varve/home --filter @varve/import --filter @varve/layout --filter @varve/print --filter @varve/prototype --filter @varve/ui --filter @varve/website typecheck` | Fourteen selected packages reported `Done`; the aggregate process ended with code 143 while desktop was running. `pnpm --filter @varve/desktop typecheck` then passed directly. |
+| `pnpm exec vitest run apps/desktop packages/ai packages/cli packages/codegen packages/history packages/home packages/import packages/layout packages/print packages/prototype packages/scene packages/ui apps/website --maxWorkers=3` | 430 files and 5,596 tests passed; one existing skip. |
+| `pnpm test:website`; both static website builds; website Playwright E2E | 239/239 units, 105 pages at each base path. E2E passed 578/580; the two homepage screenshot-wait failures had zero differing pixels and passed 2/2 after their bounded assertion timeout was corrected. The eight-case failure set also passed 8/8 without baseline updates. |
+| Lease-wrapped single-worker Chromium scenarios for changed editor interactions and visual surfaces | Resources 1/1; Guide Layouts 2/2; Home 2/2; theme matrix 8/8; 2× overlays 3/3; density 2/2; workspace review 11/11; other focused cases are recorded above. Captures were opened and inspected. |
+
+The broad editor unit lane ran **807 files**: 803 passed, two skipped, and two
+failed with three assertions while another workstream was changing
+`maskRenderCache.ts` and `renderPipeline.ts` in the shared checkout. Those
+files are outside this pass's staged diff. Their exact two specs passed
+**8/8** immediately afterward; the remaining selected downstream unit and
+typecheck closure passed as above. The broad affected command therefore
+exited nonzero, and this report preserves that fact rather than presenting
+it as a clean single-command gate.
+
+**Skipped as unrelated:** Rust workspace tests and native release/package
+checks had no owned Rust or desktop integration change. The full Playwright
+suite and full repository Vitest suite were not selected. The website's own
+full E2E run and focused editor/browser visual matrices covered the changed
+surfaces. **Escalations:** none; `pnpm verify:full` was not run. **Full suite
+run:** no. Hardware, operating-system, and screen-reader limits are listed
+in the dispositions above. Commits remain local on `master`; no push or
+deployment was performed.
+
+**Local milestone commits from this pass:** `984650c79` (baseline and
+complaint evidence), `cb38cc770` (Guide Layouts), `a2c81646c` (Home),
+`2a804436b` (Quick Actions), `579e9ed62` (product captures and screenshot
+contract), `c918fea58` (homepage captures), `a8cbd090c` (editor visual
+matrix), `6818d1f8d` (tool name), `bcb1d6160` (workspace contrast),
+`e4c830c40` (typography baseline), `ad340aab8` (Resources website copy),
+`a9cecf898` (long-page visual checks), and `c1adf5dd9` (Resources controls
+and history). The final audit ledger is a separate documentation commit.
+
+**Remaining repository state:** this pass leaves no owned product or site
+change uncommitted. The checkout still has another workstream's modified
+workspace-switcher captures, validation-repair documentation, and menu E2E
+spec, plus its untracked diagnostics/reference files and `install-arch.sh`.
+Those files were neither staged nor modified by this pass.
