@@ -56,11 +56,11 @@ test.describe('New Design dialog', () => {
     await chooseStartMode(dialog, 'Start with a frame');
     await expect(dialog.getByPlaceholder('Search presets...')).toBeVisible();
     await expect(dialog.getByText('Instagram Post')).toBeVisible();
-    await expect(dialog.getByText('A4')).toBeVisible();
+    await expect(dialog.getByText('A4', { exact: true })).toBeVisible();
 
     await dialog.getByPlaceholder('Search presets...').fill('Instagram');
     await expect(dialog.getByText('Instagram Post')).toBeVisible();
-    await expect(dialog.getByText('A4')).not.toBeVisible();
+    await expect(dialog.getByText('A4', { exact: true })).not.toBeVisible();
   });
 
   test('templates starting point shows templates', async ({ page }) => {

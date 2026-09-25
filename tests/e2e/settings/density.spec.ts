@@ -71,7 +71,7 @@ test('a density change is application state: it never dirties the document or en
 
 test('switching density with a scrolled tree preserves selection and row geometry', async ({
   page,
-}) => {
+}, testInfo) => {
   await navigateToEditor(page);
 
   // Ten drawn shapes give the tree enough depth to scroll in its 160px+ floor.
@@ -97,6 +97,7 @@ test('switching density with a scrolled tree preserves selection and row geometr
 
   const defaultRowHeight = await rows.nth(0).evaluate((el) => el.getBoundingClientRect().height);
   const defaultSpacer = await tree.evaluate((el) => el.scrollHeight);
+  await page.screenshot({ path: testInfo.outputPath('default-density-scrolled-tree.png') });
 
   await openSettings(page);
   await chooseDensity(page, 'Compact Pro');
@@ -116,6 +117,7 @@ test('switching density with a scrolled tree preserves selection and row geometr
   const compactSpacer = await tree.evaluate((el) => el.scrollHeight);
   expect(compactSpacer).toBeLessThan(defaultSpacer);
   await expect(rows.nth(4)).toHaveClass(/--selected/);
+  await page.screenshot({ path: testInfo.outputPath('compact-density-scrolled-tree.png') });
 });
 
 test('density persists across reload and the pre-paint contract avoids a flash of default', async ({
@@ -208,4 +210,38 @@ test('UI font size is a live preference and Reset restores both defaults', async
   await expect
     .poll(async () => rowName.evaluate((el) => Number.parseFloat(getComputedStyle(el).fontSize)))
     .toBe(mediumSize);
+});
+
+test('theme and density controls stay responsive across repeated dialogs and documents', async ({
+  page,
+}) => {
+  for (const scenario of [
+    { theme: 'Dark', mode: 'dark', density: 'Compact Pro', densityValue: 'compact' },
+    { theme: 'Light', mode: 'light', density: 'Default Pro', densityValue: 'comfortable' },
+    {
+      theme: 'High Contrast',
+      mode: 'high-contrast',
+      density: 'Compact Pro',
+      densityValue: 'compact',
+    },
+  ] as const) {
+    await navigateToEditor(page);
+    await openSettings(page);
+    await page.getByRole('tab', { name: 'Appearance' }).click();
+    const settings = page.locator('dialog.varve-dialog--settings');
+    await settings.getByRole('combobox', { name: 'Theme' }).click();
+    await page.getByRole('option', { name: scenario.theme, exact: true }).click();
+    await chooseDensity(page, scenario.density);
+    await expect(page.locator('html')).toHaveAttribute('data-theme-mode', scenario.mode);
+    await expect(page.locator('html')).toHaveAttribute('data-density', scenario.densityValue);
+    await closeSettings(page);
+
+    await openSettings(page);
+    await page.getByRole('tab', { name: 'Appearance' }).click();
+    await expect(settings.getByRole('combobox', { name: 'Theme' })).toContainText(scenario.theme);
+    await expect(settings.getByRole('combobox', { name: 'Interface density' })).toContainText(
+      scenario.density,
+    );
+    await closeSettings(page);
+  }
 });

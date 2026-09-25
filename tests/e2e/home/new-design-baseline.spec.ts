@@ -62,7 +62,7 @@ test.describe('New Design dialog', () => {
     // The preset browser is labelled "Frame presets"; assert its listbox and a
     // known built-in preset (the old spec filtered on a removed tab label).
     await expect(dialog.getByRole('listbox', { name: 'Frame presets' })).toBeVisible();
-    await expect(dialog.getByText('A4')).toBeVisible();
+    await expect(dialog.getByText('A4', { exact: true })).toBeVisible();
   });
 
   test('dialog keeps its scrollable body and footer visible at 1280x720', async ({ page }) => {

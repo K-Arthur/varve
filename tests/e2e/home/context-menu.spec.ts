@@ -126,6 +126,10 @@ test.describe('Home context menu', () => {
     });
 
     const finalAction = ctxMenu.getByRole('menuitem', { name: /^Move to Trash/ });
+    await ctxMenu.evaluate(async (menu) => {
+      const animations = menu.parentElement?.getAnimations() ?? [];
+      await Promise.all(animations.map((animation) => animation.finished.catch(() => undefined)));
+    });
     await finalAction.scrollIntoViewIfNeeded();
     const finalActionGeometry = await finalAction.evaluate((item) => {
       const layer = item.closest('.varve-floating-layer');

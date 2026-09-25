@@ -16,11 +16,11 @@ No completion percentage is reported while runtime coverage is incomplete.
 
 | Surface | Current status | Evidence or next check |
 |---|---|---|
-| Design, Print, Draw, Photo, Motion, Logo, Email, Codegen | In progress | Existing workspace and layers E2E cover selected controls; capture and inspect each mode's panel/toolbar state in this pass. |
+| Design, Print, Draw, Photo, Motion, Logo, Email, Codegen | Visually reviewed; affected gate pending | One document survived switching through all eight modes. Each mode's panel and toolbar capture was opened and inspected; 200% text and a narrow forced-colors layout were also reviewed. |
 | Home search | Repaired; affected gate pending | Results route to file opening, project navigation, or persisted template creation. The template gallery receives the loaded inventory. Focused unit and Chromium checks pass. |
-| Shared settings and theme/density lifecycle | In progress | Existing lifecycle specs and 315/315 token contrast pairs pass; repeat switches and reopen with real UI. |
-| Menus, overlays, Guide Layouts | Repaired; broader visual matrix pending | Guide Layouts now uses the shared modal and controls; browser screenshots show a dim backdrop and centered desktop/narrow layout. Nested select, focus restoration, no-target gating, and Escape passed focused Chromium tests. |
-| Detached-window chrome | In progress | Existing theme lifecycle coverage; run integration smoke if changed. |
+| Shared settings and theme/density lifecycle | Visually reviewed; affected gate pending | Light/dark/high-contrast settings and three repeated theme/density/dialog/document cycles passed; token contrast remains 315/315. |
+| Menus, overlays, Guide Layouts | Repaired; affected gate pending | The settled nested select, menu, selected layer, and 1×/2× canvas overlays were inspected. Modal, focus, no-target, and Escape checks pass. |
+| Detached-window chrome | Reviewed fallback; native smoke inapplicable | The high-contrast invalid-route state passed; this pass changed no native window integration. |
 | Website home/product/features/docs/support/learn/download/legal | Repaired; full site E2E pending | Both base paths build 105 pages. Eight reviewed homepage captures cover desktop/mobile light/dark; the inspected product scenes and current-copy homepage baselines have been refreshed. |
 
 ## Findings and acceptance
@@ -149,6 +149,43 @@ tolerance. The four focused homepage visual cases pass **4/4**.
   both themes, desktop and mobile.
 - `apps/website/tests/e2e/visual.spec.ts-snapshots/home-light-ghpages-linux.png`
   and its dark/mobile peers — accepted current-copy baselines.
+
+## Application visual release matrix
+
+The browser review inspected editor settings in light, dark, and
+high-contrast themes; selected artwork, layers, collapsed panels, and an
+open menu in each theme; and the high-contrast detached-window invalid-route
+state. The theme matrix passed **8/8**. The same selected-artwork/menu cases
+passed at **2× DPR, 3/3**; their native-resolution captures show visible
+selection strokes and handles. No render pixel-reuse code changed in this
+pass, so the full-redraw hash oracle is inapplicable.
+
+The workspace sweep passed with one document retained across **all eight**
+modes. Each mode capture was opened and inspected: the mode-specific panels,
+tools, and empty-state entry points remain visible. A separate 200% UI-text
+case passed and its Codegen capture was inspected. The 480px forced-colors
+case passed on an exact rerun after an unrelated queued browser process ended
+the first three-case invocation before its third test; the narrow capture
+shows the workspace control, drawing actions, and canvas still reachable.
+
+Default and Compact Pro density captures of a scrolled, selected layer tree
+were inspected. The focused density run passed **2/2**, including three
+successive theme, density, dialog, and document lifecycles; controls stayed
+responsive and preferences remained visible on reopening settings. The
+Guide Layouts nested-select case passed **1/1** after waiting for its
+entrance animation before capture. Its settled menu is opaque, legible, and
+on top of the modal. The first immediate capture was translucent because it
+caught that animation; it was not used as acceptance evidence. Reduced
+motion was emulated for the theme and site captures. Modal focus restoration
+and narrow Guide Layouts geometry passed the earlier focused interactions.
+
+- `docs/screenshots/2026-09-24-design-system/app-themes/` — theme settings,
+  selected overlays, collapsed panels, menus, and detached fallback.
+- `docs/screenshots/2026-09-24-design-system/app-2x/` — 2× selected overlays.
+- `docs/screenshots/2026-09-24-design-system/workspaces/` — eight modes,
+  200% text, and 480px forced colors.
+- `docs/screenshots/2026-09-24-design-system/density/` — both densities.
+- `docs/screenshots/2026-09-24-design-system/guide-layout-nested-select.png`.
 
 Research-to-decision details are appended to
 `docs/research/design-system-overhaul-2026-09-17.md`. Subsequent milestone

@@ -4,6 +4,8 @@
  * These are deliberately review artifacts, not self-approving snapshot
  * baselines. Set VARVE_THEME_VISUAL_QA_DIR to retain the images at a known
  * path, open them after the run, and record the visual judgment separately.
+ * VARVE_THEME_VISUAL_DPR=2 repeats the same browser interactions at 2x
+ * without changing the repository's visual-regression project matrix.
  */
 import { expect, test } from '@playwright/test';
 import { dragOnCanvas, navigateToEditor } from '../shared';
@@ -12,6 +14,7 @@ type ThemePreference = 'system' | 'light' | 'dark' | 'high-contrast';
 
 const outputDir =
   process.env.VARVE_THEME_VISUAL_QA_DIR ?? `test-results/theme-visual-qa-${process.pid}`;
+if (process.env.VARVE_THEME_VISUAL_DPR === '2') test.use({ deviceScaleFactor: 2 });
 
 async function seedTheme(
   page: import('@playwright/test').Page,

@@ -103,7 +103,17 @@ test.describe('Grid system — real editor controls and visual overlay', () => {
     await expect(dialog).toBeVisible();
     const layoutType = dialog.getByRole('combobox', { name: 'Layout type' });
     await layoutType.click();
-    await expect(page.getByRole('listbox', { name: 'Layout type' })).toBeVisible();
+    const layoutOptions = page.getByRole('listbox', { name: 'Layout type' });
+    await expect(layoutOptions).toBeVisible();
+    await layoutOptions.evaluate(async (element) => {
+      const layer = element.closest('.varve-floating-layer') ?? element;
+      await Promise.all(
+        layer
+          .getAnimations({ subtree: true })
+          .map((animation) => animation.finished.catch(() => undefined)),
+      );
+    });
+    await page.screenshot({ path: testInfo.outputPath('guide-layout-nested-select.png') });
     await page.getByRole('option', { name: 'Rows' }).click();
     await expect(layoutType).toContainText('Rows');
     await page.screenshot({

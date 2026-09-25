@@ -7,8 +7,8 @@
  * traversal, the no-JS-magnification hover contract, and the one-document
  * invariant across an eight-mode sweep.
  *
- * Evidence screenshots are written to
- * docs/screenshots/2026-09-15-workspace-switcher-review/after/.
+ * Evidence screenshots default to the 2026-09-15 review directory. Set
+ * VARVE_SWITCHER_VISUAL_QA_DIR to keep a new review separate from that baseline.
  *
  * Run:
  *   VARVE_E2E_PORT=1441 npx playwright test tests/e2e/workspace/switcher-review.spec.ts --project=chromium
@@ -18,7 +18,10 @@ import { join } from 'node:path';
 import { expect, type Page, test } from '@playwright/test';
 import { navigateToEditor } from '../shared';
 
-const OUT_ROOT = join(process.cwd(), 'docs/screenshots/2026-09-15-workspace-switcher-review/after');
+const OUT_ROOT =
+  process.env.VARVE_SWITCHER_VISUAL_QA_DIR ??
+  join(process.cwd(), 'docs/screenshots/2026-09-15-workspace-switcher-review/after');
+mkdirSync(OUT_ROOT, { recursive: true });
 
 const MODES = [
   ['design', 'Design'],
@@ -326,6 +329,7 @@ test.describe('Workspace switcher contract', () => {
     for (const [, label] of MODES) {
       await group.getByRole('radio', { name: `${label} workspace` }).click();
       await page.waitForTimeout(80);
+      await page.screenshot({ path: join(OUT_ROOT, `mode-${label.toLowerCase()}.png`) });
     }
     await expect(page.locator('.workspace-dock__item--active')).toHaveAttribute(
       'data-mode',
@@ -380,6 +384,7 @@ test.describe('Workspace switcher contract', () => {
     expect(after.labelClippedHorizontally).toBe(false);
     expect(after.pillHeight).toBeGreaterThanOrEqual(after.labelHeight);
     expect(after.pillHeight).toBeGreaterThanOrEqual(before.pillHeight);
+    await page.screenshot({ path: join(OUT_ROOT, 'codegen-200-percent-text.png') });
 
     // Every mode is still reachable after the text-size change: the visible
     // radios plus the overflow menu must cover all eight.
