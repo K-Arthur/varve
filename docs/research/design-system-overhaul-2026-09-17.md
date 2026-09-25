@@ -67,3 +67,22 @@ pass's decisions is limited to what prior passes verified.
 - **Why no auto-recolor:** R1's familiarity findings + the mandate's
   stability rules; the mode is explicit, resettable, and off by default.
   No productivity claim is made for it.
+
+## 2026-09-24 complaint refresh for the completion pass
+
+These reports are prompts for Varve regression checks, not evidence that the
+same defects exist here. Reported symptoms are separated from proven causes.
+
+| Source and date | Reported failure and status | Varve decision and check |
+|---|---|---|
+| [Figma UI3 retrospective](https://www.figma.com/blog/our-approach-to-designing-ui3/), 2024-10-01 | Figma says beta floating panels cramped smaller canvases, weakened rulers, and slowed frequent users; it restored fixed, resizable panels. Its icon-only blend control hid the chosen mode until a tooltip, and a clip-content dropdown added a click; Figma restored inline state and a checkbox. These causes and decisions are Figma's own account. | Keep essential editor panels docked, meaningful state visible, and frequent toggles direct. Check narrow/split layouts, unobscured canvas, and keyboard/pointer action paths. |
+| [Photoshop contextual task bar report](https://community.adobe.com/bug-reports-711/contexual-task-bar-disappeared-1558512), opened 2026-04-21 | Users reported a pinned bar jumping, disappearing, or losing its anchor during tool or window changes. Reports identify Windows 11 with Photoshop 27.6.0 and later 27.8.0; Adobe requested a 27.10 retest on 2026-09-04. The anchoring explanation is a user hypothesis; a current fix is unverified. | Exercise contextual-bar placement across tools, viewport resize, and repeated opening. Check visibility and viewport clipping; multi-monitor behavior needs physical hardware. |
+| [Illustrator display-scaling report](https://community.adobe.com/questions-652/illustrator-on-windows-and-4k-monitor-outline-and-other-lines-are-way-way-too-thin-793861), 2022-03-07 | One user reported very thin selection bounds and guides at 150–175% Windows scaling on a 27-inch 4K monitor. Another user did not reproduce it; the cause and resolution remain unverified. | Inspect Varve selection and guide strokes at device pixel ratios 1 and 2 in Light, Dark, and High Contrast. Do not scale authored artwork with interface geometry. |
+| [Penpot token-controls issue #7001](https://github.com/penpot/penpot/issues/7001), opened 2025-07-29 | An Ubuntu desktop user reported token buttons becoming inert and Fill/Stroke contextual commands disappearing after hours; restart restored them. The issue was transferred to Taiga and closed on GitHub without a linked fix. No root cause or affected version was supplied. | Repeat theme/density changes, document open/close, and dialog/property operations in one session; controls and contextual actions must stay responsive. |
+
+[WCAG 2.2](https://www.w3.org/WAI/standards-guidelines/wcag/new-in-22/) is the
+web AA target for focus visibility, target size, and alternatives to dragging.
+The [WAI modal-dialog pattern](https://www.w3.org/WAI/ARIA/apg/patterns/dialog-modal/)
+sets the keyboard and focus contract for modal overlays. For Tauri's native
+software surface, [WCAG2ICT 2.2](https://www.w3.org/TR/wcag2ict-22/) is
+informative guidance rather than a conformance standard.
