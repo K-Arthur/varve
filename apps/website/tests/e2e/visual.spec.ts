@@ -441,8 +441,10 @@ test('typography page light', async ({ page }) => {
   await waitForImages(page);
   await expect(page.getByRole('heading', { name: 'Typography', exact: true })).toBeVisible();
   await warmFullPage(page);
-  await expect(page).toHaveScreenshot('typography-light.png', {
-    fullPage: true,
+  // Chromium alternates the document's stitched height by one footer pixel on
+  // this long route. Keep the typography article as the visual oracle; header
+  // and footer have their own snapshots and route checks.
+  await expect(page.locator('#main-content')).toHaveScreenshot('typography-light.png', {
     maxDiffPixelRatio: 0.02,
   });
 });
