@@ -5,7 +5,7 @@
  * per import/creation, never derived from names, paths, or values, and never
  * re-numbered. An id generator can be injected for deterministic tests.
  */
-import type { TokenId } from './model';
+import type { TokenId, TokenSourceId } from './model';
 
 export type TokenIdGenerator = () => string;
 
@@ -39,4 +39,14 @@ export function createSequentialTokenIdGenerator(): TokenIdGenerator {
 
 export function isTokenId(value: unknown): value is TokenId {
   return typeof value === 'string' && /^tok_[A-Za-z0-9_-]+$/.test(value);
+}
+
+/** Source ids are collision-resistant UUIDs ("src_" + uuid), minted once
+ * when a source is connected and never re-derived from file names or paths
+ * (ADR-0102) — two files with the same name are distinct sources. */
+export function mintSourceId(
+  generate: TokenIdGenerator = createUuidTokenIdGenerator(),
+): TokenSourceId {
+  const raw = generate();
+  return raw.startsWith('src_') ? (raw as TokenSourceId) : (`src_${raw}` as TokenSourceId);
 }

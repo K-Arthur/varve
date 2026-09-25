@@ -135,6 +135,16 @@ export interface TokenBaseSnapshot {
   sizeBytes?: number;
 }
 
+/** Group-level DTCG metadata ($description / $deprecated / $extensions).
+ * Group `$type` is intentionally absent: every imported token already
+ * carries its resolved type, so re-deriving an inherited group type on
+ * export would be redundant. `$extends` is expanded at parse time. */
+export interface TokenGroupMeta {
+  description?: string;
+  deprecated?: boolean | string;
+  extensions: Record<string, unknown>;
+}
+
 export const TOKEN_STORE_SCHEMA_VERSION = 1;
 
 export interface DesignTokenStore {
@@ -148,6 +158,8 @@ export interface DesignTokenStore {
   tombstones: Record<TokenId, TokenTombstone>;
   /** Per-source base snapshots. */
   bases: Record<TokenSourceId, TokenBaseSnapshot>;
+  /** Group metadata keyed by pathKey; absent when no group carried any. */
+  groupMeta?: Record<string, TokenGroupMeta>;
   /** Monotonic revision token for stale-plan rejection (ADR-0117 D2). */
   nextRevision: string;
 }

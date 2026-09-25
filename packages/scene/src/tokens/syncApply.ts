@@ -11,15 +11,26 @@
  *
  * External files are never written here (ADR-0112 owns that).
  */
-import type { DtcgDocument, TokenMerge, TokenMergePlan } from '@varve/tokens';
-import type { VariableStore, VariableValue } from '../variables';
 import type {
-  DesignTokenRecord,
-  DesignTokenStore,
-  TokenProvenance,
-  TokenSynchronization,
+  DtcgDocument,
+  DtcgGroupNode,
+  DtcgTokenNode,
+  TokenMerge,
+  TokenMergePlan,
+} from '@varve/tokens';
+import type { VariableStore, VariableValue } from '../variables';
+import { mintSourceId } from './identity';
+import {
+  createInitialSyncState,
+  type DesignTokenRecord,
+  type DesignTokenStore,
+  type TokenGroupMeta,
+  type TokenProvenance,
+  type TokenSource,
+  type TokenSourceId,
+  type TokenSynchronization,
 } from './model';
-import { addToken, createEmptyTokenSynchronization, updateToken } from './store';
+import { addSource, addToken, createEmptyTokenSynchronization, updateToken } from './store';
 import { bindVariableToToken } from './variableBridge';
 
 export interface SyncApplyResult {
@@ -32,6 +43,18 @@ export interface SyncApplyResult {
 }
 
 /**
+ * Backing-variable writes must never mutate the caller's store: the
+ * previous document object is retained by the undo stack and shares the
+ * same VariableStore reference, so an in-place write would make undo a
+ * no-op for every variable an import created. One level of copying is
+ * enough — the helpers below replace, never mutate, individual entries.
+ */
+function writableVariableStore(store: VariableStore | undefined): VariableStore | undefined {
+  if (!store) return undefined;
+  return { ...store, variables: { ...store.variables }, collections: { ...store.collections } };
+}
+
+/**
  * Apply a merge plan to the token store and backing variables.
  * Conflicted merges are skipped (never auto-resolved). The result is a new
  * TokenSynchronization + VariableStore pair; the caller wraps it in one
@@ -39,10 +62,11 @@ export interface SyncApplyResult {
  */
 export function applyMergePlanToSync(
   sync: TokenSynchronization,
-  variables: VariableStore | undefined,
+  variablesInput: VariableStore | undefined,
   plan: TokenMergePlan,
   mode = 'default',
 ): SyncApplyResult {
+  const variables = writableVariableStore(variablesInput);
   let store: DesignTokenStore = sync.store;
   const touchedVariableIds: string[] = [];
   let applied = 0;
@@ -244,6 +268,8 @@ export interface ImportPreview {
   /** Tokens already in the store with the same path. */
   collisions: string[];
   added: number;
+  /** Group-level metadata ($description/$deprecated/$extensions) by pathKey. */
+  groups: Record<string, TokenGroupMeta>;
 }
 
 export interface TokenSnapshotView {
@@ -253,6 +279,39 @@ export interface TokenSnapshotView {
   description?: string;
   deprecated?: boolean | string;
   extensions: Record<string, unknown>;
+}
+
+/**
+ * A token written with a token-level `$ref` has no `$value` at all; the
+ * reference itself is the authored content. Carry it through the store as
+ * `{ $ref }` so export can replay the exact form instead of dropping the
+ * token's value (format report §6.6.2 / §7.1.2).
+ */
+function tokenSnapshotValue(token: DtcgTokenNode): unknown {
+  if (token.value !== undefined) return token.value;
+  const pointerRef = token.references.find((r) => r.kind === 'json-pointer');
+  return pointerRef ? { $ref: pointerRef.raw } : undefined;
+}
+
+/** Collect group metadata so it survives import → edit → export (ADR-0103). */
+function collectGroupMeta(
+  nodes: readonly (DtcgGroupNode | DtcgTokenNode)[],
+  out: Record<string, TokenGroupMeta>,
+): void {
+  for (const node of nodes) {
+    if (node.kind !== 'group') continue;
+    const hasDescription = typeof node.description === 'string';
+    const hasDeprecated = node.deprecated !== undefined;
+    const hasExtensions = Object.keys(node.extensions ?? {}).length > 0;
+    if (hasDescription || hasDeprecated || hasExtensions) {
+      out[node.path.join('.')] = {
+        ...(hasDescription ? { description: node.description } : {}),
+        ...(hasDeprecated ? { deprecated: node.deprecated } : {}),
+        extensions: node.extensions ?? {},
+      };
+    }
+    collectGroupMeta(node.children, out);
+  }
 }
 
 /**
@@ -270,13 +329,15 @@ export function previewImport(store: DesignTokenStore, document: DtcgDocument): 
     incoming.set(key, {
       path: token.path,
       type: token.type,
-      value: token.value,
+      value: tokenSnapshotValue(token),
       description: token.description,
       deprecated: token.deprecated,
       extensions: token.extensions,
     });
   }
-  return { incoming, collisions, added: incoming.size - collisions.length };
+  const groups: Record<string, TokenGroupMeta> = {};
+  collectGroupMeta(document.groups, groups);
+  return { incoming, collisions, added: incoming.size - collisions.length, groups };
 }
 
 export interface ImportApplyResult {
@@ -295,19 +356,32 @@ export interface ImportApplyResult {
  */
 export function applyImportToSync(
   sync: TokenSynchronization,
-  variables: VariableStore | undefined,
+  variablesInput: VariableStore | undefined,
   preview: ImportPreview,
   sourceId: string,
   specificationVersion: string,
   adapterId: string,
   mode = 'default',
 ): ImportApplyResult {
+  const variables = writableVariableStore(variablesInput);
   let store: DesignTokenStore = sync.store;
   const source = store.sources[sourceId as `src_`];
   const touchedVariableIds: string[] = [];
   const diagnostics: string[] = [];
   let imported = 0;
   let skipped = 0;
+
+  if (!source) {
+    // Never mint provenance that points at a source which does not exist.
+    return {
+      sync,
+      variables,
+      touchedVariableIds,
+      imported: 0,
+      skipped: 0,
+      diagnostics: [`unknown token source "${sourceId}" — nothing imported`],
+    };
+  }
 
   for (const view of preview.incoming.values()) {
     const key = view.path.join('.');
@@ -371,6 +445,10 @@ export function applyImportToSync(
     store = { ...store, sources: { ...store.sources, [sourceId]: { ...source, syncState } } };
   }
 
+  if (Object.keys(preview.groups).length > 0) {
+    store = { ...store, groupMeta: { ...store.groupMeta, ...preview.groups } };
+  }
+
   return {
     sync: { ...sync, store },
     variables,
@@ -405,6 +483,57 @@ function createBackingVariable(
     valuesByMode: { [mode]: record.value as VariableValue },
   };
   return variableId;
+}
+
+export interface ImportSourceResolution {
+  sync: TokenSynchronization;
+  sourceId: TokenSourceId;
+  /** True when the document had no token store at all before this call. */
+  createdStore: boolean;
+  createdSource: boolean;
+}
+
+/**
+ * Resolve the destination source for an import, creating the token store
+ * and/or the source when the document has none yet.
+ *
+ * First-use is a supported path: a fresh document has no `tokenSync` and no
+ * sources, and an import must initialize both rather than refuse with
+ * "no token source connected". The caller decides *which* source to target;
+ * this function only guarantees the target exists.
+ */
+export function ensureImportSource(
+  sync: TokenSynchronization | undefined,
+  fileName: string,
+  sourceId?: string,
+): ImportSourceResolution {
+  const base = sync ?? createEmptyTokenSynchronization();
+  const createdStore = sync === undefined;
+  const requested = sourceId as TokenSourceId | undefined;
+  if (requested && base.store.sources[requested]) {
+    return { sync: base, sourceId: requested, createdStore, createdSource: false };
+  }
+  const minted = mintSourceId();
+  const source: TokenSource = {
+    id: minted,
+    name: fileName,
+    kind: 'local-file',
+    direction: 'import-only',
+    adapterId: 'dtcg-2025.10',
+    configuration: {
+      entryFiles: [fileName],
+      direction: 'import-only',
+      stableIdPolicy: 'annotate',
+    },
+    syncState: createInitialSyncState(),
+    connectedAt: new Date().toISOString(),
+  };
+  return {
+    sync: { ...base, store: addSource(base.store, source) },
+    sourceId: minted,
+    createdStore,
+    createdSource: true,
+  };
 }
 
 export { createEmptyTokenSynchronization };
