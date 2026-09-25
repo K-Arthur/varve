@@ -104,21 +104,38 @@ test('source transparency survives cutout reconstruction, history and PNG export
   await editorMethod(page, 'loadDocument', saved);
   await expect(page.getByRole('treeitem')).toHaveCount(1);
   await page.getByRole('treeitem').first().click();
+  await page.getByRole('tab', { name: 'Adjustments' }).click();
   const backgroundRemovalDisclosure = page.getByRole('button', {
     name: 'Background Removal',
     exact: true,
   });
+  await expect(backgroundRemovalDisclosure).toBeVisible({ timeout: 10000 });
   if ((await backgroundRemovalDisclosure.getAttribute('aria-expanded')) === 'false') {
     await backgroundRemovalDisclosure.click();
   }
   await expect(page.getByRole('button', { name: 'Re-apply background removal' })).toBeVisible();
   await canvas.screenshot({ path: testInfo.outputPath('reloaded.png') });
   await assertFullRedrawOracle(page);
-  await page.getByRole('tab', { name: 'Export', exact: true }).click();
-  await page
+  const exportTab = page.getByRole('tab', { name: 'Export', exact: true });
+  if (await exportTab.isVisible().catch(() => false)) {
+    await exportTab.click();
+  } else {
+    await page.getByRole('button', { name: /^More inspector tabs/ }).click();
+    await page
+      .getByRole('menu', { name: 'More inspector tabs' })
+      .getByRole('menuitem', { name: 'Export', exact: true })
+      .click();
+  }
+  const pngFormat = page
     .locator('.spec-export__group')
-    .getByRole('radio', { name: 'PNG', exact: true })
-    .click();
+    .getByRole('radio', { name: 'PNG', exact: true });
+  await expect(pngFormat).toBeVisible({ timeout: 10000 });
+  await pngFormat.click();
+  const oneXScale = page
+    .getByRole('radiogroup', { name: 'Export scale' })
+    .getByRole('radio', { name: '1x' });
+  await oneXScale.click();
+  await expect(oneXScale).toBeChecked();
   const pending = page.waitForEvent('download');
   await page.getByRole('button', { name: /download/i }).click();
   const download = await pending;
