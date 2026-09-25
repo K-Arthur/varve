@@ -1,54 +1,17 @@
 .guide-layout-dialog {
   width: min(520px, calc(100vw - 32px));
   max-height: min(760px, calc(100vh - 32px));
-  padding: 0;
-  color: var(--color-text-primary);
-  background: var(--color-surface-raised);
   border: 1px solid var(--color-border-subtle);
-  border-radius: 12px;
-  box-shadow: var(--elevation-shadow-overlay);
 }
 
-.guide-layout-dialog::backdrop {
-  background: rgb(0 0 0 / 42%);
-}
-.guide-layout-dialog form {
-  display: flex;
-  flex-direction: column;
-  max-height: inherit;
-}
-.guide-layout-dialog__header,
-.guide-layout-dialog__footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  padding: var(--space-4) var(--space-5);
-}
-.guide-layout-dialog__header {
-  border-bottom: 1px solid var(--color-border-subtle);
-}
-.guide-layout-dialog__header h2 {
-  margin: 0;
-  font-size: var(--font-size-md);
-}
-.guide-layout-dialog__header p {
-  margin: var(--space-1) 0 0;
+.guide-layout-dialog__description {
+  margin: 0 0 var(--space-4);
   color: var(--color-text-muted);
   font-size: var(--font-size-xs);
-}
-.guide-layout-dialog__close {
-  border: 0;
-  background: transparent;
-  color: inherit;
-  font-size: var(--font-size-lg);
-  cursor: pointer;
 }
 .guide-layout-dialog__body {
   display: grid;
   gap: var(--space-4);
-  overflow: auto;
-  padding: var(--space-5);
 }
 .guide-layout-dialog__field,
 .guide-layout-dialog label {
@@ -57,16 +20,15 @@
   color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
 }
-.guide-layout-dialog select,
-.guide-layout-dialog input {
+.guide-layout-dialog input:not([type="checkbox"]) {
   box-sizing: border-box;
   width: 100%;
-  min-height: 32px;
+  min-height: var(--component-default-height);
   padding: var(--space-2) var(--space-3);
   color: var(--color-text-primary);
   background: var(--color-surface-sunken);
   border: 1px solid var(--color-border-subtle);
-  border-radius: 6px;
+  border-radius: var(--radius-control-compact);
 }
 .guide-layout-dialog__grid {
   display: grid;
@@ -80,7 +42,7 @@
   min-width: 0;
   padding: var(--space-4);
   border: 1px solid var(--color-border-subtle);
-  border-radius: 8px;
+  border-radius: var(--radius-control);
 }
 .guide-layout-dialog legend {
   padding: 0 var(--space-2);
@@ -102,31 +64,8 @@
   padding: var(--space-3) var(--space-3);
   color: var(--color-text-danger);
   background: color-mix(in srgb, var(--color-feedback-danger) 15%, transparent);
-  border-radius: 6px;
+  border-radius: var(--radius-control-compact);
   font-size: var(--font-size-xs);
-}
-.guide-layout-dialog__footer {
-  justify-content: flex-end;
-  border-top: 1px solid var(--color-border-subtle);
-}
-.guide-layout-dialog__footer button {
-  min-width: 84px;
-  min-height: 32px;
-  padding: var(--space-2) var(--space-3);
-  color: var(--color-text-primary);
-  background: var(--color-surface-sunken);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: 6px;
-  cursor: pointer;
-}
-.guide-layout-dialog__footer button.primary {
-  color: var(--color-on-accent);
-  background: var(--color-accent);
-  border-color: var(--color-accent);
-}
-.guide-layout-dialog__footer button:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
 }
 
 @media (max-width: 540px) {

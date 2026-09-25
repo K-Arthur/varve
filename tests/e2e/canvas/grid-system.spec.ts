@@ -91,6 +91,21 @@ test.describe('Grid system — real editor controls and visual overlay', () => {
       .click();
     const dialog = page.getByRole('dialog', { name: 'Guide Layouts' });
     await expect(dialog).toBeVisible();
+    await expect.poll(() => dialog.evaluate((element) => element.matches(':modal'))).toBe(true);
+    await expect
+      .poll(() => dialog.evaluate((element) => element.contains(document.activeElement)))
+      .toBe(true);
+    await expect(dialog.getByRole('combobox', { name: 'Preset' })).toBeVisible();
+    await expect(dialog.getByRole('combobox', { name: 'Layout type' })).toBeVisible();
+    await expect(dialog).toContainText('Select a frame to apply a guide layout.');
+    await expect(dialog.getByRole('button', { name: 'Apply' })).toBeDisabled();
+    await dialog.getByRole('textbox', { name: 'Count' }).press('Enter');
+    await expect(dialog).toBeVisible();
+    const layoutType = dialog.getByRole('combobox', { name: 'Layout type' });
+    await layoutType.click();
+    await expect(page.getByRole('listbox', { name: 'Layout type' })).toBeVisible();
+    await page.getByRole('option', { name: 'Rows' }).click();
+    await expect(layoutType).toContainText('Rows');
     await page.screenshot({
       path: testInfo.outputPath('guide-layout-dialog-desktop.png'),
     });
@@ -114,11 +129,12 @@ test.describe('Grid system — real editor controls and visual overlay', () => {
       path: testInfo.outputPath('guide-layout-dialog-mobile.png'),
     });
 
-    const count = dialog.locator('input').first();
+    const count = dialog.getByRole('textbox', { name: 'Count' });
     await count.fill('not-a-number');
     await expect(dialog.getByRole('button', { name: 'Apply' })).toBeDisabled();
     await page.keyboard.press('Escape');
     await expect(dialog).toBeHidden();
+    await expect.poll(() => page.evaluate(() => document.activeElement?.tagName)).not.toBe('BODY');
 
     await page.keyboard.press('Control+Alt+Shift+g');
     await expect(page.getByRole('dialog', { name: 'Guide Layouts' })).toBeVisible();

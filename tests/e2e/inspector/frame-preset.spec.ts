@@ -92,7 +92,7 @@ test.describe('Frame Preset UX & Interaction Scenarios', () => {
     await expect(presetTrigger).toContainText('iPhone SE');
   });
 
-  test('Scenario 3: Category filter chips narrow preset results', async ({ page }) => {
+  test('Scenario 3: Category filter chips narrow preset results', async ({ page }, testInfo) => {
     const inspector = page.locator('.editor-inspector');
     await activateTool(page, 'f');
     await inspector.getByRole('option', { name: /^iPhone SE\b/ }).click();
@@ -101,6 +101,20 @@ test.describe('Frame Preset UX & Interaction Scenarios', () => {
     await presetTrigger.click();
     const popover = page.locator('[data-testid="frame-preset-popover"]');
     await expect(popover).toBeVisible();
+    // The floating layer scales from 0.97 during its entrance animation.
+    // Measure the settled hit areas rather than a transient animation frame.
+    await expect
+      .poll(async () => {
+        const heights = await popover
+          .locator('.insp-preset-chip, .insp-preset-fav-btn')
+          .evaluateAll((elements) =>
+            elements.map((element) => element.getBoundingClientRect().height),
+          );
+        return heights.length ? Math.min(...heights) : 0;
+      })
+      .toBeGreaterThanOrEqual(24);
+    await expect(popover.locator('.insp-preset-chip').first()).toHaveCSS('min-height', '24px');
+    await page.screenshot({ path: testInfo.outputPath('frame-presets-after.png') });
 
     // Click Social tab chip
     const socialChip = popover.getByRole('tab', { name: 'Social', exact: true });

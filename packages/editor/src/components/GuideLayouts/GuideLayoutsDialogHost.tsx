@@ -8,6 +8,7 @@ import {
   setMasterPageLayout,
   setPageLayout,
 } from '@varve/scene';
+import { Button, Dialog, Select } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../context';
 import {
@@ -171,6 +172,7 @@ export function GuideLayoutsDialogHost() {
   const [presetId, setPresetId] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [personalPresets, setPersonalPresets] = useState<GuideLayoutPreset[]>([]);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
   const lastPreviewSignatureRef = useRef<string | null>(null);
   const snapshotRef = useRef<{
     documentId: string;
@@ -187,6 +189,7 @@ export function GuideLayoutsDialogHost() {
 
   useEffect(() => {
     const open = (event: Event) => {
+      returnFocusRef.current = document.activeElement as HTMLElement | null;
       const detail = (event as CustomEvent<Partial<OpenRequest>>).detail;
       const target = detail?.target ?? 'selection';
       const frameIds =
@@ -319,7 +322,12 @@ export function GuideLayoutsDialogHost() {
   const close = useCallback(
     (apply: boolean) => {
       if (!request) return;
-      if (apply && !error) editor.commitTransaction();
+      if (
+        apply &&
+        (error || (request.target === 'selection' && !snapshotRef.current?.frameIds.length))
+      )
+        return;
+      if (apply) editor.commitTransaction();
       else {
         const snapshot = snapshotRef.current;
         editor.abortTransaction((_, current) => {
@@ -362,6 +370,16 @@ export function GuideLayoutsDialogHost() {
       lastPreviewSignatureRef.current = null;
       setRequest(null);
       setError(null);
+      const invoker = returnFocusRef.current;
+      returnFocusRef.current = null;
+      window.requestAnimationFrame(() => {
+        if (document.querySelector('dialog.guide-layout-dialog:modal')) return;
+        const fallback = document.querySelector<HTMLElement>(
+          '[data-dialog-focus-fallback], canvas.editor-canvas__content-layer',
+        );
+        if (invoker?.isConnected && invoker !== document.body) invoker.focus();
+        else fallback?.focus();
+      });
     },
     [editor, error, request],
   );
@@ -371,76 +389,73 @@ export function GuideLayoutsDialogHost() {
     request.target === 'selection'
       ? `${snapshotRef.current?.frameIds.length ?? 0} frame(s)`
       : request.target;
+  const hasTarget = request.target !== 'selection' || Boolean(snapshotRef.current?.frameIds.length);
   return (
-    <dialog
+    <Dialog
       className="guide-layout-dialog"
       open
-      aria-labelledby="guide-layout-title"
-      onCancel={() => close(false)}
-      onKeyDown={(event) => {
-        if (event.key === 'Escape') {
-          event.preventDefault();
-          close(false);
-        }
-      }}
+      onClose={() => close(false)}
+      title="Guide Layouts"
+      focusFirstControl
+      footer={
+        <>
+          <Button variant="secondary" onClick={() => close(false)}>
+            Cancel
+          </Button>
+          <Button type="submit" form="guide-layout-form" disabled={Boolean(error) || !hasTarget}>
+            Apply
+          </Button>
+        </>
+      }
     >
+      <p className="guide-layout-dialog__description">
+        {hasTarget
+          ? `${targetLabel} · changes preview on canvas and apply as one undo step.`
+          : 'Select a frame to apply a guide layout.'}
+      </p>
       <form
-        method="dialog"
+        id="guide-layout-form"
         onSubmit={(event) => {
           event.preventDefault();
           close(true);
         }}
       >
-        <header className="guide-layout-dialog__header">
-          <div>
-            <h2 id="guide-layout-title">Guide Layouts</h2>
-            <p>{targetLabel} · changes preview on canvas and apply as one undo step.</p>
-          </div>
-          <button
-            type="button"
-            className="guide-layout-dialog__close"
-            onClick={() => close(false)}
-            aria-label="Cancel"
-          >
-            Close
-          </button>
-        </header>
         <div className="guide-layout-dialog__body">
           {request.target === 'selection' && (
-            <label className="guide-layout-dialog__field">
-              Preset
-              <select
+            <div className="guide-layout-dialog__field">
+              <span className="guide-layout-dialog__field-label">Preset</span>
+              <Select
+                label="Preset"
                 value={presetId}
-                onChange={(event) => {
-                  setPresetId(event.target.value);
+                onValueChange={(value) => {
+                  setPresetId(value);
                   setError(null);
                 }}
-              >
-                <option value="">Custom layout</option>
-                {presets.map((preset) => (
-                  <option key={preset.id} value={preset.id}>
-                    {preset.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+                options={[
+                  { value: '', label: 'Custom layout' },
+                  ...presets.map((preset) => ({ value: preset.id, label: preset.name })),
+                ]}
+              />
+            </div>
           )}
-          <label className="guide-layout-dialog__field">
-            Layout type
-            <select
+          <div className="guide-layout-dialog__field">
+            <span className="guide-layout-dialog__field-label">Layout type</span>
+            <Select
+              label="Layout type"
               value={draft.mode}
-              onChange={(event) =>
-                setDraft((value) => ({
-                  ...value,
-                  mode: event.target.value as Draft['mode'],
+              onValueChange={(mode) =>
+                setDraft((current) => ({
+                  ...current,
+                  mode: mode as Draft['mode'],
                 }))
               }
-            >
-              <option value="columns">Columns</option>
-              <option value="rows">Rows</option>
-              <option value="uniform">Uniform square lattice</option>
-            </select>
-          </label>
+              options={[
+                { value: 'columns', label: 'Columns' },
+                { value: 'rows', label: 'Rows' },
+                { value: 'uniform', label: 'Uniform square lattice' },
+              ]}
+            />
+          </div>
           <div className="guide-layout-dialog__grid">
             <label>
               Count
@@ -569,16 +584,8 @@ export function GuideLayoutsDialogHost() {
             </p>
           )}
         </div>
-        <footer className="guide-layout-dialog__footer">
-          <button type="button" onClick={() => close(false)}>
-            Cancel
-          </button>
-          <button type="submit" className="primary" disabled={Boolean(error)}>
-            Apply
-          </button>
-        </footer>
       </form>
-    </dialog>
+    </Dialog>
   );
 }
 

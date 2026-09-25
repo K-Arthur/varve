@@ -19,7 +19,7 @@ No completion percentage is reported while runtime coverage is incomplete.
 | Design, Print, Draw, Photo, Motion, Logo, Email, Codegen | In progress | Existing workspace and layers E2E cover selected controls; capture and inspect each mode's panel/toolbar state in this pass. |
 | Home search | Defective | Project/template results call the file-only opener and silently do nothing; test pointer/keyboard selection, navigation/creation, and focus restoration. |
 | Shared settings and theme/density lifecycle | In progress | Existing lifecycle specs and 315/315 token contrast pairs pass; repeat switches and reopen with real UI. |
-| Menus, overlays, Guide Layouts | Defective | The Guide Layouts host renders `<dialog open>` without `showModal()`. Browser baseline passes its old Escape test but shows no modal backdrop and permits app chrome behind it. Verify top-layer, focus, cancel/undo, and narrow layout. |
+| Menus, overlays, Guide Layouts | Repaired; broader visual matrix pending | Guide Layouts now uses the shared modal and controls; browser screenshots show a dim backdrop and centered desktop/narrow layout. Nested select, focus restoration, no-target gating, and Escape passed focused Chromium tests. |
 | Detached-window chrome | In progress | Existing theme lifecycle coverage; run integration smoke if changed. |
 | Website home/product/features/docs/support/learn/download/legal | In progress | Site source contains 105 Astro page files. The homepage golden predates its latest copy; the Guide Layouts product screenshot shows editor chrome crossing the dialog. Review both base paths and current product claims. |
 
@@ -33,6 +33,33 @@ No completion percentage is reported while runtime coverage is incomplete.
 | DS-04 | Medium | Quick Actions changes `aria-selected` while focus stays in search input, without `aria-activedescendant`. | Arrow navigation exposes the active option to assistive technology; Enter invokes it and empty results remain stable. |
 | DS-05 | Medium | Homepage snapshot contains pre-correction competitor copy; `visual.spec.ts` allows a 2% pixel difference that can miss a small text change. | Inspect and approve current desktop/mobile light/dark captures; assert critical product copy semantically and update only changed baselines. |
 | DS-06 | Medium | Screenshot validator allows a captured website PNG without its canonical docs copy; `comic-lettering-light.png` is one such case. | Validator checks both copies and matching content hashes for captured scenes; repair the missing copy through the review/sync pipeline. |
+
+## Foundation repair evidence
+
+The Guide Layouts host now uses the shared `Dialog`, `Button`, and `Select`
+components. This puts the dialog in the browser top layer, gives its footer
+the shared action sizing, and keeps the two choice controls consistent with
+other editor forms. The five raw radii in that host and four in Inspector
+frame presets now use their semantic control or pill tokens. The small
+Inspector preset actions use the shared extra-small control height. No token
+palette or authored artwork colors changed.
+
+The focused Chromium grid-system run passed **2/2** after the repair. A later
+two-spec run passed **2/2**, covering `:modal`, internal focus, a nested select
+choice, 390px geometry, no-target and invalid-input gating, Escape cancellation,
+focus return, and the Inspector preset filter. The four Guide Layouts
+before/after screenshots and the Inspector screenshot below were opened and
+inspected. The repaired dialog has a backdrop, centered placement, visible
+labels, and no clipped fields at either width. The Inspector category and
+favorite hit areas settle at 24 CSS pixels. The first geometry assertion
+sampled 23.67px during the shared floating layer's `scale(0.97)` entrance;
+the winning `min-height` declaration resolves to the 24px token after that
+animation. This was a transient measurement, so the regression test polls
+for the settled state. Affected validation is still pending.
+
+- `docs/screenshots/2026-09-24-design-system/guide-layouts-after-desktop.png`
+- `docs/screenshots/2026-09-24-design-system/guide-layouts-after-narrow.png`
+- `docs/screenshots/2026-09-24-design-system/frame-presets-after.png`
 
 `pnpm audit:spacing:report` reports 333 raw declarations in 259 buckets,
 and `pnpm audit:sizing:report` reports 69 ratcheted declarations in 54

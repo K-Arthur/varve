@@ -90,6 +90,11 @@ migrates isometric grids to the canonical spacing contract described above and a
 
 Open **View → Guides → Guide Layouts…**, press **Ctrl+Alt+Shift+G**, use command
 search, or choose it from the frame/page context menu.
+Guide Layouts uses the shared modal dialog, button, and select controls. The
+native top layer keeps editor chrome below the form; focus starts inside the
+dialog, nested select menus dismiss one layer at a time, and closing the
+dialog returns focus to its invoker or the editor fallback.
+With no selected frame, the form explains what to select and disables Apply.
 The target is snapshotted when the dialog opens, so later selection changes do
 not retarget a preview. Add is the default; Replace all states its removal
 count, and Clear all is confirmed separately. Apply validates all targets and

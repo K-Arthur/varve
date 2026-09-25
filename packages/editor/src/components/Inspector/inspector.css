@@ -6830,9 +6830,9 @@ fieldset.insp-canvas-props,
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
-  height: 22px;
+  min-height: var(--component-xs-height);
   padding: 0 var(--space-2);
-  border-radius: 11px;
+  border-radius: var(--radius-pill);
   border: 1px solid transparent;
   background: transparent;
   color: var(--color-text-secondary);
@@ -6927,7 +6927,7 @@ fieldset.insp-canvas-props,
 .insp-preset-item__preview {
   display: inline-block;
   border: 1px solid var(--color-border-subtle);
-  border-radius: 2px;
+  border-radius: var(--radius-control-compact);
   background: var(--color-surface-sunken);
   margin-right: var(--space-2);
   flex-shrink: 0;
@@ -6967,14 +6967,14 @@ fieldset.insp-canvas-props,
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: var(--component-xs-height);
+  height: var(--component-xs-height);
   padding: 0;
   border: none;
   background: transparent;
   color: var(--color-text-muted);
   cursor: pointer;
-  border-radius: 3px;
+  border-radius: var(--radius-control-compact);
   flex-shrink: 0;
   opacity: 0.3;
   transition: opacity var(--duration-quick) var(--ease-standard);
@@ -6998,14 +6998,14 @@ fieldset.insp-canvas-props,
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: var(--component-xs-height);
+  height: var(--component-xs-height);
   padding: 0;
   border: none;
   background: transparent;
   color: var(--color-text-muted);
   cursor: pointer;
-  border-radius: 3px;
+  border-radius: var(--radius-control-compact);
   flex-shrink: 0;
   opacity: 0;
   transition: opacity var(--duration-quick) var(--ease-standard);
