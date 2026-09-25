@@ -33,3 +33,18 @@ test('interface documentation names the page controls by their publishing role',
   await expect(section).toContainText('Page Navigator');
   await expect(section).toContainText('same document and artwork remain intact');
 });
+
+test('homepage and About describe local file access without a browser-only claim', async ({
+  page,
+}) => {
+  await page.goto('/');
+  const home = page.locator('.interface-section');
+  await expect(home).toContainText('during an outage');
+  await expect(home).toContainText('local files');
+  await expect(home).not.toContainText('Figma requires a browser');
+
+  await page.goto('/about');
+  const about = page.locator('.about-section').first();
+  await expect(about).toContainText('local documents they can open during an outage');
+  await expect(about).not.toContainText('Figma requires a browser');
+});

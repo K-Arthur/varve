@@ -1,8 +1,9 @@
 # Validation repair checkpoint — 2026-09-24
 
-Branch: `master`. Completed code checkpoint: `4f93cb47f` (pushed); this
-follow-up records the subsequently discovered WASM validation repair. The
-final full gate for that repair remains pending, so the results below
+Branch: `master`. The initial full code checkpoint was `4f93cb47f` (pushed).
+Subsequent pushed repairs include browser storage and WASM validation
+(`24a5a25b5`) and document-scoped history capture (`729344137`). The final
+full gate on the latest pushed checkpoint remains pending; the results below
 distinguish completed checks from pending ones.
 
 ## Repair and validation ledger
@@ -30,6 +31,16 @@ The website's footer CTA, 200% text reflow, and reviewed visual baselines were
 committed earlier in this repair sequence (`3083b77cc`, `9d3d9b23d`,
 `9e18c5912`, `c6eca8e7a`). The push checkpoint at `4f93cb47f` also passed
 the website unit corpus (239 tests).
+
+The final homepage/About copy correction passed `pnpm verify:affected --staged`
+with 572/572 website Chromium checks, 239/239 website unit tests, both site
+base paths built, and `astro check` reporting zero errors, warnings, or hints.
+The browser run included visual baselines, axe, keyboard use, touch layouts,
+and 200% text reflow. The focused copy spec also passed 6/6 checks on the
+GitHub Pages and custom-domain builds. Fresh 1280 px and 390 px screenshots
+of both pages were inspected: the copy wraps cleanly and neither page has
+horizontal overflow. The site build's environment guard reported unused host
+variables as expected; it consumed only the three allowed client-safe values.
 
 ## CSS warning classification
 
@@ -80,6 +91,13 @@ workflows:
 These reports are dated user experiences, not claims about every current
 competitor release. Website text remains bounded by capabilities exercised
 in this repository; no unverified feature promise was added to the site.
+
+The final source check found an existing homepage/About claim that Figma
+"requires a browser." [Figma documents desktop apps for macOS and
+Windows](https://help.figma.com/hc/en-us/articles/5601429983767-Guide-to-the-Figma-desktop-app),
+so that claim was removed. The replacement copy describes the specific
+outage-access concern in the user report and Varve's tested local-file model
+without implying that Figma lacks a desktop app.
 
 ## Shared worktree inventory
 
