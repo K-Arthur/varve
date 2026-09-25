@@ -2,25 +2,42 @@
  * DTCG (Design Tokens Community Group) format export bridge.
  *
  * Converts Varve's internal design token system (SemanticToken map)
- * to the W3C DTCG-compliant JSON format for interoperability with
- * Figma Tokens, Token Studio, Style Dictionary, and Supernova.
+ * to Design Tokens Format Module 2025.10 JSON for interchange with
+ * Style Dictionary, Tokens Studio, Figma, Penpot, Terrazzo, and similar.
  *
- * Output: a DTCG JSON object with `$type`, structured `$value`, and
- * `$description` fields organized in a CTI (Category/Type/Item) hierarchy.
+ * Standards status: the 2025.10 Format/Color/Resolver modules are Final
+ * Community Group Reports (published 2025-10-28, "considered stable").
+ * They are NOT W3C Standards and are not on the W3C Standards Track —
+ * neither this export nor its documentation may claim otherwise.
+ *
+ * Output: a DTCG JSON object with `$type`, structured `$value`,
+ * `$description`, and vendor-namespaced `$extensions`, organized in a
+ * theme → CTI (Category/Type/Item) hierarchy.
+ *
+ * Export profile guarantees:
+ * - deterministic: two calls produce byte-identical JSON (no timestamps,
+ *   random ids, or precision-losing rounding of authored values)
+ * - no `$version`: that key never existed in DTCG and the published 2025.10
+ *   JSON Schema rejects it at the document level
+ * - every extension lives under the reverse-domain key `org.varve`, as
+ *   DTCG 2025.10 §5.2.3 requires of tool-authored extension data
  *
  * Research basis:
- *   - DTCG 2025.10 Design Tokens Format and Color module
- *   - Style Dictionary 4.x format
- *   - Figma Tokens Studio v2 format
+ *   - DTCG 2025.10 Design Tokens Format and Color modules (Final CG Reports)
+ *   - Style Dictionary 4.x/5.x DTCG format
+ *   - Figma Tokens Studio v2 format (legacy adapter only)
  *
  * Usage:
- *   import { dtcgExport } from '@varve/ui/tokens/dtcg';
+ *   import { dtcgExport } from '@varve/ui/tokens';
  *   const json = JSON.stringify(dtcgExport(), null, 2);
  *
  * The export preserves all 52 semantic tokens × 3 themes with OKLCH values.
  */
 import { SEMANTIC, type SemanticToken, type Theme } from './color';
 import type { Oklch } from './contrast';
+
+/** Reverse-domain extension key; every tool-specific key lives under it. */
+export const VARVE_EXTENSION_KEY = 'org.varve';
 
 export interface DTCGToken {
   $type: 'color';
@@ -40,13 +57,14 @@ export interface DTCGGroup {
 }
 
 export interface DTCGDocument {
-  $version: string;
   $description: string;
+  $extensions: Record<string, unknown>;
   [key: string]: unknown;
 }
 
 /**
- * Convert an Oklch color to OKLCH CSS string.
+ * Convert an Oklch color to OKLCH CSS string (display convenience copy —
+ * the structured `components` remain the authoritative value).
  */
 function oklchToString(c: Oklch): string {
   return `oklch(${c.L.toFixed(4)} ${c.C.toFixed(4)} ${c.H.toFixed(2)})`;
@@ -55,7 +73,7 @@ function oklchToString(c: Oklch): string {
 function oklchToDtcg(c: Oklch): DTCGColorValue {
   return {
     colorSpace: 'oklch',
-    components: [Number(c.L.toFixed(4)), Number(c.C.toFixed(4)), Number(c.H.toFixed(2))],
+    components: [c.L, c.C, c.H],
     alpha: 1,
   };
 }
@@ -126,9 +144,11 @@ export function buildDTCGExport(themes?: Theme[]): Record<string, DTCGGroup> {
         $type: 'color',
         $value: oklchToDtcg(oklchVal as Oklch),
         $extensions: {
-          'strata-token': tokenName,
-          'strata-theme': theme,
-          'strata-css-color': oklchToString(oklchVal as Oklch),
+          [VARVE_EXTENSION_KEY]: {
+            token: tokenName,
+            theme,
+            cssColor: oklchToString(oklchVal as Oklch),
+          },
         },
       } satisfies DTCGToken;
     }
@@ -140,20 +160,28 @@ export function buildDTCGExport(themes?: Theme[]): Record<string, DTCGGroup> {
 }
 
 /**
- * Full DTCG document including versioning and metadata.
+ * Full DTCG document including description and tool metadata.
+ *
+ * Deterministic: identical input always produces identical output, so an
+ * unchanged export can be diffed against the previous one. Tool metadata
+ * (specification version, generator, source file) lives under the
+ * `org.varve` extension key rather than in a `$version` property — `$version`
+ * is not part of DTCG 2025.10.
  */
 export function dtcgExport(): DTCGDocument {
-  const colors = buildDTCGExport();
+  const themes = buildDTCGExport();
 
   return {
-    $version: '1.0',
-    $description: 'Varve Design Tokens — DTCG-compliant format',
+    $description: 'Varve application design tokens — DTCG 2025.10 format',
     $extensions: {
-      generated: new Date().toISOString(),
-      source: 'packages/ui/src/tokens/color.ts',
-      generator: '@varve/ui/tokens/dtcg.ts',
+      [VARVE_EXTENSION_KEY]: {
+        specification: 'dtcg-2025.10',
+        generator: '@varve/ui/tokens/dtcg.ts',
+        source: 'packages/ui/src/tokens/color.ts',
+        scope: 'application-ui-tokens (not document tokens)',
+      },
     },
-    color: colors,
+    ...themes,
   };
 }
 

@@ -32,14 +32,15 @@ describe('DTCG Export — Structure', () => {
     });
   });
 
-  it('includes strata-token extension', () => {
+  it('includes a vendor-namespaced extension', () => {
     const result = buildDTCGExport(['light']);
     const light = result['theme-light']!;
     const color = light.color as Record<string, unknown>;
     const text = color.text as Record<string, unknown>;
     const primary = text.primary as Record<string, unknown>;
     const extensions = (primary as Record<string, unknown>).$extensions as Record<string, unknown>;
-    expect(extensions['strata-token']).toBe('text-primary');
+    expect(Object.keys(extensions)).toEqual(['org.varve']);
+    expect(extensions['org.varve']).toMatchObject({ token: 'text-primary', theme: 'light' });
   });
 });
 
@@ -75,11 +76,36 @@ describe('DTCG Export — CTI Hierarchy', () => {
 });
 
 describe('DTCG Export — Full Document', () => {
-  it('includes version and description', () => {
-    const doc = dtcgExport();
-    expect(doc.$version).toBe('1.0');
+  it('omits $version, which is not part of DTCG 2025.10', () => {
+    const doc = dtcgExport() as Record<string, unknown>;
+    expect(doc.$version).toBeUndefined();
+    expect(Object.keys(doc).filter((key) => key.startsWith('$'))).toEqual([
+      '$description',
+      '$extensions',
+    ]);
     expect(doc.$description).toContain('Varve');
-    expect(doc.color).toBeDefined();
+    expect(doc['theme-light']).toBeDefined();
+  });
+
+  it('is deterministic across calls', () => {
+    expect(JSON.stringify(dtcgExport())).toBe(JSON.stringify(dtcgExport()));
+  });
+
+  it('namespaces root metadata under org.varve', () => {
+    const doc = dtcgExport() as Record<string, unknown>;
+    const extensions = doc.$extensions as Record<string, unknown>;
+    expect(Object.keys(extensions)).toEqual(['org.varve']);
+    expect(extensions['org.varve']).toMatchObject({ specification: 'dtcg-2025.10' });
+  });
+
+  it('emits full authored precision for oklch components', () => {
+    const doc = dtcgExport() as Record<string, unknown>;
+    const theme = doc['theme-light'] as Record<string, unknown>;
+    const color = theme.color as Record<string, unknown>;
+    const surface = color.surface as Record<string, unknown>;
+    const app = surface.app as Record<string, unknown>;
+    const value = (app as { $value: { components: number[] } }).$value;
+    expect(value.components).toEqual([0.97, 0.008, 260]);
   });
 });
 
