@@ -529,6 +529,7 @@ The following dated files were moved from `docs/architecture/` to
 |-----|---------|
 | `tokens/dtcgsync-audit.md` | DTCG sync milestone audit (dated record, 2026-08-05) |
 | `tokens/dtcgsync-architecture.md` | DTCG sync architecture record (dated record, 2026-08-05) |
+| `tokens/dtcg-interop-evidence-2026-09-25.md` | DTCG 2025.10 evidence ledger, coverage matrix, ranked defects (dated record) |
 
 ## Implementation Ledgers (historical)
 

@@ -24,11 +24,17 @@ resolver, merge engine, or synchronization mechanism.
 
 ## 2. Standards baseline
 
-- Target stable version: **DTCG 2025.10 family** — the "Design Tokens Format
-  Module 2025.10" Draft Community Group Report (published 2026-07-30 snapshot)
-  plus its Color and Resolver module reports.
-- The report is a **Draft Community Group Report, not a W3C Recommendation and
-  not on the W3C Standards Track**. Varve will never label it otherwise.
+- Target stable version: **DTCG 2025.10 family** — the Format, Color, and
+  Resolver Module reports, all published together as **Final Community Group
+  Reports on 2025-10-28** and all marked "This specification is considered
+  stable" (verified against `https://www.designtokens.org/TR/2025.10/` on
+  2026-09-25; the technical-reports index lists 2025.10 with status
+  "Stable").
+- The reports are **Final Community Group Reports, not W3C Recommendations,
+  not W3C Standards, and not on the W3C Standards Track**. Varve will never
+  label them otherwise. Older revisions of this document called the Format
+  module a "Draft … (2026-07-30 snapshot)"; that was wrong on both report
+  type and date and has been corrected here.
 - A `DtcgSpecificationVersion` capability abstraction gates every feature
   (`supportsFormatModule`, `supportsColorModule`, `supportsResolverModule`,
   supported types, supported reference forms). Future drafts sit behind an
