@@ -34,6 +34,7 @@ No completion percentage is reported while runtime coverage is incomplete.
 | DS-05 | Medium | Homepage snapshot contains pre-correction competitor copy; `visual.spec.ts` allows a 2% pixel difference that can miss a small text change. | Inspect and approve current desktop/mobile light/dark captures; assert critical product copy semantically and update only changed baselines. |
 | DS-06 | Medium | Screenshot validator allows a captured website PNG without its canonical docs copy; `comic-lettering-light.png` is one such case. | Validator checks both copies and matching content hashes for captured scenes; repair the missing copy through the review/sync pipeline. |
 | DS-07 | Medium | Real Home capture: a `Brand Starter` template query initially highlighted the shorter `Brand` project above it; Enter would navigate away from the requested template. | An exact name match is active ahead of earlier partial matches; ARIA state and Enter agree. |
+| DS-08 | High | `Quick Actions` is bound to Ctrl+Shift+semicolon with `key: ';'`, but the browser reports `key: ':'` for that keystroke; the onboarding tip also omits Shift and conflicts with the guide-visibility shortcut. | The physical shortcut opens the command surface; arrow movement updates the exposed active option; empty results and Escape remain stable. |
 
 ## Foundation repair evidence
 
@@ -84,6 +85,21 @@ Home main content; Escape returns it to the invoker.
 
 - `docs/screenshots/2026-09-24-design-system/home-search-project.png`
 - `docs/screenshots/2026-09-24-design-system/home-search-template.png`
+
+## Quick Actions workflow repair evidence
+
+The shortcut registry now matches the browser's shifted semicolon key and the
+onboarding tip names the physical keys. The search field exposes its listbox
+and active option with `aria-controls` and `aria-activedescendant`; empty
+results have no active descendant. A strict browser scenario replaces the
+former optional visibility check and passes in Chromium. Playwright synthesizes
+`key=';'` for Shift+semicolon, unlike the printed `':'` from a physical US
+keyboard, so the browser test sends the printed character explicitly. The
+focused Quick Actions and shortcut units pass **49/49**. The retained editor
+screenshot was opened and inspected: the search field, active result, and
+remaining command rows are visible within the viewport.
+
+- `docs/screenshots/2026-09-24-design-system/quick-actions-open.png`
 
 `pnpm audit:spacing:report` reports 333 raw declarations in 259 buckets,
 and `pnpm audit:sizing:report` reports 69 ratcheted declarations in 54

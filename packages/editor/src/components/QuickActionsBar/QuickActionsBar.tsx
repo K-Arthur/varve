@@ -19,6 +19,7 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   useCallback,
   useEffect,
+  useId,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -78,6 +79,7 @@ export function QuickActionsBar({
   const [activeIndex, setActiveIndex] = useState(0);
   const [recent, setRecent] = useState<string[]>(loadRecent);
   const launchElementRef = useRef<HTMLElement | null>(null);
+  const resultsId = useId();
 
   const registry = getActionRegistry();
   const effectiveConfig = useEffectiveWorkspaceConfig(workspaceMode);
@@ -172,7 +174,9 @@ export function QuickActionsBar({
         onClose();
       } else if (e.key === 'ArrowDown') {
         e.preventDefault();
-        setActiveIndex((prev) => Math.min(prev + 1, filtered.length - 1));
+        setActiveIndex((prev) =>
+          filtered.length > 0 ? Math.min(prev + 1, filtered.length - 1) : 0,
+        );
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
         setActiveIndex((prev) => Math.max(prev - 1, 0));
@@ -208,8 +212,8 @@ export function QuickActionsBar({
       onClose={onClose}
       className="quick-actions-bar__layer"
     >
-      {/* FocusTrap supplies what aria-modal only claims: Tab containment plus
-          restoration of focus to whatever launched the palette. */}
+      {/* FocusTrap contains Tab; the launch-element handoff above owns
+          restoration so actions can open their own dialogs. */}
       <FocusTrap
         active
         initialFocus=".quick-actions-bar__input"
@@ -229,6 +233,14 @@ export function QuickActionsBar({
               ref={inputRef}
               className="quick-actions-bar__input"
               type="text"
+              role="combobox"
+              aria-expanded="true"
+              aria-haspopup="listbox"
+              aria-controls={resultsId}
+              aria-autocomplete="list"
+              aria-activedescendant={
+                filtered[activeIndex] ? `${resultsId}-option-${activeIndex}` : undefined
+              }
               value={query}
               onChange={(e) => {
                 setQuery(e.target.value);
@@ -248,6 +260,7 @@ export function QuickActionsBar({
           </div>
 
           <div
+            id={resultsId}
             className="quick-actions-bar__results"
             ref={listRef}
             role="listbox"
@@ -259,6 +272,7 @@ export function QuickActionsBar({
             {filtered.map((action, i) => (
               <button
                 key={action.id}
+                id={`${resultsId}-option-${i}`}
                 type="button"
                 className={`quick-actions-bar__item${i === activeIndex ? ' quick-actions-bar__item--active' : ''}`}
                 role="option"

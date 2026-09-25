@@ -117,16 +117,23 @@ test.describe('Workflow efficiency — keyboard shortcuts & command layer', () =
     }
   });
 
-  test('QuickActionsBar opens via Ctrl+Shift+; and shows actions', async ({ page }) => {
-    await page.keyboard.press('Control+Shift+;');
-    // The QuickActionsBar might appear as a different role/element
-    // Let's check for the known container
-    const qaContainer = page
-      .locator('.quick-actions-bar, [data-testid="quick-actions-bar"]')
-      .first();
-    if (await qaContainer.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await expect(qaContainer).toBeVisible();
-    }
+  test('QuickActionsBar opens via Ctrl+Shift+; and shows actions', async ({ page }, testInfo) => {
+    // Playwright sends key=';' for Shift+; where a physical US keyboard sends
+    // key=':'. Ask for the printed character to exercise the real binding.
+    await page.keyboard.press('Control+Shift+:');
+    const dialog = page.getByRole('dialog', { name: 'Quick actions' });
+    await expect(dialog).toBeVisible();
+    const input = dialog.getByRole('combobox', { name: 'Search actions' });
+    await expect(input).toBeFocused();
+    await expect(input).toHaveAttribute('aria-activedescendant', /-option-0$/);
+    await input.press('ArrowDown');
+    await expect(input).toHaveAttribute('aria-activedescendant', /-option-1$/);
+    await page.screenshot({ path: testInfo.outputPath('quick-actions-open.png') });
+    await input.fill('no-action-matches-this-query');
+    await expect(dialog.getByText('No actions found')).toBeVisible();
+    await expect(input).not.toHaveAttribute('aria-activedescendant');
+    await input.press('Escape');
+    await expect(dialog).toBeHidden();
   });
 
   test('View menu items are accessible via shortcuts', async ({ page }) => {

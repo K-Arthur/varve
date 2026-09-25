@@ -120,6 +120,20 @@ describe('QuickActionsBar', () => {
     expect(onClose).toHaveBeenCalledOnce();
   });
 
+  it('exposes the active option from the focused search field and clears it for empty results', async () => {
+    render(<QuickActionsBar open={true} onClose={vi.fn()} />);
+    const input = await screen.findByRole('combobox', { name: 'Search actions' });
+    fireEvent.change(input, { target: { value: 'Undo' } });
+    const option = screen.getByText('Undo').closest<HTMLElement>('[role="option"]');
+    if (!option?.parentElement) throw new Error('Undo option is missing from the listbox');
+    expect(input).toHaveAttribute('aria-controls', option.parentElement.id);
+    expect(input).toHaveAttribute('aria-activedescendant', option.id);
+    fireEvent.change(input, { target: { value: 'zzzznotfound' } });
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    expect(input).not.toHaveAttribute('aria-activedescendant');
+    expect(document.querySelectorAll('[role="option"]')).toHaveLength(0);
+  });
+
   it('shows no results message when no match', () => {
     render(<QuickActionsBar open={true} onClose={vi.fn()} />);
     const input = screen.getByLabelText('Search actions');

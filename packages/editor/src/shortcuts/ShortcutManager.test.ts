@@ -134,6 +134,16 @@ describe('bindingMatchesEvent', () => {
     expect(bindingMatchesEvent(e, { key: 'z', ctrl: true })).toBe(true);
   });
 
+  it('matches the printed colon from Ctrl+Shift+; for Quick Actions', () => {
+    const e = new KeyboardEvent('keydown', {
+      key: ':',
+      code: 'Semicolon',
+      ctrlKey: true,
+      shiftKey: true,
+    });
+    expect(bindingMatchesEvent(e, SHORTCUT_DEFS.quickActions.binding)).toBe(true);
+  });
+
   it('does not match when modifier missing', () => {
     const e = new KeyboardEvent('keydown', { key: 'z' });
     expect(bindingMatchesEvent(e, { key: 'z', ctrl: true })).toBe(false);

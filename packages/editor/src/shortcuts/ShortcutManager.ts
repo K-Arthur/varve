@@ -474,7 +474,8 @@ export const SHORTCUT_DEFS = {
     category: 'View',
   },
   quickActions: {
-    binding: { key: ';', ctrl: true, shift: true },
+    // Shift+; emits ':' as KeyboardEvent.key on standard layouts.
+    binding: { key: ':', ctrl: true, shift: true },
     label: 'Quick Actions',
     category: 'View',
   },
