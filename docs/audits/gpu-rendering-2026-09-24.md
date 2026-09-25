@@ -219,6 +219,8 @@ They do not replace a mixed-document, export, or real-display color check.
 | Rectangle upload boundary at `faa25f3a5` | [Canvas2D reference](../screenshots/gpu-rendering-2026-09-24/rect-chunk-canvas2d.png), [WebGPU result](../screenshots/gpu-rendering-2026-09-24/rect-chunk-gpu.png) |
 | Fallback/status and native UI after `3bf2582c1` | [Browser status](../screenshots/gpu-rendering-2026-09-24/editor-gpu-unavailable.png), [Performance settings](../screenshots/gpu-rendering-2026-09-24/settings-gpu-unavailable.png), [native WebKitGTK rectangle](../screenshots/gpu-rendering-2026-09-24/native-webkitgtk-rect.png) |
 | Narrow marketing docs after `b530c866e` | [Rendering explanation](../screenshots/gpu-rendering-2026-09-24/website-rendering-mobile.png) |
+| Transparent cutout, reopened and exported on 2026-09-25 | [Reopened editor canvas](../screenshots/gpu-rendering-2026-09-24/alpha-cutout-reopened.png), [1× PNG output](../screenshots/gpu-rendering-2026-09-24/alpha-cutout-export.png) |
+| Panoramic 3000×600 mask proxy on 2026-09-25 | [Before application](../screenshots/gpu-rendering-2026-09-24/panoramic-mask-before.png), [after application](../screenshots/gpu-rendering-2026-09-24/panoramic-mask-applied.png) |
 
 ## Verification boundary and remaining work
 
@@ -231,13 +233,24 @@ ceiling is a bound on this compositor's vertex allocations, not a measurement
 of total graphics memory. These repairs carry no measured frame-latency or
 battery-life improvement.
 
+The large-image browser workflow exposed a separate Canvas2D cache ownership
+bug: mask preparation produced a bounded 2048×410 live-canvas proxy, but image
+retention tracked only the full-resolution mask URL and immediately evicted the
+proxy. The replay then drew the unmasked image. Retention now includes both
+URLs while the document mask is active and evicts their decoded entries when
+it closes. The bounded URL lookup remains separate from the decoded cache. A unit
+test checks that lifecycle; the exact panoramic Playwright case passed with a
+same-state full-redraw pixel oracle.
+The inspected captures above show the blue source background before application
+and the editor's light canvas background through the masked area afterward.
+
 | Risk area | Evidence in this investigation | Still required before a broader claim |
 |---|---|---|
 | Simple-shape visual correctness | Inspected before/after Chromium adapter pixels for two circles, rounded fallback, and both upload boundaries; ordered-run and failure unit tests | Fractional DPR, extreme transforms, edge antialiasing parity, and a mixed creative document through the editor |
 | Failure and resource handling | Unit-injected initialization/draw failures and device-loss status; bounded vertex chunks at 11,651 circles and 14,564 rectangles | Real driver reset, out-of-memory recovery, owned-resource profiling, and constrained-device runs |
 | Native desktop | Fresh WebKitGTK `tauri dev` under Xvfb/X11 drew and displayed a rectangle with Canvas2D status | Wayland, packaged Linux, Windows/WebView2, macOS/WKWebView, and actual hardware GPU presentation |
 | Browser and Chromebook | Chromium adapter fixtures and software-adapter fallback/status tests | ChromeOS browser/PWA and Linux ARM64/Crostini on the Lenovo Duet 11; its GPU specifications alone establish no supported path |
-| Documents and output | Display backend changes do not alter the export implementation; native UI retained editable layers in the inspected interaction | Mixed-document save/reopen, undo/redo, export/print pixel inspection, managed-color/HDR display comparison |
+| Documents and output | Browser cutout test passed undo/redo, save/reopen, forced full redraw, and 1× PNG alpha checks (0 and 128) on a 2100×300 source; panoramic mask test passed at 3000×600 with same-state full-redraw pixel equality; the editor and PNG captures above were inspected | Mixed-document save/reopen, print output, and managed-color/HDR display comparison |
 | Performance | Correctness comparisons and upload-size bounds only | Same-hardware, equivalent-fidelity cold/warm input-to-visible-paint and resource measurements before considering WebGPU default eligibility |
 
 The default remains Canvas2D, the Linux WebGPU gate remains in place, and the

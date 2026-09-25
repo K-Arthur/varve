@@ -73,6 +73,7 @@ re-pasting or re-importing creates a new asset when those bytes are gone.
 | Per-placement state | `ImageFillData` | Crop, fit, offsets, rotation, flips, and edit provenance are node/paint usage state. |
 | Materialized `src` | `DocumentCodec` | Compatibility view of an embedded asset; stripped from encoded fills and rehydrated on decode. Canonical `asset:<id>` references are repaired here as well. |
 | Decoded display image | `@varve/engine` `ImageCache` | URL/data-URL keyed today; in-flight deduplicated, stale-token guarded, entry/byte bounded. |
+| Raster mask and live-canvas proxy | `Document.rasterMaskAssets` owns the full-resolution PNG; `maskRenderCache` prepares a bounded proxy in `ImageCache` | `renderContent` retains both source URLs while a mask is active so cache eviction cannot drop the proxy before replay. Only the full-resolution mask is saved, edited, and exported; inactive decoded entries are evicted, while the proxy URL lookup is capped at 32 entries. |
 | Worker bitmap | editor render worker | Main thread transfers only missing sources. Worker retains unchanged bitmaps and closes removed/replaced sources exactly once. |
 | Returned worker frame | worker host / canvas owner | Latest-revision and viewport/DPR guarded; stale and replaced frames are closed. |
 | WebGPU geometry | compositor | Optional acceleration. A batch falls back intact to Canvas2D when any item has unsupported paint or ordering semantics. |
