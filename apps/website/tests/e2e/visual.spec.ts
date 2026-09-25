@@ -134,12 +134,19 @@ const THEMES = [
   { name: 'dark', colorScheme: 'dark' as const },
 ];
 
+async function expectCurrentHomepageCopy(page: import('@playwright/test').Page) {
+  await expect(page.locator('.hero-title')).toContainText('Design locally.');
+  await expect(page.locator('.hero-title')).toContainText('One canvas.');
+  await expect(page.locator('.hero-subtitle')).toContainText('no account, no subscription');
+}
+
 test('homepage light', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'light', reducedMotion: 'reduce' });
   await seedTheme(page, 'light');
   await page.goto('/?test-motion=static');
   await waitForImages(page);
   await expect(page.locator('.hero-title')).toBeVisible();
+  await expectCurrentHomepageCopy(page);
   await warmFullPage(page);
   await expect(page).toHaveScreenshot('home-light.png', {
     fullPage: true,
@@ -153,6 +160,7 @@ test('homepage dark', async ({ page }) => {
   await page.goto('/?test-motion=static');
   await waitForImages(page);
   await expect(page.locator('.hero-title')).toBeVisible();
+  await expectCurrentHomepageCopy(page);
   await warmFullPage(page);
   await expect(page).toHaveScreenshot('home-dark.png', { fullPage: true, maxDiffPixelRatio: 0.02 });
 });
@@ -164,6 +172,7 @@ test('homepage mobile light', async ({ page }) => {
   await page.goto('/?test-motion=static');
   await waitForImages(page);
   await expect(page.locator('.hero-title')).toBeVisible();
+  await expectCurrentHomepageCopy(page);
   await warmFullPage(page);
   await expect(page).toHaveScreenshot('home-mobile-light.png', {
     fullPage: true,
@@ -178,6 +187,7 @@ test('homepage mobile dark', async ({ page }) => {
   await page.goto('/?test-motion=static');
   await waitForImages(page);
   await expect(page.locator('.hero-title')).toBeVisible();
+  await expectCurrentHomepageCopy(page);
   await warmFullPage(page);
   await expect(page).toHaveScreenshot('home-mobile-dark.png', {
     fullPage: true,

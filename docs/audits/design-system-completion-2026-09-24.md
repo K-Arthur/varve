@@ -21,7 +21,7 @@ No completion percentage is reported while runtime coverage is incomplete.
 | Shared settings and theme/density lifecycle | In progress | Existing lifecycle specs and 315/315 token contrast pairs pass; repeat switches and reopen with real UI. |
 | Menus, overlays, Guide Layouts | Repaired; broader visual matrix pending | Guide Layouts now uses the shared modal and controls; browser screenshots show a dim backdrop and centered desktop/narrow layout. Nested select, focus restoration, no-target gating, and Escape passed focused Chromium tests. |
 | Detached-window chrome | In progress | Existing theme lifecycle coverage; run integration smoke if changed. |
-| Website home/product/features/docs/support/learn/download/legal | In progress | Site source contains 105 Astro page files. The homepage golden predates its latest copy; the Guide Layouts product screenshot shows editor chrome crossing the dialog. Review both base paths and current product claims. |
+| Website home/product/features/docs/support/learn/download/legal | Repaired; full site E2E pending | Both base paths build 105 pages. Eight reviewed homepage captures cover desktop/mobile light/dark; the inspected product scenes and current-copy homepage baselines have been refreshed. |
 
 ## Findings and acceptance
 
@@ -119,6 +119,36 @@ reproduction before claiming that exact overlap is current.
 
 - `docs/screenshots/2026-09-24-design-system/guide-layouts-before-desktop.png`
 - `docs/screenshots/2026-09-24-design-system/guide-layouts-before-narrow.png`
+
+## Marketing site and screenshot evidence
+
+Six current product scenes (Guide Layouts, vector, motion, layout, layers,
+and enhancement) were captured from the real editor, opened for visual
+review, then synced to the website and canonical documentation copies. The
+Guide Layouts frame now shows the modal backdrop and clear controls; the
+vector capture backs the camera off enough that the shape and handles are
+visible above the floating tool tray. The comic-lettering documentation copy
+was restored from the already captured public PNG after its manifest SHA-256
+matched. `node scripts/screenshots/validate.mjs` now requires both copies
+and the manifest hash for every captured scene: **24 captured, 0 skipped,
+0 violations**. The matching website unit tests pass **5/5**.
+
+Both static builds completed with **105 pages** each, for `/` and `/varve`.
+The base-path review passed **8/8** light/dark desktop/mobile cases. All
+eight full-page images were opened and inspected; each matching viewport
+pair has identical SHA-256 bytes across the two base paths. The page has no
+horizontal overflow in those cases. The older homepage golden retained a
+pre-correction Figma/Illustrator claim because the visual assertion tolerates
+2% changed pixels. Four current-copy homepage baselines were force-regenerated
+after the review and then opened and inspected at their 1280px desktop and
+375px mobile test widths. The visual test also asserts the current hero copy
+semantically, so a small future text change cannot hide within the pixel
+tolerance. The four focused homepage visual cases pass **4/4**.
+
+- `docs/screenshots/2026-09-24-design-system/website/` — both base paths,
+  both themes, desktop and mobile.
+- `apps/website/tests/e2e/visual.spec.ts-snapshots/home-light-ghpages-linux.png`
+  and its dark/mobile peers — accepted current-copy baselines.
 
 Research-to-decision details are appended to
 `docs/research/design-system-overhaul-2026-09-17.md`. Subsequent milestone
