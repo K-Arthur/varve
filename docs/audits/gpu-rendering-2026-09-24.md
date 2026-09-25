@@ -221,6 +221,7 @@ They do not replace a mixed-document, export, or real-display color check.
 | Narrow marketing docs after `b530c866e` | [Rendering explanation](../screenshots/gpu-rendering-2026-09-24/website-rendering-mobile.png) |
 | Transparent cutout, reopened and exported on 2026-09-25 | [Reopened editor canvas](../screenshots/gpu-rendering-2026-09-24/alpha-cutout-reopened.png), [1× PNG output](../screenshots/gpu-rendering-2026-09-24/alpha-cutout-export.png) |
 | Panoramic 3000×600 mask proxy on 2026-09-25 | [Before application](../screenshots/gpu-rendering-2026-09-24/panoramic-mask-before.png), [after application](../screenshots/gpu-rendering-2026-09-24/panoramic-mask-applied.png) |
+| Separate masked-image transform history failure on 2026-09-25 | [Redo disabled after Undo](../screenshots/gpu-rendering-2026-09-24/masked-transform-redo-disabled.png) |
 
 ## Verification boundary and remaining work
 
@@ -244,6 +245,14 @@ same-state full-redraw pixel oracle.
 The inspected captures above show the blue source background before application
 and the editor's light canvas background through the masked area afterward.
 
+The separate `background-removed-transform.spec.ts` edge-resize case still fails:
+after Undo, Redo remains disabled and the selection clears. It failed before
+this cache repair and failed again in an exact Chromium run afterward. This
+remains an open history/selection investigation; the panoramic cache result
+does not resolve it. An earlier bounded canvas slice also found an unrelated
+auto-layout flow-child reorder failure, so the broad canvas E2E lane is not
+recorded as passing.
+
 | Risk area | Evidence in this investigation | Still required before a broader claim |
 |---|---|---|
 | Simple-shape visual correctness | Inspected before/after Chromium adapter pixels for two circles, rounded fallback, and both upload boundaries; ordered-run and failure unit tests | Fractional DPR, extreme transforms, edge antialiasing parity, and a mixed creative document through the editor |
@@ -256,3 +265,24 @@ and the editor's light canvas background through the masked area afterward.
 The default remains Canvas2D, the Linux WebGPU gate remains in place, and the
 website describes those limits. Do not infer physical GPU execution from an
 adapter name, software headless test, or the status label `WebGPU ready`.
+
+### Local validation record for the mask-cache repair
+
+- `pnpm verify:plan --staged` selected the editor and desktop closures, the
+  background-removal browser file, canvas E2E, and the render benchmark; it did
+  not request a full repository gate.
+- `pnpm verify:affected --staged` passed touched-file checks, E2E typecheck,
+  and the focused mask-cache unit test (6/6). Its browser file reached 7/8;
+  the remaining case used two obsolete mask-editor labels. Both labels were
+  corrected and that exact case then passed. The panoramic case separately
+  passed with the same-state full-redraw oracle.
+- Direct editor, desktop, and E2E typechecks passed. Desktop unit tests passed
+  80/80; two load-sensitive inspector failures in a broad editor run passed
+  together on a one-worker exact rerun (31/31). `pnpm bench:canvas` passed its
+  six threshold checks; these are not before/after latency measurements.
+- `node scripts/audit-architecture.mjs --ci` passed after one host-load timeout:
+  14 existing dependency cycles, zero layer violations, and no unused exports.
+  Docs, emoji, and token audits passed. The full suite was not run.
+- The broad canvas E2E gate remains incomplete because its bounded earlier
+  slice hit the flow-child reorder failure; the exact masked-transform history
+  case also remains red as described above.
