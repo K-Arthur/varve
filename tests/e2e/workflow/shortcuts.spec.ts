@@ -13,13 +13,13 @@ test.describe('Workflow efficiency — keyboard shortcuts & command layer', () =
 
     // Start with Select (V)
     await page.keyboard.press('v');
-    const selectBtn = floatingToolbar.getByRole('button', { pressed: true });
-    await expect(selectBtn).toHaveAttribute('aria-label', /select/i);
+    const selectBtn = floatingToolbar.getByRole('button', { name: 'Select', exact: true });
+    await expect(selectBtn).toHaveAttribute('aria-pressed', 'true');
 
     // Switch to Rectangle (R)
     await page.keyboard.press('r');
-    const rectBtn = floatingToolbar.getByRole('button', { pressed: true });
-    await expect(rectBtn).toHaveAttribute('aria-label', /rectangle/i);
+    const rectBtn = floatingToolbar.getByRole('button', { name: 'Rectangle', exact: true });
+    await expect(rectBtn).toHaveAttribute('aria-pressed', 'true');
   });
 
   test('F activates Frame tool, T activates Text tool', async ({ page }) => {
@@ -27,14 +27,12 @@ test.describe('Workflow efficiency — keyboard shortcuts & command layer', () =
     await floatingToolbar.waitFor({ state: 'visible', timeout: 10000 });
 
     await page.keyboard.press('f');
-    const frameBtn = floatingToolbar.getByRole('button', { pressed: true });
-    // The active tool button has aria-pressed="true"
-    // Frame tool button should be labeled "Frame"
-    await expect(frameBtn).toHaveAttribute('aria-label', /frame/i);
+    const frameBtn = floatingToolbar.getByRole('button', { name: 'Frame', exact: true });
+    await expect(frameBtn).toHaveAttribute('aria-pressed', 'true');
 
     await page.keyboard.press('t');
-    const textBtn = floatingToolbar.getByRole('button', { pressed: true });
-    await expect(textBtn).toHaveAttribute('aria-label', /text/i);
+    const textBtn = floatingToolbar.getByRole('button', { name: 'Text', exact: true });
+    await expect(textBtn).toHaveAttribute('aria-pressed', 'true');
   });
 
   test('Scale and Slice tool shortcuts work', async ({ page }) => {
@@ -44,8 +42,8 @@ test.describe('Workflow efficiency — keyboard shortcuts & command layer', () =
 
     // Scale tool shortcut
     await page.keyboard.press('s');
-    const scaleBtn = floatingToolbar.getByRole('button', { pressed: true });
-    await expect(scaleBtn).toHaveAttribute('aria-label', /scale/i);
+    const scaleBtn = floatingToolbar.getByRole('button', { name: 'Scale', exact: true });
+    await expect(scaleBtn).toHaveAttribute('aria-pressed', 'true');
   });
 
   test('tool shortcuts work after clicking a tree item (shouldIgnoreShortcutTarget regression)', async ({
@@ -71,8 +69,8 @@ test.describe('Workflow efficiency — keyboard shortcuts & command layer', () =
     // Now press a tool shortcut — it should switch the tool despite focus on tree
     await page.keyboard.press('o'); // Ellipse tool
     const floatingToolbar = page.locator('.floating-toolbar');
-    const ellipseBtn = floatingToolbar.getByRole('button', { pressed: true });
-    await expect(ellipseBtn).toHaveAttribute('aria-label', /ellipse/i);
+    const ellipseBtn = floatingToolbar.getByRole('button', { name: 'Ellipse', exact: true });
+    await expect(ellipseBtn).toHaveAttribute('aria-pressed', 'true');
   });
 
   test('Command palette (Ctrl+/) opens and shows shortcuts', async ({ page }) => {
