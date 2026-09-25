@@ -156,8 +156,9 @@ import '../../styles/docs-prose.css';
         <h2>How binary settings behave</h2>
         <p>
           A compact switch is reserved for a setting that is genuinely on or off, such as Show
-          guides, Enable snapping, or Use GPU acceleration. The positive label describes what
-          checked means, and supporting copy appears beside the control when a setting has a
+          guides, Enable snapping, or Prefer WebGPU when available. The WebGPU switch requests
+          an optional renderer; the active path can still be Canvas2D when a device is unavailable
+          or the artwork does not qualify. Supporting copy appears beside controls that have a
           consequence or dependency.
         </p>
         <p>

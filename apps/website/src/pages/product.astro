@@ -122,7 +122,7 @@ import ClosingCTA from '../components/ClosingCTA.astro';
           Varve runs natively on Linux (CachyOS, Arch, Ubuntu, Fedora — x86_64 and ARM64), macOS (Apple Silicon), and Windows (x86_64 and ARM64). The rendering architecture separates scene computation from display, using an intermediate representation that replays efficiently to the canvas. The same codebase powers both the native desktop and WASM web builds.
         </p>
         <p>
-          On constrained hardware — including Chromebooks and 4&nbsp;GB machines — the browser build measures frame cost while you work and adapts: drags and zooms may preview at a reduced render scale, then restore full device resolution as soon as the gesture settles. Exports and saved files are always full fidelity. GPU acceleration is only used after a real adapter and device can be created, not because the browser advertises a feature; when it is unavailable the Canvas2D path is kept and the document is unchanged.
+          On constrained hardware — including Chromebooks and 4&nbsp;GB machines — the browser build measures frame cost while you work and adapts: drags and zooms may preview at a reduced render scale, then restore full device resolution as soon as the gesture settles. Exports and saved files are always full fidelity. The optional WebGPU compositor can draw eligible simple shapes after a usable adapter and device initialize. Other artwork uses Canvas2D or the render worker, and a ready GPU does not mean every frame uses it. Linux WebKitGTK keeps the Canvas2D display path. Your document is unchanged by the renderer choice.
         </p>
         <p>
           The same design avoids the failure modes people report in browser design tools. An

@@ -19,7 +19,7 @@ import '../../styles/docs-prose.css';
       <section class="docs-section">
         <h2>Architecture Decision: IR-Replay</h2>
         <p>
-          The core rendering decision (ADR-0001) is that the Rust engine computes the scene and emits a compact IR, while the webview replays it to Canvas2D or WebGPU. This is the opposite of a "pixel-push" architecture where the engine sends pixel data directly.
+          The core rendering decision (ADR-0001) is that the Rust engine computes the scene and emits a compact IR, while the webview normally replays it through Canvas2D. An optional WebGPU compositor draws a limited set of simple shapes on supported webviews. The engine does not send full-frame pixels across the native bridge.
         </p>
         <p>
           The IR keeps the engine-to-webview seam compact and makes replay
@@ -27,6 +27,16 @@ import '../../styles/docs-prose.css';
           document complexity, effects, renderer, display cadence, and device
           headroom; dated performance reports carry the fixture and environment
           whenever a measurement is useful.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Which renderer draws a frame?</h2>
+        <p>
+          Canvas2D is the default display path. Flat scenes can replay in a worker; frames and other structural content stay on the main-thread Canvas2D path. If you opt in to WebGPU and device initialization succeeds, plain solid rectangles and circles can use an offscreen GPU surface when the frame reaches that compositor. Rounded corners, text, images, strokes, effects, masks, and other unsupported content keep their Canvas2D behavior. The present canvas remains Canvas2D so a GPU failure can fall back without losing the document.
+        </p>
+        <p>
+          The setting expresses a preference, not a promise that every frame uses GPU drawing. The editor reports the active path and any initialization or device-loss fallback. Export and print use their own full-quality paths; the WebGPU display preference does not accelerate them.
         </p>
       </section>
 
