@@ -33,36 +33,41 @@ afterEach(() => {
 
 function mountWithContainer() {
   // The edge writes its width to the Shell-owned [data-panel="library"]
-  // container (CSS custom properties inherit downward from it).
+  // container and publishes the overlay width to the shell for toolbar placement.
+  const shell = document.createElement('div');
+  shell.className = 'editor-shell';
   const container = document.createElement('div');
   container.setAttribute('data-panel', 'library');
-  document.body.appendChild(container);
-  manualContainers.push(container);
+  shell.appendChild(container);
+  document.body.appendChild(shell);
+  manualContainers.push(shell);
   render(
     <EditorProvider>
       <PanelWidthDragEdge />
     </EditorProvider>,
   );
-  return { container };
+  return { container, shell };
 }
 
 describe('PanelWidthDragEdge', () => {
   it('is a keyboard-accessible separator with value bounds', () => {
-    const { container } = mountWithContainer();
+    const { container, shell } = mountWithContainer();
     const handle = screen.getByRole('separator', { name: 'Resize resources panel' });
     expect(handle).toHaveAttribute('aria-orientation', 'vertical');
     expect(handle).toHaveAttribute('aria-valuemin', '240');
     expect(handle).toHaveAttribute('aria-valuemax', '600');
     expect(container.style.getPropertyValue('--library-panel-width')).toBe('');
+    expect(shell.style.getPropertyValue('--library-panel-overlay-width')).toBe('');
   });
 
   it('arrow keys resize the panel and persist per workspace mode', () => {
-    const { container } = mountWithContainer();
+    const { container, shell } = mountWithContainer();
     const handle = screen.getByRole('separator', { name: 'Resize resources panel' });
 
     fireEvent.keyDown(handle, { key: 'ArrowRight' });
     // 300 default + 16 = 316.
     expect(container.style.getPropertyValue('--library-panel-width')).toBe('316px');
+    expect(shell.style.getPropertyValue('--library-panel-overlay-width')).toBe('316px');
     expect(getPanelWidths(getWorkspacePreferences(), 'design').library).toBe(316);
 
     fireEvent.keyDown(handle, { key: 'Home' });
@@ -86,18 +91,20 @@ describe('PanelWidthDragEdge', () => {
   it('restores the active mode saved width on mount', () => {
     updateWorkspacePreferences((p) => savePanelWidths(p, 'design', { library: 420 }));
 
-    const { container } = mountWithContainer();
+    const { container, shell } = mountWithContainer();
     expect(container.style.getPropertyValue('--library-panel-width')).toBe('420px');
+    expect(shell.style.getPropertyValue('--library-panel-overlay-width')).toBe('420px');
   });
 
   it('double-click resets to the default and clears the saved width', () => {
     updateWorkspacePreferences((p) => savePanelWidths(p, 'design', { library: 500 }));
 
-    const { container } = mountWithContainer();
+    const { container, shell } = mountWithContainer();
     expect(container.style.getPropertyValue('--library-panel-width')).toBe('500px');
 
     fireEvent.doubleClick(screen.getByRole('separator', { name: 'Resize resources panel' }));
     expect(container.style.getPropertyValue('--library-panel-width')).toBe('');
+    expect(shell.style.getPropertyValue('--library-panel-overlay-width')).toBe('');
     expect(getPanelWidths(getWorkspacePreferences(), 'design').library).toBeUndefined();
   });
 });

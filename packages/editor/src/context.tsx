@@ -6680,20 +6680,24 @@ export function EditorProvider({
       },
 
       installLibrary: (library) => {
-        updateDoc((doc) => {
-          const result = installLibraryDoc(doc, library);
-          announcerRef.current?.announce(`Installed library "${library.name}"`);
-          return result.doc as Document;
+        withOwnedDocumentTransaction(inTransactionRef, beginTransaction, commitTransaction, () => {
+          updateDoc((doc) => {
+            const result = installLibraryDoc(doc, library);
+            announcerRef.current?.announce(`Installed library "${library.name}"`);
+            return result.doc as Document;
+          });
         });
       },
 
       uninstallLibrary: (libraryId) => {
-        updateDoc((doc) => {
-          const installedLibraries = (doc.installedLibraries ?? []).filter(
-            (l) => l.id !== libraryId,
-          );
-          announcerRef.current?.announce(`Uninstalled library`);
-          return { ...doc, installedLibraries };
+        withOwnedDocumentTransaction(inTransactionRef, beginTransaction, commitTransaction, () => {
+          updateDoc((doc) => {
+            const installedLibraries = (doc.installedLibraries ?? []).filter(
+              (l) => l.id !== libraryId,
+            );
+            announcerRef.current?.announce(`Uninstalled library`);
+            return { ...doc, installedLibraries };
+          });
         });
       },
 

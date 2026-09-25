@@ -54,24 +54,35 @@ export function PanelWidthDragEdge() {
   const applyToContainer = useCallback((next: number | null) => {
     const container = libraryPanelContainer();
     if (!container) return;
-    if (next === null) container.style.removeProperty('--library-panel-width');
-    else container.style.setProperty('--library-panel-width', `${next}px`);
+    const shell = container.closest<HTMLElement>('.editor-shell');
+    if (next === null) {
+      container.style.removeProperty('--library-panel-width');
+      shell?.style.removeProperty('--library-panel-overlay-width');
+    } else {
+      container.style.setProperty('--library-panel-width', `${next}px`);
+      shell?.style.setProperty('--library-panel-overlay-width', `${next}px`);
+    }
   }, []);
 
   // Restore the active mode's saved width on mount; clear on workspace reset.
   useEffect(() => {
+    const shell = libraryPanelContainer()?.closest<HTMLElement>('.editor-shell');
     const saved = getPanelWidths(getWorkspacePreferences(), state.workspaceMode).library;
     if (saved !== undefined) {
       const clamped = clampLibraryWidth(saved);
       latestWidthRef.current = clamped;
       setWidth(clamped);
       applyToContainer(clamped);
-    }
-    return subscribeWorkspaceReset(() => {
+    } else applyToContainer(null);
+    const unsubscribe = subscribeWorkspaceReset(() => {
       latestWidthRef.current = null;
       setWidth(null);
       applyToContainer(null);
     });
+    return () => {
+      unsubscribe();
+      shell?.style.removeProperty('--library-panel-overlay-width');
+    };
   }, [applyToContainer, state.workspaceMode]);
 
   // Named layouts replace panel widths; the library edge follows the same

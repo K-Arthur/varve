@@ -24,6 +24,23 @@
   margin: 0;
 }
 
+/* Resources overlays the left side of the canvas cell. Keep the palette in
+ * the remaining canvas width and below the panel in the stacking order, so
+ * selected library details and resize controls remain reachable. */
+.editor-shell:has(.editor__library-panel[data-visible]) .floating-toolbar {
+  z-index: calc(var(--elevation-z-raised) - 1);
+}
+
+@media (min-width: 900px) {
+  .editor-shell:has(.editor__library-panel[data-visible]) .floating-toolbar {
+    left: min(var(--library-panel-overlay-width, 300px), 100%);
+    right: 0;
+    max-width: max(0px, calc(100% - var(--library-panel-overlay-width, 300px) - var(--space-4)));
+    margin-inline: auto;
+    transform: none;
+  }
+}
+
 .floating-toolbar--modal-options {
   pointer-events: auto;
 }

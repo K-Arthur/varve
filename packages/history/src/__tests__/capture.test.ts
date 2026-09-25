@@ -14,8 +14,10 @@ import {
   canonicalHistoryHash,
   createDocument,
   createEmbeddedAsset,
+  createLibrary,
   createVariableStore,
   imageFill,
+  installLibrary,
   makeShapeNode,
   makeTableNode,
   moveNode,
@@ -145,6 +147,29 @@ describe('capture round-trip', () => {
     };
     const after: Document = { ...before };
     delete after.variableStore;
+    expectRoundTrip(before, after);
+  });
+
+  it('replays installing and uninstalling a document library reference', () => {
+    const before = baseDoc();
+    const installed: Document = {
+      ...before,
+      installedLibraries: [
+        {
+          id: 'lib-review-controls',
+          name: 'Review Library',
+          version: '1.0.0',
+          installedAt: '2026-09-25T00:00:00.000Z',
+        },
+      ],
+    };
+    expectRoundTrip(before, installed);
+    expectRoundTrip(installed, { ...installed, installedLibraries: [] });
+  });
+
+  it('replays installing an empty library into a new document', () => {
+    const before = baseDoc();
+    const after = installLibrary(before, createLibrary('Review Library')).doc as Document;
     expectRoundTrip(before, after);
   });
 

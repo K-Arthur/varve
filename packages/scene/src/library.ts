@@ -252,7 +252,9 @@ export function installLibrary(
     doc: {
       ...workingDoc,
       components,
-      styles,
+      // An empty library must not materialize an absent optional styles map.
+      // Persistent history distinguishes an omitted field from an empty one.
+      ...(doc.styles !== undefined || library.styles.length > 0 ? { styles } : {}),
       nodes: { ...workingDoc.nodes, ...allNewNodes },
       installedLibraries,
     },

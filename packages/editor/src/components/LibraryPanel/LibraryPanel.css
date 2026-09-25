@@ -59,10 +59,26 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-control);
-  cursor: pointer;
   transition: background-color 0.15s ease;
+}
+
+.library-panel__item-select {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.library-panel__item-select:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -2px;
 }
 
 .library-panel__item:hover {
@@ -93,6 +109,7 @@
 .library-panel__item-actions {
   display: flex;
   gap: 4px;
+  padding-right: var(--space-2);
 }
 
 .library-panel__details {

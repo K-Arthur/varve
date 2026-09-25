@@ -9,7 +9,7 @@
 
 import type { Document, Library } from '@varve/scene';
 import { Button } from '@varve/ui';
-import { useCallback, useState } from 'react';
+import { useCallback, useId, useRef, useState } from 'react';
 import './LibraryPanel.css';
 
 export interface LibraryPanelProps {
@@ -21,6 +21,8 @@ export interface LibraryPanelProps {
 export function LibraryPanel({ doc, onInstallLibrary, onUninstallLibrary }: LibraryPanelProps) {
   const installedLibraries = doc.installedLibraries ?? [];
   const [selectedLibraryId, setSelectedLibraryId] = useState<string | null>(null);
+  const detailsId = useId();
+  const importFileButtonRef = useRef<HTMLButtonElement>(null);
 
   const selectedLibrary = installedLibraries.find((lib) => lib.id === selectedLibraryId);
 
@@ -60,7 +62,12 @@ export function LibraryPanel({ doc, onInstallLibrary, onUninstallLibrary }: Libr
           <Button variant="ghost" size="sm" onClick={handleInstallFromClipboard}>
             Paste from Clipboard
           </Button>
-          <Button variant="ghost" size="sm" onClick={handleInstallFromFile}>
+          <Button
+            ref={importFileButtonRef}
+            variant="ghost"
+            size="sm"
+            onClick={handleInstallFromFile}
+          >
             Import File
           </Button>
         </div>
@@ -76,41 +83,52 @@ export function LibraryPanel({ doc, onInstallLibrary, onUninstallLibrary }: Libr
       ) : (
         <div className="library-panel__list">
           {installedLibraries.map((lib) => (
-            <button
-              type="button"
+            <div
               key={lib.id}
               className={`library-panel__item ${selectedLibraryId === lib.id ? 'library-panel__item--selected' : ''}`}
-              onClick={() => setSelectedLibraryId(lib.id)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  setSelectedLibraryId(lib.id);
-                }
-              }}
             >
-              <span className="library-panel__item-info">
-                <span className="library-panel__item-name">{lib.name}</span>
-                <span className="library-panel__item-version">v{lib.version}</span>
-              </span>
+              <button
+                type="button"
+                className="library-panel__item-select"
+                aria-label={`View ${lib.name} details`}
+                aria-expanded={selectedLibraryId === lib.id}
+                aria-controls={selectedLibraryId === lib.id ? detailsId : undefined}
+                onClick={() => setSelectedLibraryId(lib.id)}
+              >
+                <span className="library-panel__item-info">
+                  <span className="library-panel__item-name">{lib.name}</span>
+                  <span className="library-panel__item-version">v{lib.version}</span>
+                </span>
+              </button>
               <span className="library-panel__item-actions">
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={(e: React.MouseEvent) => {
-                    e.stopPropagation();
+                  aria-label={`Uninstall ${lib.name}`}
+                  onClick={(event) => {
+                    const row = event.currentTarget.closest('.library-panel__item');
+                    if (row?.contains(document.activeElement)) {
+                      const next = row.nextElementSibling?.querySelector<HTMLButtonElement>(
+                        '.library-panel__item-select',
+                      );
+                      const previous = row.previousElementSibling?.querySelector<HTMLButtonElement>(
+                        '.library-panel__item-select',
+                      );
+                      (next ?? previous ?? importFileButtonRef.current)?.focus();
+                    }
                     onUninstallLibrary(lib.id);
                   }}
                 >
                   Uninstall
                 </Button>
               </span>
-            </button>
+            </div>
           ))}
         </div>
       )}
 
       {selectedLibrary && (
-        <div className="library-panel__details">
+        <div className="library-panel__details" id={detailsId}>
           <h3 className="library-panel__details-title">{selectedLibrary.name}</h3>
           <p className="library-panel__details-version">Version: {selectedLibrary.version}</p>
           <p className="library-panel__details-installed">

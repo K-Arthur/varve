@@ -207,6 +207,15 @@ trusting its anchor:
   itself below the selection, then above it, then as high as the band allows,
   never inside a reserved band. The palette keeps priority; a bar that covered
   the palette would be the worse trade.
+- **Resources exception.** The Resources panel occupies the left side of the
+  canvas cell at desktop widths. When it is open, the palette moves into the
+  remaining canvas width and yields the panel's stacking layer. The resize
+  edge publishes the current panel width as
+  `--library-panel-overlay-width`, so resizing keeps library details and
+  controls clear of the palette. Below 900px Resources is a drawer or sheet;
+  its overlay layer takes priority while open. Resources remains non-modal:
+  focus can move to other editor chrome, and global history shortcuts continue
+  to work from a focused library control.
 - **Bounded width.** The quick bar's `max-width` comes from the canvas width via
   `--selection-quick-bar-max-width`, so a long action profile scrolls inside its
   own strip instead of overflowing the canvas.
@@ -239,5 +248,7 @@ trusting its anchor:
   `workspace-toolbar-visual.spec.ts` (per-workspace rendering),
   `font-toolbar-visual.spec.ts` (text quick bar),
   `selection-quick-bar.spec.ts` (leading action reachable and palette-clear at
-  the canvas's left edge), and `tests/e2e/menus/visual-integrity.spec.ts`
+  the canvas's left edge),
+  `tests/e2e/workspace/library-panel-controls.spec.ts` (Resources/palette
+  geometry and keyboard library controls), and `tests/e2e/menus/visual-integrity.spec.ts`
   (grouped View root fits without internal scrolling).

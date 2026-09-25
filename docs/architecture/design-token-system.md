@@ -52,6 +52,13 @@ shared `Dialog`, `Button`, and `Select` components; a custom visual wrapper
 must not replace the modal top-layer, focus, or backdrop behavior. This
 contract was checked in the 2026-09-24 design-system completion audit.
 
+Dense rows with more than one action use sibling controls. A selection button
+must not wrap an uninstall or other action button: nested interactive elements
+produce an invalid focus tree and unreliable keyboard behavior. Give the
+selection control its own name and expanded state, name destructive actions
+for their target, and move focus to the next available control before removing
+a focused row. The Resources library row is the reference consumer.
+
 ### Surface tiers
 
 Shell backgrounds are achromatic and tiered by function. The tier values are

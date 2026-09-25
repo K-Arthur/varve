@@ -749,7 +749,6 @@ function ShellInner({
             id="editor-library-panel"
             role="dialog"
             aria-label="Resources"
-            aria-modal="true"
           >
             <ResourcesPanel
               doc={editor.state.document}

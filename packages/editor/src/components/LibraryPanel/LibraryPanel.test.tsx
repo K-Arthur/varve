@@ -110,4 +110,33 @@ describe('LibraryPanel', () => {
     // Check that the details section is now visible
     expect(screen.getByText('Version: 1.0.0')).toBeInTheDocument();
   });
+
+  it('keeps selection and uninstall as separate accessible controls', () => {
+    const { container } = render(
+      <LibraryPanel
+        doc={doc}
+        onInstallLibrary={mockInstallLibrary}
+        onUninstallLibrary={mockUninstallLibrary}
+      />,
+    );
+
+    const select = screen.getByRole('button', { name: 'View Test Library details' });
+    const uninstall = screen.getByRole('button', { name: 'Uninstall Test Library' });
+    expect(select.contains(uninstall)).toBe(false);
+    expect(container.querySelector('.library-panel__item button button')).toBeNull();
+    expect(select).toHaveAttribute('aria-expanded', 'false');
+
+    fireEvent.click(select);
+    expect(select).toHaveAttribute('aria-expanded', 'true');
+    expect(select).toHaveAttribute(
+      'aria-controls',
+      screen.getByText('Version: 1.0.0').parentElement?.id,
+    );
+
+    uninstall.focus();
+    fireEvent.click(uninstall);
+    expect(mockUninstallLibrary).toHaveBeenCalledWith(library.id);
+    expect(select).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('button', { name: 'Import File' })).toHaveFocus();
+  });
 });
