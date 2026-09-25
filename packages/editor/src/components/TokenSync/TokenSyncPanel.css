@@ -15,18 +15,8 @@
   font-weight: var(--font-weight-semibold);
 }
 
-.token-sync-panel__import,
-.token-sync-panel__apply,
-.token-sync-panel__cancel {
-  background: var(--color-surface-app);
-  color: var(--color-text-primary);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-control-compact);
-  padding: 0.25rem 0.5rem;
-  font-size: var(--font-size-2xs);
-  cursor: pointer;
-}
-
+/* Panel actions are @varve/ui Buttons — appearance comes from the shared
+   button system; these classes are layout hooks only. */
 .token-sync-panel__body {
   margin-top: 0.5rem;
   display: flex;
@@ -127,4 +117,44 @@
 .token-sync-panel__apply:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.token-sync-panel__preview-identity {
+  display: flex;
+  gap: 0.5rem;
+  align-items: baseline;
+  flex-wrap: wrap;
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+}
+
+.token-sync-panel__preview-kind {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.token-sync-diagnostic--error {
+  color: var(--color-feedback-danger);
+}
+
+.token-sync-diagnostic--warning {
+  color: var(--color-feedback-warning);
+}
+
+.token-sync-diagnostic--info {
+  color: var(--color-text-muted);
+}
+
+.token-sync-panel__contexts {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.token-sync-panel__context-note,
+.token-sync-panel__warning-count {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
 }
