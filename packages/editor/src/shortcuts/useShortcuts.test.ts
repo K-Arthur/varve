@@ -26,7 +26,8 @@ describe('useShortcuts', () => {
     act(() => {
       window.dispatchEvent(
         new KeyboardEvent('keydown', {
-          key: ';',
+          key: ':',
+          code: 'Semicolon',
           ctrlKey: true,
           shiftKey: true,
           bubbles: true,
