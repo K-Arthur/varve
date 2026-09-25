@@ -150,7 +150,8 @@ test.describe('Canvas keyboard navigation', () => {
     await toolbar.waitFor({ state: 'visible' });
 
     await page.keyboard.press('v');
-    const selectBtn = toolbar.getByRole('button', { pressed: true });
+    const selectBtn = toolbar.locator('[data-tool="select"]');
+    await expect(selectBtn).toHaveAttribute('aria-pressed', 'true');
     await expect(selectBtn).toHaveAttribute('aria-label', /select/i);
   });
 
@@ -173,7 +174,8 @@ test.describe('Canvas keyboard navigation', () => {
     await toolbar.waitFor({ state: 'visible' });
 
     await page.keyboard.press('f');
-    const frameBtn = toolbar.getByRole('button', { pressed: true });
+    const frameBtn = toolbar.locator('[data-tool="frame"]');
+    await expect(frameBtn).toHaveAttribute('aria-pressed', 'true');
     await expect(frameBtn).toHaveAttribute('aria-label', /frame/i);
   });
 
@@ -182,7 +184,8 @@ test.describe('Canvas keyboard navigation', () => {
     await toolbar.waitFor({ state: 'visible' });
 
     await page.keyboard.press('t');
-    const textBtn = toolbar.getByRole('button', { pressed: true });
+    const textBtn = toolbar.locator('[data-tool="text"]');
+    await expect(textBtn).toHaveAttribute('aria-pressed', 'true');
     await expect(textBtn).toHaveAttribute('aria-label', /text/i);
   });
 
@@ -191,7 +194,8 @@ test.describe('Canvas keyboard navigation', () => {
     await toolbar.waitFor({ state: 'visible' });
 
     await page.keyboard.press('o');
-    const ellipseBtn = toolbar.getByRole('button', { pressed: true });
+    const ellipseBtn = toolbar.locator('[data-tool="ellipse"]');
+    await expect(ellipseBtn).toHaveAttribute('aria-pressed', 'true');
     await expect(ellipseBtn).toHaveAttribute('aria-label', /ellipse/i);
   });
 
@@ -262,7 +266,8 @@ test.describe('Canvas keyboard navigation', () => {
 
     await page.keyboard.press('o');
     const toolbar = page.locator('.floating-toolbar');
-    const ellipseBtn = toolbar.getByRole('button', { pressed: true });
+    const ellipseBtn = toolbar.locator('[data-tool="ellipse"]');
+    await expect(ellipseBtn).toHaveAttribute('aria-pressed', 'true');
     await expect(ellipseBtn).toHaveAttribute('aria-label', /ellipse/i);
   });
 });
