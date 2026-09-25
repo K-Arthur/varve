@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "dev.varve.example.style-audit",
+  "name": "Selection Style Readiness",
+  "publisher": "Varve examples (local source)",
+  "version": "1.0.0",
+  "apiVersion": 1,
+  "entry": "module.wasm",
+  "permissions": {
+    "required": ["selection.read"],
+    "optional": []
+  },
+  "commands": [{ "id": "analyze", "title": "Analyze selection", "kind": "analysis" }],
+  "inspector": [
+    {
+      "id": "selection-readiness",
+      "title": "Selection readiness",
+      "command": "analyze",
+      "tab": "properties",
+      "modes": ["design", "drawing", "image", "logo"]
+    }
+  ]
+}

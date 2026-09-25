@@ -62,6 +62,7 @@ export const MENU_LABELS: Readonly<Record<string, string>> = {
   'menu.file.downloadSnapshot': 'Download Snapshot\u2026',
   'menu.file.restoreFromSnapshot': 'Restore from Snapshot\u2026',
   'menu.file.settings': 'Settings\u2026',
+  'menu.file.managePlugins': 'Manage Plugins\u2026',
 
   // ── Edit ───────────────────────────────────────────────────────────────────
   'menu.edit.undo': 'Undo',

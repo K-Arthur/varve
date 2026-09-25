@@ -27,6 +27,7 @@ export type SettingsSection =
   | 'nudge'
   | 'input'
   | 'models'
+  | 'plugins'
   | 'collab'
   | 'ai'
   | 'privacy'

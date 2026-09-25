@@ -634,6 +634,10 @@ function buildMenus(
         { label: '---' },
         // ── App ──
         {
+          label: 'Manage Plugins\u2026',
+          action: 'managePlugins',
+        },
+        {
           label: 'Settings\u2026',
           shortcut: shortcutText('settings'),
           ariaKeyshortcut: ks('settings'),

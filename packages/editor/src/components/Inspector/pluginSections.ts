@@ -1,20 +1,15 @@
 /**
- * Plugin Section Contribution API — safe, namespaced extension point for
- * third-party panel sections.
+ * Trusted, in-process Inspector section registry.
  *
- * Plugins contribute sections via a declarative registration, never by
- * injecting React components directly into the inspector. The host
- * resolves availability, wraps contributions in error boundaries, and
- * manages lifecycle (install/remove/disable).
+ * Render factories and predicates execute in the editor's JavaScript realm.
+ * Only bundled host code may call this API. Externally installed packages need
+ * an isolated runtime and a separate, data-only contribution contract.
  *
  * Design constraints:
- * - Plugin IDs are namespaced (`plugin-id/section-id`) to prevent collisions
- * - Contributions declare metadata only; rendering is via a factory function
- * - Broken plugin sections never crash the inspector
+ * - Contribution IDs are scoped by plugin ID (`plugin-id/section-id`)
+ * - Broken synchronous renders quarantine the owning plugin
  * - Plugin sections are scoped to declared modes
- * - All state is managed by the host, not the plugin
- *
- * Research basis: VS Code extension API, Figma plugin API, Web Components.
+ * - Registration state is session-local; this is not a package manager
  */
 import type { ReactNode } from 'react';
 import type { WorkspaceMode } from '../../workspace/workspaceTypes';
@@ -37,9 +32,9 @@ export type QualifiedContributionId = string;
 export interface ContributionDisplay {
   /** Human-readable section title. */
   title: string;
-  /** Category for grouping in the management UI. Falls back to 'advanced'. */
+  /** Reserved category for future host grouping. */
   category?: SectionCategory;
-  /** Icon name from @varve/ui icon set. */
+  /** Icon name from @varve/ui icon set (reserved metadata). */
   icon?: string;
   /** Tooltip description. */
   description?: string;
@@ -58,9 +53,8 @@ export interface ContributionAvailability {
 }
 
 /**
- * Host context handed to availability predicates and render factories. The
- * plugin never receives document state, editor state, or DOM handles — only
- * this read-only summary (VS Code/Figma-style capability isolation).
+ * Callback argument handed to availability predicates and render factories.
+ * This summary is deliberately small but does not isolate trusted code.
  */
 export interface PluginSectionHostContext {
   selectionCount: number;
@@ -74,7 +68,7 @@ export interface PluginSectionContribution {
   pluginId: PluginId;
   /** Unique contribution ID within the plugin. */
   contributionId: ContributionId;
-  /** Target inspector tab. Mapped through DEPRECATED_TAB_FALLBACKS for migration. */
+  /** Target Inspector tab. Only properties is mounted; legacy document maps to it. */
   targetTab: string;
   /** Display metadata. */
   display: ContributionDisplay;
@@ -82,14 +76,15 @@ export interface PluginSectionContribution {
    * Render factory invoked by the host inside an error boundary. Returning
    * null renders the section shell without a body. The host, not the plugin,
    * owns collapse state, availability, and lifecycle — a throwing factory
-   * disables its plugin instead of crashing the panel.
+   * quarantines its plugin instead of crashing the panel. Event-handler and
+   * asynchronous failures are outside React error-boundary coverage.
    */
   render?: (ctx: PluginSectionHostContext) => ReactNode;
   /** Default display order within the tab (lower = higher). Default: 1000. */
   order?: number;
-  /** Whether the user can hide this section. Default: true. */
+  /** Whether hideContribution may hide this section. Default: true. */
   canHide?: boolean;
-  /** Whether the user can reorder this section. Default: true. */
+  /** Reserved for a future contribution-order control. */
   canReorder?: boolean;
   /** Availability conditions. */
   availability?: ContributionAvailability;
@@ -114,17 +109,17 @@ export interface PluginManifest {
 // ---------------------------------------------------------------------------
 
 /** Runtime state of a plugin. */
-export type PluginStatus = 'active' | 'disabled' | 'error' | 'uninstalled';
+export type PluginStatus = 'active' | 'disabled' | 'error';
 
 /** Runtime state for a plugin. */
 export interface PluginState {
   manifest: PluginManifest;
   status: PluginStatus;
-  /** Timestamp of last install/update. */
+  /** First registration timestamp in this editor session. */
   installedAt: number;
   /** Error message if status is 'error'. */
   error?: string;
-  /** User-hidden contributions (overrides the contribution's canHide). */
+  /** User-hidden contributions (session-local). */
   hiddenContributions?: QualifiedContributionId[];
 }
 
@@ -137,25 +132,167 @@ type ContributionListener = (contributions: PluginSectionContribution[]) => void
 const plugins = new Map<PluginId, PluginState>();
 const listeners = new Set<ContributionListener>();
 
+const ID_RE = /^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$/;
+const SEMVER_RE =
+  /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*))*))?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function assertId(value: unknown, label: string): asserts value is string {
+  if (typeof value !== 'string' || value.length > 128 || !ID_RE.test(value)) {
+    throw new Error(`${label} must be a lowercase dot/hyphen-separated ID (max 128 characters)`);
+  }
+}
+
+function normalizeTargetTab(tab: unknown): 'properties' {
+  if (tab === 'properties' || tab === 'document') return 'properties';
+  throw new Error(`Unsupported Inspector plugin target tab: ${String(tab)}`);
+}
+
+function cloneContribution(contrib: PluginSectionContribution): PluginSectionContribution {
+  return {
+    pluginId: contrib.pluginId,
+    contributionId: contrib.contributionId,
+    targetTab: contrib.targetTab,
+    display: { ...contrib.display },
+    render: contrib.render,
+    order: contrib.order,
+    canHide: contrib.canHide,
+    canReorder: contrib.canReorder,
+    defaultExpanded: contrib.defaultExpanded,
+    availability: contrib.availability
+      ? {
+          minSelection: contrib.availability.minSelection,
+          predicate: contrib.availability.predicate,
+          modes: contrib.availability.modes && [...contrib.availability.modes],
+          tools: contrib.availability.tools && [...contrib.availability.tools],
+        }
+      : undefined,
+  };
+}
+
+function cloneManifest(manifest: PluginManifest): PluginManifest {
+  return {
+    id: manifest.id,
+    name: manifest.name,
+    version: manifest.version,
+    contributions: manifest.contributions.map(cloneContribution),
+  };
+}
+
+function cloneState(state: PluginState): PluginState {
+  return {
+    ...state,
+    manifest: cloneManifest(state.manifest),
+    hiddenContributions: state.hiddenContributions && [...state.hiddenContributions],
+  };
+}
+
+function validateManifest(manifest: PluginManifest): PluginManifest {
+  if (!isRecord(manifest)) throw new Error('Plugin manifest must be an object');
+  assertId(manifest.id, 'Plugin ID');
+  if (typeof manifest.name !== 'string' || !manifest.name.trim() || manifest.name.length > 128) {
+    throw new Error('Plugin name must be non-empty and at most 128 characters');
+  }
+  if (
+    typeof manifest.version !== 'string' ||
+    manifest.version.length > 128 ||
+    !SEMVER_RE.test(manifest.version)
+  ) {
+    throw new Error('Plugin version must be valid SemVer');
+  }
+  if (!Array.isArray(manifest.contributions)) {
+    throw new Error('Plugin contributions must be an array');
+  }
+  const ids = new Set<string>();
+  const normalized: PluginSectionContribution[] = [];
+  for (const contrib of manifest.contributions) {
+    if (!isRecord(contrib)) throw new Error('Plugin contribution must be an object');
+    if (contrib.pluginId !== manifest.id)
+      throw new Error('Contribution owner must match manifest ID');
+    assertId(contrib.contributionId, 'Contribution ID');
+    if (ids.has(contrib.contributionId))
+      throw new Error(`Duplicate contribution ID: ${contrib.contributionId}`);
+    ids.add(contrib.contributionId);
+    const targetTab = normalizeTargetTab(contrib.targetTab);
+    if (
+      !isRecord(contrib.display) ||
+      typeof contrib.display.title !== 'string' ||
+      !contrib.display.title.trim()
+    ) {
+      throw new Error(`Contribution ${contrib.contributionId} needs a display title`);
+    }
+    if (
+      contrib.order !== undefined &&
+      (!Number.isSafeInteger(contrib.order) || !Number.isFinite(contrib.order))
+    ) {
+      throw new Error(`Contribution ${contrib.contributionId} order must be a safe integer`);
+    }
+    if (contrib.render !== undefined && typeof contrib.render !== 'function') {
+      throw new Error(`Contribution ${contrib.contributionId} render must be a function`);
+    }
+    if (contrib.availability !== undefined) {
+      if (!isRecord(contrib.availability))
+        throw new Error(`Contribution ${contrib.contributionId} availability must be an object`);
+      if (contrib.availability.modes !== undefined && !Array.isArray(contrib.availability.modes)) {
+        throw new Error(`Contribution ${contrib.contributionId} modes must be an array`);
+      }
+      if (contrib.availability.tools !== undefined && !Array.isArray(contrib.availability.tools)) {
+        throw new Error(`Contribution ${contrib.contributionId} tools must be an array`);
+      }
+      const minSelection = contrib.availability.minSelection;
+      if (
+        minSelection !== undefined &&
+        (typeof minSelection !== 'number' ||
+          !Number.isSafeInteger(minSelection) ||
+          minSelection < 0)
+      ) {
+        throw new Error(
+          `Contribution ${contrib.contributionId} minSelection must be a nonnegative integer`,
+        );
+      }
+      if (
+        contrib.availability.predicate !== undefined &&
+        typeof contrib.availability.predicate !== 'function'
+      ) {
+        throw new Error(`Contribution ${contrib.contributionId} predicate must be a function`);
+      }
+    }
+    normalized.push(
+      cloneContribution({ ...(contrib as unknown as PluginSectionContribution), targetTab }),
+    );
+  }
+  return {
+    id: manifest.id,
+    name: manifest.name,
+    version: manifest.version,
+    contributions: normalized,
+  };
+}
+
 function notifyListeners() {
-  const all = getActiveContributions();
   for (const listener of listeners) {
     try {
-      listener(all);
+      listener(getActiveContributions());
     } catch {
       // Listener error — ignore
     }
   }
 }
 
-/** Register a plugin manifest. Idempotent — re-registering updates the manifest. */
+/** Register bundled code. Re-registration preserves disabled/error state. */
 export function registerPlugin(manifest: PluginManifest): void {
+  const validated = validateManifest(manifest);
   const existing = plugins.get(manifest.id);
+  const currentIds = new Set(validated.contributions.map(qualifyContribution));
   plugins.set(manifest.id, {
-    manifest,
-    status: existing?.status === 'disabled' ? 'disabled' : 'active',
+    manifest: validated,
+    status: existing?.status ?? 'active',
     installedAt: existing?.installedAt ?? Date.now(),
-    hiddenContributions: existing?.hiddenContributions,
+    error: existing?.error,
+    hiddenContributions: existing?.hiddenContributions?.filter((id) => currentIds.has(id)),
   });
   notifyListeners();
 }
@@ -166,19 +303,28 @@ export function unregisterPlugin(pluginId: PluginId): void {
   notifyListeners();
 }
 
-/** Enable a disabled plugin. */
+/** Enable a disabled plugin. Quarantined plugins require explicit retry. */
 export function enablePlugin(pluginId: PluginId): void {
   const state = plugins.get(pluginId);
-  if (state && state.status !== 'active') {
+  if (state?.status === 'disabled') {
     state.status = 'active';
     notifyListeners();
   }
 }
 
+/** Retry a quarantined trusted plugin after its defect has been addressed. */
+export function retryPlugin(pluginId: PluginId): void {
+  const state = plugins.get(pluginId);
+  if (state?.status !== 'error') return;
+  state.status = 'active';
+  delete state.error;
+  notifyListeners();
+}
+
 /** Disable a plugin (sections become invisible but registration persists). */
 export function disablePlugin(pluginId: PluginId): void {
   const state = plugins.get(pluginId);
-  if (state) {
+  if (state?.status === 'active') {
     state.status = 'disabled';
     notifyListeners();
   }
@@ -187,16 +333,16 @@ export function disablePlugin(pluginId: PluginId): void {
 /** Mark a plugin as errored (e.g. during render). */
 export function markPluginError(pluginId: PluginId, error: string): void {
   const state = plugins.get(pluginId);
-  if (state) {
+  if (state?.status === 'active') {
     state.status = 'error';
-    state.error = error;
+    state.error = error.slice(0, 500);
     notifyListeners();
   }
 }
 
 /** Get all registered plugins. */
 export function getRegisteredPlugins(): PluginState[] {
-  return Array.from(plugins.values());
+  return Array.from(plugins.values(), cloneState);
 }
 
 /** Get active (non-disabled, non-error) contributions. */
@@ -207,7 +353,7 @@ export function getActiveContributions(): PluginSectionContribution[] {
     for (const contrib of state.manifest.contributions) {
       const qid = `${contrib.pluginId}/${contrib.contributionId}`;
       if (state.hiddenContributions?.includes(qid)) continue;
-      result.push(contrib);
+      result.push(cloneContribution(contrib));
     }
   }
   return result.sort((a, b) => (a.order ?? 1000) - (b.order ?? 1000));
@@ -217,7 +363,9 @@ export function getActiveContributions(): PluginSectionContribution[] {
 export function getContributionsForTab(
   tab: PluginSectionContribution['targetTab'],
 ): PluginSectionContribution[] {
-  return getActiveContributions().filter((c) => c.targetTab === tab);
+  return getActiveContributions().filter(
+    (c) => c.targetTab === (tab === 'document' ? 'properties' : tab),
+  );
 }
 
 /** Subscribe to contribution changes. */
@@ -237,10 +385,11 @@ export function isContributionAvailable(
 ): boolean {
   const avail = contrib.availability;
   if (!avail) return true;
-  if (avail.modes && !avail.modes.includes(ctx.workspaceMode)) return false;
+  if (avail.modes && avail.modes.length > 0 && !avail.modes.includes(ctx.workspaceMode))
+    return false;
   if (avail.minSelection !== undefined && ctx.selectionCount < avail.minSelection) return false;
   if (avail.tools && avail.tools.length > 0 && !avail.tools.includes(ctx.activeTool)) return false;
-  if (avail.predicate && !avail.predicate(ctx)) return false;
+  if (avail.predicate && !avail.predicate(Object.freeze({ ...ctx }))) return false;
   return true;
 }
 
@@ -253,6 +402,10 @@ export function qualifyContribution(contrib: PluginSectionContribution): Qualifi
 export function hideContribution(pluginId: PluginId, contributionId: ContributionId): void {
   const state = plugins.get(pluginId);
   if (!state) return;
+  const contribution = state.manifest.contributions.find(
+    (item) => item.contributionId === contributionId,
+  );
+  if (!contribution || contribution.canHide === false) return;
   const qid = `${pluginId}/${contributionId}`;
   if (!state.hiddenContributions) state.hiddenContributions = [];
   if (!state.hiddenContributions.includes(qid)) {

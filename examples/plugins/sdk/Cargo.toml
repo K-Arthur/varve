@@ -1,0 +1,10 @@
+[package]
+name = "varve-plugin-sdk"
+version = "0.1.0"
+edition = "2021"
+description = "Typed data contract for Varve local WebAssembly plugin API v1"
+license = "FSL-1.1-MIT"
+publish = false
+
+[dependencies]
+serde = { workspace = true }

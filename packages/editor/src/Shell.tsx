@@ -370,6 +370,7 @@ function ShellInner({
     | 'shortcuts'
     | 'export'
     | 'models'
+    | 'plugins'
     | 'collab'
     | 'ai'
     | 'privacy'
@@ -391,6 +392,15 @@ function ShellInner({
     };
     window.addEventListener('varve:open-privacy-settings', openPrivacy);
     return () => window.removeEventListener('varve:open-privacy-settings', openPrivacy);
+  }, []);
+
+  useEffect(() => {
+    const openPlugins = () => {
+      setSettingsSection('plugins');
+      setSettingsOpen(true);
+    };
+    window.addEventListener('varve:open-plugin-settings', openPlugins);
+    return () => window.removeEventListener('varve:open-plugin-settings', openPlugins);
   }, []);
 
   // Register all actions into the ActionRegistry.

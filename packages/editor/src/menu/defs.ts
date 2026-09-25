@@ -325,6 +325,13 @@ export function getFileMenu(runAction: (id: string) => void): MenuItemDef[] {
     },
     // ── Settings ──
     {
+      id: 'managePlugins',
+      labelKey: 'menu.file.managePlugins',
+      kind: 'command',
+      group: 'settings',
+      run: () => runAction('managePlugins'),
+    },
+    {
       id: 'settings',
       labelKey: 'menu.file.settings',
       accelerator: a(',', true),

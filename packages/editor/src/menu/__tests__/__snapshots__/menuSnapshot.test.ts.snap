@@ -2059,6 +2059,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: codegen e
         "separator": true,
       },
       {
+        "badge": undefined,
+        "disabled": false,
+        "id": "managePlugins",
+        "label": "Manage Plugins…",
+        "onAction": [Function],
+      },
+      {
         "ariaKeyshortcuts": "Control+,",
         "badge": undefined,
         "disabled": false,
@@ -3786,6 +3793,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: codegen w
         "separator": true,
       },
       {
+        "badge": undefined,
+        "disabled": false,
+        "id": "managePlugins",
+        "label": "Manage Plugins…",
+        "onAction": [Function],
+      },
+      {
         "ariaKeyshortcuts": "Control+,",
         "badge": undefined,
         "disabled": false,
@@ -5511,6 +5525,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: design em
       {
         "id": "sep-after-archive",
         "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "managePlugins",
+        "label": "Manage Plugins…",
+        "onAction": [Function],
       },
       {
         "ariaKeyshortcuts": "Control+,",
@@ -7798,6 +7819,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: design wi
         "separator": true,
       },
       {
+        "badge": undefined,
+        "disabled": false,
+        "id": "managePlugins",
+        "label": "Manage Plugins…",
+        "onAction": [Function],
+      },
+      {
         "ariaKeyshortcuts": "Control+,",
         "badge": undefined,
         "disabled": false,
@@ -10083,6 +10111,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: drawing e
         "separator": true,
       },
       {
+        "badge": undefined,
+        "disabled": false,
+        "id": "managePlugins",
+        "label": "Manage Plugins…",
+        "onAction": [Function],
+      },
+      {
         "ariaKeyshortcuts": "Control+,",
         "badge": undefined,
         "disabled": false,
@@ -12245,6 +12280,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: drawing w
       {
         "id": "sep-after-archive",
         "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "managePlugins",
+        "label": "Manage Plugins…",
+        "onAction": [Function],
       },
       {
         "ariaKeyshortcuts": "Control+,",
@@ -14411,6 +14453,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: image emp
         "separator": true,
       },
       {
+        "badge": undefined,
+        "disabled": false,
+        "id": "managePlugins",
+        "label": "Manage Plugins…",
+        "onAction": [Function],
+      },
+      {
         "ariaKeyshortcuts": "Control+,",
         "badge": undefined,
         "disabled": false,
@@ -16421,6 +16470,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: image wit
       {
         "id": "sep-after-archive",
         "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "managePlugins",
+        "label": "Manage Plugins…",
+        "onAction": [Function],
       },
       {
         "ariaKeyshortcuts": "Control+,",
@@ -18435,6 +18491,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: motion em
         "separator": true,
       },
       {
+        "badge": undefined,
+        "disabled": false,
+        "id": "managePlugins",
+        "label": "Manage Plugins…",
+        "onAction": [Function],
+      },
+      {
         "ariaKeyshortcuts": "Control+,",
         "badge": undefined,
         "disabled": false,
@@ -20284,6 +20347,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: motion wi
         "separator": true,
       },
       {
+        "badge": undefined,
+        "disabled": false,
+        "id": "managePlugins",
+        "label": "Manage Plugins…",
+        "onAction": [Function],
+      },
+      {
         "ariaKeyshortcuts": "Control+,",
         "badge": undefined,
         "disabled": false,
@@ -22131,6 +22201,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: print emp
       {
         "id": "sep-after-archive",
         "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "managePlugins",
+        "label": "Manage Plugins…",
+        "onAction": [Function],
       },
       {
         "ariaKeyshortcuts": "Control+,",
@@ -24395,6 +24472,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: print wit
         "separator": true,
       },
       {
+        "badge": undefined,
+        "disabled": false,
+        "id": "managePlugins",
+        "label": "Manage Plugins…",
+        "onAction": [Function],
+      },
+      {
         "ariaKeyshortcuts": "Control+,",
         "badge": undefined,
         "disabled": false,
@@ -26657,6 +26741,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: codegen emp
         "separator": true,
       },
       {
+        "badge": undefined,
+        "disabled": false,
+        "id": "managePlugins",
+        "label": "Manage Plugins…",
+        "onAction": [Function],
+      },
+      {
         "ariaKeyshortcuts": "Control+,",
         "badge": undefined,
         "disabled": false,
@@ -28384,6 +28475,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: codegen wit
         "separator": true,
       },
       {
+        "badge": undefined,
+        "disabled": false,
+        "id": "managePlugins",
+        "label": "Manage Plugins…",
+        "onAction": [Function],
+      },
+      {
         "ariaKeyshortcuts": "Control+,",
         "badge": undefined,
         "disabled": false,
@@ -30109,6 +30207,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: design empt
       {
         "id": "sep-after-archive",
         "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "managePlugins",
+        "label": "Manage Plugins…",
+        "onAction": [Function],
       },
       {
         "ariaKeyshortcuts": "Control+,",
@@ -32396,6 +32501,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: design with
         "separator": true,
       },
       {
+        "badge": undefined,
+        "disabled": false,
+        "id": "managePlugins",
+        "label": "Manage Plugins…",
+        "onAction": [Function],
+      },
+      {
         "ariaKeyshortcuts": "Control+,",
         "badge": undefined,
         "disabled": false,
@@ -34681,6 +34793,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: drawing emp
         "separator": true,
       },
       {
+        "badge": undefined,
+        "disabled": false,
+        "id": "managePlugins",
+        "label": "Manage Plugins…",
+        "onAction": [Function],
+      },
+      {
         "ariaKeyshortcuts": "Control+,",
         "badge": undefined,
         "disabled": false,
@@ -36843,6 +36962,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: drawing wit
       {
         "id": "sep-after-archive",
         "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "managePlugins",
+        "label": "Manage Plugins…",
+        "onAction": [Function],
       },
       {
         "ariaKeyshortcuts": "Control+,",
@@ -39009,6 +39135,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: image empty
         "separator": true,
       },
       {
+        "badge": undefined,
+        "disabled": false,
+        "id": "managePlugins",
+        "label": "Manage Plugins…",
+        "onAction": [Function],
+      },
+      {
         "ariaKeyshortcuts": "Control+,",
         "badge": undefined,
         "disabled": false,
@@ -41019,6 +41152,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: image with 
       {
         "id": "sep-after-archive",
         "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "managePlugins",
+        "label": "Manage Plugins…",
+        "onAction": [Function],
       },
       {
         "ariaKeyshortcuts": "Control+,",
@@ -43033,6 +43173,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: motion empt
         "separator": true,
       },
       {
+        "badge": undefined,
+        "disabled": false,
+        "id": "managePlugins",
+        "label": "Manage Plugins…",
+        "onAction": [Function],
+      },
+      {
         "ariaKeyshortcuts": "Control+,",
         "badge": undefined,
         "disabled": false,
@@ -44882,6 +45029,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: motion with
         "separator": true,
       },
       {
+        "badge": undefined,
+        "disabled": false,
+        "id": "managePlugins",
+        "label": "Manage Plugins…",
+        "onAction": [Function],
+      },
+      {
         "ariaKeyshortcuts": "Control+,",
         "badge": undefined,
         "disabled": false,
@@ -46729,6 +46883,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: print empty
       {
         "id": "sep-after-archive",
         "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "managePlugins",
+        "label": "Manage Plugins…",
+        "onAction": [Function],
       },
       {
         "ariaKeyshortcuts": "Control+,",
@@ -48991,6 +49152,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: print with 
       {
         "id": "sep-after-archive",
         "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "managePlugins",
+        "label": "Manage Plugins…",
+        "onAction": [Function],
       },
       {
         "ariaKeyshortcuts": "Control+,",

@@ -1,8 +1,8 @@
 # Application plugins: trust boundary and first contract
 
-Status: implementation in progress. This document describes the intended
-package and host contract; the acceptance matrix below is the source of truth
-for what has actually been verified. Application plugins are distinct from
+Status: local API v1 implemented on the source build. This document describes
+the package and host contract; the acceptance matrix below records the
+evidence and remaining platform gaps. Application plugins are distinct from
 Tauri Rust plugins, build plugins, inference providers, and Figma import
 adapters.
 
@@ -49,11 +49,18 @@ factory, action handler, URL, script, or native command argument.
 The package API version is 1. The guest ABI imports `env.memory` and exports
 `alloc(length) -> pointer`, `run(pointer, length) -> pointer`, and
 `result_len() -> length`; UTF-8 JSON is the wire format. The host rejects
-unknown exports only when they imply a privileged import; extra pure guest
-functions cannot acquire host authority. The host validates the result schema,
+extra exports, extra imports, guest-defined memory, and unbounded tables. One
+guest-defined function table with a declared maximum of at most 1,024 entries
+is permitted for compiled Rust code. The host validates the result schema,
 identity, command kind, output size, target IDs, current grants, document
 identity, and runtime generation before accepting it. The manifest declares
 commands and contextual Inspector sections, with no runtime callbacks.
+
+Package review and installation compile and inspect the Wasm module without
+instantiating it. Instantiation would execute a guest start section; that is
+deferred until the user runs a command in the short-lived Worker. An
+instantiation-only ABI mismatch can therefore appear on first Run; the worker
+reports it, the manager quarantines that package, and no document edit occurs.
 
 `selection.read` and `document.write` are the only v1 permissions. There is no
 filesystem, network, clipboard, secret, custom node, background event, native
@@ -109,14 +116,15 @@ implying verification.
 
 | Capability | Code | Browser E2E | Native Linux | Native Windows/macOS |
 | --- | --- | --- | --- | --- |
-| Package validation and local installation | Pending | Pending | Pending | Pending |
-| On-demand Wasm execution and Stop | Pending | Pending | Pending | Pending |
-| Permission revoke and stale-result rejection | Pending | Pending | Pending | Pending |
-| Undoable rename, save/reopen without plugin | Pending | Pending | Pending | Pending |
-| Manager and contextual Inspector rendering | Pending | Pending | Pending | Pending |
-| Update/recovery and resource plateau | Pending | Pending | Pending | Pending |
+| Package validation and local installation | Implemented; parser unit tests and SDK smoke pass | Real Rust sample ZIP installed | Blocked by local native build OOM | Not run |
+| On-demand Wasm execution and Stop | Implemented; bounded Worker contract | Analysis and noncooperative Stop/timeout pass | Blocked by local native build OOM | Not run |
+| Permission revoke and stale-result rejection | Implemented; generation/revision/grant checks | Revocation during run passes; multi-window not exercised | Blocked by local native build OOM | Not run |
+| Undoable rename, save/reopen without plugin | Implemented with canonical node update | Apply, remove, undo/redo, and save/reopen pass | Blocked by local native build OOM | Not run |
+| Manager and contextual Inspector rendering | Implemented with host-owned controls | Manager, review, and Inspector text visibility pass | Blocked by local native build OOM | Not run |
+| Update/recovery and resource plateau | Update, rollback, Retry implemented | Permission diff and rollback pass; long-session plateau not run | Blocked by local native build OOM | Not run |
 
 See [the dated research and defect ledger](../audits/plugin-system-evidence-2026-09-25.md)
-for the source-to-requirement trail. Update this matrix with actual results,
-including failures and hardware gaps, rather than treating a passing unit
-test as native confinement evidence.
+for the source-to-requirement trail. [The dated validation report](../audits/plugin-system-validation-2026-09-25.md)
+lists commands, screenshots, limits, and unexercised scenarios. The static
+validator is `node --experimental-strip-types scripts/plugins/validate.mjs
+<file.varveplugin>`; it checks package structure without executing guest code.

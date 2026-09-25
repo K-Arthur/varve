@@ -30,6 +30,8 @@ import {
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getBackupService, useOptionalEditor } from '../../context';
 import { PrivacyDiagnosticsSection } from '../../crash';
+import { PluginManager } from '../../plugins/PluginManager';
+import { PluginRuntimeBridge } from '../../plugins/PluginRuntimeBridge';
 import type { ThemeMode, UnitType } from '../../settings';
 import { DEFAULT_NUDGE_SETTINGS, NUDGE_MAX, NUDGE_MIN } from '../../settings';
 import { ShortcutPalette } from '../../shortcuts';
@@ -61,6 +63,7 @@ const SECTIONS: { id: SettingsSection; label: string }[] = [
   { id: 'nudge', label: 'Nudging & Movement' },
   { id: 'input', label: 'Drawing Input' },
   { id: 'models', label: 'Offline Models' },
+  { id: 'plugins', label: 'Plugins' },
   { id: 'collab', label: 'Collab' },
   { id: 'ai', label: 'On-device Assistants' },
   { id: 'privacy', label: 'Privacy & Diagnostics' },
@@ -206,6 +209,7 @@ export function SettingsDialog({
 
   return (
     <NestedOverlayProvider>
+      <PluginRuntimeBridge />
       <Dialog
         open={open}
         onClose={onClose}
@@ -303,6 +307,7 @@ export function SettingsDialog({
                 <SemanticSearchTab />
               </>
             )}
+            {activeSection === 'plugins' && <PluginManager />}
             {activeSection === 'collab' && <CollabSection />}
             {activeSection === 'ai' && <AISection />}
             {activeSection === 'privacy' && <PrivacyDiagnosticsSection />}

@@ -16,6 +16,7 @@ import {
   onContributionsChange,
   qualifyContribution,
   registerPlugin,
+  retryPlugin,
   showContribution,
   unregisterPlugin,
 } from '../pluginSections';
@@ -92,6 +93,64 @@ describe('Plugin Section API', () => {
       expect(p.status).toBe('error');
       expect(p.error).toBe('Render failed');
     });
+
+    it('keeps an error quarantined across registration and ordinary enable', () => {
+      registerPlugin(makeManifest());
+      markPluginError('test-plugin', 'Render failed');
+      registerPlugin(makeManifest());
+      enablePlugin('test-plugin');
+      expect(getRegisteredPlugins()[0].status).toBe('error');
+      expect(getRegisteredPlugins()[0].error).toBe('Render failed');
+      retryPlugin('test-plugin');
+      expect(getRegisteredPlugins()[0].status).toBe('active');
+      expect(getRegisteredPlugins()[0].error).toBeUndefined();
+    });
+
+    it('does not turn a disabled plugin into an error from a stale render', () => {
+      registerPlugin(makeManifest());
+      disablePlugin('test-plugin');
+      markPluginError('test-plugin', 'Late render failure');
+      expect(getRegisteredPlugins()[0].status).toBe('disabled');
+    });
+
+    it('rejects malformed manifests without replacing the working registration', () => {
+      registerPlugin(makeManifest());
+      const invalid = [
+        { ...makeManifest(), id: 'test/plugin' },
+        { ...makeManifest(), version: '1.0' },
+        makeManifest([makeContribution({ pluginId: 'another-plugin' })]),
+        makeManifest([makeContribution(), makeContribution()]),
+        makeManifest([makeContribution({ contributionId: 'bad/id' })]),
+        makeManifest([makeContribution({ targetTab: 'export' })]),
+        makeManifest([makeContribution({ order: Number.NaN })]),
+        makeManifest([makeContribution({ order: 0.5 })]),
+      ];
+      for (const manifest of invalid) expect(() => registerPlugin(manifest)).toThrow();
+      expect(getRegisteredPlugins()[0].manifest.version).toBe('1.0.0');
+      expect(getActiveContributions()).toHaveLength(1);
+    });
+
+    it('copies input and output data so callers cannot change registration', () => {
+      const input = makeManifest();
+      registerPlugin(input);
+      input.contributions[0].display.title = 'Changed at source';
+      const state = getRegisteredPlugins()[0];
+      state.manifest.contributions[0].display.title = 'Changed in snapshot';
+      state.hiddenContributions = ['test-plugin/test-section'];
+      const contribution = getActiveContributions()[0];
+      contribution.display.title = 'Changed in contribution';
+      expect(getRegisteredPlugins()[0].manifest.contributions[0].display.title).toBe(
+        'Test Section',
+      );
+      expect(getActiveContributions()[0].display.title).toBe('Test Section');
+    });
+
+    it('drops hidden state for contributions removed on re-registration', () => {
+      registerPlugin(makeManifest());
+      hideContribution('test-plugin', 'test-section');
+      registerPlugin(makeManifest([]));
+      expect(getRegisteredPlugins()[0].hiddenContributions).toEqual([]);
+    });
   });
 
   describe('Contributions', () => {
@@ -116,10 +175,13 @@ describe('Plugin Section API', () => {
 
     it('getContributionsForTab filters by target tab', () => {
       const contrib1 = makeContribution({ targetTab: 'properties' });
-      const contrib2 = makeContribution({ contributionId: 'export-section', targetTab: 'export' });
+      const contrib2 = makeContribution({
+        contributionId: 'legacy-section',
+        targetTab: 'document',
+      });
       registerPlugin(makeManifest([contrib1, contrib2]));
-      expect(getContributionsForTab('properties').length).toBe(1);
-      expect(getContributionsForTab('export').length).toBe(1);
+      expect(getContributionsForTab('properties').length).toBe(2);
+      expect(getContributionsForTab('document').length).toBe(2);
       expect(getContributionsForTab('audit').length).toBe(0);
     });
   });
@@ -154,6 +216,16 @@ describe('Plugin Section API', () => {
           activeTool: 'select',
         }),
       ).toBe(false);
+    });
+
+    it('empty modes means all modes', () => {
+      expect(
+        isContributionAvailable(makeContribution({ availability: { modes: [] } }), {
+          selectionCount: 0,
+          workspaceMode: 'design',
+          activeTool: 'select',
+        }),
+      ).toBe(true);
     });
 
     it('isContributionAvailable respects minSelection', () => {
@@ -237,6 +309,12 @@ describe('Plugin Section API', () => {
       hideContribution('nonexistent', 'section');
       // Should not throw
     });
+
+    it('does not hide a contribution whose owner disallows hiding', () => {
+      registerPlugin(makeManifest([makeContribution({ canHide: false })]));
+      hideContribution('test-plugin', 'test-section');
+      expect(getActiveContributions()).toHaveLength(1);
+    });
   });
 
   describe('Namespacing', () => {
@@ -251,7 +329,7 @@ describe('Plugin Section API', () => {
     it('multiple plugins can have same contributionId', () => {
       const contrib1 = makeContribution({ pluginId: 'plugin-a', contributionId: 'shared' });
       const contrib2 = makeContribution({ pluginId: 'plugin-b', contributionId: 'shared' });
-      registerPlugin(makeManifest([contrib1]));
+      registerPlugin({ id: 'plugin-a', name: 'A', version: '1.0.0', contributions: [contrib1] });
       registerPlugin({ id: 'plugin-b', name: 'B', version: '1.0.0', contributions: [contrib2] });
       expect(getActiveContributions().length).toBe(2);
     });
