@@ -214,6 +214,14 @@ Extraction rules:
 4. Consume the semantic role in components. No `theme === 'dark' ? … : …`
    branches, no ramp positions, no literal fallbacks.
 
+Audited pairs describe resolved token values, not intermediate CSS animation
+frames. When a control changes its foreground and background together, keep
+the pair atomic or verify every transition frame against the required ratio.
+The active workspace pill in `editor.css` snaps both colors: its former 150ms
+color transition produced a transient Light/Logo label at 3.81:1 even though
+the final token pair passes at 4.78:1. The browser switcher contrast check
+reads rendered pixels and guards the active pill's zero-duration transition.
+
 If a value genuinely cannot be themed, give it a name in the token layer under
 `Theme-invariant domain colors` and state why the theme has no authority over
 it. Do not leave an unexplained literal, and do not widen a global lint

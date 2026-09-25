@@ -40,6 +40,7 @@ declare global {
   interface Window {
     __switcherContrast: () => {
       pillContrast: number;
+      pillTransitionDuration: string;
       labelTruncated: boolean;
       inactive: { mode: string | null; contrastVsBar: number }[];
       barBg: string;
@@ -114,6 +115,7 @@ async function installContrastProbe(page: Page) {
         });
       return {
         pillContrast: ratio(labelFg, pillBg),
+        pillTransitionDuration: activeCs.transitionDuration,
         labelTruncated: labelEl ? labelEl.scrollWidth > labelEl.clientWidth + 1 : false,
         inactive,
         barBg: `rgb(${barBg.join(',')})`,
@@ -161,6 +163,9 @@ test.describe('Workspace switcher contract', () => {
             `${theme}/${mode}: pill label contrast ${m.pillContrast.toFixed(2)}:1 ` +
               `(label ${m.labelFg} on ${m.pillBg})`,
           );
+        }
+        if (m.pillTransitionDuration !== '0s') {
+          failures.push(`${theme}/${mode}: active pill colors must switch without a transition`);
         }
         if (m.labelTruncated) failures.push(`${theme}/${mode}: pill label truncated`);
         for (const item of m.inactive) {

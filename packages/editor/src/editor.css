@@ -1827,6 +1827,9 @@ input[type="number"] {
   padding: 0 var(--space-3);
   background: var(--workspace-mode-accent, var(--color-interactive-default));
   color: var(--color-text-on-accent);
+  /* The inactive color transition can blend the new label with the new
+   * accent into a below-AA intermediate pair. Switch both colors together. */
+  transition: none;
 }
 
 /* Compact dock: only when the strip is too narrow even for the active pill

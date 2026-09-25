@@ -12,16 +12,17 @@ The inventory is **eight editor workspace modes**, Home, shared settings,
 menus/overlays, detached-window chrome, and **105 Astro page files** in the
 website source. A page-file count is not a count of unique deployed URLs;
 the website route families below are reviewed by their actual built URLs.
-No completion percentage is reported while runtime coverage is incomplete.
+The denominator is a coverage inventory, not a claim that every control in
+every route received an individual browser assertion.
 
 | Surface | Current status | Evidence or next check |
 |---|---|---|
-| Design, Print, Draw, Photo, Motion, Logo, Email, Codegen | Visually reviewed; affected gate pending | One document survived switching through all eight modes. Each mode's panel and toolbar capture was opened and inspected; 200% text and a narrow forced-colors layout were also reviewed. |
-| Home search | Repaired; affected gate pending | Results route to file opening, project navigation, or persisted template creation. The template gallery receives the loaded inventory. Focused unit and Chromium checks pass. |
-| Shared settings and theme/density lifecycle | Visually reviewed; affected gate pending | Light/dark/high-contrast settings and three repeated theme/density/dialog/document cycles passed; token contrast remains 315/315. |
-| Menus, overlays, Guide Layouts | Repaired; affected gate pending | The settled nested select, menu, selected layer, and 1×/2× canvas overlays were inspected. Modal, focus, no-target, and Escape checks pass. |
+| Design, Print, Draw, Photo, Motion, Logo, Email, Codegen | Visually verified | One document survived switching through all eight modes. Each mode's panel and toolbar capture was opened and inspected; 200% text and a narrow forced-colors layout were also reviewed. |
+| Home search | Repaired and browser verified | Results route to file opening, project navigation, or persisted template creation. The template gallery receives the loaded inventory. Focused unit and Chromium checks pass. |
+| Shared settings and theme/density lifecycle | Visually and browser verified | Light/dark/high-contrast settings and three repeated theme/density/dialog/document cycles passed; token contrast remains 315/315. |
+| Menus, overlays, Guide Layouts | Repaired and browser verified | The settled nested select, menu, selected layer, and 1×/2× canvas overlays were inspected. Modal, focus, no-target, and Escape checks pass. |
 | Detached-window chrome | Reviewed fallback; native smoke inapplicable | The high-contrast invalid-route state passed; this pass changed no native window integration. |
-| Website home/product/features/docs/support/learn/download/legal | Repaired; full site E2E pending | Both base paths build 105 pages. Eight reviewed homepage captures cover desktop/mobile light/dark; the inspected product scenes and current-copy homepage baselines have been refreshed. |
+| Website home/product/features/docs/support/learn/download/legal | Reviewed; changed home and product scenes verified | Both base paths build 105 pages. Eight reviewed homepage captures cover desktop/mobile light/dark; the inspected product scenes and current-copy homepage baselines have been refreshed. Broader site E2E remains in the final affected closure. |
 
 ## Findings and acceptance
 
@@ -35,6 +36,7 @@ No completion percentage is reported while runtime coverage is incomplete.
 | DS-06 | Medium | Screenshot validator allows a captured website PNG without its canonical docs copy; `comic-lettering-light.png` is one such case. | Validator checks both copies and matching content hashes for captured scenes; repair the missing copy through the review/sync pipeline. |
 | DS-07 | Medium | Real Home capture: a `Brand Starter` template query initially highlighted the shorter `Brand` project above it; Enter would navigate away from the requested template. | An exact name match is active ahead of earlier partial matches; ARIA state and Enter agree. |
 | DS-08 | High | `Quick Actions` is bound to Ctrl+Shift+semicolon with `key: ';'`, but the browser reports `key: ':'` for that keystroke; the onboarding tip also omits Shift and conflicts with the guide-visibility shortcut. | The physical shortcut opens the command surface; arrow movement updates the exposed active option; empty results and Escape remain stable. |
+| DS-09 | High | A real editor contrast probe caught the Light/Logo active workspace pill at **3.81:1** (label `rgb(248,245,239)` on `rgb(150,121,46)`) 120ms after switching. The final semantic token pair passes at 4.78:1, but the base `.workspace-dock__item` color/background transition lasts 150ms and also applies to the active pill. | The active foreground/background pair changes atomically; rendered contrast stays at least 4.5:1 through every workspace and theme switch, and the active pill has no color transition. |
 
 ## Foundation repair evidence
 
@@ -187,7 +189,41 @@ and narrow Guide Layouts geometry passed the earlier focused interactions.
 - `docs/screenshots/2026-09-24-design-system/density/` — both densities.
 - `docs/screenshots/2026-09-24-design-system/guide-layout-nested-select.png`.
 
+## Rendered workspace contrast
+
+The final wide triage found DS-09 even though `pnpm audit:tokens` passed all
+315 resolved pairs. At the 120ms post-switch sample, Light/Logo rendered a
+3.81:1 label while the inherited 150ms color and background transition was
+still running. The active pill now disables that transition so its audited
+foreground and background arrive together. No token values or artwork colors
+changed. The real-browser contrast case passed **1/1** across eight modes and
+three themes, and the full workspace review passed **11/11**. That review
+also covers overflow, APG radio keys, 200% text, 480px forced colors, stable
+hit targets, and the one-document invariant. Its early Light/Logo capture was
+opened and inspected:
+`docs/screenshots/2026-09-24-design-system/workspace-logo-contrast-after.png`.
+
+## Dispositions and limits
+
+| Item | Disposition | Evidence |
+|---|---|---|
+| DS-01 to DS-08 | **Fixed** | The repairs and focused acceptance checks above cover the radius roles, modal Guide Layouts workflow, Home routing and exact match, Quick Actions keyboard and ARIA state, current-copy homepage baselines, and screenshot manifest integrity. |
+| DS-09 | **Fixed** | The active pill's foreground/background pair snaps atomically; the rendered contrast and zero-duration transition assertions pass in Chromium. |
+| Raw spacing and sizing inventory | **Deferred debt** | The ratcheted counts (333 spacing declarations, 69 sizing declarations) predate this pass. Their audits pass and the reviewed consumers show no defect calling for a bulk substitution; mechanical replacement could change expert density without improving a verified workflow. |
+| Adobe-style contextual bar loss on another monitor | **Untested hardware** | The in-browser selection-bar regression checks the canvas edge and click path. Physical multi-monitor movement, Windows display scaling, and a 4K panel were unavailable; the 1×/2× selection-overlay captures cover the available DPR comparison. |
+| Full-redraw pixel oracle | **Inapplicable** | None of this pass's owned product changes touch pixel reuse or frame admission. Concurrent renderer changes belong to another workstream and are validated separately. |
+| Linux Tauri native smoke | **Inapplicable** | This pass changed the browser E2E bootstrap, not Tauri window integration or native code. The detached-window fallback was exercised in Chromium. |
+
+No verified in-scope defect remains blocked. Browser checks cannot establish
+screen-reader announcements or native platform behavior. **Untested
+combinations** are Windows and macOS desktop builds; physical fractional or
+4K display scaling and multi-monitor placement; and NVDA/Windows, JAWS/Windows,
+VoiceOver/macOS, and Orca/Linux. Forced colors and reduced motion were
+emulated in Chromium. The theme/density lifecycle run produced existing React
+`flushSync` console warnings, and some visual cases logged a Vite
+`ResizeObserver` loop warning; the exercised controls still passed. These
+warnings require a separate reproduction tied to failed behavior before they
+can be classified as design-system defects.
+
 Research-to-decision details are appended to
-`docs/research/design-system-overhaul-2026-09-17.md`. Subsequent milestone
-commits will update this ledger with dispositions, screenshots, checks, and
-remaining platform limits.
+`docs/research/design-system-overhaul-2026-09-17.md`.
