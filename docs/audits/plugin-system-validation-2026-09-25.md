@@ -172,7 +172,7 @@ plugin commit. The plugin-specific typecheck had passed before that change;
 the final shared-worktree editor typecheck is therefore not claimed as green.
 
 Skipped as unrelated: Rust workspace tests (new examples form their own
-locked workspace, tested above), website E2E outside the changed plugin page
-(the built plugin page was checked directly at desktop and mobile sizes), and
-the full visual suite (no global renderer change). Full suite run: no; the
-planner did not request escalation.
+locked workspace, tested above) and the full renderer visual suite (no global
+renderer change). The selected website browser suite ran, followed by the
+exact repaired checks described above. Full repository suite run: no; neither
+milestone planner requested escalation.
