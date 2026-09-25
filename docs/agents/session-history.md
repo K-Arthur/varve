@@ -2657,3 +2657,85 @@ fixed permitted regions and extends the live override surface instead.
 
 
 
+
+## DTCG Design Tokens: audit, standards repair, and workflow completion (2026-09-25)
+
+### Summary
+
+Re-verified the standards baseline against the published reports (the
+2025.10 Format, Color, and Resolver modules are **Final** Community Group
+Reports, 2025-10-28 — the project had been calling the Format module a
+"Draft … 2026-07-30 snapshot"), produced an interoperability evidence
+ledger with a coverage matrix and a ranked defect list, then repaired the
+defects end to end. Canonical record:
+`docs/tokens/dtcg-interop-evidence-2026-09-25.md`.
+
+### Root causes
+
+1. **The codec layer was never called from the parser.** All 13 `$type`
+   validators existed and were tested, but `parseFormatDocument` never
+   invoked them, so any `$value` imported as valid.
+2. **Nothing in the application ever created `VariableStore.tokenSync` or a
+   token source.** `addSource`/`createEmptyTokenSynchronization` had zero
+   non-test callers, so the guided import dead-ended on every fresh
+   document despite its "Import a DTCG token file to begin" invitation.
+3. **Preview and apply were decoupled.** A module-global
+   `previewFileCache` keyed by `file.name`, a re-parse at apply time, a
+   source chosen by `Object.keys(sources)[0]`, and an unconditional
+   `announce("Imported…")` that fired even when `updateDoc` returned the
+   document unchanged.
+4. **Parser values were null-prototype** (deliberate `__proto__` defence)
+   and travelled into the document store, where `VariablePanel`'s
+   `String(value)` threw *Cannot convert object to primitive value* and took
+   the editor down an error boundary right after an import.
+
+### Changes
+
+- `@varve/tokens`: `validateTokenValue` wired into `buildToken` (skipping
+  reference-bearing values; compatibility mode downgrades value errors);
+  Color-module severity corrected — component-range and alpha-domain
+  violations are warnings that retain the authored value, hex-string colors
+  are an accepted legacy shape flagged rather than rewritten;
+  `toPlainJson` at the parser boundary; spec-status labels corrected.
+- `@varve/scene`: `ensureImportSource` (first use), `writableVariableStore`
+  (undo integrity), `$ref` values retained as `{ $ref }`,
+  `store.groupMeta` for group `$description`/`$deprecated`/`$extensions`,
+  `mintSourceId`.
+- `@varve/ui`: `dtcgExport()` no longer emits `$version`, a timestamp, or
+  unnamespaced extensions; components at authored precision; honest
+  "DTCG 2025.10" wording instead of "W3C DTCG-compliant".
+- `@varve/editor`: new pure `tokenSync/importWorkflow.ts` (content-first
+  format detection, preview carrying the exact document to apply, resolver
+  context resolution, explicit destination selection, import planning) and
+  `tokenSync/exportWorkflow.ts` (deterministic canonical DTCG export);
+  `TokenSyncPanel` rewritten around them with truthful announcements and a
+  transactional apply; `VariablePanel` renders structured values through
+  `formatVariableValue`.
+
+### Verification
+
+- Targeted unit: 293 passed across `packages/tokens`,
+  `packages/scene/src/tokens`, `packages/ui/src/tokens`,
+  `packages/editor/src/tokenSync`, `packages/editor/src/components/TokenSync`;
+  `variableValueFormat` + parse suites green.
+- Typecheck clean for `@varve/tokens`, `@varve/scene`, `@varve/ui`,
+  `@varve/editor`; Biome clean on touched paths.
+- Playwright (heavy-lease, `--workers=1`):
+  `tests/e2e/inspector/token-sync-import.spec.ts` **4/4 passed** — fresh
+  import with undo/redo, parse errors blocking apply, export disabled while
+  empty, export download re-parsing as DTCG.
+- Screenshots inspected: `docs/screenshots/token-sync-import/import-preview.png`
+  (reviewed preview with content hash and source invitation) and
+  `import-applied.png` (source row "In sync · 4 tokens", variables rendered
+  as `#0066cc` / `16 px` rather than crashing).
+- Commits: `6735e4b3a`, `a40a424c6`, `bafeddc7c`, `527f62faa`,
+  `20e511860`, `3f6e375cd`, `06d9c4f86`.
+
+### Known gaps (reported, not claimed)
+
+Conflict-resolution UI, watcher/atomic-write platform wiring, Git-backed
+sources, vendor interop adapters beyond the Tokens Studio shape helper, and
+multimodal proposals remain open (see the audit ledger). Alias resolution is
+still name-based, so the imported `alias` variable's Resolved column shows
+`—` until a token is bound through the token store rather than the legacy
+variable path.

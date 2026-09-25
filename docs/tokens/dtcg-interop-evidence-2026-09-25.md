@@ -120,3 +120,51 @@ Full Cartesian coverage is deliberately avoided. Selected lanes:
   duplicate keys, size/depth bounds, watcher bursts.
 - **B/C/E/H/J** — covered where the existing suites already pin them; new
   permutations deferred and reported as untested rather than claimed.
+
+## 5. Repairs delivered (2026-09-25)
+
+The §2 matrix and §3 defect list record the baseline this pass started
+from. The rows below were repaired; everything else in §2/§3 stands
+unchanged, and cells not listed here are still at their baseline status.
+
+| # | Defect | Status | Commit | Evidence |
+| --- | --- | --- | --- | --- |
+| 1 | First import into a fresh document unreachable | **fixed** | `527f62faa`, `3f6e375cd` | `ensureImportSource` creates store + source; empty state says so; E2E `token-sync-import.spec.ts` "fresh document can import" |
+| 2 | Apply announced success on a no-op | **fixed** | `3f6e375cd` | Apply plans outside `updateDoc`, announces real counts, reports a no-op as a no-op; component test "reports a no-op instead of announcing success" |
+| 3 | `.resolver.json` parsed by `parseFormatDocument` | **fixed** | `3f6e375cd` | Content-first routing → `parseResolverDocument`, per-modifier context Select, lazy single-permutation resolve; 5 resolver tests |
+| 4 | Apply silently used the first source | **fixed** | `3f6e375cd` | Explicit destination `Select` (existing sources + "New source for …"); `sourceOptions`/`defaultSourceChoice` tests |
+| 5 | Preview cache module-global, keyed by `file.name` | **fixed** | `3f6e375cd` | The preview *is* the state: parsed document + FNV-1a content hash held in component state; cancel clears it; same-name/different-revision test |
+| 6 | `dtcgExport()` `$version`, timestamp, unnamespaced extensions | **fixed** | `bafeddc7c` | Cross-package test: strict parse with 0 diagnostics, only defined `$`-properties, byte-identical repeated calls |
+| 7 | No export path for document tokens | **fixed** | `3f6e375cd`, `06d9c4f86` | `exportTokensToDtcg` + Export button; E2E download assertion; scenario-D round-trip test |
+| 8 | Color range/alpha over-strict; hex normalization silent | **fixed** | `a40a424c6` | Range and alpha → warnings that retain the authored value; hex-string → `codec.color.hex-string-form` warning; codecs never transform |
+| 9 | No conflict-resolution UI | **deferred** | – | Counters only; three-way merge engine exists (`merge.ts`) but has no UI |
+| 10 | Watcher/atomic-write engine unwired to any platform | **deferred** | – | `sources.ts`/`watcherEvents.ts` still consumed only by their own tests |
+
+### Additional defects found while repairing
+
+| Defect | Status | Commit | Evidence |
+| --- | --- | --- | --- |
+| Codec layer never called from the parser — any `$value` passed | **fixed** | `a40a424c6` | `validateTokenValue` wired into `buildToken`; parse-level value tests |
+| Null-prototype parser values reaching the document store → `Cannot convert object to primitive value` (whole-editor error boundary after an import) | **fixed** | `a40a424c6`, `20e511860` | `toPlainJson` at the parser boundary + `formatVariableValue` in `VariablePanel`; caught by E2E, not by unit tests |
+| Backing-variable writes mutated the store the undo stack still references → undo could not remove imported variables | **fixed** | `527f62faa` | `writableVariableStore` clone; "does not mutate the document variable store while planning" |
+| Token-level `$ref` imported with `value: undefined` (reference lost) | **fixed** | `527f62faa`, `3f6e375cd` | Retained as `{ $ref }`, replayed as token-level `$ref` on export |
+| Group `$description`/`$deprecated`/`$extensions` dropped at import | **fixed** | `527f62faa`, `3f6e375cd` | `store.groupMeta` + replay; round-trip test asserts them after re-parse |
+| `$type` written onto pure references could contradict the target | **fixed** | `3f6e375cd` | Export omits `$type` when the value is a pure reference |
+
+### Verification record
+
+```text
+Changed scope: packages/tokens, packages/scene (src/tokens), packages/ui,
+packages/editor (VariablePanel, tokenSync, components/TokenSync, variableValueFormat),
+docs/tokens, docs/README.md, tests/e2e/inspector
+Unit (targeted): 293 passed — packages/tokens + scene/src/tokens + ui/src/tokens +
+  editor/src/tokenSync + editor/components/TokenSync
+Typecheck: @varve/tokens, @varve/scene, @varve/ui, @varve/editor — clean
+Biome (touched): clean
+E2E: npx playwright test tests/e2e/inspector/token-sync-import.spec.ts
+  --project=chromium --workers=1 (heavy-lease) — 4/4 passed
+Screenshots inspected: docs/screenshots/token-sync-import/import-preview.png,
+  docs/screenshots/token-sync-import/import-applied.png
+Commits: 6735e4b3a, a40a424c6, bafeddc7c, 527f62faa, 20e511860, 3f6e375cd, 06d9c4f86
+Full suite run: no — see docs/quality/validation-strategy.md; affected plan executed separately
+```

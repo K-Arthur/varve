@@ -47,6 +47,26 @@ pre/post-commit verification, orphaned work recovered via reflog/cherry-pick
 (never `reset --hard`). Pre-existing scene typecheck failures (table/warp
 in-flight files) are recorded separately from regressions introduced here.
 
+### Commit ledger — 2026-09-25 completion pass
+
+The M9–M12 follow-ups were addressed alongside a defect-repair pass driven by
+the evidence ledger in `docs/tokens/dtcg-interop-evidence-2026-09-25.md`.
+
+| Hash | Subject | Focus |
+| --- | --- | --- |
+| `6735e4b3a` | docs(tokens): record DTCG 2025.10 evidence ledger and correct report labels | standards research, coverage matrix, ranked defects |
+| `a40a424c6` | feat(tokens): validate token values on parse and correct color diagnostics | codec layer wired into the parser; Color-module severity model; plain-prototype values |
+| `bafeddc7c` | fix(ui): make the application-token DTCG export deterministic and in-spec | `$version` removed, `org.varve.*` namespacing, determinism, honest labels |
+| `527f62faa` | feat(scene): make token import first-use capable and non-destructive | `ensureImportSource`, non-mutating variable writes, `$ref` and group-metadata retention |
+| `20e511860` | fix(editor): render variable values instead of coercing them | structured values no longer crash the editor |
+| `3f6e375cd` | feat(editor): complete the Token Sync import and export workflow | preview/apply identity, resolver routing, explicit source selection, truthful announcements, DTCG export |
+| `06d9c4f86` | test(e2e): drive the Token Sync import, undo, and export in a real browser | browser-level proof + reviewed screenshots |
+
+Still open (documented, not silently dropped): conflict-resolution UI (M12 UI
+half), platform wiring for the watcher/atomic-write engine, Git-backed
+sources (M9), vendor interop adapters beyond the Tokens Studio shape helper
+(M10), and multimodal proposals (M11).
+
 ## 1. Executive summary
 
 Varve has a functional but shallow variable system: collections, nested groups,
