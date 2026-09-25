@@ -144,6 +144,7 @@ function HomeShellContent({
   const [shortcutHelpOpen, setShortcutHelpOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [searchPaletteOpen, setSearchPaletteOpen] = useState(false);
+  const searchInvokerRef = useRef<HTMLElement | null>(null);
   const [contextAnchor, setContextAnchor] = useState<OverlayAnchor | null>(null);
   const [contextFile, setContextFile] = useState<FileEntry | null>(null);
   const [contextSelection, setContextSelection] = useState<string[]>([]);
@@ -378,7 +379,10 @@ function HomeShellContent({
     }, [view.visibleFiles]),
     showHelp: useCallback(() => setShortcutHelpOpen(true), []),
     importFiles: useCallback(() => setImportOpen(true), []),
-    searchCommand: useCallback(() => setSearchPaletteOpen(true), []),
+    searchCommand: useCallback(() => {
+      searchInvokerRef.current = document.activeElement as HTMLElement | null;
+      setSearchPaletteOpen(true);
+    }, []),
     toggleFavorite: useCallback(() => {
       if (selectedIds.length === 0) {
         const firstFile = view.visibleFiles[0];
@@ -415,7 +419,7 @@ function HomeShellContent({
       count: view.files.filter((f) => f.projectId === p.id).length,
       pinned: p.pinned,
     })),
-    { id: 'templates', label: 'Templates', icon: 'GridFour', count: 0 },
+    { id: 'templates', label: 'Templates', icon: 'GridFour', count: templates.length },
     { id: 'assets', label: 'Assets', icon: 'Image', count: 0 },
     { id: 'activity', label: 'Activity', icon: 'ClockCounterClockwise', count: 0 },
     { id: 'trash', label: 'Trash', icon: 'Archive', count: view.trashedFiles.length },
@@ -423,14 +427,17 @@ function HomeShellContent({
 
   // E4 (2026-08-10): document-level heading for SR heading navigation.
   const currentSectionLabel =
-    sidebarEntries.find((e) => e.id === view.state.section)?.label ?? 'Recent';
+    view.state.section === 'project'
+      ? (view.projects.find((project) => project.id === view.state.activeProjectId)?.name ??
+        'Project')
+      : (sidebarEntries.find((entry) => entry.id === view.state.section)?.label ?? 'Recent');
 
   const sidebarSectionCounts: Record<string, number> = {
     recent: view.recentSectionCounts.all,
     all: view.files.length - view.trashedFiles.length,
     drafts: view.draftFiles.length,
     favorites: view.favoriteFiles.length,
-    templates: 0,
+    templates: templates.length,
     assets: 0,
     activity: 0,
     trash: view.trashedFiles.length,
@@ -775,6 +782,39 @@ function HomeShellContent({
     [createDocumentFromRequest],
   );
 
+  const createFromTemplate = useCallback(
+    async (template: TemplateLibrary) => {
+      const id = crypto.randomUUID();
+      const now = Date.now();
+      const docJson = template.documentJson;
+      const entry: FileEntry = {
+        id,
+        name: template.name,
+        kind: 'strata',
+        projectId: null,
+        createdAt: now,
+        updatedAt: now,
+        openedAt: now,
+        size: docJson.length,
+        pinned: false,
+        trashedAt: null,
+        ordering: '',
+        contentHash: contentHash(docJson),
+      };
+      try {
+        await platform.upsertFile(entry, docJson);
+      } catch {
+        setStorageError(
+          `"${template.name}" could not be saved. Check available storage and try again.`,
+        );
+        return;
+      }
+      setStorageError(null);
+      onOpenFile(entry);
+    },
+    [platform, onOpenFile],
+  );
+
   const handleBreadcrumbNavigate = useCallback(
     (id: string) => {
       if (view.workspaces.some((w) => w.id === id) || id === 'personal') {
@@ -808,27 +848,8 @@ function HomeShellContent({
       case 'templates':
         return (
           <TemplatesGallery
-            onSelect={(template) => {
-              const id = crypto.randomUUID();
-              const now = Date.now();
-              const docJson = template.documentJson;
-              const entry: FileEntry = {
-                id,
-                name: template.name,
-                kind: 'strata',
-                projectId: null,
-                createdAt: now,
-                updatedAt: now,
-                openedAt: now,
-                size: docJson.length,
-                pinned: false,
-                trashedAt: null,
-                ordering: '',
-                contentHash: '',
-              };
-              platform.upsertFile(entry, docJson);
-              onOpenFile(entry);
-            }}
+            templates={templates}
+            onSelect={(template) => void createFromTemplate(template)}
           />
         );
       case 'trash':
@@ -1247,11 +1268,29 @@ function HomeShellContent({
         )}
         <HomeSearchPalette
           open={searchPaletteOpen}
-          onClose={() => setSearchPaletteOpen(false)}
+          onClose={(reason) => {
+            setSearchPaletteOpen(false);
+            if (reason === 'dismiss') {
+              const invoker = searchInvokerRef.current;
+              window.requestAnimationFrame(() => {
+                if (invoker?.isConnected && invoker !== document.body) invoker.focus();
+                else document.getElementById('home-main')?.focus();
+              });
+            }
+            searchInvokerRef.current = null;
+          }}
           onOpenFile={(id) => {
             const entry = view.files.find((f) => f.id === id);
             if (entry) onOpenFile(entry);
-            setSearchPaletteOpen(false);
+          }}
+          onOpenProject={(id) => {
+            view.setActiveProject(id);
+            setFolderId(null);
+            window.requestAnimationFrame(() => document.getElementById('home-main')?.focus());
+          }}
+          onCreateFromTemplate={(id) => {
+            const template = templates.find((candidate) => candidate.id === id);
+            if (template) void createFromTemplate(template);
           }}
           files={view.files.filter((f) => !f.trashedAt)}
           projects={view.projects}

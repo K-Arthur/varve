@@ -13,7 +13,7 @@ interface ResultItem {
   id: string;
   name: string;
   sub?: string;
-  groupKind: string;
+  groupKind: 'header' | 'file' | 'project' | 'template' | 'content';
   groupLabel: string;
   groupIcon: string;
   isFirstInGroup: boolean;
@@ -28,8 +28,10 @@ const SEARCH_GROUP_ICONS = {
 
 export interface HomeSearchPaletteProps {
   open: boolean;
-  onClose: () => void;
+  onClose: (reason: 'dismiss' | 'selection') => void;
   onOpenFile: (id: string) => void;
+  onOpenProject: (id: string) => void;
+  onCreateFromTemplate: (id: string) => void;
   files: FileEntry[];
   projects: Project[];
   templates: TemplateLibrary[];
@@ -40,6 +42,8 @@ export function HomeSearchPalette({
   open,
   onClose,
   onOpenFile,
+  onOpenProject,
+  onCreateFromTemplate,
   files,
   projects,
   templates,
@@ -103,7 +107,7 @@ export function HomeSearchPalette({
       // suggestions (2026-09-17): the palette previously rendered a tall
       // empty panel with only "Start typing to search", wasting its height
       // on content-free space. Project/template matches stay query-gated
-      // (their selection currently only opens files).
+      // so the default view stays compact.
       const recent = [...files]
         .sort((a, b) => b.openedAt - a.openedAt || b.updatedAt - a.updatedAt)
         .slice(0, 6);
@@ -233,19 +237,45 @@ export function HomeSearchPalette({
 
   const selectItem = useCallback(
     (item: ResultItem) => {
-      const resolvedId = item.groupKind === 'content' ? item.id.split('||')[0]! : item.id;
-      onOpenFile(resolvedId);
-      onClose();
+      switch (item.groupKind) {
+        case 'file':
+          onOpenFile(item.id);
+          break;
+        case 'content':
+          onOpenFile(item.id.split('||')[0]!);
+          break;
+        case 'project':
+          onOpenProject(item.id);
+          break;
+        case 'template':
+          onCreateFromTemplate(item.id);
+          break;
+        case 'header':
+          return;
+      }
+      onClose('selection');
     },
-    [onOpenFile, onClose],
+    [onOpenFile, onOpenProject, onCreateFromTemplate, onClose],
   );
+  const exactMatchIdx = query.trim()
+    ? allItems.findIndex(
+        (item) =>
+          item.groupKind !== 'header' && item.name.toLowerCase() === query.trim().toLowerCase(),
+      )
+    : -1;
+  const resolvedActiveIdx =
+    allItems[activeIdx]?.groupKind !== 'header' && allItems[activeIdx]
+      ? activeIdx
+      : exactMatchIdx >= 0
+        ? exactMatchIdx
+        : allItems.findIndex((item) => item.groupKind !== 'header');
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       switch (e.key) {
         case 'Escape':
           e.preventDefault();
-          onClose();
+          onClose('dismiss');
           break;
         case 'Tab': {
           // Focus trap: cycle focus within the container
@@ -268,7 +298,7 @@ export function HomeSearchPalette({
           e.preventDefault();
           setActiveIdx((i) => {
             const max = allItems.length - 1;
-            let next = i + 1;
+            let next = (allItems[i]?.groupKind === 'header' ? resolvedActiveIdx : i) + 1;
             while (next <= max && allItems[next]?.groupKind === 'header') next++;
             return next <= max ? next : i;
           });
@@ -283,12 +313,7 @@ export function HomeSearchPalette({
           break;
         case 'Enter': {
           e.preventDefault();
-          let idx = activeIdx;
-          if (allItems[idx]?.groupKind === 'header') {
-            idx = idx + 1;
-            while (idx < allItems.length && allItems[idx]?.groupKind === 'header') idx++;
-          }
-          const hit = allItems[idx];
+          const hit = allItems[resolvedActiveIdx];
           if (hit && hit.groupKind !== 'header') {
             selectItem(hit);
           }
@@ -296,15 +321,12 @@ export function HomeSearchPalette({
         }
       }
     },
-    [onClose, allItems, activeIdx, selectItem],
+    [onClose, allItems, resolvedActiveIdx, selectItem],
   );
 
   if (!open) return null;
 
-  const activeItemId =
-    allItems.length > 0 && activeIdx >= 0 && allItems[activeIdx]?.groupKind !== 'header'
-      ? `search-result-${activeIdx}`
-      : undefined;
+  const activeItemId = resolvedActiveIdx >= 0 ? `search-result-${resolvedActiveIdx}` : undefined;
 
   return (
     <div
@@ -313,7 +335,7 @@ export function HomeSearchPalette({
       aria-modal="true"
       aria-label="Search files, projects, templates, and documents"
       onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        if (e.target === e.currentTarget) onClose('dismiss');
       }}
       onKeyDown={handleKeyDown}
     >
@@ -378,7 +400,7 @@ export function HomeSearchPalette({
                 </div>
               );
             }
-            const isActive = idx === activeIdx;
+            const isActive = idx === resolvedActiveIdx;
             return (
               <div
                 key={item.id}

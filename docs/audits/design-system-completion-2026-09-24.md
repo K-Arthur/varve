@@ -17,7 +17,7 @@ No completion percentage is reported while runtime coverage is incomplete.
 | Surface | Current status | Evidence or next check |
 |---|---|---|
 | Design, Print, Draw, Photo, Motion, Logo, Email, Codegen | In progress | Existing workspace and layers E2E cover selected controls; capture and inspect each mode's panel/toolbar state in this pass. |
-| Home search | Defective | Project/template results call the file-only opener and silently do nothing; test pointer/keyboard selection, navigation/creation, and focus restoration. |
+| Home search | Repaired; affected gate pending | Results route to file opening, project navigation, or persisted template creation. The template gallery receives the loaded inventory. Focused unit and Chromium checks pass. |
 | Shared settings and theme/density lifecycle | In progress | Existing lifecycle specs and 315/315 token contrast pairs pass; repeat switches and reopen with real UI. |
 | Menus, overlays, Guide Layouts | Repaired; broader visual matrix pending | Guide Layouts now uses the shared modal and controls; browser screenshots show a dim backdrop and centered desktop/narrow layout. Nested select, focus restoration, no-target gating, and Escape passed focused Chromium tests. |
 | Detached-window chrome | In progress | Existing theme lifecycle coverage; run integration smoke if changed. |
@@ -33,6 +33,7 @@ No completion percentage is reported while runtime coverage is incomplete.
 | DS-04 | Medium | Quick Actions changes `aria-selected` while focus stays in search input, without `aria-activedescendant`. | Arrow navigation exposes the active option to assistive technology; Enter invokes it and empty results remain stable. |
 | DS-05 | Medium | Homepage snapshot contains pre-correction competitor copy; `visual.spec.ts` allows a 2% pixel difference that can miss a small text change. | Inspect and approve current desktop/mobile light/dark captures; assert critical product copy semantically and update only changed baselines. |
 | DS-06 | Medium | Screenshot validator allows a captured website PNG without its canonical docs copy; `comic-lettering-light.png` is one such case. | Validator checks both copies and matching content hashes for captured scenes; repair the missing copy through the review/sync pipeline. |
+| DS-07 | Medium | Real Home capture: a `Brand Starter` template query initially highlighted the shorter `Brand` project above it; Enter would navigate away from the requested template. | An exact name match is active ahead of earlier partial matches; ARIA state and Enter agree. |
 
 ## Foundation repair evidence
 
@@ -60,6 +61,29 @@ for the settled state. Affected validation is still pending.
 - `docs/screenshots/2026-09-24-design-system/guide-layouts-after-desktop.png`
 - `docs/screenshots/2026-09-24-design-system/guide-layouts-after-narrow.png`
 - `docs/screenshots/2026-09-24-design-system/frame-presets-after.png`
+
+## Home workflow repair evidence
+
+The command palette previously sent every result ID to a file-only callback;
+project and template selections closed the palette without an action. It now
+dispatches each result kind to its owning HomeShell path. Project navigation
+uses the existing persisted view state, while both template entry points await
+`platform.upsertFile` before opening the new document and report storage
+failure. The gallery now receives the already loaded template inventory and
+shows its count. The Home heading follows the selected project, and dismissing
+search returns focus to its invoker or Home main content. The active result
+now prefers an exact name match; a screenshot exposed the `Brand Starter`
+template versus `Brand` project ambiguity before that repair. The matching
+option is also exposed through `aria-activedescendant` while focus stays in
+the search field. Focused Home units passed **20/20**, the exact-match unit
+rerun passed **12/12**, and the lease-wrapped Chromium workflow passed **2/2**
+after the final change. Both retained Home screenshots were opened and
+inspected: the project result is visibly active, and the exact template is
+active below the partial project match. Project navigation moves focus to
+Home main content; Escape returns it to the invoker.
+
+- `docs/screenshots/2026-09-24-design-system/home-search-project.png`
+- `docs/screenshots/2026-09-24-design-system/home-search-template.png`
 
 `pnpm audit:spacing:report` reports 333 raw declarations in 259 buckets,
 and `pnpm audit:sizing:report` reports 69 ratcheted declarations in 54

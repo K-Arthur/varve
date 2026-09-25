@@ -399,7 +399,7 @@
 |---|---|---|
 | **Workspace switcher non-functional** | `activeWorkspaceId` added to `HomeViewState`; `useHomeView` loads workspaces, defaults to the personal workspace, filters projects/files by workspace, and exposes `setWorkspace`; `HomeShell` removed local workspace state and wired the switcher. | `useHomeView.test.ts` — 5 workspace-filtering tests pass. |
 | **Fuzzy search missing** | `computeVisibleFiles` now uses `fuzzyScore` (threshold 0.3) instead of `name.toLowerCase().includes(q)`. | `useHomeView.test.ts` — typo query `brnd` matches `Brand Guidelines`. |
-| **Command palette substring search** | `HomeSearchPalette` uses `fuzzySearch` for files, projects, and templates; `HomeShell` loads templates via `platform.listTemplates()`. | `HomeSearchPalette.test.tsx` existing tests pass; templates are now supplied. |
+| **Command palette substring search** | `HomeSearchPalette` uses `fuzzySearch` for files, projects, and templates; `HomeShell` loads templates via `platform.listTemplates()`. The 2026-09-24 follow-up wired result actions by kind and passed the loaded inventory into `TemplatesGallery`, which this original audit had not verified. | `HomeSearchPalette.test.tsx` covers routing; the 2026-09-24 design-system completion ledger records the integration checks. |
 | **New projects not tied to workspace** | `useFileActions.createProject` accepts an optional `workspaceId` and calls `platform.moveProjectToWorkspace`; memory platform updates `project.workspaceId`. | `useHomeView.test.ts` — `createProject` associates project with workspace. |
 
 ### Quality gates

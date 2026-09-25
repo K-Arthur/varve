@@ -93,9 +93,10 @@ verified programmatically (`batch-actions` count 0, `aria-selected=false`).
 - Perf budget (#8) unresolved; needs a decision owner for either a documented
   warm/cold measurement definition or an environment-appropriate budget —
   not a silent threshold change.
-- Search palette project/template results still only open files; selecting a
-  project or template is a silent no-op (pre-existing). Empty-state
-  suggestions deliberately exclude them until those actions exist.
+- The project/template palette route was repaired in the 2026-09-24 design-system
+  completion pass. The result kind now selects a project or creates a document
+  from a stored template; the template gallery receives the loaded inventory.
+  Empty-query suggestions still show recent files to keep the palette compact.
 - Stale `.search-sort-group` CSS rules remain (no consumers); left in place
   to keep the diff scoped.
 - The package-local Playwright lane is not wired into CI (only the root

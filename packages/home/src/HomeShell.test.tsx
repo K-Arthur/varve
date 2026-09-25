@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { createMemoryPlatform, makeFileEntry } from '@varve/platform';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { HomeShell } from './HomeShell';
@@ -95,5 +95,62 @@ describe('HomeShell', () => {
       },
       { timeout: 3000 },
     );
+  });
+
+  it('navigates to a project from command search', async () => {
+    const platform = createMemoryPlatform({
+      projects: [
+        {
+          id: 'marketing',
+          name: 'Marketing Project',
+          createdAt: 1,
+          updatedAt: 1,
+          pinned: false,
+          trashedAt: null,
+        },
+      ],
+    });
+    render(<HomeShell platform={platform} onOpenFile={vi.fn()} />);
+    await screen.findByRole('button', { name: 'Marketing Project' });
+    fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
+    const search = screen.getByRole('combobox', { name: 'Search' });
+    fireEvent.change(search, { target: { value: 'Marketing Project' } });
+    fireEvent.keyDown(screen.getByRole('dialog', { name: /Search files, projects/ }), {
+      key: 'Enter',
+    });
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { level: 1, name: 'Marketing Project' })).toBeVisible(),
+    );
+  });
+
+  it('shows stored templates and persists a selected template before opening it', async () => {
+    const documentJson = JSON.stringify({ id: 'seed', name: 'Poster Starter', nodes: {} });
+    const platform = createMemoryPlatform({
+      templates: [
+        {
+          id: 'poster-template',
+          name: 'Poster Starter',
+          description: 'Print poster',
+          category: 'Print',
+          previewHash: '',
+          source: 'user',
+          documentJson,
+          tags: [],
+          usageCount: 0,
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      ],
+    });
+    const onOpenFile = vi.fn();
+    render(<HomeShell platform={platform} onOpenFile={onOpenFile} />);
+    const templates = await screen.findByRole('button', { name: /Templates/ });
+    await waitFor(() => expect(templates).toHaveTextContent('1'));
+    fireEvent.click(templates);
+    fireEvent.click(await screen.findByRole('button', { name: /Poster Starter/ }));
+    await waitFor(() => expect(onOpenFile).toHaveBeenCalledTimes(1));
+    const entry = onOpenFile.mock.calls[0]![0];
+    expect(await platform.readFile(entry.id)).toBe(documentJson);
+    expect(entry.contentHash).toBeTruthy();
   });
 });

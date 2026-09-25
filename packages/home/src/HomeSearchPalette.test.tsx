@@ -65,6 +65,8 @@ describe('HomeSearchPalette', () => {
   it('renders nothing when closed', () => {
     const { container } = render(
       <HomeSearchPalette
+        onOpenProject={vi.fn()}
+        onCreateFromTemplate={vi.fn()}
         open={false}
         onClose={vi.fn()}
         onOpenFile={vi.fn()}
@@ -80,6 +82,8 @@ describe('HomeSearchPalette', () => {
   it('renders search input when open', () => {
     render(
       <HomeSearchPalette
+        onOpenProject={vi.fn()}
+        onCreateFromTemplate={vi.fn()}
         open={true}
         onClose={vi.fn()}
         onOpenFile={vi.fn()}
@@ -95,6 +99,8 @@ describe('HomeSearchPalette', () => {
   it('filters results by query', () => {
     render(
       <HomeSearchPalette
+        onOpenProject={vi.fn()}
+        onCreateFromTemplate={vi.fn()}
         open={true}
         onClose={vi.fn()}
         onOpenFile={vi.fn()}
@@ -113,6 +119,8 @@ describe('HomeSearchPalette', () => {
   it('shows grouped results', () => {
     render(
       <HomeSearchPalette
+        onOpenProject={vi.fn()}
+        onCreateFromTemplate={vi.fn()}
         open={true}
         onClose={vi.fn()}
         onOpenFile={vi.fn()}
@@ -133,6 +141,8 @@ describe('HomeSearchPalette', () => {
     const onClose = vi.fn();
     render(
       <HomeSearchPalette
+        onOpenProject={vi.fn()}
+        onCreateFromTemplate={vi.fn()}
         open={true}
         onClose={onClose}
         onOpenFile={vi.fn()}
@@ -151,6 +161,8 @@ describe('HomeSearchPalette', () => {
     const onOpenFile = vi.fn();
     render(
       <HomeSearchPalette
+        onOpenProject={vi.fn()}
+        onCreateFromTemplate={vi.fn()}
         open={true}
         onClose={vi.fn()}
         onOpenFile={onOpenFile}
@@ -177,6 +189,8 @@ describe('HomeSearchPalette', () => {
     ];
     render(
       <HomeSearchPalette
+        onOpenProject={vi.fn()}
+        onCreateFromTemplate={vi.fn()}
         open={true}
         onClose={vi.fn()}
         onOpenFile={vi.fn()}
@@ -200,6 +214,8 @@ describe('HomeSearchPalette', () => {
     ];
     render(
       <HomeSearchPalette
+        onOpenProject={vi.fn()}
+        onCreateFromTemplate={vi.fn()}
         open={true}
         onClose={vi.fn()}
         onOpenFile={onOpenFile}
@@ -213,9 +229,87 @@ describe('HomeSearchPalette', () => {
     expect(onOpenFile).toHaveBeenCalledWith('new');
   });
 
+  it('opens a project result from the keyboard and exposes the active option', () => {
+    const onOpenFile = vi.fn();
+    const onOpenProject = vi.fn();
+    const onClose = vi.fn();
+    render(
+      <HomeSearchPalette
+        open
+        onClose={onClose}
+        onOpenFile={onOpenFile}
+        onOpenProject={onOpenProject}
+        onCreateFromTemplate={vi.fn()}
+        files={mockFiles}
+        projects={mockProjects}
+        templates={mockTemplates}
+        platform={mockPlatform}
+      />,
+    );
+    const input = screen.getByRole('combobox', { name: 'Search' });
+    fireEvent.change(input, { target: { value: 'Marketing' } });
+    const option = screen.getByRole('option', { name: 'Marketing Site' });
+    expect(input).toHaveAttribute('aria-activedescendant', option.id);
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Enter' });
+    expect(onOpenProject).toHaveBeenCalledWith('p1');
+    expect(onOpenFile).not.toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalledWith('selection');
+  });
+
+  it('creates from the selected template instead of treating its ID as a file', () => {
+    const onCreateFromTemplate = vi.fn();
+    const onOpenFile = vi.fn();
+    render(
+      <HomeSearchPalette
+        open
+        onClose={vi.fn()}
+        onOpenFile={onOpenFile}
+        onOpenProject={vi.fn()}
+        onCreateFromTemplate={onCreateFromTemplate}
+        files={mockFiles}
+        projects={mockProjects}
+        templates={mockTemplates}
+        platform={mockPlatform}
+      />,
+    );
+    fireEvent.change(screen.getByRole('combobox', { name: 'Search' }), {
+      target: { value: 'Blank Canvas' },
+    });
+    fireEvent.click(screen.getByRole('option', { name: /Blank Canvas/i }));
+    expect(onCreateFromTemplate).toHaveBeenCalledWith('t1');
+    expect(onOpenFile).not.toHaveBeenCalled();
+  });
+
+  it('prefers an exact template name over an earlier partial project match', () => {
+    const onCreateFromTemplate = vi.fn();
+    const onOpenProject = vi.fn();
+    render(
+      <HomeSearchPalette
+        open
+        onClose={vi.fn()}
+        onOpenFile={vi.fn()}
+        onOpenProject={onOpenProject}
+        onCreateFromTemplate={onCreateFromTemplate}
+        files={[]}
+        projects={[{ ...mockProjects[0]!, name: 'Brand' }]}
+        templates={[{ ...mockTemplates[0]!, name: 'Brand Starter' }]}
+        platform={mockPlatform}
+      />,
+    );
+    const input = screen.getByRole('combobox', { name: 'Search' });
+    fireEvent.change(input, { target: { value: 'Brand Starter' } });
+    const option = screen.getByRole('option', { name: /Brand Starter/ });
+    expect(input).toHaveAttribute('aria-activedescendant', option.id);
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Enter' });
+    expect(onCreateFromTemplate).toHaveBeenCalledWith('t1');
+    expect(onOpenProject).not.toHaveBeenCalled();
+  });
+
   it('explains the empty state when no files exist', () => {
     render(
       <HomeSearchPalette
+        onOpenProject={vi.fn()}
+        onCreateFromTemplate={vi.fn()}
         open={true}
         onClose={vi.fn()}
         onOpenFile={vi.fn()}

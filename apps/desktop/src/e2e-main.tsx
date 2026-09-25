@@ -42,7 +42,25 @@ const FILES = Array.from({ length: 20 }, (_, i) => {
   };
 });
 
-const platform = createMemoryPlatform({ files: FILES, projects: PROJECTS });
+const platform = createMemoryPlatform({
+  files: FILES,
+  projects: PROJECTS,
+  templates: [
+    {
+      id: 'brand-starter-template',
+      name: 'Brand Starter',
+      description: 'Reusable brand canvas',
+      category: 'General',
+      previewHash: '',
+      source: 'builtin',
+      documentJson: TEMPLATE_JSON,
+      tags: [],
+      usageCount: 0,
+      createdAt: 1,
+      updatedAt: 1,
+    },
+  ],
+});
 const rootEl = document.getElementById('root');
 if (!rootEl) throw new Error('root element not found');
 const root = createRoot(rootEl);
