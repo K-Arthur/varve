@@ -202,3 +202,20 @@ release. Xvfb reported no DRI3 device. The first cold Vite dev load exceeded
 the app's 20-second startup watchdog; after the module graph warmed, Reload
 opened the editor. That development-server timeout is a separate limitation,
 not evidence that a packaged build fails to start.
+
+## Inspected visual evidence retained in the repository
+
+These PNGs are copies of the captures opened during the investigation. The
+small compositor fixtures isolate coverage, overlap, and paint order; the UI
+captures show the actual editor, native WebKitGTK session, and website copy.
+They do not replace a mixed-document, export, or real-display color check.
+
+| Scenario and revision | Inspected captures |
+|---|---|
+| Missing first circle at baseline `3b223b5d3` | [Canvas2D reference](../screenshots/gpu-rendering-2026-09-24/before-two-circles-canvas2d.png), [WebGPU defect](../screenshots/gpu-rendering-2026-09-24/before-two-circles-gpu.png) |
+| Two-circle repair at `c8d3b3dd1` | [Canvas2D reference](../screenshots/gpu-rendering-2026-09-24/after-two-circles-canvas2d.png), [WebGPU result](../screenshots/gpu-rendering-2026-09-24/after-two-circles-gpu.png) |
+| Rounded rectangle ordered fallback at `c8d3b3dd1` | [Canvas2D reference](../screenshots/gpu-rendering-2026-09-24/rounded-fallback-canvas2d.png), [WebGPU-selected compositor result](../screenshots/gpu-rendering-2026-09-24/rounded-fallback-gpu-selected.png) |
+| Circle upload boundary at `c8d3b3dd1` | [Canvas2D reference](../screenshots/gpu-rendering-2026-09-24/circle-chunk-canvas2d.png), [WebGPU result](../screenshots/gpu-rendering-2026-09-24/circle-chunk-gpu.png) |
+| Rectangle upload boundary at `faa25f3a5` | [Canvas2D reference](../screenshots/gpu-rendering-2026-09-24/rect-chunk-canvas2d.png), [WebGPU result](../screenshots/gpu-rendering-2026-09-24/rect-chunk-gpu.png) |
+| Fallback/status and native UI after `3bf2582c1` | [Browser status](../screenshots/gpu-rendering-2026-09-24/editor-gpu-unavailable.png), [Performance settings](../screenshots/gpu-rendering-2026-09-24/settings-gpu-unavailable.png), [native WebKitGTK rectangle](../screenshots/gpu-rendering-2026-09-24/native-webkitgtk-rect.png) |
+| Narrow marketing docs after `b530c866e` | [Rendering explanation](../screenshots/gpu-rendering-2026-09-24/website-rendering-mobile.png) |
