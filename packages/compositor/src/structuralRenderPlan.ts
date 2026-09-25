@@ -31,10 +31,12 @@ export interface StructuralRenderPlan {
 const EMPTY_REASONS: readonly FallbackReason[] = [];
 
 function reasonForItem(item: RenderItem): FallbackReason | null {
-  const primitive = item.primitive as { kind?: string };
+  const primitive = item.primitive;
   if (primitive.kind === 'text') return 'text';
   if (primitive.kind === 'path') return 'path';
   if (primitive.kind !== 'rect' && primitive.kind !== 'circle') return 'unsupported-primitive';
+  if (primitive.kind === 'rect' && (primitive.cornerRadius || primitive.cornerSmoothing))
+    return 'unsupported-primitive';
   if ((item.fills?.length ?? 0) > 0) return 'unsupported-paint';
   if ((item.strokes?.length ?? 0) > 0) return 'stroke';
   if ((item.effects?.length ?? 0) > 0) return 'effect';

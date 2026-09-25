@@ -1,6 +1,6 @@
 # Render Pipeline Architecture
 
-**Updated:** 2026-09-13
+**Updated:** 2026-09-24
 
 > The maintained Canvas 2D lifecycle, coordinate, resource, export, portability, and
 > extension contract is [canvas2d-system.md](canvas2d-system.md). The target model is
@@ -185,16 +185,25 @@ Two invariants are load-bearing; violating either blanks part or all of the scen
 
 ## WebGPU Compositor (2026-07-11; ownership invert 2026-07-13)
 
+The current browser WebGPU route remains opt-in. In the editor,
+`renderPipeline.ts` sends flat IR to the compositor only when the worker does
+not present that frame; structural groups, masks, and effects use recursive
+Canvas2D replay. The editor does not currently send
+`CompositorFrame.structure`, so the compositor's structural plan is an internal
+ordered fallback seam, not evidence that normal structural documents render on
+WebGPU. A native Rust engine producing IR or native `wgpu` compute succeeding
+does not imply native GPU presentation.
+
 | Feature | Implementation |
 |---|---|
 | Init order | Present canvas stays Canvas2D; offscreen canvas acquires `webgpu` |
 | Fallback | Ordered `webgpu-run` / `canvas2d-island` segments; unsupported flat items are the smallest safe island until structural metadata widens the boundary |
-| Primitives | rect, circle, line (tessellated quad) on GPU; text/path/effects on 2D |
+| Primitives | plain solid rect and circle on GPU when eligible; rounded rect, line/stroke, text, path, and effects on Canvas2D |
 | Pipeline | Explicit bind group layouts; shared camera uniform (floating origin + view rotation); circle coverage tested in object-local space (exact under non-uniform scale and skew); premul blend |
 | Affine | Vertex shader uses kurbo/canvas `a·x+c·y+e` / `b·x+d·y+f` (`transform`/`transform2` attrs) |
 | Camera parity | `CameraUniform` includes `origin` + `rotation`; matches `buildWorldToScreenAffine` |
 | Power preference | Shared `selectWebGpuAdapter()` (high-performance then low-power; decline software) |
-| Perf | Vertex buffer pool (power-of-2); render bundle cache for solid rects/lines |
+| Perf | Vertex buffer pool (power-of-2); render bundle cache for solid rects; circle center/radius ride with each vertex, with a maximum 4 MiB rounded upload per ordered chunk |
 | Device loss | In-place Canvas2D continue; StatusBar "GPU lost — using Canvas2D" |
 | Opt-in | `settings.render.preferWebGpu` (default false; Linux WebKitGTK stays Canvas2D) |
 | Diagnostics | Status bar via `CompositorDiagnostics` |
@@ -211,6 +220,17 @@ when that would lose parent compositing semantics.
 Each GPU run clears the transparent offscreen target before rendering and then
 blits only that run to the persistent Canvas2D presentation surface. Earlier
 GPU runs are therefore not retained and re-blitted after a Canvas2D island.
+Rounded rectangles remain in Canvas2D islands: the current GPU rectangle
+pipeline emits a square quad and cannot reproduce authored corner radius or
+smoothing. Circle coverage is local-space, with each circle's center and
+radius kept in its own vertices; one shared draw uniform would make multiple
+circles consume the final circle's values before GPU submission.
+Circle geometry uses a six-vertex covering quad with local-space fragment
+coverage, avoiding the prior 96-vertex fan and its inscribed-polygon edge.
+Long runs are chunked before allocation; each chunk submits before the pooled
+buffer is rewritten, and later chunks load the same transparent target to
+preserve paint order. The 4 MiB working cap is also clamped to the device's
+reported `maxBufferSize`.
 When a scene compiler supplies `CompositorFrame.structure`, a boundary can widen
 an island to an isolated/masked/effect group without making the compositor
 depend on `@varve/scene`.
@@ -401,7 +421,7 @@ Raster/PDF export (`packages/editor/src/components/SpecPanel/export.ts`) had thr
 
 ## WebGPU/WGSL Subsystem Correctness Pass (2026-07-12)
 
-Baseline architecture review (§0 resolution): confirmed there is **no native `wgpu`-rs anywhere in this repo** — zero `wgpu` entries in `Cargo.lock`, only `naga` (WGSL validator, dev-dependency of `varve-bridge`, used solely for offline compile-checking the WGSL strings hand-copied from the TS sources into `crates/varve-bridge/tests/wgsl_validation.rs`). WebGPU rendering happens **entirely inside the webview** via `navigator.gpu` in `packages/compositor/src/webgpu/`, driven by TS/WGSL — not natively in the Rust process bridged over IPC. ADR-0001's IR-replay architecture means Rust only ever computes scene → IR; the webview (Tauri's WebKitGTK on Linux, or a real browser for `pnpm dev`) does 100% of the actual GPU work. Both the Tauri desktop dev flow (`pnpm tauri:dev`, WebKitGTK) and the browser-dev flow (`pnpm dev` in `apps/desktop`, no Tauri window) load the *same* `@varve/compositor` code — WebGPU reachability is identical in both, gated purely by whether the hosting engine exposes `navigator.gpu` (WebKitGTK currently doesn't; Chromium does). `apps/web` remains a Next.js stub (task 0.9+) with no compositor wiring at all.
+The 2026-07-12 review found no native `wgpu` crate at that time. That historical finding no longer describes the checkout: `crates/varve-accel` now uses native `wgpu` 30 for offscreen compute. Live WebGPU *presentation* still occurs inside the webview through `navigator.gpu`; native compute has its own capability and execution checks. A Tauri Linux WebKitGTK session and a Chromium browser session run the same compositor code but do not have the same API availability or adapter behavior. `apps/web` is not a production editor.
 
 Fixes shipped this session (see commit messages for full detail; each is independently reverted-and-reproduced or execution-verified, not just code-reviewed):
 

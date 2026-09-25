@@ -56,6 +56,31 @@ describe('buildStructuralRenderPlan', () => {
     expect(plan.segments).toHaveLength(1);
   });
 
+  it('routes rounded and smoothed rectangles through the accurate fallback', () => {
+    const plan = buildStructuralRenderPlan([
+      rect(),
+      rect({ primitive: { kind: 'rect', x: 0, y: 0, w: 10, h: 10, cornerRadius: 4 } }),
+      rect({
+        primitive: {
+          kind: 'rect',
+          x: 0,
+          y: 0,
+          w: 10,
+          h: 10,
+          cornerRadius: 4,
+          cornerSmoothing: 0.5,
+        },
+      }),
+      rect(),
+    ]);
+    expect(plan.segments.map((segment) => segment.kind)).toEqual([
+      'webgpu-run',
+      'canvas2d-island',
+      'webgpu-run',
+    ]);
+    expect(plan.fallbackReasons['unsupported-primitive']).toBe(1);
+  });
+
   it('falls back for unsupported leaves outside an already-created boundary', () => {
     const plan = buildStructuralRenderPlan(
       [

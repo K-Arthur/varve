@@ -1,6 +1,17 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import { WebGPUBackend } from './backend';
+import { maxCircleItemsPerUpload, WebGPUBackend } from './backend';
+
+describe('WebGPUBackend circle upload admission', () => {
+  it('caps the rounded allocation within the device limit and 4 MiB working budget', () => {
+    expect(maxCircleItemsPerUpload(500)).toBe(0);
+    expect(maxCircleItemsPerUpload(512)).toBe(1);
+    const chunk = maxCircleItemsPerUpload(256 * 1024 * 1024);
+    expect(chunk).toBeGreaterThan(1000);
+    expect(chunk * 6 * 15 * 4).toBeLessThanOrEqual(4 * 1024 * 1024);
+    expect((chunk + 1) * 6 * 15 * 4).toBeGreaterThan(4 * 1024 * 1024);
+  });
+});
 
 describe('WebGPUBackend vertex pool', () => {
   it('reuses buffers of same rounded size', async () => {

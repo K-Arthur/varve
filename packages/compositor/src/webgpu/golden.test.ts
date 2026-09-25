@@ -176,6 +176,22 @@ describe('WebGPU golden diff vs Canvas2D', () => {
     expect(applyItemAffine([0, 0], [1, 0, 0, 1, 40, 50])).toEqual([40, 50]);
   });
 
+  it('does not route rounded rectangles to a square-only GPU quad', () => {
+    const rect = FIXTURE_ITEMS[0];
+    if (rect?.primitive.kind !== 'rect') throw new Error('Expected rectangle fixture');
+    expect(
+      isGpuBatchSupported([{ ...rect, primitive: { ...rect.primitive, cornerRadius: 8 } }]),
+    ).toBe(false);
+    expect(
+      isGpuBatchSupported([
+        {
+          ...rect,
+          primitive: { ...rect.primitive, cornerRadius: [4, 8, 4, 8], cornerSmoothing: 0.5 },
+        },
+      ]),
+    ).toBe(false);
+  });
+
   it('keeps a 2D context on the present canvas after init (ownership invert)', async () => {
     const canvas = document.createElement('canvas');
     canvas.width = 64;

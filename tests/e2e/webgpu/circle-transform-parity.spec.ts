@@ -56,6 +56,12 @@ test('circle coverage honors non-uniform scale and skew', async ({ page }) => {
       maxInteriorDiff: number;
       referencePng: string;
       gpuPng: string;
+      roundedCornerReferenceAlpha?: number;
+      roundedCornerGpuAlpha?: number;
+      chunkReferenceRgb?: [number, number, number];
+      chunkGpuRgb?: [number, number, number];
+      isolatedReferenceAlpha?: number;
+      isolatedGpuAlpha?: number;
     }
     interface BackendLike {
       init(canvas: HTMLCanvasElement): Promise<void>;
@@ -72,10 +78,18 @@ test('circle coverage honors non-uniform scale and skew', async ({ page }) => {
 
     const WIDTH = 200;
     const HEIGHT = 140;
-    const cases = [
+    const cases: {
+      name: string;
+      transform: number[];
+      secondCircle?: boolean;
+      roundedRect?: boolean;
+      chunkBoundary?: boolean;
+    }[] = [
       { name: 'uniform', transform: [1, 0, 0, 1, 40, 40] },
       { name: 'scaled-x2', transform: [2, 0, 0, 1, 40, 40] },
       { name: 'skewed', transform: [2, 0.6, -0.6, 1, 40, 40] },
+      { name: 'two-circles', transform: [1, 0, 0, 1, 40, 40], secondCircle: true },
+      { name: 'rounded-rect-fallback', transform: [1, 0, 0, 1, 45, 35], roundedRect: true },
     ];
 
     const referenceCanvas = document.createElement('canvas');
@@ -90,6 +104,18 @@ test('circle coverage honors non-uniform scale and skew', async ({ page }) => {
     const gpu = new mod.WebGPUBackend();
     await gpu.init(gpuCanvas);
     const diagnostics = gpu.getDiagnostics();
+    const batchModule = (await import(
+      /* @vite-ignore */ url.replace('/index.ts', '/webgpu/backend.ts')
+    )) as {
+      maxCircleItemsPerUpload(maxBufferSize: number): number;
+    };
+    if (diagnostics.gpuActive && !diagnostics.adapterIsFallback) {
+      cases.push({
+        name: 'circle-chunk-boundary',
+        transform: [1, 0, 0, 1, 40, 40],
+        chunkBoundary: true,
+      });
+    }
 
     const analyze = (canvas: HTMLCanvasElement) => {
       const ctx = canvas.getContext('2d');
@@ -176,17 +202,57 @@ test('circle coverage honors non-uniform scale and skew', async ({ page }) => {
 
     const metrics: Metrics[] = [];
     for (const testCase of cases) {
-      const items = [
+      const items: unknown[] = [
         {
           transform: testCase.transform,
           fill: { space: 'rgb', r: 30, g: 160, b: 220, a: 255 },
-          primitive: { kind: 'circle', cx: 0, cy: 0, r: 24 },
+          primitive: testCase.roundedRect
+            ? { kind: 'rect', x: 0, y: 0, w: 90, h: 60, cornerRadius: 24 }
+            : { kind: 'circle', cx: 0, cy: 0, r: 24 },
           opacity: 1,
           blendMode: 'normal',
           strokes: [],
           effects: [],
         },
       ];
+      if (testCase.secondCircle) {
+        items.push({
+          transform: [1, 0, 0, 1, 145, 85],
+          fill: { space: 'rgb', r: 225, g: 75, b: 50, a: 255 },
+          primitive: { kind: 'circle', cx: 0, cy: 0, r: 18 },
+          opacity: 1,
+          blendMode: 'normal',
+          strokes: [],
+          effects: [],
+        });
+      }
+      if (testCase.chunkBoundary) {
+        const chunk = batchModule.maxCircleItemsPerUpload(4 * 1024 * 1024);
+        for (let i = 1; i <= chunk; i++) {
+          const lastInFirstChunk = i === chunk - 1;
+          const firstInSecondChunk = i === chunk;
+          items.push({
+            transform: lastInFirstChunk
+              ? [1, 0, 0, 1, 145, 85]
+              : firstInSecondChunk
+                ? [1, 0, 0, 1, 55, 40]
+                : [1, 0, 0, 1, 1000, 1000],
+            fill: firstInSecondChunk
+              ? { space: 'rgb', r: 225, g: 75, b: 50, a: 128 }
+              : { space: 'rgb', r: 225, g: 75, b: 50, a: 255 },
+            primitive: {
+              kind: 'circle',
+              cx: 0,
+              cy: 0,
+              r: lastInFirstChunk || firstInSecondChunk ? 18 : 2,
+            },
+            opacity: 1,
+            blendMode: 'normal',
+            strokes: [],
+            effects: [],
+          });
+        }
+      }
       const frame = {
         items,
         camera: { zoom: 1, pan: { x: 0, y: 0 } },
@@ -205,6 +271,14 @@ test('circle coverage honors non-uniform scale and skew', async ({ page }) => {
       const gpuStats = analyze(gpuCanvas);
 
       const pixelDiff = diff(referenceStats.image.data, gpuStats.image.data);
+      const cornerIndex = (37 * WIDTH + 47) * 4 + 3;
+      const overlapIndex = (40 * WIDTH + 55) * 4;
+      const isolatedIndex = (85 * WIDTH + 145) * 4 + 3;
+      const rgbAt = (data: Uint8ClampedArray, index: number): [number, number, number] => [
+        data[index] ?? 0,
+        data[index + 1] ?? 0,
+        data[index + 2] ?? 0,
+      ];
       metrics.push({
         name: testCase.name,
         referenceCoverage: referenceStats.coverage,
@@ -217,6 +291,20 @@ test('circle coverage honors non-uniform scale and skew', async ({ page }) => {
         maxInteriorDiff: pixelDiff.maxInterior,
         referencePng: referenceStats.png,
         gpuPng: gpuStats.png,
+        ...(testCase.roundedRect
+          ? {
+              roundedCornerReferenceAlpha: referenceStats.image.data[cornerIndex],
+              roundedCornerGpuAlpha: gpuStats.image.data[cornerIndex],
+            }
+          : {}),
+        ...(testCase.chunkBoundary
+          ? {
+              chunkReferenceRgb: rgbAt(referenceStats.image.data, overlapIndex),
+              chunkGpuRgb: rgbAt(gpuStats.image.data, overlapIndex),
+              isolatedReferenceAlpha: referenceStats.image.data[isolatedIndex],
+              isolatedGpuAlpha: gpuStats.image.data[isolatedIndex],
+            }
+          : {}),
       });
     }
 
@@ -253,6 +341,26 @@ test('circle coverage honors non-uniform scale and skew', async ({ page }) => {
     // antialiases, so the boundary band legitimately differs. A wrong fill
     // colour or a clipped region shows up in the interior statistics too.
     expect(metric.meanInteriorDiff, `${metric.name}: mean interior diff`).toBeLessThan(4);
-    expect(metric.maxInteriorDiff, `${metric.name}: max interior diff`).toBeLessThan(12);
+    // An opaque base circle makes the translucent top circle's antialiased
+    // edge appear "interior" to this broad alpha classifier. The current GPU
+    // edge is aliased; assert the overlap's actual center separately.
+    expect(metric.maxInteriorDiff, `${metric.name}: max interior diff`).toBeLessThan(
+      metric.name === 'circle-chunk-boundary' ? 50 : 12,
+    );
+    if (metric.name === 'circle-chunk-boundary') {
+      expect(metric.isolatedReferenceAlpha).toBe(255);
+      expect(metric.isolatedGpuAlpha).toBe(255);
+      for (let channel = 0; channel < 3; channel++) {
+        expect(
+          Math.abs(
+            (metric.chunkReferenceRgb?.[channel] ?? 0) - (metric.chunkGpuRgb?.[channel] ?? 0),
+          ),
+        ).toBeLessThanOrEqual(4);
+      }
+    }
+    if (metric.name === 'rounded-rect-fallback') {
+      expect(metric.roundedCornerReferenceAlpha).toBe(0);
+      expect(metric.roundedCornerGpuAlpha).toBe(0);
+    }
   }
 });

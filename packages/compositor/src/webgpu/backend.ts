@@ -38,6 +38,17 @@ interface GpuVertex {
 }
 
 const LINE_HALF_WIDTH = 1.5;
+const CIRCLE_VERTEX_FLOATS = 15;
+const CIRCLE_VERTICES_PER_ITEM = 6;
+const MAX_CIRCLE_UPLOAD_BYTES = 4 * 1024 * 1024;
+const CIRCLE_QUAD_CORNERS = [
+  [-1, -1],
+  [1, -1],
+  [-1, 1],
+  [1, -1],
+  [-1, 1],
+  [1, 1],
+] as const;
 
 const PREMUL_BLEND: GPUBlendState = {
   color: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' },
@@ -82,30 +93,6 @@ function buildVertices(items: RenderItem[]): GpuVertex[] {
         [prim.x + prim.w, prim.y + prim.h],
       ];
       for (const p of pts) vertices.push({ localPos: p, color: col, transform, transform2 });
-    } else if (prim.kind === 'circle') {
-      const cx = prim.cx;
-      const cy = prim.cy;
-      const r = prim.r;
-      const segs = 32;
-      for (let i = 0; i < segs; i++) {
-        const a0 = (2 * Math.PI * i) / segs;
-        const a1 = (2 * Math.PI * (i + 1)) / segs;
-        vertices.push(
-          { localPos: [cx, cy], color: col, transform, transform2 },
-          {
-            localPos: [cx + r * Math.cos(a0), cy + r * Math.sin(a0)],
-            color: col,
-            transform,
-            transform2,
-          },
-          {
-            localPos: [cx + r * Math.cos(a1), cy + r * Math.sin(a1)],
-            color: col,
-            transform,
-            transform2,
-          },
-        );
-      }
     } else if (prim.kind === 'line') {
       const dx = prim.to[0] - prim.from[0];
       const dy = prim.to[1] - prim.from[1];
@@ -123,6 +110,45 @@ function buildVertices(items: RenderItem[]): GpuVertex[] {
     }
   }
   return vertices;
+}
+
+/** Keep the rounded GPU allocation below both the device limit and a 4 MiB working cap. */
+export function maxCircleItemsPerUpload(maxBufferSize: number): number {
+  const capped = Math.min(Math.floor(maxBufferSize), MAX_CIRCLE_UPLOAD_BYTES);
+  if (!Number.isFinite(capped) || capped < CIRCLE_VERTICES_PER_ITEM * CIRCLE_VERTEX_FLOATS * 4)
+    return 0;
+  const roundedBudget = 2 ** Math.floor(Math.log2(capped));
+  return Math.floor(roundedBudget / (CIRCLE_VERTICES_PER_ITEM * CIRCLE_VERTEX_FLOATS * 4));
+}
+
+function flattenCircleVertices(items: readonly RenderItem[]): Float32Array {
+  const data = new Float32Array(items.length * CIRCLE_VERTICES_PER_ITEM * CIRCLE_VERTEX_FLOATS);
+  let offset = 0;
+  for (const item of items) {
+    const prim = item.primitive;
+    if (prim.kind !== 'circle') continue;
+    const color = fillToRgba(item.fill);
+    const alpha = color[3] * (item.opacity ?? 1);
+    const transform = item.transform;
+    for (const [dx, dy] of CIRCLE_QUAD_CORNERS) {
+      data[offset++] = prim.cx + dx * prim.r;
+      data[offset++] = prim.cy + dy * prim.r;
+      data[offset++] = color[0];
+      data[offset++] = color[1];
+      data[offset++] = color[2];
+      data[offset++] = alpha;
+      data[offset++] = transform[0];
+      data[offset++] = transform[1];
+      data[offset++] = transform[2];
+      data[offset++] = transform[3];
+      data[offset++] = transform[4];
+      data[offset++] = transform[5];
+      data[offset++] = prim.cx;
+      data[offset++] = prim.cy;
+      data[offset++] = prim.r;
+    }
+  }
+  return data;
 }
 
 function isGpuPrimitive(item: RenderItem): boolean {
@@ -154,6 +180,8 @@ export function isGpuBatchSupported(items: readonly RenderItem[]): boolean {
     items.every(
       (item) =>
         isGpuPrimitive(item) &&
+        (item.primitive.kind !== 'rect' ||
+          (!item.primitive.cornerRadius && !item.primitive.cornerSmoothing)) &&
         hasVisibleAffine(item.transform) &&
         (item.fills?.length ?? 0) === 0 &&
         (item.strokes?.length ?? 0) === 0 &&
@@ -205,9 +233,7 @@ export class WebGPUBackend {
   private solidPipeline: GPURenderPipeline | null = null;
   private circlePipeline: GPURenderPipeline | null = null;
   private cameraBuffer: GPUBuffer | null = null;
-  private circleUniformBuffer: GPUBuffer | null = null;
   private cameraBindGroup: GPUBindGroup | null = null;
-  private circleBindGroup: GPUBindGroup | null = null;
   private vertexPool: Map<number, GPUBuffer> = new Map();
   private bundleCache: Map<string, GPURenderBundle> = new Map();
   private currentFrame: CompositorFrame | null = null;
@@ -267,6 +293,14 @@ export class WebGPUBackend {
         ],
       };
 
+      const circleVertexBufferLayout: GPUVertexBufferLayout = {
+        arrayStride: 60,
+        attributes: [
+          ...vertexBufferLayout.attributes,
+          { shaderLocation: 4, offset: 48, format: 'float32x3' },
+        ],
+      };
+
       const solidBindGroupLayout = device.createBindGroupLayout({
         entries: [
           {
@@ -277,26 +311,8 @@ export class WebGPUBackend {
         ],
       });
 
-      const circleBindGroupLayout = device.createBindGroupLayout({
-        entries: [
-          {
-            binding: 0,
-            visibility: GPUShaderStage.VERTEX,
-            buffer: { type: 'uniform' },
-          },
-          {
-            binding: 1,
-            visibility: GPUShaderStage.FRAGMENT,
-            buffer: { type: 'uniform' },
-          },
-        ],
-      });
-
       const solidPipelineLayout = device.createPipelineLayout({
         bindGroupLayouts: [solidBindGroupLayout],
-      });
-      const circlePipelineLayout = device.createPipelineLayout({
-        bindGroupLayouts: [circleBindGroupLayout],
       });
 
       const colorTarget: GPUColorTargetState = {
@@ -316,8 +332,12 @@ export class WebGPUBackend {
       });
 
       const circlePipeline = device.createRenderPipeline({
-        layout: circlePipelineLayout,
-        vertex: { module: circleModule, entryPoint: 'vs_main', buffers: [vertexBufferLayout] },
+        layout: solidPipelineLayout,
+        vertex: {
+          module: circleModule,
+          entryPoint: 'vs_main',
+          buffers: [circleVertexBufferLayout],
+        },
         fragment: {
           module: circleModule,
           entryPoint: 'fs_main',
@@ -332,32 +352,17 @@ export class WebGPUBackend {
         size: 32,
         usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
       });
-      const circleUniformBuffer = device.createBuffer({
-        size: 16,
-        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-      });
-
       const cameraBindGroup = device.createBindGroup({
         layout: solidBindGroupLayout,
         entries: [{ binding: 0, resource: { buffer: cameraBuffer } }],
       });
-      const circleBg = device.createBindGroup({
-        layout: circleBindGroupLayout,
-        entries: [
-          { binding: 0, resource: { buffer: cameraBuffer } },
-          { binding: 1, resource: { buffer: circleUniformBuffer } },
-        ],
-      });
-
       this.device = device;
       this.gpuCanvas = gpuCanvas;
       this.context = context;
       this.solidPipeline = solidPipeline;
       this.circlePipeline = circlePipeline;
       this.cameraBuffer = cameraBuffer;
-      this.circleUniformBuffer = circleUniformBuffer;
       this.cameraBindGroup = cameraBindGroup;
-      this.circleBindGroup = circleBg;
       this.gpuReady = true;
       this.watchDeviceLost(device);
     } catch {
@@ -372,6 +377,7 @@ export class WebGPUBackend {
     this.fallbackIslandCount = 0;
     this.fallbackNodeCount = 0;
     this.fallbackReasons = {};
+    this.lastFrameVertexBytes = 0;
     const { viewport } = frame;
     const dpr = window.devicePixelRatio || 1;
     const w = Math.max(1, Math.floor(viewport.width * dpr));
@@ -409,9 +415,7 @@ export class WebGPUBackend {
       this.solidPipeline &&
       this.circlePipeline &&
       this.cameraBuffer &&
-      this.circleUniformBuffer &&
       this.cameraBindGroup &&
-      this.circleBindGroup &&
       this.gpuCanvas
     ) {
       const frame = this.currentFrame;
@@ -423,11 +427,24 @@ export class WebGPUBackend {
           this.fallbackReasons[reason] = (this.fallbackReasons[reason] ?? 0) + count;
         }
         for (const segment of plan.segments) {
-          if (segment.kind === 'webgpu-run' && isGpuBatchSupported(segment.items)) {
+          const withinDeviceLimit: boolean =
+            segment.items[0]?.primitive.kind !== 'circle' ||
+            maxCircleItemsPerUpload(this.device.limits.maxBufferSize) > 0;
+          if (
+            segment.kind === 'webgpu-run' &&
+            isGpuBatchSupported(segment.items) &&
+            withinDeviceLimit
+          ) {
             this.drawGpuItems([...segment.items], frame);
             this.gpuDrawnThisFrame = true;
             this.blitGpuToPresent();
           } else {
+            if (segment.kind === 'webgpu-run') {
+              this.fallbackIslandCount++;
+              this.fallbackNodeCount += segment.items.length;
+              const reason = withinDeviceLimit ? 'unsupported-primitive' : 'resource-limit';
+              this.fallbackReasons[reason] = (this.fallbackReasons[reason] ?? 0) + 1;
+            }
             // Keep the complete semantic island on Canvas2D. No backend
             // partition is allowed to reorder the compositor's paint order.
             this.present?.drawVectorItems([...segment.items], colorOptions, imagePolicy);
@@ -515,9 +532,7 @@ export class WebGPUBackend {
     this.solidPipeline = null;
     this.circlePipeline = null;
     this.cameraBuffer = null;
-    this.circleUniformBuffer = null;
     this.cameraBindGroup = null;
-    this.circleBindGroup = null;
     for (const buf of this.vertexPool.values()) buf.destroy();
     this.vertexPool.clear();
     this.bundleCache.clear();
@@ -591,18 +606,14 @@ export class WebGPUBackend {
     const solidPipeline = this.solidPipeline;
     const circlePipeline = this.circlePipeline;
     const cameraBuffer = this.cameraBuffer;
-    const circleUniformBuffer = this.circleUniformBuffer;
     const cameraBindGroup = this.cameraBindGroup;
-    const circleBindGroup = this.circleBindGroup;
     if (
       !device ||
       !context ||
       !solidPipeline ||
       !circlePipeline ||
       !cameraBuffer ||
-      !circleUniformBuffer ||
-      !cameraBindGroup ||
-      !circleBindGroup
+      !cameraBindGroup
     )
       return;
 
@@ -612,7 +623,7 @@ export class WebGPUBackend {
     this.writeCameraUniform(frame);
 
     const textureView = context.getCurrentTexture().createView();
-    const encoder = device.createCommandEncoder();
+    let encoder = device.createCommandEncoder();
     // Each invocation is an ordered run. Earlier GPU pixels have already been
     // presented to Canvas2D; retaining them here would make a later blit
     // cumulative and duplicate earlier runs.
@@ -658,37 +669,39 @@ export class WebGPUBackend {
       }
     }
 
-    for (const circleItem of circleItems) {
-      const circleVerts = buildVertices([circleItem]);
-      if (circleVerts.length === 0) continue;
-      const prim = circleItem.primitive;
-      if (prim.kind !== 'circle') continue;
-      // `buildVertices` already applies the item affine; the fragment shader
-      // tests coverage in the same object-local space, so the uniform stays
-      // local (no CPU camera/DPR reconstruction, exact under non-uniform
-      // scale and skew).
-      const circleData = new Float32Array([prim.cx, prim.cy, prim.r, 0]);
-      device.queue.writeBuffer(circleUniformBuffer, 0, circleData.buffer as ArrayBuffer);
-      const data = flattenVertices(circleVerts);
-      this.lastFrameVertexBytes += data.byteLength;
-      const vBuf = this.getOrCreateVertexBuffer(device, data.byteLength);
-      device.queue.writeBuffer(vBuf, 0, data.buffer.slice(0, data.byteLength) as ArrayBuffer);
-      const pass = encoder.beginRenderPass({
-        colorAttachments: [
-          {
-            view: textureView,
-            clearValue: { r: 0, g: 0, b: 0, a: 0 },
-            loadOp: firstPass ? 'clear' : 'load',
-            storeOp: 'store',
-          },
-        ],
-      });
-      firstPass = false;
-      pass.setPipeline(circlePipeline);
-      pass.setBindGroup(0, circleBindGroup);
-      pass.setVertexBuffer(0, vBuf);
-      pass.draw(circleVerts.length);
-      pass.end();
+    if (circleItems.length > 0) {
+      const maxItems = maxCircleItemsPerUpload(device.limits.maxBufferSize);
+      if (maxItems === 0) throw new Error('Circle vertex buffer exceeds device limit');
+      for (let start = 0; start < circleItems.length; start += maxItems) {
+        const end = Math.min(start + maxItems, circleItems.length);
+        // Center and radius travel with each vertex. The bounded chunk avoids
+        // millions of temporary JS objects and preserves queue order when the
+        // pooled vertex buffer is reused for the next submission.
+        const data = flattenCircleVertices(circleItems.slice(start, end));
+        this.lastFrameVertexBytes += data.byteLength;
+        const vBuf = this.getOrCreateVertexBuffer(device, data.byteLength);
+        device.queue.writeBuffer(vBuf, 0, data);
+        const pass = encoder.beginRenderPass({
+          colorAttachments: [
+            {
+              view: textureView,
+              clearValue: { r: 0, g: 0, b: 0, a: 0 },
+              loadOp: firstPass ? 'clear' : 'load',
+              storeOp: 'store',
+            },
+          ],
+        });
+        firstPass = false;
+        pass.setPipeline(circlePipeline);
+        pass.setBindGroup(0, cameraBindGroup);
+        pass.setVertexBuffer(0, vBuf);
+        pass.draw((end - start) * CIRCLE_VERTICES_PER_ITEM);
+        pass.end();
+        if (end < circleItems.length) {
+          device.queue.submit([encoder.finish()]);
+          encoder = device.createCommandEncoder();
+        }
+      }
     }
 
     device.queue.submit([encoder.finish()]);

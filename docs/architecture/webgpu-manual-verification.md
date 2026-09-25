@@ -27,10 +27,11 @@ is adopted.
 
 ## Checklist
 
-- [ ] **Primitives render correctly:** draw a rect, circle, and line/stroke. All three should be
-      visible with correct fill color and opacity (this is the specific regression Task 2 of the
-      original plan fixed — lines rendered nothing before quad tessellation).
-- [ ] **Mixed content composites correctly:** a document with GPU primitives (rect/circle/line)
+- [ ] **Primitives render correctly:** draw two separated solid circles with different
+      radii/colors and a plain solid rectangle. Both circles must remain visible;
+      line/stroke and rounded rectangles must render through Canvas2D with their
+      authored shape. Inspect the output, not just the backend label.
+- [ ] **Mixed content composites correctly:** a document with eligible plain solid rectangles/circles
       *and* CPU-only content (text, path, effects) in the same frame — confirm the Canvas2D
       present path draws non-GPU primitives on top of the GPU blit without a visible seam
       (ownership invert 2026-07-13: present canvas is always 2D; GPU is offscreen).

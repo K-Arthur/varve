@@ -9,8 +9,8 @@
 //! The WGSL source below is extracted from two TS files:
 //!
 //!   packages/compositor/src/webgpu/shaders.ts — SOLID_VERTEX_WGSL,
-//!     SOLID_FRAGMENT_WGSL, CIRCLE_FRAGMENT_WGSL, BLIT_VERTEX_WGSL,
-//!     BLIT_FRAGMENT_WGSL (CIRCLE_VERTEX_WGSL aliases SOLID_VERTEX_WGSL)
+//!     SOLID_FRAGMENT_WGSL, CIRCLE_VERTEX_WGSL, CIRCLE_FRAGMENT_WGSL,
+//!     BLIT_VERTEX_WGSL, BLIT_FRAGMENT_WGSL
 //!
 //!   packages/engine/src/backgroundRemoval/gpuAccelerator.ts —
 //!     _getHorizontalBlurShader(), _getVerticalBlurShader() method returns
@@ -119,12 +119,14 @@ struct VertexInput {
   @location(1) color: vec4f,
   @location(2) transform: vec4f,
   @location(3) transform2: vec2f,
+  @location(4) circle: vec3f,
 };
 
 struct VertexOutput {
   @builtin(position) position: vec4f,
   @location(0) color: vec4f,
   @location(1) local: vec2f,
+  @location(2) circle: vec3f,
 };
 
 @vertex
@@ -153,26 +155,20 @@ fn vs_main(input: VertexInput) -> VertexOutput {
   out.position = vec4f(ndcX, ndcY, 0.0, 1.0);
   out.color = vec4f(input.color.rgb * input.color.a, input.color.a);
   out.local = input.localPos;
+  out.circle = input.circle;
   return out;
 }
 "#;
 
 const CIRCLE_FRAGMENT_WGSL: &str = r#"
-struct CircleUniform {
-  center: vec2f,
-  radius: f32,
-  _pad: f32,
-};
-
-@group(0) @binding(1) var<uniform> circle: CircleUniform;
-
 @fragment
 fn fs_main(
   @location(0) color: vec4f,
   @location(1) local: vec2f,
+  @location(2) circle: vec3f,
 ) -> @location(0) vec4f {
   // Local-space coverage: exact for every affine item transform.
-  if (distance(local, circle.center) > circle.radius) {
+  if (distance(local, circle.xy) > circle.z) {
     discard;
   }
   return color;
