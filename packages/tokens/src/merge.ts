@@ -46,6 +46,13 @@ export interface TokenMerge {
   base?: TokenSnapshot;
   local: TokenSnapshot;
   remote: TokenSnapshot;
+  /** True when this side of the comparison removed the token entirely.
+   * `local`/`remote` still carry the surviving snapshot for context. */
+  localDeleted?: boolean;
+  remoteDeleted?: boolean;
+  /** True when the resolved decision removes the token. `result` is
+   * undefined in that case (a deletion has no resulting snapshot). */
+  deleted?: boolean;
   /** Merged snapshot when the decision resolves without conflicts. */
   result?: TokenSnapshot;
   diagnostics: TokenDiagnostic[];
@@ -58,6 +65,47 @@ export interface TokenMergePlan {
   valid: boolean;
   /** Number of tokens that would change. */
   affectedCount: number;
+  /** Number of tokens the plan removes. */
+  deletedCount: number;
+}
+
+/** Per-token resolution for an unresolved merge. */
+export type ConflictResolutionChoice = 'local' | 'remote';
+
+/**
+ * Turn user resolutions for conflicting merges into a validated plan.
+ * Unresolved conflicts remain conflicts; the plan stays invalid until every
+ * one is decided. Never guesses a resolution.
+ */
+export function applyConflictResolutions(
+  plan: TokenMergePlan,
+  resolutions: Readonly<Record<string, ConflictResolutionChoice>>,
+): TokenMergePlan {
+  const merges = plan.merges.map((merge) => {
+    if (merge.decision !== 'conflict' && merge.decision !== 'delete-vs-edit') return merge;
+    const choice = resolutions[merge.path];
+    if (choice === undefined) return merge;
+    return resolveMerge(merge, choice);
+  });
+  // Diagnostics from the original plan are re-derived for the resolved plan;
+  // only warnings/info that are not conflict-specific are retained.
+  const diagnostics = plan.diagnostics.filter(
+    (d) => d.code !== 'merge.conflict' && d.code !== 'merge.unresolved',
+  );
+  return buildPlan(merges, diagnostics);
+}
+
+function resolveMerge(merge: TokenMerge, choice: ConflictResolutionChoice): TokenMerge {
+  if (choice === 'local') {
+    if (merge.localDeleted) return deletedMerge(merge, 'accept-local');
+    return { ...merge, decision: 'accept-local', conflicts: [], result: merge.local };
+  }
+  if (merge.remoteDeleted) return deletedMerge(merge, 'accept-remote');
+  return { ...merge, decision: 'accept-remote', conflicts: [], result: merge.remote };
+}
+
+function deletedMerge(merge: TokenMerge, decision: MergeDecision): TokenMerge {
+  return { ...merge, decision, conflicts: [], deleted: true, result: undefined };
 }
 
 export interface ThreeWayInput {
@@ -79,8 +127,11 @@ export function threeWayMerge(input: ThreeWayInput): TokenMergePlan {
   // Pass 1: identity-matched tokens (stable ids) — may be renamed.
   for (const [baseKey, baseToken] of input.base) {
     if (!baseToken.id) continue;
-    const localToken = localById.get(baseToken.id);
-    const remoteToken = remoteById.get(baseToken.id);
+    // Identity matching only holds when the counterpart carries the same id.
+    // DTCG files commonly carry no stable id, so fall back to the canonical
+    // path rather than treating an identity-less remote as a deletion.
+    const localToken = localById.get(baseToken.id) ?? input.local.get(baseKey);
+    const remoteToken = remoteById.get(baseToken.id) ?? input.remote.get(baseKey);
     if (!localToken && !remoteToken) continue;
     const localKey = localToken ? pathKey(localToken.path) : undefined;
     const remoteKey = remoteToken ? pathKey(remoteToken.path) : undefined;
@@ -208,11 +259,15 @@ function mergeToken(
       conflicts: [],
       local: baseToken,
       remote: baseToken,
+      localDeleted: true,
+      remoteDeleted: true,
+      deleted: true,
       diagnostics: [],
     };
   }
   if (!localToken) {
-    // Deleted locally.
+    // Deleted locally. A remote edit is an explicit delete-vs-edit conflict;
+    // an unchanged remote is a clean deletion (three-way semantics).
     if (remoteToken && !deepEqual(remoteToken, baseToken)) {
       return {
         id: baseToken.id,
@@ -223,6 +278,7 @@ function mergeToken(
         local: baseToken,
         remote: remoteToken,
         base: baseToken,
+        localDeleted: true,
         diagnostics: [],
       };
     }
@@ -230,17 +286,19 @@ function mergeToken(
       id: baseToken.id,
       path: baseKey,
       oldPath: baseKey,
-      decision: 'accept-remote',
+      decision: 'accept-local',
       conflicts: [],
       local: baseToken,
       remote: remoteToken ?? baseToken,
       base: baseToken,
-      result: remoteToken ?? baseToken,
+      localDeleted: true,
+      deleted: true,
       diagnostics: [],
     };
   }
   if (!remoteToken) {
-    // Deleted remotely.
+    // Deleted remotely. A local edit is an explicit delete-vs-edit conflict;
+    // an unchanged local is a clean deletion (three-way semantics).
     if (!deepEqual(localToken, baseToken)) {
       return {
         id: baseToken.id,
@@ -251,6 +309,7 @@ function mergeToken(
         local: localToken,
         remote: baseToken,
         base: baseToken,
+        remoteDeleted: true,
         diagnostics: [],
       };
     }
@@ -258,12 +317,13 @@ function mergeToken(
       id: baseToken.id,
       path: baseKey,
       oldPath: baseKey,
-      decision: 'accept-local',
+      decision: 'accept-remote',
       conflicts: [],
       local: localToken,
       remote: baseToken,
       base: baseToken,
-      result: localToken,
+      remoteDeleted: true,
+      deleted: true,
       diagnostics: [],
     };
   }
@@ -473,6 +533,7 @@ function buildPlan(merges: TokenMerge[], diagnostics: TokenDiagnostic[]): TokenM
     diagnostics,
     valid,
     affectedCount: merges.filter((m) => m.decision !== 'same-change').length,
+    deletedCount: merges.filter((m) => m.deleted === true && m.decision !== 'same-change').length,
   };
 }
 

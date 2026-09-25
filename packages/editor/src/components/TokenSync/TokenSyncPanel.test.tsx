@@ -10,7 +10,13 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import type { Document } from '@varve/scene';
 import { createDocument } from '@varve/scene';
-import { addSource, addToken, createEmptyTokenSynchronization } from '@varve/scene/tokens';
+import {
+  addSource,
+  addToken,
+  captureBaseSnapshot,
+  createEmptyTokenSynchronization,
+  setBaseSnapshot,
+} from '@varve/scene/tokens';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TokenSyncPanel } from './TokenSyncPanel';
 
@@ -310,5 +316,83 @@ describe('TokenSyncPanel import flow', () => {
     expect(screen.getByText('Resolver document')).toBeTruthy();
     expect(screen.getByLabelText('Context: theme')).toBeTruthy();
     expect(screen.getByText(/1 tokens ready to import/)).toBeTruthy();
+  });
+});
+
+/** Seed a document whose source owns one token, with a captured base. */
+function seedOwnedToken(localValue: number, baseValue: number): Document {
+  return seedDoc((sync) => {
+    addCleanSource(sync);
+    sync.store = addToken(sync.store, {
+      id: 'tok_a',
+      path: ['a'],
+      displayName: 'a',
+      type: 'number',
+      value: localValue,
+      extensions: {},
+      source: {
+        sourceId: 'src_one',
+        sourceFileId: 'tokens.json',
+        sourcePointer: '/a',
+        adapterId: 'dtcg-2025.10',
+        specificationVersion: '2025.10',
+        lastImportedValue: baseValue,
+      },
+      localState: {
+        createdLocally: false,
+        detachedFromSource: false,
+        locallyModified: localValue !== baseValue,
+        unresolved: false,
+        conflicted: false,
+      },
+    } as never).store;
+    const baseSource = {
+      ...sync.store,
+      tokens: { ...sync.store.tokens, tok_a: { ...sync.store.tokens.tok_a, value: baseValue } },
+    } as typeof sync.store;
+    sync.store = setBaseSnapshot(sync.store, captureBaseSnapshot(baseSource, 'src_one', 'T0'));
+  });
+}
+
+describe('TokenSyncPanel external updates', () => {
+  it('shows an update preview for a re-imported source', async () => {
+    editorMock.state.document = seedOwnedToken(1, 1);
+    render(<TokenSyncPanel />);
+    await pickFile('tokens.json', '{"a": {"$type": "number", "$value": 2}}');
+    expect(screen.getByText(/1 updated from tokens.json/)).toBeTruthy();
+    const apply = screen.getByRole('button', { name: /apply update/i }) as HTMLButtonElement;
+    expect(apply.disabled).toBe(false);
+  });
+
+  it('requires an explicit decision for a concurrent edit', async () => {
+    editorMock.state.document = seedOwnedToken(2, 1);
+    render(<TokenSyncPanel />);
+    await pickFile('tokens.json', '{"a": {"$type": "number", "$value": 3}}');
+    expect(screen.getByText(/changed on both sides/)).toBeTruthy();
+    const blocked = screen.getByRole('button', { name: /apply update/i }) as HTMLButtonElement;
+    // With a disabledReason the control stays focusable and reports
+    // aria-disabled, so the unavailable state is still announced.
+    expect(blocked.getAttribute('aria-disabled')).toBe('true');
+
+    fireEvent.click(screen.getByRole('button', { name: /Use source value for a/i }));
+    const enabled = screen.getByRole('button', { name: /apply update/i }) as HTMLButtonElement;
+    expect(enabled.disabled).toBe(false);
+    expect(enabled.getAttribute('aria-disabled')).toBeNull();
+  });
+
+  it('applies the resolved remote value and announces the update', async () => {
+    editorMock.state.document = seedOwnedToken(2, 1);
+    render(<TokenSyncPanel />);
+    await pickFile('tokens.json', '{"a": {"$type": "number", "$value": 3}}');
+    fireEvent.click(screen.getByRole('button', { name: /Use source value for a/i }));
+    fireEvent.click(screen.getByRole('button', { name: /apply update/i }));
+
+    expect(editorMock.announce).toHaveBeenCalledWith(
+      expect.stringContaining('Updated tokens.json: 1 updated'),
+    );
+    const doc = editorMock.state.document as unknown as {
+      variableStore: { tokenSync: { store: { tokens: Record<string, { value: unknown }> } } };
+    };
+    expect(doc.variableStore.tokenSync.store.tokens.tok_a?.value).toBe(3);
   });
 });

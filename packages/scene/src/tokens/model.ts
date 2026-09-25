@@ -132,7 +132,25 @@ export interface TokenBaseSnapshot {
   capturedAt: string;
   /** Per-token semantic hashes for cheap three-way comparison. */
   tokenHashes: Record<TokenId, string>;
+  /**
+   * Full base values, keyed by token id, captured at the last successful
+   * sync. Required for a real base/local/remote three-way merge: without the
+   * base values, an external edit cannot be distinguished from a local one.
+   * Optional/additive — stores imported before base capture fall back to
+   * provenance.
+   */
+  tokenBases?: Record<TokenId, TokenBaseRecord>;
   sizeBytes?: number;
+}
+
+/** The value/metadata half of a token at base revision. */
+export interface TokenBaseRecord {
+  path: readonly string[];
+  type: string;
+  value: unknown;
+  description?: string;
+  deprecated?: boolean | string;
+  extensions: Record<string, unknown>;
 }
 
 /** Group-level DTCG metadata ($description / $deprecated / $extensions).

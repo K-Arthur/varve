@@ -12,19 +12,21 @@
  * apply, and cancelling releases everything at once. External files are
  * never written by this panel.
  */
-import { Button, FilePickerButton, Select } from '@varve/ui';
-import { useState } from 'react';
+import { Button, FilePickerButton, Select, ToggleButton } from '@varve/ui';
+import { useMemo, useState } from 'react';
 import { useEditor } from '../../context';
 import { docVariableStore } from '../../docVariableStore';
 import { exportTokensToDtcg } from '../../tokenSync/exportWorkflow';
 import {
+  applyDocumentSync,
   buildImportPreview,
+  type DocumentSyncPreview,
   defaultSourceChoice,
   detectDocumentKind,
   type ImportPreviewState,
   NEW_SOURCE_OPTION,
   type PreviewDiagnostic,
-  planDocumentImport,
+  previewDocumentSync,
   resolveResolverPreview,
   sourceOptions,
 } from '../../tokenSync/importWorkflow';
@@ -57,6 +59,18 @@ export function TokenSyncPanel() {
   const [preview, setPreview] = useState<ImportPreviewState | null>(null);
   const [siblings, setSiblings] = useState<ReadonlyMap<string, string>>(new Map());
   const [sourceChoice, setSourceChoice] = useState(NEW_SOURCE_OPTION);
+  const [resolutions, setResolutions] = useState<Record<string, 'local' | 'remote'>>({});
+
+  const syncPreview = useMemo(
+    () =>
+      preview ? previewDocumentSync(state.document, preview, sourceChoice, resolutions) : null,
+    [preview, sourceChoice, resolutions, state.document],
+  );
+
+  const chooseSource = (value: string) => {
+    setSourceChoice(value);
+    setResolutions({});
+  };
 
   const handleFiles = (files: File[]) => {
     if (files.length === 0) return;
@@ -75,8 +89,10 @@ export function TokenSyncPanel() {
         );
         setPreview(next);
         setSourceChoice(defaultSourceChoice(sync, next.fileName));
+        setResolutions({});
       })
       .catch((error: unknown) => {
+        setResolutions({});
         setPreview({
           kind: 'invalid',
           fileName: files[0]?.name ?? 'token file',
@@ -100,6 +116,7 @@ export function TokenSyncPanel() {
 
   const handleContextChange = (modifier: string, value: string) => {
     if (!preview?.resolver) return;
+    setResolutions({});
     setPreview(
       resolveResolverPreview(
         preview,
@@ -114,6 +131,7 @@ export function TokenSyncPanel() {
     setPreview(null);
     setSiblings(new Map());
     setSourceChoice(NEW_SOURCE_OPTION);
+    setResolutions({});
   };
 
   const handleExport = () => {
@@ -132,15 +150,17 @@ export function TokenSyncPanel() {
   };
 
   const applyPreview = () => {
-    if (!preview?.document) return;
-    const plan = planDocumentImport(state.document, preview, sourceChoice);
-    if (!plan) {
-      announce('Import failed: the reviewed file produced no importable tokens.');
+    if (!preview?.document || !syncPreview) return;
+    if (!syncPreview.valid) {
+      announce('Resolve the remaining token conflicts before applying.');
       return;
     }
-    if (plan.imported === 0) {
-      const reason = `nothing to import — ${plan.skipped} matching token path(s) already exist in this document`;
-      announce(`Import from ${preview.fileName}: ${reason}.`);
+    const changeCount = syncPreview.added + syncPreview.updated + syncPreview.deleted;
+    if (changeCount === 0) {
+      const reason = syncPreview.update
+        ? 'the source and this document match'
+        : `nothing to import — ${syncPreview.skipped} matching token path(s) already exist in this document`;
+      announce(`Sync from ${preview.fileName}: ${reason}.`);
       setPreview({
         ...preview,
         diagnostics: [
@@ -150,6 +170,12 @@ export function TokenSyncPanel() {
       });
       return;
     }
+
+    const applied = applyDocumentSync(state.document, preview, sourceChoice, resolutions);
+    if (!applied) {
+      announce('Sync failed: the reviewed file could not be applied.');
+      return;
+    }
     // updateDoc's updater receives the same document object this handler
     // closed over (React flushes discrete events before the next one), so
     // the plan computed above is exactly what is committed. If that identity
@@ -157,21 +183,34 @@ export function TokenSyncPanel() {
     beginTransaction();
     try {
       updateDoc((doc) =>
-        doc === state.document ? { ...doc, variableStore: plan.variableStore } : doc,
+        doc === state.document ? { ...doc, variableStore: applied.variableStore } : doc,
       );
     } finally {
       commitTransaction();
     }
-    const skipped = plan.skipped > 0 ? `, skipped ${plan.skipped} existing` : '';
-    const target = plan.createdSource ? ' into a new source' : '';
-    announce(`Imported ${plan.imported} tokens from ${preview.fileName}${target}${skipped}.`);
+
+    if (applied.update) {
+      const parts = [
+        syncPreview.added > 0 ? `${syncPreview.added} added` : '',
+        syncPreview.updated > 0 ? `${syncPreview.updated} updated` : '',
+        syncPreview.deleted > 0 ? `${syncPreview.deleted} deleted` : '',
+      ].filter(Boolean);
+      announce(`Updated ${preview.fileName}: ${parts.join(', ')}.`);
+    } else {
+      const skipped = applied.skipped > 0 ? `, skipped ${applied.skipped} existing` : '';
+      const target = applied.createdSource ? ' into a new source' : '';
+      announce(`Imported ${applied.applied} tokens from ${preview.fileName}${target}${skipped}.`);
+    }
     resetPreview();
   };
 
   const errors = preview?.diagnostics.filter((d) => d.severity === 'error') ?? [];
   const warnings = preview?.diagnostics.filter((d) => d.severity === 'warning') ?? [];
   const visibleDiagnostics = keyDiagnostics(preview?.diagnostics ?? []);
-  const canApply = Boolean(preview?.document && preview.added > 0);
+  const changeCount = syncPreview
+    ? syncPreview.added + syncPreview.updated + syncPreview.deleted
+    : 0;
+  const canApply = Boolean(preview?.document && syncPreview?.valid && changeCount > 0);
   const destinationOptions = preview ? sourceOptions(sync, preview.fileName) : [];
 
   return (
@@ -274,18 +313,89 @@ export function TokenSyncPanel() {
               )}
 
               <p>
-                {preview.added > 0
-                  ? `${preview.added} tokens ready to import from ${preview.fileName}.`
-                  : preview.document
-                    ? `No new tokens to import from ${preview.fileName}.`
-                    : `Resolve the ${errors.length} error(s) above to continue.`}
+                {!preview.document
+                  ? `Resolve the ${errors.length} error(s) above to continue.`
+                  : syncPreview?.update
+                    ? describeUpdate(syncPreview, preview.fileName)
+                    : preview.added > 0
+                      ? `${preview.added} tokens ready to import from ${preview.fileName}.`
+                      : `No new tokens to import from ${preview.fileName}.`}
               </p>
-              {preview.collisions.length > 0 && (
+              {!syncPreview?.update && preview.collisions.length > 0 && (
                 <p>
                   {preview.collisions.length} existing token path(s) would be skipped:
                   {preview.collisions.slice(0, 3).join(', ')}
                   {preview.collisions.length > 3 ? '…' : ''}
                 </p>
+              )}
+
+              {syncPreview?.update && syncPreview.conflicts.length > 0 && (
+                <fieldset className="token-sync-panel__conflicts">
+                  <legend className="varve-visually-hidden">Unresolved token conflicts</legend>
+                  <p>
+                    {syncPreview.conflicts.length} token(s) changed on both sides — choose a value
+                    for each:
+                  </p>
+                  <ul className="token-sync-panel__conflict-list">
+                    {syncPreview.conflicts.map((conflict) => {
+                      const label = conflict.path.join('.');
+                      return (
+                        <li key={conflict.key} className="token-sync-panel__conflict">
+                          <code className="token-sync-panel__conflict-path">{label}</code>
+                          {conflict.localDeleted || conflict.remoteDeleted ? (
+                            <p className="token-sync-panel__conflict-note">
+                              {conflict.localDeleted
+                                ? 'Deleted in Varve, edited in the source.'
+                                : 'Edited in Varve, deleted in the source.'}
+                            </p>
+                          ) : (
+                            <dl className="token-sync-panel__conflict-values">
+                              <div>
+                                <dt>Varve</dt>
+                                <dd>{formatConflictValue(conflict.local.value)}</dd>
+                              </div>
+                              <div>
+                                <dt>Source</dt>
+                                <dd>{formatConflictValue(conflict.remote.value)}</dd>
+                              </div>
+                            </dl>
+                          )}
+                          <fieldset className="token-sync-panel__conflict-choice">
+                            <legend className="varve-visually-hidden">
+                              {`Resolution for ${label}`}
+                            </legend>
+                            <ToggleButton
+                              size="sm"
+                              label={`Keep Varve value for ${label}`}
+                              pressed={resolutions[conflict.key] === 'local'}
+                              onPressedChange={() =>
+                                setResolutions((current) => ({
+                                  ...current,
+                                  [conflict.key]: 'local',
+                                }))
+                              }
+                            >
+                              Keep Varve
+                            </ToggleButton>
+                            <ToggleButton
+                              size="sm"
+                              label={`Use source value for ${label}`}
+                              pressed={resolutions[conflict.key] === 'remote'}
+                              onPressedChange={() =>
+                                setResolutions((current) => ({
+                                  ...current,
+                                  [conflict.key]: 'remote',
+                                }))
+                              }
+                            >
+                              Use source
+                            </ToggleButton>
+                          </fieldset>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </fieldset>
               )}
 
               {preview.kind === 'resolver' && preview.resolver && (
@@ -314,7 +424,7 @@ export function TokenSyncPanel() {
                   label="Destination source"
                   value={sourceChoice}
                   options={destinationOptions}
-                  onValueChange={setSourceChoice}
+                  onValueChange={chooseSource}
                 />
               )}
 
@@ -325,15 +435,19 @@ export function TokenSyncPanel() {
                   className="token-sync-panel__apply"
                   disabled={!canApply}
                   disabledReason={
-                    preview.added === 0
-                      ? 'The preview has no new tokens to import.'
+                    syncPreview?.update && syncPreview.conflicts.length > 0
+                      ? 'Resolve the conflicting tokens before applying.'
                       : errors.length > 0
                         ? 'The reviewed file has validation errors.'
-                        : undefined
+                        : changeCount === 0
+                          ? syncPreview?.update
+                            ? 'The source already matches this document.'
+                            : 'The preview has no new tokens to import.'
+                          : undefined
                   }
                   onClick={applyPreview}
                 >
-                  Apply import
+                  {syncPreview?.update ? 'Apply update' : 'Apply import'}
                 </Button>
                 <Button
                   variant="ghost"
@@ -361,6 +475,34 @@ export function TokenSyncPanel() {
 function exportFileName(documentName: string): string {
   const safe = documentName.replace(/[^a-zA-Z0-9._-]+/g, '-').replace(/^-+|-+$/g, '');
   return `${safe || 'tokens'}.tokens.json`;
+}
+
+/** One-line description of a three-way update preview. */
+function describeUpdate(summary: DocumentSyncPreview, fileName: string): string {
+  if (!summary.valid) {
+    return `${summary.conflicts.length} conflict(s) from ${fileName} need a decision.`;
+  }
+  const parts = [
+    summary.added > 0 ? `${summary.added} new` : '',
+    summary.updated > 0 ? `${summary.updated} updated` : '',
+    summary.deleted > 0 ? `${summary.deleted} deleted` : '',
+  ].filter(Boolean);
+  if (parts.length === 0)
+    return `${fileName} matches this document (${summary.unchanged} unchanged).`;
+  return `${parts.join(', ')} from ${fileName}.`;
+}
+
+/** Render a token value for conflict review without crashing on composites. */
+function formatConflictValue(value: unknown): string {
+  if (value === undefined) return '(none)';
+  if (value === null) return 'null';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return '[unrenderable value]';
+  }
 }
 
 /** Local-only download: no network, revoked immediately after the click. */

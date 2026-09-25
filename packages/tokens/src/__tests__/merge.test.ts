@@ -16,7 +16,7 @@ import {
   type TokenSnapshot,
   type TokenSnapshotMap,
 } from '../diff';
-import { threeWayMerge } from '../merge';
+import { applyConflictResolutions, threeWayMerge } from '../merge';
 import { parseFormatDocument } from '../parse';
 
 function snapshot(text: string): TokenSnapshotMap {
@@ -369,6 +369,115 @@ describe('three-way merge', () => {
         ).merges.map((m) => ({ path: m.path, decision: m.decision })),
       );
     expect(run()).toBe(run());
+  });
+});
+
+describe('three-way deletion and conflict resolution', () => {
+  const baseTok = tok(['a'], 1, 'number', { id: 'tok_a' });
+
+  it('deletes a token when the source removed it and the local copy is unchanged', () => {
+    const plan = threeWayMerge({
+      base: new Map([['a', baseTok]]),
+      local: new Map([['a', tok(['a'], 1, 'number', { id: 'tok_a' })]]),
+      remote: new Map(),
+    });
+    const merge = plan.merges.find((m) => m.path === 'a');
+    expect(merge?.decision).toBe('accept-remote');
+    expect(merge?.deleted).toBe(true);
+    expect(merge?.result).toBeUndefined();
+    expect(plan.valid).toBe(true);
+    expect(plan.deletedCount).toBe(1);
+  });
+
+  it('deletes a token when the local removed it and the source is unchanged', () => {
+    const plan = threeWayMerge({
+      base: new Map([['a', baseTok]]),
+      local: new Map(),
+      remote: new Map([['a', tok(['a'], 1, 'number', { id: 'tok_a' })]]),
+    });
+    const merge = plan.merges.find((m) => m.path === 'a');
+    expect(merge?.decision).toBe('accept-local');
+    expect(merge?.deleted).toBe(true);
+    expect(plan.deletedCount).toBe(1);
+  });
+
+  it('treats deletion on both sides as a clean no-op', () => {
+    const plan = threeWayMerge({
+      base: new Map([['a', baseTok]]),
+      local: new Map(),
+      remote: new Map(),
+    });
+    // A no-op deletion needs no merge entry; the plan stays valid and removes
+    // nothing from the document.
+    expect(plan.valid).toBe(true);
+    expect(plan.deletedCount).toBe(0);
+  });
+
+  it('resolves a value conflict explicitly toward local or remote', () => {
+    const input = {
+      base: new Map([['a', baseTok]]),
+      local: new Map([['a', tok(['a'], 2, 'number', { id: 'tok_a' })]]),
+      remote: new Map([['a', tok(['a'], 3, 'number', { id: 'tok_a' })]]),
+    };
+    const raw = threeWayMerge(input);
+    expect(raw.valid).toBe(false);
+
+    const keepLocal = applyConflictResolutions(raw, { a: 'local' });
+    expect(keepLocal.valid).toBe(true);
+    expect(keepLocal.merges[0]?.decision).toBe('accept-local');
+    expect(keepLocal.merges[0]?.result?.value).toBe(2);
+
+    const useRemote = applyConflictResolutions(raw, { a: 'remote' });
+    expect(useRemote.valid).toBe(true);
+    expect(useRemote.merges[0]?.decision).toBe('accept-remote');
+    expect(useRemote.merges[0]?.result?.value).toBe(3);
+  });
+
+  it('leaves the plan invalid until every conflict is decided', () => {
+    const raw = threeWayMerge({
+      base: new Map([
+        ['a', baseTok],
+        ['b', tok(['b'], 1, 'number', { id: 'tok_b' })],
+      ]),
+      local: new Map([
+        ['a', tok(['a'], 2, 'number', { id: 'tok_a' })],
+        ['b', tok(['b'], 2, 'number', { id: 'tok_b' })],
+      ]),
+      remote: new Map([
+        ['a', tok(['a'], 3, 'number', { id: 'tok_a' })],
+        ['b', tok(['b'], 3, 'number', { id: 'tok_b' })],
+      ]),
+    });
+    const partial = applyConflictResolutions(raw, { a: 'local' });
+    expect(partial.valid).toBe(false);
+    const full = applyConflictResolutions(raw, { a: 'local', b: 'remote' });
+    expect(full.valid).toBe(true);
+  });
+
+  it('resolves delete-vs-edit by keeping the local deletion', () => {
+    const raw = threeWayMerge({
+      base: new Map([['a', baseTok]]),
+      local: new Map(),
+      remote: new Map([['a', tok(['a'], 42, 'number', { id: 'tok_a' })]]),
+    });
+    expect(raw.merges[0]?.decision).toBe('delete-vs-edit');
+    const resolved = applyConflictResolutions(raw, { a: 'local' });
+    expect(resolved.valid).toBe(true);
+    expect(resolved.merges[0]?.deleted).toBe(true);
+    expect(resolved.merges[0]?.decision).toBe('accept-local');
+  });
+
+  it('resolves delete-vs-edit by accepting the remote deletion', () => {
+    const raw = threeWayMerge({
+      base: new Map([['a', baseTok]]),
+      local: new Map([['a', tok(['a'], 42, 'number', { id: 'tok_a' })]]),
+      remote: new Map(),
+    });
+    expect(raw.merges[0]?.decision).toBe('delete-vs-edit');
+    const resolved = applyConflictResolutions(raw, { a: 'remote' });
+    expect(resolved.valid).toBe(true);
+    expect(resolved.merges[0]?.deleted).toBe(true);
+    expect(resolved.merges[0]?.decision).toBe('accept-remote');
   });
 });
 

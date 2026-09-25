@@ -10,12 +10,17 @@
 import type { Document, VariableStore } from '@varve/scene';
 import {
   applyImportToSync,
+  applyMergePlanToSync,
   createEmptyTokenSynchronization,
   ensureImportSource,
+  planSourceUpdate,
   previewImport,
+  type SourceUpdateConflict,
   type TokenSynchronization,
+  tokensBySource,
 } from '@varve/scene/tokens';
 import {
+  type ConflictResolutionChoice,
   type DtcgDocument,
   parseFormatDocument,
   parseResolverDocument,
@@ -329,5 +334,144 @@ export function planDocumentImport(
     imported: result.imported,
     skipped: result.skipped,
     diagnostics: result.diagnostics,
+  };
+}
+
+/** Unified preview of what applying the reviewed file would do, whether it is
+ * a first import or an update of an already-connected source. */
+export interface DocumentSyncPreview {
+  /** True when the destination source already owns tokens (three-way update). */
+  update: boolean;
+  added: number;
+  updated: number;
+  deleted: number;
+  unchanged: number;
+  skipped: number;
+  conflicts: SourceUpdateConflict[];
+  valid: boolean;
+}
+
+/** True when `sourceChoice` resolves to a source that already owns tokens. */
+function isUpdateDestination(
+  sync: TokenSynchronization | undefined,
+  sourceChoice: string,
+): boolean {
+  if (!sync || sourceChoice === NEW_SOURCE_OPTION) return false;
+  return tokensBySource(sync.store, sourceChoice as `src_${string}`).length > 0;
+}
+
+/**
+ * Preview an apply without mutating anything. For a first import this
+ * reports new/colliding paths; for a re-import it runs the base/local/remote
+ * three-way merge and reports updates, deletions and conflicts.
+ */
+export function previewDocumentSync(
+  document: Document,
+  preview: ImportPreviewState,
+  sourceChoice: string,
+  resolutions: Readonly<Record<string, ConflictResolutionChoice>> = {},
+): DocumentSyncPreview | null {
+  if (!preview.document) return null;
+  const store = docVariableStore(document);
+  const sync = store.tokenSync;
+
+  if (!isUpdateDestination(sync, sourceChoice)) {
+    const incoming = previewImport(
+      sync?.store ?? createEmptyTokenSynchronization().store,
+      preview.document,
+    );
+    return {
+      update: false,
+      added: incoming.added,
+      updated: 0,
+      deleted: 0,
+      unchanged: 0,
+      skipped: incoming.collisions.length,
+      conflicts: [],
+      valid: true,
+    };
+  }
+
+  const summary = planSourceUpdate(
+    sync as TokenSynchronization,
+    preview.document,
+    sourceChoice as `src_${string}`,
+    resolutions,
+  );
+  return {
+    update: true,
+    added: summary.added,
+    updated: summary.updated,
+    deleted: summary.deleted,
+    unchanged: summary.unchanged,
+    skipped: 0,
+    conflicts: summary.conflicts,
+    valid: summary.valid,
+  };
+}
+
+/**
+ * Commit the reviewed file as one undoable transaction. Returns null when the
+ * reviewed file cannot be applied (no document, or unresolved conflicts) so
+ * the caller never announces a false success.
+ */
+export function applyDocumentSync(
+  document: Document,
+  preview: ImportPreviewState,
+  sourceChoice: string,
+  resolutions: Readonly<Record<string, ConflictResolutionChoice>> = {},
+): {
+  variableStore: VariableStore;
+  update: boolean;
+  applied: number;
+  deleted: number;
+  createdSource: boolean;
+  skipped: number;
+} | null {
+  if (!preview.document) return null;
+  const store = docVariableStore(document);
+  const sync = store.tokenSync;
+
+  if (!isUpdateDestination(sync, sourceChoice)) {
+    const plan = planDocumentImport(document, preview, sourceChoice);
+    if (!plan) return null;
+    return {
+      variableStore: plan.variableStore,
+      update: false,
+      applied: plan.imported,
+      deleted: 0,
+      createdSource: plan.createdSource,
+      skipped: plan.skipped,
+    };
+  }
+
+  const summary = planSourceUpdate(
+    sync as TokenSynchronization,
+    preview.document,
+    sourceChoice as `src_${string}`,
+    resolutions,
+  );
+  if (!summary.valid) return null;
+  const result = applyMergePlanToSync(
+    sync as TokenSynchronization,
+    store,
+    summary.plan,
+    'default',
+    {
+      sourceId: sourceChoice as `src_${string}`,
+    },
+  );
+  return {
+    variableStore: {
+      ...store,
+      tokenSync: result.sync,
+      variables: result.variables?.variables ?? store.variables,
+      collections: result.variables?.collections ?? store.collections,
+    },
+    update: true,
+    applied: result.applied,
+    deleted: result.deleted,
+    createdSource: false,
+    skipped: 0,
   };
 }

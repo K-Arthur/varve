@@ -3,15 +3,23 @@
  * resolver previews, source selection, and import planning.
  */
 import { createDocument, type Document } from '@varve/scene';
-import { addSource, addToken, createEmptyTokenSynchronization } from '@varve/scene/tokens';
+import {
+  addSource,
+  addToken,
+  captureBaseSnapshot,
+  createEmptyTokenSynchronization,
+  setBaseSnapshot,
+} from '@varve/scene/tokens';
 import { describe, expect, it } from 'vitest';
 import {
+  applyDocumentSync,
   buildImportPreview,
   defaultSourceChoice,
   detectDocumentKind,
   hashText,
   NEW_SOURCE_OPTION,
   planDocumentImport,
+  previewDocumentSync,
   resolveResolverPreview,
   sourceOptions,
 } from './importWorkflow';
@@ -294,5 +302,128 @@ describe('invalid input', () => {
     expect(preview.added).toBe(0);
     const plan = planDocumentImport(createDocument('Fresh'), preview, NEW_SOURCE_OPTION);
     expect(plan).toBeNull();
+  });
+});
+
+function syncedDocument(localValue: number, baseValue: number): Document {
+  const sync = createEmptyTokenSynchronization();
+  sync.store = addSource(sync.store, {
+    id: 'src_one',
+    name: 'Brand tokens',
+    kind: 'local-file',
+    direction: 'bidirectional',
+    adapterId: 'dtcg-2025.10',
+    configuration: {
+      entryFiles: ['brand.tokens.json'],
+      direction: 'bidirectional',
+      stableIdPolicy: 'annotate',
+    },
+    syncState: { status: 'clean' },
+  });
+  sync.store = addToken(sync.store, {
+    id: 'tok_a',
+    path: ['a'],
+    displayName: 'a',
+    type: 'number',
+    value: localValue,
+    extensions: {},
+    source: {
+      sourceId: 'src_one',
+      sourceFileId: 'brand.tokens.json',
+      sourcePointer: '/a',
+      adapterId: 'dtcg-2025.10',
+      specificationVersion: '2025.10',
+      lastImportedValue: baseValue,
+    },
+    localState: {
+      createdLocally: false,
+      detachedFromSource: false,
+      locallyModified: localValue !== baseValue,
+      unresolved: false,
+      conflicted: false,
+    },
+  } as never).store;
+  const baseSource = {
+    ...sync.store,
+    tokens: { ...sync.store.tokens, tok_a: { ...sync.store.tokens.tok_a, value: baseValue } },
+  } as typeof sync.store;
+  sync.store = setBaseSnapshot(sync.store, captureBaseSnapshot(baseSource, 'src_one', 'T0'));
+
+  const doc = createDocument('Synced') as Document & { variableStore: Record<string, unknown> };
+  (doc as unknown as Record<string, unknown>).variableStore = {
+    variables: {},
+    collections: {},
+    activeCollectionId: '',
+    modes: ['default'],
+    activeMode: 'default',
+    tokenSync: sync,
+  };
+  return doc;
+}
+
+describe('external updates (three-way merge)', () => {
+  it('reports a remote value change as an update, not a new import', () => {
+    const doc = syncedDocument(1, 1);
+    const preview = buildImportPreview(
+      '{"a": {"$type": "number", "$value": 2}}',
+      identity('brand.tokens.json'),
+      syncOf(doc),
+    );
+    const summary = previewDocumentSync(doc, preview, 'src_one');
+    expect(summary?.update).toBe(true);
+    expect(summary?.updated).toBe(1);
+    expect(summary?.added).toBe(0);
+    expect(summary?.conflicts).toHaveLength(0);
+  });
+
+  it('applies an updated value as one transaction', () => {
+    const doc = syncedDocument(1, 1);
+    const preview = buildImportPreview(
+      '{"a": {"$type": "number", "$value": 2}}',
+      identity('brand.tokens.json'),
+      syncOf(doc),
+    );
+    const applied = applyDocumentSync(doc, preview, 'src_one');
+    expect(applied?.update).toBe(true);
+    expect(applied?.applied).toBe(1);
+    const token = Object.values(applied?.variableStore.tokenSync?.store.tokens ?? {})[0];
+    expect(token?.value).toBe(2);
+    // The source document is untouched until updateDoc commits the plan.
+    expect(syncOf(doc).store.tokens.tok_a?.value).toBe(1);
+  });
+
+  it('blocks apply on a concurrent edit until a resolution is chosen', () => {
+    const doc = syncedDocument(2, 1);
+    const preview = buildImportPreview(
+      '{"a": {"$type": "number", "$value": 3}}',
+      identity('brand.tokens.json'),
+      syncOf(doc),
+    );
+    const blocked = previewDocumentSync(doc, preview, 'src_one');
+    expect(blocked?.valid).toBe(false);
+    expect(blocked?.conflicts).toHaveLength(1);
+    expect(applyDocumentSync(doc, preview, 'src_one')).toBeNull();
+
+    const resolved = previewDocumentSync(doc, preview, 'src_one', { a: 'remote' });
+    expect(resolved?.valid).toBe(true);
+    const applied = applyDocumentSync(doc, preview, 'src_one', { a: 'remote' });
+    const token = Object.values(applied?.variableStore.tokenSync?.store.tokens ?? {})[0];
+    expect(token?.value).toBe(3);
+
+    const kept = applyDocumentSync(doc, preview, 'src_one', { a: 'local' });
+    const keptToken = Object.values(kept?.variableStore.tokenSync?.store.tokens ?? {})[0];
+    expect(keptToken?.value).toBe(2);
+  });
+
+  it('removes a token the source deleted', () => {
+    const doc = syncedDocument(1, 1);
+    const preview = buildImportPreview('{}', identity('brand.tokens.json'), syncOf(doc));
+    const summary = previewDocumentSync(doc, preview, 'src_one');
+    expect(summary?.deleted).toBe(1);
+    const applied = applyDocumentSync(doc, preview, 'src_one');
+    expect(applied?.deleted).toBe(1);
+    expect(Object.keys(applied?.variableStore.tokenSync?.store.tokens ?? {})).toHaveLength(0);
+    // The deletion is tombstoned, not forgotten.
+    expect(Object.keys(applied?.variableStore.tokenSync?.store.tombstones ?? {})).toHaveLength(1);
   });
 });

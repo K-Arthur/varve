@@ -24,13 +24,24 @@ import {
   createInitialSyncState,
   type DesignTokenRecord,
   type DesignTokenStore,
+  TOKEN_STORE_SCHEMA_VERSION,
+  type TokenBaseRecord,
+  type TokenBaseSnapshot,
   type TokenGroupMeta,
   type TokenProvenance,
   type TokenSource,
   type TokenSourceId,
   type TokenSynchronization,
 } from './model';
-import { addSource, addToken, createEmptyTokenSynchronization, updateToken } from './store';
+import {
+  addSource,
+  addToken,
+  createEmptyTokenSynchronization,
+  deleteToken,
+  setBaseSnapshot,
+  tokensBySource,
+  updateToken,
+} from './store';
 import { bindVariableToToken } from './variableBridge';
 
 export interface SyncApplyResult {
@@ -39,6 +50,8 @@ export interface SyncApplyResult {
   /** Variable ids created or updated. */
   touchedVariableIds: string[];
   applied: number;
+  /** Tokens removed by the plan (remote deletions). */
+  deleted: number;
   skippedConflicts: number;
 }
 
@@ -65,18 +78,38 @@ export function applyMergePlanToSync(
   variablesInput: VariableStore | undefined,
   plan: TokenMergePlan,
   mode = 'default',
+  options?: { sourceId?: TokenSourceId; at?: string },
 ): SyncApplyResult {
   const variables = writableVariableStore(variablesInput);
   let store: DesignTokenStore = sync.store;
   const touchedVariableIds: string[] = [];
   let applied = 0;
+  let deleted = 0;
   let skippedConflicts = 0;
 
   for (const merge of plan.merges) {
-    if (merge.decision === 'conflict' || merge.decision === 'delete-vs-edit' || !merge.result) {
+    if (merge.decision === 'conflict' || merge.decision === 'delete-vs-edit') {
       skippedConflicts += 1;
       continue;
     }
+    if (merge.deleted) {
+      const removalId =
+        (merge.id as `tok_${string}` | undefined) ??
+        Object.values(store.tokens).find((t) => t.path.join('.') === merge.path)?.id;
+      if (removalId && store.tokens[removalId]) {
+        // Tombstone the removal (deleted from the connected source), but keep
+        // the backing variable so node bindings retain their last value
+        // instead of dangling. The orphaned variable is a local literal now.
+        store = deleteToken(store, removalId, {
+          tombstone: true,
+          deletedBy: 'remote',
+          baseRevision: options?.at,
+        });
+        deleted += 1;
+      }
+      continue;
+    }
+    if (!merge.result) continue;
     const result = merge.result;
 
     if (merge.decision === 'same-change' && merge.base && !changedFromBase(merge)) {
@@ -171,13 +204,86 @@ export function applyMergePlanToSync(
     }
   }
 
-  const syncState = sync;
+  // Advance the source state only when the plan applied cleanly. A partial
+  // apply (unresolved conflicts) must not pretend the base moved, or the
+  // next sync would compare against the wrong revision.
+  if (options?.sourceId) {
+    const source = store.sources[options.sourceId];
+    if (source) {
+      if (skippedConflicts === 0) {
+        store = setBaseSnapshot(store, captureBaseSnapshot(store, options.sourceId, options.at));
+        store = {
+          ...store,
+          sources: {
+            ...store.sources,
+            [options.sourceId]: {
+              ...source,
+              syncState: {
+                ...source.syncState,
+                status: 'clean',
+                lastSyncAt: options.at ?? new Date().toISOString(),
+                lastAppliedLocalRevision: store.nextRevision,
+              },
+            },
+          },
+        };
+      } else {
+        store = {
+          ...store,
+          sources: {
+            ...store.sources,
+            [options.sourceId]: {
+              ...source,
+              syncState: { ...source.syncState, status: 'conflicted' },
+            },
+          },
+        };
+      }
+    }
+  }
+
   return {
-    sync: { ...syncState, store, schemaVersion: sync.schemaVersion },
+    sync: { ...sync, store, schemaVersion: sync.schemaVersion },
     variables,
     touchedVariableIds,
     applied,
+    deleted,
     skippedConflicts,
+  };
+}
+
+/**
+ * Capture the source-owned tokens as the new three-way base. Called after a
+ * clean apply: the document and the connected source agree at this revision,
+ * so both become the base for the next comparison.
+ */
+export function captureBaseSnapshot(
+  store: DesignTokenStore,
+  sourceId: TokenSourceId,
+  at: string = new Date().toISOString(),
+): TokenBaseSnapshot {
+  const tokenHashes: Record<string, string> = {};
+  const tokenBases: Record<string, TokenBaseRecord> = {};
+  for (const token of tokensBySource(store, sourceId)) {
+    const base: TokenBaseRecord = {
+      path: token.path,
+      type: token.type,
+      value: token.value,
+      ...(token.description !== undefined ? { description: token.description } : {}),
+      ...(token.deprecated !== undefined ? { deprecated: token.deprecated } : {}),
+      extensions: token.extensions,
+    };
+    tokenBases[token.id] = base;
+    tokenHashes[token.id] = JSON.stringify(base);
+  }
+  return {
+    sourceId,
+    schemaVersion: TOKEN_STORE_SCHEMA_VERSION,
+    semanticHash: JSON.stringify(tokenHashes),
+    revision: store.nextRevision,
+    capturedAt: at,
+    tokenHashes,
+    tokenBases,
   };
 }
 
@@ -448,6 +554,11 @@ export function applyImportToSync(
   if (Object.keys(preview.groups).length > 0) {
     store = { ...store, groupMeta: { ...store.groupMeta, ...preview.groups } };
   }
+
+  // Record the base for the next three-way comparison: the source and the
+  // document now agree. Without this, a later external edit could not be
+  // distinguished from a local one.
+  store = setBaseSnapshot(store, captureBaseSnapshot(store, sourceId as TokenSourceId));
 
   return {
     sync: { ...sync, store },
