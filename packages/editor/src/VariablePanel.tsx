@@ -16,6 +16,7 @@ import { usePersistedDisclosure } from './components/usePersistedDisclosure';
 import { useEditor } from './context';
 import { docVariableStore } from './docVariableStore';
 import './VariablePanel.css';
+import { formatVariableValue } from './variableValueFormat';
 
 const TYPE_OPTIONS = ['number', 'string', 'boolean', 'color'] as const;
 
@@ -83,8 +84,7 @@ export function VariablePanel() {
 
   function resolvedDisplay(nameOrId: string): string {
     try {
-      const val = resolveVariable(nameOrId);
-      return String(val);
+      return formatVariableValue(resolveVariable(nameOrId)) || '—';
     } catch {
       return '—';
     }
@@ -129,8 +129,8 @@ export function VariablePanel() {
           </thead>
           <tbody>
             {vars.map((v) => {
-              const currentVal = String(
-                v.valuesByMode[variableStore.activeMode] ?? v.valuesByMode.default ?? '',
+              const currentVal = formatVariableValue(
+                v.valuesByMode[variableStore.activeMode] ?? v.valuesByMode.default,
               );
               return (
                 <tr key={v.id} className="variable-panel__table-row">
