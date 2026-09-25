@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "note": "GENERATED FILE — do not hand-edit. Written by scripts/screenshots/product.mjs and validated by scripts/screenshots/validate.mjs. Each scene maps one canonical screenshot consumed by the website and documentation. status: 'captured' when the pipeline produced the file, 'skipped' when the scene could not be produced (reason required).",
-  "generatedAt": "2026-09-25T06:06:47.622Z",
+  "generatedAt": "2026-09-25T17:40:03.685Z",
   "scenes": {
     "workspace": {
       "file": "workspace-light.png",
@@ -290,6 +290,45 @@
       "width": 1440,
       "height": 900,
       "status": "captured",
+      "lastValidatedAgainst": null
+    },
+    "plugin-rename-preview": {
+      "file": "plugins-rename-preview-light.png",
+      "alt": "Varve plugin manager showing a reviewed layer-name proposal before Apply",
+      "caption": "Number Selected Layers proposes an undoable rename for review",
+      "feature": "local-plugins",
+      "theme": "light",
+      "status": "captured",
+      "source": "tests/e2e/plugins/local-manager.spec.ts",
+      "width": 1280,
+      "height": 721,
+      "sha256": "bb58d999c37f9275290202dbbef50aaae4376ee98c862a95a89dc6cbf6fc87a1",
+      "lastValidatedAgainst": null
+    },
+    "plugin-permission-review": {
+      "file": "plugins-permission-review-dark.png",
+      "alt": "Varve plugin manager showing required selection read and optional document write access",
+      "caption": "Required and optional permissions stay separate in a narrow window",
+      "feature": "local-plugins",
+      "theme": "dark",
+      "status": "captured",
+      "source": "tests/e2e/plugins/local-manager.spec.ts",
+      "width": 1024,
+      "height": 769,
+      "sha256": "a9ae67251279f0c5b889336c42c71a1994efc5c3ea6aafced1633e61918bb731",
+      "lastValidatedAgainst": null
+    },
+    "plugin-inspector-analysis": {
+      "file": "plugins-inspector-analysis-light.png",
+      "alt": "Selection Style Readiness analysis shown in the Varve Properties Inspector",
+      "caption": "A local analysis plugin renders text in the host-owned Inspector",
+      "feature": "local-plugins",
+      "theme": "light",
+      "status": "captured",
+      "source": "tests/e2e/plugins/local-manager.spec.ts",
+      "width": 1280,
+      "height": 721,
+      "sha256": "abf943df1e8b0bc6b2ff657452c1f7594006fc40424bc6f7c297a1f957c9b8c0",
       "lastValidatedAgainst": null
     }
   }

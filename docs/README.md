@@ -12,6 +12,13 @@ written and are not updated retroactively. Current guidance lives in
 
 ## Entry points
 
+The local application plugin API, trust boundary, and verification matrix are
+in [`architecture/plugin-system.md`](architecture/plugin-system.md). The dated
+source and complaint ledger is
+[`audits/plugin-system-evidence-2026-09-25.md`](audits/plugin-system-evidence-2026-09-25.md),
+with the executed validation record in
+[`audits/plugin-system-validation-2026-09-25.md`](audits/plugin-system-validation-2026-09-25.md).
+
 Current image-enhancement architecture and evidence requirements are documented
 in [`architecture/image-enhancement-system.md`](architecture/image-enhancement-system.md)
 and [`quality/image-enhancement-benchmark.md`](quality/image-enhancement-benchmark.md).
@@ -279,6 +286,7 @@ pass report in
 | `architecture/shine-border-system.md` | Restrained decorative emphasis contract, semantic allowlist, fallbacks, and production ceiling |
 | `architecture/button-action-system.md` | Semantic button taxonomy, canonical action variants, state behavior, and validation contract |
 | `architecture/workspace-system.md` | Workspace mode contract, resolution, and persistence |
+| `architecture/plugin-system.md` | Local application plugin package, Wasm capability boundary, lifecycle, permissions, and evidence matrix |
 | `architecture/comic-workflow.md` | Shared comic, manga, and webtoon profiles, story metadata, panels, painting resolution, and bounded export |
 | `architecture/toolbar-system.md` | Command-surface ownership, toolbar composition, responsive overflow retention, keyboard/target contract, capability gating |
 | `architecture/overlay-system.md` | Shared floating geometry, owner-document, overlay-tree, dismissal, and focus contracts |
@@ -582,6 +590,8 @@ The following dated files were moved from `docs/architecture/` to
 accessibility, platform UX, inference, and more). They are point-in-time
 records; check the current code before acting on their findings.
 
+| `audits/plugin-system-evidence-2026-09-25.md` | Baseline reconnaissance, official platform sources, user complaints, and mitigation trail |
+| `audits/plugin-system-validation-2026-09-25.md` | Local plugin scenario results, resource limits, visual evidence, and native hardware gap |
 | `audits/color-quantization-boundary-inventory.md` | Current high-precision color quantization-boundary inventory |
 | `audits/filesystem-hardening-2026-08-13.md` | Cross-OS directory/path hardening pass: findings fixed, storage map, limitations |
 | `audits/figma-import-audit-2026-08-20.md` | Figma acquisition, semantic conversion, editor integration, fidelity matrix, and backlog |
@@ -618,7 +628,8 @@ records; check the current code before acting on their findings.
 
 | Area | Location | Purpose |
 |------|----------|---------|
-| Source code | `apps/website/` | Astro 7 static site (69 routes) |
+| Source code | `apps/website/` | Astro 7 static site (107 routes at the 2026-09-25 build) |
+| Local plugin pages | `apps/website/src/pages/features/plugins.astro`, `apps/website/src/pages/docs/plugins.astro` | Source-build feature overview and developer guide |
 | Release manifest | `apps/website/src/data/release-manifest.json` | Download data for the release pages |
 | Deployment workflow | `.github/workflows/website-deploy.yml` | GitHub Pages auto-deploy |
 | Website build | `pnpm --filter @varve/website build` | Build command (astro check + astro build) |

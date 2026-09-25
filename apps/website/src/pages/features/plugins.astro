@@ -1,0 +1,80 @@
+---
+import Button from '../../components/Button.astro';
+import StatusPill from '../../components/StatusPill.astro';
+import Layout from '../../layouts/Layout.astro';
+import { sitePath } from '../../lib/siteUrl';
+---
+
+<Layout
+  title="Local Plugins — Varve"
+  description="A source-build preview of local Varve plugins: review access, run selected-layer analysis, and preview undoable batch renames."
+>
+  <div class="container-custom">
+    <main class="plugin-feature">
+      <nav class="breadcrumb" aria-label="Breadcrumb"><a href={sitePath('/features')}>Features</a> / Local plugins</nav>
+      <StatusPill status="experimental" label="Source-build preview" />
+      <h1>Useful extensions, with the document in your hands.</h1>
+      <p class="intro">Install a local package, see exactly which document access it requests, and run it when you choose. Varve shows proposed edits before applying them through ordinary undoable document history.</p>
+
+      <figure class="product-capture">
+        <img src={sitePath('/screenshots/plugins-rename-preview-light.png')} width="1280" height="721" loading="lazy" alt="Varve's plugin manager showing a Number Selected Layers rename preview with a separate Apply action" />
+        <figcaption>Actual source-build editor: a proposed layer name waits for review and Apply.</figcaption>
+      </figure>
+
+      <div class="steps" aria-label="Plugin workflow">
+        <article><span>01</span><h2>Choose a package</h2><p>Open <strong>File → Manage Plugins</strong> and select a local <code>.varveplugin</code> file. No account or catalog is required.</p></article>
+        <article><span>02</span><h2>Review access</h2><p>See the package's claimed publisher, version, checksum, commands, and required or optional permissions. Grant only the access you want.</p></article>
+        <article><span>03</span><h2>Preview and apply</h2><p>Run a command against selected layers. Analysis stays read-only; batch renames need a separate Apply action and can be undone.</p></article>
+      </div>
+
+      <section class="detail">
+        <h2>What the first plugin API can do</h2>
+        <p>Two source examples demonstrate the contract: Selection Style Readiness summarizes selected-layer style properties, and Number Selected Layers proposes names for unlocked selected layers. Contextual results can appear in the Properties Inspector. You can stop a running job, disable or remove a package, and keep edits already committed to the document.</p>
+        <p>Plugin logic is WebAssembly with a narrow memory-only import, run in a short-lived worker. The editor renders plugin results as text and checks every proposed rename before applying it. Local publisher labels and checksums do not certify that a package is safe or identify its author.</p>
+      </section>
+
+      <figure class="product-capture">
+        <img src={sitePath('/screenshots/plugins-inspector-analysis-light.png')} width="1280" height="721" loading="lazy" alt="The Selection Style Readiness plugin's text analysis visible inside Varve's Properties Inspector" />
+        <figcaption>A packaged analysis plugin runs in the editor's contextual Inspector using host-rendered controls.</figcaption>
+      </figure>
+
+      <figure class="product-capture product-capture--review">
+        <img src={sitePath('/screenshots/plugins-permission-review-dark.png')} width="1024" height="769" loading="lazy" alt="Dark-theme local package review showing a required selection-read permission and optional document-write permission" />
+        <figcaption>The permission review stays readable in a narrow window and separates required from optional access.</figcaption>
+      </figure>
+
+      <section class="detail detail--note">
+        <h2>Current limits</h2>
+        <p>This is an early local-package API for selected-layer analysis and renaming. It does not provide a marketplace, automatic downloads, arbitrary JavaScript or HTML panels, file or network access, custom drawing tools, or Figma/UXP/VS Code compatibility. Platform-specific desktop verification is still in progress; consult the guide before using a package with important work.</p>
+      </section>
+
+      <div class="actions">
+        <Button variant="secondary" href={sitePath('/docs/plugins')}>Installation and developer guide</Button>
+        <Button variant="secondary" href={sitePath('/docs/settings')}>Manage settings</Button>
+      </div>
+    </main>
+  </div>
+</Layout>
+
+<style>
+  .plugin-feature { max-width: 920px; margin: 0 auto; padding: 3rem 0 5rem; }
+  .breadcrumb { margin-bottom: 1.75rem; color: var(--text-secondary); font-size: var(--type-interface-caption-size); }
+  .breadcrumb a, .detail a { color: var(--text-link); }
+  h1 { max-width: 800px; margin: 1.25rem 0; color: var(--text-primary); font-family: var(--font-editorial); font-size: clamp(2.4rem, 6vw, 4.4rem); line-height: 1.06; }
+  .intro { max-width: 730px; margin-bottom: 2.5rem; color: var(--text-secondary); font-size: var(--type-content-lead-size); line-height: 1.7; }
+  .steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; margin-bottom: 3.5rem; }
+  .product-capture { margin: 0 0 3rem; overflow: hidden; border: 1px solid var(--border-default); border-radius: var(--website-radius-card); background: var(--surface-muted); }
+  .product-capture img { display: block; width: 100%; height: auto; }
+  .product-capture figcaption { padding: .8rem 1.1rem; color: var(--text-secondary); font-size: var(--type-interface-caption-size); line-height: 1.5; }
+  .product-capture--review { max-width: 760px; }
+  .steps article { padding: 1.4rem; border: 1px solid var(--border-default); border-radius: var(--website-radius-card); background: var(--surface-card); }
+  .steps span { color: var(--accent-primary); font-family: var(--font-mono); font-size: var(--type-interface-caption-size); }
+  .steps h2 { margin: 1.4rem 0 .6rem; color: var(--text-primary); font-size: var(--type-interface-body-size); }
+  .steps p, .detail p { color: var(--text-secondary); line-height: 1.7; }
+  .detail { margin-bottom: 2.5rem; }
+  .detail h2 { margin-bottom: .7rem; color: var(--text-primary); font-size: var(--type-interface-heading-size); }
+  .detail--note { padding: 1.2rem 1.5rem; border-left: 3px solid var(--accent-primary); background: var(--surface-muted); }
+  .actions { display: flex; flex-wrap: wrap; gap: .75rem; border-top: 1px solid var(--border-default); padding-top: 1.5rem; }
+  code { overflow-wrap: anywhere; }
+  @media (max-width: 700px) { .steps { grid-template-columns: 1fr; } .steps h2 { margin-top: .75rem; } }
+</style>

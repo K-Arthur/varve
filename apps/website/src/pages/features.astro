@@ -14,6 +14,14 @@ import ClosingCTA from '../components/ClosingCTA.astro';
       </p>
 
       <div class="features-grid site-card-grid">
+        <a href={sitePath('/features/plugins')} class="feature-card site-card site-card--interactive">
+          <div class="feature-icon" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h14v16H5z"/><path d="M9 9h6M9 13h6M9 17h3" opacity=".6"/><circle cx="18" cy="17" r="2"/></svg>
+          </div>
+          <StatusPill status="experimental" label="Source-build preview" class="feature-card-pill" />
+          <h2>Local Plugins</h2>
+          <p>Review access, run selected-layer analysis, and preview undoable batch edits from local packages</p>
+        </a>
         <a href={sitePath('/features/background-removal')} class="feature-card site-card site-card--interactive">
           <div class="feature-icon" aria-hidden="true">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12" opacity="0.6"/></svg>
