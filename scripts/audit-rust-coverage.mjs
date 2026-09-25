@@ -24,15 +24,15 @@ const args = process.argv.slice(2);
 const CI_MODE = args.includes('--ci');
 const UPDATE = args.includes('--update');
 
-function run(cmd, cwd) {
-  return execSync(cmd, { cwd, encoding: 'utf-8', maxBuffer: 64 * 1024 * 1024 });
+function run(cmd, cwd, env = process.env) {
+  return execSync(cmd, { cwd, env, encoding: 'utf-8', maxBuffer: 64 * 1024 * 1024 });
 }
 
-function measure(label, cwd, extraArgs = '') {
+function measure(label, cwd, extraArgs = '', env = process.env) {
   console.log(`\n═══ cargo llvm-cov: ${label} ═══`);
   // --fail-under-lines intentionally omitted here — this script owns the
   // pass/fail decision against the ratcheting baseline, not llvm-cov itself.
-  const json = run(`cargo llvm-cov --all-targets --summary-only --json ${extraArgs}`, cwd);
+  const json = run(`cargo llvm-cov --all-targets --summary-only --json ${extraArgs}`, cwd, env);
   const report = JSON.parse(json);
   const totals = report.data?.[0]?.totals;
   if (!totals) {
@@ -50,7 +50,13 @@ function measure(label, cwd, extraArgs = '') {
 function main() {
   const results = {
     workspace: measure('root workspace (crates/*)', ROOT),
-    desktop: measure('apps/desktop/src-tauri', `${ROOT}apps/desktop/src-tauri`),
+    // Coverage compiles the desktop crate without bundling. The production
+    // configuration requires a release helper that only the package build
+    // produces, so exclude that resource from this test-only compile.
+    desktop: measure('apps/desktop/src-tauri', `${ROOT}apps/desktop/src-tauri`, '', {
+      ...process.env,
+      TAURI_CONFIG: JSON.stringify({ bundle: { resources: [] } }),
+    }),
   };
 
   if (UPDATE) {

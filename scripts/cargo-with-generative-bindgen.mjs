@@ -22,14 +22,24 @@ const bindgenShim = path.join(
   'bindgen-stdio-shim.h',
 );
 const existingBindgenArgs = process.env.BINDGEN_EXTRA_CLANG_ARGS?.trim();
+const linuxBindgenArgs =
+  process.platform === 'linux' ? ['-D_STDIO_H', `-include${bindgenShim}`] : [];
+const cargoEnv = {
+  ...process.env,
+  BINDGEN_EXTRA_CLANG_ARGS: [existingBindgenArgs, ...linuxBindgenArgs].filter(Boolean).join(' '),
+};
+if (['check', 'clippy', 'test'].includes(process.argv[2])) {
+  // These commands compile the desktop crate without packaging it. Keep the
+  // production bundle's release-helper requirement for `tauri build` only.
+  const config = process.env.TAURI_CONFIG ? JSON.parse(process.env.TAURI_CONFIG) : {};
+  cargoEnv.TAURI_CONFIG = JSON.stringify({
+    ...config,
+    bundle: { ...config.bundle, resources: [] },
+  });
+}
 const result = spawnSync('cargo', process.argv.slice(2), {
   cwd: repositoryRoot,
-  env: {
-    ...process.env,
-    BINDGEN_EXTRA_CLANG_ARGS: [existingBindgenArgs, '-D_STDIO_H', `-include${bindgenShim}`]
-      .filter(Boolean)
-      .join(' '),
-  },
+  env: cargoEnv,
   stdio: 'inherit',
 });
 
