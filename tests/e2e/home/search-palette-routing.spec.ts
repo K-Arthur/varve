@@ -14,12 +14,14 @@ test.describe('Home command search routing', () => {
     await page.keyboard.press('Control+k');
     const dialog = page.getByRole('dialog', { name: /Search files, projects/ });
     await expect(dialog).toBeVisible();
+    const input = dialog.getByRole('combobox', { name: 'Search' });
+    await expect(input).toBeFocused();
     await page.keyboard.press('Escape');
     await expect(dialog).toBeHidden();
     await expect(newButton).toBeFocused();
 
     await page.keyboard.press('Control+k');
-    const input = dialog.getByRole('combobox', { name: 'Search' });
+    await expect(input).toBeFocused();
     await input.fill('Marketing');
     const project = dialog.getByRole('option', { name: 'Marketing' });
     await expect(project).toBeVisible();
