@@ -121,7 +121,7 @@
 
 .token-sync-panel__preview-identity {
   display: flex;
-  gap: 0.5rem;
+  gap: var(--space-3);
   align-items: baseline;
   flex-wrap: wrap;
   margin: 0;
@@ -149,7 +149,7 @@
 .token-sync-panel__contexts {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: var(--space-2);
 }
 
 .token-sync-panel__context-note,
