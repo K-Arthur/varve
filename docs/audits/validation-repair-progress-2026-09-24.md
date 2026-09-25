@@ -2,9 +2,10 @@
 
 Branch: `master`. The initial full code checkpoint was `4f93cb47f` (pushed).
 Subsequent pushed repairs include browser storage and WASM validation
-(`24a5a25b5`) and document-scoped history capture (`729344137`). The final
-full gate on the latest pushed checkpoint remains pending; the results below
-distinguish completed checks from pending ones.
+(`24a5a25b5`), document-scoped history capture (`729344137`), and precise
+homepage/About copy (`3aa1f4425`). The final full gate on the latest pushed
+code checkpoint remains pending; the results below distinguish completed
+checks from pending ones.
 
 ## Repair and validation ledger
 
@@ -23,9 +24,9 @@ The second broad Chromium attempt was stopped after this setup defect was
 confirmed; its fallback-renderer passes were not counted as native-WASM
 integration evidence. It also produced one document-accent startup timeout
 before the accent action began. The focused browser suite with real WASM
-completed without a startup timeout. The exact accent spec still needs a
-targeted rerun in the final checkpoint to distinguish load jitter from a
-reproducible application defect.
+completed without a startup timeout. The exact accent spec was then rerun
+against generated WASM and passed 3/3 cases, including pixel equality, saved
+state, and reload persistence.
 
 The website's footer CTA, 200% text reflow, and reviewed visual baselines were
 committed earlier in this repair sequence (`3083b77cc`, `9d3d9b23d`,
@@ -41,6 +42,44 @@ GitHub Pages and custom-domain builds. Fresh 1280 px and 390 px screenshots
 of both pages were inspected: the copy wraps cleanly and neither page has
 horizontal overflow. The site build's environment guard reported unused host
 variables as expected; it consumed only the three allowed client-safe values.
+
+## Exact-SHA full-gate and remote-CI follow-up
+
+The clean detached checkout at `3aa1f4425` passed repository Biome with zero
+errors and the 16 classified CSS warnings, emoji and architecture/health
+audits, workspace and E2E TypeScript, CI tooling tests, real baseline/SIMD/
+colour WASM builds, and the full JavaScript suite (1,769 passed files,
+20,586 passed tests; 13 files and 16 tests conditionally skipped). A jsdom
+`window.open()` notice came from its deliberately unimplemented browser API;
+it did not fail a test. Rust workspace tests initially stopped because a
+binary compiled before this task-owned checkout moved from `/tmp` to
+`/var/tmp` embedded the old `CARGO_MANIFEST_DIR`. All affected native
+packages were rebuilt at the current path; the exact agreement test, full
+Rust workspace tests, and workspace Clippy with `-D warnings` then passed.
+The Chromium lane reached case 33 without a failure (five desktop-only cases
+were skipped), including real-WASM readiness, denied IndexedDB, axe, keyboard
+focus, and document accent, before this task stopped it to repair newly
+visible remote CI failures. Final Chromium and
+visual lanes remain pending on the new code checkpoint.
+
+[GitHub CI at `3aa1f4425`](https://github.com/K-Arthur/varve/actions/runs/36083041078)
+and its [platform build](https://github.com/K-Arthur/varve/actions/runs/36083041060)
+started jobs normally and exposed four separate failures:
+
+| Lane | Root cause | Repair and current verification |
+|---|---|---|
+| Pipeline validation | `release-candidate.yml` quoted a `${{ inputs.mode }}` expression inside an `if`, which actionlint evaluates as always true. | Use `inputs.mode == 'final'` directly. The pinned actionlint 1.7.7 binary validates all 11 workflows locally with no findings. |
+| Windows typecheck | `PluginSections.tsx` and `pluginSections.ts` differ only by case before the extension. Windows resolved the `.ts` registry for the component import and TypeScript reported TS2305, TS1149, and TS1261. | Rename the renderer to `InspectorPluginSections.tsx` and update its two imports. A case-folded `.ts`/`.tsx` basename scan has no collisions; the affected editor and desktop unit/typecheck closure passes locally. Windows runner confirmation is pending. |
+| macOS typecheck | Node 26 on arm64 gave the editor TypeScript process a 2,050 MB heap; it aborted near that limit while checking the editor. | Set a 4,096 MB heap for the build workflow's typecheck step. The configured V8 limit is 4,144 MB locally. macOS runner confirmation is pending. |
+| Ubuntu JavaScript tests | One Menubar structure test queried accessible menu items during the portal's hidden measurement phase; all other 20,581 tests passed there. | Wait for the entire Object menu to become accessible, retaining every role/name assertion. The direct Menubar test and the 800-file/7,843-test affected editor corpus pass locally. Ubuntu runner confirmation is pending. |
+
+The repair's `pnpm verify:plan --staged` selected six files, editor and desktop
+checks, Inspector CSS, spacing, emoji, and 315 token pairs, and required a
+full-suite escalation because workflow files changed. `pnpm verify:triage
+--staged` completed every affected lane: 28 Menubar, 8 plugin renderer, and
+28 PropertiesPanel direct tests; 7,843 editor tests; 80 desktop tests; both
+package typechecks; and the selected audits. `pnpm verify:affected --staged`
+correctly exited with the planner's escalation notice before running tests.
 
 ## CSS warning classification
 

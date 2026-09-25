@@ -125,6 +125,9 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Typecheck
+        env:
+          # The editor project exceeds Node's 2 GiB default heap on macOS arm64.
+          NODE_OPTIONS: --max-old-space-size=4096
         run: pnpm typecheck
 
       - name: Lint (JS)

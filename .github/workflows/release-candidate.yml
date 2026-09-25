@@ -661,7 +661,7 @@ jobs:
       - name: Fail candidate certification when any required evidence failed
         if: >-
           always() &&
-          '${{ inputs.mode }}' == 'final' &&
+          inputs.mode == 'final' &&
           (steps.aggregate.outcome != 'success' ||
            steps.evidence.outcome != 'success' ||
            steps.upload-evidence.outcome != 'success')

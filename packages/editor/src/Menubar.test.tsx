@@ -496,17 +496,25 @@ describe('Menubar menu structure', () => {
     const user = userEvent.setup();
     render(<Menubar />);
     await user.click(within(screen.getByRole('menubar')).getByRole('menuitem', { name: 'Object' }));
-    const menu = await screen.findByRole('menu', { name: 'Object' });
-    expect(within(menu).getByRole('menuitem', { name: /Group/ })).toBeTruthy();
-    expect(within(menu).getByRole('menuitem', { name: /Ungroup/ })).toBeTruthy();
-    expect(within(menu).getByRole('menuitem', { name: /Union/ })).toBeTruthy();
-    expect(within(menu).getByRole('menuitem', { name: /Subtract/ })).toBeTruthy();
-    expect(within(menu).getByRole('menuitem', { name: /Intersect/ })).toBeTruthy();
-    expect(within(menu).getByRole('menuitem', { name: /Exclude/ })).toBeTruthy();
-    expect(within(menu).getByRole('menuitem', { name: /Add Alpha Mask/ })).toBeTruthy();
-    expect(within(menu).getByRole('menuitem', { name: /Open Effect Studio/ })).toBeTruthy();
-    expect(within(menu).getByRole('menuitem', { name: /New Adjustment Layer/ })).toBeTruthy();
-    expect(within(menu).getByRole('menuitem', { name: /Generative Edit/ })).toBeTruthy();
+    // The portal first measures while hidden, then reveals the whole menu.
+    // Wait for the visible, accessible state rather than that intermediate DOM.
+    await waitFor(() => {
+      const menu = screen.getByRole('menu', { name: 'Object' });
+      for (const name of [
+        /Group/,
+        /Ungroup/,
+        /Union/,
+        /Subtract/,
+        /Intersect/,
+        /Exclude/,
+        /Add Alpha Mask/,
+        /Open Effect Studio/,
+        /New Adjustment Layer/,
+        /Generative Edit/,
+      ]) {
+        expect(within(menu).getByRole('menuitem', { name })).toBeTruthy();
+      }
+    });
   });
 
   it('Help menu contains Contextual Help, Help Center, About', async () => {
