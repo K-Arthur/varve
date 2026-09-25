@@ -27,8 +27,8 @@ async function openSimilarTab(page: import('@playwright/test').Page) {
     await insights.click();
   }
   const intelligence = page.locator('.intelligence-panel');
-  await intelligence.getByRole('tab', { name: 'More', exact: true }).click();
-  await page.getByRole('menuitem', { name: /similar$/i }).click();
+  await intelligence.getByRole('button', { name: 'More intelligence tabs' }).click();
+  await page.getByRole('menuitem', { name: /^Similar layers\b/i }).click();
   await expect(page.getByRole('button', { name: /Find similar/i }).first()).toBeVisible({
     timeout: 10000,
   });
