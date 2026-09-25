@@ -165,6 +165,34 @@ E2E: npx playwright test tests/e2e/inspector/token-sync-import.spec.ts
   --project=chromium --workers=1 (heavy-lease) — 4/4 passed
 Screenshots inspected: docs/screenshots/token-sync-import/import-preview.png,
   docs/screenshots/token-sync-import/import-applied.png
-Commits: 6735e4b3a, a40a424c6, bafeddc7c, 527f62faa, 20e511860, 3f6e375cd, 06d9c4f86
-Full suite run: no — see docs/quality/validation-strategy.md; affected plan executed separately
+Commits: 6735e4b3a, a40a424c6, bafeddc7c, 527f62faa, 20e511860,
+  3f6e375cd, 06d9c4f86, 252034da7, 19eb39ffa
+Full suite run: no — see docs/quality/validation-strategy.md
 ```
+
+### Affected plan executed
+
+`pnpm verify:plan --since c77948d31` then
+`pnpm verify:affected --since c77948d31` (the base is the session's starting
+HEAD, so the plan covers this pass rather than only the still-uncommitted
+working tree):
+
+| Tier | Result |
+| --- | --- |
+| 0 format/lint/emoji/docs/spacing/sizing/tokens | **all pass** |
+| 1 `typecheck:e2e` + 10 unit-file lanes (TokenSync, import/export workflow, interop, variableValueFormat, syncApply, codecs, parse, json, dtcg) | **all pass** |
+| 1 e2e lanes `asset-similarity`, `keyboard-nav`, `token-sync-import`, `switcher-review` | **all pass** (`token-sync-import` 105.0s) |
+| 2 `@varve/website` unit + typecheck | **pass** |
+| 2 `@varve/editor` unit | 7890/7891 pass; the single failure is `backgroundRemoval/maskRenderCache.test.ts` (`addRasterMaskRenderSources is not a function`) inside another session's **uncommitted** edit of that file — unrelated, recorded as a foreign in-flight failure |
+| 2 `@varve/scene` `@varve/tokens` `@varve/ui` unit (260 tests) + typecheck (4 packages incl. editor) | **pass** (run directly because the plan fail-fasts at the foreign editor failure) |
+| 3 11 package typechecks + 135 test files (1450 tests) | **pass** |
+| 4 `website-unit`, `e2e:visual` (28/28) | **pass** |
+| 4 `website-e2e` | 579 passed, 1 flake (`contact.spec.ts` on `ghpages` only; the same test passed on `custom-domain` and passes 8/8 on a leased rerun) |
+
+Two failure classes were load- or contention-induced and were re-verified in
+isolation: an earlier editor run failed 8 tests (PromptDialog, SpotlightOverlay,
+workloadCorpus, ShortcutPalette, FloatingToolbar, FontBrowser) that pass 98/98
+when re-run alone, and the website contact flake above. A first
+`verify:affected` attempt was voided because wrapping it in `heavy-lease`
+deadlocked against the planner's own internal E2E lease; the tool manages its
+lease itself and must not be nested.
