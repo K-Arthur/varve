@@ -117,19 +117,27 @@ test.describe('Settings dialog', () => {
     const listbox = page.getByRole('listbox', { name: 'Default format' });
     await expect(listbox).toBeVisible();
     await expect(listbox.locator('..').locator('..')).toBeAttached();
-    const triggerBox = await format.boundingBox();
+    // FloatingPortal positions after the listbox becomes visible. Wait for
+    // its measured width before checking the settled placement.
+    await expect
+      .poll(async () => {
+        const [triggerBox, listboxBox] = await Promise.all([
+          format.boundingBox(),
+          listbox.boundingBox(),
+        ]);
+        return Boolean(triggerBox && listboxBox && listboxBox.width >= triggerBox.width - 1);
+      })
+      .toBe(true);
     const listboxBox = await listbox.boundingBox();
-    expect(triggerBox).not.toBeNull();
     expect(listboxBox).not.toBeNull();
-    expect(listboxBox!.width).toBeGreaterThanOrEqual(triggerBox!.width - 1);
-    expect(listboxBox!.x).toBeGreaterThanOrEqual(0);
-    expect(listboxBox!.x + listboxBox!.width).toBeLessThanOrEqual(
-      (await page.viewportSize())!.width,
-    );
     await page.screenshot({
       path: test.info().outputPath('select-open-light.png'),
       fullPage: true,
     });
+    expect(listboxBox!.x).toBeGreaterThanOrEqual(0);
+    expect(listboxBox!.x + listboxBox!.width).toBeLessThanOrEqual(
+      (await page.viewportSize())!.width,
+    );
     await page.keyboard.press('Escape');
     await expect(format).toBeFocused();
     await format.click();
@@ -172,7 +180,7 @@ test.describe('Settings dialog', () => {
     await wheel.click();
     await page.getByRole('option', { name: /Always zoom/ }).click();
 
-    const sensitivity = settingsDialog.getByRole('spinbutton', { name: 'Wheel sensitivity' });
+    const sensitivity = settingsDialog.getByRole('textbox', { name: 'Wheel sensitivity' });
     await sensitivity.fill('1.5');
     await sensitivity.blur();
     await expect

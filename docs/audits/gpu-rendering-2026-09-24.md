@@ -149,6 +149,13 @@ only after that inspection and passed again without snapshot updates. The
 narrow Settings dialog snapshot was inspected, updated for the revised
 description, and passed again without snapshot updates.
 
+The combined affected run later exposed stale Settings E2E assumptions rather
+than a popup rendering defect: the listbox becomes visible before its floating
+position settles, and the shared `NumberInput` is a labeled textbox. The
+browser regression now waits for the final matched width and uses the actual
+accessible role. Both exact cases passed, and the open-list screenshot at
+`/tmp/varve-gpu-settings-select-stable.png` was inspected.
+
 The affected website run passed 569 browser checks and initially failed the
 changed performance-page image plus two unrelated checks under shared load.
 The performance image was inspected and refreshed. A single-worker rerun of
