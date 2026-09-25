@@ -7,6 +7,7 @@ import type { Affine, BlendEvaluationSpace, Camera, Viewport } from '@varve/shar
 export type CompositorBackendId = 'canvas2d' | 'webgpu' | 'native';
 
 export interface CompositorCapabilities {
+  /** Router: acquired backend; explicit detection: usable at probe time. */
   webgpu: boolean;
   webgpuReason?: string;
   isFallbackAdapter?: boolean;
@@ -74,6 +75,12 @@ export interface CompositorDiagnostics {
   bundleCacheEntries: number;
   lastFrameVertexBytes: number;
   adapterIsFallback: boolean;
+  /** Fixed, non-identifying reason why a requested GPU backend could not start. */
+  initFailureReason?: string;
+  /** Canvas presentation itself could not initialize; no fallback is active. */
+  fatalError?: string;
+  /** Number of items actually submitted to WebGPU in the last completed frame. */
+  lastFrameGpuItems?: number;
   /** Shader module + pipeline compilation time during init, in ms. Not tracked by Canvas2DBackend. */
   pipelineInitMs?: number;
   /**

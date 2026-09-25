@@ -8,7 +8,7 @@
  * as an unexplained full visible-list pass with `redrawReason: 'clean'`.
  */
 
-import type { CompositorBackend } from '@varve/compositor';
+import type { CompositorBackend, CompositorDiagnostics } from '@varve/compositor';
 import type { Affine } from '@varve/shared';
 import { computeProfile } from './adaptiveProfile';
 import { canvasBackingSize } from './canvasSurface';
@@ -58,6 +58,7 @@ export interface PresentWorkerFrameArgs {
   decision: FrameBeginDecision;
   snapshot: FrameStateSnapshot;
   cacheDiag: { bytes: number; entries: number };
+  setCompositorDiagnostics: (diagnostics: CompositorDiagnostics) => void;
 }
 
 /**
@@ -145,5 +146,9 @@ export function tryPresentWorkerFrame(args: PresentWorkerFrameArgs): boolean {
     contentDrawn: false,
     fullRedraw: false,
   });
+  // This completed frame replaced the entire surface with a worker bitmap.
+  // Backend readiness is unchanged, but no item in this frame used WebGPU.
+  const diagnostics = compositor.getDiagnostics?.();
+  if (diagnostics) args.setCompositorDiagnostics({ ...diagnostics, lastFrameGpuItems: 0 });
   return true;
 }

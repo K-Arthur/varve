@@ -17,6 +17,13 @@ Linux gate. Do not promote WebGPU by widening eligibility or add a native
 presentation surface until equivalent-fidelity, end-to-end measurements show
 a benefit on the target WebViews.
 
+| Route | Present benefit and cost | Decision |
+|---|---|---|
+| Canvas2D plus render worker | Established full-document semantics and portable fallback; worker transfer and main-thread preparation still cost time | Keep as the production baseline and measure input-to-paint before changing scheduling |
+| Opt-in WebGPU compositor | Can draw simple flat fills, but pays geometry upload and offscreen-to-Canvas2D presentation costs; normal worker frames often bypass it | Repair correctness, bound uploads, and report actual per-frame use before any default change |
+| Native GPU compute | Existing qualified offscreen resampling/effect consumers can benefit without owning the editor canvas; transfer cost depends on operation size | Keep operation-specific dispatch and CPU reference results |
+| Native GPU presentation overlay | Would require surface embedding, DPI/input/overlay alignment, accessibility, and likely copies across the WebView boundary | Defer until measured complete-frame gains justify those integration costs |
+
 | Source and date | Observed behavior or limitation | Varve response and verification |
 |---|---|---|
 | [Figma engineering, 2025-09-18](https://www.figma.com/blog/figma-rendering-powered-by-webgpu/) | Readback probes increased startup time; WebGPU could fail during a session, and reacquisition could fail. | Keep a working Canvas2D present surface, avoid launch benchmarking, simulate device loss, and verify redraw/status after fallback. |
@@ -99,3 +106,45 @@ Remaining scope: rectangle vertex preparation/pooling is still unbounded;
 WebGPU circle edges are more aliased than Canvas2D; the backend/status and
 marketing claims need the next milestone. Those are not implied to be fixed
 by the circle repair.
+
+## Backend selection, status, and published copy
+
+The next regression reproduced two initialization problems in unit tests. The
+Canvas2D default requested an adapter twice even though no GPU was selected;
+an opted-in route requested a device for detection and then requested another
+for the real backend. When the second request failed, the router returned a
+`webgpu` backend that was internally drawing on Canvas2D. The router now
+initializes the requested backend once, returns a genuine Canvas2D backend on
+failure, and keeps a fixed reason in its diagnostics across later frames.
+The default route makes no GPU request. This is request-count evidence, not a
+measured startup-time claim.
+
+The editor's status now separates `WebGPU ready`, `WebGPU + Canvas2D` (eligible
+items submitted in the last completed frame), `Canvas2D · GPU ready`
+(worker or fallback frame), initialization fallback, and device loss. A worker
+bitmap presentation publishes zero GPU items even after a prior GPU frame;
+submission is not presented as proof of asynchronous GPU completion. It no
+longer labels the Canvas2D API as CPU execution. A lifecycle adapter discards
+late initialization after unmount and publishes device loss immediately before
+requesting an authoritative redraw. Fallback reasons are exposed as a live
+status for assistive technology and as visible text in the Performance tab,
+without requiring pointer hover. The tab includes frame-item count, fallback
+reason, and pipeline init time in its local, user-triggered diagnostics copy.
+
+The Chromium software-adapter E2E changed the actual Settings preference,
+reopened the editor, and verified the persisted setting plus visible
+`GPU unavailable · Canvas2D` label and software-adapter reason. Screenshots
+`/tmp/varve-gpu-status-fallback.png` and
+`/tmp/varve-gpu-performance-fallback.png` were opened and inspected. The
+Performance reason is readable above the controls without scrolling. This is a
+software-adapter rejection test, not proof of physical GPU drawing. The
+independent hardware-browser circle fixtures above remain the drawing evidence.
+
+Marketing copy in `apps/website` now describes the opt-in, narrow drawing
+eligibility and separate native compute. The custom-domain website built 105
+pages with zero Astro diagnostics; the GitHub Pages variant built 105 pages.
+Section screenshots under `/tmp/varve-gpu-website-2026-09-24/` were inspected
+in light, dark, and narrow layouts. The product-page visual baselines changed
+only after that inspection and passed again without snapshot updates. The
+narrow Settings dialog snapshot was inspected, updated for the revised
+description, and passed again without snapshot updates.

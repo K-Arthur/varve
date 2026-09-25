@@ -16,14 +16,17 @@ is adopted.
 
 ## Setup
 
-1. Enable the flag: Settings → Rendering → "Prefer WebGPU" (`settings.render.preferWebGpu`).
-2. Reload the app (required — see the rollback caveat in `render-pipeline.md`).
-3. Open the status bar. Confirm it reads `webgpu` (not `canvas2d (cpu)`), and hover the label:
-   the tooltip should read `GPU active`, not `GPU fallback` or
-   `GPU fallback (software adapter declined)`. If you see the latter, ADR-0003's minimum-baseline
-   check (`packages/compositor/src/webgpu/backend.ts`) has detected a software adapter (e.g.
-   SwiftShader) on this machine — that's a signal about *this machine*, not a bug, but it means
-   you're not actually verifying the GPU path on this hardware. Find a machine with a real GPU.
+1. Enable Settings → General → Render performance → "Prefer WebGPU when available"
+   (`settings.render.preferWebGpu`).
+2. Reload the document tab so the compositor initializes with that preference.
+3. Inspect the status bar or Performance tab. `WebGPU ready` means a device initialized;
+   `Canvas2D · GPU ready` means the last completed frame used Canvas2D or worker replay;
+   `WebGPU + Canvas2D` means eligible items were actually submitted to WebGPU in that frame.
+   `GPU unavailable · Canvas2D` carries the fixed initialization reason in its tooltip,
+   a live status for assistive technology, and visible text under Settings → Performance.
+   A software adapter is declined by ADR-0003's gate. Device readiness alone is not a
+   rendering pass; if ordinary editing never produces `WebGPU + Canvas2D`, record that
+   reachability gap instead of claiming acceleration.
 
 ## Checklist
 
@@ -42,12 +45,12 @@ is adopted.
 - [ ] **Resize the window:** present canvas + offscreen GPU canvas both resize; no stretched or
       black frame.
 - [ ] **Force a device loss if your driver/tooling allows it** and confirm the status bar switches
-      to "GPU lost — using Canvas2D" (`CompositorDiagnostics.deviceLost`). Rendering must
+      to "GPU lost · Canvas2D" (`CompositorDiagnostics.deviceLost`). Rendering must
       **continue** on Canvas2D without a remount (ownership invert). Reload only if you want to
       re-acquire the GPU adapter.
-- [ ] **Check `pipelineInitMs` via the diagnostics** (status bar tooltip today only shows pool/
-      bundle counts — read `compositorDiagnosticsStore`'s current value directly, or add a
-      temporary log) and sanity-check it's not a multi-hundred-ms outlier on this hardware.
+- [ ] **Check `pipelineInitMs` via Performance → Copy performance diagnostics** and
+      investigate a multi-hundred-ms outlier on this hardware. A null value means no
+      WebGPU pipeline was initialized; it is not a zero-millisecond result.
 
 ## Automated helper
 

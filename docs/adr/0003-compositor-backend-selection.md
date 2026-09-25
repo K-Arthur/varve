@@ -13,7 +13,7 @@ Strata must render mixed raster + vector documents with acceptable performance o
 Introduce `@varve/compositor` with a **backend router**:
 
 1. **Canvas2D** — always available; default on all platforms.
-2. **WebGPU** — opt-in when `detectWebGPU()` succeeds; device-loss falls back to Canvas2D.
+2. **WebGPU** — opt-in when the backend's own adapter, device, context, and pipeline initialization succeeds; device loss falls back to Canvas2D. `detectWebGPU()` remains an explicit capability probe, not an extra startup request in the backend router.
 3. **Native wgpu overlay** — deferred; evaluate only if WebGPU compositor cannot meet filter latency on desktop.
 
 IR-replay remains the stable seam; compositor consumes `RenderItem[]`.
@@ -42,7 +42,7 @@ has already been discarded by flattening.
 
 The present/content `<canvas>` **always** keeps a Canvas2D context. GPU work targets an offscreen canvas with a `webgpu` context; results are `drawImage`'d onto the 2D present surface. This was required because `CanvasArea.drawContent` needs `getContext('2d')` for board fill, camera, structural masks, and partial redraw — binding `webgpu` on the content canvas made `getContext('2d')` return null and blanked the editor when `preferWebGpu` was on.
 
-**Device loss** is now recoverable in place: tear down GPU resources, keep painting via Canvas2D on the same element. StatusBar shows "GPU lost — using Canvas2D". Reload only to re-acquire the GPU.
+**Device loss** is now recoverable in place: tear down GPU resources, keep painting via Canvas2D on the same element. StatusBar shows "GPU lost · Canvas2D" and requests a fresh authoritative draw. Reload only to re-acquire the GPU. A ready device is reported separately from eligible items actually drawn by WebGPU in the last completed frame.
 
 ## Minimum Supported Baseline (2026-07-11, consolidated 2026-07-12)
 

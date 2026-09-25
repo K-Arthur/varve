@@ -3,6 +3,7 @@
 import '@testing-library/jest-dom/vitest';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { setCompositorDiagnostics } from './render/compositorDiagnosticsStore';
 import { StatusBar } from './StatusBar';
 import {
   resetWorkspacePreferenceCache,
@@ -105,6 +106,7 @@ afterEach(() => {
   useEditorMock.mockReset();
   localStorage.clear();
   resetWorkspacePreferenceCache();
+  setCompositorDiagnostics(null);
 });
 
 describe('StatusBar section gating', () => {
@@ -207,5 +209,49 @@ describe('StatusBar section gating', () => {
     fireEvent.blur(zoom);
     expect(editor.setZoom).toHaveBeenCalledTimes(1);
     expect(zoom.value).toBe('200');
+  });
+
+  it('reports actual GPU drawing separately from a ready device or requested preference', () => {
+    useEditorMock.mockReturnValue(baseEditor());
+    render(<StatusBar />);
+    const base = {
+      backendId: 'webgpu' as const,
+      gpuActive: true,
+      vertexPoolEntries: 0,
+      bundleCacheEntries: 0,
+      lastFrameVertexBytes: 0,
+      adapterIsFallback: false,
+    };
+    act(() => setCompositorDiagnostics({ ...base, lastFrameGpuItems: 0 }));
+    expect(screen.getByText('Canvas2D · GPU ready')).toBeTruthy();
+    act(() => setCompositorDiagnostics({ ...base, lastFrameGpuItems: 2 }));
+    expect(screen.getByText('WebGPU + Canvas2D')).toBeTruthy();
+    act(() =>
+      setCompositorDiagnostics({
+        ...base,
+        backendId: 'canvas2d',
+        gpuActive: false,
+        initFailureReason: 'WebGPU device request failed',
+      }),
+    );
+    expect(screen.getByText('GPU unavailable · Canvas2D')).toHaveAttribute(
+      'title',
+      expect.stringContaining('device request failed'),
+    );
+    expect(
+      screen.getByText('WebGPU preference fell back to Canvas2D: WebGPU device request failed.'),
+    ).toHaveAttribute('role', 'status');
+    act(() => setCompositorDiagnostics({ ...base, backendId: 'canvas2d', gpuActive: false }));
+    expect(screen.getByText('Canvas2D')).toBeTruthy();
+    expect(screen.queryByText(/\(cpu\)/)).toBeNull();
+    act(() =>
+      setCompositorDiagnostics({
+        ...base,
+        backendId: 'canvas2d',
+        gpuActive: false,
+        fatalError: 'Canvas compositor initialization failed',
+      }),
+    );
+    expect(screen.getByText('Renderer unavailable')).toBeTruthy();
   });
 });

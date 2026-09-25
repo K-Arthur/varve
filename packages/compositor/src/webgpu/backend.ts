@@ -223,6 +223,7 @@ export class WebGPUBackend {
   private present: Canvas2DBackend | null = null;
   private deviceLostHandler: (() => Promise<void>) | null = null;
   private gpuReady = false;
+  private initFailureReason: string | undefined;
   private adapterIsFallback = false;
   private deviceLost = false;
   private device: GPUDevice | null = null;
@@ -241,6 +242,8 @@ export class WebGPUBackend {
   private lastFrameVertexBytes = 0;
   private pipelineInitMs = 0;
   private gpuDrawnThisFrame = false;
+  private gpuItemsDrawnThisFrame = 0;
+  private lastFrameGpuItems: number | undefined;
   private fallbackIslandCount = 0;
   private fallbackNodeCount = 0;
   private fallbackReasons: Record<string, number> = {};
@@ -251,26 +254,33 @@ export class WebGPUBackend {
     this.present = new Canvas2DBackend();
     await this.present.init(canvas);
 
+    let failureReason = 'WebGPU initialization failed';
     try {
       const gpu = navigator.gpu;
+      failureReason = 'WebGPU API unavailable';
       if (!gpu) throw new Error('WebGPU unavailable');
+      failureReason = 'WebGPU adapter unavailable';
       const selection = await selectWebGpuAdapter(gpu, { requireHardwareAdapter: true });
       if (selection.kind === 'declined-software') {
         this.adapterIsFallback = true;
+        failureReason = 'software WebGPU adapter declined';
         throw new Error('WebGPU adapter is software-emulated; declining in favor of Canvas2D');
       }
       if (selection.kind === 'unavailable') throw new Error('No WebGPU adapter');
       const { adapter } = selection;
+      failureReason = 'WebGPU device request failed';
       const device = await adapter.requestDevice();
+      this.device = device;
 
+      failureReason = 'WebGPU canvas context unavailable';
       const gpuCanvas = document.createElement('canvas');
       gpuCanvas.width = Math.max(1, canvas.width || 1);
       gpuCanvas.height = Math.max(1, canvas.height || 1);
       const context = gpuCanvas.getContext('webgpu') as GPUCanvasContext | null;
       if (!context) {
-        device.destroy();
         throw new Error('WebGPU canvas context unavailable');
       }
+      failureReason = 'WebGPU pipeline initialization failed';
       this.format = gpu.getPreferredCanvasFormat();
       context.configure({ device, format: this.format, alphaMode: 'premultiplied' });
 
@@ -356,7 +366,6 @@ export class WebGPUBackend {
         layout: solidBindGroupLayout,
         entries: [{ binding: 0, resource: { buffer: cameraBuffer } }],
       });
-      this.device = device;
       this.gpuCanvas = gpuCanvas;
       this.context = context;
       this.solidPipeline = solidPipeline;
@@ -364,8 +373,10 @@ export class WebGPUBackend {
       this.cameraBuffer = cameraBuffer;
       this.cameraBindGroup = cameraBindGroup;
       this.gpuReady = true;
+      this.initFailureReason = undefined;
       this.watchDeviceLost(device);
     } catch {
+      this.initFailureReason = failureReason;
       this.gpuReady = false;
       this.teardownGpuOnly();
     }
@@ -374,6 +385,7 @@ export class WebGPUBackend {
   beginFrame(frame: CompositorFrame, opts?: BeginOpts): void {
     this.currentFrame = frame;
     this.gpuDrawnThisFrame = false;
+    this.gpuItemsDrawnThisFrame = 0;
     this.fallbackIslandCount = 0;
     this.fallbackNodeCount = 0;
     this.fallbackReasons = {};
@@ -437,6 +449,7 @@ export class WebGPUBackend {
           ) {
             this.drawGpuItems([...segment.items], frame);
             this.gpuDrawnThisFrame = true;
+            this.gpuItemsDrawnThisFrame += segment.items.length;
             this.blitGpuToPresent();
           } else {
             if (segment.kind === 'webgpu-run') {
@@ -467,6 +480,7 @@ export class WebGPUBackend {
 
   endFrame(): void {
     this.present?.endFrame();
+    this.lastFrameGpuItems = this.gpuItemsDrawnThisFrame;
     this.currentFrame = null;
   }
 
@@ -478,6 +492,8 @@ export class WebGPUBackend {
       bundleCacheEntries: this.bundleCache.size,
       lastFrameVertexBytes: this.lastFrameVertexBytes,
       adapterIsFallback: this.adapterIsFallback,
+      initFailureReason: this.initFailureReason,
+      lastFrameGpuItems: this.lastFrameGpuItems,
       pipelineInitMs: this.pipelineInitMs,
       deviceLost: this.deviceLost,
       fallbackIslandCount: this.fallbackIslandCount,

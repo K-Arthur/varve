@@ -414,7 +414,7 @@ function GeneralSection({ onOnboardingReset }: { onOnboardingReset?: () => void 
       <h3 className="settings-section__title">Render performance</h3>
       <SwitchField
         label="Prefer WebGPU when available"
-        description="Reload the document tab after changing. Uses an offscreen WebGPU surface and keeps the content canvas on Canvas2D (so the editor never blanks). Falls back to Canvas2D on device loss or unsupported primitives. Unavailable on Linux WebKitGTK. The status bar shows the active backend."
+        description="Reload the document tab after changing. Eligible simple shapes may use offscreen WebGPU; other artwork uses Canvas2D or worker replay. Linux WebKitGTK keeps Canvas2D. The status bar and Performance tab show actual frame use and fallback. Export is unchanged."
         checked={settings.render.preferWebGpu}
         onChange={(e) => updateSettingsCtx({ render: { preferWebGpu: e.target.checked } })}
       />

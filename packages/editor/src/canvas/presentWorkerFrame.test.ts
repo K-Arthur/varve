@@ -42,6 +42,7 @@ function makeArgs(overrides: {
     decision: { kind: 'content', reasons: ['worker-present'], explicit: [] },
     snapshot: {} as PresentWorkerFrameArgs['snapshot'],
     cacheDiag: { bytes: 0, entries: 0 },
+    setCompositorDiagnostics: vi.fn(),
   } as unknown as PresentWorkerFrameArgs;
 }
 
@@ -76,5 +77,28 @@ describe('tryPresentWorkerFrame surface matching', () => {
     args.camera = { zoom: 2, pan: { x: 0, y: 0 }, rotation: 0 };
 
     expect(tryPresentWorkerFrame(args)).toBe(false);
+  });
+
+  it('reports zero GPU items when a worker bitmap replaces a GPU drawn frame', () => {
+    const args = makeArgs({ canvasWidth: 1000, canvasHeight: 800, bitmapDpr: 1 });
+    const priorGpuFrame = {
+      backendId: 'webgpu' as const,
+      gpuActive: true,
+      vertexPoolEntries: 1,
+      bundleCacheEntries: 0,
+      lastFrameVertexBytes: 192,
+      adapterIsFallback: false,
+      lastFrameGpuItems: 2,
+    };
+    args.compositor = {
+      compositeRasterLayer: vi.fn(),
+      getDiagnostics: () => priorGpuFrame,
+    } as unknown as PresentWorkerFrameArgs['compositor'];
+
+    expect(tryPresentWorkerFrame(args)).toBe(true);
+    expect(args.setCompositorDiagnostics).toHaveBeenCalledWith({
+      ...priorGpuFrame,
+      lastFrameGpuItems: 0,
+    });
   });
 });

@@ -4,6 +4,7 @@ export {
   collectImageBitmaps,
 } from './collectImageBitmaps';
 export { setCompositorDiagnostics } from './compositorDiagnosticsStore';
+export { startCanvasCompositor } from './compositorLifecycle';
 export { type BitmapBudgetState, RenderBitmapBudget } from './renderBitmapBudget';
 export {
   sceneCanUseWorkerRenderer,

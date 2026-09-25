@@ -4,12 +4,17 @@
  */
 
 import { Button, Select, SwitchField } from '@varve/ui';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { detectPlatformCapabilities, getCurrentTier } from '../../canvas/adaptiveProfile';
 import { enableDrawDiagnostics } from '../../canvas/drawDiagnostics';
 import { getAverageFrameTime, getPercentileFrameTime } from '../../canvas/frameBudget';
 import { setReducedMotionOverride } from '../../context/reducedMotionManager';
 import { ensureWebGpuCapabilityProbe, type WebGpuProbeStatus } from '../../performance/webGpuProbe';
+import {
+  formatCompositorStatus,
+  getCompositorDiagnosticsSnapshot,
+  subscribeCompositorDiagnostics,
+} from '../../render/compositorDiagnosticsStore';
 import type {
   InteractivePreviewMode,
   PerformanceSettingsStore,
@@ -48,6 +53,12 @@ export function PerformanceSettingsTab() {
   const [copied, setCopied] = useState(false);
   const caps = detectPlatformCapabilities();
   const [webGpuStatus, setWebGpuStatus] = useState<WebGpuProbeStatus>(caps.webGpuStatus);
+  const compositorDiag = useSyncExternalStore(
+    subscribeCompositorDiagnostics,
+    getCompositorDiagnosticsSnapshot,
+    () => null,
+  );
+  const rendererStatus = compositorDiag ? formatCompositorStatus(compositorDiag) : null;
 
   useEffect(() => {
     let active = true;
@@ -91,6 +102,11 @@ export function PerformanceSettingsTab() {
       interactivePreview: settings.render.interactivePreview,
       reducedMotionOverride: settings.performance.reducedMotionOverride,
       webGpuStatus,
+      canvasRenderer: compositorDiag?.backendId ?? null,
+      lastFrameGpuItems: compositorDiag?.lastFrameGpuItems ?? null,
+      rendererFallbackReason: compositorDiag?.initFailureReason ?? null,
+      rendererFatalError: compositorDiag?.fatalError ?? null,
+      webGpuPipelineInitMs: compositorDiag?.pipelineInitMs ?? null,
       platform: caps,
     };
     try {
@@ -105,6 +121,7 @@ export function PerformanceSettingsTab() {
   return (
     <div className="settings-section">
       <h3 className="settings-section__title">Performance</h3>
+      {rendererStatus?.warning && <p className="settings-hint">{rendererStatus.detail}</p>}
 
       <SettingsFieldRow label="Memory / cache budget">
         <Select
@@ -184,13 +201,19 @@ export function PerformanceSettingsTab() {
           </span>
         </div>
         <div className="performance-settings__stat">
-          <span className="performance-settings__stat-label">WebGPU</span>
+          <span className="performance-settings__stat-label">WebGPU device probe</span>
           <span className="performance-settings__stat-value">
             {webGpuStatus === 'supported'
-              ? 'Available'
+              ? 'Device created'
               : webGpuStatus === 'unknown'
                 ? 'Checking'
                 : 'Unavailable'}
+          </span>
+        </div>
+        <div className="performance-settings__stat">
+          <span className="performance-settings__stat-label">Canvas rendering</span>
+          <span className="performance-settings__stat-value" title={rendererStatus?.detail}>
+            {rendererStatus?.label ?? 'Not running'}
           </span>
         </div>
       </div>

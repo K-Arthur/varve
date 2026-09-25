@@ -620,6 +620,7 @@ export function renderContent(deps: RenderContentDeps): void {
         decision: frameDecision,
         snapshot: frameSnapshot,
         cacheDiag: subtreeIrCacheRef.current.diagnostics(),
+        setCompositorDiagnostics,
         ...(s.workspaceMode === 'print'
           ? {
               paintUnderlays: (decorCtx: CanvasRenderingContext2D) =>

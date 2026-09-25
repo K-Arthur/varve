@@ -95,19 +95,50 @@ test.describe('WebGPU smoke test', () => {
   });
 
   test('diagnostics display renders in StatusBar', async ({ page }) => {
-    // Compositor diagnostics are published after the canvas backend is
-    // initialized. The first `.editor-status__info` is the selection count,
-    // so selecting it by position races the status-bar layout and can read
-    // "0 layers" instead of the renderer label.
-    await page
-      .locator('canvas')
-      .first()
-      .click({ position: { x: 100, y: 100 } });
-    const backendLabel = page
-      .locator('.editor-status__info')
-      .filter({ hasText: /^(webgpu|canvas2d)( \(cpu\))?$/ });
+    const backendLabel = page.locator('.editor-status__diagnostic');
     await expect(backendLabel).toBeVisible({ timeout: 15000 });
-    await expect(backendLabel).toHaveText(/^(webgpu|canvas2d)( \(cpu\))?$/);
+    await expect(backendLabel).toHaveText('Canvas2D');
+  });
+
+  test('a WebGPU preference persists and reports a declined software adapter', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.evaluate(() => {
+      const file = [...document.querySelectorAll('button')].find(
+        (element) => element.textContent?.trim() === 'File',
+      );
+      (file as HTMLElement | undefined)?.click();
+    });
+    await page.getByRole('menuitem', { name: /Settings/ }).click();
+    const settings = page.locator('dialog.varve-dialog--settings[open]');
+    const preference = settings.getByRole('switch', { name: 'Prefer WebGPU when available' });
+    await preference.click();
+    await expect(preference).toBeChecked();
+    const saved = await page.evaluate(() =>
+      JSON.parse(localStorage.getItem('varve-editor-settings') ?? '{}'),
+    );
+    expect(saved.render?.preferWebGpu).toBe(true);
+
+    await navigateToEditor(page);
+    const warning = page.locator('.editor-status__meta--warning');
+    await expect(warning).toHaveText('GPU unavailable · Canvas2D', { timeout: 15000 });
+    await expect(warning).toHaveAttribute('title', /software WebGPU adapter declined/);
+    await page.screenshot({ path: '/tmp/varve-gpu-status-fallback.png' });
+
+    await page.evaluate(() => {
+      const file = [...document.querySelectorAll('button')].find(
+        (element) => element.textContent?.trim() === 'File',
+      );
+      (file as HTMLElement | undefined)?.click();
+    });
+    await page.getByRole('menuitem', { name: /Settings/ }).click();
+    const reopenedSettings = page.locator('dialog.varve-dialog--settings[open]');
+    await reopenedSettings.getByRole('tab', { name: 'Performance' }).click();
+    await expect(
+      reopenedSettings.getByText(
+        /WebGPU preference fell back to Canvas2D: software WebGPU adapter declined/,
+      ),
+    ).toBeVisible();
+    await page.screenshot({ path: '/tmp/varve-gpu-performance-fallback.png' });
   });
 
   test('no unhandled console errors for WebGPU / WebGL / context loss', async ({ page }) => {

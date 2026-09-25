@@ -14,17 +14,33 @@ export async function createCompositorBackend(
   canvas: HTMLCanvasElement,
   opts: CompositorOptions = {},
 ): Promise<{ backend: CompositorBackend; capabilities: CompositorCapabilities }> {
-  const capabilities = await detectWebGPU();
-  let backend: CompositorBackend;
-
-  if (opts.preferWebGpu && capabilities.webgpu) {
-    backend = new WebGPUBackend();
-  } else {
-    backend = new Canvas2DBackend();
+  if (opts.preferWebGpu) {
+    // Initialize the backend once. A separate probe would request and destroy
+    // a device before this request, adding startup work and allowing the two
+    // requests to disagree about availability.
+    const requested = new WebGPUBackend();
+    await requested.init(canvas);
+    const diagnostics = requested.getDiagnostics();
+    if (diagnostics.gpuActive) {
+      return { backend: requested, capabilities: { webgpu: true } };
+    }
+    requested.destroy();
+    const reason = diagnostics.initFailureReason ?? 'WebGPU initialization failed';
+    const fallback = new Canvas2DBackend(reason);
+    await fallback.init(canvas);
+    return {
+      backend: fallback,
+      capabilities: {
+        webgpu: false,
+        webgpuReason: reason,
+        isFallbackAdapter: diagnostics.adapterIsFallback,
+      },
+    };
   }
 
+  const backend = new Canvas2DBackend();
   await backend.init(canvas);
-  return { backend, capabilities };
+  return { backend, capabilities: { webgpu: false, webgpuReason: 'not requested' } };
 }
 
 export { detectWebGPU };

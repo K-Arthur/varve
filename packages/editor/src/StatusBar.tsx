@@ -14,6 +14,7 @@ import { useEditor } from './context';
 import { ShortcutTipChip } from './intelligence/ShortcutTipChip';
 import { useShortcutTips } from './intelligence/useShortcutTips';
 import {
+  formatCompositorStatus,
   getCompositorDiagnosticsSnapshot,
   subscribeCompositorDiagnostics,
 } from './render/compositorDiagnosticsStore';
@@ -117,6 +118,7 @@ export function StatusBar({ onOpenPalette }: StatusBarProps) {
     getCompositorDiagnosticsSnapshot,
     () => null,
   );
+  const rendererStatus = compositorDiag ? formatCompositorStatus(compositorDiag) : null;
   const sel = selectedNodes();
 
   const singleSel = sel.length === 1;
@@ -172,16 +174,22 @@ export function StatusBar({ onOpenPalette }: StatusBarProps) {
         {showPreflight && <PreflightWarnings />}
         {showDebtBadge && <DebtBadge />}
         <AuditBadge />
-        {compositorDiag?.deviceLost && (
-          <span className="editor-status__meta editor-status__meta--warning">
-            GPU lost — using Canvas2D
-          </span>
-        )}
-        {compositorDiag && !compositorDiag.deviceLost && (
-          <span className="editor-status__meta editor-status__diagnostic">
-            {compositorDiag.backendId}
-            {compositorDiag.gpuActive ? '' : ' (cpu)'}
-          </span>
+        {rendererStatus && (
+          <>
+            <span
+              className={`editor-status__meta ${rendererStatus.warning ? 'editor-status__meta--warning' : 'editor-status__diagnostic'}`}
+              title={rendererStatus.detail}
+            >
+              {rendererStatus.label}
+            </span>
+            <span
+              className="sr-only"
+              role={rendererStatus.warning ? 'status' : undefined}
+              aria-live={rendererStatus.warning ? 'polite' : undefined}
+            >
+              {rendererStatus.detail}
+            </span>
+          </>
         )}
         {pageInfoLabel && <span className="editor-status__meta">{pageInfoLabel}</span>}
         {colorModeLabel && <span className="editor-status__meta">{colorModeLabel}</span>}

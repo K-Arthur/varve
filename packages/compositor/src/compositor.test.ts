@@ -41,6 +41,61 @@ describe('@varve/compositor', () => {
     backend.destroy();
   });
 
+  it('does not probe WebGPU when the compatibility renderer is selected', async () => {
+    const originalGpu = (navigator as Navigator & { gpu?: unknown }).gpu;
+    let adapterRequests = 0;
+    Object.defineProperty(navigator, 'gpu', {
+      configurable: true,
+      value: {
+        requestAdapter: async () => {
+          adapterRequests++;
+          return null;
+        },
+      },
+    });
+    try {
+      const { backend } = await createCompositorBackend(document.createElement('canvas'));
+      expect(backend.id).toBe('canvas2d');
+      expect(adapterRequests).toBe(0);
+      backend.destroy();
+    } finally {
+      Object.defineProperty(navigator, 'gpu', { configurable: true, value: originalGpu });
+    }
+  });
+
+  it('reports the actual fallback when the requested GPU backend cannot initialize', async () => {
+    const originalGpu = (navigator as Navigator & { gpu?: unknown }).gpu;
+    let deviceRequests = 0;
+    Object.defineProperty(navigator, 'gpu', {
+      configurable: true,
+      value: {
+        requestAdapter: async () => ({
+          info: { vendor: 'AMD' },
+          requestDevice: async () => {
+            deviceRequests++;
+            if (deviceRequests > 1) throw new Error('second device request failed');
+            return { destroy: () => {} };
+          },
+        }),
+        getPreferredCanvasFormat: () => 'rgba8unorm',
+      },
+    });
+    try {
+      const { backend, capabilities } = await createCompositorBackend(
+        document.createElement('canvas'),
+        { preferWebGpu: true },
+      );
+      expect(deviceRequests).toBe(1);
+      expect(backend.id).toBe('canvas2d');
+      expect(capabilities.webgpu).toBe(false);
+      expect(capabilities.webgpuReason).toContain('canvas context');
+      expect(backend.getDiagnostics?.().initFailureReason).toContain('canvas context');
+      backend.destroy();
+    } finally {
+      Object.defineProperty(navigator, 'gpu', { configurable: true, value: originalGpu });
+    }
+  });
+
   it('TileCache evicts oldest entries', () => {
     const cache = new TileCache(2);
     cache.touch('a');

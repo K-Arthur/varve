@@ -1,7 +1,7 @@
 // COMPLEXITY: ~450 — drawContent (~1475 paths) extracted into canvas/renderPipeline.ts, buildToolCtx (~340 paths) into canvas/toolContext.ts, tool-sync effects into tools/useToolManagerSync. Remaining complexity is the component's surface-lifecycle effects and JSX; next step: extract the surface/worker lifecycle effects into a hook.
 
 import { useDroppable } from '@dnd-kit/core';
-import { type CompositorBackend, createCompositorBackend } from '@varve/compositor';
+import type { CompositorBackend } from '@varve/compositor';
 import {
   createEngine,
   type Engine,
@@ -84,6 +84,7 @@ import {
   isStaleResponse,
   type RenderWorkerHost,
   setCompositorDiagnostics,
+  startCanvasCompositor,
 } from './render/canvasRenderAdapter';
 import type { MockupSurfaceCache } from './render/mockup/mockupIr';
 import {
@@ -602,36 +603,24 @@ export function CanvasArea({
   useEffect(() => {
     const canvas = contentCanvasRef.current;
     if (!canvas) return;
-    let backend: CompositorBackend | null = null;
-    void createCompositorBackend(canvas, {
-      preferWebGpu: loadSettings().render.preferWebGpu,
-    }).then(({ backend: b }) => {
-      backend = b;
-      compositorRef.current = b;
-      setCompositorDiagnostics(
-        b.getDiagnostics?.() ?? {
-          backendId: b.id,
-          gpuActive: b.id === 'webgpu',
-          vertexPoolEntries: 0,
-          bundleCacheEntries: 0,
-          lastFrameVertexBytes: 0,
-          adapterIsFallback: false,
-        },
-      );
-      const preferWebGpu = loadSettings().render.preferWebGpu;
-      if (preferWebGpu && b.id !== 'webgpu') {
+    return startCanvasCompositor(canvas, loadSettings().render.preferWebGpu, {
+      onReady: (backend) => {
+        compositorRef.current = backend;
+      },
+      onDispose: () => {
+        compositorRef.current = null;
+      },
+      onRedraw: (reason) => {
+        requestContentDrawRef.current?.(reason, 'backing-store-recovery');
+      },
+      onFallback: () => {
         getDesktopAnalytics().track('renderer_fallback', {
           from: 'webgpu',
           to: 'canvas2d',
           reason: 'unavailable',
         });
-      }
-      requestContentDrawRef.current?.('compositor-init', 'backing-store-recovery');
+      },
     });
-    return () => {
-      backend?.destroy();
-      compositorRef.current = null;
-    };
   }, [canvasContextRevision]);
 
   const workerFailedRef = useRef(false);

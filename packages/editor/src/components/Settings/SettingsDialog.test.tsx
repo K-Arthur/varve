@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { enableDrawDiagnostics, isDiagnosticsEnabled } from '../../canvas/drawDiagnostics';
 import { EditorProvider } from '../../context';
+import { setCompositorDiagnostics } from '../../render/compositorDiagnosticsStore';
 import { SettingsProvider } from './SettingsContext';
 import { SettingsDialog } from './SettingsDialog';
 
@@ -18,8 +19,12 @@ function renderWithProvider(ui: React.ReactElement) {
 beforeEach(() => {
   localStorage.clear();
   enableDrawDiagnostics(false);
+  setCompositorDiagnostics(null);
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  setCompositorDiagnostics(null);
+});
 
 describe('SettingsDialog', () => {
   it('renders with tabs', () => {
@@ -271,6 +276,34 @@ describe('PerformanceSettingsTab', () => {
     openPerformanceTab();
     expect(screen.getByText('Adaptive quality tier')).toBeTruthy();
     expect(screen.getByText('Avg. frame time')).toBeTruthy();
+    expect(screen.getByText('Canvas rendering')).toBeTruthy();
+  });
+
+  it('shows actual GPU frame use in Performance diagnostics', () => {
+    const base = {
+      backendId: 'webgpu' as const,
+      gpuActive: true,
+      vertexPoolEntries: 0,
+      bundleCacheEntries: 0,
+      lastFrameVertexBytes: 0,
+      adapterIsFallback: false,
+    };
+    act(() => setCompositorDiagnostics({ ...base, lastFrameGpuItems: 0 }));
+    openPerformanceTab();
+    expect(screen.getByText('Canvas2D · GPU ready')).toBeTruthy();
+    act(() => setCompositorDiagnostics({ ...base, lastFrameGpuItems: 3 }));
+    expect(screen.getByText('WebGPU + Canvas2D')).toBeTruthy();
+    act(() =>
+      setCompositorDiagnostics({
+        ...base,
+        backendId: 'canvas2d',
+        gpuActive: false,
+        initFailureReason: 'WebGPU device request failed',
+      }),
+    );
+    expect(
+      screen.getByText(/WebGPU preference fell back to Canvas2D: WebGPU device request failed/),
+    ).toBeVisible();
   });
 
   it('exposes the capability report as an on-demand diagnostic', () => {

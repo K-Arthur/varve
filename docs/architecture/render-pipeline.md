@@ -196,7 +196,7 @@ does not imply native GPU presentation.
 
 | Feature | Implementation |
 |---|---|
-| Init order | Present canvas stays Canvas2D; offscreen canvas acquires `webgpu` |
+| Init order | Default Canvas2D does not probe WebGPU; opt-in initializes one WebGPU backend/device, then returns a Canvas2D backend with a fixed reason if initialization fails |
 | Fallback | Ordered `webgpu-run` / `canvas2d-island` segments; unsupported flat items are the smallest safe island until structural metadata widens the boundary |
 | Primitives | plain solid rect and circle on GPU when eligible; rounded rect, line/stroke, text, path, and effects on Canvas2D |
 | Pipeline | Explicit bind group layouts; shared camera uniform (floating origin + view rotation); circle coverage tested in object-local space (exact under non-uniform scale and skew); premul blend |
@@ -204,9 +204,9 @@ does not imply native GPU presentation.
 | Camera parity | `CameraUniform` includes `origin` + `rotation`; matches `buildWorldToScreenAffine` |
 | Power preference | Shared `selectWebGpuAdapter()` (high-performance then low-power; decline software) |
 | Perf | Vertex buffer pool (power-of-2); render bundle cache for solid rects; circle center/radius ride with each vertex, with a maximum 4 MiB rounded upload per ordered chunk |
-| Device loss | In-place Canvas2D continue; StatusBar "GPU lost — using Canvas2D" |
+| Device loss | In-place Canvas2D continue; the loss callback publishes "GPU lost · Canvas2D" and requests an authoritative redraw |
 | Opt-in | `settings.render.preferWebGpu` (default false; Linux WebKitGTK stays Canvas2D) |
-| Diagnostics | Status bar via `CompositorDiagnostics` |
+| Diagnostics | Status bar and Performance tab distinguish device ready, GPU items drawn in the last completed frame, initialization fallback, and device loss; Canvas2D API use is not labeled CPU execution |
 | Drift guard | `wgsl-drift.test.ts` keeps TS shaders ≡ `crates/varve-bridge/tests/wgsl_validation.rs` |
 
 ### Structural fallback planning
@@ -231,6 +231,13 @@ Long runs are chunked before allocation; each chunk submits before the pooled
 buffer is rewritten, and later chunks load the same transparent target to
 preserve paint order. The 4 MiB working cap is also clamped to the device's
 reported `maxBufferSize`.
+The `lastFrameGpuItems` count is an execution observation, not a coverage or
+speedup estimate: a ready device can draw zero items while a worker bitmap or
+structural Canvas2D replay presents the frame. The status label reports that
+case as `Canvas2D · GPU ready`. A requested backend that cannot initialize
+returns a Canvas2D backend whose diagnostics keep the fixed fallback reason
+across later frames. Initialization no longer creates and destroys a separate
+probe device before requesting the device it will actually use.
 When a scene compiler supplies `CompositorFrame.structure`, a boundary can widen
 an island to an isolated/masked/effect group without making the compositor
 depend on `@varve/scene`.
