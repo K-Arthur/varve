@@ -17,6 +17,7 @@
  * --strict additionally fails when any scene is skipped (used by the
  * screenshots:update path after a regeneration).
  */
+import { createHash } from 'node:crypto';
 import { existsSync, globSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -24,6 +25,7 @@ import { fileURLToPath } from 'node:url';
 const ROOT = join(fileURLToPath(new URL('.', import.meta.url)), '..', '..');
 const MANIFEST_PATH = join(ROOT, 'apps', 'website', 'src', 'data', 'screenshot-manifest.json');
 const PUBLIC_DIR = join(ROOT, 'apps', 'website', 'public', 'screenshots');
+const DOCS_DIR = join(ROOT, 'docs', 'screenshots', 'product');
 const strict = process.argv.includes('--strict');
 
 const manifest = JSON.parse(readFileSync(MANIFEST_PATH, 'utf8'));
@@ -97,6 +99,20 @@ for (const [id, scene] of Object.entries(scenes)) {
         `${id}: manifest dims (${scene.width}x${scene.height}) mismatch file (${dims.width}x${dims.height})`,
       );
     }
+    const actualHash = createHash('sha256').update(buf).digest('hex');
+    if (!/^[0-9a-f]{64}$/.test(scene.sha256 ?? '')) {
+      fail(`${id}: missing or invalid sha256`);
+    } else if (scene.sha256 !== actualHash) {
+      fail(`${id}: ${scene.file} sha256 does not match manifest`);
+    }
+    try {
+      const docsBuf = readFileSync(join(DOCS_DIR, scene.file));
+      if (!docsBuf.equals(buf)) {
+        fail(`${id}: docs/screenshots/product/${scene.file} differs from public/screenshots`);
+      }
+    } catch {
+      fail(`${id}: missing docs/screenshots/product/${scene.file}`);
+    }
     if (!scene.alt || scene.alt.length < 10) fail(`${id}: missing meaningful alt text`);
     capturedFiles.add(scene.file);
   } else if (scene.status === 'skipped') {
@@ -166,8 +182,6 @@ for (const [label, dir] of [
 // present must pass budget checks and exist in both output directories.
 const VIDEO_BUDGET_WARN = 5_000_000; // 5 MB
 const VIDEO_BUDGET_FAIL = 10_000_000; // 10 MB
-const DOCS_DIR = join(ROOT, 'docs', 'screenshots', 'product');
-
 for (const ext of ['webm', 'mp4']) {
   const fileName = `workflow.${ext}`;
   const docsPath = join(DOCS_DIR, fileName);

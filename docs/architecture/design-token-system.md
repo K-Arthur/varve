@@ -40,6 +40,18 @@ component + density tokens (components.css, editor.css consumers)
   duplicate custom properties inside one block, and is part of the affected
   closure for shared UI stylesheets.
 
+### Control geometry in dense workflows
+
+Radius and control-height roles belong to the control's purpose, not the
+surrounding feature. Use `--radius-control` for ordinary inputs and buttons,
+`--radius-control-compact` for dense Inspector actions, `--radius-pill` for
+chips, and `--radius-floating` for floating surfaces. Small Inspector actions
+use the shared 24 CSS pixel control height so the visible hit area remains
+stable after overlay entrance animation. The Guide Layouts host uses the
+shared `Dialog`, `Button`, and `Select` components; a custom visual wrapper
+must not replace the modal top-layer, focus, or backdrop behavior. This
+contract was checked in the 2026-09-24 design-system completion audit.
+
 ### Surface tiers
 
 Shell backgrounds are achromatic and tiered by function. The tier values are

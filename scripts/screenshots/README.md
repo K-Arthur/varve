@@ -264,6 +264,8 @@ motion.
 `node scripts/screenshots/validate.mjs [--strict]` checks:
 
 - every captured manifest entry has a real, non-empty PNG with sane dimensions;
+- every captured PNG matches its manifest SHA-256 and an identical canonical
+  copy under `docs/screenshots/product/`;
 - manifest dimensions match the files;
 - skipped entries carry a reason;
 - every `/screenshots/` reference in docs/README/website sources resolves to a

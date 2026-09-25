@@ -439,7 +439,10 @@ const SCENES = [
       await page.getByRole('menuitem', { name: 'View', exact: true }).click();
       const viewMenu = page.getByRole('menu', { name: 'View' });
       await viewMenu.getByRole('menuitem', { name: 'Guides', exact: true }).hover();
-      await page.getByRole('menuitem', { name: /Guide Layouts/ }).click();
+      await page
+        .getByRole('menuitem', { name: /^Guide Layouts/ })
+        .first()
+        .click();
       await expect(page.getByRole('dialog', { name: 'Guide Layouts' })).toBeVisible();
     },
   },
@@ -491,6 +494,9 @@ const SCENES = [
         throw new Error('node editing unavailable: no "Edit nodes" control for the selected path');
       }
       await editNodes.click();
+      // Keep the handles above the node-controls tray in this detail crop.
+      await page.getByRole('button', { name: 'Zoom out' }).click();
+      await page.getByRole('button', { name: 'Zoom out' }).click();
       await page.waitForTimeout(700);
     },
   },

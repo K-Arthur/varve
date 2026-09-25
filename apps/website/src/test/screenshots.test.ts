@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -17,6 +18,7 @@ import { describe, expect, it } from 'vitest';
 const ROOT = path.resolve(__dirname, '..');
 const manifestPath = path.join(ROOT, 'data', 'screenshot-manifest.json');
 const publicDir = path.join(ROOT, '..', '..', '..', 'apps', 'website', 'public', 'screenshots');
+const docsDir = path.join(ROOT, '..', '..', '..', 'docs', 'screenshots', 'product');
 
 function pngSize(buf: Buffer): { width: number; height: number } | null {
   if (buf.length < 24) return null;
@@ -35,6 +37,7 @@ interface ScreenshotScene {
   reason?: string;
   width?: number;
   height?: number;
+  sha256?: string;
 }
 
 interface ScreenshotManifest {
@@ -75,6 +78,13 @@ describe('screenshot manifest', () => {
       expect(dims!.height, `${id} height`).toBeGreaterThanOrEqual(260);
       if (scene.width) expect(scene.width, `${id}.width`).toBe(dims!.width);
       if (scene.height) expect(scene.height, `${id}.height`).toBe(dims!.height);
+      const docsPath = path.join(docsDir, scene.file);
+      expect(fs.existsSync(docsPath), `${id} canonical docs copy`).toBe(true);
+      expect(fs.readFileSync(docsPath).equals(buf), `${id} copies match`).toBe(true);
+      expect(scene.sha256, `${id}.sha256`).toMatch(/^[0-9a-f]{64}$/);
+      expect(createHash('sha256').update(buf).digest('hex'), `${id} bytes match hash`).toBe(
+        scene.sha256,
+      );
     }
   });
 
