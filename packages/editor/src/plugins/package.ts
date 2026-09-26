@@ -468,7 +468,10 @@ function parseManifest(bytes: Uint8Array): PluginPackageManifest {
 }
 
 export async function parsePluginPackage(bytes: Uint8Array): Promise<PluginPackage> {
-  if (!(bytes instanceof Uint8Array)) fail('package must be bytes');
+  // Realm-agnostic sanity check: a structured clone (IndexedDB in some
+  // embeddings) can hand back a view from another realm. It is still bytes;
+  // normalize below before validating anything.
+  if (!ArrayBuffer.isView(bytes)) fail('package must be bytes');
   if (bytes.byteLength > MAX_PACKAGE_BYTES) fail(`package exceeds ${MAX_PACKAGE_BYTES} bytes`);
   // Keep validation, returned code, and integrity digest bound to one snapshot.
   const snapshot = Uint8Array.from(bytes);

@@ -28,8 +28,11 @@ async function openPluginManager(page: Page) {
   return dialog;
 }
 
-async function installPackage(page: Page, file: string, name: string) {
-  const dialog = await openPluginManager(page);
+async function installIntoDialog(
+  dialog: Awaited<ReturnType<typeof openPluginManager>>,
+  file: string,
+  name: string,
+) {
   await dialog.getByLabel('Choose a .varveplugin package').setInputFiles(file);
   const review = dialog.getByRole('heading', { name: 'Review installation' });
   await expect(review).toBeVisible();
@@ -40,6 +43,59 @@ async function installPackage(page: Page, file: string, name: string) {
   const card = dialog.locator('.plugin-manager__card').filter({ hasText: name });
   await expect(card).toContainText('Ready');
   return { dialog, card };
+}
+
+async function installPackage(page: Page, file: string, name: string) {
+  const dialog = await openPluginManager(page);
+  return installIntoDialog(dialog, file, name);
+}
+
+/** Creates a committed text layer at canvas-relative coordinates. */
+async function createTextAt(page: Page, x: number, y: number, text: string): Promise<void> {
+  const canvas = page.locator('canvas.editor-canvas__content-layer');
+  const box = await canvas.boundingBox();
+  if (!box) throw new Error('editor canvas has no bounds');
+  const editor = page.getByRole('textbox', { name: /editing text/i });
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await page.keyboard.press('t');
+    await page.mouse.click(box.x + x, box.y + y);
+    const appeared = await editor
+      .waitFor({ state: 'visible', timeout: 2500 })
+      .then(() => true)
+      .catch(() => false);
+    if (appeared) {
+      await page.keyboard.insertText(text);
+      await page.keyboard.press('Escape');
+      await editor.waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {});
+      await page.waitForTimeout(120);
+      return;
+    }
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(200);
+  }
+  throw new Error(`text editor did not appear at ${x},${y}`);
+}
+
+/** After reload the editor may restore the document or return to Home. */
+async function reopenEditorAfterReload(page: Page): Promise<void> {
+  if (
+    !(await page
+      .locator('.editor-shell')
+      .isVisible({ timeout: 10000 })
+      .catch(() => false))
+  ) {
+    await navigateToEditor(page);
+    return;
+  }
+  const welcomeClose = page.getByRole('dialog').getByRole('button', { name: /close|get started/i });
+  if (
+    await welcomeClose
+      .first()
+      .isVisible({ timeout: 1000 })
+      .catch(() => false)
+  ) {
+    await welcomeClose.first().click();
+  }
 }
 
 test.describe('local application plugins', () => {
@@ -215,5 +271,157 @@ test.describe('local application plugins', () => {
     await expect(card.getByRole('button', { name: 'Run', exact: true })).toBeDisabled();
     await page.waitForTimeout(5500);
     await expect(card).not.toContainText('Failed');
+  });
+
+  test('analyzes a mixed vector, ellipse, and text selection', async ({ page }, testInfo) => {
+    test.setTimeout(120000);
+    // beforeEach left one selected rectangle; add two more node kinds.
+    await page.keyboard.press('o');
+    await dragOnCanvas(page, 380, 150, 560, 320);
+    await createTextAt(page, 80, 430, 'Mixed label');
+    const rows = page.getByRole('treeitem');
+    await expect(rows).toHaveCount(3);
+    await rows.nth(0).click();
+    await rows.nth(1).click({ modifiers: ['Control'] });
+    await rows.nth(2).click({ modifiers: ['Control'] });
+    await expect(page.getByRole('treeitem', { selected: true })).toHaveCount(3);
+
+    const { card } = await installPackage(page, analysisPackage, 'Selection Style Readiness');
+    await card.getByRole('button', { name: 'Run', exact: true }).click();
+    await expect(card.getByText(/Selection style audit: 3 layers/)).toBeVisible({
+      timeout: 20000,
+    });
+    // Vector shapes share the 'shape' kind in the guest snapshot; the mixed
+    // selection itself is proven by the layers tree and the font lines.
+    await expect(card.getByText(/Selected objects by kind: shape 2, text 1/)).toBeVisible();
+    await expect(rows.filter({ hasText: 'Ellipse' })).toHaveCount(1);
+    await expect(card.getByText('Font family: no text layers selected.')).toHaveCount(0);
+    await expect(card.getByText(/Font family:/).first()).toBeVisible();
+    await expect(card.getByText(/Locked layers: 0/)).toBeVisible();
+    // The same analysis reaches the host-rendered Inspector contribution.
+    await card.getByRole('button', { name: 'Run', exact: true }).scrollIntoViewIfNeeded();
+    await page.screenshot({
+      path: testInfo.outputPath('plugin-mixed-analysis.png'),
+      fullPage: true,
+    });
+    const dialog = page.getByRole('dialog', { name: 'Settings' });
+    await dialog.getByRole('button', { name: 'Close dialog' }).click();
+    const inspectorContribution = page.locator('.insp-plugin-sections');
+    await expect(inspectorContribution).toContainText('Selection readiness');
+    await expect(inspectorContribution).toContainText('Selection style audit: 3 layers');
+    await expect(page.getByRole('treeitem')).toHaveCount(3);
+  });
+
+  test('hides a contributed panel, keeps the preference across reload, and shows it again', async ({
+    page,
+  }) => {
+    test.setTimeout(120000);
+    const { dialog, card } = await installPackage(
+      page,
+      analysisPackage,
+      'Selection Style Readiness',
+    );
+    const inspectorContribution = page.locator('.insp-plugin-sections');
+    await expect(inspectorContribution).toContainText('Selection readiness');
+
+    await card.getByRole('button', { name: 'Hide Selection readiness Inspector panel' }).click();
+    await expect(
+      card.getByRole('button', { name: 'Show Selection readiness Inspector panel' }),
+    ).toBeVisible();
+    await dialog.getByRole('button', { name: 'Close dialog' }).click();
+    await expect(inspectorContribution).toHaveCount(0);
+
+    await page.reload({ timeout: 120000 });
+    await reopenEditorAfterReload(page);
+    const reopened = await openPluginManager(page);
+    const reopenedCard = reopened
+      .locator('.plugin-manager__card')
+      .filter({ hasText: 'Selection Style Readiness' });
+    await expect(
+      reopenedCard.getByRole('button', { name: 'Show Selection readiness Inspector panel' }),
+    ).toBeVisible();
+    await reopenedCard
+      .getByRole('button', { name: 'Show Selection readiness Inspector panel' })
+      .click();
+    await expect(
+      reopenedCard.getByRole('button', { name: 'Hide Selection readiness Inspector panel' }),
+    ).toBeVisible();
+    await reopened.getByRole('button', { name: 'Close dialog' }).click();
+
+    // With a selection present again, the shown panel renders its section.
+    await page.keyboard.press('r');
+    await dragOnCanvas(page, 150, 150, 320, 280);
+    await page.keyboard.press('Control+a');
+    await expect(inspectorContribution).toContainText('Selection readiness');
+  });
+
+  test('runs two installed plugins without cross-talk', async ({ page }) => {
+    test.setTimeout(120000);
+    const { dialog, card: auditCard } = await installPackage(
+      page,
+      analysisPackage,
+      'Selection Style Readiness',
+    );
+    const { card: loopCard } = await installIntoDialog(
+      dialog,
+      loopPackage,
+      'Controlled Loop Fixture',
+    );
+
+    await auditCard.getByRole('button', { name: 'Run', exact: true }).click();
+    await expect(auditCard.getByText(/Selection style audit/)).toBeVisible({ timeout: 20000 });
+
+    // A second plugin can occupy the other job slot while the first result stays.
+    await loopCard.getByRole('button', { name: 'Run', exact: true }).click();
+    await expect(loopCard).toContainText('Running');
+    await expect(auditCard.getByText(/Selection style audit/)).toBeVisible();
+    await expect(auditCard).toContainText('Ready');
+
+    await loopCard.getByRole('button', { name: 'Stop', exact: true }).click();
+    await expect(loopCard).toContainText('Ready');
+    // Stopping one plugin must not clear the other plugin's committed result.
+    await expect(auditCard.getByText(/Selection style audit/)).toBeVisible();
+    await expect(auditCard).toContainText('Ready');
+  });
+
+  test('renames only unlocked layers and keeps undo/redo coherent', async ({ page }) => {
+    test.setTimeout(120000);
+    await page.keyboard.press('r');
+    await dragOnCanvas(page, 420, 160, 560, 300);
+    const rows = page.getByRole('treeitem');
+    await expect(rows).toHaveCount(2);
+
+    // The freshly drawn layer is selected; lock the other one so exactly one
+    // of the two selected layers is off-limits to the rename plugin.
+    let lockIndex = -1;
+    for (let index = 0; index < 2; index++) {
+      if ((await rows.nth(index).getAttribute('aria-selected')) !== 'true') {
+        lockIndex = index;
+        break;
+      }
+    }
+    expect(lockIndex).toBeGreaterThanOrEqual(0);
+    const unlockedIndex = lockIndex === 0 ? 1 : 0;
+    await rows.nth(lockIndex).click({ button: 'right' });
+    await page.getByRole('menuitem', { name: 'Lock', exact: true }).click();
+    await rows.nth(unlockedIndex).click();
+    await rows.nth(lockIndex).click({ modifiers: ['Control'] });
+    await expect(page.getByRole('treeitem', { selected: true })).toHaveCount(2);
+
+    const { dialog, card } = await installPackage(page, renamePackage, 'Number Selected Layers');
+    await card.getByRole('button', { name: 'Run', exact: true }).click();
+    await expect(card.getByRole('heading', { name: 'Preview' })).toBeVisible();
+    await expect(card.getByRole('button', { name: 'Apply 1 rename' })).toBeVisible();
+    await card.getByRole('button', { name: 'Apply 1 rename' }).click();
+    await expect(rows.filter({ hasText: /01 ·/ })).toHaveCount(1);
+    await expect(rows.nth(lockIndex)).not.toContainText('·');
+    await expect(rows.nth(unlockedIndex)).toContainText('01 ·');
+
+    await dialog.getByRole('button', { name: 'Close dialog' }).click();
+    await page.keyboard.press('Control+z');
+    await expect(rows.filter({ hasText: /01 ·/ })).toHaveCount(0);
+    await page.keyboard.press('Control+Shift+z');
+    await expect(rows.filter({ hasText: /01 ·/ })).toHaveCount(1);
+    await expect(rows.nth(lockIndex)).not.toContainText('·');
   });
 });

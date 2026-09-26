@@ -5,9 +5,11 @@ import {
   disablePlugin,
   enablePlugin,
   getRegisteredPlugins,
+  hideContribution,
   onContributionsChange,
   registerPlugin,
   retryPlugin,
+  showContribution,
   unregisterPlugin,
 } from '../components/Inspector/pluginSections';
 import type { EditorContextValue } from '../context/types';
@@ -60,6 +62,8 @@ export interface PluginView {
   status: RuntimeStatus;
   lastError?: string;
   previousVersion?: string;
+  /** Contribution IDs of Inspector panels the user chose to hide. */
+  hiddenPanels: string[];
   results: Record<string, GuestOutput>;
 }
 
@@ -129,6 +133,7 @@ function storedRevision(record: StoredPlugin | undefined): string {
     record.grants,
     record.lastError,
     record.previous?.sha256,
+    record.hiddenPanels ?? null,
   ]);
 }
 
@@ -238,6 +243,8 @@ class ApplicationPluginController {
         throw new Error('Choose a newer version, or use Roll back for the previous version');
       }
       if (current) this.stop(verified.manifest.id);
+      const panelIds = new Set((verified.manifest.inspector ?? []).map((panel) => panel.id));
+      const retainedPanels = current?.hiddenPanels?.filter((panelId) => panelIds.has(panelId));
       const next: StoredPlugin = {
         archive: new Uint8Array(archive),
         manifest: verified.manifest,
@@ -247,6 +254,7 @@ class ApplicationPluginController {
         enabled,
         source: 'local-file',
         installedAt: Date.now(),
+        ...(retainedPanels && retainedPanels.length > 0 ? { hiddenPanels: retainedPanels } : {}),
         previous: current?.lastError
           ? current.previous
           : current
@@ -290,6 +298,31 @@ class ApplicationPluginController {
       const accepted = checkedGrants(current.manifest, grants);
       if (current.grants.some((grant) => !accepted.includes(grant))) this.stop(id);
       const next = { ...current, grants: accepted };
+      await putStoredPlugin(next);
+      this.records.set(id, next);
+      this.reconcileOne(id);
+      this.emit();
+    });
+  }
+
+  /**
+   * Hide or show one contributed Inspector panel. Pure display preference:
+   * it never touches the document, history, permissions, or runtime state,
+   * and it survives restarts because it lives with the installation record.
+   */
+  async setPanelHidden(id: string, panelId: string, hidden: boolean): Promise<void> {
+    await this.enqueue(id, async () => {
+      const current = this.requireRecord(id);
+      if (!current.manifest.inspector?.some((panel) => panel.id === panelId)) {
+        throw new Error('This plugin does not contribute that Inspector panel');
+      }
+      const hiddenSet = new Set(current.hiddenPanels ?? []);
+      if (hidden) hiddenSet.add(panelId);
+      else hiddenSet.delete(panelId);
+      const next: StoredPlugin = {
+        ...current,
+        hiddenPanels: hiddenSet.size > 0 ? [...hiddenSet].sort() : undefined,
+      };
       await putStoredPlugin(next);
       this.records.set(id, next);
       this.reconcileOne(id);
@@ -371,11 +404,23 @@ class ApplicationPluginController {
       throw new Error('The document changed; run the preview again');
     }
     editor.beginTransaction();
+    // `updateDoc` runs its updater synchronously — the same assumption every
+    // transaction caller makes. Track the outcome so a no-op aborts instead of
+    // committing an empty history entry (which would clear redo and let the UI
+    // report a phantom success when the document changed underneath us).
+    let updaterRan = false;
+    let changed = false;
     try {
       editor.updateDoc((doc) => {
+        updaterRan = true;
         if (!this.isCurrent(id, saved.context)) return doc;
-        return applyRenameProposal(doc, saved.context.documentId, saved.output.renames);
+        const next = applyRenameProposal(doc, saved.context.documentId, saved.output.renames);
+        changed = next !== doc;
+        return next;
       });
+      if (updaterRan && !changed) {
+        throw new Error('The document changed; run the preview again');
+      }
       editor.commitTransaction();
       this.results.get(id)?.delete(commandId);
       this.emit();
@@ -396,6 +441,9 @@ class ApplicationPluginController {
         throw new Error('Previous package failed its integrity check');
       }
       await startGuestJob(verified.wasm, 'validate').result;
+      const rolledBackPanels = current.hiddenPanels?.filter((panelId) =>
+        (verified.manifest.inspector ?? []).some((panel) => panel.id === panelId),
+      );
       const next: StoredPlugin = {
         ...previous,
         manifest: verified.manifest,
@@ -405,6 +453,9 @@ class ApplicationPluginController {
         grants: current.grants.filter((grant) =>
           requestedPermissions(verified.manifest).includes(grant),
         ),
+        ...(rolledBackPanels && rolledBackPanels.length > 0
+          ? { hiddenPanels: rolledBackPanels }
+          : {}),
         previous: undefined,
       };
       await putStoredPlugin(next);
@@ -475,7 +526,9 @@ class ApplicationPluginController {
 
   private async checkStoredRecord(record: StoredPlugin): Promise<StoredPlugin> {
     try {
-      if (!(record.archive instanceof Uint8Array)) throw new Error('Package bytes are missing');
+      // Not `instanceof`: a stored view may come back from another realm
+      // (structured clone), and parsePluginPackage normalizes before use.
+      if (!ArrayBuffer.isView(record.archive)) throw new Error('Package bytes are missing');
       const pkg = await parsePluginPackage(record.archive);
       if (pkg.sha256 !== record.sha256 || pkg.manifest.id !== record.manifest.id) {
         throw new Error('Stored package identity or checksum changed');
@@ -634,7 +687,19 @@ class ApplicationPluginController {
       registerPlugin(this.inspectorManifest(record));
       this.sectionHashes.set(id, record.sha256);
     }
-    if (this.sectionRenderer && this.sections.has(id)) enablePlugin(id);
+    if (this.sectionRenderer && this.sections.has(id)) {
+      this.syncHiddenPanels(record);
+      enablePlugin(id);
+    }
+  }
+
+  /** The registry's hidden-panel state mirrors the installation record. */
+  private syncHiddenPanels(record: StoredPlugin): void {
+    const hidden = new Set(record.hiddenPanels ?? []);
+    for (const panel of record.manifest.inspector ?? []) {
+      if (hidden.has(panel.id)) hideContribution(record.manifest.id, panel.id);
+      else showContribution(record.manifest.id, panel.id);
+    }
   }
 
   private inspectorManifest(record: StoredPlugin) {
@@ -710,6 +775,7 @@ class ApplicationPluginController {
         status: this.status(record),
         lastError: record.lastError,
         previousVersion: record.previous?.manifest.version,
+        hiddenPanels: [...(record.hiddenPanels ?? [])],
         results: Object.fromEntries(
           [...(this.results.get(record.manifest.id) ?? new Map()).entries()].map(([key, value]) => [
             key,
