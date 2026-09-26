@@ -98,6 +98,168 @@ function resolveTablePaintKey(key: TablePaintKey): TableAppearancePaintKey {
   return key.slice('table.'.length) as TableAppearancePaintKey;
 }
 
+type PaintedNode = SceneNode & {
+  fills?: Array<Record<string, unknown>>;
+  paintRefs?: string[];
+};
+
+const STROKE_WEIGHT_PREFIX = 'strokeWeight:';
+const LEGACY_STROKE_PREFIX = 'legacy-stroke-';
+
+/**
+ * Resolve the `fill` binding onto the paint slot the renderer actually paints.
+ *
+ * Precedence mirrors `resolveNodePaints` (paintRefs → fills → legacy fill):
+ * a shared paint reference owns its colour and is never silently rewritten,
+ * a gradient/image primary paint is never flattened to the bound colour, and
+ * a solid primary paint receives the bound colour while keeping its own
+ * opacity/blend options. Returns `node` unchanged when the binding cannot be
+ * applied — the binding itself is preserved so the UI can explain why.
+ */
+function applyFillBinding(node: SceneNode, binding: PropertyBinding, resolved: unknown): SceneNode {
+  const bound = resolveBoundFill(binding, resolved);
+  if (!bound) return node;
+  const painted = node as PaintedNode;
+  if (painted.paintRefs && painted.paintRefs.length > 0) return node;
+  const fills = painted.fills;
+  if (fills && fills.length > 0) {
+    const primary = fills[0];
+    if (primary?.type !== 'solid') return node;
+    const nextFills = [...fills];
+    nextFills[0] = { ...primary, color: bound };
+    return { ...node, fills: nextFills } as SceneNode;
+  }
+  return { ...node, fill: bound } as SceneNode;
+}
+
+/** Map a `strokeWeight:<rowId>` binding key onto one stroke of the stack. */
+function applyStrokeWeightBinding(node: SceneNode, property: string, resolved: unknown): SceneNode {
+  if (typeof resolved !== 'number') return node;
+  const strokes = (node as SceneNode & { strokes?: Array<{ id?: string; weight: number }> })
+    .strokes;
+  if (!strokes || strokes.length === 0) return node;
+  const rowId = property.slice(STROKE_WEIGHT_PREFIX.length);
+  if (!rowId) return node;
+  let index = strokes.findIndex((stroke) => stroke.id === rowId);
+  if (index < 0 && rowId.startsWith(LEGACY_STROKE_PREFIX)) {
+    const legacyIndex = Number(rowId.slice(LEGACY_STROKE_PREFIX.length));
+    if (Number.isInteger(legacyIndex) && legacyIndex >= 0 && legacyIndex < strokes.length) {
+      index = legacyIndex;
+    }
+  }
+  if (index < 0) return node;
+  const nextStrokes = [...strokes];
+  const target = nextStrokes[index];
+  if (!target) return node;
+  nextStrokes[index] = { ...target, weight: resolved };
+  return { ...node, strokes: nextStrokes } as SceneNode;
+}
+
+/** Scalar node properties that accept a numeric binding. */
+function applyScalarBinding(node: SceneNode, property: string, resolved: unknown): SceneNode {
+  if (typeof resolved !== 'number') return node;
+  switch (property) {
+    case 'opacity':
+      return { ...node, opacity: resolved };
+    case 'rotation':
+      return { ...node, rotation: resolved };
+    case 'cornerRadius':
+      if (node.kind === 'shape' || node.kind === 'frame') {
+        return { ...node, cornerRadius: resolved } as SceneNode;
+      }
+      return node;
+    case 'x':
+    case 'y': {
+      const transform = [...(node.transform || [1, 0, 0, 1, 0, 0])] as [
+        number,
+        number,
+        number,
+        number,
+        number,
+        number,
+      ];
+      transform[property === 'x' ? 4 : 5] = resolved;
+      return { ...node, transform } as SceneNode;
+    }
+    case 'w':
+    case 'width':
+    case 'h':
+    case 'height': {
+      const isWidth = property === 'w' || property === 'width';
+      if (node.kind === 'frame' || node.kind === 'text') {
+        return isWidth
+          ? ({ ...node, w: resolved } as SceneNode)
+          : ({ ...node, h: resolved } as SceneNode);
+      }
+      if ('shape' in node && node.shape) {
+        return {
+          ...node,
+          shape: isWidth ? { ...node.shape, w: resolved } : { ...node.shape, h: resolved },
+        } as SceneNode;
+      }
+      return node;
+    }
+    default:
+      return node;
+  }
+}
+
+/** Text-only scalar properties (typography metrics). */
+function applyTextBinding(node: SceneNode, property: string, resolved: unknown): SceneNode {
+  if (node.kind !== 'text') return node;
+  switch (property) {
+    case 'fontSize':
+      return typeof resolved === 'number' ? { ...node, fontSize: resolved } : node;
+    case 'text':
+      return typeof resolved === 'string' ? { ...node, text: resolved } : node;
+    case 'lineHeight':
+    case 'letterSpacing':
+    case 'tracking':
+    case 'paragraphSpacing':
+      return typeof resolved === 'number' ? ({ ...node, [property]: resolved } as SceneNode) : node;
+    default:
+      return node;
+  }
+}
+
+function applySingleBinding(
+  node: SceneNode,
+  property: string,
+  binding: PropertyBinding,
+  resolved: unknown,
+): SceneNode {
+  if (property === 'fill') return applyFillBinding(node, binding, resolved);
+  if (property.startsWith(STROKE_WEIGHT_PREFIX)) {
+    return applyStrokeWeightBinding(node, property, resolved);
+  }
+  if (isTablePaintKey(property)) {
+    if (node.kind !== 'table') return node;
+    // Table appearance paints resolve through the same variable pipeline
+    // (aliases, modes, modifiers) and are never materialized as literals.
+    const paintKey = resolveTablePaintKey(property);
+    const paintColor = resolveBoundFill(binding, resolved);
+    if (!paintColor) return node;
+    return {
+      ...node,
+      table: {
+        ...node.table,
+        appearance: { ...node.table.appearance, [paintKey]: paintColor },
+      },
+    } as SceneNode;
+  }
+  if (
+    property === 'text' ||
+    property === 'fontSize' ||
+    property === 'lineHeight' ||
+    property === 'letterSpacing' ||
+    property === 'tracking' ||
+    property === 'paragraphSpacing'
+  ) {
+    return applyTextBinding(node, property, resolved);
+  }
+  return applyScalarBinding(node, property, resolved);
+}
+
 /**
  * Apply document variable bindings to a single node (non-destructive copy).
  */
@@ -109,68 +271,32 @@ export function applyBindingsToNode(node: SceneNode, store: VariableStore | unde
   for (const [property, binding] of Object.entries(node.bindings)) {
     try {
       const resolved = resolveBinding(store, binding as PropertyBinding);
-      if (property === 'fill') {
-        const fillColor = resolveBoundFill(binding as PropertyBinding, resolved);
-        if (fillColor) {
-          next = { ...next, fill: fillColor } as SceneNode;
-        }
-      } else if (property === 'opacity' && typeof resolved === 'number') {
-        next = { ...next, opacity: resolved } as SceneNode;
-      } else if (property === 'rotation' && typeof resolved === 'number') {
-        next = { ...next, rotation: resolved } as SceneNode;
-      } else if (property === 'x' && typeof resolved === 'number') {
-        next = {
-          ...next,
-          transform: [...(next.transform || [1, 0, 0, 1, 0, 0])] as SceneNode['transform'],
-        } as SceneNode;
-        (next.transform as unknown as number[])[4] = resolved;
-      } else if (property === 'y' && typeof resolved === 'number') {
-        next = {
-          ...next,
-          transform: [...(next.transform || [1, 0, 0, 1, 0, 0])] as SceneNode['transform'],
-        } as SceneNode;
-        (next.transform as unknown as number[])[5] = resolved;
-      } else if ((property === 'w' || property === 'width') && typeof resolved === 'number') {
-        if (next.kind === 'frame') {
-          next = { ...next, w: resolved } as SceneNode;
-        } else if (next.kind === 'text') {
-          next = { ...next, w: resolved } as SceneNode;
-        } else if ('shape' in next && next.shape) {
-          next = { ...next, shape: { ...next.shape, w: resolved } } as SceneNode;
-        }
-      } else if ((property === 'h' || property === 'height') && typeof resolved === 'number') {
-        if (next.kind === 'frame') {
-          next = { ...next, h: resolved } as SceneNode;
-        } else if (next.kind === 'text') {
-          next = { ...next, h: resolved } as SceneNode;
-        } else if ('shape' in next && next.shape) {
-          next = { ...next, shape: { ...next.shape, h: resolved } } as SceneNode;
-        }
-      } else if (property === 'fontSize' && typeof resolved === 'number' && next.kind === 'text') {
-        next = { ...next, fontSize: resolved } as SceneNode;
-      } else if (property === 'text' && typeof resolved === 'string' && next.kind === 'text') {
-        next = { ...next, text: resolved } as SceneNode;
-      } else if (isTablePaintKey(property) && next.kind === 'table') {
-        // Table appearance paints resolve through the same variable pipeline
-        // (aliases, modes, modifiers) and are never materialized as literals.
-        const paintKey = resolveTablePaintKey(property);
-        const paintColor = resolveBoundFill(binding as PropertyBinding, resolved);
-        if (paintColor) {
-          next = {
-            ...next,
-            table: {
-              ...next.table,
-              appearance: { ...next.table.appearance, [paintKey]: paintColor },
-            },
-          } as SceneNode;
-        }
-      }
+      next = applySingleBinding(next, property, binding as PropertyBinding, resolved);
     } catch {
       // Keep original value when binding is broken
     }
   }
 
   return next;
+}
+
+/**
+ * Why a `fill` binding does (not) drive the node's painted colour.
+ *
+ * The renderer only honours the binding on the primary *solid* paint of a
+ * node that does not reference a shared paint, so the Inspector must report
+ * the same rule instead of implying the link is live.
+ */
+export function fillBindingApplicability(
+  node: SceneNode,
+): 'applied' | 'shared-paint' | 'non-solid' {
+  const painted = node as PaintedNode;
+  if (painted.paintRefs && painted.paintRefs.length > 0) return 'shared-paint';
+  const fills = painted.fills;
+  if (fills && fills.length > 0) {
+    return fills[0]?.type === 'solid' ? 'applied' : 'non-solid';
+  }
+  return 'applied';
 }
 
 /**

@@ -461,14 +461,33 @@ function resolveFillEntries(document: Document, context: NodeCollectionContext):
 
   const binding = raw.bindings?.fill;
   const boundColor = binding ? resolveBoundTokenColor(document.variableStore, binding) : undefined;
-  if (boundColor && !raw.fills?.length && !raw.paintRefs?.length) {
-    return [
-      {
-        fill: solidFill(boundColor),
-        storage: 'variable-fill',
-        linkedVariableId: binding?.variableId,
-      },
-    ];
+  if (boundColor && !raw.paintRefs?.length) {
+    const boundFills = resolveNodePaints(
+      effective as unknown as Parameters<typeof resolveNodePaints>[0],
+      document,
+    );
+    if (!raw.fills?.length) {
+      return [
+        {
+          fill: solidFill(boundColor),
+          storage: 'variable-fill',
+          linkedVariableId: binding?.variableId,
+        },
+      ];
+    }
+    // A fills stack is present: the binding drives the primary solid paint
+    // (the same slot `applyBindingsToNode` rewrites at render time), so the
+    // Inspector must show that colour rather than the stale literal.
+    const primary = boundFills[0];
+    if (primary?.type === 'solid') {
+      return boundFills.map((fill, index) => ({
+        fill: index === 0 ? { ...primary, color: boundColor } : fill,
+        storage: index === 0 ? 'variable-fill' : 'inline-fill',
+        linkedVariableId: index === 0 ? binding?.variableId : undefined,
+      }));
+    }
+    // Non-solid primary paint: the binding cannot apply without flattening it,
+    // so the authored paint is shown unchanged (the badge explains why).
   }
 
   const fills = resolveNodePaints(

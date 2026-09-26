@@ -14,6 +14,7 @@ import {
   replaceSelectedPaintReferences,
 } from './selectedPaints';
 import type { Fill, ManagedColor, SceneNode, ShapeNode } from './types';
+import { createVariableStore } from './variables';
 
 const red: ManagedColor = { space: 'rgb', r: 255, g: 0, b: 0, a: 255 };
 const blue: ManagedColor = { space: 'rgb', r: 0, g: 0, b: 255, a: 255 };
@@ -322,6 +323,63 @@ describe('collectSelectedPaints', () => {
     expect(summary.groups).toHaveLength(3);
     expect(summary.groups.map((group) => group.color)).toEqual([red, green, blue]);
     expect(summary.groups.map((group) => group.references.length)).toEqual([334, 333, 333]);
+  });
+});
+
+describe('fill binding visibility (Inspector parity with the renderer)', () => {
+  function documentWithBoundFill(shape: SceneNode) {
+    const store = createVariableStore(['default']);
+    store.variables['v-color'] = {
+      id: 'v-color',
+      name: 'Brand',
+      type: 'color',
+      valuesByMode: { default: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 } },
+    };
+    store.collections.c1 = {
+      id: 'c1',
+      name: 'Tokens',
+      modes: ['default'],
+      activeMode: 'default',
+      variableIds: ['v-color'],
+    };
+    store.activeCollectionId = 'c1';
+    return { ...withNodes([shape]), variableStore: store };
+  }
+
+  it('shows the bound colour as the primary fill of a node that has a fills stack', () => {
+    const shape = {
+      ...makeShapeNode('bound', { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }),
+      fills: [solidFill(blue), solidFill(green)],
+      bindings: { fill: { variableId: 'v-color' } },
+    } as SceneNode;
+    const summary = collectSelectedPaints(documentWithBoundFill(shape), ['bound']);
+    const fillRefs = summary.references.filter((reference) => reference.role === 'fill');
+
+    expect(fillRefs).toHaveLength(2);
+    expect(fillRefs[0]?.color).toEqual(red);
+    expect(fillRefs[0]?.linkedVariableId).toBe('v-color');
+    // The authored secondary paint is untouched.
+    expect(fillRefs[1]?.color).toEqual(green);
+  });
+
+  it('keeps an authored gradient when the colour binding cannot apply', () => {
+    const shape = {
+      ...makeShapeNode('grad', { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }),
+      fills: [
+        gradientFill('linear', [
+          { position: 0, color: black },
+          { position: 1, color: blue },
+        ]),
+      ],
+      bindings: { fill: { variableId: 'v-color' } },
+    } as SceneNode;
+    const summary = collectSelectedPaints(documentWithBoundFill(shape), ['grad']);
+    const stopRefs = summary.references.filter((reference) => reference.role === 'gradient-stop');
+
+    expect(stopRefs).toHaveLength(2);
+    expect(stopRefs[0]?.color).toEqual(black);
+    expect(stopRefs[1]?.color).toEqual(blue);
+    expect(summary.references.some((reference) => reference.color === red)).toBe(false);
   });
 });
 

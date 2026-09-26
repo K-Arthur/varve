@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { applyBindingsToNode, stripBindingForVariable } from '../bindings';
-import type { SceneNode } from '../types';
+import { defaultStroke, type Fill, type SceneNode } from '../types';
 import { createVariableStore } from '../variables';
 
 function makeStore(): ReturnType<typeof createVariableStore> {
@@ -215,6 +215,166 @@ describe('applyBindingsToNode', () => {
     const result = applyBindingsToNode(node, store);
     expect(result.transform[4]).toBe(10);
     expect(result.opacity).toBe(0.8);
+  });
+});
+
+function solidFill(r: number, g: number, b: number): Fill {
+  return {
+    type: 'solid',
+    color: { space: 'rgb', r, g, b, a: 255 },
+    opacity: 1,
+    blendMode: 'normal',
+    visible: true,
+  };
+}
+
+function gradientFill(): Fill {
+  return {
+    type: 'gradient',
+    opacity: 1,
+    blendMode: 'normal',
+    visible: true,
+    gradient: {
+      type: 'linear',
+      stops: [
+        { position: 0, color: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 } },
+        { position: 1, color: { space: 'rgb', r: 255, g: 255, b: 255, a: 255 } },
+      ],
+    },
+  };
+}
+
+describe('applyBindingsToNode — paint stacks, radius, typography, stroke weight', () => {
+  const numericVariables: Record<string, { name: string; value: number }> = {
+    v10: { name: 'radiusVar', value: 12 },
+    v11: { name: 'lineHeightVar', value: 1.5 },
+    v12: { name: 'letterSpacingVar', value: 2 },
+    v13: { name: 'trackingVar', value: 40 },
+    v14: { name: 'paragraphSpacingVar', value: 8 },
+    v15: { name: 'strokeWeightVar', value: 3 },
+  };
+
+  function storeWithNumericVariables(): ReturnType<typeof makeStore> {
+    const store = makeStore();
+    for (const [id, def] of Object.entries(numericVariables)) {
+      store.variables[id] = {
+        id,
+        name: def.name,
+        type: 'number',
+        valuesByMode: { default: def.value },
+      };
+      store.collections.c1?.variableIds.push(id);
+    }
+    return store;
+  }
+
+  it('applies a fill binding to the primary solid fill of a fills stack', () => {
+    const second = solidFill(0, 255, 0);
+    const node = makeShapeNode({
+      bindings: { fill: { variableId: 'v6' } },
+      fill: { space: 'rgb', r: 0, g: 0, b: 255, a: 255 },
+      fills: [solidFill(10, 20, 30), second],
+    } as Partial<SceneNode>);
+    const result = applyBindingsToNode(node, makeStore());
+    const fills = (result as { fills?: Array<{ color?: unknown }> }).fills;
+    expect(fills?.[0]?.color).toEqual({ space: 'rgb', r: 255, g: 0, b: 0, a: 255 });
+    // The authored legacy fill is not the painted slot and must not be
+    // rewritten — the binding drives what the renderer actually paints.
+    expect(result.fill).toEqual({ space: 'rgb', r: 0, g: 0, b: 255, a: 255 });
+    // Untouched secondary paint keeps its own colour.
+    expect(fills?.[1]?.color).toEqual({ space: 'rgb', r: 0, g: 255, b: 0, a: 255 });
+  });
+
+  it('preserves the primary fill opacity and paint options when binding', () => {
+    const node = makeShapeNode({
+      bindings: { fill: { variableId: 'v6' } },
+      fills: [{ ...solidFill(10, 20, 30), opacity: 0.25, blendMode: 'multiply' }],
+    } as Partial<SceneNode>);
+    const result = applyBindingsToNode(node, makeStore());
+    const primary = (result as { fills?: Array<Record<string, unknown>> }).fills?.[0];
+    expect(primary).toMatchObject({ opacity: 0.25, blendMode: 'multiply' });
+    expect(primary?.color).toEqual({ space: 'rgb', r: 255, g: 0, b: 0, a: 255 });
+  });
+
+  it('never flattens a gradient primary paint into the bound colour', () => {
+    const node = makeShapeNode({
+      bindings: { fill: { variableId: 'v6' } },
+      fills: [gradientFill()],
+    } as Partial<SceneNode>);
+    const result = applyBindingsToNode(node, makeStore());
+    const primary = (result as { fills?: Array<Record<string, unknown>> }).fills?.[0];
+    expect(primary?.type).toBe('gradient');
+    expect(primary?.gradient).toBeDefined();
+  });
+
+  it('does not silently break a shared paint reference', () => {
+    const node = makeShapeNode({
+      bindings: { fill: { variableId: 'v6' } },
+      paintRefs: ['paint-1'],
+    } as Partial<SceneNode>);
+    const result = applyBindingsToNode(node, makeStore());
+    expect(result).toEqual(node);
+  });
+
+  it('binds cornerRadius on shapes', () => {
+    const node = makeShapeNode({ bindings: { cornerRadius: { variableId: 'v10' } } });
+    const result = applyBindingsToNode(node, storeWithNumericVariables());
+    expect((result as { cornerRadius?: number }).cornerRadius).toBe(12);
+  });
+
+  it('binds cornerRadius on frames', () => {
+    const node = makeFrameNode({ bindings: { cornerRadius: { variableId: 'v10' } } });
+    const result = applyBindingsToNode(node, storeWithNumericVariables());
+    expect((result as { cornerRadius?: number }).cornerRadius).toBe(12);
+  });
+
+  it('binds lineHeight, letterSpacing, tracking and paragraphSpacing on text', () => {
+    const node = makeTextNode({
+      bindings: {
+        lineHeight: { variableId: 'v11' },
+        letterSpacing: { variableId: 'v12' },
+        tracking: { variableId: 'v13' },
+        paragraphSpacing: { variableId: 'v14' },
+      },
+    });
+    const result = applyBindingsToNode(node, storeWithNumericVariables()) as {
+      lineHeight?: number;
+      letterSpacing?: number;
+      tracking?: number;
+      paragraphSpacing?: number;
+    };
+    expect(result.lineHeight).toBe(1.5);
+    expect(result.letterSpacing).toBe(2);
+    expect(result.tracking).toBe(40);
+    expect(result.paragraphSpacing).toBe(8);
+  });
+
+  it('binds strokeWeight:<stroke id> to that stroke only', () => {
+    const node = makeShapeNode({
+      bindings: { 'strokeWeight:stroke-a': { variableId: 'v15' } },
+      strokes: [
+        { ...defaultStroke(), id: 'stroke-a', weight: 1 },
+        { ...defaultStroke(), id: 'stroke-b', weight: 5 },
+      ],
+    } as Partial<SceneNode>);
+    const result = applyBindingsToNode(node, storeWithNumericVariables());
+    const strokes = (result as { strokes?: Array<{ weight?: number }> }).strokes;
+    expect(strokes?.[0]?.weight).toBe(3);
+    expect(strokes?.[1]?.weight).toBe(5);
+  });
+
+  it('binds strokeWeight for strokes without ids by legacy row index', () => {
+    const node = makeShapeNode({
+      bindings: { 'strokeWeight:legacy-stroke-1': { variableId: 'v15' } },
+      strokes: [
+        { ...defaultStroke(), weight: 1 },
+        { ...defaultStroke(), weight: 5 },
+      ],
+    } as Partial<SceneNode>);
+    const result = applyBindingsToNode(node, storeWithNumericVariables());
+    const strokes = (result as { strokes?: Array<{ weight?: number }> }).strokes;
+    expect(strokes?.[0]?.weight).toBe(1);
+    expect(strokes?.[1]?.weight).toBe(3);
   });
 });
 
