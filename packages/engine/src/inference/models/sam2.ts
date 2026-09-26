@@ -255,7 +255,14 @@ export interface DecodedMaskResult {
   selectedIndex: number;
   confidence: number;
   confidenceSource: 'model-iou' | 'activation-heuristic';
+  /** Low-res logits of the highest-scoring candidate, for next iteration. */
   lowResMask?: { data: Float32Array; width: number; height: number };
+  /**
+   * Low-res logits per candidate, aligned with `masks`. Iterative refinement
+   * must condition the next decode on the candidate the user actually kept,
+   * not on whatever scored highest, so each candidate carries its own logits.
+   */
+  lowResMasks?: Array<{ data: Float32Array; width: number; height: number }>;
 }
 
 export function decodeSam2DecoderOutput(
@@ -333,10 +340,20 @@ export function decodeSam2DecoderOutput(
 
   const confidence = bestScore;
 
-  const bestRawOffset = bestIndex * maskPixels;
-  const lowResData = new Float32Array(maskPixels);
-  for (let i = 0; i < maskPixels; i++) {
-    lowResData[i] = outputData[bestRawOffset + i] ?? 0;
+  // The decoder emits raw square-frame logits. They are returned per
+  // candidate (width/height matching the logits' row-major layout) so the
+  // editor can re-feed the reviewed candidate's logits as mask_input on the
+  // next refinement decode — the intended SAM2 iterative workflow. The crop
+  // and upscale to source resolution above are presentation steps; mask_input
+  // expects the unmodified low-resolution logits.
+  const perCandidateLogits: Array<{ data: Float32Array; width: number; height: number }> = [];
+  for (let m = 0; m < numMasks; m++) {
+    const rawOffset = m * maskPixels;
+    const logits = new Float32Array(maskPixels);
+    for (let i = 0; i < maskPixels; i++) {
+      logits[i] = outputData[rawOffset + i] ?? 0;
+    }
+    perCandidateLogits.push({ data: logits, width: maskW, height: maskH });
   }
 
   return {
@@ -344,7 +361,8 @@ export function decodeSam2DecoderOutput(
     selectedIndex: bestIndex,
     confidence,
     confidenceSource,
-    lowResMask: { data: lowResData, width: maskH, height: maskW },
+    lowResMask: perCandidateLogits[bestIndex],
+    lowResMasks: perCandidateLogits,
   };
 }
 

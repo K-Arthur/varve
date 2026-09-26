@@ -193,6 +193,37 @@ describe('sam2', () => {
       expect(Array.from(decoded.masks[0]!.mask)).toEqual([255, 255, 0, 0, 255, 255, 0, 0]);
     });
 
+    it('returns low-res logits per candidate aligned with the mask list', () => {
+      const numMasks = 3;
+      const data = new Float32Array(numMasks * 4);
+      data.set([0.1, 0.1, 0.1, 0.1], 0);
+      data.set([0.9, 0.9, 0.9, 0.9], 4);
+      data.set([-0.4, 0.25, -0.4, 0.25], 8);
+
+      const decoded = decodeSam2DecoderOutput(
+        data,
+        [1, numMasks, 2, 2],
+        new Float32Array([0.2, 0.95, 0.6]),
+        [1, numMasks],
+        2,
+        2,
+      );
+
+      expect(decoded.lowResMasks).toHaveLength(3);
+      for (const logits of decoded.lowResMasks ?? []) {
+        // Row-major logits keep their own spatial layout: width/height describe
+        // the square frame the decoder emitted, never the target resolution.
+        expect(logits.width).toBe(2);
+        expect(logits.height).toBe(2);
+        expect(logits.data).toHaveLength(4);
+      }
+      expect(decoded.lowResMasks?.[0]?.data[0]).toBeCloseTo(0.1);
+      expect(decoded.lowResMasks?.[1]?.data[0]).toBeCloseTo(0.9);
+      expect(decoded.lowResMasks?.[2]?.data).toEqual(new Float32Array([-0.4, 0.25, -0.4, 0.25]));
+      // The legacy best-candidate export stays aligned with selectedIndex.
+      expect(decoded.lowResMask?.data).toEqual(decoded.lowResMasks?.[1]?.data);
+    });
+
     it.each([
       ['empty candidate dimension', new Float32Array(), [1, 0, 2, 2]],
       ['truncated mask data', new Float32Array(3), [1, 1, 2, 2]],

@@ -543,6 +543,37 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): 
   });
 }
 
+/**
+ * Session creation under a deadline. When the deadline loses the race, the
+ * underlying `InferenceSession.create` keeps running: the runtime has no
+ * portable cancel. A session that resolves late is released here instead of
+ * being dropped, so an abandoned WebGPU attempt cannot quietly pin its
+ * device heap and raise the OOM odds for the next job in this worker.
+ */
+function withTimeoutReleasingSession<T extends { release?: () => Promise<void> | void }>(
+  create: Promise<T>,
+  timeoutMs: number,
+  label: string,
+): Promise<T> {
+  let timedOut = false;
+  create.then(
+    (session) => {
+      if (!timedOut) return;
+      try {
+        void session.release?.();
+      } catch {
+        // A late release is best-effort; the job already failed.
+      }
+    },
+    () => {
+      // A late rejection has no resources to release.
+    },
+  );
+  return withTimeout(create, timeoutMs, label).finally(() => {
+    timedOut = true;
+  });
+}
+
 async function getPreferredProviders(modelId: string): Promise<string[]> {
   try {
     const { getRecommendedProvider } = await import('./modelCatalog');
@@ -622,7 +653,7 @@ async function getSession(
     for (const provider of providers) {
       if (provider === 'wasm') continue;
       try {
-        const session = await withTimeout(
+        const session = await withTimeoutReleasingSession(
           ort.InferenceSession.create(modelPath, {
             executionProviders: [provider],
             ...externalDataOption,
@@ -657,7 +688,7 @@ async function getSession(
           );
     }
 
-    const session = await withTimeout(
+    const session = await withTimeoutReleasingSession(
       ort.InferenceSession.create(modelPath, {
         executionProviders: ['wasm'],
         ...externalDataOption,
