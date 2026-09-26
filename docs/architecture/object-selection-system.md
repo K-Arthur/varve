@@ -323,6 +323,15 @@ the accidental requirement for correct text-driven selection, and avoids
 silently widening a rotated or cropped detector box during a world-space
 round-trip.
 
+EXIF orientation is applied by the browser at decode, not by this
+mapping: both image-cache paths load through `HTMLImageElement` or
+`createImageBitmap` with the default `imageOrientation: 'from-image'`, so
+`naturalWidth`/`naturalHeight` and the pixels handed to the placement math are
+already orientation-normalized. This is an implicit dependency — a future
+decode path that passes `imageOrientation: 'none'` would have to normalize
+before computing source coordinates, or every prompt would land transposed on
+an EXIF-rotated photo.
+
 Prompt normalization is fail-closed. Every include/exclude point must map to a
 visible source-image pixel, and all four corners of a box hint must map before
 the source-space box is constructed. If a point or corner falls outside the
