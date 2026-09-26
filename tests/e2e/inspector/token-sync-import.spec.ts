@@ -77,8 +77,9 @@ test.describe('Token Sync import workflow', () => {
 
     await dialog.getByRole('button', { name: 'Apply import' }).click();
 
-    // The source now exists and reports its tokens.
-    await expect(dialog.getByText('brand.tokens.json')).toBeVisible();
+    // The source now exists and reports its tokens. Scoped to the row: the
+    // source menu and the selected-source detail repeat the same name.
+    await expect(sourceRow(page, 'brand.tokens.json')).toBeVisible();
     await expect(dialog.getByText(/4 tokens/).first()).toBeVisible();
     await expect(dialog.getByText(/revision/i)).toBeHidden();
     await dialog.screenshot({ path: `${SCREENSHOT_DIR}/import-applied.png` });
@@ -89,7 +90,7 @@ test.describe('Token Sync import workflow', () => {
 
     // …and redo restores it.
     await page.keyboard.press('ControlOrMeta+Shift+z');
-    await expect(dialog.getByText('brand.tokens.json')).toBeVisible({ timeout: 10000 });
+    await expect(sourceRow(page, 'brand.tokens.json')).toBeVisible({ timeout: 10000 });
   });
 
   test('reports parse errors instead of offering a doomed apply', async ({ page }) => {

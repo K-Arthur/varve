@@ -62,8 +62,9 @@ async function importTokens(page: Page, name: string, text: string): Promise<voi
   await expect(page.getByText(/revision/i)).toBeVisible({ timeout: 15000 });
 }
 
+/** The whole source row (name + status + counts), scoped by its name. */
 function sourceRow(page: Page, name: string) {
-  return page.locator('.token-sync-panel__source-name').filter({ hasText: name });
+  return page.locator('.token-sync-panel__source').filter({ hasText: name });
 }
 
 /** Open a custom Select by its field label and pick an option. */
@@ -105,20 +106,21 @@ test.describe('Token Sync multi-source workflow', () => {
     await expect(sourceRow(page, 'brand.tokens.json')).toContainText('2 tokens');
     await expect(sourceRow(page, 'brand2.tokens.json')).toContainText('2 tokens');
 
-    // 3. Switching the source previews that source's tokens.
-    const tokensIn = (name: string) => dialog.getByLabel(`Tokens in ${name}`);
+    // 3. Switching the source previews that source's tokens. Exactly one list
+    //    is rendered, so scope by class and identify it by its own label —
+    //    getByLabel would substring-match both list labels.
+    const tokensList = dialog.locator('.token-sync-panel__tokens');
     await pickOption(page, dialog, 'Source', 'brand2.tokens.json');
-    await expect(tokensIn('brand2.tokens.json')).toBeVisible();
-    const secondList = await tokensIn('brand2.tokens.json').textContent();
-    expect(secondList).toContain('spacing.gap');
-    expect(secondList).toContain('spacing.stack');
-    expect(secondList).not.toContain('color.primary');
+    await expect(tokensList).toHaveCount(1);
+    await expect(tokensList).toHaveAttribute('aria-label', 'Tokens in brand2.tokens.json');
+    await expect(tokensList).toContainText('spacing.gap');
+    await expect(tokensList).toContainText('spacing.stack');
+    await expect(tokensList).not.toContainText('color.primary');
 
     await pickOption(page, dialog, 'Source', 'brand.tokens.json');
-    await expect(tokensIn('brand.tokens.json')).toBeVisible();
-    const firstList = await tokensIn('brand.tokens.json').textContent();
-    expect(firstList).toContain('color.primary');
-    expect(firstList).not.toContain('spacing.gap');
+    await expect(tokensList).toHaveAttribute('aria-label', 'Tokens in brand.tokens.json');
+    await expect(tokensList).toContainText('color.primary');
+    await expect(tokensList).not.toContainText('spacing.gap');
 
     // 4. Editing a source with non-DTCG data shows an error notice.
     await pickOption(page, dialog, 'Source', 'brand2.tokens.json');
@@ -146,6 +148,7 @@ test.describe('Token Sync multi-source workflow', () => {
 
     // Switching still works after the failed edit.
     await pickOption(page, dialog, 'Source', 'brand.tokens.json');
-    await expect(tokensIn('brand.tokens.json')).toContainText('color.primary');
+    await expect(tokensList).toHaveAttribute('aria-label', 'Tokens in brand.tokens.json');
+    await expect(tokensList).toContainText('color.primary');
   });
 });
