@@ -376,6 +376,7 @@ export class Sam2SegmentationTool extends BaseTool {
         points: this.points.map((point) => ({ ...point })),
         box: this.box ? { ...this.box } : null,
         ...(sourcePrompts && Object.keys(sourcePrompts).length > 0 ? { sourcePrompts } : {}),
+        ...(previous?.previewMode ? { previewMode: previous.previewMode } : {}),
         draftPoint: options.draftPoint ?? null,
         draftBox: options.draftBox ?? null,
         confidence: invalidatePreview ? 0 : (previous?.confidence ?? 0),

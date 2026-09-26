@@ -50,6 +50,7 @@ import {
 import { areaSelectionFromMaskCoverage, decodeRasterMaskDataUrl } from '../tools/selectionMask';
 import { fingerprintImageData } from './imageFingerprint';
 import {
+  type ObjectSelectionPreviewMode,
   type ObjectSelectionSession,
   type ObjectSelectionSourcePrompts,
   objectSelectionCandidateMaskFingerprint,
@@ -252,6 +253,8 @@ export interface Sam2SegmentationAPI {
   selectSam2Candidate: (index: number) => void;
   /** Mark the currently selected model candidate as reviewed or unreviewed. */
   reviewSam2Candidate: (reviewed: boolean) => void;
+  /** How the reviewed candidate is presented over the artwork. */
+  setObjectSelectionPreviewMode: (mode: ObjectSelectionPreviewMode) => void;
   promptedProviderPreference: PromptedProviderPreference;
   setPromptedProviderPreference: (preference: PromptedProviderPreference) => void;
 }
@@ -321,6 +324,19 @@ export function useSam2Segmentation(
       setState((prev) => ({ ...prev, ...extra, objectSelectionSession: session }));
     },
     [setState, stateRef],
+  );
+
+  // Presentation preference survives cancellation and target changes; a new
+  // session picks it up at publication instead of resetting to the default.
+  const previewModeRef = useRef<ObjectSelectionPreviewMode>('overlay');
+  const setObjectSelectionPreviewMode = useCallback(
+    (mode: ObjectSelectionPreviewMode) => {
+      previewModeRef.current = mode;
+      const session = stateRef.current.objectSelectionSession;
+      if (!session) return;
+      writeTransientSession({ ...session, previewMode: mode });
+    },
+    [stateRef, writeTransientSession],
   );
 
   const cancelSam2Segmentation = useCallback(() => {
@@ -1642,6 +1658,7 @@ export function useSam2Segmentation(
                 status: 'ready' as const,
                 modelId: providerId,
                 executionProvider: prediction.executionProvider,
+                previewMode: promptSession.previewMode ?? previewModeRef.current,
                 routingReason: decision.reason,
                 routingRejections: decision.rejected,
                 sourceLocator: src,
@@ -1813,6 +1830,7 @@ export function useSam2Segmentation(
     cancelSam2Segmentation,
     selectSam2Candidate,
     reviewSam2Candidate,
+    setObjectSelectionPreviewMode,
     promptedProviderPreference,
     setPromptedProviderPreference,
   };

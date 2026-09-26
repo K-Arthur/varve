@@ -785,4 +785,74 @@ describe('Apply as mask combination', () => {
     expect(stateRef.current.objectSelectionSession?.candidates).toHaveLength(1);
     expect(announce).toHaveBeenCalledWith(expect.stringMatching(/needs an existing mask/i));
   });
+
+  it('refuses to run against a multi-selection before any model work', async () => {
+    const { doc, session } = await sessionFor();
+    const { result, stateRef, announce } = setup(session, doc);
+    stateRef.current = { ...stateRef.current, selection: ['image', 'image-2'] };
+
+    let output: unknown = null;
+    await act(async () => {
+      output = await result.current.applySam2Segmentation({
+        nodeId: 'image',
+        prompts: { points: session.points },
+        operation: 'preview',
+      });
+    });
+
+    // This is the gate that used to be missing: a multi-selection reached the
+    // mid-flight guards after the encode and stranded the session on
+    // 'encoding' with no error. It must refuse before model work begins.
+    expect(output).toBeNull();
+    expect(controls.infer).not.toHaveBeenCalled();
+    expect(announce).toHaveBeenCalledWith(expect.stringMatching(/one image at a time/i));
+  });
+
+  it('refuses a hidden or locked image before any model work', async () => {
+    const { doc, session } = await sessionFor();
+    const hiddenDoc: Document = {
+      ...doc,
+      nodes: { ...doc.nodes, image: { ...doc.nodes.image!, visible: false } },
+    };
+    const { result, announce } = setup(session, hiddenDoc);
+    await act(async () => {
+      await result.current.applySam2Segmentation({
+        nodeId: 'image',
+        prompts: { points: session.points },
+        operation: 'preview',
+      });
+    });
+    expect(controls.infer).not.toHaveBeenCalled();
+    expect(announce).toHaveBeenCalledWith(expect.stringMatching(/hidden/i));
+
+    const lockedDoc: Document = {
+      ...doc,
+      nodes: { ...doc.nodes, image: { ...doc.nodes.image!, locked: true } },
+    };
+    const second = setup(session, lockedDoc);
+    await act(async () => {
+      await second.result.current.applySam2Segmentation({
+        nodeId: 'image',
+        prompts: { points: session.points },
+        operation: 'preview',
+      });
+    });
+    expect(controls.infer).not.toHaveBeenCalled();
+    expect(second.announce).toHaveBeenCalledWith(expect.stringMatching(/locked/i));
+  });
+
+  it('stores the chosen preview presentation on the live session', async () => {
+    const { doc, session } = await sessionFor();
+    const { result, stateRef } = setup(session, doc);
+
+    act(() => {
+      result.current.setObjectSelectionPreviewMode('checkerboard');
+    });
+    expect(stateRef.current.objectSelectionSession?.previewMode).toBe('checkerboard');
+
+    act(() => {
+      result.current.setObjectSelectionPreviewMode('none');
+    });
+    expect(stateRef.current.objectSelectionSession?.previewMode).toBe('none');
+  });
 });

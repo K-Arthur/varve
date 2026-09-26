@@ -380,9 +380,25 @@ function drawObjectSelectionPreview(
   node: ShapeNode,
   session: NonNullable<EditorState['objectSelectionSession']>,
   worldTransform: readonly [number, number, number, number, number, number],
+  zoom: number,
 ): void {
   const candidate = session.candidates[session.selectedCandidate];
   if (!candidate) return;
+  const previewMode = session.previewMode ?? 'overlay';
+  if (previewMode === 'none') return;
+  if (previewMode === 'checkerboard') {
+    drawObjectSelectionCheckerboard(
+      ctx,
+      doc,
+      node,
+      candidate.mask,
+      session.width,
+      session.height,
+      worldTransform,
+      zoom,
+    );
+    return;
+  }
   drawImageMaskPreview(
     ctx,
     doc,
@@ -393,6 +409,157 @@ function drawObjectSelectionPreview(
     worldTransform,
     [32, 160, 255],
   );
+}
+
+/**
+ * Cutout preview: checkerboard fills the region the mask will REMOVE, while
+ * the kept pixels show the untouched artwork underneath. A blue tint says
+ * "the model highlighted this"; the checkerboard predicts what applying the
+ * mask will actually look like, which is what users of one-click cutout tools
+ * ask for when hard edges surprise them.
+ */
+const CHECKERBOARD_TILE_CSS_PX = 8;
+const objectMaskCheckerCache = new WeakMap<
+  Uint8Array,
+  { tileSize: number; canvas: HTMLCanvasElement }
+>();
+
+function drawObjectSelectionCheckerboard(
+  ctx: CanvasRenderingContext2D,
+  doc: Document,
+  node: ShapeNode,
+  mask: Uint8Array,
+  width: number,
+  height: number,
+  worldTransform: readonly [number, number, number, number, number, number],
+  zoom: number,
+): void {
+  if (width <= 0 || height <= 0 || mask.length !== width * height) return;
+  const image = resolveNodePaints(
+    node as unknown as Parameters<typeof resolveNodePaints>[0],
+    doc,
+  ).find((fill) => fill.type === 'image')?.image;
+  const bounds = nodeLocalBounds(node, doc);
+  if (!image || !bounds) return;
+  const placement = computeImagePlacement({
+    fit: image.fit,
+    sourceWidth: width,
+    sourceHeight: height,
+    bounds,
+    x: image.x,
+    y: image.y,
+    scale: image.scale,
+    sourceCrop: image.crop,
+    rotation: image.rotation,
+    flipH: image.flipH,
+    flipV: image.flipV,
+  });
+  if (!placement) return;
+  const maskCanvas = boundedMaskPreviewCanvas(mask, width, height, [255, 255, 255]);
+  if (!maskCanvas) return;
+
+  // Keep the tiles a constant size on screen: CSS px -> world (camera zoom)
+  // -> node-local (node world scale) -> source px (placement extent) ->
+  // preview px (bounded canvas scale). Quantized so ordinary pan/zoom reuse
+  // the cached composite.
+  const nodeScale = Math.hypot(worldTransform[0], worldTransform[1]) || 1;
+  const sourcePerLocal =
+    placement.drawRect.w > 0 ? placement.sourceRect.w / placement.drawRect.w : 1;
+  const previewPerSource = width > 0 ? maskCanvas.width / width : 1;
+  const tileSizePx =
+    (CHECKERBOARD_TILE_CSS_PX / (zoom > 0 ? zoom : 1)) *
+    (1 / nodeScale) *
+    sourcePerLocal *
+    previewPerSource;
+  const composite = checkerboardComplementCanvas(mask, maskCanvas, tileSizePx);
+  if (!composite) return;
+
+  const [a, b, c, d, e, f] = worldTransform;
+  const source = placement.sourceRect;
+  const destination = placement.sampleDrawRect;
+  const sourceScaleX = composite.width / width;
+  const sourceScaleY = composite.height / height;
+  ctx.save();
+  ctx.transform(a, b, c, d, e, f);
+  const transformed = placement.rotation !== 0 || placement.flipH || placement.flipV;
+  if (transformed) {
+    const centerX = placement.drawRect.x + placement.drawRect.w / 2;
+    const centerY = placement.drawRect.y + placement.drawRect.h / 2;
+    ctx.save();
+    ctx.translate(centerX, centerY);
+    ctx.rotate((placement.rotation * Math.PI) / 180);
+    ctx.scale(placement.flipH ? -1 : 1, placement.flipV ? -1 : 1);
+    ctx.drawImage(
+      composite,
+      source.x * sourceScaleX,
+      source.y * sourceScaleY,
+      source.w * sourceScaleX,
+      source.h * sourceScaleY,
+      destination.x - centerX,
+      destination.y - centerY,
+      destination.w,
+      destination.h,
+    );
+    ctx.restore();
+  } else {
+    ctx.drawImage(
+      composite,
+      source.x * sourceScaleX,
+      source.y * sourceScaleY,
+      source.w * sourceScaleX,
+      source.h * sourceScaleY,
+      destination.x,
+      destination.y,
+      destination.w,
+      destination.h,
+    );
+  }
+  ctx.restore();
+}
+
+/**
+ * Checkerboard in the masked-out region only, baked once per (mask, tile)
+ * pair so the overlay never runs composite operations against unrelated
+ * overlay content: fill the tile pattern, then destination-out the mask
+ * coverage, leaving checker alpha = checker * (1 - coverage).
+ */
+function checkerboardComplementCanvas(
+  mask: Uint8Array,
+  maskCanvas: HTMLCanvasElement,
+  tileSizePx: number,
+): HTMLCanvasElement | null {
+  const tile = Math.max(2, Math.round(tileSizePx));
+  const cached = objectMaskCheckerCache.get(mask);
+  if (cached && cached.tileSize === tile && cached.canvas.width === maskCanvas.width) {
+    return cached.canvas;
+  }
+  const canvas = document.createElement('canvas');
+  canvas.width = maskCanvas.width;
+  canvas.height = maskCanvas.height;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+  const patternCanvas = document.createElement('canvas');
+  patternCanvas.width = 16;
+  patternCanvas.height = 16;
+  const patternCtx = patternCanvas.getContext('2d');
+  if (!patternCtx) return null;
+  patternCtx.fillStyle = 'rgba(233,236,239,0.95)';
+  patternCtx.fillRect(0, 0, 8, 8);
+  patternCtx.fillRect(8, 8, 8, 8);
+  patternCtx.fillStyle = 'rgba(36,44,50,0.95)';
+  patternCtx.fillRect(8, 0, 8, 8);
+  patternCtx.fillRect(0, 8, 8, 8);
+  const pattern = ctx.createPattern(patternCanvas, 'repeat');
+  if (!pattern) return null;
+  const scale = tile / 8;
+  pattern.setTransform(new DOMMatrix([scale, 0, 0, scale, 0, 0]));
+  ctx.fillStyle = pattern;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.globalCompositeOperation = 'destination-out';
+  ctx.drawImage(maskCanvas, 0, 0);
+  ctx.globalCompositeOperation = 'source-over';
+  objectMaskCheckerCache.set(mask, { tileSize: tile, canvas });
+  return canvas;
 }
 
 function drawForegroundProposalPreview(
@@ -630,7 +797,7 @@ export function useOverlayDraw({
     if (objectSession && objectNode?.kind === 'shape') {
       const objectTransform = getCachedWorldTransform(cache, doc, objectNode.id);
       if (objectTransform) {
-        drawObjectSelectionPreview(ctx, doc, objectNode, objectSession, objectTransform);
+        drawObjectSelectionPreview(ctx, doc, objectNode, objectSession, objectTransform, s.zoom);
         drawObjectSelectionPrompts(ctx, objectSession, s.zoom);
       }
     }

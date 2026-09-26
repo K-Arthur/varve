@@ -29,13 +29,16 @@ import {
 } from '@varve/engine';
 import type { SceneNode, ShapeNode } from '@varve/scene';
 import { imageShapeSrc, isImageShape, resolveNodePaints } from '@varve/scene';
-import { Button, Select, ShineBorder, Switch } from '@varve/ui';
+import { Button, SegmentedControl, Select, ShineBorder, Switch } from '@varve/ui';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { removeRasterMaskFromNode } from '../../../backgroundRemoval/commitRasterMask';
 import { getToolManager } from '../../../canvas/toolDispatcher';
 import { isCapabilityRestricted } from '../../../capabilities/restrictions';
 import { useEditor } from '../../../context';
-import { objectSelectionCandidateReviewKey } from '../../../context/objectSelectionTypes';
+import {
+  type ObjectSelectionPreviewMode,
+  objectSelectionCandidateReviewKey,
+} from '../../../context/objectSelectionTypes';
 import { prepareImageMaskMapper } from '../../../tools/imageMaskCoordinates';
 import type {
   Sam2PromptMode,
@@ -50,6 +53,15 @@ import { FieldRow } from '../controls/FieldRow';
 import { RangeValueControl } from '../controls/RangeValueControl';
 import { BoundedImagePreview } from './ImageFillControls';
 import { TextDiscoveryPanel } from './TextDiscoveryPanel';
+
+const OBJECT_SELECTION_PREVIEW_OPTIONS: Array<{
+  value: ObjectSelectionPreviewMode;
+  label: string;
+}> = [
+  { value: 'overlay', label: 'Overlay' },
+  { value: 'checkerboard', label: 'Cutout' },
+  { value: 'none', label: 'Off' },
+];
 
 function normalizeErrorMessage(e: unknown, defaultMessage: string): string {
   const message = e instanceof Error ? e.message : String(e);
@@ -230,6 +242,7 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
     cancelSam2Segmentation,
     selectSam2Candidate,
     reviewSam2Candidate = () => {},
+    setObjectSelectionPreviewMode = () => {},
     promptedProviderPreference = 'auto',
     setPromptedProviderPreference = () => {},
     removeBackgroundWithOptions,
@@ -1199,6 +1212,18 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
                       Next
                     </button>
                   </div>
+                )}
+                {objectSelection.status === 'ready' && (
+                  <FieldRow label="Preview">
+                    <SegmentedControl
+                      label="Object selection preview"
+                      options={[...OBJECT_SELECTION_PREVIEW_OPTIONS]}
+                      value={objectSelection.previewMode ?? 'overlay'}
+                      onChange={(v) =>
+                        setObjectSelectionPreviewMode(v as ObjectSelectionPreviewMode)
+                      }
+                    />
+                  </FieldRow>
                 )}
                 <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
                   <button

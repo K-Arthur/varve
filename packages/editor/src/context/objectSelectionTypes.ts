@@ -19,6 +19,13 @@ export interface ObjectSelectionSourcePrompts {
   box?: { x1: number; y1: number; x2: number; y2: number };
 }
 
+/**
+ * How the reviewed candidate is presented over the artwork. `overlay` tints
+ * the covered region; `checkerboard` previews the applied cutout by covering
+ * the removed region; `none` shows prompts only.
+ */
+export type ObjectSelectionPreviewMode = 'overlay' | 'checkerboard' | 'none';
+
 /** Transient Object Selection state. Never serialized or added to history. */
 export interface ObjectSelectionSession {
   /** Document identity guards async results and prompt overlays. */
@@ -70,6 +77,8 @@ export interface ObjectSelectionSession {
   confidence: number;
   confidenceSource?: ObjectSelectionScoreSource;
   status: 'drawing' | 'previewing' | 'preparing' | 'encoding' | 'decoding' | 'ready' | 'error';
+  /** Presentation of the reviewed candidate (see ObjectSelectionPreviewMode). */
+  previewMode?: ObjectSelectionPreviewMode;
   error?: {
     code: string;
     message: string;

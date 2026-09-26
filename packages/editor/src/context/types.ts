@@ -55,7 +55,11 @@ import type { MotionState } from '../state/motion-state';
 import type { MagicWandSettings } from '../tools/magicWandSettings';
 import type { DraftShape, MaskPreviewMode, ToolId } from '../tools/types';
 import type { WorkspaceMode } from '../workspace/workspaceTypes';
-import type { ObjectSelectionSession, ObjectSelectionSourcePrompts } from './objectSelectionTypes';
+import type {
+  ObjectSelectionPreviewMode,
+  ObjectSelectionSession,
+  ObjectSelectionSourcePrompts,
+} from './objectSelectionTypes';
 import type { SelectionMode, SelectionOrigin } from './selectionState';
 import type { TableEditState } from './tableEditState';
 
@@ -1390,6 +1394,8 @@ export interface EditorContextValue {
   selectSam2Candidate: (index: number) => void;
   /** Confirm that the visible Object Selection candidate was inspected. */
   reviewSam2Candidate: (reviewed: boolean) => void;
+  /** How the reviewed Object Selection candidate is presented over the artwork. */
+  setObjectSelectionPreviewMode: (mode: ObjectSelectionPreviewMode) => void;
   /** Explicit model choice for Object Selection; `auto` is the measured route. */
   promptedProviderPreference: PromptedProviderPreference;
   setPromptedProviderPreference: (preference: PromptedProviderPreference) => void;

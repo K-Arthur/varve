@@ -1693,6 +1693,9 @@ export interface EditorContextValue extends CanonicalEditorContextValue {
   selectSam2Candidate: (index: number) => void;
   /** Confirm that the visible Object Selection candidate was inspected. */
   reviewSam2Candidate: (reviewed: boolean) => void;
+  setObjectSelectionPreviewMode: (
+    mode: import('./context/objectSelectionTypes').ObjectSelectionPreviewMode,
+  ) => void;
   promptedProviderPreference: import('@varve/engine').PromptedProviderPreference;
   setPromptedProviderPreference: (
     preference: import('@varve/engine').PromptedProviderPreference,
@@ -10214,6 +10217,7 @@ export function EditorProvider({
       cancelSam2Segmentation: sam2Seg.cancelSam2Segmentation,
       selectSam2Candidate: sam2Seg.selectSam2Candidate,
       reviewSam2Candidate: sam2Seg.reviewSam2Candidate,
+      setObjectSelectionPreviewMode: sam2Seg.setObjectSelectionPreviewMode,
       promptedProviderPreference: sam2Seg.promptedProviderPreference,
       setPromptedProviderPreference: sam2Seg.setPromptedProviderPreference,
 
