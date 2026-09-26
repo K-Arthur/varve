@@ -131,6 +131,9 @@ const ALLOWLISTED_PATHS = new Set([
   'packages/engine/src/backgroundRemoval/__tests__/cloudConfig.test.ts',
   'packages/engine/src/backgroundRemoval/__tests__/cloudProvider.test.ts',
   'docs/audits/menubar-audit-2026-07-23.md',
+  // Synthetic E2E export artifact: the embedded base64 is a PNG raster of a
+  // mockup composition (decoded evidence), not a credential.
+  'docs/screenshots/mockup-review-2026-09-25/svg-export-boundary.svg',
 ]);
 
 /**
@@ -376,7 +379,15 @@ function main() {
       scanPaths(files, findings);
     }
   } else {
-    const files = staged ? stagedFiles() : trackedFiles().filter((f) => !shouldSkip(f));
+    // Staged mode must honor the allowlist exactly as the tracked-tree mode
+    // does — the scanner's own guidance tells synthetic-fixture authors to
+    // add their path to ALLOWLISTED_PATHS, and that procedure has to work
+    // for the pre-commit path too. Everything else stays maximally strict
+    // (staged mode still scans what tracked mode would skip only by SKIP_PATH
+    // rules, as before, minus the documented allowlist).
+    const files = staged
+      ? stagedFiles().filter((f) => !ALLOWLISTED_PATHS.has(f))
+      : trackedFiles().filter((f) => !shouldSkip(f));
     scanPaths(files, findings);
   }
 

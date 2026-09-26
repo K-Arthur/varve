@@ -191,7 +191,23 @@ test('mockup workflow: apply, link, update, save/reopen, export, replace, detach
   const alphaBytes = bytes.filter((_, i) => (i + 1) % 4 === 0).filter((b) => b !== 0).length;
   expect(alphaBytes).toBeGreaterThan(100);
   void savePath;
-  await page.keyboard.press('Escape');
+  // Close the export dialog deterministically. Escape is deliberately
+  // ignored while the batch is still finalizing (`dismissible={running ||
+  // …}`) and the focused footer control can unmount when the report
+  // appears, so a single Escape after the download is not guaranteed to
+  // land. Retry Escape, fall back to the header Close button, and assert
+  // the dialog is actually gone before touching the panels behind it.
+  for (let attempt = 0; attempt < 12; attempt++) {
+    if (!(await exportDialog.isVisible().catch(() => false))) break;
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(250);
+    if (!(await exportDialog.isVisible().catch(() => false))) break;
+    await exportDialog
+      .getByRole('button', { name: 'Close dialog' })
+      .click({ timeout: 2000 })
+      .catch(() => undefined);
+  }
+  await expect(exportDialog).toBeHidden({ timeout: 10000 });
   await page.waitForTimeout(300);
 
   // 8. Apply another template from the Mockups panel (browser window).

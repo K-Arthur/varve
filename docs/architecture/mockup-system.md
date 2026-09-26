@@ -305,6 +305,9 @@ is a subject starter set, not a claim of photo-realistic product fidelity.
   labelled targets, Reset/Done, keyboard abort.
 - Canvas context menu and command palette: "Apply mockup…" and "Create mockup
   template from selection…".
+- Object menu (added 2026-09-25): "Apply Mockup…" and "Create Mockup
+  Template from Selection…" under a mockup group, dispatching through the
+  same action registry as the palette and context menu.
 
 ## Deferred, with evidence
 
