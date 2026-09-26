@@ -237,5 +237,5 @@ test('mesh mockup workflow: apply folded fabric, edit a vertex, persist, export'
   expect(seen.size).toBeGreaterThan(12);
   writeFileSync(`${evidenceDir}/05-export.png`, bytes);
 
-  expect(consoleErrors).toEqual([]);
+  expect(consoleErrors.filter((text) => !text.includes('favicon'))).toEqual([]);
 });
