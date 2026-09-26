@@ -715,6 +715,67 @@ describe('BackgroundRemovalSection - Object Selection', () => {
     expect(cancelSam2Segmentation).toHaveBeenCalledTimes(1);
   });
 
+  it('offers a mask combination only for a node that already has a mask', async () => {
+    const applySam2Segmentation = vi.fn().mockResolvedValue(null);
+    const candidate = { mask: new Uint8Array(200 * 160), confidence: 0.9 };
+    const baseSession = {
+      candidateSetId: 'test-candidate-set',
+      sourceFingerprint: 'test-source',
+      mappingFingerprint: 'test-mapping',
+      modelId: 'sam2-hiera-tiny',
+      width: 200,
+      height: 160,
+      candidates: [candidate],
+      selectedCandidate: 0,
+      points: [{ x: 100, y: 80, label: 1 }],
+      box: null,
+      confidence: 0.9,
+      status: 'ready' as const,
+      executionProvider: 'wasm',
+    };
+    const reviewedCandidateKey =
+      objectSelectionCandidateReviewKey({ ...baseSession, candidates: [candidate] }, 0) ??
+      undefined;
+    mockedUseEditor.mockReturnValue(
+      createMockEditorContext({
+        applySam2Segmentation,
+        state: { objectSelectionSession: { nodeId: 'n1', ...baseSession, reviewedCandidateKey } },
+      }),
+    );
+
+    // Without a mask there is nothing to combine with, so no choice is shown.
+    render(<BackgroundRemovalSection nodes={[makeImageNode()]} />);
+    expect(
+      screen.queryByRole('combobox', { name: 'Object Selection mask combination' }),
+    ).toBeNull();
+    cleanup();
+
+    const masked = makeImageNode({
+      mask: {
+        type: 'alpha',
+        visible: true,
+        rasterMask: { assetId: 'mask-1', coordinateSpace: 'source-image-pixels' },
+      },
+    });
+    render(<BackgroundRemovalSection nodes={[masked]} />);
+    const combination = screen.getByRole('combobox', {
+      name: 'Object Selection mask combination',
+    });
+    expect(combination).toHaveTextContent('Replace existing mask');
+
+    fireEvent.click(combination);
+    const subtract = await screen.findByRole('option', { name: 'Subtract from existing mask' });
+    fireEvent.click(subtract);
+    fireEvent.click(screen.getByRole('button', { name: 'Apply as mask' }));
+    expect(applySam2Segmentation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        nodeId: 'n1',
+        operation: 'mask',
+        combination: 'subtract',
+      }),
+    );
+  });
+
   it('labels the entry as Continue when a session already exists', () => {
     mockedUseEditor.mockReturnValue(
       createMockEditorContext({
