@@ -132,11 +132,6 @@ function scopeOccurrences(
   return cached;
 }
 
-/** Test seam: drop cached document structures. */
-export function __resetHitTestDocumentCache(): void {
-  recentDocuments.length = 0;
-}
-
 function hitGeometry(node: ShapeNode, doc: Document): ShapeNode['shape'] {
   // V2.16+: live warps evaluate the visible (warped) geometry for hit
   // testing — selection follows what the user sees, not the source.
