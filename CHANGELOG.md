@@ -186,6 +186,19 @@ update, not for someone reading the commit log.
 
 ### Fixed
 
+- **Mockups now survive every export route** — SVG and vector-PDF export no
+  longer drop the mockup composition and silently ship the frame background:
+  a mockup frame is recognised as needing the shared decoration pipeline and
+  is rasterized as an export boundary (including nested and childless
+  containers), verified by decoding the embedded raster from a real SVG
+  export. The desktop PDF raster fallback and PDF/X press export now embed
+  real image pixels instead of a 16×16 checkerboard placeholder (a decoded,
+  bounded image manifest travels with the print request). Press PDF/X export
+  of a mockup frame is refused up front with an actionable message and a
+  blocking preflight finding — the press pipeline has no mockup compositor —
+  and code exports (React/Flutter/SwiftUI) carry an advisory warning that
+  mockups are not represented in vector-structure code output.
+
 - **Slider accessibility** — Sliders whose stored value differs from what the
   user sees (normalized percentages, unit-bearing values) now announce the
   displayed value to screen readers instead of the raw number, and the shared

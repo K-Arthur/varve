@@ -1,6 +1,8 @@
 # Mockup Editing and Creation — Improvement Plan (2026-09-25)
 
-Status: active. Scope: improve the existing mockup system in place — no new
+Status: Slice A landed (commit `599d1b70d`); remaining slices in progress —
+live record in `docs/audits/mockup-editing-improvement-2026-09-25.md`.
+Scope: improve the existing mockup system in place — no new
 workspace, mode, route, document model, or parallel renderer. Canonical
 architecture: `docs/architecture/mockup-system.md`; ADR-0015; prior audits
 `docs/audits/mockup-capability-audit-2026-08-05.md` (pre-implementation
@@ -37,6 +39,16 @@ No file above is claimed by another ownership record. `CanvasArea.tsx` is
 explicitly NOT edited by this task (occupied); anything requiring a
 `CanvasArea` drop-path change is recorded as an integration handoff instead.
 
+**Overlap discovered 2026-09-25 22:05:** another task is mid-flight on the
+mesh surface implementation, with unstaged edits in
+`packages/scene/src/mockup/{validate,ops,types,builtinTemplates}.ts`,
+`packages/scene/src/mockup/__tests__/mockup.test.ts`, and
+`packages/editor/src/render/mockup/mockupIr.ts` (engine side already
+committed as `1a5dde606 feat(engine): bounded mesh envelope warp for mockup
+surfaces`). This task does NOT edit those files and does not commit them;
+the architecture doc's "mesh remains reserved/rejected" wording is stale
+and belongs to that task's completion to correct.
+
 ## Defects reproduced / findings (pre-fix)
 
 1. **SVG and vector-PDF export silently drop mockups.**
@@ -66,18 +78,21 @@ explicitly NOT edited by this task (occupied); anything requiring a
 
 ## Slices (dependency order; each leaves a working workflow)
 
-### Slice A — Export parity: SVG / PDF / PDF/X (correctness core)
+### Slice A — Export parity: SVG / PDF / PDF/X (correctness core) — DONE (2026-09-25)
 
 - `assessNodeCapability`: a frame carrying a live `mockup` payload is not
   natively supported for `svg`/`pdf` targets; it needs a raster boundary.
 - `findFlattenBoundaries`: treat "container itself requires mockup
   decoration" as a container-level raster reason (root and nested paths),
-  pushed directly instead of via the children walk — fixes (2).
-- `exportNodeAsPdfX`: detect mockup content and block with an explicit,
-  actionable error (no silent wrong output) unless a verified raster
-  embedding path exists in `varve-print`.
-- Wire `subtreeNeedsDecoration` into the PDF/X (and, if applicable, the
-  vector PDF decision) so the helper is production code again.
+  pushed directly instead of via the children walk — fixes (2) for mockups
+  and effects alike.
+- `exportNodeAsPdfX`: refuses a mockup subtree with an explicit, actionable
+  error; export preflight raises a blocking `mockup-press-export` finding
+  and an advisory `mockup-code-export` warning for React/Flutter/SwiftUI.
+- `printImageManifest.ts` + base64-capable `ImageResource.data` deserializer
+  wire the previously-missing `ExportManifest` into `export_node_pdf` and
+  the PDF/X commands (the checkerboard-placeholder defect, found by code
+  reproduction and pinned by Rust + TS tests).
 
 Acceptance:
 

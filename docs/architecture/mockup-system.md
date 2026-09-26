@@ -179,7 +179,35 @@ actionable reconnect/restore message. Used by:
 - **raster export** (`components/SpecPanel/export.ts`) at the requested
   export scale — this is the route used by PNG/JPEG/WebP and the rasterized
   PDF paths;
-- **SVG/PDF flatten boundaries** (`export/compositor.ts`).
+- **SVG/PDF flatten boundaries** (`export/compositor.ts`). A frame carrying a
+  `mockup` payload is *not* natively supported for `svg`/`pdf` targets:
+  `assessNodeCapability` reports it unsupported and `findFlattenBoundaries`
+  pushes a container-level group boundary (including childless containers —
+  the children walk would skip those), so `renderBoundaryToSurface` runs the
+  canonical decoration. Verified by unit coverage plus a real SVG export E2E
+  that decodes the embedded boundary raster.
+
+The boundary rule is a contract: any new export target that cannot express
+the mockup composition itself must route mockup frames through
+`decorateMockupSubtree`, not re-derive it.
+
+**PDF/X (press) is deliberately blocked.** `exportNodeAsPdfX` feeds
+`flattenSceneToEngine` straight to the Rust print pipeline, which never runs
+the decoration step, so it refuses a mockup subtree with an actionable error
+(flatten first, or present via PNG/PDF) instead of exporting a bare frame.
+Export preflight reports the same boundary as a blocking `mockup-press-export`
+finding before the run starts. Code exports (React/Flutter/SwiftUI) emit
+vector structure only and carry an advisory `mockup-code-export` preflight
+warning.
+
+**Print image manifest.** The Rust print pipeline embeds image-fill pixels
+only when an `ExportManifest` resolves their `src`; without one it substitutes
+a 16×16 checkerboard placeholder. `export/printImageManifest.ts` is the single
+builder (decoded raw RGBA, base64 on the wire, bounded at 192 MB decoded) and
+feeds `manifest_json` to both `export_node_pdf` (desktop raster-PDF fallback)
+and the PDF/X commands. Image pixels still reach press output as RGB —
+image-pixel CMYK conversion is not implemented and is a print-pipeline
+boundary, not a mockup one.
 
 Export bakes surfaces above 1× at output scale; export never upscales a
 frame-resolution raster and never presents stale pixels. Missing sources are
@@ -287,6 +315,9 @@ is a subject starter set, not a claim of photo-realistic product fidelity.
 | Displacement maps | reserved, rejected | Needs map encoding, channel, neutral value, strength units, coordinate space, and edge behaviour defined end to end. Luminance/depth is not a calibrated displacement field. |
 | Luminance mask coverage | reserved, rejected | Only alpha coverage has a renderer path. |
 | Batch variants | implemented, bounded | `MockupVariantsPanel` reuses the existing raster export service with explicit source/template assignments, deterministic names, collision suffixes, progress, cancellation, and no temporary document nodes. Browser downloads remain the current destination path. |
+| SVG / vector-PDF export | implemented, verified 2026-09-25 | Mockup frames force a raster flatten boundary in `findFlattenBoundaries` (root, nested, and childless containers) so the boundary host runs `decorateMockupSubtree`; covered by compositor unit tests and a real SVG export E2E that decodes the embedded raster. |
+| PDF/X press composition | blocked, explicit | No decoration host in the press pipeline: `exportNodeAsPdfX` throws an actionable error for mockup subtrees and preflight raises a blocking `mockup-press-export` finding. Image pixels embed through the print manifest as RGB; image-pixel CMYK conversion is not implemented (print-pipeline boundary). |
+| Code exports (React/Flutter/SwiftUI) | advisory warning | Codegen emits vector structure only; preflight raises `mockup-code-export`. Next step would be decorating `flattenIrForCodegen`'s raster path. |
 | PSD smart-object replacement | not supported | `@webtoon/psd` imports layers/masks/blend modes as pixels; it does not implement Photoshop's renderer. See `docs/architecture/import-system.md`. |
 | Multimodal surface proposals | deferred | Typed request contract ships (`mockup/multimodal.ts`); no model is required for manual workflows. |
 | Community template packs | deferred | Would reuse the icon-pack download/manifest precedent; no remote host is configured. |

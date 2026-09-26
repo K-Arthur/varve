@@ -192,6 +192,18 @@ Decisions that extend, not replace, the original ADR:
 7. **Source loss is recoverable and honest.** Deleting a bound source keeps a
    labelled last-good preview in the editor, reports the missing source in
    the inspector, and warns on export.
+8. **Every export route either composes the mockup or says why not**
+   (2026-09-25). SVG and vector-PDF treat a mockup frame as a mandatory
+   raster flatten boundary so the boundary host runs
+   `decorateMockupSubtree` — capability assessment, not documentation, is
+   what keeps an export honest. PDF/X (press) has no decoration host and
+   therefore blocks mockup subtrees with an actionable error plus a
+   blocking preflight finding rather than exporting a bare frame; code
+   exports carry an advisory finding. Image fills reach the print pipeline
+   through a single bounded manifest builder
+   (`export/printImageManifest.ts`), because without it the Rust printer
+   substitutes a checkerboard placeholder — a real defect found by
+   reproduction on 2026-09-25, not a hypothetical.
 
 Validation: scene/scene-adjacent unit tests, focused editor tests, E2E
 coverage, and inspected visual/export artifacts are recorded in the audit

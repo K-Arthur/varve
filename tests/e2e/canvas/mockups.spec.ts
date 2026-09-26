@@ -16,7 +16,7 @@
  * Plus a multi-surface workflow (business card front/back with two sources).
  */
 
-import { mkdirSync, readFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
 import { expect, test } from '@playwright/test';
@@ -351,6 +351,69 @@ test('export renders the composed mockup, not the frame background', async ({ pa
   expect(background).toBeGreaterThan(1000);
   expect(plate).toBeGreaterThan(500);
   expect(colors.size).toBeGreaterThan(10);
+  expect(consoleErrors.filter((text) => !text.includes('favicon'))).toEqual([]);
+});
+
+test('SVG export composes the mockup through a rasterized boundary, not a bare frame', async ({
+  page,
+}) => {
+  const consoleErrors: string[] = [];
+  page.on('console', (msg) => {
+    if (msg.type() === 'error') consoleErrors.push(msg.text());
+  });
+  mkdirSync(reviewDir, { recursive: true });
+  await navigateToEditor(page);
+  await createFrame(page, 120, 120);
+  await openMockupsPanel(page);
+  await applyTemplate(page, 'Phone — Front');
+  await page.locator('.mockups-section').waitFor({ timeout: 8000 });
+
+  await openInspectorTab(page, 'Export');
+  await page.getByRole('radio', { name: 'SVG', exact: true }).click();
+  await page.getByRole('button', { name: 'Add configuration' }).click();
+  await page.evaluate(() => {
+    delete (window as Window & { showSaveFilePicker?: unknown }).showSaveFilePicker;
+  });
+  const downloadPromise = page.waitForEvent('download', { timeout: 60000 });
+  await page.keyboard.press('Control+e');
+  const exportDialog = page.getByRole('dialog', { name: 'Export' });
+  await exportDialog.waitFor({ timeout: 8000 });
+  await exportDialog.getByRole('button', { name: /^Export \(/ }).click({ timeout: 8000 });
+  const download = await downloadPromise;
+  const downloadPath = await download.path();
+  expect(downloadPath).toBeTruthy();
+  const svg = readFileSync(downloadPath as string, 'utf8');
+  expect(svg).toContain('<svg');
+  writeFileSync(`${reviewDir}/svg-export-boundary.svg`, svg);
+
+  // Regression guard (2026-09-25): assessNodeCapability used to report a
+  // mockup frame as natively supported, so SVG export contained only the
+  // frame background. The mockup must arrive as a raster flatten boundary
+  // carrying the composed plate + artwork.
+  const embedded = svg.match(/data:image\/png;base64,([A-Za-z0-9+/=]+)/);
+  expect(embedded, 'SVG must embed the rasterized mockup boundary').toBeTruthy();
+  const pngBytes = Buffer.from(embedded![1]!, 'base64');
+  writeFileSync(`${reviewDir}/svg-export-boundary-embedded.png`, pngBytes);
+  const png = PNG.sync.read(pngBytes);
+  expect(png.width).toBeGreaterThan(100);
+  expect(png.height).toBeGreaterThan(100);
+
+  let background = 0;
+  let plate = 0;
+  const colors = new Set<string>();
+  for (let i = 0; i < png.data.length; i += 4) {
+    const r = png.data[i]!;
+    const g = png.data[i + 1]!;
+    const b = png.data[i + 2]!;
+    const a = png.data[i + 3]!;
+    if (a < 250) continue;
+    colors.add(`${r >> 3}-${g >> 3}-${b >> 3}`);
+    if (Math.abs(r - 238) <= 3 && Math.abs(g - 240) <= 3 && Math.abs(b - 244) <= 3) background++;
+    if (r < 40 && g < 45 && b < 50) plate++;
+  }
+  expect(background, 'template background present in SVG boundary raster').toBeGreaterThan(500);
+  expect(plate, 'phone plate chrome present in SVG boundary raster').toBeGreaterThan(250);
+  expect(colors.size).toBeGreaterThan(8);
   expect(consoleErrors.filter((text) => !text.includes('favicon'))).toEqual([]);
 });
 
