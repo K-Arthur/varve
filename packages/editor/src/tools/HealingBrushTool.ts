@@ -20,11 +20,36 @@ import {
   strokePoint,
 } from '@varve/scene';
 import { BaseTool } from './BaseTool';
+import { pressureForDrawingInput } from './drawingInputRuntime';
 import { rasterLocalPoint, resolveRetouchTarget, sourcePointInLayerSpace } from './rasterTarget';
 import { patchRetouchOverlay, resetRetouchOverlay } from './retouchOverlayState';
 import { buildRetouchSampleSource, type SamplingScope } from './retouchSampling';
 import { selectionCoverageForDab } from './selectionCoverage';
 import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './types';
+
+/**
+ * Pen pressure scales per-dab flow: the identity bezier maps pressure p to a
+ * 2p multiplier, so a mouse's constant 0.5 (and pressure disabled) deposits
+ * exactly the unmodified preset flow, while a light pen stroke lays down
+ * proportionally less and full pressure can reach full strength.
+ */
+const PRESSURE_FLOW: import('@varve/scene').BrushDynamicsMapping = {
+  input: 'pressure',
+  target: 'flow',
+  curve: [0, 0, 1, 1],
+  min: 0,
+  max: 2,
+};
+
+/**
+ * Only a real pen reports meaningful pressure; a mouse reports a constant 0.5
+ * while its button is down and synthetic events report 0, which would both
+ * silently weaken deposits.
+ */
+function penPressure(e: PointerEvent): number {
+  if (e.pointerType !== 'pen') return 1;
+  return pressureForDrawingInput(e.pressure);
+}
 
 export interface HealingBrushOptions {
   brushSize: number;
@@ -32,6 +57,8 @@ export interface HealingBrushOptions {
   opacity: number;
   flow: number;
   spacing: number;
+  /** Keep existing transparency: never extend coverage onto empty pixels. */
+  alphaLock: boolean;
   /**
    * Sampling scope for the frozen stroke-start source.
    *
@@ -67,6 +94,7 @@ export class HealingBrushTool extends BaseTool {
     opacity: 1,
     flow: 1,
     spacing: 0.15,
+    alphaLock: false,
     samplingScope: 'current',
   };
 
@@ -138,7 +166,7 @@ export class HealingBrushTool extends BaseTool {
       offsetX: local.x - sourceLocal.x,
       offsetY: local.y - sourceLocal.y,
       areaSelection: ctx.areaSelection ?? null,
-      points: [strokePoint(local.x, local.y, { pressure: 1 })],
+      points: [strokePoint(local.x, local.y, { pressure: penPressure(e) })],
       transactionOpen: true,
       wrote: false,
     };
@@ -154,7 +182,7 @@ export class HealingBrushTool extends BaseTool {
     this.drag.currentWorld = ctx.canvasToWorld(e.clientX, e.clientY);
     patchRetouchOverlay({ toolId: this.id, cloneCursorWorld: this.drag.currentWorld });
     const local = rasterLocalPoint(ctx, session.rasterNodeId, this.drag.currentWorld);
-    session.points.push(strokePoint(local.x, local.y, { pressure: 1 }));
+    session.points.push(strokePoint(local.x, local.y, { pressure: penPressure(e) }));
     this.stamp(ctx);
   }
 
@@ -168,7 +196,7 @@ export class HealingBrushTool extends BaseTool {
       const local = rasterLocalPoint(ctx, session.rasterNodeId, this.drag.currentWorld);
       const last = session.points[session.points.length - 1];
       if (!last || last.x !== local.x || last.y !== local.y) {
-        session.points.push(strokePoint(local.x, local.y, { pressure: 1 }));
+        session.points.push(strokePoint(local.x, local.y, { pressure: penPressure(e) }));
         this.stamp(ctx);
       }
     }
@@ -223,6 +251,7 @@ export class HealingBrushTool extends BaseTool {
       flow: this.options.flow,
       spacing: this.options.spacing,
       smoothing: 0,
+      dynamics: [PRESSURE_FLOW],
     };
     const dabs = generateDabs(session.points, preset);
     if (dabs.length === 0) return;
@@ -246,6 +275,7 @@ export class HealingBrushTool extends BaseTool {
           offsetX: session.offsetX,
           offsetY: session.offsetY,
           coverage,
+          alphaLock: this.options.alphaLock,
         });
       }
       if (updated !== node) session.wrote = true;

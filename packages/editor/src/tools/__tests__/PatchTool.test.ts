@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import { createAreaSelection } from '@varve/engine';
 import {
   createEmptyTile,
   makeRasterLayerNode,
@@ -124,5 +125,96 @@ describe('PatchTool', () => {
     expect(context.announce).toHaveBeenCalledWith(
       'No editable pixel layer is available. Add a pixel layer or prepare one from the photo before retouching.',
     );
+  });
+
+  it('clips the deposited patch to the active area selection', () => {
+    const { context } = makeContext(makeSplitLayer());
+    // Selection over the left half of the canvas only.
+    const selection = createAreaSelection(
+      {
+        kind: 'rectangle',
+        x: 0,
+        y: 0,
+        w: TILE_SIZE / 2,
+        h: TILE_SIZE,
+        feather: 0,
+        antialias: false,
+      },
+      1,
+    );
+    (context as { areaSelection: unknown }).areaSelection = selection;
+    const tool = new PatchTool();
+    tool.onActivate(context);
+
+    // Source in the red half; target centred in the blue half.
+    tool.onPointerDown(pointer(1, 12, 20), context);
+    tool.onPointerMove(pointer(1, 32, 40), context);
+    tool.onPointerUp(pointer(1, 32, 40), context);
+    const result = tool.onPointerDown(pointer(2, 94, 80), context);
+
+    expect(result.consumed).toBe(true);
+    // The whole target rectangle lies outside the selection, so nothing is
+    // written and the gesture is reported as a no-op.
+    expect(context.announce).toHaveBeenCalledWith(
+      'Patch had no valid source or destination pixels',
+    );
+    expect(context.commitTransaction).not.toHaveBeenCalled();
+  });
+
+  it('keeps pixels outside the selection unchanged when the patch overlaps it', () => {
+    // Three vertical bands: red (x<42), blue (42..85), green (x>=86). The
+    // selection is the left part of the blue band, the source is green, so a
+    // leak past the selection boundary would be visible as green pixels.
+    const node = makeRasterLayerNode('raster-1', { width: TILE_SIZE, height: TILE_SIZE });
+    const tile = createEmptyTile();
+    for (let y = 0; y < TILE_SIZE; y++) {
+      for (let x = 0; x < TILE_SIZE; x++) {
+        const index = (y * TILE_SIZE + x) * 4;
+        const band = x < 42 ? [220, 40, 20] : x < 86 ? [20, 60, 220] : [30, 200, 40];
+        tile.pixels[index] = band[0]!;
+        tile.pixels[index + 1] = band[1]!;
+        tile.pixels[index + 2] = band[2]!;
+        tile.pixels[index + 3] = 255;
+      }
+    }
+    node.tiles.set(makeTileKey(0, 0), tile);
+
+    const { context, current } = makeContext(node);
+    // Selection: x 42..64 only.
+    const selection = createAreaSelection(
+      {
+        kind: 'rectangle',
+        x: 42,
+        y: 0,
+        w: 22,
+        h: TILE_SIZE,
+        feather: 0,
+        antialias: false,
+      },
+      1,
+    );
+    (context as { areaSelection: unknown }).areaSelection = selection;
+    const tool = new PatchTool();
+    tool.onActivate(context);
+
+    // Source: green band x 90..110. Target spans x 48..68, straddling the
+    // selection boundary at x=64.
+    tool.onPointerDown(pointer(1, 90, 20), context);
+    tool.onPointerMove(pointer(1, 110, 40), context);
+    tool.onPointerUp(pointer(1, 110, 40), context);
+    tool.onPointerDown(pointer(2, 58, 40), context);
+
+    expect(context.commitTransaction).toHaveBeenCalledOnce();
+    const pixels = current().tiles.get(makeTileKey(0, 0))!.pixels;
+    const inside = (40 * TILE_SIZE + 50) * 4;
+    const outside = (40 * TILE_SIZE + 66) * 4;
+    // Inside the selection the blue destination picked up green source pixels.
+    expect(pixels[inside]!).toBeLessThan(120);
+    expect(pixels[inside + 1]!).toBeGreaterThan(60);
+    // Outside the selection the blue destination is byte-identical; an
+    // unclipped patch would have deposited green there.
+    expect(pixels[outside]!).toBe(20);
+    expect(pixels[outside + 1]!).toBe(60);
+    expect(pixels[outside + 2]!).toBe(220);
   });
 });

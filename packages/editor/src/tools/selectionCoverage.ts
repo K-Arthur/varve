@@ -64,32 +64,65 @@ export function selectionCoverageForRasterNode(
   dimensions: { width: number; height: number },
   worldTransform: Affine = [1, 0, 0, 1, 0, 0],
 ): CoverageMask | null {
+  return selectionCoverageForRect(
+    selection,
+    { x: 0, y: 0, w: dimensions.width, h: dimensions.height },
+    worldTransform,
+  );
+}
+
+/**
+ * Rasterise a document-space selection over one layer-local rectangle (the
+ * patch target region, for example). The mask bounds are the intersection of
+ * the rectangle, the selection bounds and the layer.
+ *
+ * A selection that exists but does not intersect the rectangle — or that
+ * cannot be mapped through the transform — yields an *empty* mask, which the
+ * canonical compositors treat as "nothing may be painted". Returning null
+ * here would mean unrestricted and would silently un-clip the operation.
+ */
+export function selectionCoverageForRect(
+  selection: AreaSelection,
+  rect: { x: number; y: number; w: number; h: number },
+  worldTransform: Affine = [1, 0, 0, 1, 0, 0],
+): CoverageMask | null {
   if (
-    !Number.isSafeInteger(dimensions.width) ||
-    !Number.isSafeInteger(dimensions.height) ||
-    dimensions.width <= 0 ||
-    dimensions.height <= 0
+    !Number.isSafeInteger(Math.ceil(rect.x)) ||
+    !Number.isSafeInteger(Math.ceil(rect.y)) ||
+    !Number.isSafeInteger(Math.ceil(rect.w)) ||
+    !Number.isSafeInteger(Math.ceil(rect.h)) ||
+    rect.w <= 0 ||
+    rect.h <= 0
   ) {
     return null;
   }
+  const emptyMask = () => makeCoverageMask(0, 0, 0, 0);
   const inverse = tryInvertAffine(worldTransform);
-  if (!inverse) return null;
+  if (!inverse) return emptyMask();
 
   const bounds = areaSelectionBounds(selection.expression);
-  if (!Number.isFinite(bounds.x) || !Number.isFinite(bounds.y)) return null;
+  if (!Number.isFinite(bounds.x) || !Number.isFinite(bounds.y)) return emptyMask();
   const corners = [
     applyAffine(inverse, [bounds.x, bounds.y]),
     applyAffine(inverse, [bounds.x + bounds.w, bounds.y]),
     applyAffine(inverse, [bounds.x, bounds.y + bounds.h]),
     applyAffine(inverse, [bounds.x + bounds.w, bounds.y + bounds.h]),
   ];
-  const x = Math.max(0, Math.floor(Math.min(...corners.map(([px]) => px))));
-  const y = Math.max(0, Math.floor(Math.min(...corners.map(([, py]) => py))));
-  const maxX = Math.min(dimensions.width, Math.ceil(Math.max(...corners.map(([px]) => px))));
-  const maxY = Math.min(dimensions.height, Math.ceil(Math.max(...corners.map(([, py]) => py))));
+  const x = Math.max(0, Math.floor(Math.min(...corners.map(([px]) => px))), rect.x);
+  const y = Math.max(0, Math.floor(Math.min(...corners.map(([, py]) => py))), rect.y);
+  const maxX = Math.min(
+    Math.ceil(Math.max(...corners.map(([px]) => px))),
+    Math.ceil(rect.x + rect.w),
+  );
+  const maxY = Math.min(
+    Math.ceil(Math.max(...corners.map(([, py]) => py))),
+    Math.ceil(rect.y + rect.h),
+  );
   const width = maxX - x;
   const height = maxY - y;
-  if (width <= 0 || height <= 0 || width * height > MAX_RASTER_SELECTION_PIXELS) return null;
+  if (width <= 0 || height <= 0 || width * height > MAX_RASTER_SELECTION_PIXELS) {
+    return emptyMask();
+  }
 
   const mask = makeCoverageMask(x, y, width, height);
   const antialias = expressionUsesAntialias(selection.expression);

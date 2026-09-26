@@ -15,6 +15,7 @@ import { compositeSpotHealDabOnNode, snapshotTiles } from '@varve/scene';
 import { BaseTool } from './BaseTool';
 import { rasterLocalPoint, resolveRetouchTarget } from './rasterTarget';
 import { buildRetouchSampleSource, type SamplingScope } from './retouchSampling';
+import { selectionCoverageForDab } from './selectionCoverage';
 import type { CursorSpec, ToolContext, ToolCursorState } from './types';
 
 export interface SpotHealOptions {
@@ -22,6 +23,8 @@ export interface SpotHealOptions {
   hardness: number;
   opacity: number;
   flow: number;
+  /** Keep existing transparency: never extend coverage onto empty pixels. */
+  alphaLock: boolean;
   samplingScope: SamplingScope;
 }
 
@@ -33,6 +36,7 @@ export class SpotHealTool extends BaseTool {
     hardness: 1,
     opacity: 1,
     flow: 1,
+    alphaLock: false,
     samplingScope: 'current',
   };
 
@@ -72,11 +76,17 @@ export class SpotHealTool extends BaseTool {
     };
     ctx.beginTransaction();
     const sourceTiles = this.buildSamplingSource(ctx, node);
-    const preview = compositeSpotHealDabOnNode(node, dab, {
+    // Same selection clipping as clone/heal: a soft brush must never repair
+    // past the boundary the user drew.
+    const coverage = selectionCoverageForDab(ctx, rasterNodeId, dab, ctx.areaSelection);
+    const healOptions = {
       sourceTiles,
       offsetX: 0,
       offsetY: 0,
-    });
+      coverage,
+      alphaLock: this.options.alphaLock,
+    };
+    const preview = compositeSpotHealDabOnNode(node, dab, healOptions);
     const changed = preview !== node;
     if (!changed) {
       ctx.abortTransaction();
@@ -85,11 +95,7 @@ export class SpotHealTool extends BaseTool {
     }
     ctx.updateNode(rasterNodeId, (current) => {
       if (current.kind !== 'rasterLayer') return current;
-      return compositeSpotHealDabOnNode(current, dab, {
-        sourceTiles,
-        offsetX: 0,
-        offsetY: 0,
-      });
+      return compositeSpotHealDabOnNode(current, dab, healOptions);
     });
     ctx.commitTransaction();
     ctx.announce('Spot healed from a nearby source patch');

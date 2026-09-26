@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import { createAreaSelection } from '@varve/engine';
 import {
   createEmptyTile,
   makeRasterLayerNode,
@@ -10,6 +11,7 @@ import {
 import { describe, expect, it, vi } from 'vitest';
 import { CloneStampTool } from '../CloneStampTool';
 import { HealingBrushTool } from '../HealingBrushTool';
+import { SpotHealTool } from '../SpotHealTool';
 import type { ToolContext } from '../types';
 
 /** Raster layer whose left half is red and right half is blue, with texture. */
@@ -325,5 +327,214 @@ describe('CloneStampTool sample scope', () => {
     expect(current().tiles.get(makeTileKey(0, 0))!.version).toBe(versionBefore);
     expect(ctx.commitTransaction).not.toHaveBeenCalled();
     expect(ctx.abortTransaction).toHaveBeenCalled();
+  });
+});
+
+describe('retouch area-selection clipping', () => {
+  /** Selection over the left half of the one-tile canvas. */
+  function leftHalfSelection() {
+    const selection = createAreaSelection(
+      {
+        kind: 'rectangle',
+        x: 0,
+        y: 0,
+        w: TILE_SIZE / 2,
+        h: TILE_SIZE,
+        feather: 0,
+        antialias: false,
+      },
+      1,
+    );
+    expect(selection).not.toBeNull();
+    return selection!;
+  }
+
+  it('clone stamps stay inside the selection', () => {
+    const { ctx, current } = makeCtx(makeSplitLayer());
+    ctx.areaSelection = leftHalfSelection();
+    const tool = new CloneStampTool();
+    tool.setOptions({ brushSize: 20, hardness: 1, opacity: 1 });
+
+    tool.onPointerDown(ptr(20, 40, { altKey: true }), ctx);
+    tool.onPointerDown(ptr(90, 40), ctx);
+    tool.onPointerUp(ptr(90, 40), ctx);
+
+    // The dab is centred in the unselected half, so nothing may change.
+    expect(pixelAt(current(), 90, 40)).toMatchObject({ r: 0, b: 255 });
+    expect(ctx.commitTransaction).not.toHaveBeenCalled();
+  });
+
+  it('heal strokes stay inside the selection', () => {
+    const { ctx, current } = makeCtx(makeSplitLayer());
+    ctx.areaSelection = leftHalfSelection();
+    const tool = new HealingBrushTool();
+    tool.setOptions({ brushSize: 20, hardness: 1, opacity: 1 });
+
+    tool.onPointerDown(ptr(20, 40, { altKey: true }), ctx);
+    tool.onPointerDown(ptr(90, 40), ctx);
+    tool.onPointerUp(ptr(90, 40), ctx);
+
+    expect(pixelAt(current(), 90, 40)).toMatchObject({ r: 0, b: 255 });
+    expect(ctx.abortTransaction).toHaveBeenCalled();
+  });
+
+  it('a selection that covers the dab still allows healing into it', () => {
+    const { ctx, current } = makeCtx(makeSplitLayer());
+    // Selection covers the full canvas, so the heal is unrestricted.
+    ctx.areaSelection = createAreaSelection(
+      {
+        kind: 'rectangle',
+        x: 0,
+        y: 0,
+        w: TILE_SIZE,
+        h: TILE_SIZE,
+        feather: 0,
+        antialias: false,
+      },
+      1,
+    );
+    const tool = new HealingBrushTool();
+    tool.setOptions({ brushSize: 20, hardness: 1, opacity: 1 });
+
+    tool.onPointerDown(ptr(20, 40, { altKey: true }), ctx);
+    tool.onPointerDown(ptr(90, 40), ctx);
+    tool.onPointerUp(ptr(90, 40), ctx);
+
+    expect(ctx.commitTransaction).toHaveBeenCalledOnce();
+    expect(current().tiles.get(makeTileKey(0, 0))!.version).toBeGreaterThan(1);
+  });
+});
+
+describe('SpotHealTool selection clipping', () => {
+  it('declines to heal when the dab falls outside the selection', () => {
+    const { ctx, current } = makeCtx(makeSplitLayer());
+    ctx.areaSelection = createAreaSelection(
+      {
+        kind: 'rectangle',
+        x: 0,
+        y: 0,
+        w: TILE_SIZE / 2,
+        h: TILE_SIZE,
+        feather: 0,
+        antialias: false,
+      },
+      1,
+    );
+    const tool = new SpotHealTool();
+    const versionBefore = current().tiles.get(makeTileKey(0, 0))!.version;
+
+    tool.onPointerDown(ptr(90, 40), ctx);
+
+    expect(current().tiles.get(makeTileKey(0, 0))!.version).toBe(versionBefore);
+    expect(ctx.announce).toHaveBeenCalledWith('Spot Heal found no valid nearby source patch');
+  });
+
+  it('heals normally when the dab is inside the selection', () => {
+    const { ctx, current } = makeCtx(makeSplitLayer());
+    ctx.areaSelection = createAreaSelection(
+      {
+        kind: 'rectangle',
+        x: 0,
+        y: 0,
+        w: TILE_SIZE / 2,
+        h: TILE_SIZE,
+        feather: 0,
+        antialias: false,
+      },
+      1,
+    );
+    const tool = new SpotHealTool();
+
+    tool.onPointerDown(ptr(40, 40), ctx);
+
+    expect(ctx.commitTransaction).toHaveBeenCalledOnce();
+    expect(current().tiles.get(makeTileKey(0, 0))!.version).toBeGreaterThan(1);
+  });
+});
+
+describe('retouch alpha lock', () => {
+  /** Layer with an opaque red left half and a fully transparent right half. */
+  function makeHalfTransparentLayer(): RasterLayerNode {
+    const node = makeRasterLayerNode('raster-1', { width: TILE_SIZE, height: TILE_SIZE });
+    const tile = createEmptyTile();
+    for (let y = 0; y < TILE_SIZE; y++) {
+      for (let x = 0; x < TILE_SIZE / 2; x++) {
+        const i = (y * TILE_SIZE + x) * 4;
+        tile.pixels[i] = 255;
+        tile.pixels[i + 3] = 255;
+      }
+    }
+    node.tiles.set(makeTileKey(0, 0), tile);
+    return node;
+  }
+
+  it('alpha lock keeps transparent destinations empty', () => {
+    const { ctx, current } = makeCtx(makeHalfTransparentLayer());
+    const tool = new CloneStampTool();
+    tool.setOptions({ brushSize: 16, hardness: 1, opacity: 1, alphaLock: true });
+
+    // Source on opaque red; paint over both the opaque half and the
+    // transparent half. With alpha lock the transparent pixels must stay
+    // untouched (no new coverage) and the tool must not report progress...
+    tool.onPointerDown(ptr(20, 40, { altKey: true }), ctx);
+    tool.onPointerDown(ptr(90, 40), ctx);
+    tool.onPointerUp(ptr(90, 40), ctx);
+
+    expect(pixelAt(current(), 90, 40)).toMatchObject({ a: 0 });
+    // ...and because the transparent dab wrote nothing, no history step exists.
+    expect(ctx.commitTransaction).not.toHaveBeenCalled();
+  });
+
+  it('without alpha lock clone extends onto transparent pixels', () => {
+    const { ctx, current } = makeCtx(makeHalfTransparentLayer());
+    const tool = new CloneStampTool();
+    tool.setOptions({ brushSize: 16, hardness: 1, opacity: 1, alphaLock: false });
+
+    tool.onPointerDown(ptr(20, 40, { altKey: true }), ctx);
+    tool.onPointerDown(ptr(90, 40), ctx);
+    tool.onPointerUp(ptr(90, 40), ctx);
+
+    expect(pixelAt(current(), 90, 40)!.a).toBeGreaterThan(0);
+    expect(ctx.commitTransaction).toHaveBeenCalledOnce();
+  });
+});
+
+describe('retouch pen pressure', () => {
+  it('pen pressure scales the deposit, mouse pressure does not', () => {
+    const light = makeCtx(makeSplitLayer());
+    const lightTool = new CloneStampTool();
+    lightTool.setOptions({ brushSize: 20, hardness: 1, opacity: 1 });
+    lightTool.onPointerDown(
+      ptr(20, 40, { altKey: true, pointerType: 'pen', pressure: 0.25 }),
+      light.ctx,
+    );
+    lightTool.onPointerDown(ptr(90, 40, { pointerType: 'pen', pressure: 0.25 }), light.ctx);
+    lightTool.onPointerUp(ptr(90, 40, { pointerType: 'pen', pressure: 0.25 }), light.ctx);
+    const lightPixel = pixelAt(light.current(), 90, 40)!;
+    // Flow 1 x pressure 0.25 x multiplier 2 = half-strength deposit.
+    expect(lightPixel.r).toBeGreaterThan(0);
+    expect(lightPixel.r).toBeLessThan(255);
+
+    const full = makeCtx(makeSplitLayer());
+    const fullTool = new CloneStampTool();
+    fullTool.setOptions({ brushSize: 20, hardness: 1, opacity: 1 });
+    fullTool.onPointerDown(
+      ptr(20, 40, { altKey: true, pointerType: 'pen', pressure: 1 }),
+      full.ctx,
+    );
+    fullTool.onPointerDown(ptr(90, 40, { pointerType: 'pen', pressure: 1 }), full.ctx);
+    fullTool.onPointerUp(ptr(90, 40, { pointerType: 'pen', pressure: 1 }), full.ctx);
+    const fullPixel = pixelAt(full.current(), 90, 40)!;
+    expect(fullPixel.r).toBe(255);
+
+    // A mouse event (constant 0.5, non-pen) must deposit exactly like before:
+    // the 2x flow multiplier cancels the 0.5.
+    const mouse = makeCtx(makeSplitLayer());
+    const mouseTool = new CloneStampTool();
+    mouseTool.setOptions({ brushSize: 20, hardness: 1, opacity: 1 });
+    mouseTool.onPointerDown(ptr(20, 40, { altKey: true }), mouse.ctx);
+    mouseTool.onPointerDown(ptr(90, 40), mouse.ctx);
+    mouseTool.onPointerUp(ptr(90, 40), mouse.ctx);
+    expect(pixelAt(mouse.current(), 90, 40)!.r).toBe(255);
   });
 });

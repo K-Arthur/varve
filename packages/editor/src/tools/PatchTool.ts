@@ -12,11 +12,14 @@ import { compositePatchRegionOnNode, snapshotTiles } from '@varve/scene';
 import { BaseTool } from './BaseTool';
 import { rasterLocalPoint, resolveRetouchTarget } from './rasterTarget';
 import { buildRetouchSampleSource, type SamplingScope } from './retouchSampling';
+import { selectionCoverageForRect } from './selectionCoverage';
 import type { CursorSpec, ToolContext, ToolCursorState } from './types';
 
 export interface PatchToolOptions {
   featherRadius: number;
   opacity: number;
+  /** Keep existing transparency: never extend coverage onto empty pixels. */
+  alphaLock: boolean;
   samplingScope: SamplingScope;
 }
 
@@ -30,7 +33,12 @@ interface PatchState {
 export class PatchTool extends BaseTool {
   id = 'patch' as const;
 
-  private options: PatchToolOptions = { featherRadius: 12, opacity: 1, samplingScope: 'current' };
+  private options: PatchToolOptions = {
+    featherRadius: 12,
+    opacity: 1,
+    alphaLock: false,
+    samplingScope: 'current',
+  };
 
   private patchState: PatchState = {
     phase: 'idle',
@@ -162,12 +170,24 @@ export class PatchTool extends BaseTool {
     };
     const targetNode = ctx.getNode(rasterNodeId);
     if (targetNode?.kind !== 'rasterLayer') return false;
+    // Selection coverage is rasterised only over the patch rectangle, so an
+    // active area selection constrains the repair without allocating a
+    // document-sized mask.
+    const coverage = ctx.areaSelection
+      ? selectionCoverageForRect(
+          ctx.areaSelection,
+          targetRect,
+          ctx.getWorldTransform?.(rasterNodeId),
+        )
+      : null;
     const patchOptions = {
       sourceTiles,
       sourceRect,
       targetRect,
       featherRadius: this.options.featherRadius,
       opacity: this.options.opacity,
+      coverage,
+      alphaLock: this.options.alphaLock,
     };
     // updateNode invokes its updater from React state reconciliation. Decide
     // whether this is a real edit before enqueueing it; otherwise a delayed

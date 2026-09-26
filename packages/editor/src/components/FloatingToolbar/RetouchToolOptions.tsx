@@ -18,6 +18,7 @@ const DEFAULT_CLONE_OPTIONS: CloneStampOptions = {
   flow: 1,
   spacing: 0.15,
   aligned: true,
+  alphaLock: false,
   samplingScope: 'current',
 };
 
@@ -27,6 +28,7 @@ const DEFAULT_HEAL_OPTIONS: HealingBrushOptions = {
   opacity: 1,
   flow: 1,
   spacing: 0.15,
+  alphaLock: false,
   samplingScope: 'current',
 };
 
@@ -35,12 +37,14 @@ const DEFAULT_SPOT_OPTIONS: SpotHealOptions = {
   hardness: 1,
   opacity: 1,
   flow: 1,
+  alphaLock: false,
   samplingScope: 'current',
 };
 
 const DEFAULT_PATCH_OPTIONS: PatchToolOptions = {
   featherRadius: 12,
   opacity: 1,
+  alphaLock: false,
   samplingScope: 'current',
 };
 
@@ -73,13 +77,18 @@ function CloneStampOptionsPanel() {
         checked={options.aligned}
         onChange={(event) => update('aligned', event.target.checked)}
       />
+      <AlphaLockField
+        checked={options.alphaLock}
+        onChange={(checked) => update('alphaLock', checked)}
+      />
       <SamplingScope
         value={options.samplingScope}
         onChange={(value) => update('samplingScope', value)}
       />
       <p className="tool-options__hint">
         Alt-click an existing pixel to set the anchor. The repair is deposited on the editable
-        raster target; merged sampling never flattens those source layers.
+        raster target; merged sampling never flattens those source layers. Pen pressure modulates
+        flow when pressure is enabled in drawing settings.
       </p>
     </div>
   );
@@ -100,13 +109,18 @@ function HealingBrushOptionsPanel() {
     <div className="tool-options__selection" data-testid="retouch-options">
       <div className="tool-options__heading">Healing Brush</div>
       <RetouchBrushFields options={options} onChange={update} />
+      <AlphaLockField
+        checked={options.alphaLock}
+        onChange={(checked) => update('alphaLock', checked)}
+      />
       <SamplingScope
         value={options.samplingScope}
         onChange={(value) => update('samplingScope', value)}
       />
       <p className="tool-options__hint">
         Alt-click sets the source. Colour is adapted from the destination while texture comes from
-        the frozen source snapshot.
+        the frozen source snapshot. Pen pressure modulates flow when pressure is enabled in drawing
+        settings.
       </p>
     </div>
   );
@@ -127,6 +141,10 @@ function SpotHealOptionsPanel() {
     <div className="tool-options__selection" data-testid="retouch-options">
       <div className="tool-options__heading">Spot Heal</div>
       <RetouchBrushFields options={options} onChange={update} includeFlow={false} />
+      <AlphaLockField
+        checked={options.alphaLock}
+        onChange={(checked) => update('alphaLock', checked)}
+      />
       <SamplingScope
         value={options.samplingScope}
         onChange={(value) => update('samplingScope', value)}
@@ -171,6 +189,10 @@ function PatchOptionsPanel() {
         unit="%"
         onChange={(value) => update('opacity', value / 100)}
       />
+      <AlphaLockField
+        checked={options.alphaLock}
+        onChange={(checked) => update('alphaLock', checked)}
+      />
       <SamplingScope
         value={options.samplingScope}
         onChange={(value) => update('samplingScope', value)}
@@ -180,6 +202,24 @@ function PatchOptionsPanel() {
         committed and the operation remains undoable.
       </p>
     </div>
+  );
+}
+
+function AlphaLockField({
+  checked,
+  onChange,
+}: {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <Switch
+      className="tool-options__check"
+      label="Alpha lock"
+      aria-label="Protect existing transparency"
+      checked={checked}
+      onChange={(event) => onChange(event.target.checked)}
+    />
   );
 }
 
