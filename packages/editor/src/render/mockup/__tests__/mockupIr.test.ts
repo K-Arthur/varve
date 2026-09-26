@@ -16,6 +16,7 @@ import { describe, expect, it } from 'vitest';
 import {
   decorateMockupIr,
   effectiveSurface,
+  expandGridForPadding,
   expandQuadForPadding,
   getMockupRenderDiagnostics,
   MockupSurfaceCache,
@@ -155,6 +156,71 @@ describe('decorateMockupIr', () => {
     expect(image!.primitive.kind).toBe('rect');
     expect(getMockupRenderDiagnostics().cylindricalSurfaces).toBeGreaterThan(0);
     expect(result.missingSurfaces).toHaveLength(0);
+  });
+
+  it('composes a folded fabric surface as a mesh warpedImage', () => {
+    const { doc, frameId, sourceId, template } = buildFixture('builtin:fabric-banner-mesh');
+    const items = [stubFrameItem(frameId, template.outputWidth, template.outputHeight)];
+    const result = decorateMockupIr({
+      doc,
+      nodeIds: [frameId, sourceId],
+      items,
+      renderSubtree: () => {},
+      qualityScale: 1,
+      cache: new MockupSurfaceCache(),
+    });
+    const extras = result.extrasByNodeId.get(frameId)!;
+    const warped = extras.find((item) => item.primitive.kind === 'warpedImage');
+    expect(warped).toBeTruthy();
+    const p = warped!.primitive as Extract<RenderItem['primitive'], { kind: 'warpedImage' }>;
+    expect(p.mesh).toBeTruthy();
+    expect(p.mesh!.cols).toBe(4);
+    expect(p.mesh!.rows).toBe(2);
+    expect(p.mesh!.vertices.length).toBe(3);
+    expect(p.mesh!.vertices[0]!.length).toBe(5);
+    expect(p.fit).toBe('stretch');
+    expect(getMockupRenderDiagnostics().meshSurfaces).toBe(1);
+    expect(result.missingSurfaces).toHaveLength(0);
+  });
+
+  it('emits an explicit invalid-geometry placeholder for a malformed mesh payload', () => {
+    const { doc, frameId, sourceId, template } = buildFixture('builtin:fabric-banner-mesh');
+    // Simulate a malformed document (hand-edited or cross-version import):
+    // the ops layer rejects folded overrides, so mutate the payload directly.
+    const frame = doc.nodes[frameId] as FrameNode & {
+      mockup: NonNullable<FrameNode['mockup']>;
+    };
+    const surface = template.surfaces[0]!;
+    const folded = structuredClone(surface.mesh!);
+    folded.vertices[2]![1] = {
+      x: folded.vertices[2]![1]!.x + 120,
+      y: folded.vertices[2]![1]!.y - 160,
+    };
+    const malformed: Document = {
+      ...doc,
+      nodes: {
+        ...doc.nodes,
+        [frameId]: {
+          ...frame,
+          mockup: {
+            ...frame.mockup,
+            overrides: { [surface.id]: { mesh: folded } },
+          },
+        },
+      },
+    };
+    resetMockupRenderDiagnostics();
+    const result = decorateMockupIr({
+      doc: malformed,
+      nodeIds: [frameId, sourceId],
+      items: [stubFrameItem(frameId, template.outputWidth, template.outputHeight)],
+      renderSubtree: () => {},
+      qualityScale: 1,
+      cache: new MockupSurfaceCache(),
+    });
+    const extras = result.extrasByNodeId.get(frameId)!;
+    expect(extras.find((item) => item.primitive.kind === 'warpedImage')).toBeUndefined();
+    expect(getMockupRenderDiagnostics().meshSurfaces).toBe(0);
   });
 
   it('emits a placeholder when the template is missing', () => {
@@ -389,6 +455,27 @@ describe('geometry helpers', () => {
     const expanded = expandQuadForPadding([...quad] as never, 100, 100, 10, 10);
     expect(expanded[0]).toMatchObject({ x: -10, y: -10 });
     expect(expanded[2]).toMatchObject({ x: 110, y: 110 });
+  });
+
+  it('expandGridForPadding scales every vertex about the grid bounds centre', () => {
+    const mesh = {
+      cols: 1,
+      rows: 1,
+      vertices: [
+        [
+          { x: 0, y: 0 },
+          { x: 100, y: 0 },
+        ],
+        [
+          { x: 0, y: 100 },
+          { x: 100, y: 100 },
+        ],
+      ],
+    };
+    const expanded = expandGridForPadding(mesh, 100, 100, 10, 10);
+    expect(expanded.vertices[0]![0]).toMatchObject({ x: -10, y: -10 });
+    expect(expanded.vertices[1]![1]).toMatchObject({ x: 110, y: 110 });
+    expect(expanded.cols).toBe(1);
   });
 
   it('effectiveSurface merges overrides', () => {

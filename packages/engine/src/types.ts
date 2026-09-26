@@ -750,10 +750,13 @@ export type Primitive =
   | {
       /**
        * Raster mapped onto a destination quad through a true projective
-       * transform (mockup perspective surfaces). The source raster is a
-       * pre-rendered surface (editor-side bake) at `src`; `fit`/alignment
-       * select the source sampling rect within the quad. Output resolution
-       * follows the current transform scale (export-crisp).
+       * transform (mockup perspective surfaces), or onto a bilinear grid
+       * envelope when `mesh` is present (mockup mesh surfaces). The source
+       * raster is a pre-rendered surface (editor-side bake) at `src`;
+       * `fit`/alignment select the source sampling rect. Output resolution
+       * follows the current transform scale (export-crisp). The mesh form
+       * is main-thread only: it rides the structural compositing path like
+       * every mockup payload.
        */
       kind: 'warpedImage';
       src: string;
@@ -763,6 +766,18 @@ export type Primitive =
       alignX: 'min' | 'center' | 'max';
       alignY: 'min' | 'center' | 'max';
       quad: [Point, Point, Point, Point];
+      /**
+       * Grid envelope in the same coordinate space as `quad`. When set, the
+       * mesh warp replaces the quad homography; `quad` must still be present
+       * (its bounds reserve the layout box for hosts that never paint the
+       * mesh form). `fit` other than 'stretch' is not supported for the mesh
+       * form and is treated as 'stretch'.
+       */
+      mesh?: {
+        cols: number;
+        rows: number;
+        vertices: Point[][];
+      };
     }
   | TableShape;
 

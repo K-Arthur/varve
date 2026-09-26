@@ -24,6 +24,7 @@ import {
   type Affine,
   fitRect,
   getImageCache,
+  isMeshGridValid,
   type RenderItem,
   warpImageToCylinder,
 } from '@varve/engine';
@@ -51,6 +52,7 @@ export interface MockupRenderDiagnostics {
   surfacesBaked: number;
   flatSurfaces: number;
   quadSurfaces: number;
+  meshSurfaces: number;
   cylindricalSurfaces: number;
   placeholders: number;
   /** Preview frames that fell back to the last good raster for a lost source. */
@@ -64,6 +66,7 @@ const diag: MockupRenderDiagnostics = {
   surfacesBaked: 0,
   flatSurfaces: 0,
   quadSurfaces: 0,
+  meshSurfaces: 0,
   cylindricalSurfaces: 0,
   placeholders: 0,
   staleFallbacks: 0,
@@ -80,6 +83,7 @@ export function resetMockupRenderDiagnostics(): void {
   diag.surfacesBaked = 0;
   diag.flatSurfaces = 0;
   diag.quadSurfaces = 0;
+  diag.meshSurfaces = 0;
   diag.cylindricalSurfaces = 0;
   diag.placeholders = 0;
   diag.staleFallbacks = 0;
@@ -416,9 +420,9 @@ function buildTemplateItems(params: BuildTemplateItemsParams): RenderItem[] {
     if (shadowItem) items.push(shadowItem);
 
     // Flat and cylindrical plates are output-absolute chrome and remain
-    // visible even while their source is missing or still decoding. Quad
-    // plates are slot-local and are baked together with the projective warp.
-    if (effective.kind !== 'quad') {
+    // visible even while their source is missing or still decoding. Quad and
+    // mesh plates are slot-local and are baked together with their warp.
+    if (effective.kind !== 'quad' && effective.kind !== 'mesh') {
       for (const shape of effective.plate ?? []) {
         const item = shapeItem(
           frameItem,
@@ -466,6 +470,23 @@ function buildTemplateItems(params: BuildTemplateItemsParams): RenderItem[] {
     if (effective.kind === 'quad') {
       diag.quadSurfaces++;
       items.push(buildWarpedItem(frameItem, effective, raster, scaleX, scaleY));
+    } else if (effective.kind === 'mesh') {
+      const meshItem = buildMeshWarpedItem(frameItem, effective, raster, scaleX, scaleY);
+      if (meshItem) {
+        diag.meshSurfaces++;
+        items.push(meshItem);
+      } else {
+        // Invalid grid geometry: never draw a plausible-but-wrong rectangle.
+        items.push(
+          placeholderItem(
+            frameItem,
+            effective.width * scaleX,
+            effective.height * scaleY,
+            'Invalid mesh',
+          ),
+        );
+        diag.placeholders++;
+      }
     } else {
       if (effective.kind === 'cylindrical') diag.cylindricalSurfaces++;
       else diag.flatSurfaces++;
@@ -517,6 +538,7 @@ export function effectiveSurface(
     width: override.width ?? surface.width,
     height: override.height ?? surface.height,
     quad: override.quad ?? surface.quad,
+    mesh: override.mesh ?? surface.mesh,
     fit: override.fit ?? surface.fit,
     alignment: override.alignment ?? surface.alignment,
     cylindrical: override.cylindrical ?? surface.cylindrical,
@@ -951,6 +973,105 @@ function buildWarpedItem(
   };
 }
 
+/**
+ * Expand a slot grid about its bounding-box centre by the plate padding
+ * ratio — the mesh analogue of `expandQuadForPadding`. The same transform
+ * that maps the slot onto the padded region maps the grid onto the padded
+ * warp region, so content baked into the slot area of the raster lands
+ * inside the grid's slot area.
+ */
+export function expandGridForPadding(
+  mesh: NonNullable<MockupSurfaceDefinition['mesh']>,
+  slotW: number,
+  slotH: number,
+  padX: number,
+  padY: number,
+): NonNullable<MockupSurfaceDefinition['mesh']> {
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const row of mesh.vertices) {
+    for (const p of row) {
+      if (p.x < minX) minX = p.x;
+      if (p.y < minY) minY = p.y;
+      if (p.x > maxX) maxX = p.x;
+      if (p.y > maxY) maxY = p.y;
+    }
+  }
+  const cx = (minX + maxX) / 2;
+  const cy = (minY + maxY) / 2;
+  const sx = slotW > 0 ? (slotW + padX * 2) / slotW : 1;
+  const sy = slotH > 0 ? (slotH + padY * 2) / slotH : 1;
+  return {
+    cols: mesh.cols,
+    rows: mesh.rows,
+    vertices: mesh.vertices.map((row) =>
+      row.map((p) => ({ x: cx + (p.x - cx) * sx, y: cy + (p.y - cy) * sy })),
+    ),
+  };
+}
+
+/**
+ * Emit the warpedImage item for a mesh surface. The grid rides in template
+ * output coordinates, is expanded for plate padding, and is scaled like the
+ * quad corners. Returns null for an invalid grid (callers render an explicit
+ * invalid-geometry placeholder instead of a plausible wrong rectangle).
+ */
+function buildMeshWarpedItem(
+  frameItem: RenderItem,
+  surface: MockupSurfaceDefinition,
+  raster: string,
+  scaleX: number,
+  scaleY: number,
+): RenderItem | null {
+  const mesh = surface.mesh;
+  if (!mesh) return null;
+  const pad = surface.platePadding ?? { x: 0, y: 0 };
+  const expanded = expandGridForPadding(mesh, surface.width, surface.height, pad.x, pad.y);
+  const scaledPoints = expanded.vertices.map((row) =>
+    row.map((p) => ({ x: p.x * scaleX, y: p.y * scaleY })),
+  );
+  // Validate the scaled grid so a malformed payload (hand-edited document,
+  // cross-version import) becomes an explicit placeholder in every host —
+  // live canvas, export, and capture — instead of folded pixels.
+  if (!isMeshGridValid({ cols: expanded.cols, rows: expanded.rows, vertices: scaledPoints })) {
+    return null;
+  }
+  const scaledVertices = scaledPoints.map((row) => row.map((p) => [p.x, p.y] as [number, number]));
+  return {
+    ...frameItem,
+    primitive: {
+      kind: 'warpedImage',
+      src: raster,
+      sourceW: Math.max(1, Math.round((surface.width + pad.x * 2) * scaleX)),
+      sourceH: Math.max(1, Math.round((surface.height + pad.y * 2) * scaleY)),
+      fit: 'stretch',
+      alignX: 'center',
+      alignY: 'center',
+      quad: [
+        [(surface.x - pad.x) * scaleX, (surface.y - pad.y) * scaleY],
+        [(surface.x - pad.x + surface.width + pad.x * 2) * scaleX, (surface.y - pad.y) * scaleY],
+        [
+          (surface.x - pad.x + surface.width + pad.x * 2) * scaleX,
+          (surface.y - pad.y + surface.height + pad.y * 2) * scaleY,
+        ],
+        [(surface.x - pad.x) * scaleX, (surface.y - pad.y + surface.height + pad.y * 2) * scaleY],
+      ],
+      mesh: {
+        cols: expanded.cols,
+        rows: expanded.rows,
+        vertices: scaledVertices,
+      },
+    },
+    fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 0 },
+    fills: [],
+    effects: [],
+    strokes: [],
+    opacity: 1,
+  };
+}
+
 interface BakeSurfaceParams {
   doc: Document;
   node: FrameNode & { mockup: MockupInstanceData };
@@ -982,12 +1103,18 @@ function geometryKey(
   surface: MockupSurfaceDefinition,
   placement: MockupSurfacePlacement,
 ): string {
-  const pad = surface.kind === 'quad' ? (surface.platePadding ?? { x: 0, y: 0 }) : { x: 0, y: 0 };
+  const pad =
+    surface.kind === 'quad' || surface.kind === 'mesh'
+      ? (surface.platePadding ?? { x: 0, y: 0 })
+      : { x: 0, y: 0 };
   const maskOptions = surface.maskOptions ?? {};
   return [
     `${node.w}x${node.h}`,
     `${surface.x},${surface.y},${surface.width},${surface.height}`,
     surface.quad ? surface.quad.map((p) => `${p.x},${p.y}`).join(';') : '',
+    surface.mesh
+      ? surface.mesh.vertices.map((row) => row.map((p) => `${p.x},${p.y}`).join(',')).join(';')
+      : '',
     `${pad.x},${pad.y}`,
     surface.fit ?? EMPTY_FIT,
     `${surface.alignment.x}${surface.alignment.y}`,
@@ -1037,7 +1164,10 @@ function bakeSurface(params: BakeSurfaceParams): string | null {
 
   const slotW = surface.width * scaleX;
   const slotH = surface.height * scaleY;
-  const pad = surface.kind === 'quad' ? (surface.platePadding ?? { x: 0, y: 0 }) : { x: 0, y: 0 };
+  const pad =
+    surface.kind === 'quad' || surface.kind === 'mesh'
+      ? (surface.platePadding ?? { x: 0, y: 0 })
+      : { x: 0, y: 0 };
   const regionW = slotW + pad.x * 2 * scaleX;
   const regionH = slotH + pad.y * 2 * scaleY;
 
@@ -1110,8 +1240,8 @@ function bakeSurface(params: BakeSurfaceParams): string | null {
   const ctx = surfaceCanvas.getContext('2d');
   if (!ctx) return null;
 
-  // 1. Plate (slot-local for quad surfaces; drawn with the region offset).
-  if (surface.kind === 'quad' && surface.plate) {
+  // 1. Plate (slot-local for quad/mesh surfaces; drawn with the region offset).
+  if ((surface.kind === 'quad' || surface.kind === 'mesh') && surface.plate) {
     for (const shape of surface.plate) {
       drawShape(
         ctx,

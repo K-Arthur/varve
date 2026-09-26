@@ -13,6 +13,8 @@ import type { ReplayTarget } from '../replay';
 import type { Primitive } from '../types';
 import { fitRect } from './fit';
 import type { Quad, Vec2 } from './homography';
+import type { MockupMeshGrid } from './meshWarp';
+import { isMeshGridValid, warpImageToMesh } from './meshWarp';
 import { warpImageToQuad } from './quadWarp';
 
 /** Cap for a single warped surface's output per axis (bounded CPU work). */
@@ -175,7 +177,7 @@ export function paintWarpedImage(
     // reframe on load; a failed source keeps a distinct placeholder so
     // loading and permanent failure never look the same).
     if (target.fillStyle && target.fillRect) {
-      const b = quadBoundsOf(p);
+      const b = warpedBoundsOf(p);
       const prev = target.fillStyle;
       target.fillStyle = imagePlaceholderFill(p.src);
       target.fillRect(b.x, b.y, b.w, b.h);
@@ -205,9 +207,14 @@ export function paintWarpedImage(
     }
   }
 
-  const bounds = quadBoundsOf(p);
+  const bounds = warpedBoundsOf(p);
   const outW = Math.max(1, Math.min(MAX_WARP_PX, Math.round(bounds.w * scale)));
   const outH = Math.max(1, Math.min(MAX_WARP_PX, Math.round(bounds.h * scale)));
+
+  if (p.mesh) {
+    paintWarpedMesh(target, p, image, imgW, imgH, bounds, scale, outW, outH);
+    return;
+  }
 
   // Fit the source into the quad: the fitted rect (in unit-quad space)
   // becomes a sub-quad via bilinear interpolation of the quad corners.
@@ -303,4 +310,97 @@ export function quadBoundsOf(p: Extract<Primitive, { kind: 'warpedImage' }>): {
   if (!Number.isFinite(maxX)) maxX = 0;
   if (!Number.isFinite(maxY)) maxY = 0;
   return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+}
+
+/**
+ * Layout box of a warpedImage: the mesh hull when the mesh form is used
+ * (the grid can extend beyond any four-corner quad), the quad otherwise.
+ */
+export function warpedBoundsOf(p: Extract<Primitive, { kind: 'warpedImage' }>): {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+} {
+  if (!p.mesh) return quadBoundsOf(p);
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const row of p.mesh.vertices) {
+    for (const pt of row) {
+      if (pt[0] < minX) minX = pt[0];
+      if (pt[1] < minY) minY = pt[1];
+      if (pt[0] > maxX) maxX = pt[0];
+      if (pt[1] > maxY) maxY = pt[1];
+    }
+  }
+  if (!Number.isFinite(minX) || !Number.isFinite(minY)) return quadBoundsOf(p);
+  return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+}
+
+/**
+ * Paint the mesh form: full-source bilinear envelope through the grid.
+ * Mockup mesh items are always emitted with `fit: 'stretch'` (the fit
+ * policy is applied when the surface raster is baked), so the sampled
+ * source is the full raster; a non-stretch fit on this form is treated as
+ * stretch rather than silently letterboxing the envelope.
+ */
+function paintWarpedMesh(
+  target: ReplayTarget,
+  p: Extract<Primitive, { kind: 'warpedImage' }>,
+  image: CanvasImageSource,
+  imgW: number,
+  imgH: number,
+  bounds: { x: number; y: number; w: number; h: number },
+  scale: number,
+  outW: number,
+  outH: number,
+): void {
+  const mesh = p.mesh!;
+  const grid: MockupMeshGrid = {
+    cols: mesh.cols,
+    rows: mesh.rows,
+    vertices: mesh.vertices.map((row) =>
+      row.map((pt) => ({ x: (pt[0] - bounds.x) * scale, y: (pt[1] - bounds.y) * scale })),
+    ),
+  };
+  if (!isMeshGridValid(grid)) return;
+
+  const sourceCanvas = document.createElement('canvas');
+  sourceCanvas.width = Math.max(1, Math.round(imgW));
+  sourceCanvas.height = Math.max(1, Math.round(imgH));
+  const sourceCtx = sourceCanvas.getContext('2d');
+  if (!sourceCtx) return;
+  sourceCtx.drawImage(image, 0, 0, sourceCanvas.width, sourceCanvas.height);
+  let srcData: ImageData;
+  try {
+    srcData = sourceCtx.getImageData(0, 0, sourceCanvas.width, sourceCanvas.height);
+  } catch {
+    return;
+  }
+
+  const warped = warpImageToMesh(
+    srcData.data,
+    sourceCanvas.width,
+    sourceCanvas.height,
+    grid,
+    outW,
+    outH,
+  );
+  if (!warped) return;
+
+  const outCanvas = document.createElement('canvas');
+  outCanvas.width = outW;
+  outCanvas.height = outH;
+  const outCtx = outCanvas.getContext('2d');
+  if (!outCtx) return;
+  outCtx.putImageData(warped, 0, 0);
+  target.drawImage?.(
+    outCanvas as unknown as CanvasImageSource,
+    bounds.x,
+    bounds.y,
+    bounds.w,
+    bounds.h,
+  );
 }
