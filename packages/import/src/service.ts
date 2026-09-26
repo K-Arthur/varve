@@ -268,7 +268,7 @@ async function importOne(
       detection.format === 'dng'
         ? 'DNG is a RAW source, not a flattened artwork import. Open it from Photo/Image Tuning > RAW source so the sensor mosaic and recipe remain available.'
         : detection.format === 'camera-raw'
-          ? `${input.name} is a proprietary camera RAW container. Varve does not decode vendor RAW formats and never substitutes an embedded preview; convert the file to DNG (for example with Adobe DNG Converter, keeping the embedded original) and open it from Photo/Image Tuning > RAW source.`
+          ? `${input.name} is a proprietary camera RAW container. Varve does not decode vendor RAW formats and never substitutes an embedded preview. The supported conversion route requires a classic, uncompressed 2x2 Bayer or monochrome DNG; compressed DNG, X-Trans, and other variants remain unsupported. Keep the original, then open a compatible DNG from Photo/Image Tuning > Photo source.`
           : `No importer is registered for ${format}`;
     return {
       name: input.name,

@@ -37,7 +37,7 @@ function sketchZip(): Uint8Array {
 }
 
 describe('ImportService', () => {
-  it('refuses a proprietary camera RAW with the DNG conversion route instead of a decode error', async () => {
+  it('refuses a proprietary camera RAW with the exact supported DNG conversion route instead of a decode error', async () => {
     const report = await ImportService.importFiles([
       {
         name: 'DSC_0001.nef',
@@ -49,7 +49,12 @@ describe('ImportService', () => {
     ]);
 
     expect(report.files[0]).toMatchObject({ status: 'unsupported', nodeCount: 0 });
-    expect(report.files[0]?.unsupportedFeatures[0]?.message).toMatch(/convert the file to DNG/);
+    expect(report.files[0]?.unsupportedFeatures[0]?.message).toMatch(
+      /classic, uncompressed 2x2 Bayer or monochrome DNG/,
+    );
+    expect(report.files[0]?.unsupportedFeatures[0]?.message).toMatch(
+      /compressed DNG, X-Trans, and other variants remain unsupported/,
+    );
     expect(report.unsupportedCount).toBe(1);
   });
 

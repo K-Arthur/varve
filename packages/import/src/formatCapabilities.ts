@@ -267,7 +267,7 @@ const nonRaster = {
       desktop: 'unsupported',
       notes: [
         'Vendor sensor containers are never decoded by the artwork importer and never fall back to an embedded JPEG preview.',
-        'Convert to DNG (keeping the embedded original) and open it from Photo/Image Tuning to develop the sensor mosaic.',
+        'The supported conversion route requires classic, uncompressed 2x2 Bayer or monochrome DNG; compressed DNG, X-Trans, and other variants remain unsupported. Keep the vendor RAW and open only a compatible DNG from Photo/Image Tuning > Photo source.',
       ],
     },
     export: { available: false, lossy: false, notes: ['RAW source files are never overwritten.'] },
