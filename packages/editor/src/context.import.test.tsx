@@ -14,6 +14,7 @@ import {
   makeGroupNode,
   makeShapeNode,
 } from '@varve/scene';
+import { StrictMode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { captureClipboardEvent, clearCapturedClipboardEvent } from './clipboard';
 import { EditorProvider, setImportReportHandler, useEditor } from './context';
@@ -455,6 +456,49 @@ describe('Editor import insertion', () => {
     expect(getParent(ctx.state.document, importedId)).toBe('target-frame');
     const imported = ctx.state.document.nodes[importedId];
     expect(imported?.kind).toBe('shape');
+  });
+
+  it('selects the inserted node when React runs the insertion updater more than once', async () => {
+    const shape = makeShapeNode('shape', { kind: 'rect', x: 0, y: 0, w: 40, h: 30 });
+    const sourceDoc = {
+      ...createDocument('Imported shape', true),
+      nodes: { shape },
+      rootChildren: ['shape'],
+    };
+
+    let ctx: ReturnType<typeof useEditor> | undefined;
+    function Test() {
+      ctx = useEditor();
+      return (
+        <button
+          type="button"
+          onClick={() => {
+            // A queued update makes React defer the insertion updater to
+            // render, where StrictMode calls it twice. Each call mints a new
+            // random id, so selection must come from the call that is kept.
+            ctx?.patch({ dirty: false });
+            ctx?.batchImportNodes([{ node: shape, sourceDoc, position: { x: 50, y: 50 } }]);
+          }}
+        >
+          import
+        </button>
+      );
+    }
+
+    render(
+      <StrictMode>
+        <EditorProvider initialDocumentJson={DocumentCodec.encode(createDocument('Target'))}>
+          <Test />
+        </EditorProvider>
+      </StrictMode>,
+    );
+
+    screen.getByText('import').click();
+
+    await waitFor(() => expect(ctx?.state.selection).toHaveLength(1));
+    const selectedId = ctx?.state.selection[0];
+    if (!ctx || !selectedId) throw new Error('Expected an imported selection');
+    expect(ctx.state.document.nodes[selectedId]?.kind).toBe('shape');
   });
 
   it('atomically imports dropped images into a compatible clipping target', async () => {

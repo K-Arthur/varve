@@ -3807,6 +3807,10 @@ export function EditorProvider({
       let committedIds: NodeId[] = [];
       runOwnedTransaction(inTransactionRef, beginTransaction, commitTransaction, () => {
         setState((s) => {
+          // React may call this updater more than once (StrictMode, or an
+          // update deferred to render). Each call mints new random ids, so
+          // start clean: an earlier call's ids must never become the selection.
+          committedIds = [];
           const doc = s.document;
           const selectedContainerId: NodeId | null =
             fragment.targetParentId ??
