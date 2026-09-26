@@ -108,7 +108,9 @@ test('captures the prefer-WebGPU path and its truthful status', async ({ page })
     expect(status.trim()).toMatch(/GPU unavailable · Canvas2D|Canvas2D/);
   }
 
-  // Performance tab: renderer status surfaces the same truth.
+  // Performance tab: the live renderer status lives in the Diagnostics stats
+  // ("WebGPU device probe"); scroll it into view so the capture shows it
+  // unclipped instead of wherever the dialog happened to rest.
   await page.evaluate(() => {
     const file = [...document.querySelectorAll('button')].find(
       (element) => element.textContent?.trim() === 'File',
@@ -119,6 +121,9 @@ test('captures the prefer-WebGPU path and its truthful status', async ({ page })
   const settings = page.locator('dialog.varve-dialog--settings[open]');
   const performanceTab = settings.getByRole('tab', { name: /Performance|Render/i });
   await performanceTab.click();
+  const probeStat = settings.getByText('WebGPU device probe', { exact: false }).first();
+  await probeStat.scrollIntoViewIfNeeded();
+  await expect(probeStat).toBeVisible();
   await page.waitForTimeout(300);
   await page.screenshot({
     path: path.join(SHOT_DIR, 'app-settings-performance.png'),
