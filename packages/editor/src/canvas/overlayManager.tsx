@@ -455,8 +455,15 @@ function drawObjectSelectionCheckerboard(
     flipV: image.flipV,
   });
   if (!placement) return;
-  const maskCanvas = boundedMaskPreviewCanvas(mask, width, height, [255, 255, 255]);
-  if (!maskCanvas) return;
+  // The bounded preview scale mirrors boundedMaskPreviewCanvas so the
+  // checkerboard composite shares the mask canvas's pixel grid.
+  const previewScale = Math.min(
+    1,
+    MASK_PREVIEW_MAX_DIMENSION / Math.max(width, height),
+    Math.sqrt(MASK_PREVIEW_MAX_PIXELS / Math.max(1, width * height)),
+  );
+  const previewWidth = Math.max(1, Math.round(width * previewScale));
+  const previewHeight = Math.max(1, Math.round(height * previewScale));
 
   // Keep the tiles a constant size on screen: CSS px -> world (camera zoom)
   // -> node-local (node world scale) -> source px (placement extent) ->
@@ -465,13 +472,20 @@ function drawObjectSelectionCheckerboard(
   const nodeScale = Math.hypot(worldTransform[0], worldTransform[1]) || 1;
   const sourcePerLocal =
     placement.drawRect.w > 0 ? placement.sourceRect.w / placement.drawRect.w : 1;
-  const previewPerSource = width > 0 ? maskCanvas.width / width : 1;
+  const previewPerSource = width > 0 ? previewWidth / width : 1;
   const tileSizePx =
     (CHECKERBOARD_TILE_CSS_PX / (zoom > 0 ? zoom : 1)) *
     (1 / nodeScale) *
     sourcePerLocal *
     previewPerSource;
-  const composite = checkerboardComplementCanvas(mask, maskCanvas, tileSizePx);
+  const composite = checkerboardComplementCanvas(
+    mask,
+    width,
+    height,
+    previewWidth,
+    previewHeight,
+    tileSizePx,
+  );
   if (!composite) return;
 
   const [a, b, c, d, e, f] = worldTransform;
@@ -520,22 +534,33 @@ function drawObjectSelectionCheckerboard(
 /**
  * Checkerboard in the masked-out region only, baked once per (mask, tile)
  * pair so the overlay never runs composite operations against unrelated
- * overlay content: fill the tile pattern, then destination-out the mask
- * coverage, leaving checker alpha = checker * (1 - coverage).
+ * overlay content: fill the tile pattern, then destination-out a FULL-ALPHA
+ * coverage canvas, leaving checker alpha = checker * (1 - coverage). The
+ * tint canvas used by the overlay mode deliberately carries coverage * 0.42
+ * alpha for its translucent look — erasing with it would leave most of the
+ * checkerboard visible inside the kept subject.
  */
 function checkerboardComplementCanvas(
   mask: Uint8Array,
-  maskCanvas: HTMLCanvasElement,
+  sourceWidth: number,
+  sourceHeight: number,
+  previewWidth: number,
+  previewHeight: number,
   tileSizePx: number,
 ): HTMLCanvasElement | null {
   const tile = Math.max(2, Math.round(tileSizePx));
   const cached = objectMaskCheckerCache.get(mask);
-  if (cached && cached.tileSize === tile && cached.canvas.width === maskCanvas.width) {
+  if (
+    cached &&
+    cached.tileSize === tile &&
+    cached.canvas.width === previewWidth &&
+    cached.canvas.height === previewHeight
+  ) {
     return cached.canvas;
   }
   const canvas = document.createElement('canvas');
-  canvas.width = maskCanvas.width;
-  canvas.height = maskCanvas.height;
+  canvas.width = previewWidth;
+  canvas.height = previewHeight;
   const ctx = canvas.getContext('2d');
   if (!ctx) return null;
   const patternCanvas = document.createElement('canvas');
@@ -555,8 +580,25 @@ function checkerboardComplementCanvas(
   pattern.setTransform(new DOMMatrix([scale, 0, 0, scale, 0, 0]));
   ctx.fillStyle = pattern;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  const resizedMask = resizeMaskCoverage(
+    mask,
+    { width: sourceWidth, height: sourceHeight },
+    { width: previewWidth, height: previewHeight },
+  );
+  const coverage = ctx.createImageData(previewWidth, previewHeight);
+  for (let index = 0; index < resizedMask.length; index += 1) {
+    coverage.data[index * 4 + 3] = resizedMask[index] ?? 0;
+  }
+  const coverageCanvas = document.createElement('canvas');
+  coverageCanvas.width = previewWidth;
+  coverageCanvas.height = previewHeight;
+  const coverageCtx = coverageCanvas.getContext('2d');
+  if (!coverageCtx) return null;
+  coverageCtx.putImageData(coverage, 0, 0);
+
   ctx.globalCompositeOperation = 'destination-out';
-  ctx.drawImage(maskCanvas, 0, 0);
+  ctx.drawImage(coverageCanvas, 0, 0);
   ctx.globalCompositeOperation = 'source-over';
   objectMaskCheckerCache.set(mask, { tileSize: tile, canvas });
   return canvas;
