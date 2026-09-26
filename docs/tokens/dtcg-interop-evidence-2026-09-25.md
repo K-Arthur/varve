@@ -248,3 +248,95 @@ when re-run alone, and the website contact flake above. A first
 `verify:affected` attempt was voided because wrapping it in `heavy-lease`
 deadlocked against the planner's own internal E2E lease; the tool manages its
 lease itself and must not be nested.
+
+## 6. Binding and repaint pass (2026-09-25, later session)
+
+The §2 matrix recorded `bind`/`render` cells as **P** and the document-editing
+section of the charter as unverified. This pass investigated whether a bound
+token actually reaches canvas pixels, and whether a token edit refreshes them.
+Both answers were *no* for common document states; both were reproduced
+before repair (unit-level for the paint path, browser-level for the repaint
+path).
+
+### Root causes
+
+1. **The `fill` binding targeted a field the renderer had already stopped
+   reading.** `applyBindingsToNode` wrote `node.fill`, but
+   `resolveNodePaints`/`sceneNodeToEngineNode` prefer `paintRefs` →
+   `node.fills[]` → legacy `node.fill`, and *any* Inspector paint-stack edit
+   (`updateSelectedFillAt`) materializes `node.fills`. From that moment the
+   binding wrote a field nobody painted: the badge reported success while the
+   canvas kept the literal. The Inspector's bound-colour read
+   (`resolveFillEntries`) had the same blind spot, so even the swatch told the
+   user the old colour.
+2. **A variable-only edit never invalidated the worker bitmap.**
+   `CanvasArea` deliberately skipped the `docVersion` bump on the
+   variable-only fast path. The worker branch compares
+   `wb.docVersion === docVersion` to decide `bitmapIsCurrent`; with the bump
+   missing it stayed true, so the frame composited the *pre-edit* bitmap and
+   never asked the worker to re-render. On a flat scene (no frames with
+   children / masks / adjustments → `sceneNeedsStructuralCompositing`
+   false) a token edit therefore did not repaint until the camera moved, and
+   an in-flight worker response carrying the old IR was accepted instead of
+   dropped by `isStaleResponse`.
+3. **Four Inspector properties offered a binding the render resolver did not
+   implement** (`cornerRadius`, `lineHeight`, `letterSpacing`, `tracking`,
+   `paragraphSpacing` — the menu stored a binding that
+   `applyBindingsToNode` silently ignored), and `strokeWeight:<rowId>`
+   opened a `bindingField` no component consumed (a pure no-op `=` / shift
+   click).
+
+### Defects repaired in this pass
+
+| # | Defect | Class | Status | Evidence |
+| --- | --- | --- | --- | --- |
+| B1 | `fill` binding inert once `node.fills` exists (silent no-op behind a success badge) | data-integrity / trust | **fixed** | `applyBindingsToNode` drives the primary *solid* paint; never through `paintRefs`; never flattens a gradient/image. 10 new unit tests (`bindings.test.ts`, `selectedPaints.test.ts`) |
+| B2 | Inspector bound-colour read ignored the same case | fidelity | **fixed** | `resolveFillEntries` returns the bound colour for the primary solid slot with `storage: 'variable-fill'` |
+| B3 | Token edit did not repaint on the worker fast path | correctness (stale pixels) | **fixed** | `CanvasArea` bumps `docVersion` when a bound node's IR is invalidated; browser proof below |
+| B4 | `cornerRadius` / `lineHeight` / `letterSpacing` / `tracking` / `paragraphSpacing` bindable but inert | silent no-op | **fixed** | render branches added; unit tests bind all five |
+| B5 | `strokeWeight:<rowId>` set a `bindingField` nothing consumed | workflow blockage | **fixed** | `BindingMenu` rendered in `StrokeSection`; per-stroke render support (by stroke id, legacy row index fallback); bound/read-only display + unbind |
+| B6 | Width/height/rotation/fontSize bound but showed the literal with no unbind | fidelity | **fixed** | `deriveNumericBindingPresentation` wired into W/H/R/Size/Line height/Letter spacing/Tracking/Paragraph spacing; bound fields are read-only until unbound (existing policy) |
+| B7 | "Link to variable" offered on every fill row although the binding drives one slot | misleading affordance | **fixed** | item is primary-row-only; on a non-solid primary paint it is disabled with a reason |
+| B8 | Editing a bound fill's colour silently lost the edit (the binding kept painting the variable) | silent no-op (inverse direction) | **fixed** | the edit detaches the link first and announces it; component test pins the detach |
+| B9 | Bound-state badge carried inline `rgba(214,69,69,0.08)` / `fontSize: 11` literals and no "not applied" state | token hygiene / a11y | **fixed** | one `.varve-binding-badge` skin in `inspector.css` (+ `--warning`), shared by Fill and Table appearance |
+| B10 | Bind/unbind gave no screen-reader feedback outside Table/Fill | a11y | **fixed** | `announce()` on bind and unbind for opacity, x/y, w/h, rotation, radius, typography metrics, stroke weight |
+
+### Reproduction record (defect-first, not fix-first)
+
+`tests/e2e/canvas/variable-binding-repaint.spec.ts` samples the content
+canvas with `getImageData` and asserts exact pixel counts — screenshots are
+evidence, not the oracle.
+
+| Run | Code state | Result |
+| --- | --- | --- |
+| 1 | both fixes reverted (temporary revert harness, files restored afterwards) | **fails at the first assertion** — `binding must paint on a fills[] node (… red=0)` → B1 reproduced |
+| 2 | binding fix active, `docVersion` bump reverted | **fails at the repaint assertion** — `variable edit must repaint (blue=0)` (the binding assertion passed) → B3 reproduced |
+| 3 | both fixes active | **passes** — bind paints, variable edit repaints, undo repaints |
+
+Screenshots inspected: `docs/screenshots/token-binding-repaint/01-bound-red.png`,
+`02-edited-blue.png`. Run 0 (before the spec's setup was corrected) is also
+informative: it showed the `$Brand Red` badge over an unchanged canvas, which
+is exactly the reported symptom class.
+
+### Coverage-matrix deltas (§2 cells changed by this pass)
+
+| Module / workflow | change |
+| --- | --- |
+| Format: curly `{path}` aliases | `bind` **P → V** for the properties listed below; `render` **U → V** (unit + browser) |
+| Composites / colour `bind`+`render` | `fill` binding **P → V** (solid primary slot; gradient/shared-paint cases are *reported*, not applied) |
+| Document ↔ token store (`tokenSync`) | `render` cell for bound geometry/typography/stroke **X → V** |
+| Preview/apply→canvas propagation | **new row**: variable-only edit repaints without reselection — **V** (browser) |
+
+Still **X/deferred** after this pass, unchanged from §5: watcher/atomic-write
+platform wiring, Git-backed sources, vendor adapters (M10), multimodal (M11),
+and any property without a render branch (stroke *colour*, gradient stops,
+effects, layout spacing/padding/gap, font family/weight, blend mode) — those
+keep no binding affordance rather than a fake one.
+
+### Defects found but not repaired here (recorded, not silently dropped)
+
+| Defect | Why not repaired |
+| --- | --- |
+| `addColorVariable` in `tests/e2e/shared.ts` still targets the Layers panel, but `VariablePanel` moved into the *Variables and tokens* dialog in `ff1470aa0` (2026-08-30) — the helper matches nothing, so `table-appearance-binding`, `modifiers-visual`, `variable-debug`, `combined-workflow`, `visual-verification` are stale and fail before their own assertions run | Pre-existing breakage outside the repaired slice; the new binding spec opens the dialog itself. Repairing five visual specs is tracked as follow-up |
+| `VariablePanel` (no search, no usage/why-trace), `TokenSyncPanel`, `BindingMenu`, `importWorkflow`, and the website token page were **being edited by a concurrent session** during this pass | Ownership: see `docs/agents/token-binding-repaint-2026-09-25-ownership.md`. Not edited here to avoid two writers on one file |
+| Watcher/atomic-write engine still has no platform caller (baseline defect 10) | Unchanged deferral — needs Tauri commands + a file watcher; independent of binding correctness |
