@@ -17,6 +17,13 @@ export interface StoredPlugin extends StoredPluginVersion {
   source: 'local-file';
   previous?: StoredPluginVersion;
   lastError?: string;
+  /**
+   * Contribution IDs of Inspector panels the user hid. User-local display
+   * preference, never document state: it must not touch artwork or history.
+   * Retained with updates/rollback (filtered to still-declared panels) and
+   * dropped with the installation itself.
+   */
+  hiddenPanels?: string[];
 }
 
 function openDatabase(): Promise<IDBDatabase> {

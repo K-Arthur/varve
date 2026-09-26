@@ -236,14 +236,13 @@
 }
 
 .plugin-manager__search span,
-.plugin-manager__command-area > label {
+.plugin-manager__field-label {
   color: var(--color-text-muted);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
 }
 
-.plugin-manager__search input,
-.plugin-manager__command-row select {
+.plugin-manager__search input {
   min-height: 2.1rem;
   min-width: 0;
   padding: var(--space-1) var(--space-2);
@@ -254,8 +253,29 @@
   font: inherit;
 }
 
-.plugin-manager__command-row select {
+.plugin-manager__command-row .varve-select {
   flex: 1 1 12rem;
+  min-width: 0;
+  min-height: 2.1rem;
+}
+
+.plugin-manager__panels {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.plugin-manager__panel-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.plugin-manager__panel-name {
+  min-width: 0;
+  font-size: var(--font-size-xs);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
 }
 
 .plugin-manager__empty,
