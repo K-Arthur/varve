@@ -237,7 +237,10 @@ async function importOne(
   const rasterCandidate =
     data instanceof Uint8Array &&
     (isRasterFallbackFormat(format) ||
-      (detection.format !== 'dng' && detection.format !== null && detectImageMime(data) !== null));
+      (detection.format !== 'dng' &&
+        detection.format !== 'camera-raw' &&
+        detection.format !== null &&
+        detectImageMime(data) !== null));
 
   if (looksLikeVarveDocument(data)) {
     return {
@@ -264,7 +267,9 @@ async function importOne(
     const unsupportedMessage =
       detection.format === 'dng'
         ? 'DNG is a RAW source, not a flattened artwork import. Open it from Photo/Image Tuning > RAW source so the sensor mosaic and recipe remain available.'
-        : `No importer is registered for ${format}`;
+        : detection.format === 'camera-raw'
+          ? `${input.name} is a proprietary camera RAW container. Varve does not decode vendor RAW formats and never substitutes an embedded preview; convert the file to DNG (for example with Adobe DNG Converter, keeping the embedded original) and open it from Photo/Image Tuning > RAW source.`
+          : `No importer is registered for ${format}`;
     return {
       name: input.name,
       source: input.source,

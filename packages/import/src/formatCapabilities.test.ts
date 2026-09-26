@@ -65,6 +65,46 @@ describe('format capability registry', () => {
     expect(getFormatCapability('dng')?.import.level).toBe('unsupported');
   });
 
+  it('identifies TIFF-family proprietary camera RAW by signature and extension', () => {
+    // TIFF magic + .NEF extension must not be treated as a decodable TIFF.
+    const tiffMagic = new Uint8Array([0x49, 0x49, 0x2a, 0x00, 0x08, 0x00, 0x00, 0x00]);
+    expect(detectFileFormat({ filename: 'DSC_0001.nef', data: tiffMagic })).toMatchObject({
+      format: 'camera-raw',
+      source: 'signature',
+    });
+    expect(detectFileFormat({ filename: 'img.cr2', data: tiffMagic }).format).toBe('camera-raw');
+    expect(detectFileFormat({ filename: 'img.arw', data: tiffMagic }).format).toBe('camera-raw');
+    expect(detectFileFormat({ filename: 'img.orf', data: tiffMagic }).format).toBe('camera-raw');
+    expect(detectFileFormat({ filename: 'img.rw2', data: tiffMagic }).format).toBe('camera-raw');
+    // Extension alone still routes honestly when the bytes are unavailable.
+    expect(formatForExtension('.nef')).toBe('camera-raw');
+    expect(detectFileFormat({ filename: 'IMG0004.raf' }).format).toBe('camera-raw');
+  });
+
+  it('identifies Fuji RAF and Canon CR3 containers by content signature', () => {
+    const raf = new TextEncoder().encode('FUJIFILMCCD-RAW 0201FF393701');
+    expect(detectFileFormat({ filename: 'frame.jpg', data: raf })).toMatchObject({
+      format: 'camera-raw',
+      source: 'signature',
+    });
+    const cr3 = new Uint8Array(24);
+    cr3.set([0, 0, 0, 24, 0x66, 0x74, 0x79, 0x70, 0x63, 0x72, 0x78, 0x20], 0);
+    expect(detectFileFormat({ filename: 'img.cr3', data: cr3 })).toMatchObject({
+      format: 'camera-raw',
+      source: 'signature',
+    });
+  });
+
+  it('does not claim proprietary camera RAW is importable and names the conversion route', () => {
+    const capability = getFormatCapability('camera-raw');
+    expect(capability?.import.level).toBe('unsupported');
+    expect(capability?.kind).toBe('container');
+    expect(capability?.import.notes.join(' ')).toContain('DNG');
+    // A real TIFF keeps its format; only RAW extensions route to camera-raw.
+    const tiffMagic = new Uint8Array([0x49, 0x49, 0x2a, 0x00, 0x08, 0x00, 0x00, 0x00]);
+    expect(detectFileFormat({ filename: 'scan.tif', data: tiffMagic }).format).toBe('tiff');
+  });
+
   it('can identify SVG content when the extension is absent', () => {
     expect(
       detectFileFormat({ filename: 'asset', data: '<svg viewBox="0 0 10 10"></svg>' }).format,

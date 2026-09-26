@@ -13,6 +13,7 @@ export type ImageFormatId =
   | 'bmp'
   | 'tiff'
   | 'dng'
+  | 'camera-raw'
   | 'svg'
   | 'svgz'
   | 'pdf'
@@ -247,6 +248,34 @@ const nonRaster = {
     pages: 'none',
     color: ['Sensor mosaic is not an RGB display encoding'],
     metadata: ['DNG/EXIF metadata is inspected by the RAW development route'],
+  },
+  'camera-raw': {
+    id: 'camera-raw',
+    label: 'Camera RAW (proprietary)',
+    kind: 'container',
+    extensions: ['cr2', 'crw', 'cr3', 'nef', 'nrw', 'arw', 'orf', 'rw2', 'raf', 'srw', 'pef'],
+    mimeTypes: [
+      'image/x-canon-cr2',
+      'image/x-canon-cr3',
+      'image/x-nikon-nef',
+      'image/x-sony-arw',
+      'image/x-fuji-raf',
+    ],
+    import: {
+      level: 'unsupported',
+      browser: 'unsupported',
+      desktop: 'unsupported',
+      notes: [
+        'Vendor sensor containers are never decoded by the artwork importer and never fall back to an embedded JPEG preview.',
+        'Convert to DNG (keeping the embedded original) and open it from Photo/Image Tuning to develop the sensor mosaic.',
+      ],
+    },
+    export: { available: false, lossy: false, notes: ['RAW source files are never overwritten.'] },
+    alpha: 'none',
+    animation: 'none',
+    pages: 'none',
+    color: ['Sensor mosaic is not an RGB display encoding'],
+    metadata: ['Vendor RAW metadata is not interpreted'],
   },
   svg: {
     id: 'svg',
@@ -627,6 +656,7 @@ function signatureFormat(bytes: Uint8Array): ImageFormatId | undefined {
   if (startsWith(bytes, [0x49, 0x49, 0x2a, 0x00]) || startsWith(bytes, [0x4d, 0x4d, 0x00, 0x2a]))
     return 'tiff';
   if (startsWith(bytes, [0x52, 0x49, 0x46, 0x46]) && ascii(bytes, 8, 4) === 'WEBP') return 'webp';
+  if (startsWith(bytes, [0x46, 0x55, 0x4a, 0x49, 0x46, 0x49, 0x4c, 0x4d])) return 'camera-raw';
   if (ascii(bytes, 0, 5) === '%PDF-') return 'pdf';
   if (ascii(bytes, 0, 4) === '8BPS') {
     // Photoshop's large-document format uses the same signature as PSD and
@@ -650,6 +680,7 @@ function signatureFormat(bytes: Uint8Array): ImageFormatId | undefined {
       ) {
         return 'heif';
       }
+      if (brands.includes('crx ')) return 'camera-raw';
     }
     if (size < 8) break;
     offset += size;
@@ -691,7 +722,9 @@ export function detectFileFormat(input: {
       ? 'ai'
       : detectedSignature === 'tiff' && extensionFormat === 'dng'
         ? 'dng'
-        : detectedSignature;
+        : detectedSignature === 'tiff' && extensionFormat === 'camera-raw'
+          ? 'camera-raw'
+          : detectedSignature;
   const format = signature ?? mimeFormat ?? extensionFormat ?? null;
   const warnings: FormatDetectionWarning[] = [];
 

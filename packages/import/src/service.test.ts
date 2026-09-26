@@ -37,6 +37,22 @@ function sketchZip(): Uint8Array {
 }
 
 describe('ImportService', () => {
+  it('refuses a proprietary camera RAW with the DNG conversion route instead of a decode error', async () => {
+    const report = await ImportService.importFiles([
+      {
+        name: 'DSC_0001.nef',
+        // TIFF magic: a NEF is a TIFF-family container and used to be routed
+        // to the TIFF raster normalizer, failing inside UTIF.
+        bytes: new Uint8Array([0x49, 0x49, 0x2a, 0x00, 0x08, 0x00, 0x00, 0x00]),
+        source: 'file-picker',
+      },
+    ]);
+
+    expect(report.files[0]).toMatchObject({ status: 'unsupported', nodeCount: 0 });
+    expect(report.files[0]?.unsupportedFeatures[0]?.message).toMatch(/convert the file to DNG/);
+    expect(report.unsupportedCount).toBe(1);
+  });
+
   it('classifies an undecodable native .fig as unsupported without import artifacts', async () => {
     const report = await ImportService.importFiles([
       {
