@@ -1,4 +1,3 @@
-import { Select } from '@varve/ui';
 import { useEffect, useId, useRef, useState, useSyncExternalStore } from 'react';
 import { pluginController } from './controller';
 import type { PluginPackage, PluginPermission } from './package';
@@ -305,23 +304,20 @@ function PluginCard({
 
       {plugin.manifest.commands.length > 0 && (
         <div className="plugin-manager__command-area">
-          <span className="plugin-manager__field-label" id={`${prefix}-command-label`}>
-            Command
-          </span>
+          <label htmlFor={`${prefix}-command`}>Command</label>
           <div className="plugin-manager__command-row">
-            <Select
+            <select
               id={`${prefix}-command`}
-              className="plugin-manager__command-select"
-              label="Command"
-              aria-labelledby={`${prefix}-command-label`}
               value={selectedCommand}
-              options={plugin.manifest.commands.map((item) => ({
-                value: item.id,
-                label: item.title,
-              }))}
-              onValueChange={setSelectedCommand}
+              onChange={(event) => setSelectedCommand(event.target.value)}
               disabled={busy}
-            />
+            >
+              {plugin.manifest.commands.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.title}
+                </option>
+              ))}
+            </select>
             <button
               className="plugin-manager__button plugin-manager__button--primary"
               type="button"
@@ -388,38 +384,10 @@ function PluginCard({
       )}
 
       {plugin.manifest.inspector && plugin.manifest.inspector.length > 0 && (
-        <div className="plugin-manager__panels">
-          <span className="plugin-manager__field-label">Inspector panels</span>
-          {plugin.manifest.inspector.map((section) => {
-            const hidden = plugin.hiddenPanels.includes(section.id);
-            const where = [
-              'Properties tab',
-              ...(section.modes ?? []).map(
-                (mode) => `${mode.charAt(0).toUpperCase()}${mode.slice(1)}`,
-              ),
-            ].join(' · ');
-            return (
-              <div className="plugin-manager__panel-row" key={section.id}>
-                <span className="plugin-manager__panel-name">
-                  {section.title} <span className="plugin-manager__muted">({where})</span>
-                </span>
-                <button
-                  className="plugin-manager__button"
-                  type="button"
-                  disabled={Boolean(busy)}
-                  aria-label={`${hidden ? 'Show' : 'Hide'} ${section.title} Inspector panel`}
-                  onClick={() =>
-                    execute(hidden ? 'Show Inspector panel' : 'Hide Inspector panel', () =>
-                      pluginController.setPanelHidden(plugin.id, section.id, !hidden),
-                    )
-                  }
-                >
-                  {hidden ? 'Show' : 'Hide'}
-                </button>
-              </div>
-            );
-          })}
-        </div>
+        <p className="plugin-manager__muted">
+          Inspector: {plugin.manifest.inspector.map((item) => item.title).join(', ')} (Properties
+          tab when applicable)
+        </p>
       )}
 
       <div className="plugin-manager__actions">

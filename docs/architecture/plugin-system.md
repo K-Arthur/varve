@@ -81,13 +81,6 @@ running work. Stale replies cannot commit changes. A failed run retains a
 diagnostic and a visible retry route. A startup recovery route must work
 without activating packages.
 
-Hiding a contributed Inspector panel is a third user-local preference beside
-the enable flag and grants. It lives on the installation record (never in the
-document), is mirrored into the section registry on every reconciliation,
-survives reload, is retained across update and rollback when the panel is
-still declared, and is dropped with the installation itself. Hiding or
-showing a panel never enters undo history or marks artwork dirty.
-
 Package bytes and local grants belong to the application profile, never the
 document. The initial local store uses IndexedDB under the application
 origin, which is available in the supported desktop WebViews. This choice
@@ -129,8 +122,6 @@ implying verification.
 | Undoable rename, save/reopen without plugin | Implemented with canonical node update | Apply, remove, undo/redo, and save/reopen pass | Blocked by local native build OOM | Not run |
 | Manager and contextual Inspector rendering | Implemented with host-owned controls | Manager, review, and Inspector text visibility pass | Blocked by local native build OOM | Not run |
 | Update/recovery and resource plateau | Update, rollback, Retry implemented | Permission diff and rollback pass; long-session plateau not run | Blocked by local native build OOM | Not run |
-| Manager panel hide/show preference | Persisted on the installation record, mirrored into the section registry, applied on registration | Hide, reload, show round-trip passes in the browser; unit tests cover record and fresh-session restore | Blocked by local native build OOM | Not run |
-| Mixed selection, locked targets, competing plugins | Snapshot and revalidation checks are source-enforced | Vector+text analysis, locked-layer rename with undo/redo, and two concurrent plugins pass in the browser | Blocked by local native build OOM | Not run |
 
 See [the dated research and defect ledger](../audits/plugin-system-evidence-2026-09-25.md)
 for the source-to-requirement trail. [The dated validation report](../audits/plugin-system-validation-2026-09-25.md)
