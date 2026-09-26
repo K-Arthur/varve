@@ -15,6 +15,7 @@ import {
   setImageFlip,
   setImageRotation,
   sourceBoundsToViewportCrop,
+  TrimBoundsUnavailableError,
   translateAffine,
   trimToSubject,
 } from './imageCrop';
@@ -481,21 +482,46 @@ describe('trimToSubject', () => {
     expect(crop!.h).toBeCloseTo(50);
   });
 
-  it('falls back to resetToSourceBounds when no mask or explicit bounds are available', async () => {
+  it('rejects instead of resetting when no mask or explicit bounds are available', async () => {
     let doc = createDocument('t', true);
     const img = makeImageShapeNode('i1', { src: 'data:image/png;base64,AA', w: 200, h: 100 });
     doc = { ...doc, nodes: { ...doc.nodes, i1: img }, rootChildren: ['i1'] };
 
-    const next = await trimToSubject(doc, 'i1');
     // No mask present: computeVisibleContentBounds resolves 'source-alpha'
-    // (the node's own shape bounds), which is a same-size no-op crop —
-    // trimToSubject should fall through to resetToSourceBounds instead.
-    const n = next.nodes.i1!;
-    if (n.kind !== 'shape' || n.shape.kind !== 'rect') throw new Error('expected rect');
-    const fill = n.fills?.find((f) => f.type === 'image')?.image;
-    expect(fill?.x).toBe(0);
-    expect(fill?.y).toBe(0);
-    expect(fill?.scale).toBe(1);
+    // (the node's own shape bounds), which is a same-size no-op crop — not a
+    // trim. A trim with nothing to measure must fail without touching the
+    // document, not silently reset an existing crop or fit state.
+    await expect(trimToSubject(doc, 'i1')).rejects.toThrow(TrimBoundsUnavailableError);
+    expect(await trimToSubject(doc, 'i1').catch(() => doc)).toBe(doc);
+
+    // The Mask source names the missing mask in its message.
+    await expect(trimToSubject(doc, 'i1', 0, { source: 'mask' })).rejects.toThrow(
+      /no subject mask/,
+    );
+  });
+
+  it('keeps an existing crop intact when a mask trim finds nothing to measure', async () => {
+    let doc = createDocument('t', true);
+    const img = makeImageShapeNode('i1', {
+      src: 'data:image/png;base64,AA',
+      w: 200,
+      h: 100,
+      imageWidth: 200,
+      imageHeight: 100,
+    });
+    doc = { ...doc, nodes: { ...doc.nodes, i1: img }, rootChildren: ['i1'] };
+    // Give the image an existing crop so a failed trim has something to lose.
+    const cropped = await commitImageCropExtended(doc, 'i1', {
+      viewport: { x: 10, y: 10, w: 80, h: 40 },
+    });
+    doc = cropped;
+
+    await expect(trimToSubject(doc, 'i1', 0, { source: 'mask' })).rejects.toThrow(
+      TrimBoundsUnavailableError,
+    );
+    const fill = doc.nodes.i1!.fills?.find((f) => f.type === 'image')?.image;
+    expect(fill?.crop).toBeDefined();
+    expect(fill?.crop?.w).toBeCloseTo(80);
   });
 });
 

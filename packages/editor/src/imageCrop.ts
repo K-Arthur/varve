@@ -822,7 +822,10 @@ async function sourceAlphaTrimBounds(
  * or source alpha via computeVisibleContentBounds, then shrinks the node
  * to those bounds the same way a manual viewport crop would.
  *
- * Falls back to resetToSourceBounds when no tighter bounds can be computed.
+ * Throws TrimBoundsUnavailableError when the requested source cannot produce
+ * bounds: a failed or empty scan must not silently reset an existing crop,
+ * change the aspect ratio, or hide the image (same contract as the alpha
+ * route). The UI surfaces the error inline and the document is untouched.
  */
 export async function trimToSubject(
   doc: Document,
@@ -899,7 +902,17 @@ export async function trimToSubject(
     }
   }
 
-  if (!local) return resetToSourceBounds(doc, nodeId);
+  if (!local) {
+    // A trim with no measurable subject must leave the document untouched.
+    // Resetting here un-cropped the image, cleared fit/rotation/flip, and hid
+    // the actual failure behind an apparently successful "trim" — press Trim
+    // with an empty or undecodable mask and the composition silently changed.
+    throw new TrimBoundsUnavailableError(
+      source === 'mask'
+        ? 'The image has no subject mask to trim to. Apply a mask first, or switch the source to Alpha to trim to image transparency. Nothing was changed.'
+        : 'No subject bounds could be measured from the mask or the image transparency. Nothing was changed.',
+    );
+  }
 
   const padded = padding > 0 ? paddingBounds(local, padding) : local;
   // Clamp to the node's own current bounds — the computed subject can't
