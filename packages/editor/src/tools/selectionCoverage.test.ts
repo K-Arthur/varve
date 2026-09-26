@@ -79,8 +79,15 @@ describe('selectionCoverageForRasterNode', () => {
     );
     expect(translated).toMatchObject({ x: 0, y: 0, width: 2, height: 2 });
     expect([...translated!.data]).toEqual([255, 255, 255, 255]);
-    expect(
-      selectionCoverageForRasterNode(selection!, { width: 8, height: 8 }, [0, 0, 0, 0, 0, 0]),
-    ).toBeNull();
+    // A singular transform yields an *empty* mask, not null: null would mean
+    // "no selection" and silently un-clip the operation (semantics added by
+    // e6ca12e68; this assertion was left stale by that change).
+    const singular = selectionCoverageForRasterNode(
+      selection!,
+      { width: 8, height: 8 },
+      [0, 0, 0, 0, 0, 0],
+    );
+    expect(singular).toMatchObject({ x: 0, y: 0, width: 0, height: 0 });
+    expect(singular?.data).toHaveLength(0);
   });
 });
