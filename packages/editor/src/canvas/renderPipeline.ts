@@ -26,13 +26,11 @@ import {
   applyBindingsToNode,
   applySoloToDocument,
   buildAllVariantCaches,
-  buildParentIndexMap,
   createVariableStore,
   type Document,
   documentHasSolo,
   effectivePaintOrder,
   getEffectiveNode,
-  isAnimatedMediaNode,
   isContainer,
   isWarpedContainer,
   type NodeId,
@@ -44,7 +42,7 @@ import {
 import {
   type Camera,
   computeFloatingOrigin,
-  isWorldRectInViewport,
+  createWorldRectViewportTest,
   managedColorToCss,
   managedColorToRgba,
   resolveBlendEvaluationSpace,
@@ -94,6 +92,7 @@ import {
 } from '../render/treatmentSpace';
 import { workerHasFontsForDocument } from '../render/workerFonts';
 import { type MasterOffset, offsetWorldBounds, offsetWorldTransform } from '../scene/masterOffsets';
+import { committedParentIndex } from '../scene/parentIndexCache';
 import {
   getWorldBounds as getCachedWorldBounds,
   getWorldTransform as getCachedWorldTransform,
@@ -153,6 +152,7 @@ import {
   startFrameTiming,
 } from './perfRuntime';
 import { drawPageDecorations, tryPresentWorkerFrame } from './presentWorkerFrame';
+import { renderDocumentFacts } from './renderDocumentFacts';
 import type { NodeHashMemo, SubtreeIrCache } from './subtreeIrCache';
 import { appearancePaddingWorld, expandRect, nodeVisualWorldBounds } from './visualBounds';
 
@@ -679,7 +679,8 @@ export function renderContent(deps: RenderContentDeps): void {
     // order and carries the placement needed by the renderer.
     const hasMasterProjection = entries.some((entry) => entry.masterPlacement !== undefined);
     const nodeWork = createNodeWorkCounters();
-    nodeWork.totalSceneNodes = Object.keys(doc.nodes).length;
+    const documentFacts = renderDocumentFacts(doc);
+    nodeWork.totalSceneNodes = documentFacts.nodeCount;
     nodeWork.candidates = entries.length;
     const cache = transformCacheRef.current;
     // Use parent client dimensions (cssW/cssH) instead of getBoundingClientRect()
@@ -690,6 +691,8 @@ export function renderContent(deps: RenderContentDeps): void {
     const VP_H = cssH;
     const camState = { zoom: s.zoom, pan: s.pan, cameraRotation: s.cameraRotation };
     const cam = editorToCamera(camState);
+    // One camera affine per frame for culling every scene node.
+    const inViewport = createWorldRectViewportTest(cam, vp);
     const applyCam = (targetCtx: CanvasRenderingContext2D) =>
       applyEditorCameraToCtx(targetCtx, camState, dpr, vp);
     const hiddenByContainer = new Set<string>();
@@ -711,12 +714,12 @@ export function renderContent(deps: RenderContentDeps): void {
         'children' in n &&
         n.children.length > 0
       ) {
-        parentIndex ??= buildParentIndexMap(doc);
+        parentIndex ??= committedParentIndex(doc);
         const unplacedBounds = nodeVisualWorldBounds(doc, id, resolvedStyles, parentIndex);
         const containerBounds = entry.masterPlacement
           ? offsetWorldBounds(unplacedBounds, entry.masterPlacement)
           : unplacedBounds;
-        if (containerBounds && !isWorldRectInViewport(cam, vp, containerBounds)) {
+        if (containerBounds && !inViewport(containerBounds)) {
           const queue = [...n.children];
           while (queue.length > 0) {
             const childId = queue.pop()!;
@@ -860,7 +863,7 @@ export function renderContent(deps: RenderContentDeps): void {
       const visualBounds = worldBounds ? expandRect(worldBounds, padding) : null;
       nodeWork.visibilityTested++;
       if (padding > 0) nodeWork.effectExpanded++;
-      if (visualBounds && !isWorldRectInViewport(cam, vp, visualBounds)) {
+      if (visualBounds && !inViewport(visualBounds)) {
         nodeWork.rejectedByViewport++;
         continue;
       }
@@ -919,7 +922,7 @@ export function renderContent(deps: RenderContentDeps): void {
     // subtrees replay too; their IR is appended (order is irrelevant).
     let replaySet: Set<string> | null = null;
     if (dirtyWorldRects && nodeIds.length > 0) {
-      parentIndex ??= buildParentIndexMap(doc);
+      parentIndex ??= committedParentIndex(doc);
       const expanded = expandReplayList({
         doc,
         appendIds: nodeIds,
@@ -959,14 +962,10 @@ export function renderContent(deps: RenderContentDeps): void {
     }
 
     const docVersion = docVersionRef.current;
-    const animatedNodeIds = new Set<string>();
-
     // Animated-media nodes rebuild their (small) per-node IR each frame —
     // the media frame index rides in the fill, so subtree IR caching
-    // would serve stale frames.
-    for (const node of Object.values(doc.nodes)) {
-      if (node && isAnimatedMediaNode(node, doc)) animatedNodeIds.add(node.id);
-    }
+    // would serve stale frames. Copied: timeline tracks are added below.
+    const animatedNodeIds = new Set<string>(documentFacts.animatedMediaNodeIds);
 
     if (s.motion.activeTimelineId) {
       const activeTl = doc.timelines?.[s.motion.activeTimelineId];
@@ -1457,7 +1456,7 @@ export function renderContent(deps: RenderContentDeps): void {
             }
           } else {
             for (const childId of effectivePaintOrder(doc, n)) {
-              parentIndex ??= buildParentIndexMap(doc);
+              parentIndex ??= committedParentIndex(doc);
               const b = nodeVisualWorldBounds(doc, childId, resolvedStyles, parentIndex);
               if (b) {
                 minX = Math.min(minX, b.x);
@@ -1738,7 +1737,7 @@ export function renderContent(deps: RenderContentDeps): void {
         for (const nid of targetIds) {
           const raw = doc.nodes[nid];
           if (!raw || raw.visible === false) continue;
-          parentIndex ??= buildParentIndexMap(doc);
+          parentIndex ??= committedParentIndex(doc);
           const unplacedBounds = nodeVisualWorldBounds(doc, nid, resolvedStyles, parentIndex);
           const b = masterPlacement
             ? offsetWorldBounds(unplacedBounds, masterPlacement)

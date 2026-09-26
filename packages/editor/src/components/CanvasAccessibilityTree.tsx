@@ -16,8 +16,9 @@ import type {
   NodeId,
   ResolvedEditorSceneScope,
 } from '@varve/scene';
-import { assertOccurrencesInScope, buildParentIndexMap } from '@varve/scene';
+import { assertOccurrencesInScope } from '@varve/scene';
 import { useMemo } from 'react';
+import { committedParentIndex } from '../scene/parentIndexCache';
 
 interface CanvasAccessibilityTreeProps {
   doc: Document;
@@ -68,7 +69,7 @@ export function CanvasAccessibilityTree({
     // nodeWorldBounds falls back to an O(n) linear scan (getParent) per call
     // when no parentIndex is passed. Called once per node here, that made
     // this memo O(n^2) in node count on every doc/camera/viewport change.
-    const parentIndex = buildParentIndexMap(doc);
+    const parentIndex = committedParentIndex(doc);
     const result: Array<{
       id: string;
       nodeId: string;

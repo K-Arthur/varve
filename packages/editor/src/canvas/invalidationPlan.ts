@@ -10,7 +10,7 @@
  * world bounds can be a union of its children's bounds — invalidated.
  */
 import type { Document, NodeId } from '@varve/scene';
-import { buildParentIndexMap } from '@varve/scene';
+import { committedParentIndex } from '../scene/parentIndexCache';
 import { computeDocumentDirtyRegion, pagePlacementChanged } from './dirtyRegion';
 
 export interface InvalidationPlan {
@@ -46,7 +46,7 @@ export function computeInvalidationPlan(previous: Document, next: Document): Inv
   // are the union of its descendants' bounds, so a change anywhere in a group
   // invalidates every enclosing container up the chain. Skipping levels would
   // leave a grandparent group serving a stale cached union from transformCache.
-  const parents = buildParentIndexMap(next);
+  const parents = committedParentIndex(next);
   for (const id of [...changedIds]) {
     let parent = parents.get(id);
     while (parent) {

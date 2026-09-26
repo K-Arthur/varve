@@ -18,7 +18,6 @@
 
 import {
   assertOccurrencesInScope,
-  buildParentIndexMap,
   buildPlacedScene,
   type Document,
   multipageRootNodes,
@@ -35,6 +34,7 @@ import {
   type Viewport,
   worldToScreen,
 } from '@varve/shared';
+import { committedParentIndex } from '../../scene/parentIndexCache';
 import { nodeWorldBounds } from '../../scene/world';
 
 /* -------------------------------------------------------------------------- */
@@ -323,7 +323,7 @@ export function buildMinimapScene(
       ? null
       : options.designCanvasId;
   const entries: MinimapEntry[] = [];
-  const parentIndex = buildParentIndexMap(doc);
+  const parentIndex = committedParentIndex(doc);
   if (options.sceneScope) {
     collectOccurrenceEntries(
       doc,

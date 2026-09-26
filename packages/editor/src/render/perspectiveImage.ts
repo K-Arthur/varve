@@ -268,8 +268,22 @@ export function decoratePerspectiveImages(input: PerspectiveDecorateInput): void
   }
 }
 
-/** True when a document contains a perspective image that needs DOM replay. */
+let lastPerspectiveDoc: Document | null = null;
+let lastPerspectiveResult = false;
+
+/**
+ * True when a document contains a perspective image that needs DOM replay.
+ * Asked on every canvas frame; memoized for the last (immutable) document.
+ */
 export function documentHasPerspectiveImage(doc: Document): boolean {
+  if (lastPerspectiveDoc !== doc) {
+    lastPerspectiveResult = computeHasPerspectiveImage(doc);
+    lastPerspectiveDoc = doc;
+  }
+  return lastPerspectiveResult;
+}
+
+function computeHasPerspectiveImage(doc: Document): boolean {
   return Object.values(doc.nodes).some(
     (node) =>
       node?.kind === 'shape' &&

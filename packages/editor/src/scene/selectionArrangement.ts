@@ -8,7 +8,6 @@
  */
 
 import {
-  buildParentIndexMap,
   type Document,
   designCanvasContentRoot,
   type NodeId,
@@ -33,6 +32,7 @@ import {
   type TidyLayoutOptions,
   tryInvertAffine,
 } from '@varve/shared';
+import { committedParentIndex } from './parentIndexCache';
 import { groupWorldBounds, nodeLocalBounds, nodeWorldBounds, nodeWorldTransform } from './world';
 
 const POSITION_EPSILON = 1e-9;
@@ -216,7 +216,7 @@ export function commonAlignmentContainerBounds(
   doc: Document,
   selection: readonly NodeId[],
 ): BBox | null {
-  const parentIndex = buildParentIndexMap(doc);
+  const parentIndex = committedParentIndex(doc);
   const requested = new Set(selection.filter((id) => doc.nodes[id] !== undefined));
   const roots = [...requested].filter((id) => !hasSelectedAncestor(id, requested, parentIndex));
   const first = roots[0];
@@ -321,7 +321,7 @@ export function planManualWorldTranslation(
   delta: { x: number; y: number },
 ): ManualWorldTranslationPlan {
   const origins = new Map<NodeId, { x: number; y: number }>();
-  const parentIndex = buildParentIndexMap(doc);
+  const parentIndex = committedParentIndex(doc);
   for (const id of selection) {
     if (!doc.nodes[id]) continue;
     const world = nodeWorldTransform(doc, id, parentIndex);
@@ -721,7 +721,7 @@ function collectManualPositionRoots(
   doc: Document,
   selection: readonly NodeId[],
 ): CollectedManualPositionRoots {
-  const parentIndex = buildParentIndexMap(doc);
+  const parentIndex = committedParentIndex(doc);
   const requested = new Set<NodeId>();
   let skippedCount = 0;
 

@@ -29,7 +29,7 @@ import {
   computeFloatingOrigin,
   multiplyAffine,
   tryInvertAffine,
-  worldToScreen,
+  worldToScreenProjector,
 } from '@varve/shared';
 import { placedLiveBooleanBounds, resolvePlacedLiveBoolean } from './liveBooleanGeometry';
 import type { PagePlacementMap } from './pagePlacement';
@@ -187,14 +187,14 @@ export function nodeWorldTransform(
  * editing controls away from the rendered frame.
  */
 export function worldRectToScreenAabb(worldRect: Rect, camera: Camera, viewport: Viewport): Rect {
-  const origin = computeFloatingOrigin(camera, viewport);
+  const project = worldToScreenProjector(camera, viewport, computeFloatingOrigin(camera, viewport));
   const corners: Point[] = [
     [worldRect.x, worldRect.y],
     [worldRect.x + worldRect.w, worldRect.y],
     [worldRect.x, worldRect.y + worldRect.h],
     [worldRect.x + worldRect.w, worldRect.y + worldRect.h],
   ];
-  const projected = corners.map(([x, y]) => worldToScreen(camera, x, y, viewport, origin));
+  const projected = corners.map(([x, y]) => project(x, y));
   const xs = projected.map(([x]) => x);
   const ys = projected.map(([, y]) => y);
   const x = Math.min(...xs);

@@ -8,7 +8,6 @@
 
 import type { Document, NodeId, RasterLayerNode } from '@varve/scene';
 import {
-  buildParentIndexMap,
   findAllCompositingDependents,
   isContainer,
   pageBoundsInWorld,
@@ -17,6 +16,7 @@ import {
   TILE_SIZE,
 } from '@varve/scene';
 import type { Rect } from '@varve/shared';
+import { committedParentIndex } from '../scene/parentIndexCache';
 import { PAGE_LABEL_BAND } from './pageDecorations';
 import { nodeVisualWorldBounds } from './visualBounds';
 
@@ -80,6 +80,12 @@ export class DirtyRegionRecorder {
   reset(): void {
     this.records.length = 0;
     this.truncatedCount = 0;
+  }
+
+  /** Append another recorder's observations as if they had been added here. */
+  absorb(other: DirtyRegionRecorder): void {
+    for (const record of other.records) this.add(record.rect, record.reason, record.nodeId);
+    this.truncatedCount += other.truncatedCount;
   }
 }
 
@@ -194,6 +200,19 @@ function nodeAlphaMaskIdentity(
   return node.backgroundRemoval?.maskDataUrl ?? '';
 }
 
+/**
+ * The editor asks for the same document pair twice per frame: CanvasArea's
+ * invalidation plan during render, then the renderer's frame dirty region.
+ * Each evaluation is O(document) (style resolution and compositing graphs for
+ * both sides), and the answer is deterministic for immutable documents, so
+ * the last pair's result and recorded rectangles are reused.
+ */
+let lastDirtyPrevious: Document | null = null;
+let lastDirtyNext: Document | null = null;
+let lastDirtyParentIndex: Map<NodeId, NodeId> | undefined;
+let lastDirtyResult: DirtyRegion | null = null;
+const lastDirtyRecords = new DirtyRegionRecorder();
+
 export function computeDocumentDirtyRegion(
   previous: Document,
   next: Document,
@@ -203,6 +222,31 @@ export function computeDocumentDirtyRegion(
   recorder?: DirtyRegionRecorder,
 ): DirtyRegion {
   if (previous === next || forceFull) return { kind: forceFull ? 'full' : 'none' };
+  if (
+    lastDirtyResult &&
+    lastDirtyPrevious === previous &&
+    lastDirtyNext === next &&
+    lastDirtyParentIndex === nextParentIndex
+  ) {
+    recorder?.absorb(lastDirtyRecords);
+    return lastDirtyResult;
+  }
+  lastDirtyRecords.reset();
+  const result = evaluateDocumentDirtyRegion(previous, next, nextParentIndex, lastDirtyRecords);
+  lastDirtyPrevious = previous;
+  lastDirtyNext = next;
+  lastDirtyParentIndex = nextParentIndex;
+  lastDirtyResult = result;
+  recorder?.absorb(lastDirtyRecords);
+  return result;
+}
+
+function evaluateDocumentDirtyRegion(
+  previous: Document,
+  next: Document,
+  nextParentIndex: Map<NodeId, NodeId> | undefined,
+  recorder: DirtyRegionRecorder,
+): DirtyRegion {
   const changedNodeIds = new Set<NodeId>([
     ...Object.keys(previous.nodes).filter((id) => previous.nodes[id] !== next.nodes[id]),
     ...Object.keys(next.nodes).filter((id) => previous.nodes[id] !== next.nodes[id]),
@@ -245,7 +289,7 @@ export function computeDocumentDirtyRegion(
       }
     }
     if (movedIds.size > 0) {
-      const parents = buildParentIndexMap(next);
+      const parents = committedParentIndex(next);
       for (const id of movedIds) {
         const node = next.nodes[id];
         if (!node || node.visible === false) continue;
@@ -262,7 +306,7 @@ export function computeDocumentDirtyRegion(
           previous,
           id,
           previousStyles,
-          buildParentIndexMap(previous),
+          committedParentIndex(previous),
         );
         if (beforeBounds) {
           recorder?.add(beforeBounds, 'node-before', id);
@@ -308,7 +352,7 @@ export function computeDocumentDirtyRegion(
     changed = true;
 
     if (before === after && dependencyIds.has(id)) {
-      if (!nextParents) nextParents = buildParentIndexMap(next);
+      if (!nextParents) nextParents = committedParentIndex(next);
       const parents = nextParents;
       const dependentBounds = nodeVisualWorldBounds(next, id, nextStyles, parents);
       if (!dependentBounds) return { kind: 'full' };
@@ -355,8 +399,8 @@ export function computeDocumentDirtyRegion(
     }
 
     if (before && after) {
-      previousParents ??= buildParentIndexMap(previous);
-      nextParents ??= nextParentIndex ?? buildParentIndexMap(next);
+      previousParents ??= committedParentIndex(previous);
+      nextParents ??= nextParentIndex ?? committedParentIndex(next);
       const beforeBounds = nodeVisualWorldBounds(previous, id, previousStyles, previousParents);
       const afterBounds = nodeVisualWorldBounds(next, id, nextStyles, nextParents);
       if (!beforeBounds && !afterBounds) {
@@ -376,8 +420,8 @@ export function computeDocumentDirtyRegion(
       // Added or removed node: only one side has a bound to compute.
       const doc = after ? next : previous;
       const styles = after ? nextStyles : previousStyles;
-      nextParents ??= after ? (nextParentIndex ?? buildParentIndexMap(next)) : undefined;
-      previousParents ??= after ? undefined : buildParentIndexMap(previous);
+      nextParents ??= after ? (nextParentIndex ?? committedParentIndex(next)) : undefined;
+      previousParents ??= after ? undefined : committedParentIndex(previous);
       const changedBounds = nodeVisualWorldBounds(
         doc,
         id,

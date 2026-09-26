@@ -8,6 +8,25 @@ import { hasActiveSmartFilters, isInIsolatedSubtree } from '@varve/scene';
 let _prevDoc: Document | null = null;
 let _prevResult = false;
 
+/**
+ * Single-entry memo keyed by committed document identity. These scans run on
+ * every canvas frame (branch selection, present gate, worker admission) and
+ * each walks every node; documents are immutable, so the answer for the
+ * frame's document never changes. One entry matches the existing
+ * `sceneNeedsStructuralCompositing` cache and retains no history.
+ */
+function memoizeLastDocument<T>(compute: (doc: Document) => T): (doc: Document) => T {
+  let lastDoc: Document | null = null;
+  let lastResult: T;
+  return (doc) => {
+    if (lastDoc !== doc) {
+      lastResult = compute(doc);
+      lastDoc = doc;
+    }
+    return lastResult;
+  };
+}
+
 export function sceneNeedsStructuralCompositing(doc: Document): boolean {
   if (_prevDoc === doc) return _prevResult;
   _prevDoc = doc;
@@ -116,7 +135,11 @@ function computeHasImageFills(doc: Document): boolean {
   return false;
 }
 
-function sceneHasUnsupportedWorkerRasterResources(doc: Document): boolean {
+const sceneHasUnsupportedWorkerRasterResources = memoizeLastDocument(
+  computeHasUnsupportedWorkerRasterResources,
+);
+
+function computeHasUnsupportedWorkerRasterResources(doc: Document): boolean {
   for (const node of Object.values(doc.nodes)) {
     if (!node) continue;
     const fills = (
@@ -148,8 +171,11 @@ function sceneHasUnsupportedWorkerRasterResources(doc: Document): boolean {
   return false;
 }
 
-/** Image src URLs on visible image fills in the document. */
-export function imageFillSrcsInDocument(doc: Document): string[] {
+/** Image src URLs on visible image fills in the document. Callers must not mutate it. */
+export const imageFillSrcsInDocument: (doc: Document) => readonly string[] =
+  memoizeLastDocument(computeImageFillSrcs);
+
+function computeImageFillSrcs(doc: Document): string[] {
   const srcs = new Set<string>();
   for (const node of Object.values(doc.nodes)) {
     if (!node) continue;
@@ -204,7 +230,11 @@ export function sceneCanUseWorkerRenderer(
  * Source-range features are also held back: they require a glyph-ID shaper
  * and must not be approximated by splitting a joining run.
  */
-export function sceneNeedsMainThreadTypography(doc: Document): boolean {
+export const sceneNeedsMainThreadTypography: (doc: Document) => boolean = memoizeLastDocument(
+  computeNeedsMainThreadTypography,
+);
+
+function computeNeedsMainThreadTypography(doc: Document): boolean {
   for (const node of Object.values(doc.nodes)) {
     if (node?.kind !== 'text') continue;
     if (textNeedsMainThreadTypography(node)) return true;

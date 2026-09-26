@@ -450,3 +450,36 @@ describe('HitTestEngine', () => {
     });
   });
 });
+
+describe('HitTestEngine document structure reuse', () => {
+  it('never serves a previous document revision after an immutable move', () => {
+    const { doc, rectId } = makeDocWithRect(0, 0, 10, 10);
+    expect(new HitTestEngine(doc).hitTest({ x: 5, y: 5 })?.nodeId).toBe(rectId);
+    // Repeated engines over the same committed document (the hover path).
+    expect(new HitTestEngine(doc).hitTest({ x: 5, y: 5 })?.nodeId).toBe(rectId);
+
+    const moved = {
+      ...doc,
+      nodes: {
+        ...doc.nodes,
+        [rectId]: { ...doc.nodes[rectId]!, transform: [1, 0, 0, 1, 500, 500] as Affine },
+      },
+    };
+    const engine = new HitTestEngine(moved);
+    expect(engine.hitTest({ x: 5, y: 5 })).toBeNull();
+    expect(engine.hitTest({ x: 505, y: 505 })?.nodeId).toBe(rectId);
+    // The older revision is still answered from its own geometry.
+    expect(new HitTestEngine(doc).hitTest({ x: 5, y: 5 })?.nodeId).toBe(rectId);
+  });
+
+  it('finds the same target far zoomed out, where the occupied-cell scan applies', () => {
+    const { doc, rectId } = makeDocWithRect(10_000, 10_000, 10, 10);
+    // At 0.1% zoom the tolerance square spans thousands of 64-unit cells,
+    // far more than the single occupied cell in this document.
+    const far = new HitTestEngine(doc, { zoom: 0.001 });
+    expect(far.hitTest({ x: 10_005, y: 10_005 })?.nodeId).toBe(rectId);
+    expect(far.hitTest({ x: -50_000, y: -50_000 })).toBeNull();
+    const near = new HitTestEngine(doc, { zoom: 1 });
+    expect(near.hitTest({ x: 10_005, y: 10_005 })?.nodeId).toBe(rectId);
+  });
+});

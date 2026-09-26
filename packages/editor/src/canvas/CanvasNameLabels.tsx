@@ -5,13 +5,13 @@
  */
 import {
   assertOccurrencesInScope,
-  buildParentIndexMap,
   type Document,
   type NodeId,
   type ResolvedEditorSceneScope,
 } from '@varve/scene';
 import type { Viewport } from '@varve/shared';
 import { useMemo } from 'react';
+import { committedParentIndex } from '../scene/parentIndexCache';
 import { nodeWorldBounds, worldRectToScreenAabb } from '../scene/world';
 import { toCamera } from './cameraState';
 import { type NameLabelCandidate, pickNameLabelCandidates } from './nameLabelPolicy';
@@ -44,7 +44,7 @@ function collectCandidates(
   editingNodeId: NodeId | null | undefined,
 ): NameLabelCandidate[] {
   const selectedIds = new Set(selection);
-  const parents = buildParentIndexMap(doc);
+  const parents = committedParentIndex(doc);
   const out: NameLabelCandidate[] = [];
 
   for (const [paintOrder, entry] of scope.occurrences.entries()) {
@@ -85,9 +85,15 @@ export function CanvasNameLabels({
   hoveredNodeId = null,
   editingNodeId = null,
 }: CanvasNameLabelsProps) {
+  // World-space candidates do not depend on the camera. Keeping them out of
+  // the projection memo means a pan or zoom frame re-projects and re-picks
+  // only, instead of recomputing every occurrence's world bounds.
+  const candidates = useMemo(
+    () => collectCandidates(doc, scope, selection, hoveredNodeId, editingNodeId),
+    [doc, editingNodeId, hoveredNodeId, scope, selection],
+  );
   const labels = useMemo(() => {
     const camera = toCamera({ zoom, pan, cameraRotation });
-    const candidates = collectCandidates(doc, scope, selection, hoveredNodeId, editingNodeId);
     const picked = pickNameLabelCandidates(candidates, {
       zoom,
       viewportW: viewport.width,
@@ -111,7 +117,7 @@ export function CanvasNameLabels({
       picked.map((label) => label.id),
     );
     return picked;
-  }, [cameraRotation, doc, editingNodeId, hoveredNodeId, pan, scope, selection, viewport, zoom]);
+  }, [cameraRotation, candidates, pan, scope, viewport, zoom]);
 
   if (labels.length === 0) return null;
 

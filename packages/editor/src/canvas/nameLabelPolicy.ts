@@ -113,22 +113,20 @@ export function shouldShowNameLabel(opts: {
 /**
  * Pick nodes that should show name labels, prioritize frames, cull off-screen.
  */
-export function pickNameLabelCandidates(
+/**
+ * Priority order is independent of the camera. Callers keep the candidate
+ * array stable across pan/zoom frames, so the sort is cached per array.
+ */
+const orderedByCandidates = new WeakMap<
+  NameLabelCandidate[],
+  Array<{ candidate: NameLabelCandidate; index: number }>
+>();
+
+function orderedCandidates(
   candidates: NameLabelCandidate[],
-  opts: {
-    zoom: number;
-    viewportW: number;
-    viewportH: number;
-    /** World→screen projected top-left + size. */
-    project: (c: NameLabelCandidate) => {
-      screenX: number;
-      screenY: number;
-      screenW: number;
-      screenH: number;
-    };
-  },
-): NameLabelPlacement[] {
-  const out: NameLabelPlacement[] = [];
+): Array<{ candidate: NameLabelCandidate; index: number }> {
+  const cached = orderedByCandidates.get(candidates);
+  if (cached) return cached;
   const indexed = candidates.map((candidate, index) => ({ candidate, index }));
   const sorted = indexed.sort((a, b) => {
     const priority = (candidate: NameLabelCandidate): number => {
@@ -147,6 +145,27 @@ export function pickNameLabelCandidates(
     }
     return a.candidate.id.localeCompare(b.candidate.id);
   });
+  orderedByCandidates.set(candidates, sorted);
+  return sorted;
+}
+
+export function pickNameLabelCandidates(
+  candidates: NameLabelCandidate[],
+  opts: {
+    zoom: number;
+    viewportW: number;
+    viewportH: number;
+    /** World→screen projected top-left + size. */
+    project: (c: NameLabelCandidate) => {
+      screenX: number;
+      screenY: number;
+      screenW: number;
+      screenH: number;
+    };
+  },
+): NameLabelPlacement[] {
+  const out: NameLabelPlacement[] = [];
+  const sorted = orderedCandidates(candidates);
   const occupied: Array<{ x: number; y: number; w: number; h: number }> = [];
 
   for (const { candidate: c } of sorted) {

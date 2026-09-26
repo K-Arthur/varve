@@ -31,8 +31,12 @@ export function getOrCreateParentCache(
   cache?: ParentIndexCache | null,
 ): ParentIndexCache {
   if (cache && cache.docRef === doc) return cache;
+  // The provider, Layers panel, Layers tree, and selection context each hold
+  // their own cache ref, so one document change rebuilt this index for every
+  // holder. Share the most recent build under the same identity contract.
+  if (lastSharedParentCache?.docRef === doc) return lastSharedParentCache;
 
-  const raw = buildParentIndexMap(doc);
+  const raw = committedParentIndex(doc);
   const parentMap: Map<NodeId, NodeId | null> = new Map();
 
   for (const [childId, parentId] of raw) {
@@ -45,8 +49,11 @@ export function getOrCreateParentCache(
     }
   }
 
-  return { parentMap, docRef: doc };
+  lastSharedParentCache = { parentMap, docRef: doc };
+  return lastSharedParentCache;
 }
+
+let lastSharedParentCache: ParentIndexCache | null = null;
 
 /**
  * O(1) parent lookup using cached index.
@@ -92,4 +99,72 @@ export function isDescendantFast(
     current = getParent(doc, current);
   }
   return false;
+}
+
+/**
+ * A parent map shared between consumers. Mutation after construction throws,
+ * so one consumer cannot corrupt another's view of the document.
+ */
+class SealedParentIndex extends Map<NodeId, NodeId> {
+  #sealed = false;
+
+  seal(): this {
+    this.#sealed = true;
+    return this;
+  }
+
+  override set(key: NodeId, value: NodeId): this {
+    if (this.#sealed) throw new Error('committedParentIndex maps are shared and read-only');
+    return super.set(key, value);
+  }
+
+  override delete(key: NodeId): boolean {
+    if (this.#sealed) throw new Error('committedParentIndex maps are shared and read-only');
+    return super.delete(key);
+  }
+
+  override clear(): void {
+    if (this.#sealed) throw new Error('committedParentIndex maps are shared and read-only');
+    super.clear();
+  }
+}
+
+const COMMITTED_PARENT_INDEX_CAPACITY = 4;
+const committedParentIndexes: Array<{ nodes: Document['nodes']; index: Map<NodeId, NodeId> }> = [];
+
+/**
+ * The child → parent map (same contents as `buildParentIndexMap`) for a
+ * committed, immutable document, shared by every read-only consumer.
+ *
+ * During a drag, name labels, the accessibility tree, Inspector restrictions,
+ * the align bar, move planning, and both dirty-region passes each rebuilt this
+ * map for the same document every frame (16% of main-thread time at 10k
+ * nodes). Keyed by the `nodes` record — the map's only input — and bounded to
+ * the most recent records, because undo history keeps old documents alive.
+ *
+ * Only for documents that are no longer being edited in place. Code that
+ * builds a document by mutating a fresh `nodes` record must keep using
+ * `buildParentIndexMap` until the record is published.
+ */
+export function committedParentIndex(doc: Document): Map<NodeId, NodeId> {
+  const nodes = doc.nodes;
+  for (let i = 0; i < committedParentIndexes.length; i++) {
+    const entry = committedParentIndexes[i]!;
+    if (entry.nodes !== nodes) continue;
+    if (i > 0) {
+      committedParentIndexes.splice(i, 1);
+      committedParentIndexes.unshift(entry);
+    }
+    return entry.index;
+  }
+  // Filled after construction: Map's constructor would call the overridden
+  // `set` before the subclass's private field exists.
+  const index = new SealedParentIndex();
+  for (const [childId, parentId] of buildParentIndexMap(doc)) index.set(childId, parentId);
+  index.seal();
+  committedParentIndexes.unshift({ nodes, index });
+  if (committedParentIndexes.length > COMMITTED_PARENT_INDEX_CAPACITY) {
+    committedParentIndexes.pop();
+  }
+  return index;
 }

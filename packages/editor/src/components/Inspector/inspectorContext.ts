@@ -1,5 +1,6 @@
-import { buildParentIndexMap, type Document, type NodeId, type SceneNode } from '@varve/scene';
+import type { Document, NodeId, SceneNode } from '@varve/scene';
 import type { EditorState } from '../../context/types';
+import { committedParentIndex } from '../../scene/parentIndexCache';
 import { toolLabel } from '../../tools/toolRegistry';
 import type { ToolId } from '../../tools/types';
 import type { WorkspaceMode } from '../../workspace/workspaceTypes';
@@ -135,7 +136,7 @@ function restrictionState(
   const nodesById = new Map<NodeId, SceneNode>(
     Object.values(document.nodes).map((node) => [node.id, node]),
   );
-  const parentIndex = buildParentIndexMap(document);
+  const parentIndex = committedParentIndex(document);
   const locked = nodeIdsWithRestriction(nodes, parentIndex, nodesById, 'locked');
   const hidden = nodeIdsWithRestriction(nodes, parentIndex, nodesById, 'visible');
 

@@ -33,7 +33,6 @@ import type {
   ShapeNode,
 } from '@varve/scene';
 import {
-  buildParentIndexMap,
   deriveGeometryFromPaints,
   isLiveBooleanNode,
   isWarpedContainer,
@@ -51,7 +50,7 @@ import {
 } from '@varve/shared';
 import { resolvePlacedLiveBoolean } from '../scene/liveBooleanGeometry';
 import { type MasterOffset, offsetWorldBounds, offsetWorldTransform } from '../scene/masterOffsets';
-import { getOrCreateSpatialIndex, queryPoint } from '../scene/spatialIndex';
+import { buildSpatialIndex, queryPoint, type SpatialIndex } from '../scene/spatialIndex';
 import { nodeWorldBounds, nodeWorldTransform } from '../scene/world';
 import { evaluateWarpedContainerItems } from '../warp/warpContainerRender';
 import {
@@ -62,6 +61,81 @@ import {
 } from './HitTestPolicy';
 
 const CELL_SIZE = 64;
+
+/**
+ * Document-derived hit-test structures, shared by every engine built for the
+ * same committed document. Hover builds an engine per pointer sample; without
+ * this, each sample rebuilt the parent map, the whole spatial index and the
+ * occurrence list — three O(document) passes per hover (measured as the
+ * largest hover cost on a 10k-node document). Committed documents are
+ * immutable, so identity is a sound key. Only the most recent documents are
+ * retained: undo history keeps old documents alive, and an index per retained
+ * revision would grow memory with history length.
+ */
+interface DocumentHitStructures {
+  readonly doc: Document;
+  spatialIndex: SpatialIndex | null;
+  parentIndex: Map<NodeId, NodeId> | null;
+  readonly occurrences: Map<string, ScopeOccurrences>;
+}
+
+interface ScopeOccurrences {
+  readonly entries: readonly MultipageNodeInstance[];
+  readonly hasMasterPlacement: boolean;
+}
+
+const RECENT_DOCUMENT_CAPACITY = 2;
+const recentDocuments: DocumentHitStructures[] = [];
+
+function documentHitStructures(doc: Document): DocumentHitStructures {
+  const index = recentDocuments.findIndex((entry) => entry.doc === doc);
+  if (index === 0) return recentDocuments[0]!;
+  if (index > 0) {
+    const [entry] = recentDocuments.splice(index, 1);
+    recentDocuments.unshift(entry!);
+    return entry!;
+  }
+  const created: DocumentHitStructures = {
+    doc,
+    spatialIndex: null,
+    parentIndex: null,
+    occurrences: new Map(),
+  };
+  recentDocuments.unshift(created);
+  if (recentDocuments.length > RECENT_DOCUMENT_CAPACITY) recentDocuments.pop();
+  return created;
+}
+
+function spatialIndexFor(structures: DocumentHitStructures): SpatialIndex {
+  structures.spatialIndex ??= buildSpatialIndex(structures.doc);
+  return structures.spatialIndex;
+}
+
+function parentIndexFor(structures: DocumentHitStructures): Map<NodeId, NodeId> {
+  // The spatial index already carries a parent map for its own document.
+  structures.parentIndex ??= spatialIndexFor(structures).parentIndex;
+  return structures.parentIndex;
+}
+
+function scopeOccurrences(
+  structures: DocumentHitStructures,
+  masterEditId: NodeId | null | undefined,
+  designCanvasId: NodeId | null | undefined,
+): ScopeOccurrences {
+  const key = `${masterEditId ?? '\u0000'}|${designCanvasId === undefined ? '\u0001' : (designCanvasId ?? '\u0000')}`;
+  let cached = structures.occurrences.get(key);
+  if (!cached) {
+    const entries = multipageNodeInstances(structures.doc, { masterEditId, designCanvasId });
+    cached = { entries, hasMasterPlacement: entries.some((entry) => entry.masterPlacement) };
+    structures.occurrences.set(key, cached);
+  }
+  return cached;
+}
+
+/** Test seam: drop cached document structures. */
+export function __resetHitTestDocumentCache(): void {
+  recentDocuments.length = 0;
+}
 
 function hitGeometry(node: ShapeNode, doc: Document): ShapeNode['shape'] {
   // V2.16+: live warps evaluate the visible (warped) geometry for hit
@@ -119,8 +193,9 @@ export class HitTestEngine {
    * found the O(n^2) pattern in a document-open hang and swept the codebase.
    */
   private readonly parentIndex: Map<NodeId, NodeId>;
-  private readonly entries: MultipageNodeInstance[];
-  private spatialIndex: ReturnType<typeof getOrCreateSpatialIndex>;
+  private readonly entries: readonly MultipageNodeInstance[];
+  private readonly hasMasterPlacement: boolean;
+  private readonly structures: DocumentHitStructures;
 
   constructor(doc: Document, options: HitTestOptions = {}, policy?: HitTestPolicy) {
     this.doc = doc;
@@ -129,14 +204,20 @@ export class HitTestEngine {
     this.policy = policy ?? HIT_TEST_POLICIES.click;
     this.toleranceWorld = screenToWorldTolerance(this.policy.tolerancePx, zoom);
     this.strokeToleranceWorld = screenToWorldTolerance(this.policy.strokeTolerancePx, zoom);
-    this.parentIndex = buildParentIndexMap(doc);
-    this.spatialIndex = getOrCreateSpatialIndex(doc, null);
-    this.entries = options.sceneScope
-      ? [...options.sceneScope.occurrences]
-      : multipageNodeInstances(doc, {
-          masterEditId: options.masterEditId,
-          designCanvasId: options.designCanvasId,
-        });
+    this.structures = documentHitStructures(doc);
+    this.parentIndex = parentIndexFor(this.structures);
+    if (options.sceneScope) {
+      this.entries = options.sceneScope.occurrences;
+      this.hasMasterPlacement = this.entries.some((entry) => entry.masterPlacement);
+    } else {
+      const scoped = scopeOccurrences(
+        this.structures,
+        options.masterEditId,
+        options.designCanvasId,
+      );
+      this.entries = scoped.entries;
+      this.hasMasterPlacement = scoped.hasMasterPlacement;
+    }
   }
 
   /** Create an engine with a specific named policy. */
@@ -167,11 +248,12 @@ export class HitTestEngine {
   hitTest(world: { x: number; y: number }): HitResult | null {
     const candidates = this.queryWithTolerance(world.x, world.y);
 
-    const ordered = [...this.entries].reverse();
     let bestHit: HitResult | null = null;
     let bestDepth = -1;
 
-    for (const entry of ordered) {
+    // Topmost first: walk paint order backwards without copying it.
+    for (let index = this.entries.length - 1; index >= 0; index--) {
+      const entry = this.entries[index]!;
       const n = entry.node;
       if (!this.policy.includeLocked && n.locked) continue;
       if (!this.policy.includeHidden && !n.visible) continue;
@@ -319,11 +401,11 @@ export class HitTestEngine {
   findNodesAtPoint(world: { x: number; y: number }, policy?: HitTestPolicy): HitResult[] {
     const activePolicy = policy ?? this.policy;
     const candidates = this.queryWithTolerance(world.x, world.y);
-    const ordered = [...this.entries].reverse();
     const results: HitResult[] = [];
     const maxCandidates = activePolicy.maxCandidates;
 
-    for (const entry of ordered) {
+    for (let index = this.entries.length - 1; index >= 0; index--) {
+      const entry = this.entries[index]!;
       if (maxCandidates > 0 && results.length >= maxCandidates) break;
 
       const n = entry.node;
@@ -507,21 +589,36 @@ export class HitTestEngine {
     // The spatial index stores unplaced document geometry. Master projections
     // and source-edit views can be translated to a page placement, so a grid
     // lookup would reject visible nodes before precise geometry runs.
-    if (this.entries.some((entry) => entry.masterPlacement)) {
+    if (this.hasMasterPlacement) {
       return new Set(this.entries.map((entry) => entry.nodeId));
     }
+    const spatialIndex = spatialIndexFor(this.structures);
     const toleranceWorld = screenToWorldTolerance(this.policy.tolerancePx, this.options.zoom ?? 1);
     const radiusCells = Math.ceil(toleranceWorld / CELL_SIZE);
     if (radiusCells <= 0) {
-      return queryPoint(this.spatialIndex, x, y);
+      return queryPoint(spatialIndex, x, y);
     }
     const result = new Set<NodeId>();
     const cx = Math.floor(x / CELL_SIZE);
     const cy = Math.floor(y / CELL_SIZE);
+    const side = 2 * radiusCells + 1;
+    // Far zoomed out, the tolerance square spans more cells than the index
+    // occupies (16k probes at 0.1%). Scan occupied cells over the same range
+    // instead; both paths return the identical candidate union.
+    if (side * side > spatialIndex.grid.size) {
+      for (const [key, ids] of spatialIndex.grid) {
+        const separator = key.indexOf(',');
+        const kx = Number(key.slice(0, separator));
+        const ky = Number(key.slice(separator + 1));
+        if (Math.abs(kx - cx) > radiusCells || Math.abs(ky - cy) > radiusCells) continue;
+        for (const id of ids) result.add(id);
+      }
+      return result;
+    }
     for (let dx = -radiusCells; dx <= radiusCells; dx++) {
       for (let dy = -radiusCells; dy <= radiusCells; dy++) {
         const key = `${cx + dx},${cy + dy}`;
-        const ids = this.spatialIndex.grid.get(key);
+        const ids = spatialIndex.grid.get(key);
         if (ids) {
           for (const id of ids) result.add(id);
         }
