@@ -97,8 +97,15 @@ test.describe('Object Selection workflow', () => {
     expect(bounds).not.toBeNull();
     await page.mouse.click(bounds!.x + bounds!.width / 2, bounds!.y + bounds!.height / 2);
 
+    // A constrained device must get an actionable refusal, whichever honest
+    // reason routing reports first: the measured budget rejection, or an
+    // explicit not-installed rejection for the smaller model that would fit.
     await expect(
-      inspector.getByText(/Object Selection needs about .*safe inference budget/i),
+      inspector
+        .getByText(
+          /Object Selection needs about .*safe inference budget|not installed locally\. Install or download it explicitly/i,
+        )
+        .first(),
     ).toBeVisible({ timeout: 30000 });
     await expect(canvas).toBeVisible();
     await testInfo.attach('object-selection-low-memory-real-photo', {
@@ -216,5 +223,132 @@ test.describe('Object Selection workflow', () => {
       body: await canvas.screenshot(),
       contentType: 'image/png',
     });
+  });
+
+  test('accepts a box dragged in the reverse direction through the real pointer path', async ({
+    page,
+  }, testInfo) => {
+    await navigateToEditor(page);
+    await page
+      .locator('#file-import-input')
+      .setInputFiles(path.resolve('tests/e2e/fixtures/test-image.png'));
+    await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 15000 });
+
+    const inspector = page.locator('.editor__inspector-panel');
+    await inspector.getByRole('tab', { name: 'Adjustments' }).click();
+    await inspector.getByRole('button', { name: 'Object Selection' }).click();
+    const promptInput = inspector.getByRole('combobox', {
+      name: 'Object Selection prompt input',
+    });
+    await promptInput.click();
+    await page.getByRole('option', { name: 'Box hint — two taps or drag' }).click();
+    await inspector.getByRole('button', { name: 'Select Object' }).click();
+
+    const canvas = page.getByTestId('editor-canvas');
+    const bounds = await canvas.boundingBox();
+    expect(bounds).not.toBeNull();
+    // Start at the bottom-right corner and drag up-left: the committed box
+    // must normalize its corners instead of collapsing to a degenerate
+    // rectangle (this direction only had unit coverage before).
+    const start = { x: bounds!.x + bounds!.width * 0.7, y: bounds!.y + bounds!.height * 0.75 };
+    const end = { x: bounds!.x + bounds!.width * 0.3, y: bounds!.y + bounds!.height * 0.3 };
+    await page.mouse.move(start.x, start.y);
+    await page.mouse.down();
+    await page.mouse.move(end.x, end.y, { steps: 5 });
+    await page.mouse.up();
+
+    await expect(inspector.getByTestId('object-selection-prompt-count')).toHaveText('1 prompt');
+    await testInfo.attach('object-selection-box-reverse-drag', {
+      body: await canvas.screenshot(),
+      contentType: 'image/png',
+    });
+    await canvas.screenshot({
+      path: testInfo.outputPath('object-selection-box-reverse-drag.png'),
+    });
+  });
+
+  test('keeps sub-threshold jitter a point and turns real drags into a box', async ({
+    page,
+  }, testInfo) => {
+    await navigateToEditor(page);
+    await page
+      .locator('#file-import-input')
+      .setInputFiles(path.resolve('tests/e2e/fixtures/test-image.png'));
+    await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 15000 });
+
+    const inspector = page.locator('.editor__inspector-panel');
+    await inspector.getByRole('tab', { name: 'Adjustments' }).click();
+    await inspector.getByRole('button', { name: 'Object Selection' }).click();
+    await inspector.getByRole('button', { name: 'Select Object' }).click();
+
+    const canvas = page.getByTestId('editor-canvas');
+    const bounds = await canvas.boundingBox();
+    expect(bounds).not.toBeNull();
+    const anchor = { x: bounds!.x + bounds!.width * 0.35, y: bounds!.y + bounds!.height * 0.35 };
+
+    // Two CSS pixels of jitter sit below the 3 CSS px click threshold and
+    // must still commit a point, not a two-pixel box.
+    await page.mouse.move(anchor.x, anchor.y);
+    await page.mouse.down();
+    await page.mouse.move(anchor.x + 2, anchor.y);
+    await page.mouse.up();
+    await expect(inspector.getByTestId('object-selection-prompt-count')).toHaveText('1 prompt');
+
+    // A clearly suprathreshold drag in point mode commits a box on top of the
+    // existing point: the total becomes two prompts. The drag must START away
+    // from the existing marker — a press on the marker is the move gesture by
+    // design. Had the jitter above been misread as a drag, the box here would
+    // have replaced it and the total would stay at one.
+    const dragStart = { x: bounds!.x + bounds!.width * 0.55, y: bounds!.y + bounds!.height * 0.55 };
+    const dragEnd = { x: bounds!.x + bounds!.width * 0.75, y: bounds!.y + bounds!.height * 0.75 };
+    await page.mouse.move(dragStart.x, dragStart.y);
+    await page.mouse.down();
+    await page.mouse.move(dragEnd.x, dragEnd.y, { steps: 4 });
+    await page.mouse.up();
+    await expect(inspector.getByTestId('object-selection-prompt-count')).toHaveText('2 prompts');
+    await testInfo.attach('object-selection-click-vs-drag-threshold', {
+      body: await canvas.screenshot(),
+      contentType: 'image/png',
+    });
+    await canvas.screenshot({
+      path: testInfo.outputPath('object-selection-click-vs-drag-threshold.png'),
+    });
+  });
+
+  test('refuses to run against a multi-selection with an actionable announcement', async ({
+    page,
+  }) => {
+    await navigateToEditor(page);
+    const input = page.locator('#file-import-input');
+    await input.setInputFiles(path.resolve('tests/e2e/fixtures/test-image.png'));
+    await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 15000 });
+    await input.setInputFiles(path.resolve('tests/e2e/fixtures/test-image.png'));
+    await expect(page.getByRole('treeitem')).toHaveCount(2, { timeout: 15000 });
+
+    // Activate the tool on the single selection first: with two images
+    // selected the Adjustments panel swaps to the multi-edit surface and no
+    // longer offers the Object Selection section at all.
+    const inspector = page.locator('.editor__inspector-panel');
+    await inspector.getByRole('tab', { name: 'Adjustments' }).click();
+    await inspector.getByRole('button', { name: 'Object Selection', exact: true }).click();
+    await inspector.getByRole('button', { name: 'Select Object', exact: true }).click();
+
+    // Extend the selection to the second image while the tool is active;
+    // layers-panel clicks are selection gestures, not prompts.
+    const items = page.getByRole('treeitem');
+    await items.nth(1).click({ modifiers: ['ControlOrMeta'] });
+    await expect(page.locator('[role="treeitem"][aria-selected="true"]')).toHaveCount(2);
+
+    const canvas = page.getByTestId('editor-canvas');
+    const bounds = await canvas.boundingBox();
+    expect(bounds).not.toBeNull();
+
+    // One pointer-up with a multi-selection reaches the entry gate and must
+    // announce the refusal instead of stranding the session mid-inference.
+    await page.mouse.click(bounds!.x + bounds!.width * 0.4, bounds!.y + bounds!.height * 0.4);
+    await expect(page.locator('#strata-canvas-announcer-polite')).toContainText(
+      /one image at a time/i,
+      { timeout: 5000 },
+    );
   });
 });
