@@ -85,7 +85,7 @@ const EXTENDED_MODEL_META: Record<
   },
   'mobile-sam-decoder': {
     remoteUrl:
-      'https://huggingface.co/Acly/MobileSAM/resolve/0d3b403339b4674a82493d5e97964ddc8/sam_mask_decoder_multi.onnx',
+      'https://huggingface.co/Acly/MobileSAM/resolve/0d3b403339b4674a82493d5e97964dd78089ddc8/sam_mask_decoder_multi.onnx',
     name: 'Faster Prompted Selection — Multi-mask Decoder',
     size: 16_496_559,
     checksum: '8976b90a87ba50a6a72217a5ff994f7d25ce16f2229fcc1ed259e1294c622ffe',
