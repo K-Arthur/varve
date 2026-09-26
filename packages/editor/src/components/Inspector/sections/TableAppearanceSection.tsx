@@ -136,7 +136,7 @@ export function TableAppearanceSection({ tableId, table, onSetAppearance, onSetB
                 <button
                   type="button"
                   ref={key === bindingField ? bindingTriggerRef : undefined}
-                  className="varve-binding-badge"
+                  className={`varve-binding-badge${bindingValid ? '' : ' varve-binding-badge--warning'}`}
                   aria-label={
                     bindingValid
                       ? 'Linked to ' +
@@ -151,26 +151,6 @@ export function TableAppearanceSection({ tableId, table, onSetAppearance, onSetB
                         (modifierLabel ? ` · ${modifierLabel}` : '')
                       : 'Linked variable is missing or invalid — binding preserved'
                   }
-                  style={{
-                    fontSize: 11,
-                    padding: '2px 6px',
-                    borderRadius: 'var(--radius-control-compact)',
-                    border:
-                      '1px solid ' +
-                      (bindingValid
-                        ? 'var(--color-accent-primary)'
-                        : 'var(--color-feedback-danger)'),
-                    color: bindingValid
-                      ? 'var(--color-text-primary)'
-                      : 'var(--color-feedback-danger)',
-                    background: bindingValid
-                      ? 'var(--color-surface-raised)'
-                      : 'rgba(214,69,69,0.08)',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 'var(--space-1)',
-                    cursor: 'pointer',
-                  }}
                   onClick={() => {
                     setModifierState({
                       tokenColor: color,

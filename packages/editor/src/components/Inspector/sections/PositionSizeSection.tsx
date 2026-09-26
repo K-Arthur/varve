@@ -121,20 +121,47 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
   const hRaw: MaybeMixed<number> | null = allSizable
     ? commonValue(nodes, (n) => nodeLocalBounds(n)?.h ?? 0)
     : null;
+  // A bound dimension renders the resolved value and stays read-only until
+  // unbound — the same policy as X/Y, so the field never shows a literal the
+  // canvas is not painting.
+  const wBinding = allSizable
+    ? deriveNumericBindingPresentation(
+        nodes,
+        'width',
+        nodes.map((n) => nodeLocalBounds(n)?.w ?? 0),
+        variableStore,
+      )
+    : undefined;
+  const hBinding = allSizable
+    ? deriveNumericBindingPresentation(
+        nodes,
+        'height',
+        nodes.map((n) => nodeLocalBounds(n)?.h ?? 0),
+        variableStore,
+      )
+    : undefined;
   // A layout-computed axis shows the actual size with the `calculated`
   // property state: read-only in the field, with the sizing mode as its
   // accessible description. Bindings keep precedence when both apply.
   const widthSizingDescription = sizingDescription(widthSizing);
   const heightSizingDescription = sizingDescription(heightSizing);
   const wPropertyState: InspectorPropertyState<number> | undefined =
-    widthSizingDescription && wRaw !== null && !isMixed(wRaw)
+    wBinding?.state ??
+    (widthSizingDescription && wRaw !== null && !isMixed(wRaw)
       ? { kind: 'calculated', value: wRaw, description: widthSizingDescription }
-      : undefined;
+      : undefined);
   const hPropertyState: InspectorPropertyState<number> | undefined =
-    heightSizingDescription && hRaw !== null && !isMixed(hRaw)
+    hBinding?.state ??
+    (heightSizingDescription && hRaw !== null && !isMixed(hRaw)
       ? { kind: 'calculated', value: hRaw, description: heightSizingDescription }
-      : undefined;
+      : undefined);
   const rotationRaw = commonValue(nodes, (n) => n.rotation ?? 0);
+  const rotationBinding = deriveNumericBindingPresentation(
+    nodes,
+    'rotation',
+    nodes.map((n) => n.rotation ?? 0),
+    variableStore,
+  );
 
   // Skew: decompose the affine transform to extract shear components.
   const skewRaw = commonValue(nodes, (n) => {
@@ -439,10 +466,12 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
               variableStore={docVariableStore(editor.state.document)}
               targetType="number"
               onBind={(variableId, expression) => {
-                if (editor.bindingField) {
-                  editor.setSelectedBinding(editor.bindingField, { variableId, expression });
-                }
+                const field = editor.bindingField;
+                if (field) editor.setSelectedBinding(field, { variableId, expression });
                 editor.setBindingField(null);
+                const variableName =
+                  docVariableStore(editor.state.document).variables[variableId]?.name ?? variableId;
+                editor.announce(`${field} linked to ${variableName}`);
               }}
               onClose={() => editor.setBindingField(null)}
               triggerRef={bindingTriggerRef}
@@ -477,9 +506,19 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
                 label="W"
                 displayLabel="W"
                 unit="px"
-                value={wRaw !== null && !isMixed(wRaw) ? wRaw : 0}
-                mixed={wRaw !== null && isMixed(wRaw)}
+                value={wBinding?.value ?? (wRaw !== null && !isMixed(wRaw) ? wRaw : 0)}
+                mixed={!wBinding && wRaw !== null && isMixed(wRaw)}
                 propertyState={wPropertyState}
+                readOnly={wBinding?.readOnly ?? false}
+                bindingLabel={nodes.length === 1 ? wBinding?.sourceLabel : undefined}
+                onUnbind={
+                  nodes.length === 1 && wBinding
+                    ? () => {
+                        editor.setSelectedBinding('width', null);
+                        editor.announce('Width unbound');
+                      }
+                    : undefined
+                }
                 min={0}
                 draftKey={draftKey}
                 onChange={handleW}
@@ -539,9 +578,19 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
                 label="H"
                 displayLabel="H"
                 unit="px"
-                value={hRaw !== null && !isMixed(hRaw) ? hRaw : 0}
-                mixed={hRaw !== null && isMixed(hRaw)}
+                value={hBinding?.value ?? (hRaw !== null && !isMixed(hRaw) ? hRaw : 0)}
+                mixed={!hBinding && hRaw !== null && isMixed(hRaw)}
                 propertyState={hPropertyState}
+                readOnly={hBinding?.readOnly ?? false}
+                bindingLabel={nodes.length === 1 ? hBinding?.sourceLabel : undefined}
+                onUnbind={
+                  nodes.length === 1 && hBinding
+                    ? () => {
+                        editor.setSelectedBinding('height', null);
+                        editor.announce('Height unbound');
+                      }
+                    : undefined
+                }
                 min={0}
                 draftKey={draftKey}
                 onChange={handleH}
@@ -558,8 +607,19 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
           label="R"
           displayLabel="R"
           unit="°"
-          value={isMixed(rotationRaw) ? 0 : rotationRaw}
-          mixed={isMixed(rotationRaw)}
+          value={rotationBinding?.value ?? (isMixed(rotationRaw) ? 0 : rotationRaw)}
+          mixed={!rotationBinding && isMixed(rotationRaw)}
+          propertyState={rotationBinding?.state}
+          readOnly={rotationBinding?.readOnly ?? false}
+          bindingLabel={nodes.length === 1 ? rotationBinding?.sourceLabel : undefined}
+          onUnbind={
+            nodes.length === 1 && rotationBinding
+              ? () => {
+                  editor.setSelectedBinding('rotation', null);
+                  editor.announce('Rotation unbound');
+                }
+              : undefined
+          }
           min={0}
           max={360}
           draftKey={draftKey}

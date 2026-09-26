@@ -63,6 +63,7 @@ import {
   type TypographyTextChanges,
 } from '../../Typography/typographyCommand';
 import { useTypographyPreview } from '../../Typography/useTypographyPreview';
+import { deriveNumericBindingPresentation } from '../boundPropertyState';
 import { BindingMenu } from '../controls/BindingMenu';
 import { ContrastIndicator } from '../controls/ContrastIndicator';
 import { DisclosureSection } from '../controls/DisclosureSection';
@@ -616,6 +617,55 @@ export function TypographySection({ nodes }: TypographySectionProps) {
   const paraSpacingRaw = commonValue(textNodes, (n) =>
     getTextValue(n, (t) => t.paragraphSpacing ?? 0),
   );
+  // Bound typography metrics: the field shows the resolved variable value and
+  // stays read-only until unbound, so it never displays a literal the canvas
+  // is not painting (the render path applies these five bindings).
+  const typographyStore = docVariableStore(editor.state.document);
+  const boundMetric = (field: string, rawValues: number[]) =>
+    deriveNumericBindingPresentation(textNodes, field, rawValues, typographyStore);
+  const sizeBinding = boundMetric(
+    'fontSize',
+    textNodes.map((n) => n.fontSize ?? 16),
+  );
+  const lineHeightBinding = boundMetric(
+    'lineHeight',
+    textNodes.map((n) => n.lineHeight ?? 1.2),
+  );
+  const letterSpacingBinding = boundMetric(
+    'letterSpacing',
+    textNodes.map((n) => n.letterSpacing ?? 0),
+  );
+  const trackingBinding = boundMetric(
+    'tracking',
+    textNodes.map((n) => n.tracking ?? 0),
+  );
+  const paraSpacingBinding = boundMetric(
+    'paragraphSpacing',
+    textNodes.map((n) => n.paragraphSpacing ?? 0),
+  );
+  /** Spread last on a numeric field: overrides value/mixed only when bound. */
+  const boundMetricProps = (
+    field: string,
+    fieldLabel: string,
+    binding: ReturnType<typeof boundMetric>,
+    displayScale = 1,
+  ) =>
+    binding
+      ? {
+          value: binding.value * displayScale,
+          mixed: false,
+          propertyState: binding.state,
+          readOnly: binding.readOnly,
+          bindingLabel: textNodes.length === 1 ? binding.sourceLabel : undefined,
+          onUnbind:
+            textNodes.length === 1
+              ? () => {
+                  setSelectedBinding(field, null);
+                  editor.announce(`${fieldLabel} unbound`);
+                }
+              : undefined,
+        }
+      : {};
   const alignRaw = commonValue(textNodes, (n) => getTextValue(n, (t) => t.textAlign ?? 'left'));
   const directionRaw = commonValue(textNodes, (n) => getTextValue(n, (t) => t.direction ?? 'auto'));
   const writingModeRaw = commonValue(textNodes, (n) =>
@@ -884,6 +934,7 @@ export function TypographySection({ nodes }: TypographySectionProps) {
             draftKey={`${typographyDraftKey}:font-size`}
             onShiftClick={() => setBindingField('fontSize')}
             onChange={(v) => applyTypographyToSelection({ fontSize: v })}
+            {...boundMetricProps('fontSize', 'Font size', sizeBinding)}
           />
           <NumberField
             label="Line height"
@@ -896,6 +947,7 @@ export function TypographySection({ nodes }: TypographySectionProps) {
             draftKey={`${typographyDraftKey}:line-height`}
             onShiftClick={() => setBindingField('lineHeight')}
             onChange={(v) => applyTypographyToSelection({ lineHeight: v / 100 })}
+            {...boundMetricProps('lineHeight', 'Line height', lineHeightBinding, 100)}
           />
         </InspectorFieldGroup>
         {textFillControl && (
@@ -951,6 +1003,7 @@ export function TypographySection({ nodes }: TypographySectionProps) {
           draftKey={`${typographyDraftKey}:letter-spacing`}
           onShiftClick={() => setBindingField('letterSpacing')}
           onChange={(v) => applyTypographyToSelection({ letterSpacing: v })}
+          {...boundMetricProps('letterSpacing', 'Letter spacing', letterSpacingBinding)}
         />
         <FieldRow label="Alignment">
           <SegmentedControl
@@ -981,6 +1034,7 @@ export function TypographySection({ nodes }: TypographySectionProps) {
             draftKey={`${typographyDraftKey}:tracking`}
             onShiftClick={() => setBindingField('tracking')}
             onChange={(v) => applyTypographyToSelection({ tracking: v })}
+            {...boundMetricProps('tracking', 'Tracking', trackingBinding)}
           />
           <p className="insp-field__hint">
             Tracking scales with font size (‰); Letter spacing above is fixed px.
@@ -997,6 +1051,7 @@ export function TypographySection({ nodes }: TypographySectionProps) {
             draftKey={`${typographyDraftKey}:paragraph-spacing`}
             onShiftClick={() => setBindingField('paragraphSpacing')}
             onChange={(v) => batchUpdate((n) => ({ ...n, paragraphSpacing: v }))}
+            {...boundMetricProps('paragraphSpacing', 'Paragraph spacing', paraSpacingBinding)}
           />
           <FieldRow label="Direction">
             <SegmentedControl
@@ -1140,8 +1195,11 @@ export function TypographySection({ nodes }: TypographySectionProps) {
               variableStore={docVariableStore(editor.state.document)}
               targetType="number"
               onBind={(variableId, expression) => {
-                if (bindingField) setSelectedBinding(bindingField, { variableId, expression });
+                const field = bindingField;
+                if (field) setSelectedBinding(field, { variableId, expression });
                 setBindingField(null);
+                const variableName = typographyStore.variables[variableId]?.name ?? variableId;
+                editor.announce(`${field} linked to ${variableName}`);
               }}
               onClose={() => setBindingField(null)}
               triggerRef={bindingTriggerRef}

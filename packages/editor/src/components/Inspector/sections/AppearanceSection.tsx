@@ -67,7 +67,14 @@ export function AppearanceSection({ nodes }: { nodes: SceneNode[] }) {
         propertyState={opacityState}
         readOnly={opacityBinding?.readOnly ?? false}
         bindingLabel={opacityBinding?.sourceLabel}
-        onUnbind={opacityBinding ? () => editor.setSelectedBinding('opacity', null) : undefined}
+        onUnbind={
+          opacityBinding
+            ? () => {
+                editor.setSelectedBinding('opacity', null);
+                editor.announce('Opacity unbound');
+              }
+            : undefined
+        }
         unit="%"
         step={1}
         min={0}
@@ -85,6 +92,9 @@ export function AppearanceSection({ nodes }: { nodes: SceneNode[] }) {
           onBind={(variableId, expression) => {
             editor.setSelectedBinding('opacity', { variableId, expression });
             editor.setBindingField(null);
+            const variableName =
+              docVariableStore(editor.state.document).variables[variableId]?.name ?? variableId;
+            editor.announce(`Opacity linked to ${variableName}`);
           }}
           onClose={() => editor.setBindingField(null)}
           triggerRef={bindingTriggerRef}

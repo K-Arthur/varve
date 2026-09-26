@@ -36,10 +36,13 @@ import {
 } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
+import { docVariableStore } from '../../../docVariableStore';
+import { deriveNumericBindingPresentation } from '../boundPropertyState';
 import {
   resolvedGradientHueInterpolation,
   resolvedGradientInterpolationSpace,
 } from '../color/gradientUiState';
+import { BindingMenu } from '../controls/BindingMenu';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow } from '../controls/FieldRow';
 import { InspectorColorPopover } from '../controls/InspectorColorPopover';
@@ -457,6 +460,14 @@ function StrokeRow({
 }: StrokeRowProps) {
   const label = index === 0 ? 'Stroke' : `Stroke ${index + 1}`;
   const editor = useEditor();
+  const bindingTriggerRef = useRef<HTMLDivElement>(null);
+  const strokeWeightKey = `strokeWeight:${rowId}`;
+  const weightBinding = deriveNumericBindingPresentation(
+    nodes,
+    strokeWeightKey,
+    nodes.map((n) => getStroke(n, index)?.weight ?? 1),
+    docVariableStore(editor.state.document),
+  );
 
   const visibleRaw = commonValue(nodes, (n) => getStroke(n, index)?.visible ?? true);
   const colorRaw = commonValue(
@@ -596,18 +607,46 @@ function StrokeRow({
         />
         <div className="insp-paint-row__weight">
           <NumberField
+            containerRef={bindingTriggerRef}
             label={`${label} weight`}
             hideLabel
-            value={isMixed(weightRaw) ? 0 : weightRaw}
-            mixed={isMixed(weightRaw)}
+            value={weightBinding?.value ?? (isMixed(weightRaw) ? 0 : weightRaw)}
+            mixed={!weightBinding && isMixed(weightRaw)}
+            propertyState={weightBinding?.state}
+            readOnly={weightBinding?.readOnly ?? false}
+            bindingLabel={weightBinding?.sourceLabel}
+            onUnbind={
+              weightBinding
+                ? () => {
+                    editor.setSelectedBinding(strokeWeightKey, null);
+                    editor.announce(`${label} weight unbound`);
+                  }
+                : undefined
+            }
             unit="px"
             step={1}
             min={0}
-            fieldName={`strokeWeight:${rowId}`}
-            onShiftClick={() => editor.setBindingField(`strokeWeight:${rowId}`)}
+            fieldName={strokeWeightKey}
+            onShiftClick={() => editor.setBindingField(strokeWeightKey)}
             onChange={(v) => onChange((s) => ({ ...s, weight: v }))}
           />
         </div>
+        {editor.bindingField?.startsWith('strokeWeight:') && (
+          <BindingMenu
+            variableStore={docVariableStore(editor.state.document)}
+            targetType="number"
+            onBind={(variableId, expression) => {
+              const field = editor.bindingField;
+              if (field) editor.setSelectedBinding(field, { variableId, expression });
+              editor.setBindingField(null);
+              const variableName =
+                docVariableStore(editor.state.document).variables[variableId]?.name ?? variableId;
+              editor.announce(`${label} weight linked to ${variableName}`);
+            }}
+            onClose={() => editor.setBindingField(null)}
+            triggerRef={bindingTriggerRef}
+          />
+        )}
         <div className="insp-paint-row__type">
           <Select
             label={`${label} position`}

@@ -26,6 +26,7 @@ import {
   alphaModifierLabel,
   canPaintFills,
   createEmbeddedAsset,
+  fillBindingApplicability,
   gradientFill,
   imageFill,
   nodeLocalBounds,
@@ -508,6 +509,25 @@ function FillRow({
     ? alphaModifierLabel(binding.modifiers[0])
     : null;
   const bindingValid = binding ? resolveBoundTokenColor(bindingStore, binding) !== undefined : true;
+  // The renderer honours the `fill` binding only on a node's primary solid
+  // paint (and never through a shared paint reference) — report that rule
+  // here instead of implying the link is live.
+  const applicability = nodes[0] ? fillBindingApplicability(nodes[0]) : 'applied';
+  const bindingApplicable = !binding || applicability === 'applied';
+  const bindingInactiveReason =
+    applicability === 'shared-paint'
+      ? 'this layer uses a shared paint'
+      : 'variable colours apply to solid paints';
+  // What the canvas actually paints for this row: a bound solid colour is
+  // presented as the current value (the badge names the source), so the swatch
+  // never advertises a literal the renderer is not using. Edits still start
+  // from the authored literal and detach the link explicitly.
+  const boundColor =
+    binding && bindingApplicable && bindingValid
+      ? resolveBoundTokenColor(bindingStore, binding)
+      : undefined;
+  const displayFill: Fill =
+    boundColor && fill.type === 'solid' ? { ...fill, color: boundColor } : fill;
 
   const visibleRaw = commonValue(nodes, (n) => resolveNodeFills(n)[index]?.visible ?? true);
   const typeRaw = commonValue(nodes, (n) => resolveNodeFills(n)[index]?.type ?? 'solid');
@@ -529,9 +549,9 @@ function FillRow({
   const fillType: FillType = typeIsMixed ? 'solid' : (typeRaw as FillType);
   const valueText = paintMixed
     ? 'Mixed'
-    : fill.type === 'solid' && fill.color
-      ? managedColorToHex(fill.color)
-      : FILL_TYPE_META[fill.type].label;
+    : displayFill.type === 'solid' && displayFill.color
+      ? managedColorToHex(displayFill.color)
+      : FILL_TYPE_META[displayFill.type].label;
   const documentGradientInterpolation =
     editor.state.document.colorConfig?.defaultGradientInterpolation ?? 'oklab';
   const draftKey = `${nodes
@@ -575,11 +595,28 @@ function FillRow({
           );
         })()
       : undefined;
-  const swatchBg = fillSwatchBg(fill, editor.state.document.assets);
+  const swatchBg = fillSwatchBg(displayFill, editor.state.document.assets);
 
   const patch = useCallback(
     (partial: Partial<Fill>) => onChange({ ...fill, ...partial }),
     [fill, onChange],
+  );
+
+  /**
+   * Write a literal colour to this row. A bound fill paints the variable's
+   * colour, so a literal write would move the swatch and leave the canvas
+   * untouched; make the transition explicit instead — the edit detaches the
+   * link (and says so) before the literal lands.
+   */
+  const applyLiteralColor = useCallback(
+    (color: ManagedColor) => {
+      if (binding && bindingApplicable) {
+        editor.setSelectedBinding('fill', null);
+        editor.announce(`${label} colour set — unlinked from ${bindingVariableName ?? 'variable'}`);
+      }
+      patch({ color });
+    },
+    [binding, bindingApplicable, bindingVariableName, editor, label, patch],
   );
 
   const setFillType = useCallback(
@@ -656,15 +693,27 @@ function FillRow({
         badge: blendLabel,
         submenu: blendMenuItems,
       },
-      ...(!binding
-        ? [
-            {
-              id: 'link-variable',
-              label: 'Link to variable',
-              onAction: () => editor.setBindingField('fill'),
-              icon: 'Link' as const,
-            },
-          ]
+      ...(!binding && index === 0
+        ? applicability === 'applied'
+          ? [
+              {
+                id: 'link-variable',
+                label: 'Link to variable',
+                onAction: () => editor.setBindingField('fill'),
+                icon: 'Link' as const,
+              },
+            ]
+          : [
+              // The binding would be preserved but could not paint: say so
+              // instead of offering an action that visibly does nothing.
+              {
+                id: 'link-variable',
+                label: 'Link to variable',
+                description: `Not available — ${bindingInactiveReason}`,
+                disabled: true,
+                onAction: () => {},
+              },
+            ]
         : []),
       ...(harmonySource
         ? [
@@ -673,14 +722,28 @@ function FillRow({
               label: 'Use complementary color',
               onAction: () => {
                 const harmonyColor = complementaryHarmony(harmonySource).colors[0];
-                if (harmonyColor && 'space' in harmonyColor) patch({ color: harmonyColor });
+                if (harmonyColor && 'space' in harmonyColor) {
+                  applyLiteralColor(harmonyColor as ManagedColor);
+                }
               },
               icon: 'Palette' as const,
             },
           ]
         : []),
     ],
-    [binding, blendLabel, blendMenuItems, editor, harmonySource, patch],
+    [
+      applyLiteralColor,
+      applicability,
+      binding,
+      bindingApplicable,
+      bindingInactiveReason,
+      blendLabel,
+      blendMenuItems,
+      editor,
+      harmonySource,
+      index,
+      patch,
+    ],
   );
 
   // Keep the primary row for paint identity and actions. The properties line
@@ -727,8 +790,8 @@ function FillRow({
                 ? `${label} colour (mixed across selection — editing applies to all)`
                 : `${label} colour`
             }
-            value={fill.color}
-            onChange={(c) => patch({ color: c })}
+            value={displayFill.color ?? fill.color}
+            onChange={(c) => applyLiteralColor(c)}
             valueText={valueText}
             blend={{
               label: `${label} blend mode`,
@@ -816,40 +879,33 @@ function FillRow({
           <button
             type="button"
             ref={modifierAnchorRef}
-            className="varve-binding-badge"
+            className={`varve-binding-badge${
+              bindingValid && bindingApplicable ? '' : ' varve-binding-badge--warning'
+            }`}
             aria-label={
               bindingValid
-                ? 'Linked to ' +
-                  (bindingVariableName ?? '') +
-                  (bindingModifierLabel ? `, alpha ${bindingModifierLabel}` : '')
+                ? bindingApplicable
+                  ? 'Linked to ' +
+                    (bindingVariableName ?? '') +
+                    (bindingModifierLabel ? `, alpha ${bindingModifierLabel}` : '')
+                  : `Linked to ${bindingVariableName ?? ''} — not applied: ${bindingInactiveReason}`
                 : `Variable ${bindingVariableName ?? ''} is missing or invalid`
             }
             title={
               bindingValid
-                ? 'Linked to $' +
-                  bindingVariableName +
-                  (bindingModifierLabel ? ` · ${bindingModifierLabel}` : '')
+                ? bindingApplicable
+                  ? 'Linked to $' +
+                    bindingVariableName +
+                    (bindingModifierLabel ? ` · ${bindingModifierLabel}` : '')
+                  : `Linked to $${bindingVariableName} — ${bindingInactiveReason}. The binding is kept; detach it to edit this paint.`
                 : 'Linked variable is missing or invalid — binding preserved'
             }
-            style={{
-              fontSize: 11,
-              padding: '2px 6px',
-              borderRadius: 'var(--radius-control-compact)',
-              border:
-                '1px solid ' +
-                (bindingValid ? 'var(--color-accent-primary)' : 'var(--color-feedback-danger)'),
-              color: bindingValid ? 'var(--color-text-primary)' : 'var(--color-feedback-danger)',
-              background: bindingValid ? 'var(--color-surface-raised)' : 'rgba(214,69,69,0.08)',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 'var(--space-1)',
-              cursor: 'pointer',
-            }}
             onClick={onOpenModifier}
           >
             <span>${bindingVariableName}</span>
             {bindingModifierLabel && <strong>{bindingModifierLabel}</strong>}
             {!bindingValid && <span>(invalid)</span>}
+            {bindingValid && !bindingApplicable && <span>(not applied)</span>}
           </button>
         )}
         {!blendIsMixed && blendValue !== 'normal' && (

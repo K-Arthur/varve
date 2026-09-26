@@ -1,6 +1,12 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { addChild, createDocument, type ManagedColor, makeShapeNode } from '@varve/scene';
+import {
+  addChild,
+  createDocument,
+  createVariableStore,
+  type ManagedColor,
+  makeShapeNode,
+} from '@varve/scene';
 import * as React from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { EditorProvider, useEditor } from '../../../../context';
@@ -15,6 +21,7 @@ const colorC: ManagedColor = { space: 'rgb', r: 40, g: 200, b: 100, a: 255 };
 function renderSelectedSection(
   makeSection: (nodes: import('@varve/scene').SceneNode[]) => React.ReactElement,
   nodeOverrides: Record<string, unknown>,
+  decorateDoc?: (doc: import('@varve/scene').Document) => import('@varve/scene').Document,
 ) {
   const document = createDocument('fill-test-doc');
   const rootId = document.pages?.[0]?.contentRoot as string;
@@ -23,6 +30,7 @@ function renderSelectedSection(
     ...nodeOverrides,
   };
   const withNode = addChild(document, rootId, node as import('@varve/scene').SceneNode);
+  const prepared = decorateDoc ? decorateDoc(withNode) : withNode;
   let ctx: ReturnType<typeof useEditor> | undefined;
   function Harness() {
     ctx = useEditor();
@@ -33,7 +41,7 @@ function renderSelectedSection(
     return nodes.length > 0 ? makeSection(nodes) : null;
   }
   render(
-    <EditorProvider initialDocumentJson={JSON.stringify(withNode)}>
+    <EditorProvider initialDocumentJson={JSON.stringify(prepared)}>
       <Harness />
     </EditorProvider>,
   );
@@ -173,5 +181,125 @@ describe('FillSection Redesign & Multi-Fill Controls', () => {
     // The opacity input receives scrubbed updates
     const input = screen.getByLabelText('Fill opacity (%)') as HTMLInputElement;
     expect(Number(input.value)).toBeGreaterThan(50);
+  });
+});
+
+describe('FillSection variable-link honesty', () => {
+  const solidA = {
+    type: 'solid' as const,
+    color: colorA,
+    opacity: 1,
+    blendMode: 'normal' as const,
+    visible: true,
+  };
+  const solidB = {
+    type: 'solid' as const,
+    color: colorB,
+    opacity: 1,
+    blendMode: 'normal' as const,
+    visible: true,
+  };
+  const gradientA = {
+    type: 'gradient' as const,
+    opacity: 1,
+    blendMode: 'normal' as const,
+    visible: true,
+    gradient: {
+      type: 'linear' as const,
+      stops: [
+        { position: 0, color: colorA },
+        { position: 1, color: colorB },
+      ],
+    },
+  };
+
+  function withBrandVariable(doc: import('@varve/scene').Document) {
+    const store = createVariableStore(['default']);
+    store.variables.brand = {
+      id: 'brand',
+      name: 'Brand Red',
+      type: 'color',
+      valuesByMode: { default: '#ff007f' },
+    };
+    store.collections.c1 = {
+      id: 'c1',
+      name: 'Tokens',
+      modes: ['default'],
+      activeMode: 'default',
+      variableIds: ['brand'],
+    };
+    store.activeCollectionId = 'c1';
+    return { ...doc, variableStore: store };
+  }
+
+  it('offers "Link to variable" on the primary solid row', async () => {
+    renderSelectedSection((nodes) => <FillSection nodes={nodes} />, { fills: [solidA] });
+    fireEvent.click(await screen.findByRole('button', { name: 'Fill actions' }));
+    const menu = await screen.findByRole('menu');
+    const item = within(menu).getByRole('menuitem', { name: 'Link to variable' });
+    expect(item).not.toBeDisabled();
+  });
+
+  it('does not offer the binding on secondary rows (the binding drives one slot)', async () => {
+    renderSelectedSection((nodes) => <FillSection nodes={nodes} />, {
+      fills: [solidA, solidB],
+    });
+    fireEvent.click(await screen.findByRole('button', { name: 'Fill 2 actions' }));
+    const menu = await screen.findByRole('menu');
+    expect(within(menu).queryByRole('menuitem', { name: 'Link to variable' })).toBeNull();
+  });
+
+  it('explains why a gradient primary paint cannot take a colour binding', async () => {
+    renderSelectedSection((nodes) => <FillSection nodes={nodes} />, {
+      fills: [gradientA, solidB],
+    });
+    fireEvent.click(await screen.findByRole('button', { name: 'Fill actions' }));
+    const menu = await screen.findByRole('menu');
+    // The description is part of the accessible name, so match loosely.
+    const item = within(menu).getByRole('menuitem', { name: /Link to variable/ });
+    expect(item).toBeDisabled();
+    expect(within(menu).getByText(/variable colours apply to solid paints/)).toBeTruthy();
+  });
+
+  it('keeps the badge but reports the link as not applied on a gradient paint', async () => {
+    renderSelectedSection(
+      (nodes) => <FillSection nodes={nodes} />,
+      { fills: [gradientA], bindings: { fill: { variableId: 'brand' } } },
+      withBrandVariable,
+    );
+    const badge = await screen.findByRole('button', { name: /not applied/i });
+    expect(badge).toBeTruthy();
+    expect(badge.textContent).toContain('$Brand Red');
+    expect(badge.textContent).toContain('(not applied)');
+  });
+
+  it('detaches the link when the bound colour is edited instead of silently losing the edit', async () => {
+    const { nodeId, getCtx } = renderSelectedSection(
+      (nodes) => <FillSection nodes={nodes} />,
+      { fills: [solidA], bindings: { fill: { variableId: 'brand' } } },
+      withBrandVariable,
+    );
+    // The bound badge is present and reported as applied.
+    const badge = await screen.findByRole('button', { name: /linked to brand red/i });
+    expect(badge.textContent).not.toContain('(not applied)');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Fill colour' }));
+    const swatch = await screen.findByRole('option', { name: /teal 500/i });
+    fireEvent.click(swatch);
+
+    await waitFor(() => {
+      const node = getCtx()?.state.document.nodes[nodeId] as {
+        bindings?: Record<string, unknown>;
+      };
+      expect(node.bindings?.fill).toBeUndefined();
+    });
+    // The authored colour changed to the picked literal (not left stale).
+    await waitFor(() => {
+      const node = getCtx()?.state.document.nodes[nodeId] as {
+        fills?: Array<{ color?: ManagedColor }>;
+      };
+      expect(node.fills?.[0]?.color).toBeDefined();
+      expect(node.fills?.[0]?.color).not.toEqual(colorA);
+    });
   });
 });

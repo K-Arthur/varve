@@ -14,6 +14,7 @@ import { Icon } from '@varve/ui';
 import { useCallback, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { docVariableStore } from '../../../docVariableStore';
+import { deriveNumericBindingPresentation } from '../boundPropertyState';
 import { BindingMenu } from '../controls/BindingMenu';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow } from '../controls/FieldRow';
@@ -32,6 +33,18 @@ export function CornerRadiusSection({ nodes }: { nodes: SceneNode[] }) {
   });
 
   const mixed = isMixed(radiusRaw) || radiusRaw === undefined;
+  const radiusBinding = deriveNumericBindingPresentation(
+    nodes,
+    'cornerRadius',
+    nodes.map((n) =>
+      n.kind === 'shape' || n.kind === 'frame'
+        ? typeof n.cornerRadius === 'number'
+          ? n.cornerRadius
+          : 0
+        : 0,
+    ),
+    docVariableStore(editor.state.document),
+  );
   const radius: number | [number, number, number, number] | null =
     !mixed && radiusRaw !== undefined
       ? (radiusRaw as number | [number, number, number, number])
@@ -101,8 +114,19 @@ export function CornerRadiusSection({ nodes }: { nodes: SceneNode[] }) {
           <NumberField
             label="Radius"
             unit="px"
-            value={uniform}
-            mixed={mixed}
+            value={radiusBinding?.value ?? uniform}
+            mixed={!radiusBinding && mixed}
+            propertyState={radiusBinding?.state}
+            readOnly={radiusBinding?.readOnly ?? false}
+            bindingLabel={nodes.length === 1 ? radiusBinding?.sourceLabel : undefined}
+            onUnbind={
+              nodes.length === 1 && radiusBinding
+                ? () => {
+                    editor.setSelectedBinding('cornerRadius', null);
+                    editor.announce('Corner radius unbound');
+                  }
+                : undefined
+            }
             min={0}
             onChange={handleUniform}
             fieldName="cornerRadius"
@@ -143,6 +167,9 @@ export function CornerRadiusSection({ nodes }: { nodes: SceneNode[] }) {
                 editor.setSelectedBinding(editor.bindingField, { variableId, expression });
               }
               editor.setBindingField(null);
+              const variableName =
+                docVariableStore(editor.state.document).variables[variableId]?.name ?? variableId;
+              editor.announce(`Corner radius linked to ${variableName}`);
             }}
             onClose={() => editor.setBindingField(null)}
             triggerRef={bindingTriggerRef}
