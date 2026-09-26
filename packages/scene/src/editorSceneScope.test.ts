@@ -131,3 +131,56 @@ describe('resolveEditorSceneScope', () => {
     ).not.toThrow();
   });
 });
+
+describe('resolveEditorSceneScope caching', () => {
+  const options = { workspaceMode: 'design', activePageId: null, activeDesignCanvasId: null };
+
+  it('shares one resolution for identical document and options', () => {
+    const doc = createDocument('cache', false);
+    const first = resolveEditorSceneScope(doc, options);
+    expect(resolveEditorSceneScope(doc, { ...options })).toBe(first);
+  });
+
+  it('ignores camera motion on a design canvas, which never culls by viewport', () => {
+    const { doc } = mixedCanvasDocument();
+    const first = resolveEditorSceneScope(doc, {
+      ...options,
+      viewportWorldRect: { x: 0, y: 0, w: 100, h: 100 },
+    });
+    const panned = resolveEditorSceneScope(doc, {
+      ...options,
+      viewportWorldRect: { x: 5_000, y: -300, w: 100, h: 100 },
+    });
+    expect(panned).toBe(first);
+  });
+
+  it('still resolves page culling per viewport on a publishing surface', () => {
+    const doc = createDocument('cache-print', false);
+    expect(doc.pages?.length ?? 0).toBeGreaterThan(0);
+    const printOptions = { workspaceMode: 'print', activePageId: doc.activePageId ?? null };
+    const near = resolveEditorSceneScope(doc, {
+      ...printOptions,
+      viewportWorldRect: { x: 0, y: 0, w: 100, h: 100 },
+    });
+    const far = resolveEditorSceneScope(doc, {
+      ...printOptions,
+      viewportWorldRect: { x: 9_000_000, y: 9_000_000, w: 100, h: 100 },
+    });
+    expect(far).not.toBe(near);
+  });
+
+  it('re-resolves a new document produced by an edit', () => {
+    const doc = createDocument('cache-edit', false);
+    const before = resolveEditorSceneScope(doc, options);
+    const { id, doc: withId } = nextNodeId(doc);
+    const edited: Document = {
+      ...withId,
+      nodes: { ...withId.nodes, [id]: makeShapeNode(id, { kind: 'rect', x: 0, y: 0, w: 1, h: 1 }) },
+      rootChildren: [...withId.rootChildren, id],
+    };
+    const after = resolveEditorSceneScope(edited, options);
+    expect(after).not.toBe(before);
+    expect(after.authoredNodeIds.has(id)).toBe(true);
+    expect(before.authoredNodeIds.has(id)).toBe(false);
+  });
+});

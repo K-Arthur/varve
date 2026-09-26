@@ -13,12 +13,33 @@ import { isContainer, type SceneNode } from './types';
  * panel and (eventually) the renderer agree on a single source of truth.
  */
 
+/**
+ * Committed documents are immutable, so both answers below are cached per
+ * `nodes` record. Layers rows, the canvas renderer, hit testing, and scene
+ * scope all ask on every render or frame; an uncached answer is a full node
+ * scan each time (measured at 15-30% of main-thread time while dragging a
+ * 10k-node document). A record that is edited in place after it was queried
+ * would be served stale, which the immutable document contract rules out.
+ */
+const soloByNodes = new WeakMap<Document['nodes'], boolean>();
+// One entry, not a WeakMap: history retains old documents, and a derived
+// document per retained revision would hold O(nodes) of copies for each.
+let soloAppliedSource: Document | null = null;
+let soloAppliedResult: Document | null = null;
+
 /** True when any node in the document is soloed. */
 export function documentHasSolo(doc: Document): boolean {
+  const cached = soloByNodes.get(doc.nodes);
+  if (cached !== undefined) return cached;
+  let hasSolo = false;
   for (const node of Object.values(doc.nodes)) {
-    if (node && (node as SceneNode).solo) return true;
+    if (node && (node as SceneNode).solo) {
+      hasSolo = true;
+      break;
+    }
   }
-  return false;
+  soloByNodes.set(doc.nodes, hasSolo);
+  return hasSolo;
 }
 
 /**
@@ -41,6 +62,16 @@ export function nodeSoloVisible(node: SceneNode, hasSolo: boolean): boolean {
  */
 export function applySoloToDocument(doc: Document): Document {
   if (!documentHasSolo(doc)) return doc;
+  // A stable derived document keeps per-document render memos effective
+  // while solo is active, instead of presenting a new document every frame.
+  if (soloAppliedSource === doc && soloAppliedResult) return soloAppliedResult;
+  const applied = buildSoloAppliedDocument(doc);
+  soloAppliedSource = doc;
+  soloAppliedResult = applied;
+  return applied;
+}
+
+function buildSoloAppliedDocument(doc: Document): Document {
   const parentByChild = new Map<string, string>();
   for (const node of Object.values(doc.nodes)) {
     if (!node || !isContainer(node)) continue;

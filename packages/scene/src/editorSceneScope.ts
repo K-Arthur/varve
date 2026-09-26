@@ -172,6 +172,67 @@ export function resolveEditorSceneScope(
   options: EditorSceneScopeOptions,
 ): ResolvedEditorSceneScope {
   const base = resolveBaseSurface(doc, options);
+  const key = sceneScopeKey(doc, base, options);
+  const index = sceneScopeCache.findIndex((entry) => entry.doc === doc && entry.key === key);
+  if (index >= 0) {
+    const entry = sceneScopeCache[index]!;
+    if (index > 0) {
+      sceneScopeCache.splice(index, 1);
+      sceneScopeCache.unshift(entry);
+    }
+    return entry.scope;
+  }
+  const scope = computeEditorSceneScope(doc, options, base);
+  sceneScopeCache.unshift({ doc, key, scope });
+  if (sceneScopeCache.length > SCENE_SCOPE_CACHE_CAPACITY) sceneScopeCache.pop();
+  return scope;
+}
+
+/**
+ * The renderer, snapping, overlays, and the minimap each resolve the scope
+ * for the same committed document within one frame, and each resolution
+ * walks the whole scene. The result is a pure, read-only function of the
+ * (immutable) document and these options, so recent answers are shared. The
+ * cache is small because undo history keeps old documents alive.
+ */
+const SCENE_SCOPE_CACHE_CAPACITY = 6;
+const sceneScopeCache: Array<{ doc: Document; key: string; scope: ResolvedEditorSceneScope }> = [];
+
+function optionPart(value: string | null | undefined): string {
+  return value === undefined ? '\u0001' : value === null ? '\u0000' : value;
+}
+
+function sceneScopeKey(
+  doc: Document,
+  base: BaseEditorSurface,
+  options: EditorSceneScopeOptions,
+): string {
+  // The viewport only culls placed pages on a publishing surface. Design
+  // canvases, master sources, and page-less pasteboards never read it, so
+  // camera motion must not defeat the cache there (it did on every pan).
+  const viewportCulls = base.kind === 'publishing' && (doc.pages?.length ?? 0) > 0;
+  const rect = viewportCulls ? options.viewportWorldRect : undefined;
+  const rectPart =
+    rect === undefined
+      ? '\u0001'
+      : rect === null
+        ? '\u0000'
+        : `${rect.x},${rect.y},${rect.w},${rect.h}`;
+  return [
+    options.workspaceMode,
+    optionPart(options.activePageId),
+    optionPart(options.activeDesignCanvasId),
+    optionPart(options.masterEditId),
+    optionPart(options.isolatedNodeId),
+    rectPart,
+  ].join('|');
+}
+
+function computeEditorSceneScope(
+  doc: Document,
+  options: EditorSceneScopeOptions,
+  base: BaseEditorSurface,
+): ResolvedEditorSceneScope {
   const surfaceKey = surfaceKeyFor(base);
   const context: EditorSurfaceContext = {
     base,

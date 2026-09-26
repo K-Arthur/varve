@@ -86,3 +86,27 @@ describe('applySoloToDocument', () => {
     expect(out.nodes.c!.visible).toBe(false);
   });
 });
+
+describe('solo caching', () => {
+  it('re-evaluates a new nodes record produced by an immutable edit', () => {
+    const doc = baseDoc();
+    expect(documentHasSolo(doc)).toBe(false);
+    const edited: Document = {
+      ...doc,
+      nodes: { ...doc.nodes, b: { ...doc.nodes.b!, solo: true } as SceneNode },
+    };
+    expect(documentHasSolo(edited)).toBe(true);
+    expect(documentHasSolo(doc)).toBe(false);
+  });
+
+  it('returns one stable derived document per source document', () => {
+    const doc = baseDoc();
+    doc.nodes.b!.solo = true;
+    const first = applySoloToDocument(doc);
+    expect(applySoloToDocument(doc)).toBe(first);
+    const edited: Document = { ...doc, nodes: { ...doc.nodes } };
+    const second = applySoloToDocument(edited);
+    expect(second).not.toBe(first);
+    expect(second.nodes.a!.visible).toBe(false);
+  });
+});
