@@ -106,6 +106,8 @@ worker-rendered mockup warps.
 
 ## 5. End-to-end evidence
 
+### 5.1 Automated workflow spec
+
 The mesh workflow E2E (`tests/e2e/canvas/mockup-mesh.spec.ts`) exercises:
 apply the folded-fabric builtin to a live source, canvas pixel sampling of
 the composed mockup, surface-chip selection, a grid-vertex drag with
@@ -115,13 +117,58 @@ richly coloured) content. Evidence screenshots are captured to
 `docs/screenshots/mockup-mesh/`.
 
 Machine contention note (recorded honestly): the shared machine's heavy-task
-lease was held for extended periods by concurrent sessions
-(`e2e: fluidity mine-slice-02/03`, `e2e: app gpu capture`), so this spec's
-final full run was queued behind those leases at the time of writing. The
-spec is committed, typechecked (`pnpm typecheck:e2e`, zero errors in the new
-file), and its harness mirrors the passing `mockups.spec.ts` workflow; the
-run command above is the exact reproduction. When the lease freed, the run
-completed — result recorded in the Agent Validation Report below.
+lease was held continuously by concurrent sessions
+(`e2e: fluidity mine-slice-02/03/control-failures`, `e2e: app gpu capture`,
+`perf probe: wasm`, and other jobs) for the whole session window, including a
+one-hour queued wait that expired without acquiring the lease. The spec is
+committed, typechecked (`pnpm typecheck:e2e`, zero errors in the new file),
+and its harness mirrors the passing `mockups.spec.ts` workflow; the run
+command above is the exact reproduction for the integration owner once the
+lease frees.
+
+### 5.2 Live-session walk (manual multimodal verification)
+
+To keep the visual gate honest despite the lease contention, the full
+workflow was driven manually in a real Chromium session against a dev server
+of the working tree (evidence: `docs/screenshots/mockup-mesh/`, all
+inspected in-session):
+
+- `01-applied.png` — after applying the fabric banner builtin: the composed
+  mockup renders on canvas (template plate, three wave folds with crease
+  shading, source bound to "Banner fabric · Frame 1"), 17-template catalog
+  lists it as "1 surface · landscape · mesh, bounded-envelope".
+- `02-vertex-handles.png` — after selecting the surface chip: 15 vertex
+  handles with the hull outline, overlay toolbar reads "Banner fabric ·
+  envelope", inspector shows Replace/Edit source/Snapshot actions.
+- `03-vertex-dragged.png` — after dragging the second top-row vertex down:
+  the fold deepened live through the moved vertex; the artwork resampled
+  through the envelope (pixel-level composition re-checked: 106 distinct
+  colours in the mockup region).
+- `04-after-undo.png` — one Ctrl+Z restored the template grid (the
+  inspector's "Template default" state returned; the grid outline matches
+  the template again).
+- `04-persisted-reopen.png` — after Ctrl+S → Home → resume editing: the
+  vertex override survived (inspector shows "Reset mesh", status bar
+  "Saved").
+- `05-right-click-context-menu.png` — with the rectangle tool active, a
+  `contextmenu` dispatched from the canvas content layer (a real
+  PointerEvent/MouseEvent pair bubbling from the canvas element, not a
+  menu API call) opened the canvas context menu while the layer count
+  stayed at 2 — the pre-fix behaviour (right-click commits a shape and the
+  selection change closes the menu) did not reproduce. The committed E2E's
+  physical `mouse.click(button: 'right')` run (passed at port 1497 after
+  the fix; failed at port 1495 before) is the authoritative real-input
+  proof; this walk is corroborating evidence.
+- `06-inspector-mesh-fieldset.png` — the inspector's Mesh envelope fieldset:
+  "Grid 4 × 2 cells · 15 vertices", Geometry row with "Reset mesh", and the
+  honest capability note ("bounded envelope for folds and drape — not 3D:
+  no lighting solve, no backside, and folds that would crease a cell inside
+  out are rejected").
+
+Not exercised in the manual walk: the decoded-PNG export check (the
+automated spec covers it; the export decoration itself is unit-verified in
+`mockupExport.test.ts` and the SVG-boundary E2E from the 2026-09-25 export
+pass).
 
 ## 6. Agent Validation Report
 
