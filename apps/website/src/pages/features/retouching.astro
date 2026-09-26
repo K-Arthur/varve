@@ -4,19 +4,40 @@ import Layout from '../../layouts/Layout.astro';
 import { sitePath } from '../../lib/siteUrl';
 ---
 
-<Layout title="Retouching: Frequency Separation and Liquify" description="Separate tone from texture, retouch each independently, then reshape raster content with a non-destructive, re-editable liquify field. Local to your machine.">
+<Layout title="Photo Retouching: Clone, Heal, Dodge and Burn" description="Persistent clone, heal, spot heal and patch repairs, a linear-light dodge and burn brush, frequency separation, and re-editable liquify. Local to your machine.">
   <div class="container-custom">
     <div class="feature-page">
       <nav class="breadcrumb" aria-label="Breadcrumb">
         <a href={sitePath('/features')}>Features</a> / Retouching
       </nav>
 
-      <h1 class="site-page-title">Retouching: Frequency Separation and Liquify</h1>
+      <h1 class="site-page-title">Repair, retone, and reshape raster images.</h1>
       <p class="feature-intro">
-        Two raster workflows that stay honest about what they are: an exact two-band
-        tone/texture split, and a brush-driven deformation stored as editable state
-        rather than baked pixels.
+        Raster repairs that stay honest about what they are: persistent clone/heal
+        tools with explicit sources, a linear-light dodge and burn brush, an exact
+        two-band tone/texture split, and a brush-driven deformation stored as
+        editable state rather than baked pixels.
       </p>
+
+      <section class="feature-section">
+        <h2>Clone, Heal, Spot Heal, and Patch</h2>
+        <p>
+          Every repair writes real document pixels on the layer you name, so strokes
+          survive redraw, undo/redo, save/reopen, and export. Clone Stamp samples a
+          frozen source anchor (aligned or unaligned), Healing Brush takes texture
+          from the source and colour from the destination, Spot Heal picks a bounded
+          nearby patch deterministically, and Patch copies a frozen source rectangle
+          with a feathered edge.
+        </p>
+        <ul>
+          <li>Strokes clip to the active selection — including Spot Heal and Patch — and alpha lock keeps repairs from spreading onto transparent pixels.</li>
+          <li>Sampling scope is explicit: the layer, the layers below, or all visible raster layers. Deposits always land on the destination layer alone.</li>
+          <li>Pen pressure modulates flow for clone and heal strokes; the mouse deposit is unchanged.</li>
+          <li>Dodge and Burn apply exposure in stops in linear light under the brush, with a shadows/midtones/highlights focus — the same mathematics as the global Exposure control, applied locally. They adjust existing pixels only and never invent coverage.</li>
+          <li>Zero-strength strokes, cancels, and repairs with no effect leave no history step behind.</li>
+        </ul>
+        <p><a href={sitePath('/docs/tools/retouching')}>Read the step-by-step retouching guide →</a></p>
+      </section>
 
       <section class="feature-section">
         <h2>Frequency Separation</h2>
@@ -64,12 +85,15 @@ import { sitePath } from '../../lib/siteUrl';
       <section class="feature-section note">
         <h2>No hidden AI, no hidden cost</h2>
         <p>
-          Both workflows run entirely on your machine with no model download, cloud
-          inference, or network access. They operate in Varve's 8-bit working
-          representation; the precision contract is stated above and measured in the app
-          rather than implied. Freeze protection on a shared separation deformation is not
-          available in this version, and geometry-level vector liquify is a separate future
-          capability — the interface says so rather than silently rasterizing your vectors or text.
+          These workflows run entirely on your machine with no model download, cloud
+          inference, or network access. Clone and heal are exact copies and
+          mean-shift adaptations of pixels that already exist — Spot Heal says so in
+          the interface instead of borrowing a "content-aware" label — and dodge and
+          burn work in Varve's 8-bit working representation. The precision contract
+          is stated in the app rather than implied. Freeze protection on a shared
+          separation deformation is not available in this version, and geometry-level
+          vector liquify is a separate future capability — the interface says so
+          rather than silently rasterizing your vectors or text.
         </p>
       </section>
 

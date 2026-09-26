@@ -154,9 +154,11 @@ update, not for someone reading the commit log.
   immutable source bytes and versioned recipes, review exposure brackets with
   separate radiance/fusion semantics, and export a range-bearing OpenEXR
   master beside a disposable SDR rendition. Clone, heal, spot-heal, and patch
-  repairs remain on explicit raster layers with undo/reopen persistence;
-  unsupported camera variants, gain-map/PQ/HLG export, and physical HDR display
-  presentation remain clearly labeled as unsupported or unverified.
+  repairs remain on explicit raster layers with undo/reopen persistence.
+  Scene-linear masters can also be shared as verified Ultra HDR gain-map JPEGs
+  while keeping the reviewed SDR rendition as the fallback. Unsupported camera
+  variants, PQ/HLG output encoding, and physical HDR display presentation
+  remain clearly labeled as unsupported or unverified.
 - **Shape Builder** — A staged region-construction tool for overlapping filled
   shapes and closed paths. Select eligible sources, then click or sweep the
   regions you mean — including thin regions crossed between pointer samples —
@@ -229,6 +231,12 @@ update, not for someone reading the commit log.
   the pointer-up position is stamped so fast strokes keep their tail, and
   strokes whose pixels are byte-identical no-ops no longer bump tile versions
   or leave a history step.
+- **Selection-aware retouch and dodge/burn** — Clone, heal, spot-heal, and
+  patch repairs clip to the active selection and can respect alpha lock.
+  Clone/heal strokes use pen pressure for flow. Dodge and Burn provide local
+  linear-light exposure in stops with shadows, midtones, and highlights focus;
+  they adjust existing raster pixels and keep the documented RGBA8/sRGB
+  boundary.
 - **Shaping and outline fidelity** — Browser replay keeps ligature-sensitive
   source runs intact; HarfBuzz/rustybuzz shaping now preserves UTF-16 clusters,
   numeric feature values, ranges, inferred direction, metrics, and face identity.

@@ -5,8 +5,8 @@ import '../../../styles/docs-prose.css';
 ---
 
 <Layout
-  title="Frequency Separation & Liquify — Varve Docs"
-  description="Use Varve's source-preserving Frequency Separation and Liquify workflows for tone, texture, and raster deformation."
+  title="Retouching — Varve Docs"
+  description="Use persistent clone, heal, spot-heal, patch, dodge and burn, Frequency Separation, and Liquify workflows in Varve."
 >
   <div class="container-custom">
     <main class="docs-page">
@@ -14,12 +14,46 @@ import '../../../styles/docs-prose.css';
         <a href={sitePath('/docs')}>Docs</a> / Tools / Retouching
       </nav>
 
-      <h1>Retouch tone, texture, and shape with pixels you can still edit.</h1>
+      <h1>Repair, retone, and reshape pixels you can still edit.</h1>
       <p class="docs-intro">
-        Frequency Separation and Liquify share Varve's raster pipeline. They keep the source pixels
-        authoritative, put authored changes in the document model, and make the limits visible.
-        Nothing in these workflows needs a model download or a cloud connection.
+        Photo retouch tools share Varve's existing raster pipeline. Repairs write to an explicit
+        document layer, Frequency Separation separates tone from detail, and Liquify stores an
+        editable deformation. The limits stay visible; none of these workflows needs a model
+        download or a cloud connection.
       </p>
+
+      <section class="docs-section" aria-labelledby="repair-title">
+        <h2 id="repair-title">Clone, heal, spot-heal, patch, dodge, and burn</h2>
+        <p>
+          Choose a writable raster layer before painting. For a separate repair layer, use
+          {' '}<strong>Prepare retouch layers</strong>{' '}in Photo/Image Tuning; this locks the source layer
+          and selects a new repair layer. Clone Stamp and Healing Brush set their source with
+          {' '}<strong>Alt-click</strong>. The source marker remains visible on the canvas, and a stroke
+          samples a frozen source view so the destination cannot feed back into that same stroke.
+        </p>
+        <ul>
+          <li><strong>Clone Stamp</strong> copies source pixels. Aligned mode moves the source with the stroke; unaligned mode starts from the chosen anchor each time.</li>
+          <li><strong>Healing Brush</strong> adapts the source texture toward the destination's local colour. It is a bounded first-order mean-shift blend, not a gradient-domain or content-aware reconstruction; use Clone when that adaptation smears detail across an edge.</li>
+          <li><strong>Spot Heal</strong> searches a bounded nearby region for a texture patch. It uses existing image evidence and does not synthesize missing detail.</li>
+          <li><strong>Patch</strong> copies a selected source region into the destination with a feathered boundary.</li>
+          <li><strong>Dodge and Burn</strong> applies exposure in stops in linear light, with Shadows, Midtones, or Highlights focus. It changes existing destination pixels and does not create coverage.</li>
+        </ul>
+        <p>
+          Sampling scope is <strong>Current layer</strong>, <strong>Current and below</strong>, or
+          {' '}<strong>All visible layers</strong>; sampling scope controls the source image, while the
+          selected raster layer remains the only write target. The active selection clips repairs,
+          and Alpha lock limits them to pixels already present on the destination. Clone Stamp,
+          Healing Brush, and Dodge and Burn map pen pressure to flow; mouse input keeps its normal
+          deposit. Spot Heal's single-dab action does not use pressure.
+        </p>
+        <p>
+          Repairs are persistent document pixels: one completed stroke is one undo step, and
+          cancel or a pixel-identical no-op adds no history. Save and reopen the document to retain
+          the repair layer. Retouch tiles are RGBA8/sRGB; these tools do not preserve an upstream
+          float HDR master. For RAW and range-bearing masters, see{' '}
+          <a href={sitePath('/docs/tools/raw-hdr-photo')}>RAW &amp; HDR Photo guide</a>.
+        </p>
+      </section>
 
       <section class="docs-section" aria-labelledby="frequency-title">
         <h2 id="frequency-title">Frequency Separation</h2>

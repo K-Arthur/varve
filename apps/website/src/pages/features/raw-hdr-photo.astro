@@ -47,13 +47,17 @@ import { sitePath } from '../../lib/siteUrl';
             <li>Float32 scene-linear computation, SDR preview, and single-part uncompressed OpenEXR float16/float32 master export.</li>
             <li>Ultra HDR gain-map JPEG sharing: the stored SDR rendition becomes the base image and a separate per-channel recovery map carries the extended range, so an SDR viewer shows exactly the rendition you reviewed.</li>
             <li>Reopen a supported range-bearing OpenEXR on an SDR-only runtime, adjust the SDR output transform, and keep the master unchanged.</li>
-            <li>Persistent clone, heal, spot-heal, and patch repairs on the existing raster-layer target.</li>
+            <li>Persistent clone, heal, spot-heal, and patch repairs on the existing raster-layer target, plus a linear-light dodge and burn brush with shadows/midtones/highlights focus.</li>
+            <li>Downstream pixel repairs are baked to the RAW source revision: changing white balance, exposure, or the profile afterwards keeps the repair bytes intact, shows a stale-repair warning, and requires an intentional reapply or rebase. Verified end to end in the browser, including save/reopen.</li>
           </ul>
         </div>
         <aside class="limits" aria-labelledby="limits-title">
           <h2 id="limits-title">What this does not claim</h2>
           <p>
-            This is not universal camera RAW support. Compressed proprietary RAW, X-Trans, multi-shot,
+            This is not universal camera RAW support. Proprietary vendor containers (CR2, NEF, ARW, CR3,
+            RAF, and friends) are detected and refused with a clear recovery route instead of a
+            decode error or a silently promoted embedded preview. Conversion only works when it
+            produces a classic, uncompressed 2x2 Bayer or monochrome DNG; compressed DNG, X-Trans, multi-shot,
             unsupported DNG opcodes, and missing lens profiles are reported or deferred. Rendered JPEG/PNG
             brackets are exposure-fused, not calibrated radiance. PQ/HLG display encoding and physical HDR
             display presentation remain unverified. Gain-map JPEG export is verified for scene-linear masters;
