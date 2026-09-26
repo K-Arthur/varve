@@ -91,6 +91,43 @@ test.describe('responsive canvas geometry', () => {
     });
   });
 
+  test('a canvas resize during a drag keeps the drawn shape under the pointer', async ({
+    page,
+  }) => {
+    test.setTimeout(300000);
+    const canvas = page.locator('canvas.editor-canvas__content-layer');
+    const before = await canvas.boundingBox();
+    if (!before) throw new Error('canvas not found');
+    const start = { x: before.x + 220, y: before.y + 180 };
+    const end = { x: before.x + 380, y: before.y + 300 };
+
+    await page.keyboard.press('r');
+    // Hold animation frames so the geometry observer cannot apply the resize
+    // before release: only the gesture's own layout reads can, and they must
+    // do so while the pointer still anchors the camera.
+    await page.clock.install();
+    await page.clock.pauseAt(new Date(Date.now() + 1000));
+    await page.mouse.move(start.x, start.y);
+    await page.mouse.down();
+    await page.mouse.move(start.x + 40, start.y + 30, { steps: 2 });
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.mouse.move(end.x - 20, end.y - 10, { steps: 2 });
+    await page.mouse.move(end.x, end.y);
+    await page.mouse.up();
+    await page.clock.resume();
+    await page.waitForTimeout(300);
+
+    const after = await canvas.boundingBox();
+    if (!after) throw new Error('canvas not found after resize');
+    expect(Math.abs(after.x - before.x)).toBeLessThanOrEqual(1);
+    expect(after.width).toBeLessThan(before.width - 100);
+    const { selection } = await screenGeometry(page);
+    expect(Math.abs(selection.x - start.x)).toBeLessThanOrEqual(3);
+    expect(Math.abs(selection.y - start.y)).toBeLessThanOrEqual(3);
+    expect(Math.abs(selection.x + selection.width - end.x)).toBeLessThanOrEqual(3);
+    expect(Math.abs(selection.y + selection.height - end.y)).toBeLessThanOrEqual(3);
+  });
+
   test('wheel zoom refreshes moved canvas geometry before client-to-world conversion', async ({
     page,
   }) => {

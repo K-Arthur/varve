@@ -817,6 +817,11 @@ export function useCanvasInputs({
       if (activeDragPointer.current?.pointerId === pointerId) {
         activeDragPointer.current = null;
       }
+      // Commit any layout change made during the gesture while its anchor is
+      // still active. Moves no longer re-read layout, so a panel that resized
+      // mid-drag would otherwise be applied after release around the viewport
+      // centre and shift the artwork the pointer just placed.
+      refreshCanvasRect?.();
       clearViewportAnchor();
       setSnapGuides([]);
       if (touchLike) {
@@ -864,6 +869,7 @@ export function useCanvasInputs({
       pointerOwnershipRef,
       closePointerEditorInteraction,
       closeTouchNavigationInteraction,
+      refreshCanvasRect,
     ],
   );
 
