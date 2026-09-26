@@ -229,6 +229,32 @@ near-whole-frame result (at least 99.5% hard coverage) is rejected as an
 ambiguous foreground failure instead of being allowed to turn a later edit
 into a full-photograph operation.
 
+## Corpus quality run — reproduction (2026-09-26)
+
+The same command above was rerun during the subject-selection audit on this
+machine (Linux x86_64, onnxruntime-node 1.27.0 CPU, repaired encoder
+`b4cfd6c8…`, decoder `f5a4bd65…`):
+
+- All 10 fixtures ran and recorded finite metrics; cold session **806 ms**,
+  mean prompt **5.9 s** (4.6-9.1 s per image, encoder included).
+- **Every category reproduced the 2026-09-14 numbers to the recorded
+  precision** — mean IoU **0.654**, mean best-candidate **0.720**, mean
+  boundary F **0.654** — so the 2026-09-26 trim/mask/selection changes
+  introduced no quality regression.
+- Prompt placement was re-audited directly against the fixture bytes rather
+  than the fixture names: every positive point lands on oracle subject pixels
+  (circle-plain, fuzzy-edge, thin-geometry, overlapping, tiny-object,
+  touches-edge, low-contrast, soft-alpha, multiple-similar, foliage-like all
+  `ON-SUBJECT`), and the foliage box encloses a region that is only 16%
+  oracle pixels.
+- The weak categories are unchanged and remain the documented ones:
+  `foliage-like` (one point in a 40-region cluster), `soft-alpha` (matting
+  versus a binary oracle), `multiple-similar` (disambiguation), and
+  `overlapping`.
+
+Results JSON: `/tmp/opencode/sam2-corpus-results.json`; rendered table via
+`node scripts/bench/object-selection-parity-report.mjs --input <rows.json>`.
+
 ## Automatic foreground proposals (2026-09-14)
 
 `Select subject` moved from a model-free-only estimate to an explicitly
