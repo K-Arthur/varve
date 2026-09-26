@@ -64,6 +64,7 @@ const TOOL_RETENTION_OVERRIDES: Partial<Record<ToolId, number>> = {
   healBrush: 75,
   spotHeal: 75,
   patch: 75,
+  dodgeBurn: 75,
   refineMask: 62,
   trimapEdit: 62,
   smudge: 66,

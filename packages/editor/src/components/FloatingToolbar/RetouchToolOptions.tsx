@@ -2,6 +2,7 @@ import { Select, Switch } from '@varve/ui';
 import { type Dispatch, type SetStateAction, useCallback, useEffect, useState } from 'react';
 import { getToolManager } from '../../canvas/toolDispatcher';
 import type { CloneStampOptions, CloneStampTool } from '../../tools/CloneStampTool';
+import type { DodgeBurnOptions, DodgeBurnTool } from '../../tools/DodgeBurnTool';
 import type { HealingBrushOptions, HealingBrushTool } from '../../tools/HealingBrushTool';
 import type { PatchTool, PatchToolOptions } from '../../tools/PatchTool';
 import type { SamplingScope as RetouchSamplingScope } from '../../tools/retouchSampling';
@@ -9,7 +10,7 @@ import type { SpotHealOptions, SpotHealTool } from '../../tools/SpotHealTool';
 import type { Tool as EditorTool } from '../../tools/types';
 import { NumberField } from '../Inspector/controls/NumberField';
 
-export type RetouchToolId = 'cloneStamp' | 'healBrush' | 'spotHeal' | 'patch';
+export type RetouchToolId = 'cloneStamp' | 'healBrush' | 'spotHeal' | 'patch' | 'dodgeBurn';
 
 const DEFAULT_CLONE_OPTIONS: CloneStampOptions = {
   brushSize: 40,
@@ -48,11 +49,83 @@ const DEFAULT_PATCH_OPTIONS: PatchToolOptions = {
   samplingScope: 'current',
 };
 
+const DEFAULT_DODGE_BURN_OPTIONS: DodgeBurnOptions = {
+  brushSize: 40,
+  hardness: 0.5,
+  opacity: 1,
+  flow: 1,
+  spacing: 0.15,
+  mode: 'dodge',
+  exposure: 0.5,
+  range: 'midtones',
+};
+
 export function RetouchToolOptions({ tool }: { tool: RetouchToolId }) {
   if (tool === 'cloneStamp') return <CloneStampOptionsPanel />;
   if (tool === 'healBrush') return <HealingBrushOptionsPanel />;
   if (tool === 'spotHeal') return <SpotHealOptionsPanel />;
+  if (tool === 'dodgeBurn') return <DodgeBurnOptionsPanel />;
   return <PatchOptionsPanel />;
+}
+
+function DodgeBurnOptionsPanel() {
+  const [options, setOptions] = useToolOptions<DodgeBurnOptions, DodgeBurnTool>(
+    'dodgeBurn',
+    DEFAULT_DODGE_BURN_OPTIONS,
+  );
+  const update = useCallback(
+    <K extends keyof DodgeBurnOptions>(key: K, value: DodgeBurnOptions[K]) => {
+      setOptions((current) => ({ ...current, [key]: value }));
+    },
+    [setOptions],
+  );
+  return (
+    <div className="tool-options__selection" data-testid="retouch-options">
+      <div className="tool-options__heading">Dodge Burn</div>
+      <div className="tool-options__field">
+        <span className="tool-options__label">Mode</span>
+        <Select
+          className="tool-options__scope-select"
+          label="Dodge or burn mode"
+          value={options.mode}
+          options={[
+            { value: 'dodge', label: 'Dodge (lighten)' },
+            { value: 'burn', label: 'Burn (darken)' },
+          ]}
+          onChange={(next) => update('mode', next as DodgeBurnOptions['mode'])}
+        />
+      </div>
+      <RetouchBrushFields options={options} onChange={update} />
+      <NumberField
+        label="Exposure"
+        value={Math.round(options.exposure * 100)}
+        min={1}
+        max={200}
+        step={5}
+        unit="%"
+        onChange={(value) => update('exposure', value / 100)}
+      />
+      <div className="tool-options__field">
+        <span className="tool-options__label">Range</span>
+        <Select
+          className="tool-options__scope-select"
+          label="Luminance range focus"
+          value={options.range}
+          options={[
+            { value: 'shadows', label: 'Shadows' },
+            { value: 'midtones', label: 'Midtones' },
+            { value: 'highlights', label: 'Highlights' },
+          ]}
+          onChange={(next) => update('range', next as DodgeBurnOptions['range'])}
+        />
+      </div>
+      <p className="tool-options__hint">
+        Adjusts existing pixels in linear light, like the global Exposure control under the brush.
+        It cannot paint onto transparent areas. Pen pressure modulates flow when pressure is enabled
+        in drawing settings.
+      </p>
+    </div>
+  );
 }
 
 function CloneStampOptionsPanel() {

@@ -82,6 +82,21 @@ export interface PatchRegionOptions {
   alphaLock?: boolean;
 }
 
+export type DodgeBurnMode = 'dodge' | 'burn';
+export type DodgeBurnRange = 'shadows' | 'midtones' | 'highlights';
+
+export interface DodgeBurnOptions {
+  mode: DodgeBurnMode;
+  /**
+   * Exposure strength in stops at full-strength brush coverage. 0 is the
+   * identity; values are signed by `mode` (dodge brightens, burn darkens).
+   */
+  exposure: number;
+  /** Luminance focus, weighting the adjustment like classic range-limited tools. */
+  range: DodgeBurnRange;
+  coverage?: CoverageMask | null;
+}
+
 /** Nearest-neighbour tile sample. Returns null outside any populated tile. */
 export function sampleTiles(tiles: Map<string, RasterTile>, x: number, y: number): Rgba | null {
   const px = Math.floor(x);
@@ -467,6 +482,153 @@ export function compositePatchRegionOnNode(
     }
   }
   return changed ? { ...node, tiles: newTiles } : node;
+}
+
+/**
+ * Local dodge/burn on a persistent raster layer.
+ *
+ * The destination pixel is converted to linear light, scaled by
+ * 2^(±exposure × coverage), and encoded back — the same exposure mathematics
+ * as the global exposure adjustment, applied under the brush mask. Scaling
+ * linear light preserves channel relationships, so lightening does not
+ * desaturate highlights the way gamma-space addition does. The range weight
+ * focuses the adjustment at shadows, midtones or highlights without ever
+ * clipping the opposite extreme to black or white.
+ *
+ * There is no source: the operation modifies existing destination pixels, so
+ * a fully transparent destination stays untouched and zero exposure is the
+ * byte-identical identity with no history step.
+ */
+export function compositeDodgeBurnDabOnNode(
+  node: RasterLayerNode,
+  dab: BrushDab,
+  options: DodgeBurnOptions,
+): RasterLayerNode {
+  const exposure = Number.isFinite(options.exposure) ? Math.max(0, options.exposure) : 0;
+  if (exposure === 0) return node;
+  const coverage = options.coverage ?? null;
+
+  const mask = createBrushDabMask(dab);
+  const size = Math.ceil(dab.radius * 2);
+  const tileKeys = tilesForDab(dab);
+  const newTiles = new Map(node.tiles);
+  let changed = false;
+
+  for (const { col, row } of tileKeys) {
+    const key = makeTileKey(col, row);
+    const tile = newTiles.get(key);
+    // Nothing to constrain paint to, and nothing to modify: dodge/burn needs
+    // existing destination pixels, so empty tiles are never created.
+    if (!tile) continue;
+    const pixels = new Uint8ClampedArray(tile.pixels);
+
+    const tileOriginX = col * TILE_SIZE;
+    const tileOriginY = row * TILE_SIZE;
+    const localDabX = dab.x - tileOriginX;
+    const localDabY = dab.y - tileOriginY;
+    const {
+      minX: startX,
+      minY: startY,
+      maxX: endX,
+      maxY: endY,
+    } = rasterBoundsForDab({
+      x: localDabX,
+      y: localDabY,
+      radius: dab.radius,
+    });
+    let wrote = false;
+
+    for (let py = startY; py < endY; py++) {
+      if (py < 0 || py >= TILE_SIZE) continue;
+      for (let px = startX; px < endX; px++) {
+        if (px < 0 || px >= TILE_SIZE) continue;
+        const maskValue = sampleBrushMask(
+          mask,
+          size,
+          px - (localDabX - dab.radius),
+          py - (localDabY - dab.radius),
+          dab,
+        );
+        if (maskValue <= 0) continue;
+
+        const layerX = tileOriginX + px;
+        const layerY = tileOriginY + py;
+        const selection = coverage ? sampleCoverage(coverage, layerX, layerY) : 1;
+        if (selection <= 0) continue;
+
+        const idx = (py * TILE_SIZE + px) * 4;
+        const a = pixels[idx + 3]!;
+        if (a === 0) continue;
+
+        const r = pixels[idx]!;
+        const g = pixels[idx + 1]!;
+        const b = pixels[idx + 2]!;
+        const rangeWeight = dodgeBurnRangeWeight(rangeLuminance(r, g, b), options.range);
+        const signedStops =
+          (options.mode === 'dodge' ? exposure : -exposure) *
+          maskValue *
+          dab.opacity *
+          dab.flow *
+          selection *
+          rangeWeight;
+        if (signedStops === 0) continue;
+        const factor = 2 ** signedStops;
+
+        const nr = clampByte(linearToSrgbByte(srgbToLinear(r) * factor));
+        const ng = clampByte(linearToSrgbByte(srgbToLinear(g) * factor));
+        const nb = clampByte(linearToSrgbByte(srgbToLinear(b) * factor));
+        // Dodge/burn never paints new coverage: alpha stays the destination's.
+        if (nr === r && ng === g && nb === b) continue;
+        pixels[idx] = nr;
+        pixels[idx + 1] = ng;
+        pixels[idx + 2] = nb;
+        wrote = true;
+      }
+    }
+
+    if (!wrote) continue;
+    changed = true;
+    newTiles.set(key, { pixels, version: (tile?.version ?? 0) + 1 });
+  }
+
+  return changed ? { ...node, tiles: newTiles } : node;
+}
+
+/** Perceptual luminance 0-1 from straight-alpha sRGB bytes. */
+function rangeLuminance(r: number, g: number, b: number): number {
+  return (r * 0.2126 + g * 0.7152 + b * 0.0722) / 255;
+}
+
+/**
+ * Smooth range focus. Shadows weight dark pixels most, highlights weight
+ * bright pixels most, midtones use a peaked weight centred at mid grey. All
+ * three are strictly positive away from the extremes so the range choice
+ * adjusts emphasis instead of masking pixels out entirely.
+ */
+function dodgeBurnRangeWeight(luminance: number, range: DodgeBurnRange): number {
+  const l = Math.max(0, Math.min(1, luminance));
+  if (range === 'shadows') return 1 - smoothstep(0.25, 0.85, l);
+  if (range === 'highlights') return smoothstep(0.15, 0.75, l);
+  // Midtones: a raised-cosine peak at 0.5 that tapers towards both extremes.
+  const distance = Math.abs(l - 0.5) * 2;
+  return 0.5 + 0.5 * Math.cos(distance * Math.PI);
+}
+
+function smoothstep(edge0: number, edge1: number, x: number): number {
+  const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
+  return t * t * (3 - 2 * t);
+}
+
+/** sRGB-encoded byte to linear light 0-1 (IEC 61966-2-1). */
+function srgbToLinear(byte: number): number {
+  const c = byte / 255;
+  return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+}
+
+/** Linear light 0-1 (and above) to an sRGB-encoded byte. */
+function linearToSrgbByte(linear: number): number {
+  const c = linear <= 0.0031308 ? linear * 12.92 : 1.055 * linear ** (1 / 2.4) - 0.055;
+  return c * 255;
 }
 
 /** Mean destination-minus-source colour over the dab footprint. */

@@ -46,7 +46,13 @@ const LiquifyOptionsPanel = lazy(() =>
 const BRUSH_TOOLS = new Set<ToolId>(['paint', 'eraser', 'pencil', 'smudge']);
 const MARQUEE_TOOLS = new Set<ToolId>(['marquee', 'ellipseMarquee', 'pixelLasso']);
 const MAGIC_WAND_TOOLS = new Set<ToolId>(['magicWand']);
-const RETOUCH_TOOLS = new Set<ToolId>(['cloneStamp', 'healBrush', 'spotHeal', 'patch']);
+const RETOUCH_TOOLS = new Set<ToolId>([
+  'cloneStamp',
+  'healBrush',
+  'spotHeal',
+  'patch',
+  'dodgeBurn',
+]);
 const DEFAULT_TEXT_CREATION_SETTINGS = {
   writingMode: 'horizontal-tb' as const,
   textOrientation: 'mixed' as const,

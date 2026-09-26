@@ -245,6 +245,7 @@ export function shapeForTool(tool: ToolId): Shape {
     case 'healBrush':
     case 'spotHeal':
     case 'patch':
+    case 'dodgeBurn':
     case 'refineMask':
     case 'trimapEdit':
     case 'crop':

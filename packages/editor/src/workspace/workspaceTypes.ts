@@ -683,7 +683,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         {
           id: 'retouch',
           label: 'Retouch',
-          tools: ['cloneStamp', 'healBrush', 'spotHeal', 'patch'],
+          tools: ['cloneStamp', 'healBrush', 'spotHeal', 'patch', 'dodgeBurn'],
         },
       ],
     },
@@ -795,7 +795,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         {
           id: 'retouch',
           label: 'Retouch',
-          tools: ['cloneStamp', 'healBrush', 'spotHeal', 'patch'],
+          tools: ['cloneStamp', 'healBrush', 'spotHeal', 'patch', 'dodgeBurn'],
         },
         { id: 'mask', label: 'Mask', tools: ['refineMask', 'trimapEdit'] },
       ],

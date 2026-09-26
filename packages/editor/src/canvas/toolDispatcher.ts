@@ -7,6 +7,7 @@ import { ToolManager } from '../tools';
 import { ArrowTool } from '../tools/ArrowTool';
 import { CloneStampTool } from '../tools/CloneStampTool';
 import { CropTool } from '../tools/CropTool';
+import { DodgeBurnTool } from '../tools/DodgeBurnTool';
 import { EllipseTool } from '../tools/EllipseTool';
 import { EyedropperTool } from '../tools/EyedropperTool';
 import { FloatingTransformTool } from '../tools/FloatingTransformTool';
@@ -79,6 +80,7 @@ export function getToolManager(): ToolManager {
     toolManager.register('healBrush', () => new HealingBrushTool());
     toolManager.register('spotHeal', () => new SpotHealTool());
     toolManager.register('patch', () => new PatchTool());
+    toolManager.register('dodgeBurn', () => new DodgeBurnTool());
     toolManager.register('pixelProbe', () => new PixelProbeTool());
     toolManager.register('refineMask', () => new RefineMaskTool());
     toolManager.register('trimapEdit', () => new TrimapEditTool());

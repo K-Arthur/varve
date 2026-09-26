@@ -310,6 +310,14 @@ export const TOOL_REGISTRY = [
     aliases: ['retouch', 'repair'],
   },
   {
+    id: 'dodgeBurn',
+    label: 'Dodge Burn',
+    icon: 'Contrast',
+    category: 'raster',
+    kind: 'tool',
+    aliases: ['dodge', 'burn', 'lighten', 'darken', 'exposure', 'retouch'],
+  },
+  {
     id: 'refineMask',
     label: 'Refine Mask',
     icon: 'Paintbrush',
