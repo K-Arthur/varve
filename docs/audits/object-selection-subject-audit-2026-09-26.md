@@ -118,6 +118,47 @@ divergence (7).
   sources), `docs/quality/object-selection-parity.md` (parity method + numbers),
   `scripts/validate-pipelines/README.md`.
 
+## Verification status (2026-09-26)
+
+Deterministic and real-model work is complete; browser E2E is queued behind
+the cross-worktree heavy lease, which other sessions held continuously for
+over two hours (a single `fluidity final control-all` slice plus six other
+waiters). Nothing below is claimed as run that was not run.
+
+Run and passing:
+
+- `npx vitest run` over the 16 selection/trim/inference suites — **289 passed,
+  1 skipped** (the skip is `sam2RealReconstructionParity.test.ts` reporting
+  *skipped*, not passed, when `SAM2_REAL_PARITY_DIR` is unset).
+- `python3 scripts/validate-pipelines/validate_sam2_pipeline.py --synthetic`
+  with the real repaired weights — 4/4 PASS for **both** reconstructions
+  (table above).
+- `npx tsc --noEmit -p packages/engine` — clean.
+- `npx tsc --noEmit -p packages/editor` — one error, in another session's
+  in-flight `tokenSync/importWorkflow.test.ts`; nothing in this change set.
+- Tier 0 audits: `audit:docs`, `audit:emoji`, `audit:tokens` (+usage),
+  `audit:spacing`, `audit:sizing`, `audit:inspector-css` — all clean.
+- `pnpm typecheck:e2e` — clean (covers the two new specs).
+- Every commit went through `pnpm verify:commit` (biome, emoji, health,
+  impact-config, secret scan, contacts, docs, import boundaries,
+  typecheck:e2e, and the selection unit slice).
+
+Blocked by lease contention — exact remaining command:
+
+```bash
+node scripts/quality/heavy-lease.mjs "e2e: object selection live" -- \
+  npx playwright test tests/e2e/canvas/object-selection-draft-overlay.spec.ts \
+    tests/e2e/canvas/trim-sources.spec.ts --project=chromium --workers=1 --reporter=list
+
+VARVE_SAM2_REAL_MODEL=1 node scripts/quality/heavy-lease.mjs "e2e: selection real model" -- \
+  npx playwright test tests/e2e/canvas/object-selection-real-model.spec.ts \
+    --project=chromium --workers=1 --reporter=list -g "clicks an object"
+```
+
+The two new specs are written and typecheck; they have not been executed, so
+their assertions are unverified evidence until one of the commands above runs.
+Tauri/WebKitGTK and Windows/macOS were not exercised by this pass at all.
+
 ## Known limitations / not covered here
 
 - Extract-to-new-layer from a subject selection is not offered anywhere in the
