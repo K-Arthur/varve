@@ -294,9 +294,11 @@ The first control runs were not valid, for two reasons found during triage.
 The exported trees link `node_modules` from the main checkout, so Vite
 refused to serve the bundled web fonts from outside its root (353 blocked
 requests in one run). They also lack the ignored WASM build output, so the
-engine fell back to TypeScript. Both arms were corrected identically (a
-scratch-only `server.fs.allow` entry and the same WASM files copied in), and
-every canvas failure was re-triaged under the corrected setup. Earlier
+engine fell back to TypeScript, and test fixtures added to `master` after the
+export's base. Both arms were corrected identically (a scratch-only
+`server.fs.allow` entry, the same WASM files, and `master`'s tracked
+fixtures copied in), and the final canvas pass below ran under the corrected
+setup. Earlier
 classifications made before the correction were redone, and one measurement
 difference was traced to it: the Layers header width differed between arms
 (183.05 px vs 180.59 px) because only one arm had its fonts.
@@ -311,13 +313,12 @@ difference was traced to it: the Layers header width differed between arms
 | E2E: oracle and responsiveness specs (`responsiveness-real-workflow`, `many-image-render`, `performance-diagnostics`, `name-labels`, `responsive-geometry`) | 10 / 10 pass | Run on the main checkout |
 | E2E: input and navigation (`input-navigation`, `interaction-latency`, `middle-button-pan`, `snap-after-move`, `zoom-stability`, `tools`) | 31 pass, 1 pre-existing | `tools.spec.ts:169` (clipping-mask source icon) also fails on the corrected control |
 | E2E: surfaces touched indirectly (`document-accent`, `layers`, `local-manager`, `detach`, `layers-header-solo-overflow`, `chromeos-device-matrix`) | 42 pass, 3 pre-existing | The three layout-measurement failures also fail on the corrected control |
-| E2E: `tests/e2e/canvas`, slice 1 of 4 (48 files) | 173 pass, 23 fail, 20 not run | Run on the main checkout, failures re-triaged in the corrected arms. `clipboard.spec.ts:146` and `font-geometry-oracle` were caused by this task and are fixed. `document-fonts-panel` passes. The rest also fail on the control. The 20 not run follow failures in six serial-mode files that also fail on the control, so they were not exercised in either arm |
-| E2E: `tests/e2e/canvas`, slices 2–4 (141 files) | 366 pass, 80 fail, 77 not run, 7 skipped | This task's tree, corrected setup. Every failing test was rerun on the control: all but four also fail there. `tables.spec.ts:51` and `warp-visual.spec.ts:102` then failed 1 of 2 on the control too (flaky in both arms). `variable-font-axes.spec.ts:78` and `perspective-image.spec.ts:8` were made worse by this task and are fixed (see Confirmed root causes). The 77 not run follow failures in serial-mode files |
+| E2E: `tests/e2e/canvas`, all four slices (188 files), final pass on the committed code | 548 pass, 98 fail, 94 not run, 44 skipped | This task's tree under the corrected setup. All 98 failing tests (90 locations) were rerun on the identically prepared control, and 95 fail there too. The three that passed once on the control were rerun twice per arm. Across all runs `image-mode.spec.ts:62` failed 4 of 5 with this work and 3 of 5 on the control, `tables-visual.spec.ts:281` 1 of 5 in each arm, and `table-merged-divider.spec.ts:13` 1 of 5 with this work and 0 of 5 on the control, failing at the Shift+ArrowRight step that `tables.spec.ts` documents as racing the global shortcut manager. All three are classified as intermittent in both arms. The 94 not run follow failures in serial-mode files |
+| Earlier canvas passes (before the corrected setup) | 4 regressions found | They surfaced `clipboard.spec.ts:146`, `font-geometry-oracle`, `perspective-image.spec.ts:8`, and `variable-font-axes.spec.ts:78`, all fixed (see Confirmed root causes), and showed `tables.spec.ts:51` and `warp-visual.spec.ts:102` failing in both arms |
 | `clipboard.spec.ts:146` after the paste fix | 6 / 6 pass | `--repeat-each=6` on this task's tree; 5 of 6 failed before the fix |
 | New resize-during-drag test (`responsive-geometry.spec.ts`) | fails 2/2 before the fix; passes 2/2 on the control; whole file 8/8 with the fix | |
 | `perspective-image` and `variable-font-axes` after their fixes | 24 / 24 pass in both arms | `--repeat-each=6`; the control also passed the in-canvas variable-font drag 18/18 |
 | Planner lanes for the pointer-up and overlay fixes (`9ae0e3725`, `d3585cb34`, `8d2959d7b`) | pass | Biome, emoji, `typecheck:e2e`, `inputPipeline.test.ts` and `PerspectiveOverlay.test.tsx` 9/9, editor unit tests 8,056/8,056, desktop unit tests 80/80 and typecheck. The editor typecheck error is again only the token-sync file |
-| Final `tests/e2e/canvas` rerun on the committed state | in progress at this commit | Recorded in a follow-up commit |
 | Planner lanes for the paste fix (`a5a4eaf6c`) | pass except unrelated | Biome, emoji, `context.import.test.tsx` 17/17, desktop typecheck and 1,916 s unit run pass. Editor unit tests: 8,039 pass, 8 fail: 7 in the token-sync task's uncommitted `TokenSyncPanel` and `LocalTokenForm` files, and 1 in `selectionCoverage.test.ts` from another task's later retouch commit, which uses no file this task changed. The editor typecheck error is the token-sync file noted above |
 | `bench:render` (`pnpm bench:canvas`) | pass (6 / 6) | Engine replay bench; this task does not change the engine |
 | `node scripts/audit-architecture.mjs --ci` | pass | 14 cycles (ceiling 19), no layer violations; `context.tsx` import count unchanged by this task |
