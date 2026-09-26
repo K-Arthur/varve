@@ -272,3 +272,36 @@ Escalations: full gate required by the Cargo.toml workspace change
 Full suite run: attempted (verify:full with VARVE_FULL_GATE_REASON)
 If yes, reason: workspace dependency change (base64 for varve-print)
 ```
+
+## Commits produced in this session (all on master, pathspec-scoped)
+
+- `7e0dee5aa` — docs(mockup): record 2026-09-25 research and improvement plan.
+- `599d1b70d` — fix(export): compose mockups in SVG/PDF boundaries and ship
+  real image pixels to the print pipeline (the core slice: capability
+  boundary, PDF/X guard, print manifest, preflight findings).
+- `69b82b2ab` — feat(mockup): Object-menu entries, placement-preservation
+  regression, dead-export cleanup.
+- `88f63fc93` — test(mockup): SVG export boundary E2E; export-parity docs,
+  ADR-0015 decision 8, changelog, website export claims.
+- `71c0c3b64` — refactor(mockup): shared surface-source replacement seam.
+- `154b5faeb` — test(mockup): hardened export-dialog close (rerun 51.6 s
+  green), audit record, inspected SVG evidence, secret-scan staged-mode
+  allowlist fix (the scanner's documented ALLOWLISTED_PATHS procedure did
+  not apply to `--staged`; fixed and covered by `scripts/secret-scan.test.mjs`,
+  14 canaries passing).
+- `69fcaae68` — refactor(mockup): route the Inspector Replace button through
+  the shared seam (committed via a temporary index containing only this
+  task's hunks so the concurrent mesh task's uncommitted Inspector fieldset
+  in the same file stayed theirs).
+
+## Residual working-tree state owned by other tasks (left untouched)
+
+- `MockupsSection.tsx`: the mesh task's Inspector fieldset (unstaged) — a
+  one-character gate fix (`×` → `x`, repo convention `Mask {w} x {h}`) was
+  applied to their line so the repo-wide `audit:emoji` gate could pass for
+  every agent; their content is otherwise intact and theirs to commit.
+- Staged by the retouch task: `docs/architecture/{paint,photo-raw-hdr}-system.md`,
+  `docs/audits/photo-retouch-extensions-2026-09-25.md`,
+  `tests/e2e/canvas/{photo-raw-hdr,retouch-tools}.spec.ts`.
+- Unstaged by other tasks: compositor/webgpu, tokens/tokenSync, retouch
+  tools, scene bindings, website typography pages, engine mockup warp.
