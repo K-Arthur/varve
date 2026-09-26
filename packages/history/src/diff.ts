@@ -244,11 +244,15 @@ function compareMap(
   targetVal: unknown,
 ): void {
   if (baseVal === undefined && targetVal === undefined) return;
+  // Immutable documents share unchanged structure: an identical reference
+  // cannot contain a difference, so skip it instead of walking it.
+  if (baseVal === targetVal) return;
   const baseMap = (baseVal ?? {}) as Record<string, unknown>;
   const targetMap = (targetVal ?? {}) as Record<string, unknown>;
   for (const id of unionKeys(baseMap, targetMap)) {
     const baseEntry = baseMap[id];
     const targetEntry = targetMap[id];
+    if (baseEntry === targetEntry) continue;
     if (baseEntry === undefined) {
       emit(ctx, {
         changeType: 'added',
@@ -283,6 +287,7 @@ function compareOrdered(
   targetVal: unknown,
 ): void {
   if (baseVal === undefined && targetVal === undefined) return;
+  if (baseVal === targetVal) return;
   const baseArr = (baseVal ?? []) as unknown[];
   const targetArr = (targetVal ?? []) as unknown[];
   if (baseArr.length === 0 && targetArr.length === 0) return;
@@ -342,22 +347,15 @@ function compareOrdered(
   }
 
   // Recurse into matched pairs (paths are id-stable, immune to reorder).
-  for (const [, tj] of lcs) {
+  // Each LCS pair already names its base index; looking it up again per
+  // pair was a linear scan, O(n^2) across a large root order.
+  for (const [bi, tj] of lcs) {
+    const baseItem = baseArr[bi]!;
+    const targetItem = targetArr[tj]!;
+    if (baseItem === targetItem) continue;
     const id = targetIds[tj]!;
-    compareEntityAt(
-      ctx,
-      spec.entityType,
-      id,
-      `${containerPath}.${id}`,
-      baseArr[baseIndexFor(lcs, tj)]!,
-      targetArr[tj]!,
-    );
+    compareEntityAt(ctx, spec.entityType, id, `${containerPath}.${id}`, baseItem, targetItem);
   }
-}
-
-function baseIndexFor(lcs: Array<[number, number]>, targetIndex: number): number {
-  for (const [bi, tj] of lcs) if (tj === targetIndex) return bi;
-  return targetIndex;
 }
 
 function compareEntityAt(
@@ -754,6 +752,13 @@ function epsilonForPath(path: string): number | undefined {
  * Longest common subsequence over an array of comparable strings.
  * Returns matched index pairs `[baseIndex, targetIndex]` in order.
  */
+/**
+ * Largest DP table (cells) the exact quadratic LCS may allocate: 64 MiB of
+ * Uint32. A 10k-entry root order would otherwise allocate ~400 MiB per history
+ * capture, and ~50k entries exceed typed-array limits and throw.
+ */
+const MAX_LCS_TABLE_CELLS = 16 * 1024 * 1024;
+
 export function lcsIndices(
   base: readonly string[],
   target: readonly string[],
@@ -761,6 +766,27 @@ export function lcsIndices(
   const n = base.length;
   const m = target.length;
   if (n === 0 || m === 0) return [];
+  // The backtrack below matches equal leading elements greedily, so a common
+  // prefix is always paired index-for-index; trimming it yields the same pairs
+  // while shrinking the table to the region that actually changed.
+  let prefix = 0;
+  while (prefix < n && prefix < m && base[prefix] === target[prefix]) prefix++;
+  const pairs: Array<[number, number]> = [];
+  for (let k = 0; k < prefix; k++) pairs.push([k, k]);
+  if (prefix === n || prefix === m) return pairs;
+  const restBase = base.slice(prefix);
+  const restTarget = target.slice(prefix);
+  const rest =
+    (restBase.length + 1) * (restTarget.length + 1) <= MAX_LCS_TABLE_CELLS
+      ? lcsQuadratic(restBase, restTarget)
+      : lcsBounded(restBase, restTarget);
+  for (const [i, j] of rest) pairs.push([i + prefix, j + prefix]);
+  return pairs;
+}
+
+function lcsQuadratic(base: readonly string[], target: readonly string[]): Array<[number, number]> {
+  const n = base.length;
+  const m = target.length;
   const dp: Uint32Array = new Uint32Array((n + 1) * (m + 1));
   for (let i = n - 1; i >= 0; i--) {
     const row = i * (m + 1);
@@ -791,6 +817,53 @@ export function lcsIndices(
     }
   }
   return pairs;
+}
+
+/**
+ * LCS for inputs whose quadratic table exceeds the memory cap. Collection ids
+ * are unique in a valid document, and the LCS of two duplicate-free sequences
+ * is the longest increasing run of target positions in base order, found in
+ * O(n log n). Duplicated ids (a malformed document) keep only the first
+ * occurrence as a match candidate, which still yields a valid common
+ * subsequence; the caller's array rewrite carries the exact final order.
+ */
+function lcsBounded(base: readonly string[], target: readonly string[]): Array<[number, number]> {
+  const targetIndex = new Map<string, number>();
+  for (let j = 0; j < target.length; j++) {
+    if (!targetIndex.has(target[j]!)) targetIndex.set(target[j]!, j);
+  }
+  const seenBase = new Set<string>();
+  const candidates: Array<[number, number]> = [];
+  for (let i = 0; i < base.length; i++) {
+    const id = base[i]!;
+    if (seenBase.has(id)) continue;
+    seenBase.add(id);
+    const j = targetIndex.get(id);
+    if (j !== undefined) candidates.push([i, j]);
+  }
+  // Patience sorting over target indices; `tails[k]` is the candidate index
+  // ending the best increasing run of length k + 1.
+  const tails: number[] = [];
+  const previous = new Int32Array(candidates.length).fill(-1);
+  for (let c = 0; c < candidates.length; c++) {
+    const j = candidates[c]![1];
+    let lo = 0;
+    let hi = tails.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (candidates[tails[mid]!]![1] < j) lo = mid + 1;
+      else hi = mid;
+    }
+    if (lo > 0) previous[c] = tails[lo - 1]!;
+    tails[lo] = c;
+  }
+  const pairs: Array<[number, number]> = [];
+  let cursor = tails.length > 0 ? tails[tails.length - 1]! : -1;
+  while (cursor >= 0) {
+    pairs.push(candidates[cursor]!);
+    cursor = previous[cursor]!;
+  }
+  return pairs.reverse();
 }
 
 export function stableStringify(value: unknown): string {
