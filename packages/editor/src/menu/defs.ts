@@ -1598,6 +1598,22 @@ export function getObjectMenu(runAction: (id: string) => void): MenuItemDef[] {
       run: () => runAction('extractPalette'),
     },
     {
+      id: 'applyMockup',
+      labelKey: 'menu.object.applyMockup',
+      kind: 'command',
+      group: 'mockup',
+      enabled: enabledWithSelection,
+      run: () => runAction('applyMockup'),
+    },
+    {
+      id: 'createMockupTemplate',
+      labelKey: 'menu.object.createMockupTemplate',
+      kind: 'command',
+      group: 'mockup',
+      enabled: enabledWithSelection,
+      run: () => runAction('createMockupTemplate'),
+    },
+    {
       id: 'addAlphaMask',
       labelKey: 'menu.object.addAlphaMask',
       kind: 'command',

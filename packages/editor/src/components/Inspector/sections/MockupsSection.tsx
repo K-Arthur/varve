@@ -1045,11 +1045,6 @@ function TemplatePicker({
   );
 }
 
-/** True when the selected single node is a mockup frame. */
-export function isMockupSelection(node: unknown): node is FrameNode {
-  return isMockupFrame(node);
-}
-
 function templateSurfaceCount(doc: Document, frameId: string): number {
   const frame = doc.nodes[frameId];
   const templateId = frame && isMockupFrame(frame) ? frame.mockup.templateId : '';

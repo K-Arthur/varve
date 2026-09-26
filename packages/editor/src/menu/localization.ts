@@ -200,6 +200,8 @@ export const MENU_LABELS: Readonly<Record<string, string>> = {
   'menu.object.imageTrace': 'Vectorize Image (Image Trace)…',
   'menu.object.attachTextToPath': 'Text on Path',
   'menu.object.detachTextFromPath': 'Detach Text from Path',
+  'menu.object.applyMockup': 'Apply Mockup…',
+  'menu.object.createMockupTemplate': 'Create Mockup Template from Selection…',
 
   // ── Object ─────────────────────────────────────────────────────────────────
   'menu.object.path': 'Path',

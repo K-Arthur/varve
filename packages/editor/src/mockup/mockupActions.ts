@@ -209,16 +209,6 @@ export function applyMockupToSources(
   return createdNodeId;
 }
 
-/** Apply the given template to the current selection (single/multi). */
-export function applyMockupToSelection(
-  editor: EditorContextValue,
-  templateId: string,
-): NodeId | null {
-  const selection = editor.state.selection;
-  if (selection.length === 0) return null;
-  return applyMockupToSources(editor, templateId, selection, true);
-}
-
 /** Templates suitable for the current selection (all builtins + embedded). */
 export function templatesForDocument(doc: Document): MockupTemplateAsset[] {
   const builtins = getBuiltinMockupTemplates();
@@ -395,19 +385,6 @@ export async function createMockupTemplateFromSelection(
   }
   editor.setSelection(createdNodeId);
   return { frameId: createdNodeId, templateId: resolvedTemplateId };
-}
-
-/** Give this instance a private copy of its template (edits stay scoped). */
-export function makeInstanceTemplateUnique(editor: EditorContextValue, frameId: NodeId): boolean {
-  const result = makeMockupTemplateUnique(editor.state.document, frameId);
-  if (!result) return false;
-  editor.beginTransaction();
-  try {
-    editor.updateDoc(() => result.document);
-  } finally {
-    editor.commitTransaction();
-  }
-  return true;
 }
 
 /**

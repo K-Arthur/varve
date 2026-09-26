@@ -3174,6 +3174,24 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: codegen e
       {
         "badge": undefined,
         "disabled": true,
+        "id": "applyMockup",
+        "label": "Apply Mockup…",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
+        "id": "createMockupTemplate",
+        "label": "Create Mockup Template from Selection…",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-mockup",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
         "id": "path",
         "label": "Path",
         "submenu": [],
@@ -4903,6 +4921,24 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: codegen w
       },
       {
         "id": "sep-after-adjustment",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
+        "id": "applyMockup",
+        "label": "Apply Mockup…",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
+        "id": "createMockupTemplate",
+        "label": "Create Mockup Template from Selection…",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-mockup",
         "separator": true,
       },
       {
@@ -6918,6 +6954,24 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: design em
       },
       {
         "id": "sep-after-image",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
+        "id": "applyMockup",
+        "label": "Apply Mockup…",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
+        "id": "createMockupTemplate",
+        "label": "Create Mockup Template from Selection…",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-mockup",
         "separator": true,
       },
       {
@@ -9215,6 +9269,24 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: design wi
       {
         "badge": undefined,
         "disabled": true,
+        "id": "applyMockup",
+        "label": "Apply Mockup…",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
+        "id": "createMockupTemplate",
+        "label": "Create Mockup Template from Selection…",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-mockup",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
         "id": "addAlphaMask",
         "label": "Add Alpha Mask",
         "onAction": [Function],
@@ -11424,6 +11496,24 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: drawing e
       {
         "badge": undefined,
         "disabled": true,
+        "id": "applyMockup",
+        "label": "Apply Mockup…",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
+        "id": "createMockupTemplate",
+        "label": "Create Mockup Template from Selection…",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-mockup",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
         "id": "addAlphaMask",
         "label": "Add Alpha Mask",
         "onAction": [Function],
@@ -13595,6 +13685,24 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: drawing w
       {
         "badge": undefined,
         "disabled": true,
+        "id": "applyMockup",
+        "label": "Apply Mockup…",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
+        "id": "createMockupTemplate",
+        "label": "Create Mockup Template from Selection…",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-mockup",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
         "id": "addAlphaMask",
         "label": "Add Alpha Mask",
         "onAction": [Function],
@@ -15761,6 +15869,24 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: image emp
       {
         "badge": undefined,
         "disabled": true,
+        "id": "applyMockup",
+        "label": "Apply Mockup…",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
+        "id": "createMockupTemplate",
+        "label": "Create Mockup Template from Selection…",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-mockup",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
         "id": "addAlphaMask",
         "label": "Add Alpha Mask",
         "onAction": [Function],
@@ -17780,6 +17906,24 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: image wit
       {
         "badge": undefined,
         "disabled": true,
+        "id": "applyMockup",
+        "label": "Apply Mockup…",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
+        "id": "createMockupTemplate",
+        "label": "Create Mockup Template from Selection…",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-mockup",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
         "id": "addAlphaMask",
         "label": "Add Alpha Mask",
         "onAction": [Function],
@@ -19728,6 +19872,24 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: motion em
       {
         "badge": undefined,
         "disabled": true,
+        "id": "applyMockup",
+        "label": "Apply Mockup…",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
+        "id": "createMockupTemplate",
+        "label": "Create Mockup Template from Selection…",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-mockup",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
         "id": "path",
         "label": "Path",
         "submenu": [],
@@ -21579,6 +21741,24 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: motion wi
       },
       {
         "id": "sep-after-adjustment",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
+        "id": "applyMockup",
+        "label": "Apply Mockup…",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
+        "id": "createMockupTemplate",
+        "label": "Create Mockup Template from Selection…",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-mockup",
         "separator": true,
       },
       {
@@ -23571,6 +23751,24 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: print emp
       },
       {
         "id": "sep-after-image",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
+        "id": "applyMockup",
+        "label": "Apply Mockup…",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
+        "id": "createMockupTemplate",
+        "label": "Create Mockup Template from Selection…",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-mockup",
         "separator": true,
       },
       {
@@ -25845,6 +26043,24 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: print wit
       {
         "badge": undefined,
         "disabled": true,
+        "id": "applyMockup",
+        "label": "Apply Mockup…",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
+        "id": "createMockupTemplate",
+        "label": "Create Mockup Template from Selection…",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-mockup",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
         "id": "addAlphaMask",
         "label": "Add Alpha Mask",
         "onAction": [Function],
@@ -27856,6 +28072,24 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: codegen emp
       {
         "badge": undefined,
         "disabled": true,
+        "id": "applyMockup",
+        "label": "Apply Mockup…",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
+        "id": "createMockupTemplate",
+        "label": "Create Mockup Template from Selection…",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-mockup",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
         "id": "path",
         "label": "Path",
         "submenu": [],
@@ -29585,6 +29819,24 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: codegen wit
       },
       {
         "id": "sep-after-adjustment",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
+        "id": "applyMockup",
+        "label": "Apply Mockup…",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
+        "id": "createMockupTemplate",
+        "label": "Create Mockup Template from Selection…",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-mockup",
         "separator": true,
       },
       {
@@ -31600,6 +31852,24 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: design empt
       },
       {
         "id": "sep-after-image",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
+        "id": "applyMockup",
+        "label": "Apply Mockup…",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
+        "id": "createMockupTemplate",
+        "label": "Create Mockup Template from Selection…",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-mockup",
         "separator": true,
       },
       {
@@ -33897,6 +34167,24 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: design with
       {
         "badge": undefined,
         "disabled": true,
+        "id": "applyMockup",
+        "label": "Apply Mockup…",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
+        "id": "createMockupTemplate",
+        "label": "Create Mockup Template from Selection…",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-mockup",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
         "id": "addAlphaMask",
         "label": "Add Alpha Mask",
         "onAction": [Function],
@@ -36106,6 +36394,24 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: drawing emp
       {
         "badge": undefined,
         "disabled": true,
+        "id": "applyMockup",
+        "label": "Apply Mockup…",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
+        "id": "createMockupTemplate",
+        "label": "Create Mockup Template from Selection…",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-mockup",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
         "id": "addAlphaMask",
         "label": "Add Alpha Mask",
         "onAction": [Function],
@@ -38277,6 +38583,24 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: drawing wit
       {
         "badge": undefined,
         "disabled": true,
+        "id": "applyMockup",
+        "label": "Apply Mockup…",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
+        "id": "createMockupTemplate",
+        "label": "Create Mockup Template from Selection…",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-mockup",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
         "id": "addAlphaMask",
         "label": "Add Alpha Mask",
         "onAction": [Function],
@@ -40443,6 +40767,24 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: image empty
       {
         "badge": undefined,
         "disabled": true,
+        "id": "applyMockup",
+        "label": "Apply Mockup…",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
+        "id": "createMockupTemplate",
+        "label": "Create Mockup Template from Selection…",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-mockup",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
         "id": "addAlphaMask",
         "label": "Add Alpha Mask",
         "onAction": [Function],
@@ -42462,6 +42804,24 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: image with 
       {
         "badge": undefined,
         "disabled": true,
+        "id": "applyMockup",
+        "label": "Apply Mockup…",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
+        "id": "createMockupTemplate",
+        "label": "Create Mockup Template from Selection…",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-mockup",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
         "id": "addAlphaMask",
         "label": "Add Alpha Mask",
         "onAction": [Function],
@@ -44410,6 +44770,24 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: motion empt
       {
         "badge": undefined,
         "disabled": true,
+        "id": "applyMockup",
+        "label": "Apply Mockup…",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
+        "id": "createMockupTemplate",
+        "label": "Create Mockup Template from Selection…",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-mockup",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
         "id": "path",
         "label": "Path",
         "submenu": [],
@@ -46261,6 +46639,24 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: motion with
       },
       {
         "id": "sep-after-adjustment",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
+        "id": "applyMockup",
+        "label": "Apply Mockup…",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
+        "id": "createMockupTemplate",
+        "label": "Create Mockup Template from Selection…",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-mockup",
         "separator": true,
       },
       {
@@ -48253,6 +48649,24 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: print empty
       },
       {
         "id": "sep-after-image",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
+        "id": "applyMockup",
+        "label": "Apply Mockup…",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
+        "id": "createMockupTemplate",
+        "label": "Create Mockup Template from Selection…",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-mockup",
         "separator": true,
       },
       {
@@ -50522,6 +50936,24 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: print with 
       },
       {
         "id": "sep-after-image",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
+        "id": "applyMockup",
+        "label": "Apply Mockup…",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
+        "id": "createMockupTemplate",
+        "label": "Create Mockup Template from Selection…",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-mockup",
         "separator": true,
       },
       {

@@ -4,11 +4,16 @@ import {
   createDocument,
   type Document,
   designCanvasContentRoot,
+  type FrameNode,
   getBuiltinMockupTemplates,
+  getMockupTemplate,
+  type MockupInstanceData,
   makeFrameNode,
   type NodeId,
   nextNodeId,
   resolveOwnership,
+  setMockupBinding,
+  setMockupSurfaceOverride,
 } from '@varve/scene';
 import type { Affine } from '@varve/shared';
 import { describe, expect, it, vi } from 'vitest';
@@ -106,5 +111,75 @@ describe('applyMockupToSources', () => {
       mockupId,
     ]);
     expect(result.nodes[mockupId!]!.transform).toEqual([1, 0, 0, 1, 340, 90]);
+  });
+});
+
+describe('source replacement preserves placement (market failure modes C1/C2)', () => {
+  /**
+   * C1: "every time I make a change inside the smart object, the warp
+   * transformation resets" — replacement must be a pure source swap on the
+   * binding record. C2: "cannot fit an image without cropping" — the chosen
+   * fit policy must survive replacement untouched (never silently stretch).
+   * Placement lives in `overrides`/the template; binding lives in
+   * `surfaceBindings`; replacing one must be structurally incapable of
+   * touching the other. Byte-identical comparison, not field spot-checks.
+   */
+  it('rebinding a surface leaves geometry, fit, and appearance byte-identical', () => {
+    let doc = createDesignCanvas(createDocument('Mockup replace', { flat: true }), {
+      name: 'Canvas 1',
+    });
+    const canvasId = doc.activeDesignCanvasId!;
+    const contentRoot = designCanvasContentRoot(doc, canvasId)!;
+    const first = addSourceFrame(doc, contentRoot);
+    doc = first.doc;
+    const harness = mockEditor(doc, first.sourceId, { x: 120, y: 90, w: 140, h: 180 });
+
+    const mockupId = applyMockupToSources(harness.editor, getBuiltinMockupTemplates()[0]!.id, [
+      first.sourceId,
+    ]);
+    expect(mockupId).toBeTruthy();
+    doc = harness.document();
+    const frame = doc.nodes[mockupId!] as FrameNode & { mockup: MockupInstanceData };
+    const template = getMockupTemplate(doc, frame.mockup.templateId);
+    expect(template).toBeTruthy();
+    const surfaceId = template!.surfaces[0]!.id;
+
+    // User-tuned placement: slot rect, fit policy, rotation, flip, shadow.
+    doc = setMockupSurfaceOverride(doc, mockupId!, surfaceId, {
+      x: 12,
+      y: 24,
+      width: 200,
+      height: 100,
+      fit: 'cover',
+      rotation: 12,
+      flipH: true,
+      shadow: { blur: 18, offsetY: 6, opacity: 0.4 },
+    });
+    const beforeFrame = doc.nodes[mockupId!] as FrameNode & { mockup: MockupInstanceData };
+    const overridesBefore = JSON.stringify(beforeFrame.mockup.overrides);
+    const templateBefore = JSON.stringify(doc.mockupTemplates?.[template!.id]);
+
+    // Replace with a different source (different dimensions by construction).
+    const second = addSourceFrame(doc, contentRoot);
+    doc = setMockupBinding(second.doc, mockupId!, surfaceId, {
+      mode: 'live',
+      nodeId: second.sourceId,
+    });
+
+    const after = doc.nodes[mockupId!] as FrameNode & { mockup: MockupInstanceData };
+    expect(JSON.stringify(after.mockup.overrides)).toBe(overridesBefore);
+    expect(JSON.stringify(doc.mockupTemplates?.[template!.id])).toBe(templateBefore);
+    expect(after.mockup.surfaceBindings[surfaceId]).toEqual({
+      mode: 'live',
+      nodeId: second.sourceId,
+    });
+    expect(after.mockup.overrides?.[surfaceId]?.fit).toBe('cover');
+    expect(after.mockup.overrides?.[surfaceId]?.rotation).toBe(12);
+    expect(after.mockup.overrides?.[surfaceId]?.flipH).toBe(true);
+    expect(after.mockup.overrides?.[surfaceId]?.shadow).toEqual({
+      blur: 18,
+      offsetY: 6,
+      opacity: 0.4,
+    });
   });
 });
