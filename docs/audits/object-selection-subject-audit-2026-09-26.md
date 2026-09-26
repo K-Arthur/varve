@@ -154,6 +154,17 @@ Run and passing:
   impact-config, secret scan, contacts, docs, import boundaries,
   typecheck:e2e, and the selection unit slice).
 
+### Live browser run (2026-09-26, Chromium, this machine)
+
+After two expired waits the queued lease-wrapped run finally executed
+(`VARVE_E2E_PORT=1449`, `--project=chromium --workers=1`):
+
+| Spec | Result | Evidence |
+| --- | --- | --- |
+| `object-selection-real-model.spec.ts` "clicks an object…" | **PASS** (48.3 s) | Cold preview **26 s** — `Preview ready · predicted IoU score 0.56 · prompt match 100% · 3 candidate masks`; candidate cycling wraps; applied provenance `predicted IoU score 0.56`; **undo/redo OK**; warm preview **1 s**; Use-as-selection **0 s** |
+| `trim-sources.spec.ts` (new) | **PASS** (16.6s) | Alpha trim on a transparent PNG with **no selection mask**: source control visible, Alpha default, Trim enabled, no error alert, canvas changed, undo restored it |
+| `object-selection-draft-overlay.spec.ts` (new) | pixel check **PASS**, spec failed on its own assertion | Mid-drag screenshot showed the draft rectangle (>50 changed px before pointer-up) — the reported "missing drag rectangle" symptom is fixed. The failure was the spec's aspect sanity check: it measured the test's own mouse rectangle (tautological) against a 1.2 threshold the viewport could not reach. Rewritten to measure the **drawn** pixels with a five-times-wider-than-tall gesture, which a square-clamped box cannot match. |
+
 Blocked by lease contention — exact remaining command:
 
 ```bash
