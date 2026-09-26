@@ -4,11 +4,15 @@
 - **Status:** Accepted (Milestone 1). Implementation plan for the native DTCG
   token-sync program. Each numbered decision maps to an ADR in `docs/adr/`.
 
-> **Session status (2026-08-05):** M1–M8 landed; branch `feat/token-sync`
-> (worktree `.worktrees/token-sync`). M8 delivered the first Sync Center
-> slice (source status, change summary, DTCG import preview + apply).
-> M9 (Git integration), M10 (interop adapters), M11 (multimodal), M12
-> (hardening) remain; see the ledger in `docs/tokens/dtcgsync-audit.md`.
+> **Current implementation (2026-09-25, `master`):** the editor supports manual
+> file import, selected Resolver-context previews, source selection, source-content
+> editing, three-way update/conflict review, and canonical export. Artwork uses
+> the existing Variables/bindings architecture. Watcher/write ports and Git/vendor
+> adapter contracts are architecture surfaces, not connected editor capabilities.
+> See [runtime integration evidence](runtime-binding-2026-09-25.md) and the
+> [research ledger](dtcg-interop-evidence-2026-09-25.md) for verified behavior and
+> remaining limits. The numbered milestones below describe the target architecture;
+> their existence does not certify native or external-tool execution.
 
 ## 1. Objective
 
@@ -40,8 +44,9 @@ resolver, merge engine, or synchronization mechanism.
   supported types, supported reference forms). Future drafts sit behind an
   experimental adapter and never alter stable serialization.
 - Normative anchors implemented (from the 2025.10 format report):
-  - Token = object with `$value`; `$type` inherits from closest typed parent
-    group; unknown type ⇒ invalid (never guessed from value shape).
+  - Token = object with `$value` or a token-level `$ref`. An explicit `$type`
+    wins; an untyped alias derives its type from its referenced token before
+    consulting the nearest typed group. Types are never guessed from value shape.
   - Names must not start with `$` and must not contain `{`, `}`, `.`.
   - `$root` reserved root-token name; paths include `.$root`.
   - Group properties: `$description`, `$type`, `$extends`, `$deprecated`,
@@ -61,7 +66,7 @@ resolver, merge engine, or synchronization mechanism.
     "see the Color module". Varve implements `colorSpace`/`components`/`alpha`/
     `hex` with a per-version color-space registry.
 - A separate Resolver module report defines resolver documents (sets, sources,
-  modifiers, transformers, defaults). Varve implements it as its own module
+  modifiers, contexts, defaults, and resolution order). Varve implements it as its own module
   (ADR-0105), never reusing the Format module's `$type` vocabulary for
   resolver metadata.
 
@@ -69,15 +74,15 @@ resolver, merge engine, or synchronization mechanism.
 
 | Package | Owns |
 | --- | --- |
-| **`@varve/tokens`** (new) | DTCG AST, versioned parser, serializer, validation, token-type codecs, reference graph, resolver engine, semantic diff, three-way merge, rename detection, adapter contracts, sync plans. Zero React, zero scene imports. |
+| **`@varve/tokens`** | DTCG AST, versioned parser, serializer, validation, token-type codecs, shared Format/Resolver value resolution, reference graph, semantic diff, three-way merge, adapter contracts. Zero React, zero scene imports. |
 | **`@varve/scene`** (`src/tokens/`) | Canonical `DesignTokenStore` (stable ids, provenance, local state, sources, sync state, base snapshots), existing-`Variable` compatibility bridge, document persistence field, migrations. |
 | `@varve/platform` | Local filesystem source plumbing, watchers, atomic writes, secure credential storage (later), Git process boundary (later), OS capability detection. |
 | `@varve/editor` | Token Sync Center, source setup, token tree, detail view, diff UI, conflict UI, inspector binding integration, notifications, commands, accessibility. |
 | `@varve/codegen` | Platform output profiles (CSS/SCSS/TS/JSON/Android/Swift/Dart), naming/unit/color transforms, generated-file ownership policy. |
 | `@varve/ai` | Optional typed multimodal proposals only (classification, extraction, naming suggestions). Never parsing/merging. |
 
-Dependency direction: `tokens` is a leaf (imports only `@varve/shared`
-primitives); `scene` imports `tokens` types; `editor` imports both; `platform`
+Dependency direction: `tokens` is a leaf with no package dependencies;
+`scene` imports its standards functions and types; `editor` imports both; `platform`
 is independent. No cycles.
 
 ## 4. Data flow (connect → … → continue syncing)
