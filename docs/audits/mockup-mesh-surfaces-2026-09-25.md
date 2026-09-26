@@ -101,30 +101,22 @@ worker-rendered mockup warps.
 | PSD disclosure | `pnpm vitest run packages/import/src/psd.test.ts packages/import/src/format-honesty.test.ts` | 33/33 pass. |
 | Warp benchmarks | `pnpm exec vitest run --config vitest.bench.config.ts packages/engine/src/mockup/mockupWarp.bench.test.ts` | pass; baselines recorded in §2.5. |
 | Typechecks | `pnpm exec tsc -p packages/engine/tsconfig.json --noEmit`; `pnpm exec tsc -p packages/scene/tsconfig.json --noEmit`; `pnpm exec tsc -p packages/editor/tsconfig.json --noEmit` | clean in all touched files (remaining editor errors are other sessions' in-flight token-sync/webgpu files). |
-| Mesh workflow E2E | `node scripts/quality/heavy-lease.mjs "e2e: mockup mesh workflow" -- npx playwright test tests/e2e/canvas/mockup-mesh.spec.ts --project=chromium --workers=1` | see §5. |
+| Mesh workflow E2E | `VARVE_HEAVY_TASK_PARALLELISM=0 VARVE_E2E_PORT=1512 VARVE_E2E_WORKERS=1 npx playwright test tests/e2e/canvas/mockup-mesh.spec.ts --project=chromium --workers=1 --reporter=list` | **pass (1.4 min)**: apply folded fabric, fit-all canvas pixel sampling (>8 distinct colours), surface-chip selection, grid-vertex drag with one-step undo/redo and inspector reflection, save/reopen with the override intact (surface-row reselection), real PNG export decoded (dimensions + composed non-uniform content, 200+ opaque samples, >12 colours), zero console errors. Three spec fixes were needed on the way (fit-all before sampling; ASCII `x` in the grid-density assertion; reselect the surface row after reopen and click Export before awaiting the download) — all test-harness issues, no product changes. Runs before the passing one were blocked by the heavy-task lease (two full queue windows expired: 600 s and 3600 s) held continuously by concurrent sessions; the final runs used the documented `VARVE_HEAVY_TASK_PARALLELISM=0` opt-out with MemAvailable ≥ 7.5 GB (floor 1536 MB), recorded here as a deliberate override. Evidence: `docs/screenshots/mockup-mesh/` (E2E-captured `01/02/03/04/05` set plus the manual-walk set), all inspected in-session. |
 | Right-click E2E regression | `tests/e2e/menus/overlay-reliability.spec.ts` ("canvas context menu opens on a real right-click under a visible micro-hint") | failed before the fix (run at port 1495: the right-click committed a rectangle and no menu appeared), passed after the fix (run at port 1497); the pre-existing companion test in the same file failed once on a dev-server warmup timeout and was green in earlier runs — recorded as infrastructure, not product. |
 
 ## 5. End-to-end evidence
 
-### 5.1 Automated workflow spec
+### 5.1 Automated workflow spec (passing)
 
 The mesh workflow E2E (`tests/e2e/canvas/mockup-mesh.spec.ts`) exercises:
-apply the folded-fabric builtin to a live source, canvas pixel sampling of
-the composed mockup, surface-chip selection, a grid-vertex drag with
-one-step undo/redo, save/reopen persistence of the mesh override, and a real
-PNG export decoded and checked for dimensions and composed (non-uniform,
-richly coloured) content. Evidence screenshots are captured to
-`docs/screenshots/mockup-mesh/`.
-
-Machine contention note (recorded honestly): the shared machine's heavy-task
-lease was held continuously by concurrent sessions
-(`e2e: fluidity mine-slice-02/03/control-failures`, `e2e: app gpu capture`,
-`perf probe: wasm`, and other jobs) for the whole session window, including a
-one-hour queued wait that expired without acquiring the lease. The spec is
-committed, typechecked (`pnpm typecheck:e2e`, zero errors in the new file),
-and its harness mirrors the passing `mockups.spec.ts` workflow; the run
-command above is the exact reproduction for the integration owner once the
-lease frees.
+apply the folded-fabric builtin to a live source, fit-all canvas pixel
+sampling of the composed mockup, surface-chip selection, a grid-vertex drag
+with one-step undo/redo, save/reopen persistence of the mesh override
+(surface-row reselection), and a real PNG export decoded and checked for
+dimensions and composed (non-uniform, richly coloured) content. Evidence
+screenshots are captured to `docs/screenshots/mockup-mesh/`. The full run
+passed on 2026-09-26 (1.4 min, single Chromium worker); the lease/contention
+history and the three harness-only fixes are recorded in §4.
 
 ### 5.2 Live-session walk (manual multimodal verification)
 

@@ -64,6 +64,23 @@ async function openMockupsPanel(page: Page): Promise<void> {
   await expect(tab.first()).toHaveAttribute('aria-selected', 'true');
 }
 
+/** Open an inspector tab through the direct tab or the overflow menu. */
+async function openInspectorTab(page: Page, label: string): Promise<void> {
+  const direct = page.getByRole('tab', { name: label, exact: true });
+  if (
+    await direct
+      .first()
+      .isVisible()
+      .catch(() => false)
+  ) {
+    await direct.first().click();
+    return;
+  }
+  const more = page.getByRole('button', { name: /More inspector tabs/ });
+  await more.click({ timeout: 10000 });
+  await page.getByRole('menuitem', { name: label, exact: true }).click({ timeout: 10000 });
+}
+
 /**
  * Sample the visible content canvas and count distinct opaque colours in a
  * central band. A flat unfilled frame would be near-constant; a composed
@@ -119,6 +136,11 @@ test('mesh mockup workflow: apply folded fabric, edit a vertex, persist, export'
   await section.waitFor({ timeout: 8000 });
   await expect(section.getByText('Fabric Banner — Folded')).toBeVisible();
 
+  // The apply path does not move the camera; fit the document so the whole
+  // composed mockup (not a zoomed plate corner) fills the sample band.
+  await page.getByRole('button', { name: 'Fit all to viewport' }).click();
+  await page.waitForTimeout(800);
+
   // 2. The canvas paints the composed mockup (not a blank frame).
   const colorCount = await sampleCanvasColorCount(page);
   expect(colorCount).toBeGreaterThan(8);
@@ -164,7 +186,7 @@ test('mesh mockup workflow: apply folded fabric, edit a vertex, persist, export'
   await page.keyboard.press('Control+Shift+z');
   await page.waitForTimeout(400);
   await expect(section.getByText('Reset mesh')).toBeVisible({ timeout: 5000 });
-  await expect(section.getByText(/cells/)).toContainText('4 × 2');
+  await expect(section.getByText(/cells/)).toContainText('4 x 2');
 
   // 4. Save, reopen from Home; the mesh override survives.
   await page.keyboard.press('Control+s');
@@ -190,22 +212,16 @@ test('mesh mockup workflow: apply folded fabric, edit a vertex, persist, export'
   await page.waitForTimeout(300);
   const reopenedSection = page.locator('.mockups-section');
   await expect(reopenedSection).toBeVisible({ timeout: 8000 });
+  // The mesh fieldset lives in the per-surface editor; select the surface row.
+  const surfaceRow = reopenedSection.getByRole('button', { name: /Banner fabric/ });
+  await expect(surfaceRow).toBeVisible({ timeout: 5000 });
+  await surfaceRow.click();
+  await page.waitForTimeout(500);
   await expect(reopenedSection.getByText('Reset mesh')).toBeVisible({ timeout: 5000 });
   await page.screenshot({ path: `${evidenceDir}/04-inspector-reopened.png` });
 
   // 5. Export PNG through the real dialog; decode and inspect.
-  const exportTab = page.getByRole('tab', { name: 'Export', exact: true });
-  if (
-    await exportTab
-      .first()
-      .isVisible()
-      .catch(() => false)
-  ) {
-    await exportTab.first().click();
-  } else {
-    await page.getByRole('button', { name: /More inspector tabs/ }).click();
-    await page.getByRole('tab', { name: 'Export', exact: true }).click();
-  }
+  await openInspectorTab(page, 'Export');
   await page.getByRole('radio', { name: 'PNG', exact: true }).click();
   await page.getByRole('button', { name: 'Add configuration' }).click();
   await page.evaluate(() => {
@@ -214,7 +230,9 @@ test('mesh mockup workflow: apply folded fabric, edit a vertex, persist, export'
   const downloadPromise = page.waitForEvent('download', { timeout: 60000 });
   await page.keyboard.press('Control+e');
   const exportDialog = page.getByRole('dialog', { name: 'Export' });
-  await expect(exportDialog.getByRole('button', { name: /^Export \(/ })).toBeVisible();
+  const exportButton = exportDialog.getByRole('button', { name: /^Export \(/ });
+  await expect(exportButton).toBeVisible();
+  await exportButton.click();
   const download = await downloadPromise;
   const downloadPath = await download.path();
   expect(downloadPath).toBeTruthy();
