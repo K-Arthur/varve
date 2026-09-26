@@ -35,6 +35,14 @@ export function startCanvasCompositor(
           publishDiagnostics();
           handlers.onRedraw('gpu-device-lost');
         };
+        // A successful automatic recovery rebuilds every device-owned
+        // resource; republish so the status flips from "GPU lost" back to
+        // the live backend truth. No forced redraw: the canvas holds correct
+        // Canvas2D pixels, and the next frame resumes GPU drawing.
+        selected.onRecovered = () => {
+          if (disposed) return;
+          publishDiagnostics();
+        };
       }
       handlers.onReady(selected);
       publishDiagnostics();

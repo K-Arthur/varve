@@ -56,6 +56,86 @@ describe('buildStructuralRenderPlan', () => {
     expect(plan.segments).toHaveLength(1);
   });
 
+  it('admits a single visible solid fill from the fills stack as a GPU run', () => {
+    const plan = buildStructuralRenderPlan([
+      rect({
+        fills: [
+          {
+            type: 'solid',
+            color: { space: 'rgb', r: 57, g: 208, b: 198, a: 255 },
+            opacity: 1,
+            blendMode: 'normal',
+            visible: true,
+          },
+        ],
+      } as Partial<RenderItem>),
+    ]);
+    expect(plan.fallbackIslandCount).toBe(0);
+    expect(plan.nativeWebGpuItems).toBe(1);
+  });
+
+  it('keeps stacked, non-solid, and blended fills on the Canvas2D island', () => {
+    const solid = {
+      type: 'solid' as const,
+      color: { space: 'rgb' as const, r: 1, g: 2, b: 3, a: 255 },
+      opacity: 1,
+      blendMode: 'normal' as const,
+      visible: true,
+    };
+    const plan = buildStructuralRenderPlan([
+      rect({ fills: [solid, solid] } as Partial<RenderItem>),
+      rect({
+        fills: [{ ...solid, blendMode: 'multiply' as const }],
+      } as Partial<RenderItem>),
+      rect({
+        fills: [
+          {
+            type: 'gradient' as const,
+            gradientType: 'linear' as const,
+            stops: [],
+            rotation: 0,
+            opacity: 1,
+            blendMode: 'normal' as const,
+            visible: true,
+          },
+        ],
+      } as Partial<RenderItem>),
+    ]);
+    expect(plan.segments).toHaveLength(1);
+    expect(plan.segments[0]?.kind).toBe('canvas2d-island');
+    // Reasons count per merged island; all three items merged into one.
+    expect(plan.fallbackReasons['unsupported-paint']).toBe(1);
+    expect(plan.fallbackNodeCount).toBe(3);
+  });
+
+  it('ignores invisible stack entries when deciding GPU admission', () => {
+    const plan = buildStructuralRenderPlan([
+      rect({
+        fills: [
+          {
+            type: 'solid',
+            color: { space: 'rgb', r: 9, g: 9, b: 9, a: 255 },
+            opacity: 1,
+            blendMode: 'normal',
+            visible: false,
+          },
+          {
+            type: 'solid',
+            color: { space: 'rgb', r: 57, g: 208, b: 198, a: 128 },
+            opacity: 0.5,
+            blendMode: 'normal',
+            visible: true,
+          },
+        ],
+      } as Partial<RenderItem>),
+      rect({ fills: [] } as Partial<RenderItem>),
+    ]);
+    // The visible translucent solid is GPU-eligible; the empty stack falls
+    // back to the legacy singular fill, so both items stay GPU runs.
+    expect(plan.fallbackIslandCount).toBe(0);
+    expect(plan.nativeWebGpuItems).toBe(2);
+  });
+
   it('routes rounded and smoothed rectangles through the accurate fallback', () => {
     const plan = buildStructuralRenderPlan([
       rect(),

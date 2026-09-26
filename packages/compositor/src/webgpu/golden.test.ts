@@ -361,6 +361,151 @@ describe('WebGPU golden diff vs Canvas2D', () => {
     wgpu.destroy();
   });
 
+  /**
+   * jsdom has neither the WebGPU enum globals the pipeline code references
+   * nor a webgpu canvas context; provide the minimum for initGpuResources to
+   * complete. The adapter mock hands out one device per init generation on
+   * the high-performance preference only — the selector also probes
+   * low-power, which must not consume the replacement device.
+   */
+  function mockWebGpuEnvironment(
+    devices: Array<
+      GPUDevice & { resolveLost: (info: { reason: string; message: string }) => void }
+    >,
+  ): () => void {
+    const realGetContext = HTMLCanvasElement.prototype.getContext;
+    type GetContext = typeof realGetContext;
+    const getContextSpy = vi
+      .spyOn(HTMLCanvasElement.prototype, 'getContext')
+      .mockImplementation(function (
+        this: HTMLCanvasElement,
+        ...args: unknown[]
+      ): RenderingContext | null {
+        if (args[0] === 'webgpu') {
+          return { configure: vi.fn() } as unknown as RenderingContext;
+        }
+        return (realGetContext as (...a: unknown[]) => RenderingContext | null).apply(this, args);
+      } as unknown as GetContext);
+    const globalScope = globalThis as unknown as Record<string, unknown>;
+    const hadEnums = 'GPUBufferUsage' in globalScope;
+    const previousEnums = { buffer: globalScope.GPUBufferUsage, stage: globalScope.GPUShaderStage };
+    globalScope.GPUBufferUsage ??= { UNIFORM: 0x40, COPY_DST: 0x08 };
+    globalScope.GPUShaderStage ??= { VERTEX: 0x1 };
+
+    const queue = [...devices];
+    const originalGpu = (navigator as Navigator & { gpu?: unknown }).gpu;
+    Object.defineProperty(navigator, 'gpu', {
+      configurable: true,
+      value: {
+        requestAdapter: async (options?: { powerPreference?: string }) => {
+          if (options?.powerPreference !== 'high-performance') return null;
+          const device = queue.shift();
+          if (!device) return null;
+          return {
+            info: { vendor: 'varve-test', device: 'Test GPU' },
+            requestDevice: async () => device,
+          };
+        },
+        getPreferredCanvasFormat: () => 'rgba8unorm',
+      },
+    });
+
+    return () => {
+      getContextSpy.mockRestore();
+      if (hadEnums) {
+        globalScope.GPUBufferUsage = previousEnums.buffer;
+        globalScope.GPUShaderStage = previousEnums.stage;
+      } else {
+        delete globalScope.GPUBufferUsage;
+        delete globalScope.GPUShaderStage;
+      }
+      Object.defineProperty(navigator, 'gpu', { configurable: true, value: originalGpu });
+    };
+  }
+
+  function makeMockDevice(): GPUDevice & {
+    resolveLost: (info: { reason: string; message: string }) => void;
+  } {
+    let resolveLost: (info: { reason: string; message: string }) => void = () => {};
+    const lost = new Promise<{ reason: string; message: string }>((resolve) => {
+      resolveLost = resolve;
+    });
+    return {
+      lost,
+      resolveLost,
+      destroy: vi.fn(),
+      limits: { maxBufferSize: 256 * 1024 * 1024 },
+      createShaderModule: vi.fn(() => ({})),
+      createBindGroupLayout: vi.fn(() => ({})),
+      createPipelineLayout: vi.fn(() => ({})),
+      createRenderPipeline: vi.fn(() => ({})),
+      createBuffer: vi.fn(() => ({ destroy: vi.fn() })),
+      createBindGroup: vi.fn(() => ({})),
+    } as unknown as GPUDevice & {
+      resolveLost: (info: { reason: string; message: string }) => void;
+    };
+  }
+
+  it('recovers the GPU side in place after a simulated runtime device loss', async () => {
+    const first = makeMockDevice();
+    const second = makeMockDevice();
+    const restore = mockWebGpuEnvironment([first, second]);
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = 32;
+      canvas.height = 32;
+      const wgpu = new WebGPUBackend();
+      await wgpu.init(canvas);
+      expect(wgpu.getDiagnostics().gpuActive, wgpu.getDiagnostics().initFailureReason).toBe(true);
+
+      let recovered = 0;
+      wgpu.onRecovered = () => {
+        recovered++;
+      };
+
+      first.resolveLost({ reason: 'unknown', message: 'simulated device loss' });
+      await vi.waitFor(() => {
+        expect(recovered).toBe(1);
+      });
+
+      const diag = wgpu.getDiagnostics();
+      expect(diag.gpuActive).toBe(true);
+      expect(diag.deviceLost).toBe(false);
+      // The lost device is destroyed; the replacement stays live.
+      expect(second.destroy).not.toHaveBeenCalled();
+      expect(first.destroy).toHaveBeenCalledTimes(1);
+      expect(wgpu.presentCanvasHas2dContext()).toBe(true);
+      wgpu.destroy();
+    } finally {
+      restore();
+    }
+  });
+
+  it('a failed recovery leaves the honest Canvas2D fallback status', async () => {
+    const first = makeMockDevice();
+    const restore = mockWebGpuEnvironment([first]);
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = 32;
+      canvas.height = 32;
+      const wgpu = new WebGPUBackend();
+      await wgpu.init(canvas);
+      expect(wgpu.getDiagnostics().gpuActive, wgpu.getDiagnostics().initFailureReason).toBe(true);
+
+      first.resolveLost({ reason: 'unknown', message: 'simulated device loss' });
+      await vi.waitFor(() => {
+        const diag = wgpu.getDiagnostics();
+        expect(diag.deviceLost).toBe(true);
+        expect(diag.gpuActive).toBe(false);
+        expect(diag.initFailureReason).toContain('WebGPU adapter unavailable');
+      });
+      expect(wgpu.presentCanvasHas2dContext()).toBe(true);
+      wgpu.destroy();
+    } finally {
+      restore();
+    }
+  });
+
   it('createCompositorBackend does not attempt an in-place onDeviceLost canvas2d swap', async () => {
     // Regression test: a browser <canvas> element's context type is fixed
     // for its lifetime, so re-initializing a Canvas2DBackend on the same

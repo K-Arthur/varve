@@ -1,4 +1,5 @@
 import type { RenderItem } from '@varve/engine';
+import { resolveGpuSolidPaint } from './solidPaint';
 import type { RenderStructureNode } from './types';
 
 export type FallbackReason =
@@ -37,7 +38,10 @@ function reasonForItem(item: RenderItem): FallbackReason | null {
   if (primitive.kind !== 'rect' && primitive.kind !== 'circle') return 'unsupported-primitive';
   if (primitive.kind === 'rect' && (primitive.cornerRadius || primitive.cornerSmoothing))
     return 'unsupported-primitive';
-  if ((item.fills?.length ?? 0) > 0) return 'unsupported-paint';
+  // The paint decision reads the same fills stack the Canvas2D island
+  // replays: a single visible solid fill with normal blending is the one
+  // stack shape the flat GPU pipeline reproduces exactly.
+  if (!resolveGpuSolidPaint(item)) return 'unsupported-paint';
   if ((item.strokes?.length ?? 0) > 0) return 'stroke';
   if ((item.effects?.length ?? 0) > 0) return 'effect';
   if ((item.filters?.length ?? 0) > 0) return 'filter';

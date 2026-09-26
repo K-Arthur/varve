@@ -84,11 +84,11 @@ export interface CompositorDiagnostics {
   /** Shader module + pipeline compilation time during init, in ms. Not tracked by Canvas2DBackend. */
   pipelineInitMs?: number;
   /**
-   * True once `GPUDevice.lost` has resolved for a backend that previously
-   * had a working device. After the 2026-07-13 ownership invert, the present
-   * canvas stays on Canvas2D, so rendering continues without a remount —
-   * `gpuActive` flips to false and the StatusBar surfaces a warning. Reload
-   * is only needed if the user wants to re-acquire the GPU adapter.
+   * True between `GPUDevice.lost` resolving for a working device and a
+   * successful bounded recovery (or exhaustively: two failed attempts). The
+   * present canvas stays on Canvas2D throughout, so rendering continues
+   * without a remount — `gpuActive` flips false and the StatusBar surfaces a
+   * warning. A successful recovery clears this and republishes diagnostics.
    */
   deviceLost?: boolean;
   /** Ordered structural fallback telemetry for the most recent frame. */
@@ -111,6 +111,8 @@ export interface CompositorBackend {
   endFrame(): void;
   destroy(): void;
   onDeviceLost?: () => Promise<void>;
+  /** Invoked after an automatic in-place device-loss recovery succeeds. */
+  onRecovered?: () => void;
   /** Optional perf snapshot; backends without GPU metrics omit this. */
   getDiagnostics?(): CompositorDiagnostics;
 }

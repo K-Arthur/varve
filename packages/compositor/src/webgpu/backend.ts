@@ -19,6 +19,7 @@ import type { RenderItem } from '@varve/engine';
 import { selectWebGpuAdapter } from '@varve/engine';
 import { computeFloatingOrigin, managedColorToNormalized } from '@varve/shared';
 import { Canvas2DBackend } from '../canvas2d/backend';
+import { resolveGpuSolidPaint } from '../solidPaint';
 import { buildStructuralRenderPlan } from '../structuralRenderPlan';
 import type { CompositorDiagnostics, CompositorFrame, CompositorImagePolicy } from '../types';
 import {
@@ -43,6 +44,13 @@ const SOLID_VERTICES_PER_ITEM = 6;
 const CIRCLE_VERTEX_FLOATS = 15;
 const CIRCLE_VERTICES_PER_ITEM = 6;
 const MAX_VERTEX_UPLOAD_BYTES = 4 * 1024 * 1024;
+/**
+ * Automatic device-loss recovery stays bounded: one attempt per loss, two
+ * per backend lifetime, then the backend stays down on Canvas2D with a
+ * truthful "reload to retry" status instead of looping against a broken
+ * driver or resurrecting a deliberately destroyed device.
+ */
+const MAX_DEVICE_LOSS_RECOVERY_ATTEMPTS = 2;
 const CIRCLE_QUAD_CORNERS = [
   [-1, -1],
   [1, -1],
@@ -76,11 +84,23 @@ export function normalizedGpuFillColor(fill: RenderItem['fill']): [number, numbe
   return fillToRgba(fill);
 }
 
+/**
+ * Final vertex color for an item: the resolved solid paint (legacy singular
+ * fill or single visible stack entry) premultiplied by the fill's own
+ * opacity and the item opacity, matching replayIr's `itemAlpha * fill.opacity`.
+ */
+function itemGpuColor(item: RenderItem): [number, number, number, number] {
+  const paint = resolveGpuSolidPaint(item);
+  const c = fillToRgba(paint ? paint.color : item.fill);
+  const fillOpacity = paint ? paint.opacity : 1;
+  return [c[0], c[1], c[2], c[3] * fillOpacity * (item.opacity ?? 1)];
+}
+
 function buildVertices(items: RenderItem[]): GpuVertex[] {
   const vertices: GpuVertex[] = [];
   for (const item of items) {
-    const c = fillToRgba(item.fill);
-    const col: [number, number, number, number] = [c[0], c[1], c[2], c[3] * (item.opacity ?? 1)];
+    const c = itemGpuColor(item);
+    const col: [number, number, number, number] = [c[0], c[1], c[2], c[3]];
     const t = item.transform;
     const transform: [number, number, number, number] = [t[0], t[1], t[2], t[3]];
     const transform2: [number, number] = [t[4], t[5]];
@@ -136,8 +156,8 @@ function flattenCircleVertices(items: readonly RenderItem[]): Float32Array {
   for (const item of items) {
     const prim = item.primitive;
     if (prim.kind !== 'circle') continue;
-    const color = fillToRgba(item.fill);
-    const alpha = color[3] * (item.opacity ?? 1);
+    const color = itemGpuColor(item);
+    const alpha = color[3];
     const transform = item.transform;
     for (const [dx, dy] of CIRCLE_QUAD_CORNERS) {
       data[offset++] = prim.cx + dx * prim.r;
@@ -182,6 +202,11 @@ function hasVisibleAffine(transform: readonly number[]): boolean {
  * item to the GPU would silently drop paint-stack, stroke, effect, filter, or
  * blend semantics. A whole batch must be supported because splitting it into
  * GPU and Canvas2D partitions changes z-order when the two kinds interleave.
+ *
+ * The fills stack counts as supported when `resolveGpuSolidPaint` collapses
+ * it to one visible solid fill with normal blending — the paint shape real
+ * solid-fill documents carry — so those documents reach GPU runs instead of
+ * every item falling back as unsupported-paint.
  */
 export function isGpuBatchSupported(items: readonly RenderItem[]): boolean {
   const primitiveKinds = new Set(items.map((item) => item.primitive.kind));
@@ -192,7 +217,7 @@ export function isGpuBatchSupported(items: readonly RenderItem[]): boolean {
         (item.primitive.kind !== 'rect' ||
           (!item.primitive.cornerRadius && !item.primitive.cornerSmoothing)) &&
         hasVisibleAffine(item.transform) &&
-        (item.fills?.length ?? 0) === 0 &&
+        resolveGpuSolidPaint(item) !== null &&
         (item.strokes?.length ?? 0) === 0 &&
         (item.effects?.length ?? 0) === 0 &&
         (item.filters?.length ?? 0) === 0 &&
@@ -231,6 +256,11 @@ export class WebGPUBackend {
   /** Always owns the present (content) canvas via Canvas2D. */
   private present: Canvas2DBackend | null = null;
   private deviceLostHandler: (() => Promise<void>) | null = null;
+  private onRecoveredHandler: (() => void) | null = null;
+  private recovering = false;
+  private recoveryAttempts = 0;
+  /** Set by destroy(): an in-flight recovery must not revive the backend. */
+  private destroyed = false;
   private gpuReady = false;
   private initFailureReason: string | undefined;
   private adapterIsFallback = false;
@@ -262,9 +292,19 @@ export class WebGPUBackend {
     // Present surface is ALWAYS Canvas2D on the content canvas — see file header.
     this.present = new Canvas2DBackend();
     await this.present.init(canvas);
+    await this.initGpuResources();
+  }
 
+  /**
+   * Create (or recreate, after device loss) every device-owned GPU resource.
+   * The Canvas2D present surface is untouched: on failure the backend stays
+   * down with Canvas2D painting, on success the next frame draws through the
+   * GPU again. Returns whether the GPU side came up.
+   */
+  private async initGpuResources(): Promise<boolean> {
     let failureReason = 'WebGPU initialization failed';
     try {
+      this.adapterIsFallback = false;
       const gpu = navigator.gpu;
       failureReason = 'WebGPU API unavailable';
       if (!gpu) throw new Error('WebGPU unavailable');
@@ -283,8 +323,8 @@ export class WebGPUBackend {
 
       failureReason = 'WebGPU canvas context unavailable';
       const gpuCanvas = document.createElement('canvas');
-      gpuCanvas.width = Math.max(1, canvas.width || 1);
-      gpuCanvas.height = Math.max(1, canvas.height || 1);
+      gpuCanvas.width = Math.max(1, this.canvas?.width || 1);
+      gpuCanvas.height = Math.max(1, this.canvas?.height || 1);
       const context = gpuCanvas.getContext('webgpu') as GPUCanvasContext | null;
       if (!context) {
         throw new Error('WebGPU canvas context unavailable');
@@ -383,11 +423,14 @@ export class WebGPUBackend {
       this.cameraBindGroup = cameraBindGroup;
       this.gpuReady = true;
       this.initFailureReason = undefined;
+      this.deviceLost = false;
       this.watchDeviceLost(device);
+      return true;
     } catch {
       this.initFailureReason = failureReason;
       this.gpuReady = false;
       this.teardownGpuOnly();
+      return false;
     }
   }
 
@@ -535,6 +578,7 @@ export class WebGPUBackend {
   }
 
   destroy(): void {
+    this.destroyed = true;
     this.teardownGpuOnly();
     this.present?.destroy();
     this.present = null;
@@ -543,6 +587,11 @@ export class WebGPUBackend {
 
   set onDeviceLost(handler: (() => Promise<void>) | undefined) {
     this.deviceLostHandler = handler ?? null;
+  }
+
+  /** Invoked once after an automatic recovery rebuilds the GPU side. */
+  set onRecovered(handler: (() => void) | undefined) {
+    this.onRecoveredHandler = handler ?? null;
   }
 
   watchDeviceLost(device: GPUDevice): void {
@@ -557,7 +606,37 @@ export class WebGPUBackend {
       this.teardownGpuOnly();
       this.gpuReady = false;
       if (this.deviceLostHandler) await this.deviceLostHandler();
+      await this.attemptDeviceLossRecovery();
     });
+  }
+
+  /**
+   * One bounded attempt to rebuild the GPU side after a runtime loss. The
+   * Canvas2D present surface stayed live the whole time, so a failure here
+   * just leaves the honest fallback status; a success flips diagnostics back
+   * to healthy and the next frame resumes GPU drawing.
+   */
+  private async attemptDeviceLossRecovery(): Promise<void> {
+    if (this.destroyed) return;
+    if (this.recovering || this.recoveryAttempts >= MAX_DEVICE_LOSS_RECOVERY_ATTEMPTS) {
+      if (this.recoveryAttempts >= MAX_DEVICE_LOSS_RECOVERY_ATTEMPTS) {
+        this.initFailureReason = 'WebGPU device was lost repeatedly; reload to retry WebGPU';
+      }
+      return;
+    }
+    this.recovering = true;
+    this.recoveryAttempts++;
+    const recovered = await this.initGpuResources();
+    this.recovering = false;
+    // destroy() may have raced the rebuild; drop whatever it created.
+    if (this.destroyed) {
+      this.teardownGpuOnly();
+      this.gpuReady = false;
+      return;
+    }
+    if (recovered) {
+      this.onRecoveredHandler?.();
+    }
   }
 
   /** True when the present canvas still exposes a 2D context after init. */
