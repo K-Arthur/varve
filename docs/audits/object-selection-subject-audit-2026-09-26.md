@@ -127,9 +127,20 @@ waiters). Nothing below is claimed as run that was not run.
 
 Run and passing:
 
-- `npx vitest run` over the 16 selection/trim/inference suites — **289 passed,
-  1 skipped** (the skip is `sam2RealReconstructionParity.test.ts` reporting
-  *skipped*, not passed, when `SAM2_REAL_PARITY_DIR` is unset).
+- `npx vitest run` over the 15 selection/trim/inference suites — **291
+  passed** on the final re-run after the parallel sessions' extract-to-layer
+  and cutout-preview work landed on the same files (289 before those two
+  commits, so the merge is clean). The gated
+  `sam2RealReconstructionParity.test.ts` reports *skipped*, not passed, when
+  `SAM2_REAL_PARITY_DIR` is unset, and **5 passed** when it is.
+- Real-model corpus gate — `VARVE_SAM2_REAL_MODEL_DIR=... npx vitest run
+  packages/engine/src/segmentation/quality/realModelParity.test.ts` — 10/10
+  fixtures, finite metrics, cold 806 ms, mean prompt 5.9 s; **every category
+  reproduces the recorded 2026-09-14 table to three decimals** (mean IoU
+  0.654 / best 0.720 / boundary F 0.654). Prompt placement re-checked against
+  the oracle bytes: all ten positive points land on subject pixels.
+  Recorded in `docs/quality/object-selection-parity.md` → "Corpus quality run
+  — reproduction (2026-09-26)".
 - `python3 scripts/validate-pipelines/validate_sam2_pipeline.py --synthetic`
   with the real repaired weights — 4/4 PASS for **both** reconstructions
   (table above).
