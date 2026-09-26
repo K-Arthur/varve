@@ -14,7 +14,6 @@
  */
 
 import {
-  canBindMockupSource,
   clearMockup,
   clearMockupBinding,
   type Document,
@@ -26,7 +25,6 @@ import {
   type MockupTemplateAsset,
   planMockupTemplateRemap,
   replaceMockupSurfaceOverride,
-  setMockupBinding,
   setMockupSurfaceOverride,
 } from '@varve/scene';
 import { Button } from '@varve/ui';
@@ -41,6 +39,7 @@ import {
   moveTemplateSurface,
   removeTemplateSurface,
   renameTemplateSurface,
+  replaceMockupSurfaceSource,
   resetSurfaceMaskOptions,
   setSurfaceMaskOptions,
   templatesForDocument,
@@ -128,19 +127,11 @@ export function MockupsSection({
   const replaceSource = (surfaceId: string): void => {
     const sourceId = editor.state.selection.find((id) => id !== node.id);
     if (!sourceId) return;
-    if (!canBindMockupSource(doc, node.id, sourceId).ok) {
+    if (!replaceMockupSurfaceSource(editor, node.id, surfaceId, sourceId)) {
       setStatus(
         'That source cannot be linked here (a mockup cannot contain itself or an ancestor).',
       );
       return;
-    }
-    editor.beginTransaction();
-    try {
-      editor.updateDoc((current) =>
-        setMockupBinding(current, node.id, surfaceId, { mode: 'live', nodeId: sourceId }),
-      );
-    } finally {
-      editor.commitTransaction();
     }
   };
 
