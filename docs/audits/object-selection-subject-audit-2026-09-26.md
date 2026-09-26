@@ -163,23 +163,22 @@ After two expired waits the queued lease-wrapped run finally executed
 | --- | --- | --- |
 | `object-selection-real-model.spec.ts` "clicks an object…" | **PASS** (48.3 s) | Cold preview **26 s** — `Preview ready · predicted IoU score 0.56 · prompt match 100% · 3 candidate masks`; candidate cycling wraps; applied provenance `predicted IoU score 0.56`; **undo/redo OK**; warm preview **1 s**; Use-as-selection **0 s** |
 | `trim-sources.spec.ts` (new) | **PASS** (16.6s) | Alpha trim on a transparent PNG with **no selection mask**: source control visible, Alpha default, Trim enabled, no error alert, canvas changed, undo restored it |
-| `object-selection-draft-overlay.spec.ts` (new) | pixel check **PASS**, spec failed on its own assertion | Mid-drag screenshot showed the draft rectangle (>50 changed px before pointer-up) — the reported "missing drag rectangle" symptom is fixed. The failure was the spec's aspect sanity check: it measured the test's own mouse rectangle (tautological) against a 1.2 threshold the viewport could not reach. Rewritten to measure the **drawn** pixels with a five-times-wider-than-tall gesture, which a square-clamped box cannot match. |
+| `object-selection-draft-overlay.spec.ts` (new) | **PASS** (18.4 s) after one spec fix | Mid-drag screenshot showed the draft rectangle (>50 changed px before pointer-up) — the reported "missing drag rectangle" symptom is fixed. The first attempt failed on the spec's own aspect sanity check: it measured the test's mouse rectangle (tautological) against a 1.2 threshold the viewport could not reach. Rewritten to measure the **drawn** changed-pixel bounds against a five-times-wider-than-tall gesture, which a square-clamped box cannot reproduce at any aspect; it also asserts the point marker appears before inference and that Escape clears the session. |
 
-Blocked by lease contention — exact remaining command:
+All three specs have now run and passed under the heavy lease (see the
+table above). The command for a repeat run:
 
 ```bash
-node scripts/quality/heavy-lease.mjs "e2e: object selection live" -- \
+VARVE_SAM2_REAL_MODEL=1 node scripts/quality/heavy-lease.mjs \
+  "e2e: object selection live" -- \
   npx playwright test tests/e2e/canvas/object-selection-draft-overlay.spec.ts \
-    tests/e2e/canvas/trim-sources.spec.ts --project=chromium --workers=1 --reporter=list
-
-VARVE_SAM2_REAL_MODEL=1 node scripts/quality/heavy-lease.mjs "e2e: selection real model" -- \
-  npx playwright test tests/e2e/canvas/object-selection-real-model.spec.ts \
-    --project=chromium --workers=1 --reporter=list -g "clicks an object"
+    tests/e2e/canvas/trim-sources.spec.ts \
+    tests/e2e/canvas/object-selection-real-model.spec.ts \
+    --project=chromium --workers=1 --reporter=list
 ```
 
-The two new specs are written and typecheck; they have not been executed, so
-their assertions are unverified evidence until one of the commands above runs.
-Tauri/WebKitGTK and Windows/macOS were not exercised by this pass at all.
+Tauri/WebKitGTK and Windows/macOS were **not** exercised by this pass at
+all; every live result above is Chromium on Linux x86_64.
 
 ## Known limitations / not covered here
 
