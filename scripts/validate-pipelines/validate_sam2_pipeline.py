@@ -21,6 +21,16 @@ offset through to prompt encoding) brought that to 0.69 IoU on the same
 synthetic case, and produces a visually correct mask on a real photo
 (see docs/testing/sam2-lineart-validation-2026-07-21.md).
 
+Session note (2026-09-26): the suite now certifies TWO reconstructions
+of the same logits against the same ground truth — the reference order
+in mask_to_full_res and the application's order in
+mask_to_full_res_production (sam2.ts decodeSam2DecoderOutput). They
+resample differently by design; dump_sam2_fixture.py freezes a real run
+so packages/engine/src/inference/models/sam2RealReconstructionParity.test.ts
+can decode the identical bytes in TypeScript and prove both paths land
+on the same pixels (measured 0.91–0.99 IoU agreement, with production
+closer to ground truth on every non-square fixture).
+
 Usage:
     python3 validate_sam2_pipeline.py --synthetic
         Deterministic synthetic ground-truth tests (square + wide + tall
@@ -42,6 +52,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import math
 import sys
 from pathlib import Path
 
@@ -119,8 +130,15 @@ def run_sam2(encoder, decoder, image_tensor, point_x, point_y):
 
 
 def mask_to_full_res(mask_logits_hw, offset_x, offset_y, scaled_w, scaled_h, target_w, target_h):
-    """Upscale the decoder's low-res mask to 1024-space, crop out the
-    letterbox padding, then resize to the original image dimensions."""
+    """Reference reconstruction: threshold at the model input size, then crop
+    the letterbox padding, then resample to the source with NEAREST.
+
+    This is deliberately an *independent* implementation from production —
+    see mask_to_full_res_production below. Agreement between two different
+    resample orders on identical real logits is what makes a shared result
+    trustworthy; it is measured by
+    packages/engine/src/inference/models/sam2RealReconstructionParity.test.ts.
+    """
     mask_h, mask_w = mask_logits_hw.shape
     ys = (np.arange(SAM2_INPUT_SIZE) * mask_h / SAM2_INPUT_SIZE).astype(int).clip(0, mask_h - 1)
     xs = (np.arange(SAM2_INPUT_SIZE) * mask_w / SAM2_INPUT_SIZE).astype(int).clip(0, mask_w - 1)
@@ -130,6 +148,54 @@ def mask_to_full_res(mask_logits_hw, offset_x, offset_y, scaled_w, scaled_h, tar
         (round(offset_x), round(offset_y), round(offset_x + scaled_w), round(offset_y + scaled_h))
     )
     return np.asarray(crop.resize((target_w, target_h), Image.NEAREST)) > 0
+
+
+def _resize_mask_bilinear(data: np.ndarray, dst_h: int, dst_w: int) -> np.ndarray:
+    """Line-for-line mirror of resizeMaskBilinear in sam2.ts.
+
+    Note the half-pixel-less mapping (`srcX = x * srcW / dstW`) — it matches
+    the TypeScript exactly, including its clamping, so this is not a
+    "close enough" interpolation.
+    """
+    src_h, src_w = data.shape
+    xs = np.arange(dst_w, dtype=np.float64) * (src_w / dst_w)
+    ys = np.arange(dst_h, dtype=np.float64) * (src_h / dst_h)
+    x0 = np.clip(np.floor(xs).astype(int), 0, src_w - 1)
+    x1 = np.clip(x0 + 1, 0, src_w - 1)
+    y0 = np.clip(np.floor(ys).astype(int), 0, src_h - 1)
+    y1 = np.clip(y0 + 1, 0, src_h - 1)
+    wx = (xs - x0)[None, :]
+    wy = (ys - y0)[:, None]
+    top = data[np.ix_(y0, x0)] * (1 - wx) + data[np.ix_(y0, x1)] * wx
+    bot = data[np.ix_(y1, x0)] * (1 - wx) + data[np.ix_(y1, x1)] * wx
+    return top * (1 - wy) + bot * wy
+
+
+def mask_to_full_res_production(
+    mask_logits_hw, offset_x, offset_y, scaled_w, scaled_h, target_w, target_h
+):
+    """Mirror of the application's reconstruction path.
+
+    packages/engine/src/inference/models/sam2.ts decodeSam2DecoderOutput:
+      cropSam2Letterbox   — remove padding in low-res mask space
+                            (floor on the near edge, ceil on the far edge)
+      resizeMaskBilinear  — one bilinear resample of the *logits* to source size
+      single threshold    — val -> round(val*255) for val > 0, then > 0
+
+    Keeping this beside mask_to_full_res lets the synthetic suite certify the
+    exact production math against ground truth as well as the independent
+    reference. If sam2.ts changes its reconstruction, change this function in
+    the same commit.
+    """
+    mask_h, mask_w = mask_logits_hw.shape
+    left = max(0, min(mask_w - 1, math.floor(offset_x / SAM2_INPUT_SIZE * mask_w)))
+    top = max(0, min(mask_h - 1, math.floor(offset_y / SAM2_INPUT_SIZE * mask_h)))
+    right = max(left + 1, min(mask_w, math.ceil((offset_x + scaled_w) / SAM2_INPUT_SIZE * mask_w)))
+    bottom = max(top + 1, min(mask_h, math.ceil((offset_y + scaled_h) / SAM2_INPUT_SIZE * mask_h)))
+    content = mask_logits_hw[top:bottom, left:right]
+    resized = _resize_mask_bilinear(content, target_h, target_w)
+    quantized = np.where(resized > 0, np.round(np.abs(resized) * 255), 0)
+    return quantized > 0
 
 
 def make_synthetic_image(width, height, seed):
@@ -160,6 +226,9 @@ def run_synthetic_suite(models_dir: Path) -> bool:
         ("square 1024x1024", 1024, 1024, 1, MIN_IOU_SQUARE),
         ("wide 1920x1080", 1920, 1080, 2, MIN_IOU_NON_SQUARE),
         ("tall 1080x1920", 1080, 1920, 3, MIN_IOU_NON_SQUARE),
+        # Extreme aspect: the padding band is ~5x the content height, so an
+        # off-by-one in either reconstruction shows up immediately.
+        ("panoramic 4000x800", 4000, 800, 4, MIN_IOU_NON_SQUARE),
     ]
     all_passed = True
     for label, w, h, seed, min_iou in cases:
@@ -175,11 +244,22 @@ def run_synthetic_suite(models_dir: Path) -> bool:
         scaled_w, scaled_h = round(w * scale), round(h * scale)
         mask_bool = mask_to_full_res(masks[best_idx], ox, oy, scaled_w, scaled_h, w, h)
         iou = iou_vs_bbox(mask_bool, bbox, w, h)
+        # The application reconstructs with a different order (crop low-res
+        # logits, bilinear, single threshold). Certify that path against the
+        # same ground truth too, so a production-side regression cannot hide
+        # behind a passing reference.
+        production_bool = mask_to_full_res_production(
+            masks[best_idx], ox, oy, scaled_w, scaled_h, w, h
+        )
+        production_iou = iou_vs_bbox(production_bool, bbox, w, h)
 
-        passed = iou >= min_iou
+        passed = iou >= min_iou and production_iou >= min_iou
         all_passed = all_passed and passed
         status = "PASS" if passed else "FAIL"
-        print(f"[{status}] {label}: mask-vs-ground-truth IoU={iou:.3f} (min {min_iou}), model-reported confidence={ious[best_idx]:.3f}")
+        print(
+            f"[{status}] {label}: reference-IoU={iou:.3f} production-IoU={production_iou:.3f} "
+            f"(min {min_iou}), model-reported confidence={ious[best_idx]:.3f}"
+        )
 
     return all_passed
 

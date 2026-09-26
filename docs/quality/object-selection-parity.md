@@ -496,3 +496,50 @@ candidate in one second with no further inference. Screenshots are attached
 to each Playwright run under `test-results/`. These are single-machine Linux
 x86_64 browser WASM numbers: the 31 s cold path is dominated by the first
 session compile and encoder run and is not a cross-platform guarantee.
+
+## Mask reconstruction parity (2026-09-26)
+
+The decoder emits logits in the square 1024-frame; production
+(`decodeSam2DecoderOutput`) removes the letterbox padding in low-res mask
+space, resamples the *logits* bilinearly to source size, and thresholds once
+at zero. The Python validator (`mask_to_full_res`) instead thresholds at the
+model input size and resamples with NEAREST. Two different orders on the same
+bytes cannot be assumed equivalent, and a validator that reconstructs
+differently from the application cannot by itself certify the application's
+pixels — so both directions are now measured.
+
+Method:
+
+1. `scripts/validate-pipelines/dump_sam2_fixture.py` runs the real weights on
+   four synthetic sources (square, landscape, portrait, panoramic) and freezes
+   the decoder's raw logits, its reconstruction, and the ground truth.
+2. `packages/engine/src/inference/models/sam2RealReconstructionParity.test.ts`
+   decodes those identical bytes with the production TypeScript path and
+   compares against both. Gated by `SAM2_REAL_PARITY_DIR`; without it the
+   suite reports *skipped*, never passed.
+3. `validate_sam2_pipeline.py --synthetic` now certifies **both**
+   reconstructions against ground truth (`mask_to_full_res` and the new
+   `mask_to_full_res_production`, a line-for-line mirror of `sam2.ts`).
+
+Measured on Linux x86_64, onnxruntime 1.27 CPU, repaired encoder
+`b4cfd6c8…`, decoder `f5a4bd65…`:
+
+| Fixture | production vs GT | reference vs GT | production vs reference | model IoU |
+| --- | --- | --- | --- | --- |
+| square 1024×1024 | 0.987 | 0.994 | 0.993 | 0.996 |
+| wide 1920×1080 | 0.969 | 0.967 | 0.955 | 0.988 |
+| tall 1080×1920 | 0.971 | 0.963 | 0.939 | 0.985 |
+| panoramic 4000×800 | 0.939 | 0.918 | 0.907 | 0.971 |
+
+Reading: production agrees with the independent reference to within roughly
+one mask pixel (bounding boxes differ by ≤ 16 px on the panoramic case, where
+one mask pixel spans 15.6 source pixels), and production is *closer to ground
+truth* than the reference on every non-square fixture — bilinear-then-threshold
+localizes the zero crossing more accurately than threshold-then-nearest. The
+letterbox bug class scores ≈0.002 on these fixtures, so the gates (0.90
+square / 0.85 non-square vs GT, 0.85 vs reference) have wide separation from
+regression while staying below every measured value.
+
+A synthetic ground-truth suite still cannot stand in for photographic
+boundaries: hair, fur, and translucency remain covered by the corpus quality
+run and the manual categories below.

@@ -34,9 +34,14 @@ has no mask-input tensor). Multi-component models are downloaded per component,
 verified against pinned revisions and SHA-256 checksums, and executed through
 the same worker, admission, cancellation, and embedding-cache lifecycle.
 Backend-specific preprocessing and execution-provider selection stay in
-`@varve/engine`. The provider-neutral `SegmentationBackend` contract remains
-the seam behind these adapters; it is not instantiated directly by the editor.
-Grounding DINO Tiny adds a discovery stage that produces reviewed boxes which
+`@varve/engine`. The provider-neutral `SegmentationBackend` interface
+(`packages/engine/src/segmentation/types.ts`) is a **declared seam only**: no
+adapter implements it and no production path calls it — the live path is
+`promptedSegmentationProvider.runPromptedSegmentation`, which drives the
+generic worker bridge directly. The interface is kept as the target contract
+for a future backend swap (ADR-0220 requires benchmark evidence before any
+such swap), not as an integrated layer; documentation must not describe it as
+one. Grounding DINO Tiny adds a discovery stage that produces reviewed boxes which
 then enter the same prompted-segmentation session; detection never commits a
 mask on its own.
 
@@ -193,6 +198,28 @@ rectangle is reviewed before it is mapped through the canonical image
 placement (fit, crop, offset, scale, rotation, and flips) and committed as a
 non-destructive crop. A failed or ambiguous detection never changes the
 document.
+
+### Trim sources
+
+The Inspector's Source control names three independent measurements:
+
+- **Mask** — the node's raster/vector/clip mask bounds only. Source-image
+  transparency is ignored.
+- **Alpha** — a real pixel scan of the *source image's* alpha channel mapped
+  through `sourceAlphaBoundsToLocal`, the same canonical placement used for
+  mask bounds. No selection mask is required, so a transparent PNG can be
+  trimmed without installing or applying an AI mask; the control defaults to
+  Alpha whenever the node has no mask.
+- **Combined** — effective coverage is image transparency × mask coverage,
+  so the trim box is the intersection of both bounds. If the source cannot be
+  decoded, an existing mask result is still used rather than failing a trim
+  that already had trustworthy bounds.
+
+A source that cannot be decoded, a fully transparent image, and a
+zero-area result are reported as errors that leave the document untouched —
+they never fall through to `resetToSourceBounds`, which would silently
+un-crop an existing image. `decodeImageData` bounds every decode and caches
+failures, so a source that never settles cannot park the trim action.
 
 ## Text-conditioned discovery
 

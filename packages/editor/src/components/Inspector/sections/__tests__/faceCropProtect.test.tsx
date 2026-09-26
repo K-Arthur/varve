@@ -88,6 +88,22 @@ vi.mock('@varve/ui', () => ({
     />
   ),
   Tooltip: ({ children, label }) => <span title={label}>{children}</span>,
+  SegmentedControl: ({ label, options, value, onChange }) => (
+    <fieldset aria-label={label}>
+      {options.map((option: { value: string; label: string }) => (
+        <label key={option.value}>
+          <input
+            type="radio"
+            name={label}
+            value={option.value}
+            checked={value === option.value}
+            onChange={() => onChange(option.value)}
+          />
+          {option.label}
+        </label>
+      ))}
+    </fieldset>
+  ),
 }));
 
 vi.mock('../../controls/DisclosureSection', () => ({

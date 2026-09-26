@@ -77,3 +77,23 @@ Do not commit the downloaded `models/*.onnx` files or any real test
 photos to git — `models/` and common image extensions are gitignored in
 this directory. See `docs/testing/real-image-validation-corpus.md` for
 the project's fixture policy.
+
+## Cross-language reconstruction parity
+
+`validate_sam2_pipeline.py --synthetic` certifies two reconstructions of the
+decoder logits against source-space ground truth: `mask_to_full_res` (the
+independent reference order) and `mask_to_full_res_production` (a line-for-line
+mirror of `packages/engine/src/inference/models/sam2.ts`).
+
+To freeze one real run and prove the *shipped* TypeScript lands on the same
+pixels:
+
+```bash
+.venv/bin/python dump_sam2_fixture.py --out /tmp/sam2-parity
+SAM2_REAL_PARITY_DIR=/tmp/sam2-parity npx vitest run \
+  packages/engine/src/inference/models/sam2RealReconstructionParity.test.ts
+```
+
+Without `SAM2_REAL_PARITY_DIR` that suite skips and says so — it never reports
+a pass it did not earn. Results are recorded in
+`docs/quality/object-selection-parity.md` → "Mask reconstruction parity".

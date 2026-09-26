@@ -499,6 +499,148 @@ describe('trimToSubject', () => {
   });
 });
 
+describe('trimToSubject — explicit sources', () => {
+  /** Minimal ImageData stand-in: the alpha scanner only reads width/height/data. */
+  function alphaImageData(
+    width: number,
+    height: number,
+    opaque: { x: number; y: number; w: number; h: number } | null,
+  ): ImageData {
+    const data = new Uint8ClampedArray(width * height * 4);
+    if (opaque) {
+      for (let y = opaque.y; y < opaque.y + opaque.h; y += 1) {
+        for (let x = opaque.x; x < opaque.x + opaque.w; x += 1) {
+          const offset = (y * width + x) * 4;
+          data[offset] = 255;
+          data[offset + 1] = 255;
+          data[offset + 2] = 255;
+          data[offset + 3] = 255;
+        }
+      }
+    }
+    return { width, height, data } as ImageData;
+  }
+
+  it('Alpha source trims to source-image transparency without any mask', async () => {
+    let doc = createDocument('t', true);
+    const img = makeImageShapeNode('i1', {
+      src: 'data:image/png;base64,AA',
+      w: 200,
+      h: 100,
+      imageWidth: 200,
+      imageHeight: 100,
+    });
+    doc = { ...doc, nodes: { ...doc.nodes, i1: img }, rootChildren: ['i1'] };
+
+    const next = await trimToSubject(doc, 'i1', 0, {
+      source: 'alpha',
+      sourceImageData: alphaImageData(200, 100, { x: 40, y: 20, w: 80, h: 50 }),
+    });
+    const n = next.nodes.i1!;
+    if (n.kind !== 'shape' || n.shape.kind !== 'rect') throw new Error('expected rect');
+    const crop = n.fills?.[0]?.image?.crop;
+    expect(crop).toBeDefined();
+    expect(crop!.x).toBeCloseTo(40);
+    expect(crop!.y).toBeCloseTo(20);
+    expect(crop!.w).toBeCloseTo(80);
+    expect(crop!.h).toBeCloseTo(50);
+  });
+
+  it('Alpha source with unreadable pixels rejects instead of resetting an existing crop', async () => {
+    let doc = createDocument('t', true);
+    const img = makeImageShapeNode('i1', {
+      src: 'data:image/png;base64,AA',
+      w: 200,
+      h: 100,
+      imageWidth: 200,
+      imageHeight: 100,
+    });
+    const originalFill = img.fills?.[0];
+    const originalImage = originalFill?.image;
+    if (!originalFill || !originalImage) throw new Error('expected image fill');
+    const cropped = {
+      ...img,
+      fills: [
+        { ...originalFill, image: { ...originalImage, crop: { x: 10, y: 10, w: 50, h: 40 } } },
+      ],
+    };
+    doc = { ...doc, nodes: { ...doc.nodes, i1: cropped }, rootChildren: ['i1'] };
+
+    // No sourceImageData and no decodable src: the scan cannot run.
+    await expect(trimToSubject(doc, 'i1', 0, { source: 'alpha' })).rejects.toThrow(
+      /could not be read/i,
+    );
+    // The rejected call must not have mutated the input document.
+    const fill = doc.nodes.i1;
+    if (fill?.kind !== 'shape') throw new Error('expected shape');
+    expect(fill.fills?.[0]?.image?.crop).toEqual({ x: 10, y: 10, w: 50, h: 40 });
+  });
+
+  it('Alpha source reports a fully transparent image instead of emptying the bounds', async () => {
+    let doc = createDocument('t', true);
+    const img = makeImageShapeNode('i1', {
+      src: 'data:image/png;base64,AA',
+      w: 200,
+      h: 100,
+      imageWidth: 200,
+      imageHeight: 100,
+    });
+    doc = { ...doc, nodes: { ...doc.nodes, i1: img }, rootChildren: ['i1'] };
+
+    await expect(
+      trimToSubject(doc, 'i1', 0, {
+        source: 'alpha',
+        sourceImageData: alphaImageData(200, 100, null),
+      }),
+    ).rejects.toThrow(/fully transparent/i);
+  });
+
+  it('Combined source intersects mask bounds with source transparency', async () => {
+    let doc = createDocument('t', true);
+    const img = makeImageShapeNode('i1', {
+      src: 'data:image/png;base64,AA',
+      w: 200,
+      h: 100,
+      imageWidth: 200,
+      imageHeight: 100,
+    });
+    const withMask = {
+      ...img,
+      mask: {
+        type: 'clip' as const,
+        visible: true,
+        vectorMask: {
+          points: [
+            { x: 20, y: 10, handleIn: null, handleOut: null },
+            { x: 120, y: 10, handleIn: null, handleOut: null },
+            { x: 120, y: 60, handleIn: null, handleOut: null },
+            { x: 20, y: 60, handleIn: null, handleOut: null },
+          ],
+          closed: true,
+          fillRule: 'nonzero' as const,
+        },
+      },
+    };
+    doc = { ...doc, nodes: { ...doc.nodes, i1: withMask }, rootChildren: ['i1'] };
+
+    const next = await trimToSubject(doc, 'i1', 0, {
+      source: 'combined',
+      // Transparency covers x 40..120, y 20..70 — wider than the mask on the
+      // bottom, narrower on the top/left, so only an intersection is correct.
+      sourceImageData: alphaImageData(200, 100, { x: 40, y: 20, w: 80, h: 50 }),
+    });
+    const n = next.nodes.i1!;
+    if (n.kind !== 'shape' || n.shape.kind !== 'rect') throw new Error('expected rect');
+    const crop = n.fills?.[0]?.image?.crop;
+    expect(crop).toBeDefined();
+    // mask ∩ alpha = x 40..120, y 20..60
+    expect(crop!.x).toBeCloseTo(40);
+    expect(crop!.y).toBeCloseTo(20);
+    expect(crop!.w).toBeCloseTo(80);
+    expect(crop!.h).toBeCloseTo(40);
+  });
+});
+
 describe('resetImageCrop', () => {
   it('removes crop and resets fill transforms', () => {
     let doc = createDocument('t', true);

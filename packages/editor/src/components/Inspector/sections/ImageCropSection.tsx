@@ -138,6 +138,7 @@ export function ImageCropSection({ nodes, sectionId }: ImageCropSectionProps) {
           sectionId={sectionId}
           hasMask={hasMask}
           trimToSubject={trimToSubject}
+          announce={announce}
           editorDocument={state.document}
           nodeId={shapeNode.id}
           imageSrc={img.src}
@@ -184,6 +185,7 @@ function TrimControls({
   editorDocument,
   nodeId,
   imageSrc,
+  announce,
 }: {
   sectionId?: SectionId;
   hasMask: boolean;
@@ -191,10 +193,12 @@ function TrimControls({
   editorDocument: Document;
   nodeId: string;
   imageSrc: string;
+  announce?: (message: string) => void;
 }) {
   const [padding, setPadding] = useState(0);
   const [source, setSource] = useState<'mask' | 'alpha' | 'combined'>('mask');
   const [trimming, setTrimming] = useState(false);
+  const [trimError, setTrimError] = useState<string | null>(null);
   const [detecting, setDetecting] = useState(false);
   const [detectError, setDetectError] = useState<string | null>(null);
   const [modelAvailable, setModelAvailable] = useState(false);
@@ -229,16 +233,34 @@ function TrimControls({
     setDetectError(null);
     setDetections([]);
     setSelectedDetection(0);
+    setTrimError(null);
   }, [imageSrc]);
+
+  useEffect(() => {
+    // A selection mask is the only input Mask/Combined can measure. Without
+    // one, fall back to the source-alpha scan so a transparent PNG can still
+    // be trimmed without installing or applying an unrelated AI mask first.
+    if (!hasMask) setSource('alpha');
+  }, [hasMask]);
 
   const handleTrim = useCallback(async () => {
     setTrimming(true);
+    setTrimError(null);
     try {
       await trimToSubject(padding, { source });
+    } catch (error) {
+      // A failed or empty scan must leave the document untouched; say so
+      // instead of letting the rejection disappear into the console.
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Trim to subject could not read the image. Nothing was changed.';
+      setTrimError(message);
+      announce?.(message);
     } finally {
       setTrimming(false);
     }
-  }, [padding, source, trimToSubject]);
+  }, [announce, padding, source, trimToSubject]);
 
   const handleDetectSubject = useCallback(async () => {
     detectAbortRef.current?.abort();
@@ -393,16 +415,25 @@ function TrimControls({
   return (
     <DisclosureSection title="Trim to Subject" sectionId={sectionId} subsectionId="trimToSubject">
       <div className="insp-field-group">
-        {hasMask && (
-          <FieldRow label="Source">
-            <SegmentedControl
-              label="Trim source"
-              options={[...TRIM_SOURCE_OPTIONS]}
-              value={source}
-              onChange={(v) => setSource(v as typeof source)}
-            />
-          </FieldRow>
-        )}
+        <FieldRow label="Source">
+          <SegmentedControl
+            label="Trim source"
+            options={[...TRIM_SOURCE_OPTIONS]}
+            value={source}
+            onChange={(v) => setSource(v as typeof source)}
+          />
+        </FieldRow>
+        <p className="insp-hint">
+          {source === 'alpha'
+            ? 'Alpha trims to the image’s own transparency — no selection mask needed.'
+            : source === 'combined'
+              ? hasMask
+                ? 'Combined trims where the image transparency and the selection mask overlap.'
+                : 'Combined needs a selection mask; apply one first, or trim with Alpha.'
+              : hasMask
+                ? 'Mask trims to the selection mask only.'
+                : 'Mask needs a selection mask; apply one first, or trim with Alpha.'}
+        </p>
         <FieldRow label="Padding">
           <NumberField
             label="Trim padding"
@@ -418,7 +449,8 @@ function TrimControls({
         {!hasMask && (
           <div className="insp-field-group">
             <p className="insp-hint">
-              No selection mask yet — detect object bounds automatically instead
+              No selection mask yet — trim with Alpha (image transparency, no download), or detect
+              object bounds automatically
               {modelAvailable ? '' : ' (downloads a small ~41 MB AI model on first use)'}.
             </p>
             <p className="insp-hint">
@@ -513,13 +545,18 @@ function TrimControls({
               type="button"
               className="insp-btn-sm"
               onClick={handleTrim}
-              disabled={trimming || !hasMask}
+              disabled={trimming || (source !== 'alpha' && !hasMask)}
             >
               <Icon name="Scissors" size="0.85em" />
               <span>{trimming ? 'Trimming...' : 'Trim to Subject'}</span>
             </button>
           </Tooltip>
         </div>
+        {trimError && (
+          <p className="insp-hint insp-hint--error" role="alert">
+            {trimError}
+          </p>
+        )}
       </div>
     </DisclosureSection>
   );

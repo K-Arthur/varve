@@ -1575,7 +1575,7 @@ export function useSam2Segmentation(
             announcerRef.current?.announce(
               coveragePixels === 0
                 ? `No pixels were selected for these prompts (${formatSelectionScore(selectedConfidence, bestMask.scoreSource)}). Adjust the prompts and try again.`
-                : `Subject preview ready (${formatSelectionScore(selectedConfidence, bestMask.scoreSource)}). Press Enter to apply as a mask, Escape to cancel.`,
+                : `Subject preview ready (${formatSelectionScore(selectedConfidence, bestMask.scoreSource)}). Review the highlighted target, then press Enter to apply it as a mask; Escape cancels.`,
             );
             return maskResult;
 

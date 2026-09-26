@@ -37,10 +37,14 @@ import {
   normalizeImageRotation,
 } from '@varve/scene';
 import {
+  computeAlphaBoundsFromImageData,
   computeVisibleContentBounds,
+  decodeImageData,
+  intersectBounds,
   type LocalBounds,
   type PaddingSpec,
   paddingBounds,
+  sourceAlphaBoundsToLocal,
 } from './imageBounds';
 
 export interface LocalCropRect {
@@ -745,12 +749,70 @@ export interface TrimToSubjectOptions {
    * computeVisibleContentBounds regardless, but callers can request the
    * raster mask specifically ('mask'), a plain alpha scan of the source
    * image ('alpha'), or let the bounds engine pick the best available
-   * ('combined', the default). */
+   * ('combined', the default).
+   *
+   * Semantics (each source is independent, and 'combined' intersects):
+   * - `mask`: bounds of the node's raster/vector/clip mask only. The source
+   *   image's own transparency is ignored.
+   * - `alpha`: a real pixel scan of the *source image's* alpha channel,
+   *   mapped through the canonical image placement. No mask is required, so
+   *   a transparent PNG can be trimmed without installing or applying an AI
+   *   mask first.
+   * - `combined`: effective coverage = image transparency × mask coverage;
+   *   the trim box is the intersection of both bounds. Falls back to
+   *   whichever of the two is available when only one can be computed. */
   source?: 'mask' | 'alpha' | 'combined';
   alphaThreshold?: number;
   /** Optional pre-computed local-space bounds (e.g. from a DETR detection)
    * to trim to directly, bypassing mask/alpha bounds computation entirely. */
   explicitBounds?: LocalBounds;
+  /**
+   * Optional pre-decoded source pixels. Callers that already hold the
+   * source ImageData (and deterministic tests) pass it here instead of
+   * paying for a second full-resolution decode.
+   */
+  sourceImageData?: ImageData;
+}
+
+/**
+ * Thrown when an explicit trim source cannot produce bounds. The document is
+ * never mutated in this case: a failed or empty scan must not silently reset
+ * an existing crop, change the aspect ratio, or hide the image.
+ */
+export class TrimBoundsUnavailableError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'TrimBoundsUnavailableError';
+  }
+}
+
+type SourceAlphaBoundsResult =
+  | { kind: 'bounds'; local: LocalBounds }
+  /** Source decodes but every pixel is below the threshold (fully transparent). */
+  | { kind: 'empty' }
+  /** Source pixels could not be read at all — caller decides how to report. */
+  | { kind: 'unavailable' };
+
+/** Scan the source image's own alpha and map it through the image placement. */
+async function sourceAlphaTrimBounds(
+  doc: Document,
+  nodeId: NodeId,
+  options: TrimToSubjectOptions,
+): Promise<SourceAlphaBoundsResult> {
+  const node = doc.nodes[nodeId];
+  if (node?.kind !== 'shape' || !isImageShape(node)) return { kind: 'unavailable' };
+  const shapeNode = node as ShapeNode;
+  const image = getImageFill(shapeNode)?.image;
+  if (!image?.src) return { kind: 'unavailable' };
+
+  const imageData = options.sourceImageData ?? (await decodeImageData(image.src));
+  if (!imageData) return { kind: 'unavailable' };
+
+  const source = computeAlphaBoundsFromImageData(imageData, options.alphaThreshold ?? 0);
+  if (!source) return { kind: 'empty' };
+
+  const local = sourceAlphaBoundsToLocal(doc, shapeNode, source);
+  return local ? { kind: 'bounds', local } : { kind: 'unavailable' };
 }
 
 /**
@@ -777,27 +839,63 @@ export async function trimToSubject(
   const H = bounds.h;
   if (W <= 0 || H <= 0) return doc;
 
+  const source = options.source ?? 'combined';
   let local: LocalBounds | null = options.explicitBounds ?? null;
 
   if (!local) {
-    const assetId = shapeNode.mask?.rasterMask?.assetId;
-    const rasterMaskAsset =
-      assetId && options.source !== 'alpha' ? getOwnRasterMaskAsset(doc, assetId) : undefined;
+    // An explicit Alpha scan is authoritative for its own source: it must
+    // never fall through to resetToSourceBounds, which would silently
+    // un-crop the image instead of trimming to its transparency.
+    if (source === 'alpha') {
+      const alpha = await sourceAlphaTrimBounds(doc, nodeId, options);
+      if (alpha.kind === 'unavailable') {
+        throw new TrimBoundsUnavailableError(
+          'The image pixels could not be read, so Alpha trim found nothing to measure. Nothing was changed.',
+        );
+      }
+      if (alpha.kind === 'empty') {
+        throw new TrimBoundsUnavailableError(
+          'The image is fully transparent, so there are no visible bounds to trim to. Nothing was changed.',
+        );
+      }
+      local = alpha.local;
+    } else {
+      const assetId = shapeNode.mask?.rasterMask?.assetId;
+      const rasterMaskAsset = assetId ? getOwnRasterMaskAsset(doc, assetId) : undefined;
 
-    const result = await computeVisibleContentBounds(doc, nodeId, {
-      alphaThreshold: options.alphaThreshold,
-      rasterMaskAsset,
-    });
-    // 'source-alpha' and 'fallback' both mean "no real mask found" — the
-    // former is computeVisibleContentBounds's own fallback to the node's
-    // full shape bounds, which is a same-size no-op crop, not a trim.
-    if (
-      result &&
-      (result.method === 'vector-path' ||
-        result.method === 'raster-alpha' ||
-        result.method === 'clip-mask')
-    ) {
-      local = result.local;
+      const result = await computeVisibleContentBounds(doc, nodeId, {
+        alphaThreshold: options.alphaThreshold,
+        rasterMaskAsset,
+      });
+      // 'source-alpha' and 'fallback' both mean "no real mask found" — the
+      // former is computeVisibleContentBounds's own fallback to the node's
+      // full shape bounds, which is a same-size no-op crop, not a trim.
+      if (
+        result &&
+        (result.method === 'vector-path' ||
+          result.method === 'raster-alpha' ||
+          result.method === 'clip-mask')
+      ) {
+        local = result.local;
+      }
+
+      // 'combined' = image transparency ∩ mask coverage. Both bounds are
+      // measured in the same node-local space, so their intersection is the
+      // region where effective alpha is non-zero on both sides.
+      if (source === 'combined') {
+        const alpha = await sourceAlphaTrimBounds(doc, nodeId, options);
+        if (alpha.kind === 'bounds') {
+          local = local ? (intersectBounds(local, alpha.local) ?? null) : alpha.local;
+        }
+        // 'unavailable' keeps today's mask-only result rather than failing a
+        // trim that already had trustworthy mask bounds; 'empty' means the
+        // source is fully transparent, so nothing is visible at all.
+        if (alpha.kind === 'empty') {
+          throw new TrimBoundsUnavailableError(
+            'The image is fully transparent, so there are no visible bounds to trim to. Nothing was changed.',
+          );
+        }
+      }
     }
   }
 

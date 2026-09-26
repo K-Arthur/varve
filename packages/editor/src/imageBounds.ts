@@ -90,8 +90,12 @@ export interface VisibleBoundsOptions {
  * Map a source-image alpha rectangle through the exact image placement used by
  * rendering. A simple `image.x + pixel * scale` conversion is wrong for crop,
  * fit, rotation, and flips, and made Trim Subject disagree with the canvas.
+ *
+ * Exported so trim's explicit Alpha source can map a *source* pixel scan
+ * through the same canonical placement that raster-mask bounds use — the two
+ * must never diverge or trim disagrees with the canvas under rotation/flip.
  */
-function sourceAlphaBoundsToLocal(
+export function sourceAlphaBoundsToLocal(
   doc: Document,
   node: ShapeNode,
   source: AlphaBounds,
@@ -248,6 +252,34 @@ export function computeVectorMaskBounds(
 const TILE_SIZE = 64;
 /** Maximum decoded pixels before we abort a scan (128 Mi-pixels). */
 const MAX_DECODED_PIXELS = 128 * 1024 * 1024;
+/**
+ * Hard bound on a single source decode. Loaders always settle through a
+ * real browser, but a hang here would otherwise freeze the caller's await
+ * chain (trim, bounds) with no error to show the user.
+ */
+const IMAGE_DECODE_TIMEOUT_MS = 15_000;
+/**
+ * Sources whose last decode did not settle inside the deadline. A source
+ * that hangs once hangs every time (a detached blob, a stripped asset
+ * payload, a runtime with no image loader), so retrying it would re-pay the
+ * full deadline on every trim/bounds call. Entries expire so a transient
+ * stall does not disable alpha reads for the rest of the session.
+ */
+const DECODE_FAILURE_TTL_MS = 60_000;
+const DECODE_FAILURE_MAX_ENTRIES = 64;
+const decodeFailures = new Map<string, number>();
+
+function rememberDecodeFailure(src: string): void {
+  for (const [key, at] of decodeFailures) {
+    if (Date.now() - at > DECODE_FAILURE_TTL_MS) decodeFailures.delete(key);
+  }
+  while (decodeFailures.size >= DECODE_FAILURE_MAX_ENTRIES) {
+    const oldest = decodeFailures.keys().next();
+    if (oldest.done) break;
+    decodeFailures.delete(oldest.value);
+  }
+  decodeFailures.set(src, Date.now());
+}
 /** LRU cache capacity for alpha bounds. */
 const ALPHA_BOUNDS_CACHE_MAX = 50;
 
@@ -479,15 +511,41 @@ export function computeAlphaBoundsFromImageData(
  */
 export async function decodeImageData(src: string): Promise<ImageData | null> {
   if (typeof document === 'undefined') return null;
+  const priorFailure = decodeFailures.get(src);
+  if (priorFailure !== undefined && Date.now() - priorFailure <= DECODE_FAILURE_TTL_MS) {
+    return null;
+  }
+  // Capability probe first: without a 2D context we can never read pixels
+  // back, so waiting on an image load can only end in a guaranteed failure.
+  // (This is also what keeps headless/unit-test environments from parking a
+  // caller on a load event that is never going to fire.)
+  if (!document.createElement('canvas').getContext('2d')) return null;
 
+  // Bounded decode: a source that never fires load *or* error (a detached
+  // blob, a stripped asset payload, an environment that silently declines to
+  // decode) used to leave the awaiting promise pending forever, which showed
+  // up as a trim that hung on "Trimming…" with no error. A decode that does
+  // not settle inside the deadline is reported as "no pixels available" so
+  // the caller can fall back without mutating the document.
   const img = await new Promise<HTMLImageElement | null>((resolve) => {
     const el = new Image();
+    let settled = false;
+    const finish = (value: HTMLImageElement | null) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(value);
+    };
+    const timer = setTimeout(() => finish(null), IMAGE_DECODE_TIMEOUT_MS);
     el.crossOrigin = 'anonymous';
-    el.onload = () => resolve(el);
-    el.onerror = () => resolve(null);
+    el.onload = () => finish(el);
+    el.onerror = () => finish(null);
     el.src = src;
   });
-  if (!img) return null;
+  if (!img) {
+    rememberDecodeFailure(src);
+    return null;
+  }
 
   const w = img.naturalWidth || img.width;
   const h = img.naturalHeight || img.height;
