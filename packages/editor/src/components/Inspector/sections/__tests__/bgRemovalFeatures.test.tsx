@@ -1,7 +1,7 @@
 // @ts-nocheck
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../../../context', () => {
@@ -774,6 +774,37 @@ describe('BackgroundRemovalSection - Object Selection', () => {
         combination: 'subtract',
       }),
     );
+  });
+
+  it('never reports a model ready when only one of its components is installed', async () => {
+    // Readiness is component-level: a provider is 'ready' only when every id
+    // in its pair resolves. Reporting the parent-level label from a single
+    // present component is exactly the failure the catalog contract forbids.
+    mockExportIsModelAvailable.mockReset();
+    mockExportIsModelAvailable.mockImplementation((modelId: string) =>
+      Promise.resolve(String(modelId).includes('encoder')),
+    );
+    mockedUseEditor.mockReturnValue(createMockEditorContext());
+    render(<BackgroundRemovalSection nodes={[makeImageNode()]} />);
+
+    try {
+      await waitFor(() => expect(mockExportIsModelAvailable).toHaveBeenCalled(), { timeout: 5000 });
+      // The component-level label must never appear: it is gated on at least
+      // one provider whose *entire* encoder+decoder pair resolves.
+      expect(screen.queryByText(/Object Selection model ready/i)).toBeNull();
+      // The per-provider button carries an Install aria-label, so its state is
+      // the text content: a partial install reads "Retry <label>".
+      await waitFor(
+        () => {
+          expect(
+            screen.getAllByRole('button').filter((b) => /^Retry /.test(b.textContent ?? '')).length,
+          ).toBeGreaterThan(0);
+        },
+        { timeout: 5000 },
+      );
+    } finally {
+      mockExportIsModelAvailable.mockReset().mockResolvedValue(true);
+    }
   });
 
   it('labels the entry as Continue when a session already exists', () => {
