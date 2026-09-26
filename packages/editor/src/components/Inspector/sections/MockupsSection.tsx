@@ -839,6 +839,39 @@ function SurfaceEditor({
         </fieldset>
       )}
 
+      {surface.kind === 'mesh' && (override?.mesh ?? surface.mesh) && (
+        <fieldset className="mockups-section__geometry mockups-section__cylinder">
+          <legend className="mockups-section__legend">Mesh envelope</legend>
+          <div className="mockups-section__row">
+            <span className="mockups-section__label">Grid</span>
+            <span className="mockups-section__value">
+              {(override?.mesh ?? surface.mesh)!.cols} x {(override?.mesh ?? surface.mesh)!.rows}{' '}
+              cells · {(override?.mesh ?? surface.mesh)!.vertices.flat().length} vertices
+            </span>
+          </div>
+          {override?.mesh ? (
+            <div className="mockups-section__row">
+              <span className="mockups-section__label">Geometry</span>
+              <div className="mockups-section__inline">
+                <Button size="sm" variant="ghost" onClick={() => patch({ mesh: undefined })}>
+                  Reset mesh
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="mockups-section__row">
+              <span className="mockups-section__label">Geometry</span>
+              <span className="mockups-section__value">Template default</span>
+            </div>
+          )}
+          <p className="mockups-section__note">
+            Drag the grid vertices on the canvas to fold the fabric. This is a bounded envelope for
+            folds and drape — not 3D: no lighting solve, no backside, and folds that would crease a
+            cell inside out are rejected.
+          </p>
+        </fieldset>
+      )}
+
       {surface.kind === 'quad' && (override?.quad ?? surface.quad) ? (
         <fieldset className="mockups-section__geometry">
           <legend className="mockups-section__legend">Surface corners (template px)</legend>

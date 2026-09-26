@@ -4,19 +4,22 @@
  * When a single mockup frame is selected, every surface is outlined with a
  * labelled chip; clicking a chip selects that surface as the edit target.
  * The selected surface gets geometry handles (rect corners/edges for flat
- * surfaces, four corners for quad surfaces) whose drags commit through the
- * instance override in one transaction per gesture. Escape aborts the
- * gesture and restores the pre-drag geometry; Reset clears the override.
+ * surfaces, four corners for quad surfaces, one handle per grid vertex for
+ * mesh surfaces) whose drags commit through the instance override in one
+ * transaction per gesture. Escape aborts the gesture and restores the
+ * pre-drag geometry; Reset clears the override.
  *
  * Coordinate flow mirrors PerspectiveOverlay:
  *   screen → world (inverse camera) → frame-local (inverse worldMat) →
  *   template units (divide by the frame's template scale).
  */
 
+import { isMeshGridValid } from '@varve/engine';
 import {
   getMockupTemplate,
   isMockupFrame,
   isValidMockupQuad,
+  type MockupMeshGeometry,
   type MockupQuad,
   type MockupSurfaceDefinition,
   type MockupVec2,
@@ -62,6 +65,7 @@ interface RectGeometry {
 
 type DragKind =
   | { type: 'quad'; index: 0 | 1 | 2 | 3 }
+  | { type: 'mesh'; row: number; col: number }
   | { type: 'rect-corner'; index: 0 | 1 | 2 | 3 }
   | { type: 'rect-edge'; index: 0 | 1 | 2 | 3 };
 
@@ -86,6 +90,7 @@ export function MockupSurfaceOverlay({ zoom, pan, cameraRotation, selection }: P
     startClientY: number;
     startRect: RectGeometry;
     startQuad: MockupQuad | null;
+    startMesh: MockupMeshGeometry | null;
   } | null>(null);
   const dragRef = useRef(drag);
   dragRef.current = drag;
@@ -155,6 +160,13 @@ export function MockupSurfaceOverlay({ zoom, pan, cameraRotation, selection }: P
           height: surface.height,
         },
         startQuad: surface.quad ? (surface.quad.map((p) => ({ ...p })) as MockupQuad) : null,
+        startMesh: surface.mesh
+          ? {
+              cols: surface.mesh.cols,
+              rows: surface.mesh.rows,
+              vertices: surface.mesh.vertices.map((row) => row.map((p) => ({ ...p }))),
+            }
+          : null,
       });
     },
     [editor, mockupFrame],
@@ -265,7 +277,9 @@ export function MockupSurfaceOverlay({ zoom, pan, cameraRotation, selection }: P
           x: number;
           y: number;
         } | null>)
-      : rectCorners(effective).map((p) => templateToScreen(p.x, p.y));
+      : effective.kind === 'mesh' && effective.mesh
+        ? meshBorder(effective.mesh).map((p) => templateToScreen(p.x, p.y))
+        : rectCorners(effective).map((p) => templateToScreen(p.x, p.y));
 
   if (outlinePoints.some((p) => !p)) return null;
 
@@ -287,6 +301,20 @@ export function MockupSurfaceOverlay({ zoom, pan, cameraRotation, selection }: P
           label: `Quad corner ${labels[index]}`,
         });
       }
+    });
+  } else if (effective.kind === 'mesh' && effective.mesh) {
+    effective.mesh.vertices.forEach((row, rowIndex) => {
+      row.forEach((p, colIndex) => {
+        const screen = templateToScreen(p.x, p.y);
+        if (screen) {
+          handles.push({
+            key: `m${rowIndex}-${colIndex}`,
+            point: screen,
+            kind: { type: 'mesh', row: rowIndex, col: colIndex },
+            label: `Grid vertex row ${rowIndex + 1}, column ${colIndex + 1}`,
+          });
+        }
+      });
     });
   } else {
     const cornerLabels = ['top left', 'top right', 'bottom right', 'bottom left'] as const;
@@ -356,9 +384,11 @@ export function MockupSurfaceOverlay({ zoom, pan, cameraRotation, selection }: P
           {selectedSurface.name}
           {effective.kind === 'quad'
             ? ' · perspective'
-            : effective.kind === 'cylindrical'
-              ? ' · bounded cylinder'
-              : ''}
+            : effective.kind === 'mesh'
+              ? ' · envelope'
+              : effective.kind === 'cylindrical'
+                ? ' · bounded cylinder'
+                : ''}
         </span>
         <button
           type="button"
@@ -395,17 +425,49 @@ export function MockupSurfaceOverlay({ zoom, pan, cameraRotation, selection }: P
 }
 
 function computeDragPatch(
-  drag: { kind: DragKind; startRect: RectGeometry; startQuad: MockupQuad | null },
+  drag: {
+    kind: DragKind;
+    startRect: RectGeometry;
+    startQuad: MockupQuad | null;
+    startMesh: MockupMeshGeometry | null;
+  },
   dx: number,
   dy: number,
-): { x?: number; y?: number; width?: number; height?: number; quad?: MockupQuad } | null {
+): {
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+  quad?: MockupQuad;
+  mesh?: MockupMeshGeometry;
+} | null {
   if (drag.kind.type === 'quad') {
     if (!drag.startQuad) return null;
+    const cornerIndex = drag.kind.index;
     const quad = drag.startQuad.map((p, index) =>
-      index === drag.kind.index ? { x: p.x + dx, y: p.y + dy } : p,
+      index === cornerIndex ? { x: p.x + dx, y: p.y + dy } : p,
     ) as MockupQuad;
     if (!isValidMockupQuad(quad)) return null;
     return { quad };
+  }
+  if (drag.kind.type === 'mesh') {
+    if (!drag.startMesh) return null;
+    // Move the one vertex; the candidate grid must stay fold-free, so a
+    // drag that would fold a cell is ignored this frame (the last good
+    // geometry stays on screen — the same recovery as invalid quads).
+    const kind = drag.kind;
+    const start = drag.startMesh;
+    const mesh: MockupMeshGeometry = {
+      cols: start.cols,
+      rows: start.rows,
+      vertices: start.vertices.map((row, rowIndex) =>
+        row.map((p, colIndex) =>
+          rowIndex === kind.row && colIndex === kind.col ? { x: p.x + dx, y: p.y + dy } : { ...p },
+        ),
+      ),
+    };
+    if (!isMeshGridValid(mesh)) return null;
+    return { mesh };
   }
   const rect = drag.startRect;
   let { x, y, width, height } = rect;
@@ -474,7 +536,25 @@ function surfaceOutline(
   const points =
     surface.kind === 'quad' && surface.quad
       ? surface.quad.map((p) => toScreen(p.x, p.y))
-      : rectCorners(surface).map((p) => toScreen(p.x, p.y));
+      : surface.kind === 'mesh' && surface.mesh
+        ? meshBorder(surface.mesh).map((p) => toScreen(p.x, p.y))
+        : rectCorners(surface).map((p) => toScreen(p.x, p.y));
   if (points.some((p) => !p)) return null;
   return points.map((p) => `${p!.x},${p!.y}`).join(' ');
+}
+
+/**
+ * Border ring of a mesh grid: top row left-to-right, right column down,
+ * bottom row right-to-left, left column up — the envelope hull outline.
+ */
+function meshBorder(mesh: MockupMeshGeometry): MockupVec2[] {
+  const { vertices } = mesh;
+  const lastRow = vertices.length - 1;
+  const lastCol = (vertices[0]?.length ?? 1) - 1;
+  const border: MockupVec2[] = [];
+  for (let c = 0; c <= lastCol; c++) border.push(vertices[0]![c]!);
+  for (let r = 1; r <= lastRow; r++) border.push(vertices[r]![lastCol]!);
+  for (let c = lastCol - 1; c >= 0; c--) border.push(vertices[lastRow]![c]!);
+  for (let r = lastRow - 1; r >= 1; r--) border.push(vertices[r]![0]!);
+  return border;
 }

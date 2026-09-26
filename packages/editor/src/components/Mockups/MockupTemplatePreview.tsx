@@ -50,6 +50,21 @@ function shapeKey(shape: MockupVectorShape, index: number): string {
   return `${shape.kind}-${index}-${s.x ?? ''}-${s.y ?? ''}-${s.width ?? ''}-${s.height ?? ''}-${s.fill ?? ''}`;
 }
 
+/** Border ring of a mesh grid: top row, right edge, bottom row, left edge. */
+function meshBorderPoints(
+  mesh: NonNullable<MockupTemplateAsset['surfaces'][number]['mesh']>,
+): string {
+  const { vertices } = mesh;
+  const lastRow = vertices.length - 1;
+  const lastCol = (vertices[0]?.length ?? 1) - 1;
+  const ring: Array<{ x: number; y: number }> = [];
+  for (let c = 0; c <= lastCol; c++) ring.push(vertices[0]![c]!);
+  for (let r = 1; r <= lastRow; r++) ring.push(vertices[r]![lastCol]!);
+  for (let c = lastCol - 1; c >= 0; c--) ring.push(vertices[lastRow]![c]!);
+  for (let r = lastRow - 1; r >= 1; r--) ring.push(vertices[r]![0]!);
+  return ring.map((p) => `${p.x},${p.y}`).join(' ');
+}
+
 export function MockupTemplatePreview({
   template,
   width,
@@ -84,6 +99,14 @@ export function MockupTemplatePreview({
           {surface.kind === 'quad' && surface.quad ? (
             <polygon
               points={surface.quad.map((p) => `${p.x},${p.y}`).join(' ')}
+              fill="none"
+              stroke="var(--color-accent-primary)"
+              strokeWidth={Math.max(2, template.outputWidth / 300)}
+              strokeDasharray={`${Math.max(4, template.outputWidth / 150)} ${Math.max(3, template.outputWidth / 200)}`}
+            />
+          ) : surface.kind === 'mesh' && surface.mesh ? (
+            <polygon
+              points={meshBorderPoints(surface.mesh)}
               fill="none"
               stroke="var(--color-accent-primary)"
               strokeWidth={Math.max(2, template.outputWidth / 300)}
