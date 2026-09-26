@@ -180,6 +180,34 @@ VARVE_SAM2_REAL_MODEL=1 node scripts/quality/heavy-lease.mjs \
 Tauri/WebKitGTK and Windows/macOS were **not** exercised by this pass at
 all; every live result above is Chromium on Linux x86_64.
 
+## verify:quick and the two red object-selection tests (2026-09-26)
+
+`pnpm verify:quick` (Tier 0 + Tier 1) ran clean on format/lint-touched, emoji,
+docs, inspector-css, tokens (315 pairs x 3 themes), spacing, sizing,
+`typecheck:e2e`, and every selected unit file (~350 tests). Its only failures
+were two tests in `tests/e2e/canvas/object-selection.spec.ts` — and neither
+is a defect in this change set:
+
+| Test | Repro | Classification |
+| --- | --- | --- |
+| `keeps sub-threshold jitter a point and turns real drags into a box` | **Passed** on isolated re-run (13.4 s) | **Flaky under load.** Asserts exact `2 prompts` text right after pointer-up; the first run polled 10 s and never saw the box land while ~25 unit files and other sessions' Chromium instances competed for the machine. |
+| `refuses to run against a multi-selection with an actionable announcement` | Failed twice, differently (the file moved line 316 -> 318 between runs) | **Test premise, in another session's uncommitted WIP** (HEAD of the spec is 220 lines; the working copy adds 134). |
+
+A purpose-built probe (selection count after each step plus the accessibility
+snapshot at failure) settled the second one: with two images selected, the
+Adjustments tabpanel renders the batch **Image Tuning** surface ("Editing 2
+images") and **no Object Selection control at all**. The test therefore cannot
+activate the tool from the panel while a multi-selection is active — its
+earlier, non-exact locator was matching some other control, which is why the
+entry gate never fired and the prompt-mapping error appeared instead of
+`one image at a time`.
+
+The product behaviour is consistent: Object Selection is single-image, the
+panel hides its entry point for a multi-selection, and the entry gate still
+refuses `selection.length !== 1` for the reachable ordering (activate the
+tool first, then multi-select, then click the canvas). The correction belongs
+to the spec's owner and was left untouched here, per same-file sequencing.
+
 ## Known limitations / not covered here
 
 - **Stage instrumentation is coarse.** `ObjectSelectionSession.stageTimingsMs`
