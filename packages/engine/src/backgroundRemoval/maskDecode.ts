@@ -3,6 +3,8 @@
  * DOM-dependent — main thread only.
  */
 
+import { maskFromImageData } from './maskOps';
+
 export async function decodeMaskDataUrl(
   dataUrl: string,
 ): Promise<{ mask: Uint8Array; width: number; height: number }> {
@@ -20,11 +22,7 @@ export async function decodeMaskDataUrl(
   if (!ctx) throw new Error('Canvas 2D unavailable');
   ctx.drawImage(img, 0, 0);
   const imageData = ctx.getImageData(0, 0, img.width, img.height);
-  const mask = new Uint8Array(img.width * img.height);
-  for (let i = 0; i < mask.length; i++) {
-    mask[i] = imageData.data[i * 4] ?? 0;
-  }
-  return { mask, width: img.width, height: img.height };
+  return { mask: maskFromImageData(imageData), width: img.width, height: img.height };
 }
 
 /** Decode a PNG mask received through a native binary IPC response. */

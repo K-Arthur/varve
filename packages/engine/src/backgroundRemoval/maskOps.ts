@@ -789,12 +789,27 @@ export function contractMask(
   return result;
 }
 
-/** Extract single-channel mask from RGBA ImageData (red channel; our mask PNGs store value in RGB). */
+/**
+ * Resolve mask coverage from one RGBA pixel across the encodings that exist
+ * in this app: coverage in all four channels, white RGB with coverage only in
+ * alpha (depth workflow), and the legacy RGB-only payload (alpha=255). The
+ * minimum of red and alpha is the only single-pixel rule that reads all three
+ * correctly; a red-only read turned white-RGB masks fully opaque, and an
+ * alpha-only read would erase legacy RGB payloads.
+ */
+export function maskCoverageFromPixel(red: number, alpha: number): number {
+  return red < alpha ? red : alpha;
+}
+
+/**
+ * Extract single-channel mask from RGBA ImageData, honoring every supported
+ * mask encoding (see maskCoverageFromPixel).
+ */
 export function maskFromImageData(imageData: ImageData): Uint8Array {
   const { width, height, data } = imageData;
   const mask = new Uint8Array(width * height);
   for (let i = 0; i < width * height; i++) {
-    mask[i] = data[i * 4] ?? 0;
+    mask[i] = maskCoverageFromPixel(data[i * 4] ?? 0, data[i * 4 + 3] ?? 0);
   }
   return mask;
 }
