@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createPsdParser } from './psd';
+import { countSmartObjectLayers, createPsdParser } from './psd';
 
 function makePsdBytes(): Uint8Array {
   const header = '8BPS';
@@ -89,6 +89,33 @@ describe('PSD parser', () => {
     const psd = createMinimalPsd();
     const result = parser.parse(psd);
     expect(Array.isArray(result.warnings)).toBe(true);
+  });
+});
+
+describe('countSmartObjectLayers', () => {
+  function encode(text: string): number[] {
+    return Array.from(text, (ch) => ch.charCodeAt(0));
+  }
+
+  it('counts SoLd and PlLd signatures', () => {
+    const bytes = new Uint8Array([
+      ...encode('noise'),
+      ...encode('SoLd'),
+      0,
+      0,
+      ...encode('PlLd'),
+      ...encode('SoLd'),
+    ]);
+    expect(countSmartObjectLayers(bytes)).toBe(3);
+  });
+
+  it('ignores near-miss signatures and binary noise', () => {
+    const bytes = new Uint8Array([...encode('SoLXPlLdSo'), 0xff, 0x00, ...encode('Ld')]);
+    expect(countSmartObjectLayers(bytes)).toBe(1);
+  });
+
+  it('returns zero for files without smart objects', () => {
+    expect(countSmartObjectLayers(new Uint8Array(1024))).toBe(0);
   });
 });
 

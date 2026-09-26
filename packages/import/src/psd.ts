@@ -201,6 +201,7 @@ function parsePsdData(data: Uint8Array, opts: ImportOptions, warnings: string[])
       doc = { ...doc, canvasWidth: psd.width, canvasHeight: psd.height };
     }
 
+    pushSmartObjectWarning(data, formatLabel, warnings);
     warnings.push(
       `${formatLabel} import may lose fidelity: layer effects, adjustment layers, smart objects are not supported`,
     );
@@ -253,6 +254,7 @@ async function parsePsdDataAsync(
     doc = { ...doc, canvasWidth: psd.width, canvasHeight: psd.height };
   }
 
+  pushSmartObjectWarning(data, formatLabel, warnings);
   warnings.push(
     `${formatLabel} import may lose fidelity: adjustment layers, smart objects, and exact text editing are not supported`,
   );
@@ -368,6 +370,48 @@ async function convertPsdNodeAsync(
 
 function photoshopFormatLabel(data: Uint8Array): 'PSD' | 'PSB' {
   return data[4] === 0 && data[5] === 2 ? 'PSB' : 'PSD';
+}
+
+/**
+ * Layer additional-info keys that only smart-object layers write:
+ * 'SoLd' (Photoshop CS3+ placed smart object) and 'PlLd' (legacy placed
+ * layer). Occurrences in the raw bytes are a practical count of smart
+ * object layers — channel image data is RLE/ZIP compressed, so the ASCII
+ * signatures effectively only appear in real layer info blocks. The count
+ * is informational (an upper bound), never a capability claim.
+ */
+const SMART_OBJECT_LAYER_KEYS = ['SoLd', 'PlLd'] as const;
+
+/**
+ * Count smart-object layer signatures in raw PSD/PSB bytes. Exported for the
+ * honesty test corpus; the parser surfaces the count as an import warning.
+ */
+export function countSmartObjectLayers(data: Uint8Array): number {
+  let count = 0;
+  const limit = data.length - 3;
+  for (let i = 0; i < limit; i++) {
+    for (const key of SMART_OBJECT_LAYER_KEYS) {
+      if (
+        data[i] === key.charCodeAt(0) &&
+        data[i + 1] === key.charCodeAt(1) &&
+        data[i + 2] === key.charCodeAt(2) &&
+        data[i + 3] === key.charCodeAt(3)
+      ) {
+        count++;
+        i += 3;
+        break;
+      }
+    }
+  }
+  return count;
+}
+
+function pushSmartObjectWarning(data: Uint8Array, formatLabel: string, warnings: string[]): void {
+  const count = countSmartObjectLayers(data);
+  if (count === 0) return;
+  warnings.push(
+    `${formatLabel}: ${count} smart object layer(s) detected — imported as their rendered pixels only; the embedded artwork, warps, and re-editability are not extracted`,
+  );
 }
 
 function validatePsdHeader(data: Uint8Array): { ok: true } | { ok: false; message: string } {
