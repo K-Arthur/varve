@@ -403,6 +403,12 @@ export interface EditorState {
   sessions: SessionMeta[];
   activeId: string;
   dirty: boolean;
+  /**
+   * @deprecated The canvas no longer writes this field: a per-frame cursor
+   * patch re-rendered every editor consumer. Read the live cursor from
+   * `canvas/cursorPosition` (`useCursorWorldPosition`). Retained until the
+   * remaining shell call site drops it.
+   */
   cursorPos: { x: number; y: number } | null;
   unitType: 'px' | 'pt' | 'cm' | 'mm' | 'in' | '%';
   pixelGridEnabled: boolean;
@@ -1233,6 +1239,7 @@ export interface EditorContextValue {
   setSelectedCornerSmoothing: (value: number) => void;
 
   // Canvas state
+  /** @deprecated Use `publishCursorWorldPosition` from `canvas/cursorPosition`. */
   setCursorPos: (pos: { x: number; y: number } | null) => void;
   setUnitType: (t: 'px' | 'pt' | 'cm' | 'mm' | 'in' | '%') => void;
   setDocumentUnit: (unit: DocumentUnit) => void;

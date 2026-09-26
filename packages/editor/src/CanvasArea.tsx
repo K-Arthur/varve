@@ -294,11 +294,13 @@ export function CanvasArea({
     },
     [],
   );
-  const { canvasSize, canvasRectRef, viewportAnchorRef, refreshCanvasRect } = useCanvasGeometry(
-    contentCanvasRef,
-    handleCanvasGeometryChange,
-    canvasContextRevision,
-  );
+  const {
+    canvasSize,
+    canvasRectRef,
+    viewportAnchorRef,
+    refreshCanvasRect,
+    refreshCanvasRectForEvent,
+  } = useCanvasGeometry(contentCanvasRef, handleCanvasGeometryChange, canvasContextRevision);
 
   // Diagnostics HUD is off by default; driven by the persisted Settings >
   // Performance > Diagnostics toggle. The toggle also calls
@@ -494,7 +496,7 @@ export function CanvasArea({
   const snapSessionRef = useRef<SnapSession>(createSnapSession());
   const isometricSnapLockRef = useRef<IsometricSnapLock | null>(null);
 
-  const collab = useCollabPresence(state.activeId, state.cursorPos, state.pan);
+  const collab = useCollabPresence(state.activeId, null, state.pan);
   const [nodeEditTargetId, setNodeEditTargetId] = useState<string | null>(null);
   const [nodeEditSelectedAnchors, setNodeEditSelectedAnchors] = useState<ReadonlySet<number>>(
     new Set(),
@@ -793,10 +795,10 @@ export function CanvasArea({
     ev: PointerEvent,
     sourceEvents: ReturnType<typeof collectSourceEvents> = [],
   ): ToolContext {
-    // Refresh the cached canvas rect at gesture start for safety.
-    // The geometry observer keeps it current, but a pointerdown is a
-    // definitive sync point before tools convert client coordinates.
-    refreshCanvasRect();
+    // Refresh the cached canvas rect at gesture boundaries for safety. The
+    // geometry observer keeps it current; pointer-move samples do not re-read
+    // layout (see refreshCanvasRectForEvent).
+    refreshCanvasRectForEvent(ev);
     return buildToolContext(
       {
         stateRef,

@@ -155,3 +155,55 @@ describe('canvas backing store', () => {
     expect(onRestored).toHaveBeenCalledOnce();
   });
 });
+
+describe('synchronous geometry refresh', () => {
+  function measuredCanvas(left: number) {
+    const canvas = document.createElement('canvas');
+    Object.defineProperties(canvas, {
+      clientWidth: { configurable: true, value: 832 },
+      clientHeight: { configurable: true, value: 722.484375 },
+    });
+    const rect = vi.spyOn(canvas, 'getBoundingClientRect').mockReturnValue({
+      left,
+      top: 122.71875,
+      width: 832,
+      height: 722.484375,
+      right: left + 832,
+      bottom: 845.203125,
+      x: left,
+      y: 122.71875,
+      toJSON: () => ({}),
+    });
+    return { canvas, rect };
+  }
+
+  it('does not report unchanged geometry as a resize', () => {
+    // An unchanged measurement used to re-run the anchor math, whose
+    // floating-point residue committed a new camera on every pointer sample.
+    const { canvas } = measuredCanvas(288);
+    const onGeometryChange = vi.fn();
+    const { result, unmount } = renderHook(() =>
+      useCanvasGeometry({ current: canvas }, onGeometryChange),
+    );
+    result.current.refreshCanvasRect();
+    result.current.refreshCanvasRect();
+    expect(onGeometryChange).not.toHaveBeenCalled();
+
+    Object.defineProperty(canvas, 'clientWidth', { configurable: true, value: 900 });
+    result.current.refreshCanvasRect();
+    expect(onGeometryChange).toHaveBeenCalledTimes(1);
+    unmount();
+  });
+
+  it('skips layout reads for pointer-move tool contexts only', () => {
+    const { canvas, rect } = measuredCanvas(288);
+    const { result, unmount } = renderHook(() => useCanvasGeometry({ current: canvas }));
+    rect.mockClear();
+    result.current.refreshCanvasRectForEvent({ type: 'pointermove' });
+    expect(rect).not.toHaveBeenCalled();
+    result.current.refreshCanvasRectForEvent({ type: 'pointerdown' });
+    result.current.refreshCanvasRectForEvent({ type: 'keydown' });
+    expect(rect).toHaveBeenCalledTimes(2);
+    unmount();
+  });
+});

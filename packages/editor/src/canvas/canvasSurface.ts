@@ -22,6 +22,13 @@ export interface CanvasGeometryState {
   canvasRectRef: MutableRefObject<{ left: number; top: number }>;
   viewportAnchorRef: MutableRefObject<CanvasViewportAnchor | null>;
   refreshCanvasRect: () => void;
+  /**
+   * Refresh for a tool-context build. Pointer-move samples inside a gesture
+   * are skipped: the input pipeline already refreshes at pointerdown, wheel,
+   * and pinch boundaries, and a layout read per sample forced a synchronous
+   * reflow on every hover and drag move.
+   */
+  refreshCanvasRectForEvent: (event: { type: string }) => void;
 }
 
 function finiteOrZero(value: number): number {
@@ -221,6 +228,11 @@ export function useCanvasGeometry(
   const applyCanvasGeometry = useCallback(
     (geometry: CanvasGeometry) => {
       const previous = canvasGeometryRef.current;
+      // An unchanged measurement is not a resize. Re-running the anchor math
+      // on identical geometry round-trips screen→world→screen, and its
+      // floating-point residue committed a slightly different camera — a
+      // full editor re-render and content redraw on every pointer sample.
+      if (previous && sameCanvasGeometry(previous, geometry)) return;
       if (previous && previous.width > 0 && previous.height > 0) {
         onGeometryChange?.(previous, geometry, viewportAnchorRef.current);
       }
@@ -241,13 +253,27 @@ export function useCanvasGeometry(
     if (canvas) applyCanvasGeometry(readCanvasGeometry(canvas));
   }, [applyCanvasGeometry, canvasRef]);
 
+  const refreshCanvasRectForEvent = useCallback(
+    (event: { type: string }) => {
+      if (event.type === 'pointermove' || event.type === 'pointerrawupdate') return;
+      refreshCanvasRect();
+    },
+    [refreshCanvasRect],
+  );
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     return subscribeToCanvasGeometry(canvas, applyCanvasGeometry);
   }, [applyCanvasGeometry, canvasRef, canvasRevision]);
 
-  return { canvasSize, canvasRectRef, viewportAnchorRef, refreshCanvasRect };
+  return {
+    canvasSize,
+    canvasRectRef,
+    viewportAnchorRef,
+    refreshCanvasRect,
+    refreshCanvasRectForEvent,
+  };
 }
 
 export function canvasBackingSize(cssSize: number, dpr: number): number {

@@ -68,6 +68,7 @@ import {
 import type { SnapGuide } from '../tools/snapping';
 import { createSnapSession } from '../tools/snapping';
 import type { CanvasViewportAnchor } from './canvasSurface';
+import { publishCursorWorldPosition } from './cursorPosition';
 import { installInputDiagnosticsHandle, recordInputDiagnostic } from './inputDiagnostics';
 import { getNavigationSettings } from './navigationRuntime';
 import {
@@ -94,7 +95,6 @@ export interface UseCanvasInputsOptions {
   /** Latest client-space anchor used while a navigation/editing gesture is active. */
   viewportAnchorRef?: MutableRefObject<CanvasViewportAnchor | null>;
   editor: {
-    setCursorPos: (pos: { x: number; y: number } | null) => void;
     setPan: (pan: { x: number; y: number }) => void;
     /** Relative scroll; resolves against the newest pan, not a snapshot. */
     panBy: (dx: number, dy: number) => void;
@@ -649,6 +649,8 @@ export function useCanvasInputs({
       // Frame-scheduled cursor update: latest input wins, at most one
       // update per animation frame. Replaces the old 32ms fixed throttle
       // which ran at ~31 Hz regardless of display refresh rate (task brief §6).
+      // Published to the cursor store, never EditorState: a per-frame state
+      // patch re-rendered every editor consumer while the pointer only hovered.
       const world = ctx.canvasToWorld(e.clientX, e.clientY);
       latestCursorWorld.current = world;
       if (!cursorRafScheduled.current) {
@@ -656,7 +658,7 @@ export function useCanvasInputs({
         requestAnimationFrame(() => {
           cursorRafScheduled.current = false;
           const pos = latestCursorWorld.current;
-          if (pos) editor.setCursorPos(pos);
+          if (pos) publishCursorWorldPosition(pos);
         });
       }
 
@@ -2059,14 +2061,16 @@ export function useCanvasInputs({
     // hit-test target becomes an SVG overlay or the pointer crosses the
     // physical edge. Keep edge motion running until the gesture ends.
     if (activeDragPointer.current) return;
-    editor.setCursorPos(null);
+    // Clear the pending sample too, so a queued frame cannot republish it.
+    latestCursorWorld.current = null;
+    publishCursorWorldPosition(null);
     stopAutoPan();
     if (hoverTraceEndTimer.current !== null) {
       clearTimeout(hoverTraceEndTimer.current);
       hoverTraceEndTimer.current = null;
     }
     endInteraction();
-  }, [editor, stopAutoPan]);
+  }, [stopAutoPan]);
 
   const onBlur = useCallback(() => {
     stopAutoPan();

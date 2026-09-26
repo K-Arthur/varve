@@ -9,8 +9,9 @@
  * Production builds return null via isDebugBuild().
  */
 
+import { useCursorWorldPosition } from '../canvas/cursorPosition';
 import { CANVAS_INTERACTIVE_OVERLAY_Z_INDEX } from '../canvas/overlayZIndex';
-import { useEditor } from '../context';
+import { type EditorState, useEditor } from '../context';
 import type { DebugSnapshot, Point } from './DebugOverlayRegistry';
 import { isDebugBuild } from './DebugSnapshotProvider';
 
@@ -234,9 +235,17 @@ function renderPerformance(snapshot: DebugSnapshot): React.ReactNode {
 
 export function DebugOverlayHost() {
   const { state } = useEditor();
-  const { debugOverlay, zoom, pan, selection, tool, cursorPos, touchMultiSelect } = state;
+  if (!isDebugBuild() || !state.debugOverlay.enabled) return null;
+  return <DebugOverlayLayer state={state} />;
+}
 
-  if (!isDebugBuild() || !debugOverlay.enabled) return null;
+/**
+ * Mounted only while the overlay is enabled, so the per-frame cursor
+ * subscription never re-renders the host in normal sessions.
+ */
+function DebugOverlayLayer({ state }: { state: EditorState }) {
+  const cursorPos = useCursorWorldPosition();
+  const { debugOverlay, zoom, pan, selection, tool, touchMultiSelect } = state;
 
   const { channels, labelDensity } = debugOverlay;
   const hasAny =

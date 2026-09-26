@@ -8,6 +8,7 @@ import type { Document } from '@varve/scene';
 import { getParent } from '@varve/scene';
 import type { Affine, Point, Rect } from '@varve/shared';
 import { applyAffine, tryInvertAffine } from '@varve/shared';
+import { getCursorWorldPosition } from '../canvas/cursorPosition';
 import type { EditorState } from '../context/types';
 import type { HitTestEngine } from '../hitTest/HitTestEngine';
 import type { SpatialIndex } from '../scene/spatialIndex';
@@ -185,8 +186,9 @@ function buildSpatialIndexSnapshot(
 }
 
 function buildInteractionSnapshot(state: EditorState): DebugInteractionSnapshot {
+  const cursor = getCursorWorldPosition();
   return {
-    pointerPosition: state.cursorPos ? [state.cursorPos.x, state.cursorPos.y] : null,
+    pointerPosition: cursor ? [cursor.x, cursor.y] : null,
     pointerType: 'unknown',
     pointerId: -1,
     capturedTarget: null,

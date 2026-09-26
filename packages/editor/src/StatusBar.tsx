@@ -8,6 +8,7 @@ import { AuditBadge } from './components/AuditBadge';
 import { DebtBadge } from './components/DebtBadge';
 import { PreflightWarnings } from './components/PreflightWarnings';
 import { DocumentInfoDialog } from './components/Shell';
+import { CursorPositionReadout } from './components/StatusBar/CursorPositionReadout';
 import { LayoutScoreIndicator } from './components/StatusBar/LayoutScoreIndicator';
 import { SaveStatusIndicator } from './components/StatusBar/SaveStatusIndicator';
 import { useEditor } from './context';
@@ -194,11 +195,7 @@ export function StatusBar({ onOpenPalette }: StatusBarProps) {
         {pageInfoLabel && <span className="editor-status__meta">{pageInfoLabel}</span>}
         {colorModeLabel && <span className="editor-status__meta">{colorModeLabel}</span>}
         {imageInfoLabel && <span className="editor-status__meta">{imageInfoLabel}</span>}
-        {sectionVisible('cursorPos') && state.cursorPos && (
-          <span className="editor-status__meta editor-status__cursor">
-            X: {Math.round(state.cursorPos.x)} Y: {Math.round(state.cursorPos.y)}
-          </span>
-        )}
+        {sectionVisible('cursorPos') && <CursorPositionReadout />}
         {sectionVisible('layoutScore') && <LayoutScoreIndicator />}
         <SaveStatusIndicator />
         {state.cameraRotation !== 0 && (

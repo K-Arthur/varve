@@ -3,6 +3,7 @@
 import '@testing-library/jest-dom/vitest';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { publishCursorWorldPosition } from './canvas/cursorPosition';
 import { setCompositorDiagnostics } from './render/compositorDiagnosticsStore';
 import { StatusBar } from './StatusBar';
 import {
@@ -65,7 +66,6 @@ function baseEditor() {
     state: {
       tool: 'select',
       workspaceMode: 'design',
-      cursorPos: { x: 12.3, y: 45.6 },
       zoom: 1,
       unitType: 'px',
       pixelGridEnabled: false,
@@ -103,6 +103,7 @@ function baseEditor() {
 
 afterEach(() => {
   cleanup();
+  publishCursorWorldPosition(null);
   useEditorMock.mockReset();
   localStorage.clear();
   resetWorkspacePreferenceCache();
@@ -117,6 +118,7 @@ describe('StatusBar section gating', () => {
 
   it('hides a status section the workspace config declares hidden', () => {
     useEditorMock.mockReturnValue(baseEditor());
+    publishCursorWorldPosition({ x: 12.3, y: 45.6 });
     render(<StatusBar />);
     expect(screen.getByText(/X: 12 Y: 46/)).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Zoom out' })).toBeTruthy();
@@ -132,6 +134,23 @@ describe('StatusBar section gating', () => {
     expect(screen.queryByText(/X: 12 Y: 46/)).toBeNull();
     // Other sections remain visible.
     expect(screen.getByRole('button', { name: 'Zoom out' })).toBeTruthy();
+  });
+
+  it('follows the live cursor without re-rendering the status bar', () => {
+    useEditorMock.mockReturnValue(baseEditor());
+    render(<StatusBar />);
+    const rendersBefore = useEditorMock.mock.calls.length;
+    const readout = document.querySelector('.editor-status__cursor') as HTMLElement;
+    expect(readout.style.display).toBe('none');
+
+    act(() => publishCursorWorldPosition({ x: 99.6, y: -3.2 }));
+    expect(readout).toHaveTextContent('X: 100 Y: -3');
+    expect(readout.style.display).toBe('');
+    // The readout writes its own text; the status bar itself did not render.
+    expect(useEditorMock.mock.calls.length).toBe(rendersBefore);
+
+    act(() => publishCursorWorldPosition(null));
+    expect(readout.style.display).toBe('none');
   });
 
   it('shows page info in print mode', () => {
