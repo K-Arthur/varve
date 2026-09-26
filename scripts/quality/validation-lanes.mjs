@@ -12,6 +12,14 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const ROOT = process.cwd();
+const STANDALONE_RUST_MANIFESTS = {
+  'varve-desktop': 'apps/desktop/src-tauri/Cargo.toml',
+};
+
+function cargoCrateArgs(action, crateName) {
+  const manifest = STANDALONE_RUST_MANIFESTS[crateName];
+  return manifest ? [action, '--manifest-path', manifest] : [action, '-p', crateName];
+}
 
 function canonicalPath(value) {
   return String(value).replaceAll('\\', '/');
@@ -117,10 +125,22 @@ export function laneCommand(lane, pkgDir) {
     return `pnpm --filter ${name} typecheck`;
   }
   if (lane.startsWith('rust-test:') && !lane.endsWith(':all')) {
-    return `node scripts/cargo-with-generative-bindgen.mjs test -p ${lane.slice('rust-test:'.length)}`;
+    return [
+      'node',
+      'scripts/cargo-with-generative-bindgen.mjs',
+      ...cargoCrateArgs('test', lane.slice('rust-test:'.length)),
+    ].join(' ');
   }
   if (lane.startsWith('rust-clippy:') && !lane.endsWith(':all')) {
-    return `node scripts/cargo-with-generative-bindgen.mjs clippy -p ${lane.slice('rust-clippy:'.length)} --all-targets -- -D warnings`;
+    return [
+      'node',
+      'scripts/cargo-with-generative-bindgen.mjs',
+      ...cargoCrateArgs('clippy', lane.slice('rust-clippy:'.length)),
+      '--all-targets',
+      '--',
+      '-D',
+      'warnings',
+    ].join(' ');
   }
   return LANES[lane];
 }
@@ -166,18 +186,14 @@ export function laneArgv(lane, { files = [], pkgDir } = {}) {
     return [
       'node',
       'scripts/cargo-with-generative-bindgen.mjs',
-      'test',
-      '-p',
-      lane.slice('rust-test:'.length),
+      ...cargoCrateArgs('test', lane.slice('rust-test:'.length)),
     ];
   }
   if (lane.startsWith('rust-clippy:') && !lane.endsWith(':all')) {
     return [
       'node',
       'scripts/cargo-with-generative-bindgen.mjs',
-      'clippy',
-      '-p',
-      lane.slice('rust-clippy:'.length),
+      ...cargoCrateArgs('clippy', lane.slice('rust-clippy:'.length)),
       '--all-targets',
       '--',
       '-D',

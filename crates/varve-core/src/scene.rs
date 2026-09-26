@@ -76,7 +76,12 @@ pub enum EngineColor {
         g: f64,
         b: f64,
         a: f64,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[serde(
+            default,
+            skip_serializing_if = "Option::is_none",
+            rename = "bitDepth",
+            alias = "bit_depth"
+        )]
         bit_depth: Option<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         profile: Option<String>,
@@ -88,7 +93,12 @@ pub enum EngineColor {
         y: f64,
         k: f64,
         a: f64,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[serde(
+            default,
+            skip_serializing_if = "Option::is_none",
+            rename = "bitDepth",
+            alias = "bit_depth"
+        )]
         bit_depth: Option<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         profile: Option<String>,
@@ -97,7 +107,12 @@ pub enum EngineColor {
     Gray {
         v: f64,
         a: f64,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[serde(
+            default,
+            skip_serializing_if = "Option::is_none",
+            rename = "bitDepth",
+            alias = "bit_depth"
+        )]
         bit_depth: Option<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         profile: Option<String>,
@@ -743,6 +758,32 @@ pub fn get_parent(nodes: &[SceneNode], id: NodeId) -> Option<NodeId> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn managed_color_precision_uses_camel_case_wire_metadata() {
+        for channels in [
+            serde_json::json!({"space":"rgb","r":0.123456789,"g":0.4,"b":0.8,"a":0.25,"profile":"display-p3"}),
+            serde_json::json!({"space":"cmyk","c":0.1,"m":0.2,"y":0.3,"k":0.4,"a":0.5}),
+            serde_json::json!({"space":"gray","v":0.5,"a":0.75}),
+        ] {
+            let mut wire = channels.clone();
+            wire["bitDepth"] = serde_json::json!("float32");
+            let decoded: EngineColor =
+                serde_json::from_value(wire.clone()).expect("decode TS managed color");
+            assert_eq!(
+                serde_json::to_value(decoded).expect("encode managed color"),
+                wire
+            );
+            let mut legacy = channels;
+            legacy["bit_depth"] = serde_json::json!("float32");
+            let decoded: EngineColor =
+                serde_json::from_value(legacy).expect("decode historical Rust wire");
+            assert_eq!(
+                serde_json::to_value(decoded).expect("normalize legacy metadata"),
+                wire
+            );
+        }
+    }
     use crate::geom::{Circle, Rect};
     use kurbo::Affine;
 

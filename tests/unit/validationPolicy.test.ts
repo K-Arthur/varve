@@ -475,6 +475,43 @@ describe('planner lane -> command resolution (executor contract)', () => {
     }
   });
 
+  it('uses the standalone Cargo manifest for desktop crate lanes', () => {
+    const manifest = 'apps/desktop/src-tauri/Cargo.toml';
+    expect(laneCommand('rust-test:varve-desktop')).toBe(
+      `node scripts/cargo-with-generative-bindgen.mjs test --manifest-path ${manifest}`,
+    );
+    expect(laneCommand('rust-clippy:varve-desktop')).toBe(
+      `node scripts/cargo-with-generative-bindgen.mjs clippy --manifest-path ${manifest} --all-targets -- -D warnings`,
+    );
+    expect(laneArgv('rust-test:varve-desktop')).toEqual([
+      'node',
+      'scripts/cargo-with-generative-bindgen.mjs',
+      'test',
+      '--manifest-path',
+      manifest,
+    ]);
+    expect(laneArgv('rust-clippy:varve-desktop')).toEqual([
+      'node',
+      'scripts/cargo-with-generative-bindgen.mjs',
+      'clippy',
+      '--manifest-path',
+      manifest,
+      '--all-targets',
+      '--',
+      '-D',
+      'warnings',
+    ]);
+
+    // Workspace crates continue using package selection against the root workspace.
+    expect(laneArgv('rust-test:varve-core')).toEqual([
+      'node',
+      'scripts/cargo-with-generative-bindgen.mjs',
+      'test',
+      '-p',
+      'varve-core',
+    ]);
+  });
+
   it('package lanes resolve to the package directory, not a double path', () => {
     const plan = buildPlan(['packages/editor/src/context.tsx']);
     const editor = plan.tiers[2].find((l) => l === 'js-unit:@varve/editor');
