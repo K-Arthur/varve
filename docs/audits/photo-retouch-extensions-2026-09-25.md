@@ -143,8 +143,8 @@ Numeric anchors (deterministic, asserted in `dodgeBurn.test.ts`):
 - A shadows-weighted burn darkens a dark sample far more than a bright one;
   coverage (including the empty mask) gates every pixel.
 
-Browser evidence (Playwright, real pointer interaction — outcomes pending,
-see Results):
+Browser coverage added (Playwright, real pointer interaction; run status is
+recorded in Results):
 
 - `retouch-tools.spec.ts` gains a Dodge Burn browser test: clone-deposit onto
   the repair layer, then dodge must raise the sampled region luminance and a
@@ -160,19 +160,33 @@ see Results):
   visible baked snapshot, and (d) staleness plus repair bytes survive
   save/reload/reopen. This is Varve's chosen baked-revision policy: reopening
   the original RAW recipe does not implicitly rebase the displayed retouch
-  stack; the warning asks for an intentional rebase or reapply. Results are
-  recorded below.
+  stack; the warning asks for an intentional rebase or reapply.
 
 ## Results
 
-Recorded after the runs on 2026-09-25 (this machine, Linux, Chromium):
+Recorded on 2026-09-26 (this machine, Linux, Chromium):
 
 - Unit: 708 tests across scene retouch, dodge/burn, editor tools, and
   workspace config suites — passed.
-- Dodge Burn browser test: **pending run** (queued behind the shared
-  heavy-task lease at writing time; this section is updated with the real
-  outcome only after the run).
-- RAW → retouch → upstream-change chain: **pending run** (same queue).
+- The final focused Dodge Burn and RAW-revision-chain browser cases were **not
+  run**. Their lease-wrapped Chromium command remained queued behind the active
+  shared owner `fluidity mine-slice-02`, which was running a 46-spec browser
+  batch. The owner was still active after about 50 minutes; the queued command
+  was stopped without bypassing the memory/lease gate. These cases have no
+  pass/fail result yet.
+- Earlier browser flows passed for DNG development; bracket review, EXR/SDR
+  output and reopen; Healing Brush; Spot Heal/Patch; and clone target safety.
+  Reviewed app captures include `reports/ui-review/retouch/01-healing-brush-painted.png`,
+  `02-spot-heal-painted.png`, `05-target-safety.png`,
+  `reports/ui-review/photo-raw-hdr/03-bracket-review.png`, and
+  `06-hdr-master-output-transform.png`. The newly added final cases still need
+  their dedicated browser run.
+- Website production build passed (Astro generated 108 pages with no errors or
+  warnings). Visual checks covered `/features`, `/features/retouching`,
+  `/features/raw-hdr-photo`, `/docs/tools/retouching`, and
+  `/docs/file-formats` at 1440px desktop and 390px mobile widths; all ten
+  route/viewport checks had no horizontal overflow. Desktop and mobile
+  retouching pages plus the mobile RAW/HDR feature page were visually reviewed.
 - Import refusal: a TIFF-magic `.nef` is refused as `camera-raw` with the DNG
   conversion route (service-level test), and a real TIFF keeps its format.
 
