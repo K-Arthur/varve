@@ -16,7 +16,11 @@
  * - anything the store cannot represent is reported as a diagnostic instead
  *   of being dropped without a trace
  */
-import type { DesignTokenRecord, TokenSynchronization } from '@varve/scene/tokens';
+import type {
+  DesignTokenRecord,
+  DesignTokenStore,
+  TokenSynchronization,
+} from '@varve/scene/tokens';
 import { renderCanonical } from '@varve/tokens';
 
 export interface ExportDiagnostic {
@@ -97,10 +101,20 @@ function isTokenNode(value: unknown): boolean {
 /**
  * Serialize the store's tokens (and group metadata) to canonical DTCG JSON.
  * Never mutates the store; never writes files.
+ *
+ * `options.sourceId` scopes the export to one source's tokens — used by the
+ * source content editor so a source is edited as exactly what it owns, not
+ * as an export of the whole document.
  */
-export function exportTokensToDtcg(sync: TokenSynchronization | undefined): TokenExportResult {
+export function exportTokensToDtcg(
+  sync: TokenSynchronization | undefined,
+  options?: { sourceId?: string },
+): TokenExportResult {
   const diagnostics: ExportDiagnostic[] = [];
-  const records = Object.values(sync?.store.tokens ?? {})
+  const allRecords = Object.values(sync?.store.tokens ?? {});
+  const scope = options?.sourceId;
+  const records = allRecords
+    .filter((record) => (scope ? record.source?.sourceId === scope : true))
     .slice()
     .sort((a, b) => a.path.join('.').localeCompare(b.path.join('.')));
 
@@ -114,7 +128,9 @@ export function exportTokensToDtcg(sync: TokenSynchronization | undefined): Toke
         {
           severity: 'warning',
           code: 'export.empty',
-          message: 'This document has no design tokens to export.',
+          message: scope
+            ? 'This source owns no design tokens to export.'
+            : 'This document has no design tokens to export.',
         },
       ],
     };
@@ -220,7 +236,11 @@ export function exportTokensToDtcg(sync: TokenSynchronization | undefined): Toke
     if (record.type && !standardTypes.has(record.type)) nonStandardTypes += 1;
   }
 
-  const groupCount = applyGroupMetadata(root, sync?.store.groupMeta, diagnostics);
+  const groupCount = applyGroupMetadata(
+    root,
+    scope ? scopedGroupMeta(sync?.store.groupMeta, records) : sync?.store.groupMeta,
+    diagnostics,
+  );
 
   if (hexColors > 0) {
     diagnostics.push({
@@ -250,6 +270,28 @@ export function exportTokensToDtcg(sync: TokenSynchronization | undefined): Toke
     groupCount,
     diagnostics,
   };
+}
+
+/**
+ * Group metadata is keyed by path; when an export is scoped to one source,
+ * only groups that are ancestors of that source's tokens belong in it.
+ */
+function scopedGroupMeta(
+  groupMeta: DesignTokenStore['groupMeta'],
+  records: readonly DesignTokenRecord[],
+): DesignTokenStore['groupMeta'] {
+  if (!groupMeta) return undefined;
+  const out: Record<string, NonNullable<DesignTokenStore['groupMeta']>[string]> = {};
+  for (const [path, meta] of Object.entries(groupMeta)) {
+    const segments = path.split('.');
+    const keep = records.some(
+      (record) =>
+        record.path.length > segments.length &&
+        segments.every((segment, index) => record.path[index] === segment),
+    );
+    if (keep) out[path] = meta;
+  }
+  return out;
 }
 
 function applyGroupMetadata(

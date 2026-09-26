@@ -128,8 +128,16 @@ describe('TokenSyncPanel', () => {
       } as never).store;
     });
     render(<TokenSyncPanel />);
-    expect(screen.getByText('Brand tokens')).toBeTruthy();
-    expect(screen.getByText('In sync')).toBeTruthy();
+    // Scoped to the row: the selected-source detail repeats the same name
+    // and status, so an unscoped text query is no longer unique.
+    expect(
+      screen.getByText('Brand tokens', { selector: '.token-sync-panel__source-name' }),
+    ).toBeTruthy();
+    expect(
+      screen.getByText('In sync', {
+        selector: '.token-sync-panel__source-meta .token-sync-status',
+      }),
+    ).toBeTruthy();
     expect(screen.getByText(/1 tokens, 1 modified/)).toBeTruthy();
     expect(screen.getByText(/1 local changes/)).toBeTruthy();
   });
@@ -163,7 +171,11 @@ describe('TokenSyncPanel', () => {
       } as never).store;
     });
     render(<TokenSyncPanel />);
-    expect(screen.getByText('Conflicts')).toBeTruthy();
+    expect(
+      screen.getByText('Conflicts', {
+        selector: '.token-sync-panel__source-meta .token-sync-status',
+      }),
+    ).toBeTruthy();
     expect(screen.getByText(/1 conflicts/)).toBeTruthy();
   });
 });
@@ -394,5 +406,171 @@ describe('TokenSyncPanel external updates', () => {
       variableStore: { tokenSync: { store: { tokens: Record<string, { value: unknown }> } } };
     };
     expect(doc.variableStore.tokenSync.store.tokens.tok_a?.value).toBe(3);
+  });
+});
+
+function addSourceNamed(
+  sync: ReturnType<typeof createEmptyTokenSynchronization>,
+  id: string,
+  name: string,
+  file: string,
+) {
+  sync.store = addSource(sync.store, {
+    id: id as `src_${string}`,
+    name,
+    kind: 'local-file',
+    direction: 'import-only',
+    adapterId: 'dtcg-2025.10',
+    configuration: {
+      entryFiles: [file],
+      direction: 'import-only',
+      stableIdPolicy: 'annotate',
+    },
+    syncState: { status: 'clean' },
+  });
+}
+
+function addSourceToken(
+  sync: ReturnType<typeof createEmptyTokenSynchronization>,
+  id: string,
+  path: string[],
+  sourceId: string,
+  value: unknown,
+  type = 'number',
+) {
+  sync.store = addToken(sync.store, {
+    id,
+    path,
+    displayName: path[path.length - 1],
+    type,
+    value,
+    extensions: {},
+    source: {
+      sourceId: sourceId as `src_${string}`,
+      sourceFileId: sourceId,
+      sourcePointer: `/${path.join('/')}`,
+      adapterId: 'dtcg-2025.10',
+      specificationVersion: '2025.10',
+    },
+    localState: {
+      createdLocally: false,
+      detachedFromSource: false,
+      locallyModified: false,
+      unresolved: false,
+      conflicted: false,
+    },
+  } as never).store;
+}
+
+function twoSourceDocument(): Document {
+  return seedDoc((sync) => {
+    addSourceNamed(sync, 'src_a', 'brand.tokens.json', 'brand.tokens.json');
+    addSourceNamed(sync, 'src_b', 'brand2.tokens.json', 'brand2.tokens.json');
+    addSourceToken(sync, 'tok_primary', ['color', 'primary'], 'src_a', 4);
+    addSourceToken(sync, 'tok_gap', ['spacing', 'gap'], 'src_b', 8);
+  });
+}
+
+async function openSelect(label: string, optionName: string) {
+  const trigger = screen.getByRole('combobox', { name: label });
+  fireEvent.click(trigger);
+  const option = await screen.findByRole('option', { name: optionName });
+  fireEvent.click(option);
+}
+
+describe('TokenSyncPanel multi-source', () => {
+  it('lists every source with its own name and status', () => {
+    editorMock.state.document = twoSourceDocument();
+    render(<TokenSyncPanel />);
+    // Scoped to the row: the detail panel and the source menu repeat names.
+    expect(
+      screen.getByText('brand.tokens.json', { selector: '.token-sync-panel__source-name' }),
+    ).toBeTruthy();
+    expect(
+      screen.getByText('brand2.tokens.json', { selector: '.token-sync-panel__source-name' }),
+    ).toBeTruthy();
+    expect(
+      screen.getAllByText('In sync', {
+        selector: '.token-sync-panel__source-meta .token-sync-status',
+      }),
+    ).toHaveLength(2);
+    // The detail shows the *selected* source only — both rows exist above it,
+    // but exactly one source is previewed at a time.
+    expect(screen.getByLabelText('Tokens in brand.tokens.json')).toBeTruthy();
+    expect(screen.queryByLabelText('Tokens in brand2.tokens.json')).toBeNull();
+  });
+
+  it('previews only the selected source when the source is switched', async () => {
+    editorMock.state.document = twoSourceDocument();
+    render(<TokenSyncPanel />);
+
+    // The first source is selected by default and shows its own tokens.
+    expect(screen.getByLabelText('Tokens in brand.tokens.json').textContent).toContain(
+      'color.primary',
+    );
+
+    await openSelect('Source', 'brand2.tokens.json');
+    const selected = screen.getByLabelText('Tokens in brand2.tokens.json');
+    expect(selected.textContent).toContain('spacing.gap');
+    expect(selected.textContent).not.toContain('color.primary');
+  });
+
+  it('rejects non-DTCG source content with an error notice and applies nothing', () => {
+    editorMock.state.document = twoSourceDocument();
+    render(<TokenSyncPanel />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit source content' }));
+    const editor = screen.getByLabelText(/Source content:/) as HTMLTextAreaElement;
+    // The editor opens on this source's own tokens (nested DTCG, not paths).
+    expect(editor.value).toContain('"primary"');
+    expect(editor.value).toContain('"color"');
+
+    fireEvent.change(editor, { target: { value: 'this is definitely not tokens' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Validate and preview' }));
+
+    const notice = screen.getByRole('alert');
+    expect(notice.textContent).toMatch(/is not a JSON object and cannot be imported/i);
+    expect(notice.textContent).toMatch(/nothing was changed/i);
+
+    // Nothing was applied: both sources and both token lists survive intact.
+    expect(
+      screen.getByText('brand.tokens.json', { selector: '.token-sync-panel__source-name' }),
+    ).toBeTruthy();
+    expect(
+      screen.getByText('brand2.tokens.json', { selector: '.token-sync-panel__source-name' }),
+    ).toBeTruthy();
+    expect(screen.getByLabelText('Tokens in brand.tokens.json').textContent).toContain(
+      'color.primary',
+    );
+    expect(editorMock.state.document).toBeTruthy();
+  });
+
+  it('keeps every other action working after a rejected edit', async () => {
+    editorMock.state.document = twoSourceDocument();
+    render(<TokenSyncPanel />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit source content' }));
+    fireEvent.change(screen.getByLabelText(/Source content:/), {
+      target: { value: '{ not json' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Validate and preview' }));
+    expect(screen.getByRole('alert')).toBeTruthy();
+
+    // Export is still available (the document has tokens).
+    const exportButton = screen.getByRole('button', {
+      name: 'Export DTCG file',
+    }) as HTMLButtonElement;
+    expect(exportButton.disabled).toBe(false);
+
+    // Cancelling the edit clears the notice and returns to the panel.
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel edit' }));
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(screen.queryByLabelText(/Source content:/)).toBeNull();
+
+    // Switching sources still works.
+    await openSelect('Source', 'brand.tokens.json');
+    expect(screen.getByLabelText('Tokens in brand.tokens.json').textContent).toContain(
+      'color.primary',
+    );
   });
 });

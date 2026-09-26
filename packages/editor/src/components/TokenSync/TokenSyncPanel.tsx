@@ -31,6 +31,12 @@ import {
   sourceOptions,
 } from '../../tokenSync/importWorkflow';
 import {
+  formatTokenValue,
+  sourceContent,
+  sourceTokenRows,
+  validateSourceDraft,
+} from '../../tokenSync/sourceWorkflow';
+import {
   type ChangeSummary,
   changeSummary,
   sourceStatusRows,
@@ -60,6 +66,17 @@ export function TokenSyncPanel() {
   const [siblings, setSiblings] = useState<ReadonlyMap<string, string>>(new Map());
   const [sourceChoice, setSourceChoice] = useState(NEW_SOURCE_OPTION);
   const [resolutions, setResolutions] = useState<Record<string, 'local' | 'remote'>>({});
+  const [activeSourceId, setActiveSourceId] = useState('');
+  const [editingSource, setEditingSource] = useState(false);
+  const [draft, setDraft] = useState('');
+  const [editError, setEditError] = useState<string | null>(null);
+
+  // Falls back to the first source when the selection disappears (last source
+  // removed, document swapped), so the detail view always resolves to a real
+  // source instead of rendering a stale id.
+  const activeSource = rows.find((row) => row.sourceId === activeSourceId) ?? rows[0];
+  const sourceSelectOptions = rows.map((row) => ({ value: row.sourceId, label: row.name }));
+  const activeTokens = activeSource ? sourceTokenRows(sync, activeSource.sourceId) : [];
 
   const syncPreview = useMemo(
     () =>
@@ -70,6 +87,37 @@ export function TokenSyncPanel() {
   const chooseSource = (value: string) => {
     setSourceChoice(value);
     setResolutions({});
+  };
+
+  const startEditSource = () => {
+    if (!activeSource) return;
+    setPreview(null);
+    setResolutions({});
+    setDraft(sourceContent(sync, activeSource.sourceId));
+    setEditError(null);
+    setEditingSource(true);
+  };
+
+  const cancelEditSource = () => {
+    setEditingSource(false);
+    setEditError(null);
+    setDraft('');
+  };
+
+  /** Validate edited content first; only a clean document becomes a preview. */
+  const applySourceDraft = () => {
+    if (!activeSource) return;
+    const result = validateSourceDraft(draft, activeSource.name, sync);
+    if (!result.ok || !result.preview) {
+      setEditError(result.message ?? `${activeSource.name} could not be read as tokens.`);
+      return;
+    }
+    setEditError(null);
+    setEditingSource(false);
+    setDraft('');
+    setResolutions({});
+    setSourceChoice(activeSource.sourceId);
+    setPreview(result.preview);
   };
 
   const handleFiles = (files: File[]) => {
@@ -253,6 +301,55 @@ export function TokenSyncPanel() {
             </ul>
           )}
 
+          {rows.length > 0 && activeSource && (
+            <>
+              <div className="token-sync-panel__source-picker">
+                <Select
+                  label="Source"
+                  value={activeSource.sourceId}
+                  options={sourceSelectOptions}
+                  onValueChange={setActiveSourceId}
+                />
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="token-sync-panel__edit-source"
+                  onClick={startEditSource}
+                >
+                  Edit source content
+                </Button>
+              </div>
+
+              <div className="token-sync-panel__detail">
+                <div className="token-sync-panel__detail-head">
+                  <span className="token-sync-panel__detail-name">{activeSource.name}</span>
+                  <span className={`token-sync-status token-sync-status--${activeSource.status}`}>
+                    {syncStatusLabel(activeSource.status)}
+                  </span>
+                  <span>{activeSource.tokenCount} tokens</span>
+                </div>
+                <ul
+                  className="token-sync-panel__tokens"
+                  aria-label={`Tokens in ${activeSource.name}`}
+                >
+                  {activeTokens.length === 0 ? (
+                    <li className="token-sync-panel__tokens-empty">
+                      This source owns no tokens yet.
+                    </li>
+                  ) : (
+                    activeTokens.map((token) => (
+                      <li key={token.path} className="token-sync-panel__token">
+                        <code className="token-sync-panel__token-path">{token.path}</code>
+                        <span className="token-sync-panel__token-type">{token.type}</span>
+                        <span className="token-sync-panel__token-value">{token.value}</span>
+                      </li>
+                    ))
+                  )}
+                </ul>
+              </div>
+            </>
+          )}
+
           <div className="token-sync-panel__summary" aria-live="polite">
             <span>{summary.total} tokens</span>
             <span>{summary.locallyModified} local changes</span>
@@ -281,6 +378,52 @@ export function TokenSyncPanel() {
               Export DTCG file
             </Button>
           </div>
+
+          {editingSource && activeSource && (
+            <div className="token-sync-panel__editor">
+              <label className="token-sync-panel__editor-label" htmlFor="token-source-content">
+                {`Source content: ${activeSource.name}`}
+              </label>
+              <textarea
+                id="token-source-content"
+                className="token-sync-panel__editor-textarea"
+                value={draft}
+                rows={8}
+                spellCheck={false}
+                onChange={(event) => {
+                  setDraft(event.target.value);
+                  setEditError(null);
+                }}
+              />
+              {editError && (
+                <p className="token-sync-panel__edit-error" role="alert">
+                  {editError} — nothing was changed.
+                </p>
+              )}
+              <div className="token-sync-panel__preview-actions">
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="token-sync-panel__validate"
+                  onClick={applySourceDraft}
+                >
+                  Validate and preview
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="token-sync-panel__cancel"
+                  onClick={cancelEditSource}
+                >
+                  Cancel edit
+                </Button>
+              </div>
+              <p className="token-sync-panel__context-note">
+                Editing validates the whole document before anything is applied — content that is
+                not valid DTCG is rejected with a notice, and your tokens stay as they are.
+              </p>
+            </div>
+          )}
 
           {preview && (
             <fieldset className="token-sync-panel__preview">
@@ -352,11 +495,11 @@ export function TokenSyncPanel() {
                             <dl className="token-sync-panel__conflict-values">
                               <div>
                                 <dt>Varve</dt>
-                                <dd>{formatConflictValue(conflict.local.value)}</dd>
+                                <dd>{formatTokenValue(conflict.local.value)}</dd>
                               </div>
                               <div>
                                 <dt>Source</dt>
-                                <dd>{formatConflictValue(conflict.remote.value)}</dd>
+                                <dd>{formatTokenValue(conflict.remote.value)}</dd>
                               </div>
                             </dl>
                           )}
@@ -490,19 +633,6 @@ function describeUpdate(summary: DocumentSyncPreview, fileName: string): string 
   if (parts.length === 0)
     return `${fileName} matches this document (${summary.unchanged} unchanged).`;
   return `${parts.join(', ')} from ${fileName}.`;
-}
-
-/** Render a token value for conflict review without crashing on composites. */
-function formatConflictValue(value: unknown): string {
-  if (value === undefined) return '(none)';
-  if (value === null) return 'null';
-  if (typeof value === 'string') return value;
-  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
-  try {
-    return JSON.stringify(value);
-  } catch {
-    return '[unrenderable value]';
-  }
 }
 
 /** Local-only download: no network, revoked immediately after the click. */
