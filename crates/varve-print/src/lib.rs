@@ -4615,6 +4615,88 @@ mod tests {
         assert_eq!(state.counter, 1, "counter should be 1");
     }
 
+    /// Widths of every embedded image XObject in the render-state document.
+    fn embedded_image_widths(doc: &Document) -> Vec<i64> {
+        let mut widths: Vec<i64> = doc
+            .objects
+            .values()
+            .filter_map(|obj| match obj {
+                Object::Stream(s) => {
+                    let is_image = s
+                        .dict
+                        .get(b"Subtype")
+                        .ok()
+                        .and_then(|o| o.as_name().ok())
+                        .map(|b| b == b"Image")
+                        .unwrap_or(false);
+                    if is_image {
+                        s.dict.get(b"Width").ok().and_then(|o| o.as_i64().ok())
+                    } else {
+                        None
+                    }
+                }
+                _ => None,
+            })
+            .collect();
+        widths.sort_unstable();
+        widths
+    }
+
+    /// Evidence for the checkerboard fallback: with no manifest the image
+    /// fill embeds the 16x16 placeholder, NOT source pixels. This is why the
+    /// TS side must always send `manifest_json` (`printImageManifest.ts`) —
+    /// an export without it silently ships placeholders.
+    #[test]
+    fn render_fills_image_without_manifest_embeds_checkerboard_placeholder() {
+        let node = image_fill_node(1, 0.0, 0.0, 100.0, 100.0);
+        let mut doc = Document::new();
+        let mut state = ImageRenderState::new(&mut doc);
+        let _content = render_fills(
+            &node,
+            100.0,
+            false,
+            Some(&mut state),
+            None,
+            None,
+            None,
+            false,
+        );
+        assert_eq!(
+            embedded_image_widths(state.doc),
+            vec![16],
+            "no manifest must fall back to the 16x16 checkerboard placeholder"
+        );
+    }
+
+    /// With a manifest the source dimensions are embedded — no placeholder.
+    #[test]
+    fn render_fills_image_with_manifest_embeds_source_dimensions() {
+        let node = image_fill_node(1, 0.0, 0.0, 100.0, 100.0);
+        let manifest = image_manifest("data:image/png;base64,AAAA", 32, 32);
+        let mut doc = Document::new();
+        let mut state = ImageRenderState::new(&mut doc);
+        let _content = render_fills(
+            &node,
+            100.0,
+            false,
+            Some(&mut state),
+            Some(&manifest),
+            None,
+            None,
+            false,
+        );
+        let widths = embedded_image_widths(state.doc);
+        assert!(
+            !widths.is_empty(),
+            "manifest-backed image fill must embed an image XObject"
+        );
+        assert!(
+            widths.iter().all(|&w| w == 32),
+            "every embedded XObject must use the real 32px source (color + alpha SMask), got {widths:?}"
+        );
+        assert_eq!(state.refs.len(), 1, "should have 1 image reference");
+    }
+
     #[test]
     fn render_fills_image_crop_transform_uses_full_source_geometry() {
         let mut node = image_fill_node(1, 0.0, 0.0, 100.0, 100.0);

@@ -13,14 +13,25 @@ import {
   solidFill,
 } from '@varve/scene';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { assertExportFontData, buildFilename, exportNodeAsPdf, exportNodeAsRaster } from './export';
+import {
+  assertExportFontData,
+  buildFilename,
+  exportNodeAsPdf,
+  exportNodeAsPdfX,
+  exportNodeAsRaster,
+} from './export';
 
 const { imageLoad, imageState, resetImageState } = vi.hoisted(() => {
   const loaded = new Set<string>();
   return {
     imageLoad: vi.fn(async (source: string) => {
       loaded.add(source);
-      return document.createElement('img');
+      // Decoded images carry real dimensions; the print-manifest builder
+      // rejects dimensionless loads (it would mean a failed decode).
+      const img = document.createElement('img');
+      Object.defineProperty(img, 'naturalWidth', { value: 8 });
+      Object.defineProperty(img, 'naturalHeight', { value: 6 });
+      return img;
     }),
     imageState: (source: string) => (loaded.has(source) ? 'loaded' : 'idle'),
     resetImageState: () => loaded.clear(),
@@ -171,6 +182,85 @@ describe('exportNodeAsRaster', () => {
     expect(result.bytes).toBeInstanceOf(Uint8Array);
     expect(result.bytes.length).toBeGreaterThan(0);
     expect(result.filename).toMatch(/\.pdf$/);
+  });
+
+  it('ships decoded image pixels in the desktop raster-PDF manifest (never a checkerboard)', async () => {
+    const doc = createDocument('PDF manifest', true);
+    const base = makeShapeNode('pdf-manifest', { kind: 'rect', x: 0, y: 0, w: 40, h: 30 });
+    const node = {
+      ...base,
+      fills: [imageFill('data:image/png;base64,AAAA', { fit: 'fill' })],
+    };
+    const pdfDoc = { ...doc, rootChildren: [node.id], nodes: { [node.id]: node } };
+    const invoke = vi.fn(async (_command: string, _payload?: unknown) => [37, 80, 68, 70]);
+    (window as unknown as Record<string, unknown>).__TAURI__ = { core: { invoke } };
+
+    await exportNodeAsPdf(node, pdfDoc, 1);
+
+    expect(invoke).toHaveBeenCalledTimes(1);
+    const payload = invoke.mock.calls[0]?.[1] as { manifest_json?: string | null };
+    expect(typeof payload.manifest_json).toBe('string');
+    const manifest = JSON.parse(payload.manifest_json as string) as {
+      images: Array<{ data: string; width: number; height: number; color_space: string }>;
+      patterns: unknown[];
+    };
+    expect(manifest.images).toHaveLength(1);
+    expect(manifest.images[0].color_space).toBe('Rgb');
+    expect(manifest.patterns).toEqual([]);
+    expect(manifest.images[0].width).toBeGreaterThan(0);
+    expect(manifest.images[0].height).toBeGreaterThan(0);
+    // base64 must decode to whole RGBA pixels
+    const decoded = atob(manifest.images[0].data);
+    expect(decoded.length % 4).toBe(0);
+    expect(decoded.length).toBe(manifest.images[0].width * manifest.images[0].height * 4);
+  });
+
+  it('passes an image manifest to the PDF/X press pipeline instead of a checkerboard', async () => {
+    const doc = createDocument('PDFX manifest', true);
+    const base = makeShapeNode('pdfx-manifest', { kind: 'rect', x: 0, y: 0, w: 40, h: 30 });
+    const node = {
+      ...base,
+      fills: [imageFill('data:image/png;base64,AAAA', { fit: 'fill' })],
+    };
+    const pdfDoc = { ...doc, rootChildren: [node.id], nodes: { [node.id]: node } };
+    const invoke = vi.fn(async (_command: string, _payload?: unknown) => [37, 80, 68, 70]);
+    (window as unknown as Record<string, unknown>).__TAURI__ = { core: { invoke } };
+
+    const result = await exportNodeAsPdfX(node, pdfDoc, 'pdf-x4');
+    expect(result.bytes).toBeInstanceOf(Uint8Array);
+
+    const call = invoke.mock.calls.find(([command]) => command === 'export_pdfx4');
+    expect(call).toBeDefined();
+    const payload = call?.[1] as { manifest_json?: string | null };
+    expect(typeof payload.manifest_json).toBe('string');
+    const manifest = JSON.parse(payload.manifest_json as string) as {
+      images: Array<{ data: string; width: number; height: number }>;
+    };
+    expect(manifest.images).toHaveLength(1);
+    // Dimensions come from the decoded image-load mock (8x6).
+    expect(manifest.images[0].width).toBe(8);
+    expect(manifest.images[0].height).toBe(6);
+    expect(atob(manifest.images[0].data).length).toBe(8 * 6 * 4);
+  });
+
+  it('blocks PDF/X press export for mockup frames instead of dropping the composition', async () => {
+    const doc = createDocument('PDFX mockup', true);
+    const node = {
+      ...makeFrameNode('mx1', { w: 100, h: 100 }),
+      mockup: { templateId: 'builtin:phone-flat', surfaceBindings: {} },
+    };
+    const pdfDoc = { ...doc, rootChildren: [node.id], nodes: { [node.id]: node } };
+    const invoke = vi.fn(async (_command: string, _payload?: unknown) => [37, 80, 68, 70]);
+    (window as unknown as Record<string, unknown>).__TAURI__ = { core: { invoke } };
+
+    await expect(
+      exportNodeAsPdfX(
+        node as unknown as Parameters<typeof exportNodeAsPdfX>[0],
+        pdfDoc as unknown as Parameters<typeof exportNodeAsPdfX>[1],
+        'pdf-x4',
+      ),
+    ).rejects.toThrow(/cannot compose mockup/);
+    expect(invoke).not.toHaveBeenCalled();
   });
 
   it('falls back to rasterized PNG-in-PDF for text nodes (native PDF text outlining not wired)', async () => {

@@ -39,6 +39,7 @@ import {
   type Fill,
   findCommonAncestor,
   hasActiveSmartFilters,
+  isMockupFrame,
   type NodeId,
   resolveAdjustmentScope,
   type SceneNode,
@@ -430,6 +431,27 @@ function hasUnsupportedEffects(node: SceneNode, cap: FlattenCapability): boolean
 }
 
 /**
+ * Reasons a container must rasterize as a whole boundary regardless of how
+ * its children assess: the container's own composited output is not
+ * representable by the target's code generator.
+ *
+ * - unsupported effects compositing lives on the container;
+ * - a mockup frame's plate/surface/overlay composition exists only in the
+ *   shared decoration pipeline (`decorateMockupSubtree`), which the raster
+ *   boundary host runs. Without a boundary the export silently drops it.
+ *
+ * Kept separate from `assessNodeCapability` because the boundary walk needs
+ * to distinguish "this container is the problem" (push a group boundary
+ * directly — including childless containers, which the children walk would
+ * skip) from "some child is the problem" (recurse).
+ */
+function requiresContainerRaster(node: SceneNode, target: ExportTarget): boolean {
+  if (target === 'raster') return false;
+  if (hasUnsupportedEffects(node, CAPABILITY[target])) return true;
+  return isMockupFrame(node);
+}
+
+/**
  * Check whether a node has stacked fills and the target only supports the
  * topmost fill.
  */
@@ -577,6 +599,13 @@ export function assessNodeCapability(
   // rendered by the shared replay compositor and are not emitted by the SVG
   // or PDF code generators. Raster export already returned above.
   if (hasVisibleSmartFilters(node) && !cap.supportsAdjustments) return false;
+
+  // Mockup frames compose a photographic plate, baked surface rasters, alpha
+  // masks and overlays through `decorateMockupSubtree` — none of which the
+  // SVG/PDF code generators emit. A mockup frame therefore needs a raster
+  // flatten boundary (the boundary host runs the canonical decoration), or
+  // the export would silently contain only the frame background.
+  if (isMockupFrame(node)) return false;
 
   // Shape nodes: check shape kind
   if (node.kind === 'shape') {
@@ -857,10 +886,12 @@ export function findFlattenBoundaries(
 
       // Child is unsupported — decide whether to rasterize individually or as group
       if (child.kind === 'frame' || child.kind === 'group') {
-        // If the container itself is unsupported (e.g. has effects), rasterize
-        // the whole container as a group boundary — don't try to walk children
-        // individually since the container's own properties need compositing.
-        if (hasUnsupportedEffects(child, CAPABILITY[target])) {
+        // If the container itself is unsupported (e.g. it has effects or is
+        // a mockup frame whose composition only exists in the decoration
+        // pipeline), rasterize the whole container as a group boundary —
+        // don't try to walk children individually since the container's own
+        // output needs compositing.
+        if (requiresContainerRaster(child, target)) {
           deferredGroupPushes.push({
             nodeId: child.id,
             boundary: 'group',
@@ -914,8 +945,10 @@ export function findFlattenBoundaries(
     if (!assessNodeCapability(rootNode, doc, target)) {
       // Root node itself is unsupported
       if (rootNode.kind === 'frame' || rootNode.kind === 'group') {
-        // Check if the container itself is unsupported (has effects, etc.)
-        if (hasUnsupportedEffects(rootNode, CAPABILITY[target])) {
+        // Check if the container itself is unsupported (effects, mockup
+        // composition) — push a group boundary directly; the children walk
+        // would skip a childless container entirely.
+        if (requiresContainerRaster(rootNode, target)) {
           result.push({
             nodeId: rootNode.id,
             boundary: 'group',

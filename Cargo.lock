@@ -3522,6 +3522,7 @@ name = "varve-print"
 version = "0.2.1"
 dependencies = [
  "ab_glyph",
+ "base64 0.23.1",
  "font-subset",
  "lopdf",
  "rustybuzz",

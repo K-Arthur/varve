@@ -11,6 +11,7 @@
 
 import type { Document } from '../document';
 import { walkNodes } from '../document';
+import { isMockupFrame } from '../mockup/ops';
 import type { NodeId } from '../types';
 import {
   capabilitiesForFormat,
@@ -137,6 +138,71 @@ function pushItemFindings(
   pushPrintFindings(findings, item);
   pushRasterResolutionFindings(findings, document, item);
   pushFormatSpecificFindings(findings, item, capability, platform);
+  pushMockupFindings(findings, document, item);
+}
+
+// ── Mockup composition fidelity ─────────────────────────────────────────────
+
+/**
+ * Formats whose renderer runs the shared mockup compositor
+ * (`decorateMockupSubtree`): raster, SVG, and screen PDF. Everything else
+ * either emits vector structure only (code targets) or feeds the Rust print
+ * pipeline directly (PDF/X), so a mockup frame cannot be represented there.
+ * Preflight must say so before the user gets silently incomplete output.
+ */
+const CODE_EXPORT_FORMATS = new Set<string>([
+  'react',
+  'react-tailwind',
+  'react-cssmodules',
+  'flutter',
+  'swiftui',
+]);
+
+function pushMockupFindings(
+  findings: ExportFinding[],
+  document: Document,
+  item: ExportJobSpec,
+): void {
+  if (!item.nodeId) return;
+  const root = document.nodes[item.nodeId];
+  if (!root) return;
+  let hasMockup = false;
+  for (const entry of walkNodes(document, [item.nodeId]).values()) {
+    if (isMockupFrame(entry.node)) {
+      hasMockup = true;
+      break;
+    }
+  }
+  if (!hasMockup) return;
+
+  if (CODE_EXPORT_FORMATS.has(item.format)) {
+    findings.push({
+      id: findingId('mockup-code-export', item.configurationId, [item.nodeId]),
+      code: 'mockup-code-export',
+      severity: 'warning',
+      title: 'Mockups are not represented in code exports',
+      description:
+        'Code formats emit vector structure only, so the mockup composition (plate, mapped artwork, masks) is not included. Export PNG, SVG, or PDF for the composed presentation.',
+      configurationId: item.configurationId,
+      nodeIds: [item.nodeId],
+      canIgnore: true,
+    });
+    return;
+  }
+
+  if (item.format === 'pdf-x1a' || item.format === 'pdf-x4') {
+    findings.push({
+      id: findingId('mockup-press-export', item.configurationId, [item.nodeId]),
+      code: 'mockup-press-export',
+      severity: 'error',
+      title: 'Mockups cannot be composed in press export yet',
+      description:
+        'The PDF/X press pipeline does not run the mockup compositor, and exporting only the frame background would be wrong. Present the mockup with PNG or PDF export, or flatten it first (Inspector → Mockup → Flatten to image) and export that image to PDF/X.',
+      configurationId: item.configurationId,
+      nodeIds: [item.nodeId],
+      canIgnore: false,
+    });
+  }
 }
 
 // ── Individual rule groups ──────────────────────────────────────────────────

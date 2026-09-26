@@ -17,8 +17,54 @@ pub struct ImageResource {
     pub mime_type: String,
     pub width: u32,
     pub height: u32,
-    pub data: Vec<u8>, // Raw RGBA bytes (or CMYK depending on color_space)
+    /// Raw pixel bytes (RGBA, or CMYK depending on `color_space`).
+    ///
+    /// Wire format accepts either a JSON byte array (serde default) or a
+    /// base64 string (standard alphabet, padded): the TS print manifest
+    /// sends base64 because a JSON number array of pixel bytes is ~4x
+    /// larger and orders of magnitude slower to parse at the IPC boundary.
+    #[serde(deserialize_with = "deserialize_data_bytes")]
+    pub data: Vec<u8>,
     pub color_space: ColorSpace,
+}
+
+/// Accept `data` as base64 text or as a plain JSON byte array.
+fn deserialize_data_bytes<'de, D>(deserializer: D) -> Result<Vec<u8>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    struct DataVisitor;
+
+    impl<'de> serde::de::Visitor<'de> for DataVisitor {
+        type Value = Vec<u8>;
+
+        fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            formatter.write_str("a base64 string or an array of bytes")
+        }
+
+        fn visit_str<E>(self, value: &str) -> Result<Vec<u8>, E>
+        where
+            E: serde::de::Error,
+        {
+            use base64::Engine as _;
+            base64::engine::general_purpose::STANDARD
+                .decode(value)
+                .map_err(E::custom)
+        }
+
+        fn visit_seq<A>(self, mut seq: A) -> Result<Vec<u8>, A::Error>
+        where
+            A: serde::de::SeqAccess<'de>,
+        {
+            let mut bytes = Vec::with_capacity(seq.size_hint().unwrap_or(0));
+            while let Some(byte) = seq.next_element::<u8>()? {
+                bytes.push(byte);
+            }
+            Ok(bytes)
+        }
+    }
+
+    deserializer.deserialize_any(DataVisitor)
 }
 
 impl ImageResource {
@@ -159,6 +205,41 @@ impl ExportManifest {
 #[cfg(test)]
 mod resource_tests {
     use super::*;
+
+    #[test]
+    fn manifest_data_deserializes_from_base64_string() {
+        use base64::Engine as _;
+        let raw: Vec<u8> = (0u8..64).collect();
+        let b64 = base64::engine::general_purpose::STANDARD.encode(&raw);
+        let json = format!(
+            r#"{{"images":[{{"id":"img_0","src":"data:image/png;base64,AAAA","mime_type":"image/raw-rgba","width":4,"height":4,"data":"{b64}","color_space":"Rgb"}}],"patterns":[]}}"#
+        );
+        let manifest: ExportManifest = serde_json::from_str(&json).expect("base64 manifest parses");
+        assert_eq!(manifest.images[0].data, raw);
+        assert_eq!(manifest.images[0].color_space, ColorSpace::Rgb);
+        assert!(manifest.images[0].is_valid());
+    }
+
+    #[test]
+    fn manifest_data_still_deserializes_from_json_byte_array() {
+        let json = r#"{"images":[{"id":"img_0","src":null,"mime_type":"image/raw-rgba","width":1,"height":1,"data":[1,2,3,4],"color_space":"Rgb"}],"patterns":[]}"#;
+        let manifest: ExportManifest = serde_json::from_str(json).expect("array manifest parses");
+        assert_eq!(manifest.images[0].data, vec![1, 2, 3, 4]);
+    }
+
+    #[test]
+    fn manifest_data_rejects_malformed_base64() {
+        let json = r#"{"images":[{"id":"img_0","src":null,"mime_type":"image/raw-rgba","width":1,"height":1,"data":"!!!not-base64!!!","color_space":"Rgb"}],"patterns":[]}"#;
+        let err = serde_json::from_str::<ExportManifest>(json)
+            .unwrap_err()
+            .to_string();
+        assert!(
+            err.to_ascii_lowercase().contains("base64")
+                || err.to_ascii_lowercase().contains("invalid")
+                || err.to_ascii_lowercase().contains("symbol"),
+            "unexpected parse error: {err}"
+        );
+    }
 
     #[test]
     fn resource_manifest_roundtrip() {

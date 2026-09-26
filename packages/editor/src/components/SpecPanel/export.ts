@@ -45,6 +45,11 @@ import {
   composeFlattenedRasterAssetsForNode,
   findFlattenBoundaries,
 } from '../../export/compositor';
+import {
+  buildPrintImageManifestForSrcs,
+  buildPrintImageManifestFromPngBlob,
+  collectImageFillSrcs,
+} from '../../export/printImageManifest';
 import { failureWarning, settleEngineImageResources } from '../../export/resourceReadiness';
 import {
   clearMockupExportCache,
@@ -53,6 +58,7 @@ import {
   missingSurfaceWarning,
   settleMockupSurfaces,
   settleMockupTemplateAssets,
+  subtreeNeedsDecoration,
 } from '../../render/mockup/mockupExport';
 import { replayStructuredScene } from '../../render/replayScene';
 import { flattenSceneToEngine } from '../../render/sceneToEngine';
@@ -866,9 +872,14 @@ async function rasterizeSubtreeToPdfViaPrintEngine(
     subsetFonts: false,
     fonts: [] as Array<[string, number[]]>,
   };
+  // Without an image manifest the print pipeline substitutes a 16×16
+  // checkerboard for the rasterized content — the whole PDF page would be a
+  // placeholder. Ship the decoded pixels alongside the nodes.
+  const manifestJson = await buildPrintImageManifestFromPngBlob(blob, dataUrl);
   const bytes = (await tauri.core.invoke('export_node_pdf', {
     nodes: subtree.nodes,
     opts,
+    manifest_json: manifestJson ?? null,
   })) as number[];
   return new Uint8Array(bytes);
 }
@@ -997,6 +1008,16 @@ export async function exportNodeAsPdfX(
   standard: PdfXStandard,
   options: PdfXExportOptions = {},
 ): Promise<{ bytes: Uint8Array; filename: string }> {
+  // Press export must never silently drop a mockup: the PDF/X route feeds
+  // `flattenSceneToEngine` straight to the Rust print pipeline, which never
+  // runs the mockup decoration the canvas and raster/SVG/PDF routes share.
+  // Blocking with an actionable path is the honest boundary until the press
+  // pipeline gains a decoration host.
+  if (subtreeNeedsDecoration(doc, [node.id])) {
+    throw new Error(
+      'PDF/X press export cannot compose mockup frames yet — the press pipeline does not run the mockup compositor, and exporting only the frame background would be wrong. Present the mockup with PNG or PDF export, or flatten it first (Inspector → Mockup → Flatten to image) and export that image to PDF/X.',
+    );
+  }
   const capability = capabilitiesForFormat(standard, 'tauri');
   const tauri = getTauriBridge();
   if (!tauri) {
@@ -1020,6 +1041,10 @@ export async function exportNodeAsPdfX(
   });
   assertExportFontData(fontRequests, fontRecords);
   const fonts: Array<[string, number[]]> = fontRecords.map((r) => [r.family, Array.from(r.data)]);
+
+  // Press output embeds real image pixels: without a manifest the Rust print
+  // pipeline renders a checkerboard placeholder for every image fill.
+  const manifestJson = await buildPrintImageManifestForSrcs(collectImageFillSrcs(subtree.nodes));
 
   // Press output is 1x document units; scaling belongs to raster formats.
   const bbox = worldBBox(node, doc);
@@ -1061,7 +1086,7 @@ export async function exportNodeAsPdfX(
     nodes_json: JSON.stringify(nodes),
     page_height: h,
     options_json: optionsJson,
-    manifest_json: null,
+    manifest_json: manifestJson ?? null,
   })) as number[];
 
   return { bytes: new Uint8Array(bytes), filename: buildFilename(node.name, 'pdf') };

@@ -148,6 +148,16 @@ function _makeFrameNode(id: string, children: string[], overrides?: Partial<Scen
   } as unknown as SceneNode;
 }
 
+function makeMockupFrameNode(id: string, overrides?: Partial<SceneNode>): SceneNode {
+  return _makeFrameNode(id, [], {
+    mockup: {
+      templateId: 'builtin:phone-flat',
+      surfaceBindings: { screen: { mode: 'live', nodeId: 'src1' } },
+    },
+    ...overrides,
+  } as unknown as Partial<SceneNode>);
+}
+
 function makeGroupNode(id: string, children: string[], overrides?: Partial<SceneNode>): SceneNode {
   return {
     id,
@@ -387,6 +397,23 @@ describe('assessNodeCapability', () => {
     expect(assessNodeCapability(node, doc, 'svg')).toBe(false);
     expect(assessNodeCapability(node, doc, 'pdf')).toBe(false);
     expect(assessNodeCapability(node, doc, 'raster')).toBe(true);
+  });
+
+  describe('mockup frames', () => {
+    it('needs a raster flatten boundary for SVG and PDF but stays native for raster', () => {
+      const frame = makeMockupFrameNode('m1');
+      const doc = makeDoc({ m1: frame });
+      expect(assessNodeCapability(frame, doc, 'svg')).toBe(false);
+      expect(assessNodeCapability(frame, doc, 'pdf')).toBe(false);
+      expect(assessNodeCapability(frame, doc, 'raster')).toBe(true);
+    });
+
+    it('keeps a plain frame native for SVG and PDF', () => {
+      const frame = _makeFrameNode('f1', []);
+      const doc = makeDoc({ f1: frame });
+      expect(assessNodeCapability(frame, doc, 'svg')).toBe(true);
+      expect(assessNodeCapability(frame, doc, 'pdf')).toBe(true);
+    });
   });
 
   describe('gradients', () => {
@@ -898,6 +925,37 @@ describe('findFlattenBoundaries', () => {
     const boundaries = findFlattenBoundaries([outer], doc, 'svg');
     // inner has effects — needs rasterization; s1 and s2 are fine
     expect(boundaries.some((b) => b.nodeId === 'inner')).toBe(true);
+  });
+
+  it('pushes a group boundary for a childless mockup frame root (SVG and PDF)', () => {
+    for (const target of ['svg', 'pdf'] as const) {
+      const frame = makeMockupFrameNode('m1');
+      const doc = makeDoc({ m1: frame });
+      const boundaries = findFlattenBoundaries([frame], doc, target);
+      expect(boundaries).toHaveLength(1);
+      expect(boundaries[0]).toMatchObject({ nodeId: 'm1', boundary: 'group' });
+    }
+  });
+
+  it('pushes a boundary for a mockup frame nested in a mixed container', () => {
+    const s1 = makeShapeNode('s1', { kind: 'rect' });
+    const mockup = makeMockupFrameNode('m1');
+    const g1 = makeGroupNode('g1', ['s1', 'm1']);
+    const doc = makeDoc({ s1, m1: mockup, g1 });
+
+    const boundaries = findFlattenBoundaries([g1], doc, 'svg');
+    // s1 is supported; the mockup frame must rasterize as its own group
+    // boundary — never be silently skipped as a "container with no
+    // rasterizable children".
+    expect(boundaries).toHaveLength(1);
+    expect(boundaries[0]).toMatchObject({ nodeId: 'm1', boundary: 'group' });
+  });
+
+  it('pushes no boundary for a plain childless frame', () => {
+    const frame = _makeFrameNode('f1', []);
+    const doc = makeDoc({ f1: frame });
+    expect(findFlattenBoundaries([frame], doc, 'svg')).toHaveLength(0);
+    expect(findFlattenBoundaries([frame], doc, 'pdf')).toHaveLength(0);
   });
 
   it('handles empty document', () => {

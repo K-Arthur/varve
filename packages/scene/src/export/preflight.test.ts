@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createDocument, makeShapeNode } from '../document';
+import { createDocument, makeFrameNode, makeShapeNode } from '../document';
 import { legacyBatchToRequest } from './adapter';
 import { createExportConfiguration, type ExportBatchRequest } from './model';
 import { runExportPreflight } from './preflight';
@@ -472,5 +472,79 @@ describe('runExportPreflight', () => {
     const collision = result.findings.find((f) => f.code === 'path-collision');
     expect(collision).toMatchObject({ severity: 'error' });
     expect(collision?.description).toContain('Card.png');
+  });
+});
+
+describe('mockup composition findings', () => {
+  function docWithMockup() {
+    const doc = createDocument('Doc', true);
+    const frame = {
+      ...makeFrameNode('m1', { w: 200, h: 120 }),
+      mockup: { templateId: 'builtin:phone-flat', surfaceBindings: {} },
+    };
+    return {
+      ...doc,
+      rootChildren: ['m1'],
+      nodes: { ...doc.nodes, m1: frame },
+    } as ReturnType<typeof createDocument> & {
+      rootChildren: string[];
+      nodes: Record<string, typeof frame>;
+    };
+  }
+
+  it('warns that code exports drop the mockup composition', () => {
+    const doc = docWithMockup();
+    const result = runExportPreflight(
+      doc,
+      request([
+        createExportConfiguration({
+          id: 'c1',
+          target: { type: 'node', nodeId: 'm1' },
+          format: 'react',
+        }),
+      ]),
+    );
+    const finding = result.findings.find((f) => f.code === 'mockup-code-export');
+    expect(finding).toMatchObject({
+      severity: 'warning',
+      canIgnore: true,
+      nodeIds: ['m1'],
+    });
+    expect(result.blocked).toBe(false);
+  });
+
+  it('blocks press export of a mockup until it is flattened', () => {
+    const doc = docWithMockup();
+    const result = runExportPreflight(
+      doc,
+      request([
+        createExportConfiguration({
+          id: 'c1',
+          target: { type: 'node', nodeId: 'm1' },
+          format: 'pdf-x4',
+        }),
+      ]),
+    );
+    const finding = result.findings.find((f) => f.code === 'mockup-press-export');
+    expect(finding).toMatchObject({ severity: 'error', canIgnore: false });
+    expect(finding?.description).toContain('Flatten to image');
+    expect(result.blocked).toBe(true);
+  });
+
+  it('reports no mockup finding for PNG or SVG of the same mockup', () => {
+    const doc = docWithMockup();
+    for (const format of ['png', 'svg'] as const) {
+      const result = runExportPreflight(
+        doc,
+        request([
+          createExportConfiguration({
+            id: 'c1',
+            target: { type: 'node', nodeId: 'm1' },
+            format,
+          }),
+        ]),
+      );
+      expect(result.findings.filter((f) => f.code.startsWith('mockup-'))).toEqual([]);
+    }
   });
 });
