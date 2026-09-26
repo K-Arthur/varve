@@ -340,3 +340,17 @@ keep no binding affordance rather than a fake one.
 | `addColorVariable` in `tests/e2e/shared.ts` still targets the Layers panel, but `VariablePanel` moved into the *Variables and tokens* dialog in `ff1470aa0` (2026-08-30) — the helper matches nothing, so `table-appearance-binding`, `modifiers-visual`, `variable-debug`, `combined-workflow`, `visual-verification` are stale and fail before their own assertions run | Pre-existing breakage outside the repaired slice; the new binding spec opens the dialog itself. Repairing five visual specs is tracked as follow-up |
 | `VariablePanel` (no search, no usage/why-trace), `TokenSyncPanel`, `BindingMenu`, `importWorkflow`, and the website token page were **being edited by a concurrent session** during this pass | Ownership: see `docs/agents/token-binding-repaint-2026-09-25-ownership.md`. Not edited here to avoid two writers on one file |
 | Watcher/atomic-write engine still has no platform caller (baseline defect 10) | Unchanged deferral — needs Tauri commands + a file watcher; independent of binding correctness |
+
+### Commit ledger (binding and repaint pass)
+
+| Hash | Subject | Focus |
+| --- | --- | --- |
+| `732018c01` | fix(scene): apply fill, radius, typography and stroke-weight bindings to painted properties | render resolver + Inspector colour read parity |
+| `4a7998bd5` | fix(editor): make every binding affordance render, explain itself, or say no | bound display/unbind, menu honesty, detach-on-edit, badge skin, announcements |
+| `d48ef967f` | docs(tokens): record the binding and repaint pass | this section + ownership record |
+| `7a366bc6a` | fix(editor): repaint bound nodes after a variable-only edit | `docVersion` bump + inspected screenshots |
+| `4e2e1fd37` | test(e2e): prove binding paint and repaint in a real browser | pixel-count oracle, reproduction matrix |
+
+Commits were staged by explicit pathspec because two other sessions were
+writing to the same working tree (see the ownership record); every staged
+diff was inspected for foreign hunks before staging.
