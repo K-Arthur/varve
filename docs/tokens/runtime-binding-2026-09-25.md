@@ -28,14 +28,14 @@ restores the earlier identity.
 
 | Authored type or feature | Document retention and export | Artwork projection |
 | --- | --- | --- |
-| Structured color, numeric components | Original space, precision, alpha and optional hex retained | Managed color, using source profiles for sRGB, Display P3, A98, ProPhoto and Rec.2020; Lab/LCH and calculated conversions for other defined spaces |
+| Structured color, numeric components | Original space, precision, alpha and optional hex retained | Managed color, using source profiles for sRGB, Display P3, A98, ProPhoto and Rec.2020; floating-point RGB conversion for Lab/LCH and other calculated spaces |
 | Color component `none`, invalid/nonfinite component, invalid alpha | Valid missing-component semantics retained; invalid inputs diagnosed | Unavailable with a reason; no fabricated channel or hex fallback |
 | Number | JSON number | Numeric binding |
 | Dimension in `px` | Value and unit retained | Numeric CSS-pixel value |
 | Dimension in `rem` | Value and unit retained | Unavailable until document root-font context exists; never treated as px |
-| Font family, single string | String retained | String binding; renderer font availability still applies |
+| Font family, single string | String retained | Scalar projection exists; dedicated font-family binding picker is pending |
 | Font family list | List retained | Unavailable; selecting an installed fallback requires a policy |
-| Numeric font weight | Number retained | Numeric binding |
+| Numeric font weight | Number retained | Scalar projection exists; dedicated font-weight binding picker is pending |
 | Named font weight, duration, cubic Bézier and composites | Typed values and references retained | Unavailable through scalar Variables; importing is not a claim of composite rendering |
 | Complete curly aliases and JSON Pointer value/property references | References retained | Shared standards resolver, then the same typed projection as literals |
 | Unknown vendor extensions | Preserved | No implicit vendor behavior |
@@ -70,7 +70,11 @@ unavailable. The proposed whole document is checked again after conflict choices
 including aliases retained outside the incoming source and path collisions with
 local tokens. Removing a supported token detaches its binding with the last
 resolved literal, preserving artwork. A deletion that leaves another alias
-unresolved is blocked.
+unresolved is blocked. Group metadata is preserved by initial import and export;
+source updates that change it are blocked with a specific limitation diagnostic.
+A new source cannot replace different metadata already stored at the same group.
+Groups containing no source-owned tokens have no ownership provenance, so their
+removal cannot yet be attributed safely to one source.
 
 Pending reads and previews are owned by the current document and source revision.
 Cancel, a newer selection, source editing, or a document switch invalidates older
@@ -106,16 +110,66 @@ shared-machine probe (resolution only, not parsing) measured 1,000 aliases at
 1,334.2 ms before and 10.5 ms after; 10,000 aliases took 80.9 ms after. These
 measurements identify an algorithmic improvement, not a stable performance budget.
 
-The affected gate has already passed token contrast/usage, spacing/sizing and
-emoji audits. Its first runtime attempt exposed a nullable XYZ conversion, now
-repaired. A later attempt stopped at compiler errors in concurrent WebGPU edits;
-those files belong to a separate task and were preserved. The focused runtime
-rerun, browser screenshots, external-consumer probe, native execution and final
-Agent Validation Report are pending and will be recorded here before completion.
+### Integration checks completed
 
-Linux desktop preflight passed. An older native test binary is present but is
-not evidence for these changes. Browser execution of the desktop web frontend
-is also not native IPC evidence. Windows and macOS are unavailable locally.
+- Shared standards focused suite: 5 files / 115 tests passed, including root
+  `$extends`, resolved property-reference owner validation and a 10,000-token
+  reference-chain graph without recursive stack overflow.
+- Focused runtime, import and preview suite: 6 files / 98 tests passed.
+- Rebuilt WASM/runtime regressions: 5 files / 62 tests passed; the two WASM
+  checks load the actual baseline and SIMD artifacts rather than a mock.
+- `cargo test -p varve-core managed_color_precision_uses_camel_case_wire_metadata`:
+  passed; `just wasm-build`: baseline and SIMD builds passed. Optional
+  `wasm-opt` optimization was unavailable and skipped by the build helper.
+- Both website production and project-base builds passed. The feature's
+  Playwright spec passed all four variants twice, most recently after adding
+  an image-load assertion, horizontal-scroll hint and closer captures.
+
+### Defects found by execution and visual inspection
+
+The first actual canvas check painted a bound color as transparent. A standalone
+probe of the compiled WASM IR showed Rust dropping TypeScript's camel-case
+`bitDepth`. Rust now reads/emits that spelling while also reading legacy
+`bit_depth`; the rebuilt IR preserves floating channels, alpha and profile.
+
+The next browser run painted all three rectangles through curly, pointer and
+local aliases, and propagated a source edit without reselection. Undo then failed
+because exact history replay did not match the updated document. That failure is
+under investigation; color propagation alone is not recorded as complete history
+verification. The final export, theme and save/reopen steps have not yet passed.
+
+Opened runtime captures exposed clipped resolved values and an unsupported-value
+reason. Variables now show readable profile/channel labels, wrap long paths and
+values, and preserve precision when an unchanged displayed value is committed.
+Picker reasons wrap within their option. Fresh final captures will be inspected
+again after the history repair.
+
+The marketing captures have been opened in desktop/light and mobile/dark under
+both base paths. The real binding image loads, the mobile page does not overflow,
+and the wide capability table remains keyboard-focusable and horizontally
+scrollable. Close-up hero and table captures support readable inspection.
+
+### Validation still in progress
+
+The owned-path triage plan passed formatting, lint, docs, emoji, inspector CSS,
+token contrast/usage (315 pairs / three themes), spacing and sizing audits. It
+stopped at compiler errors in a concurrent WebGPU E2E file. A previous Rust
+closure passed core/clippy and the reverse engine crates, then revealed the
+standalone desktop crate being invoked from the wrong workspace. The lane mapper
+is repaired and its 50 policy tests plus CI plan checks pass; that infrastructure
+change requires a final full checkpoint.
+
+Linux desktop preflight passed. The current native build exposed two integration
+TypeScript errors, repaired, plus concurrent retouch compiler errors. An older
+native test binary is not evidence for these changes. Native execution, external
+consumer checks, final affected/full checks and the final Agent Validation Report
+remain pending. A lease wait for the architecture audit timed out; it has been
+requeued without reclaiming any live lease. Windows and macOS are unavailable
+locally. Browser execution uses the desktop frontend; `apps/web` remains a
+placeholder and is not advertised as a separate validated application.
+
+See the [workflow coverage matrix](runtime-coverage-2026-09-25.md) for supported,
+partial and unverified surfaces. This document will be updated before completion.
 
 ## Deferred capabilities
 
