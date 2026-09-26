@@ -352,8 +352,8 @@ export function CanvasArea({
     const prevDoc = prevDrawDocRef.current;
     if (prevDoc && isOnlyVariableStoreChange(prevDoc, state.document)) {
       // Variable-only change: selectively invalidate only the nodes bound to
-      // changed variables. This avoids a full cache wipe + docVersion bump,
-      // so all unaffected nodes keep their cached IR and skip rebuild.
+      // changed variables. This avoids a full cache wipe, so all unaffected
+      // nodes keep their cached IR and skip rebuild.
       const changedVarIds = getChangedVariableIds(
         prevDoc.variableStore,
         state.document.variableStore,
@@ -363,14 +363,24 @@ export function CanvasArea({
           state.document.nodes,
           state.document.variableStore,
         );
+        let invalidatedBoundNode = false;
         for (const varId of changedVarIds) {
           const bound = depMap.get(varId);
           if (bound) {
             for (const nodeId of bound) {
               subtreeIrCacheRef.current.invalidate(nodeId);
+              invalidatedBoundNode = true;
             }
           }
         }
+        // The bound nodes' IR is now stale, so every render artifact derived
+        // from the previous IR must stop being treated as current: without
+        // this bump the worker bitmap keeps `wb.docVersion === docVersion`,
+        // the worker is never asked to re-render, and the frame composites
+        // the pre-edit bitmap (a token edit would not repaint until the camera
+        // moved); an in-flight worker response for the old IR would also be
+        // accepted by `isStaleResponse` instead of being dropped.
+        if (invalidatedBoundNode) docVersionRef.current += 1;
       }
     } else {
       // Determine whether this is a structural change (container moved,
