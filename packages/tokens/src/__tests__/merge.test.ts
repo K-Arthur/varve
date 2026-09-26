@@ -69,6 +69,20 @@ describe('semantic diff', () => {
     expect(diff.changes[0]?.kind).toBe('reference-changed');
   });
 
+  it('keeps token-level JSON Pointer references in semantic snapshots', () => {
+    const base = snapshot(
+      '{"base": {"$type": "number", "$value": 1}, "other": {"$type": "number", "$value": 2}, "alias": {"$ref": "#/base"}}',
+    );
+    const next = snapshot(
+      '{"base": {"$type": "number", "$value": 1}, "other": {"$type": "number", "$value": 2}, "alias": {"$ref": "#/other"}}',
+    );
+
+    expect(base.get('alias')?.value).toEqual({ $ref: '#/base' });
+    expect(semanticDiff(base, next).changes).toContainEqual(
+      expect.objectContaining({ path: 'alias', kind: 'value-changed' }),
+    );
+  });
+
   it('reports formatting-only differences as empty changes', () => {
     const base = snapshot('{"a": {"$type": "number", "$value": 1}}');
     const next = snapshot('{\n  "a": { "$type": "number", "$value": 1 }\n}');

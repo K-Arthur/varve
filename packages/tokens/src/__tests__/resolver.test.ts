@@ -271,6 +271,16 @@ describe('resolvePermutation', () => {
     expect(permutation.resolved.a).toBeUndefined();
   });
 
+  it('reports property-reference values incompatible with their declared type', () => {
+    const document = parseResolverDocument(
+      '{"version": "2025.10", "resolutionOrder": [{"type": "set", "name": "S", "sources": [{"base": {"$type": "dimension", "$value": {"value": 8, "unit": "px"}}, "bad": {"$type": "dimension", "$value": {"$ref": "#/base/$value/unit"}}}]}]}',
+    );
+    const permutation = resolvePermutation(document, {}, { loadExternal: () => undefined });
+    expect(permutation.diagnostics).toContainEqual(
+      expect.objectContaining({ code: 'ref.resolved-value-invalid', severity: 'error' }),
+    );
+  });
+
   it('counts permutations lazily without materializing them', () => {
     expect(permutationCount(doc)).toBe(4); // theme × density = 2 × 2
   });

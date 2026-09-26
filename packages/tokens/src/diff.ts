@@ -71,10 +71,15 @@ export function snapshotFromDocument(doc: DtcgDocument): TokenSnapshotMap {
 }
 
 export function snapshotFromTokenNode(token: DtcgTokenNode): TokenSnapshot {
+  const tokenReference = token.references[0];
+  const value =
+    token.value === undefined && token.isReference && tokenReference?.kind === 'json-pointer'
+      ? { $ref: tokenReference.pointer }
+      : token.value;
   return {
     path: token.path,
     type: token.type,
-    value: token.value,
+    value,
     description: token.description,
     deprecated: token.deprecated,
     extensions: token.extensions,

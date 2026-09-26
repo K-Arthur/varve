@@ -8,6 +8,7 @@
 export * from './atomicWrite';
 export * from './codecs';
 export * from './diff';
+export * from './formatTokenResolver';
 export * from './json';
 export * from './jsonPointer';
 export * from './merge';

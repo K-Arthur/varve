@@ -15,12 +15,13 @@
  * Permutations are never materialized eagerly — this engine evaluates one
  * input at a time (lazy by construction).
  */
+
+import { FormatTokenResolutionError, resolveFormatTokenValue } from './formatTokenResolver';
 import { type JsonSourceResult, parseJsonSource } from './json';
-import { type JsonPointerError, resolveJsonPointer } from './jsonPointer';
 import { parseFormatDocument, pathKey } from './parse';
-import { buildReferenceGraph } from './refGraph';
+import { buildReferenceGraph, validateResolvedTokenValues } from './refGraph';
 import { STABLE_DTCG_SPECIFICATION_VERSION } from './spec';
-import type { DtcgDocument, DtcgTokenNode, TokenDiagnostic } from './types';
+import type { DtcgDocument, TokenDiagnostic } from './types';
 
 export type ResolverSource = { $ref: string } | Record<string, unknown>;
 
@@ -683,14 +684,26 @@ export function resolvePermutation(
   diagnostics.push(...document.diagnostics);
   const graph = buildReferenceGraph(document);
   diagnostics.push(...graph.diagnostics);
+  diagnostics.push(...validateResolvedTokenValues(document));
 
   // Stage 4: resolve alias chains with cycle detection.
   const resolved: Record<string, unknown> = {};
   for (const token of Object.values(document.tokens)) {
+    const key = pathKey(token.path);
     try {
-      resolved[pathKey(token.path)] = resolveTokenValue(document, token, new Set());
-    } catch {
-      resolved[pathKey(token.path)] = undefined;
+      resolved[key] = resolveFormatTokenValue(document, token);
+    } catch (error) {
+      resolved[key] = undefined;
+      diagnostics.push({
+        severity: 'error',
+        code:
+          error instanceof FormatTokenResolutionError
+            ? `resolver.${error.code}`
+            : 'resolver.value-resolution',
+        message: error instanceof Error ? error.message : String(error),
+        sourceFileId: doc.sourceFileId,
+        pointer: token.pointer,
+      });
     }
   }
 
@@ -716,43 +729,9 @@ function mergeTokenTree(target: Record<string, unknown>, source: Record<string, 
   }
 }
 
-function resolveTokenValue(
-  doc: DtcgDocument,
-  token: DtcgTokenNode,
-  visiting: Set<string>,
-): unknown {
-  if (!token.isReference) return token.value;
-  const key = pathKey(token.path);
-  if (visiting.has(key)) {
-    throw new Error(`circular reference: ${key}`);
-  }
-  visiting.add(key);
-  try {
-    for (const ref of token.references) {
-      if (ref.kind === 'curly-brace') {
-        const target = doc.tokens[pathKey(ref.path)];
-        if (!target) throw new Error(`missing target: ${ref.path.join('.')}`);
-        return resolveTokenValue(doc, target, visiting);
-      }
-      if (ref.kind === 'json-pointer') {
-        try {
-          const value = resolveJsonPointer(doc.sourceRoot, ref.pointer);
-          return value;
-        } catch (err) {
-          const pointerError = err as JsonPointerError;
-          throw new Error(`invalid pointer ${ref.pointer}: ${pointerError.message}`);
-        }
-      }
-    }
-    throw new Error(`unresolvable reference on ${key}`);
-  } finally {
-    visiting.delete(key);
-  }
-}
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
-export type { DtcgTokenNode };
+export type { DtcgTokenNode } from './types';
 export { STABLE_DTCG_SPECIFICATION_VERSION };

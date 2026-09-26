@@ -16,6 +16,7 @@
  */
 import { validateTokenValue } from './codecs';
 import { type JsonSourceResult, parseJsonSource, toPlainJson } from './json';
+import { buildJsonPointer, parseJsonPointer } from './jsonPointer';
 import {
   type DtcgSpecificationVersion,
   isStableTokenType,
@@ -148,11 +149,7 @@ export function parseFormatDocument(text: string, options: ParseFormatOptions = 
     if (visited.has(key)) return visited.get(key);
 
     const extendsRef = typeof raw.$extends === 'string' ? raw.$extends : undefined;
-    if (
-      extendsRef !== undefined &&
-      raw.$extends !== undefined &&
-      typeof raw.$extends !== 'string'
-    ) {
+    if (raw.$extends !== undefined && typeof raw.$extends !== 'string') {
       diagnostics.push({
         severity: 'error',
         code: 'dtcg.extends-type',
@@ -160,8 +157,9 @@ export function parseFormatDocument(text: string, options: ParseFormatOptions = 
         sourceFileId,
         pointer: pointerOf([...path, '$extends']),
       });
+      return undefined;
     }
-    if (extendsRef) {
+    if (extendsRef !== undefined) {
       const parsed = parseCurlyBrace(extendsRef);
       if (!parsed) {
         diagnostics.push({
@@ -189,7 +187,10 @@ export function parseFormatDocument(text: string, options: ParseFormatOptions = 
         });
         return undefined;
       }
-      if ('$value' in (target as Record<string, unknown>)) {
+      if (
+        '$value' in (target as Record<string, unknown>) ||
+        '$ref' in (target as Record<string, unknown>)
+      ) {
         diagnostics.push({
           severity: 'error',
           code: 'dtcg.extends-target-token',
@@ -231,13 +232,13 @@ export function parseFormatDocument(text: string, options: ParseFormatOptions = 
     const children: Array<DtcgTokenNode | DtcgGroupNode> = [];
     for (const [name, rawValue] of Object.entries(raw)) {
       if (name.startsWith('$')) {
-        // $root is the reserved root-token name INSIDE groups (6.2); it is
-        // treated as a token there. Other $ properties are metadata handled
-        // at their owning level; unknown ones are warned.
-        if (name === '$root' && path.length > 0) {
+        // $root is the reserved root-token name in the document's implicit
+        // root group and in nested groups (6.2). Other $ properties are
+        // metadata handled at their owning level; unknown ones are warned.
+        if (name === '$root') {
           // fall through to token handling below
         } else {
-          if (name === '$root' || !KNOWN_GROUP_PROPERTIES.has(name)) {
+          if (!KNOWN_GROUP_PROPERTIES.has(name)) {
             diagnostics.push({
               severity: 'warning',
               code: 'dtcg.unknown-property',
@@ -333,15 +334,23 @@ export function parseFormatDocument(text: string, options: ParseFormatOptions = 
     return children;
   };
 
-  const rootChildren = walk(root, [], undefined, undefined) as Array<DtcgTokenNode | DtcgGroupNode>;
+  const resolvedRoot = resolveGroup(root, [], new Set(), new Map());
+  const effectiveRoot = resolvedRoot ?? (Object.create(null) as Record<string, unknown>);
+  const rootType = typeof effectiveRoot.$type === 'string' ? effectiveRoot.$type : undefined;
+  const rootDeprecated = readDeprecated(effectiveRoot, '', sourceFileId, diagnostics);
+  const rootChildren = walk(effectiveRoot, [], rootType, rootDeprecated) as Array<
+    DtcgTokenNode | DtcgGroupNode
+  >;
   const groups = rootChildren.filter((node): node is DtcgGroupNode => node.kind === 'group');
   for (const node of rootChildren) {
     collectTokens(node, tokens, sourceFileId, diagnostics);
   }
 
+  resolveAliasTypes(tokens);
+
   // Final pass: ensure every token has a determinable type (6.7.3 rule 4).
   for (const token of Object.values(tokens)) {
-    if (!token.type && !token.isReference) {
+    if (!token.type) {
       diagnostics.push({
         severity: 'error',
         code: 'dtcg.undeterminable-type',
@@ -350,7 +359,9 @@ export function parseFormatDocument(text: string, options: ParseFormatOptions = 
         pointer: token.pointer,
         line: token.line,
         column: token.column,
-        repair: 'Add an explicit $type or a $type on a parent group',
+        repair: token.isReference
+          ? 'Fix the reference to target a typed token or add an explicit $type'
+          : 'Add an explicit $type or a $type on a parent group',
       });
     }
   }
@@ -362,6 +373,7 @@ export function parseFormatDocument(text: string, options: ParseFormatOptions = 
     specificationVersion: specVersion,
     sourceFileId,
     sourceRoot: root,
+    resolvedSourceRoot: effectiveRoot,
   };
 }
 
@@ -404,7 +416,7 @@ function buildToken(
   pointerOf: (path: string[]) => string,
   loc: { line?: number; column?: number },
 ): DtcgTokenNode | undefined {
-  const pointer = pointerOf([name]);
+  const pointer = pointerOf(path);
   const validName = validateName(
     name,
     sourceFileId,
@@ -535,6 +547,85 @@ function buildToken(
     if (validation.value !== undefined) token.value = validation.value;
   }
   return token;
+}
+
+/**
+ * DTCG 2025.10 §5.2.2 gives a reference token's resolved target type priority
+ * over inherited group types. Explicit token `$type` remains highest priority.
+ */
+function resolveAliasTypes(tokens: Record<string, DtcgTokenNode>): void {
+  const tokenByPointer = new Map<string, DtcgTokenNode>();
+  for (const token of Object.values(tokens)) {
+    tokenByPointer.set(`#${token.pointer}`, token);
+    tokenByPointer.set(`#${token.valuePointer}`, token);
+  }
+
+  const resolvedTypes = new Map<string, string | undefined>();
+  const targetFor = (token: DtcgTokenNode): DtcgTokenNode | undefined => {
+    const reference = token.references[0];
+    if (reference?.kind === 'curly-brace') return tokens[pathKey(reference.path)];
+    if (reference?.kind !== 'json-pointer') return undefined;
+    try {
+      const segments = parseJsonPointer(reference.pointer);
+      // A reference to a token object or its complete `$value` inherits that
+      // token's type. A component/property pointer has no token type of its
+      // own and therefore requires an explicit type on its owner.
+      const canonical = buildJsonPointer(segments.map(({ value }) => value));
+      return tokenByPointer.get(reference.pointer) ?? tokenByPointer.get(canonical);
+    } catch {
+      // The reference graph reports malformed pointers at their source.
+      return undefined;
+    }
+  };
+
+  const resolveType = (start: DtcgTokenNode): string | undefined => {
+    const chain: DtcgTokenNode[] = [];
+    const inChain = new Set<string>();
+    let current = start;
+    let resolvedType: string | undefined;
+
+    // Alias chains are user data and can be very long. Walk and memoize them
+    // iteratively so parsing cannot overflow the JavaScript call stack.
+    while (true) {
+      const key = pathKey(current.path);
+      if (resolvedTypes.has(key)) {
+        resolvedType = resolvedTypes.get(key);
+        break;
+      }
+      if (current.explicitType !== undefined) {
+        resolvedType = current.explicitType;
+        resolvedTypes.set(key, resolvedType);
+        break;
+      }
+      if (!current.isReference) {
+        resolvedType = current.type;
+        resolvedTypes.set(key, resolvedType);
+        break;
+      }
+      if (inChain.has(key)) {
+        resolvedType = undefined;
+        break;
+      }
+
+      inChain.add(key);
+      chain.push(current);
+      const target = targetFor(current);
+      if (!target) {
+        resolvedType = undefined;
+        break;
+      }
+      current = target;
+    }
+
+    for (let index = chain.length - 1; index >= 0; index -= 1) {
+      const token = chain[index]!;
+      token.type = resolvedType;
+      resolvedTypes.set(pathKey(token.path), resolvedType);
+    }
+    return resolvedType;
+  };
+
+  for (const token of Object.values(tokens)) resolveType(token);
 }
 
 function validateName(

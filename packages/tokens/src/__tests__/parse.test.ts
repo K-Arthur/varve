@@ -46,9 +46,13 @@ describe('basic structure', () => {
     expect(doc.diagnostics.some((d) => d.code === 'dtcg.token-with-children')).toBe(true);
   });
 
-  it('warns on unknown $ properties including $root at document root', () => {
-    const doc = parse('{"$root": {"$value": 1}}');
-    expect(doc.diagnostics.some((d) => d.code === 'dtcg.unknown-property')).toBe(true);
+  it('accepts the document-root $root token and inherits root group metadata', () => {
+    const doc = parse('{"$type": "number", "$root": {"$value": 1}, "ordinary": {"$value": 2}}');
+    expect(doc.diagnostics.filter((d) => d.severity === 'error')).toEqual([]);
+    expect(doc.diagnostics.some((d) => d.code === 'dtcg.unknown-property')).toBe(false);
+    expect(doc.tokens.$root).toMatchObject({ path: ['$root'], type: 'number', value: 1 });
+    expect(doc.tokens.ordinary?.type).toBe('number');
+
     const doc2 = parse('{"g": {"$bad": {"$value": 1}}}');
     expect(doc2.diagnostics.some((d) => d.code === 'dtcg.unknown-property')).toBe(true);
   });
@@ -202,6 +206,24 @@ describe('group extension ($extends)', () => {
   it('rejects extends targeting tokens', () => {
     const doc = parse('{"a": {"$value": 1}, "b": {"$extends": "{a}"}}');
     expect(doc.diagnostics.some((d) => d.code === 'dtcg.extends-target-token')).toBe(true);
+  });
+
+  it('resolves document-root inheritance while retaining the authored source tree', () => {
+    const doc = parse(
+      '{"base": {"$type": "number", "inherited": {"$value": 1}, "accent": {"$value": 2}}, "$extends": "{base}", "accent": {"$value": 3}, "local": {"$value": 4}}',
+    );
+    expect(doc.diagnostics.filter((d) => d.severity === 'error')).toEqual([]);
+    expect(doc.tokens.inherited).toMatchObject({ type: 'number', value: 1 });
+    expect(doc.tokens.accent).toMatchObject({ type: 'number', value: 3 });
+    expect(doc.tokens.local).toMatchObject({ type: 'number', value: 4 });
+    expect(doc.sourceRoot).not.toHaveProperty('inherited');
+    expect(doc.resolvedSourceRoot).toHaveProperty('inherited.$value', 1);
+  });
+
+  it('fails closed when root inheritance cannot be resolved', () => {
+    const doc = parse('{"$extends": "{missing}", "token": {"$type": "number", "$value": 1}}');
+    expect(doc.diagnostics.some((d) => d.code === 'dtcg.extends-missing-target')).toBe(true);
+    expect(doc.tokens).toEqual({});
   });
 });
 

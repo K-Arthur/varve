@@ -111,9 +111,12 @@ export interface DtcgDocument {
   specificationVersion: DtcgSpecificationVersion;
   /** File id this document was parsed from. */
   sourceFileId: string;
-  /** Raw parsed document value (null-prototype) for JSON Pointer
-   * resolution. Present when the document was parsed from text. */
+  /** Raw authored document value (null-prototype), used when preserving or
+   * merging token sources. Present when parsed from text. */
   sourceRoot?: unknown;
+  /** Effective document after `$extends` group merges, for JSON Pointer
+   * resolution. Falls back to sourceRoot for older/manually-built documents. */
+  resolvedSourceRoot?: unknown;
 }
 
 export interface ParseJsonOptions {

@@ -5,7 +5,12 @@
 import { describe, expect, it } from 'vitest';
 
 import { parseFormatDocument } from '../parse';
-import { aliasDependants, buildReferenceGraph, referenceTargets } from '../refGraph';
+import {
+  aliasDependants,
+  buildReferenceGraph,
+  referenceTargets,
+  validateResolvedTokenValues,
+} from '../refGraph';
 
 function graph(text: string) {
   const doc = parseFormatDocument(text, { sourceFileId: 't' });
@@ -66,11 +71,12 @@ describe('reference graph', () => {
     expect(codes(g.diagnostics)).toContain('ref.invalid-pointer');
   });
 
-  it('warns on type mismatches for whole-token aliases', () => {
+  it('errors on type mismatches for whole-token aliases', () => {
     const { graph: g } = graph(
       '{"base": {"$type": "number", "$value": 1}, "alias": {"$type": "color", "$value": "{base}"}}',
     );
-    expect(codes(g.diagnostics)).toContain('ref.type-mismatch');
+    const mismatch = g.diagnostics.find((diagnostic) => diagnostic.code === 'ref.type-mismatch');
+    expect(mismatch?.severity).toBe('error');
   });
 
   it('does not flag type mismatch for property-level pointers', () => {
@@ -78,6 +84,28 @@ describe('reference graph', () => {
       '{"base": {"$type": "dimension", "$value": {"value": 8, "unit": "px"}}, "n": {"$type": "number", "$value": {"$ref": "#/base/$value/value"}}}',
     );
     expect(g.diagnostics).toEqual([]);
+  });
+
+  it('validates the containing token after resolving property references', () => {
+    const doc = parseFormatDocument(
+      '{"base": {"$type": "dimension", "$value": {"value": 8, "unit": "px"}}, "valid": {"$type": "number", "$value": {"$ref": "#/base/$value/value"}}, "invalid": {"$type": "dimension", "$value": {"$ref": "#/base/$value/unit"}}}',
+      { sourceFileId: 't' },
+    );
+    const diagnostics = validateResolvedTokenValues(doc);
+    expect(diagnostics).toHaveLength(1);
+    expect(diagnostics[0]).toMatchObject({
+      code: 'ref.resolved-value-invalid',
+      severity: 'error',
+      pointer: '/invalid/$value',
+    });
+  });
+
+  it('keeps malformed pointers as diagnostics instead of throwing in type validation', () => {
+    const doc = parseFormatDocument(
+      '{"bad": {"$type": "number", "$value": {"$ref": "#/missing/~2"}}}',
+      { sourceFileId: 't' },
+    );
+    expect(() => validateResolvedTokenValues(doc)).not.toThrow();
   });
 
   it('computes alias dependants transitively', () => {
@@ -103,5 +131,25 @@ describe('reference graph', () => {
     const { graph: g } = graph(`{${chain}}`);
     expect(g.maxChainDepth).toBe(30);
     expect(codes(g.diagnostics)).not.toContain('ref.cycle');
+  });
+
+  it('handles 10,000-token chains iteratively and reports the depth limit', () => {
+    const chain = Array.from(
+      { length: 10_000 },
+      (_, index) =>
+        `"t${index}": {"$type": "number", "$value": ${index === 9_999 ? 1 : `"{t${index + 1}}"`}}`,
+    ).join(',');
+    const { graph: g } = graph(`{${chain}}`);
+    expect(g.maxChainDepth).toBe(10_000);
+    expect(codes(g.diagnostics)).toContain('ref.max-depth');
+    expect(codes(g.diagnostics)).not.toContain('ref.cycle');
+  });
+
+  it('does not emit a max-depth error just because a short cycle exists', () => {
+    const { graph: g } = graph(
+      '{"a": {"$type": "number", "$value": "{b}"}, "b": {"$type": "number", "$value": "{a}"}}',
+    );
+    expect(codes(g.diagnostics)).toContain('ref.cycle');
+    expect(codes(g.diagnostics)).not.toContain('ref.max-depth');
   });
 });
