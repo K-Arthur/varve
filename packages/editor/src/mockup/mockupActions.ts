@@ -33,6 +33,7 @@ import {
   nodeWorldBounds,
   nodeWorldTransform,
   resolveOwnership,
+  setMockupBinding,
   updateMockupTemplate,
 } from '@varve/scene';
 import { type Affine, applyAffine, multiplyAffine, tryInvertAffine } from '@varve/shared';
@@ -207,6 +208,40 @@ export function applyMockupToSources(
   }
   editor.setSelection(createdNodeId);
   return createdNodeId;
+}
+
+/**
+ * Bind a live source to one surface as a single undo step, with the same
+ * self/ancestor validation the Inspector uses. Returns false when the
+ * binding is impossible (self-reference, ancestor capture, unknown frame).
+ *
+ * This is the shared seam for every replacement entry point: the Inspector's
+ * Replace button uses it, and the canvas drop path (CanvasArea.handleDrop —
+ * owned by the canvas-input task) should call it when a file drop lands on
+ * a targeted mockup surface, so drop-to-replace cannot bypass validation or
+ * the transaction boundary.
+ */
+export function replaceMockupSurfaceSource(
+  editor: EditorContextValue,
+  frameId: NodeId,
+  surfaceId: string,
+  sourceId: NodeId,
+): boolean {
+  const doc = editor.state.document;
+  const frame = doc.nodes[frameId];
+  if (!isMockupFrame(frame)) return false;
+  if (!frame.mockup.surfaceBindings[surfaceId]) return false;
+  if (sourceId === frameId) return false;
+  if (!canBindMockupSource(doc, frameId, sourceId).ok) return false;
+  editor.beginTransaction();
+  try {
+    editor.updateDoc((current) =>
+      setMockupBinding(current, frameId, surfaceId, { mode: 'live', nodeId: sourceId }),
+    );
+  } finally {
+    editor.commitTransaction();
+  }
+  return true;
 }
 
 /** Templates suitable for the current selection (all builtins + embedded). */

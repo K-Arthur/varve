@@ -18,7 +18,7 @@ import {
 import type { Affine } from '@varve/shared';
 import { describe, expect, it, vi } from 'vitest';
 import type { EditorContextValue } from '../context';
-import { applyMockupToSources } from './mockupActions';
+import { applyMockupToSources, replaceMockupSurfaceSource } from './mockupActions';
 
 const identity: Affine = [1, 0, 0, 1, 0, 0];
 
@@ -47,7 +47,11 @@ function mockEditor(
 ): { editor: EditorContextValue; document: () => Document } {
   let document = initialDocument;
   const editor = {
-    state: { document, selection: [sourceId] },
+    // Fresh on every access: replacement actions read `editor.state.document`
+    // after earlier `updateDoc` calls, and a snapshot would go stale.
+    get state() {
+      return { document, selection: [sourceId] };
+    },
     beginTransaction: vi.fn(),
     commitTransaction: vi.fn(),
     getWorldBounds: vi.fn(() => sourceBounds),
@@ -181,5 +185,78 @@ describe('source replacement preserves placement (market failure modes C1/C2)', 
       offsetY: 6,
       opacity: 0.4,
     });
+  });
+});
+
+describe('replaceMockupSurfaceSource (drop-to-replace integration seam)', () => {
+  function mockupFixture(): {
+    harness: ReturnType<typeof mockEditor>;
+    mockupId: NodeId;
+    surfaceId: string;
+    contentRoot: NodeId;
+    doc: () => Document;
+  } {
+    let doc = createDesignCanvas(createDocument('Mockup seam', { flat: true }), {
+      name: 'Canvas 1',
+    });
+    const canvasId = doc.activeDesignCanvasId!;
+    const contentRoot = designCanvasContentRoot(doc, canvasId)!;
+    const first = addSourceFrame(doc, contentRoot);
+    doc = first.doc;
+    const harness = mockEditor(doc, first.sourceId, { x: 120, y: 90, w: 140, h: 180 });
+    const mockupId = applyMockupToSources(harness.editor, getBuiltinMockupTemplates()[0]!.id, [
+      first.sourceId,
+    ]);
+    doc = harness.document();
+    const frame = doc.nodes[mockupId!] as FrameNode & { mockup: MockupInstanceData };
+    const template = getMockupTemplate(doc, frame.mockup.templateId);
+    return {
+      harness,
+      mockupId: mockupId!,
+      surfaceId: template!.surfaces[0]!.id,
+      contentRoot,
+      doc: () => harness.document(),
+    };
+  }
+
+  it('binds a valid source as one transaction and reports success', () => {
+    const fx = mockupFixture();
+    // The fixture's apply step already used the transaction boundary; count
+    // only the replacement action from here.
+    vi.mocked(fx.harness.editor.beginTransaction).mockClear();
+    vi.mocked(fx.harness.editor.commitTransaction).mockClear();
+    const second = addSourceFrame(fx.doc(), fx.contentRoot);
+    fx.harness.editor.updateDoc(() => second.doc);
+    const ok = replaceMockupSurfaceSource(
+      fx.harness.editor,
+      fx.mockupId,
+      fx.surfaceId,
+      second.sourceId,
+    );
+    expect(ok).toBe(true);
+    expect(fx.harness.editor.beginTransaction).toHaveBeenCalledTimes(1);
+    expect(fx.harness.editor.commitTransaction).toHaveBeenCalledTimes(1);
+    const frame = fx.doc().nodes[fx.mockupId] as FrameNode & { mockup: MockupInstanceData };
+    expect(frame.mockup.surfaceBindings[fx.surfaceId]).toEqual({
+      mode: 'live',
+      nodeId: second.sourceId,
+    });
+  });
+
+  it('rejects self-sourcing and unknown frames without opening a transaction', () => {
+    const fx = mockupFixture();
+    // The fixture's apply step already used the transaction boundary.
+    vi.mocked(fx.harness.editor.beginTransaction).mockClear();
+    vi.mocked(fx.harness.editor.commitTransaction).mockClear();
+    expect(
+      replaceMockupSurfaceSource(fx.harness.editor, fx.mockupId, fx.surfaceId, fx.mockupId),
+    ).toBe(false);
+    expect(
+      replaceMockupSurfaceSource(fx.harness.editor, 'missing-frame', fx.surfaceId, fx.mockupId),
+    ).toBe(false);
+    expect(
+      replaceMockupSurfaceSource(fx.harness.editor, fx.mockupId, 'missing-surface', fx.mockupId),
+    ).toBe(false);
+    expect(fx.harness.editor.beginTransaction).not.toHaveBeenCalled();
   });
 });
