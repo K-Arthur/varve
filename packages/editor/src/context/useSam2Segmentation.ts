@@ -448,8 +448,34 @@ export function useSam2Segmentation(
       const currentDoc = stateRef.current.document;
       const node = currentDoc.nodes[nodeId] as import('@varve/scene').ShapeNode | undefined;
 
+      // Object Selection works on exactly one image. Without this gate a
+      // multi-selection reached the mid-flight guards only after the encode
+      // had already run, and those guards return silently — leaving the
+      // session stuck on "encoding" with no error until the user cancels.
+      const selectionCount = stateRef.current.selection.length;
+      if (selectionCount !== 1) {
+        announcerRef.current?.announce(
+          selectionCount === 0
+            ? 'Select the image you want to segment before using Object Selection.'
+            : 'Object Selection works on one image at a time. Select a single image and try again.',
+        );
+        return null;
+      }
+
       if (node?.kind !== 'shape') {
         announcerRef.current?.announce('Select a shape node first');
+        return null;
+      }
+      if (!node.visible) {
+        announcerRef.current?.announce(
+          'The selected image is hidden. Make it visible before running Object Selection.',
+        );
+        return null;
+      }
+      if (node.locked) {
+        announcerRef.current?.announce(
+          'The selected image is locked. Unlock it before running Object Selection.',
+        );
         return null;
       }
 
@@ -1395,6 +1421,33 @@ export function useSam2Segmentation(
         }
 
         writeCurrentSam2Stage(stateRef, setState, nodeId, 'decoding');
+        // Iterative refinement: condition this decode on the candidate the
+        // user last kept. SAM2's mask_input expects the reviewed candidate's
+        // own low-resolution logits; without them every added prompt re-decodes
+        // from scratch and the mask can jump between whole-object and part
+        // interpretations. The prior is only valid when it comes from the same
+        // ready session: same node/source target, same decoded source pixels,
+        // and the same provider (model artifacts and preprocessing identity).
+        // Anything else — a source edit, a provider switch, a foreign session —
+        // silently falls back to an unconditioned decode.
+        const priorSession =
+          sameSessionTarget &&
+          previousSession?.status === 'ready' &&
+          previousSession.sourceFingerprint === sourceFingerprint &&
+          previousSession.modelId === providerId
+            ? previousSession
+            : undefined;
+        const priorCandidate = priorSession?.candidates[priorSession.selectedCandidate];
+        const previousMask =
+          priorCandidate?.lowResMask &&
+          Number.isSafeInteger(priorCandidate.lowResMask.width) &&
+          Number.isSafeInteger(priorCandidate.lowResMask.height) &&
+          priorCandidate.lowResMask.width > 0 &&
+          priorCandidate.lowResMask.height > 0 &&
+          priorCandidate.lowResMask.data.length ===
+            priorCandidate.lowResMask.width * priorCandidate.lowResMask.height
+            ? priorCandidate.lowResMask
+            : undefined;
         const prediction = await runPromptedSegmentation({
           host,
           decision,
@@ -1406,6 +1459,7 @@ export function useSam2Segmentation(
           points: normPrompts.points,
           box: normPrompts.box,
           embedding: cachedEmbedding,
+          previousMask,
           signal: combinedSignal,
           reservationBytes: resourceAssessment.estimatedPeakBytes,
         });
@@ -1500,6 +1554,7 @@ export function useSam2Segmentation(
               scoreSource: candidate.scoreSource,
               promptContainment: candidate.promptContainment,
               promptDiagnostics: candidate.promptDiagnostics,
+              lowResMask: candidate.lowResMask,
               confidenceSource:
                 candidate.scoreSource === 'predicted-iou'
                   ? ('predicted-iou' as const)
@@ -1523,6 +1578,7 @@ export function useSam2Segmentation(
           scoreSource: candidate.scoreSource,
           promptContainment: candidate.promptContainment,
           promptDiagnostics: candidate.promptDiagnostics,
+          lowResMask: candidate.lowResMask,
         }));
         const candidateFingerprintSession = {
           width: naturalW,

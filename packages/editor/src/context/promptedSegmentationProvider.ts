@@ -61,6 +61,7 @@ export async function runPromptedSegmentation({
   points,
   box,
   embedding,
+  previousMask,
   signal,
   reservationBytes,
 }: {
@@ -74,6 +75,13 @@ export async function runPromptedSegmentation({
   points?: Array<{ x: number; y: number; label: 0 | 1 }>;
   box?: { x1: number; y1: number; x2: number; y2: number };
   embedding?: PromptedEmbedding;
+  /**
+   * Low-resolution logits of the candidate the user kept, fed back as
+   * mask_input so the decode refines the reviewed mask instead of starting
+   * over. Callers own the identity checks (source pixels, provider); the
+   * adapter only forwards what it is given.
+   */
+  previousMask?: { data: Float32Array; width: number; height: number };
   signal: AbortSignal;
   reservationBytes: number;
 }): Promise<PromptedPrediction> {
@@ -143,6 +151,7 @@ export async function runPromptedSegmentation({
         sourceWidth,
         sourceHeight,
         resolvedEmbedding.letterbox,
+        previousMask,
       ),
       reuseSession: true,
     },
@@ -212,6 +221,7 @@ function buildDecoderParams(
   sourceWidth: number,
   sourceHeight: number,
   letterbox: Sam2Letterbox | undefined,
+  previousMask?: { data: Float32Array; width: number; height: number },
 ): Record<string, unknown> {
   if (providerId === 'mobile-sam') {
     return {
@@ -219,12 +229,14 @@ function buildDecoderParams(
       box,
       sourceWidth,
       sourceHeight,
+      // MobileSAM's verified graph accepts the same mask_input contract.
+      ...(previousMask ? { previousMask } : {}),
     };
   }
   if (providerId === 'efficient-sam-ti') {
     return { points, box, sourceWidth, sourceHeight };
   }
-  return { points, box, letterbox };
+  return { points, box, letterbox, ...(previousMask ? { previousMask } : {}) };
 }
 
 function decodePrediction(
@@ -306,12 +318,13 @@ function decodePrediction(
     letterbox,
   );
   return {
-    candidates: decoded.masks.map((candidate) => ({
+    candidates: decoded.masks.map((candidate, index) => ({
       mask: candidate.mask,
       width: candidate.width,
       height: candidate.height,
       score: candidate.iouScore,
       scoreSource: candidate.confidenceSource === 'model-iou' ? 'predicted-iou' : 'heuristic',
+      lowResMask: decoded.lowResMasks?.[index],
     })),
     selectedIndex: decoded.selectedIndex,
     selectedScore: decoded.confidence,

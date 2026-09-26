@@ -338,4 +338,70 @@ describe('prompted segmentation provider adapter', () => {
 
     expect(result.candidates[0]?.mask).toEqual(new Uint8Array([0, 255, 255, 0, 0, 255, 255, 0]));
   });
+
+  it('carries per-candidate low-res logits and feeds the reviewed candidate back as mask_input', async () => {
+    const embedding = {
+      providerId: SAM2_PROVIDER_ID,
+      tensors: {
+        image_embed: { data: new Float32Array(1), dims: [1, 1, 1, 1] },
+        high_res_feats_0: { data: new Float32Array(1), dims: [1, 1, 1, 1] },
+        high_res_feats_1: { data: new Float32Array(1), dims: [1, 1, 1, 1] },
+      },
+    };
+    const infer = vi
+      .fn()
+      .mockResolvedValueOnce({
+        outputs: {
+          masks: {
+            data: new Float32Array([0.1, 0.1, 0.1, 0.1, 0.9, 0.9, 0.9, 0.9, -0.5, 0.2, -0.5, 0.2]),
+            dims: [1, 3, 2, 2],
+          },
+          iou_predictions: { data: new Float32Array([0.2, 0.95, 0.6]), dims: [1, 3] },
+          executionProvider: 'wasm',
+        },
+      })
+      .mockResolvedValueOnce({
+        outputs: {
+          masks: { data: new Float32Array([1, 1, 1, 1]), dims: [1, 1, 2, 2] },
+          iou_predictions: { data: new Float32Array([0.9]), dims: [1, 1] },
+          executionProvider: 'wasm',
+        },
+      });
+    const host = { infer } as unknown as Parameters<typeof runPromptedSegmentation>[0]['host'];
+    const call = {
+      host,
+      decision: decision(SAM2_PROVIDER_ID),
+      encoderPath: 'sam2-encoder.onnx',
+      decoderPath: 'sam2-decoder.onnx',
+      imageData: imageData(),
+      sourceWidth: 4,
+      sourceHeight: 4,
+      points: [{ x: 0.5, y: 0.5, label: 1 as const }],
+      embedding,
+      signal: new AbortController().signal,
+      reservationBytes: 1024,
+    };
+
+    const first = await runPromptedSegmentation(call);
+
+    // Every candidate carries its own square-frame logits, aligned by index,
+    // so the editor can condition the next decode on whichever candidate the
+    // user kept — not just the highest scorer.
+    expect(first.candidates).toHaveLength(3);
+    expect(first.candidates[0]!.lowResMask?.width).toBe(2);
+    expect(first.candidates[0]!.lowResMask?.height).toBe(2);
+    expect(first.candidates[0]!.lowResMask?.data[0]).toBeCloseTo(0.1);
+    expect(first.candidates[2]!.lowResMask?.data).toEqual(new Float32Array([-0.5, 0.2, -0.5, 0.2]));
+
+    const second = await runPromptedSegmentation({
+      ...call,
+      previousMask: first.candidates[2]!.lowResMask,
+    });
+
+    const decoderParams = infer.mock.calls[1]![0].params as {
+      previousMask?: { data: Float32Array; width: number; height: number };
+    };
+    expect(decoderParams.previousMask).toEqual(first.candidates[2]!.lowResMask);
+    expect(second.candidates[0]!.mask).toEqual(new Uint8Array(16).fill(255));
+  });
 });

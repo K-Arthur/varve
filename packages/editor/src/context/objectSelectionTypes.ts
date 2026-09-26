@@ -38,6 +38,13 @@ export interface ObjectSelectionSession {
     promptContainment?: number;
     /** Bounded topology/anchor evidence shown before the user applies a mask. */
     promptDiagnostics?: PromptedMaskDiagnostics;
+    /**
+     * This candidate's own low-resolution decoder logits (square frame).
+     * Transient refinement state: the next decode conditions on the selected
+     * candidate's logits, so prompts refine one mask instead of re-decoding
+     * from scratch. Never serialized; re-derived from the model on demand.
+     */
+    lowResMask?: { data: Float32Array; width: number; height: number };
   }>;
   /** Number of decoded masks rejected for failing explicit prompt geometry. */
   rejectedCandidateCount?: number;
