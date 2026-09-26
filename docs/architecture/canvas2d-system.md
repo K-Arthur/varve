@@ -1,6 +1,6 @@
 # Canvas 2D Rendering System
 
-**Updated:** 2026-09-08
+**Updated:** 2026-09-25
 
 This document is the maintained contract for Varve's Canvas 2D path. It supersedes
 older implementation details in `docs/audits/canvas-system-audit-2026-07-06.md`.
@@ -96,14 +96,31 @@ sampled only at startup.
 sidebar constants. `ResizeObserver` covers size while captured scroll and visual
 viewport changes cover position-only movement; `readCanvasGeometry` is also called
 synchronously at pointer-down, wheel, and native pinch boundaries so an observer
-frame cannot leave client-to-world conversion stale. Pointer samples remain free of
-unconditional layout reads. Geometry is represented as `{ left, top, width, height }`
-in browser CSS pixels, while the cached tool rect only carries the position needed by
-the hot conversion path.
+frame cannot leave client-to-world conversion stale. Pointer-move samples do not
+re-read layout: tool contexts built for `pointermove` skip the synchronous refresh
+(`refreshCanvasRectForEvent`), while overlay-handle and keyboard contexts still
+refresh. Geometry is represented as `{ left, top, width, height }` in browser CSS
+pixels, while the cached tool rect only carries the position needed by the hot
+conversion path.
+
+A measurement identical to the current geometry is not a resize and is ignored.
+Until 2026-09-25 the synchronous refresh ran on every pointer move and re-ran the
+anchor math on unchanged geometry; its screen→world→screen round trip committed a
+camera differing only by floating-point residue, which re-rendered the editor,
+forced a full content redraw per sample, and slowly drifted the pan
+([canvas fluidity audit](../audits/canvas-fluidity-2026-09-25.md)).
+
+The live cursor position is not editor state. The pointer pipeline publishes it
+once per animation frame to `canvas/cursorPosition.ts`; the status-bar readout
+writes its own text from that subscription, so moving the pointer re-renders no
+React component.
 
 When the drawable size or position changes, `preserveCameraAnchorOnResize` keeps the
 world point at the old viewport centre under the new centre. During an active pointer
-or navigation gesture it keeps the latest client-space anchor instead. This is a
+or navigation gesture it keeps the latest client-space anchor instead. Because moves
+do not read layout, pointer-up reads it before clearing the anchor, so a panel that
+resized mid-gesture is applied around the pointer rather than the centre after
+release. This is a
 view-state patch only: it does not mutate the document, mark artwork dirty, add
 history, or auto-fit a manually positioned camera. Zero-sized measurements update the
 geometry cache but defer camera anchoring and backing-store allocation until a

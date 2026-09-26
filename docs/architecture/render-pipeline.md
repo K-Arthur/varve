@@ -1,6 +1,6 @@
 # Render Pipeline Architecture
 
-**Updated:** 2026-09-24
+**Updated:** 2026-09-25
 
 > The maintained Canvas 2D lifecycle, coordinate, resource, export, portability, and
 > extension contract is [canvas2d-system.md](canvas2d-system.md). The target model is
@@ -377,9 +377,40 @@ Observed symptoms, all from that one cause:
    at the same camera, hash again. Equal hashes mean every pixel on screen is
    what a full redraw would have produced. `tests/e2e/canvas/many-image-render.spec.ts`
    is the coverage-based regression guard for the specific failure above.
+5. Partial-redraw clips are whole device pixels. `partialPaint.ts` grows every
+   dirty rect outward (`snapRectToDevicePixels`) before clearing, filling, and
+   clipping; a fractional edge left a one-pixel seam blending retained and
+   repainted pixels (up to 97 channel levels after an undo on the
+   `mixed-raster-vector` fixture, on unmodified `master` too). Replay candidates
+   are selected with `DIRTY_SNAP_SLACK` extra pixels so the rounding never
+   paints a band no node was replayed into.
 
 ### sceneCompositing cache
 `sceneNeedsStructuralCompositing()` caches its result per document reference. Without caching, it scans every node on every frame to decide worker vs. main-thread path.
+
+### Per-document derived structures (2026-09-25)
+
+Committed documents are immutable, so anything derived only from a document is
+cached by identity instead of being recomputed by every consumer on every
+render or frame. Every cache is bounded because undo history keeps old
+documents alive; none may be fed a document that is still being built by
+mutating a fresh `nodes` record.
+
+| Structure | Owner | Bound |
+|---|---|---|
+| Solo flag / solo-applied document | `scene/visibility.ts` | per `nodes` record (boolean) / last source |
+| Editor scene scope | `scene/editorSceneScope.ts` | 6 entries; viewport keyed only on publishing surfaces with pages |
+| Child → parent map | `editor/scene/parentIndexCache.ts` `committedParentIndex` | 4 most recent `nodes` records; sealed (mutation throws) |
+| Hit-test parent map, spatial index, occurrences | `hitTest/HitTestEngine.ts` | 2 most recent documents, each keyed with the font registry revision (text bounds change when a font loads) |
+| Typography, raster, perspective, image-source scans | `render/sceneCompositing.ts`, `render/perspectiveImage.ts` | last document |
+| Node count, animated-media ids | `canvas/renderDocumentFacts.ts` | last document |
+| Document dirty region | `canvas/dirtyRegion.ts` | last (previous, next) pair; recorded rects replayed into the caller's recorder |
+| Layer name census | `intelligence/autoNamer.ts` | per `nodes` record |
+
+The camera affine is also built once per rectangle or frame
+(`worldToScreenProjector`, `createWorldRectViewportTest`), with results
+identical to per-point `worldToScreen`. Measured effect and methodology:
+[canvas fluidity audit](../audits/canvas-fluidity-2026-09-25.md).
 
 ### measureTextAdvance canvas reuse
 The per-character letter-spacing measurement now uses a module-level cached `CanvasRenderingContext2D` instead of allocating a new `<canvas>` per character.
