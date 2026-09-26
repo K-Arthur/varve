@@ -113,6 +113,30 @@ async function switchToPhotoWorkspace(page: Page): Promise<void> {
 }
 
 /**
+ * The repair layer starts empty; healing must sample the composite below it,
+ * so the scope has to leave the `current` default explicitly, exactly like
+ * the retouch-tools spec does.
+ */
+async function chooseSamplingScope(
+  page: Page,
+  toolLabel: string,
+  scopeLabel: string,
+): Promise<void> {
+  const optionsButton = page.getByRole('button', { name: 'Tool options' });
+  await expect(optionsButton).toBeVisible();
+  const options = page.getByRole('dialog', { name: `${toolLabel} tool options` });
+  if ((await optionsButton.getAttribute('aria-expanded')) !== 'true') {
+    await optionsButton.press('Enter');
+  }
+  await expect(options).toBeVisible();
+  const sampling = options.getByRole('combobox', { name: 'Sampling scope' });
+  await sampling.click();
+  await page.getByRole('option', { name: scopeLabel, exact: true }).click();
+  await expect(sampling).toContainText(scopeLabel);
+  await page.keyboard.press('Escape');
+}
+
+/**
  * Hash the serialized document subtree of one layer. Repair pixels are
  * base64 tiles in the JSON, so equal hashes mean the persisted repair bytes
  * did not change — stronger than a canvas screenshot.
@@ -399,9 +423,12 @@ test.describe('Photo source, RAW, and bracket workflows', () => {
       timeout: 60000,
     });
     await section.getByRole('button', { name: 'Apply development', exact: true }).click();
+    // The RAW recipe binding lives on the imported image-fill shape, which
+    // keeps its filename through prepare; select it by name because the tree
+    // renders topmost-first and the prepared raster layers sit above it.
     const sourceLayerRow = page
-      .locator('.layers-panel__tree [role="treeitem"][data-node-id]')
-      .first();
+      .locator('.layers-panel__tree [role="treeitem"]')
+      .filter({ hasText: 'photo-fixture' });
     await expect(sourceLayerRow).toBeVisible({ timeout: 30000 });
 
     // 2. Prepare the retouch pair: locked source + Repair layer.
@@ -421,6 +448,9 @@ test.describe('Photo source, RAW, and bracket workflows', () => {
     await page.getByRole('menuitem', { name: 'Healing Brush' }).click();
     await expect(page.locator('[data-tool="healBrush"]')).toBeVisible();
     await expect(repairRow).toHaveAttribute('aria-selected', 'true', { timeout: 15000 });
+    // Default scope `current` would sample the empty repair layer itself and
+    // deposit nothing; the composite below is the intended source.
+    await chooseSamplingScope(page, 'Healing Brush', 'All visible layers');
 
     const source = { x: box.x + box.width * 0.43, y: box.y + box.height * 0.43 };
     await page.keyboard.down('Alt');
