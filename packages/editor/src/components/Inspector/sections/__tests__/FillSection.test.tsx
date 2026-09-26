@@ -302,4 +302,16 @@ describe('FillSection variable-link honesty', () => {
       expect(node.fills?.[0]?.color).not.toEqual(colorA);
     });
   });
+
+  it('presents the bound colour as the row value instead of the authored literal', async () => {
+    renderSelectedSection(
+      (nodes) => <FillSection nodes={nodes} />,
+      { fills: [solidA], bindings: { fill: { variableId: 'brand' } } },
+      withBrandVariable,
+    );
+    // solidA is rgb(20,120,220); the variable is #ff007f (rendered uppercase). The row must show
+    // what the canvas paints, with the badge naming the source.
+    await screen.findByText('#FF007F');
+    expect(screen.queryByText('#1478DC')).toBeNull();
+  });
 });
