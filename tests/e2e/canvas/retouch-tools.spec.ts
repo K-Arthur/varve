@@ -481,6 +481,9 @@ test('Dodge Burn adjusts deposited pixels in linear light and honours its mode s
   await page.getByRole('menuitem', { name: 'Clone Stamp' }).click();
   await expect(page.locator('[data-tool="cloneStamp"]')).toBeVisible();
   await page.keyboard.press('Escape');
+  // Default scope `current` would sample the empty repair layer itself and
+  // deposit nothing; the composite below is the intended source.
+  await chooseSamplingScope(page, 'Clone Stamp', 'All visible layers');
   await page.keyboard.down('Alt');
   await page.mouse.click(box.x + box.width * 0.43, box.y + box.height * 0.43);
   await page.keyboard.up('Alt');
