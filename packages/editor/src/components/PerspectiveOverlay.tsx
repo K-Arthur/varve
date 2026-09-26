@@ -147,11 +147,18 @@ export function PerspectiveOverlay({ tool, zoom, pan, cameraRotation, buildToolC
   }, []);
 
   // ── Keyboard completion/cancellation ─────────────────────────────────
+  // Subscribed once per tool, reading the latest handlers through a ref.
+  // `commit` and `cancel` change on every canvas render, and an earlier window
+  // listener can re-render the canvas synchronously while the same key event
+  // is still dispatching. Re-subscribing then removed this listener and added
+  // one the browser does not invoke for that event, so Escape was lost.
+  const keyHandlersRef = useRef({ commit, cancel });
+  keyHandlersRef.current = { commit, cancel };
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Enter') {
         e.preventDefault();
-        commit();
+        keyHandlersRef.current.commit();
         return;
       }
       if (e.key === 'Escape') {
@@ -161,13 +168,13 @@ export function PerspectiveOverlay({ tool, zoom, pan, cameraRotation, buildToolC
           redraw((value) => value + 1);
           setDrag(null);
         } else {
-          cancel();
+          keyHandlersRef.current.cancel();
         }
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [cancel, commit, tool]);
+  }, [tool]);
 
   if (!ps || !worldMat) return null;
 
