@@ -1256,7 +1256,7 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
                     />
                   </FieldRow>
                 )}
-                <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-1)' }}>
                   <button
                     type="button"
                     className="insp-btn-sm"

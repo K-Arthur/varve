@@ -35,7 +35,6 @@ export function extractSubjectToLayer(
 
   const cloned = deepCloneSubtree(doc.nodes, doc.nextId, sourceNodeId, {
     translate: { x: 0, y: 0 },
-    nameSuffix: ' subject',
   });
   const clonedRoot = cloned.nodes[cloned.rootId];
   if (!clonedRoot) return null;
@@ -45,6 +44,10 @@ export function extractSubjectToLayer(
   delete root.mask;
   // The legacy field only exists on the shape variant.
   if ('backgroundRemoval' in root) delete root.backgroundRemoval;
+  // A layer name reads better without the file extension, and the shorter
+  // label leaves room for the row's mask badge before the panel's overflow
+  // policy truncates it.
+  root.name = `${root.name.replace(/\.[a-z0-9]+$/i, '')} subject`;
   stripped[cloned.rootId] = root;
 
   let next: Document = {
