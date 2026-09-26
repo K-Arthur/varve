@@ -10,7 +10,6 @@ import {
   shapeHeight,
   shapeWidth,
 } from '@varve/scene';
-import { escapeRegex } from '@varve/shared';
 
 export interface NamingSuggestion {
   name: string;
@@ -456,33 +455,74 @@ export function suggestName(
   };
 }
 
-function existingNames(doc: Document, excludeId?: NodeId): Set<string> {
-  const names = new Set<string>();
-  for (const [id, node] of Object.entries(doc.nodes)) {
-    if (excludeId && id === excludeId) continue;
-    if (node) names.add(node.name);
+/**
+ * Name census for one committed `nodes` record: how many nodes carry each
+ * name, and for every `<prefix> <digits>` name, how many carry each number.
+ * Layers rows ask for generated names on every render; rescanning every node
+ * name (plus a regex per name) for each row made a drag frame O(rows x nodes).
+ * Documents are immutable, so a record's census never changes.
+ */
+interface NameCensus {
+  readonly counts: Map<string, number>;
+  readonly numbered: Map<string, Map<number, number>>;
+}
+
+const NUMBERED_NAME_RE = /^([\s\S]*) (\d+)$/;
+const censusByNodes = new WeakMap<Document['nodes'], NameCensus>();
+
+function nameCensus(doc: Document): NameCensus {
+  const cached = censusByNodes.get(doc.nodes);
+  if (cached) return cached;
+  const counts = new Map<string, number>();
+  const numbered = new Map<string, Map<number, number>>();
+  for (const node of Object.values(doc.nodes)) {
+    if (!node) continue;
+    counts.set(node.name, (counts.get(node.name) ?? 0) + 1);
+    const match = NUMBERED_NAME_RE.exec(node.name);
+    if (!match) continue;
+    const prefix = match[1]!;
+    const value = Number(match[2]);
+    let values = numbered.get(prefix);
+    if (!values) {
+      values = new Map();
+      numbered.set(prefix, values);
+    }
+    values.set(value, (values.get(value) ?? 0) + 1);
   }
-  return names;
+  const census = { counts, numbered };
+  censusByNodes.set(doc.nodes, census);
+  return census;
+}
+
+/** True when a node other than `excludeId` carries `name`. */
+function nameTakenByOther(
+  census: NameCensus,
+  doc: Document,
+  name: string,
+  excludeId?: NodeId,
+): boolean {
+  const own = excludeId !== undefined && doc.nodes[excludeId]?.name === name ? 1 : 0;
+  return (census.counts.get(name) ?? 0) - own > 0;
 }
 
 function uniqueName(base: string, doc: Document, excludeId?: NodeId): string {
-  const names = existingNames(doc, excludeId);
-  if (!names.has(base)) return base;
+  const census = nameCensus(doc);
+  if (!nameTakenByOther(census, doc, base, excludeId)) return base;
   let i = 2;
-  while (names.has(`${base} ${i}`)) i++;
+  while (nameTakenByOther(census, doc, `${base} ${i}`, excludeId)) i++;
   return `${base} ${i}`;
 }
 
 function nextUniqueDefaultName(doc: Document, kindName: string, excludeId?: NodeId): string {
-  const names = existingNames(doc, excludeId);
-  const used = new Set<number>();
-  const re = new RegExp(`^${escapeRegex(kindName)} (\\d+)$`);
-  for (const name of names) {
-    const match = name.match(re);
-    if (match) used.add(Number(match[1]));
-  }
+  const values = nameCensus(doc).numbered.get(kindName);
+  // The excluded node's own `<kindName> <n>` does not reserve `n`.
+  const ownName = excludeId !== undefined ? doc.nodes[excludeId]?.name : undefined;
+  const ownMatch = ownName !== undefined ? NUMBERED_NAME_RE.exec(ownName) : null;
+  const ownValue = ownMatch && ownMatch[1] === kindName ? Number(ownMatch[2]) : null;
+  const used = (value: number): boolean =>
+    (values?.get(value) ?? 0) - (value === ownValue ? 1 : 0) > 0;
   let i = 1;
-  while (used.has(i)) i++;
+  while (used(i)) i++;
   return `${kindName} ${i}`;
 }
 

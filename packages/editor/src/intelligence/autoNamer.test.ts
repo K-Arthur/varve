@@ -511,3 +511,69 @@ describe('renameSelected', () => {
     expect(result.nodes).toBe(doc.nodes);
   });
 });
+
+describe('autoName name census', () => {
+  // The pre-census algorithm: rescan every other node's name per call.
+  function referenceDefaultName(
+    doc: ReturnType<typeof createDocument>,
+    kindName: string,
+    excludeId: string,
+  ) {
+    const names = new Set<string>();
+    for (const [id, node] of Object.entries(doc.nodes)) {
+      if (id !== excludeId && node) names.add(node.name);
+    }
+    const used = new Set<number>();
+    const re = new RegExp(`^${kindName} (\\d+)$`);
+    for (const name of names) {
+      const match = name.match(re);
+      if (match) used.add(Number(match[1]));
+    }
+    let i = 1;
+    while (used.has(i)) i++;
+    return `${kindName} ${i}`;
+  }
+
+  it('matches the rescan algorithm for default names, including self-exclusion', () => {
+    const pools = [
+      ['Rectangle 1', 'Rectangle 2', 'Rectangle 4'],
+      ['Rectangle 01', 'Rectangle 1', 'Rectangle  3', 'Rectangle 2 5'],
+      ['Rectangle 1', 'Rectangle 1', 'Ellipse 1'],
+      ['Rectangle', 'Rectangle 3', 'Rectangle 10'],
+    ];
+    for (const pool of pools) {
+      let doc = createDocument('census');
+      const ids: string[] = [];
+      pool.forEach((name, index) => {
+        const id = `n${index}`;
+        ids.push(id);
+        const node = makeShapeNode(id, { kind: 'rect', x: 0, y: 0, w: 137, h: 59 });
+        doc = { ...doc, nodes: { ...doc.nodes, [id]: { ...node, name } } };
+      });
+      // Add an unnamed probe that falls back to the default rule.
+      const probe = {
+        ...makeShapeNode('probe', { kind: 'rect', x: 0, y: 0, w: 137, h: 59 }),
+        name: '',
+      };
+      const withProbe: ReturnType<typeof createDocument> = {
+        ...doc,
+        nodes: { ...doc.nodes, probe },
+      };
+      expect(suggestName(probe, withProbe).matchedRule).toBe('17-default');
+      const generated = autoName(withProbe, probe);
+      const kindName = generated.replace(/ \d+$/, '');
+      expect(generated).toBe(referenceDefaultName(withProbe, kindName, 'probe'));
+      // Self-exclusion: a node renamed to the first default keeps that name.
+      for (const id of ids) {
+        const node = withProbe.nodes[id]!;
+        if (!/^Rectangle \d+$/.test(node.name)) continue;
+        const renamed = { ...node, name: '' };
+        const edited: ReturnType<typeof createDocument> = {
+          ...withProbe,
+          nodes: { ...withProbe.nodes, [id]: renamed },
+        };
+        expect(autoName(edited, renamed)).toBe(referenceDefaultName(edited, kindName, id));
+      }
+    }
+  });
+});

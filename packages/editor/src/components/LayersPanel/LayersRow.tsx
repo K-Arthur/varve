@@ -209,7 +209,16 @@ export const LayersRow = memo(function LayersRow({
         pinnedBadgeGroups === undefined || pinnedBadgeGroups.includes(group) ? 'true' : 'false',
     }) as const;
   const inputRef = useRef<HTMLInputElement>(null);
-  const ghostName = useMemo(() => (doc ? autoName(doc, node) : null), [doc, node]);
+  const hasRealName = node.name.trim() !== '';
+  // The generated name scans every node name in the document. Rows show it
+  // only for an unnamed layer or as the rename placeholder, so named rows
+  // skip it: every visible row re-derives it whenever the document changes,
+  // which made each drag frame O(rows x nodes).
+  const needsGhostName = !hasRealName || editing;
+  const ghostName = useMemo(
+    () => (doc && needsGhostName ? autoName(doc, node) : null),
+    [doc, node, needsGhostName],
+  );
   const isFrame = node.kind === 'frame';
   const isGroup = node.kind === 'group';
   const isContainerNode = isContainer(node);
@@ -241,7 +250,6 @@ export const LayersRow = memo(function LayersRow({
   // having been visible text at all. Fall back to the same auto-generated
   // name already used as the rename input's placeholder, so the row always
   // carries a visible, distinguishable identity.
-  const hasRealName = node.name.trim() !== '';
   const displayName = hasRealName ? node.name : (ghostName ?? node.name);
   const maskLabel = maskTypeLabel(node.mask);
   // Workspace projections read from the document, never from node copies.
