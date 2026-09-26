@@ -131,7 +131,9 @@ export class RefineMaskTool extends BaseTool {
       return true;
     }
     if (e.key === ']' && !e.shiftKey) {
-      this.setOptions({ brushSize: Math.min(200, this.options.brushSize + 4) });
+      // Same ceiling as the inspector's brush-size control: keyboard and UI
+      // must not disagree about what values the brush accepts.
+      this.setOptions({ brushSize: Math.min(100, this.options.brushSize + 4) });
       ctx.announce(`Brush size ${this.options.brushSize}`);
       return true;
     }
@@ -175,6 +177,17 @@ export class RefineMaskTool extends BaseTool {
       return { consumed: false };
     }
     if (!this.targetStillValid(ctx)) {
+      // The node object changed under a still-selected id (an edit replaced
+      // it). Refusing every stroke forever with no recovery is a dead end:
+      // reload the mask from the live node and ask for one new stroke.
+      if (this.nodeId && ctx.selection?.includes(this.nodeId) && ctx.getNode(this.nodeId)) {
+        this.maskData = null;
+        this.originalMask = null;
+        this.targetNode = null;
+        this.loadMask(ctx);
+        ctx.announce('The mask changed. Reloading it; start your stroke again.');
+        return { consumed: false };
+      }
       ctx.announce('Mask target changed; start a new stroke');
       return { consumed: false };
     }

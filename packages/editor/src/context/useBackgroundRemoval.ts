@@ -401,6 +401,7 @@ export function useBackgroundRemoval(
       modelId: preview.modelId,
       generatedAt: Date.now(),
       confidence: preview.confidence,
+      feather: preview.feather,
       decontaminate: preview.decontaminate,
       runtime: runtimeForBackgroundRemovalProvider(preview.executionProvider),
     } as const;

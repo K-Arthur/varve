@@ -323,13 +323,13 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
       state.selection[0] === node?.id &&
       (state.tool === 'refineMask' || state.tool === 'trimapEdit'),
   );
-  const [feather, setFeather] = useState((maskProvenance as { feather?: number })?.feather ?? 0.5);
+  const [feather, setFeather] = useState(maskProvenance?.feather ?? 0.5);
   const [decontaminate, setDecontaminate] = useState(
     (maskProvenance as { decontaminate?: boolean })?.decontaminate ?? false,
   );
   useEffect(() => {
     setMethod(maskProvenance?.method ?? 'quick');
-    setFeather((maskProvenance as { feather?: number })?.feather ?? 0.5);
+    setFeather(maskProvenance?.feather ?? 0.5);
     setDecontaminate(maskProvenance?.decontaminate ?? false);
     setError(null);
   }, [node?.id, maskProvenance]);

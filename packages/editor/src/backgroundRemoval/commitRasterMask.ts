@@ -46,6 +46,8 @@ export interface RasterMaskCommitFields {
   score?: BackgroundRemovalProvenance['score'];
   scoreSource?: BackgroundRemovalProvenance['scoreSource'];
   confidence?: number;
+  /** Edge feather used to generate this mask, persisted in provenance. */
+  feather?: number;
   decontaminate?: boolean;
   /** Source locator and decoded dimensions captured with this mask. */
   sourceLocator?: string;
@@ -104,6 +106,7 @@ function makeProvenance(fields: RasterMaskCommitFields): BackgroundRemovalProven
     ...(fields.score !== undefined ? { score: fields.score } : {}),
     ...(fields.scoreSource !== undefined ? { scoreSource: fields.scoreSource } : {}),
     ...(fields.confidence !== undefined ? { confidence: fields.confidence } : {}),
+    ...(fields.feather !== undefined ? { feather: fields.feather } : {}),
     ...(fields.decontaminate !== undefined ? { decontaminate: fields.decontaminate } : {}),
     ...(fields.modelId !== undefined ? { modelId: fields.modelId } : {}),
     ...(fields.modelVersion !== undefined ? { modelVersion: fields.modelVersion } : {}),

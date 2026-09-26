@@ -162,6 +162,12 @@ export interface BackgroundRemovalProvenance {
   /** Meaning of `score`; it is not a probability of user intent. */
   scoreSource?: 'predicted-iou' | 'stability' | 'heuristic' | 'model-iou' | 'activation-heuristic';
   confidence?: number;
+  /**
+   * Edge feather applied when the mask was generated (0-1 scale, provider
+   * parameter). Recorded so the committed result is reproducible and the
+   * panel can restore the setting that produced it.
+   */
+  feather?: number;
   /** Legacy edge-colour cleanup setting retained during v2.0 migration. */
   decontaminate?: boolean;
   /** How this raster mask entered the native asset table. */
