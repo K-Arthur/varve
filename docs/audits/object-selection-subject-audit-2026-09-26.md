@@ -60,6 +60,30 @@ spans 15.6 source pixels), and production is closer to ground truth on every
 non-square fixture. Method and gates:
 `docs/quality/object-selection-parity.md` → "Mask reconstruction parity".
 
+## Reconciliation with the 2026-09-02/03 repair record
+
+`docs/audits/object-selection-repair-validation-2026-09-02.md` recorded five
+symptoms and their fixes. Checked against the current checkout:
+
+| Recorded symptom | Still fixed in this checkout? | Evidence here |
+| --- | --- | --- |
+| Drag box "appeared to do nothing" (tool kept the draft private) | Yes | `Sam2SegmentationTool.onPointerDown` publishes `draftPoint`/`draftBox` into `EditorState.objectSelectionSession`; `overlayManager` renders drafts with a dashed stroke before any model frame exists. Re-verified live by `object-selection-draft-overlay.spec.ts` (pixel evidence captured mid-drag). |
+| Adding a point could discard a box | Yes | `onDragEnd`/`onPointerDown` keep `box` and `draftBox` separate; prompts append. Covered by `Sam2SegmentationTool.test.ts`. |
+| Raw 30-second trim timeout | Yes | No caller-side `timeoutMs` remains on that path; deadlines live in `inferenceWorkerHost.ts` (`sam2-encoder` 180 s, `sam2-decoder` 60 s, `detr` 120 s, release 30 s) plus the documented soft deadline. |
+| A timeout could poison retries | Yes | Hard timeout terminates the worker and rejects every other pending job with `worker_crash` ("Inference worker restarted after a timeout"), so unrelated jobs fail loudly instead of hanging. |
+| Detector output silently treated as the subject | Yes | `ImageCropSection` ranks detections, requires review, and maps through the canonical placement; DETR remains bounds-only. |
+
+The 2026-09-03 follow-up closed the missing model-install evidence (cold 22 s /
+warm 2 s / 88% / undo-redo) and documented the misleading `cat.jpg` bytes. This
+pass did not re-run that gate; those numbers are historical context, not fresh
+measurements — the fresh real-model measurements in this document are the
+reconstruction-parity table above.
+
+What that record did not cover, and what this pass found: the explicit trim
+sources (findings 1-4), silent mask replacement (16), the `SegmentationBackend`
+documentation drift (6), and the production/reference reconstruction
+divergence (7).
+
 ## Changes in this pass
 
 - `packages/editor/src/imageCrop.ts` — explicit `alpha`/`combined` trim
