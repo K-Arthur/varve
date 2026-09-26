@@ -35,7 +35,8 @@ function reasonForItem(item: RenderItem): FallbackReason | null {
   const primitive = item.primitive;
   if (primitive.kind === 'text') return 'text';
   if (primitive.kind === 'path') return 'path';
-  if (primitive.kind !== 'rect' && primitive.kind !== 'circle') return 'unsupported-primitive';
+  if (primitive.kind !== 'rect' && primitive.kind !== 'circle' && primitive.kind !== 'ellipse')
+    return 'unsupported-primitive';
   if (primitive.kind === 'rect' && (primitive.cornerRadius || primitive.cornerSmoothing))
     return 'unsupported-primitive';
   // The paint decision reads the same fills stack the Canvas2D island

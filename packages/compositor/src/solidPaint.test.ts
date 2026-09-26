@@ -82,6 +82,20 @@ describe('isGpuBatchSupported with fills stacks', () => {
     expect(isGpuBatchSupported(items)).toBe(true);
   });
 
+  it('admits mixed circle and ellipse batches as one oval class', () => {
+    const circle = rect({
+      fills: [solidFill(TEAL)],
+      primitive: { kind: 'circle', cx: 0, cy: 0, r: 10 },
+    });
+    const ellipse = rect({
+      fills: [solidFill(TEAL)],
+      primitive: { kind: 'ellipse', cx: 0, cy: 0, rx: 20, ry: 10 },
+    });
+    expect(isGpuBatchSupported([circle, ellipse])).toBe(true);
+    // A rect mixed into the oval batch changes the class and must not route.
+    expect(isGpuBatchSupported([circle, ellipse, rect({ fills: [solidFill(TEAL)] })])).toBe(false);
+  });
+
   it('still rejects stack items carrying strokes, effects, or item blending', () => {
     const stack = [solidFill(TEAL)];
     expect(isGpuBatchSupported([rect({ fills: stack, strokes: [] })])).toBe(true);

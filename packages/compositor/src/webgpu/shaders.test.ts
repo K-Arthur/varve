@@ -153,14 +153,14 @@ describe('WGSL shader strings', () => {
 
   describe('CIRCLE_VERTEX_WGSL', () => {
     it('shares the solid camera math and forwards object-local position', () => {
-      // Coverage is tested in local space, so the circle vertex stage adds a
+      // Coverage is tested in local space, so the oval vertex stage adds a
       // local varying on top of the solid transform. It is no longer a literal
       // alias of SOLID_VERTEX_WGSL.
       expect(CIRCLE_VERTEX_WGSL).toContain('CameraUniform');
       expect(CIRCLE_VERTEX_WGSL).toContain('fn vs_main');
       expect(CIRCLE_VERTEX_WGSL).toContain('@location(1) local: vec2f');
-      expect(CIRCLE_VERTEX_WGSL).toContain('@location(4) circle: vec3f');
-      expect(CIRCLE_VERTEX_WGSL).toContain('@location(2) circle: vec3f');
+      expect(CIRCLE_VERTEX_WGSL).toContain('@location(4) circle: vec4f');
+      expect(CIRCLE_VERTEX_WGSL).toContain('@location(2) circle: vec4f');
       expect(CIRCLE_VERTEX_WGSL).toContain('out.local = input.localPos');
       expect(CIRCLE_VERTEX_WGSL).toContain('out.circle = input.circle');
       expect(CIRCLE_VERTEX_WGSL).toContain('camera.origin');
@@ -171,15 +171,17 @@ describe('WGSL shader strings', () => {
   describe('CIRCLE_FRAGMENT_WGSL', () => {
     it('discards using object-local coverage, not framebuffer position', () => {
       expect(CIRCLE_FRAGMENT_WGSL).toContain('discard');
-      expect(CIRCLE_FRAGMENT_WGSL).toContain('distance(local, circle.xy)');
+      // Normalized local-space test: (d/rx)^2 + (d/ry)^2 > 1. A circle is the
+      // rx == ry case, and the per-radius form is what makes ellipses exact.
+      expect(CIRCLE_FRAGMENT_WGSL).toContain('circle.zw');
       // A framebuffer-space test is only correct for conformal transforms and
-      // clipped non-uniformly scaled circles (regression guard).
+      // clipped non-uniformly scaled ovals (regression guard).
       expect(CIRCLE_FRAGMENT_WGSL).not.toContain('@builtin(position)');
       expect(CIRCLE_FRAGMENT_WGSL).not.toContain('distance(pos.xy');
     });
 
-    it('takes per-vertex circle coverage parameters without a shared draw uniform', () => {
-      expect(CIRCLE_FRAGMENT_WGSL).toContain('@location(2) circle: vec3f');
+    it('takes per-vertex oval coverage parameters without a shared draw uniform', () => {
+      expect(CIRCLE_FRAGMENT_WGSL).toContain('@location(2) circle: vec4f');
       expect(CIRCLE_FRAGMENT_WGSL).not.toContain('var<uniform> circle');
     });
   });

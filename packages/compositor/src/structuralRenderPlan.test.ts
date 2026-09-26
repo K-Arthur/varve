@@ -74,6 +74,25 @@ describe('buildStructuralRenderPlan', () => {
     expect(plan.nativeWebGpuItems).toBe(1);
   });
 
+  it('routes solid ellipse primitives to GPU runs like circles', () => {
+    const plan = buildStructuralRenderPlan([
+      rect({
+        fills: [
+          {
+            type: 'solid',
+            color: { space: 'rgb', r: 57, g: 208, b: 198, a: 255 },
+            opacity: 1,
+            blendMode: 'normal',
+            visible: true,
+          },
+        ],
+        primitive: { kind: 'ellipse', cx: 0, cy: 0, rx: 20, ry: 10 },
+      }),
+    ]);
+    expect(plan.fallbackIslandCount).toBe(0);
+    expect(plan.nativeWebGpuItems).toBe(1);
+  });
+
   it('keeps stacked, non-solid, and blended fills on the Canvas2D island', () => {
     const solid = {
       type: 'solid' as const,

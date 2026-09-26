@@ -97,8 +97,8 @@ fn fs_main(@location(0) color: vec4f) -> @location(0) vec4f {
 "#;
 
 // CIRCLE_VERTEX_WGSL (see packages/compositor/src/webgpu/shaders.ts): the
-// solid vertex stage plus an object-local varying. Kept as its own const so
-// naga validates the exact module the backend compiles.
+// solid vertex stage plus object-local and per-vertex oval varyings. Kept as
+// its own const so naga validates the exact module the backend compiles.
 
 const CIRCLE_VERTEX_WGSL: &str = r#"
 struct CameraUniform {
@@ -119,14 +119,14 @@ struct VertexInput {
   @location(1) color: vec4f,
   @location(2) transform: vec4f,
   @location(3) transform2: vec2f,
-  @location(4) circle: vec3f,
+  @location(4) circle: vec4f,
 };
 
 struct VertexOutput {
   @builtin(position) position: vec4f,
   @location(0) color: vec4f,
   @location(1) local: vec2f,
-  @location(2) circle: vec3f,
+  @location(2) circle: vec4f,
 };
 
 @vertex
@@ -165,10 +165,12 @@ const CIRCLE_FRAGMENT_WGSL: &str = r#"
 fn fs_main(
   @location(0) color: vec4f,
   @location(1) local: vec2f,
-  @location(2) circle: vec3f,
+  @location(2) circle: vec4f,
 ) -> @location(0) vec4f {
-  // Local-space coverage: exact for every affine item transform.
-  if (distance(local, circle.xy) > circle.z) {
+  // Local-space normalized coverage: exact for every affine item transform
+  // and for both radii (a circle is the rx == ry case).
+  let d = (local - circle.xy) / circle.zw;
+  if (dot(d, d) > 1.0) {
     discard;
   }
   return color;

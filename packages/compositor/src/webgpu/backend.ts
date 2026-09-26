@@ -41,7 +41,8 @@ interface GpuVertex {
 const LINE_HALF_WIDTH = 1.5;
 const SOLID_VERTEX_FLOATS = 12;
 const SOLID_VERTICES_PER_ITEM = 6;
-const CIRCLE_VERTEX_FLOATS = 15;
+/** Per-oval vertex floats: pos(2) color(4) transform(4+2) oval(4). */
+const CIRCLE_VERTEX_FLOATS = 16;
 const CIRCLE_VERTICES_PER_ITEM = 6;
 const MAX_VERTEX_UPLOAD_BYTES = 4 * 1024 * 1024;
 /**
@@ -150,18 +151,30 @@ export function maxSolidItemsPerUpload(maxBufferSize: number): number {
   return maxItemsPerUpload(maxBufferSize, SOLID_VERTICES_PER_ITEM * SOLID_VERTEX_FLOATS * 4);
 }
 
+/**
+ * Per-vertex oval parameters (cx, cy, rx, ry). Circles carry r in both
+ * radii so circle and ellipse primitives share one stage and one layout.
+ */
+function ovalParams(
+  prim: Extract<RenderItem['primitive'], { kind: 'circle' | 'ellipse' }>,
+): readonly [number, number, number, number] {
+  if (prim.kind === 'circle') return [prim.cx, prim.cy, prim.r, prim.r];
+  return [prim.cx, prim.cy, prim.rx, prim.ry];
+}
+
 function flattenCircleVertices(items: readonly RenderItem[]): Float32Array {
   const data = new Float32Array(items.length * CIRCLE_VERTICES_PER_ITEM * CIRCLE_VERTEX_FLOATS);
   let offset = 0;
   for (const item of items) {
     const prim = item.primitive;
-    if (prim.kind !== 'circle') continue;
+    if (prim.kind !== 'circle' && prim.kind !== 'ellipse') continue;
     const color = itemGpuColor(item);
     const alpha = color[3];
     const transform = item.transform;
+    const [cx, cy, rx, ry] = ovalParams(prim);
     for (const [dx, dy] of CIRCLE_QUAD_CORNERS) {
-      data[offset++] = prim.cx + dx * prim.r;
-      data[offset++] = prim.cy + dy * prim.r;
+      data[offset++] = cx + dx * rx;
+      data[offset++] = cy + dy * ry;
       data[offset++] = color[0];
       data[offset++] = color[1];
       data[offset++] = color[2];
@@ -172,9 +185,10 @@ function flattenCircleVertices(items: readonly RenderItem[]): Float32Array {
       data[offset++] = transform[3];
       data[offset++] = transform[4];
       data[offset++] = transform[5];
-      data[offset++] = prim.cx;
-      data[offset++] = prim.cy;
-      data[offset++] = prim.r;
+      data[offset++] = cx;
+      data[offset++] = cy;
+      data[offset++] = rx;
+      data[offset++] = ry;
     }
   }
   return data;
@@ -182,7 +196,13 @@ function flattenCircleVertices(items: readonly RenderItem[]): Float32Array {
 
 function isGpuPrimitive(item: RenderItem): boolean {
   const k = item.primitive.kind;
-  return k === 'rect' || k === 'circle';
+  return k === 'rect' || k === 'circle' || k === 'ellipse';
+}
+
+/** GPU class of a primitive: rects batch separately from ovals. */
+function gpuPrimitiveClass(kind: RenderItem['primitive']['kind']): string {
+  if (kind === 'circle' || kind === 'ellipse') return 'oval';
+  return kind;
 }
 
 /**
@@ -198,10 +218,11 @@ function hasVisibleAffine(transform: readonly number[]): boolean {
 
 /**
  * The current WebGPU pipelines only reproduce a single solid fill on a rect
- * or circle. Keep this predicate deliberately fail-closed: routing a richer
- * item to the GPU would silently drop paint-stack, stroke, effect, filter, or
- * blend semantics. A whole batch must be supported because splitting it into
- * GPU and Canvas2D partitions changes z-order when the two kinds interleave.
+ * or an oval (circle/ellipse — one stage, per-vertex radii). Keep this
+ * predicate deliberately fail-closed: routing a richer item to the GPU would
+ * silently drop paint-stack, stroke, effect, filter, or blend semantics. A
+ * whole batch must be supported because splitting it into GPU and Canvas2D
+ * partitions changes z-order when the two kinds interleave.
  *
  * The fills stack counts as supported when `resolveGpuSolidPaint` collapses
  * it to one visible solid fill with normal blending — the paint shape real
@@ -209,7 +230,7 @@ function hasVisibleAffine(transform: readonly number[]): boolean {
  * every item falling back as unsupported-paint.
  */
 export function isGpuBatchSupported(items: readonly RenderItem[]): boolean {
-  const primitiveKinds = new Set(items.map((item) => item.primitive.kind));
+  const primitiveKinds = new Set(items.map((item) => gpuPrimitiveClass(item.primitive.kind)));
   return (
     items.every(
       (item) =>
@@ -353,10 +374,10 @@ export class WebGPUBackend {
       };
 
       const circleVertexBufferLayout: GPUVertexBufferLayout = {
-        arrayStride: 60,
+        arrayStride: 64,
         attributes: [
           ...vertexBufferLayout.attributes,
-          { shaderLocation: 4, offset: 48, format: 'float32x3' },
+          { shaderLocation: 4, offset: 48, format: 'float32x4' },
         ],
       };
 
@@ -493,12 +514,12 @@ export class WebGPUBackend {
         }
         for (const segment of plan.segments) {
           const primitiveKind = segment.items[0]?.primitive.kind;
-          const withinDeviceLimit =
-            primitiveKind === 'circle'
-              ? maxCircleItemsPerUpload(maxBufferSize) > 0
-              : primitiveKind === 'rect'
-                ? maxSolidItemsPerUpload(maxBufferSize) > 0
-                : true;
+          const isOval = primitiveKind === 'circle' || primitiveKind === 'ellipse';
+          const withinDeviceLimit = isOval
+            ? maxCircleItemsPerUpload(maxBufferSize) > 0
+            : primitiveKind === 'rect'
+              ? maxSolidItemsPerUpload(maxBufferSize) > 0
+              : true;
           let drawFailed = false;
           if (
             segment.kind === 'webgpu-run' &&
@@ -744,8 +765,12 @@ export class WebGPUBackend {
     )
       return;
 
-    const solidItems = items.filter((i) => i.primitive.kind !== 'circle');
-    const circleItems = items.filter((i) => i.primitive.kind === 'circle');
+    const solidItems = items.filter(
+      (i) => i.primitive.kind !== 'circle' && i.primitive.kind !== 'ellipse',
+    );
+    const ovalItems = items.filter(
+      (i) => i.primitive.kind === 'circle' || i.primitive.kind === 'ellipse',
+    );
 
     this.writeCameraUniform(frame);
 
@@ -805,15 +830,15 @@ export class WebGPUBackend {
       }
     }
 
-    if (circleItems.length > 0) {
+    if (ovalItems.length > 0) {
       const maxItems = maxCircleItemsPerUpload(device.limits.maxBufferSize);
-      if (maxItems === 0) throw new Error('Circle vertex buffer exceeds device limit');
-      for (let start = 0; start < circleItems.length; start += maxItems) {
-        const end = Math.min(start + maxItems, circleItems.length);
-        // Center and radius travel with each vertex. The bounded chunk avoids
+      if (maxItems === 0) throw new Error('Oval vertex buffer exceeds device limit');
+      for (let start = 0; start < ovalItems.length; start += maxItems) {
+        const end = Math.min(start + maxItems, ovalItems.length);
+        // Center and radii travel with each vertex. The bounded chunk avoids
         // millions of temporary JS objects and preserves queue order when the
         // pooled vertex buffer is reused for the next submission.
-        const data = flattenCircleVertices(circleItems.slice(start, end));
+        const data = flattenCircleVertices(ovalItems.slice(start, end));
         this.lastFrameVertexBytes += data.byteLength;
         const vBuf = this.getOrCreateVertexBuffer(device, data.byteLength);
         device.queue.writeBuffer(vBuf, 0, data);
@@ -833,7 +858,7 @@ export class WebGPUBackend {
         pass.setVertexBuffer(0, vBuf);
         pass.draw((end - start) * CIRCLE_VERTICES_PER_ITEM);
         pass.end();
-        if (end < circleItems.length) {
+        if (end < ovalItems.length) {
           device.queue.submit([encoder.finish()]);
           encoder = device.createCommandEncoder();
         }

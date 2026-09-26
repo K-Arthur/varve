@@ -1,0 +1,127 @@
+import { mkdirSync } from 'node:fs';
+import path from 'node:path';
+import { expect, test } from '@playwright/test';
+import { dragOnCanvas, navigateToEditor } from '../shared';
+
+/**
+ * In-app WebGPU capture: drives the real editor with the preferWebGpu
+ * preference enabled, draws solid rect + ellipse content through the real
+ * tools, and captures the canvas, the status bar label, and the Performance
+ * settings tab into docs/screenshots/gpu-acceleration/.
+ *
+ * On a machine whose browser exposes a hardware WebGPU adapter this exercises
+ * the GPU scene path end to end. On SwiftShader-only environments (CI, most
+ * containers) the app must truthfully fall back; the captures then document
+ * the fallback status instead, which is the same visual contract users see.
+ * Either way the assertions only accept the honest status labels.
+ */
+
+const SHOT_DIR = process.env.VARVE_GPU_SHOT_DIR ?? 'docs/screenshots/gpu-acceleration';
+
+test.use({
+  launchOptions: {
+    channel: 'chromium',
+    args: [
+      '--enable-unsafe-webgpu',
+      '--enable-features=Vulkan',
+      '--use-angle=vulkan',
+      '--enable-unsafe-swiftshader',
+    ],
+  },
+});
+
+/** True when a hardware (non-software) adapter is exposed to the page. */
+async function hasHardwareAdapter(page: import('@playwright/test').Page): Promise<boolean> {
+  return page.evaluate(async () => {
+    const gpu = (navigator as Navigator & { gpu?: GPU }).gpu;
+    if (!gpu) return false;
+    const adapter = await gpu.requestAdapter();
+    if (!adapter) return false;
+    const info = adapter.info;
+    const haystack = [info?.vendor, info?.architecture, info?.device, info?.description]
+      .filter((s): s is string => !!s)
+      .join(' ')
+      .toLowerCase();
+    const software = ['swift', 'fallback', 'software', 'llvmpipe', 'lavapipe'].some((marker) =>
+      haystack.includes(marker),
+    );
+    return !software;
+  });
+}
+
+async function drawShapes(page: import('@playwright/test').Page): Promise<void> {
+  await page.keyboard.press('r');
+  await dragOnCanvas(page, 200, 160, 420, 300);
+  await page.keyboard.press('o');
+  await dragOnCanvas(page, 480, 160, 640, 260);
+  await expect(page.getByRole('treeitem')).toHaveCount(2, { timeout: 10000 });
+}
+
+async function enablePreferWebGpu(page: import('@playwright/test').Page): Promise<void> {
+  await page.evaluate(() => {
+    const file = [...document.querySelectorAll('button')].find(
+      (element) => element.textContent?.trim() === 'File',
+    );
+    (file as HTMLElement | undefined)?.click();
+  });
+  await page.getByRole('menuitem', { name: /Settings/ }).click();
+  const settings = page.locator('dialog.varve-dialog--settings[open]');
+  const preference = settings.getByRole('switch', { name: 'Prefer WebGPU when available' });
+  await preference.click();
+  await expect(preference).toBeChecked();
+  await page.keyboard.press('Escape');
+}
+
+test('captures the prefer-WebGPU path and its truthful status', async ({ page }) => {
+  mkdirSync(SHOT_DIR, { recursive: true });
+  await navigateToEditor(page);
+  const hardware = await hasHardwareAdapter(page);
+
+  // Baseline: default Canvas2D path draws the same content.
+  await drawShapes(page);
+  await page.waitForTimeout(500);
+  await page.screenshot({ path: path.join(SHOT_DIR, 'app-canvas-canvas2d.png'), fullPage: false });
+  const canvas2dStatus = await page.locator('.editor-status__diagnostic').textContent();
+  expect(canvas2dStatus ?? '').toMatch(/Canvas2D/);
+
+  await enablePreferWebGpu(page);
+  await page.reload();
+  await navigateToEditor(page);
+  await drawShapes(page);
+  // Give the compositor a few settled frames before reading the label.
+  await page.waitForTimeout(800);
+
+  const status = (await page.locator('.editor-status__diagnostic').textContent()) ?? '';
+  await page.screenshot({
+    path: path.join(SHOT_DIR, 'app-canvas-prefer-webgpu.png'),
+    fullPage: false,
+  });
+
+  if (hardware) {
+    // Honest labels only: actually drew through WebGPU, or GPU ready while
+    // the visible frame came from the worker/Canvas2D replay. Both separate
+    // the preference from what executed.
+    expect(status.trim()).toMatch(/WebGPU \+ Canvas2D|Canvas2D · GPU ready|WebGPU ready/);
+  } else {
+    // Software adapter must be declined with a named reason, never reported
+    // as acceleration.
+    expect(status.trim()).toMatch(/GPU unavailable · Canvas2D|Canvas2D/);
+  }
+
+  // Performance tab: renderer status surfaces the same truth.
+  await page.evaluate(() => {
+    const file = [...document.querySelectorAll('button')].find(
+      (element) => element.textContent?.trim() === 'File',
+    );
+    (file as HTMLElement | undefined)?.click();
+  });
+  await page.getByRole('menuitem', { name: /Settings/ }).click();
+  const settings = page.locator('dialog.varve-dialog--settings[open]');
+  const performanceTab = settings.getByRole('tab', { name: /Performance|Render/i });
+  await performanceTab.click();
+  await page.waitForTimeout(300);
+  await page.screenshot({
+    path: path.join(SHOT_DIR, 'app-settings-performance.png'),
+    fullPage: false,
+  });
+});

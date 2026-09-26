@@ -82,12 +82,15 @@ fn fs_main(@location(0) color: vec4f) -> @location(0) vec4f {
 `;
 
 /**
- * Circle vertex stage: same camera/affine math as `SOLID_VERTEX_WGSL` plus the
- * object-local position as a varying. The fragment coverage test must run in
- * local space: a screen-space `distance(pos, center) > r` test is only correct
- * when the composed transform is conformal (uniform scale + rotation). A
- * non-uniform item scale or a skew maps the local circle to an ellipse, and
+ * Oval vertex stage: same camera/affine math as `SOLID_VERTEX_WGSL` plus the
+ * object-local position and the per-vertex oval parameters as varyings. The
+ * fragment coverage test must run in local space: a screen-space
+ * `distance(pos, center) > r` test is only correct when the composed
+ * transform is conformal (uniform scale + rotation). A non-uniform item scale
+ * or a skew maps the local oval to a differently-proportioned ellipse, and
  * the screen-space test would then clip it back to a circle of radius `r`.
+ * `circle` carries (cx, cy, rx, ry); a circle is the rx == ry case, so both
+ * primitive kinds share this stage.
  */
 export const CIRCLE_VERTEX_WGSL = /* wgsl */ `
 struct CameraUniform {
@@ -108,14 +111,14 @@ struct VertexInput {
   @location(1) color: vec4f,
   @location(2) transform: vec4f,
   @location(3) transform2: vec2f,
-  @location(4) circle: vec3f,
+  @location(4) circle: vec4f,
 };
 
 struct VertexOutput {
   @builtin(position) position: vec4f,
   @location(0) color: vec4f,
   @location(1) local: vec2f,
-  @location(2) circle: vec3f,
+  @location(2) circle: vec4f,
 };
 
 @vertex
@@ -154,10 +157,12 @@ export const CIRCLE_FRAGMENT_WGSL = /* wgsl */ `
 fn fs_main(
   @location(0) color: vec4f,
   @location(1) local: vec2f,
-  @location(2) circle: vec3f,
+  @location(2) circle: vec4f,
 ) -> @location(0) vec4f {
-  // Local-space coverage: exact for every affine item transform.
-  if (distance(local, circle.xy) > circle.z) {
+  // Local-space normalized coverage: exact for every affine item transform
+  // and for both radii (a circle is the rx == ry case).
+  let d = (local - circle.xy) / circle.zw;
+  if (dot(d, d) > 1.0) {
     discard;
   }
   return color;

@@ -2,14 +2,15 @@
 import { describe, expect, it } from 'vitest';
 import { maxCircleItemsPerUpload, maxSolidItemsPerUpload, WebGPUBackend } from './backend';
 
-describe('WebGPUBackend circle upload admission', () => {
+describe('WebGPUBackend oval upload admission', () => {
   it('caps the rounded allocation within the device limit and 4 MiB working budget', () => {
     expect(maxCircleItemsPerUpload(500)).toBe(0);
     expect(maxCircleItemsPerUpload(512)).toBe(1);
     const chunk = maxCircleItemsPerUpload(256 * 1024 * 1024);
     expect(chunk).toBeGreaterThan(1000);
-    expect(chunk * 6 * 15 * 4).toBeLessThanOrEqual(4 * 1024 * 1024);
-    expect((chunk + 1) * 6 * 15 * 4).toBeGreaterThan(4 * 1024 * 1024);
+    // 6 vertices × 16 floats (pos 2, color 4, transform 6, oval 4) × 4 bytes.
+    expect(chunk * 6 * 16 * 4).toBeLessThanOrEqual(4 * 1024 * 1024);
+    expect((chunk + 1) * 6 * 16 * 4).toBeGreaterThan(4 * 1024 * 1024);
   });
 });
 
