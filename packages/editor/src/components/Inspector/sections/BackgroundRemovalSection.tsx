@@ -535,6 +535,37 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
     [announce, setPromptedProviderPreference],
   );
 
+  const applyObjectSelectionAsLayer = useCallback(() => {
+    if (!node || !objectSelection) return;
+    if (objectSelectionNeedsRefinement) {
+      announce(
+        'The highlighted selection reaches an unsupported image edge. Add an include point on that extent or draw a box around the full target before extracting it.',
+      );
+      return;
+    }
+    if (!objectSelectionReviewed) {
+      announce('Review the highlighted Object Selection target before extracting it.');
+      return;
+    }
+    void applySam2Segmentation({
+      nodeId: node.id,
+      prompts: {
+        points: objectSelection.points,
+        box: objectSelection.box ?? undefined,
+      },
+      sourcePrompts: objectSelection.sourcePrompts,
+      operation: 'layer',
+      candidateIndex: objectSelection.selectedCandidate,
+    });
+  }, [
+    announce,
+    applySam2Segmentation,
+    node,
+    objectSelection,
+    objectSelectionNeedsRefinement,
+    objectSelectionReviewed,
+  ]);
+
   const applyObjectSelectionMask = useCallback(() => {
     if (!node || !objectSelection) return;
     if (objectSelectionNeedsRefinement) {
@@ -1251,6 +1282,19 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
                     }
                   >
                     Use as selection
+                  </button>
+                  <button
+                    type="button"
+                    className="insp-btn-sm"
+                    onClick={applyObjectSelectionAsLayer}
+                    disabled={
+                      objectSelection.status !== 'ready' ||
+                      objectSelection.candidates.length === 0 ||
+                      objectSelectionNeedsRefinement ||
+                      !objectSelectionReviewed
+                    }
+                  >
+                    Extract to layer
                   </button>
                   {objectSelection.status === 'error' && (
                     <button type="button" className="insp-btn-sm" onClick={retryObjectSelection}>

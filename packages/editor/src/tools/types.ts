@@ -449,7 +449,7 @@ export interface ToolContext {
     };
     sourcePrompts?: ObjectSelectionSourcePrompts;
     signal?: AbortSignal;
-    operation: 'preview' | 'mask' | 'selection';
+    operation: 'preview' | 'mask' | 'selection' | 'layer';
     candidateIndex?: number;
     /** How a `mask` commit combines with the mask already on the node. */
     combination?: AlphaMaskCombineMode;

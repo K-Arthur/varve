@@ -38,6 +38,7 @@ import {
 import { type Document, getOwnRasterMaskAsset, imageShapeSrc, type NodeId } from '@varve/scene';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { commitRasterMask } from '../backgroundRemoval/commitRasterMask';
+import { extractSubjectToLayer } from '../backgroundRemoval/extractSubjectLayer';
 import type { CanvasAnnouncer } from '../canvas/CanvasAnnouncer';
 import { setCollapsed } from '../components/Inspector/sectionState';
 import { prepareImageMaskMapper } from '../tools/imageMaskCoordinates';
@@ -244,7 +245,7 @@ export interface Sam2SegmentationAPI {
     /** Optional exact source-space prompts supplied by an automated detector. */
     sourcePrompts?: Sam2SourcePrompts;
     signal?: AbortSignal;
-    operation: 'preview' | 'mask' | 'selection';
+    operation: 'preview' | 'mask' | 'selection' | 'layer';
     candidateIndex?: number;
     /** How a `mask` commit combines with the mask already on the node. */
     combination?: AlphaMaskCombineMode;
@@ -452,7 +453,7 @@ export function useSam2Segmentation(
       };
       sourcePrompts?: Sam2SourcePrompts;
       signal?: AbortSignal;
-      operation: 'preview' | 'mask' | 'selection';
+      operation: 'preview' | 'mask' | 'selection' | 'layer';
       candidateIndex?: number;
       combination?: AlphaMaskCombineMode;
     }): Promise<{ mask: Uint8Array; width: number; height: number; confidence: number } | null> => {
@@ -526,7 +527,18 @@ export function useSam2Segmentation(
       // Applying a visible candidate must be a commit, not a second model
       // run. This makes Apply/Enter and Use as selection deterministic and
       // keeps the exact mask the user inspected as the committed output.
-      const isCommitOperation = operation === 'mask' || operation === 'selection';
+      const isCommitOperation =
+        operation === 'mask' || operation === 'selection' || operation === 'layer';
+      // Extraction commits a reviewed candidate onto a copy of the image.
+      // Without a ready preview there is nothing reviewed to extract; run the
+      // prompts as a preview first instead of inferring and committing
+      // something the user never inspected.
+      if (operation === 'layer' && !(sameSessionTarget && previousSession?.status === 'ready')) {
+        announcerRef.current?.announce(
+          'Create an Object Selection preview and review it, then extract the subject to a new layer.',
+        );
+        return null;
+      }
       if (isCommitOperation && sameSessionTarget && previousSession?.status === 'ready') {
         // A ready session is a visible, user-reviewable candidate set. Never
         // fall through to a fresh inference for an Apply/Use action: doing so
@@ -837,7 +849,7 @@ export function useSam2Segmentation(
         // bumped below: a refused combination must land on this session as a
         // retryable error rather than vanishing as a silent no-op.
         const maskPayload =
-          operation === 'mask'
+          operation === 'mask' || operation === 'layer'
             ? await buildMaskPayload(
                 currentDoc,
                 nodeId,
@@ -903,21 +915,59 @@ export function useSam2Segmentation(
           );
           return null;
         }
+        const commitFields = {
+          dataUrl: maskPayload.dataUrl,
+          width: previousSession.width,
+          height: previousSession.height,
+          method: 'ai-quality' as const,
+          modelId: previousSession.modelId || 'sam2-hiera-tiny',
+          score: candidateToCommit.confidence,
+          scoreSource: candidateToCommit.scoreSource ?? previousSession.confidenceSource,
+          generatedAt: Date.now(),
+          sourceLocator: src,
+        };
+        if (operation === 'layer') {
+          // Extraction: the source keeps every pixel it had; a copy inserted
+          // directly above it receives the reviewed mask. One updateDoc, one
+          // undo entry, and the copy becomes the selection so the extracted
+          // subject can be moved immediately.
+          let extractedNodeId: NodeId | null = null;
+          updateDoc((doc) => {
+            const liveNode = doc.nodes[nodeId];
+            if (doc.id !== currentDoc.id || liveNode !== node) return doc;
+            const result = extractSubjectToLayer(doc, nodeId, commitFields);
+            if (!result) return doc;
+            extractedNodeId = result.newNodeId;
+            return result.doc;
+          });
+          if (extractedNodeId) {
+            const extractedId: NodeId = extractedNodeId;
+            writeTransientSession(null, {
+              selection: [extractedId],
+              maskPreviewMode: 'none',
+              sectionVisibility: setCollapsed(
+                stateRef.current.sectionVisibility,
+                'background-removal',
+                false,
+              ),
+            });
+            announcerRef.current?.announce(
+              `Subject extracted to a new layer (${formatSelectionScore(candidateToCommit.confidence, candidateToCommit.scoreSource ?? previousSession.confidenceSource)})`,
+            );
+            return {
+              mask: candidateToCommit.mask,
+              width: previousSession.width,
+              height: previousSession.height,
+              confidence: candidateToCommit.confidence,
+            };
+          }
+          return null;
+        }
         let committed = false;
         updateDoc((doc) => {
           const liveNode = doc.nodes[nodeId];
           if (doc.id !== currentDoc.id || liveNode !== node) return doc;
-          const updated = commitRasterMask(doc, nodeId, {
-            dataUrl: maskPayload.dataUrl,
-            width: previousSession.width,
-            height: previousSession.height,
-            method: 'ai-quality',
-            modelId: previousSession.modelId || 'sam2-hiera-tiny',
-            score: candidateToCommit.confidence,
-            scoreSource: candidateToCommit.scoreSource ?? previousSession.confidenceSource,
-            generatedAt: Date.now(),
-            sourceLocator: src,
-          });
+          const updated = commitRasterMask(doc, nodeId, commitFields);
           committed = updated !== doc;
           return updated;
         });

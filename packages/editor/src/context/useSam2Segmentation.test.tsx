@@ -855,4 +855,34 @@ describe('Apply as mask combination', () => {
     });
     expect(stateRef.current.objectSelectionSession?.previewMode).toBe('none');
   });
+
+  it('extracts the reviewed candidate to a masked copy and selects it', async () => {
+    // size 1 matches the mocked 1x1 PNG payload the mask commit validates.
+    const { doc, session } = await sessionFor({ size: 1 });
+    const { result, stateRef } = setup(session, doc);
+    const source = stateRef.current.document.nodes.image!;
+
+    let output: { confidence: number } | null = null;
+    await act(async () => {
+      output = await result.current.applySam2Segmentation({
+        nodeId: 'image',
+        prompts: { points: session.points },
+        operation: 'layer',
+      });
+    });
+
+    expect(output).not.toBeNull();
+    expect(controls.infer).not.toHaveBeenCalled();
+    const nextDoc = stateRef.current.document;
+    // The source object is untouched; the copy carries the mask.
+    expect(nextDoc.nodes.image).toBe(source);
+    expect(nextDoc.nodes.image!.mask?.rasterMask).toBeUndefined();
+    const newIds = Object.keys(nextDoc.nodes).filter((id) => id !== 'image');
+    expect(newIds).toHaveLength(1);
+    const copy = nextDoc.nodes[newIds[0]!]!;
+    expect(copy.mask?.rasterMask).toBeDefined();
+    // The copy becomes the selection and the transient session ends.
+    expect(stateRef.current.selection).toEqual(newIds);
+    expect(stateRef.current.objectSelectionSession).toBeNull();
+  });
 });
