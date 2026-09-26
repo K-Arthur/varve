@@ -621,6 +621,61 @@ describe('trimToSubject — explicit sources', () => {
     ).rejects.toThrow(/fully transparent/i);
   });
 
+  it('maps Alpha trim through crop, rotation, and flips like the mask route', async () => {
+    let doc = createDocument('t', true);
+    const img = makeImageShapeNode('i1', {
+      src: 'data:image/png;base64,abc',
+      w: 200,
+      h: 100,
+      imageWidth: 400,
+      imageHeight: 300,
+    });
+    const fill = img.fills?.[0];
+    if (!fill?.image) throw new Error('expected image fill');
+    const transformed = {
+      ...img,
+      fills: [
+        {
+          ...fill,
+          image: {
+            ...fill.image,
+            fit: 'fill' as const,
+            crop: { x: 100, y: 50, w: 200, h: 200 },
+            rotation: 90,
+            flipH: true,
+            flipV: true,
+          },
+        },
+      ],
+    };
+    doc = { ...doc, nodes: { ...doc.nodes, i1: transformed }, rootChildren: ['i1'] };
+
+    // The identical source rectangle the raster-mask route asserts in
+    // imageBounds.test.ts ("maps raster alpha through crop, rotation, and
+    // flips"): both routes must land on the same node-local box, because both
+    // go through the canonical image placement rather than source-pixel
+    // arithmetic.
+    const next = await trimToSubject(doc, 'i1', 0, {
+      source: 'alpha',
+      sourceImageData: alphaImageData(400, 300, { x: 150, y: 100, w: 100, h: 100 }),
+    });
+
+    const crop = next.nodes.i1;
+    if (crop?.kind !== 'shape' || crop.shape.kind !== 'rect') throw new Error('expected rect');
+    const viewport = crop.fills?.[0]?.image?.crop;
+    expect(viewport).toBeDefined();
+    // The trim box is computed in node-local space — the mask route resolves
+    // this same rectangle to {75, 25, 50, 50} — and commitImageCropExtended
+    // stores it back in source pixels via nodeLocalToSourceCrop. A correct
+    // round trip therefore lands on the scanned source rectangle exactly,
+    // which is what a naive source-pixel calculation would get right only by
+    // accident when rotation and flips are involved.
+    expect(viewport!.x).toBeCloseTo(150);
+    expect(viewport!.y).toBeCloseTo(100);
+    expect(viewport!.w).toBeCloseTo(100);
+    expect(viewport!.h).toBeCloseTo(100);
+  });
+
   it('Combined source intersects mask bounds with source transparency', async () => {
     let doc = createDocument('t', true);
     const img = makeImageShapeNode('i1', {
