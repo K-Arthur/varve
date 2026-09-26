@@ -219,11 +219,27 @@ export function worldToScreen(
   viewport: Viewport = { width: 1920, height: 1080 },
   origin: Point = [0, 0],
 ): Point {
+  return worldToScreenProjector(cam, viewport, origin)(wx, wy);
+}
+
+/**
+ * `worldToScreen` with the camera affine built once for many points. Callers
+ * projecting rectangle corners per node per frame (viewport culling, label
+ * placement) otherwise rebuilt the same affine four times per rectangle.
+ * Results are identical to calling `worldToScreen` for each point.
+ */
+export function worldToScreenProjector(
+  cam: Camera,
+  viewport: Viewport = { width: 1920, height: 1080 },
+  origin: Point = [0, 0],
+): (wx: number, wy: number) => Point {
   const vp = isFiniteViewport(viewport) ? viewport : DEFAULT_VIEWPORT;
   const m = buildWorldToScreenAffine(cam, vp, origin);
-  const point: Point = [Number.isFinite(wx) ? wx : 0, Number.isFinite(wy) ? wy : 0];
-  const result = applyAffine(m, point);
-  return isFinitePoint(result) ? result : [0, 0];
+  return (wx, wy) => {
+    const point: Point = [Number.isFinite(wx) ? wx : 0, Number.isFinite(wy) ? wy : 0];
+    const result = applyAffine(m, point);
+    return isFinitePoint(result) ? result : [0, 0];
+  };
 }
 
 /** Convert a CSS-pixel delta to a world-space delta. */
@@ -319,27 +335,41 @@ export function isRectInView(cam: Camera, viewport: Viewport, worldRect: Rect): 
 }
 
 export function isWorldRectInViewport(cam: Camera, viewport: Viewport, worldRect: Rect): boolean {
-  const origin = computeFloatingOrigin(cam, viewport);
-  const corners: Point[] = [
-    [worldRect.x, worldRect.y],
-    [worldRect.x + worldRect.w, worldRect.y],
-    [worldRect.x, worldRect.y + worldRect.h],
-    [worldRect.x + worldRect.w, worldRect.y + worldRect.h],
-  ];
-  let minSx = Infinity;
-  let minSy = Infinity;
-  let maxSx = -Infinity;
-  let maxSy = -Infinity;
-  for (const c of corners) {
-    const [sx, sy] = worldToScreen(cam, c[0], c[1], viewport, origin);
-    minSx = Math.min(minSx, sx);
-    minSy = Math.min(minSy, sy);
-    maxSx = Math.max(maxSx, sx);
-    maxSy = Math.max(maxSy, sy);
-  }
-  if (maxSx < 0 || maxSy < 0) return false;
-  if (minSx > viewport.width || minSy > viewport.height) return false;
-  return true;
+  return createWorldRectViewportTest(cam, viewport)(worldRect);
+}
+
+/**
+ * `isWorldRectInViewport` for one camera and many rectangles: the camera
+ * affine is built once, not once per corner of every rectangle. Renderers
+ * cull every scene node per frame with this.
+ */
+export function createWorldRectViewportTest(
+  cam: Camera,
+  viewport: Viewport,
+): (worldRect: Rect) => boolean {
+  const project = worldToScreenProjector(cam, viewport, computeFloatingOrigin(cam, viewport));
+  return (worldRect) => {
+    const corners: Point[] = [
+      [worldRect.x, worldRect.y],
+      [worldRect.x + worldRect.w, worldRect.y],
+      [worldRect.x, worldRect.y + worldRect.h],
+      [worldRect.x + worldRect.w, worldRect.y + worldRect.h],
+    ];
+    let minSx = Infinity;
+    let minSy = Infinity;
+    let maxSx = -Infinity;
+    let maxSy = -Infinity;
+    for (const c of corners) {
+      const [sx, sy] = project(c[0], c[1]);
+      minSx = Math.min(minSx, sx);
+      minSy = Math.min(minSy, sy);
+      maxSx = Math.max(maxSx, sx);
+      maxSy = Math.max(maxSy, sy);
+    }
+    if (maxSx < 0 || maxSy < 0) return false;
+    if (minSx > viewport.width || minSy > viewport.height) return false;
+    return true;
+  };
 }
 
 export function fitZoom(

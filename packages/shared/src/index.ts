@@ -699,6 +699,7 @@ export {
   clampZoom,
   clientToCanvas,
   computeFloatingOrigin,
+  createWorldRectViewportTest,
   DEFAULT_REVEAL_MAX_ZOOM,
   DEFAULT_REVEAL_PADDING,
   FLOATING_ORIGIN_GRID,
@@ -724,6 +725,7 @@ export {
   stepZoom,
   worldToScreen,
   worldToScreenAffine,
+  worldToScreenProjector,
   ZOOM_STEP_FACTOR,
   zoomAboutPoint,
 } from './viewport';
