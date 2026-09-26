@@ -18,6 +18,7 @@
 
 import {
   applyAffine,
+  getFontRegistry,
   hasLiveWarps,
   invertAffine,
   rectContains,
@@ -74,6 +75,8 @@ const CELL_SIZE = 64;
  */
 interface DocumentHitStructures {
   readonly doc: Document;
+  /** Text bounds depend on loaded font metrics, not only on the document. */
+  readonly fontRevision: string;
   spatialIndex: SpatialIndex | null;
   parentIndex: Map<NodeId, NodeId> | null;
   readonly occurrences: Map<string, ScopeOccurrences>;
@@ -88,7 +91,12 @@ const RECENT_DOCUMENT_CAPACITY = 2;
 const recentDocuments: DocumentHitStructures[] = [];
 
 function documentHitStructures(doc: Document): DocumentHitStructures {
-  const index = recentDocuments.findIndex((entry) => entry.doc === doc);
+  // A font load changes text bounds without changing the document, so the
+  // spatial index built with fallback metrics must not outlive it.
+  const fontRevision = getFontRegistry().revision;
+  const index = recentDocuments.findIndex(
+    (entry) => entry.doc === doc && entry.fontRevision === fontRevision,
+  );
   if (index === 0) return recentDocuments[0]!;
   if (index > 0) {
     const [entry] = recentDocuments.splice(index, 1);
@@ -97,6 +105,7 @@ function documentHitStructures(doc: Document): DocumentHitStructures {
   }
   const created: DocumentHitStructures = {
     doc,
+    fontRevision,
     spatialIndex: null,
     parentIndex: null,
     occurrences: new Map(),

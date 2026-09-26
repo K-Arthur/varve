@@ -3,6 +3,8 @@
  * surface. Membership comes from the same occurrence projection as the
  * renderer; this component never traverses document roots on its own.
  */
+
+import { getFontRegistry } from '@varve/engine';
 import {
   assertOccurrencesInScope,
   type Document,
@@ -88,9 +90,12 @@ export function CanvasNameLabels({
   // World-space candidates do not depend on the camera. Keeping them out of
   // the projection memo means a pan or zoom frame re-projects and re-picks
   // only, instead of recomputing every occurrence's world bounds.
+  // Text bounds follow loaded font metrics; the revision refreshes candidates
+  // on the next render after a font load, as camera changes used to.
+  const fontRevision = getFontRegistry().revision;
   const candidates = useMemo(
     () => collectCandidates(doc, scope, selection, hoveredNodeId, editingNodeId),
-    [doc, editingNodeId, hoveredNodeId, scope, selection],
+    [doc, editingNodeId, hoveredNodeId, scope, selection, fontRevision],
   );
   const labels = useMemo(() => {
     const camera = toCamera({ zoom, pan, cameraRotation });
