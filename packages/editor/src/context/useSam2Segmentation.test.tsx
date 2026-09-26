@@ -1,5 +1,11 @@
 import { act, renderHook } from '@testing-library/react';
-import { addNode, createDocument, type Document, makeImageShapeNode } from '@varve/scene';
+import {
+  addNode,
+  addRasterMaskAsset,
+  createDocument,
+  type Document,
+  makeImageShapeNode,
+} from '@varve/scene';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { prepareImageMaskMapper } from '../tools/imageMaskCoordinates';
 import { fingerprintImageData } from './imageFingerprint';
@@ -8,13 +14,25 @@ import {
   objectSelectionCandidateReviewKey,
 } from './objectSelectionTypes';
 import type { EditorState, ObjectSelectionSession } from './types';
-import { mapPromptedRoutingFailure, useSam2Segmentation } from './useSam2Segmentation';
+import {
+  buildMaskPayload,
+  mapPromptedRoutingFailure,
+  useSam2Segmentation,
+} from './useSam2Segmentation';
 
 const controls = vi.hoisted(() => ({
   infer: vi.fn(),
   getModelPath: vi.fn(),
   load: vi.fn(),
   evict: vi.fn(),
+  decodeMask: vi.fn(),
+}));
+
+vi.mock('../tools/selectionMask', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../tools/selectionMask')>()),
+  // jsdom cannot decode a PNG, so the existing-mask read is controlled here;
+  // the combination arithmetic itself is exercised by maskAlgebra.test.ts.
+  decodeRasterMaskDataUrl: controls.decodeMask,
 }));
 
 vi.mock('@varve/engine', async (importOriginal) => ({
@@ -583,5 +601,188 @@ describe('useSam2Segmentation reviewed-candidate commit', () => {
     expect(setAreaSelection).not.toHaveBeenCalled();
     expect(stateRef.current.objectSelectionSession?.status).toBe('error');
     expect(stateRef.current.objectSelectionSession?.error?.code).toBe('prompt_not_honored');
+  });
+});
+
+describe('Apply as mask combination', () => {
+  const PNG_PAYLOAD = MASK_DATA_URL.slice('data:image/png;base64,'.length);
+  const PNG_BYTE_LENGTH =
+    Math.floor((PNG_PAYLOAD.length * 3) / 4) -
+    (PNG_PAYLOAD.endsWith('==') ? 2 : PNG_PAYLOAD.endsWith('=') ? 1 : 0);
+
+  // The fixture PNG is 1x1 and the validator checks declared dimensions
+  // against its IHDR, so the mask node is 1x1 by necessity.
+  function docWithMask(): Document {
+    let doc = createDocument('Masked', true);
+    doc = addNode(
+      doc,
+      makeImageShapeNode('image', {
+        src: 'source',
+        w: 1,
+        h: 1,
+        imageWidth: 1,
+        imageHeight: 1,
+      }),
+    );
+    return addRasterMaskAsset(doc, 'image', {
+      id: 'mask-existing',
+      mimeType: 'image/png',
+      dataUrl: MASK_DATA_URL,
+      width: 1,
+      height: 1,
+      byteLength: PNG_BYTE_LENGTH,
+    });
+  }
+
+  function docWithoutMask(): Document {
+    return addNode(
+      createDocument('Bare', true),
+      makeImageShapeNode('image', {
+        src: 'source',
+        w: 1,
+        h: 1,
+        imageWidth: 1,
+        imageHeight: 1,
+      }),
+    );
+  }
+
+  beforeEach(() => {
+    controls.decodeMask.mockReset();
+    // Mirror the commit suite's canvas stub: the hook re-reads the source
+    // before committing, and that read has to see the same pixels the
+    // session fingerprint was built from.
+    controls.load.mockReset().mockResolvedValue({ width: 8, height: 8 });
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
+      drawImage: vi.fn(),
+      getImageData: (_x: number, _y: number, w: number, h: number) => opaqueImageData(w, h),
+      createImageData: (w: number, h: number) => new ImageData(w, h),
+      putImageData: vi.fn(),
+    } as unknown as ReturnType<HTMLCanvasElement['getContext']>);
+    vi.spyOn(HTMLCanvasElement.prototype, 'toDataURL').mockReturnValue(MASK_DATA_URL);
+  });
+
+  it('replace commits the candidate without reading the existing mask', async () => {
+    const candidate = new Uint8Array([0]);
+    const payload = await buildMaskPayload(docWithMask(), 'image', candidate, 1, 1, 'replace');
+
+    expect(payload.ok).toBe(true);
+    expect(controls.decodeMask).not.toHaveBeenCalled();
+    if (payload.ok) expect([...payload.mask]).toEqual([0]);
+  });
+
+  it('combines against the existing mask coverage when asked', async () => {
+    // Existing coverage lives in alpha (white RGB is only the carrier).
+    controls.decodeMask.mockResolvedValue({
+      data: new Uint8ClampedArray([255, 255, 255, 200]),
+      width: 1,
+      height: 1,
+    });
+
+    const payload = await buildMaskPayload(
+      docWithMask(),
+      'image',
+      new Uint8Array([128]),
+      1,
+      1,
+      'subtract',
+    );
+
+    expect(payload.ok).toBe(true);
+    if (!payload.ok) return;
+    // subtract = round(existing * (255 - incoming) / 255) = round(200*127/255)
+    expect([...payload.mask]).toEqual([100]);
+    expect(controls.decodeMask).toHaveBeenCalledTimes(1);
+  });
+
+  it('adds with the existing mask coverage without exceeding it', async () => {
+    controls.decodeMask.mockResolvedValue({
+      data: new Uint8ClampedArray([255, 255, 255, 64]),
+      width: 1,
+      height: 1,
+    });
+
+    const payload = await buildMaskPayload(
+      docWithMask(),
+      'image',
+      new Uint8Array([160]),
+      1,
+      1,
+      'add',
+    );
+
+    expect(payload.ok).toBe(true);
+    if (!payload.ok) return;
+    expect([...payload.mask]).toEqual([160]);
+  });
+
+  it('refuses to combine when the node has no mask instead of substituting one', async () => {
+    const payload = await buildMaskPayload(
+      docWithoutMask(),
+      'image',
+      new Uint8Array(1),
+      1,
+      1,
+      'add',
+    );
+    expect(payload).toMatchObject({ ok: false, code: 'combination_requires_mask' });
+    expect(controls.decodeMask).not.toHaveBeenCalled();
+  });
+
+  it('refuses a combination whose masks disagree on dimensions', async () => {
+    controls.decodeMask.mockResolvedValue({
+      data: new Uint8ClampedArray(2 * 2 * 4),
+      width: 2,
+      height: 2,
+    });
+    const payload = await buildMaskPayload(docWithMask(), 'image', new Uint8Array(1), 1, 1, 'add');
+    expect(payload).toMatchObject({ ok: false, code: 'mask_size_mismatch' });
+  });
+
+  it('refuses a combination when the existing mask cannot be decoded', async () => {
+    controls.decodeMask.mockResolvedValue(null);
+    const payload = await buildMaskPayload(docWithMask(), 'image', new Uint8Array(1), 1, 1, 'add');
+    expect(payload).toMatchObject({ ok: false, code: 'mask_decode_failed' });
+  });
+
+  it('reports an empty combination instead of committing a blank mask', async () => {
+    controls.decodeMask.mockResolvedValue({
+      data: new Uint8ClampedArray([255, 255, 255, 128]),
+      width: 1,
+      height: 1,
+    });
+    // Subtracting a fully-covering candidate from partial coverage leaves
+    // nothing visible; committing that would silently blank the mask.
+    const payload = await buildMaskPayload(
+      docWithMask(),
+      'image',
+      new Uint8Array([255]),
+      1,
+      1,
+      'subtract',
+    );
+    expect(payload).toMatchObject({ ok: false, code: 'empty_result' });
+  });
+
+  it('fails closed through the hook when a combination has no mask to combine with', async () => {
+    const { doc, session } = await sessionFor({ size: 1 });
+    const { result, stateRef, announce } = setup(session, doc);
+
+    await act(async () => {
+      await result.current.applySam2Segmentation({
+        nodeId: 'image',
+        prompts: { points: session.points },
+        operation: 'mask',
+        combination: 'subtract',
+      });
+    });
+
+    expect(controls.infer).not.toHaveBeenCalled();
+    // No document mutation, and the reviewed candidate survives for a retry.
+    expect(stateRef.current.document.nodes.image!.mask?.rasterMask).toBeUndefined();
+    expect(stateRef.current.objectSelectionSession?.status).toBe('error');
+    expect(stateRef.current.objectSelectionSession?.error?.code).toBe('combination_requires_mask');
+    expect(stateRef.current.objectSelectionSession?.candidates).toHaveLength(1);
+    expect(announce).toHaveBeenCalledWith(expect.stringMatching(/needs an existing mask/i));
   });
 });

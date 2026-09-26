@@ -1,5 +1,6 @@
 import type {
   Adjustment,
+  AlphaMaskCombineMode,
   AreaSelection,
   AreaSelectionSettings,
   BlendMode,
@@ -1382,6 +1383,8 @@ export interface EditorContextValue {
     signal?: AbortSignal;
     operation: 'preview' | 'mask' | 'selection';
     candidateIndex?: number;
+    /** How a `mask` commit combines with the mask already on the node. */
+    combination?: AlphaMaskCombineMode;
   }) => Promise<{ mask: Uint8Array; width: number; height: number; confidence: number } | null>;
   cancelSam2Segmentation: () => void;
   selectSam2Candidate: (index: number) => void;

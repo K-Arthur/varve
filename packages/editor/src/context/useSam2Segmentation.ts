@@ -6,8 +6,10 @@ import type {
   Sam2Letterbox,
 } from '@varve/engine';
 import {
+  type AlphaMaskCombineMode,
   assessImageInferenceResources,
   cachedImageDims,
+  combineAlphaMasks,
   EFFICIENT_SAM_CAPABILITIES,
   EFFICIENT_SAM_DECODER_ID,
   EFFICIENT_SAM_ENCODER_ID,
@@ -33,7 +35,7 @@ import {
   SAM2_PROVIDER_ID,
   SAM2_QUALITY_VALIDATION,
 } from '@varve/engine';
-import { type Document, imageShapeSrc, type NodeId } from '@varve/scene';
+import { type Document, getOwnRasterMaskAsset, imageShapeSrc, type NodeId } from '@varve/scene';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { commitRasterMask } from '../backgroundRemoval/commitRasterMask';
 import type { CanvasAnnouncer } from '../canvas/CanvasAnnouncer';
@@ -45,7 +47,7 @@ import {
   normalizeSourceSam2Prompts,
   type Sam2SourcePrompts,
 } from '../tools/sam2PromptCoordinates';
-import { areaSelectionFromMaskCoverage } from '../tools/selectionMask';
+import { areaSelectionFromMaskCoverage, decodeRasterMaskDataUrl } from '../tools/selectionMask';
 import { fingerprintImageData } from './imageFingerprint';
 import {
   type ObjectSelectionSession,
@@ -243,6 +245,8 @@ export interface Sam2SegmentationAPI {
     signal?: AbortSignal;
     operation: 'preview' | 'mask' | 'selection';
     candidateIndex?: number;
+    /** How a `mask` commit combines with the mask already on the node. */
+    combination?: AlphaMaskCombineMode;
   }) => Promise<{ mask: Uint8Array; width: number; height: number; confidence: number } | null>;
   cancelSam2Segmentation: () => void;
   selectSam2Candidate: (index: number) => void;
@@ -423,6 +427,7 @@ export function useSam2Segmentation(
       signal: externalSignal,
       operation,
       candidateIndex,
+      combination = 'replace',
     }: {
       nodeId: NodeId;
       prompts: {
@@ -433,6 +438,7 @@ export function useSam2Segmentation(
       signal?: AbortSignal;
       operation: 'preview' | 'mask' | 'selection';
       candidateIndex?: number;
+      combination?: AlphaMaskCombineMode;
     }): Promise<{ mask: Uint8Array; width: number; height: number; confidence: number } | null> => {
       if (!enabled) {
         announcerRef.current?.announce('Subject selection is available in the main editor window.');
@@ -785,6 +791,33 @@ export function useSam2Segmentation(
           normalizedReviewedCandidate.mask === candidate.mask
             ? candidate
             : { ...candidate, mask: normalizedReviewedCandidate.mask };
+        // Resolve the committed mask payload *before* the request generation is
+        // bumped below: a refused combination must land on this session as a
+        // retryable error rather than vanishing as a silent no-op.
+        const maskPayload =
+          operation === 'mask'
+            ? await buildMaskPayload(
+                currentDoc,
+                nodeId,
+                candidateToCommit.mask,
+                previousSession.width,
+                previousSession.height,
+                combination,
+              )
+            : null;
+        if (maskPayload && !maskPayload.ok) {
+          const live = stateRef.current.objectSelectionSession;
+          if (generation === generationRef.current && live?.nodeId === nodeId) {
+            writeTransientSession({
+              ...live,
+              status: 'error',
+              error: { code: maskPayload.code, message: maskPayload.message, retryable: true },
+            });
+          }
+          announcerRef.current?.announce(maskPayload.message);
+          return null;
+        }
+
         abortRef.current?.abort();
         abortRef.current = null;
         generationRef.current += 1;
@@ -821,11 +854,7 @@ export function useSam2Segmentation(
           };
         }
 
-        const maskDataUrl = await maskToDataUrl(
-          candidateToCommit.mask,
-          previousSession.width,
-          previousSession.height,
-        );
+        if (!maskPayload) return null;
         if (!isCurrentSelectionTarget(stateRef, currentDoc.id, nodeId, node)) {
           announcerRef.current?.announce(
             'The selected image changed after the preview. Create a new preview before applying it.',
@@ -837,7 +866,7 @@ export function useSam2Segmentation(
           const liveNode = doc.nodes[nodeId];
           if (doc.id !== currentDoc.id || liveNode !== node) return doc;
           const updated = commitRasterMask(doc, nodeId, {
-            dataUrl: maskDataUrl,
+            dataUrl: maskPayload.dataUrl,
             width: previousSession.width,
             height: previousSession.height,
             method: 'ai-quality',
@@ -1589,6 +1618,18 @@ export function useSam2Segmentation(
               });
               return null;
             }
+            const payload = await buildMaskPayload(
+              stateRef.current.document,
+              nodeId,
+              bestMask.mask,
+              naturalW,
+              naturalH,
+              combination,
+            );
+            if (!payload.ok) {
+              markFailure({ code: payload.code, message: payload.message, retryable: true });
+              return null;
+            }
             const liveBeforeCommit = stateRef.current.document.nodes[nodeId];
             if (
               stateRef.current.document.id !== currentDoc.id ||
@@ -1612,13 +1653,12 @@ export function useSam2Segmentation(
               });
               return null;
             }
-            const maskDataUrl = await maskToDataUrl(bestMask.mask, naturalW, naturalH);
             let committed = false;
             updateDoc((doc) => {
               const liveNode = doc.nodes[nodeId];
               if (doc.id !== currentDoc.id || liveNode !== node) return doc;
               const updated = commitRasterMask(doc, nodeId, {
-                dataUrl: maskDataUrl,
+                dataUrl: payload.dataUrl,
                 width: naturalW,
                 height: naturalH,
                 method: 'ai-quality',
@@ -1934,6 +1974,94 @@ function cloneSourcePrompts(prompts: Sam2SourcePrompts): ObjectSelectionSourcePr
   return {
     ...(prompts.points ? { points: prompts.points.map((point) => ({ ...point })) } : {}),
     ...(prompts.box ? { box: { ...prompts.box } } : {}),
+  };
+}
+
+/** Bound a mask-asset decode so Apply can never park on a corrupt PNG. */
+const MASK_DECODE_TIMEOUT_MS = 10_000;
+
+type MaskPayloadResult =
+  | { ok: true; dataUrl: string; mask: Uint8Array }
+  | { ok: false; code: string; message: string };
+
+/**
+ * Resolve the exact RGBA payload that Apply as mask will commit.
+ *
+ * Exported for direct tests: the combination arithmetic is already covered by
+ * `maskAlgebra.test.ts`; what needs its own coverage is the decision to combine
+ * at all — and to refuse — before the document is touched.
+ *
+ * `replace` is the historical behaviour and needs no existing mask. The other
+ * combination modes are meaningful only against the mask already on the node:
+ * applying them must never silently discard a mask the user painted or
+ * refined, and an impossible combination must fail closed *before* the
+ * document is touched rather than committing a surprising result.
+ */
+export async function buildMaskPayload(
+  doc: Document,
+  nodeId: NodeId,
+  candidate: Uint8Array,
+  width: number,
+  height: number,
+  combination: AlphaMaskCombineMode,
+): Promise<MaskPayloadResult> {
+  if (combination === 'replace') {
+    return { ok: true, dataUrl: await maskToDataUrl(candidate, width, height), mask: candidate };
+  }
+
+  const node = doc.nodes[nodeId];
+  const assetId = node?.kind === 'shape' ? node.mask?.rasterMask?.assetId : undefined;
+  const asset = assetId ? getOwnRasterMaskAsset(doc, assetId) : undefined;
+  if (!asset) {
+    return {
+      ok: false,
+      code: 'combination_requires_mask',
+      message: `The "${combination}" mask combination needs an existing mask on this image. Keep Replace, or paint a mask first.`,
+    };
+  }
+
+  const decoded = await Promise.race([
+    decodeRasterMaskDataUrl(asset.dataUrl),
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), MASK_DECODE_TIMEOUT_MS)),
+  ]);
+  if (!decoded) {
+    return {
+      ok: false,
+      code: 'mask_decode_failed',
+      message:
+        'The existing mask could not be read, so it was left unchanged. Try Replace instead.',
+    };
+  }
+  if (decoded.width !== width || decoded.height !== height) {
+    return {
+      ok: false,
+      code: 'mask_size_mismatch',
+      message:
+        'The existing mask does not match this image’s pixel dimensions, so it cannot be combined. It was left unchanged.',
+    };
+  }
+
+  const existing = new Uint8Array(width * height);
+  // Mask assets are white RGB with coverage in alpha; alpha is the coverage.
+  for (let index = 0; index < existing.length; index += 1) {
+    existing[index] = decoded.data[index * 4 + 3] ?? 0;
+  }
+  const combined = combineAlphaMasks(
+    { data: existing, width, height },
+    { data: candidate, width, height },
+    combination,
+  );
+  if (countMaskCoverage(combined.data) === 0) {
+    return {
+      ok: false,
+      code: 'empty_result',
+      message: `Combining these masks produced no visible pixels, so nothing was applied. Adjust the prompts or choose Replace.`,
+    };
+  }
+  return {
+    ok: true,
+    dataUrl: await maskToDataUrl(combined.data, width, height),
+    mask: combined.data,
   };
 }
 

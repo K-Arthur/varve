@@ -414,7 +414,15 @@ model is removed because the committed mask is ordinary document data.
 Mask combination is shared through the pure `combineAlphaMasks` service:
 `replace`, `add`, `subtract`, and `intersect`. Downstream effects and
 adjustment masks must consume the document mask rather than inventing a
-selection-specific representation.
+selection-specific representation. The service now has a production caller:
+**Apply as mask** accepts a combination, and the Inspector offers it only when
+the node already carries a mask, so replacing a mask the user painted or
+refined is an explicit choice rather than a silent overwrite. A combination
+that cannot be computed — no existing mask, dimensions that disagree, an
+undecodable asset, or a result with zero coverage — is refused *before* the
+document is touched and reported as a retryable session error; the reviewed
+candidate stays available. `AlphaMaskCombineMode` is the package-root name for
+this union because `depthMap.ts` exports its own `MaskCombineMode`.
 
 The transient session also stores a fingerprint of the exact decoded RGBA
 source pixels. Embedding cache entries are keyed by that fingerprint, and

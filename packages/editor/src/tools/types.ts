@@ -10,7 +10,13 @@
  * F3: GestureResult tells the ToolManager whether to fall through or consume.
  */
 
-import type { AreaSelection, AreaSelectionSettings, Engine, PathPoint } from '@varve/engine';
+import type {
+  AlphaMaskCombineMode,
+  AreaSelection,
+  AreaSelectionSettings,
+  Engine,
+  PathPoint,
+} from '@varve/engine';
 import type { Document, NodeId, SceneNode } from '@varve/scene';
 import type { Affine, Camera } from '@varve/shared';
 import type {
@@ -445,6 +451,8 @@ export interface ToolContext {
     signal?: AbortSignal;
     operation: 'preview' | 'mask' | 'selection';
     candidateIndex?: number;
+    /** How a `mask` commit combines with the mask already on the node. */
+    combination?: AlphaMaskCombineMode;
   }) => Promise<{ mask: Uint8Array; width: number; height: number; confidence: number } | null>;
   cancelSam2Segmentation?: () => void;
   /** Select a returned Object Selection candidate by index (bracket cycling). */

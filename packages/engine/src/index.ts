@@ -1411,6 +1411,14 @@ export {
   evaluateRankingPolicyByCategory,
   rankCandidateIndices,
 } from './segmentation/candidateRanking';
+export {
+  combineAlphaMasks,
+  invertAlphaMask,
+  // depthMap.ts already exports a MaskCombineMode ('union'); the alpha-mask
+  // algebra gets an unambiguous name at the package root so consumers cannot
+  // silently bind to the wrong union.
+  type MaskCombineMode as AlphaMaskCombineMode,
+} from './segmentation/maskAlgebra';
 // Candidate-ranking evidence: mask transport for frozen candidate sets.
 export { decodeMaskRle, encodeMaskRle } from './segmentation/quality/evidenceRecord';
 export * from './semanticSimilarity';

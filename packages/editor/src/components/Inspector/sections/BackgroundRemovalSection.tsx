@@ -8,6 +8,7 @@
  */
 
 import type {
+  AlphaMaskCombineMode,
   AreaSelectionOperation,
   PromptedProviderPreference,
   RemovalMethod,
@@ -341,6 +342,15 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
     useState<Sam2PromptPolarity>('include');
   const [objectSelectionCombination, setObjectSelectionCombination] =
     useState<AreaSelectionOperation>('replace');
+  // Apply as mask combination. Defaults to Replace (the historical behaviour)
+  // and is only offered when the node already carries a mask, so replacing a
+  // mask the user painted or refined is an explicit choice, never a surprise.
+  const [objectSelectionMaskCombination, setObjectSelectionMaskCombination] =
+    useState<AlphaMaskCombineMode>('replace');
+  useEffect(() => {
+    // A combination chosen against one image's mask means nothing on another.
+    setObjectSelectionMaskCombination('replace');
+  }, [node?.id]);
   const [aiAvailable, setAiAvailable] = useState(false);
   const [hasGpuAccel, setHasGpuAccel] = useState(false);
   const [wasmModelSafe, setWasmModelSafe] = useState(true);
@@ -533,12 +543,14 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
       sourcePrompts: objectSelection.sourcePrompts,
       operation: 'mask',
       candidateIndex: objectSelection.selectedCandidate,
+      combination: objectSelectionMaskCombination,
     });
   }, [
     announce,
     applySam2Segmentation,
     node,
     objectSelection,
+    objectSelectionMaskCombination,
     objectSelectionNeedsRefinement,
     objectSelectionReviewed,
   ]);
@@ -961,10 +973,30 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
                 onChange={(value) => setObjectSelectionCombination(value as AreaSelectionOperation)}
               />
             </FieldRow>
+            {rasterMask && (
+              <FieldRow label="Mask combination" wrapLabel>
+                <Select
+                  label="Object Selection mask combination"
+                  value={objectSelectionMaskCombination}
+                  options={[
+                    { value: 'replace', label: 'Replace existing mask' },
+                    { value: 'add', label: 'Add to existing mask' },
+                    { value: 'subtract', label: 'Subtract from existing mask' },
+                    { value: 'intersect', label: 'Intersect with existing mask' },
+                  ]}
+                  onChange={(value) =>
+                    setObjectSelectionMaskCombination(value as AlphaMaskCombineMode)
+                  }
+                />
+              </FieldRow>
+            )}
             <p className="insp-field__hint">
-              Polarity labels a new model prompt. Combination changes only{' '}
-              <strong>Use as selection</strong>; <strong>Apply as mask</strong> always creates the
-              reviewed mask as a document mask.
+              Polarity labels a new model prompt. Selection combination changes only{' '}
+              <strong>Use as selection</strong>. Mask combination applies to{' '}
+              <strong>Apply as mask</strong>
+              {rasterMask
+                ? ' and defaults to Replace, so an existing mask is only overwritten when you choose it.'
+                : ' and appears once this image has a mask to combine with.'}
             </p>
             <FieldRow label="Model preference" wrapLabel>
               <Select
