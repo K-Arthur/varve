@@ -61,11 +61,30 @@ the evidence ledger in `docs/tokens/dtcg-interop-evidence-2026-09-25.md`.
 | `20e511860` | fix(editor): render variable values instead of coercing them | structured values no longer crash the editor |
 | `3f6e375cd` | feat(editor): complete the Token Sync import and export workflow | preview/apply identity, resolver routing, explicit source selection, truthful announcements, DTCG export |
 | `06d9c4f86` | test(e2e): drive the Token Sync import, undo, and export in a real browser | browser-level proof + reviewed screenshots |
+| `78c28571b` | feat(tokens): apply external source updates with a three-way merge | deletion semantics, identity-less path matching, base-value capture, conflict review UI, update E2E |
 
-Still open (documented, not silently dropped): conflict-resolution UI (M12 UI
-half), platform wiring for the watcher/atomic-write engine, Git-backed
-sources (M9), vendor interop adapters beyond the Tokens Studio shape helper
-(M10), and multimodal proposals (M11).
+Still open (documented, not silently dropped): platform wiring for the
+watcher/atomic-write engine, Git-backed sources (M9), vendor interop
+adapters beyond the Tokens Studio shape helper (M10), and multimodal
+proposals (M11). The M12 UI half (conflict resolution) landed in
+`78c28571b`.
+
+### Where the feature is exposed (user-facing surface)
+
+There is one entry point, and both halves of the system live behind it:
+
+| Surface | Location |
+| --- | --- |
+| Menu | **View → Variables and Tokens…** (`Menubar.tsx`, action `openVariablesPanel`) |
+| Command palette | **Open Variables and Tokens** (category `view`, `actions/registerAll.ts`) |
+| Host dialog | `VariablesPanelDialog` (title "Variables and tokens"), mounted from `PropertiesPanel` |
+| Contents | `VariablePanel` (the variable list: Name / Value / Resolved) and `TokenSyncPanel` (the DTCG Token Sync center: sources, import/preview/apply, external updates, export) |
+
+`TokenSyncPanel` is mounted in exactly one place (`VariablesPanelDialog`),
+so the design-token list is only reachable through a dialog labelled
+*Variables*. Users looking for "tokens" or "DTCG" must already know the
+path — recorded here as a discoverability debt, not as a defect in the
+sync engine.
 
 ## 1. Executive summary
 

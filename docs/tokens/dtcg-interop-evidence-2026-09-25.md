@@ -61,6 +61,37 @@ source actually describes, not the label it uses.
   **unverified** — the help article names no export format.
 - Terrazzo was not executed against a 2025.10 corpus in this session.
 
+### Sync, merge, and conversion failure ledger (retrieved 2026-09-25)
+
+Second research round, focused on how other tools *fail* at the
+update/conflict path that this pass implements. These are observed symptoms
+in their stated context, not proof of current product-wide behavior. Dates
+are as shown on the retrieved page; where a page did not display a creation
+date it is marked "not shown".
+
+| Source | Date | Observed behavior / complaint | Relevance to Varve | Proposed acceptance test |
+| --- | --- | --- | --- | --- |
+| Tokens Studio plugin-docs, "Pull from provider" | current docs, retrieved 2026-09-25 | Pulling **replaces** every token already in the plugin and states they "can not be recovered" — no preview of incoming changes, no merge | Documented whole-library overwrite with an unrecoverable warning is the exact failure Varve's preview + three-way merge forbids | Spec: applying an update never removes local edits; only a decision per token removes a value |
+| Tokens Studio #640 (GitHub integration, push overwrites) | date not shown | A second user's push silently overwrites changes already on the remote; maintainer thread asks for pull-and-merge with in-plugin conflict resolution but calls the in-plugin UI "cluttered" | Confirms both the demand for merge and the reason most tools punt it to branches — Varve keeps it in-product but scoped to per-token decisions | Scenario H: local and remote edit the same token; neither side wins without an explicit choice |
+| Tokens Studio #2348 / #2375 (multiplayer) | 2023-10-31 (#2348) | Simultaneous editing in one file overwrites the other editor's tokens; "changes from B are gone"; reported as a "massive pain point" | Same data-loss class, on the document side. Varve's store is single-author but the merge path must never adopt last-writer-wins | Unit: `threeWayMerge` never emits last-writer-wins for differing edits |
+| Tokens Studio #3287 (import creates new sets) | PRs #3295 / #3400 referenced | Renaming a collection/mode made import create a **new** set + theme instead of updating the existing one, forcing users to re-apply tokens | The identity-on-rename failure of scenario E. Varve renames through stable ids and path-matches identity-less remotes instead of creating duplicates | Spec: rename one side + edit the other combines (rename preserved, id preserved) |
+| Tokens Studio #3144 (import diff noise) | 2024-09-18 | Imported changes produced a list containing **unchanged** tokens, and the import did not trigger the expected remote update | A diff that inflates its own change count is not trustworthy; Varve's summary separates added/updated/deleted/unchanged and reports a match as a no-op | Component: unchanged-only preview reports a no-op and disables Apply |
+| Style Dictionary #1398 (dimension corruption) | 2024-11-25 | A spec-conformant `dimension` object value emitted **two** CSS variables (`-value: 1`, `-unit: 0px`) instead of one; users had to drop to a non-spec string to get correct output | Composite-value conversion is where "DTCG support" silently breaks. Varve keeps composites intact and reports conversion loss instead of splitting a value | Round trip: a `dimension` token exports as `{value, unit}`, never as two tokens |
+| Style Dictionary #1563 (reference resolution) | PR #1577, released 5.1.1 | References to tokens whose name started with `value` failed to resolve — the implementation stripped `.value` from the reference string | String surgery on reference paths instead of parsing them. Varve resolves curly aliases and JSON Pointer refs by parsed segments with `~0`/`~1` escapes | Unit: pointer escaping + a token literally named `value…` still resolves |
+| Style Dictionary #1590 (2025.10 alignment) | opened 2025-11-04, live 2026-09-18 | Gradient, duration, `$extends`, JSON Pointer `$ref`, and resolvers still unsupported; `styledictionary.com/info/dtcg` states 2025.10 "does not have full support yet" | Reinforces that a "DTCG" label is not 2025.10 coverage. Varve's capability report stays per-type, never one boolean | Fixture with `$extends` + `$ref` parses, resolves, and round-trips |
+| Style Dictionary #1398 discussion thread (unversioned spec drift) | 2024-11-25 | Adopters report building against a silently-changed, unversioned spec: "many token types won't build" while docs still claimed first-class DTCG support | This is the labeling failure the task forbids: a version claim without a pinned spec version. Varve pins `2025.10` in `spec.ts` and refuses draft labels | Doc audit: no current-state text calls the Format module a draft snapshot |
+
+### Varve behavior vs. the observed failures
+
+| Observed failure elsewhere | Varve's counter-measure | Status |
+| --- | --- | --- |
+| Pull replaces the whole library, unrecoverable | Preview-first apply; only reviewed tokens change; one undoable transaction | implemented (`78c28571b` and prior) |
+| Push overwrites the other side | base/local/remote three-way merge, per-token conflict decision | implemented (`78c28571b`) |
+| Rename re-imported as a new duplicate | stable ids preserved across rename; path fallback for identity-less files | implemented |
+| Diff lists unchanged tokens as changed | unchanged counted separately; a match reports a no-op with Apply disabled | implemented |
+| Composite value split during conversion | composites kept intact; unsupported conversion reported, never performed silently | implemented for the documented types; per-target conversion loss reported |
+| Spec claimed without a pinned version | `DtcgSpecificationVersion = '2025.10'` and Final-Community-Group-Report wording everywhere | implemented |
+
 ## 2. Varve coverage matrix (baseline, 2026-09-25)
 
 Cells: **V** verified · **P** partial · **X** unsupported · **B** broken ·
@@ -99,7 +130,7 @@ Rows marked **B** are the ranked defect list for this pass (see §3).
 | 6 | `dtcgExport()` emits `$version` (out-of-spec), a `Date` timestamp (non-deterministic), and non-namespaced `$extensions` keys | standards correctness | official 2025.10 schema rejects `$version`; DTCG requires vendor-namespaced extension keys |
 | 7 | No export path from document tokens to a DTCG file | workflow blockage | `renderCanonical` / `patchSerialize` have no application caller |
 | 8 | Color codec reports out-of-range components as **errors** and normalizes bare-hex `$value` strings without a diagnostic | standards correctness / silent conversion | Color module has no `MUST` to reject ranges; hex-string form is not the 2025.10 structured form |
-| 9 | No conflict-resolution UI; counters only | workflow (deferred) | `TokenSyncPanel` renders counts, no resolution surface |
+| 9 | No conflict-resolution UI; counters only | **repaired 2026-09-25** | `TokenSyncPanel` renders an explicit conflict review (Keep Varve / Use source per token); Apply stays disabled until every conflict is decided |
 | 10 | Watcher/atomic-write engine unwired to any platform | workflow (deferred) | `sources.ts` / `watcherEvents.ts` consumed only by their own tests |
 
 ## 4. Risk-based scenario selection
@@ -137,7 +168,7 @@ unchanged, and cells not listed here are still at their baseline status.
 | 6 | `dtcgExport()` `$version`, timestamp, unnamespaced extensions | **fixed** | `bafeddc7c` | Cross-package test: strict parse with 0 diagnostics, only defined `$`-properties, byte-identical repeated calls |
 | 7 | No export path for document tokens | **fixed** | `3f6e375cd`, `06d9c4f86` | `exportTokensToDtcg` + Export button; E2E download assertion; scenario-D round-trip test |
 | 8 | Color range/alpha over-strict; hex normalization silent | **fixed** | `a40a424c6` | Range and alpha → warnings that retain the authored value; hex-string → `codec.color.hex-string-form` warning; codecs never transform |
-| 9 | No conflict-resolution UI | **deferred** | – | Counters only; three-way merge engine exists (`merge.ts`) but has no UI |
+| 9 | No conflict-resolution UI | **implemented** | `78c28571b` | `TokenSyncPanel` conflict review (Keep Varve / Use source per token, semantic `<fieldset>` groups); `applyConflictResolutions` keeps the plan invalid until every conflict is decided; component test "requires an explicit decision for a concurrent edit" |
 | 10 | Watcher/atomic-write engine unwired to any platform | **deferred** | – | `sources.ts`/`watcherEvents.ts` still consumed only by their own tests |
 
 ### Additional defects found while repairing
@@ -150,6 +181,27 @@ unchanged, and cells not listed here are still at their baseline status.
 | Token-level `$ref` imported with `value: undefined` (reference lost) | **fixed** | `527f62faa`, `3f6e375cd` | Retained as `{ $ref }`, replayed as token-level `$ref` on export |
 | Group `$description`/`$deprecated`/`$extensions` dropped at import | **fixed** | `527f62faa`, `3f6e375cd` | `store.groupMeta` + replay; round-trip test asserts them after re-parse |
 | `$type` written onto pure references could contradict the target | **fixed** | `3f6e375cd` | Export omits `$type` when the value is a pure reference |
+
+### External-update pass (2026-09-25, later session)
+
+Re-importing a connected source was an additive-only path: every colliding
+token path was skipped, so an edited upstream token could never reach the
+document. Repairing that required fixing the merge engine itself.
+
+| Defect | Status | Commit | Evidence |
+| --- | --- | --- | --- |
+| Three-way merge could not express deletion — a one-sided deletion with the other side unchanged **resurrected the stale value** (`accept-local` with `result: baseToken`, and the inverse), so "the source deleted this token" silently re-applied it | **fixed** | `78c28571b` | `deleted`/`localDeleted`/`remoteDeleted` on `TokenMerge`, `plan.deletedCount`; three new merge tests |
+| An identity-less remote (the common DTCG file: no `org.varve.*` id) was treated as a **deletion** against the id-bearing local store, because identity matching only looked up by id in the remote index | **fixed** | `78c28571b` | Pass 1 falls back to canonical-path matching; update-plan tests use identity-less documents |
+| Base snapshots stored only hashes (`tokenHashes`), so base/local/remote could not be separated: a local edit and an external edit were indistinguishable and every re-import would have been a source-wins overwrite | **fixed** | `78c28571b` | `TokenBaseSnapshot.tokenBases` captured on import and after every clean apply; `captureBaseSnapshot` |
+| No update path at all — `applyImportToSync` skipped existing paths, so external updates, deletions and conflicts never surfaced anywhere in the UI | **fixed** | `78c28571b` | `previewDocumentSync`/`applyDocumentSync`; `planSourceUpdate`; E2E `token-sync-update.spec.ts` |
+
+Coverage-matrix deltas from this pass (cells that were **X**/**P** at the
+baseline): "Import workflow (existing source)" update column moves to **V**
+for parse/resolve/serialize via the browser spec; three-way merge /
+conflict review moves from **U** to **V** (unit) with the UI surface
+covered by component tests. Deleting a token on one side moves from **X**
+to **V**. Still open at the same status: vendor adapters, watcher
+platform wiring, and Git-backed sources.
 
 ### Verification record
 
