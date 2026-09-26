@@ -61,6 +61,42 @@ repairs below are all class (a): trust design, not model quality.
   reverse-direction box drag through the real pointer path, the 3 CSS px
   click-vs-drag threshold, and the multi-selection refusal announcement.
 
+## Real-model browser verification (this pass)
+
+The dev environment serves the repaired SAM2 Tiny artifacts locally, so this
+pass could run the full workflow in Chromium on a synthetic still-life
+(image: red apple with leaf and stem, blue cup, sky/table; 640×480 PNG
+imported through the editor's file input). Captured evidence lives in
+`docs/screenshots/2026-09-26-subject-selection/`:
+
+| Step | Result | Evidence |
+| --- | --- | --- |
+| Cold prompted selection (one include point on the apple) | Preview ready · predicted IoU score 0.99 · prompt match 100% · 3 candidate masks; target evidence 100% anchored; candidate 3 of 3 ranked first | `01-preview-overlay.png` |
+| Cutout preview mode | Checkerboard strictly outside the kept subject; kept pixels show untouched artwork | `02-preview-cutout.png` |
+| Iterative refinement (second include point on the leaf) | Warm conditioned decode included the leaf while keeping the apple — the mask refined instead of re-reading the scene; diagnostics updated to "2 connected regions · include support 94%" with the honest disconnected-region warning | `03-refined-with-leaf-cutout.png` |
+| Review gate + outputs | Review checkbox gates Apply as mask / Use as selection / Extract to layer; candidate cycling (Previous/Next) inspected | `04-reviewed-ready.png` |
+| Extract to layer | Announcement "extracted to a new layer (predicted IoU score 0.99)"; new layer inserted above the source with the alpha-mask badge; provenance rendered in Background Removal; one Ctrl+Z removes the whole extraction | `05-extracted-to-layer.png` |
+| Isolation check (source hidden) | Canvas shows only the extracted subject — apple, leaf, kept stem — placement preserved, no leftover background | `06-extracted-isolated.png` |
+
+The run also caught a real defect the unit suite had missed: the cutout
+preview erased its checkerboard with the overlay tint canvas (coverage ×
+0.42 alpha), leaving ~58% of the checker visible inside the kept subject.
+Sampling the live overlay showed kept-region alpha 140/255 instead of 0;
+fixed by erasing with a full-alpha coverage canvas (commit `abc197352`) and
+re-verified in `02-preview-cutout.png`.
+
+A visual acceptance pass (independent reviewer over the six PNGs) judged
+four of six pass outright. Two findings were raised and resolved:
+
+- The action-button row clipped "Extract to layer" at the panel edge —
+  fixed by letting the row wrap (`flex-wrap`).
+- The extracted layer's mask badge was not visible in a static screenshot —
+  this is the layers panel's documented narrow-width policy: badge groups
+  the workspace does not pin (`mask` is unpinned in Design) reveal on row
+  hover/focus and stay in the accessible name. The extracted layer's name
+  was shortened (extension stripped) so the badge gets more room; no panel
+  behavior changed.
+
 ## Deliberate non-goals (recorded, not fixed)
 
 - **Shared inference worker is a cross-feature failure domain.** A SAM2
