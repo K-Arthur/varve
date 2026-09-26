@@ -691,12 +691,32 @@ describe('sessionBroker: undo/redo and broadcasts', () => {
     broker.detach();
   });
 
+  it('does not serialize a patch while no auxiliary window is registered', async () => {
+    const getSnapshot = vi.fn(() => BASE_SNAPSHOT);
+    const api = makeEditorApi({ getSnapshot });
+    const spy = vi.fn();
+    const transport = createSessionTransport('test-session', spy);
+    const broker = new SessionBroker('test-session');
+    broker.attach(api);
+
+    broker.notifyStateChanged();
+    await new Promise((resolve) => setTimeout(resolve, 120));
+
+    expect(getSnapshot).not.toHaveBeenCalled();
+    expect(spy.mock.calls.filter(([eventId]) => eventId === 'session-patch')).toHaveLength(0);
+
+    transport.close();
+    broker.detach();
+  });
+
   it('broadcasts a coalesced, versioned session patch on notifyStateChanged', async () => {
     const api = makeEditorApi();
     const spy = vi.fn();
     const transport = createSessionTransport('test-session', spy);
     const broker = new SessionBroker('test-session');
     broker.attach(api);
+    reserveAndRegister(broker, transport);
+    await flush();
 
     broker.notifyStateChanged();
     broker.notifyStateChanged();

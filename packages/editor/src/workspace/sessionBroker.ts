@@ -682,6 +682,11 @@ export class SessionBroker {
 
   /** Notify the broker that primary state changed → schedule a patch. */
   notifyStateChanged(): void {
+    // A patch carries the whole serialized document. With no registered
+    // auxiliary window there is no recipient, and a window that registers
+    // later is hydrated from a fresh snapshot, so skip the serialization.
+    // It otherwise ran every 50 ms of editing in every primary session.
+    if (this.windows.size === 0) return;
     if (this.patchTimer) return;
     this.patchDirty = true;
     this.patchTimer = setTimeout(() => {
@@ -1223,6 +1228,7 @@ export class SessionBroker {
   }
 
   private broadcastPatch(): void {
+    if (this.windows.size === 0) return;
     const snapshot = this.getAuthoritativeSnapshot();
     if (!snapshot) return;
     this.transport.send('session-patch', {

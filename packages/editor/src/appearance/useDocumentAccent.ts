@@ -27,9 +27,15 @@ export function useDocumentAccent(
       return;
     }
     let disposed = false;
-    const key = `${documentRevisionHash(document)}:${currentPageId ?? ''}`;
+    // The revision hash serializes the whole document. It only deduplicates
+    // extraction for the opt-in document accent, so it is computed on first
+    // read rather than on every edit (this effect runs per drag frame).
+    let key: string | null = null;
     const context: DocumentAccentContext = {
-      key,
+      get key() {
+        key ??= `${documentRevisionHash(document)}:${currentPageId ?? ''}`;
+        return key;
+      },
       render: async () => {
         if (disposed) return null;
         const outcome = await renderDocThumbnail(document, {

@@ -354,7 +354,17 @@ export const documentAccentController = {
   },
   /** Document/page/revision change; null when no extractable document exists. */
   setDocumentContext(next: DocumentAccentContext | null): void {
-    if (context !== null && next !== null && context.key === next.key) return;
+    // Keys are content hashes that are expensive to derive. They only matter
+    // while the document accent is active; in fixed mode nothing is pending
+    // or applied, so replacing the context without comparing is equivalent.
+    if (
+      preference === 'document' &&
+      context !== null &&
+      next !== null &&
+      context.key === next.key
+    ) {
+      return;
+    }
     context = next;
     currentSource = null;
     cancelPending();
