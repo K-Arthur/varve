@@ -1153,6 +1153,20 @@ export {
   quadBounds,
   solveHomography,
 } from './mockup/homography';
+export type {
+  MeshCellCorners,
+  MeshGridPoint,
+  MockupMeshGrid,
+} from './mockup/meshWarp';
+export {
+  forwardBilinear,
+  inverseBilinear,
+  isMeshCellValid,
+  isMeshGridValid,
+  meshCellCorners,
+  meshGridBounds,
+  warpImageToMesh,
+} from './mockup/meshWarp';
 export { mapQuadPoint, sampleBilinear, warpImageToQuad } from './mockup/quadWarp';
 export type { NonSeparableMode } from './nonSeparable';
 export {
