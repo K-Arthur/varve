@@ -16,8 +16,14 @@ import type {
 } from './types';
 import { validateInstance, validateTemplate } from './validate';
 
-/** Current persistent template schema. Schema 1 remains readable via migration. */
-export const MOCKUP_TEMPLATE_SCHEMA_VERSION = 2;
+/**
+ * Current persistent template schema.
+ * - 1: flat + quad surfaces.
+ * - 2: photographic plates, alpha clip/occlusion masks, bounded cylinders.
+ * - 3: bounded mesh envelope surfaces (`kind: 'mesh'` with a convex grid).
+ * Older schemas remain readable via `migrateMockupTemplateSchema`.
+ */
+export const MOCKUP_TEMPLATE_SCHEMA_VERSION = 3;
 
 export function isMockupFrame(node: unknown): node is FrameNode & { mockup: MockupInstanceData } {
   return (
@@ -65,8 +71,11 @@ export function hashMockupTemplate(template: Omit<MockupTemplateAsset, 'contentH
 
 /**
  * Upgrade a validated legacy template to the current schema without
- * changing its geometry or instance bindings. Schema 2 only adds optional
- * fields, so this migration is deliberately structural and deterministic.
+ * changing its geometry or instance bindings. Schema 2 added optional
+ * cylinder/plate/mask fields and schema 3 added optional mesh surfaces, so
+ * this migration is deliberately a deterministic version stamp (older
+ * schemas never carry mesh payloads — validation rejected them — and the
+ * stamped schema re-enables cylinder/mesh authoring on the instance).
  */
 export function migrateMockupTemplateSchema(template: MockupTemplateAsset): MockupTemplateAsset {
   if (template.schemaVersion >= MOCKUP_TEMPLATE_SCHEMA_VERSION) return template;

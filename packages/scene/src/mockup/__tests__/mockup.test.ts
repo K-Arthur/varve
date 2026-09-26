@@ -16,6 +16,7 @@ import {
   computeMockupSourceDigest,
   createMockupInstanceData,
   isMockupFrame,
+  MOCKUP_TEMPLATE_SCHEMA_VERSION,
   makeMockupTemplateUnique,
   markMockupDetached,
   planMockupTemplateRemap,
@@ -24,7 +25,8 @@ import {
   setMockupSurfaceOverride,
   setMockupTemplate,
 } from '../ops';
-import { validateTemplate } from '../validate';
+import type { MockupMeshGeometry } from '../types';
+import { MOCKUP_LIMITS, validateTemplate } from '../validate';
 
 function frameWithMockup(doc: Document, templateId: string, nodeId: string): Document {
   const frame = doc.nodes[nodeId] as FrameNode;
@@ -112,10 +114,13 @@ describe('mockup templates', () => {
     expect(result.errors.some((e) => e.includes('quad'))).toBe(true);
   });
 
-  it('rejects reserved surface kinds, displacement, and luminance masks; accepts raster clip masks', () => {
+  it('rejects unknown surface kinds, displacement, and luminance masks; accepts raster clip masks', () => {
     const [template] = getBuiltinMockupTemplates();
-    const mesh = { ...template!, surfaces: [{ ...template!.surfaces[0], kind: 'mesh' }] };
-    expect(validateTemplate(mesh).ok).toBe(false);
+    const unknown = {
+      ...template!,
+      surfaces: [{ ...template!.surfaces[0], kind: 'hologram' }],
+    };
+    expect(validateTemplate(unknown).ok).toBe(false);
 
     // Clip/occlusion coverage is implemented (alpha only); a well-formed
     // reference passes structural validation. Asset existence is checked at
@@ -184,7 +189,7 @@ describe('mockup templates', () => {
     const built = buildTemplateFromJson(legacy);
     expect('template' in built).toBe(true);
     if (!('template' in built)) return;
-    expect(built.template.schemaVersion).toBe(2);
+    expect(built.template.schemaVersion).toBe(MOCKUP_TEMPLATE_SCHEMA_VERSION);
     expect(built.template.contentHash).not.toBe('old-hash');
 
     const legacyCylinder = {
@@ -216,7 +221,7 @@ describe('mockup templates', () => {
       },
       { push: (warning) => warnings.push(warning) },
     );
-    expect(sanitized.mockupTemplates?.legacy?.schemaVersion).toBe(2);
+    expect(sanitized.mockupTemplates?.legacy?.schemaVersion).toBe(MOCKUP_TEMPLATE_SCHEMA_VERSION);
     expect(warnings.some((warning) => warning.code === 'mockup.template-schema-migrated')).toBe(
       true,
     );
@@ -344,6 +349,204 @@ describe('mockup templates', () => {
     const pruned = pruneUnusedAssets(next);
     const kept = Object.keys(pruned.assets ?? {}).sort();
     expect(kept).toEqual(['asset-mask', 'asset-plate', 'asset-snapshot']);
+  });
+});
+
+describe('mesh envelope surfaces (template schema 3)', () => {
+  function meshGrid(x: number, y: number, w: number, h: number): MockupMeshGeometry {
+    return {
+      cols: 2,
+      rows: 2,
+      vertices: [
+        [
+          { x, y },
+          { x: x + w / 2, y },
+          { x: x + w, y },
+        ],
+        [
+          { x, y: y + h / 2 },
+          { x: x + w / 2, y: y + h / 2 },
+          { x: x + w, y: y + h / 2 },
+        ],
+        [
+          { x, y: y + h },
+          { x: x + w / 2, y: y + h },
+          { x: x + w, y: y + h },
+        ],
+      ],
+    };
+  }
+
+  function foldedGrid(): MockupMeshGeometry {
+    // Same shape as meshGrid(0,0,100,100) but the centre vertex is dragged
+    // across the diagonal so the bottom-right cell folds over.
+    return {
+      cols: 2,
+      rows: 2,
+      vertices: [
+        [
+          { x: 0, y: 0 },
+          { x: 50, y: 0 },
+          { x: 100, y: 0 },
+        ],
+        [
+          { x: 0, y: 50 },
+          { x: 50, y: 50 },
+          { x: 100, y: 50 },
+        ],
+        [
+          { x: 0, y: 100 },
+          { x: 90, y: 60 },
+          { x: 100, y: 100 },
+        ],
+      ],
+    };
+  }
+
+  function meshTemplate(schemaVersion: number, grid: MockupMeshGeometry | undefined) {
+    return {
+      id: 'user:mesh-test',
+      schemaVersion,
+      name: 'Mesh test',
+      category: 'apparel' as const,
+      source: 'user' as const,
+      orientation: 'square' as const,
+      outputWidth: 400,
+      outputHeight: 400,
+      backgroundColor: 'transparent',
+      plate: [],
+      surfaces: [
+        {
+          id: 'fabric',
+          name: 'Fabric',
+          kind: 'mesh' as const,
+          sourceSlot: 'front',
+          x: 40,
+          y: 40,
+          width: 320,
+          height: 320,
+          mesh: grid,
+          fit: 'cover' as const,
+          alignment: { x: 'center' as const, y: 'center' as const },
+        },
+      ],
+      overlays: [],
+      contentHash: 'test-hash',
+    };
+  }
+
+  it('accepts a valid mesh surface at schema 3 and rejects it below it', () => {
+    const ok = validateTemplate(
+      meshTemplate(MOCKUP_TEMPLATE_SCHEMA_VERSION, meshGrid(40, 40, 320, 320)),
+    );
+    expect(ok.ok).toBe(true);
+    const schema2 = validateTemplate(meshTemplate(2, meshGrid(40, 40, 320, 320)));
+    expect(schema2.ok).toBe(false);
+    expect(
+      schema2.errors.some((e) => e.includes(`schemaVersion ${MOCKUP_LIMITS.meshSchemaVersion}`)),
+    ).toBe(true);
+  });
+
+  it('rejects missing, folded, and wrong-shape mesh payloads', () => {
+    const missing = validateTemplate(meshTemplate(3, undefined));
+    expect(missing.ok).toBe(false);
+    expect(missing.errors.some((e) => e.includes('mesh'))).toBe(true);
+
+    const folded = validateTemplate(meshTemplate(3, foldedGrid()));
+    expect(folded.ok).toBe(false);
+    expect(folded.errors.some((e) => e.includes('folded or degenerate'))).toBe(true);
+
+    const ragged = meshGrid(40, 40, 320, 320);
+    ragged.vertices[1] = ragged.vertices[1]!.slice(0, 2);
+    const wrongShape = validateTemplate(meshTemplate(3, ragged));
+    expect(wrongShape.ok).toBe(false);
+    expect(wrongShape.errors.some((e) => e.includes('cols + 1'))).toBe(true);
+
+    const nan = meshGrid(40, 40, 320, 320);
+    nan.vertices[0]![1] = { x: Number.NaN, y: 40 };
+    expect(validateTemplate(meshTemplate(3, nan)).ok).toBe(false);
+  });
+
+  it('migrates a schema-2 template to the current schema as a version stamp', () => {
+    // A flat-geometry template is valid at schema 2; import restamps it.
+    const flatSchema2 = {
+      ...meshTemplate(2, undefined),
+      surfaces: [
+        {
+          id: 'fabric',
+          name: 'Fabric',
+          kind: 'flat',
+          sourceSlot: 'front',
+          x: 40,
+          y: 40,
+          width: 320,
+          height: 320,
+          fit: 'cover',
+          alignment: { x: 'center', y: 'center' },
+        },
+      ],
+    };
+    const resealed = buildTemplateFromJson(flatSchema2);
+    expect('template' in resealed).toBe(true);
+    if (!('template' in resealed)) return;
+    expect(resealed.template.schemaVersion).toBe(MOCKUP_TEMPLATE_SCHEMA_VERSION);
+  });
+
+  it('validates mesh overrides against the surface kind and grid', () => {
+    const { doc, frameId, sourceId } = fixtureDoc();
+    const template = meshTemplate(
+      MOCKUP_TEMPLATE_SCHEMA_VERSION,
+      meshGrid(40, 40, 320, 320),
+    ) as unknown as Parameters<typeof addMockupTemplate>[1];
+    const withTemplate = addMockupTemplate(doc, template).document;
+    const inst = frameWithMockup(withTemplate, template.id, frameId);
+
+    // An override mesh on the mesh surface is accepted when the grid is valid.
+    const shifted = structuredClone(meshGrid(40, 40, 320, 320)) as MockupMeshGeometry;
+    shifted.vertices[1]![1] = { x: 170, y: 170 };
+    const overridden = setMockupSurfaceOverride(inst, frameId, 'fabric', { mesh: shifted });
+    const node = overridden.nodes[frameId] as FrameNode & {
+      mockup: NonNullable<FrameNode['mockup']>;
+    };
+    expect(node.mockup.overrides?.fabric?.mesh?.vertices[1]?.[1]).toEqual({ x: 170, y: 170 });
+
+    // A folded override grid is rejected (document unchanged).
+    expect(setMockupSurfaceOverride(overridden, frameId, 'fabric', { mesh: foldedGrid() })).toBe(
+      overridden,
+    );
+
+    // A mesh override cannot land on a quad surface.
+    const quadTemplate = {
+      ...getBuiltinMockupTemplates().find((t) => t.id === 'builtin:phone-perspective')!,
+    };
+    const withQuad = addMockupTemplate(inst, quadTemplate).document;
+    const quadInst = frameWithMockup(withQuad, quadTemplate.id, frameId);
+    const bound = setMockupBinding(quadInst, frameId, quadTemplate.surfaces[0]!.id, {
+      mode: 'live',
+      nodeId: sourceId,
+    });
+    expect(
+      setMockupSurfaceOverride(bound, frameId, quadTemplate.surfaces[0]!.id, {
+        mesh: shifted,
+      }),
+    ).toBe(bound);
+  });
+
+  it('survives a codec round-trip with template and override grids intact', () => {
+    const { doc, frameId } = fixtureDoc();
+    const template = meshTemplate(
+      MOCKUP_TEMPLATE_SCHEMA_VERSION,
+      meshGrid(40, 40, 320, 320),
+    ) as unknown as Parameters<typeof addMockupTemplate>[1];
+    const withTemplate = addMockupTemplate(doc, template).document;
+    const inst = frameWithMockup(withTemplate, template.id, frameId);
+    const json = DocumentCodec.encode(inst);
+    const decoded = DocumentCodec.decode(json);
+    expect(decoded.ok).toBe(true);
+    const reloaded = (decoded as { document: Document }).document;
+    const stored = reloaded.mockupTemplates?.[template.id];
+    expect(stored?.surfaces[0]?.kind).toBe('mesh');
+    expect(stored?.surfaces[0]?.mesh?.vertices[0]?.[0]).toEqual({ x: 40, y: 40 });
   });
 });
 

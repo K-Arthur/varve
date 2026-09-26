@@ -10,8 +10,10 @@
  * Level contract (see docs/architecture/mockup-system.md):
  * - Level 1 flat surfaces: `kind: 'flat'` with affine placement.
  * - Level 2 perspective surfaces: `kind: 'quad'` with four-corner mapping.
- * - Level 3 mesh and calibrated displacement remain reserved. Level 3
- *   cylindrical surfaces use the bounded front-facing remap described below.
+ * - Level 3 cylindrical surfaces use the bounded front-facing remap described
+ *   below; mesh envelope surfaces (template schema 3) use the bounded grid
+ *   described on `MockupMeshGeometry`. Calibrated displacement remains
+ *   reserved.
  */
 
 import type { NodeId } from '../types';
@@ -157,6 +159,23 @@ export interface MockupCylindricalGeometry {
   crop: 'visible' | 'slot';
 }
 
+/**
+ * Bounded envelope grid (template schema 3+). The (rows+1) x (cols+1)
+ * vertex grid is expressed in template output coordinates and each cell is
+ * a bilinear patch, so adjacent cells agree exactly on shared edges. This
+ * is an envelope for folded fabric, draped banners, and curved paper — it
+ * is not a 3D mesh: no lighting solve, no camera, no backside, and cells
+ * must stay convex (validation rejects folds).
+ */
+export interface MockupMeshGeometry {
+  /** Grid columns (cells across), 1..16. */
+  cols: number;
+  /** Grid rows (cells down), 1..16. */
+  rows: number;
+  /** Row-major vertex rows, `vertices[row][col]`, template output px. */
+  vertices: MockupVec2[][];
+}
+
 export interface MockupSurfaceDefinition {
   /** Unique within the template. */
   id: string;
@@ -171,6 +190,8 @@ export interface MockupSurfaceDefinition {
   height: number;
   /** Perspective geometry; required when kind === 'quad'. */
   quad?: MockupQuad;
+  /** Envelope grid; required when kind === 'mesh' (template schema 3+). */
+  mesh?: MockupMeshGeometry;
   fit: MockupFitMode;
   alignment: { x: MockupAlign; y: MockupAlign };
   /**
@@ -281,6 +302,7 @@ export interface MockupSurfaceOverride {
   width?: number;
   height?: number;
   quad?: MockupQuad;
+  mesh?: MockupMeshGeometry;
   fit?: MockupFitMode;
   alignment?: { x: MockupAlign; y: MockupAlign };
   cylindrical?: MockupCylindricalGeometry;

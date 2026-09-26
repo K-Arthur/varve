@@ -30,7 +30,7 @@ const BUILTIN_LICENCE = {
 const rawTemplates: Array<Omit<MockupTemplateAsset, 'contentHash'>> = [
   {
     id: 'builtin:phone-flat',
-    schemaVersion: 2,
+    schemaVersion: 3,
     name: 'Phone — Front',
     category: 'devices',
     source: 'builtin',
@@ -70,7 +70,7 @@ const rawTemplates: Array<Omit<MockupTemplateAsset, 'contentHash'>> = [
   },
   {
     id: 'builtin:phone-perspective',
-    schemaVersion: 2,
+    schemaVersion: 3,
     name: 'Phone — Angled',
     category: 'devices',
     source: 'builtin',
@@ -114,7 +114,7 @@ const rawTemplates: Array<Omit<MockupTemplateAsset, 'contentHash'>> = [
   },
   {
     id: 'builtin:tablet-flat',
-    schemaVersion: 2,
+    schemaVersion: 3,
     name: 'Tablet — Front',
     category: 'devices',
     source: 'builtin',
@@ -151,7 +151,7 @@ const rawTemplates: Array<Omit<MockupTemplateAsset, 'contentHash'>> = [
   },
   {
     id: 'builtin:browser-flat',
-    schemaVersion: 2,
+    schemaVersion: 3,
     name: 'Browser Window',
     category: 'browser-desktop',
     source: 'builtin',
@@ -191,7 +191,7 @@ const rawTemplates: Array<Omit<MockupTemplateAsset, 'contentHash'>> = [
   },
   {
     id: 'builtin:monitor-flat',
-    schemaVersion: 2,
+    schemaVersion: 3,
     name: 'Desktop Monitor',
     category: 'browser-desktop',
     source: 'builtin',
@@ -229,7 +229,7 @@ const rawTemplates: Array<Omit<MockupTemplateAsset, 'contentHash'>> = [
   },
   {
     id: 'builtin:laptop-perspective',
-    schemaVersion: 2,
+    schemaVersion: 3,
     name: 'Laptop — Angled',
     category: 'browser-desktop',
     source: 'builtin',
@@ -276,7 +276,7 @@ const rawTemplates: Array<Omit<MockupTemplateAsset, 'contentHash'>> = [
   },
   {
     id: 'builtin:poster-flat',
-    schemaVersion: 2,
+    schemaVersion: 3,
     name: 'Poster — Wall',
     category: 'print',
     source: 'builtin',
@@ -307,7 +307,7 @@ const rawTemplates: Array<Omit<MockupTemplateAsset, 'contentHash'>> = [
   },
   {
     id: 'builtin:business-card-flat',
-    schemaVersion: 2,
+    schemaVersion: 3,
     name: 'Business Card — Front & Back',
     category: 'stationery',
     source: 'builtin',
@@ -354,7 +354,7 @@ const rawTemplates: Array<Omit<MockupTemplateAsset, 'contentHash'>> = [
   },
   {
     id: 'builtin:book-cover-perspective',
-    schemaVersion: 2,
+    schemaVersion: 3,
     name: 'Book Cover — Angled',
     category: 'print',
     source: 'builtin',
@@ -396,7 +396,7 @@ const rawTemplates: Array<Omit<MockupTemplateAsset, 'contentHash'>> = [
   },
   {
     id: 'builtin:packaging-box-perspective',
-    schemaVersion: 2,
+    schemaVersion: 3,
     name: 'Packaging Box — Front',
     category: 'packaging',
     source: 'builtin',
@@ -454,7 +454,7 @@ const rawTemplates: Array<Omit<MockupTemplateAsset, 'contentHash'>> = [
   },
   {
     id: 'builtin:social-board-flat',
-    schemaVersion: 2,
+    schemaVersion: 3,
     name: 'Social Post — Board',
     category: 'social-marketing',
     source: 'builtin',
@@ -488,7 +488,7 @@ const rawTemplates: Array<Omit<MockupTemplateAsset, 'contentHash'>> = [
   },
   {
     id: 'builtin:logo-board-flat',
-    schemaVersion: 2,
+    schemaVersion: 3,
     name: 'Logo Presentation Board',
     category: 'logo',
     source: 'builtin',
@@ -523,7 +523,7 @@ const rawTemplates: Array<Omit<MockupTemplateAsset, 'contentHash'>> = [
   },
   {
     id: 'builtin:tee-front-flat',
-    schemaVersion: 2,
+    schemaVersion: 3,
     name: 'T-Shirt — Front',
     category: 'apparel',
     source: 'builtin',
@@ -578,7 +578,7 @@ const rawTemplates: Array<Omit<MockupTemplateAsset, 'contentHash'>> = [
   },
   {
     id: 'builtin:billboard-front-quad',
-    schemaVersion: 2,
+    schemaVersion: 3,
     name: 'Billboard — Front',
     category: 'signage',
     source: 'builtin',
@@ -624,7 +624,7 @@ const rawTemplates: Array<Omit<MockupTemplateAsset, 'contentHash'>> = [
   },
   {
     id: 'builtin:label-cylinder-front',
-    schemaVersion: 2,
+    schemaVersion: 3,
     name: 'Product Label — Cylinder',
     category: 'packaging',
     source: 'builtin',
@@ -660,7 +660,7 @@ const rawTemplates: Array<Omit<MockupTemplateAsset, 'contentHash'>> = [
   },
   {
     id: 'builtin:envelope-front-flat',
-    schemaVersion: 2,
+    schemaVersion: 3,
     name: 'Envelope — Front',
     category: 'stationery',
     source: 'builtin',

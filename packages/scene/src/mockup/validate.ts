@@ -8,10 +8,11 @@
  * either clamped or surfaced as a warning.
  */
 
-import { isQuadValid } from '@varve/engine';
+import { isMeshGridValid, isQuadValid } from '@varve/engine';
 import { canBindMockupSource } from './binding';
 import type {
   MockupInstanceData,
+  MockupMeshGeometry,
   MockupQuad,
   MockupSurfaceDefinition,
   MockupTemplateAsset,
@@ -32,10 +33,14 @@ export const MOCKUP_LIMITS = {
   maxShapeCountPerSurface: 128,
   maxGeometryMagnitude: 1_000_000,
   maxTemplateBytes: 1_048_576,
+  maxMeshCols: 16,
+  maxMeshRows: 16,
+  /** First template schema version that may carry mesh envelope surfaces. */
+  meshSchemaVersion: 3,
 } as const;
 
 const KNOWN_SURFACE_KINDS = new Set(['flat', 'quad', 'mesh', 'cylindrical']);
-const IMPLEMENTED_SURFACE_KINDS = new Set(['flat', 'quad', 'cylindrical']);
+const IMPLEMENTED_SURFACE_KINDS = new Set(['flat', 'quad', 'mesh', 'cylindrical']);
 const KNOWN_FIT_MODES = new Set(['contain', 'cover', 'stretch', 'native']);
 const KNOWN_ALIGNS = new Set(['min', 'center', 'max']);
 const KNOWN_CATEGORIES = new Set([
@@ -82,6 +87,67 @@ export function isValidMockupQuad(quad: MockupQuad | undefined | null): quad is 
 /** True when the color is plausibly a CSS color. */
 export function isPlausibleCssColor(value: unknown): boolean {
   return typeof value === 'string' && value.length <= 64 && CSS_COLOR_RE.test(value);
+}
+
+/**
+ * Validate a mesh envelope payload: exact shape, in-range grid counts,
+ * finite bounded vertices, and convex non-degenerate cells (the engine
+ * predicate mirrors the renderer's own guard, so a template that passes
+ * here cannot produce folded output at render time).
+ */
+export function validateMeshGeometry(
+  value: unknown,
+  errors: string[],
+  label: string,
+): value is MockupMeshGeometry {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    errors.push(`${label} must be an object`);
+    return false;
+  }
+  const mesh = value as Record<string, unknown>;
+  if (!Number.isInteger(mesh.cols) || !Number.isInteger(mesh.rows)) {
+    errors.push(`${label}.cols and .rows must be integers`);
+    return false;
+  }
+  if (
+    (mesh.cols as number) < 1 ||
+    (mesh.rows as number) < 1 ||
+    (mesh.cols as number) > MOCKUP_LIMITS.maxMeshCols ||
+    (mesh.rows as number) > MOCKUP_LIMITS.maxMeshRows
+  ) {
+    errors.push(
+      `${label} grid must be within 1..${MOCKUP_LIMITS.maxMeshCols} cols and 1..${MOCKUP_LIMITS.maxMeshRows} rows`,
+    );
+    return false;
+  }
+  if (!Array.isArray(mesh.vertices) || mesh.vertices.length !== (mesh.rows as number) + 1) {
+    errors.push(`${label}.vertices must have rows + 1 rows`);
+    return false;
+  }
+  for (const [rowIndex, vertexRow] of mesh.vertices.entries()) {
+    if (!Array.isArray(vertexRow) || vertexRow.length !== (mesh.cols as number) + 1) {
+      errors.push(`${label}.vertices[${rowIndex}] must have cols + 1 vertices`);
+      return false;
+    }
+    for (const [colIndex, vertex] of vertexRow.entries()) {
+      const v = vertex as Record<string, unknown> | null;
+      if (
+        !v ||
+        !isFiniteNumber(v.x) ||
+        !isFiniteNumber(v.y) ||
+        Math.abs(v.x as number) > MOCKUP_LIMITS.maxGeometryMagnitude ||
+        Math.abs(v.y as number) > MOCKUP_LIMITS.maxGeometryMagnitude
+      ) {
+        errors.push(`${label}.vertices[${rowIndex}][${colIndex}] must be finite and bounded`);
+        return false;
+      }
+    }
+  }
+  if (!isMeshGridValid(mesh as unknown as MockupMeshGeometry)) {
+    errors.push(`${label} contains a folded or degenerate cell`);
+    return false;
+  }
+  return true;
 }
 
 function validateCylindricalGeometry(
@@ -239,6 +305,20 @@ export function validateSurface(
     }
   } else if (s.quad !== undefined) {
     errors.push(`surface ${s.id}: quad geometry is only valid for quad surfaces`);
+    return false;
+  }
+  if (s.kind === 'mesh') {
+    if ((template.schemaVersion ?? 1) < MOCKUP_LIMITS.meshSchemaVersion) {
+      errors.push(
+        `surface ${s.id}: mesh surfaces require template schemaVersion ${MOCKUP_LIMITS.meshSchemaVersion}`,
+      );
+      return false;
+    }
+    if (!validateMeshGeometry(s.mesh, errors, `surface ${s.id}: mesh`)) {
+      return false;
+    }
+  } else if (s.mesh !== undefined) {
+    errors.push(`surface ${s.id}: mesh geometry is only valid for mesh surfaces`);
     return false;
   }
   if (s.kind === 'cylindrical') {
@@ -406,7 +486,10 @@ export function validateTemplate(template: unknown): MockupValidationResult {
   if (typeof t.id !== 'string' || t.id.length === 0 || t.id.length > 256) {
     errors.push('template id must be a non-empty string (<= 256 chars)');
   }
-  if (!isFiniteNumber(t.schemaVersion) || (t.schemaVersion !== 1 && t.schemaVersion !== 2)) {
+  if (
+    !isFiniteNumber(t.schemaVersion) ||
+    (t.schemaVersion !== 1 && t.schemaVersion !== 2 && t.schemaVersion !== 3)
+  ) {
     errors.push(`unsupported schemaVersion: ${String(t.schemaVersion)}`);
   }
   if (typeof t.name !== 'string' || t.name.length === 0) {
@@ -652,6 +735,14 @@ export function validateInstance(
         template.surfaces.find((surface) => surface.id === surfaceId)?.kind !== 'quad'
       ) {
         errors.push(`override for ${surfaceId}: quad geometry requires a quad surface`);
+      }
+      if (o.mesh !== undefined) {
+        const surfaceKind = template.surfaces.find((surface) => surface.id === surfaceId)?.kind;
+        if (surfaceKind !== 'mesh') {
+          errors.push(`override for ${surfaceId}: mesh geometry requires a mesh surface`);
+        } else {
+          validateMeshGeometry(o.mesh, errors, `override for ${surfaceId}: mesh`);
+        }
       }
       if (o.cylindrical !== undefined) {
         if (template.surfaces.find((surface) => surface.id === surfaceId)?.kind !== 'cylindrical') {
