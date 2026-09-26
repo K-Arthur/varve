@@ -276,6 +276,7 @@ pass report in
 |-----|---------|
 | `architecture/overview.md` | Current repository topology, runtime boundaries, data flow, and change-routing guide |
 | `architecture/render-pipeline.md` | Canvas rendering pipeline |
+| `architecture/gpu-acceleration.md` | GPU layers, WebGPU scene path admission, device-loss recovery, capability matrix, and truthful status contract |
 | `architecture/adaptive-render-residency.md` | Adaptive visibility, residency, raster representation, fidelity, and budget policy |
 | `architecture/wasm-backends.md` | WASM backend architecture |
 | `architecture/motion-system.md` | Motion/animation architecture |
