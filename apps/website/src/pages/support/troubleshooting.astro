@@ -72,6 +72,14 @@ import { sitePath } from '../../lib/siteUrl';
         </div>
 
         <div class="troubleshoot-item">
+          <h3>The status bar reports a lost GPU while you were editing</h3>
+          <p><strong>Symptom:</strong> with the WebGPU preference enabled, the status shows &ldquo;GPU lost &middot; Canvas2D&rdquo; after a driver reset, system sleep or resume, or a GPU process crash.</p>
+          <p><strong>What happens automatically:</strong> Canvas2D keeps drawing immediately, so nothing on screen disappears and the document is never at risk. Varve then tries to rebuild the WebGPU device by itself (two bounded attempts); when one succeeds the status returns to the live renderer label without a reload.</p>
+          <p><strong>Bounded action:</strong> if the status settles on the lost-Canvas2D message, save your work and reload the tab to retry WebGPU from a clean state. If loss repeats in the same session, prefer leaving the WebGPU preference off for that device and report the driver and browser version.</p>
+          <p><strong>Expected result:</strong> edits, history, and exports are identical whichever path served the pixels; the loss changes performance, never content.</p>
+        </div>
+
+        <div class="troubleshoot-item">
           <h3>Heavy operations are slow, stall, or fail</h3>
           <p><strong>Symptom:</strong> background removal, upscaling, image tracing, large imports, or long pans take a long time or end in an error.</p>
           <p><strong>Likely causes:</strong> memory pressure from several large images at once, browser WASM running single-threaded on the demo host, a very large source image, or a model operation competing with foreground editing. The browser may also be about to discard the tab.</p>
