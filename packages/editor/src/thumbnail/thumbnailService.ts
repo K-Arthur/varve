@@ -19,10 +19,24 @@
  *    source; callers are told via `fallbackApplied` so UI can surface it.
  */
 
-import { generateThumbnail, THUMBNAIL_RENDERER_VERSION, type ThumbnailResult } from '@varve/engine';
+import {
+  createEngine,
+  generateThumbnail,
+  type RenderItem,
+  type SceneNode,
+  THUMBNAIL_RENDERER_VERSION,
+  type ThumbnailResult,
+} from '@varve/engine';
 import type { Platform } from '@varve/platform';
 import { type Document, resolveThumbnailSource, type ThumbnailSelection } from '@varve/scene';
 import type { ThumbnailSourceSpec, ThumbnailVariant } from '@varve/shared';
+import {
+  collectMockupLiveSourceIds,
+  decorateMockupSubtree,
+  settleMockupSurfaces,
+  settleMockupTemplateAssets,
+  subtreeNeedsDecoration,
+} from '../render/mockup/mockupExport';
 import { flattenSceneToEngine } from '../render/sceneToEngine';
 import { documentRevisionHash, thumbnailIdentity } from './identity';
 
@@ -119,16 +133,22 @@ export async function renderDocThumbnail(
     error?: string,
   ): RenderDocThumbnailOutcome => ({
     result,
-    status,
+    status: status === 'ready' && decorateProvisional ? 'provisional' : status,
     qualityTier,
     renderer: 'canonical-engine',
-    warnings: result?.metadata.warnings ?? [],
+    warnings: [...(result?.metadata.warnings ?? []), ...extraWarnings],
     ...(error ? { error } : {}),
     identity,
     validity: selection.validity,
     fallbackApplied,
     effectiveSource,
   });
+
+  const extraWarnings: string[] = [];
+  // True when mockup decoration could not complete (missing template assets
+  // or a failed bake): the render shows a bare frame, so it must never be
+  // persisted as an authoritative thumbnail.
+  let decorateProvisional = false;
 
   if (options.signal?.aborted) {
     return outcome(null, 'cancelled');
@@ -168,11 +188,62 @@ export async function renderDocThumbnail(
     selection = { ...selection, ids: selection.ids.slice(0, MAX_THUMBNAIL_NODES) };
   }
 
-  const engineNodes = flattenSceneToEngine(doc, selection.ids, {
+  // Mockup frames carry live-bound sources that may sit outside the
+  // thumbnail selection; the export decoration contract needs them
+  // flattened so surface capture has pixels to replay, and the captured
+  // source items are dropped before replay so they never paint beside the
+  // mockup. Decoration runs inside the render IR hook so the thumbnail
+  // replays exactly the composed items the canvas and export show.
+  const needsMockupDecoration = subtreeNeedsDecoration(doc, selection.ids);
+  const mockupSourceIds = needsMockupDecoration
+    ? collectMockupLiveSourceIds(doc, selection.ids)
+    : [];
+  const flattenRootIds = [...selection.ids, ...mockupSourceIds];
+
+  const engineNodes = flattenSceneToEngine(doc, flattenRootIds, {
     // Page previews render in page-local coordinates (page at the origin);
     // all other sources render in pasteboard space like the canvas.
     localTransforms: effectiveSource.type === 'page',
   });
+  const decorateIr = needsMockupDecoration
+    ? async (nodes: SceneNode[]): Promise<RenderItem[]> => {
+        try {
+          const engine = await createEngine('stub');
+          const ir = await engine.buildIr({ nodes });
+          const decoration = decorateMockupSubtree({
+            doc,
+            rootIds: selection.ids,
+            flattenedIds: engineNodes.ids,
+            items: ir,
+            qualityScale: 1,
+            insertIntoList: false,
+          });
+          await settleMockupSurfaces(decoration.extrasByNodeId);
+          for (const missing of decoration.missingSurfaces) {
+            extraWarnings.push(`mockup-surface-missing:${missing.surfaceId}`);
+          }
+          const sourceIds = new Set<string>(mockupSourceIds);
+          const decorated: RenderItem[] = [];
+          for (const [index, item] of ir.entries()) {
+            const id = engineNodes.ids[index];
+            if (id !== undefined && sourceIds.has(id)) continue;
+            decorated.push(item);
+            if (id !== undefined) {
+              const extras = decoration.extrasByNodeId.get(id);
+              if (extras) decorated.push(...extras);
+            }
+          }
+          return decorated;
+        } catch (error) {
+          if (error instanceof DOMException && error.name === 'AbortError') throw error;
+          // Missing template assets or a failed bake: render the undecorated
+          // document, but never present it as an authoritative result.
+          extraWarnings.push('mockup-decoration-unavailable');
+          decorateProvisional = true;
+          return (await createEngine('stub')).buildIr({ nodes });
+        }
+      }
+    : undefined;
   if (engineNodes.nodes.length === 0) {
     const result: ThumbnailResult = {
       dataUrl: EMPTY_DOCUMENT_PLACEHOLDER,
@@ -195,6 +266,22 @@ export async function renderDocThumbnail(
     return outcome(result, 'empty');
   }
 
+  // Template plates and masks are document assets, not image fills: without
+  // this one-shot barrier a thumbnail can bake placeholder plates or skip
+  // masks. A failure degrades to the undecorated render and marks the
+  // outcome provisional via the decoration hook's own catch.
+  if (decorateIr) {
+    try {
+      await settleMockupTemplateAssets(doc, selection.ids, { signal: options.signal });
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        return outcome(null, 'cancelled');
+      }
+      extraWarnings.push('mockup-decoration-unavailable');
+      decorateProvisional = true;
+    }
+  }
+
   try {
     const result = await generateThumbnail(
       engineNodes.nodes,
@@ -208,6 +295,8 @@ export async function renderDocThumbnail(
         devicePixelRatio: options.variant.devicePixelRatio,
         frame: selection.worldFrame ?? undefined,
         sourceLabel: sourceDisplayLabel(effectiveSource),
+        buildIr:
+          decorateIr && !decorateProvisional ? async (nodes) => decorateIr(nodes) : undefined,
       },
       options.signal,
     );
@@ -265,7 +354,10 @@ export async function persistDocThumbnail(
 ): Promise<RenderDocThumbnailOutcome | null> {
   try {
     const outcome = await renderDocThumbnail(doc, options);
-    if (!outcome.result || !shouldPersistThumbnail(outcome.result)) return outcome;
+    // Host-level provisional states (e.g. unavailable mockup decoration)
+    // block persistence even when the engine result itself looks settled.
+    if (!outcome.result || outcome.status !== 'ready') return outcome;
+    if (!shouldPersistThumbnail(outcome.result)) return outcome;
     const r = outcome.result;
     await platform.putThumbnail({
       hash: outcome.identity.key,

@@ -396,8 +396,9 @@ export async function generateThumbnail(
 
   if (signal?.aborted) return null;
 
-  const engine = await createEngine('stub');
-  const ir: RenderItem[] = await engine.buildIr({ nodes });
+  const ir: RenderItem[] = opts.buildIr
+    ? await opts.buildIr(nodes)
+    : await (await createEngine('stub')).buildIr({ nodes });
   replayIr(ctx as unknown as ReplayTarget, ir, (src) => {
     const loadable = resolveImageResourceHandle(src);
     return thumbnailImages.get(loadable);

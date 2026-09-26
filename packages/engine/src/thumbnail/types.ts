@@ -26,6 +26,8 @@ export type ThumbnailBackground =
 /** Encoded output format. WebP is preferred when supported. */
 export type ThumbnailFormat = 'png' | 'webp';
 
+import type { RenderItem, SceneNode } from '../types';
+
 export interface ThumbnailOptions {
   /** Target output width in px (default 256). */
   maxWidth?: number;
@@ -55,6 +57,14 @@ export interface ThumbnailOptions {
   frame?: { x: number; y: number; w: number; h: number };
   /** Information about the thumbnail source, used for metadata. */
   sourceLabel?: string;
+  /**
+   * Optional canonical IR override for the render list (editor-hosted
+   * decoration such as mockup surfaces and perspective image fills). When
+   * set, the thumbnail replays exactly the returned items instead of
+   * `engine.buildIr(nodes)`; hosts must return items derived from the same
+   * nodes so bounds and metadata stay truthful.
+   */
+  buildIr?: (nodes: SceneNode[]) => Promise<RenderItem[]>;
 }
 
 export interface ThumbnailMetadata {

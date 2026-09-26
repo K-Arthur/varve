@@ -1,6 +1,16 @@
 import { contentHash } from '@varve/platform';
-import type { Document } from '@varve/scene';
-import { createDocument, DocumentCodec, makeShapeNode } from '@varve/scene';
+import type { Document, FrameNode } from '@varve/scene';
+import {
+  addMockupTemplate,
+  createDocument,
+  createMockupInstanceData,
+  DocumentCodec,
+  getBuiltinMockupTemplates,
+  makeFrameNode,
+  makeShapeNode,
+  nextNodeId,
+  setMockupBinding,
+} from '@varve/scene';
 import { THUMBNAIL_VARIANTS } from '@varve/shared';
 import { describe, expect, it } from 'vitest';
 import { documentRevisionHash } from '../identity';
@@ -16,6 +26,71 @@ function docWithPageContent(): Document {
   const contentRoot = doc.nodes[page?.contentRoot as string] as { children: string[] };
   contentRoot.children.push(rect.id);
   return doc;
+}
+
+/** A document whose root holds a mockup frame presenting a live source frame. */
+function docWithMockup(templateId: string): { doc: Document; frameId: string } {
+  let doc = createDocument('mockup-thumb');
+  const template = getBuiltinMockupTemplates().find((t) => t.id === templateId)!;
+  doc = addMockupTemplate(doc, template).document;
+  const f = nextNodeId(doc);
+  doc = f.doc;
+  const frameId = f.id;
+  const solid = (r: number, g: number, b: number) => ({
+    space: 'rgb' as const,
+    r,
+    g,
+    b,
+    a: 255,
+  });
+  doc = {
+    ...doc,
+    nodes: {
+      ...doc.nodes,
+      [frameId]: makeFrameNode(frameId, {
+        transform: [1, 0, 0, 1, 0, 0],
+        w: template.outputWidth,
+        h: template.outputHeight,
+        fill: solid(236, 233, 227),
+      }),
+    },
+    rootChildren: [...doc.rootChildren, frameId],
+  };
+  const s = nextNodeId(doc);
+  doc = s.doc;
+  const sourceId = s.id;
+  doc = {
+    ...doc,
+    nodes: {
+      ...doc.nodes,
+      [sourceId]: makeFrameNode(sourceId, {
+        transform: [1, 0, 0, 1, template.outputWidth + 100, 0],
+        w: 300,
+        h: 300,
+        fill: solid(30, 120, 200),
+      }),
+    },
+    rootChildren: [...doc.rootChildren, sourceId],
+  };
+  const frame = doc.nodes[frameId] as FrameNode;
+  doc = {
+    ...doc,
+    nodes: {
+      ...doc.nodes,
+      [frameId]: { ...frame, mockup: createMockupInstanceData(templateId, {}) },
+    },
+  };
+  doc = setMockupBinding(doc, frameId, template.surfaces[0]!.id, {
+    mode: 'live',
+    nodeId: sourceId,
+  });
+  // Automatic/page thumbnail sources resolve through the page content root,
+  // so both frames must live there (pasteboard-only content is not covered).
+  const contentRoot = doc.nodes[doc.pages?.[0]?.contentRoot as string] as {
+    children: string[];
+  };
+  contentRoot.children.push(frameId, sourceId);
+  return { doc, frameId };
 }
 
 describe('renderDocThumbnail — source fallback', () => {
@@ -165,5 +240,65 @@ describe('documentRevisionHash — platform consistency', () => {
     // derives its identity from that persisted hash. The thumbnail identity
     // must hash the SAME bytes or Home lookups miss.
     expect(documentRevisionHash(doc)).toBe(contentHash(DocumentCodec.encode(doc)));
+  });
+});
+
+describe('renderDocThumbnail — mockup decoration', () => {
+  it('runs mockup decoration and reports missing surfaces as warnings', async () => {
+    // The live-bound source frame is missing: decoration still runs (proven
+    // by the explicit per-surface warning), and the render degrades to the
+    // placeholder path instead of silently drawing a bare frame.
+    const { doc, frameId } = docWithMockup('builtin:fabric-banner-mesh');
+    const frame = doc.nodes[frameId] as FrameNode;
+    const broken: Document = {
+      ...doc,
+      nodes: {
+        ...doc.nodes,
+        [frameId]: {
+          ...frame,
+          mockup: {
+            ...frame.mockup!,
+            surfaceBindings: { front: { mode: 'live', nodeId: 'deleted-source' } },
+          },
+        },
+      },
+    };
+    const outcome = await renderDocThumbnail(broken, { variant: VARIANT });
+    expect(outcome.warnings.some((warning) => warning.startsWith('mockup-surface-missing:'))).toBe(
+      true,
+    );
+  });
+
+  it('marks the thumbnail provisional when decoration is unavailable', async () => {
+    // Payload referencing a template that is not embedded: the export
+    // decoration barrier refuses to bake, so the bare-frame render must
+    // never persist as an authoritative cover.
+    const doc = createDocument('mockup-missing');
+    const f = nextNodeId(doc);
+    let frameDoc = f.doc;
+    const frameId = f.id;
+    frameDoc = {
+      ...frameDoc,
+      nodes: {
+        ...frameDoc.nodes,
+        [frameId]: {
+          ...makeFrameNode(frameId, {
+            transform: [1, 0, 0, 1, 0, 0],
+            w: 300,
+            h: 300,
+            fill: { space: 'rgb', r: 240, g: 240, b: 240, a: 255 },
+          }),
+          mockup: createMockupInstanceData('missing-template', {}),
+        },
+      },
+      rootChildren: [...frameDoc.rootChildren, frameId],
+    };
+    const contentRoot = frameDoc.nodes[frameDoc.pages?.[0]?.contentRoot as string] as {
+      children: string[];
+    };
+    contentRoot.children.push(frameId);
+    const outcome = await renderDocThumbnail(frameDoc, { variant: VARIANT });
+    expect(outcome.warnings).toContain('mockup-decoration-unavailable');
+    expect(outcome.status).toBe('provisional');
   });
 });
