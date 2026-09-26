@@ -211,6 +211,14 @@ export class ToolManager {
         return result;
       }
     }
+    // The right button belongs to context actions (input-system behavior
+    // matrix): it must never start a tool gesture. Routing it to the active
+    // tool let a right-click with a creation tool commit artwork, and the
+    // selection/state change from that commit immediately closed the canvas
+    // context menu the same click was meant to open.
+    if (e.button === 2) {
+      return { consumed: false };
+    }
     this.cursorState = 'drag';
     return this.activeTool.onPointerDown?.(e, ctx) ?? { consumed: false };
   }

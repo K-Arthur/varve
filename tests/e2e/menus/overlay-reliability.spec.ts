@@ -155,9 +155,11 @@ test.describe('Overlay geometry and event reliability', () => {
 
     await seedLayers(page, 2);
     const row = page.getByRole('treeitem').first();
+    await row.scrollIntoViewIfNeeded();
     const rowBox = await row.boundingBox();
     expect(rowBox).not.toBeNull();
-    await row.click({ button: 'right' });
+    const invocation = { x: rowBox!.x + rowBox!.width / 2, y: rowBox!.y + rowBox!.height / 2 };
+    await page.mouse.click(invocation.x, invocation.y, { button: 'right' });
 
     const contextLayer = page.locator(
       '[data-overlay-kind="context-menu"][data-overlay-state="visible"]',
@@ -165,9 +167,8 @@ test.describe('Overlay geometry and event reliability', () => {
     await expect(contextLayer).toHaveCount(1);
     const contextRect = await rect(page, '[data-overlay-kind="context-menu"]');
     assertInsideViewport(contextRect, viewport);
-    // Playwright's right click uses the row center. The point anchor must stay
-    // in that viewport coordinate space, independent of canvas/world zoom.
-    const invocation = { x: rowBox!.x + rowBox!.width / 2, y: rowBox!.y + rowBox!.height / 2 };
+    // Compare the menu with the exact viewport point sent to the real mouse.
+    // A locator click may recalculate its center after the row box is read.
     expect(Math.abs(contextRect.left - invocation.x)).toBeLessThanOrEqual(3);
     // A tall context menu may flip above the point and be shifted to the safe
     // viewport edge. Measure the distance to the nearer edge instead of
@@ -249,5 +250,43 @@ test.describe('Overlay geometry and event reliability', () => {
     await page.keyboard.press('Escape');
     await expect(contextLayer).toHaveCount(0);
     await recordEvidence(page, testInfo, 'canvas-context-keyboard');
+  });
+
+  // Regression (2026-09-25): the informational micro-hint that floats over the
+  // bottom of the canvas once swallowed real pointer input, so a right-click
+  // on the artwork under it never reached the canvas context-menu handler and
+  // "Apply Mockup…" style entries were unreachable. The hint surface must stay
+  // click-through; only its dismiss control is interactive.
+  test('canvas context menu opens on a real right-click under a visible micro-hint', async ({
+    page,
+  }) => {
+    await navigateToEditor(page);
+
+    // First use of the rectangle tool surfaces the "Rectangle" micro-hint for
+    // a few seconds at the bottom-centre of the canvas area.
+    await page.keyboard.press('r');
+    const hint = page.locator('.micro-hint');
+    await expect(hint).toBeVisible();
+
+    const hintBox = await hint.boundingBox();
+    expect(hintBox).not.toBeNull();
+    const hintCenter = {
+      x: hintBox!.x + hintBox!.width / 2,
+      y: hintBox!.y + hintBox!.height / 2,
+    };
+
+    // A real right-click at the hint's own centre must fall through to the
+    // canvas and open the canvas context menu.
+    await page.mouse.click(hintCenter.x, hintCenter.y, { button: 'right' });
+    const menu = page.locator('.varve-ctxmenu[role="menu"]');
+    await expect(menu).toBeVisible();
+
+    await page.keyboard.press('Escape');
+    await expect(menu).toHaveCount(0);
+
+    // The dismiss control is the one interactive part of the hint; activating
+    // it removes the hint without opening anything else.
+    await hint.getByRole('button', { name: 'Dismiss hint' }).click();
+    await expect(hint).toHaveCount(0);
   });
 });

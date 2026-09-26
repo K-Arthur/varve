@@ -111,7 +111,9 @@ export class SelectionPaintTool implements Tool {
 
   private addStrokeSamples(e: PointerEvent, ctx: ToolContext): void {
     const radius = QUICK_MASK_RADIUS_CSS / Math.max(ctx.zoom ?? 1, 0.01);
-    const subtract = e.altKey || e.button === 2;
+    // Alt subtracts; the right button is reserved for context actions and
+    // never reaches a tool gesture (ToolManager gates it before routing).
+    const subtract = e.altKey;
     const samples: Array<{ x: number; y: number }> = [];
     if (typeof e.getCoalescedEvents === 'function') {
       const coalesced = e.getCoalescedEvents();
