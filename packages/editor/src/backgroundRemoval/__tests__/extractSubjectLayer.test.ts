@@ -84,7 +84,8 @@ describe('extractSubjectToLayer', () => {
       withMask.nodes['img-1']!.mask?.rasterMask?.assetId,
     );
     expect(copy.mask?.rasterMask?.provenance?.method).toBe('ai-quality');
-    expect(copy.backgroundRemoval).toBeUndefined();
+    // The legacy field only exists on the shape variant.
+    if ('backgroundRemoval' in copy) expect(copy.backgroundRemoval).toBeUndefined();
   });
 
   it('works inside a group, inserting above the source among its siblings', () => {
