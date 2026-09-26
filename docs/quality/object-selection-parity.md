@@ -299,8 +299,6 @@ matting remains a reviewed matte capability, not semantic target proof.
   the manifest; a local-first client without a server proxy cannot consume
   GitHub release assets directly.
 
-## Graph repair
-
 ## Cache and constrained-device follow-up (2026-09-14)
 
 The encoder embedding cache is now bounded relative to the runtime's reported
@@ -316,6 +314,8 @@ and the verified encoder and decoder artifact checksums from the model catalog.
 That prevents a model replacement behind a stable locator from reusing old
 embeddings. A transform change must still bump the preprocessing revision, and
 the cache never persists embeddings into the document.
+
+## Graph repair
 
 The upstream `sam2_hiera_tiny.encoder.onnx` declares empty shapes
 (`{}`) for the `/conv_s0` and `/conv_s1` output value_info entries.
@@ -543,3 +543,26 @@ regression while staying below every measured value.
 A synthetic ground-truth suite still cannot stand in for photographic
 boundaries: hair, fur, and translucency remain covered by the corpus quality
 run and the manual categories below.
+
+## Iterative-refinement and decode-convention follow-up (2026-09-26)
+
+Two contracts changed with the subject-selection pass and are now covered by
+unit tests rather than documentation alone:
+
+- **Iterative refinement (mask_input).** `decodeSam2DecoderOutput` exports
+  per-candidate low-res logits (`lowResMasks`, row-major, width/height
+  describing the decoder's square frame), and the editor feeds the selected
+  candidate's logits back as `mask_input` on the next decode. The prior is
+  only reused when the ready session's source pixel fingerprint and provider
+  identity are unchanged; everything else decodes unconditioned. The
+  previously dormant `previousMask` plumbing is now exercised end to end
+  (`promptedSegmentationProvider.test.ts`, `sam2.test.ts`).
+- **Mask decode convention.** `decodeMaskDataUrl` / `maskFromImageData` now
+  resolve coverage as `min(red, alpha)`, which reads all three encodings in
+  use (all-channel coverage, white RGB + alpha from the depth workflow, and
+  the legacy RGB-only payload) without mistaking a white-RGB pixel for full
+  coverage. The red-only read silently destroyed committed depth masks when
+  re-decoded (see `maskCoverage.test.ts`).
+
+No thresholds changed. Both fixes are covered by targeted unit tests; the
+real-model gates above remain the release boundary.

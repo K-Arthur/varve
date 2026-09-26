@@ -15,13 +15,17 @@ Model-independent SegmentationBackend contract (@varve/engine)
         ▼
 Worker-backed runtime (current adapter: split ONNX encoder + decoder)
         │
-        ├── bounded embedding cache (2 entries / 512 MiB)
+        ├── bounded embedding cache (entry-capped and byte-capped: the byte
+        │   budget is min(512 MiB, max(16 MiB, 15% of the runtime's safe
+        │   working set); the entry cap binds first on constrained hosts)
         └── candidate masks + confidence
         ▼
 Transient ObjectSelectionSession
-        │ point/box markers, candidate list, preview mask
+        │ point/box markers, candidate list, preview mask, presentation mode
         ├── Apply as mask (one document update)
         │   Document Mask.rasterMask → RasterMaskAsset
+        ├── Extract to layer (one document update)
+        │   masked copy of the image inserted above the source
         └── Use as selection
             transient analytical AreaSelection```
 
@@ -73,13 +77,15 @@ A failed or stale commit leaves the prompts and candidate available for retry.
 
 ## Reviewed-candidate commit path
 
-"Apply as mask" and "Use as selection" share one commit path. Both revalidate
-the source fingerprint against the preview before converting, reject an
-all-zero candidate with a retryable `empty_result` error, and use the exact
-candidate the user inspected. The only difference is the destination: a
-document `RasterMaskAsset` or a transient analytical `AreaSelection`. An
-empty smart-selection result is never committed silently; the session stays
-open so prompts can be corrected.
+"Apply as mask", "Extract to layer", and "Use as selection" share one commit
+path. All revalidate the source fingerprint against the preview before
+converting, reject an all-zero candidate with a retryable `empty_result` error,
+and use the exact candidate the user inspected. The destination differs: a
+document `RasterMaskAsset`, a masked copy of the image inserted directly above
+the source (new node, one undo entry, source untouched — the copy starts
+without the source's own mask so its provenance describes the extraction), or
+a transient analytical `AreaSelection`. An empty smart-selection result is
+never committed silently; the session stays open so prompts can be corrected.
 
 When an accepted candidate is applied as a raster mask, its raw provider score
 and `scoreSource` are persisted separately from `confidence`. Score semantics
@@ -114,6 +120,25 @@ unreviewed candidate or a candidate from a moved image is not silently reused.
   Include/Exclude labels model prompts, while Replace/Add/Subtract/Intersect
   applies only when a reviewed candidate becomes an area selection.
 - Prompt edits remain transient until an output is chosen.
+- Refinement conditions on the reviewed candidate: each published candidate
+  carries its own low-resolution decoder logits, and the next decode after a
+  prompt change feeds the selected candidate's logits back as `mask_input`
+  (the intended SAM2 iterative workflow). The prior is strictly bound to the
+  same ready session, source pixel fingerprint, and provider identity — a
+  source edit, provider switch, or foreign session falls back to an
+  unconditioned decode. Prompt removal re-decodes against the retained
+  candidate, and Candidate change re-binds the prior to the newly selected
+  candidate.
+- Eligibility is decided before any model work: Object Selection runs on
+  exactly one visible, unlocked image. A multi-selection, hidden image, or
+  locked image is refused with an actionable announcement instead of reaching
+  the mid-flight guards after the encode (which used to strand the session on
+  "encoding" with no error).
+- Preview presentation is user-selectable while a session is ready: Overlay
+  (blue tint on the covered region), Cutout (checkerboard fills the region
+  the mask will remove, tiles kept constant on screen — this predicts the
+  applied appearance rather than restating the model's highlight), and Off.
+  The presentation lives on the transient session and survives re-runs.
 - Apply as mask creates an editable document mask; Use as selection creates
   an ephemeral pixel-area selection without changing artwork or document
   history. Both consume the reviewed candidate.

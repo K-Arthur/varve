@@ -19,12 +19,13 @@ import { sitePath } from '../../lib/siteUrl';
       <section class="feature-section">
         <h2>Select with the canvas</h2>
         <ul>
-          <li>Choose point prompts or an explicit box-hint mode; create a box by dragging or by tapping its two corners.</li>
+          <li>Choose point prompts or an explicit box-hint mode; create a box by dragging (in any direction) or by tapping its two corners.</li>
+          <li>Refine one result instead of restarting: each additional prompt continues from the candidate you kept, so the mask follows your edits rather than jumping to a new reading on every click.</li>
           <li>Set include or exclude polarity visibly. Shift remains a temporary exclude shortcut, separate from selection subtraction.</li>
           <li>Tap a prompt marker to remove just that prompt, drag it to move it, or press Backspace for the last one.</li>
           <li>Compare candidate masks before applying &mdash; with the panel arrows or the <strong>[</strong> / <strong>]</strong> keys while the tool is active; the candidate you reviewed is the one that is committed.</li>
-          <li>Preview the result before it becomes part of the document.</li>
-          <li>Use replace, add, subtract, or intersect when sending the reviewed candidate to a pixel selection, or apply it as a standalone non-destructive raster mask.</li>
+          <li>Preview honestly: an overlay tint marks what the model highlighted, and a cutout preview fills what the mask will <em>remove</em> with checkerboard so you can see the applied result before committing to it.</li>
+          <li>Three outputs, all consuming the exact reviewed candidate: an editable non-destructive raster mask, a temporary pixel selection (with replace, add, subtract, or intersect), or an extracted copy of the image on its own layer &mdash; the source stays untouched and the extracted layer is selected and ready to move.</li>
         </ul>
       </section>
 
@@ -110,11 +111,14 @@ import { sitePath } from '../../lib/siteUrl';
       <section class="feature-section">
         <h2>Selection and trimming are different tools</h2>
         <p>
-          Object Selection creates a pixel mask from your prompts. Apply it as an editable mask or
-          use it as a temporary pixel selection without changing the artwork. When you only need a
-          tighter image frame, Trim to Subject can suggest object bounds separately; it shows the
-          detected box for review before applying a non-destructive crop. The bounds workflow is
-          not a hidden mask and does not claim semantic recognition.
+          Object Selection creates a pixel mask from your prompts. Apply it as an editable mask, extract
+          it to its own layer, or use it as a temporary pixel selection without changing the artwork. When
+          you only need a tighter image frame, Trim to Subject can suggest object bounds separately; it
+          shows the detected box for review before applying a non-destructive crop, and if the source it
+          needs cannot be measured &mdash; an empty mask, unreadable pixels, a fully transparent image
+          &mdash; the trim fails with an explanation and the document is left exactly as it was, instead
+          of silently resetting your crop. The bounds workflow is not a hidden mask and does not claim
+          semantic recognition.
         </p>
       </section>
 
