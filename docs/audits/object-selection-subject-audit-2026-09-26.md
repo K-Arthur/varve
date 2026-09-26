@@ -182,6 +182,15 @@ all; every live result above is Chromium on Linux x86_64.
 
 ## Known limitations / not covered here
 
+- **Stage instrumentation is coarse.** `ObjectSelectionSession.stageTimingsMs`
+  records preparing / encoding / decoding / ready, and the live run reports
+  end-to-end cold (26 s) and warm (1 s) previews. The per-stage split the
+  task asks for — image decode, readback, session init, encoder, decoder,
+  mask reconstruction, transfer, preview paint, commit — is **not**
+  separately measured; the worker host has the request boundaries to add it,
+  but nothing aggregates them today. Next step: emit the existing request
+  timings into `stageTimingsMs` rather than inventing new probes.
+
 - Extract-to-new-layer was an open gap when this audit's findings were
   written; a parallel pass in the same tree implemented it as a reviewed,
   single-undo output (`7b097eac5 feat(selection): extract the reviewed subject
