@@ -33,9 +33,24 @@ import { sitePath } from '../../lib/siteUrl';
         <p>
           Use the same document workflow for mobile screens, desktop windows, front/back
           stationery, apparel and tees, outdoor billboards, boxes, and product labels. Planar
-          surfaces stay projectively mapped, while the product-label template provides a bounded
-          front-facing cylindrical arc with an explicit wrap, seam, and crop policy. Multiple
+          surfaces stay projectively mapped, the product-label template provides a bounded
+          front-facing cylindrical arc with an explicit wrap, seam, and crop policy, and the
+          folded-fabric banner template maps artwork through a bounded mesh envelope. Multiple
           surfaces can use independent sources or intentionally share one linked source.
+        </p>
+      </section>
+
+      <section class="feature-section">
+        <h2>Folded fabric through a bounded mesh envelope</h2>
+        <p>
+          Some subjects cannot be flattened without lying: a draped banner, a folded textile, a
+          curved paper hem. The mesh surface divides the artwork area into a small grid of
+          patches; drag the grid vertices on the canvas and the source is resampled through the
+          envelope, with the folds kept exactly where you put them. Moves that would fold a cell
+          inside out are refused rather than rendered wrong, and undo returns the pre-drag grid
+          in one step. It is a bounded envelope for folds and drape — not a 3D model, with no
+          lighting solve and no hidden backside — and composed exports include it like any other
+          surface.
         </p>
       </section>
 
@@ -91,7 +106,8 @@ import { sitePath } from '../../lib/siteUrl';
           </li>
           <li>
             Refine the surface on the canvas: select the mockup, click a surface chip, drag its
-            corner or edge handles (Escape aborts, Reset clears), and use
+            corner or edge handles — or, on a mesh surface, its grid vertices — (Escape aborts,
+            Reset clears), and use
             <strong>Clip from selection</strong> / <strong>Occluder from selection</strong> to
             keep bezels, hands, or folds in front of the artwork.
           </li>
@@ -111,11 +127,12 @@ import { sitePath } from '../../lib/siteUrl';
       <section class="feature-section note">
         <h2>Set the right expectation</h2>
         <p>
-          Mockups place artwork on planar, four-corner, or bounded front-facing cylindrical
-          surfaces. Full 3D cameras, mesh wrapping, calibrated displacement maps, and Photoshop
-          smart-object re-rendering are not available; unsupported cases are rejected instead of
-          being approximated silently. PSD import brings supported layers and masks in as pixels.
-          Homography and cylindrical geometry are not a 3D renderer.
+          Mockups place artwork on planar, four-corner, bounded front-facing cylindrical, or
+          bounded mesh-envelope surfaces. Full 3D cameras, calibrated displacement maps, and
+          Photoshop smart-object re-rendering are not available; unsupported cases are rejected
+          instead of being approximated silently. PSD import brings supported layers and masks
+          in as pixels and reports detected smart objects explicitly. Homography, cylindrical,
+          and mesh geometry are not a 3D renderer.
         </p>
       </section>
 

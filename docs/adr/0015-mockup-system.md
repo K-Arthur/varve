@@ -1,7 +1,8 @@
 # ADR-0015: Non-Destructive Mockup System
 
-- **Status:** Accepted — Level 1 + Level 2, photographic templates, and a
-  bounded cylindrical slice implemented (2026-09-13)
+- **Status:** Accepted — Level 1 + Level 2, photographic templates, a
+  bounded cylindrical slice, and bounded mesh envelope surfaces implemented
+  (last amended 2026-09-25)
 - Date: 2026-08-05
 - Deciders: Architecture (repository-first audit of 2026-08-05)
 
@@ -105,17 +106,23 @@ the surface rasterization:
   `packages/scene/src/mockup/`), so source edits invalidate only affected
   surfaces. Cache eviction is LRU with a byte budget.
 
-### 5. Scope: Level 1 (flat) + Level 2 (perspective) + bounded cylinder
+### 5. Scope: Level 1 (flat) + Level 2 (perspective) + bounded cylinder + bounded mesh
 
 - Level 1 flat mockups: affine placement (contain/cover/stretch/native +
   alignment), masks via the frame system.
 - Level 2 perspective: four-corner quad placement through the homography;
   quad handles on canvas + numeric controls; invalid geometry rejected or
   clearly reported.
-- Level 3 mesh: schema reserves `'mesh'`; `warpMesh` remains a future seam.
-  Cylindrical surfaces have a bounded front-facing orthographic remap with
-  explicit axis, visible arc, seam, and crop controls. This is raster mapping,
-  not a 3D renderer, and does not infer a backside, camera, radius, or light.
+- Level 3 curved, part 1 — cylindrical surfaces have a bounded front-facing
+  orthographic remap with explicit axis, visible arc, seam, and crop
+  controls. This is raster mapping, not a 3D renderer, and does not infer a
+  backside, camera, radius, or light.
+- Level 3 curved, part 2 (2026-09-25) — mesh envelope surfaces: a bounded
+  (rows+1)×(cols+1) grid of bilinear patches behind `kind: 'mesh'` at
+  template schemaVersion 3. Cells must stay convex; folds that would turn a
+  cell inside out are rejected at validation, at IR build, and mid-drag.
+  This is an envelope for folded fabric and drape — still no lighting, no
+  backside, no camera, and never labelled 3D.
 - Level 4 photographic templates (raster plates and alpha clip/occlusion
   masks) are implemented through document assets and the authoring UI.
   Calibrated displacement maps and luminance mask coverage remain rejected.
@@ -208,3 +215,35 @@ Decisions that extend, not replace, the original ADR:
 Validation: scene/scene-adjacent unit tests, focused editor tests, E2E
 coverage, and inspected visual/export artifacts are recorded in the audit
 report and the Agent Validation Report.
+
+## Amendment (2026-09-25): mesh envelope surfaces, truthful PSD disclosure, Home covers
+
+Slice record: `docs/audits/mockup-mesh-surfaces-2026-09-25.md`.
+
+1. **Mesh is a schema-3 capability, not an un-gated enum.** `kind: 'mesh'`
+   requires template schemaVersion 3, whose only new requirement is the
+   optional grid payload; schema 1–2 templates keep rejecting mesh payloads,
+   so enabling the capability is a migration (the same deterministic version
+   stamp as 1→2), not a removed validation check.
+2. **The envelope is bilinear and fold-free by construction.** Per-cell
+   inverse bilinear (not per-cell homography) because a bilinear patch's
+   restriction to a shared edge depends only on that edge's endpoints, so
+   adjacent cells agree exactly — no seam slivers by construction. Grids
+   with folded, concave, or degenerate cells are rejected by one predicate
+   (`isMeshGridValid`) shared by validation, IR build, and replay.
+3. **Malformed payloads render placeholders, never plausible geometry.** A
+   grid that fails validation in any host becomes an explicit
+   invalid-geometry placeholder (live, export, thumbnail).
+4. **Home covers join the decoration contract.** `generateThumbnail` gains
+   an optional canonical `buildIr` override; the editor decorates thumbnails
+   through the shared module and marks undecorated fallbacks provisional so
+   a bare frame is never persisted as an authoritative cover.
+5. **PSD smart objects are counted, not silently generic.** The importer
+   reports the detected SoLd/PlLd layer count and states the boundary:
+   layers import as rendered pixels; embedded artwork, warps, and
+   re-editability do not come along. The count is informational and never a
+   capability claim.
+6. **Right-click is reserved for context actions.** A tool gesture must
+   never start on button 2; routing it to creation tools let a right-click
+   commit artwork and immediately close the very context menu the click
+   opened (`ToolManager` gates button 2 before tool routing).

@@ -107,7 +107,7 @@ pass report in
 | `adr/0012-runtime-capability-abstraction.md` | Runtime capability abstraction |
 | `adr/0013-canonical-audit-finding-contract.md` | Canonical audit finding contract |
 | `adr/0014-font-detection-architecture.md` | Font detection architecture |
-| `adr/0015-mockup-system.md` | Non-destructive mockup system (Level 1+2, photo templates, bounded cylinder) |
+| `adr/0015-mockup-system.md` | Non-destructive mockup system (Level 1+2, photo templates, bounded cylinder and mesh envelope) |
 | `adr/0016-tables-and-color-modifiers.md` | Tables and colour modifiers |
 | `adr/0122-canonical-editor-session-ownership.md` | One canonical editing session per application session |
 | `adr/0123-state-partitioning-across-windows.md` | State scope taxonomy for multi-window sync |
@@ -335,7 +335,7 @@ pass report in
 | `architecture/visual-awareness-system.md` | Demand-driven face, hand, pose, object, and segmentation capability boundary |
 | `audits/face-detection-refinement-2026-09-15.md` | Face detection parity/recovery evidence, upstream references, and the seven per-category acceptance rows (including the categories that remain manual-only) |
 | `architecture/masking-system.md` | Clipping/alpha/luminance mask model and compositing contract |
-| `architecture/mockup-system.md` | Non-destructive mockup system (Level 1+2, photo templates, bounded cylinder) |
+| `architecture/mockup-system.md` | Non-destructive mockup system (Level 1+2, photo templates, bounded cylinder and mesh envelope) |
 | `architecture/alpha-aware-shadows.md` | Alpha-aware shadow rendering |
 | `architecture/analytics.md` | Privacy-first analytics architecture |
 | `architecture/auto-layout-system.md` | Auto-layout (flex/grid) engine — canonical doc |
@@ -610,6 +610,7 @@ records; check the current code before acting on their findings.
 | `audits/platform-ux-accessibility-responsiveness-audit-2026-09-02.md` | WCAG 2.2 AA, keyboard, touch, responsive, and marketing-site audit with prioritized remediation |
 | `audits/universal-ui-ux-review-follow-up-2026-09-09.md` | Universal UI/UX follow-up, public accessibility information surface, evidence boundaries, and remaining validation risks |
 | `audits/canvas-responsiveness-2026-09-08.md` | Canvas geometry, camera-resize, input lifecycle, visual validation, and honest performance contract |
+| `audits/canvas-fluidity-2026-09-25.md` | Profiled hover/pan/zoom/drag main-thread costs, per-document caches, camera-drift and partial-redraw seam fixes, paired before/after evidence |
 | `audits/canvas-label-isolation-2026-09-08.md` | Root cause and shared surface-scope contract for canvas labels, accessibility, minimap, and editor overlays |
 | `audits/documentation-modernization-audit-2026-09-02.md` | Repository documentation truth, release guidance, architecture orientation, and website claims audit |
 | `audits/minimap-repair-2026-09-05.md` | Minimap geometry, lifecycle, persistence, responsive, and marketing repair record |

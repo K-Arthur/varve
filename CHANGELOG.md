@@ -14,6 +14,24 @@ update, not for someone reading the commit log.
 
 ### Added
 
+- **Mesh mockups for folded fabric** — A new bounded mesh envelope joins flat,
+  perspective, and cylindrical mockup surfaces, for the jobs those cannot do:
+  folded banners, draped textiles, curved paper. Apply the new "Fabric Banner —
+  Folded" built-in template (or any template you author with a mesh surface),
+  then drag the grid vertices on the canvas to shape the folds — moves that
+  would turn a cell inside out are refused, so the artwork can never fold
+  through itself. Surface placement, fit, masks, snapshot/reconnect, and
+  export all behave exactly like the other mockup kinds, Home covers now show
+  the composed mockup instead of a bare frame, and the envelope is honest
+  about its boundary: folds and drape, not 3D — no lighting solve, no hidden
+  backside, no camera. Documents with mesh templates are version 3 templates
+  and older documents migrate silently.
+- **PSD smart objects are now counted, not just disclaimed** — Importing a
+  PSD reports how many smart object layers were detected and what that means:
+  each imports as its rendered pixels only — the embedded artwork, its warps,
+  and re-editability do not come along. Knowing "3 smart objects" before you
+  start beats discovering them one broken layer at a time.
+
 - **Isometric construction that matches its grid** — The isometric grid is now a real
   construction system rather than a static overlay. True isometric (30°), exact 2:1
   dimetric (`atan2(1, 2)`, with ratio-to-angle entry), and an explicitly illustrative
@@ -187,6 +205,14 @@ update, not for someone reading the commit log.
   whole product gains the WCAG 2.5.7 single-pointer path for free.
 
 ### Fixed
+
+- **Right-click opens the canvas context menu again** — The onboarding hint
+  bubble that floats over the canvas was swallowing real right-clicks, and
+  worse: with a drawing tool active, the right-click also silently committed
+  a shape underneath (a right-click could litter the document with empty
+  rectangles). Tool gestures no longer start on the right mouse button — it
+  belongs to context actions — so the context menu, including "Apply
+  Mockup…", is reachable while any tool is active.
 
 - **Mockups now survive every export route** — SVG and vector-PDF export no
   longer drop the mockup composition and silently ship the frame background:

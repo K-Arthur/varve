@@ -1,9 +1,10 @@
 # Mockup System — Architecture
 
 Status: implemented (Levels 1–2 + photographic templates + a bounded
-front-facing cylindrical slice); mesh, calibrated displacement, PSD
-smart-object re-rendering, and model-assisted proposals remain explicitly
-unsupported. ADR: `docs/adr/0015-mockup-system.md`.
+front-facing cylindrical slice + bounded mesh envelope surfaces, template
+schema 3); calibrated displacement, PSD smart-object re-rendering, and
+model-assisted proposals remain explicitly unsupported.
+ADR: `docs/adr/0015-mockup-system.md`.
 Audit and improvement record: `docs/audits/mockup-editing-improvement-2026-09-13.md`.
 
 ## Product definition
@@ -34,7 +35,7 @@ renderer decoration + inspector/overlay controls.
 ```ts
 interface MockupTemplateAsset {
   id: string;                    // 'builtin:phone-flat' | 'user:…'
-  schemaVersion: 2;
+  schemaVersion: 3;              // 1: flat+quad, 2: plates/masks/cylinder, 3: mesh
   name: string; description?: string;
   category: MockupCategory;
   source: 'builtin' | 'user' | 'workspace' | 'community';
@@ -51,17 +52,18 @@ interface MockupTemplateAsset {
   licence?: MockupLicenceSnapshot;
   tags?: string[];
   contentHash: string;
-  capabilities?: string[];    // e.g. ['flat'], ['quad'], ['cylindrical']
+  capabilities?: string[];    // e.g. ['flat'], ['quad'], ['cylindrical'], ['mesh']
   library?: boolean;          // user-authored: retained when unreferenced
   createdAt?: number; updatedAt?: number;
 }
 
 interface MockupSurfaceDefinition {
   id: string; name: string; sourceSlot: string;
-  kind: 'flat' | 'quad' | 'cylindrical'; // mesh remains reserved/rejected
+  kind: 'flat' | 'quad' | 'cylindrical' | 'mesh'; // mesh requires schemaVersion 3
   x: number; y: number;           // slot rect, template space
   width: number; height: number;
   quad?: MockupQuad;              // required when kind === 'quad'
+  mesh?: MockupMeshGeometry;      // required when kind === 'mesh'
   fit: 'contain' | 'cover' | 'stretch' | 'native';
   alignment: { x: 'min' | 'center' | 'max'; y: 'min' | 'center' | 'max' };
   plate?: MockupVectorShape[];    // slot-local for quads, absolute for flat
@@ -79,6 +81,12 @@ interface MockupSurfaceDefinition {
   cylindrical?: { axis: 'vertical' | 'horizontal'; wrapDegrees: number;
     seam: number; crop: 'visible' | 'slot' };
   displacementAssetId?: string;   // reserved — rejected until a renderer exists
+}
+
+interface MockupMeshGeometry {    // template schema 3+
+  cols: number;                   // grid columns (cells across), 1..16
+  rows: number;                   // grid rows (cells down), 1..16
+  vertices: { x: number; y: number }[][];  // (rows+1)x(cols+1), template output px
 }
 ```
 
@@ -163,6 +171,25 @@ camera perspective, folds, lighting, or calibrated displacement, and its
 output is deliberately raster content inside the ordinary surface image-fill
 path. A cylinder selection therefore cannot be mistaken for full 3D.
 
+Mesh surfaces (template schema 3+) use `warpImageToMesh`
+(`engine/src/mockup/meshWarp.ts`): a bounded (cols+1)×(rows+1) grid of
+bilinear patches with a closed-form inverse per cell. Bilinear — not
+per-cell homography — is the model, because the bilinear restriction to a
+shared edge depends only on that edge's endpoints, so adjacent cells agree
+exactly and seam slivers cannot appear. Validation (`validateMeshGeometry`)
+and the renderer's own IR-build guard reject grids that are the wrong shape,
+carry non-finite or out-of-range vertices, or contain folded/degenerate
+cells, so a malformed payload renders an explicit invalid-geometry
+placeholder in every host instead of folded pixels. Instance overrides may
+replace the whole grid (`override.mesh`); canvas handles drag one vertex per
+gesture and reject mid-drag moves that would turn a cell inside out. This
+is an envelope for folds and drape — no lighting solve, no backside, no
+camera, and never labelled 3D. Warp cost per pixel is roughly 4–5× the quad
+homography (`packages/engine/src/mockup/mockupWarp.bench.test.ts` baselines:
+120/411/1393 ms for the mesh vs 19/72/283 ms for the quad at
+512/1024/2048 px on the 2026-09-25 reference machine); the preview quality
+bucket and surface cache bound interaction cost.
+
 ### Host parity
 
 `render/mockup/mockupExport.ts` is the single decoration module for
@@ -186,6 +213,13 @@ actionable reconnect/restore message. Used by:
   the children walk would skip those), so `renderBoundaryToSurface` runs the
   canonical decoration. Verified by unit coverage plus a real SVG export E2E
   that decodes the embedded boundary raster.
+- **Home/project thumbnails** (`thumbnail/thumbnailService.ts`). The engine's
+  `generateThumbnail` accepts an optional canonical `buildIr` override; the
+  editor supplies one that flattens live-bound sources, settles template
+  assets, decorates through this module, and drops the captured source items
+  so they never paint beside the mockup. A decoration failure (missing
+  template assets, failed bake) degrades to the undecorated render marked
+  **provisional**, so a bare-frame cover is never persisted as authoritative.
 
 The boundary rule is a contract: any new export target that cannot express
 the mockup composition itself must route mockup frames through
@@ -228,8 +262,8 @@ provides a clearly labelled last-good preview for a lost source on the canvas;
 
 `sceneNeedsStructuralCompositing` returns true when any visible node carries a
 `mockup` payload. Mockup surface baking needs main-thread structural replay,
-and quad warp uses DOM canvas APIs, so mockup documents never enter the
-replay worker; this also keeps the worker from ever receiving a
+and the quad and mesh warps use DOM canvas APIs, so mockup documents never
+enter the replay worker; this also keeps the worker from ever receiving a
 `warpedImage` it cannot render.
 
 ## Template authoring
@@ -242,9 +276,10 @@ replay worker; this also keeps the worker from ever receiving a
 - **Surface geometry**: the canvas overlay (`MockupSurfaceOverlay`) outlines
   every surface of a selected mockup; clicking a chip selects the edit
   target. Flat surfaces get corner and edge handles; quad surfaces get four
-  corner handles. Drags are one transaction per gesture; invalid quads are
-  rejected (geometry stays at the last valid state); Escape aborts; Reset
-  clears the override.
+  corner handles; mesh surfaces get one handle per grid vertex with a hull
+  outline. Drags are one transaction per gesture; invalid quads and
+  fold-creating vertex moves are rejected (geometry stays at the last valid
+  state); Escape aborts; Reset clears the override.
 - **Masks**: "Clip from selection" / "Occluder from selection" capture the
   selected node's alpha into a document asset and assign it to the surface.
   The instance first gets a private template copy, so a shared template is
@@ -260,10 +295,11 @@ replay worker; this also keeps the worker from ever receiving a
   before embedding. Exports never include bound artwork, paths, or fonts;
   bundle import is atomic at the document transaction boundary.
 
-Built-in catalog (`scene/src/mockup/builtinTemplates.ts`): 16 original vector
+Built-in catalog (`scene/src/mockup/builtinTemplates.ts`): 17 original vector
 templates spanning mobile/device screens, browser/desktop, print, stationery
-(including front/back), apparel/tees, signage/billboards, packaging (including
-the bounded cylindrical label), social/marketing, and logo presentation. There
+(including front/back), apparel/tees, signage/billboards (including the
+bounded mesh fabric banner), packaging (including the bounded cylindrical
+label), social/marketing, and logo presentation. There
 is no device trade dress or brand mark; the catalogue records FSL-1.1-MIT and
 "Varve contributors" attribution for these original fixtures. This catalogue
 is a subject starter set, not a claim of photo-realistic product fidelity.
@@ -298,7 +334,8 @@ is a subject starter set, not a claim of photo-realistic product fidelity.
 - **Inspector → Mockups**: template identity/licence/replacement (slot-identity
   remap with unbound reporting), per-surface list, source actions (Replace,
   Edit source, Snapshot, Reconnect, Clear), placement (fit, alignment,
-  rotation, flips), appearance (shadow, glow), geometry (numeric rect/quad),
+  rotation, flips), appearance (shadow, glow), geometry (numeric rect/quad;
+  mesh reports grid density with a reset action and edits on canvas),
   masks, surface rename/reorder/remove, duplicate linked/independent,
   flatten-to-image, remove mockup.
 - **Canvas overlay**: surface chips + geometry handles described above,
@@ -313,15 +350,14 @@ is a subject starter set, not a claim of photo-realistic product fidelity.
 
 | Capability | Status | Evidence / next step |
 |---|---|---|
-| Mesh surfaces | reserved, rejected | `meshWarp` exists but has no topology validation, seam handling, or authoring UI. |
-| Cylindrical surfaces | implemented, bounded | `warpImageToCylinder` + schema 2 + inspector controls + save/reopen/export coverage implement a front-facing orthographic arc. No backside, camera, radius solve, lighting, or full 3D claim. |
-| Displacement maps | reserved, rejected | Needs map encoding, channel, neutral value, strength units, coordinate space, and edge behaviour defined end to end. Luminance/depth is not a calibrated displacement field. |
+| Mesh envelope surfaces | implemented, bounded (2026-09-25) | Schema-3 grids validated for shape/finiteness/convexity; `mockup/meshWarp.ts` per-cell inverse bilinear with exact seam agreement; canvas vertex handles with fold rejection; export + thumbnail decoration parity; warp baselines in `mockupWarp.bench.test.ts`. No lighting, backside, camera, or 3D claim; cell count bounded at 16×16. |
+| Calibrated displacement | reserved, rejected | Needs map encoding, channel, neutral value, strength units, coordinate space, and edge behaviour defined end to end. Luminance/depth is not a calibrated displacement field. |
 | Luminance mask coverage | reserved, rejected | Only alpha coverage has a renderer path. |
 | Batch variants | implemented, bounded | `MockupVariantsPanel` reuses the existing raster export service with explicit source/template assignments, deterministic names, collision suffixes, progress, cancellation, and no temporary document nodes. Browser downloads remain the current destination path. |
 | SVG / vector-PDF export | implemented, verified 2026-09-25 | Mockup frames force a raster flatten boundary in `findFlattenBoundaries` (root, nested, and childless containers) so the boundary host runs `decorateMockupSubtree`; covered by compositor unit tests and a real SVG export E2E that decodes the embedded raster. |
 | PDF/X press composition | blocked, explicit | No decoration host in the press pipeline: `exportNodeAsPdfX` throws an actionable error for mockup subtrees and preflight raises a blocking `mockup-press-export` finding. Image pixels embed through the print manifest as RGB; image-pixel CMYK conversion is not implemented (print-pipeline boundary). |
 | Code exports (React/Flutter/SwiftUI) | advisory warning | Codegen emits vector structure only; preflight raises `mockup-code-export`. Next step would be decorating `flattenIrForCodegen`'s raster path. |
-| PSD smart-object replacement | not supported | `@webtoon/psd` imports layers/masks/blend modes as pixels; it does not implement Photoshop's renderer. See `docs/architecture/import-system.md`. |
+| PSD smart-object replacement | not supported, disclosed | `@webtoon/psd` imports layers/masks/blend modes as pixels; it does not implement Photoshop's renderer. Import warnings report the detected smart-object count and state that embedded artwork, warps, and re-editability are not extracted. See `docs/architecture/import-system.md`. |
 | Multimodal surface proposals | deferred | Typed request contract ships (`mockup/multimodal.ts`); no model is required for manual workflows. |
 | Community template packs | deferred | Would reuse the icon-pack download/manifest precedent; no remote host is configured. |
-| Thumbnail decoration | partial / follow-up | The selected document canvas and export paths compose mockups; Home thumbnail decoration still needs a dedicated capture contract and is not presented as verified parity. |
+| Worker-rendered mockup warps | not planned near term | Mockup documents force structural compositing because surface baking and `paintWarpedImage` are DOM-canvas dependent; making the warp worker-safe is an optimization, not a correctness gap. |

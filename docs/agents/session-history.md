@@ -2739,3 +2739,54 @@ multimodal proposals remain open (see the audit ledger). Alias resolution is
 still name-based, so the imported `alias` variable's Resolved column shows
 `—` until a token is bound through the token store rather than the legacy
 variable path.
+
+## Mockups: mesh envelope surfaces, truthful PSD disclosure, and Home covers (2026-09-25)
+
+Full record: `docs/audits/mockup-mesh-surfaces-2026-09-25.md`. Canonical
+architecture and ADR updated in place (`docs/architecture/mockup-system.md`,
+`docs/adr/0015-mockup-system.md` 2026-09-25 amendment).
+
+### What landed
+
+- **Mesh envelope surfaces** (template schema 3): a bounded convex
+  (rows+1)×(cols+1) grid of bilinear patches behind `kind: 'mesh'`, per-cell
+  closed-form inverse bilinear with exact seam agreement (edge restriction
+  depends only on shared endpoints), transparent outside the hull, identity
+  grids pixel-exact. Validation (scene), IR-build guard (editor), and replay
+  (engine) share one convexity predicate, so malformed grids render an
+  explicit invalid-geometry placeholder in every host. Canvas vertex handles
+  reject fold-creating moves mid-drag; inspector reports grid density with
+  Reset mesh; the "Fabric Banner — Folded" builtin joins the catalog.
+- **Right button reserved for context actions**: `ToolManager` no longer
+  routes button 2 into tool gestures — with a creation tool active a
+  right-click used to commit a 100×80 shape whose selection change instantly
+  closed the canvas context menu. Root-caused past the (already fixed)
+  micro-hint overlay; regression E2E added.
+- **PSD smart objects disclosed by count** (bounded `SoLd`/`PlLd` byte scan;
+  "imported as rendered pixels only" boundary stated). No second parser.
+- **Home covers compose mockups** via a `buildIr` override hook on
+  `generateThumbnail`; undecorated fallbacks are provisional and never
+  persisted.
+- **First warp benchmarks**: quad 18.6/72.2/283 ms, mesh 120/411/1393 ms at
+  512/1024/2048 px (best-of-3, shared loaded Linux box) — the accepted
+  envelope cost, bounded at interaction time by quality buckets + cache.
+
+### Verification
+
+- Focused suites: engine mesh warp 12/12; scene mockup 35/35; renderer +
+  export suites; panel/inspector/actions 19/19; thumbnail 20/20; PSD 33/33;
+  tool-routing tests. Typechecks clean in all touched files.
+- Right-click E2E regression: failed before the fix (rectangle committed, no
+  menu), passed after. Mesh workflow E2E
+  (`tests/e2e/canvas/mockup-mesh.spec.ts`: apply fabric template, vertex
+  drag + undo, save/reopen, decoded PNG export) committed; final run queued
+  behind the shared heavy lease held by concurrent sessions — see the audit
+  doc §5 for the exact reproduction command and honest status.
+
+### Known gaps (reported, not claimed)
+
+Calibrated displacement, luminance masks, PSD smart-object extraction,
+model-assisted proposals, batch-export save-to-file destination, and
+worker-rendered mockup warps remain explicitly deferred; the full-suite
+escalation flagged by `verify:plan` (206 shared-tree files from parallel
+sessions) belongs to the integration owner.
