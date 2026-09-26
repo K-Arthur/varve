@@ -21,7 +21,22 @@ against those pinned versions.
 | [VS Code disabled extension report, 2025-10](https://github.com/microsoft/vscode/issues/270982) | A disabled extension still prompted activation in one workspace; linked fix later verified. | Test disabled preference across restart/document/workspace changes and reject queued runs by generation. |
 | [Adobe settings disappearance discussion, 2023-01-04](https://community.adobe.com/questions-712/installation-of-ps-24-1-does-not-inherit-previous-versions-settings-1149493) | Reporter ultimately attributed a missing-settings case to relocated AppData; another machine worked. | Test alternate profile paths and recovery. Do not generalize this as an Adobe migration defect. |
 
+## Research refresh (2026-09-25, second pass)
+
+Sources re-fetched live on 2026-09-25; version-pinned runtime claims still
+need the packaged-WebView probes listed in the architecture document.
+
+| Evidence (checked 2026-09-25) | Requirement or observed problem | Varve mitigation and acceptance test |
+| --- | --- | --- |
+| [Tauri capabilities guide](https://v2.tauri.app/security/capabilities/) (docs last updated 2026-09-03) | On Linux and Android Tauri cannot distinguish an embedded `<iframe>` from the window itself; custom app commands are allowed to all windows unless `AppManifest::commands` restricts them. | The plugin path adds no native command and the desktop CSP is `frame-src 'none'`, so no guest frame exists to inherit IPC. Custom-command scoping remains a separate first-party audit; forged native IPC in packaged WebKitGTK is still an open probe. |
+| [Figma: How Plugins Run](https://developers.figma.com/docs/plugins/how-plugins-run/) (current) | Logic runs in a main-thread sandbox without browser APIs; UI runs in an iframe with browser APIs; a running toast lets the user cancel; manifest network limits do not cover the iframe site's own subresources. | Varve keeps guest compute in a host-authored Worker that is terminated on Stop/disable/timeout, and renders all UI in the host realm. V1 has no network import at all, so the subresource gap does not apply. Host-owned Stop is covered by browser scenario G. |
+| [VS Code extension runtime security](https://code.visualstudio.com/docs/configure/extensions/extension-runtime-security) (updated 2026-09-16) | The extension host has the same OS permissions as VS Code itself; third-party installs are gated by a publisher-trust dialog since 1.97. | Deliberately not copied: a Varve guest has no host-equivalent permissions, so there is nothing resembling an extension host to trust. The local install review plays the disclosure role with plain-language access rows (browser scenario E). |
+| [VS Code #304474](https://github.com/microsoft/vscode/issues/304474) (report 2026-03-26; maintainer reply 2026-03-26) | A workspace extension was disabled with no UI route to re-enable it; maintainer takeaway: allow enabling disabled extensions. | The manager keeps disabled/failed cards visible with an always-available Enable action, and disabled state persists across reload (browser scenario A). |
+| [VS Code #295160](https://github.com/microsoft/vscode/issues/295160) (2026-02-13) | An extension stuck in "Activating" degraded the whole editor; disabling it fixed the host. Diagnostics route: "Show Running Extensions". | Varve v1 activates nothing at startup — a command starts one short-lived Worker with a five-second timeout, the manager shows Running with Stop, and timeout quarantines with an actionable Retry (browser scenario G). |
+| [VS Code #32388](https://github.com/openai/codex/issues/32388) with [root-cause issue #33032](https://github.com/openai/codex/issues/33032) (2026) | A blank panel after an in-place extension update was traced by a maintainer to a stale webview service-worker cache, not to the extension's own bytes. | Supersedes the "causal account unconfirmed" note on the #325767 row above. Varve has no service worker for plugin surfaces: package bytes live in IndexedDB records, updates replace the record transactionally, and the section re-registers against the new sha (browser scenario F). |
+
 ## Repository observations and reproduction status
+
 
 | Finding at baseline | Evidence | Status |
 | --- | --- | --- |
