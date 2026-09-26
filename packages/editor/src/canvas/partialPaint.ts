@@ -7,6 +7,28 @@
  * never touches the gaps, so retained and redrawn regions stay consistent.
  */
 
+/**
+ * A CSS-pixel rect in whole device pixels, grown outward.
+ *
+ * Clearing, filling, or clipping a fractional device rect covers its edge
+ * pixels partially, so they become a blend of retained and repainted content
+ * that no full redraw produces — a visible one-pixel seam (up to 97 levels
+ * measured) along the dirty boundary.
+ */
+export function snapRectToDevicePixels(
+  rect: { x: number; y: number; w: number; h: number },
+  dpr: number,
+): { x: number; y: number; w: number; h: number } {
+  const x = Math.floor(rect.x * dpr);
+  const y = Math.floor(rect.y * dpr);
+  return {
+    x,
+    y,
+    w: Math.ceil((rect.x + rect.w) * dpr) - x,
+    h: Math.ceil((rect.y + rect.h) * dpr) - y,
+  };
+}
+
 export function openMultiRectPartialClip(
   ctx: CanvasRenderingContext2D,
   screenRects: readonly { x: number; y: number; w: number; h: number }[],
@@ -18,19 +40,16 @@ export function openMultiRectPartialClip(
   // The dirty rects already carry a 40px anti-aliasing margin, so the clear
   // region and the clip region are exactly the same rects — no extra margin
   // that would clear retained pixels the clip cannot repaint (a 1px seam).
-  for (const sr of screenRects) {
-    const dx = sr.x * dpr;
-    const dy = sr.y * dpr;
-    const dw = sr.w * dpr;
-    const dh = sr.h * dpr;
-    ctx.clearRect(dx, dy, dw, dh);
+  const deviceRects = screenRects.map((sr) => snapRectToDevicePixels(sr, dpr));
+  for (const dr of deviceRects) {
+    ctx.clearRect(dr.x, dr.y, dr.w, dr.h);
     ctx.fillStyle = boardColor;
-    ctx.fillRect(dx, dy, dw, dh);
+    ctx.fillRect(dr.x, dr.y, dr.w, dr.h);
   }
   ctx.save();
   ctx.beginPath();
-  for (const sr of screenRects) {
-    ctx.rect(sr.x * dpr, sr.y * dpr, sr.w * dpr, sr.h * dpr);
+  for (const dr of deviceRects) {
+    ctx.rect(dr.x, dr.y, dr.w, dr.h);
   }
   ctx.clip();
   applyCam();
@@ -44,10 +63,9 @@ export function openUnionPartialClip(
   boardColor: string,
   applyCam: () => void,
 ): void {
-  const dx = rect.x * dpr;
-  const dy = rect.y * dpr;
-  const dw = rect.w * dpr;
-  const dh = rect.h * dpr;
+  // The union path replays every visible node under this clip, so growing it
+  // to whole device pixels cannot expose an unreplayed band.
+  const { x: dx, y: dy, w: dw, h: dh } = snapRectToDevicePixels(rect, dpr);
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(dx, dy, dw, dh);
   ctx.fillStyle = boardColor;

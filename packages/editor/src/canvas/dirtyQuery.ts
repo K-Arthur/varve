@@ -100,7 +100,13 @@ export function computeDirtyPruneDecision(opts: {
     // the same region. Over-inclusion is safe here — it replays a few extra
     // nodes — whereas under-inclusion destroys pixels.
     worldRects:
-      screenRects.length > 0 ? expandWorldRectsByScreenMargin(merged!.rects, worldToScreen) : null,
+      screenRects.length > 0
+        ? expandWorldRectsByScreenMargin(
+            merged!.rects,
+            worldToScreen,
+            DIRTY_SCREEN_MARGIN + DIRTY_SNAP_SLACK,
+          )
+        : null,
   };
 }
 
@@ -137,6 +143,15 @@ function expandWorldRectsByScreenMargin(
  * the two cannot drift apart — a cleared-but-not-replayed band erases pixels.
  */
 export const DIRTY_SCREEN_MARGIN = 40;
+
+/**
+ * Extra candidate margin, in screen pixels, for the paint path's outward
+ * rounding: whole CSS pixels in `worldRectsToScreen`, then whole device
+ * pixels when the clip is installed. Each adds under one pixel, so the painted
+ * region can exceed the 40px margin by up to two. Selecting candidates two
+ * pixels wider keeps every repainted pixel covered by a replayed node.
+ */
+export const DIRTY_SNAP_SLACK = 2;
 
 /** Half-open rectangle overlap; edge-touching rects do not intersect. */
 export function rectsIntersectAny(

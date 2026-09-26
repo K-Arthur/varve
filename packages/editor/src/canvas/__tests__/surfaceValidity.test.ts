@@ -9,7 +9,12 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { computeDirtyPruneDecision, rectsIntersectAny } from '../dirtyQuery';
+import {
+  computeDirtyPruneDecision,
+  DIRTY_SCREEN_MARGIN,
+  DIRTY_SNAP_SLACK,
+  rectsIntersectAny,
+} from '../dirtyQuery';
 import {
   type PaintedSurfaceIdentity,
   paintedSurfaceAfterFrame,
@@ -230,12 +235,16 @@ describe('prune region covers the cleared region', () => {
       worldToScreen,
     });
 
+  // The painted region is the 40px margin rounded outward to whole CSS and
+  // then device pixels, so candidates are selected with that slack as well.
+  const margin = DIRTY_SCREEN_MARGIN + DIRTY_SNAP_SLACK;
+
   it('expands the replay region to cover the cleared margin at zoom 1', () => {
     const { worldRects } = decision(identity);
     expect(worldRects).not.toBeNull();
     const r = worldRects![0]!;
-    // 40px margin on each side of a 40x40 rect at (100,100).
-    expect(r).toEqual({ x: 60, y: 60, w: 120, h: 120 });
+    // Margin on each side of a 40x40 rect at (100,100).
+    expect(r).toEqual({ x: 100 - margin, y: 100 - margin, w: 40 + 2 * margin, h: 40 + 2 * margin });
   });
 
   it('a node inside the cleared margin band is selected for replay', () => {
@@ -248,14 +257,26 @@ describe('prune region covers the cleared region', () => {
   });
 
   it('scales the margin into world units when zoomed in', () => {
-    // At 2x zoom, 40 screen px is 20 world units.
+    // At 2x zoom, the screen margin is half as many world units.
     const { worldRects } = decision((wx, wy) => [wx * 2, wy * 2] as const);
-    expect(worldRects![0]).toEqual({ x: 80, y: 80, w: 80, h: 80 });
+    const world = margin / 2;
+    expect(worldRects![0]).toEqual({
+      x: 100 - world,
+      y: 100 - world,
+      w: 40 + 2 * world,
+      h: 40 + 2 * world,
+    });
   });
 
   it('scales the margin into world units when zoomed out', () => {
-    // At 0.5x zoom, 40 screen px is 80 world units.
+    // At 0.5x zoom, the screen margin is twice as many world units.
     const { worldRects } = decision((wx, wy) => [wx * 0.5, wy * 0.5] as const);
-    expect(worldRects![0]).toEqual({ x: 20, y: 20, w: 200, h: 200 });
+    const world = margin * 2;
+    expect(worldRects![0]).toEqual({
+      x: 100 - world,
+      y: 100 - world,
+      w: 40 + 2 * world,
+      h: 40 + 2 * world,
+    });
   });
 });
