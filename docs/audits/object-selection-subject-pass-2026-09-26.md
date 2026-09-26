@@ -60,6 +60,22 @@ repairs below are all class (a): trust design, not model quality.
 - New E2E coverage for previously untested interaction-contract promises:
   reverse-direction box drag through the real pointer path, the 3 CSS px
   click-vs-drag threshold, and the multi-selection refusal announcement.
+  Final spec state: **7/7 passing** in
+  `tests/e2e/canvas/object-selection.spec.ts` (Chromium, 1 worker,
+  lease-wrapped). Two authoring errors found by the run were fixed in the
+  tests themselves (a drag starting on a marker is the move gesture; canvas
+  clicks are prompts while the tool is active), and the run pinned two
+  honest product behaviors: the Adjustments panel swaps to a multi-edit
+  surface for two selected images (no Object Selection section there), and
+  the low-memory refusal may report either the measured budget or the
+  not-installed smaller provider.
+
+## Website
+
+`apps/website/src/pages/features/object-selection.astro` and the
+`features.astro` index card now describe the cutout preview, candidate-
+conditioned refinement, the three outputs including extraction, and trim's
+fail-safe contract; `astro check` passes with 0 errors.
 
 ## Real-model browser verification (this pass)
 
