@@ -19,7 +19,10 @@ async function typeSpecimen(page: import('@playwright/test').Page, family: strin
   await page.keyboard.press('t');
   await page.mouse.move(box.x + 200, box.y + 200);
   await page.mouse.down();
-  await page.mouse.move(box.x + 800, box.y + 320, { steps: 16 });
+  // Stay inside the canvas. Ending past its edge starts edge auto-pan, whose
+  // distance depends on frame timing, and can scroll the specimen out of the
+  // canvas screenshots the tests compare.
+  await page.mouse.move(box.x + Math.min(800, box.width - 60), box.y + 320, { steps: 16 });
   await page.mouse.up();
   await page.keyboard.type('Aa', { delay: 30 });
   await page.keyboard.press('Escape');
