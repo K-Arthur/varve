@@ -32,6 +32,7 @@ import {
   commitCameraAnchorOnResize,
   subscribeToCanvasContextLifecycle,
   subscribeToDevicePixelRatio,
+  subscribeToSystemResume,
   useCanvasGeometry,
 } from './canvas/canvasSurface';
 import { DirtyRegionRecorder, type PaintedSurfaceIdentity } from './canvas/dirtyRegion';
@@ -546,6 +547,21 @@ export function CanvasArea({
   } | null>(null);
 
   useEffect(() => subscribeToDevicePixelRatio(setDisplayDpr), []);
+
+  // System-resume seam: sleep/wake, back/forward-cache restore, and frozen-tab
+  // resume boundaries deliver no document or camera change, but the pixels
+  // already on screen may be stale or corrupted across them (Krita bug
+  // 490641 class: accelerated content wrong after sleep until restart). Drop
+  // the painted-surface identity so the next frame is an authoritative full
+  // redraw of the *same* document and camera — same contract as the oracle.
+  useEffect(
+    () =>
+      subscribeToSystemResume(() => {
+        paintedSurfaceRef.current = null;
+        requestContentDrawRef.current?.('system-resume', 'backing-store-recovery');
+      }),
+    [],
+  );
 
   // Oracle seam: drop the painted-surface identity so the next frame is an
   // authoritative full redraw of the *same* document and camera. The

@@ -332,3 +332,84 @@ export function subscribeToCanvasContextLifecycle(
     canvas.removeEventListener('contextrestored', onRestored);
   };
 }
+
+export interface SystemResumeOptions {
+  /** Window to attach to; defaults to the ambient window. */
+  win?: Window;
+  /** Document for visibility/lifecycle events; defaults to the window's. */
+  doc?: Document;
+  /** Clock read for suspend detection; defaults to `Date.now` (fake-timer friendly). */
+  now?: () => number;
+  /** Heartbeat period for suspend detection. Default 15 s. */
+  heartbeatMs?: number;
+  /** Wall-clock gap treated as a suspend/resume cycle. Default 45 s. */
+  resumeGapMs?: number;
+}
+
+/**
+ * Detect restore/suspend boundaries that can leave already-painted pixels
+ * stale, and notify the caller so it can drop retained surface state and
+ * request an authoritative full redraw of the unchanged document and camera.
+ *
+ * No single browser/webview event reliably signals OS sleep: web content
+ * receives no suspend event at all, and the failure class this guards
+ * (accelerated content corrupted across sleep, restart-only — Krita bug
+ * 490641) arrives silently. Three triggers cover the signal that do exist:
+ *
+ * 1. `pageshow` with `persisted` — back/forward-cache restore.
+ * 2. The Page Lifecycle API `resume` event — unfreeze after a long-hidden tab.
+ * 3. A heartbeat timer gap — JS timers stop during OS sleep, so a beat that
+ *    arrives `resumeGapMs` late while the page is visible means the machine
+ *    slept. A gap observed while hidden (background throttling makes those
+ *    routine) is parked and delivered on the next visible transition, so an
+ *    ordinary tab switch never triggers a redraw.
+ *
+ * Multiple triggers may fire for one physical resume; callers coalesce the
+ * resulting invalidations into a single frame anyway.
+ */
+export function subscribeToSystemResume(
+  onResume: () => void,
+  options: SystemResumeOptions = {},
+): () => void {
+  const win = options.win ?? (typeof window === 'undefined' ? undefined : window);
+  if (!win) return () => {};
+  const doc = options.doc ?? win.document;
+  const now = options.now ?? Date.now;
+  const heartbeatMs = options.heartbeatMs ?? 15_000;
+  const resumeGapMs = options.resumeGapMs ?? 45_000;
+
+  const onPageShow = (event: Event): void => {
+    if ((event as PageTransitionEvent).persisted) onResume();
+  };
+  const onLifecycleResume = (): void => onResume();
+
+  let lastBeat = now();
+  let pendingHiddenGap = false;
+  const beat = (): void => {
+    const at = now();
+    const gap = at - lastBeat;
+    lastBeat = at;
+    if (gap < resumeGapMs) return;
+    if (doc?.visibilityState === 'hidden') {
+      pendingHiddenGap = true;
+      return;
+    }
+    onResume();
+  };
+  const onVisibilityChange = (): void => {
+    if (doc?.visibilityState !== 'visible' || !pendingHiddenGap) return;
+    pendingHiddenGap = false;
+    onResume();
+  };
+
+  win.addEventListener('pageshow', onPageShow);
+  doc?.addEventListener('resume', onLifecycleResume);
+  doc?.addEventListener('visibilitychange', onVisibilityChange);
+  const timer = win.setInterval(beat, heartbeatMs);
+  return () => {
+    win.removeEventListener('pageshow', onPageShow);
+    doc?.removeEventListener('resume', onLifecycleResume);
+    doc?.removeEventListener('visibilitychange', onVisibilityChange);
+    win.clearInterval(timer);
+  };
+}

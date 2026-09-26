@@ -191,7 +191,7 @@ controlled studies; confirmed causes marked.
 | Sub-pixel seams/flicker at image edges under fractional zoom (tldraw issue 8482, 2026-04, maintainer-investigated, reopened) | tldraw macOS Chrome | Partial-redraw rects snap to whole device pixels before clear/fill/clip (the 2026-09-25 seam fix); replay candidates carry slack so rounding never paints unpainted bands |
 | DPR-2-specific repaint bugs where all shapes disappear on zoom (Penpot issue 8092, 2026-01, triaged) | Penpot DPR 2 | `surfaceMatchesBackingStore` gates partial redraw on the exact backing-store identity (w/h/dpr); resize and DPR changes invalidate |
 | Black canvas at launch on context-creation failure (Krita bug 522400, 2026-07; Photoshop's "switch GPU mode" folklore) | Krita NVIDIA/Wayland | Canvas ownership invert: presentation is Canvas2D for life, so GPU init failure cannot blank the canvas — it degrades with a named reason |
-| Hue shift / blink after system sleep, fixed only by restart (Krita bug 490641, 2024) | Krita M1 Sonoma | Device-loss recovery rebuilds resources and republishes truthful status without losing edits. Gap: Varve does not yet hook system resume to a forced full redraw — recorded as remaining work |
+| Hue shift / blink after system sleep, fixed only by restart (Krita bug 490641, 2024) | Krita M1 Sonoma | Device-loss recovery rebuilds resources and republishes truthful status without losing edits. System-resume invalidation (`subscribeToSystemResume`) now drops the painted-surface identity and forces an authoritative full redraw on back/forward-cache restore, Page Lifecycle resume, and a visible-page timer gap ≥45 s (the heartbeat covers OS sleep, which delivers no web event at all); a gap observed while hidden is parked until the tab is visible again so ordinary tab switches redraw nothing |
 | Acceleration silently degrading per platform with no user signal (Krita bug 515658, 2026-02 WONTFIX: OpenGL unavailable on M1+) | Krita macOS | Status text distinguishes requested preference, GPU-ready, actually-drew, and named fallback reasons; capability is reported per operation, never as a binary "GPU: on" |
 | "Turn off Hardware Acceleration" as the universal support answer (Affinity staff advice across forum threads, 2022+) | Affinity suite | The fallback is automatic, bounded, and observable (diagnostics + status), not a hidden checkbox users must discover |
 | Export output differing from preview when an accelerator serves the export | Various | Unwired consumer (§5): previews and export share the CPU kernels byte-for-byte today; the future GPU export path is gated on provider recording and per-effect fallback |
@@ -222,9 +222,13 @@ controlled studies; confirmed causes marked.
 1. **Effect-chain consumer** (§5): async filter-compositor dispatch for
    export with provider recording; then the website's "explicit asynchronous
    effect consumers" becomes an in-app reality rather than a boundary note.
-2. **Resume/DPR-triggered full redraw**: hook system resume and monitor/DPR
-   change events to `forceFullRedraw()`-equivalent invalidation (the Krita
-   sleep-hue class).
+2. ~~**Resume/DPR-triggered full redraw**~~ — **done 2026-09-26.** The DPR
+   half was already live (`subscribeToDevicePixelRatio` → `displayDpr` frame
+   dep → `surfaceMatchesBackingStore('surface-resized')`); the resume half
+   landed as `subscribeToSystemResume` (canvasSurface.ts) wired in
+   CanvasArea to the painted-surface invalidator. The Krita 490641 sleep
+   class now has an in-app mitigation; real sleep/wake hardware verification
+   remains on the manual checklist.
 3. **Oval edge quality**: the oval stage discards hard edges while Canvas2D
    antialiases; coverage parity passes today, but edge-quality parity would
    need a distance-based blend — benchmark before adopting.

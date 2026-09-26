@@ -2,7 +2,7 @@
 
 import { renderHook } from '@testing-library/react';
 import { screenToWorld, worldToScreen } from '@varve/shared';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   canvasBackingSize,
   preserveCameraAnchorOnResize,
@@ -10,6 +10,7 @@ import {
   resizeCanvasBackingStore,
   subscribeToCanvasContextLifecycle,
   subscribeToDevicePixelRatio,
+  subscribeToSystemResume,
   useCanvasGeometry,
 } from './canvasSurface';
 
@@ -205,5 +206,131 @@ describe('synchronous geometry refresh', () => {
     result.current.refreshCanvasRectForEvent({ type: 'keydown' });
     expect(rect).toHaveBeenCalledTimes(2);
     unmount();
+  });
+});
+
+describe('system resume detection', () => {
+  afterEach(() => {
+    // Tests shadow the jsdom prototype getter with an own property; removing
+    // it restores the default 'visible' for later suites.
+    delete (document as { visibilityState?: DocumentVisibilityState }).visibilityState;
+  });
+
+  function setVisibility(state: DocumentVisibilityState): void {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => state });
+  }
+
+  function setup(options: { heartbeatMs?: number; resumeGapMs?: number } = {}) {
+    const onResume = vi.fn();
+    let now = 1_000_000;
+    const beats: Array<() => void> = [];
+    const winListeners = new Map<string, (event: Event) => void>();
+    const win = {
+      document,
+      addEventListener: vi.fn((type: string, fn: (event: Event) => void) => {
+        winListeners.set(type, fn);
+      }),
+      removeEventListener: vi.fn((type: string) => {
+        winListeners.delete(type);
+      }),
+      setInterval: vi.fn((cb: () => void) => {
+        beats.push(cb);
+        return beats.length;
+      }),
+      clearInterval: vi.fn(),
+    } as unknown as Window;
+    const unsubscribe = subscribeToSystemResume(onResume, {
+      win,
+      doc: document,
+      now: () => now,
+      ...options,
+    });
+    return {
+      onResume,
+      unsubscribe,
+      win,
+      beats,
+      /** Advance the wall clock and deliver the heartbeat tick. */
+      tick(ms: number) {
+        now += ms;
+        for (const beat of beats) beat();
+      },
+      winHandler(type: string) {
+        return winListeners.get(type);
+      },
+    };
+  }
+
+  it('fires on back/forward-cache restore but not on an ordinary pageshow', () => {
+    setVisibility('visible');
+    const harness = setup();
+    harness.winHandler('pageshow')?.({ persisted: false } as unknown as Event);
+    expect(harness.onResume).not.toHaveBeenCalled();
+    harness.winHandler('pageshow')?.({ persisted: true } as unknown as Event);
+    expect(harness.onResume).toHaveBeenCalledOnce();
+    harness.unsubscribe();
+    expect(harness.win.clearInterval).toHaveBeenCalled();
+    expect(harness.win.removeEventListener).toHaveBeenCalledWith('pageshow', expect.any(Function));
+  });
+
+  it('fires on the Page Lifecycle resume event', () => {
+    setVisibility('visible');
+    const harness = setup();
+    document.dispatchEvent(new Event('resume'));
+    expect(harness.onResume).toHaveBeenCalledOnce();
+    harness.unsubscribe();
+    document.dispatchEvent(new Event('resume'));
+    expect(harness.onResume).toHaveBeenCalledOnce();
+  });
+
+  it('treats a long visible-page timer gap as a suspend/resume cycle', () => {
+    setVisibility('visible');
+    const harness = setup();
+    expect(harness.beats).toHaveLength(1);
+    harness.tick(15_000);
+    harness.tick(15_000);
+    expect(harness.onResume).not.toHaveBeenCalled();
+    // Sleep: the next heartbeat arrives far later than its period.
+    harness.tick(120_000);
+    expect(harness.onResume).toHaveBeenCalledOnce();
+    harness.unsubscribe();
+  });
+
+  it('parks a gap observed while hidden and delivers it once on visible', () => {
+    setVisibility('hidden');
+    const harness = setup();
+    harness.tick(120_000);
+    expect(harness.onResume).not.toHaveBeenCalled();
+    setVisibility('visible');
+    document.dispatchEvent(new Event('visibilitychange'));
+    expect(harness.onResume).toHaveBeenCalledOnce();
+    // An ordinary tab switch after the parked resume must not redraw again.
+    setVisibility('hidden');
+    document.dispatchEvent(new Event('visibilitychange'));
+    setVisibility('visible');
+    document.dispatchEvent(new Event('visibilitychange'));
+    expect(harness.onResume).toHaveBeenCalledOnce();
+    harness.unsubscribe();
+  });
+
+  it('ignores throttled background ticks without a suspend gap', () => {
+    setVisibility('hidden');
+    const harness = setup();
+    harness.tick(10_000);
+    setVisibility('visible');
+    document.dispatchEvent(new Event('visibilitychange'));
+    expect(harness.onResume).not.toHaveBeenCalled();
+    harness.unsubscribe();
+  });
+
+  it('uses a 15 s heartbeat and 45 s suspend threshold by default', () => {
+    setVisibility('visible');
+    const harness = setup();
+    expect(harness.win.setInterval).toHaveBeenCalledWith(expect.any(Function), 15_000);
+    harness.tick(44_999);
+    expect(harness.onResume).not.toHaveBeenCalled();
+    harness.tick(45_000);
+    expect(harness.onResume).toHaveBeenCalledOnce();
+    harness.unsubscribe();
   });
 });
