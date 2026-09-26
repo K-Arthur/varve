@@ -97,9 +97,25 @@ async function authoritativeCanvasPixelHash(
   page: import('@playwright/test').Page,
 ): Promise<string> {
   await page.evaluate(async () => {
-    const perf = (window as unknown as { __varvePerf?: { forceFullRedraw?: () => void } })
-      .__varvePerf;
-    perf?.forceFullRedraw?.();
+    const perf = (
+      window as unknown as {
+        __varvePerf?: { forceFullRedraw?: () => Promise<unknown> };
+      }
+    ).__varvePerf;
+    if (perf?.forceFullRedraw) {
+      let settled = false;
+      for (let attempt = 0; attempt < 3 && !settled; attempt += 1) {
+        try {
+          await perf.forceFullRedraw();
+          settled = true;
+        } catch (error) {
+          if (attempt === 2) throw error;
+          await new Promise<void>((resolve) =>
+            requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+          );
+        }
+      }
+    }
     await new Promise<void>((resolve) =>
       requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
     );
@@ -131,12 +147,12 @@ async function authoritativeCanvasPixelHash(
 }
 
 async function hidePerfHud(page: import('@playwright/test').Page): Promise<void> {
-  await page.evaluate(() => {
+  await page.evaluate(async () => {
     const perf = (
       window as unknown as {
         __varvePerf?: {
           enable?: (enabled: boolean) => void;
-          forceFullRedraw?: () => void;
+          forceFullRedraw?: () => Promise<unknown>;
           interactions?: { reset?: () => void };
           snap?: { reset?: () => void };
         };
@@ -145,7 +161,7 @@ async function hidePerfHud(page: import('@playwright/test').Page): Promise<void>
     perf?.enable?.(false);
     perf?.interactions?.reset?.();
     perf?.snap?.reset?.();
-    perf?.forceFullRedraw?.();
+    await perf?.forceFullRedraw?.();
   });
   await page.waitForTimeout(500);
 }
@@ -440,4 +456,104 @@ test('Clone Stamp refuses locked and non-pixel targets instead of redirecting th
   await hidePerfHud(page);
   await page.screenshot({ path: path.join(REVIEW_DIR, '05-target-safety.png') });
   expect(await treeItems.count()).toBe(lockedCount);
+});
+
+test('Dodge Burn adjusts deposited pixels in linear light and honours its mode switch', async ({
+  page,
+}) => {
+  test.setTimeout(240000);
+  mkdirSync(REVIEW_DIR, { recursive: true });
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await navigateToEditor(page, '/?perf=1');
+  await dismissRecovery(page);
+  await preparePhotoRetouch(page);
+
+  const canvas = page.locator('canvas.editor-canvas__content-layer');
+  const box = await canvas.boundingBox();
+  if (!box) throw new Error('content canvas is not measurable');
+  const treeItems = page.locator('.layers-panel__tree [role="treeitem"]');
+  await treeItems.filter({ hasText: 'Repair layer' }).click();
+
+  // The repair layer starts transparent and dodge/burn modifies existing
+  // pixels only, so first deposit photo pixels with a clone stroke.
+  const retouchMenu = page.getByLabel('Retouch menu');
+  await retouchMenu.click();
+  await page.getByRole('menuitem', { name: 'Clone Stamp' }).click();
+  await expect(page.locator('[data-tool="cloneStamp"]')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await page.keyboard.down('Alt');
+  await page.mouse.click(box.x + box.width * 0.43, box.y + box.height * 0.43);
+  await page.keyboard.up('Alt');
+  await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width * 0.54, box.y + box.height * 0.54);
+  await page.mouse.move(box.x + box.width * 0.58, box.y + box.height * 0.58);
+  await page.mouse.up();
+  await expect(page.locator('#strata-canvas-announcer-polite')).toHaveText(/Clone source set/, {
+    ignoreCase: false,
+  });
+
+  // Switch to Dodge Burn and verify its tool options exist.
+  await retouchMenu.click();
+  await page.getByRole('menuitem', { name: 'Dodge Burn' }).click();
+  await expect(page.locator('[data-tool="dodgeBurn"]')).toBeVisible();
+  const optionsButton = page.getByRole('button', { name: 'Tool options' });
+  await expect(optionsButton).toBeVisible({ timeout: 10000 });
+  if ((await optionsButton.getAttribute('aria-expanded')) !== 'true') {
+    await optionsButton.press('Enter');
+  }
+  const options = page.getByRole('dialog', { name: 'Dodge Burn tool options' });
+  await expect(options).toBeVisible();
+  await expect(options.getByRole('combobox', { name: 'Dodge or burn mode' })).toContainText(
+    'Dodge (lighten)',
+  );
+  await expect(options.getByRole('combobox', { name: 'Luminance range focus' })).toContainText(
+    'Midtones',
+  );
+  await page.keyboard.press('Escape');
+
+  async function regionLuminance(): Promise<number> {
+    return canvas.evaluate((element) => {
+      const target = element as HTMLCanvasElement;
+      const context = target.getContext('2d');
+      if (!context) throw new Error('content canvas has no 2D context');
+      const size = 96;
+      const x = Math.round(target.width * 0.52) - size / 2;
+      const y = Math.round(target.height * 0.52) - size / 2;
+      const { data } = context.getImageData(x, y, size, size);
+      let total = 0;
+      for (let index = 0; index < data.length; index += 4) {
+        total += data[index]! * 0.2126 + data[index + 1]! * 0.7152 + data[index + 2]! * 0.0722;
+      }
+      return total / (data.length / 4);
+    });
+  }
+
+  const beforeDodge = await regionLuminance();
+  await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width * 0.54, box.y + box.height * 0.54);
+  await page.mouse.up();
+  await expect.poll(regionLuminance, { timeout: 15000 }).toBeGreaterThan(beforeDodge);
+  const afterDodge = await regionLuminance();
+  await hidePerfHud(page);
+  await page.screenshot({ path: path.join(REVIEW_DIR, '06-dodge-brightened.png') });
+
+  // Burn through the same tool's mode switch darkens the same region.
+  await optionsButton.press('Enter');
+  const burnOptions = page.getByRole('dialog', { name: 'Dodge Burn tool options' });
+  const modeSelect = burnOptions.getByRole('combobox', { name: 'Dodge or burn mode' });
+  await modeSelect.click();
+  await page.getByRole('option', { name: 'Burn (darken)', exact: true }).click();
+  await expect(modeSelect).toContainText('Burn (darken)');
+  await page.keyboard.press('Escape');
+  await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width * 0.54, box.y + box.height * 0.54);
+  await page.mouse.up();
+  await expect.poll(regionLuminance, { timeout: 15000 }).toBeLessThan(afterDodge);
+  const afterBurn = await regionLuminance();
+  expect(afterBurn).toBeLessThan(afterDodge);
+  await hidePerfHud(page);
+  await page.screenshot({ path: path.join(REVIEW_DIR, '07-burn-darkened.png') });
 });

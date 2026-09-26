@@ -7,9 +7,9 @@
 
 This describes how a pointer stroke becomes document pixels in Varve, and the
 invariants the paint subsystem holds. It covers the raster brush, eraser,
-smudge, Clone Stamp, Healing Brush, grain, wet media, symmetry and the brush
-library. Vector pressure is covered only where it shares behaviour with the
-raster path.
+smudge, Clone Stamp, Healing Brush, Spot Heal, Patch, Dodge Burn, grain, wet
+media, symmetry and the brush library. Vector pressure is covered only where
+it shares behaviour with the raster path.
 
 Documented behaviour here has been exercised by the tests named in each
 section. Anything not yet implemented is listed under Limitations rather than
@@ -44,8 +44,9 @@ Painting resolves its raster target in this order:
 3. a new page-sized raster layer, parented to the containing frame when one is
    active.
 
-Clone Stamp, Healing Brush, Spot Heal, and Patch use the same resolver but with
-stricter ownership: an explicitly selected raster layer is the destination, a
+Clone Stamp, Healing Brush, Spot Heal, Patch, and Dodge Burn use the same
+resolver but with stricter ownership: an explicitly selected raster layer is
+the destination, a
 selected non-raster object (an image-filled shape, text, a vector node) is
 refused with a stated reason, and no implicit empty layer is created. Creating
 an empty destination while the user asked to edit a different object is how
@@ -379,6 +380,34 @@ shifting the source's mean colour under the dab to the destination's — a
 first-order approximation of the gradient-domain solve, and what distinguishes
 a heal from a clone.
 
+All four retouch tools (Clone Stamp, Healing Brush, Spot Heal, Patch) clip
+deposits to the active area selection through the same `selectionCoverage`
+rasterisers the brush uses — Spot Heal with the bounded per-dab mask, Patch
+with a mask rasterised only over the target rectangle. A selection that
+exists but does not intersect the patch region yields an *empty* coverage
+mask, which the canonical compositors treat as "nothing may be painted";
+returning "no mask" there would silently un-clip the operation. The tools
+also expose the compositor's alpha lock so repairs can be constrained to
+existing pixel coverage, and Clone/Heal strokes carry real pen pressure: a
+flow dynamics mapping whose identity bezier maps pressure p to a 2p
+multiplier, which keeps the mouse's constant 0.5 (and pressure-disabled)
+deposits byte-identical while a light pen stroke lays down proportionally
+less. Tilt is still not mapped for retouch.
+
+## Dodge and Burn
+
+`DodgeBurnTool` applies signed exposure in stops under the brush mask:
+destination pixels are decoded to linear light, scaled by
+`2^(exposure × coverage)` with the same IEC sRGB transfer functions the
+engine's exposure kernel uses, and re-encoded. A shadows/midtones/highlights
+range focus weights the adjustment smoothly (all three weights stay positive
+away from the extremes, so the range adjusts emphasis instead of masking
+pixels out). Because the operation modifies existing pixels only, it never
+creates tiles or coverage on transparent destinations, zero exposure is the
+byte-identical identity with no history step, alpha is always the
+destination's, and strokes clip to the active selection like the other
+retouch tools.
+
 ## Symmetry
 
 Symmetry transforms the *input* stroke; it does not duplicate the tool. Each
@@ -458,9 +487,10 @@ draining so fast the trail died before it left the shape it started in.
 - Retouch merged sampling maps layer transforms and blend modes, but layer
   masks, clipping, group opacity, adjustment layers, and live effects still
   require a renderer-backed readback and are not reproduced.
-- Clone/heal/spot/patch strokes use fixed brush dynamics; pen pressure and tilt
-  are carried by the shared stroke model but not mapped to retouch brush
-  parameters yet.
+- Clone/heal/dodge-burn strokes map pen pressure to per-dab flow (see Clone
+  Stamp and Healing Brush); tilt is carried by the shared stroke model but not
+  mapped to retouch brush parameters yet, and Spot Heal's single click-to-fix
+  dab does not scale with pressure.
 - The clone-source marker and paint-target badge render through
   `PaintOverlay` while a retouch tool is active; the marker tracks the world
   anchor and the badge states the resolved destination or the refusal reason.

@@ -1,6 +1,6 @@
 # Photo source, RAW development, HDR, and retouching
 
-Status: current implementation contract (2026-09-13)
+Status: current implementation contract (2026-09-25)
 
 This document describes the photographic paths that extend Varve's existing
 Photo/Image Tuning, raster tools, document assets, history, renderer, and
@@ -96,6 +96,15 @@ working transform. ForwardMatrix, DCP hue/saturation tables, and arbitrary
 illuminant interpolation remain unsupported and are reported as such. Sensor
 channels are never relabelled as sRGB without a declared profile/fallback.
 
+Proprietary vendor containers (CR2/CRW/NEF/NRW/ARW/ORF/RW2/SRW/PEF, Fuji RAF,
+Canon CR3) are detected by signature or extension as one `camera-raw` family
+and refused by the generic artwork importer with an actionable route — convert
+only to a classic, uncompressed 2x2 Bayer or monochrome DNG and open that from
+Photo/Image Tuning — instead of failing inside the TIFF normalizer or, worse,
+promoting an embedded preview. Compressed DNG, X-Trans, multi-shot, and other
+unsupported variants remain explicit limits. They are capability entries
+with `import.level: unsupported`, never decoders.
+
 The browser-safe route is also the current Tauri webview route. A native
 LibRaw/RawSpeed adapter and a native Rust `rawler` adapter remain future
 providers behind the same interface; neither is a hidden executable or a
@@ -116,9 +125,13 @@ replay. A raster repair sampled from a developed image remains attached to the
 document's existing repair layer and source revision. Changing WB, profile,
 demosaic, crop, lens correction, or upstream exposure creates/replaces the
 derived developed asset but does not silently move or recolor old repair
-pixels. The UI labels this condition and asks the user to intentionally reapply
-or rebase. A future replayable source-space repair must add stable anchors and
-stage dependencies before it can change this policy.
+pixels. Preparing a retouch stack hides the live image node and keeps a locked
+`Photo pixels` snapshot beneath the writable repair layer. Re-developing the
+hidden RAW source therefore updates its recipe and derived asset without
+silently replacing the visible snapshot. The UI labels this baked-revision
+state and asks the user to intentionally rebuild/rebase the retouch stack or
+reapply its repairs. A future replayable source-space repair must add stable
+anchors and stage dependencies before it can change this policy.
 
 ## Retouch boundary
 
@@ -135,6 +148,16 @@ fringes. Coverage and alpha lock are applied once. Zero strength, cancel, and
 no valid source are identity/no-history cases. Image-filled shapes do not
 become writable raster layers by implication; the UI reports the target
 boundary instead of painting only a visible canvas.
+
+Clone, heal, Spot Heal, and Patch also apply the active selection coverage in
+the destination layer's coordinates; a missing intersection or singular
+transform is an empty edit, never an unrestricted edit. Clone/heal expose the
+source anchor, destination layer, and raster sampling scope separately. Clone,
+heal, and Dodge Burn map pen pressure to flow; the mouse retains its established
+deposit. Dodge Burn applies signed exposure in linear light only to existing
+RGBA8/sRGB tile samples, and does not claim to preserve a float master. Its
+shadows/midtones/highlights focus weights never erase the extremes by setting
+them to zero.
 
 ## Brackets and HDR master
 

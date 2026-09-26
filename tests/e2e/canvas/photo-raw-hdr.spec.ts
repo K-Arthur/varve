@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { expect, test } from '@playwright/test';
+import { expect, type Page, test } from '@playwright/test';
 import { navigateToEditor } from '../shared';
 
 const RAW_FIXTURE = path.resolve(process.env.VARVE_RAW_FIXTURE ?? '/tmp/varve-leica-m8.dng');
@@ -100,6 +100,35 @@ async function dismissRecovery(page: import('@playwright/test').Page): Promise<v
     }
     await page.waitForTimeout(500);
   }
+}
+
+async function switchToPhotoWorkspace(page: Page): Promise<void> {
+  const workspace = page.getByRole('radio', { name: 'Photo workspace' });
+  if (await workspace.isVisible({ timeout: 1000 }).catch(() => false)) {
+    await workspace.click();
+    return;
+  }
+  await page.getByLabel('More workspaces').click();
+  await page.getByRole('menuitemradio', { name: /^Photo(?:\s|$)/i }).click();
+}
+
+/**
+ * Hash the serialized document subtree of one layer. Repair pixels are
+ * base64 tiles in the JSON, so equal hashes mean the persisted repair bytes
+ * did not change — stronger than a canvas screenshot.
+ */
+async function repairLayerHash(page: Page): Promise<string> {
+  return layerHash(page, 'Repair layer');
+}
+
+async function layerHash(page: Page, name: string): Promise<string> {
+  const serialized = await serializedDocument(page);
+  const document = JSON.parse(serialized) as {
+    nodes?: Record<string, { name?: string; tiles?: Record<string, unknown> }>;
+  };
+  const layer = Object.values(document.nodes ?? {}).find((node) => node.name === name);
+  if (!layer) throw new Error(`${name} is missing from the serialized document`);
+  return createHash('sha256').update(JSON.stringify(layer)).digest('hex');
 }
 
 test.describe('Photo source, RAW, and bracket workflows', () => {
@@ -341,6 +370,153 @@ test.describe('Photo source, RAW, and bracket workflows', () => {
     await page.screenshot({
       path: path.join(REVIEW_DIR, '07-hdr-master-reopened.png'),
       fullPage: true,
+    });
+  });
+
+  test('keeps a downstream repair independent when the RAW recipe changes upstream', async ({
+    page,
+  }, testInfo) => {
+    test.skip(
+      !existsSync(RAW_FIXTURE),
+      `set VARVE_RAW_FIXTURE to a supported DNG; missing ${RAW_FIXTURE}`,
+    );
+    test.setTimeout(420000);
+    mkdirSync(REVIEW_DIR, { recursive: true });
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await navigateToEditor(page);
+    await dismissRecovery(page);
+    const documentName = page.locator('.editor-menubar__doc-name-text');
+    await documentName.click();
+    const documentNameInput = page.getByRole('textbox', { name: 'Document name', exact: true });
+    await documentNameInput.fill('RAW repair chain fixture');
+    await documentNameInput.press('Enter');
+    await openImageTuning(page);
+
+    // 1. Develop a real RAW and commit the recipe.
+    const section = page.locator('.photo-source-section').first();
+    await section.locator('input[type="file"][accept=".dng,.DNG"]').setInputFiles(RAW_FIXTURE);
+    await expect(section.getByTestId('photo-source-status')).toHaveText('RAW recipe', {
+      timeout: 60000,
+    });
+    await section.getByRole('button', { name: 'Apply development', exact: true }).click();
+    const sourceLayerRow = page
+      .locator('.layers-panel__tree [role="treeitem"][data-node-id]')
+      .first();
+    await expect(sourceLayerRow).toBeVisible({ timeout: 30000 });
+
+    // 2. Prepare the retouch pair: locked source + Repair layer.
+    await section.getByRole('button', { name: 'Prepare retouch layers', exact: true }).click();
+    const repairRow = page
+      .locator('.layers-panel__tree [role="treeitem"]')
+      .filter({ hasText: 'Repair layer' });
+    await expect(repairRow).toBeVisible({ timeout: 30000 });
+    await switchToPhotoWorkspace(page);
+
+    // 3. Heal on the repair layer through the real canvas interaction.
+    await repairRow.click();
+    const canvas = page.locator('canvas.editor-canvas__content-layer');
+    const box = await canvas.boundingBox();
+    if (!box) throw new Error('content canvas is not measurable');
+    await page.getByLabel('Retouch menu').click();
+    await page.getByRole('menuitem', { name: 'Healing Brush' }).click();
+    await expect(page.locator('[data-tool="healBrush"]')).toBeVisible();
+    await expect(repairRow).toHaveAttribute('aria-selected', 'true', { timeout: 15000 });
+
+    const source = { x: box.x + box.width * 0.43, y: box.y + box.height * 0.43 };
+    await page.keyboard.down('Alt');
+    await page.mouse.click(source.x, source.y);
+    await page.keyboard.up('Alt');
+    await expect(page.locator('#strata-canvas-announcer-polite')).toHaveText('Healing source set');
+    const repairHashPristine = await repairLayerHash(page);
+    await page.mouse.move(box.x + box.width * 0.52, box.y + box.height * 0.48);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width * 0.55, box.y + box.height * 0.51);
+    await page.mouse.move(box.x + box.width * 0.58, box.y + box.height * 0.54);
+    await page.mouse.up();
+    await expect
+      .poll(() => serializedDocument(page), { timeout: 30000 })
+      .toMatch(/"retouchProvenance"/);
+
+    // A repair-layer tile change proves the real stroke reached its persistent
+    // target even though the document still displays its source snapshot.
+    expect(await repairLayerHash(page)).not.toBe(repairHashPristine);
+    const repairHashBefore = await repairLayerHash(page);
+    const sourceHashBefore = await layerHash(page, 'Photo pixels');
+    await page.screenshot({ path: path.join(REVIEW_DIR, '08-chain-repair-painted.png') });
+
+    // 4. Change the upstream recipe and re-develop.
+    await sourceLayerRow.click({ force: true });
+    const reopenedSection = page.locator('.photo-source-section').first();
+    await expect(reopenedSection.getByTestId('photo-source-status')).toHaveText('RAW recipe', {
+      timeout: 30000,
+    });
+    await expect(reopenedSection).toContainText(
+      /Downstream repair is baked to this RAW source revision/,
+    );
+    const exposure = reopenedSection.getByRole('slider', { name: 'Exposure', exact: true });
+    await exposure.fill('2');
+    await reopenedSection.getByRole('button', { name: 'Apply development', exact: true }).click();
+    await expect
+      .poll(() => serializedDocument(page), {
+        timeout: 120000,
+        message: 'the re-development should commit exposureStops 2',
+      })
+      .toMatch(/"exposureStops":2(?:\.0+)?/);
+    await expect(reopenedSection).toContainText(
+      'A downstream repair layer is baked to an older RAW revision',
+    );
+    await page.screenshot({
+      path: path.join(REVIEW_DIR, '09-chain-stale-warning.png'),
+      fullPage: true,
+    });
+
+    // 5. The repair layer's persisted pixels are byte-identical: the upstream
+    // change must never silently recolor or relocate an existing repair. The
+    // locked Photo pixels layer is also the visible baked source snapshot;
+    // changing the hidden original's RAW recipe must not rewrite that snapshot.
+    expect(await repairLayerHash(page)).toBe(repairHashBefore);
+    expect(await layerHash(page, 'Photo pixels')).toBe(sourceHashBefore);
+
+    // 6. Save, reload, reopen: staleness and repair bytes survive the round trip.
+    await page.keyboard.press('Control+s');
+    await expect(page.locator('.save-status')).toHaveText('Saved', { timeout: 30000 });
+    await page.reload({ timeout: 120000, waitUntil: 'commit' });
+    await dismissRecovery(page);
+    await page.locator('.varve-home').waitFor({ timeout: 45000 });
+    const savedCard = page.getByRole('gridcell', { name: /RAW repair chain fixture/ });
+    await expect(savedCard).toBeVisible({ timeout: 30000 });
+    await savedCard.dblclick({ timeout: 30000 });
+    await page.locator('.layers-panel').waitFor({ timeout: 60000 });
+    await dismissRecovery(page);
+    await expect(
+      page.locator('.layers-panel__tree [role="treeitem"]').filter({ hasText: 'Repair layer' }),
+    ).toBeVisible({ timeout: 30000 });
+    expect(await repairLayerHash(page)).toBe(repairHashBefore);
+    await page
+      .locator('.layers-panel__tree [role="treeitem"][data-node-id]')
+      .first()
+      .click({ force: true });
+    const reopenedInspector = page.locator('.editor__inspector-panel');
+    await reopenedInspector.getByRole('tab', { name: 'Adjustments', exact: true }).click();
+    const reopenedTuning = reopenedInspector.getByRole('button', {
+      name: 'Image Tuning',
+      exact: true,
+    });
+    if ((await reopenedTuning.getAttribute('aria-expanded')) !== 'true') {
+      await reopenedTuning.click();
+    }
+    await expect(reopenedInspector.locator('.photo-source-section').first()).toContainText(
+      'A downstream repair layer is baked to an older RAW revision',
+      { timeout: 60000 },
+    );
+    await reopenedInspector.locator('.photo-source-section').first().scrollIntoViewIfNeeded();
+    await page.screenshot({
+      path: path.join(REVIEW_DIR, '10-chain-reopened-stale.png'),
+      fullPage: true,
+    });
+    await testInfo.attach('raw-repair-chain-reopened', {
+      body: await page.screenshot(),
+      contentType: 'image/png',
     });
   });
 });
