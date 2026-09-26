@@ -26,7 +26,19 @@ const controls = vi.hoisted(() => ({
   load: vi.fn(),
   evict: vi.fn(),
   decodeMask: vi.fn(),
+  commitMask: vi.fn(),
 }));
+
+vi.mock('../backgroundRemoval/commitRasterMask', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../backgroundRemoval/commitRasterMask')>();
+  return {
+    ...actual,
+    commitRasterMask: (...args: Parameters<typeof actual.commitRasterMask>) => {
+      controls.commitMask(...args);
+      return actual.commitRasterMask(...args);
+    },
+  };
+});
 
 vi.mock('../tools/selectionMask', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../tools/selectionMask')>()),
@@ -762,6 +774,35 @@ describe('Apply as mask combination', () => {
       'subtract',
     );
     expect(payload).toMatchObject({ ok: false, code: 'empty_result' });
+  });
+
+  it('two concurrent Applies produce exactly one document update', async () => {
+    const { doc, session } = await sessionFor({ size: 1 });
+    const { result, stateRef } = setup(session, doc);
+    controls.commitMask.mockClear();
+
+    // Enter held down, or an Enter plus a click on Apply, can start a second
+    // commit while the first is still resolving its payload. The second call
+    // captured the same node object, so its updateDoc identity check must
+    // reject it: one logical user action, one document mutation.
+    await act(async () => {
+      await Promise.all([
+        result.current.applySam2Segmentation({
+          nodeId: 'image',
+          prompts: { points: session.points },
+          operation: 'mask',
+        }),
+        result.current.applySam2Segmentation({
+          nodeId: 'image',
+          prompts: { points: session.points },
+          operation: 'mask',
+        }),
+      ]);
+    });
+
+    expect(controls.commitMask).toHaveBeenCalledTimes(1);
+    expect(Object.keys(stateRef.current.document.rasterMaskAssets ?? {})).toHaveLength(1);
+    expect(stateRef.current.document.nodes.image!.mask?.rasterMask).toBeDefined();
   });
 
   it('fails closed through the hook when a combination has no mask to combine with', async () => {
