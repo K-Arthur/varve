@@ -40,6 +40,9 @@ each file):
   `components/Inspector/inspectorContext.ts`, `components/Minimap/minimapLayout.ts`,
   `components/StatusBar/CursorPositionReadout.tsx` (new)
 - `packages/editor/src/render/sceneCompositing.ts`, `render/perspectiveImage.ts`
+- `packages/editor/src/scene/occurrenceGeometry.ts` and its test; shared
+  transform-aware world-bounds reuse across labels, accessibility, and minimap
+  layout (continuation, 2026-09-27)
 - `packages/editor/src/context/types.ts` (deprecation notes only)
 - `packages/scene/src/editorSceneScope.ts` and its test
 - `packages/shared/src/viewport.ts`, `index.ts`, `viewportProjector.test.ts` (new)
@@ -57,6 +60,37 @@ each file):
 - `tests/e2e/canvas/responsive-geometry.spec.ts` (new regression test for a
   resize during a drag) and `tests/e2e/canvas/variable-font-axes.spec.ts`
   (its drag no longer leaves the canvas; no assertion changed).
+
+Follow-up pass (2026-09-26), from a fresh profile of `master`:
+
+- `packages/editor/src/canvas/CanvasNameLabels.tsx`, `nameLabelPolicy.ts`,
+  `scene/world.ts`, `canvas/__tests__/nameLabelReach.test.ts` (new)
+- `packages/editor/src/components/CanvasAccessibilityTree.tsx` and its test,
+  `components/CanvasOverlays.tsx` (one prop)
+- `packages/editor/src/components/Minimap/minimapRenderer.ts` and its test
+- `packages/editor/src/components/Shell/ExportLayer.tsx`,
+  `components/Inspector/PropertiesPanel.tsx` (inspector-context memo only)
+- `packages/editor/src/components/DebtBadge.tsx` and its test
+- `packages/editor/src/canvas/useDocumentFonts.ts`,
+  `components/FontBrowser/MissingFontController.tsx`,
+  `canvas/__tests__/useFontStableDocument.test.tsx` (new)
+- `packages/editor/src/scene/parentIndexCache.ts` and its test
+- `packages/editor/src/render/sceneCompositing.ts` and its test (blended
+  scenes kept off the worker)
+- `packages/editor/src/components/WarpOverlay.tsx`,
+  `components/TableEditOverlay/TableEditOverlay.tsx` and a new test
+- `packages/scene/src/nodeChanges.ts` and its test (new), `editorSceneScope.ts`,
+  `effectMasks.ts`, `index.ts` (one export), and their tests
+
+Not edited, although profiling pointed at them: `context.tsx` and
+`canvas/renderPipeline.ts`, both open in other tasks at the time (the latter
+with a staged index entry).
+
+Shared validation-config overlap (2026-09-27): the commit hook found three
+nonmatching extension globs in the concurrent `radius-discipline` rule in
+`validation-impact.config.mjs`. This pass removed only those dead `.astro` /
+`.tsx` patterns; all matching CSS, TypeScript, TSX, and website Astro surfaces
+and the rule's `audit:radius` requirement remain intact.
 
 ## Existing work to preserve
 
