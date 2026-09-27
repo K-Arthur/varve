@@ -569,8 +569,8 @@ The complaint-to-reproduction matrix is deliberately explicit about gaps:
 | Linux touchpad pan nearly stalls on a large text-heavy file ([Penpot #5063](https://github.com/penpot/penpot/issues/5063), Sep 5 2024) | 10k mostly-offscreen pan and browser wheel traces already exist; real touchpad events do not | Input class is covered synthetically; physical trackpad still needed |
 | Drag lag grows with viewport width ([Excalidraw #7846](https://github.com/excalidraw/excalidraw/issues/7846), Apr 3 2024) | Production workload runner now accepts matched `--width`/`--height` runs on the same fixture; the 1024×768 vs 1920×1080 pair is not yet measured | Local reproduction is available; paired result pending |
 | Brush lag on a small 500×500 file ([Adobe Community](https://community.adobe.com/questions-712/photoshop-2025-brush-lag-1174223), Nov 27 2024) | `small` fixture now has separate cold-first-stroke and warmed `brush`/`brush-large-tip` profiles; pointer traces are trusted CDP input but do not carry physical pressure | Browser profile pending; pressure-device evidence unavailable; no stabilization change is justified |
-| Effects remain blurry or smear during navigation | `effects-heavy` differed from the forced main-thread oracle by 352,935 pixels (maximum channel delta 184) at a settled camera; the 13-image transfer-budget test covers a separate refusal path | Revision/fallback fix is implemented in the working copy; focused browser oracle run is queued behind an existing live heavy-task lease |
-| Long-session writing slows after storage errors ([Excalidraw #7341](https://github.com/excalidraw/excalidraw/issues/7341), Nov 25 2023) | Varve's canonical history capture was measured near 190 ms on a 10k-node document; a 100-cycle Tauri open/edit/navigate/brush/save/close runner now exists, but has not run | Serialization cost is confirmed; session-level memory/save degradation is still unmeasured |
+| Effects remain blurry or smear during navigation | An earlier effects-heavy comparison differed from the forced main-thread oracle by 352,935 pixels (maximum channel delta 184); a later focused 150-node worker comparison differed at 143,105 pixels (maximum delta 5). Visible effects now stay on main-thread Canvas2D, and the Full-quality Chromium oracle passes exact pixel equality through camera bursts; the 150-node replay still takes about 3.5 seconds | Settled fidelity is corrected for the covered case; the 1-second heavy refinement target is missed, and mid-gesture/resource/DPR/rotation combinations remain open |
+| Long-session writing slows after storage errors ([Excalidraw #7341](https://github.com/excalidraw/excalidraw/issues/7341), Nov 25 2023) | Varve's canonical history capture was measured near 190 ms on a 10k-node document; the fresh Tauri runner completed one pilot cycle, while a three-cycle attempt completed only 1/3 before close recovery failed | Serialization cost is confirmed; the 100-cycle soak, memory plateau, and session-level save-degradation evidence remain unmeasured |
 
 No Coupler.io dataset was available in the connected workspace on 2026-09-27,
 so this pass uses public first-person reports and Varve's own local artifacts;
@@ -720,3 +720,18 @@ pages also passed. I opened and inspected the captures for the narrow page,
 footer CTA, open and scrolled mobile sheet, and dark settings guide under
 `test-results/canvas-fluidity-pages.visu-16414-row-width-and-200-text-size-ghpages/`
 and `test-results/canvas-fluidity-pages.visu-bc27d-performance-details-visible-ghpages/`.
+
+### Native workflow retry — 2026-09-27
+
+The first completed Tauri cycle remains a useful workflow smoke, not a soak:
+the WebView was visible, the artwork fingerprint changed, local save settled,
+and the captured editor screenshot was inspected. A later three-cycle retry
+completed one cycle, then failed to return to Home after the next document's
+close action. Its evidence is
+`/var/tmp/varve-fluidity-evidence-f7fb66ba0/native-fluidity-3-cycles-keyboard-close.json`;
+it is marked inconclusive at 1/3 and has only one process-tree sample, so it
+cannot establish a memory plateau. The saved-tab check now waits for the dirty
+marker to clear, hovers the active tab, and clicks its visible close control;
+that change is awaiting another leased native run. DOM-dispatched pointer and
+wheel input remain synthetic, and there is still no sustained-session or
+physical-input conclusion.
