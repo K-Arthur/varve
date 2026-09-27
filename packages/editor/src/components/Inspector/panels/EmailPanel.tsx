@@ -78,10 +78,26 @@ export function EmailPanel() {
       profile: profile.compatibilityProfile,
       provider: profile.provider,
       assetBaseUrl: profile.assetBaseUrl,
-      previewVariables: showSamples,
+      // The canonical generated/exported source always keeps merge fields as
+      // provider-authored placeholders. Sample substitutions are a preview
+      // presentation only and must never leak into an export.
+      previewVariables: false,
+    });
+    return { ir: ir.ir, output: emitEmailHtml(ir.ir) };
+  }, [node, profile.assetBaseUrl, profile.compatibilityProfile, profile.provider, state.document]);
+  const output: EmailHtmlExportResult | null = compilation?.output ?? null;
+  const previewCompilation = useMemo(() => {
+    if (!showSamples) return compilation;
+    if (!state.document.emailProfile && !node) return null;
+    const ir = compileEmail(state.document, sceneToIR(state.document), {
+      profile: profile.compatibilityProfile,
+      provider: profile.provider,
+      assetBaseUrl: profile.assetBaseUrl,
+      previewVariables: true,
     });
     return { ir: ir.ir, output: emitEmailHtml(ir.ir) };
   }, [
+    compilation,
     node,
     profile.assetBaseUrl,
     profile.compatibilityProfile,
@@ -89,7 +105,6 @@ export function EmailPanel() {
     showSamples,
     state.document,
   ]);
-  const output: EmailHtmlExportResult | null = compilation?.output ?? null;
   const outputWarnings = output?.warnings ?? [];
   const selectedSourceMap =
     node && output ? output.sourceMap.find((entry) => entry.sourceNodeId === node.id) : undefined;
@@ -379,6 +394,7 @@ export function EmailPanel() {
         )}
 
         <VariableEditor />
+        <AuthoredSourceBlocks />
 
         <section className="email-panel__group" aria-labelledby="email-output-heading">
           <div className="email-panel__heading-row">
@@ -445,7 +461,7 @@ export function EmailPanel() {
               <iframe
                 title="Email browser preview"
                 sandbox=""
-                srcDoc={output.html}
+                srcDoc={previewCompilation?.output.html ?? output.html}
                 className="email-panel__preview"
               />
             </div>
@@ -555,6 +571,142 @@ function VariableEditor() {
         </ul>
       )}
     </section>
+  );
+}
+
+/**
+ * Keep authored HTML discoverable independently of canvas visibility. A
+ * source block can be preserved even when its node is hidden, empty, or no
+ * longer present in the rendered scene, so the editor lists the semantic map
+ * itself rather than deriving rows from visible canvas content.
+ */
+function AuthoredSourceBlocks() {
+  const editor = useEditor();
+  const blocks = editor.state.document.emailSemantics?.customHtmlBlocks ?? {};
+  const selected = editor.selectedNodes();
+  const selectedNode = selected.length === 1 ? selected[0] : undefined;
+
+  const createForSelection = () => {
+    if (!selectedNode) return;
+    editor.updateDoc((doc) => ({
+      ...doc,
+      emailSemantics: {
+        ...(doc.emailSemantics ?? {
+          nodes: {},
+          nodeLinks: {},
+          textRangeLinks: {},
+          variables: [],
+          customHtmlBlocks: {},
+          assets: {},
+          diagnostics: [],
+        }),
+        nodes: {
+          ...(doc.emailSemantics?.nodes ?? {}),
+          [selectedNode.id]: {
+            ...(doc.emailSemantics?.nodes[selectedNode.id] ?? DEFAULT_EMAIL_SEMANTIC),
+            kind: 'custom-html',
+            inferred: false,
+          },
+        },
+        customHtmlBlocks: {
+          ...(doc.emailSemantics?.customHtmlBlocks ?? {}),
+          [selectedNode.id]: { code: '', userAuthored: true },
+        },
+      },
+    }));
+  };
+
+  return (
+    <section className="email-panel__group" aria-labelledby="email-source-blocks-heading">
+      <h3 id="email-source-blocks-heading">Authored source blocks</h3>
+      <p className="email-panel__ownership-note">
+        Saved HTML is listed even when its node is hidden or produces no visible preview content.
+        Source blocks stay separate from generated, read-only HTML.
+      </p>
+      {selectedNode && !blocks[selectedNode.id] && (
+        <Button size="sm" variant="secondary" onClick={createForSelection}>
+          Create source block for selected node
+        </Button>
+      )}
+      {Object.keys(blocks).length === 0 ? (
+        <p className="insp-panel__empty-hint">No authored HTML blocks yet.</p>
+      ) : (
+        <ul className="email-panel__source-blocks" aria-label="Saved authored source blocks">
+          {Object.entries(blocks).map(([nodeId, block]) => (
+            <li key={nodeId}>
+              <details>
+                <summary>
+                  {editor.state.document.nodes[nodeId]?.name ?? `Source block · ${nodeId}`}
+                </summary>
+                <p className="email-panel__ownership-note">
+                  {editor.state.document.nodes[nodeId]
+                    ? 'The source is kept separately from generated HTML.'
+                    : 'The source is preserved without a matching visible scene node.'}
+                </p>
+                <EmailSourceBlockEditor key={nodeId} nodeId={nodeId} initialCode={block.code} />
+                {editor.state.document.nodes[nodeId] && (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => {
+                      editor.setSelection(nodeId);
+                      editor.revealSelection({ nodeId });
+                    }}
+                  >
+                    Select source node
+                  </Button>
+                )}
+              </details>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function EmailSourceBlockEditor({ nodeId, initialCode }: { nodeId: string; initialCode: string }) {
+  const editor = useEditor();
+  const [code, setCode] = useState(initialCode);
+  useEffect(() => setCode(initialCode), [initialCode, nodeId]);
+
+  const save = () =>
+    editor.updateDoc((doc) => ({
+      ...doc,
+      emailSemantics: {
+        ...(doc.emailSemantics ?? {
+          nodes: {},
+          nodeLinks: {},
+          textRangeLinks: {},
+          variables: [],
+          customHtmlBlocks: {},
+          assets: {},
+          diagnostics: [],
+        }),
+        customHtmlBlocks: {
+          ...(doc.emailSemantics?.customHtmlBlocks ?? {}),
+          [nodeId]: {
+            ...(doc.emailSemantics?.customHtmlBlocks?.[nodeId] ?? {}),
+            code,
+            userAuthored: true,
+          },
+        },
+      },
+    }));
+
+  return (
+    <div className="email-panel__source-editor">
+      <EmailCodeEditor
+        label={`Authored HTML source for ${nodeId}`}
+        language="markup"
+        value={code}
+        onChange={setCode}
+        minRows={8}
+      />
+      <Button size="sm" onClick={save}>
+        Save source block
+      </Button>
+    </div>
   );
 }
 

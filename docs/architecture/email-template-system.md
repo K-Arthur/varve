@@ -136,9 +136,14 @@ safety (stripped of `<script>`, event handlers, `javascript:` URLs).
 
 ## Email Workspace
 
-The 8th workspace mode (`Ctrl+Shift+7`) provides:
+Email is the sixth workspace (`Ctrl+Shift+7`). It remains separate because
+email authoring combines semantic roles, responsive output, preserved source
+blocks, compilation, compatibility checks, and export in one task flow. It
+operates on the ordinary shared document; entering Email does not enable an
+email profile or convert artwork. Its built-in arrangement selects the Email
+inspector tab while retaining Layers at the left:
 - **Layers panel**: Standard layer tree
-- **Inspector**: Properties + Email tab + Appearance + Export + Audit + Fonts
+- **Inspector**: Email authoring + Properties + Appearance + Export + Audit + Fonts
 - **Status bar**: Preflight warnings, cursor position, zoom
 - **Toolbar**: Select, hand, zoom, frame, shapes, text, line, arrow, scale, inspect
 
@@ -150,9 +155,14 @@ inspection with syntax highlighting/find/replace, source-mapped generated ranges
 preflight diagnostics, optional UTM tracking, a plain-text preview, and local
 HTML/text/manifest/embedded-asset export.
 
-The preview has explicit desktop/mobile viewport controls, and generated HTML
-is read-only; user-authored custom HTML remains a separate preserved source
-block.
+The preview has explicit desktop/mobile viewport controls. It is a sandboxed
+browser preview, not verified Gmail or Outlook rendering. Generated HTML is
+read-only; user-authored custom HTML remains separately stored and editable.
+The authored-source list is document-backed and includes blocks without a
+matching scene node, so empty or hidden blocks remain reachable. Preview sample
+values are compiled only for the preview; generated HTML and exports keep the
+provider placeholders. Arbitrary generated-HTML round-trip editing, campaign
+sending, and ESP authentication are outside this workflow.
 
 ## Files
 
