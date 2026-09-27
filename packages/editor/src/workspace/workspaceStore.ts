@@ -19,6 +19,7 @@ import type { Platform } from '@varve/platform';
 import { TOOL_REGISTRY } from '../tools/toolRegistry';
 import type { ToolId } from '../tools/types';
 import { deserializeDockLayout } from './dock/dockOps';
+import { DOCK_LAYOUT_SCHEMA_VERSION } from './dock/dockTypes';
 import { ESSENTIAL_TOOL_IDS } from './toolLabels';
 import {
   ALL_WORKSPACE_PREFERENCE_MODES,
@@ -61,6 +62,14 @@ function sanitizeOrderedIds<T extends string>(
     return true;
   });
   return order.length > 0 ? order : undefined;
+}
+
+function isFutureDockLayout(value: unknown): boolean {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
+  const version = (value as Record<string, unknown>).schemaVersion;
+  return (
+    typeof version === 'number' && Number.isInteger(version) && version > DOCK_LAYOUT_SCHEMA_VERSION
+  );
 }
 
 function applyDeclaredOrder<T>(
@@ -295,9 +304,15 @@ function sanitizePreference(
 
   const dockLayoutResult = pref.dockLayout ? deserializeDockLayout(pref.dockLayout) : null;
   const dockLayout = dockLayoutResult?.ok ? dockLayoutResult.layout : undefined;
+  const unreadableDockLayout = dockLayout
+    ? undefined
+    : isFutureDockLayout(pref.dockLayout)
+      ? pref.dockLayout
+      : pref.unreadableDockLayout;
 
   return {
     ...(dockLayout ? { dockLayout } : {}),
+    ...(unreadableDockLayout ? { unreadableDockLayout } : {}),
     ...(clean && Object.keys(clean).length > 0 ? { panelOverrides: clean } : {}),
     ...(cleanTabs && Object.keys(cleanTabs).length > 0 ? { inspectorTabOverrides: cleanTabs } : {}),
     ...(cleanSections && Object.keys(cleanSections).length > 0
@@ -772,6 +787,26 @@ export function setPanelOverride(
   modePrefs.customized = true;
   modePrefs.lastCustomized = Date.now();
   updated[mode] = modePrefs;
+  return updated;
+}
+
+/** Record a validated nested dock tree for a workspace. */
+export function setDockLayoutOverride(
+  prefs: WorkspacePreferences,
+  mode: WorkspaceMode,
+  value: unknown,
+): WorkspacePreferences {
+  const result = deserializeDockLayout(value);
+  if (!result.ok) return prefs;
+  const updated = { ...prefs };
+  const modePrefs = { ...updated[mode] };
+  delete modePrefs.unreadableDockLayout;
+  updated[mode] = {
+    ...modePrefs,
+    dockLayout: result.layout,
+    customized: true,
+    lastCustomized: Date.now(),
+  };
   return updated;
 }
 

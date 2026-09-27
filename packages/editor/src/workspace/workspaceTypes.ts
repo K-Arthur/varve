@@ -382,6 +382,12 @@ export const CHROME_CONFIG_LABELS: Record<keyof ChromeConfig, string> = {
 export interface WorkspacePreference {
   /** Optional workspace-owned nested dock tree; absent means use the built-in arrangement. */
   dockLayout?: DockLayout;
+  /**
+   * A future dock schema this build cannot apply. Keep it opaque through
+   * unrelated preference writes so downgrading never destroys newer layout
+   * data; a validated replacement or explicit reset clears it.
+   */
+  unreadableDockLayout?: unknown;
   /** Mode-specific panel overrides. */
   panelOverrides?: Partial<Record<PanelId, Partial<PanelConfig>>>;
   /** Mode-specific inspector tab visibility overrides (tab id → visible). */

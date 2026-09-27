@@ -157,6 +157,12 @@ carries an event, an uncustomized entry never displaces a customized one, so
 durability can never itself lose a customization. A missing, empty, or corrupt
 payload leaves the local snapshot untouched.
 
+An unrecognized future dock-layout schema is not applied by an older build.
+The preference sanitizer retains that raw dock payload as opaque data through
+unrelated customization saves; installing a validated replacement or
+explicitly resetting that workspace clears it. Portable named-layout exports
+include only dock schemas this build can validate.
+
 `hydrateLayoutStoreFromPlatform` merges named layouts by logical revision and
 writer identity. Wall-clock `updatedAt` remains display metadata and is used
 only to migrate layouts saved by older versions.

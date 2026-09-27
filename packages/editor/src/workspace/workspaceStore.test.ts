@@ -18,6 +18,7 @@ import {
   savePanelWidths,
   saveWorkspacePreferences,
   setChromeOverride,
+  setDockLayoutOverride,
   setInspectorTabOrderOverride,
   setInspectorTabPinnedOverride,
   setPanelOverride,
@@ -78,7 +79,22 @@ describe('workspaceStore — persistence', () => {
     expect(loadWorkspacePreferences().design.dockLayout).toEqual(createDefaultDockLayout());
   });
 
-  it('drops unsupported nested dock versions instead of applying them', () => {
+  it('records only validated interactive dock moves', () => {
+    const prefs = loadWorkspacePreferences();
+    const layout = createDefaultDockLayout();
+    const updated = setDockLayoutOverride(prefs, 'design', layout);
+    expect(updated.design.dockLayout).toEqual(layout);
+    expect(updated.design.customized).toBe(true);
+
+    const rejected = setDockLayoutOverride(updated, 'design', {
+      schemaVersion: 99,
+      windows: [],
+    });
+    expect(rejected).toBe(updated);
+    expect(rejected.design.dockLayout).toEqual(layout);
+  });
+
+  it('preserves an unsupported future dock version without applying it', () => {
     localStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({
@@ -91,6 +107,36 @@ describe('workspaceStore — persistence', () => {
     const prefs = loadWorkspacePreferences();
     expect(prefs.design.customized).toBe(true);
     expect(prefs.design.dockLayout).toBeUndefined();
+    expect(prefs.design.unreadableDockLayout).toEqual({ schemaVersion: 99, windows: [] });
+  });
+
+  it('retains a future dock payload through unrelated preference saves', () => {
+    const future = { schemaVersion: 99, windows: [{ role: 'primary', futureField: true }] };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ design: { dockLayout: future } }));
+
+    const loaded = loadWorkspacePreferences();
+    const updated = setPanelOverride(loaded, 'design', 'layers', { visible: false });
+    saveWorkspacePreferences(updated);
+    resetWorkspacePreferenceCache();
+
+    const reloaded = loadWorkspacePreferences();
+    expect(reloaded.design.dockLayout).toBeUndefined();
+    expect(reloaded.design.unreadableDockLayout).toEqual(future);
+    expect(reloaded.design.panelOverrides?.layers?.visible).toBe(false);
+  });
+
+  it('clears the opaque future payload after a validated replacement or reset', () => {
+    const future = { schemaVersion: 99, windows: [] };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ design: { dockLayout: future } }));
+    const loaded = loadWorkspacePreferences();
+
+    const replaced = setDockLayoutOverride(loaded, 'design', createDefaultDockLayout());
+    expect(replaced.design.unreadableDockLayout).toBeUndefined();
+    expect(replaced.design.dockLayout).toEqual(createDefaultDockLayout());
+
+    const reset = resetModePreferences(loaded, 'design', 1234);
+    expect(reset.design.unreadableDockLayout).toBeUndefined();
+    expect(reset.design.dockLayout).toBeUndefined();
   });
 
   it('falls back to the legacy strata-* key', () => {
@@ -520,6 +566,26 @@ describe('workspaceStore — durable (platform) persistence', () => {
     await hydrateWorkspacePreferencesFromPlatform(platform);
     const ov = getWorkspacePreferences().design.panelOverrides ?? {};
     expect((ov as Record<string, unknown>).notAPanel).toBeUndefined();
+  });
+
+  it('preserves future dock payloads through durable hydration and later writes', async () => {
+    const future = { schemaVersion: 99, windows: [{ role: 'primary', futureField: true }] };
+    const platform = fakePlatform(
+      JSON.stringify({
+        design: { customized: true, lastCustomized: 9, dockLayout: future },
+      }),
+    );
+    await hydrateWorkspacePreferencesFromPlatform(platform);
+    expect(getWorkspacePreferences().design.unreadableDockLayout).toEqual(future);
+
+    updateWorkspacePreferences((current) =>
+      setPanelOverride(current, 'design', 'layers', { visible: false }),
+    );
+    await flushWorkspacePreferences();
+
+    const durable = JSON.parse(platform.store.get('workspace-preferences') ?? '{}');
+    expect(durable.design.unreadableDockLayout).toEqual(future);
+    expect(durable.design.dockLayout).toBeUndefined();
   });
 
   it('coalesces bursty writes into one durable write', async () => {
