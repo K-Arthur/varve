@@ -22,14 +22,16 @@ import {
   listPanelInstances,
   migrateSidebarPreferences,
   movePanelBetweenWindows,
+  movePanelToHost,
   normalizeDockTree,
   removePanel,
+  reorderTab,
   serializeDockTree,
   splitHost,
   validateDockLayout,
   validateDockTree,
 } from '../dockOps';
-import type { DockNode, PanelInstanceRef } from '../dockTypes';
+import type { DockLayout, DockNode, PanelInstanceRef } from '../dockTypes';
 
 beforeEach(() => {
   resetPanelRegistry();
@@ -130,6 +132,137 @@ describe('dock ops: tab groups', () => {
     if (next.kind === 'tabs') {
       expect(next.panels.map((p) => p.instanceId)).toEqual(['i1', 'i2']);
     }
+  });
+
+  it('reorders a tab while preserving the active instance by identity', () => {
+    const root: DockNode = {
+      kind: 'tabs',
+      id: 't1',
+      panels: [layers('i1'), inspector('i2')],
+      activePanelInstanceId: 'i2',
+    };
+
+    const next = reorderTab(root, 't1', 'i2', 'before');
+
+    expect(next.kind).toBe('tabs');
+    if (next.kind === 'tabs') {
+      expect(next.panels.map((panel) => panel.instanceId)).toEqual(['i2', 'i1']);
+      expect(next.activePanelInstanceId).toBe('i2');
+    }
+  });
+
+  it('does not change a tree when a tab cannot move in the requested direction', () => {
+    const root: DockNode = {
+      kind: 'tabs',
+      id: 't1',
+      panels: [layers('i1'), inspector('i2')],
+      activePanelInstanceId: 'i1',
+    };
+
+    expect(reorderTab(root, 't1', 'i1', 'before')).toBe(root);
+    expect(reorderTab(root, 't1', 'missing', 'after')).toBe(root);
+  });
+});
+
+describe('dock ops: in-window panel moves', () => {
+  const splitLayout = (): DockLayout => ({
+    schemaVersion: 1,
+    windows: [
+      {
+        id: 'main',
+        role: 'primary',
+        dockRoot: {
+          kind: 'split',
+          id: 'root-split',
+          direction: 'row',
+          ratio: 0.5,
+          first: {
+            kind: 'panel',
+            id: 'layers-host',
+            panelInstanceId: 'i1',
+            panelTypeId: 'layers',
+          },
+          second: {
+            kind: 'panel',
+            id: 'inspector-host',
+            panelInstanceId: 'i2',
+            panelTypeId: 'inspector',
+          },
+        },
+      },
+    ],
+  });
+
+  it('moves a panel into a tab group without duplicating its instance', () => {
+    const layout = splitLayout();
+    const result = movePanelToHost(layout, 'i1', 'main', {
+      kind: 'tab',
+      targetNodeId: 'inspector-host',
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const root = result.layout.windows[0]?.dockRoot;
+    expect(root?.kind).toBe('tabs');
+    expect(listPanelInstances(root!).map((panel) => panel.instanceId)).toEqual(['i2', 'i1']);
+    expect(validateDockLayout(result.layout)).toEqual([]);
+  });
+
+  it('moves a panel before a split host while keeping the requested target share', () => {
+    const result = movePanelToHost(splitLayout(), 'i2', 'main', {
+      kind: 'split',
+      targetNodeId: 'layers-host',
+      direction: 'column',
+      side: 'before',
+      targetRatio: 0.65,
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const root = result.layout.windows[0]?.dockRoot;
+    expect(root?.kind).toBe('split');
+    if (root?.kind === 'split') {
+      expect(root.first.kind).toBe('panel');
+      expect(root.second.kind).toBe('panel');
+      expect(root.ratio).toBeCloseTo(0.35, 5);
+    }
+    expect(validateDockLayout(result.layout)).toEqual([]);
+  });
+
+  it('refuses host-incompatible moves and leaves the original layout untouched', () => {
+    const layout: DockLayout = {
+      schemaVersion: 1,
+      windows: [
+        {
+          id: 'main',
+          role: 'primary',
+          dockRoot: {
+            kind: 'panel',
+            id: 'timeline-host',
+            panelInstanceId: 'timeline-instance',
+            panelTypeId: 'timeline',
+          },
+        },
+        { id: 'aux', role: 'auxiliary-panel', dockRoot: emptyRoot() },
+      ],
+    };
+
+    const result = movePanelToHost(layout, 'timeline-instance', 'aux', {
+      kind: 'tab',
+      targetNodeId: 'root-aux',
+    });
+
+    expect(result).toEqual({ ok: false, layout, reason: 'host-not-allowed' });
+  });
+
+  it('rejects missing targets without losing the source panel', () => {
+    const layout = splitLayout();
+    const result = movePanelToHost(layout, 'i1', 'main', {
+      kind: 'tab',
+      targetNodeId: 'absent',
+    });
+
+    expect(result).toEqual({ ok: false, layout, reason: 'target-missing' });
   });
 });
 

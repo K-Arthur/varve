@@ -19,6 +19,7 @@ import {
   type DockLayout,
   type DockNode,
   type DockSplitDirection,
+  newId,
   type PanelInstanceRef,
   type PanelTypeId,
   type WorkspaceWindowId,
@@ -247,6 +248,144 @@ export function splitHost(
     second: newPanel,
   };
   return replaceNode(root, hostNodeId, split);
+}
+
+/** Reorder a panel in a tab group without changing which panel is active. */
+export function reorderTab(
+  root: DockNode,
+  tabNodeId: string,
+  instanceId: string,
+  direction: 'before' | 'after',
+): DockNode {
+  const group = findDockNode(root, tabNodeId);
+  if (group?.kind !== 'tabs') return root;
+  const from = group.panels.findIndex((panel) => panel.instanceId === instanceId);
+  if (from < 0) return root;
+  const to = from + (direction === 'before' ? -1 : 1);
+  if (to < 0 || to >= group.panels.length) return root;
+
+  const panels = [...group.panels];
+  [panels[from], panels[to]] = [panels[to]!, panels[from]!];
+  return replaceNode(root, tabNodeId, { ...group, panels });
+}
+
+export type DockPanelPlacement =
+  | { kind: 'tab'; targetNodeId: string }
+  | {
+      kind: 'split';
+      targetNodeId: string;
+      direction: DockSplitDirection;
+      side: 'before' | 'after';
+      /** Share retained by the existing target host, clamped to (0, 1). */
+      targetRatio: number;
+    };
+
+export type DockPanelMoveResult =
+  | { ok: true; layout: DockLayout }
+  | {
+      ok: false;
+      layout: DockLayout;
+      reason:
+        | 'missing-panel'
+        | 'missing-window'
+        | 'host-not-allowed'
+        | 'target-missing'
+        | 'invalid-layout';
+    };
+
+/**
+ * Move one registered panel instance to a tab group or split host. The source
+ * instance is removed before insertion so it can never be duplicated, and
+ * the final layout is validated against registry host and singleton rules.
+ */
+export function movePanelToHost(
+  layout: DockLayout,
+  instanceId: string,
+  targetWindowId: WorkspaceWindowId,
+  placement: DockPanelPlacement,
+): DockPanelMoveResult {
+  if (validateDockLayout(layout).length > 0) {
+    return { ok: false, layout, reason: 'invalid-layout' };
+  }
+
+  const sourceWindow = layout.windows.find((window) =>
+    findPanelInstance(window.dockRoot, instanceId),
+  );
+  if (!sourceWindow) return { ok: false, layout, reason: 'missing-panel' };
+  const targetWindow = layout.windows.find((window) => window.id === targetWindowId);
+  if (!targetWindow) return { ok: false, layout, reason: 'missing-window' };
+
+  const panel = listPanelInstances(sourceWindow.dockRoot).find(
+    (candidate) => candidate.instanceId === instanceId,
+  );
+  if (!panel) return { ok: false, layout, reason: 'missing-panel' };
+  const targetHost = targetWindow.role === 'primary' ? 'primary-sidebar' : 'auxiliary-window';
+  const definition = tryGetPanelDefinition(panel.panelTypeId);
+  if (definition && !definition.allowedHosts.includes(targetHost)) {
+    return { ok: false, layout, reason: 'host-not-allowed' };
+  }
+
+  const removed = removePanel(sourceWindow.dockRoot, instanceId);
+  if (!removed.removed) return { ok: false, layout, reason: 'missing-panel' };
+  const targetRoot =
+    sourceWindow.id === targetWindow.id ? normalizeDockTree(removed.tree) : targetWindow.dockRoot;
+  const target = findDockNode(targetRoot, placement.targetNodeId);
+  if (!target) return { ok: false, layout, reason: 'target-missing' };
+
+  let nextRoot: DockNode;
+  if (target.kind === 'empty') {
+    nextRoot = {
+      kind: 'panel',
+      id: `panel-${removed.removed.instanceId}`,
+      panelInstanceId: removed.removed.instanceId,
+      panelTypeId: removed.removed.panelTypeId,
+    };
+  } else if (placement.kind === 'tab') {
+    if (target.kind !== 'tabs' && target.kind !== 'panel') {
+      return { ok: false, layout, reason: 'target-missing' };
+    }
+    nextRoot = addToTabGroup(targetRoot, target.id, removed.removed);
+  } else {
+    const split = splitHost(
+      targetRoot,
+      target.id,
+      removed.removed,
+      placement.direction,
+      placement.targetRatio,
+      newId(),
+    );
+    if (placement.side === 'before' && split.kind === 'split') {
+      nextRoot = {
+        ...split,
+        ratio: clampRatio(1 - split.ratio),
+        first: split.second,
+        second: split.first,
+      };
+    } else {
+      nextRoot = split;
+    }
+  }
+  if (!listPanelInstances(nextRoot).some((candidate) => candidate.instanceId === instanceId)) {
+    return { ok: false, layout, reason: 'target-missing' };
+  }
+
+  const windows = layout.windows.map((window) => {
+    if (window.id === sourceWindow.id && window.id === targetWindow.id) {
+      return { ...window, dockRoot: normalizeDockTree(nextRoot) };
+    }
+    if (window.id === sourceWindow.id) {
+      return { ...window, dockRoot: normalizeDockTree(removed.tree) };
+    }
+    if (window.id === targetWindow.id) {
+      return { ...window, dockRoot: normalizeDockTree(nextRoot) };
+    }
+    return window;
+  });
+  const nextLayout = { ...layout, windows };
+  if (validateDockLayout(nextLayout).length > 0) {
+    return { ok: false, layout, reason: 'invalid-layout' };
+  }
+  return { ok: true, layout: nextLayout };
 }
 
 /** Remove a panel instance from the tree. Returns the new tree and the ref. */
