@@ -153,6 +153,21 @@ Run and passing:
 - Every commit went through `pnpm verify:commit` (biome, emoji, health,
   impact-config, secret scan, contacts, docs, import boundaries,
   typecheck:e2e, and the selection unit slice).
+- `pnpm verify:plan` — run repeatedly; the planner never escalated this
+  change set to the full suite.
+- `pnpm verify:quick` (Tier 0 + Tier 1) — clean except the two
+  `object-selection.spec.ts` tests classified in the next section.
+- `pnpm verify:affected` (Tiers 2-4) was **deliberately not run**: by the end
+  of this pass the shared tree carried 233 changed files dominated by other
+  sessions' in-flight work, and Tiers 2-4 select the full canvas and visual
+  E2E lanes — hours on a machine already contended by four sessions. This
+  change set's impact was validated directly instead: Tier 0 lanes by hand,
+  Tier 1's unit and typecheck lanes in full, every commit through
+  `verify:commit`, and the live specs above. Each parallel session runs its
+  own checkpoints, so their lanes remain theirs to certify.
+- One pre-existing, unrelated failure persists at the end of the pass:
+  `packages/editor/src/tokenSync/importWorkflow.test.ts(131,12) TS2532`,
+  another session's in-flight edit. `packages/engine` typechecks clean.
 
 ### Live browser run (2026-09-26, Chromium, this machine)
 
