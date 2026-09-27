@@ -109,6 +109,40 @@ describe('transactional plugin store', () => {
     expect((await getStoredPluginState('com.example.race')).revision).toBe(1);
   });
 
+  it('keeps the previous package and revision when an IndexedDB write transaction aborts', async () => {
+    await putStoredPlugin(record('com.example.interrupted', { sha256: 'working' }), 0);
+
+    const prototype = IDBObjectStore.prototype;
+    const originalPut = prototype.put;
+    let abortQueued = false;
+    prototype.put = function (
+      this: IDBObjectStore,
+      value: Parameters<typeof originalPut>[0],
+      key?: Parameters<typeof originalPut>[1],
+    ) {
+      const request =
+        key === undefined ? originalPut.call(this, value) : originalPut.call(this, value, key);
+      if (this.name === 'packages' && !abortQueued) {
+        abortQueued = true;
+        queueMicrotask(() => request.transaction?.abort());
+      }
+      return request;
+    };
+
+    try {
+      await expect(
+        putStoredPlugin(record('com.example.interrupted', { sha256: 'partial-update' }), 1),
+      ).rejects.toThrow();
+    } finally {
+      prototype.put = originalPut;
+    }
+
+    expect(abortQueued).toBe(true);
+    const afterAbort = await getStoredPluginState('com.example.interrupted');
+    expect(afterAbort.revision).toBe(1);
+    expect(afterAbort.plugin?.sha256).toBe('working');
+  });
+
   it('enforces the 32-installation cap inside competing write transactions', async () => {
     for (let index = 0; index < 31; index++) {
       await putStoredPlugin(record(`com.example.${index}`), 0);

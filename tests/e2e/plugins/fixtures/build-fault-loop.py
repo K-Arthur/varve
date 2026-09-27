@@ -1,6 +1,7 @@
 """Rebuild the controlled infinite-loop plugin fixture; never run it outside a worker."""
 
 import json
+import sys
 import zipfile
 from pathlib import Path
 
@@ -41,10 +42,11 @@ wasm = b"\x00asm\x01\x00\x00\x00" + b"".join(
     section(section_id, payload)
     for section_id, payload in ((1, types), (2, imports), (3, functions), (7, exports), (10, code))
 )
+competing = "--second" in sys.argv
 manifest = {
     "schemaVersion": 1,
-    "id": "dev.varve.test.loop",
-    "name": "Controlled Loop Fixture",
+    "id": "dev.varve.test.loop-two" if competing else "dev.varve.test.loop",
+    "name": "Controlled Loop Fixture Two" if competing else "Controlled Loop Fixture",
     "publisher": "Varve test fixture",
     "version": "1.0.0",
     "apiVersion": 1,
@@ -52,7 +54,7 @@ manifest = {
     "permissions": {"required": ["selection.read"], "optional": []},
     "commands": [{"id": "loop", "title": "Run controlled loop", "kind": "analysis"}],
 }
-output = Path(__file__).with_name("fault-loop.varveplugin")
+output = Path(__file__).with_name("fault-loop-two.varveplugin" if competing else "fault-loop.varveplugin")
 with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_STORED) as package:
     package.writestr("manifest.json", json.dumps(manifest, separators=(",", ":")))
     package.writestr("module.wasm", wasm)

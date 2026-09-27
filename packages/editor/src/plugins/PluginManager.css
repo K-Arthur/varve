@@ -42,12 +42,17 @@
 
 .plugin-manager__heading {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .plugin-manager__heading p,
 .plugin-manager__list-heading p {
   margin-top: var(--space-1);
   line-height: 1.45;
+}
+
+.plugin-manager__install {
+  min-width: 0;
 }
 
 .plugin-manager__install input {

@@ -3458,8 +3458,8 @@ dialog.varve-dialog--settings[open] {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  min-width: 160px;
-  flex-shrink: 0;
+  flex: 0 0 min(220px, 32%);
+  min-width: 0;
   min-height: 0;
 }
 .settings-dialog__section-search {
@@ -3486,6 +3486,7 @@ dialog.varve-dialog--settings[open] {
 .settings-dialog__tab {
   display: block;
   width: 100%;
+  flex-shrink: 0;
   min-height: 32px;
   padding: var(--space-menu-item) var(--space-3);
   border: none;
@@ -3541,6 +3542,9 @@ dialog.varve-dialog--settings[open] {
 @media (max-width: 640px) {
   .settings-dialog__layout {
     flex-direction: column;
+  }
+  .settings-dialog__nav-column {
+    flex: none;
   }
   .settings-dialog__nav {
     flex-direction: row;
@@ -5739,6 +5743,7 @@ dialog.varve-dialog--settings[open] {
 .safe-mode-active-indicator {
   position: fixed;
   z-index: 1000;
+  pointer-events: none;
   top: var(--space-3);
   left: 50%;
   transform: translateX(-50%);
@@ -5760,6 +5765,7 @@ dialog.varve-dialog--settings[open] {
 }
 .safe-mode-active-indicator .safe-mode-screen__btn {
   flex: 0 0 auto;
+  pointer-events: auto;
   min-height: 36px;
   padding: var(--space-2) var(--space-3);
 }
