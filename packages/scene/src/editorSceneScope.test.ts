@@ -183,4 +183,45 @@ describe('resolveEditorSceneScope caching', () => {
     expect(after.authoredNodeIds.has(id)).toBe(true);
     expect(before.authoredNodeIds.has(id)).toBe(false);
   });
+
+  it('reuses the scope when an edit only moves nodes', () => {
+    const { doc, firstNodeId } = mixedCanvasDocument();
+    const before = resolveEditorSceneScope(doc, options);
+    const node = doc.nodes[firstNodeId]!;
+    const moved: Document = {
+      ...doc,
+      nodes: { ...doc.nodes, [firstNodeId]: { ...node, transform: [1, 0, 0, 1, 40, 25] } },
+    };
+    expect(resolveEditorSceneScope(moved, options)).toBe(before);
+  });
+
+  it('re-resolves when an edit hides a node, not just moves it', () => {
+    const { doc, firstNodeId } = mixedCanvasDocument();
+    const before = resolveEditorSceneScope(doc, options);
+    expect(before.authoredNodeIds.has(firstNodeId)).toBe(true);
+    const node = doc.nodes[firstNodeId]!;
+    const hidden: Document = {
+      ...doc,
+      nodes: {
+        ...doc.nodes,
+        [firstNodeId]: { ...node, transform: [1, 0, 0, 1, 40, 25], visible: false },
+      },
+    };
+    const after = resolveEditorSceneScope(hidden, options);
+    expect(after).not.toBe(before);
+    expect(after.authoredNodeIds.has(firstNodeId)).toBe(false);
+  });
+
+  it('re-resolves when a document-level field changes alongside a move', () => {
+    const { doc, firstNodeId, firstCanvasId, secondCanvasId } = mixedCanvasDocument();
+    const before = resolveEditorSceneScope(doc, options);
+    const node = doc.nodes[firstNodeId]!;
+    const switched: Document = {
+      ...doc,
+      activeDesignCanvasId:
+        doc.activeDesignCanvasId === secondCanvasId ? firstCanvasId : secondCanvasId,
+      nodes: { ...doc.nodes, [firstNodeId]: { ...node, transform: [1, 0, 0, 1, 1, 1] } },
+    };
+    expect(resolveEditorSceneScope(switched, options)).not.toBe(before);
+  });
 });

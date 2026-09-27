@@ -14,6 +14,7 @@
 
 import { getActiveDesignCanvas, getDesignCanvas } from './designCanvas';
 import type { Document } from './document';
+import { documentsDifferOnlyInTransforms } from './nodeChanges';
 import {
   type MultipageNodeInstance,
   type MultipageSceneOptions,
@@ -182,10 +183,31 @@ export function resolveEditorSceneScope(
     }
     return entry.scope;
   }
-  const scope = computeEditorSceneScope(doc, options, base);
+  const scope = reusableScope(doc, base, key) ?? computeEditorSceneScope(doc, options, base);
   sceneScopeCache.unshift({ doc, key, scope });
   if (sceneScopeCache.length > SCENE_SCOPE_CACHE_CAPACITY) sceneScopeCache.pop();
   return scope;
+}
+
+/**
+ * A cached scope still valid for `doc`: one resolved with the same options
+ * for a document that differs from `doc` only in node transforms. Every drag
+ * frame commits such a document, and recomputing walked the whole scene per
+ * pointer move for snapping, the renderer, and overlays alike.
+ *
+ * The scope reads structure, visibility, solo, pages, canvases, and masters,
+ * never node transforms, except when a publishing surface culls placed pages
+ * by the viewport; that case is not reused.
+ */
+function reusableScope(
+  doc: Document,
+  base: BaseEditorSurface,
+  key: string,
+): ResolvedEditorSceneScope | null {
+  if (base.kind === 'publishing' && (doc.pages?.length ?? 0) > 0) return null;
+  const previous = sceneScopeCache.find((entry) => entry.key === key);
+  if (!previous || !documentsDifferOnlyInTransforms(previous.doc, doc)) return null;
+  return previous.scope;
 }
 
 /**

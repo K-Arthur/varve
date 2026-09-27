@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { createDocument, makeGroupNode, makeShapeNode } from './document';
+import { createDocument, type Document, makeGroupNode, makeShapeNode } from './document';
 import {
   buildCompositingDependencyGraph,
   detectCompositingCycles,
+  findAllCompositingDependents,
   findCompositingDependents,
   setEffectMask,
 } from './effectMasks';
@@ -77,5 +78,32 @@ describe('effect-local compositing dependencies', () => {
     };
     const nestedRejected = setEffectMask(nested, 'target', 'effect-target', source('group'));
     expect(nestedRejected).toBe(nested);
+  });
+});
+
+describe('findAllCompositingDependents across edits', () => {
+  it('keeps answering correctly through moves and mask edits', () => {
+    const doc = baseDocument();
+    expect(findAllCompositingDependents(doc, ['matte'])).toEqual([]);
+
+    const masked = setEffectMask(doc, 'target', 'effect-target', source('matte'));
+    expect(findAllCompositingDependents(masked, ['matte'])).toEqual(['target']);
+
+    // A move (transform only) keeps the edge.
+    const matte = masked.nodes.matte!;
+    const movedNodes: Document['nodes'] = {
+      ...masked.nodes,
+      matte: { ...matte, transform: [1, 0, 0, 1, 30, 0] },
+    };
+    const moved = { ...masked, nodes: movedNodes };
+    expect(findAllCompositingDependents(moved, ['matte'])).toEqual(['target']);
+
+    // Removing the mask after a move drops the edge.
+    const target = moved.nodes.target!;
+    const unmasked = {
+      ...moved,
+      nodes: { ...moved.nodes, target: { ...target, effects: [shadow('effect-target')] } },
+    };
+    expect(findAllCompositingDependents(unmasked, ['matte'])).toEqual([]);
   });
 });

@@ -1,4 +1,5 @@
 import type { Document } from './document';
+import { nodesDifferOnlyInTransforms } from './nodeChanges';
 import type { Effect, EffectMaskBinding, NodeId, SceneNode } from './types';
 import { isContainer } from './types';
 
@@ -67,16 +68,35 @@ export function findCompositingDependents(doc: Document, sourceNodeId: NodeId): 
 }
 
 /** Find every transitive repaint dependent of a changed matte source. */
-export function findAllCompositingDependents(
-  doc: Document,
-  sourceNodeIds: Iterable<NodeId>,
-): NodeId[] {
+let lastAdjacencyNodes: Document['nodes'] | null = null;
+let lastAdjacency: ReadonlyMap<NodeId, readonly NodeId[]> = new Map();
+
+/**
+ * Source → dependent adjacency for the document. Edges come from mask and
+ * effect-mask sources only, so a move keeps them; the dirty-region pass asks
+ * on every drag frame and rebuilding walked every node's effects each time.
+ */
+function compositingAdjacency(doc: Document): ReadonlyMap<NodeId, readonly NodeId[]> {
+  if (lastAdjacencyNodes && nodesDifferOnlyInTransforms(lastAdjacencyNodes, doc.nodes)) {
+    lastAdjacencyNodes = doc.nodes;
+    return lastAdjacency;
+  }
   const adjacency = new Map<NodeId, NodeId[]>();
   for (const edge of buildCompositingDependencyGraph(doc)) {
     const targets = adjacency.get(edge.sourceNodeId) ?? [];
     targets.push(edge.targetNodeId);
     adjacency.set(edge.sourceNodeId, targets);
   }
+  lastAdjacencyNodes = doc.nodes;
+  lastAdjacency = adjacency;
+  return adjacency;
+}
+
+export function findAllCompositingDependents(
+  doc: Document,
+  sourceNodeIds: Iterable<NodeId>,
+): NodeId[] {
+  const adjacency = compositingAdjacency(doc);
   const pending = [...sourceNodeIds];
   const seenSources = new Set<NodeId>();
   const dependents = new Set<NodeId>();
