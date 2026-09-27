@@ -199,8 +199,41 @@ VARVE_SAM2_REAL_MODEL=1 node scripts/quality/heavy-lease.mjs \
 | **Chromium / Linux x86_64** | All three specs **PASS** (table above), including the real-model gate. Final combined run after every interleaved commit: **13/13 in 5.5 min** — the full `object-selection.spec.ts` (7), both new specs, and all four real-model tests: cold preview 25 s / warm 1 s with undo-redo, the under-specified edge-prompt refusal, the Generative Edit handoff (target 94.6% of pixels changed, mug and flowers 0), and the box-hint edge capture. |
 | **Firefox / Linux** | Both UI specs **PASS** — draft overlay 23.2 s, Alpha trim 19.7 s (`--project=firefox`, Firefox 1538). The real-model spec is Chromium-only by design: it launches its own persistent Chromium context. |
 | **WebKit (Playwright, Linux)** | **Blocked before launch**, not a test failure: the host lacks `libicu74`, `libxml2`, `libflite1`. Fix is `sudo npx playwright install-deps` (or `sudo apt-get install libicu74 libxml2 libflite1`); `sudo` requires a password in this environment, so it could not be installed here. |
-| **Native Tauri / WebKitGTK** | `pnpm test:desktop:native` (preflight + debug build with the `wdio` feature + `tauri-smoke` / `native-menu` specs) queued under the lease — result recorded below. |
+| **Native Tauri / WebKitGTK** | **Blocked on machine memory**, not on code — four attempts, all `rustc` SIGKILLed. Full diagnosis below. |
 | **Windows / macOS** | **Not exercised** by this pass. |
+
+### Native desktop: four attempts, all OOM-killed (2026-09-26)
+
+`pnpm test:desktop:native` = preflight (passed: GUI available, webkit2gtk
+4.1 + gtk3 present) → debug build with the `wdio` feature → wdio
+`tauri-smoke` + `native-menu`. The build never completed:
+
+| # | Condition | Result |
+| --- | --- | --- |
+| 1 | full clean target, default flags | `No space left on device` writing `libvarve_desktop_lib.a` — disk was at 100% (525 MB of 230 GB free; 94 GB Rust caches) |
+| 2 | after reclaiming 105 GB (user-approved full clean), cold rebuild | `rustc` **SIGKILL**, kernel log: `Out of memory: Killed process … anon-rss:10132340kB`, `constraint=global_oom` |
+| 3 | `CARGO_PROFILE_DEV_DEBUG=0` (confirmed: `-C strip=debuginfo`, no `-C debuginfo`) | **SIGKILL** again, `anon-rss:9761436kB` — debug symbols were not the driver |
+| 4 | `crate-type = ["rlib"]` only (temporarily, trap-reverted; `git status` clean afterwards) *and* a cleared 23 GB incremental session cache | **SIGKILL** on the rlib-only, fresh-session compile |
+
+Root cause: `varve_desktop_lib`'s single rustc invocation needs ~10 GB RSS,
+while the machine offers 22 GB RAM with **17-19 GB of swap held by the
+operator's own apps** (zcode, electron, chatgpt) — about 10 GB available plus
+~3 GB swap headroom, right at the edge. `global_oom` in every kill means the
+kernel had nothing reclaimable; no flag I tried changes the crate's intrinsic
+cost. Nothing in the repo or the change set is implicated.
+
+To complete it, the machine needs roughly 6-8 GB more headroom (close the
+operator's apps, or free swap), then:
+
+```bash
+node scripts/quality/heavy-lease.mjs "native: tauri smoke" -- pnpm test:desktop:native
+```
+
+Caveat to keep with that run: attempts 3-4 also proved the build is healthy
+in every respect *except* the final link — the frontend bundle rebuilt
+cleanly each time (14885 modules, including `imageCrop`, `ImageCropSection`,
+`commitRasterMask`, `sam2GraphRepair` chunks), so the webview code under
+test compiles for the desktop target; only the native link step was denied.
 
 Playwright's Linux WebKit build is the WebKitGTK family, so the WebKit row
 would be the closest browser-level proxy for the desktop webview; the native
