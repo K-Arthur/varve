@@ -17,9 +17,15 @@ import {
   savePanelWidths,
   saveWorkspacePreferences,
   setChromeOverride,
+  setInspectorTabOrderOverride,
+  setInspectorTabPinnedOverride,
   setPanelOverride,
+  setStatusSectionOrderOverride,
   setToolbarPlacementOverride,
+  setToolbarToolLocationOverride,
+  setToolbarToolOrderOverride,
   setToolbarToolOverride,
+  setToolbarToolPinnedOverride,
   setWorkspacePreferences,
   subscribeWorkspacePreferences,
   updateWorkspacePreferences,
@@ -37,7 +43,16 @@ describe('workspaceStore — persistence', () => {
 
   it('loads defaults when nothing is stored', () => {
     const prefs = loadWorkspacePreferences();
-    for (const mode of ['design', 'print', 'drawing', 'image', 'motion', 'codegen', 'logo']) {
+    for (const mode of [
+      'design',
+      'print',
+      'drawing',
+      'image',
+      'motion',
+      'email',
+      'codegen',
+      'logo',
+    ]) {
       expect(prefs[mode as keyof typeof prefs].customized).toBe(false);
     }
   });
@@ -175,6 +190,97 @@ describe('workspaceStore — effective configuration', () => {
     );
     expect(boolean?.tools).not.toContain('booleanExclude');
     expect(boolean?.tools).toContain('booleanUnion');
+  });
+
+  it('persists toolbar ordering, existing-flyout membership, and overflow pins', () => {
+    const original = getEffectiveWorkspaceConfig('design');
+    const toolIds = original.toolbar.tools.map((item) => item.toolId);
+    expect(toolIds.length).toBeGreaterThan(2);
+    const reordered = [
+      toolIds[1]!,
+      toolIds[0]!,
+      ...toolIds.slice(2),
+      ...original.toolbar.flyouts!.flatMap((flyout) => flyout.tools),
+    ];
+    let prefs = getWorkspacePreferences();
+    prefs = setToolbarToolOrderOverride(prefs, 'design', reordered);
+    prefs = setToolbarToolLocationOverride(prefs, 'design', 'rect', 'boolean');
+    prefs = setToolbarToolPinnedOverride(prefs, 'design', 'rect', true);
+    setWorkspacePreferences(prefs);
+
+    let effective = getEffectiveWorkspaceConfig('design');
+    const expectedMainOrder = [toolIds[1]!, ...toolIds.slice(2).filter((id) => id !== 'rect')];
+    expect(effective.toolbar.tools.slice(0, 2).map((item) => item.toolId)).toEqual(
+      expectedMainOrder.slice(0, 2),
+    );
+    expect(effective.toolbar.tools.map((item) => item.toolId)).not.toContain('rect');
+    expect(effective.toolbar.flyouts?.find((flyout) => flyout.id === 'boolean')?.tools).toContain(
+      'rect',
+    );
+    expect(effective.toolbarPinnedToolIds).toContain('rect');
+
+    resetWorkspacePreferenceCache();
+    const reloaded = loadWorkspacePreferences();
+    effective = getEffectiveWorkspaceConfig('design', reloaded);
+    expect(effective.toolbar.tools.slice(0, 2).map((item) => item.toolId)).toEqual(
+      expectedMainOrder.slice(0, 2),
+    );
+    expect(effective.toolbar.flyouts?.find((flyout) => flyout.id === 'boolean')?.tools).toContain(
+      'rect',
+    );
+    expect(effective.toolbarPinnedToolIds).toContain('rect');
+  });
+
+  it('reorders inspector tabs and status sections while preserving visibility and pin state', () => {
+    const original = getEffectiveWorkspaceConfig('design');
+    const tabIds = original.inspectorTabs.map((tab) => tab.id);
+    const sectionIds = original.statusSections.map((section) => section.id);
+    let prefs = getWorkspacePreferences();
+    prefs = setInspectorTabOrderOverride(prefs, 'design', [
+      tabIds[1]!,
+      tabIds[0]!,
+      ...tabIds.slice(2),
+    ]);
+    prefs = setInspectorTabPinnedOverride(prefs, 'design', tabIds[2]!, true);
+    prefs = setStatusSectionOrderOverride(prefs, 'design', [
+      sectionIds[1]!,
+      sectionIds[0]!,
+      ...sectionIds.slice(2),
+    ]);
+    setWorkspacePreferences(prefs);
+
+    const effective = getEffectiveWorkspaceConfig('design');
+    expect(effective.inspectorTabs.slice(0, 2).map((tab) => tab.id)).toEqual(
+      tabIds.slice(0, 2).reverse(),
+    );
+    expect(effective.inspectorTabs.find((tab) => tab.id === tabIds[2])?.overflowPriority).toBe(0);
+    expect(effective.statusSections.slice(0, 2).map((section) => section.id)).toEqual(
+      sectionIds.slice(0, 2).reverse(),
+    );
+  });
+
+  it('drops unknown arrangement ids and flyout targets during preference sanitation', () => {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        design: {
+          customized: true,
+          toolbarToolOrder: ['select', 'notATool'],
+          toolbarToolLocations: { select: 'boolean', rect: 'boolean' },
+          toolbarPinnedToolIds: ['rect', 'notATool', 'select'],
+          inspectorTabOrder: ['properties', 'notATab'],
+          inspectorTabPinnedOverrides: { properties: true, notATab: true },
+          statusSectionOrder: ['zoom', 'notASection'],
+        },
+      }),
+    );
+    const prefs = loadWorkspacePreferences();
+    expect(prefs.design.toolbarToolOrder).toEqual(['select']);
+    expect(prefs.design.toolbarToolLocations).toEqual({ rect: 'boolean' });
+    expect(prefs.design.toolbarPinnedToolIds).toEqual(['rect']);
+    expect(prefs.design.inspectorTabOrder).toEqual(['properties']);
+    expect(prefs.design.inspectorTabPinnedOverrides).toEqual({ properties: true });
+    expect(prefs.design.statusSectionOrder).toEqual(['zoom']);
   });
 
   it('survives a reload with a flyout-only tool override', () => {

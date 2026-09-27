@@ -5897,6 +5897,63 @@ dialog.varve-dialog--settings[open] {
 .workspace-customize__toggle input[type="checkbox"] {
   accent-color: var(--color-interactive-default);
 }
+.workspace-customize__arrangement-row {
+  display: grid;
+  grid-template-columns: minmax(8rem, 1fr) auto auto minmax(9rem, auto) auto;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 36px;
+  padding: var(--space-1) 0;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+.workspace-customize__arrangement-name {
+  min-width: 0;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+}
+.workspace-customize__arrangement-row > button {
+  min-height: 32px;
+  padding: 0 var(--space-2);
+  color: var(--color-text-primary);
+  background: var(--color-surface-sunken);
+  border: var(--border-micro);
+  border-radius: var(--radius-control-compact);
+  cursor: pointer;
+}
+.workspace-customize__arrangement-row > button:disabled {
+  color: var(--color-text-muted);
+  cursor: default;
+}
+.workspace-customize__arrangement-row > button:focus-visible,
+.workspace-customize__arrangement-select select:focus-visible {
+  outline: 2px solid var(--color-border-focus);
+  outline-offset: 1px;
+}
+.workspace-customize__arrangement-select select {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 32px;
+  padding: 0 var(--space-2);
+  color: var(--color-text-primary);
+  background: var(--color-surface-sunken);
+  border: var(--border-micro);
+  border-radius: var(--radius-control-compact);
+}
+.workspace-customize__pin {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: 32px;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+}
+.workspace-customize__pin input[type="checkbox"] {
+  accent-color: var(--color-interactive-default);
+}
+.workspace-customize__arrangement-row .workspace-customize__toggle {
+  padding: 0;
+}
 .workspace-customize__flyout {
   color: var(--color-text-secondary);
   font-size: var(--font-size-2xs);

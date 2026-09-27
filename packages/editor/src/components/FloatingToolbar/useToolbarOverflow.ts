@@ -15,11 +15,13 @@ interface ResponsiveToolbar {
   collapsedSlots: ToolbarSlot[];
 }
 
+const NO_PINNED_TOOLS: readonly ToolId[] = [];
+
 /**
  * Collapse individual toolbar slots only when the rendered row overflows, in
  * ascending retention order (see `toolbarRetention.ts`). Essential recovery
- * tools and the active tool's slot are never candidates; everything else can
- * be discovered through the category-based More menu.
+ * tools, user-pinned tools, and the active tool's slot are never candidates;
+ * everything else can be discovered through the category-based More menu.
  *
  * Collapse granularity is the *slot*, not the declared group. Group-level
  * collapse was too coarse: the Select group also declares Slice, Pixel Info,
@@ -32,7 +34,11 @@ interface ResponsiveToolbar {
  * re-expanding as soon as the row happens to fit would oscillate between
  * "all visible → overflow → collapse one → fits → expand" on every pass.
  */
-export function useToolbarOverflow(slots: ToolbarSlot[], activeTool: ToolId): ResponsiveToolbar {
+export function useToolbarOverflow(
+  slots: ToolbarSlot[],
+  activeTool: ToolId,
+  pinnedToolIds: readonly ToolId[] = NO_PINNED_TOOLS,
+): ResponsiveToolbar {
   const rootRef = useRef<HTMLDivElement>(null);
   const [collapsedSlotIds, setCollapsedSlotIds] = useState<string[]>([]);
   const [layoutVersion, setLayoutVersion] = useState(0);
@@ -47,8 +53,8 @@ export function useToolbarOverflow(slots: ToolbarSlot[], activeTool: ToolId): Re
     [slots],
   );
   const candidates = useMemo(
-    () => slots.filter((slot) => !isPinnedSlot(slot, activeTool)),
-    [slots, activeTool],
+    () => slots.filter((slot) => !isPinnedSlot(slot, activeTool, pinnedToolIds)),
+    [slots, activeTool, pinnedToolIds],
   );
   const candidateIdSet = useMemo(
     () => new Set(candidates.map((slot) => toolbarSlotKey(slot))),
@@ -119,8 +125,14 @@ export function useToolbarOverflow(slots: ToolbarSlot[], activeTool: ToolId): Re
 }
 
 /** Stable identity for a slot across re-renders. */
-function isPinnedSlot(slot: ToolbarSlot, activeTool: ToolId): boolean {
-  return getToolbarSlotToolIds(slot).some((id) => ESSENTIAL_TOOL_IDS.has(id) || id === activeTool);
+function isPinnedSlot(
+  slot: ToolbarSlot,
+  activeTool: ToolId,
+  pinnedToolIds: readonly ToolId[],
+): boolean {
+  return getToolbarSlotToolIds(slot).some(
+    (id) => ESSENTIAL_TOOL_IDS.has(id) || id === activeTool || pinnedToolIds.includes(id),
+  );
 }
 
 /**

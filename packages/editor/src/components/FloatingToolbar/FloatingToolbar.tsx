@@ -419,7 +419,11 @@ export function FloatingToolbar() {
   // config. The hook intentionally runs before the early returns so switching
   // into/out of a modal tool cannot change hook ordering.
   const slots = useMemo(() => composeToolbar(config.toolbar), [config.toolbar]);
-  const { rootRef, visibleSlots, collapsedSlots } = useToolbarOverflow(slots, state.tool as ToolId);
+  const { rootRef, visibleSlots, collapsedSlots } = useToolbarOverflow(
+    slots,
+    state.tool as ToolId,
+    config.toolbarPinnedToolIds,
+  );
   const hasTouchInput = useHasTouchInput();
 
   // Publish the palette's rendered height so bottom-anchored chrome (the

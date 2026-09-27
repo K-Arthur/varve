@@ -4,7 +4,11 @@ import '@testing-library/jest-dom/vitest';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { EditorProvider, useEditor } from '../context';
-import { resetWorkspacePreferenceCache } from '../workspace/workspaceStore';
+import {
+  getEffectiveWorkspaceConfig,
+  getWorkspacePreferences,
+  resetWorkspacePreferenceCache,
+} from '../workspace/workspaceStore';
 import { WorkspaceCustomizeDialog } from './WorkspaceCustomizeDialog';
 
 // EditorProvider mounts the full editor context — see workspaceReset.test.tsx.
@@ -44,6 +48,8 @@ describe('WorkspaceCustomizeDialog', () => {
   it('lists flyout-only tools (boolean operations) as customizable toolbar tools', () => {
     renderDialog();
     const dialog = screen.getByRole('dialog');
+    const toolbarTools = within(dialog).getByRole('heading', { name: 'Toolbar Tools' })
+      .parentElement!;
     // Boolean operations are not in the design main row, but they must be
     // customizable — hiding them is a supported override. Every member shows
     // its flyout membership so the row reads as a group.
@@ -53,9 +59,9 @@ describe('WorkspaceCustomizeDialog', () => {
       'Boolean Intersect',
       'Boolean Exclude',
     ]) {
-      expect(within(dialog).getByText(new RegExp(name))).toBeTruthy();
+      expect(within(toolbarTools).getByText(new RegExp(name))).toBeTruthy();
     }
-    expect(within(dialog).getAllByText(/in Boolean operations/)).toHaveLength(4);
+    expect(within(toolbarTools).getAllByText(/in Boolean operations/)).toHaveLength(4);
   });
 
   it('shows human labels for status bar sections, not raw ids', () => {
@@ -146,13 +152,46 @@ describe('WorkspaceCustomizeDialog', () => {
     await waitFor(() => expect(editor?.state.tool).toBe('pen'));
 
     const dialog = screen.getByRole('dialog');
+    const toolbarTools = within(dialog).getByRole('heading', { name: 'Toolbar Tools' })
+      .parentElement!;
     const search = within(dialog).getByRole('searchbox', { name: 'Search toolbar tools' });
     fireEvent.change(search, { target: { value: 'boolean' } });
-    expect(within(dialog).getByText('Boolean Union')).toBeTruthy();
-    expect(within(dialog).queryByText('Rectangle')).toBeNull();
+    expect(within(toolbarTools).getByText('Boolean Union')).toBeTruthy();
+    expect(within(toolbarTools).queryByText('Rectangle')).toBeNull();
 
     fireEvent.change(search, { target: { value: 'pen' } });
     fireEvent.click(within(dialog).getByRole('checkbox', { name: /Show Pen in Design/ }));
     expect(editor.state.tool).toBe('select');
+  });
+
+  it('supports non-drag toolbar ordering, flyout reassignment, and overflow pinning', () => {
+    renderDialog();
+    const dialog = screen.getByRole('dialog');
+    const before = getEffectiveWorkspaceConfig('design');
+    const beforeIds = before.toolbar.tools.map((item) => item.toolId);
+    const rectangleIndex = beforeIds.indexOf('rect');
+    expect(rectangleIndex).toBe(0);
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Move Rectangle later' }));
+    const afterMove = getEffectiveWorkspaceConfig('design');
+    expect(afterMove.toolbar.tools.findIndex((item) => item.toolId === 'rect')).toBe(
+      rectangleIndex + 1,
+    );
+
+    const location = within(dialog).getByRole('combobox', { name: 'Show Pen in' });
+    fireEvent.change(location, { target: { value: 'boolean' } });
+    const afterMoveToFlyout = getEffectiveWorkspaceConfig('design');
+    expect(afterMoveToFlyout.toolbar.tools.map((item) => item.toolId)).not.toContain('pen');
+    expect(
+      afterMoveToFlyout.toolbar.flyouts?.find((flyout) => flyout.id === 'boolean')?.tools,
+    ).toContain('pen');
+
+    const selectLocation = within(dialog).getByRole('combobox', { name: 'Show Select in' });
+    expect(selectLocation).toBeDisabled();
+    const pin = within(dialog).getByRole('checkbox', {
+      name: 'Keep Rectangle visible when the toolbar overflows',
+    });
+    fireEvent.click(pin);
+    expect(getWorkspacePreferences().design.toolbarPinnedToolIds).toContain('rect');
   });
 });

@@ -47,6 +47,38 @@ function defaultPreference(): WorkspacePreference {
   return { customized: false };
 }
 
+function sanitizeOrderedIds<T extends string>(
+  value: unknown,
+  declared: readonly T[],
+): T[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const allowed = new Set<string>(declared);
+  const seen = new Set<string>();
+  const order = value.filter((id): id is T => {
+    if (typeof id !== 'string' || !allowed.has(id) || seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  });
+  return order.length > 0 ? order : undefined;
+}
+
+function applyDeclaredOrder<T>(
+  items: T[],
+  order: readonly string[] | undefined,
+  id: (item: T) => string,
+): T[] {
+  if (!order?.length) return items;
+  const priority = new Map(order.map((key, index) => [key, index]));
+  return items
+    .map((item, index) => ({
+      item,
+      index,
+      priority: priority.get(id(item)) ?? Number.MAX_SAFE_INTEGER,
+    }))
+    .sort((left, right) => left.priority - right.priority || left.index - right.index)
+    .map(({ item }) => item);
+}
+
 /**
  * Normalize a parsed preferences payload from any store.
  *
@@ -96,7 +128,8 @@ function sanitizePreference(
   pref: Partial<WorkspacePreference>,
   mode: WorkspaceMode,
 ): WorkspacePreference {
-  const base = getWorkspaceConfig(mode).panels;
+  const baseConfig = getWorkspaceConfig(mode);
+  const base = baseConfig.panels;
   const overrides = pref.panelOverrides;
   const clean: Partial<Record<PanelId, Partial<PanelConfig>>> = {};
   if (overrides && typeof overrides === 'object') {
@@ -112,7 +145,7 @@ function sanitizePreference(
   }
 
   // Sanitize inspector tab overrides — only boolean visibility flips for known tabs
-  const baseTabIds = new Set(base ? getWorkspaceConfig(mode).inspectorTabs.map((t) => t.id) : []);
+  const baseTabIds = new Set(baseConfig.inspectorTabs.map((t) => t.id));
   const tabRaw = pref.inspectorTabOverrides;
   const cleanTabs: Partial<Record<InspectorTabId, boolean>> = {};
   if (tabRaw && typeof tabRaw === 'object') {
@@ -124,9 +157,7 @@ function sanitizePreference(
   }
 
   // Sanitize status section overrides — only boolean visibility flips for known sections
-  const baseSectionIds = new Set(
-    base ? getWorkspaceConfig(mode).statusSections.map((s) => s.id) : [],
-  );
+  const baseSectionIds = new Set(baseConfig.statusSections.map((s) => s.id));
   const sectionRaw = pref.statusSectionOverrides;
   const cleanSections: Partial<Record<StatusSectionId, boolean>> = {};
   if (sectionRaw && typeof sectionRaw === 'object') {
@@ -141,23 +172,79 @@ function sanitizePreference(
   // tools. Flyout members count as known: boolean operations and any shape that
   // lives only in a flyout are legitimate customization targets, and rejecting
   // them here is what previously made those overrides unsavable.
-  const baseToolbar = getWorkspaceConfig(mode).toolbar;
-  const baseToolIds = new Set<string>(getToolbarToolIds(baseToolbar));
-  const baseVisibleToolIds = new Set<string>(getToolbarToolIds(baseToolbar));
+  const baseToolbar = baseConfig.toolbar;
+  const declaredToolbarToolIds = getToolbarToolIds(baseToolbar);
+  const baseToolIds = new Set<ToolId>(declaredToolbarToolIds);
+  const baseVisibleToolIds = new Set<ToolId>(declaredToolbarToolIds);
   const toolRaw = pref.toolbarToolOverrides;
   const cleanTools: Partial<Record<string, boolean>> = {};
   if (toolRaw && typeof toolRaw === 'object') {
     for (const [toolId, val] of Object.entries(toolRaw)) {
-      if (!baseToolIds.has(toolId) || typeof val !== 'boolean') continue;
+      if (!baseToolIds.has(toolId as ToolId) || typeof val !== 'boolean') continue;
       // Persist only sparse differences from the built-in composition. This
       // lets a newly-added default tool appear for existing users while still
       // preserving an explicit hide/show choice for known tools.
       if (ESSENTIAL_TOOL_IDS.has(toolId as ToolId) && val === false) continue;
-      if (baseVisibleToolIds.has(toolId) !== val) {
+      if (baseVisibleToolIds.has(toolId as ToolId) !== val) {
         cleanTools[toolId] = val;
       }
     }
   }
+
+  const toolbarToolOrder = sanitizeOrderedIds(pref.toolbarToolOrder, declaredToolbarToolIds);
+  const baseToolLocation = new Map<ToolId, string | null>();
+  for (const item of baseToolbar.tools) baseToolLocation.set(item.toolId, null);
+  for (const flyout of baseToolbar.flyouts ?? []) {
+    for (const toolId of flyout.tools) baseToolLocation.set(toolId, flyout.id);
+  }
+  const toolbarToolLocations: Partial<Record<ToolId, string | null>> = {};
+  const locationRaw = pref.toolbarToolLocations;
+  if (locationRaw && typeof locationRaw === 'object') {
+    const flyoutIds = new Set((baseToolbar.flyouts ?? []).map((flyout) => flyout.id));
+    for (const [id, location] of Object.entries(locationRaw)) {
+      if (
+        !baseToolIds.has(id as ToolId) ||
+        (location !== null &&
+          (typeof location !== 'string' ||
+            !flyoutIds.has(location) ||
+            ESSENTIAL_TOOL_IDS.has(id as ToolId)))
+      ) {
+        continue;
+      }
+      const toolId = id as ToolId;
+      if (location !== baseToolLocation.get(toolId)) toolbarToolLocations[toolId] = location;
+    }
+  }
+  const pinnedRaw = pref.toolbarPinnedToolIds;
+  const toolbarPinnedToolIds = Array.isArray(pinnedRaw)
+    ? [
+        ...new Set(
+          pinnedRaw.filter(
+            (id): id is ToolId =>
+              typeof id === 'string' &&
+              baseToolIds.has(id as ToolId) &&
+              !ESSENTIAL_TOOL_IDS.has(id as ToolId),
+          ),
+        ),
+      ]
+    : undefined;
+
+  const inspectorTabOrder = sanitizeOrderedIds(
+    pref.inspectorTabOrder,
+    baseConfig.inspectorTabs.map((tab) => tab.id),
+  );
+  const inspectorTabPinnedOverrides: Partial<Record<InspectorTabId, boolean>> = {};
+  if (pref.inspectorTabPinnedOverrides && typeof pref.inspectorTabPinnedOverrides === 'object') {
+    for (const [id, pinned] of Object.entries(pref.inspectorTabPinnedOverrides)) {
+      if (baseTabIds.has(id as InspectorTabId) && typeof pinned === 'boolean') {
+        inspectorTabPinnedOverrides[id as InspectorTabId] = pinned;
+      }
+    }
+  }
+  const statusSectionOrder = sanitizeOrderedIds(
+    pref.statusSectionOrder,
+    baseConfig.statusSections.map((section) => section.id),
+  );
 
   // Sanitize per-workspace panel widths. Widths are application state rather
   // than document content, so tolerate stale values and let the panel
@@ -214,6 +301,12 @@ function sanitizePreference(
     ...(cleanTools && Object.keys(cleanTools).length > 0
       ? { toolbarToolOverrides: cleanTools }
       : {}),
+    ...(toolbarToolOrder ? { toolbarToolOrder } : {}),
+    ...(Object.keys(toolbarToolLocations).length > 0 ? { toolbarToolLocations } : {}),
+    ...(toolbarPinnedToolIds && toolbarPinnedToolIds.length > 0 ? { toolbarPinnedToolIds } : {}),
+    ...(inspectorTabOrder ? { inspectorTabOrder } : {}),
+    ...(Object.keys(inspectorTabPinnedOverrides).length > 0 ? { inspectorTabPinnedOverrides } : {}),
+    ...(statusSectionOrder ? { statusSectionOrder } : {}),
     ...(cleanWidths && Object.keys(cleanWidths).length > 0 ? { panelWidths: cleanWidths } : {}),
     ...(Object.keys(cleanChrome).length > 0 ? { chromeOverrides: cleanChrome } : {}),
     ...(cleanPlacement ? { toolbarPlacement: cleanPlacement } : {}),
@@ -503,8 +596,35 @@ export function getEffectiveWorkspaceConfig(
       ...result,
       inspectorTabs: result.inspectorTabs.map((tab) => {
         const override = modePrefs.inspectorTabOverrides![tab.id as InspectorTabId];
-        return override !== undefined ? { ...tab, visible: override } : tab;
+        const pinned = modePrefs.inspectorTabPinnedOverrides?.[tab.id];
+        return {
+          ...tab,
+          ...(override !== undefined ? { visible: override } : {}),
+          ...(pinned !== undefined
+            ? { overflowPriority: pinned ? 0 : Math.max(5, tab.overflowPriority ?? 1) }
+            : {}),
+        };
       }),
+    };
+  } else if (modePrefs.inspectorTabPinnedOverrides) {
+    result = {
+      ...result,
+      inspectorTabs: result.inspectorTabs.map((tab) => {
+        const pinned = modePrefs.inspectorTabPinnedOverrides?.[tab.id];
+        return pinned === undefined
+          ? tab
+          : { ...tab, overflowPriority: pinned ? 0 : Math.max(5, tab.overflowPriority ?? 1) };
+      }),
+    };
+  }
+  if (modePrefs.inspectorTabOrder) {
+    result = {
+      ...result,
+      inspectorTabs: applyDeclaredOrder(
+        result.inspectorTabs,
+        modePrefs.inspectorTabOrder,
+        (tab) => tab.id,
+      ),
     };
   }
 
@@ -521,26 +641,79 @@ export function getEffectiveWorkspaceConfig(
       }),
     };
   }
+  if (modePrefs.statusSectionOrder) {
+    const ordered = applyDeclaredOrder(
+      result.statusSections,
+      modePrefs.statusSectionOrder,
+      (section) => section.id,
+    );
+    result = {
+      ...result,
+      statusSections: ordered.map((section, index) => ({ ...section, order: index * 10 })),
+    };
+  }
 
   // Toolbar tool overrides — filter the main row and flyouts together. Empty
   // flyouts are removed here so every consumer of the effective config sees
   // the same reachable set, even if it does not call composeToolbar.
+  const declaredToolbar = base.toolbar;
+  const toolLocations = modePrefs.toolbarToolLocations ?? {};
+  const mainItems = declaredToolbar.tools.map((item) => ({ ...item }));
+  const flyouts = (declaredToolbar.flyouts ?? []).map((flyout) => ({
+    ...flyout,
+    tools: [...flyout.tools],
+  }));
+  for (const [toolId, location] of Object.entries(toolLocations) as [ToolId, string | null][]) {
+    if (ESSENTIAL_TOOL_IDS.has(toolId) && location !== null) continue;
+    const mainIndex = mainItems.findIndex((item) => item.toolId === toolId);
+    const item = mainIndex >= 0 ? mainItems.splice(mainIndex, 1)[0] : undefined;
+    let existingFlyoutId: string | undefined;
+    for (const flyout of flyouts) {
+      const index = flyout.tools.indexOf(toolId);
+      if (index >= 0) {
+        flyout.tools.splice(index, 1);
+        existingFlyoutId = flyout.id;
+        break;
+      }
+    }
+    const original = item ?? { toolId };
+    if (location === null || location === undefined) {
+      mainItems.push(original);
+    } else {
+      const destination = flyouts.find((flyout) => flyout.id === location);
+      if (destination) destination.tools.push(toolId);
+      else if (existingFlyoutId) {
+        const source = flyouts.find((flyout) => flyout.id === existingFlyoutId);
+        source?.tools.push(toolId);
+      } else mainItems.push(original);
+    }
+  }
+  const orderedToolIds = modePrefs.toolbarToolOrder ?? [];
   const overrides = modePrefs.toolbarToolOverrides ?? {};
   const visible = (toolId: ToolId): boolean =>
     overrides[toolId] !== false || ESSENTIAL_TOOL_IDS.has(toolId);
   result = {
     ...result,
     toolbar: {
-      ...result.toolbar,
-      tools: result.toolbar.tools.filter((item) => visible(item.toolId)),
-      ...(result.toolbar.flyouts
+      ...declaredToolbar,
+      tools: applyDeclaredOrder(
+        mainItems.filter((item) => visible(item.toolId)),
+        orderedToolIds,
+        (item) => item.toolId,
+      ),
+      ...(flyouts.length > 0
         ? {
-            flyouts: result.toolbar.flyouts
+            flyouts: flyouts
               .map((flyout) => ({ ...flyout, tools: flyout.tools.filter(visible) }))
+              .map((flyout) => ({
+                ...flyout,
+                tools: applyDeclaredOrder(flyout.tools, orderedToolIds, (toolId) => toolId),
+              }))
               .filter((flyout) => flyout.tools.length > 0),
           }
         : {}),
     },
+    toolbarPinnedToolIds: modePrefs.toolbarPinnedToolIds,
   };
 
   // Editor chrome overrides (floating toolbar, status bar, tab strip). These
@@ -750,6 +923,153 @@ export function setToolbarToolOverride(
   modePrefs.lastCustomized = Date.now();
   updated[mode] = modePrefs;
   return updated;
+}
+
+function writeCustomizedModePreference(
+  prefs: WorkspacePreferences,
+  mode: WorkspaceMode,
+  fields: Partial<WorkspacePreference>,
+  remove: Array<keyof WorkspacePreference> = [],
+): WorkspacePreferences {
+  const next = { ...prefs[mode], ...fields, customized: true, lastCustomized: Date.now() };
+  for (const key of remove) delete next[key];
+  return { ...prefs, [mode]: next };
+}
+
+/** Reorder toolbar tools while preserving each tool's selectable or flyout identity. */
+export function setToolbarToolOrderOverride(
+  prefs: WorkspacePreferences,
+  mode: WorkspaceMode,
+  order: readonly string[],
+): WorkspacePreferences {
+  const declared = getToolbarToolIds(getWorkspaceConfig(mode).toolbar);
+  const clean = sanitizeOrderedIds(order, declared) ?? [];
+  if (clean.length !== declared.length) return prefs;
+  const sameAsDefault = declared.every((id, index) => clean[index] === id);
+  if (sameAsDefault && !prefs[mode]?.toolbarToolOrder) return prefs;
+  return writeCustomizedModePreference(
+    prefs,
+    mode,
+    sameAsDefault ? {} : { toolbarToolOrder: clean },
+    sameAsDefault ? ['toolbarToolOrder'] : [],
+  );
+}
+
+/** Move a declared tool to the main row or one of this workspace's existing flyouts. */
+export function setToolbarToolLocationOverride(
+  prefs: WorkspacePreferences,
+  mode: WorkspaceMode,
+  toolId: ToolId,
+  location: string | null,
+): WorkspacePreferences {
+  const toolbar = getWorkspaceConfig(mode).toolbar;
+  const declared = getToolbarToolIds(toolbar);
+  const flyouts = toolbar.flyouts ?? [];
+  if (!declared.includes(toolId)) return prefs;
+  if (ESSENTIAL_TOOL_IDS.has(toolId) && location !== null) return prefs;
+  if (location !== null && !flyouts.some((flyout) => flyout.id === location)) return prefs;
+  const original = toolbar.tools.some((item) => item.toolId === toolId)
+    ? null
+    : (flyouts.find((flyout) => flyout.tools.includes(toolId))?.id ?? null);
+  const current = prefs[mode]?.toolbarToolLocations?.[toolId];
+  if (location === original && current === undefined) return prefs;
+  if (location === original && current !== undefined) {
+    const next = { ...(prefs[mode]?.toolbarToolLocations ?? {}) };
+    delete next[toolId];
+    return writeCustomizedModePreference(
+      prefs,
+      mode,
+      Object.keys(next).length > 0 ? { toolbarToolLocations: next } : {},
+      Object.keys(next).length === 0 ? ['toolbarToolLocations'] : [],
+    );
+  }
+  const next = { ...(prefs[mode]?.toolbarToolLocations ?? {}), [toolId]: location };
+  return writeCustomizedModePreference(prefs, mode, { toolbarToolLocations: next });
+}
+
+/** Keep a tool in the toolbar when space is tight. Essential tools remain pinned independently. */
+export function setToolbarToolPinnedOverride(
+  prefs: WorkspacePreferences,
+  mode: WorkspaceMode,
+  toolId: ToolId,
+  pinned: boolean,
+): WorkspacePreferences {
+  if (!getToolbarToolIds(getWorkspaceConfig(mode).toolbar).includes(toolId)) return prefs;
+  if (ESSENTIAL_TOOL_IDS.has(toolId) && !pinned) return prefs;
+  const current = prefs[mode]?.toolbarPinnedToolIds ?? [];
+  const next = pinned
+    ? [...new Set([...current, toolId])]
+    : current.filter((candidate) => candidate !== toolId);
+  if (current.length === next.length && current.every((candidate) => next.includes(candidate))) {
+    return prefs;
+  }
+  return writeCustomizedModePreference(
+    prefs,
+    mode,
+    next.length > 0 ? { toolbarPinnedToolIds: next } : {},
+    next.length === 0 ? ['toolbarPinnedToolIds'] : [],
+  );
+}
+
+/** Reorder inspector tabs without changing their visibility or default selection. */
+export function setInspectorTabOrderOverride(
+  prefs: WorkspacePreferences,
+  mode: WorkspaceMode,
+  order: readonly string[],
+): WorkspacePreferences {
+  const declared = getWorkspaceConfig(mode).inspectorTabs.map((tab) => tab.id);
+  const clean = sanitizeOrderedIds(order, declared) ?? [];
+  if (clean.length !== declared.length) return prefs;
+  const sameAsDefault = declared.every((id, index) => clean[index] === id);
+  if (sameAsDefault && !prefs[mode]?.inspectorTabOrder) return prefs;
+  return writeCustomizedModePreference(
+    prefs,
+    mode,
+    sameAsDefault ? {} : { inspectorTabOrder: clean },
+    sameAsDefault ? ['inspectorTabOrder'] : [],
+  );
+}
+
+/** Pin or unpin an inspector tab against responsive overflow. */
+export function setInspectorTabPinnedOverride(
+  prefs: WorkspacePreferences,
+  mode: WorkspaceMode,
+  tabId: InspectorTabId,
+  pinned: boolean,
+): WorkspacePreferences {
+  const tab = getWorkspaceConfig(mode).inspectorTabs.find((candidate) => candidate.id === tabId);
+  if (!tab) return prefs;
+  const isDefaultPinned = tab.overflowPriority === 0;
+  const current = prefs[mode]?.inspectorTabPinnedOverrides?.[tabId];
+  if (pinned === isDefaultPinned && current === undefined) return prefs;
+  const next = { ...(prefs[mode]?.inspectorTabPinnedOverrides ?? {}) };
+  if (pinned === isDefaultPinned) delete next[tabId];
+  else next[tabId] = pinned;
+  return writeCustomizedModePreference(
+    prefs,
+    mode,
+    Object.keys(next).length > 0 ? { inspectorTabPinnedOverrides: next } : {},
+    Object.keys(next).length === 0 ? ['inspectorTabPinnedOverrides'] : [],
+  );
+}
+
+/** Reorder status-bar sections while retaining their current visibility settings. */
+export function setStatusSectionOrderOverride(
+  prefs: WorkspacePreferences,
+  mode: WorkspaceMode,
+  order: readonly string[],
+): WorkspacePreferences {
+  const declared = getWorkspaceConfig(mode).statusSections.map((section) => section.id);
+  const clean = sanitizeOrderedIds(order, declared) ?? [];
+  if (clean.length !== declared.length) return prefs;
+  const sameAsDefault = declared.every((id, index) => clean[index] === id);
+  if (sameAsDefault && !prefs[mode]?.statusSectionOrder) return prefs;
+  return writeCustomizedModePreference(
+    prefs,
+    mode,
+    sameAsDefault ? {} : { statusSectionOrder: clean },
+    sameAsDefault ? ['statusSectionOrder'] : [],
+  );
 }
 
 /** Reset a mode's preferences to defaults, recording the reset as an event. */

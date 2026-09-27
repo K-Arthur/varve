@@ -41,10 +41,17 @@ import {
   getWorkspacePreferences,
   resetAllPreferences,
   resetWorkspacePreferenceCache,
+  setInspectorTabOrderOverride,
+  setInspectorTabPinnedOverride,
   setPanelOverride,
+  setStatusSectionOrderOverride,
+  setToolbarToolLocationOverride,
+  setToolbarToolOrderOverride,
   setToolbarToolOverride,
+  setToolbarToolPinnedOverride,
   setWorkspacePreferences,
 } from '../workspaceStore';
+import { getToolbarToolIds, getWorkspaceConfig } from '../workspaceTypes';
 
 describe('layoutVariants: capture', () => {
   beforeEach(() => {
@@ -77,6 +84,68 @@ describe('layoutVariants: capture', () => {
     expect(payload.toolbarToolOverrides?.rect).toBe(false);
     expect(payload.panelWidths?.layers).toBe(300);
     expect(payload.chromeOverrides?.statusBar).toBe(false);
+  });
+
+  it('round-trips toolbar, inspector, and status ordering through a portable saved layout', () => {
+    const config = getWorkspaceConfig('design');
+    const toolbarIds = getToolbarToolIds(config.toolbar);
+    const tabIds = config.inspectorTabs.map((tab) => tab.id);
+    const statusIds = config.statusSections.map((section) => section.id);
+    let prefs = getWorkspacePreferences();
+    prefs = setToolbarToolOrderOverride(prefs, 'design', [
+      toolbarIds[1]!,
+      toolbarIds[0]!,
+      ...toolbarIds.slice(2),
+    ]);
+    prefs = setToolbarToolLocationOverride(prefs, 'design', 'rect', 'boolean');
+    prefs = setToolbarToolPinnedOverride(prefs, 'design', 'rect', true);
+    prefs = setInspectorTabOrderOverride(prefs, 'design', [
+      tabIds[1]!,
+      tabIds[0]!,
+      ...tabIds.slice(2),
+    ]);
+    prefs = setInspectorTabPinnedOverride(prefs, 'design', tabIds[2]!, true);
+    prefs = setStatusSectionOrderOverride(prefs, 'design', [
+      statusIds[1]!,
+      statusIds[0]!,
+      ...statusIds.slice(2),
+    ]);
+
+    const payload = captureLayoutPayload('design', prefs);
+    const added = addLayoutVariant(createEmptyLayoutStore(), {
+      name: 'Workspace arrangement',
+      sourceMode: 'design',
+      payload,
+    });
+    expect(added.ok).toBe(true);
+    if (!added.ok) return;
+    const imported = importLayoutVariantFromJson(exportLayoutVariant(added.variant));
+    expect(imported.ok).toBe(true);
+    if (!imported.ok) return;
+
+    const applied = applyLayoutPayloadToPreferences(
+      resetAllPreferences(),
+      'design',
+      imported.variant.payload,
+    );
+    const effective = getEffectiveWorkspaceConfig('design', applied);
+    expect(effective.toolbar.tools.slice(0, 2).map((tool) => tool.toolId)).toEqual([
+      toolbarIds[1],
+      toolbarIds[2],
+    ]);
+    expect(effective.toolbar.flyouts?.find((flyout) => flyout.id === 'boolean')?.tools).toContain(
+      'rect',
+    );
+    expect(effective.toolbarPinnedToolIds).toContain('rect');
+    expect(effective.inspectorTabs.slice(0, 2).map((tab) => tab.id)).toEqual([
+      tabIds[1],
+      tabIds[0],
+    ]);
+    expect(effective.inspectorTabs.find((tab) => tab.id === tabIds[2])?.overflowPriority).toBe(0);
+    expect(effective.statusSections.slice(0, 2).map((section) => section.id)).toEqual([
+      statusIds[1],
+      statusIds[0],
+    ]);
   });
 
   it('reports whether a variant matches the current arrangement', () => {
@@ -359,6 +428,41 @@ describe('layoutVariants: import/export and hostile payloads', () => {
         JSON.stringify({ kind: 'varve-workspace-layout', schemaVersion: 99, payload: {} }),
       ),
     ).toMatchObject({ ok: false, reason: 'future-version' });
+  });
+
+  it('migrates stored version 1 variants to the ordered-customization schema', () => {
+    const migrated = sanitizeLayoutStore({
+      schemaVersion: 1,
+      variants: [
+        {
+          id: 'lv-v1',
+          name: 'Legacy layout',
+          createdAt: 1,
+          updatedAt: 2,
+          payload: { panelOverrides: { history: { visible: true } } },
+        },
+      ],
+    });
+    expect(migrated.schemaVersion).toBe(2);
+    expect(migrated.variants[0]?.payload.panelOverrides?.history?.visible).toBe(true);
+  });
+
+  it('drops flyout assignments that are not declared by the target workspace', () => {
+    const payload = sanitizeLayoutPayload(
+      { toolbarToolLocations: { rect: 'pixel-selection' } },
+      'design',
+    );
+    expect(payload.toolbarToolLocations).toBeUndefined();
+    const applied = applyLayoutPayloadToPreferences(getWorkspacePreferences(), 'design', {
+      toolbarToolLocations: { rect: 'pixel-selection' },
+    });
+    const toolbar = getEffectiveWorkspaceConfig('design', applied).toolbar;
+    expect(toolbar.tools.map((tool) => tool.toolId)).toContain('rect');
+    expect(
+      toolbar.flyouts?.some(
+        (flyout) => flyout.id === 'pixel-selection' && flyout.tools.includes('rect'),
+      ),
+    ).toBe(false);
   });
 
   it('drops unknown capabilities and cannot hide essential recovery tools', () => {

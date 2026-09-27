@@ -39,6 +39,7 @@ import {
   getWorkspaceConfig,
   type InspectorTabId,
   type PanelId,
+  resolveWorkspaceMode,
   type StatusSectionId,
   type WorkspaceMode,
   type WorkspaceModeInput,
@@ -47,7 +48,8 @@ import {
   type WorkspacePreferences,
 } from './workspaceTypes';
 
-export const LAYOUT_VARIANT_SCHEMA_VERSION = 1;
+/** Version 2 adds ordered toolbar/inspector/status customization fields. */
+export const LAYOUT_VARIANT_SCHEMA_VERSION = 2;
 const STORAGE_KEY = 'varve-workspace-layouts';
 const APP_SETTING_KEY = 'workspace-layouts';
 const DURABLE_SAVE_DEBOUNCE_MS = 400;
@@ -71,8 +73,14 @@ export interface LayoutPanelOverride {
 export interface LayoutPreferencePayload {
   panelOverrides?: Partial<Record<PanelId, LayoutPanelOverride>>;
   inspectorTabOverrides?: Partial<Record<InspectorTabId, boolean>>;
+  inspectorTabOrder?: InspectorTabId[];
+  inspectorTabPinnedOverrides?: Partial<Record<InspectorTabId, boolean>>;
   statusSectionOverrides?: Partial<Record<StatusSectionId, boolean>>;
+  statusSectionOrder?: StatusSectionId[];
   toolbarToolOverrides?: Partial<Record<string, boolean>>;
+  toolbarToolOrder?: ToolId[];
+  toolbarToolLocations?: Partial<Record<ToolId, string | null>>;
+  toolbarPinnedToolIds?: ToolId[];
   panelWidths?: Partial<Record<PanelId, number>>;
   chromeOverrides?: Partial<ChromeConfig>;
   /** Selectable tool a layout starts on, when it differs from the mode default. */
@@ -249,22 +257,36 @@ function isSaneId(value: unknown): value is string {
   return typeof value === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(value);
 }
 
-/** Union of every id any built-in mode declares — the import allowlist. */
-function layoutIdAllowlists(): {
+function sanitizeOrderedIds(raw: unknown, allowed: Set<string>): string[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const seen = new Set<string>();
+  const order = raw.filter((id): id is string => {
+    if (typeof id !== 'string' || !allowed.has(id) || seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  });
+  return order.length > 0 ? order : undefined;
+}
+
+/** Registered id allowlists, optionally narrowed to a target workspace. */
+function layoutIdAllowlists(mode?: WorkspaceMode): {
   toolbarToolIds: Set<string>;
+  toolbarFlyoutIds: Set<string>;
   inspectorTabIds: Set<string>;
   statusSectionIds: Set<string>;
 } {
   const toolbarToolIds = new Set<string>();
+  const toolbarFlyoutIds = new Set<string>();
   const inspectorTabIds = new Set<string>();
   const statusSectionIds = new Set<string>();
-  for (const mode of ALL_WORKSPACE_MODES) {
-    const config = getWorkspaceConfig(mode);
+  for (const candidateMode of mode ? [mode] : ALL_WORKSPACE_MODES) {
+    const config = getWorkspaceConfig(candidateMode);
     for (const id of getToolbarToolIds(config.toolbar)) toolbarToolIds.add(id);
+    for (const flyout of config.toolbar.flyouts ?? []) toolbarFlyoutIds.add(flyout.id);
     for (const tab of config.inspectorTabs) inspectorTabIds.add(tab.id);
     for (const section of config.statusSections) statusSectionIds.add(section.id);
   }
-  return { toolbarToolIds, inspectorTabIds, statusSectionIds };
+  return { toolbarToolIds, toolbarFlyoutIds, inspectorTabIds, statusSectionIds };
 }
 
 /**
@@ -275,10 +297,11 @@ function layoutIdAllowlists(): {
  * sanitizer already follows. Only registered ids can ever influence a
  * surface; no payload can reference arbitrary modules, URLs, or commands.
  */
-export function sanitizeLayoutPayload(raw: unknown): LayoutPreferencePayload {
+export function sanitizeLayoutPayload(raw: unknown, mode?: WorkspaceMode): LayoutPreferencePayload {
   if (typeof raw !== 'object' || raw === null) return {};
   const source = raw as Record<string, unknown>;
-  const { toolbarToolIds, inspectorTabIds, statusSectionIds } = layoutIdAllowlists();
+  const { toolbarToolIds, toolbarFlyoutIds, inspectorTabIds, statusSectionIds } =
+    layoutIdAllowlists(mode);
   const payload: LayoutPreferencePayload = {};
 
   const panelRaw = source.panelOverrides;
@@ -336,6 +359,56 @@ export function sanitizeLayoutPayload(raw: unknown): LayoutPreferencePayload {
     if (Object.keys(tools).length > 0) payload.toolbarToolOverrides = tools;
   }
 
+  const toolbarToolOrder = sanitizeOrderedIds(source.toolbarToolOrder, toolbarToolIds);
+  if (toolbarToolOrder) payload.toolbarToolOrder = toolbarToolOrder as ToolId[];
+
+  const toolbarLocationsRaw = source.toolbarToolLocations;
+  if (toolbarLocationsRaw && typeof toolbarLocationsRaw === 'object') {
+    const locations: Partial<Record<ToolId, string | null>> = {};
+    for (const [id, location] of Object.entries(toolbarLocationsRaw)) {
+      if (!toolbarToolIds.has(id)) continue;
+      if (location === null) locations[id as ToolId] = null;
+      else if (
+        typeof location === 'string' &&
+        toolbarFlyoutIds.has(location) &&
+        !ESSENTIAL_TOOL_IDS.has(id as ToolId)
+      ) {
+        locations[id as ToolId] = location;
+      }
+    }
+    if (Object.keys(locations).length > 0) payload.toolbarToolLocations = locations;
+  }
+
+  if (Array.isArray(source.toolbarPinnedToolIds)) {
+    const pinned = [
+      ...new Set(
+        source.toolbarPinnedToolIds.filter(
+          (id): id is string =>
+            typeof id === 'string' &&
+            toolbarToolIds.has(id) &&
+            !ESSENTIAL_TOOL_IDS.has(id as ToolId),
+        ),
+      ),
+    ];
+    if (pinned.length > 0) payload.toolbarPinnedToolIds = pinned as ToolId[];
+  }
+
+  const inspectorTabOrder = sanitizeOrderedIds(source.inspectorTabOrder, inspectorTabIds);
+  if (inspectorTabOrder) payload.inspectorTabOrder = inspectorTabOrder as InspectorTabId[];
+
+  const tabPinnedRaw = source.inspectorTabPinnedOverrides;
+  if (tabPinnedRaw && typeof tabPinnedRaw === 'object') {
+    const pinned: Partial<Record<InspectorTabId, boolean>> = {};
+    for (const [id, value] of Object.entries(tabPinnedRaw)) {
+      if (inspectorTabIds.has(id) && typeof value === 'boolean')
+        pinned[id as InspectorTabId] = value;
+    }
+    if (Object.keys(pinned).length > 0) payload.inspectorTabPinnedOverrides = pinned;
+  }
+
+  const statusSectionOrder = sanitizeOrderedIds(source.statusSectionOrder, statusSectionIds);
+  if (statusSectionOrder) payload.statusSectionOrder = statusSectionOrder as StatusSectionId[];
+
   const defaultToolRaw = source.defaultTool;
   if (typeof defaultToolRaw === 'string' && toolbarToolIds.has(defaultToolRaw)) {
     const definition = TOOL_REGISTRY.find((entry) => entry.id === defaultToolRaw);
@@ -371,7 +444,7 @@ function payloadHasContent(payload: LayoutPreferencePayload): boolean {
   return Object.keys(payload).length > 0;
 }
 
-/** Structural equality for sparse payloads (order-insensitive). */
+/** Structural equality ignores object-key order while preserving user-authored item order. */
 export function layoutPayloadsEqual(
   a: LayoutPreferencePayload,
   b: LayoutPreferencePayload,
@@ -428,7 +501,10 @@ function sanitizeVariant(raw: unknown): WorkspaceLayoutVariant | null {
     createdAt: clampTimestamp(source.createdAt, now),
     updatedAt: clampTimestamp(source.updatedAt, now),
     ...(sourceMode ? { sourceMode } : {}),
-    payload: sanitizeLayoutPayload(source.payload),
+    payload: sanitizeLayoutPayload(
+      source.payload,
+      sourceMode ? resolveWorkspaceMode(sourceMode) : undefined,
+    ),
   };
 }
 
@@ -564,6 +640,18 @@ export function captureLayoutPayload(
   }
   if (Object.keys(toolOverrides).length > 0) payload.toolbarToolOverrides = toolOverrides;
 
+  const modePrefs = prefs[mode];
+  if (modePrefs?.toolbarToolOrder) payload.toolbarToolOrder = [...modePrefs.toolbarToolOrder];
+  if (modePrefs?.toolbarToolLocations)
+    payload.toolbarToolLocations = { ...modePrefs.toolbarToolLocations };
+  if (modePrefs?.toolbarPinnedToolIds)
+    payload.toolbarPinnedToolIds = [...modePrefs.toolbarPinnedToolIds];
+  if (modePrefs?.inspectorTabOrder) payload.inspectorTabOrder = [...modePrefs.inspectorTabOrder];
+  if (modePrefs?.inspectorTabPinnedOverrides) {
+    payload.inspectorTabPinnedOverrides = { ...modePrefs.inspectorTabPinnedOverrides };
+  }
+  if (modePrefs?.statusSectionOrder) payload.statusSectionOrder = [...modePrefs.statusSectionOrder];
+
   const widths = prefs[mode]?.panelWidths;
   if (widths && Object.keys(widths).length > 0) payload.panelWidths = { ...widths };
 
@@ -593,7 +681,7 @@ export function applyLayoutPayloadToPreferences(
   mode: WorkspaceMode,
   payload: LayoutPreferencePayload,
 ): WorkspacePreferences {
-  const clean = sanitizeLayoutPayload(payload);
+  const clean = sanitizeLayoutPayload(payload, mode);
   if (!payloadHasContent(clean)) return resetModePreferences(prefs, mode);
 
   const modePrefs: WorkspacePreference = {
@@ -601,10 +689,18 @@ export function applyLayoutPayloadToPreferences(
     lastCustomized: Date.now(),
     ...(clean.panelOverrides ? { panelOverrides: clean.panelOverrides } : {}),
     ...(clean.inspectorTabOverrides ? { inspectorTabOverrides: clean.inspectorTabOverrides } : {}),
+    ...(clean.inspectorTabOrder ? { inspectorTabOrder: clean.inspectorTabOrder } : {}),
+    ...(clean.inspectorTabPinnedOverrides
+      ? { inspectorTabPinnedOverrides: clean.inspectorTabPinnedOverrides }
+      : {}),
     ...(clean.statusSectionOverrides
       ? { statusSectionOverrides: clean.statusSectionOverrides }
       : {}),
+    ...(clean.statusSectionOrder ? { statusSectionOrder: clean.statusSectionOrder } : {}),
     ...(clean.toolbarToolOverrides ? { toolbarToolOverrides: clean.toolbarToolOverrides } : {}),
+    ...(clean.toolbarToolOrder ? { toolbarToolOrder: clean.toolbarToolOrder } : {}),
+    ...(clean.toolbarToolLocations ? { toolbarToolLocations: clean.toolbarToolLocations } : {}),
+    ...(clean.toolbarPinnedToolIds ? { toolbarPinnedToolIds: clean.toolbarPinnedToolIds } : {}),
     ...(clean.panelWidths ? { panelWidths: clean.panelWidths } : {}),
     ...(clean.chromeOverrides ? { chromeOverrides: clean.chromeOverrides } : {}),
     ...(clean.defaultTool ? { defaultToolOverride: clean.defaultTool } : {}),
@@ -620,7 +716,7 @@ export function isLayoutVariantApplied(
 ): boolean {
   return layoutPayloadsEqual(
     captureLayoutPayload(mode, prefs),
-    sanitizeLayoutPayload(variant.payload),
+    sanitizeLayoutPayload(variant.payload, mode),
   );
 }
 
@@ -670,7 +766,7 @@ export function addLayoutVariant(
     createdAt: now,
     updatedAt: now,
     sourceMode: input.sourceMode,
-    payload: sanitizeLayoutPayload(input.payload),
+    payload: sanitizeLayoutPayload(input.payload, resolveWorkspaceMode(input.sourceMode)),
   };
   const next = {
     ...state,
@@ -690,7 +786,14 @@ export function updateLayoutVariantPayload(
   if (isBuiltInLayoutId(id)) return { ok: false, reason: 'built-in' };
   const existing = state.variants.find((variant) => variant.id === id);
   if (!existing) return { ok: false, reason: 'not-found' };
-  const variant = { ...existing, payload: sanitizeLayoutPayload(payload), updatedAt: now };
+  const variant = {
+    ...existing,
+    payload: sanitizeLayoutPayload(
+      payload,
+      existing.sourceMode ? resolveWorkspaceMode(existing.sourceMode) : undefined,
+    ),
+    updatedAt: now,
+  };
   return { ok: true, state: withVariantReplaced(state, variant), variant };
 }
 
@@ -733,7 +836,10 @@ export function duplicateLayoutVariant(
       builtIn: false,
       createdAt: now,
       updatedAt: now,
-      payload: sanitizeLayoutPayload(builtIn.payload),
+      payload: sanitizeLayoutPayload(
+        builtIn.payload,
+        builtIn.sourceMode ? resolveWorkspaceMode(builtIn.sourceMode) : undefined,
+      ),
     };
     return {
       ok: true,
@@ -754,7 +860,10 @@ export function duplicateLayoutVariant(
     name,
     createdAt: now,
     updatedAt: now,
-    payload: sanitizeLayoutPayload(source.payload),
+    payload: sanitizeLayoutPayload(
+      source.payload,
+      source.sourceMode ? resolveWorkspaceMode(source.sourceMode) : undefined,
+    ),
   };
   return {
     ok: true,
@@ -851,7 +960,10 @@ export function exportLayoutVariant(variant: WorkspaceLayoutVariant): string {
       schemaVersion: LAYOUT_VARIANT_SCHEMA_VERSION,
       name: variant.name,
       sourceMode: variant.sourceMode,
-      payload: sanitizeLayoutPayload(variant.payload),
+      payload: sanitizeLayoutPayload(
+        variant.payload,
+        variant.sourceMode ? resolveWorkspaceMode(variant.sourceMode) : undefined,
+      ),
     },
     null,
     2,
@@ -894,7 +1006,10 @@ export function importLayoutVariantFromJson(json: string): LayoutImportResult {
       createdAt: now,
       updatedAt: now,
       ...(sourceMode ? { sourceMode } : {}),
-      payload: sanitizeLayoutPayload(source.payload),
+      payload: sanitizeLayoutPayload(
+        source.payload,
+        sourceMode ? resolveWorkspaceMode(sourceMode) : undefined,
+      ),
     },
   };
 }
@@ -1084,7 +1199,10 @@ export function addImportedLayoutVariant(
   if (existing && collision === 'replace') {
     const replaced: WorkspaceLayoutVariant = {
       ...existing,
-      payload: sanitizeLayoutPayload(variant.payload),
+      payload: sanitizeLayoutPayload(
+        variant.payload,
+        variant.sourceMode ? resolveWorkspaceMode(variant.sourceMode) : undefined,
+      ),
       sourceMode: variant.sourceMode,
       updatedAt: now,
     };

@@ -88,7 +88,8 @@ import '../../styles/docs-prose.css';
         <ul>
           <li><strong>Panels</strong> — show or hide the Layers, Inspector, Timeline, Resources, Code, Logo, and History panels.</li>
           <li><strong>Toolbar</strong> — hide tools, including tools that live inside flyouts (boolean operations, retouch, mask), and place the palette at the <strong>top or bottom</strong> of the canvas (View menu). Select, Hand, and Zoom always stay available.</li>
-          <li><strong>Inspector tabs</strong> and <strong>status bar sections</strong> — per-workspace visibility.</li>
+          <li><strong>Toolbar arrangement</strong> — move tools earlier or later, place a tool in the main row or an existing flyout, and pin tools to keep them ahead of responsive overflow. Select, Hand, and Zoom stay in the main row.</li>
+          <li><strong>Inspector tabs</strong> and <strong>status bar sections</strong> — per-workspace visibility and ordering; pin inspector tabs to keep them ahead of overflow.</li>
           <li><strong>Editor chrome</strong> — floating toolbar, status bar, and document tabs.</li>
           <li><strong>Panel widths</strong> — resize the Layers, Inspector, and Resources panels with the drag handle; widths are remembered per workspace.</li>
         </ul>
@@ -117,7 +118,7 @@ import '../../styles/docs-prose.css';
           <li><strong>Templates</strong> — <em>Default</em> restores the mode's built-in arrangement, <em>Every panel</em> reveals every panel, and <em>Focus canvas</em> hides the panels, status bar, and tabs while keeping the floating toolbar.</li>
           <li><strong>Your layouts</strong> — save the current arrangement, update it, rename, duplicate, copy as portable JSON, import JSON, or delete with confirmation. Duplicate names are never silently overwritten.</li>
           <li><strong>Recovery</strong> — resetting a workspace snapshots the arrangement first; Manage Layouts offers Restore until the next reset, so a reset is not a one-way door.</li>
-          <li><strong>Portable and private</strong> — exported layouts contain only a name and registered panel/tool visibility. They never include file paths, machine geometry, or document content, and imported layouts are validated before they are applied.</li>
+          <li><strong>Portable and private</strong> — exported layouts contain only a name and registered panel/tool arrangement. They never include file paths, machine geometry, or document content, and imported layouts are validated before they are applied.</li>
         </ul>
       </section>
 
@@ -146,6 +147,12 @@ import '../../styles/docs-prose.css';
           and Boolean-operation flyouts in Design mode). Customizing a workspace —
           hiding a tool or moving it to a flyout — applies through your preference
           overrides and is reflected in the toolbar immediately.
+        </p>
+        <p>
+          Use <strong>Customize Workspace…</strong> to change tool order with Move Up/Move Down,
+          assign tools to the main row or a flyout already provided by that workspace, and pin
+          selected tools ahead of responsive overflow. The same controls are available for
+          inspector-tab and status-section ordering; no drag gesture is required.
         </p>
         <p>
           The palette is responsive. When the canvas column is too narrow for every

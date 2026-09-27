@@ -16,10 +16,17 @@ import {
   useWorkspaceCustomizations,
 } from '../workspace/useWorkspaceConfig';
 import {
+  getWorkspacePreferences,
   setChromeOverride,
+  setInspectorTabOrderOverride,
   setInspectorTabOverride,
+  setInspectorTabPinnedOverride,
+  setStatusSectionOrderOverride,
   setStatusSectionOverride,
+  setToolbarToolLocationOverride,
+  setToolbarToolOrderOverride,
   setToolbarToolOverride,
+  setToolbarToolPinnedOverride,
   updateWorkspacePreferences,
 } from '../workspace/workspaceStore';
 import {
@@ -34,6 +41,23 @@ import {
   type StatusSectionId,
   WORKSPACE_LABELS,
 } from '../workspace/workspaceTypes';
+
+function moveWithinOrder<T>(order: readonly T[], item: T, direction: -1 | 1): T[] {
+  const index = order.indexOf(item);
+  const nextIndex = index + direction;
+  if (index < 0 || nextIndex < 0 || nextIndex >= order.length) return [...order];
+  const next = [...order];
+  [next[index], next[nextIndex]] = [next[nextIndex]!, next[index]!];
+  return next;
+}
+
+function toolbarLocation(
+  config: ReturnType<typeof getWorkspaceConfig>,
+  toolId: ToolId,
+): string | null {
+  if (config.toolbar.tools.some((item) => item.toolId === toolId)) return null;
+  return config.toolbar.flyouts?.find((flyout) => flyout.tools.includes(toolId))?.id ?? null;
+}
 
 export function WorkspaceCustomizeDialog({
   open,
@@ -87,6 +111,67 @@ export function WorkspaceCustomizeDialog({
     [mode, setTool, state.tool],
   );
 
+  const handleMoveToolbarTool = useCallback(
+    (toolId: ToolId, direction: -1 | 1) => {
+      const prefs = getWorkspacePreferences();
+      const current = prefs[mode]?.toolbarToolOrder ?? getToolbarToolIds(builtIn.toolbar);
+      updateWorkspacePreferences((next) =>
+        setToolbarToolOrderOverride(next, mode, moveWithinOrder(current, toolId, direction)),
+      );
+    },
+    [builtIn.toolbar, mode],
+  );
+
+  const handleToolbarToolLocation = useCallback(
+    (toolId: ToolId, location: string | null) => {
+      updateWorkspacePreferences((prefs) =>
+        setToolbarToolLocationOverride(prefs, mode, toolId, location),
+      );
+    },
+    [mode],
+  );
+
+  const handlePinToolbarTool = useCallback(
+    (toolId: ToolId, pinned: boolean) => {
+      updateWorkspacePreferences((prefs) =>
+        setToolbarToolPinnedOverride(prefs, mode, toolId, pinned),
+      );
+    },
+    [mode],
+  );
+
+  const handleMoveInspectorTab = useCallback(
+    (tabId: InspectorTabId, direction: -1 | 1) => {
+      const prefs = getWorkspacePreferences();
+      const current = prefs[mode]?.inspectorTabOrder ?? builtIn.inspectorTabs.map((tab) => tab.id);
+      updateWorkspacePreferences((next) =>
+        setInspectorTabOrderOverride(next, mode, moveWithinOrder(current, tabId, direction)),
+      );
+    },
+    [builtIn.inspectorTabs, mode],
+  );
+
+  const handlePinInspectorTab = useCallback(
+    (tabId: InspectorTabId, pinned: boolean) => {
+      updateWorkspacePreferences((prefs) =>
+        setInspectorTabPinnedOverride(prefs, mode, tabId, pinned),
+      );
+    },
+    [mode],
+  );
+
+  const handleMoveStatusSection = useCallback(
+    (sectionId: StatusSectionId, direction: -1 | 1) => {
+      const prefs = getWorkspacePreferences();
+      const current =
+        prefs[mode]?.statusSectionOrder ?? builtIn.statusSections.map((section) => section.id);
+      updateWorkspacePreferences((next) =>
+        setStatusSectionOrderOverride(next, mode, moveWithinOrder(current, sectionId, direction)),
+      );
+    },
+    [builtIn.statusSections, mode],
+  );
+
   const handleToggleChrome = useCallback(
     (key: keyof ChromeConfig, visible: boolean) => {
       updateWorkspacePreferences((prefs) => setChromeOverride(prefs, mode, key, visible));
@@ -120,6 +205,21 @@ export function WorkspaceCustomizeDialog({
 
   const effectiveToolIdsSet = new Set(getToolbarToolIds(effectiveConfig.toolbar));
   const toolbarToolIds = getToolbarToolIds(builtIn.toolbar);
+  const workspacePreference = getWorkspacePreferences()[mode];
+  const toolbarToolOrder = workspacePreference?.toolbarToolOrder ?? toolbarToolIds;
+  const arrangedToolbarTools = toolbarToolOrder
+    .map((id) => getToolDefinition(id))
+    .filter((definition): definition is NonNullable<typeof definition> => {
+      if (!definition) return false;
+      const query = toolSearch.trim().toLowerCase();
+      return (
+        !query ||
+        [definition.label, definition.category, ...(definition.aliases ?? [])]
+          .join(' ')
+          .toLowerCase()
+          .includes(query)
+      );
+    });
   const filteredToolbarTools = useMemo(() => {
     const query = toolSearch.trim().toLowerCase();
     return toolbarToolIds
@@ -182,6 +282,78 @@ export function WorkspaceCustomizeDialog({
           ))}
         </section>
 
+        {/* Toolbar ordering, existing flyouts, and responsive retention */}
+        <section className="workspace-customize__section">
+          <h3>Toolbar Arrangement</h3>
+          <p className="workspace-customize__hint">
+            Move tools earlier or later, place them in the main row or an existing flyout, and pin
+            tools that should stay visible when the toolbar overflows.
+          </p>
+          {arrangedToolbarTools.map((definition) => {
+            const toolId = definition.id as ToolId;
+            const orderIndex = toolbarToolOrder.indexOf(toolId);
+            const isEssential = ESSENTIAL_TOOL_IDS.has(toolId);
+            const locationOverrides = workspacePreference?.toolbarToolLocations ?? {};
+            const location = Object.hasOwn(locationOverrides, toolId)
+              ? (locationOverrides[toolId] ?? null)
+              : toolbarLocation(builtIn, toolId);
+            const pinned =
+              isEssential || effectiveConfig.toolbarPinnedToolIds?.includes(toolId) === true;
+            return (
+              <div key={toolId} className="workspace-customize__arrangement-row">
+                <span className="workspace-customize__arrangement-name">{toolLabel(toolId)}</span>
+                <button
+                  type="button"
+                  aria-label={`Move ${toolLabel(toolId)} earlier`}
+                  disabled={orderIndex <= 0}
+                  onClick={() => handleMoveToolbarTool(toolId, -1)}
+                >
+                  Move up
+                </button>
+                <button
+                  type="button"
+                  aria-label={`Move ${toolLabel(toolId)} later`}
+                  disabled={orderIndex >= toolbarToolIds.length - 1}
+                  onClick={() => handleMoveToolbarTool(toolId, 1)}
+                >
+                  Move down
+                </button>
+                <label className="workspace-customize__arrangement-select">
+                  <span className="sr-only">Show {toolLabel(toolId)} in</span>
+                  <select
+                    aria-label={`Show ${toolLabel(toolId)} in`}
+                    value={location ?? 'toolbar'}
+                    disabled={isEssential}
+                    onChange={(event) =>
+                      handleToolbarToolLocation(
+                        toolId,
+                        event.target.value === 'toolbar' ? null : event.target.value,
+                      )
+                    }
+                  >
+                    <option value="toolbar">Main toolbar</option>
+                    {(builtIn.toolbar.flyouts ?? []).map((flyout) => (
+                      <option key={flyout.id} value={flyout.id}>
+                        {flyout.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="workspace-customize__pin">
+                  <input
+                    type="checkbox"
+                    checked={pinned}
+                    disabled={isEssential}
+                    aria-label={`Keep ${toolLabel(toolId)} visible when the toolbar overflows${isEssential ? ' (always available)' : ''}`}
+                    onChange={(event) => handlePinToolbarTool(toolId, event.target.checked)}
+                  />
+                  <span>Pin</span>
+                </label>
+              </div>
+            );
+          })}
+        </section>
+
         {/* Toolbar tools */}
         <section className="workspace-customize__section">
           <h3>Toolbar Tools</h3>
@@ -205,9 +377,14 @@ export function WorkspaceCustomizeDialog({
                 const toolId = definition.id as ToolId;
                 const isVisible = effectiveToolIdsSet.has(toolId);
                 const isEssential = ESSENTIAL_TOOL_IDS.has(toolId);
-                const flyout = builtIn.toolbar.flyouts?.find((f) => f.tools.includes(toolId));
-                const isFlyoutOnly =
-                  flyout && !builtIn.toolbar.tools.some((t) => t.toolId === toolId);
+                const locationOverrides = workspacePreference?.toolbarToolLocations ?? {};
+                const location = Object.hasOwn(locationOverrides, toolId)
+                  ? (locationOverrides[toolId] ?? null)
+                  : toolbarLocation(builtIn, toolId);
+                const flyout = builtIn.toolbar.flyouts?.find(
+                  (candidate) => candidate.id === location,
+                );
+                const isFlyoutOnly = flyout !== undefined;
                 return (
                   <label key={toolId} className="workspace-customize__toggle">
                     <input
@@ -236,30 +413,78 @@ export function WorkspaceCustomizeDialog({
         {/* Inspector tabs */}
         <section className="workspace-customize__section">
           <h3>Inspector Tabs</h3>
-          {effectiveConfig.inspectorTabs.map((tab) => (
-            <label key={tab.id} className="workspace-customize__toggle">
-              <input
-                type="checkbox"
-                checked={tab.visible}
-                onChange={(e) => handleToggleInspectorTab(tab.id, e.target.checked)}
-              />
-              <span>{tab.label}</span>
-            </label>
+          <p className="workspace-customize__hint">
+            Reorder tabs or pin important tabs so they remain available before responsive overflow.
+          </p>
+          {effectiveConfig.inspectorTabs.map((tab, index) => (
+            <div key={tab.id} className="workspace-customize__arrangement-row">
+              <label className="workspace-customize__toggle">
+                <input
+                  type="checkbox"
+                  checked={tab.visible}
+                  onChange={(e) => handleToggleInspectorTab(tab.id, e.target.checked)}
+                />
+                <span>{tab.label}</span>
+              </label>
+              <button
+                type="button"
+                aria-label={`Move ${tab.label} tab earlier`}
+                disabled={index === 0}
+                onClick={() => handleMoveInspectorTab(tab.id, -1)}
+              >
+                Move up
+              </button>
+              <button
+                type="button"
+                aria-label={`Move ${tab.label} tab later`}
+                disabled={index === effectiveConfig.inspectorTabs.length - 1}
+                onClick={() => handleMoveInspectorTab(tab.id, 1)}
+              >
+                Move down
+              </button>
+              <label className="workspace-customize__pin">
+                <input
+                  type="checkbox"
+                  checked={tab.overflowPriority === 0}
+                  aria-label={`Keep ${tab.label} tab visible before overflow`}
+                  onChange={(event) => handlePinInspectorTab(tab.id, event.target.checked)}
+                />
+                <span>Pin</span>
+              </label>
+            </div>
           ))}
         </section>
 
         {/* Status sections */}
         <section className="workspace-customize__section">
           <h3>Status Bar Sections</h3>
-          {effectiveConfig.statusSections.map((section) => (
-            <label key={section.id} className="workspace-customize__toggle">
-              <input
-                type="checkbox"
-                checked={section.visible}
-                onChange={(e) => handleToggleStatusSection(section.id, e.target.checked)}
-              />
-              <span>{STATUS_SECTION_LABELS[section.id]}</span>
-            </label>
+          {effectiveConfig.statusSections.map((section, index) => (
+            <div key={section.id} className="workspace-customize__arrangement-row">
+              <label className="workspace-customize__toggle">
+                <input
+                  type="checkbox"
+                  checked={section.visible}
+                  onChange={(e) => handleToggleStatusSection(section.id, e.target.checked)}
+                />
+                <span>{STATUS_SECTION_LABELS[section.id]}</span>
+              </label>
+              <button
+                type="button"
+                aria-label={`Move ${STATUS_SECTION_LABELS[section.id]} earlier`}
+                disabled={index === 0}
+                onClick={() => handleMoveStatusSection(section.id, -1)}
+              >
+                Move up
+              </button>
+              <button
+                type="button"
+                aria-label={`Move ${STATUS_SECTION_LABELS[section.id]} later`}
+                disabled={index === effectiveConfig.statusSections.length - 1}
+                onClick={() => handleMoveStatusSection(section.id, 1)}
+              >
+                Move down
+              </button>
+            </div>
           ))}
         </section>
 
@@ -280,7 +505,7 @@ export function WorkspaceCustomizeDialog({
         </div>
       </div>
 
-      {/* Reset All is destructive across all seven modes — require an explicit
+      {/* Reset All is destructive across all six workspaces — require an explicit
           confirmation before discarding every customization. */}
       <Dialog
         open={confirmResetAll}
@@ -289,7 +514,7 @@ export function WorkspaceCustomizeDialog({
         dismissible={false}
       >
         <p>
-          This discards every panel, toolbar, inspector, and status-bar customization in all
+          This discards every panel, toolbar, inspector, and status-bar customization in all six
           workspaces and restores the built-in defaults. This cannot be undone.
         </p>
         <div className="workspace-customize__actions">

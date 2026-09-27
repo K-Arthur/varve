@@ -85,6 +85,10 @@ getEffectiveWorkspaceConfig(mode, prefs?)
   + prefs[mode].inspectorTabOverrides  per-workspace inspector tab visibility
   + prefs[mode].statusSectionOverrides per-workspace status bar section visibility
   + prefs[mode].toolbarToolOverrides   sparse toolbar visibility overrides
+  + prefs[mode].{toolbarToolOrder,toolbarToolLocations,toolbarPinnedToolIds}
+                                       toolbar ordering, existing flyout assignment, and overflow pins
+  + prefs[mode].{inspectorTabOrder,inspectorTabPinnedOverrides,statusSectionOrder}
+                                       inspector/status ordering and responsive tab pins
   + prefs[mode].chromeOverrides        floating-toolbar / status-bar / tab-strip visibility
 ```
 
@@ -531,9 +535,18 @@ These are known gaps, not settled design:
   - `statusSectionOverrides` — visibility per status bar section
   - `toolbarToolOverrides` — visibility per toolbar tool, including
     flyout-only tools such as the boolean operations
+  - `toolbarToolOrder` and `toolbarToolLocations` — order and assignment to
+    the main row or an already-declared flyout; protected Select, Hand, and
+    Zoom tools remain in the main row
+  - `toolbarPinnedToolIds` — tools to retain before responsive overflow
+  - `inspectorTabOrder`, `inspectorTabPinnedOverrides`, and
+    `statusSectionOrder` — ordering and responsive retention for inspector
+    tabs and the status bar
   All are persisted and restored on workspace switch. A dedicated customization
-  dialog (`WorkspaceCustomizeDialog`) provides a toggle UI accessible from
-  View > Customize Workspace or the command palette.
+  dialog (`WorkspaceCustomizeDialog`) provides visibility, ordering, flyout,
+  pinning, and chrome controls accessible from View > Customize Workspace or
+  the command palette. Reordering and membership changes have button/select
+  controls, so dragging is not required.
   Width payloads are sanitized on load, and the immutable preference update is
   committed through `updateWorkspacePreferences` so resizing a panel actually
   notifies all workspace consumers. Toolbar visibility is applied by the shared
@@ -542,6 +555,8 @@ These are known gaps, not settled design:
   The customization dialog uses the same human-readable tool labels as the
   toolbar and disables those protected tools instead of allowing a misleading
   unchecked state.
+  Named layout capture and portable export preserve these arrangement fields;
+  import accepts only registered tools, tabs, sections, and existing flyout ids.
 - **`canvasOverlays.bleedGuides` and `layoutGrid` now have runtime consumers.**
   `bleedGuidesVisible` controls `PrintOverlays` rendering on the canvas.
   Both are projected from workspace config via `overlayPatch` and persisted

@@ -331,6 +331,8 @@ export interface WorkspaceConfig {
   defaultTool?: ToolId;
   /** Toolbar composition for this mode. */
   toolbar: ToolbarConfig;
+  /** Tools explicitly retained in the toolbar before responsive overflow. */
+  toolbarPinnedToolIds?: ToolId[];
   /** Inspector tab configuration. */
   inspectorTabs: InspectorTabConfig[];
   /** Status bar section configuration. */
@@ -392,6 +394,18 @@ export interface WorkspacePreference {
   panelWidths?: Partial<Record<PanelId, number>>;
   /** Mode-specific toolbar tool visibility overrides (tool id → visible). */
   toolbarToolOverrides?: Partial<Record<string, boolean>>;
+  /** Full declared toolbar order, including tools currently assigned to flyouts. */
+  toolbarToolOrder?: ToolId[];
+  /** Move declared tools between the main row and an existing flyout. Null means the main row. */
+  toolbarToolLocations?: Partial<Record<ToolId, string | null>>;
+  /** Extra tools kept in the toolbar; essential recovery tools are always pinned. */
+  toolbarPinnedToolIds?: ToolId[];
+  /** Inspector tab ordering, retained even when an individual tab is hidden. */
+  inspectorTabOrder?: InspectorTabId[];
+  /** Per-tab keep-visible overrides for responsive overflow. */
+  inspectorTabPinnedOverrides?: Partial<Record<InspectorTabId, boolean>>;
+  /** Status section ordering, retained when an individual section is hidden. */
+  statusSectionOrder?: StatusSectionId[];
   /** Mode-specific editor chrome visibility overrides. */
   chromeOverrides?: Partial<ChromeConfig>;
   /** Mode-specific toolbar placement override (only stored when not 'bottom'). */
