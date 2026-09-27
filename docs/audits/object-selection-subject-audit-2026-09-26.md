@@ -235,6 +235,14 @@ refuses `selection.length !== 1` for the reachable ordering (activate the
 tool first, then multi-select, then click the canvas). The correction belongs
 to the spec's owner and was left untouched here, per same-file sequencing.
 
+**Resolved by the owner during this pass.** `fe09212b4` committed the
+corrected spec (the probe's diagnosis matched what they implemented: the test
+now drives the real selection flow) and `11b575655` records the full
+`object-selection.spec.ts` passing **7/7 in Chromium under the lease**. The
+owner's pass also found and fixed an unrelated High defect in the shared
+pipeline — iterative refinement was dead code because `previousMask` was never
+sent to the decoder, so every added prompt re-encoded from scratch.
+
 ## Known limitations / not covered here
 
 - **Stage instrumentation is coarse.** `ObjectSelectionSession.stageTimingsMs`
