@@ -7,16 +7,7 @@ import { navigateToEditor } from '../shared';
  * overflow menu must expose hidden modes at narrow widths.
  */
 
-const ALL_WORKSPACES = [
-  'Design',
-  'Print',
-  'Draw',
-  'Photo',
-  'Motion',
-  'Codegen',
-  'Logo',
-  'Email',
-] as const;
+const ALL_WORKSPACES = ['Design', 'Print', 'Draw', 'Photo', 'Motion', 'Email'] as const;
 
 async function workspaceGroup(page: Page) {
   return page.getByRole('radiogroup', { name: 'Workspace' });
@@ -61,7 +52,7 @@ test.describe('Responsive workspace navigation', () => {
 
   test('switching each workspace updates the editor state', async ({ page }) => {
     const group = await workspaceGroup(page);
-    for (const name of ['Print', 'Draw', 'Photo', 'Motion', 'Codegen', 'Logo', 'Design']) {
+    for (const name of ['Print', 'Draw', 'Photo', 'Motion', 'Email', 'Design']) {
       const radio = group.getByRole('radio', { name: new RegExp(`^${name} workspace$`) });
       await radio.click();
       await expect(radio).toHaveAttribute('aria-checked', 'true');

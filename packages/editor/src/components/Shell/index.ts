@@ -1,3 +1,4 @@
+export { TimelinePanel } from '../../timeline/TimelinePanel';
 export { ColorConversionHost } from '../ColorConversion/ColorConversionHost';
 export { EffectStudioDialogHost } from '../EffectStudio/EffectStudioDialogHost';
 export { FrequencySeparationDialogHost } from '../FrequencySeparation/FrequencySeparationDialogHost';
@@ -12,3 +13,4 @@ export { ImageResizeDialogHost } from './ImageResizeDialogHost';
 export { OnboardingLayer, type OnboardingLayerHandle } from './OnboardingLayer';
 export { RecoveryManager } from './RecoveryManager';
 export { VectorizeDialogHost } from './VectorizeDialogHost';
+export { WorkspaceBottomPanels } from './WorkspaceBottomPanels';

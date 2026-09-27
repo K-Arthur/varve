@@ -555,19 +555,19 @@ export const SHORTCUT_DEFS = {
     label: 'Workspace: Motion',
     category: 'View',
   },
-  workspaceCodegen: {
-    binding: { key: '9', ctrl: true, shift: true },
-    label: 'Show Code Panel',
+  workspaceEmail: {
+    binding: { key: '6', ctrl: true, shift: true },
+    label: 'Workspace: Email',
     category: 'View',
   },
   workspaceLogo: {
-    binding: { key: '6', ctrl: true, shift: true },
-    label: 'Logo Tools in Design',
+    binding: { key: '7', ctrl: true, shift: true },
+    label: 'Show Logo Tools in Design',
     category: 'View',
   },
-  workspaceEmail: {
-    binding: { key: '7', ctrl: true, shift: true },
-    label: 'Workspace: Email',
+  workspaceCodegen: {
+    binding: { key: '8', ctrl: true, shift: true },
+    label: 'Show Code Panel',
     category: 'View',
   },
   toggleDistractionFree: {

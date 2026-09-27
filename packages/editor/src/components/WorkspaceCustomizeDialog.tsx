@@ -201,6 +201,8 @@ export function WorkspaceCustomizeDialog({
     { id: 'codegen', label: 'Code Panel' },
     { id: 'logo', label: 'Logo Panel' },
     { id: 'history', label: 'History' },
+    { id: 'emailPreview', label: 'Email Preview' },
+    { id: 'emailOutput', label: 'Email Output' },
   ];
 
   const effectiveToolIdsSet = new Set(getToolbarToolIds(effectiveConfig.toolbar));

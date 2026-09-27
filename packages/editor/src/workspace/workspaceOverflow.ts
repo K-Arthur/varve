@@ -1,7 +1,7 @@
 /**
  * Deterministic workspace-tab overflow calculation for the editor top bar.
  *
- * With ~7 workspace modes, squeezing every label into the menubar at narrow
+ * With six workspace modes, squeezing every label into the menubar at narrow
  * widths is what caused label/title overlap. The policy:
  *
  *   - Tabs are shown in a data-driven priority order (WORKSPACE_OVERFLOW

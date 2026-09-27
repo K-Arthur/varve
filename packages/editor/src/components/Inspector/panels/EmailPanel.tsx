@@ -1,12 +1,4 @@
-import {
-  appendTrackingParams,
-  compileEmail,
-  type EmailHtmlExportResult,
-  type EmailIrAsset,
-  emitEmailHtml,
-  sceneToIR,
-  validateEmailUrl,
-} from '@varve/codegen';
+import { appendTrackingParams, validateEmailUrl } from '@varve/codegen';
 import {
   DEFAULT_EMAIL_PROFILE,
   DEFAULT_EMAIL_SEMANTIC,
@@ -16,12 +8,12 @@ import {
   type EmailTrackingParams,
 } from '@varve/scene';
 import { Button, CopyButton, Input, Select, Switch, TextArea } from '@varve/ui';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useEditor } from '../../../context';
-import { createBufferedExportArchive, saveExportBytes } from '../../../exportSaveAdapter';
 import { EmailCodeEditor } from './EmailCodeEditor';
 import { EmailNodeCompatibility } from './EmailNodeCompatibility';
-import { EmailPreflightPanel } from './EmailPreflightPanel';
+import { EmailOutputPanel } from './EmailOutputPanel';
+import { getEmailCompilation } from './emailCompilation';
 
 const KIND_OPTIONS = [
   'auto',
@@ -60,7 +52,7 @@ const LINK_OPTIONS = [
   { value: 'merge-tag', label: 'Merge tag' },
 ];
 
-export function EmailPanel() {
+export function EmailPanel({ showOutput = true }: { showOutput?: boolean }) {
   const editor = useEditor();
   const { state } = editor;
   const selected = editor.selectedNodes();
@@ -68,162 +60,7 @@ export function EmailPanel() {
   const profile = state.document.emailProfile ?? DEFAULT_EMAIL_PROFILE;
   const semantics = state.document.emailSemantics;
   const semantic = node ? (semantics?.nodes[node.id] ?? DEFAULT_EMAIL_SEMANTIC) : undefined;
-  const [previewMode, setPreviewMode] = useState<'preview' | 'code' | 'plain-text'>('preview');
-  const [previewViewport, setPreviewViewport] = useState<'desktop' | 'mobile'>('desktop');
-  const [showSamples, setShowSamples] = useState(false);
-
-  const compilation = useMemo(() => {
-    if (!state.document.emailProfile && !node) return null;
-    const ir = compileEmail(state.document, sceneToIR(state.document), {
-      profile: profile.compatibilityProfile,
-      provider: profile.provider,
-      assetBaseUrl: profile.assetBaseUrl,
-      // The canonical generated/exported source always keeps merge fields as
-      // provider-authored placeholders. Sample substitutions are a preview
-      // presentation only and must never leak into an export.
-      previewVariables: false,
-    });
-    return { ir: ir.ir, output: emitEmailHtml(ir.ir) };
-  }, [node, profile.assetBaseUrl, profile.compatibilityProfile, profile.provider, state.document]);
-  const output: EmailHtmlExportResult | null = compilation?.output ?? null;
-  const previewCompilation = useMemo(() => {
-    if (!showSamples) return compilation;
-    if (!state.document.emailProfile && !node) return null;
-    const ir = compileEmail(state.document, sceneToIR(state.document), {
-      profile: profile.compatibilityProfile,
-      provider: profile.provider,
-      assetBaseUrl: profile.assetBaseUrl,
-      previewVariables: true,
-    });
-    return { ir: ir.ir, output: emitEmailHtml(ir.ir) };
-  }, [
-    compilation,
-    node,
-    profile.assetBaseUrl,
-    profile.compatibilityProfile,
-    profile.provider,
-    showSamples,
-    state.document,
-  ]);
-  const outputWarnings = output?.warnings ?? [];
-  const selectedSourceMap =
-    node && output ? output.sourceMap.find((entry) => entry.sourceNodeId === node.id) : undefined;
-  const hasErrors = Boolean(
-    compilation?.ir.diagnostics.some((diagnostic) => diagnostic.severity === 'error') ||
-      outputWarnings.some((warning) => warning.severity === 'error'),
-  );
-
-  // Preflight findings and emission warnings describe the same email, so they
-  // belong in one list; showing them separately made the reader diff two
-  // lists to work out whether the template was safe to send.
-  const allDiagnostics = useMemo(
-    () => [
-      ...(compilation?.ir.diagnostics ?? []),
-      ...outputWarnings.map((warning) => ({
-        severity: warning.severity,
-        code: warning.code,
-        message: warning.message,
-        sourceNodeId: warning.sourceNodeId,
-        category: warning.category,
-        suggestedFix: warning.suggestedFix,
-      })),
-    ],
-    [compilation, outputWarnings],
-  );
-
-  const documentNodeIds = useMemo(
-    () => new Set(Object.keys(state.document.nodes)),
-    [state.document.nodes],
-  );
-
-  const exportEmail = async () => {
-    if (!compilation || hasErrors) return;
-    const baseName =
-      state.document.name.replace(/[^A-Za-z0-9_-]+/g, '-').replace(/^-|-$/g, '') ||
-      'email-template';
-    const encoder = new TextEncoder();
-    await saveExportBytes(
-      editor.platform,
-      `${baseName}.html`,
-      encoder.encode(output?.html ?? ''),
-      'text/html',
-      '.html',
-    );
-    await saveExportBytes(
-      editor.platform,
-      `${baseName}.txt`,
-      encoder.encode(output?.plainText ?? ''),
-      'text/plain',
-      '.txt',
-    );
-    await saveExportBytes(
-      editor.platform,
-      `${baseName}.manifest.json`,
-      encoder.encode(
-        JSON.stringify(
-          {
-            format: 'varve-email-export',
-            version: 1,
-            provider: compilation.ir.settings.provider,
-            compatibilityProfile: compilation.ir.settings.compatibilityProfile,
-            assets: exportAssetManifest(compilation.ir.assets),
-            diagnostics: compilation.ir.diagnostics,
-          },
-          null,
-          2,
-        ),
-      ),
-      'application/json',
-      '.json',
-    );
-    for (const asset of compilation.ir.assets) {
-      if (!asset.dataUrl) continue;
-      const bytes = decodeDataUrl(asset.dataUrl);
-      if (!bytes) continue;
-      await saveExportBytes(
-        editor.platform,
-        `assets/${asset.filename}`,
-        bytes,
-        asset.mimeType,
-        `.${asset.filename.split('.').pop() ?? 'bin'}`,
-      );
-    }
-  };
-
-  const exportEmailPackage = async () => {
-    if (!compilation || hasErrors) return;
-    const baseName =
-      state.document.name.replace(/[^A-Za-z0-9_-]+/g, '-').replace(/^-|-$/g, '') ||
-      'email-template';
-    const encoder = new TextEncoder();
-    const archive = createBufferedExportArchive(editor.platform);
-    await archive.saveFile('email.html', encoder.encode(output?.html ?? ''));
-    await archive.saveFile('email.txt', encoder.encode(output?.plainText ?? ''));
-    await archive.saveFile(
-      'manifest.json',
-      encoder.encode(
-        JSON.stringify(
-          {
-            format: 'varve-email-package',
-            version: 1,
-            provider: compilation.ir.settings.provider,
-            compatibilityProfile: compilation.ir.settings.compatibilityProfile,
-            assets: exportAssetManifest(compilation.ir.assets),
-            diagnostics: compilation.ir.diagnostics,
-          },
-          null,
-          2,
-        ),
-      ),
-    );
-    for (const asset of compilation.ir.assets) {
-      if (!asset.dataUrl) continue;
-      const bytes = decodeDataUrl(asset.dataUrl);
-      if (bytes) await archive.saveFile(`assets/${asset.filename}`, bytes);
-    }
-    await archive.flush(baseName);
-  };
-
+  const compilation = getEmailCompilation(state.document, { allowUnprofiled: Boolean(node) });
   const updateProfile = (patch: Partial<EmailProfile>) => {
     editor.updateDoc((doc) => ({
       ...doc,
@@ -394,130 +231,7 @@ export function EmailPanel() {
         )}
 
         <VariableEditor />
-        <AuthoredSourceBlocks />
-
-        <section className="email-panel__group" aria-labelledby="email-output-heading">
-          <div className="email-panel__heading-row">
-            <div>
-              <h3 id="email-output-heading">Preview &amp; code</h3>
-              <p className="email-panel__ownership-note">
-                Generated output is read-only; edit the design or add a preserved custom HTML block.
-              </p>
-            </div>
-            <div className="email-panel__button-row">
-              <Button
-                size="sm"
-                variant={previewMode === 'preview' ? 'default' : 'secondary'}
-                onClick={() => setPreviewMode('preview')}
-              >
-                Preview
-              </Button>
-              <Button
-                size="sm"
-                variant={previewMode === 'code' ? 'default' : 'secondary'}
-                onClick={() => setPreviewMode('code')}
-              >
-                Code
-              </Button>
-              <Button
-                size="sm"
-                variant={previewMode === 'plain-text' ? 'default' : 'secondary'}
-                onClick={() => setPreviewMode('plain-text')}
-              >
-                Plain text
-              </Button>
-              {output && <CopyButton value={output.html} label="Copy generated email HTML" />}
-            </div>
-          </div>
-          {previewMode === 'preview' && (
-            <fieldset className="email-panel__viewport-controls">
-              <legend className="varve-visually-hidden">Preview viewport</legend>
-              <Button
-                size="sm"
-                variant={previewViewport === 'desktop' ? 'default' : 'secondary'}
-                onClick={() => setPreviewViewport('desktop')}
-              >
-                Desktop
-              </Button>
-              <Button
-                size="sm"
-                variant={previewViewport === 'mobile' ? 'default' : 'secondary'}
-                onClick={() => setPreviewViewport('mobile')}
-              >
-                Mobile
-              </Button>
-            </fieldset>
-          )}
-          <Switch
-            className="email-panel__toggle"
-            label="Preview sample values"
-            checked={showSamples}
-            onChange={(event) => setShowSamples(event.target.checked)}
-          />
-          {output && previewMode === 'preview' && (
-            <div
-              className={`email-panel__preview-frame email-panel__preview-frame--${previewViewport}`}
-            >
-              <iframe
-                title="Email browser preview"
-                sandbox=""
-                srcDoc={previewCompilation?.output.html ?? output.html}
-                className="email-panel__preview"
-              />
-            </div>
-          )}
-          {output && previewMode === 'code' && (
-            <section aria-label="Generated email HTML (read-only)">
-              <EmailCodeEditor
-                label="Generated email HTML"
-                language="markup"
-                value={output.html}
-                readOnly
-                minRows={14}
-                sourceRange={selectedSourceMap}
-              />
-              {selectedSourceMap && (
-                <p className="email-panel__ownership-note">
-                  Selected node mapped to generated HTML lines {selectedSourceMap.startLine}–
-                  {selectedSourceMap.endLine}.
-                </p>
-              )}
-            </section>
-          )}
-          {output && previewMode === 'plain-text' && (
-            <section aria-label="Generated email plain text">
-              <pre className="email-panel__plain-text-preview">
-                <code>{output.plainText}</code>
-              </pre>
-            </section>
-          )}
-          {output && (
-            <p className="email-panel__plain-text">
-              <strong>Plain text:</strong> {output.plainText.slice(0, 240)}
-            </p>
-          )}
-          {compilation && (
-            <EmailPreflightPanel
-              diagnostics={allDiagnostics}
-              resolvableNodeIds={documentNodeIds}
-              onSelectNode={(nodeId) => {
-                editor.setSelection(nodeId);
-                editor.revealSelection({ nodeId });
-              }}
-            />
-          )}
-          <Button size="sm" onClick={() => void exportEmail()} disabled={!compilation || hasErrors}>
-            Export HTML, text, and manifest
-          </Button>
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={() => void exportEmailPackage()}
-            disabled={!compilation || hasErrors}
-          >
-            Export package (.zip)
-          </Button>
-        </section>
+        {showOutput && <EmailOutputPanel />}
       </div>
     </div>
   );
@@ -571,142 +285,6 @@ function VariableEditor() {
         </ul>
       )}
     </section>
-  );
-}
-
-/**
- * Keep authored HTML discoverable independently of canvas visibility. A
- * source block can be preserved even when its node is hidden, empty, or no
- * longer present in the rendered scene, so the editor lists the semantic map
- * itself rather than deriving rows from visible canvas content.
- */
-function AuthoredSourceBlocks() {
-  const editor = useEditor();
-  const blocks = editor.state.document.emailSemantics?.customHtmlBlocks ?? {};
-  const selected = editor.selectedNodes();
-  const selectedNode = selected.length === 1 ? selected[0] : undefined;
-
-  const createForSelection = () => {
-    if (!selectedNode) return;
-    editor.updateDoc((doc) => ({
-      ...doc,
-      emailSemantics: {
-        ...(doc.emailSemantics ?? {
-          nodes: {},
-          nodeLinks: {},
-          textRangeLinks: {},
-          variables: [],
-          customHtmlBlocks: {},
-          assets: {},
-          diagnostics: [],
-        }),
-        nodes: {
-          ...(doc.emailSemantics?.nodes ?? {}),
-          [selectedNode.id]: {
-            ...(doc.emailSemantics?.nodes[selectedNode.id] ?? DEFAULT_EMAIL_SEMANTIC),
-            kind: 'custom-html',
-            inferred: false,
-          },
-        },
-        customHtmlBlocks: {
-          ...(doc.emailSemantics?.customHtmlBlocks ?? {}),
-          [selectedNode.id]: { code: '', userAuthored: true },
-        },
-      },
-    }));
-  };
-
-  return (
-    <section className="email-panel__group" aria-labelledby="email-source-blocks-heading">
-      <h3 id="email-source-blocks-heading">Authored source blocks</h3>
-      <p className="email-panel__ownership-note">
-        Saved HTML is listed even when its node is hidden or produces no visible preview content.
-        Source blocks stay separate from generated, read-only HTML.
-      </p>
-      {selectedNode && !blocks[selectedNode.id] && (
-        <Button size="sm" variant="secondary" onClick={createForSelection}>
-          Create source block for selected node
-        </Button>
-      )}
-      {Object.keys(blocks).length === 0 ? (
-        <p className="insp-panel__empty-hint">No authored HTML blocks yet.</p>
-      ) : (
-        <ul className="email-panel__source-blocks" aria-label="Saved authored source blocks">
-          {Object.entries(blocks).map(([nodeId, block]) => (
-            <li key={nodeId}>
-              <details>
-                <summary>
-                  {editor.state.document.nodes[nodeId]?.name ?? `Source block · ${nodeId}`}
-                </summary>
-                <p className="email-panel__ownership-note">
-                  {editor.state.document.nodes[nodeId]
-                    ? 'The source is kept separately from generated HTML.'
-                    : 'The source is preserved without a matching visible scene node.'}
-                </p>
-                <EmailSourceBlockEditor key={nodeId} nodeId={nodeId} initialCode={block.code} />
-                {editor.state.document.nodes[nodeId] && (
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => {
-                      editor.setSelection(nodeId);
-                      editor.revealSelection({ nodeId });
-                    }}
-                  >
-                    Select source node
-                  </Button>
-                )}
-              </details>
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
-  );
-}
-
-function EmailSourceBlockEditor({ nodeId, initialCode }: { nodeId: string; initialCode: string }) {
-  const editor = useEditor();
-  const [code, setCode] = useState(initialCode);
-  useEffect(() => setCode(initialCode), [initialCode, nodeId]);
-
-  const save = () =>
-    editor.updateDoc((doc) => ({
-      ...doc,
-      emailSemantics: {
-        ...(doc.emailSemantics ?? {
-          nodes: {},
-          nodeLinks: {},
-          textRangeLinks: {},
-          variables: [],
-          customHtmlBlocks: {},
-          assets: {},
-          diagnostics: [],
-        }),
-        customHtmlBlocks: {
-          ...(doc.emailSemantics?.customHtmlBlocks ?? {}),
-          [nodeId]: {
-            ...(doc.emailSemantics?.customHtmlBlocks?.[nodeId] ?? {}),
-            code,
-            userAuthored: true,
-          },
-        },
-      },
-    }));
-
-  return (
-    <div className="email-panel__source-editor">
-      <EmailCodeEditor
-        label={`Authored HTML source for ${nodeId}`}
-        language="markup"
-        value={code}
-        onChange={setCode}
-        minRows={8}
-      />
-      <Button size="sm" onClick={save}>
-        Save source block
-      </Button>
-    </div>
   );
 }
 
@@ -1005,25 +583,4 @@ function CustomHtmlEditor({ nodeId, enabled }: { nodeId: string; enabled: boolea
       </Button>
     </div>
   );
-}
-
-function decodeDataUrl(dataUrl: string): Uint8Array | null {
-  const comma = dataUrl.indexOf(',');
-  if (comma < 0 || !dataUrl.slice(0, comma).includes(';base64')) return null;
-  try {
-    const binary = atob(dataUrl.slice(comma + 1));
-    return Uint8Array.from(binary, (character) => character.charCodeAt(0));
-  } catch {
-    return null;
-  }
-}
-
-function exportAssetManifest(assets: EmailIrAsset[]) {
-  return assets.map((asset) => {
-    const { dataUrl, ...metadata } = asset;
-    return {
-      ...metadata,
-      ...(dataUrl ? { packagePath: `assets/${asset.filename}` } : {}),
-    };
-  });
 }

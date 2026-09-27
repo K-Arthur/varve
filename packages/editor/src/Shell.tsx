@@ -69,7 +69,9 @@ import {
   OnboardingLayer,
   type OnboardingLayerHandle,
   ThumbnailPickerHost,
+  TimelinePanel,
   VectorizeDialogHost,
+  WorkspaceBottomPanels,
 } from './components/Shell';
 import { UpscaleDialogHost } from './components/Upscale/UpscaleDialogHost';
 import { LifecycleProvider } from './lifecycle';
@@ -95,7 +97,6 @@ import { StatusBar } from './StatusBar';
 import { nodeLocalBounds } from './scene/world';
 import { ShortcutPalette, useShortcuts } from './shortcuts';
 import { TabStrip } from './TabStrip';
-import { TimelinePanel } from './timeline/TimelinePanel';
 import {
   editorHeadingLabel,
   isPagePanelUserControlled,
@@ -777,118 +778,127 @@ function ShellInner({
             <LogoPanel />
           </div>
         )}
-        {editor.state.timelinePanelVisible && !distractionFreeMode && !isDetached('timeline') && (
-          <div className="editor__timeline-panel" data-panel="timeline">
-            <ErrorBoundary>
-              <TimelinePanel
-                timelines={editor.state.document.timelines ?? {}}
-                activeTimelineId={editor.state.motion.activeTimelineId}
-                currentTime={editor.state.motion.currentTime}
-                isPlaying={editor.state.motion.isPlaying}
-                playbackSpeed={editor.state.motion.playbackSpeed}
-                loop={editor.state.motion.loop}
-                autoKeyframe={editor.state.motion.autoKeyframe}
-                onionSkin={editor.state.motion.onionSkinEnabled}
-                motionPresets={editor.state.document.motionPresets ?? {}}
-                selectedTrackIds={editor.state.motion.selectedTrackIds}
-                selectedKeyframe={
-                  selectedKeyframe
-                    ? { trackId: selectedKeyframe.trackId, index: selectedKeyframe.index }
-                    : null
-                }
-                graphEditorVisible={editor.state.graphEditorVisible}
-                onPlay={() => editor.playTimeline()}
-                onPause={() => editor.pauseTimeline()}
-                onStop={() => editor.stopTimeline()}
-                onSeek={(time) => editor.seekTimeline(time)}
-                onSpeedChange={(speed) => editor.setPlaybackSpeed(speed)}
-                onToggleLoop={() => editor.toggleLoop()}
-                onToggleAutoKeyframe={() => editor.toggleAutoKeyframe()}
-                onToggleOnionSkin={() => editor.toggleOnionSkin()}
-                onToggleGraphEditor={() => editor.toggleGraphEditor()}
-                onDeleteKeyframe={(tlId, trackId, progress) =>
-                  editor.deleteKeyframe(tlId, trackId, progress)
-                }
-                onMoveKeyframe={(tlId, trackId, oldP, newP) =>
-                  editor.moveKeyframe(tlId, trackId, oldP, newP)
-                }
-                onUpdateKeyframeEasing={(tlId, trackId, progress, easing) =>
-                  editor.updateKeyframeEasing(tlId, trackId, progress, easing)
-                }
-                onSetTrackMuted={(tlId, trackId, muted) =>
-                  editor.setTrackMuted(tlId, trackId, muted)
-                }
-                onSetTrackSolo={(tlId, trackId, solo) => editor.setTrackSolo(tlId, trackId, solo)}
-                onAddMarker={(timeMs) => {
-                  const tlId = editor.state.motion.activeTimelineId;
-                  if (!tlId) return;
-                  const tl = editor.state.document.timelines?.[tlId];
-                  if (!tl) return;
-                  const count = (tl.markers?.length ?? 0) + 1;
-                  const progress = tl.duration > 0 ? timeMs / tl.duration : 0;
-                  editor.addTimelineMarker(tlId, `Marker ${count}`, progress);
-                }}
-                onRenameMarker={async (markerId) => {
-                  const tlId = editor.state.motion.activeTimelineId;
-                  if (!tlId) return;
-                  const marker = editor.state.document.timelines?.[tlId]?.markers?.find(
-                    (m) => m.id === markerId,
-                  );
-                  const nextName = await promptDialog('Marker name', marker?.name ?? '');
-                  if (nextName?.trim()) {
-                    editor.renameTimelineMarker(tlId, markerId, nextName.trim());
+        {(effectiveConfig.panels.emailPreview.visible ||
+          (editor.state.timelinePanelVisible &&
+            !distractionFreeMode &&
+            !isDetached('timeline'))) && (
+          <WorkspaceBottomPanels
+            showEmailPreview={effectiveConfig.panels.emailPreview.visible && !distractionFreeMode}
+          >
+            {editor.state.timelinePanelVisible &&
+            !distractionFreeMode &&
+            !isDetached('timeline') ? (
+              <ErrorBoundary>
+                <TimelinePanel
+                  timelines={editor.state.document.timelines ?? {}}
+                  activeTimelineId={editor.state.motion.activeTimelineId}
+                  currentTime={editor.state.motion.currentTime}
+                  isPlaying={editor.state.motion.isPlaying}
+                  playbackSpeed={editor.state.motion.playbackSpeed}
+                  loop={editor.state.motion.loop}
+                  autoKeyframe={editor.state.motion.autoKeyframe}
+                  onionSkin={editor.state.motion.onionSkinEnabled}
+                  motionPresets={editor.state.document.motionPresets ?? {}}
+                  selectedTrackIds={editor.state.motion.selectedTrackIds}
+                  selectedKeyframe={
+                    selectedKeyframe
+                      ? { trackId: selectedKeyframe.trackId, index: selectedKeyframe.index }
+                      : null
                   }
-                }}
-                onDeleteMarker={(markerId) => {
-                  const tlId = editor.state.motion.activeTimelineId;
-                  if (tlId) editor.removeTimelineMarker(tlId, markerId);
-                }}
-                onSavePreset={async () => {
-                  const tlId = editor.state.motion.activeTimelineId;
-                  if (!tlId) return;
-                  const name = await promptDialog('Preset name');
-                  if (name?.trim()) {
-                    editor.createMotionPresetFromTimeline(tlId, name.trim());
+                  graphEditorVisible={editor.state.graphEditorVisible}
+                  onPlay={() => editor.playTimeline()}
+                  onPause={() => editor.pauseTimeline()}
+                  onStop={() => editor.stopTimeline()}
+                  onSeek={(time) => editor.seekTimeline(time)}
+                  onSpeedChange={(speed) => editor.setPlaybackSpeed(speed)}
+                  onToggleLoop={() => editor.toggleLoop()}
+                  onToggleAutoKeyframe={() => editor.toggleAutoKeyframe()}
+                  onToggleOnionSkin={() => editor.toggleOnionSkin()}
+                  onToggleGraphEditor={() => editor.toggleGraphEditor()}
+                  onDeleteKeyframe={(tlId, trackId, progress) =>
+                    editor.deleteKeyframe(tlId, trackId, progress)
                   }
-                }}
-                onApplyPreset={(presetId) => {
-                  const tlId = editor.state.motion.activeTimelineId;
-                  if (tlId) editor.applyMotionPreset(presetId, tlId);
-                }}
-                onSelectTimeline={(id) => editor.setActiveTimeline(id)}
-                onCreateTimeline={() => editor.createTimeline()}
-                onSelectTrack={(trackId) => {
-                  const s = editor.state.motion;
-                  const alreadySelected = s.selectedTrackIds.includes(trackId);
-                  editor.setMotionSelectedTracks?.(
-                    alreadySelected
-                      ? s.selectedTrackIds.filter((id) => id !== trackId)
-                      : [...s.selectedTrackIds, trackId],
-                  );
-                }}
-                onClickKeyframe={(trackId, progress) => {
-                  const tl = editor.state.motion.activeTimelineId
-                    ? editor.state.document.timelines?.[editor.state.motion.activeTimelineId]
-                    : null;
-                  if (tl) editor.seekTimeline(progress * tl.duration);
-                  // Wire the selected keyframe so the track row's arrow-key
-                  // stepping and Delete actually have a target.
-                  const track = tl?.tracks.find((t) => t.id === trackId);
-                  const index = track
-                    ? track.keyframes.findIndex((kf) => kf.progress === progress)
-                    : -1;
-                  setSelectedKeyframe(index >= 0 ? { trackId, index } : null);
-                }}
-                onSetTrackNestedTimeline={(trackId, nestedTimelineId, startProgress) => {
-                  const tlId = editor.state.motion.activeTimelineId;
-                  if (tlId) {
-                    editor.setTrackNestedTimeline(tlId, trackId, nestedTimelineId, startProgress);
+                  onMoveKeyframe={(tlId, trackId, oldP, newP) =>
+                    editor.moveKeyframe(tlId, trackId, oldP, newP)
                   }
-                }}
-                getNodeName={(nodeId) => editor.state.document.nodes[nodeId]?.name}
-              />
-            </ErrorBoundary>
-          </div>
+                  onUpdateKeyframeEasing={(tlId, trackId, progress, easing) =>
+                    editor.updateKeyframeEasing(tlId, trackId, progress, easing)
+                  }
+                  onSetTrackMuted={(tlId, trackId, muted) =>
+                    editor.setTrackMuted(tlId, trackId, muted)
+                  }
+                  onSetTrackSolo={(tlId, trackId, solo) => editor.setTrackSolo(tlId, trackId, solo)}
+                  onAddMarker={(timeMs) => {
+                    const tlId = editor.state.motion.activeTimelineId;
+                    if (!tlId) return;
+                    const tl = editor.state.document.timelines?.[tlId];
+                    if (!tl) return;
+                    const count = (tl.markers?.length ?? 0) + 1;
+                    const progress = tl.duration > 0 ? timeMs / tl.duration : 0;
+                    editor.addTimelineMarker(tlId, `Marker ${count}`, progress);
+                  }}
+                  onRenameMarker={async (markerId) => {
+                    const tlId = editor.state.motion.activeTimelineId;
+                    if (!tlId) return;
+                    const marker = editor.state.document.timelines?.[tlId]?.markers?.find(
+                      (m) => m.id === markerId,
+                    );
+                    const nextName = await promptDialog('Marker name', marker?.name ?? '');
+                    if (nextName?.trim()) {
+                      editor.renameTimelineMarker(tlId, markerId, nextName.trim());
+                    }
+                  }}
+                  onDeleteMarker={(markerId) => {
+                    const tlId = editor.state.motion.activeTimelineId;
+                    if (tlId) editor.removeTimelineMarker(tlId, markerId);
+                  }}
+                  onSavePreset={async () => {
+                    const tlId = editor.state.motion.activeTimelineId;
+                    if (!tlId) return;
+                    const name = await promptDialog('Preset name');
+                    if (name?.trim()) {
+                      editor.createMotionPresetFromTimeline(tlId, name.trim());
+                    }
+                  }}
+                  onApplyPreset={(presetId) => {
+                    const tlId = editor.state.motion.activeTimelineId;
+                    if (tlId) editor.applyMotionPreset(presetId, tlId);
+                  }}
+                  onSelectTimeline={(id) => editor.setActiveTimeline(id)}
+                  onCreateTimeline={() => editor.createTimeline()}
+                  onSelectTrack={(trackId) => {
+                    const s = editor.state.motion;
+                    const alreadySelected = s.selectedTrackIds.includes(trackId);
+                    editor.setMotionSelectedTracks?.(
+                      alreadySelected
+                        ? s.selectedTrackIds.filter((id) => id !== trackId)
+                        : [...s.selectedTrackIds, trackId],
+                    );
+                  }}
+                  onClickKeyframe={(trackId, progress) => {
+                    const tl = editor.state.motion.activeTimelineId
+                      ? editor.state.document.timelines?.[editor.state.motion.activeTimelineId]
+                      : null;
+                    if (tl) editor.seekTimeline(progress * tl.duration);
+                    // Wire the selected keyframe so the track row's arrow-key
+                    // stepping and Delete actually have a target.
+                    const track = tl?.tracks.find((t) => t.id === trackId);
+                    const index = track
+                      ? track.keyframes.findIndex((kf) => kf.progress === progress)
+                      : -1;
+                    setSelectedKeyframe(index >= 0 ? { trackId, index } : null);
+                  }}
+                  onSetTrackNestedTimeline={(trackId, nestedTimelineId, startProgress) => {
+                    const tlId = editor.state.motion.activeTimelineId;
+                    if (tlId) {
+                      editor.setTrackNestedTimeline(tlId, trackId, nestedTimelineId, startProgress);
+                    }
+                  }}
+                  getNodeName={(nodeId) => editor.state.document.nodes[nodeId]?.name}
+                />
+              </ErrorBoundary>
+            ) : null}
+          </WorkspaceBottomPanels>
         )}
         {editor.state.historyPanelVisible && !distractionFreeMode && (
           <div className="editor__history-panel" data-panel="history" data-testid="history-panel">

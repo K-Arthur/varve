@@ -94,15 +94,13 @@ test.describe('Workspace Mode Switching — Functional Assertions', () => {
   test('ARIA radiogroup and radio roles', async ({ page }) => {
     await expect(page.locator('[role="radiogroup"][aria-label="Workspace"]')).toBeVisible();
     const radios = page.locator('.workspace-dock__item[role="radio"]');
-    await expect(radios).toHaveCount(8);
+    await expect(radios).toHaveCount(6);
     await expect(radios.nth(0)).toHaveAttribute('aria-checked', 'true');
     await expect(radios.nth(1)).toHaveAttribute('aria-checked', 'false');
     await expect(radios.nth(2)).toHaveAttribute('aria-checked', 'false');
     await expect(radios.nth(3)).toHaveAttribute('aria-checked', 'false');
     await expect(radios.nth(4)).toHaveAttribute('aria-checked', 'false');
     await expect(radios.nth(5)).toHaveAttribute('aria-checked', 'false');
-    await expect(radios.nth(6)).toHaveAttribute('aria-checked', 'false');
-    await expect(radios.nth(7)).toHaveAttribute('aria-checked', 'false');
   });
 
   test('workspace switcher sits with the utility controls, not the document title', async ({

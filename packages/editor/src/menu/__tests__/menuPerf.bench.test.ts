@@ -17,7 +17,7 @@ import { buildSyntheticDoc } from './syntheticDocs';
 function buildCtx(
   selection: string[],
   doc: ReturnType<typeof createDocument>,
-  workspace: 'design' | 'print' | 'drawing' | 'image' | 'motion' | 'codegen' = 'design',
+  workspace: 'design' | 'print' | 'drawing' | 'image' | 'motion' | 'email' = 'design',
 ): MenuContext {
   const pf = detectPlatformFacts('web');
   const intel = buildIntelFacts([], null, false);

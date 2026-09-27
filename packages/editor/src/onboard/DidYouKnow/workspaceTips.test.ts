@@ -37,7 +37,7 @@ describe('workspaceTips', () => {
   });
 
   it('produces ids that survive a JSON round-trip through the dismissed set', () => {
-    const id = workspaceTips('logo')[0]?.id ?? '';
+    const id = workspaceTips('design')[0]?.id ?? '';
     expect(JSON.parse(JSON.stringify([id]))[0]).toBe(id);
   });
 });

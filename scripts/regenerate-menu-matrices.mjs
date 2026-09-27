@@ -38,7 +38,7 @@ const MENU_TITLES = {
   page: 'Page',
   help: 'Help',
 };
-const MODES = ['design', 'print', 'drawing', 'image', 'motion', 'logo', 'codegen'];
+const MODES = ['design', 'print', 'drawing', 'image', 'motion', 'email'];
 
 // Capability -> [web, tauri, mem] visibility, mirroring the legend in the
 // capability matrix and capabilities.ts. Capabilities "never in browser"
@@ -298,7 +298,7 @@ function renderWorkspaceMatrix(menus, labels) {
       rows.push(`| ${item.id} | ${label} | ${cells.join(' | ')} |`);
     }
     sections.push(
-      `## Items — ${MENU_TITLES[menu]}\n\n| ID | Label | design | print | drawing | image | motion | logo | codegen |\n|----|-------|--------|-------|---------|-------|--------|------|---------|\n${rows.join('\n')}`,
+      `## Items — ${MENU_TITLES[menu]}\n\n| ID | Label | design | print | drawing | image | motion | email |\n|----|-------|--------|-------|---------|-------|--------|-------|\n${rows.join('\n')}`,
     );
   }
   return WORKSPACE_TEMPLATE.replace('<!-- WORKSPACE_SECTIONS -->', sections.join('\n\n'));
@@ -355,8 +355,9 @@ const WORKSPACE_TEMPLATE = `# Menu × Workspace Visibility Matrix
 **Status:** Implemented — menu visibility per workspace is applied at runtime
 via the \`workspaces\` filter on item definitions
 (\`packages/editor/src/menu/defs.ts\`, applied by \`renderer.ts\`); this matrix
-is the consolidated view. The seven workspace ids are design, print, drawing,
-image, motion, logo, codegen.
+is the consolidated view. The six workspace ids are design, print, drawing,
+image, motion, and email. Logo and Code shortcuts are commands, not workspace
+modes.
 **Posture:** SHOW unless meaningless in that mode.
 
 **Generated output.** The item tables are produced from
@@ -372,16 +373,16 @@ image, motion, logo, codegen.
 
 ## Menus
 
-| Menu | design | print | drawing | image | motion | logo | codegen | Notes |
-|------|--------|-------|---------|-------|--------|------|---------|-------|
-| File | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | Never hide file operations |
-| Edit | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | Never hide Undo/Redo/clipboard |
-| Text | ✓ | ✓ | ✓ | ✓ | ✓ | – | – | Codegen and Logo have no text editing |
-| View | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | View/zoom/navigation universal |
-| Object | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | Object manip universal; items filtered individually |
-| Arrange | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | Align/order/nudge universal |
-| Page | ✓ | ✓ | – | – | – | – | – | Multi-page only meaningful in design + print |
-| Help | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | Never hide Help |
+| Menu | design | print | drawing | image | motion | email | Notes |
+|------|--------|-------|---------|-------|--------|-------|-------|
+| File | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | Never hide file operations |
+| Edit | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | Never hide Undo/Redo/clipboard |
+| Text | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | Text commands are filtered individually |
+| View | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | View/zoom/navigation universal |
+| Object | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | Object manip universal; items filtered individually |
+| Arrange | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | Align/order/nudge universal |
+| Page | ✓ | ✓ | – | – | – | – | Multi-page only meaningful in design + print |
+| Help | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | Never hide Help |
 
 <!-- WORKSPACE_SECTIONS -->
 

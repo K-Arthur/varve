@@ -3,9 +3,10 @@
  * workspace mode from the shortcut registry.
  *
  * Display must never drift from execution: the registry (ShortcutManager) is
- * the single source of truth for what actually fires on keypress. Hard-coded
- * "Ctrl+Shift+D" style strings rot (see WORKSPACE_SHORTCUTS, which no longer
- * matches the live bindings — workspace switching actually uses Ctrl+Shift+1..9).
+ * the single source of truth for what actually fires on keypress. A previous
+ * literal shortcut table claimed Ctrl+Shift+D-style bindings long after those
+ * keys had been reassigned; workspace switching now uses Ctrl+Shift+1..6 in
+ * the same order as the workspace switcher.
  */
 import { formatShortcut, getEffectiveBinding } from '../shortcuts/ShortcutManager';
 import { toolShortcutId } from '../shortcuts/toolShortcutLabel';

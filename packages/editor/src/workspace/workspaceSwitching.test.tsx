@@ -2,12 +2,49 @@ import { describe, expect, it } from 'vitest';
 import { formatShortcut, getEffectiveBinding } from '../shortcuts/ShortcutManager';
 import { workspaceShortcutLabel } from './workspaceShortcutLabel';
 import {
+  ALL_WORKSPACE_MODES,
   getVisibleInspectorTabs,
   getVisibleStatusSections,
   getWorkspaceConfig,
   WORKSPACE_CONFIG_VERSION,
+  WORKSPACE_OVERFLOW_ORDER,
   type WorkspaceMode,
 } from './workspaceTypes';
+
+describe('workspace navigation order and shortcut contract', () => {
+  it('keeps the workspace strip in the canonical order with sequential switch keys', () => {
+    const shortcutIds: Record<WorkspaceMode, string> = {
+      design: 'workspaceDesign',
+      print: 'workspacePrint',
+      drawing: 'workspaceDrawing',
+      image: 'workspaceImage',
+      motion: 'workspaceMotion',
+      email: 'workspaceEmail',
+    };
+    expect(WORKSPACE_OVERFLOW_ORDER).toEqual(ALL_WORKSPACE_MODES);
+    expect(ALL_WORKSPACE_MODES.map((mode) => getEffectiveBinding(shortcutIds[mode]).key)).toEqual([
+      '1',
+      '2',
+      '3',
+      '4',
+      '5',
+      '6',
+    ]);
+  });
+
+  it('keeps Logo and Code shortcuts as actions after the workspace sequence', () => {
+    expect(getEffectiveBinding('workspaceLogo')).toMatchObject({
+      key: '7',
+      ctrl: true,
+      shift: true,
+    });
+    expect(getEffectiveBinding('workspaceCodegen')).toMatchObject({
+      key: '8',
+      ctrl: true,
+      shift: true,
+    });
+  });
+});
 
 describe('Workspace mode switching — motion mode', () => {
   describe('switching to motion mode', () => {

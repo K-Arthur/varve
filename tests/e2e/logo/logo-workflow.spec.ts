@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import { navigateToEditor } from '../shared';
 
 /**
- * Logo workflow smoke tests — workspace switch, logo project creation,
+ * Logo workflow smoke tests — Logo Tools action, project creation,
  * geometry commands, small-size preview, and package export entry.
  */
 test.describe('Logo workflow', () => {
@@ -11,9 +11,10 @@ test.describe('Logo workflow', () => {
     await navigateToEditor(page);
   });
 
-  test('switches to the Logo workspace via shortcut', async ({ page }) => {
-    await page.keyboard.press('Control+Shift+6');
-    await expect(page.getByRole('radio', { name: 'Logo workspace', exact: true })).toBeChecked();
+  test('opens Logo Tools in Design via shortcut', async ({ page }) => {
+    await page.keyboard.press('Control+Shift+7');
+    await expect(page.getByRole('radio', { name: 'Design workspace', exact: true })).toBeChecked();
+    await expect(page.getByTestId('logo-panel')).toBeVisible();
   });
 
   test('New Logo Project creates an artboard + concept and selects it', async ({ page }) => {

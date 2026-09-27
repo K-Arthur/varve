@@ -53,9 +53,25 @@ describe('WorkspaceTabs', () => {
   it('renders every workspace as a labelled radio', () => {
     render(<WorkspaceTabs />);
     const group = screen.getByRole('radiogroup', { name: 'Workspace' });
-    for (const label of ['Design', 'Print', 'Draw', 'Photo', 'Motion', 'Codegen', 'Logo']) {
+    const workspaceOrder = ['Design', 'Print', 'Draw', 'Photo', 'Motion', 'Email'];
+    for (const label of workspaceOrder) {
       expect(within(group).getByRole('radio', { name: new RegExp(label) })).toBeTruthy();
     }
+    expect(
+      [...group.querySelectorAll('[role="radio"]')].map((tab) => tab.getAttribute('data-mode')),
+    ).toEqual(['design', 'print', 'drawing', 'image', 'motion', 'email']);
+    expect(
+      [...group.querySelectorAll('[role="radio"]')].map((tab) =>
+        tab.getAttribute('aria-keyshortcuts'),
+      ),
+    ).toEqual([
+      'Control+Shift+1',
+      'Control+Shift+2',
+      'Control+Shift+3',
+      'Control+Shift+4',
+      'Control+Shift+5',
+      'Control+Shift+6',
+    ]);
     expect(within(group).getByRole('radio', { name: /Design/ })).toHaveAttribute(
       'aria-checked',
       'true',
@@ -74,11 +90,11 @@ describe('WorkspaceTabs', () => {
     render(<WorkspaceTabs />);
     screen.getByRole('radio', { name: 'Design workspace' }).focus();
     await user.keyboard('{ArrowRight}');
-    const draw = screen.getByRole('radio', { name: 'Draw workspace' });
+    const print = screen.getByRole('radio', { name: 'Print workspace' });
     // Without this, a second arrow press would be computed from the stale
     // focused tab and could wrap to the wrong neighbour.
-    await waitFor(() => expect(document.activeElement).toBe(draw));
-    expect(requestWorkspaceSwitch).toHaveBeenLastCalledWith('drawing');
+    await waitFor(() => expect(document.activeElement).toBe(print));
+    expect(requestWorkspaceSwitch).toHaveBeenLastCalledWith('print');
   });
 
   it('keeps an accessible label even when the visual label is hidden', () => {
@@ -93,16 +109,7 @@ describe('WorkspaceTabs', () => {
     const icons = [...document.querySelectorAll('[data-workspace-icon]')].map((icon) =>
       icon.getAttribute('data-workspace-icon'),
     );
-    expect(icons).toEqual([
-      'LayoutDashboard',
-      'Brush',
-      'Photo',
-      'Printer',
-      'Play',
-      'Code',
-      'FileText',
-      'Badge',
-    ]);
+    expect(icons).toEqual(['LayoutDashboard', 'Printer', 'Brush', 'Photo', 'Play', 'FileText']);
     expect(new Set(icons).size).toBe(icons.length);
     expect(document.querySelectorAll('[data-icon-family="tabler"]').length).toBe(icons.length);
   });
@@ -119,7 +126,7 @@ describe('WorkspaceTabs', () => {
 
   it('keeps the overflow trigger outside the radiogroup', () => {
     // Force an overflow layout: the mocked measurement runs because
-    // clientWidth is non-zero, and the real math will not fit eight tabs in
+    // clientWidth is non-zero, and the real math will not fit all six tabs in
     // 220px.
     withLayoutWidth(220);
     render(<WorkspaceTabs />);

@@ -76,8 +76,6 @@ const WORKSPACE_ICON_NAMES: Record<WorkspaceMode, TablerIconName> = {
   drawing: 'Brush',
   image: 'Photo',
   motion: 'Play',
-  codegen: 'Code',
-  logo: 'Badge',
   email: 'FileText',
 };
 

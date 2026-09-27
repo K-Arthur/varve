@@ -108,11 +108,14 @@ The menubar is a flex chain —
 overlap. The title truncates with an ellipsis (`min-width: 0`).
 The switcher (`.workspace-dock`, `WorkspaceTabs.tsx`) is data-driven:
 
-- `WORKSPACE_OVERFLOW_ORDER` (display order): Design, Draw, Photo, Print,
-  Motion, Email.
+- `WORKSPACE_OVERFLOW_ORDER` (display and keyboard order): Design, Print, Draw,
+  Photo, Motion, Email (`Ctrl+Shift+1` through `Ctrl+Shift+6`; `⌘⇧1` through
+  `⌘⇧6` on macOS).
 - `WORKSPACE_OVERFLOW_PRIORITY`: Design never overflows; specialist workspaces
   move into overflow as space narrows. Logo and Code are workflow surfaces,
-  not switcher entries.
+  not switcher entries. `Ctrl+Shift+7` opens Design with Logo Tools shown;
+  `Ctrl+Shift+8` opens the shared Code panel without changing the workspace.
+  On macOS both use Command+Shift with the same numbers.
 - `computeWorkspaceLayout` (pure, unit-tested) decides visible vs. overflow
   tabs from measured widths plus the measured inter-tab `column-gap`; the
   active mode is always visible and named (a lower-priority tab is evicted to

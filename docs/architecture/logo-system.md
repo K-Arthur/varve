@@ -14,7 +14,7 @@ palette) layered over regular artboard frames.
 
 | Layer | Files | Responsibility |
 |---|---|---|
-| Workspace access | Design workspace + `packages/editor/src/components/LogoPanel/` | Logo tools and brand-project workflows within Design; legacy `Ctrl+Shift+6` opens Design and reveals Logo Tools |
+| Workspace access | Design workspace + `packages/editor/src/components/LogoPanel/` | Logo tools and brand-project workflows within Design; `Ctrl+Shift+7` opens Design and reveals Logo Tools |
 | Presets | `packages/shared/src/presetRegistry.ts` (`LOGO_GROUP`) | Transparent-canvas logo presets (square/horizontal/vertical/badge/mark/favicon) |
 | Project model | `packages/scene/src/logo/logoProject.ts` | LogoProject/Concept/Variant/Brief/Palette types + pure ops + `normalizeLogoProject` |
 | Document schema | `Document.logoProject` + migration `2.11 → 2.12` | Serialization, codec normalize step |

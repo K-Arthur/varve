@@ -50,8 +50,8 @@ async function navigateToEditor(
 }
 
 async function switchToEmailWorkspace(page: import('@playwright/test').Page): Promise<void> {
-  // Use keyboard shortcut Ctrl+Shift+7 to switch to email workspace
-  await page.keyboard.press('Control+Shift+7');
+  // Use keyboard shortcut Ctrl+Shift+6 to switch to email workspace
+  await page.keyboard.press('Control+Shift+6');
   // Wait for workspace to switch
   await page.waitForTimeout(500);
 }

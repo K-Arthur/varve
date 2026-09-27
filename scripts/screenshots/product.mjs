@@ -1094,7 +1094,8 @@ const SCENES = [
     theme: 'light',
     feature: 'workspaces',
     alt: 'The Varve menubar workspace switcher with the Print workspace selected, showing the panel and toolbar layout that workspace applies',
-    caption: 'Task-focused workspaces — each remembers its own panels, toolbar, and inspector.',
+    caption:
+      'Six task workspaces in keyboard order — Print selected with its own panels, toolbar, and inspector.',
     async run(page) {
       await openCleanEditor(page);
       await openDemoDocument(page, 'poster');
@@ -1102,6 +1103,20 @@ const SCENES = [
       await fitContent(page);
       const group = page.getByRole('radiogroup', { name: 'Workspace' });
       await group.waitFor({ state: 'visible', timeout: 8000 });
+      const workspaceOrder = await group
+        .getByRole('radio')
+        .evaluateAll((tabs) => tabs.map((tab) => tab.getAttribute('aria-label')));
+      const expectedOrder = [
+        'Design workspace',
+        'Print workspace',
+        'Draw workspace',
+        'Photo workspace',
+        'Motion workspace',
+        'Email workspace',
+      ];
+      if (JSON.stringify(workspaceOrder) !== JSON.stringify(expectedOrder)) {
+        throw new Error(`Workspace switcher order mismatch: ${workspaceOrder.join(', ')}`);
+      }
       const printTab = group.getByRole('radio', { name: /print workspace/i });
       if (!(await printTab.isVisible({ timeout: 4000 }).catch(() => false))) {
         throw new Error('Print workspace tab not present in the workspace switcher');

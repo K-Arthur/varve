@@ -9,8 +9,7 @@ const WORKSPACES = [
   ['drawing', 'Draw'],
   ['image', 'Photo'],
   ['motion', 'Motion'],
-  ['codegen', 'Codegen'],
-  ['logo', 'Logo'],
+  ['email', 'Email'],
 ] as const;
 
 async function switchWorkspace(page: import('@playwright/test').Page, label: string) {
@@ -47,13 +46,13 @@ test.describe('workspace toolbar visual QA', () => {
       expect(toolbarBox.x + toolbarBox.width).toBeLessThanOrEqual(
         canvasBox.x + canvasBox.width + 1,
       );
-      if (mode === 'codegen') {
-        // Codegen renders a workflow panel in the same canvas grid area. The
-        // recovery toolbar must remain above that panel and pointer-accessible.
+      if (mode === 'email') {
+        // Email adds authoring and preview surfaces. The recovery toolbar
+        // must remain above the workspace panels and pointer-accessible.
         const select = toolbar.locator('[data-tool="select"]');
         await select.click();
         await expect(select).toHaveAttribute('aria-pressed', 'true');
-        await page.screenshot({ path: testInfo.outputPath('workspace-codegen-full.png') });
+        await page.screenshot({ path: testInfo.outputPath('workspace-email-full.png') });
       }
       await toolbar.screenshot({ path: testInfo.outputPath(`toolbar-${mode}.png`) });
     }

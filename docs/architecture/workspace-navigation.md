@@ -1,9 +1,12 @@
 # Workspace Navigation — unified model, effective configuration, deep links
 
-Status: current-state (2026-08-05). Companion tracker:
+Status: historical pre-consolidation audit snapshot (2026-08-05). Its findings
+describe the state before the six-workspace implementation and are not a
+current-state contract. See `docs/architecture/workspace-system.md` for current
+mode, shortcut, and persistence behavior. Companion tracker:
 `docs/plans/archived/workspace-navigation-progress.md`.
 
-## 1. Current-state map (audit, 2026-08-05)
+## 1. Before-change map (audit, 2026-08-05)
 
 The audit traced every navigation-related surface before changing code. Each
 row: state owner / UI surface / input path / persistence / tests / gaps.

@@ -12,6 +12,7 @@ import {
 import { describe, expect, it } from 'vitest';
 import { EditorProvider } from '../../../context';
 import { EmailPanel } from './EmailPanel';
+import { EmailPreviewPanel } from './EmailPreviewPanel';
 
 function emailDocument(includeOrphanSource = false) {
   const initial = createDocument('Email test');
@@ -36,6 +37,7 @@ describe('EmailPanel', () => {
     render(
       <EditorProvider>
         <EmailPanel />
+        <EmailPreviewPanel />
       </EditorProvider>,
     );
 
@@ -44,17 +46,17 @@ describe('EmailPanel', () => {
     await waitFor(() => expect(screen.getByTitle('Email browser preview')).toBeVisible());
     expect(screen.getByRole('button', { name: 'Desktop' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Mobile' })).toBeVisible();
-    expect(screen.queryByRole('region', { name: 'Generated email HTML (read-only)' })).toBeNull();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Mobile' }));
-    expect(document.querySelector('.email-panel__preview-frame--mobile')).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Code' }));
+    expect(screen.getByTestId('email-output-panel')).toHaveAttribute('data-panel', 'emailOutput');
+    expect(screen.getByTestId('email-output-panel')).toBeVisible();
     expect(
       screen.getByRole('region', { name: 'Generated email HTML (read-only)' }),
     ).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Plain text' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Mobile' }));
+    expect(document.querySelector('.email-panel__preview-frame--mobile')).toBeInTheDocument();
+    expect(
+      screen.getByRole('region', { name: 'Generated email HTML (read-only)' }),
+    ).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Generated email plain text' })).toBeInTheDocument();
   });
 
@@ -81,6 +83,7 @@ describe('EmailPanel', () => {
     render(
       <EditorProvider initialDocumentJson={JSON.stringify(emailDocument())}>
         <EmailPanel />
+        <EmailPreviewPanel />
       </EditorProvider>,
     );
 
@@ -89,7 +92,6 @@ describe('EmailPanel', () => {
     fireEvent.click(screen.getByRole('switch', { name: 'Preview sample values' }));
     await waitFor(() => expect(preview.getAttribute('srcdoc')).toContain('Avery'));
 
-    fireEvent.click(screen.getByRole('button', { name: 'Code' }));
     const generated = screen.getByRole('textbox', { name: 'Generated email HTML' });
     expect((generated as HTMLTextAreaElement).value).toContain('{{firstName}}');
     expect((generated as HTMLTextAreaElement).value).not.toContain('Avery');

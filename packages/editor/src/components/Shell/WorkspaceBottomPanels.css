@@ -1,0 +1,56 @@
+.workspace-bottom-panels {
+  grid-area: timeline;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  max-height: 220px;
+  overflow: hidden;
+  border-top: var(--border-micro);
+  background: var(--elevation-surface-default);
+  box-shadow: 0 -1px 4px rgb(0 0 0 / 0.04);
+}
+
+.workspace-bottom-panels__timeline,
+.workspace-bottom-panels__email-preview {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+}
+
+.workspace-bottom-panels__email-preview .email-preview-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  height: 100%;
+  min-height: 0;
+  padding: var(--space-2);
+  overflow: auto;
+}
+
+.workspace-bottom-panels__email-preview .email-preview-panel__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.workspace-bottom-panels__email-preview .email-panel__preview-frame,
+.workspace-bottom-panels__email-preview .email-panel__preview {
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+.workspace-bottom-panels__timeline {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.workspace-bottom-panels--split > * + * {
+  border-left: var(--border-micro);
+}
+
+.editor-shell--motion .workspace-bottom-panels {
+  max-height: 280px;
+}

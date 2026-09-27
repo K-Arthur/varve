@@ -27,14 +27,17 @@ import '../../styles/docs-prose.css';
           The demo is a bounded browser build, not a hosted replacement for the desktop app. It
           includes the Design, Draw, and Photo workspaces with the shared scene model, tools,
           undo/redo, layers, and Inspector. Print production (PDF, CMYK, bleed, colour-managed
-          output), on-device inference (background removal, upscaling, visual search), and the
-          Motion, Codegen, Logo, and Email workspaces remain desktop-only, and the interface says so
-          where those features would appear.
+          output), on-device inference (background removal, upscaling, visual search), Motion and
+          Email authoring remain outside this bounded demo. Logo tools are part of Design and Code
+          export is a shared panel; their availability follows the enabled browser capabilities.
+          The interface identifies unavailable capabilities where they appear.
         </p>
         <p>
-          The engine loads as WebAssembly and renders with Canvas2D in a browser tab. On this host
-          the page is not cross-origin isolated, so multi-threaded WASM is unavailable and large
-          documents render more slowly than in the desktop application.
+          The engine loads as WebAssembly and renders with Canvas2D in a browser tab. The public
+          varve.studio demo is hosted on GitHub Pages, which cannot configure the cross-origin
+          isolation headers required for shared-memory WASM, so multi-threaded WASM is unavailable
+          in this deployment. That hosting limitation does not describe every browser deployment
+          or establish a general speed comparison with desktop.
         </p>
       </section>
 
@@ -43,11 +46,14 @@ import '../../styles/docs-prose.css';
         <p>
           The browser build measures the cadence of the actual animation frames
           and keeps a small amount of CPU and memory headroom. During an active
-          drag or zoom it may use a lower preview backing scale, then promotes
-          the settled frame back to the full device-pixel resolution. Text,
-          selection handles, hit testing, exports, and saved originals keep
-          their document coordinates and fidelity; the preview is never a
-          resampling of your file.
+          drag or zoom it may use a lower preview backing scale; pan and zoom
+          may also briefly reproject the latest worker frame while a replacement
+          is prepared. That preview can look soft or incomplete until the current
+          state is painted. Varve requests an authoritative redraw after input
+          stops, with warm targets of 500&nbsp;ms for ordinary work and 1&nbsp;s
+          for heavy work once required assets are ready. These are targets, not
+          guarantees. Exports use an independent full-fidelity path, and saved
+          document geometry is not changed by preview rendering.
         </p>
         <p>
           Thumbnails, raster pyramids, and semantic indexing are background
@@ -222,7 +228,9 @@ import '../../styles/docs-prose.css';
         </p>
         <p>
           ChromeOS owns some keyboard combinations. Varve switches workspaces with{' '}
-          <code>Ctrl+Shift+1…7</code> (not the browser's <code>Ctrl+1…8</code> tab switches).
+          <code>Ctrl+Shift+1…6</code> for workspaces, then <code>Ctrl+Shift+7</code> for Logo Tools
+          and <code>Ctrl+Shift+8</code> for the shared Code panel (not the browser's
+          <code>Ctrl+1…8</code> tab switches). On macOS, use Command+Shift with the same numbers.
           Combinations such as <code>Ctrl+T</code>, <code>Ctrl+W</code>,
           <code>Ctrl+Shift+I</code>, and <code>Ctrl+P</code> belong to the browser, so use the
           menu, tab strip, or command palette for those actions in the browser demo.

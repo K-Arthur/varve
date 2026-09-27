@@ -28,10 +28,11 @@ import FeatureVisual from '../../components/FeatureVisual.astro';
           and Email all operate on the same document, selection, viewport, and undo
           history — switching workspaces never forks your work, and switching back restores what
           you left. Switch from the menubar switcher, the View &gt; Workspace menu, the command
-          palette, or <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>1</kbd>…<kbd>5</kbd> and
-          <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>7</kbd>; the active workspace is always named, and
-          workspaces that don't fit stay in the switcher's overflow menu. Logo Tools and Code have
-          dedicated shortcuts that reveal those shared surfaces without adding workspace tabs.
+          palette, or <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>1</kbd>…<kbd>6</kbd> in the same order
+          as the switcher; the active workspace is always named, and workspaces that don't fit stay
+          in the switcher's overflow menu. On macOS, use Command+Shift with the same numbers. Logo
+          Tools and Code use Ctrl+Shift+7 and Ctrl+Shift+8, without adding workspace tabs; on
+          macOS, use Command+Shift with the same numbers.
         </p>
         <ul>
           <li><strong>Design</strong> — UI/UX design, components, tokens, responsive layouts, prototyping, Logo tools, and developer handoff.</li>
@@ -62,7 +63,7 @@ import FeatureVisual from '../../components/FeatureVisual.astro';
           and saved per mode:
         </p>
         <ul>
-          <li><strong>Panels</strong> — show or hide Layers, Inspector, Timeline, Resources, the shared Code panel, Logo tools, and History panels per workspace.</li>
+          <li><strong>Panels</strong> — show or hide Layers, Inspector, Timeline, Email Preview, Email Output, Resources, shared Code, Logo tools, and History per workspace.</li>
           <li><strong>Toolbar</strong> — reorder and hide tools, including tools that live inside flyout groups such as boolean operations and retouch brushes, and choose whether the palette floats at the top or bottom of the canvas. Select, Hand, and Zoom always stay available so the canvas can never strand you.</li>
           <li><strong>Inspector tabs</strong> — visibility per workspace, with the contextual Design/Properties surface, workflow tabs such as Adjustments or Prototype, and output tabs such as Export.</li>
           <li><strong>Status bar sections</strong> — active tool, cursor position, zoom, units, layout score, preflight, and more.</li>
@@ -77,7 +78,7 @@ import FeatureVisual from '../../components/FeatureVisual.astro';
           The canvas minimap lives with the Layers surface when that panel is available, while its
           visibility is a separate View preference. It follows the active design canvas or publishing
           pasteboard across workspace changes and remains recoverable from View, the command palette,
-          or <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>M</kbd>.
+          or <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>M</kbd> (Command+Shift+M on macOS).
         </p>
       </section>
 
@@ -91,16 +92,16 @@ import FeatureVisual from '../../components/FeatureVisual.astro';
       </section>
 
       <section class="feature-section note">
-        <h2>Collapsible floating containers & panel windows</h2>
+        <h2>Workspace panels and desktop windows</h2>
         <p>
-          Side panels elevate above the central canvas in instrument-grade opaque containers. Every panel
-          features dedicated one-click collapse toggles and keyboard shortcuts, allowing instant collapse to
-          reclaim full canvas canvas area. Desktop builds can also detach Layers, Inspector, Assets, Code,
-          and Logo into independent windows with automatic boundary clamping.
+          Choose which supported panels are visible in each workspace, resize the Layers, Inspector, and
+          Resources areas, and recover hidden panels from the View menu. Desktop builds can detach Layers,
+          Inspector, Assets, Code, and Logo as individual windows and reattach them to the editor. Browser
+          builds keep panels in the main window; free-form in-window docking is not currently available.
         </p>
         <p>
-          The top navigation bar features a compact, modular toolbar with context-aware shortcuts that
-          dynamically adjust to selected layers, bringing critical tools and hotkeys right to your fingertips.
+          These controls preserve one document and editor history across workspaces. Panel windows remain
+          connected to the same document, selection, and undo history.
         </p>
       </section>
 

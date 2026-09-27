@@ -49,7 +49,9 @@ export type PanelId =
   | 'library'
   | 'codegen'
   | 'logo'
-  | 'history';
+  | 'history'
+  | 'emailPreview'
+  | 'emailOutput';
 
 /** Runtime enumeration of every panel id — the validation source for imports. */
 export const ALL_PANEL_IDS: readonly PanelId[] = [
@@ -61,6 +63,8 @@ export const ALL_PANEL_IDS: readonly PanelId[] = [
   'codegen',
   'logo',
   'history',
+  'emailPreview',
+  'emailOutput',
 ];
 
 export interface PanelConfig {
@@ -451,6 +455,8 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       codegen: { visible: false },
       logo: { visible: false },
       history: { visible: false },
+      emailPreview: { visible: false },
+      emailOutput: { visible: false },
     },
     floatingToolbar: true,
     statusBar: true,
@@ -556,6 +562,8 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       codegen: { visible: false },
       logo: { visible: false },
       history: { visible: false },
+      emailPreview: { visible: false },
+      emailOutput: { visible: false },
     },
     defaultTool: 'select',
     floatingToolbar: true,
@@ -663,6 +671,8 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       codegen: { visible: false },
       logo: { visible: false },
       history: { visible: false },
+      emailPreview: { visible: false },
+      emailOutput: { visible: false },
     },
     defaultTool: 'paint',
     floatingToolbar: true,
@@ -767,6 +777,8 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       codegen: { visible: false },
       logo: { visible: false },
       history: { visible: false },
+      emailPreview: { visible: false },
+      emailOutput: { visible: false },
     },
     floatingToolbar: true,
     statusBar: true,
@@ -883,6 +895,8 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       codegen: { visible: false },
       logo: { visible: false },
       history: { visible: false },
+      emailPreview: { visible: false },
+      emailOutput: { visible: false },
     },
     defaultTool: 'select',
     floatingToolbar: true,
@@ -978,6 +992,8 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       codegen: { visible: false },
       logo: { visible: false },
       history: { visible: false },
+      emailPreview: { visible: true },
+      emailOutput: { visible: true },
     },
     defaultTool: 'select',
     floatingToolbar: true,
@@ -1119,19 +1135,11 @@ export function resolveWorkspaceMode(mode: WorkspaceModeInput): WorkspaceMode {
 }
 
 /**
- * Top-bar display order for the workspace switcher — data-driven, single source of
- * truth for how many modes the menubar shows at any width. Design, Draw, and
- * Photo lead; specialist task workspaces move into the "More" menu as space
- * narrows.
+ * Top-bar display order for the workspace switcher. Keep it aligned with the
+ * canonical workspace taxonomy and the 1–6 shortcut order so the strip, its
+ * overflow menu, and keyboard navigation all tell the same story.
  */
-export const WORKSPACE_OVERFLOW_ORDER: readonly WorkspaceMode[] = [
-  'design',
-  'drawing',
-  'image',
-  'print',
-  'motion',
-  'email',
-] as const;
+export const WORKSPACE_OVERFLOW_ORDER: readonly WorkspaceMode[] = ALL_WORKSPACE_MODES;
 
 /**
  * Overflow priority per mode — higher values leave the visible tab strip
@@ -1139,9 +1147,9 @@ export const WORKSPACE_OVERFLOW_ORDER: readonly WorkspaceMode[] = [
  */
 export const WORKSPACE_OVERFLOW_PRIORITY: Record<WorkspaceMode, number> = {
   design: 0,
+  print: 1,
   drawing: 2,
-  image: 2,
-  print: 3,
+  image: 3,
   motion: 4,
   email: 5,
 };
@@ -1397,6 +1405,8 @@ export function migrateWorkspaceConfig(
       codegen: base.panels.codegen,
       logo: base.panels.logo,
       history: base.panels.history,
+      emailPreview: base.panels.emailPreview,
+      emailOutput: base.panels.emailOutput,
     };
 
     return {

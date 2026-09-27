@@ -33,7 +33,7 @@ import { handleMenubarKey } from './menu/menubarKeynav';
 import { MenubarSubmenu, menubarItemAriaChecked, menubarItemRole } from './menu/menubarSubmenu';
 import { labelWithFallback, type RecentEntry, useRecentFiles } from './recentFiles';
 import { loadSettings } from './settings';
-import { formatShortcut, getEffectiveBinding } from './shortcuts';
+import { formatShortcut, getEffectiveBinding, isMac } from './shortcuts';
 import { useEffectiveWorkspaceConfig } from './workspace/useWorkspaceConfig';
 import { resolveToolbarPlacement, type WorkspaceMode } from './workspace/workspaceTypes';
 
@@ -58,7 +58,7 @@ const THEMES: { id: ThemePreference; label: string }[] = [
   { id: 'high-contrast', label: 'High Contrast' },
 ];
 
-/** Build a shortcut key string for aria-keyshortcuts (platform-independent, e.g. "Ctrl+G"). */
+/** Build an aria-keyshortcuts token (platform-independent, e.g. "Control+G"). */
 function ariaShortcut(binding: {
   key: string;
   ctrl?: boolean;
@@ -66,7 +66,7 @@ function ariaShortcut(binding: {
   alt?: boolean;
 }): string {
   const parts: string[] = [];
-  if (binding.ctrl) parts.push('Ctrl');
+  if (binding.ctrl) parts.push(isMac() ? 'Meta' : 'Control');
   if (binding.shift) parts.push('Shift');
   if (binding.alt) parts.push('Alt');
   parts.push(binding.key.length === 1 ? binding.key.toUpperCase() : binding.key);
@@ -404,11 +404,11 @@ function buildMenus(
       case 'workspaceMotion':
         return !isWorkspaceModeAllowed('motion');
       case 'workspaceLogo':
-        return !isWorkspaceModeAllowed('logo');
+        return !isWorkspaceModeAllowed('design');
       case 'workspaceEmail':
         return !isWorkspaceModeAllowed('email');
       case 'workspaceCodegen':
-        return !isWorkspaceModeAllowed('codegen');
+        return false;
       case 'createMaster':
         return currentPageIsMaster;
       case 'applyMaster':
@@ -1088,7 +1088,13 @@ function buildMenus(
               action: 'openFontsPanel',
             },
             {
-              label: 'Logo Panel',
+              label: 'Code Panel',
+              shortcut: shortcutText('toggleCodegenPanel'),
+              ariaKeyshortcut: ks('toggleCodegenPanel'),
+              action: 'toggleCodegenPanel',
+            },
+            {
+              label: 'Logo Tools Panel',
               shortcut: shortcutText('toggleLogoPanel'),
               ariaKeyshortcut: ks('toggleLogoPanel'),
               action: 'toggleLogoPanel',
@@ -1137,17 +1143,22 @@ function buildMenus(
               disabled: dis('workspaceMotion'),
             },
             {
-              label: 'Workspace: Logo',
-              action: 'workspaceLogo',
-              disabled: dis('workspaceLogo'),
-            },
-            {
               label: 'Workspace: Email',
               action: 'workspaceEmail',
               disabled: dis('workspaceEmail'),
             },
+            { label: '---' },
             {
-              label: 'Workspace: Codegen',
+              label: 'Show Logo Tools in Design',
+              shortcut: shortcutText('workspaceLogo'),
+              ariaKeyshortcut: ks('workspaceLogo'),
+              action: 'workspaceLogo',
+              disabled: dis('workspaceLogo'),
+            },
+            {
+              label: 'Show Code Panel',
+              shortcut: shortcutText('workspaceCodegen'),
+              ariaKeyshortcut: ks('workspaceCodegen'),
               action: 'workspaceCodegen',
               disabled: dis('workspaceCodegen'),
             },
@@ -1761,48 +1772,48 @@ function separatorKey(items: MenuItem[], current: MenuItem, parentLabel: string)
  * Absent from this map = shown in all workspaces.
  */
 const WORKSPACE_ITEM_FILTER: Record<string, WorkspaceMode[]> = {
-  // Text menu — hidden in codegen
-  textBold: ['design', 'print', 'drawing', 'image', 'motion', 'logo'],
-  textItalic: ['design', 'print', 'drawing', 'image', 'motion', 'logo'],
-  textUnderline: ['design', 'print', 'drawing', 'image', 'motion', 'logo'],
-  textIncreaseSize: ['design', 'print', 'drawing', 'image', 'motion', 'logo'],
-  textDecreaseSize: ['design', 'print', 'drawing', 'image', 'motion', 'logo'],
-  textAlignLeft: ['design', 'print', 'drawing', 'image', 'motion', 'logo'],
-  textAlignCenter: ['design', 'print', 'drawing', 'image', 'motion', 'logo'],
-  textAlignRight: ['design', 'print', 'drawing', 'image', 'motion', 'logo'],
-  textAlignJustify: ['design', 'print', 'drawing', 'image', 'motion', 'logo'],
-  textToOutlines: ['design', 'print', 'drawing', 'logo'],
+  // Text formatting remains available in each authoring workspace.
+  textBold: ['design', 'print', 'drawing', 'image', 'motion', 'email'],
+  textItalic: ['design', 'print', 'drawing', 'image', 'motion', 'email'],
+  textUnderline: ['design', 'print', 'drawing', 'image', 'motion', 'email'],
+  textIncreaseSize: ['design', 'print', 'drawing', 'image', 'motion', 'email'],
+  textDecreaseSize: ['design', 'print', 'drawing', 'image', 'motion', 'email'],
+  textAlignLeft: ['design', 'print', 'drawing', 'image', 'motion', 'email'],
+  textAlignCenter: ['design', 'print', 'drawing', 'image', 'motion', 'email'],
+  textAlignRight: ['design', 'print', 'drawing', 'image', 'motion', 'email'],
+  textAlignJustify: ['design', 'print', 'drawing', 'image', 'motion', 'email'],
+  textToOutlines: ['design', 'print', 'drawing'],
 
   // View menu — mode-specific panels
-  inspectMode: ['design', 'print', 'drawing', 'image', 'motion', 'logo'],
+  inspectMode: ['design', 'print', 'drawing', 'image', 'motion', 'email'],
   toggleTimelinePanel: ['design', 'motion'],
   toggleGraphEditor: ['design', 'motion'],
   toggleStateMachinePanel: ['design', 'motion'],
-  toggleLogoPanel: ['logo'],
+  toggleLogoPanel: ['design'],
   toggleBeforeAfterCompare: ['design', 'print', 'drawing', 'image'],
 
   // Object menu — mode-specific
   newAdjustmentLayer: ['design', 'print', 'image'],
-  createClippingMask: ['design', 'print', 'drawing', 'image', 'logo'],
-  releaseClippingMask: ['design', 'print', 'drawing', 'image', 'logo'],
+  createClippingMask: ['design', 'print', 'drawing', 'image'],
+  releaseClippingMask: ['design', 'print', 'drawing', 'image'],
   batchBgRemove: ['design', 'image'],
   contentAwareFill: ['design', 'drawing', 'image'],
   toolCrop: ['design', 'print', 'image'],
   toolPerspective: ['design', 'print', 'image'],
   extractPalette: ['design', 'drawing', 'image'],
-  addAlphaMask: ['design', 'print', 'drawing', 'image', 'logo'],
-  addClipMask: ['design', 'print', 'drawing', 'image', 'logo'],
-  addLuminanceMask: ['design', 'print', 'drawing', 'image', 'logo'],
-  removeMask: ['design', 'print', 'drawing', 'image', 'logo'],
-  toggleMask: ['design', 'print', 'drawing', 'image', 'logo'],
-  invertMask: ['design', 'print', 'drawing', 'image', 'logo'],
-  flattenSelection: ['design', 'print', 'drawing', 'image', 'logo'],
-  rasterizeSelection: ['design', 'print', 'drawing', 'image', 'logo'],
-  mergeSelected: ['design', 'print', 'drawing', 'image', 'logo'],
-  booleanUnion: ['design', 'print', 'drawing', 'logo'],
-  booleanSubtract: ['design', 'print', 'drawing', 'logo'],
-  booleanIntersect: ['design', 'print', 'drawing', 'logo'],
-  booleanExclude: ['design', 'print', 'drawing', 'logo'],
+  addAlphaMask: ['design', 'print', 'drawing', 'image'],
+  addClipMask: ['design', 'print', 'drawing', 'image'],
+  addLuminanceMask: ['design', 'print', 'drawing', 'image'],
+  removeMask: ['design', 'print', 'drawing', 'image'],
+  toggleMask: ['design', 'print', 'drawing', 'image'],
+  invertMask: ['design', 'print', 'drawing', 'image'],
+  flattenSelection: ['design', 'print', 'drawing', 'image'],
+  rasterizeSelection: ['design', 'print', 'drawing', 'image'],
+  mergeSelected: ['design', 'print', 'drawing', 'image'],
+  booleanUnion: ['design', 'print', 'drawing'],
+  booleanSubtract: ['design', 'print', 'drawing'],
+  booleanIntersect: ['design', 'print', 'drawing'],
+  booleanExclude: ['design', 'print', 'drawing'],
 
   // Page menu — multi-page only
   createMaster: ['design', 'print'],

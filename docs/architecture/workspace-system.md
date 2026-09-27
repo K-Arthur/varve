@@ -173,9 +173,9 @@ merging by variant `updatedAt` and deletion tombstone time.
   preference and layout stores hydrate. Stable migration ids make this
   idempotent; Design preferences are not rewritten. If the layout store has
   reached its 50-variant limit, the old preference is retained for recovery.
-- The former `Ctrl+Shift+6` action opens Design and reveals Logo Tools. The
-  former `Ctrl+Shift+9` action reveals the shared Code panel in the current
-  workspace. Neither action selects a retired mode.
+- `Ctrl+Shift+7` opens Design and reveals Logo Tools. `Ctrl+Shift+8` reveals
+  the shared Code panel in the current workspace. These are commands, not
+  workspace switches; they never select a retired mode.
 
 ## Product taxonomy
 
@@ -186,7 +186,19 @@ merging by variant `updatedAt` and deletion tombstone time.
 | Draw | `Ctrl+Shift+3` | Raster painting, vector freehand, brushes |
 | Photo | `Ctrl+Shift+4` | Nondestructive photo editing and adjustments |
 | Motion | `Ctrl+Shift+5` | Timeline animation and keyframes |
-| Email | `Ctrl+Shift+7` | Email-specific structure, responsive preview, compatibility checks, and export |
+| Email | `Ctrl+Shift+6` | Email-specific structure, responsive preview, compatibility checks, and export |
+
+The workspace switcher follows this same order and each tab resolves its
+shortcut label from `workspaceShortcutLabel(mode)`. Dedicated workflow actions
+follow the six mode keys: `Ctrl+Shift+7` shows Logo Tools in Design and
+`Ctrl+Shift+8` shows the shared Code panel. The legacy action ids
+`workspaceLogo` and `workspaceCodegen` remain in the shortcut registry for
+compatibility, but they are not workspace modes or radio items.
+On macOS, the platform shortcut formatter displays Command+Shift with the same
+numbers.
+
+The product taxonomy and shortcut-order decision is recorded in
+[ADR-0239](../adr/0239-six-task-workspaces-and-ordered-shortcuts.md).
 
 Logo-specific project data remains in `Document.logoProject`; invoking Logo
 Tools from another task first selects Design. Code export remains available
@@ -254,10 +266,12 @@ become the active tool.
 id and has no per-workspace layer. A `shortcuts.extra` map in the workspace
 config declared per-mode bindings that nothing registered, so the config
 advertised keys that did nothing when pressed. Switch shortcuts are resolved
-for display with `workspaceShortcutLabel(mode)`, never from a literal — a
-hard-coded `WORKSPACE_SHORTCUTS` table still claimed Ctrl+Shift+D/P/R/I/M long
-after those keys were reassigned to Repeat Duplicate, Present, Invert
-Selection, and Preview Mode.
+for display with `workspaceShortcutLabel(mode)`, never from a literal. An old
+shortcut table once claimed Ctrl+Shift+D/P/R/I/M long after those keys were
+reassigned to Repeat Duplicate, Present, Invert Selection, and Preview Mode.
+The live mode assignments are now sequential (`Ctrl+Shift+1` through
+`Ctrl+Shift+6`) in the same order as the switcher; Logo and Code use separate
+action shortcuts. On macOS these use Command+Shift with the same numbers.
 
 **Renderer policy.** A `performance` block (worker renderer, subtree cache,
 viewport culling, image-cache size, layer thumbnails, real-time preview) had no

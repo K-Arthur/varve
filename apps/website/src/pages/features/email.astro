@@ -18,6 +18,11 @@ import { sitePath } from '../../lib/siteUrl';
         checks. Those constraints give it a dedicated workspace while keeping its artwork in the
         same Varve document model.
       </p>
+      <p>
+        The workspace opens on Email authoring, with Email Preview below the canvas and Email Output
+        in the inspector. Output includes generated HTML, plain text, source mapping, and the saved
+        authored-source list.
+      </p>
 
       <section class="feature-section">
         <h2>Author, inspect, and export</h2>
@@ -50,11 +55,11 @@ import { sitePath } from '../../lib/siteUrl';
 
 <style>
   .feature-page { max-width: 800px; margin: 0 auto; padding: 3rem 0; }
-  .breadcrumb { font-size: .875rem; margin-bottom: 1.5rem; }
+  .breadcrumb { font-size: var(--type-interface-caption-size); margin-bottom: 1.5rem; }
   .breadcrumb a { color: var(--text-secondary); }
-  .feature-intro { font-size: 1.25rem; color: var(--text-secondary); margin: 1rem 0 3rem; line-height: 1.7; }
+  .feature-intro { font-size: var(--type-content-lead-size); color: var(--text-secondary); margin: 1rem 0 3rem; line-height: 1.7; }
   .feature-section { margin: 0 0 3rem; }
-  .feature-section h2 { font-size: 1.5rem; margin-bottom: 1rem; color: var(--text-primary); }
+  .feature-section h2 { font-size: var(--type-interface-heading-size); margin-bottom: 1rem; color: var(--text-primary); }
   .feature-section p, .feature-section li { color: var(--text-secondary); line-height: 1.7; }
   .feature-section li + li { margin-top: .65rem; }
   .feature-note { border-left: 3px solid var(--accent-primary); padding-left: 1rem; }

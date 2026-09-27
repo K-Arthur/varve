@@ -1,5 +1,6 @@
 import { createDocument } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
+import { ALL_WORKSPACE_MODES, type WorkspaceMode } from '../../workspace/workspaceTypes';
 import { getAllMenuDefs, getCanvasContextMenuDefs } from '../defs';
 import { buildIntelFacts, buildMenuContext, detectPlatformFacts } from '../facts';
 import { renderMenubarItems, renderMenuItems } from '../renderer';
@@ -15,7 +16,7 @@ const EMPTY_SELECTION: string[] = [];
 
 function buildCtx(
   selection: string[],
-  workspace: 'design' | 'print' | 'drawing' | 'image' | 'motion' | 'codegen',
+  workspace: WorkspaceMode,
   platformKind?: string,
 ): MenuContext {
   const doc = createTestDoc();
@@ -52,7 +53,7 @@ function snapshotItem(item: unknown): unknown {
 }
 
 describe('menu snapshot — menubar tree', () => {
-  const WORKSPACES = ['design', 'print', 'drawing', 'image', 'motion', 'codegen'] as const;
+  const WORKSPACES = ALL_WORKSPACE_MODES;
   const PLATFORMS = ['tauri', 'web'] as const;
 
   for (const platform of PLATFORMS) {
@@ -93,9 +94,9 @@ describe('menu snapshot — menubar tree', () => {
 });
 
 describe('menu snapshot — canvas context menu', () => {
-  const WORSPACES = ['design', 'print', 'drawing', 'image', 'motion', 'codegen'] as const;
+  const WORKSPACES = ALL_WORKSPACE_MODES;
 
-  for (const workspace of WORSPACES) {
+  for (const workspace of WORKSPACES) {
     it(`workspace: ${workspace} with selection`, () => {
       const ctx = buildCtx(TEST_SELECTION, workspace);
       const defs = getCanvasContextMenuDefs(() => {});
@@ -121,7 +122,7 @@ describe('menu snapshot — canvas context menu', () => {
 });
 
 describe('menu definition — structure invariants', () => {
-  for (const workspace of ['design', 'print', 'drawing', 'image', 'motion', 'codegen'] as const) {
+  for (const workspace of ALL_WORKSPACE_MODES) {
     it(`no duplicate IDs in workspace: ${workspace}`, () => {
       const defs = getAllMenuDefs({ runAction: () => {} });
       const ids = new Set<string>();

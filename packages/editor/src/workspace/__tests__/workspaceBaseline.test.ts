@@ -48,15 +48,15 @@ const LEGACY_STORAGE_KEY = 'strata-workspace-preferences';
 /**
  * Exact visibility matrix extracted from WORKSPACE_CONFIGS at audit time
  * (2026-08-05). Order: layers, inspector, timeline, pagenav, library,
- * Code, Logo Tools.
+ * Code, Logo Tools, Email Preview, Email Output.
  */
 const EXPECTED_VISIBILITY: Record<WorkspaceMode, boolean[]> = {
-  design: [true, true, false, true, false, false, false],
-  print: [true, true, false, true, false, false, false],
-  drawing: [true, true, false, false, false, false, false],
-  image: [true, true, false, false, false, false, false],
-  motion: [true, true, true, true, false, false, false],
-  email: [true, true, false, false, false, false, false],
+  design: [true, true, false, true, false, false, false, false, false],
+  print: [true, true, false, true, false, false, false, false, false],
+  drawing: [true, true, false, false, false, false, false, false, false],
+  image: [true, true, false, false, false, false, false, false, false],
+  motion: [true, true, true, true, false, false, false, false, false],
+  email: [true, true, false, false, false, false, false, true, true],
 };
 
 const ALL_PANELS: PanelId[] = [
@@ -67,6 +67,8 @@ const ALL_PANELS: PanelId[] = [
   'library',
   'codegen',
   'logo',
+  'emailPreview',
+  'emailOutput',
 ];
 
 /**
@@ -84,6 +86,8 @@ const MOUNT_CONTRACT: Record<PanelId, 'keep-mounted' | 'unmount'> = {
   codegen: 'unmount',
   logo: 'unmount',
   history: 'unmount',
+  emailPreview: 'unmount',
+  emailOutput: 'unmount',
 };
 
 describe('workspace panel baseline: per-mode visibility', () => {

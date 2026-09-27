@@ -22,6 +22,15 @@ export interface MenubarItemLike {
   action?: string;
 }
 
+const WORKSPACE_MODE_ACTIONS = new Set([
+  'workspaceDesign',
+  'workspacePrint',
+  'workspaceDrawing',
+  'workspaceImage',
+  'workspaceMotion',
+  'workspaceEmail',
+]);
+
 export type ToolbarPlacementChoice = 'bottom' | 'top';
 
 export function menubarItemRole(
@@ -35,7 +44,7 @@ export function menubarItemRole(
   )
     return 'menuitemcheckbox';
   if (item.action?.startsWith('colorBlindness')) return 'menuitemradio';
-  if (item.action?.startsWith('workspace')) return 'menuitemradio';
+  if (item.action && WORKSPACE_MODE_ACTIONS.has(item.action)) return 'menuitemradio';
   if (item.action === 'viewToolbarTop' || item.action === 'viewToolbarBottom')
     return 'menuitemradio';
   if (item.action === 'toggleLogoPanel') return 'menuitemcheckbox';
@@ -66,7 +75,7 @@ export function menubarItemAriaChecked(
     // lowercase (protanopia).
     return state.colorBlindnessView === item.action.slice('colorBlindness'.length).toLowerCase();
   }
-  if (item.action?.startsWith('workspace')) {
+  if (item.action && WORKSPACE_MODE_ACTIONS.has(item.action)) {
     // Action ids are camelCase (workspaceDesign); state values are lowercase
     // (design). Without normalizing, every workspace radio in a submenu
     // rendered aria-checked="false" even for the active mode.

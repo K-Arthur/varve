@@ -23,7 +23,7 @@ test.describe('Workspace switcher keyboard contract', () => {
       'tabindex',
       '0',
     );
-    for (const name of ['Print', 'Draw', 'Photo', 'Motion', 'Codegen', 'Logo']) {
+    for (const name of ['Print', 'Draw', 'Photo', 'Motion', 'Email']) {
       await expect(
         group.getByRole('radio', { name: new RegExp(`^${name} workspace$`) }),
       ).toHaveAttribute('tabindex', '-1');
@@ -36,9 +36,9 @@ test.describe('Workspace switcher keyboard contract', () => {
     await design.focus();
     await page.keyboard.press('ArrowRight');
 
-    const draw = group.getByRole('radio', { name: /^Draw workspace$/ });
-    await expect(draw).toHaveAttribute('aria-checked', 'true');
-    await expect(draw).toHaveAttribute('tabindex', '0');
+    const print = group.getByRole('radio', { name: /^Print workspace$/ });
+    await expect(print).toHaveAttribute('aria-checked', 'true');
+    await expect(print).toHaveAttribute('tabindex', '0');
     await expect(design).toHaveAttribute('tabindex', '-1');
   });
 
@@ -53,7 +53,41 @@ test.describe('Workspace switcher keyboard contract', () => {
     );
 
     await page.keyboard.press('End');
-    await expect(group.getByRole('radio', { name: /^Logo workspace$/ })).toHaveAttribute(
+    await expect(group.getByRole('radio', { name: /^Email workspace$/ })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+  });
+
+  test('number shortcuts follow the switcher and Logo/Code remain workflow actions', async ({
+    page,
+  }) => {
+    const group = page.getByRole('radiogroup', { name: 'Workspace' });
+    const modes = ['Design', 'Print', 'Draw', 'Photo', 'Motion', 'Email'];
+    const tabs = group.getByRole('radio');
+    await expect(tabs).toHaveCount(modes.length);
+    expect(
+      await tabs.evaluateAll((items) => items.map((item) => item.getAttribute('aria-label'))),
+    ).toEqual(modes.map((name) => `${name} workspace`));
+
+    for (const [index, name] of modes.entries()) {
+      await page.keyboard.press(`Control+Shift+${index + 1}`);
+      await expect(group.getByRole('radio', { name: `${name} workspace` })).toHaveAttribute(
+        'aria-checked',
+        'true',
+      );
+    }
+
+    await page.keyboard.press('Control+Shift+7');
+    await expect(group.getByRole('radio', { name: 'Design workspace' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+    await expect(page.getByTestId('logo-panel')).toBeVisible();
+
+    await page.keyboard.press('Control+Shift+8');
+    await expect(page.locator('.code-panel')).toBeVisible();
+    await expect(group.getByRole('radio', { name: 'Design workspace' })).toHaveAttribute(
       'aria-checked',
       'true',
     );

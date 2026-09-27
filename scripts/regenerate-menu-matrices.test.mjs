@@ -29,14 +29,14 @@ const counts = Object.fromEntries(Object.entries(menus).map(([k, v]) => [k, v.le
 assert.deepEqual(
   counts,
   {
-    file: 29,
-    edit: 16,
+    file: 31,
+    edit: 45,
     text: 12,
-    view: 52,
-    object: 40,
-    arrange: 19,
+    view: 70,
+    object: 54,
+    arrange: 23,
     page: 3,
-    help: 6,
+    help: 10,
   },
   'item counts per menu (drift here means defs.ts grew — regenerate)',
 );
@@ -45,6 +45,7 @@ const ids = Object.values(menus)
   .flat()
   .map((i) => i.id);
 for (const required of [
+  'workspaceLogo',
   'workspaceCodegen',
   'setFileThumbnail',
   'imageTrace',
@@ -93,6 +94,8 @@ assert.deepEqual(byId.get('installDesktopApp').cap, { name: 'nativeMenu', negate
 assert.deepEqual(byId.get('softProof').workspaces, ['print', 'image']);
 assert.deepEqual(byId.get('toggleFacingPages').workspaces, ['print']);
 assert.deepEqual(byId.get('textToOutlines').workspaces, ['design', 'print', 'drawing']);
+assert.equal(byId.get('workspaceLogo').kind, 'command');
+assert.equal(byId.get('workspaceCodegen').kind, 'command');
 assert.equal(byId.get('new').workspaces, null, 'no filter means visible everywhere');
 
 // ── Label resolution ─────────────────────────────────────────────────────────
@@ -121,4 +124,6 @@ assert.equal(
   'docs/menu-workspace-matrix.md is stale — run: node scripts/regenerate-menu-matrices.mjs',
 );
 
-console.log('regenerate-menu-matrices: ok (176 menubar items, drift-checked)');
+console.log(
+  `regenerate-menu-matrices: ok (${Object.values(menus).flat().length} menubar items, drift-checked)`,
+);

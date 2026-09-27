@@ -5,7 +5,7 @@
  * dock: rendered-color contrast for every mode in every theme, radiogroup
  * ownership, overflow reachability and mode switching, APG radio keyboard
  * traversal, the no-JS-magnification hover contract, and the one-document
- * invariant across an eight-mode sweep.
+ * invariant across all six workspaces.
  *
  * Evidence screenshots default to the 2026-09-15 review directory. Set
  * VARVE_SWITCHER_VISUAL_QA_DIR to keep a new review separate from that baseline.
@@ -20,18 +20,16 @@ import { navigateToEditor } from '../shared';
 
 const OUT_ROOT =
   process.env.VARVE_SWITCHER_VISUAL_QA_DIR ??
-  join(process.cwd(), 'docs/screenshots/2026-09-15-workspace-switcher-review/after');
+  join(process.cwd(), 'docs/screenshots/2026-09-27-workspace-layouts/after');
 mkdirSync(OUT_ROOT, { recursive: true });
 
 const MODES = [
   ['design', 'Design'],
+  ['print', 'Print'],
   ['drawing', 'Draw'],
   ['image', 'Photo'],
-  ['print', 'Print'],
   ['motion', 'Motion'],
-  ['codegen', 'Codegen'],
   ['email', 'Email'],
-  ['logo', 'Logo'],
 ] as const;
 
 const THEMES = ['light', 'dark', 'high-contrast'] as const;
@@ -177,14 +175,15 @@ test.describe('Workspace switcher contract', () => {
         }
       }
     }
-    // Wiring guard: each mode must resolve its own accent, not seven aliases
+    // Wiring guard: each mode must resolve its own accent, not six aliases
     // of one token. High Contrast intentionally collapses to the single HC
     // accent, so distinctness is only required where hue carries identity.
     for (const theme of ['light', 'dark'] as const) {
       const distinct = new Set(Object.values(pillBgByTheme[theme]!)).size;
-      expect(distinct, `${theme}: expected 8 distinct mode accents, saw ${distinct}`).toBe(
-        MODES.length,
-      );
+      expect(
+        distinct,
+        `${theme}: expected ${MODES.length} distinct mode accents, saw ${distinct}`,
+      ).toBe(MODES.length);
     }
     expect(new Set(Object.values(pillBgByTheme['high-contrast']!)).size).toBe(1);
     expect(failures, `Contrast failures:\n${failures.join('\n')}`).toEqual([]);
@@ -244,7 +243,7 @@ test.describe('Workspace switcher contract', () => {
     const group = await workspaceGroup(page);
     await group.getByRole('radio', { name: 'Design workspace' }).focus();
     await page.keyboard.press('ArrowRight');
-    await expect(group.getByRole('radio', { name: 'Draw workspace' })).toHaveAttribute(
+    await expect(group.getByRole('radio', { name: 'Print workspace' })).toHaveAttribute(
       'aria-checked',
       'true',
     );
@@ -254,7 +253,7 @@ test.describe('Workspace switcher contract', () => {
       'true',
     );
     await page.keyboard.press('End');
-    await expect(group.getByRole('radio', { name: 'Logo workspace' })).toHaveAttribute(
+    await expect(group.getByRole('radio', { name: 'Email workspace' })).toHaveAttribute(
       'aria-checked',
       'true',
     );
@@ -338,7 +337,7 @@ test.describe('Workspace switcher contract', () => {
     }
     await expect(page.locator('.workspace-dock__item--active')).toHaveAttribute(
       'data-mode',
-      'logo',
+      'email',
     );
     await expect(page.locator('.editor-menubar__doc-name-text')).toHaveText('Untitled 1');
     await expect(page.locator('.editor-canvas')).toBeVisible();
@@ -352,7 +351,7 @@ test.describe('Workspace switcher contract', () => {
     // browser/OS font-size preference. This is NOT browser zoom (which scales
     // px too) — that mechanism is recorded as untested in the review doc.
     const group = await workspaceGroup(page);
-    await group.getByRole('radio', { name: 'Codegen workspace' }).click();
+    await group.getByRole('radio', { name: 'Email workspace' }).click();
     await page.waitForTimeout(150);
     const before = await page.evaluate(() => {
       const pill = document.querySelector('.workspace-dock__item--active') as HTMLElement;
@@ -384,15 +383,15 @@ test.describe('Workspace switcher contract', () => {
 
     // The text must still be the full name, unclipped, and the pill must have
     // grown with it rather than cropping it.
-    expect(after.labelText).toBe('Codegen');
+    expect(after.labelText).toBe('Email');
     expect(after.labelClippedVertically).toBe(false);
     expect(after.labelClippedHorizontally).toBe(false);
     expect(after.pillHeight).toBeGreaterThanOrEqual(after.labelHeight);
     expect(after.pillHeight).toBeGreaterThanOrEqual(before.pillHeight);
-    await page.screenshot({ path: join(OUT_ROOT, 'codegen-200-percent-text.png') });
+    await page.screenshot({ path: join(OUT_ROOT, 'email-200-percent-text.png') });
 
     // Every mode is still reachable after the text-size change: the visible
-    // radios plus the overflow menu must cover all eight.
+    // radios plus the overflow menu must cover all six.
     const visible = await group.evaluate((el) => el.querySelectorAll('[role="radio"]').length);
     if (after.moreVisible) {
       await page.getByRole('button', { name: /more workspaces/i }).click();
@@ -400,8 +399,8 @@ test.describe('Workspace switcher contract', () => {
       await expect(menu).toBeVisible();
       const inMenu = await menu.getByRole('menuitemradio').count();
       expect(visible + inMenu).toBe(MODES.length);
-      // The overflow menu must not wrap the Codegen label any more.
-      await expect(menu.getByRole('menuitemradio', { name: 'Codegen' })).toBeVisible();
+      // The overflow menu must not wrap the Email label any more.
+      await expect(menu.getByRole('menuitemradio', { name: 'Email' })).toBeVisible();
       await page.keyboard.press('Escape');
     } else {
       expect(visible).toBe(MODES.length);
@@ -562,9 +561,9 @@ test.describe('Workspace switcher contract', () => {
     }
     await setTheme(page, 'light');
     const group = await workspaceGroup(page);
-    await group.getByRole('radio', { name: 'Codegen workspace' }).click();
+    await group.getByRole('radio', { name: 'Email workspace' }).click();
     await page.waitForTimeout(200);
-    await dock.screenshot({ path: join(OUT_ROOT, 'dock-1920-codegen.png') });
+    await dock.screenshot({ path: join(OUT_ROOT, 'dock-1920-email.png') });
 
     await page.setViewportSize({ width: 1024, height: 768 });
     await page.waitForTimeout(400);

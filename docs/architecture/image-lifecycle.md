@@ -29,9 +29,11 @@ File picker / drop / clipboard / foreign importer / generated result
   -> visible canvas / raster export / derived operation
 ```
 
-No workspace owns a separate loader or cache. Design, Photo, Draw, Print,
-Motion, Logo, and Codegen share one document, asset table, engine facade, and
-decoded cache. Workspace switching changes UI/tool configuration only.
+No workspace owns a separate loader or cache. Design, Print, Draw, Photo,
+Motion, and Email share one document, asset table, engine facade, and decoded
+cache. Logo tools belong to Design, while Code export is a shared panel;
+neither is a separate workspace. Workspace switching changes UI/tool
+configuration only.
 
 ## Canonical references are not image URLs
 

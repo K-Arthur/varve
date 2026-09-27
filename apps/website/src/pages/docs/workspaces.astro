@@ -38,9 +38,9 @@ import '../../styles/docs-prose.css';
           <li><strong>Draw</strong> (<code>Ctrl+Shift+3</code>) — Raster painting, vector freehand, and brushes. Default tool: Paint.</li>
           <li><strong>Photo</strong> (<code>Ctrl+Shift+4</code>) — Nondestructive photo editing and adjustments. Keeps your current tool; the toolbar leads with Select, Lasso, and the retouch and mask flyouts.</li>
           <li><strong>Motion</strong> (<code>Ctrl+Shift+5</code>) — Timeline animation, keyframes, and easing. Default tool: Select.</li>
-          <li><strong>Email</strong> (<code>Ctrl+Shift+7</code>) — Email-specific authoring, responsive preview, compatibility checks, and export. Default tool: Select.</li>
+          <li><strong>Email</strong> (<code>Ctrl+Shift+6</code>) — Email-specific authoring, responsive preview, compatibility checks, and export. Default tool: Select.</li>
         </ul>
-        <p>Logo work stays in Design, with the former Logo shortcut (<code>Ctrl+Shift+6</code>) opening Design and showing Logo Tools. Code export is a shared panel; the former Codegen shortcut (<code>Ctrl+Shift+9</code>) opens that panel in the current workspace.</p>
+        <p>The switcher and workspace shortcuts use the same order: Design, Print, Draw, Photo, Motion, Email on <code>Ctrl+Shift+1</code> through <code>Ctrl+Shift+6</code>. On macOS, use Command+Shift with the same numbers. Logo work stays in Design; <code>Ctrl+Shift+7</code> opens Design and shows Logo Tools. Code export is a shared panel; <code>Ctrl+Shift+8</code> opens it in the current workspace. These final two shortcuts also use Command+Shift on macOS.</p>
         <p>
           Note: the older <code>Ctrl+Shift+D/P/R/I/M</code> bindings shown in some
           early documentation no longer switch workspaces — those keys are now used
@@ -86,7 +86,7 @@ import '../../styles/docs-prose.css';
           surface a workspace owns, applied instantly and remembered per mode:
         </p>
         <ul>
-          <li><strong>Panels</strong> — show or hide the Layers, Inspector, Timeline, Resources, Code, Logo, and History panels.</li>
+          <li><strong>Panels</strong> — show or hide Layers, Inspector, Timeline, Email Preview, Email Output, Resources, shared Code, Logo tools, and History.</li>
           <li><strong>Toolbar</strong> — hide tools, including tools that live inside flyouts (boolean operations, retouch, mask), and place the palette at the <strong>top or bottom</strong> of the canvas (View menu). Select, Hand, and Zoom always stay available.</li>
           <li><strong>Toolbar arrangement</strong> — move tools earlier or later, place a tool in the main row or an existing flyout, and pin tools to keep them ahead of responsive overflow. Select, Hand, and Zoom stay in the main row.</li>
           <li><strong>Inspector tabs</strong> and <strong>status bar sections</strong> — per-workspace visibility and ordering; pin inspector tabs to keep them ahead of overflow.</li>
@@ -134,8 +134,8 @@ import '../../styles/docs-prose.css';
         <p>
           Detachment is transactional: the docked panel stays visible until the auxiliary host is
           ready, and a failed or timed-out transfer rolls back to the primary window. Browser
-          builds use a popup when permitted by the browser; single-window browsers leave the panel
-          docked. Pages, Timeline, and History are not currently advertised as detachable.
+          builds keep panels in the main editor window; they do not open browser popups. Pages,
+          Timeline, and History are not currently detachable.
         </p>
       </section>
 

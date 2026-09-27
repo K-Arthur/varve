@@ -69,6 +69,7 @@ visibility in browser (`web`) vs Tauri desktop (`tauri`) vs memory/test (`mem`).
 | `archiveRestore` | `archive` | — | ✓ | — | Hidden in browser |
 | `downloadSnapshot` | `¬archive` | ✓ | — | ✓ | Visible when capability absent |
 | `restoreFromSnapshot` | `¬archive` | ✓ | — | ✓ | Visible when capability absent |
+| `managePlugins` | `—` | ✓ | ✓ | ✓ |  |
 | `settings` | `—` | ✓ | ✓ | ✓ |  |
 | `quitApp` | `—` | ✓ | ✓ | ✓ | Hidden on macOS |
 
@@ -169,6 +170,10 @@ visibility in browser (`web`) vs Tauri desktop (`tauri`) vs memory/test (`mem`).
 | `gridOverlayIsometric` | `—` | ✓ | ✓ | ✓ |  |
 | `toggleSnap` | `—` | ✓ | ✓ | ✓ |  |
 | `toggleGuides` | `—` | ✓ | ✓ | ✓ |  |
+| `openGuideLayouts` | `—` | ✓ | ✓ | ✓ |  |
+| `openPageGuideLayouts` | `—` | ✓ | ✓ | ✓ |  |
+| `openMasterGuideLayouts` | `—` | ✓ | ✓ | ✓ |  |
+| `openDocumentGuideLayouts` | `—` | ✓ | ✓ | ✓ |  |
 | `toggleMarqueeContainment` | `—` | ✓ | ✓ | ✓ |  |
 | `lockGuides` | `—` | ✓ | ✓ | ✓ |  |
 | `clearGuides` | `—` | ✓ | ✓ | ✓ |  |
@@ -178,8 +183,10 @@ visibility in browser (`web`) vs Tauri desktop (`tauri`) vs memory/test (`mem`).
 | `toggleTimelinePanel` | `—` | ✓ | ✓ | ✓ |  |
 | `toggleGraphEditor` | `—` | ✓ | ✓ | ✓ |  |
 | `toggleStateMachinePanel` | `—` | ✓ | ✓ | ✓ |  |
+| `toggleCodegenPanel` | `—` | ✓ | ✓ | ✓ |  |
 | `toggleLogoPanel` | `—` | ✓ | ✓ | ✓ |  |
 | `toggleMinimap` | `—` | ✓ | ✓ | ✓ |  |
+| `openVariablesPanel` | `—` | ✓ | ✓ | ✓ |  |
 | `bringAllPanelsToCurrentDisplay` | `—` | ✓ | ✓ | ✓ |  |
 | `resetPanelWindowLayout` | `—` | ✓ | ✓ | ✓ |  |
 | `workspaceDesign` | `—` | ✓ | ✓ | ✓ |  |
@@ -187,13 +194,15 @@ visibility in browser (`web`) vs Tauri desktop (`tauri`) vs memory/test (`mem`).
 | `workspaceDrawing` | `—` | ✓ | ✓ | ✓ |  |
 | `workspaceImage` | `—` | ✓ | ✓ | ✓ |  |
 | `workspaceMotion` | `—` | ✓ | ✓ | ✓ |  |
-| `workspaceLogo` | `—` | ✓ | ✓ | ✓ |  |
 | `workspaceEmail` | `—` | ✓ | ✓ | ✓ |  |
+| `workspaceLogo` | `—` | ✓ | ✓ | ✓ |  |
 | `workspaceCodegen` | `—` | ✓ | ✓ | ✓ |  |
 | `resetWorkspace` | `—` | ✓ | ✓ | ✓ |  |
 | `resetAllWorkspaces` | `—` | ✓ | ✓ | ✓ |  |
 | `customizeWorkspace` | `—` | ✓ | ✓ | ✓ |  |
 | `manageWorkspaceLayouts` | `—` | ✓ | ✓ | ✓ |  |
+| `applyComicWorkspaceLayout` | `—` | ✓ | ✓ | ✓ |  |
+| `applyWebtoonWorkspaceLayout` | `—` | ✓ | ✓ | ✓ |  |
 | `restoreAllPanels` | `—` | ✓ | ✓ | ✓ |  |
 | `logoPreview` | `—` | ✓ | ✓ | ✓ |  |
 | `exportLogoPackage` | `—` | ✓ | ✓ | ✓ |  |
@@ -217,6 +226,9 @@ visibility in browser (`web`) vs Tauri desktop (`tauri`) vs memory/test (`mem`).
 | `repeatTransform` | `—` | ✓ | ✓ | ✓ |  |
 | `resizeImage` | `—` | ✓ | ✓ | ✓ |  |
 | `bakeWarp` | `—` | ✓ | ✓ | ✓ |  |
+| `fitSelectionToPlane` | `—` | ✓ | ✓ | ✓ |  |
+| `unprojectSelectionFromPlane` | `—` | ✓ | ✓ | ✓ |  |
+| `createIsometricGridArtwork` | `—` | ✓ | ✓ | ✓ |  |
 | `openEffectStudio` | `—` | ✓ | ✓ | ✓ |  |
 | `newAdjustmentLayer` | `—` | ✓ | ✓ | ✓ |  |
 | `createClippingMask` | `—` | ✓ | ✓ | ✓ |  |
@@ -228,6 +240,8 @@ visibility in browser (`web`) vs Tauri desktop (`tauri`) vs memory/test (`mem`).
 | `toolCrop` | `—` | ✓ | ✓ | ✓ |  |
 | `toolPerspective` | `—` | ✓ | ✓ | ✓ |  |
 | `extractPalette` | `—` | ✓ | ✓ | ✓ |  |
+| `applyMockup` | `—` | ✓ | ✓ | ✓ |  |
+| `createMockupTemplate` | `—` | ✓ | ✓ | ✓ |  |
 | `addAlphaMask` | `—` | ✓ | ✓ | ✓ |  |
 | `createMaskFromSelection` | `—` | ✓ | ✓ | ✓ |  |
 | `loadMaskAsSelection` | `—` | ✓ | ✓ | ✓ |  |
@@ -278,6 +292,10 @@ visibility in browser (`web`) vs Tauri desktop (`tauri`) vs memory/test (`mem`).
 | `distributeHorizontal` | `—` | ✓ | ✓ | ✓ |  |
 | `distributeVertical` | `—` | ✓ | ✓ | ✓ |  |
 | `tidySelected` | `—` | ✓ | ✓ | ✓ |  |
+| `joinPanels` | `—` | ✓ | ✓ | ✓ |  |
+| `renumberPanelsLtr` | `—` | ✓ | ✓ | ✓ |  |
+| `renumberPanelsRtl` | `—` | ✓ | ✓ | ✓ |  |
+| `showPanelLayouts` | `—` | ✓ | ✓ | ✓ |  |
 | `harmonizeSpacing` | `—` | ✓ | ✓ | ✓ |  |
 | `nudgeLeft` | `—` | ✓ | ✓ | ✓ |  |
 | `nudgeRight` | `—` | ✓ | ✓ | ✓ |  |

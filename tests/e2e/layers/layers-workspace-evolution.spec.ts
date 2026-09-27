@@ -167,29 +167,6 @@ function motionSceneSvg(): string {
   return svgShell(800, 450, body);
 }
 
-/** Logo-like: wordmark + mark + variants. */
-function logoSvg(): string {
-  const body = `
-    <g id="wordmark" data-name="Wordmark">
-      <g id="wordmark-letters" data-name="Letterforms">
-        <rect id="w1" data-name="Letter V" x="0" y="40" width="40" height="60" fill="#123"/>
-        <rect id="w2" data-name="Letter A" x="44" y="40" width="40" height="60" fill="#123"/>
-        <rect id="w3" data-name="Letter R" x="88" y="40" width="40" height="60" fill="#123"/>
-        <rect id="w4" data-name="Letter V element" x="132" y="40" width="40" height="60" fill="#123"/>
-        <rect id="w5" data-name="Letter E" x="176" y="40" width="40" height="60" fill="#123"/>
-      </g>
-      <rect id="tagline" data-name="Tagline" x="0" y="108" width="180" height="12" fill="#666"/>
-    </g>
-    <g id="mark" data-name="Symbol">
-      <rect id="mark-primary" data-name="Mark primary shape" x="240" y="20" width="100" height="100" fill="#2a7"/>
-      <rect id="mark-cut" data-name="Mark negative space" x="270" y="50" width="40" height="40" fill="#fff"/>
-    </g>
-    <g id="clearspace" data-name="Clear-space guides">
-      <rect id="clear-box" data-name="Clear-space boundary" x="230" y="10" width="120" height="120" fill="none" stroke="#f0f"/>
-    </g>`;
-  return svgShell(400, 160, body);
-}
-
 /** Draw-like: heavy freehand-ish path document. */
 function drawSvg(): string {
   let body = '<g id="sketch" data-name="Sketch">';
@@ -242,9 +219,7 @@ test.describe('Layers — workspace evolution evidence', () => {
       ['Draw', 'draw'],
       ['Photo', 'photo'],
       ['Motion', 'motion'],
-      ['Logo', 'logo'],
       ['Email', 'email'],
-      ['Codegen', 'codegen'],
     ] as const;
 
     const metrics: Record<string, unknown> = {};
@@ -380,10 +355,8 @@ test.describe('Layers — workspace evolution evidence', () => {
       ['print', 'Print', printBrochureSvg(), 8],
       ['email', 'Email', emailNewsletterSvg(), 10],
       ['motion', 'Motion', motionSceneSvg(), 40],
-      ['logo', 'Logo', logoSvg(), 6],
       ['draw', 'Draw', drawSvg(), 100],
       ['design', 'Design', emailNewsletterSvg(), 10],
-      ['codegen', 'Codegen', logoSvg(), 6],
     ];
 
     for (const [id, label, svg, min] of fixtures) {

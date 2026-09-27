@@ -10,9 +10,9 @@ const modes = WORKSPACE_OVERFLOW_ORDER;
 // Realistic labeled tab widths (~80-100px each).
 const tabWidths: Record<(typeof modes)[number], number> = {
   design: 96,
+  print: 82,
   drawing: 88,
   image: 92,
-  print: 82,
   motion: 90,
   email: 92,
 };
@@ -47,7 +47,7 @@ describe('computeWorkspaceLayout', () => {
     });
     expect(result.iconOnly).toBe(true);
     expect(result.compactActive).toBe(false);
-    expect(result.visible).toEqual(['design', 'drawing', 'image', 'print']);
+    expect(result.visible).toEqual(['design', 'print', 'drawing', 'image']);
     expect(result.overflow).toEqual(['motion', 'email']);
   });
 
@@ -86,14 +86,14 @@ describe('computeWorkspaceLayout', () => {
     });
     expect(result.visible).toContain('email');
     expect(result.visible[0]).toBe('design');
-    expect(result.visible).toEqual(['design', 'drawing', 'image', 'print', 'email']);
+    expect(result.visible).toEqual(['design', 'print', 'drawing', 'image', 'email']);
     expect(result.overflow).toEqual(['motion']);
   });
 
   it('keeps the active mode visible even when it would overflow (labeled strip)', () => {
     // Wide-enough strip for labels with inflated widths to force overflow:
-    // display order design/drawing/image/print/motion/... with print's tab
-    // sacrificed for the active logo mode.
+    // Display order is design/print/draw/photo/motion/email. When the active
+    // Email tab needs room, the lowest-priority visible specialist yields.
     const wide: Record<(typeof modes)[number], number> = {
       design: 220,
       drawing: 200,
@@ -111,8 +111,8 @@ describe('computeWorkspaceLayout', () => {
       overflowPriority: WORKSPACE_OVERFLOW_PRIORITY,
     });
     expect(result.iconOnly).toBe(false);
-    expect(result.visible).toEqual(['design', 'drawing', 'image', 'email']);
-    expect(result.overflow).toEqual(['print', 'motion']);
+    expect(result.visible).toEqual(['design', 'print', 'drawing', 'email']);
+    expect(result.overflow).toEqual(['image', 'motion']);
   });
 
   it('never removes functionality — overflow keeps full mode list', () => {

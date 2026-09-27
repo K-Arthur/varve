@@ -12,20 +12,26 @@ test.describe('Logo panel', () => {
     await navigateToEditor(page);
   });
 
-  test('is hidden in the design workspace and opens in the Logo workspace', async ({ page }) => {
+  test('is hidden by default in Design and opens with the Logo Tools shortcut', async ({
+    page,
+  }) => {
     await expect(page.getByTestId('logo-panel')).toHaveCount(0);
-    await page.keyboard.press('Control+Shift+6');
+    await page.keyboard.press('Control+Shift+7');
+    await expect(page.getByRole('radio', { name: 'Design workspace' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
     await expect(page.getByTestId('logo-panel')).toBeVisible({ timeout: 15000 });
   });
 
-  test('switching away from the Logo workspace hides the panel', async ({ page }) => {
-    await page.keyboard.press('Control+Shift+6');
+  test('switching away from Design hides Logo Tools', async ({ page }) => {
+    await page.keyboard.press('Control+Shift+7');
     await expect(page.getByTestId('logo-panel')).toBeVisible({ timeout: 15000 });
-    await page.keyboard.press('Control+Shift+1');
+    await page.keyboard.press('Control+Shift+4');
     await expect(page.getByTestId('logo-panel')).toHaveCount(0, { timeout: 10000 });
   });
 
-  test('View menu shows the Logo Panel item only in the Logo workspace', async ({ page }) => {
+  test('View menu shows the Logo Panel item only in Design', async ({ page }) => {
     // The panel toggles live in the View > Panels submenu now that the View
     // root is grouped to fit one screen.
     const openPanels = async () => {
@@ -33,31 +39,41 @@ test.describe('Logo panel', () => {
       return panels;
     };
 
-    // Design workspace: the item must be absent from the Panels submenu.
+    // Design workspace: the item is available from Panels.
     const designPanels = await openPanels();
     await expect(designPanels.getByRole('menuitem', { name: 'Fonts Panel' })).toBeVisible();
-    await expect(designPanels.getByRole('menuitemcheckbox', { name: /Logo Panel/i })).toHaveCount(
-      0,
-    );
+    await expect(
+      designPanels.getByRole('menuitemcheckbox', { name: /Logo Tools Panel/i }),
+    ).toBeVisible();
     // Close the open View > Panels menus by toggling the trigger; Escape from
     // menubar focus did not reliably close both layers (the submenu owns its
     // own dismiss policy).
     await page.getByRole('menubar').getByRole('menuitem', { name: /^View/ }).click();
     await expect(page.getByRole('menu')).toHaveCount(0);
 
-    // Switch via the workspace radio (deterministic), then reopen View.
-    await page.getByRole('radio', { name: 'Logo workspace', exact: true }).click({ force: true });
+    // Email has no Logo-specific panel command.
+    await page.getByRole('menubar').getByRole('menuitem', { name: /^View/ }).click();
+    await expect(page.getByRole('menu')).toHaveCount(0);
+    await page.keyboard.press('Control+Shift+6');
+    const emailPanels = await openPanels();
+    await expect(
+      emailPanels.getByRole('menuitemcheckbox', { name: /Logo Tools Panel/i }),
+    ).toHaveCount(0);
+    await page.getByRole('menubar').getByRole('menuitem', { name: /^View/ }).click();
+    await expect(page.getByRole('menu')).toHaveCount(0);
+
+    // The Logo shortcut returns to Design and reveals the tools.
+    await page.keyboard.press('Control+Shift+7');
     await expect(page.getByTestId('logo-panel')).toBeVisible({ timeout: 15000 });
-    const logoPanels = await openPanels();
-    const logoItem = logoPanels.getByRole('menuitemcheckbox', { name: /Logo Panel/i });
-    await expect(logoItem).toBeVisible();
+    const designPanelMenu = await openPanels();
+    const logoItem = designPanelMenu.getByRole('menuitemcheckbox', { name: /Logo Tools Panel/i });
     await expect(logoItem).toHaveAttribute('aria-checked', 'true');
     await logoItem.click();
     await expect(page.getByTestId('logo-panel')).toHaveCount(0);
   });
 
   test('empty state starts a logo project with concepts and sections', async ({ page }) => {
-    await page.keyboard.press('Control+Shift+6');
+    await page.keyboard.press('Control+Shift+7');
     const panel = page.getByTestId('logo-panel');
     await expect(panel).toBeVisible({ timeout: 15000 });
     await expect(panel.getByText(/No logo project yet/i)).toBeVisible();
@@ -71,7 +87,7 @@ test.describe('Logo panel', () => {
   test('typography section exposes kerning mode and glyph controls for a wordmark', async ({
     page,
   }) => {
-    await page.keyboard.press('Control+Shift+6');
+    await page.keyboard.press('Control+Shift+7');
     const panel = page.getByTestId('logo-panel');
     await expect(panel).toBeVisible({ timeout: 15000 });
     await panel.getByRole('button', { name: /Start (a )?logo project/i }).click();
@@ -103,7 +119,7 @@ test.describe('Logo panel', () => {
   });
 
   test('vectorize section explains the image requirement without an image', async ({ page }) => {
-    await page.keyboard.press('Control+Shift+6');
+    await page.keyboard.press('Control+Shift+7');
     const panel = page.getByTestId('logo-panel');
     await expect(panel).toBeVisible({ timeout: 15000 });
     await panel.getByRole('button', { name: /Start (a )?logo project/i }).click();
@@ -112,7 +128,7 @@ test.describe('Logo panel', () => {
   });
 
   test('export package section lists concepts and formats', async ({ page }) => {
-    await page.keyboard.press('Control+Shift+6');
+    await page.keyboard.press('Control+Shift+7');
     const panel = page.getByTestId('logo-panel');
     await expect(panel).toBeVisible({ timeout: 15000 });
     await panel.getByRole('button', { name: /Start (a )?logo project/i }).click();

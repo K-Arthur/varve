@@ -136,7 +136,7 @@ safety (stripped of `<script>`, event handlers, `javascript:` URLs).
 
 ## Email Workspace
 
-Email is the sixth workspace (`Ctrl+Shift+7`). It remains separate because
+Email is the sixth workspace (`Ctrl+Shift+6`). It remains separate because
 email authoring combines semantic roles, responsive output, preserved source
 blocks, compilation, compatibility checks, and export in one task flow. It
 operates on the ordinary shared document; entering Email does not enable an
@@ -190,7 +190,7 @@ sending, and ESP authentication are outside this workflow.
 | File | Purpose |
 |------|---------|
 | `packages/editor/src/workspace/workspaceTypes.ts` | Email workspace config |
-| `packages/editor/src/shortcuts/ShortcutManager.ts` | Ctrl+Shift+7 binding |
+| `packages/editor/src/shortcuts/ShortcutManager.ts` | Ctrl+Shift+6 binding |
 | `packages/editor/src/actions/createActionHandlers.ts` | workspaceEmail handler |
 | `packages/editor/src/menu/defs.ts` | View > Workspace > Email |
 | `packages/editor/src/Menubar.tsx` | Email workspace menu entry |

@@ -621,7 +621,7 @@ export function PropertiesPanel() {
       )}
       {tab === 'email' && (
         <LazyTabPanel tab={tab} label={getInspectorTabDefinition(tab, effectiveConfig)?.label}>
-          <EmailPanel />
+          <EmailPanel showOutput={effectiveConfig.panels.emailOutput.visible} />
         </LazyTabPanel>
       )}
     </section>

@@ -17,8 +17,8 @@ const a = (
 
 /**
  * Resolve a menu accelerator from the live shortcut registry instead of a
- * hand-maintained copy (the old hardcoded Ctrl+Shift+D/P/R/I/M were stale
- * against the real Ctrl+Shift+1..9 bindings).
+ * hand-maintained copy (workspace mode keys follow switcher order on
+ * Ctrl+Shift+1..6; the Logo and Code actions use +7 and +8).
  */
 function acceleratorFor(shortcutId: keyof typeof SHORTCUT_DEFS): Accelerator {
   const binding = (SHORTCUT_DEFS[shortcutId]?.binding ?? { key: '' }) as ShortcutBinding;
@@ -1140,12 +1140,20 @@ export function getViewMenu(
       run: () => runAction('toggleStateMachinePanel'),
     },
     {
+      id: 'toggleCodegenPanel',
+      labelKey: 'menu.view.toggleCodegenPanel',
+      accelerator: acceleratorFor('toggleCodegenPanel'),
+      kind: 'command',
+      group: 'panels',
+      run: () => runAction('toggleCodegenPanel'),
+    },
+    {
       id: 'toggleLogoPanel',
       labelKey: 'menu.view.toggleLogoPanel',
       accelerator: a('l', true, true, true),
       kind: 'command',
       group: 'panels',
-      workspaces: ['logo'],
+      workspaces: ['design'],
       run: () => runAction('toggleLogoPanel'),
     },
     {
@@ -1223,15 +1231,6 @@ export function getViewMenu(
       run: () => runAction('workspaceMotion'),
     },
     {
-      id: 'workspaceLogo',
-      labelKey: 'menu.view.workspaceLogo',
-      accelerator: acceleratorFor('workspaceLogo'),
-      kind: 'radio',
-      group: 'workspace',
-      radioGroup: 'workspace',
-      run: () => runAction('workspaceLogo'),
-    },
-    {
       id: 'workspaceEmail',
       labelKey: 'menu.view.workspaceEmail',
       accelerator: acceleratorFor('workspaceEmail'),
@@ -1241,12 +1240,19 @@ export function getViewMenu(
       run: () => runAction('workspaceEmail'),
     },
     {
+      id: 'workspaceLogo',
+      labelKey: 'menu.view.workspaceLogo',
+      accelerator: acceleratorFor('workspaceLogo'),
+      kind: 'command',
+      group: 'workspace-actions',
+      run: () => runAction('workspaceLogo'),
+    },
+    {
       id: 'workspaceCodegen',
       labelKey: 'menu.view.workspaceCodegen',
       accelerator: acceleratorFor('workspaceCodegen'),
-      kind: 'radio',
-      group: 'workspace',
-      radioGroup: 'workspace',
+      kind: 'command',
+      group: 'workspace-actions',
       run: () => runAction('workspaceCodegen'),
     },
     {
@@ -1306,7 +1312,7 @@ export function getViewMenu(
       accelerator: a('p', true, true, true),
       kind: 'command',
       group: 'focus',
-      workspaces: ['design', 'print', 'drawing', 'logo'],
+      workspaces: ['design', 'print', 'drawing'],
       enabled: enabledWithSelection,
       run: () => runAction('logoPreview'),
     },
@@ -1719,7 +1725,7 @@ export function getObjectMenu(runAction: (id: string) => void): MenuItemDef[] {
       labelKey: 'menu.object.mergeSelected',
       kind: 'command',
       group: 'flatten',
-      workspaces: ['design', 'print', 'drawing', 'image', 'logo'],
+      workspaces: ['design', 'print', 'drawing', 'image'],
       enabled: enabledWithSelection,
       run: () => runAction('mergeSelected'),
     },
@@ -1728,7 +1734,7 @@ export function getObjectMenu(runAction: (id: string) => void): MenuItemDef[] {
       labelKey: 'menu.object.addClearSpaceGuides',
       kind: 'command',
       group: 'flatten',
-      workspaces: ['design', 'print', 'drawing', 'logo'],
+      workspaces: ['design', 'print', 'drawing'],
       enabled: enabledWithSelection,
       run: () => runAction('addClearSpaceGuides'),
     },
@@ -2007,7 +2013,7 @@ function getPathSubmenuItems(runAction: (id: string) => void): MenuItemDef[] {
       accelerator: a('e', true, true),
       kind: 'command',
       group: 'path',
-      workspaces: ['design', 'print', 'drawing', 'logo'],
+      workspaces: ['design', 'print', 'drawing'],
       enabled: enabledWithSelection,
       run: () => runAction('expandStroke'),
     },
@@ -2017,7 +2023,7 @@ function getPathSubmenuItems(runAction: (id: string) => void): MenuItemDef[] {
       accelerator: a('o', true, true),
       kind: 'command',
       group: 'path',
-      workspaces: ['design', 'print', 'drawing', 'logo'],
+      workspaces: ['design', 'print', 'drawing'],
       enabled: enabledWithSelection,
       run: () => runAction('offsetPath'),
     },
@@ -2027,7 +2033,7 @@ function getPathSubmenuItems(runAction: (id: string) => void): MenuItemDef[] {
       accelerator: a('c', true, true),
       kind: 'command',
       group: 'path',
-      workspaces: ['design', 'print', 'drawing', 'logo'],
+      workspaces: ['design', 'print', 'drawing'],
       enabled: enabledWithSelection,
       run: () => runAction('roundCorners'),
     },
@@ -2037,7 +2043,7 @@ function getPathSubmenuItems(runAction: (id: string) => void): MenuItemDef[] {
       accelerator: a('w', true, true),
       kind: 'command',
       group: 'path',
-      workspaces: ['design', 'print', 'drawing', 'logo'],
+      workspaces: ['design', 'print', 'drawing'],
       enabled: enabledWithSelection,
       run: () => runAction('simplifyPath'),
     },
@@ -2047,7 +2053,7 @@ function getPathSubmenuItems(runAction: (id: string) => void): MenuItemDef[] {
       accelerator: a('h', true, true, true),
       kind: 'command',
       group: 'duplicate-transforms',
-      workspaces: ['design', 'print', 'drawing', 'logo'],
+      workspaces: ['design', 'print', 'drawing'],
       enabled: enabledWithSelection,
       run: () => runAction('mirrorDuplicateHorizontal'),
     },
@@ -2057,7 +2063,7 @@ function getPathSubmenuItems(runAction: (id: string) => void): MenuItemDef[] {
       accelerator: a('v', true, true, true),
       kind: 'command',
       group: 'duplicate-transforms',
-      workspaces: ['design', 'print', 'drawing', 'logo'],
+      workspaces: ['design', 'print', 'drawing'],
       enabled: enabledWithSelection,
       run: () => runAction('mirrorDuplicateVertical'),
     },
@@ -2067,7 +2073,7 @@ function getPathSubmenuItems(runAction: (id: string) => void): MenuItemDef[] {
       accelerator: a('r', true, true),
       kind: 'command',
       group: 'duplicate-transforms',
-      workspaces: ['design', 'print', 'drawing', 'logo'],
+      workspaces: ['design', 'print', 'drawing'],
       enabled: enabledWithSelection,
       run: () => runAction('radialDuplicate'),
     },

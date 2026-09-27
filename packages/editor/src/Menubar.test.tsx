@@ -136,6 +136,17 @@ vi.mock('./shortcuts', () => {
       label: 'Lock/Unlock All Guides',
     },
     softProof: { binding: { key: 'y', ctrl: true, shift: true }, label: 'Soft Proof' },
+    workspaceDesign: { binding: { key: '1', ctrl: true, shift: true }, label: 'Workspace: Design' },
+    workspacePrint: { binding: { key: '2', ctrl: true, shift: true }, label: 'Workspace: Print' },
+    workspaceDrawing: { binding: { key: '3', ctrl: true, shift: true }, label: 'Workspace: Draw' },
+    workspaceImage: { binding: { key: '4', ctrl: true, shift: true }, label: 'Workspace: Photo' },
+    workspaceMotion: { binding: { key: '5', ctrl: true, shift: true }, label: 'Workspace: Motion' },
+    workspaceEmail: { binding: { key: '6', ctrl: true, shift: true }, label: 'Workspace: Email' },
+    workspaceLogo: {
+      binding: { key: '7', ctrl: true, shift: true },
+      label: 'Show Logo Tools in Design',
+    },
+    workspaceCodegen: { binding: { key: '8', ctrl: true, shift: true }, label: 'Show Code Panel' },
     toggleTimelinePanel: { binding: { key: 't', ctrl: true, alt: true }, label: 'Timeline' },
     canvasModeOutline: { binding: { key: 'o', ctrl: true, shift: true }, label: 'Outline' },
     canvasModePreview: { binding: { key: 'p', ctrl: true, shift: true }, label: 'Preview' },
@@ -297,6 +308,7 @@ vi.mock('./shortcuts', () => {
   // harness should not need to chase). Overrides behave like the real keymap.
   return {
     formatShortcut: formatBinding,
+    isMac: () => false,
     getEffectiveBinding: (id: string): MockBinding => {
       const override = mockShortcutOverrides[id];
       if (override) return override;
@@ -410,7 +422,7 @@ describe('Menubar menu structure', () => {
     expect(labels.some((t) => t.startsWith('Settings'))).toBe(true);
   });
 
-  it('View menu shows the Logo Panel toggle only in the Logo workspace', async () => {
+  it('View menu exposes Logo tools from the Design workspace', async () => {
     const user = userEvent.setup();
     const viewMenuItems = async (): Promise<string[]> => {
       render(<Menubar />);
@@ -434,13 +446,12 @@ describe('Menubar menu structure', () => {
       mockWorkspaceMode = 'design';
       mockLogoPanelVisible = false;
       const designLabels = await viewMenuItems();
-      expect(designLabels.some((t) => t.includes('Logo Panel'))).toBe(false);
+      expect(designLabels.some((t) => t.includes('Logo Tools Panel'))).toBe(true);
 
-      mockWorkspaceMode = 'logo';
+      mockWorkspaceMode = 'email';
       mockLogoPanelVisible = true;
-      const logoLabels = await viewMenuItems();
-      const item = logoLabels.find((t) => t.includes('Logo Panel'));
-      expect(item).toBeTruthy();
+      const emailLabels = await viewMenuItems();
+      expect(emailLabels.some((t) => t.includes('Logo Tools Panel'))).toBe(false);
     } finally {
       // Restore defaults for subsequent tests even on assertion failure.
       mockWorkspaceMode = 'design';
@@ -453,7 +464,7 @@ describe('Menubar menu structure', () => {
     // lacked the toggleLogoPanel case, so once the item moved into the Panels
     // submenu it rendered as a plain menuitem with no checked state. Both
     // surfaces now share one helper (menu/menubarItemState.ts).
-    mockWorkspaceMode = 'logo';
+    mockWorkspaceMode = 'design';
     mockLogoPanelVisible = true;
     try {
       const user = userEvent.setup();
@@ -462,7 +473,7 @@ describe('Menubar menu structure', () => {
       const menu = await screen.findByRole('menu', { name: 'View' });
       await user.hover(within(menu).getByRole('menuitem', { name: 'Panels' }));
       const panels = await screen.findByRole('menu', { name: 'Panels' });
-      const logoItem = within(panels).getByRole('menuitemcheckbox', { name: /Logo Panel/ });
+      const logoItem = within(panels).getByRole('menuitemcheckbox', { name: /Logo Tools Panel/ });
       expect(logoItem).toHaveAttribute('aria-checked', 'true');
     } finally {
       mockWorkspaceMode = 'design';
@@ -568,7 +579,7 @@ describe('Menubar shortcut display', () => {
     expect(newItem?.querySelector('.editor-menubar__menu-shortcut')?.textContent).toBe(
       'Ctrl+Shift+Alt+N',
     );
-    expect(newItem).toHaveAttribute('aria-keyshortcuts', 'Ctrl+Shift+Alt+N');
+    expect(newItem).toHaveAttribute('aria-keyshortcuts', 'Control+Shift+Alt+N');
   });
 });
 
@@ -839,15 +850,48 @@ describe('Menubar ARIA attributes', () => {
 });
 
 describe('Menubar workspace switcher', () => {
-  it('renders workspace radio buttons', () => {
+  it('renders workspace radio buttons in the documented shortcut order', () => {
     render(<Menubar />);
     const workspaceGroup = screen.getByRole('radiogroup', { name: 'Workspace' });
     expect(workspaceGroup).toBeTruthy();
+    expect(
+      [...workspaceGroup.querySelectorAll('[role="radio"]')].map((radio) =>
+        radio.getAttribute('data-mode'),
+      ),
+    ).toEqual(['design', 'print', 'drawing', 'image', 'motion', 'email']);
     expect(within(workspaceGroup).getByRole('radio', { name: /Design/ })).toBeTruthy();
     expect(within(workspaceGroup).getByRole('radio', { name: /Print/ })).toBeTruthy();
     expect(within(workspaceGroup).getByRole('radio', { name: /Draw/ })).toBeTruthy();
     expect(within(workspaceGroup).getByRole('radio', { name: /Photo/ })).toBeTruthy();
     expect(within(workspaceGroup).getByRole('radio', { name: /Motion/ })).toBeTruthy();
+    expect(within(workspaceGroup).getByRole('radio', { name: /Email/ })).toBeTruthy();
+  });
+
+  it('keeps Logo and Code actions after the six workspace selectors', async () => {
+    const user = userEvent.setup();
+    render(<Menubar />);
+    await user.click(within(screen.getByRole('menubar')).getByRole('menuitem', { name: 'View' }));
+    const view = await screen.findByRole('menu', { name: 'View' });
+    await user.hover(within(view).getByRole('menuitem', { name: 'Workspace' }));
+    const workspace = await screen.findByRole('menu', { name: 'Workspace' });
+    const modes = within(workspace)
+      .getAllByRole('menuitemradio')
+      .map((item) => item.textContent?.replace(/Ctrl\+Shift\+\d/g, '').trim());
+    expect(modes).toEqual([
+      'Workspace: Design',
+      'Workspace: Print',
+      'Workspace: Draw',
+      'Workspace: Photo',
+      'Workspace: Motion',
+      'Workspace: Email',
+    ]);
+    expect(
+      within(workspace).getByRole('menuitem', { name: /Show Logo Tools in Design/ }),
+    ).toHaveAttribute('aria-keyshortcuts', 'Control+Shift+7');
+    expect(within(workspace).getByRole('menuitem', { name: /Show Code Panel/ })).toHaveAttribute(
+      'aria-keyshortcuts',
+      'Control+Shift+8',
+    );
   });
 
   it('marks default workspace as checked', () => {

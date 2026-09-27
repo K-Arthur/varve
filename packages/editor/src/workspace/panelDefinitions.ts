@@ -1,7 +1,7 @@
 /**
  * Built-in panel definitions (ADR-0019).
  *
- * Registers exactly the eight panels of the existing `PanelId` union so the
+ * Registers exactly the ten panels of the existing `PanelId` union so the
  * registry and the shell can never drift (assertPanelInvariants enforces
  * the identity of the two sets).
  *
@@ -31,6 +31,8 @@ export const ALL_PANEL_TYPES: readonly PanelTypeId[] = [
   'codegen',
   'logo',
   'history',
+  'emailPreview',
+  'emailOutput',
 ] as const;
 
 const definitions: PanelDefinition[] = [
@@ -262,6 +264,60 @@ const definitions: PanelDefinition[] = [
       close: 'Close History panel',
     },
     emptyState: { title: 'No history', description: 'Open a document to see revision history.' },
+  },
+  {
+    id: 'emailPreview',
+    title: 'Email Preview',
+    instancePolicy: 'singleton',
+    documentRequirement: 'active-document',
+    selectionScope: 'shared',
+    allowedHosts: ['primary-sidebar'],
+    detachable: false,
+    dockable: true,
+    minimumSize: { width: 320, height: 160 },
+    preferredSize: { width: 480, height: 220 },
+    loadPolicy: 'lazy',
+    inactivePolicy: 'unmount-with-state',
+    capabilities: {
+      requiresCanvas: false,
+      requiresRenderer: false,
+      requiresModels: false,
+      supportsMultipleInstances: false,
+      supportsDocumentPinning: false,
+    },
+    a11yLabels: {
+      detach: 'Detach Email Preview panel',
+      reattach: 'Reattach Email Preview panel',
+      moveTo: 'Move Email Preview panel',
+      close: 'Close Email Preview panel',
+    },
+  },
+  {
+    id: 'emailOutput',
+    title: 'Email Output',
+    instancePolicy: 'singleton',
+    documentRequirement: 'active-document',
+    selectionScope: 'shared',
+    allowedHosts: ['primary-sidebar'],
+    detachable: false,
+    dockable: true,
+    minimumSize: { width: 300, height: 220 },
+    preferredSize: { width: 380, height: 480 },
+    loadPolicy: 'lazy',
+    inactivePolicy: 'unmount-with-state',
+    capabilities: {
+      requiresCanvas: false,
+      requiresRenderer: false,
+      requiresModels: false,
+      supportsMultipleInstances: false,
+      supportsDocumentPinning: false,
+    },
+    a11yLabels: {
+      detach: 'Detach Email Output panel',
+      reattach: 'Reattach Email Output panel',
+      moveTo: 'Move Email Output panel',
+      close: 'Close Email Output panel',
+    },
   },
 ];
 
