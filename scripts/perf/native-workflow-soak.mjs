@@ -11,7 +11,6 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { memoryPlateau } from './nativeQualification.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -53,12 +52,58 @@ export function validateWorkflowEvents(events, targetCycles) {
     if (
       typeof event?.screenshot?.path !== 'string' ||
       !Number.isFinite(event?.screenshot?.bytes) ||
-      event.screenshot.bytes <= 1024
+      event.screenshot.bytes <= 1024 ||
+      event.screenshot.exists !== true
     ) {
       blockers.push(`cycle-${index + 1}-screenshot-evidence-missing`);
     }
   });
   return [...new Set(blockers)];
+}
+
+function median(values) {
+  const sorted = values.filter(Number.isFinite).sort((left, right) => left - right);
+  if (sorted.length === 0) return null;
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 1 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
+}
+
+export function memoryPlateau(samples) {
+  if (samples.length < 40) {
+    return {
+      passed: false,
+      reason: 'fewer-than-40-memory-samples',
+      earlierMedian: null,
+      finalMedian: null,
+      growth: null,
+      allowedGrowth: null,
+      unit: 'KiB',
+    };
+  }
+  const earlierMedian = median(samples.slice(-40, -20));
+  const finalMedian = median(samples.slice(-20));
+  if (earlierMedian === null || finalMedian === null) {
+    return {
+      passed: false,
+      reason: 'memory-sample-unavailable',
+      earlierMedian,
+      finalMedian,
+      growth: null,
+      allowedGrowth: null,
+      unit: 'KiB',
+    };
+  }
+  const growth = finalMedian - earlierMedian;
+  const allowedGrowth = Math.max(8 * 1024, earlierMedian * 0.05);
+  return {
+    passed: growth <= allowedGrowth,
+    reason: growth <= allowedGrowth ? null : 'final-memory-window-exceeds-plateau-limit',
+    earlierMedian,
+    finalMedian,
+    growth,
+    allowedGrowth,
+    unit: 'KiB',
+  };
 }
 
 function sha256(path) {

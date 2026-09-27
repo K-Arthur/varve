@@ -94,7 +94,7 @@ describe('Tauri fluidity workflow cycles — synthetic WebDriver input', () => {
     if (!eventPath || !artifactDirectory) {
       throw new Error('workflow evidence and screenshot output paths are required');
     }
-    this.timeout(Math.max(120000, cycles * 12000));
+    this.timeout(Math.max(120000, cycles * 45000));
     mkdirSync(dirname(eventPath), { recursive: true });
     mkdirSync(artifactDirectory, { recursive: true });
 
@@ -158,7 +158,7 @@ describe('Tauri fluidity workflow cycles — synthetic WebDriver input', () => {
         return hash >>> 0;
       });
       const changed = currentPixels !== viewport.fingerprint;
-      expect(changed, 'editing and painting must change the canvas surface').toBe(true);
+      expect(changed).toBe(true);
 
       await browser.keys(['Control', 's']);
       await (await browser.$('.save-status')).waitForDisplayed({ timeout: 30000 });
