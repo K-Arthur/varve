@@ -894,6 +894,35 @@ describe('Menubar workspace switcher', () => {
     );
   });
 
+  it('shows the sequential shortcuts on each workspace menu item', async () => {
+    const user = userEvent.setup();
+    render(<Menubar />);
+    await user.click(within(screen.getByRole('menubar')).getByRole('menuitem', { name: 'View' }));
+    const view = await screen.findByRole('menu', { name: 'View' });
+    await user.hover(within(view).getByRole('menuitem', { name: 'Workspace' }));
+    const workspace = await screen.findByRole('menu', { name: 'Workspace' });
+    const items = within(workspace).getAllByRole('menuitemradio');
+
+    expect(items.map((item) => item.getAttribute('aria-keyshortcuts'))).toEqual([
+      'Control+Shift+1',
+      'Control+Shift+2',
+      'Control+Shift+3',
+      'Control+Shift+4',
+      'Control+Shift+5',
+      'Control+Shift+6',
+    ]);
+    expect(
+      items.map((item) => item.querySelector('.editor-menubar__menu-shortcut')?.textContent),
+    ).toEqual([
+      'Ctrl+Shift+1',
+      'Ctrl+Shift+2',
+      'Ctrl+Shift+3',
+      'Ctrl+Shift+4',
+      'Ctrl+Shift+5',
+      'Ctrl+Shift+6',
+    ]);
+  });
+
   it('marks default workspace as checked', () => {
     render(<Menubar />);
     const designRadio = screen.getByRole('radio', { name: /Design/ });

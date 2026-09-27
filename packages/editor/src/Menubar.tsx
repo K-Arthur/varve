@@ -1119,31 +1119,43 @@ function buildMenus(
           items: [
             {
               label: 'Workspace: Design',
+              shortcut: shortcutText('workspaceDesign'),
+              ariaKeyshortcut: ks('workspaceDesign'),
               action: 'workspaceDesign',
               disabled: dis('workspaceDesign'),
             },
             {
               label: 'Workspace: Print',
+              shortcut: shortcutText('workspacePrint'),
+              ariaKeyshortcut: ks('workspacePrint'),
               action: 'workspacePrint',
               disabled: dis('workspacePrint'),
             },
             {
               label: 'Workspace: Draw',
+              shortcut: shortcutText('workspaceDrawing'),
+              ariaKeyshortcut: ks('workspaceDrawing'),
               action: 'workspaceDrawing',
               disabled: dis('workspaceDrawing'),
             },
             {
               label: 'Workspace: Photo',
+              shortcut: shortcutText('workspaceImage'),
+              ariaKeyshortcut: ks('workspaceImage'),
               action: 'workspaceImage',
               disabled: dis('workspaceImage'),
             },
             {
               label: 'Workspace: Motion',
+              shortcut: shortcutText('workspaceMotion'),
+              ariaKeyshortcut: ks('workspaceMotion'),
               action: 'workspaceMotion',
               disabled: dis('workspaceMotion'),
             },
             {
               label: 'Workspace: Email',
+              shortcut: shortcutText('workspaceEmail'),
+              ariaKeyshortcut: ks('workspaceEmail'),
               action: 'workspaceEmail',
               disabled: dis('workspaceEmail'),
             },
