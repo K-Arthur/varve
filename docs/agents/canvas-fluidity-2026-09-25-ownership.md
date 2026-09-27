@@ -324,3 +324,38 @@ debug Tauri binary was built from `8f3277de1` and has SHA-256
 matching frontend and shell built after the ordinary pre-build typecheck
 reported seven concurrent workspace type errors; the build override bypassed
 only that failing hook, so no workspace typecheck pass is claimed.
+
+## Final native soak and evidence gate (2026-09-27)
+
+The extended-timeout run completed 100/100 open/edit/navigate/brush/save/close
+cycles on the fresh current-master Linux Tauri/WebKitGTK executable. All 100
+workflow screenshots and resource samples were present; no crash, hidden
+WebView, sleep, or workflow-stall blockers were recorded. An independent audit
+of all screenshots found 6,462–10,062 visible artwork pixels in the canvas
+crop. The bounded RSS check passed: median RSS increased 30,920 KiB between
+cycles 41–60 (735,448 KiB) and 81–100 (766,368 KiB), below the 36,772 KiB
+allowance. The raw report is
+`/var/tmp/varve-fluidity-evidence-current-8f3277de1/native-fluidity-100-cycles-extended-timeout.json`;
+the pixel audit is
+`/var/tmp/varve-fluidity-evidence-current-8f3277de1/native-workflow-visible-artwork-audit.json`.
+Screenshots from cycles 1, 2, 50, and 100 were opened and inspected. These are
+WebDriver DOM-synthetic events, not trusted OS input.
+
+The soak validator now rejects cycles with 1,000 or fewer visible artwork
+pixels. Its focused Node tests pass 6/6; the enhanced two-cycle native smoke
+also passes (7,392 and 4,055 visible pixels), with both screenshots inspected.
+The 100-cycle screenshots passed the same predicate in an independent pixel
+audit, though that run predates the in-test assertion.
+
+Matched three-round production performance runs are still incomplete; no p95 or
+p99 claim is made. Physical trackpad/pen behavior and trusted input-to-photon
+measurements remain platform gaps. The detached native candidate was based on
+`8f3277de1`, and the fresh binary SHA-256 is recorded above. Its ordinary
+pre-build typecheck found seven concurrent workspace errors, so only the
+matching native build after bypassing that failing hook is evidenced.
+
+The focused worker-host, frame-ledger, and fault-injection suites now pass
+46/46. Their fixtures explicitly signal the worker's `ready` handshake before
+asserting frame dispatch or post-message failure; without it, those tests only
+exercised the host's intentional latest-pending-render queue. The native soak
+validator passes 6/6 and separately rejects runs without visible artwork.

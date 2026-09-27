@@ -1,7 +1,9 @@
 # Canvas fluidity and input latency — 2026-09-25
 
-**Status:** Implemented on `master` (`f0ae77958`..`8d2959d7b`), browser-validated;
-native WebKitGTK and physical-device lanes not run (see Limits).
+**Status:** Implemented on `master`; browser pixel-oracle and website visual
+checks passed. A current Linux Tauri/WebKitGTK workflow soak passed 100/100
+synthetic cycles and its process-memory plateau; physical-device lanes remain
+open.
 **Scope:** main-thread work on the hover, wheel pan, ctrl-wheel zoom, and drag
 paths of the editor canvas, and correctness of retained pixels.
 **Predecessors:** [canvas-responsiveness-2026-09-08](canvas-responsiveness-2026-09-08.md),
@@ -10,10 +12,11 @@ paths of the editor canvas, and correctness of retained pixels.
 
 **Continuation status (2026-09-27):** the earlier browser measurements above
 are historical results for their recorded builds. Worker identity/fallback and
-transform-aware geometry changes are now in the working tree, with focused
-unit checks passing; the current browser pixel oracle, matched performance
-rounds, website screenshot/build checks, and fresh native soak are still
-pending. Do not treat the prior browser pass as validation of this continuation.
+transform-aware geometry changes have focused unit checks; the current browser
+pixel oracle and website screenshot/build checks passed. The current native
+100-cycle synthetic workflow and its bounded memory-plateau check passed.
+Matched production performance rounds remain pending. Do not treat the prior
+browser performance results as validation of this continuation.
 
 ## Summary
 
@@ -570,7 +573,7 @@ The complaint-to-reproduction matrix is deliberately explicit about gaps:
 | Drag lag grows with viewport width ([Excalidraw #7846](https://github.com/excalidraw/excalidraw/issues/7846), Apr 3 2024) | Production workload runner now accepts matched `--width`/`--height` runs on the same fixture; the 1024×768 vs 1920×1080 pair is not yet measured | Local reproduction is available; paired result pending |
 | Brush lag on a small 500×500 file ([Adobe Community](https://community.adobe.com/questions-712/photoshop-2025-brush-lag-1174223), Nov 27 2024) | `small` fixture now has separate cold-first-stroke and warmed `brush`/`brush-large-tip` profiles; pointer traces are trusted CDP input but do not carry physical pressure | Browser profile pending; pressure-device evidence unavailable; no stabilization change is justified |
 | Effects remain blurry or smear during navigation | An earlier effects-heavy comparison differed from the forced main-thread oracle by 352,935 pixels (maximum channel delta 184); a later focused 150-node worker comparison differed at 143,105 pixels (maximum delta 5). Visible effects now stay on main-thread Canvas2D, and the Full-quality Chromium oracle passes exact pixel equality through camera bursts; the 150-node replay still takes about 3.5 seconds | Settled fidelity is corrected for the covered case; the 1-second heavy refinement target is missed, and mid-gesture/resource/DPR/rotation combinations remain open |
-| Long-session writing slows after storage errors ([Excalidraw #7341](https://github.com/excalidraw/excalidraw/issues/7341), Nov 25 2023) | Varve's canonical history capture was measured near 190 ms on a 10k-node document; a fresh current-master Tauri run completed 2/2 open/edit/navigate/brush/save/close cycles. The first 100-cycle attempt reached 14/100 before WDIO's global 90-second timeout; an extended-timeout rerun is queued | The 2-cycle workflow is a smoke only. It does not establish a memory plateau or session-level save-degradation result |
+| Long-session writing slows after storage errors ([Excalidraw #7341](https://github.com/excalidraw/excalidraw/issues/7341), Nov 25 2023) | The current-master Linux Tauri/WebKitGTK soak completed 100/100 open/edit/navigate/brush/save/close cycles, with 100 screenshots, process-tree snapshots, and host-resource snapshots. Screenshot pixel audit found visible artwork in all 100 captures; the bounded process-RSS plateau check passed | Synthetic workflow and bounded memory plateau passed on this Linux host. The run does not establish physical input behavior or general device performance |
 
 No Coupler.io dataset was available in the connected workspace on 2026-09-27,
 so this pass uses public first-person reports and Varve's own local artifacts;
@@ -615,10 +618,11 @@ Those website edits still require both base-path builds and visual review.
 The native workflow soak now drives the Tauri/WebKitGTK application through
 document creation, rectangle edit, wheel pan/zoom, pressure-shaped paint input,
 local save, and document close. It verifies visible WebView dimensions, pixel
-change, and per-cycle screenshots, while collecting process-tree RSS and host
-memory/load samples. Its pointer/wheel events are explicitly DOM-synthetic;
-physical pen/touchpad and OS-trusted input remain gaps. The fresh binary and
-100-cycle run have not yet been executed.
+change, visible artwork, and per-cycle screenshots, while collecting
+process-tree RSS and host memory/load samples. Its pointer/wheel events are
+explicitly DOM-synthetic; physical pen/touchpad and OS-trusted input remain
+gaps. The current-master 100-cycle run and screenshot audit are complete; see
+the dated result below.
 
 Focused render unit tests pass (52 cases across revision tracking, worker host,
 submission fallback and timeout ownership, presentation identity, and
@@ -705,6 +709,13 @@ effects fallback after camera input. Additional mid-drag, pending-resource,
 DPR, rotation, and failure combinations still need visual pixel-oracle
 coverage.
 
+The worker startup handshake now gates command dispatch until the module sends
+`ready`. Two older lifecycle suites did not signal readiness, so their
+post-message and bitmap-ledger assertions were exercising the pending queue
+instead of dispatched work. Their fixtures now complete the handshake before
+those assertions. The worker-host, ledger, and fault-injection suites pass
+46/46 together; the native soak validator passes 6/6.
+
 ### Website narrow-text follow-up — 2026-09-27
 
 The earlier narrow website failure was a real closed-navigation and footer
@@ -721,7 +732,7 @@ footer CTA, open and scrolled mobile sheet, and dark settings guide under
 `test-results/canvas-fluidity-pages.visu-16414-row-width-and-200-text-size-ghpages/`
 and `test-results/canvas-fluidity-pages.visu-bc27d-performance-details-visible-ghpages/`.
 
-### Native workflow retry — 2026-09-27
+### Native workflow result — 2026-09-27
 
 A fresh debug Tauri/WebKitGTK binary built from candidate `8f3277de1` has SHA-256
 `c1e1f6f95a04ac3bb52b58b7528ede47c760f89b127486c5783280b46f576a29`. The
@@ -730,23 +741,35 @@ pre-build typecheck still reports seven unrelated concurrent workspace errors,
 so the shell build used an external override only for that failing hook. This
 does not count as a passing workspace typecheck.
 
-The current-master native run completed 2/2 open/edit/navigate/brush/save/close
-cycles. The WebView stayed visible at 682×583 CSS pixels, the canvas
-fingerprints changed, both local saves settled, and I opened and inspected both
-screenshots at
-`/var/tmp/varve-fluidity-evidence-current-8f3277de1/native-workflow-cycle-001.png`
-and
-`/var/tmp/varve-fluidity-evidence-current-8f3277de1/native-workflow-cycle-002.png`.
-Inputs are WebDriver DOM-synthetic, not OS-trusted. The run produced two
-process-tree samples, which is far below the 40-sample requirement for a memory
-plateau.
+The current-master native run completed 100/100 open/edit/navigate/brush/save/
+close cycles. Every screenshot and resource record was present; no crash,
+hidden WebView, sleep, or workflow-stall blockers were recorded. The independent
+visible-artwork screenshot audit passed 100/100 captures with 6,462–10,062
+matching artwork pixels per canvas crop. The memory plateau check passed: the
+median process-tree RSS rose from 735,448 KiB (cycles 41–60) to 766,368 KiB
+(cycles 81–100), a 30,920 KiB increase against a 36,772 KiB allowance. Raw
+workflow evidence is
+`/var/tmp/varve-fluidity-evidence-current-8f3277de1/native-fluidity-100-cycles-extended-timeout.json`;
+the screenshot audit is
+`/var/tmp/varve-fluidity-evidence-current-8f3277de1/native-workflow-visible-artwork-audit.json`.
+Screenshots from cycles 1, 2, 50, and 100 were opened and inspected. Input is
+WebDriver DOM-synthetic, not OS-trusted.
 
 The earlier repeated-run failure was an assertion mistake. Returning to Home
 keeps the prior editor session mounted for Resume Editing; opening another file
 creates a second tab. Closing the new tab correctly restores the retained one,
 so the test now records one or two Close Document shortcut actions and requires
-Home after any retained tab is also closed. The 100-cycle attempt before the
-WDIO timeout change reached 14/100 and stopped at the global 90-second timeout.
-`wdio.conf.ts` now derives the limit from the requested native cycle count; a
-100-cycle retry is queued behind the shared heavy-task lease. No sustained
-memory or session-degradation conclusion is claimed yet.
+Home after any retained tab is also closed. `wdio.conf.ts` derives the limit
+from the requested native cycle count; the earlier run stopped at 14/100 under
+the old 90-second timeout.
+
+The native evidence gate now requires more than 1,000 visible artwork pixels
+per cycle, alongside changed pixels and a retained screenshot. Focused runner
+tests pass 6/6, and a fresh two-cycle run with this gate passed with 7,392 and
+4,055 visible artwork pixels. Both screenshots were opened and inspected.
+The 100-cycle run predates the gate, but its 100 retained screenshots passed
+the same pixel predicate in the independent audit. This is evidence for one
+Linux x86_64 host and synthetic input only; it does not establish physical
+trackpad/pen behavior, input-to-photon latency, or general device performance.
+Matched three-round production performance runs remain pending, and no
+p95/p99 improvement claim is made.
