@@ -269,6 +269,14 @@ interactive image representation; this was not proven and is recorded as a
 residual. The existing E2E oracle suites (`responsiveness-real-workflow`,
 `many-image-render`) passed.
 
+**Correction (2026-09-26).** Until `79fe9d8ca`, `forceFullRedraw()` could
+present the render worker's bitmap, so for scenes the worker rendered it
+compared the worker against itself. The table above therefore shows that no
+stale pixels survived. It does not show that the worker drew the same pixels as
+the main thread. With the oracle forced onto the main thread, the worker path
+is wrong on current `master` for blend modes and effects; see the follow-up
+pass below.
+
 ## Validation
 
 `pnpm verify:plan` over this task's 56 paths selected Tier 0 (format and lint
@@ -329,10 +337,97 @@ building a new one. Its frame cost is covered by the paired frame-time
 matrix above (150 to 10,000 nodes, full pan and zoom frames and partial drag
 frames). The 50,000-node tier was not run.
 
+## Follow-up pass (2026-09-26)
+
+Remaining-work item 1 was profiled on `master` at `79fe9d8ca` (unminified
+production build, WASM engine loaded). Pan and zoom on `viewport-10k` spent
+49% of the main thread rendering React and 11% committing, against 18% for
+the canvas frame itself. The heaviest consumers re-derived whole-document
+state on every camera change:
+
+| Consumer | Share of pan | Cause | Change |
+|---|---|---|---|
+| Canvas name labels | 10% | projected and named all 10,000 candidates per camera change to place at most 80 | Unrotated cameras reject off-screen candidates with a world-space reach test; the widest possible label is culled before any name work; one camera affine per frame. Output identical (randomised equivalence test) |
+| Canvas accessibility tree | 7.9% | recomputed every occurrence's world bounds per render; `CanvasOverlays` passed a fresh camera object, so any overlay render counted | World bounds keyed on the document; the camera step keyed on primitive values with one viewport tester per frame |
+| Minimap | 6.8% | redrew every shape per camera change although only the viewport indicator moves | Document layer cached per minimap canvas and copied 1:1; the indicator drawn over it. Pixel-identical by construction (the indicator sets every context property it uses) |
+| Export dialog | 3.4% | always mounted; `exportableNodes` and a name map over every node recomputed per editor render while closed | Document-derived inputs are empty while the dialog is closed |
+| Inspector restrictions | 2.8% | keyed on the whole editor state | Keyed on exactly the 13 fields its input type picks |
+
+Drag added whole-document passes per frame: the design-debt badge rescan
+(6.7%), snapping's scene-scope resolution (4.9%), the compositing dependency
+graph (1.6%), parent maps (3%), and two font-face scans (1.8%). The debt
+badge now scans once edits pause for 300 ms. The scene scope, the compositing
+adjacency, and `committedParentIndex` reuse their previous result when an edit
+only changes node transforms. A drag frame's edit is exactly that, and none
+of the three reads transforms (publishing surfaces that cull pages by the
+viewport are excluded). The font scans key on a document identity that ignores
+moves (`useFontStableDocument`). The move test is one identity walk per pair
+of node records, memoised across its callers.
+
+Paired rounds against `master` at `d96979dc5`, WASM engine loaded in both
+arms. Rounds 1 and 2 measured the change before the move test was memoised,
+and round 4 after. Round 3 ran at host load 7.6 and is excluded:
+
+| `viewport-10k` | Before | After |
+|---|---|---|
+| Pan: long frames / rAF p95 | 90–91 / 67 ms | 13–22 / 33–50 ms |
+| Zoom: long frames / rAF p95 | 60 / 67–83 ms | 9–17 / 33–50 ms |
+| Drag: rAF p95 / max | 183–217 / 267–317 ms | 100–133 / 183–250 ms |
+| Drag: long frames | 91–96 | 110–114 |
+
+Text-heavy long frames fell as well (pan 9–19 → 1–5, drag 70–97 → 50–65).
+Drag on `viewport-10k` has a shorter tail but more medium-length long
+frames. Name-label candidates, accessibility-tree bounds, and the minimap
+scene still recompute every node per drag frame, because each frame is a new
+document; making them incremental is remaining work.
+
+**Worker-path rendering on `master`.** With `79fe9d8ca` the oracle repaints
+on the main thread, and the render worker's output differs there. A manual
+bisect over the 116 commits since `db9ec37e0` (exported trees, the shared
+checkout untouched) found `79fe9d8ca`, the oracle change itself, as the first
+failing commit. The worker path was already wrong, and the oracle could not
+see it:
+
+- Blend modes: the worker replays onto a transparent `OffscreenCanvas` and
+  the host paints the board underneath, so every blend mode composites
+  against nothing and lands as its source colour (158,015 pixels off by up to
+  184 levels on `blend-modes`). Scenes with a visible non-normal blend mode
+  on a node, fill, or effect now stay on the main thread
+  (`sceneCanUseWorkerRenderer`), where the board is the backdrop.
+  `blend-modes` goes from 4/9 to 8/9 oracle checks. Handing the worker the
+  board colour would keep such scenes off the main thread, but that needs
+  `renderPipeline.ts`, which another task had open with staged changes.
+- Effects: at rest, `effects-heavy` shows a blurred, offset worker bitmap from
+  before the last camera change that no fresh frame replaces (352,935 pixels,
+  up to 184 levels). Not fixed, for the same reason.
+- The same staged index entry removes the `79fe9d8ca` oracle guard. If it is
+  committed, the oracle goes back to hiding these differences.
+- Without the WASM files the failures are identical, so they are not
+  engine-specific. A remaining mid-drag difference on `blend-modes` (577
+  pixels, up to 53 levels, main-thread partial redraws) settles by the
+  after-drag check.
+
+**Lost keys.** `TableEditOverlay` (capture phase, re-subscribed on every
+editor state change) and `WarpOverlay` (re-subscribed on every warp-drag
+frame) had the perspective overlay's defect. Both now subscribe once per
+session and read the latest state through a ref. A unit test proves the
+table overlay dropped an arrow key when an earlier listener re-rendered it
+mid-dispatch, and handles it now. The table overlay's Enter fallback also
+used a `"row,col"` coordinate as a cell id; it now uses the id.
+
+| Validation | Result |
+|---|---|
+| Biome, emoji, inspector-css, tokens, spacing; `typecheck:e2e` | pass |
+| Unit and typecheck, `@varve/scene`, `@varve/editor`, and the 13 dependent packages | pass |
+| Oracle, 8 fixtures, after vs `master` | identical except `blend-modes` (4/9 → 8/9); `text-heavy` and `effects-heavy` fail equally in both |
+| E2E: all canvas specs plus export, inspector, dialog, accessibility, and layers specs related to the change | in progress at this commit |
+
 ## Research evidence
 
-Accessed 2026-09-25. Community reports are symptom evidence, not controlled
-studies; none is treated as proof of Varve's cause.
+Earlier sources were accessed 2026-09-25; the first-person issue and forum
+reports added for this continuation were rechecked 2026-09-27. Community
+reports are symptom evidence, not controlled studies; none is treated as proof
+of Varve's cause.
 
 | Source (date) | App / version / platform | Reported symptom | Cause or fix confirmed? | Relevance to Varve | Local reproduction | Limits |
 |---|---|---|---|---|---|---|
@@ -346,7 +441,21 @@ studies; none is treated as proof of Varve's cause.
 | [Excalidraw #7846](https://github.com/excalidraw/excalidraw/issues/7846) (2024-04-03) | Excalidraw, Arc/Chrome | Dragged objects lag the cursor more as the window grows | Open, no diagnosis | Separates pointer position from artwork; viewport-size sensitivity | Future: repeat drag probe at larger viewports | Not reproduced here |
 | [Krita Artists #126841](https://krita-artists.org/t/brush-lag-help/126841) (2025-06-15, last reply 2025-06-18) | Krita, Linux, pen | Brush and eraser lag regardless of renderer | Community attributes it to the MyPaint engine; reporter did not confirm | Brush lag has engine-specific causes; renderer toggles are not a universal fix | Not attempted: this pass found no brush-engine hotspot | Single thread, unconfirmed |
 | [Adobe Community, Photoshop 2025 brush lag](https://community.adobe.com/questions-712/photoshop-2025-brush-lag-1174223) (2024-11-05, replies to 2025-09) | Photoshop 2025, Windows | Brush lag after update; several users affected | Partial: re-enabled smoothing for some, not for others | Distinguish intentional stabilization from pipeline lag | Not attempted | Mixed causes |
+| [Adobe Community, brushing layer masks](https://community.adobe.com/questions-712/brushing-layer-masks-is-laggy-in-24-4-1-1167104) (2023-05-17; replies through 2024-02) | Photoshop 24.4.1/24.5, macOS | One author reports multi-second mask feedback and 10–15 s after several quick strokes | Author later found 100% smoothing was a cause; a follow-up still reported the issue | First stroke, feedback, and post-stroke catch-up must be measured separately; smoothing is not a universal root cause | Varve brush/Eraser response not yet isolated from canvas presentation | Community report, not a controlled profile |
+| [Adobe Community, Photoshop 2025 brush lag](https://community.adobe.com/questions-712/photoshop-2025-brush-lag-1174223) (2024-11-05; replies through 2026-04) | Photoshop 2025, Windows/macOS | A basic round brush on a 500×500 document is reported slow; other replies attribute similar reports to smoothing, boot settings, or tablet drivers | Mixed and sometimes conflicting reports | Small documents can still have input-path lag; renderer toggles alone may mislead diagnosis | Varve still needs first-stroke/steady-state brush profile on a small document | Self-reported, multiple possible causes |
+| [Excalidraw #8136](https://github.com/excalidraw/excalidraw/issues/8136) (2024-06-14) | Excalidraw, M1 MacBook Air, 16 GB | Author reports slowdown around 8k–14k objects in Chrome and unusable/blinking canvas at 14k–24k in Firefox; object mutation also slows | Closed “not planned”; no confirmed fix in the issue | Large-canvas editing and scene mutation both matter; adding a GPU path alone would not address history/persistence costs | Varve `viewport-10k` supports large mostly-offscreen pan/drag; broader 50k tier remains unrun | One author’s hardware/workload; reported FPS is not independently verified |
+| [Excalidraw #7341](https://github.com/excalidraw/excalidraw/issues/7341) (2023-11-25) | Excalidraw, browser storage | Author attributes continuous writing lag and repeated console errors to localStorage quota failure on a growing document; reports IndexedDB stopped the issue for them | The reporter’s workaround helped their case; no general cause proven | Long-session degradation can come from persistence failures as well as rendering | Varve history capture was separately measured at about 190 ms for a 10k document; sustained save/load cycles and failure behavior still need soak evidence | One user’s attribution; do not infer the same storage root cause in Varve |
+| [tldraw, “Back to Content”](https://tldraw.dev/blog/back-to-content) (2026-01-10) | tldraw, infinite canvas | Selected shapes prevented a navigation control from appearing after an offscreen-culling optimization | Maintainers confirmed a visibility-versus-culling mix-up and fixed it; they report the regression lasted over 20 months | Geometric visibility and renderer culling are different facts; selected/editing exceptions must not change navigation or accessibility truth | Keep the existing selection-aware navigation and geometry oracle cases distinct from render-cull tests | Vendor postmortem; Varve has not reproduced this tldraw defect |
 | [Figma: reduce memory usage](https://help.figma.com/hc/en-us/articles/360040528173-Reduce-memory-usage-in-files) (undated) | Figma | Hidden layers, variants, images, and many pages drive memory; pages load on demand | Vendor documentation | Derived per-document caches must be bounded because history retains old documents | Caches added here are bounded to recent documents | Vendor guidance, not measurement |
+
+These reports describe different failure classes rather than one “canvas
+performance” defect. The Linux touchpad report and viewport-width drag report
+concern navigation/input; Photoshop and Krita reports concern brush computation,
+stabilization, or device drivers; the Excalidraw large-document reports include
+scene mutation and persistence; and the tldraw postmortem is a correctness bug
+caused by confusing geometric visibility with render culling. They motivate
+separate Varve probes. They do not justify changing brush stabilization or
+claiming a cross-product fix.
 
 Decisions taken from this pass:
 
@@ -388,10 +497,16 @@ Decisions taken from this pass:
 
 ## Remaining work
 
-1. Attribute the remaining 10k pan and drag long frames. Camera and document
-   changes still re-render every `useEditor()` consumer per wheel event and
-   drag frame, and the render loop still visits every scene occurrence to
-   cull (~7 ms at 10k). Both are hypotheses until profiled on this build.
+1. Transform-only changes now share one changed-node classification and a
+   bounded occurrence-geometry snapshot across name labels, accessibility,
+   and minimap layout. The cache refreshes moved occurrences, descendants,
+   ancestor bounds, and path-text dependents; font/scope/resolver changes take
+   the full path, and live-boolean scenes conservatively rebuild. Five focused
+   geometry tests compare incremental results with an independent full pass.
+   This establishes correctness, not a timing win: browser profiling and the
+   visual oracle have not yet been rerun. Candidate metadata and minimap
+   layout still walk the projected occurrences, and every `useEditor()`
+   consumer can still re-render per wheel event and drag frame.
 2. Remove the deprecated `EditorState.cursorPos` / `setCursorPos` once
    `Shell.tsx` stops passing it to `useCollabPresence`.
 3. Canonical history hashing still serializes the whole document once per
@@ -399,7 +514,8 @@ Decisions taken from this pass:
    making it incremental needs a safe design; memoizing by identity was
    rejected (see Confirmed root causes).
 4. `findContainingFrameInDoc` still walks the page and builds a parent map on
-   every drag move.
+   every drag move. The drag caller passes the committed document and could
+   use `committedParentIndex`; this pass has not yet changed that call site.
 5. Print-mode (publishing) scopes still resolve per pan frame because page
    culling depends on the viewport.
 6. `commitPreparedFragment` returns the inserted ids by reading them out of
@@ -409,9 +525,101 @@ Decisions taken from this pass:
    fixing the paste selection above; read from the code, not separately
    tested, and left unchanged because a synchronous result needs the
    insertion computed outside the updater.
-7. Other window `keydown` listeners re-subscribe whenever their effect
-   dependencies change on render, the pattern behind the lost perspective
-   Escape. `TableEditOverlay` lists the editor context value, which changes
-   with every state update, and `WarpOverlay` lists its drag callback.
-   `tables.spec.ts:51` and `warp-visual.spec.ts:102` are flaky in both arms
-   and may share that cause; not investigated.
+7. The render worker should receive the board colour and paint it before
+   replaying, so blended scenes can return to the worker. Until then they
+   stay on the main thread (follow-up pass).
+8. At rest, effects scenes can keep a stale, reprojected worker bitmap that no
+   fresh frame replaces (`effects-heavy`, follow-up pass). Per this repo's
+   rule, every reason the worker might decline or drop a frame must be
+   decided before the frame picks its branch.
+9. `ExportDialog` has a "save focus" effect that reads `document.activeElement`
+   through its `document` prop (the scene document, which shadows the
+   global), so it stores nothing. Nothing reads that ref, so there is no
+   user-visible effect; the effect is dead code and can be removed.
+
+## Continuation baseline — 2026-09-27
+
+This pass remains on `master`. At export time the HEAD was
+`cba8721748e9f3c0aa7462ef73034eafecf6e710`; other work continued to land on
+the same branch during this pass. The checkout had 253 tracked paths with
+staged and unstaged changes, plus 129 untracked paths. The renderer file had a
+specific index conflict: the staged version removed the oracle's independent
+main-thread redraw guard, while the working copy restored it and included
+additional renderer-admission work. Those states must be reconciled before a
+renderer commit. Concurrent plugin, token-sync, GPU/WebGL2, design-system, and
+website work remains outside this audit unless a particular overlap is called
+out.
+
+Matched source snapshots were exported outside the shared checkout to
+`/tmp/varve-fluidity-baseline-20260927-cba8721/{base,candidate}`. The base is
+the exported HEAD; the candidate applies the captured staged/unstaged patch and
+untracked files. Exact file manifests and SHA-256 digests are in that
+directory. Its `build-identity.txt` records HEAD, branch, `rustc 1.97.1`, pnpm
+11.9, Playwright 1.62.1, GTK 3.24.52, and WebKitGTK 2.52.6. Runtime and build
+checks in this pass are Linux x86_64 only. Native physical touchpad/pen input,
+WebView2, WKWebView, low-memory/ARM hardware, and higher refresh rates remain
+unmeasured.
+
+The complaint-to-reproduction matrix is deliberately explicit about gaps:
+
+| User-reported failure | Varve reproduction/evidence | Status in this pass |
+|---|---|---|
+| Linux touchpad pan nearly stalls on a large text-heavy file ([Penpot #5063](https://github.com/penpot/penpot/issues/5063), Sep 5 2024) | 10k mostly-offscreen pan and browser wheel traces already exist; real touchpad events do not | Input class is covered synthetically; physical trackpad still needed |
+| Drag lag grows with viewport width ([Excalidraw #7846](https://github.com/excalidraw/excalidraw/issues/7846), Apr 3 2024) | Existing paired canvas captures used 1440×900; the narrow/wide viewport pair is not yet run | Open local reproduction gap |
+| Brush lag on a small 500×500 file ([Adobe Community](https://community.adobe.com/questions-712/photoshop-2025-brush-lag-1174223), Nov 27 2024) | The existing real-workflow spec includes one short paint stroke on imported content, but does not separate first-stroke feedback, steady-state handler cost, and presentation | Brush profile still required; no stabilization change is justified |
+| Effects remain blurry or smear during navigation | `effects-heavy` differed from the forced main-thread oracle by 352,935 pixels (maximum channel delta 184) at a settled camera; the 13-image transfer-budget test covers a separate refusal path | Revision/fallback fix is implemented in the working copy; focused browser oracle run is queued behind an existing live heavy-task lease |
+| Long-session writing slows after storage errors ([Excalidraw #7341](https://github.com/excalidraw/excalidraw/issues/7341), Nov 25 2023) | Varve's canonical history capture was measured near 190 ms on a 10k-node document; a 100-cycle Tauri open/edit/navigate/brush/save/close runner now exists, but has not run | Serialization cost is confirmed; session-level memory/save degradation is still unmeasured |
+
+The external reports have different causes and evidentiary strength. In the
+Krita Linux/pen thread, the user reported that renderer and smoothing changes
+did not materially help; replies attributed the case to a particular MyPaint
+brush, but the reporter did not independently confirm that diagnosis. In one
+Photoshop mask thread, lowering smoothing helped its author, while another
+Photoshop 2025 thread includes a simple round brush that remained slow at 0%
+smoothing. These are reasons to profile Varve's first stroke, large tips,
+sample processing, and canvas presentation separately—not reasons to change
+Varve's stabilization or smoothing behavior without a local reproduction.
+
+This continuation's focused checks pass: 83 Vitest tests across the worker
+identity/submission and occurrence-geometry paths, plus three native-soak
+runner tests under `node --test`. `pnpm typecheck:e2e` passes after the new
+spec stopped augmenting the shared global `Window` type. The editor package
+typecheck stops on an unrelated concurrent plugin-manifest error at
+`packages/editor/src/plugins/package.test.ts:173`; the scene package
+typecheck stops on two unrelated `codegen` workspace-mode mismatches in
+`packages/scene/src/auditProfiles.test.ts`. Docs, emoji, and token audits pass.
+The required canvas pixel-oracle run did not start: the heavy-task lease was
+held by another large canvas E2E run for the full 600-second wait window.
+Browser screenshots and the post-change timing profile remain outstanding; a
+longer bounded lease wait is queued. `node scripts/audit-architecture.mjs
+--ci` exits 0 with 14 distinct cycles, zero layer violations, and no enforced
+baseline breach. It still prints existing over-budget warnings for Shell,
+Menubar, and `context.tsx`; none is a changed file in this continuation. The
+initial baseline snapshot remains at the captured `cba8721` source; newer
+concurrent commits on `master` are not part of that snapshot.
+
+The public browser demo scope was checked against the repository's GitHub Pages
+hosting record. GitHub Pages cannot configure the COOP/COEP headers needed for
+shared-memory WASM, so the docs now qualify that limitation to the current
+public deployment instead of generalizing it to every browser build. Product
+copy also distinguishes a temporary reprojected navigation preview from the
+current authoritative frame and labels warm refinement times as targets.
+Those website edits still require both base-path builds and visual review.
+
+The native workflow soak now drives the Tauri/WebKitGTK application through
+document creation, rectangle edit, wheel pan/zoom, pressure-shaped paint input,
+local save, and document close. It verifies visible WebView dimensions, pixel
+change, and per-cycle screenshots, while collecting process-tree RSS and host
+memory/load samples. Its pointer/wheel events are explicitly DOM-synthetic;
+physical pen/touchpad and OS-trusted input remain gaps. The fresh binary and
+100-cycle run have not yet been executed.
+
+Focused render unit tests pass (50 cases across revision tracking, worker host,
+submission fallback, presentation identity, and render-pipeline baseline). A
+prior `pnpm verify:plan` selected a full-gate escalation because this shared
+working tree also contains workspace and validation-infrastructure changes;
+`pnpm verify:affected` reported the plan and refused to run without
+escalation. The mandated full gate was attempted on the mixed tree and failed
+in unrelated concurrent Biome, architecture/dead-code, and editor-corpus
+typecheck lanes; focused validation and the browser oracle remain necessary
+before claiming completion.
