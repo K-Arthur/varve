@@ -13,6 +13,7 @@ deterministic states.
 | `pnpm screenshots:workflow` | Record a 10-20s deterministic editing workflow as WebM (+ optional MP4 via ffmpeg) |
 | `pnpm screenshots:website` | Build the website and validate the manifest (fails on broken/missing references) |
 | `pnpm screenshots:update` | Capture + OG + workflow + build + strict validation (fails if any scene cannot be captured) |
+| `node scripts/screenshots/sync-plugin-scenes.mjs <e2e-output-dir>` | Sync visually reviewed plugin-manager captures from a completed E2E run and update only the four plugin scenes in the manifest |
 
 Targeted capture: `pnpm screenshots:product -- --scenes workspace,vector`
 Strict mode: `pnpm screenshots:product -- --strict` (exit non-zero on any skip)
@@ -28,6 +29,21 @@ pnpm screenshots:product -- --scenes typography,typography-panel,font-toolbar,fo
 Review captures do not change website images or its manifest. Sync checks each
 capture's recorded SHA-256 and preserves all other scene entries. It does not
 rerun the editor or approve an image automatically.
+
+The plugin scenes come from the real editor state driven by
+`tests/e2e/plugins/local-manager.spec.ts`. After running the spec and opening
+`plugin-inspector.png`, `plugin-manager-pinned.png`,
+`plugin-review-dark-1024.png`, and `plugin-rename-preview.png` for visual review,
+sync those exact captures with:
+
+```sh
+node scripts/screenshots/sync-plugin-scenes.mjs test-results/<run-directory>
+```
+
+The sync step requires exactly one file for each scene, validates PNG
+dimensions and size, copies the approved bytes to both canonical directories,
+and refreshes each scene's hash and validation revision. It does not capture a
+page or make a visual decision.
 
 Every run prints `this run: N scene(s) attempted` and fails when `N` is zero.
 The manifest totals printed beside it describe stored state, not the run — a

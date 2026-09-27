@@ -22,7 +22,7 @@ test('plugin feature and guide render without broken images or horizontal overfl
     ).toBeVisible();
     await page.locator('.actions').scrollIntoViewIfNeeded();
     const images = page.locator('.product-capture img');
-    await expect(images).toHaveCount(3);
+    await expect(images).toHaveCount(4);
     await page.waitForFunction(() =>
       [...document.querySelectorAll<HTMLImageElement>('.product-capture img')].every(
         (image) => image.complete && image.naturalWidth > 0,
@@ -36,7 +36,7 @@ test('plugin feature and guide render without broken images or horizontal overfl
       ),
     }));
     expect(featureState.document).toBeLessThanOrEqual(featureState.viewport + 1);
-    expect(featureState.screenshotPaths).toHaveLength(3);
+    expect(featureState.screenshotPaths).toHaveLength(4);
     for (const screenshotPath of featureState.screenshotPaths) {
       expect(screenshotPath).toContain('/screenshots/');
       if (baseURL?.includes('/varve')) expect(screenshotPath).toMatch(/^\/varve\/screenshots\//);

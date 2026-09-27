@@ -34,8 +34,12 @@ an iframe, would cross the host's trust boundary.
 ## Decision: bounded WebAssembly compute plus host-owned UI
 
 The first executable package format is a local `.varveplugin` ZIP containing
-only `manifest.json` and `module.wasm`. Installation parses and validates both
-before retaining bytes; it never runs npm scripts or fetches dependencies.
+`manifest.json` and `module.wasm`, with one optional, fixed-path
+`thumbnail.png`. Installation parses and validates every entry before
+retaining bytes; it never runs npm scripts or fetches dependencies. The
+optional package description is plain text, and the thumbnail is a bounded,
+static PNG with manifest-supplied alternative text. SVG, animation, arbitrary
+assets, and remote artwork are unsupported.
 The WebAssembly module runs on demand in a dedicated, host-authored Worker.
 It may import only a host-created, fixed-maximum `env.memory`, with no WASI,
 JavaScript, DOM, filesystem, network, Tauri, clock, or random imports. The
@@ -145,6 +149,26 @@ preference; dismissing its startup screen does not exit safe mode. Execution
 returns an explicit completed, stopped, or stale outcome. Stop does not mark a
 plugin failed, and a stale result is discarded without document/history edits.
 
+The manager shows an optional thumbnail and short description during package
+review and in each installed-plugin card. Search matches names, publishers,
+IDs, status, descriptions, and command names. The complete installed inventory
+is filterable by All, Pinned, and Needs attention, with A–Z and recently
+installed sorting. Pin choices are presentation-only localStorage preferences
+keyed by stable plugin ID; they do not grant access, affect document state, or
+participate in the IndexedDB authorization revision. Pins synchronize through
+the browser storage event and are pruned when an installation is removed. The
+manager does not truncate its at-most-32 installed records to a smaller
+launcher list.
+
+The optional manifest fields are `description` (plain text, up to 280
+characters) and `thumbnail: { "path": "thumbnail.png", "alt": "..." }`.
+The asset must be a PNG no larger than 256 KiB or 512×512 pixels. Its PNG
+signature, bounded chunk framing, CRCs, dimensions, static-image markers, and
+manifest declaration are checked before it is displayed. The whole archive
+remains under 2 MiB, and `thumbnail.png` must be declared if present. A missing
+thumbnail displays a host-generated initials tile. These fields only help
+people recognize and find local packages; they do not attest to provenance.
+
 ## Threat model and remaining platform evidence
 
 The adversary controls package bytes, manifest text, guest Wasm behavior, and
@@ -224,6 +248,7 @@ changes. The current run and any reruns are recorded separately in
 | Update/recovery and resource plateau | Update, rollback, Retry implemented | Permission diff and rollback passed on 2026-09-25; current checks and long-session plateau pending | Prior local native build hit OOM; current attempt pending | Not run |
 | Manager panel hide/show preference | Persisted on the installation record, mirrored into the section registry, applied on registration | Hide/show round-trip passed on 2026-09-25; current changes pending | Prior local native build hit OOM; current attempt pending | Not run |
 | Mixed selection, locked targets, competing plugins | Snapshot and revalidation checks are source-enforced | Mixed selection and locked rename passed on 2026-09-25; two-window and two-plugin cases pending | Prior local native build hit OOM; current attempt pending | Not run |
+| Package thumbnail, description, and pinned discovery | Fixed local PNG allowlist, accessible alt, searchable description/commands, complete filters, A–Z sort, local pins | Parser tests and 18/18 manager browser tests pass; desktop/mobile website routes pass | Linux WebKitGTK install, permission, artwork, analysis, rename preview/apply, and removal pass | Windows WebView2 and macOS WKWebView not run |
 
 See [the 2026-09-27 failure-mode evidence ledger](../audits/plugin-system-evidence-2026-09-27.md)
 for the source-to-requirement trail. [The current validation report](../audits/plugin-system-validation-2026-09-27.md)

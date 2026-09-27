@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "note": "GENERATED FILE — do not hand-edit. Written by scripts/screenshots/product.mjs and validated by scripts/screenshots/validate.mjs. Each scene maps one canonical screenshot consumed by the website and documentation. status: 'captured' when the pipeline produced the file, 'skipped' when the scene could not be produced (reason required).",
-  "generatedAt": "2026-09-25T17:40:03.685Z",
+  "generatedAt": "2026-09-27T22:36:55.769Z",
   "scenes": {
     "workspace": {
       "file": "workspace-light.png",
@@ -302,8 +302,8 @@
       "source": "tests/e2e/plugins/local-manager.spec.ts",
       "width": 1280,
       "height": 721,
-      "sha256": "bb58d999c37f9275290202dbbef50aaae4376ee98c862a95a89dc6cbf6fc87a1",
-      "lastValidatedAgainst": null
+      "sha256": "caeb10f3beb0b8da921f1524751e5dba06585a4ceffc4060e8ec4c1a6b876cad",
+      "lastValidatedAgainst": "04abd6a16124a710eb9499bd68d6947c0262732a"
     },
     "plugin-permission-review": {
       "file": "plugins-permission-review-dark.png",
@@ -314,9 +314,9 @@
       "status": "captured",
       "source": "tests/e2e/plugins/local-manager.spec.ts",
       "width": 1024,
-      "height": 769,
-      "sha256": "a9ae67251279f0c5b889336c42c71a1994efc5c3ea6aafced1633e61918bb731",
-      "lastValidatedAgainst": null
+      "height": 961,
+      "sha256": "4382020910d6847e28d9b208829a0011fe024c64e3b427e2f0e354721905f2d7",
+      "lastValidatedAgainst": "04abd6a16124a710eb9499bd68d6947c0262732a"
     },
     "plugin-inspector-analysis": {
       "file": "plugins-inspector-analysis-light.png",
@@ -328,8 +328,21 @@
       "source": "tests/e2e/plugins/local-manager.spec.ts",
       "width": 1280,
       "height": 721,
-      "sha256": "abf943df1e8b0bc6b2ff657452c1f7594006fc40424bc6f7c297a1f957c9b8c0",
-      "lastValidatedAgainst": null
+      "sha256": "6e884e3499321cd558dd525eab3bdc5fb3f0dc3ececccce1c1b24dddc463c652",
+      "lastValidatedAgainst": "04abd6a16124a710eb9499bd68d6947c0262732a"
+    },
+    "plugin-manager-discovery": {
+      "file": "plugins-manager-discovery-light.png",
+      "alt": "Varve's plugin manager showing accessible package artwork, searchable descriptions, pinned plugins, and alphabetical results",
+      "caption": "Find familiar plugins by artwork, description, pin, or name",
+      "feature": "local-plugins",
+      "theme": "light",
+      "status": "captured",
+      "source": "tests/e2e/plugins/local-manager.spec.ts",
+      "width": 1280,
+      "height": 1101,
+      "sha256": "f4e551eb6b04be3ccea4db0a1490a218f325b1f29c169dbc505e994e8c65b394",
+      "lastValidatedAgainst": "04abd6a16124a710eb9499bd68d6947c0262732a"
     }
   }
 }

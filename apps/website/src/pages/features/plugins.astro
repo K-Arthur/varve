@@ -24,6 +24,11 @@ const pluginScenes = screenshotManifest.scenes;
         <figcaption>{pluginScenes['plugin-rename-preview'].caption}</figcaption>
       </figure>
 
+      <figure class="product-capture">
+        <img src={sitePath(`/screenshots/${pluginScenes['plugin-manager-discovery'].file}`)} width={pluginScenes['plugin-manager-discovery'].width} height={pluginScenes['plugin-manager-discovery'].height} loading="lazy" alt={pluginScenes['plugin-manager-discovery'].alt} />
+        <figcaption>{pluginScenes['plugin-manager-discovery'].caption}</figcaption>
+      </figure>
+
       <div class="steps" aria-label="Plugin workflow">
         <article><span>01</span><h2>Choose a package</h2><p>Open <strong>Settings → Plugins</strong>, or choose <strong>File → Manage Plugins</strong>, and select a local <code>.varveplugin</code> file. No account or catalog is required.</p></article>
         <article><span>02</span><h2>Review access</h2><p>See the package's claimed publisher, version, checksum, commands, and required or optional permissions. Grant only the access you want.</p></article>
@@ -33,6 +38,7 @@ const pluginScenes = screenshotManifest.scenes;
       <section class="detail">
         <h2>What the first plugin API can do</h2>
         <p>Two source examples demonstrate the contract: Selection Style Readiness summarizes selected-layer style properties, and Number Selected Layers proposes names for unlocked selected layers. Contextual results can appear in the Properties Inspector. You can stop a running job, disable or remove a package, and keep edits already committed to the document.</p>
+        <p>Recognize packages by their optional accessible thumbnail and short description. Search installed plugins by name, publisher, command, or description; pin the ones you use often, filter by pinned or needs-attention status, and sort by name or install date. The manager keeps the complete local inventory available without a remote catalog.</p>
         <p>Plugin logic is WebAssembly with a narrow memory-only import, run in a short-lived worker. The editor renders plugin results as text and checks every proposed rename before applying it. Local publisher labels and checksums do not certify that a package is safe or identify its author. Installed packages remain in the local profile for offline management, and a failed update can be restored from its retained previous package.</p>
       </section>
 
@@ -48,7 +54,7 @@ const pluginScenes = screenshotManifest.scenes;
 
       <section class="detail detail--note">
         <h2>Current limits</h2>
-        <p>This is an early local-package API for selected-layer analysis and renaming. It does not provide a marketplace, automatic downloads, arbitrary JavaScript or HTML panels, file or network access, custom drawing tools, or Figma/UXP/VS Code compatibility. Package watching and same-version replacement are not supported. A fixed linear-memory ceiling does not cap the whole browser or operating-system process. Platform-specific desktop verification is still in progress; consult the guide before using a package with important work.</p>
+        <p>This is an early local-package API for selected-layer analysis and renaming. It does not provide a marketplace, automatic downloads, arbitrary JavaScript or HTML panels, file or network access, custom drawing tools, or Figma/UXP/VS Code compatibility. Package watching and same-version replacement are not supported. Package artwork is a small static PNG only. A fixed linear-memory ceiling does not cap the whole browser or operating-system process. Platform-specific desktop verification is still in progress; consult the guide before using a package with important work.</p>
       </section>
 
       <div class="actions">
