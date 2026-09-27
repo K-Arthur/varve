@@ -11,6 +11,8 @@ interface CycleEvidence {
   webview: { visible: boolean; width: number; height: number };
   pixels: { before: number; after: number; changed: boolean };
   screenshot: { path: string; bytes: number };
+  closeMethod: 'keyboard-shortcut';
+  closeActions: number;
   completedAt: string;
 }
 
@@ -22,6 +24,7 @@ async function createDocument(): Promise<void> {
   await create.waitForDisplayed({ timeout: 10000 });
   await create.click();
   await browser.$('[data-testid="editor-canvas"]').waitForDisplayed({ timeout: 30000 });
+  await browser.keys(['Control', 'Shift', '1']);
 }
 
 async function dispatchCanvasInput(): Promise<void> {
@@ -137,6 +140,8 @@ describe('Tauri fluidity workflow cycles — synthetic WebDriver input', () => {
       const paintTool = await browser.$('[data-tool="paint"]');
       await paintTool.waitForDisplayed({ timeout: 10000 });
       await paintTool.click();
+      const workspaceHint = await browser.$('button=Got it');
+      if (await workspaceHint.isDisplayed().catch(() => false)) await workspaceHint.click();
       await dispatchCanvasInput();
       await browser.pause(250);
       expect((await browser.$$('[role="treeitem"]')).length).toBeGreaterThan(0);
@@ -163,7 +168,12 @@ describe('Tauri fluidity workflow cycles — synthetic WebDriver input', () => {
       await browser.keys(['Control', 's']);
       await (await browser.$('.save-status')).waitForDisplayed({ timeout: 30000 });
       await browser.waitUntil(
-        async () => /saved/i.test(await (await browser.$('.save-status')).getText()),
+        async () =>
+          browser.tauri.execute(() => {
+            const status = document.querySelector('.save-status')?.textContent ?? '';
+            const dirty = document.querySelector('.editor-tabs__dirty-dot');
+            return /saved/i.test(status) && dirty === null;
+          }),
         { timeout: 30000, timeoutMsg: 'native local save did not settle' },
       );
 
@@ -172,10 +182,49 @@ describe('Tauri fluidity workflow cycles — synthetic WebDriver input', () => {
       const screenshotBytes = statSync(screenshotPath).size;
       expect(screenshotBytes).toBeGreaterThan(1024);
 
-      const closeButton = await browser.$('[role="tablist"] button[aria-label^="Close "]');
-      await closeButton.waitForDisplayed({ timeout: 10000 });
-      await closeButton.click();
-      await browser.$('[data-testid="new-file-button"]').waitForDisplayed({ timeout: 15000 });
+      const readSurface = () =>
+        browser.tauri.execute(() => {
+          const isVisible = (element: Element | null): boolean => {
+            if (!element) return false;
+            const style = getComputedStyle(element);
+            const rect = element.getBoundingClientRect();
+            return (
+              style.display !== 'none' &&
+              style.visibility !== 'hidden' &&
+              Number(style.opacity) > 0 &&
+              rect.width > 0 &&
+              rect.height > 0
+            );
+          };
+          return {
+            homeVisible: isVisible(document.querySelector('[data-testid="new-file-button"]')),
+            editorVisible: isVisible(document.querySelector('[data-testid="editor-canvas"]')),
+            tabCount: document.querySelectorAll('.editor-tabs__tab').length,
+          };
+        });
+      let closeActions = 0;
+      let surface = await readSurface();
+      await browser.keys(['Control', 'w']);
+      closeActions += 1;
+      await browser.waitUntil(
+        async () => {
+          surface = await readSurface();
+          return surface.homeVisible || (surface.editorVisible && surface.tabCount === 1);
+        },
+        { timeout: 15000, timeoutMsg: 'Close Document shortcut did not close the active tab' },
+      );
+      if (!surface.homeVisible) {
+        // The app keeps its previous session mounted while Home is visible so
+        // Resume Editing can restore it. A new document opened from Home is
+        // therefore a second tab; close that retained tab before the next
+        // independent cycle.
+        await browser.keys(['Control', 'w']);
+        closeActions += 1;
+        await browser.waitUntil(async () => (await readSurface()).homeVisible, {
+          timeout: 15000,
+          timeoutMsg: 'closing the retained prior tab did not return to Home',
+        });
+      }
 
       const event: CycleEvidence = {
         schemaVersion: 1,
@@ -186,6 +235,8 @@ describe('Tauri fluidity workflow cycles — synthetic WebDriver input', () => {
         webview: { visible: viewport.visible, width: viewport.width, height: viewport.height },
         pixels: { before: viewport.fingerprint, after: currentPixels, changed },
         screenshot: { path: screenshotPath, bytes: screenshotBytes },
+        closeMethod: 'keyboard-shortcut',
+        closeActions,
         completedAt: new Date().toISOString(),
       };
       appendFileSync(eventPath, `${JSON.stringify(event)}\n`);

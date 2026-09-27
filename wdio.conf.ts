@@ -13,6 +13,14 @@ const specs = process.env.VARVE_WDIO_SPECS
       .map((spec) => spec.trim())
       .filter(Boolean)
   : defaultSpecs;
+const nativeFluidityCycles = Number(process.env.VARVE_NATIVE_FLUIDITY_CYCLES ?? 1);
+const nativeFluidityTimeout =
+  Number.isInteger(nativeFluidityCycles) && nativeFluidityCycles > 0
+    ? Math.max(120_000, nativeFluidityCycles * 45_000)
+    : 120_000;
+const timeout = specs.some((spec) => spec.includes('native-fluidity-cycle'))
+  ? nativeFluidityTimeout
+  : 90_000;
 
 export const config: Options.Testrunner = {
   runner: 'local',
@@ -48,7 +56,7 @@ export const config: Options.Testrunner = {
   framework: 'mocha',
   mochaOpts: {
     ui: 'bdd',
-    timeout: 90000,
+    timeout,
   },
   reporters: ['spec'],
   waitforTimeout: 10000,
