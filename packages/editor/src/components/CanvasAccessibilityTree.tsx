@@ -10,6 +10,7 @@
  * and Figma's undocumented accessibility tree (inferred behaviour).
  */
 
+import { getFontRegistry } from '@varve/engine';
 import type {
   Document,
   MultipageNodeInstance,
@@ -17,7 +18,8 @@ import type {
   ResolvedEditorSceneScope,
 } from '@varve/scene';
 import { assertOccurrencesInScope } from '@varve/scene';
-import { useMemo } from 'react';
+import { useDeferredValue, useMemo } from 'react';
+import { occurrenceGeometry } from '../scene/occurrenceGeometry';
 import { committedParentIndex } from '../scene/parentIndexCache';
 
 interface CanvasAccessibilityTreeProps {
@@ -63,7 +65,19 @@ export function CanvasAccessibilityTree({
   // document keeps pans and zooms (and every unrelated overlay re-render,
   // which used to pass a fresh camera object) from walking every occurrence's
   // transform chain again.
+  // Deferred: this list is for screen readers, not pixels. During a drag
+  // every frame is a new document, and walking every occurrence's transform
+  // chain per frame competed with the canvas. React renders it after the
+  // urgent frame and drops the work when the next input arrives; the list
+  // always converges on the current document.
+  const currentProjection = useMemo(() => ({ doc, scope }), [doc, scope]);
+  const deferredProjection = useDeferredValue(currentProjection);
+  const deferredDoc = deferredProjection.doc;
+  const deferredScope = deferredProjection.scope;
+  const fontRevision = getFontRegistry().revision;
   const worldNodes = useMemo(() => {
+    const doc = deferredDoc;
+    const scope = deferredScope;
     type AccessibilityEntry = {
       nodeId: string;
       depth: number;
@@ -83,7 +97,10 @@ export function CanvasAccessibilityTree({
     // nodeWorldBounds falls back to an O(n) linear scan (getParent) per call
     // when no parentIndex is passed. Called once per node here, that made
     // this memo O(n^2) in node count on every doc/camera/viewport change.
-    const parentIndex = committedParentIndex(doc);
+    const geometry = scope
+      ? occurrenceGeometry(doc, scope, { revision: fontRevision, boundsForNode: nodeWorldBounds })
+      : null;
+    const parentIndex = scope ? undefined : committedParentIndex(doc);
     const result: Array<{
       id: string;
       nodeId: string;
@@ -102,14 +119,9 @@ export function CanvasAccessibilityTree({
       const nodeId = info.nodeId;
       const n = doc.nodes[nodeId];
       if (!n || n.visible === false) continue;
-      let bounds = nodeWorldBounds(doc, nodeId, parentIndex);
-      if (bounds && occurrence?.masterPlacement) {
-        bounds = {
-          ...bounds,
-          x: bounds.x + occurrence.masterPlacement.x,
-          y: bounds.y + occurrence.masterPlacement.y,
-        };
-      }
+      const bounds = occurrence
+        ? (geometry?.boundsByInstanceId.get(id) ?? null)
+        : nodeWorldBounds(doc, nodeId, parentIndex);
       if (!bounds) continue;
       const bgRemoval =
         'backgroundRemoval' in n && n.backgroundRemoval != null
@@ -129,7 +141,7 @@ export function CanvasAccessibilityTree({
       });
     }
     return result;
-  }, [doc, nodeWorldBounds, scope, walkNodes]);
+  }, [deferredDoc, deferredScope, fontRevision, nodeWorldBounds, walkNodes]);
 
   const { zoom, rotation } = camera;
   const { x: panX, y: panY } = camera.pan;
@@ -153,9 +165,9 @@ export function CanvasAccessibilityTree({
       });
     }
 
-    if (scope)
+    if (deferredScope)
       assertOccurrencesInScope(
-        scope,
+        deferredScope,
         result.map((node) => node.instanceId),
       );
 
@@ -166,7 +178,7 @@ export function CanvasAccessibilityTree({
     panX,
     panY,
     rotation,
-    scope,
+    deferredScope,
     viewportH,
     viewportW,
     worldNodes,

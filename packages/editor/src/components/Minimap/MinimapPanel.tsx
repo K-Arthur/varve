@@ -8,6 +8,7 @@
  * mutated by minimap interaction.
  */
 
+import { getFontRegistry } from '@varve/engine';
 import { resolveEditorSceneScope } from '@varve/scene';
 import { Tooltip } from '@varve/ui';
 import {
@@ -15,6 +16,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type RefObject,
   useCallback,
+  useDeferredValue,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -167,17 +169,22 @@ export function MinimapPanel({ canvasOwnerRef }: MinimapPanelProps) {
   }, [canvasOwnerRef, collapsed, measure]);
 
   const selectedIds = useMemo(() => new Set(editor.state.selection), [editor.state.selection]);
+  const geometryRevision = getFontRegistry().revision;
+  // Deferred: the overview does not need every frame of a drag, and
+  // rebuilding its scene walked the whole document per frame. React renders
+  // it after the urgent frame and converges on the current document.
+  const minimapDocument = useDeferredValue(editor.state.document);
   const sceneScope = useMemo(
     () =>
-      resolveEditorSceneScope(editor.state.document, {
+      resolveEditorSceneScope(minimapDocument, {
         workspaceMode: editor.state.workspaceMode,
-        activePageId: editor.state.document.activePageId ?? null,
-        activeDesignCanvasId: editor.state.document.activeDesignCanvasId ?? null,
+        activePageId: minimapDocument.activePageId ?? null,
+        activeDesignCanvasId: minimapDocument.activeDesignCanvasId ?? null,
         masterEditId: editor.state.masterEditId,
         isolatedNodeId: editor.state.isolatedNodeId,
       }),
     [
-      editor.state.document,
+      minimapDocument,
       editor.state.isolatedNodeId,
       editor.state.masterEditId,
       editor.state.workspaceMode,
@@ -185,11 +192,12 @@ export function MinimapPanel({ canvasOwnerRef }: MinimapPanelProps) {
   );
   const scene = useMemo(
     () =>
-      buildMinimapScene(editor.state.document, selectedIds, {
+      buildMinimapScene(minimapDocument, selectedIds, {
         scope: 'canvas',
         sceneScope,
+        geometryRevision,
       }),
-    [editor.state.document, sceneScope, selectedIds],
+    [geometryRevision, minimapDocument, sceneScope, selectedIds],
   );
 
   const maxWidth =

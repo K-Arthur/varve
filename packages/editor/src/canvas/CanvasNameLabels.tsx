@@ -13,12 +13,8 @@ import {
 } from '@varve/scene';
 import type { Viewport } from '@varve/shared';
 import { useMemo } from 'react';
-import { committedParentIndex } from '../scene/parentIndexCache';
-import {
-  nodeWorldBounds,
-  screenRectToWorldRect,
-  worldRectToScreenAabbProjector,
-} from '../scene/world';
+import { occurrenceGeometry } from '../scene/occurrenceGeometry';
+import { screenRectToWorldRect, worldRectToScreenAabbProjector } from '../scene/world';
 import { toCamera } from './cameraState';
 import {
   type NameLabelCandidate,
@@ -39,29 +35,17 @@ export interface CanvasNameLabelsProps {
   editingNodeId?: NodeId | null;
 }
 
-function offsetBounds(
-  bounds: { x: number; y: number; w: number; h: number },
-  offset: { x: number; y: number },
-) {
-  return { ...bounds, x: bounds.x + offset.x, y: bounds.y + offset.y };
-}
-
 function collectCandidates(
   doc: Document,
   scope: ResolvedEditorSceneScope,
-  selection: readonly NodeId[],
-  hoveredNodeId: NodeId | null | undefined,
-  editingNodeId: NodeId | null | undefined,
+  boundsByInstanceId: ReadonlyMap<string, { x: number; y: number; w: number; h: number } | null>,
 ): NameLabelCandidate[] {
-  const selectedIds = new Set(selection);
-  const parents = committedParentIndex(doc);
   const out: NameLabelCandidate[] = [];
 
   for (const [paintOrder, entry] of scope.occurrences.entries()) {
     const node = doc.nodes[entry.nodeId];
     if (!node) continue;
-    let bounds = nodeWorldBounds(doc, entry.nodeId, parents);
-    if (bounds && entry.masterPlacement) bounds = offsetBounds(bounds, entry.masterPlacement);
+    const bounds = boundsByInstanceId.get(entry.instanceId) ?? null;
     if (!bounds || ![bounds.x, bounds.y, bounds.w, bounds.h].every(Number.isFinite)) continue;
     out.push({
       id: entry.instanceId,
@@ -75,9 +59,9 @@ function collectCandidates(
       depth: entry.depth,
       parentId: entry.parentId,
       surfaceKey: scope.surfaceKey,
-      selected: selectedIds.has(entry.nodeId),
-      hovered: hoveredNodeId === entry.nodeId,
-      editing: editingNodeId === entry.nodeId,
+      selected: false,
+      hovered: false,
+      editing: false,
       paintOrder,
     });
   }
@@ -101,10 +85,23 @@ export function CanvasNameLabels({
   // Text bounds follow loaded font metrics; the revision refreshes candidates
   // on the next render after a font load, as camera changes used to.
   const fontRevision = getFontRegistry().revision;
-  const candidates = useMemo(
-    () => collectCandidates(doc, scope, selection, hoveredNodeId, editingNodeId),
-    [doc, editingNodeId, hoveredNodeId, scope, selection, fontRevision],
+  const geometry = useMemo(
+    () => occurrenceGeometry(doc, scope, { revision: fontRevision }),
+    [doc, fontRevision, scope],
   );
+  const baseCandidates = useMemo(
+    () => collectCandidates(doc, scope, geometry.boundsByInstanceId),
+    [doc, geometry, scope],
+  );
+  const candidates = useMemo(() => {
+    const selectedIds = new Set(selection);
+    return baseCandidates.map((candidate) => ({
+      ...candidate,
+      selected: candidate.nodeId ? selectedIds.has(candidate.nodeId) : false,
+      hovered: hoveredNodeId === candidate.nodeId,
+      editing: editingNodeId === candidate.nodeId,
+    }));
+  }, [baseCandidates, editingNodeId, hoveredNodeId, selection]);
   const labels = useMemo(() => {
     const camera = toCamera({ zoom, pan, cameraRotation });
     const projectRect = worldRectToScreenAabbProjector(camera, viewport);

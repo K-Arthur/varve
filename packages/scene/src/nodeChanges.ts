@@ -8,18 +8,22 @@
  */
 
 import type { Document } from './document';
+import type { NodeId } from './types';
 
-const nodeCounts = new WeakMap<Document['nodes'], number>();
-
-function nodeCount(nodes: Document['nodes']): number {
-  let count = nodeCounts.get(nodes);
-  if (count === undefined) {
-    count = 0;
-    for (const _id in nodes) count += 1;
-    nodeCounts.set(nodes, count);
-  }
-  return count;
+export interface NodeChangeClassification {
+  /** Added, removed, or replaced authored node records, in document order. */
+  changedNodeIds: readonly NodeId[];
+  /** Every changed record differs only in its transform. */
+  transformsOnly: boolean;
+  /** At least one node id was added or removed. */
+  topologyChanged: boolean;
 }
+
+const NO_NODE_CHANGES: NodeChangeClassification = Object.freeze({
+  changedNodeIds: Object.freeze([]) as readonly NodeId[],
+  transformsOnly: true,
+  topologyChanged: false,
+});
 
 /**
  * Recent answers. Several caches ask about the same pair of records on each
@@ -30,18 +34,19 @@ const RECENT_ANSWER_CAPACITY = 4;
 const recentAnswers: Array<{
   previous: Document['nodes'];
   next: Document['nodes'];
-  answer: boolean;
+  answer: NodeChangeClassification;
 }> = [];
 
 /**
- * True when both records hold the same node ids and every node object that
- * differs differs only in its `transform`.
+ * Classify one immutable node-record pair. The bounded pair cache makes the
+ * changed-id walk shared by geometry, scene-scope, and other edit consumers
+ * on the same document transition.
  */
-export function nodesDifferOnlyInTransforms(
+export function classifyNodeChanges(
   previous: Document['nodes'],
   next: Document['nodes'],
-): boolean {
-  if (previous === next) return true;
+): NodeChangeClassification {
+  if (previous === next) return NO_NODE_CHANGES;
   for (const entry of recentAnswers) {
     if (entry.previous === previous && entry.next === next) return entry.answer;
   }
@@ -51,22 +56,61 @@ export function nodesDifferOnlyInTransforms(
   return answer;
 }
 
-function compareNodes(previous: Document['nodes'], next: Document['nodes']): boolean {
-  let nextCount = 0;
+/**
+ * True when both records hold the same node ids and every node object that
+ * differs differs only in its `transform`.
+ */
+export function nodesDifferOnlyInTransforms(
+  previous: Document['nodes'],
+  next: Document['nodes'],
+): boolean {
+  return classifyNodeChanges(previous, next).transformsOnly;
+}
+
+function compareNodes(
+  previous: Document['nodes'],
+  next: Document['nodes'],
+): NodeChangeClassification {
+  let transformsOnly = true;
+  let topologyChanged = false;
+  const changedNodeIds: NodeId[] = [];
+  const previousFields = new Set<string>();
+
   for (const id in next) {
-    nextCount += 1;
     const a = previous[id];
     const b = next[id];
     if (a === b) continue;
-    if (!a || !b) return false;
+    changedNodeIds.push(id as NodeId);
+    if (!a || !b) {
+      topologyChanged = true;
+      transformsOnly = false;
+      continue;
+    }
+
     const fieldsA = a as unknown as Record<string, unknown>;
     const fieldsB = b as unknown as Record<string, unknown>;
-    for (const field of new Set([...Object.keys(fieldsA), ...Object.keys(fieldsB)])) {
-      if (field !== 'transform' && fieldsA[field] !== fieldsB[field]) return false;
+    for (const field of Object.keys(fieldsA)) {
+      previousFields.add(field);
+      if (field !== 'transform' && fieldsA[field] !== fieldsB[field]) transformsOnly = false;
     }
+    for (const field of Object.keys(fieldsB)) {
+      if (field !== 'transform' && !previousFields.has(field)) transformsOnly = false;
+    }
+    previousFields.clear();
   }
-  nodeCounts.set(next, nextCount);
-  return nodeCount(previous) === nextCount;
+
+  for (const id in previous) {
+    if (Object.hasOwn(next, id)) continue;
+    changedNodeIds.push(id as NodeId);
+    topologyChanged = true;
+    transformsOnly = false;
+  }
+
+  return Object.freeze({
+    changedNodeIds: Object.freeze(changedNodeIds),
+    transformsOnly,
+    topologyChanged,
+  });
 }
 
 /**

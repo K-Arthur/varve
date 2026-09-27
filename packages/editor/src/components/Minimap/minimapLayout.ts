@@ -34,6 +34,7 @@ import {
   type Viewport,
   worldToScreen,
 } from '@varve/shared';
+import { occurrenceGeometry } from '../../scene/occurrenceGeometry';
 import { committedParentIndex } from '../../scene/parentIndexCache';
 import { nodeWorldBounds } from '../../scene/world';
 
@@ -106,10 +107,16 @@ export interface MinimapLayoutOptions {
   designCanvasId?: NodeId | null;
   /** Shared current-surface projection. Preferred for editor minimaps. */
   sceneScope?: ResolvedEditorSceneScope;
+  /** Font/placement revision for the shared occurrence-geometry snapshot. */
+  geometryRevision?: string | number;
 }
 
-type ResolvedMinimapLayoutOptions = Omit<Required<MinimapLayoutOptions>, 'sceneScope'> & {
+type ResolvedMinimapLayoutOptions = Omit<
+  Required<MinimapLayoutOptions>,
+  'sceneScope' | 'geometryRevision'
+> & {
   sceneScope?: ResolvedEditorSceneScope;
+  geometryRevision?: string | number;
 };
 
 /** The minimap's transform state: maps world coords to minimap-local coords. */
@@ -223,7 +230,7 @@ function collectOccurrenceEntries(
   selectedIds: Set<NodeId>,
   entries: MinimapEntry[],
   opts: ResolvedMinimapLayoutOptions,
-  parentIndex: Map<NodeId, NodeId>,
+  boundsByInstanceId: ReadonlyMap<string, Rect | null>,
 ): void {
   for (const occurrence of occurrences) {
     if (occurrence.depth > opts.maxDepth) continue;
@@ -234,14 +241,7 @@ function collectOccurrenceEntries(
     if (!isVisible && !opts.includeHidden) continue;
     if (isLocked && !opts.includeLocked) continue;
 
-    let rawBounds = nodeWorldBounds(doc, occurrence.nodeId, parentIndex);
-    if (rawBounds && occurrence.masterPlacement) {
-      rawBounds = {
-        ...rawBounds,
-        x: rawBounds.x + occurrence.masterPlacement.x,
-        y: rawBounds.y + occurrence.masterPlacement.y,
-      };
-    }
+    const rawBounds = boundsByInstanceId.get(occurrence.instanceId) ?? null;
     if (!rawBounds && node.kind !== 'frame' && node.kind !== 'group') continue;
     const bounds = normalizeBounds(rawBounds);
     if (!bounds) continue;
@@ -323,21 +323,24 @@ export function buildMinimapScene(
       ? null
       : options.designCanvasId;
   const entries: MinimapEntry[] = [];
-  const parentIndex = committedParentIndex(doc);
   if (options.sceneScope) {
+    const geometry = occurrenceGeometry(doc, options.sceneScope, {
+      revision: options.geometryRevision ?? 0,
+    });
     collectOccurrenceEntries(
       doc,
       options.sceneScope.occurrences,
       selectedIds,
       entries,
       options,
-      parentIndex,
+      geometry.boundsByInstanceId,
     );
     assertOccurrencesInScope(
       options.sceneScope,
       entries.map((entry) => entry.id),
     );
   } else {
+    const parentIndex = committedParentIndex(doc);
     let rootIds: NodeId[];
     if (options.scope === 'activePage' && doc.pages?.length && doc.activePageId) {
       const activePage = doc.pages.find((p) => p.id === doc.activePageId);
