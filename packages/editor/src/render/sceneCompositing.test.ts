@@ -254,6 +254,31 @@ describe('sceneCanUseWorkerRenderer', () => {
     expect(sceneCanUseWorkerRenderer(doc, () => true)).toBe(true);
   });
 
+  it('keeps visible effect-bearing scenes on the reference thread until pixel parity is exact', () => {
+    const effect = {
+      type: 'dropShadow' as const,
+      x: 8,
+      y: 10,
+      blur: 24,
+      spread: 4,
+      color: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 255 },
+      opacity: 0.5,
+      blendMode: 'normal' as const,
+      visible: true,
+    };
+    const visible = addNode(createDocument('visible-effect'), {
+      ...makeShapeNode('shadow', { kind: 'rect', x: 0, y: 0, w: 120, h: 120 }),
+      effects: [effect],
+    });
+    expect(sceneCanUseWorkerRenderer(visible, () => true)).toBe(false);
+
+    const hidden = addNode(createDocument('hidden-effect'), {
+      ...makeShapeNode('shadow', { kind: 'rect', x: 0, y: 0, w: 120, h: 120 }),
+      effects: [{ ...effect, visible: false }],
+    });
+    expect(sceneCanUseWorkerRenderer(hidden, () => true)).toBe(true);
+  });
+
   it('keeps blended paint on the main thread, where the board is its backdrop', () => {
     const solid = solidFill({ space: 'rgb', r: 1, g: 2, b: 3, a: 255 });
     const plain = addNode(createDocument('plain'), shapeWithFills('p', [solid]));

@@ -139,6 +139,20 @@ const sceneHasUnsupportedWorkerRasterResources = memoizeLastDocument(
   computeHasUnsupportedWorkerRasterResources,
 );
 
+/**
+ * Visible per-node effects can rasterize slightly differently in OffscreenCanvas
+ * than on the authoritative main-thread surface. Keep these scenes on the main
+ * path until the worker and oracle are pixel-identical; otherwise a fresh worker
+ * revision can still leave a settled image that fails the full-redraw oracle.
+ */
+const sceneHasWorkerPixelParityRisk = memoizeLastDocument((doc: Document): boolean => {
+  for (const node of Object.values(doc.nodes)) {
+    if (!node || node.visible === false || !('effects' in node)) continue;
+    if (node.effects?.some((effect) => effect.visible !== false)) return true;
+  }
+  return false;
+});
+
 function computeHasUnsupportedWorkerRasterResources(doc: Document): boolean {
   for (const node of Object.values(doc.nodes)) {
     if (!node) continue;
@@ -247,6 +261,11 @@ export function sceneCanUseWorkerRenderer(
   // background-removal masks require DOM-canvas compositing in replay.ts.
   // Reject those scenes instead of silently producing different pixels.
   if (sceneHasUnsupportedWorkerRasterResources(doc)) return false;
+  // Full-quality Chromium verification found repeatable OffscreenCanvas versus
+  // main-thread edge differences on visible effects (143k pixels, max channel
+  // delta 5 in the effects-heavy fixture). This is a fidelity gate, not a
+  // capability expansion: keep effect-bearing scenes on the reference path.
+  if (sceneHasWorkerPixelParityRisk(doc)) return false;
   if (sceneHasBlendedPaint(doc)) return false;
   if (!sceneHasImageFills(doc)) return true;
   for (const src of imageFillSrcsInDocument(doc)) {
