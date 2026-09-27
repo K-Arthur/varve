@@ -88,6 +88,12 @@ implementation:
 - Customization and layout-manager dialogs already exist and will be extended
   rather than duplicated.
 
+### Confirmed issue matrix
+
+| Severity | Reproduction and expected/actual | Root cause and scope | Regression evidence and status |
+| --- | --- | --- | --- |
+| P1 — workflow discoverability | Switch from Design to Email. Expected: Email authoring is the initial Inspector tab. Baseline actual: the Email workspace opens with Design selected; see the inspected pre-fix [Email workspace capture](../screenshots/workspace-dock-layout/email-light.png). | `PropertiesPanel` retained one panel-wide `activeTab`. Because Design's `properties` tab is also valid in Email, the default-tab fallback did not run after a mode switch. This affected shared Inspector state, not the document or authored email content. | Store the active tab per workspace, initialize Email from its configured `email` default, and migrate the former single value into the initial non-Email workspace. React component tests cover Design → Email → Design and legacy state; a current-build visual recapture remains pending. |
+
 ## Acceptance evidence to collect
 
 For each milestone, record the exact baseline SHA, focused unit/property and

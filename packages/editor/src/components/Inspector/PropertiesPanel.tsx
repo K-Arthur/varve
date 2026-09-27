@@ -25,7 +25,13 @@ import { requestToolOptions } from '../../context/toolOptionsBridge';
 import type { EditorState, InspectorTab, IntelligenceTab } from '../../context/types';
 import { docVariableStore } from '../../docVariableStore';
 import { toolIconName } from '../../tools/toolRegistry';
-import { usePanelLocalState } from '../../workspace/panelLocalState';
+import {
+  getWorkspaceInspectorTab,
+  initializeWorkspaceInspectorTabs,
+  setWorkspaceInspectorTab,
+  type WorkspaceInspectorTabState,
+} from '../../workspace/inspectorTabState';
+import { getPanelLocalState, usePanelLocalState } from '../../workspace/panelLocalState';
 import { useEffectiveWorkspaceConfig } from '../../workspace/useWorkspaceConfig';
 import {
   getDefaultInspectorTab,
@@ -236,10 +242,35 @@ export function PropertiesPanel() {
     return tabs;
   }, [configuredTabs, effectiveConfig, requestedTab, selNodes, state.prototypeMode]);
 
-  const [tab, setTab] = usePanelLocalState<InspectorTab>(
+  const activeInspectorConfig = useMemo(
+    () => ({ ...effectiveConfig, inspectorTabs: visibleTabConfigs }),
+    [effectiveConfig, visibleTabConfigs],
+  );
+
+  const [activeTabsByMode, setActiveTabsByMode] = usePanelLocalState<WorkspaceInspectorTabState>(
     'inspector',
-    'activeTab',
-    () => getDefaultInspectorTab(state.workspaceMode, effectiveConfig) as InspectorTab,
+    'activeTabsByMode',
+    () =>
+      initializeWorkspaceInspectorTabs(
+        state.workspaceMode,
+        activeInspectorConfig,
+        getPanelLocalState<InspectorTab>('inspector', 'activeTab'),
+      ),
+  );
+  const workspaceModeRef = useRef(state.workspaceMode);
+  workspaceModeRef.current = state.workspaceMode;
+  const tab = getWorkspaceInspectorTab(
+    state.workspaceMode,
+    activeInspectorConfig,
+    activeTabsByMode,
+  ) as InspectorTab;
+  const setTab = useCallback(
+    (nextTab: InspectorTab) => {
+      setActiveTabsByMode((current) =>
+        setWorkspaceInspectorTab(current, workspaceModeRef.current, nextTab),
+      );
+    },
+    [setActiveTabsByMode],
   );
   const [intelRequest, setIntelRequest] = useState<{ subTab?: IntelligenceTab; seq: number }>({
     seq: 0,
@@ -292,7 +323,7 @@ export function PropertiesPanel() {
       setIntelRequest((r) => ({ subTab, seq: r.seq + 1 }));
     });
     return () => setInspectorTabHandler(null);
-  }, []);
+  }, [setTab]);
 
   useEffect(() => {
     if (!visibleTabConfigs.some((tabConfig) => tabConfig.id === tab)) {

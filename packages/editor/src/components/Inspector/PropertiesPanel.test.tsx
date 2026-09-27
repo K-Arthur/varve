@@ -1,9 +1,12 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { EditorProvider, useEditor } from '../../context';
-import { resetPanelLocalStateForTest } from '../../workspace/panelLocalState';
+import {
+  resetPanelLocalStateForTest,
+  restorePanelLocalState,
+} from '../../workspace/panelLocalState';
 import { PropertiesPanel } from './PropertiesPanel';
 
 beforeEach(() => resetPanelLocalStateForTest());
@@ -168,6 +171,42 @@ describe('PropertiesPanel canvas settings', () => {
     expect(screen.getByRole('radio', { name: 'CMYK' })).toBeTruthy();
     expect(screen.getByRole('radio', { name: 'Grayscale' })).toBeTruthy();
     expect(screen.queryByText(/nodes?/i)).toBeNull();
+  });
+
+  it('uses the Email authoring tab on switch and remembers tabs per workspace', async () => {
+    let ctx: ReturnType<typeof useEditor> | undefined;
+    function Controller() {
+      ctx = useEditor();
+      return null;
+    }
+
+    render(
+      <EditorProvider>
+        <Controller />
+        <PropertiesPanel />
+      </EditorProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Export' }));
+    await act(async () => {
+      await ctx?.requestWorkspaceSwitch('email');
+    });
+    await waitFor(() =>
+      expect(screen.getByRole('tab', { name: 'Email' })).toHaveAttribute('aria-selected', 'true'),
+    );
+
+    await act(async () => {
+      await ctx?.requestWorkspaceSwitch('design');
+    });
+    await waitFor(() =>
+      expect(screen.getByRole('tab', { name: 'Export' })).toHaveAttribute('aria-selected', 'true'),
+    );
+  });
+
+  it('migrates a prior panel tab into the initial non-email workspace', () => {
+    restorePanelLocalState('inspector', { activeTab: 'export' });
+    renderPanel();
+    expect(screen.getByRole('tab', { name: 'Export' })).toHaveAttribute('aria-selected', 'true');
   });
 });
 
