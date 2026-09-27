@@ -254,6 +254,35 @@ describe('sceneCanUseWorkerRenderer', () => {
     expect(sceneCanUseWorkerRenderer(doc, () => true)).toBe(true);
   });
 
+  it('keeps blended paint on the main thread, where the board is its backdrop', () => {
+    const solid = solidFill({ space: 'rgb', r: 1, g: 2, b: 3, a: 255 });
+    const plain = addNode(createDocument('plain'), shapeWithFills('p', [solid]));
+    expect(sceneCanUseWorkerRenderer(plain, () => true)).toBe(true);
+
+    const node = shapeWithFills('m', [solid]);
+    const layerBlend = addNode(createDocument('layer'), { ...node, blendMode: 'multiply' });
+    expect(sceneCanUseWorkerRenderer(layerBlend, () => true)).toBe(false);
+
+    const fillBlend = addNode(
+      createDocument('fill'),
+      shapeWithFills('f', [{ ...solid, blendMode: 'screen' }]),
+    );
+    expect(sceneCanUseWorkerRenderer(fillBlend, () => true)).toBe(false);
+
+    const hidden = addNode(createDocument('hidden'), {
+      ...node,
+      blendMode: 'multiply',
+      visible: false,
+    });
+    expect(sceneCanUseWorkerRenderer(hidden, () => true)).toBe(true);
+
+    const passThrough = addNode(createDocument('group'), {
+      ...makeGroupNode('g', { children: [] }),
+      blendMode: 'passThrough',
+    });
+    expect(sceneCanUseWorkerRenderer(passThrough, () => true)).toBe(true);
+  });
+
   it('blocks worker until image src is loaded', () => {
     let doc = createDocument('test');
     doc = addNode(doc, shapeWithFills('img1', [imageFill('test.png')]));

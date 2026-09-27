@@ -204,6 +204,38 @@ function computeImageFillSrcs(doc: Document): string[] {
 }
 
 /**
+ * The worker replays onto a transparent OffscreenCanvas and the host paints
+ * the board underneath, so a blend mode there composites against nothing and
+ * lands as its plain source colour: every circle in the blend-modes corpus
+ * drew unblended, which the authoritative full redraw (board filled first,
+ * then replayed) does not. Keep such scenes on the main thread until the
+ * worker is given the same backdrop.
+ */
+const sceneHasBlendedPaint = memoizeLastDocument(computeHasBlendedPaint);
+
+function isBlended(mode: string | undefined): boolean {
+  return mode !== undefined && mode !== 'normal' && mode !== 'passThrough';
+}
+
+function computeHasBlendedPaint(doc: Document): boolean {
+  for (const node of Object.values(doc.nodes)) {
+    if (!node || node.visible === false) continue;
+    if (isBlended(node.blendMode)) return true;
+    const paints = node as {
+      fills?: ReadonlyArray<{ visible?: boolean; blendMode?: string }>;
+      effects?: ReadonlyArray<{ visible?: boolean; blendMode?: string }>;
+    };
+    if (paints.fills?.some((fill) => fill.visible !== false && isBlended(fill.blendMode))) {
+      return true;
+    }
+    if (paints.effects?.some((effect) => effect.visible !== false && isBlended(effect.blendMode))) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
  * True when the render worker can replay this scene — including image fills
  * once every src is loaded in ImageCache (Structured Clone ImageBitmap transport).
  */
@@ -215,6 +247,7 @@ export function sceneCanUseWorkerRenderer(
   // background-removal masks require DOM-canvas compositing in replay.ts.
   // Reject those scenes instead of silently producing different pixels.
   if (sceneHasUnsupportedWorkerRasterResources(doc)) return false;
+  if (sceneHasBlendedPaint(doc)) return false;
   if (!sceneHasImageFills(doc)) return true;
   for (const src of imageFillSrcsInDocument(doc)) {
     if (!isImageLoaded(src)) return false;
