@@ -28,6 +28,13 @@ export function workspaceShortcutLabel(mode: WorkspaceMode): string {
   return formatShortcut(getEffectiveBinding(id));
 }
 
+/** Registered key for the compact numeric marker in the workspace switcher. */
+export function workspaceShortcutKey(mode: WorkspaceMode): string {
+  const id = WORKSPACE_SHORTCUT_IDS[mode];
+  if (!id) return '';
+  return getEffectiveBinding(id).key;
+}
+
 /**
  * Shortcut ids the tip recommender should not surface in this workspace.
  *

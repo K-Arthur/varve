@@ -72,6 +72,11 @@ describe('WorkspaceTabs', () => {
       'Control+Shift+5',
       'Control+Shift+6',
     ]);
+    expect(
+      [...group.querySelectorAll('.workspace-dock__shortcut')].map((key) =>
+        key.getAttribute('data-shortcut-key'),
+      ),
+    ).toEqual(['1', '2', '3', '4', '5', '6']);
     expect(within(group).getByRole('radio', { name: /Design/ })).toHaveAttribute(
       'aria-checked',
       'true',

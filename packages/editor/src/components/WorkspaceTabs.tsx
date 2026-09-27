@@ -44,6 +44,7 @@
  */
 import { Menu, TablerIcon, type TablerIconName, Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import './WorkspaceTabs.css';
 import { allowedWorkspaceModes } from '../capabilities/restrictions';
 import { useEditor } from '../context';
 import {
@@ -51,7 +52,7 @@ import {
   WORKSPACE_TAB_GAP_FALLBACK,
   type WorkspaceLayoutResult,
 } from '../workspace/workspaceOverflow';
-import { workspaceShortcutLabel } from '../workspace/workspaceShortcutLabel';
+import { workspaceShortcutKey, workspaceShortcutLabel } from '../workspace/workspaceShortcutLabel';
 import {
   WORKSPACE_LABELS,
   WORKSPACE_OVERFLOW_ORDER,
@@ -249,6 +250,7 @@ export function WorkspaceTabs() {
         >
           {layout.visible.map((mode) => {
             const isActive = state.workspaceMode === mode;
+            const shortcutKey = workspaceShortcutKey(mode);
 
             return (
               <Tooltip
@@ -281,6 +283,9 @@ export function WorkspaceTabs() {
                       data-workspace-icon={WORKSPACE_ICON_NAMES[mode]}
                     />
                   </span>
+                  <kbd className="workspace-dock__shortcut" data-shortcut-key={shortcutKey}>
+                    {shortcutKey}
+                  </kbd>
                   {/* Inactive modes are icon-only; the active mode keeps its
                       name unless the strip is too narrow even for the pill, so
                       the desktop presentation always names the active

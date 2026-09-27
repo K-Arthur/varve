@@ -202,7 +202,9 @@ only to migrate layouts saved by older versions.
 | Email | `Ctrl+Shift+6` | Email-specific structure, responsive preview, compatibility checks, and export |
 
 The workspace switcher follows this same order and each tab resolves its
-shortcut label from `workspaceShortcutLabel(mode)`. Dedicated workflow actions
+shortcut label from `workspaceShortcutLabel(mode)`. Its visible number marker
+is read from that mode's effective shortcut binding, so icon-only tabs still
+show the 1–6 sequence. Dedicated workflow actions
 follow the six mode keys: `Ctrl+Shift+7` shows Logo Tools in Design and
 `Ctrl+Shift+8` shows the shared Code panel. The legacy action ids
 `workspaceLogo` and `workspaceCodegen` remain in the shortcut registry for
