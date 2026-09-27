@@ -13,7 +13,7 @@
  * - random operation sequences never produce unreachable panels
  */
 
-import { tryGetPanelDefinition } from '../panelRegistry';
+import { type PanelSize, tryGetPanelDefinition } from '../panelRegistry';
 import {
   createPanelInstanceRef,
   type DockLayout,
@@ -28,6 +28,11 @@ import {
 
 export const MIN_SPLIT_RATIO = 0.05;
 export const MAX_SPLIT_RATIO = 0.95;
+/** Imported layouts stay small enough to validate and render predictably. */
+export const MAX_DOCK_DEPTH = 16;
+export const MAX_DOCK_NODES = 64;
+export const MAX_DOCK_PANELS = 32;
+export const MAX_DOCK_WINDOWS = 8;
 
 export function clampRatio(ratio: number): number {
   if (!Number.isFinite(ratio)) return 0.5;
@@ -90,6 +95,38 @@ export function listPanelInstances(root: DockNode): PanelInstanceRef[] {
     return [...listPanelInstances(root.first), ...listPanelInstances(root.second)];
   }
   return [];
+}
+
+/** Minimum dimensions required by the registered panels below a node. */
+export function getDockNodeMinimumSize(root: DockNode): PanelSize {
+  switch (root.kind) {
+    case 'empty':
+      return { width: 0, height: 0 };
+    case 'panel': {
+      const size = tryGetPanelDefinition(root.panelTypeId)?.minimumSize;
+      return size ? { ...size } : { width: 0, height: 0 };
+    }
+    case 'tabs': {
+      return root.panels.reduce<PanelSize>(
+        (minimum, panel) => {
+          const size = tryGetPanelDefinition(panel.panelTypeId)?.minimumSize;
+          if (!size) return minimum;
+          return {
+            width: Math.max(minimum.width, size.width),
+            height: Math.max(minimum.height, size.height),
+          };
+        },
+        { width: 0, height: 0 },
+      );
+    }
+    case 'split': {
+      const first = getDockNodeMinimumSize(root.first);
+      const second = getDockNodeMinimumSize(root.second);
+      return root.direction === 'row'
+        ? { width: first.width + second.width, height: Math.max(first.height, second.height) }
+        : { width: Math.max(first.width, second.width), height: first.height + second.height };
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -327,9 +364,36 @@ export function normalizeDockTree(root: DockNode): DockNode {
 export function validateDockTree(root: DockNode): string[] {
   const violations: string[] = [];
   const seenInstances = new Set<string>();
+  const seenIds = new Set<string>();
+  const seenNodes = new WeakSet<object>();
+  const pending: Array<{ node: DockNode; depth: number }> = [{ node: root, depth: 1 }];
+  let count = 0;
 
-  function walk(node: DockNode): void {
+  while (pending.length > 0) {
+    const entry = pending.pop();
+    if (!entry) continue;
+    const { node, depth } = entry;
+    count += 1;
+    if (count > MAX_DOCK_NODES) {
+      violations.push(`dock tree exceeds ${MAX_DOCK_NODES} nodes`);
+      break;
+    }
+    if (depth > MAX_DOCK_DEPTH) {
+      violations.push(`dock tree exceeds maximum depth ${MAX_DOCK_DEPTH}`);
+      continue;
+    }
+    if (typeof node !== 'object' || node === null) {
+      violations.push('invalid dock node');
+      continue;
+    }
+    if (seenNodes.has(node)) {
+      violations.push('dock node is referenced more than once or contains a cycle');
+      continue;
+    }
+    seenNodes.add(node);
     if (!node.id) violations.push('node without id');
+    else if (seenIds.has(node.id)) violations.push(`duplicate dock node id '${node.id}'`);
+    else seenIds.add(node.id);
     switch (node.kind) {
       case 'split': {
         if (!Number.isFinite(node.ratio) || node.ratio <= 0 || node.ratio >= 1) {
@@ -338,8 +402,8 @@ export function validateDockTree(root: DockNode): string[] {
         if (node.first.kind === 'empty' || node.second.kind === 'empty') {
           violations.push(`split '${node.id}' has an empty child (not normalized)`);
         }
-        walk(node.first);
-        walk(node.second);
+        pending.push({ node: node.second, depth: depth + 1 });
+        pending.push({ node: node.first, depth: depth + 1 });
         break;
       }
       case 'tabs': {
@@ -348,6 +412,9 @@ export function validateDockTree(root: DockNode): string[] {
         }
         if (node.panels.length === 1) {
           violations.push(`tabs '${node.id}' holds a single panel (not normalized)`);
+        }
+        if (node.panels.length > MAX_DOCK_PANELS) {
+          violations.push(`tabs '${node.id}' exceeds ${MAX_DOCK_PANELS} panels`);
         }
         for (const panel of node.panels) {
           checkPanelRef(panel);
@@ -366,6 +433,8 @@ export function validateDockTree(root: DockNode): string[] {
       }
       case 'empty':
         break;
+      default:
+        violations.push('unknown dock node kind');
     }
   }
 
@@ -384,7 +453,6 @@ export function validateDockTree(root: DockNode): string[] {
     }
   }
 
-  walk(root);
   return violations;
 }
 
@@ -402,15 +470,26 @@ export function validateDockLayout(layout: DockLayout): string[] {
   }
   const seenInstances = new Set<string>();
   const seenWindows = new Set<string>();
+  if (layout.windows.length > MAX_DOCK_WINDOWS) {
+    violations.push(`layout exceeds ${MAX_DOCK_WINDOWS} windows`);
+  }
   for (const window of layout.windows) {
     if (seenWindows.has(window.id)) violations.push(`duplicate window id '${window.id}'`);
     seenWindows.add(window.id);
-    violations.push(...validateDockTree(window.dockRoot).map((v) => `window '${window.id}': ${v}`));
+    const hostKind = window.role === 'primary' ? 'primary-sidebar' : 'auxiliary-window';
+    const windowViolations = validateDockTree(window.dockRoot);
+    violations.push(...windowViolations.map((v) => `window '${window.id}': ${v}`));
     for (const panel of listPanelInstances(window.dockRoot)) {
       if (seenInstances.has(panel.instanceId)) {
         violations.push(`panel instance '${panel.instanceId}' hosted in multiple windows`);
       }
       seenInstances.add(panel.instanceId);
+      const definition = tryGetPanelDefinition(panel.panelTypeId);
+      if (definition && !definition.allowedHosts.includes(hostKind)) {
+        violations.push(
+          `panel type '${panel.panelTypeId}' cannot be hosted in ${hostKind} window '${window.id}'`,
+        );
+      }
     }
   }
   const typeCounts = new Map<PanelTypeId, number>();
@@ -472,6 +551,16 @@ export function movePanelBetweenWindows(
 ): { layout: DockLayout; moved: boolean } {
   const source = layout.windows.find((w) => findPanelInstance(w.dockRoot, instanceId));
   if (!source) return { layout, moved: false };
+  const targetBeforeMove = layout.windows.find((w) => w.id === targetWindowId);
+  if (!targetBeforeMove) return { layout, moved: false };
+  const existingPanel = listPanelInstances(source.dockRoot).find(
+    (panel) => panel.instanceId === instanceId,
+  );
+  if (!existingPanel) return { layout, moved: false };
+  const targetHost = targetBeforeMove.role === 'primary' ? 'primary-sidebar' : 'auxiliary-window';
+  const definition = tryGetPanelDefinition(existingPanel.panelTypeId);
+  if (definition && !definition.allowedHosts.includes(targetHost)) return { layout, moved: false };
+
   const removed = removePanel(source.dockRoot, instanceId);
   if (!removed.removed) return { layout, moved: false };
   const ref = removed.removed;
@@ -519,7 +608,7 @@ export function deserializeDockTree(
   if (typeof input !== 'object' || input === null) {
     return { ok: false, reason: 'dock tree must be an object' };
   }
-  const validationError = validateSerializedNode(input as DockNode);
+  const validationError = validateSerializedNode(input);
   if (validationError) return { ok: false, reason: validationError };
   const tree = structuredCloneSafe(input as DockNode);
   const violations = validateDockTree(normalizeDockTree(tree));
@@ -529,44 +618,64 @@ export function deserializeDockTree(
   return { ok: true, tree: normalizeDockTree(tree) };
 }
 
-function validateSerializedNode(node: DockNode): string | null {
-  if (
-    typeof node !== 'object' ||
-    node === null ||
-    typeof node.id !== 'string' ||
-    node.id.length === 0
-  ) {
-    return 'node without id';
+function validateSerializedNode(input: unknown): string | null {
+  const pending: Array<{ node: unknown; depth: number }> = [{ node: input, depth: 1 }];
+  const ids = new Set<string>();
+  const seen = new WeakSet<object>();
+  let count = 0;
+
+  while (pending.length > 0) {
+    const entry = pending.pop();
+    if (!entry) continue;
+    const { node, depth } = entry;
+    count += 1;
+    if (count > MAX_DOCK_NODES) return `dock tree exceeds ${MAX_DOCK_NODES} nodes`;
+    if (depth > MAX_DOCK_DEPTH) return `dock tree exceeds maximum depth ${MAX_DOCK_DEPTH}`;
+    if (typeof node !== 'object' || node === null || Array.isArray(node))
+      return 'invalid dock node';
+    if (seen.has(node)) return 'dock node is referenced more than once or contains a cycle';
+    seen.add(node);
+
+    const record = node as Record<string, unknown>;
+    if (typeof record.id !== 'string' || record.id.length === 0) return 'node without id';
+    if (ids.has(record.id)) return `duplicate dock node id '${record.id}'`;
+    ids.add(record.id);
+
+    switch (record.kind) {
+      case 'split':
+        if (record.direction !== 'row' && record.direction !== 'column')
+          return 'invalid split direction';
+        if (typeof record.ratio !== 'number' || !Number.isFinite(record.ratio))
+          return 'invalid split ratio';
+        pending.push({ node: record.second, depth: depth + 1 });
+        pending.push({ node: record.first, depth: depth + 1 });
+        break;
+      case 'tabs':
+        if (!Array.isArray(record.panels)) return 'tabs panels must be an array';
+        if (record.panels.length > MAX_DOCK_PANELS) return `tabs exceed ${MAX_DOCK_PANELS} panels`;
+        for (const panel of record.panels) {
+          if (typeof panel !== 'object' || panel === null || Array.isArray(panel))
+            return 'invalid panel ref';
+          const ref = panel as Record<string, unknown>;
+          if (typeof ref.instanceId !== 'string' || ref.instanceId.length === 0)
+            return 'panel ref without instanceId';
+          if (typeof ref.panelTypeId !== 'string' || ref.panelTypeId.length === 0)
+            return 'panel ref without panelTypeId';
+        }
+        break;
+      case 'panel':
+        if (typeof record.panelInstanceId !== 'string' || record.panelInstanceId.length === 0)
+          return 'panel node without panelInstanceId';
+        if (typeof record.panelTypeId !== 'string' || record.panelTypeId.length === 0)
+          return 'panel node without panelTypeId';
+        break;
+      case 'empty':
+        break;
+      default:
+        return 'unknown dock node kind';
+    }
   }
-  switch (node.kind) {
-    case 'split':
-      if (node.direction !== 'row' && node.direction !== 'column') return 'invalid split direction';
-      if (typeof node.ratio !== 'number' || !Number.isFinite(node.ratio))
-        return 'invalid split ratio';
-      return validateSerializedNode(node.first) ?? validateSerializedNode(node.second);
-    case 'tabs':
-      if (!Array.isArray(node.panels)) return 'tabs panels must be an array';
-      for (const panel of node.panels) {
-        if (typeof panel !== 'object' || panel === null) return 'invalid panel ref';
-        if (typeof panel.instanceId !== 'string' || panel.instanceId.length === 0)
-          return 'panel ref without instanceId';
-        if (typeof panel.panelTypeId !== 'string' || panel.panelTypeId.length === 0)
-          return 'panel ref without panelTypeId';
-      }
-      return null;
-    case 'panel':
-      if (typeof node.panelInstanceId !== 'string' || node.panelInstanceId.length === 0) {
-        return 'panel node without panelInstanceId';
-      }
-      if (typeof node.panelTypeId !== 'string' || node.panelTypeId.length === 0) {
-        return 'panel node without panelTypeId';
-      }
-      return null;
-    case 'empty':
-      return null;
-    default:
-      return 'unknown dock node kind';
-  }
+  return null;
 }
 
 function structuredCloneSafe<T>(value: T): T {

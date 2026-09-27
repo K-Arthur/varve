@@ -17,6 +17,7 @@ import {
   createWindow,
   deserializeDockTree,
   findPanelInstance,
+  getDockNodeMinimumSize,
   insertBeside,
   listPanelInstances,
   migrateSidebarPreferences,
@@ -256,6 +257,34 @@ describe('dock ops: normalization and validation', () => {
     const withB = addPanelToWindow(withA.layout, 'w2', 'layers');
     expect(validateDockLayout(withB.layout).some((v) => v.includes('singleton'))).toBe(true);
   });
+
+  it('validates registered host permissions for each window role', () => {
+    const layout = { schemaVersion: 1, windows: [createWindow('auxiliary-panel', 'w1')] };
+    const withTimeline = addPanelToWindow(layout, 'w1', 'timeline');
+    expect(validateDockLayout(withTimeline.layout)).toContain(
+      "panel type 'timeline' cannot be hosted in auxiliary-window window 'w1'",
+    );
+  });
+
+  it('computes minimum panel dimensions from registry constraints', () => {
+    const sideBySide: DockNode = {
+      kind: 'split',
+      id: 's1',
+      direction: 'row',
+      ratio: 0.5,
+      first: { kind: 'panel', id: 'p1', panelInstanceId: 'i1', panelTypeId: 'layers' },
+      second: { kind: 'panel', id: 'p2', panelInstanceId: 'i2', panelTypeId: 'inspector' },
+    };
+    expect(getDockNodeMinimumSize(sideBySide)).toEqual({ width: 420, height: 160 });
+
+    const tabs: DockNode = {
+      kind: 'tabs',
+      id: 't1',
+      panels: [layers('i1'), inspector('i2')],
+      activePanelInstanceId: 'i1',
+    };
+    expect(getDockNodeMinimumSize(tabs)).toEqual({ width: 240, height: 160 });
+  });
 });
 
 describe('dock ops: window-set operations', () => {
@@ -289,6 +318,17 @@ describe('dock ops: window-set operations', () => {
     const result = movePanelBetweenWindows(layout, 'ghost', 'w1');
     expect(result.moved).toBe(false);
     expect(result.layout).toBe(layout);
+  });
+
+  it('movePanelBetweenWindows refuses a host forbidden by the registry', () => {
+    const layout = {
+      schemaVersion: 1,
+      windows: [createWindow('primary', 'w1'), createWindow('auxiliary-panel', 'w2')],
+    };
+    const withTimeline = addPanelToWindow(layout, 'w1', 'timeline');
+    const result = movePanelBetweenWindows(withTimeline.layout, withTimeline.instanceId, 'w2');
+    expect(result.moved).toBe(false);
+    expect(result.layout).toBe(withTimeline.layout);
   });
 });
 
@@ -345,6 +385,51 @@ describe('dock ops: serialization', () => {
         second: { kind: 'empty', id: 'e2' },
       }).ok,
     ).toBe(false);
+  });
+
+  it('rejects layouts beyond the bounded depth and node count without recursion', () => {
+    let deep: unknown = { kind: 'empty', id: 'end' };
+    for (let index = 0; index < 18; index += 1) {
+      deep = {
+        kind: 'split',
+        id: `deep-${index}`,
+        direction: 'row',
+        ratio: 0.5,
+        first: deep,
+        second: { kind: 'empty', id: `sibling-${index}` },
+      };
+    }
+    const depthResult = deserializeDockTree(deep);
+    expect(depthResult).toMatchObject({
+      ok: false,
+      reason: expect.stringContaining('maximum depth'),
+    });
+
+    const leaves: unknown[] = Array.from({ length: 64 }, (_, index) => ({
+      kind: 'empty',
+      id: `leaf-${index}`,
+    }));
+    let level = leaves;
+    let nodeId = 0;
+    while (level.length > 1) {
+      const next: unknown[] = [];
+      for (let index = 0; index < level.length; index += 2) {
+        const first = level[index];
+        const second = level[index + 1];
+        if (!first || !second) continue;
+        next.push({
+          kind: 'split',
+          id: `wide-${nodeId++}`,
+          direction: 'row',
+          ratio: 0.5,
+          first,
+          second,
+        });
+      }
+      level = next;
+    }
+    const countResult = deserializeDockTree(level[0]);
+    expect(countResult).toMatchObject({ ok: false, reason: expect.stringContaining('nodes') });
   });
 
   it('deserialize normalizes and revalidates', () => {

@@ -577,8 +577,20 @@ These are known gaps, not settled design:
   (`layoutPersistence.ts`, `dockOps.ts`) remains unwired pending the
   multi-window milestone. Its recovery snapshot and safe-mode generators are
   sound and tested, but no runtime surface applies them yet.
-- **Panel move/reorder within the shell is not offered.** The shell's fixed
-  grid defines the permitted regions per panel; customization covers
-  visibility, width, tabs/sections, and chrome instead of arbitrary docking.
-  A full dock tree is explicitly not a prerequisite for the supported
-  customization surface.
+- **At this checkpoint, panel move/reorder within the shell is not offered.**
+  The shell's fixed grid defines the permitted regions per panel; the existing
+  customization surface covers visibility, width, tabs/sections, and chrome.
+  The six-workspace customization plan requires replacing this fixed layout
+  with the validated dock tree described below.
+
+### Dock-tree implementation checkpoint (2026-09-27)
+
+The registry-aware nested model in `workspace/dock/` now bounds imported trees
+to 16 levels, 64 nodes, 32 panels per tab group, and eight windows. It rejects
+duplicate node and panel identities, applies registered singleton and host
+rules, and exposes minimum-size calculations from the panel registry. These
+are pure-model guarantees; they do not imply that users can yet rearrange the
+live shell. The editor still renders its fixed panel slots, and the older
+`workspace/dockTypes.ts` / `dockOps.ts` model remains in the manager and
+recovery path. Replacing that competing path and rendering the nested model are
+still required before Varve can claim free-form in-window docking.
