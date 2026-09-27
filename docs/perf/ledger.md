@@ -399,9 +399,17 @@ This continuation adds renderer identity guards and shared transform-aware
 geometry reuse. It does not yet claim a performance improvement: the required
 browser before/after rounds and native Tauri workflow soak have not run.
 
+The workload analyzer now exposes ordinary-workload response targets using
+the observed rAF interval lower bound (`2T` at p95, `3T` at p99), separate from
+the fixed regression gates. It requires 100 valid samples for p95 and 1,000
+for p99; a 120-sample run can qualify p95 but leaves p99 unqualified. rAF
+cadence is not input-to-photon evidence or a physical display refresh-rate
+measurement, and unsupported input-to-next-paint data stays unavailable.
+
 | Workload / contract | Prior evidence | Current result | Confidence | Notes |
 |---|---|---|---|---|
-| Effects-heavy worker replacement | 352,935 differing pixels against forced full redraw in the captured follow-up baseline | Render revisions now cover document, resources, async inputs, camera, surface, and DPR; refusal/rejection/host loss requests authoritative replay | Medium for unit contract; browser oracle pending | Effects-heavy and many-image Playwright cases could not start while the shared heavy-task lease was occupied |
+| Effects-heavy worker replacement | 352,935 differing pixels in an earlier follow-up baseline; the current Full-quality effects fixture showed 143,105 differing pixels (maximum channel delta 5) between worker and independent redraw | Visible effect-bearing scenes now use main-thread Canvas2D until worker parity is exact; initial and post-navigation live surfaces both matched forced redraw exactly, and a simple worker scene also matched | High for the exercised Chromium oracle path | `effects-worker-refinement.spec.ts` passed 1/1 on 2026-09-27. Its 150-node camera frames replayed in 3,572.8 ms and 3,495.5 ms in the development browser, missing the 1 s heavy-work target; this is a single-fixture diagnostic, not production/native latency evidence |
+| Worker refinement expiry | A declined/failed async collection could leave the last bitmap visible with no replacement scheduled; a silent worker could keep the same state indefinitely | Collection falls back after 500 ms and closes late bitmaps; worker startup is bounded at 15 s and an unanswered frame expires after 5 s, then main-thread replay is requested | High for unit-level fallback/ownership tests and the effects integration path | The 5 s expiry is a safety backstop, not a refinement target. It starts after the ready handshake; the separate 1 s heavy-work target remains unmet in the measured development fixture. Decode/font readiness remains separate |
 | Large-document derived geometry | Existing 10k pan rAF p95 67 ms and drag rAF p95 183 ms | Incremental occurrence-geometry tests equal the independent full pass and update moved descendants/ancestors; drag containment now reuses the committed parent index | High for correctness; no timing result | Labels, accessibility, minimap, and container transforms share derived data; complete scene metadata/layout remains O(N), and draft mutation callers still index their own state |
 | Native long-session editing | Idle process monitor only | A 100-cycle Tauri create/edit/pan/zoom/brush/save/close runner records screenshots, changed pixels, WebView visibility, process-tree RSS, host memory/load, and sleep/missing-evidence blockers | Not measured | Runner emits DOM-synthetic input labels; not physical pen/touchpad or input-to-photon evidence |
 

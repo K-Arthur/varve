@@ -344,11 +344,34 @@ were not the cause of the 2026-08-11 regression.
 The failure mode that is easy to reintroduce is the *other* one: a frame that
 takes the worker branch, composites the cached bitmap, and then discovers
 asynchronously that no fresh frame will be produced. `collectImageBitmaps`
-refuses a frame for several reasons (manifest over the transfer budget,
-masked fills the worker cannot composite, unregistered resource handles), and
-its refusal lands in a `.then()` — long after the surface was painted. With no
-new frame ever posted, the surface stayed pinned to the last accepted worker
-bitmap and every camera change merely reprojected it.
+can refuse, reject, or finish after its render revision has already been
+superseded. Each canvas now tracks a render revision across document state,
+resources, asynchronous render inputs, camera, backing surface, and DPR. The
+revision travels with worker submission and response; the host and canvas
+reject obsolete frames and close their bitmaps before installation.
+`submitWorkerFrame` also requests main-thread redraw when collection refuses
+or rejects, the worker host disappears, or posting is declined. Collection
+waits are bounded to 500 ms; a late collection result is disposed after the
+authoritative fallback is scheduled. The host also expires an unanswered
+worker frame after 5 seconds, tears down that worker generation, and requests
+main-thread replay. These are failure bounds, not user-visible latency
+guarantees. A failed or expired worker attempt therefore cannot leave an old
+bitmap as the only replacement for that revision. A still-current worker
+bitmap may be reprojected during navigation while its replacement is pending,
+but it remains a temporary preview and is never advanced as the authoritative
+painted-surface baseline. The accepted DPR is the effective frame backing
+scale, including Automatic preview scaling, and is checked together with the
+render revision and actual surface dimensions. A same-camera worker bitmap
+with an obsolete render revision is only a temporary preview as well; it
+cannot authorize dirty-rect reuse for pixels changed by resources or
+asynchronous inputs.
+
+The worker posts a `ready` handshake only after its module and imports finish
+evaluating. Until then, the host keeps only the latest queued render and
+records startup duration separately. Startup is bounded to 15 seconds; the
+5-second frame-response backstop begins only after readiness. This recovery
+bound is separate from the 1-second heavy-work refinement target. If a frame
+expires, the host is disabled and requests an authoritative main-thread replay.
 
 Observed symptoms, all from that one cause:
 
@@ -361,10 +384,12 @@ Observed symptoms, all from that one cause:
 
 **Rules for anyone touching this path:**
 
-1. Every reason the worker might not produce a frame must be decidable
+1. Every reason already knowable about a worker payload must be decided
    **synchronously**, before the frame chooses its branch. That is what
    `admitWorkerImagePayload` is for; `collectImageBitmaps` calls the same
-   function, so the paint gate and the transfer path cannot disagree.
+   function, so the paint gate and transfer path cannot disagree. Runtime
+   collection and post failures are explicit asynchronous failure paths:
+   they disable worker reuse for that revision and request replay.
 2. If the answer is "no worker frame", render through
    `compositorRef.current.drawVectorItems(ir)`. The main-thread replay is the
    authoritative renderer; falling back to it is always correct, never a bug.
@@ -372,12 +397,17 @@ Observed symptoms, all from that one cause:
    The source-count budget originally counted resident sources too, so a fully
    resident scene was refused forever — a refused frame transfers nothing, so
    residency could never grow past the cap.
-4. When changing any of this, run the oracle rather than eyeballing it: hash
+4. On response acceptance, compare the pixel identity (document, revision,
+   camera, viewport, DPR/surface) and worker generation before installation.
+   `docVersion` alone does not identify a frame: image/font readiness,
+   proof settings, motion/media, and context restoration can change pixels
+   without a new document number.
+5. When changing any of this, run the oracle rather than eyeballing it: hash
    the surface after an interaction, call `window.__varvePerf.forceFullRedraw()`
    at the same camera, hash again. Equal hashes mean every pixel on screen is
    what a full redraw would have produced. `tests/e2e/canvas/many-image-render.spec.ts`
    is the coverage-based regression guard for the specific failure above.
-5. Partial-redraw clips are whole device pixels. `partialPaint.ts` grows every
+6. Partial-redraw clips are whole device pixels. `partialPaint.ts` grows every
    dirty rect outward (`snapRectToDevicePixels`) before clearing, filling, and
    clipping; a fractional edge left a one-pixel seam blending retained and
    repainted pixels (up to 97 channel levels after an undo on the

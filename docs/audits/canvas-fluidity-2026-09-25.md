@@ -650,10 +650,57 @@ The current planner still selects a full-gate escalation, and
 `pnpm verify:affected` requires that escalation before running affected lanes.
 The previous full-gate attempt on this mixed checkout failed in concurrent
 work's Biome, architecture/dead-code, and editor-corpus typecheck lanes. A new
-full gate has not yet completed. A separate active heavy-task lease is held by
-another canvas E2E run, so the browser pixel oracle, app-settings screenshot,
-website base-path builds, fresh Tauri build, native workflow soak, and matched
-performance rounds remain unrun. No before/after latency improvement or warm
-refinement target attainment is claimed. The pending website settings image is
-not yet evidence and must be replaced with an inspected application capture
-before its page is committed.
+full gate has not yet completed. The effects pixel oracle and editor
+performance-settings visual check passed; the real editor settings screenshot
+is captured and inspected. Both website base-path builds and Astro checks
+passed. Of five website visual checks, three passed; the narrow 375 px view at
+200% text exposed 103 px of horizontal overflow. The initial forced-colors
+assertion incorrectly expected a third website theme and has been corrected
+to emulate OS forced-colors. A rerun could not acquire the shared browser
+lease before its 10-minute deadline, so the narrow-layout repair and website
+visual gate remain incomplete. A fresh Tauri build, the native workflow soak,
+and matched performance rounds also remain outstanding. No before/after
+latency improvement or warm refinement target attainment is claimed. The
+settings image is an inspected application capture, but the website page is
+not ready to commit until the narrow layout passes.
+
+#### Effects-heavy worker fallback — browser evidence, 2026-09-27
+
+The Full-quality Chromium regression test
+`tests/e2e/canvas/effects-worker-refinement.spec.ts` passed 1/1 under the heavy
+task lease. It verified an exact pixel hash against the independent
+main-thread redraw for a settled simple worker scene, the effects-heavy scene,
+and the effects scene after two camera-input bursts. The effects scene did not
+advance the worker's accepted revision; the committed frames used
+`canvas2d-main`, and the before/after camera snapshots differed as expected.
+The exact command was `node scripts/quality/heavy-lease.mjs "e2e: effects parity fallback and navigation oracle" -- env VARVE_E2E_PORT=1453 npx playwright test tests/e2e/canvas/effects-worker-refinement.spec.ts --project=chromium --workers=1 --reporter=list`.
+The raw live, authoritative, and navigation screenshots are retained under
+`test-results/run-945301-1453/` for this checkout; those captures were opened
+and visually inspected. The simple worker live/oracle screenshots were also
+inspected.
+
+The fixture's 150-node main-thread camera frames measured 3,572.8 ms and
+3,495.5 ms of replay time. These are single development-browser diagnostics,
+not percentile, production-build, native, or input-to-photon measurements.
+They miss the 1 s heavy-work refinement target and show that the fidelity gate
+can leave a costly synchronous path for effect-bearing scenes. The outcome is
+therefore a correctness result with an unresolved responsiveness limitation,
+not a performance win. The corresponding earlier worker frame differed from
+the independent redraw at 143,105 pixels (maximum channel delta 5); visible
+effects remain on the reference thread until that parity difference is
+resolved.
+
+### Worker identity review — 2026-09-27
+
+Code review found one remaining retained-surface edge case: a worker bitmap
+could have the current document and camera but an older render revision after
+an image/font/resource or asynchronous-input change. That branch could mark
+the surface authoritative even though its pixels were stale. Cached worker
+presentation now requires the complete pixel identity; an obsolete bitmap
+may remain a temporary preview while its replacement is pending, but it
+invalidates the painted-surface baseline. The worker identity unit suite covers
+the revision-mismatch case. The effects browser oracle also exercised a settled
+simple worker scene against the integrated revision identity and verified the
+effects fallback after camera input. Additional mid-drag, pending-resource,
+DPR, rotation, and failure combinations still need visual pixel-oracle
+coverage.

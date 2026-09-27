@@ -202,3 +202,55 @@ in `run-production-workload.mjs`. The 1024×768 / 1920×1080 comparison has not
 run. Coupler.io reported zero datasets in the connected workspace; no private
 usage or feedback data was used. Public complaint sources were rechecked on
 2026-09-27 and are kept as symptom evidence in the fluidity audit.
+
+## Continuation update (2026-09-27, render-oracle pass)
+
+At the start of the render-oracle pass the shared branch was `master` at
+`1330a98b8fc0d14312197600793d361f0396ff6e`, with 34 staged plugin-task paths
+and a concurrent WebKitGTK plugin-acceptance build. That index snapshot is no
+longer current; the later index incident and resulting recovery are recorded
+below.
+
+The effects-heavy strict oracle found repeatable cross-realm raster differences
+when its worker frame was treated as settled: 143,099 pixels differed, with a
+maximum channel delta of 5, even after explicitly setting Full preview quality.
+The simple vector worker frame remained byte-identical. Visible effect-bearing
+scenes now bypass worker admission until that parity is exact; a focused scene
+eligibility test covers visible and hidden effects. The integrated effects
+scene then matched the independent main-thread redraw exactly. One Chromium
+frame replay took 3,870.7 ms; this single sample misses the 1-second heavy
+refinement target and is not a percentile or native result. The effects test's
+fresh-navigation frame evidence is still being tightened after a ring-window
+assertion expired; the captured first-frame and 500-ms images are retained in
+`test-results/run-921841-1453/` for inspection. No performance win or final
+navigation acceptance is claimed yet.
+
+## Continuation update (2026-09-27, worker identity and visual evidence)
+
+The branch remains `master`, now at
+`cb660ccb37fa6843b51ab30bdada2126f9ae83f2`. Fluidity commits made since the
+`1330a98b8` snapshot are `6ab3df3cb` (effects parity fallback and pixel oracle),
+`8aa24a8b2` (worker startup and response bounds), `9b6e7b7fb` (render-revision
+identity and bounded image collection), and `cb660ccb3` (settings readability
+at 200% text). No branch was created and no change was pushed.
+
+An accidental `git read-tree HEAD` against the shared index cleared the 34
+plugin-task entries that had been staged at the earlier snapshot. Their
+working-tree contents remain present and none was included in a fluidity
+commit, but the staged versions themselves were not recoverable. The real
+index has since been synchronized to current `HEAD` so it no longer reports
+phantom deletions from the isolated-index commits; concurrent working-tree
+content remains untouched. The plugin-task owner will need to review and
+restage any changes that were intentionally staged.
+
+The effects and settled simple-worker pixel oracles passed in Chromium. Visible
+effects remain on main-thread Canvas2D because the worker parity sample differed
+from the independent redraw at 143,105 pixels (maximum channel delta 5). The
+150-node effects replay took 3,572.8 ms and 3,495.5 ms in two development
+diagnostics, missing the 1-second heavy-work target. The editor settings visual
+check passed in dark, light, and high-contrast themes and at 200% text size; its
+captured dark settings screenshot is genuine app output and is inspected.
+Both website base-path builds and Astro checks passed, but the website's narrow
+200%-text visual exposed horizontal overflow and the forced-colors follow-up
+has not yet rerun. A fresh Tauri build, native 100-cycle workflow, matched
+performance rounds, and escalated full gate remain incomplete.
