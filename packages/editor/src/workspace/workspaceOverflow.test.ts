@@ -14,8 +14,6 @@ const tabWidths: Record<(typeof modes)[number], number> = {
   image: 92,
   print: 82,
   motion: 90,
-  codegen: 100,
-  logo: 80,
   email: 92,
 };
 
@@ -50,7 +48,7 @@ describe('computeWorkspaceLayout', () => {
     expect(result.iconOnly).toBe(true);
     expect(result.compactActive).toBe(false);
     expect(result.visible).toEqual(['design', 'drawing', 'image', 'print']);
-    expect(result.overflow).toEqual(['motion', 'codegen', 'email', 'logo']);
+    expect(result.overflow).toEqual(['motion', 'email']);
   });
 
   it('keeps the active label on desktop strips and compacts it only when too narrow', () => {
@@ -80,17 +78,16 @@ describe('computeWorkspaceLayout', () => {
   it('keeps the active mode visible even when it would overflow', () => {
     const result = computeWorkspaceLayout({
       modes,
-      activeMode: 'logo',
+      activeMode: 'email',
       availableWidth: 250,
       tabWidths,
       overflowMenuWidth: 36,
       overflowPriority: WORKSPACE_OVERFLOW_PRIORITY,
     });
-    expect(result.visible).toContain('logo');
+    expect(result.visible).toContain('email');
     expect(result.visible[0]).toBe('design');
-    // Logo displaced 'codegen' (highest overflow priority among visible).
-    expect(result.visible).toEqual(['design', 'drawing', 'image', 'print', 'motion', 'logo']);
-    expect(result.overflow).toEqual(['codegen', 'email']);
+    expect(result.visible).toEqual(['design', 'drawing', 'image', 'print', 'email']);
+    expect(result.overflow).toEqual(['motion']);
   });
 
   it('keeps the active mode visible even when it would overflow (labeled strip)', () => {
@@ -103,21 +100,19 @@ describe('computeWorkspaceLayout', () => {
       image: 210,
       print: 190,
       motion: 200,
-      codegen: 220,
-      logo: 180,
       email: 210,
     };
     const result = computeWorkspaceLayout({
       modes,
-      activeMode: 'logo',
+      activeMode: 'email',
       availableWidth: 1000,
       tabWidths: wide,
       overflowMenuWidth: 60,
       overflowPriority: WORKSPACE_OVERFLOW_PRIORITY,
     });
     expect(result.iconOnly).toBe(false);
-    expect(result.visible).toEqual(['design', 'drawing', 'image', 'logo']);
-    expect(result.overflow).toEqual(['print', 'motion', 'codegen', 'email']);
+    expect(result.visible).toEqual(['design', 'drawing', 'image', 'email']);
+    expect(result.overflow).toEqual(['print', 'motion']);
   });
 
   it('never removes functionality — overflow keeps full mode list', () => {

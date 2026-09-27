@@ -76,9 +76,14 @@ describe('handleDeepLink — typed destinations', () => {
 
   it('navigates to a workspace when the editor is ready', async () => {
     const switchFn = vi.fn().mockResolvedValue(true);
-    setCachedEditorContext(makeCtx({ requestWorkspaceSwitch: switchFn }));
+    setCachedEditorContext(
+      makeCtx({
+        state: { ...makeCtx().state, workspaceMode: 'print' } as EditorContextValue['state'],
+        requestWorkspaceSwitch: switchFn,
+      }),
+    );
     const r = await handleDeepLink('varve://navigate/workspace/logo', makeDeps());
-    expect(switchFn).toHaveBeenCalledWith('logo');
+    expect(switchFn).toHaveBeenCalledWith('design');
     expect(r.status).toBe('completed');
   });
 

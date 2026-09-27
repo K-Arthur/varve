@@ -1,0 +1,57 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { sitePath } from '../../lib/siteUrl';
+---
+
+<Layout
+  title="Code Export"
+  description="Inspect design-to-code output in Varve's shared Code panel from any workspace, with format-specific support notes and audit findings."
+>
+  <div class="container-custom">
+    <article class="feature-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href={sitePath('/features')}>Features</a> / Code Export
+      </nav>
+      <h1 class="site-page-title">Code export, wherever you work</h1>
+      <p class="feature-intro">
+        The shared Code panel brings generated output and design checks into any workspace. Open it
+        without changing the active task or leaving the selected artwork.
+      </p>
+
+      <section class="feature-section">
+        <h2>Compare output and understand limits</h2>
+        <p>
+          Inspect supported scene content as SVG, React, Tailwind, CSS Modules, Flutter, or SwiftUI.
+          Format-specific warnings identify content that needs a fallback or manual adjustment.
+          Export output is generated from the document; it is not an arbitrary project source-code
+          editor.
+        </p>
+        <p>
+          The former Codegen shortcut, <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>9</kbd>, opens the Code
+          panel in the current workspace. The same panel also includes design audit and readiness
+          views where applicable.
+        </p>
+      </section>
+
+      <section class="feature-section">
+        <h2>One shared surface</h2>
+        <p>
+          Code is a panel and export workflow rather than a separate workspace. It remains available
+          alongside Design, Print, Draw, Photo, Motion, and Email. See
+          <a href={sitePath('/features/export')}>Export &amp; Code Generation</a> for file-format
+          details and <a href={sitePath('/features/workspaces')}>all six workspaces</a>.
+        </p>
+      </section>
+    </article>
+  </div>
+</Layout>
+
+<style>
+  .feature-page { max-width: 800px; margin: 0 auto; padding: 3rem 0; }
+  .breadcrumb { font-size: .875rem; margin-bottom: 1.5rem; }
+  .breadcrumb a { color: var(--text-secondary); }
+  .feature-intro { font-size: 1.25rem; color: var(--text-secondary); margin: 1rem 0 3rem; line-height: 1.7; }
+  .feature-section { margin: 0 0 3rem; }
+  .feature-section h2 { font-size: 1.5rem; margin-bottom: 1rem; color: var(--text-primary); }
+  .feature-section p { color: var(--text-secondary); line-height: 1.7; }
+</style>

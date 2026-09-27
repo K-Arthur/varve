@@ -80,15 +80,13 @@ export type EditorMode =
 /**
  * Workspace mode.
  */
-export type WorkspaceMode =
-  | 'design'
-  | 'drawing'
-  | 'image'
-  | 'print'
-  | 'motion'
-  | 'codegen'
-  | 'logo'
-  | 'email';
+export type WorkspaceMode = 'design' | 'drawing' | 'image' | 'print' | 'motion' | 'email';
+
+/** Former task modes accepted only when reading older user state or commands. */
+export type LegacyWorkspaceMode = 'codegen' | 'logo';
+
+/** Input shape accepted by compatibility boundaries; never a runtime mode. */
+export type WorkspaceModeInput = WorkspaceMode | LegacyWorkspaceMode;
 
 /**
  * Node kind this finding applies to.

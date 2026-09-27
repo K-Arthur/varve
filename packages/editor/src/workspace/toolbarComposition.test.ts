@@ -146,7 +146,7 @@ describe('composeToolbar — built-in workspace configs', () => {
   });
 
   it('renders Logo node editing, which the hard-coded toolbar dropped', () => {
-    const slots = composeToolbar(getWorkspaceConfig('logo').toolbar);
+    const slots = composeToolbar(getWorkspaceConfig('design').toolbar);
     expect(slots).toContainEqual(
       expect.objectContaining({ kind: 'tool', toolId: 'nodeEdit' as ToolId }),
     );

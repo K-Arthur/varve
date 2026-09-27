@@ -21,7 +21,7 @@ import {
 
 describe('workspace audit profiles', () => {
   it('has profiles for all 6 workspace modes', () => {
-    const modes: WorkspaceMode[] = ['design', 'print', 'drawing', 'image', 'motion', 'codegen'];
+    const modes: WorkspaceMode[] = ['design', 'print', 'drawing', 'image', 'motion', 'email'];
     for (const mode of modes) {
       expect(WORKSPACE_AUDIT_PROFILES[mode]).toBeDefined();
       expect(WORKSPACE_AUDIT_PROFILES[mode].workspace).toBe(mode);
@@ -71,14 +71,17 @@ describe('workspace audit profiles', () => {
     expect(profile.hiddenCategories).toContain('raster');
   });
 
-  it('codegen profile prioritizes codegen, structure, governance, accessibility', () => {
-    const profile = getAuditProfile('codegen');
-    expect(profile.primaryCategories).toContain('codegen');
-    expect(profile.primaryCategories).toContain('structure');
-    expect(profile.primaryCategories).toContain('governance');
-    expect(profile.primaryCategories).toContain('accessibility');
-    expect(profile.hiddenCategories).toContain('print');
-    expect(profile.hiddenCategories).toContain('prototype');
+  it('keeps Codegen as an audit category and source, not as a workspace mode', () => {
+    const finding = createFinding({
+      ruleId: 'codegen/unsupported-node',
+      category: 'codegen',
+      severity: 'warning',
+      message: 'This node needs a code-generation fallback.',
+      source: 'codegen',
+    });
+    expect(WORKSPACE_AUDIT_PROFILES).not.toHaveProperty('codegen');
+    expect(finding.category).toBe('codegen');
+    expect(finding.source).toBe('codegen');
   });
 
   it('every profile has contextualSummaryRules', () => {

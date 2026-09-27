@@ -17,8 +17,6 @@ const WORKSPACE_SHORTCUT_IDS: Record<WorkspaceMode, string> = {
   drawing: 'workspaceDrawing',
   image: 'workspaceImage',
   motion: 'workspaceMotion',
-  codegen: 'workspaceCodegen',
-  logo: 'workspaceLogo',
   email: 'workspaceEmail',
 };
 

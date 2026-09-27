@@ -20,7 +20,7 @@ import { TOOL_REGISTRY } from '../tools/toolRegistry';
 import type { ToolId } from '../tools/types';
 import { ESSENTIAL_TOOL_IDS } from './toolLabels';
 import {
-  ALL_WORKSPACE_MODES,
+  ALL_WORKSPACE_PREFERENCE_MODES,
   CHROME_CONFIG_KEYS,
   type ChromeConfig,
   getToolbarToolIds,
@@ -60,11 +60,14 @@ function sanitizePreferences(parsed: unknown): WorkspacePreferences {
   if (typeof parsed !== 'object' || parsed === null) return createDefaultPreferences();
   const source = parsed as Record<string, unknown>;
   const result: WorkspacePreferences = {} as WorkspacePreferences;
-  for (const mode of ALL_WORKSPACE_MODES) {
+  for (const mode of ALL_WORKSPACE_PREFERENCE_MODES) {
     const entry = source[mode];
     result[mode] =
       entry && typeof entry === 'object'
-        ? sanitizePreference(entry as WorkspacePreference, mode)
+        ? sanitizePreference(
+            entry as WorkspacePreference,
+            mode === 'logo' || mode === 'codegen' ? 'design' : mode,
+          )
         : defaultPreference();
   }
   return result;
@@ -335,7 +338,7 @@ function mergePreferencesByRecency(
   remote: WorkspacePreferences,
 ): WorkspacePreferences {
   const merged = {} as WorkspacePreferences;
-  for (const mode of ALL_WORKSPACE_MODES) {
+  for (const mode of ALL_WORKSPACE_PREFERENCE_MODES) {
     const l = local[mode] ?? defaultPreference();
     const r = remote[mode] ?? defaultPreference();
     const localTime = preferenceEventTime(l);
@@ -392,7 +395,7 @@ export async function hydrateWorkspacePreferencesFromPlatform(
 /** Create default (uncustomized) preferences for all modes. */
 function createDefaultPreferences(): WorkspacePreferences {
   const prefs = {} as WorkspacePreferences;
-  for (const mode of ALL_WORKSPACE_MODES) {
+  for (const mode of ALL_WORKSPACE_PREFERENCE_MODES) {
     prefs[mode] = defaultPreference();
   }
   return prefs;
@@ -763,7 +766,7 @@ export function resetModePreferences(
 /** Reset all workspace preferences to defaults, recording one reset event. */
 export function resetAllPreferences(clearedAt: number = Date.now()): WorkspacePreferences {
   const prefs = createDefaultPreferences();
-  for (const mode of ALL_WORKSPACE_MODES) {
+  for (const mode of ALL_WORKSPACE_PREFERENCE_MODES) {
     prefs[mode] = { customized: false, clearedAt };
   }
   return prefs;

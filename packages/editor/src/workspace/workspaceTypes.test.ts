@@ -23,8 +23,8 @@ import {
 describe('workspaceTypes', () => {
   // ─── Basic config shape ──────────────────────────────────────────────────
 
-  it('has configs for all four modes', () => {
-    const modes: WorkspaceMode[] = ['design', 'print', 'drawing', 'image'];
+  it('has configs for every runtime workspace mode', () => {
+    const modes: WorkspaceMode[] = [...ALL_WORKSPACE_MODES];
     for (const mode of modes) {
       const config = WORKSPACE_CONFIGS[mode];
       expect(config).toBeDefined();
@@ -44,6 +44,13 @@ describe('workspaceTypes', () => {
   it('getWorkspaceConfig returns design as fallback for unknown mode', () => {
     const config = getWorkspaceConfig('print');
     expect(config.panels.layers.visible).toBe(true);
+  });
+
+  it('keeps six runtime workspaces and resolves legacy workspace ids to Design', async () => {
+    const { resolveWorkspaceMode } = await import('./workspaceTypes');
+    expect(ALL_WORKSPACE_MODES).toEqual(['design', 'print', 'drawing', 'image', 'motion', 'email']);
+    expect(resolveWorkspaceMode('logo')).toBe('design');
+    expect(resolveWorkspaceMode('codegen')).toBe('design');
   });
 
   it('has labels and icons for all modes', () => {
@@ -257,10 +264,10 @@ describe('workspaceTypes', () => {
     }
   });
 
-  it('default inspector tab is properties for all modes (except codegen)', () => {
+  it('Email opens its authoring tab by default; other workspaces open Design', () => {
     for (const mode of ALL_WORKSPACE_MODES) {
-      if (mode === 'codegen') {
-        expect(getDefaultInspectorTab(mode)).toBe('codegen');
+      if (mode === 'email') {
+        expect(getDefaultInspectorTab(mode)).toBe('email');
       } else {
         expect(getDefaultInspectorTab(mode)).toBe('properties');
       }

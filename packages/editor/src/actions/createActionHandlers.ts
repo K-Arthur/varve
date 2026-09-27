@@ -1195,8 +1195,14 @@ export function createActionHandlers(
     workspaceDrawing: () => e.requestWorkspaceSwitch('drawing'),
     workspaceImage: () => e.requestWorkspaceSwitch('image'),
     workspaceMotion: () => e.requestWorkspaceSwitch('motion'),
-    workspaceCodegen: () => e.requestWorkspaceSwitch('codegen'),
-    workspaceLogo: () => e.requestWorkspaceSwitch('logo'),
+    workspaceCodegen: () => e.setPanelVisible('codegen', true),
+    workspaceLogo: async () => {
+      if (e.state.workspaceMode !== 'design') {
+        const switched = await e.requestWorkspaceSwitch('design');
+        if (!switched) return;
+      }
+      e.setPanelVisible('logo', true);
+    },
     workspaceEmail: () => e.requestWorkspaceSwitch('email'),
     resetWorkspace: () => e.resetWorkspaceToDefault(),
     resetAllWorkspaces: () => e.resetAllWorkspacesToDefaults(),

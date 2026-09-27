@@ -137,39 +137,6 @@ export const WORKSPACE_AUDIT_PROFILES: Record<WorkspaceMode, WorkspaceAuditProfi
     overlayCategories: ['prototype'],
   },
 
-  codegen: {
-    workspace: 'codegen',
-    primaryCategories: ['codegen', 'structure', 'governance', 'accessibility'],
-    secondaryCategories: ['export', 'typography', 'color', 'layout', 'spacing'],
-    hiddenCategories: ['print', 'raster', 'vector', 'prototype', 'performance', 'layer-hygiene'],
-    defaultStage: 'debounced',
-    maxFindings: 50,
-    // Like every other profile's rule IDs (e.g. 'prototype/dead-end'), these are
-    // planned identifiers, not yet-registered rules -- see
-    // docs/quality/scene-cycle-report.md's registerBuiltinRules() finding: no
-    // rules are wired into the registry yet for any workspace.
-    contextualSummaryRules: ['codegen/unsupported-node-type', 'codegen/missing-semantic-tag'],
-    statusBadgeCategories: ['codegen', 'structure'],
-    overlayCategories: ['codegen'],
-  },
-
-  logo: {
-    workspace: 'logo',
-    primaryCategories: ['vector', 'color', 'typography', 'export'],
-    secondaryCategories: ['structure', 'accessibility', 'layout', 'spacing', 'layer-hygiene'],
-    hiddenCategories: ['print', 'prototype', 'raster', 'codegen', 'performance', 'governance'],
-    defaultStage: 'on-demand',
-    maxFindings: 60,
-    contextualSummaryRules: [
-      'vector/open-path',
-      'vector/self-intersection',
-      'vector/unnecessary-anchors',
-      'contrast/aa-fail',
-    ],
-    statusBadgeCategories: ['vector', 'color', 'export'],
-    overlayCategories: ['vector', 'color'],
-  },
-
   email: {
     workspace: 'email',
     primaryCategories: ['accessibility', 'typography', 'color', 'layout'],

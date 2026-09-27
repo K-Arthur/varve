@@ -1,0 +1,61 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { sitePath } from '../../lib/siteUrl';
+---
+
+<Layout
+  title="Email Design"
+  description="Author structured email content in Varve's dedicated Email workspace, inspect responsive browser previews, run compatibility checks, and export HTML."
+>
+  <div class="container-custom">
+    <article class="feature-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href={sitePath('/features')}>Features</a> / Email Design
+      </nav>
+      <h1 class="site-page-title">A workspace for email authoring</h1>
+      <p class="feature-intro">
+        Email uses structured content blocks, responsive preview, semantic markup, and email-focused
+        checks. Those constraints give it a dedicated workspace while keeping its artwork in the
+        same Varve document model.
+      </p>
+
+      <section class="feature-section">
+        <h2>Author, inspect, and export</h2>
+        <ul>
+          <li>Start from email-aware content blocks and retain authored source alongside rendered content.</li>
+          <li>Find saved code blocks even when they have no visible canvas object, and edit their source explicitly.</li>
+          <li>Preview responsive layouts in Varve's browser renderer and run email compatibility checks before export.</li>
+          <li>Review generated HTML and plain text separately from custom HTML/CSS and authored source.</li>
+        </ul>
+        <p>
+          Sample personalization values are for preview only; they are not silently inserted into
+          exported content. Switching to Email does not convert existing artwork or enable an email
+          profile automatically.
+        </p>
+      </section>
+
+      <section class="feature-section feature-note">
+        <h2>What the preview verifies</h2>
+        <p>
+          The preview is rendered in Varve's browser surface. It is not a live Gmail or Outlook
+          rendering test, and export does not send campaigns or authenticate with an email service
+          provider. Review the generated output in your delivery workflow before sending.
+        </p>
+      </section>
+
+      <p><a href={sitePath('/features/workspaces')}>Explore all six workspaces</a></p>
+    </article>
+  </div>
+</Layout>
+
+<style>
+  .feature-page { max-width: 800px; margin: 0 auto; padding: 3rem 0; }
+  .breadcrumb { font-size: .875rem; margin-bottom: 1.5rem; }
+  .breadcrumb a { color: var(--text-secondary); }
+  .feature-intro { font-size: 1.25rem; color: var(--text-secondary); margin: 1rem 0 3rem; line-height: 1.7; }
+  .feature-section { margin: 0 0 3rem; }
+  .feature-section h2 { font-size: 1.5rem; margin-bottom: 1rem; color: var(--text-primary); }
+  .feature-section p, .feature-section li { color: var(--text-secondary); line-height: 1.7; }
+  .feature-section li + li { margin-top: .65rem; }
+  .feature-note { border-left: 3px solid var(--accent-primary); padding-left: 1rem; }
+</style>

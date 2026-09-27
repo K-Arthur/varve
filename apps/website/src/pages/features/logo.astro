@@ -1,0 +1,60 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { sitePath } from '../../lib/siteUrl';
+---
+
+<Layout
+  title="Logo Design"
+  description="Build marks, wordmarks, and brand assets in Varve's Design workspace with vector editing, Logo project tools, audits, and export."
+>
+  <div class="container-custom">
+    <article class="feature-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href={sitePath('/features')}>Features</a> / Logo Design
+      </nav>
+      <h1 class="site-page-title">Logo tools inside Design</h1>
+      <p class="feature-intro">
+        Create marks, wordmarks, monograms, and brand assets in the Design workspace. Logo is a
+        focused toolset inside the shared editor, so logo work keeps the same document, selection,
+        viewport, and history as the rest of your design work.
+      </p>
+
+      <section class="feature-section">
+        <h2>From first path to delivery</h2>
+        <ul>
+          <li>Use node editing, pen and shape tools, Boolean operations, and text outlining to refine a mark.</li>
+          <li>Keep logo project details and clear-space guides with the document.</li>
+          <li>Review vector and small-size risks, then export the artwork through the shared export workflow.</li>
+        </ul>
+        <p>
+          The former Logo shortcut, <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>6</kbd>, opens Design and
+          shows Logo Tools. You can also open the Logo panel from the View menu or command palette.
+        </p>
+      </section>
+
+      <section class="feature-section">
+        <h2>A design workflow, not a separate document mode</h2>
+        <p>
+          Logo work uses the same scene and editing tools as Design. The panel adds logo-specific
+          project controls and checks; changing workspace does not create a logo-only copy of your
+          document. See <a href={sitePath('/features/vector-tools')}>Vector Tools</a> and
+          <a href={sitePath('/features/export')}>Export</a> for the underlying editing and delivery
+          workflows.
+        </p>
+      </section>
+
+      <p><a href={sitePath('/features/workspaces')}>Explore all six workspaces</a></p>
+    </article>
+  </div>
+</Layout>
+
+<style>
+  .feature-page { max-width: 800px; margin: 0 auto; padding: 3rem 0; }
+  .breadcrumb { font-size: .875rem; margin-bottom: 1.5rem; }
+  .breadcrumb a { color: var(--text-secondary); }
+  .feature-intro { font-size: 1.25rem; color: var(--text-secondary); margin: 1rem 0 3rem; line-height: 1.7; }
+  .feature-section { margin: 0 0 3rem; }
+  .feature-section h2 { font-size: 1.5rem; margin-bottom: 1rem; color: var(--text-primary); }
+  .feature-section p, .feature-section li { color: var(--text-secondary); line-height: 1.7; }
+  .feature-section li + li { margin-top: .65rem; }
+</style>

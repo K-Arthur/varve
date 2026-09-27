@@ -14,7 +14,7 @@ palette) layered over regular artboard frames.
 
 | Layer | Files | Responsibility |
 |---|---|---|
-| Workspace mode | `packages/editor/src/workspace/workspaceTypes.ts` (`logo` config) | Panel/toolbar/tab composition for logo work; `Ctrl+Shift+6` |
+| Workspace access | Design workspace + `packages/editor/src/components/LogoPanel/` | Logo tools and brand-project workflows within Design; legacy `Ctrl+Shift+6` opens Design and reveals Logo Tools |
 | Presets | `packages/shared/src/presetRegistry.ts` (`LOGO_GROUP`) | Transparent-canvas logo presets (square/horizontal/vertical/badge/mark/favicon) |
 | Project model | `packages/scene/src/logo/logoProject.ts` | LogoProject/Concept/Variant/Brief/Palette types + pure ops + `normalizeLogoProject` |
 | Document schema | `Document.logoProject` + migration `2.11 → 2.12` | Serialization, codec normalize step |
@@ -90,11 +90,14 @@ palette) layered over regular artboard frames.
 
 Implemented since the original release:
 
-- **Visual Logo panel** (`packages/editor/src/components/LogoPanel/`):
+- **Visual Logo panel** (`packages/editor/src/components/LogoPanel/`), available
+  within Design:
   Project (brand/concept status/notes), Create (concept/variant actions),
   Vectorize (shared workflow), Typography (wordmark + glyph controls),
   Variants, Validation, Export Package. Workspace-config-backed visibility
-  (logo mode only), persisted, command/menu/shortcut integrated.
+  persisted, command/menu/shortcut integrated. The former standalone Logo
+  shortcut remains a compatibility action that opens Design and reveals the
+  panel; `Document.logoProject` remains document-scoped.
 - **Vectorization** (`packages/editor/src/logo/vectorization/` + shared
   `components/Vectorize/`): presets (8), source prep (grayscale/invert/
   contrast/brightness/denoise/threshold), live preview with diagnostics,

@@ -109,9 +109,10 @@ overlap. The title truncates with an ellipsis (`min-width: 0`).
 The switcher (`.workspace-dock`, `WorkspaceTabs.tsx`) is data-driven:
 
 - `WORKSPACE_OVERFLOW_ORDER` (display order): Design, Draw, Photo, Print,
-  Motion, Codegen, Email, Logo.
-- `WORKSPACE_OVERFLOW_PRIORITY`: Design never overflows; Logo/Codegen overflow
-  first.
+  Motion, Email.
+- `WORKSPACE_OVERFLOW_PRIORITY`: Design never overflows; specialist workspaces
+  move into overflow as space narrows. Logo and Code are workflow surfaces,
+  not switcher entries.
 - `computeWorkspaceLayout` (pure, unit-tested) decides visible vs. overflow
   tabs from measured widths plus the measured inter-tab `column-gap`; the
   active mode is always visible and named (a lower-priority tab is evicted to

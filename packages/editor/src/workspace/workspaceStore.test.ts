@@ -281,7 +281,7 @@ describe('workspaceStore — effective configuration', () => {
     const listener = vi.fn();
     const unsubscribe = subscribeWorkspacePreferences(listener);
     updateWorkspacePreferences((prefs) =>
-      setPanelOverride(prefs, 'logo', 'logo', { visible: false }),
+      setPanelOverride(prefs, 'design', 'logo', { visible: false }),
     );
     expect(listener).toHaveBeenCalledTimes(1);
     unsubscribe();
@@ -393,7 +393,7 @@ describe('workspaceStore — durable (platform) persistence', () => {
   it('coalesces bursty writes into one durable write', async () => {
     const platform = fakePlatform();
     attachWorkspacePreferencePlatform(platform);
-    for (const mode of ['design', 'print', 'logo'] as const) {
+    for (const mode of ['design', 'print', 'drawing'] as const) {
       updateWorkspacePreferences((p) => setPanelOverride(p, mode, 'layers', { visible: false }));
     }
     expect(platform.setAppSetting).not.toHaveBeenCalled();

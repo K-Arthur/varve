@@ -56,18 +56,9 @@ describe('getEmptyStateContent', () => {
     expect(content.hint).toBe('or drag images to animate');
   });
 
-  it('returns correct content for codegen mode', () => {
-    const content = getEmptyStateContent('codegen');
-    expect(content.title).toBe('Select artwork to export');
-    expect(content.shortcuts).toHaveLength(1);
-    expect(content.hint).toBe('then choose a code format in the Export panel');
-  });
-
-  it('returns correct content for logo mode', () => {
-    const content = getEmptyStateContent('logo');
-    expect(content.title).toBe('Design your mark');
-    expect(content.shortcuts).toHaveLength(4);
-    expect(content.hint).toBe('or start from a template');
+  it('uses Design empty state for retired Logo and Codegen mode IDs', () => {
+    expect(getEmptyStateContent('logo')).toEqual(getEmptyStateContent('design'));
+    expect(getEmptyStateContent('codegen')).toEqual(getEmptyStateContent('design'));
   });
 
   it('returns correct content for image mode', () => {
@@ -213,10 +204,13 @@ describe('Canvas inline empty state', () => {
     expect(screen.getByText('or drag images to animate')).toBeTruthy();
   });
 
-  it('renders codegen mode shortcut hints', () => {
-    renderEmptyState('codegen');
-    expect(screen.getByText('Select artwork to export')).toBeTruthy();
-    expect(screen.getByText('then choose a code format in the Export panel')).toBeTruthy();
+  it('renders Design empty-state hints for retired Logo and Codegen mode IDs', () => {
+    const { unmount } = renderEmptyState('codegen');
+    expect(screen.getByText('Start designing')).toBeTruthy();
+    expect(screen.getByText('or drag an image here')).toBeTruthy();
+    unmount();
+    renderEmptyState('logo');
+    expect(screen.getByText('Start designing')).toBeTruthy();
   });
 
   it('has role=status for screen readers', () => {

@@ -8,7 +8,7 @@
  *
  * 1. Per-mode panel visibility defaults (WORKSPACE_CONFIGS).
  * 2. The Shell.tsx mount contract: layers/inspector stay mounted when
- *    hidden (CSS-collapsed + inert), library/codegen/logo/timeline
+ *    hidden (CSS-collapsed + inert), library/Code/Logo/timeline
  *    unmount when hidden.
  * 3. Panel width clamps (PANEL_LIMITS / CANVAS_MIN_WIDTH).
  * 4. The workspace preference store round-trip (workspaceStore.ts),
@@ -48,15 +48,13 @@ const LEGACY_STORAGE_KEY = 'strata-workspace-preferences';
 /**
  * Exact visibility matrix extracted from WORKSPACE_CONFIGS at audit time
  * (2026-08-05). Order: layers, inspector, timeline, pagenav, library,
- * codegen, logo.
+ * Code, Logo Tools.
  */
 const EXPECTED_VISIBILITY: Record<WorkspaceMode, boolean[]> = {
   design: [true, true, false, true, false, false, false],
   print: [true, true, false, true, false, false, false],
   drawing: [true, true, false, false, false, false, false],
   image: [true, true, false, false, false, false, false],
-  codegen: [true, true, false, true, true, true, false],
-  logo: [true, true, false, false, false, false, true],
   motion: [true, true, true, true, false, false, false],
   email: [true, true, false, false, false, false, false],
 };
@@ -91,7 +89,7 @@ const MOUNT_CONTRACT: Record<PanelId, 'keep-mounted' | 'unmount'> = {
 describe('workspace panel baseline: per-mode visibility', () => {
   it('covers every registered workspace mode', () => {
     expect([...ALL_WORKSPACE_MODES].sort()).toEqual(
-      ['design', 'drawing', 'image', 'print', 'motion', 'codegen', 'logo', 'email'].sort(),
+      ['design', 'drawing', 'image', 'print', 'motion', 'email'].sort(),
     );
   });
 

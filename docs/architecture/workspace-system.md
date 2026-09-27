@@ -2,12 +2,18 @@
 
 Canonical contract for Varve's workspace modes. A workspace is a **versioned
 view-and-workflow configuration over one document and one editor engine** —
-Design, Print, Draw, Photo, Motion, Logo, Email, and Codegen &amp; Audit are all
-the same editor with different chrome, not different editors. The mode union,
+Design, Print, Draw, Photo, Motion, and Email are the six task workspaces over
+the same editor, not different editors. Logo is a Design workflow and Code is
+a shared panel, not a workspace. The mode union,
 per-mode configs, and labels live in `workspace/workspaceTypes.ts`
 (`WorkspaceMode`, `WORKSPACE_CONFIGS`, `ALL_WORKSPACE_MODES`); the shortcut
-registry (`workspaceDesign` … `workspaceCodegen`) lives in
-`shortcuts/ShortcutManager.ts`.
+registry (`workspaceDesign` … `workspaceEmail`) lives in
+`shortcuts/ShortcutManager.ts`. The retired `logo` and `codegen` identifiers
+remain at compatibility boundaries for old preference/layout payloads,
+navigation links, plugin metadata, and the existing shortcut actions. They
+resolve to Design (or reveal the shared Code panel) and are not members of the
+runtime `WorkspaceMode` union. `codegen` audit categories/export targets and
+the `logo` audit source remain their own typed concepts.
 
 Related: `docs/architecture/logo-system.md`, `docs/architecture/motion-system.md`,
 `docs/architecture/focus-navigation.md`.
@@ -158,6 +164,32 @@ merging by variant `updatedAt` and deletion tombstone time.
   once, but only where it *disagrees* with the built-in default — equality
   carries no information about what the user chose, and seeding on it would
   mark every fresh install as customized.
+- Customized Logo and Codegen preference slots are converted to named
+  `Recovered Logo Workspace` and `Recovered Code Workspace` layouts after both
+  preference and layout stores hydrate. Stable migration ids make this
+  idempotent; Design preferences are not rewritten. If the layout store has
+  reached its 50-variant limit, the old preference is retained for recovery.
+- The former `Ctrl+Shift+6` action opens Design and reveals Logo Tools. The
+  former `Ctrl+Shift+9` action reveals the shared Code panel in the current
+  workspace. Neither action selects a retired mode.
+
+## Product taxonomy
+
+| Workspace | Shortcut | Focus |
+|---|---|---|
+| Design | `Ctrl+Shift+1` | UI/UX, components, prototyping, Logo tools, developer handoff |
+| Print | `Ctrl+Shift+2` | Multi-page layout, typography, preflight, colour management |
+| Draw | `Ctrl+Shift+3` | Raster painting, vector freehand, brushes |
+| Photo | `Ctrl+Shift+4` | Nondestructive photo editing and adjustments |
+| Motion | `Ctrl+Shift+5` | Timeline animation and keyframes |
+| Email | `Ctrl+Shift+7` | Email-specific structure, responsive preview, compatibility checks, and export |
+
+Logo-specific project data remains in `Document.logoProject`; invoking Logo
+Tools from another task first selects Design. Code export remains available
+through the shared Code panel without changing the active workspace. Email is
+kept separate because it has structured authored blocks, a dedicated compiler,
+responsive preview, and email-specific compatibility checks. Entering Email
+does not enable an email profile or convert the current document.
 
 ## Tool identity, visibility, and availability
 
@@ -294,7 +326,7 @@ the same review that found the toolbar defects above. Result:
 | `onboarding.tips` | `workspaceTips` → `useDidYouKnow` | Live **as of this pass** — see below |
 | `floatingToolbar` / `statusBar` / `tabStrip` | `Shell`, `FloatingToolbar` | Live |
 
-**Workspace onboarding tips are now shown.** All built-in workspaces (eight
+**Workspace onboarding tips are now shown.** All built-in workspaces (six
 as of 2026-08) declare
 `onboarding.tips` (roughly 28 authored, workspace-specific hints) that nothing
 read, while the Did-You-Know surface drew only from the global, workspace-blind
@@ -323,8 +355,7 @@ gaps:
   missing `historyPanelVisible`, so the History panel was the one panel id with
   no switch-time projection: overrides for it were recorded but never applied
   by a workspace switch (invariant 9 violation). It is now in the projection
-  and in the customize dialog's panel list. All built-ins (eight as of
-  2026-08) declare it
+  and in the customize dialog's panel list. All built-ins declare it
   `visible: false`, so built-in layouts are unchanged; per-mode overrides now
   work.
 - **The customize dialog covers the full surface.** The Toolbar Tools section
@@ -333,7 +364,7 @@ gaps:
   UI (the store supported it; the dialog did not). Status-section labels come
   from a single `STATUS_SECTION_LABELS` map instead of camelCase-split ids.
   Reset All now requires an explicit confirmation dialog — it discards every
-  customization in all eight modes.
+  customization in all six workspaces.
 - **The status bar is section-honest.** Every renderable section
   (`toolName`, `cursorPos`, `layoutScore`, `unit`, `zoom`, `selectionInfo`,
   plus the already-gated `preflight`/`debt`/`shortcutTip`) is gated by its
@@ -356,8 +387,8 @@ gaps:
   APG window-splitter resize surface the sidebars have — drag, arrow keys
   (+Shift coarse), Home/End, double-click reset — persisted per workspace
   mode through `panelWidths.library` and cleared on reset
-  (`clearPanelWidths`). Codegen, Logo, and Timeline remain fixed-layout by
-  design (their content is code/text and timeline-spanning).
+  (`clearPanelWidths`). The shared Code panel, Logo Tools, and Timeline remain
+  fixed-layout by design (their content is code/text and timeline-spanning).
 
 ## Named layout variants (2026-09-13)
 
@@ -446,7 +477,7 @@ contract (review: `docs/audits/workspace-switcher-review-2026-09-15.md`):
   (the active pill, hosting `text-on-accent`) and
   `--color-workspace-icon-<mode>` (the inactive icon). Both are generated from
   the token ramps and are contrast pairs in `audit:tokens` for every theme, so
-  a hue cannot ship below AA/3:1. High Contrast defines all eight modes as the
+  a hue cannot ship below AA/3:1. High Contrast defines all six workspaces as the
   single HC accent — hue is never a state cue there.
 - **The active mode is always visible and named.** `computeWorkspaceLayout`
   evicts a lower-priority tab rather than the active one; the active pill
@@ -456,10 +487,8 @@ contract (review: `docs/audits/workspace-switcher-review-2026-09-15.md`):
   (`--radius-floating`, like the toolbar) with `--radius-control-compact`
   members — not a pill container. The overflow divider uses the menubar
   family's single vertical group rule (see `docs/architecture/separator-system.md`).
-- **Labels come from `WORKSPACE_LABELS` and must equal the command label.**
-  The ShortcutManager label (`Workspace: Codegen`), the View menu item, and
-  the switcher must use the same words; a panel may title itself more
-  descriptively (the Code panel reads "Codegen & Audit").
+- **Workspace labels come from `WORKSPACE_LABELS`.** The Code panel and Logo
+  tools are shared/design surfaces and do not appear as workspace tabs.
 - **The overflow math measures; it never assumes.** Tab widths are read from
   rendered boxes and the inter-tab gap is read from the resolved `column-gap`,
   so a spacing-token change flows into the calculation. `tabWidths` never

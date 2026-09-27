@@ -293,7 +293,7 @@ pass report in
 | `architecture/overlay-system.md` | Shared floating geometry, owner-document, overlay-tree, dismissal, and focus contracts |
 | `architecture/menu-system.md` | Shared menu taxonomy, visual contract, metadata, interaction, and validation |
 | `architecture/lifecycle-system.md` | Quit/close/exit lifecycle and shutdown architecture |
-| `architecture/logo-system.md` | Logo workspace system |
+| `architecture/logo-system.md` | Logo tools and brand-project system within Design |
 | `architecture/typography-platform.md` | Typography platform |
 | `architecture/spacing-system.md` | Canonical spacing primitives, semantic roles, responsive gutters, and ownership boundaries |
 | `architecture/label-field-system.md` | Label/control composition, responsive inspector groups, precision inputs, and theme behavior |

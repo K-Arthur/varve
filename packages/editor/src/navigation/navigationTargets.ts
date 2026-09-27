@@ -13,7 +13,7 @@
  * empty ids are rejected with a structured reason rather than throwing.
  */
 
-import type { WorkspaceMode } from '../workspace/workspaceTypes';
+import { resolveWorkspaceMode, type WorkspaceMode } from '../workspace/workspaceTypes';
 
 export type NavigationTarget =
   | { kind: 'home' }
@@ -48,6 +48,8 @@ const WORKSPACE_MODES: readonly string[] = [
   'drawing',
   'image',
   'motion',
+  'email',
+  // Persisted links and plugin payloads created before workspace consolidation.
   'codegen',
   'logo',
 ] as const;
@@ -68,7 +70,9 @@ function isValidId(id: string): boolean {
 
 /** A valid workspace-mode name (accepts a string; canonicalizes to the enum). */
 function parseWorkspaceMode(value: string): WorkspaceMode | null {
-  if ((WORKSPACE_MODES as readonly string[]).includes(value)) return value as WorkspaceMode;
+  if ((WORKSPACE_MODES as readonly string[]).includes(value)) {
+    return resolveWorkspaceMode(value as WorkspaceMode | 'logo' | 'codegen');
+  }
   return null;
 }
 

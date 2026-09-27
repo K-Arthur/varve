@@ -557,12 +557,12 @@ export const SHORTCUT_DEFS = {
   },
   workspaceCodegen: {
     binding: { key: '9', ctrl: true, shift: true },
-    label: 'Workspace: Codegen',
+    label: 'Show Code Panel',
     category: 'View',
   },
   workspaceLogo: {
     binding: { key: '6', ctrl: true, shift: true },
-    label: 'Workspace: Logo',
+    label: 'Logo Tools in Design',
     category: 'View',
   },
   workspaceEmail: {

@@ -13,6 +13,7 @@ import {
   clearResetSnapshot,
   getLayoutStore,
   hydrateLayoutStoreFromPlatform,
+  migrateLegacyWorkspaceLayouts,
   restoreResetSnapshotToPreferences,
   sanitizeLayoutPayload,
   updateLayoutStore,
@@ -197,8 +198,13 @@ export function useWorkspaceMode(
   useEffect(() => {
     if (!enabled || !platform) return;
     let cancelled = false;
-    void hydrateWorkspacePreferencesFromPlatform(platform).then((changed) => {
-      if (cancelled || !changed) return;
+    void Promise.all([
+      hydrateWorkspacePreferencesFromPlatform(platform),
+      hydrateLayoutStoreFromPlatform(platform),
+    ]).then(([preferencesChanged]) => {
+      if (cancelled) return;
+      const migrated = migrateLegacyWorkspaceLayouts();
+      if (!preferencesChanged && !migrated) return;
       // The panel booleans were seeded at boot from the pre-hydration
       // snapshot, so re-project the now-current mode's effective config onto
       // them. Read the mode from the ref rather than the closure: the read is
@@ -207,10 +213,8 @@ export function useWorkspaceMode(
       patch(panelVisibilityPatch(getEffectiveWorkspaceConfig(mode)));
     });
     // Layout variants are not applied automatically; hydration only makes
-    // them available to the Manage Layouts surface. A late hydration cannot
-    // overwrite local variants: the merge keeps the newer revision and any
-    // local deletion tombstone.
-    void hydrateLayoutStoreFromPlatform(platform);
+    // them available to the Manage Layouts surface. Legacy Logo/Codegen
+    // arrangements migrate only after both durable snapshots are hydrated.
     return () => {
       cancelled = true;
     };

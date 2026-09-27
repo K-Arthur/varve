@@ -50,6 +50,43 @@ describe('createActionHandlers — tool actions', () => {
   });
 });
 
+describe('createActionHandlers — retired workspace shortcuts', () => {
+  it('opens Code in the current workspace without changing the active mode', () => {
+    const setPanelVisible = vi.fn();
+    const requestWorkspaceSwitch = vi.fn();
+    const editor = makeEditorMock({
+      state: { workspaceMode: 'email' } as EditorContextValue['state'],
+      setPanelVisible,
+      requestWorkspaceSwitch,
+    });
+
+    createActionHandlers(editor).workspaceCodegen?.();
+
+    expect(setPanelVisible).toHaveBeenCalledWith('codegen', true);
+    expect(requestWorkspaceSwitch).not.toHaveBeenCalled();
+  });
+
+  it('opens Logo Tools in Design and respects a blocked switch', async () => {
+    const setPanelVisible = vi.fn();
+    const requestWorkspaceSwitch = vi.fn().mockResolvedValue(true);
+    const editor = makeEditorMock({
+      state: { workspaceMode: 'print' } as EditorContextValue['state'],
+      setPanelVisible,
+      requestWorkspaceSwitch,
+    });
+
+    await createActionHandlers(editor).workspaceLogo?.();
+
+    expect(requestWorkspaceSwitch).toHaveBeenCalledWith('design');
+    expect(setPanelVisible).toHaveBeenCalledWith('logo', true);
+
+    setPanelVisible.mockClear();
+    requestWorkspaceSwitch.mockResolvedValue(false);
+    await createActionHandlers(editor).workspaceLogo?.();
+    expect(setPanelVisible).not.toHaveBeenCalled();
+  });
+});
+
 describe('createActionHandlers — document export', () => {
   it('delegates whole-document SVG export to the live export layer', () => {
     const onExportSvg = vi.fn();

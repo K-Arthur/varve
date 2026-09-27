@@ -16,7 +16,7 @@
  * - Make useful tools permanently inaccessible
  */
 
-import type { WorkspaceMode } from '@varve/shared';
+import type { LegacyWorkspaceMode, WorkspaceMode, WorkspaceModeInput } from '@varve/shared';
 import type { IconName } from '@varve/ui';
 import { getRegisteredToolIds, getToolDefinition, type ToolId } from '../tools/toolRegistry';
 
@@ -32,7 +32,10 @@ import { getRegisteredToolIds, getToolDefinition, type ToolId } from '../tools/t
  * before ('codegen' missing there) and caused real cross-package typecheck
  * failures.
  */
-export type { WorkspaceMode };
+export type { LegacyWorkspaceMode, WorkspaceMode, WorkspaceModeInput };
+
+/** Preference slots retained until legacy Logo/Codegen layouts are migrated. */
+export type WorkspacePreferenceMode = WorkspaceModeInput;
 
 // ---------------------------------------------------------------------------
 // Panel configuration
@@ -415,7 +418,7 @@ export interface WorkspacePreference {
   lastCustomized?: number;
 }
 
-export type WorkspacePreferences = Record<WorkspaceMode, WorkspacePreference>;
+export type WorkspacePreferences = Record<WorkspacePreferenceMode, WorkspacePreference>;
 
 // ---------------------------------------------------------------------------
 // Built-in workspace configurations
@@ -449,6 +452,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         { toolId: 'pen', groupStart: true },
         { toolId: 'knife' },
         { toolId: 'shapeBuilder' },
+        { toolId: 'nodeEdit' },
         { toolId: 'text', groupStart: true },
         { toolId: 'frame' },
         { toolId: 'panel' },
@@ -854,211 +858,6 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
   },
 
   // ─── Motion Mode (animation, timeline, keyframes, prototyping) ──────────
-  // ─── Codegen & Audit Mode (design-to-code, design audit, spec output) ────
-  codegen: {
-    version: 1,
-    panels: {
-      layers: { visible: true, preferredWidth: '16rem' },
-      inspector: { visible: true, preferredWidth: '20rem' },
-      timeline: { visible: false },
-      pagenav: { visible: true },
-      library: { visible: true },
-      codegen: { visible: true, preferredWidth: '100%' },
-      logo: { visible: false },
-      history: { visible: false },
-    },
-    floatingToolbar: true,
-    statusBar: true,
-    tabStrip: true,
-    toolbar: {
-      tools: [
-        { toolId: 'select', groupStart: true },
-        { toolId: 'lasso' },
-        { toolId: 'hand' },
-        { toolId: 'zoom' },
-        { toolId: 'inspect', groupStart: true },
-        { toolId: 'frame', groupStart: true },
-        { toolId: 'table' },
-        { toolId: 'rect' },
-        { toolId: 'ellipse' },
-        { toolId: 'text' },
-        { toolId: 'line', groupStart: true },
-        { toolId: 'arrow' },
-        { toolId: 'pen', groupStart: true },
-        { toolId: 'pencil' },
-        { toolId: 'scale', groupStart: true },
-        { toolId: 'eyedropper' },
-        { toolId: 'pixelProbe' },
-        { toolId: 'sam2Segment', groupStart: true },
-      ],
-      flyouts: [
-        { id: 'shapes', label: 'Shapes', tools: ['rect', 'ellipse'] },
-        {
-          id: 'boolean',
-          label: 'Boolean operations',
-          tools: ['booleanUnion', 'booleanSubtract', 'booleanIntersect', 'booleanExclude'],
-        },
-      ],
-    },
-    inspectorTabs: [
-      {
-        id: 'codegen',
-        label: 'Codegen',
-        visible: true,
-        default: true,
-        group: 'primary',
-        overflowPriority: 0,
-      },
-      {
-        id: 'properties',
-        label: 'Design',
-        visible: true,
-        group: 'primary',
-        overflowPriority: 1,
-      },
-      { id: 'audit', label: 'Audit', visible: true, group: 'output' },
-      { id: 'export', label: 'Export', visible: true, group: 'output' },
-      { id: 'fonts', label: 'Fonts', visible: false, group: 'workflow' },
-    ],
-    statusSections: [
-      { id: 'toolName', visible: true, order: 0 },
-      { id: 'cursorPos', visible: true, order: 10 },
-      { id: 'layoutScore', visible: true, order: 11 },
-      { id: 'unit', visible: true, order: 20 },
-      { id: 'debt', visible: true, order: 21 },
-      { id: 'shortcutTip', visible: true, order: 25 },
-      { id: 'zoom', visible: true, order: 30 },
-      { id: 'selectionInfo', visible: true, order: 40 },
-    ],
-    canvasOverlays: {
-      rulers: true,
-      guides: true,
-      pixelGrid: false,
-      dotGrid: true,
-      bleedGuides: false,
-      layoutGrid: false,
-      baselineGrid: false,
-    },
-    layersPanel: {
-      pinnedBadgeGroups: ['component', 'layout'],
-      pinnedRowActions: [],
-      quickFilters: ['components'],
-      searchPlaceholder: 'Filter layers…',
-    },
-    onboarding: {
-      description:
-        'Design-to-code export, design audit, accessibility checks, and specification output.',
-      tips: [
-        'Select a node to view its code in HTML, Tailwind, or SVG.',
-        'Use the Audit tab to check contrast, typography, and accessibility.',
-        'The Design Audit report lists all issues with severity levels.',
-        'Switch between codegen targets to compare output formats.',
-        'Flattened regions show fidelity warnings where effects are rasterized.',
-      ],
-    },
-  },
-
-  // ─── Logo Mode (wordmarks, marks, monograms, brand systems) ─────────────
-  logo: {
-    version: 1,
-    panels: {
-      layers: { visible: true },
-      inspector: { visible: true },
-      timeline: { visible: false },
-      pagenav: { visible: false },
-      library: { visible: false },
-      codegen: { visible: false },
-      logo: { visible: true },
-      history: { visible: false },
-    },
-    defaultTool: 'select',
-    floatingToolbar: true,
-    statusBar: true,
-    tabStrip: true,
-    toolbar: {
-      tools: [
-        { toolId: 'select', groupStart: true },
-        { toolId: 'lasso' },
-        { toolId: 'hand' },
-        { toolId: 'zoom' },
-        { toolId: 'pen', groupStart: true },
-        { toolId: 'knife' },
-        { toolId: 'shapeBuilder' },
-        { toolId: 'pencil' },
-        { toolId: 'nodeEdit' },
-        { toolId: 'text', groupStart: true },
-        { toolId: 'frame', groupStart: true },
-        { toolId: 'table' },
-        { toolId: 'rect' },
-        { toolId: 'ellipse' },
-        { toolId: 'line', groupStart: true },
-        { toolId: 'arrow' },
-        { toolId: 'scale', groupStart: true },
-        { toolId: 'eyedropper' },
-        { toolId: 'pixelProbe' },
-        { toolId: 'sam2Segment', groupStart: true },
-      ],
-      flyouts: [
-        { id: 'shapes', label: 'Shapes', tools: ['rect', 'ellipse'] },
-        {
-          id: 'boolean',
-          label: 'Boolean operations',
-          tools: ['booleanUnion', 'booleanSubtract', 'booleanIntersect', 'booleanExclude'],
-        },
-      ],
-    },
-    inspectorTabs: [
-      {
-        id: 'properties',
-        label: 'Design',
-        visible: true,
-        default: true,
-        group: 'primary',
-        overflowPriority: 0,
-      },
-      { id: 'appearance', label: 'Appearance & Effects', visible: true, group: 'workflow' },
-      { id: 'export', label: 'Export', visible: true, group: 'output' },
-      { id: 'audit', label: 'Audit', visible: true, group: 'output', overflowPriority: 5 },
-      { id: 'fonts', label: 'Fonts', visible: true, group: 'workflow' },
-    ],
-    statusSections: [
-      { id: 'toolName', visible: true, order: 0 },
-      { id: 'cursorPos', visible: true, order: 10 },
-      { id: 'layoutScore', visible: true, order: 11 },
-      { id: 'unit', visible: true, order: 20 },
-      { id: 'debt', visible: true, order: 21 },
-      { id: 'shortcutTip', visible: true, order: 25 },
-      { id: 'zoom', visible: true, order: 30 },
-      { id: 'selectionInfo', visible: true, order: 40 },
-    ],
-    canvasOverlays: {
-      rulers: true,
-      guides: true,
-      pixelGrid: false,
-      dotGrid: true,
-      bleedGuides: false,
-      layoutGrid: false,
-      baselineGrid: false,
-    },
-    layersPanel: {
-      pinnedBadgeGroups: ['component', 'appearance'],
-      pinnedRowActions: [],
-      quickFilters: ['components'],
-      searchPlaceholder: 'Filter layers…',
-    },
-    onboarding: {
-      description:
-        'Logo design: wordmarks, marks, monograms, badges, clear-space, and brand systems on a transparent canvas.',
-      tips: [
-        'Logo canvases start transparent — export keeps alpha.',
-        'Use Convert Text to Outlines (Text menu) before delivering final wordmarks.',
-        'Boolean tools (Ctrl+Alt+U/S/I/X) combine shapes into a single mark.',
-        'Generate clear-space guides from Object menu to protect the logo.',
-        'Audit tab flags thin strokes, unclosed paths, and small-size risks.',
-      ],
-    },
-  },
-
   motion: {
     version: 1,
     panels: {
@@ -1192,7 +991,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         id: 'properties',
         label: 'Design',
         visible: true,
-        default: true,
+        default: false,
         group: 'primary',
         overflowPriority: 0,
       },
@@ -1201,7 +1000,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         label: 'Email',
         visible: true,
         group: 'primary',
-        default: false,
+        default: true,
         overflowPriority: 0,
       },
       { id: 'appearance', label: 'Appearance & Effects', visible: true, group: 'workflow' },
@@ -1262,9 +1061,8 @@ export function getWorkspaceConfig(mode: WorkspaceMode): WorkspaceConfig {
 /**
  * Navigation labels for the workspace switcher. These are the names users see
  * in the dock, the overflow menu, and tooltips, so they must match the command
- * surfaces: `ShortcutManager` labels ("Workspace: Codegen") and the View menu
- * use the same words. The Code panel may still title itself "Codegen & Audit"
- * — that names the panel's scope, not the mode.
+ * surfaces: workspace tabs and their shortcuts use the same names. The Code
+ * panel is a shared surface and does not have a workspace label.
  */
 export const WORKSPACE_LABELS: Record<WorkspaceMode, string> = {
   design: 'Design',
@@ -1272,8 +1070,6 @@ export const WORKSPACE_LABELS: Record<WorkspaceMode, string> = {
   drawing: 'Draw',
   image: 'Photo',
   motion: 'Motion',
-  codegen: 'Codegen',
-  logo: 'Logo',
   email: 'Email',
 };
 
@@ -1283,8 +1079,6 @@ export const WORKSPACE_ICONS: Record<WorkspaceMode, IconName> = {
   drawing: 'Paintbrush',
   image: 'Image',
   motion: 'Play',
-  codegen: 'Code',
-  logo: 'Stamp',
   email: 'Mail',
 };
 
@@ -1295,17 +1089,26 @@ export const ALL_WORKSPACE_MODES: readonly WorkspaceMode[] = [
   'drawing',
   'image',
   'motion',
-  'codegen',
-  'logo',
   'email',
 ] as const;
 
+/** Stored preference keys. Legacy keys are read only and migrated to layouts. */
+export const ALL_WORKSPACE_PREFERENCE_MODES: readonly WorkspacePreferenceMode[] = [
+  ...ALL_WORKSPACE_MODES,
+  'logo',
+  'codegen',
+] as const;
+
+/** Route retired workspace identifiers to the current task environment. */
+export function resolveWorkspaceMode(mode: WorkspaceModeInput): WorkspaceMode {
+  return mode === 'logo' || mode === 'codegen' ? 'design' : mode;
+}
+
 /**
  * Top-bar display order for the workspace switcher — data-driven, single source of
- * truth for how many modes the menubar shows at any width. Order reflects
- * product intent: the primary modes (Design, Draw, Photo) stay on screen;
- * Print, Motion, Codegen, and Logo are the first to move into the "More"
- * overflow menu at narrow widths.
+ * truth for how many modes the menubar shows at any width. Design, Draw, and
+ * Photo lead; specialist task workspaces move into the "More" menu as space
+ * narrows.
  */
 export const WORKSPACE_OVERFLOW_ORDER: readonly WorkspaceMode[] = [
   'design',
@@ -1313,15 +1116,12 @@ export const WORKSPACE_OVERFLOW_ORDER: readonly WorkspaceMode[] = [
   'image',
   'print',
   'motion',
-  'codegen',
   'email',
-  'logo',
 ] as const;
 
 /**
  * Overflow priority per mode — higher values leave the visible tab strip
- * first when space runs out (0 = never overflows). Design never overflows;
- * Logo and Codegen overflow first.
+ * first when space runs out (0 = never overflows). Design never overflows.
  */
 export const WORKSPACE_OVERFLOW_PRIORITY: Record<WorkspaceMode, number> = {
   design: 0,
@@ -1329,9 +1129,7 @@ export const WORKSPACE_OVERFLOW_PRIORITY: Record<WorkspaceMode, number> = {
   image: 2,
   print: 3,
   motion: 4,
-  codegen: 5,
   email: 5,
-  logo: 6,
 };
 
 // Workspace switching shortcuts are NOT declared here. They live in the

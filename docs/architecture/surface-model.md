@@ -104,7 +104,7 @@ flowchart LR
 
 Workspace filtering is a UI disclosure policy, not a scene filter.
 
-| Concern | Design workspace | Print workspace | Drawing, Image, Motion, Logo, Email, Codegen |
+| Concern | Design workspace | Print workspace | Draw, Photo, Motion, Email |
 |---|---|---|---|
 | Active surface rendering | Active Design Canvas | Publishing Pages | Active Design Canvas |
 | Design Canvas navigator | Effective `pagenav` preference | Hidden; use Print's Publishing Pages panel | Hidden by default/config |
@@ -113,6 +113,10 @@ Workspace filtering is a UI disclosure policy, not a scene filter.
 | Print geometry controls | Hidden | Available for existing pages | Hidden |
 | Frames/artboards | Always available to canvas/tools | Always available to canvas/tools | Always available to canvas/tools |
 | Export regions | Marker system only | Marker system only | Marker system only |
+
+Logo tools are available inside Design, and the Code panel can be opened in
+any workspace. Neither is a document surface or a mode-specific disclosure
+boundary.
 | Explicit page commands/export | Available through commands and export UI | Available | Available; workspace does not delete or hide document semantics |
 
 This means a hidden surface panel cannot delete or invalidate its underlying

@@ -28,6 +28,7 @@ import {
   getEffectiveWorkspaceConfig,
   getWorkspacePreferences,
   resetModePreferences,
+  setWorkspacePreferences,
 } from './workspaceStore';
 import {
   ALL_PANEL_IDS,
@@ -40,7 +41,9 @@ import {
   type PanelId,
   type StatusSectionId,
   type WorkspaceMode,
+  type WorkspaceModeInput,
   type WorkspacePreference,
+  type WorkspacePreferenceMode,
   type WorkspacePreferences,
 } from './workspaceTypes';
 
@@ -83,7 +86,7 @@ export interface WorkspaceLayoutVariant {
   createdAt: number;
   updatedAt: number;
   /** Mode the layout was captured from — informational, never an apply target. */
-  sourceMode?: WorkspaceMode;
+  sourceMode?: WorkspaceModeInput;
   payload: LayoutPreferencePayload;
 }
 
@@ -413,8 +416,10 @@ function sanitizeVariant(raw: unknown): WorkspaceLayoutVariant | null {
   const now = Date.now();
   const sourceMode =
     typeof source.sourceMode === 'string' &&
-    (ALL_WORKSPACE_MODES as readonly string[]).includes(source.sourceMode)
-      ? (source.sourceMode as WorkspaceMode)
+    [...ALL_WORKSPACE_MODES, 'logo', 'codegen'].includes(
+      source.sourceMode as WorkspacePreferenceMode,
+    )
+      ? (source.sourceMode as WorkspaceModeInput)
       : undefined;
   return {
     id: source.id,
@@ -651,7 +656,7 @@ function isDuplicateName(
 /** Save the current arrangement as a new named variant. */
 export function addLayoutVariant(
   state: WorkspaceLayoutStoreState,
-  input: { name: string; sourceMode: WorkspaceMode; payload: LayoutPreferencePayload },
+  input: { name: string; sourceMode: WorkspaceModeInput; payload: LayoutPreferencePayload },
   now: number = Date.now(),
 ): LayoutMutationResult {
   const name = normalizeLayoutName(input.name);
@@ -874,8 +879,10 @@ export function importLayoutVariantFromJson(json: string): LayoutImportResult {
   const now = Date.now();
   const sourceMode =
     typeof source.sourceMode === 'string' &&
-    (ALL_WORKSPACE_MODES as readonly string[]).includes(source.sourceMode)
-      ? (source.sourceMode as WorkspaceMode)
+    [...ALL_WORKSPACE_MODES, 'logo', 'codegen'].includes(
+      source.sourceMode as WorkspacePreferenceMode,
+    )
+      ? (source.sourceMode as WorkspaceModeInput)
       : undefined;
   return {
     ok: true,
@@ -890,6 +897,176 @@ export function importLayoutVariantFromJson(json: string): LayoutImportResult {
       payload: sanitizeLayoutPayload(source.payload),
     },
   };
+}
+
+/**
+ * Convert customized Logo and Codegen workspace preferences into named,
+ * portable layouts before those legacy preference slots are retired.
+ * Stable ids make the conversion safe to repeat after interrupted hydration.
+ * If storage is full, the source preference remains intact for a later run.
+ */
+export function migrateLegacyWorkspaceLayouts(now: number = Date.now()): boolean {
+  const prefs = getWorkspacePreferences();
+  let nextPrefs = prefs;
+  let store = getLayoutStore();
+  let storeChanged = false;
+  let prefsChanged = false;
+
+  const defaults: Record<
+    Extract<WorkspacePreferenceMode, 'logo' | 'codegen'>,
+    LayoutPreferencePayload
+  > = {
+    logo: {
+      panelOverrides: {
+        layers: { visible: true },
+        inspector: { visible: true },
+        timeline: { visible: false },
+        pagenav: { visible: false },
+        library: { visible: false },
+        codegen: { visible: false },
+        logo: { visible: true },
+        history: { visible: false },
+      },
+      toolbarToolOverrides: {
+        select: true,
+        lasso: true,
+        hand: true,
+        zoom: true,
+        pen: true,
+        knife: true,
+        shapeBuilder: true,
+        pencil: true,
+        nodeEdit: true,
+        text: true,
+        frame: true,
+        table: true,
+        rect: true,
+        ellipse: true,
+        line: true,
+        arrow: true,
+        scale: true,
+        eyedropper: true,
+        pixelProbe: true,
+        sam2Segment: true,
+      },
+      inspectorTabOverrides: {
+        properties: true,
+        appearance: true,
+        export: true,
+        audit: true,
+        fonts: true,
+      },
+    },
+    codegen: {
+      panelOverrides: {
+        layers: { visible: true },
+        inspector: { visible: true },
+        timeline: { visible: false },
+        pagenav: { visible: true },
+        library: { visible: true },
+        codegen: { visible: true },
+        logo: { visible: false },
+        history: { visible: false },
+      },
+      toolbarToolOverrides: {
+        select: true,
+        lasso: true,
+        hand: true,
+        zoom: true,
+        inspect: true,
+        frame: true,
+        table: true,
+        rect: true,
+        ellipse: true,
+        text: true,
+        line: true,
+        arrow: true,
+        pen: true,
+        pencil: true,
+        scale: true,
+        eyedropper: true,
+        pixelProbe: true,
+        sam2Segment: true,
+      },
+      inspectorTabOverrides: {
+        properties: true,
+        audit: true,
+        export: true,
+        fonts: true,
+      },
+    },
+  };
+
+  for (const mode of ['logo', 'codegen'] as const) {
+    const preference = prefs[mode];
+    const id = `migrated-${mode}`;
+    if (preference?.customized && !store.variants.some((variant) => variant.id === id)) {
+      if (store.variants.length >= MAX_VARIANTS) continue;
+      const payload: LayoutPreferencePayload = {
+        ...defaults[mode],
+        ...(preference.panelOverrides
+          ? { panelOverrides: { ...defaults[mode].panelOverrides, ...preference.panelOverrides } }
+          : {}),
+        ...(preference.inspectorTabOverrides
+          ? {
+              inspectorTabOverrides: {
+                ...defaults[mode].inspectorTabOverrides,
+                ...preference.inspectorTabOverrides,
+              },
+            }
+          : {}),
+        ...(preference.statusSectionOverrides
+          ? { statusSectionOverrides: preference.statusSectionOverrides }
+          : {}),
+        ...(preference.toolbarToolOverrides
+          ? {
+              toolbarToolOverrides: {
+                ...defaults[mode].toolbarToolOverrides,
+                ...preference.toolbarToolOverrides,
+              },
+            }
+          : {}),
+        ...(preference.panelWidths ? { panelWidths: preference.panelWidths } : {}),
+        ...(preference.chromeOverrides ? { chromeOverrides: preference.chromeOverrides } : {}),
+        ...(preference.defaultToolOverride ? { defaultTool: preference.defaultToolOverride } : {}),
+      };
+      const baseName = `Recovered ${mode === 'logo' ? 'Logo' : 'Code'} Workspace`;
+      let name = baseName;
+      let suffix = 2;
+      while (
+        store.variants.some(
+          (variant) => variant.name.toLocaleLowerCase() === name.toLocaleLowerCase(),
+        )
+      ) {
+        const tail = ` (${suffix++})`;
+        name = `${baseName.slice(0, MAX_NAME_LENGTH - tail.length)}${tail}`;
+      }
+      const result = addLayoutVariant(store, { name, sourceMode: mode, payload }, now);
+      if (!result.ok) continue;
+      const recovered = { ...result.variant, id };
+      store = {
+        ...result.state,
+        variants: result.state.variants.map((variant) =>
+          variant.id === result.variant.id ? recovered : variant,
+        ),
+      };
+      storeChanged = true;
+    }
+
+    // Keep a revision-style reset marker so a stale durable preference copy
+    // cannot resurrect the old standalone workspace after migration.
+    if (preference && preference.customized) {
+      nextPrefs = {
+        ...nextPrefs,
+        [mode]: { customized: false, clearedAt: Math.max(now, preference.clearedAt ?? 0) },
+      };
+      prefsChanged = true;
+    }
+  }
+
+  if (storeChanged) setLayoutStore(store);
+  if (prefsChanged) setWorkspacePreferences(nextPrefs);
+  return storeChanged || prefsChanged;
 }
 
 /** Add an imported variant, replacing or duplicating a name collision. */

@@ -25,6 +25,7 @@ import {
   layoutPayloadsEqual,
   loadLayoutStore,
   mergeLayoutStores,
+  migrateLegacyWorkspaceLayouts,
   normalizeLayoutName,
   renameLayoutVariant,
   resetLayoutStoreCache,
@@ -92,6 +93,48 @@ describe('layoutVariants: capture', () => {
       setPanelOverride(getWorkspacePreferences(), 'design', 'history', { visible: true }),
     );
     expect(isLayoutVariantApplied(variant, 'design')).toBe(true);
+  });
+});
+
+describe('layoutVariants: legacy workspace migration', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    resetWorkspacePreferenceCache();
+    resetLayoutStoreCache();
+    resetAllPreferences();
+  });
+
+  it('recovers customized Logo and Codegen arrangements once without touching Design', () => {
+    const prefs = getWorkspacePreferences();
+    const design = setPanelOverride(prefs, 'design', 'history', { visible: true }).design;
+    setWorkspacePreferences({
+      ...prefs,
+      design,
+      logo: {
+        customized: true,
+        lastCustomized: 10,
+        panelOverrides: { logo: { visible: false } },
+      },
+      codegen: {
+        customized: true,
+        lastCustomized: 20,
+        panelOverrides: { library: { visible: false } },
+      },
+    });
+    const beforeDesign = getWorkspacePreferences().design;
+
+    expect(migrateLegacyWorkspaceLayouts(1000)).toBe(true);
+    expect(getWorkspacePreferences().design).toEqual(beforeDesign);
+    const variants = getLayoutStore().variants;
+    expect(variants.map(({ id }) => id)).toEqual(['migrated-logo', 'migrated-codegen']);
+    expect(variants.map(({ sourceMode }) => sourceMode)).toEqual(['logo', 'codegen']);
+    expect(variants[0]?.payload.panelOverrides?.logo?.visible).toBe(false);
+    expect(variants[1]?.payload.panelOverrides?.library?.visible).toBe(false);
+    expect(getWorkspacePreferences().logo?.customized).toBe(false);
+    expect(getWorkspacePreferences().codegen?.customized).toBe(false);
+
+    expect(migrateLegacyWorkspaceLayouts(2000)).toBe(false);
+    expect(getLayoutStore().variants).toHaveLength(2);
   });
 });
 

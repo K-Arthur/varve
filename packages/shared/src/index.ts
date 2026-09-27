@@ -96,9 +96,11 @@ export type {
   ExecutionCost,
   FixCapability,
   FixPreview,
+  LegacyWorkspaceMode,
   NodeId,
   SuppressionRecord,
   WorkspaceMode,
+  WorkspaceModeInput,
 } from './auditTypes';
 export {
   classifyConfidence,
