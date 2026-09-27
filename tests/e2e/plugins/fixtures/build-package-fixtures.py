@@ -15,10 +15,9 @@ for example, fixture in (
     source = examples / example
     output = directory / fixture
     with zipfile.ZipFile(source) as package:
-        manifest = package.read("manifest.json")
-        wasm = package.read("module.wasm")
+        entries = [(name, package.read(name)) for name in package.namelist()]
     with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_STORED) as package:
-        for name, contents in (("manifest.json", manifest), ("module.wasm", wasm)):
+        for name, contents in entries:
             info = zipfile.ZipInfo(name, date_time=(2020, 1, 1, 0, 0, 0))
             info.compress_type = zipfile.ZIP_STORED
             info.external_attr = 0o100644 << 16

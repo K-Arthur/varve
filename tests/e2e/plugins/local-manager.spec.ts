@@ -27,11 +27,7 @@ const longNamePackage = path.join(
 
 async function openPluginManager(page: Page) {
   await openMenu(page, 'File');
-  // The command is near the bottom of File and may sit below the viewport.
-  // Type-ahead exercises the real menu's keyboard navigation without relying
-  // on a pointer scroll into a clipped floating menu.
-  await page.keyboard.type('Manage Plugins');
-  await page.keyboard.press('Enter');
+  await page.getByRole('menuitem', { name: /Manage Plugins/ }).click();
   const dialog = page.getByRole('dialog', { name: 'Settings' });
   await expect(dialog.getByRole('tab', { name: 'Plugins' })).toHaveAttribute(
     'aria-selected',
@@ -173,6 +169,83 @@ test.describe('local application plugins', () => {
 
     await dialog.getByRole('button', { name: 'Close dialog' }).click();
     await expect(selectedLayer).toBeFocused();
+  });
+
+  test('shows accessible package artwork and makes pinned plugins easy to find', async ({
+    page,
+  }, testInfo) => {
+    test.setTimeout(90000);
+    await page.setViewportSize({ width: 800, height: 768 });
+    const dialog = await openPluginManager(page);
+    const analysis = await installIntoDialog(dialog, analysisPackage, 'Selection Style Readiness');
+    const rename = await installIntoDialog(dialog, renamePackage, 'Number Selected Layers');
+
+    await expect(
+      analysis.card.getByRole('img', { name: 'Selected layer cards beside a style summary panel' }),
+    ).toHaveAttribute('src', /^data:image\/png;base64,/u);
+    await expect(analysis.card).toContainText(
+      'Summarizes selected-layer styles, mixed values, and readiness issues before handoff.',
+    );
+    await expect(
+      rename.card.getByRole('img', { name: 'Three unnamed layers transform into a numbered list' }),
+    ).toHaveAttribute('src', /^data:image\/png;base64,/u);
+    await expect(dialog.locator('.plugin-manager__card h3').allTextContents()).resolves.toEqual([
+      'Number Selected Layers',
+      'Selection Style Readiness',
+    ]);
+    const initialOverflow = await dialog
+      .locator('.settings-dialog__content')
+      .evaluate((element) => element.scrollWidth - element.clientWidth);
+    expect(initialOverflow).toBeLessThanOrEqual(1);
+
+    await analysis.card.getByRole('button', { name: 'Pin Selection Style Readiness' }).click();
+    await expect(
+      analysis.card.getByRole('button', { name: 'Unpin Selection Style Readiness' }),
+    ).toHaveAttribute('aria-pressed', 'true');
+    await dialog.getByRole('button', { name: /^Pinned \(1\)$/ }).click();
+    await expect(dialog.getByRole('article')).toHaveCount(1);
+    await expect(dialog.getByRole('article', { name: 'Selection Style Readiness' })).toBeVisible();
+
+    const search = dialog.getByRole('searchbox', { name: 'Search installed plugins' });
+    await search.fill('mixed values');
+    await expect(dialog.getByRole('article')).toHaveCount(1);
+    await expect(dialog.getByRole('article', { name: 'Selection Style Readiness' })).toBeVisible();
+    await search.fill('numbered layer names');
+    await expect(dialog.getByRole('article')).toHaveCount(0);
+    await expect(dialog.getByRole('status').filter({ hasText: 'Showing 0 of 2' })).toBeVisible();
+
+    await search.fill('');
+    await page.setViewportSize({ width: 1280, height: 1100 });
+    await dialog.getByRole('tab', { name: 'Plugins', exact: true }).click();
+    await page.mouse.move(1180, 90);
+    await dialog.locator('.plugin-manager__list-heading').scrollIntoViewIfNeeded();
+    await page.screenshot({
+      path: testInfo.outputPath('plugin-manager-pinned.png'),
+      fullPage: true,
+    });
+    await page.evaluate(() => {
+      document.documentElement.style.fontSize = '200%';
+    });
+    await analysis.card.scrollIntoViewIfNeeded();
+    const largeTextOverflow = await dialog
+      .locator('.settings-dialog__content')
+      .evaluate((element) => element.scrollWidth - element.clientWidth);
+    expect(largeTextOverflow).toBeLessThanOrEqual(1);
+    await page.screenshot({
+      path: testInfo.outputPath('plugin-manager-pinned-200-percent.png'),
+      fullPage: false,
+    });
+    await page.evaluate(() => {
+      document.documentElement.style.fontSize = '';
+    });
+
+    await dialog.getByRole('button', { name: 'Close dialog' }).click();
+    const reopenedDialog = await openPluginManager(page);
+    await reopenedDialog.getByRole('button', { name: /^Pinned \(1\)$/ }).click();
+    await expect(
+      reopenedDialog.getByRole('article', { name: 'Selection Style Readiness' }),
+    ).toBeVisible();
+    await expect(reopenedDialog.getByRole('article')).toHaveCount(1);
   });
 
   test('keeps long plugin names and access review readable across display modes', async ({
@@ -434,7 +507,10 @@ test.describe('local application plugins', () => {
         .isVisible({ timeout: 10000 })
         .catch(() => false))
     ) {
-      await navigateToEditor(page);
+      const recentDocument = page.getByRole('gridcell').first();
+      await recentDocument.waitFor({ state: 'visible', timeout: 45000 });
+      await recentDocument.dblclick({ timeout: 15000 });
+      await page.locator('.editor-shell').waitFor({ state: 'visible', timeout: 45000 });
     }
     const reopened = await openPluginManager(page);
     await expect(
@@ -606,7 +682,7 @@ test.describe('local application plugins', () => {
   test('keeps the permission review readable in a narrow dark window', async ({
     page,
   }, testInfo) => {
-    await page.setViewportSize({ width: 1024, height: 768 });
+    await page.setViewportSize({ width: 1024, height: 960 });
     const dialog = await openPluginManager(page);
     await dialog.getByRole('tab', { name: 'Appearance', exact: true }).click();
     await dialog.getByRole('combobox', { name: 'Theme' }).click();
@@ -619,7 +695,7 @@ test.describe('local application plugins', () => {
     const review = dialog.locator('.plugin-manager__review');
     await expect(review).toContainText('Read the current selection');
     await expect(review).toContainText('Change the open document');
-    await review.getByRole('button', { name: 'Install and enable' }).scrollIntoViewIfNeeded();
+    await review.getByRole('heading', { name: 'Review installation' }).scrollIntoViewIfNeeded();
     await page.screenshot({
       path: testInfo.outputPath('plugin-review-dark-1024.png'),
       fullPage: true,
@@ -641,7 +717,7 @@ test.describe('local application plugins', () => {
     await expect(card.getByRole('button', { name: 'Stop', exact: true })).toBeVisible();
     await card.getByRole('button', { name: 'Stop', exact: true }).click();
     await expect(card).toContainText('Ready');
-    await expect(dialog.getByText('Stop Controlled Loop Fixture complete.')).toBeVisible();
+    await expect(dialog.getByText('Plugin command stopped.')).toBeVisible();
     await card.getByRole('button', { name: 'Run', exact: true }).click();
     await expect(card).toContainText('Running');
     await dialog.getByRole('button', { name: 'Close dialog' }).click();
@@ -676,10 +752,10 @@ test.describe('local application plugins', () => {
       review.getByRole('checkbox', { name: /Change the open document/ }),
     ).not.toBeChecked();
     await review.getByRole('button', { name: 'Update and enable' }).click();
+    await expect(card).toContainText('v1.2.0');
+    await expect(card.getByRole('button', { name: 'Restore v1.1.0' })).toBeVisible();
+    await card.getByRole('button', { name: 'Restore v1.1.0' }).click();
     await expect(card).toContainText('v1.1.0');
-    await expect(card.getByRole('button', { name: 'Restore v1.0.0' })).toBeVisible();
-    await card.getByRole('button', { name: 'Restore v1.0.0' }).click();
-    await expect(card).toContainText('v1.0.0');
     await expect(card.getByRole('button', { name: 'Run', exact: true })).toBeEnabled();
     await page.screenshot({
       path: testInfo.outputPath('plugin-rollback-restored.png'),
@@ -697,7 +773,7 @@ test.describe('local application plugins', () => {
       .locator('.plugin-manager__review')
       .getByRole('button', { name: 'Update and enable' })
       .click();
-    await expect(card).toContainText('v1.1.0');
+    await expect(card).toContainText('v1.2.0');
     const pluginId = await card.locator('.plugin-manager__id').innerText();
 
     await page.evaluate(async (id) => {
@@ -732,14 +808,17 @@ test.describe('local application plugins', () => {
 
     await page.reload();
     await reopenEditorAfterReload(page);
+    await page.keyboard.press('r');
+    await dragOnCanvas(page, 150, 150, 350, 300);
+    await expect(page.getByRole('treeitem', { selected: true })).toHaveCount(1);
     const reopenedDialog = await openPluginManager(page);
     const reopenedCard = reopenedDialog
       .locator('.plugin-manager__card')
       .filter({ hasText: 'Selection Style Readiness' });
-    await expect(reopenedCard).toContainText('v1.1.0');
-    await reopenedCard.getByRole('button', { name: 'Restore v1.0.0' }).click();
+    await expect(reopenedCard).toContainText('v1.2.0');
+    await reopenedCard.getByRole('button', { name: 'Restore v1.1.0' }).click();
     await expect(reopenedDialog.getByRole('alert')).toContainText(/invalid plugin package/i);
-    await expect(reopenedCard).toContainText('v1.1.0');
+    await expect(reopenedCard).toContainText('v1.2.0');
     await reopenedCard.getByRole('button', { name: 'Run', exact: true }).click();
     await expect(reopenedCard.getByText(/Opacity:/)).toBeVisible();
     await page.screenshot({
@@ -861,7 +940,7 @@ test.describe('local application plugins', () => {
     }, pluginId);
 
     await card.getByRole('button', { name: 'Apply 1 rename' }).click();
-    await expect(card).toContainText('Plugin state changed in another window');
+    await expect(dialog.getByRole('alert')).toContainText('Plugin state changed in another window');
     await expect(page.getByRole('treeitem').allTextContents()).resolves.toEqual(before);
     await expect(card).toContainText('Preview');
     await dialog.getByRole('button', { name: 'Close dialog' }).click();
@@ -951,16 +1030,13 @@ test.describe('local application plugins', () => {
 
   test('stops, revokes, and disables two competing plugins independently', async ({ page }) => {
     test.setTimeout(120000);
-    const { dialog, card: firstCard } = await installPackage(
-      page,
-      loopPackage,
-      'Controlled Loop Fixture',
-    );
-    const { card: secondCard } = await installIntoDialog(
-      dialog,
-      secondLoopPackage,
-      'Controlled Loop Fixture Two',
-    );
+    const { dialog } = await installPackage(page, loopPackage, 'Controlled Loop Fixture');
+    const firstCard = dialog.getByRole('article', { name: 'Controlled Loop Fixture', exact: true });
+    await installIntoDialog(dialog, secondLoopPackage, 'Controlled Loop Fixture Two');
+    const secondCard = dialog.getByRole('article', {
+      name: 'Controlled Loop Fixture Two',
+      exact: true,
+    });
     const unchangedArtwork = await page.getByRole('treeitem').allTextContents();
 
     await firstCard.getByRole('button', { name: 'Run', exact: true }).click();

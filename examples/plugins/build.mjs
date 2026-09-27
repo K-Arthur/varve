@@ -26,11 +26,12 @@ function crc32(bytes) {
   return (crc ^ 0xffffffff) >>> 0;
 }
 
-/** Exactly two stored entries, fixed order and zero timestamps. */
-function packageZip(manifest, wasm) {
+/** Stored entries use a fixed order and zero timestamps for reproducible ZIPs. */
+function packageZip(manifest, wasm, thumbnail) {
   const files = [
     { name: 'manifest.json', data: manifest },
     { name: 'module.wasm', data: wasm },
+    ...(thumbnail ? [{ name: 'thumbnail.png', data: thumbnail }] : []),
   ];
   const locals = [];
   const centrals = [];
@@ -65,8 +66,8 @@ function packageZip(manifest, wasm) {
   const centralSize = centrals.reduce((sum, record) => sum + record.length, 0);
   const end = Buffer.alloc(22);
   end.writeUInt32LE(0x06054b50, 0);
-  end.writeUInt16LE(2, 8);
-  end.writeUInt16LE(2, 10);
+  end.writeUInt16LE(files.length, 8);
+  end.writeUInt16LE(files.length, 10);
   end.writeUInt32LE(centralSize, 12);
   end.writeUInt32LE(offset, 16);
   return Buffer.concat([...locals, ...centrals, end]);
@@ -191,11 +192,19 @@ await mkdir(dist, { recursive: true });
 for (const guest of guests) {
   const manifest = await readFile(join(root, guest.directory, 'manifest.json'));
   const wasm = await readFile(join(target, guest.binary));
+  const metadata = JSON.parse(manifest.toString('utf8'));
+  const thumbnail =
+    metadata.thumbnail?.path === 'thumbnail.png'
+      ? await readFile(join(root, guest.directory, 'thumbnail.png'))
+      : undefined;
   if (manifest.length > 32 * 1024 || wasm.length > 1024 * 1024) {
     throw new Error(`${guest.directory} exceeds the manifest or WASM size limit`);
   }
+  if (thumbnail && thumbnail.length > 256 * 1024) {
+    throw new Error(`${guest.directory} exceeds the 256 KiB thumbnail size limit`);
+  }
   await smoke(wasm, guest.directory);
-  const bytes = packageZip(manifest, wasm);
+  const bytes = packageZip(manifest, wasm, thumbnail);
   if (bytes.length > 2 * 1024 * 1024)
     throw new Error(`${guest.directory} exceeds the package size limit`);
   const path = join(dist, `${guest.directory}.varveplugin`);

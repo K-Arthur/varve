@@ -18,6 +18,13 @@ export interface PluginInspectorManifest {
   modes?: WorkspaceMode[];
 }
 
+export interface PluginThumbnailManifest {
+  /** The only supported artwork path in API v1 packages. */
+  path: 'thumbnail.png';
+  /** Visible to assistive technology; describe the artwork, not the plugin. */
+  alt: string;
+}
+
 export interface PluginPackageManifest {
   schemaVersion: 1;
   id: string;
@@ -28,12 +35,16 @@ export interface PluginPackageManifest {
   entry: 'module.wasm';
   permissions: { required: PluginPermission[]; optional: PluginPermission[] };
   commands: PluginCommandManifest[];
+  description?: string;
+  thumbnail?: PluginThumbnailManifest;
   inspector?: PluginInspectorManifest[];
 }
 
 export interface PluginPackage {
   manifest: PluginPackageManifest;
   wasm: Uint8Array;
+  /** Optional, validated static PNG artwork from the package archive. */
+  thumbnail?: Uint8Array;
   /** SHA-256 of the exact package bytes, including ZIP metadata. */
   sha256: string;
 }
@@ -41,6 +52,8 @@ export interface PluginPackage {
 const MAX_PACKAGE_BYTES = 2 * 1024 * 1024;
 const MAX_MANIFEST_BYTES = 32 * 1024;
 const MAX_WASM_BYTES = 1024 * 1024;
+const MAX_THUMBNAIL_BYTES = 256 * 1024;
+const MAX_THUMBNAIL_DIMENSION = 512;
 const MAX_PATH_BYTES = 128;
 const MAX_JSON_DEPTH = 32;
 const UTF8_FLAG = 1 << 11;
@@ -124,7 +137,9 @@ function parseZip(bytes: Uint8Array): Map<string, Uint8Array> {
   if (u16(view, end + 4) !== 0 || u16(view, end + 6) !== 0) fail('multi-disk ZIP is unsupported');
   const diskCount = u16(view, end + 8);
   const totalCount = u16(view, end + 10);
-  if (diskCount !== 2 || totalCount !== 2) fail('package must contain exactly two entries');
+  if (diskCount !== totalCount || totalCount < 2 || totalCount > 3) {
+    fail('package must contain manifest.json and module.wasm, with optional thumbnail.png');
+  }
   const centralSize = u32(view, end + 12);
   const centralOffset = u32(view, end + 16);
   if (centralSize === 0xffffffff || centralOffset === 0xffffffff) fail('Zip64 is unsupported');
@@ -177,15 +192,25 @@ function parseZip(bytes: Uint8Array): Map<string, Uint8Array> {
     const canonical = name.normalize('NFC').toLocaleLowerCase('en-US');
     if (names.has(canonical)) fail('duplicate or colliding entry path');
     names.add(canonical);
-    if (name !== 'manifest.json' && name !== 'module.wasm') {
+    if (name !== 'manifest.json' && name !== 'module.wasm' && name !== 'thumbnail.png') {
       fail('package contains an unexpected or unsafe entry path');
     }
-    const limit = name === 'manifest.json' ? MAX_MANIFEST_BYTES : MAX_WASM_BYTES;
+    const limit =
+      name === 'manifest.json'
+        ? MAX_MANIFEST_BYTES
+        : name === 'module.wasm'
+          ? MAX_WASM_BYTES
+          : MAX_THUMBNAIL_BYTES;
     if (size > limit) fail(`${name} exceeds ${limit} bytes`);
     entries.push({ name, nameBytes, crc, size, localOffset, flags });
     cursor += recordLength;
   }
-  if (cursor !== end || !names.has('manifest.json') || !names.has('module.wasm')) {
+  if (
+    cursor !== end ||
+    !names.has('manifest.json') ||
+    !names.has('module.wasm') ||
+    (totalCount === 3 && !names.has('thumbnail.png'))
+  ) {
     fail('invalid ZIP directory or required entries');
   }
 
@@ -370,7 +395,7 @@ function parseManifest(bytes: Uint8Array): PluginPackageManifest {
       'permissions',
       'commands',
     ],
-    ['inspector'],
+    ['description', 'thumbnail', 'inspector'],
   );
   if (raw.schemaVersion !== 1 || raw.apiVersion !== 1 || raw.entry !== 'module.wasm') {
     fail('unsupported manifest schema, API version, or entry point');
@@ -458,6 +483,15 @@ function parseManifest(bytes: Uint8Array): PluginPackageManifest {
       };
     });
   }
+  const description =
+    raw.description === undefined ? undefined : label(raw.description, 'description', 280);
+  let thumbnail: PluginThumbnailManifest | undefined;
+  if (raw.thumbnail !== undefined) {
+    if (!isRecord(raw.thumbnail)) fail('thumbnail must be an object');
+    requireKeys(raw.thumbnail, ['path', 'alt']);
+    if (raw.thumbnail.path !== 'thumbnail.png') fail('thumbnail path must be thumbnail.png');
+    thumbnail = { path: 'thumbnail.png', alt: label(raw.thumbnail.alt, 'thumbnail alt', 160) };
+  }
   return {
     schemaVersion: 1,
     id,
@@ -468,8 +502,80 @@ function parseManifest(bytes: Uint8Array): PluginPackageManifest {
     entry: 'module.wasm',
     permissions: { required, optional },
     commands,
+    ...(description ? { description } : {}),
+    ...(thumbnail ? { thumbnail } : {}),
     ...(inspector ? { inspector } : {}),
   };
+}
+
+function validateThumbnailPng(bytes: Uint8Array): void {
+  const signature = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
+  if (bytes.length < 45 || !sameBytes(bytes.subarray(0, 8), signature)) {
+    fail('thumbnail.png is not a valid PNG image');
+  }
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  let cursor = 8;
+  let sawHeader = false;
+  let sawImageData = false;
+  let sawEnd = false;
+  while (cursor < bytes.length) {
+    if (cursor + 12 > bytes.length) fail('thumbnail.png contains a truncated PNG chunk');
+    const length = view.getUint32(cursor, false);
+    if (length > bytes.length - cursor - 12) fail('thumbnail.png contains a truncated PNG chunk');
+    const typeBytes = bytes.subarray(cursor + 4, cursor + 8);
+    const type = String.fromCharCode(...typeBytes);
+    const data = bytes.subarray(cursor + 8, cursor + 8 + length);
+    const checksumInput = new Uint8Array(4 + length);
+    checksumInput.set(typeBytes);
+    checksumInput.set(data, 4);
+    if (crc32(checksumInput) !== view.getUint32(cursor + 8 + length, false)) {
+      fail(`thumbnail.png has a CRC mismatch in ${type}`);
+    }
+    if (!sawHeader && type !== 'IHDR') fail('thumbnail.png must begin with IHDR');
+    if (type === 'IHDR') {
+      if (sawHeader || length !== 13) fail('thumbnail.png has an invalid IHDR');
+      const header = new DataView(data.buffer, data.byteOffset, data.byteLength);
+      const width = header.getUint32(0, false);
+      const height = header.getUint32(4, false);
+      if (
+        width < 1 ||
+        height < 1 ||
+        width > MAX_THUMBNAIL_DIMENSION ||
+        height > MAX_THUMBNAIL_DIMENSION
+      ) {
+        fail(`thumbnail dimensions must be between 1 and ${MAX_THUMBNAIL_DIMENSION} pixels`);
+      }
+      sawHeader = true;
+    } else if (type === 'IDAT') {
+      if (sawEnd) fail('thumbnail.png has image data after IEND');
+      sawImageData = true;
+    } else if (type === 'IEND') {
+      if (length !== 0 || sawEnd || !sawImageData) fail('thumbnail.png has an invalid IEND');
+      sawEnd = true;
+      cursor += 12 + length;
+      if (cursor !== bytes.length) fail('thumbnail.png has trailing bytes');
+      break;
+    } else if (type === 'acTL' || type === 'fcTL' || type === 'fdAT') {
+      fail('animated PNG thumbnails are unsupported');
+    } else if (type === 'PLTE' || (type.charCodeAt(0) & 0x20) !== 0) {
+      // Permit the palette chunk and standard ancillary metadata; reject unknown
+      // critical chunks, which change the image format's decoding requirements.
+    } else {
+      fail(`unsupported critical PNG chunk ${type}`);
+    }
+    cursor += 12 + length;
+  }
+  if (!sawHeader || !sawImageData || !sawEnd) fail('thumbnail.png is incomplete');
+}
+
+/** Creates a local image source from the package's already-validated PNG bytes. */
+export function pluginThumbnailDataUrl(bytes: Uint8Array | undefined): string | undefined {
+  if (!bytes) return undefined;
+  let binary = '';
+  for (let offset = 0; offset < bytes.length; offset += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
+  }
+  return `data:image/png;base64,${btoa(binary)}`;
 }
 
 export async function parsePluginPackage(bytes: Uint8Array): Promise<PluginPackage> {
@@ -485,6 +591,11 @@ export async function parsePluginPackage(bytes: Uint8Array): Promise<PluginPacka
   const wasm = files.get('module.wasm');
   if (!manifestBytes || !wasm) fail('required package entries are missing');
   const manifest = parseManifest(manifestBytes);
+  const thumbnailBytes = files.get('thumbnail.png');
+  if (Boolean(thumbnailBytes) !== Boolean(manifest.thumbnail)) {
+    fail('thumbnail.png and the manifest thumbnail declaration must appear together');
+  }
+  if (thumbnailBytes) validateThumbnailPng(thumbnailBytes);
   if (
     wasm.length < 8 ||
     !sameBytes(wasm.subarray(0, 8), new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0]))
@@ -495,5 +606,10 @@ export async function parsePluginPackage(bytes: Uint8Array): Promise<PluginPacka
   const sha256 = Array.from(new Uint8Array(digest), (byte) =>
     byte.toString(16).padStart(2, '0'),
   ).join('');
-  return { manifest, wasm: Uint8Array.from(wasm), sha256 };
+  return {
+    manifest,
+    wasm: Uint8Array.from(wasm),
+    ...(thumbnailBytes ? { thumbnail: Uint8Array.from(thumbnailBytes) } : {}),
+    sha256,
+  };
 }

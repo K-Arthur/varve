@@ -90,7 +90,13 @@ describe('native application plugin path', () => {
     await browser.waitUntil(async () => (await card.getText()).includes('Ready'), {
       timeout: 10000,
     });
-    await (await card.$('.plugin-manager__command-row button')).click();
+    const styleArtwork = await card.$('.plugin-manager__artwork img');
+    await expect(styleArtwork).toBeDisplayed();
+    await expect(styleArtwork).toHaveAttribute(
+      'alt',
+      'Selected layer cards beside a style summary panel',
+    );
+    await (await card.$('.plugin-manager__command-row .plugin-manager__button')).click();
     await browser.waitUntil(async () => (await card.getText()).includes('Opacity:'), {
       timeout: 15000,
       timeoutMsg: 'WebKitGTK worker did not return the sample analysis',
@@ -113,7 +119,15 @@ describe('native application plugin path', () => {
     await (await renameReview.$('//button[normalize-space()="Install and enable"]')).click();
     const renameCard = await browser.$('.plugin-manager__card*=Number Selected Layers');
     await renameCard.waitForDisplayed({ timeout: 15000 });
-    const unavailableRun = await renameCard.$('.plugin-manager__command-row button');
+    const renameArtwork = await renameCard.$('.plugin-manager__artwork img');
+    await expect(renameArtwork).toBeDisplayed();
+    await expect(renameArtwork).toHaveAttribute(
+      'alt',
+      'Three unnamed layers transform into a numbered list',
+    );
+    const unavailableRun = await renameCard.$(
+      '.plugin-manager__command-row .plugin-manager__button',
+    );
     await expect(unavailableRun).toHaveAttribute('aria-disabled', 'true');
 
     await (await renameCard.$('button*=Access')).click();
@@ -121,13 +135,10 @@ describe('native application plugin path', () => {
     await access.waitForDisplayed({ timeout: 5000 });
     await (await access.$('input[type="checkbox"][id$="document.write"]')).click();
     await (await access.$('//button[normalize-space()="Save access"]')).click();
-    const runRename = await renameCard.$('.plugin-manager__command-row button');
-    await browser.waitUntil(
-      async () => (await runRename.getAttribute('aria-disabled')) === 'false',
-      {
-        timeout: 10000,
-      },
-    );
+    const runRename = await renameCard.$('.plugin-manager__command-row .plugin-manager__button');
+    await browser.waitUntil(async () => runRename.isEnabled(), {
+      timeout: 10000,
+    });
     await runRename.click();
     const preview = await renameCard.$('.plugin-manager__result');
     await preview.waitForDisplayed({ timeout: 15000 });

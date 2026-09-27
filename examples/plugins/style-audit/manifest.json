@@ -3,9 +3,14 @@
   "id": "dev.varve.example.style-audit",
   "name": "Selection Style Readiness",
   "publisher": "Varve examples (local source)",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "apiVersion": 1,
   "entry": "module.wasm",
+  "description": "Summarizes selected-layer styles, mixed values, and readiness issues before handoff.",
+  "thumbnail": {
+    "path": "thumbnail.png",
+    "alt": "Selected layer cards beside a style summary panel"
+  },
   "permissions": {
     "required": ["selection.read"],
     "optional": []

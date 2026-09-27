@@ -23,6 +23,7 @@ import {
   type PluginPackageManifest,
   type PluginPermission,
   parsePluginPackage,
+  pluginThumbnailDataUrl,
 } from './package';
 import {
   deleteStoredPlugin,
@@ -77,6 +78,8 @@ export interface PluginView {
   previousVersion?: string;
   /** Contribution IDs of Inspector panels the user chose to hide. */
   hiddenPanels: string[];
+  /** Data URL made from the validated static PNG in the installed archive. */
+  thumbnailUrl?: string;
   results: Record<string, GuestOutput>;
 }
 
@@ -164,6 +167,7 @@ class ApplicationPluginController {
   private editor: EditorContextValue | null = null;
   private sectionRenderer: SectionRenderer | null = null;
   private records = new Map<string, StoredPlugin>();
+  private thumbnailUrls = new Map<string, string>();
   private revisions = new Map<string, number>();
   private preparedArchives = new WeakMap<PluginPackage, Uint8Array>();
   private jobs = new Map<string, GuestJob>();
@@ -300,6 +304,9 @@ class ApplicationPluginController {
       this.preparedArchives.delete(pkg);
       if (current) this.removeOwned(verified.manifest.id, true);
       this.records.set(verified.manifest.id, next);
+      const thumbnailUrl = pluginThumbnailDataUrl(verified.thumbnail);
+      if (thumbnailUrl) this.thumbnailUrls.set(verified.manifest.id, thumbnailUrl);
+      else this.thumbnailUrls.delete(verified.manifest.id);
       this.reconcileOne(verified.manifest.id);
       this.emit();
     });
@@ -527,6 +534,9 @@ class ApplicationPluginController {
         this.actions.delete(id);
       }
       this.records.set(id, next);
+      const thumbnailUrl = pluginThumbnailDataUrl(verified.thumbnail);
+      if (thumbnailUrl) this.thumbnailUrls.set(id, thumbnailUrl);
+      else this.thumbnailUrls.delete(id);
       this.reconcileOne(id);
       this.emit();
     });
@@ -540,6 +550,7 @@ class ApplicationPluginController {
       const revision = await deleteStoredPlugin(id, this.revisions.get(id) ?? 0);
       this.revisions.set(id, revision);
       this.records.delete(id);
+      this.thumbnailUrls.delete(id);
       this.reconcileOne(id);
       this.emit();
     });
@@ -605,6 +616,9 @@ class ApplicationPluginController {
       if (pkg.sha256 !== record.sha256 || pkg.manifest.id !== record.manifest.id) {
         throw new Error('Stored package identity or checksum changed');
       }
+      const thumbnailUrl = pluginThumbnailDataUrl(pkg.thumbnail);
+      if (thumbnailUrl) this.thumbnailUrls.set(record.manifest.id, thumbnailUrl);
+      else this.thumbnailUrls.delete(record.manifest.id);
       return {
         ...record,
         manifest: pkg.manifest,
@@ -612,6 +626,7 @@ class ApplicationPluginController {
         grants: checkedGrants(pkg.manifest, record.grants),
       };
     } catch (error) {
+      this.thumbnailUrls.delete(record.manifest.id);
       const disabled: StoredPlugin = {
         ...record,
         enabled: false,
@@ -665,6 +680,7 @@ class ApplicationPluginController {
       this.records.set(id, checked);
     } else {
       this.records.delete(id);
+      this.thumbnailUrls.delete(id);
     }
     this.reconcileOne(id);
     this.emit(false);
@@ -681,8 +697,13 @@ class ApplicationPluginController {
     try {
       return await this.enqueue(id, async () => {
         const current = this.records.get(id);
-        if (current !== record || !this.isRuntimeCurrent(id, record, context, job)) return false;
-        const failed = { ...record, lastError: message(error).slice(0, 300) };
+        if (
+          !current ||
+          current.sha256 !== record.sha256 ||
+          !this.isRuntimeCurrent(id, record, context, job)
+        )
+          return false;
+        const failed = { ...current, lastError: message(error).slice(0, 300) };
         await this.persist(failed, context.pluginRevision);
         this.records.set(id, failed);
         this.reconcileOne(id);
@@ -777,8 +798,10 @@ class ApplicationPluginController {
     context: ResultContext,
     job: GuestJob,
   ): boolean {
+    const current = this.records.get(id);
     return Boolean(
-      this.records.get(id) === record &&
+      current &&
+        current.sha256 === record.sha256 &&
         this.revisions.get(id) === context.pluginRevision &&
         (this.generations.get(id) ?? 0) === context.generation &&
         this.jobs.get(id) === job,
@@ -955,6 +978,7 @@ class ApplicationPluginController {
         lastError: record.lastError,
         previousVersion: record.previous?.manifest.version,
         hiddenPanels: [...(record.hiddenPanels ?? [])],
+        thumbnailUrl: this.thumbnailUrls.get(record.manifest.id),
         results: Object.fromEntries(
           [...(this.results.get(record.manifest.id) ?? new Map()).entries()].map(([key, value]) => [
             key,

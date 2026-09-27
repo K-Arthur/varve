@@ -10,9 +10,11 @@ output = Path(__file__).with_name("style-audit-update.varveplugin")
 with zipfile.ZipFile(source) as package:
     manifest = json.loads(package.read("manifest.json"))
     wasm = package.read("module.wasm")
-manifest["version"] = "1.1.0"
+    thumbnail = package.read("thumbnail.png")
+manifest["version"] = "1.2.0"
 manifest["permissions"]["optional"] = ["document.write"]
 with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_STORED) as package:
     package.writestr("manifest.json", json.dumps(manifest, separators=(",", ":")))
     package.writestr("module.wasm", wasm)
+    package.writestr("thumbnail.png", thumbnail)
 print(output)

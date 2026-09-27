@@ -1,11 +1,54 @@
 import { Button, Select } from '@varve/ui';
-import { useEffect, useId, useRef, useState, useSyncExternalStore } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { pluginController } from './controller';
-import type { PluginPackage, PluginPermission } from './package';
+import { type PluginPackage, type PluginPermission, pluginThumbnailDataUrl } from './package';
 import './PluginManager.css';
 
 type PluginView = ReturnType<typeof pluginController.getSnapshot>['plugins'][number];
 type PluginAction = () => unknown;
+type PluginListMode = 'all' | 'pinned' | 'attention';
+type PluginSortOrder = 'name' | 'installed';
+
+const PINNED_STORAGE_KEY = 'varve.plugins.pinned.v1';
+
+function readPinnedPluginIds(): string[] {
+  try {
+    if (typeof window === 'undefined') return [];
+    const saved = window.localStorage.getItem(PINNED_STORAGE_KEY);
+    if (!saved) return [];
+    const parsed: unknown = JSON.parse(saved);
+    if (!Array.isArray(parsed)) return [];
+    return [...new Set(parsed.filter((item): item is string => typeof item === 'string'))];
+  } catch {
+    return [];
+  }
+}
+
+function PluginArtwork({
+  name,
+  thumbnailUrl,
+  alt,
+}: {
+  name: string;
+  thumbnailUrl?: string;
+  alt?: string;
+}) {
+  const initials = name
+    .trim()
+    .split(/\s+/u)
+    .slice(0, 2)
+    .map((word) => word[0]?.toLocaleUpperCase() ?? '')
+    .join('');
+  return (
+    <div className="plugin-manager__artwork">
+      {thumbnailUrl ? (
+        <img src={thumbnailUrl} alt={alt ?? ''} loading="lazy" />
+      ) : (
+        <span aria-hidden="true">{initials}</span>
+      )}
+    </div>
+  );
+}
 
 const PERMISSION_LABELS: Record<PluginPermission, { title: string; detail: string }> = {
   'selection.read': {
@@ -117,6 +160,10 @@ function InstallationReview({
   const titleRef = useRef<HTMLHeadingElement>(null);
   const prefix = useId();
   const { manifest } = prepared;
+  const thumbnailUrl = useMemo(
+    () => pluginThumbnailDataUrl(prepared.thumbnail),
+    [prepared.thumbnail],
+  );
   const publisherMismatch = Boolean(existing && existing.manifest.publisher !== manifest.publisher);
   const requested = uniquePermissions([
     ...manifest.permissions.required,
@@ -152,9 +199,19 @@ function InstallationReview({
           Cancel
         </Button>
       </div>
-      <p className="plugin-manager__muted">
-        {manifest.name} · {manifest.version} · {manifest.id}
-      </p>
+      <div className="plugin-manager__identity">
+        <PluginArtwork
+          name={manifest.name}
+          thumbnailUrl={thumbnailUrl}
+          alt={manifest.thumbnail?.alt}
+        />
+        <div>
+          <p className="plugin-manager__muted">
+            {manifest.name} · {manifest.version} · {manifest.id}
+          </p>
+          {manifest.description && <p>{manifest.description}</p>}
+        </div>
+      </div>
       <p>
         Publisher label: <strong>{manifest.publisher}</strong>. This name is supplied by the
         package; a local file is not a verified or marketplace listing.
@@ -259,14 +316,18 @@ function InstallationReview({
 
 function PluginCard({
   plugin,
+  pinned,
   busy,
   commandBusy,
+  onTogglePinned,
   execute,
   executeCommand,
 }: {
   plugin: PluginView;
+  pinned: boolean;
   busy: boolean;
   commandBusy: boolean;
+  onTogglePinned: (pluginId: string, pinned: boolean) => void;
   execute: (label: string, action: PluginAction) => void;
   executeCommand: (label: string, action: PluginAction) => void;
 }) {
@@ -322,16 +383,34 @@ function PluginCard({
   return (
     <article className="plugin-manager__card" aria-labelledby={`${prefix}-name`}>
       <div className="plugin-manager__card-header">
-        <div className="plugin-manager__card-title">
-          <h3 id={`${prefix}-name`}>{plugin.manifest.name}</h3>
-          <span className={`plugin-manager__status plugin-manager__status--${plugin.status}`}>
-            {STATUS_LABELS[plugin.status]}
-          </span>
+        <PluginArtwork
+          name={plugin.manifest.name}
+          thumbnailUrl={plugin.thumbnailUrl}
+          alt={plugin.manifest.thumbnail?.alt}
+        />
+        <div className="plugin-manager__card-heading">
+          <div className="plugin-manager__card-title">
+            <h3 id={`${prefix}-name`}>{plugin.manifest.name}</h3>
+            <span className={`plugin-manager__status plugin-manager__status--${plugin.status}`}>
+              {STATUS_LABELS[plugin.status]}
+            </span>
+          </div>
+          <p className="plugin-manager__muted">
+            v{plugin.manifest.version} · {plugin.manifest.publisher} (self-declared) · Local file
+          </p>
+          {plugin.manifest.description && <p>{plugin.manifest.description}</p>}
+          <p className="plugin-manager__id">{plugin.id}</p>
         </div>
-        <p className="plugin-manager__muted">
-          v{plugin.manifest.version} · {plugin.manifest.publisher} (self-declared) · Local file
-        </p>
-        <p className="plugin-manager__id">{plugin.id}</p>
+        <Button
+          className="plugin-manager__button plugin-manager__pin"
+          variant="secondary"
+          size="sm"
+          aria-pressed={pinned}
+          aria-label={`${pinned ? 'Unpin' : 'Pin'} ${plugin.manifest.name}`}
+          onClick={() => onTogglePinned(plugin.id, !pinned)}
+        >
+          {pinned ? 'Pinned' : 'Pin'}
+        </Button>
       </div>
 
       {plugin.lastError && (
@@ -677,6 +756,9 @@ export function PluginManager() {
   const inputRef = useRef<HTMLInputElement>(null);
   const operationSerial = useRef(0);
   const [filter, setFilter] = useState('');
+  const [listMode, setListMode] = useState<PluginListMode>('all');
+  const [sortOrder, setSortOrder] = useState<PluginSortOrder>('name');
+  const [pinnedIds, setPinnedIds] = useState<string[]>(readPinnedPluginIds);
   const [prepared, setPrepared] = useState<PluginPackage | null>(null);
   const [grants, setGrants] = useState<PluginPermission[]>([]);
   const [busy, setBusy] = useState('');
@@ -687,11 +769,73 @@ export function PluginManager() {
     ? snapshot.plugins.find((plugin) => plugin.id === prepared.manifest.id)
     : undefined;
   const query = filter.trim().toLocaleLowerCase();
-  const visible = snapshot.plugins.filter((plugin) =>
-    `${plugin.manifest.name} ${plugin.manifest.publisher} ${plugin.id} ${plugin.status}`
+  const pinnedSet = useMemo(() => new Set(pinnedIds), [pinnedIds]);
+  const needsAttention = (plugin: PluginView) => plugin.status !== 'ready';
+  const matching = snapshot.plugins.filter((plugin) =>
+    [
+      plugin.manifest.name,
+      plugin.manifest.publisher,
+      plugin.manifest.description,
+      plugin.manifest.commands.map((command) => command.title).join(' '),
+      plugin.id,
+      plugin.status,
+    ]
+      .filter(Boolean)
+      .join(' ')
       .toLocaleLowerCase()
       .includes(query),
   );
+  const filtered = matching.filter((plugin) => {
+    if (listMode === 'pinned') return pinnedSet.has(plugin.id);
+    if (listMode === 'attention') return needsAttention(plugin);
+    return true;
+  });
+  const visible = [...filtered].sort((a, b) =>
+    sortOrder === 'installed'
+      ? b.installedAt - a.installedAt || a.manifest.name.localeCompare(b.manifest.name)
+      : a.manifest.name.localeCompare(b.manifest.name, undefined, {
+          sensitivity: 'base',
+          numeric: true,
+        }),
+  );
+
+  useEffect(() => {
+    function syncPins(event: StorageEvent) {
+      if (event.key === PINNED_STORAGE_KEY || event.key === null) {
+        setPinnedIds(readPinnedPluginIds());
+      }
+    }
+    window.addEventListener('storage', syncPins);
+    return () => window.removeEventListener('storage', syncPins);
+  }, []);
+
+  useEffect(() => {
+    if (snapshot.loading || snapshot.error) return;
+    const installed = new Set(snapshot.plugins.map((plugin) => plugin.id));
+    const retained = pinnedIds.filter((id) => installed.has(id));
+    if (retained.length !== pinnedIds.length) {
+      setPinnedIds(retained);
+      try {
+        window.localStorage.setItem(PINNED_STORAGE_KEY, JSON.stringify(retained));
+      } catch {
+        // The in-memory preference remains usable if this profile disallows storage writes.
+      }
+    }
+  }, [pinnedIds, snapshot.loading, snapshot.plugins]);
+
+  function togglePinned(pluginId: string, shouldPin: boolean) {
+    const next = shouldPin
+      ? [...new Set([...pinnedIds, pluginId])]
+      : pinnedIds.filter((id) => id !== pluginId);
+    setPinnedIds(next);
+    try {
+      window.localStorage.setItem(PINNED_STORAGE_KEY, JSON.stringify(next));
+    } catch {
+      setActionError(
+        'Pin preference changed for this session but could not be saved to this profile.',
+      );
+    }
+  }
 
   async function execute(label: string, action: PluginAction) {
     const serial = ++operationSerial.current;
@@ -872,10 +1016,61 @@ export function PluginManager() {
             type="search"
             value={filter}
             onChange={(event) => setFilter(event.target.value)}
-            placeholder="Name, publisher, or state"
+            placeholder="Name, publisher, command, or description"
           />
         </label>
       </div>
+      <div className="plugin-manager__list-controls">
+        <fieldset className="plugin-manager__filters">
+          <legend className="plugin-manager__filter-legend">Filter installed plugins</legend>
+          <div className="plugin-manager__filter-buttons">
+            <Button
+              className="plugin-manager__button"
+              variant={listMode === 'all' ? 'default' : 'secondary'}
+              size="sm"
+              aria-pressed={listMode === 'all'}
+              onClick={() => setListMode('all')}
+            >
+              All ({snapshot.plugins.length})
+            </Button>
+            <Button
+              className="plugin-manager__button"
+              variant={listMode === 'pinned' ? 'default' : 'secondary'}
+              size="sm"
+              aria-pressed={listMode === 'pinned'}
+              onClick={() => setListMode('pinned')}
+            >
+              Pinned ({snapshot.plugins.filter((plugin) => pinnedSet.has(plugin.id)).length})
+            </Button>
+            <Button
+              className="plugin-manager__button"
+              variant={listMode === 'attention' ? 'default' : 'secondary'}
+              size="sm"
+              aria-pressed={listMode === 'attention'}
+              onClick={() => setListMode('attention')}
+            >
+              Needs attention ({snapshot.plugins.filter(needsAttention).length})
+            </Button>
+          </div>
+        </fieldset>
+        <div className="plugin-manager__sort">
+          <span id="plugin-manager-sort-label">Sort</span>
+          <Select
+            id="plugin-manager-sort"
+            label="Sort installed plugins"
+            aria-labelledby="plugin-manager-sort-label"
+            value={sortOrder}
+            options={[
+              { value: 'name', label: 'Name (A–Z)' },
+              { value: 'installed', label: 'Recently installed' },
+            ]}
+            onValueChange={(value) => setSortOrder(value as PluginSortOrder)}
+          />
+        </div>
+      </div>
+      <p className="plugin-manager__muted" role="status" aria-live="polite">
+        Showing {visible.length} of {snapshot.plugins.length} installed plugins.
+      </p>
       {snapshot.loading ? (
         <p className="plugin-manager__empty" role="status">
           Loading installed plugins…
@@ -883,8 +1078,12 @@ export function PluginManager() {
       ) : visible.length === 0 ? (
         <p className="plugin-manager__empty">
           {query
-            ? 'No installed plugins match that search.'
-            : 'No plugins installed. Choose a local .varveplugin package to begin.'}
+            ? 'No installed plugins match these filters and search terms.'
+            : listMode === 'pinned' && snapshot.plugins.length > 0
+              ? 'No plugins are pinned. Use Pin on a plugin to keep it easy to find.'
+              : listMode === 'attention' && snapshot.plugins.length > 0
+                ? 'All installed plugins are ready.'
+                : 'No plugins installed. Choose a local .varveplugin package to begin.'}
         </p>
       ) : (
         <div className="plugin-manager__list">
@@ -892,8 +1091,10 @@ export function PluginManager() {
             <PluginCard
               key={plugin.id}
               plugin={plugin}
+              pinned={pinnedSet.has(plugin.id)}
               busy={Boolean(busy)}
               commandBusy={commandBusyIds.has(plugin.id)}
+              onTogglePinned={togglePinned}
               execute={(label, action) => void execute(label, action)}
               executeCommand={(label, action) => void executeCommand(plugin.id, label, action)}
             />

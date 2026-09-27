@@ -1,9 +1,11 @@
+import { deflateSync } from 'node:zlib';
 import { zipSync } from 'fflate';
 import { describe, expect, it } from 'vitest';
 import { parsePluginPackage } from './package';
 
 const encoder = new TextEncoder();
 const WASM = new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0]);
+const PNG = createPng();
 
 function manifest(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
@@ -58,6 +60,48 @@ function write16(bytes: Uint8Array, at: number, value: number): void {
 
 function write32(bytes: Uint8Array, at: number, value: number): void {
   new DataView(bytes.buffer).setUint32(at, value, true);
+}
+
+function writePng32(bytes: Uint8Array, at: number, value: number): void {
+  new DataView(bytes.buffer).setUint32(at, value, false);
+}
+
+function pngChunk(type: string, data: Uint8Array): Uint8Array {
+  const chunk = new Uint8Array(12 + data.length);
+  writePng32(chunk, 0, data.length);
+  const typeBytes = encoder.encode(type);
+  chunk.set(typeBytes, 4);
+  chunk.set(data, 8);
+  const checksumInput = new Uint8Array(typeBytes.length + data.length);
+  checksumInput.set(typeBytes);
+  checksumInput.set(data, typeBytes.length);
+  writePng32(chunk, 8 + data.length, crc32(checksumInput));
+  return chunk;
+}
+
+function createPng(width = 1, height = 1): Uint8Array {
+  const signature = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
+  const header = new Uint8Array(13);
+  writePng32(header, 0, width);
+  writePng32(header, 4, height);
+  header[8] = 8;
+  header[9] = 6;
+  const pixels = new Uint8Array(height * (width * 4 + 1));
+  const chunks = [
+    pngChunk('IHDR', header),
+    pngChunk('IDAT', deflateSync(pixels)),
+    pngChunk('IEND', new Uint8Array()),
+  ];
+  const image = new Uint8Array(
+    signature.length + chunks.reduce((sum, chunk) => sum + chunk.length, 0),
+  );
+  image.set(signature);
+  let cursor = signature.length;
+  for (const chunk of chunks) {
+    image.set(chunk, cursor);
+    cursor += chunk.length;
+  }
+  return image;
 }
 
 function zip(entries: TestEntry[]): Uint8Array {
@@ -153,6 +197,25 @@ describe('parsePluginPackage', () => {
     expect(parsed.wasm).toEqual(WASM);
   });
 
+  it('accepts an optional, described local PNG thumbnail', async () => {
+    const declaration = { path: 'thumbnail.png', alt: 'Teal cards show selected layer styles' };
+    const declaredManifest = manifest({
+      description: 'Summarizes selected layer styles before handoff.',
+      thumbnail: declaration,
+    });
+    const parsed = await parsePluginPackage(
+      packageBytes(declaredManifest, [
+        { name: 'manifest.json', data: encoder.encode(JSON.stringify(declaredManifest)) },
+        { name: 'module.wasm', data: WASM },
+        { name: 'thumbnail.png', data: PNG },
+      ]),
+    );
+    expect(parsed.manifest.description).toBe('Summarizes selected layer styles before handoff.');
+    expect(parsed.manifest.thumbnail).toEqual(declaration);
+    expect(parsed.thumbnail).toEqual(PNG);
+    expect(parsed.thumbnail).not.toBe(PNG);
+  });
+
   it('maps legacy Logo and Codegen inspector modes to Design without duplicates', async () => {
     for (const legacyMode of ['logo', 'codegen']) {
       const parsed = await parsePluginPackage(
@@ -227,7 +290,53 @@ describe('parsePluginPackage', () => {
           { name: 'README.md', data: new Uint8Array() },
         ]),
       ),
-    ).rejects.toThrow(/exactly two/i);
+    ).rejects.toThrow(/unexpected or unsafe entry path/i);
+  });
+
+  it('requires the fixed PNG path to match a valid, bounded manifest thumbnail', async () => {
+    const declared = manifest({ thumbnail: { path: 'thumbnail.png', alt: 'Preview art' } });
+    const manifestBytes = encoder.encode(JSON.stringify(declared));
+    const withThumbnail = (png: Uint8Array, path = 'thumbnail.png') =>
+      packageBytes(declared, [
+        { name: 'manifest.json', data: manifestBytes },
+        { name: 'module.wasm', data: WASM },
+        { name: path, data: png },
+      ]);
+    await expect(parsePluginPackage(withThumbnail(PNG, 'thumbnail.svg'))).rejects.toThrow(
+      /unexpected or unsafe entry path/i,
+    );
+    await expect(
+      parsePluginPackage(
+        packageBytes(declared, [
+          { name: 'manifest.json', data: manifestBytes },
+          { name: 'module.wasm', data: WASM },
+        ]),
+      ),
+    ).rejects.toThrow(/must appear together/i);
+    await expect(
+      parsePluginPackage(
+        packageBytes(manifest(), [
+          { name: 'manifest.json', data: encoder.encode(JSON.stringify(manifest())) },
+          { name: 'module.wasm', data: WASM },
+          { name: 'thumbnail.png', data: PNG },
+        ]),
+      ),
+    ).rejects.toThrow(/must appear together/i);
+    await expect(parsePluginPackage(withThumbnail(new Uint8Array(256 * 1024 + 1)))).rejects.toThrow(
+      /thumbnail.png exceeds/i,
+    );
+    await expect(parsePluginPackage(withThumbnail(encoder.encode('<svg/>')))).rejects.toThrow(
+      /not a valid PNG/i,
+    );
+    await expect(parsePluginPackage(withThumbnail(createPng(513, 1)))).rejects.toThrow(
+      /thumbnail dimensions/i,
+    );
+    await expect(
+      parsePluginPackage(packageBytes(manifest({ thumbnail: { path: 'other.png', alt: 'Art' } }))),
+    ).rejects.toThrow(/thumbnail path/i);
+    await expect(
+      parsePluginPackage(packageBytes(manifest({ thumbnail: { path: 'thumbnail.png', alt: '' } }))),
+    ).rejects.toThrow(/thumbnail alt/i);
   });
 
   it.each([

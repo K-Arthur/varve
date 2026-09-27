@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360">
+  <rect width="640" height="360" rx="30" fill="#e8efe9"/>
+  <rect x="43" y="43" width="554" height="274" rx="22" fill="#fbfaf5" stroke="#c7d4ce" stroke-width="2"/>
+  <rect x="72" y="74" width="172" height="15" rx="7" fill="#49636a"/>
+  <path d="M111 132h140M111 190h140M111 248h140" stroke="#c5d1cc" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="100" cy="132" r="17" fill="#f1d59a"/>
+  <circle cx="100" cy="190" r="17" fill="#f1d59a"/>
+  <circle cx="100" cy="248" r="17" fill="#f1d59a"/>
+  <path d="M94 126h12v12H94zM94 184h12v12H94zM94 242h12v12H94z" fill="#735925"/>
+  <path d="M287 180h71m-14-15 16 15-16 15" fill="none" stroke="#13877f" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="391" y="105" width="168" height="49" rx="12" fill="#d7ebe2"/>
+  <rect x="391" y="164" width="168" height="49" rx="12" fill="#c6e4d9"/>
+  <rect x="391" y="223" width="168" height="49" rx="12" fill="#b4ddd0"/>
+  <text x="412" y="137" fill="#126b63" font-family="sans-serif" font-size="22" font-weight="700">01 · Shape</text>
+  <text x="412" y="196" fill="#126b63" font-family="sans-serif" font-size="22" font-weight="700">02 · Label</text>
+  <text x="412" y="255" fill="#126b63" font-family="sans-serif" font-size="22" font-weight="700">03 · Group</text>
+  <circle cx="555" cy="272" r="7" fill="#13877f"/>
+</svg>

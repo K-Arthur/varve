@@ -18,8 +18,12 @@ node examples/plugins/build.mjs
 
 The builder compiles both guests, checks their actual memory imports and ABI
 with a mixed frame/text/image selection, then writes reproducible stored ZIP
-packages to ignored `examples/plugins/dist/`. Each `.varveplugin` contains only
-`manifest.json` and `module.wasm`. Run
+packages to ignored `examples/plugins/dist/`. Each `.varveplugin` contains
+`manifest.json`, `module.wasm`, and optional `thumbnail.png`. The manifest's
+`description` is plain text; `thumbnail` names the fixed PNG path and provides
+alternative text for the manager. Use a static PNG no larger than 512×512
+pixels or 256 KiB. The artwork is presentation metadata and does not identify
+or verify its publisher. Run
 `node examples/plugins/build.mjs --package-only` to repeat packaging and the
 ABI smoke test without recompiling. Cargo's locked dependencies are in this
 directory's `Cargo.lock`; the data-only Rust SDK is in `examples/plugins/sdk/`.
@@ -30,7 +34,10 @@ Use the checked-in `style-audit/manifest.json` and
 `batch-rename/manifest.json` as complete examples. A v1 manifest has required
 `schemaVersion: 1`, reverse-domain lowercase `id`, `name`, self-asserted
 `publisher`, semantic `version`, `apiVersion: 1`, and `entry: "module.wasm"`
-fields. `permissions` has `required` and `optional` arrays using only
+fields. `description` is optional plain text up to 280 characters. Optional
+`thumbnail: { "path": "thumbnail.png", "alt": "..." }` adds one static
+package image; remote URLs, SVG, animation, and other asset paths are rejected.
+`permissions` has `required` and `optional` arrays using only
 `selection.read` and `document.write`; every command receives a selection, so
 declare `selection.read` in one of those arrays. A rename command also requires
 `document.write`. Declare 1–8 `commands` of kind `analysis` or `rename`; an

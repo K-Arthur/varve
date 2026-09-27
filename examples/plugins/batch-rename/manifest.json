@@ -3,9 +3,14 @@
   "id": "dev.varve.example.batch-rename",
   "name": "Number Selected Layers",
   "publisher": "Varve examples (local source)",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "apiVersion": 1,
   "entry": "module.wasm",
+  "description": "Previews sequential names for unlocked selected layers before one undoable apply.",
+  "thumbnail": {
+    "path": "thumbnail.png",
+    "alt": "Three unnamed layers transform into a numbered list"
+  },
   "permissions": {
     "required": ["selection.read"],
     "optional": ["document.write"]
