@@ -205,6 +205,11 @@ compatibility, but they are not workspace modes or radio items.
 On macOS, the platform shortcut formatter displays Command+Shift with the same
 numbers.
 
+`tests/e2e/editor/workspace-navigation-contracts.spec.ts` drives the six mode
+keys and the two workflow actions in a real browser. The visual snapshots in
+`tests/e2e/workspace/visual.spec.ts-snapshots/` pin the switcher order in light,
+dark, and high-contrast themes.
+
 The product taxonomy and shortcut-order decision is recorded in
 [ADR-0239](../adr/0239-six-task-workspaces-and-ordered-shortcuts.md).
 
