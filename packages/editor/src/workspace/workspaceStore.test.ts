@@ -507,6 +507,40 @@ describe('workspaceStore — durable (platform) persistence', () => {
     expect(platform.setAppSetting).toHaveBeenCalledTimes(1);
   });
 
+  it('serializes in-flight writes so the newest preference snapshot persists last', async () => {
+    const platform = fakePlatform();
+    const payloads: string[] = [];
+    const finishWrites: Array<() => void> = [];
+    vi.mocked(platform.setAppSetting).mockImplementation(async (_key, value) => {
+      payloads.push(value);
+      await new Promise<void>((resolve) => finishWrites.push(resolve));
+    });
+    attachWorkspacePreferencePlatform(platform);
+
+    setWorkspacePreferences(
+      setPanelOverride(getWorkspacePreferences(), 'design', 'layers', { visible: false }),
+    );
+    const firstFlush = flushWorkspacePreferences();
+    await Promise.resolve();
+    expect(payloads).toHaveLength(1);
+
+    setWorkspacePreferences(
+      setPanelOverride(getWorkspacePreferences(), 'design', 'inspector', { visible: false }),
+    );
+    const secondFlush = flushWorkspacePreferences();
+    await Promise.resolve();
+    expect(payloads).toHaveLength(1);
+
+    finishWrites[0]!();
+    await firstFlush;
+    await Promise.resolve();
+    expect(payloads).toHaveLength(2);
+    expect(JSON.parse(payloads[1]!).design.panelOverrides.inspector.visible).toBe(false);
+
+    finishWrites[1]!();
+    await secondFlush;
+  });
+
   it('records a diagnostic instead of throwing when the durable write fails', async () => {
     const platform = fakePlatform();
     vi.mocked(platform.setAppSetting).mockRejectedValue(new Error('quota exceeded'));

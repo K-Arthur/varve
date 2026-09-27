@@ -135,6 +135,14 @@ reappear every launch, fixed for onboarding the same way (see
 `onboard/onboardingStore.ts`). Preferences are written to both; durable writes
 are debounced (400 ms) and can be flushed explicitly.
 
+Writes within each store are serialized after the debounce: if a save is still
+in flight when a newer snapshot is queued, the newer snapshot is written after
+it and cannot be overwritten by the older completion. This is a per-process
+ordering guarantee; cross-window preference conflicts still use per-mode event
+times, and named-layout conflicts still use variant update times plus store
+revisions and deletion tombstones. Transactional cross-window revision checks
+remain a separate recovery milestone.
+
 `hydrateWorkspacePreferencesFromPlatform` runs once at startup and merges
 **per mode by event time** (`lastCustomized` or `clearedAt`). Both stores are
 legitimate sources — localStorage can be wiped while platform storage

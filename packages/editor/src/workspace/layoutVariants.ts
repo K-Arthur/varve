@@ -1242,6 +1242,7 @@ const listeners = new Set<() => void>();
 let durablePlatform: Platform | null = null;
 let durableTimer: ReturnType<typeof setTimeout> | null = null;
 let durablePending: WorkspaceLayoutStoreState | null = null;
+let durableWriteQueue: Promise<void> = Promise.resolve();
 let lastPersistenceError: { at: number; layer: 'local' | 'platform'; message: string } | null =
   null;
 
@@ -1320,11 +1321,23 @@ function scheduleDurableSave(state: WorkspaceLayoutStoreState): void {
     durableTimer = null;
     const pending = durablePending;
     durablePending = null;
-    if (!pending || !durablePlatform) return;
-    void durablePlatform.setAppSetting(APP_SETTING_KEY, JSON.stringify(pending)).catch((err) => {
-      recordPersistenceError('platform', err);
-    });
+    const platform = durablePlatform;
+    if (!pending || !platform) return;
+    enqueueDurableWrite(platform, pending);
   }, DURABLE_SAVE_DEBOUNCE_MS);
+}
+
+/** Serialize durable writes so an older in-flight snapshot cannot finish last. */
+function enqueueDurableWrite(platform: Platform, state: WorkspaceLayoutStoreState): Promise<void> {
+  const payload = JSON.stringify(state);
+  durableWriteQueue = durableWriteQueue.then(async () => {
+    try {
+      await platform.setAppSetting(APP_SETTING_KEY, payload);
+    } catch (err) {
+      recordPersistenceError('platform', err);
+    }
+  });
+  return durableWriteQueue;
 }
 
 export async function flushLayoutStore(): Promise<void> {
@@ -1334,12 +1347,9 @@ export async function flushLayoutStore(): Promise<void> {
   }
   const pending = durablePending;
   durablePending = null;
-  if (!pending || !durablePlatform) return;
-  try {
-    await durablePlatform.setAppSetting(APP_SETTING_KEY, JSON.stringify(pending));
-  } catch (err) {
-    recordPersistenceError('platform', err);
-  }
+  const platform = durablePlatform;
+  if (pending && platform) enqueueDurableWrite(platform, pending);
+  await durableWriteQueue;
 }
 
 /**

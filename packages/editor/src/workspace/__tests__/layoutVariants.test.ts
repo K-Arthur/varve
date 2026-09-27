@@ -641,6 +641,46 @@ describe('layoutVariants: persistence and merge', () => {
     await flushLayoutStore();
     expect(platform.setAppSetting).toHaveBeenCalledTimes(1);
   });
+
+  it('serializes in-flight writes so an older layout cannot finish last', async () => {
+    const platform = fakePlatform();
+    const payloads: string[] = [];
+    const finishWrites: Array<() => void> = [];
+    vi.mocked(platform.setAppSetting).mockImplementation(async (_key, value) => {
+      payloads.push(value);
+      await new Promise<void>((resolve) => finishWrites.push(resolve));
+    });
+    attachLayoutStorePlatform(platform);
+
+    const added = addLayoutVariant(createEmptyLayoutStore(), {
+      name: 'One',
+      sourceMode: 'design',
+      payload: {},
+    });
+    if (!added.ok) throw new Error('setup failed');
+    setLayoutStore(added.state);
+    const firstFlush = flushLayoutStore();
+    await Promise.resolve();
+    expect(payloads).toHaveLength(1);
+
+    const updated = updateLayoutVariantPayload(added.state, added.variant.id, {
+      panelOverrides: { history: { visible: true } },
+    });
+    if (!updated.ok) throw new Error('update failed');
+    setLayoutStore(updated.state);
+    const secondFlush = flushLayoutStore();
+    await Promise.resolve();
+    expect(payloads).toHaveLength(1);
+
+    finishWrites[0]!();
+    await firstFlush;
+    await Promise.resolve();
+    expect(payloads).toHaveLength(2);
+    expect(JSON.parse(payloads[1]!).variants[0].payload.panelOverrides.history.visible).toBe(true);
+
+    finishWrites[1]!();
+    await secondFlush;
+  });
 });
 
 describe('layoutVariants: reset snapshot', () => {

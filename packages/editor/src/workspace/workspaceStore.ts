@@ -373,6 +373,7 @@ const DURABLE_SAVE_DEBOUNCE_MS = 400;
 let durablePlatform: Platform | null = null;
 let durableTimer: ReturnType<typeof setTimeout> | null = null;
 let durablePending: WorkspacePreferences | null = null;
+let durableWriteQueue: Promise<void> = Promise.resolve();
 
 /** Register the platform that backs durable preference storage. */
 export function attachWorkspacePreferencePlatform(platform: Platform | undefined): void {
@@ -387,11 +388,23 @@ function scheduleDurableSave(prefs: WorkspacePreferences): void {
     durableTimer = null;
     const pending = durablePending;
     durablePending = null;
-    if (!pending || !durablePlatform) return;
-    void durablePlatform.setAppSetting(APP_SETTING_KEY, JSON.stringify(pending)).catch((err) => {
-      recordPersistenceError('platform', err);
-    });
+    const platform = durablePlatform;
+    if (!pending || !platform) return;
+    enqueueDurableWrite(platform, pending);
   }, DURABLE_SAVE_DEBOUNCE_MS);
+}
+
+/** Serialize durable writes so an older in-flight snapshot cannot finish last. */
+function enqueueDurableWrite(platform: Platform, prefs: WorkspacePreferences): Promise<void> {
+  const payload = JSON.stringify(prefs);
+  durableWriteQueue = durableWriteQueue.then(async () => {
+    try {
+      await platform.setAppSetting(APP_SETTING_KEY, payload);
+    } catch (err) {
+      recordPersistenceError('platform', err);
+    }
+  });
+  return durableWriteQueue;
 }
 
 /** Flush any debounced durable write immediately (window close, tests). */
@@ -402,12 +415,9 @@ export async function flushWorkspacePreferences(): Promise<void> {
   }
   const pending = durablePending;
   durablePending = null;
-  if (!pending || !durablePlatform) return;
-  try {
-    await durablePlatform.setAppSetting(APP_SETTING_KEY, JSON.stringify(pending));
-  } catch (err) {
-    recordPersistenceError('platform', err);
-  }
+  const platform = durablePlatform;
+  if (pending && platform) enqueueDurableWrite(platform, pending);
+  await durableWriteQueue;
 }
 
 /**
