@@ -1,13 +1,41 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { expect } from '@wdio/globals';
+import { browser, expect } from '@wdio/globals';
 
 const packageBytes = readFileSync(
   join(process.cwd(), 'tests/e2e/plugins/fixtures/style-audit.varveplugin'),
 ).toString('base64');
+const renamePackageBytes = readFileSync(
+  join(process.cwd(), 'tests/e2e/plugins/fixtures/batch-rename.varveplugin'),
+).toString('base64');
 
-describe('Linux native application plugin path', () => {
-  it('installs and runs a local WebAssembly package inside WebKitGTK', async () => {
+async function choosePackage(encoded: string, filename: string) {
+  await browser.execute(
+    (bytes: string, name: string) => {
+      const content = Uint8Array.from(atob(bytes), (char) => char.charCodeAt(0));
+      const transfer = new DataTransfer();
+      transfer.items.add(new File([content], name, { type: 'application/zip' }));
+      const picker = document.querySelector<HTMLInputElement>(
+        'input[aria-label="Choose a .varveplugin package"]',
+      );
+      if (!picker) throw new Error('Plugin package picker is missing');
+      picker.files = transfer.files;
+      picker.dispatchEvent(new Event('change', { bubbles: true }));
+    },
+    encoded,
+    filename,
+  );
+}
+
+async function captureNativeState(name: string) {
+  const requestedPath = process.env.VARVE_PLUGIN_NATIVE_SCREENSHOT;
+  if (!requestedPath) return;
+  const prefix = requestedPath.replace(/\.png$/i, '');
+  await browser.saveScreenshot(`${prefix}-${name}.png`);
+}
+
+describe('native application plugin path', () => {
+  it('installs and runs a local WebAssembly package inside the platform WebView', async () => {
     const newButton = await browser.$('[data-testid="new-file-button"]');
     await newButton.waitForDisplayed({ timeout: 30000 });
     await newButton.click();
@@ -21,7 +49,7 @@ describe('Linux native application plugin path', () => {
     await rectangle.waitForDisplayed({ timeout: 10000 });
     await rectangle.click();
     await browser.pause(100);
-    await browser.tauri.execute(() => {
+    await browser.execute(() => {
       const target = document.querySelector<HTMLCanvasElement>('[data-testid="editor-canvas"]');
       if (!target) throw new Error('Native editor canvas is missing');
       const bounds = target.getBoundingClientRect();
@@ -51,19 +79,10 @@ describe('Linux native application plugin path', () => {
     await browser.execute(() => window.dispatchEvent(new Event('varve:open-plugin-settings')));
     const packagePicker = await browser.$('input[aria-label="Choose a .varveplugin package"]');
     await packagePicker.waitForDisplayed({ timeout: 10000 });
-    await browser.execute((encoded: string) => {
-      const bytes = Uint8Array.from(atob(encoded), (char) => char.charCodeAt(0));
-      const transfer = new DataTransfer();
-      transfer.items.add(new File([bytes], 'style-audit.varveplugin', { type: 'application/zip' }));
-      const input = document.querySelector<HTMLInputElement>(
-        'input[aria-label="Choose a .varveplugin package"]',
-      );
-      if (!input) throw new Error('Plugin package picker is missing');
-      input.files = transfer.files;
-      input.dispatchEvent(new Event('change', { bubbles: true }));
-    }, packageBytes);
+    await choosePackage(packageBytes, 'style-audit.varveplugin');
     const review = await browser.$('.plugin-manager__review');
     await review.waitForDisplayed({ timeout: 15000 });
+    await captureNativeState('permission-review');
     await (await review.$('input[type="checkbox"]')).click();
     await (await review.$('//button[normalize-space()="Install and enable"]')).click();
     const card = await browser.$('.plugin-manager__card');
@@ -76,6 +95,79 @@ describe('Linux native application plugin path', () => {
       timeout: 15000,
       timeoutMsg: 'WebKitGTK worker did not return the sample analysis',
     });
+    await captureNativeState('analysis-manager');
+
+    await (await browser.$('button[aria-label="Close dialog"]')).click();
+    const inspector = await browser.$('.insp-plugin-sections');
+    await inspector.waitForDisplayed({ timeout: 10000 });
+    await expect(inspector).toHaveText(expect.stringContaining('Selection readiness'));
+    await captureNativeState('inspector-analysis');
+
+    await browser.execute(() => window.dispatchEvent(new Event('varve:open-plugin-settings')));
+    const renamePicker = await browser.$('input[aria-label="Choose a .varveplugin package"]');
+    await renamePicker.waitForDisplayed({ timeout: 10000 });
+    await choosePackage(renamePackageBytes, 'batch-rename.varveplugin');
+    const renameReview = await browser.$('.plugin-manager__review');
+    await renameReview.waitForDisplayed({ timeout: 15000 });
+    await (await renameReview.$('input[type="checkbox"]')).click();
+    await (await renameReview.$('//button[normalize-space()="Install and enable"]')).click();
+    const renameCard = await browser.$('.plugin-manager__card*=Number Selected Layers');
+    await renameCard.waitForDisplayed({ timeout: 15000 });
+    const unavailableRun = await renameCard.$('.plugin-manager__command-row button');
+    await expect(unavailableRun).toHaveAttribute('aria-disabled', 'true');
+
+    await (await renameCard.$('button*=Access')).click();
+    const access = await renameCard.$('.plugin-manager__subsection[aria-label^="Access for"]');
+    await access.waitForDisplayed({ timeout: 5000 });
+    await (await access.$('input[type="checkbox"][id$="document.write"]')).click();
+    await (await access.$('//button[normalize-space()="Save access"]')).click();
+    const runRename = await renameCard.$('.plugin-manager__command-row button');
+    await browser.waitUntil(
+      async () => (await runRename.getAttribute('aria-disabled')) === 'false',
+      {
+        timeout: 10000,
+      },
+    );
+    await runRename.click();
+    const preview = await renameCard.$('.plugin-manager__result');
+    await preview.waitForDisplayed({ timeout: 15000 });
+    await expect(preview).toHaveText(expect.stringContaining('Preview 1 numbered layer names'));
+    await captureNativeState('rename-preview');
+    await (await preview.$('button*=Apply 1 rename')).click();
+    await browser.waitUntil(async () => (await layer.getText()).includes('01 ·'), {
+      timeout: 10000,
+    });
+
+    await (await browser.$('button[aria-label="Close dialog"]')).click();
+    await browser.keys([process.platform === 'darwin' ? 'META' : 'CTRL', 'Z']);
+    await browser.waitUntil(async () => (await layer.getText()).includes('Rectangle'), {
+      timeout: 10000,
+    });
+    await browser.keys([
+      process.platform === 'darwin' ? 'META' : 'CTRL',
+      process.platform === 'darwin' ? 'SHIFT' : 'SHIFT',
+      'Z',
+    ]);
+    await browser.waitUntil(async () => (await layer.getText()).includes('01 ·'), {
+      timeout: 10000,
+    });
+    await captureNativeState('rename-applied');
+
+    await browser.execute(() => window.dispatchEvent(new Event('varve:open-plugin-settings')));
+    const installedRenameCard = await browser.$('.plugin-manager__card*=Number Selected Layers');
+    await installedRenameCard.waitForDisplayed({ timeout: 10000 });
+    await (await installedRenameCard.$('button*=Remove')).click();
+    await (await installedRenameCard.$('//button[normalize-space()="Remove plugin"]')).click();
+    await browser.waitUntil(async () => (await browser.$$('.plugin-manager__card').length) === 1, {
+      timeout: 10000,
+    });
+    const styleCard = await browser.$('.plugin-manager__card*=Selection Style Readiness');
+    await (await styleCard.$('button*=Remove')).click();
+    await (await styleCard.$('//button[normalize-space()="Remove plugin"]')).click();
+    await browser.waitUntil(async () => (await browser.$$('.plugin-manager__card').length) === 0, {
+      timeout: 10000,
+    });
+    await expect(layer).toHaveText(expect.stringContaining('01 ·'));
     if (process.env.VARVE_PLUGIN_NATIVE_SCREENSHOT) {
       await browser.saveScreenshot(process.env.VARVE_PLUGIN_NATIVE_SCREENSHOT);
     }

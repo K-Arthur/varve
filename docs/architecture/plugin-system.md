@@ -178,15 +178,21 @@ release identifier `dev.varve.desktop`.
 
 The same platform-native scenario is
 [`tests/wdio/plugin-native.e2e.ts`](../../tests/wdio/plugin-native.e2e.ts).
-It creates artwork through the native window, installs the checked-in local
-package, runs the analysis Worker, and can save a screenshot through
-`VARVE_PLUGIN_NATIVE_SCREENSHOT`. On a platform with the supported Rust and
-Tauri toolchains, run:
+It creates artwork through the native window, reviews a package's permissions,
+runs analysis, denies and then grants document-write access, previews and
+applies a rename, checks undo/redo, and removes both packages. It saves named
+screen states beside the path supplied in `VARVE_PLUGIN_NATIVE_SCREENSHOT`.
+Native reload, revoke/disable during active work, rollback, and long-session
+resource scenarios remain separate acceptance work; browser results do not
+substitute for them. On a platform with the supported Rust and Tauri
+toolchains, run:
 
 ```sh
 pnpm desktop:preflight
 pnpm desktop:build:test
-VARVE_WDIO_SPECS=./tests/wdio/plugin-native.e2e.ts pnpm exec wdio run wdio.conf.ts
+mkdir -p artifacts/plugin-native
+VARVE_PLUGIN_NATIVE_SCREENSHOT=artifacts/plugin-native/result.png \
+  VARVE_WDIO_SPECS=./tests/wdio/plugin-native.e2e.ts pnpm exec wdio run wdio.conf.ts
 ```
 
 Linux must use the packaged debug app under WebKitGTK and a real GUI session;

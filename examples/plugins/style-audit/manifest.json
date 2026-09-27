@@ -17,7 +17,7 @@
       "title": "Selection readiness",
       "command": "analyze",
       "tab": "properties",
-      "modes": ["design", "drawing", "image", "logo"]
+      "modes": ["design", "drawing", "image", "email"]
     }
   ]
 }

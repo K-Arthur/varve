@@ -21,18 +21,57 @@ with a mixed frame/text/image selection, then writes reproducible stored ZIP
 packages to ignored `examples/plugins/dist/`. Each `.varveplugin` contains only
 `manifest.json` and `module.wasm`. Run
 `node examples/plugins/build.mjs --package-only` to repeat packaging and the
-ABI smoke test without recompiling.
-Cargo's locked dependencies are in this directory's `Cargo.lock`.
-Run `node --experimental-strip-types scripts/plugins/validate.mjs examples/plugins/dist/style-audit.varveplugin`
-from the repository root for a static package/manifest/import check. The
-validator does not execute the guest; installation compiles the module in a
-short-lived worker without instantiating it. Guest execution begins only when
-the user runs a command.
-For a local development loop, rebuild, choose the newer-version package in
-the manager, review its changed permissions, and use the manager's Stop,
-Disable, and Restore actions. The file picker is explicit; there is no folder
-watcher or automatic execution after editing a source file. Update the
-manifest version before replacing an installed copy.
+ABI smoke test without recompiling. Cargo's locked dependencies are in this
+directory's `Cargo.lock`; the data-only Rust SDK is in `examples/plugins/sdk/`.
+
+## Manifest and compatibility contract
+
+Use the checked-in `style-audit/manifest.json` and
+`batch-rename/manifest.json` as complete examples. A v1 manifest has required
+`schemaVersion: 1`, reverse-domain lowercase `id`, `name`, self-asserted
+`publisher`, semantic `version`, `apiVersion: 1`, and `entry: "module.wasm"`
+fields. `permissions` has `required` and `optional` arrays using only
+`selection.read` and `document.write`; every command receives a selection, so
+declare `selection.read` in one of those arrays. A rename command also requires
+`document.write`. Declare 1–8 `commands` of kind `analysis` or `rename`; an
+optional `inspector` list can contain up to eight host-rendered Properties
+sections linked to a declared command, optionally limited to the six current
+workspace modes: `design`, `print`, `drawing`, `image`, `motion`, and `email`.
+For older manifests, `logo` and `codegen` are accepted as compatibility inputs
+and normalized to `design`. Unknown fields, duplicate IDs/permissions,
+unsupported versions, and undeclared selection access are rejected.
+
+Compatibility is exact: the host accepts API v1 only. Guests target
+`wasm32-unknown-unknown`, import only `env.memory`, and export only these
+functions: `alloc(i32) -> i32`, `run(i32, i32) -> i32`, and
+`result_len() -> i32`. They return bounded UTF-8 JSON. Packages are limited to
+2 MiB, the manifest to 32 KiB, and the module to 1 MiB. GC/reference-valued Wasm
+function types are unsupported. The static validator checks the package
+contract; the builder's ABI smoke test checks that the sample guest runs with
+mixed vector/text/image selection data.
+
+## Development loop
+
+1. Edit guest code and manifest; bump `version` whenever replacing an installed
+   package.
+2. From the repository root, run `node examples/plugins/build.mjs` to compile,
+   run the ABI smoke test, and produce both reproducible archives. For a
+   packaging-only rerun, use `node examples/plugins/build.mjs --package-only`.
+3. Run `node --experimental-strip-types scripts/plugins/validate.mjs
+   examples/plugins/dist/style-audit.varveplugin` and repeat for
+   `batch-rename.varveplugin`. The validator does not execute the guest.
+4. Inspect the manifest diff and archive contents, then choose the package
+   explicitly in Settings → Plugins. Review requested access and checksum
+   before installing or updating; test first with noncritical artwork.
+5. Use Stop, Disable, Retry, and Restore from the manager. Confirm reviewed
+   edits can be undone and remain ordinary document content after removal.
+
+There is no folder watcher, live reload, same-version replacement, automatic
+execution after editing, remote catalog, or automatic update feed. Each update
+is a deliberate file selection, higher-version package, and fresh permission
+review. The publisher label and checksum identify displayed bytes but do not
+authenticate the author. Installation compiles a module without instantiating
+it; guest code starts only when the user explicitly runs a command.
 
 Install either file through Varve's local package picker. Installation does not
 run its command. Grant `selection.read` to run **Selection Style Readiness**;
@@ -51,5 +90,8 @@ Guest input is UTF-8 JSON with `apiVersion`, `commandId`, `documentId`,
 and a bounded `style` object with `opacity`, `blendMode`, `paintCount`,
 `strokeCount`, and optional text `fontFamily` and `fontSize`. Output is JSON
 with `summary`, `lines`, and `renames`; every rename
-has `id`, `expectedName`, and `name`. The guest exports `alloc(length)`,
-`run(pointer, length)`, and `result_len()`. Only the host can mutate artwork.
+has `id`, `expectedName`, and `name`. The guest exports the numeric functions
+above. Their parameters and return values are signed Wasm `i32`s: `alloc`
+returns a guest-memory pointer, `run` receives that pointer and a byte length
+and returns a result pointer, and `result_len` returns the result byte length.
+Only the host can mutate artwork.

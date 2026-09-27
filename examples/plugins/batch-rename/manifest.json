@@ -17,7 +17,7 @@
       "title": "Number layers",
       "command": "rename",
       "tab": "properties",
-      "modes": ["design", "print", "drawing", "image", "logo"]
+      "modes": ["design", "print", "drawing", "image", "email"]
     }
   ]
 }
