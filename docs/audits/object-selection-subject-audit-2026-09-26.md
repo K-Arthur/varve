@@ -177,8 +177,20 @@ VARVE_SAM2_REAL_MODEL=1 node scripts/quality/heavy-lease.mjs \
     --project=chromium --workers=1 --reporter=list
 ```
 
-Tauri/WebKitGTK and Windows/macOS were **not** exercised by this pass at
-all; every live result above is Chromium on Linux x86_64.
+### Platform matrix
+
+| Platform | Result |
+| --- | --- |
+| **Chromium / Linux x86_64** | All three specs **PASS** (table above), including the real-model gate. |
+| **Firefox / Linux** | Both UI specs **PASS** — draft overlay 23.2 s, Alpha trim 19.7 s (`--project=firefox`, Firefox 1538). The real-model spec is Chromium-only by design: it launches its own persistent Chromium context. |
+| **WebKit (Playwright, Linux)** | **Blocked before launch**, not a test failure: the host lacks `libicu74`, `libxml2`, `libflite1`. Fix is `sudo npx playwright install-deps` (or `sudo apt-get install libicu74 libxml2 libflite1`); `sudo` requires a password in this environment, so it could not be installed here. |
+| **Native Tauri / WebKitGTK** | `pnpm test:desktop:native` (preflight + debug build with the `wdio` feature + `tauri-smoke` / `native-menu` specs) queued under the lease — result recorded below. |
+| **Windows / macOS** | **Not exercised** by this pass. |
+
+Playwright's Linux WebKit build is the WebKitGTK family, so the WebKit row
+would be the closest browser-level proxy for the desktop webview; the native
+row covers the Tauri shell itself (window, menus, IPC), not Object Selection
+behaviour, whose webview code is what the Chromium and Firefox rows exercise.
 
 ## verify:quick and the two red object-selection tests (2026-09-26)
 
