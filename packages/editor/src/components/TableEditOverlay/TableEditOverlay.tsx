@@ -92,9 +92,34 @@ export function TableEditOverlay({ zoom, pan, cameraRotation, worldToScreen }: P
     });
   }, [editor, tableNode, tableEdit]);
 
+  // Subscribed once per table-edit session, reading the latest state through
+  // a ref. The inputs change with every editor state update, and
+  // re-subscribing while an earlier window listener re-renders during the
+  // same key event drops the key: a listener removed mid-dispatch is skipped,
+  // and its replacement is not invoked for that event.
+  const keyStateRef = useRef({
+    tableEdit,
+    tableNode,
+    moveSelection,
+    clearSelectionCells,
+    patchEdit,
+    editor,
+  });
+  keyStateRef.current = {
+    tableEdit,
+    tableNode,
+    moveSelection,
+    clearSelectionCells,
+    patchEdit,
+    editor,
+  };
+  const tableEditActive = Boolean(tableEdit && tableNode);
   useEffect(() => {
-    if (!tableEdit || !tableNode) return;
+    if (!tableEditActive) return;
     const onKeyDown = (e: KeyboardEvent): void => {
+      const { tableEdit, tableNode, moveSelection, clearSelectionCells, patchEdit, editor } =
+        keyStateRef.current;
+      if (!tableEdit || !tableNode) return;
       const target = e.target as HTMLElement | null;
       if (
         target &&
@@ -125,7 +150,8 @@ export function TableEditOverlay({ zoom, pan, cameraRotation, worldToScreen }: P
           break;
         case 'Enter': {
           e.preventDefault();
-          const firstCell = Object.keys(tableNode.table.cellIndex)[0] ?? null;
+          // cellIndex maps "row,col" to cell ids; the fallback needs an id.
+          const firstCell = Object.values(tableNode.table.cellIndex)[0] ?? null;
           const cellId = tableEdit.activeCellId ?? tableEdit.cellIds[0] ?? firstCell;
           if (cellId) {
             patchEdit({ activeCellId: cellId, editingCellId: cellId });
@@ -154,7 +180,7 @@ export function TableEditOverlay({ zoom, pan, cameraRotation, worldToScreen }: P
     // system (shift+arrows are selection shortcuts app-wide).
     window.addEventListener('keydown', onKeyDown, true);
     return () => window.removeEventListener('keydown', onKeyDown, true);
-  }, [tableEdit, tableNode, moveSelection, clearSelectionCells, patchEdit, editor]);
+  }, [tableEditActive]);
 
   // Column resize via pointer drag on handle lines.
   // Transaction coalescing: begin on first move, commit on pointer up →

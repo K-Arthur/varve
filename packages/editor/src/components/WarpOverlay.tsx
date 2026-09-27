@@ -367,15 +367,22 @@ export function WarpOverlay({
     [commitTransaction, abortTransaction, target, sourceBounds, doc, flushLatestPointer],
   );
 
+  // Subscribed once, reading the latest `endDrag` through a ref. It changes
+  // on every warp-drag frame, and re-subscribing while an earlier window
+  // listener re-renders the canvas during the same key event drops the key:
+  // a listener removed mid-dispatch is skipped, and its replacement is not
+  // invoked for that event.
+  const endDragRef = useRef(endDrag);
+  endDragRef.current = endDrag;
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && dragRef.current) {
         e.preventDefault();
-        endDrag(false);
+        endDragRef.current(false);
       }
     };
     const cancelForContextLoss = () => {
-      if (dragRef.current) endDrag(false);
+      if (dragRef.current) endDragRef.current(false);
     };
     window.addEventListener('keydown', onKey);
     window.addEventListener('blur', cancelForContextLoss);
@@ -385,7 +392,7 @@ export function WarpOverlay({
       window.removeEventListener('blur', cancelForContextLoss);
       document.removeEventListener('visibilitychange', cancelForContextLoss);
     };
-  }, [endDrag]);
+  }, []);
 
   if (!target || !selectionOwnsTarget || !node || !modifier || !sourceBounds || !worldMat)
     return null;
