@@ -14,30 +14,31 @@ import '../../styles/docs-prose.css';
       <section class="docs-section">
         <h2>Install and find a plugin</h2>
         <ol>
-          <li>In an open design, choose <strong>File → Manage Plugins</strong>, or search for <strong>Manage Plugins</strong> in the command palette.</li>
+          <li>Open <strong>Settings → Plugins</strong>. You can also choose <strong>File → Manage Plugins</strong> or search for <strong>Manage Plugins</strong> in the command palette; each opens the same manager.</li>
           <li>Choose a local <code>.varveplugin</code> file. Review its package identity, requested access, and checksum.</li>
           <li>Grant required access and choose <strong>Install and enable</strong>, or install disabled and decide later.</li>
           <li>Use its command in the manager, or find a declared contextual panel in the Properties Inspector when a layer is selected.</li>
         </ol>
-        <p>The publisher name is supplied by the file itself. A checksum shows which bytes were installed; it does not authenticate the publisher. A design file cannot install or activate a plugin for you.</p>
+        <p>The publisher name is supplied by the file itself. A checksum shows which bytes were installed; it does not authenticate the publisher. A design file cannot install or activate a plugin for you. Installed packages and their grants stay in the local profile and remain available to manage offline.</p>
       </section>
 
       <section class="docs-section">
         <h2>Access, previews, and recovery</h2>
         <p><strong>Read the current selection</strong> provides a bounded snapshot of selected layer names, kinds, lock state, and a few style counts. <strong>Change the open document</strong> permits a reviewed rename proposal to be applied. Neither permission grants file, network, clipboard, native command, or whole-document access.</p>
-        <p>Use <strong>Stop</strong> to terminate a running command. Revoking access, disabling, updating, or removing a plugin invalidates pending results. If a plugin fails, its diagnostic stays in the manager until you choose Retry. A preview becomes stale when the document or selection changes; run it again before applying.</p>
+        <p>Use <strong>Stop</strong> to terminate a running command. Revoking access, disabling, updating, or removing a plugin invalidates pending results. If a plugin fails, its diagnostic stays in the manager until you choose Retry. A preview becomes stale when the document or selection changes; run it again before applying. The manager also retains disabled and incompatible installations with the recovery actions that apply.</p>
+        <p>Safe mode pauses plugin commands and Inspector sections while keeping the manager available for inspection, removal, and recovery. Continuing past the safe-mode startup screen does not restore plugins or change their saved enabled preferences.</p>
         <p>Removing the package removes its commands and panels. Names already applied remain ordinary editable Varve artwork and can be saved or exported without the plugin. Undo committed edits while their document history is available. Plugin packages and permission grants stay in the local application profile, not in shared design files.</p>
       </section>
 
       <section class="docs-section">
         <h2>Build the two examples</h2>
         <p>The repository contains <a href="https://github.com/K-Arthur/varve/tree/master/examples/plugins">Selection Style Readiness and Number Selected Layers source, manifests, and a package builder</a>. With Rust's <code>wasm32-unknown-unknown</code> target installed, run <code>node examples/plugins/build.mjs</code> from the repository root. The builder performs a real WebAssembly ABI smoke test and writes local packages in <code>examples/plugins/dist/</code>. Install those files through the manager; installation itself never runs Cargo, npm scripts, or a package setup command.</p>
-        <p>The v1 package holds exactly <code>manifest.json</code> and <code>module.wasm</code>. Guest code imports only <code>env.memory</code> and exports <code>alloc</code>, <code>run</code>, and <code>result_len</code>. Input and output are bounded UTF-8 JSON. The examples use the typed <code>varve-plugin-sdk</code> Rust crate. Run <code>node --experimental-strip-types scripts/plugins/validate.mjs &lt;file.varveplugin&gt;</code> for a static package check before installation. Consult <a href="https://github.com/K-Arthur/varve/blob/master/docs/architecture/plugin-system.md">the API and threat-model contract</a> before building a package. Updates require selecting a newer local package and reviewing access again; there is no remote catalog or automatic update feed.</p>
+        <p>The v1 package holds exactly <code>manifest.json</code> and <code>module.wasm</code>. A manifest uses <code>schemaVersion: 1</code>, <code>apiVersion: 1</code>, and <code>entry: "module.wasm"</code>; every command requires declared <code>selection.read</code>, and rename commands also require declared <code>document.write</code>. Guest code imports only <code>env.memory</code> and exports <code>alloc</code>, <code>run</code>, and <code>result_len</code>. Input and output are bounded UTF-8 JSON. The examples use the typed <code>varve-plugin-sdk</code> Rust crate. Run <code>node --experimental-strip-types scripts/plugins/validate.mjs &lt;file.varveplugin&gt;</code> for a static package check before installation. Consult <a href="https://github.com/K-Arthur/varve/blob/master/docs/architecture/plugin-system.md">the API and threat-model contract</a> before building a package. Updates require selecting a higher-version local package and reviewing access again; same-version replacement, folder watching, a remote catalog, and automatic update feed are unsupported.</p>
       </section>
 
       <section class="docs-section">
         <h2>Current limits</h2>
-        <p>Supported commands are selected-layer analysis and undoable renaming. Arbitrary HTML panels, custom nodes, background listeners, external network calls, local files, private plugin storage, native binaries, and a dependency resolver are not in API v1. Browser automation checks the user workflow; packaged desktop WebView testing on every operating system remains separate validation work.</p>
+        <p>Supported commands are selected-layer analysis and undoable renaming. Arbitrary HTML panels, custom nodes, background listeners, external network calls, local files, private plugin storage, native binaries, and a dependency resolver are not in API v1. Wasm linear memory has a fixed ceiling; browser and operating-system overhead are not covered by that limit. Browser automation checks the user workflow; packaged desktop WebView testing on every operating system remains separate validation work.</p>
       </section>
     </div>
   </div>

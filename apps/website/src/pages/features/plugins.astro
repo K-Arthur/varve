@@ -2,7 +2,10 @@
 import Button from '../../components/Button.astro';
 import StatusPill from '../../components/StatusPill.astro';
 import Layout from '../../layouts/Layout.astro';
+import screenshotManifest from '../../data/screenshot-manifest.json';
 import { sitePath } from '../../lib/siteUrl';
+
+const pluginScenes = screenshotManifest.scenes;
 ---
 
 <Layout
@@ -17,12 +20,12 @@ import { sitePath } from '../../lib/siteUrl';
       <p class="intro">Install a local package, see exactly which document access it requests, and run it when you choose. Varve shows proposed edits before applying them through ordinary undoable document history.</p>
 
       <figure class="product-capture">
-        <img src={sitePath('/screenshots/plugins-rename-preview-light.png')} width="1280" height="721" loading="lazy" alt="Varve's plugin manager showing a Number Selected Layers rename preview with a separate Apply action" />
-        <figcaption>Actual source-build editor: a proposed layer name waits for review and Apply.</figcaption>
+        <img src={sitePath(`/screenshots/${pluginScenes['plugin-rename-preview'].file}`)} width={pluginScenes['plugin-rename-preview'].width} height={pluginScenes['plugin-rename-preview'].height} loading="lazy" alt={pluginScenes['plugin-rename-preview'].alt} />
+        <figcaption>{pluginScenes['plugin-rename-preview'].caption}</figcaption>
       </figure>
 
       <div class="steps" aria-label="Plugin workflow">
-        <article><span>01</span><h2>Choose a package</h2><p>Open <strong>File → Manage Plugins</strong> and select a local <code>.varveplugin</code> file. No account or catalog is required.</p></article>
+        <article><span>01</span><h2>Choose a package</h2><p>Open <strong>Settings → Plugins</strong>, or choose <strong>File → Manage Plugins</strong>, and select a local <code>.varveplugin</code> file. No account or catalog is required.</p></article>
         <article><span>02</span><h2>Review access</h2><p>See the package's claimed publisher, version, checksum, commands, and required or optional permissions. Grant only the access you want.</p></article>
         <article><span>03</span><h2>Preview and apply</h2><p>Run a command against selected layers. Analysis stays read-only; batch renames need a separate Apply action and can be undone.</p></article>
       </div>
@@ -30,22 +33,22 @@ import { sitePath } from '../../lib/siteUrl';
       <section class="detail">
         <h2>What the first plugin API can do</h2>
         <p>Two source examples demonstrate the contract: Selection Style Readiness summarizes selected-layer style properties, and Number Selected Layers proposes names for unlocked selected layers. Contextual results can appear in the Properties Inspector. You can stop a running job, disable or remove a package, and keep edits already committed to the document.</p>
-        <p>Plugin logic is WebAssembly with a narrow memory-only import, run in a short-lived worker. The editor renders plugin results as text and checks every proposed rename before applying it. Local publisher labels and checksums do not certify that a package is safe or identify its author.</p>
+        <p>Plugin logic is WebAssembly with a narrow memory-only import, run in a short-lived worker. The editor renders plugin results as text and checks every proposed rename before applying it. Local publisher labels and checksums do not certify that a package is safe or identify its author. Installed packages remain in the local profile for offline management, and a failed update can be restored from its retained previous package.</p>
       </section>
 
       <figure class="product-capture">
-        <img src={sitePath('/screenshots/plugins-inspector-analysis-light.png')} width="1280" height="721" loading="lazy" alt="The Selection Style Readiness plugin's text analysis visible inside Varve's Properties Inspector" />
-        <figcaption>A packaged analysis plugin runs in the editor's contextual Inspector using host-rendered controls.</figcaption>
+        <img src={sitePath(`/screenshots/${pluginScenes['plugin-inspector-analysis'].file}`)} width={pluginScenes['plugin-inspector-analysis'].width} height={pluginScenes['plugin-inspector-analysis'].height} loading="lazy" alt={pluginScenes['plugin-inspector-analysis'].alt} />
+        <figcaption>{pluginScenes['plugin-inspector-analysis'].caption}</figcaption>
       </figure>
 
       <figure class="product-capture product-capture--review">
-        <img src={sitePath('/screenshots/plugins-permission-review-dark.png')} width="1024" height="769" loading="lazy" alt="Dark-theme local package review showing a required selection-read permission and optional document-write permission" />
-        <figcaption>The permission review stays readable in a narrow window and separates required from optional access.</figcaption>
+        <img src={sitePath(`/screenshots/${pluginScenes['plugin-permission-review'].file}`)} width={pluginScenes['plugin-permission-review'].width} height={pluginScenes['plugin-permission-review'].height} loading="lazy" alt={pluginScenes['plugin-permission-review'].alt} />
+        <figcaption>{pluginScenes['plugin-permission-review'].caption}</figcaption>
       </figure>
 
       <section class="detail detail--note">
         <h2>Current limits</h2>
-        <p>This is an early local-package API for selected-layer analysis and renaming. It does not provide a marketplace, automatic downloads, arbitrary JavaScript or HTML panels, file or network access, custom drawing tools, or Figma/UXP/VS Code compatibility. Platform-specific desktop verification is still in progress; consult the guide before using a package with important work.</p>
+        <p>This is an early local-package API for selected-layer analysis and renaming. It does not provide a marketplace, automatic downloads, arbitrary JavaScript or HTML panels, file or network access, custom drawing tools, or Figma/UXP/VS Code compatibility. Package watching and same-version replacement are not supported. A fixed linear-memory ceiling does not cap the whole browser or operating-system process. Platform-specific desktop verification is still in progress; consult the guide before using a package with important work.</p>
       </section>
 
       <div class="actions">
