@@ -50,9 +50,10 @@ import {
   type WorkspacePreferences,
 } from './workspaceTypes';
 
-/** Version 3 adds bounded nested dock trees to portable named layouts. */
-export const LAYOUT_VARIANT_SCHEMA_VERSION = 3;
+/** Version 4 adds revision/writer stamps to variants and deletion markers. */
+export const LAYOUT_VARIANT_SCHEMA_VERSION = 4;
 const STORAGE_KEY = 'varve-workspace-layouts';
+const WRITER_ID_STORAGE_KEY = 'varve-workspace-layout-writer';
 const APP_SETTING_KEY = 'workspace-layouts';
 const DURABLE_SAVE_DEBOUNCE_MS = 400;
 const MAX_VARIANTS = 50;
@@ -60,6 +61,7 @@ const MAX_IMPORT_BYTES = 64 * 1024;
 const MAX_NAME_LENGTH = 64;
 const MIN_PANEL_WIDTH = 120;
 const MAX_PANEL_WIDTH = 1200;
+const MAX_LAYOUT_REVISION = 1_000_000_000_000_000;
 /** Hostile timestamps further than this into the future are clamped. */
 const MAX_TIMESTAMP_SKEW_MS = 24 * 60 * 60 * 1000;
 
@@ -96,6 +98,10 @@ export interface WorkspaceLayoutVariant {
   builtIn: boolean;
   createdAt: number;
   updatedAt: number;
+  /** Logical edit order; wall-clock time is retained only for display/migration. */
+  revision?: number;
+  /** Local writer identity used only to break concurrent revision ties. */
+  writerId?: string;
   /** Mode the layout was captured from — informational, never an apply target. */
   sourceMode?: WorkspaceModeInput;
   payload: LayoutPreferencePayload;
@@ -103,6 +109,8 @@ export interface WorkspaceLayoutVariant {
 
 export interface LayoutResetSnapshot {
   savedAt: number;
+  revision?: number;
+  writerId?: string;
   scope: { kind: 'mode'; mode: WorkspaceMode } | { kind: 'all' };
   preferences: WorkspacePreferences;
 }
@@ -112,9 +120,16 @@ export interface WorkspaceLayoutStoreState {
   /** Monotonic local revision; every mutation increments it. */
   revision: number;
   variants: WorkspaceLayoutVariant[];
-  /** id → deletedAt. Blocks stale durable copies from resurrecting a variant. */
-  tombstones: Record<string, number>;
+  /** id → logical deletion stamp. Blocks stale copies from resurrecting a variant. */
+  tombstones: Record<string, LayoutRevisionStamp>;
   resetSnapshot?: LayoutResetSnapshot;
+  /** Deletion marker prevents an old reset snapshot from returning after clear. */
+  resetTombstone?: LayoutRevisionStamp;
+}
+
+export interface LayoutRevisionStamp {
+  revision: number;
+  writerId: string;
 }
 
 export type LayoutMutationResult =
@@ -476,6 +491,89 @@ function sortPayload(payload: LayoutPreferencePayload): unknown {
 // Store construction and sanitization
 // ---------------------------------------------------------------------------
 
+let cachedWriterId: string | null = null;
+
+function localWriterId(): string {
+  if (cachedWriterId) return cachedWriterId;
+  try {
+    const saved = localStorage.getItem(WRITER_ID_STORAGE_KEY);
+    if (saved && /^[A-Za-z0-9_-]{1,64}$/.test(saved)) {
+      cachedWriterId = saved;
+      return saved;
+    }
+  } catch {
+    // Private browsing/storage failures still allow edits for this session.
+  }
+  const random =
+    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID().replaceAll('-', '')
+      : Math.random().toString(36).slice(2);
+  cachedWriterId = `writer-${Date.now().toString(36)}-${random}`.slice(0, 64);
+  try {
+    localStorage.setItem(WRITER_ID_STORAGE_KEY, cachedWriterId);
+  } catch {
+    // The identity remains stable for this module lifetime.
+  }
+  return cachedWriterId;
+}
+
+function sanitizeRevision(raw: unknown, fallback = 0): number {
+  if (typeof raw !== 'number' || !Number.isFinite(raw)) return Math.max(0, fallback);
+  return Math.max(0, Math.min(MAX_LAYOUT_REVISION, Math.floor(raw)));
+}
+
+function sanitizeStamp(raw: unknown, legacyRevision = 0): LayoutRevisionStamp {
+  if (typeof raw === 'number') {
+    return { revision: sanitizeRevision(raw, legacyRevision), writerId: 'legacy' };
+  }
+  if (typeof raw !== 'object' || raw === null) {
+    return { revision: sanitizeRevision(legacyRevision), writerId: 'legacy' };
+  }
+  const source = raw as Record<string, unknown>;
+  const writerId =
+    typeof source.writerId === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(source.writerId)
+      ? source.writerId
+      : 'legacy';
+  return { revision: sanitizeRevision(source.revision, legacyRevision), writerId };
+}
+
+function compareStamps(a: LayoutRevisionStamp, b: LayoutRevisionStamp): number {
+  if (a.revision !== b.revision) return a.revision < b.revision ? -1 : 1;
+  return a.writerId.localeCompare(b.writerId);
+}
+
+function variantStamp(variant: WorkspaceLayoutVariant): LayoutRevisionStamp {
+  return sanitizeStamp(
+    variant.revision === undefined && variant.writerId === undefined
+      ? undefined
+      : { revision: variant.revision, writerId: variant.writerId },
+    variant.updatedAt,
+  );
+}
+
+function snapshotStamp(snapshot: LayoutResetSnapshot): LayoutRevisionStamp {
+  return sanitizeStamp(
+    snapshot.revision === undefined && snapshot.writerId === undefined
+      ? undefined
+      : { revision: snapshot.revision, writerId: snapshot.writerId },
+    snapshot.savedAt,
+  );
+}
+
+function nextStamp(state: WorkspaceLayoutStoreState): LayoutRevisionStamp {
+  const revisions = [
+    state.revision,
+    ...state.variants.map((variant) => variantStamp(variant).revision),
+    ...Object.values(state.tombstones).map((stamp) => sanitizeStamp(stamp).revision),
+    ...(state.resetSnapshot ? [snapshotStamp(state.resetSnapshot).revision] : []),
+    ...(state.resetTombstone ? [sanitizeStamp(state.resetTombstone).revision] : []),
+  ];
+  return {
+    revision: Math.min(MAX_LAYOUT_REVISION, Math.max(0, ...revisions) + 1),
+    writerId: localWriterId(),
+  };
+}
+
 export function createEmptyLayoutStore(): WorkspaceLayoutStoreState {
   return {
     schemaVersion: LAYOUT_VARIANT_SCHEMA_VERSION,
@@ -502,12 +600,21 @@ function sanitizeVariant(raw: unknown): WorkspaceLayoutVariant | null {
     )
       ? (source.sourceMode as WorkspaceModeInput)
       : undefined;
+  const updatedAt = clampTimestamp(source.updatedAt, now);
+  const stamp = sanitizeStamp(
+    source.revision === undefined && source.writerId === undefined
+      ? undefined
+      : { revision: source.revision, writerId: source.writerId },
+    updatedAt,
+  );
   return {
     id: source.id,
     name,
     builtIn: false,
     createdAt: clampTimestamp(source.createdAt, now),
-    updatedAt: clampTimestamp(source.updatedAt, now),
+    updatedAt,
+    revision: stamp.revision,
+    writerId: stamp.writerId,
     ...(sourceMode ? { sourceMode } : {}),
     payload: sanitizeLayoutPayload(
       source.payload,
@@ -516,13 +623,11 @@ function sanitizeVariant(raw: unknown): WorkspaceLayoutVariant | null {
   };
 }
 
-function sanitizeTombstones(raw: unknown): Record<string, number> {
+function sanitizeTombstones(raw: unknown): Record<string, LayoutRevisionStamp> {
   if (typeof raw !== 'object' || raw === null) return {};
-  const tombstones: Record<string, number> = {};
+  const tombstones: Record<string, LayoutRevisionStamp> = {};
   for (const [id, value] of Object.entries(raw)) {
-    if (isSaneId(id) && typeof value === 'number' && Number.isFinite(value) && value >= 0) {
-      tombstones[id] = value;
-    }
+    if (isSaneId(id)) tombstones[id] = sanitizeStamp(value);
   }
   return tombstones;
 }
@@ -540,8 +645,11 @@ function sanitizeResetSnapshot(raw: unknown): LayoutResetSnapshot | undefined {
   }
   if (typeof source.preferences !== 'object' || source.preferences === null) return undefined;
   const now = Date.now();
+  const savedAt = clampTimestamp(source.savedAt, now);
+  const stamp = sanitizeStamp({ revision: source.revision, writerId: source.writerId }, savedAt);
   return {
-    savedAt: clampTimestamp(source.savedAt, now),
+    savedAt,
+    ...stamp,
     scope:
       scopeRaw.kind === 'mode'
         ? { kind: 'mode', mode: scopeRaw.mode as WorkspaceMode }
@@ -568,29 +676,45 @@ export function sanitizeLayoutStore(parsed: unknown): WorkspaceLayoutStoreState 
   }
 
   const tombstones = sanitizeTombstones(source.tombstones);
+  const resetTombstone =
+    source.resetTombstone === undefined ? undefined : sanitizeStamp(source.resetTombstone);
   const variants: WorkspaceLayoutVariant[] = [];
   if (Array.isArray(source.variants)) {
     for (const raw of source.variants) {
       const variant = sanitizeVariant(raw);
       if (!variant) continue;
       // Tombstone wins when it is at least as new as the variant.
-      if ((tombstones[variant.id] ?? 0) >= variant.updatedAt) continue;
+      const tombstone = tombstones[variant.id];
+      if (tombstone && compareStamps(tombstone, variantStamp(variant)) >= 0) continue;
       if (variants.some((existing) => existing.id === variant.id)) continue;
       if (variants.length >= MAX_VARIANTS) break;
       variants.push(variant);
     }
   }
 
-  const resetSnapshot = sanitizeResetSnapshot(source.resetSnapshot);
+  let resetSnapshot = sanitizeResetSnapshot(source.resetSnapshot);
+  if (
+    resetSnapshot &&
+    resetTombstone &&
+    compareStamps(resetTombstone, snapshotStamp(resetSnapshot)) >= 0
+  ) {
+    resetSnapshot = undefined;
+  }
+  const revision = sanitizeRevision(source.revision);
+  const highestEntryRevision = Math.max(
+    0,
+    ...variants.map((variant) => variantStamp(variant).revision),
+    ...Object.values(tombstones).map((stamp) => stamp.revision),
+    ...(resetSnapshot ? [snapshotStamp(resetSnapshot).revision] : []),
+    ...(resetTombstone ? [resetTombstone.revision] : []),
+  );
   return {
     schemaVersion: LAYOUT_VARIANT_SCHEMA_VERSION,
-    revision:
-      typeof source.revision === 'number' && Number.isFinite(source.revision)
-        ? Math.max(0, Math.floor(source.revision))
-        : 0,
+    revision: Math.max(revision, highestEntryRevision),
     variants,
     tombstones,
     ...(resetSnapshot ? { resetSnapshot } : {}),
+    ...(resetTombstone ? { resetTombstone } : {}),
   };
 }
 
@@ -746,10 +870,24 @@ function withVariantReplaced(
   state: WorkspaceLayoutStoreState,
   variant: WorkspaceLayoutVariant,
 ): WorkspaceLayoutStoreState {
+  const stamp = nextStamp(state);
+  const stamped = { ...variant, ...stamp };
   const variants = state.variants.map((existing) =>
-    existing.id === variant.id ? variant : existing,
+    existing.id === variant.id ? stamped : existing,
   );
-  return { ...state, variants, revision: state.revision + 1 };
+  return { ...state, variants, revision: stamp.revision };
+}
+
+function withVariantAdded(
+  state: WorkspaceLayoutStoreState,
+  variant: WorkspaceLayoutVariant,
+): WorkspaceLayoutStoreState {
+  const stamp = nextStamp(state);
+  return {
+    ...state,
+    variants: [...state.variants, { ...variant, ...stamp }],
+    revision: stamp.revision,
+  };
 }
 
 function isDuplicateName(
@@ -773,20 +911,18 @@ export function addLayoutVariant(
   if (!name) return { ok: false, reason: 'invalid-name' };
   if (isDuplicateName(state, name)) return { ok: false, reason: 'duplicate-name' };
   if (state.variants.length >= MAX_VARIANTS) return { ok: false, reason: 'limit' };
+  const stamp = nextStamp(state);
   const variant: WorkspaceLayoutVariant = {
     id: nextVariantId(now),
     name,
     builtIn: false,
     createdAt: now,
     updatedAt: now,
+    ...stamp,
     sourceMode: input.sourceMode,
     payload: sanitizeLayoutPayload(input.payload, resolveWorkspaceMode(input.sourceMode)),
   };
-  const next = {
-    ...state,
-    variants: [...state.variants, variant],
-    revision: state.revision + 1,
-  };
+  const next = { ...state, variants: [...state.variants, variant], revision: stamp.revision };
   return { ok: true, state: next, variant };
 }
 
@@ -808,7 +944,8 @@ export function updateLayoutVariantPayload(
     ),
     updatedAt: now,
   };
-  return { ok: true, state: withVariantReplaced(state, variant), variant };
+  const next = withVariantReplaced(state, variant);
+  return { ok: true, state: next, variant: next.variants.find((entry) => entry.id === id)! };
 }
 
 export function renameLayoutVariant(
@@ -824,7 +961,8 @@ export function renameLayoutVariant(
   if (!existing) return { ok: false, reason: 'not-found' };
   if (isDuplicateName(state, cleaned, id)) return { ok: false, reason: 'duplicate-name' };
   const variant = { ...existing, name: cleaned, updatedAt: now };
-  return { ok: true, state: withVariantReplaced(state, variant), variant };
+  const next = withVariantReplaced(state, variant);
+  return { ok: true, state: next, variant: next.variants.find((entry) => entry.id === id)! };
 }
 
 /** Duplicate a user variant; built-in templates are not persisted copies. */
@@ -844,12 +982,14 @@ export function duplicateLayoutVariant(
       name = `${builtIn.name} copy ${counter}`;
       counter += 1;
     }
+    const stamp = nextStamp(state);
     const variant: WorkspaceLayoutVariant = {
       id: nextVariantId(now),
       name,
       builtIn: false,
       createdAt: now,
       updatedAt: now,
+      ...stamp,
       payload: sanitizeLayoutPayload(
         builtIn.payload,
         builtIn.sourceMode ? resolveWorkspaceMode(builtIn.sourceMode) : undefined,
@@ -857,7 +997,7 @@ export function duplicateLayoutVariant(
     };
     return {
       ok: true,
-      state: { ...state, variants: [...state.variants, variant], revision: state.revision + 1 },
+      state: { ...state, variants: [...state.variants, variant], revision: stamp.revision },
       variant,
     };
   }
@@ -868,12 +1008,14 @@ export function duplicateLayoutVariant(
     name = `${source.name} copy ${counter}`;
     counter += 1;
   }
+  const stamp = nextStamp(state);
   const variant: WorkspaceLayoutVariant = {
     ...source,
     id: nextVariantId(now),
     name,
     createdAt: now,
     updatedAt: now,
+    ...stamp,
     payload: sanitizeLayoutPayload(
       source.payload,
       source.sourceMode ? resolveWorkspaceMode(source.sourceMode) : undefined,
@@ -881,7 +1023,7 @@ export function duplicateLayoutVariant(
   };
   return {
     ok: true,
-    state: { ...state, variants: [...state.variants, variant], revision: state.revision + 1 },
+    state: { ...state, variants: [...state.variants, variant], revision: stamp.revision },
     variant,
   };
 }
@@ -893,11 +1035,13 @@ export function deleteLayoutVariant(
 ): WorkspaceLayoutStoreState {
   if (isBuiltInLayoutId(id)) return state;
   if (!state.variants.some((variant) => variant.id === id)) return state;
+  void now;
+  const stamp = nextStamp(state);
   return {
     ...state,
     variants: state.variants.filter((variant) => variant.id !== id),
-    tombstones: { ...state.tombstones, [id]: now },
-    revision: state.revision + 1,
+    tombstones: { ...state.tombstones, [id]: stamp },
+    revision: stamp.revision,
   };
 }
 
@@ -911,14 +1055,16 @@ export function captureResetSnapshot(
   preferences: WorkspacePreferences,
   now: number = Date.now(),
 ): WorkspaceLayoutStoreState {
+  const stamp = nextStamp(state);
   return {
     ...state,
     resetSnapshot: {
       savedAt: now,
+      ...stamp,
       scope,
       preferences: JSON.parse(JSON.stringify(preferences)) as WorkspacePreferences,
     },
-    revision: state.revision + 1,
+    revision: stamp.revision,
   };
 }
 
@@ -951,8 +1097,9 @@ export function restoreResetSnapshotToPreferences(
 }
 
 export function clearResetSnapshot(state: WorkspaceLayoutStoreState): WorkspaceLayoutStoreState {
-  if (!state.resetSnapshot) return state;
-  const next = { ...state, revision: state.revision + 1 };
+  if (!state.resetSnapshot && state.resetTombstone) return state;
+  const stamp = nextStamp(state);
+  const next = { ...state, revision: stamp.revision, resetTombstone: stamp };
   delete next.resetSnapshot;
   return next;
 }
@@ -1186,7 +1333,7 @@ export function migrateLegacyWorkspaceLayouts(now: number = Date.now()): boolean
 
     // Keep a revision-style reset marker so a stale durable preference copy
     // cannot resurrect the old standalone workspace after migration.
-    if (preference && preference.customized) {
+    if (preference?.customized) {
       nextPrefs = {
         ...nextPrefs,
         [mode]: { customized: false, clearedAt: Math.max(now, preference.clearedAt ?? 0) },
@@ -1222,7 +1369,12 @@ export function addImportedLayoutVariant(
       sourceMode: variant.sourceMode,
       updatedAt: now,
     };
-    return { ok: true, state: withVariantReplaced(state, replaced), variant: replaced };
+    const next = withVariantReplaced(state, replaced);
+    return {
+      ok: true,
+      state: next,
+      variant: next.variants.find((candidate) => candidate.id === existing.id)!,
+    };
   }
   if (existing) {
     let name = `${variant.name} (imported)`;
@@ -1232,20 +1384,18 @@ export function addImportedLayoutVariant(
       counter += 1;
     }
     const copy = { ...variant, name, updatedAt: now, createdAt: now };
+    const next = withVariantAdded(state, copy);
     return {
       ok: true,
-      state: {
-        ...state,
-        variants: [...state.variants, copy],
-        revision: state.revision + 1,
-      },
-      variant: copy,
+      state: next,
+      variant: next.variants[next.variants.length - 1]!,
     };
   }
+  const next = withVariantAdded(state, { ...variant, updatedAt: now, createdAt: now });
   return {
     ok: true,
-    state: { ...state, variants: [...state.variants, variant], revision: state.revision + 1 },
-    variant,
+    state: next,
+    variant: next.variants[next.variants.length - 1]!,
   };
 }
 
@@ -1262,6 +1412,7 @@ let durableWriteQueue: Promise<void> = Promise.resolve();
 let localFutureStorePresent = false;
 let durableFutureStorePresent = false;
 let durableHydrationPending = false;
+let durableSchemaMigrationPending = false;
 let lastPersistenceError: { at: number; layer: 'local' | 'platform'; message: string } | null =
   null;
 
@@ -1293,7 +1444,15 @@ export function loadLayoutStore(): WorkspaceLayoutStoreState {
       );
       return createEmptyLayoutStore();
     }
-    return sanitizeLayoutStore(parsed);
+    const sanitized = sanitizeLayoutStore(parsed);
+    if (isOlderLayoutStore(parsed)) {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitized));
+      } catch (err) {
+        recordPersistenceError('local', err);
+      }
+    }
+    return sanitized;
   } catch (err) {
     localFutureStorePresent = false;
     recordPersistenceError('local', err);
@@ -1348,7 +1507,9 @@ export function resetLayoutStoreCache(): void {
   localFutureStorePresent = false;
   durableFutureStorePresent = false;
   durableHydrationPending = false;
+  durableSchemaMigrationPending = false;
   lastPersistenceError = null;
+  cachedWriterId = null;
 }
 
 export function attachLayoutStorePlatform(platform: Platform | undefined): void {
@@ -1372,11 +1533,35 @@ function scheduleDurableSave(state: WorkspaceLayoutStoreState): void {
 
 /** Serialize durable writes so an older in-flight snapshot cannot finish last. */
 function enqueueDurableWrite(platform: Platform, state: WorkspaceLayoutStoreState): Promise<void> {
-  const payload = JSON.stringify(state);
   durableWriteQueue = durableWriteQueue.then(async () => {
     if (durableFutureStorePresent) return;
     try {
-      await platform.setAppSetting(APP_SETTING_KEY, payload);
+      if (!platform.compareAndSetAppSetting) {
+        await platform.setAppSetting(APP_SETTING_KEY, JSON.stringify(state));
+        return;
+      }
+      for (let attempt = 0; attempt < 8; attempt++) {
+        const raw = await platform.getAppSetting(APP_SETTING_KEY);
+        let candidate = state;
+        if (raw) {
+          const parsed: unknown = JSON.parse(raw);
+          if (isFutureLayoutStore(parsed)) {
+            durableFutureStorePresent = true;
+            recordPersistenceError(
+              'platform',
+              'A newer workspace-layout format is preserved; this change is session-only.',
+            );
+            return;
+          }
+          candidate = mergeLayoutStores(state, sanitizeLayoutStore(parsed));
+        }
+        if (
+          await platform.compareAndSetAppSetting(APP_SETTING_KEY, raw, JSON.stringify(candidate))
+        ) {
+          return;
+        }
+      }
+      throw new Error('Workspace layouts changed repeatedly while saving; retry the save.');
     } catch (err) {
       recordPersistenceError('platform', err);
     }
@@ -1396,46 +1581,74 @@ export async function flushLayoutStore(): Promise<void> {
   await durableWriteQueue;
 }
 
-/**
- * Merge two stores by revision, variant freshness, and tombstone time.
- *
- * A variant survives only if it is newer than its tombstone; tombstones are
- * unioned at their newest timestamp, so a deletion made on one copy wins over
- * an older re-save on the other. The reset snapshot keeps the newer one.
- */
+/** Merge with logical revisions; writer identity makes concurrent ties stable. */
 export function mergeLayoutStores(
   local: WorkspaceLayoutStoreState,
   remote: WorkspaceLayoutStoreState,
 ): WorkspaceLayoutStoreState {
-  const tombstones: Record<string, number> = { ...local.tombstones };
-  for (const [id, deletedAt] of Object.entries(remote.tombstones)) {
-    tombstones[id] = Math.max(tombstones[id] ?? 0, deletedAt);
+  const tombstones: Record<string, LayoutRevisionStamp> = { ...local.tombstones };
+  for (const [id, stamp] of Object.entries(remote.tombstones)) {
+    const existing = tombstones[id];
+    if (!existing || compareStamps(stamp, existing) > 0) tombstones[id] = stamp;
   }
 
   const byId = new Map<string, WorkspaceLayoutVariant>();
   for (const variant of [...remote.variants, ...local.variants]) {
     const existing = byId.get(variant.id);
-    if (!existing || variant.updatedAt > existing.updatedAt) byId.set(variant.id, variant);
+    if (!existing || compareStamps(variantStamp(variant), variantStamp(existing)) > 0) {
+      byId.set(variant.id, variant);
+    }
   }
-  const variants = [...byId.values()].filter(
-    (variant) => (tombstones[variant.id] ?? 0) < variant.updatedAt,
-  );
+  const variants = [...byId.values()].filter((variant) => {
+    const tombstone = tombstones[variant.id];
+    return !tombstone || compareStamps(tombstone, variantStamp(variant)) < 0;
+  });
   variants.sort((a, b) => a.createdAt - b.createdAt);
 
   const localSnapshot = local.resetSnapshot;
   const remoteSnapshot = remote.resetSnapshot;
-  const resetSnapshot =
-    !localSnapshot || (remoteSnapshot && remoteSnapshot.savedAt > localSnapshot.savedAt)
-      ? remoteSnapshot
-      : localSnapshot;
+  let resetSnapshot = !localSnapshot
+    ? remoteSnapshot
+    : !remoteSnapshot
+      ? localSnapshot
+      : compareStamps(snapshotStamp(remoteSnapshot), snapshotStamp(localSnapshot)) > 0
+        ? remoteSnapshot
+        : localSnapshot;
+  const localResetTombstone = local.resetTombstone;
+  const remoteResetTombstone = remote.resetTombstone;
+  const resetTombstone = !localResetTombstone
+    ? remoteResetTombstone
+    : !remoteResetTombstone
+      ? localResetTombstone
+      : compareStamps(remoteResetTombstone, localResetTombstone) > 0
+        ? remoteResetTombstone
+        : localResetTombstone;
+  if (
+    resetSnapshot &&
+    resetTombstone &&
+    compareStamps(resetTombstone, snapshotStamp(resetSnapshot)) >= 0
+  ) {
+    resetSnapshot = undefined;
+  }
 
-  const mergedRevision = Math.max(local.revision, remote.revision) + 1;
+  const mergedRevision = Math.min(
+    MAX_LAYOUT_REVISION,
+    Math.max(
+      local.revision,
+      remote.revision,
+      ...variants.map((variant) => variantStamp(variant).revision),
+      ...Object.values(tombstones).map((stamp) => stamp.revision),
+      ...(resetSnapshot ? [snapshotStamp(resetSnapshot).revision] : []),
+      ...(resetTombstone ? [resetTombstone.revision] : []),
+    ) + 1,
+  );
   return {
     schemaVersion: LAYOUT_VARIANT_SCHEMA_VERSION,
     revision: mergedRevision,
     variants,
     tombstones,
     ...(resetSnapshot ? { resetSnapshot } : {}),
+    ...(resetTombstone ? { resetTombstone } : {}),
   };
 }
 
@@ -1449,6 +1662,7 @@ export function mergeLayoutStores(
 export async function hydrateLayoutStoreFromPlatform(platform: Platform): Promise<boolean> {
   attachLayoutStorePlatform(platform);
   durableHydrationPending = true;
+  durableSchemaMigrationPending = false;
   let raw: string | null = null;
   try {
     raw = await platform.getAppSetting(APP_SETTING_KEY);
@@ -1459,6 +1673,7 @@ export async function hydrateLayoutStoreFromPlatform(platform: Platform): Promis
   }
   if (!raw) {
     durableFutureStorePresent = false;
+    durableSchemaMigrationPending = false;
     finishDurableHydration(true);
     return false;
   }
@@ -1475,6 +1690,7 @@ export async function hydrateLayoutStoreFromPlatform(platform: Platform): Promis
       finishDurableHydration(false);
       return false;
     }
+    durableSchemaMigrationPending = isOlderLayoutStore(parsed);
     remote = sanitizeLayoutStore(parsed);
   } catch (err) {
     recordPersistenceError('platform', err);
@@ -1485,9 +1701,11 @@ export async function hydrateLayoutStoreFromPlatform(platform: Platform): Promis
   const local = getLayoutStore();
   const merged = mergeLayoutStores(local, remote);
   const changed = !layoutStoresEquivalent(merged, local);
-  if (changed) setLayoutStore(merged);
+  const migrationPending = durableSchemaMigrationPending;
+  if (changed || migrationPending) setLayoutStore(merged);
+  durableSchemaMigrationPending = false;
   finishDurableHydration(true);
-  return changed;
+  return changed || migrationPending;
 }
 
 function finishDurableHydration(allowWrites: boolean): void {
@@ -1515,6 +1733,16 @@ function isFutureLayoutStore(parsed: unknown): boolean {
   );
 }
 
+function isOlderLayoutStore(parsed: unknown): boolean {
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return false;
+  const version = (parsed as Record<string, unknown>).schemaVersion;
+  return (
+    typeof version === 'number' &&
+    Number.isInteger(version) &&
+    version < LAYOUT_VARIANT_SCHEMA_VERSION
+  );
+}
+
 function hasUnreadableLocalFutureStore(): boolean {
   if (localFutureStorePresent) return true;
   try {
@@ -1535,6 +1763,7 @@ function layoutStoresEquivalent(
   return (
     JSON.stringify(a.variants) === JSON.stringify(b.variants) &&
     JSON.stringify(a.tombstones) === JSON.stringify(b.tombstones) &&
-    JSON.stringify(a.resetSnapshot ?? null) === JSON.stringify(b.resetSnapshot ?? null)
+    JSON.stringify(a.resetSnapshot ?? null) === JSON.stringify(b.resetSnapshot ?? null) &&
+    JSON.stringify(a.resetTombstone ?? null) === JSON.stringify(b.resetTombstone ?? null)
   );
 }

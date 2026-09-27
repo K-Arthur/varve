@@ -137,11 +137,15 @@ are debounced (400 ms) and can be flushed explicitly.
 
 Writes within each store are serialized after the debounce: if a save is still
 in flight when a newer snapshot is queued, the newer snapshot is written after
-it and cannot be overwritten by the older completion. This is a per-process
-ordering guarantee; cross-window preference conflicts still use per-mode event
-times, and named-layout conflicts still use variant update times plus store
-revisions and deletion tombstones. Transactional cross-window revision checks
-remain a separate recovery milestone.
+it and cannot be overwritten by the older completion. Per-mode preferences
+still merge by event time. Named layouts use logical revisions and a persisted
+local writer identity for deterministic concurrent-edit ties; variants,
+deletion tombstones, and reset-snapshot clears all carry those stamps. Desktop
+SQLite and web IndexedDB compare-and-set the durable app-setting value in one
+transaction, retrying after a concurrent write and merging before saving.
+Legacy variants and numeric deletion timestamps migrate to revision stamps.
+Writer identity remains local metadata and is excluded from portable layout
+exports.
 
 `hydrateWorkspacePreferencesFromPlatform` runs once at startup and merges
 **per mode by event time** (`lastCustomized` or `clearedAt`). Both stores are
@@ -153,8 +157,9 @@ carries an event, an uncustomized entry never displaces a customized one, so
 durability can never itself lose a customization. A missing, empty, or corrupt
 payload leaves the local snapshot untouched.
 
-`hydrateLayoutStoreFromPlatform` follows the same pattern for named layouts,
-merging by variant `updatedAt` and deletion tombstone time.
+`hydrateLayoutStoreFromPlatform` merges named layouts by logical revision and
+writer identity. Wall-clock `updatedAt` remains display metadata and is used
+only to migrate layouts saved by older versions.
 
 ### Recovery and migration
 
@@ -435,7 +440,7 @@ there is still exactly one resolver and one projection.
 - **Capture is sparse.** A payload stores only differences from the target
   mode's built-in defaults, so a layout saved before a new built-in tool
   shipped still reveals that tool when applied. Captured payloads are
-  re-sanitized on read and apply. The version-3 payload also carries a
+  re-sanitized on read and apply. The version-4 payload also carries a
   validated nested dock layout when the workspace has one; older variants
   migrate into the same schema.
 - **Persistent Apply replaces, and never switches mode.** Applying a saved
@@ -460,7 +465,8 @@ there is still exactly one resolver and one projection.
   `resetSnapshot` before discarding them. Manage Layouts offers Restore,
   which re-applies the snapshot with fresh event timestamps so it outranks
   the reset. This is layout recovery, separate from document undo and enabled
-  even when no optional panel is open.
+  even when no optional panel is open. Clearing a snapshot leaves a revisioned
+  tombstone so a stale durable copy cannot restore it.
 - **User variants** support save-current-as, update, rename, duplicate, and
   delete. Duplicate names are rejected, never silently overwritten. Deleting
   is confirmed and tombstoned.
@@ -474,11 +480,14 @@ there is still exactly one resolver and one projection.
   offers replace-or-duplicate on a name collision.
 - **Persistence** uses `varve-workspace-layouts` in localStorage plus the
   `workspace-layouts` platform app-setting (SQLite on desktop / IndexedDB on
-  web), debounced 400 ms. Durable writes are serialized; hydration reads the
-  latest local snapshot, and merge is by variant `updatedAt` with deletion
-  tombstones, so a stale durable copy can never resurrect a deleted variant.
-  Unknown future store versions stay untouched and surface a persistence
-  message rather than being rewritten by this build.
+  web), debounced 400 ms. Durable writes are serialized and use atomic
+  compare-and-set; on a conflict, the writer reloads, merges, and retries.
+  Variants, deletion tombstones, reset snapshots, and reset clears use logical
+  revisions with a local writer id for deterministic tie-breaking. Legacy
+  wall-clock stamps migrate to revision stamps and schema migrations are
+  persisted. Identity stays out of portable exports. Unknown future store
+  versions stay untouched and surface a persistence message rather than being
+  rewritten by this build.
 
 Entry points: **View ▸ Manage Layouts…** and the command palette
 (`manageWorkspaceLayouts`); the native menu defs carry the
@@ -630,7 +639,7 @@ windows; it rejects duplicate node and panel identities, applies registered
 singleton and host rules, and exposes minimum-size calculations from the panel
 registry. `reorderTab` and `movePanelToHost` preserve active-tab identity,
 reject incompatible hosts, and validate the resulting layout before returning
-it. Workspace preferences and version-3 named variants now persist the
+it. Workspace preferences and version-4 named variants now persist the
 validated schema-2 dock tree, with document pins and unknown machine fields
 removed from portable exports. These are pure-model and persistence
 guarantees; they do not imply that users can yet rearrange the live shell. The

@@ -156,6 +156,15 @@ describe('createMemoryPlatform — view state', () => {
     expect((await p.getViewState()).view).toBe('list');
     expect((await p.getViewState()).sidebarCollapsed).toBe(true);
   });
+
+  it('compare-and-sets app settings only at the observed revision', async () => {
+    const p = createMemoryPlatform();
+    expect(await p.compareAndSetAppSetting?.('layouts', null, 'revision-1')).toBe(true);
+    expect(await p.compareAndSetAppSetting?.('layouts', null, 'stale')).toBe(false);
+    expect(await p.compareAndSetAppSetting?.('layouts', 'old', 'stale')).toBe(false);
+    expect(await p.compareAndSetAppSetting?.('layouts', 'revision-1', 'revision-2')).toBe(true);
+    expect(await p.getAppSetting('layouts')).toBe('revision-2');
+  });
 });
 
 describe('createMemoryPlatform — native dialogs (no-op)', () => {

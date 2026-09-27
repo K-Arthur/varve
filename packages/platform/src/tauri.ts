@@ -591,6 +591,13 @@ export function createTauriPlatform(): Platform {
         // IPC failure — non-fatal.
       }
     },
+    async compareAndSetAppSetting(key, expectedValue, nextValue) {
+      return (await core().invoke('app_compare_and_set_setting', {
+        key,
+        expectedValue,
+        nextValue,
+      })) as boolean;
+    },
 
     async openDocumentFromDisk() {
       return withFocusRestore(async () => {

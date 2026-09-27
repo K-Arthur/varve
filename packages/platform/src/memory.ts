@@ -399,6 +399,11 @@ export function createMemoryPlatform(options: MemoryPlatformOptions = {}): Platf
     async setAppSetting(key, value) {
       state.appSettings.set(key, value);
     },
+    async compareAndSetAppSetting(key, expectedValue, nextValue) {
+      if ((state.appSettings.get(key) ?? null) !== expectedValue) return false;
+      state.appSettings.set(key, nextValue);
+      return true;
+    },
 
     // ─── Phase 1: Drafts ─────────────────────────────────────────────────
     async listDrafts() {

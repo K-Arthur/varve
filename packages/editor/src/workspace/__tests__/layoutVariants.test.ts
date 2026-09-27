@@ -14,6 +14,7 @@ import {
   BUILT_IN_LAYOUT_VARIANTS,
   captureLayoutPayload,
   captureResetSnapshot,
+  clearResetSnapshot,
   createEmptyLayoutStore,
   deleteLayoutVariant,
   duplicateLayoutVariant,
@@ -389,7 +390,10 @@ describe('layoutVariants: CRUD', () => {
 
     state = deleteLayoutVariant(state, added.variant.id, added.variant.updatedAt + 1);
     expect(state.variants).toHaveLength(1);
-    expect(state.tombstones[added.variant.id]).toBe(added.variant.updatedAt + 1);
+    expect(state.tombstones[added.variant.id]?.revision).toBeGreaterThan(
+      added.variant.revision ?? 0,
+    );
+    expect(state.tombstones[added.variant.id]?.writerId).toBeTruthy();
   });
 
   it('rejects duplicate names case-insensitively', () => {
@@ -444,6 +448,8 @@ describe('layoutVariants: import/export and hostile payloads', () => {
       payload: { panelOverrides: { pagenav: { visible: true } } },
     };
     const json = exportLayoutVariant(variant);
+    expect(json).not.toContain('writerId');
+    expect(json).not.toContain('revision');
     const imported = importLayoutVariantFromJson(json);
     expect(imported.ok).toBe(true);
     if (!imported.ok) return;
@@ -478,7 +484,7 @@ describe('layoutVariants: import/export and hostile payloads', () => {
     ).toMatchObject({ ok: false, reason: 'future-version' });
   });
 
-  it('migrates stored versions 1 and 2 to the current ordered-customization schema', () => {
+  it('migrates stored versions 1 through 3 to the current ordered-customization schema', () => {
     const migrated = sanitizeLayoutStore({
       schemaVersion: 1,
       variants: [
@@ -491,7 +497,9 @@ describe('layoutVariants: import/export and hostile payloads', () => {
         },
       ],
     });
-    expect(migrated.schemaVersion).toBe(3);
+    expect(migrated.schemaVersion).toBe(4);
+    expect(migrated.variants[0]?.revision).toBe(2);
+    expect(migrated.variants[0]?.writerId).toBe('legacy');
     expect(migrated.variants[0]?.payload.panelOverrides?.history?.visible).toBe(true);
 
     const v2 = sanitizeLayoutStore({
@@ -506,8 +514,27 @@ describe('layoutVariants: import/export and hostile payloads', () => {
         },
       ],
     });
-    expect(v2.schemaVersion).toBe(3);
+    expect(v2.schemaVersion).toBe(4);
     expect(v2.variants[0]?.payload.inspectorTabOrder).toEqual(['properties']);
+
+    const v3 = sanitizeLayoutStore({
+      schemaVersion: 3,
+      variants: [],
+      tombstones: { 'lv-deleted': 100 },
+    });
+    expect(v3.schemaVersion).toBe(4);
+    expect(v3.tombstones['lv-deleted']).toEqual({ revision: 100, writerId: 'legacy' });
+  });
+
+  it('persists a local schema migration immediately', () => {
+    localStorage.setItem(
+      'varve-workspace-layouts',
+      JSON.stringify({ schemaVersion: 3, revision: 0, variants: [], tombstones: {} }),
+    );
+    expect(loadLayoutStore().schemaVersion).toBe(4);
+    expect(JSON.parse(localStorage.getItem('varve-workspace-layouts') ?? '{}').schemaVersion).toBe(
+      4,
+    );
   });
 
   it('drops flyout assignments that are not declared by the target workspace', () => {
@@ -633,6 +660,60 @@ describe('layoutVariants: persistence and merge', () => {
     expect(loadLayoutStore().variants[0]!.name).toBe('Saved');
   });
 
+  it('writes a durable schema migration after hydration', async () => {
+    const platform = fakePlatform();
+    platform.store.set(
+      'workspace-layouts',
+      JSON.stringify({ schemaVersion: 3, revision: 0, variants: [], tombstones: {} }),
+    );
+    attachLayoutStorePlatform(platform);
+    expect(await hydrateLayoutStoreFromPlatform(platform)).toBe(true);
+    await flushLayoutStore();
+    expect(JSON.parse(platform.store.get('workspace-layouts') ?? '{}').schemaVersion).toBe(4);
+  });
+
+  it('retries a durable compare/write after merging a concurrent window edit', async () => {
+    const local = addLayoutVariant(createEmptyLayoutStore(), {
+      name: 'Local edit',
+      sourceMode: 'design',
+      payload: {},
+    });
+    const concurrent = addLayoutVariant(createEmptyLayoutStore(), {
+      name: 'Concurrent edit',
+      sourceMode: 'print',
+      payload: {},
+    });
+    if (!local.ok || !concurrent.ok) throw new Error('setup failed');
+
+    const store = new Map<string, string>();
+    let injectedConcurrentWrite = false;
+    const platform = {
+      getAppSetting: vi.fn(async (key: string) => store.get(key) ?? null),
+      setAppSetting: vi.fn(async (key: string, value: string) => store.set(key, value)),
+      compareAndSetAppSetting: vi.fn(async (key: string, expected: string | null, next: string) => {
+        if (!injectedConcurrentWrite) {
+          injectedConcurrentWrite = true;
+          store.set(key, JSON.stringify(concurrent.state));
+          return false;
+        }
+        if ((store.get(key) ?? null) !== expected) return false;
+        store.set(key, next);
+        return true;
+      }),
+    } as unknown as Platform;
+
+    attachLayoutStorePlatform(platform);
+    setLayoutStore(local.state);
+    await flushLayoutStore();
+
+    const durable = JSON.parse(store.get('workspace-layouts') ?? '{}') as WorkspaceLayoutStoreState;
+    expect(durable.variants.map((variant) => variant.name).sort()).toEqual([
+      'Concurrent edit',
+      'Local edit',
+    ]);
+    expect(platform.compareAndSetAppSetting).toHaveBeenCalledTimes(2);
+  });
+
   it('a local tombstone defeats a stale durable variant', async () => {
     const added = addLayoutVariant(createEmptyLayoutStore(), {
       name: 'Doomed',
@@ -667,6 +748,77 @@ describe('layoutVariants: persistence and merge', () => {
       { ...createEmptyLayoutStore(), variants: [remoteVariant], revision: 1 },
     );
     expect(merged.variants[0]!.name).toBe('Remote');
+  });
+
+  it('orders edits by logical revision even when wall-clock time moves backward', () => {
+    const localVariant = {
+      id: 'lv-revised',
+      name: 'Later logical edit',
+      builtIn: false,
+      createdAt: 1,
+      updatedAt: 100,
+      revision: 8,
+      writerId: 'writer-a',
+      payload: {},
+    };
+    const remoteVariant = {
+      ...localVariant,
+      name: 'Newer clock only',
+      updatedAt: 20_000,
+      revision: 7,
+      writerId: 'writer-z',
+    };
+    const merged = mergeLayoutStores(
+      { ...createEmptyLayoutStore(), variants: [localVariant], revision: 8 },
+      { ...createEmptyLayoutStore(), variants: [remoteVariant], revision: 7 },
+    );
+    expect(merged.variants[0]!.name).toBe('Later logical edit');
+  });
+
+  it('breaks concurrent revision ties deterministically by writer identity', () => {
+    const variant = {
+      id: 'lv-concurrent',
+      name: 'Writer A',
+      builtIn: false,
+      createdAt: 1,
+      updatedAt: 100,
+      revision: 12,
+      writerId: 'writer-a',
+      payload: {},
+    };
+    const concurrent = { ...variant, name: 'Writer B', writerId: 'writer-b' };
+    const left = mergeLayoutStores(
+      { ...createEmptyLayoutStore(), variants: [variant], revision: 12 },
+      { ...createEmptyLayoutStore(), variants: [concurrent], revision: 12 },
+    );
+    const right = mergeLayoutStores(
+      { ...createEmptyLayoutStore(), variants: [concurrent], revision: 12 },
+      { ...createEmptyLayoutStore(), variants: [variant], revision: 12 },
+    );
+    expect(left.variants[0]!.name).toBe('Writer B');
+    expect(right.variants[0]!.name).toBe('Writer B');
+  });
+
+  it('lets a revisioned deletion defeat a stale variant regardless of its timestamp', () => {
+    const staleVariant = {
+      id: 'lv-tombstoned',
+      name: 'Stale copy',
+      builtIn: false,
+      createdAt: 1,
+      updatedAt: 50_000,
+      revision: 4,
+      writerId: 'writer-a',
+      payload: {},
+    };
+    const deleted = mergeLayoutStores(
+      {
+        ...createEmptyLayoutStore(),
+        revision: 9,
+        tombstones: { 'lv-tombstoned': { revision: 9, writerId: 'writer-a' } },
+      },
+      { ...createEmptyLayoutStore(), variants: [staleVariant], revision: 4 },
+    );
+    expect(deleted.variants).toHaveLength(0);
   });
 
   it('rejects a future store schema without rewriting it', () => {
@@ -813,6 +965,27 @@ describe('layoutVariants: reset snapshot', () => {
       5_000,
     );
     expect(state.resetSnapshot?.scope.kind).toBe('all');
+  });
+
+  it('keeps reset-snapshot clears from restoring stale snapshots', () => {
+    const original = captureResetSnapshot(
+      createEmptyLayoutStore(),
+      { kind: 'all' },
+      getWorkspacePreferences(),
+      1_000,
+    );
+    const cleared = clearResetSnapshot(original);
+    expect(cleared.resetSnapshot).toBeUndefined();
+    expect(cleared.resetTombstone?.revision).toBeGreaterThan(original.resetSnapshot?.revision ?? 0);
+    expect(mergeLayoutStores(cleared, original).resetSnapshot).toBeUndefined();
+
+    const replacement = captureResetSnapshot(
+      cleared,
+      { kind: 'all' },
+      getWorkspacePreferences(),
+      2_000,
+    );
+    expect(mergeLayoutStores(cleared, replacement).resetSnapshot?.savedAt).toBe(2_000);
   });
 });
 

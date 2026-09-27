@@ -269,6 +269,12 @@ export interface Platform {
   // separate app launches in every WebView implementation.
   getAppSetting(key: string): Promise<string | null>;
   setAppSetting(key: string, value: string): Promise<void>;
+  /** Atomic app-setting compare/write used for cross-window revision checks. */
+  compareAndSetAppSetting?(
+    key: string,
+    expectedValue: string | null,
+    nextValue: string,
+  ): Promise<boolean>;
 
   // ─── Native dialogs / OS integration ─────────────────────────────────────
   openDocumentFromDisk(): Promise<OpenFileResult | null>;

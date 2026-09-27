@@ -5034,6 +5034,22 @@ fn app_set_setting(
         .map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+fn app_compare_and_set_setting(
+    store: tauri::State<'_, varve_sync::DocumentStore>,
+    key: String,
+    expected_value: Option<String>,
+    next_value: String,
+) -> Result<bool, String> {
+    store
+        .compare_and_set_view_state(
+            &format!("app-setting:{key}"),
+            expected_value.as_deref(),
+            &next_value,
+        )
+        .map_err(|e| e.to_string())
+}
+
 // ── Thumbnails ──────────────────────────────────────────────────────
 
 #[derive(Debug, Deserialize)]
@@ -5898,6 +5914,7 @@ pub fn run() {
             home_set_view_state,
             app_get_setting,
             app_set_setting,
+            app_compare_and_set_setting,
             home_get_thumbnail,
             home_put_thumbnail,
             home_evict_thumbnails,

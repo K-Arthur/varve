@@ -1109,6 +1109,19 @@ export async function createWebPlatform(_options: WebPlatformOptions = {}): Prom
     async setAppSetting(key: string, value: string) {
       await db.put(STORE_KV, { key: `app-setting_${key}`, value });
     },
+    async compareAndSetAppSetting(key: string, expectedValue: string | null, nextValue: string) {
+      const storageKey = `app-setting_${key}`;
+      const tx = db.transaction(STORE_KV, 'readwrite');
+      const row = await tx.store.get(storageKey);
+      const current = (row?.value as string | undefined) ?? null;
+      if (current !== expectedValue) {
+        await tx.done;
+        return false;
+      }
+      await tx.store.put({ key: storageKey, value: nextValue });
+      await tx.done;
+      return true;
+    },
 
     // ─── Native Dialogs ───────────────────────────────────────────────────────
     async openDocumentFromDisk() {

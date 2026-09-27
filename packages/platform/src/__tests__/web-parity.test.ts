@@ -4,6 +4,18 @@ import { describe, expect, it } from 'vitest';
 import { createWebPlatform } from '../web';
 
 describe('web platform', () => {
+  it('compare-and-sets app settings atomically across platform instances', async () => {
+    const first = await createWebPlatform();
+    const second = await createWebPlatform();
+    const key = `cas-test-${Math.random().toString(36).slice(2)}`;
+    const results = await Promise.all([
+      first.compareAndSetAppSetting?.(key, null, 'writer-one'),
+      second.compareAndSetAppSetting?.(key, null, 'writer-two'),
+    ]);
+    expect(results.filter(Boolean)).toHaveLength(1);
+    expect(['writer-one', 'writer-two']).toContain(await first.getAppSetting(key));
+  });
+
   it('creates and lists folders', async () => {
     const p = await createWebPlatform();
     const proj = await p.createProject('Test');

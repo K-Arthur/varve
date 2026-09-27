@@ -112,3 +112,14 @@ Promotion happens only through `promoteLastKnownGood`, after a validated
 restore; unknown future schema versions are left unread rather than
 relabelled. See `docs/architecture/workspace-system.md` for the live
 contract.
+
+## Amendment (2026-09-27): revision-checked named-layout writes
+
+Named-layout store schema 4 stamps variants, deletion markers, reset snapshots,
+and reset clears with a monotonic logical revision and local writer identity.
+The identity is private to the installation and is omitted from portable
+exports. Older wall-clock timestamps are converted to legacy revision stamps
+during migration. Durable saves use compare-and-set transactions in SQLite on
+desktop and IndexedDB on the web; a failed compare reloads and merges the
+concurrent store before retrying. This closes the earlier per-process-only
+write-order guarantee for the named-layout store.

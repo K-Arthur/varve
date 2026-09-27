@@ -642,6 +642,29 @@ impl DocumentStore {
         Ok(())
     }
 
+    /// Atomically replace view state only when it still matches the caller's
+    /// observed value. Used by app preferences that merge revisions across
+    /// multiple windows.
+    pub fn compare_and_set_view_state(
+        &self,
+        key: &str,
+        expected: Option<&str>,
+        value: &str,
+    ) -> Result<bool, rusqlite::Error> {
+        let conn = self.conn();
+        let changed = match expected {
+            Some(expected) => conn.execute(
+                "UPDATE view_state SET value = ?3 WHERE key = ?1 AND value = ?2",
+                rusqlite::params![key, expected, value],
+            )?,
+            None => conn.execute(
+                "INSERT OR IGNORE INTO view_state (key, value) VALUES (?1, ?2)",
+                rusqlite::params![key, value],
+            )?,
+        };
+        Ok(changed == 1)
+    }
+
     // ── Recent files ──────────────────────────────────────────────────────────
 
     fn recent_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<RecentRow> {
@@ -1007,6 +1030,27 @@ mod tests {
         assert_eq!(val, Some("collapsed".to_string()));
 
         assert_eq!(store.get_view_state("missing").expect("get"), None);
+    }
+
+    #[test]
+    fn view_state_compare_and_set_rejects_stale_values() {
+        let store = temp_store();
+        assert!(store
+            .compare_and_set_view_state("layouts", None, "revision-1")
+            .expect("insert if absent"));
+        assert!(!store
+            .compare_and_set_view_state("layouts", None, "stale insert")
+            .expect("reject duplicate insert"));
+        assert!(!store
+            .compare_and_set_view_state("layouts", Some("older"), "stale update")
+            .expect("reject stale update"));
+        assert!(store
+            .compare_and_set_view_state("layouts", Some("revision-1"), "revision-2")
+            .expect("replace matching value"));
+        assert_eq!(
+            store.get_view_state("layouts").expect("read latest"),
+            Some("revision-2".to_string())
+        );
     }
 
     #[test]
