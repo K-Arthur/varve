@@ -570,7 +570,7 @@ The complaint-to-reproduction matrix is deliberately explicit about gaps:
 | Drag lag grows with viewport width ([Excalidraw #7846](https://github.com/excalidraw/excalidraw/issues/7846), Apr 3 2024) | Production workload runner now accepts matched `--width`/`--height` runs on the same fixture; the 1024×768 vs 1920×1080 pair is not yet measured | Local reproduction is available; paired result pending |
 | Brush lag on a small 500×500 file ([Adobe Community](https://community.adobe.com/questions-712/photoshop-2025-brush-lag-1174223), Nov 27 2024) | `small` fixture now has separate cold-first-stroke and warmed `brush`/`brush-large-tip` profiles; pointer traces are trusted CDP input but do not carry physical pressure | Browser profile pending; pressure-device evidence unavailable; no stabilization change is justified |
 | Effects remain blurry or smear during navigation | An earlier effects-heavy comparison differed from the forced main-thread oracle by 352,935 pixels (maximum channel delta 184); a later focused 150-node worker comparison differed at 143,105 pixels (maximum delta 5). Visible effects now stay on main-thread Canvas2D, and the Full-quality Chromium oracle passes exact pixel equality through camera bursts; the 150-node replay still takes about 3.5 seconds | Settled fidelity is corrected for the covered case; the 1-second heavy refinement target is missed, and mid-gesture/resource/DPR/rotation combinations remain open |
-| Long-session writing slows after storage errors ([Excalidraw #7341](https://github.com/excalidraw/excalidraw/issues/7341), Nov 25 2023) | Varve's canonical history capture was measured near 190 ms on a 10k-node document; the fresh Tauri runner completed one pilot cycle, while a three-cycle attempt completed only 1/3 before close recovery failed | Serialization cost is confirmed; the 100-cycle soak, memory plateau, and session-level save-degradation evidence remain unmeasured |
+| Long-session writing slows after storage errors ([Excalidraw #7341](https://github.com/excalidraw/excalidraw/issues/7341), Nov 25 2023) | Varve's canonical history capture was measured near 190 ms on a 10k-node document; a fresh current-master Tauri run completed 2/2 open/edit/navigate/brush/save/close cycles. The first 100-cycle attempt reached 14/100 before WDIO's global 90-second timeout; an extended-timeout rerun is queued | The 2-cycle workflow is a smoke only. It does not establish a memory plateau or session-level save-degradation result |
 
 No Coupler.io dataset was available in the connected workspace on 2026-09-27,
 so this pass uses public first-person reports and Varve's own local artifacts;
@@ -723,15 +723,30 @@ and `test-results/canvas-fluidity-pages.visu-bc27d-performance-details-visible-g
 
 ### Native workflow retry — 2026-09-27
 
-The first completed Tauri cycle remains a useful workflow smoke, not a soak:
-the WebView was visible, the artwork fingerprint changed, local save settled,
-and the captured editor screenshot was inspected. A later three-cycle retry
-completed one cycle, then failed to return to Home after the next document's
-close action. Its evidence is
-`/var/tmp/varve-fluidity-evidence-f7fb66ba0/native-fluidity-3-cycles-keyboard-close.json`;
-it is marked inconclusive at 1/3 and has only one process-tree sample, so it
-cannot establish a memory plateau. The saved-tab check now waits for the dirty
-marker to clear, hovers the active tab, and clicks its visible close control;
-that change is awaiting another leased native run. DOM-dispatched pointer and
-wheel input remain synthetic, and there is still no sustained-session or
-physical-input conclusion.
+A fresh debug Tauri/WebKitGTK binary built from candidate `8f3277de1` has SHA-256
+`c1e1f6f95a04ac3bb52b58b7528ede47c760f89b127486c5783280b46f576a29`. The
+matching WDIO Vite frontend and Tauri shell were rebuilt; the ordinary desktop
+pre-build typecheck still reports seven unrelated concurrent workspace errors,
+so the shell build used an external override only for that failing hook. This
+does not count as a passing workspace typecheck.
+
+The current-master native run completed 2/2 open/edit/navigate/brush/save/close
+cycles. The WebView stayed visible at 682×583 CSS pixels, the canvas
+fingerprints changed, both local saves settled, and I opened and inspected both
+screenshots at
+`/var/tmp/varve-fluidity-evidence-current-8f3277de1/native-workflow-cycle-001.png`
+and
+`/var/tmp/varve-fluidity-evidence-current-8f3277de1/native-workflow-cycle-002.png`.
+Inputs are WebDriver DOM-synthetic, not OS-trusted. The run produced two
+process-tree samples, which is far below the 40-sample requirement for a memory
+plateau.
+
+The earlier repeated-run failure was an assertion mistake. Returning to Home
+keeps the prior editor session mounted for Resume Editing; opening another file
+creates a second tab. Closing the new tab correctly restores the retained one,
+so the test now records one or two Close Document shortcut actions and requires
+Home after any retained tab is also closed. The 100-cycle attempt before the
+WDIO timeout change reached 14/100 and stopped at the global 90-second timeout.
+`wdio.conf.ts` now derives the limit from the requested native cycle count; a
+100-cycle retry is queued behind the shared heavy-task lease. No sustained
+memory or session-degradation conclusion is claimed yet.

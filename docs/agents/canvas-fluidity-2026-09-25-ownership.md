@@ -255,7 +255,7 @@ Both website base-path builds and Astro checks passed, but the website's narrow
 has not yet rerun. A fresh Tauri build, native 100-cycle workflow, matched
 performance rounds, and escalated full gate remain incomplete.
 
-## Continuation update (2026-09-27, native workflow and validation)
+## Earlier continuation update (2026-09-27, native workflow and validation)
 
 The implementation remains on `master`; the latest task commit is
 `2455346d5` (`test(native): harden fluidity soak evidence`). Its isolated
@@ -303,3 +303,24 @@ effects-heavy 150-node replay still measured about 3.5 seconds in development
 Chromium, above the 1-second heavy refinement target. No p99 claim is made;
 there are not 1,000 valid samples. Physical pen/touchpad, lower-memory and ARM
 devices, and trusted input-to-photon evidence remain untested.
+
+## Current native repeats (2026-09-27)
+
+The latest task commit is `04abd6a16` (`test(native): support repeated
+fluidity workflow cycles`). The updated workflow records its Close Document
+shortcut and action count, recognizes the retained editor session shown by
+Resume Editing, and raises WDIO's timeout according to the requested cycle
+count. The 2-cycle current-master smoke passed; its screenshot evidence is
+`/var/tmp/varve-fluidity-evidence-current-8f3277de1/native-workflow-cycle-001.png`
+and `.../native-workflow-cycle-002.png`, both opened and visually inspected.
+Each shows the vector rectangle and brush stroke. The run is DOM-synthetic and
+has only two process-tree samples, so it cannot establish a memory plateau.
+
+An initial 100-cycle attempt stopped at 14/100 after the WDIO global 90-second
+timeout. The corrected timeout now evaluates to 4,500,000 ms for 100 requested
+cycles; a rerun is queued behind the shared heavy-task lease. The current fresh
+debug Tauri binary was built from `8f3277de1` and has SHA-256
+`c1e1f6f95a04ac3bb52b58b7528ede47c760f89b127486c5783280b46f576a29`. The
+matching frontend and shell built after the ordinary pre-build typecheck
+reported seven concurrent workspace type errors; the build override bypassed
+only that failing hook, so no workspace typecheck pass is claimed.
