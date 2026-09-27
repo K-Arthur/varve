@@ -196,7 +196,7 @@ VARVE_SAM2_REAL_MODEL=1 node scripts/quality/heavy-lease.mjs \
 
 | Platform | Result |
 | --- | --- |
-| **Chromium / Linux x86_64** | All three specs **PASS** (table above), including the real-model gate. |
+| **Chromium / Linux x86_64** | All three specs **PASS** (table above), including the real-model gate. Final combined run after every interleaved commit: **13/13 in 5.5 min** — the full `object-selection.spec.ts` (7), both new specs, and all four real-model tests: cold preview 25 s / warm 1 s with undo-redo, the under-specified edge-prompt refusal, the Generative Edit handoff (target 94.6% of pixels changed, mug and flowers 0), and the box-hint edge capture. |
 | **Firefox / Linux** | Both UI specs **PASS** — draft overlay 23.2 s, Alpha trim 19.7 s (`--project=firefox`, Firefox 1538). The real-model spec is Chromium-only by design: it launches its own persistent Chromium context. |
 | **WebKit (Playwright, Linux)** | **Blocked before launch**, not a test failure: the host lacks `libicu74`, `libxml2`, `libflite1`. Fix is `sudo npx playwright install-deps` (or `sudo apt-get install libicu74 libxml2 libflite1`); `sudo` requires a password in this environment, so it could not be installed here. |
 | **Native Tauri / WebKitGTK** | `pnpm test:desktop:native` (preflight + debug build with the `wdio` feature + `tauri-smoke` / `native-menu` specs) queued under the lease — result recorded below. |
