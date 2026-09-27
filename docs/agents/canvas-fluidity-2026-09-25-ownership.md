@@ -254,3 +254,52 @@ Both website base-path builds and Astro checks passed, but the website's narrow
 200%-text visual exposed horizontal overflow and the forced-colors follow-up
 has not yet rerun. A fresh Tauri build, native 100-cycle workflow, matched
 performance rounds, and escalated full gate remain incomplete.
+
+## Continuation update (2026-09-27, native workflow and validation)
+
+The implementation remains on `master`; the latest task commit is
+`2455346d5` (`test(native): harden fluidity soak evidence`). Its isolated
+index commit preserved the other staged entries. The native runner no longer
+depends on the untracked `nativeQualification.mjs`; its own tests cover
+removed screenshots and the 40-sample memory-plateau check. The WDIO timeout
+now allows 45 seconds per cycle, and each repeated cycle explicitly returns
+to Design after the prior cycle switched to Draw.
+
+A fresh debug Tauri/WebKitGTK binary was built for candidate
+`f7fb66ba00657464bb68e95160c5ef4029fdfcbc` with SHA-256
+`384ab13519d72112f55e77afafe26894e3af903564d282422eb3e0b064f0bd2d`.
+The ordinary `desktop:build:test` pre-build typecheck stopped on seven
+workspace errors; the matching WDIO Vite frontend and Tauri shell were then
+built with the test config and an external override for that failing hook.
+This is a fresh native executable, but the workspace typecheck is not claimed
+as passing.
+
+One complete Tauri cycle passed at 2026-09-27 20:59 UTC: open, rectangle and
+brush edits, pan/zoom input, changed canvas pixels, settled local save,
+screenshot, and close. The WebView was visible at 682×583 CSS pixels and its
+surface fingerprint changed from `2390886853` to `533500294`. Input is
+explicitly WebDriver DOM-synthetic, not OS-trusted. The screenshot was opened
+and inspected; its retained evidence copy is
+`/var/tmp/varve-fluidity-evidence-f7fb66ba0/native-smoke-cycle-001.png`.
+
+The first 100-cycle attempt completed cycle one, then found that Draw mode
+persisted into the next new document and removed the rectangle tool. The
+runner now sets the documented Design shortcut on every open; a second
+100-cycle attempt is queued behind the shared Chromium lease. No sustained
+native soak or memory plateau is claimed until that attempt completes.
+
+The planner still escalates to the full gate. `pnpm verify:full` was attempted
+with the required reason and stopped at E2E typechecking because the concurrent
+`tests/e2e/workspace/consolidated-panels-responsive.spec.ts` reads a nonexistent
+`right` property from `{x,y,width,height}`. Earlier in that gate, architecture
+checks reported cycle/instability violations and `ts-prune` timed out.
+`pnpm verify:triage` stopped at a formatter error in the concurrent
+`tests/e2e/plugins/local-manager.spec.ts`. The native runner's focused Node
+tests pass 5/5 and its three changed files pass Biome; the broad E2E typecheck
+remains blocked by the unrelated spec error.
+
+No three-round baseline/candidate production comparison was completed. The
+effects-heavy 150-node replay still measured about 3.5 seconds in development
+Chromium, above the 1-second heavy refinement target. No p99 claim is made;
+there are not 1,000 valid samples. Physical pen/touchpad, lower-memory and ARM
+devices, and trusted input-to-photon evidence remain untested.
