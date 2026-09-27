@@ -124,6 +124,13 @@ import ClosingCTA from '../components/ClosingCTA.astro';
         <p>
           Under sustained frame pressure, navigation may use a reduced-resolution render surface. Pan and zoom can also briefly reproject the last worker frame while a current frame is being prepared; that preview can look soft or incomplete until the replacement is painted. Once input stops, Varve requests an authoritative frame at the selected quality. The warm refinement targets are 500&nbsp;ms for ordinary work and 1&nbsp;s for heavy work after required assets are ready; these are targets, not timing guarantees. Cold image or font readiness can extend the wait and is not quantified in the published evidence. Rendering choices do not change document geometry or export settings. The optional WebGPU compositor can draw eligible solid-color rectangles, circles, and ellipses after device checks; other artwork uses Canvas2D or the render worker, and a ready GPU does not mean every frame uses it. Linux WebKitGTK keeps the Canvas2D display path.
         </p>
+        <aside class="product-route-note">
+          <strong>Known refinement miss.</strong> One 150-node effects scene took about 3.5 seconds
+          to replay after camera input in a development Chromium run on Linux, exceeding the
+          1-second heavy-work target. This is a single synthetic test, not a native result,
+          percentile, or device-wide performance claim. See the
+          <a href={sitePath('/docs/performance')}>performance evidence and limitations</a>.
+        </aside>
         <p>
           A navigation preview is temporary display state, not a separate copy of your
           design. A delayed worker frame can leave the preview soft for longer than its

@@ -704,3 +704,19 @@ simple worker scene against the integrated revision identity and verified the
 effects fallback after camera input. Additional mid-drag, pending-resource,
 DPR, rotation, and failure combinations still need visual pixel-oracle
 coverage.
+
+### Website narrow-text follow-up — 2026-09-27
+
+The earlier narrow website failure was a real closed-navigation and footer
+CTA layout issue. At 375 px with the root font enlarged to 200%, the translated
+hidden mobile sheet and the footer CTA's intrinsic width expanded the document
+to 480 px. The closed sheet now stays outside positive horizontal overflow,
+and the footer CTA can wrap inside the narrow content column. The five-route
+GH Pages visual run passed after both website base-path builds. At 375 px, the
+test checks document/body widths, keyboard focus, CTA wrapping, mobile-sheet
+width while open and closed, scrollable link bounds, and that Support can be
+reached. The forced-colors view and dark settings, product, and performance
+pages also passed. I opened and inspected the captures for the narrow page,
+footer CTA, open and scrolled mobile sheet, and dark settings guide under
+`test-results/canvas-fluidity-pages.visu-16414-row-width-and-200-text-size-ghpages/`
+and `test-results/canvas-fluidity-pages.visu-bc27d-performance-details-visible-ghpages/`.

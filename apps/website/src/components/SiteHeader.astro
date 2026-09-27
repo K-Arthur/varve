@@ -886,7 +886,7 @@ const versionLabel = release.hasRelease && release.version
       border-left: 0;
       display: flex;
       flex-direction: column;
-      transform: translateX(100%);
+      transform: translateX(-100%);
       transition: transform 0.3s var(--ease-default);
       box-shadow: -8px 0 24px oklch(0 0 0 / 0.15);
       overflow: clip;
@@ -968,6 +968,7 @@ const versionLabel = release.hasRelease && release.version
 
     .mobile-nav-links {
       flex: 1;
+      min-height: 0;
       display: flex;
       flex-direction: column;
       padding: var(--space-3);
@@ -1031,6 +1032,20 @@ const versionLabel = release.hasRelease && release.version
     .mobile-nav-footer :global(.btn) {
       width: 100%;
       justify-content: center;
+    }
+
+    .mobile-nav-footer :global(.download-cta-large) {
+      box-sizing: border-box;
+      max-width: 100%;
+      flex-wrap: wrap;
+      white-space: normal;
+    }
+
+    .mobile-nav-footer :global(.download-cta-label) {
+      min-width: 0;
+      max-width: 100%;
+      white-space: normal;
+      overflow-wrap: anywhere;
     }
   }
 

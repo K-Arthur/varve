@@ -140,17 +140,36 @@ import '../../styles/docs-prose.css';
 
         <h3>Performance</h3>
         <p>
-          <strong>Automatic</strong> interactive preview lets the renderer choose a bounded
-          movement quality from observed frame pressure and restores authoritative resolution
-          after the gesture settles. <strong>Full resolution</strong> keeps navigation at the
-          full device-pixel target when the document and hardware can sustain it. Neither choice
-          changes saved artwork, hit testing, export, or print output.
+          <strong>Automatic (recommended)</strong> lets the renderer choose a bounded movement
+          quality from observed frame pressure. After input stops it requests an authoritative
+          frame; the warm refinement targets are 500&nbsp;ms for ordinary work and 1&nbsp;s for
+          heavy work after required assets are ready. These are targets, not guarantees; cold
+          image or font readiness can extend the wait and is not quantified in the published
+          evidence.
+          <strong>Full resolution while navigating</strong> keeps the full device-pixel target
+          during input and may reduce responsiveness on constrained hardware. A worker preview
+          may briefly be reprojected while a replacement is pending. Neither choice changes
+          saved artwork or the independent quality of export and print output.
         </p>
         <p>
           The diagnostics and platform capability report are opt-in and local. They show the
           active backend, frame age/cadence, queue state, preview tier, and fallback reason
           without collecting artwork or persistent hardware identifiers.
         </p>
+        <figure class="settings-performance-figure">
+          <img
+            src={sitePath('/screenshots/performance-settings-dark.png')}
+            alt="Varve's Performance settings tab, with Automatic interactive preview selected and the local diagnostics panel below it"
+            width="920"
+            height="760"
+            loading="lazy"
+            decoding="async"
+          />
+          <figcaption>
+            The Performance tab shows the current preview-quality control and opt-in local
+            diagnostics. This is a capture from the running editor interface, not a mockup.
+          </figcaption>
+        </figure>
       </section>
 
       <section class="docs-section">
@@ -250,6 +269,29 @@ import '../../styles/docs-prose.css';
     </div>
   </div>
 </Layout>
+
+<style>
+  .settings-performance-figure {
+    margin: 1.5rem 0;
+    overflow: hidden;
+    border: 1px solid var(--border-default);
+    border-radius: var(--website-radius-surface);
+    background: var(--surface-card);
+  }
+
+  .settings-performance-figure img {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  .settings-performance-figure figcaption {
+    padding: 0.75rem 1rem;
+    border-top: 1px solid var(--border-default);
+    color: var(--text-muted);
+    font-size: 0.875rem;
+  }
+</style>
 
 <style>
   .docs-page {

@@ -481,6 +481,29 @@ const statusLabel = release.hasRelease && release.version
     }
   }
 
+  /* At 200% text size, the footer CTA's label and beta chip can have a
+     combined intrinsic width larger than a phone viewport. Allow the action
+     and its label to wrap within the content column. */
+  @media (max-width: 480px) {
+    .footer-download-actions {
+      max-width: 100%;
+      box-sizing: border-box;
+    }
+
+    .footer-download-actions :global(.download-cta-large) {
+      max-width: 100%;
+      box-sizing: border-box;
+      flex-wrap: wrap;
+      white-space: normal;
+    }
+
+    .footer-download-actions :global(.download-cta-label) {
+      min-width: 0;
+      white-space: normal;
+      overflow-wrap: anywhere;
+    }
+  }
+
   @media (max-width: 420px) {
     .footer-columns {
       grid-template-columns: 1fr;

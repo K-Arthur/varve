@@ -56,12 +56,16 @@ import '../../styles/docs-prose.css';
           </tbody>
         </table>
         <p>
-          The preview scale applies <strong>only while a drag, pinch, or wheel burst is
-          open</strong>. When the interaction settles, the frame returns to full
-          device-pixel resolution. Exports, print output, saved originals, hit testing,
-          text, and selection overlays always use document coordinates and full fidelity.
-          The preview is a live render at lower resolution — never a stretched copy of an
-          old frame.
+          The reduced render scale is used during eligible interactions. Pan and zoom may
+          also temporarily reproject the latest worker frame while a replacement is in
+          flight; that image can look soft or incomplete until the current state is painted.
+          A declined or failed worker submission schedules the main-thread renderer. Once
+          input stops, Varve requests an authoritative frame at the selected quality. Warm
+          refinement targets are 500&nbsp;ms for ordinary work and 1&nbsp;s for heavy work
+          after required assets are ready. They are targets, not guarantees; cold image and
+          font readiness can extend the wait and is not quantified in the published evidence.
+          Exports and print output render through
+          their own full-fidelity paths, independent of the navigation preview.
         </p>
         <p>
           Device-memory hints can raise the floor before any frame is measured: a browser
@@ -70,15 +74,25 @@ import '../../styles/docs-prose.css';
           <em>performance</em>. These hints are coarse, browser-provided values. They are
           never treated as the amount of RAM available to the tab.
         </p>
+        <aside class="docs-note">
+          <strong>Observed effects-heavy miss:</strong> a 150-node Full-quality test scene
+          took about 3.5 seconds to replay after camera input in one development Chromium
+          run on Linux, exceeding the 1-second heavy-work refinement target. Visible
+          effects currently stay on the main Canvas2D path when worker output does not
+          match the independent redraw pixel-for-pixel. This is one synthetic development
+          fixture, not a production benchmark, native result, percentile, or device-wide
+          performance claim. It documents a real target miss while broader matched runs
+          remain outstanding.
+        </aside>
       </section>
 
       <section class="docs-section">
         <h2>What it does not change</h2>
         <ul>
-          <li><strong>Settled and exported output:</strong> a blurred or scaled preview never becomes the file. Saved documents, exports, and print output render at full fidelity.</li>
+          <li><strong>Document and output:</strong> a navigation preview does not rewrite artwork or saved geometry. Exports and print output use their own full-fidelity paths; preview quality does not set export quality.</li>
           <li><strong>Your document:</strong> the profile changes rendering cost, not geometry, text, effects, or undo history.</li>
           <li><strong>Presentation and compute are separate:</strong> Canvas2D remains the dependable display path. Opt-in WebGPU draws only shapes painted with a single solid color (rectangles, circles, ellipses) when the frame reaches the compositor and device initialization succeeds; a ready adapter alone does not prove GPU drawing or a speedup. If the device is lost mid-session, Canvas2D keeps drawing while WebGPU is retried automatically. Native desktop GPU compute is separate and limited to offscreen resampling and explicit asynchronous effect consumers, plus AI inference through a verified GPU execution provider on supported models. The current interactive effect preview and export replay remain on the software reference path. Background removal reports which provider actually ran and keeps a CPU fallback. The current release does not select an NPU: a product specification, host device, browser request, or Linux device node is not enough. A future NPU route must have a compatible provider runtime, driver, model, and observed execution on the actual process path.</li>
-          <li><strong>Manual quality control:</strong> the Performance tab offers Automatic or Full resolution for interactive navigation; it does not expose a render-scale slider. Selection is measured from actual frame time, while Full resolution is an explicit fidelity choice rather than a promise of a fixed frame rate.</li>
+          <li><strong>Manual quality control:</strong> the Performance tab offers Automatic (recommended) or Full resolution while navigating; it does not expose a render-scale slider. Automatic responds to measured frame pressure; Full resolution is a fidelity choice rather than a promise of a fixed frame rate or refinement deadline.</li>
         </ul>
       </section>
 
@@ -86,9 +100,9 @@ import '../../styles/docs-prose.css';
         <h2>Practical workload guidance</h2>
         <ul>
           <li><strong>Comfortable without special care:</strong> a few hundred nodes of shapes and text, a handful of images at screen resolution, and normal layer structures — the same scale as the built-in sample document.</li>
-          <li><strong>Expect adaptation:</strong> documents around a thousand mixed nodes, several large images, or concentrated effects will push the profile toward performance tiers. The canvas stays interactive; settled frames take the time they take.</li>
+          <li><strong>Expect adaptation:</strong> documents around a thousand mixed nodes, several large images, or concentrated effects can push the profile toward performance tiers. Responsiveness still depends on scene complexity, asset readiness, backend, and available device time; a preview may miss its refinement target.</li>
           <li><strong>Treat as stress, one at a time:</strong> dozens of 4096×4096 images, tens of thousands of path points, or long effect stacks. These are deliberate worst cases, not everyday documents, and combining them multiplies cost.</li>
-          <li><strong>Browser-local limits:</strong> on the deployed demo host, multi-threaded WASM is unavailable because the page is not cross-origin isolated. Large documents are therefore slower in the browser than in the native desktop application.</li>
+          <li><strong>Browser-local limits:</strong> the public demo at varve.studio is served from GitHub Pages, which cannot configure the cross-origin isolation headers required for shared-memory WASM. Multi-threaded WASM is unavailable in that deployment. This is a limit of the current public host, not every possible browser deployment; WASM and graphics capabilities also depend on the browser runtime. Use Settings → Performance → Platform capability report to inspect the current session. No general speed comparison with desktop is published without a matched device and workload.</li>
           <li><strong>Background work yields:</strong> thumbnails, raster pyramids, and semantic indexing are bounded, cancellable, and paused while the page is hidden or frozen. Chrome can discard a tab — including an installed web app on ChromeOS — without firing an unload event, so recovery points are written while you edit and an explicit save remains the durable copy.</li>
         </ul>
       </section>
@@ -96,12 +110,13 @@ import '../../styles/docs-prose.css';
       <section class="docs-section">
         <h2>Failure modes Varve deliberately avoids</h2>
         <p>
-          These are the behaviors users of browser design tools most often report as
-          losses, and what Varve does instead. They describe implemented, regression-tested
-          behavior — not device measurements.
+          These failures have been reported by users of design tools. Varve has safeguards
+          for several of them, but those safeguards do not mean every workload meets its
+          target. The examples describe regression-tested behavior and known gaps, not
+          device-wide guarantees.
         </p>
         <ul>
-          <li><strong>A preview that never sharpens:</strong> reduced render scale exists only while an interaction is open; settled frames, hit testing, overlays, and exports return to full device resolution.</li>
+          <li><strong>A preview that misses its refinement target:</strong> Varve schedules an authoritative redraw after input, with warm targets of 500&nbsp;ms for ordinary work and 1&nbsp;s for heavy work once required assets are ready. A slow device, busy scene, or cold image/font can take longer; misses remain part of the evidence rather than being discarded.</li>
           <li><strong>Full-resolution decode of offscreen images:</strong> visible images are bucketed to power-of-two proxies governed by a decoded-byte budget, so one oversized image cannot pin the working set at full resolution.</li>
           <li><strong>Background rewrites of unchanged data:</strong> automatic backups are skipped when the document JSON matches the last backup, duplicate untitled recovery writes were removed, recovery storage is byte-capped, and permanently deleting a file or version reclaims its content-addressed JSON.</li>
           <li><strong>Work loss on tab discard:</strong> Chrome documents that no event fires on discard; recovery points are written while you edit, and a reload or discard restores the latest point. An explicit save is still the durable copy.</li>
