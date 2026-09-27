@@ -10,7 +10,7 @@ function cycle(overrides = {}) {
     phases: { open: 'completed', interact: 'completed', save: 'completed', close: 'completed' },
     input: { source: 'webdriver-dom-synthetic', trusted: false },
     webview: { visible: true, width: 1200, height: 800 },
-    pixels: { before: 12, after: 34, changed: true },
+    pixels: { before: 12, after: 34, changed: true, visibleArtworkPixels: 2400 },
     screenshot: { path: '/tmp/cycle-001.png', bytes: 5000, exists: true },
     ...overrides,
   };
@@ -40,6 +40,15 @@ test('rejects missing lifecycle phases, hidden windows, unchanged pixels, and sc
 test('rejects screenshot metadata when the image has been removed', () => {
   const event = cycle({ screenshot: { path: '/tmp/missing.png', bytes: 5000, exists: false } });
   assert.ok(validateWorkflowEvents([event], 1).includes('cycle-1-screenshot-evidence-missing'));
+});
+
+test('rejects canvas changes that do not show visible artwork pixels', () => {
+  const event = cycle({
+    pixels: { before: 12, after: 34, changed: true, visibleArtworkPixels: 0 },
+  });
+  assert.ok(
+    validateWorkflowEvents([event], 1).includes('cycle-1-visible-artwork-pixel-evidence-missing'),
+  );
 });
 
 test('requires an event for every requested cycle in order', () => {

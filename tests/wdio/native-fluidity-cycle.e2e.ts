@@ -9,7 +9,12 @@ interface CycleEvidence {
   phases: { open: 'completed'; interact: 'completed'; save: 'completed'; close: 'completed' };
   input: { source: 'webdriver-dom-synthetic'; trusted: false };
   webview: { visible: boolean; width: number; height: number };
-  pixels: { before: number; after: number; changed: boolean };
+  pixels: {
+    before: number;
+    after: number;
+    changed: boolean;
+    visibleArtworkPixels: number;
+  };
   screenshot: { path: string; bytes: number };
   closeMethod: 'keyboard-shortcut';
   closeActions: number;
@@ -101,9 +106,8 @@ describe('Tauri fluidity workflow cycles — synthetic WebDriver input', () => {
     mkdirSync(dirname(eventPath), { recursive: true });
     mkdirSync(artifactDirectory, { recursive: true });
 
-    for (let index = 1; index <= cycles; index++) {
-      await createDocument();
-      const viewport = await browser.tauri.execute(() => {
+    const readCanvasPixels = () =>
+      browser.tauri.execute(() => {
         const canvas = document.querySelector<HTMLCanvasElement>('[data-testid="editor-canvas"]');
         if (!canvas) throw new Error('native editor canvas is not available');
         const box = canvas.getBoundingClientRect();
@@ -114,21 +118,31 @@ describe('Tauri fluidity workflow cycles — synthetic WebDriver input', () => {
         if (!context) throw new Error('native canvas 2D readback is unavailable');
         const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
         let hash = 2166136261;
-        for (let offset = 0; offset < pixels.length; offset += 16) {
-          hash ^= pixels[offset] ?? 0;
+        let visibleArtworkPixels = 0;
+        for (let offset = 0; offset < pixels.length; offset += 4) {
+          const red = pixels[offset] ?? 0;
+          const green = pixels[offset + 1] ?? 0;
+          const blue = pixels[offset + 2] ?? 0;
+          hash ^= red;
           hash = Math.imul(hash, 16777619);
-          hash ^= pixels[offset + 1] ?? 0;
+          hash ^= green;
           hash = Math.imul(hash, 16777619);
-          hash ^= pixels[offset + 2] ?? 0;
+          hash ^= blue;
           hash = Math.imul(hash, 16777619);
+          if (green > 140 && blue > 130 && red < 140) visibleArtworkPixels += 1;
         }
         return {
           visible: document.visibilityState === 'visible',
           width: box.width,
           height: box.height,
           fingerprint: hash >>> 0,
+          visibleArtworkPixels,
         };
       });
+
+    for (let index = 1; index <= cycles; index++) {
+      await createDocument();
+      const viewport = await readCanvasPixels();
       expect(viewport.visible).toBe(true);
 
       const rectTool = await browser.$('[data-tool="rect"]');
@@ -146,24 +160,10 @@ describe('Tauri fluidity workflow cycles — synthetic WebDriver input', () => {
       await browser.pause(250);
       expect((await browser.$$('[role="treeitem"]')).length).toBeGreaterThan(0);
 
-      const currentPixels = await browser.tauri.execute(() => {
-        const canvas = document.querySelector<HTMLCanvasElement>('[data-testid="editor-canvas"]');
-        const context = canvas?.getContext('2d');
-        if (!canvas || !context) throw new Error('native canvas readback unavailable');
-        const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
-        let hash = 2166136261;
-        for (let offset = 0; offset < pixels.length; offset += 16) {
-          hash ^= pixels[offset] ?? 0;
-          hash = Math.imul(hash, 16777619);
-          hash ^= pixels[offset + 1] ?? 0;
-          hash = Math.imul(hash, 16777619);
-          hash ^= pixels[offset + 2] ?? 0;
-          hash = Math.imul(hash, 16777619);
-        }
-        return hash >>> 0;
-      });
-      const changed = currentPixels !== viewport.fingerprint;
+      const currentPixels = await readCanvasPixels();
+      const changed = currentPixels.fingerprint !== viewport.fingerprint;
       expect(changed).toBe(true);
+      expect(currentPixels.visibleArtworkPixels).toBeGreaterThan(1000);
 
       await browser.keys(['Control', 's']);
       await (await browser.$('.save-status')).waitForDisplayed({ timeout: 30000 });
@@ -233,7 +233,12 @@ describe('Tauri fluidity workflow cycles — synthetic WebDriver input', () => {
         phases: { open: 'completed', interact: 'completed', save: 'completed', close: 'completed' },
         input: { source: 'webdriver-dom-synthetic', trusted: false },
         webview: { visible: viewport.visible, width: viewport.width, height: viewport.height },
-        pixels: { before: viewport.fingerprint, after: currentPixels, changed },
+        pixels: {
+          before: viewport.fingerprint,
+          after: currentPixels.fingerprint,
+          changed,
+          visibleArtworkPixels: currentPixels.visibleArtworkPixels,
+        },
         screenshot: { path: screenshotPath, bytes: screenshotBytes },
         closeMethod: 'keyboard-shortcut',
         closeActions,

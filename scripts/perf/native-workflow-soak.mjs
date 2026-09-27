@@ -49,6 +49,9 @@ export function validateWorkflowEvents(events, targetCycles) {
     if (event?.pixels?.changed !== true || event?.pixels?.before === event?.pixels?.after) {
       blockers.push(`cycle-${index + 1}-artwork-pixels-did-not-change`);
     }
+    if (!(event?.pixels?.visibleArtworkPixels > 1000)) {
+      blockers.push(`cycle-${index + 1}-visible-artwork-pixel-evidence-missing`);
+    }
     if (
       typeof event?.screenshot?.path !== 'string' ||
       !Number.isFinite(event?.screenshot?.bytes) ||
