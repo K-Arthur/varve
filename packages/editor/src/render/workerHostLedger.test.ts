@@ -55,6 +55,12 @@ function deliver(data: unknown): void {
   mockWorkers[0]!.onmessage!(new MessageEvent('message', { data }));
 }
 
+function createReadyRenderWorkerHost() {
+  const host = createRenderWorkerHost(vi.fn(), undefined, { budgetBytes: 1_000_000 })!;
+  deliver({ type: 'ready' });
+  return host;
+}
+
 describe('worker host frame ledger', () => {
   beforeEach(() => {
     mockWorkers.length = 0;
@@ -68,7 +74,7 @@ describe('worker host frame ledger', () => {
   });
 
   it('accounts a presented frame exactly once', () => {
-    const host = createRenderWorkerHost(vi.fn(), undefined, { budgetBytes: 1_000_000 })!;
+    const host = createReadyRenderWorkerHost();
     host.post(renderCommand());
     deliver(frameResponse(mockBitmap()));
     const state = host.getFrameLedgerState();
@@ -79,7 +85,7 @@ describe('worker host frame ledger', () => {
   });
 
   it('releases the prior frame exactly once when a newer one replaces it', () => {
-    const host = createRenderWorkerHost(vi.fn(), undefined, { budgetBytes: 1_000_000 })!;
+    const host = createReadyRenderWorkerHost();
     host.post(renderCommand());
     deliver(frameResponse(mockBitmap()));
     host.post(renderCommand({ docVersion: 2, renderRevision: asRenderRevision(2) }));
@@ -96,7 +102,7 @@ describe('worker host frame ledger', () => {
   });
 
   it('counts a discarded stale frame without ever marking it resident', () => {
-    const host = createRenderWorkerHost(vi.fn(), undefined, { budgetBytes: 1_000_000 })!;
+    const host = createReadyRenderWorkerHost();
     host.post(renderCommand());
     // A response whose viewport identity no longer matches the latest render.
     deliver(frameResponse(mockBitmap(), 1, { viewport: { width: 640, height: 480 } }));
@@ -108,7 +114,7 @@ describe('worker host frame ledger', () => {
   });
 
   it('makes a duplicate host-side close idempotent and observable', () => {
-    const host = createRenderWorkerHost(vi.fn(), undefined, { budgetBytes: 1_000_000 })!;
+    const host = createReadyRenderWorkerHost();
     host.post(renderCommand());
     const frame = mockBitmap();
     deliver(frameResponse(frame));
@@ -125,7 +131,7 @@ describe('worker host frame ledger', () => {
   });
 
   it('reconciles resident accounting to zero on terminate', () => {
-    const host = createRenderWorkerHost(vi.fn(), undefined, { budgetBytes: 1_000_000 })!;
+    const host = createReadyRenderWorkerHost();
     host.post(renderCommand());
     deliver(frameResponse(mockBitmap()));
     expect(host.getFrameLedgerState().residentBytes).toBe(16);
@@ -138,7 +144,7 @@ describe('worker host frame ledger', () => {
   });
 
   it('cannot be resurrected by a late response after teardown', () => {
-    const host = createRenderWorkerHost(vi.fn(), undefined, { budgetBytes: 1_000_000 })!;
+    const host = createReadyRenderWorkerHost();
     host.post(renderCommand());
     const frame = mockBitmap();
     deliver(frameResponse(frame));
@@ -153,7 +159,7 @@ describe('worker host frame ledger', () => {
   });
 
   it('never lets accounting go negative under repeated stale releases', () => {
-    const host = createRenderWorkerHost(vi.fn(), undefined, { budgetBytes: 1_000_000 })!;
+    const host = createReadyRenderWorkerHost();
     host.post(renderCommand());
     deliver(frameResponse(mockBitmap()));
     const foreign = mockBitmap();

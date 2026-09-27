@@ -53,6 +53,10 @@ class MockWorker {
   }
 }
 
+function signalReady(): void {
+  mockWorkers.at(-1)?.onmessage?.(new MessageEvent('message', { data: { type: 'ready' } }));
+}
+
 function renderCommand(overrides: Record<string, unknown> = {}) {
   return {
     type: 'render' as const,
@@ -91,6 +95,7 @@ describe('fault injection — graceful degradation', () => {
     injectFault('post-message');
     const onPermanentFailure = vi.fn();
     const host = createRenderWorkerHost(vi.fn(), onPermanentFailure)!;
+    signalReady();
     const bmp = bitmap(vi.fn());
     expect(host.post(renderCommand({ images: { a: bmp } }), [bmp])).toBe(false);
     expect(host.permanentFailure).toBe(true);
