@@ -2,35 +2,134 @@
  * DTCG color values → Varve value bridge (ADR-0106 D3, Color module 2025.10).
  *
  * The canonical token store keeps the DTCG color value (space, components,
- * alpha) untouched. This bridge produces the display/binding representation:
- * a `#rrggbb` hex string plus an alpha modifier for Varve's existing
- * binding-modifier system.
- *
- * Conversion policy:
- * - srgb → hex: exact (lossless).
- * - srgb-linear, oklab, lab, xyz-d65, display-p3 → sRGB with the documented
- *   matrices; out-of-gamut results are reported, never silently assumed.
- * - hsl, hwb, lch, oklch, a98-rgb, prophoto-rgb, rec2020, xyz-d50:
- *   NOT converted by default — the caller receives null plus a warning and
- *   must decide (display preview vs canonical storage vs explicit export
- *   conversion).
+ * alpha) untouched. `dtcgColorToManagedColor` projects float channels into
+ * the existing managed-color renderer without clamping or byte quantization.
+ * Missing components require an explicit interpolation context.
+ * `dtcgColorToVarve` is the older, lossy hex-preview adapter; artwork bindings
+ * use the managed projection. Display gamut conversion belongs to the renderer.
  */
 import {
   labToXyz,
+  lchToLab,
   linearToSrgb,
+  linearToSrgbUnit,
   oklabToLinearSrgb,
+  oklchToOkLab,
   rgbToHex,
   rgbToLab,
   srgbToLinear,
+  xyzD50ToLinearRgbPrimaries,
   xyzD65ToLinearRgb,
 } from '@varve/shared';
 import { COLOR_SPACE_SPECS } from '@varve/tokens';
+import type { ManagedColor } from '../colorManagement';
 
 export interface DtcgColor {
   colorSpace: string;
   components: Array<number | 'none'>;
   alpha?: number;
   hex?: string;
+}
+
+/** Precise artwork projection; source channels stay authored in the token store. */
+export function dtcgColorToManagedColor(color: DtcgColor): ManagedColor {
+  if (!COLOR_SPACE_SPECS[color.colorSpace] || color.components.length !== 3) {
+    throw new Error(`Unsupported color space or component count: ${color.colorSpace}`);
+  }
+  if (color.components.some((value) => typeof value !== 'number' || !Number.isFinite(value))) {
+    throw new Error('Color components containing none need a color interpolation context.');
+  }
+  const alpha = color.alpha ?? 1;
+  if (!Number.isFinite(alpha) || alpha < 0 || alpha > 1) {
+    throw new Error('Color alpha cannot be bound outside the range 0 to 1.');
+  }
+  const values = color.components as [number, number, number];
+  const profiles: Record<string, string> = {
+    srgb: 'srgb',
+    'display-p3': 'display-p3',
+    'a98-rgb': 'adobe-rgb-1998',
+    'prophoto-rgb': 'pro-photo-rgb',
+    rec2020: 'rec2020',
+  };
+  const profile = profiles[color.colorSpace];
+  if (profile) return floatRgb(values, alpha, profile);
+  if (color.colorSpace === 'hsl') return floatRgb(hslChannels(values), alpha);
+  if (color.colorSpace === 'hwb') return floatRgb(hwbChannels(values), alpha);
+  const channels = linearColorChannels(color.colorSpace, values).map(linearToSrgbUnit) as [
+    number,
+    number,
+    number,
+  ];
+  return floatRgb(channels, alpha);
+}
+
+function floatRgb(
+  channels: [number, number, number],
+  alpha: number,
+  profile = 'srgb',
+): ManagedColor {
+  return {
+    space: 'rgb',
+    bitDepth: 'float32',
+    profile,
+    r: channels[0],
+    g: channels[1],
+    b: channels[2],
+    a: alpha,
+  };
+}
+
+function linearColorChannels(
+  space: string,
+  channels: [number, number, number],
+): [number, number, number] {
+  switch (space) {
+    case 'srgb-linear':
+      return channels;
+    case 'lab':
+      return xyzD65ToLinearRgb(labToXyz(channels));
+    case 'lch':
+      return xyzD65ToLinearRgb(labToXyz(lchToLab(channels)));
+    case 'oklab':
+      return oklabToLinearSrgb(channels);
+    case 'oklch':
+      return oklabToLinearSrgb(oklchToOkLab(channels));
+    case 'xyz-d65':
+      return xyzD65ToLinearRgb(channels);
+    case 'xyz-d50': {
+      const converted = xyzD50ToLinearRgbPrimaries('srgb', channels);
+      if (!converted) throw new Error('The renderer cannot project XYZ D50 to sRGB.');
+      return converted;
+    }
+    default:
+      throw new Error(`No managed-color projection for ${space}`);
+  }
+}
+
+function hslChannels([hue, saturation, lightness]: [number, number, number]): [
+  number,
+  number,
+  number,
+] {
+  const h = (((hue % 360) + 360) % 360) / 30;
+  const l = lightness / 100;
+  const a = (saturation / 100) * Math.min(l, 1 - l);
+  const channel = (offset: number) => {
+    const k = (offset + h) % 12;
+    return l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1));
+  };
+  return [channel(0), channel(8), channel(4)];
+}
+
+function hwbChannels([hue, white, black]: [number, number, number]): [number, number, number] {
+  const w = white / 100;
+  const b = black / 100;
+  if (w + b >= 1) return [w / (w + b), w / (w + b), w / (w + b)];
+  return hslChannels([hue, 100, 50]).map((value) => value * (1 - w - b) + w) as [
+    number,
+    number,
+    number,
+  ];
 }
 
 export interface ColorBridgeResult {

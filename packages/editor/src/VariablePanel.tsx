@@ -16,6 +16,7 @@ import { usePersistedDisclosure } from './components/usePersistedDisclosure';
 import { useEditor } from './context';
 import { docVariableStore } from './docVariableStore';
 import './VariablePanel.css';
+import { parseVariableEdit } from './tokenSync/variableEditing';
 import { formatVariableValue } from './variableValueFormat';
 
 const TYPE_OPTIONS = ['number', 'string', 'boolean', 'color'] as const;
@@ -34,6 +35,7 @@ export function VariablePanel() {
   const [collapsed, setCollapsed] = usePersistedDisclosure('variables');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
+  const [editError, setEditError] = useState<string | null>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
   const addNameRef = useRef<HTMLInputElement>(null);
 
@@ -70,23 +72,25 @@ export function VariablePanel() {
   function commitEdit(id: string) {
     const v = variableStore.variables[id];
     if (!v) return;
-    const rawValue: string | number | boolean =
-      v.type === 'number'
-        ? Number(editValue) || 0
-        : v.type === 'boolean'
-          ? editValue === 'true'
-          : editValue;
-    updateVariable(id, {
-      valuesByMode: { ...v.valuesByMode, [variableStore.activeMode]: rawValue },
-    });
-    setEditingId(null);
+    try {
+      const rawValue = parseVariableEdit(variableStore, v, editValue);
+      if (rawValue !== (v.valuesByMode[variableStore.activeMode] ?? v.valuesByMode.default)) {
+        updateVariable(id, {
+          valuesByMode: { ...v.valuesByMode, [variableStore.activeMode]: rawValue },
+        });
+      }
+      setEditError(null);
+      setEditingId(null);
+    } catch (error) {
+      setEditError(error instanceof Error ? error.message : 'The token value could not be edited.');
+    }
   }
 
   function resolvedDisplay(nameOrId: string): string {
     try {
       return formatVariableValue(resolveVariable(nameOrId)) || '—';
-    } catch {
-      return '—';
+    } catch (error) {
+      return error instanceof Error ? error.message : 'Resolution unavailable';
     }
   }
 
@@ -144,11 +148,20 @@ export function VariablePanel() {
                       <input
                         ref={editInputRef}
                         value={editValue}
-                        onChange={(e) => setEditValue(e.target.value)}
+                        onChange={(e) => {
+                          setEditValue(e.target.value);
+                          setEditError(null);
+                        }}
+                        aria-invalid={editError ? true : undefined}
                         onBlur={() => commitEdit(v.id)}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') commitEdit(v.id);
-                          if (e.key === 'Escape') setEditingId(null);
+                          if (e.key === 'Escape') {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setEditingId(null);
+                            setEditError(null);
+                          }
                         }}
                         className="variable-panel__edit-input"
                         aria-label="Variable value"
@@ -159,8 +172,10 @@ export function VariablePanel() {
                         onClick={() => {
                           setEditingId(v.id);
                           setEditValue(currentVal);
+                          setEditError(null);
                         }}
                         className="variable-panel__value-btn"
+                        title={currentVal}
                       >
                         {currentVal}
                       </button>
@@ -197,6 +212,12 @@ export function VariablePanel() {
             })}
           </tbody>
         </table>
+      )}
+
+      {!collapsed && editError && (
+        <p role="alert" className="variable-panel__empty-hint">
+          {editError}
+        </p>
       )}
 
       {!collapsed && vars.length === 0 && !adding && (

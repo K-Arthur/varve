@@ -95,7 +95,16 @@ function tokenEntry(record: DesignTokenRecord): Record<string, unknown> | undefi
 }
 
 function isTokenNode(value: unknown): boolean {
-  return isPlainObject(value) && ('$value' in value || '$ref' in value);
+  return isPlainObject(value) && (Object.hasOwn(value, '$value') || Object.hasOwn(value, '$ref'));
+}
+
+function setOwn(record: Record<string, unknown>, key: string, value: unknown): void {
+  Object.defineProperty(record, key, {
+    configurable: true,
+    enumerable: true,
+    value,
+    writable: true,
+  });
 }
 
 /**
@@ -136,7 +145,7 @@ export function exportTokensToDtcg(
     };
   }
 
-  const root: Record<string, unknown> = {};
+  const root: Record<string, unknown> = Object.create(null);
   let tokenCount = 0;
   let skipped = 0;
   let hexColors = 0;
@@ -183,10 +192,10 @@ export function exportTokensToDtcg(
     let aborted = false;
     for (let i = 0; i < segments.length - 1; i += 1) {
       const segment = segments[i] as string;
-      const existing = node[segment];
+      const existing = Object.hasOwn(node, segment) ? node[segment] : undefined;
       if (existing === undefined) {
-        const created: Record<string, unknown> = {};
-        node[segment] = created;
+        const created: Record<string, unknown> = Object.create(null);
+        setOwn(node, segment, created);
         node = created;
         continue;
       }
@@ -205,7 +214,7 @@ export function exportTokensToDtcg(
     if (aborted) continue;
 
     const leaf = segments[segments.length - 1] as string;
-    if (leaf in node) {
+    if (Object.hasOwn(node, leaf)) {
       skipped += 1;
       diagnostics.push({
         severity: 'warning',
@@ -224,7 +233,7 @@ export function exportTokensToDtcg(
       });
       continue;
     }
-    node[leaf] = entry;
+    setOwn(node, leaf, entry);
     tokenCount += 1;
     if (
       record.type === 'color' &&
@@ -281,7 +290,8 @@ function scopedGroupMeta(
   records: readonly DesignTokenRecord[],
 ): DesignTokenStore['groupMeta'] {
   if (!groupMeta) return undefined;
-  const out: Record<string, NonNullable<DesignTokenStore['groupMeta']>[string]> = {};
+  const out: Record<string, NonNullable<DesignTokenStore['groupMeta']>[string]> =
+    Object.create(null);
   for (const [path, meta] of Object.entries(groupMeta)) {
     const segments = path.split('.');
     const keep = records.some(
@@ -289,7 +299,7 @@ function scopedGroupMeta(
         record.path.length > segments.length &&
         segments.every((segment, index) => record.path[index] === segment),
     );
-    if (keep) out[path] = meta;
+    if (keep) setOwn(out, path, meta);
   }
   return out;
 }
@@ -312,10 +322,10 @@ function applyGroupMetadata(
     let node = root;
     let aborted = false;
     for (const segment of segments) {
-      const existing = node[segment];
+      const existing = Object.hasOwn(node, segment) ? node[segment] : undefined;
       if (existing === undefined) {
-        const created: Record<string, unknown> = {};
-        node[segment] = created;
+        const created: Record<string, unknown> = Object.create(null);
+        setOwn(node, segment, created);
         node = created;
         continue;
       }

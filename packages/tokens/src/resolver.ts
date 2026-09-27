@@ -95,7 +95,14 @@ export function parseResolverDocument(
       line: error.line,
       column: error.column,
     });
-    return { version: '', sets: {}, modifiers: {}, resolutionOrder: [], diagnostics, sourceFileId };
+    return {
+      version: '',
+      sets: Object.create(null),
+      modifiers: Object.create(null),
+      resolutionOrder: [],
+      diagnostics,
+      sourceFileId,
+    };
   }
 
   const root = source.value;
@@ -106,7 +113,14 @@ export function parseResolverDocument(
       message: 'Resolver document must be a JSON object',
       sourceFileId,
     });
-    return { version: '', sets: {}, modifiers: {}, resolutionOrder: [], diagnostics, sourceFileId };
+    return {
+      version: '',
+      sets: Object.create(null),
+      modifiers: Object.create(null),
+      resolutionOrder: [],
+      diagnostics,
+      sourceFileId,
+    };
   }
   const raw = root as Record<string, unknown>;
 
@@ -121,7 +135,7 @@ export function parseResolverDocument(
     });
   }
 
-  const sets: Record<string, ResolverSet> = {};
+  const sets: Record<string, ResolverSet> = Object.create(null);
   if (raw.sets !== undefined) {
     if (!isRecord(raw.sets)) {
       diagnostics.push({
@@ -149,17 +163,17 @@ export function parseResolverDocument(
           sourceFileId,
           diagnostics,
         );
-        sets[name] = {
+        defineOwn(sets, name, {
           name,
           description: typeof value.description === 'string' ? value.description : undefined,
           sources,
           extensions: readExtensions(value, `/sets/${name}`, sourceFileId, diagnostics),
-        };
+        });
       }
     }
   }
 
-  const modifiers: Record<string, ResolverModifier> = {};
+  const modifiers: Record<string, ResolverModifier> = Object.create(null);
   if (raw.modifiers !== undefined) {
     if (!isRecord(raw.modifiers)) {
       diagnostics.push({
@@ -210,19 +224,26 @@ export function parseResolverDocument(
             pointer: `/modifiers/${name}/contexts`,
           });
         }
-        const parsedContexts: Record<string, ResolverSource[]> = {};
+        const parsedContexts: Record<string, ResolverSource[]> = Object.create(null);
         for (const [contextName, contextValue] of Object.entries(contexts)) {
-          parsedContexts[contextName] = parseSources(
-            contextValue,
-            `/modifiers/${name}/contexts/${contextName}`,
-            sourceFileId,
-            diagnostics,
+          defineOwn(
+            parsedContexts,
+            contextName,
+            parseSources(
+              contextValue,
+              `/modifiers/${name}/contexts/${contextName}`,
+              sourceFileId,
+              diagnostics,
+            ),
           );
         }
         const modifierDefault = value.default;
         let declaredDefault: string | undefined;
         if (modifierDefault !== undefined) {
-          if (typeof modifierDefault !== 'string' || !(modifierDefault in parsedContexts)) {
+          if (
+            typeof modifierDefault !== 'string' ||
+            !Object.hasOwn(parsedContexts, modifierDefault)
+          ) {
             diagnostics.push({
               severity: 'error',
               code: 'resolver.default-mismatch',
@@ -234,13 +255,13 @@ export function parseResolverDocument(
             declaredDefault = modifierDefault;
           }
         }
-        modifiers[name] = {
+        defineOwn(modifiers, name, {
           name,
           description: typeof value.description === 'string' ? value.description : undefined,
           contexts: parsedContexts,
           default: declaredDefault,
           extensions: readExtensions(value, `/modifiers/${name}`, sourceFileId, diagnostics),
-        };
+        });
       }
     }
   }
@@ -335,13 +356,17 @@ export function parseResolverDocument(
             });
             return;
           }
-          const parsedContexts: Record<string, ResolverSource[]> = {};
+          const parsedContexts: Record<string, ResolverSource[]> = Object.create(null);
           for (const [contextName, contextValue] of Object.entries(contexts)) {
-            parsedContexts[contextName] = parseSources(
-              contextValue,
-              `${pointer}/contexts/${contextName}`,
-              sourceFileId,
-              diagnostics,
+            defineOwn(
+              parsedContexts,
+              contextName,
+              parseSources(
+                contextValue,
+                `${pointer}/contexts/${contextName}`,
+                sourceFileId,
+                diagnostics,
+              ),
             );
           }
           resolutionOrder.push({
@@ -368,7 +393,7 @@ export function parseResolverDocument(
         }
         if (ref.startsWith('#/modifiers/')) {
           const name = ref.slice('#/modifiers/'.length);
-          if (!modifiers[name]) {
+          if (!Object.hasOwn(modifiers, name)) {
             diagnostics.push({
               severity: 'error',
               code: 'resolver.order-ref-missing',
@@ -394,7 +419,7 @@ export function parseResolverDocument(
         }
         if (ref.startsWith('#/sets/')) {
           const name = ref.slice('#/sets/'.length);
-          if (!sets[name]) {
+          if (!Object.hasOwn(sets, name)) {
             diagnostics.push({
               severity: 'error',
               code: 'resolver.order-ref-missing',
@@ -521,7 +546,7 @@ export function validateResolverInput(
       });
       continue;
     }
-    const modifier = doc.modifiers[name];
+    const modifier = Object.hasOwn(doc.modifiers, name) ? doc.modifiers[name] : undefined;
     if (!modifier) {
       diagnostics.push({
         severity: 'error',
@@ -531,7 +556,7 @@ export function validateResolverInput(
       });
       continue;
     }
-    if (!(value in modifier.contexts)) {
+    if (!Object.hasOwn(modifier.contexts, value)) {
       diagnostics.push({
         severity: 'error',
         code: 'resolver.input-invalid-context',
@@ -541,7 +566,7 @@ export function validateResolverInput(
     }
   }
   for (const modifier of Object.values(doc.modifiers)) {
-    if (modifier.default === undefined && !(modifier.name in input)) {
+    if (modifier.default === undefined && !Object.hasOwn(input, modifier.name)) {
       diagnostics.push({
         severity: 'error',
         code: 'resolver.input-missing-modifier',
@@ -573,7 +598,7 @@ export function resolvePermutation(
   options: ResolveOptions = {},
 ): ResolverPermutation {
   const diagnostics = [...validateResolverInput(doc, input)];
-  const merged: Record<string, unknown> = {};
+  const merged: Record<string, unknown> = Object.create(null);
   const maxSources = options.maxSources ?? RESOLVER_MAX_SOURCES;
   let sourceCount = 0;
   const expanding = new Set<string>();
@@ -590,13 +615,13 @@ export function resolvePermutation(
         });
         return;
       }
-      if ('$ref' in source) {
+      if (Object.hasOwn(source, '$ref')) {
         const ref = source.$ref as string;
         if (ref.startsWith('#/')) {
           const key = ref.slice(2);
           const parts = key.split('/').map((p) => p.replace(/~1/g, '/').replace(/~0/g, '~'));
           if (parts[0] === 'sets' && parts.length === 2) {
-            const set = doc.sets[parts[1]!];
+            const set = Object.hasOwn(doc.sets, parts[1]!) ? doc.sets[parts[1]!] : undefined;
             if (!set) {
               diagnostics.push({
                 severity: 'error',
@@ -661,7 +686,9 @@ export function resolvePermutation(
       expandSources(item.source.sources, []);
     } else {
       const modifier = item.source;
-      const selected = input[modifier.name] ?? modifier.default;
+      const selected =
+        (Object.hasOwn(input, modifier.name) ? input[modifier.name] : undefined) ??
+        modifier.default;
       if (selected === undefined) {
         diagnostics.push({
           severity: 'error',
@@ -671,7 +698,10 @@ export function resolvePermutation(
         });
         continue;
       }
-      expandSources(modifier.contexts[selected] ?? [], []);
+      expandSources(
+        Object.hasOwn(modifier.contexts, selected) ? modifier.contexts[selected]! : [],
+        [],
+      );
     }
   }
 
@@ -687,13 +717,13 @@ export function resolvePermutation(
   diagnostics.push(...validateResolvedTokenValues(document));
 
   // Stage 4: resolve alias chains with cycle detection.
-  const resolved: Record<string, unknown> = {};
+  const resolved: Record<string, unknown> = Object.create(null);
   for (const token of Object.values(document.tokens)) {
     const key = pathKey(token.path);
     try {
-      resolved[key] = resolveFormatTokenValue(document, token);
+      defineOwn(resolved, key, resolveFormatTokenValue(document, token));
     } catch (error) {
-      resolved[key] = undefined;
+      defineOwn(resolved, key, undefined);
       diagnostics.push({
         severity: 'error',
         code:
@@ -713,7 +743,7 @@ export function resolvePermutation(
 /** Deep last-wins merge of token trees (spec 6.2). */
 function mergeTokenTree(target: Record<string, unknown>, source: Record<string, unknown>): void {
   for (const [key, value] of Object.entries(source)) {
-    const existing = target[key];
+    const existing = Object.hasOwn(target, key) ? target[key] : undefined;
     if (
       value !== null &&
       typeof value === 'object' &&
@@ -724,9 +754,26 @@ function mergeTokenTree(target: Record<string, unknown>, source: Record<string, 
     ) {
       mergeTokenTree(existing as Record<string, unknown>, value as Record<string, unknown>);
     } else {
-      target[key] = value;
+      defineOwn(target, key, cloneRecordTree(value));
     }
   }
+}
+
+function cloneRecordTree(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(cloneRecordTree);
+  if (!isRecord(value)) return value;
+  const result: Record<string, unknown> = Object.create(null);
+  for (const [key, child] of Object.entries(value)) defineOwn(result, key, cloneRecordTree(child));
+  return result;
+}
+
+function defineOwn<T>(record: Record<string, T>, key: string, value: T): void {
+  Object.defineProperty(record, key, {
+    configurable: true,
+    enumerable: true,
+    value,
+    writable: true,
+  });
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

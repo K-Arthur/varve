@@ -1,0 +1,209 @@
+{
+  "generatedAt": "2026-09-27T02:08:32.897Z",
+  "benchmark": "DTCG Format token parse/graph/resolution/canonical serialization",
+  "repetitions": 3,
+  "warmupRuns": 0,
+  "note": "Shared-machine observations for reproducibility only; not a stable performance budget or an allocation-isolated RSS measurement.",
+  "environment": {
+    "node": "v22.23.2",
+    "platform": "linux",
+    "osRelease": "7.2.3-1-cachyos",
+    "architecture": "x64",
+    "cpuModel": "AMD Ryzen 3 5300U with Radeon Graphics",
+    "logicalCpuCount": 8,
+    "availableParallelism": 8,
+    "rssUnit": "bytes; process-wide before/after each timed sample; other machine activity may affect it"
+  },
+  "cases": [
+    {
+      "totalTokens": 1000,
+      "foundationTokens": 500,
+      "semanticAliases": 500,
+      "referenceForms": ["qualified-curly-brace", "json-pointer"],
+      "inputBytes": 79035,
+      "canonicalOutputBytes": 151588,
+      "contextCount": 1,
+      "formatSnapshot": "DTCG Format 2025.10 stable default; one generated snapshot, no context/theme expansion",
+      "parseValidate": {
+        "medianMs": 49.54617400000001,
+        "samples": [
+          {
+            "elapsedMs": 57.985096,
+            "rssBeforeBytes": 95657984,
+            "rssAfterBytes": 99565568
+          },
+          {
+            "elapsedMs": 49.54617400000001,
+            "rssBeforeBytes": 99565568,
+            "rssAfterBytes": 111464448
+          },
+          {
+            "elapsedMs": 39.21499,
+            "rssBeforeBytes": 111464448,
+            "rssAfterBytes": 114085888
+          }
+        ]
+      },
+      "referenceGraph": {
+        "medianMs": 5.428297999999984,
+        "samples": [
+          {
+            "elapsedMs": 19.362912999999992,
+            "rssBeforeBytes": 114085888,
+            "rssAfterBytes": 115019776
+          },
+          {
+            "elapsedMs": 4.446267999999975,
+            "rssBeforeBytes": 115019776,
+            "rssAfterBytes": 115019776
+          },
+          {
+            "elapsedMs": 5.428297999999984,
+            "rssBeforeBytes": 115019776,
+            "rssAfterBytes": 115019776
+          }
+        ],
+        "edgeCount": 500,
+        "maxChainDepth": 2
+      },
+      "resolveAllTokens": {
+        "medianMs": 11.098594000000048,
+        "samples": [
+          {
+            "elapsedMs": 15.917111999999975,
+            "rssBeforeBytes": 115019776,
+            "rssAfterBytes": 121573376
+          },
+          {
+            "elapsedMs": 11.098594000000048,
+            "rssBeforeBytes": 121573376,
+            "rssAfterBytes": 122314752
+          },
+          {
+            "elapsedMs": 10.15343999999999,
+            "rssBeforeBytes": 122314752,
+            "rssAfterBytes": 125460480
+          }
+        ],
+        "resolvedTokenCount": 1000,
+        "resolvedColorCount": 1000,
+        "colorComponentChecksum": 1499.9400000000005
+      },
+      "canonicalSerialize": {
+        "medianMs": 6.826718000000028,
+        "samples": [
+          {
+            "elapsedMs": 6.826718000000028,
+            "rssBeforeBytes": 125460480,
+            "rssAfterBytes": 129392640
+          },
+          {
+            "elapsedMs": 7.773339000000021,
+            "rssBeforeBytes": 129523712,
+            "rssAfterBytes": 132014080
+          },
+          {
+            "elapsedMs": 4.6226160000000505,
+            "rssBeforeBytes": 132276224,
+            "rssAfterBytes": 132407296
+          }
+        ]
+      }
+    },
+    {
+      "totalTokens": 10000,
+      "foundationTokens": 5000,
+      "semanticAliases": 5000,
+      "referenceForms": ["qualified-curly-brace", "json-pointer"],
+      "inputBytes": 789922,
+      "canonicalOutputBytes": 1514975,
+      "contextCount": 1,
+      "formatSnapshot": "DTCG Format 2025.10 stable default; one generated snapshot, no context/theme expansion",
+      "parseValidate": {
+        "medianMs": 7750.952673,
+        "samples": [
+          {
+            "elapsedMs": 7750.952673,
+            "rssBeforeBytes": 134942720,
+            "rssAfterBytes": 158072832
+          },
+          {
+            "elapsedMs": 7882.351591000001,
+            "rssBeforeBytes": 158072832,
+            "rssAfterBytes": 174129152
+          },
+          {
+            "elapsedMs": 7716.194480000002,
+            "rssBeforeBytes": 174129152,
+            "rssAfterBytes": 191332352
+          }
+        ]
+      },
+      "referenceGraph": {
+        "medianMs": 39.244456999997055,
+        "samples": [
+          {
+            "elapsedMs": 62.38616600000023,
+            "rssBeforeBytes": 191856640,
+            "rssAfterBytes": 199340032
+          },
+          {
+            "elapsedMs": 39.244456999997055,
+            "rssBeforeBytes": 199340032,
+            "rssAfterBytes": 203816960
+          },
+          {
+            "elapsedMs": 38.458888999997725,
+            "rssBeforeBytes": 203816960,
+            "rssAfterBytes": 207499264
+          }
+        ],
+        "edgeCount": 5000,
+        "maxChainDepth": 2
+      },
+      "resolveAllTokens": {
+        "medianMs": 73.94661500000075,
+        "samples": [
+          {
+            "elapsedMs": 81.13392000000022,
+            "rssBeforeBytes": 207499264,
+            "rssAfterBytes": 207867904
+          },
+          {
+            "elapsedMs": 73.94661500000075,
+            "rssBeforeBytes": 207867904,
+            "rssAfterBytes": 208654336
+          },
+          {
+            "elapsedMs": 70.59321500000078,
+            "rssBeforeBytes": 208654336,
+            "rssAfterBytes": 208785408
+          }
+        ],
+        "resolvedTokenCount": 10000,
+        "resolvedColorCount": 10000,
+        "colorComponentChecksum": 14994.319999999998
+      },
+      "canonicalSerialize": {
+        "medianMs": 35.24328500000047,
+        "samples": [
+          {
+            "elapsedMs": 37.39989499999865,
+            "rssBeforeBytes": 208785408,
+            "rssAfterBytes": 212062208
+          },
+          {
+            "elapsedMs": 35.24328500000047,
+            "rssBeforeBytes": 213635072,
+            "rssAfterBytes": 219455488
+          },
+          {
+            "elapsedMs": 34.696013000000676,
+            "rssBeforeBytes": 220897280,
+            "rssAfterBytes": 226783232
+          }
+        ]
+      }
+    }
+  ]
+}

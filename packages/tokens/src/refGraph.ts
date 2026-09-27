@@ -96,7 +96,7 @@ export function buildReferenceGraph(doc: DtcgDocument): ReferenceGraph {
             sourceFileId: doc.sourceFileId,
             pointer: token.pointer,
           });
-        } else if (!tokensByKey[targetKey]) {
+        } else if (!Object.hasOwn(tokensByKey, targetKey)) {
           edge.missing = true;
           diagnostics.push({
             severity: 'error',
@@ -155,11 +155,11 @@ export function buildReferenceGraph(doc: DtcgDocument): ReferenceGraph {
   // references are intentionally excluded: their source sub-value can have
   // a different type from the containing token.
   for (const [fromKey, edges] of outgoing) {
-    const from = tokensByKey[fromKey];
+    const from = Object.hasOwn(tokensByKey, fromKey) ? tokensByKey[fromKey] : undefined;
     if (!from) continue;
     for (const edge of edges) {
       if (!edge.to) continue;
-      const target = tokensByKey[edge.to];
+      const target = Object.hasOwn(tokensByKey, edge.to) ? tokensByKey[edge.to] : undefined;
       if (!target) continue;
       if (
         from.explicitType &&
@@ -439,5 +439,6 @@ export function referenceTargets(graph: ReferenceGraph, fromKey: string): Set<st
 }
 
 export function tokenByPath(doc: DtcgDocument, path: readonly string[]): DtcgTokenNode | undefined {
-  return doc.tokens[pathKey(path)];
+  const key = pathKey(path);
+  return Object.hasOwn(doc.tokens, key) ? doc.tokens[key] : undefined;
 }

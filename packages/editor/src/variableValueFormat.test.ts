@@ -2,6 +2,19 @@ import { describe, expect, it } from 'vitest';
 import { formatVariableValue } from './variableValueFormat';
 
 describe('formatVariableValue', () => {
+  it('shows managed colors with their source profile and floating precision', () => {
+    expect(
+      formatVariableValue({
+        space: 'rgb',
+        bitDepth: 'float32',
+        profile: 'display-p3',
+        r: 0.123456789,
+        g: 0.4,
+        b: 0.8,
+        a: 0.25,
+      }),
+    ).toBe('display-p3(0.123456789 0.4 0.8 / 0.25)');
+  });
   it('renders primitives as-is', () => {
     expect(formatVariableValue('hello')).toBe('hello');
     expect(formatVariableValue(8)).toBe('8');

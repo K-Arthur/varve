@@ -288,7 +288,8 @@ export function resolveFormatTokenValue(
 function tokenForPointer(document: DtcgDocument, pointer: string): DtcgTokenNode | undefined {
   const segments = parseJsonPointer(pointer).map(({ value }) => value);
   if (segments.at(-1) === '$value') segments.pop();
-  const token = document.tokens[pathKey(segments)];
+  const key = pathKey(segments);
+  const token = Object.hasOwn(document.tokens, key) ? document.tokens[key] : undefined;
   return token && (`#${token.pointer}` === pointer || `#${token.valuePointer}` === pointer)
     ? token
     : undefined;

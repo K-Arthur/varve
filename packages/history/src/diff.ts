@@ -172,6 +172,8 @@ const EPSILON_BY_SEGMENT: Record<string, number> = {
 };
 
 const TRANSFORM_ELEMENT_RE = /^transform\.\d+$/;
+const CAPTURE_PATH_SEGMENT_RE = /^[A-Za-z0-9_-]+$/;
+const FORBIDDEN_CAPTURE_PATH_SEGMENTS = new Set(['__proto__', 'constructor', 'prototype']);
 
 // ── Implementation ────────────────────────────────────────────────────────────
 
@@ -458,6 +460,28 @@ function compareValue(
   }
 
   if (isRecord(baseVal) || isRecord(targetVal)) {
+    const baseRec = (baseVal ?? {}) as Record<string, unknown>;
+    const targetRec = (targetVal ?? {}) as Record<string, unknown>;
+    const keys = unionKeys(baseRec, targetRec);
+    if (keys.some((key) => !isCapturePathSegment(key))) {
+      // Capture paths are deliberately restricted to safe dotted segments.
+      // An arbitrary JSON key (for example `color.brand` in group metadata
+      // or `org.varve.id` in an extension) cannot be addressed as a child
+      // path without changing its meaning. Replace the containing JSON value
+      // atomically instead; the parent path remains validated by captureOps.
+      if (stableStringify(baseVal) === stableStringify(targetVal)) return;
+      emit(ctx, {
+        changeType: 'modified',
+        entityId,
+        entityType,
+        propertyPath: path,
+        before: baseVal,
+        after: targetVal,
+        summary: `${entityLabel(entityType)} ${entityNameOf(entityId)}: ${pathTail(path)} changed`,
+      });
+      return;
+    }
+
     // Nested collection registry lookup (e.g. variableStore.collections).
     const specs = nestedSpecsFor(path);
     if (specs) {
@@ -474,8 +498,6 @@ function compareValue(
         }
       }
       const consumed = new Set(Object.keys(specs));
-      const baseRec = (baseVal ?? {}) as Record<string, unknown>;
-      const targetRec = (targetVal ?? {}) as Record<string, unknown>;
       for (const key of unionKeys(baseRec, targetRec)) {
         if (consumed.has(key)) continue;
         compareValue(
@@ -490,8 +512,6 @@ function compareValue(
       return;
     }
 
-    const baseRec = (baseVal ?? {}) as Record<string, unknown>;
-    const targetRec = (targetVal ?? {}) as Record<string, unknown>;
     for (const key of unionKeys(baseRec, targetRec)) {
       compareValue(ctx, entityType, entityId, `${path}.${key}`, baseRec[key], targetRec[key]);
     }
@@ -900,6 +920,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function unionKeys(a: object, b: object): string[] {
   return [...new Set([...Object.keys(a), ...Object.keys(b)])];
+}
+
+/** Mirrors the replay operation's safe property-path grammar. */
+function isCapturePathSegment(key: string): boolean {
+  return CAPTURE_PATH_SEGMENT_RE.test(key) && !FORBIDDEN_CAPTURE_PATH_SEGMENTS.has(key);
 }
 
 function recordAt(record: unknown, key: string): unknown {

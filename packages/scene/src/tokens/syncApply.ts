@@ -33,6 +33,8 @@ import {
   type TokenSourceId,
   type TokenSynchronization,
 } from './model';
+import { assertMergeIdentities } from './mutationSafety';
+import { resolveTokenVariableValue, runtimeProjectionChangeDiagnostics } from './runtimeProjection';
 import {
   addSource,
   addToken,
@@ -42,7 +44,7 @@ import {
   tokensBySource,
   updateToken,
 } from './store';
-import { bindVariableToToken } from './variableBridge';
+import { bindVariableToToken, variableTypeForToken } from './variableBridge';
 
 export interface SyncApplyResult {
   sync: TokenSynchronization;
@@ -68,6 +70,104 @@ function writableVariableStore(store: VariableStore | undefined): VariableStore 
 }
 
 /**
+ * A deleted token-backed Variable needs an artwork-compatible literal in
+ * each of its stored modes. Resolve in the Variable's own collection context
+ * while leaving every other collection's active mode unchanged.
+ */
+function storeWithVariableMode(
+  store: VariableStore,
+  variableId: string,
+  mode: string,
+  modeSnapshots: Map<string, VariableStore>,
+): VariableStore {
+  const collection = Object.values(store.collections).find((candidate) =>
+    candidate.variableIds.includes(variableId),
+  );
+  const cacheKey = JSON.stringify([collection?.id ?? null, mode]);
+  const cached = modeSnapshots.get(cacheKey);
+  if (cached) return cached;
+  const context = collection
+    ? {
+        ...store,
+        collections: {
+          ...store.collections,
+          [collection.id]: { ...collection, activeMode: mode },
+        },
+      }
+    : { ...store, activeMode: mode };
+  modeSnapshots.set(cacheKey, context);
+  return context;
+}
+
+function materializeVariableModes(
+  snapshot: VariableStore,
+  variable: VariableStore['variables'][string],
+  modeSnapshots: Map<string, VariableStore>,
+): VariableStore['variables'][string]['valuesByMode'] {
+  const valuesByMode: VariableStore['variables'][string]['valuesByMode'] = {};
+  const modes = Object.keys(variable.valuesByMode);
+  if (modes.length === 0) {
+    modes.push(
+      Object.values(snapshot.collections).find((candidate) =>
+        candidate.variableIds.includes(variable.id),
+      )?.activeMode ?? snapshot.activeMode,
+    );
+  }
+  for (const mode of modes) {
+    const authoredValue = variable.valuesByMode[mode];
+    try {
+      const context = storeWithVariableMode(snapshot, variable.id, mode, modeSnapshots);
+      valuesByMode[mode] = resolveTokenVariableValue(context, variable.id);
+    } catch {
+      // Retained-only token types have no artwork projection. Preserve their
+      // authored mode value instead of fabricating a runtime representation.
+      if (authoredValue !== undefined) valuesByMode[mode] = authoredValue;
+    }
+  }
+  return valuesByMode;
+}
+
+/** Refuse linked type changes before any token or Variable store is copied or updated. */
+function assertNoLinkedTypeMigrations(store: DesignTokenStore, plan: TokenMergePlan): void {
+  const tokensById = new Map(Object.values(store.tokens).map((token) => [token.id, token]));
+  const tokensByPath = new Map(
+    Object.values(store.tokens).map((token) => [token.path.join('.'), token]),
+  );
+  const linkedTokenIds = new Set(Object.values(store.variableLinks));
+
+  for (const merge of plan.merges) {
+    const result = merge.result;
+    if (
+      !result ||
+      merge.deleted ||
+      merge.decision === 'conflict' ||
+      merge.decision === 'delete-vs-edit'
+    )
+      continue;
+    const current =
+      (merge.id ? tokensById.get(merge.id as `tok_${string}`) : undefined) ??
+      tokensByPath.get(result.path.join('.'));
+    if (!current || !linkedTokenIds.has(current.id)) continue;
+    const nextType = result.type ?? current.type;
+    if (nextType !== current.type) {
+      throw new Error(
+        `sync.linked-type-change-unsupported: ${current.path.join('.')} changes from ${current.type} to ${nextType}, but its linked Variable may carry property bindings or native mode values. Type migration is blocked before changes are applied; preserve the existing type or detach the Variables first.`,
+      );
+    }
+  }
+}
+
+/** A failed mutation cannot advance the source's clean state or base snapshot. */
+function assertMutationDiagnostics(
+  diagnostics: readonly { code: string; message: string }[],
+): void {
+  if (diagnostics.length > 0)
+    throw new Error(
+      diagnostics.map((diagnostic) => `${diagnostic.code}: ${diagnostic.message}`).join('; '),
+    );
+}
+
+/**
  * Apply a merge plan to the token store and backing variables.
  * Conflicted merges are skipped (never auto-resolved). The result is a new
  * TokenSynchronization + VariableStore pair; the caller wraps it in one
@@ -80,7 +180,11 @@ export function applyMergePlanToSync(
   mode = 'default',
   options?: { sourceId?: TokenSourceId; at?: string },
 ): SyncApplyResult {
+  assertMergeIdentities(sync.store, plan, options?.sourceId);
+  assertNoLinkedTypeMigrations(sync.store, plan);
   const variables = writableVariableStore(variablesInput);
+  const removalSnapshot = variablesInput ? { ...variablesInput, tokenSync: sync } : undefined;
+  const removalModeSnapshots = new Map<string, VariableStore>();
   let store: DesignTokenStore = sync.store;
   const touchedVariableIds: string[] = [];
   let applied = 0;
@@ -100,6 +204,22 @@ export function applyMergePlanToSync(
         // Tombstone the removal (deleted from the connected source), but keep
         // the backing variable so node bindings retain their last value
         // instead of dangling. The orphaned variable is a local literal now.
+        if (variables) {
+          for (const [variableId, tokenId] of Object.entries(store.variableLinks)) {
+            if (tokenId !== removalId) continue;
+            const variable = variables.variables[variableId];
+            if (!variable) continue;
+            variables.variables[variableId] = {
+              ...variable,
+              valuesByMode: materializeVariableModes(
+                removalSnapshot!,
+                variable,
+                removalModeSnapshots,
+              ),
+            };
+            touchedVariableIds.push(variableId);
+          }
+        }
         store = deleteToken(store, removalId, {
           tombstone: true,
           deletedBy: 'remote',
@@ -127,6 +247,7 @@ export function applyMergePlanToSync(
           deprecated: result.deprecated,
           extensions: result.extensions,
         });
+        assertMutationDiagnostics(updated.diagnostics);
         if (updated.diagnostics.length === 0) {
           store = updated.store;
           applied += 1;
@@ -150,6 +271,7 @@ export function applyMergePlanToSync(
           },
         };
         const inserted = addToken(store, record);
+        assertMutationDiagnostics(inserted.diagnostics);
         if (inserted.diagnostics.length === 0) {
           store = inserted.store;
           applied += 1;
@@ -163,6 +285,7 @@ export function applyMergePlanToSync(
           value: result.value,
           type: result.type ?? existing.type,
         });
+        assertMutationDiagnostics(updated.diagnostics);
         if (updated.diagnostics.length === 0) {
           store = updated.store;
           applied += 1;
@@ -184,6 +307,7 @@ export function applyMergePlanToSync(
           },
         };
         const inserted = addToken(store, record);
+        assertMutationDiagnostics(inserted.diagnostics);
         if (inserted.diagnostics.length === 0) {
           store = inserted.store;
           applied += 1;
@@ -202,6 +326,15 @@ export function applyMergePlanToSync(
         );
       }
     }
+  }
+
+  if (variablesInput && variables) {
+    assertMutationDiagnostics(
+      runtimeProjectionChangeDiagnostics(
+        { ...variablesInput, tokenSync: sync },
+        { ...variables, tokenSync: { ...sync, store } },
+      ),
+    );
   }
 
   // Advance the source state only when the plan applied cleanly. A partial
@@ -325,15 +458,8 @@ function upsertBackingVariable(
 ): string | undefined {
   const value = merge.result?.value;
   if (value === undefined || value === null) return undefined;
-  const name = merge.path[merge.path.length - 1] ?? 'untitled';
-  const type =
-    merge.result?.type === 'color' || merge.result?.type === 'fontFamily'
-      ? 'string'
-      : merge.result?.type === 'number' ||
-          merge.result?.type === 'dimension' ||
-          merge.result?.type === 'duration'
-        ? 'number'
-        : 'string';
+  const name = merge.result?.path.join('.') ?? merge.path;
+  const type = variableTypeForToken(merge.result?.type ?? 'string');
   // Find an existing backing variable by token link.
   for (const [variableId, tokenId] of Object.entries(store.variableLinks)) {
     if (tokenId === merge.id) {
@@ -343,7 +469,7 @@ function upsertBackingVariable(
         [mode]: value as VariableValue,
       };
       if (existing) {
-        variables.variables[variableId] = { ...existing, valuesByMode };
+        variables.variables[variableId] = { ...existing, name, type, valuesByMode };
       } else {
         variables.variables[variableId] = {
           id: variableId,
@@ -410,11 +536,16 @@ function collectGroupMeta(
     const hasDeprecated = node.deprecated !== undefined;
     const hasExtensions = Object.keys(node.extensions ?? {}).length > 0;
     if (hasDescription || hasDeprecated || hasExtensions) {
-      out[node.path.join('.')] = {
-        ...(hasDescription ? { description: node.description } : {}),
-        ...(hasDeprecated ? { deprecated: node.deprecated } : {}),
-        extensions: node.extensions ?? {},
-      };
+      Object.defineProperty(out, node.path.join('.'), {
+        configurable: true,
+        enumerable: true,
+        value: {
+          ...(hasDescription ? { description: node.description } : {}),
+          ...(hasDeprecated ? { deprecated: node.deprecated } : {}),
+          extensions: node.extensions ?? {},
+        },
+        writable: true,
+      });
     }
     collectGroupMeta(node.children, out);
   }
@@ -441,7 +572,7 @@ export function previewImport(store: DesignTokenStore, document: DtcgDocument): 
       extensions: token.extensions,
     });
   }
-  const groups: Record<string, TokenGroupMeta> = {};
+  const groups: Record<string, TokenGroupMeta> = Object.create(null);
   collectGroupMeta(document.groups, groups);
   return { incoming, collisions, added: incoming.size - collisions.length, groups };
 }
@@ -581,15 +712,10 @@ function createBackingVariable(
   mode: string,
 ): string {
   const variableId = `var-${globalThis.crypto?.randomUUID?.() ?? Math.random().toString(16).slice(2)}`;
-  const type =
-    record.type === 'color' || record.type === 'fontFamily'
-      ? 'string'
-      : record.type === 'number' || record.type === 'dimension' || record.type === 'duration'
-        ? 'number'
-        : 'string';
+  const type = variableTypeForToken(record.type);
   variables.variables[variableId] = {
     id: variableId,
-    name: record.path[record.path.length - 1] ?? 'untitled',
+    name: record.path.join('.'),
     type: type as 'number' | 'string' | 'boolean' | 'color',
     valuesByMode: { [mode]: record.value as VariableValue },
   };

@@ -1,12 +1,12 @@
 .token-sync-panel {
   border-top: 1px solid var(--color-border-subtle);
-  padding: 0.5rem;
+  padding: var(--space-3);
 }
 
 .token-sync-panel__header {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--space-3);
 }
 
 .token-sync-panel__title {
@@ -18,10 +18,10 @@
 /* Panel actions are @varve/ui Buttons — appearance comes from the shared
    button system; these classes are layout hooks only. */
 .token-sync-panel__body {
-  margin-top: 0.5rem;
+  margin-top: var(--space-3);
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: var(--space-3);
 }
 
 .token-sync-panel__empty {
@@ -36,13 +36,13 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: var(--space-2);
 }
 
 .token-sync-panel__source {
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control-compact);
-  padding: 0.35rem 0.5rem;
+  padding: var(--space-2) var(--space-3);
 }
 
 .token-sync-panel__source-name {
@@ -52,7 +52,7 @@
 
 .token-sync-panel__source-meta {
   display: flex;
-  gap: 0.5rem;
+  gap: var(--space-3);
   font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
   flex-wrap: wrap;
@@ -79,14 +79,14 @@
 
 .token-sync-panel__summary {
   display: flex;
-  gap: 0.75rem;
+  gap: var(--space-4);
   font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
 }
 
 .token-sync-panel__actions {
   display: flex;
-  gap: 0.5rem;
+  gap: var(--space-3);
   align-items: center;
 }
 
@@ -95,23 +95,23 @@
   border-radius: var(--radius-control-compact);
   margin: 0;
   min-inline-size: 0;
-  padding: 0.5rem;
+  padding: var(--space-3);
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: var(--space-2);
   font-size: var(--font-size-2xs);
 }
 
 .token-sync-panel__diagnostics {
   margin: 0;
-  padding-left: 1rem;
+  padding-left: var(--space-5);
   color: var(--color-feedback-warning);
   font-size: var(--font-size-2xs);
 }
 
 .token-sync-panel__preview-actions {
   display: flex;
-  gap: 0.5rem;
+  gap: var(--space-3);
 }
 
 .token-sync-panel__apply:disabled {
@@ -165,7 +165,7 @@
   border-radius: var(--radius-control-compact);
   margin: 0;
   min-inline-size: 0;
-  padding: 0.4rem 0.5rem;
+  padding: var(--space-2) var(--space-3);
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -252,7 +252,7 @@
 .token-sync-panel__detail {
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control-compact);
-  padding: 0.35rem 0.5rem;
+  padding: var(--space-2) var(--space-3);
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -316,7 +316,7 @@
   gap: var(--space-2);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control-compact);
-  padding: 0.5rem;
+  padding: var(--space-3);
 }
 
 .token-sync-panel__editor-label {
@@ -347,4 +347,51 @@
   margin: 0;
   color: var(--color-text-danger);
   font-size: var(--font-size-2xs);
+}
+
+.local-token-form__fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
+  padding: var(--space-3);
+  min-inline-size: 0;
+}
+
+.local-token-form__title {
+  margin: 0;
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+}
+
+.local-token-form__dimension {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-3);
+}
+
+.local-token-form__alias {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.local-token-form__hint {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+}
+
+.local-token-form__error {
+  margin: 0;
+  color: var(--color-feedback-danger);
+  font-size: var(--font-size-2xs);
+}
+
+.local-token-form__actions {
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
 }

@@ -1,0 +1,56 @@
+{
+  "input": "runtime-export-2026-09-25.tokens.json",
+  "inputSha256": "745b2bd3bc712895fafefe9a272b03fac8e8c715eed8456cb058597c85ccbc2e",
+  "schema": {
+    "url": "https://www.designtokens.org/schemas/2025.10/format.json",
+    "sha256": "32e93b780e4e4bca778d0780cb797a560deedc470c608af16576223f7e42915f",
+    "validator": "AJV 8.20.0",
+    "valid": true,
+    "errors": [],
+    "scope": "Published DTCG schema is an independent structural check, not the normative report or proof of semantic conformance."
+  },
+  "consumer": {
+    "name": "Style Dictionary",
+    "version": "5.5.5",
+    "profile": "usesDtcg + css transformGroup + css/variables + outputReferences",
+    "observedTokens": [
+      {
+        "path": ["color", "brand", "primary"],
+        "type": "color",
+        "value": "#cc331a",
+        "original": {
+          "colorSpace": "srgb",
+          "components": [0.8, 0.2, 0.1]
+        },
+        "description": "Foundation brand color",
+        "extensions": {
+          "org.varve.validation": {
+            "retained": true,
+            "precision": 1.00000001
+          }
+        }
+      },
+      {
+        "path": ["local", "brand", "alias"],
+        "value": "#cc331a",
+        "original": "{semantic.brand.curlyAlias}"
+      },
+      {
+        "path": ["local", "spacing", "remUnsupported"],
+        "type": "dimension",
+        "value": "1.25rem",
+        "original": {
+          "value": 1.25,
+          "unit": "rem"
+        }
+      },
+      {
+        "path": ["semantic", "brand", "curlyAlias"],
+        "value": "#cc331a",
+        "original": "{color.brand.primary}"
+      }
+    ],
+    "emittedPointerAlias": false,
+    "scope": "Exact browser download consumed directly without compatibility preprocessing. Token-level JSON Pointer output: omitted by this consumer version."
+  }
+}

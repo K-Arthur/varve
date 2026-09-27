@@ -1,0 +1,31 @@
+{
+  "browser": "151.0.7922.34",
+  "observed": {
+    "swatches": [
+      {
+        "label": "Foundation",
+        "background": "rgb(204, 51, 26)",
+        "rgba": [204, 51, 26, 255]
+      },
+      {
+        "label": "Curly alias",
+        "background": "rgb(204, 51, 26)",
+        "rgba": [204, 51, 26, 255]
+      },
+      {
+        "label": "Local alias",
+        "background": "rgb(204, 51, 26)",
+        "rgba": [204, 51, 26, 255]
+      },
+      {
+        "label": "Pointer aliasnot emitted",
+        "background": "rgba(0, 0, 0, 0)",
+        "rgba": [0, 0, 0, 0]
+      }
+    ],
+    "emittedPointerAlias": "",
+    "gap": "20px",
+    "rootFont": "16px"
+  },
+  "screenshot": "../../screenshots/dtcg-runtime-2026-09-25/independent-css-consumer.png"
+}

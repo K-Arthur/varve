@@ -13,60 +13,30 @@
  */
 import { evaluate } from './expr';
 import { randomHex } from './identity';
+import {
+  activeVariableMode,
+  extendTokenBindingDependencies,
+  resolveTokenVariableValue,
+  synchronizeVariableEdit,
+} from './tokens/runtimeProjection';
 import type { PropertyBinding } from './types';
 
-export type VariableType = 'color' | 'number' | 'string' | 'boolean';
+import type {
+  Variable,
+  VariableCollection,
+  VariableGroup,
+  VariableStore,
+  VariableValue,
+} from './variableTypes';
 
-export type VariableValue = string | number | boolean | Record<string, unknown>;
-
-export interface Variable {
-  id: string;
-  name: string;
-  type: VariableType;
-  valuesByMode: Record<string, VariableValue>;
-}
-
-/**
- * A group of variables within a collection. Supports nesting.
- */
-export interface VariableGroup {
-  id: string;
-  name: string;
-  variableIds: string[];
-  groups?: VariableGroup[];
-}
-
-/**
- * A collection groups related variables with their own mode list.
- * This is the Figma-equivalent organizational layer.
- */
-export interface VariableCollection {
-  id: string;
-  name: string;
-  modes: string[];
-  activeMode: string;
-  variableIds: string[];
-  groups?: VariableGroup[];
-}
-
-export interface VariableStore {
-  /** All variables across all collections (flat map for fast lookup). */
-  variables: Record<string, Variable>;
-  /** Named collections of variables. */
-  collections: Record<string, VariableCollection>;
-  /** The currently active collection id. */
-  activeCollectionId: string;
-  /** Backward-compat: global modes list. */
-  modes: string[];
-  /** Backward-compat: global active mode. */
-  activeMode: string;
-  /**
-   * Design-token synchronization state (schema v1, ADR-0100).
-   * Optional additive field: absent for legacy documents, survives the
-   * document codec round trip because serialization spreads the document.
-   */
-  tokenSync?: import('./tokens/model').TokenSynchronization;
-}
+export type {
+  Variable,
+  VariableCollection,
+  VariableGroup,
+  VariableStore,
+  VariableType,
+  VariableValue,
+} from './variableTypes';
 
 // ── Factory ─────────────────────────────────────────────────────────────────
 
@@ -309,7 +279,8 @@ export function updateVariable(
 ): VariableStore {
   const existing = store.variables[id];
   if (!existing) return store;
-  return { ...store, variables: { ...store.variables, [id]: { ...existing, ...patch } } };
+  const next = { ...store, variables: { ...store.variables, [id]: { ...existing, ...patch } } };
+  return patch.valuesByMode ? synchronizeVariableEdit(next, id, store) : next;
 }
 
 function removeVarFromGroups(groups: VariableGroup[], variableId: string): VariableGroup[] {
@@ -394,13 +365,7 @@ export function resolve(
 
   try {
     // Determine active mode — prefer collection-specific mode
-    let activeMode = store.activeMode;
-    for (const col of Object.values(store.collections)) {
-      if (col.variableIds.includes(v.id)) {
-        activeMode = col.activeMode;
-        break;
-      }
-    }
+    const activeMode = activeVariableMode(store, v.id);
 
     const raw =
       v.valuesByMode[activeMode] ??
@@ -408,6 +373,7 @@ export function resolve(
       v.valuesByMode[store.modes[0] ?? 'default'];
     if (raw === undefined) throw new Error(`no value for variable: ${nameOrId}`);
 
+    if (store.tokenSync?.store.variableLinks[v.id]) return resolveTokenVariableValue(store, v.id);
     return resolveRawValue(store, raw, resolving);
   } finally {
     resolving.delete(v.id);
@@ -455,6 +421,7 @@ export function resolveVariableInCollection(
     v.valuesByMode[collection.modes[0] ?? 'default'];
   if (raw === undefined) throw new Error(`no value for variable: ${nameOrId}`);
 
+  if (store.tokenSync?.store.variableLinks[v.id]) return resolveTokenVariableValue(store, v.id);
   return resolveRawValue(store, raw, new Set());
 }
 
@@ -511,6 +478,27 @@ export function getChangedVariableIds(
       continue;
     }
 
+    if (
+      oldStore &&
+      newStore &&
+      activeVariableMode(oldStore, id) !== activeVariableMode(newStore, id)
+    ) {
+      changed.add(id);
+      continue;
+    }
+    const oldLink = oldStore?.tokenSync?.store.variableLinks[id];
+    const newLink = newStore?.tokenSync?.store.variableLinks[id];
+    const oldToken = oldLink ? oldStore?.tokenSync?.store.tokens[oldLink] : undefined;
+    const newToken = newLink ? newStore?.tokenSync?.store.tokens[newLink] : undefined;
+    if (
+      oldLink !== newLink ||
+      oldToken?.value !== newToken?.value ||
+      oldToken?.type !== newToken?.type
+    ) {
+      changed.add(id);
+      continue;
+    }
+
     const oldModes = oldVar.valuesByMode;
     const newModes = newVar.valuesByMode;
     const modeKeys = new Set([...Object.keys(oldModes), ...Object.keys(newModes)]);
@@ -557,6 +545,7 @@ export function buildVariableDependencyMap(
 
   // Follow alias chains: if var A = "{B}" then nodes bound to A also depend on B
   if (store) {
+    extendTokenBindingDependencies(map, store);
     let changed = true;
     while (changed) {
       changed = false;

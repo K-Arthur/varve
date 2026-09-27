@@ -2,8 +2,8 @@
 
 - Date: 2026-09-25
 - Branch: `master`
-- Status: Integration and validation in progress; the commands below distinguish
-  completed checks from pending browser and native execution.
+- Status: DTCG integration and web/browser validation complete for the supported
+  profile; native and platform coverage remains explicitly scoped below.
 
 ## Ownership and standards
 
@@ -68,18 +68,33 @@ reference graph before being committed.
 A re-import is a base/local/remote merge. Unresolved conflicts keep Apply
 unavailable. The proposed whole document is checked again after conflict choices,
 including aliases retained outside the incoming source and path collisions with
-local tokens. Removing a supported token detaches its binding with the last
+local tokens or stored groups. Exact token/group path collisions and duplicate
+stable IDs block the plan. A source cannot claim an ID already owned by another
+source or local token; the apply boundary repeats the identity check. Removing a supported token detaches its binding with the last
 resolved literal, preserving artwork. A deletion that leaves another alias
 unresolved is blocked. Group metadata is preserved by initial import and export;
 source updates that change it are blocked with a specific limitation diagnostic.
 A new source cannot replace different metadata already stored at the same group.
 Groups containing no source-owned tokens have no ownership provenance, so their
 removal cannot yet be attributed safely to one source.
+A source update that changes the type of a token with a linked Variable is
+blocked until an explicit migration can preserve property bindings and native
+mode values. A distinct path is available for a new type. Supported token
+deletion materializes stored native modes separately rather than copying the
+active mode into the default slot.
 
 Pending reads and previews are owned by the current document and source revision.
 Cancel, a newer selection, source editing, or a document switch invalidates older
 reads. Duplicate File names in one selection are rejected before reading bytes.
 Picker admission is bounded to 256 files, 16 MB per file and 64 MB total.
+The panel reports apply success only after the reviewed VariableStore is present
+in the committed document. If a newer document wins the update race, it retains
+the preview with a blocking stale-document diagnostic.
+
+Prototype-like JSON keys are handled as own data throughout parsing, source
+merging, scene projection, history capture and canonical export. This preserves
+valid names such as `__proto__` without writing them through JavaScript object
+prototype setters.
 
 ## Complaint-informed acceptance criteria
 
@@ -95,6 +110,8 @@ they do not establish current product-wide failures.
 | [Penpot 10544](https://community.penpot.app/t/10544): transformations needed between multi-set exports | Content-based format routing, explicit source inputs and diagnostics | Import workflow tests; no claim that a vendor envelope is standard Format |
 | [Figma modes documentation](https://help.figma.com/hc/en-us/articles/15343816063383-Modes-for-variables): normalized duplicate names dropped | Full-path display and blocking path-collision validation | Source update collision and import tests |
 | Pull or re-import overwrites local work | Preview, three-way conflicts, single transaction and undo | Existing sync E2E and update-plan tests |
+| Forged stable IDs can overwrite another source | Reject invalid, duplicate and foreign-owned IDs during planning and again at apply | Update-plan and direct-apply regressions |
+| A changed document can make Apply look successful when no store was written | Confirm the exact resulting store before announcing success; retain a blocking stale preview otherwise | Token Sync component race regression |
 
 ## Execution evidence
 
@@ -112,6 +129,8 @@ measurements identify an algorithmic improvement, not a stable performance budge
 
 ### Integration checks completed
 
+- Complete token package in the affected lane: 10 files / 188 tests and its
+  typecheck passed after the final standards changes.
 - Shared standards focused suite: 5 files / 115 tests passed, including root
   `$extends`, resolved property-reference owner validation and a 10,000-token
   reference-chain graph without recursive stack overflow.
@@ -132,44 +151,131 @@ probe of the compiled WASM IR showed Rust dropping TypeScript's camel-case
 `bitDepth`. Rust now reads/emits that spelling while also reading legacy
 `bit_depth`; the rebuilt IR preserves floating channels, alpha and profile.
 
+The scalar browser check then found a second Rust-to-web IR wire mismatch:
+rectangle radii were emitted as `corner_radius`, while the stable TypeScript
+renderer contract reads `cornerRadius`. The bound value and engine node were
+correct (`32`), but the renderer received the snake-case key and painted square
+corners. Rust now serializes the field as `cornerRadius`; the engine crate has a
+wire regression test, and both baseline and SIMD WASM artifacts were rebuilt.
+The browser test passes with a real Variables edit, rounded-corner pixel,
+opacity pixel, undo, and same-camera authoritative redraw. The corner sample is
+identical before and after redraw. Whole-canvas comparison found only a bounded
+antialiasing difference between worker and compositor output: at most 1/255 in
+66 pixels (under 0.01% of the surface); this is recorded as a tolerance, not
+claimed as byte-identical rendering.
+
 The next browser run painted all three rectangles through curly, pointer and
 local aliases, and propagated a source edit without reselection. Undo then failed
-because exact history replay did not match the updated document. That failure is
-under investigation; color propagation alone is not recorded as complete history
-verification. The final export, theme and save/reopen steps have not yet passed.
+because exact history replay did not match the updated document. The focused
+regression identified a shared-object cloning defect: replay changed a provenance
+snapshot alongside the live token value. Capture cloning
+now separates sibling occurrences, preserves own JSON keys without prototype
+setters, and records arbitrary metadata keys through safe parent replacements.
+The focused history repair passed 17 tests. The next browser run passed source
+updates, undo/redo, metadata/reference export and three application themes. It
+failed while reopening the saved document, with the application back on its
+loading screen. The `VARVE_DISABLE_HMR=1` rerun passed the complete import,
+history, export, reload/reopen and bound-pixel flow. Native UI execution remains
+unverified.
+
+An independent code review found additional boundary cases before the final
+gate: a source could present another source's stable token ID, duplicate IDs
+could collapse merge targets, and prototype-like paths could interact with
+ordinary object properties. Planning and apply now reject identity collisions;
+import, scene projection and export use own-key-safe containers. A linked value
+that already projects to artwork also cannot be edited or remotely changed to
+an unsupported value such as `rem` until its consumers are detached or the
+required document context is implemented. Direct import, update and projection
+regressions cover these boundaries; their exact results are in the final
+validation report below.
 
 Opened runtime captures exposed clipped resolved values and an unsupported-value
 reason. Variables now show readable profile/channel labels, wrap long paths and
 values, and preserve precision when an unchanged displayed value is committed.
-Picker reasons wrap within their option. Fresh final captures will be inspected
-again after the history repair.
+Picker reasons wrap within their option. Fresh import, rem-reason, undo/redo,
+Dark and High Contrast captures were opened and inspected; the artwork stayed
+red in all application themes while the chrome changed.
 
 The marketing captures have been opened in desktop/light and mobile/dark under
 both base paths. The real binding image loads, the mobile page does not overflow,
 and the wide capability table remains keyboard-focusable and horizontally
 scrollable. Close-up hero and table captures support readable inspection.
 
-### Validation still in progress
+### Final validation report
 
-The owned-path triage plan passed formatting, lint, docs, emoji, inspector CSS,
-token contrast/usage (315 pairs / three themes), spacing and sizing audits. It
-stopped at compiler errors in a concurrent WebGPU E2E file. A previous Rust
-closure passed core/clippy and the reverse engine crates, then revealed the
-standalone desktop crate being invoked from the wrong workspace. The lane mapper
-is repaired and its 50 policy tests plus CI plan checks pass; that infrastructure
-change requires a final full checkpoint.
+The private-index impact plan covered 105 DTCG-owned paths: the website, editor,
+history, scene and tokens packages plus `varve-engine`. Tiers 0–4 were selected;
+the planner reported **no full-suite escalation**. It passed formatting, lint,
+docs, emoji, inspector CSS, token contrast/usage (315 pairs across three
+themes), spacing and sizing audits, `typecheck:e2e`, the focused token/history/
+scene tests, both DTCG browser specs, the website unit suite (239 tests), and
+Astro/type checks. The editor package suite passed 8,082 tests with two skipped.
 
-Linux desktop preflight passed. The current native build exposed two integration
-TypeScript errors, repaired, plus concurrent retouch compiler errors. An older
-native test binary is not evidence for these changes. Native execution, external
-consumer checks, final affected/full checks and the final Agent Validation Report
-remain pending. A lease wait for the architecture audit timed out; it has been
-requeued without reclaiming any live lease. Windows and macOS are unavailable
-locally. Browser execution uses the desktop frontend; `apps/web` remains a
-placeholder and is not advertised as a separate validated application.
+The remaining downstream JavaScript run reported 5,572 passing tests and one
+failure in the existing scene mode-switch regression. That exposed a stale
+collection-mode cache introduced by the token projection helper. The cache was
+removed to preserve the established in-place mode-switch behavior; the focused
+modifier and projection suites then passed 67 tests, and `@varve/scene`
+typechecked. The new import workflow's optional metadata assertion and the
+history fixture's store shape were also corrected; the exact import test passed
+34 tests, the source-update history test passed two, and the affected editor,
+scene and history typechecks passed. The broad downstream package suite was not
+restarted after those small repairs.
+
+Rust validation passed: `varve-engine` (9 tests, including the camelCase
+`cornerRadius` regression), Clippy, `varve-wasm`, and the standalone Linux
+desktop crate (130 tests). `just wasm-check` passed; `just wasm-build` built both
+baseline and SIMD browser artifacts. The full Tauri application was not launched
+for this run. A prior app build attempt hit `ENOSPC`, then a generic pnpm
+lifecycle failure; the successful standalone crate tests do not substitute for
+a native UI smoke. Windows and macOS are unavailable locally.
+
+The DTCG browser flow passed with HMR disabled through source import, local
+authoring, bound color/scalar edits, history, reload/reopen, and pixel checks.
+The px-radius/opacity flow passed its same-camera redraw check and undo. The
+Style Dictionary consumer probe was rendered in Chromium: three emitted colors
+matched their pixels, `1.25rem` computed to `20px` with a 16px root, and the
+token-level JSON Pointer alias was visibly omitted. The desktop/light and
+mobile/dark marketing captures were refreshed and inspected. The added Design
+Tokens feature card intentionally changes the dark feature-index page, so its
+visual baseline was regenerated and its exact screenshot test passed. The
+renderer replay visual corpus passed all 42 cases at 1×, 2× and 3×. The render
+benchmark passed all six cases.
+
+Two broader integration boundaries remain red or incomplete:
+
+- The full website E2E run completed 578 tests and reported six failures before
+  the feature-index baseline update: duplicate text matching in the separate
+  Object Selection page (both base paths), one existing performance-page
+  snapshot, the now-updated feature-index snapshot, and product-page snapshots
+  in both themes. The DTCG page passed in desktop/light and mobile/dark under
+  both base paths. The five other failing cases were not changed here.
+- The selected `e2e:canvas` directory expands to 795 cases. Its leased run was
+  stopped after nine cases, when the large-image adaptive-residency oracle
+  exposed a different image hash for the worker's 2048px source-cap bitmap and
+  the authoritative full-resolution compositor replay. Repeating the exact
+  case with longer settling time produced the same result. This renderer
+  resolution-parity issue is outside DTCG token projection; the focused DTCG
+  scalar and color pixel checks pass. The broad canvas suite is therefore not
+  reported as passing.
+
+Earlier architecture-audit attempts reached `ts-prune` and hit its internal
+60-second timeout; no architecture baseline was changed. The checkout contains
+concurrent non-DTCG edits, so checkout-wide cycle/instability warnings from that
+attempt were not attributed to this work. The independent `apps/web` surface is
+still a placeholder; browser validation uses the desktop frontend.
 
 See the [workflow coverage matrix](runtime-coverage-2026-09-25.md) for supported,
-partial and unverified surfaces. This document will be updated before completion.
+partial and unverified surfaces.
+
+The reproducible synthetic benchmark now records 1k- and 10k-token single-context
+cases in `docs/tokens/fixtures/dtcg-runtime-benchmark-2026-09-25.json`. On the
+2026-09-27 Linux/Node 22 run, 10k parse plus resolved-value validation had a
+7,751 ms median; graph construction, resolution, and canonical serialization
+had 39 ms, 74 ms, and 35 ms medians. This measures the current deterministic
+pipeline on one shared machine, not an in-browser responsiveness guarantee.
+Large-library import responsiveness and memory plateau still need dedicated
+interactive measurement before promising 10k-token editing as seamless.
 
 ## Deferred capabilities
 
@@ -180,3 +286,48 @@ unconnected or unsupported. The current UI uses explicit manual import/export.
 
 See [target architecture](dtcgsync-architecture.md) for the longer program;
 architecture ports and target milestones are not shipped capability claims.
+
+## Independent export consumer
+
+The browser end-to-end check compares the exported JSON value with the retained
+[DTCG fixture](fixtures/runtime-export-2026-09-25.tokens.json); formatting may
+differ, and no compatibility preprocessing is applied. The published DTCG
+2025.10 structural schema passed under AJV 8.20.0. This is an independent
+structural check, not a substitute for normative semantic validation.
+
+Style Dictionary 5.5.5, with `usesDtcg`, the CSS transform group and
+`css/variables` with `outputReferences`, emitted the foundation, curly alias,
+local alias and rem dimension. It omitted the token-level JSON Pointer alias.
+The [consumer report](fixtures/runtime-export-style-dictionary-5.5.5.json)
+records exact input/schema hashes and observed tokens. The unmodified
+[generated CSS](fixtures/runtime-export-style-dictionary-5.5.5.css) is retained
+separately from authored source. `node scripts/tokens/verify-consumer-css.mjs`
+opens the generated CSS sample in Chromium, checks three emitted aliases against
+actual RGBA pixels, confirms the omitted JSON Pointer alias leaves its outlined
+swatch transparent, and checks that `1.25rem` computes to `20px` with a `16px`
+root font. It writes
+`docs/screenshots/dtcg-runtime-2026-09-25/independent-css-consumer.png` and a
+structured result JSON. The run passed and the screenshot was visually
+inspected; the observed omission is recorded as a version-specific
+Style Dictionary behavior, not a universal adapter compatibility claim.
+
+## Progressive commits
+
+- `a1f40b6bf`: authored-runtime architecture and evidence boundaries.
+- `661cfebe3`: workflow coverage and validation findings.
+- `7d03966b1`: stable DTCG reference resolution and complete-graph validation;
+  its normal commit checkpoint passed 115 direct standards tests. The complete
+  token package had already passed 188 tests and typechecking.
+
+- `d186910f3`: floating color precision through the engine wire.
+- `527f62faa` and `3f6e375cd`: non-destructive first-use import and complete
+  Token Sync import/export.
+- `4e2e1fd37` and `7a366bc6a`: browser binding evidence and variable-only
+  repaint repair.
+- `78c28571b` and `426f43650`: three-way source updates and safe source editing.
+- `c87b19f31`: binding-pass commit ledger.
+
+The commits above are already on `master`; later commits in the same progressive
+series cover local authoring, scalar editing, history, the website, and the
+validation evidence recorded here. The current scoped validation batch is
+committed separately on `master`.

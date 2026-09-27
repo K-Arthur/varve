@@ -72,7 +72,7 @@ import type {
 } from './types';
 import { isContainer } from './types';
 import type { Variable } from './variables';
-import { createVariableStore, deleteVariable } from './variables';
+import { createVariableStore, deleteVariable, updateVariable } from './variables';
 import { CURRENT_DOCUMENT_VERSION } from './version';
 
 export type { CreateMasterOptions } from './document-components';
@@ -1067,13 +1067,7 @@ export function updateVariableInDocument(
   if (!store?.variables[id]) return doc;
   return {
     ...doc,
-    variableStore: {
-      ...store,
-      variables: {
-        ...store.variables,
-        [id]: { ...store.variables[id], ...patch },
-      },
-    },
+    variableStore: updateVariable(store, id, patch),
   };
 }
 

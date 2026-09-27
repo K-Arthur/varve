@@ -7,13 +7,27 @@ import { parseFormatDocument, snapshotFromTokens, threeWayMerge } from '@varve/t
 import { describe, expect, it } from 'vitest';
 import { createVariableStore } from '../../variables';
 import { createEmptyTokenSynchronization } from '../store';
-import { applyMergePlanToSync } from '../syncApply';
+import { applyMergePlanToSync, previewImport } from '../syncApply';
 
 function parse(text: string) {
   return snapshotFromTokens(parseFormatDocument(text, { sourceFileId: 't' }).tokens);
 }
 
 describe('sync apply', () => {
+  it('preserves prototype-like group metadata as own data without global pollution', () => {
+    const document = parseFormatDocument(
+      '{"__proto__":{"$description":"safe group","child":{"$type":"number","$value":1}}}',
+    );
+    const preview = previewImport(createEmptyTokenSynchronization().store, document);
+    const groupMeta = Object.getOwnPropertyDescriptor(preview.groups, '__proto__')?.value as
+      | { description?: string }
+      | undefined;
+
+    expect(Object.hasOwn(preview.groups, '__proto__')).toBe(true);
+    expect(groupMeta?.description).toBe('safe group');
+    expect(({} as Record<string, unknown>).child).toBeUndefined();
+  });
+
   it('applies a resolved merge plan to the token store and backing variables', () => {
     const plan = threeWayMerge({
       base: parse('{"a": {"$type": "number", "$value": 1}}'),

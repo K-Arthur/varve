@@ -143,9 +143,9 @@ const haystack = [
   ...globSync('apps/website/src/**/*.{astro,md,ts,tsx}', { cwd: ROOT }),
 ].map((rel) => readFileSync(join(ROOT, rel), 'utf8'));
 
-// Generated workflow assets that are real files but deliberately have no
-// manifest scene entry.
-const generatedExtras = new Set(['workflow-poster.png']);
+// Feature/workflow captures that are real files but deliberately have no
+// product-scene manifest entry.
+const generatedExtras = new Set(['workflow-poster.png', 'design-tokens-alias-bound-light.png']);
 
 const missingRefs = new Set();
 for (const src of haystack) {

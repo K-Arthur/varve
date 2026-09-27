@@ -7,7 +7,7 @@
  */
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import type { Document } from '@varve/scene';
 import { createDocument } from '@varve/scene';
 import {
@@ -22,7 +22,10 @@ import { TokenSyncPanel } from './TokenSyncPanel';
 
 const editorMock = vi.hoisted(() => ({
   state: { document: null as Document | null },
+  beforeUpdateDoc: null as null | (() => void),
   updateDoc: (fn: (doc: Document) => Document) => {
+    editorMock.beforeUpdateDoc?.();
+    editorMock.beforeUpdateDoc = null;
     if (editorMock.state.document) editorMock.state.document = fn(editorMock.state.document);
   },
   beginTransaction: vi.fn(),
@@ -30,9 +33,22 @@ const editorMock = vi.hoisted(() => ({
   announce: vi.fn(),
 }));
 
-vi.mock('../../context', () => ({
-  useEditor: () => editorMock,
-}));
+vi.mock('../../context', async () => {
+  const { useReducer } = await import('react');
+  return {
+    useEditor: () => {
+      const [, rerender] = useReducer((revision: number) => revision + 1, 0);
+      return {
+        ...editorMock,
+        state: { document: editorMock.state.document },
+        updateDoc: (fn: (doc: Document) => Document) => {
+          editorMock.updateDoc(fn);
+          rerender();
+        },
+      };
+    },
+  };
+});
 
 function seedDoc(
   seed: (sync: ReturnType<typeof createEmptyTokenSynchronization>) => void,
@@ -81,8 +97,59 @@ async function pickFile(name: string, text: string) {
   await screen.findByText(/revision/i);
 }
 
+describe('token source resource bounds', () => {
+  it('rejects an oversized file before reading its contents', async () => {
+    editorMock.state.document = createDocument('Bounded import');
+    render(<TokenSyncPanel />);
+    const input = screen.getByLabelText('Import DTCG token file') as HTMLInputElement;
+    const file = new File([], 'large.tokens.json');
+    const read = vi.fn();
+    Object.defineProperty(file, 'size', { value: 16 * 1024 * 1024 + 1 });
+    Object.defineProperty(file, 'text', { value: read });
+    Object.defineProperty(input, 'files', { value: [file], configurable: true });
+    fireEvent.change(input);
+    expect(await screen.findByText(/Each token source file must be at most 16 MB/)).toBeTruthy();
+    expect(read).not.toHaveBeenCalled();
+    expect(editorMock.state.document?.variableStore).toBeUndefined();
+  });
+});
+
+function pickFileWithoutWaiting(name: string, text: string) {
+  const input = screen.getByLabelText('Import DTCG token file') as HTMLInputElement;
+  const file = new File([text], name, {
+    type: 'application/json',
+    lastModified: 1_700_000_000_000,
+  });
+  Object.defineProperty(input, 'files', { value: [file], configurable: true });
+  fireEvent.change(input);
+}
+
+function deferFileReads() {
+  const resolveByName = new Map<string, (text: string) => void>();
+  const original = Object.getOwnPropertyDescriptor(File.prototype, 'text');
+  Object.defineProperty(File.prototype, 'text', {
+    configurable: true,
+    value(this: File) {
+      return new Promise<string>((resolve) => resolveByName.set(this.name, resolve));
+    },
+  });
+  return {
+    resolve(name: string, text: string) {
+      const resolve = resolveByName.get(name);
+      if (!resolve) throw new Error(`No deferred File.text() read for ${name}`);
+      resolveByName.delete(name);
+      resolve(text);
+    },
+    restore() {
+      if (original) Object.defineProperty(File.prototype, 'text', original);
+      else Reflect.deleteProperty(File.prototype, 'text');
+    },
+  };
+}
+
 beforeEach(() => {
   editorMock.state.document = null;
+  editorMock.beforeUpdateDoc = null;
   editorMock.announce.mockClear();
   editorMock.beginTransaction.mockClear();
   editorMock.commitTransaction.mockClear();
@@ -206,6 +273,37 @@ describe('TokenSyncPanel import flow', () => {
     expect(screen.queryByText(/ready to import/)).toBeNull();
   });
 
+  it('keeps the preview and reports stale state when the document changes during apply', async () => {
+    editorMock.state.document = createDocument('Fresh');
+    render(<TokenSyncPanel />);
+    await pickFile(
+      'tokens.json',
+      '{"spacing": {"$type": "dimension", "$value": {"value": 8, "unit": "px"}}}',
+    );
+    const reviewedDocument = editorMock.state.document!;
+    editorMock.beforeUpdateDoc = () => {
+      editorMock.state.document = { ...reviewedDocument, name: 'Changed during apply' };
+    };
+
+    fireEvent.click(screen.getByRole('button', { name: /apply import/i }));
+
+    expect(editorMock.state.document?.name).toBe('Changed during apply');
+    expect(editorMock.state.document?.variableStore).toBeUndefined();
+    expect(editorMock.announce).toHaveBeenCalledWith(
+      expect.stringContaining('was not applied because the document changed'),
+    );
+    expect(editorMock.announce).not.toHaveBeenCalledWith(
+      expect.stringContaining('Imported 1 tokens from tokens.json'),
+    );
+    expect(screen.getByText(/tokens.json · revision/)).toBeTruthy();
+    expect(screen.getByText(/import.stale-document/)).toBeTruthy();
+    expect(
+      (screen.getByRole('button', { name: /apply import/i }) as HTMLButtonElement).getAttribute(
+        'aria-disabled',
+      ),
+    ).toBe('true');
+  });
+
   it('previews parse errors without applying anything', async () => {
     editorMock.state.document = createDocument('Fresh');
     render(<TokenSyncPanel />);
@@ -262,6 +360,127 @@ describe('TokenSyncPanel import flow', () => {
     expect(screen.queryByText(/revision/i)).toBeNull();
   });
 
+  it('ignores an older file read that completes after a newer pick', async () => {
+    const reads = deferFileReads();
+    try {
+      editorMock.state.document = createDocument('Fresh');
+      render(<TokenSyncPanel />);
+
+      pickFileWithoutWaiting('older.tokens.json', '{}');
+      pickFileWithoutWaiting('newer.tokens.json', '{}');
+
+      await act(async () => {
+        reads.resolve('newer.tokens.json', '{"newer": {"$type": "number", "$value": 2}}');
+      });
+      expect(screen.getByText(/newer.tokens.json · revision/)).toBeTruthy();
+
+      await act(async () => {
+        reads.resolve('older.tokens.json', '{"older": {"$type": "number", "$value": 1}}');
+      });
+      expect(screen.getByText(/newer.tokens.json · revision/)).toBeTruthy();
+      expect(screen.queryByText(/older.tokens.json · revision/)).toBeNull();
+
+      fireEvent.click(screen.getByRole('button', { name: /apply import/i }));
+      expect(editorMock.announce).toHaveBeenCalledWith(
+        expect.stringContaining('Imported 1 tokens from newer.tokens.json'),
+      );
+      const doc = editorMock.state.document as unknown as {
+        variableStore: { tokenSync: { store: { tokens: Record<string, { path: string[] }> } } };
+      };
+      expect(
+        Object.values(doc.variableStore.tokenSync.store.tokens).map((token) => token.path),
+      ).toEqual([['newer']]);
+    } finally {
+      reads.restore();
+    }
+  });
+
+  it('cancels a pending read and ignores its late result', async () => {
+    const reads = deferFileReads();
+    try {
+      editorMock.state.document = createDocument('Fresh');
+      render(<TokenSyncPanel />);
+      pickFileWithoutWaiting('cancelled.tokens.json', '{}');
+      expect(screen.getByText('Reading selected token files…')).toBeTruthy();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel read' }));
+      expect(screen.queryByText('Reading selected token files…')).toBeNull();
+
+      await act(async () => {
+        reads.resolve('cancelled.tokens.json', '{"late": {"$type": "number", "$value": 1}}');
+      });
+      expect(screen.queryByText(/revision/i)).toBeNull();
+      expect(screen.queryByRole('button', { name: /apply import/i })).toBeNull();
+      expect(editorMock.announce).not.toHaveBeenCalled();
+    } finally {
+      reads.restore();
+    }
+  });
+
+  it('invalidates a pending read when editing a connected source', async () => {
+    const reads = deferFileReads();
+    try {
+      editorMock.state.document = twoSourceDocument();
+      render(<TokenSyncPanel />);
+      pickFileWithoutWaiting('superseded.tokens.json', '{}');
+      expect(screen.getByText('Reading selected token files…')).toBeTruthy();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Edit source content' }));
+      expect(screen.queryByText('Reading selected token files…')).toBeNull();
+      expect(screen.getByLabelText(/Source content:/)).toBeTruthy();
+
+      await act(async () => {
+        reads.resolve('superseded.tokens.json', '{"late": {"$type": "number", "$value": 1}}');
+      });
+      expect(screen.getByLabelText(/Source content:/)).toBeTruthy();
+      expect(screen.queryByText(/superseded.tokens.json · revision/)).toBeNull();
+    } finally {
+      reads.restore();
+    }
+  });
+
+  it('invalidates pending reads and previews when the active document changes', async () => {
+    const reads = deferFileReads();
+    try {
+      editorMock.state.document = createDocument('First');
+      const view = render(<TokenSyncPanel />);
+      pickFileWithoutWaiting('first.tokens.json', '{}');
+
+      editorMock.state.document = createDocument('Second');
+      view.rerender(<TokenSyncPanel />);
+      expect(screen.queryByText('Reading selected token files…')).toBeNull();
+      expect(screen.queryByText(/revision/i)).toBeNull();
+
+      await act(async () => {
+        reads.resolve('first.tokens.json', '{"late": {"$type": "number", "$value": 1}}');
+      });
+      expect(screen.queryByText(/revision/i)).toBeNull();
+      expect(screen.queryByRole('button', { name: /apply import/i })).toBeNull();
+      expect(editorMock.announce).not.toHaveBeenCalled();
+    } finally {
+      reads.restore();
+    }
+  });
+
+  it('hides an existing preview and source draft after switching documents', async () => {
+    editorMock.state.document = createDocument('First');
+    const view = render(<TokenSyncPanel />);
+    await pickFile('first.tokens.json', '{"first": {"$type": "number", "$value": 1}}');
+    expect(screen.getByText(/first.tokens.json · revision/)).toBeTruthy();
+
+    editorMock.state.document = twoSourceDocument();
+    view.rerender(<TokenSyncPanel />);
+    expect(screen.queryByText(/first.tokens.json · revision/)).toBeNull();
+    expect(screen.queryByRole('button', { name: /apply import/i })).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit source content' }));
+    expect(screen.getByLabelText(/Source content:/)).toBeTruthy();
+    editorMock.state.document = twoSourceDocument();
+    view.rerender(<TokenSyncPanel />);
+    expect(screen.queryByLabelText(/Source content:/)).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Validate and preview' })).toBeNull();
+  });
+
   it('exports the document token store as a DTCG file', async () => {
     const createObjectURL = vi.fn(() => 'blob:token-export');
     const revokeObjectURL = vi.fn();
@@ -299,6 +518,52 @@ describe('TokenSyncPanel import flow', () => {
     expect(
       screen.getByRole('button', { name: /export dtcg file/i }).getAttribute('aria-disabled'),
     ).toBe('true');
+  });
+
+  it('rejects duplicate sibling names before a resolver import can overwrite either file', async () => {
+    const original = Object.getOwnPropertyDescriptor(File.prototype, 'text');
+    const readText = vi.fn(async () => '');
+    Object.defineProperty(File.prototype, 'text', { configurable: true, value: readText });
+    try {
+      editorMock.state.document = createDocument('Fresh');
+      render(<TokenSyncPanel />);
+      const input = screen.getByLabelText('Import DTCG token file') as HTMLInputElement;
+      const resolver = new File(
+        [
+          JSON.stringify({
+            version: '2025.10',
+            sets: { core: { sources: [{ $ref: 'foundation.json' }] } },
+            resolutionOrder: [{ $ref: '#/sets/core' }],
+          }),
+        ],
+        'theme.resolver.json',
+        { type: 'application/json' },
+      );
+      const firstSibling = new File(['{"first": true}'], 'foundation.json', {
+        type: 'application/json',
+      });
+      const secondSibling = new File(['{"second": true}'], 'foundation.json', {
+        type: 'application/json',
+      });
+      Object.defineProperty(input, 'files', {
+        value: [resolver, firstSibling, secondSibling],
+        configurable: true,
+      });
+      fireEvent.change(input);
+
+      expect(await screen.findByText(/file\.duplicate-name:/)).toBeTruthy();
+      expect(
+        screen.getByText(/resolver references cannot distinguish same-name files/i),
+      ).toBeTruthy();
+      expect(
+        screen.getByRole('button', { name: /apply import/i }).getAttribute('aria-disabled'),
+      ).toBe('true');
+      expect(readText).not.toHaveBeenCalled();
+      expect(editorMock.announce).not.toHaveBeenCalled();
+    } finally {
+      if (original) Object.defineProperty(File.prototype, 'text', original);
+      else Reflect.deleteProperty(File.prototype, 'text');
+    }
   });
 
   it('routes a resolver file through the resolver workflow', async () => {
@@ -529,7 +794,7 @@ describe('TokenSyncPanel multi-source', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Validate and preview' }));
 
     const notice = screen.getByRole('alert');
-    expect(notice.textContent).toMatch(/is not a JSON object and cannot be imported/i);
+    expect(notice.textContent).toMatch(/Unexpected token/i);
     expect(notice.textContent).toMatch(/nothing was changed/i);
 
     // Nothing was applied: both sources and both token lists survive intact.

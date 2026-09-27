@@ -89,7 +89,11 @@ pub enum Primitive {
         y: f64,
         w: f64,
         h: f64,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[serde(
+            default,
+            rename = "cornerRadius",
+            skip_serializing_if = "Option::is_none"
+        )]
         corner_radius: Option<serde_json::Value>,
     },
     #[serde(rename = "ellipse")]
@@ -432,6 +436,17 @@ mod tests {
             ir[1].primitive,
             Primitive::Rect { w: 3.0, h: 3.0, .. }
         ));
+    }
+
+    #[test]
+    fn rect_corner_radius_uses_the_camel_case_webview_contract() {
+        let mut node = rect_node(1, 0.0, 0.0, 240.0, 190.0);
+        node.corner_radius = Some(serde_json::json!(32.0));
+        let ir = build_render_ir(&[node]);
+        let wire = serde_json::to_value(&ir[0]).expect("serialize render item");
+
+        assert_eq!(wire["primitive"]["cornerRadius"], 32.0);
+        assert!(wire["primitive"].get("corner_radius").is_none());
     }
 
     #[test]

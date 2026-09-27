@@ -6,7 +6,7 @@ import { sitePath } from '../../lib/siteUrl';
 
 <Layout
   title="Design Tokens"
-  description="Import DTCG 2025.10 token files, bind them to artwork, re-import external edits with a three-way merge, review conflicts token by token, and export without losing descriptions, aliases, or unknown extensions."
+  description="Import DTCG 2025.10 tokens, bind supported values to artwork, review external edits with a three-way merge, and export canonical JSON with descriptions and aliases preserved. Downstream tool support varies."
 >
   <div class="container-custom">
     <main class="tokens-page">
@@ -18,8 +18,7 @@ import { sitePath } from '../../lib/siteUrl';
         <StatusPill status="beta" />
         <h1>A token edited in two places should survive both edits.</h1>
         <p>
-          Varve reads design tokens as a standards document, not as a bag of
-          strings. Import a DTCG 2025.10 file, bind tokens to real properties,
+          Import a DTCG 2025.10 file, bind supported colors and scalar values to artwork,
           and when the file changes outside the app, re-import it and get a
           reviewed three-way merge instead of an overwrite.
         </p>
@@ -27,10 +26,10 @@ import { sitePath } from '../../lib/siteUrl';
 
       <section class="find-it site-card site-card--surface" aria-labelledby="find-title">
         <p class="eyebrow">Where it lives</p>
-        <h2 id="find-title">View, then Variables and Tokens.</h2>
+        <h2 id="find-title">View, Panels, then Variables and Tokens.</h2>
         <p>
           Both halves of the system sit behind one dialog:
-          <strong>View &rsaquo; Variables and Tokens&hellip;</strong>, or the
+          <strong>View &rsaquo; Panels &rsaquo; Variables and Tokens&hellip;</strong>, or the
           command palette entry <strong>Open Variables and Tokens</strong>.
           The dialog lists your variables with their authored and resolved
           values, and underneath it the Token Sync center manages sources,
@@ -51,23 +50,30 @@ import { sitePath } from '../../lib/siteUrl';
         <div class="flow-steps" aria-label="Token sync stages">
           <div><span>01</span><strong>Import</strong><small>Format detection, validation, and diagnostics</small></div>
           <div class="arrow" aria-hidden="true">→</div>
-          <div class="accent"><span>02</span><strong>Bind</strong><small>Tokens back real variables on real properties</small></div>
+          <div class="accent"><span>02</span><strong>Bind</strong><small>Compatible values reach artwork through Variables</small></div>
           <div class="arrow" aria-hidden="true">→</div>
           <div><span>03</span><strong>Update</strong><small>Base, local, and source merged per token</small></div>
         </div>
       </section>
 
+      <figure class="runtime-capture">
+        <img src={sitePath('/screenshots/design-tokens-alias-bound-light.png')}
+          width="1600" height="1000" loading="lazy"
+          alt="Varve showing a blue rectangle with its fill linked to the complete semantic.brand.curlyAlias token path" />
+        <figcaption>A source alias bound through the Inspector, with its resolved color painted on the canvas.</figcaption>
+      </figure>
+
       <section class="capabilities" aria-labelledby="capabilities-title">
         <p class="eyebrow">What it handles</p>
-        <h2 id="capabilities-title">Standards behavior, not a partial dialect.</h2>
+        <h2 id="capabilities-title">References, metadata, and explicit limits.</h2>
         <div class="capability-grid">
           <article>
             <h3>DTCG 2025.10 parsing</h3>
             <p>Tokens, groups, <code>$type</code> inheritance, <code>$root</code>, <code>$extends</code>, curly-brace aliases, and JSON Pointer references are recognized by their rules. A type is never guessed from a name or a value's shape.</p>
           </article>
           <article>
-            <h3>First import that actually starts</h3>
-            <p>An empty document has no token store yet. Importing creates the source and the store for you, so the first file does not need a setup step before it can be previewed.</p>
+            <h3>Create locally or start with a file</h3>
+            <p>Create a color, number, dimension, font family, or numeric font weight with an explicit type and full path. Pick a same-type alias target by its complete path. Importing a first file creates its source and store after review.</p>
           </article>
           <article>
             <h3>External updates as a three-way merge</h3>
@@ -79,23 +85,23 @@ import { sitePath } from '../../lib/siteUrl';
           </article>
           <article>
             <h3>Deletions are explicit</h3>
-            <p>When the source removes a token you still have unchanged, the update removes it and records a tombstone. The backing variable stays as a local literal, so artwork already bound to it keeps rendering instead of breaking.</p>
+            <p>An unchanged token removed from its source becomes a tombstone. Its backing variable keeps the last supported resolved value as a local literal. Updates that would leave retained aliases dangling are blocked for review.</p>
           </article>
           <article>
             <h3>Metadata survives the round trip</h3>
-            <p>Descriptions, deprecation notices, group-level <code>$description</code>, and unknown vendor <code>$extensions</code> are carried through import, edit, and export. Extensions you do not understand are preserved, not interpreted.</p>
+            <p>Token descriptions and deprecation notices, imported group-level <code>$description</code>, and unknown vendor <code>$extensions</code> survive canonical export. Updating group metadata through source synchronization is still pending. Extensions you do not understand are preserved, not interpreted.</p>
           </article>
           <article>
             <h3>References stay references</h3>
-            <p>Aliases export as aliases. A token-level <code>$ref</code> is kept in its authored form rather than being flattened into a value, so downstream tools still see the relationship you wrote.</p>
+            <p>Varve's canonical export keeps aliases and token-level <code>$ref</code> in their authored form. Downstream tools interpret them differently: in our Style Dictionary 5.5.5 probe, generated CSS omitted the token-level JSON Pointer alias. Check your target tool before relying on a reference in generated output.</p>
           </article>
           <article>
             <h3>Resolver documents, one context at a time</h3>
-            <p>Resolver files are recognized by their content, not their extension. Modifier contexts are chosen individually and resolved lazily — permutations are never expanded eagerly to guess at what you meant.</p>
+            <p>Choose modifier contexts before importing a Resolver project. Varve resolves that selection after composing its explicitly supplied files. The import keeps a selected context as document tokens; keep the project files to retain other contexts and composition.</p>
           </article>
           <article>
             <h3>Quiet, deterministic export</h3>
-            <p>Export writes the same bytes for an unchanged document: no timestamp, no random identifier, no undocumented version field. What you imported and edited is what another tool reads.</p>
+            <p>Export writes the same canonical bytes for an unchanged document: no timestamp, random identifier, or undocumented version field. Canonical output preserves supported authored data; another tool's transforms and interpretation vary by version.</p>
           </article>
         </div>
       </section>
@@ -103,7 +109,8 @@ import { sitePath } from '../../lib/siteUrl';
       <section class="capability-matrix" aria-labelledby="matrix-title">
         <p class="eyebrow">Capability matrix</p>
         <h2 id="matrix-title">What works, and what is still open.</h2>
-        <div class="matrix-scroll">
+        <p class="matrix-hint">Scroll the table horizontally to read limits and verification on smaller screens.</p>
+        <div class="matrix-scroll" tabindex="0" role="region" aria-label="Design token capabilities, scroll horizontally on narrow screens">
           <table>
             <thead>
               <tr>
@@ -115,10 +122,22 @@ import { sitePath } from '../../lib/siteUrl';
             </thead>
             <tbody>
               <tr>
+                <th scope="row">Create a local token</th>
+                <td>Typed scalar form with units, full paths, and an alias picker</td>
+                <td>Composite editing uses source-content JSON; a dedicated composite form is pending</td>
+                <td>Form tests and an editor workflow</td>
+              </tr>
+              <tr>
                 <th scope="row">Import a token file</th>
                 <td>Validated preview, explicit destination, one undoable transaction</td>
-                <td>Unsupported token types are reported, not applied as if accepted</td>
+                <td>Valid composite values are retained with warnings where property bindings are unavailable</td>
                 <td>Unit suite plus a browser end-to-end spec</td>
+              </tr>
+              <tr>
+                <th scope="row">Bind artwork values</th>
+                <td>Colors, numbers, and pixel dimensions use existing property bindings</td>
+                <td>rem requires document font context. Font family/weight pickers and composite bindings are pending; typed values remain in the document</td>
+                <td>Runtime tests; the color workflow checks actual canvas pixels</td>
               </tr>
               <tr>
                 <th scope="row">Re-import an edited file</th>
@@ -175,6 +194,7 @@ import { sitePath } from '../../lib/siteUrl';
           shipped yet, so they are not advertised.
         </p>
         <a href="https://github.com/K-Arthur/varve/blob/master/docs/tokens/dtcgsync-architecture.md">Read the token sync architecture →</a>
+        <a href="https://github.com/K-Arthur/varve/blob/master/docs/tokens/dtcg-interop-evidence-2026-09-25.md">Read the dated interoperability evidence and consumer probe →</a>
       </aside>
     </main>
   </div>
@@ -182,35 +202,39 @@ import { sitePath } from '../../lib/siteUrl';
 
 <style>
   .tokens-page { max-width: 900px; margin: 0 auto; padding: 3rem 0 5rem; }
-  .breadcrumb { color: var(--text-secondary); font-size: .875rem; margin-bottom: 2.5rem; }
+  .breadcrumb { color: var(--text-secondary); font-size: var(--type-interface-caption-size); margin-bottom: 2.5rem; }
   .breadcrumb a { color: var(--text-secondary); }
   .page-hero { max-width: 700px; margin-bottom: 3.5rem; }
   .page-hero h1 { color: var(--text-primary); font: 700 clamp(2.3rem, 6vw, 4rem)/1.05 var(--font-editorial); letter-spacing: -.025em; margin: 1rem 0; }
-  .page-hero p { color: var(--text-secondary); font-size: 1.2rem; line-height: 1.7; }
+  .page-hero p { color: var(--text-secondary); font-size: var(--type-content-lead-size); line-height: 1.7; }
   .eyebrow { color: var(--accent-primary); font-size: var(--type-interface-micro-size); font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
   .site-card { background: var(--surface-card); border: 1px solid var(--border-default); border-radius: var(--website-radius-card); padding: clamp(1.5rem, 4vw, 3rem); }
   .find-it { margin-bottom: 2rem; }
-  .find-it h2, .flow-intro h2, .honesty h2 { color: var(--text-primary); font-size: clamp(1.6rem, 3vw, 2.3rem); margin: .5rem 0 1rem; }
+  .find-it h2, .flow-intro h2, .honesty h2 { color: var(--text-primary); font-size: var(--type-display-section-size); margin: .5rem 0 1rem; }
   .find-it p:not(.eyebrow), .flow-intro p:not(.eyebrow), .honesty p:not(.eyebrow) { color: var(--text-secondary); line-height: 1.75; }
   .flow-steps { align-items: stretch; display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; gap: var(--space-3); margin-top: 2rem; }
   .flow-steps > div:not(.arrow) { border: 1px solid var(--border-default); border-radius: var(--website-radius-surface); display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-4); }
   .flow-steps .accent { background: var(--surface-accent-soft); border-color: var(--border-accent); }
-  .flow-steps span { color: var(--text-tertiary); font-size: .7rem; }
+  .flow-steps span { color: var(--text-tertiary); font-size: var(--type-interface-micro-size); }
   .flow-steps strong { color: var(--text-primary); }
   .flow-steps small { color: var(--text-secondary); line-height: 1.4; }
-  .arrow { align-self: center; color: var(--accent-primary); font-size: 1.25rem; }
+  .arrow { align-self: center; color: var(--accent-primary); font-size: var(--type-interface-title-size); }
+  .runtime-capture { margin: var(--space-8) 0; }
+  .runtime-capture img { display: block; width: 100%; height: auto; border: 1px solid var(--border-default); border-radius: var(--website-radius-surface); }
+  .runtime-capture figcaption { color: var(--text-secondary); margin-top: var(--space-3); line-height: 1.6; }
   .capabilities { padding: 4rem 0; }
-  .capabilities h2, .capability-matrix h2 { color: var(--text-primary); font-size: clamp(1.6rem, 3vw, 2.3rem); margin: .5rem 0 1.5rem; }
+  .capabilities h2, .capability-matrix h2 { color: var(--text-primary); font-size: var(--type-display-section-size); margin: .5rem 0 1.5rem; }
   .capability-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-4); }
   .capability-grid article { border-top: 2px solid var(--border-accent); padding-top: 1rem; }
   .capability-grid h3 { color: var(--text-primary); margin: 0 0 .5rem; }
   .capability-grid p { color: var(--text-secondary); line-height: 1.65; margin: 0; }
-  .capability-grid code, .capability-matrix code { color: var(--text-primary); font-size: .9em; }
+  .capability-grid code, .capability-matrix code { color: var(--text-primary); font-size: var(--type-interface-caption-size); }
   .capability-matrix { padding: 1rem 0 2rem; }
+  .matrix-hint { color: var(--text-secondary); line-height: 1.6; }
   .matrix-scroll { overflow-x: auto; }
   .matrix-scroll table { border-collapse: collapse; color: var(--text-secondary); min-width: 760px; width: 100%; }
   .matrix-scroll th, .matrix-scroll td { border-bottom: 1px solid var(--border-default); padding: .85rem .7rem; text-align: left; vertical-align: top; }
-  .matrix-scroll thead th { color: var(--text-primary); font-size: .8rem; letter-spacing: .04em; text-transform: uppercase; }
+  .matrix-scroll thead th { color: var(--text-primary); font-size: var(--type-interface-caption-size); letter-spacing: .04em; text-transform: uppercase; }
   .matrix-scroll tbody th { color: var(--text-primary); font-weight: 600; }
   .honesty { margin-top: 3rem; }
   .honesty p + p { margin-top: 1rem; }

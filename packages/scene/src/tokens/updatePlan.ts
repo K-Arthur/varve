@@ -16,19 +16,29 @@
  */
 import {
   applyConflictResolutions,
+  buildReferenceGraph,
   type ConflictResolutionChoice,
   type DtcgDocument,
   deepEqual,
   type FieldConflict,
   pathKey,
+  resolveFormatTokenValue,
   snapshotFromDocument,
   type TokenMerge,
   type TokenMergePlan,
   type TokenSnapshot,
   type TokenSnapshotMap,
   threeWayMerge,
+  validateResolvedTokenValues,
 } from '@varve/tokens';
-import type { DesignTokenStore, TokenSourceId, TokenSynchronization } from './model';
+import type {
+  DesignTokenStore,
+  TokenGroupMeta,
+  TokenSourceId,
+  TokenSynchronization,
+} from './model';
+import { remoteIdentityDiagnostics } from './mutationSafety';
+import { formatDocumentFromTokenRecords, projectTokenValue } from './runtimeProjection';
 import { tokensBySource } from './store';
 import { stableVarveId } from './variableBridge';
 
@@ -153,11 +163,144 @@ function conflictView(merge: TokenMerge): SourceUpdateConflict {
   };
 }
 
+function normalizedGroupMeta(meta: Partial<TokenGroupMeta> | undefined): TokenGroupMeta {
+  return {
+    ...(meta?.description !== undefined ? { description: meta.description } : {}),
+    ...(meta?.deprecated !== undefined ? { deprecated: meta.deprecated } : {}),
+    extensions: meta?.extensions ?? {},
+  };
+}
+
+/** Flatten effective group metadata the same way initial import stores it. */
+function incomingGroupMeta(document: DtcgDocument): Map<string, TokenGroupMeta> {
+  const result = new Map<string, TokenGroupMeta>();
+  const visit = (groups: DtcgDocument['groups']): void => {
+    for (const group of groups) {
+      result.set(
+        pathKey(group.path),
+        normalizedGroupMeta({
+          description: group.description,
+          deprecated: group.deprecated,
+          extensions: group.extensions,
+        }),
+      );
+      visit(group.children.filter((child) => child.kind === 'group'));
+    }
+  };
+  visit(document.groups);
+  return result;
+}
+
+/**
+ * Re-import currently applies token merges but has no group-metadata base or
+ * merge operation. Reject material metadata differences rather than report a
+ * successful update while leaving the old document metadata in place.
+ */
+function groupMetadataUpdateDiagnostics(
+  document: DtcgDocument,
+  current: Readonly<Record<string, TokenGroupMeta>> | undefined,
+  sourceTokenPaths: readonly (readonly string[])[],
+) {
+  const diagnostics: TokenMergePlan['diagnostics'] = [];
+  const incoming = incomingGroupMeta(document);
+  const report = (key: string): void => {
+    diagnostics.push({
+      severity: 'error',
+      code: 'sync.group-metadata-update-unsupported',
+      message: `Group metadata at "${key}" differs from the document, but source re-import currently updates tokens only. The update is blocked so the metadata is not silently lost or left stale; preserve the original group metadata and retry after group-metadata sync is supported.`,
+      sourceFileId: document.sourceFileId,
+    });
+  };
+
+  for (const [key, metadata] of incoming) {
+    if (deepEqual(normalizedGroupMeta(current?.[key]), metadata)) continue;
+    report(key);
+  }
+
+  for (const key of Object.keys(current ?? {})) {
+    if (incoming.has(key)) continue;
+    const groupPath = key.split('.');
+    // groupMeta has no source provenance. Only attribute a disappeared group
+    // to this re-import when the source currently owns a token below it;
+    // metadata-only and foreign groups cannot be assigned safely.
+    const sourceOwnsAChild = sourceTokenPaths.some(
+      (path) => path.length > groupPath.length && pathKey(path.slice(0, groupPath.length)) === key,
+    );
+    if (sourceOwnsAChild) report(key);
+  }
+
+  return diagnostics;
+}
+
+/** Type migration needs property and native-mode handling before relabeling a linked Variable. */
+function linkedTypeChangeDiagnostics(
+  store: DesignTokenStore,
+  merges: readonly TokenMerge[],
+  sourceFileId: string,
+): TokenMergePlan['diagnostics'] {
+  const linked = new Set(Object.values(store.variableLinks));
+  const currentById = new Map(
+    Object.values(store.tokens).map((token) => [token.id as string, token]),
+  );
+  return merges.flatMap((merge) => {
+    const result = merge.result;
+    const id = merge.id ?? result?.id ?? merge.local.id;
+    const current = id ? currentById.get(id) : undefined;
+    if (!current || !result?.type || current.type === result.type || !linked.has(current.id))
+      return [];
+    return [
+      {
+        severity: 'error' as const,
+        code: 'sync.linked-type-change-unsupported',
+        message: `${pathKey(result.path)} changes from ${current.type} to ${result.type}, but its linked Variable may carry property bindings or native mode values. The update is blocked until an explicit type migration can preserve those consumers. Create a distinct token path or retain the existing type.`,
+        sourceFileId,
+      },
+    ];
+  });
+}
+
 /**
  * Plan an external update for one source. `resolutions` maps a conflicting
  * token's pathKey to the user's choice; unresolved conflicts keep the plan
  * invalid and the caller must not apply it.
  */
+function linkedProjectionDiagnostics(
+  store: DesignTokenStore,
+  proposed: DtcgDocument,
+  merges: readonly TokenMerge[],
+): TokenMergePlan['diagnostics'] {
+  const previous = formatDocumentFromTokenRecords(Object.values(store.tokens), store.groupMeta);
+  const linked = new Set(Object.values(store.variableLinks));
+  const diagnostics: TokenMergePlan['diagnostics'] = [];
+  for (const token of Object.values(store.tokens)) {
+    if (!linked.has(token.id)) continue;
+    const merge = merges.find(
+      (candidate) => candidate.id === token.id || candidate.result?.id === token.id,
+    );
+    if (!merge?.result || merge.deleted) continue;
+    try {
+      projectTokenValue(token.type, resolveFormatTokenValue(previous, token.path.join('.')));
+    } catch {
+      continue;
+    }
+    const nextPath = pathKey(merge.result.path);
+    try {
+      projectTokenValue(
+        merge.result.type ?? token.type,
+        resolveFormatTokenValue(proposed, nextPath),
+      );
+    } catch (error) {
+      diagnostics.push({
+        severity: 'error',
+        code: 'token.runtime-projection-change-unsupported',
+        sourceFileId: proposed.sourceFileId,
+        message: `${token.path.join('.')} currently supplies a working linked value. This update would make it unavailable at ${nextPath}: ${error instanceof Error ? error.message : String(error)} Retain the compatible value or detach its consumers before changing its projection.`,
+      });
+    }
+  }
+  return diagnostics;
+}
+
 export function planSourceUpdate(
   sync: TokenSynchronization,
   document: DtcgDocument,
@@ -168,10 +311,65 @@ export function planSourceUpdate(
   const base = baseSnapshotMap(store, sourceId);
   const local = localSnapshotMap(store, sourceId);
   const remote = remoteSnapshotMap(document);
+  const identityDiagnostics = remoteIdentityDiagnostics(
+    store,
+    remote,
+    sourceId,
+    document.sourceFileId,
+  );
 
   const raw = threeWayMerge({ base, local, remote });
-  const plan =
-    Object.keys(resolutions).length > 0 ? applyConflictResolutions(raw, resolutions) : raw;
+  let plan = Object.keys(resolutions).length > 0 ? applyConflictResolutions(raw, resolutions) : raw;
+  if (identityDiagnostics.length > 0)
+    plan = { ...plan, valid: false, diagnostics: [...plan.diagnostics, ...identityDiagnostics] };
+  if (plan.valid) {
+    const records = Object.values(store.tokens).filter(
+      (token) => token.source?.sourceId !== sourceId,
+    );
+    const proposed = plan.merges.flatMap((merge) =>
+      merge.result
+        ? [
+            {
+              path: merge.result.path,
+              type: merge.result.type ?? 'string',
+              value: merge.result.value,
+              description: merge.result.description,
+              deprecated: merge.result.deprecated,
+              extensions: merge.result.extensions,
+            },
+          ]
+        : [],
+    );
+    const existingPaths = new Set(records.map((record) => pathKey(record.path)));
+    const collisions = proposed.filter((record) => existingPaths.has(pathKey(record.path)));
+    const mergedDocument = formatDocumentFromTokenRecords(
+      [...records, ...proposed],
+      store.groupMeta,
+    );
+    const diagnostics = [
+      ...linkedTypeChangeDiagnostics(store, plan.merges, document.sourceFileId),
+      ...groupMetadataUpdateDiagnostics(
+        document,
+        store.groupMeta,
+        tokensBySource(store, sourceId).map((token) => token.path),
+      ),
+      ...mergedDocument.diagnostics,
+      ...buildReferenceGraph(mergedDocument).diagnostics,
+      ...validateResolvedTokenValues(mergedDocument),
+      ...linkedProjectionDiagnostics(store, mergedDocument, plan.merges),
+      ...collisions.map((record) => ({
+        severity: 'error' as const,
+        code: 'sync.path-collision',
+        message: `Another source or local token already owns ${pathKey(record.path)}. Choose a distinct path before applying.`,
+        sourceFileId: document.sourceFileId,
+      })),
+    ];
+    plan = {
+      ...plan,
+      diagnostics: [...plan.diagnostics, ...diagnostics],
+      valid: !diagnostics.some((diagnostic) => diagnostic.severity === 'error'),
+    };
+  }
 
   const summary: SourceUpdateSummary = {
     added: 0,

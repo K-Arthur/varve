@@ -72,6 +72,103 @@ function storeOf(doc: Document) {
 }
 
 describe('format detection', () => {
+  it('blocks incoming group metadata beneath a retained token path', () => {
+    const before = createDocument('Token group collision');
+    const firstPreview = buildImportPreview(
+      '{"brand":{"$type":"number","$value":1}}',
+      identity('first.tokens.json'),
+      undefined,
+    );
+    const first = planDocumentImport(before, firstPreview, NEW_SOURCE_OPTION)!;
+    const current = { ...before, variableStore: first.variableStore };
+    const incoming = buildImportPreview(
+      '{"brand":{"colors":{"$description":"Nested group","primary":{"$type":"number","$value":2}}}}',
+      identity('other.tokens.json'),
+      first.variableStore.tokenSync,
+    );
+
+    const preview = previewDocumentSync(current, incoming, NEW_SOURCE_OPTION)!;
+
+    expect(preview.valid).toBe(false);
+    expect(preview.diagnostics.map((diagnostic) => diagnostic.code)).toContain(
+      'document.token-path-collision',
+    );
+    expect(planDocumentImport(current, incoming, NEW_SOURCE_OPTION)).toBeNull();
+  });
+
+  it('blocks an initial import that would overwrite another source group metadata', () => {
+    const before = createDocument('Group metadata ownership');
+    const firstPreview = buildImportPreview(
+      JSON.stringify({
+        brand: {
+          $description: 'Original group',
+          primary: { $type: 'number', $value: 1 },
+        },
+      }),
+      identity('first.tokens.json'),
+      undefined,
+    );
+    const first = planDocumentImport(before, firstPreview, NEW_SOURCE_OPTION)!;
+    const current = { ...before, variableStore: first.variableStore };
+    const incoming = buildImportPreview(
+      JSON.stringify({
+        brand: {
+          $description: 'Replacement group',
+          secondary: { $type: 'number', $value: 2 },
+        },
+      }),
+      identity('other.tokens.json'),
+      first.variableStore.tokenSync,
+    );
+    const preview = previewDocumentSync(current, incoming, NEW_SOURCE_OPTION)!;
+    expect(preview.valid).toBe(false);
+    expect(preview.diagnostics).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: 'import.group-metadata-collision', severity: 'error' }),
+      ]),
+    );
+    expect(planDocumentImport(current, incoming, NEW_SOURCE_OPTION)).toBeNull();
+    expect(first.variableStore.tokenSync?.store.groupMeta?.brand?.description).toBe(
+      'Original group',
+    );
+  });
+
+  it('blocks a property reference whose resolved component has the wrong type', () => {
+    const text = JSON.stringify({
+      family: { $type: 'fontFamily', $value: 'Inter' },
+      paint: {
+        $type: 'color',
+        $value: {
+          colorSpace: 'srgb',
+          components: [{ $ref: '#/family/$value' }, 0.4, 0.8],
+        },
+      },
+    });
+    const preview = buildImportPreview(text, identity('invalid.tokens.json'), undefined);
+    expect(preview.document).toBeUndefined();
+    expect(preview.diagnostics).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: 'ref.resolved-value-invalid', severity: 'error' }),
+      ]),
+    );
+    expect(
+      planDocumentImport(createDocument('Invalid reference'), preview, NEW_SOURCE_OPTION),
+    ).toBeNull();
+  });
+
+  it('blocks duplicate keys in a primary Resolver input with a source location', () => {
+    const preview = buildImportPreview(
+      '{"version":"2025.10","version":"2025.10","sets":{},"resolutionOrder":[]}',
+      identity('brand.resolver.json'),
+      undefined,
+    );
+    expect(preview.document).toBeUndefined();
+    expect(preview.diagnostics).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: 'json.duplicate-key', severity: 'error', line: 1 }),
+      ]),
+    );
+  });
   it('routes by content before the file extension', () => {
     expect(detectDocumentKind(SPACING, 'anything.json')).toBe('dtcg');
     expect(detectDocumentKind('{"version": "2025.10", "sets": {}, "resolutionOrder": []}')).toBe(
@@ -85,6 +182,7 @@ describe('format detection', () => {
   it('uses the .resolver.json extension only as a tie-breaker', () => {
     expect(detectDocumentKind('{"groups": {}}', 'core.resolver.json')).toBe('resolver');
     expect(detectDocumentKind('{"groups": {}}', 'core.tokens.json')).toBe('dtcg');
+    expect(detectDocumentKind(SPACING, 'core.resolver.json')).toBe('dtcg');
   });
 });
 
@@ -179,6 +277,15 @@ describe('collisions and no-op imports', () => {
 });
 
 describe('source selection', () => {
+  it('requires a choice when two sources track the same filename', () => {
+    const sync = syncOf(seededDocument());
+    const first = sync.store.sources.src_one!;
+    sync.store = addSource(sync.store, { ...first, id: 'src_two' });
+    expect(defaultSourceChoice(sync, 'brand.tokens.json')).toBe(NEW_SOURCE_OPTION);
+    expect(
+      new Set(sourceOptions(sync, 'brand.tokens.json').map((option) => option.label)).size,
+    ).toBe(3);
+  });
   it('defaults to an existing source that already tracks the file', () => {
     const doc = seededDocument();
     expect(defaultSourceChoice(syncOf(doc), 'brand.tokens.json')).toBe('src_one');
@@ -295,6 +402,80 @@ describe('resolver documents', () => {
 });
 
 describe('invalid input', () => {
+  it('blocks ambiguous duplicate keys in an ordinary token file with source locations', () => {
+    const preview = buildImportPreview(
+      '{"a":{"$type":"number","$value":1,"$value":2}}',
+      identity('ambiguous.json'),
+      undefined,
+    );
+    expect(preview.document).toBeUndefined();
+    expect(preview.diagnostics).toContainEqual(
+      expect.objectContaining({
+        code: 'json.duplicate-key',
+        severity: 'error',
+        sourceFileId: 'ambiguous.json',
+        line: 1,
+      }),
+    );
+  });
+  it('blocks dangling aliases before apply', () => {
+    const preview = buildImportPreview(
+      '{"color":{"$type":"color","$value":"{missing.color}"}}',
+      identity('tokens.json'),
+      undefined,
+    );
+    expect(preview.diagnostics.some((diagnostic) => diagnostic.severity === 'error')).toBe(true);
+    expect(preview.document).toBeUndefined();
+  });
+
+  it('warns about valid values that require more property context', () => {
+    const preview = buildImportPreview(
+      '{"gap":{"$type":"dimension","$value":{"value":1,"unit":"rem"}}}',
+      identity('tokens.json'),
+      undefined,
+    );
+    expect(
+      preview.diagnostics.some((diagnostic) => diagnostic.code === 'binding.retained-only'),
+    ).toBe(true);
+    expect(preview.document).toBeDefined();
+  });
+
+  it.each(['../foundation.json', 'other/foundation.json', 'https://example.com/foundation.json'])(
+    'does not substitute a picked basename for %s',
+    (reference) => {
+      const resolver = JSON.stringify({
+        version: '2025.10',
+        sets: { core: { sources: [{ $ref: reference }] } },
+        resolutionOrder: [{ $ref: '#/sets/core' }],
+      });
+      const preview = buildImportPreview(
+        resolver,
+        identity('test.resolver.json'),
+        undefined,
+        new Map([['foundation.json', SPACING]]),
+      );
+      expect(preview.document).toBeUndefined();
+      expect(preview.diagnostics.some((diagnostic) => diagnostic.severity === 'error')).toBe(true);
+    },
+  );
+
+  it('diagnoses duplicate keys in picked sibling sources before composition', () => {
+    const resolver = JSON.stringify({
+      version: '2025.10',
+      sets: { core: { sources: [{ $ref: './foundation.json' }] } },
+      resolutionOrder: [{ $ref: '#/sets/core' }],
+    });
+    const preview = buildImportPreview(
+      resolver,
+      identity('test.resolver.json'),
+      undefined,
+      new Map([['foundation.json', '{"a":{"$type":"number","$value":1,"$value":2}}']]),
+    );
+    expect(preview.document).toBeUndefined();
+    expect(
+      preview.diagnostics.some((diagnostic) => diagnostic.code === 'source.duplicate-key'),
+    ).toBe(true);
+  });
   it('keeps unreadable material out of the committed path', () => {
     const preview = buildImportPreview('{broken', identity('bad.json'), undefined);
     expect(preview.kind).toBe('invalid');
@@ -362,6 +543,21 @@ function syncedDocument(localValue: number, baseValue: number): Document {
 }
 
 describe('external updates (three-way merge)', () => {
+  it('blocks a first import that would hide an existing token behind an ancestor token', () => {
+    const doc = syncedDocument(1, 1);
+    const preview = buildImportPreview(
+      '{"a":{"nested":{"$type":"number","$value":2}}}',
+      identity('second.tokens.json'),
+      syncOf(doc),
+    );
+    const summary = previewDocumentSync(doc, preview, NEW_SOURCE_OPTION);
+    expect(summary?.valid).toBe(false);
+    expect(summary?.diagnostics.map((diagnostic) => diagnostic.code)).toContain(
+      'document.token-path-collision',
+    );
+    expect(applyDocumentSync(doc, preview, NEW_SOURCE_OPTION)).toBeNull();
+    expect(syncOf(doc).store.tokens.tok_a?.value).toBe(1);
+  });
   it('reports a remote value change as an update, not a new import', () => {
     const doc = syncedDocument(1, 1);
     const preview = buildImportPreview(

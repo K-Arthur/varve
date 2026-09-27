@@ -1,0 +1,10 @@
+/**
+ * Do not edit directly, this file was auto-generated.
+ */
+
+:root {
+  --color-brand-primary: #cc331a; /** Foundation brand color */
+  --local-spacing-rem-unsupported: 1.25rem;
+  --semantic-brand-curly-alias: var(--color-brand-primary);
+  --local-brand-alias: var(--semantic-brand-curly-alias);
+}

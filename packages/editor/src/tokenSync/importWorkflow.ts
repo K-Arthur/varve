@@ -13,21 +13,30 @@ import {
   applyMergePlanToSync,
   createEmptyTokenSynchronization,
   ensureImportSource,
+  formatDocumentFromTokenRecords,
   planSourceUpdate,
   previewImport,
+  projectTokenValue,
   type SourceUpdateConflict,
   type TokenSynchronization,
   tokensBySource,
 } from '@varve/scene/tokens';
 import {
+  buildReferenceGraph,
   type ConflictResolutionChoice,
   type DtcgDocument,
+  deepEqual,
+  JsonSyntaxError,
   parseFormatDocument,
+  parseJsonSource,
   parseResolverDocument,
   type ResolverDocument,
   type ResolverInput,
+  resolveFormatTokenValue,
   resolvePermutation,
+  snapshotFromDocument,
   type TokenDiagnostic,
+  validateResolvedTokenValues,
 } from '@varve/tokens';
 import { docVariableStore } from '../docVariableStore';
 
@@ -48,6 +57,10 @@ export interface PreviewDiagnostic {
   severity: TokenDiagnostic['severity'];
   code: string;
   message: string;
+  sourceFileId?: string;
+  pointer?: string;
+  line?: number;
+  column?: number;
 }
 
 export interface ImportPreviewState {
@@ -105,7 +118,7 @@ export function hashText(text: string): string {
 export function detectDocumentKind(text: string, fileName = ''): 'resolver' | 'dtcg' | 'invalid' {
   let root: unknown;
   try {
-    root = JSON.parse(text);
+    root = parseJsonSource(text).value;
   } catch {
     return 'invalid';
   }
@@ -115,12 +128,22 @@ export function detectDocumentKind(text: string, fileName = ''): 'resolver' | 'd
     (typeof root.version === 'string' &&
       ('sets' in root || 'modifiers' in root || 'sources' in root));
   if (looksLikeResolver) return 'resolver';
-  if (fileName.endsWith('.resolver.json')) return 'resolver';
+  if (fileName.endsWith('.resolver.json') && !containsToken(root)) return 'resolver';
   return 'dtcg';
 }
 
 function mapDiagnostics(diagnostics: readonly TokenDiagnostic[]): PreviewDiagnostic[] {
-  return diagnostics.map((d) => ({ severity: d.severity, code: d.code, message: d.message }));
+  return diagnostics.map((d) => ({
+    ...d,
+    // Ambiguous duplicate keys are retained for recovery by the standards
+    // parser, but the editor's import profile never applies a chosen winner.
+    severity: d.code === 'json.duplicate-key' ? 'error' : d.severity,
+  }));
+}
+
+function containsToken(root: Record<string, unknown>): boolean {
+  if ('$value' in root || '$ref' in root) return true;
+  return Object.values(root).some((value) => isPlainObject(value) && containsToken(value));
 }
 
 function hasError(diagnostics: readonly PreviewDiagnostic[]): boolean {
@@ -141,16 +164,41 @@ export function defaultResolverInput(resolver: ResolverDocument): ResolverInput 
   return input;
 }
 
-function buildSiblingLoader(siblings: ReadonlyMap<string, string>) {
+function buildSiblingLoader(
+  siblings: ReadonlyMap<string, string>,
+  diagnostics: PreviewDiagnostic[],
+) {
   if (siblings.size === 0) return undefined;
   return (ref: string): Record<string, unknown> | undefined => {
-    const base = ref.split('/').pop() ?? ref;
-    const text = siblings.get(ref) ?? siblings.get(base);
+    const local = ref.replace(/^\.\//, '');
+    if (/^[a-z][a-z\d+.-]*:|^\/|\\/i.test(local) || local.split('/').includes('..')) {
+      diagnostics.push({
+        severity: 'error',
+        code: 'source.unavailable-reference',
+        message: `${ref}: this picker accepts only explicitly supplied relative files.`,
+      });
+      return undefined;
+    }
+    const text = siblings.get(local);
     if (text === undefined) return undefined;
     try {
-      const parsed: unknown = JSON.parse(text);
-      return isPlainObject(parsed) ? parsed : undefined;
-    } catch {
+      const parsed = parseJsonSource(text);
+      for (const diagnostic of parsed.diagnostics) {
+        diagnostics.push({
+          severity: 'error',
+          code: `source.${diagnostic.code}`,
+          message: `${local}: ${diagnostic.message}`,
+        });
+      }
+      return parsed.diagnostics.length === 0 && isPlainObject(parsed.value)
+        ? parsed.value
+        : undefined;
+    } catch (error) {
+      diagnostics.push({
+        severity: 'error',
+        code: 'source.json',
+        message: `${local}: ${error instanceof Error ? error.message : 'Invalid JSON source.'}`,
+      });
       return undefined;
     }
   };
@@ -190,11 +238,21 @@ export function buildImportPreview(
   const kind = detectDocumentKind(text, identity.name);
 
   if (kind === 'invalid') {
+    let syntaxError: JsonSyntaxError | undefined;
+    try {
+      parseJsonSource(text);
+    } catch (error) {
+      if (error instanceof JsonSyntaxError) syntaxError = error;
+    }
     const diagnostics: PreviewDiagnostic[] = [
       {
         severity: 'error',
-        code: 'json.syntax',
-        message: `${identity.name} is not a JSON object and cannot be imported.`,
+        code: syntaxError?.code ?? 'json.syntax',
+        message:
+          syntaxError?.message ?? `${identity.name} is not a JSON object and cannot be imported.`,
+        sourceFileId: identity.name,
+        line: syntaxError?.line,
+        column: syntaxError?.column,
       },
     ];
     return {
@@ -209,7 +267,17 @@ export function buildImportPreview(
 
   if (kind === 'resolver') {
     const resolver = parseResolverDocument(text, identity.name);
-    const parseDiagnostics = mapDiagnostics(resolver.diagnostics);
+    const parseDiagnostics = [
+      ...mapDiagnostics(resolver.diagnostics),
+      ...parseJsonSource(text).diagnostics.map((diagnostic) => ({
+        severity: 'error' as const,
+        code: `json.${diagnostic.code}`,
+        message: diagnostic.message,
+        sourceFileId: identity.name,
+        line: diagnostic.line,
+        column: diagnostic.column,
+      })),
+    ];
     const preview: ImportPreviewState = {
       kind,
       ...base,
@@ -225,7 +293,11 @@ export function buildImportPreview(
   }
 
   const document = parseFormatDocument(text, { sourceFileId: identity.name });
-  const diagnostics = mapDiagnostics(document.diagnostics);
+  const diagnostics = mapDiagnostics([
+    ...document.diagnostics,
+    ...buildReferenceGraph(document).diagnostics,
+    ...validateResolvedTokenValues(document),
+  ]);
   const preview: ImportPreviewState = {
     kind,
     ...base,
@@ -235,7 +307,7 @@ export function buildImportPreview(
     collisions: [],
     document: hasError(diagnostics) ? undefined : document,
   };
-  return attachTokenPreview(preview, sync);
+  return attachTokenPreview(withBindingDiagnostics(preview), sync);
 }
 
 /** Re-resolve a resolver preview after the user changes a context. */
@@ -247,10 +319,21 @@ export function resolveResolverPreview(
 ): ImportPreviewState {
   const resolver = preview.resolver;
   if (!resolver) return preview;
+  const sourceDiagnostics: PreviewDiagnostic[] = [];
   const permutation = resolvePermutation(resolver, input, {
-    loadExternal: buildSiblingLoader(siblings),
+    loadExternal: buildSiblingLoader(siblings, sourceDiagnostics),
   });
-  const diagnostics = [...preview.parseDiagnostics, ...mapDiagnostics(permutation.diagnostics)];
+  const diagnostics = [
+    ...preview.parseDiagnostics,
+    ...sourceDiagnostics,
+    ...mapDiagnostics(permutation.diagnostics),
+    {
+      severity: 'warning' as const,
+      code: 'resolver.selected-context',
+      message: `Import keeps the selected context (${JSON.stringify(input)}) as document tokens. Other contexts and the Resolver project composition are not saved or exported; retain the project files.`,
+      sourceFileId: preview.fileName,
+    },
+  ];
   const unresolved = hasError(diagnostics);
   const next: ImportPreviewState = {
     ...preview,
@@ -261,7 +344,31 @@ export function resolveResolverPreview(
     document: undefined,
   };
   if (unresolved) return next;
-  return attachTokenPreview({ ...next, document: permutation.document }, sync);
+  return attachTokenPreview(
+    withBindingDiagnostics({ ...next, document: permutation.document }),
+    sync,
+  );
+}
+
+/** Import retains valid values even when an existing scalar property cannot consume them. */
+function withBindingDiagnostics(preview: ImportPreviewState): ImportPreviewState {
+  if (!preview.document) return preview;
+  const diagnostics = [...preview.diagnostics];
+  for (const token of Object.values(preview.document.tokens)) {
+    try {
+      projectTokenValue(
+        token.type ?? '',
+        resolveFormatTokenValue(preview.document, token.path.join('.')),
+      );
+    } catch (error) {
+      diagnostics.push({
+        severity: 'warning',
+        code: 'binding.retained-only',
+        message: `${token.path.join('.')}: ${error instanceof Error ? error.message : 'No compatible property mapping.'} The authored token will be retained.`,
+      });
+    }
+  }
+  return { ...preview, diagnostics };
 }
 
 export interface SourceOption {
@@ -277,25 +384,30 @@ export function sourceOptions(
   const options: SourceOption[] = [
     { value: NEW_SOURCE_OPTION, label: `New source for ${fileName}` },
   ];
-  for (const source of Object.values(sync?.store.sources ?? {})) {
+  const sources = Object.values(sync?.store.sources ?? {});
+  for (const source of sources) {
     const tracks = source.configuration.entryFiles.includes(fileName);
+    const name =
+      sources.filter((other) => other.name === source.name).length > 1
+        ? `${source.name} (${source.id})`
+        : source.name;
     options.push({
       value: source.id,
-      label: tracks ? `${source.name} (tracks ${fileName})` : source.name,
+      label: tracks ? `${name} (tracks ${fileName})` : name,
     });
   }
   return options;
 }
 
-/** Default destination: an existing source that already tracks this file. */
+/** A filename is a hint, not an identity: ambiguous matches require an explicit choice. */
 export function defaultSourceChoice(
   sync: TokenSynchronization | undefined,
   fileName: string,
 ): string {
-  const match = Object.values(sync?.store.sources ?? {}).find((source) =>
+  const matches = Object.values(sync?.store.sources ?? {}).filter((source) =>
     source.configuration.entryFiles.includes(fileName),
   );
-  return match?.id ?? NEW_SOURCE_OPTION;
+  return matches.length === 1 ? matches[0]!.id : NEW_SOURCE_OPTION;
 }
 
 /**
@@ -309,6 +421,12 @@ export function planDocumentImport(
   sourceChoice: string,
 ): ImportPlan | null {
   if (!preview.document) return null;
+  if (
+    importDocumentDiagnostics(docVariableStore(document), preview.document).some(
+      (d) => d.severity === 'error',
+    )
+  )
+    return null;
   const store = docVariableStore(document);
   const requested = sourceChoice === NEW_SOURCE_OPTION ? undefined : sourceChoice;
   const resolution = ensureImportSource(store.tokenSync, preview.fileName, requested);
@@ -349,6 +467,7 @@ export interface DocumentSyncPreview {
   skipped: number;
   conflicts: SourceUpdateConflict[];
   valid: boolean;
+  diagnostics: PreviewDiagnostic[];
 }
 
 /** True when `sourceChoice` resolves to a source that already owns tokens. */
@@ -380,6 +499,7 @@ export function previewDocumentSync(
       sync?.store ?? createEmptyTokenSynchronization().store,
       preview.document,
     );
+    const diagnostics = importDocumentDiagnostics(store, preview.document);
     return {
       update: false,
       added: incoming.added,
@@ -388,7 +508,8 @@ export function previewDocumentSync(
       unchanged: 0,
       skipped: incoming.collisions.length,
       conflicts: [],
-      valid: true,
+      valid: !diagnostics.some((diagnostic) => diagnostic.severity === 'error'),
+      diagnostics,
     };
   }
 
@@ -407,7 +528,47 @@ export function previewDocumentSync(
     skipped: 0,
     conflicts: summary.conflicts,
     valid: summary.valid,
+    diagnostics: mapDiagnostics(summary.plan.diagnostics),
   };
+}
+
+/** Validate the complete proposed document, including retained local sources. */
+function importDocumentDiagnostics(
+  store: VariableStore,
+  document: DtcgDocument,
+): PreviewDiagnostic[] {
+  const retained = Object.values(store.tokenSync?.store.tokens ?? {});
+  const paths = new Set(retained.map((token) => token.path.join('.')));
+  const incoming = [...snapshotFromDocument(document).values()]
+    .filter((token) => !paths.has(token.path.join('.')))
+    .map((token) => ({ ...token, type: token.type ?? '', value: token.value }));
+  const incomingGroups = previewImport(
+    store.tokenSync?.store ?? createEmptyTokenSynchronization().store,
+    document,
+  ).groups;
+  const groups = Object.assign(
+    Object.create(null),
+    store.tokenSync?.store.groupMeta ?? {},
+    incomingGroups,
+  );
+  const merged = formatDocumentFromTokenRecords([...retained, ...incoming], groups);
+  const groupCollisions: TokenDiagnostic[] = Object.entries(incomingGroups)
+    .filter(([key, metadata]) => {
+      const existing = store.tokenSync?.store.groupMeta?.[key];
+      return existing !== undefined && !deepEqual(existing, metadata);
+    })
+    .map(([key]) => ({
+      severity: 'error',
+      code: 'import.group-metadata-collision',
+      message: `Group metadata at "${key}" is already present with different content. Import is blocked to preserve the existing description, deprecation and extensions; choose distinct group paths or matching metadata.`,
+      sourceFileId: document.sourceFileId,
+    }));
+  return mapDiagnostics([
+    ...groupCollisions,
+    ...merged.diagnostics,
+    ...buildReferenceGraph(merged).diagnostics,
+    ...validateResolvedTokenValues(merged),
+  ]);
 }
 
 /**

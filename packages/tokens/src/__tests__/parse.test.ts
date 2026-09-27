@@ -5,6 +5,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { parseFormatDocument } from '../parse';
+import { buildReferenceGraph } from '../refGraph';
 
 function parse(text: string, options: Record<string, unknown> = {}) {
   return parseFormatDocument(text, { sourceFileId: 'test.tokens', ...options });
@@ -54,7 +55,7 @@ describe('basic structure', () => {
     expect(doc.tokens.ordinary?.type).toBe('number');
 
     const doc2 = parse('{"g": {"$bad": {"$value": 1}}}');
-    expect(doc2.diagnostics.some((d) => d.code === 'dtcg.unknown-property')).toBe(true);
+    expect(doc2.diagnostics.some((d) => d.code === 'dtcg.reserved-prefix')).toBe(true);
   });
 });
 
@@ -126,6 +127,17 @@ describe('root tokens', () => {
     expect(doc.tokens['spacing.$root']).toBeDefined();
     expect(doc.tokens['spacing.small']).toBeDefined();
   });
+
+  it('parses prototype-like group names as ordinary DTCG paths', () => {
+    const doc = parse(
+      '{"__proto__":{"child":{"$type":"number","$value":1}},"constructor":{"child":{"$type":"number","$value":2}},"toString":{"child":{"$type":"number","$value":3}}}',
+    );
+    expect(doc.diagnostics.filter((d) => d.severity === 'error')).toEqual([]);
+    expect(doc.tokens['__proto__.child']?.value).toBe(1);
+    expect(doc.tokens['constructor.child']?.value).toBe(2);
+    expect(doc.tokens['toString.child']?.value).toBe(3);
+    expect(({} as Record<string, unknown>).child).toBeUndefined();
+  });
 });
 
 describe('name validation', () => {
@@ -142,6 +154,19 @@ describe('name validation', () => {
     );
     expect(doc.diagnostics.filter((d) => d.severity === 'error')).toEqual([]);
     expect(doc.tokens['Hot pink']).toBeDefined();
+  });
+
+  it('rejects invalid group names in strict mode', () => {
+    const doc = parse('{"a.b": {"child": {"$type": "number", "$value": 1}}}');
+    expect(doc.diagnostics.some((d) => d.code === 'dtcg.forbidden-characters')).toBe(true);
+    expect(doc.tokens['a.b.child']).toBeUndefined();
+  });
+
+  it('does not silently skip an illegal dollar-prefixed token name', () => {
+    const doc = parse('{"$bad": {"$type": "number", "$value": 1}}');
+    expect(doc.diagnostics.some((d) => d.code === 'dtcg.reserved-prefix')).toBe(true);
+    expect(doc.diagnostics.some((d) => d.severity === 'error')).toBe(true);
+    expect(doc.tokens.$bad).toBeUndefined();
   });
 });
 
@@ -173,6 +198,15 @@ describe('references', () => {
       raw: '#/base',
       pointer: '#/base',
     });
+  });
+
+  it('rejects a malformed trailing tilde instead of resolving a similarly named token', () => {
+    const doc = parse(
+      '{"base": {"$type": "number", "$value": 2}, "base~": {"$type": "number", "$value": 9}, "alias": {"$ref": "#/base~/$value"}}',
+    );
+    const diagnostics = buildReferenceGraph(doc).diagnostics;
+    expect(diagnostics.some((d) => d.code === 'ref.invalid-pointer')).toBe(true);
+    expect(diagnostics.some((d) => d.severity === 'error')).toBe(true);
   });
 
   it('extracts nested $ref objects inside $value (property-level)', () => {

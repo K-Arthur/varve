@@ -22,11 +22,13 @@ export function parseJsonPointer(pointer: string): JsonPointerSegment[] {
   }
   const segments: JsonPointerSegment[] = [];
   for (const part of raw.slice(1).split('/')) {
-    const value = part.replace(/~1/g, '/').replace(/~0/g, '~');
-    if (/~[^01]/.test(part)) {
+    if (/~(?![01])/.test(part)) {
       throw new Error(`Invalid JSON pointer escape in ${pointer}`);
     }
-    segments.push({ value, numeric: /^\d+$/.test(value) });
+    const value = part.replace(/~1/g, '/').replace(/~0/g, '~');
+    // RFC 6901 array indices use the canonical decimal spelling: zero or a
+    // non-zero digit followed by digits. In particular, "01" is not index 1.
+    segments.push({ value, numeric: /^(?:0|[1-9]\d*)$/.test(value) });
   }
   return segments;
 }

@@ -482,15 +482,16 @@ function mergeComponents(
   const localRecord = local as Record<string, unknown>;
   const remoteRecord = remote as Record<string, unknown>;
   const keys = new Set([...Object.keys(localRecord), ...Object.keys(remoteRecord)]);
-  const result: Record<string, unknown> = {};
+  const result: Record<string, unknown> = Object.create(null);
   let conflicted = false;
   for (const key of keys) {
-    const baseValue = baseRecord[key];
-    const localValue = localRecord[key];
-    const remoteValue = remoteRecord[key];
-    if (deepEqual(localValue, baseValue)) result[key] = remoteValue;
-    else if (deepEqual(remoteValue, baseValue)) result[key] = localValue;
-    else if (deepEqual(localValue, remoteValue)) result[key] = localValue;
+    const baseValue = Object.hasOwn(baseRecord, key) ? baseRecord[key] : undefined;
+    const localValue = Object.hasOwn(localRecord, key) ? localRecord[key] : undefined;
+    const remoteValue = Object.hasOwn(remoteRecord, key) ? remoteRecord[key] : undefined;
+    let value: unknown;
+    if (deepEqual(localValue, baseValue)) value = remoteValue;
+    else if (deepEqual(remoteValue, baseValue)) value = localValue;
+    else if (deepEqual(localValue, remoteValue)) value = localValue;
     else {
       conflicts.push({
         field: `value.${key}`,
@@ -499,7 +500,14 @@ function mergeComponents(
         remote: remoteValue,
       });
       conflicted = true;
+      continue;
     }
+    Object.defineProperty(result, key, {
+      configurable: true,
+      enumerable: true,
+      value,
+      writable: true,
+    });
   }
   return conflicted ? undefined : result;
 }

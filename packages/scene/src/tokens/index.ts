@@ -10,6 +10,7 @@
 export * from './colorBridge';
 export * from './identity';
 export * from './model';
+export * from './runtimeProjection';
 export * from './store';
 export * from './syncApply';
 export * from './updatePlan';

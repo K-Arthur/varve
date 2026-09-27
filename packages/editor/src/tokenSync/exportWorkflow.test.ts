@@ -62,6 +62,85 @@ function importSource(text = SOURCE, fileName = 'brand.tokens.json') {
 }
 
 describe('exportTokensToDtcg', () => {
+  it('exports prototype-like path segments and group metadata without polluting objects', () => {
+    const sync = createEmptyTokenSynchronization();
+    const records = [
+      {
+        id: 'tok_proto',
+        path: ['__proto__', 'child'],
+        displayName: 'child',
+        type: 'number',
+        value: 1,
+        extensions: {},
+        localState: {
+          createdLocally: true,
+          detachedFromSource: false,
+          locallyModified: false,
+          unresolved: false,
+          conflicted: false,
+        },
+      },
+      {
+        id: 'tok_constructor',
+        path: ['constructor', 'child'],
+        displayName: 'child',
+        type: 'number',
+        value: 2,
+        extensions: {},
+        localState: {
+          createdLocally: true,
+          detachedFromSource: false,
+          locallyModified: false,
+          unresolved: false,
+          conflicted: false,
+        },
+      },
+      {
+        id: 'tok_to_string',
+        path: ['toString', 'child'],
+        displayName: 'child',
+        type: 'number',
+        value: 3,
+        extensions: {},
+        localState: {
+          createdLocally: true,
+          detachedFromSource: false,
+          locallyModified: false,
+          unresolved: false,
+          conflicted: false,
+        },
+      },
+    ];
+    const tokens = Object.create(null) as typeof sync.store.tokens;
+    for (const record of records) {
+      Object.defineProperty(tokens, record.id, {
+        configurable: true,
+        enumerable: true,
+        value: record,
+        writable: true,
+      });
+    }
+    const groupMeta = Object.create(null) as NonNullable<typeof sync.store.groupMeta>;
+    Object.defineProperty(groupMeta, '__proto__', {
+      configurable: true,
+      enumerable: true,
+      value: { description: 'Safe group', extensions: {} },
+      writable: true,
+    });
+    sync.store = { ...sync.store, tokens, groupMeta };
+
+    expect(({} as Record<string, unknown>).child).toBeUndefined();
+    const result = exportTokensToDtcg(sync);
+    const reparsed = parseFormatDocument(result.text);
+
+    expect(result.tokenCount).toBe(3);
+    expect(reparsed.tokens['__proto__.child']?.value).toBe(1);
+    expect(reparsed.tokens['constructor.child']?.value).toBe(2);
+    expect(reparsed.tokens['toString.child']?.value).toBe(3);
+    expect(reparsed.groups[0]?.description).toBe('Safe group');
+    expect(({} as Record<string, unknown>).child).toBeUndefined();
+  });
+
   it('round-trips descriptions, deprecation, extensions, $root, and references', () => {
     const { sync } = importSource();
     const result = exportTokensToDtcg(sync);

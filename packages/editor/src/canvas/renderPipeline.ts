@@ -2077,6 +2077,11 @@ export function renderContent(deps: RenderContentDeps): void {
         replaySubtree(entry.id, entry.instancePrefix, entry.masterPlacement);
       }
     } else if (
+      // The authoritative redraw oracle must paint the IR built above on the
+      // main thread. Presenting the worker's last bitmap here can reuse pixels
+      // from an older document at an identity camera transform, then falsely
+      // complete the oracle before the worker renders the current state.
+      !oracleFullRedraw &&
       renderWorkerRef.current &&
       !workerFailedRef.current &&
       workerReady &&

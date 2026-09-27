@@ -45,6 +45,7 @@
 
 .variable-panel__table {
   width: 100%;
+  table-layout: fixed;
   font-size: var(--font-size-xs);
   border-collapse: collapse;
 }
@@ -60,14 +61,17 @@
 }
 
 .variable-panel__table-header.th--name {
+  width: 30%;
   text-align: left;
 }
 
 .variable-panel__table-header.th--value {
+  width: 32%;
   text-align: left;
 }
 
 .variable-panel__table-header.th--resolved {
+  width: 34%;
   text-align: left;
 }
 
@@ -85,6 +89,7 @@
 }
 
 .variable-panel__table-cell--name {
+  overflow-wrap: anywhere;
   padding: 3px 0;
   vertical-align: middle;
 }
@@ -95,6 +100,7 @@
 }
 
 .variable-panel__table-cell--resolved {
+  overflow-wrap: anywhere;
   padding: 3px 0;
   vertical-align: middle;
   color: var(--color-text-muted);

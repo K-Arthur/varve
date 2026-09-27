@@ -374,31 +374,57 @@ function arrayIndexForSegment(segment: string): number | null {
   return Number.isSafeInteger(index) ? index : null;
 }
 
-/** Clone document data while preserving Map and typed-array runtime values exactly. */
-function cloneCaptureValue<T>(value: T, seen = new Map<object, unknown>()): T {
+/**
+ * Clone document data while preserving Map and typed-array runtime values.
+ * Object identity is not part of the canonical document model, so repeated
+ * references in sibling properties are cloned independently. The map tracks
+ * only the active recursion path: this still preserves cycles during cloning,
+ * while preventing a deep-set in one property from mutating another property
+ * that happened to share the same source object.
+ */
+function cloneCaptureValue<T>(value: T, active = new Map<object, unknown>()): T {
   if (value === null || typeof value !== 'object') return value;
   if (value instanceof Uint8ClampedArray) return new Uint8ClampedArray(value) as T;
   if (value instanceof Uint8Array) return new Uint8Array(value) as T;
   if (value instanceof ArrayBuffer) return value.slice(0) as T;
-  const existing = seen.get(value);
+  const existing = active.get(value);
   if (existing !== undefined) return existing as T;
   if (Array.isArray(value)) {
     const copy: unknown[] = [];
-    seen.set(value, copy);
-    for (const item of value) copy.push(cloneCaptureValue(item, seen));
+    active.set(value, copy);
+    try {
+      for (const item of value) copy.push(cloneCaptureValue(item, active));
+    } finally {
+      active.delete(value);
+    }
     return copy as T;
   }
   if (value instanceof Map) {
     const copy = new Map();
-    seen.set(value, copy);
-    for (const [key, item] of value) {
-      copy.set(cloneCaptureValue(key, seen), cloneCaptureValue(item, seen));
+    active.set(value, copy);
+    try {
+      for (const [key, item] of value) {
+        copy.set(cloneCaptureValue(key, active), cloneCaptureValue(item, active));
+      }
+    } finally {
+      active.delete(value);
     }
     return copy as T;
   }
   const copy: Record<string, unknown> = {};
-  seen.set(value, copy);
-  for (const [key, item] of Object.entries(value)) copy[key] = cloneCaptureValue(item, seen);
+  active.set(value, copy);
+  try {
+    for (const [key, item] of Object.entries(value)) {
+      Object.defineProperty(copy, key, {
+        configurable: true,
+        enumerable: true,
+        value: cloneCaptureValue(item, active),
+        writable: true,
+      });
+    }
+  } finally {
+    active.delete(value);
+  }
   return copy as T;
 }
 

@@ -9,10 +9,14 @@
  *
  * Research basis: Figma variable binding dropdown; APG Combobox + Listbox.
  */
-import type { VariableStore, VariableValue } from '@varve/scene';
+import { resolve, type VariableStore, type VariableValue } from '@varve/scene';
+import { tokenForVariableId } from '@varve/scene/tokens';
 import { FloatingPortal } from '@varve/ui';
 import { useCallback, useContext, useEffect, useId, useMemo, useState } from 'react';
 import { EditorCtx } from '../../../context/types';
+import { tokenBindingCompatibilityReason } from '../../../tokenSync/bindingCompatibility';
+import { formatVariableValue } from '../../../variableValueFormat';
+import './BindingMenu.css';
 
 interface BindingMenuProps {
   variableStore: VariableStore;
@@ -32,7 +36,7 @@ function formatValue(v: VariableValue): string {
   if (typeof v === 'boolean') return String(v);
   if (Array.isArray(v)) return `rgba(${v.join(',')})`;
   if (typeof v === 'string') return v;
-  return JSON.stringify(v);
+  return formatVariableValue(v);
 }
 
 export function BindingMenu({
@@ -60,6 +64,28 @@ export function BindingMenu({
   );
 
   const ctx = useContext(EditorCtx);
+  const property = targetField ?? ctx?.bindingField;
+  const tokenValues = useMemo(() => {
+    const values = new Map<string, { display: string; error?: string }>();
+    for (const variable of variables) {
+      const token = tokenForVariableId(variableStore, variable.id);
+      if (!token) continue;
+      const incompatible = property
+        ? tokenBindingCompatibilityReason(token.type, property)
+        : undefined;
+      if (incompatible) {
+        values.set(variable.id, { display: incompatible, error: incompatible });
+        continue;
+      }
+      try {
+        values.set(variable.id, { display: formatValue(resolve(variableStore, variable.id)) });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'No compatible property mapping.';
+        values.set(variable.id, { display: message, error: message });
+      }
+    }
+    return values;
+  }, [variableStore, variables, property]);
 
   useEffect(() => {
     if (targetField && ctx?.bindingField && ctx.bindingField !== targetField) {
@@ -69,10 +95,11 @@ export function BindingMenu({
 
   const handleSelect = useCallback(
     (varId: string) => {
+      if (tokenValues.get(varId)?.error) return;
       onBind(varId, expression || undefined);
       onClose();
     },
-    [onBind, onClose, expression],
+    [onBind, onClose, expression, tokenValues],
   );
 
   const highlightedId = variables.length > 0 ? `${listboxId}-option-${selectedIdx}` : undefined;
@@ -135,7 +162,9 @@ export function BindingMenu({
                 id={`${listboxId}-option-${i}`}
                 role="option"
                 aria-selected={selectedIdx === i}
-                className={`binding-menu__item${selectedIdx === i ? ' binding-menu__item--highlighted' : ''}`}
+                aria-disabled={tokenValues.get(v.id)?.error ? true : undefined}
+                title={tokenValues.get(v.id)?.error}
+                className={`binding-menu__item${selectedIdx === i ? ' binding-menu__item--highlighted' : ''}${tokenValues.get(v.id)?.error ? ' binding-menu__item--unavailable' : ''}`}
                 onClick={() => handleSelect(v.id)}
                 onMouseEnter={() => setSelectedIdx(i)}
                 onKeyDown={(e) => {
@@ -149,6 +178,8 @@ export function BindingMenu({
                 <span className="binding-menu__item-name">{v.name}</span>
                 <span className="binding-menu__item-value">
                   {(() => {
+                    const tokenValue = tokenValues.get(v.id);
+                    if (tokenValue) return tokenValue.display;
                     const val: VariableValue | undefined =
                       v.valuesByMode[variableStore.activeMode] ??
                       v.valuesByMode.default ??

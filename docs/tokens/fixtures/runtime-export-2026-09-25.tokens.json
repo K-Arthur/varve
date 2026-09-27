@@ -1,0 +1,54 @@
+{
+  "color": {
+    "brand": {
+      "$description": "Brand foundations shared by the sample artwork",
+      "$deprecated": false,
+      "$extensions": {
+        "org.varve.validation": {
+          "purpose": "metadata round trip"
+        }
+      },
+      "primary": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [0.8, 0.2, 0.1]
+        },
+        "$type": "color",
+        "$description": "Foundation brand color",
+        "$deprecated": false,
+        "$extensions": {
+          "org.varve.validation": {
+            "retained": true,
+            "precision": 1.00000001
+          }
+        }
+      }
+    }
+  },
+  "local": {
+    "brand": {
+      "alias": {
+        "$value": "{semantic.brand.curlyAlias}"
+      }
+    },
+    "spacing": {
+      "remUnsupported": {
+        "$value": {
+          "value": 1.25,
+          "unit": "rem"
+        },
+        "$type": "dimension"
+      }
+    }
+  },
+  "semantic": {
+    "brand": {
+      "curlyAlias": {
+        "$value": "{color.brand.primary}"
+      },
+      "pointerAlias": {
+        "$ref": "#/color/brand/primary/$value"
+      }
+    }
+  }
+}

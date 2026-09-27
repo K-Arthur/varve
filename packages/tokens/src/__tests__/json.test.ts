@@ -93,7 +93,13 @@ describe('json pointer (RFC 6901)', () => {
 
   it('rejects invalid escapes and fragments', () => {
     expect(() => parseJsonPointer('#/a~2b')).toThrow(/escape/);
+    expect(() => parseJsonPointer('#/a~')).toThrow(/escape/);
     expect(() => parseJsonPointer('a/b')).toThrow(/must start/);
+  });
+
+  it('rejects non-canonical array indices with leading zeroes', () => {
+    expect(() => resolveJsonPointer(['first', 'second'], '#/01')).toThrow(/not an array index/);
+    expect(resolveJsonPointer({ '01': 'object key' }, '#/01')).toBe('object key');
   });
 
   it('round-trips segments through buildJsonPointer', () => {

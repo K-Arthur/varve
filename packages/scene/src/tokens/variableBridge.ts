@@ -60,13 +60,12 @@ export function tokenToVariable(
 export function variableTypeForToken(tokenType: string): 'color' | 'number' | 'string' | 'boolean' {
   switch (tokenType) {
     case 'color':
+      return 'color';
     case 'fontFamily':
-    case 'fontWeight':
       return 'string';
     case 'dimension':
-    case 'duration':
+    case 'fontWeight':
     case 'number':
-    case 'cubicBezier':
       return 'number';
     default:
       return 'string';

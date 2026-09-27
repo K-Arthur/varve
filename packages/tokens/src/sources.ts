@@ -84,7 +84,7 @@ export function mergeTokenFiles(files: ReadonlyArray<{ fileId: string; text: str
 } {
   const diagnostics: TokenDiagnostic[] = [];
   const parsedFiles: string[] = [];
-  const mergedTree: Record<string, unknown> = {};
+  const mergedTree: Record<string, unknown> = Object.create(null);
   for (const file of files) {
     const doc = parseFormatDocument(file.text, { sourceFileId: file.fileId });
     diagnostics.push(...doc.diagnostics);
@@ -103,7 +103,7 @@ export function mergeTokenFiles(files: ReadonlyArray<{ fileId: string; text: str
 /** Deep last-wins merge (identical to resolver flattening). */
 function mergeTrees(target: Record<string, unknown>, source: Record<string, unknown>): void {
   for (const [key, value] of Object.entries(source)) {
-    const existing = target[key];
+    const existing = Object.hasOwn(target, key) ? target[key] : undefined;
     if (
       value !== null &&
       typeof value === 'object' &&
@@ -113,8 +113,22 @@ function mergeTrees(target: Record<string, unknown>, source: Record<string, unkn
       !Array.isArray(existing)
     ) {
       mergeTrees(existing as Record<string, unknown>, value as Record<string, unknown>);
+    } else if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+      const nested: Record<string, unknown> = Object.create(null);
+      Object.defineProperty(target, key, {
+        configurable: true,
+        enumerable: true,
+        value: nested,
+        writable: true,
+      });
+      mergeTrees(nested, value as Record<string, unknown>);
     } else {
-      target[key] = value;
+      Object.defineProperty(target, key, {
+        configurable: true,
+        enumerable: true,
+        value,
+        writable: true,
+      });
     }
   }
 }

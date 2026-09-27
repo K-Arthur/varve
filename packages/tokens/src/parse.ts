@@ -68,7 +68,7 @@ export function parseFormatDocument(text: string, options: ParseFormatOptions = 
   const strict = options.strict ?? true;
   const compatibility = options.compatibility ?? false;
   const diagnostics: TokenDiagnostic[] = [];
-  const tokens: Record<string, DtcgTokenNode> = {};
+  const tokens: Record<string, DtcgTokenNode> = Object.create(null);
 
   let source: JsonSourceResult;
   try {
@@ -188,8 +188,8 @@ export function parseFormatDocument(text: string, options: ParseFormatOptions = 
         return undefined;
       }
       if (
-        '$value' in (target as Record<string, unknown>) ||
-        '$ref' in (target as Record<string, unknown>)
+        Object.hasOwn(target as Record<string, unknown>, '$value') ||
+        Object.hasOwn(target as Record<string, unknown>, '$ref')
       ) {
         diagnostics.push({
           severity: 'error',
@@ -235,10 +235,22 @@ export function parseFormatDocument(text: string, options: ParseFormatOptions = 
         // $root is the reserved root-token name in the document's implicit
         // root group and in nested groups (6.2). Other $ properties are
         // metadata handled at their owning level; unknown ones are warned.
+        // If an unknown property has the shape of a token or group, however,
+        // let it reach name validation below so malformed $-prefixed names
+        // cannot make authored tokens disappear during strict import.
         if (name === '$root') {
           // fall through to token handling below
         } else {
-          if (!KNOWN_GROUP_PROPERTIES.has(name)) {
+          const rawRecord =
+            rawValue !== null && typeof rawValue === 'object' && !Array.isArray(rawValue)
+              ? (rawValue as Record<string, unknown>)
+              : undefined;
+          const looksLikeNode =
+            rawRecord !== undefined &&
+            (Object.hasOwn(rawRecord, '$value') ||
+              Object.hasOwn(rawRecord, '$ref') ||
+              Object.keys(rawRecord).some((key) => !key.startsWith('$')));
+          if (!KNOWN_GROUP_PROPERTIES.has(name) && !looksLikeNode) {
             diagnostics.push({
               severity: 'warning',
               code: 'dtcg.unknown-property',
@@ -246,8 +258,9 @@ export function parseFormatDocument(text: string, options: ParseFormatOptions = 
               sourceFileId,
               pointer: pointerOf([...path, name]),
             });
+            continue;
           }
-          continue;
+          if (KNOWN_GROUP_PROPERTIES.has(name)) continue;
         }
       }
       if (rawValue === null || typeof rawValue !== 'object' || Array.isArray(rawValue)) {
@@ -265,7 +278,7 @@ export function parseFormatDocument(text: string, options: ParseFormatOptions = 
       const childPointer = pointerOf(childPath);
       const loc = locationFor(childPointer);
 
-      if ('$value' in node || '$ref' in node) {
+      if (Object.hasOwn(node, '$value') || Object.hasOwn(node, '$ref')) {
         if (Object.keys(node).some((k) => !k.startsWith('$'))) {
           diagnostics.push({
             severity: 'error',
@@ -302,6 +315,18 @@ export function parseFormatDocument(text: string, options: ParseFormatOptions = 
         );
         if (token) children.push(token);
       } else {
+        const validGroupName = validateName(
+          name,
+          sourceFileId,
+          diagnostics,
+          childPointer,
+          strict,
+          compatibility,
+          false,
+          loc.line,
+          loc.column,
+        );
+        if (!validGroupName && !compatibility) continue;
         const groupType = typeof node.$type === 'string' ? node.$type : undefined;
         const groupDeprecated = readDeprecated(node, childPointer, sourceFileId, diagnostics);
         const resolved = resolveGroup(node, childPath, new Set(), new Map());
@@ -385,7 +410,7 @@ function collectTokens(
 ): void {
   if (node.kind === 'token') {
     const key = pathKey(node.path);
-    if (tokens[key]) {
+    if (Object.hasOwn(tokens, key)) {
       diagnostics.push({
         severity: 'error',
         code: 'dtcg.duplicate-path',
@@ -395,7 +420,12 @@ function collectTokens(
       });
       return;
     }
-    tokens[key] = node;
+    Object.defineProperty(tokens, key, {
+      configurable: true,
+      enumerable: true,
+      value: node,
+      writable: true,
+    });
     return;
   }
   for (const child of node.children) {
@@ -469,7 +499,7 @@ function buildToken(
   let isReference = false;
 
   const rawValue = node.$value;
-  if ('$ref' in node && rawValue === undefined) {
+  if (Object.hasOwn(node, '$ref') && rawValue === undefined) {
     if (typeof node.$ref !== 'string') {
       diagnostics.push({
         severity: 'error',
@@ -563,7 +593,10 @@ function resolveAliasTypes(tokens: Record<string, DtcgTokenNode>): void {
   const resolvedTypes = new Map<string, string | undefined>();
   const targetFor = (token: DtcgTokenNode): DtcgTokenNode | undefined => {
     const reference = token.references[0];
-    if (reference?.kind === 'curly-brace') return tokens[pathKey(reference.path)];
+    if (reference?.kind === 'curly-brace') {
+      const key = pathKey(reference.path);
+      return Object.hasOwn(tokens, key) ? tokens[key] : undefined;
+    }
     if (reference?.kind !== 'json-pointer') return undefined;
     try {
       const segments = parseJsonPointer(reference.pointer);
@@ -799,31 +832,47 @@ function deepMergeGroups(
   diagnostics: TokenDiagnostic[],
   pointerOf: (path: string[]) => string,
 ): Record<string, unknown> {
-  const result: Record<string, unknown> = {};
+  const result: Record<string, unknown> = Object.create(null);
   for (const [key, value] of Object.entries(inherited)) {
-    result[key] = value;
+    Object.defineProperty(result, key, {
+      configurable: true,
+      enumerable: true,
+      value,
+      writable: true,
+    });
   }
   for (const [key, value] of Object.entries(local)) {
+    const existing = Object.hasOwn(result, key) ? result[key] : undefined;
     if (
       value !== null &&
       typeof value === 'object' &&
       !Array.isArray(value) &&
       !key.startsWith('$') &&
-      result[key] !== null &&
-      typeof result[key] === 'object' &&
-      !Array.isArray(result[key]) &&
+      existing !== null &&
+      typeof existing === 'object' &&
+      !Array.isArray(existing) &&
       !('$value' in (value as Record<string, unknown>))
     ) {
-      result[key] = deepMergeGroups(
-        result[key] as Record<string, unknown>,
-        value as Record<string, unknown>,
-        [...path, key],
-        sourceFileId,
-        diagnostics,
-        pointerOf,
-      );
+      Object.defineProperty(result, key, {
+        configurable: true,
+        enumerable: true,
+        value: deepMergeGroups(
+          existing as Record<string, unknown>,
+          value as Record<string, unknown>,
+          [...path, key],
+          sourceFileId,
+          diagnostics,
+          pointerOf,
+        ),
+        writable: true,
+      });
     } else {
-      result[key] = value;
+      Object.defineProperty(result, key, {
+        configurable: true,
+        enumerable: true,
+        value,
+        writable: true,
+      });
     }
   }
   return result;
@@ -833,7 +882,9 @@ function lookupRaw(root: Record<string, unknown>, path: string[]): unknown {
   let current: unknown = root;
   for (const segment of path) {
     if (current === null || typeof current !== 'object' || Array.isArray(current)) return undefined;
-    current = (current as Record<string, unknown>)[segment];
+    const record = current as Record<string, unknown>;
+    if (!Object.hasOwn(record, segment)) return undefined;
+    current = record[segment];
   }
   return current;
 }

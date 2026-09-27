@@ -1,0 +1,14 @@
+/* Keep the reason visible without relying on a hover-only tooltip. */
+.binding-menu__item--unavailable {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.binding-menu__item--unavailable .binding-menu__item-name,
+.binding-menu__item--unavailable .binding-menu__item-value {
+  max-width: 100%;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  overflow-wrap: anywhere;
+}

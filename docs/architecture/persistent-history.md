@@ -55,6 +55,18 @@ any undo/redo or reload cycle.
 - Capture cloning preserves `Map`, `Uint8Array`, and `Uint8ClampedArray`
   values. This matters when a vector-only edit follows raster paint: replaying
   the vector change must not turn existing pixels into numeric-object data.
+- Capture replay clones repeated JSON objects independently at sibling paths.
+  A token value and its provenance snapshot can share an object in memory,
+  but a deep-set of the live value must leave the snapshot unchanged. Only
+  active recursion is memoized during cloning; runtime object identity is not
+  part of the canonical document contract. JSON own keys are copied without
+  invoking prototype setters.
+- Generic metadata keys can contain dots, Unicode, or other characters that
+  cannot be expressed by the strict capture-path grammar. The differ replaces
+  their containing object at a safe parent path rather than interpreting such
+  keys as path segments. The path validator stays unchanged. Source-update
+  and metadata regressions live in
+  `packages/history/src/__tests__/source-update-capture.test.ts`.
 - Snapshots use `DocumentCodec` rather than JSON cloning, so raster tile Maps
   and typed pixels are rehydrated exactly. Each new raster snapshot also
   records an external content-hash manifest and stores those blobs before the

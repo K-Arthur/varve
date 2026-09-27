@@ -73,7 +73,12 @@ export function toPlainJson<T>(value: T): T {
   if (Array.isArray(value)) return value.map((item) => toPlainJson(item)) as unknown as T;
   const out: Record<string, unknown> = {};
   for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
-    out[key] = toPlainJson(item);
+    Object.defineProperty(out, key, {
+      configurable: true,
+      enumerable: true,
+      value: toPlainJson(item),
+      writable: true,
+    });
   }
   return out as T;
 }
