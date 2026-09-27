@@ -2,6 +2,7 @@
 
 import type { Platform } from '@varve/platform';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { createDefaultDockLayout } from './dock/dockOps';
 import {
   attachWorkspacePreferencePlatform,
   clearPanelWidths,
@@ -65,6 +66,31 @@ describe('workspaceStore — persistence', () => {
     const reloaded = loadWorkspacePreferences();
     expect(reloaded.design.panelOverrides?.layers?.visible).toBe(false);
     expect(reloaded.design.customized).toBe(true);
+  });
+
+  it('persists a validated nested dock layout in the existing preference slot', () => {
+    const prefs = {
+      ...loadWorkspacePreferences(),
+      design: { ...loadWorkspacePreferences().design, dockLayout: createDefaultDockLayout() },
+    };
+    saveWorkspacePreferences(prefs);
+    resetWorkspacePreferenceCache();
+    expect(loadWorkspacePreferences().design.dockLayout).toEqual(createDefaultDockLayout());
+  });
+
+  it('drops unsupported nested dock versions instead of applying them', () => {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        design: {
+          customized: true,
+          dockLayout: { schemaVersion: 99, windows: [] },
+        },
+      }),
+    );
+    const prefs = loadWorkspacePreferences();
+    expect(prefs.design.customized).toBe(true);
+    expect(prefs.design.dockLayout).toBeUndefined();
   });
 
   it('falls back to the legacy strata-* key', () => {

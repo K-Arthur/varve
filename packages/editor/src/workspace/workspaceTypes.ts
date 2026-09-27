@@ -19,6 +19,10 @@
 import type { LegacyWorkspaceMode, WorkspaceMode, WorkspaceModeInput } from '@varve/shared';
 import type { IconName } from '@varve/ui';
 import { getRegisteredToolIds, getToolDefinition, type ToolId } from '../tools/toolRegistry';
+import type { DockLayout } from './dock/dockTypes';
+import type { PanelId } from './panelIds';
+
+export type { PanelId } from './panelIds';
 
 // ---------------------------------------------------------------------------
 // Workspace mode identity
@@ -40,18 +44,6 @@ export type WorkspacePreferenceMode = WorkspaceModeInput;
 // ---------------------------------------------------------------------------
 // Panel configuration
 // ---------------------------------------------------------------------------
-
-export type PanelId =
-  | 'layers'
-  | 'inspector'
-  | 'timeline'
-  | 'pagenav'
-  | 'library'
-  | 'codegen'
-  | 'logo'
-  | 'history'
-  | 'emailPreview'
-  | 'emailOutput';
 
 /** Runtime enumeration of every panel id — the validation source for imports. */
 export const ALL_PANEL_IDS: readonly PanelId[] = [
@@ -388,6 +380,8 @@ export const CHROME_CONFIG_LABELS: Record<keyof ChromeConfig, string> = {
 // ---------------------------------------------------------------------------
 
 export interface WorkspacePreference {
+  /** Optional workspace-owned nested dock tree; absent means use the built-in arrangement. */
+  dockLayout?: DockLayout;
   /** Mode-specific panel overrides. */
   panelOverrides?: Partial<Record<PanelId, Partial<PanelConfig>>>;
   /** Mode-specific inspector tab visibility overrides (tab id → visible). */

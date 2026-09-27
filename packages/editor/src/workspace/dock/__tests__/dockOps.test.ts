@@ -16,6 +16,7 @@ import {
   clampRatio,
   createDefaultDockLayout,
   createWindow,
+  deserializeDockLayout,
   deserializeDockTree,
   findPanelInstance,
   getDockNodeMinimumSize,
@@ -769,5 +770,67 @@ describe('dock ops: protected central canvas', () => {
       windows: [{ id: 'main', role: 'primary', dockRoot: cycle }],
     };
     expect(validateDockLayout(layout).join(' ')).toContain('contains a cycle');
+  });
+
+  it('deserializes portable layouts, migrates v1, and strips document and machine data', () => {
+    const result = deserializeDockLayout({
+      schemaVersion: 1,
+      localPath: '/home/user/project.varve',
+      windows: [
+        {
+          id: 'main',
+          role: 'primary',
+          screenX: 540,
+          dockRoot: {
+            kind: 'tabs',
+            id: 'root-tabs',
+            activePanelInstanceId: 'layers-1',
+            localPath: '/tmp/window',
+            panels: [
+              {
+                instanceId: 'layers-1',
+                panelTypeId: 'layers',
+                documentId: 'document-secret',
+                titleOverride: 'Layer stack',
+                localPath: '/tmp/panel',
+              },
+              { instanceId: 'inspector-1', panelTypeId: 'inspector' },
+            ],
+          },
+        },
+      ],
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.layout.schemaVersion).toBe(2);
+    expect(validateDockLayout(result.layout)).toEqual([]);
+    const portable = JSON.stringify(result.layout);
+    expect(portable).not.toContain('document-secret');
+    expect(portable).not.toContain('localPath');
+    expect(portable).not.toContain('screenX');
+    expect(result.layout.windows[0]?.dockRoot).toMatchObject({
+      kind: 'split',
+      first: {
+        kind: 'tabs',
+        panels: [
+          { instanceId: 'layers-1', titleOverride: 'Layer stack' },
+          { instanceId: 'inspector-1', panelTypeId: 'inspector' },
+        ],
+      },
+      second: { kind: 'canvas' },
+    });
+  });
+
+  it('rejects duplicate windows and layouts without exactly one primary canvas', () => {
+    const duplicateWindows = {
+      schemaVersion: 2,
+      windows: [
+        { id: 'main', role: 'primary', dockRoot: createCanvasNode() },
+        { id: 'main', role: 'auxiliary-panel', dockRoot: emptyRoot() },
+      ],
+    };
+    expect(deserializeDockLayout(duplicateWindows).ok).toBe(false);
+    expect(deserializeDockLayout({ schemaVersion: 2, windows: [] }).ok).toBe(false);
   });
 });

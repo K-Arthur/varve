@@ -897,6 +897,97 @@ export function deserializeDockTree(
   return { ok: true, tree: normalizeDockTree(tree) };
 }
 
+/** Deserialize a complete portable layout, then upgrade it to the current canvas schema. */
+export function deserializeDockLayout(
+  input: unknown,
+): { ok: true; layout: DockLayout } | { ok: false; reason: string } {
+  if (typeof input !== 'object' || input === null || Array.isArray(input)) {
+    return { ok: false, reason: 'dock layout must be an object' };
+  }
+  const source = input as Record<string, unknown>;
+  if (source.schemaVersion !== 1 && source.schemaVersion !== DOCK_LAYOUT_SCHEMA_VERSION) {
+    return { ok: false, reason: 'unsupported dock layout version' };
+  }
+  if (!Array.isArray(source.windows) || source.windows.length > MAX_DOCK_WINDOWS) {
+    return { ok: false, reason: `dock layout must have at most ${MAX_DOCK_WINDOWS} windows` };
+  }
+
+  const windows: WorkspaceWindowLayout[] = [];
+  for (const candidate of source.windows) {
+    if (typeof candidate !== 'object' || candidate === null || Array.isArray(candidate)) {
+      return { ok: false, reason: 'invalid dock window' };
+    }
+    const window = candidate as Record<string, unknown>;
+    if (
+      typeof window.id !== 'string' ||
+      window.id.length === 0 ||
+      window.id.length > 128 ||
+      (window.role !== 'primary' && window.role !== 'auxiliary-panel')
+    ) {
+      return { ok: false, reason: 'invalid dock window identity or role' };
+    }
+    const tree = deserializeDockTree(window.dockRoot);
+    if (!tree.ok) return { ok: false, reason: `invalid window '${window.id}': ${tree.reason}` };
+    windows.push({
+      id: window.id,
+      role: window.role,
+      dockRoot: stripDocumentPins(tree.tree),
+    });
+  }
+
+  try {
+    return {
+      ok: true,
+      layout: migrateDockLayoutToCanvas({ schemaVersion: source.schemaVersion, windows }),
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      reason: error instanceof Error ? error.message : 'invalid dock layout',
+    };
+  }
+}
+
+/** Portable workspace layouts never include document-pinned panel state. */
+function stripDocumentPins(root: DockNode): DockNode {
+  switch (root.kind) {
+    case 'split':
+      return {
+        kind: 'split',
+        id: root.id,
+        direction: root.direction,
+        ratio: root.ratio,
+        first: stripDocumentPins(root.first),
+        second: stripDocumentPins(root.second),
+      };
+    case 'tabs':
+      return {
+        kind: 'tabs',
+        id: root.id,
+        ...(root.activePanelInstanceId
+          ? { activePanelInstanceId: root.activePanelInstanceId }
+          : {}),
+        panels: root.panels.map((panel) => ({
+          instanceId: panel.instanceId,
+          panelTypeId: panel.panelTypeId,
+          ...(typeof panel.titleOverride === 'string' && panel.titleOverride.length <= 64
+            ? { titleOverride: panel.titleOverride }
+            : {}),
+        })),
+      };
+    case 'panel':
+      return {
+        kind: 'panel',
+        id: root.id,
+        panelInstanceId: root.panelInstanceId,
+        panelTypeId: root.panelTypeId,
+      };
+    case 'canvas':
+    case 'empty':
+      return { kind: root.kind, id: root.id };
+  }
+}
+
 function validateSerializedNode(input: unknown): string | null {
   const pending: Array<{ node: unknown; depth: number }> = [{ node: input, depth: 1 }];
   const ids = new Set<string>();
@@ -916,7 +1007,9 @@ function validateSerializedNode(input: unknown): string | null {
     seen.add(node);
 
     const record = node as Record<string, unknown>;
-    if (typeof record.id !== 'string' || record.id.length === 0) return 'node without id';
+    if (typeof record.id !== 'string' || record.id.length === 0 || record.id.length > 128) {
+      return 'invalid dock node id';
+    }
     if (ids.has(record.id)) return `duplicate dock node id '${record.id}'`;
     ids.add(record.id);
 
@@ -938,15 +1031,28 @@ function validateSerializedNode(input: unknown): string | null {
           const ref = panel as Record<string, unknown>;
           if (typeof ref.instanceId !== 'string' || ref.instanceId.length === 0)
             return 'panel ref without instanceId';
+          if (ref.instanceId.length > 128) return 'panel ref instanceId is too long';
           if (typeof ref.panelTypeId !== 'string' || ref.panelTypeId.length === 0)
             return 'panel ref without panelTypeId';
+          if (ref.panelTypeId.length > 128) return 'panel ref panelTypeId is too long';
+        }
+        if (
+          record.activePanelInstanceId !== undefined &&
+          (typeof record.activePanelInstanceId !== 'string' ||
+            record.activePanelInstanceId.length > 128)
+        ) {
+          return 'invalid active panel instance id';
         }
         break;
       case 'panel':
         if (typeof record.panelInstanceId !== 'string' || record.panelInstanceId.length === 0)
           return 'panel node without panelInstanceId';
+        if (record.panelInstanceId.length > 128) return 'panel node panelInstanceId is too long';
         if (typeof record.panelTypeId !== 'string' || record.panelTypeId.length === 0)
           return 'panel node without panelTypeId';
+        if (record.panelTypeId.length > 128) return 'panel node panelTypeId is too long';
+        break;
+      case 'canvas':
         break;
       case 'empty':
         break;

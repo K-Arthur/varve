@@ -18,6 +18,7 @@
 import type { Platform } from '@varve/platform';
 import { TOOL_REGISTRY } from '../tools/toolRegistry';
 import type { ToolId } from '../tools/types';
+import { deserializeDockLayout } from './dock/dockOps';
 import { ESSENTIAL_TOOL_IDS } from './toolLabels';
 import {
   ALL_WORKSPACE_PREFERENCE_MODES,
@@ -292,7 +293,11 @@ function sanitizePreference(
       ? (defaultToolRaw as ToolId)
       : undefined;
 
+  const dockLayoutResult = pref.dockLayout ? deserializeDockLayout(pref.dockLayout) : null;
+  const dockLayout = dockLayoutResult?.ok ? dockLayoutResult.layout : undefined;
+
   return {
+    ...(dockLayout ? { dockLayout } : {}),
     ...(clean && Object.keys(clean).length > 0 ? { panelOverrides: clean } : {}),
     ...(cleanTabs && Object.keys(cleanTabs).length > 0 ? { inspectorTabOverrides: cleanTabs } : {}),
     ...(cleanSections && Object.keys(cleanSections).length > 0

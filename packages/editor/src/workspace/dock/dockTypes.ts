@@ -11,7 +11,7 @@
  * uuid; titles and array indexes are never used as identity.
  */
 
-import type { PanelTypeId } from '../panelRegistry';
+import type { PanelTypeId } from '../panelIds';
 
 export type { PanelTypeId };
 

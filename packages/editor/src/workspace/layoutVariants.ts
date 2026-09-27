@@ -23,6 +23,8 @@
 import type { Platform } from '@varve/platform';
 import { TOOL_REGISTRY } from '../tools/toolRegistry';
 import type { ToolId } from '../tools/types';
+import { deserializeDockLayout } from './dock/dockOps';
+import type { DockLayout } from './dock/dockTypes';
 import { ESSENTIAL_TOOL_IDS } from './toolLabels';
 import {
   getEffectiveWorkspaceConfig,
@@ -48,8 +50,8 @@ import {
   type WorkspacePreferences,
 } from './workspaceTypes';
 
-/** Version 2 adds ordered toolbar/inspector/status customization fields. */
-export const LAYOUT_VARIANT_SCHEMA_VERSION = 2;
+/** Version 3 adds bounded nested dock trees to portable named layouts. */
+export const LAYOUT_VARIANT_SCHEMA_VERSION = 3;
 const STORAGE_KEY = 'varve-workspace-layouts';
 const APP_SETTING_KEY = 'workspace-layouts';
 const DURABLE_SAVE_DEBOUNCE_MS = 400;
@@ -71,6 +73,7 @@ export interface LayoutPanelOverride {
 }
 
 export interface LayoutPreferencePayload {
+  dockLayout?: DockLayout;
   panelOverrides?: Partial<Record<PanelId, LayoutPanelOverride>>;
   inspectorTabOverrides?: Partial<Record<InspectorTabId, boolean>>;
   inspectorTabOrder?: InspectorTabId[];
@@ -437,6 +440,11 @@ export function sanitizeLayoutPayload(raw: unknown, mode?: WorkspaceMode): Layou
     if (Object.keys(chrome).length > 0) payload.chromeOverrides = chrome;
   }
 
+  if (source.dockLayout) {
+    const dock = deserializeDockLayout(source.dockLayout);
+    if (dock.ok) payload.dockLayout = dock.layout;
+  }
+
   return payload;
 }
 
@@ -665,6 +673,11 @@ export function captureLayoutPayload(
     payload.defaultTool = effective.defaultTool;
   }
 
+  if (modePrefs?.dockLayout) {
+    const dock = deserializeDockLayout(modePrefs.dockLayout);
+    if (dock.ok) payload.dockLayout = dock.layout;
+  }
+
   return payload;
 }
 
@@ -687,6 +700,7 @@ export function applyLayoutPayloadToPreferences(
   const modePrefs: WorkspacePreference = {
     customized: true,
     lastCustomized: Date.now(),
+    ...(clean.dockLayout ? { dockLayout: clean.dockLayout } : {}),
     ...(clean.panelOverrides ? { panelOverrides: clean.panelOverrides } : {}),
     ...(clean.inspectorTabOverrides ? { inspectorTabOverrides: clean.inspectorTabOverrides } : {}),
     ...(clean.inspectorTabOrder ? { inspectorTabOrder: clean.inspectorTabOrder } : {}),
@@ -972,7 +986,9 @@ export function exportLayoutVariant(variant: WorkspaceLayoutVariant): string {
 
 export function importLayoutVariantFromJson(json: string): LayoutImportResult {
   if (typeof json !== 'string') return { ok: false, reason: 'invalid-json' };
-  if (json.length > MAX_IMPORT_BYTES) return { ok: false, reason: 'too-large' };
+  if (new TextEncoder().encode(json).byteLength > MAX_IMPORT_BYTES) {
+    return { ok: false, reason: 'too-large' };
+  }
   let parsed: unknown;
   try {
     parsed = JSON.parse(json);
@@ -1243,6 +1259,9 @@ let durablePlatform: Platform | null = null;
 let durableTimer: ReturnType<typeof setTimeout> | null = null;
 let durablePending: WorkspaceLayoutStoreState | null = null;
 let durableWriteQueue: Promise<void> = Promise.resolve();
+let localFutureStorePresent = false;
+let durableFutureStorePresent = false;
+let durableHydrationPending = false;
 let lastPersistenceError: { at: number; layer: 'local' | 'platform'; message: string } | null =
   null;
 
@@ -1261,9 +1280,22 @@ function recordPersistenceError(layer: 'local' | 'platform', err: unknown): void
 export function loadLayoutStore(): WorkspaceLayoutStoreState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return createEmptyLayoutStore();
-    return sanitizeLayoutStore(JSON.parse(raw));
+    if (!raw) {
+      localFutureStorePresent = false;
+      return createEmptyLayoutStore();
+    }
+    const parsed: unknown = JSON.parse(raw);
+    localFutureStorePresent = isFutureLayoutStore(parsed);
+    if (localFutureStorePresent) {
+      recordPersistenceError(
+        'local',
+        'A newer workspace-layout format is preserved until this app can read it.',
+      );
+      return createEmptyLayoutStore();
+    }
+    return sanitizeLayoutStore(parsed);
   } catch (err) {
+    localFutureStorePresent = false;
     recordPersistenceError('local', err);
     return createEmptyLayoutStore();
   }
@@ -1277,7 +1309,14 @@ export function getLayoutStore(): WorkspaceLayoutStoreState {
 export function setLayoutStore(state: WorkspaceLayoutStoreState): void {
   cachedStore = state;
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    if (hasUnreadableLocalFutureStore()) {
+      recordPersistenceError(
+        'local',
+        'A newer workspace-layout format is preserved; this change is session-only.',
+      );
+    } else {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }
   } catch (err) {
     recordPersistenceError('local', err);
   }
@@ -1306,6 +1345,9 @@ export function resetLayoutStoreCache(): void {
   durableTimer = null;
   durablePending = null;
   durablePlatform = null;
+  localFutureStorePresent = false;
+  durableFutureStorePresent = false;
+  durableHydrationPending = false;
   lastPersistenceError = null;
 }
 
@@ -1314,8 +1356,9 @@ export function attachLayoutStorePlatform(platform: Platform | undefined): void 
 }
 
 function scheduleDurableSave(state: WorkspaceLayoutStoreState): void {
-  if (!durablePlatform) return;
+  if (!durablePlatform || durableFutureStorePresent) return;
   durablePending = state;
+  if (durableHydrationPending) return;
   if (durableTimer) clearTimeout(durableTimer);
   durableTimer = setTimeout(() => {
     durableTimer = null;
@@ -1331,6 +1374,7 @@ function scheduleDurableSave(state: WorkspaceLayoutStoreState): void {
 function enqueueDurableWrite(platform: Platform, state: WorkspaceLayoutStoreState): Promise<void> {
   const payload = JSON.stringify(state);
   durableWriteQueue = durableWriteQueue.then(async () => {
+    if (durableFutureStorePresent) return;
     try {
       await platform.setAppSetting(APP_SETTING_KEY, payload);
     } catch (err) {
@@ -1404,28 +1448,83 @@ export function mergeLayoutStores(
  */
 export async function hydrateLayoutStoreFromPlatform(platform: Platform): Promise<boolean> {
   attachLayoutStorePlatform(platform);
+  durableHydrationPending = true;
   let raw: string | null = null;
   try {
     raw = await platform.getAppSetting(APP_SETTING_KEY);
   } catch (err) {
     recordPersistenceError('platform', err);
+    finishDurableHydration(false);
     return false;
   }
-  if (!raw) return false;
+  if (!raw) {
+    durableFutureStorePresent = false;
+    finishDurableHydration(true);
+    return false;
+  }
 
   let remote: WorkspaceLayoutStoreState;
   try {
-    remote = sanitizeLayoutStore(JSON.parse(raw));
+    const parsed: unknown = JSON.parse(raw);
+    durableFutureStorePresent = isFutureLayoutStore(parsed);
+    if (durableFutureStorePresent) {
+      recordPersistenceError(
+        'platform',
+        'A newer workspace-layout format is preserved until this app can read it.',
+      );
+      finishDurableHydration(false);
+      return false;
+    }
+    remote = sanitizeLayoutStore(parsed);
   } catch (err) {
     recordPersistenceError('platform', err);
+    finishDurableHydration(false);
     return false;
   }
 
   const local = getLayoutStore();
   const merged = mergeLayoutStores(local, remote);
-  if (layoutStoresEquivalent(merged, local)) return false;
-  setLayoutStore(merged);
-  return true;
+  const changed = !layoutStoresEquivalent(merged, local);
+  if (changed) setLayoutStore(merged);
+  finishDurableHydration(true);
+  return changed;
+}
+
+function finishDurableHydration(allowWrites: boolean): void {
+  durableHydrationPending = false;
+  if (!allowWrites || durableFutureStorePresent) {
+    durablePending = null;
+    if (durableTimer) clearTimeout(durableTimer);
+    durableTimer = null;
+    return;
+  }
+  if (durablePending) {
+    const pending = durablePending;
+    durablePending = null;
+    scheduleDurableSave(pending);
+  }
+}
+
+function isFutureLayoutStore(parsed: unknown): boolean {
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return false;
+  const version = (parsed as Record<string, unknown>).schemaVersion;
+  return (
+    typeof version === 'number' &&
+    Number.isInteger(version) &&
+    version > LAYOUT_VARIANT_SCHEMA_VERSION
+  );
+}
+
+function hasUnreadableLocalFutureStore(): boolean {
+  if (localFutureStorePresent) return true;
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return false;
+    localFutureStorePresent = isFutureLayoutStore(JSON.parse(raw));
+    return localFutureStorePresent;
+  } catch {
+    return false;
+  }
 }
 
 /** Content equality ignoring the revision counter. */

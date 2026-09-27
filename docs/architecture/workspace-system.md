@@ -419,9 +419,9 @@ gaps:
 ## Named layout variants (2026-09-13)
 
 A named layout is a saved **arrangement** of the surfaces the customize
-dialog already controls — panel visibility/widths, inspector tabs, status
-sections, toolbar tools, and editor chrome. It is deliberately not a new
-workspace mode, editor route, or document format: applying one writes the
+dialog controls — nested dock intent, panel visibility/widths, inspector tabs,
+status sections, toolbar tools, and editor chrome. It is deliberately not a
+new workspace mode, editor route, or document format: applying one writes the
 same per-mode preference overrides every other customization path writes, so
 there is still exactly one resolver and one projection.
 
@@ -430,7 +430,9 @@ there is still exactly one resolver and one projection.
 - **Capture is sparse.** A payload stores only differences from the target
   mode's built-in defaults, so a layout saved before a new built-in tool
   shipped still reveals that tool when applied. Captured payloads are
-  re-sanitized on read and apply.
+  re-sanitized on read and apply. The version-3 payload also carries a
+  validated nested dock layout when the workspace has one; older variants
+  migrate into the same schema.
 - **Persistent Apply replaces, and never switches mode.** Applying a saved
   layout to the active mode replaces that mode's arrangement (preferences are
   not merged with leftover overrides); `Default` is therefore a one-click
@@ -459,15 +461,19 @@ there is still exactly one resolver and one projection.
   is confirmed and tombstoned.
 - **Import/export is capability-only.** Export emits a versioned
   `varve-workspace-layout` document with a name, source mode, and sanitized
-  payload — no ids, timestamps, machine geometry, paths, or identity. Import
-  is bounded (64 KiB), rejects future versions rather than relabelling them,
-  assigns a fresh local id, drops unknown/removed ids, cannot hide essential
-  recovery tools, and offers replace-or-duplicate on a name collision.
+  payload — no variant ids, timestamps, machine geometry, paths, document
+  pins, or identity. Dock trees are bounded, validate registered panel types,
+  and strip unknown node fields. Import is bounded to 64 KiB of UTF-8,
+  rejects future versions rather than relabelling them, assigns a fresh local
+  id, drops unknown/removed ids, cannot hide essential recovery tools, and
+  offers replace-or-duplicate on a name collision.
 - **Persistence** uses `varve-workspace-layouts` in localStorage plus the
   `workspace-layouts` platform app-setting (SQLite on desktop / IndexedDB on
-  web), debounced 400 ms. Merge is by variant `updatedAt` with deletion
-  tombstones, so a stale durable copy can never resurrect a deleted variant,
-  and hydration never overwrites local edits.
+  web), debounced 400 ms. Durable writes are serialized; hydration reads the
+  latest local snapshot, and merge is by variant `updatedAt` with deletion
+  tombstones, so a stale durable copy can never resurrect a deleted variant.
+  Unknown future store versions stay untouched and surface a persistence
+  message rather than being rewritten by this build.
 
 Entry points: **View ▸ Manage Layouts…** and the command palette
 (`manageWorkspaceLayouts`); the native menu defs carry the
@@ -597,11 +603,11 @@ These are known gaps, not settled design:
 - **Detached panel windows are desktop-only and deliberately narrow.**
   Layers, Inspector, Assets, Code, and Logo can move to auxiliary windows;
   Timeline, Page Navigator, and History cannot. The single-window layout
-  variants do not move or resize those windows — device placement stays in
-  the panel-placement store, and the multi-window logical-layout path
-  (`layoutPersistence.ts`, `dockOps.ts`) remains unwired pending the
-  multi-window milestone. Its recovery snapshot and safe-mode generators are
-  sound and tested, but no runtime surface applies them yet.
+  variants do not move or resize detached windows — device placement stays in
+  the panel-placement store. The nested dock payload now preserves portable
+  single-window layout intent in preferences and named variants, while the
+  multi-window logical-layout path and recovery snapshot
+  (`layoutPersistence.ts`, legacy `dockOps.ts`) remain unwired.
 - **At this checkpoint, panel move/reorder within the shell is not offered.**
   The shell's fixed grid defines the permitted regions per panel; the existing
   customization surface covers visibility, width, tabs/sections, and chrome.
@@ -619,8 +625,11 @@ windows; it rejects duplicate node and panel identities, applies registered
 singleton and host rules, and exposes minimum-size calculations from the panel
 registry. `reorderTab` and `movePanelToHost` preserve active-tab identity,
 reject incompatible hosts, and validate the resulting layout before returning
-it. These are pure-model guarantees; they do not imply that users can yet
-rearrange the live shell. The editor still renders its fixed panel slots, and
-the older `workspace/dockTypes.ts` / `dockOps.ts` model remains in the manager
-and recovery path. Replacing that competing path and rendering the nested
-model are still required before Varve can claim free-form in-window docking.
+it. Workspace preferences and version-3 named variants now persist the
+validated schema-2 dock tree, with document pins and unknown machine fields
+removed from portable exports. These are pure-model and persistence
+guarantees; they do not imply that users can yet rearrange the live shell. The
+editor still renders its fixed panel slots, and the older
+`workspace/dockTypes.ts` / `dockOps.ts` model remains in the manager and
+recovery path. Replacing that competing path and rendering the nested model
+are still required before Varve can claim free-form in-window docking.

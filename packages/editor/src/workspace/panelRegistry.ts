@@ -14,14 +14,14 @@
  * is false for every registered panel; the invariant checker enforces the
  * rule that a detachable panel must carry the lifecycle + codec.
  *
- * The existing `PanelId` union (workspaceTypes.ts) stays the authoritative
+ * The shared `PanelId` union (panelIds.ts) stays the authoritative
  * panel *type* id list; the registry registers exactly those ids. Panel
  * *instances* (stable ids, host assignment) belong to the dock model
  * (ADR-0021), not the registry.
  */
 
 import type { IconName } from '@varve/ui';
-import type { PanelId } from './workspaceTypes';
+import type { PanelId } from './panelIds';
 
 export type PanelTypeId = PanelId;
 

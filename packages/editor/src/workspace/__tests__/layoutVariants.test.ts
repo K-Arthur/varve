@@ -5,6 +5,7 @@
 
 import type { Platform } from '@varve/platform';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { createDefaultDockLayout } from '../dock/dockOps';
 import {
   addImportedLayoutVariant,
   addLayoutVariant,
@@ -18,6 +19,7 @@ import {
   duplicateLayoutVariant,
   exportLayoutVariant,
   flushLayoutStore,
+  getLayoutPersistenceError,
   getLayoutStore,
   hydrateLayoutStoreFromPlatform,
   importLayoutVariantFromJson,
@@ -64,6 +66,48 @@ describe('layoutVariants: capture', () => {
   it('captures an empty payload for an uncustomized mode', () => {
     const payload = captureLayoutPayload('design');
     expect(payload).toEqual({});
+  });
+
+  it('round-trips dock intent through capture, named layouts, export, and apply', () => {
+    const defaultDock = createDefaultDockLayout();
+    const dockLayout = {
+      ...defaultDock,
+      machinePath: '/home/user/project.varve',
+      windows: [
+        {
+          ...defaultDock.windows[0]!,
+          dockRoot: { ...defaultDock.windows[0]!.dockRoot, documentId: 'document-secret' },
+        },
+      ],
+    };
+    const prefs = {
+      ...getWorkspacePreferences(),
+      design: { ...getWorkspacePreferences().design, dockLayout },
+    };
+
+    const payload = captureLayoutPayload('design', prefs);
+    expect(payload.dockLayout?.schemaVersion).toBe(2);
+    const added = addLayoutVariant(createEmptyLayoutStore(), {
+      name: 'Docked design',
+      sourceMode: 'design',
+      payload,
+    });
+    expect(added.ok).toBe(true);
+    if (!added.ok) return;
+
+    const json = exportLayoutVariant(added.variant);
+    expect(json).not.toContain('document-secret');
+    expect(json).not.toContain('machinePath');
+    expect(json).not.toContain('/home/user');
+    const imported = importLayoutVariantFromJson(json);
+    expect(imported.ok).toBe(true);
+    if (!imported.ok) return;
+    const applied = applyLayoutPayloadToPreferences(
+      getWorkspacePreferences(),
+      'design',
+      imported.variant.payload,
+    );
+    expect(applied.design.dockLayout).toEqual(payload.dockLayout);
   });
 
   it('captures sparse panel, tab, tool, width, and chrome differences only', () => {
@@ -415,6 +459,10 @@ describe('layoutVariants: import/export and hostile payloads', () => {
       ok: false,
       reason: 'too-large',
     });
+    expect(importLayoutVariantFromJson(`"${'é'.repeat(33_000)}"`)).toMatchObject({
+      ok: false,
+      reason: 'too-large',
+    });
     expect(importLayoutVariantFromJson('{nope')).toMatchObject({
       ok: false,
       reason: 'invalid-json',
@@ -430,7 +478,7 @@ describe('layoutVariants: import/export and hostile payloads', () => {
     ).toMatchObject({ ok: false, reason: 'future-version' });
   });
 
-  it('migrates stored version 1 variants to the ordered-customization schema', () => {
+  it('migrates stored versions 1 and 2 to the current ordered-customization schema', () => {
     const migrated = sanitizeLayoutStore({
       schemaVersion: 1,
       variants: [
@@ -443,8 +491,23 @@ describe('layoutVariants: import/export and hostile payloads', () => {
         },
       ],
     });
-    expect(migrated.schemaVersion).toBe(2);
+    expect(migrated.schemaVersion).toBe(3);
     expect(migrated.variants[0]?.payload.panelOverrides?.history?.visible).toBe(true);
+
+    const v2 = sanitizeLayoutStore({
+      schemaVersion: 2,
+      variants: [
+        {
+          id: 'lv-v2',
+          name: 'Ordered layout',
+          createdAt: 1,
+          updatedAt: 2,
+          payload: { inspectorTabOrder: ['properties'] },
+        },
+      ],
+    });
+    expect(v2.schemaVersion).toBe(3);
+    expect(v2.variants[0]?.payload.inspectorTabOrder).toEqual(['properties']);
   });
 
   it('drops flyout assignments that are not declared by the target workspace', () => {
@@ -607,14 +670,46 @@ describe('layoutVariants: persistence and merge', () => {
   });
 
   it('rejects a future store schema without rewriting it', () => {
-    localStorage.setItem(
-      'varve-workspace-layouts',
-      JSON.stringify({ schemaVersion: 99, variants: [{ id: 'lv-x', name: 'Future' }] }),
-    );
+    const raw = JSON.stringify({ schemaVersion: 99, variants: [{ id: 'lv-x', name: 'Future' }] });
+    localStorage.setItem('varve-workspace-layouts', raw);
     const store = resetStoreAndLoad();
     expect(store.variants).toHaveLength(0);
     expect(store.revision).toBe(0);
-    expect(localStorage.getItem('varve-workspace-layouts')).toContain('99');
+    setLayoutStore({ ...store, revision: 1 });
+    expect(localStorage.getItem('varve-workspace-layouts')).toBe(raw);
+    expect(getLayoutPersistenceError()?.message).toContain('preserved');
+  });
+
+  it('does not overwrite a durable future store with edits made during hydration', async () => {
+    const platform = fakePlatform();
+    const raw = JSON.stringify({
+      schemaVersion: 99,
+      variants: [{ id: 'lv-future', name: 'Future' }],
+    });
+    platform.store.set('workspace-layouts', raw);
+    let releaseRead: (() => void) | undefined;
+    vi.mocked(platform.getAppSetting).mockImplementation(async (key) => {
+      await new Promise<void>((resolve) => {
+        releaseRead = resolve;
+      });
+      return platform.store.get(key) ?? null;
+    });
+
+    const hydration = hydrateLayoutStoreFromPlatform(platform);
+    const added = addLayoutVariant(getLayoutStore(), {
+      name: 'Session edit',
+      sourceMode: 'design',
+      payload: {},
+    });
+    if (!added.ok) throw new Error('setup failed');
+    setLayoutStore(added.state);
+    releaseRead?.();
+
+    expect(await hydration).toBe(false);
+    await flushLayoutStore();
+    expect(platform.store.get('workspace-layouts')).toBe(raw);
+    expect(platform.setAppSetting).not.toHaveBeenCalled();
+    expect(getLayoutPersistenceError()?.layer).toBe('platform');
   });
 
   function resetStoreAndLoad() {
