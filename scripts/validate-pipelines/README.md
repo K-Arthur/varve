@@ -39,6 +39,33 @@ f5a4bd656c143899fb7f52d64ed81e6f6aeb37d477a0b6da50146ac7cf2187bf  models/sam2_hi
 EOF
 ```
 
+Two things that are easy to get wrong, both encountered while running this:
+
+**Filenames.** The validator loads `models/sam2_encoder.onnx` and
+`models/sam2_decoder.onnx`. The mirror download above produces the upstream
+filenames instead, so bridge them explicitly:
+
+```bash
+ln -sf sam2_hiera_tiny.encoder.onnx models/sam2_encoder.onnx
+ln -sf sam2_hiera_tiny.decoder.onnx models/sam2_decoder.onnx
+# ...or validate the bundled pair directly:
+#   --models-dir ../../apps/desktop/public/models  (after the same two links)
+```
+
+**Two different encoder hashes are correct for two different consumers.**
+`4cc015ee...` above is the **upstream** graph and is what this validator
+loads directly with onnxruntime. The application never consumes those bytes
+as-is: its manifest (`apps/desktop/public/models/manifest.json`) pins the
+**repaired** graph, `b4cfd6c8bec2ef3674536419d731e61d15840367bd004d65095ae6a2b88b41cf`,
+because ort-web's wasm shape inference rejects the upstream export's empty
+`value_info` on `/conv_s0` and `/conv_s1` (the loader applies the reproducible
+repair from `scripts/models/repair-sam2-graph.mjs` on install). So
+`sha256sum -c` against the list above validates *validator* bytes; comparing
+the bundled `apps/desktop/public/models/sam2_hiera_tiny.encoder.onnx`
+against that list will fail by design — check it against the manifest instead
+(the decoder hash `f5a4bd65...` is identical for both, since only the encoder
+is repaired).
+
 ## Running
 
 ```bash
