@@ -36,6 +36,19 @@ describe('committedParentIndex', () => {
     expect(before.get('child')).toBe('frame');
   });
 
+  it('shares the parent map with a document that only moved nodes', () => {
+    const doc = nestedDocument('moved');
+    const before = committedParentIndex(doc);
+    const moved = {
+      ...doc,
+      nodes: {
+        ...doc.nodes,
+        child: { ...doc.nodes.child!, transform: [1, 0, 0, 1, 7, 3] as const },
+      },
+    };
+    expect(committedParentIndex(moved)).toBe(before);
+  });
+
   it('refuses mutation so one consumer cannot corrupt another', () => {
     const shared = committedParentIndex(nestedDocument('c'));
     expect(() => shared.set('x', 'y')).toThrow(/read-only/);

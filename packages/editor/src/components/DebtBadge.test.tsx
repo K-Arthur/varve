@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { createDocument, type Document, type SceneNode } from '@varve/scene';
 import { describe, expect, it, vi } from 'vitest';
-import { DebtBadge } from './DebtBadge';
+import { DEBT_SCAN_SETTLE_MS, DebtBadge } from './DebtBadge';
 
 const setInspectorTab = vi.fn();
 let mockDocument: Document = createDocument('Clean');
@@ -56,5 +56,29 @@ describe('DebtBadge', () => {
     render(<DebtBadge />);
     fireEvent.click(screen.getByRole('button'));
     expect(setInspectorTab).toHaveBeenCalledWith('audit', 'debt');
+  });
+});
+
+describe('DebtBadge scan timing', () => {
+  it('rescans only after the document stops changing', () => {
+    vi.useFakeTimers();
+    try {
+      const count = () => screen.queryByRole('button')?.getAttribute('aria-label') ?? 'none';
+      mockDocument = createDocument('Clean');
+      const view = render(<DebtBadge />);
+      const before = count();
+
+      // An edit mid-gesture does not rescan synchronously.
+      mockDocument = docWithUnnamedShape();
+      view.rerender(<DebtBadge />);
+      expect(count()).toBe(before);
+
+      act(() => {
+        vi.advanceTimersByTime(DEBT_SCAN_SETTLE_MS);
+      });
+      expect(count()).not.toBe(before);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

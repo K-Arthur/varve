@@ -17,6 +17,7 @@ import {
   releaseDocumentFonts,
 } from '@varve/engine/font';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useFontStableDocument } from '../../canvas/useDocumentFonts';
 import { isCapabilityRestricted, RESTRICTION_MESSAGES } from '../../capabilities/restrictions';
 import { useEditor } from '../../context';
 
@@ -74,16 +75,18 @@ export function MissingFontController() {
   }, []);
 
   // Detect missing fonts when document changes
+  // Moves cannot change which fonts are missing; see useFontStableDocument.
+  const fontDocument = useFontStableDocument(editor.state.document);
   useEffect(() => {
     if (!catalogRef.current || !resolverRef.current) return;
 
-    const doc = editor.state.document;
+    const doc = fontDocument;
     const missing = resolverRef.current.detectMissing(
       toFontResolverDocument(doc),
       catalogRef.current,
     );
     setMissingFonts(missing);
-  }, [editor.state.document, catalogRevision]);
+  }, [fontDocument, catalogRevision]);
 
   const hasMissing = useMemo(() => missingFonts.length > 0, [missingFonts]);
 

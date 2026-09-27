@@ -1,7 +1,8 @@
 /**
  * DebtBadge — status bar badge showing the total design debt issue count.
  *
- * Re-runs the debt scanner via useMemo whenever the document changes.
+ * Re-runs the debt scanner once the document has been unchanged for a moment
+ * (see useSettledDocument).
  * Color-coded: red bg for errors, orange for warnings, blue for info-only.
  * Clicking calls context.setInspectorTab('audit', 'debt') to open the debt tab.
  *
@@ -10,20 +11,39 @@
  */
 
 import { getFontRegistry } from '@varve/engine';
-import { runDebtScan } from '@varve/scene';
+import { type Document, runDebtScan } from '@varve/scene';
 import { Icon, Tooltip } from '@varve/ui';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useEditor } from '../context';
+
+/** Quiet time after the last edit before the badge re-scans. */
+export const DEBT_SCAN_SETTLE_MS = 300;
+
+/**
+ * The document once it has stopped changing for `delayMs`. The scan walks the
+ * whole document; run per edit it cost several milliseconds on every frame of
+ * a drag on a large file, for a status count nobody reads mid-gesture.
+ */
+function useSettledDocument(doc: Document, delayMs: number): Document {
+  const [settled, setSettled] = useState(doc);
+  useEffect(() => {
+    if (settled === doc) return;
+    const timer = setTimeout(() => setSettled(doc), delayMs);
+    return () => clearTimeout(timer);
+  }, [doc, settled, delayMs]);
+  return settled;
+}
 
 export function DebtBadge() {
   const { state, setInspectorTab } = useEditor();
+  const scannedDocument = useSettledDocument(state.document, DEBT_SCAN_SETTLE_MS);
 
   const report = useMemo(() => {
-    if (!state.document) return null;
-    return runDebtScan(state.document, {
+    if (!scannedDocument) return null;
+    return runDebtScan(scannedDocument, {
       availableFonts: getFontRegistry().availableFamilies(),
     });
-  }, [state.document]);
+  }, [scannedDocument]);
 
   if (!report || report.issues.length === 0) return null;
 

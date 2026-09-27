@@ -10,7 +10,7 @@
  */
 
 import type { Document, NodeId } from '@varve/scene';
-import { buildParentIndexMap, getParent } from '@varve/scene';
+import { buildParentIndexMap, getParent, nodesDifferOnlyInTransforms } from '@varve/scene';
 
 /**
  * Cached parent index for O(1) parent lookups.
@@ -156,6 +156,16 @@ export function committedParentIndex(doc: Document): Map<NodeId, NodeId> {
       committedParentIndexes.unshift(entry);
     }
     return entry.index;
+  }
+  // A move leaves every parent link intact, and every drag frame commits one.
+  // The sealed map can be shared with the moved document as it is.
+  const latest = committedParentIndexes[0];
+  if (latest && nodesDifferOnlyInTransforms(latest.nodes, nodes)) {
+    committedParentIndexes.unshift({ nodes, index: latest.index });
+    if (committedParentIndexes.length > COMMITTED_PARENT_INDEX_CAPACITY) {
+      committedParentIndexes.pop();
+    }
+    return latest.index;
   }
   // Filled after construction: Map's constructor would call the overridden
   // `set` before the subclass's private field exists.

@@ -16,7 +16,7 @@
  */
 
 import { type DocumentFontFace, fontReferenceKey, getFontRegistry } from '@varve/engine';
-import type { Document } from '@varve/scene';
+import { type Document, documentsDifferOnlyInTransforms } from '@varve/scene';
 import { DEFAULT_ARTWORK_FONT_FAMILY } from '@varve/shared';
 import { useEffect, useRef } from 'react';
 
@@ -90,6 +90,19 @@ export function documentFontFaceKey(faces: readonly DocumentFontFace[]): string 
 }
 
 /**
+ * The document, except that an edit which only moves nodes keeps returning
+ * the previous one. Font usage never depends on transforms, so font scans keyed
+ * on this skip every frame of a drag instead of walking the whole document.
+ */
+export function useFontStableDocument(doc: Document): Document {
+  const stable = useRef(doc);
+  if (stable.current !== doc && !documentsDifferOnlyInTransforms(stable.current, doc)) {
+    stable.current = doc;
+  }
+  return stable.current;
+}
+
+/**
  * Prefetch the document's faces and run `onFontGeometryChanged` whenever the
  * usable face set moves. The callback may change every render; it is read
  * through a ref so font subscription is not torn down and rebuilt each time.
@@ -98,16 +111,17 @@ export function useDocumentFontReadiness(doc: Document, onFontGeometryChanged: (
   const handlerRef = useRef(onFontGeometryChanged);
   handlerRef.current = onFontGeometryChanged;
   const prefetchedKeyRef = useRef('');
+  const fontDocument = useFontStableDocument(doc);
 
   useEffect(() => {
     return getFontRegistry().subscribe(() => handlerRef.current());
   }, []);
 
   useEffect(() => {
-    const faces = collectDocumentFontFaces(doc);
+    const faces = collectDocumentFontFaces(fontDocument);
     const key = documentFontFaceKey(faces);
     if (key === prefetchedKeyRef.current) return;
     prefetchedKeyRef.current = key;
     void getFontRegistry().ensureDocumentFonts(faces);
-  }, [doc]);
+  }, [fontDocument]);
 }
