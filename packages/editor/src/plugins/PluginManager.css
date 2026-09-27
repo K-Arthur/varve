@@ -176,45 +176,16 @@
 }
 
 .plugin-manager__button {
-  min-height: 2rem;
-  padding: var(--space-1) var(--space-3);
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-control);
-  background: var(--elevation-surface-raised);
-  color: var(--color-text-primary);
-  font: inherit;
-  line-height: 1.3;
-  cursor: pointer;
+  white-space: normal;
 }
 
-.plugin-manager__button:hover:not(:disabled),
 .plugin-manager__install input::file-selector-button:hover {
   border-color: var(--color-accent-primary);
-}
-
-.plugin-manager__button--primary {
-  border-color: var(--color-accent-primary);
-  background: var(--color-accent-primary);
-  color: var(--color-text-on-accent);
-}
-
-.plugin-manager__button--primary:hover:not(:disabled) {
-  filter: brightness(0.93);
-}
-
-.plugin-manager__button--quiet {
-  border-color: transparent;
-  background: transparent;
 }
 
 .plugin-manager__button--danger {
   color: var(--color-text-danger);
   border-color: var(--color-text-danger);
-}
-
-.plugin-manager__button:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
 }
 
 .plugin-manager :is(button, input, select, summary):focus-visible,
@@ -333,7 +304,7 @@
 .plugin-manager__status {
   padding: 0.15rem var(--space-2);
   border: 1px solid var(--color-border-strong);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   line-height: 1.3;
@@ -418,7 +389,7 @@
     border: 1px solid CanvasText;
   }
 
-  .plugin-manager__button--primary {
+  .plugin-manager .varve-btn--default {
     color: ButtonText;
     background: ButtonFace;
   }

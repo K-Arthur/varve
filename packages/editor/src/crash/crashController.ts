@@ -71,6 +71,8 @@ export interface CrashUiState {
   lastSendFailed: boolean;
   /** True while the safe-mode screen should be shown. */
   safeMode: SafeModeState | null;
+  /** Safe mode can stay active after the startup screen is dismissed. */
+  safeModeVisible: boolean;
   dialogVisible: boolean;
 }
 
@@ -97,6 +99,7 @@ const EMPTY_UI: CrashUiState = {
   lastSentReportId: null,
   lastSendFailed: false,
   safeMode: null,
+  safeModeVisible: false,
   dialogVisible: false,
 };
 
@@ -198,6 +201,7 @@ export class CrashCenterController {
     // Recorded once per app session (StrictMode remounts must not double-
     // count a single crash).
     const loopStore = new LocalStorageCrashLoopStore(localStorageLike());
+    this.safeModeStore = new LocalStorageSafeModeStore(localStorageLike());
     if (!this.loopRecorded) {
       this.loopRecorded = true;
       const unclean = this.deps.readUncleanShutdown();
@@ -207,11 +211,26 @@ export class CrashCenterController {
         recordCleanStartup(loopStore);
       }
     }
-    if (isInCrashLoop(loopStore)) {
-      this.safeModeStore = new LocalStorageSafeModeStore(localStorageLike());
-      const state = enterSafeMode(this.safeModeStore, this.release.appVersion);
-      this.setState({ safeMode: state, dialogVisible: false });
-    }
+    const savedSafeMode = this.safeModeStore.load();
+    const safeMode =
+      savedSafeMode ??
+      (isInCrashLoop(loopStore)
+        ? enterSafeMode(this.safeModeStore, this.release.appVersion)
+        : null);
+    this.setState({
+      safeMode,
+      safeModeVisible: safeMode !== null,
+      ...(safeMode ? { dialogVisible: false } : {}),
+    });
+    document.documentElement.dataset.varveSafeModeReady = 'true';
+    window.dispatchEvent(
+      new CustomEvent('varve:safe-mode-ready', {
+        detail: {
+          active: safeMode !== null,
+          disableExtensions: safeMode?.options.disableExtensions ?? false,
+        },
+      }),
+    );
 
     const storage = await this.initStorage();
     this.service = this.buildService(storage);
@@ -579,16 +598,32 @@ export class CrashCenterController {
 
   updateSafeModeOption(option: keyof SafeModeOptions, value: boolean): void {
     const next = updateSafeModeOptions(this.safeModeStore, { [option]: value });
-    if (next) this.setState({ safeMode: next });
+    if (next) {
+      this.setState({ safeMode: next });
+      this.notifySafeModeChanged(next);
+    }
   }
 
   exitSafeMode(): void {
     exitSafeMode(this.safeModeStore);
-    this.setState({ safeMode: null });
+    this.setState({ safeMode: null, safeModeVisible: false });
+    this.notifySafeModeChanged(null);
   }
 
   continueInSafeMode(): void {
-    this.setState({ dialogVisible: false });
+    this.setState({ safeModeVisible: false, dialogVisible: false });
+    this.notifySafeModeChanged(this.ui.safeMode);
+  }
+
+  private notifySafeModeChanged(state: SafeModeState | null): void {
+    window.dispatchEvent(
+      new CustomEvent('varve:safe-mode-change', {
+        detail: {
+          active: state !== null,
+          disableExtensions: state?.options.disableExtensions ?? false,
+        },
+      }),
+    );
   }
 
   private metricsRecord(event: 'dialogCompletion' | 'recoverySuccess' | 'safeModeRecovery'): void {

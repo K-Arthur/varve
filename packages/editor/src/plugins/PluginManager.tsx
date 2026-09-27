@@ -1,4 +1,4 @@
-import { Select } from '@varve/ui';
+import { Button, Select } from '@varve/ui';
 import { useEffect, useId, useRef, useState, useSyncExternalStore } from 'react';
 import { pluginController } from './controller';
 import type { PluginPackage, PluginPermission } from './package';
@@ -24,6 +24,18 @@ const STATUS_LABELS: Record<PluginView['status'], string> = {
   'awaiting-permission': 'Needs permission',
   running: 'Running',
   failed: 'Failed',
+  'safe-mode': 'Paused in safe mode',
+};
+
+const WORKSPACE_LABELS: Record<string, string> = {
+  design: 'Design',
+  print: 'Print',
+  drawing: 'Draw',
+  image: 'Photo',
+  motion: 'Motion',
+  codegen: 'Codegen',
+  logo: 'Logo',
+  email: 'Email',
 };
 
 function errorMessage(error: unknown): string {
@@ -130,14 +142,15 @@ function InstallationReview({
             {existing ? 'Review update' : 'Review installation'}
           </h3>
         </div>
-        <button
-          className="plugin-manager__button plugin-manager__button--quiet"
-          type="button"
+        <Button
+          className="plugin-manager__button"
+          variant="ghost"
+          size="sm"
           onClick={onCancel}
           disabled={busy}
         >
           Cancel
-        </button>
+        </Button>
       </div>
       <p className="plugin-manager__muted">
         {manifest.name} · {manifest.version} · {manifest.id}
@@ -205,22 +218,40 @@ function InstallationReview({
         </dl>
       </details>
       <div className="plugin-manager__actions">
-        <button
-          className="plugin-manager__button plugin-manager__button--primary"
-          type="button"
+        <Button
+          className="plugin-manager__button"
+          variant="default"
+          size="sm"
           onClick={() => onInstall(true)}
           disabled={busy || publisherMismatch || missingRequired.length > 0}
+          disabledReason={
+            missingRequired.length > 0
+              ? 'Select the required access above before enabling this plugin.'
+              : publisherMismatch
+                ? 'Remove the existing installation before using this different publisher label.'
+                : busy
+                  ? 'Wait for the current package check to finish.'
+                  : undefined
+          }
         >
           {existing ? 'Update and enable' : 'Install and enable'}
-        </button>
-        <button
+        </Button>
+        <Button
           className="plugin-manager__button"
-          type="button"
+          variant="secondary"
+          size="sm"
           onClick={() => onInstall(false)}
           disabled={busy || publisherMismatch}
+          disabledReason={
+            publisherMismatch
+              ? 'Remove the existing installation before using this different publisher label.'
+              : busy
+                ? 'Wait for the current package check to finish.'
+                : undefined
+          }
         >
           {existing ? 'Update disabled' : 'Install disabled'}
-        </button>
+        </Button>
       </div>
     </section>
   );
@@ -229,11 +260,15 @@ function InstallationReview({
 function PluginCard({
   plugin,
   busy,
+  commandBusy,
   execute,
+  executeCommand,
 }: {
   plugin: PluginView;
   busy: boolean;
+  commandBusy: boolean;
   execute: (label: string, action: PluginAction) => void;
+  executeCommand: (label: string, action: PluginAction) => void;
 }) {
   const prefix = useId();
   const [showAccess, setShowAccess] = useState(false);
@@ -248,17 +283,24 @@ function PluginCard({
   const canRun = plugin.enabled && plugin.status === 'ready' && !commandNeedsWrite;
   const blockedByOtherAction = busy && plugin.status !== 'running';
   const runHint =
-    plugin.status === 'failed'
-      ? 'This plugin failed. Review the error and choose Retry.'
-      : plugin.status === 'running'
-        ? ''
-        : plugin.status === 'awaiting-permission'
-          ? 'Grant required access before running commands.'
-          : plugin.status === 'disabled'
-            ? 'Enable this plugin to run commands.'
-            : commandNeedsWrite
-              ? 'Grant Change the open document access to run this command.'
-              : '';
+    plugin.status === 'safe-mode'
+      ? 'Plugins are paused for this safe-mode session. Your saved enabled choice is unchanged.'
+      : plugin.status === 'failed'
+        ? 'This plugin failed. Review the error and choose Retry.'
+        : plugin.status === 'running'
+          ? ''
+          : plugin.status === 'awaiting-permission'
+            ? 'Grant selection access and any required access before running commands.'
+            : plugin.status === 'disabled'
+              ? 'Enable this plugin to run commands.'
+              : commandNeedsWrite
+                ? 'Grant Change the open document access to run this command.'
+                : '';
+  const runUnavailableReason =
+    busy || commandBusy
+      ? 'Finish the current operation for this plugin first.'
+      : runHint ||
+        (!canRun ? 'This command is not available in the current plugin state.' : undefined);
 
   useEffect(() => {
     if (!showAccess) setAccessDraft(plugin.grants);
@@ -299,7 +341,7 @@ function PluginCard({
       )}
       {plugin.status === 'awaiting-permission' && (
         <p className="plugin-manager__notice plugin-manager__notice--attention">
-          This plugin cannot run until its required access is granted.
+          This plugin cannot run until selection access and any required access are granted.
         </p>
       )}
 
@@ -320,38 +362,43 @@ function PluginCard({
                 label: item.title,
               }))}
               onValueChange={setSelectedCommand}
-              disabled={busy}
+              disabled={Boolean(busy)}
             />
-            <button
-              className="plugin-manager__button plugin-manager__button--primary"
-              type="button"
-              disabled={busy || !canRun || !command}
+            <Button
+              className="plugin-manager__button"
+              variant="default"
+              size="sm"
+              disabled={busy || commandBusy || !canRun || !command}
+              disabledReason={runUnavailableReason}
               onClick={() =>
                 command &&
-                execute(`Run ${command.title}`, async () => {
-                  await pluginController.run(plugin.id, command.id);
-                  const updated = pluginController
-                    .getSnapshot()
-                    .plugins.find((item) => item.id === plugin.id);
-                  if (updated?.lastError) throw new Error(updated.lastError);
-                  if (!updated?.results[command.id]) return false;
+                executeCommand(`Run ${command.title}`, async () => {
+                  return pluginController.run(plugin.id, command.id);
                 })
               }
             >
               Run
-            </button>
+            </Button>
             {plugin.status === 'running' && (
-              <button
+              <Button
                 className="plugin-manager__button"
-                type="button"
+                variant="secondary"
+                size="sm"
                 onClick={() =>
-                  execute(`Stop ${plugin.manifest.name}`, () => pluginController.stop(plugin.id))
+                  executeCommand(`Stop ${plugin.manifest.name}`, () =>
+                    pluginController.stop(plugin.id),
+                  )
                 }
               >
                 Stop
-              </button>
+              </Button>
             )}
           </div>
+          {commandBusy && plugin.status !== 'running' && (
+            <p className="plugin-manager__muted" role="status">
+              Applying the reviewed result…
+            </p>
+          )}
           {runHint && <p className="plugin-manager__muted">{runHint}</p>}
           {result && (
             <div className="plugin-manager__result" aria-live="polite">
@@ -367,19 +414,21 @@ function PluginCard({
                       </li>
                     ))}
                   </ul>
-                  <button
-                    className="plugin-manager__button plugin-manager__button--primary"
-                    type="button"
-                    disabled={busy || !canRun}
+                  <Button
+                    className="plugin-manager__button"
+                    variant="default"
+                    size="sm"
+                    disabled={busy || commandBusy || !canRun}
+                    disabledReason={runUnavailableReason}
                     onClick={() =>
-                      execute(`Apply ${command?.title ?? 'changes'}`, () =>
+                      executeCommand(`Apply ${command?.title ?? 'changes'}`, () =>
                         pluginController.apply(plugin.id, selectedCommand),
                       )
                     }
                   >
                     Apply {result.renames.length}{' '}
                     {result.renames.length === 1 ? 'rename' : 'renames'}
-                  </button>
+                  </Button>
                 </>
               )}
             </div>
@@ -394,19 +443,25 @@ function PluginCard({
             const hidden = plugin.hiddenPanels.includes(section.id);
             const where = [
               'Properties tab',
-              ...(section.modes ?? []).map(
-                (mode) => `${mode.charAt(0).toUpperCase()}${mode.slice(1)}`,
-              ),
+              section.modes === undefined
+                ? 'All workspaces'
+                : section.modes.length > 0
+                  ? section.modes.map((mode) => WORKSPACE_LABELS[mode] ?? mode).join(', ')
+                  : 'No workspaces',
             ].join(' · ');
             return (
               <div className="plugin-manager__panel-row" key={section.id}>
                 <span className="plugin-manager__panel-name">
                   {section.title} <span className="plugin-manager__muted">({where})</span>
                 </span>
-                <button
+                <Button
                   className="plugin-manager__button"
-                  type="button"
+                  variant="secondary"
+                  size="sm"
                   disabled={Boolean(busy)}
+                  disabledReason={
+                    busy ? 'Wait for the current package action to finish.' : undefined
+                  }
                   aria-label={`${hidden ? 'Show' : 'Hide'} ${section.title} Inspector panel`}
                   onClick={() =>
                     execute(hidden ? 'Show Inspector panel' : 'Hide Inspector panel', () =>
@@ -415,7 +470,7 @@ function PluginCard({
                   }
                 >
                   {hidden ? 'Show' : 'Hide'}
-                </button>
+                </Button>
               </div>
             );
           })}
@@ -423,10 +478,18 @@ function PluginCard({
       )}
 
       <div className="plugin-manager__actions">
-        <button
+        <Button
           className="plugin-manager__button"
-          type="button"
-          disabled={blockedByOtherAction}
+          variant="secondary"
+          size="sm"
+          disabled={blockedByOtherAction || plugin.status === 'safe-mode'}
+          disabledReason={
+            plugin.status === 'safe-mode'
+              ? 'Exit safe mode before changing the saved enabled choice.'
+              : blockedByOtherAction
+                ? 'Wait for the current package action to finish.'
+                : undefined
+          }
           onClick={() =>
             execute(plugin.enabled ? 'Disable plugin' : 'Enable plugin', () =>
               pluginController.setEnabled(plugin.id, !plugin.enabled),
@@ -434,11 +497,15 @@ function PluginCard({
           }
         >
           {plugin.enabled ? 'Disable' : 'Enable'}
-        </button>
-        <button
+        </Button>
+        <Button
           className="plugin-manager__button"
-          type="button"
+          variant="secondary"
+          size="sm"
           disabled={blockedByOtherAction}
+          disabledReason={
+            blockedByOtherAction ? 'Wait for the current package action to finish.' : undefined
+          }
           aria-expanded={showAccess}
           aria-controls={`${prefix}-access`}
           onClick={() => {
@@ -447,39 +514,47 @@ function PluginCard({
           }}
         >
           Access
-        </button>
+        </Button>
         {plugin.status === 'failed' && (
-          <button
+          <Button
             className="plugin-manager__button"
-            type="button"
+            variant="secondary"
+            size="sm"
             disabled={busy}
+            disabledReason={busy ? 'Wait for the current package action to finish.' : undefined}
             onClick={() => execute('Retry plugin', () => pluginController.retry(plugin.id))}
           >
             Retry
-          </button>
+          </Button>
         )}
         {plugin.previousVersion && (
-          <button
+          <Button
             className="plugin-manager__button"
-            type="button"
+            variant="secondary"
+            size="sm"
             disabled={busy}
+            disabledReason={busy ? 'Wait for the current package action to finish.' : undefined}
             onClick={() =>
               execute('Restore previous plugin version', () => pluginController.rollback(plugin.id))
             }
           >
             Restore v{plugin.previousVersion}
-          </button>
+          </Button>
         )}
-        <button
+        <Button
           className="plugin-manager__button plugin-manager__button--danger"
-          type="button"
+          variant="outline"
+          size="sm"
           disabled={blockedByOtherAction}
+          disabledReason={
+            blockedByOtherAction ? 'Wait for the current package action to finish.' : undefined
+          }
           aria-expanded={confirmRemoval}
           aria-controls={`${prefix}-remove`}
           onClick={() => setConfirmRemoval((current) => !current)}
         >
           Remove
-        </button>
+        </Button>
       </div>
 
       {showAccess && (
@@ -498,10 +573,14 @@ function PluginCard({
             prefix={`${prefix}-edit`}
           />
           <div className="plugin-manager__actions">
-            <button
-              className="plugin-manager__button plugin-manager__button--primary"
-              type="button"
+            <Button
+              className="plugin-manager__button"
+              variant="default"
+              size="sm"
               disabled={blockedByOtherAction}
+              disabledReason={
+                blockedByOtherAction ? 'Wait for the current package action to finish.' : undefined
+              }
               onClick={() =>
                 execute('Save plugin access', async () => {
                   await pluginController.setGrants(plugin.id, accessDraft);
@@ -510,15 +589,17 @@ function PluginCard({
               }
             >
               Save access
-            </button>
-            <button
-              className="plugin-manager__button plugin-manager__button--quiet"
-              type="button"
+            </Button>
+            <Button
+              className="plugin-manager__button"
+              variant="ghost"
+              size="sm"
               disabled={busy}
+              disabledReason={busy ? 'Wait for the current package action to finish.' : undefined}
               onClick={() => setShowAccess(false)}
             >
               Cancel
-            </button>
+            </Button>
           </div>
         </section>
       )}
@@ -534,22 +615,28 @@ function PluginCard({
             committed to documents remain part of those documents.
           </p>
           <div className="plugin-manager__actions">
-            <button
+            <Button
               className="plugin-manager__button plugin-manager__button--danger"
-              type="button"
+              variant="outline"
+              size="sm"
               disabled={blockedByOtherAction}
+              disabledReason={
+                blockedByOtherAction ? 'Wait for the current package action to finish.' : undefined
+              }
               onClick={() => execute('Remove plugin', () => pluginController.uninstall(plugin.id))}
             >
               Remove plugin
-            </button>
-            <button
-              className="plugin-manager__button plugin-manager__button--quiet"
-              type="button"
+            </Button>
+            <Button
+              className="plugin-manager__button"
+              variant="ghost"
+              size="sm"
               disabled={busy}
+              disabledReason={busy ? 'Wait for the current package action to finish.' : undefined}
               onClick={() => setConfirmRemoval(false)}
             >
               Keep plugin
-            </button>
+            </Button>
           </div>
         </section>
       )}
@@ -593,6 +680,7 @@ export function PluginManager() {
   const [prepared, setPrepared] = useState<PluginPackage | null>(null);
   const [grants, setGrants] = useState<PluginPermission[]>([]);
   const [busy, setBusy] = useState('');
+  const [commandBusyIds, setCommandBusyIds] = useState<Set<string>>(() => new Set());
   const [feedback, setFeedback] = useState('');
   const [actionError, setActionError] = useState('');
   const existing = prepared
@@ -613,12 +701,44 @@ export function PluginManager() {
     try {
       const result = await action();
       if (serial === operationSerial.current) {
-        setFeedback(result === false ? 'Plugin command stopped.' : `${label} complete.`);
+        const status =
+          result && typeof result === 'object' && 'status' in result
+            ? (result as { status: unknown }).status
+            : undefined;
+        if (status === 'stopped') setFeedback('Plugin command stopped.');
+        else if (status === 'stale') setFeedback('The plugin result was stale and was discarded.');
+        else if (status === 'idle') setFeedback('No plugin command was running.');
+        else setFeedback(`${label} complete.`);
       }
     } catch (error) {
       if (serial === operationSerial.current) setActionError(`${label}: ${errorMessage(error)}`);
     } finally {
       if (serial === operationSerial.current) setBusy('');
+    }
+  }
+
+  async function executeCommand(pluginId: string, label: string, action: PluginAction) {
+    setCommandBusyIds((current) => new Set(current).add(pluginId));
+    setActionError('');
+    setFeedback('');
+    try {
+      const result = await action();
+      const status =
+        result && typeof result === 'object' && 'status' in result
+          ? (result as { status: unknown }).status
+          : undefined;
+      if (status === 'stopped') setFeedback('Plugin command stopped.');
+      else if (status === 'stale') setFeedback('The plugin result was stale and was discarded.');
+      else if (status === 'idle') setFeedback('No plugin command was running.');
+      else setFeedback(`${label} complete.`);
+    } catch (error) {
+      setActionError(`${label}: ${errorMessage(error)}`);
+    } finally {
+      setCommandBusyIds((current) => {
+        const next = new Set(current);
+        next.delete(pluginId);
+        return next;
+      });
     }
   }
 
@@ -698,6 +818,13 @@ export function PluginManager() {
         access before enabling it. Plugins run only after you choose a command.
       </p>
 
+      {snapshot.safeModeDisabled && (
+        <p className="plugin-manager__notice" role="status">
+          Third-party plugins are paused in safe mode. Saved enabled choices are unchanged; you can
+          still inspect, restore, retry, or remove packages. Use the safe-mode bar to exit.
+        </p>
+      )}
+
       {snapshot.error && (
         <p className="plugin-manager__error" role="alert">
           {snapshot.error}
@@ -766,7 +893,9 @@ export function PluginManager() {
               key={plugin.id}
               plugin={plugin}
               busy={Boolean(busy)}
+              commandBusy={commandBusyIds.has(plugin.id)}
               execute={(label, action) => void execute(label, action)}
+              executeCommand={(label, action) => void executeCommand(plugin.id, label, action)}
             />
           ))}
         </div>

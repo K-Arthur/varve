@@ -1,3 +1,5 @@
+import { LocalStorageSafeModeStore } from '@varve/crash';
+import { Button } from '@varve/ui';
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { getActionRegistry } from '../actions/ActionRegistry';
 import { useOptionalEditor } from '../context';
@@ -16,6 +18,20 @@ function PluginHostSection({ pluginId, commandId }: { pluginId: string; commandI
   if (!plugin || !command) return null;
   const result = plugin.results[commandId];
   const needsWrite = command.kind === 'rename' && !plugin.grants.includes('document.write');
+  const runDisabledReason = needsWrite
+    ? 'Grant document write access in Manage Plugins to run this command.'
+    : plugin.status === 'safe-mode'
+      ? 'Exit safe mode before running plugins.'
+      : plugin.status === 'awaiting-permission'
+        ? 'Grant selection access in Manage Plugins before running this command.'
+        : plugin.status === 'failed'
+          ? 'Review the failure and choose Retry in Manage Plugins.'
+          : plugin.status === 'disabled'
+            ? 'Enable this plugin in Manage Plugins before running it.'
+            : plugin.status === 'running'
+              ? 'This plugin command is already running.'
+              : undefined;
+  const canRun = plugin.status === 'ready' && !needsWrite;
 
   const run = () => {
     setLocalError(null);
@@ -26,24 +42,28 @@ function PluginHostSection({ pluginId, commandId }: { pluginId: string; commandI
 
   const apply = () => {
     setLocalError(null);
-    try {
-      pluginController.apply(pluginId, commandId);
-    } catch (error) {
+    void pluginController.apply(pluginId, commandId).catch((error: unknown) => {
       setLocalError(error instanceof Error ? error.message : String(error));
-    }
+    });
   };
 
   return (
     <div className="plugin-host-section">
       <p className="plugin-host-section__hint">{plugin.manifest.name} · Local plugin</p>
       <div className="plugin-host-section__actions">
-        <button type="button" onClick={run} disabled={plugin.status === 'running' || needsWrite}>
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={run}
+          disabled={!canRun}
+          disabledReason={runDisabledReason}
+        >
           {command.title}
-        </button>
+        </Button>
         {plugin.status === 'running' && (
-          <button type="button" onClick={() => pluginController.stop(pluginId)}>
+          <Button size="sm" variant="secondary" onClick={() => pluginController.stop(pluginId)}>
             Stop
-          </button>
+          </Button>
         )}
       </div>
       {needsWrite && <p>Grant document write access in Manage Plugins to run this command.</p>}
@@ -67,9 +87,15 @@ function PluginHostSection({ pluginId, commandId }: { pluginId: string; commandI
                   </li>
                 ))}
               </ul>
-              <button type="button" onClick={apply}>
+              <Button
+                size="sm"
+                variant="default"
+                onClick={apply}
+                disabled={!canRun}
+                disabledReason={runDisabledReason}
+              >
                 Apply {result.renames.length} renames
-              </button>
+              </Button>
             </>
           )}
         </div>
@@ -85,11 +111,8 @@ export function PluginRuntimeBridge() {
     pluginController.setEditor(editor ?? null);
   }, [editor]);
   useEffect(() => {
-    pluginController.setSectionRenderer((pluginId, commandId) => (
-      <PluginHostSection pluginId={pluginId} commandId={commandId} />
-    ));
-    void pluginController.initialize();
-    const registry = getActionRegistry();
+    let started = false;
+    let registry: ReturnType<typeof getActionRegistry> | null = null;
     const handler = () => window.dispatchEvent(new Event('varve:open-plugin-settings'));
     const onRecovery = (event: Event) => {
       const recovery = event as CustomEvent<{ pluginId?: string }>;
@@ -102,18 +125,43 @@ export function PluginRuntimeBridge() {
       event.preventDefault();
       handler();
     };
-    window.addEventListener('varve:plugin-recovery', onRecovery);
-    if (!registry.has('managePlugins')) {
-      registry.register(
-        { id: 'managePlugins', label: 'Manage Plugins…', category: 'tools' },
-        handler,
-      );
-    }
+    const syncSafeMode = () => {
+      try {
+        const state = new LocalStorageSafeModeStore(window.localStorage).load();
+        pluginController.setSafeModeDisabled(Boolean(state?.options.disableExtensions));
+      } catch {
+        pluginController.setSafeModeDisabled(true);
+      }
+    };
+    const start = () => {
+      if (started) return;
+      started = true;
+      syncSafeMode();
+      pluginController.setSectionRenderer((pluginId, commandId) => (
+        <PluginHostSection pluginId={pluginId} commandId={commandId} />
+      ));
+      void pluginController.initialize();
+      registry = getActionRegistry();
+      window.addEventListener('varve:plugin-recovery', onRecovery);
+      window.addEventListener('varve:safe-mode-change', syncSafeMode);
+      if (!registry.has('managePlugins')) {
+        registry.register(
+          { id: 'managePlugins', label: 'Manage Plugins…', category: 'tools' },
+          handler,
+        );
+      }
+    };
+    const onSafeModeReady = () => start();
+    if (document.documentElement.dataset.varveSafeModeReady === 'true') start();
+    else window.addEventListener('varve:safe-mode-ready', onSafeModeReady, { once: true });
     return () => {
+      window.removeEventListener('varve:safe-mode-ready', onSafeModeReady);
+      if (!started) return;
       window.removeEventListener('varve:plugin-recovery', onRecovery);
+      window.removeEventListener('varve:safe-mode-change', syncSafeMode);
       pluginController.setEditor(null);
       pluginController.setSectionRenderer(null);
-      if (registry.get('managePlugins')?.handler === handler) registry.remove('managePlugins');
+      if (registry?.get('managePlugins')?.handler === handler) registry.remove('managePlugins');
     };
   }, []);
   return null;

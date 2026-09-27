@@ -17,25 +17,6 @@
   gap: var(--space-3);
 }
 
-.plugin-host-section button {
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface-raised);
-  color: var(--color-text-primary);
-  cursor: pointer;
-  padding: var(--space-2) var(--space-3);
-}
-
-.plugin-host-section button:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
-  outline-offset: 2px;
-}
-
-.plugin-host-section button:disabled {
-  cursor: default;
-  opacity: 0.55;
-}
-
 .plugin-host-section__result {
   overflow-wrap: anywhere;
 }

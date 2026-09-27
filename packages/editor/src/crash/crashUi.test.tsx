@@ -14,7 +14,10 @@ import {
   type CrashReport,
   type CrashUploader,
   type CrashUploadResult,
+  enterSafeMode,
+  LocalStorageSafeModeStore,
   MemoryCrashConsentStorage,
+  SAFE_MODE_STORAGE_KEY,
   unknownConsent,
 } from '@varve/crash';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -278,6 +281,36 @@ describe('CrashReviewDialog', () => {
 });
 
 describe('controller + dialog flow (integration)', () => {
+  it('keeps safe mode active after its startup screen is dismissed and restores it on reload', async () => {
+    localStorage.clear();
+    const safeModeStore = new LocalStorageSafeModeStore(window.localStorage);
+    enterSafeMode(safeModeStore, '0.1.0');
+    const ready = vi.fn();
+    window.addEventListener('varve:safe-mode-ready', ready, { once: true });
+
+    const first = makeController().controller;
+    await first.boot();
+    expect(first.getState().safeModeVisible).toBe(true);
+    expect(first.getState().safeMode?.options.disableExtensions).toBe(true);
+    expect(document.documentElement.dataset.varveSafeModeReady).toBe('true');
+    expect(ready).toHaveBeenCalledOnce();
+
+    first.continueInSafeMode();
+    expect(first.getState().safeModeVisible).toBe(false);
+    expect(first.getState().safeMode?.active).toBe(true);
+    expect(safeModeStore.load()?.options.disableExtensions).toBe(true);
+    first.dispose();
+
+    const reopened = makeController().controller;
+    await reopened.boot();
+    expect(reopened.getState().safeModeVisible).toBe(true);
+    reopened.exitSafeMode();
+    expect(reopened.getState().safeMode).toBeNull();
+    expect(localStorage.getItem(SAFE_MODE_STORAGE_KEY)).toBeNull();
+    reopened.dispose();
+    localStorage.clear();
+  });
+
   it('ignores non-fatal ResizeObserver diagnostics', async () => {
     const { controller } = makeController({ state: 'unknown' });
     await controller.boot();

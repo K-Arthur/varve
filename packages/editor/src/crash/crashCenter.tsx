@@ -34,6 +34,7 @@ const INITIAL_STATE: CrashUiState = {
   lastSentReportId: null,
   lastSendFailed: false,
   safeMode: null,
+  safeModeVisible: false,
   dialogVisible: false,
 };
 
@@ -68,15 +69,18 @@ export function CrashCenter({
     const controller = controllerRef.current;
     if (!controller) return undefined;
     const unsubscribe = controller.subscribe(setState);
+    const onExitSafeMode = () => controller.exitSafeMode();
+    window.addEventListener('varve:exit-safe-mode', onExitSafeMode);
     void controller.boot().then(() => onControllerReadyRef.current?.(controller));
     return () => {
       unsubscribe();
+      window.removeEventListener('varve:exit-safe-mode', onExitSafeMode);
       controller.dispose();
     };
   }, []);
 
   const safeMode = state.safeMode;
-  if (safeMode) {
+  if (safeMode && state.safeModeVisible) {
     return (
       <SafeModeScreen
         appVersion={safeMode.appVersion}
@@ -96,6 +100,18 @@ export function CrashCenter({
   const controller = controllerRef.current;
   return (
     <>
+      {safeMode && !state.safeModeVisible && (
+        <div className="safe-mode-active-indicator" role="status">
+          <span>Safe mode is active. Selected startup restrictions remain in place.</span>
+          <button
+            type="button"
+            className="safe-mode-screen__btn"
+            onClick={() => controller?.exitSafeMode()}
+          >
+            Exit safe mode
+          </button>
+        </div>
+      )}
       <CrashRecoveryDialog
         open={state.dialogVisible}
         report={state.awaitingReport}
