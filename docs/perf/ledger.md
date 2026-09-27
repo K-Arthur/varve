@@ -392,3 +392,20 @@ implemented in the app path: `CanvasArea` runs `queryRect` plus
 under 10 ms). Both failed once at load ~50-58 and passed on rerun; neither is
 related to the changes above. They are recorded as fragile gates, not as
 regressions.
+
+## Canvas fluidity continuation (2026-09-27)
+
+This continuation adds renderer identity guards and shared transform-aware
+geometry reuse. It does not yet claim a performance improvement: the required
+browser before/after rounds and native Tauri workflow soak have not run.
+
+| Workload / contract | Prior evidence | Current result | Confidence | Notes |
+|---|---|---|---|---|
+| Effects-heavy worker replacement | 352,935 differing pixels against forced full redraw in the captured follow-up baseline | Render revisions now cover document, resources, async inputs, camera, surface, and DPR; refusal/rejection/host loss requests authoritative replay | Medium for unit contract; browser oracle pending | Effects-heavy and many-image Playwright cases could not start while the shared heavy-task lease was occupied |
+| Large-document derived geometry | Existing 10k pan rAF p95 67 ms and drag rAF p95 183 ms | Incremental occurrence-geometry tests equal the independent full pass and update moved descendants/ancestors; drag containment now reuses the committed parent index | High for correctness; no timing result | Labels, accessibility, minimap, and container transforms share derived data; complete scene metadata/layout remains O(N), and draft mutation callers still index their own state |
+| Native long-session editing | Idle process monitor only | A 100-cycle Tauri create/edit/pan/zoom/brush/save/close runner records screenshots, changed pixels, WebView visibility, process-tree RSS, host memory/load, and sleep/missing-evidence blockers | Not measured | Runner emits DOM-synthetic input labels; not physical pen/touchpad or input-to-photon evidence |
+
+No new p95/p99 claim is made. Existing warm-refinement targets (500 ms for
+ordinary workloads, 1 s for heavy workloads after required assets are ready)
+remain targets rather than guarantees until the matched three-round evidence
+is collected.

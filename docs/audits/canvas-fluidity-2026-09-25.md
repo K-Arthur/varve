@@ -615,7 +615,9 @@ physical pen/touchpad and OS-trusted input remain gaps. The fresh binary and
 100-cycle run have not yet been executed.
 
 Focused render unit tests pass (50 cases across revision tracking, worker host,
-submission fallback, presentation identity, and render-pipeline baseline). A
+submission fallback, presentation identity, and render-pipeline baseline). The
+committed containment-index follow-up passes 25 containment/parent-index tests;
+its draft mutation call sites still use the local draft-index path. A
 prior `pnpm verify:plan` selected a full-gate escalation because this shared
 working tree also contains workspace and validation-infrastructure changes;
 `pnpm verify:affected` reported the plan and refused to run without

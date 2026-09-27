@@ -575,6 +575,7 @@ import {
 } from './scene/activeWorkspace';
 import { findContainingFrameInDoc } from './scene/findContainingFrame';
 import {
+  committedParentIndex,
   getOrCreateParentCache,
   getParentFast,
   type ParentIndexCache,
@@ -5050,6 +5051,7 @@ export function EditorProvider({
           designCanvasId: isPublishingPageSurface(state.document, state.workspaceMode)
             ? null
             : state.document.activeDesignCanvasId,
+          parentIndexForCommittedDocument: committedParentIndex(state.document),
         });
       },
 

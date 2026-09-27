@@ -1,6 +1,7 @@
 import {
   addChild,
   addNode,
+  buildParentIndexMap,
   createDesignCanvas,
   createDocument,
   type Document,
@@ -72,6 +73,25 @@ describe('findContainingFrameInDoc', () => {
     // Point at center of f1 (200, 180)
     const result = findContainingFrameInDoc(doc, { x: 200, y: 180 });
     expect(result).toBe('f1');
+  });
+
+  it('uses a supplied committed parent index for read-only containment', () => {
+    let doc = makeDoc();
+    doc = addFrame(doc, 'outer', 100, 100, 240, 200);
+    doc = addChildFrame(doc, 'outer', 'inner', 20, 20, 80, 60);
+    const point = { x: 150, y: 150 };
+    const parentIndex = buildParentIndexMap(doc);
+
+    expect(
+      findContainingFrameInDoc(doc, point, null, {
+        parentIndexForCommittedDocument: parentIndex,
+      }),
+    ).toBe(findContainingFrameInDoc(doc, point));
+    expect(
+      findContainingFrameInDoc(doc, point, null, {
+        parentIndexForCommittedDocument: parentIndex,
+      }),
+    ).toBe('inner');
   });
 
   it('returns null for point outside any user frame', () => {

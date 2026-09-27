@@ -43,6 +43,9 @@ each file):
 - `packages/editor/src/scene/occurrenceGeometry.ts` and its test; shared
   transform-aware world-bounds reuse across labels, accessibility, and minimap
   layout (continuation, 2026-09-27)
+- `packages/editor/src/scene/findContainingFrame.ts` and its test; committed
+  drag containment receives the shared parent index while draft-document
+  mutation callers keep building from their draft (continuation, 2026-09-27)
 - `packages/editor/src/context/types.ts` (deprecation notes only)
 - `packages/scene/src/editorSceneScope.ts` and its test
 - `packages/shared/src/viewport.ts`, `index.ts`, `viewportProjector.test.ts` (new)

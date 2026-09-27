@@ -28,6 +28,12 @@ export interface FindContainingSurfaceOptions {
   adoptIntoPage?: boolean;
   /** Visible Design Canvas root, or null for the publishing/page scene. */
   designCanvasId?: NodeId | null;
+  /**
+   * Parent links for this exact immutable document. Drag/read-only callers may
+   * supply the committed index; mutation callers should omit it so draft
+   * documents are indexed from their current hierarchy.
+   */
+  parentIndexForCommittedDocument?: Map<NodeId, NodeId>;
 }
 
 /**
@@ -70,9 +76,9 @@ export function findContainingFrameInDoc(
   // drop-target-frame check). nodeWorldTransform falls back to an O(n)
   // linear scan (getParent) per call when no parentIndex is passed, so
   // checking F candidate frames/groups cost O(F*n) per pointer move.
-  // buildParentIndexMap is one O(n) pass; reusing it below makes the
-  // per-candidate lookup O(1).
-  const parentIndex = buildParentIndexMap(doc);
+  // Read-only drag callers pass the committed index, avoiding an O(n) rebuild
+  // per pointer move. Draft/mutation callers omit it and index their own state.
+  const parentIndex = options.parentIndexForCommittedDocument ?? buildParentIndexMap(doc);
 
   // If a frame index is provided, use it to filter candidates first
   const candidates = frameIndex
