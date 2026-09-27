@@ -6,6 +6,15 @@ evidence and remaining platform gaps. Application plugins are distinct from
 Tauri Rust plugins, build plugins, inference providers, and Figma import
 adapters.
 
+Current implementation update: 2026-09-27, on `master`. The reconnaissance
+below is historical baseline evidence; the runtime now includes the package
+store, manager, permission broker, Wasm worker, commands, and host-rendered
+Inspector contributions described in this contract. The current validation
+ledger is in
+[`plugin-system-validation-2026-09-27.md`](../audits/plugin-system-validation-2026-09-27.md),
+with user-reported failure patterns and mitigations in
+[`plugin-system-evidence-2026-09-27.md`](../audits/plugin-system-evidence-2026-09-27.md).
+
 ## Baseline at `042508de` (2026-09-25)
 
 The only application-level extension hook is an in-memory Inspector section
@@ -56,6 +65,15 @@ identity, command kind, output size, target IDs, current grants, document
 identity, and runtime generation before accepting it. The manifest declares
 commands and contextual Inspector sections, with no runtime callbacks.
 
+The pre-compilation validator accepts only numeric Wasm function types and
+checks the three export signatures against the API ABI before the engine sees
+the module. Recursive/aggregate types, subtyping, GC types, and reference
+parameters or results are unsupported. The imported memory instance is
+created by the host with a 4 MiB initial and 16 MiB maximum linear-memory
+size. That ceiling does not cap engine tables, runtime metadata, Worker
+overhead, or total process memory; Worker termination bounds runaway work but
+is not a process-level memory quota.
+
 Package review and installation compile and inspect the Wasm module without
 instantiating it. Instantiation would execute a guest start section; that is
 deferred until the user runs a command in the short-lived Worker. An
@@ -68,6 +86,13 @@ binary, GPU, custom HTML, or remote marketplace API. A document never causes
 package installation or activation. Generated artwork remains canonical
 Varve content so it survives plugin removal. No plugin-owned document schema
 is added in v1.
+
+Every API v1 command receives a selection snapshot, so every runnable package
+must declare `selection.read` as required or optional. A command that proposes
+document changes must also declare `document.write`; that grant is checked
+again when the user applies the preview. The static package validator checks
+the same manifest and binary contract as installation without executing the
+guest.
 
 ## Ownership and lifecycle
 
@@ -98,6 +123,28 @@ update must not silently add grants. Checksums detect local byte changes but
 do not authenticate a publisher. A local file's displayed publisher is a
 self-assertion, not a verified badge.
 
+Database version 2 adds a durable revision store while preserving the existing
+package object store and all installation fields. Migration assigns revision
+1 to existing records; writes and removals update package and revision in the
+same transaction. Removal leaves a revision tombstone to prevent uninstall /
+reinstall ABA races. The 32-installation limit is checked inside the same
+write transaction. Web Locks may serialize higher-level work when available,
+but correctness relies on the authoritative IndexedDB transaction and
+revision, not on Web Locks or BroadcastChannel. Cross-window messages are
+invalidation hints only: each guarded selection read and document commit
+rechecks the authoritative record and revision. The guarded host callback is
+synchronous and revalidates document, editor session, selection, generation,
+and grants immediately before applying one canonical undoable mutation.
+
+The Settings → Plugins manager is the recovery surface and remains available
+when plugins are disabled in safe mode. The File menu and command palette open
+that same Settings section. Failed, disabled, and incompatible installations
+stay in the inventory with their reason and available recovery actions. Safe
+mode pauses contributions and execution without changing the saved enabled
+preference; dismissing its startup screen does not exit safe mode. Execution
+returns an explicit completed, stopped, or stale outcome. Stop does not mark a
+plugin failed, and a stale result is discarded without document/history edits.
+
 ## Threat model and remaining platform evidence
 
 The adversary controls package bytes, manifest text, guest Wasm behavior, and
@@ -119,21 +166,63 @@ There is no signature/provenance infrastructure or remote update service in
 this local format; the manager must describe local source and checksum without
 implying verification.
 
-## Acceptance matrix
+## Packaged native validation procedure
+
+Native evidence must identify the source and executable, not only the browser
+test result. On each platform, record `git rev-parse HEAD`, the local worktree
+diff, the test binary's SHA-256, the fixture archive's SHA-256, the OS/WebView
+version from `pnpm desktop:preflight`, the command output, and a screenshot of
+the manager result. The debug test build uses the distinct Tauri identifier
+`dev.varve.desktop.wdio`, keeping its application profile separate from the
+release identifier `dev.varve.desktop`.
+
+The same platform-native scenario is
+[`tests/wdio/plugin-native.e2e.ts`](../../tests/wdio/plugin-native.e2e.ts).
+It creates artwork through the native window, installs the checked-in local
+package, runs the analysis Worker, and can save a screenshot through
+`VARVE_PLUGIN_NATIVE_SCREENSHOT`. On a platform with the supported Rust and
+Tauri toolchains, run:
+
+```sh
+pnpm desktop:preflight
+pnpm desktop:build:test
+VARVE_WDIO_SPECS=./tests/wdio/plugin-native.e2e.ts pnpm exec wdio run wdio.conf.ts
+```
+
+Linux must use the packaged debug app under WebKitGTK and a real GUI session;
+the preflight output records GTK/WebKitGTK and display dependencies. Windows
+must run the same test app under WebView2 and retain the preflight-reported
+WebView2 runtime version. macOS must use the system WKWebView and record the
+macOS and Xcode versions. For each platform, start with an isolated OS test
+account or a cleared `dev.varve.desktop.wdio` application-data directory, then
+verify install/reload, permission denial, analysis, rename preview/apply,
+revoke/disable during work, rollback, and removal. Browser Playwright WebKit
+does not satisfy the Linux native check; WebKitGTK, WebView2, and WKWebView
+results must be recorded separately. Windows and macOS procedure readiness is
+not evidence that either platform has been run.
+
+## Acceptance matrix: previous browser baseline
+
+The browser results in the table below are from the 2026-09-25 baseline. They
+do not validate the 2026-09-27 storage, authorization, safe-mode, or recovery
+changes. The current run and any reruns are recorded separately in
+`docs/audits/plugin-system-validation-2026-09-27.md`.
 
 | Capability | Code | Browser E2E | Native Linux | Native Windows/macOS |
 | --- | --- | --- | --- | --- |
-| Package validation and local installation | Implemented; parser unit tests and SDK smoke pass | Real Rust sample ZIP installed | Blocked by local native build OOM | Not run |
-| On-demand Wasm execution and Stop | Implemented; bounded Worker contract | Analysis and noncooperative Stop/timeout pass | Blocked by local native build OOM | Not run |
-| Permission revoke and stale-result rejection | Implemented; generation/revision/grant checks | Revocation during run passes; multi-window not exercised | Blocked by local native build OOM | Not run |
-| Undoable rename, save/reopen without plugin | Implemented with canonical node update | Apply, remove, undo/redo, and save/reopen pass | Blocked by local native build OOM | Not run |
-| Manager and contextual Inspector rendering | Implemented with host-owned controls | Manager, review, and Inspector text visibility pass | Blocked by local native build OOM | Not run |
-| Update/recovery and resource plateau | Update, rollback, Retry implemented | Permission diff and rollback pass; long-session plateau not run | Blocked by local native build OOM | Not run |
-| Manager panel hide/show preference | Persisted on the installation record, mirrored into the section registry, applied on registration | Hide, reload, show round-trip passes in the browser; unit tests cover record and fresh-session restore | Blocked by local native build OOM | Not run |
-| Mixed selection, locked targets, competing plugins | Snapshot and revalidation checks are source-enforced | Vector+text analysis, locked-layer rename with undo/redo, and two concurrent plugins pass in the browser | Blocked by local native build OOM | Not run |
+| Package validation and local installation | Implemented; parser unit tests and SDK smoke pass | Real Rust sample ZIP installed on 2026-09-25; current changes pending | Prior local native build hit OOM; current attempt pending | Not run |
+| On-demand Wasm execution and Stop | Implemented; bounded Worker contract | Analysis and noncooperative Stop/timeout passed on 2026-09-25; current changes pending | Prior local native build hit OOM; current attempt pending | Not run |
+| Permission revoke and stale-result rejection | Implemented; generation/revision/grant checks | Revocation during run passed on 2026-09-25; current two-window checks pending | Prior local native build hit OOM; current attempt pending | Not run |
+| Undoable rename, save/reopen without plugin | Implemented with canonical node update | Apply, remove, undo/redo, and save/reopen passed on 2026-09-25; current changes pending | Prior local native build hit OOM; current attempt pending | Not run |
+| Manager and contextual Inspector rendering | Implemented with host-owned controls | Manager, review, and Inspector visibility passed on 2026-09-25; current changes pending | Prior local native build hit OOM; current attempt pending | Not run |
+| Update/recovery and resource plateau | Update, rollback, Retry implemented | Permission diff and rollback passed on 2026-09-25; current checks and long-session plateau pending | Prior local native build hit OOM; current attempt pending | Not run |
+| Manager panel hide/show preference | Persisted on the installation record, mirrored into the section registry, applied on registration | Hide/show round-trip passed on 2026-09-25; current changes pending | Prior local native build hit OOM; current attempt pending | Not run |
+| Mixed selection, locked targets, competing plugins | Snapshot and revalidation checks are source-enforced | Mixed selection and locked rename passed on 2026-09-25; two-window and two-plugin cases pending | Prior local native build hit OOM; current attempt pending | Not run |
 
-See [the dated research and defect ledger](../audits/plugin-system-evidence-2026-09-25.md)
-for the source-to-requirement trail. [The dated validation report](../audits/plugin-system-validation-2026-09-25.md)
-lists commands, screenshots, limits, and unexercised scenarios. The static
-validator is `node --experimental-strip-types scripts/plugins/validate.mjs
-<file.varveplugin>`; it checks package structure without executing guest code.
+See [the 2026-09-27 failure-mode evidence ledger](../audits/plugin-system-evidence-2026-09-27.md)
+for the source-to-requirement trail. [The current validation report](../audits/plugin-system-validation-2026-09-27.md)
+lists commands, screenshots, limits, and unexercised scenarios; the
+[2026-09-25 report](../audits/plugin-system-validation-2026-09-25.md) remains
+the earlier baseline. The static validator is
+`node --experimental-strip-types scripts/plugins/validate.mjs <file.varveplugin>`;
+it checks package structure without executing guest code.

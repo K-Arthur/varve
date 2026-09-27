@@ -26,17 +26,27 @@ import {
 } from './package';
 import {
   deleteStoredPlugin,
-  getStoredPlugin,
-  listStoredPlugins,
+  getStoredPluginState,
+  listStoredPluginInventory,
+  PluginStoreConflictError,
   putStoredPlugin,
   type StoredPlugin,
+  type StoredPluginState,
+  subscribeStoredPluginChanges,
+  withStoredPluginGuard,
 } from './store';
 import { type GuestJob, startGuestJob } from './wasmRuntime';
 
 const MAX_SELECTED_NODES = 100;
 const MAX_RUNNING_JOBS = 2;
 
-type RuntimeStatus = 'ready' | 'disabled' | 'awaiting-permission' | 'running' | 'failed';
+type RuntimeStatus =
+  | 'ready'
+  | 'disabled'
+  | 'awaiting-permission'
+  | 'running'
+  | 'failed'
+  | 'safe-mode';
 
 interface ResultContext {
   documentId: string;
@@ -44,7 +54,10 @@ interface ResultContext {
   revision: number;
   selectionRevision: number;
   generation: number;
+  pluginRevision: number;
 }
+
+export type PluginRunOutcome = { status: 'completed' | 'stopped' | 'stale' };
 
 interface SavedResult {
   output: GuestOutput;
@@ -70,6 +83,7 @@ export interface PluginView {
 export interface PluginSnapshot {
   loading: boolean;
   error?: string;
+  safeModeDisabled: boolean;
   plugins: PluginView[];
 }
 
@@ -124,19 +138,6 @@ function message(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-function storedRevision(record: StoredPlugin | undefined): string {
-  if (!record) return 'absent';
-  return JSON.stringify([
-    record.sha256,
-    record.installedAt,
-    record.enabled,
-    record.grants,
-    record.lastError,
-    record.previous?.sha256,
-    record.hiddenPanels ?? null,
-  ]);
-}
-
 /** Returns the same document on any conflict; all proposed renames succeed together. */
 export function applyRenameProposal(
   doc: Document,
@@ -163,6 +164,7 @@ class ApplicationPluginController {
   private editor: EditorContextValue | null = null;
   private sectionRenderer: SectionRenderer | null = null;
   private records = new Map<string, StoredPlugin>();
+  private revisions = new Map<string, number>();
   private preparedArchives = new WeakMap<PluginPackage, Uint8Array>();
   private jobs = new Map<string, GuestJob>();
   private results = new Map<string, Map<string, SavedResult>>();
@@ -174,7 +176,9 @@ class ApplicationPluginController {
   private listeners = new Set<() => void>();
   private initialization: Promise<void> | null = null;
   private inspectorListening = false;
-  private snapshot: PluginSnapshot = { loading: true, plugins: [] };
+  private storeListening = false;
+  private snapshot: PluginSnapshot = { loading: true, safeModeDisabled: false, plugins: [] };
+  private safeModeDisabled = false;
 
   subscribe = (listener: () => void): (() => void) => {
     this.listeners.add(listener);
@@ -187,6 +191,17 @@ class ApplicationPluginController {
     this.editor = editor;
   }
 
+  /** Suppress all third-party runtime surfaces without changing saved choices. */
+  setSafeModeDisabled(disabled: boolean): void {
+    if (this.safeModeDisabled === disabled) return;
+    this.safeModeDisabled = disabled;
+    if (disabled) {
+      for (const id of this.records.keys()) this.stop(id);
+    }
+    this.reconcileAll();
+    this.emit();
+  }
+
   setSectionRenderer(renderer: SectionRenderer | null): void {
     this.sectionRenderer = renderer;
     this.reconcileAll();
@@ -194,14 +209,23 @@ class ApplicationPluginController {
 
   initialize(): Promise<void> {
     if (this.initialization) return this.initialization;
-    this.initialization = listStoredPlugins()
-      .then(async (records) => {
+    this.initialization = listStoredPluginInventory()
+      .then(async ({ plugins, revisions }) => {
+        this.revisions = revisions;
         const checked: StoredPlugin[] = [];
-        for (const record of records) checked.push(await this.checkStoredRecord(record));
+        for (const record of plugins) {
+          checked.push(
+            await this.checkStoredRecord(record, this.revisions.get(record.manifest.id) ?? 1),
+          );
+        }
         this.records = new Map(checked.map((record) => [record.manifest.id, record]));
         if (!this.inspectorListening) {
           this.inspectorListening = true;
           onContributionsChange(() => this.handleInspectorFailures());
+        }
+        if (!this.storeListening) {
+          this.storeListening = true;
+          subscribeStoredPluginChanges((change) => this.handleStoreChange(change.id));
         }
         this.reconcileAll();
         this.emit(false);
@@ -268,7 +292,11 @@ class ApplicationPluginController {
               }
             : undefined,
       };
-      await putStoredPlugin(next);
+      const nextRevision = await putStoredPlugin(
+        next,
+        this.revisions.get(verified.manifest.id) ?? 0,
+      );
+      this.revisions.set(verified.manifest.id, nextRevision);
       this.preparedArchives.delete(pkg);
       if (current) this.removeOwned(verified.manifest.id, true);
       this.records.set(verified.manifest.id, next);
@@ -283,7 +311,7 @@ class ApplicationPluginController {
       const current = this.requireRecord(id);
       if (current.enabled === enabled) return;
       const next = { ...current, enabled };
-      await putStoredPlugin(next);
+      await this.persist(next);
       this.records.set(id, next);
       this.reconcileOne(id);
       this.emit();
@@ -298,7 +326,7 @@ class ApplicationPluginController {
       const accepted = checkedGrants(current.manifest, grants);
       if (current.grants.some((grant) => !accepted.includes(grant))) this.stop(id);
       const next = { ...current, grants: accepted };
-      await putStoredPlugin(next);
+      await this.persist(next);
       this.records.set(id, next);
       this.reconcileOne(id);
       this.emit();
@@ -323,111 +351,142 @@ class ApplicationPluginController {
         ...current,
         hiddenPanels: hiddenSet.size > 0 ? [...hiddenSet].sort() : undefined,
       };
-      await putStoredPlugin(next);
+      await this.persist(next);
       this.records.set(id, next);
       this.reconcileOne(id);
       this.emit();
     });
   }
 
-  async run(id: string, commandId: string): Promise<void> {
+  async run(id: string, commandId: string): Promise<PluginRunOutcome> {
     await this.pending.get(id);
-    const record = this.requireRecord(id);
-    const command = record.manifest.commands.find((entry) => entry.id === commandId);
-    if (!command) throw new Error('Command is no longer installed');
-    this.assertRunnable(record, command);
-    if (this.jobs.has(id)) throw new Error('This plugin is already running');
-    if (this.jobs.size >= MAX_RUNNING_JOBS) {
-      throw new Error('At most two plugin commands may run at once');
-    }
-    const editor = this.editor;
-    if (!editor) throw new Error('Open a document to run this plugin');
-    const selection = this.selectedSnapshot(editor);
-    const context = this.captureContext(editor, id);
-    const input: GuestInput = {
-      apiVersion: 1,
-      commandId,
-      documentId: context.documentId,
-      revision: context.revision,
-      selection,
+    const expectedRevision = this.revisions.get(id);
+    if (expectedRevision === undefined) throw new Error('Plugin is not installed');
+    let prepared!: {
+      record: StoredPlugin;
+      command: PluginCommandManifest;
+      selection: SelectedNodeSnapshot[];
+      context: ResultContext;
+      job: GuestJob;
     };
-    const encoded = JSON.stringify(input);
-    if (new TextEncoder().encode(encoded).byteLength > 64 * 1024) {
-      throw new Error('Selection snapshot exceeds 64 KiB');
+    try {
+      await withStoredPluginGuard(id, expectedRevision, (state) => {
+        const record = state.plugin;
+        if (!record) throw new Error('Plugin is not installed');
+        const command = record.manifest.commands.find((entry) => entry.id === commandId);
+        if (!command) throw new Error('Command is no longer installed');
+        this.assertRunnable(record, command);
+        if (this.jobs.has(id)) throw new Error('This plugin is already running');
+        if (this.jobs.size >= MAX_RUNNING_JOBS) {
+          throw new Error('At most two plugin commands may run at once');
+        }
+        const editor = this.editor;
+        if (!editor) throw new Error('Open a document to run this plugin');
+        const selection = this.selectedSnapshot(editor);
+        const context = this.captureContext(editor, id, state.revision);
+        const input: GuestInput = {
+          apiVersion: 1,
+          commandId,
+          documentId: context.documentId,
+          revision: context.revision,
+          selection,
+        };
+        const encoded = JSON.stringify(input);
+        if (new TextEncoder().encode(encoded).byteLength > 64 * 1024) {
+          throw new Error('Selection snapshot exceeds 64 KiB');
+        }
+        const job = startGuestJob(record.wasm, 'run', encoded);
+        this.jobs.set(id, job);
+        this.results.get(id)?.delete(commandId);
+        prepared = { record, command, selection, context, job };
+        this.emit();
+      });
+    } catch (error) {
+      if (error instanceof PluginStoreConflictError) await this.refreshStoredPlugin(id);
+      throw error;
     }
-    const job = startGuestJob(record.wasm, 'run', encoded);
-    this.jobs.set(id, job);
-    this.results.get(id)?.delete(commandId);
-    this.emit();
+
+    const { record, command, selection, context, job } = prepared;
+    let outcome: PluginRunOutcome;
     try {
       const result = await job.result;
-      if (!this.isCurrent(id, context)) return;
       const output = parseGuestOutput(result.output ?? '', command, selection);
-      const saved = this.results.get(id) ?? new Map<string, SavedResult>();
-      saved.set(commandId, { output, context });
-      this.results.set(id, saved);
+      const accepted = await withStoredPluginGuard(id, context.pluginRevision, (state) => {
+        if (!state.plugin || !this.isCurrent(id, context)) return false;
+        const saved = this.results.get(id) ?? new Map<string, SavedResult>();
+        saved.set(commandId, { output, context });
+        this.results.set(id, saved);
+        return true;
+      });
+      outcome = accepted ? { status: 'completed' } : { status: 'stale' };
     } catch (error) {
-      if (this.isCurrent(id, context)) {
-        await this.enqueue(id, async () => {
-          if (this.records.get(id) !== record || !this.isCurrent(id, context)) return;
-          const failed = { ...record, lastError: message(error).slice(0, 300) };
-          await putStoredPlugin(failed);
-          this.records.set(id, failed);
-          this.reconcileOne(id);
-        });
+      if (this.jobs.get(id) !== job || !this.isRuntimeCurrent(id, record, context, job)) {
+        outcome = { status: 'stopped' };
+      } else if (error instanceof PluginStoreConflictError) {
+        await this.refreshStoredPlugin(id);
+        outcome = { status: 'stale' };
+      } else {
+        const persisted = await this.recordRuntimeFailure(id, record, context, job, error);
+        if (persisted) throw error;
+        outcome = { status: 'stale' };
       }
     } finally {
       if (this.jobs.get(id) === job) this.jobs.delete(id);
       this.emit();
     }
+    return outcome;
   }
 
-  stop(id: string): void {
+  stop(id: string): { status: 'stopped' | 'idle' } {
+    const wasRunning = this.jobs.has(id);
     this.generations.set(id, (this.generations.get(id) ?? 0) + 1);
     this.jobs.get(id)?.stop();
     this.jobs.delete(id);
     this.results.delete(id);
     this.emit();
+    return { status: wasRunning ? 'stopped' : 'idle' };
   }
 
-  apply(id: string, commandId: string): void {
-    const record = this.requireRecord(id);
-    const command = record.manifest.commands.find((entry) => entry.id === commandId);
+  async apply(id: string, commandId: string): Promise<void> {
     const saved = this.results.get(id)?.get(commandId);
-    if (command?.kind !== 'rename' || !saved || saved.output.renames.length === 0) {
-      throw new Error('No rename preview is ready');
-    }
-    this.assertRunnable(record, command);
-    if (!this.isCurrent(id, saved.context)) throw new Error('The preview is stale; run it again');
-    const editor = this.editor;
-    if (!editor || !this.proposalMatches(editor, saved.output.renames, saved.context)) {
-      throw new Error('The document changed; run the preview again');
-    }
-    editor.beginTransaction();
-    // `updateDoc` runs its updater synchronously — the same assumption every
-    // transaction caller makes. Track the outcome so a no-op aborts instead of
-    // committing an empty history entry (which would clear redo and let the UI
-    // report a phantom success when the document changed underneath us).
-    let updaterRan = false;
-    let changed = false;
-    try {
-      editor.updateDoc((doc) => {
-        updaterRan = true;
-        if (!this.isCurrent(id, saved.context)) return doc;
-        const next = applyRenameProposal(doc, saved.context.documentId, saved.output.renames);
-        changed = next !== doc;
-        return next;
-      });
-      if (updaterRan && !changed) {
+    if (!saved) throw new Error('No rename preview is ready');
+    await withStoredPluginGuard(id, saved.context.pluginRevision, (state) => {
+      const record = state.plugin;
+      const command = record?.manifest.commands.find((entry) => entry.id === commandId);
+      if (!record || command?.kind !== 'rename' || saved.output.renames.length === 0) {
+        throw new Error('No rename preview is ready');
+      }
+      this.assertRunnable(record, command);
+      if (!this.isCurrent(id, saved.context)) throw new Error('The preview is stale; run it again');
+      const editor = this.editor;
+      if (!editor || !this.proposalMatches(editor, saved.output.renames, saved.context)) {
         throw new Error('The document changed; run the preview again');
       }
-      editor.commitTransaction();
-      this.results.get(id)?.delete(commandId);
-      this.emit();
-    } catch (error) {
-      editor.abortTransaction();
-      throw error;
-    }
+      editor.beginTransaction();
+      // Document mutation remains synchronous inside the authoritative IDB
+      // guard. No revoke, update, or removal can commit between this check and
+      // the undoable document commit, even when Web Locks is unavailable.
+      let updaterRan = false;
+      let changed = false;
+      try {
+        editor.updateDoc((doc) => {
+          updaterRan = true;
+          if (!this.isCurrent(id, saved.context)) return doc;
+          const next = applyRenameProposal(doc, saved.context.documentId, saved.output.renames);
+          changed = next !== doc;
+          return next;
+        });
+        if (updaterRan && !changed) {
+          throw new Error('The document changed; run the preview again');
+        }
+        editor.commitTransaction();
+        this.results.get(id)?.delete(commandId);
+        this.emit();
+      } catch (error) {
+        editor.abortTransaction();
+        throw error;
+      }
+    });
   }
 
   async rollback(id: string): Promise<void> {
@@ -458,7 +517,15 @@ class ApplicationPluginController {
           : {}),
         previous: undefined,
       };
-      await putStoredPlugin(next);
+      await this.persist(next);
+      const actions = this.actions.get(id);
+      if (actions) {
+        const registry = getActionRegistry();
+        for (const [actionId, handler] of actions) {
+          if (registry.get(actionId)?.handler === handler) registry.remove(actionId);
+        }
+        this.actions.delete(id);
+      }
       this.records.set(id, next);
       this.reconcileOne(id);
       this.emit();
@@ -470,7 +537,8 @@ class ApplicationPluginController {
     this.stop(id);
     await this.enqueue(id, async () => {
       this.requireRecord(id);
-      await deleteStoredPlugin(id);
+      const revision = await deleteStoredPlugin(id, this.revisions.get(id) ?? 0);
+      this.revisions.set(id, revision);
       this.records.delete(id);
       this.reconcileOne(id);
       this.emit();
@@ -481,7 +549,7 @@ class ApplicationPluginController {
     await this.enqueue(id, async () => {
       const record = this.requireRecord(id);
       const next = { ...record, lastError: undefined };
-      await putStoredPlugin(next);
+      await this.persist(next);
       this.records.set(id, next);
       retryPlugin(id);
       this.reconcileOne(id);
@@ -492,10 +560,11 @@ class ApplicationPluginController {
   private enqueue<T>(id: string, operation: () => Promise<T>): Promise<T> {
     const previous = this.pending.get(id) ?? Promise.resolve();
     const checked = async () => {
-      const latest = await getStoredPlugin(id);
-      if (storedRevision(latest) !== storedRevision(this.records.get(id))) {
+      const latest = await getStoredPluginState(id);
+      if (latest.revision !== (this.revisions.get(id) ?? 0)) {
         this.stop(id);
-        throw new Error('Plugin state changed in another window; reopen this editor to refresh it');
+        await this.applyFreshState(id, latest);
+        throw new PluginStoreConflictError();
       }
       return operation();
     };
@@ -524,7 +593,10 @@ class ApplicationPluginController {
     return record;
   }
 
-  private async checkStoredRecord(record: StoredPlugin): Promise<StoredPlugin> {
+  private async checkStoredRecord(
+    record: StoredPlugin,
+    expectedRevision: number,
+  ): Promise<StoredPlugin> {
     try {
       // Not `instanceof`: a stored view may come back from another realm
       // (structured clone), and parsePluginPackage normalizes before use.
@@ -546,12 +618,86 @@ class ApplicationPluginController {
         grants: [],
         lastError: `Stored package needs repair: ${message(error)}`.slice(0, 300),
       };
-      await putStoredPlugin(disabled);
+      try {
+        await this.persist(disabled, expectedRevision);
+      } catch (writeError) {
+        if (!(writeError instanceof PluginStoreConflictError)) throw writeError;
+        const latest = await getStoredPluginState(record.manifest.id);
+        if (!latest.plugin) throw writeError;
+        this.revisions.set(record.manifest.id, latest.revision);
+        return this.checkStoredRecord(latest.plugin, latest.revision);
+      }
       return disabled;
     }
   }
 
+  private async persist(
+    record: StoredPlugin,
+    expectedRevision = this.revisions.get(record.manifest.id) ?? 0,
+  ) {
+    const revision = await putStoredPlugin(record, expectedRevision);
+    this.revisions.set(record.manifest.id, revision);
+    return revision;
+  }
+
+  private async handleStoreChange(id: string): Promise<void> {
+    const localRevision = this.revisions.get(id) ?? 0;
+    this.stop(id);
+    try {
+      const latest = await getStoredPluginState(id);
+      if (latest.revision < localRevision) return;
+      await this.applyFreshState(id, latest);
+    } catch (error) {
+      this.emit(false, `Could not refresh ${id}: ${message(error)}`);
+    }
+  }
+
+  private async refreshStoredPlugin(id: string): Promise<void> {
+    const latest = await getStoredPluginState(id);
+    await this.applyFreshState(id, latest);
+  }
+
+  private async applyFreshState(id: string, state: StoredPluginState): Promise<void> {
+    this.revisions.set(id, state.revision);
+    if (state.plugin) {
+      const checked = await this.checkStoredRecord(state.plugin, state.revision);
+      if (this.records.get(id)?.sha256 !== checked.sha256) this.removeOwned(id, true);
+      this.records.set(id, checked);
+    } else {
+      this.records.delete(id);
+    }
+    this.reconcileOne(id);
+    this.emit(false);
+  }
+
+  private async recordRuntimeFailure(
+    id: string,
+    record: StoredPlugin,
+    context: ResultContext,
+    job: GuestJob,
+    error: unknown,
+  ): Promise<boolean> {
+    if (!this.isRuntimeCurrent(id, record, context, job)) return false;
+    try {
+      return await this.enqueue(id, async () => {
+        const current = this.records.get(id);
+        if (current !== record || !this.isRuntimeCurrent(id, record, context, job)) return false;
+        const failed = { ...record, lastError: message(error).slice(0, 300) };
+        await this.persist(failed, context.pluginRevision);
+        this.records.set(id, failed);
+        this.reconcileOne(id);
+        this.emit();
+        return true;
+      });
+    } catch (writeError) {
+      if (writeError instanceof PluginStoreConflictError) await this.refreshStoredPlugin(id);
+      else this.emit(false, `Could not save plugin failure: ${message(writeError)}`);
+      return false;
+    }
+  }
+
   private assertRunnable(record: StoredPlugin, command: PluginCommandManifest): void {
+    if (this.safeModeDisabled) throw new Error('Plugins are disabled in safe mode');
     if (!record.enabled) throw new Error('Enable this plugin first');
     if (record.lastError) throw new Error('Retry this plugin after its failure');
     if (record.manifest.permissions.required.some((grant) => !record.grants.includes(grant))) {
@@ -596,13 +742,18 @@ class ApplicationPluginController {
     });
   }
 
-  private captureContext(editor: EditorContextValue, id: string): ResultContext {
+  private captureContext(
+    editor: EditorContextValue,
+    id: string,
+    pluginRevision: number,
+  ): ResultContext {
     return {
       documentId: editor.state.document.id,
       sessionId: editor.state.activeId,
       revision: editor.state.revision,
       selectionRevision: editor.state.selectionRevision,
       generation: this.generations.get(id) ?? 0,
+      pluginRevision,
     };
   }
 
@@ -611,11 +762,26 @@ class ApplicationPluginController {
     return Boolean(
       editor &&
         this.records.has(id) &&
+        this.revisions.get(id) === context.pluginRevision &&
         (this.generations.get(id) ?? 0) === context.generation &&
         editor.state.activeId === context.sessionId &&
         editor.state.document.id === context.documentId &&
         editor.state.revision === context.revision &&
         editor.state.selectionRevision === context.selectionRevision,
+    );
+  }
+
+  private isRuntimeCurrent(
+    id: string,
+    record: StoredPlugin,
+    context: ResultContext,
+    job: GuestJob,
+  ): boolean {
+    return Boolean(
+      this.records.get(id) === record &&
+        this.revisions.get(id) === context.pluginRevision &&
+        (this.generations.get(id) ?? 0) === context.generation &&
+        this.jobs.get(id) === job,
     );
   }
 
@@ -636,7 +802,11 @@ class ApplicationPluginController {
   private status(record: StoredPlugin): RuntimeStatus {
     if (!record.enabled) return 'disabled';
     if (record.lastError) return 'failed';
-    if (record.manifest.permissions.required.some((grant) => !record.grants.includes(grant))) {
+    if (this.safeModeDisabled) return 'safe-mode';
+    if (
+      record.manifest.permissions.required.some((grant) => !record.grants.includes(grant)) ||
+      !record.grants.includes('selection.read')
+    ) {
       return 'awaiting-permission';
     }
     if (this.jobs.has(record.manifest.id)) return 'running';
@@ -659,6 +829,14 @@ class ApplicationPluginController {
     }
     const registry = getActionRegistry();
     const owned = this.actions.get(id) ?? new Map<string, (ctx: unknown) => void>();
+    const actionPrefix = `plugin:${id}:`;
+    const commands = new Set(record.manifest.commands.map((command) => command.id));
+    for (const [actionId, handler] of owned) {
+      if (!commands.has(actionId.slice(actionPrefix.length))) {
+        if (registry.get(actionId)?.handler === handler) registry.remove(actionId);
+        owned.delete(actionId);
+      }
+    }
     for (const command of record.manifest.commands) {
       const actionId = `plugin:${id}:${command.id}`;
       if (owned.has(actionId)) continue;
@@ -732,7 +910,7 @@ class ApplicationPluginController {
       };
       void this.enqueue(id, async () => {
         if (this.records.get(id) !== record) return;
-        await putStoredPlugin(failed);
+        await this.persist(failed);
         this.records.set(id, failed);
         this.reconcileOne(id);
         this.emit();
@@ -764,6 +942,7 @@ class ApplicationPluginController {
     this.snapshot = {
       loading,
       error,
+      safeModeDisabled: this.safeModeDisabled,
       plugins: [...this.records.values()].map((record) => ({
         id: record.manifest.id,
         manifest: record.manifest,

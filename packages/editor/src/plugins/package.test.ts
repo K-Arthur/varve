@@ -153,6 +153,45 @@ describe('parsePluginPackage', () => {
     expect(parsed.wasm).toEqual(WASM);
   });
 
+  it('maps legacy Logo and Codegen inspector modes to Design without duplicates', async () => {
+    for (const legacyMode of ['logo', 'codegen']) {
+      const parsed = await parsePluginPackage(
+        packageBytes(
+          manifest({
+            inspector: [
+              {
+                id: 'summary',
+                title: 'Selection summary',
+                command: 'analyze',
+                tab: 'properties',
+                modes: [legacyMode],
+              },
+            ],
+          }),
+        ),
+      );
+      expect(parsed.manifest.inspector?.[0]?.modes).toEqual(['design']);
+    }
+
+    await expect(
+      parsePluginPackage(
+        packageBytes(
+          manifest({
+            inspector: [
+              {
+                id: 'summary',
+                title: 'Selection summary',
+                command: 'analyze',
+                tab: 'properties',
+                modes: ['design', 'logo'],
+              },
+            ],
+          }),
+        ),
+      ),
+    ).rejects.toThrow(/invalid or duplicate inspector mode/i);
+  });
+
   it.each([
     ['traversal', '../manifest.json'],
     ['absolute', '/manifest.json'],
@@ -264,6 +303,12 @@ describe('parsePluginPackage', () => {
     await expect(parsePluginPackage(packageBytes(manifest({ version: '01.2.3' })))).rejects.toThrow(
       /semver/i,
     );
+  });
+
+  it('requires every command to declare the selection access it consumes', async () => {
+    await expect(
+      parsePluginPackage(packageBytes(manifest({ permissions: { required: [], optional: [] } }))),
+    ).rejects.toThrow(/commands require selection.read/i);
   });
 
   it('rejects unsafe permission and contribution contracts', async () => {

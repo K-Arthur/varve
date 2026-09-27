@@ -1,5 +1,5 @@
 /** Data-only validation for locally installed .varveplugin packages. */
-import type { WorkspaceMode } from '@varve/shared';
+import type { WorkspaceMode, WorkspaceModeInput } from '@varve/shared';
 
 export type PluginPermission = 'selection.read' | 'document.write';
 export type PluginCommandKind = 'analysis' | 'rename';
@@ -46,7 +46,7 @@ const MAX_JSON_DEPTH = 32;
 const UTF8_FLAG = 1 << 11;
 const decoder = new TextDecoder('utf-8', { fatal: true });
 const PERMISSIONS = new Set<PluginPermission>(['selection.read', 'document.write']);
-const MODES = new Set<WorkspaceMode>([
+const MODES = new Set<WorkspaceModeInput>([
   'design',
   'print',
   'drawing',
@@ -400,6 +400,9 @@ function parseManifest(bytes: Uint8Array): PluginPackageManifest {
   if (seenPermissions.has('document.write') && !seenPermissions.has('selection.read')) {
     fail('document.write requires selection.read for API v1');
   }
+  if (!seenPermissions.has('selection.read')) {
+    fail('commands require selection.read to be declared as required or optional');
+  }
   if (required.includes('document.write') && !required.includes('selection.read')) {
     fail('required document.write requires required selection.read for API v1');
   }
@@ -438,10 +441,12 @@ function parseManifest(bytes: Uint8Array): PluginPackageManifest {
         if (!Array.isArray(item.modes)) fail('inspector modes must be an array');
         const seen = new Set<string>();
         modes = item.modes.map((mode: unknown) => {
-          if (typeof mode !== 'string' || !MODES.has(mode as WorkspaceMode) || seen.has(mode))
+          if (typeof mode !== 'string' || !MODES.has(mode as WorkspaceModeInput) || seen.has(mode))
             fail('invalid or duplicate inspector mode');
-          seen.add(mode);
-          return mode as WorkspaceMode;
+          const canonical = mode === 'logo' || mode === 'codegen' ? 'design' : mode;
+          if (seen.has(canonical)) fail('invalid or duplicate inspector mode');
+          seen.add(canonical);
+          return canonical as WorkspaceMode;
         });
       }
       return {

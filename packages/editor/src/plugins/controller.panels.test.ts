@@ -15,7 +15,7 @@ import {
 } from '../components/Inspector/pluginSections';
 import { pluginController } from './controller';
 import type { PluginPackageManifest } from './package';
-import { getStoredPlugin, putStoredPlugin } from './store';
+import { getStoredPlugin, getStoredPluginState, putStoredPlugin } from './store';
 
 const encoder = new TextEncoder();
 const WASM = new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0]);
@@ -55,18 +55,22 @@ function contributionsFor(id: string) {
 
 describe('plugin panel preferences', () => {
   beforeAll(async () => {
-    await putStoredPlugin({
-      archive: Uint8Array.from(ARCHIVE),
-      // Structured clone re-wraps buffers; the controller re-parses the
-      // archive anyway, so seed the parsed-shaped fields with real values.
-      manifest: { ...MANIFEST },
-      wasm: WASM,
-      sha256: await sha256Hex(Uint8Array.from(ARCHIVE)),
-      grants: ['selection.read'],
-      installedAt: Date.now(),
-      enabled: true,
-      source: 'local-file',
-    });
+    const previous = await getStoredPluginState(PLUGIN_ID);
+    await putStoredPlugin(
+      {
+        archive: Uint8Array.from(ARCHIVE),
+        // Structured clone re-wraps buffers; the controller re-parses the
+        // archive anyway, so seed the parsed-shaped fields with real values.
+        manifest: { ...MANIFEST },
+        wasm: WASM,
+        sha256: await sha256Hex(Uint8Array.from(ARCHIVE)),
+        grants: ['selection.read'],
+        installedAt: Date.now(),
+        enabled: true,
+        source: 'local-file',
+      },
+      previous.revision,
+    );
     pluginController.setSectionRenderer(() => null);
     await pluginController.initialize();
   });
@@ -82,6 +86,24 @@ describe('plugin panel preferences', () => {
       'readiness',
     ]);
     const { getActionRegistry } = await import('../actions/ActionRegistry');
+    expect(getActionRegistry().has(`plugin:${PLUGIN_ID}:analyze`)).toBe(true);
+  });
+
+  it('pauses runtime surfaces in safe mode without changing the saved enabled choice', async () => {
+    pluginController.setSafeModeDisabled(true);
+    expect(pluginController.getSnapshot().safeModeDisabled).toBe(true);
+    expect(pluginController.getSnapshot().plugins[0]?.status).toBe('safe-mode');
+    expect(pluginController.getSnapshot().plugins[0]?.enabled).toBe(true);
+    expect((await getStoredPlugin(PLUGIN_ID))?.enabled).toBe(true);
+    const { getActionRegistry } = await import('../actions/ActionRegistry');
+    expect(getActionRegistry().has(`plugin:${PLUGIN_ID}:analyze`)).toBe(false);
+    expect(contributionsFor(PLUGIN_ID)).toEqual([]);
+    await expect(pluginController.run(PLUGIN_ID, 'analyze')).rejects.toThrow(
+      'Plugins are disabled in safe mode',
+    );
+
+    pluginController.setSafeModeDisabled(false);
+    expect(pluginController.getSnapshot().plugins[0]?.status).toBe('ready');
     expect(getActionRegistry().has(`plugin:${PLUGIN_ID}:analyze`)).toBe(true);
   });
 
