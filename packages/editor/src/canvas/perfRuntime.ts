@@ -481,6 +481,27 @@ function augmentPerfDiagnosticsHandle(): void {
     // detail once resolved; safe to call repeatedly.
     probeOffscreen: () => probeOffscreenCapability(),
     offscreenProbe: () => getOffscreenProbeDetail(),
+    workerStatus: () => {
+      const host = getRegisteredWorkerHost();
+      return host
+        ? {
+            hostCreated: true,
+            permanentFailure: host.permanentFailure,
+            failureReason: host.failureReason,
+            ready: host.ready,
+            startupDurationMs: host.startupDurationMs,
+            restartCount: host.restartCount,
+            inFlightRenderRevision: host.inFlightRenderRevision,
+            pendingRenderRevision: host.pendingRenderRevision,
+            lastAcceptedRenderRevision: host.lastAcceptedRenderRevision,
+          }
+        : {
+            hostCreated: false,
+            permanentFailure: false,
+            restartCount: 0,
+            lastAcceptedRenderRevision: null,
+          };
+    },
     // Invalidate the painted-surface identity so the next frame is an
     // authoritative full redraw. This is the app-side hook the incremental-
     // vs-full-repaint oracle needs: without it a harness can only force a

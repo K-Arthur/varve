@@ -28,6 +28,7 @@ export { drawPageDecorations } from './pageDecorations';
 interface WorkerBitmapRecord {
   bitmap: ImageBitmap;
   docVersion: number;
+  renderRevision: number;
   camera: { zoom: number; pan: { x: number; y: number }; rotation?: number };
   viewport: { width: number; height: number };
   dpr: number;
@@ -44,6 +45,7 @@ export interface PresentWorkerFrameArgs {
   viewport: { width: number; height: number };
   dpr: number;
   docVersion: number;
+  renderRevision: number;
   frameStart: number;
   /** Identity transform for the composited bitmap; defaults to identity. */
   identityTransform?: Affine;
@@ -78,6 +80,7 @@ export function tryPresentWorkerFrame(args: PresentWorkerFrameArgs): boolean {
     viewport,
     dpr,
     docVersion,
+    renderRevision,
     identityTransform = [1, 0, 0, 1, 0, 0],
   } = args;
   if (!wb || !compositor) return false;
@@ -93,6 +96,7 @@ export function tryPresentWorkerFrame(args: PresentWorkerFrameArgs): boolean {
       : wb.dpr === dpr;
   const bitmapIsCurrent =
     wb.docVersion === docVersion &&
+    wb.renderRevision === renderRevision &&
     wb.viewport.width === viewport.width &&
     wb.viewport.height === viewport.height &&
     surfaceMatches &&

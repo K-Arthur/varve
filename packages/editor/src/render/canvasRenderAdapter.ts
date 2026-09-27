@@ -19,4 +19,5 @@ export {
   isStaleResponse,
   type RenderWorkerHost,
   type RenderWorkerHostOptions,
+  workerFrameMatchesIdentity,
 } from './workerHost';

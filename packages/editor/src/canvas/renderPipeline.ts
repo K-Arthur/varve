@@ -61,7 +61,6 @@ import {
   selectRasterRepresentation,
 } from '../render/adaptiveResidency';
 import {
-  closeImageBitmapMap,
   collectImageBitmaps,
   type RenderWorkerHost,
   sceneCanUseWorkerRenderer,
@@ -85,12 +84,14 @@ import {
   documentHasPerspectiveImage,
   perspectiveSurfaceCache,
 } from '../render/perspectiveImage';
+import { observeCanvasRenderRevision } from '../render/renderRevision';
 import { alphaBounds } from '../render/surfaceBounds';
 import {
   documentTreatmentSpaceForCapture,
   pixelToDocumentFromCapture,
 } from '../render/treatmentSpace';
 import { workerHasFontsForDocument } from '../render/workerFonts';
+import { submitWorkerFrame } from '../render/workerFrameSubmission';
 import { type MasterOffset, offsetWorldBounds, offsetWorldTransform } from '../scene/masterOffsets';
 import { committedParentIndex } from '../scene/parentIndexCache';
 import {
@@ -392,6 +393,7 @@ export interface RenderContentDeps {
   workerBitmapRef: React.MutableRefObject<{
     bitmap: ImageBitmap;
     docVersion: number;
+    renderRevision: number;
     camera: Camera;
     viewport: { width: number; height: number };
     dpr: number;
@@ -407,6 +409,9 @@ export interface RenderContentDeps {
   drawPendingRef: React.MutableRefObject<boolean>;
   lastRenderedDocRef: React.MutableRefObject<Document>;
   docVersionRef: React.MutableRefObject<number>;
+  workerRenderRevisionRef: React.MutableRefObject<number>;
+  workerFrameDprRef: React.MutableRefObject<number>;
+  workerFallbackRevisionRef: React.MutableRefObject<number | null>;
   redrawCoordinatorRef: React.MutableRefObject<RedrawCoordinator | null>;
   dirtyRectRef: React.MutableRefObject<{ x: number; y: number; w: number; h: number } | null>;
   pendingPresentRef: React.MutableRefObject<boolean>;
@@ -427,6 +432,7 @@ export interface RenderContentDeps {
   >;
   stateRef: React.MutableRefObject<EditorState>;
   displayDpr: number;
+  canvasContextRevision: number;
   imageCacheStamp: number;
   fontLoadStamp: number;
   /** Text node currently receiving native input through the DOM overlay. */
@@ -455,6 +461,9 @@ export function renderContent(deps: RenderContentDeps): void {
     drawPendingRef,
     lastRenderedDocRef,
     docVersionRef,
+    workerRenderRevisionRef,
+    workerFrameDprRef,
+    workerFallbackRevisionRef,
     redrawCoordinatorRef,
     dirtyRectRef,
     pendingPresentRef,
@@ -469,6 +478,7 @@ export function renderContent(deps: RenderContentDeps): void {
     requestContentDrawRef,
     stateRef,
     displayDpr,
+    canvasContextRevision,
     imageCacheStamp,
     fontLoadStamp,
     editingTextNodeId,
@@ -505,6 +515,7 @@ export function renderContent(deps: RenderContentDeps): void {
       ? getCurrentRenderScale()
       : 1;
   const dpr = displayDpr * previewScale;
+  workerFrameDprRef.current = dpr;
   const cssW = vpWidth;
   const cssH = vpHeight;
   resizeCanvasBackingStore(canvas, cssW, cssH, dpr);
@@ -542,6 +553,43 @@ export function renderContent(deps: RenderContentDeps): void {
     return;
   }
   const { coordinator, snapshot: frameSnapshot, decision: frameDecision } = entry;
+  const revisionState = stateRef.current;
+  const renderRevision = observeCanvasRenderRevision(canvas, {
+    documentVersion: docVersionRef.current,
+    variablesVersion: JSON.stringify([
+      docVersionRef.current,
+      revisionState.document.variableStore?.activeCollectionId ?? '',
+      revisionState.document.variableStore?.activeMode ?? '',
+    ]),
+    resourcesVersion: JSON.stringify([imageCacheStamp, fontLoadStamp]),
+    asyncResultsVersion: JSON.stringify([
+      frameSnapshot.motionStamp,
+      frameSnapshot.mediaStamp,
+      revisionState.motion.currentTime,
+      revisionState.motion.isPlaying,
+      frameSnapshot.themeRevision,
+      frameSnapshot.canvasMode,
+      frameSnapshot.showOriginalBgNodeId,
+      frameSnapshot.editingTextNodeId,
+      editor.proofEnabled,
+      editor.proofConfig ?? null,
+      compositorRef.current?.id ?? null,
+    ]),
+    camera: {
+      panX: revisionState.pan.x,
+      panY: revisionState.pan.y,
+      zoom: revisionState.zoom,
+      rotation: revisionState.cameraRotation ?? 0,
+    },
+    viewport: {
+      width: cssW,
+      height: cssH,
+      dpr,
+      surfaceVersion: canvasContextRevision,
+    },
+  });
+  workerRenderRevisionRef.current = renderRevision;
+  const frameDocVersion = docVersionRef.current;
   const oracleFullRedraw = frameDecision.explicit.some(
     (invalidation) => invalidation.source === 'oracle-full-redraw',
   );
@@ -614,7 +662,8 @@ export function renderContent(deps: RenderContentDeps): void {
         camera: { zoom: s.zoom, pan: s.pan, rotation: s.cameraRotation ?? 0 },
         viewport: { width: cssW, height: cssH },
         dpr,
-        docVersion: docVersionRef.current,
+        docVersion: frameDocVersion,
+        renderRevision,
         frameStart,
         coordinator,
         decision: frameDecision,
@@ -961,7 +1010,7 @@ export function renderContent(deps: RenderContentDeps): void {
       }
     }
 
-    const docVersion = docVersionRef.current;
+    const docVersion = frameDocVersion;
     // Animated-media nodes rebuild their (small) per-node IR each frame —
     // the media frame index rides in the fill, so subtree IR caching
     // would serve stale frames. Copied: timeline tracks are added below.
@@ -1998,6 +2047,7 @@ export function renderContent(deps: RenderContentDeps): void {
     });
     const workerReady =
       workerImageRefusal === null &&
+      workerFallbackRevisionRef.current !== renderRevision &&
       !documentHasPerspectiveImage(doc) &&
       sceneCanUseWorkerRenderer(doc, (src) => getImageCache().isLoaded(src)) &&
       !sceneNeedsMainThreadTypography(doc) &&
@@ -2095,10 +2145,11 @@ export function renderContent(deps: RenderContentDeps): void {
         wb.camera.pan.y === s.pan.y &&
         (wb.camera.rotation ?? 0) === (s.cameraRotation ?? 0);
       const docIsCurrent = Boolean(wb && wb.docVersion === docVersion);
+      const revisionIsCurrent = Boolean(wb && wb.renderRevision === renderRevision);
       const surfaceMatches = Boolean(
         wb && wb.viewport.width === VP_W && wb.viewport.height === VP_H && wb.dpr === dpr,
       );
-      const bitmapIsCurrent = docIsCurrent && cameraMatches && surfaceMatches;
+      const bitmapIsCurrent = revisionIsCurrent && docIsCurrent && cameraMatches && surfaceMatches;
       // Only ask the worker to re-render when the cached bitmap is stale
       // (doc or camera actually changed). Without this guard, the
       // `frameRendered` handler below calls back into `drawContent` on
@@ -2119,36 +2170,27 @@ export function renderContent(deps: RenderContentDeps): void {
         // thrash around the cap boundary); zooming deeper raises the cap and
         // the at-size cache entry change re-renders the frame sharper.
         const maxSourceDim = workerSourceCapFor(Math.max(VP_W, VP_H), dpr, s.zoom);
-        void collectImageBitmaps(ir, {
-          maxEntries: budgets.workerImageBitmaps,
-          residentSources: hostAtCollection?.knownImageSources,
-          ...(maxSourceDim > 0 ? { maxSourceDim } : {}),
-        }).then((collected) => {
-          if (!collected) return;
-          const host = renderWorkerRef.current;
-          if (!host) {
-            closeImageBitmapMap(collected.images);
-            return;
-          }
-          const posted = host.post(
-            {
-              type: 'render',
-              ir,
-              camera: { zoom: s.zoom, pan: s.pan, rotation: s.cameraRotation ?? 0 },
-              viewport: { width: VP_W, height: VP_H },
-              docVersion,
-              proof: editor.proofEnabled ? editor.proofConfig : null,
-              blendEvaluationSpace: replayColorOptions.blendEvaluationSpace,
-              dpr,
-              images: collected.images,
-              imageSources: collected.sources,
-            },
-            collected.transfer,
-          );
-          if (!posted && !workerFailedRef.current) {
-            workerFailedRef.current = true;
-            requestContentDrawRef.current?.('worker-admission', 'backing-store-recovery');
-          }
+        void submitWorkerFrame({
+          collection: collectImageBitmaps(ir, {
+            maxEntries: budgets.workerImageBitmaps,
+            residentSources: hostAtCollection?.knownImageSources,
+            ...(maxSourceDim > 0 ? { maxSourceDim } : {}),
+          }),
+          host: () => renderWorkerRef.current,
+          currentRevision: () => workerRenderRevisionRef.current,
+          renderRevision,
+          fallbackRevision: workerFallbackRevisionRef,
+          command: {
+            ir,
+            camera: { zoom: s.zoom, pan: s.pan, rotation: s.cameraRotation ?? 0 },
+            viewport: { width: VP_W, height: VP_H },
+            docVersion,
+            proof: editor.proofEnabled ? editor.proofConfig : null,
+            blendEvaluationSpace: replayColorOptions.blendEvaluationSpace,
+            dpr,
+          },
+          requestFallback: (source) =>
+            requestContentDrawRef.current?.(source, 'backing-store-recovery'),
         });
       }
       if (wb && surfaceMatches) {
@@ -2158,7 +2200,7 @@ export function renderContent(deps: RenderContentDeps): void {
         // the worker delivers the fresh frame asynchronously.
         ctxNN.save();
         ctxNN.setTransform(1, 0, 0, 1, 0, 0);
-        if (cameraMatches && docIsCurrent) {
+        if (bitmapIsCurrent) {
           compositorRef.current?.compositeRasterLayer(
             'worker-frame',
             wb.bitmap,
@@ -2174,13 +2216,12 @@ export function renderContent(deps: RenderContentDeps): void {
           );
           if (delta) {
             compositorRef.current?.compositeRasterLayer('worker-frame', wb.bitmap, delta, 'normal');
-            // This surface now shows a RESAMPLED older frame, not an
-            // authoritative render of the current camera: regions the camera
-            // just exposed contain stretched edge content, not scene content.
-            // Recording it as a matching painted surface would let the next
-            // frame take the partial path and composite fresh dirty rects
-            // over non-authoritative pixels — the stale-pixel failure mode
-            // 9d47771b fixed for the main-thread path, on the worker path.
+            // This surface now shows a RESAMPLED or otherwise obsolete frame,
+            // not an authoritative render of the current pixel identity. That
+            // includes same-camera frames made stale by resource or async
+            // input changes. Recording it as a matching painted surface would
+            // let the next frame take the partial path and composite fresh
+            // dirty rects over pixels from the old revision.
             surfaceIsAuthoritative = false;
           } else {
             compositorRef.current?.drawVectorItems(ir, replayColorOptions, replayImagePolicy);

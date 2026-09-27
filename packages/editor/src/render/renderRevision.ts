@@ -2,11 +2,11 @@ import { asRenderRevision, nextRenderRevision, type RenderRevision } from '@varv
 
 export interface RenderRevisionInputs {
   documentVersion: number;
-  variablesVersion: number;
-  resourcesVersion: number;
-  asyncResultsVersion: number;
+  variablesVersion: number | string;
+  resourcesVersion: number | string;
+  asyncResultsVersion: number | string;
   camera: { panX: number; panY: number; zoom: number; rotation: number };
-  viewport: { width: number; height: number; dpr: number };
+  viewport: { width: number; height: number; dpr: number; surfaceVersion: number };
 }
 
 export interface RenderRevisionTracker {
@@ -29,7 +29,8 @@ function inputsEqual(a: RenderRevisionInputs, b: RenderRevisionInputs): boolean 
     a.camera.rotation === b.camera.rotation &&
     a.viewport.width === b.viewport.width &&
     a.viewport.height === b.viewport.height &&
-    a.viewport.dpr === b.viewport.dpr
+    a.viewport.dpr === b.viewport.dpr &&
+    a.viewport.surfaceVersion === b.viewport.surfaceVersion
   );
 }
 
@@ -53,4 +54,19 @@ export function createRenderRevisionTracker(initial = 0): RenderRevisionTracker 
       return current;
     },
   };
+}
+
+const canvasTrackers = new WeakMap<HTMLCanvasElement, RenderRevisionTracker>();
+
+/** Observe the current pixel-producing inputs for one canvas surface. */
+export function observeCanvasRenderRevision(
+  canvas: HTMLCanvasElement,
+  inputs: RenderRevisionInputs,
+): RenderRevision {
+  let tracker = canvasTrackers.get(canvas);
+  if (!tracker) {
+    tracker = createRenderRevisionTracker();
+    canvasTrackers.set(canvas, tracker);
+  }
+  return tracker.observe(inputs);
 }

@@ -82,10 +82,10 @@ import { useCollabPresence } from './hooks/useCollabPresence';
 import {
   createRenderWorkerHost,
   disposeWorkerFrame,
-  isStaleResponse,
   type RenderWorkerHost,
   setCompositorDiagnostics,
   startCanvasCompositor,
+  workerFrameMatchesIdentity,
 } from './render/canvasRenderAdapter';
 import type { MockupSurfaceCache } from './render/mockup/mockupIr';
 import {
@@ -255,6 +255,7 @@ export function CanvasArea({
   const workerBitmapRef = useRef<{
     bitmap: ImageBitmap;
     docVersion: number;
+    renderRevision: number;
     camera: Camera;
     viewport: { width: number; height: number };
     dpr: number;
@@ -263,6 +264,9 @@ export function CanvasArea({
     ((source: string, reason: RedrawCoordinatorReason) => void) | null
   >(null);
   const docVersionRef = useRef(0);
+  const workerRenderRevisionRef = useRef(0);
+  const workerFrameDprRef = useRef(1);
+  const workerFallbackRevisionRef = useRef<number | null>(null);
   const stateRef = useRef<EditorState>(state);
   stateRef.current = state;
   const editorRef = useRef(editor);
@@ -589,6 +593,7 @@ export function CanvasArea({
   useEffect(() => {
     registerPerfCameraController({
       setZoom: (zoom) => editor.setZoom(zoom),
+      setCamera: (camera) => editor.setCamera(camera),
     });
     return () => registerPerfCameraController(null);
   }, [editor]);
@@ -691,7 +696,37 @@ export function CanvasArea({
     renderWorkerRef.current = createRenderWorkerHost(
       (msg) => {
         if (msg.type === 'frameRendered') {
-          if (isStaleResponse(docVersionRef.current, msg.docVersion)) {
+          const canvas = contentCanvasRef.current;
+          const parent = canvas?.parentElement;
+          const currentState = stateRef.current;
+          const currentViewport = parent
+            ? { width: parent.clientWidth, height: parent.clientHeight }
+            : null;
+          const identityIsCurrent = Boolean(
+            canvas &&
+              currentViewport &&
+              workerFrameMatchesIdentity(msg, {
+                docVersion: docVersionRef.current,
+                renderRevision: workerRenderRevisionRef.current,
+                dpr: workerFrameDprRef.current,
+                fallbackRevision: workerFallbackRevisionRef.current,
+                camera: {
+                  zoom: currentState.zoom,
+                  pan: currentState.pan,
+                  rotation: currentState.cameraRotation ?? 0,
+                },
+                viewport: currentViewport,
+              }),
+          );
+          const surfaceIsCurrent = Boolean(
+            canvas &&
+              currentViewport &&
+              msg.viewport.width === currentViewport.width &&
+              msg.viewport.height === currentViewport.height &&
+              canvas.width === Math.max(1, Math.round(currentViewport.width * msg.dpr)) &&
+              canvas.height === Math.max(1, Math.round(currentViewport.height * msg.dpr)),
+          );
+          if (!identityIsCurrent || !surfaceIsCurrent) {
             redrawCoordinatorRef.current?.noteStaleWorkerResponse();
             disposeWorkerFrame(renderWorkerRef.current, msg.bitmap);
             return;
@@ -701,6 +736,7 @@ export function CanvasArea({
             workerBitmapRef.current = {
               bitmap: msg.bitmap,
               docVersion: msg.docVersion,
+              renderRevision: msg.renderRevision,
               camera: msg.camera,
               viewport: msg.viewport,
               dpr: msg.dpr,
@@ -717,7 +753,10 @@ export function CanvasArea({
       () => {
         if (!workerFailedRef.current) {
           workerFailedRef.current = true;
-          console.warn('[Varve] Render worker stopped permanently; using main-thread Canvas 2D.');
+          console.warn(
+            '[Varve] Render worker stopped permanently; using main-thread Canvas 2D.',
+            renderWorkerRef.current?.failureReason ?? 'unknown failure reason',
+          );
           requestContentDrawRef.current?.('worker-stop', 'backing-store-recovery');
         }
       },
@@ -903,6 +942,9 @@ export function CanvasArea({
       drawPendingRef,
       lastRenderedDocRef,
       docVersionRef,
+      workerRenderRevisionRef,
+      workerFrameDprRef,
+      workerFallbackRevisionRef,
       redrawCoordinatorRef,
       dirtyRectRef,
       pendingPresentRef,
@@ -917,6 +959,7 @@ export function CanvasArea({
       requestContentDrawRef,
       stateRef,
       displayDpr,
+      canvasContextRevision,
       imageCacheStamp,
       fontLoadStamp,
       editingTextNodeId: textEditTargetId,
@@ -956,10 +999,12 @@ export function CanvasArea({
     state.motion.isPlaying,
     state.motion.activeTimelineId,
     displayDpr,
+    canvasContextRevision,
     canvasSize.width,
     canvasSize.height,
     precomputedVariantCaches,
     editor.proofEnabled,
+    editor.proofConfig,
   ]);
 
   // ── requestRedraw: defence-in-depth redraw trigger ────────────────────

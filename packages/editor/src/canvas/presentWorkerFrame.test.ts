@@ -23,6 +23,7 @@ function makeArgs(overrides: {
     wb: {
       bitmap: {} as ImageBitmap,
       docVersion: 7,
+      renderRevision: 11,
       camera,
       viewport,
       dpr: overrides.bitmapDpr,
@@ -34,6 +35,7 @@ function makeArgs(overrides: {
     viewport,
     dpr: 1,
     docVersion: 7,
+    renderRevision: 11,
     frameStart: performance.now(),
     coordinator: {
       getDiagnostics: () => ({ submittedFrames: 1 }),
@@ -77,6 +79,14 @@ describe('tryPresentWorkerFrame surface matching', () => {
     args.camera = { zoom: 2, pan: { x: 0, y: 0 }, rotation: 0 };
 
     expect(tryPresentWorkerFrame(args)).toBe(false);
+  });
+
+  it('refuses a bitmap from an older render revision even when all legacy identity fields match', () => {
+    const args = makeArgs({ canvasWidth: 1000, canvasHeight: 800, bitmapDpr: 1 });
+    args.renderRevision = 12;
+
+    expect(tryPresentWorkerFrame(args)).toBe(false);
+    expect(args.compositor?.compositeRasterLayer).not.toHaveBeenCalled();
   });
 
   it('reports zero GPU items when a worker bitmap replaces a GPU drawn frame', () => {

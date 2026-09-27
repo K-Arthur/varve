@@ -7,7 +7,7 @@ const BASE_INPUTS: RenderRevisionInputs = {
   resourcesVersion: 1,
   asyncResultsVersion: 1,
   camera: { panX: 0, panY: 0, zoom: 1, rotation: 0 },
-  viewport: { width: 800, height: 600, dpr: 1 },
+  viewport: { width: 800, height: 600, dpr: 1, surfaceVersion: 0 },
 };
 
 describe('render revision tracker', () => {
@@ -38,12 +38,26 @@ describe('render revision tracker', () => {
     const surface = tracker.observe({
       ...BASE_INPUTS,
       camera: { ...BASE_INPUTS.camera, panX: 5 },
-      viewport: { ...BASE_INPUTS.viewport, dpr: 2 },
+      viewport: { ...BASE_INPUTS.viewport, dpr: 2, surfaceVersion: 1 },
     });
 
     expect(camera).toBe(first + 1);
     expect(surface).toBe(camera + 1);
     expect(tracker.invalidate()).toBe(surface + 1);
+  });
+
+  it('tracks opaque resource and async identities without numeric collisions', () => {
+    const tracker = createRenderRevisionTracker();
+    const first = tracker.observe(BASE_INPUTS);
+    const resources = tracker.observe({ ...BASE_INPUTS, resourcesVersion: 'images:2|fonts:3' });
+    const asyncResult = tracker.observe({
+      ...BASE_INPUTS,
+      resourcesVersion: 'images:2|fonts:3',
+      asyncResultsVersion: 'motion:4|media:9',
+    });
+
+    expect(resources).toBe(first + 1);
+    expect(asyncResult).toBe(resources + 1);
   });
 
   it('copies observed nested values instead of retaining mutable caller state', () => {
