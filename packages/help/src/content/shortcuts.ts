@@ -41,7 +41,7 @@ export const SHORTCUTS_REFERENCE: HelpArticle = {
     'Ctrl+Shift+R - Preview Mode',
     'Escape - Full Render Mode',
     'Ctrl+Shift+Y - Toggle Soft Proofing',
-    'Workspace switching: Ctrl+Shift+1 Design, 2 Print, 3 Draw, 4 Photo, 5 Motion, 6 Email',
+    'Workspace switcher order is Design, Print, Draw, Photo, Motion, Email; tabs are marked 1–6, and Ctrl+Shift+1…6 selects the matching workspace',
     'Ctrl+Shift+7 - Show Logo Tools in Design',
     'Ctrl+Shift+8 - Show the shared Code panel in the current workspace',
     'On macOS, use Command+Shift with the same numbers for workspace, Logo Tools, and Code actions',

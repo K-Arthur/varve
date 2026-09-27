@@ -26,9 +26,31 @@ independent verification.
 | [Stripo imported HTML limitations](https://support.stripo.email/en/articles/13376041-how-to-adapt-my-own-html-code-to-stripo) | Imported arbitrary HTML does not automatically become fully editable by its visual builder. | Keep Varve's authored custom blocks distinct from generated HTML; state editing boundaries clearly. | Does not imply Varve can or should provide arbitrary HTML round-tripping. |
 | [MJML validation](https://documentation.mjml.io/) | Email markup has structural validation and responsive components beyond ordinary canvas output. | Keep email preflight and responsive authoring integrated with Email. | Varve's compiler is its own implementation; no new dependency is proposed. |
 | [Mailchimp community report](https://www.reddit.com/r/MailChimp/comments/1njag29/how_to_find_and_edit_code_blocks_in_use_in_the/) | Several users describe custom code blocks becoming invisible or hard to edit. | Show a persistent source-block list, including visually empty blocks. | Anecdotal, self-selected report; prevalence and current vendor status are unknown. |
+| [Figma inspect guide](https://help.figma.com/hc/en-us/articles/22012921621015-Guide-to-inspecting) and [community feedback on the Inspect transition](https://forum.figma.com/ask-the-community-7/where-has-the-inspect-tab-gone-33758) | Current inspection paths vary by access and file settings. The guide documents generated snippets in Dev Mode and a separate “Copy as code” path in Design; the 2024 forum thread records confusion and complaints about losing convenient CSS inspection during the transition. | Keep Code as one clearly named, dockable panel that users can reveal from any workspace; route legacy Codegen actions to it, and expose output status and limits beside generated code. | The forum is anecdotal and describes a transition period; Figma's current guide also documents non-Dev-Mode inspection, so this is evidence of access-path complexity, not a claim that code inspection is universally gated today. |
+| [Canva Logo Maker review](https://comparelogomakers.com/reviews/canva/), [Canva SVG requirements](https://www.canva.com/help/upload-formats-requirements-variantb/), and [Canva's Affinity-import behavior](https://www.canva.com/help/sharing-export-to-canva/) | The review reports no anchor-point editing in Canva's logo editor. Canva's help documents constraints on SVG size, profile, and construction; its Affinity-import page says imported Affinity work is a static image rather than editable source layers. | Keep Logo as a native-vector workflow inside Design: point/path editing, reusable brand-project controls, variants, and transparent vector/package export remain discoverable without switching to a separate Logo mode. | The editor review is secondary and the import limits are specific to Canva's formats; they do not establish the capabilities or limits of every logo product. |
 | [Affinity community report](https://www.reddit.com/r/Affinity/comments/1wj6m5e/latest_update/) | Users report update workflows replacing custom studio layouts when defaults are overwritten. | Keep user layouts separate from built-ins; update defaults without silently replacing custom layouts. | Community report about a particular update, not an independently reproduced current defect. |
 | [W3C dragging movements](https://www.w3.org/WAI/WCAG22/Understanding/dragging-movements.html) | Dragging interactions need a single-pointer alternative. | Provide menu-based movement and sizing controls as well as drag. | Guidance must still be verified in Varve's actual UI. |
 | [React state preservation](https://react.dev/learn/preserving-and-resetting-state) | Component state follows UI-tree position and can reset when a panel is reparented. | Own durable panel presentation state explicitly across dock moves/remounts. | Does not prescribe the persistence format. |
+
+### Logo and Code migration contract
+
+These findings support keeping both capabilities visible without making either
+one a task-workspace selector. In Varve, Logo remains a registered singleton
+panel backed by the document's native vector scene and logo-project metadata;
+the Design toolbar, View menu, command palette, and `Ctrl+Shift+7` must all
+lead to the same Logo tools. Code remains a registered shared panel; its menu,
+command-palette, legacy Codegen, and `Ctrl+Shift+8` entry points must reveal
+that same panel in the current workspace. The action keys follow the six
+numbered workspace keys but never join the six-item workspace radio group.
+
+The two compatibility preference slots migrate to explicitly named layouts
+without overwriting Design settings. Applying one of those saved arrangements
+must not silently change the active workspace. The editor should describe
+generated code as an export/inspection result with its target and readiness
+state, not promise arbitrary production-ready code. Logo and Code keep their
+existing native detach-and-reattach behavior and panel state through docking.
+These are acceptance requirements; this research table does not claim that
+their implementation or all visual checks are complete.
 
 ## Repository and running-app baseline
 

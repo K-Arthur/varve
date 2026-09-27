@@ -221,11 +221,19 @@ The product taxonomy and shortcut-order decision is recorded in
 [ADR-0239](../adr/0239-six-task-workspaces-and-ordered-shortcuts.md).
 
 Logo-specific project data remains in `Document.logoProject`; invoking Logo
-Tools from another task first selects Design. Code export remains available
-through the shared Code panel without changing the active workspace. Email is
-kept separate because it has structured authored blocks, a dedicated compiler,
-responsive preview, and email-specific compatibility checks. Entering Email
-does not enable an email profile or convert the current document.
+Tools from another task first selects Design and reveals the same registered
+Logo panel. The toolbar, View menu, command palette, and shortcut all expose
+this workflow without adding a Logo radio item. Code export remains available
+through the shared registered Code panel in the current workspace; the legacy
+Codegen workspace action reveals that same surface instead of selecting a
+mode. Neither action replaces the user's document, selection, history, or
+saved layout. The competitor failure evidence and concrete Logo/Code access
+contract are recorded in
+[`workspace-customization-research-2026-09-27.md`](../audits/workspace-customization-research-2026-09-27.md).
+
+Email is kept separate because it has structured authored blocks, a dedicated
+compiler, responsive preview, and email-specific compatibility checks. Entering
+Email does not enable an email profile or convert the current document.
 
 ## Tool identity, visibility, and availability
 

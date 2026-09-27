@@ -10,11 +10,18 @@ logo design experience built on the ordinary document model. There is no
 second editor: a logo project is metadata (concepts, variants, brief,
 palette) layered over regular artboard frames.
 
+Logo is a Design workflow, not a workspace mode. The singleton Logo Tools
+panel, Design tools, and shared vector commands operate on the same document,
+selection, and history. `Ctrl+Shift+7` opens Design when needed and reveals the
+panel without replacing the user's saved Design arrangement. The six-mode
+taxonomy and ordered shortcuts are defined in
+[`workspace-system.md`](workspace-system.md) and [ADR-0239](../adr/0239-six-task-workspaces-and-ordered-shortcuts.md).
+
 ## Components
 
 | Layer | Files | Responsibility |
 |---|---|---|
-| Workspace access | Design workspace + `packages/editor/src/components/LogoPanel/` | Logo tools and brand-project workflows within Design; `Ctrl+Shift+7` opens Design and reveals Logo Tools |
+| Workflow access | Design workspace + `packages/editor/src/components/LogoPanel/` | Logo tools and brand-project workflows within Design; `Ctrl+Shift+7` opens Design and reveals the Logo Tools panel |
 | Presets | `packages/shared/src/presetRegistry.ts` (`LOGO_GROUP`) | Transparent-canvas logo presets (square/horizontal/vertical/badge/mark/favicon) |
 | Project model | `packages/scene/src/logo/logoProject.ts` | LogoProject/Concept/Variant/Brief/Palette types + pure ops + `normalizeLogoProject` |
 | Document schema | `Document.logoProject` + migration `2.11 → 2.12` | Serialization, codec normalize step |
@@ -95,9 +102,10 @@ Implemented since the original release:
   Project (brand/concept status/notes), Create (concept/variant actions),
   Vectorize (shared workflow), Typography (wordmark + glyph controls),
   Variants, Validation, Export Package. Workspace-config-backed visibility
-  persisted, command/menu/shortcut integrated. The former standalone Logo
-  shortcut remains a compatibility action that opens Design and reveals the
-  panel; `Document.logoProject` remains document-scoped.
+  persisted, command/menu/shortcut integrated. The legacy `workspaceLogo`
+  action opens Design and reveals this same panel; it does not select a Logo
+  mode or create a second editor. `Document.logoProject` remains
+  document-scoped.
 - **Vectorization** (`packages/editor/src/logo/vectorization/` + shared
   `components/Vectorize/`): presets (8), source prep (grayscale/invert/
   contrast/brightness/denoise/threshold), live preview with diagnostics,
