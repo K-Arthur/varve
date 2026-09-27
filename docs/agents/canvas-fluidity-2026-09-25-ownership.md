@@ -46,6 +46,18 @@ each file):
 - `packages/editor/src/scene/findContainingFrame.ts` and its test; committed
   drag containment receives the shared parent index while draft-document
   mutation callers keep building from their draft (continuation, 2026-09-27)
+- `scripts/perf/run-production-workload.mjs` and `scripts/perf/README.md`;
+  the production workload runner pins and records the existing Automatic/Full
+  preview preference for matched quality runs (continuation, 2026-09-27). These
+  paths also contain unrelated concurrent edits; only the quality-selection
+  and documentation hunks belong to this task.
+- `packages/editor/src/performance/presentationTiming.ts`,
+  `packages/editor/src/canvas/perfRuntime.ts`, and focused tests plus
+  `scripts/perf/productionEvidence.mjs` / its tests; report the observed rAF
+  lower-bound interval and enforce p99 sample sufficiency before using a
+  tail-percentile result (continuation, 2026-09-27). These measurement files
+  contain concurrent edits; only the interval-provenance and p95/p99
+  qualification additions belong to this task.
 - `packages/editor/src/context/types.ts` (deprecation notes only)
 - `packages/scene/src/editorSceneScope.ts` and its test
 - `packages/shared/src/viewport.ts`, `index.ts`, `viewportProjector.test.ts` (new)
@@ -116,3 +128,77 @@ No branch switch, stash, reset, clean, broad `git add`, or full-index commit is
 authorized. Commits use `git commit -- <owned paths>` so the other task's
 staged index entries remain staged and untouched. Browser work uses isolated
 ports (1447 dev, 1448/1449 preview) and the heavy-task lease.
+
+## Continuation ownership snapshot (2026-09-27)
+
+The task remains on `master`. Its original base above is retained for history;
+the checkout advanced to `7bc6e7f0ca612678741e28fe0285a0eaeb5b1d1c` during this
+continuation. At that snapshot, 20 index entries belong to concurrent plugin
+work (including a staged removal of plugin evidence/tests and staged edits to
+the plugin manager, manifests, examples, and crash recovery). The index remains
+untouched by this task. The worktree also contains separate GPU/WebGL2, design
+system, plugin, and website changes. Do not use broad staging or infer
+ownership from the latest commit alone.
+
+Shared-file boundaries for this continuation:
+
+- `packages/editor/src/CanvasArea.tsx`, `canvas/renderPipeline.ts`, and
+  `render/workerHost.ts` contain concurrent renderer/qualification edits. The
+  fluidity-owned changes are the render-revision propagation, stale response
+  admission, bounded collection/response fallback, and worker retained-frame
+  identity. Renderer selection, WebGL2 qualification, and attribution edits
+  remain with the concurrent GPU work.
+- `scripts/perf/run-production-workload.mjs`, `scripts/perf/README.md`,
+  `scripts/perf/productionEvidence.mjs` and tests,
+  `packages/editor/src/canvas/perfRuntime.ts`, and `docs/perf/ledger.md` have
+  concurrent edits. This task owns preview-quality selection/reporting,
+  p95/p99 sample qualification, rAF-bound response targets,
+  brush/large-tip/eraser profiles, and canvas-fluidity ledger entries. Keep all
+  renderer qualification and other unrelated hunks intact.
+- `docs/architecture/render-pipeline.md` and the website Performance/Settings
+  pages also contain GPU or plugin copy. Only the stale-pixel contract,
+  refinement limits, verified product settings, screenshot figure, and browser
+  deployment qualification belong to this task.
+
+The existing source snapshot is
+`/tmp/varve-fluidity-baseline-20260927-cba8721/{base,candidate}`. Its exact
+manifests and build identity describe the captured `cba8721` base and candidate;
+later master commits are outside that pair. The parent-index snapshot is
+`/tmp/varve-fluidity-parent-index-20260927-18bb550fa/{baseline,candidate}`.
+Neither snapshot has been rewritten to claim it represents the current
+`7bc6e7f0` checkout.
+
+The authoritative-redraw guard is present in the current worktree render path;
+the earlier staged-removal versus worktree-restoration conflict was resolved
+by preserving the worktree version. No staged renderer hunk is owned by this
+task. The independent full-redraw oracle remains required for acceptance.
+
+The heavy-task lease is still owned by PID `638166` (`m2: final validation
+sequence`, started `2026-09-27T11:18:31Z`) while its Chromium canvas suite is
+active. Fluidity canvas/settings/native/benchmark runs must wait behind the
+lease; do not reclaim it based on age. The pending native soak uses a fresh
+debug Tauri/WebKitGTK build and labels its WebDriver DOM events synthetic.
+
+## Continuation update (2026-09-27)
+
+The shared branch is still `master`; the latest observed HEAD is
+`36fbb1513c283be7ac008dd45c9142678cacd94e`. This task has separate commits
+`07370c0c8`, `d4f6ea90e`, `18bb550fa`, and `4a2ad4d42` for the validation-rule
+repair, evidence refresh, committed containment index, and shared occurrence
+geometry. The index remains unchanged and contains 20 plugin-task paths.
+
+The worker-authority and measurement/native/website changes remain in the
+working tree, with the same shared-file boundaries above. The latest focused
+render/geometry run passed 60 tests across seven files; the native workflow
+and production evidence Node suites passed 11 tests; current docs, emoji,
+token, radius, spacing, and sizing audits pass. `verify:plan` still selects a
+full-suite escalation because the shared checkout includes workspace/toolchain
+and validation-infrastructure changes. The current browser pixel oracle,
+current website screenshots/builds, fresh native soak, paired workload rounds,
+and full gate are not complete.
+
+The narrow/wide drag repro is now available through `--width` and `--height`
+in `run-production-workload.mjs`. The 1024×768 / 1920×1080 comparison has not
+run. Coupler.io reported zero datasets in the connected workspace; no private
+usage or feedback data was used. Public complaint sources were rechecked on
+2026-09-27 and are kept as symptom evidence in the fluidity audit.

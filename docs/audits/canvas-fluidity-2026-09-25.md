@@ -8,6 +8,13 @@ paths of the editor canvas, and correctness of retained pixels.
 [canvas-navigation-overhaul-2026-09-17](canvas-navigation-overhaul-2026-09-17.md),
 [`docs/perf/2026-09-21-canvas-responsiveness-remediation.md`](../perf/2026-09-21-canvas-responsiveness-remediation.md).
 
+**Continuation status (2026-09-27):** the earlier browser measurements above
+are historical results for their recorded builds. Worker identity/fallback and
+transform-aware geometry changes are now in the working tree, with focused
+unit checks passing; the current browser pixel oracle, matched performance
+rounds, website screenshot/build checks, and fresh native soak are still
+pending. Do not treat the prior browser pass as validation of this continuation.
+
 ## Summary
 
 The canvas renderer was rarely the bottleneck. Profiles of production builds
@@ -495,7 +502,7 @@ Decisions taken from this pass:
 - **One residual oracle difference** at DPR 1.5, mid-gesture only (see Pixel
   correctness).
 
-## Remaining work
+## Follow-up status
 
 1. Transform-only changes now share one changed-node classification and a
    bounded occurrence-geometry snapshot across name labels, accessibility,
@@ -513,25 +520,20 @@ Decisions taken from this pass:
    capture (~190 ms at 10k nodes). Moving it off the interaction lane or
    making it incremental needs a safe design; memoizing by identity was
    rejected (see Confirmed root causes).
-4. `findContainingFrameInDoc` still walks the page and builds a parent map on
-   every drag move. The drag caller passes the committed document and could
-   use `committedParentIndex`; this pass has not yet changed that call site.
+4. The committed drag-containment caller now reuses `committedParentIndex`;
+   draft-document mutation callers still build their own index so they read
+   current in-progress topology. The focused containment tests pass, but the
+   browser drag profile has not been repeated.
 5. Print-mode (publishing) scopes still resolve per pan frame because page
    culling depends on the viewport.
-6. `commitPreparedFragment` returns the inserted ids by reading them out of
-   its state updater. When React defers that updater to render, the call
-   returns an empty list, so the "Pasted N layers" announcement and the
-   import report's committed ids are skipped for that paste. Found while
-   fixing the paste selection above; read from the code, not separately
-   tested, and left unchanged because a synchronous result needs the
-   insertion computed outside the updater.
-7. The render worker should receive the board colour and paint it before
-   replaying, so blended scenes can return to the worker. Until then they
-   stay on the main thread (follow-up pass).
-8. At rest, effects scenes can keep a stale, reprojected worker bitmap that no
-   fresh frame replaces (`effects-heavy`, follow-up pass). Per this repo's
-   rule, every reason the worker might decline or drop a frame must be
-   decided before the frame picks its branch.
+6. The deferred paste-updater issue was fixed in
+   `a5a4eaf6c` by computing and returning inserted IDs outside React's updater.
+7. Blended scenes remain on the supported main-thread path; expanding worker
+   blend capabilities is outside this task and is not needed for correctness.
+8. Render-revision identity, bounded image collection, stale-response disposal,
+   and authoritative fallback are implemented in the current worktree. The
+   effects-heavy browser oracle still needs to verify that a stale reprojected
+   bitmap is replaced and matches an independent full redraw.
 9. `ExportDialog` has a "save focus" effect that reads `document.activeElement`
    through its `document` prop (the scene document, which shadows the
    global), so it stores nothing. Nothing reads that ref, so there is no
@@ -565,10 +567,14 @@ The complaint-to-reproduction matrix is deliberately explicit about gaps:
 | User-reported failure | Varve reproduction/evidence | Status in this pass |
 |---|---|---|
 | Linux touchpad pan nearly stalls on a large text-heavy file ([Penpot #5063](https://github.com/penpot/penpot/issues/5063), Sep 5 2024) | 10k mostly-offscreen pan and browser wheel traces already exist; real touchpad events do not | Input class is covered synthetically; physical trackpad still needed |
-| Drag lag grows with viewport width ([Excalidraw #7846](https://github.com/excalidraw/excalidraw/issues/7846), Apr 3 2024) | Existing paired canvas captures used 1440×900; the narrow/wide viewport pair is not yet run | Open local reproduction gap |
-| Brush lag on a small 500×500 file ([Adobe Community](https://community.adobe.com/questions-712/photoshop-2025-brush-lag-1174223), Nov 27 2024) | The existing real-workflow spec includes one short paint stroke on imported content, but does not separate first-stroke feedback, steady-state handler cost, and presentation | Brush profile still required; no stabilization change is justified |
+| Drag lag grows with viewport width ([Excalidraw #7846](https://github.com/excalidraw/excalidraw/issues/7846), Apr 3 2024) | Production workload runner now accepts matched `--width`/`--height` runs on the same fixture; the 1024×768 vs 1920×1080 pair is not yet measured | Local reproduction is available; paired result pending |
+| Brush lag on a small 500×500 file ([Adobe Community](https://community.adobe.com/questions-712/photoshop-2025-brush-lag-1174223), Nov 27 2024) | `small` fixture now has separate cold-first-stroke and warmed `brush`/`brush-large-tip` profiles; pointer traces are trusted CDP input but do not carry physical pressure | Browser profile pending; pressure-device evidence unavailable; no stabilization change is justified |
 | Effects remain blurry or smear during navigation | `effects-heavy` differed from the forced main-thread oracle by 352,935 pixels (maximum channel delta 184) at a settled camera; the 13-image transfer-budget test covers a separate refusal path | Revision/fallback fix is implemented in the working copy; focused browser oracle run is queued behind an existing live heavy-task lease |
 | Long-session writing slows after storage errors ([Excalidraw #7341](https://github.com/excalidraw/excalidraw/issues/7341), Nov 25 2023) | Varve's canonical history capture was measured near 190 ms on a 10k-node document; a 100-cycle Tauri open/edit/navigate/brush/save/close runner now exists, but has not run | Serialization cost is confirmed; session-level memory/save degradation is still unmeasured |
+
+No Coupler.io dataset was available in the connected workspace on 2026-09-27,
+so this pass uses public first-person reports and Varve's own local artifacts;
+it does not claim customer telemetry or product-feedback coverage.
 
 The external reports have different causes and evidentiary strength. In the
 Krita Linux/pen thread, the user reported that renderer and smoothing changes
@@ -614,14 +620,40 @@ memory/load samples. Its pointer/wheel events are explicitly DOM-synthetic;
 physical pen/touchpad and OS-trusted input remain gaps. The fresh binary and
 100-cycle run have not yet been executed.
 
-Focused render unit tests pass (50 cases across revision tracking, worker host,
-submission fallback, presentation identity, and render-pipeline baseline). The
-committed containment-index follow-up passes 25 containment/parent-index tests;
-its draft mutation call sites still use the local draft-index path. A
-prior `pnpm verify:plan` selected a full-gate escalation because this shared
-working tree also contains workspace and validation-infrastructure changes;
-`pnpm verify:affected` reported the plan and refused to run without
-escalation. The mandated full gate was attempted on the mixed tree and failed
-in unrelated concurrent Biome, architecture/dead-code, and editor-corpus
-typecheck lanes; focused validation and the browser oracle remain necessary
-before claiming completion.
+Focused render unit tests pass (52 cases across revision tracking, worker host,
+submission fallback and timeout ownership, presentation identity, and
+render-pipeline baseline). The production-evidence analyzer tests pass 8/8;
+the native workflow runner tests pass 3/3. The editor package typecheck and
+Astro check pass on the current checkout. The committed containment-index
+follow-up passes 25 containment/parent-index tests; its draft mutation call
+sites still use the local draft-index path. On 2026-09-27, the current
+`pnpm verify:plan` selected a full-gate escalation for workspace/toolchain and
+validation-infrastructure changes plus a high-risk dependency upgrade across
+the shared checkout. `pnpm verify:affected` printed the full plan and refused
+to run without escalation. An earlier full-gate attempt on the mixed tree
+failed in concurrent Biome, architecture/dead-code, and editor-corpus
+typecheck lanes. The current escalated full gate, the browser pixel oracle,
+website screenshot builds, and the fresh native soak remain outstanding.
+
+### Validation continuation — 2026-09-27 (current checkout)
+
+Since the earlier continuation note, the focused renderer/geometry suite passes
+60 tests across seven files, and the input/brush suite passes 152 tests across
+seven files. The native workflow and production-evidence Node tests pass 11/11;
+`pnpm typecheck:e2e` passes. Docs, emoji, token, radius, spacing, and sizing
+audits pass. `node scripts/audit-architecture.mjs --ci` exits 0 with 14 distinct
+cycles and zero layer violations; `node scripts/audit-health.mjs` reports no
+new CanvasArea imports. These are code-health results, not latency or visual
+acceptance evidence.
+
+The current planner still selects a full-gate escalation, and
+`pnpm verify:affected` requires that escalation before running affected lanes.
+The previous full-gate attempt on this mixed checkout failed in concurrent
+work's Biome, architecture/dead-code, and editor-corpus typecheck lanes. A new
+full gate has not yet completed. A separate active heavy-task lease is held by
+another canvas E2E run, so the browser pixel oracle, app-settings screenshot,
+website base-path builds, fresh Tauri build, native workflow soak, and matched
+performance rounds remain unrun. No before/after latency improvement or warm
+refinement target attainment is claimed. The pending website settings image is
+not yet evidence and must be replaced with an inspected application capture
+before its page is committed.
