@@ -7,6 +7,7 @@ import { EditorProvider, useEditor } from '../context';
 import { getLayoutStore, resetLayoutStoreCache, setLayoutStore } from '../workspace/layoutVariants';
 import {
   getEffectiveWorkspaceConfig,
+  getWorkspacePreferences,
   resetWorkspacePreferenceCache,
 } from '../workspace/workspaceStore';
 import { ManageLayoutsDialog } from './ManageLayoutsDialog';
@@ -19,11 +20,12 @@ vi.mock('./PromptDialog', () => ({
 
 function renderDialogWithEditor() {
   let editor: ReturnType<typeof useEditor> | undefined;
+  const onClose = vi.fn();
   function Fixture() {
     editor = useEditor();
     return (
       <>
-        <ManageLayoutsDialog open onClose={() => {}} />
+        <ManageLayoutsDialog open onClose={onClose} />
         <button type="button" onClick={() => editor?.toggleLeftPanel()}>
           test toggle left
         </button>
@@ -35,10 +37,11 @@ function renderDialogWithEditor() {
       <Fixture />
     </EditorProvider>,
   );
-  return () => {
+  const getEditor = () => {
     if (!editor) throw new Error('editor context was not mounted');
     return editor;
   };
+  return Object.assign(getEditor, { onClose });
 }
 
 describe('ManageLayoutsDialog', () => {
@@ -48,9 +51,10 @@ describe('ManageLayoutsDialog', () => {
     resetLayoutStoreCache();
   });
 
-  it('applies a built-in template to the live arrangement', async () => {
+  it('enters temporary focus mode without saving a hidden-panel arrangement', async () => {
     const getEditor = renderDialogWithEditor();
     await waitFor(() => expect(getEditor()).toBeDefined());
+    const savedPreferences = getWorkspacePreferences();
 
     const dialog = screen.getByRole('dialog');
     const focusRow = within(dialog)
@@ -58,10 +62,13 @@ describe('ManageLayoutsDialog', () => {
       .closest<HTMLElement>('.workspace-layouts__row')!;
     fireEvent.click(within(focusRow).getByRole('button', { name: 'Apply' }));
 
-    await waitFor(() => expect(getEditor().state.leftPanelVisible).toBe(false));
-    expect(getEditor().state.rightPanelVisible).toBe(false);
-    expect(getEffectiveWorkspaceConfig('design').statusBar).toBe(false);
-    expect(getEffectiveWorkspaceConfig('design').tabStrip).toBe(false);
+    await waitFor(() => expect(getEditor().state.distractionFreeMode).toBe(true));
+    expect(getEditor().state.leftPanelVisible).toBe(true);
+    expect(getEditor().state.rightPanelVisible).toBe(true);
+    expect(getEffectiveWorkspaceConfig('design').statusBar).toBe(true);
+    expect(getEffectiveWorkspaceConfig('design').tabStrip).toBe(true);
+    expect(getWorkspacePreferences()).toEqual(savedPreferences);
+    expect(getEditor.onClose).toHaveBeenCalledTimes(1);
   });
 
   it('saves the current arrangement and marks it Current when applied', async () => {

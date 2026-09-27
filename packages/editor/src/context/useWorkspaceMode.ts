@@ -275,13 +275,23 @@ export function useWorkspaceMode(
   const applyLayoutArrangement = useCallback(
     (variant: WorkspaceLayoutVariant): boolean => {
       if (!enabled) return false;
-      const mode = state.workspaceMode;
+      const currentState = latestState.current;
+      const mode = currentState.workspaceMode;
       if (
-        !resolvePendingWorkspaceInteractions(state, patch, toolRef, announcerRef, {
+        !resolvePendingWorkspaceInteractions(currentState, patch, toolRef, announcerRef, {
           ignoreModal: true,
         })
       ) {
         return false;
+      }
+      if (variant.id === 'builtin-focus-canvas') {
+        // Focus canvas is a temporary presentation state. Do not turn its
+        // hidden-panel projection into saved preferences or named-layout data.
+        if (!currentState.distractionFreeMode) patch({ distractionFreeMode: true });
+        announcerRef.current?.announce(
+          'Focus canvas mode on. Your saved workspace arrangement is unchanged.',
+        );
+        return true;
       }
       const payload = sanitizeLayoutPayload(variant.payload);
       // Replace the mode's arrangement, then project it through the one
@@ -301,7 +311,7 @@ export function useWorkspaceMode(
       );
       return true;
     },
-    [enabled, state.workspaceMode, patch, toolRef, announcerRef],
+    [enabled, patch, toolRef, announcerRef],
   );
 
   const restoreLastResetLayout = useCallback((): boolean => {

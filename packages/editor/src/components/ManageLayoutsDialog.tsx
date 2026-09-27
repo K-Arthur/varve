@@ -6,6 +6,8 @@
  * - Apply immediately replaces the active workspace's arrangement (panel
  *   visibility/widths, inspector tabs, status sections, toolbar tools, and
  *   chrome) and persists. It never switches workspace mode.
+ * - Focus canvas enters temporary distraction-free mode without saving a
+ *   hidden-panel arrangement.
  * - "Save current…" never overwrites: a duplicate name is an error.
  * - Resetting a workspace captures a local snapshot; it can be restored here
  *   until the next reset.
@@ -78,12 +80,16 @@ export function ManageLayoutsDialog({ open, onClose }: { open: boolean; onClose:
       setError('');
       setStatus('');
       if (editor.applyWorkspaceLayout(variant)) {
+        if (variant.id === 'builtin-focus-canvas') {
+          onClose();
+          return;
+        }
         setStatus(`Applied “${variant.name}” to ${WORKSPACE_LABELS[mode]}.`);
       } else {
         setError('This layout could not be applied.');
       }
     },
-    [editor, mode],
+    [editor, mode, onClose],
   );
 
   const handleSaveCurrent = useCallback(() => {
@@ -266,7 +272,9 @@ export function ManageLayoutsDialog({ open, onClose }: { open: boolean; onClose:
             <div key={variant.id} className="workspace-layouts__row">
               <span className="workspace-layouts__name">
                 {variant.name}
-                {isLayoutVariantApplied(variant, mode) && (
+                {(variant.id === 'builtin-focus-canvas'
+                  ? editor.state.distractionFreeMode
+                  : isLayoutVariantApplied(variant, mode)) && (
                   <span className="workspace-layouts__badge">Current</span>
                 )}
               </span>

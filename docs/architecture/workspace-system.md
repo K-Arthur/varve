@@ -431,10 +431,11 @@ there is still exactly one resolver and one projection.
   mode's built-in defaults, so a layout saved before a new built-in tool
   shipped still reveals that tool when applied. Captured payloads are
   re-sanitized on read and apply.
-- **Apply replaces, and never switches mode.** Applying a variant to the
-  active mode replaces that mode's arrangement (preferences are not merged
-  with leftover overrides); `Default` is therefore a one-click mode reset and
-  records a `clearedAt` event. The variant's `sourceMode` is informational.
+- **Persistent Apply replaces, and never switches mode.** Applying a saved
+  layout to the active mode replaces that mode's arrangement (preferences are
+  not merged with leftover overrides); `Default` is therefore a one-click
+  mode reset and records a `clearedAt` event. The variant's `sourceMode` is
+  informational. `Focus canvas` is the temporary exception described below.
   `applyWorkspaceLayout` on the editor context routes through
   `applyWorkspaceConfig`, so panel booleans, overlays, and the settings mirror
   stay in sync; `emitWorkspaceLayoutApplied` lets the resize hooks adopt the
@@ -442,9 +443,11 @@ there is still exactly one resolver and one projection.
   mode/global default).
 - **Built-in templates are recovery vocabulary**: `Default` (empty payload —
   reset), `Every panel` (reveals every registered panel), and `Focus canvas`
-  (hides every panel plus the status bar and tab strip, keeping the floating
-  toolbar). Built-ins cannot be renamed, updated, or deleted; duplicating one
-  creates an editable user variant.
+  (enters temporary distraction-free mode and leaves saved visibility and
+  chrome preferences untouched). Focus canvas exits through the on-canvas
+  return control. The other built-ins apply persistent arrangements. Built-ins
+  cannot be renamed, updated, or deleted; duplicating one creates an editable
+  user variant.
 - **Resets leave a snapshot.** `resetWorkspaceToDefault` /
   `resetAllWorkspacesToDefaults` capture the pre-reset preferences into
   `resetSnapshot` before discarding them. Manage Layouts offers Restore,
