@@ -15,7 +15,9 @@
 
 import { type PanelSize, tryGetPanelDefinition } from '../panelRegistry';
 import {
+  createCanvasNode,
   createPanelInstanceRef,
+  DOCK_LAYOUT_SCHEMA_VERSION,
   type DockLayout,
   type DockNode,
   type DockSplitDirection,
@@ -49,6 +51,113 @@ export function createWindow(
   id: WorkspaceWindowId,
 ): WorkspaceWindowLayout {
   return { id, role, dockRoot: createEmptyNode(`root-${id}`) };
+}
+
+/** Default single-window layout: one protected central canvas anchor. */
+export function createDefaultDockLayout(): DockLayout {
+  return {
+    schemaVersion: DOCK_LAYOUT_SCHEMA_VERSION,
+    windows: [{ id: 'main', role: 'primary', dockRoot: createCanvasNode() }],
+  };
+}
+
+/**
+ * Upgrade the original panel-only tree schema by retaining its panel tree
+ * beside one central canvas anchor. The conversion is idempotent and rejects
+ * malformed layouts instead of guessing at lost panel ownership.
+ */
+export function migrateDockLayoutToCanvas(layout: DockLayout): DockLayout {
+  if (layout.schemaVersion === DOCK_LAYOUT_SCHEMA_VERSION) {
+    const violations = validateDockLayout(layout);
+    if (violations.length > 0) throw new Error(`Invalid dock layout: ${violations[0]}`);
+    return layout;
+  }
+  if (layout.schemaVersion !== 1) throw new Error('Unsupported dock layout version');
+  if (validateDockLayout(layout).length > 0) throw new Error('Invalid legacy dock layout');
+
+  let primaryCount = 0;
+  const windows = layout.windows.map((window) => {
+    if (window.role !== 'primary') return window;
+    primaryCount += 1;
+    const canvases = findCanvasNodes(window.dockRoot);
+    if (canvases.length > 1) throw new Error('Legacy layout contains multiple canvas anchors');
+    if (canvases.length === 1) return window;
+    const root =
+      window.dockRoot.kind === 'empty'
+        ? createCanvasNode(newId())
+        : {
+            kind: 'split' as const,
+            id: newId(),
+            direction: 'row' as const,
+            ratio: 0.25,
+            first: window.dockRoot,
+            second: createCanvasNode(newId()),
+          };
+    return { ...window, dockRoot: root };
+  });
+  if (primaryCount !== 1) throw new Error('Legacy layout must have one primary window');
+
+  const migrated = { ...layout, schemaVersion: DOCK_LAYOUT_SCHEMA_VERSION, windows };
+  const violations = validateDockLayout(migrated);
+  if (violations.length > 0) throw new Error(`Migrated dock layout is invalid: ${violations[0]}`);
+  return migrated;
+}
+
+function findCanvasNodes(root: DockNode): DockNode[] {
+  const canvases: DockNode[] = [];
+  const seen = new WeakSet<object>();
+  const pending: unknown[] = [root];
+  let visited = 0;
+  while (pending.length > 0 && visited < MAX_DOCK_NODES) {
+    const node = pending.pop();
+    if (typeof node !== 'object' || node === null || seen.has(node)) continue;
+    seen.add(node);
+    visited += 1;
+    const dockNode = node as DockNode;
+    if (dockNode.kind === 'canvas') canvases.push(dockNode);
+    else if (dockNode.kind === 'split') pending.push(dockNode.first, dockNode.second);
+  }
+  return canvases;
+}
+
+/** Collect panel references without recursion or revisiting malformed cycles. */
+function collectPanelInstances(root: DockNode): PanelInstanceRef[] {
+  const panels: PanelInstanceRef[] = [];
+  const seen = new WeakSet<object>();
+  const pending: unknown[] = [root];
+  let visited = 0;
+  while (pending.length > 0 && visited < MAX_DOCK_NODES) {
+    const node = pending.pop();
+    if (typeof node !== 'object' || node === null || seen.has(node)) continue;
+    seen.add(node);
+    visited += 1;
+    const dockNode = node as DockNode;
+    if (dockNode.kind === 'panel') {
+      panels.push({
+        instanceId: dockNode.panelInstanceId,
+        panelTypeId: dockNode.panelTypeId,
+      });
+    } else if (dockNode.kind === 'tabs' && Array.isArray(dockNode.panels)) {
+      panels.push(...dockNode.panels);
+    } else if (dockNode.kind === 'split') {
+      pending.push(dockNode.first, dockNode.second);
+    }
+  }
+  return panels;
+}
+
+function insertPanelBesideCanvas(root: DockNode, panel: PanelInstanceRef): DockNode | null {
+  const canvas = findCanvasNodes(root)[0];
+  if (!canvas) return null;
+  const split = splitHost(root, canvas.id, panel, 'row', 0.72, newId());
+  if (split.kind !== 'split') return null;
+  // Keep the canvas as the larger pane while placing new panels to its left.
+  return {
+    ...split,
+    ratio: 1 - split.ratio,
+    first: split.second,
+    second: split.first,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -101,6 +210,9 @@ export function listPanelInstances(root: DockNode): PanelInstanceRef[] {
 /** Minimum dimensions required by the registered panels below a node. */
 export function getDockNodeMinimumSize(root: DockNode): PanelSize {
   switch (root.kind) {
+    case 'canvas':
+      // The editor's canvas remains a fixed central surface at every dock size.
+      return { width: 320, height: 240 };
     case 'empty':
       return { width: 0, height: 0 };
     case 'panel': {
@@ -570,6 +682,8 @@ export function validateDockTree(root: DockNode): string[] {
         checkPanelRef({ instanceId: node.panelInstanceId, panelTypeId: node.panelTypeId });
         break;
       }
+      case 'canvas':
+        break;
       case 'empty':
         break;
       default:
@@ -604,25 +718,37 @@ export function validateDockTree(root: DockNode): string[] {
  */
 export function validateDockLayout(layout: DockLayout): string[] {
   const violations: string[] = [];
-  if (layout.schemaVersion !== 1) {
+  if (layout.schemaVersion !== 1 && layout.schemaVersion !== DOCK_LAYOUT_SCHEMA_VERSION) {
     violations.push(`unsupported schema version ${layout.schemaVersion}`);
   }
   const seenInstances = new Set<string>();
   const seenWindows = new Set<string>();
+  const panelRefsByInstance = new Map<string, PanelInstanceRef>();
+  let primaryWindows = 0;
   if (layout.windows.length > MAX_DOCK_WINDOWS) {
     violations.push(`layout exceeds ${MAX_DOCK_WINDOWS} windows`);
   }
   for (const window of layout.windows) {
     if (seenWindows.has(window.id)) violations.push(`duplicate window id '${window.id}'`);
     seenWindows.add(window.id);
+    const canvasCount = findCanvasNodes(window.dockRoot).length;
+    if (window.role === 'primary') {
+      primaryWindows += 1;
+      if (layout.schemaVersion === DOCK_LAYOUT_SCHEMA_VERSION && canvasCount !== 1) {
+        violations.push(`primary window '${window.id}' must contain exactly one canvas anchor`);
+      }
+    } else if (layout.schemaVersion === DOCK_LAYOUT_SCHEMA_VERSION && canvasCount !== 0) {
+      violations.push(`auxiliary window '${window.id}' cannot contain a canvas anchor`);
+    }
     const hostKind = window.role === 'primary' ? 'primary-sidebar' : 'auxiliary-window';
     const windowViolations = validateDockTree(window.dockRoot);
     violations.push(...windowViolations.map((v) => `window '${window.id}': ${v}`));
-    for (const panel of listPanelInstances(window.dockRoot)) {
+    for (const panel of collectPanelInstances(window.dockRoot)) {
       if (seenInstances.has(panel.instanceId)) {
         violations.push(`panel instance '${panel.instanceId}' hosted in multiple windows`);
       }
       seenInstances.add(panel.instanceId);
+      panelRefsByInstance.set(panel.instanceId, panel);
       const definition = tryGetPanelDefinition(panel.panelTypeId);
       if (definition && !definition.allowedHosts.includes(hostKind)) {
         violations.push(
@@ -631,9 +757,12 @@ export function validateDockLayout(layout: DockLayout): string[] {
       }
     }
   }
+  if (layout.schemaVersion === DOCK_LAYOUT_SCHEMA_VERSION && primaryWindows !== 1) {
+    violations.push('layout must contain exactly one primary window');
+  }
   const typeCounts = new Map<PanelTypeId, number>();
   for (const instanceId of seenInstances) {
-    const def = findInstanceDefinition(layout, instanceId);
+    const def = panelRefsByInstance.get(instanceId);
     if (!def) continue;
     const count = (typeCounts.get(def.panelTypeId) ?? 0) + 1;
     typeCounts.set(def.panelTypeId, count);
@@ -643,17 +772,6 @@ export function validateDockLayout(layout: DockLayout): string[] {
     }
   }
   return violations;
-}
-
-function findInstanceDefinition(
-  layout: DockLayout,
-  instanceId: string,
-): { panelTypeId: PanelTypeId } | undefined {
-  for (const window of layout.windows) {
-    const found = listPanelInstances(window.dockRoot).find((p) => p.instanceId === instanceId);
-    if (found) return found;
-  }
-  return undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -669,15 +787,26 @@ export function addPanelToWindow(
   const window = layout.windows.find((w) => w.id === windowId);
   if (!window) return { layout, instanceId: '' };
   const ref = createPanelInstanceRef(panelTypeId);
-  const root =
-    window.dockRoot.kind === 'empty'
-      ? ({
-          kind: 'panel',
-          id: `panel-${ref.instanceId}`,
-          panelInstanceId: ref.instanceId,
-          panelTypeId: ref.panelTypeId,
-        } as DockNode)
-      : addToTabGroup(window.dockRoot, window.dockRoot.id, ref);
+  let root: DockNode;
+  if (window.dockRoot.kind === 'empty') {
+    root = {
+      kind: 'panel',
+      id: `panel-${ref.instanceId}`,
+      panelInstanceId: ref.instanceId,
+      panelTypeId: ref.panelTypeId,
+    };
+  } else {
+    const besideCanvas = insertPanelBesideCanvas(window.dockRoot, ref);
+    if (besideCanvas) {
+      root = besideCanvas;
+    } else {
+      const firstInstance = listPanelInstances(window.dockRoot)[0];
+      const hostId = firstInstance
+        ? findPanelInstance(window.dockRoot, firstInstance.instanceId)?.hostNodeId
+        : undefined;
+      root = hostId ? addToTabGroup(window.dockRoot, hostId, ref) : window.dockRoot;
+    }
+  }
   const next = layout.windows.map((w) => (w.id === windowId ? { ...w, dockRoot: root } : w));
   return { layout: { ...layout, windows: next }, instanceId: ref.instanceId };
 }
@@ -711,15 +840,26 @@ export function movePanelBetweenWindows(
   const target = withoutSource.find((w) => w.id === targetWindowId);
   if (!target) return { layout, moved: false };
 
-  const root =
-    target.dockRoot.kind === 'empty'
-      ? ({
-          kind: 'panel',
-          id: `panel-${ref.instanceId}`,
-          panelInstanceId: ref.instanceId,
-          panelTypeId: ref.panelTypeId,
-        } as DockNode)
-      : addToTabGroup(target.dockRoot, target.dockRoot.id, ref);
+  let root: DockNode;
+  if (target.dockRoot.kind === 'empty') {
+    root = {
+      kind: 'panel',
+      id: `panel-${ref.instanceId}`,
+      panelInstanceId: ref.instanceId,
+      panelTypeId: ref.panelTypeId,
+    };
+  } else {
+    const besideCanvas = insertPanelBesideCanvas(target.dockRoot, ref);
+    if (besideCanvas) {
+      root = besideCanvas;
+    } else {
+      const firstInstance = listPanelInstances(target.dockRoot)[0];
+      const hostId = firstInstance
+        ? findPanelInstance(target.dockRoot, firstInstance.instanceId)?.hostNodeId
+        : undefined;
+      root = hostId ? addToTabGroup(target.dockRoot, hostId, ref) : target.dockRoot;
+    }
+  }
 
   const windows = withoutSource.map((w) =>
     w.id === targetWindowId ? { ...w, dockRoot: root } : w,

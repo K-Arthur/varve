@@ -14,12 +14,14 @@ import {
   addPanelToWindow,
   addToTabGroup,
   clampRatio,
+  createDefaultDockLayout,
   createWindow,
   deserializeDockTree,
   findPanelInstance,
   getDockNodeMinimumSize,
   insertBeside,
   listPanelInstances,
+  migrateDockLayoutToCanvas,
   migrateSidebarPreferences,
   movePanelBetweenWindows,
   movePanelToHost,
@@ -31,7 +33,12 @@ import {
   validateDockLayout,
   validateDockTree,
 } from '../dockOps';
-import type { DockLayout, DockNode, PanelInstanceRef } from '../dockTypes';
+import {
+  createCanvasNode,
+  type DockLayout,
+  type DockNode,
+  type PanelInstanceRef,
+} from '../dockTypes';
 
 beforeEach(() => {
   resetPanelRegistry();
@@ -638,5 +645,129 @@ describe('dock ops: sidebar migration', () => {
       expect(tree.ratio).toBeGreaterThan(0);
       expect(tree.ratio).toBeLessThan(1);
     }
+  });
+});
+
+describe('dock ops: protected central canvas', () => {
+  it('creates a versioned single-window layout with a 320px canvas floor', () => {
+    const layout = createDefaultDockLayout();
+    expect(layout.schemaVersion).toBe(2);
+    expect(validateDockLayout(layout)).toEqual([]);
+    const canvas = layout.windows[0]?.dockRoot;
+    expect(canvas?.kind).toBe('canvas');
+    expect(canvas && getDockNodeMinimumSize(canvas)).toEqual({ width: 320, height: 240 });
+  });
+
+  it('keeps the canvas anchor when adding and moving a panel around it', () => {
+    const added = addPanelToWindow(createDefaultDockLayout(), 'main', 'layers');
+    expect(validateDockLayout(added.layout)).toEqual([]);
+
+    const moved = movePanelToHost(added.layout, added.instanceId, 'main', {
+      kind: 'split',
+      targetNodeId: 'canvas-primary',
+      direction: 'column',
+      side: 'after',
+      targetRatio: 0.7,
+    });
+    expect(moved.ok).toBe(true);
+    if (!moved.ok) return;
+    expect(validateDockLayout(moved.layout)).toEqual([]);
+    expect(listPanelInstances(moved.layout.windows[0]!.dockRoot)).toEqual([
+      { instanceId: added.instanceId, panelTypeId: 'layers' },
+    ]);
+  });
+
+  it('migrates a panel-only v1 layout without losing instances and is idempotent', () => {
+    const legacy: DockLayout = {
+      schemaVersion: 1,
+      windows: [
+        {
+          id: 'main',
+          role: 'primary',
+          dockRoot: {
+            kind: 'panel',
+            id: 'layers-host',
+            panelInstanceId: 'legacy-layers',
+            panelTypeId: 'layers',
+          },
+        },
+      ],
+    };
+    const migrated = migrateDockLayoutToCanvas(legacy);
+    expect(migrated.schemaVersion).toBe(2);
+    expect(validateDockLayout(migrated)).toEqual([]);
+    expect(listPanelInstances(migrated.windows[0]!.dockRoot)).toEqual([
+      { instanceId: 'legacy-layers', panelTypeId: 'layers' },
+    ]);
+    expect(migrateDockLayoutToCanvas(migrated)).toBe(migrated);
+  });
+
+  it('rejects v2 primary layouts without exactly one canvas anchor', () => {
+    const layout = createDefaultDockLayout();
+    const invalid: DockLayout = {
+      ...layout,
+      windows: [
+        {
+          ...layout.windows[0]!,
+          dockRoot: {
+            kind: 'panel',
+            id: 'layers-host',
+            panelInstanceId: 'i-layers',
+            panelTypeId: 'layers',
+          },
+        },
+      ],
+    };
+    expect(validateDockLayout(invalid).join(' ')).toContain('exactly one canvas anchor');
+    expect(() => migrateDockLayoutToCanvas(invalid)).toThrow('Invalid dock layout');
+  });
+
+  it('rejects duplicate canvas anchors and anchors in auxiliary windows', () => {
+    const primary = createDefaultDockLayout().windows[0]!;
+    const duplicate: DockLayout = {
+      schemaVersion: 2,
+      windows: [
+        {
+          ...primary,
+          dockRoot: {
+            kind: 'split',
+            id: 'canvas-split',
+            direction: 'row',
+            ratio: 0.5,
+            first: createCanvasNode('canvas-a'),
+            second: createCanvasNode('canvas-b'),
+          },
+        },
+      ],
+    };
+    expect(validateDockLayout(duplicate).join(' ')).toContain('exactly one canvas anchor');
+
+    const auxiliaryCanvas: DockLayout = {
+      schemaVersion: 2,
+      windows: [
+        primary,
+        { id: 'aux', role: 'auxiliary-panel', dockRoot: createCanvasNode('canvas-aux') },
+      ],
+    };
+    expect(validateDockLayout(auxiliaryCanvas).join(' ')).toContain(
+      'cannot contain a canvas anchor',
+    );
+  });
+
+  it('bounds canvas counting when validating cyclic object graphs', () => {
+    const cycle: DockNode = {
+      kind: 'split',
+      id: 'cycle',
+      direction: 'row',
+      ratio: 0.5,
+      first: createCanvasNode(),
+      second: createCanvasNode('temporary'),
+    };
+    if (cycle.kind === 'split') cycle.second = cycle;
+    const layout: DockLayout = {
+      schemaVersion: 2,
+      windows: [{ id: 'main', role: 'primary', dockRoot: cycle }],
+    };
+    expect(validateDockLayout(layout).join(' ')).toContain('contains a cycle');
   });
 });

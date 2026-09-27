@@ -610,14 +610,17 @@ These are known gaps, not settled design:
 
 ### Dock-tree implementation checkpoint (2026-09-27)
 
-The registry-aware nested model in `workspace/dock/` now bounds imported trees
-to 16 levels, 64 nodes, 32 panels per tab group, and eight windows. It rejects
-duplicate node and panel identities, applies registered singleton and host
-rules, and exposes minimum-size calculations from the panel registry. Its
-`reorderTab` and `movePanelToHost` operations preserve active-tab identity,
+The registry-aware nested model in `workspace/dock/` uses schema version 2
+with exactly one protected canvas anchor in the primary window. Its minimum
+size preserves a 320 CSS-pixel canvas width floor. Version-1 panel-only trees
+can be migrated idempotently while retaining their panel instances. The model
+bounds trees to 16 levels, 64 nodes, 32 panels per tab group, and eight
+windows; it rejects duplicate node and panel identities, applies registered
+singleton and host rules, and exposes minimum-size calculations from the panel
+registry. `reorderTab` and `movePanelToHost` preserve active-tab identity,
 reject incompatible hosts, and validate the resulting layout before returning
 it. These are pure-model guarantees; they do not imply that users can yet
-rearrange the live shell. The editor still renders its fixed panel slots, and the older
-`workspace/dockTypes.ts` / `dockOps.ts` model remains in the manager and
-recovery path. Replacing that competing path and rendering the nested model are
-still required before Varve can claim free-form in-window docking.
+rearrange the live shell. The editor still renders its fixed panel slots, and
+the older `workspace/dockTypes.ts` / `dockOps.ts` model remains in the manager
+and recovery path. Replacing that competing path and rendering the nested
+model are still required before Varve can claim free-form in-window docking.

@@ -1,10 +1,11 @@
 /**
  * Dock layout model (ADR-0021).
  *
- * A normalized tree of split/tabs/panel/empty nodes per application window,
- * plus the window set of a workspace layout. Pure data — no React, no
- * platform APIs. All mutations go through the pure operations in dockOps.ts
- * so the model stays testable without a DOM.
+ * A normalized tree of split/tabs/panel/canvas/empty nodes per application
+ * window, plus the window set of a workspace layout. The canvas is a
+ * protected central anchor in the primary window. Pure data — no React, no
+ * platform APIs. All mutations go through dockOps.ts so the model stays
+ * testable without a DOM.
  *
  * Identity rules (ADR-0020): every node and instance carries a stable
  * uuid; titles and array indexes are never used as identity.
@@ -53,6 +54,11 @@ export type DockNode =
       /** Self-describing: required so serialized trees are validatable. */
       panelTypeId: PanelTypeId;
     }
+  | {
+      /** Protected anchor for the one shared editor canvas in the primary window. */
+      kind: 'canvas';
+      id: DockNodeId;
+    }
   | { kind: 'empty'; id: DockNodeId };
 
 export interface WorkspaceWindowLayout {
@@ -67,7 +73,11 @@ export interface DockLayout {
   windows: WorkspaceWindowLayout[];
 }
 
-export const DOCK_LAYOUT_SCHEMA_VERSION = 1;
+export const DOCK_LAYOUT_SCHEMA_VERSION = 2;
+
+export function createCanvasNode(id = 'canvas-primary'): DockNode {
+  return { kind: 'canvas', id };
+}
 
 export function createPanelInstanceRef(panelTypeId: PanelTypeId): PanelInstanceRef {
   return { instanceId: newId(), panelTypeId };

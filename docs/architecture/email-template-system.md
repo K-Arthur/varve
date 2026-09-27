@@ -299,7 +299,8 @@ verifies how a specific mail client renders a message.
 ### Unit Tests
 - `workspaceBaseline.test.ts`: Verifies email mode panel visibility
 - `version.test.ts`: Verifies schema v2.21 migration
-- `workspaceStore.test.ts`: Verifies persistence with 8 modes
+- `workspaceStore.test.ts`: Verifies all eight preference slots: six task
+  workspaces plus the two migration-only Logo and Codegen compatibility slots.
 
 ### E2E Tests
 - `email/visual.spec.ts`: Playwright visual regression for email workspace
