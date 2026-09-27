@@ -338,6 +338,20 @@ export function renderMinimap(
   colors: MinimapColors,
   dpr: number = 1,
 ): void {
+  renderMinimapDocument(ctx, scene, tf, colors, dpr);
+  // Draw viewport indicator last (on top of everything). It sets every
+  // context property it uses, so it does not depend on the document pass.
+  drawViewportIndicator(ctx, viewportFootprint, colors);
+}
+
+/** Everything except the viewport indicator: independent of the camera. */
+function renderMinimapDocument(
+  ctx: CanvasRenderingContext2D,
+  scene: MinimapScene,
+  tf: MinimapTransform,
+  colors: MinimapColors,
+  dpr: number,
+): void {
   const { mmWidth, mmHeight } = tf;
 
   // Clear and fill background
@@ -402,9 +416,50 @@ export function renderMinimap(
   for (const outlier of scene.outliers) {
     drawOutlierMarker(ctx, outlier, tf, colors);
   }
+}
 
-  // Draw viewport indicator last (on top of everything)
-  drawViewportIndicator(ctx, viewportFootprint, colors);
+interface MinimapDocumentLayer {
+  scene: MinimapScene;
+  tf: MinimapTransform;
+  colors: MinimapColors;
+  dpr: number;
+  layer: HTMLCanvasElement;
+}
+
+/**
+ * The document pass, kept per minimap canvas. A pan or zoom changes only the
+ * viewport indicator, so it copies this layer instead of redrawing every
+ * entry (10,000 shapes per wheel event on a large document).
+ */
+const documentLayers = new WeakMap<HTMLCanvasElement, MinimapDocumentLayer>();
+
+function documentLayerFor(
+  canvas: HTMLCanvasElement,
+  scene: MinimapScene,
+  tf: MinimapTransform,
+  colors: MinimapColors,
+  dpr: number,
+): HTMLCanvasElement | null {
+  const cached = documentLayers.get(canvas);
+  if (
+    cached &&
+    cached.scene === scene &&
+    cached.tf === tf &&
+    cached.colors === colors &&
+    cached.dpr === dpr &&
+    cached.layer.width === canvas.width &&
+    cached.layer.height === canvas.height
+  ) {
+    return cached.layer;
+  }
+  const layer = cached?.layer ?? canvas.ownerDocument.createElement('canvas');
+  layer.width = canvas.width;
+  layer.height = canvas.height;
+  const layerCtx = layer.getContext('2d');
+  if (!layerCtx) return null;
+  renderMinimapDocument(layerCtx, scene, tf, colors, dpr);
+  documentLayers.set(canvas, { scene, tf, colors, dpr, layer });
+  return layer;
 }
 
 /** Render at a specific DPR. Handles canvas sizing. */
@@ -430,5 +485,15 @@ export function renderMinimapToCanvas(
   if (canvas.style.width !== cssWidth) canvas.style.width = cssWidth;
   if (canvas.style.height !== cssHeight) canvas.style.height = cssHeight;
 
-  renderMinimap(ctx, scene, tf, viewportFootprint, colors, dpr);
+  const layer = documentLayerFor(canvas, scene, tf, colors, dpr);
+  if (!layer) {
+    renderMinimap(ctx, scene, tf, viewportFootprint, colors, dpr);
+    return;
+  }
+  // A 1:1 copy of an identically drawn layer reproduces its pixels exactly.
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, width, height);
+  ctx.drawImage(layer, 0, 0);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  drawViewportIndicator(ctx, viewportFootprint, colors);
 }

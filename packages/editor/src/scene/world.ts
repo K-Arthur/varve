@@ -28,6 +28,7 @@ import {
   applyAffine,
   computeFloatingOrigin,
   multiplyAffine,
+  screenToWorld,
   tryInvertAffine,
   worldToScreenProjector,
 } from '@varve/shared';
@@ -187,24 +188,59 @@ export function nodeWorldTransform(
  * editing controls away from the rendered frame.
  */
 export function worldRectToScreenAabb(worldRect: Rect, camera: Camera, viewport: Viewport): Rect {
+  return worldRectToScreenAabbProjector(camera, viewport)(worldRect);
+}
+
+/**
+ * `worldRectToScreenAabb` with the camera affine built once, for callers that
+ * project many rectangles per frame. Results are identical.
+ */
+export function worldRectToScreenAabbProjector(
+  camera: Camera,
+  viewport: Viewport,
+): (worldRect: Rect) => Rect {
   const project = worldToScreenProjector(camera, viewport, computeFloatingOrigin(camera, viewport));
-  const corners: Point[] = [
-    [worldRect.x, worldRect.y],
-    [worldRect.x + worldRect.w, worldRect.y],
-    [worldRect.x, worldRect.y + worldRect.h],
-    [worldRect.x + worldRect.w, worldRect.y + worldRect.h],
-  ];
-  const projected = corners.map(([x, y]) => project(x, y));
-  const xs = projected.map(([x]) => x);
-  const ys = projected.map(([, y]) => y);
-  const x = Math.min(...xs);
-  const y = Math.min(...ys);
-  return {
-    x,
-    y,
-    w: Math.max(...xs) - x,
-    h: Math.max(...ys) - y,
+  return (worldRect) => {
+    const [x0, y0] = project(worldRect.x, worldRect.y);
+    const [x1, y1] = project(worldRect.x + worldRect.w, worldRect.y);
+    const [x2, y2] = project(worldRect.x, worldRect.y + worldRect.h);
+    const [x3, y3] = project(worldRect.x + worldRect.w, worldRect.y + worldRect.h);
+    const x = Math.min(x0, x1, x2, x3);
+    const y = Math.min(y0, y1, y2, y3);
+    return {
+      x,
+      y,
+      w: Math.max(x0, x1, x2, x3) - x,
+      h: Math.max(y0, y1, y2, y3) - y,
+    };
   };
+}
+
+/**
+ * The world rectangle an unrotated camera shows inside `screenRect`, or null
+ * for a rotated camera (whose visible world region is not axis-aligned).
+ * Unrotated, the camera is a positive scale plus translation, so a world AABB
+ * intersects the result exactly when its screen AABB intersects `screenRect`,
+ * up to floating-point rounding.
+ */
+export function screenRectToWorldRect(
+  screenRect: Rect,
+  camera: Camera,
+  viewport: Viewport,
+): Rect | null {
+  if ((camera.rotation ?? 0) !== 0) return null;
+  const origin = computeFloatingOrigin(camera, viewport);
+  const [ax, ay] = screenToWorld(camera, screenRect.x, screenRect.y, viewport, origin);
+  const [bx, by] = screenToWorld(
+    camera,
+    screenRect.x + screenRect.w,
+    screenRect.y + screenRect.h,
+    viewport,
+    origin,
+  );
+  const x = Math.min(ax, bx);
+  const y = Math.min(ay, by);
+  return { x, y, w: Math.max(ax, bx) - x, h: Math.max(ay, by) - y };
 }
 
 /**

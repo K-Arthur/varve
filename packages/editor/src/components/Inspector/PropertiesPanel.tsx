@@ -102,7 +102,56 @@ export function PropertiesPanel() {
   const effectiveConfig = useEffectiveWorkspaceConfig(state.workspaceMode);
   const selNodes = selectedNodes();
   const summary = summarize(selNodes);
-  const inspectorContext = useMemo(() => deriveInspectorContext(state), [state]);
+  // Keyed on exactly the fields `InspectorContextInput` picks, not the whole
+  // state: every pan and zoom frame used to re-derive selection restrictions.
+  const {
+    document: inspectedDocument,
+    workspaceMode,
+    tool,
+    prototypeMode,
+    selection,
+    primaryId,
+    focusedNodeId,
+    selectionRange,
+    tableEdit,
+    currentPageId,
+    masterEditId,
+    areaSelection,
+    quickMask,
+  } = state;
+  const inspectorContext = useMemo(
+    () =>
+      deriveInspectorContext({
+        document: inspectedDocument,
+        workspaceMode,
+        tool,
+        prototypeMode,
+        selection,
+        primaryId,
+        focusedNodeId,
+        selectionRange,
+        tableEdit,
+        currentPageId,
+        masterEditId,
+        areaSelection,
+        quickMask,
+      }),
+    [
+      inspectedDocument,
+      workspaceMode,
+      tool,
+      prototypeMode,
+      selection,
+      primaryId,
+      focusedNodeId,
+      selectionRange,
+      tableEdit,
+      currentPageId,
+      masterEditId,
+      areaSelection,
+      quickMask,
+    ],
+  );
   const restrictionNotice = useMemo(
     () =>
       describeSelectionRestrictions(

@@ -98,6 +98,7 @@ describe('minimapRenderer', () => {
       clearRect: vi.fn(),
       fillRect: vi.fn(),
       setTransform: vi.fn(),
+      drawImage: vi.fn(),
     } as unknown as CanvasRenderingContext2D;
     Object.defineProperty(canvas, 'getContext', {
       configurable: true,
@@ -135,6 +136,61 @@ describe('minimapRenderer', () => {
     expect(height).toBe(240);
     expect(widthAssignments).toBe(1);
     expect(heightAssignments).toBe(1);
-    expect(context.setTransform).toHaveBeenCalledTimes(2);
+    // Each redraw copies the cached document layer 1:1, then draws the
+    // viewport indicator at the device pixel ratio.
+    expect(vi.mocked(context.setTransform).mock.calls).toEqual([
+      [1, 0, 0, 1, 0, 0],
+      [2, 0, 0, 2, 0, 0],
+      [1, 0, 0, 1, 0, 0],
+      [2, 0, 0, 2, 0, 0],
+    ]);
+  });
+
+  it('redraws only the viewport indicator when the camera alone changes', () => {
+    const canvas = document.createElement('canvas');
+    const main = {
+      clearRect: vi.fn(),
+      setTransform: vi.fn(),
+      drawImage: vi.fn(),
+      beginPath: vi.fn(),
+      moveTo: vi.fn(),
+      lineTo: vi.fn(),
+      closePath: vi.fn(),
+      fill: vi.fn(),
+      stroke: vi.fn(),
+      setLineDash: vi.fn(),
+    };
+    Object.defineProperty(canvas, 'getContext', { configurable: true, value: () => main });
+    const layerContext = { clearRect: vi.fn(), fillRect: vi.fn(), setTransform: vi.fn() };
+    const createElement = document.createElement.bind(document);
+    vi.spyOn(document, 'createElement').mockImplementation(((tag: string) => {
+      const element = createElement(tag);
+      if (tag === 'canvas') {
+        Object.defineProperty(element, 'getContext', {
+          configurable: true,
+          value: () => layerContext,
+        });
+      }
+      return element;
+    }) as typeof document.createElement);
+    const colors = resolveMinimapColors((_name, fallback) => fallback);
+    const scene = emptyScene();
+    const transform = computeMinimapTransform(scene.contentBounds, 160, 120);
+    const footprint = (x: number) => ({
+      points: [
+        [x, 10],
+        [x + 20, 10],
+        [x + 20, 30],
+        [x, 30],
+      ] as Array<[number, number]>,
+    });
+
+    renderMinimapToCanvas(canvas, scene, transform, footprint(10) as never, colors);
+    renderMinimapToCanvas(canvas, scene, transform, footprint(40) as never, colors);
+
+    expect(layerContext.fillRect).toHaveBeenCalledTimes(1);
+    expect(main.drawImage).toHaveBeenCalledTimes(2);
+    expect(main.stroke).toHaveBeenCalledTimes(2);
+    vi.restoreAllMocks();
   });
 });

@@ -56,6 +56,8 @@ function exportableNodes(doc: Document): SceneNode[] {
   );
 }
 
+const NO_EXPORT_NODES: SceneNode[] = [];
+
 export interface ExportLayerHandle {
   openBatchBgRemove: () => void;
   copySelectionAsPng: (scale: 1 | 2 | 3, selection?: ClipboardSelectionSnapshot) => Promise<void>;
@@ -416,14 +418,23 @@ export const ExportLayer = forwardRef<ExportLayerHandle, ExportLayerProps>(funct
     await saveExportBytes(platform, pkg.fileName, pkg.bytes, pkg.mimeType, '.zip');
   }, [editor.state.document, platform]);
 
+  // The dialog is always mounted and derives document-sized state (names,
+  // jobs, preflight) from these inputs. While it is closed they stay empty,
+  // so camera moves and edits do not walk every node on each render.
+  const exportDialogOpen = editor.showExportDialog;
+  const exportNodes = useMemo(
+    () => (exportDialogOpen ? exportableNodes(editor.state.document) : NO_EXPORT_NODES),
+    [exportDialogOpen, editor.state.document],
+  );
+
   return (
     <>
       <ExportDialog
-        isOpen={editor.showExportDialog}
+        isOpen={exportDialogOpen}
         onClose={() => editor.setShowExportDialog(false)}
-        nodes={exportableNodes(editor.state.document)}
+        nodes={exportNodes}
         timelines={editor.state.document.timelines}
-        document={editor.state.document}
+        document={exportDialogOpen ? editor.state.document : undefined}
         selectionIds={editor.state.selection}
         platformKind={platform?.kind ?? 'web'}
         onSelectDestination={

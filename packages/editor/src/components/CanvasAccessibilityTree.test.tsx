@@ -320,3 +320,52 @@ describe('CanvasAccessibilityTree', () => {
     expect(elapsed).toBeLessThan(2000);
   });
 });
+
+describe('CanvasAccessibilityTree camera changes', () => {
+  it('re-filters by viewport on a pan without recomputing world bounds', () => {
+    const doc = makeDoc([
+      makeNode({ id: 'a', name: 'Left' }),
+      makeNode({ id: 'b', name: 'Right' }),
+    ]);
+    const walkNodes = () =>
+      new Map<string, { depth: number; parentId: string | null }>([
+        ['a', { depth: 0, parentId: null }],
+        ['b', { depth: 0, parentId: null }],
+      ]);
+    const nodeWorldBounds = vi.fn((_doc: Document, id: string) =>
+      id === 'a' ? { x: 0, y: 0, w: 10, h: 10 } : { x: 1000, y: 0, w: 10, h: 10 },
+    );
+    // Only rects left of the pan offset are "visible" in this fake viewport.
+    const isWorldRectInViewport = vi.fn(
+      (cam: { pan: { x: number } }, _vp: unknown, rect: { x: number }) => rect.x < 500 - cam.pan.x,
+    );
+    const viewport = { width: 800, height: 600 };
+    const view = render(
+      <CanvasAccessibilityTree
+        doc={doc}
+        camera={{ zoom: 1, pan: { x: 0, y: 0 } }}
+        viewport={viewport}
+        walkNodes={walkNodes}
+        nodeWorldBounds={nodeWorldBounds}
+        isWorldRectInViewport={isWorldRectInViewport}
+      />,
+    );
+    const listed = () =>
+      [...view.container.querySelectorAll('li')].map((li) => li.getAttribute('data-node-id'));
+    expect(listed()).toEqual(['a']);
+    const boundsCalls = nodeWorldBounds.mock.calls.length;
+
+    view.rerender(
+      <CanvasAccessibilityTree
+        doc={doc}
+        camera={{ zoom: 1, pan: { x: -800, y: 0 } }}
+        viewport={viewport}
+        walkNodes={walkNodes}
+        nodeWorldBounds={nodeWorldBounds}
+        isWorldRectInViewport={isWorldRectInViewport}
+      />,
+    );
+    expect(listed()).toEqual(['a', 'b']);
+    expect(nodeWorldBounds.mock.calls.length).toBe(boundsCalls);
+  });
+});

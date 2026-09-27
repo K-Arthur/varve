@@ -14,9 +14,17 @@ import {
 import type { Viewport } from '@varve/shared';
 import { useMemo } from 'react';
 import { committedParentIndex } from '../scene/parentIndexCache';
-import { nodeWorldBounds, worldRectToScreenAabb } from '../scene/world';
+import {
+  nodeWorldBounds,
+  screenRectToWorldRect,
+  worldRectToScreenAabbProjector,
+} from '../scene/world';
 import { toCamera } from './cameraState';
-import { type NameLabelCandidate, pickNameLabelCandidates } from './nameLabelPolicy';
+import {
+  type NameLabelCandidate,
+  nameLabelReach,
+  pickNameLabelCandidates,
+} from './nameLabelPolicy';
 import { CANVAS_INTERACTIVE_OVERLAY_Z_INDEX } from './overlayZIndex';
 
 export interface CanvasNameLabelsProps {
@@ -99,16 +107,35 @@ export function CanvasNameLabels({
   );
   const labels = useMemo(() => {
     const camera = toCamera({ zoom, pan, cameraRotation });
+    const projectRect = worldRectToScreenAabbProjector(camera, viewport);
+    // Unrotated, a world-space reach test rejects the off-screen majority
+    // (9,900 of 10,000 nodes at fit-all on a large document) without
+    // projecting them on every pan and zoom frame.
+    const reach = screenRectToWorldRect(
+      nameLabelReach(viewport.width, viewport.height),
+      camera,
+      viewport,
+    );
     const picked = pickNameLabelCandidates(candidates, {
       zoom,
       viewportW: viewport.width,
       viewportH: viewport.height,
+      ...(reach
+        ? {
+            mayBeVisible: (candidate: NameLabelCandidate) =>
+              candidate.x <= reach.x + reach.w &&
+              candidate.x + candidate.w >= reach.x &&
+              candidate.y <= reach.y + reach.h &&
+              candidate.y + candidate.h >= reach.y,
+          }
+        : {}),
       project: (candidate) => {
-        const screen = worldRectToScreenAabb(
-          { x: candidate.x, y: candidate.y, w: candidate.w, h: candidate.h },
-          camera,
-          viewport,
-        );
+        const screen = projectRect({
+          x: candidate.x,
+          y: candidate.y,
+          w: candidate.w,
+          h: candidate.h,
+        });
         return {
           screenX: screen.x,
           screenY: screen.y,

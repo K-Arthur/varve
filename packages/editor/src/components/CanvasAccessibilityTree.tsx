@@ -38,6 +38,15 @@ interface CanvasAccessibilityTreeProps {
     vp: { width: number; height: number },
     rect: { x: number; y: number; w: number; h: number },
   ) => boolean;
+  /**
+   * Optional tester factory with the same answers as `isWorldRectInViewport`,
+   * built once per camera so a frame does not rebuild the camera affine per
+   * node.
+   */
+  createViewportTest?: (
+    cam: { zoom: number; pan: { x: number; y: number }; rotation?: number },
+    vp: { width: number; height: number },
+  ) => (rect: { x: number; y: number; w: number; h: number }) => boolean;
 }
 
 export function CanvasAccessibilityTree({
@@ -48,8 +57,13 @@ export function CanvasAccessibilityTree({
   walkNodes,
   nodeWorldBounds,
   isWorldRectInViewport,
+  createViewportTest,
 }: CanvasAccessibilityTreeProps) {
-  const visibleNodes = useMemo(() => {
+  // World bounds do not depend on the camera: computing them once per
+  // document keeps pans and zooms (and every unrelated overlay re-render,
+  // which used to pass a fresh camera object) from walking every occurrence's
+  // transform chain again.
+  const worldNodes = useMemo(() => {
     type AccessibilityEntry = {
       nodeId: string;
       depth: number;
@@ -78,10 +92,7 @@ export function CanvasAccessibilityTree({
       name: string;
       kind: string;
       depth: number;
-      x: number;
-      y: number;
-      w: number;
-      h: number;
+      bounds: { x: number; y: number; w: number; h: number };
       backgroundRemoved: boolean;
       bgRemovalMethod?: string;
     }> = [];
@@ -100,7 +111,6 @@ export function CanvasAccessibilityTree({
         };
       }
       if (!bounds) continue;
-      if (!isWorldRectInViewport(camera, viewport, bounds)) continue;
       const bgRemoval =
         'backgroundRemoval' in n && n.backgroundRemoval != null
           ? (n.backgroundRemoval as { method?: string })
@@ -113,12 +123,33 @@ export function CanvasAccessibilityTree({
         name: n.name ?? 'Untitled',
         kind: n.kind,
         depth: info?.depth ?? 0,
+        bounds,
+        backgroundRemoved: bgRemoval != null,
+        bgRemovalMethod: bgRemoval?.method,
+      });
+    }
+    return result;
+  }, [doc, nodeWorldBounds, scope, walkNodes]);
+
+  const { zoom, rotation } = camera;
+  const { x: panX, y: panY } = camera.pan;
+  const { width: viewportW, height: viewportH } = viewport;
+  const visibleNodes = useMemo(() => {
+    const cam = { zoom, pan: { x: panX, y: panY }, rotation };
+    const vp = { width: viewportW, height: viewportH };
+    const inViewport = createViewportTest
+      ? createViewportTest(cam, vp)
+      : (rect: { x: number; y: number; w: number; h: number }) =>
+          isWorldRectInViewport(cam, vp, rect);
+    const result = [];
+    for (const { bounds, ...node } of worldNodes) {
+      if (!inViewport(bounds)) continue;
+      result.push({
+        ...node,
         x: Math.round(bounds.x),
         y: Math.round(bounds.y),
         w: Math.round(bounds.w),
         h: Math.round(bounds.h),
-        backgroundRemoved: bgRemoval != null,
-        bgRemovalMethod: bgRemoval?.method,
       });
     }
 
@@ -129,7 +160,18 @@ export function CanvasAccessibilityTree({
       );
 
     return result;
-  }, [camera, doc, isWorldRectInViewport, nodeWorldBounds, scope, viewport, walkNodes]);
+  }, [
+    createViewportTest,
+    isWorldRectInViewport,
+    panX,
+    panY,
+    rotation,
+    scope,
+    viewportH,
+    viewportW,
+    worldNodes,
+    zoom,
+  ]);
 
   if (visibleNodes.length === 0) {
     return <div aria-hidden="false" className="sr-only" />;

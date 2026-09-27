@@ -22,7 +22,7 @@ import {
   richTextToPlainText,
 } from '@varve/scene';
 import type { RulerMode } from '@varve/shared';
-import { isWorldRectInViewport } from '@varve/shared';
+import { createWorldRectViewportTest, isWorldRectInViewport } from '@varve/shared';
 import { Button } from '@varve/ui';
 import { useMemo, useSyncExternalStore } from 'react';
 
@@ -950,6 +950,7 @@ export function CanvasOverlays({
         scope={sceneScope}
         nodeWorldBounds={nodeWorldBounds}
         isWorldRectInViewport={isWorldRectInViewport}
+        createViewportTest={createWorldRectViewportTest}
       />
       <dialog
         ref={renameDialogRef}

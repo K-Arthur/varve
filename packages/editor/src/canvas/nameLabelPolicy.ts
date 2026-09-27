@@ -59,6 +59,13 @@ export const NAME_LABEL_MIN_SCREEN_EDGE = 32;
 /** Max labels per frame to keep overlay cheap. */
 export const NAME_LABEL_MAX = 80;
 
+/** Widest estimated label, in screen px. */
+const NAME_LABEL_MAX_WIDTH = 280;
+/** Labels sit this far above their node, in screen px. */
+const NAME_LABEL_OFFSET_Y = 22;
+/** Culling margin around the viewport, in screen px. */
+const NAME_LABEL_CULL_MARGIN = 24;
+
 /** Remove controls/newlines without changing the authored document name. */
 export function oneLineLabelName(name: string): string {
   return name
@@ -77,7 +84,10 @@ function estimatedLabelWidth(name: string, kind: string): number {
   const fontSize = kind === 'frame' ? 11 : 10;
   // This is a deterministic pre-measure used only for culling/collision. The
   // browser still owns final glyph shaping and the full name is retained.
-  return Math.min(280, Math.max(28, Array.from(name).length * fontSize * 0.58 + 10));
+  return Math.min(
+    NAME_LABEL_MAX_WIDTH,
+    Math.max(28, Array.from(name).length * fontSize * 0.58 + 10),
+  );
 }
 
 function overlaps(
@@ -149,12 +159,38 @@ function orderedCandidates(
   return sorted;
 }
 
+/**
+ * Screen rectangle a node's screen AABB must intersect for its label or its
+ * own box to survive culling: the culling box widened left by the widest
+ * label (which runs rightward from the node) and down by the label offset
+ * (labels sit above their node), plus a pixel of rounding slack.
+ */
+export function nameLabelReach(
+  viewportW: number,
+  viewportH: number,
+): { x: number; y: number; w: number; h: number } {
+  const slack = 1;
+  const left = NAME_LABEL_CULL_MARGIN + NAME_LABEL_MAX_WIDTH + slack;
+  const top = NAME_LABEL_CULL_MARGIN + slack;
+  return {
+    x: -left,
+    y: -top,
+    w: left + viewportW + NAME_LABEL_CULL_MARGIN + slack,
+    h: top + viewportH + NAME_LABEL_CULL_MARGIN + NAME_LABEL_OFFSET_Y + slack,
+  };
+}
+
 export function pickNameLabelCandidates(
   candidates: NameLabelCandidate[],
   opts: {
     zoom: number;
     viewportW: number;
     viewportH: number;
+    /**
+     * Optional cheap pre-check. Returning false must imply the candidate's
+     * projected box misses `nameLabelReach`, so skipping it changes nothing.
+     */
+    mayBeVisible?: (c: NameLabelCandidate) => boolean;
     /** World→screen projected top-left + size. */
     project: (c: NameLabelCandidate) => {
       screenX: number;
@@ -168,34 +204,40 @@ export function pickNameLabelCandidates(
   const sorted = orderedCandidates(candidates);
   const occupied: Array<{ x: number; y: number; w: number; h: number }> = [];
 
+  const viewportBox = {
+    x: -NAME_LABEL_CULL_MARGIN,
+    y: -NAME_LABEL_CULL_MARGIN,
+    w: opts.viewportW + NAME_LABEL_CULL_MARGIN * 2,
+    h: opts.viewportH + NAME_LABEL_CULL_MARGIN * 2,
+  };
+
   for (const { candidate: c } of sorted) {
     if (out.length >= NAME_LABEL_MAX) break;
+    if (opts.mayBeVisible && !opts.mayBeVisible(c)) continue;
     const p = opts.project(c);
-    const fullName = oneLineLabelName(c.name);
-    const displayName = displayLabelName(fullName);
-    const labelBox = {
-      x: p.screenX,
-      y: p.screenY - 22,
-      w: estimatedLabelWidth(displayName, c.kind),
-      h: 18,
-    };
     const objectBox = {
       x: p.screenX,
       y: p.screenY,
       w: Math.max(0, p.screenW),
       h: Math.max(0, p.screenH),
     };
-    const viewportBox = {
-      x: -24,
-      y: -24,
-      w: opts.viewportW + 48,
-      h: opts.viewportH + 48,
-    };
     // Culling includes the label box: a frame just outside the viewport can
-    // still have a readable title entering through the edge.
-    if (!overlaps(labelBox, viewportBox) && !overlaps(objectBox, viewportBox)) {
-      continue;
-    }
+    // still have a readable title entering through the edge. The widest label
+    // is checked first; the real one starts at the same point and is no
+    // wider, so it cannot overlap when the widest does not, and the name
+    // work below is skipped for the thousands of off-screen candidates.
+    const widestLabelBox = {
+      x: p.screenX,
+      y: p.screenY - NAME_LABEL_OFFSET_Y,
+      w: NAME_LABEL_MAX_WIDTH,
+      h: 18,
+    };
+    const objectVisible = overlaps(objectBox, viewportBox);
+    if (!objectVisible && !overlaps(widestLabelBox, viewportBox)) continue;
+    const fullName = oneLineLabelName(c.name);
+    const displayName = displayLabelName(fullName);
+    const labelBox = { ...widestLabelBox, w: estimatedLabelWidth(displayName, c.kind) };
+    if (!objectVisible && !overlaps(labelBox, viewportBox)) continue;
     const forceShow = Boolean(c.selected || c.hovered || c.editing);
     if (
       !shouldShowNameLabel({
