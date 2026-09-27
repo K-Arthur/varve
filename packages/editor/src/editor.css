@@ -3569,6 +3569,19 @@ dialog.varve-dialog--settings[open] {
     margin-left: 0;
   }
 }
+@media (min-width: 641px) and (max-width: 899px) {
+  .settings-field-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-1);
+  }
+  .settings-field-row__label {
+    min-width: 0;
+  }
+  .settings-hint {
+    margin-left: 0;
+  }
+}
 .settings-section {
   display: flex;
   flex-direction: column;
