@@ -185,3 +185,8 @@ function post(response: WorkerResponse, transfer?: Transferable[]): void {
     self.postMessage(response);
   }
 }
+
+// The host starts its frame-response deadline only after this module and its
+// imports finish evaluating. Cold module startup is measured separately from
+// render time so a slow first load cannot be mistaken for a hung frame.
+post({ type: 'ready' });

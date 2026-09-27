@@ -22,6 +22,9 @@ import { buildWorkerRenderSpan } from './workerRenderSpan';
 
 /** Default byte budget for main-thread-visible render-worker bitmaps. */
 export const DEFAULT_WORKER_BITMAP_BUDGET_BYTES = 128 * 1024 * 1024;
+export const WORKER_STARTUP_TIMEOUT_MS = 15_000;
+/** Safety backstop; the separate 1 s heavy-work refinement goal is not a timeout. */
+export const WORKER_FRAME_RESPONSE_TIMEOUT_MS = 5_000;
 
 export interface WorkerRenderCommand {
   type: 'render';
@@ -83,6 +86,7 @@ export interface WorkerRenderTiming {
 }
 
 export type WorkerResponse =
+  | { type: 'ready' }
   | {
       type: 'frameRendered';
       docVersion: number;
@@ -102,6 +106,36 @@ export type WorkerResponse =
   | { type: 'clockPong'; seq: number; t0: number; t1: number; t2: number }
   | { type: 'fontsAdopted'; key: string; families: string[]; faceKeys?: string[] };
 
+export type WorkerFrameResponse = Extract<WorkerResponse, { type: 'frameRendered' }>;
+
+export interface ExpectedWorkerFrameIdentity {
+  docVersion: number;
+  renderRevision: number;
+  dpr: number;
+  camera: Camera;
+  viewport: Viewport;
+  fallbackRevision?: number | null;
+}
+
+/** Check a received frame against the current document, pixel revision, camera and surface. */
+export function workerFrameMatchesIdentity(
+  response: WorkerFrameResponse,
+  expected: ExpectedWorkerFrameIdentity,
+): boolean {
+  return (
+    response.docVersion === expected.docVersion &&
+    response.renderRevision === expected.renderRevision &&
+    response.dpr === expected.dpr &&
+    expected.fallbackRevision !== response.renderRevision &&
+    response.camera.zoom === expected.camera.zoom &&
+    response.camera.pan.x === expected.camera.pan.x &&
+    response.camera.pan.y === expected.camera.pan.y &&
+    (response.camera.rotation ?? 0) === (expected.camera.rotation ?? 0) &&
+    response.viewport.width === expected.viewport.width &&
+    response.viewport.height === expected.viewport.height
+  );
+}
+
 export interface RenderWorkerHost {
   /** Returns false when the host refused the command or postMessage failed. */
   post(command: WorkerCommand, transfer?: Transferable[]): boolean;
@@ -115,10 +149,17 @@ export interface RenderWorkerHost {
   releaseFrame(bitmap: ImageBitmap): boolean;
   terminate(): void;
   readonly permanentFailure: boolean;
+  /** Bounded reason for terminal failure, for diagnostics and fallback evidence. */
+  readonly failureReason: string | null;
+  readonly ready: boolean;
+  /** Worker module startup time; null until its ready handshake arrives. */
+  readonly startupDurationMs: number | null;
   readonly restartCount: number;
   readonly resizeGeneration: number;
   readonly inFlightRenderRevision: RenderRevision | null;
   readonly pendingRenderRevision: RenderRevision | null;
+  /** Pixel revision of the most recently accepted (identity-current) bitmap. */
+  readonly lastAcceptedRenderRevision: RenderRevision | null;
   /** Sources already resident or in the command currently dispatched to this worker generation. */
   readonly knownImageSources: ReadonlySet<string>;
   readonly bitmapBudget: RenderBitmapBudget;
@@ -203,6 +244,10 @@ export function createRenderWorkerHost(
   let resizeGeneration = 0;
   let lastRenderResizeGeneration = 0;
   let permanentFailure = false;
+  let failureReason: string | null = null;
+  let workerReady = false;
+  let workerStartupStartedAtMs = 0;
+  let workerStartupDurationMs: number | null = null;
   let lastRenderCommand: NormalizedRenderCommand | null = null;
   let lastRenderUsedTransfer = false;
   let lastRenderDependsOnImages = false;
@@ -218,8 +263,17 @@ export function createRenderWorkerHost(
   const ledger = new FrameLedger();
   let pendingRender: PendingRender | null = null;
   let latestRequestedRevision: RenderRevision | null = null;
-  let latestFrameIdentity: { viewport: Viewport; dpr: number } | null = null;
+  let lastAcceptedRenderRevision: RenderRevision | null = null;
+  let latestFrameIdentity: {
+    docVersion: number;
+    renderRevision: RenderRevision;
+    camera: Camera;
+    viewport: Viewport;
+    dpr: number;
+  } | null = null;
   let restartTimeout: ReturnType<typeof setTimeout> | null = null;
+  let workerStartupTimeout: ReturnType<typeof setTimeout> | null = null;
+  let frameResponseTimeout: ReturnType<typeof setTimeout> | null = null;
   let inFlightDispatchedAtMs = 0;
   let clockPingSeq = 0;
   const clockCalibrator = new WorkerClockCalibrator();
@@ -316,13 +370,29 @@ export function createRenderWorkerHost(
     restartTimeout = null;
   }
 
-  function markPermanentFailure(): void {
+  function clearFrameResponseTimeout(): void {
+    if (frameResponseTimeout === null) return;
+    clearTimeout(frameResponseTimeout);
+    frameResponseTimeout = null;
+  }
+
+  function clearWorkerStartupTimeout(): void {
+    if (workerStartupTimeout === null) return;
+    clearTimeout(workerStartupTimeout);
+    workerStartupTimeout = null;
+  }
+
+  function markPermanentFailure(reason: string): void {
     if (permanentFailure) return;
     permanentFailure = true;
+    failureReason = reason;
     clearRestartTimeout();
+    clearWorkerStartupTimeout();
+    clearFrameResponseTimeout();
     worker?.terminate();
     worker = null;
     workerGen++;
+    workerReady = false;
     closePendingRender();
     inFlightRenderRevision = null;
     inFlightTransferBytes = 0;
@@ -405,7 +475,14 @@ export function createRenderWorkerHost(
   function frameIdentityMatches(response: Extract<WorkerResponse, { type: 'frameRendered' }>) {
     return (
       latestFrameIdentity !== null &&
+      response.docVersion === latestFrameIdentity.docVersion &&
+      (response.renderRevision ?? asRenderRevision(response.docVersion)) ===
+        latestFrameIdentity.renderRevision &&
       response.dpr === latestFrameIdentity.dpr &&
+      response.camera.zoom === latestFrameIdentity.camera.zoom &&
+      response.camera.pan.x === latestFrameIdentity.camera.pan.x &&
+      response.camera.pan.y === latestFrameIdentity.camera.pan.y &&
+      (response.camera.rotation ?? 0) === (latestFrameIdentity.camera.rotation ?? 0) &&
       response.viewport.width === latestFrameIdentity.viewport.width &&
       response.viewport.height === latestFrameIdentity.viewport.height
     );
@@ -417,6 +494,11 @@ export function createRenderWorkerHost(
       bitmapBudget.releaseTransfer(render.transferBytes);
       return false;
     }
+    if (!workerReady) {
+      closePendingRender();
+      pendingRender = render;
+      return true;
+    }
     maybeCalibrateClock();
     inFlightDispatchedAtMs = performance.now();
     try {
@@ -424,7 +506,7 @@ export function createRenderWorkerHost(
     } catch {
       closeCommandResources(render.command);
       bitmapBudget.releaseTransfer(render.transferBytes);
-      markPermanentFailure();
+      markPermanentFailure('post-message-failed');
       return false;
     }
     bitmapBudget.commitTransfer(render.transferBytes);
@@ -441,11 +523,18 @@ export function createRenderWorkerHost(
     // worker crash. Plain IR commands can be retried after restart.
     lastRenderCommand = lastRenderUsedTransfer || render.command.images ? null : render.command;
     lastRenderResizeGeneration = resizeGeneration;
+    clearFrameResponseTimeout();
+    const dispatchedRevision = render.command.renderRevision;
+    frameResponseTimeout = setTimeout(() => {
+      if (inFlightRenderRevision === dispatchedRevision) {
+        markPermanentFailure('frame-response-timeout');
+      }
+    }, WORKER_FRAME_RESPONSE_TIMEOUT_MS);
     return true;
   }
 
   function dispatchPendingRender(): void {
-    if (inFlightRenderRevision !== null || !pendingRender) return;
+    if (!workerReady || inFlightRenderRevision !== null || !pendingRender) return;
     const next = pendingRender;
     pendingRender = null;
     dispatchRender(next);
@@ -459,10 +548,24 @@ export function createRenderWorkerHost(
     const gen = ++workerGen;
     try {
       const w = new Worker(new URL('./renderWorker.ts', import.meta.url), { type: 'module' });
+      workerReady = false;
+      workerStartupDurationMs = null;
+      workerStartupStartedAtMs = performance.now();
+      clearWorkerStartupTimeout();
+      workerStartupTimeout = setTimeout(() => {
+        if (gen === workerGen && !workerReady) markPermanentFailure('worker-startup-timeout');
+      }, WORKER_STARTUP_TIMEOUT_MS);
       w.onmessage = (e: MessageEvent<WorkerResponse>) => {
         const msg = e.data;
         if (gen !== workerGen) {
           closeResponseResources(msg);
+          return;
+        }
+        if (msg.type === 'ready') {
+          workerReady = true;
+          workerStartupDurationMs = performance.now() - workerStartupStartedAtMs;
+          clearWorkerStartupTimeout();
+          if (restartTimeout === null) dispatchPendingRender();
           return;
         }
         if (msg.type === 'fontsAdopted') {
@@ -494,6 +597,7 @@ export function createRenderWorkerHost(
             closeResponseResources(msg);
             return;
           }
+          clearFrameResponseTimeout();
           const obsolete =
             (latestRequestedRevision !== null && responseRevision < latestRequestedRevision) ||
             lastRenderResizeGeneration !== resizeGeneration ||
@@ -542,6 +646,7 @@ export function createRenderWorkerHost(
             }
             closeResponseResources(msg);
           } else {
+            lastAcceptedRenderRevision = responseRevision;
             if (msg.bitmap) {
               const frameBytes = estimateRgbaBytes(msg.bitmap.width, msg.bitmap.height);
               bitmapBudget.accountResidentFrame(frameBytes, lastForwardedFrameBytes);
@@ -569,6 +674,7 @@ export function createRenderWorkerHost(
           msg.renderRevision !== undefined &&
           msg.renderRevision === inFlightRenderRevision
         ) {
+          clearFrameResponseTimeout();
           inFlightRenderRevision = null;
           if (inFlightTransferBytes > 0) {
             bitmapBudget.releaseTransfer(inFlightTransferBytes);
@@ -583,13 +689,21 @@ export function createRenderWorkerHost(
         }
         onResponse(msg);
       };
-      w.onerror = () => {
+      w.onerror = (event) => {
         if (gen !== workerGen) return;
+        clearWorkerStartupTimeout();
+        clearFrameResponseTimeout();
+        workerReady = false;
         restartCount++;
+        const errorLabel = event?.message ? `worker-error:${event.message}` : 'worker-error';
         // A successful transfer detaches the sender's ImageBitmaps. Retrying
         // that command would reuse invalid resources and can never succeed.
         if (lastRenderUsedTransfer || lastRenderDependsOnImages || restartCount >= maxRestarts) {
-          markPermanentFailure();
+          markPermanentFailure(
+            lastRenderUsedTransfer || lastRenderDependsOnImages
+              ? `worker-error-after-image-transfer:${errorLabel}`
+              : `worker-restart-limit:${errorLabel}`,
+          );
           return;
         }
         worker?.terminate();
@@ -601,7 +715,7 @@ export function createRenderWorkerHost(
         clockCalibrator.reset();
         worker = createWorker();
         if (!worker) {
-          markPermanentFailure();
+          markPermanentFailure('worker-restart-unavailable');
           return;
         }
         // The replacement realm starts with an empty FontFaceSet, so the
@@ -621,7 +735,7 @@ export function createRenderWorkerHost(
             try {
               dispatchRender({ command: lastRenderCommand, transferBytes: 0 });
             } catch {
-              markPermanentFailure();
+              markPermanentFailure('worker-restart-dispatch-failed');
             }
           }
         }, delay);
@@ -645,6 +759,15 @@ export function createRenderWorkerHost(
     get permanentFailure() {
       return permanentFailure;
     },
+    get failureReason() {
+      return failureReason;
+    },
+    get ready() {
+      return workerReady;
+    },
+    get startupDurationMs() {
+      return workerStartupDurationMs;
+    },
     get restartCount() {
       return restartCount;
     },
@@ -656,6 +779,9 @@ export function createRenderWorkerHost(
     },
     get pendingRenderRevision() {
       return pendingRender?.command.renderRevision ?? null;
+    },
+    get lastAcceptedRenderRevision() {
+      return lastAcceptedRenderRevision;
     },
     get knownImageSources() {
       return inFlightImageSources ?? residentImageSources;
@@ -693,7 +819,16 @@ export function createRenderWorkerHost(
           return false;
         }
         latestRequestedRevision = normalized.renderRevision;
-        latestFrameIdentity = { viewport: normalized.viewport, dpr: normalized.dpr };
+        latestFrameIdentity = {
+          docVersion: normalized.docVersion,
+          renderRevision: normalized.renderRevision,
+          camera: {
+            ...normalized.camera,
+            pan: { ...normalized.camera.pan },
+          },
+          viewport: { ...normalized.viewport },
+          dpr: normalized.dpr,
+        };
         if (inFlightRenderRevision !== null) {
           closePendingRender();
           pendingRender = { command: normalized, transfer, transferBytes };
@@ -705,7 +840,7 @@ export function createRenderWorkerHost(
         postToWorker(command, transfer);
       } catch {
         closeCommandResources(command);
-        markPermanentFailure();
+        markPermanentFailure('post-message-failed');
         return false;
       }
       if (command.type === 'resize') {
@@ -738,9 +873,12 @@ export function createRenderWorkerHost(
       adoptedFaceKeys = new Set<string>();
       unsubscribeFonts();
       clearRestartTimeout();
+      clearWorkerStartupTimeout();
+      clearFrameResponseTimeout();
       worker?.terminate();
       worker = null;
       workerGen++;
+      workerReady = false;
       closePendingRender();
       inFlightRenderRevision = null;
       inFlightTransferBytes = 0;
