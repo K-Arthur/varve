@@ -30,9 +30,9 @@ export const PANELS: Record<string, HelpArticle> = {
   },
   'panel:prototype': {
     id: 'panel:prototype',
-    title: 'Prototype Panel',
-    summary: 'Create interactive prototypes.',
-    body: 'The Prototype panel lets you connect screens and create interactive flows. Define triggers (click, drag, hover, timer) and actions (navigate, overlay, animate, open URL). Set transitions between screens with animations like dissolve, slide, and push. Preview your prototype in fullscreen mode with Ctrl+Shift+P. The prototyping system supports variables, conditional logic, and responsive breakpoints.',
+    title: 'Prototype Inspector Tab',
+    summary: 'Create interactive prototypes from selected frames.',
+    body: 'Select a frame (screen) and open the Prototype tab in the Inspector to connect screens and create interactive flows. Define triggers (click, drag, hover, timer) and actions (navigate, overlay, animate, open URL). Set transitions between screens with animations like dissolve, slide, or push. Press Ctrl+Shift+P (Present) to enter or exit prototype presentation. The prototyping system supports variables, conditional logic, and responsive breakpoints; Prototype is an Inspector workflow rather than a workspace.',
     keywords: ['prototype', 'interaction', 'trigger', 'action', 'transition', 'preview'],
     category: 'Panels',
     related: ['panel:timeline', 'getting-started:interface'],

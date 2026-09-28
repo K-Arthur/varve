@@ -95,7 +95,7 @@ export const FAQ: Record<string, HelpArticle> = {
     id: 'faq:prototype',
     title: 'How do I create a prototype?',
     summary: 'Build interactive prototypes from your designs.',
-    body: 'Switch to prototype mode by clicking the Prototype tab or pressing Ctrl+Shift+P. Select a frame (screen) and use the connection handle to drag a wire to another screen. Define the trigger (tap, drag, hover, timer) and transition effect (dissolve, slide, push). Press Ctrl+Shift+P again to preview your prototype in fullscreen. Navigate through screens by clicking interaction hotspots.',
+    body: 'Select a frame (screen), then open the Prototype tab in the Inspector to define interactions and connect it to another screen. Choose a trigger (tap, drag, hover, timer) and transition effect (dissolve, slide, push). Press Ctrl+Shift+P (Present) to enter or exit prototype presentation, then navigate through screens by activating interaction hotspots. Prototype authoring is an Inspector workflow, not a separate workspace.',
     keywords: ['prototype', 'interactive', 'preview', 'flow', 'navigation', 'how'],
     category: 'FAQ',
     related: ['panel:prototype', 'panel:timeline'],
