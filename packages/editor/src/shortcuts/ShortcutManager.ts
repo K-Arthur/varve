@@ -350,7 +350,7 @@ export const SHORTCUT_DEFS = {
   },
   toggleCodegenPanel: {
     binding: { key: 'j', ctrl: true, shift: true },
-    label: 'Toggle Codegen Panel',
+    label: 'Toggle Code Panel',
     category: 'View',
   },
   insertIcon: {

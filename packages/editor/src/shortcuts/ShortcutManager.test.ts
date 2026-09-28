@@ -242,6 +242,16 @@ describe('SHORTCUT_DEFS', () => {
       expect(typeof def.category).toBe('string');
     }
   });
+
+  it('keeps the legacy Codegen action ids but presents the shared Code panel name', () => {
+    expect(SHORTCUT_DEFS.workspaceCodegen.label).toBe('Show Code Panel');
+    expect(SHORTCUT_DEFS.workspaceCodegen.binding).toMatchObject({
+      key: '8',
+      ctrl: true,
+      shift: true,
+    });
+    expect(SHORTCUT_DEFS.toggleCodegenPanel.label).toBe('Toggle Code Panel');
+  });
 });
 
 describe('Knife and Export Region shortcuts', () => {
