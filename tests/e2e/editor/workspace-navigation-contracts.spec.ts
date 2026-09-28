@@ -91,6 +91,20 @@ test.describe('Workspace switcher keyboard contract', () => {
       'aria-checked',
       'true',
     );
+
+    await page.keyboard.press('Control+Shift+2');
+    await expect(group.getByRole('radio', { name: 'Print workspace' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+    await page.keyboard.press('Control+Alt+Shift+L');
+    await expect(group.getByRole('radio', { name: 'Design workspace' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+    await expect(page.getByTestId('logo-panel')).toBeVisible();
+    await page.keyboard.press('Control+Alt+Shift+L');
+    await expect(page.getByTestId('logo-panel')).toHaveCount(0);
   });
 
   test('pointer activation switches without programmatic focus moves', async ({ page }) => {

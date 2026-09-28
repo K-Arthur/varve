@@ -261,7 +261,7 @@ export function registerEditorActions(
   reg('toggleRightPanel', 'Toggle Inspector Panel', 'panel', () => ctx.toggleRightPanel());
   reg('toggleLibraryPanel', 'Toggle Library Panel', 'panel', () => ctx.toggleLibraryPanel());
   reg('toggleCodegenPanel', 'Toggle Code Panel', 'panel', () => ctx.toggleCodegenPanel());
-  reg('toggleLogoPanel', 'Toggle Logo Panel', 'panel', () => ctx.toggleLogoPanel());
+  reg('toggleLogoPanel', 'Toggle Logo Panel', 'panel', handlers.toggleLogoPanel ?? (() => {}));
   reg('toggleMinimap', 'Toggle Minimap', 'panel', () => ctx.toggleMinimap());
   reg('toggleTimelinePanel', 'Toggle Timeline Panel', 'panel', () => ctx.toggleTimelinePanel());
   reg('toggleHistoryPanel', 'Toggle History Panel', 'panel', () => ctx.toggleHistoryPanel());

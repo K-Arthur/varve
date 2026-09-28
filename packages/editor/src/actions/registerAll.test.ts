@@ -42,6 +42,26 @@ describe('registerEditorActions — intelligence commands', () => {
     expect(r.has('detectDuplicates')).toBe(true);
   });
 
+  it('keeps the Logo panel toggle routed through its Design workflow', async () => {
+    const requestWorkspaceSwitch = vi.fn().mockResolvedValue(true);
+    const setPanelVisible = vi.fn();
+    const toggleLogoPanel = vi.fn();
+    const editor = makeEditorMock({
+      state: { workspaceMode: 'print', logoPanelVisible: false } as EditorContextValue['state'],
+      requestWorkspaceSwitch,
+      setPanelVisible,
+      toggleLogoPanel,
+    });
+    registerEditorActions(editor);
+
+    const handler = getActionRegistry().get('toggleLogoPanel')?.handler;
+    await handler?.(undefined);
+
+    expect(requestWorkspaceSwitch).toHaveBeenCalledWith('design');
+    expect(setPanelVisible).toHaveBeenCalledWith('logo', true);
+    expect(toggleLogoPanel).not.toHaveBeenCalled();
+  });
+
   it('registered intelligence actions dispatch to setInspectorTab when executed', () => {
     const editor = makeEditorMock();
     registerEditorActions(editor);
