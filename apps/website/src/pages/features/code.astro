@@ -1,6 +1,7 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import { sitePath } from '../../lib/siteUrl';
+import FeatureVisual from '../../components/FeatureVisual.astro';
 ---
 
 <Layout
@@ -27,11 +28,17 @@ import { sitePath } from '../../lib/siteUrl';
           editor.
         </p>
         <p>
-          The Code shortcut, <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>8</kbd>, opens the Code
-          panel in the current workspace. The same panel also includes design audit and readiness
-          views where applicable.
+          <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>8</kbd> shows the Code panel in the current
+          workspace. The existing <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>J</kbd> shortcut toggles
+          that same panel. On macOS, use Command in place of Ctrl. The panel also includes design
+          audit and readiness views where applicable.
         </p>
       </section>
+
+      <FeatureVisual
+        scene="workspace-shared-workflows"
+        caption="The Code panel is a shared surface — here it is open beside Logo tools in Design."
+      />
 
       <section class="feature-section">
         <h2>One shared surface</h2>

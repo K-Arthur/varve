@@ -31,9 +31,14 @@ import FeatureVisual from '../../components/FeatureVisual.astro';
           palette, or <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>1</kbd>…<kbd>6</kbd> in the same order
           as the switcher, with each tab marked by its matching number; the active workspace is
           always named, and workspaces that don't fit stay in the switcher's overflow menu. On
-          macOS, use Command+Shift with the same numbers. Logo
-          Tools and Code use Ctrl+Shift+7 and Ctrl+Shift+8, without adding workspace tabs; on
-          macOS, use Command+Shift with the same numbers.
+          macOS, use Command+Shift with the same numbers. Logo Tools use
+          Ctrl+Shift+7 to open Design and reveal the Logo panel. Code uses
+          Ctrl+Shift+8 to show the shared panel in the current workspace; in the desktop app,
+          Ctrl+Shift+J also toggles that panel. Browsers may reserve Ctrl+Shift+J for Developer
+          Tools, so use Ctrl+Shift+8 or View &gt; Panels &gt; Code Panel in the browser. These are
+          actions, not workspace tabs. On macOS, use Command+Shift with the same keys in the
+          desktop app; Chrome uses Command+Shift+J for Downloads, so use Command+Shift+8 or the
+          View menu for Code in the browser.
         </p>
         <ul>
           <li><strong>Design</strong> — UI/UX design, components, tokens, responsive layouts, prototyping, Logo tools, and developer handoff.</li>
@@ -55,6 +60,11 @@ import FeatureVisual from '../../components/FeatureVisual.astro';
       <FeatureVisual
         scene="workspaces"
         caption="The Print workspace on a poster document — the switcher sits in the menubar, naming the active mode and keeping the rest one icon away, and the left panel carries the Masters, Pages, and Spreads controls print work needs."
+      />
+
+      <FeatureVisual
+        scene="workspace-shared-workflows"
+        caption="Logo project controls stay in Design, with generated Code output available beside the same document."
       />
 
       <section class="feature-section">

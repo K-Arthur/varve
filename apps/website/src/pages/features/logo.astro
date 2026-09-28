@@ -1,6 +1,7 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import { sitePath } from '../../lib/siteUrl';
+import FeatureVisual from '../../components/FeatureVisual.astro';
 ---
 
 <Layout
@@ -31,6 +32,11 @@ import { sitePath } from '../../lib/siteUrl';
           shows Logo Tools. You can also open the Logo panel from the View menu or command palette.
         </p>
       </section>
+
+      <FeatureVisual
+        scene="workspace-shared-workflows"
+        caption="The Logo panel keeps project controls in Design while preserving the same document and shared Code output."
+      />
 
       <section class="feature-section">
         <h2>A design workflow, not a separate document mode</h2>
