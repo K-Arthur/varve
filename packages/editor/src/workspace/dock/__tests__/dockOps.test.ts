@@ -11,6 +11,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { registerBuiltinPanels } from '../../panelDefinitions';
 import { resetPanelRegistry } from '../../panelRegistry';
 import {
+  activateDockTab,
   addPanelToWindow,
   addToTabGroup,
   clampRatio,
@@ -30,6 +31,7 @@ import {
   removePanel,
   reorderTab,
   serializeDockTree,
+  setSplitRatio,
   splitHost,
   validateDockLayout,
   validateDockTree,
@@ -110,6 +112,17 @@ describe('dock ops: insertion and splits', () => {
     const next = splitHost(emptyRoot(), 'root', layers(), 'row', 0.5, 'split1');
     expect(next).toEqual(emptyRoot());
   });
+
+  it('updates only the requested split ratio and ignores invalid targets', () => {
+    const root = splitHost(createCanvasNode(), 'canvas-primary', layers(), 'row', 0.5, 'split1');
+    const next = setSplitRatio(root, 'split1', 0.7);
+    expect(next).not.toBe(root);
+    expect(next.kind).toBe('split');
+    if (next.kind === 'split') expect(next.ratio).toBeCloseTo(0.7, 5);
+    expect(setSplitRatio(next, 'missing', 0.3)).toBe(next);
+    expect(setSplitRatio(next, 'split1', Number.NaN)).toBe(next);
+    expect(setSplitRatio(next, 'split1', 5)).not.toBe(next);
+  });
 });
 
 describe('dock ops: tab groups', () => {
@@ -169,6 +182,22 @@ describe('dock ops: tab groups', () => {
 
     expect(reorderTab(root, 't1', 'i1', 'before')).toBe(root);
     expect(reorderTab(root, 't1', 'missing', 'after')).toBe(root);
+  });
+
+  it('selects an existing tab and leaves invalid selections unchanged', () => {
+    const root: DockNode = {
+      kind: 'tabs',
+      id: 't1',
+      panels: [layers('i1'), inspector('i2')],
+      activePanelInstanceId: 'i1',
+    };
+
+    expect(activateDockTab(root, 't1', 'i2')).toMatchObject({
+      kind: 'tabs',
+      activePanelInstanceId: 'i2',
+    });
+    expect(activateDockTab(root, 't1', 'missing')).toBe(root);
+    expect(activateDockTab(root, 'missing', 'i2')).toBe(root);
   });
 });
 
@@ -424,7 +453,7 @@ describe('dock ops: normalization and validation', () => {
       panels: [layers('i1'), inspector('i2')],
       activePanelInstanceId: 'i1',
     };
-    expect(getDockNodeMinimumSize(tabs)).toEqual({ width: 240, height: 160 });
+    expect(getDockNodeMinimumSize(tabs)).toEqual({ width: 240, height: 192 });
   });
 });
 

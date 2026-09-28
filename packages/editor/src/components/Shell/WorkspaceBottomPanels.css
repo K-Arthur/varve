@@ -10,6 +10,104 @@
   box-shadow: 0 -1px 4px rgb(0 0 0 / 0.04);
 }
 
+.workspace-bottom-panels--docked {
+  display: contents;
+}
+
+.workspace-bottom-panels--controls-only {
+  display: contents;
+}
+
+.workspace-dock-tabs {
+  display: flex;
+  align-items: stretch;
+  gap: var(--separator-thickness);
+  min-width: 0;
+  overflow: hidden;
+  background: var(--color-border-subtle);
+  border: var(--border-micro);
+  border-radius: var(--radius-control-compact);
+  box-shadow: var(--shadow-sm);
+}
+
+.workspace-dock-tabs__tab {
+  flex: 0 1 auto;
+  min-width: 4rem;
+  max-width: 14rem;
+  min-height: 30px;
+  padding: 0 var(--space-2);
+  overflow: hidden;
+  color: var(--color-text-secondary);
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: var(--elevation-surface-raised);
+  border: 0;
+  cursor: pointer;
+}
+
+.workspace-dock-tabs__tab[aria-selected="true"] {
+  color: var(--color-text-primary);
+  box-shadow: inset 0 -2px 0 var(--color-interactive-default);
+}
+
+.workspace-dock-tabs__tab:hover {
+  background: var(--color-surface-raised);
+}
+
+.workspace-dock-tabs__tab:focus-visible {
+  position: relative;
+  z-index: 1;
+  outline: 2px solid var(--color-border-focus);
+  outline-offset: -2px;
+}
+
+.workspace-dock-splitter {
+  position: absolute;
+  z-index: var(--z-overlay);
+  display: block;
+  padding: 0;
+  touch-action: none;
+  background: transparent;
+  border: 0;
+  cursor: col-resize;
+}
+
+.workspace-dock-splitter[aria-orientation="horizontal"] {
+  cursor: row-resize;
+}
+
+.workspace-dock-splitter::after {
+  position: absolute;
+  inset: 0;
+  display: block;
+  margin: auto;
+  content: "";
+  background: var(--color-border-subtle);
+  border-radius: var(--radius-full);
+  transition:
+    background-color 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.workspace-dock-splitter[aria-orientation="vertical"]::after {
+  width: 2px;
+}
+
+.workspace-dock-splitter[aria-orientation="horizontal"]::after {
+  height: 2px;
+}
+
+.workspace-dock-splitter:hover::after,
+.workspace-dock-splitter:focus-visible::after {
+  background: var(--color-interactive-default);
+  box-shadow: 0 0 0 2px var(--color-surface-default);
+}
+
+.workspace-dock-splitter:focus-visible {
+  outline: none;
+}
+
 .workspace-bottom-panels__timeline,
 .workspace-bottom-panels__email-preview {
   flex: 1 1 0;
@@ -53,4 +151,11 @@
 
 .editor-shell--motion .workspace-bottom-panels {
   max-height: 280px;
+}
+
+.workspace-bottom-panels--docked .workspace-bottom-panels__timeline,
+.workspace-bottom-panels--docked .workspace-bottom-panels__email-preview {
+  border-top: var(--border-micro);
+  background: var(--elevation-surface-default);
+  box-shadow: 0 -1px 4px rgb(0 0 0 / 0.04);
 }

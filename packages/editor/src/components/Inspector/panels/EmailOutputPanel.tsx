@@ -1,14 +1,25 @@
 import type { EmailIrAsset } from '@varve/codegen';
 import { Button, CopyButton } from '@varve/ui';
-import { useMemo } from 'react';
+import type { CSSProperties } from 'react';
+import { useLayoutEffect, useMemo, useRef } from 'react';
 import { useEditor } from '../../../context';
 import { createBufferedExportArchive, saveExportBytes } from '../../../exportSaveAdapter';
+import { usePanelLocalState } from '../../../workspace/panelLocalState';
 import { EmailCodeEditor } from './EmailCodeEditor';
 import { EmailPreflightPanel } from './EmailPreflightPanel';
 import { EmailSourceBlocks } from './EmailSourceBlocks';
 import { getEmailCompilation } from './emailCompilation';
 
-export function EmailOutputPanel() {
+export function EmailOutputPanel({
+  style,
+  dockTabA11y,
+}: {
+  style?: CSSProperties;
+  dockTabA11y?: { labelledBy: string; selected: boolean };
+} = {}) {
+  const panelRef = useRef<HTMLElement | null>(null);
+  const [scrollTop, setScrollTop] = usePanelLocalState<number>('emailOutput', 'scrollTop', 0);
+  const lastSavedScrollTop = useRef(scrollTop);
   const editor = useEditor();
   const { state } = editor;
   const selected = editor.selectedNodes();
@@ -40,6 +51,10 @@ export function EmailOutputPanel() {
     () => new Set(Object.keys(state.document.nodes)),
     [state.document.nodes],
   );
+  useLayoutEffect(() => {
+    if (panelRef.current) panelRef.current.scrollTop = scrollTop;
+    lastSavedScrollTop.current = scrollTop;
+  }, [scrollTop]);
 
   const exportEmail = async () => {
     if (!compilation || hasErrors || !output) return;
@@ -127,9 +142,20 @@ export function EmailOutputPanel() {
   return (
     <section
       className="email-panel__group email-output-panel"
-      aria-labelledby="email-output-heading"
       data-panel="emailOutput"
+      id="editor-email-output-panel"
       data-testid="email-output-panel"
+      role={dockTabA11y ? 'tabpanel' : 'group'}
+      aria-labelledby={dockTabA11y?.labelledBy ?? 'email-output-heading'}
+      aria-hidden={dockTabA11y && !dockTabA11y.selected ? true : undefined}
+      style={style}
+      ref={panelRef}
+      onScroll={(event) => {
+        const next = event.currentTarget.scrollTop;
+        if (Math.abs(next - lastSavedScrollTop.current) < 24) return;
+        lastSavedScrollTop.current = next;
+        setScrollTop(next);
+      }}
     >
       <div className="email-panel__heading-row">
         <div>

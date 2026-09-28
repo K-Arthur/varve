@@ -48,6 +48,7 @@ export function useFitOnFirstDocument(editor: FitEditor, enabled: boolean): void
  * changing behavior.
  */
 
+export { getDockPanelA11yProps, useEditorDockGeometry } from './dock/useEditorDockGeometry';
 export { useDetachedPanels } from './useDetachedPanels';
 export {
   isPagePanelUserControlled,

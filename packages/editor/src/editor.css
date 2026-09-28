@@ -371,15 +371,25 @@ input[type="number"] {
 /* Distraction-free canvas mode: menubar/tabs/panels/status bar are not
  * rendered (see Shell.tsx), so the grid collapses to a single canvas area
  * rather than reserving empty fixed-height/width tracks for them. */
-.editor-shell--distraction-free {
+.editor-shell.editor-shell--distraction-free {
   grid-template-areas: "canvas";
   grid-template-columns: 1fr;
   grid-template-rows: 1fr;
 }
 
+/* The bottom dock can retain splitter and tab controls even when its panels
+ * are not mounted for Focus canvas. Hide the whole control surface so the
+ * temporary layout is fully chrome-free and those controls leave the tab
+ * order until Focus exits. */
+.editor-shell--distraction-free .workspace-bottom-panels {
+  display: none;
+}
+
 .editor-shell__exit-focus {
-  grid-area: canvas;
-  position: absolute;
+  /* Keep the recovery action tied to the viewport. The focus layout can be
+   * resized independently of the canvas grid track, so a grid-area anchor may
+   * leave this control outside the visible window after a portrait resize. */
+  position: fixed;
   top: var(--space-3);
   right: var(--space-3);
   z-index: var(--z-sticky);
@@ -1725,10 +1735,14 @@ input[type="number"] {
  * active pill, and the icon tint for the inactive state. Both are audited
  * pairs in every theme (light/dark/high-contrast) by audit:tokens, so a hue
  * can never silently ship below contrast again. High Contrast collapses all
- * eight modes onto the single HC accent. */
+ * six modes onto the single HC accent. */
 .workspace-dock__item[data-mode="design"] {
   --workspace-mode-accent: var(--color-workspace-accent-design);
   --workspace-mode-icon: var(--color-workspace-icon-design);
+}
+.workspace-dock__item[data-mode="print"] {
+  --workspace-mode-accent: var(--color-workspace-accent-print);
+  --workspace-mode-icon: var(--color-workspace-icon-print);
 }
 .workspace-dock__item[data-mode="drawing"] {
   --workspace-mode-accent: var(--color-workspace-accent-drawing);
@@ -1738,21 +1752,9 @@ input[type="number"] {
   --workspace-mode-accent: var(--color-workspace-accent-image);
   --workspace-mode-icon: var(--color-workspace-icon-image);
 }
-.workspace-dock__item[data-mode="print"] {
-  --workspace-mode-accent: var(--color-workspace-accent-print);
-  --workspace-mode-icon: var(--color-workspace-icon-print);
-}
 .workspace-dock__item[data-mode="motion"] {
   --workspace-mode-accent: var(--color-workspace-accent-motion);
   --workspace-mode-icon: var(--color-workspace-icon-motion);
-}
-.workspace-dock__item[data-mode="codegen"] {
-  --workspace-mode-accent: var(--color-workspace-accent-codegen);
-  --workspace-mode-icon: var(--color-workspace-icon-codegen);
-}
-.workspace-dock__item[data-mode="logo"] {
-  --workspace-mode-accent: var(--color-workspace-accent-logo);
-  --workspace-mode-icon: var(--color-workspace-icon-logo);
 }
 .workspace-dock__item[data-mode="email"] {
   --workspace-mode-accent: var(--color-workspace-accent-email);
@@ -2358,16 +2360,6 @@ input[type="number"] {
 }
 .page-nav-container {
   grid-area: pagenav;
-}
-
-.editor__timeline-panel {
-  grid-area: timeline;
-  min-height: 0;
-  max-height: 220px;
-  overflow: hidden;
-  border-top: var(--border-micro);
-  background: var(--elevation-surface-default);
-  box-shadow: 0 -1px 4px rgb(0 0 0 / 0.04);
 }
 
 /* ── History panel (M8) ──────────────────────────────────────────────────── */
@@ -4941,10 +4933,6 @@ dialog.varve-dialog--settings[open] {
 }
 
 /* ── Timeline panel: motion workspace enhancement ──────── */
-.editor-shell--motion .editor__timeline-panel {
-  max-height: 280px;
-}
-
 /* ── Timeline panel enhanced ───────────────────────────── */
 .timeline-panel {
   display: flex;
@@ -5871,13 +5859,6 @@ dialog.varve-dialog--settings[open] {
 .workspace-customize {
   padding: var(--space-4);
   max-width: 400px;
-  max-height: min(70vh, 680px);
-  overflow-y: auto;
-}
-.workspace-customize__title {
-  font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-semibold);
-  margin-bottom: var(--space-1);
 }
 .workspace-customize__description {
   font-size: var(--font-size-sm);
@@ -5900,20 +5881,6 @@ dialog.varve-dialog--settings[open] {
   color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
   line-height: 1.4;
-}
-.workspace-customize__search {
-  box-sizing: border-box;
-  width: 100%;
-  margin-bottom: var(--space-2);
-  padding: var(--space-2);
-  color: var(--color-text-primary);
-  background: var(--color-surface-sunken);
-  border: var(--border-micro);
-  border-radius: var(--radius-control);
-}
-.workspace-customize__search:focus-visible {
-  outline: 2px solid var(--color-border-focus);
-  outline-offset: 1px;
 }
 .workspace-customize__empty {
   margin: var(--space-2) 0;
@@ -5944,50 +5911,43 @@ dialog.varve-dialog--settings[open] {
   color: var(--color-text-secondary);
   font-size: var(--font-size-2xs);
 }
-.workspace-customize__toggle input[type="checkbox"] {
-  accent-color: var(--color-interactive-default);
-}
 .workspace-customize__arrangement-row {
   display: grid;
-  grid-template-columns: minmax(8rem, 1fr) auto auto minmax(9rem, auto) auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
   gap: var(--space-2);
   min-height: 36px;
   padding: var(--space-1) 0;
   border-bottom: 1px solid var(--color-border-subtle);
 }
+.workspace-customize__arrangement-row--dock-move {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.workspace-customize__arrangement-row--dock-move > button {
+  grid-column: 1 / -1;
+  justify-self: end;
+}
 .workspace-customize__arrangement-name {
   min-width: 0;
   color: var(--color-text-primary);
   font-size: var(--font-size-sm);
 }
-.workspace-customize__arrangement-row > button {
-  min-height: 32px;
-  padding: 0 var(--space-2);
-  color: var(--color-text-primary);
-  background: var(--color-surface-sunken);
-  border: var(--border-micro);
-  border-radius: var(--radius-control-compact);
-  cursor: pointer;
+.workspace-customize__arrangement-row:not(.workspace-customize__arrangement-row--dock-move)
+  .workspace-customize__row-select {
+  grid-column: span 2;
 }
-.workspace-customize__arrangement-row > button:disabled {
-  color: var(--color-text-muted);
-  cursor: default;
-}
-.workspace-customize__arrangement-row > button:focus-visible,
-.workspace-customize__arrangement-select select:focus-visible {
-  outline: 2px solid var(--color-border-focus);
-  outline-offset: 1px;
-}
-.workspace-customize__arrangement-select select {
-  box-sizing: border-box;
-  width: 100%;
-  min-height: 32px;
-  padding: 0 var(--space-2);
-  color: var(--color-text-primary);
-  background: var(--color-surface-sunken);
-  border: var(--border-micro);
-  border-radius: var(--radius-control-compact);
+/* The tool rows already name their tool; the select's own label stays
+   visually hidden (the accessible name keeps its "Show <tool> in" form). */
+.workspace-customize__row-select .varve-native-select__label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
 .workspace-customize__pin {
   display: flex;
@@ -5997,9 +5957,6 @@ dialog.varve-dialog--settings[open] {
   color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
   cursor: pointer;
-}
-.workspace-customize__pin input[type="checkbox"] {
-  accent-color: var(--color-interactive-default);
 }
 .workspace-customize__arrangement-row .workspace-customize__toggle {
   padding: 0;
@@ -6892,4 +6849,124 @@ dialog.varve-dialog--settings[open] {
 
 .editor-inspector .insp-image-fill__color-detail dd {
   color: var(--color-text-secondary);
+}
+
+/* When the persisted dock tree cannot fit its registered minimum sizes, the
+ * geometry hook deliberately returns to the shell's responsive projection.
+ * Keep that desktop-sized compact projection non-destructive: the canvas
+ * keeps the full central track while workflow panels sit inside its bounds,
+ * and the saved dock ratios remain untouched. */
+@media (min-width: 900px) {
+  .editor-shell:not(:has(.editor-shell__canvas-dock[style*="position: absolute"])) {
+    grid-template-columns: 0 minmax(320px, 1fr) 0 0;
+  }
+
+  .editor-shell:not(:has(.editor-shell__canvas-dock[style*="position: absolute"]))
+    .editor__layers-panel,
+  .editor-shell:not(:has(.editor-shell__canvas-dock[style*="position: absolute"]))
+    .editor__inspector-panel,
+  .editor-shell:not(:has(.editor-shell__canvas-dock[style*="position: absolute"]))
+    .editor__library-panel {
+    position: fixed;
+    top: var(--menubar-total-height);
+    bottom: var(--statusbar-height);
+    grid-area: unset;
+    margin: 0;
+    z-index: var(--z-overlay);
+    height: auto;
+    overflow-y: auto;
+  }
+
+  .editor-shell:not(:has(.editor-shell__canvas-dock[style*="position: absolute"]))
+    .editor__layers-panel {
+    left: 0;
+    right: auto;
+    width: var(--sidebar-width);
+    transform: translateX(-100%);
+  }
+
+  .editor-shell:not(:has(.editor-shell__canvas-dock[style*="position: absolute"]))
+    .editor__layers-panel[data-visible] {
+    transform: translateX(0);
+  }
+
+  .editor-shell:not(:has(.editor-shell__canvas-dock[style*="position: absolute"]))
+    .editor__layers-panel:not([data-visible]),
+  .editor-shell:not(:has(.editor-shell__canvas-dock[style*="position: absolute"]))
+    .editor__inspector-panel:not([data-visible]) {
+    visibility: hidden;
+  }
+
+  .editor-shell:not(:has(.editor-shell__canvas-dock[style*="position: absolute"]))
+    .editor__inspector-panel,
+  .editor-shell:not(:has(.editor-shell__canvas-dock[style*="position: absolute"]))
+    .editor__library-panel {
+    left: auto;
+    right: 0;
+    width: var(--inspector-width);
+    transform: translateX(100%);
+  }
+
+  .editor-shell:not(:has(.editor-shell__canvas-dock[style*="position: absolute"]))
+    .editor__inspector-panel[data-visible],
+  .editor-shell:not(:has(.editor-shell__canvas-dock[style*="position: absolute"]))
+    .editor__library-panel[data-visible] {
+    transform: translateX(0);
+  }
+
+  .editor-shell:not(:has(.editor-shell__canvas-dock[style*="position: absolute"]))
+    .editor__library-panel {
+    width: min(300px, 90vw);
+    z-index: calc(var(--z-overlay) + 1);
+  }
+
+  .editor-shell:not(:has(.editor-shell__canvas-dock[style*="position: absolute"]))
+    .editor__codegen-panel,
+  .editor-shell:not(:has(.editor-shell__canvas-dock[style*="position: absolute"]))
+    .editor__logo-panel {
+    grid-area: canvas;
+    position: relative;
+    align-self: stretch;
+    width: min(340px, calc(100vw - 320px));
+    max-width: 100%;
+    min-width: 0;
+    overflow: auto;
+    z-index: calc(var(--z-overlay) + 1);
+  }
+
+  .editor-shell:not(:has(.editor-shell__canvas-dock[style*="position: absolute"]))
+    .editor__codegen-panel {
+    justify-self: end;
+  }
+
+  .editor-shell:not(:has(.editor-shell__canvas-dock[style*="position: absolute"]))
+    .editor__logo-panel {
+    justify-self: start;
+  }
+
+  .editor-shell:not(:has(.editor-shell__canvas-dock[style*="position: absolute"])):has(
+      .editor__codegen-panel
+    ):has(.editor__logo-panel)
+    .editor__codegen-panel,
+  .editor-shell:not(:has(.editor-shell__canvas-dock[style*="position: absolute"])):has(
+      .editor__codegen-panel
+    ):has(.editor__logo-panel)
+    .editor__logo-panel {
+    width: min(340px, calc(50vw - 160px));
+  }
+
+  /* The <=899px breakpoint is not the only path to a drawer: the nested dock
+   * can also project panels when its registered minimums exceed a wider
+   * window. Keep the same launch controls reachable in that fallback. */
+  .editor-shell:not(:has(.editor-shell__canvas-dock[style*="position: absolute"])) .editor__fab {
+    display: flex;
+    bottom: calc(
+      var(--statusbar-height) +
+      28px +
+      var(--space-3) +
+      var(--floating-toolbar-height, var(--toolbar-height)) +
+      var(--space-2) +
+      env(safe-area-inset-bottom, 0px)
+    );
+  }
 }

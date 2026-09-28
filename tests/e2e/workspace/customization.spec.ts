@@ -47,7 +47,10 @@ test.describe('workspace customization', () => {
 
     // Editor Chrome is part of the supported surface.
     await expect(dialog.getByText('Editor Chrome')).toBeVisible();
-    await dialog.getByRole('checkbox', { name: /History/ }).check();
+    // force: the @varve/ui Checkbox draws a visual box over its 1px native
+    // input, so a plain .check() never hits the input (same convention as
+    // tests/e2e/gradient-map/import-workflow.spec.ts).
+    await dialog.getByRole('checkbox', { name: /History/ }).check({ force: true });
     await expect(page.locator('.editor__history-panel')).toBeVisible();
 
     await page.screenshot({ path: 'test-results/workspace-customize-dialog.png' });
@@ -57,6 +60,45 @@ test.describe('workspace customization', () => {
     // demo harness confirms the boot path re-projects it.
     const stored = await page.evaluate(() => localStorage.getItem('varve-workspace-preferences'));
     expect(stored).toContain('history');
+  });
+
+  test('keyboard-accessible panel moves update the live canvas and persist', async ({ page }) => {
+    await navigateToEditor(page);
+    await runPaletteAction(page, 'Customize Workspace', /^Customize Workspace$/);
+    const dialog = page.getByRole('dialog', { name: /Customize Design workspace/i });
+    await dialog.getByRole('combobox', { name: 'Panel to move' }).selectOption('layers');
+    await dialog.getByRole('combobox', { name: 'Panel placement' }).selectOption('below');
+    await dialog.getByRole('combobox', { name: 'Panel move target' }).selectOption('inspector');
+    await dialog.getByRole('button', { name: 'Move panel', exact: true }).click();
+    const moveSection = dialog.locator('[aria-labelledby="workspace-dock-move-title"]');
+    await expect(moveSection.getByRole('status')).toContainText('Layers moved.');
+
+    const layers = await page.locator('.editor__layers-panel').boundingBox();
+    const inspector = await page.locator('.editor__inspector-panel').boundingBox();
+    expect(layers).not.toBeNull();
+    expect(inspector).not.toBeNull();
+    expect(layers!.width).toBeGreaterThanOrEqual(180);
+    expect(layers!.height).toBeGreaterThanOrEqual(160);
+    expect(inspector!.width).toBeGreaterThanOrEqual(240);
+    expect(inspector!.height).toBeGreaterThanOrEqual(160);
+    expect(layers!.y).toBeGreaterThanOrEqual(inspector!.y + inspector!.height - 1);
+    const customizeOverflow = await page.locator('.workspace-customize').evaluate((element) => ({
+      clientWidth: element.clientWidth,
+      scrollWidth: element.scrollWidth,
+    }));
+    expect(customizeOverflow.scrollWidth).toBeLessThanOrEqual(customizeOverflow.clientWidth + 1);
+    await dialog
+      .locator('.varve-dialog__body')
+      .first()
+      .evaluate((element) => element.scrollTo({ top: 0 }));
+    await page.screenshot({
+      path: 'docs/screenshots/workspace-dock-layout/custom-move-controls-light.png',
+    });
+    await dialog.getByRole('button', { name: 'Done' }).click();
+    await page.screenshot({ path: 'docs/screenshots/workspace-dock-layout/custom-move-light.png' });
+
+    const stored = await page.evaluate(() => localStorage.getItem('varve-workspace-preferences'));
+    expect(stored).toContain('dockLayout');
   });
 
   test('focus canvas template applies and Default restores', async ({ page }) => {
@@ -72,25 +114,25 @@ test.describe('workspace customization', () => {
     const focusRow = dialog.locator('.workspace-layouts__row').filter({ hasText: 'Focus canvas' });
     await focusRow.getByRole('button', { name: 'Apply' }).click();
 
-    // Panels and tab strip hide; the menubar and the dialog stay reachable.
-    await expect(page.locator('.editor__layers-panel')).toHaveAttribute('data-collapsed', 'true');
-    await expect(page.locator('.editor__inspector-panel')).toHaveAttribute(
-      'data-collapsed',
-      'true',
-    );
+    // Focus canvas removes panels and browser chrome, and exits through its control.
+    await expect(page.locator('.editor__layers-panel')).toHaveCount(0);
+    await expect(page.locator('.editor__inspector-panel')).toHaveCount(0);
     await expect(page.locator('.editor-tabs-row')).toHaveCount(0);
-    await expect(page.locator('.editor-shell__menubar')).toBeVisible();
+    await expect(dialog).toBeHidden();
+    const exitFocus = page.getByRole('button', { name: /Exit distraction-free mode/i });
+    await expect(exitFocus).toBeVisible();
     await page.screenshot({ path: 'test-results/workspace-focus-canvas.png' });
 
-    const defaultRow = dialog
+    await exitFocus.click();
+    await expect(page.locator('.editor__layers-panel')).toBeVisible();
+    await runPaletteAction(page, 'Manage Layouts', /^Manage Layouts$/);
+    const defaultDialog = page.getByRole('dialog', { name: /Manage Layouts/i });
+    const defaultRow = defaultDialog
       .locator('.workspace-layouts__row')
       .filter({ hasText: 'Default' })
       .first();
     await defaultRow.getByRole('button', { name: 'Apply' }).click();
-    await expect(page.locator('.editor__layers-panel')).not.toHaveAttribute(
-      'data-collapsed',
-      'true',
-    );
+    await expect(page.locator('.editor__layers-panel')).toBeVisible();
     await expect(page.locator('.editor__inspector-panel')).not.toHaveAttribute(
       'data-collapsed',
       'true',
@@ -106,7 +148,8 @@ test.describe('workspace customization', () => {
     );
 
     // Hide the layers panel with its shortcut, then reset the workspace
-    // through the registry.
+    // through the registry. Docked panels remain mounted so their local UI
+    // state survives moves; assert the collapsed presentation instead.
     await page.keyboard.press('Control+b');
     await expect(page.locator('.editor__layers-panel')).toHaveAttribute('data-collapsed', 'true');
 
@@ -165,6 +208,13 @@ test.describe('workspace customization', () => {
     await layersFab.click();
     const layers = page.locator('.editor__layers-panel');
     await expect(layers).toHaveAttribute('data-visible', 'true');
+    await expect
+      .poll(async () => (await layers.boundingBox())?.x ?? Number.NEGATIVE_INFINITY)
+      .toBeGreaterThanOrEqual(-1);
+    const drawerBounds = await layers.boundingBox();
+    expect(drawerBounds).not.toBeNull();
+    expect(drawerBounds!.width).toBeGreaterThanOrEqual(220);
+    expect(drawerBounds!.x + drawerBounds!.width).toBeLessThanOrEqual(760);
     await page.screenshot({ path: 'test-results/workspace-narrow-drawer.png' });
 
     // Escape closes the drawer and returns focus to its launcher.
@@ -183,18 +233,45 @@ test.describe('workspace customization', () => {
     const dialog = page.getByRole('dialog', { name: /Manage Layouts/i });
     const focusRow = dialog.locator('.workspace-layouts__row').filter({ hasText: 'Focus canvas' });
     await focusRow.getByRole('button', { name: 'Apply' }).click();
-    await expect(page.locator('.editor__layers-panel')).toHaveAttribute('data-collapsed', 'true');
-    // Close the modal before driving controls behind it.
-    await dialog.getByRole('button', { name: 'Done' }).click();
     await expect(dialog).toBeHidden();
+    await expect(page.locator('.editor__layers-panel')).toHaveCount(0);
+    await expect(page.locator('.workspace-bottom-panels')).toBeHidden();
 
     await page.setViewportSize({ width: 760, height: 900 });
-    // Focus canvas hides the status bar; the launcher must remain, because a
-    // hidden panel is never the only route to the feature behind it.
+    // Focus canvas remains recoverable without panel chrome or drag actions.
+    const exitFocus = page.getByRole('button', { name: /Exit distraction-free mode/i });
+    await expect(exitFocus).toBeVisible();
+    const canvasBounds = await page.locator('.editor-canvas').boundingBox();
+    expect(canvasBounds).not.toBeNull();
+    expect(canvasBounds!.width).toBeGreaterThanOrEqual(320);
+    expect(canvasBounds!.height).toBeGreaterThanOrEqual(320);
+    const toolbarBounds = await page.locator('.floating-toolbar').boundingBox();
+    expect(toolbarBounds).not.toBeNull();
+    expect(toolbarBounds!.width).toBeGreaterThanOrEqual(40);
+    const exitBounds = await exitFocus.boundingBox();
+    expect(exitBounds).not.toBeNull();
+    expect(exitBounds!.x).toBeGreaterThanOrEqual(0);
+    expect(exitBounds!.y).toBeGreaterThanOrEqual(0);
+    expect(exitBounds!.x + exitBounds!.width).toBeLessThanOrEqual(760);
+    expect(exitBounds!.y + exitBounds!.height).toBeLessThanOrEqual(900);
+    await page.screenshot({
+      path: 'docs/screenshots/workspace-dock-layout/focus-canvas-narrow-light.png',
+    });
+    await exitFocus.click();
     const layersFab = page.getByRole('button', { name: /Show layers panel/i });
     await expect(layersFab).toBeVisible();
     await layersFab.click();
-    await expect(page.locator('.editor__layers-panel')).toHaveAttribute('data-visible', 'true');
-    await page.screenshot({ path: 'test-results/workspace-narrow-focus-canvas.png' });
+    const layers = page.locator('.editor__layers-panel');
+    await expect(layers).toHaveAttribute('data-visible', 'true');
+    await expect
+      .poll(async () => (await layers.boundingBox())?.x ?? Number.NEGATIVE_INFINITY)
+      .toBeGreaterThanOrEqual(-1);
+    const layersBounds = await layers.boundingBox();
+    expect(layersBounds).not.toBeNull();
+    expect(layersBounds!.width).toBeGreaterThanOrEqual(220);
+    expect(layersBounds!.x + layersBounds!.width).toBeLessThanOrEqual(760);
+    await page.screenshot({
+      path: 'docs/screenshots/workspace-dock-layout/focus-recovered-narrow-light.png',
+    });
   });
 });

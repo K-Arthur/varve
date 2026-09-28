@@ -36,6 +36,7 @@ export const MAX_DOCK_DEPTH = 16;
 export const MAX_DOCK_NODES = 64;
 export const MAX_DOCK_PANELS = 32;
 export const MAX_DOCK_WINDOWS = 8;
+export const DOCK_TAB_STRIP_MIN_HEIGHT = 32;
 
 export function clampRatio(ratio: number): number {
   if (!Number.isFinite(ratio)) return 0.5;
@@ -220,7 +221,7 @@ export function getDockNodeMinimumSize(root: DockNode): PanelSize {
       return size ? { ...size } : { width: 0, height: 0 };
     }
     case 'tabs': {
-      return root.panels.reduce<PanelSize>(
+      const minimum = root.panels.reduce<PanelSize>(
         (minimum, panel) => {
           const size = tryGetPanelDefinition(panel.panelTypeId)?.minimumSize;
           if (!size) return minimum;
@@ -231,6 +232,10 @@ export function getDockNodeMinimumSize(root: DockNode): PanelSize {
         },
         { width: 0, height: 0 },
       );
+      return {
+        width: minimum.width,
+        height: minimum.height + (root.panels.length > 1 ? DOCK_TAB_STRIP_MIN_HEIGHT : 0),
+      };
     }
     case 'split': {
       const first = getDockNodeMinimumSize(root.first);
@@ -362,6 +367,15 @@ export function splitHost(
   return replaceNode(root, hostNodeId, split);
 }
 
+/** Update one split's preferred ratio without changing any other node. */
+export function setSplitRatio(root: DockNode, splitNodeId: string, ratio: number): DockNode {
+  const target = findDockNode(root, splitNodeId);
+  if (target?.kind !== 'split' || !Number.isFinite(ratio)) return root;
+  const nextRatio = clampRatio(ratio);
+  if (target.ratio === nextRatio) return root;
+  return replaceNode(root, splitNodeId, { ...target, ratio: nextRatio });
+}
+
 /** Reorder a panel in a tab group without changing which panel is active. */
 export function reorderTab(
   root: DockNode,
@@ -379,6 +393,16 @@ export function reorderTab(
   const panels = [...group.panels];
   [panels[from], panels[to]] = [panels[to]!, panels[from]!];
   return replaceNode(root, tabNodeId, { ...group, panels });
+}
+
+/** Select an instance in a tab group without changing any other dock intent. */
+export function activateDockTab(root: DockNode, tabNodeId: string, instanceId: string): DockNode {
+  const group = findDockNode(root, tabNodeId);
+  if (group?.kind !== 'tabs' || !group.panels.some((panel) => panel.instanceId === instanceId)) {
+    return root;
+  }
+  if (group.activePanelInstanceId === instanceId) return root;
+  return replaceNode(root, tabNodeId, { ...group, activePanelInstanceId: instanceId });
 }
 
 export type DockPanelPlacement =

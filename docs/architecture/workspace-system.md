@@ -228,12 +228,17 @@ The product taxonomy and shortcut-order decision is recorded in
 
 Logo-specific project data remains in `Document.logoProject`; invoking Logo
 Tools from another task first selects Design and reveals the same registered
-Logo panel. The toolbar, View menu, command palette, and shortcut all expose
+Logo panel. The toolbar, View menu, command palette, and `Ctrl+Shift+7` expose
 this workflow without adding a Logo radio item. Code export remains available
 through the shared registered Code panel in the current workspace; the legacy
-Codegen workspace action reveals that same surface instead of selecting a
-mode. Neither action replaces the user's document, selection, history, or
-saved layout. The competitor failure evidence and concrete Logo/Code access
+Codegen action and `Ctrl+Shift+8` reveal that same surface instead of selecting
+a mode. The existing `Ctrl+Shift+J` Code Panel toggle also targets this single
+panel in the desktop app; browsers may reserve that chord for Developer Tools,
+so use `Ctrl+Shift+8` or View > Panels > Code Panel in the browser. On macOS,
+use `Command+Shift+J` in the desktop app. Chrome uses that chord for Downloads
+on macOS, so use `Command+Shift+8` or the View menu for Code in the browser.
+Neither action replaces the user's
+document, selection, history, or saved layout. The competitor failure evidence and concrete Logo/Code access
 contract are recorded in
 [`workspace-customization-research-2026-09-27.md`](../audits/workspace-customization-research-2026-09-27.md).
 
@@ -302,7 +307,8 @@ config declared per-mode bindings that nothing registered, so the config
 advertised keys that did nothing when pressed. Switch shortcuts are resolved
 for display with `workspaceShortcutLabel(mode)`, never from a literal. An old
 shortcut table once claimed Ctrl+Shift+D/P/R/I/M long after those keys were
-reassigned to Repeat Duplicate, Present, Invert Selection, and Preview Mode.
+reassigned to Repeat Duplicate, Present, Preview Mode, Invert Selection, and
+Toggle Minimap, respectively.
 The live mode assignments are now sequential (`Ctrl+Shift+1` through
 `Ctrl+Shift+6`) in the same order as the switcher; Logo and Code use separate
 action shortcuts. On macOS these use Command+Shift with the same numbers.
@@ -439,8 +445,10 @@ gaps:
   APG window-splitter resize surface the sidebars have — drag, arrow keys
   (+Shift coarse), Home/End, double-click reset — persisted per workspace
   mode through `panelWidths.library` and cleared on reset
-  (`clearPanelWidths`). The shared Code panel, Logo Tools, and Timeline remain
-  fixed-layout by design (their content is code/text and timeline-spanning).
+  (`clearPanelWidths`). Layers, Inspector, Resources, Code, Logo Tools,
+  Timeline, Email Preview, and Email Output now use the nested dock geometry.
+  The historical Resources splitter still controls only its own width; the
+  nested tree has its own accessible splitters.
 
 ## Named layout variants (2026-09-13)
 
@@ -472,8 +480,9 @@ there is still exactly one resolver and one projection.
 - **Built-in templates are recovery vocabulary**: `Default` (empty payload —
   reset), `Every panel` (reveals every registered panel), and `Focus canvas`
   (enters temporary distraction-free mode and leaves saved visibility and
-  chrome preferences untouched). Focus canvas exits through the on-canvas
-  return control. The other built-ins apply persistent arrangements. Built-ins
+  chrome preferences untouched). Focus canvas exits through a viewport-pinned
+  return control that remains reachable after a resize. The other built-ins
+  apply persistent arrangements. Built-ins
   cannot be renamed, updated, or deleted; duplicating one creates an editable
   user variant.
 - **Resets leave a snapshot.** `resetWorkspaceToDefault` /
@@ -638,11 +647,41 @@ These are known gaps, not settled design:
   single-window layout intent in preferences and named variants, while the
   multi-window logical-layout path and recovery snapshot
   (`layoutPersistence.ts`, legacy `dockOps.ts`) remain unwired.
-- **At this checkpoint, panel move/reorder within the shell is not offered.**
-  The shell's fixed grid defines the permitted regions per panel; the existing
-  customization surface covers visibility, width, tabs/sections, and chrome.
-  The six-workspace customization plan requires replacing this fixed layout
-  with the validated dock tree described below.
+- **The nested dock tree now positions the live shell panels.**
+  `useEditorDockGeometry` resolves the primary-window tree into shell-relative
+  pixel rectangles, enforces registered minimum sizes when the viewport can
+  satisfy them, and collapses hidden panel branches in a render-only
+  projection. Layers, Inspector, Timeline, Email Preview, Assets, Code, Logo,
+  History, and Page Navigator use those rectangles when their corresponding
+  panel is present in the saved tree. The built-in layout keeps Layers left,
+  Inspector right, and places Motion Timeline below the canvas. Email Preview
+  and Email Output share a bottom tab group with Preview selected by default.
+  Below the desktop breakpoint, or when registered minimums cannot
+  fit, the shell retains its drawer/fixed-slot projection without changing
+  saved dock intent. Panel components remain mounted in their stable shell
+  ownership locations; only their geometry changes.
+- **Panel movement has an accessible first path.**
+  Customize Workspace offers keyboard- and touch-operable controls to place
+  visible panels left, right, above, or below a target, group them as tabs, and
+  order them before or after another tab. A move validates and saves the
+  workspace's nested dock tree, then the live shell applies the resulting
+  geometry. Panel drag previews, in-window floating groups, hidden-panel
+  recovery commands, and native transfer round-trips remain outstanding.
+  The old `workspace/dockTypes.ts` / `dockOps.ts` model remains in the manager
+  and recovery path and still needs to be adapted to the registry-aware tree.
+
+### Email output surface separation (2026-09-27)
+
+Email authoring remains the initial Inspector tab. Email Preview and Email
+Output are separate registered singleton panels. In the built-in Email layout,
+Preview is the selected tab in the bottom dock group and Output is one click
+away; this keeps authoring controls usable while preserving a dedicated place
+for generated HTML, plain text, source mapping, authored source blocks,
+preflight, and export. Older layouts that contain Email Preview but no Output
+gain Output as a tab beside Preview when the runtime completes their tree.
+Visibility, tabs, and movement share the registry-aware dock model and
+per-workspace preferences. Preview sample values remain preview-only and do not
+change generated export content.
 
 ### Dock-tree implementation checkpoint (2026-09-27)
 
@@ -658,8 +697,27 @@ reject incompatible hosts, and validate the resulting layout before returning
 it. Workspace preferences and version-4 named variants now persist the
 validated schema-2 dock tree, with document pins and unknown machine fields
 removed from portable exports. These are pure-model and persistence
-guarantees; they do not imply that users can yet rearrange the live shell. The
-editor still renders its fixed panel slots, and the older
-`workspace/dockTypes.ts` / `dockOps.ts` model remains in the manager and
-recovery path. Replacing that competing path and rendering the nested model
-are still required before Varve can claim free-form in-window docking.
+guarantees. The live editor now projects the tree's split geometry onto its
+shell panels through `useEditorDockGeometry`; the built-in mode layouts and
+canvas-only snapshots are completed with the required Layers and Inspector
+surfaces at runtime without overwriting saved user geometry. A browser test
+checks panel/canvas ordering and minimum widths across all six modes, then
+checks the narrow viewport fallback. Customize Workspace now exposes
+non-drag Move To, Group, and tab-order actions for visible panels and stores
+only validated results. The movement E2E verifies that moving Layers below
+Inspector changes their live rectangles and writes the dock tree. The current
+evidence set is recorded in `docs/screenshots/workspace-dock-layout/README.md`.
+Each split has a 24 CSS-pixel pointer target and an ARIA separator. Dragging
+previews panel movement and commits one preference update on pointer-up;
+Escape, blur, pointer-cancel, and lost capture discard the preview. Arrow keys
+adjust a split by two percentage points, and Home/End choose its permitted
+extent. The focused geometry E2E exercises keyboard and real pointer input,
+Escape cancellation, and captures the resized workspace. Panel drag previews,
+in-window float/redock, and old manager/recovery retirement remain pending.
+
+Visual revalidation found that the desktop compact-fallback CSS still tested
+for absolute positioning on `.editor-canvas`, while the dock renderer now
+places that geometry on `.editor-shell__canvas-dock`. The stale selector
+classified valid desktop layouts as drawer fallback and hid the default side
+panels. It now checks the wrapper that owns the dock geometry; the six-mode
+geometry browser test confirms Layers and Inspector remain beside the canvas.

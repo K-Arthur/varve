@@ -99,9 +99,11 @@ import { ShortcutPalette, useShortcuts } from './shortcuts';
 import { TabStrip } from './TabStrip';
 import {
   editorHeadingLabel,
+  getDockPanelA11yProps,
   isPagePanelUserControlled,
   resolvePageSurfaceVisibility,
   useDetachedPanels,
+  useEditorDockGeometry,
   useEffectiveWorkspaceConfig,
   useFitOnFirstDocument,
   useWorkspacePanelWidths,
@@ -359,6 +361,7 @@ function ShellInner({
     [editor],
   );
   const responsivePanelTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const shellRef = useRef<HTMLDivElement | null>(null);
   const [layersVisible, setLayersVisible] = useState(false);
   const [inspectorVisible, setInspectorVisible] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -577,6 +580,21 @@ function ShellInner({
     workflowProfile: editor.state.document.workflowProfile,
     pagePanelUserControlled: isPagePanelUserControlled(workspaceMode),
   });
+  const dockGeometry = useEditorDockGeometry(workspaceMode, shellRef, {
+    layers: leftPanelVisible && !distractionFreeMode,
+    inspector: rightPanelVisible && !distractionFreeMode,
+    timeline: editor.state.timelinePanelVisible && !distractionFreeMode,
+    pagenav: pageSurfaceVisibility.showPageNavigation && !distractionFreeMode,
+    library: libraryPanelVisible && !distractionFreeMode && !isDetached('library'),
+    codegen: codegenPanelVisible && !distractionFreeMode && !isDetached('codegen'),
+    logo: editor.state.logoPanelVisible && !distractionFreeMode && !isDetached('logo'),
+    history: editor.state.historyPanelVisible && !distractionFreeMode,
+    emailPreview: effectiveConfig.panels.emailPreview.visible && !distractionFreeMode,
+    emailOutput: effectiveConfig.panels.emailOutput.visible && !distractionFreeMode,
+  });
+  if (dockGeometry.canvasStyle.position === 'absolute') {
+    (gridStyle as Record<string, string>)['--logo-panel-width'] = '0px';
+  }
   // Mode-preferred panel widths apply only when the user hasn't resized the
   // panel (a saved width always wins over the mode default).
   const layersPref = effectiveConfig.panels.layers.preferredWidth;
@@ -614,6 +632,7 @@ function ShellInner({
   return (
     <DnDShell editor={editor} layersDndRef={layersDndRef} canvasRef={canvasContainerRef}>
       <div
+        ref={shellRef}
         className={`editor-shell${distractionFreeMode ? ' editor-shell--distraction-free' : ''}${
           editor.state.logoPanelVisible ? ' editor-shell--logo-open' : ''
         }`}
@@ -636,7 +655,7 @@ function ShellInner({
             <ContextControlBar />
           </header>
         )}
-        <FloatingToolbar />
+        <FloatingToolbar style={dockGeometry.toolbarStyle} />
         {!distractionFreeMode && effectiveConfig.tabStrip && (
           <TabStrip onBackToHome={onBackToHome} />
         )}
@@ -654,14 +673,20 @@ function ShellInner({
           </Tooltip>
         )}
         <SelectionBreadcrumb />
-        <main className="editor-shell__main" style={{ display: 'contents' }}>
-          <ErrorBoundary>
-            <CanvasArea
-              canvasContainerRef={canvasContainerRef}
-              onContextMenu={handleCanvasContextMenu}
-            />
-          </ErrorBoundary>
-        </main>
+        <div
+          className="editor-shell__canvas-dock"
+          style={dockGeometry.canvasStyle}
+          data-dock-node="canvas"
+        >
+          <main className="editor-shell__main" style={{ display: 'contents' }}>
+            <ErrorBoundary>
+              <CanvasArea
+                canvasContainerRef={canvasContainerRef}
+                onContextMenu={handleCanvasContextMenu}
+              />
+            </ErrorBoundary>
+          </main>
+        </div>
         <MissingFontController />
         <CollabCursorOverlay
           users={collabUsers}
@@ -699,9 +724,16 @@ function ShellInner({
           worldToCanvas={(wx, wy) => editor.worldToCanvas(wx, wy)}
         />
         {!distractionFreeMode && pageSurfaceVisibility.showPageNavigation && (
-          <div className="page-nav-container">
+          <section
+            className="page-nav-container"
+            data-panel="pagenav"
+            id="editor-pagenav-panel"
+            style={dockGeometry.panelStyles.pagenav}
+            role={dockGeometry.tabPanelA11y.pagenav ? 'tabpanel' : 'group'}
+            {...getDockPanelA11yProps(dockGeometry.tabPanelA11y.pagenav)}
+          >
             <PageNav />
-          </div>
+          </section>
         )}
         {!distractionFreeMode && (
           <aside
@@ -710,7 +742,11 @@ function ShellInner({
             data-testid="layers-panel"
             id="editor-layers-panel"
             data-visible={layersVisible || undefined}
-            role={layersVisible ? 'dialog' : undefined}
+            style={dockGeometry.panelStyles.layers}
+            role={
+              dockGeometry.tabPanelA11y.layers ? 'tabpanel' : layersVisible ? 'dialog' : undefined
+            }
+            {...getDockPanelA11yProps(dockGeometry.tabPanelA11y.layers)}
             aria-label={layersVisible ? 'Layers' : undefined}
             data-collapsed={!leftPanelVisible || undefined}
             {...(!leftPanelVisible ? { inert: true } : {})}
@@ -736,7 +772,15 @@ function ShellInner({
             data-panel="inspector"
             id="editor-inspector-panel"
             data-visible={inspectorVisible || undefined}
-            role={inspectorVisible ? 'dialog' : undefined}
+            style={dockGeometry.panelStyles.inspector}
+            role={
+              dockGeometry.tabPanelA11y.inspector
+                ? 'tabpanel'
+                : inspectorVisible
+                  ? 'dialog'
+                  : undefined
+            }
+            {...getDockPanelA11yProps(dockGeometry.tabPanelA11y.inspector)}
             aria-label={inspectorVisible ? 'Inspector' : undefined}
             data-collapsed={!rightPanelVisible || undefined}
             {...(!rightPanelVisible ? { inert: true } : {})}
@@ -753,37 +797,61 @@ function ShellInner({
           // data-visible drives the <=899px drawer transform. Without it the
           // panel stayed translated fully off-screen, so Resources could be
           // "open" in state and never reachable on a narrow viewport.
-          <div
+          <section
             className="editor__library-panel"
             data-panel="library"
             data-visible
             id="editor-library-panel"
-            role="dialog"
             aria-label="Resources"
+            role={dockGeometry.tabPanelA11y.library ? 'tabpanel' : 'dialog'}
+            {...getDockPanelA11yProps(dockGeometry.tabPanelA11y.library)}
+            style={dockGeometry.panelStyles.library}
           >
             <ResourcesPanel
               doc={editor.state.document}
               onInstallLibrary={editor.installLibrary}
               onUninstallLibrary={editor.uninstallLibrary}
             />
-          </div>
+          </section>
         )}
         {codegenPanelVisible && !distractionFreeMode && !isDetached('codegen') && (
-          <div className="editor__codegen-panel" data-panel="codegen">
+          <section
+            className="editor__codegen-panel"
+            data-panel="codegen"
+            id="editor-codegen-panel"
+            style={dockGeometry.panelStyles.codegen}
+            role={dockGeometry.tabPanelA11y.codegen ? 'tabpanel' : 'group'}
+            {...getDockPanelA11yProps(dockGeometry.tabPanelA11y.codegen)}
+          >
             <CodePanel doc={editor.state.document} selection={editor.selectedNodes()} />
-          </div>
+          </section>
         )}
         {editor.state.logoPanelVisible && !distractionFreeMode && !isDetached('logo') && (
-          <div className="editor__logo-panel" data-panel="logo" data-testid="logo-panel">
+          <section
+            className="editor__logo-panel"
+            data-panel="logo"
+            data-testid="logo-panel"
+            id="editor-logo-panel"
+            style={dockGeometry.panelStyles.logo}
+            role={dockGeometry.tabPanelA11y.logo ? 'tabpanel' : 'group'}
+            {...getDockPanelA11yProps(dockGeometry.tabPanelA11y.logo)}
+          >
             <LogoPanel />
-          </div>
+          </section>
         )}
         {(effectiveConfig.panels.emailPreview.visible ||
-          (editor.state.timelinePanelVisible &&
-            !distractionFreeMode &&
-            !isDetached('timeline'))) && (
+          (effectiveConfig.panels.emailOutput.visible && !distractionFreeMode) ||
+          (editor.state.timelinePanelVisible && !distractionFreeMode && !isDetached('timeline')) ||
+          dockGeometry.tabGroups.length > 0 ||
+          dockGeometry.splitters.length > 0) && (
           <WorkspaceBottomPanels
             showEmailPreview={effectiveConfig.panels.emailPreview.visible && !distractionFreeMode}
+            showEmailOutput={effectiveConfig.panels.emailOutput.visible && !distractionFreeMode}
+            panelStyles={dockGeometry.panelStyles}
+            dockTabGroups={dockGeometry.tabGroups}
+            dockSplitters={dockGeometry.splitters}
+            dockTabPanelA11y={dockGeometry.tabPanelA11y}
+            onSelectDockTab={dockGeometry.selectDockTab}
           >
             {editor.state.timelinePanelVisible &&
             !distractionFreeMode &&
@@ -901,11 +969,19 @@ function ShellInner({
           </WorkspaceBottomPanels>
         )}
         {editor.state.historyPanelVisible && !distractionFreeMode && (
-          <div className="editor__history-panel" data-panel="history" data-testid="history-panel">
+          <section
+            className="editor__history-panel"
+            data-panel="history"
+            data-testid="history-panel"
+            id="editor-history-panel"
+            style={dockGeometry.panelStyles.history}
+            role={dockGeometry.tabPanelA11y.history ? 'tabpanel' : 'group'}
+            {...getDockPanelA11yProps(dockGeometry.tabPanelA11y.history)}
+          >
             <ErrorBoundary>
               <HistoryPanel />
             </ErrorBoundary>
-          </div>
+          </section>
         )}
         {!distractionFreeMode && effectiveConfig.statusBar && (
           <>

@@ -4,6 +4,9 @@ import '@testing-library/jest-dom/vitest';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { EditorProvider, useEditor } from '../context';
+import { validateDockLayout } from '../workspace/dock/dockOps';
+import { registerBuiltinPanels } from '../workspace/panelDefinitions';
+import { resetPanelRegistry } from '../workspace/panelRegistry';
 import {
   getEffectiveWorkspaceConfig,
   getWorkspacePreferences,
@@ -26,11 +29,14 @@ describe('WorkspaceCustomizeDialog', () => {
   beforeEach(() => {
     localStorage.clear();
     resetWorkspacePreferenceCache();
+    resetPanelRegistry();
+    registerBuiltinPanels();
   });
 
   it('lists every panel id with a human label, including History', () => {
     renderDialog();
     const dialog = screen.getByRole('dialog');
+    const panels = within(dialog).getByRole('heading', { name: 'Panels' }).parentElement!;
     for (const label of [
       'Layers',
       'Inspector',
@@ -41,7 +47,7 @@ describe('WorkspaceCustomizeDialog', () => {
       'Logo Panel',
       'History',
     ]) {
-      expect(within(dialog).getByText(label)).toBeTruthy();
+      expect(within(panels).getByText(label)).toBeTruthy();
     }
   });
 
@@ -132,6 +138,31 @@ describe('WorkspaceCustomizeDialog', () => {
 
     fireEvent.click(within(dialog).getByRole('checkbox', { name: /History/ }));
     await waitFor(() => expect(editor?.state.historyPanelVisible).toBe(false));
+  });
+
+  it('moves a panel through the accessible controls and persists the validated dock tree', () => {
+    renderDialog();
+    const dialog = screen.getByRole('dialog');
+    fireEvent.change(within(dialog).getByRole('combobox', { name: 'Panel to move' }), {
+      target: { value: 'layers' },
+    });
+    fireEvent.change(within(dialog).getByRole('combobox', { name: 'Panel placement' }), {
+      target: { value: 'below' },
+    });
+    fireEvent.change(within(dialog).getByRole('combobox', { name: 'Panel move target' }), {
+      target: { value: 'inspector' },
+    });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Move panel' }));
+
+    const moveSection = dialog.querySelector<HTMLElement>(
+      '[aria-labelledby="workspace-dock-move-title"]',
+    )!;
+    expect(within(moveSection).getByRole('status')).toHaveTextContent('Layers moved.');
+    const layout = Object.values(getWorkspacePreferences()).find(
+      (preference) => preference.dockLayout,
+    )?.dockLayout;
+    expect(layout).toBeDefined();
+    expect(validateDockLayout(layout!)).toEqual([]);
   });
 
   it('filters tools by registry label and moves an active hidden tool to Select', async () => {
