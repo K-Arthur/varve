@@ -27,17 +27,27 @@ Shift+Tab backward (reverse order)
 | Timeline   | 1st control                 | Within timeline controls     | Close timeline                        |
 | Status bar | 1st control                 | Within status controls       | N/A                                   |
 
-### Region skipping
+### Panel and command shortcuts
 
-Users can navigate directly to key regions via:
+The current shortcut registry exposes panel visibility actions rather than
+direct focus-region shortcuts:
 
-- `Ctrl+Shift+L` — Focus Layers panel
-- `Ctrl+Shift+I` — Focus Inspector
-- `Ctrl+Shift+C` — Focus Canvas
-- `Ctrl+Shift+T` — Focus Timeline
+- `Ctrl+B` — Toggle the Layers panel
+- `Ctrl+Shift+B` — Toggle the Inspector panel in the desktop app
+- `Ctrl+Shift+M` — Toggle the Minimap in the desktop app
+- `Ctrl+Shift+J` — Toggle the shared Code panel in the desktop app. Browsers
+  may reserve this chord for Developer Tools; in the browser route use
+  `Ctrl+Shift+8` or View > Panels > Code Panel.
 - `Ctrl+,` — Open Settings (focus inside dialog)
-- `Ctrl+P` — Command palette (focus on search)
-- `Ctrl+Shift+F` — Find and replace
+- `Ctrl+/` — Open the command palette
+- `Ctrl+;` — Open Quick Actions
+
+Older `Ctrl+Shift+L/I/C/T` focus-region entries are not current bindings.
+Chrome may also reserve `Ctrl+Shift+B` and `Ctrl+Shift+M` for browser controls;
+use Varve's View menu for Inspector and Minimap in the browser. On macOS Chrome,
+`Command+Shift+J` opens Downloads, so use `Command+Shift+8` or the View menu for
+Code. Resolve displayed shortcuts from `ShortcutManager` rather than copying
+them from this navigation-order description.
 
 ## Composite Widget Patterns
 

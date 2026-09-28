@@ -100,8 +100,8 @@ Always source shortcuts from the registry, never hard-code:
 ```
 
 For workspace-mode shortcuts use the registry-backed helper (the historical
-`Ctrl+Shift+D` strings were stale — workspace switching actually executes on
-`Ctrl+Shift+1..9`):
+`Ctrl+Shift+D` strings were stale — workspace switching now follows the visible
+workspace order on `Ctrl+Shift+1..6`; `+7` and `+8` are Logo and Code actions):
 
 ```tsx
 import { workspaceShortcutLabel } from '@varve/editor';

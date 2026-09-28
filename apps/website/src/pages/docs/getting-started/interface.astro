@@ -403,8 +403,12 @@ import '../../../styles/docs-prose.css';
           number, and overflow items keep their full shortcut labels. The next keys are actions:
           <a href={sitePath('/features/logo')}>Logo Tools</a> uses <code>Ctrl+Shift+7</code> to
           open Design and reveal its panel, while the <a href={sitePath('/features/code')}>shared
-          Code panel</a> uses <code>Ctrl+Shift+8</code> in the current workspace. On macOS, use
-          Command+Shift with the same numbers.
+          Code panel</a> uses <code>Ctrl+Shift+8</code> in the current workspace, and the existing
+          <code>Ctrl+Shift+J</code> shortcut toggles that same panel in the desktop app. Browsers
+          may reserve it for Developer Tools, so use <code>Ctrl+Shift+8</code> or View &gt; Panels
+          &gt; Code Panel in the browser. On macOS, use Command+Shift with the same numbers and
+          Command+Shift+J for the desktop Code toggle; Chrome uses that chord for Downloads, so
+          use Command+Shift+8 or the View menu for Code in the browser.
         </p>
         <p>
           The toolbar itself is composed per workspace: tools, their order, and flyout

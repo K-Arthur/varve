@@ -261,6 +261,7 @@ pass report in
 | `adr/0237-native-gpu-compute.md` | Native GPU compute, truthful accelerator capability stages, and inference-provider honesty |
 | `adr/0238-guide-layouts.md` | Non-destructive frame/page/master guide layouts, v2.30 ownership, preview, and transformed snapping |
 | `adr/0238-comic-webtoon-workflow-architecture.md` | Comic/webtoon workflow: no dedicated workspace; document profile, capability-keyed page surfaces, shared tools, optional presets |
+| `adr/0239-six-task-workspaces-and-ordered-shortcuts.md` | Six task workspaces with one ordered switcher/shortcut sequence; Logo tools and Code export remain shared workflows |
 | `adr/0223-palette-extraction-derived-analysis.md` | Palette extraction as derived, versioned analysis (see `architecture/palette-extraction-system.md`) |
 | `adr/0224-non-destructive-effect-attachments.md` | Separate node-local Object Filters from scoped Adjustment Layers |
 | `adr/0225-effect-studio.md` | Integrate Effect Studio with the existing effect pipeline |

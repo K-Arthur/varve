@@ -141,18 +141,24 @@ email authoring combines semantic roles, responsive output, preserved source
 blocks, compilation, compatibility checks, and export in one task flow. It
 operates on the ordinary shared document; entering Email does not enable an
 email profile or convert artwork. Its built-in arrangement selects the Email
-inspector tab while retaining Layers at the left:
+authoring Inspector tab while retaining Layers at the left. Email Preview and
+Email Output are separate singleton dock panels below the canvas, grouped as
+tabs by default with Preview selected:
 - **Layers panel**: Standard layer tree
 - **Inspector**: Email authoring + Properties + Appearance + Export + Audit + Fonts
+- **Email Preview panel**: Sandboxed responsive browser preview
+- **Email Output panel**: Generated HTML, plain text, source mapping, authored-source list, preflight, and export
 - **Status bar**: Preflight warnings, cursor position, zoom
 - **Toolbar**: Select, hand, zoom, frame, shapes, text, line, arrow, scale, inspect
 
-The Email inspector is mounted as a real top-level inspector tab. It supports
+The Email authoring Inspector is mounted as a real top-level tab. It supports
 enabling a normal Varve document as an email, template settings, semantic node
-assignment, whole-node links, text-range links, custom HTML blocks,
-personalization variables, a sandboxed browser preview, generated HTML
-inspection with syntax highlighting/find/replace, source-mapped generated ranges,
-preflight diagnostics, optional UTM tracking, a plain-text preview, and local
+assignment, whole-node links, text-range links, custom HTML blocks, and
+personalization variables. Email Output is an independently registered
+singleton panel, so users can move or group it without leaving authoring
+controls. It provides generated HTML inspection with
+syntax-highlighting/find/replace, source-mapped generated ranges, preflight
+diagnostics, optional UTM tracking, a plain-text preview, and local
 HTML/text/manifest/embedded-asset export.
 
 The preview has explicit desktop/mobile viewport controls. It is a sandboxed
@@ -195,6 +201,8 @@ sending, and ESP authentication are outside this workflow.
 | `packages/editor/src/menu/defs.ts` | View > Workspace > Email |
 | `packages/editor/src/Menubar.tsx` | Email workspace menu entry |
 | `packages/editor/src/components/Inspector/panels/EmailPreflightPanel.tsx` | Grouped, severity-ranked preflight results |
+| `packages/editor/src/components/Inspector/panels/EmailPreviewPanel.tsx` | Dockable, sandboxed responsive browser preview |
+| `packages/editor/src/components/Inspector/panels/EmailOutputPanel.tsx` | Dockable generated output, source blocks, preflight, and export |
 | `packages/editor/src/components/Inspector/panels/EmailNodeCompatibility.tsx` | Per-object compilation readout |
 
 ### Tests

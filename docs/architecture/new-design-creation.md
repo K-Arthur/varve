@@ -114,8 +114,13 @@ The switcher (`.workspace-dock`, `WorkspaceTabs.tsx`) is data-driven:
 - `WORKSPACE_OVERFLOW_PRIORITY`: Design never overflows; specialist workspaces
   move into overflow as space narrows. Logo and Code are workflow surfaces,
   not switcher entries. `Ctrl+Shift+7` opens Design with Logo Tools shown;
-  `Ctrl+Shift+8` opens the shared Code panel without changing the workspace.
-  On macOS both use Command+Shift with the same numbers.
+  `Ctrl+Shift+8` shows the shared Code panel without changing the workspace,
+  while the existing `Ctrl+Shift+J` binding toggles that same panel in the
+  desktop app. Browsers may reserve that chord for Developer Tools; use
+  `Ctrl+Shift+8` or View > Panels > Code Panel in the browser. On macOS use
+  Command+Shift with the same keys in the desktop app. Chrome uses
+  `Command+Shift+J` for Downloads on macOS, so use `Command+Shift+8` or the
+  View menu for Code in the browser.
 - `computeWorkspaceLayout` (pure, unit-tested) decides visible vs. overflow
   tabs from measured widths plus the measured inter-tab `column-gap`; the
   active mode is always visible and named (a lower-priority tab is evicted to

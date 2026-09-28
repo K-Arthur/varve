@@ -209,10 +209,12 @@ for desktop; they are not yet re-verified on the Duet.
 
 | Reserved input | Consequence for Varve |
 |---|---|
-| `Ctrl+1` … `Ctrl+8` | Switches browser tabs. Varve workspace shortcuts deliberately use `Ctrl+Shift+1`…`7`/`9`, which is not reserved. |
+| `Ctrl+1` … `Ctrl+8` | Switches browser tabs. Varve uses `Ctrl+Shift+1`…`6` for Design, Print, Draw, Photo, Motion, and Email in switcher order; `+7` opens Logo Tools in Design, and `+8` shows the shared Code panel. On macOS, use Command+Shift with the same numbers. |
 | `Ctrl+T`, `Ctrl+N`, `Ctrl+W` | Browser tabs/windows. Varve's "New tab"/"Close Document" bindings only resolve inside Tauri; in the browser use the tab strip, File menu, or command palette. |
 | `Ctrl+H`, `Ctrl+J` | History/Downloads. Not bound by Varve. |
-| `Ctrl+Shift+I`, `Ctrl+Shift+J`, `Ctrl+Shift+C` | Developer Tools. `Ctrl+Shift+I` (Invert Selection) is unreachable in the browser; use Edit > Invert Selection or the palette. |
+| [`Ctrl+Shift+B`](https://support.google.com/chrome/answer/157179?hl=en), `Ctrl+Shift+M` | Chrome bookmarks bar / profile switching. Varve's Inspector and Minimap toggles use these chords in the desktop app; in the browser, use the View menu. |
+| [`Ctrl+Shift+I`](https://support.google.com/chrome/answer/157179?hl=en), `Ctrl+Shift+J`, `Ctrl+Shift+C` | Developer Tools. Varve's `Ctrl+Shift+I` (Invert Selection) and `Ctrl+Shift+J` (Code-panel toggle) are unreachable in Chrome; use Edit > Invert Selection or the Code-panel action at `Ctrl+Shift+8` / View > Panels > Code Panel. |
+| `Command+Shift+B`, `Command+Shift+M`, `Command+Shift+J` | Chrome macOS bookmarks bar / profile switching / Downloads. The desktop app keeps the existing panel bindings; in a Chrome browser use the View menu, or `Command+Shift+8` for Code. |
 | `Ctrl+P`, `Ctrl+S`, `Ctrl+O`, `Ctrl+D`, `Ctrl+F` | Print/Save/Open/Bookmark/Find-in-page. Varve's own Print/Save/Open/Find actions must be invoked from the menu, palette, or toolbar in the browser route; the app cannot guarantee the page handler wins for these. |
 | `Ctrl+Shift++` / `Ctrl+Shift+-` / `Ctrl+Shift+0` | Changes the ChromeOS screen resolution. Varve's zoom uses `Ctrl+=` / `Ctrl+-` / `Ctrl+0` (no Shift). |
 | `Alt+=` / `Alt+-` / `Alt+[` / `Alt+]` | Maximize/minimize/dock. Not bound by Varve. |
