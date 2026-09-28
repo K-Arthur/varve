@@ -20,7 +20,9 @@ import {
   deserializeDockLayout,
   deserializeDockTree,
   findPanelInstance,
+  floatPanel,
   getDockNodeMinimumSize,
+  groupPanelInFloat,
   insertBeside,
   listPanelInstances,
   migrateDockLayoutToCanvas,
@@ -28,9 +30,11 @@ import {
   movePanelBetweenWindows,
   movePanelToHost,
   normalizeDockTree,
+  redockFloatingGroup,
   removePanel,
   reorderTab,
   serializeDockTree,
+  setFloatingGroupBounds,
   setSplitRatio,
   splitHost,
   validateDockLayout,
@@ -681,7 +685,7 @@ describe('dock ops: sidebar migration', () => {
 describe('dock ops: protected central canvas', () => {
   it('creates a versioned single-window layout with a 320px canvas floor', () => {
     const layout = createDefaultDockLayout();
-    expect(layout.schemaVersion).toBe(2);
+    expect(layout.schemaVersion).toBe(3);
     expect(validateDockLayout(layout)).toEqual([]);
     const canvas = layout.windows[0]?.dockRoot;
     expect(canvas?.kind).toBe('canvas');
@@ -724,10 +728,38 @@ describe('dock ops: protected central canvas', () => {
       ],
     };
     const migrated = migrateDockLayoutToCanvas(legacy);
-    expect(migrated.schemaVersion).toBe(2);
+    expect(migrated.schemaVersion).toBe(3);
     expect(validateDockLayout(migrated)).toEqual([]);
     expect(listPanelInstances(migrated.windows[0]!.dockRoot)).toEqual([
       { instanceId: 'legacy-layers', panelTypeId: 'layers' },
+    ]);
+    expect(migrateDockLayoutToCanvas(migrated)).toBe(migrated);
+  });
+
+  it('migrates the canvas-anchor v2 layout to floats-capable v3 without changing intent', () => {
+    const layout = createDefaultDockLayout();
+    const legacy: DockLayout = {
+      ...layout,
+      schemaVersion: 2,
+      windows: [
+        {
+          ...layout.windows[0]!,
+          dockRoot: splitHost(
+            layout.windows[0]!.dockRoot,
+            'canvas-primary',
+            layers(),
+            'row',
+            0.6,
+            'old-split',
+          ),
+        },
+      ],
+    };
+    const migrated = migrateDockLayoutToCanvas(legacy);
+    expect(migrated.schemaVersion).toBe(3);
+    expect(migrated.windows[0]!.floatingGroups).toEqual([]);
+    expect(listPanelInstances(migrated.windows[0]!.dockRoot)).toEqual([
+      { instanceId: 'i1', panelTypeId: 'layers' },
     ]);
     expect(migrateDockLayoutToCanvas(migrated)).toBe(migrated);
   });
@@ -832,7 +864,7 @@ describe('dock ops: protected central canvas', () => {
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.layout.schemaVersion).toBe(2);
+    expect(result.layout.schemaVersion).toBe(3);
     expect(validateDockLayout(result.layout)).toEqual([]);
     const portable = JSON.stringify(result.layout);
     expect(portable).not.toContain('document-secret');
@@ -861,5 +893,102 @@ describe('dock ops: protected central canvas', () => {
     };
     expect(deserializeDockLayout(duplicateWindows).ok).toBe(false);
     expect(deserializeDockLayout({ schemaVersion: 2, windows: [] }).ok).toBe(false);
+  });
+
+  it('floats, groups, serializes, resizes, and redocks panels without losing identity', () => {
+    const first = addPanelToWindow(createDefaultDockLayout(), 'main', 'layers');
+    const second = addPanelToWindow(first.layout, 'main', 'inspector');
+    const floated = floatPanel(second.layout, first.instanceId);
+    expect(floated.ok).toBe(true);
+    if (!floated.ok) return;
+    const floatGroup = floated.layout.windows[0]!.floatingGroups![0]!;
+    expect(floatGroup.panels.map((panel) => panel.instanceId)).toEqual([first.instanceId]);
+    expect(validateDockLayout(floated.layout)).toEqual([]);
+
+    const grouped = groupPanelInFloat(floated.layout, second.instanceId, floatGroup.id);
+    expect(grouped.ok).toBe(true);
+    if (!grouped.ok) return;
+    expect(
+      grouped.layout.windows[0]!.floatingGroups![0]!.panels.map((panel) => panel.instanceId),
+    ).toEqual([first.instanceId, second.instanceId]);
+
+    const resized = setFloatingGroupBounds(grouped.layout, floatGroup.id, {
+      x: 0.1,
+      y: 0.2,
+      width: 0.6,
+      height: 0.5,
+    });
+    expect(resized.ok).toBe(true);
+    if (!resized.ok) return;
+    const imported = deserializeDockLayout(JSON.parse(JSON.stringify(resized.layout)));
+    expect(imported.ok).toBe(true);
+    if (!imported.ok) return;
+    expect(validateDockLayout(imported.layout)).toEqual([]);
+    expect(imported.layout.windows[0]!.floatingGroups![0]!.normalizedBounds).toEqual({
+      x: 0.1,
+      y: 0.2,
+      width: 0.6,
+      height: 0.5,
+    });
+
+    const redocked = redockFloatingGroup(imported.layout, floatGroup.id);
+    expect(redocked.ok).toBe(true);
+    if (!redocked.ok) return;
+    expect(redocked.layout.windows[0]!.floatingGroups).toEqual([]);
+    expect(
+      listPanelInstances(redocked.layout.windows[0]!.dockRoot).map((panel) => panel.instanceId),
+    ).toEqual(expect.arrayContaining([first.instanceId, second.instanceId]));
+    const tabGroup = findPanelInstance(redocked.layout.windows[0]!.dockRoot, first.instanceId);
+    expect(tabGroup?.node.kind).toBe('tabs');
+    expect(validateDockLayout(redocked.layout)).toEqual([]);
+  });
+
+  it('rejects out-of-window float geometry and non-primary float hosts', () => {
+    const added = addPanelToWindow(createDefaultDockLayout(), 'main', 'layers');
+    expect(
+      setFloatingGroupBounds(added.layout, 'missing-group', {
+        x: 0,
+        y: 0,
+        width: 1.1,
+        height: 0.5,
+      }).ok,
+    ).toBe(false);
+    const invalid = {
+      ...added.layout,
+      windows: [
+        {
+          ...added.layout.windows[0]!,
+          floatingGroups: [
+            {
+              id: 'float-layer',
+              panels: [{ instanceId: 'another-layer', panelTypeId: 'layers' as const }],
+              normalizedBounds: { x: 0.8, y: 0.1, width: 0.4, height: 0.5 },
+            },
+          ],
+        },
+      ],
+    };
+    expect(validateDockLayout(invalid).join(' ')).toContain('invalid normalized bounds');
+    const nonPrimaryFloat: DockLayout = {
+      schemaVersion: 3,
+      windows: [
+        added.layout.windows[0]!,
+        {
+          id: 'auxiliary',
+          role: 'auxiliary-panel',
+          dockRoot: emptyRoot(),
+          floatingGroups: [
+            {
+              id: 'aux-float',
+              panels: [{ instanceId: 'history-1', panelTypeId: 'history' }],
+              normalizedBounds: { x: 0.1, y: 0.1, width: 0.4, height: 0.5 },
+            },
+          ],
+        },
+      ],
+    };
+    expect(validateDockLayout(nonPrimaryFloat).join(' ')).toContain(
+      'floating groups require the primary',
+    );
   });
 });

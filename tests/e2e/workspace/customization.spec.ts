@@ -101,6 +101,80 @@ test.describe('workspace customization', () => {
     expect(stored).toContain('dockLayout');
   });
 
+  test('floating groups preview movement, resize, reset and redock accessibly', async ({
+    page,
+  }) => {
+    await navigateToEditor(page);
+    await runPaletteAction(page, 'Customize Workspace', /^Customize Workspace$/);
+    const dialog = page.getByRole('dialog', { name: /Customize Design workspace/i });
+    await dialog.getByRole('combobox', { name: 'Panel to move' }).selectOption('layers');
+    await dialog.getByRole('combobox', { name: 'Panel placement' }).selectOption('float');
+    await dialog.getByRole('button', { name: 'Move panel', exact: true }).click();
+    await expect(dialog.locator('.workspace-customize__hint[role="status"]')).toContainText(
+      'Layers updated.',
+    );
+    await dialog.getByRole('button', { name: 'Done' }).click();
+
+    const float = page.locator('.workspace-dock-floating').first();
+    await expect(float).toBeVisible();
+    const header = float.locator('.workspace-dock-floating__header');
+    const initial = await float.boundingBox();
+    expect(initial).not.toBeNull();
+    const headerBox = await header.boundingBox();
+    expect(headerBox).not.toBeNull();
+    await page.mouse.move(headerBox!.x + 80, headerBox!.y + 18);
+    await page.mouse.down();
+    await page.mouse.move(headerBox!.x + 150, headerBox!.y + 78, { steps: 5 });
+    await expect
+      .poll(async () => (await float.boundingBox())?.x ?? 0)
+      .toBeGreaterThan(initial!.x + 30);
+    await page.mouse.up();
+    const moved = await float.boundingBox();
+    expect(moved).not.toBeNull();
+    expect(moved!.y).toBeGreaterThan(initial!.y + 20);
+
+    const resizedHandle = float.getByRole('button', { name: /Resize floating Layers group/i });
+    const handleBox = await resizedHandle.boundingBox();
+    expect(handleBox).not.toBeNull();
+    await page.mouse.move(handleBox!.x + 10, handleBox!.y + 10);
+    await page.mouse.down();
+    await page.mouse.move(handleBox!.x + 70, handleBox!.y + 50, { steps: 5 });
+    await page.mouse.up();
+    await expect
+      .poll(async () => (await float.boundingBox())?.width ?? 0)
+      .toBeGreaterThan(moved!.width + 30);
+
+    await header.focus();
+    await page.keyboard.press('ArrowRight');
+    const keyboardMoved = await float.boundingBox();
+    expect(keyboardMoved).not.toBeNull();
+    expect(keyboardMoved!.x).toBeGreaterThan(moved!.x);
+    await float.getByRole('button', { name: 'Reset location' }).click();
+    await expect.poll(async () => (await float.boundingBox())?.x ?? -1).toBeCloseTo(initial!.x, 0);
+
+    // Compact projection must not rewrite desktop float placement. The
+    // panel remains reachable through the drawer launcher, then the saved
+    // floating group returns when the desktop viewport is restored.
+    await page.setViewportSize({ width: 760, height: 900 });
+    await expect(page.locator('.workspace-dock-floating')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /Show layers panel/i })).toBeVisible();
+    expect(
+      await page.evaluate(() => localStorage.getItem('varve-workspace-preferences')),
+    ).toContain('floatingGroups');
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await expect(float).toBeVisible();
+    await expect(float.getByRole('button', { name: 'Reset location' })).toBeVisible();
+    await page.screenshot({
+      path: 'docs/screenshots/workspace-dock-layout/float-controls-light.png',
+    });
+
+    const stored = await page.evaluate(() => localStorage.getItem('varve-workspace-preferences'));
+    expect(stored).toContain('floatingGroups');
+    await float.getByRole('button', { name: 'Redock' }).click();
+    await expect(page.locator('.workspace-dock-floating')).toHaveCount(0);
+    await expect(page.locator('.editor__layers-panel')).toBeVisible();
+  });
+
   test('focus canvas template applies and Default restores', async ({ page }) => {
     await navigateToEditor(page);
     await expect(page.locator('.editor__layers-panel')).toBeVisible();

@@ -19,6 +19,7 @@
 import type { LegacyWorkspaceMode, WorkspaceMode, WorkspaceModeInput } from '@varve/shared';
 import type { IconName } from '@varve/ui';
 import { getRegisteredToolIds, getToolDefinition, type ToolId } from '../tools/toolRegistry';
+import type { DockRestoreState } from './dock/dockRecovery';
 import type { DockLayout } from './dock/dockTypes';
 import type { PanelId } from './panelIds';
 
@@ -382,6 +383,8 @@ export const CHROME_CONFIG_LABELS: Record<keyof ChromeConfig, string> = {
 export interface WorkspacePreference {
   /** Optional workspace-owned nested dock tree; absent means use the built-in arrangement. */
   dockLayout?: DockLayout;
+  /** Startup recovery state and the last mounted dock tree for this workspace. */
+  dockRestore?: DockRestoreState;
   /**
    * A future dock schema this build cannot apply. Keep it opaque through
    * unrelated preference writes so downgrading never destroys newer layout

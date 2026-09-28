@@ -29,6 +29,26 @@ export interface PanelInstanceRef {
   titleOverride?: string;
 }
 
+/**
+ * Portable fractional placement for an in-window floating group. Values are
+ * fractions of the primary editor content bounds, never CSS pixels or screen
+ * coordinates, so the same layout scales safely on another display.
+ */
+export interface NormalizedFloatBounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/** Panels sharing one movable, resizable floating surface in the main window. */
+export interface DockFloatingGroup {
+  id: DockNodeId;
+  panels: PanelInstanceRef[];
+  activePanelInstanceId?: PanelInstanceId;
+  normalizedBounds: NormalizedFloatBounds;
+}
+
 export type DockSplitDirection = 'row' | 'column';
 
 export type DockNode =
@@ -65,6 +85,8 @@ export interface WorkspaceWindowLayout {
   id: WorkspaceWindowId;
   role: WorkspaceWindowRole;
   dockRoot: DockNode;
+  /** In-window floats are portable layout intent; machine pixel placement is never stored here. */
+  floatingGroups?: DockFloatingGroup[];
 }
 
 /** A complete (portable) workspace layout: the window set. */
@@ -73,7 +95,7 @@ export interface DockLayout {
   windows: WorkspaceWindowLayout[];
 }
 
-export const DOCK_LAYOUT_SCHEMA_VERSION = 2;
+export const DOCK_LAYOUT_SCHEMA_VERSION = 3;
 
 export function createCanvasNode(id = 'canvas-primary'): DockNode {
   return { kind: 'canvas', id };

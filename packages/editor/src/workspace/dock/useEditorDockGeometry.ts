@@ -1,3 +1,4 @@
+import type { Platform } from '@varve/platform';
 import type {
   CSSProperties,
   KeyboardEvent as ReactKeyboardEvent,
@@ -5,18 +6,48 @@ import type {
   RefObject,
 } from 'react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { tryGetPanelDefinition } from '../panelRegistry';
 import {
   getEffectiveWorkspaceConfig,
+  getWorkspacePreferenceHydrationState,
   getWorkspacePreferences,
   setDockLayoutOverride,
   subscribeWorkspacePreferences,
   updateWorkspacePreferences,
 } from '../workspaceStore';
 import type { PanelId, WorkspaceMode } from '../workspaceTypes';
-import type { DockSplitPlacement, DockTabGroupPlacement } from './dockGeometry';
-import { type DockPanelVisibility, type DockRect, resolveDockTreeGeometry } from './dockGeometry';
-import { activateDockTab, DOCK_TAB_STRIP_MIN_HEIGHT, setSplitRatio } from './dockOps';
+import type {
+  DockFloatingGroupPlacement,
+  DockSplitPlacement,
+  DockTabGroupPlacement,
+} from './dockGeometry';
+import {
+  type DockPanelVisibility,
+  type DockRect,
+  resolveDockFloatingGroupGeometry,
+  resolveDockTreeGeometry,
+} from './dockGeometry';
+import {
+  activateDockTab,
+  DEFAULT_DOCK_FLOAT_BOUNDS,
+  DOCK_TAB_STRIP_MIN_HEIGHT,
+  redockFloatingGroup,
+  setFloatingGroupBounds,
+  setSplitRatio,
+  validateDockLayout,
+} from './dockOps';
+import {
+  beginDockRestoreAttempt,
+  createDockRestoreWriterId,
+  markDockRestoreSucceeded,
+  shouldUseDockRecoveryDefault,
+} from './dockRecovery';
+import type { DockFloatingGroup } from './dockTypes';
 import { completeEditorDockLayout, createDefaultEditorDockLayout } from './editorDockLayout';
+import {
+  type FloatGestureHandlers,
+  useFloatingGroupInteractions,
+} from './useFloatingGroupInteractions';
 
 export interface DockSplitView extends DockSplitPlacement {
   style: CSSProperties;
@@ -34,9 +65,30 @@ export interface DockTabGroupView extends DockTabGroupPlacement {
   style: CSSProperties;
 }
 
+export interface DockFloatingGroupView extends DockFloatingGroupPlacement {
+  style: CSSProperties;
+  headerStyle: CSSProperties;
+  activeTitle: string;
+  normalizedBounds: DockFloatingGroup['normalizedBounds'];
+  moveHandlers: FloatGestureHandlers;
+  resizeHandlers: FloatGestureHandlers;
+  tabGroup?: DockTabGroupView;
+  onRedock: () => void;
+  onResetLocation: () => void;
+}
+
 export interface DockTabPanelA11y {
   labelledBy: string;
   selected: boolean;
+}
+
+export interface DockRecoveryNotice {
+  message: string;
+  canRetrySaved: boolean;
+  canRestoreLastKnownGood: boolean;
+  onRetrySaved: () => void;
+  onRestoreLastKnownGood: () => void;
+  onUseDefault: () => void;
 }
 
 export function getDockPanelA11yProps(a11y: DockTabPanelA11y | undefined) {
@@ -51,9 +103,11 @@ export interface EditorDockGeometry {
   toolbarStyle: CSSProperties;
   panelStyles: Partial<Record<PanelId, CSSProperties>>;
   tabGroups: DockTabGroupView[];
+  floatingGroups: DockFloatingGroupView[];
   splitters: DockSplitView[];
   tabPanelA11y: Partial<Record<PanelId, DockTabPanelA11y>>;
   selectDockTab: (groupNodeId: string, panelInstanceId: string) => void;
+  recoveryNotice: DockRecoveryNotice | null;
 }
 
 interface DockBounds {
@@ -88,9 +142,11 @@ const EMPTY_GEOMETRY: EditorDockGeometry = {
   toolbarStyle: {},
   panelStyles: {},
   tabGroups: [],
+  floatingGroups: [],
   splitters: [],
   tabPanelA11y: {},
   selectDockTab: () => {},
+  recoveryNotice: null,
 };
 
 /**
@@ -101,8 +157,28 @@ export function useEditorDockGeometry(
   mode: WorkspaceMode,
   shellRef: RefObject<HTMLElement | null>,
   visibility: DockPanelVisibility,
+  platform?: Platform,
 ): EditorDockGeometry {
   const [preferences, setPreferences] = useState(getWorkspacePreferences);
+  const [retrySavedMode, setRetrySavedMode] = useState<WorkspaceMode | null>(null);
+  const [runtimeRecoveryMode, setRuntimeRecoveryMode] = useState<WorkspaceMode | null>(null);
+  const [resolvedRecoveryModes, setResolvedRecoveryModes] = useState<ReadonlySet<WorkspaceMode>>(
+    () => new Set(),
+  );
+  const [dockRestoreWriterId] = useState(createDockRestoreWriterId);
+  const restoreStartedModes = useRef(new Set<WorkspaceMode>());
+  const promotedLayouts = useRef(new Map<WorkspaceMode, string>());
+  const modePreference = preferences[mode];
+  const lastKnownGood = modePreference?.dockRestore?.lastKnownGood;
+  const canRestoreLastKnownGood = Boolean(
+    lastKnownGood && JSON.stringify(lastKnownGood) !== JSON.stringify(modePreference?.dockLayout),
+  );
+  const retrySavedLayout = retrySavedMode === mode;
+  const recoveryRequired =
+    runtimeRecoveryMode === mode ||
+    (!resolvedRecoveryModes.has(mode) &&
+      (Boolean(modePreference?.unreadableDockLayout) ||
+        shouldUseDockRecoveryDefault(modePreference?.dockRestore)));
   const [bounds, setBounds] = useState<DockBounds | null>(null);
   const [splitPreview, setSplitPreview] = useState<SplitPreview | null>(null);
   const activeSplitResize = useRef<ActiveSplitResize | null>(null);
@@ -124,10 +200,12 @@ export function useEditorDockGeometry(
       ) as DockPanelVisibility,
     [visibilityKey],
   );
-  useEffect(
-    () => subscribeWorkspacePreferences(() => setPreferences(getWorkspacePreferences())),
-    [],
-  );
+  useEffect(() => {
+    const sync = () => setPreferences({ ...getWorkspacePreferences() });
+    const unsubscribe = subscribeWorkspacePreferences(sync);
+    sync();
+    return unsubscribe;
+  }, []);
 
   useEffect(() => {
     const shell = shellRef.current;
@@ -197,7 +275,10 @@ export function useEditorDockGeometry(
 
   const dockLayout = useMemo(() => {
     const modeConfig = getEffectiveWorkspaceConfig(mode, preferences);
-    const saved = preferences[mode]?.dockLayout ?? createDefaultEditorDockLayout(mode);
+    const saved =
+      recoveryRequired && !retrySavedLayout
+        ? createDefaultEditorDockLayout(mode)
+        : (preferences[mode]?.dockLayout ?? createDefaultEditorDockLayout(mode));
     const additionalPanels = Object.entries(stableVisibility)
       .filter(([, visible]) => visible === true)
       .map(([panelId]) => panelId as PanelId);
@@ -208,7 +289,8 @@ export function useEditorDockGeometry(
       modeConfig.panels.emailPreview.visible,
       additionalPanels,
     );
-  }, [mode, preferences, stableVisibility]);
+  }, [mode, preferences, recoveryRequired, retrySavedLayout, stableVisibility]);
+  const preferencesReady = !platform || getWorkspacePreferenceHydrationState() === 'settled';
 
   const selectDockTab = useCallback(
     (groupNodeId: string, panelInstanceId: string) => {
@@ -217,6 +299,22 @@ export function useEditorDockGeometry(
         const primaryIndex = savedLayout.windows.findIndex((window) => window.role === 'primary');
         if (primaryIndex < 0) return current;
         const primary = savedLayout.windows[primaryIndex]!;
+        const floatingGroup = primary.floatingGroups?.find((group) => group.id === groupNodeId);
+        if (floatingGroup?.panels.some((panel) => panel.instanceId === panelInstanceId)) {
+          const windows = savedLayout.windows.map((window, index) =>
+            index === primaryIndex
+              ? {
+                  ...window,
+                  floatingGroups: (window.floatingGroups ?? []).map((group) =>
+                    group.id === groupNodeId
+                      ? { ...group, activePanelInstanceId: panelInstanceId }
+                      : group,
+                  ),
+                }
+              : window,
+          );
+          return setDockLayoutOverride(current, mode, { ...savedLayout, windows });
+        }
         const nextRoot = activateDockTab(primary.dockRoot, groupNodeId, panelInstanceId);
         if (nextRoot === primary.dockRoot) return current;
         const windows = savedLayout.windows.map((window, index) =>
@@ -227,6 +325,172 @@ export function useEditorDockGeometry(
     },
     [dockLayout, mode],
   );
+
+  const onRetrySaved = useCallback(() => {
+    restoreStartedModes.current.add(mode);
+    setResolvedRecoveryModes((previous) => new Set(previous).add(mode));
+    promotedLayouts.current.delete(mode);
+    setRuntimeRecoveryMode(null);
+    setRetrySavedMode(mode);
+    updateWorkspacePreferences((current) => ({
+      ...current,
+      [mode]: {
+        ...current[mode],
+        dockRestore: beginDockRestoreAttempt(current[mode]?.dockRestore, dockRestoreWriterId),
+      },
+    }));
+  }, [dockRestoreWriterId, mode]);
+
+  const onRestoreLastKnownGood = useCallback(() => {
+    const recoverableLayout = preferences[mode]?.dockRestore?.lastKnownGood;
+    if (!recoverableLayout) return;
+    restoreStartedModes.current.add(mode);
+    setResolvedRecoveryModes((previous) => new Set(previous).add(mode));
+    promotedLayouts.current.delete(mode);
+    setRuntimeRecoveryMode(null);
+    setRetrySavedMode(mode);
+    updateWorkspacePreferences((current) => {
+      const restored = setDockLayoutOverride(current, mode, recoverableLayout);
+      return {
+        ...restored,
+        [mode]: {
+          ...restored[mode],
+          dockRestore: beginDockRestoreAttempt(current[mode]?.dockRestore, dockRestoreWriterId),
+        },
+      };
+    });
+  }, [dockRestoreWriterId, mode, preferences]);
+
+  const onUseDefault = useCallback(() => {
+    const defaultLayout = createDefaultEditorDockLayout(mode);
+    restoreStartedModes.current.add(mode);
+    setResolvedRecoveryModes((previous) => new Set(previous).add(mode));
+    promotedLayouts.current.delete(mode);
+    setRuntimeRecoveryMode(null);
+    setRetrySavedMode(null);
+    updateWorkspacePreferences((current) => {
+      const withDefault = setDockLayoutOverride(current, mode, defaultLayout);
+      return {
+        ...withDefault,
+        [mode]: {
+          ...withDefault[mode],
+          dockRestore: beginDockRestoreAttempt(current[mode]?.dockRestore, dockRestoreWriterId),
+        },
+      };
+    });
+  }, [dockRestoreWriterId, mode]);
+
+  useLayoutEffect(() => {
+    if (
+      !preferencesReady ||
+      recoveryRequired ||
+      retrySavedLayout ||
+      restoreStartedModes.current.has(mode)
+    )
+      return;
+    restoreStartedModes.current.add(mode);
+    updateWorkspacePreferences((current) => ({
+      ...current,
+      [mode]: {
+        ...current[mode],
+        dockRestore: beginDockRestoreAttempt(current[mode]?.dockRestore, dockRestoreWriterId),
+      },
+    }));
+  }, [dockRestoreWriterId, mode, preferencesReady, recoveryRequired, retrySavedLayout]);
+
+  const recoveryNotice: DockRecoveryNotice | null = recoveryRequired
+    ? {
+        message: modePreference?.unreadableDockLayout
+          ? 'The saved workspace layout cannot be read by this version. It has been kept for recovery.'
+          : runtimeRecoveryMode === mode
+            ? 'The workspace panels did not finish mounting. A safe default is shown while you choose what to do.'
+            : 'The saved workspace layout failed to restore twice. A safe default is shown while you choose what to do.',
+        canRetrySaved: Boolean(modePreference?.dockLayout) && !modePreference?.unreadableDockLayout,
+        canRestoreLastKnownGood,
+        onRetrySaved,
+        onRestoreLastKnownGood,
+        onUseDefault,
+      }
+    : null;
+
+  useEffect(() => {
+    if (!preferencesReady || !restoreStartedModes.current.has(mode) || recoveryRequired) {
+      return;
+    }
+    const shell = shellRef.current;
+    if (!shell) return;
+    if (validateDockLayout(dockLayout).length > 0) {
+      setResolvedRecoveryModes((previous) => {
+        const next = new Set(previous);
+        next.delete(mode);
+        return next;
+      });
+      setRetrySavedMode(null);
+      setRuntimeRecoveryMode(mode);
+      return;
+    }
+    const primary = dockLayout.windows.find((window) => window.role === 'primary');
+    if (!primary) {
+      setResolvedRecoveryModes((previous) => {
+        const next = new Set(previous);
+        next.delete(mode);
+        return next;
+      });
+      setRetrySavedMode(null);
+      setRuntimeRecoveryMode(mode);
+      return;
+    }
+    const mountedPanelIds = new Set(
+      [...shell.querySelectorAll<HTMLElement>('[data-panel]')].map((element) =>
+        element.getAttribute('data-panel'),
+      ),
+    );
+    const activePanelIds = resolveDockTreeGeometry(primary.dockRoot, 1, 1, stableVisibility)
+      .panels.filter((panel) => panel.active)
+      .map((panel) => panel.panelTypeId);
+    for (const group of primary.floatingGroups ?? []) {
+      const active =
+        group.panels.find((panel) => panel.instanceId === group.activePanelInstanceId) ??
+        group.panels[0];
+      if (active && stableVisibility[active.panelTypeId] !== false) {
+        activePanelIds.push(active.panelTypeId);
+      }
+    }
+    if (activePanelIds.some((panelId) => !mountedPanelIds.has(panelId))) {
+      setResolvedRecoveryModes((previous) => {
+        const next = new Set(previous);
+        next.delete(mode);
+        return next;
+      });
+      setRetrySavedMode(null);
+      setRuntimeRecoveryMode(mode);
+      return;
+    }
+    const signature = JSON.stringify(dockLayout);
+    if (promotedLayouts.current.get(mode) === signature) return;
+    promotedLayouts.current.set(mode, signature);
+    updateWorkspacePreferences((current) => ({
+      ...current,
+      [mode]: {
+        ...current[mode],
+        dockRestore: markDockRestoreSucceeded(
+          current[mode]?.dockRestore,
+          dockLayout,
+          dockRestoreWriterId,
+        ),
+      },
+    }));
+    if (retrySavedMode === mode) setRetrySavedMode(null);
+  }, [
+    dockLayout,
+    dockRestoreWriterId,
+    mode,
+    preferencesReady,
+    recoveryRequired,
+    retrySavedMode,
+    shellRef,
+    stableVisibility,
+  ]);
 
   const persistSplitRatio = useCallback(
     (targetMode: WorkspaceMode, nodeId: string, ratio: number) => {
@@ -246,6 +510,42 @@ export function useEditorDockGeometry(
       });
     },
     [dockLayout, mode],
+  );
+
+  const persistFloatBounds = useCallback(
+    (
+      targetMode: WorkspaceMode,
+      groupId: string,
+      normalizedBounds: { x: number; y: number; width: number; height: number },
+    ) => {
+      updateWorkspacePreferences((current) => {
+        const savedLayout =
+          current[targetMode]?.dockLayout ??
+          (targetMode === mode ? dockLayout : createDefaultEditorDockLayout(targetMode));
+        const result = setFloatingGroupBounds(savedLayout, groupId, normalizedBounds);
+        return result.ok ? setDockLayoutOverride(current, targetMode, result.layout) : current;
+      });
+    },
+    [dockLayout, mode],
+  );
+
+  const persistRedock = useCallback(
+    (targetMode: WorkspaceMode, groupId: string) => {
+      updateWorkspacePreferences((current) => {
+        const savedLayout =
+          current[targetMode]?.dockLayout ??
+          (targetMode === mode ? dockLayout : createDefaultEditorDockLayout(targetMode));
+        const result = redockFloatingGroup(savedLayout, groupId);
+        return result.ok ? setDockLayoutOverride(current, targetMode, result.layout) : current;
+      });
+    },
+    [dockLayout, mode],
+  );
+
+  const floatInteractions = useFloatingGroupInteractions(
+    mode,
+    bounds ? { width: bounds.width, height: bounds.height } : null,
+    persistFloatBounds,
   );
 
   const cancelSplitResize = useCallback(() => {
@@ -281,9 +581,9 @@ export function useEditorDockGeometry(
   );
 
   return useMemo(() => {
-    if (!bounds) return { ...EMPTY_GEOMETRY, selectDockTab };
+    if (!bounds) return { ...EMPTY_GEOMETRY, selectDockTab, recoveryNotice };
     const primary = dockLayout.windows.find((window) => window.role === 'primary');
-    if (!primary) return { ...EMPTY_GEOMETRY, selectDockTab };
+    if (!primary) return { ...EMPTY_GEOMETRY, selectDockTab, recoveryNotice };
     const geometryRoot =
       splitPreview?.mode === mode
         ? setSplitRatio(primary.dockRoot, splitPreview.nodeId, splitPreview.ratio)
@@ -294,10 +594,27 @@ export function useEditorDockGeometry(
       bounds.height,
       stableVisibility,
     );
-    if (geometry.minimumSize.width > bounds.width || geometry.minimumSize.height > bounds.height) {
+    const runtimeFloatingGroups = (primary.floatingGroups ?? []).map((group) => ({
+      ...group,
+      normalizedBounds: floatInteractions.boundsFor(group.id, group.normalizedBounds),
+    }));
+    const floatPlacements = runtimeFloatingGroups
+      .map((group) =>
+        resolveDockFloatingGroupGeometry(group, bounds.width, bounds.height, stableVisibility),
+      )
+      .filter((group) => group.panels.length > 0);
+    const minimumWidth = Math.max(
+      geometry.minimumSize.width,
+      ...floatPlacements.map((group) => group.minimumSize.width),
+    );
+    const minimumHeight = Math.max(
+      geometry.minimumSize.height,
+      ...floatPlacements.map((group) => group.minimumSize.height),
+    );
+    if (minimumWidth > bounds.width || minimumHeight > bounds.height) {
       // The fixed-slot shell supplies the existing drawer projection when
       // this viewport cannot satisfy the registry's desktop minimums.
-      return { ...EMPTY_GEOMETRY, selectDockTab };
+      return { ...EMPTY_GEOMETRY, selectDockTab, recoveryNotice };
     }
     const toStyle = (rect: DockRect): CSSProperties => ({
       position: 'absolute',
@@ -324,14 +641,68 @@ export function useEditorDockGeometry(
         ...(placement.active ? {} : { visibility: 'hidden', pointerEvents: 'none' }),
       };
     }
-    const tabGroups: DockTabGroupView[] = geometry.tabGroups.map((group) => ({
+    for (const floating of floatPlacements) {
+      for (const placement of floating.panels) {
+        panelStyles[placement.panelTypeId] = {
+          ...toStyle(placement.rect),
+          zIndex: 'calc(var(--z-overlay) + 1)',
+          ...(placement.active ? {} : { visibility: 'hidden', pointerEvents: 'none' }),
+        };
+      }
+    }
+    const tabGroups: DockTabGroupView[] = [
+      ...geometry.tabGroups,
+      ...floatPlacements.flatMap((group) => (group.tabGroup ? [group.tabGroup] : [])),
+    ].map((group) => ({
       ...group,
       style: {
         ...toStyle(group.rect),
         height: DOCK_TAB_STRIP_MIN_HEIGHT,
-        zIndex: 'var(--z-overlay)',
+        zIndex: group.floating ? 'calc(var(--z-overlay) + 2)' : 'var(--z-overlay)',
       },
     }));
+    const floatingGroups: DockFloatingGroupView[] = floatPlacements.map((group) => {
+      const tabGroup = tabGroups.find((candidate) => candidate.nodeId === group.id);
+      const activeTitle = group.activePanelTypeId
+        ? (tryGetPanelDefinition(group.activePanelTypeId)?.title ?? group.activePanelTypeId)
+        : 'Panel';
+      const normalizedBounds =
+        runtimeFloatingGroups.find((candidate) => candidate.id === group.id)?.normalizedBounds ??
+        DEFAULT_DOCK_FLOAT_BOUNDS;
+      return {
+        ...group,
+        normalizedBounds,
+        style: {
+          ...toStyle(group.rect),
+          zIndex: 'calc(var(--z-overlay) + 1)',
+          pointerEvents: 'none',
+        },
+        headerStyle: {
+          position: 'absolute',
+          left: 0,
+          top: 0,
+          width: '100%',
+          height: group.headerRect.height,
+          zIndex: 'calc(var(--z-overlay) + 2)',
+        },
+        activeTitle,
+        tabGroup,
+        moveHandlers: floatInteractions.gestureHandlers(
+          group.id,
+          normalizedBounds,
+          group.minimumSize,
+          'move',
+        ),
+        resizeHandlers: floatInteractions.gestureHandlers(
+          group.id,
+          normalizedBounds,
+          group.minimumSize,
+          'resize',
+        ),
+        onRedock: () => persistRedock(mode, group.id),
+        onResetLocation: () => persistFloatBounds(mode, group.id, { ...DEFAULT_DOCK_FLOAT_BOUNDS }),
+      };
+    });
     const splitters: DockSplitView[] = geometry.splitters.map((splitter) => ({
       ...splitter,
       orientation: splitter.direction === 'row' ? 'vertical' : 'horizontal',
@@ -413,6 +784,15 @@ export function useEditorDockGeometry(
         };
       }
     }
+    for (const group of floatPlacements) {
+      if (!group.tabGroup) continue;
+      for (const panel of group.panels) {
+        tabPanelA11y[panel.panelTypeId] = {
+          labelledBy: `dock-tab-${group.id}-${panel.panelInstanceId}`,
+          selected: panel.active,
+        };
+      }
+    }
     const canvasBox = geometry.canvas;
     const canvasBottom = bounds.top + (canvasBox?.y ?? 0) + (canvasBox?.height ?? 0);
     const toolbarTop = bounds.top + (canvasBox?.y ?? 0);
@@ -439,9 +819,11 @@ export function useEditorDockGeometry(
       toolbarStyle,
       panelStyles,
       tabGroups,
+      floatingGroups,
       splitters,
       tabPanelA11y,
       selectDockTab,
+      recoveryNotice,
     };
   }, [
     bounds,
@@ -450,7 +832,11 @@ export function useEditorDockGeometry(
     dockLayout,
     mode,
     persistSplitRatio,
+    persistFloatBounds,
+    persistRedock,
+    floatInteractions,
     pointerRatio,
+    recoveryNotice,
     selectDockTab,
     splitPreview,
     stableVisibility,

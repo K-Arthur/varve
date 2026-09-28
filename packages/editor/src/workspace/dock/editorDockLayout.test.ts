@@ -54,6 +54,36 @@ describe('editor dock defaults', () => {
     expect(completed.windows[0]?.dockRoot).toEqual(custom.windows[0]?.dockRoot);
     expect(validateDockLayout(completed)).toEqual([]);
   });
+
+  it('does not duplicate panels that are already in a floating group', () => {
+    const layout: DockLayout = {
+      schemaVersion: 3,
+      windows: [
+        {
+          id: 'main',
+          role: 'primary',
+          dockRoot: { kind: 'canvas', id: 'canvas' },
+          floatingGroups: [
+            {
+              id: 'float-layers',
+              panels: [{ instanceId: 'builtin-layers', panelTypeId: 'layers' }],
+              activePanelInstanceId: 'builtin-layers',
+              normalizedBounds: { x: 0.1, y: 0.1, width: 0.3, height: 0.5 },
+            },
+          ],
+        },
+      ],
+    };
+
+    const completed = completeEditorDockLayout(layout, 'design');
+    const panels = [
+      ...listPanelInstances(completed.windows[0]!.dockRoot),
+      ...(completed.windows[0]!.floatingGroups ?? []).flatMap((group) => group.panels),
+    ];
+    expect(panels.filter((panel) => panel.panelTypeId === 'layers')).toHaveLength(1);
+    expect(completed.windows[0]!.floatingGroups).toEqual(layout.windows[0]!.floatingGroups);
+    expect(validateDockLayout(completed)).toEqual([]);
+  });
 });
 
 function findTabsWith(

@@ -1,5 +1,7 @@
 import type { CSSProperties, ReactNode } from 'react';
 import type {
+  DockFloatingGroupView,
+  DockRecoveryNotice,
   DockTabGroupView,
   EditorDockGeometry,
 } from '../../workspace/dock/useEditorDockGeometry';
@@ -30,8 +32,10 @@ export interface WorkspaceBottomPanelsProps {
     Record<Extract<PanelId, 'timeline' | 'emailPreview' | 'emailOutput'>, CSSProperties>
   >;
   dockTabGroups?: readonly DockTabGroupView[];
+  dockFloatingGroups?: readonly DockFloatingGroupView[];
   dockSplitters?: EditorDockGeometry['splitters'];
   dockTabPanelA11y?: EditorDockGeometry['tabPanelA11y'];
+  dockRecovery?: DockRecoveryNotice | null;
   onSelectDockTab?: (groupNodeId: string, panelInstanceId: string) => void;
   children?: ReactNode;
 }
@@ -42,8 +46,10 @@ export function WorkspaceBottomPanels({
   showEmailOutput = false,
   panelStyles,
   dockTabGroups = [],
+  dockFloatingGroups = [],
   dockSplitters = [],
   dockTabPanelA11y = {},
+  dockRecovery = null,
   onSelectDockTab,
   children,
 }: WorkspaceBottomPanelsProps) {
@@ -54,7 +60,10 @@ export function WorkspaceBottomPanels({
   const className = [
     'workspace-bottom-panels',
     docked ? 'workspace-bottom-panels--docked' : '',
-    !hasTimeline && !showEmailPreview && !showEmailOutput && dockTabGroups.length > 0
+    !hasTimeline &&
+    !showEmailPreview &&
+    !showEmailOutput &&
+    (dockTabGroups.length > 0 || dockFloatingGroups.length > 0)
       ? 'workspace-bottom-panels--controls-only'
       : '',
     showEmailPreview && hasTimeline ? 'workspace-bottom-panels--split' : '',
@@ -64,6 +73,31 @@ export function WorkspaceBottomPanels({
 
   return (
     <div className={className} data-testid="workspace-bottom-panels">
+      {dockRecovery && (
+        <section
+          className="workspace-dock-recovery"
+          aria-live="polite"
+          aria-labelledby="workspace-dock-recovery-title"
+        >
+          <h2 id="workspace-dock-recovery-title">Workspace layout recovery</h2>
+          <p role="alert">{dockRecovery.message}</p>
+          <div className="workspace-dock-recovery__actions">
+            {dockRecovery.canRestoreLastKnownGood && (
+              <button type="button" onClick={dockRecovery.onRestoreLastKnownGood}>
+                Restore last working layout
+              </button>
+            )}
+            {dockRecovery.canRetrySaved && (
+              <button type="button" onClick={dockRecovery.onRetrySaved}>
+                Retry saved layout
+              </button>
+            )}
+            <button type="button" onClick={dockRecovery.onUseDefault}>
+              Use default arrangement
+            </button>
+          </div>
+        </section>
+      )}
       {hasTimeline && (
         <section
           className="workspace-bottom-panels__timeline"
@@ -94,6 +128,52 @@ export function WorkspaceBottomPanels({
           dockTabA11y={dockTabPanelA11y.emailOutput}
         />
       )}
+      {dockFloatingGroups.map((group) => (
+        <section
+          key={group.id}
+          className="workspace-dock-floating"
+          style={group.style}
+          aria-label={`${group.activeTitle} floating panel group`}
+          data-testid={`dock-floating-${group.id}`}
+        >
+          <header
+            className="workspace-dock-floating__header"
+            style={group.headerStyle}
+            role="toolbar"
+            tabIndex={0}
+            aria-label={`Move floating ${group.activeTitle} group`}
+            onPointerDown={group.moveHandlers.onPointerDown}
+            onPointerMove={group.moveHandlers.onPointerMove}
+            onPointerUp={group.moveHandlers.onPointerUp}
+            onPointerCancel={group.moveHandlers.onPointerCancel}
+            onLostPointerCapture={group.moveHandlers.onLostPointerCapture}
+            onBlur={group.moveHandlers.onBlur}
+            onKeyDown={group.moveHandlers.onKeyDown}
+          >
+            <span className="workspace-dock-floating__title">{group.activeTitle}</span>
+            <button type="button" onClick={group.onResetLocation}>
+              Reset location
+            </button>
+            <button type="button" onClick={group.onRedock}>
+              Redock
+            </button>
+          </header>
+          <button
+            type="button"
+            className="workspace-dock-floating__resize"
+            data-dock-resize-handle="true"
+            aria-label={`Resize floating ${group.activeTitle} group`}
+            title="Resize floating panel"
+            onPointerDown={group.resizeHandlers.onPointerDown}
+            onPointerMove={group.resizeHandlers.onPointerMove}
+            onPointerUp={group.resizeHandlers.onPointerUp}
+            onPointerCancel={group.resizeHandlers.onPointerCancel}
+            onLostPointerCapture={group.resizeHandlers.onLostPointerCapture}
+            onBlur={group.resizeHandlers.onBlur}
+            onKeyDown={group.resizeHandlers.onKeyDown}
+          />
+        </section>
+      ))}
       {dockTabGroups.map((group) => (
         <div
           key={group.nodeId}

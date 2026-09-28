@@ -129,6 +129,16 @@ preview and other transient states do not leave orphaned overlays.
 | Same, durable copy | platform app-setting `workspace-layouts` | SQLite (desktop) / IndexedDB (web) |
 | Global panel mirror | `settings.panel` (`varve-editor-settings`) | legacy; seeds boot for users with no overrides yet |
 
+Dock restoration waits for durable preference hydration before recording an
+attempt, so an older synchronous mirror cannot overwrite a newer recovery
+revision. Each workspace tracks its own attempt. A prior pending mount counts
+as a failed launch; after two interrupted restores, the app shows the built-in
+layout before mounting the saved tree. The recovery surface can retry the
+saved layout, restore the last layout that validated and mounted, or use the
+built-in arrangement. Last-known-good promotion occurs only after tree
+validation and confirmation that active panel hosts mounted. Unknown future
+layout schemas are retained as opaque data until the user chooses a replacement.
+
 localStorage alone is not sufficient: on Linux/WebKitGTK it has been observed
 not surviving between app launches — the defect that made the welcome dialog
 reappear every launch, fixed for onboarding the same way (see
@@ -192,9 +202,16 @@ only to migrate layouts saved by older versions.
   preference and layout stores hydrate. Stable migration ids make this
   idempotent; Design preferences are not rewritten. If the layout store has
   reached its 50-variant limit, the old preference is retained for recovery.
-- `Ctrl+Shift+7` opens Design and reveals Logo Tools. `Ctrl+Shift+8` reveals
-  the shared Code panel in the current workspace. These are commands, not
-  workspace switches; they never select a retired mode.
+- `Ctrl+Shift+7` opens Design and reveals Logo Tools. `Ctrl+Alt+Shift+L`
+  toggles that panel and also resolves to Design when invoked from another
+  workspace. `Ctrl+Shift+8` reveals the shared Code panel in the current
+  workspace; `Ctrl+Shift+J` toggles that same panel in the desktop app. The
+  browser may reserve `Ctrl+Shift+J` for Developer Tools, so browser users can
+  use `Ctrl+Shift+8` or View > Panels > Code Panel. On macOS, use Command+Shift
+  for the numbered actions and Command+Option+Shift+L for the Logo toggle;
+  Chrome uses Command+Shift+J for Downloads, so browser users should use
+  Command+Shift+8 or the View menu. These are commands, not workspace
+  switches; they never select a retired mode.
 
 ## Product taxonomy
 
@@ -212,11 +229,14 @@ shortcut label from `workspaceShortcutLabel(mode)`. Its visible number marker
 is read from that mode's effective shortcut binding, so icon-only tabs still
 show the 1–6 sequence. Dedicated workflow actions
 follow the six mode keys: `Ctrl+Shift+7` shows Logo Tools in Design and
-`Ctrl+Shift+8` shows the shared Code panel. The legacy action ids
+`Ctrl+Shift+8` shows the shared Code panel. `Ctrl+Alt+Shift+L` toggles Logo
+Tools, routing to Design when opening from another workspace. In the desktop
+app, `Ctrl+Shift+J` toggles the same shared Code panel. The legacy action ids
 `workspaceLogo` and `workspaceCodegen` remain in the shortcut registry for
 compatibility, but they are not workspace modes or radio items.
 On macOS, the platform shortcut formatter displays Command+Shift with the same
-numbers.
+numbers; browser conflicts for the panel toggles are documented in the user
+shortcut reference.
 
 `tests/e2e/editor/workspace-navigation-contracts.spec.ts` drives the six mode
 keys and the two workflow actions in a real browser. The visual snapshots in
@@ -226,10 +246,33 @@ dark, and high-contrast themes.
 The product taxonomy and shortcut-order decision is recorded in
 [ADR-0239](../adr/0239-six-task-workspaces-and-ordered-shortcuts.md).
 
+### Logo and Code panel defaults
+
+The built-in Design arrangement keeps Logo Tools closed until a Logo command
+or the user opens it. Design is its only default home: `Ctrl+Shift+7`, the
+Logo workflow command, or View → Panels opens the same singleton Logo panel in
+Design. Keeping the project brief, concepts, variants, vectorization,
+typography, validation, and package export in that focused panel avoids adding
+a permanent column to the general Design canvas. A saved Design arrangement
+still controls its own panel visibility and location.
+The panel toggle `Ctrl+Alt+Shift+L` uses the same workflow: opening it from
+another workspace switches to Design first; macOS uses Command+Option+Shift+L.
+
+The shared Code panel is closed in every built-in workspace. It has no owning
+workspace: `Ctrl+Shift+8` opens it in the current workspace, where it follows
+the current selection and that workspace's saved dock layout. Its Output,
+Audit, and Readiness views keep code targets, preview width, copy/download,
+and quality checks together. This gives developers a direct, cross-workspace
+entry point without making the panel consume canvas area when it is unused.
+These are closed-by-default choices, not limits on panel availability; users
+can save either panel open in a named layout.
+
 Logo-specific project data remains in `Document.logoProject`; invoking Logo
-Tools from another task first selects Design and reveals the same registered
-Logo panel. The toolbar, View menu, command palette, and `Ctrl+Shift+7` expose
-this workflow without adding a Logo radio item. Code export remains available
+Tools or a Logo project/concept/variant command from another task first selects
+Design and reveals the same registered Logo panel. If workspace switching is
+blocked, the Logo command does not mutate the document. The toolbar, View menu,
+command palette, and `Ctrl+Shift+7` expose this workflow without adding a Logo
+radio item. Code export remains available
 through the shared registered Code panel in the current workspace; the legacy
 Codegen action and `Ctrl+Shift+8` reveal that same surface instead of selecting
 a mode. The existing `Ctrl+Shift+J` Code Panel toggle also targets this single
@@ -660,13 +703,17 @@ These are known gaps, not settled design:
   fit, the shell retains its drawer/fixed-slot projection without changing
   saved dock intent. Panel components remain mounted in their stable shell
   ownership locations; only their geometry changes.
-- **Panel movement has an accessible first path.**
+- **Panel movement has keyboard, touch, and pointer paths.**
   Customize Workspace offers keyboard- and touch-operable controls to place
-  visible panels left, right, above, or below a target, group them as tabs, and
-  order them before or after another tab. A move validates and saves the
-  workspace's nested dock tree, then the live shell applies the resulting
-  geometry. Panel drag previews, in-window floating groups, hidden-panel
-  recovery commands, and native transfer round-trips remain outstanding.
+  visible panels left, right, above, or below a target, group them as tabs,
+  order them before or after another tab, float a panel, group it with a float,
+  redock a floating group, and reset its location. Floating groups can be
+  dragged and resized inside the primary window; pointer changes preview live
+  and commit once on pointer-up. Escape, blur, pointer-cancel, and lost capture
+  discard an unfinished gesture. Float intent is stored as normalized bounds,
+  never screen pixels, and dialogs remain above float controls. Dragging a
+  docked panel directly onto a dock target, hidden-panel recovery commands,
+  and native transfer round-trips remain outstanding.
   The old `workspace/dockTypes.ts` / `dockOps.ts` model remains in the manager
   and recovery path and still needs to be adapted to the registry-aware tree.
 
@@ -685,20 +732,21 @@ change generated export content.
 
 ### Dock-tree implementation checkpoint (2026-09-27)
 
-The registry-aware nested model in `workspace/dock/` uses schema version 2
-with exactly one protected canvas anchor in the primary window. Its minimum
-size preserves a 320 CSS-pixel canvas width floor. Version-1 panel-only trees
-can be migrated idempotently while retaining their panel instances. The model
-bounds trees to 16 levels, 64 nodes, 32 panels per tab group, and eight
-windows; it rejects duplicate node and panel identities, applies registered
-singleton and host rules, and exposes minimum-size calculations from the panel
-registry. `reorderTab` and `movePanelToHost` preserve active-tab identity,
-reject incompatible hosts, and validate the resulting layout before returning
-it. Workspace preferences and version-4 named variants now persist the
-validated schema-2 dock tree, with document pins and unknown machine fields
-removed from portable exports. These are pure-model and persistence
-guarantees. The live editor now projects the tree's split geometry onto its
-shell panels through `useEditorDockGeometry`; the built-in mode layouts and
+The registry-aware nested model in `workspace/dock/` uses schema version 3
+with exactly one protected canvas anchor in the primary window and bounded
+in-window floating groups. Its minimum size preserves a 320 CSS-pixel canvas
+width floor. Version-1 panel-only trees and version-2 canvas-anchor trees
+migrate idempotently while retaining their panel instances. The model bounds
+trees to 16 levels, 64 nodes, 32 panels, eight windows, and 16 float groups;
+validates normalized geometry, unique panel/node identities, registered
+singleton and host rules, and panel minimum sizes. `reorderTab`,
+`movePanelToHost`, float, group, resize, and redock operations validate the
+resulting layout before returning it. Workspace preferences and version-4
+named variants persist the validated schema-3 dock tree. Portable bounds scale
+with the primary window; document pins, screen coordinates, and unknown
+machine fields are removed on import. These are pure-model and persistence
+guarantees. The live editor now projects the tree's split geometry and float
+overlays onto its shell panels through `useEditorDockGeometry`; the built-in mode layouts and
 canvas-only snapshots are completed with the required Layers and Inspector
 surfaces at runtime without overwriting saved user geometry. A browser test
 checks panel/canvas ordering and minimum widths across all six modes, then
@@ -712,8 +760,14 @@ previews panel movement and commits one preference update on pointer-up;
 Escape, blur, pointer-cancel, and lost capture discard the preview. Arrow keys
 adjust a split by two percentage points, and Home/End choose its permitted
 extent. The focused geometry E2E exercises keyboard and real pointer input,
-Escape cancellation, and captures the resized workspace. Panel drag previews,
-in-window float/redock, and old manager/recovery retirement remain pending.
+Escape cancellation, and captures the resized workspace. Floating panel groups
+are now draggable, resizable, resettable, and redockable, including keyboard
+arrow movement and resize. Direct drag-and-drop from one dock host to another
+and old manager/recovery retirement remain pending.
+The float controls and resized group are visually recorded in
+`docs/screenshots/workspace-dock-layout/float-controls-light.png`; the
+single-worker Chromium E2E verifies create, drag preview, resize, keyboard
+movement, reset, portable persistence, and redock.
 
 Visual revalidation found that the desktop compact-fallback CSS still tested
 for absolute positioning on `.editor-canvas`, while the dock renderer now

@@ -19,6 +19,7 @@ import type { Platform } from '@varve/platform';
 import { TOOL_REGISTRY } from '../tools/toolRegistry';
 import type { ToolId } from '../tools/types';
 import { deserializeDockLayout } from './dock/dockOps';
+import { mergeDockRestoreState, sanitizeDockRestoreState } from './dock/dockRecovery';
 import { DOCK_LAYOUT_SCHEMA_VERSION } from './dock/dockTypes';
 import { ESSENTIAL_TOOL_IDS } from './toolLabels';
 import {
@@ -309,9 +310,11 @@ function sanitizePreference(
     : isFutureDockLayout(pref.dockLayout)
       ? pref.dockLayout
       : pref.unreadableDockLayout;
+  const dockRestore = sanitizeDockRestoreState(pref.dockRestore);
 
   return {
     ...(dockLayout ? { dockLayout } : {}),
+    ...(dockRestore ? { dockRestore } : {}),
     ...(unreadableDockLayout ? { unreadableDockLayout } : {}),
     ...(clean && Object.keys(clean).length > 0 ? { panelOverrides: clean } : {}),
     ...(cleanTabs && Object.keys(cleanTabs).length > 0 ? { inspectorTabOverrides: cleanTabs } : {}),
@@ -390,6 +393,14 @@ const APP_SETTING_KEY = 'workspace-preferences';
 /** Panel toggles are bursty (a reset rewrites every mode); coalesce the writes. */
 const DURABLE_SAVE_DEBOUNCE_MS = 400;
 
+export type WorkspacePreferenceHydrationState = 'idle' | 'pending' | 'settled';
+let preferenceHydrationState: WorkspacePreferenceHydrationState = 'idle';
+
+/** Whether durable preferences have been folded into the synchronous snapshot. */
+export function getWorkspacePreferenceHydrationState(): WorkspacePreferenceHydrationState {
+  return preferenceHydrationState;
+}
+
 let durablePlatform: Platform | null = null;
 let durableTimer: ReturnType<typeof setTimeout> | null = null;
 let durablePending: WorkspacePreferences | null = null;
@@ -467,14 +478,19 @@ function mergePreferencesByRecency(
     const localTime = preferenceEventTime(l);
     const remoteTime = preferenceEventTime(r);
     if (localTime !== remoteTime) {
-      merged[mode] = localTime > remoteTime ? l : r;
+      const selected = localTime > remoteTime ? l : r;
+      const dockRestore = mergeDockRestoreState(l.dockRestore, r.dockRestore);
+      merged[mode] = dockRestore ? { ...selected, dockRestore } : selected;
       continue;
     }
     // Same event time (usually both zero): preserve the old customized-wins
     // rule, then fall back to the current session's copy.
-    if (!r.customized && l.customized) merged[mode] = l;
-    else if (!l.customized && r.customized) merged[mode] = r;
-    else merged[mode] = l;
+    let selected: WorkspacePreference;
+    if (!r.customized && l.customized) selected = l;
+    else if (!l.customized && r.customized) selected = r;
+    else selected = l;
+    const dockRestore = mergeDockRestoreState(l.dockRestore, r.dockRestore);
+    merged[mode] = dockRestore ? { ...selected, dockRestore } : selected;
   }
   return merged;
 }
@@ -491,28 +507,36 @@ export async function hydrateWorkspacePreferencesFromPlatform(
   platform: Platform,
 ): Promise<boolean> {
   attachWorkspacePreferencePlatform(platform);
-  let raw: string | null = null;
+  preferenceHydrationState = 'pending';
   try {
-    raw = await platform.getAppSetting(APP_SETTING_KEY);
-  } catch (err) {
-    recordPersistenceError('platform', err);
-    return false;
-  }
-  if (!raw) return false;
+    let raw: string | null = null;
+    try {
+      raw = await platform.getAppSetting(APP_SETTING_KEY);
+    } catch (err) {
+      recordPersistenceError('platform', err);
+      return false;
+    }
+    if (!raw) return false;
 
-  let remote: WorkspacePreferences;
-  try {
-    remote = sanitizePreferences(JSON.parse(raw));
-  } catch (err) {
-    recordPersistenceError('platform', err);
-    return false;
-  }
+    let remote: WorkspacePreferences;
+    try {
+      remote = sanitizePreferences(JSON.parse(raw));
+    } catch (err) {
+      recordPersistenceError('platform', err);
+      return false;
+    }
 
-  const local = getWorkspacePreferences();
-  const merged = mergePreferencesByRecency(local, remote);
-  if (JSON.stringify(merged) === JSON.stringify(local)) return false;
-  setWorkspacePreferences(merged);
-  return true;
+    const local = getWorkspacePreferences();
+    const merged = mergePreferencesByRecency(local, remote);
+    if (JSON.stringify(merged) === JSON.stringify(local)) return false;
+    setWorkspacePreferences(merged);
+    return true;
+  } finally {
+    preferenceHydrationState = 'settled';
+    // A preference subscriber may need to proceed even when the durable copy
+    // was missing or identical to the synchronous snapshot.
+    for (const listener of listeners) listener();
+  }
 }
 
 /** Create default (uncustomized) preferences for all modes. */
@@ -562,6 +586,7 @@ export function subscribeWorkspacePreferences(listener: () => void): () => void 
 export function resetWorkspacePreferenceCache(): void {
   cachedPrefs = null;
   listeners.clear();
+  preferenceHydrationState = 'idle';
   if (durableTimer) clearTimeout(durableTimer);
   durableTimer = null;
   durablePending = null;

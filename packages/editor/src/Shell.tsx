@@ -580,18 +580,23 @@ function ShellInner({
     workflowProfile: editor.state.document.workflowProfile,
     pagePanelUserControlled: isPagePanelUserControlled(workspaceMode),
   });
-  const dockGeometry = useEditorDockGeometry(workspaceMode, shellRef, {
-    layers: leftPanelVisible && !distractionFreeMode,
-    inspector: rightPanelVisible && !distractionFreeMode,
-    timeline: editor.state.timelinePanelVisible && !distractionFreeMode,
-    pagenav: pageSurfaceVisibility.showPageNavigation && !distractionFreeMode,
-    library: libraryPanelVisible && !distractionFreeMode && !isDetached('library'),
-    codegen: codegenPanelVisible && !distractionFreeMode && !isDetached('codegen'),
-    logo: editor.state.logoPanelVisible && !distractionFreeMode && !isDetached('logo'),
-    history: editor.state.historyPanelVisible && !distractionFreeMode,
-    emailPreview: effectiveConfig.panels.emailPreview.visible && !distractionFreeMode,
-    emailOutput: effectiveConfig.panels.emailOutput.visible && !distractionFreeMode,
-  });
+  const dockGeometry = useEditorDockGeometry(
+    workspaceMode,
+    shellRef,
+    {
+      layers: leftPanelVisible && !distractionFreeMode,
+      inspector: rightPanelVisible && !distractionFreeMode,
+      timeline: editor.state.timelinePanelVisible && !distractionFreeMode,
+      pagenav: pageSurfaceVisibility.showPageNavigation && !distractionFreeMode,
+      library: libraryPanelVisible && !distractionFreeMode && !isDetached('library'),
+      codegen: codegenPanelVisible && !distractionFreeMode && !isDetached('codegen'),
+      logo: editor.state.logoPanelVisible && !distractionFreeMode && !isDetached('logo'),
+      history: editor.state.historyPanelVisible && !distractionFreeMode,
+      emailPreview: effectiveConfig.panels.emailPreview.visible && !distractionFreeMode,
+      emailOutput: effectiveConfig.panels.emailOutput.visible && !distractionFreeMode,
+    },
+    platform,
+  );
   if (dockGeometry.canvasStyle.position === 'absolute') {
     (gridStyle as Record<string, string>)['--logo-panel-width'] = '0px';
   }
@@ -843,15 +848,19 @@ function ShellInner({
           (effectiveConfig.panels.emailOutput.visible && !distractionFreeMode) ||
           (editor.state.timelinePanelVisible && !distractionFreeMode && !isDetached('timeline')) ||
           dockGeometry.tabGroups.length > 0 ||
-          dockGeometry.splitters.length > 0) && (
+          dockGeometry.floatingGroups.length > 0 ||
+          dockGeometry.splitters.length > 0 ||
+          dockGeometry.recoveryNotice) && (
           <WorkspaceBottomPanels
             showEmailPreview={effectiveConfig.panels.emailPreview.visible && !distractionFreeMode}
             showEmailOutput={effectiveConfig.panels.emailOutput.visible && !distractionFreeMode}
             panelStyles={dockGeometry.panelStyles}
             dockTabGroups={dockGeometry.tabGroups}
+            dockFloatingGroups={dockGeometry.floatingGroups}
             dockSplitters={dockGeometry.splitters}
             dockTabPanelA11y={dockGeometry.tabPanelA11y}
             onSelectDockTab={dockGeometry.selectDockTab}
+            dockRecovery={dockGeometry.recoveryNotice}
           >
             {editor.state.timelinePanelVisible &&
             !distractionFreeMode &&

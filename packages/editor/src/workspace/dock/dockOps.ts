@@ -18,6 +18,7 @@ import {
   createCanvasNode,
   createPanelInstanceRef,
   DOCK_LAYOUT_SCHEMA_VERSION,
+  type DockFloatingGroup,
   type DockLayout,
   type DockNode,
   type DockSplitDirection,
@@ -36,7 +37,10 @@ export const MAX_DOCK_DEPTH = 16;
 export const MAX_DOCK_NODES = 64;
 export const MAX_DOCK_PANELS = 32;
 export const MAX_DOCK_WINDOWS = 8;
+export const MAX_DOCK_FLOAT_GROUPS = 16;
 export const DOCK_TAB_STRIP_MIN_HEIGHT = 32;
+
+export const DEFAULT_DOCK_FLOAT_BOUNDS = { x: 0.18, y: 0.1, width: 0.38, height: 0.72 } as const;
 
 export function clampRatio(ratio: number): number {
   if (!Number.isFinite(ratio)) return 0.5;
@@ -51,21 +55,21 @@ export function createWindow(
   role: WorkspaceWindowRole,
   id: WorkspaceWindowId,
 ): WorkspaceWindowLayout {
-  return { id, role, dockRoot: createEmptyNode(`root-${id}`) };
+  return { id, role, dockRoot: createEmptyNode(`root-${id}`), floatingGroups: [] };
 }
 
 /** Default single-window layout: one protected central canvas anchor. */
 export function createDefaultDockLayout(): DockLayout {
   return {
     schemaVersion: DOCK_LAYOUT_SCHEMA_VERSION,
-    windows: [{ id: 'main', role: 'primary', dockRoot: createCanvasNode() }],
+    windows: [{ id: 'main', role: 'primary', dockRoot: createCanvasNode(), floatingGroups: [] }],
   };
 }
 
 /**
- * Upgrade the original panel-only tree schema by retaining its panel tree
- * beside one central canvas anchor. The conversion is idempotent and rejects
- * malformed layouts instead of guessing at lost panel ownership.
+ * Upgrade the panel-only and canvas-anchor schemas while retaining panel
+ * ownership. The conversion is idempotent and rejects malformed layouts
+ * instead of guessing at lost panel ownership.
  */
 export function migrateDockLayoutToCanvas(layout: DockLayout): DockLayout {
   if (layout.schemaVersion === DOCK_LAYOUT_SCHEMA_VERSION) {
@@ -73,16 +77,20 @@ export function migrateDockLayoutToCanvas(layout: DockLayout): DockLayout {
     if (violations.length > 0) throw new Error(`Invalid dock layout: ${violations[0]}`);
     return layout;
   }
-  if (layout.schemaVersion !== 1) throw new Error('Unsupported dock layout version');
+  if (layout.schemaVersion !== 1 && layout.schemaVersion !== 2) {
+    throw new Error('Unsupported dock layout version');
+  }
   if (validateDockLayout(layout).length > 0) throw new Error('Invalid legacy dock layout');
 
   let primaryCount = 0;
   const windows = layout.windows.map((window) => {
-    if (window.role !== 'primary') return window;
+    if (window.role !== 'primary') {
+      return { ...window, floatingGroups: [] };
+    }
     primaryCount += 1;
     const canvases = findCanvasNodes(window.dockRoot);
     if (canvases.length > 1) throw new Error('Legacy layout contains multiple canvas anchors');
-    if (canvases.length === 1) return window;
+    if (canvases.length === 1) return { ...window, floatingGroups: [] };
     const root =
       window.dockRoot.kind === 'empty'
         ? createCanvasNode(newId())
@@ -94,7 +102,7 @@ export function migrateDockLayoutToCanvas(layout: DockLayout): DockLayout {
             first: window.dockRoot,
             second: createCanvasNode(newId()),
           };
-    return { ...window, dockRoot: root };
+    return { ...window, dockRoot: root, floatingGroups: [] };
   });
   if (primaryCount !== 1) throw new Error('Legacy layout must have one primary window');
 
@@ -145,6 +153,21 @@ function collectPanelInstances(root: DockNode): PanelInstanceRef[] {
     }
   }
   return panels;
+}
+
+function collectDockNodeIds(root: DockNode): string[] {
+  const ids: string[] = [];
+  const seen = new WeakSet<object>();
+  const pending: unknown[] = [root];
+  while (pending.length > 0 && ids.length < MAX_DOCK_NODES) {
+    const value = pending.pop();
+    if (typeof value !== 'object' || value === null || seen.has(value)) continue;
+    seen.add(value);
+    const node = value as DockNode;
+    ids.push(node.id);
+    if (node.kind === 'split') pending.push(node.first, node.second);
+  }
+  return ids;
 }
 
 function insertPanelBesideCanvas(root: DockNode, panel: PanelInstanceRef): DockNode | null {
@@ -206,6 +229,58 @@ export function listPanelInstances(root: DockNode): PanelInstanceRef[] {
     return [...listPanelInstances(root.first), ...listPanelInstances(root.second)];
   }
   return [];
+}
+
+/** Find a registered panel in either a dock tree or an in-window float. */
+export function findPanelInLayout(
+  layout: DockLayout,
+  instanceId: string,
+):
+  | { window: WorkspaceWindowLayout; panel: PanelInstanceRef; floatingGroupId?: string }
+  | undefined {
+  for (const window of layout.windows) {
+    const docked = listPanelInstances(window.dockRoot).find(
+      (panel) => panel.instanceId === instanceId,
+    );
+    if (docked) return { window, panel: docked };
+    for (const group of window.floatingGroups ?? []) {
+      const panel = group.panels.find((candidate) => candidate.instanceId === instanceId);
+      if (panel) return { window, panel, floatingGroupId: group.id };
+    }
+  }
+  return undefined;
+}
+
+function removePanelFromWindow(
+  window: WorkspaceWindowLayout,
+  instanceId: string,
+): { window: WorkspaceWindowLayout; removed?: PanelInstanceRef } {
+  const removedFromTree = removePanel(window.dockRoot, instanceId);
+  if (removedFromTree.removed) {
+    return {
+      window: { ...window, dockRoot: normalizeDockTree(removedFromTree.tree) },
+      removed: removedFromTree.removed,
+    };
+  }
+  let removed: PanelInstanceRef | undefined;
+  const floatingGroups = (window.floatingGroups ?? []).flatMap((group) => {
+    const panel = group.panels.find((candidate) => candidate.instanceId === instanceId);
+    if (!panel) return [group];
+    removed = panel;
+    const panels = group.panels.filter((candidate) => candidate.instanceId !== instanceId);
+    if (panels.length === 0) return [];
+    return [
+      {
+        ...group,
+        panels,
+        activePanelInstanceId:
+          group.activePanelInstanceId === instanceId
+            ? panels[0]?.instanceId
+            : group.activePanelInstanceId,
+      },
+    ];
+  });
+  return removed ? { window: { ...window, floatingGroups }, removed } : { window };
 }
 
 /** Minimum dimensions required by the registered panels below a node. */
@@ -429,6 +504,199 @@ export type DockPanelMoveResult =
         | 'invalid-layout';
     };
 
+export type DockFloatResult =
+  | { ok: true; layout: DockLayout }
+  | {
+      ok: false;
+      layout: DockLayout;
+      reason:
+        | 'invalid-layout'
+        | 'missing-panel'
+        | 'missing-window'
+        | 'missing-group'
+        | 'already-floating'
+        | 'host-not-allowed'
+        | 'limit-exceeded';
+    };
+
+function validNormalizedFloatBounds(bounds: DockFloatingGroup['normalizedBounds']): boolean {
+  return (
+    typeof bounds === 'object' &&
+    bounds !== null &&
+    Number.isFinite(bounds.x) &&
+    Number.isFinite(bounds.y) &&
+    Number.isFinite(bounds.width) &&
+    Number.isFinite(bounds.height) &&
+    bounds.x >= 0 &&
+    bounds.y >= 0 &&
+    bounds.width > 0 &&
+    bounds.height > 0 &&
+    bounds.x + bounds.width <= 1 &&
+    bounds.y + bounds.height <= 1
+  );
+}
+
+/** Move a docked panel into a new in-window floating group. */
+export function floatPanel(
+  layout: DockLayout,
+  instanceId: string,
+  normalizedBounds: DockFloatingGroup['normalizedBounds'] = DEFAULT_DOCK_FLOAT_BOUNDS,
+): DockFloatResult {
+  if (validateDockLayout(layout).length > 0) return { ok: false, layout, reason: 'invalid-layout' };
+  if (!validNormalizedFloatBounds(normalizedBounds)) {
+    return { ok: false, layout, reason: 'invalid-layout' };
+  }
+  const found = findPanelInLayout(layout, instanceId);
+  if (!found) return { ok: false, layout, reason: 'missing-panel' };
+  if (found.floatingGroupId) return { ok: false, layout, reason: 'already-floating' };
+  if (found.window.role !== 'primary') return { ok: false, layout, reason: 'host-not-allowed' };
+  const definition = tryGetPanelDefinition(found.panel.panelTypeId);
+  if (definition && !definition.allowedHosts.includes('primary-sidebar')) {
+    return { ok: false, layout, reason: 'host-not-allowed' };
+  }
+  const primaryGroups = found.window.floatingGroups ?? [];
+  if (primaryGroups.length >= MAX_DOCK_FLOAT_GROUPS) {
+    return { ok: false, layout, reason: 'limit-exceeded' };
+  }
+  const removed = removePanelFromWindow(found.window, instanceId);
+  if (!removed.removed) return { ok: false, layout, reason: 'missing-panel' };
+  const group: DockFloatingGroup = {
+    id: newId(),
+    panels: [removed.removed],
+    activePanelInstanceId: instanceId,
+    normalizedBounds: { ...normalizedBounds },
+  };
+  const windows = layout.windows.map((window) =>
+    window.id === found.window.id
+      ? { ...removed.window, floatingGroups: [...(removed.window.floatingGroups ?? []), group] }
+      : window,
+  );
+  const next = { ...layout, windows };
+  return validateDockLayout(next).length === 0
+    ? { ok: true, layout: next }
+    : { ok: false, layout, reason: 'invalid-layout' };
+}
+
+/** Add a panel to an existing floating group's tab order. */
+export function groupPanelInFloat(
+  layout: DockLayout,
+  instanceId: string,
+  targetGroupId: string,
+): DockFloatResult {
+  if (validateDockLayout(layout).length > 0) return { ok: false, layout, reason: 'invalid-layout' };
+  const source = findPanelInLayout(layout, instanceId);
+  if (!source) return { ok: false, layout, reason: 'missing-panel' };
+  if (source.window.role !== 'primary') return { ok: false, layout, reason: 'host-not-allowed' };
+  const targetGroup = source.window.floatingGroups?.find((group) => group.id === targetGroupId);
+  if (!targetGroup) return { ok: false, layout, reason: 'missing-group' };
+  if (source.floatingGroupId === targetGroupId) return { ok: true, layout };
+  const definition = tryGetPanelDefinition(source.panel.panelTypeId);
+  if (definition && !definition.allowedHosts.includes('primary-sidebar')) {
+    return { ok: false, layout, reason: 'host-not-allowed' };
+  }
+  const removed = removePanelFromWindow(source.window, instanceId);
+  if (!removed.removed) return { ok: false, layout, reason: 'missing-panel' };
+  const floatingGroups = (removed.window.floatingGroups ?? []).map((group) =>
+    group.id === targetGroupId
+      ? {
+          ...group,
+          panels: [...group.panels, removed.removed!],
+          activePanelInstanceId: instanceId,
+        }
+      : group,
+  );
+  const next = {
+    ...layout,
+    windows: layout.windows.map((window) =>
+      window.id === source.window.id ? { ...removed.window, floatingGroups } : window,
+    ),
+  };
+  return validateDockLayout(next).length === 0
+    ? { ok: true, layout: next }
+    : { ok: false, layout, reason: 'invalid-layout' };
+}
+
+/** Commit normalized placement intent after a drag or resize gesture. */
+export function setFloatingGroupBounds(
+  layout: DockLayout,
+  groupId: string,
+  normalizedBounds: DockFloatingGroup['normalizedBounds'],
+): DockFloatResult {
+  if (!validNormalizedFloatBounds(normalizedBounds)) {
+    return { ok: false, layout, reason: 'invalid-layout' };
+  }
+  let found = false;
+  const windows = layout.windows.map((window) => ({
+    ...window,
+    floatingGroups: (window.floatingGroups ?? []).map((group) => {
+      if (group.id !== groupId) return group;
+      found = true;
+      return { ...group, normalizedBounds: { ...normalizedBounds } };
+    }),
+  }));
+  if (!found) return { ok: false, layout, reason: 'missing-group' };
+  const next = { ...layout, windows };
+  return validateDockLayout(next).length === 0
+    ? { ok: true, layout: next }
+    : { ok: false, layout, reason: 'invalid-layout' };
+}
+
+/** Redock a float as one panel or one ordered tab group. */
+export function redockFloatingGroup(
+  layout: DockLayout,
+  groupId: string,
+  targetNodeId?: string,
+): DockFloatResult {
+  if (validateDockLayout(layout).length > 0) return { ok: false, layout, reason: 'invalid-layout' };
+  const windowIndex = layout.windows.findIndex((window) =>
+    window.floatingGroups?.some((group) => group.id === groupId),
+  );
+  if (windowIndex < 0) return { ok: false, layout, reason: 'missing-group' };
+  const window = layout.windows[windowIndex]!;
+  if (window.role !== 'primary') return { ok: false, layout, reason: 'host-not-allowed' };
+  const group = window.floatingGroups?.find((candidate) => candidate.id === groupId);
+  if (!group || group.panels.length === 0) return { ok: false, layout, reason: 'missing-group' };
+  const anchorId = targetNodeId ?? findCanvasNodes(window.dockRoot)[0]?.id;
+  const anchor = anchorId ? findDockNode(window.dockRoot, anchorId) : undefined;
+  if (!anchor || anchor.kind === 'empty') return { ok: false, layout, reason: 'missing-group' };
+  const dockNode: DockNode =
+    group.panels.length === 1
+      ? {
+          kind: 'panel',
+          id: newId(),
+          panelInstanceId: group.panels[0]!.instanceId,
+          panelTypeId: group.panels[0]!.panelTypeId,
+        }
+      : {
+          kind: 'tabs',
+          id: group.id,
+          panels: [...group.panels],
+          activePanelInstanceId: group.activePanelInstanceId ?? group.panels[0]!.instanceId,
+        };
+  const splitId = newId();
+  const root = replaceNode(window.dockRoot, anchor.id, {
+    kind: 'split',
+    id: splitId,
+    direction: 'row',
+    ratio: anchor.kind === 'canvas' ? 0.28 : 0.72,
+    first: anchor.kind === 'canvas' ? dockNode : anchor,
+    second: anchor.kind === 'canvas' ? anchor : dockNode,
+  });
+  const windows = layout.windows.map((candidate, index) =>
+    index === windowIndex
+      ? {
+          ...candidate,
+          dockRoot: root,
+          floatingGroups: (candidate.floatingGroups ?? []).filter((item) => item.id !== groupId),
+        }
+      : candidate,
+  );
+  const next = { ...layout, windows };
+  return validateDockLayout(next).length === 0
+    ? { ok: true, layout: next }
+    : { ok: false, layout, reason: 'invalid-layout' };
+}
+
 /**
  * Move one registered panel instance to a tab group or split host. The source
  * instance is removed before insertion so it can never be duplicated, and
@@ -444,27 +712,23 @@ export function movePanelToHost(
     return { ok: false, layout, reason: 'invalid-layout' };
   }
 
-  const sourceWindow = layout.windows.find((window) =>
-    findPanelInstance(window.dockRoot, instanceId),
-  );
-  if (!sourceWindow) return { ok: false, layout, reason: 'missing-panel' };
+  const sourceLocation = findPanelInLayout(layout, instanceId);
+  const sourceWindow = sourceLocation?.window;
+  if (!sourceWindow || !sourceLocation) return { ok: false, layout, reason: 'missing-panel' };
   const targetWindow = layout.windows.find((window) => window.id === targetWindowId);
   if (!targetWindow) return { ok: false, layout, reason: 'missing-window' };
 
-  const panel = listPanelInstances(sourceWindow.dockRoot).find(
-    (candidate) => candidate.instanceId === instanceId,
-  );
-  if (!panel) return { ok: false, layout, reason: 'missing-panel' };
+  const panel = sourceLocation.panel;
   const targetHost = targetWindow.role === 'primary' ? 'primary-sidebar' : 'auxiliary-window';
   const definition = tryGetPanelDefinition(panel.panelTypeId);
   if (definition && !definition.allowedHosts.includes(targetHost)) {
     return { ok: false, layout, reason: 'host-not-allowed' };
   }
 
-  const removed = removePanel(sourceWindow.dockRoot, instanceId);
+  const removed = removePanelFromWindow(sourceWindow, instanceId);
   if (!removed.removed) return { ok: false, layout, reason: 'missing-panel' };
   const targetRoot =
-    sourceWindow.id === targetWindow.id ? normalizeDockTree(removed.tree) : targetWindow.dockRoot;
+    sourceWindow.id === targetWindow.id ? removed.window.dockRoot : targetWindow.dockRoot;
   const target = findDockNode(targetRoot, placement.targetNodeId);
   if (!target) return { ok: false, layout, reason: 'target-missing' };
 
@@ -507,10 +771,10 @@ export function movePanelToHost(
 
   const windows = layout.windows.map((window) => {
     if (window.id === sourceWindow.id && window.id === targetWindow.id) {
-      return { ...window, dockRoot: normalizeDockTree(nextRoot) };
+      return { ...removed.window, dockRoot: normalizeDockTree(nextRoot) };
     }
     if (window.id === sourceWindow.id) {
-      return { ...window, dockRoot: normalizeDockTree(removed.tree) };
+      return removed.window;
     }
     if (window.id === targetWindow.id) {
       return { ...window, dockRoot: normalizeDockTree(nextRoot) };
@@ -742,36 +1006,112 @@ export function validateDockTree(root: DockNode): string[] {
  */
 export function validateDockLayout(layout: DockLayout): string[] {
   const violations: string[] = [];
-  if (layout.schemaVersion !== 1 && layout.schemaVersion !== DOCK_LAYOUT_SCHEMA_VERSION) {
+  if (typeof layout !== 'object' || layout === null || !Array.isArray(layout.windows)) {
+    return ['dock layout windows must be an array'];
+  }
+  if (![1, 2, DOCK_LAYOUT_SCHEMA_VERSION].includes(layout.schemaVersion)) {
     violations.push(`unsupported schema version ${layout.schemaVersion}`);
   }
   const seenInstances = new Set<string>();
   const seenWindows = new Set<string>();
+  const seenDockIds = new Set<string>();
   const panelRefsByInstance = new Map<string, PanelInstanceRef>();
+  let totalPanels = 0;
   let primaryWindows = 0;
   if (layout.windows.length > MAX_DOCK_WINDOWS) {
     violations.push(`layout exceeds ${MAX_DOCK_WINDOWS} windows`);
   }
   for (const window of layout.windows) {
+    if (!window || typeof window !== 'object' || !window.dockRoot) {
+      violations.push('invalid dock window');
+      continue;
+    }
     if (seenWindows.has(window.id)) violations.push(`duplicate window id '${window.id}'`);
     seenWindows.add(window.id);
     const canvasCount = findCanvasNodes(window.dockRoot).length;
     if (window.role === 'primary') {
       primaryWindows += 1;
-      if (layout.schemaVersion === DOCK_LAYOUT_SCHEMA_VERSION && canvasCount !== 1) {
+      if (layout.schemaVersion >= 2 && canvasCount !== 1) {
         violations.push(`primary window '${window.id}' must contain exactly one canvas anchor`);
       }
-    } else if (layout.schemaVersion === DOCK_LAYOUT_SCHEMA_VERSION && canvasCount !== 0) {
+    } else if (layout.schemaVersion >= 2 && canvasCount !== 0) {
       violations.push(`auxiliary window '${window.id}' cannot contain a canvas anchor`);
     }
     const hostKind = window.role === 'primary' ? 'primary-sidebar' : 'auxiliary-window';
     const windowViolations = validateDockTree(window.dockRoot);
     violations.push(...windowViolations.map((v) => `window '${window.id}': ${v}`));
-    for (const panel of collectPanelInstances(window.dockRoot)) {
+    for (const id of collectDockNodeIds(window.dockRoot)) {
+      if (seenDockIds.has(id)) violations.push(`duplicate dock node id '${id}' in layout`);
+      seenDockIds.add(id);
+    }
+    const floatingGroups = window.floatingGroups ?? [];
+    if (!Array.isArray(floatingGroups)) {
+      violations.push(`window '${window.id}' floating groups must be an array`);
+      continue;
+    }
+    if (layout.schemaVersion < DOCK_LAYOUT_SCHEMA_VERSION && floatingGroups.length > 0) {
+      violations.push('legacy dock layouts cannot contain floating groups');
+    }
+    if (floatingGroups.length > MAX_DOCK_FLOAT_GROUPS) {
+      violations.push(`layout exceeds ${MAX_DOCK_FLOAT_GROUPS} floating groups`);
+    }
+    if (floatingGroups.length > 0 && window.role !== 'primary') {
+      violations.push(`floating groups require the primary window ('${window.id}')`);
+    }
+    const panels = collectPanelInstances(window.dockRoot);
+    for (const group of floatingGroups) {
+      if (!group || typeof group !== 'object') {
+        violations.push(`window '${window.id}' contains an invalid floating group`);
+        continue;
+      }
+      if (typeof group.id !== 'string' || group.id.length === 0 || group.id.length > 128) {
+        violations.push(`window '${window.id}' contains a floating group without a valid id`);
+      } else if (seenDockIds.has(group.id)) {
+        violations.push(`duplicate dock node id '${group.id}' in layout`);
+      }
+      if (typeof group.id === 'string') seenDockIds.add(group.id);
+      if (!Array.isArray(group.panels) || group.panels.length === 0) {
+        violations.push(`floating group '${group.id}' must contain at least one panel`);
+        continue;
+      }
+      if (group.panels.length > MAX_DOCK_PANELS) {
+        violations.push(`floating group '${group.id}' exceeds ${MAX_DOCK_PANELS} panels`);
+      }
+      if (!validNormalizedFloatBounds(group.normalizedBounds)) {
+        violations.push(`floating group '${group.id}' has invalid normalized bounds`);
+      }
+      if (
+        group.activePanelInstanceId &&
+        !group.panels.some((panel) => panel?.instanceId === group.activePanelInstanceId)
+      ) {
+        violations.push(`floating group '${group.id}' active instance is not hosted`);
+      }
+      for (const panel of group.panels) {
+        if (!panel || typeof panel !== 'object') {
+          violations.push(`floating group '${group.id}' contains an invalid panel ref`);
+          continue;
+        }
+        if (typeof panel.instanceId !== 'string' || panel.instanceId.length === 0) {
+          violations.push(`floating group '${group.id}' contains a panel without an instance id`);
+        }
+        if (!tryGetPanelDefinition(panel.panelTypeId)) {
+          violations.push(
+            `floating group '${group.id}' references unknown panel type '${panel.panelTypeId}'`,
+          );
+        }
+      }
+      panels.push(
+        ...group.panels.filter((panel): panel is PanelInstanceRef =>
+          Boolean(panel && typeof panel === 'object'),
+        ),
+      );
+    }
+    for (const panel of panels) {
       if (seenInstances.has(panel.instanceId)) {
         violations.push(`panel instance '${panel.instanceId}' hosted in multiple windows`);
       }
       seenInstances.add(panel.instanceId);
+      totalPanels += 1;
       panelRefsByInstance.set(panel.instanceId, panel);
       const definition = tryGetPanelDefinition(panel.panelTypeId);
       if (definition && !definition.allowedHosts.includes(hostKind)) {
@@ -781,8 +1121,11 @@ export function validateDockLayout(layout: DockLayout): string[] {
       }
     }
   }
-  if (layout.schemaVersion === DOCK_LAYOUT_SCHEMA_VERSION && primaryWindows !== 1) {
+  if (layout.schemaVersion >= 2 && primaryWindows !== 1) {
     violations.push('layout must contain exactly one primary window');
+  }
+  if (totalPanels > MAX_DOCK_PANELS) {
+    violations.push(`layout exceeds ${MAX_DOCK_PANELS} panels`);
   }
   const typeCounts = new Map<PanelTypeId, number>();
   for (const instanceId of seenInstances) {
@@ -841,25 +1184,22 @@ export function movePanelBetweenWindows(
   instanceId: string,
   targetWindowId: WorkspaceWindowId,
 ): { layout: DockLayout; moved: boolean } {
-  const source = layout.windows.find((w) => findPanelInstance(w.dockRoot, instanceId));
+  const sourceLocation = findPanelInLayout(layout, instanceId);
+  const source = sourceLocation?.window;
   if (!source) return { layout, moved: false };
   const targetBeforeMove = layout.windows.find((w) => w.id === targetWindowId);
   if (!targetBeforeMove) return { layout, moved: false };
-  const existingPanel = listPanelInstances(source.dockRoot).find(
-    (panel) => panel.instanceId === instanceId,
-  );
+  const existingPanel = sourceLocation?.panel;
   if (!existingPanel) return { layout, moved: false };
   const targetHost = targetBeforeMove.role === 'primary' ? 'primary-sidebar' : 'auxiliary-window';
   const definition = tryGetPanelDefinition(existingPanel.panelTypeId);
   if (definition && !definition.allowedHosts.includes(targetHost)) return { layout, moved: false };
 
-  const removed = removePanel(source.dockRoot, instanceId);
+  const removed = removePanelFromWindow(source, instanceId);
   if (!removed.removed) return { layout, moved: false };
   const ref = removed.removed;
 
-  const withoutSource = layout.windows.map((w) =>
-    w.id === source.id ? { ...w, dockRoot: normalizeDockTree(removed.tree) } : w,
-  );
+  const withoutSource = layout.windows.map((w) => (w.id === source.id ? removed.window : w));
 
   const target = withoutSource.find((w) => w.id === targetWindowId);
   if (!target) return { layout, moved: false };
@@ -929,7 +1269,7 @@ export function deserializeDockLayout(
     return { ok: false, reason: 'dock layout must be an object' };
   }
   const source = input as Record<string, unknown>;
-  if (source.schemaVersion !== 1 && source.schemaVersion !== DOCK_LAYOUT_SCHEMA_VERSION) {
+  if (![1, 2, DOCK_LAYOUT_SCHEMA_VERSION].includes(source.schemaVersion as number)) {
     return { ok: false, reason: 'unsupported dock layout version' };
   }
   if (!Array.isArray(source.windows) || source.windows.length > MAX_DOCK_WINDOWS) {
@@ -952,17 +1292,94 @@ export function deserializeDockLayout(
     }
     const tree = deserializeDockTree(window.dockRoot);
     if (!tree.ok) return { ok: false, reason: `invalid window '${window.id}': ${tree.reason}` };
+    const floatingGroups: DockFloatingGroup[] = [];
+    if (
+      source.schemaVersion === DOCK_LAYOUT_SCHEMA_VERSION &&
+      window.floatingGroups !== undefined
+    ) {
+      if (
+        !Array.isArray(window.floatingGroups) ||
+        window.floatingGroups.length > MAX_DOCK_FLOAT_GROUPS
+      ) {
+        return { ok: false, reason: `invalid floating groups in window '${window.id}'` };
+      }
+      for (const [index, candidateGroup] of window.floatingGroups.entries()) {
+        if (
+          typeof candidateGroup !== 'object' ||
+          candidateGroup === null ||
+          Array.isArray(candidateGroup)
+        ) {
+          return { ok: false, reason: `invalid floating group in window '${window.id}'` };
+        }
+        const group = candidateGroup as Record<string, unknown>;
+        if (
+          typeof group.id !== 'string' ||
+          group.id.length === 0 ||
+          group.id.length > 128 ||
+          !Array.isArray(group.panels) ||
+          group.panels.length === 0 ||
+          group.panels.length > MAX_DOCK_PANELS ||
+          typeof group.normalizedBounds !== 'object' ||
+          group.normalizedBounds === null ||
+          Array.isArray(group.normalizedBounds)
+        ) {
+          return { ok: false, reason: `invalid floating group in window '${window.id}'` };
+        }
+        const bounds = group.normalizedBounds as Record<string, unknown>;
+        if (
+          !['x', 'y', 'width', 'height'].every(
+            (key) => typeof bounds[key] === 'number' && Number.isFinite(bounds[key]),
+          )
+        ) {
+          return { ok: false, reason: `invalid bounds for floating group '${group.id}'` };
+        }
+        const active = group.activePanelInstanceId;
+        if (active !== undefined && (typeof active !== 'string' || active.length > 128)) {
+          return { ok: false, reason: `invalid active panel for floating group '${group.id}'` };
+        }
+        const refsValidation = validateSerializedNode({
+          kind: 'tabs',
+          id: `floating-validation-${index}`,
+          panels: group.panels,
+          ...(active ? { activePanelInstanceId: active } : {}),
+        });
+        if (refsValidation) {
+          return {
+            ok: false,
+            reason: `invalid panels for floating group '${group.id}': ${refsValidation}`,
+          };
+        }
+        floatingGroups.push({
+          id: group.id,
+          panels: (group.panels as Array<Record<string, unknown>>).map((panel) => ({
+            instanceId: panel.instanceId as string,
+            panelTypeId: panel.panelTypeId as PanelTypeId,
+            ...(typeof panel.titleOverride === 'string' && panel.titleOverride.length <= 64
+              ? { titleOverride: panel.titleOverride }
+              : {}),
+          })),
+          ...(typeof active === 'string' ? { activePanelInstanceId: active } : {}),
+          normalizedBounds: {
+            x: bounds.x as number,
+            y: bounds.y as number,
+            width: bounds.width as number,
+            height: bounds.height as number,
+          },
+        });
+      }
+    }
     windows.push({
       id: window.id,
       role: window.role,
       dockRoot: stripDocumentPins(tree.tree),
+      floatingGroups,
     });
   }
 
   try {
     return {
       ok: true,
-      layout: migrateDockLayoutToCanvas({ schemaVersion: source.schemaVersion, windows }),
+      layout: migrateDockLayoutToCanvas({ schemaVersion: source.schemaVersion as number, windows }),
     };
   } catch (error) {
     return {

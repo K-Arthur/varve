@@ -67,4 +67,26 @@ describe('WorkspaceBottomPanels', () => {
     expect(onSelectDockTab).toHaveBeenCalledWith('tab-group', 'inspector-one');
     expect(inspectorTab).toHaveFocus();
   });
+
+  it('offers last-known-good recovery before resetting a saved arrangement', () => {
+    const onRestoreLastKnownGood = vi.fn();
+    render(
+      <WorkspaceBottomPanels
+        showEmailPreview={false}
+        dockRecovery={{
+          message: 'The saved layout failed to restore.',
+          canRetrySaved: true,
+          canRestoreLastKnownGood: true,
+          onRetrySaved: vi.fn(),
+          onRestoreLastKnownGood,
+          onUseDefault: vi.fn(),
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /restore last working layout/i }));
+    expect(onRestoreLastKnownGood).toHaveBeenCalledOnce();
+    expect(screen.getByRole('button', { name: /retry saved layout/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /use default arrangement/i })).toBeInTheDocument();
+  });
 });

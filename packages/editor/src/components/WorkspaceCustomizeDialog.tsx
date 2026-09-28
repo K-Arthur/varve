@@ -11,10 +11,16 @@ import { useCallback, useMemo, useState } from 'react';
 import { useEditor } from '../context';
 import type { ToolId } from '../tools/toolRegistry';
 import {
+  DEFAULT_DOCK_FLOAT_BOUNDS,
+  findPanelInLayout,
   findPanelInstance,
+  floatPanel,
+  groupPanelInFloat,
   listPanelInstances,
   movePanelToHost,
+  redockFloatingGroup,
   reorderTab,
+  setFloatingGroupBounds,
   validateDockLayout,
 } from '../workspace/dock/dockOps';
 import type { DockLayout } from '../workspace/dock/dockTypes';
@@ -72,7 +78,17 @@ function toolbarLocation(
   return config.toolbar.flyouts?.find((flyout) => flyout.tools.includes(toolId))?.id ?? null;
 }
 
-type DockMovePlacement = 'tab' | 'before' | 'after' | 'left' | 'right' | 'above' | 'below';
+type DockMovePlacement =
+  | 'tab'
+  | 'before'
+  | 'after'
+  | 'left'
+  | 'right'
+  | 'above'
+  | 'below'
+  | 'float'
+  | 'redock'
+  | 'reset';
 
 const DOCK_PANEL_LABELS: Record<PanelId, string> = {
   layers: 'Layers',
@@ -101,7 +117,20 @@ const DOCK_PLACEMENT_OPTIONS: { value: DockMovePlacement; label: string }[] = [
   { value: 'right', label: 'Move right of target' },
   { value: 'above', label: 'Move above target' },
   { value: 'below', label: 'Move below target' },
+  { value: 'float', label: 'Float panel' },
+  { value: 'redock', label: 'Redock group' },
+  { value: 'reset', label: 'Reset float location' },
 ];
+
+function findPanelForType(layout: DockLayout, panelTypeId: PanelId) {
+  const panel = layout.windows
+    .flatMap((window) => [
+      ...listPanelInstances(window.dockRoot),
+      ...(window.floatingGroups ?? []).flatMap((group) => group.panels),
+    ])
+    .find((candidate) => candidate.panelTypeId === panelTypeId);
+  return panel ? findPanelInLayout(layout, panel.instanceId) : undefined;
+}
 
 export function WorkspaceCustomizeDialog({
   open,
@@ -263,7 +292,10 @@ export function WorkspaceCustomizeDialog({
   const dockablePanelIds = useMemo(() => {
     const primary = editableDockLayout.windows.find((window) => window.role === 'primary');
     if (!primary) return [];
-    return listPanelInstances(primary.dockRoot)
+    return [
+      ...listPanelInstances(primary.dockRoot),
+      ...(primary.floatingGroups ?? []).flatMap((group) => group.panels),
+    ]
       .map((panel) => panel.panelTypeId)
       .filter((panelId): panelId is PanelId => panelId in DOCK_PANEL_LABELS);
   }, [editableDockLayout]);
@@ -286,47 +318,109 @@ export function WorkspaceCustomizeDialog({
       setDockMoveMessage(`Layout cannot be moved: ${violations[0]}`);
       return;
     }
-    const source = listPanelInstances(primary.dockRoot).find(
-      (panel) => panel.panelTypeId === selectedDockSource,
-    );
-    const target = listPanelInstances(primary.dockRoot).find(
-      (panel) => panel.panelTypeId === selectedDockTarget,
-    );
-    const targetHost = target && findPanelInstance(primary.dockRoot, target.instanceId);
-    if (!source || !targetHost || source.instanceId === target.instanceId) return;
+    const source = findPanelForType(editableDockLayout, selectedDockSource);
+    const target = findPanelForType(editableDockLayout, selectedDockTarget);
+    if (!source) return;
 
-    const grouped =
-      dockPlacement === 'tab' || dockPlacement === 'before' || dockPlacement === 'after';
-    const direction = dockPlacement === 'above' || dockPlacement === 'below' ? 'column' : 'row';
-    const side = dockPlacement === 'left' || dockPlacement === 'above' ? 'before' : 'after';
-    const result = movePanelToHost(
-      editableDockLayout,
-      source.instanceId,
-      primary.id,
-      grouped
-        ? { kind: 'tab', targetNodeId: targetHost.hostNodeId }
-        : {
-            kind: 'split',
-            targetNodeId: targetHost.hostNodeId,
-            direction,
-            side,
-            targetRatio: 0.72,
-          },
-    );
-    if (!result.ok) {
-      setDockMoveMessage(`Panel could not move: ${result.reason.replaceAll('-', ' ')}.`);
-      return;
+    let nextLayout: DockLayout | null = null;
+    if (dockPlacement === 'float') {
+      const result = floatPanel(editableDockLayout, source.panel.instanceId);
+      if (!result.ok) {
+        setDockMoveMessage(`Panel could not float: ${result.reason.replaceAll('-', ' ')}.`);
+        return;
+      }
+      nextLayout = result.layout;
+    } else if (dockPlacement === 'redock') {
+      if (!source.floatingGroupId) {
+        setDockMoveMessage('Choose a panel in a floating group to redock it.');
+        return;
+      }
+      const result = redockFloatingGroup(editableDockLayout, source.floatingGroupId);
+      if (!result.ok) {
+        setDockMoveMessage(`Group could not redock: ${result.reason.replaceAll('-', ' ')}.`);
+        return;
+      }
+      nextLayout = result.layout;
+    } else if (dockPlacement === 'reset') {
+      if (!source.floatingGroupId) {
+        setDockMoveMessage('Choose a panel in a floating group to reset its location.');
+        return;
+      }
+      const result = setFloatingGroupBounds(editableDockLayout, source.floatingGroupId, {
+        ...DEFAULT_DOCK_FLOAT_BOUNDS,
+      });
+      if (!result.ok) {
+        setDockMoveMessage(`Location could not reset: ${result.reason.replaceAll('-', ' ')}.`);
+        return;
+      }
+      nextLayout = result.layout;
     }
 
-    let nextLayout: DockLayout = result.layout;
-    if (dockPlacement === 'before' || dockPlacement === 'after') {
+    if (nextLayout) {
+      const currentPreferences = getWorkspacePreferences();
+      const nextPreferences = setDockLayoutOverride(currentPreferences, mode, nextLayout);
+      if (nextPreferences === currentPreferences) {
+        setDockMoveMessage('Panel action did not pass save validation.');
+        return;
+      }
+      updateWorkspacePreferences(() => nextPreferences);
+      setDockMoveMessage(`${DOCK_PANEL_LABELS[selectedDockSource]} updated.`);
+      return;
+    }
+    if (!target || source.panel.instanceId === target.panel.instanceId) return;
+
+    if (dockPlacement === 'tab' && target.floatingGroupId) {
+      const result = groupPanelInFloat(
+        editableDockLayout,
+        source.panel.instanceId,
+        target.floatingGroupId,
+      );
+      if (!result.ok) {
+        setDockMoveMessage(`Panel could not group: ${result.reason.replaceAll('-', ' ')}.`);
+        return;
+      }
+      nextLayout = result.layout;
+    } else {
+      const targetHost = findPanelInstance(primary.dockRoot, target.panel.instanceId);
+      if (!targetHost) {
+        setDockMoveMessage('Choose a docked panel as the target, or group with a floating panel.');
+        return;
+      }
+
+      const grouped =
+        dockPlacement === 'tab' || dockPlacement === 'before' || dockPlacement === 'after';
+      const direction = dockPlacement === 'above' || dockPlacement === 'below' ? 'column' : 'row';
+      const side = dockPlacement === 'left' || dockPlacement === 'above' ? 'before' : 'after';
+      const result = movePanelToHost(
+        editableDockLayout,
+        source.panel.instanceId,
+        primary.id,
+        grouped
+          ? { kind: 'tab', targetNodeId: targetHost.hostNodeId }
+          : {
+              kind: 'split',
+              targetNodeId: targetHost.hostNodeId,
+              direction,
+              side,
+              targetRatio: 0.72,
+            },
+      );
+      if (!result.ok) {
+        setDockMoveMessage(`Panel could not move: ${result.reason.replaceAll('-', ' ')}.`);
+        return;
+      }
+      nextLayout = result.layout;
+    }
+
+    if (!nextLayout) return;
+    if ((dockPlacement === 'before' || dockPlacement === 'after') && !source.floatingGroupId) {
       const nextRoot = nextLayout.windows.find((window) => window.id === primary.id)?.dockRoot;
-      const moved = nextRoot && findPanelInstance(nextRoot, source.instanceId);
+      const moved = nextRoot && findPanelInstance(nextRoot, source.panel.instanceId);
       if (nextRoot && moved) {
         const updatedRoot = reorderTab(
           nextRoot,
           moved.hostNodeId,
-          source.instanceId,
+          source.panel.instanceId,
           dockPlacement,
         );
         nextLayout = {

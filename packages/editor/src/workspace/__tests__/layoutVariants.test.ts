@@ -87,7 +87,7 @@ describe('layoutVariants: capture', () => {
     };
 
     const payload = captureLayoutPayload('design', prefs);
-    expect(payload.dockLayout?.schemaVersion).toBe(2);
+    expect(payload.dockLayout?.schemaVersion).toBe(3);
     const added = addLayoutVariant(createEmptyLayoutStore(), {
       name: 'Docked design',
       sourceMode: 'design',

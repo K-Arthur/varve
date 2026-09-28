@@ -82,6 +82,14 @@ describe('workspaceTypes', () => {
     }
   });
 
+  it('keeps specialist Logo and shared Code panels closed in built-in defaults', () => {
+    for (const mode of ALL_WORKSPACE_MODES) {
+      const config = WORKSPACE_CONFIGS[mode];
+      expect(config.panels.logo.visible).toBe(false);
+      expect(config.panels.codegen.visible).toBe(false);
+    }
+  });
+
   // ─── Panel layout ────────────────────────────────────────────────────────
 
   it('print mode shows pagenav', () => {

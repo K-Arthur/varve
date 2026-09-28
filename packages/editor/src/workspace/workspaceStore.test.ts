@@ -9,6 +9,7 @@ import {
   flushWorkspacePreferences,
   getEffectiveWorkspaceConfig,
   getWorkspacePersistenceError,
+  getWorkspacePreferenceHydrationState,
   getWorkspacePreferences,
   hydrateWorkspacePreferencesFromPlatform,
   loadWorkspacePreferences,
@@ -486,6 +487,20 @@ describe('workspaceStore — durable (platform) persistence', () => {
       }),
     } as unknown as Platform & { store: Map<string, string> };
   }
+
+  it('signals when durable preferences are still hydrating', async () => {
+    let releaseRead!: (value: string | null) => void;
+    const platform = {
+      getAppSetting: vi.fn(() => new Promise<string | null>((resolve) => (releaseRead = resolve))),
+      setAppSetting: vi.fn(async () => {}),
+    } as unknown as Platform;
+
+    const hydration = hydrateWorkspacePreferencesFromPlatform(platform);
+    expect(getWorkspacePreferenceHydrationState()).toBe('pending');
+    releaseRead(null);
+    await hydration;
+    expect(getWorkspacePreferenceHydrationState()).toBe('settled');
+  });
 
   it('restores customizations when localStorage has been wiped', async () => {
     // The WebKitGTK failure mode: platform storage survived the relaunch,

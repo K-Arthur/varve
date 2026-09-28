@@ -87,7 +87,10 @@ export function completeEditorDockLayout(
   let root = layout.windows[primaryIndex]!.dockRoot;
   const present = new Set(
     layout.windows.flatMap((window) =>
-      listPanelInstances(window.dockRoot).map((item) => item.panelTypeId),
+      [
+        ...listPanelInstances(window.dockRoot),
+        ...(window.floatingGroups ?? []).flatMap((group) => group.panels),
+      ].map((item) => item.panelTypeId),
     ),
   );
   const preferred = createDefaultEditorDockLayout(mode);

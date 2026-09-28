@@ -5,9 +5,10 @@ import {
   getDockCanvasRect,
   getDockPanelPlacements,
   projectVisibleDockTree,
+  resolveDockFloatingGroupGeometry,
   resolveDockTreeGeometry,
 } from './dockGeometry';
-import type { DockNode } from './dockTypes';
+import type { DockFloatingGroup, DockNode } from './dockTypes';
 
 const node: DockNode = {
   kind: 'split',
@@ -142,5 +143,26 @@ describe('dock geometry', () => {
     ]);
     expect(geometry.panels[1]?.tabGroupNodeId).toBe('bottom-tabs');
     expect(geometry.panels[2]?.tabGroupNodeId).toBe('bottom-tabs');
+  });
+
+  it('scales float placement with the editor window and keeps a visible header', () => {
+    const group: DockFloatingGroup = {
+      id: 'float-layers',
+      panels: [{ instanceId: 'layers-1', panelTypeId: 'layers' }],
+      activePanelInstanceId: 'layers-1',
+      normalizedBounds: { x: 0.2, y: 0.1, width: 0.4, height: 0.5 },
+    };
+    const placement = resolveDockFloatingGroupGeometry(group, 1000, 800);
+    expect(placement.rect).toEqual({ x: 200, y: 80, width: 400, height: 400 });
+    expect(placement.headerRect).toEqual({ x: 200, y: 80, width: 400, height: 36 });
+    expect(placement.contentRect).toEqual({ x: 200, y: 116, width: 400, height: 364 });
+    expect(placement.panels).toEqual([
+      expect.objectContaining({
+        panelTypeId: 'layers',
+        panelInstanceId: 'layers-1',
+        active: true,
+        floatingGroupId: 'float-layers',
+      }),
+    ]);
   });
 });

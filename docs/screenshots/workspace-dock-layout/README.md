@@ -35,6 +35,13 @@ The keyboard/touch-accessible Move To workflow has a control screenshot in
 Layers below Inspector, checks the resulting panel rectangles and customization
 dialog width, and confirms the preference contains a dock tree.
 
+`float-controls-light.png` shows the in-window floating Layers group at 1440 ×
+900 CSS pixels, including its visible reset, redock, and resize controls. The
+same E2E creates the float through Customize Workspace, drags it with a live
+preview, resizes it with a pointer, moves it with the keyboard, resets its
+normalized placement, and redocks the group. The test confirms the portable
+`floatingGroups` preference is saved.
+
 `splitters-light.png` records a live resized split. The associated geometry
 E2E uses ArrowRight and a real pointer drag, verifies the accessible value,
 then checks that Escape cancels an in-progress resize without undoing the
@@ -70,6 +77,7 @@ node scripts/quality/heavy-lease.mjs "e2e: validate six workspace dock layouts" 
   --project=chromium --workers=1 --reporter=list
 ```
 
-This is a geometry and default-layout checkpoint. It does not certify panel
-dragging, in-window floats, theme coverage for splitters, native windows, or
-startup recovery from a corrupt saved layout.
+This is a geometry and default-layout checkpoint. The focused customization
+E2E covers floating-group movement, resize, reset, and redock in the light
+theme. Dock-target drag previews, theme coverage for splitters and floats,
+native windows, and startup recovery from a corrupt saved layout remain open.
