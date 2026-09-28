@@ -320,6 +320,7 @@ function PluginCard({
   busy,
   commandBusy,
   onTogglePinned,
+  onRemoved,
   execute,
   executeCommand,
 }: {
@@ -328,6 +329,7 @@ function PluginCard({
   busy: boolean;
   commandBusy: boolean;
   onTogglePinned: (pluginId: string, pinned: boolean) => void;
+  onRemoved: () => void;
   execute: (label: string, action: PluginAction) => void;
   executeCommand: (label: string, action: PluginAction) => void;
 }) {
@@ -335,6 +337,8 @@ function PluginCard({
   const [showAccess, setShowAccess] = useState(false);
   const [accessDraft, setAccessDraft] = useState<PluginPermission[]>(plugin.grants);
   const [confirmRemoval, setConfirmRemoval] = useState(false);
+  const accessTriggerRef = useRef<HTMLButtonElement>(null);
+  const removalTriggerRef = useRef<HTMLButtonElement>(null);
   const [selectedCommand, setSelectedCommand] = useState(plugin.manifest.commands[0]?.id ?? '');
   const command = plugin.manifest.commands.find((item) => item.id === selectedCommand);
   const result = selectedCommand ? plugin.results[selectedCommand] : undefined;
@@ -578,6 +582,7 @@ function PluginCard({
           {plugin.enabled ? 'Disable' : 'Enable'}
         </Button>
         <Button
+          ref={accessTriggerRef}
           className="plugin-manager__button"
           variant="secondary"
           size="sm"
@@ -621,6 +626,7 @@ function PluginCard({
           </Button>
         )}
         <Button
+          ref={removalTriggerRef}
           className="plugin-manager__button plugin-manager__button--danger"
           variant="outline"
           size="sm"
@@ -636,89 +642,99 @@ function PluginCard({
         </Button>
       </div>
 
-      {showAccess && (
-        <section
-          className="plugin-manager__subsection"
-          id={`${prefix}-access`}
-          aria-label={`Access for ${plugin.manifest.name}`}
-        >
-          <p>Required access is needed to run the plugin. Revoking access stops active work.</p>
-          <PermissionRows
-            permissions={permissions}
-            required={required}
-            selected={accessDraft}
-            onToggle={toggleAccess}
+      <section
+        className="plugin-manager__subsection"
+        id={`${prefix}-access`}
+        aria-label={`Access for ${plugin.manifest.name}`}
+        hidden={!showAccess}
+      >
+        <p>Required access is needed to run the plugin. Revoking access stops active work.</p>
+        <PermissionRows
+          permissions={permissions}
+          required={required}
+          selected={accessDraft}
+          onToggle={toggleAccess}
+          disabled={blockedByOtherAction}
+          prefix={`${prefix}-edit`}
+        />
+        <div className="plugin-manager__actions">
+          <Button
+            className="plugin-manager__button"
+            variant="default"
+            size="sm"
             disabled={blockedByOtherAction}
-            prefix={`${prefix}-edit`}
-          />
-          <div className="plugin-manager__actions">
-            <Button
-              className="plugin-manager__button"
-              variant="default"
-              size="sm"
-              disabled={blockedByOtherAction}
-              disabledReason={
-                blockedByOtherAction ? 'Wait for the current package action to finish.' : undefined
-              }
-              onClick={() =>
-                execute('Save plugin access', async () => {
-                  await pluginController.setGrants(plugin.id, accessDraft);
-                  setShowAccess(false);
-                })
-              }
-            >
-              Save access
-            </Button>
-            <Button
-              className="plugin-manager__button"
-              variant="ghost"
-              size="sm"
-              disabled={busy}
-              disabledReason={busy ? 'Wait for the current package action to finish.' : undefined}
-              onClick={() => setShowAccess(false)}
-            >
-              Cancel
-            </Button>
-          </div>
-        </section>
-      )}
+            disabledReason={
+              blockedByOtherAction ? 'Wait for the current package action to finish.' : undefined
+            }
+            onClick={() =>
+              execute('Save plugin access', async () => {
+                await pluginController.setGrants(plugin.id, accessDraft);
+                setShowAccess(false);
+                accessTriggerRef.current?.focus();
+              })
+            }
+          >
+            Save access
+          </Button>
+          <Button
+            className="plugin-manager__button"
+            variant="ghost"
+            size="sm"
+            disabled={busy}
+            disabledReason={busy ? 'Wait for the current package action to finish.' : undefined}
+            onClick={() => {
+              setShowAccess(false);
+              accessTriggerRef.current?.focus();
+            }}
+          >
+            Cancel
+          </Button>
+        </div>
+      </section>
 
-      {confirmRemoval && (
-        <section
-          className="plugin-manager__subsection plugin-manager__subsection--danger"
-          id={`${prefix}-remove`}
-          aria-label={`Remove ${plugin.manifest.name}`}
-        >
-          <p>
-            Remove this local plugin package? Commands and panels will disappear. Edits already
-            committed to documents remain part of those documents.
-          </p>
-          <div className="plugin-manager__actions">
-            <Button
-              className="plugin-manager__button plugin-manager__button--danger"
-              variant="outline"
-              size="sm"
-              disabled={blockedByOtherAction}
-              disabledReason={
-                blockedByOtherAction ? 'Wait for the current package action to finish.' : undefined
-              }
-              onClick={() => execute('Remove plugin', () => pluginController.uninstall(plugin.id))}
-            >
-              Remove plugin
-            </Button>
-            <Button
-              className="plugin-manager__button"
-              variant="ghost"
-              size="sm"
-              disabled={busy}
-              disabledReason={busy ? 'Wait for the current package action to finish.' : undefined}
-              onClick={() => setConfirmRemoval(false)}
-            >
-              Keep plugin
-            </Button>
-          </div>
-        </section>
-      )}
+      <section
+        className="plugin-manager__subsection plugin-manager__subsection--danger"
+        id={`${prefix}-remove`}
+        aria-label={`Remove ${plugin.manifest.name}`}
+        hidden={!confirmRemoval}
+      >
+        <p>
+          Remove this local plugin package? Commands and panels will disappear. Edits already
+          committed to documents remain part of those documents.
+        </p>
+        <div className="plugin-manager__actions">
+          <Button
+            className="plugin-manager__button plugin-manager__button--danger"
+            variant="outline"
+            size="sm"
+            disabled={blockedByOtherAction}
+            disabledReason={
+              blockedByOtherAction ? 'Wait for the current package action to finish.' : undefined
+            }
+            onClick={() =>
+              execute('Remove plugin', async () => {
+                await pluginController.uninstall(plugin.id);
+                onRemoved();
+              })
+            }
+          >
+            Remove plugin
+          </Button>
+          <Button
+            className="plugin-manager__button"
+            variant="ghost"
+            size="sm"
+            disabled={busy}
+            disabledReason={busy ? 'Wait for the current package action to finish.' : undefined}
+            onClick={() => {
+              setConfirmRemoval(false);
+              removalTriggerRef.current?.focus();
+            }}
+          >
+            Keep plugin
+          </Button>
+        </div>
+      </section>
 
       <details className="plugin-manager__details">
         <summary>Package details</summary>
@@ -754,6 +770,8 @@ function PluginCard({
 export function PluginManager() {
   const snapshot = useSyncExternalStore(pluginController.subscribe, pluginController.getSnapshot);
   const inputRef = useRef<HTMLInputElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const restorePackageFocusRef = useRef(false);
   const operationSerial = useRef(0);
   const [filter, setFilter] = useState('');
   const [listMode, setListMode] = useState<PluginListMode>('all');
@@ -822,6 +840,12 @@ export function PluginManager() {
       }
     }
   }, [pinnedIds, snapshot.loading, snapshot.plugins]);
+
+  useEffect(() => {
+    if (!restorePackageFocusRef.current || busy || prepared) return;
+    restorePackageFocusRef.current = false;
+    inputRef.current?.focus();
+  }, [busy, prepared]);
 
   function togglePinned(pluginId: string, shouldPin: boolean) {
     const next = shouldPin
@@ -923,8 +947,8 @@ export function PluginManager() {
     const installing = prepared;
     void execute(enabled ? 'Install and enable plugin' : 'Install disabled plugin', async () => {
       await pluginController.install(installing, grants, enabled);
+      restorePackageFocusRef.current = true;
       setPrepared(null);
-      inputRef.current?.focus();
     });
   }
 
@@ -1013,6 +1037,7 @@ export function PluginManager() {
         <label className="plugin-manager__search">
           <span>Search installed plugins</span>
           <input
+            ref={searchRef}
             type="search"
             value={filter}
             onChange={(event) => setFilter(event.target.value)}
@@ -1095,6 +1120,7 @@ export function PluginManager() {
               busy={Boolean(busy)}
               commandBusy={commandBusyIds.has(plugin.id)}
               onTogglePinned={togglePinned}
+              onRemoved={() => window.requestAnimationFrame(() => searchRef.current?.focus())}
               execute={(label, action) => void execute(label, action)}
               executeCommand={(label, action) => void executeCommand(plugin.id, label, action)}
             />

@@ -11,6 +11,7 @@ performed.
 Changed scope: plugin Wasm feature/ABI validation; IndexedDB revisions and
 transactional replacement; cross-window authorization and lifecycle/safe-mode
 recovery; plugin manager thumbnails, search, pinning, filters, and sorting;
+plugin-manager keyboard, focus, disclosure, and screen-state accessibility;
 sample SDK packages and fixture generation; architecture/evidence docs; website
 feature/docs copy and current screenshots.
 
@@ -53,8 +54,24 @@ Commands actually run:
   documented geometry exceptions, and no legacy consumer).
 - `pnpm audit:tokens` — passed all 303 token pairs across three themes; the
   usage scan checked 580 custom properties and nine documented override hooks.
-- `pnpm audit:docs` — passed (1,092 docs, 665 links, 177 ADRs indexed).
+- `pnpm audit:docs` — passed (1,092 docs, 672 links, 177 ADRs indexed).
 - `pnpm typecheck:e2e` — passed on the current shared worktree.
+- `pnpm exec vitest run packages/ui/src/components/Select.test.tsx --reporter=dot`
+  — passed, 20 tests, including that a closed combobox exposes no dangling
+  `aria-controls` or `aria-activedescendant` references and that the open popup
+  references its mounted listbox and active option.
+- `VARVE_E2E_PORT=1545 GIT_INDEX_FILE=/tmp/varve-plugin-accessibility-review-20260928.index pnpm verify:affected --staged`
+  — selected the five changed source/test files and `@varve/editor` plus
+  `@varve/ui`; formatting/lint, emoji/radius/token audits, E2E typecheck, the
+  Select component test, and plugin manager E2E (19/19) passed. The editor
+  package suite reported 8,211 passed, 2 skipped, and 6 unrelated failures in
+  workspace labels/projection, panel registration, navigation status, and layout
+  tombstones. The runner stopped before downstream package/typecheck lanes.
+  Editor and UI typechecks passed separately. An initial attempt without the
+  port override stopped before browser tests because another shared app was
+  using `localhost:1420`.
+- `pnpm --filter @varve/editor typecheck` and
+  `pnpm --filter @varve/ui typecheck` — both passed.
 - `pnpm --filter @varve/website typecheck` — passed Astro checking for 162
   files with no errors, warnings, or hints.
 - `pnpm exec vitest run packages/editor/src/plugins/package.test.ts packages/editor/src/plugins/controller.test.ts --reporter=dot`
@@ -63,10 +80,13 @@ Commands actually run:
   `node --experimental-strip-types scripts/plugins/validate.mjs <package>`
   — passed package construction and static validation for the sample and E2E
   fixtures; validation accepted eight archives.
-- Plugin manager E2E — passed 18/18 tests, including the full local inventory,
+- Plugin manager E2E — passed 19/19 tests, including the full local inventory,
   artwork alt text, description/command search, pin/filter/sort, responsive
-  manager, permissions, lifecycle, and recovery cases. This was the browser
-  lane in the staged affected gate on current `master`.
+  manager, permissions, lifecycle, and recovery cases. The added accessibility
+  journey scans empty, review, preview, access, and removal states with axe;
+  verifies keyboard operation, visible focus, disclosure state, returned focus,
+  and valid ID references. This was the browser lane in the staged affected gate
+  on current `master`.
 - `node scripts/quality/heavy-lease.mjs 'e2e: final plugin recovery visual captures' -- env VARVE_LEASE_TIMEOUT=3600000 VARVE_E2E_OUTPUT_DIR=plugin-visual-final VARVE_E2E_PORT=1534 pnpm exec playwright test tests/e2e/plugins/local-manager.spec.ts --project=chromium --workers=1 --grep 'keeps plugin recovery available while safe mode suppresses contributions|stops a noncooperative guest and quarantines a timed-out retry|shows new access on update and restores the last working package|keeps the current plugin usable when its rollback archive is corrupted' --reporter=list`
   — passed 4/4 and retained the safe-mode, timeout, rollback, and corrupt
   rollback screenshots for inspection.
@@ -125,8 +145,12 @@ Full Rust workspace tests and the full application visual suite did not reach
 execution after the full checkpoint's unrelated typecheck failure. The website
 unit failure and screenshot-validator orphan are outside the plugin
 implementation. Windows/WebView2 and macOS/WKWebView remain unverified. The
-complete forced-colors, reduced-motion, every-theme, and assistive-technology
-matrix remains to be run.
+Automated browser accessibility checks now cover Light, Dark, and High Contrast
+themes, plus forced colors, reduced motion, 200% text sizing, focus visibility,
+keyboard interaction, disclosure state, and manager content overflow. Manual
+screen-reader speech review remains pending: Orca and Accerciser were not
+installed in this environment, and browser accessibility tree assertions do
+not establish screen-reader interoperability.
 
 Escalations: one justified `pnpm verify:full` migration/auth checkpoint was
 attempted and failed before full tests for unrelated repository type errors.
@@ -164,8 +188,9 @@ and foundational authorization changes.
   Pins are presentation preferences separate from grants. Disabled, failed,
   and incompatible installs remain visible with recovery actions. Manager
   package controls remain available while plugin commands run.
-- Automated-pass: package parser/controller tests (27/27); plugin manager E2E
-  (18/18); website route E2E (2/2); Linux native WDIO (1/1); package fixture
+- Automated-pass: package parser/controller tests (27/27); Select component
+  tests (20/20); plugin manager E2E (19/19); website route E2E (2/2); Linux
+  native WDIO (1/1); package fixture
   validator (8 archives); and 50 repeated lifecycle cycles. Additional authored
   E2E cases cover two-window revocation, stale Apply, rollback/corrupt archives,
   safe mode, mixed selections, locked targets, undo/redo, save/reopen/export,
@@ -179,8 +204,10 @@ and foundational authorization changes.
   inspected at desktop and mobile sizes on custom-domain and GitHub Pages
   bases; the verified pages rendered all images without horizontal overflow.
   The manager E2E covers a narrow window and 200% text sizing. Full
-  forced-colors, reduced-motion, every-theme, and screen-reader manual coverage
-  is still pending.
+  forced-colors, reduced-motion, every-theme, and 200% text checks are now
+  automated and visually inspected. The keyboard-focus, forced-colors/200%, and
+  high-contrast captures are linked below. Manual screen-reader review is still
+  pending because no screen reader is installed here.
 - Native-verified: Linux WebKitGTK only, with the exact binary and bundle
   hashes above. Windows/WebView2 and macOS/WKWebView have prepared guidance but
   no run evidence.
@@ -201,6 +228,15 @@ they are not native-platform proof.
 - [Timed-out command recovery actions](../screenshots/plugin-system-acceptance/plugin-failed.png)
 - [Successful package rollback](../screenshots/plugin-system-acceptance/plugin-rollback-restored.png)
 - [Corrupt rollback keeps the current package usable](../screenshots/plugin-system-acceptance/plugin-corrupt-rollback-retained.png)
+
+### Accessibility screenshots
+
+These captures came from the added keyboard/axe E2E and display-mode E2E. They
+were opened and visually inspected after the 19-test plugin-manager run.
+
+- [Keyboard focus on installation review](../screenshots/plugin-system-acceptance/plugin-accessibility-keyboard-focus.png)
+- [Forced colors, reduced motion, and 200% text](../screenshots/plugin-system-acceptance/plugin-accessibility-forced-colors-200-percent.png)
+- [High-contrast theme review](../screenshots/plugin-system-acceptance/plugin-accessibility-high-contrast.png)
 
 ## Migration and recovery
 

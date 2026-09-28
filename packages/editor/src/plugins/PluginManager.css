@@ -163,7 +163,9 @@
 }
 
 .plugin-manager__review h3:focus {
-  outline: none;
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 3px;
+  border-radius: var(--radius-control-compact);
 }
 
 .plugin-manager__review h4 {
@@ -346,6 +348,10 @@
 .plugin-manager__subsection {
   display: grid;
   gap: var(--space-2);
+}
+
+.plugin-manager__subsection[hidden] {
+  display: none;
 }
 
 .plugin-manager__result pre {

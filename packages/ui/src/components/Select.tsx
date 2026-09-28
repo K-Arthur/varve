@@ -420,8 +420,8 @@ export function Select({
         role="combobox"
         aria-haspopup="listbox"
         aria-expanded={open}
-        aria-controls={listboxId}
-        aria-activedescendant={highlightedId}
+        aria-controls={open ? listboxId : undefined}
+        aria-activedescendant={open ? highlightedId : undefined}
         aria-required={required || undefined}
         aria-label={triggerLabel}
         aria-labelledby={ariaLabelledBy}

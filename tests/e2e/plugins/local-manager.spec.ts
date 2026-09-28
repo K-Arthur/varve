@@ -1,4 +1,5 @@
 import path from 'node:path';
+import AxeBuilder from '@axe-core/playwright';
 import { expect, type Page, test } from '@playwright/test';
 import { openMenu } from '../helpers/menu-helpers';
 import { dragOnCanvas, navigateToEditor } from '../shared';
@@ -71,6 +72,21 @@ async function openPluginManagerFromPalette(page: Page) {
     'true',
   );
   return dialog;
+}
+
+async function expectPluginManagerAxeClean(page: Page): Promise<void> {
+  const result = await new AxeBuilder({ page })
+    .include('.plugin-manager')
+    .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
+    .analyze();
+  expect(
+    result.violations.map((violation) => ({
+      id: violation.id,
+      impact: violation.impact,
+      description: violation.description,
+      targets: violation.nodes.map((node) => node.target),
+    })),
+  ).toEqual([]);
 }
 
 async function expectPluginPaletteAction(page: Page, present: boolean) {
@@ -248,6 +264,98 @@ test.describe('local application plugins', () => {
     await expect(reopenedDialog.getByRole('article')).toHaveCount(1);
   });
 
+  test('keeps package review and recovery disclosures usable by keyboard and assistive technology', async ({
+    page,
+  }, testInfo) => {
+    test.setTimeout(90000);
+    const dialog = await openPluginManagerFromPalette(page);
+    await expectPluginManagerAxeClean(page);
+
+    const packageInput = dialog.getByLabel('Choose a .varveplugin package');
+    await packageInput.setInputFiles(renamePackage);
+    const review = dialog.locator('.plugin-manager__review');
+    const reviewTitle = review.getByRole('heading', { name: 'Review installation' });
+    await expect(reviewTitle).toBeFocused();
+    const focusOutline = await reviewTitle.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return { style: style.outlineStyle, width: Number.parseFloat(style.outlineWidth) };
+    });
+    expect(focusOutline.style).not.toBe('none');
+    expect(focusOutline.width).toBeGreaterThanOrEqual(2);
+    await page.screenshot({ path: testInfo.outputPath('plugin-review-keyboard-focus.png') });
+    await expectPluginManagerAxeClean(page);
+
+    const cancelReview = review.getByRole('button', { name: 'Cancel' });
+    await page.keyboard.press('Tab');
+    await expect(cancelReview).toBeFocused();
+    const permissionBoxes = await review.getByRole('checkbox').all();
+    expect(permissionBoxes.length).toBeGreaterThan(0);
+    for (const permission of permissionBoxes) {
+      await permission.focus();
+      await page.keyboard.press('Space');
+      await expect(permission).toBeChecked();
+    }
+    const install = review.getByRole('button', { name: 'Install and enable' });
+    await install.focus();
+    await page.keyboard.press('Enter');
+    const card = dialog.getByRole('article', { name: 'Number Selected Layers' });
+    await expect(card).toContainText('Ready');
+    await expect(packageInput).toBeFocused();
+    await expectPluginManagerAxeClean(page);
+
+    const runCommand = card.getByRole('button', { name: 'Run', exact: true });
+    await runCommand.focus();
+    await page.keyboard.press('Enter');
+    const preview = card.locator('.plugin-manager__result');
+    await expect(card.getByRole('heading', { name: 'Preview' })).toBeVisible();
+    await expect(preview).toHaveAttribute('aria-live', 'polite');
+    await expectPluginManagerAxeClean(page);
+
+    const access = card.getByRole('button', { name: 'Access', exact: true });
+    await access.focus();
+    await page.keyboard.press('Enter');
+    await expect(access).toHaveAttribute('aria-expanded', 'true');
+    const accessPanel = card.getByRole('region', { name: 'Access for Number Selected Layers' });
+    await expect(accessPanel).toBeVisible();
+    await expectPluginManagerAxeClean(page);
+    await card.getByRole('button', { name: 'Cancel' }).focus();
+    await page.keyboard.press('Enter');
+    await expect(access).toHaveAttribute('aria-expanded', 'false');
+    await expect(access).toBeFocused();
+
+    const remove = card.getByRole('button', { name: 'Remove', exact: true });
+    await remove.focus();
+    await page.keyboard.press('Enter');
+    await expect(remove).toHaveAttribute('aria-expanded', 'true');
+    await expect(card.getByRole('region', { name: 'Remove Number Selected Layers' })).toBeVisible();
+    await expectPluginManagerAxeClean(page);
+    await card.getByRole('button', { name: 'Keep plugin' }).focus();
+    await page.keyboard.press('Enter');
+    await expect(remove).toHaveAttribute('aria-expanded', 'false');
+    await expect(remove).toBeFocused();
+
+    const danglingReferences = await dialog
+      .locator('[aria-controls], [aria-activedescendant]')
+      .evaluateAll((elements) =>
+        elements.flatMap((element) => {
+          const attributes = ['aria-controls', 'aria-activedescendant'];
+          return attributes.flatMap((attribute) => {
+            const ids = element.getAttribute(attribute)?.split(/\s+/u) ?? [];
+            return ids.filter((id) => id && !document.getElementById(id));
+          });
+        }),
+      );
+    expect(danglingReferences).toEqual([]);
+
+    await remove.focus();
+    await page.keyboard.press('Enter');
+    const confirmRemove = card.getByRole('button', { name: 'Remove plugin' });
+    await confirmRemove.focus();
+    await page.keyboard.press('Enter');
+    await expect(card).toHaveCount(0);
+    await expect(dialog.getByRole('searchbox', { name: 'Search installed plugins' })).toBeFocused();
+  });
+
   test('keeps long plugin names and access review readable across display modes', async ({
     page,
   }, testInfo) => {
@@ -278,6 +386,7 @@ test.describe('local application plugins', () => {
         ),
         fullPage: true,
       });
+      await expectPluginManagerAxeClean(page);
       await review.getByRole('button', { name: 'Cancel' }).click();
     }
 
@@ -326,6 +435,7 @@ test.describe('local application plugins', () => {
       path: testInfo.outputPath('plugin-review-forced-colors-reduced-motion-200-percent.png'),
       fullPage: true,
     });
+    await expectPluginManagerAxeClean(page);
     await stressReview.getByRole('button', { name: 'Cancel' }).click();
   });
 

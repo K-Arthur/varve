@@ -104,11 +104,17 @@ describe('Select', () => {
     render(<SelectFixture />);
     const combobox = screen.getByRole('combobox');
     expect(combobox).toHaveAttribute('aria-expanded', 'false');
+    expect(combobox).not.toHaveAttribute('aria-controls');
+    expect(combobox).not.toHaveAttribute('aria-activedescendant');
 
     await user.click(combobox);
     expect(combobox).toHaveAttribute('aria-expanded', 'true');
-    expect(combobox).toHaveAttribute('aria-controls');
-    expect(combobox).toHaveAttribute('aria-activedescendant');
+    const listboxId = combobox.getAttribute('aria-controls');
+    const activeOptionId = combobox.getAttribute('aria-activedescendant');
+    expect(listboxId).toBeTruthy();
+    expect(activeOptionId).toBeTruthy();
+    expect(document.getElementById(listboxId ?? '')?.getAttribute('role')).toBe('listbox');
+    expect(document.getElementById(activeOptionId ?? '')?.getAttribute('role')).toBe('option');
   });
 
   it('navigates options with ArrowDown', async () => {
