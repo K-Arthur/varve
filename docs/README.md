@@ -607,6 +607,7 @@ records; check the current code before acting on their findings.
 | `audits/selection-interaction-validation-2026-09-08.md` | Canvas object marquee, Layers row-scrub, structural-DnD separation, deterministic fixtures, and visual validation |
 | `audits/object-selection-repair-validation-2026-09-02.md` | Object Selection prompt/overlay, inference recovery, automatic bounds trim, and marketing validation record |
 | `audits/effects-surfaces-audit-2026-08-29.md` | Research-backed separation of Effect Studio, Image Tuning, Object Filters, and Adjustment Filters, including raster/vector behavior |
+| `audits/effect-studio-ux-review-2026-09-29.md` | Responsive Effect Studio findings, preview proof contract, and anecdotal competitor complaint research |
 | `audits/photo-editing-compositing-audit-2026-09-08.md` | Current photo editing/compositing capability map, ownership boundaries, RIFE truth, and remaining validation limits |
 | `audits/pages-master-layout-audit-2026-08-29.md` | Current page, parent/master, spread, frame, workspace, I/O, and validation capability audit |
 | `audits/shine-border-opportunity-audit-2026-08-31.md` | Repository-wide Shine Border candidate ranking, explicit rejects, and approved production ceiling |
