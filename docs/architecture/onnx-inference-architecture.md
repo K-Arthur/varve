@@ -182,6 +182,38 @@ terminating worker/process or an equivalent contract that stops the underlying
 work before fallback; ordinary provider errors may still use the configured
 fallback chain. Cancelled caller requests never fall through.
 
+### Shared resource admission
+
+`packages/platform/src/derivedWorkAdmission.ts` is the process-wide admission
+gate for local memory-heavy work. Its default unknown/4 GB ceiling is 400 MB;
+the supplied 8 GB reference profile has a 600 MB ceiling and is selected
+explicitly with `setDerivedWorkMemoryProfile('reference-8gb')`. These are
+conservative tracked-work limits, not device-memory measurements or guaranteed
+safe maxima. The default is one running job and a queue capped at 64.
+
+Requests identify a job kind, priority, cancellation signal, and estimated byte
+reservation before allocating work. Visible/foreground work can move ahead of
+background jobs; waiting explicit exports age into foreground order. Hiding
+the page aborts speculative active jobs and pauses queued previews, while
+explicit exports continue. Callers release a work lease only after execution
+has actually stopped. A portion of its reservation can transfer to a resident
+lease for a cached session or surface, so the same bytes are not counted once
+as active and again as resident. Disposable residents are evicted before new
+work only when its eviction callback confirms disposal; asynchronous session
+release keeps the bytes reserved until confirmation, and a failed release
+remains accounted.
+
+`InferenceAdmission` remains the inference-facing compatibility API but
+delegates to this same gate and reports an inference-only snapshot. Browser
+inference, effects, thumbnails, and exports therefore contend for shared byte
+headroom as their callers migrate. The `estimatedBytes` field remains optional
+for existing derived-work callers during migration; callers that omit it
+reserve zero bytes and are not yet protected by the byte ceiling. New and
+changed allocation paths must provide a conservative estimate before decode,
+tensor, transfer, surface, or export-buffer allocation. Native execution also
+remains subject to its native process-wide pool; the JS admission ceiling does
+not certify Rust-side allocation behavior.
+
 ### Native Path (Tauri Desktop)
 
 1. Frontend calls Tauri IPC command

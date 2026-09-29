@@ -1,14 +1,17 @@
 /**
  * @vitest-environment jsdom
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { DerivedWorkAdmission, setDerivedWorkAdmissionForTest } from '@varve/platform';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { decodeImageBytesToImageData, invoke } = vi.hoisted(() => ({
   decodeImageBytesToImageData: vi.fn(async () => new ImageData(8, 6)),
   invoke: vi.fn(),
 }));
 
-vi.mock('@varve/platform', () => ({
+vi.mock('@varve/platform', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@varve/platform')>()),
   isTauriRuntime: () => true,
 }));
 
@@ -16,7 +19,7 @@ vi.mock('@tauri-apps/api/core', () => ({ invoke }));
 
 vi.mock('../upscaleProviders/pngDecode', () => ({ decodeImageBytesToImageData }));
 
-import { getInferenceAdmission } from '../inference/admission';
+import { getInferenceAdmission, resetInferenceAdmission } from '../inference/admission';
 import { nativeGenerativeProvider } from './nativeProvider';
 import { GenerativeEditError } from './types';
 
@@ -47,8 +50,17 @@ function request(overrides: Record<string, unknown> = {}) {
 
 describe('nativeGenerativeProvider', () => {
   beforeEach(() => {
+    resetInferenceAdmission();
+    // These fixtures exercise native dispatch on a high-memory host. Low-end
+    // product profiles intentionally refuse this 6.4 GB reservation.
+    setDerivedWorkAdmissionForTest(new DerivedWorkAdmission({ maxReservedBytes: 8_000_000_000 }));
     invoke.mockReset();
     decodeImageBytesToImageData.mockClear();
+  });
+
+  afterEach(() => {
+    resetInferenceAdmission();
+    setDerivedWorkAdmissionForTest(null);
   });
 
   it('forwards prompt settings and mode without exposing a filesystem model path', async () => {
@@ -82,6 +94,16 @@ describe('nativeGenerativeProvider', () => {
     });
     expect(invoke.mock.calls[0]?.[1]?.options).not.toHaveProperty('model_path');
     expect(result.executionProvider).toBe('native-cpu');
+  });
+
+  it('surfaces a shared memory refusal before invoking the native helper', async () => {
+    resetInferenceAdmission();
+    setDerivedWorkAdmissionForTest(new DerivedWorkAdmission({ maxReservedBytes: 400_000_000 }));
+
+    await expect(nativeGenerativeProvider.infer(request())).rejects.toMatchObject({
+      code: 'insufficient-memory',
+    });
+    expect(invoke).not.toHaveBeenCalled();
   });
 
   it('forwards an explicit image-conditioning guidance setting', async () => {

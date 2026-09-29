@@ -31,18 +31,23 @@ export type {
 } from './assetSearch';
 export { normalizeAssetSearchQuery, searchAssets } from './assetSearch';
 export type {
+  DerivedResidentLease,
+  DerivedResidentOptions,
   DerivedWorkAdmissionErrorCode,
   DerivedWorkAdmissionSnapshot,
   DerivedWorkKind,
   DerivedWorkLease,
+  DerivedWorkMemoryProfile,
   DerivedWorkPriority,
   DerivedWorkRequest,
 } from './derivedWorkAdmission';
 export {
+  DERIVED_WORK_MEMORY_LIMITS,
   DerivedWorkAdmission,
   DerivedWorkAdmissionError,
   getDerivedWorkAdmission,
   setDerivedWorkAdmissionForTest,
+  setDerivedWorkMemoryProfile,
 } from './derivedWorkAdmission';
 export type { PlatformKind } from './detect';
 export { detectPlatform, detectPlatformKind } from './detect';

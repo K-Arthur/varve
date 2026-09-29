@@ -2,6 +2,7 @@ import { isTauriRuntime } from '@varve/platform';
 import {
   estimateInferenceReservation,
   getInferenceAdmission,
+  InferenceAdmissionError,
   type InferenceLease,
 } from '../inference/admission';
 import { decodeImageBytesToImageData } from '../upscaleProviders/pngDecode';
@@ -72,6 +73,9 @@ function defaultPrompt(mode: GenerativeEditMode): string {
 
 function nativeFailure(error: unknown): GenerativeEditError {
   if (error instanceof GenerativeEditError) return error;
+  if (error instanceof InferenceAdmissionError && error.code === 'insufficient-memory') {
+    return new GenerativeEditError('insufficient-memory', error.message);
+  }
   const message = error instanceof Error ? error.message : String(error);
   const normalized = message.toLowerCase();
 

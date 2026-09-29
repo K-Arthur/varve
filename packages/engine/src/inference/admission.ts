@@ -1,33 +1,53 @@
 /**
- * Admission control for memory-heavy local inference.
+ * Compatibility facade for the process-wide platform admission gate.
  *
- * A lease represents one running model session. Keeping this below the
- * provider layer means generation, background removal, and the shared worker
- * host use the same FIFO queue instead of each inventing its own concurrency
- * policy. A waiting request can always be removed by aborting its signal;
- * releasing a lease synchronously admits the next request.
+ * Inference keeps its existing API and error vocabulary, while reservations
+ * now contend with thumbnails, effects, exports, and other local work through
+ * the same byte ledger and priority queue.
  */
 
-export type InferenceAdmissionKind = 'generation' | 'background-removal' | 'worker' | 'other';
+import {
+  type DerivedResidentLease,
+  type DerivedResidentOptions,
+  DerivedWorkAdmission,
+  DerivedWorkAdmissionError,
+  type DerivedWorkAdmissionSnapshot,
+  type DerivedWorkPriority,
+  getDerivedWorkAdmission,
+} from '@varve/platform';
+
+export type InferenceAdmissionKind =
+  | 'generation'
+  | 'background-removal'
+  | 'worker'
+  | 'export'
+  | 'other';
 
 export interface InferenceAdmissionRequest {
   kind: InferenceAdmissionKind;
-  /** Conservative bytes reserved while the request is running. */
+  /** Conservative bytes reserved before tensors, sessions, or transfer buffers are created. */
   reservationBytes?: number;
+  /** Override the default foreground priority for previews or explicit exports. */
+  priority?: DerivedWorkPriority;
   signal?: AbortSignal;
   label?: string;
 }
 
 export interface InferenceAdmissionOptions {
-  /** Maximum number of simultaneously running heavy requests. */
+  /** Maximum number of simultaneously running heavy requests on this gate. */
   maxConcurrent?: number;
-  /** Optional aggregate reservation ceiling. Infinity disables this gate. */
+  /** Aggregate byte ceiling. Infinity disables only the byte ceiling. */
   maxReservedBytes?: number;
+  /** Use a shared platform controller; otherwise limits create an isolated test/host gate. */
+  admission?: DerivedWorkAdmission;
 }
 
 export interface InferenceAdmissionSnapshot {
   active: number;
   pending: number;
+  activeBytes: number;
+  pendingBytes: number;
+  residentBytes: number;
   reservedBytes: number;
   maxConcurrent: number;
   maxReservedBytes: number;
@@ -37,10 +57,17 @@ export interface InferenceLease {
   readonly id: number;
   readonly kind: InferenceAdmissionKind;
   readonly reservationBytes: number;
+  /** Transfer bytes already reserved by this request to a long-lived resident owner. */
+  retainResident(bytes: number, options?: DerivedResidentOptions): DerivedResidentLease;
   release(): void;
 }
 
-export type InferenceAdmissionErrorCode = 'cancelled' | 'insufficient-memory';
+export type InferenceAdmissionErrorCode =
+  | 'cancelled'
+  | 'insufficient-memory'
+  | 'queue-full'
+  | 'closed'
+  | 'invalid-estimate';
 
 export class InferenceAdmissionError extends Error {
   readonly code: InferenceAdmissionErrorCode;
@@ -52,193 +79,140 @@ export class InferenceAdmissionError extends Error {
   }
 }
 
-interface QueueEntry {
-  id: number;
-  request: Required<Pick<InferenceAdmissionRequest, 'kind'>> &
-    Omit<InferenceAdmissionRequest, 'kind'>;
-  reservationBytes: number;
-  resolve: (lease: InferenceLease) => void;
-  reject: (error: InferenceAdmissionError) => void;
-  onAbort?: () => void;
-}
-
-const DEFAULT_MAX_CONCURRENT = 1;
-
-function normalizedReservation(bytes: number | undefined): number {
+function normalizeReservation(bytes: number | undefined): number {
   if (bytes === undefined) return 0;
-  if (!Number.isFinite(bytes) || bytes < 0) {
+  if (!Number.isSafeInteger(bytes) || bytes < 0) {
     throw new InferenceAdmissionError(
-      'insufficient-memory',
-      'Inference memory reservation must be a finite non-negative number.',
+      'invalid-estimate',
+      'Inference memory reservation must be a non-negative safe integer.',
     );
   }
-  return Math.ceil(bytes);
+  return bytes;
 }
 
-function normalizedLimit(value: number | undefined, fallback: number): number {
-  if (value === undefined) return fallback;
-  if (!Number.isSafeInteger(value) || value <= 0) {
-    throw new RangeError('Inference admission limits must be positive safe integers.');
+function mapAdmissionError(error: unknown): InferenceAdmissionError {
+  if (error instanceof InferenceAdmissionError) return error;
+  if (error instanceof DerivedWorkAdmissionError) {
+    const code: InferenceAdmissionErrorCode =
+      error.code === 'cancelled'
+        ? 'cancelled'
+        : error.code === 'memory-limit'
+          ? 'insufficient-memory'
+          : error.code === 'queue-full'
+            ? 'queue-full'
+            : error.code === 'closed'
+              ? 'closed'
+              : 'invalid-estimate';
+    return new InferenceAdmissionError(code, error.message);
   }
-  return value;
+  return new InferenceAdmissionError('invalid-estimate', String(error));
 }
 
-function normalizedMemoryLimit(value: number | undefined): number {
-  if (value === undefined) return Number.POSITIVE_INFINITY;
-  if (!Number.isFinite(value) || value <= 0) {
-    throw new RangeError('Inference memory limit must be a positive finite number.');
-  }
-  return Math.floor(value);
+function defaultPriority(kind: InferenceAdmissionKind): DerivedWorkPriority {
+  if (kind === 'export') return 'explicit-export';
+  if (kind === 'other') return 'current-document';
+  return 'visible';
 }
 
-function cancellationError(label?: string): InferenceAdmissionError {
-  return new InferenceAdmissionError(
-    'cancelled',
-    label
-      ? `Inference request '${label}' was cancelled while waiting.`
-      : 'Inference request was cancelled while waiting.',
-  );
-}
-
-/** FIFO admission controller. It owns no model or worker resources. */
+/** FIFO-compatible facade; the shared gate owns queue order and byte totals. */
 export class InferenceAdmission {
-  private readonly maxConcurrent: number;
-  private readonly maxReservedBytes: number;
+  private readonly admission: DerivedWorkAdmission;
   private nextId = 0;
-  private activeCount = 0;
-  private reservedBytes = 0;
-  private queue: QueueEntry[] = [];
-  private readonly listeners = new Set<() => void>();
 
   constructor(options: InferenceAdmissionOptions = {}) {
-    this.maxConcurrent = normalizedLimit(options.maxConcurrent, DEFAULT_MAX_CONCURRENT);
-    this.maxReservedBytes = normalizedMemoryLimit(options.maxReservedBytes);
+    if (options.admission) {
+      if (options.maxConcurrent !== undefined || options.maxReservedBytes !== undefined) {
+        throw new TypeError('Pass either a shared admission gate or standalone limits, not both.');
+      }
+      this.admission = options.admission;
+      return;
+    }
+
+    const hasLocalLimits =
+      options.maxConcurrent !== undefined || options.maxReservedBytes !== undefined;
+    this.admission = hasLocalLimits
+      ? new DerivedWorkAdmission({
+          ...(options.maxConcurrent !== undefined ? { maxConcurrent: options.maxConcurrent } : {}),
+          ...(options.maxReservedBytes !== undefined
+            ? { maxReservedBytes: options.maxReservedBytes }
+            : {}),
+        })
+      : getDerivedWorkAdmission();
   }
 
   acquire(request: InferenceAdmissionRequest): Promise<InferenceLease> {
-    const reservationBytes = normalizedReservation(request.reservationBytes);
-    this.assertFits(reservationBytes);
-    if (request.signal?.aborted) return Promise.reject(cancellationError(request.label));
-
-    return new Promise<InferenceLease>((resolve, reject) => {
-      const entry: QueueEntry = {
-        id: ++this.nextId,
-        request: { ...request, kind: request.kind },
-        reservationBytes,
-        resolve,
-        reject,
-      };
-      if (request.signal) {
-        const onAbort = () => {
-          const index = this.queue.indexOf(entry);
-          if (index < 0) return;
-          this.queue.splice(index, 1);
-          entry.onAbort = undefined;
-          this.notify();
-          reject(cancellationError(request.label));
-        };
-        entry.onAbort = onAbort;
-        request.signal.addEventListener('abort', onAbort, { once: true });
-      }
-      this.queue.push(entry);
-      this.notify();
-      this.drain();
-    });
+    const reservationBytes = normalizeReservation(request.reservationBytes);
+    const id = ++this.nextId;
+    return this.admission
+      .acquire({
+        id: `inference_${id}`,
+        kind: 'inference',
+        priority: request.priority ?? defaultPriority(request.kind),
+        estimatedBytes: reservationBytes,
+        ...(request.signal ? { signal: request.signal } : {}),
+        ...(request.label ? { label: request.label } : {}),
+      })
+      .then((lease) => this.wrapLease(lease, id, request.kind, reservationBytes))
+      .catch((error: unknown) => {
+        throw mapAdmissionError(error);
+      });
   }
 
-  /**
-   * Subscribe to active/pending count changes. Returns an unsubscribe
-   * function. Used by UI affordances (e.g. a global "AI busy" indicator) that
-   * must not poll or invent a second activity-tracking mechanism.
-   */
-  subscribe(listener: () => void): () => void {
-    this.listeners.add(listener);
-    return () => {
-      this.listeners.delete(listener);
-    };
-  }
-
-  private notify(): void {
-    for (const listener of this.listeners) listener();
-  }
-
-  /**
-   * Acquire without queueing. This keeps synchronous worker construction
-   * behaviour for callers that previously observed it, while preserving FIFO
-   * ordering whenever another request is already waiting.
-   */
+  /** Preserve the old synchronous admission behavior for callers that rely on it. */
   tryAcquire(request: InferenceAdmissionRequest): InferenceLease | null {
-    const reservationBytes = normalizedReservation(request.reservationBytes);
-    this.assertFits(reservationBytes);
-    if (request.signal?.aborted) throw cancellationError(request.label);
-    if (this.queue.length > 0 || !this.canStart(reservationBytes)) return null;
-    return this.startLease({
-      id: ++this.nextId,
-      request: { ...request, kind: request.kind },
-      reservationBytes,
-      resolve: () => undefined,
-      reject: () => undefined,
-    });
+    const reservationBytes = normalizeReservation(request.reservationBytes);
+    const id = ++this.nextId;
+    try {
+      const lease = this.admission.tryAcquire({
+        id: `inference_${id}`,
+        kind: 'inference',
+        priority: request.priority ?? defaultPriority(request.kind),
+        estimatedBytes: reservationBytes,
+        ...(request.signal ? { signal: request.signal } : {}),
+        ...(request.label ? { label: request.label } : {}),
+      });
+      return lease ? this.wrapLease(lease, id, request.kind, reservationBytes) : null;
+    } catch (error) {
+      throw mapAdmissionError(error);
+    }
+  }
+
+  subscribe(listener: () => void): () => void {
+    return this.admission.subscribe(listener);
   }
 
   getSnapshot(): InferenceAdmissionSnapshot {
+    const snapshot = this.admission.snapshotForKind('inference');
+    return toInferenceSnapshot(snapshot);
+  }
+
+  private wrapLease(
+    lease: Awaited<ReturnType<DerivedWorkAdmission['acquire']>>,
+    id: number,
+    kind: InferenceAdmissionKind,
+    reservationBytes: number,
+  ): InferenceLease {
     return {
-      active: this.activeCount,
-      pending: this.queue.length,
-      reservedBytes: this.reservedBytes,
-      maxConcurrent: this.maxConcurrent,
-      maxReservedBytes: this.maxReservedBytes,
+      id,
+      kind,
+      reservationBytes,
+      retainResident: (bytes, options) => lease.retainResident(bytes, options),
+      release: () => lease.release(),
     };
   }
+}
 
-  private assertFits(reservationBytes: number): void {
-    if (reservationBytes > this.maxReservedBytes) {
-      throw new InferenceAdmissionError(
-        'insufficient-memory',
-        `Inference request reserves ${reservationBytes} bytes, above the configured ${this.maxReservedBytes}-byte limit.`,
-      );
-    }
-  }
-
-  private canStart(reservationBytes: number): boolean {
-    return (
-      this.activeCount < this.maxConcurrent &&
-      this.reservedBytes + reservationBytes <= this.maxReservedBytes
-    );
-  }
-
-  private startLease(entry: QueueEntry): InferenceLease {
-    this.activeCount += 1;
-    this.reservedBytes += entry.reservationBytes;
-    let released = false;
-    const lease: InferenceLease = {
-      id: entry.id,
-      kind: entry.request.kind,
-      reservationBytes: entry.reservationBytes,
-      release: () => {
-        if (released) return;
-        released = true;
-        this.activeCount -= 1;
-        this.reservedBytes -= entry.reservationBytes;
-        this.notify();
-        this.drain();
-      },
-    };
-    entry.request.signal?.removeEventListener('abort', entry.onAbort ?? (() => undefined));
-    entry.onAbort = undefined;
-    this.notify();
-    return lease;
-  }
-
-  private drain(): void {
-    while (this.queue.length > 0) {
-      const entry = this.queue[0];
-      if (!entry || !this.canStart(entry.reservationBytes)) return;
-      this.queue.shift();
-      const lease = this.startLease(entry);
-      entry.resolve(lease);
-    }
-  }
+function toInferenceSnapshot(snapshot: DerivedWorkAdmissionSnapshot): InferenceAdmissionSnapshot {
+  return {
+    active: snapshot.active,
+    pending: snapshot.pending,
+    activeBytes: snapshot.activeBytes,
+    pendingBytes: snapshot.pendingBytes,
+    residentBytes: snapshot.residentBytes,
+    reservedBytes: snapshot.reservedBytes,
+    maxConcurrent: snapshot.maxConcurrent,
+    maxReservedBytes: snapshot.maxReservedBytes,
+  };
 }
 
 let sharedAdmission: InferenceAdmission | null = null;
@@ -248,9 +222,11 @@ export function getInferenceAdmission(): InferenceAdmission {
   return sharedAdmission;
 }
 
-/** Test/lifecycle hook; it only drops the controller after all leases ended. */
+/** Test/lifecycle hook; it only drops this facade after inference jobs end. */
 export function resetInferenceAdmission(): void {
-  if (sharedAdmission?.getSnapshot().active !== 0 || sharedAdmission?.getSnapshot().pending !== 0) {
+  if (!sharedAdmission) return;
+  const snapshot = sharedAdmission.getSnapshot();
+  if (snapshot.active !== 0 || snapshot.pending !== 0) {
     throw new Error('Cannot reset inference admission while requests are active or pending.');
   }
   sharedAdmission = null;

@@ -1,3 +1,4 @@
+import { DerivedWorkAdmission } from '@varve/platform';
 import { describe, expect, it } from 'vitest';
 import { estimateInferenceReservation, InferenceAdmission } from './admission';
 
@@ -98,5 +99,90 @@ describe('InferenceAdmission', () => {
     unsubscribe();
     admission.tryAcquire({ kind: 'other', reservationBytes: 1 })?.release();
     expect(calls).toBe(4); // no further notifications after unsubscribe
+  });
+
+  it('shares byte reservations and queue ordering with platform derived work', async () => {
+    const shared = new DerivedWorkAdmission({ maxConcurrent: 1, maxReservedBytes: 100 });
+    const inference = new InferenceAdmission({ admission: shared });
+    const thumbnail = await shared.acquire({
+      id: 'thumbnail:page-1',
+      kind: 'thumbnail',
+      priority: 'background',
+      estimatedBytes: 70,
+    });
+    const inferenceWaiter = inference.acquire({
+      kind: 'worker',
+      reservationBytes: 40,
+      label: 'segmentation',
+    });
+
+    expect(shared.snapshot()).toMatchObject({
+      active: 1,
+      pending: 1,
+      activeBytes: 70,
+      pendingBytes: 40,
+      reservedBytes: 70,
+    });
+    expect(inference.getSnapshot()).toMatchObject({ active: 0, pending: 1, reservedBytes: 0 });
+
+    thumbnail.release();
+    const inferenceLease = await inferenceWaiter;
+    expect(inference.getSnapshot()).toMatchObject({
+      active: 1,
+      pending: 0,
+      activeBytes: 40,
+      reservedBytes: 40,
+      maxReservedBytes: 100,
+    });
+    inferenceLease.release();
+    expect(shared.snapshot()).toMatchObject({ active: 0, pending: 0, reservedBytes: 0 });
+  });
+
+  it('transfers a session reservation to resident accounting and preserves it after job release', async () => {
+    const shared = new DerivedWorkAdmission({ maxConcurrent: 1, maxReservedBytes: 100 });
+    const inference = new InferenceAdmission({ admission: shared });
+    const work = await inference.acquire({ kind: 'worker', reservationBytes: 90 });
+    const resident = work.retainResident(60, { key: 'onnx:scunet', priority: 'idle' });
+
+    expect(inference.getSnapshot()).toMatchObject({
+      active: 1,
+      activeBytes: 30,
+      residentBytes: 60,
+      reservedBytes: 90,
+    });
+    work.release();
+    expect(inference.getSnapshot()).toMatchObject({
+      active: 0,
+      residentBytes: 60,
+      reservedBytes: 60,
+    });
+    resident.release();
+    expect(shared.snapshot().reservedBytes).toBe(0);
+  });
+
+  it('maps over-ceiling and malformed estimates to concrete inference refusal reasons', async () => {
+    const inference = new InferenceAdmission({ maxReservedBytes: 100 });
+    await expect(
+      inference.acquire({ kind: 'worker', reservationBytes: 101 }),
+    ).rejects.toMatchObject({ code: 'insufficient-memory' });
+    expect(() => inference.acquire({ kind: 'worker', reservationBytes: Number.NaN })).toThrow(
+      expect.objectContaining({ code: 'invalid-estimate' }),
+    );
+    expect(inference.getSnapshot()).toMatchObject({ active: 0, pending: 0, reservedBytes: 0 });
+  });
+
+  it('admits an explicit export ahead of a queued inference request', async () => {
+    const shared = new DerivedWorkAdmission({ maxConcurrent: 1, maxReservedBytes: 100 });
+    const inference = new InferenceAdmission({ admission: shared });
+    const active = await inference.acquire({ kind: 'worker', reservationBytes: 10 });
+    const waitingInference = inference.acquire({ kind: 'worker', reservationBytes: 10 });
+    const waitingExport = inference.acquire({ kind: 'export', reservationBytes: 10 });
+
+    active.release();
+    const exportLease = await waitingExport;
+    expect(exportLease.kind).toBe('export');
+    expect(inference.getSnapshot()).toMatchObject({ active: 1, pending: 1 });
+    exportLease.release();
+    (await waitingInference).release();
   });
 });

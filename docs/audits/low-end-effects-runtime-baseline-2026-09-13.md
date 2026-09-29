@@ -192,7 +192,7 @@ gaps:
 | Effects and preview | `packages/editor/src/canvas/renderPipeline.ts` has in-flight shared work, and the effect-bearing whole-scene worker path remains behind the pixel-fidelity guard recorded in the canvas audit. `packages/engine/src/liveEffects/dispatch.ts` has no production caller; its provider chain is not yet an application rendering path. | Wire expensive RGBA effect work into actual preview/export consumers. Preserve canonical source capture and prove exact or contract-tolerant results with the independent full-redraw oracle before enabling a provider. |
 | Export completeness | `exportNodeAsRaster` records image settlement failures as warnings and can continue with missing images. A timed-out image can be absent from the completed file. The raster safety fit can reduce dimensions and return the smaller result with a warning. | Make required missing resources and unavailable requested output dimensions blocking states. Generate another file only after an explicit user choice accepts changed dimensions or quality. |
 | Model working set | The browser downloader retains chunks, assembles another full-size buffer, and hashes/writes that assembled artifact. IndexedDB loading materializes an `ArrayBuffer`; the generic Tauri adapter serializes bytes as a number array. | Measure before/after peak memory. Prefer native streaming on desktop and staged, verified chunk storage in browser runtimes without breaking existing installed-model reads. |
-| Admission and budgets | Inference admission and platform-derived-work admission have separate active counts. Inference's default aggregate byte limit is unbounded, while image, effect, and export surface reservations are not part of that ledger. | Test shared peak reservations and refusal before decode/allocation, including resident sessions and effects competing with explicit export. |
+| Admission and budgets | Fixed for the gate/adapter in this continuation: inference and derived work now share a 400 MB conservative default ledger, with an explicit 600 MB reference-8-GB profile, transfer-to-resident leases, eviction confirmation, export aging, and shared snapshots. Legacy derived-work callers can still omit estimates, so their allocations are not yet represented. | M3 focused tests prove cross-kind contention, resident transfer/eviction, over-ceiling refusal, and export ordering. Continue wiring estimates before every decode, tensor, transfer, session, surface, and export allocation; calibrate profiles on target hardware. |
 | UI/model dispatch | The existing `dispatchLiveEffect` is exercised by unit tests only. Runtime provider support remains a capability signal rather than proof that a representative model graph executes correctly. | Keep UI status truthful and qualify an accelerated provider with the actual graph and output comparison; leave unqualified providers unavailable. |
 
 The inference lifecycle correction was validated with the following focused
@@ -227,10 +227,42 @@ pnpm verify:affected
   `pnpm verify:full`; no affected test lane was started by that command.
 ```
 
-The lifecycle milestone is committed as `8fcdfeb34`. This task's next scope is
-the existing platform admission gate and its inference adapter; the platform
-memory implementation is excluded while its shared-tree diff remains owned by
-another writer.
+The inference lifecycle milestone is committed as `8fcdfeb34`. The current
+shared-admission milestone is still uncommitted. The platform memory
+implementation remains excluded while its shared-tree diff is owned by another
+writer.
+
+Shared admission validation against the current implementation diff:
+
+```text
+pnpm exec vitest run \
+  packages/platform/src/derivedWorkAdmission.test.ts \
+  packages/engine/src/inference/admission.test.ts \
+  packages/engine/src/inference/__tests__/workerHostMessages.test.ts \
+  packages/engine/src/generativeEdit/nativeProvider.test.ts \
+  packages/engine/src/contentAwareFill/nativeProvider.test.ts \
+  packages/editor/src/components/AIStatusIndicator/AIStatusIndicator.test.tsx \
+  packages/editor/src/performance/pageLifecycle.test.ts --maxWorkers=1
+Result: 7 files passed, 60 tests passed, 0 failed.
+pnpm --filter @varve/platform typecheck
+Result: passed.
+pnpm --filter @varve/engine typecheck
+Result: blocked by two type errors in the shared dirty
+packages/engine/src/bench/tonalControls.bench.ts (ImageData-returning callbacks
+do not satisfy BenchFunction); no admission-related type errors were reported.
+```
+
+After these edits, `pnpm verify:plan` selected 512 shared-tree changes across
+all workspace packages and again reported `FULL-SUITE ESCALATION: YES` for
+shared validation-infrastructure/dependency-toolchain changes. The required
+`pnpm verify:affected` stopped with exit 2 at that escalation and recommended
+`pnpm verify:full`; it did not start affected lanes. `pnpm audit:docs` passed
+(1100 docs, 679 links, 177 ADRs), `pnpm audit:emoji` passed after a transient
+failure on generated pages from another task, and `pnpm audit:tokens` passed
+all 303 contrast pairs plus the usage scan. No generated report files were
+changed by this task. The platform typecheck and 60 focused tests pass; the
+engine typecheck remains blocked only by the two unrelated
+`tonalControls.bench.ts` callback errors recorded above.
 
 The fresh source/runtime baseline was verified on 2026-09-28 local time; it is
 not a hardware profile:

@@ -8,7 +8,8 @@ const { decodeImageBytesToImageData, invoke } = vi.hoisted(() => ({
   invoke: vi.fn(),
 }));
 
-vi.mock('@varve/platform', () => ({
+vi.mock('@varve/platform', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@varve/platform')>()),
   isTauriRuntime: () => true,
 }));
 

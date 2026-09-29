@@ -37,6 +37,9 @@ shared tree at `8fcdfeb34` and confirming they have no local diff:
 |---|---|
 | `packages/platform/src/derivedWorkAdmission.ts` (+ tests) | Extend the existing cross-feature gate with byte reservations, resident ownership, refusal/accounting diagnostics, and bounded aging without breaking legacy callers. |
 | `packages/engine/src/inference/admission.ts` (+ tests) | Preserve the inference API as a compatibility adapter over the shared gate. |
+| `packages/engine/src/contentAwareFill/nativeProvider.test.ts`, `packages/engine/src/generativeEdit/nativeProvider.test.ts` | Keep native inference provider tests compatible with the shared platform facade instead of incomplete module mocks. |
+| `packages/engine/src/generativeEdit/nativeProvider.ts` | Preserve a typed insufficient-memory result when shared admission refuses a native request before dispatch. |
+| `docs/architecture/onnx-inference-architecture.md` | Document the shared admission contract, budget defaults, and remaining caller migration. |
 | This file and the baseline audit | Record the single-writer transfer and measured limits. |
 
 The older ChromeOS Stage 3 and segmentation-hardening records mention these
