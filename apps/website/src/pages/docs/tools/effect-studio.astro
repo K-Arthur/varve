@@ -30,9 +30,27 @@ import '../../../styles/docs-prose.css';
           <li>Use the split slider or Before, After, and Compare modes. Fit, 100%, and 200% change only the preview viewport; drag a zoomed image to inspect its edges and choose Center to restore the origin.</li>
         </ol>
         <p>
+          On tablet and narrow screens, use the sticky <strong>Preview</strong>,
+          <strong>Treatments</strong>, and <strong>Stack &amp; settings</strong> buttons to jump through the
+          single scrollable dialog.
+          When a treatment is open for tuning, the last button focuses its controls directly.
+        </p>
+        <p>
           With a multi-selection, the comparison shows the first selected object as a representative
           preview. Applying still affects every selected object; direct tuning is available after
           selecting one object.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Favorites, Looks, and advanced effects</h2>
+        <p>
+          <strong>Favorites</strong> are treatments you save on this device for quicker discovery.
+          <strong>Document Looks</strong> are ordered recipes saved with the current document, so
+          they travel with that design. <strong>Advanced individual effects</strong> are raw creative
+          building blocks for a specific operator; use Object Filters to change their order,
+          parameters, masks, and blending. Favorites and Looks are grouped with the treatment
+          browser; applied recipe tuning and reordering stay in the applied-stack inspector.
         </p>
       </section>
 
@@ -51,6 +69,16 @@ import '../../../styles/docs-prose.css';
           shapeless image geometry are resolved before the preview frame is fitted, so a current
           wide image is not cropped to an older node size.
         </p>
+        <p>
+          Once the live Before and After previews have settled, choose <strong>Check at 2x</strong>
+          for a higher-resolution render against a 1536 × 1152 profile per state. Small selections
+          scale up to use that profile; the resulting bitmap can be smaller to preserve its aspect
+          ratio. It uses the same canonical renderer and matching selection bounds. The check is
+          optional and never delays Apply. If you change the target or treatment settings, its
+          previous result becomes stale and any
+          in-flight render is canceled; run the check again when the live preview has settled.
+          Provisional or failed checks stay labeled and leave the live preview available.
+        </p>
       </section>
 
       <section class="docs-section">
@@ -67,6 +95,12 @@ import '../../../styles/docs-prose.css';
           <div><dt>Cancel</dt><dd>Removes only filters owned by the active preview session and keeps unrelated edits made during the session.</dd></div>
           <div><dt>Apply</dt><dd>Creates one normal undoable document edit. Reapplying an existing treatment requires the explicit Add another action.</dd></div>
         </dl>
+        <p>
+          The <strong>Applied effect stack</strong> keeps named treatments in execution order. Tune
+          edits one treatment while its neighbors stay in the stack; Move up/Move down moves the
+          whole recipe, and Remove deletes only that treatment. Open Advanced filter order when you
+          need to work on an individual derived effect.
+        </p>
       </section>
 
       <section class="docs-section">
@@ -77,6 +111,10 @@ import '../../../styles/docs-prose.css';
           a font or raster resource was still settling; the UI discloses that state and retries the
           latest matching request. Empty, canceled, missing, and failed results remain distinct from
           a successful authoritative frame.
+        </p>
+        <p>
+          A completed 2× check is still an editing proof, not the full-resolution appearance
+          authority. The canvas and export use the document's full-resolution rendering path.
         </p>
       </section>
 

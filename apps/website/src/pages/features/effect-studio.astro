@@ -35,6 +35,38 @@ import StatusPill from '../../components/StatusPill.astro';
         </div>
       </section>
 
+      <section class="feature-section feature-preview" aria-labelledby="preview-title">
+        <h2 id="preview-title">A clear workspace at every size.</h2>
+        <p>
+          The live preview and treatment gallery stay together as the dialog reflows. After the
+          live render settles, an optional 2× check gives a closer look at the same selected object
+          and matching Before/After bounds. On tablet and narrow screens, a sticky section rail jumps to the
+          preview, treatment browser, or active stack/settings without adding a second scroll area.
+        </p>
+        <div class="feature-preview__screenshots">
+          <figure>
+            <img
+              src={sitePath('/screenshots/effect-studio-desktop-light.png')}
+              alt="Effect Studio on a wide screen, with the treatment preview, gallery, and applied stack arranged side by side."
+              width="1440"
+              height="900"
+              loading="lazy"
+            />
+            <figcaption>Wide workspace with preview, treatments, and editable stack in view.</figcaption>
+          </figure>
+          <figure class="feature-preview__mobile">
+            <img
+              src={sitePath('/screenshots/effect-studio-mobile-light.png')}
+              alt="Effect Studio on a phone-sized screen, reflowed into a single scrollable layout with touch-sized controls."
+              width="390"
+              height="844"
+              loading="lazy"
+            />
+            <figcaption>Phone layout keeps the same order in one scrollable flow.</figcaption>
+          </figure>
+        </div>
+      </section>
+
       <section class="feature-section" aria-labelledby="treatments-title">
         <h2 id="treatments-title">Named treatments, editable internals.</h2>
         <p>
@@ -63,10 +95,12 @@ import StatusPill from '../../components/StatusPill.astro';
       <section class="feature-section">
         <h2>Honest previews, local-first documents.</h2>
         <p>
-          Studio previews use Varve's canonical rendering path and carry their identity, quality,
-          warnings, and fallback state with the image. A provisional frame is disclosed while
-          fonts or raster resources settle; it is never treated as the final accepted result.
-          Documents store the editable recipe, not a preview bitmap.
+          The live preview uses Varve's canonical renderer at 768 × 576. Once it settles, an
+          optional 2× check uses a 1536 × 1152 profile for Before and After, scaling small
+          selections up while preserving their aspect ratio. Changes to the target or settings make
+          an earlier check stale, while the live preview and Apply remain
+          available. Both images are bounded editing previews; the canvas and export remain the
+          full-resolution references. Documents store the editable recipe, not a preview bitmap.
         </p>
         <p><a href={sitePath('/docs/tools/effect-studio')}>Read the Effect Studio guide</a> or <a href={sitePath('/features/layer-effects')}>explore Layer Effects</a>.</p>
       </section>
@@ -101,5 +135,31 @@ import StatusPill from '../../components/StatusPill.astro';
   .surface-list dd { margin: .2rem 0 0; }
   .feature-cta { border-top: 1px solid var(--border-default); padding-top: 2.5rem; text-align: center; }
   .feature-cta h2 { color: var(--text-primary); font-size: 1.35rem; margin-bottom: 1rem; }
-  @media (max-width: 680px) { .workflow-grid, .card-grid { grid-template-columns: 1fr; } .feature-page { padding-top: 2rem; } }
+  .feature-preview__screenshots {
+    align-items: start;
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: minmax(0, 1.8fr) minmax(180px, .75fr);
+    margin-top: 1.5rem;
+  }
+  .feature-preview__screenshots figure { margin: 0; min-width: 0; }
+  .feature-preview__screenshots img {
+    background: var(--surface-card);
+    border: 1px solid var(--border-default);
+    border-radius: var(--website-radius-surface);
+    display: block;
+    height: auto;
+    width: 100%;
+  }
+  .feature-preview__screenshots figcaption {
+    color: var(--text-secondary);
+    font-size: .875rem;
+    line-height: 1.5;
+    margin-top: .55rem;
+  }
+  @media (max-width: 680px) {
+    .workflow-grid, .card-grid, .feature-preview__screenshots { grid-template-columns: 1fr; }
+    .feature-page { padding-top: 2rem; }
+    .feature-preview__mobile { max-width: 24rem; }
+  }
 </style>

@@ -18,10 +18,15 @@ test.describe('Effect Studio marketing surface', () => {
     await expect(page.getByText(/explicit duplication/i)).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Inspect at scale' })).toBeVisible();
     await expect(page.getByText(/100% and 200% show its encoded pixels/i)).toBeVisible();
+    await expect(page.getByText(/sticky section rail jumps/i)).toBeVisible();
     await expect(page.getByRole('link', { name: 'Read the Effect Studio guide' })).toHaveAttribute(
       'href',
       /\/docs\/tools\/effect-studio$/,
     );
+    const screenshots = page.locator('.feature-preview__screenshots img');
+    await expect(screenshots).toHaveCount(2);
+    await expect(screenshots.nth(0)).toHaveJSProperty('naturalWidth', 1440);
+    await expect(screenshots.nth(1)).toHaveJSProperty('naturalWidth', 390);
 
     const desktopLayout = await page.evaluate(() => ({
       documentWidth: document.documentElement.scrollWidth,
@@ -39,6 +44,10 @@ test.describe('Effect Studio marketing surface', () => {
       scrollWidth: element.scrollWidth,
     }));
     expect(mobileLayout.scrollWidth).toBeLessThanOrEqual(mobileLayout.clientWidth + 1);
+    await page.screenshot({
+      path: testInfo.outputPath('effect-studio-feature-mobile-light.png'),
+      fullPage: true,
+    });
   });
 
   test('guide and indexes expose the same honest boundaries', async ({ page }) => {
@@ -50,6 +59,7 @@ test.describe('Effect Studio marketing surface', () => {
     await expect(
       page.getByText(/removes only filters owned by the active preview session/i),
     ).toBeVisible();
+    await expect(page.getByText(/On tablet and narrow screens/i)).toBeVisible();
     await expect(
       page
         .locator('.docs-section')
