@@ -76,17 +76,6 @@ masked form of this bug hid the name at 640×400 while the row held 96px of
 unused space — F5). Below the fit threshold the pill compacts to its icon and
 the name stays in the tooltip and the accessible name.
 
-The same tier constrains the application menu rail
-(`.editor-menubar__left { min-width: 0; flex-shrink: 1; overflow-x: auto }`,
-hidden scrollbar). `.editor-menubar__side` and `.editor-menubar__controls` are
-both `flex: 1 1 0` so the document title sits on the bar's true midpoint; below
-900px the title is hidden but the symmetry still gives the menus half the bar,
-which is less than their min-content width between 641px and ~750px. Without
-`min-width: 0` the rail painted outside its own box and, because the controls
-follow it in the DOM, the switcher won hit-testing — the last 50px of the Help
-label activated a workspace at 641px (F6). The menu strip now scrolls rather
-than spilling, matching the portrait rule.
-
 ## Drawers and focus
 
 - Layers and Resources drawers are modal surfaces: opening one moves focus

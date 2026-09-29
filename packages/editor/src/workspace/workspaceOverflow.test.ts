@@ -51,6 +51,22 @@ describe('computeWorkspaceLayout', () => {
     expect(result.overflow).toEqual(['motion', 'email']);
   });
 
+  it('budgets tablet-sized icon targets and the matching More control', () => {
+    const result = computeWorkspaceLayout({
+      modes,
+      activeMode: 'design',
+      availableWidth: 300,
+      tabWidths,
+      overflowMenuWidth: 44,
+      iconButtonWidth: 44,
+      overflowPriority: WORKSPACE_OVERFLOW_PRIORITY,
+      tabGap: 4,
+    });
+
+    expect(result.visible).toEqual(['design', 'print', 'drawing', 'image']);
+    expect(result.overflow).toEqual(['motion', 'email']);
+  });
+
   it('keeps the active label on desktop strips and compacts it only when too narrow', () => {
     const wide = computeWorkspaceLayout({
       modes,

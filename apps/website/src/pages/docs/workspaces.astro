@@ -27,10 +27,8 @@ import '../../styles/docs-prose.css';
         <p>
           Switch workspaces from the switcher in the menubar: the active mode is
           always named, every other mode is one icon away, and modes that don't fit
-          stay reachable from the switcher's overflow menu. Hovering a mode names it
-          and shows its shortcut, and the switcher's order is the shortcut order:
-          the first tab is <code>Ctrl+Shift+1</code>, the sixth is
-          <code>Ctrl+Shift+6</code>. The same commands are
+          stay reachable from the switcher's overflow menu. Small number markers
+          on the tabs expose the matching shortcut order. The same commands are
           available in <strong>View &gt; Workspace</strong>, the command palette, and
           the keyboard shortcuts below. Each mode remembers its own default tool,
           panels, and toolbar layout.
@@ -43,26 +41,7 @@ import '../../styles/docs-prose.css';
           <li><strong>Motion</strong> (<code>Ctrl+Shift+5</code>) — Timeline animation, keyframes, and easing. Default tool: Select.</li>
           <li><strong>Email</strong> (<code>Ctrl+Shift+6</code>) — Email-specific authoring, responsive preview, compatibility checks, and export. Default tool: Select.</li>
         </ul>
-        <p>
-          The switcher and workspace shortcuts use the same order: Design, Print, Draw, Photo,
-          Motion, Email on <code>Ctrl+Shift+1</code> through <code>Ctrl+Shift+6</code>, and each
-          tab's tooltip names the mode with its shortcut. On macOS, use Command+Shift with the same numbers. Logo work
-          stays in Design: <code>Ctrl+Shift+7</code> opens Design and shows Logo Tools, while
-          <code>Ctrl+Alt+Shift+L</code> toggles the panel and opens Design when needed (on macOS,
-          <code>Command+Option+Shift+L</code>). Code export
-          is a shared panel: <code>Ctrl+Shift+8</code> shows it in the current workspace. In the
-          desktop app, <code>Ctrl+Shift+J</code> toggles the same panel. Browsers may reserve that
-          chord for Developer Tools; Chrome uses <code>Command+Shift+J</code> for Downloads on
-          macOS. Use the numbered Code action or View &gt; Panels &gt; Code Panel in the browser.
-          See the <a href={sitePath('/docs/keyboard-shortcuts')}>keyboard shortcut reference</a>
-          for the ordered list, panel toggles, and browser notes. Logo and Code actions do not
-          select workspace tabs.
-        </p>
-        <p>
-          In Design, the <strong>Slides</strong> panel organizes ordinary frames into an explicitly
-          ordered presentation deck. See the <a href={sitePath('/docs/presentations')}>presentation
-          authoring guide</a> for its source-build preview status and current limits.
-        </p>
+        <p>The switcher and workspace shortcuts use the same order: Design, Print, Draw, Photo, Motion, Email on <code>Ctrl+Shift+1</code> through <code>Ctrl+Shift+6</code>, shown on the tabs as number markers. On macOS, use Command+Shift with the same numbers. Logo work stays in Design; <code>Ctrl+Shift+7</code> opens Design and shows Logo Tools. Code export is a shared panel; <code>Ctrl+Shift+8</code> shows it in the current workspace. In the desktop app, <code>Ctrl+Shift+J</code> also toggles the same panel; browsers may reserve that chord for Developer Tools, so use <code>Ctrl+Shift+8</code> or View &gt; Panels &gt; Code Panel in the browser. In Chrome on macOS, <code>Command+Shift+J</code> opens Downloads; use <code>Command+Shift+8</code> or the View menu for Code in the browser. These actions use Command+Shift on macOS.</p>
         <p>
           Note: the older <code>Ctrl+Shift+D/P/R/I/M</code> bindings shown in some
           early documentation no longer switch workspaces. Those combinations now
@@ -82,14 +61,6 @@ import '../../styles/docs-prose.css';
         <p>
           This means you can sketch in Draw, refine in Design, check print colour in
           Print, and animate in Motion — all in the same session, with one history.
-        </p>
-        <p>
-          A simple illustration pass fits in Draw: import transparent linework, choose Magic Wand
-          from the pixel-selection flyout, set <strong>Visible artwork</strong> as the source, then
-          create a separate Flats layer for the fill. Edge expansion can grow the selection by up
-          to eight source pixels for cleaner underpainting, but open contours still need manual
-          closure. The <a href={sitePath('/features/strokes')}>stroke guide</a> shows the saved and
-          reopened result.
         </p>
       </section>
 

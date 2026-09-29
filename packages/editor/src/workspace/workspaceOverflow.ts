@@ -30,6 +30,8 @@ export interface WorkspaceLayoutInput {
   tabWidths: Partial<Record<WorkspaceMode, number>>;
   /** Width of the "More" overflow button when present (px). */
   overflowMenuWidth: number;
+  /** Rendered width of an icon-only tab in the current presentation (px). */
+  iconButtonWidth?: number;
   /** Overflow priority per mode — higher values leave the strip first.
    *  Absent modes default to 1. */
   overflowPriority: Partial<Record<WorkspaceMode, number>>;
@@ -61,11 +63,9 @@ export interface WorkspaceLayoutResult {
 export const WORKSPACE_ICON_ONLY_THRESHOLD = 900;
 
 /**
- * Rendered width of one icon-only tab button (px). Matches the dock's
- * `.workspace-dock__item` width; the inter-tab gap comes from `tabGap`, not
- * from a second copy of the value. Using a larger assumed width than the CSS
- * renders makes the computed strip wider than the space the bar actually has,
- * so the bar overflows its wrapper.
+ * Default desktop width of one icon-only tab button (px). Tablet/coarse
+ * layouts pass their rendered 44px target through `iconButtonWidth`; the
+ * inter-tab gap comes from `tabGap`, not a second copy of the value.
  */
 export const WORKSPACE_ICON_BUTTON_WIDTH = 28;
 
@@ -95,6 +95,10 @@ export function computeWorkspaceLayout(input: WorkspaceLayoutInput): WorkspaceLa
   const { modes, activeMode, availableWidth, tabWidths, overflowMenuWidth, overflowPriority } =
     input;
   const gap = input.tabGap ?? WORKSPACE_TAB_GAP_FALLBACK;
+  const iconButtonWidth = Math.max(
+    WORKSPACE_ICON_BUTTON_WIDTH,
+    input.iconButtonWidth ?? WORKSPACE_ICON_BUTTON_WIDTH,
+  );
 
   /** Fallback width for a tab that has not been measured yet. */
   const DEFAULT_TAB_WIDTH = 64;
@@ -111,7 +115,7 @@ export function computeWorkspaceLayout(input: WorkspaceLayoutInput): WorkspaceLa
     if (m === activeMode && !compactActive) {
       return Math.max(tabWidths[m] ?? DEFAULT_TAB_WIDTH, WORKSPACE_ACTIVE_PILL_MIN_WIDTH) + gap;
     }
-    return iconOnly ? WORKSPACE_ICON_BUTTON_WIDTH + gap : modeWidth(m);
+    return iconOnly ? iconButtonWidth + gap : modeWidth(m);
   };
 
   const greedy: WorkspaceMode[] = [];

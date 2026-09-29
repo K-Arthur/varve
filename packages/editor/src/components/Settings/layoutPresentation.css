@@ -9,6 +9,20 @@
   right: calc(var(--space-3) + var(--touch-target-min, 44px) + var(--space-2));
 }
 
+/* Mirroring changes the floating drawer controls while leaving the document,
+   panel state, and desktop dock preferences in place. */
+@media (max-width: 899px) {
+  :root[data-layout-mode="tablet"][data-tablet-controls-mirrored="true"] .editor__fab--layers {
+    left: auto;
+    right: var(--space-3);
+  }
+
+  :root[data-layout-mode="tablet"][data-tablet-controls-mirrored="true"] .editor__fab--library {
+    left: calc(var(--space-3) + var(--touch-target-min, 44px) + var(--space-2));
+    right: auto;
+  }
+}
+
 /* Saved dock layouts keep their panels in place at tablet widths. In that
    presentation the Layers dock already owns the lower-left hit region, so its
    floating drawer launcher must yield while the dock is visible. */
@@ -68,6 +82,16 @@
     right: calc(var(--inspector-width) + var(--space-3));
   }
 
+  :root[data-layout-mode="tablet"][data-tablet-controls-mirrored="true"] .editor__fab--layers {
+    left: auto;
+    right: calc(var(--inspector-width) + var(--space-3));
+  }
+
+  :root[data-layout-mode="tablet"][data-tablet-controls-mirrored="true"] .editor__fab--library {
+    left: var(--space-3);
+    right: auto;
+  }
+
   :root[data-layout-mode="tablet"]
     .editor-shell:not(:has(.editor-shell__canvas-dock[style*="position: absolute"]))
     .editor__layers-panel {
@@ -85,6 +109,13 @@
     .editor__layers-panel[data-visible] {
     transform: translateX(0);
     visibility: visible;
+  }
+}
+
+@media (max-width: 899px) {
+  :root[data-layout-mode="tablet"][data-tablet-controls-mirrored="true"] .editor__fab--inspector {
+    left: var(--space-3);
+    right: auto;
   }
 }
 
@@ -131,7 +162,7 @@
    the full page does not overflow. The document title remains visible in the
    tab strip and status bar, so hide only this duplicate name until both sides
    of the header have room again. */
-@media (min-width: 900px) and (max-width: 1094px) {
+@media (max-width: 1094px) {
   .editor-menubar__center {
     display: none;
   }

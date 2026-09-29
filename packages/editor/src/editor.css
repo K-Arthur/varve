@@ -6060,21 +6060,6 @@ dialog.varve-dialog--settings[open] {
   color: var(--color-text-muted);
   margin-bottom: var(--space-4);
 }
-.workspace-customize__save-error,
-.workspace-layouts__save-error {
-  margin: 0 0 var(--space-4);
-  padding: var(--space-3);
-  color: var(--color-text-danger);
-  font-size: var(--font-size-xs);
-  line-height: var(--font-line-normal);
-  background: var(--color-surface-sunken);
-  border: var(--border-micro);
-  border-radius: var(--radius-control);
-}
-.workspace-customize__save-error p,
-.workspace-layouts__save-error p {
-  margin: 0 0 var(--space-2);
-}
 .workspace-customize__section {
   margin-bottom: var(--space-4);
 }

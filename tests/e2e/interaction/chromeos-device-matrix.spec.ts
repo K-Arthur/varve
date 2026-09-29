@@ -15,7 +15,9 @@
  *  - pen pointer events (CDP, synthetic force) create a stroke
  *  - keyboard/visual-viewport inset publication and floating-surface offset
  */
-import { expect, type Page, test } from '@playwright/test';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { dirname, join, resolve } from 'node:path';
+import { expect, type Page, type TestInfo, test } from '@playwright/test';
 import { navigateToEditor } from '../shared';
 
 interface MatrixEntry {
@@ -33,6 +35,12 @@ interface MatrixEntry {
  */
 const VIEWPORT_MATRIX: MatrixEntry[] = [
   { name: 'laptop-960x600', width: 960, height: 600 },
+  { name: 'landscape-899x600', width: 899, height: 600 },
+  { name: 'landscape-900x600', width: 900, height: 600 },
+  { name: 'landscape-1024x640', width: 1024, height: 640 },
+  { name: 'landscape-1025x640', width: 1025, height: 640 },
+  { name: 'landscape-1094x700', width: 1094, height: 700 },
+  { name: 'landscape-1095x700', width: 1095, height: 700 },
   { name: 'laptop-1200x750', width: 1200, height: 750 },
   { name: 'laptop-1280x800', width: 1280, height: 800 },
   { name: 'portrait-600x960', width: 600, height: 960 },
@@ -40,6 +48,44 @@ const VIEWPORT_MATRIX: MatrixEntry[] = [
   { name: 'split-480x640', width: 480, height: 640 },
   { name: 'zoom200-equivalent-640x400', width: 640, height: 400 },
 ];
+
+async function captureTabletEvidence(
+  page: Page,
+  testInfo: TestInfo,
+  name: string,
+  evidence: Record<string, unknown>,
+): Promise<void> {
+  const root = process.env.VARVE_TABLET_SCREENSHOT_DIR;
+  const screenshotPath = root ? join(resolve(root), name) : testInfo.outputPath(name);
+  // A hot reload can replace the page context between separate metadata reads
+  // and capture. Wait for the editor shell again and read browser metadata in
+  // one evaluation so a transient navigation cannot split those reads.
+  await page.locator('.editor-shell').waitFor({ state: 'visible', timeout: 15000 });
+  const { userAgent, devicePixelRatio } = await page.evaluate(() => ({
+    userAgent: navigator.userAgent,
+    devicePixelRatio: window.devicePixelRatio,
+  }));
+  const report = {
+    browser: page.context().browser()?.browserType().name() ?? 'unknown',
+    browserVersion: page.context().browser()?.version() ?? 'unknown',
+    userAgent,
+    devicePixelRatio,
+    ...evidence,
+  };
+  if (root) {
+    await mkdir(dirname(screenshotPath), { recursive: true });
+    await writeFile(
+      screenshotPath.replace(/\.png$/i, '.json'),
+      `${JSON.stringify(report, null, 2)}\n`,
+    );
+  }
+  await page.screenshot({ path: screenshotPath });
+  await testInfo.attach(name, { path: screenshotPath, contentType: 'image/png' });
+  await testInfo.attach(name.replace(/\.png$/i, '.json'), {
+    body: JSON.stringify(report, null, 2),
+    contentType: 'application/json',
+  });
+}
 
 let pageErrors: string[] = [];
 
@@ -213,6 +259,98 @@ async function readBottomChromeGeometry(page: Page): Promise<BottomChromeGeometr
   });
 }
 
+async function readPanelLauncherOverlaps(page: Page): Promise<string[]> {
+  return page.evaluate(() => {
+    const pairings = [
+      ['.editor__layers-panel', '.editor__fab--layers', 'Layers'],
+      ['.editor__inspector-panel', '.editor__fab--inspector', 'Inspector'],
+      ['.editor__library-panel', '.editor__fab--library', 'Resources'],
+    ] as const;
+    const overlaps: string[] = [];
+    for (const [panelSelector, triggerSelector, label] of pairings) {
+      const panel = document.querySelector(panelSelector);
+      const trigger = document.querySelector(triggerSelector);
+      if (!panel || !trigger) continue;
+      const panelRect = panel.getBoundingClientRect();
+      const triggerRect = trigger.getBoundingClientRect();
+      const panelStyle = getComputedStyle(panel);
+      const triggerStyle = getComputedStyle(trigger);
+      if (
+        panelStyle.display !== 'none' &&
+        panelStyle.visibility !== 'hidden' &&
+        panelRect.width > 0 &&
+        panelRect.height > 0 &&
+        !panel.hasAttribute('data-collapsed') &&
+        triggerStyle.display !== 'none' &&
+        triggerStyle.visibility !== 'hidden' &&
+        triggerRect.width > 0 &&
+        triggerRect.height > 0 &&
+        Math.min(panelRect.right, triggerRect.right) > Math.max(panelRect.left, triggerRect.left) &&
+        Math.min(panelRect.bottom, triggerRect.bottom) > Math.max(panelRect.top, triggerRect.top)
+      ) {
+        overlaps.push(`${label} panel intersects its launcher`);
+      }
+    }
+    return overlaps;
+  });
+}
+
+async function readTopChromeGeometry(page: Page) {
+  return page.evaluate(() => {
+    const rect = (selector: string) => {
+      const element = document.querySelector(selector);
+      if (!element) return null;
+      const bounds = element.getBoundingClientRect();
+      const style = getComputedStyle(element);
+      if (style.display === 'none' || bounds.width <= 0 || bounds.height <= 0) return null;
+      return {
+        left: bounds.left,
+        right: bounds.right,
+        top: bounds.top,
+        bottom: bounds.bottom,
+        width: bounds.width,
+        height: bounds.height,
+      };
+    };
+    return {
+      documentName: rect('.editor-menubar__doc-name'),
+      menuRail: rect('.editor-menubar__side'),
+      workspaceDock: rect('.workspace-dock__bar'),
+    };
+  });
+}
+
+function topChromeOverlap(geometry: Awaited<ReturnType<typeof readTopChromeGeometry>>): number {
+  const { documentName } = geometry;
+  if (!documentName) return 0;
+  return [geometry.menuRail, geometry.workspaceDock].reduce((largestOverlap, obstacle) => {
+    if (!obstacle) return largestOverlap;
+    const width =
+      Math.min(documentName.right, obstacle.right) - Math.max(documentName.left, obstacle.left);
+    const height =
+      Math.min(documentName.bottom, obstacle.bottom) - Math.max(documentName.top, obstacle.top);
+    return width > 0 && height > 0 ? Math.max(largestOverlap, width * height) : largestOverlap;
+  }, 0);
+}
+
+function fabTargetOverlaps(geometry: BottomChromeGeometry | null): string[] {
+  if (!geometry) return [];
+  const overlaps: string[] = [];
+  for (let left = 0; left < geometry.fabs.length; left += 1) {
+    for (let right = left + 1; right < geometry.fabs.length; right += 1) {
+      const a = geometry.fabs[left]!;
+      const b = geometry.fabs[right]!;
+      if (
+        Math.min(a.rect.right, b.rect.right) > Math.max(a.rect.left, b.rect.left) &&
+        Math.min(a.rect.bottom, b.rect.bottom) > Math.max(a.rect.top, b.rect.top)
+      ) {
+        overlaps.push(`${a.cls} intersects ${b.cls}`);
+      }
+    }
+  }
+  return overlaps;
+}
+
 function bottomChromeOverlaps(
   geometry: BottomChromeGeometry | null,
 ): Array<{ cls: string; width: number; height: number }> {
@@ -228,11 +366,14 @@ function bottomChromeOverlaps(
 }
 
 test.describe('responsive viewport matrix', () => {
+  test.use({ hasTouch: true });
+
   for (const entry of VIEWPORT_MATRIX) {
     test(`${entry.name}: no drift, live canvas and toolbar`, async ({ page }, testInfo) => {
       await navigateToEditor(page);
       await page.setViewportSize({ width: entry.width, height: entry.height });
       await settleLayout(page);
+      await expect(page.locator('html')).toHaveAttribute('data-layout-mode', 'tablet');
 
       const metrics = await readViewportMetrics(page);
       expect(metrics.viewport.width).toBe(entry.width);
@@ -257,12 +398,76 @@ test.describe('responsive viewport matrix', () => {
         bottomChromeOverlaps(chromeGeometry),
         `bottom chrome overlap at ${entry.name}: ${JSON.stringify(chromeGeometry)}`,
       ).toEqual([]);
+      const undersizedTabletTargets = (chromeGeometry?.fabs ?? []).filter(
+        ({ rect }) => rect.width < 44 || rect.height < 44,
+      );
+      expect(
+        undersizedTabletTargets,
+        `tablet FABs below the chosen 44px comfort target at ${entry.name}: ${JSON.stringify(chromeGeometry)}`,
+      ).toEqual([]);
+      expect(
+        fabTargetOverlaps(chromeGeometry),
+        `tablet FAB hit regions overlap at ${entry.name}: ${JSON.stringify(chromeGeometry)}`,
+      ).toEqual([]);
+      expect(
+        await readPanelLauncherOverlaps(page),
+        `a visible panel intersects its floating launcher at ${entry.name}`,
+      ).toEqual([]);
+      let touchModifier: {
+        width: number;
+        height: number;
+        right: number;
+        rowRight: number;
+        compactCaption: string;
+      } | null = null;
+      if (entry.width <= 1280) {
+        touchModifier = await page.evaluate(() => {
+          const button = document.querySelector<HTMLElement>(
+            '[data-testid="touch-multiselect-toggle"]',
+          );
+          const row = document.querySelector('.floating-toolbar__row');
+          if (!button || !row) return null;
+          const buttonRect = button.getBoundingClientRect();
+          const rowRect = row.getBoundingClientRect();
+          return {
+            width: buttonRect.width,
+            height: buttonRect.height,
+            right: buttonRect.right,
+            rowRight: rowRect.right,
+            compactCaption: getComputedStyle(button, '::after').content,
+          };
+        });
+        expect(
+          touchModifier,
+          'touch multi-select remains reachable beside a constrained canvas',
+        ).not.toBeNull();
+        expect(touchModifier?.width ?? 0).toBeGreaterThanOrEqual(44);
+        expect(touchModifier?.height ?? 0).toBeGreaterThanOrEqual(44);
+        expect(touchModifier?.right ?? 0).toBeLessThanOrEqual((touchModifier?.rowRight ?? 0) + 1);
+        expect(touchModifier?.compactCaption).toBe('"Multi"');
+      }
+      const topChromeGeometry = await readTopChromeGeometry(page);
+      if (entry.width <= 1094) {
+        expect(
+          topChromeGeometry.documentName,
+          `the duplicate menubar title should yield to menus and workspace controls at ${entry.name}`,
+        ).toBeNull();
+      }
+      expect(
+        topChromeOverlap(topChromeGeometry),
+        `document title overlaps menu or workspace switcher at ${entry.name}: ${JSON.stringify(topChromeGeometry)}`,
+      ).toBe(0);
 
-      const screenshotPath = testInfo.outputPath(`matrix-${entry.name}.png`);
-      await page.screenshot({ path: screenshotPath });
-      await testInfo.attach(`matrix-${entry.name}`, {
-        path: screenshotPath,
-        contentType: 'image/png',
+      await captureTabletEvidence(page, testInfo, `matrix-${entry.name}.png`, {
+        viewport: metrics.viewport,
+        documentScrollWidth: metrics.documentScrollWidth,
+        bodyScrollWidth: metrics.bodyScrollWidth,
+        canvas: metrics.canvas,
+        toolbar: metrics.toolbar,
+        bottomChrome: chromeGeometry,
+        panelLauncherOverlaps: await readPanelLauncherOverlaps(page),
+        touchModifier,
+        topChrome: topChromeGeometry,
       });
       expect(pageErrors).toEqual([]);
     });
@@ -520,6 +725,74 @@ test.describe('touch interaction', () => {
     expect(pageScale).toBeCloseTo(1, 2);
     expect(pageErrors).toEqual([]);
   });
+
+  test('hands a cancelled touch into pinch navigation and requires a fresh contact', async ({
+    page,
+  }) => {
+    await navigateToEditor(page);
+    await settleLayout(page);
+
+    const canvas = page.locator('canvas.editor-canvas__content-layer');
+    const beforeDocument = await serializeEditorDocument(page);
+    const zoomBefore = Number.parseFloat(await page.locator('#menubar-zoom').inputValue());
+    const bounds = await canvas.boundingBox();
+    if (!bounds) throw new Error('content canvas not laid out');
+
+    await page.evaluate(
+      ({ x, y }) => {
+        const target = document.querySelector('canvas.editor-canvas__content-layer');
+        if (!(target instanceof HTMLCanvasElement)) throw new Error('content canvas not found');
+        const dispatch = (
+          type: string,
+          pointerId: number,
+          clientX: number,
+          clientY: number,
+          buttons: number,
+        ) =>
+          target.dispatchEvent(
+            new PointerEvent(type, {
+              bubbles: true,
+              cancelable: true,
+              pointerId,
+              pointerType: 'touch',
+              isPrimary: pointerId === 1,
+              clientX,
+              clientY,
+              button: 0,
+              buttons,
+              pressure: buttons ? 0.5 : 0,
+            }),
+          );
+
+        dispatch('pointerdown', 31, x - 45, y, 1);
+        dispatch('pointermove', 31, x - 42, y + 2, 1);
+        dispatch('pointerdown', 32, x + 45, y, 1);
+        // Tool cancellation releases capture. In this ownership transfer the
+        // subsequent loss belongs to the pinch and must leave contact 31 alive.
+        target.dispatchEvent(
+          new PointerEvent('lostpointercapture', {
+            pointerId: 31,
+            pointerType: 'touch',
+            bubbles: false,
+          }),
+        );
+        dispatch('pointermove', 31, x - 110, y - 4, 1);
+        dispatch('pointermove', 32, x + 110, y + 4, 1);
+        dispatch('pointerup', 32, x + 110, y + 4, 0);
+        dispatch('pointermove', 31, x - 80, y + 20, 1);
+        dispatch('pointerup', 31, x - 80, y + 20, 0);
+      },
+      { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 },
+    );
+
+    await expect
+      .poll(async () => Number.parseFloat(await page.locator('#menubar-zoom').inputValue()), {
+        timeout: 5000,
+      })
+      .toBeGreaterThan(zoomBefore * 1.1);
+    expect(await serializeEditorDocument(page)).toBe(beforeDocument);
+    expect(pageErrors).toEqual([]);
+  });
 });
 
 test.describe('pen interaction', () => {
@@ -577,6 +850,87 @@ test.describe('pen interaction', () => {
 
     await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10000 });
     await expect(page.getByRole('treeitem').first()).toContainText(/path|vector shape/i);
+    const document = JSON.parse(await serializeEditorDocument(page)) as {
+      nodes?: Record<string, { shape?: { points?: Array<{ pressure?: number }> } }>;
+    };
+    const pressures = Object.values(document.nodes ?? {}).flatMap((node) =>
+      (node.shape?.points ?? [])
+        .map((point) => point.pressure)
+        .filter((pressure): pressure is number => typeof pressure === 'number'),
+    );
+    expect(
+      pressures.length,
+      'the pen workflow must persist sampled pressure values for the stroke',
+    ).toBeGreaterThan(1);
+    expect(Math.max(...pressures) - Math.min(...pressures)).toBeGreaterThan(0.1);
+    expect(pageErrors).toEqual([]);
+  });
+
+  test('pen takeover leaves existing and new palm contacts inert until lift', async ({ page }) => {
+    await navigateToEditor(page);
+    await settleLayout(page);
+    await page.keyboard.press('r');
+    const canvas = page.locator('canvas.editor-canvas__content-layer');
+    const bounds = await canvas.boundingBox();
+    if (!bounds) throw new Error('content canvas not laid out');
+
+    const nodeCount = () => documentNodeCount(page);
+    const before = await nodeCount();
+    await page.evaluate(
+      ({ x, y }) => {
+        const target = document.querySelector('canvas.editor-canvas__content-layer');
+        if (!(target instanceof HTMLCanvasElement)) throw new Error('content canvas not found');
+        const dispatch = (
+          type: string,
+          pointerId: number,
+          pointerType: 'touch' | 'pen',
+          clientX: number,
+          clientY: number,
+          buttons: number,
+        ) =>
+          target.dispatchEvent(
+            new PointerEvent(type, {
+              bubbles: true,
+              cancelable: true,
+              pointerId,
+              pointerType,
+              isPrimary: pointerId === 41,
+              clientX,
+              clientY,
+              button: 0,
+              buttons,
+              pressure: pointerType === 'pen' && buttons ? 0.6 : buttons ? 0.5 : 0,
+            }),
+          );
+
+        dispatch('pointerdown', 41, 'touch', x - 140, y - 100, 1);
+        dispatch('pointermove', 41, 'touch', x - 90, y - 60, 1);
+        dispatch('pointerdown', 42, 'pen', x + 20, y + 30, 1);
+        target.dispatchEvent(
+          new PointerEvent('lostpointercapture', {
+            pointerId: 41,
+            pointerType: 'touch',
+            bubbles: false,
+          }),
+        );
+        dispatch('pointermove', 42, 'pen', x + 110, y + 100, 1);
+        dispatch('pointerup', 42, 'pen', x + 110, y + 100, 0);
+
+        // A new finger cannot take over the old finger's ignored contact.
+        dispatch('pointerdown', 43, 'touch', x - 40, y - 20, 1);
+        dispatch('pointermove', 43, 'touch', x + 40, y + 60, 1);
+        dispatch('pointerup', 43, 'touch', x + 40, y + 60, 0);
+        dispatch('pointerup', 41, 'touch', x - 90, y - 60, 0);
+
+        // Once every palm contact has lifted, a fresh touch owns the tool again.
+        dispatch('pointerdown', 44, 'touch', x - 120, y - 90, 1);
+        dispatch('pointermove', 44, 'touch', x + 120, y + 90, 1);
+        dispatch('pointerup', 44, 'touch', x + 120, y + 90, 0);
+      },
+      { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 },
+    );
+
+    await expect.poll(nodeCount, { timeout: 10000 }).toBe(before + 2);
     expect(pageErrors).toEqual([]);
   });
 });
@@ -600,6 +954,31 @@ test.describe('tablet back gesture', () => {
     await expect(rootLayer).toHaveCount(0, { timeout: 5000 });
     expect(page.url()).toBe(urlBefore);
     await expect(page.getByRole('menubar')).toBeVisible();
+    expect(pageErrors).toEqual([]);
+  });
+
+  test('system back dismisses a nested submenu before its parent menu', async ({ page }) => {
+    await navigateToEditor(page);
+    await settleLayout(page);
+    const urlBefore = page.url();
+
+    await page.getByRole('menubar').getByRole('menuitem', { name: 'File', exact: true }).click();
+    const rootLayer = page.locator(
+      '[data-overlay-kind="menubar-menu"][data-overlay-state="visible"]',
+    );
+    await expect(rootLayer).toHaveCount(1);
+    await page.getByRole('menuitem', { name: 'Logo', exact: true }).hover();
+    const submenu = page.locator('[data-overlay-kind="submenu"][data-overlay-state="visible"]');
+    await expect(submenu).toHaveCount(1);
+
+    await page.evaluate(() => window.history.back());
+    await expect(submenu).toHaveCount(0, { timeout: 5000 });
+    await expect(rootLayer).toHaveCount(1);
+    expect(page.url()).toBe(urlBefore);
+
+    await page.evaluate(() => window.history.back());
+    await expect(rootLayer).toHaveCount(0, { timeout: 5000 });
+    expect(page.url()).toBe(urlBefore);
     expect(pageErrors).toEqual([]);
   });
 
@@ -630,7 +1009,9 @@ test.describe('portrait and landscape presentation', () => {
   test.describe('portrait', () => {
     test.use({ hasTouch: true, viewport: { width: 600, height: 960 } });
 
-    test('supplementary panels present as bottom sheets', async ({ page }, testInfo) => {
+    test('inspector is a nonmodal lower pane while Resources remains a modal sheet', async ({
+      page,
+    }, testInfo) => {
       await navigateToEditor(page);
       await settleLayout(page);
 
@@ -639,11 +1020,17 @@ test.describe('portrait and landscape presentation', () => {
           button: '.editor__fab--inspector',
           panel: '.editor__inspector-panel',
           unmountsOnClose: false,
+          minHeightRatio: 0.25,
+          maxHeightRatio: 0.4,
+          modal: false,
         },
         {
           button: '.editor__fab--library',
           panel: '.editor__library-panel',
           unmountsOnClose: true,
+          minHeightRatio: 0.4,
+          maxHeightRatio: 0.8,
+          modal: true,
         },
       ];
       for (const entry of cases) {
@@ -667,8 +1054,8 @@ test.describe('portrait and landscape presentation', () => {
             innerHeight: window.innerHeight,
           };
         });
-        // Anchored to the bottom edge, nearly full width, clearly shorter
-        // than the viewport (a sheet, not a full-height side panel).
+        // The inspector is a shallow, nonmodal editing pane. Resources keeps
+        // its existing larger modal sheet presentation.
         const viewportHeight = geometry.innerHeight;
         expect(geometry.position).toBe('fixed');
         expect(
@@ -676,19 +1063,23 @@ test.describe('portrait and landscape presentation', () => {
           `sheet bottom ${geometry.bottom} vs viewport ${viewportHeight}`,
         ).toBeLessThanOrEqual(2);
         expect(geometry.width).toBeGreaterThanOrEqual(600 * 0.9);
-        expect(geometry.height).toBeGreaterThan(viewportHeight * 0.4);
-        expect(geometry.height).toBeLessThanOrEqual(viewportHeight * 0.8);
+        expect(geometry.height).toBeGreaterThan(viewportHeight * entry.minHeightRatio);
+        expect(geometry.height).toBeLessThanOrEqual(viewportHeight * entry.maxHeightRatio);
         expect(geometry.top).toBeGreaterThan(viewportHeight * 0.2);
         expect(Number.parseFloat(geometry.radiusTopLeft)).toBeGreaterThan(0);
+        if (entry.modal) {
+          await expect(page.locator('.editor__panel-backdrop')).toBeVisible();
+        } else {
+          await expect(page.locator('.editor__panel-backdrop')).toBeHidden();
+          await expect(panel).not.toHaveAttribute('aria-modal', 'true');
+        }
 
-        const screenshotPath = testInfo.outputPath(
+        await captureTabletEvidence(
+          page,
+          testInfo,
           `portrait-sheet-${entry.panel.replace(/[^a-z]/gi, '')}.png`,
+          { viewport: { width: 600, height: 960 }, panel: entry.panel, geometry },
         );
-        await page.screenshot({ path: screenshotPath });
-        await testInfo.attach(`portrait-sheet-${entry.panel}`, {
-          path: screenshotPath,
-          contentType: 'image/png',
-        });
         await page.keyboard.press('Escape');
         if (entry.unmountsOnClose) {
           await expect(panel).toHaveCount(0);
@@ -723,13 +1114,34 @@ test.describe('portrait and landscape presentation', () => {
           position: style.position,
           innerWidth: window.innerWidth,
           innerHeight: window.innerHeight,
+          headerStackBottom: Math.max(
+            0,
+            ...Array.from(
+              document.querySelectorAll('.editor-menubar, .editor-tabs-row, .editor-context-bar'),
+            ).map((header) => header.getBoundingClientRect().bottom),
+          ),
         };
       });
       expect(geometry.position).toBe('fixed');
       expect(Math.abs(geometry.right - geometry.innerWidth)).toBeLessThanOrEqual(2);
       expect(geometry.width).toBeLessThanOrEqual(420);
-      expect(geometry.height).toBeGreaterThanOrEqual(geometry.innerHeight * 0.9);
-      expect(geometry.top).toBeLessThanOrEqual(2);
+      expect(geometry.height).toBeGreaterThanOrEqual(geometry.innerHeight * 0.75);
+      expect(geometry.top).toBeGreaterThanOrEqual(geometry.headerStackBottom - 2);
+      expect(Math.abs(geometry.bottom - geometry.innerHeight)).toBeLessThanOrEqual(2);
+      await expect(panel).not.toHaveAttribute('aria-modal', 'true');
+      await expect(page.locator('.editor__panel-backdrop')).toBeHidden();
+      const canvasPoint = await page
+        .locator('canvas.editor-canvas__content-layer')
+        .evaluate((el) => {
+          const rect = el.getBoundingClientRect();
+          return { x: Math.min(rect.right - 24, 400), y: Math.max(rect.top + 32, 180) };
+        });
+      expect(
+        await page.evaluate(({ x, y }) => {
+          const target = document.elementFromPoint(x, y);
+          return Boolean(target?.closest('canvas.editor-canvas__content-layer'));
+        }, canvasPoint),
+      ).toBe(true);
       expect(pageErrors).toEqual([]);
     });
   });
@@ -767,16 +1179,24 @@ test.describe('portrait and landscape presentation', () => {
       const landscape = await panel.evaluate((element) => {
         const rect = element.getBoundingClientRect();
         const style = getComputedStyle(element);
+        const canvas = document
+          .querySelector('canvas.editor-canvas__content-layer')
+          ?.getBoundingClientRect();
         return {
           width: rect.width,
           height: rect.height,
+          left: rect.left,
+          right: rect.right,
           position: style.position,
           innerHeight: window.innerHeight,
+          canvasRight: canvas?.right ?? null,
         };
       });
-      expect(landscape.position).toBe('relative');
       expect(landscape.width).toBeLessThanOrEqual(420);
       expect(landscape.height).toBeGreaterThan(0.4 * landscape.innerHeight);
+      expect(Math.abs(landscape.right - 960)).toBeLessThanOrEqual(2);
+      expect(landscape.canvasRight).not.toBeNull();
+      expect(landscape.canvasRight ?? 0).toBeLessThanOrEqual(landscape.left + 1);
 
       // Rotate back: the sheet presentation returns.
       await page.setViewportSize({ width: 600, height: 960 });
@@ -1056,6 +1476,7 @@ test.describe('accessibility alternatives and input scoping', () => {
 
 test.describe('portrait menubar compaction', () => {
   test.skip(({ browserName }) => browserName !== 'chromium', 'emulated tablet runs on Chromium');
+  test.use({ hasTouch: true });
 
   for (const entry of [
     { name: 'portrait-600x960', width: 600, height: 960 },
@@ -1090,12 +1511,26 @@ test.describe('portrait menubar compaction', () => {
               width: Math.round(rect.width),
               left: Math.round(rect.left),
               right: Math.round(rect.right),
+              active: el.classList.contains('workspace-dock__item--active'),
               labelVisible: Boolean(labelRect && labelRect.width > 1),
             };
           },
         );
         const docName = menubar.querySelector('.editor-menubar__center');
         const controlsButton = menubar.querySelector('.editor-menubar__controls button');
+        const menuRail = menubar.querySelector('.editor-menubar__side')?.getBoundingClientRect();
+        const controlRail = menubar
+          .querySelector('.editor-menubar__controls')
+          ?.getBoundingClientRect();
+        const menuTargets = Array.from(menubar.querySelectorAll('.editor-menubar__item')).map(
+          (el) => Math.round(el.getBoundingClientRect().height),
+        );
+        const historyTargets = Array.from(
+          menubar.querySelectorAll('.editor-menubar__controls .varve-iconbtn'),
+        ).map((el) => Math.round(el.getBoundingClientRect().height));
+        const visibleShortcutBadges = Array.from(
+          menubar.querySelectorAll('.workspace-dock__shortcut'),
+        ).filter((el) => getComputedStyle(el).display !== 'none').length;
         return {
           menubar: {
             left: Math.round(menubarRect.left),
@@ -1105,6 +1540,15 @@ test.describe('portrait menubar compaction', () => {
           },
           items,
           dockItems,
+          menuRail: menuRail
+            ? { top: Math.round(menuRail.top), bottom: Math.round(menuRail.bottom) }
+            : null,
+          controlRail: controlRail
+            ? { top: Math.round(controlRail.top), bottom: Math.round(controlRail.bottom) }
+            : null,
+          menuTargets,
+          historyTargets,
+          visibleShortcutBadges,
           docNameVisible: Boolean(docName && docName.getBoundingClientRect().width > 1),
           controlsVisible: Boolean(
             controlsButton && controlsButton.getBoundingClientRect().width > 1,
@@ -1115,7 +1559,7 @@ test.describe('portrait menubar compaction', () => {
       const rightEdge = geometry.menubar.left + geometry.menubar.clientWidth;
       const clipped = geometry.items.filter((item) => item.right > rightEdge + 1);
       expect(clipped, `clipped menu items: ${JSON.stringify(geometry)}`).toEqual([]);
-      const oversizedDock = geometry.dockItems.filter((item) => item.width > 44);
+      const oversizedDock = geometry.dockItems.filter((item) => !item.active && item.width > 44);
       expect(
         oversizedDock,
         `workspace switcher items wider than 44px in portrait: ${JSON.stringify(geometry)}`,
@@ -1123,8 +1567,8 @@ test.describe('portrait menubar compaction', () => {
       const labelShowing = geometry.dockItems.filter((item) => item.labelVisible);
       expect(
         labelShowing,
-        `workspace switcher labels still visible in portrait: ${JSON.stringify(geometry)}`,
-      ).toEqual([]);
+        `active workspace label should remain visible when the strip fits: ${JSON.stringify(geometry)}`,
+      ).toHaveLength(1);
       expect(
         geometry.docNameVisible,
         `document name still shown: ${JSON.stringify(geometry)}`,
@@ -1132,6 +1576,23 @@ test.describe('portrait menubar compaction', () => {
       expect(geometry.controlsVisible, `right controls hidden: ${JSON.stringify(geometry)}`).toBe(
         true,
       );
+      expect(geometry.menuRail, `menu rail missing: ${JSON.stringify(geometry)}`).not.toBeNull();
+      expect(
+        geometry.controlRail,
+        `control rail missing: ${JSON.stringify(geometry)}`,
+      ).not.toBeNull();
+      expect(
+        geometry.controlRail!.top,
+        `workspace controls should sit in their own row: ${JSON.stringify(geometry)}`,
+      ).toBeGreaterThanOrEqual(geometry.menuRail!.bottom);
+      expect(
+        [...geometry.menuTargets, ...geometry.historyTargets].every((height) => height >= 44),
+        `top-bar controls should share tablet target sizing: ${JSON.stringify(geometry)}`,
+      ).toBe(true);
+      expect(
+        geometry.visibleShortcutBadges,
+        `keyboard-only badges should not crowd the touch switcher: ${JSON.stringify(geometry)}`,
+      ).toBe(0);
       expect(
         geometry.menubar.scrollWidth,
         `menubar content overflows its box: ${JSON.stringify(geometry)}`,

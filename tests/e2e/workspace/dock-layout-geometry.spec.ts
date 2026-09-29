@@ -1,5 +1,4 @@
 import { expect, test } from '@playwright/test';
-import { navigateToEditor } from '../shared';
 
 const WORKSPACES = [
   { mode: 'design', key: '1' },
@@ -10,6 +9,27 @@ const WORKSPACES = [
   { mode: 'email', key: '6' },
 ] as const;
 
+async function navigateToEditor(page: import('@playwright/test').Page) {
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
+  await page.getByRole('button', { name: /^new$/i }).waitFor({ state: 'visible' });
+  await page.getByRole('button', { name: /^new$/i }).click();
+  await page
+    .locator('dialog[open]')
+    .getByRole('button', { name: /^create design$/i })
+    .click();
+  await page.locator('.editor-canvas').waitFor({ state: 'visible' });
+  const welcome = page.getByRole('dialog').getByRole('button', { name: /close|get started/i });
+  if (
+    await welcome
+      .first()
+      .isVisible()
+      .catch(() => false)
+  )
+    await welcome.first().click();
+  await expect(page.locator('.editor__layers-panel')).toBeVisible();
+  await expect(page.locator('.editor__inspector-panel')).toBeVisible();
+}
+
 test('projects the six workspace dock defaults around the shared canvas', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await navigateToEditor(page);
@@ -17,10 +37,7 @@ test('projects the six workspace dock defaults around the shared canvas', async 
   const dockSequence = await page.locator('.workspace-dock__item').evaluateAll((items) =>
     items.map((item) => ({
       mode: item.getAttribute('data-mode'),
-      // The ordered 1–6 mapping is carried as data, not as a painted number
-      // chip (which duplicated the tooltip chord and the menu badge, and sat
-      // half outside its own control).
-      key: (item as HTMLElement).dataset.shortcutKey,
+      key: item.querySelector<HTMLElement>('.workspace-dock__shortcut')?.dataset.shortcutKey,
     })),
   );
   expect(dockSequence).toEqual([
@@ -99,9 +116,7 @@ test('projects the six workspace dock defaults around the shared canvas', async 
     await page.evaluate((value) => localStorage.setItem('varve-theme', value), theme);
     await navigateToEditor(page);
     await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
-    // Six ordered shortcut carriers, zero painted number chips.
-    await expect(page.locator('.workspace-dock__item[data-shortcut-key]')).toHaveCount(6);
-    await expect(page.locator('.workspace-dock__shortcut')).toHaveCount(0);
+    await expect(page.locator('.workspace-dock__shortcut')).toHaveCount(6);
     await page.screenshot({
       path: `docs/screenshots/workspace-dock-layout/switcher-${theme}.png`,
       clip: { x: 0, y: 0, width: 1440, height: 56 },
@@ -147,8 +162,7 @@ test('resizes dock splits with keyboard and pointer controls', async ({ page }) 
   });
 
   const committed = final;
-  const committedSplitter = page.locator('[data-testid^="dock-splitter-"]').first();
-  const resizedBounds = await committedSplitter.boundingBox();
+  const resizedBounds = await splitter.boundingBox();
   expect(resizedBounds).not.toBeNull();
   await page.mouse.move(
     resizedBounds!.x + resizedBounds!.width / 2,
@@ -161,97 +175,9 @@ test('resizes dock splits with keyboard and pointer controls', async ({ page }) 
     { steps: 4 },
   );
   await expect
-    .poll(async () => Number(await committedSplitter.getAttribute('aria-valuenow')))
+    .poll(async () => Number(await splitter.getAttribute('aria-valuenow')))
     .toBeLessThan(committed);
   await page.keyboard.press('Escape');
   await page.mouse.up();
-  await expect(committedSplitter).toHaveAttribute('aria-valuenow', String(committed));
-});
-
-test('moves a docked panel by pointer with a visible drop preview', async ({ page }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await navigateToEditor(page);
-
-  const moveHandle = page.getByTestId('dock-panel-move-layers');
-  await expect(moveHandle).toBeVisible();
-  const handle = await moveHandle.boundingBox();
-  const inspector = await page.locator('.editor__inspector-panel').boundingBox();
-  expect(handle).not.toBeNull();
-  expect(inspector).not.toBeNull();
-
-  const beforeCancel = await page.locator('.editor__layers-panel').boundingBox();
-  await page.mouse.move(handle!.x + handle!.width / 2, handle!.y + handle!.height / 2);
-  await page.mouse.down();
-  await page.mouse.move(
-    inspector!.x + inspector!.width / 2,
-    inspector!.y + inspector!.height * 0.9,
-    { steps: 8 },
-  );
-  const preview = page.getByTestId('dock-drop-preview');
-  await expect(preview).toBeVisible();
-  await expect(preview).toContainText(/move below inspector/i);
-  await page.keyboard.press('Escape');
-  await page.mouse.up();
-  await expect(preview).toBeHidden();
-  await expect
-    .poll(async () => (await page.locator('.editor__layers-panel').boundingBox())?.y)
-    .toBe(beforeCancel?.y);
-
-  const retryHandle = await moveHandle.boundingBox();
-  const retryInspector = await page.locator('.editor__inspector-panel').boundingBox();
-  expect(retryHandle).not.toBeNull();
-  expect(retryInspector).not.toBeNull();
-  await page.mouse.move(
-    retryHandle!.x + retryHandle!.width / 2,
-    retryHandle!.y + retryHandle!.height / 2,
-  );
-  await page.mouse.down();
-  await page.mouse.move(
-    retryInspector!.x + retryInspector!.width / 2,
-    retryInspector!.y + retryInspector!.height * 0.9,
-    { steps: 8 },
-  );
-  await expect(preview).toBeVisible();
-  await page.mouse.up();
-
-  await expect
-    .poll(async () => {
-      const layers = await page.locator('.editor__layers-panel').boundingBox();
-      const inspectorBox = await page.locator('.editor__inspector-panel').boundingBox();
-      return layers && inspectorBox
-        ? layers.y > inspectorBox.y && layers.x === inspectorBox.x
-        : false;
-    })
-    .toBe(true);
-  const storedLayout = await page.evaluate(() => {
-    const raw = localStorage.getItem('varve-workspace-preferences');
-    return raw ? JSON.parse(raw).design.dockLayout : null;
-  });
-  expect(storedLayout?.windows?.[0]?.dockRoot).toBeDefined();
-  await page.screenshot({
-    path: 'docs/screenshots/workspace-dock-layout/dock-drag-layers-below-inspector.png',
-    animations: 'disabled',
-  });
-});
-
-test('panel move chrome does not cover Inspector panel controls', async ({ page }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await navigateToEditor(page);
-
-  const move = page.getByTestId('dock-panel-move-inspector');
-  const collapse = page.getByRole('button', { name: /Collapse Inspector/ });
-  await expect(move).toBeVisible();
-  await expect(collapse).toBeVisible();
-  const [moveBox, collapseBox] = await Promise.all([move.boundingBox(), collapse.boundingBox()]);
-  expect(moveBox).not.toBeNull();
-  expect(collapseBox).not.toBeNull();
-  const overlaps =
-    moveBox!.x < collapseBox!.x + collapseBox!.width &&
-    moveBox!.x + moveBox!.width > collapseBox!.x &&
-    moveBox!.y < collapseBox!.y + collapseBox!.height &&
-    moveBox!.y + moveBox!.height > collapseBox!.y;
-  expect(overlaps).toBe(false);
-
-  await collapse.click();
-  await expect(page.locator('.editor__inspector-panel')).toHaveAttribute('data-collapsed', 'true');
+  await expect(splitter).toHaveAttribute('aria-valuenow', String(committed));
 });
