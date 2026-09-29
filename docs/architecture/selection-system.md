@@ -77,7 +77,7 @@ stable-ID range algorithm.
 | `MarqueeTool` (rectangle/ellipse) | `RectangleSelectionShape` / `EllipseSelectionShape` | Fixed ratio/size/from-center; shift/alt/shift+alt for add/subtract/intersect |
 | `LassoTool` → `ObjectLassoTool` adapter | node selection | Freehand + polygonal, unchanged from before this work |
 | `PixelLassoTool` (`packages/editor/src/tools/PixelLassoTool.ts`) | `PolygonSelectionShape` | Freehand + polygonal modes via the shared `LassoGesture` engine (`lassoGesture.ts`) — no duplicated gesture logic with the object lasso |
-| `MagicWandTool` (`packages/editor/src/tools/MagicWandTool.ts`) | `RasterMaskSelectionShape` | Click an image for a perceptual OKLab colour range; contiguous (four-neighbour) and global modes, tolerance, colour-range feather, and replace/add/subtract/intersect are all session controls |
+| `MagicWandTool` (`packages/editor/src/tools/MagicWandTool.ts`) | `RasterMaskSelectionShape` | Sample one hit raster/image or choose **Visible artwork** to sample the active rendered scene; contiguous (four-neighbour) and global modes, tolerance, colour-range feather, and replace/add/subtract/intersect are all session controls |
 | Selection Paint / Quick Mask (`SelectionPaintTool`, `quickMask` state in `packages/editor/src/context.tsx`) | `RasterMaskSelectionShape` | Explicit Apply/Cancel session; one undo entry per completed stroke; reachable from the Photo/Draw toolbar flyout and the Pixel Selection menu |
 
 All area-selection shapes compose through `combineAreaSelections()` into a
@@ -105,6 +105,36 @@ source-pixel-to-document affine, and a tile-aware target is required before
 that can be made safe. The pre-existing source commands remain exposed as
 **Select from Image Alpha**, **Select from Image Luminance**, and **Magic Wand
 from Image** in the Pixel Selection menu and Selection Sources panel.
+
+Magic Wand's **Sample source** is independent of node selection and fill
+destination. **Current layer** preserves the existing raster/image behavior.
+**Visible artwork** renders the active surface with
+`flattenSceneToEngine` → `replayStructuredScene` into an uncached snapshot; it
+does not read the display canvas, so selection overlays, proof views and UI
+pixels cannot enter the sample. Transparent pixels are composited over white
+for line-art-to-flats work, preserving antialiased edge coverage. The request
+pins the immutable document revision and existing area selection, aborts on a
+new click or tool exit, and refuses to overwrite either if they changed while
+images settled. A single sample is limited to 16,777,216 pixels; oversized,
+tainted, or incomplete image sources fail with a reason instead of returning a
+clipped selection. The temporary renderer surface is released after readback;
+there is no long-lived artwork-sample cache.
+
+The optional **Edge expansion** control grows the selected coverage by 0–8
+source pixels before it is mapped to document space. It is intended to tuck a
+flat beneath antialiased ink and preserves soft coverage through the engine's
+selection refinement. The separate **Gap closure radius** control closes
+short non-matching barriers before a contiguous **Visible artwork** sample;
+its 0–8 sample-pixel radius can bridge gaps up to roughly twice that width.
+Closure runs on the temporary sample and never edits source pixels. Larger
+gaps may still connect to the exterior, so inspect a selection before filling.
+Gap closure is hidden for current-layer and global sampling; edge expansion
+remains available for current-layer, image, and visible-artwork selection.
+
+After sampling, **Selection Sources → Create flats layer** makes and selects a
+separate empty raster destination. **Fill pixel layer** writes the captured
+selection there in one undoable document transaction. Choosing a different
+visible-artwork source never silently changes the output target.
 
 Image-backed Magic Wand requests pin their pointer sequence, source node and
 settings before decoding. A later pointer action or tool deactivation cancels

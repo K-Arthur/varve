@@ -32,7 +32,12 @@ implementation ownership is limited to the following clean paths:
 | `tests/e2e/canvas/selection-fill.spec.ts` | Verify selection-to-flats undo/redo, save/export/reopen; maintain the current Inspector export-tab access in the real UI. |
 | `packages/editor/src/tools/MagicWandTool.ts` | Only asynchronous image-backed selection request ordering, source identity revalidation and captured settings; no sampling-source redesign. |
 | `packages/editor/src/tools/__tests__/MagicWandTool.test.ts` | Deterministic stale-decode, tool-deactivation and changed-target regressions. |
+| `packages/editor/src/tools/artworkSampling.ts` (+ focused tests) | New bounded, uncached active-surface sample adapter over `flattenSceneToEngine` + `replayStructuredScene`; line-art matte, revision/cancellation contract. |
+| `packages/editor/src/tools/magicWandSettings.ts`, `MagicWandTool.ts`, `ToolOptionsPopover.tsx` | Narrow integration: opt-in visible-artwork source; preserve current-layer default and keep fill target independent. |
+| `packages/editor/src/tools/types.ts`, `packages/editor/src/canvas/toolContext.ts` | Narrow live revision getters for async source pinning; other in-flight context edits are out of scope and will be left unstaged. |
+| `packages/editor/src/context.tsx` | Narrow Magic Wand session default for `sampleSource`; this file also has unrelated in-flight edits and will be partially staged. |
 | `docs/architecture/selection-system.md` | Record the image-backed Magic Wand async request contract. |
+| `packages/help/src/content/tools.ts` | Magic Wand workflow help, including verified visible-artwork and gap-closure limits. |
 | `docs/architecture/paint-system.md` | Current target resolution, mask validation and refusal contract. |
 | `apps/website/src/pages/features/strokes.astro` | Evidence-backed public description of shared raster/vector editing and target refusal. |
 | `apps/website/src/pages/docs/tools/strokes.astro` | Artist-facing steps for paint destination behavior. |
@@ -230,3 +235,81 @@ hardware gaps remain explicit in the final handoff.
   stopped at the unrelated interface-sizing audit noted above; focused tests,
   E2E typecheck and the leased recovery browser check passed. Commit is local
   on `master`.
+
+- Visible-artwork Magic Wand now has 11/11 focused unit tests passing across
+  `artworkSampling`, `MagicWandTool`, and `SelectionSourcesPanel`. The latest
+  `pnpm typecheck:e2e` attempt is blocked by the unrelated `presentationOps.ts`
+  type error recorded below. The leased Chromium flow imports a closed transparent
+  line-art PNG, selects its white-paper interior from **Visible artwork**,
+  creates a separate Flats layer with an in-panel color control, and visually
+  fills inside the outline. Undo and redo both work through the Edit menu.
+  Inspected captures from run 4408 show selection, filled, undo and redo states.
+
+- The current visible-artwork E2E has not passed end to end. Run 4404 initially
+  waited for a nonexistent toolbar button name (`Undo`; the button exposes the
+  history label `Edit`). After changing the test to use Edit → Undo/Redo, runs
+  4407 and 4408 verified the color is removed/restored and reached an actual
+  Inspector PNG download. That panel exports the selected Flats node only: the
+  4096×4096 file had 50,625 red pixels, no black pixels, and transparent
+  corners. The capture exposed an export-scope mismatch rather than a failed
+  line-art sample. The test now groups the editable Flats and line-art nodes
+  before exporting; the grouped PNG, save/reopen and final pixel validation
+  passed in run 4410 below.
+
+- Run 4410 completed under the heavy-task lease on isolated port 4410. The
+  full browser path now passes: import transparent linework, select its paper
+  from Visible artwork, fill a separate Flats layer, undo/redo, group the two
+  editable nodes for Inspector PNG export, save, reopen, fit the page and
+  verify the composition. The downloaded transparent PNG is 4096×4096 with
+  50,625 red pixels inside the outline and 7,231 black pixels. I inspected the
+  filled and reopened captures; both show a clean red interior, intact black
+  outline, and the two editable children in the reopened group.
+
+- The latest `pnpm typecheck:e2e` attempt was blocked by unrelated concurrent
+  presentation work in `packages/scene/src/operations/ops/presentationOps.ts`
+  (`sectionId: null` is incompatible with `PresentationSlideUpdate`). A prior
+  typecheck passed before the final camera-fit assertion was added; rerun once
+  that shared type error is resolved. The latest browser run itself passed.
+  Strokes marketing copy and Object Selection artist guidance now describe the
+  verified separate-source/flats workflow. Their custom-domain and GitHub Pages
+  visual checks are still pending. The architecture/token/doc gates for the
+  foundational sampler and its full-gate checkpoint remain pending; raster
+  sketch/ink, clipped shading, perspective/reference concepts, and model
+  qualification are not accepted yet.
+
+## Narrow renderer integration handoff (2026-09-29)
+
+The renderer-owned paths `packages/engine/src/rasterPyramid/renderTiles.ts`
+and `renderTiles.test.ts` are included for one reviewed correctness repair
+needed to satisfy this task's save/reopen and visual-acceptance contract. The
+reproduction is in `tests/e2e/canvas/raster-magic-wand.spec.ts`, which belongs
+to this task. No compositor, CanvasArea, renderPipeline, or worker-protocol
+changes are included in the handoff.
+
+The reopened same-camera oracle produces two distinct surfaces. With the
+worker enabled, the pre-oracle frame is clean (SHA-256
+`f376bc0e5253d505596f80fdd6e71a496ac852ac66c63c2cf8dc9c2a42befafe`) and the
+authoritative main-thread frame has red tile bands (`99528e411b280786dac7141b560be89229d2388b6886658f3169374e92e33458`). With
+the worker disabled, the hashes reverse: the cold initial main-thread frame
+has bands and the subsequent redraw is clean. This ties the failure to cold
+versus warm raster-LOD residency rather than save data or export pixels.
+`drawRasterLayerLod` currently draws whichever visible pyramid tiles are
+resident, reports missing visible tiles, then returns once any tile was drawn;
+that can show a partial layer while missing derived tiles are generated.
+The focused handoff is to keep the authoritative retained-surface fallback
+visible until a complete visible LOD coverage is ready, with deterministic
+missing-tile coverage tests and the real browser oracle. Do not change the
+renderer owner’s unrelated backend, worker, or pixel-reuse work.
+
+## Narrow artist-guide integration handoff (2026-09-29)
+
+`apps/website/src/pages/docs/tools/object-selection.astro` is also part of the
+selection-guide ownership recorded in
+`docs/agents/smart-selection-2026-09-13-ownership.md` and
+`docs/agents/ai-selection-routing-2026-09-15-ownership.md`. This task takes a
+narrow documentation integration for the Magic Wand paragraph only: replace
+the stale claim that gap closure and edge expansion are unavailable with the
+control names, their separate 0–8 source-pixel bounds, and the larger-gap
+limitation. No object-selection model, mask, or refinement guidance is
+changed. The updated paragraph remains pending the website's final visual and
+base-path checks.

@@ -26,6 +26,17 @@ import '../../../styles/docs-prose.css';
       </section>
 
       <section class="docs-section">
+        <h2>Magic Wand for linework and flats</h2>
+        <ol>
+          <li>Activate <strong>Magic Wand</strong> and choose <strong>Visible artwork</strong> in Tool options when the sample should include the rendered active surface. <strong>Current layer</strong> keeps the existing single-raster workflow.</li>
+          <li>Click inside a closed ink shape. Transparent artwork is sampled against white, so the selection can find the paper region while preserving antialiased line edges.</li>
+          <li>Open <strong>Selection Sources</strong>, choose <strong>Create flats layer</strong>, set <strong>Fill color</strong>, then choose <strong>Fill pixel layer</strong>. Sampling and destination stay independent: the linework remains on its own editable node and the color lands on Flats.</li>
+          <li>Use <strong>Edit &gt; Undo</strong> or <strong>Redo</strong> to change the fill. For one combined PNG, select the linework and Flats layers together, group them, then export the group. Save the document to preserve both editable layers.</li>
+        </ol>
+        <p>Visible-artwork samples are bounded and temporary. For contiguous visible-artwork selections, <strong>Gap closure radius</strong> closes only short contour openings within its 0–8 source-pixel limit; larger gaps can still reach the exterior. <strong>Edge expansion</strong> is a separate 0–8 source-pixel grow control for covering antialiased ink. Review the selection before filling.</p>
+      </section>
+
+      <section class="docs-section">
         <h2>What candidates mean</h2>
         <p>Candidate masks are alternative interpretations of the same prompts. They are not a list of separately discovered object instances. Multiple positive points can still describe one object, and a disconnected object or a hole is not automatically discarded or filled. Under-specified clicks are genuinely ambiguous: a point on a jacket can reasonably mean the jacket, the person, or the group, so Varve shows the competing candidates instead of pretending one is objectively correct. This is not a theoretical concern: on a reviewed corpus of real photographs with deliberately ambiguous single-click prompts, the provider's own top-ranked candidate was acceptable for the declared intent in two thirds of cases, and the remainder needed one keyboard cycle to reach an acceptable mask &mdash; so candidate order is a suggestion you can override, never a verdict. Adding prompts refines the active candidate; it does not silently switch to a different object. Use separate prompt sessions when you intend to select separate objects, then combine their accepted pixel selections deliberately.</p>
       </section>
