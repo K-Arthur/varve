@@ -21,6 +21,26 @@ const identity = (): CurvePoint[] => [
   { x: 1, y: 1 },
 ];
 const clamp = (v: number) => Math.max(0, Math.min(1, v));
+const PRESETS = [
+  {
+    value: 'contrast',
+    label: 'Soft contrast',
+    points: [
+      { x: 0, y: 0 },
+      { x: 0.25, y: 0.2 },
+      { x: 0.75, y: 0.8 },
+      { x: 1, y: 1 },
+    ],
+  },
+  {
+    value: 'invert',
+    label: 'Invert',
+    points: [
+      { x: 0, y: 1 },
+      { x: 1, y: 0 },
+    ],
+  },
+] as const;
 
 function pointerPoint(svg: SVGSVGElement, clientX: number, clientY: number): CurvePoint {
   const matrix = svg.getScreenCTM?.();
@@ -371,6 +391,20 @@ export function CurveEditor({
           Reset curve
         </Button>
       </div>
+      <Select
+        label="Curve preset"
+        value="custom"
+        options={[{ value: 'custom', label: 'Choose current-channel preset' }, ...PRESETS]}
+        onChange={(name) => {
+          const preset = PRESETS.find((p) => p.value === name);
+          if (!preset) return;
+          finish();
+          onDragStart?.();
+          onChange(preset.points.map((p) => ({ ...p, id: crypto.randomUUID() })));
+          setSelected(0);
+          onDragEnd?.();
+        }}
+      />
       <span className="curve-editor__hint">
         {dragging
           ? 'Editing point'

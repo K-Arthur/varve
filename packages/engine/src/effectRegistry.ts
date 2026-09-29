@@ -140,6 +140,7 @@ export const IMAGE_TUNING_KINDS = [
 /** Backdrop-scoped correction controls exposed when an Adjustment Layer is selected. */
 export const ADJUSTMENT_LAYER_KINDS = [
   'brightness',
+  'sharpen',
   'contrast',
   'exposure',
   'saturation',

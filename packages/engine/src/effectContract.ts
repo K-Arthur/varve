@@ -201,8 +201,10 @@ const EFFECT_CONTRACTS: Record<string, EffectContractEntry> = {
   },
   sharpen: {
     name: 'Sharpen',
+    // The kind supports encoded and linear math; per-entry fields choose it.
     workingSpace: 'srgb-gamma',
     alphaConvention: 'premultiplied-internal',
+    alphaPolicy: 'preserve-source-alpha',
     hasApproximatePreview: false,
     previewTolerance: 0,
     requiresRasterForExport: true,
@@ -656,6 +658,7 @@ export function getEffectContracts(): Record<string, EffectContractEntry> {
  */
 export function requiresColorManagedPipeline(filters: FilterIR[]): boolean {
   for (const f of filters) {
+    if (f.kind === 'sharpen' && f.algorithmVersion === 2 && f.workingSpace !== 'srgb') return true;
     const contract = EFFECT_CONTRACTS[f.kind];
     if (contract && contract.workingSpace !== 'srgb-gamma') return true;
   }

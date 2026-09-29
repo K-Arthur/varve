@@ -163,45 +163,53 @@ export function AdjustmentPanel() {
   );
 
   const latestDocument = useRef(state.document);
+  const autoPending = useRef(false);
   latestDocument.current = state.document;
   const handleAutoWhiteBalance = useCallback(async () => {
-    if (!nodeId || !adjNodeRef) return;
-    const snapshot = state.document;
-    const existing = adjNodeRef.adjustments?.find((a) => a.kind === 'whiteBalance');
-    const sample = await computeAdjustmentSourceSample(snapshot, adjNodeRef, existing?.id);
-    if (latestDocument.current !== snapshot) {
-      announce('Source changed. Run Auto White Balance again.');
-      return;
+    if (!nodeId || !adjNodeRef || autoPending.current) return;
+    autoPending.current = true;
+    try {
+      const snapshot = state.document;
+      const existing = adjNodeRef.adjustments?.find((a) => a.kind === 'whiteBalance');
+      const sample = await computeAdjustmentSourceSample(snapshot, adjNodeRef, existing?.id);
+      if (latestDocument.current !== snapshot) {
+        announce('Source changed. Run Auto White Balance again.');
+        return;
+      }
+      if (!sample) {
+        announce('Source preview unavailable.');
+        return;
+      }
+      const estimate = estimateRelativeWhiteBalance(sample.imageData);
+      if (!estimate.ok) {
+        announce(estimate.reason);
+        return;
+      }
+      const id = existing?.id ?? cryptoId();
+      const auto = makeAdjustment(id, 'whiteBalance', {
+        temperature: 0,
+        tint: 0,
+        redGain: estimate.gains[0],
+        greenGain: estimate.gains[1],
+        blueGain: estimate.gains[2],
+      } as Partial<Adjustment>);
+      mutateNode(nodeId, (n) => {
+        if (n.kind !== 'adjustment') return n;
+        const adjustments = n.adjustments ?? [];
+        return {
+          ...n,
+          adjustments: existing
+            ? adjustments.map((a) => (a.id === id ? { ...a, ...auto } : a))
+            : [auto, ...adjustments],
+        } as SceneNode;
+      });
+      setSelectedAdjId(id);
+      announce(`Applied relative white balance using ${estimate.samples} neutral source samples.`);
+    } catch {
+      announce('White balance could not sample this source. The stack was preserved.');
+    } finally {
+      autoPending.current = false;
     }
-    if (!sample) {
-      announce('Source preview unavailable.');
-      return;
-    }
-    const estimate = estimateRelativeWhiteBalance(sample.imageData);
-    if (!estimate.ok) {
-      announce(estimate.reason);
-      return;
-    }
-    const id = existing?.id ?? cryptoId();
-    const auto = makeAdjustment(id, 'whiteBalance', {
-      temperature: 0,
-      tint: 0,
-      redGain: estimate.gains[0],
-      greenGain: estimate.gains[1],
-      blueGain: estimate.gains[2],
-    } as Partial<Adjustment>);
-    mutateNode(nodeId, (n) => {
-      if (n.kind !== 'adjustment') return n;
-      const adjustments = n.adjustments ?? [];
-      return {
-        ...n,
-        adjustments: existing
-          ? adjustments.map((a) => (a.id === id ? { ...a, ...auto } : a))
-          : [auto, ...adjustments],
-      } as SceneNode;
-    });
-    setSelectedAdjId(id);
-    announce(`Applied relative white balance using ${estimate.samples} neutral source samples.`);
   }, [announce, mutateNode, nodeId, adjNodeRef, state.document]);
 
   const applyPreset = useCallback(
@@ -529,6 +537,7 @@ export function AdjustmentPanel() {
             onEditStart={startEditTransaction}
             onEditEnd={finishEditTransaction}
             doc={state.document}
+            detailScope={adjNodeRef}
             sourceHistogram={sourceHistogram}
             sourceImageData={sourceImageData}
             histogramSourceLabel={histogramSourceLabel}

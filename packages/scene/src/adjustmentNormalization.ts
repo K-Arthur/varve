@@ -551,6 +551,10 @@ export function normalizeAdjustmentStack(
         );
       } else delete normalized.channelPoints;
     }
+    if (kind === 'sharpen') {
+      normalized.algorithmVersion = raw.algorithmVersion === 2 ? 2 : 1;
+      normalized.workingSpace = raw.workingSpace === 'srgb' ? 'srgb' : 'linear-srgb';
+    }
     if (kind === 'channelMixer') {
       if (isRecord(raw.rows)) {
         normalized.rows = Object.fromEntries(

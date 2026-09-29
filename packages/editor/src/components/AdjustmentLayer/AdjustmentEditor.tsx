@@ -15,7 +15,7 @@ import {
   serializeLutForDocument,
   TRITONE_PRESETS,
 } from '@varve/engine';
-import type { Adjustment, Document, ManagedColor } from '@varve/scene';
+import type { Adjustment, AdjustmentNode, Document, ManagedColor } from '@varve/scene';
 import { rgbFromTuple } from '@varve/scene';
 import { denormalizeChannel, managedColorToRgba, normalizeChannel } from '@varve/shared';
 import { Button, FilePickerButton, Select, Switch } from '@varve/ui';
@@ -41,6 +41,7 @@ import {
   RgbSplitEditor,
   VhsEditor,
 } from './LiveEffectEditors';
+import { SharpenEditor } from './SharpenEditor';
 import { SourceChannels } from './SourceChannels';
 import { SpatialEffectEditor } from './SpatialEffectEditors';
 import { ThresholdAdjustmentEditor } from './ThresholdAdjustmentEditor';
@@ -64,6 +65,7 @@ export interface AdjustmentEditorProps {
   histogramSourceLabel?: string;
   histogramLoading?: boolean;
   sourceImageData?: ImageData | null;
+  detailScope?: AdjustmentNode;
 }
 
 function BooleanRow({
@@ -107,6 +109,7 @@ function LegacyAdjustmentEditor({
   histogramSourceLabel,
   histogramLoading,
   sourceImageData,
+  detailScope,
 }: AdjustmentEditorProps) {
   const handleValue = useCallback(
     (key: string) => (value: number) => {
@@ -466,43 +469,12 @@ function LegacyAdjustmentEditor({
 
     case 'sharpen':
       return (
-        <div className="adj-editor__slider-row">
-          <div className="adj-editor__row">
-            <span className="adj-editor__label">Amount</span>
-            <input
-              type="number"
-              className="adj-editor__number"
-              value={adjustment.amount}
-              onChange={handleNumber('amount')}
-              step={0.1}
-              aria-label="Sharpen amount"
-            />
-          </div>
-          <div className="adj-editor__row">
-            <span className="adj-editor__label">Radius</span>
-            <input
-              type="number"
-              className="adj-editor__number"
-              value={adjustment.radius}
-              onChange={handleNumber('radius')}
-              step={0.5}
-              min={0.5}
-              aria-label="Sharpen radius"
-            />
-          </div>
-          <div className="adj-editor__row">
-            <span className="adj-editor__label">Threshold</span>
-            <input
-              type="number"
-              className="adj-editor__number"
-              value={adjustment.threshold}
-              onChange={handleNumber('threshold')}
-              step={1}
-              min={0}
-              aria-label="Sharpen threshold"
-            />
-          </div>
-        </div>
+        <SharpenEditor
+          adjustment={adjustment}
+          onChange={onChange}
+          doc={doc}
+          detailScope={detailScope}
+        />
       );
 
     case 'tint':

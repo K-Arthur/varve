@@ -5,6 +5,36 @@ import { CurveEditor } from './CurveEditor';
 afterEach(cleanup);
 
 describe('CurveEditor', () => {
+  it('applies a current-channel preset in one transaction with fresh point ids', async () => {
+    const onChange = vi.fn(),
+      start = vi.fn(),
+      end = vi.fn();
+    render(
+      <CurveEditor
+        value={[
+          { x: 0, y: 0 },
+          { x: 1, y: 1 },
+        ]}
+        onChange={onChange}
+        onDragStart={start}
+        onDragEnd={end}
+      />,
+    );
+    fireEvent.click(screen.getByRole('combobox', { name: 'Curve preset', exact: true }));
+    fireEvent.click(await screen.findByRole('option', { name: 'Soft contrast', exact: true }));
+    expect(start).toHaveBeenCalledTimes(1);
+    expect(end).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange.mock.calls[0]![0]).toMatchObject([
+      { x: 0, y: 0 },
+      { x: 0.25, y: 0.2 },
+      { x: 0.75, y: 0.8 },
+      { x: 1, y: 1 },
+    ]);
+    expect(new Set(onChange.mock.calls[0]![0].map((point: { id: string }) => point.id)).size).toBe(
+      4,
+    );
+  });
   it('renders a curve editor with default identity line', () => {
     const onChange = () => {};
     render(

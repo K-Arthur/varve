@@ -100,6 +100,8 @@ export function isIdentityFilter(filter: FilterIR): boolean {
       );
     case 'blur':
       return filter.radius <= EPSILON;
+    case 'sharpen':
+      return near(filter.amount, 0) || near(filter.radius, 0);
     case 'motionBlur':
       return near(filter.distance, 0);
     case 'mosaic':

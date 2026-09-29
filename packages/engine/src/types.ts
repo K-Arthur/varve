@@ -1145,6 +1145,10 @@ export type FilterIR =
       amount: number;
       radius: number;
       threshold: number;
+      algorithmVersion?: 1 | 2;
+      workingSpace?: 'srgb' | 'linear-srgb';
+      luminanceOnly?: boolean;
+      protectAlpha?: boolean;
       opacity: number;
       blendMode: string;
     }

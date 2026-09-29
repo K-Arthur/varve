@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { runRasterPipeline } from './pipeline';
+import { sharpenImageData } from './sharpen';
 
 function imageData(width: number, height: number, value = 128): ImageData {
   const data = new Uint8ClampedArray(width * height * 4);
@@ -14,6 +15,38 @@ function imageData(width: number, height: number, value = 128): ImageData {
 }
 
 describe('runRasterPipeline', () => {
+  it('sharpens the final resized surface exactly once', async () => {
+    const source = new ImageData(
+      new Uint8ClampedArray([90, 90, 90, 255, 180, 180, 180, 255]),
+      2,
+      1,
+    );
+    const resize = {
+      algorithm: 'nearest' as const,
+      workingSpace: 'srgb' as const,
+      maxPixels: 100,
+      tileHeight: 0,
+      targetWidth: 6,
+      targetHeight: 1,
+    };
+    const sharpen = {
+      mode: 'unsharp' as const,
+      amount: 0.5,
+      radius: 3,
+      threshold: 0,
+      workingSpace: 'linear-srgb' as const,
+      luminanceOnly: false,
+      protectAlpha: true,
+    };
+    const resized = await runRasterPipeline(source, { resize });
+    const once = sharpenImageData(resized.imageData, sharpen).imageData;
+    const twice = sharpenImageData(once, sharpen).imageData;
+    const actual = await runRasterPipeline(source, { resize, sharpen });
+    expect(actual.imageData.data).toEqual(once.data);
+    expect(actual.imageData.data).not.toEqual(twice.data);
+    expect(actual.log.filter((entry) => entry.startsWith('sharpen'))).toHaveLength(1);
+    expect(actual.log[0]).toContain('resize');
+  });
   it('returns the input when no stage applies', async () => {
     const src = imageData(4, 4);
     const result = await runRasterPipeline(src, {});

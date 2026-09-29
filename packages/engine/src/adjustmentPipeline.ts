@@ -626,7 +626,9 @@ export function effectPixelExpansion(
       return [pad, pad, pad, pad];
     }
     case 'sharpen': {
-      const r = Math.ceil(filter.radius);
+      const r = Math.ceil(
+        Math.min(4096, Math.max(0, filter.radius * (filter.algorithmVersion === 2 ? scale : 1))),
+      );
       return [r, r, r, r];
     }
     case 'microDetail':

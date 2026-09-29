@@ -189,8 +189,13 @@ export interface BlurAdjustment extends AdjustmentBase {
 export interface SharpenAdjustment extends AdjustmentBase {
   kind: 'sharpen';
   amount: number;
+  /** Target-local units for objects; document units for adjustment layers. */
   radius: number;
   threshold: number;
+  algorithmVersion?: 1 | 2;
+  workingSpace?: 'srgb' | 'linear-srgb';
+  luminanceOnly?: boolean;
+  protectAlpha?: boolean;
 }
 export interface WhiteBalanceAdjustment extends AdjustmentBase {
   kind: 'whiteBalance';
@@ -971,6 +976,10 @@ export function adjustmentToFilter(adjustment: Adjustment): FilterIR {
         amount: adjustment.amount,
         radius: adjustment.radius,
         threshold: adjustment.threshold,
+        algorithmVersion: adjustment.algorithmVersion ?? 1,
+        workingSpace: adjustment.workingSpace ?? 'linear-srgb',
+        luminanceOnly: adjustment.luminanceOnly ?? false,
+        protectAlpha: adjustment.protectAlpha ?? true,
         ...base,
       };
     case 'whiteBalance':
@@ -1719,7 +1728,16 @@ export function adjustmentDefaults(kind: AdjustmentKind): Omit<Adjustment, 'id' 
         transparentBackground: false,
       } as Omit<Adjustment, 'id' | 'kind'>;
     case 'sharpen':
-      return { ...base, amount: 0, radius: 1, threshold: 0 } as Omit<Adjustment, 'id' | 'kind'>;
+      return {
+        ...base,
+        amount: 0,
+        radius: 1,
+        threshold: 0,
+        algorithmVersion: 2,
+        workingSpace: 'linear-srgb',
+        luminanceOnly: false,
+        protectAlpha: true,
+      } as Omit<Adjustment, 'id' | 'kind'>;
     case 'whiteBalance':
       return {
         ...base,

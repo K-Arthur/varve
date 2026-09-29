@@ -1,31 +1,13 @@
-import {
-  gamutMapToSrgbUnit,
-  linearSrgbToOklab,
-  linearToSrgbUnit,
-  oklabToLinearSrgb,
-  srgbToLinearUnit,
-} from '@varve/shared';
+// Benchmark-only compatibility baseline from commit 65bf05d42.
+import { gamutMapToSrgbUnit, linearSrgbToOklab, srgbToLinearUnit } from '@varve/shared';
 
-export interface SplitToneParams {
-  shadowHue: number;
-  shadowSaturation: number;
-  highlightHue: number;
-  highlightSaturation: number;
-  balance: number;
-  blending: number;
-  strength: number;
-}
+import type { SplitToneParams } from '../splitTone';
+
 const clamp = (v: number, min: number, max: number, fallback: number) =>
   Number.isFinite(v) ? Math.max(min, Math.min(max, v)) : fallback;
 const hue = (v: number) => (Number.isFinite(v) ? ((((v % 360) + 360) % 360) * Math.PI) / 180 : 0);
-// The input boundary is RGBA8; decode its 256 possible values once (2 KiB).
-const decoded = Float64Array.from({ length: 256 }, (_, i) => srgbToLinearUnit(i / 255));
 
-export function splitToneWeights(
-  lightness: number,
-  balance: number,
-  blending: number,
-): [number, number] {
+function splitToneWeights(lightness: number, balance: number, blending: number): [number, number] {
   const pivot = clamp(balance, 0, 1, 0.5),
     width = clamp(blending, 0.01, 1, 0.5);
   const t = clamp((lightness - pivot) / width + 0.5, 0, 1, 0);
@@ -36,7 +18,7 @@ export function splitToneWeights(
 /** Add chroma to the input Oklab lightness ranges; never replace the source
  * with gray. Black/white endpoints are protected. Gamut compression reduces
  * chroma at fixed lightness/hue using the existing shared color owner. */
-export function applySplitTone(data: ImageData, params: SplitToneParams): void {
+export function applyOriginalSplitTone(data: ImageData, params: SplitToneParams): void {
   const strength = clamp(params.strength, 0, 1, 0);
   const shadow = clamp(params.shadowSaturation, 0, 1, 0) * 0.15 * strength;
   const highlight = clamp(params.highlightSaturation, 0, 1, 0) * 0.15 * strength;
@@ -47,28 +29,19 @@ export function applySplitTone(data: ImageData, params: SplitToneParams): void {
     sb = Math.sin(sh) * shadow,
     ha = Math.cos(hh) * highlight,
     hb = Math.sin(hh) * highlight;
-  const pivot = clamp(params.balance, 0, 1, 0.5),
-    width = clamp(params.blending, 0.01, 1, 0.5);
   for (let i = 0; i < data.data.length; i += 4) {
     if (data.data[i + 3] === 0) continue;
     const [L, a, b] = linearSrgbToOklab([
-      decoded[data.data[i]!]!,
-      decoded[data.data[i + 1]!]!,
-      decoded[data.data[i + 2]!]!,
+      srgbToLinearUnit(data.data[i]! / 255),
+      srgbToLinearUnit(data.data[i + 1]! / 255),
+      srgbToLinearUnit(data.data[i + 2]! / 255),
     ]);
     if (L < 1e-8 || L > 1 - 1e-7) continue;
-    const t = clamp((L - pivot) / width + 0.5, 0, 1, 0),
-      h = t * t * (3 - 2 * t),
-      s = 1 - h,
+    const [s, h] = splitToneWeights(L, params.balance, params.blending),
       envelope = 4 * L * (1 - L);
     const na = a + envelope * (sa * s + ha * h),
       nb = b + envelope * (sb * s + hb * h);
-    // Stay in Lab for in-gamut colors. The shared gamut owner still handles
-    // every out-of-gamut color; no second compressor or color matrix.
-    const linear = oklabToLinearSrgb([L, na, nb]);
-    const rgb = linear.every((v) => v >= 0 && v <= 1)
-      ? linear.map((v) => linearToSrgbUnit(v) * 255)
-      : gamutMapToSrgbUnit([L, Math.hypot(na, nb), Math.atan2(nb, na)]);
+    const rgb = gamutMapToSrgbUnit([L, Math.hypot(na, nb), Math.atan2(nb, na)]);
     for (let c = 0; c < 3; c++) data.data[i + c] = Math.round(rgb[c]!);
   }
 }

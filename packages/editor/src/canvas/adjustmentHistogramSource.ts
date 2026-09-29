@@ -22,6 +22,7 @@ import {
   computeHistogram,
   createEngine,
   createRasterSurface,
+  effectPixelExpansion,
   replayIr,
 } from '@varve/engine';
 import type { Adjustment, AdjustmentNode, Document } from '@varve/scene';
@@ -31,6 +32,7 @@ import { flattenSceneToEngine } from '../render/sceneToEngine';
 export interface AdjustmentSourceSample {
   imageData: ImageData;
   histogram: Histogram;
+  detailRegion?: { x: number; y: number; width: number; height: number };
 }
 
 /** Maximum dimension (px) of the histogram sample canvas. */
@@ -44,6 +46,7 @@ const SAMPLE_MAX = 256;
  * unbounded raster cache.
  */
 const MAX_CACHE_ENTRIES = 8;
+const MAX_CACHE_BYTES = 2 * 1024 * 1024;
 const histogramCache: Array<{
   doc: Document;
   key: string;
@@ -151,11 +154,13 @@ export async function computeAdjustmentSourceSample(
   doc: Document,
   adjNode: AdjustmentNode,
   beforeAdjustmentId?: string,
+  /** Explicit 128px detail region, normalized within the scoped world bounds. */
+  detail?: { x: number; y: number },
 ): Promise<AdjustmentSourceSample | null> {
   const targets = getAdjustmentTargetIds(doc, adjNode);
   if (!targets) return null;
 
-  const key = buildCacheKey(adjNode, targets, beforeAdjustmentId);
+  const key = `${buildCacheKey(adjNode, targets, beforeAdjustmentId)}:${detail ? `${detail.x},${detail.y}` : 'overview'}`;
   const cached = histogramCache.find((entry) => entry.doc === doc && entry.key === key);
   if (cached) return cached.result;
 
@@ -167,15 +172,39 @@ export async function computeAdjustmentSourceSample(
     if (!bounds || bounds.w <= 0 || bounds.h <= 0) return null;
 
     // Scale to fit the sample canvas.
-    const scale = Math.min(SAMPLE_MAX / bounds.w, SAMPLE_MAX / bounds.h, 1);
-    const cw = Math.max(1, Math.round(bounds.w * scale));
-    const ch = Math.max(1, Math.round(bounds.h * scale));
+    const scale = detail ? 1 : Math.min(SAMPLE_MAX / bounds.w, SAMPLE_MAX / bounds.h, 1);
+    const cw = Math.max(1, Math.round(detail ? Math.min(128, bounds.w) : bounds.w * scale));
+    const ch = Math.max(1, Math.round(detail ? Math.min(128, bounds.h) : bounds.h * scale));
+    const x = detail
+      ? Math.round(bounds.x + Math.max(0, Math.min(1, detail.x)) * (bounds.w - cw))
+      : bounds.x;
+    const y = detail
+      ? Math.round(bounds.y + Math.max(0, Math.min(1, detail.y)) * (bounds.h - ch))
+      : bounds.y;
+    const upstreamFilters = adjustmentsToFilters(
+      adjustmentsBeforeEntry(adjNode, beforeAdjustmentId),
+    );
+    // A detail crop needs the upstream spatial kernels' original halo. Refuse
+    // oversized diagnostic work rather than silently cutting the kernel off.
+    const selected = adjNode.adjustments?.find((entry) => entry.id === beforeAdjustmentId);
+    const detailFilters = selected
+      ? [...upstreamFilters, ...adjustmentsToFilters([selected])]
+      : upstreamFilters;
+    const halo = detail
+      ? detailFilters.reduce(
+          (sum, filter) => sum + Math.max(...effectPixelExpansion(filter, scale)),
+          0,
+        )
+      : 0;
+    const width = cw + 2 * halo,
+      height = ch + 2 * halo;
+    if (width * height > 1_048_576) return null;
 
-    const surface = createRasterSurface(cw, ch);
+    const surface = createRasterSurface(width, height);
     const ctx = surface.context;
 
     ctx.save();
-    ctx.translate(-bounds.x * scale, -bounds.y * scale);
+    ctx.translate(-x * scale + halo, -y * scale + halo);
     ctx.scale(scale, scale);
 
     const engine = await createEngine('stub');
@@ -188,24 +217,39 @@ export async function computeAdjustmentSourceSample(
     // compositor so the diagnostic follows the same ordering, opacity, blend,
     // and backend contract as the visible adjustment stack.
     if (beforeAdjustmentId) {
-      const upstreamFilters = adjustmentsToFilters(
-        adjustmentsBeforeEntry(adjNode, beforeAdjustmentId),
-      );
       if (upstreamFilters.length > 0) {
-        applyFilterWithCompositing(ctx as CanvasRenderingContext2D, upstreamFilters, cw, ch);
+        applyFilterWithCompositing(
+          ctx as CanvasRenderingContext2D,
+          upstreamFilters,
+          width,
+          height,
+          {
+            treatmentSpace: { pixelsPerUnit: scale },
+          },
+        );
       }
     }
 
-    const imageData = ctx.getImageData(0, 0, cw, ch);
-    const histogram = computeHistogram(imageData);
+    const cropped = ctx.getImageData(halo, halo, cw, ch);
+    const imageData = detail ? ctx.getImageData(0, 0, width, height) : cropped;
+    const histogram = computeHistogram(cropped);
 
     const existingIndex = histogramCache.findIndex(
       (entry) => entry.doc === doc && entry.key === key,
     );
     if (existingIndex >= 0) histogramCache.splice(existingIndex, 1);
-    const result = { imageData, histogram };
+    const result: AdjustmentSourceSample = {
+      imageData,
+      histogram,
+      ...(detail ? { detailRegion: { x: halo, y: halo, width: cw, height: ch } } : {}),
+    };
     histogramCache.unshift({ doc, key, result });
-    if (histogramCache.length > MAX_CACHE_ENTRIES) histogramCache.pop();
+    while (
+      histogramCache.length > MAX_CACHE_ENTRIES ||
+      histogramCache.reduce((bytes, entry) => bytes + entry.result.imageData.data.byteLength, 0) >
+        MAX_CACHE_BYTES
+    )
+      histogramCache.pop();
     return result;
   } catch {
     return null;

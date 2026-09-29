@@ -7,11 +7,19 @@ import { useEditor } from '../../context';
 import { channelCoverage } from '../../tools/channelCoverage';
 import { areaSelectionFromMaskCoverage, decodeRasterMaskDataUrl } from '../../tools/selectionMask';
 import { SourceChannels } from '../AdjustmentLayer/SourceChannels';
+import { SourcePixelDetail } from '../AdjustmentLayer/SourcePixelDetail';
 
 /** Inspection is transient. Coverage snapshots use the existing area-selection
  * owner, whose Save/Load/rename/duplicate and Selection to Mask actions follow. */
 export function ChannelSourcePanel() {
-  const { state, commitAreaSelection, announce } = useEditor();
+  const {
+    state,
+    commitAreaSelection,
+    announce,
+    beginTransaction,
+    commitTransaction,
+    abortTransaction,
+  } = useEditor();
   const [open, setOpen] = useState(false);
   const [source, setSource] = useState<ImageData | null>(null);
   const [channel, setChannel] = useState('composite');
@@ -105,6 +113,7 @@ export function ChannelSourcePanel() {
             label="Selected image · original RGB source"
             onChannelChange={setChannel}
           />
+          <SourcePixelDetail locator={locator} />
           <p className="tonal-editor__hint">
             Full-resolution, one-time coverage snapshot. RGB coverage includes source alpha. Save
             and manage named selections below; Create Mask from Selection keeps the image editable.
@@ -135,7 +144,16 @@ export function ChannelSourcePanel() {
             variant="secondary"
             size="sm"
             disabled={!state.areaSelection}
-            onClick={() => getActionRegistry().get('createMaskFromSelection')?.handler(undefined)}
+            onClick={() => {
+              beginTransaction();
+              try {
+                getActionRegistry().dispatch('createMaskFromSelection');
+                commitTransaction();
+              } catch (error) {
+                abortTransaction();
+                throw error;
+              }
+            }}
           >
             Create mask from selection
           </Button>

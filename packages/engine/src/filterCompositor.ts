@@ -73,6 +73,7 @@ import { applyTonalCurves } from './tonalCurveFilter';
 import { mixerRows } from './tonalState';
 import { applyTritone } from './tritone';
 import type { FilterIR } from './types';
+import { applyUnsharpMask } from './unsharpMask';
 import { applyRelativeWhiteBalance } from './whiteBalance';
 
 /**
@@ -416,9 +417,24 @@ export function applySoftwareFilter(
       break;
     }
     case 'sharpen': {
-      const sf = filter as { amount: number; radius: number; threshold: number };
-      applySharpen(imageData, sf.amount ?? 50, sf.radius ?? 1, sf.threshold ?? 0);
-      ctx.putImageData(imageData, 0, 0);
+      if (filter.algorithmVersion === 2) {
+        const scale = options.treatmentSpace?.pixelsPerUnit ?? options.coordSpace?.scale ?? 1;
+        ctx.putImageData(
+          applyUnsharpMask(imageData, {
+            amount: filter.amount / 100,
+            radius: filter.radius * (Number.isFinite(scale) && scale > 0 ? scale : 1),
+            threshold: filter.threshold / 255,
+            workingSpace: filter.workingSpace ?? 'linear-srgb',
+            luminanceOnly: filter.luminanceOnly ?? false,
+            protectAlpha: filter.protectAlpha ?? true,
+          }),
+          0,
+          0,
+        );
+      } else {
+        applySharpen(imageData, filter.amount ?? 50, filter.radius ?? 1, filter.threshold ?? 0);
+        ctx.putImageData(imageData, 0, 0);
+      }
       break;
     }
     case 'microDetail': {
@@ -1093,6 +1109,9 @@ function applyExposure(
  * Sharpen: unsharp mask via box blur difference.
  */
 function applySharpen(data: ImageData, amount: number, radius: number, threshold: number): void {
+  // Legacy integer-radius appearance is retained. Fractional indices previously
+  // read undefined bytes; normalize them before visiting the historical kernel.
+  radius = Number.isFinite(radius) ? Math.floor(Math.min(4096, radius)) : 0;
   if (radius < 1 || amount === 0) return;
   const w = data.width;
   const h = data.height;
