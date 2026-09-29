@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
 
 const evidenceDirectory = join(process.cwd(), 'docs/screenshots/website-navbar-2026-09-28');
+const reviewedWidths = new Set([320, 390, 768, 1024, 1280, 1440]);
 
 async function saveReviewedCapture(page: import('@playwright/test').Page, filename: string) {
   if (process.env.VARVE_CAPTURE_NAV_VISUALS !== '1') return;
@@ -74,7 +75,7 @@ test('header and open navigation remain composed across themes, widths, landscap
 
       const tag = `${colorScheme}-${width}`;
       await page.screenshot({ path: testInfo.outputPath(`navbar-${tag}-header.png`) });
-      if (width === 320 || width === 1440) await saveReviewedCapture(page, `${tag}-header.png`);
+      if (reviewedWidths.has(width)) await saveReviewedCapture(page, `${tag}-header.png`);
       if (width < 768) {
         await page.setViewportSize({ width, height: 620 });
         await page.evaluate(() => window.scrollTo(0, 500));
@@ -85,7 +86,7 @@ test('header and open navigation remain composed across themes, widths, landscap
         expect(rect?.y).toBe(0);
         expect(rect?.width).toBe(width);
         expect(rect?.height).toBe(620);
-        if (width === 390) await saveReviewedCapture(page, `${tag}-open-menu.png`);
+        if (reviewedWidths.has(width)) await saveReviewedCapture(page, `${tag}-open-menu.png`);
         await dialog.getByRole('link', { name: 'Known issues' }).scrollIntoViewIfNeeded();
         expect(
           await page.locator('.mobile-nav-scroll').evaluate((node) => node.scrollTop),
@@ -98,7 +99,7 @@ test('header and open navigation remain composed across themes, widths, landscap
         await learn.click();
         await expect(page.locator('#learn-menu')).toBeVisible();
         await page.screenshot({ path: testInfo.outputPath(`navbar-${tag}-open-menu.png`) });
-        if (width === 1280) await saveReviewedCapture(page, `${tag}-open-menu.png`);
+        if (reviewedWidths.has(width)) await saveReviewedCapture(page, `${tag}-open-menu.png`);
         await page.keyboard.press('Escape');
       }
     }
