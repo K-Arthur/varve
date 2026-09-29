@@ -198,6 +198,12 @@ longer current is dropped on arrival, so a cancelled stroke's late results
 cannot reach the canvas. Cancellation is a message to the worker, not only a
 rejected promise on the host — rejecting a promise reclaims no CPU.
 
+Pointer-up seals the confirmed tail and keeps the history transaction open
+until the worker reports every branch settled. Switching tools while the
+pointer is still down cancels that gesture; switching after pointer-up leaves
+the sealed request alive so its final callback can commit the stroke. This
+keeps a fast tool change from discarding visible in-flight pixels.
+
 ### Backpressure never loses ink
 
 Input arrives faster than any worker consumes it. Pending batches are merged,

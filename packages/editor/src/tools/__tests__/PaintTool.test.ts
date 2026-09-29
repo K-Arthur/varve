@@ -179,6 +179,39 @@ describe('PaintTool', () => {
     expect(ctx.commitTransaction).toHaveBeenCalledOnce();
   });
 
+  it('commits a released stroke if the tool changes while the worker drains its tail', () => {
+    const settlers: Array<() => void> = [];
+    const worker = {
+      isUsingWorker: true,
+      beginStroke: vi.fn(),
+      appendPoints: vi.fn(),
+      endStroke: vi.fn((_id: string, _gen: number, onSettled?: () => void) => {
+        if (onSettled) settlers.push(onSettled);
+      }),
+      cancelStroke: vi.fn(),
+      destroy: vi.fn(),
+      onBatch: null,
+    } as unknown as BrushWorkerHost;
+    tool.setWorkerHost(worker);
+
+    const down = makePointerEvent(100, 200);
+    const up = makePointerEvent(140, 200);
+    tool.onPointerDown(down, ctx);
+    tool.onPointerMove(up, ctx);
+    tool.onPointerUp(up, ctx);
+
+    expect(settlers).toHaveLength(1);
+    tool.onDeactivate(ctx);
+    expect(ctx.abortTransaction).not.toHaveBeenCalled();
+    expect(ctx.commitTransaction).not.toHaveBeenCalled();
+
+    settlers[0]!();
+
+    expect(ctx.commitTransaction).toHaveBeenCalledOnce();
+    expect(ctx.abortTransaction).not.toHaveBeenCalled();
+    expect(worker.cancelStroke).not.toHaveBeenCalled();
+  });
+
   it('cancels the generation that is actually in flight', () => {
     const worker = {
       isUsingWorker: true,

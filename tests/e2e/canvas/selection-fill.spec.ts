@@ -25,7 +25,49 @@ function opaqueBlackPixels(input: Buffer): number {
   return count;
 }
 
-const VIEWPORT = { width: 1280, height: 800 };
+async function selectExportTab(page: import('@playwright/test').Page): Promise<void> {
+  const exportTab = page
+    .getByRole('tablist', { name: 'Inspector tabs' })
+    .getByRole('tab', { name: 'Export', exact: true });
+  if (await exportTab.isVisible().catch(() => false)) {
+    await exportTab.click();
+  } else {
+    await page.getByRole('button', { name: /More inspector tabs/ }).click();
+    await page
+      .getByRole('menu', { name: 'More inspector tabs' })
+      .getByRole('menuitem', { name: 'Export', exact: true })
+      .click();
+  }
+  await page.locator('#insp-sub-tab-format').waitFor({ state: 'visible', timeout: 10000 });
+}
+
+async function selectMarqueeTool(page: import('@playwright/test').Page): Promise<void> {
+  const toolbar = page.getByTestId('toolbar');
+  const directTool = toolbar.locator('[data-tool="marquee"]');
+  if (await directTool.isVisible().catch(() => false)) {
+    await directTool.click();
+    await expect(page.locator('.editor-status')).toContainText('Rectangular Marquee');
+    return;
+  }
+
+  // Responsive toolbar slots move into the category-based overflow menu at
+  // common editor widths. Use the same visible route an artist uses there.
+  await toolbar.getByRole('button', { name: /More tools/ }).click();
+  await page.locator('.varve-ctxmenu').getByText('Selection', { exact: true }).click();
+  const selectionMenu = page.getByRole('menu', { name: 'Selection submenu', exact: true });
+  await expect(selectionMenu).toBeVisible();
+  const marqueeItem = selectionMenu.getByRole('menuitem', {
+    name: 'Rectangular Marquee',
+    exact: true,
+  });
+  await expect(marqueeItem).toBeVisible();
+  await marqueeItem.click({ timeout: 5000 });
+  await expect(page.locator('.editor-status')).toContainText('Rectangular Marquee');
+}
+
+// Keep the full Photo tool row visible here so the workflow assertion targets
+// selection/fill semantics; responsive overflow has its own dedicated E2E.
+const VIEWPORT = { width: 2400, height: 1200 };
 
 test.describe('selection-to-flats workflow', () => {
   test.describe.configure({ timeout: 300000 });
@@ -91,26 +133,47 @@ test.describe('selection-to-flats workflow', () => {
     await expect(
       page.locator('.workspace-dock__item[aria-label="Photo workspace"]'),
     ).toHaveAttribute('aria-checked', 'true');
+    // Creating and resizing the page leaves the initial camera partially
+    // panned on this wide viewport. Center the page so both the paint stroke
+    // and the subsequent marquee operate on the same artwork pixels.
+    await page.getByRole('button', { name: 'Fit active page' }).click();
+    await expect(page.locator('.editor-shell')).toBeVisible();
+    const layerQuickFilters = page.getByRole('group', { name: 'Workspace filters' });
+    if (await layerQuickFilters.isVisible().catch(() => false)) {
+      const activeFilters = layerQuickFilters.getByRole('button', { pressed: true });
+      while ((await activeFilters.count()) > 0) await activeFilters.first().click();
+    }
 
     const toolbar = page.locator('[data-testid="toolbar"]');
-    await toolbar.locator('[data-tool="paint"]').click();
+    const paintTool = toolbar.locator('[data-tool="paint"]');
+    await paintTool.click();
+    await expect(paintTool).toHaveAttribute('aria-pressed', 'true');
     const canvas = page.locator('canvas.editor-canvas__content-layer');
     const box = await canvas.boundingBox();
     if (!box) throw new Error('editor content canvas not found');
 
-    await page.mouse.move(box.x + box.width * 0.22, box.y + box.height * 0.25);
+    await page.mouse.move(box.x + box.width * 0.22, box.y + box.height * 0.4);
     await page.mouse.down();
-    await page.mouse.move(box.x + box.width * 0.38, box.y + box.height * 0.34, { steps: 8 });
+    await page.mouse.move(box.x + box.width * 0.38, box.y + box.height * 0.49, { steps: 8 });
     await page.mouse.up();
-    await expect(page.locator('[role="treeitem"][data-node-id]')).not.toHaveCount(0);
-
+    await expect
+      .poll(async () => opaqueBlackPixels(await canvas.screenshot()), { timeout: 10000 })
+      .toBeGreaterThan(100);
+    await page.screenshot({ path: testInfo.outputPath('selection-fill-painted-underlay.png') });
     const rasterRow = page
       .locator('[role="treeitem"][data-node-id]')
       .filter({ hasText: 'Brush Layer' })
       .first();
-    await expect(rasterRow).toBeVisible();
+    await expect(rasterRow).toBeVisible({ timeout: 10000 });
+
     await rasterRow.click();
-    await toolbar.locator('[data-tool="marquee"]').click();
+    await expect(rasterRow).toHaveAttribute('aria-selected', 'true');
+    await selectMarqueeTool(page);
+    await expect(
+      page.locator('.workspace-dock__item[aria-label="Photo workspace"]'),
+    ).toHaveAttribute('aria-checked', 'true');
+    await expect(rasterRow).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath('selection-fill-target-retained.png') });
     const toolOptions = page.getByRole('button', { name: 'Tool options' });
     await expect(toolOptions).toBeVisible();
     await toolOptions.click();
@@ -130,6 +193,11 @@ test.describe('selection-to-flats workflow', () => {
       { steps: 6 },
     );
     await page.mouse.up();
+    await expect(page.locator('#strata-canvas-announcer-polite')).toContainText(
+      'Rectangular selection,',
+    );
+    await expect(rasterRow).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath('selection-fill-marquee.png') });
 
     await page.getByRole('button', { name: 'Selection Sources' }).click();
     const sources = page.getByTestId('selection-sources-panel');
@@ -146,7 +214,7 @@ test.describe('selection-to-flats workflow', () => {
     expect(opaqueBlackPixels(after)).toBeGreaterThan(5000);
     await page.screenshot({ path: testInfo.outputPath('selection-fill-after.png') });
 
-    await page.keyboard.press('Control+z');
+    await page.getByRole('button', { name: /^Undo/ }).click();
     await expect
       .poll(async () => Buffer.compare(after, await canvas.screenshot()), { timeout: 10000 })
       .not.toBe(0);
@@ -155,7 +223,7 @@ test.describe('selection-to-flats workflow', () => {
     // Restore the filled state, save it through the ordinary Ctrl+S command,
     // export the actual raster, then reopen the saved document. The browser
     // fallback is used so this test does not wait on a native file picker.
-    await page.keyboard.press('Control+Shift+z');
+    await page.getByRole('button', { name: /^Redo/ }).click();
     const redone = await canvas.screenshot();
     expect(Buffer.compare(before, redone)).not.toBe(0);
     expect(opaqueBlackPixels(redone)).toBeGreaterThan(5000);
@@ -174,10 +242,7 @@ test.describe('selection-to-flats workflow', () => {
     // target, so Save reports Saved without emitting a download. The reload
     // and reopen below are the durable persistence assertion for this path.
 
-    const exportTab = page.locator('[role="tablist"] button[role="tab"]', {
-      hasText: /^export$/i,
-    });
-    await exportTab.click();
+    await selectExportTab(page);
     const pngGroup = page.locator('.spec-export__group').filter({ hasText: 'PNG' }).first();
     await pngGroup.getByRole('radio', { name: 'PNG', exact: true }).click();
     // Give the established export compositor time to render this real raster
@@ -202,6 +267,7 @@ test.describe('selection-to-flats workflow', () => {
       timeout: 60000,
     });
     await expect(page.locator('[role="treeitem"][data-node-id]')).not.toHaveCount(0);
+    await page.getByRole('button', { name: 'Fit active page' }).click();
     await expect
       .poll(
         async () =>

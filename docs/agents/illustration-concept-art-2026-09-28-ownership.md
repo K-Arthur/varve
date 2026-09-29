@@ -22,8 +22,8 @@ implementation ownership is limited to the following clean paths:
 |---|---|
 | `packages/editor/src/tools/paintTarget.ts` | Paint destination validation and explicit refusal contract. |
 | `packages/editor/src/tools/__tests__/paintTarget.test.ts` | Resolver regression coverage. |
-| `packages/editor/src/tools/PaintTool.ts` | Only target admission/recovery behavior; preserve the stroke worker, transaction and input lifecycle. |
-| `packages/editor/src/tools/__tests__/PaintTool.test.ts` | Only fixtures/assertions affected by stricter target admission. |
+| `packages/editor/src/tools/PaintTool.ts` | Target admission plus the narrow pointer-up/tool-switch finalization fix; do not change worker batching, input normalization or active-drag cancellation. |
+| `packages/editor/src/tools/__tests__/PaintTool.test.ts` | Resolver regressions and released-stroke finalization across tool deactivation. |
 | `tests/e2e/paint/brush-ui.spec.ts` | Isolated real-canvas target-refusal regression and production Brush Browser visual check for the illustration starting presets. |
 | `tests/e2e/canvas/raster-magic-wand.spec.ts` | Verify the existing painted raster → Magic Wand → flat-fill route, save/export/reopen; maintain the current Inspector export-tab access in the real UI. |
 | `tests/e2e/canvas/selection-fill.spec.ts` | Verify selection-to-flats undo/redo, save/export/reopen; maintain the current Inspector export-tab access in the real UI. |
@@ -152,3 +152,35 @@ hardware gaps remain explicit in the final handoff.
   overload errors. The touched files pass Biome; `pnpm audit:tokens` passes all
   303 pairs across three themes and the token-usage scan. Full suite was not
   run.
+
+- The released-stroke/tool-switch defect is repaired in `PaintTool`: the real
+  selection-fill E2E showed a `Brush Layer` after pointer-up, then it
+  disappeared when switching to Marquee because `onDeactivate` aborted while
+  `BrushWorkerHost.endStroke` was still draining. The narrow fix preserves a
+  released session and still aborts a held gesture. The new unit regression
+  verifies both sides of that boundary; the full `PaintTool.test.ts` file
+  passes 39/39.
+
+- Post-fix visual evidence from `test-results/illustration-selection-fill-20260928-4378/`
+  shows the Brush Layer retained after tool change, a visible brush stroke,
+  marquee coverage crossing that stroke, and the selected fill changing the
+  artwork. `test-results/illustration-selection-fill-20260928-4375/` reached
+  undo, redo, save, PNG export and document reopen. The 640×480 exported PNG
+  contains 11,134 opaque black pixels. Its reopened canvas pixel assertion
+  initially failed because the saved camera showed an off-page region; the E2E
+  now fits the reopened page before checking the pixels.
+
+- Latest `pnpm verify:affected --staged` used an isolated temporary index and
+  selected six owned paths. Format, lint, emoji/docs/radius audits, E2E
+  typecheck and the focused PaintTool test passed. The selection-fill E2E then
+  failed after a live Vite reload caused by unrelated shared-worktree edits:
+  `packages/scene/src/index.ts` reported conflicting `isContainer` star
+  exports, and `packages/engine/src/backgroundRemoval/modelLoader.ts` had a
+  duplicate `getModelStorage` declaration. The browser returned to Home before
+  the undo assertion. The later run 4375 had completed undo/redo, save/export
+  and reopen before the off-page camera assertion; full post-reopen pixel
+  verification remains pending in a stable source tree.
+
+- `pnpm audit:tokens` passes all 303 pairs across three themes and the token
+  usage scan. Full suite was not escalated or run. The latest affected command
+  stopped at the E2E failure before package-level downstream checks.

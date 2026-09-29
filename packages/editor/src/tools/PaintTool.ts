@@ -251,7 +251,11 @@ export class PaintTool extends BaseTool {
   }
 
   override onDeactivate(ctx: ToolContext): void {
-    if (this.session) this.abortStroke(ctx);
+    // A pointer-up can leave the session open while the worker drains its
+    // confirmed tail. Switching tools at that point must let the endStroke
+    // callback commit the transaction; only an actively held gesture is a
+    // cancellation.
+    if (this.session && this.drag.kind === 'dragging') this.abortStroke(ctx);
     ctx.setDraft(null);
   }
 
