@@ -121,7 +121,7 @@ test('mobile menu opened after scrolling fills the viewport, scrolls inside, and
     .evaluate((body) => getComputedStyle(body).overflow);
 
   const toggle = page.locator('.mobile-menu-toggle');
-  await toggle.focus({ preventScroll: true });
+  await toggle.evaluate((element) => (element as HTMLButtonElement).focus({ preventScroll: true }));
   await page.keyboard.press('Enter');
   const scrollAtOpen = await page.evaluate(
     () => (window as Window & { __menuScrollAtClick?: number }).__menuScrollAtClick,
