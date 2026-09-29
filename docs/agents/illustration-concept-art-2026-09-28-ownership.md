@@ -223,3 +223,10 @@ hardware gaps remain explicit in the final handoff.
   linework-to-flats sampling, undo/reopen/export for this recovery scenario,
   and the other planned illustration workflows remain pending. Full suite was
   not run.
+
+- `608ceb2eb` — `feat(paint): add explicit paint-layer recovery` — commits
+  the active-surface recovery action, resolver scope fix, regression coverage,
+  and paint-system/capability documentation. The exact scoped affected run
+  stopped at the unrelated interface-sizing audit noted above; focused tests,
+  E2E typecheck and the leased recovery browser check passed. Commit is local
+  on `master`.
