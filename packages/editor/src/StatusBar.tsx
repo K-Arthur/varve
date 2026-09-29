@@ -51,7 +51,6 @@ const SECTION_CLUSTERS: Record<StatusSectionId, 'info' | 'control'> = {
   viewToggles: 'control',
   zoom: 'control',
   fit: 'control',
-  aiStatus: 'control',
 };
 
 function formatZoomPercent(zoom: number): string {
@@ -401,8 +400,6 @@ export function StatusBar({ onOpenPalette }: StatusBarProps) {
         )}
       </span>
     ),
-
-    aiStatus: <AIStatusIndicator />,
   };
 
   const sectionNodes = statusSectionIds
@@ -446,6 +443,12 @@ export function StatusBar({ onOpenPalette }: StatusBarProps) {
         {controlNodes.map((entry) => (
           <Fragment key={entry.id}>{entry.rendered}</Fragment>
         ))}
+        {/* Also not a section, for the same reason as the rotation chip: an
+            on-device inference lease is transient state with nothing
+            persistent to configure. It renders only while a job is queued or
+            running — the idle pill it used to keep was a claim that is always
+            true, i.e. decorative chrome. */}
+        <AIStatusIndicator />
       </div>
     </TooltipProvider>
   );

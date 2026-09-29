@@ -247,8 +247,7 @@ export type StatusSectionId =
   | 'unit'
   | 'viewToggles'
   | 'zoom'
-  | 'fit'
-  | 'aiStatus';
+  | 'fit';
 
 export interface StatusSectionConfig {
   id: StatusSectionId;
@@ -277,7 +276,6 @@ export const STATUS_SECTION_LABELS: Record<StatusSectionId, string> = {
   viewToggles: 'View Toggles',
   zoom: 'Zoom Controls',
   fit: 'Fit Controls',
-  aiStatus: 'On-Device AI Status',
 };
 
 /**
@@ -562,7 +560,6 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       { id: 'viewToggles', visible: true, order: 32 },
       { id: 'zoom', visible: true, order: 40 },
       { id: 'fit', visible: true, order: 42 },
-      { id: 'aiStatus', visible: true, order: 50 },
     ],
     canvasOverlays: {
       rulers: true,
@@ -674,7 +671,6 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       { id: 'viewToggles', visible: true, order: 32 },
       { id: 'zoom', visible: true, order: 40 },
       { id: 'fit', visible: true, order: 42 },
-      { id: 'aiStatus', visible: true, order: 50 },
     ],
     canvasOverlays: {
       rulers: true,
@@ -783,7 +779,6 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       { id: 'viewToggles', visible: true, order: 32 },
       { id: 'zoom', visible: true, order: 40 },
       { id: 'fit', visible: true, order: 42 },
-      { id: 'aiStatus', visible: true, order: 50 },
     ],
     canvasOverlays: {
       rulers: true,
@@ -905,7 +900,6 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       { id: 'viewToggles', visible: true, order: 32 },
       { id: 'zoom', visible: true, order: 40 },
       { id: 'fit', visible: true, order: 42 },
-      { id: 'aiStatus', visible: true, order: 50 },
     ],
     canvasOverlays: {
       rulers: true,
@@ -1001,7 +995,6 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       { id: 'viewToggles', visible: true, order: 32 },
       { id: 'zoom', visible: true, order: 40 },
       { id: 'fit', visible: true, order: 42 },
-      { id: 'aiStatus', visible: true, order: 50 },
     ],
     canvasOverlays: {
       rulers: true,
@@ -1103,7 +1096,6 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       { id: 'viewToggles', visible: true, order: 32 },
       { id: 'zoom', visible: true, order: 40 },
       { id: 'fit', visible: true, order: 42 },
-      { id: 'aiStatus', visible: true, order: 50 },
     ],
     canvasOverlays: {
       rulers: true,

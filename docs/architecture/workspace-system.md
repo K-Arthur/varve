@@ -476,7 +476,7 @@ gaps:
   pixel dimensions of the selected raster node, photo).
 - **The section vocabulary now covers the entire row** (2026-09-29, see
   `docs/audits/bottom-bar-review-2026-09-29.md`). `renderer`, `viewToggles`,
-  `fit`, `saveStatus`, and `aiStatus` became real section ids — they used to
+  `fit`, and `saveStatus` became real section ids — they used to
   render unconditionally while the dialog offered 12 toggles for a row of
   ~20 items, so unchecking every box left most of the bar in place. Three
   ids were retired because the fact they named already had a better owner:

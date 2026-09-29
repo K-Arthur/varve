@@ -111,11 +111,13 @@ in place. Meanwhile `toolName` was listed and rendered, but the active tool is
 already shown, highlighted and labelled, by the floating palette and repeated in
 the tool-options popover.
 
-**Fix.** `renderer`, `viewToggles`, `fit`, `saveStatus`, and `aiStatus` become
-real section ids, so the row is fully described by its configuration.
-`toolName` is removed: the one thing the bottom bar is worst at (naming a tool
-that is already labelled twice above it) was consuming the leftmost, most
-valuable position on the row.
+**Fix.** `renderer`, `viewToggles`, `fit`, and `saveStatus` become real section
+ids, so the row is fully described by its configuration — and the on-device AI
+chip *loses* its section, because there was nothing persistent left to
+configure once it stopped claiming things (see P2 below). `toolName` is
+removed: the one thing the bottom bar is worst at (naming a tool that is
+already labelled twice above it) was consuming the leftmost, most valuable
+position on the row.
 
 **Deliberate exception, stated once.** `saveStatus` exists as a section id but
 `getVisibleStatusSections()` clamps it visible, the same way
@@ -211,6 +213,28 @@ Email workspaces, so it failed SC 2.5.8 there while every neighbour passed.
 --statusbar-control-height`, `min-width: --target-min-compact`) and the
 coarse-pointer block.
 
+### P2 — The idle AI chip was a claim, not a status
+
+**Evidence.** `AIStatusIndicator` spent nearly all of its life rendering
+`● On-Device AI` with the tooltip *"Private & 100% local (no cloud
+transmission)"*. The message can never be false and can never change, so at no
+moment does it carry information; a status bar that renders constants is
+reporting the product's architecture back to the user, not their session. The
+website already makes the same promise in the FAQ, `/compare`, the homepage,
+`TrustStrip`, and the shader-effects page — the status bar was the seventh
+place for it.
+
+**Fix.** The chip is now **busy-only**: `AIStatusIndicator` returns `null`
+unless an `InferenceAdmission` lease is active/queued or the upscale dialog is
+open, in which case it renders `● Processing` with a pulsing dot. The privacy
+claim moves to where a decision is made — the AIPanel header (*"There is no
+cloud model"*), the AI command tooltips, and Settings — all of which already
+carry it. `aiStatus` is retired as a section id in the same change, because
+there is no longer anything persistent to toggle; the always-mounted `sr-only`
+live region stays so screen readers announce the transition (a live region
+inserted together with its text often goes unannounced — the pattern
+`SaveStatusIndicator` already uses in this bar).
+
 ### P2 — Informational dashes marked nothing
 
 **Evidence.** Two `<span aria-hidden>—</span>` elements separated the bar.
@@ -248,8 +272,12 @@ by other applications.
 | `packages/editor/src/components/DebtBadge.tsx` | Deleted. The debt sub-view stays in the Audit tab. |
 | `packages/editor/src/components/StatusBar/LayoutScoreIndicator.tsx` | Deleted. The layout sub-view stays in the Audit tab. |
 | `packages/editor/src/StatusBar.tsx` | Rewritten around an ordered slot map; rotation is one control; grid spacing is labelled and conditional; fit cluster drops "sel" and the inert button; renderer/toggles/fit/save/AI are sections. |
-| `packages/editor/src/workspace/workspaceTypes.ts` | Section vocabulary updated (`+documentHealth`, `+renderer`, `+viewToggles`, `+fit`, `+saveStatus`, `+aiStatus`; `−toolName`, `−selectionInfo`, `−debt`, `−layoutScore`), six configs updated, `ESSENTIAL_STATUS_SECTION_IDS`, legacy fold in `migrateWorkspaceConfig`. |
+| `packages/editor/src/workspace/workspaceTypes.ts` | Section vocabulary updated (`+documentHealth`, `+renderer`, `+viewToggles`, `+fit`, `+saveStatus`; `−toolName`, `−selectionInfo`, `−debt`, `−layoutScore`), six configs updated, `ESSENTIAL_STATUS_SECTION_IDS`, legacy fold in `migrateWorkspaceConfig`. |
 | `packages/editor/src/workspace/workspaceStore.ts` | Folds legacy `debt`/`layoutScore` overrides into `documentHealth` before sanitizing. |
+| `packages/editor/src/components/AIStatusIndicator/AIStatusIndicator.tsx` |
+  Busy-only: renders `Processing` while an inference lease is queued or
+  running, `null` otherwise; permanent `sr-only` live region; `aiStatus`
+  retired as a section id. |
 | `packages/editor/src/Menubar.tsx` | Menubar zoom control removed (duplicate of the status-bar chip). |
 | `packages/editor/src/editor.css` | Status-bar cluster/spacer rules; `--statusbar-control-height` (the row's own control tier) replacing the 28px toolbar token; preflight badge target size; removed the informational dash rule and the menubar zoom rules. |
 | `packages/editor/src/components/WorkspaceCustomizeDialog.tsx` | Save-status row renders disabled with a reason; hint text describes the two clusters. |
@@ -298,9 +326,6 @@ View-menu workspace labels, artboard coordinates). Full attribution is in
 - The information cluster's `.editor-status__meta` still caps at `14rem` each;
   four long labels on a narrow window ellipsize before the tier rules fire.
   Tiering by *content length* would need measurement, not media queries.
-- `AIStatusIndicator` remains default-visible in every workspace. It is now
-  user-hideable; whether the idle "On-Device AI" claim should be *on* by default
-  is a product decision, not a design-debt one.
 - `PreflightWarnings` and `DocumentHealthBadge` can both show a `TriangleAlert`
   count in print/email workspaces. They answer different questions (production
   readiness vs. document health) and open different surfaces, so they are

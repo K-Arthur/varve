@@ -1,11 +1,33 @@
 /**
- * AIStatusIndicator — non-blocking chrome chip showing local on-device ML status.
+ * AIStatusIndicator — transient on-device inference state, nothing else.
  *
- * Research basis: Varve is local-first; inference (background removal, upscale, vectorize)
- * runs on-device via WebGPU / ONNX / native engine without sending user pixels to cloud servers.
+ * This chip deliberately renders **only while inference is running**. The idle
+ * state it used to occupy — a permanent `On-Device AI` pill claiming "Private &
+ * 100% local (no cloud transmission)" — stated a fact that is always true of
+ * Varve, so it never carried information, and repeated a promise the website
+ * already makes in five places. A permanent chip whose message cannot change
+ * is decorative chrome, which `docs/architecture/workspace-system.md` bans
+ * outright; it also fails the same bar Figma's UI3 was criticized for in
+ * `docs/audits/bottom-bar-review-2026-09-29.md` — permanent chrome that
+ * "provides nothing that isn't already available". The privacy claim belongs
+ * where a decision is made: the AIPanel header, the AI command tooltips, and
+ * Settings, all of which already state it.
  *
- * Displays a quiet status chip in the editor chrome with signature electric teal
- * (--color-signature-ai) indicator.
+ * What is genuinely needed is the other half: background removal, generative
+ * edit, content-aware fill and upscaling all take seconds, and
+ * `InferenceAdmission` is the only cross-surface signal that a lease is
+ * active or queued (see `packages/engine/src/inference/admission.ts`). A
+ * per-surface pending flag only reflects that one caller. The status bar is
+ * where in-progress operations belong — the same split Blender makes between
+ * transient operation messages (status bar) and steady state (editor header).
+ *
+ * The live region is always mounted even though the chip is not: a screen
+ * reader frequently does not announce a live region that is inserted together
+ * with its text. This mirrors `SaveStatusIndicator`, which keeps its own
+ * permanent `sr-only` region in the same bar for the same reason.
+ *
+ * Because there is no longer anything persistent to configure, this is NOT a
+ * `StatusSectionId` — the `aiStatus` id was retired with the idle chip.
  */
 
 import { getInferenceAdmission } from '@varve/engine';
@@ -18,13 +40,6 @@ export interface AIStatusIndicatorProps {
   className?: string;
 }
 
-/**
- * Background removal, generative edit, and the shared model-worker host all
- * acquire a lease from the same `InferenceAdmission` queue (see
- * packages/engine/src/inference/admission.ts). Reading its snapshot is the
- * one real cross-editor "AI is running" signal — a per-surface local flag
- * (e.g. the quick bar's own pending state) only reflects that one caller.
- */
 function subscribeAdmission(onChange: () => void): () => void {
   return getInferenceAdmission().subscribe(onChange);
 }
@@ -40,22 +55,18 @@ export function AIStatusIndicator({ className = '' }: AIStatusIndicatorProps) {
   const isBusy = admissionBusy || state.upscaleDialogOpen;
 
   return (
-    <Tooltip
-      label={
-        isBusy
-          ? 'On-device neural engine processing…'
-          : 'On-device neural engine: Private & 100% local (no cloud transmission)'
-      }
-    >
-      <div
-        className={`ai-status-indicator${isBusy ? ' ai-status-indicator--busy' : ''} ${className}`}
-        role="status"
-        aria-live="polite"
-        aria-label={isBusy ? 'AI Processing locally' : 'Local neural engine ready'}
-      >
-        <span className="ai-status-indicator__dot" aria-hidden="true" />
-        <span className="ai-status-indicator__label">{isBusy ? 'Processing' : 'On-Device AI'}</span>
-      </div>
-    </Tooltip>
+    <>
+      <span className="sr-only" role="status" aria-live="polite">
+        {isBusy ? 'AI processing locally' : ''}
+      </span>
+      {isBusy && (
+        <Tooltip label="On-device neural engine processing…">
+          <div className={`ai-status-indicator ai-status-indicator--busy ${className}`}>
+            <span className="ai-status-indicator__dot" aria-hidden="true" />
+            <span className="ai-status-indicator__label">Processing</span>
+          </div>
+        </Tooltip>
+      )}
+    </>
   );
 }

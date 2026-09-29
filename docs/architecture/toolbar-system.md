@@ -79,7 +79,7 @@ low-priority segments at narrow widths (diagnostic < 1180px, fit cluster <
 |---|---|
 | Selection identity, type, geometry, position, rotation, ancestor breadcrumbs, page/layer counts | `SelectionInfoBar` |
 | Renderer truth, page/colour/image/cursor readouts, preflight, document health, save state, shortcut tips | `StatusBar` information cluster |
-| Units, grid/view toggles, zoom, fit, on-device AI status | `StatusBar` control cluster |
+| Units, grid/view toggles, zoom, fit | `StatusBar` control cluster |
 
 Anything already labelled twice elsewhere is not repeated here: the active tool
 comes from the palette, and the menubar's own zoom field was removed because
@@ -97,7 +97,10 @@ Photoshop stale-measurement bug, Illustrator's one-and-done zoom field) live in
 - **Sections are exhaustive.** Every rendered control has an id
   (`renderer`, `pageInfo`, `colorMode`, `imageInfo`, `cursorPos`, `preflight`,
   `documentHealth`, `saveStatus`, `shortcutTip`, `unit`, `viewToggles`, `zoom`,
-  `fit`, `aiStatus`), so the customize dialog describes the whole row.
+  `fit`), so the customize dialog describes the whole row. Two things in the
+  bar are transient state rather than configuration and therefore carry no id:
+  the view-rotation chip (exists only while the view is rotated) and the
+  on-device AI chip (exists only while a job is queued or running).
   `saveStatus` is clamped visible by `ESSENTIAL_STATUS_SECTION_IDS` — that row
   exists to make the list complete, and its checkbox is disabled with a reason.
 - The bar's height is `var(--statusbar-height)`, the same token the shell

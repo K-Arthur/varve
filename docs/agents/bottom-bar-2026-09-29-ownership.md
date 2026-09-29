@@ -34,6 +34,8 @@ below.
 | `packages/editor/src/workspace/workspaceTypes.ts` + `workspaceTypes.test.ts` | Section vocabulary, six configs, `ESSENTIAL_STATUS_SECTION_IDS`, legacy fold. |
 | `packages/editor/src/workspace/workspaceStore.ts` | Legacy `debt`/`layoutScore` override fold; essential overrides are never written. |
 | `packages/editor/src/workspace/{workspaceMode,workspaceSwitching}.test.tsx`, `__tests__/workspaceMotion.test.ts` | Updated for the new vocabulary; two stale assertions that already failed at HEAD fixed (see below). |
+| `packages/editor/src/components/AIStatusIndicator/{AIStatusIndicator,AIStatusIndicator.test}.tsx` |
+  Busy-only (user decision: retire the permanent idle claim); `aiStatus` section id removed. |
 | `packages/editor/src/Menubar.tsx` | Menubar zoom field removed (duplicate of `#status-zoom`). |
 | `packages/editor/src/editor.css` | Cluster/spacer/rotation/view-group/health styles; dead menubar-zoom and score-badge rules removed. |
 | `tests/e2e/workspace/bottom-bar.spec.ts` | New — single-ownership, customize-dialog, and geometry contract. |
