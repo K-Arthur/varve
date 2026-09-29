@@ -11,41 +11,38 @@
  * text and caption always come from whatever the pipeline actually captured.
  *
  * A scene that was skipped renders nothing at all, rather than a broken image.
+ *
+ * Placement semantics: a feature page shows one image at one job (overview,
+ * detail, or result). Fit is decided by the scene's captured kind, so a tall
+ * panel crop is shown at its intrinsic width instead of being stretched or
+ * cropped into the surrounding layout.
  */
-import manifest from '../data/screenshot-manifest.json';
-import { sitePath } from '../lib/siteUrl';
+import ScreenshotZoom from './ScreenshotZoom.astro';
+import { getScene } from '../lib/screenshot';
 
 interface Props {
   /** Scene id in the manifest, e.g. "workspaces". */
   scene: string;
   /** Override the manifest caption when a page needs more specific framing. */
   caption?: string;
+  /** Priority hint for an above-the-fold hero visual. */
+  priority?: boolean;
+  sizes?: string;
 }
 
-type ScreenshotScene = {
-  file: string;
-  alt: string;
-  caption: string;
-  width?: number;
-  height?: number;
-  status?: string;
-};
-
-const { scene, caption } = Astro.props;
-const scenes = (manifest as { scenes: Record<string, ScreenshotScene> }).scenes;
-const shot = scenes[scene]?.status === 'captured' ? scenes[scene] : null;
+const { scene, caption, priority = false, sizes = '(min-width: 1100px) 760px, 100vw' } = Astro.props;
+const shot = getScene(scene);
 ---
 
 {
   shot && (
     <figure class="feature-visual">
-      <img
-        src={sitePath(`/screenshots/${shot.file}`)}
-        alt={shot.alt}
-        width={shot.width ?? 1440}
-        height={shot.height ?? 900}
-        loading="lazy"
-        decoding="async"
+      <ScreenshotZoom
+        scene={shot}
+        loading={priority ? 'eager' : 'lazy'}
+        fetchpriority={priority ? 'high' : 'auto'}
+        sizes={sizes}
+        label="View full size"
       />
       {(caption ?? shot.caption) && <figcaption>{caption ?? shot.caption}</figcaption>}
     </figure>
@@ -56,22 +53,28 @@ const shot = scenes[scene]?.status === 'captured' ? scenes[scene] : null;
   .feature-visual {
     /* audit-spacing: allow optical tuck toward the preceding copy */
     margin: -1rem 0 3rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
   }
 
-  .feature-visual img {
+  .feature-visual :global(.screenshot-image) {
     display: block;
     width: 100%;
-    height: auto;
     border: 1px solid var(--border-default);
     border-radius: var(--website-radius-card);
     box-shadow: var(--elevation-shadow-raised);
+    background: var(--surface-card);
+    overflow: hidden;
   }
 
-  /* Panel crops are tall and narrow; letting them run the full column width
-     blows them up well past 1:1 and softens the type they exist to show. */
-  .feature-visual img[width='320'] {
-    max-width: 320px;
-    margin: 0 auto;
+  /* The screenshot keeps its own aspect ratio. `object-fit: contain` is used
+     only to guarantee the whole capture stays visible if a consumer constrains
+     the height; nothing here crops a scene. */
+  .feature-visual :global(.screenshot-image img) {
+    display: block;
+    height: auto;
+    object-fit: contain;
   }
 
   .feature-visual figcaption {

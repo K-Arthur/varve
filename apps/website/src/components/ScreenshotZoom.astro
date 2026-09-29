@@ -1,0 +1,174 @@
+---
+/**
+ * ScreenshotZoom — an accessible "view full size" affordance for a capture.
+ *
+ * Why: a 1440x900 workspace capture shown at a phone width is legible as an
+ * *impression* but not as detail, and enlarging a low-resolution file is not a
+ * fix. This reuses the native `<dialog>` (top-layer stacking, inert
+ * background, Escape, focus returning to the trigger) so no focus trap is
+ * hand-rolled, and it points at the *same* URL that is already displayed — an
+ * opened capture transfers no additional bytes beyond what the page already
+ * fetched, and the image is never scaled above its intrinsic width.
+ *
+ * Progressive enhancement: the trigger ships `hidden` and is revealed by the
+ * script; without JavaScript the control does not exist and a plain link to
+ * the image is offered instead, so nothing is a dead control.
+ */
+import ScreenshotImage from './ScreenshotImage.astro';
+import { scenePicture, type ScreenshotScene } from '../lib/screenshot';
+import { sitePath } from '../lib/siteUrl';
+
+interface Props {
+  scene: ScreenshotScene;
+  sizes?: string;
+  loading?: 'lazy' | 'eager';
+  fetchpriority?: 'high' | 'auto' | 'low';
+  label?: string;
+}
+
+const {
+  scene,
+  sizes,
+  loading = 'lazy',
+  fetchpriority = 'auto',
+  label = 'View full size',
+} = Astro.props;
+const picture = scenePicture(scene, { sizes, loading, fetchpriority });
+const dialogId = `zoom-${scene.file.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}`;
+const dialogLabel = `${scene.caption} — full size`;
+---
+
+<div class="screenshot-zoom">
+  <ScreenshotImage scene={scene} sizes={sizes} loading={loading} fetchpriority={fetchpriority} />
+  <noscript>
+    <a class="screenshot-zoom__fallback" href={sitePath(picture.src)}>{label}</a>
+  </noscript>
+  <button
+    type="button"
+    class="screenshot-zoom__trigger"
+    data-zoom-trigger
+    data-zoom-target={dialogId}
+    hidden
+  >
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"></path>
+    </svg>
+    {label}
+  </button>
+
+  <dialog class="screenshot-zoom__dialog" id={dialogId} aria-label={dialogLabel}>
+    <form method="dialog" class="screenshot-zoom__bar">
+      <button type="submit" class="screenshot-zoom__close">Close</button>
+    </form>
+    <img
+      src={sitePath(picture.src)}
+      width={picture.width}
+      height={picture.height}
+      alt={picture.alt}
+      loading="lazy"
+      decoding="async"
+    />
+  </dialog>
+</div>
+
+<script>
+  const roots = document.querySelectorAll('.screenshot-zoom');
+  for (const root of roots) {
+    const trigger = root.querySelector<HTMLButtonElement>('[data-zoom-trigger]');
+    const dialogId = trigger?.dataset.zoomTarget;
+    const dialog = dialogId
+      ? (document.getElementById(dialogId) as HTMLDialogElement | null)
+      : null;
+    if (!trigger || !dialog) continue;
+    trigger.hidden = false;
+    trigger.addEventListener('click', () => {
+      // showModal() puts the dialog in the top layer, makes the rest of the
+      // page inert, and restores focus to this trigger when it closes.
+      if (!dialog.open) dialog.showModal();
+    });
+    // Clicking the backdrop (outside the image and the bar) closes, matching
+    // the rest of the site's dialog behaviour. The form's Close button and
+    // Escape are handled by the platform.
+    dialog.addEventListener('click', (event) => {
+      if (event.target === dialog) dialog.close();
+    });
+  }
+</script>
+
+<style>
+  .screenshot-zoom {
+    position: relative;
+    display: block;
+  }
+
+  .screenshot-zoom__trigger,
+  .screenshot-zoom__fallback {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    margin-top: var(--space-2);
+    padding: var(--space-1) var(--space-2);
+    border: 1px solid var(--border-default);
+    border-radius: var(--website-radius-control-compact);
+    background: var(--surface-card);
+    color: var(--text-secondary);
+    font-size: var(--type-interface-caption-size);
+    cursor: pointer;
+  }
+
+  .screenshot-zoom__trigger:hover,
+  .screenshot-zoom__fallback:hover {
+    color: var(--text-primary);
+    border-color: var(--border-strong);
+  }
+
+  .screenshot-zoom__trigger:focus-visible {
+    outline: 2px solid var(--brand-teal);
+    outline-offset: 2px;
+  }
+
+  .screenshot-zoom__dialog {
+    max-width: min(96vw, 1600px);
+    max-height: 96vh;
+    padding: 0;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--website-radius-card);
+    background: var(--surface-card);
+    overflow: auto;
+    overscroll-behavior: contain;
+  }
+
+  .screenshot-zoom__dialog::backdrop {
+    background: oklch(0 0 0 / 0.72);
+  }
+
+  /* The point of the dialog is the original pixels: show the capture at its
+     intrinsic size and let the dialog scroll, rather than shrinking a 1440px
+     window to fit a phone and calling that "full size". Never scaled above the
+     intrinsic width either. */
+  .screenshot-zoom__dialog img {
+    display: block;
+    width: auto;
+    max-width: none;
+    height: auto;
+  }
+
+  .screenshot-zoom__bar {
+    display: flex;
+    justify-content: flex-end;
+    padding: var(--space-2);
+    position: sticky;
+    top: 0;
+    background: var(--surface-card);
+    border-bottom: 1px solid var(--border-default);
+  }
+
+  .screenshot-zoom__close {
+    padding: var(--space-1) var(--space-3);
+    border: 1px solid var(--border-default);
+    border-radius: var(--website-radius-control-compact);
+    background: var(--surface-muted);
+    color: var(--text-primary);
+    cursor: pointer;
+  }
+</style>

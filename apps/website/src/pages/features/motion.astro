@@ -1,5 +1,6 @@
 ---
 import Button from '../../components/Button.astro';
+import FeatureVisual from '../../components/FeatureVisual.astro';
 import Layout from '../../layouts/Layout.astro';
 import { sitePath } from '../../lib/siteUrl';
 ---
@@ -23,16 +24,7 @@ import { sitePath } from '../../lib/siteUrl';
         </p>
       </section>
 
-      <figure class="feature-visual">
-        <img
-          src={sitePath('/screenshots/motion-dark.png')}
-          alt="The Varve timeline panel with a track for the selected layer"
-          width="1440"
-          height="264"
-          loading="lazy"
-        />
-        <figcaption>The timeline panel in the motion workspace</figcaption>
-      </figure>
+      <FeatureVisual scene="motion" />
 
       <section class="feature-section">
         <h2>Key Capabilities</h2>

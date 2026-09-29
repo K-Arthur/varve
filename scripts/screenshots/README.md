@@ -9,6 +9,7 @@ deterministic states.
 | Command | What it does |
 |---|---|
 | `pnpm screenshots:product` | Capture every scene into `docs/screenshots/product/`, sync a copy into `apps/website/public/screenshots/`, and rewrite `apps/website/src/data/screenshot-manifest.json` |
+| `node scripts/screenshots/product.mjs --normalize` | Re-derive the manifest's *measurable* metadata (dimensions, hashes, kind, crop, viewport) from the already-published files without recapturing anything |
 | `pnpm screenshots:og` | Render the 1200x630 social-card image from `scripts/screenshots/og-template.html` into `apps/website/public/og-image.png` |
 | `pnpm screenshots:workflow` | Record a 10-20s deterministic editing workflow as WebM (+ optional MP4 via ffmpeg) |
 | `pnpm screenshots:website` | Build the website and validate the manifest (fails on broken/missing references) |
@@ -17,6 +18,14 @@ deterministic states.
 
 Targeted capture: `pnpm screenshots:product -- --scenes workspace,vector`
 Strict mode: `pnpm screenshots:product -- --strict` (exit non-zero on any skip)
+
+`--normalize` exists because a metadata change should not re-shoot every image:
+screenshots are dependency-aware evidence, so adding a `kind` field re-measures
+the files rather than churning 34 committed binaries. It refuses to write a
+`capturedAt` or `lastValidatedAgainst` for a scene it did not capture, and marks
+such records `provenanceUnknown: true` instead of backfilling a guessed date or
+revision. Legacy records therefore stay visibly unverified until they are
+recaptured.
 
 To inspect captures before changing published screenshots, use a review directory:
 
@@ -60,6 +69,90 @@ so the per-run tally is the line to read.
   place alt text, captions, themes and validation state live. The website
   renders screenshots from the manifest, so a missing capture degrades to a
   clear placeholder instead of a stale image.
+
+## Provenance (manifest schema 2)
+
+Every run records what it was, independently of the volatile run clock:
+
+| Field | Meaning |
+|---|---|
+| `sourceRevision` | exact `git rev-parse HEAD` at capture time |
+| `sourceDigest` | sha256 of the revision plus the uncommitted status/diff of the paths that decide what a capture looks like (`scripts/screenshots`, `packages/editor/src`, `packages/scene/src`, `packages/engine/src`, `packages/shared/src`, `packages/compositor/src`, `apps/desktop/src`) |
+| `sourceDirty` | whether those paths had uncommitted changes |
+| `captureTool` / `provenance.runtime` | Playwright + Chromium version, and whether this was a capture or a metadata-only `--normalize` |
+| per scene `capturedAt`, `lastValidatedAgainst` | written only by a run that actually captured the scene |
+| per scene `provenanceUnknown` | this record was normalised, not captured — its date and revision are unknown, not filled in |
+
+`generatedAt` is volatile and is never used as content identity; content
+identity is the per-scene `sha256`, which contains no timestamp.
+
+## Non-destructive by default
+
+- Captures and the manifest are written with temp-file + rename, so a website
+  build or another process never observes a half-written image or manifest.
+- The manifest is read once at the start of a run and re-checked before it is
+  written. If another writer changed it in the meantime, the run **refuses to
+  overwrite it** rather than silently discarding their scenes.
+- A failed scene deletes only its own previous output; it never leaves a stale
+  image behind for the site to keep serving.
+- Diagnostic frames from a failing run (`VARVE_SHOT_DEBUG=1`) are written to
+  `reports/screenshot-debug/`, never next to published captures. A `debug-*.png`
+  appearing in a screenshots directory is stale local state and is reported by
+  the validator.
+- The dev server is terminated as a process group. Killing only the `pnpm` pid
+  used to leave a Vite server listening on the capture port after every run.
+
+## Readiness
+
+A capture is taken when the application says it is ready, not after a sleep:
+
+1. **Document identity.** `openDemoDocument` waits for the editor's own
+   screen-reader heading (`<file> — Varve`) to name the fixture it just opened.
+   The previous implementation slept 1500 ms and then asserted generic chrome
+   that is visible regardless of which document loaded, so a rejected or failed
+   load could be captured as the intended document.
+2. **Fonts.** Every font family referenced by the fixture's text nodes is read
+   from the committed document and required to be loaded before the shot, so a
+   substituted face fails the scene. Late loads are waited for, not assumed.
+3. **Canvas stability.** The canvas region is sampled until two consecutive
+   frames are byte-identical (bounded), then the mouse is parked and sampling
+   repeats. Two `requestAnimationFrame` ticks alone prove nothing about a
+   pipeline that commits a worker bitmap later.
+4. **Not blank.** The captured bytes are decoded; a valid-but-uniform frame is
+   rejected before it can be published.
+
+`--strict` turns any skip into a non-zero exit. The run prints its own tally
+(`attempted`, `captured`, `failed-to-capture`, `opted out`) separately from the
+manifest totals, because a run that captured nothing still leaves a manifest
+full of previously-captured scenes.
+
+## Cropping and framing
+
+Two mechanisms, in order of preference:
+
+- **Measured** (`clipFrom`): a scene names real containers (`selector`, and
+  optionally `top`/`bottom`) and the crop window is measured from them after
+  the document, fonts and selection have settled. The `layers` scene uses this;
+  its previous fixed window started framing a "Design Canvases" block that was
+  added above the layer list.
+- **Fixed** (`clip` in `CROP`): used only where the region genuinely is fixed
+  geometry (the canvas column, the inspector column, the timeline strip).
+
+Either way the clip is recorded in the manifest, validated to fit the viewport
+it was taken from, and matched against the captured file's dimensions. Each
+scene also records a `kind`:
+
+| kind | meaning | website fit policy |
+|---|---|---|
+| `full` | whole application frame | fills the column at its own ratio |
+| `detail` | crop of one region | fills the column at its own ratio |
+| `panel` | narrow column (inspector, layers) | capped at its intrinsic pixel width, never upscaled |
+| `wide` | short full-width strip (timeline) | fills the column at its own ratio |
+
+The website derives its fit policy from `kind`. It previously applied one
+`aspect-ratio: 4/3; object-fit: cover` to every detail crop, which cut a
+portrait layer-panel crop down to a landscape window — the image no longer
+contained the rows its caption described, and nothing failed.
 
 ## Demo documents
 
@@ -108,6 +201,7 @@ modes and a real type hierarchy.
 | `effects` | light | full | Effects inspector with a real drop shadow added to a shape |
 | `image-tools` | light | inspectorTall | Enhance, Vectorize, Object Selection, Background Removal, Depth Blur |
 | `workspaces` | light | full | Print workspace active — Masters, Pages, and Spreads panels |
+| `workspace-shared-workflows` | light | 936×900 compact | Design with Logo project controls and shared Code output beside the same poster document |
 
 Detail scenes are cropped **at capture time** (`clip`), because the website
 shows them at roughly a third of the page width where a scaled-down full
@@ -270,29 +364,85 @@ motion.
 - framing asserted via Fit-all plus a zoom read-back, so a scene fails rather
   than shipping a mis-framed capture (note: selecting a layer reveals and
   zooms to it, so scenes select *then* fit);
-- fixed viewport 1440x900 at DPR 1 with reduced motion;
-- waits on fonts/canvas/settle rather than fixed sleeps;
+- fixed 1440x900 viewport at DPR 1 with reduced motion, except scenes that
+  declare their own `viewport` (the `layers` panel needs a taller window for its
+  list to take its flex space; the manifest records the viewport actually used);
+- waits on document identity, fonts, canvas stability and a decode check rather
+  than fixed sleeps;
 - mouse parked off-canvas before capture (no hover ambiguity);
 - no text-edit carets, no playhead animation, no notifications.
 
 ## Validation
 
-`node scripts/screenshots/validate.mjs [--strict]` checks:
+`node scripts/screenshots/validate.mjs [--strict] [--scenes a,b]` checks:
 
-- every captured manifest entry has a real, non-empty PNG with sane dimensions;
-- every captured PNG matches its manifest SHA-256 and an identical canonical
-  copy under `docs/screenshots/product/`;
-- manifest dimensions match the files;
+- the manifest schema, provenance fields, and that every scene declares
+  file/alt/caption/feature/theme/kind with a known status;
+- file names are bare names (no traversal, no nested path) and unique;
+- every captured PNG **decodes**: every chunk CRC is verified and the image data
+  is inflated (`lib/image-analysis.mjs`). A truncated file, or a byte-flipped
+  file that keeps its dimensions and byte length, fails;
+- a uniform/blank image is flagged (a heuristic that can reject obvious output,
+  never certify good output);
+- every captured PNG matches its manifest SHA-256, its recorded dimensions and
+  its crop/viewport metadata, and is byte-identical to its canonical copy;
+  video copies are compared byte-for-byte, not by length;
+- declared `variants` exist, decode, are byte-equal across both output
+  directories, and never upscale their source;
+- scenes whose producer is an external E2E spec point at a file that exists;
 - skipped entries carry a reason;
-- every `/screenshots/` reference in docs/README/website sources resolves to a
-  captured entry or a generated workflow asset (no stale paths, no orphan files);
+- every `/screenshots/` reference in docs, README and website sources resolves
+  to a captured entry or a documented generated asset. The check covers plain
+  attributes, Markdown image syntax, and paths inside template expressions —
+  the last form is what hid three references to files that do not exist;
 - individual PNG file size stays under 2 MB (warn at 1 MB);
 - total captured PNG set stays under 10 MB (warn at 5 MB);
-- no orphan PNGs in `public/screenshots/` or `docs/screenshots/product/`
-  (the generated `workflow-poster.png` is exempt);
-- workflow video files (`.webm`, `.mp4`) pass budget checks (warn 5 MB, fail 10 MB)
-  and exist in both output directories when present;
-- `workflow-poster.png`, when present, is a valid PNG within the image budget
-  and consistent across both output directories.
+- no orphan PNG/WebP in either output directory;
+- workflow video and poster budgets, and cross-directory byte equality.
 
-A Vitest mirror runs in `pnpm test:website` (`src/test/screenshots.test.ts`).
+A reference from a file with uncommitted changes is reported as a warning
+rather than a failure: this checkout is shared and a neighbour mid-edit may be
+about to add the asset. The same reference in a committed file fails, so the
+commit/CI run is where a genuinely broken reference breaks.
+
+A Vitest mirror runs in `pnpm test:website` (`src/test/screenshots.test.ts`,
+`src/test/imageAnalysis.test.ts`, `src/test/screenshotLib.test.ts`), and the
+browser-side delivery contract is
+`apps/website/tests/e2e/screenshot-delivery.spec.ts`.
+
+## Website consumption
+
+Screenshots reach the site through one contract:
+
+- `src/lib/screenshot.ts` — scene lookup, kind, fit style, `src`/`srcset`/`sizes`
+  built from the manifest's measured dimensions and any generated variants.
+- `ScreenshotImage.astro` — the image element (`<picture>` when variants exist).
+- `ScreenshotZoom.astro` — the image plus an accessible "view full size"
+  control: a real labelled button, native `<dialog>` (top-layer, inert
+  background, Escape), focus returned to the trigger, and a `<noscript>` link
+  fallback. It points at the already-displayed URL, so opening it transfers no
+  extra bytes, and it shows the capture at its intrinsic size in a scrolling
+  dialog rather than shrinking a 1440px window to a phone width.
+- `FeatureVisual.astro` — a feature-page figure with the manifest caption.
+- `ProductShowcase.astro` — the homepage window + detail row.
+
+A literal `/screenshots/<file>` path in a component is therefore a test
+failure (`src/test/screenshots.test.ts`): the only exceptions are
+`lib/screenshot.ts` (which builds the URL) and the workflow video on
+`pages/product.astro` (which is not a manifest scene).
+
+## Known limitations
+
+- Captures are DPR 1. Panel crops are capped at their intrinsic pixel width, so
+  they are never enlarged in CSS, but a DPR 2 display resamples them. Capturing
+  detail/panel scenes at DPR 2 is not implemented; it needs a `displayWidth`
+  concept in the manifest before the intrinsic `width`/`height` attributes can
+  stay in CSS pixels.
+- No WebP/AVIF variants are generated yet. `public/` is copied as-is by Astro
+  and `sharp` is not installed, so there is no build-time image service; the
+  manifest already carries a `variants` contract (`lib/screenshot.ts` emits
+  `srcset`/`sizes` when variants exist) and the validator already checks them,
+  but the generation step itself is not written.
+- Screenshots whose producer is an E2E spec (plugin manager, tonal, comic
+  lettering, the settings/design-token visuals) are registered and verified by
+  this pipeline but re-recorded only by their owning spec.

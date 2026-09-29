@@ -1,5 +1,6 @@
 ---
 import Button from '../../components/Button.astro';
+import FeatureVisual from '../../components/FeatureVisual.astro';
 import Layout from '../../layouts/Layout.astro';
 import { sitePath } from '../../lib/siteUrl';
 ---
@@ -248,16 +249,10 @@ import { sitePath } from '../../lib/siteUrl';
         </p>
       </section>
 
-      <figure class="feature-visual">
-        <img
-          src={sitePath('/screenshots/layout-light.png')}
-          alt="Two pages of a Varve document side by side on the canvas, with page labels and ruler guides showing precise positioning"
-          width="1440"
-          height="900"
-          loading="lazy"
-        />
-        <figcaption>Multiple pages, rulers, and precision tools on one infinite canvas</figcaption>
-      </figure>
+      <FeatureVisual
+        scene="layout"
+        caption="Multiple pages, rulers, and precision tools on one infinite canvas"
+      />
 
       <section class="feature-section">
         <h2>Key Capabilities</h2>

@@ -1,5 +1,6 @@
 ---
 import Button from '../../components/Button.astro';
+import FeatureVisual from '../../components/FeatureVisual.astro';
 import Layout from '../../layouts/Layout.astro';
 import StatusPill from '../../components/StatusPill.astro';
 import { sitePath } from '../../lib/siteUrl';
@@ -24,20 +25,10 @@ import { sitePath } from '../../lib/siteUrl';
         document, with the same typography, layers, selection, and export systems.
       </p>
 
-      <figure class="comic-shot">
-        <img
-          src={sitePath('/screenshots/comic-lettering-light.png')}
-          alt="A speech balloon selected in Varve with a long dialogue line stacked into a balloon contour; the Comic balloon inspector shows tail endpoint, curve and base width, line shape, fit policy, and add/flip/remove tail actions"
-          width="1280"
-          height="720"
-          loading="lazy"
-          decoding="async"
-        />
-        <figcaption>
-          Four wrapped lines with the longest line mid-balloon, and the Comic balloon inspector:
-          fit policy, line shape, and editable tails.
-        </figcaption>
-      </figure>
+      <FeatureVisual
+        scene="comic-lettering"
+        caption="Four wrapped lines with the longest line mid-balloon, and the Comic balloon inspector: fit policy, line shape, and editable tails."
+      />
 
       <section class="comic-visual" aria-label="Editable comic lettering example">
         <div class="comic-visual__panel">

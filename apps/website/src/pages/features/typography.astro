@@ -1,6 +1,8 @@
 ---
 import Button from '../../components/Button.astro';
 import Layout from '../../layouts/Layout.astro';
+import ScreenshotImage from '../../components/ScreenshotImage.astro';
+import { getScene } from '../../lib/screenshot';
 import { sitePath } from '../../lib/siteUrl';
 
 const fontReplacementFaq = {
@@ -150,23 +152,11 @@ const fontReplacementFaq = {
 
       <div class="feature-visual feature-visual--pair">
         <figure>
-          <img
-            src={sitePath('/screenshots/typography-light.png')}
-            alt="A type specimen in Varve showing a display character, a character set, a subhead and a body paragraph"
-            width="832"
-            height="620"
-            loading="lazy"
-          />
+          <ScreenshotImage scene={getScene('typography')!} sizes="(min-width: 900px) 45vw, 100vw" />
           <figcaption>A type hierarchy set on the canvas</figcaption>
         </figure>
         <figure>
-          <img
-            src={sitePath('/screenshots/typography-panel-light.png')}
-            alt="The Varve properties inspector showing typography controls: font family, weight, size, line height and letter spacing"
-            width="320"
-            height="620"
-            loading="lazy"
-          />
+          <ScreenshotImage scene={getScene('typography-panel')!} sizes="(min-width: 900px) 20vw, 100vw" />
           <figcaption>Type controls for the selected text</figcaption>
         </figure>
       </div>
@@ -264,25 +254,13 @@ const fontReplacementFaq = {
 
       <div class="feature-visual">
         <figure>
-          <img
-            src={sitePath('/screenshots/font-toolbar-light.png')}
-            alt="The compact text toolbar with the font family menu open while editing text"
-            width="1440"
-            height="900"
-            loading="lazy"
-          />
+          <ScreenshotImage scene={getScene('font-toolbar')!} sizes="(min-width: 1100px) 760px, 100vw" />
           <figcaption>Choose a family from the compact text toolbar</figcaption>
         </figure>
       </div>
       <div class="feature-visual">
         <figure>
-          <img
-            src={sitePath('/screenshots/font-browser-light.png')}
-            alt="Browse fonts with a family list, editable specimen, and source details"
-            width="1440"
-            height="900"
-            loading="lazy"
-          />
+          <ScreenshotImage scene={getScene('font-browser')!} sizes="(min-width: 1100px) 760px, 100vw" />
           <figcaption>Inspect a local family specimen before applying it</figcaption>
         </figure>
       </div>

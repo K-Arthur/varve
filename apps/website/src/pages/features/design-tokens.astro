@@ -1,6 +1,7 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import StatusPill from '../../components/StatusPill.astro';
+import FeatureVisual from '../../components/FeatureVisual.astro';
 import { sitePath } from '../../lib/siteUrl';
 ---
 
@@ -56,12 +57,10 @@ import { sitePath } from '../../lib/siteUrl';
         </div>
       </section>
 
-      <figure class="runtime-capture">
-        <img src={sitePath('/screenshots/design-tokens-alias-bound-light.png')}
-          width="1600" height="1000" loading="lazy"
-          alt="Varve showing a blue rectangle with its fill linked to the complete semantic.brand.curlyAlias token path" />
-        <figcaption>A source alias bound through the Inspector, with its resolved color painted on the canvas.</figcaption>
-      </figure>
+      <FeatureVisual
+        scene="design-tokens-contrast"
+        caption="A source alias bound through the Inspector, with its resolved colour painted on the canvas."
+      />
 
       <section class="capabilities" aria-labelledby="capabilities-title">
         <p class="eyebrow">What it handles</p>
@@ -220,8 +219,6 @@ import { sitePath } from '../../lib/siteUrl';
   .flow-steps small { color: var(--text-secondary); line-height: 1.4; }
   .arrow { align-self: center; color: var(--accent-primary); font-size: var(--type-interface-title-size); }
   .runtime-capture { margin: var(--space-8) 0; }
-  .runtime-capture img { display: block; width: 100%; height: auto; border: 1px solid var(--border-default); border-radius: var(--website-radius-surface); }
-  .runtime-capture figcaption { color: var(--text-secondary); margin-top: var(--space-3); line-height: 1.6; }
   .capabilities { padding: 4rem 0; }
   .capabilities h2, .capability-matrix h2 { color: var(--text-primary); font-size: var(--type-display-section-size); margin: .5rem 0 1.5rem; }
   .capability-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-4); }

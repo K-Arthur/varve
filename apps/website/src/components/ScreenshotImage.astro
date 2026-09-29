@@ -1,0 +1,60 @@
+---
+/**
+ * ScreenshotImage — one manifest scene rendered as an image.
+ *
+ * The scene, its alt text, its dimensions and its responsive candidates all
+ * come from `src/data/screenshot-manifest.json` via `lib/screenshot.ts`.
+ * Consumers decide the *placement* (caption, framing, priority, sizes) but not
+ * the crop, which keeps a caption and the pixels it describes in agreement.
+ */
+import { sceneFitStyle, scenePicture, type ScreenshotScene } from '../lib/screenshot';
+import { sitePath } from '../lib/siteUrl';
+
+interface Props {
+  scene: ScreenshotScene;
+  /** Layout sizes attribute; required in practice for a `srcset` to help. */
+  sizes?: string;
+  loading?: 'lazy' | 'eager';
+  fetchpriority?: 'high' | 'auto' | 'low';
+  class?: string;
+}
+
+const { scene, sizes, loading = 'lazy', fetchpriority = 'auto', class: className } = Astro.props;
+const picture = scenePicture(scene, { sizes, loading, fetchpriority });
+const fit = sceneFitStyle(scene);
+const kind = scene.kind ?? 'full';
+---
+
+<picture class:list={['screenshot-image', className]} data-kind={kind}>
+  {
+    picture.srcset && (
+      <source
+        type="image/webp"
+        srcset={picture.srcset}
+        sizes={picture.sizes}
+      />
+    )
+  }
+  <img
+    src={sitePath(picture.src)}
+    width={picture.width}
+    height={picture.height}
+    alt={picture.alt}
+    loading={picture.loading}
+    decoding={picture.decoding}
+    fetchpriority={picture.fetchpriority}
+    style={fit}
+  />
+</picture>
+
+<style>
+  .screenshot-image {
+    display: block;
+  }
+
+  .screenshot-image img {
+    display: block;
+    height: auto;
+    margin: 0 auto;
+  }
+</style>

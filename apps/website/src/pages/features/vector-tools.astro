@@ -24,16 +24,7 @@ import FeatureVisual from '../../components/FeatureVisual.astro';
         </p>
       </section>
 
-      <figure class="feature-visual">
-        <img
-          src={sitePath('/screenshots/vector-light.png')}
-          alt="A curved vector shape in Varve with its anchor points and Bézier handles shown in node editing mode"
-          width="832"
-          height="620"
-          loading="lazy"
-        />
-        <figcaption>Node editing with live Bézier handles</figcaption>
-      </figure>
+      <FeatureVisual scene="vector" />
 
       <section class="feature-section">
         <h2>Key Capabilities</h2>
