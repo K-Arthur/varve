@@ -49,6 +49,15 @@ test('Strokes guidance stays readable across themes, widths, and deploy bases', 
   await expect
     .poll(() => clippedImage.evaluate((image) => (image as HTMLImageElement).naturalWidth))
     .toBeGreaterThan(0);
+  const vectorTextureImage = page.getByRole('img', {
+    name: 'Varve Design workspace showing a red raster shading stroke clipped inside a teal vector contour',
+  });
+  await expect(vectorTextureImage).toBeVisible();
+  await vectorTextureImage.scrollIntoViewIfNeeded();
+  await expect
+    .poll(() => vectorTextureImage.evaluate((image) => (image as HTMLImageElement).naturalWidth))
+    .toBeGreaterThan(0);
+  await expect(page.getByText(/keeps supported contour geometry native/i)).toBeVisible();
 
   for (const theme of ['light', 'dark'] as const) {
     const control = page.locator('.desktop-theme-toggle').getByRole('radio', {
@@ -99,6 +108,7 @@ test('Strokes guidance stays readable across themes, widths, and deploy bases', 
   await expect(page.getByText(/creates a named Brush Layer/i)).toBeVisible();
   await expect(page.getByText(/Stroke-opacity mode caps one gesture/i)).toBeVisible();
   await expect(page.getByText(/Create clipped paint layer/i)).toBeVisible();
+  await expect(page.getByText(/keeps supported vector contours editable/i)).toBeVisible();
 
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto(route('/docs/tools/object-selection/'));

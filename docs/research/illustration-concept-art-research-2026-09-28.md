@@ -148,3 +148,29 @@ license or conversion provenance of the original checkpoint and generated
 ONNX artifact. Do not present this model as license-cleared or quality-qualified
 until the source checkpoint, converter, all notices, target runtime and artist
 fixtures are checked independently.
+
+## Varve vector-texture export follow-up (2026-09-29)
+
+This export failure was found while testing the planned hybrid illustration
+workflow; it is not an online complaint attributed to another product. The
+real Design workflow created a vector rectangle, added a live-matte raster
+Shading child, painted across its boundary, then grouped the contour and paint
+for export. The first downloaded SVG contained both the native contour and a
+PNG texture, but the image had an identity transform at `(0, 0)`, outside the
+world-coordinate view box. Its raster crop also used a generic 200×160 bound
+instead of the transformed raster layer's four-corner bounds. The downloaded
+browser PDF rendered correctly because that route rasterizes the selected
+subtree; it is therefore appearance-preserving, not an editable-vector-PDF
+result.
+
+The repair computes a transformed raster AABB, places a matte-group fallback
+from its world crop origin, and includes rasterized fallback bounds in the SVG
+view box. A real Chromium flow passed creation, clip-edge pixels, undo/redo,
+save/reopen, and SVG/PDF downloads; the rendered SVG and PDF were opened and
+visually inspected. The SVG retained a native vector contour beside the
+embedded clipped raster. An immediate final-repeat attempt later failed before
+the editor opened because the shared checkout's unrelated `Menubar.tsx` threw
+`ReferenceError: ZoomInput is not defined`; focused unit and SVG-placement
+tests still pass. Linux Tauri/WebKitGTK, transformed ancestor variants,
+PDF/X/native print, alpha-edge stress fixtures, and real stylus input are not
+covered by this browser run.

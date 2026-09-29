@@ -5,6 +5,7 @@ import {
   createDocument,
   designCanvasContentRoot,
   makeRasterLayerNode,
+  makeShapeNode,
   nextNodeId,
 } from '@varve/scene';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -65,5 +66,35 @@ describe('ClippedPaintLayerAction', () => {
 
     const { container } = render(<ClippedPaintLayerAction />);
     expect(container).toBeEmptyDOMElement();
+  });
+
+  it('offers the same editable shading action for a selected vector shape', () => {
+    const document = createDesignCanvas(createDocument('vector clipped action'));
+    const rootId = designCanvasContentRoot(document)!;
+    const { id: sourceId, doc: allocated } = nextNodeId(document);
+    const source = makeShapeNode(sourceId, { kind: 'rect', x: 0, y: 0, w: 80, h: 60 });
+    source.name = 'Vector contour';
+    const selectedDocument = addChild(allocated, rootId, source);
+    const updateDoc = vi.fn();
+    const setSelection = vi.fn();
+    const announce = vi.fn();
+    const groupCompoundOperation = vi.fn((_label: string, action: () => void) => action());
+    editorMock.value = {
+      state: { document: selectedDocument, selection: [sourceId], workspaceMode: 'design' },
+      getWorldTransform: () => [1, 0, 0, 1, 0, 0],
+      updateDoc,
+      setSelection,
+      announce,
+      groupCompoundOperation,
+    };
+
+    render(<ClippedPaintLayerAction />);
+    fireEvent.click(screen.getByRole('button', { name: 'Create clipped paint layer' }));
+
+    expect(updateDoc).toHaveBeenCalledTimes(1);
+    expect(setSelection).toHaveBeenCalledWith(expect.stringMatching(/^n/));
+    expect(announce).toHaveBeenCalledWith(
+      expect.stringContaining('Created clipped Shading layer for Vector contour'),
+    );
   });
 });

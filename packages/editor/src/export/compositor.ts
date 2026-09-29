@@ -34,6 +34,7 @@ import {
 } from '@varve/engine';
 import {
   activeSmartFilters,
+  buildParentIndexMap,
   type Document,
   type Effect,
   type Fill,
@@ -41,13 +42,18 @@ import {
   hasActiveSmartFilters,
   isMockupFrame,
   type NodeId,
+  nodeWorldTransform,
   resolveAdjustmentScope,
   type SceneNode,
   type ShapeNode,
   subtreeEffectPaddingAccumulated,
   textNodeLocalBounds,
 } from '@varve/scene';
-import { hasPotentialStandardLigatureSequence } from '@varve/shared';
+import {
+  hasPotentialStandardLigatureSequence,
+  multiplyAffine,
+  tryInvertAffine,
+} from '@varve/shared';
 import {
   collectMockupLiveSourceIds,
   decorateMockupSubtree,
@@ -448,6 +454,7 @@ function hasUnsupportedEffects(node: SceneNode, cap: FlattenCapability): boolean
 function requiresContainerRaster(node: SceneNode, target: ExportTarget): boolean {
   if (target === 'raster') return false;
   if (hasUnsupportedEffects(node, CAPABILITY[target])) return true;
+  if ('mask' in node && node.mask?.matteSource?.kind === 'scene-node') return true;
   return isMockupFrame(node);
 }
 
@@ -660,7 +667,14 @@ export function assessNodeCapability(
   if (hasComplexBlend(node, cap)) return false;
 
   // Masks
-  if ('mask' in node && node.mask && !cap.supportsMasks) return false;
+  if ('mask' in node && node.mask) {
+    if (!cap.supportsMasks) return false;
+    // The scene-node matte is evaluated by the live compositor, but the
+    // structural SVG/PDF writers do not serialize its external source into a
+    // portable mask definition. Flatten only this owning subtree; supported
+    // vector siblings remain native around the raster island.
+    if (node.mask.matteSource?.kind === 'scene-node') return false;
+  }
 
   // Transform (rotation/skew) for PDF
   if (hasUnsupportedTransform(node, cap)) return false;
@@ -732,6 +746,31 @@ function computeNodeBounds(
     }
   }
 
+  if (node.kind === 'rasterLayer') {
+    // Raster pixels occupy the node-local rectangle. Their transform can
+    // include translation, scale, rotation, or skew, so transform all four
+    // corners before cropping a structural export fallback. Treating this as
+    // a generic 200×160 node at its translation silently moves clipped paint
+    // assets to the document origin and can crop their rendered pixels.
+    const [a, b, c, d, e, f] = node.transform;
+    const corners = [
+      [0, 0],
+      [node.width, 0],
+      [node.width, node.height],
+      [0, node.height],
+    ] as const;
+    const xs = corners.map(([x, y]) => a * x + c * y + e);
+    const ys = corners.map(([x, y]) => b * x + d * y + f);
+    const minX = Math.min(...xs);
+    const minY = Math.min(...ys);
+    return {
+      x: minX,
+      y: minY,
+      w: Math.max(...xs) - minX,
+      h: Math.max(...ys) - minY,
+    };
+  }
+
   if (node.kind === 'text') {
     // Export must crop to the same rectangle the canvas draws into. A
     // character-count estimate with a single line's height cut multi-line text
@@ -800,6 +839,32 @@ function computeNodeBounds(
   }
 
   return { x: tx, y: ty, w: 200, h: 160 };
+}
+
+function worldRasterPlacementTransform(
+  node: SceneNode,
+  doc: Document,
+  bounds: { x: number; y: number },
+  parentIndex: Map<NodeId, NodeId>,
+): RasterAsset['placementTransform'] {
+  if (
+    (node.kind !== 'group' && node.kind !== 'frame') ||
+    node.mask?.matteSource?.kind !== 'scene-node'
+  ) {
+    return undefined;
+  }
+
+  // The fallback surface is cropped in world coordinates. SVG normally emits
+  // the boundary node's own transform, which would place those already-world
+  // pixels twice. Express the world-space crop origin in the emitted parent's
+  // local coordinates and let the serializer use that transform instead.
+  const parentId = parentIndex.get(node.id);
+  const parentWorld = parentId
+    ? nodeWorldTransform(doc, parentId, parentIndex)
+    : ([1, 0, 0, 1, 0, 0] as const);
+  const inverseParent = tryInvertAffine(parentWorld);
+  if (!inverseParent) return undefined;
+  return multiplyAffine(inverseParent, [1, 0, 0, 1, bounds.x, bounds.y]);
 }
 
 /**
@@ -1234,6 +1299,7 @@ async function rasterizeBoundaries(
     diagnostics.push(diagnostic);
     opts.onRasterizationDiagnostic?.(diagnostic);
   };
+  const parentIndex = buildParentIndexMap(doc);
   let processed = 0;
 
   for (const boundary of boundaries) {
@@ -1248,6 +1314,8 @@ async function rasterizeBoundaries(
 
     const cssWidth = Math.max(1, bounds.w);
     const cssHeight = Math.max(1, bounds.h);
+    const placementTransform = worldRasterPlacementTransform(node, doc, bounds, parentIndex);
+    const placement = placementTransform ? { placementTransform } : {};
 
     // Effect expansion: effects that generate pixels outside the source
     // bounds (bloom, flares, RGB displacement) must render on a padded
@@ -1287,6 +1355,7 @@ async function rasterizeBoundaries(
         cssWidth,
         cssHeight,
         dpi,
+        ...placement,
       };
       rasterizedIds.add(node.id);
       report('pixel-budget-exceeded', node.id);
@@ -1307,6 +1376,7 @@ async function rasterizeBoundaries(
         cssWidth,
         cssHeight,
         dpi,
+        ...placement,
       };
       rasterizedIds.add(node.id);
       report('surface-unavailable', node.id);
@@ -1372,6 +1442,7 @@ async function rasterizeBoundaries(
         cssWidth,
         cssHeight,
         dpi,
+        ...placement,
       };
       rasterizedIds.add(node.id);
       report('encode-failed', node.id);
@@ -1386,6 +1457,7 @@ async function rasterizeBoundaries(
       cssWidth,
       cssHeight,
       dpi,
+      ...placement,
       ...(expansion ? { expansion } : {}),
     };
     rasterizedIds.add(node.id);

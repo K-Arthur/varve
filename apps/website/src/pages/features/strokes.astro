@@ -5,7 +5,7 @@ import { sitePath } from '../../lib/siteUrl';
 import StatusPill from '../../components/StatusPill.astro';
 ---
 
-<Layout title="Stroke System" description="Varve combines editable vector strokes with raster sketching, inking, clipped shading, and transparent export in the existing Design workspace.">
+<Layout title="Stroke System" description="Varve combines editable vector contours with raster sketching, inking, clipped shading, and transparent export in the existing Design workspace.">
   <div class="container-custom">
     <div class="feature-page">
       <nav class="breadcrumb" aria-label="Breadcrumb">
@@ -109,6 +109,21 @@ import StatusPill from '../../components/StatusPill.astro';
         <figcaption>
           The separate Shading layer stays within the source raster alpha. The real editor
           workflow was checked for boundary pixels, undo/redo, save/reopen, and transparent PNG.
+        </figcaption>
+      </figure>
+
+      <figure class="feature-proof">
+        <img
+          src={sitePath('/screenshots/illustration-vector-clipped-texture.png')}
+          alt="Varve Design workspace showing a red raster shading stroke clipped inside a teal vector contour"
+          width="1440"
+          height="900"
+          loading="lazy"
+        />
+        <figcaption>
+          A vector contour and raster shading share one editable document. The verified SVG keeps
+          supported contour geometry native and embeds the clipped texture as a bounded raster
+          fallback; browser PDF preserves the appearance through raster export.
         </figcaption>
       </figure>
 

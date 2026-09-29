@@ -8,6 +8,7 @@ import {
   makeShapeNode,
   nextNodeId,
 } from '@varve/scene';
+import { multiplyAffine, scaleXY, translate } from '@varve/shared';
 import { describe, expect, it } from 'vitest';
 import { createClippedPaintLayer } from '../clippedPaintLayer';
 
@@ -59,20 +60,44 @@ describe('createClippedPaintLayer', () => {
     ]);
   });
 
-  it('refuses missing, hidden, vector, and off-surface sources', () => {
+  it('creates a bounded raster texture aligned to a transformed vector shape', () => {
+    const document = createDesignCanvas(createDocument('vector clipped paint'));
+    const rootId = designCanvasContentRoot(document)!;
+    const { id: sourceId, doc: allocated } = nextNodeId(document);
+    const source = makeShapeNode(sourceId, { kind: 'rect', x: 20, y: 10, w: 40, h: 30 });
+    source.name = 'Contour';
+    source.transform = [0, 2, -2, 0, 100, 50];
+    const withSource = addChild(allocated, rootId, source);
+    const rootToWorld = [2, 0, 0, 2, 10, 20] as const;
+    const sourceToWorld = [0, 2, -2, 0, 100, 50] as const;
+
+    const result = createClippedPaintLayer(withSource, 'design', sourceId, (nodeId) =>
+      nodeId === rootId ? rootToWorld : sourceToWorld,
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const group = result.document.nodes[result.groupId]!;
+    const paint = result.document.nodes[result.layerId]!;
+    const sourcePixelToWorld = multiplyAffine(
+      sourceToWorld,
+      multiplyAffine(translate(18, 8), scaleXY(44 / 44, 34 / 34)),
+    );
+    const expectedLayerTransform = multiplyAffine([0.5, 0, 0, 0.5, -5, -10], sourcePixelToWorld);
+    expect(group).toMatchObject({
+      kind: 'group',
+      name: 'Contour clipped paint',
+      mask: { type: 'alpha', matteSource: { kind: 'scene-node', nodeId: sourceId } },
+    });
+    expect(paint).toMatchObject({ kind: 'rasterLayer', name: 'Shading', width: 44, height: 34 });
+    expect(paint?.kind === 'rasterLayer' ? paint.transform : null).toEqual(expectedLayerTransform);
+  });
+
+  it('refuses missing, hidden, and off-surface sources', () => {
     const { document, sourceId } = makeSurface();
     const hidden = {
       ...document,
       nodes: { ...document.nodes, [sourceId]: { ...document.nodes[sourceId]!, visible: false } },
-    };
-    const { id: shapeId, doc: withShapeId } = nextNodeId(document);
-    const withShape = {
-      ...withShapeId,
-      rootChildren: [...withShapeId.rootChildren, shapeId],
-      nodes: {
-        ...withShapeId.nodes,
-        [shapeId]: makeShapeNode(shapeId, { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }),
-      },
     };
     const withSecondCanvas = createDesignCanvas(document, { name: 'Other', activate: false });
     const otherRoot = designCanvasContentRoot(
@@ -91,13 +116,28 @@ describe('createClippedPaintLayer', () => {
       ok: false,
       reason: expect.stringContaining('visible'),
     });
-    expect(createClippedPaintLayer(withShape, 'design', shapeId)).toMatchObject({
-      ok: false,
-      reason: expect.stringContaining('raster'),
-    });
     expect(createClippedPaintLayer(offSurface, 'design', otherId)).toMatchObject({
       ok: false,
       reason: expect.stringContaining('active canvas or page'),
+    });
+  });
+
+  it('refuses vector bounds beyond the bounded paint-layer dimensions', () => {
+    const document = createDesignCanvas(createDocument('large vector clipped paint'));
+    const rootId = designCanvasContentRoot(document)!;
+    const { id: sourceId, doc: allocated } = nextNodeId(document);
+    const source = makeShapeNode(sourceId, {
+      kind: 'rect',
+      x: 0,
+      y: 0,
+      w: 20_000,
+      h: 20_000,
+    });
+    const withSource = addChild(allocated, rootId, source);
+
+    expect(createClippedPaintLayer(withSource, 'design', sourceId)).toMatchObject({
+      ok: false,
+      reason: expect.stringContaining('16,384 px'),
     });
   });
 

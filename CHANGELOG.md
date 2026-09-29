@@ -34,6 +34,12 @@ update, not for someone reading the commit log.
   survives undo/redo, save/reopen, and transparent PNG export; mask dependencies
   are included when a subtree is flattened for sampling or export.
 
+- **Vector-contour texture export** — A vector shape can supply the live matte
+  for a separate raster Shading layer. SVG retains supported contour geometry
+  and embeds the clipped paint group as a bounded raster fallback with
+  world-space placement. Browser PDF preserves the appearance through a
+  raster fallback; it does not claim editable vector content.
+
 - **Mesh mockups for folded fabric** — A new bounded mesh envelope joins flat,
   perspective, and cylindrical mockup surfaces, for the jobs those cannot do:
   folded banners, draped textiles, curved paper. Apply the new "Fabric Banner —

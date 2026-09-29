@@ -7,11 +7,11 @@ import {
   makeRasterLayerNode,
   type NodeId,
   nextNodeId,
+  nodeLocalBounds,
   nodeWorldTransform,
-  type RasterLayerNode,
 } from '@varve/scene';
 import type { Affine } from '@varve/shared';
-import { multiplyAffine, tryInvertAffine } from '@varve/shared';
+import { multiplyAffine, scaleXY, translate, tryInvertAffine } from '@varve/shared';
 import {
   activeWorkspaceContentRoot,
   addNodeToActiveWorkspace,
@@ -23,6 +23,82 @@ export type ClippedPaintLayerResult =
   | { ok: false; reason: string };
 
 type WorldTransform = (nodeId: NodeId) => Affine;
+
+const MAX_CLIPPED_PAINT_SIDE = 16_384;
+const MAX_CLIPPED_PAINT_PIXELS = 64 * 1024 * 1024;
+const VECTOR_EDGE_PADDING = 2;
+
+type PaintBounds = { width: number; height: number; localToWorld: Affine };
+
+function clippedPaintBounds(
+  document: Document,
+  source: NonNullable<Document['nodes'][string]>,
+  sourceWorld: Affine,
+): PaintBounds | null {
+  if (source.kind === 'rasterLayer') {
+    return {
+      width: source.width,
+      height: source.height,
+      localToWorld: sourceWorld,
+    };
+  }
+  if (source.kind !== 'shape') return null;
+
+  const bounds = nodeLocalBounds(source, document);
+  if (
+    !bounds ||
+    !Number.isFinite(bounds.x) ||
+    !Number.isFinite(bounds.y) ||
+    !Number.isFinite(bounds.w) ||
+    !Number.isFinite(bounds.h) ||
+    bounds.w <= 0 ||
+    bounds.h <= 0
+  ) {
+    return null;
+  }
+
+  // A small transparent margin keeps antialiased contour coverage and an
+  // ordinary centered stroke from touching the raster layer's outer edge.
+  const visibleStrokeOutset = Math.max(
+    0,
+    ...(source.strokes ?? [])
+      .filter((stroke) => stroke.visible)
+      .map((stroke) => {
+        const sideWeight = stroke.perSideWeights
+          ? Math.max(...stroke.perSideWeights)
+          : stroke.weight;
+        return (
+          sideWeight *
+          (stroke.align === 'outside' ? 1 : 0.5) *
+          (stroke.join === 'miter' ? Math.max(1, stroke.miterLimit) : 1)
+        );
+      }),
+  );
+  const padding = Math.ceil(visibleStrokeOutset + VECTOR_EDGE_PADDING);
+  const localWidth = bounds.w + padding * 2;
+  const localHeight = bounds.h + padding * 2;
+  const width = Math.ceil(localWidth);
+  const height = Math.ceil(localHeight);
+  if (
+    width < 1 ||
+    height < 1 ||
+    width > MAX_CLIPPED_PAINT_SIDE ||
+    height > MAX_CLIPPED_PAINT_SIDE ||
+    width * height > MAX_CLIPPED_PAINT_PIXELS
+  ) {
+    return null;
+  }
+
+  const localPixelToSource = multiplyAffine(
+    translate(bounds.x - padding, bounds.y - padding),
+    scaleXY(localWidth / width, localHeight / height),
+  );
+  return {
+    width,
+    height,
+    localToWorld: multiplyAffine(sourceWorld, localPixelToSource),
+  };
+}
 
 function parentIndex(document: Document): Map<NodeId, NodeId> {
   const parents = new Map<NodeId, NodeId>();
@@ -63,9 +139,9 @@ function currentWorkspaceRoot(document: Document, workspaceMode: string): NodeId
 }
 
 /**
- * Create a raster paint layer whose group alpha is tied to a visible raster
- * source. The group path is used because live scene-node mattes are currently
- * supported on containers, while leaf raster masks accept pixel/vector masks.
+ * Create an editable raster paint layer whose group alpha is tied to a visible
+ * raster or vector shape source. The group path is used because live scene-node
+ * mattes are supported on containers, while leaf masks use pixel/vector data.
  */
 export function createClippedPaintLayer(
   document: Document,
@@ -75,8 +151,11 @@ export function createClippedPaintLayer(
 ): ClippedPaintLayerResult {
   const source = document.nodes[sourceId];
   if (!source) return { ok: false, reason: 'The selected source layer no longer exists.' };
-  if (source.kind !== 'rasterLayer' || !canBeMatteSource(source)) {
-    return { ok: false, reason: 'Select a raster paint layer to use as the clipping source.' };
+  if (!canBeMatteSource(source) || (source.kind !== 'rasterLayer' && source.kind !== 'shape')) {
+    return {
+      ok: false,
+      reason: 'Select a visible raster layer or vector shape to use as the clipping source.',
+    };
   }
 
   const rootId = currentWorkspaceRoot(document, workspaceMode);
@@ -106,15 +185,22 @@ export function createClippedPaintLayer(
   if (!rootInverse || !tryInvertAffine(sourceWorld)) {
     return { ok: false, reason: 'The clipping source has an invalid transform.' };
   }
-  const layerTransform = multiplyAffine(rootInverse, sourceWorld);
+  const paintBounds = clippedPaintBounds(document, source, sourceWorld);
+  if (!paintBounds) {
+    return {
+      ok: false,
+      reason: 'The clipping source needs measurable bounds within the 16,384 px layer limit.',
+    };
+  }
+  const layerTransform = multiplyAffine(rootInverse, paintBounds.localToWorld);
 
   const { id: groupId, doc: withGroupId } = nextNodeId(document);
   const { id: layerId, doc: withLayerId } = nextNodeId(withGroupId);
-  const sourceName = (source as RasterLayerNode).name?.trim() || 'Paint Layer';
+  const sourceName = source.name?.trim() || 'Paint Source';
   const group = makeGroupNode(groupId, { name: `${sourceName} clipped paint` });
   const layer = makeRasterLayerNode(
     layerId,
-    { width: source.width, height: source.height },
+    { width: paintBounds.width, height: paintBounds.height },
     { name: 'Shading' },
   );
   layer.transform = layerTransform;

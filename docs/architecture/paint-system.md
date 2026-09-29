@@ -1,7 +1,7 @@
 # Paint System
 
 **Status:** Implemented; see Limitations for what is not
-**Updated:** 2026-09-28
+**Updated:** 2026-09-29
 
 ## Scope
 
@@ -83,8 +83,14 @@ singularly transformed sources are refused. Structured raster exports,
 subtree-compositor exports, and artwork sampling include the external matte
 source as a render dependency while keeping it outside the selected output
 boundary. The browser regression verifies the clip, unchanged pixels outside
-the source, undo/redo, save/reopen, and a transparent PNG export. SVG/PDF
-round-trip appearance for this new workflow is not yet browser-qualified.
+the source, undo/redo, save/reopen, and transparent PNG export. A vector shape
+can supply the same live matte. For vector-source shading, SVG rasterizes only
+the clipped paint group and keeps supported contour siblings native; fallback
+placement and SVG view-box bounds use the compositor's world-space crop. The
+browser PDF route preserves appearance by rasterizing the selected subtree, so
+it does not promise editable vector content. Chromium verifies the vector
+clip, undo/redo, save/reopen, and actual SVG/PDF downloads. Ancestor-transform
+variants, desktop/PDF-X export, WebKitGTK, and pen hardware remain unqualified.
 
 Clone Stamp, Healing Brush, Spot Heal, Patch, and Dodge Burn use the same
 resolver but with stricter ownership: an explicitly selected raster layer is
