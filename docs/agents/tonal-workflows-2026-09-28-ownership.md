@@ -13,8 +13,15 @@ Starting HEAD: `d51f52e40`. Unrelated staged/unstaged work is preserved.
 - Editor: existing AdjustmentEditor, CurveEditor and their thin child editors.
   No changes to Shell, CanvasArea, context, workspace docks or retouch tools.
 - Tests: focused numerical tests and a separate tonal-workflows browser spec.
+- Browser PDF: a thin raster writer helper and its exact import/caller hunks
+  in `SpecPanel/export.ts`. Another owner's bitmap-dimension cache repair and
+  export test edits are preserved separately; commits must use a partial index.
 - Docs: tonal-adjustments architecture, this research/evidence ledger, and the
   website color-effects page/user guide. No publishing or pushing.
+- Screenshot pipeline: `sync-tonal-scenes.mjs`, the `tonal-curves` and
+  `tonal-split-tone` manifest entries, and their two canonical PNG pairs only.
+  The shared manifest uses a partial index; other scene metadata, captures,
+  staged changes and the product generator remain with their existing owners.
 
 Before editing an existing file, inspect its status/diff again. Commits use an
 isolated Git index and explicit owned paths so unrelated staged changes cannot

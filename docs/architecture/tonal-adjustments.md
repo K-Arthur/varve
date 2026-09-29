@@ -20,6 +20,7 @@ mathematics.
 | Channel Mixer | Independent matrix rows | `tonalState.ts` + software compositor | RGB components, not print separations |
 | White Balance | Relative rendered-RGB correction | `whiteBalance.ts` + source preview picker | No inferred Kelvin, camera illuminant or As Shot metadata |
 | Split Toning | Photographic chroma treatment | `splitTone.ts` + shadow/highlight controls | Software Oklab/sRGB gamut boundary |
+| Sharpen | Versioned editing and output operator | `unsharpMask.ts`, `SharpenEditor`, export pipeline | Gaussian v2; legacy box v1 retained; resolution-dependent resampling |
 
 The catalogue is centralized in `packages/engine/src/filters.ts`:
 `ADJUSTMENT_KINDS`, the `Adjustment` union, defaults, and
@@ -78,8 +79,9 @@ This means the following are implemented and tested:
 
 `ThresholdAdjustment.level` is normalized to `[0, 255]`. Version 1 supports
 `relative-luminance`, `average-rgb`, and `max-channel` source modes. The
-default relative luminance is the Rec.709 weighted sum of straight RGB
-channels. A pixel is white when `luminance >= level`; otherwise it is black.
+legacy `relative-luminance` mode is the Rec.709 weighted sum of encoded
+straight RGB channels, a luma-like signal rather than linear-light relative
+luminance. A pixel is white when that signal is at least `level`; otherwise it is black.
 The comparison includes a small boundary tolerance so a pure-white pixel
 remains white at level 255 despite decimal coefficient rounding. Alpha and
 fully transparent hidden RGB are retained.
@@ -130,7 +132,7 @@ Version 1 exposes nine independent values: cyan/red, magenta/green, and
 yellow/blue for shadows, midtones, and highlights. The kernel uses overlapping
 smooth tonal weights derived from luminance, normalized so the three weights
 sum to one. Each axis is signed and applies only its selected channel pair.
-`preserveLuminosity` measures the source Rec.709 luminance and restores that
+`preserveLuminosity` measures the source encoded-RGB Rec.709 weighted signal and restores that
 value after the channel adjustment with a bounded scale, retaining hue intent
 as far as the RGBA8 gamut permits. An all-zero adjustment is an identity path.
 
@@ -144,7 +146,7 @@ so a drag is one undoable edit rather than one history item per pointer move.
 | Surface | Status | Policy |
 | --- | --- | --- |
 | Canvas2D/software | Implemented | Reference semantics and fallback |
-| WASM/native optimized kernel | Not claimed for these three | Must agree with the reference before being enabled |
+| WASM/native optimized kernel | Not claimed for the tonal kernels documented here | Must agree with the reference before being enabled |
 | WebGPU | Not claimed | CPU fallback remains available on WebKitGTK/Linux |
 | Raster export | Implemented through the filter pipeline | Same adjustment parameters as preview |
 | SVG/PDF live vector form | Not representable | Rasterize only the affected subtree and surface preflight |
@@ -200,9 +202,11 @@ the dither/preserve-luminosity controls. The repository’s affected validation
 plan remains the final gate for cross-package regressions.
 
 Remaining work is explicit: native/WASM/WebGPU parity, ICC-accurate wide-gamut
-and HDR effect math, independent PDF/raster artifact review, and destructive
-apply wrappers require follow-up slices. None is represented as complete by
-the current CPU reference implementation.
+and HDR effect math, artifact review outside the tonal reference cases, and
+destructive apply wrappers require follow-up slices. Tonal PNG, SVG-embedded
+PNG and browser raster PDF have independent opened and numerical evidence in
+the [tonal workflow review](../screenshots/tonal-workflows/README.md). None of
+that certifies the remaining color/backend surfaces.
 
 
 ## Output sharpening
@@ -250,6 +254,11 @@ point actions supplement pointer and keyboard editing. Reset current and Reset
 all channels have distinct scopes. Source sampling adds a point on the current
 transfer; RGB samples the encoded arithmetic mean, while an individual channel
 samples its component after the current master curve.
+
+Soft contrast and Invert presets replace only the currently selected channel,
+retain the selected algorithm, assign stable new point ids and create one
+undo transaction. They are editable bounded point arrays, not executable
+expressions or proprietary preset imports.
 
 Selection Sources contains Channels for a selected image's original source.
 The 256px preview supports composite, grayscale/colorized RGB and opaque alpha
@@ -301,3 +310,65 @@ strength and a `4L(1-L)` endpoint envelope. Pure black/white remain protected;
 zero strength or both saturations zero is exact identity. Quantization can
 change L slightly (tested tolerance 0.004); gamut compression reduces chroma
 rather than claiming unlimited saturation or perfect hue retention.
+
+## Editing sharpening and full-scale diagnostics
+
+New Sharpen entries use algorithm version 2, the same alpha-weighted floating
+Gaussian as output sharpening. Amount is percent; threshold is a 0–255 scale
+of differences in the selected encoded or linear sRGB domain. Radius is the
+three-sigma support in target-local units for Object Filters or document units
+for Adjustment Filters. The canonical treatment-space pixels-per-unit mapping
+converts that authored radius to the current raster surface; camera zoom/DPR
+never rewrites the parameter. Nonuniform transforms use the renderer's existing
+geometric-mean scale convention. Sharpen occurs after the object has been
+resampled to that surface, so sampling/quantization differences between preview
+and final resolution remain possible.
+
+Files without a version retain the historical encoded/premultiplied box
+operator. The editor exposes an explicit Gaussian upgrade. Integer-radius
+legacy appearance is retained; malformed fractional indices now floor to an
+integer instead of reading undefined bytes. Legacy partial-alpha behavior is
+not advertised as equivalent to v2. New entries start with zero amount; zero
+amount/radius bypass before canvas readback. Luma-only correction and reduced
+partial-alpha correction are explicit options, with no promise of hue preservation
+under clipping. Editing and optional output sharpening can intentionally both
+be present, at their separate authored and post-resize stages.
+
+Compare document-pixel detail explicitly requests a 128px region at one
+raster pixel per document unit, including upstream and selected spatial halos.
+The source diagnostic refuses a halo surface above one megapixel and caps
+cached pixel payloads at 2MiB across at most eight entries. It shows filter input
+and filtered output before the layer mask/opacity. The approximate scope bounds
+choose the region; this is not a full-resolution main-canvas eyedropper or a
+claim that one document unit always equals one source-image pixel.
+
+Channels also offers an original-source crop, one source pixel per CSS pixel,
+before placement/crop/filtering. It reuses the canonical decoded image cache
+and allocates only the requested 128px crop. Source detail has a 16MP inspection
+limit. Canvas readback can quantize partial alpha; raw hidden-RGB preservation
+is a scalar-kernel contract, not a guarantee of canvas/encoder fidelity.
+
+## Compatibility and browser export
+
+| Saved entry | Evaluation policy |
+| --- | --- |
+| Curves without an algorithm version | Historical v1 Catmull-Rom transfer; explicit upgrade to v2 |
+| New Curves | v2 PCHIP, master then retained per-component curves |
+| Mixer without matrix rows | Historical selected-row behavior; editing another row explicitly promotes it |
+| White Balance / Split Toning | New v1 kinds; existing Temperature, Tint and Color Balance keep their own operators |
+| Sharpen without a version | Historical v1 box operator; explicit Gaussian upgrade |
+| New Sharpen | v2, serialized domain, luma-only and alpha-protection options |
+
+The actual codec tests retain these versions, all channel arrays, matrix rows,
+source/crop data, raster masks and saved partial-coverage selections. Transient
+inspection channels and diagnostic caches are not serialized. Browser tests
+reopen with empty diagnostic caches and compare the same requested region;
+this does not certify a cold offline PWA boot or every native webview.
+
+The browser PDF raster fallback packs straight RGB bytes and, when needed,
+stores alpha in a separate grayscale soft mask. Stream lengths and xref
+offsets are actual byte positions. Closing the image bitmap does not affect
+the ImageData dimensions used by this writer. This is ordinary PDF 1.4
+DeviceRGB output, not PDF/X or an ICC-managed print route. Rendered Poppler
+comparisons supplement PNG/SVG pixel checks; a PDF header alone is inadequate
+validation. Native print/export remains a separate boundary.

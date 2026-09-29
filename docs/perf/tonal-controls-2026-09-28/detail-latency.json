@@ -1,0 +1,9 @@
+{
+  "fixture": "512x384 tonal-reference; Sharpen 80%, radius 3.5, linear sRGB",
+  "region": "128x128 document pixels with canonical spatial halo",
+  "measurement": "captured UI click to completed output canvas upload; app already loaded",
+  "coldRegionMs": 32,
+  "differentColdRegionMs": 27.199999999254942,
+  "cachedSourceRegionMs": 30.199999999254942,
+  "limits": "Three requests on one shared Linux host; no p95, cold app, peak RSS or device claim"
+}

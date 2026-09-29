@@ -17,6 +17,7 @@ const scenes = (manifest as { scenes: Record<string, ScreenshotScene> }).scenes;
 const paletteShot = scenes['palette-inspector']?.status === 'captured' ? scenes['palette-inspector'] : null;
 const solidPickerShot = scenes['solid-picker']?.status === 'captured' ? scenes['solid-picker'] : null;
 const gradientPickerShot = scenes['gradient-picker']?.status === 'captured' ? scenes['gradient-picker'] : null;
+const tonalCurvesShot = scenes['tonal-curves']?.status === 'captured' ? scenes['tonal-curves'] : null;
 ---
 
 <Layout title="Color & Effects" description="Varve's color workflow: local palette extraction, native CMYK document colors, ICC profiles, soft proofing, effects, and print-ready export.">
@@ -28,7 +29,7 @@ const gradientPickerShot = scenes['gradient-picker']?.status === 'captured' ? sc
 
       <h1 class="site-page-title">Color & Effects</h1>
       <p class="feature-intro">
-        Keep print colors meaningful from document to export. Varve stores native CMYK values alongside RGB, grayscale, and spot colors, then carries precision-aware working values through conversion, gradients, effects, and proofing.
+        Keep print colors meaningful from document to export. Varve stores native CMYK values alongside RGB, grayscale, and spot colors, and preserves those authored values through managed color conversion and proofing. The current photographic effect surface is rendered RGB.
       </p>
 
       <section class="feature-section">
@@ -101,7 +102,7 @@ const gradientPickerShot = scenes['gradient-picker']?.status === 'captured' ? sc
           distinct atmospheric-veil recovery treatment. <a href={sitePath('/docs/tools/image-treatments')}>Read the practical guide</a>.
         </p>
         <p>
-          The redesigned Object Filters panel organizes all 52 filters into five categorized
+          The redesigned Object Filters panel organizes the available filters into five categorized
           families—Color &amp; Tone, Blur &amp; Detail, Texture &amp; Finishing, Atmosphere &amp; Optics,
           and Color Grading—with instant keyboard search, live blend mode and opacity badges,
           and one-click whole-stack bypass. Object Filters also provide directional Motion Blur,
@@ -111,6 +112,36 @@ const gradientPickerShot = scenes['gradient-picker']?.status === 'captured' ? sc
           the other members in the stack.
         </p>
       </section>
+
+      <section class="feature-section">
+        <h2>Shape tone without replacing the source</h2>
+        <p>
+          Curves share one transfer between the graph and rendered pixels, retain separate RGB,
+          red, green and blue point sets, and accept precise input/output values. New curves use
+          shape-preserving interpolation; saved legacy curves keep their appearance until you
+          choose an upgrade. Channel Mixer retains all three output rows so switching channels
+          never discards the previous mix.
+        </p>
+        <p>
+          White Balance offers relative warmth and tint for already-rendered images, a neutral
+          source-patch picker and conservative Auto correction. Split Toning adds independently
+          controlled shadow and highlight color with balance, transition width and strength.
+          Zero toning stays neutral, and both treatments preserve source transparency.
+        </p>
+        <p>
+          Inspect an image's RGB or alpha in Selection Sources, then turn a channel into reusable
+          coverage without changing the normal export. Editing sharpen and output sharpen have
+          separate radius units; output sharpening runs after resizing. These controls work
+          offline on the current RGBA8 software path. <a href={sitePath('/docs/tools/tonal-adjustments')}>Read the tonal editing guide</a>.
+        </p>
+      </section>
+
+      {tonalCurvesShot && (
+        <figure class="feature-visual">
+          <img src={sitePath(`/screenshots/${tonalCurvesShot.file}`)} alt={tonalCurvesShot.alt} width={tonalCurvesShot.width} height={tonalCurvesShot.height} loading="lazy" />
+          <figcaption>{tonalCurvesShot.caption}</figcaption>
+        </figure>
+      )}
 
       <section class="feature-section">
         <h2>Gradient Maps</h2>
