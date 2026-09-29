@@ -548,3 +548,49 @@ capturing, and inspects full-editor and canvas closeups at 1440×900 plus a
 `test-results/clipped-paint-visual-themes-20260929-r13/paint-brush-ui-paint-UI-in-2de46-e-its-visible-raster-source-chromium/`.
 The visual run passed 1/1; it does not change or prove saved document pixels
 for alternate UI themes because theme preferences remain session state.
+
+## Agent Validation Report — clipped-paint commit `b99e818cf`
+
+Changed scope: 30 paths across editor, engine, help, and website, plus
+illustration docs, research, capability matrix, changelog, and the inspected
+website screenshot. Work was committed on `master` as
+`b99e818cf fix(illustration): add clipped shading in Design`.
+
+Validation plan: `pnpm verify:plan --staged` against the isolated commit index
+selected Tiers 0–4, with no full-suite escalation. It warned that the broad
+reverse-dependency selection covers 90% (2,134/2,359) of repository test files.
+
+Commands actually run and passed:
+
+- `GIT_INDEX_FILE=/tmp/varve-clip-7db5ff3.index pnpm verify:commit` — staged
+  Biome, health, impact configuration, secrets, contacts, docs, import
+  boundaries, E2E typecheck, and 108 direct unit tests passed. The Git hook
+  repeated this checkpoint successfully at commit time.
+- `pnpm exec vitest run packages/editor/src/tools/__tests__/clippedPaintLayer.test.ts packages/editor/src/components/FloatingToolbar/ClippedPaintLayerAction.test.tsx packages/editor/src/render/maskSourceDependencies.test.ts packages/engine/src/__tests__/maskCompositing.test.ts packages/engine/src/maskCompositing.test.ts packages/editor/src/components/Inspector/sections/BrushSection.test.tsx packages/editor/src/workspace/workspaceTypes.test.ts packages/editor/src/workspace/workspaceStore.test.ts --maxWorkers=1` — 8 files, 165 tests passed.
+- `pnpm exec vitest run packages/editor/src/components/SpecPanel/export.test.ts packages/editor/src/export/compositor.test.ts packages/editor/src/render/sceneToEngine.test.ts --maxWorkers=1` — 3 files, 139 tests passed.
+- `pnpm --filter @varve/engine typecheck`, `pnpm --filter @varve/help typecheck`,
+  and `pnpm typecheck:e2e` passed. The editor typecheck still reports two
+  pre-existing `getByRole({ exact })` overload errors in
+  `packages/editor/src/components/Inspector/controls/CurveEditor.test.tsx`;
+  the clipped-paint test has no remaining type error.
+- `pnpm audit:docs`, `pnpm audit:spacing`, the emoji/radius lanes, and
+  `node scripts/audit-architecture.mjs --ci` passed. The architecture report
+  found no layer violations and 14 cycles within its configured ceiling; its
+  existing Shell, Menubar, and context hub-budget warnings remain.
+- `pnpm --filter @varve/website build` and `pnpm build:website:pages` passed
+  with 114 routes and no Astro diagnostics. The leased Strokes website E2E
+  passed 2/2 on GitHub Pages and custom-domain bases. The leased app E2E passed
+  1/1 for clip boundaries, undo/redo, save/reopen, actual PNG export, and
+  visual captures in three themes plus a narrow layout.
+- `pnpm exec biome check` passed on the 20 staged source/test files. The
+  final test file was formatted and rechecked before commit.
+
+`pnpm verify:affected --staged` stopped at the existing token-usage audit
+failure: one undefined `--name` example in
+`packages/codegen/src/tailwind.ts:685`. This file is outside the clipped-paint
+scope. The downstream broad package/reverse-dependency lanes were not run after
+that fail-fast stop; the direct feature tests, package typechecks listed above,
+and both relevant browser flows were run separately. Full suite: **no**; the
+exact plan reported no escalation. Rust/native tests and other product E2Es
+were skipped as unrelated or outside the browser-qualified scope. No push or
+website deployment was performed.
