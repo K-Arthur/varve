@@ -61,6 +61,12 @@ Website E2E covers axe-core, keyboard navigation, narrow-width overflow, and
 visual snapshots; mobile viewport runs are browser emulation and do not replace
 physical iOS/Android or screen-reader certification.
 
+The homepage hero eyebrow keeps the caption type token, fits its text, and
+reflows inside mobile gutters when space or text enlargement requires it. Its
+`public beta` status stays together. The nine-width light/dark visual matrix and
+200% text-size case are documented in the
+[2026-09-29 hero eyebrow review](../../docs/audits/website-homepage-hero-eyebrow-2026-09-29.md).
+
 ## Button and CTA contract
 
 Shared Astro actions use `src/components/Button.astro` and the semantic
