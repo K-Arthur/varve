@@ -217,6 +217,21 @@ outstanding; the shared-tree planner currently selects unrelated work across
 the workspace and escalates to the full suite. No hardware or visual claim is
 made by these lifecycle tests.
 
+```text
+pnpm verify:plan
+  469 changed files observed in the shared checkout; all workspace packages
+  and broad UI/E2E lanes selected. FULL-SUITE ESCALATION: YES because of
+  shared validation-infrastructure and dependency/toolchain changes.
+pnpm verify:affected
+  Stopped with exit 2 at the required full-suite escalation and printed
+  `pnpm verify:full`; no affected test lane was started by that command.
+```
+
+The lifecycle milestone is committed as `8fcdfeb34`. This task's next scope is
+the existing platform admission gate and its inference adapter; the platform
+memory implementation is excluded while its shared-tree diff remains owned by
+another writer.
+
 The fresh source/runtime baseline was verified on 2026-09-28 local time; it is
 not a hardware profile:
 

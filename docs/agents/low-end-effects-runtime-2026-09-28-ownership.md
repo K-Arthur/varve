@@ -28,6 +28,23 @@ push.
 | `docs/audits/low-end-effects-runtime-baseline-2026-09-13.md` | Source findings, decisions, and evidence ledger for this task. |
 | This file | Ownership and handoff ledger. |
 
+## Next milestone ownership
+
+For shared resource admission, this task owns these paths after inspecting the
+shared tree at `8fcdfeb34` and confirming they have no local diff:
+
+| Paths | Owned change |
+|---|---|
+| `packages/platform/src/derivedWorkAdmission.ts` (+ tests) | Extend the existing cross-feature gate with byte reservations, resident ownership, refusal/accounting diagnostics, and bounded aging without breaking legacy callers. |
+| `packages/engine/src/inference/admission.ts` (+ tests) | Preserve the inference API as a compatibility adapter over the shared gate. |
+| This file and the baseline audit | Record the single-writer transfer and measured limits. |
+
+The older ChromeOS Stage 3 and segmentation-hardening records mention these
+admission/inference surfaces from completed work. At this checkpoint their
+files were clean; this ownership is limited to the next diffs above. The
+dirty `packages/platform/src/memory.ts` remains reserved to its current writer
+and is excluded from this milestone.
+
 Historical inference ownership records describe completed earlier work. This
 continuation owns only the current diffs named above; preserve pre-existing
 behavior and inspect any newly appearing hunks before editing or committing.
@@ -50,7 +67,8 @@ behavior and inspect any newly appearing hunks before editing or committing.
 | Commit | Scope |
 |---|---|
 | `33c00bf51` | Refreshed continuation source/research baseline. |
-| Pending | Retain inference reservations through actual execution completion and prevent overlapping session-provider fallback. |
+| `8fcdfeb34` | Retain inference reservations through actual execution completion and prevent overlapping session-provider fallback. |
+| Pending | Shared byte admission and inference compatibility adapter. |
 
 Validation follows `AGENTS.md` and
 `docs/quality/validation-strategy.md`: inspect diffs, run `pnpm verify:plan`,
