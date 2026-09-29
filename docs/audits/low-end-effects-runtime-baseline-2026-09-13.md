@@ -623,3 +623,30 @@ No follow-up full browser/native/benchmark lane ran after triage. The app touch
 flow, physical Duet and Crostini checks, actual-artwork worker integration,
 full memory soak, mixed production benchmark, and export blocking acceptance
 remain open as described above.
+
+### Final post-repair gate — frozen master SHA `f5647aa864ad88ee9de8cd6b56b2ef1d1c4e7da7`
+
+The required `pnpm verify:full` rerun after the architecture repair used this
+reason:
+
+```text
+Final integration gate for low-end effects/runtime implementation at frozen master SHA f5647aa86; triage already collected shared formatting and editor typecheck blockers.
+```
+
+The gate still failed on the unrelated untracked WebGL2 JSON formatter error.
+The architecture audit no longer reports the effect-provider cycle; it sees
+the existing 2 engine, 11 scene, and 1 editor render-worker cycles, with layer
+boundaries and dead-code checks clean. Workspace typecheck passed every
+package before `@varve/editor` failed on the two `CurveEditor.test.tsx`
+`getByRole` typing errors and three diagnostics in untracked
+`packages/editor/src/tools/artworkSampling.ts`. Because recursive typecheck
+stopped there, E2E source typecheck and the full suite's unit, browser, native,
+and benchmark lanes did not run.
+
+The shared-tree planner continues to select the full suite (496 changed files
+at the post-repair plan snapshot). `pnpm verify:affected` exits at that
+escalation before starting lanes. The task-owned final evidence remains the
+focused engine typecheck, 16 live-effect dispatch/preview unit tests, docs,
+emoji and token audits, M4 and M7 website screenshots, and the M4 worker
+sample's inspected light/dark/high-contrast captures. The M7 app touch E2E and
+all physical device checks remain pending or blocked as stated above.
