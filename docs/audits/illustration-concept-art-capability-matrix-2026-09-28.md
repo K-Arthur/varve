@@ -24,7 +24,7 @@ each workflow receives real UI, save/reopen, undo and export checks.
 | Clip paint to a raster source | The live matte callback left the camera transform on its full-surface composition context, offsetting the mask; compact raster export also omitted the matte's external scene node. | Create an ordinary raster Shading child in a group with a live scene-node alpha matte; preserve source/destination separation and include external mask dependencies in structured render/export/sampling paths. | Paint tool options action on an explicitly selected raster source. | Reproduced in Chromium: red deposits existed in the child but the live group result was transparent; after the compositor transform fix, red appeared only within the blue source. The save/reopen path then exposed an all-transparent PNG because the source node was absent from flattened IR. Both defects are repaired. The leased one-worker E2E passes boundary pixels, undo/redo of layer creation and stroke, save/reopen, and PNG decode without leaving Design. Its 4096×4096 transparent export contains 41,146 red pixels and 16,730,091 fully transparent pixels. Inspected the full editor (`test-results/clipped-paint-design-workspace-final-20260929-r11/paint-brush-ui-paint-UI-in-2de46-e-its-visible-raster-source-chromium/clipped-paint-editor.png`), canvas (`.../clipped-paint-shading.png`), and exported PNG (`.../clipped-paint-export.png`). SVG/PDF appearance, Linux WebKitGTK, and physical stylus checks remain unverified. |
 | Reopened illustration with raster LOD enabled | A cold visible-tile frame after save/reopen shows broad red tile bands, while the saved PNG and retained-surface redraw are clean. The existing “do not draw incomplete coverage” guard does not eliminate the mismatch. | Keep interactive raster LOD out of the default editor path until a cold-residency frame matches the same-camera retained-surface oracle. Preserve the explicit performance-probe opt-in for renderer qualification. | Existing `useRasterLod` adapter and same hybrid illustration E2E. | Reproduced on 2026-09-29 in the save/reopen E2E. The red-mask union was 68,770 pixels with 27,040 mismatches (39.3%); the LOD screenshot shows tile-shaped gaps. Disabling LOD and forcing an authoritative retained redraw produces the clean apple, and the downloaded transparent PNG is clean. The normal editor adapter now holds LOD disabled; this is a mitigation, not a root-cause repair. Cold LOD residency and cross-renderer parity remain unqualified. |
 | Editable vector contours with raster texture | Raster fallback initially emitted at the document origin and the export view box ignored the raster island bounds. | Existing vector contour, live scene-node matte, raster layer, and smallest-boundary export fallback. | Existing Design canvas and export controls. | Verified for a bounded rectangle-plus-texture case: Chromium created the vector contour, clipped raster shading, undid/redid, saved/reopened, and downloaded SVG/PDF. Inspected SVG keeps the contour as vector geometry and embeds only the clipped texture group as a raster image; browser PDF preserves appearance via a raster fallback. The compositor bounds transformed raster layers and includes the raster island in the SVG view box. One interim retry hit a shared `ZoomInput is not defined` startup error; the later affected-plan app E2E passed. Arbitrary artwork, Linux Tauri/WebKitGTK, and physical stylus checks remain unverified. |
-| Thumbnails, references, perspective block-in, variants and presentation export | Existing pages, image nodes, guides and transforms are available; reference inclusion and view-only proof behavior need workflow evidence. | Existing images/assets, guides, view transforms, duplication and exports. | Existing guide and viewport surfaces. | Not yet verified end to end. |
+| Thumbnails, references, perspective block-in, variants and presentation export | Existing pages, image nodes, guides and transforms are available; reference inclusion and view-only proof behavior need workflow evidence. | Existing images/assets, guides, view transforms, duplication and exports. | Existing guide and viewport surfaces. | A bounded two-point perspective overlay is implemented and visually verified: 14 rays, 7 verticals, draggable world-space vanishing points, and unchanged content-canvas pixels when shown/hidden. This does not verify an artwork block-in. Local references, mirror/grayscale checks, variants and presentation export remain unverified end to end; see the visual pass below. |
 | Existing restoration/upscale paths | Artifact hash identity is recorded separately from source-license/provenance, quality, parity and memory qualification. | Existing restoration/upscale/session infrastructure only; no additional checkpoint is authorized by this plan. | Current enhancement dialog/status. | Not qualified by this audit. |
 
 ## Starting visual and test evidence
@@ -98,6 +98,31 @@ The captures are in
 `test-results/clipped-paint-visual-themes-20260929-r13/paint-brush-ui-paint-UI-in-2de46-e-its-visible-raster-source-chromium/`.
 The screenshots were visually inspected. Browser DPR was 1; other DPI tiers,
 Linux Tauri/WebKitGTK, and physical stylus remain open.
+
+## Perspective-guide visual pass (2026-09-29)
+
+Commit `25b67ac08` adds a session-only guide through the existing ruler-guide
+context menu. The leased Chromium E2E creates a ruler guide, toggles the
+perspective overlay, moves a vanishing point, checks the bounded line counts,
+and compares the content-canvas hash before and after showing/hiding it at the
+same viewport. The focused guide tests pass 14/14 and the E2E passes 1/1.
+
+The captures are in
+`test-results/perspective-guide-20260929-r7/paint-two-point-perspectiv-b8852-ys-a-draggable-view-overlay-chromium/`.
+Light and dark desktop/close-up images and high-contrast desktop/close-up and
+narrow-layout images were inspected. The grid stays within the editor canvas;
+the two handles and rays remain distinguishable in high contrast. These
+captures use an empty Design canvas, so they do not establish a complete
+thumbnail-to-paintover workflow or save/reopen/export behavior for references.
+
+The seven-file affected plan selected no full-suite escalation. Touched-file
+format/lint, emoji/docs/radius audits, E2E typecheck, direct guide tests, and
+the leased E2E passed. The editor package suite completed with 848 tests
+passing, 2 skipped, and 23 failures across 12 unrelated workspace, toolbar,
+shortcut, and Minimap files. Editor typecheck reported existing `CurveEditor`
+and Minimap test-type errors. Desktop typecheck and its 80 tests passed. The
+token contrast pairs passed, but the usage scan flagged the existing generic
+Tailwind `--name` reference in `packages/codegen/src/tailwind.ts`.
 
 ## Status vocabulary
 
