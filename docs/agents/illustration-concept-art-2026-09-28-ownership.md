@@ -93,6 +93,28 @@ hardware gaps remain explicit in the final handoff.
 
 ## Commit log
 
+- `ecb081330` — `fix(illustration): preserve verified reopened rendering` —
+  retained the reopened hybrid flats result and disabled interactive raster
+  LOD after the tiled path differed from its authoritative redraw by 39.3% of
+  the red-mask union. This is a safe-default mitigation; LOD geometry remains
+  unresolved. The leased Chromium oracle, undo/redo, save/reopen, grouped PNG,
+  narrow viewport full-redraw check, and both website deploy-base checks passed.
+  The same commit added the inspected hybrid screenshot and Strokes feature-page
+  evidence. Exact validation and hash are recorded below; no WebKitGTK or
+  physical stylus claim is made.
+
+- `8056d6aad` — `feat(paint): add per-stroke opacity accumulation` — added an
+  optional persisted brush accumulation mode, a bounded canonical compositor
+  accumulator, UI controls, production-path previews, in-app help, artist and
+  marketing copy, and a 1K/2K/4K relative compositor benchmark. Nine focused
+  editor/scene files passed 175/175, the brush-package serialization test
+  passed 20/20, and the leased browser preview plus two-gesture check passed
+  2/2. Website builds and both deploy-base visual checks passed. The affected
+  planner selected no full-suite escalation but stopped at an unrelated token
+  usage finding (`--name` in `packages/codegen/src/tailwind.ts`); the editor,
+  website and E2E typechecks also surface concurrent errors documented in the
+  latest shared-checkout recheck below. No full suite was run.
+
 - `b39129198` — `fix(paint): validate explicit raster targets` — target
   existence, page membership, ancestor visibility/locks, transform validation,
   exact mask identity, refusal regressions, and the updated paint contract.
