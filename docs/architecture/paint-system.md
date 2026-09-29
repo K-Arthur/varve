@@ -37,7 +37,8 @@ The output target is deliberately explicit:
 
 ## Raster layer targeting and persistence
 
-Painting resolves its raster target in this order:
+Painting resolves its raster target in this order on the active Design Canvas or
+publishing page:
 
 1. an explicitly selected raster layer, after checking it and its ancestors
    for visibility, locks, active-page membership, and an invertible world
@@ -54,8 +55,13 @@ or mask whose id does not match the selected node's mask asset is likewise a
 refusal; these states cannot redirect a stroke. Mask painting also requires a
 present, dimensioned asset in the coordinate space currently supported by the
 mask session. The resolver's refusal reason is announced to assistive
-technology. A visible recovery action is tracked separately from this spoken
-feedback and is not yet verified.
+technology. Canvas-surface strokes validate ancestry against the active Design
+Canvas; page-surface strokes validate against the active page. When an explicit
+non-pixel object is selected, Paint tool options
+also offer **Create paint layer**. The action adds an empty layer to the active
+editor surface and selects it; it does not reuse the selected object or consume
+the refused pointer gesture, so the artist paints with a deliberate next
+stroke.
 
 Clone Stamp, Healing Brush, Spot Heal, Patch, and Dodge Burn use the same
 resolver but with stricter ownership: an explicitly selected raster layer is

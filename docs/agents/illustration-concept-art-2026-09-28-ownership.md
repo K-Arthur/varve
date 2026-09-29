@@ -24,6 +24,9 @@ implementation ownership is limited to the following clean paths:
 | `packages/editor/src/tools/__tests__/paintTarget.test.ts` | Resolver regression coverage. |
 | `packages/editor/src/tools/PaintTool.ts` | Target admission plus the narrow pointer-up/tool-switch finalization fix; do not change worker batching, input normalization or active-drag cancellation. |
 | `packages/editor/src/tools/__tests__/PaintTool.test.ts` | Resolver regressions and released-stroke finalization across tool deactivation. |
+| `packages/editor/src/tools/paintLayerRecovery.ts` and `.test.ts` | Active-surface pixel-layer construction for the explicit Paint recovery action. |
+| `packages/editor/src/components/FloatingToolbar/PaintLayerRecoveryAction.tsx` | Paint tool-options action for creating and selecting a separate recovery layer. |
+| `packages/editor/src/components/FloatingToolbar/ToolOptionsPopover.tsx` + `.css` | Compose recovery in the existing Paint options panel; no central editor hub changes. |
 | `tests/e2e/paint/brush-ui.spec.ts` | Isolated real-canvas target-refusal regression and production Brush Browser visual check for the illustration starting presets. |
 | `tests/e2e/canvas/raster-magic-wand.spec.ts` | Verify the existing painted raster → Magic Wand → flat-fill route, save/export/reopen; maintain the current Inspector export-tab access in the real UI. |
 | `tests/e2e/canvas/selection-fill.spec.ts` | Verify selection-to-flats undo/redo, save/export/reopen; maintain the current Inspector export-tab access in the real UI. |
@@ -191,3 +194,32 @@ hardware gaps remain explicit in the final handoff.
   E2E camera/interaction updates. The affected run's non-E2E gates passed; the
   live browser interruption and remaining reopen-pixel check are recorded
   above. Commit remains local on `master`.
+
+- The Paint tool now offers a visible **Create paint layer** action for an
+  explicitly selected non-pixel object. It creates a page- or Design
+  Canvas-scoped raster at the document's painting resolution, commits as one
+  undo operation, selects the new layer, and leaves the refused gesture
+  untouched. Paint target validation now uses the active Design Canvas when
+  present and resolves descendants against surface roots; publishing-page
+  validation remains page-scoped. A regression with a page and Design Canvas
+  in the same document covers the scope mismatch.
+
+- The leased Chromium refusal → create/select → repaint journey passes. I
+  inspected `test-results/illustration-paint-recovery-20260929-4386/paint-brush-ui-paint-UI-in-7e966-g-into-another-raster-layer-chromium/paint-layer-recovery-available.png`
+  and `.../paint-layer-recovery-stroke.png`: the action is visible beside the
+  brush controls; the after-state shows the new stroke on the selected Paint
+  Layer while the prior raster and selected vector remain unchanged. Focused
+  PaintTool, resolver and layer-construction tests pass 62/62. E2E typecheck
+  passes. `pnpm audit:tokens` passes all 303 pairs across three themes and the
+  token-usage scan.
+
+- Latest exact 12-path `pnpm verify:plan --staged` reports no full-suite
+  escalation. `pnpm verify:affected --staged` passes touched format/lint,
+  emoji, docs, radius and spacing, then stops at an unrelated new
+  `packages/editor/src/components/Settings/layoutPresentation.css` 9px font
+  size in `audit-interface-sizing`. Direct editor typecheck has no errors from
+  this change but remains blocked by two existing overload errors in
+  `CurveEditor.test.tsx`. Website-wide pages and screenshots, separate
+  linework-to-flats sampling, undo/reopen/export for this recovery scenario,
+  and the other planned illustration workflows remain pending. Full suite was
+  not run.

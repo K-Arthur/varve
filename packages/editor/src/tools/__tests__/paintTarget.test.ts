@@ -1,3 +1,11 @@
+import {
+  addChild,
+  createDesignCanvas,
+  createDocument,
+  designCanvasContentRoot,
+  makeRasterLayerNode,
+  nextNodeId,
+} from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import {
   type PaintTargetInput,
@@ -96,6 +104,27 @@ describe('paint target resolution', () => {
       input({ maskEditTarget: { nodeId: 'locked', maskId: 'm1' } }),
     );
     expect(target.kind).toBe('none');
+  });
+
+  it('validates selected pixels against the active Design Canvas surface', () => {
+    const document = createDesignCanvas(createDocument('Mixed surfaces'));
+    const canvasId = document.activeDesignCanvasId!;
+    const contentRoot = designCanvasContentRoot(document, canvasId)!;
+    const { id: rasterId, doc: allocated } = nextNodeId(document);
+    const withRaster = addChild(
+      allocated,
+      contentRoot,
+      makeRasterLayerNode(rasterId, { width: 64, height: 64 }),
+    );
+
+    expect(
+      resolvePaintTarget(
+        input({ document: withRaster, selection: [rasterId], designCanvasId: canvasId }),
+      ),
+    ).toMatchObject({ kind: 'rasterLayer', nodeId: rasterId });
+    expect(
+      resolvePaintTarget(input({ document: withRaster, selection: [rasterId] })),
+    ).toMatchObject({ kind: 'none' });
   });
 
   it('offers to create a layer when there is nothing to paint on', () => {

@@ -11,7 +11,12 @@
  * the user why nothing happened instead of appearing broken.
  */
 import type { Document, NodeId, SceneNode } from '@varve/scene';
-import { activePageNodes, getOwnRasterMaskAsset, nodeWorldTransform } from '@varve/scene';
+import {
+  activePageNodes,
+  designCanvasContentRoot,
+  getOwnRasterMaskAsset,
+  nodeWorldTransform,
+} from '@varve/scene';
 import { tryInvertAffine } from '@varve/shared';
 
 export type PaintTargetKind = 'rasterLayer' | 'rasterMask' | 'none';
@@ -50,6 +55,8 @@ export interface PaintTargetInput {
   fallbackLayerId?: NodeId | null;
   /** Editor's page-placement-aware mapping, when available. */
   getWorldTransform?: (id: NodeId) => import('@varve/shared').Affine;
+  /** Active Design Canvas when the editor is on a canvas surface. */
+  designCanvasId?: NodeId | null;
 }
 
 function nodeName(node: SceneNode | undefined, fallback: string): string {
@@ -85,7 +92,7 @@ function validateNodeForPaint(input: PaintTargetInput, nodeId: NodeId): NoPaintT
 
   const parentIndex = safeParentIndexMap(doc);
   let currentId: NodeId | undefined = nodeId;
-  let rootId: NodeId | null = null;
+  let activeRootId: NodeId | null = null;
   const visited = new Set<NodeId>();
   while (currentId) {
     if (visited.has(currentId)) return noTarget('This layer has an invalid parent hierarchy.');
@@ -98,18 +105,38 @@ function validateNodeForPaint(input: PaintTargetInput, nodeId: NodeId): NoPaintT
     if (current.locked === true) {
       return noTarget(`${nodeName(current, 'Layer')} is locked. Unlock it to paint on it.`);
     }
-    rootId = currentId;
+    activeRootId = currentId;
     currentId = parentIndex.get(currentId);
   }
 
-  if (doc.activePageId && !doc.pages?.some((page) => page.id === doc.activePageId)) {
+  if (
+    !input.designCanvasId &&
+    doc.activePageId &&
+    !doc.pages?.some((page) => page.id === doc.activePageId)
+  ) {
     return noTarget('The active page is no longer available. Choose a page before painting.');
   }
-  const activeRoots = new Set(activePageNodes(doc));
-  if (!rootId || !activeRoots.has(rootId)) {
-    return noTarget(
-      `${nodeName(node, 'Layer')} is not on the active page. Activate its page to paint on it.`,
-    );
+
+  const canvasRootId = input.designCanvasId
+    ? designCanvasContentRoot(doc, input.designCanvasId)
+    : null;
+  const canvasRoot = canvasRootId ? doc.nodes[canvasRootId] : undefined;
+  const activeRoots = new Set(
+    input.designCanvasId
+      ? canvasRoot && 'children' in canvasRoot && Array.isArray(canvasRoot.children)
+        ? canvasRoot.children
+        : []
+      : activePageNodes(doc),
+  );
+  let currentScopeId: NodeId | undefined = nodeId;
+  while (currentScopeId && !activeRoots.has(currentScopeId)) {
+    currentScopeId = parentIndex.get(currentScopeId);
+  }
+  if (!activeRootId || !currentScopeId) {
+    const surfaceReason = input.designCanvasId
+      ? 'is not on the active canvas. Activate its canvas to paint on it.'
+      : 'is not on the active page. Activate its page to paint on it.';
+    return noTarget(`${nodeName(node, 'Layer')} ${surfaceReason}`);
   }
 
   let worldTransform: import('@varve/shared').Affine;

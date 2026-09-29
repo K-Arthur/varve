@@ -282,6 +282,7 @@ export class PaintTool extends BaseTool {
       maskEditTarget: ctx.maskEditTarget ?? null,
       fallbackLayerId: findEditableRasterLayer(ctx),
       getWorldTransform: ctx.getWorldTransform,
+      designCanvasId: ctx.masterEditId ? null : ctx.designCanvasId,
     });
 
     let maskSession: MaskPaintSession | null = null;

@@ -329,6 +329,32 @@ test.describe('paint UI in the running app', () => {
     await expect.poll(() => contentCanvasHash(page)).toBe(before);
     await expect(page.getByRole('treeitem')).toHaveCount(2);
     await page.screenshot({ path: testInfo.outputPath('vector-selected-paint-refusal.png') });
+
+    // Recovery is explicit: it creates and selects a new paint layer, then
+    // the next pointer gesture deposits there as a separate operation.
+    const options = await openToolOptions(page);
+    const createPaintLayer = options.getByRole('button', { name: 'Create paint layer' });
+    await expect(createPaintLayer).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath('paint-layer-recovery-available.png') });
+    await createPaintLayer.click();
+    await expect(page.getByRole('treeitem')).toHaveCount(3);
+    const paintLayer = page.getByRole('treeitem').filter({ hasText: 'Paint Layer' });
+    await expect(paintLayer).toHaveAttribute('aria-selected', 'true');
+    await page.screenshot({ path: testInfo.outputPath('paint-layer-recovery-selected.png') });
+    await page.getByRole('button', { name: 'Tool options' }).click();
+    await expect(page.getByRole('button', { name: 'Tool options' })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+
+    const blankPaintLayer = await contentCanvasHash(page);
+    await page.mouse.move(box.x + box.width * 0.72, y);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width * 0.8, y + 14, { steps: 8 });
+    await page.mouse.up();
+    await expect.poll(() => contentCanvasHash(page), { timeout: 10000 }).not.toBe(blankPaintLayer);
+    await expect(page.getByRole('treeitem')).toHaveCount(3);
+    await page.screenshot({ path: testInfo.outputPath('paint-layer-recovery-stroke.png') });
     await expect(canvas).toBeVisible();
   });
 
