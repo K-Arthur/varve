@@ -78,6 +78,44 @@ const enhanceShot = scenes['enhance-dialog-auto']?.status === 'captured' ? scene
         </div>
       </section>
 
+      <section class="model-install" aria-labelledby="model-install-title">
+        <p class="eyebrow">Optional models, on your terms</p>
+        <h2 id="model-install-title">A model is ready only after its files are checked.</h2>
+        <div class="model-install-grid">
+          <article>
+            <h3>See the cost first</h3>
+            <p>
+              Model-based tasks start only when you choose them. The download dialog names the
+              model source, transfer size, and a separate estimate for peak working memory.
+            </p>
+          </article>
+          <article>
+            <h3>Verify before use</h3>
+            <p>
+              Model bytes are written to local staging storage and checked against their expected
+              size and digest before the model becomes available. A split model stays unavailable
+              until its graph and companion weights are both verified.
+            </p>
+          </article>
+          <article>
+            <h3>Keep the result</h3>
+            <p>
+              Apply the generated pixels as a new layer, then save the document. Reopening that
+              document does not need the model or another inference run.
+            </p>
+          </article>
+        </div>
+        <p class="model-install-note">
+          Download space and inference memory are different costs. A verified model can still be
+          too large for a particular image or device to run; core editing remains available when
+          an optional model cannot be installed or admitted.
+        </p>
+        <p class="model-install-links">
+          <a href={sitePath('/docs/tools/image-enhancement')}>Read the model and memory guide</a>
+          · <a href={sitePath('/docs/performance')}>Lower-memory and Chromebook guidance</a>
+        </p>
+      </section>
+
       <section class="resize-contract" aria-labelledby="resize-contract-title">
         <p class="eyebrow">Source pixels stay explicit</p>
         <h2 id="resize-contract-title">Resize the image without resizing its placement.</h2>
@@ -167,6 +205,15 @@ const enhanceShot = scenes['enhance-dialog-auto']?.status === 'captured' ? scene
   .capability-grid article { border-top: 2px solid var(--border-accent); padding-top: 1rem; }
   .capability-grid h3 { color: var(--text-primary); margin: 0 0 .5rem; }
   .capability-grid p { color: var(--text-secondary); line-height: 1.65; margin: 0; }
+  .model-install { border-top: 1px solid var(--border-default); padding: 4rem 0; }
+  .model-install h2 { color: var(--text-primary); font-size: clamp(1.6rem, 3vw, 2.3rem); margin: .5rem 0 1rem; }
+  .model-install-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+  .model-install-grid article { border: 1px solid var(--border-default); border-radius: var(--website-radius-surface); padding: 1rem; }
+  .model-install-grid h3 { color: var(--text-primary); margin: 0 0 .5rem; }
+  .model-install-grid p, .model-install-note { color: var(--text-secondary); line-height: 1.65; margin: 0; }
+  .model-install-note { margin-top: 1rem; max-width: 760px; }
+  .model-install-links { color: var(--text-secondary); line-height: 1.65; margin-top: 1rem; }
+  .model-install-links a { color: var(--text-link); font-weight: 600; }
   .review { border-top: 1px solid var(--border-default); padding: 4rem 0; }
   .review > div:first-child { max-width: 680px; }
   .review h2 { color: var(--text-primary); font-size: clamp(1.6rem, 3vw, 2.3rem); margin: .5rem 0 1rem; }
@@ -183,5 +230,5 @@ const enhanceShot = scenes['enhance-dialog-auto']?.status === 'captured' ? scene
   .acceleration p { color: var(--text-secondary); line-height: 1.75; }
   .acceleration a { color: var(--text-link); font-weight: 600; }
   .honesty a { color: var(--text-link); font-weight: 600; }
-  @media (max-width: 680px) { .pipeline { grid-template-columns: 1fr; } .pipeline-arrow { transform: rotate(90deg); justify-self: center; } .capability-grid, .review-grid { grid-template-columns: 1fr; } }
+  @media (max-width: 680px) { .pipeline { grid-template-columns: 1fr; } .pipeline-arrow { transform: rotate(90deg); justify-self: center; } .capability-grid, .review-grid, .model-install-grid { grid-template-columns: 1fr; } }
 </style>

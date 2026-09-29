@@ -36,13 +36,14 @@ import '../../../styles/docs-prose.css';
 
       <section class="docs-section">
         <h2>Output behavior</h2>
-        <p><strong>New layer</strong> is the default and preserves the source. <strong>Replace source</strong> commits the derived pixels atomically and remains undoable. Use the output options only when their semantics suit the document; enhancement results are materialized pixels and do not silently become re-editable model operations.</p>
+        <p><strong>New layer</strong> is the default and preserves the source. <strong>Replace source</strong> commits the derived pixels atomically and remains undoable. Use the output options only when their semantics suit the document; enhancement results are materialized pixels and do not silently become re-editable model operations. Once saved, those pixels reopen and export with the document without the model being installed or inference running again.</p>
       </section>
 
       <section class="docs-section">
         <h2>Models and memory</h2>
-        <p>General Real-ESRGAN x4 is bundled for local AI upscaling. SCUNet denoising and NAFNet deblurring are optional, explicit downloads; split models are not considered ready until both the ONNX graph and external weights are present and the graph checksum verifies. Missing models keep Apply disabled and offer Download model.</p>
+        <p>General Real-ESRGAN x4 is bundled for local AI upscaling. SCUNet denoising and NAFNet deblurring are optional, explicit downloads; split models are not considered ready until both the ONNX graph and external weights pass their recorded size and SHA-256 checks and are published together. Downloads stream into local staging storage. Interrupted or corrupt bytes do not become an installed model; a partial transfer is reusable only when the server's range and ETag still match. Missing models keep Apply disabled and offer Download model.</p>
         <p>The output panel reports a conservative peak-memory estimate that includes decoded frames, model runtime peaks, AI's fixed 4× intermediate, and any final resize staging. It is an admission estimate rather than a promise about exact allocator usage.</p>
+        <p>Download storage and inference working memory are separate limits. A model may fit on disk but still be refused for a particular image when the shared working-set budget is full or too small. The dialog reports whether it is connecting, downloading, verifying, finishing installation, or recovering from an error. Cancellation remains in progress until the reader has stopped and any resumable partial has been handled.</p>
       </section>
 
       <section class="docs-section">

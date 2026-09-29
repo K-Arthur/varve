@@ -472,7 +472,7 @@ Validation for M6:
 
 - Biome checked 12 exact engine/model manifest and test paths; no fixes were
   required on the final run.
-- Focused Vitest run: 6 files passed, 381 tests passed, 0 failed. Coverage
+- Focused Vitest run: 6 files passed, 382 tests passed, 0 failed. Coverage
   includes staged writes, legacy reads, valid and invalid resume paths,
   incomplete batch rollback, component staging and reuse, atomic graph/weights
   publication, and manifest contracts.
@@ -487,3 +487,93 @@ session creation. The external-data path resumes only after matching URL,
 ETag, range start, total, and chunk length; physical browser/device behavior is
 not established by these Node tests. OPFS browser qualification and the Duet
 device-kit checks remain pending.
+
+## M7 — Touch workflow and user-visible recovery states
+
+The model dialog now distinguishes connection, byte transfer, verification,
+publication, cancellation cleanup, and completion. A cancel during transfer
+keeps the dialog in a truthful cleaning-up state until the loader has stopped
+and resolved its private partial artifact. The dialog cannot be dismissed while
+digest verification or atomic multipart publication is still running. The
+browser loader reports these phases at the actual stream/commit boundaries;
+native Tauri still has byte progress only and is intentionally not described as
+exposing verifier internals. Focused tests cover both the stage order and the
+wait-for-cleanup behavior.
+
+Frequent Effect Studio controls and model-download actions receive 44 CSS-pixel
+minimum targets on coarse-pointer devices, and the filter list no longer traps
+touch users in a short nested scroll region. A real Chromium mobile/touch E2E
+case now exercises portrait reachability, numeric entry, preview cancel, apply,
+reorder target dimensions, and the intended save/reopen/export sequence. Its
+first run did not reach the spec: global setup waited three minutes for the
+editor home control, then the browser reported that the engine barrel lacked
+`MAX_AREA_SELECTION_PIXELS`, imported by the shared, untracked
+`packages/editor/src/tools/artworkSampling.ts`. That path is outside this
+milestone's ownership and was preserved. The control geometry and save/reopen
+flow therefore remain unverified in the app browser. Host emulation also does
+not establish physical Duet keyboard occlusion, pen behavior, or suspend and
+resume.
+
+The enhancement feature/help pages now explain explicit downloads, verified
+installation, the difference between storage and inference memory, and durable
+materialized results. Lower-memory and Chromebook guidance links these flows
+while continuing to mark physical browser/PWA and ARM64 Crostini checks pending.
+Release and package claims were cross-checked against `docs/release/website.md`;
+installation guidance was not changed. Current complaint evidence was
+rechecked against the linked Adobe, Photopea, Krita AI Diffusion, and Figma
+reports. These are failure leads from individual users or vendor feedback,
+with unconfirmed root causes; they are not comparative Varve measurements.
+
+M7 validation:
+
+```text
+pnpm exec vitest run packages/engine/src/backgroundRemoval/__tests__/modelLoader.test.ts packages/editor/src/components/BackgroundRemoval/ModelDownloadDialog.test.tsx --maxWorkers=1
+Result: 2 files passed, 40 tests passed, 0 failed.
+pnpm --filter @varve/engine typecheck
+Result: passed.
+pnpm --filter @varve/editor typecheck
+Result: failed on two pre-existing TS2769 errors in unchanged packages/editor/src/components/Inspector/controls/CurveEditor.test.tsx:23–24 (`getByRole` options); no diagnostic names an M7 file.
+pnpm typecheck:e2e
+Result: passed, including the new portrait touch workflow spec.
+pnpm --filter @varve/website typecheck
+Result: passed; Astro reported 0 errors, 0 warnings, and 0 hints across 164 files; the E2E TypeScript check passed.
+pnpm build:website
+pnpm build:website:pages
+Result: both production builds passed; each generated 112 pages and a search index for 109 pages with 1,154 heading anchors.
+VARVE_LEASE_TIMEOUT=1800000 VARVE_WEBSITE_E2E_PORT=1712 VARVE_WEBSITE_E2E_PORT_ROOT=1713 VARVE_E2E_OUTPUT_DIR=low-end-effects-m7-site-0929b node scripts/quality/heavy-lease.mjs "e2e: inspect mobile model-install section on both website base paths" -- npx playwright test -c playwright.website.config.ts apps/website/tests/e2e/low-end-effects-marketing.spec.ts --project=ghpages --project=custom-domain --workers=1 --reporter=list
+Result: 2 tests passed (5.0s), covering root and `/varve` base paths, desktop and portrait-mobile layouts, no horizontal overflow, expected internal links, enhancement claims, and readable help content.
+pnpm verify:plan
+Result: 504 changed files across 10 JS packages and `varve-bridge`; FULL-SUITE ESCALATION: YES for shared workspace/validation-infrastructure and dependency/toolchain changes.
+pnpm verify:affected
+Result: exit 2 with the same 504-file plan at the full-suite escalation before any affected lanes started; it requests `pnpm verify:full`.
+```
+
+The following selected policy audits passed: docs (1107 documents, 710 links,
+177 ADRs), emoji (5143 files), token contrast/usage (303 pairs across three
+themes; 585 defined properties), radius, spacing, interface sizing, and
+Stylelint for both edited application CSS files. The inspector CSS audit is
+clean under its hard rules and reports existing debt-inventory warnings,
+including in `effectStudio.css`; these are advisory and were not introduced by
+the added coarse-pointer rule.
+
+The new site screenshots were all inspected. Desktop and mobile captures for
+both deployment bases are at:
+
+```text
+test-results/low-end-effects-marketing--c36e3--both-deployment-base-paths-ghpages/ghpages-enhancement-desktop.png
+test-results/low-end-effects-marketing--c36e3--both-deployment-base-paths-ghpages/ghpages-enhancement-mobile.png
+test-results/low-end-effects-marketing--c36e3--both-deployment-base-paths-ghpages/ghpages-model-install-mobile.png
+test-results/low-end-effects-marketing--c36e3--both-deployment-base-paths-custom-domain/custom-domain-enhancement-desktop.png
+test-results/low-end-effects-marketing--c36e3--both-deployment-base-paths-custom-domain/custom-domain-enhancement-mobile.png
+test-results/low-end-effects-marketing--c36e3--both-deployment-base-paths-custom-domain/custom-domain-model-install-mobile.png
+```
+
+The CUA browser also inspected the local feature and help pages at desktop
+viewport size. The separate M4 worker-sample screenshots were inspected in
+light, dark, and high-contrast themes; the new touch CSS could not receive an
+app screenshot because of the unrelated startup error above. No performance
+improvement is claimed from the CSS or download-state changes. The frozen-SHA
+full gate remains outstanding at this entry's creation. The [physical device
+kit](../quality/low-end-effects-device-kit-2026-09-29.md) is the remaining
+acceptance route for ChromeOS browser/PWA and ARM64 Crostini, including actual
+keyboard, pen, suspend, offline reopen, and device memory behavior.

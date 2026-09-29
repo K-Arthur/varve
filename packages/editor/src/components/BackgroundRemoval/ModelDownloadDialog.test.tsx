@@ -83,7 +83,74 @@ describe('ModelDownloadDialog — consent gate', () => {
       'birefnet-general-lite',
       expect.any(Function),
       expect.any(AbortSignal),
+      expect.any(Function),
     );
+  });
+
+  it('waits for cancellation cleanup before saying the download is cancelled', async () => {
+    const onClose = vi.fn();
+    mockDownloadModel.mockImplementation(
+      (_modelId, _onProgress, signal: AbortSignal, onStage: (stage: string) => void) =>
+        new Promise((_resolve, reject) => {
+          onStage('downloading');
+          signal.addEventListener('abort', () => {
+            window.setTimeout(() => reject(new Error('Download cancelled')), 0);
+          });
+        }),
+    );
+    render(
+      <ModelDownloadDialog
+        modelId="birefnet-general-lite"
+        onClose={onClose}
+        onComplete={() => {}}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /^download$/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /^cancel$/i }));
+
+    expect(screen.getByText(/cancelling and cleaning up/i)).toBeInTheDocument();
+    expect(screen.queryByText(/download cancelled/i)).not.toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(
+      await screen.findByText(/download cancelled\. nothing was installed/i),
+    ).toBeInTheDocument();
+  });
+
+  it('keeps the dialog open while verification and atomic publication finish', async () => {
+    let resolveDownload: (() => void) | undefined;
+    let reportStage: ((stage: string) => void) | undefined;
+    mockDownloadModel.mockImplementation(
+      (_modelId, _onProgress, _signal, onStage: (stage: string) => void) => {
+        reportStage = onStage;
+        onStage('verifying');
+        return new Promise<void>((resolve) => {
+          resolveDownload = resolve;
+        });
+      },
+    );
+    const onClose = vi.fn();
+    render(
+      <ModelDownloadDialog
+        modelId="birefnet-general-lite"
+        onClose={onClose}
+        onComplete={() => {}}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /^download$/i }));
+    expect(await screen.findByText(/verifying the downloaded file/i)).toBeInTheDocument();
+    const finishingButton = screen.getByRole('button', { name: /^finishing/i });
+    expect(finishingButton).toBeDisabled();
+    expect(onClose).not.toHaveBeenCalled();
+
+    reportStage?.('installing');
+    expect(await screen.findByText(/publishing verified model files/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^finishing/i })).toBeDisabled();
+    expect(onClose).not.toHaveBeenCalled();
+
+    resolveDownload?.();
+    expect(await screen.findByText(/model ready/i)).toBeInTheDocument();
   });
 
   it('lets the user cancel without ever triggering a download', () => {

@@ -144,6 +144,27 @@ paths still create a Blob URL or `ArrayBuffer` when the runtime requires a
 single model source. OPFS quota/eviction policy, browser-specific OPFS behavior,
 and native ARM64 device storage remain separate validation work.
 
+### User-visible download and cancellation states
+
+The browser model loader reports `connecting` before source resolution,
+`downloading` while response bytes are streamed, `verifying` after the final
+chunk and before its digest/size-gated commit, and `installing` only when a
+verified multipart set is atomically published under public model IDs. These
+callbacks drive the explicit-download dialog; a network percentage is not
+treated as verification. For a single-artifact writer, verified commit also
+publishes the final reference, so the dialog remains in its verification state
+through that operation.
+
+Cancel during connection or transfer aborts the request, but the dialog remains
+in `cancelling` until the loader has stopped the reader and completed its
+partial-artifact decision. A validator-backed partial may remain privately
+staged for a later matching range request; it is never advertised as installed.
+Digest and atomic-publication calls do not accept cancellation, so the dialog
+disables dismissal until they finish and reports their actual result. Native
+Tauri downloads currently expose byte progress but not the Rust verifier's
+internal phase; they stay in the downloading state until the verified native
+command returns rather than inventing a separate verification event.
+
 ### Verified bundled model examples
 
 The small segmentation and upscaling models below are examples of models that

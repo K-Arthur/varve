@@ -251,6 +251,23 @@ describe('ModelLoader', () => {
     expect(progressCalls.at(-1)?.[0]).toBe(10);
   });
 
+  it('reports verification only after the response stream has been consumed', async () => {
+    const { getModelLoaderReady, resetModelLoader } = await import('../modelLoader');
+    resetModelLoader();
+    const loader = await getModelLoaderReady();
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValue(mockFetchResponse({ ok: true, chunks: [new Uint8Array([1, 2, 3])] })),
+    );
+
+    const stages: string[] = [];
+    await loader.downloadModel('u2netp', undefined, undefined, (stage) => stages.push(stage));
+
+    expect(stages).toEqual(['connecting', 'downloading', 'verifying']);
+  });
+
   it('repairs a post-processed model before storing it and verifies both hashes', async () => {
     const upstream = new Uint8Array([1, 2, 3]);
     const repaired = new Uint8Array([1, 2, 3, 9]);
@@ -341,7 +358,8 @@ describe('ModelLoader', () => {
       }),
     );
 
-    await loader.downloadModel('u2netp');
+    const stages: string[] = [];
+    await loader.downloadModel('u2netp', undefined, undefined, (stage) => stages.push(stage));
 
     expect(mockModelStorage.publishInstalledBatch).toHaveBeenCalledWith([
       { stagedId: '__varve_artifact_stage__u2netp__graph', modelId: 'u2netp' },
@@ -353,6 +371,14 @@ describe('ModelLoader', () => {
     expect(mockSave.mock.calls.map(([id]) => id)).toEqual([
       '__varve_artifact_stage__u2netp__graph',
       '__varve_artifact_stage__u2netp__external-data',
+    ]);
+    expect(stages).toEqual([
+      'connecting',
+      'downloading',
+      'verifying',
+      'downloading',
+      'verifying',
+      'installing',
     ]);
   });
 

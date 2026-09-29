@@ -135,6 +135,30 @@ import '../../styles/docs-prose.css';
           editor's first screen, and should be treated as the single most expensive
           background operation on a 4–8 GB device.
         </p>
+        <p>
+          In the browser, model files are streamed into local staging storage and checked before
+          they become ready. A failed or cancelled transfer is not presented as installed. A
+          successful enhancement is saved as document pixels, so reopening and exporting the
+          result does not require the model again.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Chromebook routes have different limits</h2>
+        <p>
+          The browser demo/PWA and the Linux desktop package run through different platform paths.
+          The public demo is served from GitHub Pages and cannot enable the cross-origin isolation
+          required for shared-memory WASM. A model download or successful settings probe does not
+          establish that an optional model will fit the remaining working set on a Chromebook.
+          Save before long work and use the capability report to see which provider actually ran.
+        </p>
+        <p>
+          Host-side Chromium emulation is regression evidence only. Physical Duet touch/pen,
+          on-screen keyboard placement, suspend/resume, offline reopen, and export checks remain
+          pending for both ChromeOS browser/PWA and ARM64 Crostini. See the{' '}
+          <a href={sitePath('/docs/chromebook')}>Chromebook route guide</a> for current package
+          facts and setup steps.
+        </p>
       </section>
 
       <section class="docs-section">

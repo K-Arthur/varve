@@ -28,6 +28,7 @@ type DownloadStatus =
   | 'downloading'
   | 'verifying'
   | 'installing'
+  | 'cancelling'
   | 'ready'
   | 'error'
   | 'cancelled';
@@ -56,12 +57,18 @@ export function ModelDownloadDialog({ modelId, onClose, onComplete }: ModelDownl
   const peakMemoryBytes = catalogEntry?.peakMemoryBytes;
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState<DownloadStatus>('confirm');
+  const statusRef = useRef<DownloadStatus>('confirm');
   const [error, setError] = useState<NormalizedModelDownloadError | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
+  const updateStatus = useCallback((next: DownloadStatus) => {
+    statusRef.current = next;
+    setStatus(next);
+  }, []);
+
   const handleDownload = useCallback(async () => {
-    setStatus('connecting');
+    updateStatus('connecting');
     setProgress(0);
     setError(null);
     setDetailsOpen(false);
@@ -70,39 +77,48 @@ export function ModelDownloadDialog({ modelId, onClose, onComplete }: ModelDownl
     abortRef.current = controller;
     try {
       const loader = getModelLoader();
-      setStatus('downloading');
       await loader.downloadModel(
         modelId,
         (loaded, total) => {
           setProgress(Math.round((loaded / total) * 100));
         },
         controller.signal,
+        (stage) => updateStatus(stage),
       );
-      setStatus('ready');
+      updateStatus('ready');
       setTimeout(onComplete, 1000);
     } catch (e) {
       if (controller.signal.aborted) {
-        setStatus('cancelled');
+        updateStatus('cancelled');
+        setProgress(0);
         return;
       }
       const normalized = normalizeModelDownloadError(e);
       setError(normalized);
-      setStatus('error');
+      updateStatus('error');
     } finally {
       abortRef.current = null;
     }
-  }, [modelId, onComplete]);
+  }, [modelId, onComplete, updateStatus]);
 
   const handleCancel = useCallback(() => {
-    if (status === 'connecting' || status === 'downloading' || status === 'verifying') {
+    const currentStatus = statusRef.current;
+    if (currentStatus === 'connecting' || currentStatus === 'downloading') {
+      updateStatus('cancelling');
       abortRef.current?.abort();
-      abortRef.current = null;
-      setStatus('cancelled');
-      setProgress(0);
+      return;
+    }
+    // Digest verification and atomic publication do not accept an abort
+    // signal. Keep the dialog mounted until the loader reports its outcome.
+    if (
+      currentStatus === 'cancelling' ||
+      currentStatus === 'verifying' ||
+      currentStatus === 'installing'
+    ) {
       return;
     }
     onClose();
-  }, [status, onClose]);
+  }, [onClose, updateStatus]);
 
   const sizeMB = model ? Math.round(model.size / 1_000_000) : 0;
   const sourceHost = model ? sourceHostname(model.remoteUrl) : 'a remote server';
@@ -156,7 +172,12 @@ export function ModelDownloadDialog({ modelId, onClose, onComplete }: ModelDownl
       )}
 
       {status === 'downloading' && (
-        <div className="model-download__progress" aria-live="polite">
+        <div
+          className="model-download__progress"
+          role="status"
+          aria-live="polite"
+          aria-label={`Downloading ${model?.name ?? 'model'}, ${progress}%`}
+        >
           <div className="model-download__bar">
             <div className="model-download__fill" style={{ width: `${progress}%` }} />
           </div>
@@ -166,13 +187,19 @@ export function ModelDownloadDialog({ modelId, onClose, onComplete }: ModelDownl
 
       {status === 'verifying' && (
         <p className="model-download__status" role="status" aria-live="polite">
-          Verifying the downloaded file…
+          Verifying the downloaded file before marking it ready…
         </p>
       )}
 
       {status === 'installing' && (
         <p className="model-download__status" role="status" aria-live="polite">
-          Installing the model…
+          Publishing verified model files on this device…
+        </p>
+      )}
+
+      {status === 'cancelling' && (
+        <p className="model-download__status" role="status" aria-live="polite">
+          Cancelling and cleaning up the partial download…
         </p>
       )}
 
@@ -212,10 +239,18 @@ export function ModelDownloadDialog({ modelId, onClose, onComplete }: ModelDownl
 
       {status !== 'confirm' && (
         <div className="model-download__actions">
-          <Button variant="ghost" onClick={handleCancel}>
+          <Button
+            variant="ghost"
+            onClick={handleCancel}
+            disabled={status === 'cancelling' || status === 'verifying' || status === 'installing'}
+          >
             {status === 'ready' || status === 'cancelled' || status === 'error'
               ? 'Close'
-              : 'Cancel'}
+              : status === 'cancelling'
+                ? 'Cancelling…'
+                : status === 'verifying' || status === 'installing'
+                  ? 'Finishing…'
+                  : 'Cancel'}
           </Button>
           {status === 'error' && error?.retryable !== false && (
             <Button variant="default" onClick={handleDownload}>

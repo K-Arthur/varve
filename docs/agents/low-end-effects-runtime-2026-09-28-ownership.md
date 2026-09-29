@@ -6,6 +6,7 @@ marketing claims, and host-side visual evidence.
 **Branch/worktree:** `master` / `/home/kevina/CodingProjects/varve` per user
 instruction. Do not create a branch or worktree.
 **Base HEAD at task continuation:** `b39129198`.
+**M7 baseline HEAD:** `a2b37c5b1` on `master` (refreshed after M6).
 **Plan:** user-provided Varve low-end effects and model runtime implementation
 plan; progress ledger: `docs/audits/low-end-effects-runtime-baseline-2026-09-13.md`.
 
@@ -112,6 +113,7 @@ showing the selected artwork and saved Depth Blur controls, was inspected at
 | `8fcdfeb34` | Retain inference reservations through actual execution completion and prevent overlapping session-provider fallback. |
 | `0112de9a8` | Shared byte admission and inference compatibility adapter; normal scoped commit checks passed. |
 | `b6727dfe5` | Runtime entrypoint selection, worker session resident accounting, compact registered depth resources; focused browser and unit checks passed. |
+| `a2b37c5b1` | Streamed model storage, incremental integrity checks, and atomic publication of verified model artifacts; normal commit checkpoint passed. |
 
 M5's normal scoped commit checkpoint passed all hooks, including typecheck of
 E2E sources and four direct suites (43 tests). A separate focused run passed
@@ -247,3 +249,37 @@ run `pnpm verify:affected`, then selected focused/browser/visual checks. The
 shared-tree planner's full-suite escalation belongs to the complete frozen-SHA
 final gate; collect integration failures once with triage and keep unrelated
 failures attributed to their owners.
+
+## M7 implementation ownership — touch controls, truthful model states, and delivery evidence
+
+Before M7, HEAD was `a2b37c5b1` on `master`. The shared checkout still has
+unrelated staged/unstaged website, workspace, tablet, and rendering changes.
+The current browser/device research was refreshed on 2026-09-29: Adobe's
+official Neural Filters page still lists model downloads that fail after
+appearing to start, transparency/detail issues, keyboard accessibility gaps,
+and pauses when resource-intensive filters are combined. The Photopea user
+report describes repeated 20–30 second Filter Gallery waits on a 3692×4800
+image; the Krita AI plugin issue ties reported input lag to one remote-server
+setup but its GUI-thread-starvation explanation remains the reporter's
+hypothesis. The Figma report mentions navigation, panning, and SVG-export lag
+without a confirmed cause. These remain issue leads, not comparative
+benchmarks; update no marketing claim from them.
+
+| Paths | M7 ownership |
+|---|---|
+| `packages/engine/src/backgroundRemoval/modelLoader.ts` and `backgroundRemoval/__tests__/modelLoader.test.ts` | Emit truthful connecting/downloading/verifying/installing stages at the actual stream, digest, and atomic-publication boundaries. |
+| `packages/editor/src/components/BackgroundRemoval/ModelDownloadDialog.tsx`, `.css`, and `.test.tsx` | Display real stages; wait for download abort cleanup before reporting cancellation; keep the dialog open during non-cancellable verification/publication; meet touch target sizing. |
+| `packages/editor/src/components/Inspector/sections/effectStudio.css` | Enlarge frequent Effect Studio actions, compare/zoom controls, numeric fields, and range targets on coarse pointers while preserving narrow portrait flow. |
+| `tests/e2e/effects/low-end-touch-workflow.spec.ts` | Exercise a real portrait touch context, action reachability, minimum target geometry, then save, reopen the applied treatment, and export a PNG. |
+| `apps/website/src/pages/features/image-enhancement.astro`, `docs/tools/image-enhancement.astro`, and `docs/performance.astro` | Explain explicit verified model installation, persistent committed pixels, independent storage/working-memory costs, browser/Chromebook limitations, and where device results are pending. |
+| `apps/website/tests/e2e/low-end-effects-marketing.spec.ts` | Verify the updated enhancement claims and internal links, then capture desktop/mobile presentation under both root and `/varve` base paths. |
+| `docs/quality/low-end-effects-device-kit-2026-09-29.md` | Provide a host-plus-device record template for the Duet browser/PWA and ARM64 Crostini routes, including viewport/DPR, touch/pen, keyboard occlusion, suspend, offline reopen, and export. |
+| `docs/audits/low-end-effects-runtime-baseline-2026-09-13.md` and this file | Record current ownership, website review, targeted validation, screenshot paths, final limitations, and the M6 SHA. |
+
+The already-dirty `apps/website/src/pages/docs/chromebook.astro` is reserved to
+the workspace/tablet writer, so M7 will link the clean lower-memory help page to
+that source rather than staging or replacing its mixed diff. Release/package
+facts were checked in `docs/release/website.md`; this milestone does not alter
+installation commands or advertise packages. The supplied physical Duet and
+ARM64 Crostini checks remain pending until somebody runs the documented kit on
+those devices.

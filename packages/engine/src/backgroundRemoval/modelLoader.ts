@@ -17,6 +17,8 @@ import {
 import type { ModelState } from './types';
 import { AVAILABLE_MODELS } from './types';
 
+export type ModelDownloadStage = 'connecting' | 'downloading' | 'verifying' | 'installing';
+
 // Static fallback metadata for models not covered by AVAILABLE_MODELS or
 // upscaleModels.ts. These mirror entries from modelCatalog.ts FALLBACK_ENTRIES
 // so the download infrastructure can resolve remoteUrl and size without waiting
@@ -666,6 +668,7 @@ class ModelLoader {
       | undefined,
     onProgress?: (loaded: number, total: number) => void,
     signal?: AbortSignal,
+    onStage?: (stage: ModelDownloadStage) => void,
   ): Promise<string | null> {
     const dataUrl = manifestEntry?.remoteDataUrl;
     if (!dataUrl || !isBrowserEnv()) return null;
@@ -673,6 +676,7 @@ class ModelLoader {
       throw new Error(`Model ${modelId} external weights are missing a verified SHA-256.`);
     }
     const stagedId = this.stagedArtifactId(modelId, 'external-data');
+    onStage?.('downloading');
     const storage = getModelStorage();
     let partial = await storage.openPartialArtifact(stagedId);
     if (
@@ -802,11 +806,13 @@ class ModelLoader {
         loaded += value.length;
         if (expectedSizeBytes !== undefined) onProgress?.(loaded, expectedSizeBytes);
       }
+      if (signal?.aborted) throw new Error('Download cancelled');
       if (expectedSizeBytes !== undefined && loaded !== expectedSizeBytes) {
         throw new Error(
           `Model weights were truncated: expected ${expectedSizeBytes}, received ${loaded}.`,
         );
       }
+      onStage?.('verifying');
       await writer.commit();
       await deletePartialDownload(stagedId);
     } catch (error) {
@@ -862,11 +868,12 @@ class ModelLoader {
     modelId: string,
     onProgress?: (loaded: number, total: number) => void,
     signal?: AbortSignal,
+    onStage?: (stage: ModelDownloadStage) => void,
   ): Promise<void> {
     const active = this.activeDownloads.get(modelId);
     if (active) return active;
 
-    const operation = this.downloadModelInternal(modelId, onProgress, signal);
+    const operation = this.downloadModelInternal(modelId, onProgress, signal, onStage);
     this.activeDownloads.set(modelId, operation);
     try {
       await operation;
@@ -881,7 +888,9 @@ class ModelLoader {
     modelId: string,
     onProgress?: (loaded: number, total: number) => void,
     signal?: AbortSignal,
+    onStage?: (stage: ModelDownloadStage) => void,
   ): Promise<void> {
+    onStage?.('connecting');
     let model = modelMeta(modelId);
     if (!model) {
       // Not a background-removal or upscale model — fall back to the
@@ -925,6 +934,7 @@ class ModelLoader {
           './providers/tauriProvider'
         );
         if (isTauriRuntime()) {
+          onStage?.('downloading');
           await downloadNativeBackgroundRemovalModel(modelId, onProgress, signal);
           // Native Quality supersedes legacy IndexedDB storage in desktop
           // builds. Remove any old browser-side copy after the native file
@@ -973,6 +983,7 @@ class ModelLoader {
         const requestId = `inference-${Date.now().toString(36)}-${Math.random()
           .toString(36)
           .slice(2, 10)}`;
+        onStage?.('downloading');
         await nativeDownloadInferenceModel({
           requestId,
           modelId,
@@ -994,6 +1005,7 @@ class ModelLoader {
         );
       }
 
+      onStage?.('downloading');
       const storage = getModelStorage();
       let existingPartial =
         isBrowserEnv() && remoteUrl ? await storage.openPartialArtifact(installModelId) : null;
@@ -1154,6 +1166,7 @@ class ModelLoader {
         loaded += value.length;
         onProgress?.(loaded, total);
       }
+      if (signal?.aborted) throw new Error('Download cancelled');
 
       if (expectedSizeBytes !== undefined && loaded !== expectedSizeBytes) {
         throw new Error(
@@ -1171,6 +1184,7 @@ class ModelLoader {
         }
         const expectedUpstream =
           manifestEntry?.upstreamChecksum ?? manifestEntry?.sha256 ?? model.checksum ?? null;
+        onStage?.('verifying');
         if (!(await verifyModelChecksum(bytes.buffer, expectedUpstream))) {
           await deletePartialDownload(installModelId);
           throw new Error(`Model ${modelId} failed SHA-256 verification`);
@@ -1197,6 +1211,7 @@ class ModelLoader {
       }
 
       if (isBrowserEnv()) {
+        onStage?.('verifying');
         try {
           await writer?.commit();
         } catch (error) {
@@ -1216,8 +1231,10 @@ class ModelLoader {
           manifestEntry,
           onProgress,
           signal,
+          onStage,
         );
         if (downloadedExternalDataId) {
+          onStage?.('installing');
           await storage.publishInstalledBatch([
             { stagedId: installModelId, modelId },
             {

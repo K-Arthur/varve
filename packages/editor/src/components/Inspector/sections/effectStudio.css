@@ -1470,3 +1470,28 @@
     grid-row: 2;
   }
 }
+
+@media (pointer: coarse) {
+  .effect-studio button {
+    min-height: 44px;
+  }
+
+  .effect-studio summary {
+    min-height: 44px;
+  }
+
+  .effect-studio .effect-studio__reorder-actions button,
+  .effect-studio .effect-studio-comparison__zoom button {
+    min-width: 44px;
+  }
+
+  .effect-studio input[type="range"],
+  .effect-studio [role="spinbutton"] {
+    min-height: 44px;
+  }
+
+  .effect-studio__filters {
+    max-height: none;
+    overflow: visible;
+  }
+}
