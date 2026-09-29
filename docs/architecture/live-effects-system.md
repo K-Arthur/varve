@@ -139,19 +139,29 @@ retains the memory lease until the worker answers or a five-second response
 backstop terminates it. A missing or blocked worker is reported before source
 capture; callers keep the canonical replay path active.
 
-This lane is an opt-in substrate, not the default editor render path. The first
-editor consumer is a deliberately synthetic kernel sample shown in the live
-effect preset controls. It renders representative detail and transparency to
-show the canonical kernel's treatment, and labels itself as separate from the
-selected artwork. It does not replace that artwork's preview. No interactive
-artwork filter, treatment, thumbnail, comparison, animation, or export
-consumer has been switched to the lane. It does not cache returned surfaces
-because the current consumer API has no release callback proving that the
-caller dropped its reference. The worker protocol and lifecycle have focused
-unit coverage; real-browser transfer, visual-output inspection, the
-same-camera/full-redraw pixel oracle, interaction-latency measurement, and
-WebKitGTK checks remain required before wiring it to artwork or making
-performance claims.
+This lane is an opt-in substrate, not the default editor render path. The
+Adjustment panel's live-effect rows now pass the already-computed upstream
+adjustment sample to the worker when that bounded source is available. The
+sample retains its document-space scale and region origin, so document-anchored
+patterns use the same registration as the canonical adjustment source. The
+worker preview is capped at 256×256, labeled as a reduced upstream-input
+preview, and presented separately from the authoritative canvas. If no valid
+source sample is available, the UI retains its clearly labeled synthetic
+kernel sample. Source bytes are copied only after the shared runner admits the
+request; identities include the document, adjustment, source object, and
+parameters so an obsolete response is discarded.
+
+This improves feedback in the selected adjustment inspector; it does not
+replace the selected artwork's canvas preview or move effect replay off the
+CanvasArea synchronous path. It does not wire the lane into Effect Studio
+treatments/comparison, thumbnails/minimap, animation, or export. It does not
+cache returned surfaces because the current consumer API has no release
+callback proving that the caller dropped its reference. A Chromium E2E checks
+that a real upstream source reaches the worker preview at desktop and narrow
+portrait sizes and inspects light, dark, and high-contrast captures. The
+same-camera/full-redraw pixel oracle, interaction-latency measurement,
+WebKitGTK checks, and matched production performance rounds remain required
+before making a canvas-performance claim.
 
 The shared provider/request interfaces live in `liveEffects/contracts.ts`.
 Both the synchronous CPU kernels and asynchronous provider dispatcher import

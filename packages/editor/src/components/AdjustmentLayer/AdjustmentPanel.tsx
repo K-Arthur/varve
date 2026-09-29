@@ -98,6 +98,7 @@ export function AdjustmentPanel() {
   const {
     histogram: sourceHistogram,
     sourceImageData,
+    sourceCoordSpace,
     loading: histogramLoading,
   } = useAdjustmentHistogram(state.document, adjNodeRef, selectedHistogramEntryId);
 
@@ -540,6 +541,7 @@ export function AdjustmentPanel() {
             detailScope={adjNodeRef}
             sourceHistogram={sourceHistogram}
             sourceImageData={sourceImageData}
+            sourceCoordSpace={sourceCoordSpace}
             histogramSourceLabel={histogramSourceLabel}
             histogramLoading={histogramLoading}
           />

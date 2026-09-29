@@ -28,6 +28,7 @@ import {
   type RgbSplitAdjustment,
   type VhsAdjustment,
 } from '@varve/engine';
+import type { CoordSpace } from '@varve/engine/liveEffects';
 import type { Document } from '@varve/scene';
 import { swatchesToPalette } from '@varve/scene';
 import { paletteFileFormat, parsePaletteFile } from '@varve/shared';
@@ -40,6 +41,8 @@ export interface LiveEffectEditorProps {
   adjustment: Adjustment;
   onChange: (patch: Partial<Adjustment>) => void;
   doc?: Document;
+  sourceImageData?: ImageData | null;
+  sourceCoordSpace?: CoordSpace;
 }
 
 type Patch = Record<string, unknown>;
@@ -217,10 +220,16 @@ function PresetRow({
   adjustment,
   kind,
   onChange,
+  doc,
+  sourceImageData,
+  sourceCoordSpace,
 }: {
   adjustment: Adjustment;
   kind: AdjustmentKind;
   onChange: (p: Patch) => void;
+  doc?: Document;
+  sourceImageData?: ImageData | null;
+  sourceCoordSpace?: CoordSpace;
 }) {
   const presets = useMemo(() => presetsForKind(kind), [kind]);
   if (presets.length === 0) return null;
@@ -239,7 +248,12 @@ function PresetRow({
           }}
         />
       </div>
-      <EffectKernelPreview adjustment={adjustment} />
+      <EffectKernelPreview
+        adjustment={adjustment}
+        documentId={doc?.id}
+        sourceImageData={sourceImageData}
+        sourceCoordSpace={sourceCoordSpace}
+      />
     </>
   );
 }
@@ -430,12 +444,25 @@ function Color3Row({
 
 // ── Per-effect editors ────────────────────────────────────────────────────
 
-export function DitherEditor({ adjustment, onChange }: LiveEffectEditorProps) {
+export function DitherEditor({
+  adjustment,
+  onChange,
+  doc,
+  sourceImageData,
+  sourceCoordSpace,
+}: LiveEffectEditorProps) {
   const adj = adjustment as DitherAdjustment;
   const p = (patch: Patch) => onChange(patchOf(patch));
   return (
     <div className="adj-editor__group">
-      <PresetRow adjustment={adjustment} kind="dither" onChange={p} />
+      <PresetRow
+        adjustment={adjustment}
+        kind="dither"
+        onChange={p}
+        doc={doc}
+        sourceImageData={sourceImageData}
+        sourceCoordSpace={sourceCoordSpace}
+      />
       <SelectRow
         label="Algorithm"
         value={adj.algorithm}
@@ -534,12 +561,25 @@ export function DitherEditor({ adjustment, onChange }: LiveEffectEditorProps) {
   );
 }
 
-export function PaletteSnapEditor({ adjustment, onChange, doc }: LiveEffectEditorProps) {
+export function PaletteSnapEditor({
+  adjustment,
+  onChange,
+  doc,
+  sourceImageData,
+  sourceCoordSpace,
+}: LiveEffectEditorProps) {
   const adj = adjustment as PaletteSnapAdjustment;
   const p = (patch: Patch) => onChange(patchOf(patch));
   return (
     <div className="adj-editor__group">
-      <PresetRow adjustment={adjustment} kind="paletteSnap" onChange={p} />
+      <PresetRow
+        adjustment={adjustment}
+        kind="paletteSnap"
+        onChange={p}
+        doc={doc}
+        sourceImageData={sourceImageData}
+        sourceCoordSpace={sourceCoordSpace}
+      />
       <SelectRow
         label="Metric"
         value={adj.metric}
@@ -605,12 +645,25 @@ export function PaletteSnapEditor({ adjustment, onChange, doc }: LiveEffectEdito
   );
 }
 
-export function BloomEditor({ adjustment, onChange }: LiveEffectEditorProps) {
+export function BloomEditor({
+  adjustment,
+  onChange,
+  doc,
+  sourceImageData,
+  sourceCoordSpace,
+}: LiveEffectEditorProps) {
   const adj = adjustment as BloomAdjustment;
   const p = (patch: Patch) => onChange(patchOf(patch));
   return (
     <div className="adj-editor__group">
-      <PresetRow adjustment={adjustment} kind="bloom" onChange={p} />
+      <PresetRow
+        adjustment={adjustment}
+        kind="bloom"
+        onChange={p}
+        doc={doc}
+        sourceImageData={sourceImageData}
+        sourceCoordSpace={sourceCoordSpace}
+      />
       <SliderRow
         label="Threshold"
         value={adj.threshold}
@@ -742,12 +795,25 @@ export function BloomEditor({ adjustment, onChange }: LiveEffectEditorProps) {
   );
 }
 
-export function RgbSplitEditor({ adjustment, onChange }: LiveEffectEditorProps) {
+export function RgbSplitEditor({
+  adjustment,
+  onChange,
+  doc,
+  sourceImageData,
+  sourceCoordSpace,
+}: LiveEffectEditorProps) {
   const adj = adjustment as RgbSplitAdjustment;
   const p = (patch: Patch) => onChange(patchOf(patch));
   return (
     <div className="adj-editor__group">
-      <PresetRow adjustment={adjustment} kind="rgbSplit" onChange={p} />
+      <PresetRow
+        adjustment={adjustment}
+        kind="rgbSplit"
+        onChange={p}
+        doc={doc}
+        sourceImageData={sourceImageData}
+        sourceCoordSpace={sourceCoordSpace}
+      />
       <SelectRow
         label="Mode"
         value={adj.mode}
@@ -869,12 +935,25 @@ export function RgbSplitEditor({ adjustment, onChange }: LiveEffectEditorProps) 
   );
 }
 
-export function CrtEditor({ adjustment, onChange }: LiveEffectEditorProps) {
+export function CrtEditor({
+  adjustment,
+  onChange,
+  doc,
+  sourceImageData,
+  sourceCoordSpace,
+}: LiveEffectEditorProps) {
   const adj = adjustment as CrtAdjustment;
   const p = (patch: Patch) => onChange(patchOf(patch));
   return (
     <div className="adj-editor__group">
-      <PresetRow adjustment={adjustment} kind="crt" onChange={p} />
+      <PresetRow
+        adjustment={adjustment}
+        kind="crt"
+        onChange={p}
+        doc={doc}
+        sourceImageData={sourceImageData}
+        sourceCoordSpace={sourceCoordSpace}
+      />
       <SliderRow
         label="Curvature"
         value={adj.curvature}
@@ -1022,7 +1101,13 @@ export function CrtEditor({ adjustment, onChange }: LiveEffectEditorProps) {
   );
 }
 
-export function VhsEditor({ adjustment, onChange }: LiveEffectEditorProps) {
+export function VhsEditor({
+  adjustment,
+  onChange,
+  doc,
+  sourceImageData,
+  sourceCoordSpace,
+}: LiveEffectEditorProps) {
   const adj = adjustment as VhsAdjustment;
   const p = (patch: Patch) => onChange(patchOf(patch));
   const noise = (
@@ -1051,7 +1136,14 @@ export function VhsEditor({ adjustment, onChange }: LiveEffectEditorProps) {
   );
   return (
     <div className="adj-editor__group">
-      <PresetRow adjustment={adjustment} kind="vhs" onChange={p} />
+      <PresetRow
+        adjustment={adjustment}
+        kind="vhs"
+        onChange={p}
+        doc={doc}
+        sourceImageData={sourceImageData}
+        sourceCoordSpace={sourceCoordSpace}
+      />
       {noise('lumaNoise')}
       {noise('chromaNoise')}
       {noise('chromaBleed')}
@@ -1090,12 +1182,25 @@ export function VhsEditor({ adjustment, onChange }: LiveEffectEditorProps) {
   );
 }
 
-export function LightShaftsEditor({ adjustment, onChange }: LiveEffectEditorProps) {
+export function LightShaftsEditor({
+  adjustment,
+  onChange,
+  doc,
+  sourceImageData,
+  sourceCoordSpace,
+}: LiveEffectEditorProps) {
   const adj = adjustment as LightShaftsAdjustment;
   const p = (patch: Patch) => onChange(patchOf(patch));
   return (
     <div className="adj-editor__group">
-      <PresetRow adjustment={adjustment} kind="lightShafts" onChange={p} />
+      <PresetRow
+        adjustment={adjustment}
+        kind="lightShafts"
+        onChange={p}
+        doc={doc}
+        sourceImageData={sourceImageData}
+        sourceCoordSpace={sourceCoordSpace}
+      />
       <SelectRow
         label="Light type"
         value={adj.lightType}
@@ -1226,12 +1331,25 @@ export function LightShaftsEditor({ adjustment, onChange }: LiveEffectEditorProp
   );
 }
 
-export function LensFlareEditor({ adjustment, onChange }: LiveEffectEditorProps) {
+export function LensFlareEditor({
+  adjustment,
+  onChange,
+  doc,
+  sourceImageData,
+  sourceCoordSpace,
+}: LiveEffectEditorProps) {
   const adj = adjustment as LensFlareAdjustment;
   const p = (patch: Patch) => onChange(patchOf(patch));
   return (
     <div className="adj-editor__group">
-      <PresetRow adjustment={adjustment} kind="lensFlare" onChange={p} />
+      <PresetRow
+        adjustment={adjustment}
+        kind="lensFlare"
+        onChange={p}
+        doc={doc}
+        sourceImageData={sourceImageData}
+        sourceCoordSpace={sourceCoordSpace}
+      />
       <SliderRow
         label="Source X"
         value={adj.sourceX}
@@ -1356,12 +1474,25 @@ export function LensFlareEditor({ adjustment, onChange }: LiveEffectEditorProps)
   );
 }
 
-export function LightLeakEditor({ adjustment, onChange }: LiveEffectEditorProps) {
+export function LightLeakEditor({
+  adjustment,
+  onChange,
+  doc,
+  sourceImageData,
+  sourceCoordSpace,
+}: LiveEffectEditorProps) {
   const adj = adjustment as LightLeakAdjustment;
   const p = (patch: Patch) => onChange(patchOf(patch));
   return (
     <div className="adj-editor__group">
-      <PresetRow adjustment={adjustment} kind="lightLeak" onChange={p} />
+      <PresetRow
+        adjustment={adjustment}
+        kind="lightLeak"
+        onChange={p}
+        doc={doc}
+        sourceImageData={sourceImageData}
+        sourceCoordSpace={sourceCoordSpace}
+      />
       <SliderRow
         label="X"
         value={adj.x}
@@ -1465,12 +1596,25 @@ export function LightLeakEditor({ adjustment, onChange }: LiveEffectEditorProps)
   );
 }
 
-export function CausticsEditor({ adjustment, onChange }: LiveEffectEditorProps) {
+export function CausticsEditor({
+  adjustment,
+  onChange,
+  doc,
+  sourceImageData,
+  sourceCoordSpace,
+}: LiveEffectEditorProps) {
   const adj = adjustment as CausticsAdjustment;
   const p = (patch: Patch) => onChange(patchOf(patch));
   return (
     <div className="adj-editor__group">
-      <PresetRow adjustment={adjustment} kind="caustics" onChange={p} />
+      <PresetRow
+        adjustment={adjustment}
+        kind="caustics"
+        onChange={p}
+        doc={doc}
+        sourceImageData={sourceImageData}
+        sourceCoordSpace={sourceCoordSpace}
+      />
       <SliderRow
         label="Scale"
         value={adj.scale}

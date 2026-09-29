@@ -25,6 +25,7 @@ import {
   effectPixelExpansion,
   replayIr,
 } from '@varve/engine';
+import type { CoordSpace } from '@varve/engine/liveEffects';
 import type { Adjustment, AdjustmentNode, Document } from '@varve/scene';
 import { resolveAdjustmentScope } from '@varve/scene';
 import { flattenSceneToEngine } from '../render/sceneToEngine';
@@ -32,7 +33,26 @@ import { flattenSceneToEngine } from '../render/sceneToEngine';
 export interface AdjustmentSourceSample {
   imageData: ImageData;
   histogram: Histogram;
+  /** Maps this sample surface back to its document-space origin and scale. */
+  coordSpace: CoordSpace;
   detailRegion?: { x: number; y: number; width: number; height: number };
+}
+
+export function createAdjustmentSampleCoordSpace(
+  x: number,
+  y: number,
+  scale: number,
+  halo = 0,
+): CoordSpace {
+  const safeScale = Number.isFinite(scale) && scale > 0 ? scale : 1;
+  const safeHalo = Number.isFinite(halo) ? halo : 0;
+  return {
+    scale: safeScale,
+    originX: 0,
+    originY: 0,
+    regionX: x * safeScale - safeHalo,
+    regionY: y * safeScale - safeHalo,
+  };
 }
 
 /** Maximum dimension (px) of the histogram sample canvas. */
@@ -241,6 +261,7 @@ export async function computeAdjustmentSourceSample(
     const result: AdjustmentSourceSample = {
       imageData,
       histogram,
+      coordSpace: createAdjustmentSampleCoordSpace(x, y, scale, halo),
       ...(detail ? { detailRegion: { x: halo, y: halo, width: cw, height: ch } } : {}),
     };
     histogramCache.unshift({ doc, key, result });

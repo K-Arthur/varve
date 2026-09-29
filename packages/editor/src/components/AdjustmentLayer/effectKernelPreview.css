@@ -16,7 +16,7 @@
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control-compact);
   display: block;
-  height: 72px;
+  height: auto;
   max-width: 100%;
   width: 112px;
 }

@@ -15,6 +15,7 @@ import {
   serializeLutForDocument,
   TRITONE_PRESETS,
 } from '@varve/engine';
+import type { CoordSpace } from '@varve/engine/liveEffects';
 import type { Adjustment, AdjustmentNode, Document, ManagedColor } from '@varve/scene';
 import { rgbFromTuple } from '@varve/scene';
 import { denormalizeChannel, managedColorToRgba, normalizeChannel } from '@varve/shared';
@@ -65,6 +66,7 @@ export interface AdjustmentEditorProps {
   histogramSourceLabel?: string;
   histogramLoading?: boolean;
   sourceImageData?: ImageData | null;
+  sourceCoordSpace?: CoordSpace | null;
   detailScope?: AdjustmentNode;
 }
 
@@ -109,6 +111,7 @@ function LegacyAdjustmentEditor({
   histogramSourceLabel,
   histogramLoading,
   sourceImageData,
+  sourceCoordSpace,
   detailScope,
 }: AdjustmentEditorProps) {
   const handleValue = useCallback(
@@ -613,10 +616,26 @@ function LegacyAdjustmentEditor({
       );
 
     case 'dither':
-      return <DitherEditor adjustment={adjustment} onChange={onChange} />;
+      return (
+        <DitherEditor
+          adjustment={adjustment}
+          onChange={onChange}
+          doc={doc}
+          sourceImageData={sourceImageData}
+          sourceCoordSpace={sourceCoordSpace ?? undefined}
+        />
+      );
 
     case 'paletteSnap':
-      return <PaletteSnapEditor adjustment={adjustment} onChange={onChange} doc={doc} />;
+      return (
+        <PaletteSnapEditor
+          adjustment={adjustment}
+          onChange={onChange}
+          doc={doc}
+          sourceImageData={sourceImageData}
+          sourceCoordSpace={sourceCoordSpace ?? undefined}
+        />
+      );
 
     case 'motionBlur':
     case 'mosaic':
@@ -625,28 +644,92 @@ function LegacyAdjustmentEditor({
       return <SpatialEffectEditor adjustment={adjustment} onChange={onChange} />;
 
     case 'bloom':
-      return <BloomEditor adjustment={adjustment} onChange={onChange} />;
+      return (
+        <BloomEditor
+          adjustment={adjustment}
+          onChange={onChange}
+          doc={doc}
+          sourceImageData={sourceImageData}
+          sourceCoordSpace={sourceCoordSpace ?? undefined}
+        />
+      );
 
     case 'rgbSplit':
-      return <RgbSplitEditor adjustment={adjustment} onChange={onChange} />;
+      return (
+        <RgbSplitEditor
+          adjustment={adjustment}
+          onChange={onChange}
+          doc={doc}
+          sourceImageData={sourceImageData}
+          sourceCoordSpace={sourceCoordSpace ?? undefined}
+        />
+      );
 
     case 'crt':
-      return <CrtEditor adjustment={adjustment} onChange={onChange} />;
+      return (
+        <CrtEditor
+          adjustment={adjustment}
+          onChange={onChange}
+          doc={doc}
+          sourceImageData={sourceImageData}
+          sourceCoordSpace={sourceCoordSpace ?? undefined}
+        />
+      );
 
     case 'vhs':
-      return <VhsEditor adjustment={adjustment} onChange={onChange} />;
+      return (
+        <VhsEditor
+          adjustment={adjustment}
+          onChange={onChange}
+          doc={doc}
+          sourceImageData={sourceImageData}
+          sourceCoordSpace={sourceCoordSpace ?? undefined}
+        />
+      );
 
     case 'lightShafts':
-      return <LightShaftsEditor adjustment={adjustment} onChange={onChange} />;
+      return (
+        <LightShaftsEditor
+          adjustment={adjustment}
+          onChange={onChange}
+          doc={doc}
+          sourceImageData={sourceImageData}
+          sourceCoordSpace={sourceCoordSpace ?? undefined}
+        />
+      );
 
     case 'lensFlare':
-      return <LensFlareEditor adjustment={adjustment} onChange={onChange} />;
+      return (
+        <LensFlareEditor
+          adjustment={adjustment}
+          onChange={onChange}
+          doc={doc}
+          sourceImageData={sourceImageData}
+          sourceCoordSpace={sourceCoordSpace ?? undefined}
+        />
+      );
 
     case 'lightLeak':
-      return <LightLeakEditor adjustment={adjustment} onChange={onChange} />;
+      return (
+        <LightLeakEditor
+          adjustment={adjustment}
+          onChange={onChange}
+          doc={doc}
+          sourceImageData={sourceImageData}
+          sourceCoordSpace={sourceCoordSpace ?? undefined}
+        />
+      );
 
     case 'caustics':
-      return <CausticsEditor adjustment={adjustment} onChange={onChange} />;
+      return (
+        <CausticsEditor
+          adjustment={adjustment}
+          onChange={onChange}
+          doc={doc}
+          sourceImageData={sourceImageData}
+          sourceCoordSpace={sourceCoordSpace ?? undefined}
+        />
+      );
 
     default:
       return (

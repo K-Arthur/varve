@@ -650,3 +650,52 @@ focused engine typecheck, 16 live-effect dispatch/preview unit tests, docs,
 emoji and token audits, M4 and M7 website screenshots, and the M4 worker
 sample's inspected light/dark/high-contrast captures. The M7 app touch E2E and
 all physical device checks remain pending or blocked as stated above.
+
+### M9 — selected-adjustment source in the worker preview
+
+The live-effect preset row in the Adjustment panel now submits its bounded
+upstream adjustment input to the shared effect-preview worker. The input is the
+same `ImageData` sample already built for the selected stack position's
+histogram, with document-space scale and origin preserved for document-anchored
+patterns. Source capture into the worker buffer remains after byte admission.
+The display caps each dimension at 256 pixels and labels the result as a
+reduced upstream-input preview; the synchronous canvas remains authoritative.
+When the selected input is unavailable, the existing synthetic kernel sample
+remains clearly labeled. This is inspector feedback, not evidence that live
+canvas filtering, whole-scene replay, thumbnails, treatments, or exports have
+moved off their synchronous paths.
+
+The first portrait E2E attempt found that the app closes the inspector panel at
+390 pixels. The test now reopens it through the accessible “Show inspector
+panel” control, scrolls the preview into view, and verifies the reduced source
+preview fits the portrait viewport. The final Chromium run passed. Inspected
+screenshots:
+
+```text
+test-results/low-end-source-preview-m9-0929b/effects-adjustment-source--dc538-ng-the-canvas-authoritative-chromium/upstream-source-light.png
+test-results/low-end-source-preview-m9-0929b/effects-adjustment-source--dc538-ng-the-canvas-authoritative-chromium/upstream-source-dark.png
+test-results/low-end-source-preview-m9-0929b/effects-adjustment-source--dc538-ng-the-canvas-authoritative-chromium/upstream-source-high-contrast.png
+test-results/low-end-source-preview-m9-0929b/effects-adjustment-source--dc538-ng-the-canvas-authoritative-chromium/upstream-source-portrait.png
+```
+
+M9 checks before its commit:
+
+| Check | Result |
+| --- | --- |
+| `pnpm exec vitest run packages/editor/src/canvas/adjustmentHistogramSource.test.ts packages/editor/src/components/AdjustmentLayer/EffectKernelPreview.test.tsx --maxWorkers=1` | Passed: 2 files, 7 tests. |
+| `pnpm typecheck:e2e` | Passed. |
+| `pnpm exec biome check` on the 10 exact M9 code/style/E2E files | Passed with no fixes. |
+| `VARVE_LEASE_TIMEOUT=1800000 VARVE_E2E_PORT=1722 VARVE_E2E_OUTPUT_DIR=low-end-source-preview-m9-0929b node scripts/quality/heavy-lease.mjs "e2e: selected adjustment source worker preview" -- npx playwright test tests/e2e/effects/adjustment-source-worker-preview.spec.ts --project=chromium --workers=1 --reporter=list` | Passed: 1 Chromium test, including a real adjustment-layer source, desktop, light/dark/high contrast, and portrait 390×844. |
+| `pnpm --filter @varve/editor typecheck` | Failed only in unchanged `CurveEditor.test.tsx` (`getByRole` option typing) and the shared untracked `tools/artworkSampling.ts` (three type errors). No diagnostic points to an M9 file. |
+| `pnpm verify:plan` | Reported 492 shared changed paths, nine affected JS packages, and `varve-bridge`; selected Tier 0–4 checks and `FULL-SUITE ESCALATION: YES` for shared workspace/toolchain/validation-infrastructure changes. |
+| `pnpm verify:affected` | Exited 2 at the full-suite escalation before starting lanes. |
+| `pnpm verify:plan` / `pnpm verify:affected` after M9 documentation edits | Reported 498 shared changed paths, nine affected JS packages, and `varve-bridge`; full-suite escalation remained required and `verify:affected` exited 2 before starting lanes. |
+| `pnpm audit:docs`, `pnpm audit:emoji`, `pnpm audit:tokens` | Passed: 1,107 docs / 710 links / 177 ADRs; 5,147 files scanned; all 303 contrast pairs across 3 themes and token usage clean (585 custom properties). |
+| `node scripts/audit-architecture.mjs --ci` | Exited 0. No M9 dependency cycle or layer violation; the shared tree still reports 14 known cycles (2 engine, 11 scene, 1 editor) and existing Shell/Menubar/context hub-budget warnings. |
+| `pnpm exec stylelint packages/editor/src/components/AdjustmentLayer/effectKernelPreview.css` | Passed. |
+
+The required post-commit frozen-master full-gate attempt is recorded in the
+next integration checkpoint below. No performance improvement
+is claimed: there are no matched production rounds, interaction-latency data,
+100-cycle soak, WebKitGTK run, or full-redraw oracle for this separate inspector
+preview. Physical Duet/browser/PWA/Crostini checks remain pending.

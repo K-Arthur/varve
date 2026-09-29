@@ -1,5 +1,6 @@
 import type { Adjustment } from '@varve/engine';
 import {
+  type CoordSpace,
   type EffectDispatchRequest,
   type EffectPreviewIdentity,
   getEffectPreviewRunner,
@@ -11,6 +12,14 @@ import './effectKernelPreview.css';
 
 const WIDTH = 112;
 const HEIGHT = 72;
+const MAX_SOURCE_DIMENSION = 256;
+const SAMPLE_COORD_SPACE: CoordSpace = {
+  scale: 1,
+  originX: 0,
+  originY: 0,
+  regionX: 0,
+  regionY: 0,
+};
 const EFFECT_KINDS = new Set<LiveEffectKind>([
   'dither',
   'paletteSnap',
@@ -26,6 +35,31 @@ const EFFECT_KINDS = new Set<LiveEffectKind>([
 const BASE_FIELDS = new Set(['id', 'kind', 'visible', 'opacity', 'blendMode']);
 
 type PreviewState = 'queued' | 'ready' | 'unavailable' | 'error';
+
+const sourceRevisions = new WeakMap<ImageData, number>();
+let nextSourceRevision = 0;
+
+function sourceRevisionFor(source: ImageData): number {
+  const existing = sourceRevisions.get(source);
+  if (existing !== undefined) return existing;
+  const revision = ++nextSourceRevision;
+  sourceRevisions.set(source, revision);
+  return revision;
+}
+
+function isUsableSource(source?: ImageData | null, coordSpace?: CoordSpace): source is ImageData {
+  return Boolean(
+    source &&
+      coordSpace &&
+      Number.isSafeInteger(source.width) &&
+      Number.isSafeInteger(source.height) &&
+      source.width > 0 &&
+      source.height > 0 &&
+      source.width <= MAX_SOURCE_DIMENSION &&
+      source.height <= MAX_SOURCE_DIMENSION &&
+      source.data.byteLength === source.width * source.height * 4,
+  );
+}
 
 export function createEffectKernelSample(): Uint8ClampedArray {
   const pixels = new Uint8ClampedArray(WIDTH * HEIGHT * 4);
@@ -50,40 +84,68 @@ export function createEffectKernelSample(): Uint8ClampedArray {
   return pixels;
 }
 
-function requestFor(adjustment: Adjustment): EffectDispatchRequest | null {
+function requestFor(
+  adjustment: Adjustment,
+  width: number,
+  height: number,
+  coordSpace: CoordSpace,
+): EffectDispatchRequest | null {
   if (!EFFECT_KINDS.has(adjustment.kind as LiveEffectKind)) return null;
   const params = Object.fromEntries(
     Object.entries(adjustment).filter(([key]) => !BASE_FIELDS.has(key)),
   );
   return {
     effect: adjustment.kind as LiveEffectKind,
-    width: WIDTH,
-    height: HEIGHT,
+    width,
+    height,
     quality: 'interactive',
-    coordSpace: { scale: 1, originX: 0, originY: 0, regionX: 0, regionY: 0 },
+    coordSpace,
     params,
   };
 }
 
-export function EffectKernelPreview({ adjustment }: { adjustment: Adjustment }) {
+export interface EffectKernelPreviewProps {
+  adjustment: Adjustment;
+  documentId?: string;
+  sourceImageData?: ImageData | null;
+  sourceCoordSpace?: CoordSpace;
+}
+
+export function EffectKernelPreview({
+  adjustment,
+  documentId,
+  sourceImageData,
+  sourceCoordSpace,
+}: EffectKernelPreviewProps) {
   const previewRef = useRef<HTMLElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const currentIdentityRef = useRef<EffectPreviewIdentity | null>(null);
   const [state, setState] = useState<PreviewState>('queued');
   const [isVisible, setIsVisible] = useState(false);
-  const request = useMemo(() => requestFor(adjustment), [adjustment]);
+  const hasSource = isUsableSource(sourceImageData, sourceCoordSpace);
+  const previewWidth = hasSource ? sourceImageData.width : WIDTH;
+  const previewHeight = hasSource ? sourceImageData.height : HEIGHT;
+  const coordSpace = hasSource ? sourceCoordSpace! : SAMPLE_COORD_SPACE;
+  const sourceRevision = hasSource ? sourceRevisionFor(sourceImageData) : 'sample-rgba-v1';
+  const effectiveDocumentId = hasSource
+    ? (documentId ?? 'unknown-document')
+    : 'canonical-kernel-sample';
+  const request = useMemo(
+    () => requestFor(adjustment, previewWidth, previewHeight, coordSpace),
+    [adjustment, coordSpace, previewHeight, previewWidth],
+  );
   const identity = useMemo<EffectPreviewIdentity>(
     () => ({
-      ownerId: `live-effect-sample:${adjustment.id}`,
-      documentId: 'canonical-kernel-sample',
+      ownerId: `live-effect-preview:${effectiveDocumentId}:${adjustment.id}`,
+      documentId: effectiveDocumentId,
       targetId: adjustment.id,
-      sourceRevision: 'sample-rgba-v1',
+      sourceRevision,
       parameterRevision: JSON.stringify(adjustment),
-      maskRevision: 'sample-unmasked',
+      maskRevision: hasSource ? sourceRevision : 'sample-unmasked',
       timeRevision: 0,
       generation: 0,
     }),
-    [adjustment],
+    [adjustment, effectiveDocumentId, hasSource, sourceRevision],
   );
 
   useLayoutEffect(() => {
@@ -129,7 +191,8 @@ export function EffectKernelPreview({ adjustment }: { adjustment: Adjustment }) 
         request,
         priority: 'visible',
         signal: controller.signal,
-        captureSource: createEffectKernelSample,
+        captureSource: () =>
+          hasSource ? new Uint8ClampedArray(sourceImageData.data) : createEffectKernelSample(),
         isCurrent: (candidate) =>
           sameEffectPreviewIdentity(candidate, currentIdentityRef.current ?? identity),
       })
@@ -142,7 +205,7 @@ export function EffectKernelPreview({ adjustment }: { adjustment: Adjustment }) 
         }
         const imageDataPixels = new Uint8ClampedArray(pixels.length);
         imageDataPixels.set(pixels);
-        context.putImageData(new ImageData(imageDataPixels, WIDTH, HEIGHT), 0, 0);
+        context.putImageData(new ImageData(imageDataPixels, previewWidth, previewHeight), 0, 0);
         setState('ready');
       })
       .catch((error: unknown) => {
@@ -159,34 +222,48 @@ export function EffectKernelPreview({ adjustment }: { adjustment: Adjustment }) 
       controller.abort();
       runner.cancelOwner(identity.ownerId);
     };
-  }, [identity, isVisible, request]);
+  }, [hasSource, identity, isVisible, previewHeight, previewWidth, request, sourceImageData]);
 
   if (!request) return null;
 
+  const previewKind = hasSource ? 'upstream adjustment input' : 'kernel sample';
+  const previewLabel = hasSource ? 'Upstream source · reduced preview' : 'Kernel sample';
   const statusText =
     state === 'ready'
-      ? 'Kernel sample ready'
+      ? hasSource
+        ? 'Source preview ready; canvas rendering is unchanged.'
+        : 'Kernel sample ready'
       : state === 'unavailable'
-        ? 'Worker preview unavailable; the canvas remains the artwork preview.'
+        ? hasSource
+          ? 'Worker preview unavailable; canvas rendering is unchanged.'
+          : 'Worker preview unavailable; the canvas remains the artwork preview.'
         : state === 'error'
-          ? 'Sample unavailable; the canvas remains the artwork preview.'
-          : 'Rendering kernel sample…';
+          ? hasSource
+            ? 'Source preview unavailable; canvas rendering is unchanged.'
+            : 'Sample unavailable; the canvas remains the artwork preview.'
+          : hasSource
+            ? 'Rendering the upstream adjustment input…'
+            : 'Rendering kernel sample…';
 
   return (
     <figure
       ref={previewRef}
       className="live-effect-kernel-preview"
-      aria-label={`${request.effect} kernel sample`}
+      aria-label={`${request.effect} preview of ${previewKind}`}
     >
       <canvas
         ref={canvasRef}
-        width={WIDTH}
-        height={HEIGHT}
+        width={previewWidth}
+        height={previewHeight}
         role="img"
-        aria-label={`Sample output for ${request.effect}; not the selected artwork`}
+        aria-label={
+          hasSource
+            ? `Reduced worker preview for ${request.effect} on the selected adjustment input; canvas output remains authoritative`
+            : `Sample output for ${request.effect}; not the selected artwork`
+        }
       />
       <figcaption>
-        <span>Kernel sample</span>
+        <span>{previewLabel}</span>
         <span role="status" aria-live="polite">
           {statusText}
         </span>

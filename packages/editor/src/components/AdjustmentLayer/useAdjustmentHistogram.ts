@@ -23,6 +23,7 @@
  * change (since the histogram shows the input, not the output).
  */
 import type { Histogram } from '@varve/engine';
+import type { CoordSpace } from '@varve/engine/liveEffects';
 import type { AdjustmentNode, Document } from '@varve/scene';
 import { useEffect, useRef, useState } from 'react';
 import { computeAdjustmentSourceSample } from '../../canvas/adjustmentHistogramSource';
@@ -30,6 +31,7 @@ import { computeAdjustmentSourceSample } from '../../canvas/adjustmentHistogramS
 export interface UseAdjustmentHistogramResult {
   histogram: Histogram | null;
   sourceImageData: ImageData | null;
+  sourceCoordSpace: CoordSpace | null;
   loading: boolean;
 }
 
@@ -39,6 +41,7 @@ export function useAdjustmentHistogram(
   beforeAdjustmentId?: string,
 ): UseAdjustmentHistogramResult {
   const [sourceImageData, setSourceImageData] = useState<ImageData | null>(null);
+  const [sourceCoordSpace, setSourceCoordSpace] = useState<CoordSpace | null>(null);
   const [histogram, setHistogram] = useState<Histogram | null>(null);
   const [loading, setLoading] = useState(false);
   const abortRef = useRef(0);
@@ -47,6 +50,7 @@ export function useAdjustmentHistogram(
     if (!doc || !adjNode) {
       setHistogram(null);
       setSourceImageData(null);
+      setSourceCoordSpace(null);
       setLoading(false);
       return;
     }
@@ -57,6 +61,7 @@ export function useAdjustmentHistogram(
     // label while the revisioned diagnostic job is pending.
     setHistogram(null);
     setSourceImageData(null);
+    setSourceCoordSpace(null);
     setLoading(true);
 
     computeAdjustmentSourceSample(doc, adjNode, beforeAdjustmentId)
@@ -64,12 +69,14 @@ export function useAdjustmentHistogram(
         if (cancelled || generation !== abortRef.current) return;
         setHistogram(result?.histogram ?? null);
         setSourceImageData(result?.imageData ?? null);
+        setSourceCoordSpace(result?.coordSpace ?? null);
         setLoading(false);
       })
       .catch(() => {
         if (cancelled || generation !== abortRef.current) return;
         setHistogram(null);
         setSourceImageData(null);
+        setSourceCoordSpace(null);
         setLoading(false);
       });
 
@@ -81,5 +88,5 @@ export function useAdjustmentHistogram(
     // histogram stale after an edit to an existing scoped target.
   }, [doc, adjNode?.id, adjNode?.scope, beforeAdjustmentId]);
 
-  return { histogram, sourceImageData, loading };
+  return { histogram, sourceImageData, sourceCoordSpace, loading };
 }

@@ -136,6 +136,32 @@ editor render-worker cycle; those paths remain outside this fix.
 No live rendering behavior changes in M8. The worker lane remains synthetic
 and the actual-artwork integration boundary remains unchanged.
 
+## M9 implementation ownership — worker preview from the real upstream stage
+
+Pre-edit review at `267f852c2` on `master` confirmed that the selected
+adjustment editor already receives the canonical upstream `ImageData` sample
+from `computeAdjustmentSourceSample`; all following paths were clean. This
+milestone uses that bounded source to produce a separate worker-rendered
+inspector sample while leaving the canvas/compositor and its authoritative
+preview unchanged.
+
+| Paths | M9 ownership |
+|---|---|
+| `packages/editor/src/canvas/adjustmentHistogramSource.ts`, `adjustmentHistogramSource.test.ts`, `components/AdjustmentLayer/useAdjustmentHistogram.ts` | Carry source-sample document registration (scale and world-region origin) alongside the existing bounded pixels. |
+| `packages/editor/src/components/AdjustmentLayer/AdjustmentPanel.tsx`, `AdjustmentEditor.tsx`, `LiveEffectEditors.tsx`, `EffectKernelPreview.tsx`, and its test | Pass the upstream sample to the worker after shared admission; identify document/source/effect revisions and label output as a reduced inspector preview, separate from canvas presentation. |
+| `docs/architecture/live-effects-system.md`, this file, and the baseline audit | Document the source stage, registration, limitations, and exact validation. |
+
+Do not change `CanvasArea.tsx`, `renderPipeline.ts`, `renderWorker.ts`,
+compositor backends, effect-kernel output, or export. Do not claim this
+inspector sample eliminates synchronous whole-scene work or passes the
+full-redraw oracle.
+
+The Chromium workflow and source-registration unit test passed. Four inspected
+captures cover light, dark, high contrast, and 390×844 portrait. The first
+portrait attempt exposed that the responsive shell closes the inspector at
+that width; the final E2E reopens it through its accessible control before
+checking the preview.
+
 M5's normal scoped commit checkpoint passed all hooks, including typecheck of
 E2E sources and four direct suites (43 tests). A separate focused run passed
 six suites (59 tests), and the lease-wrapped depth Save/mask browser flow passed
