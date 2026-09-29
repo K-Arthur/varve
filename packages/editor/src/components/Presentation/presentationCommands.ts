@@ -17,9 +17,14 @@ export const PRESENTATION_EXPORT_EVENT = 'varve:presentation:export';
  * Presentation playback state owned by the delivery layer.
  *
  * The "Present" action has to know whether deck playback is already running so
- * the same command is a truthful toggle, the way the prototype presenter works.
- * The delivery layer is the only component that owns that state, so it reports
- * it here instead of the command layer trying to reconstruct it from markup.
+ * a direct dispatch (menu item, palette, automation) cannot stack a second
+ * presenter behind the first. The delivery layer is the only component that
+ * owns that state, so it reports it here instead of the command layer trying to
+ * reconstruct it from markup.
+ *
+ * Note that the *keyboard* path cannot exercise this: `shouldIgnoreShortcutTarget`
+ * suppresses global shortcuts while a modal dialog is open, which is why the
+ * audience view also ships a visible Exit control and handles Escape itself.
  */
 let previewOpenDeckId: string | null = null;
 

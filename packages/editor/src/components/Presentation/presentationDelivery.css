@@ -52,6 +52,13 @@
   flex: 1 1 auto;
   min-width: 0;
   min-height: 0;
+  /* An implicit `auto` row is content-sized, so `place-items: center` centres
+   * inside a row that the slide image itself grows, and the overflow is then
+   * clipped by `overflow: hidden` — the bottom of the slide disappeared. An
+   * explicitly sized 1fr area makes the percentage max-height resolve against
+   * the real stage box, so `contain` letterboxes instead of cropping. */
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   place-items: center;
   padding: var(--space-4);
   overflow: hidden;
