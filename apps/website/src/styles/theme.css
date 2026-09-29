@@ -250,10 +250,84 @@
   --grid-line-strong: oklch(0.7 0.02 260 / 0.18);
 }
 
-/* No-JS / pre-paint fallback: match the inline theme script in Layout.astro. */
+/* No-JS / pre-paint fallback: mirror the full semantic dark palette so the
+   header, menus, footer and content all resolve consistently before script. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme]) {
     color-scheme: dark;
+
+    --surface-card-hover: var(--color-interactive-hover-surface);
+    --surface-muted: oklch(0.21 0.02 262);
+    --surface-header: var(--color-surface-app);
+    --surface-footer: oklch(0.125 0.014 260);
+    --surface-inset: oklch(0.12 0.014 260);
+    --surface-code: oklch(0.28 0.018 262);
+    --surface-accent-soft: oklch(0.24 0.03 190);
+    --surface-selected: var(--color-accent-subtle);
+    --surface-info: oklch(0.26 0.035 250);
+    --surface-warning: oklch(0.27 0.04 80);
+    --surface-danger: oklch(0.28 0.05 27);
+    --surface-success: oklch(0.27 0.04 156);
+
+    --text-on-accent: oklch(0.1956 0.0217 263.87);
+    --text-on-status: oklch(0.1956 0.0217 263.87);
+    --text-link: oklch(0.7873 0.1127 186.47);
+    --text-link-hover: var(--color-interactive-hover);
+    --text-link-visited: oklch(0.76 0.09 258);
+    --text-muted: oklch(0.78 0.02 260);
+    --text-subtle: oklch(0.8 0.018 260);
+    --text-code: oklch(0.92 0.01 260);
+    --text-footer: oklch(0.93 0.008 260);
+    --text-footer-muted: oklch(0.85 0.01 260);
+    --text-footer-link: oklch(0.93 0.008 260);
+    --text-success: oklch(0.81 0.12 156);
+    --text-warning: oklch(0.82 0.11 80);
+    --text-danger: oklch(0.79 0.13 27);
+    --text-info: oklch(0.8 0.1 250);
+    --accent-primary: oklch(0.82 0.12 189);
+    --accent-primary-hover: oklch(0.88 0.1 189);
+
+    --accent-dark-band: oklch(0.85 0.14 188);
+    --accent-dark-band-hover: oklch(0.9 0.12 187);
+    --text-on-accent-dark-band: oklch(0.13 0.02 264);
+
+    --border-subtle: var(--color-border-subtle);
+    --border-accent: oklch(0.7 0.09 190);
+    --border-warning: oklch(0.72 0.11 60);
+    --border-footer: oklch(0.38 0.02 260);
+    --divider: var(--color-border-subtle);
+
+    --df-ink: oklch(0.82 0.03 262);
+    --df-muted: oklch(0.7 0.03 262);
+    --df-grid: oklch(0.62 0.03 262);
+    --df-teal: oklch(0.74 0.1 189);
+    --df-sand: oklch(0.78 0.11 60);
+    --df-terra: oklch(0.72 0.12 30);
+    --df-snap: oklch(0.79 0.09 190);
+
+    --accent-warm: oklch(0.72 0.12 55);
+    --accent-warm-soft: oklch(0.25 0.04 55);
+    --surface-editorial: oklch(0.18 0.012 260);
+    --surface-dramatic: oklch(0.08 0.015 260);
+
+    --pill-available-bg: oklch(0.25 0.04 156);
+    --pill-available-text: oklch(0.82 0.1 156);
+    --pill-available-border: oklch(0.4 0.08 156);
+    --pill-partial-bg: oklch(0.26 0.04 80);
+    --pill-partial-text: oklch(0.82 0.1 80);
+    --pill-partial-border: oklch(0.42 0.08 80);
+    --pill-beta-bg: oklch(0.26 0.035 250);
+    --pill-beta-text: oklch(0.82 0.08 250);
+    --pill-beta-border: oklch(0.42 0.07 250);
+    --pill-experimental-bg: oklch(0.26 0.04 30);
+    --pill-experimental-text: oklch(0.82 0.1 30);
+    --pill-experimental-border: oklch(0.42 0.08 30);
+    --pill-planned-bg: var(--surface-muted);
+    --pill-planned-text: var(--text-muted);
+    --pill-planned-border: var(--border-default);
+
+    --grid-line: oklch(0.7 0.02 260 / 0.1);
+    --grid-line-strong: oklch(0.7 0.02 260 / 0.18);
   }
 }
 

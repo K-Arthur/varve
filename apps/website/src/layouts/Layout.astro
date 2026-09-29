@@ -237,11 +237,12 @@ const csp = [
         var root = document.documentElement;
         var KEY = 'varve-theme';
         var prefersDark = window.matchMedia('(prefers-color-scheme: dark)');
+        var sessionChoice = null;
         function readChoice() {
           try {
-            return localStorage.getItem(KEY);
+            return localStorage.getItem(KEY) || sessionChoice;
           } catch (e) {
-            return null;
+            return sessionChoice;
           }
         }
         function isExplicit(choice) {
@@ -280,8 +281,9 @@ const csp = [
         window.__varveTheme = {
           read: readChoice,
           write: function (value) {
+            sessionChoice = isExplicit(value) ? value : systemTheme();
             try {
-              localStorage.setItem(KEY, isExplicit(value) ? value : systemTheme());
+              localStorage.setItem(KEY, sessionChoice);
             } catch (e) {}
           },
           resolve: function () { return resolve(preference()); },
@@ -296,7 +298,10 @@ const csp = [
           if (preference() === 'system') apply();
         });
         window.addEventListener('storage', function (event) {
-          if (event.key === KEY) apply();
+          if (event.key === KEY) {
+            sessionChoice = null;
+            apply();
+          }
         });
       })();
     </script>
