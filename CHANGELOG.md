@@ -238,7 +238,10 @@ update, not for someone reading the commit log.
   selection. Renderer status, view toggles, fit controls, save status, and
   on-device AI status became sections too, so **Customize Workspace** describes
   the entire row: reordering now actually works (it was persisted but ignored),
-  and save status is pinned on with a stated reason.
+  and save status is pinned on with a stated reason. The permanent "On-Device
+  AI" pill is gone too — a claim that is always true is not a status — so the
+  chip now appears only while an on-device job is queued or running, and is
+  unmissable precisely when there is something to see.
 
 - **One slider, everywhere** — Every slider in the editor now renders the same
   native range primitive with the same track, thumb, focus ring, and touch
