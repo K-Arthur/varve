@@ -34,12 +34,48 @@ const MIME_EXTENSIONS: Record<string, string> = {
   'image/png': '.png',
   'image/svg+xml': '.svg',
   'image/webp': '.webp',
+  'text/css': '.css',
+  'text/jsx': '.jsx',
   'text/tsx': '.tsx',
   'text/x-dart': '.dart',
   'text/x-swift': '.swift',
 };
 
+/**
+ * Extensions that identify a *text deliverable's* own file identity.
+ *
+ * A multi-file code export writes several files under one job (a component
+ * plus its stylesheet). The job's format extension only describes the entry
+ * file, so applying it to every sibling produced `card.module.css.tsx`. When
+ * the file name already carries a code extension, that extension is the file's
+ * real identity and wins.
+ */
+const CODE_EXTENSIONS = new Set([
+  '.tsx',
+  '.ts',
+  '.jsx',
+  '.js',
+  '.mjs',
+  '.cjs',
+  '.css',
+  '.html',
+  '.vue',
+  '.svelte',
+  '.dart',
+  '.swift',
+  '.json',
+]);
+
+function ownExtension(fileName: string): string {
+  const base = fileName.slice(fileName.lastIndexOf('/') + 1);
+  const dot = base.lastIndexOf('.');
+  return dot > 0 && dot < base.length - 1 ? base.slice(dot).toLowerCase() : '';
+}
+
 export function extensionForExport(fileName: string, mimeType: string, job?: ExportJob): string {
+  const own = ownExtension(fileName);
+  if (CODE_EXTENSIONS.has(own)) return own;
+
   const fromFormat = job ? FORMAT_EXTENSIONS[job.format] : undefined;
   if (fromFormat) return fromFormat;
 
@@ -49,9 +85,7 @@ export function extensionForExport(fileName: string, mimeType: string, job?: Exp
   // The filename is only a hint. Reject a bare trailing dot (`Logo.` →
   // `"."`), separators, and empty results; anything questionable falls back
   // to a generic extension rather than producing a malformed filename.
-  const dot = fileName.lastIndexOf('.');
-  const derived = dot > 0 && dot < fileName.length - 1 ? fileName.slice(dot) : '';
-  if (derived.length > 1 && !/[\\/]/.test(derived)) return derived;
+  if (own.length > 1) return own;
 
   return '.bin';
 }

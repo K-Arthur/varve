@@ -1,6 +1,19 @@
-import { createDocument, type ExportBatch, type ExportJob, makeShapeNode } from '@varve/scene';
+import {
+  addChild,
+  createDocument,
+  type Document,
+  type ExportBatch,
+  type ExportJob,
+  makeFrameNode,
+  makeShapeNode,
+} from '@varve/scene';
 import { describe, expect, it, vi } from 'vitest';
-import { type ExportRunContext, ExportService, rasterScaleForJob } from './exportService';
+import {
+  type ExportRunContext,
+  ExportService,
+  isMultiFileExportFormat,
+  rasterScaleForJob,
+} from './exportService';
 
 function svgBatch(nodeId = 'n1'): ExportBatch {
   return {
@@ -276,5 +289,101 @@ describe('ExportService', () => {
     const report = await ExportService.run(batch, { document: doc });
     expect(report.failureCount).toBe(1);
     expect(report.files[0]?.error).toContain('AVIF');
+  });
+
+  describe('multi-file code deliverables', () => {
+    function cardDoc(): Document {
+      const frame = makeFrameNode('n1', { name: 'Card', w: 320, h: 200 });
+      const badge = makeShapeNode(
+        'badge',
+        { kind: 'rect', x: 8, y: 8, w: 40, h: 20 },
+        { name: 'Badge' },
+      );
+      let doc: Document = {
+        ...createDocument('Doc', true),
+        rootChildren: ['n1'],
+        nodes: { n1: frame },
+      };
+      doc = addChild(doc, 'n1', badge);
+      return doc;
+    }
+
+    function codeBatch(format: 'react-cssmodules' | 'react-tailwind', fileName: string) {
+      return {
+        ...svgBatch('n1'),
+        jobs: [
+          {
+            ...svgBatch('n1').jobs[0]!,
+            format,
+            fileName,
+            dimensions: { w: 320, h: 200 },
+          },
+        ],
+      };
+    }
+
+    it('writes a component and its stylesheet as separate files', async () => {
+      const written: Array<{ name: string; body: string; mime: string }> = [];
+      const report = await ExportService.run(codeBatch('react-cssmodules', 'Card.tsx'), {
+        document: cardDoc(),
+        saveFile: async (fileName, bytes, mimeType) => {
+          written.push({
+            name: fileName,
+            body: new TextDecoder().decode(bytes),
+            mime: mimeType,
+          });
+          return `/exports/${fileName}`;
+        },
+      });
+
+      expect(report.failureCount).toBe(0);
+      expect(written.map((file) => file.name)).toEqual(['Card.tsx', 'Card.module.css']);
+      // The TSX must not contain the stylesheet payload.
+      expect(written[0]!.body).toContain('import styles from');
+      expect(written[0]!.body).not.toContain('position: absolute');
+      expect(written[1]!.mime).toBe('text/css');
+      expect(written[1]!.body).toContain('position: absolute');
+      // The child survives the export.
+      expect(written[1]!.body).toContain('.badge');
+      expect(report.files[0]?.additionalFiles).toEqual(['Card.module.css']);
+    });
+
+    it('keeps both generated files sharing the job filename stem', async () => {
+      const names: string[] = [];
+      await ExportService.run(codeBatch('react-cssmodules', 'Hero Card.tsx'), {
+        document: cardDoc(),
+        saveFile: async (fileName) => {
+          names.push(fileName);
+          return fileName;
+        },
+      });
+
+      const stems = names.map((name) => name.replace(/\.module\.css$/, '').replace(/\.tsx$/, ''));
+      expect(new Set(stems).size).toBe(1);
+    });
+
+    it('emits a real importable component for the Tailwind target', async () => {
+      const written: string[] = [];
+      await ExportService.run(codeBatch('react-tailwind', 'Card.tsx'), {
+        document: cardDoc(),
+        saveFile: async (_fileName, bytes) => {
+          written.push(new TextDecoder().decode(bytes));
+          return 'Card.tsx';
+        },
+      });
+
+      expect(written).toHaveLength(1);
+      expect(written[0]).toContain('export function Card()');
+      expect(written[0]).toContain('<>');
+      // Children survive: the badge is a nested absolutely-positioned div.
+      expect(written[0]).toContain('left-[8px]');
+      expect(written[0]).toContain('w-[40px]');
+    });
+
+    it('flags multi-file formats so browser batches are archived, not double-downloaded', () => {
+      expect(isMultiFileExportFormat('react-cssmodules')).toBe(true);
+      expect(isMultiFileExportFormat('react-tailwind')).toBe(false);
+      expect(isMultiFileExportFormat('svg')).toBe(false);
+    });
   });
 });

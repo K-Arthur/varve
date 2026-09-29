@@ -8,8 +8,11 @@
 import type { Document, SceneNode, VariableStore } from '@varve/scene';
 import { analyzeNodeFlattening } from './flattening';
 import type { IRDocument, SemanticNode } from './ir-types';
+import { toComponentName, toFileStem } from './naming';
+import { computeNodePos, hasAuthoredSizing, unstableImageSourceReason } from './shared';
 import { resolveTokenName } from './tokens';
-import type { RasterAsset, TargetGap } from './types';
+import type { BundleDiagnostic, GeneratedBundle, RasterAsset, TargetGap } from './types';
+import { mimeTypeForLanguage } from './types';
 
 export interface TailwindExportOptions {
   /** Pre-rasterized image assets keyed by sourceNodeId. */
@@ -22,6 +25,10 @@ export interface TailwindExportOptions {
   extractComponents?: boolean;
   /** Variable store for token resolution. */
   variableStore?: VariableStore;
+  /** Component name for the bundle entry. Default: PascalCase of the node name. */
+  componentName?: string;
+  /** File stem for the bundle entry. Default: kebab-case of the node name. */
+  fileStem?: string;
 }
 
 function escapeXml(s: string): string {
@@ -42,6 +49,13 @@ function sizeTw(px: number, av: boolean, prefix = 'w'): string {
 
 function sizeValue(px: number, base: number): string {
   return base > 0 ? `${(px / base).toFixed(3)}rem` : `${px}px`;
+}
+
+function hexOf(fill: { r?: number; g?: number; b?: number }): string {
+  const r = Math.round(fill.r ?? 0);
+  const g = Math.round(fill.g ?? 0);
+  const b = Math.round(fill.b ?? 0);
+  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
 }
 
 // ── Tailwind utility class builders ──────────────────────────────────────────
@@ -282,7 +296,7 @@ function directNodeToTailwind(
 
   const tokenName = resolveFillToken(node, opts);
   if (tokenName) {
-    classes.push(`bg-[--${tokenName}]`);
+    classes.push(`bg-[var(--${tokenName})]`);
   } else if (node.fill) {
     const c = node.fill as import('@varve/scene').ManagedColor;
     if (c.space === 'rgb') {
@@ -494,65 +508,183 @@ export function tailwindTargetGaps(
   return gaps;
 }
 
-/** Backward-compatible wrapper: node + doc → Tailwind JSX. */
+/** Backward-compatible wrapper: node + doc → Tailwind JSX subtree. */
 export function exportNodeToTailwind(
   node: SceneNode,
-  _doc: Document,
+  doc: Document,
   opts?: TailwindExportOptions,
 ): string {
   const av = opts?.arbitraryValues ?? true;
   const base = opts?.baseFontSize ?? 16;
-  const b: ClassBuilder = { classes: [], av, base };
+  const visited = new Set<string>();
 
-  b.classes.push('absolute');
-  const tx = node.transform[4] ?? 0;
-  const ty = node.transform[5] ?? 0;
-  b.classes.push(`left-[${tx}px]`);
-  b.classes.push(`top-[${ty}px]`);
+  const render = (current: SceneNode, depth: number): string => {
+    if (visited.has(current.id)) return '';
+    visited.add(current.id);
+    const pad = '  '.repeat(depth);
+    const b: ClassBuilder = { classes: [], av, base };
 
-  // Size depends on node kind
-  let w = 100,
-    h = 100;
-  if (node.kind === 'shape') {
-    const s = node.shape;
-    if (s.kind === 'rect') {
-      w = s.w;
-      h = s.h;
+    b.classes.push('absolute');
+    // One geometry resolver for every CSS-like target: a shape's visual origin
+    // is its transform plus its own geometry offset, not the raw translation.
+    const pos = computeNodePos(current);
+    b.classes.push(`left-[${pos.x}px]`);
+    b.classes.push(`top-[${pos.y}px]`);
+
+    // Size depends on node kind. Point text has no authored box, and a
+    // character-count estimate is not a measurement, so text only gets a box
+    // when the design actually authored one; a group hugs its children.
+    const needsBox = current.kind !== 'text' && current.kind !== 'group';
+    if (needsBox || hasAuthoredSizing(current)) {
+      b.classes.push(sizeTw(pos.w, av, 'w'));
+      b.classes.push(sizeTw(pos.h, av, 'h'));
     }
-  } else if (node.kind === 'text') {
-    w = (node.text?.length ?? 0) * (node.fontSize ?? 16) * 0.6;
-    h = (node.fontSize ?? 16) * 1.4;
-  } else if (node.kind === 'frame') {
-    w = (node as import('@varve/scene').FrameNode).w ?? 200;
-    h = (node as import('@varve/scene').FrameNode).h ?? 160;
-  }
-  b.classes.push(sizeTw(w, av, 'w'));
-  b.classes.push(sizeTw(h, av, 'h'));
 
-  // Color with token support
-  const tokenName = opts?.variableStore
-    ? resolveTokenName(node.bindings, 'fill', opts.variableStore)
-    : undefined;
-  if (tokenName) {
-    b.classes.push(`bg-[--${tokenName}]`);
-  } else {
-    const fill = node.fills?.[0]?.color ?? node.fill;
-    if (fill) {
-      const fc = fill as { r?: number; g?: number; b?: number };
-      const r = Math.round(fc.r ?? 0);
-      const gCol = Math.round(fc.g ?? 0);
-      const bCol = Math.round(fc.b ?? 0);
-      const hex = `#${r.toString(16).padStart(2, '0')}${gCol.toString(16).padStart(2, '0')}${bCol.toString(16).padStart(2, '0')}`;
-      b.classes.push(`bg-[${hex}]`);
+    // Color with token support. A text node's fill is its glyph colour, so it
+    // becomes a text utility rather than a background.
+    const tokenName = opts?.variableStore
+      ? resolveTokenName(current.bindings, 'fill', opts.variableStore)
+      : undefined;
+    if (current.kind === 'text') {
+      if (tokenName) b.classes.push(`text-[var(--${tokenName})]`);
+      else {
+        const tc = (current.fills?.[0]?.color ?? current.fill) as
+          | { r?: number; g?: number; b?: number }
+          | undefined;
+        if (tc) b.classes.push(`text-[${hexOf(tc)}]`);
+      }
+      if (current.fontSize) b.classes.push(`text-[${current.fontSize}px]`);
+    } else if (tokenName) {
+      b.classes.push(`bg-[var(--${tokenName})]`);
+    } else {
+      const fill = current.fills?.[0]?.color ?? current.fill;
+      if (fill) b.classes.push(`bg-[${hexOf(fill as { r?: number; g?: number; b?: number })}]`);
     }
-  }
 
-  if (node.kind === 'text') {
-    const tag = 'span';
-    const text = (node as import('@varve/scene').TextNode).text ?? '';
-    const cleaned = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    return `<${tag} className="${b.classes.join(' ')}">${cleaned}</${tag}>`;
-  }
+    const classStr = b.classes.join(' ');
 
-  return `<div className="${b.classes.join(' ')}" />`;
+    if (current.kind === 'text') {
+      // A JSX expression container escapes its own contents, so the design
+      // text is encoded exactly once — no `&amp;` visible in the output.
+      return `${pad}<span className="${classStr}">{${JSON.stringify(current.text ?? '')}}</span>`;
+    }
+
+    const children =
+      current.kind === 'frame' || current.kind === 'group'
+        ? (current.children ?? [])
+            .map((childId) => doc.nodes[childId])
+            .filter((child): child is SceneNode => Boolean(child))
+            .map((child) => render(child, depth + 1))
+            .filter(Boolean)
+        : [];
+
+    if (children.length === 0) return `${pad}<div className="${classStr}" />`;
+    return `${pad}<div className="${classStr}">\n${children.join('\n')}\n${pad}</div>`;
+  };
+
+  return render(node, 0);
+}
+
+/**
+ * Diagnostics specific to the Tailwind profile: unstable image sources plus
+ * the per-node feature gaps the target cannot represent.
+ */
+function tailwindDiagnostics(node: SceneNode, doc: Document): BundleDiagnostic[] {
+  const out: BundleDiagnostic[] = [];
+  const seen = new Set<string>();
+  const visit = (current: SceneNode): void => {
+    if (seen.has(current.id)) return;
+    seen.add(current.id);
+    if (current.kind === 'shape') {
+      const src = current.fills?.find((f) => f.type === 'image' && f.image?.src)?.image?.src;
+      const reason = src ? unstableImageSourceReason(src) : null;
+      if (reason) {
+        out.push({
+          severity: 'error',
+          message: reason,
+          nodeId: current.id,
+          nodeName: current.name,
+          feature: 'unportable image source',
+        });
+      }
+    }
+    for (const gap of tailwindTargetGaps(current, doc)) {
+      out.push({
+        severity: gap.severity,
+        message: gap.fallback ? `${gap.feature} — ${gap.fallback}` : gap.feature,
+        nodeId: gap.nodeId,
+        nodeName: gap.nodeName,
+        feature: gap.feature,
+      });
+    }
+    if (current.kind === 'frame' || current.kind === 'group') {
+      for (const childId of current.children) {
+        const child = doc.nodes[childId];
+        if (child) visit(child);
+      }
+    }
+  };
+  visit(node);
+  return out;
+}
+
+/**
+ * Export the selected subtree as a React + Tailwind component file.
+ *
+ * The snippet form (`exportNodeToTailwind`) is a bare JSX fragment — valid to
+ * paste into an existing component, but not a module. This wrapper turns the
+ * same JSX into a real, importable component so the downloaded `.tsx` matches
+ * its advertised deliverable.
+ */
+export function exportNodeToTailwindBundle(
+  node: SceneNode,
+  doc: Document,
+  opts?: TailwindExportOptions,
+): GeneratedBundle {
+  const componentName = toComponentName(opts?.componentName ?? node.name);
+  const fileStem = toFileStem(opts?.fileStem ?? componentName);
+  const body = exportNodeToTailwind(node, doc, opts);
+  const indented = body
+    .split('\n')
+    .map((line) => (line.length > 0 ? `    ${line}` : line))
+    .join('\n');
+
+  const contents = [
+    '// Tailwind utility classes are emitted as complete literal strings so that',
+    '// Tailwind’s source scanner can see them. Do not assemble class names at runtime.',
+    `export function ${componentName}() {`,
+    '  return (',
+    '    <>',
+    indented,
+    '    </>',
+    '  );',
+    '}',
+    '',
+  ].join('\n');
+
+  return {
+    target: 'react-tailwind',
+    deliverable: 'component',
+    files: [
+      {
+        path: `${fileStem}.tsx`,
+        language: 'tsx',
+        mimeType: mimeTypeForLanguage('tsx'),
+        contents,
+        entry: true,
+      },
+    ],
+    // Verified against the Tailwind docs (2026-09-29): the square-bracket
+    // `bg-[--name]` shorthand added in v3.3 was replaced in v4 by parentheses
+    // (`bg-(--name)`), and the bare-shorthand form is not valid in both. The
+    // emitted references use the explicit `var()` form, which is valid
+    // arbitrary-value syntax in v3 and v4 alike.
+    dependencies: { react: '>=18', tailwindcss: '>=3.4' },
+    setup: [
+      `Copy ${fileStem}.tsx into your project and render <${componentName} />.`,
+      'Requires Tailwind >= 3.4 (v4 supported): token references use `bg-[var(--name)]`.',
+      'Ensure the file is inside your Tailwind source globs so the classes are detected.',
+    ],
+    diagnostics: tailwindDiagnostics(node, doc),
+  };
 }

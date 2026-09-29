@@ -20,11 +20,16 @@ import {
   createExportSaveFile,
   saveExportBytes,
 } from '../../exportSaveAdapter';
-import { type ExportProgressEvent, ExportService } from '../../exportService';
+import {
+  type ExportProgressEvent,
+  ExportService,
+  isMultiFileExportFormat,
+} from '../../exportService';
 import { buildPackageExport } from '../../packageExport';
 import { BatchBgRemoveDialog } from '../BatchBgRemoveDialog';
 import { ExportDialog } from '../Export/ExportDialog';
 import { GuideLayoutsDialogHost } from '../GuideLayouts/GuideLayoutsDialogHost';
+import { PresentationDeliveryLayer } from '../Presentation/PresentationDeliveryLayer';
 import { worldBBox } from '../SpecPanel/measurement';
 import { QuickConvertDialogHost } from './QuickConvertDialogHost';
 
@@ -337,7 +342,9 @@ export const ExportLayer = forwardRef<ExportLayerHandle, ExportLayerProps>(funct
     ) => {
       const needsEngine = batch.jobs.some((job) => isRasterExport(job.format));
       const engine = needsEngine ? await getExportEngine() : null;
-      const useBrowserArchive = platform?.kind === 'web' && batch.jobs.length > 1;
+      const useBrowserArchive =
+        platform?.kind === 'web' &&
+        (batch.jobs.length > 1 || batch.jobs.some((job) => isMultiFileExportFormat(job.format)));
       const archive = useBrowserArchive ? createBufferedExportArchive(platform) : null;
       const folderSaveFile =
         platform?.kind === 'tauri' && batch.destinationFolder
@@ -429,6 +436,7 @@ export const ExportLayer = forwardRef<ExportLayerHandle, ExportLayerProps>(funct
 
   return (
     <>
+      <PresentationDeliveryLayer platform={platform} getEngine={getExportEngine} />
       <ExportDialog
         isOpen={exportDialogOpen}
         onClose={() => editor.setShowExportDialog(false)}

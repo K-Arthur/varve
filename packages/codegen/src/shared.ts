@@ -201,6 +201,54 @@ export function escapeXml(s: string): string {
     .replace(/"/g, '&quot;');
 }
 
+/**
+ * Describe why an image source cannot survive outside the running editor.
+ *
+ * `blob:` URLs are per-session object URLs, `file:` URLs point at the user's
+ * disk, and loopback origins only exist while Varve's dev server is up. A
+ * downloaded bundle that references any of them renders a broken image with
+ * no explanation, so callers surface this as a diagnostic instead.
+ * Returns `null` for sources that are self-contained (`data:`) or ordinary
+ * web URLs.
+ */
+export function unstableImageSourceReason(src: string): string | null {
+  const value = src.trim();
+  if (value.length === 0) return 'image source is empty';
+  if (value.startsWith('blob:')) {
+    return 'image source is a session-only blob: URL and will not resolve in the exported bundle';
+  }
+  if (value.startsWith('file:')) {
+    return 'image source is a local file: URL that other machines cannot open';
+  }
+  const loopback = /^(https?:)?\/\/(localhost|127\.0\.0\.1|\[::1\])(:|\/|$)/i;
+  if (loopback.test(value)) {
+    return 'image source points at a loopback address that only exists while the editor is running';
+  }
+  return null;
+}
+
+/**
+ * True when a node carries authored sizing intent rather than an implied box.
+ *
+ * Text and group nodes have no geometry of their own: a text node is point
+ * text unless it declares a container size, and a group hugs its children.
+ * Emitting a fabricated width/height for them clips text and invents pixels,
+ * so the box is only written when the design actually authored one.
+ */
+export function hasAuthoredSizing(node: SceneNode): boolean {
+  return (
+    node.layoutSizingWidth !== undefined ||
+    node.layoutSizingHeight !== undefined ||
+    node.layoutSizing !== undefined ||
+    node.layoutRelativeWidth !== undefined ||
+    node.layoutRelativeHeight !== undefined ||
+    typeof node.minWidth === 'number' ||
+    typeof node.maxWidth === 'number' ||
+    typeof node.minHeight === 'number' ||
+    typeof node.maxHeight === 'number'
+  );
+}
+
 export function computeNodePos(node: SceneNode): { x: number; y: number; w: number; h: number } {
   const tx = node.transform[4] ?? 0;
   const ty = node.transform[5] ?? 0;
@@ -245,6 +293,12 @@ export function computeNodePos(node: SceneNode): { x: number; y: number; w: numb
   if (node.kind === 'text') {
     const fs = node.fontSize ?? 16;
     return { x: tx, y: ty, w: node.text.length * fs * 0.6, h: fs * 1.4 };
+  }
+  if (node.kind === 'frame') {
+    // Frames carry authored w/h. Falling through to the 200×160 default
+    // invented geometry that the user never authored, so an exported frame
+    // silently disagreed with the design canvas. Mirrors the IR builder.
+    return { x: tx, y: ty, w: node.w ?? 200, h: node.h ?? 160 };
   }
   return { x: tx, y: ty, w: 200, h: 160 };
 }

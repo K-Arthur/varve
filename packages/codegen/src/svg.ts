@@ -43,6 +43,7 @@ import {
   shapeVerticesToPoints,
   svgCompositing,
 } from './shared';
+import { frameContainerSvg } from './svg-frame';
 import {
   collectGradientDefs,
   strokeAttrs,
@@ -344,16 +345,41 @@ function nodeSvgBounds(
   node: SceneNode,
   doc: SceneDocument,
   parentTransform: Affine = [1, 0, 0, 1, 0, 0],
+  rasterAssets?: Record<string, import('./types').RasterAsset>,
 ): SvgBounds | null {
   const worldTransform = multiplyAffine(parentTransform, nodeEffectiveTransform(node));
   if (node.kind === 'group' && node.boolean) {
     const resolved = resolveLiveBooleanForExport(node, doc);
-    return resolved ? nodeSvgBounds(resolved, doc, parentTransform) : null;
+    return resolved ? nodeSvgBounds(resolved, doc, parentTransform, rasterAssets) : null;
+  }
+  const rasterAsset = rasterAssets?.[node.id];
+  if (rasterAsset) {
+    const expansion = rasterAsset.expansion;
+    const x = expansion ? -expansion.left : 0;
+    const y = expansion ? -expansion.top : 0;
+    const w = expansion
+      ? rasterAsset.cssWidth + expansion.left + expansion.right
+      : rasterAsset.cssWidth;
+    const h = expansion
+      ? rasterAsset.cssHeight + expansion.top + expansion.bottom
+      : rasterAsset.cssHeight;
+    const assetTransform = rasterAsset.placementTransform
+      ? multiplyAffine(parentTransform, rasterAsset.placementTransform)
+      : worldTransform;
+    return transformedBounds(
+      [
+        [x, y],
+        [x + w, y],
+        [x + w, y + h],
+        [x, y + h],
+      ],
+      assetTransform,
+    );
   }
   if (node.kind === 'group' || node.kind === 'frame') {
     return mergeBounds(
       getChildren(doc, node)
-        .map((child) => nodeSvgBounds(child, doc, worldTransform))
+        .map((child) => nodeSvgBounds(child, doc, worldTransform, rasterAssets))
         .filter((bounds): bounds is SvgBounds => bounds !== null),
     );
   }
@@ -890,6 +916,12 @@ function nodeToSvgTag(
   // local transform; the rotation field lives on the node itself.
   const rot = node.rotation ?? 0;
   const effTransform: Affine = rot !== 0 ? multiplyAffine(transform, rotateDeg(rot)) : transform;
+  const compositing = svgCompositing(node, node.kind === 'frame' || node.kind === 'group');
+  const compositingAttrs = [
+    ...compositing.attributes,
+    ...(compositing.styles.length > 0 ? [`style="${compositing.styles.join(' ')}"`] : []),
+  ].join(' ');
+  const compositingSuffix = compositingAttrs ? ` ${compositingAttrs}` : '';
 
   // Check for a pre-rendered raster asset first — this handles gradient types
   // (angular, diamond) and effects that SVG cannot represent natively.
@@ -905,20 +937,13 @@ function nodeToSvgTag(
     const w = exp ? rasterAsset.cssWidth + exp.left + exp.right : rasterAsset.cssWidth;
     const h = exp ? rasterAsset.cssHeight + exp.top + exp.bottom : rasterAsset.cssHeight;
     const href = escapeXml(rasterAsset.dataUrl);
-    const t = affineToSvg(effTransform);
-    return `${indent}<image href="${href}" x="${x}" y="${y}" width="${w}" height="${h}" transform="${t}" />`;
+    const t = affineToSvg(rasterAsset.placementTransform ?? effTransform);
+    return `${indent}<image href="${href}" x="${x}" y="${y}" width="${w}" height="${h}" transform="${t}"${compositingSuffix} />`;
   }
 
   const { fillAttr, comment } = fillToSvg(node, node.id, doc, preserveColorSpace);
   const t = affineToSvg(effTransform);
   const withTransform = ` transform="${t}"`;
-  const compositing = svgCompositing(node, node.kind === 'frame' || node.kind === 'group');
-  const compositingAttrs = [
-    ...compositing.attributes,
-    ...(compositing.styles.length > 0 ? [`style="${compositing.styles.join(' ')}"`] : []),
-  ];
-  const compositingSuffix = compositingAttrs.length > 0 ? ` ${compositingAttrs.join(' ')}` : '';
-
   switch (node.kind) {
     case 'shape': {
       // Live warp modifiers bake to export-quality path geometry here (SVG has
@@ -1149,6 +1174,18 @@ ${shapeInner}`
           groupAttrs = ` mask="${maskId}"${groupAttrs}`;
         }
       }
+
+      if (node.kind === 'frame') {
+        return frameContainerSvg({
+          frame: node as import('@varve/scene').FrameNode,
+          groupAttributes: groupAttrs,
+          paintAttributes: ` fill="${fillAttr}"${strokeAttrsForNode(node, node.id)}`,
+          children,
+          indent,
+          leadingComment: warpNotBakedComment(node),
+        });
+      }
+
       return `${indent}${warpNotBakedComment(node)}<g${groupAttrs}>\n${children}\n${indent}</g>`;
     }
     case 'table': {
@@ -1251,7 +1288,7 @@ export function exportNodeToSvg(
 ): string {
   const rasterAssets = opts?.rasterAssets;
   const exportRoot = resolveLiveBooleanForExport(node, doc) ?? node;
-  const bounds = nodeSvgBounds(exportRoot, doc);
+  const bounds = nodeSvgBounds(exportRoot, doc, [1, 0, 0, 1, 0, 0], rasterAssets);
   const pos = {
     x: bounds?.minX ?? exportRoot.transform[4] ?? 0,
     y: bounds?.minY ?? exportRoot.transform[5] ?? 0,

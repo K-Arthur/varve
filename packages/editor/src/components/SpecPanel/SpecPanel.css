@@ -209,6 +209,51 @@
 .spec-codegen__content {
   display: flex;
   flex-direction: column;
+  gap: var(--space-1);
+}
+.spec-codegen__deliverable {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+}
+.spec-codegen__badge {
+  flex: none;
+  padding: 0 var(--space-1);
+  border: var(--border-micro);
+  border-radius: var(--radius-control);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.spec-codegen__badge--component {
+  border-color: var(--color-feedback-success);
+}
+.spec-codegen__badge--snippet {
+  border-color: var(--color-feedback-warning);
+}
+.spec-codegen__diagnostics {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: var(--space-1) var(--space-2);
+  list-style: none;
+  border: var(--border-micro);
+  border-radius: var(--radius-control);
+  font-size: var(--font-size-xs);
+}
+.spec-codegen__diagnostic--error {
+  color: var(--color-feedback-danger);
+}
+.spec-codegen__diagnostic--warning {
+  color: var(--color-feedback-warning);
+}
+.spec-codegen__diagnostic--info {
+  color: var(--color-text-muted);
 }
 .spec-codegen__toolbar {
   display: flex;

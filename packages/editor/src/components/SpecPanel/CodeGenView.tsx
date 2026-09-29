@@ -5,21 +5,32 @@
  * syntax-highlighted output with line numbers, a CopyButton, and per-target
  * settings controls. Regeneration is instant (local, no network).
  *
- * Research basis: Figma Dev Mode code panel (CSS, iOS, Android, SwiftUI, Flutter);
- * APG Tabs pattern for keyboard navigation.
+ * A target that produces several files (React + CSS Modules is a component
+ * plus its stylesheet) shows a second tab strip for the files and copies only
+ * the file the user is looking at — never a concatenation of several
+ * languages presented as one runnable file.
+ *
+ * Research basis: Figma Dev Mode code panel (CSS, iOS, Android, SwiftUI,
+ * Flutter); APG Tabs pattern for keyboard navigation; Tailwind source-scanning
+ * docs; css-modules/css-modules file layout.
  */
 
 import {
+  type BundleDiagnostic,
   exportNodeToCss,
-  exportNodeToCssModules,
+  exportNodeToCssModulesBundle,
   exportNodeToFlutter,
   exportNodeToSvg,
   exportNodeToSwiftUI,
-  exportNodeToTailwind,
+  exportNodeToTailwindBundle,
+  type GeneratedFile,
+  type GeneratedFileLanguage,
+  toFileStem,
 } from '@varve/codegen';
 import type { Document, SceneNode, VariableStore } from '@varve/scene';
 import { CopyButton, type Tab, Tabs } from '@varve/ui';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { computeLineDiff } from './codeDiff';
 import { highlight } from './syntax';
 
 type CodeTarget = 'svg' | 'css' | 'tailwind' | 'modules' | 'flutter' | 'swiftui';
@@ -33,62 +44,178 @@ const CODE_TABS: readonly Tab<CodeTarget>[] = [
   { value: 'swiftui', label: 'SwiftUI' },
 ] as const;
 
+/** What the user is actually looking at, stated plainly. */
+type DeliverableKind = 'asset' | 'snippet' | 'component';
+
+interface TargetOutput {
+  deliverable: DeliverableKind;
+  files: GeneratedFile[];
+  diagnostics: BundleDiagnostic[];
+  /** One line explaining the deliverable and its limits. */
+  note: string;
+}
+
 export interface CodeGenViewProps {
   node: SceneNode;
   doc: Document;
   variableStore?: VariableStore;
 }
 
-function generateCode(
+const FILE_LANGUAGE: Record<GeneratedFileLanguage, string> = {
+  tsx: 'tsx',
+  ts: 'tsx',
+  jsx: 'jsx',
+  js: 'jsx',
+  css: 'css',
+  html: 'html',
+  svg: 'svg',
+  json: 'json',
+  dart: 'dart',
+  swift: 'swift',
+  vue: 'html',
+  svelte: 'html',
+  text: 'text',
+};
+
+function singleFile(
+  node: SceneNode,
+  contents: string,
+  language: GeneratedFileLanguage,
+  mimeType: string,
+  extension: string,
+): GeneratedFile {
+  return {
+    path: `${toFileStem(node.name)}${extension}`,
+    language,
+    mimeType,
+    contents,
+    entry: true,
+  };
+}
+
+function generateOutput(
   node: SceneNode,
   doc: Document,
   target: CodeTarget,
   variableStore?: VariableStore,
-): string {
+): TargetOutput {
   switch (target) {
     case 'svg':
-      return exportNodeToSvg(node, doc);
+      return {
+        deliverable: 'asset',
+        files: [singleFile(node, exportNodeToSvg(node, doc), 'svg', 'image/svg+xml', '.svg')],
+        diagnostics: [],
+        note: 'A standalone SVG document of the selected subtree. Open it in a browser or import it into a design tool.',
+      };
     case 'css':
-      return exportNodeToCss(node, doc, { variableStore });
-    case 'tailwind':
-      return exportNodeToTailwind(node, doc, { variableStore });
+      return {
+        deliverable: 'snippet',
+        files: [
+          singleFile(
+            node,
+            exportNodeToCss(node, doc, { variableStore }),
+            'css',
+            'text/css',
+            '.css',
+          ),
+        ],
+        diagnostics: [],
+        note: 'One rule per layer in the selection, absolutely positioned. This is a stylesheet fragment — it needs HTML markup to render.',
+      };
+    case 'tailwind': {
+      const bundle = exportNodeToTailwindBundle(node, doc, { variableStore });
+      return {
+        deliverable: bundle.deliverable === 'component' ? 'component' : 'snippet',
+        files: bundle.files,
+        diagnostics: bundle.diagnostics,
+        note: `A React component using Tailwind utilities. ${bundle.setup?.[1] ?? ''}`.trim(),
+      };
+    }
     case 'modules': {
-      const result = exportNodeToCssModules(node, doc);
-      return `// JSX:\n${result.jsx}\n\n// CSS:\n${result.css}`;
+      const bundle = exportNodeToCssModulesBundle(node, doc, { variableStore });
+      return {
+        deliverable: 'component',
+        files: bundle.files,
+        diagnostics: bundle.diagnostics,
+        note: 'A React component and its CSS Module. Both files are required; copying only the component will not render.',
+      };
     }
     case 'flutter':
-      return exportNodeToFlutter(node, doc, { variableStore });
+      return {
+        deliverable: 'snippet',
+        files: [
+          singleFile(
+            node,
+            exportNodeToFlutter(node, doc, { variableStore }),
+            'dart',
+            'text/x-dart',
+            '.dart',
+          ),
+        ],
+        diagnostics: [],
+        note: 'A Flutter widget expression. Paste it into a widget tree — it is not a runnable app.',
+      };
     case 'swiftui':
-      return exportNodeToSwiftUI(node, doc, { variableStore });
+      return {
+        deliverable: 'snippet',
+        files: [
+          singleFile(
+            node,
+            exportNodeToSwiftUI(node, doc, { variableStore }),
+            'swift',
+            'text/x-swift',
+            '.swift',
+          ),
+        ],
+        diagnostics: [],
+        note: 'A SwiftUI view expression. Paste it into a View body — it is not a runnable app.',
+      };
   }
 }
 
 export function CodeGenView({ node, doc, variableStore }: CodeGenViewProps) {
   const [activeTab, setActiveTab] = useState<CodeTarget>('css');
-  const prevCode = useRef<Map<string, string>>(new Map());
+  const [activeFile, setActiveFile] = useState<string | null>(null);
 
-  const code = useMemo(
-    () => generateCode(node, doc, activeTab, variableStore),
+  const output = useMemo(
+    () => generateOutput(node, doc, activeTab, variableStore),
     [node, doc, activeTab, variableStore],
   );
 
-  const highlightedLines = useMemo(() => highlight(code, activeTab).split('\n'), [code, activeTab]);
+  const files = output.files;
+  const selectedFile =
+    files.find((file) => file.path === activeFile) ?? files.find((file) => file.entry) ?? files[0]!;
+  const code = selectedFile.contents;
+  const language = FILE_LANGUAGE[selectedFile.language];
 
+  const highlightedLines = useMemo(() => highlight(code, language).split('\n'), [code, language]);
   const lineCount = highlightedLines.length;
 
-  const diffSummary = useMemo(() => {
-    const key = `${node.id}:${activeTab}`;
-    const prev = prevCode.current.get(key);
-    prevCode.current.set(key, code);
-    if (prev && prev !== code) {
-      const prevLines = prev.split('\n');
-      const currLines = code.split('\n');
-      const added = currLines.length - prevLines.length;
-      const removed = prevLines.length - currLines.length;
-      return { added: Math.max(0, added), removed: Math.max(0, removed) };
+  // Change summary against the previous generation of the *same* file.
+  // Computed in an effect: writing tracking state during render breaks
+  // concurrent/strict rendering and produced a summary that reflected the
+  // previous render's bookkeeping rather than a real line diff.
+  const previousRef = useRef<Map<string, string>>(new Map());
+  const [changeSummary, setChangeSummary] = useState<{
+    added: number;
+    removed: number;
+  } | null>(null);
+  const identity = `${node.id}:${activeTab}:${selectedFile.path}`;
+
+  useEffect(() => {
+    const previous = previousRef.current.get(identity);
+    previousRef.current.set(identity, code);
+    if (previous !== undefined && previous !== code) {
+      setChangeSummary(computeLineDiff(previous, code));
+    } else {
+      setChangeSummary(null);
     }
-    return null;
-  }, [code, node.id, activeTab]);
+  }, [identity, code]);
+
+  const fileTabs: readonly Tab<string>[] = files.map((file) => ({
+    value: file.path,
+    label: file.path,
+  }));
 
   return (
     <section className="spec-panel__section" aria-labelledby="spec-code-heading">
@@ -99,24 +226,62 @@ export function CodeGenView({ node, doc, variableStore }: CodeGenViewProps) {
         activeTab={activeTab}
         onTabChange={setActiveTab}
         variant="compact"
-        renderPanel={(tab) => (
+        renderPanel={() => (
           <div className="spec-codegen__content">
+            <p className="spec-codegen__deliverable">
+              <span className={`spec-codegen__badge spec-codegen__badge--${output.deliverable}`}>
+                {output.deliverable}
+              </span>
+              {output.note}
+            </p>
+
+            {files.length > 1 && (
+              <Tabs
+                label="Generated files"
+                tabs={fileTabs}
+                activeTab={selectedFile.path}
+                onTabChange={setActiveFile}
+                variant="compact"
+                renderPanel={() => null}
+              />
+            )}
+
             <div className="spec-codegen__toolbar">
-              <CopyButton value={code} label={`${tab.label} code`} className="spec-row__copy" />
-              {diffSummary && (
+              <CopyButton
+                value={code}
+                label={`${selectedFile.path} contents`}
+                className="spec-row__copy"
+              />
+              {changeSummary && (
                 <div className="spec-codegen__diff" aria-live="polite">
-                  {diffSummary.added > 0 && (
-                    <span className="spec-codegen__diff--added">+{diffSummary.added}</span>
+                  {changeSummary.added > 0 && (
+                    <span className="spec-codegen__diff--added">+{changeSummary.added}</span>
                   )}
-                  {diffSummary.removed > 0 && (
-                    <span className="spec-codegen__diff--removed">-{diffSummary.removed}</span>
+                  {changeSummary.removed > 0 && (
+                    <span className="spec-codegen__diff--removed">-{changeSummary.removed}</span>
                   )}
                 </div>
               )}
             </div>
+
+            {output.diagnostics.length > 0 && (
+              <ul className="spec-codegen__diagnostics" aria-label="Conversion warnings">
+                {output.diagnostics.map((diagnostic, index) => (
+                  <li
+                    // biome-ignore lint/suspicious/noArrayIndexKey: diagnostics have no stable id and no internal state
+                    key={index}
+                    className={`spec-codegen__diagnostic spec-codegen__diagnostic--${diagnostic.severity}`}
+                  >
+                    {diagnostic.nodeName ? `${diagnostic.nodeName}: ` : ''}
+                    {diagnostic.message}
+                  </li>
+                ))}
+              </ul>
+            )}
+
             <section
               className="spec-codegen__pre"
-              aria-label={`${tab.label} generated code`}
+              aria-label={`${selectedFile.path} generated code`}
               // biome-ignore lint/a11y/noNoninteractiveTabindex: keyboard-scrollable code region (WCAG 2.1.1); the CSS already carries a focus-visible ring for this tab stop
               tabIndex={0}
             >

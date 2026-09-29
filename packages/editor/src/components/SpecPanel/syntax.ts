@@ -6,12 +6,19 @@ import 'prismjs/components/prism-swift.min.js';
 import 'prismjs/components/prism-markup.min.js';
 
 const LANG_MAP: Record<string, string> = {
+  // Legacy target keys.
   css: 'css',
   tailwind: 'jsx',
   modules: 'css',
   svg: 'markup',
   flutter: 'dart',
   swiftui: 'swift',
+  // File languages (multi-file results highlight per file).
+  tsx: 'jsx',
+  jsx: 'jsx',
+  html: 'markup',
+  dart: 'dart',
+  swift: 'swift',
 };
 
 export function highlight(code: string, target: string): string {

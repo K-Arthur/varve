@@ -595,12 +595,15 @@ describe('token-aware codegen', () => {
     expect(css).not.toContain('var(--');
   });
 
-  it('Tailwind emits bg-[--token-name] when fill is bound', () => {
+  it('Tailwind emits a portable bg-[var(--token)] reference when fill is bound', () => {
     const doc: SceneDoc = createDocument('Test');
     const store = createVariableStore();
     const node = nodeWithBindings(store);
     const tw = exportNodeToTailwind(node, doc, { variableStore: store });
-    expect(tw).toContain('bg-[--primary]');
+    // The `bg-[--name]` shorthand (v3.3) is not valid in Tailwind v4, which
+    // uses `bg-(--name)`; the explicit var() form works in both.
+    expect(tw).toContain('bg-[var(--primary)]');
+    expect(tw).not.toContain('bg-[--primary]');
     expect(tw).not.toContain('bg-[#39d0c6]');
   });
 

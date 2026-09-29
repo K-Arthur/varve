@@ -6,11 +6,11 @@
  */
 
 import {
-  exportNodeToCssModules,
+  exportNodeToCssModulesBundle,
   exportNodeToFlutter,
   exportNodeToSvg,
   exportNodeToSwiftUI,
-  exportNodeToTailwind,
+  exportNodeToTailwindBundle,
 } from '@varve/codegen';
 import type { Engine } from '@varve/engine';
 import { getFontRegistry } from '@varve/engine';
@@ -55,6 +55,12 @@ export interface ExportFileReport {
   savedPath?: string;
   error?: string;
   warnings: string[];
+  /**
+   * Other files that were written as part of the same deliverable (e.g. the
+   * stylesheet next to a generated component). The first file carries
+   * `fileName`/`savedPath`.
+   */
+  additionalFiles?: string[];
   /** Typed raster resource failures (missing/corrupt/CORS/...) from preflight. */
   resourceFailures?: import('./export/resourceReadiness').FailedResource[];
 }
@@ -100,12 +106,60 @@ export interface ExportRunContext {
   onProgress?: (event: ExportProgressEvent) => void;
 }
 
+interface RenderedFile {
+  /** Relative path inside the exported unit, e.g. `card.module.css`. */
+  fileName: string;
+  bytes: Uint8Array;
+  mimeType: string;
+}
+
 interface RenderedExport {
   bytes: Uint8Array;
   mimeType: string;
   warnings: string[];
+  /**
+   * Additional files belonging to the same logical deliverable. When present,
+   * the executor writes every entry instead of a single concatenated blob —
+   * a `.tsx` containing raw CSS appended after the JSX is not a compilable
+   * deliverable, and the file list is what the packaging sink needs anyway.
+   */
+  files?: RenderedFile[];
+  /** Structured, node-attributable problems from the generator. */
+  diagnostics?: import('@varve/codegen').BundleDiagnostic[];
   /** Typed raster resource failures (missing/corrupt/CORS/...) from preflight. */
   resourceFailures?: import('./export/resourceReadiness').FailedResource[];
+}
+
+/**
+ * Rename a generated bundle file to the job's own filename stem while keeping
+ * its language extension. The user's filename template (`Card.tsx`) wins over
+ * the generator's name derived from the design layer, but the two files still
+ * share one stem so the generated import resolves.
+ */
+function renameToJobStem(path: string, stem: string): string {
+  const directory = path.includes('/') ? `${path.slice(0, path.lastIndexOf('/'))}/` : '';
+  const base = path.slice(path.lastIndexOf('/') + 1);
+  const suffix = base.endsWith('.module.css') ? '.module.css' : base.slice(base.lastIndexOf('.'));
+  return `${directory}${stem}${suffix}`;
+}
+
+/** Convert a codegen bundle into files the export sink can write. */
+function bundleToFiles(
+  bundle: import('@varve/codegen').GeneratedBundle,
+  jobStem?: string,
+): RenderedFile[] {
+  return bundle.files.map((file) => ({
+    fileName: jobStem ? renameToJobStem(file.path, jobStem) : file.path,
+    bytes: encode(file.contents),
+    mimeType: file.mimeType,
+  }));
+}
+
+/** Filename stem of a job (`Card.tsx` → `Card`). */
+function jobStem(fileName: string): string {
+  const base = fileName.slice(fileName.lastIndexOf('/') + 1);
+  const dot = base.lastIndexOf('.');
+  return dot > 0 ? base.slice(0, dot) : base;
 }
 
 function abortError(): Error {
@@ -249,17 +303,25 @@ async function renderJob(job: ExportJob, context: ExportRunContext): Promise<Ren
         ],
       };
     }
-    case 'react-tailwind':
+    case 'react-tailwind': {
+      const bundle = exportNodeToTailwindBundle(node, context.document);
+      const files = bundleToFiles(bundle, jobStem(job.fileName));
       return {
-        bytes: encode(exportNodeToTailwind(node, context.document)),
+        bytes: files[0]?.bytes ?? encode(''),
         mimeType: 'text/tsx',
+        files,
+        diagnostics: bundle.diagnostics,
         warnings: collectMissingFontWarnings(node),
       };
+    }
     case 'react-cssmodules': {
-      const result = exportNodeToCssModules(node, context.document);
+      const bundle = exportNodeToCssModulesBundle(node, context.document);
+      const files = bundleToFiles(bundle, jobStem(job.fileName));
       return {
-        bytes: encode(`${result.jsx}\n\n/* CSS Module */\n${result.css}`),
+        bytes: files[0]?.bytes ?? encode(''),
         mimeType: 'text/tsx',
+        files,
+        diagnostics: bundle.diagnostics,
         warnings: collectMissingFontWarnings(node),
       };
     }
@@ -434,6 +496,17 @@ function buildRasterMetadata(raster: ExportJob['raster']):
   };
 }
 
+/**
+ * Formats whose deliverable is more than one file.
+ *
+ * A browser export of several files must be delivered as one archive; writing
+ * them one at a time would fire an uncontrolled download per file and can be
+ * blocked by the browser after the first.
+ */
+export function isMultiFileExportFormat(format: ExportFormat): boolean {
+  return format === 'react-cssmodules';
+}
+
 export const ExportService = {
   async run(
     batch: ExportBatch,
@@ -477,9 +550,27 @@ export const ExportService = {
         // real encode boundary without pretending to know fractional progress.
         emit('encoding', job.fileName);
         emit('writing', job.fileName);
+        // A multi-file deliverable writes every file it declares. The first
+        // file keeps the job's own name so reports and presets stay stable;
+        // additional files carry their declared relative paths.
+        const outputs: RenderedFile[] =
+          rendered.files && rendered.files.length > 0
+            ? rendered.files.map((file, index) =>
+                index === 0 ? { ...file, fileName: job.fileName } : file,
+              )
+            : [{ fileName: job.fileName, bytes: rendered.bytes, mimeType: rendered.mimeType }];
         let saved: string | null | undefined;
         try {
-          saved = await context.saveFile?.(job.fileName, rendered.bytes, rendered.mimeType, job);
+          for (const [index, output] of outputs.entries()) {
+            const written = await context.saveFile?.(
+              output.fileName,
+              output.bytes,
+              output.mimeType,
+              job,
+            );
+            if (context.saveFile && written === null) throw abortError();
+            if (index === 0) saved = written;
+          }
         } catch (err) {
           // Permission denial (browser save dialog blocked) must not read as
           // "Export cancelled" — that hides the fix from the user.
@@ -490,17 +581,24 @@ export const ExportService = {
           }
           throw err;
         }
-        if (context.saveFile && saved === null) throw abortError();
         files.push({
           fileName: job.fileName,
           format: job.format,
           nodeId: job.nodeId,
           status: 'success',
           mimeType: rendered.mimeType,
-          byteCount: rendered.bytes.byteLength,
+          byteCount: outputs.reduce((total, output) => total + output.bytes.byteLength, 0),
           durationMs: performance.now() - jobStarted,
           savedPath: typeof saved === 'string' ? saved : undefined,
-          warnings: rendered.warnings,
+          warnings: [
+            ...rendered.warnings,
+            ...(rendered.diagnostics ?? [])
+              .filter((diagnostic) => diagnostic.severity !== 'info')
+              .map((diagnostic) => diagnostic.message),
+          ],
+          ...(rendered.files && rendered.files.length > 1
+            ? { additionalFiles: rendered.files.slice(1).map((file) => file.fileName) }
+            : {}),
           ...(rendered.resourceFailures && rendered.resourceFailures.length > 0
             ? { resourceFailures: rendered.resourceFailures }
             : {}),

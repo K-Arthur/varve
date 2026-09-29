@@ -43,6 +43,25 @@ describe('export save adapter', () => {
     expect(extensionForExport('Logo.svg', 'application/octet-stream')).toBe('.svg');
   });
 
+  it('keeps a sibling file’s own code extension inside a multi-file deliverable', () => {
+    // A CSS Module written next to `Card.tsx` must not be renamed
+    // `Card.module.css.tsx`, which is what applying the job's format
+    // extension to every output produced before.
+    const cssModule = extensionForExport(
+      'Card.module.css',
+      'text/css',
+      job('react-cssmodules', 'Card.tsx'),
+    );
+    expect(cssModule).toBe('.css');
+
+    const component = extensionForExport(
+      'Card.tsx',
+      'text/tsx',
+      job('react-cssmodules', 'Card.tsx'),
+    );
+    expect(component).toBe('.tsx');
+  });
+
   it('saves through the active binary-aware platform with the derived extension', async () => {
     const saveBinaryFile = vi.fn<Platform['saveBinaryFile']>(async () => '/tmp/Logo.svg');
     const saveFile = createExportSaveFile(platformWithSave(saveBinaryFile));

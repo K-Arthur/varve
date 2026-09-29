@@ -29,8 +29,19 @@ export type { InteractiveExportOptions, InteractiveExportResult } from './animat
 export { exportInteractiveAnimations, exportInteractivePrototype } from './animation-interactive';
 export { timelineToLottieJSON } from './animation-lottie';
 export { timelineToSVGAnimations } from './animation-svg';
-export { cssTargetGaps, exportNodeToCss } from './css';
-export { cssModulesTargetGaps, exportNodeToCssModules } from './css-modules';
+export {
+  collectCssRules,
+  cssDeclarationsForNode,
+  cssTargetGaps,
+  exportNodeToCss,
+  nodeCssClassName,
+} from './css';
+export type { CssModulesExportOptions } from './css-modules';
+export {
+  cssModulesTargetGaps,
+  exportNodeToCssModules,
+  exportNodeToCssModulesBundle,
+} from './css-modules';
 export type { DesignAuditOptions } from './design-audit';
 export { runCodegenReadiness, runDesignAudit } from './design-audit';
 export type { EmailCompileOptions, EmailCompileResult } from './email-compiler';
@@ -76,6 +87,14 @@ export { exportIrToHtml } from './html';
 export { deserializeIR, sceneToIR, serializeIR } from './ir-converter';
 export type { AuditCategory, AuditFinding, DesignAuditReport } from './ir-types';
 export * from './ir-types';
+export {
+  isSafeIdentifier,
+  styleKeyAccess,
+  toComponentName,
+  toCssClassName,
+  toFileStem,
+  uniqueName,
+} from './naming';
 export type { OptContext, OptimizationResult } from './optimizers';
 export { optimizeCode } from './optimizers';
 export type { RasterAuditFinding, RasterIssueType } from './raster-audit';
@@ -89,12 +108,28 @@ export {
   exportIrNodeToTailwind,
   exportIrToTailwind,
   exportNodeToTailwind,
+  exportNodeToTailwindBundle,
   sceneToTailwind,
   tailwindTargetGaps,
 } from './tailwind';
 export * from './target-analysis';
 export { resolveTokenName } from './tokens';
-export type { CodeEmitter, ExportMetadata, RasterAsset, TargetGap } from './types';
+export type {
+  BundleDiagnostic,
+  CodeDeliverableKind,
+  CodeEmitter,
+  ExportMetadata,
+  GeneratedBundle,
+  GeneratedFile,
+  GeneratedFileLanguage,
+  RasterAsset,
+  TargetGap,
+} from './types';
+export {
+  bundleEntryFile,
+  bundleFile,
+  mimeTypeForLanguage,
+} from './types';
 export type { VectorAuditFinding, VectorIssueType } from './vector-audit';
 export { runVectorAudit } from './vector-audit';
 export { exportNodeToVue, type VueExportOptions, vueTargetGaps } from './vue';
