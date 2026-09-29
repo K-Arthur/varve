@@ -267,7 +267,7 @@ for desktop; they are not yet re-verified on the Duet.
 - The project goal is 44 CSS px (`--touch-target-min`) for primary controls:
   drawer FABs, workspace dock, floating text bar, and shared form controls.
 - Compact chrome (menubar items, status bar toggles/zoom stepper, tabs, save
-  badge, debt badge) keeps its 36px/28px bar heights but grows every control
+  badge, document health badge) keeps its 36px/28px bar heights but grows every control
   to a 24px minimum hit box under `@media (pointer: coarse), (any-pointer:
   coarse)`.
 - Automated check: `tests/e2e/interaction/chromeos-device-matrix.spec.ts`
@@ -276,8 +276,9 @@ for desktop; they are not yet re-verified on the Duet.
   a coarse pointer and fails on any visible control below 24px.
 - Portrait menubar: the workspace switcher keeps the active workspace's name
   and gives every tab a 44px target, the menu strip scrolls instead of clipping
-  options, and the document title and menubar zoom are hidden because the tab
-  strip and status bar already expose them. Asserted by the `portrait menubar
+  options, and the document title is hidden because the tab strip already
+  exposes it (the menubar's own zoom field no longer exists — the status bar
+  owns the single input). Asserted by the `portrait menubar
   compaction` E2E; the switcher's own treatment at this tier (a flat part of the
   top bar rather than a raised card) is in
   [`responsive-workspace.md`](./responsive-workspace.md).

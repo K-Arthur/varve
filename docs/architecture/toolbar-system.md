@@ -69,9 +69,37 @@ threads, the "Click This!" placement study) live in
 The status bar is tiered instrumentation, not a toolbar: `StatusBar.tsx`
 renders sections chosen by `getVisibleStatusSections`, and `editor.css` drops
 low-priority segments at narrow widths (diagnostic < 1180px, fit cluster <
-980px, AI label and snap grid < 860px, score badge, unit select and cursor
-readout < 700px).
+980px, AI label and snap grid < 860px, unit select and cursor readout < 700px).
 
+**One owner per fact.** The bottom bar is two strips sharing one row —
+`SelectionInfoBar` (`grid-area: selinfo`) above `StatusBar` (`grid-area: status`)
+— and a fact lives in exactly one of them:
+
+| Fact | Owner |
+|---|---|
+| Selection identity, type, geometry, position, rotation, ancestor breadcrumbs, page/layer counts | `SelectionInfoBar` |
+| Renderer truth, page/colour/image/cursor readouts, preflight, document health, save state, shortcut tips | `StatusBar` information cluster |
+| Units, grid/view toggles, zoom, fit, on-device AI status | `StatusBar` control cluster |
+
+Anything already labelled twice elsewhere is not repeated here: the active tool
+comes from the palette, and the menubar's own zoom field was removed because
+`#status-zoom` is the single input. Review evidence and the external failure
+record (VS Code status-bar overflow, Inkscape's optional-parts request, the
+Photoshop stale-measurement bug, Illustrator's one-and-done zoom field) live in
+`docs/audits/bottom-bar-review-2026-09-29.md`.
+
+- **Clusters are fixed, order is not.** `SECTION_CLUSTERS` assigns every
+  `StatusSectionId` to the information or the control cluster, and
+  `getVisibleStatusSections()` sorts within it. Reordering in
+  *Customize Workspace* therefore moves a section inside its own half and can
+  never push an instrument onto the controls' side. The two halves are divided
+  by one flex spacer — the old `—` glyphs marked neither boundary nor group.
+- **Sections are exhaustive.** Every rendered control has an id
+  (`renderer`, `pageInfo`, `colorMode`, `imageInfo`, `cursorPos`, `preflight`,
+  `documentHealth`, `saveStatus`, `shortcutTip`, `unit`, `viewToggles`, `zoom`,
+  `fit`, `aiStatus`), so the customize dialog describes the whole row.
+  `saveStatus` is clamped visible by `ESSENTIAL_STATUS_SECTION_IDS` — that row
+  exists to make the list complete, and its checkbox is disabled with a reason.
 - The bar's height is `var(--statusbar-height)`, the same token the shell
   grid row uses (floored to 26px inside `.editor-shell` so 24px controls
   fit). A separate literal (the old `28px`) let the shell's `overflow: hidden`
@@ -82,6 +110,11 @@ readout < 700px).
 - If content still exceeds the row (very narrow windows, enlarged text), the
   bar scrolls horizontally instead of silently clipping a control.
   Informational text ellipsizes first.
+- **Labels are words, and an inert control is not rendered.** `Fit selection`
+  appears only with a selection; the grid-spacing field carries a visible
+  `Grid` label and only appears while snapping or the pixel grid can use it;
+  view rotation is one control showing the angle and resetting it, not a bare
+  number plus a `Reset rot` button.
 
 ## Responsive overflow
 

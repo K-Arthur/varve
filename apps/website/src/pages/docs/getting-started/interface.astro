@@ -39,7 +39,10 @@ import '../../../styles/docs-prose.css';
           <li><strong>Design canvas</strong> — the central workspace where you create and edit your design, streamlined with hairline boundaries and direct-manipulation edge restore pills when panels are collapsed</li>
           <li><strong>Layers Panel</strong> — the left-side panel showing artwork on the active canvas (Ctrl+B); resize it with the splitter and collapse it when you need more canvas space</li>
           <li><strong>Inspector Panel</strong> — the right-side panel (Ctrl+Shift+B) for editing the selection, active tool, and document properties</li>
-          <li><strong>Status Bar</strong> — the bottom strip showing zoom level, canvas info, on-device AI status, and toggle controls</li>
+          <li><strong>Selection strip and Status bar</strong> — two strips at the bottom of
+            the editor: the first owns what is selected, the second owns instrumentation
+            (cursor, renderer, document health, save state) and view controls (units, grid
+            toggles, zoom, fit)</li>
         </ul>
         <p>
           Choose <strong>Automatic</strong>, <strong>Tablet</strong>, or
@@ -376,23 +379,43 @@ import '../../../styles/docs-prose.css';
       </section>
 
       <section class="docs-section">
-        <h2>Status Bar</h2>
+        <h2>Selection Strip and Status Bar</h2>
         <p>
-          The status bar at the bottom of the editor provides at-a-glance information and quick toggles:
+          The bottom of the editor is two strips stacked on one another. Each fact lives in
+          exactly one of them, so nothing is reported twice:
         </p>
         <ul>
-          <li>Zoom percentage with unit selector (px, pt, mm, cm, in, pc)</li>
-          <li>Pixel grid toggle</li>
-          <li>Snap toggle</li>
-          <li>Fit selection to viewport button</li>
-          <li>Canvas mode indicator (Full / Outline / Preview)</li>
+          <li>
+            <strong>Selection strip</strong> — the selected node's name, type, size, position,
+            and ancestor breadcrumbs (the breadcrumbs are clickable). With nothing selected it
+            shows the active page and the document's layer count.
+          </li>
+          <li>
+            <strong>Status bar</strong> — instrumentation on the left, controls on the right.
+          </li>
         </ul>
+        <p>The status bar carries:</p>
+        <ul>
+          <li>Renderer status, page / colour mode / image size, and the live cursor position</li>
+          <li>Document health — a single count for audit findings, design debt, and layout score, which opens the Audit tab</li>
+          <li>Save status (always shown) and shortcut tips</li>
+          <li>Units: px, pt, cm, mm, in, or %</li>
+          <li>View toggles: pixel grid, snapping, grid spacing, ruler origin, baseline grid, and clear guides</li>
+          <li>Zoom percentage with step buttons, plus Fit page, Fit all, and Fit selection (Fit selection appears only while something is selected)</li>
+          <li>View rotation — the current angle and its reset, in one control</li>
+          <li>On-device AI status</li>
+        </ul>
+        <p>
+          Every one of these is a section in <strong>Customize Workspace</strong> (View menu or
+          command palette), so each workspace can show a different row and arrange it differently.
+          Reordering moves a section within its own half of the bar; save status stays on.
+        </p>
       </section>
 
       <section class="docs-section">
         <h2>Canvas Modes</h2>
         <p>
-          Varve supports three canvas display modes, accessible from the View menu or status bar:
+          Varve supports three canvas display modes, accessible from the View menu:
         </p>
         <ul>
           <li><strong>Full</strong> — All fills, effects, and overlays rendered (default)</li>

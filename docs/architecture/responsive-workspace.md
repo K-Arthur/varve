@@ -15,7 +15,7 @@ handled.
 | `<= 899px` width | Compact drawer layout. Layers and Resources use dismissible drawers; the canvas fills the available grid width. Primary panel controls remain separate, at least 44×44 CSS px. |
 | `<= 899px` + portrait | Two-tier top bar: application menus stay on the first line, with the workspace switcher and undo/redo grouped on the second line. The active workspace keeps its name when it fits, then compacts to its icon in the narrowest strips. Menu, home, workspace, and history actions use a consistent 44px target rhythm; the menu strip can scroll rather than clip. The duplicate document title and zoom controls are hidden. Inspector uses a shallow nonmodal lower pane; Resources remains a modal sheet. |
 | `<= 1094px` width | Hide the duplicate menubar document title so the application menu rail and workspace/history controls never compete for the same space; the document tab retains its name. |
-| `<= 640px` width | Compact menu labels and hide menubar zoom controls. Portrait keeps the two-tier navigation/control grouping; landscape retains one row and allows the menu rail to scroll. |
+| `<= 640px` width | Compact menu labels. Portrait keeps the two-tier navigation/control grouping; landscape retains one row and allows the menu rail to scroll. Zoom has one control, in the status bar. |
 | `html { min-width: 320px }` | Absolute floor only. 320 CSS px is the WCAG 1.4.10 reflow width; the shell must never force horizontal page scrolling at supported viewport sizes, including split-screen. |
 
 Tablet presentation removes the dock's tiny numbered keyboard badges to keep

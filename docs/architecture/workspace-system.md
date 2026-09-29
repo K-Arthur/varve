@@ -42,8 +42,8 @@ first-use guidance.
 
 At viewports below 900px, the layers and inspector panels become drawers and
 the panel FABs remain available over the canvas. The FABs must stay above the
-fixed 28px status bar so document name, save state, zoom, and fit controls are
-never obscured. The narrow-layout E2E assertion in
+fixed status bar (the `var(--statusbar-height)` row) so save state, zoom, and
+fit controls are never obscured. The narrow-layout E2E assertion in
 `tests/e2e/canvas/workspace-mode.spec.ts` guards this geometry.
 
 The responsive drawers and the panel-launcher FABs are deliberately **not**
@@ -474,6 +474,21 @@ gaps:
   have renderers: `pageInfo` (active page name/position, print), `colorMode`
   (document working color config, print/photo), `imageInfo` (natural source
   pixel dimensions of the selected raster node, photo).
+- **The section vocabulary now covers the entire row** (2026-09-29, see
+  `docs/audits/bottom-bar-review-2026-09-29.md`). `renderer`, `viewToggles`,
+  `fit`, `saveStatus`, and `aiStatus` became real section ids — they used to
+  render unconditionally while the dialog offered 12 toggles for a row of
+  ~20 items, so unchecking every box left most of the bar in place. Three
+  ids were retired because the fact they named already had a better owner:
+  `toolName` (the palette labels the active tool), `selectionInfo`
+  (`SelectionInfoBar` owns selection identity and geometry, and it counted
+  layers differently), and `debt` + `layoutScore` (one `documentHealth` badge
+  for the audit, debt, and layout scanners). A persisted preference that hid
+  *both* of the retired health ids folds into `documentHealth`; `saveStatus`
+  exists as a section but is clamped visible by
+  `ESSENTIAL_STATUS_SECTION_IDS`, exactly as `ESSENTIAL_TOOL_IDS` keeps
+  Select/Hand/Zoom in the palette — its checkbox is disabled with a reason
+  rather than silently doing nothing.
 - **`restoreAllPanels` ("Show All Panels")** is a recovery command in the View
   menu and command palette: it reveals every panel the active workspace knows
   and records the choice as overrides, so the restored layout persists.
