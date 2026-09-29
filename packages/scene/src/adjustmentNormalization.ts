@@ -129,6 +129,24 @@ const KIND_NUMERIC_RANGES: Record<string, Record<string, [number, number]>> = {
   surfaceSmooth: { radius: [0, 8], sensitivity: [1, 128] },
   edgeInk: { radius: [1, 8], threshold: [0, 1], softness: [0, 1] },
   sharpen: { amount: [0, 4096], radius: [0, 4096], threshold: [0, 255] },
+  whiteBalance: {
+    algorithmVersion: [1, 1],
+    temperature: [-100, 100],
+    tint: [-100, 100],
+    redGain: [0.25, 4],
+    greenGain: [0.25, 4],
+    blueGain: [0.25, 4],
+  },
+  splitTone: {
+    algorithmVersion: [1, 1],
+    shadowHue: [0, 360],
+    highlightHue: [0, 360],
+    shadowSaturation: [0, 1],
+    highlightSaturation: [0, 1],
+    balance: [0, 1],
+    blending: [0.01, 1],
+    strength: [0, 1],
+  },
   temperature: { value: [-100, 100] },
   tint: { value: [-100, 100] },
   levels: {
@@ -346,10 +364,14 @@ function normalizeOpacityStops(value: unknown, fallback: unknown): unknown[] {
 
 function normalizeCurvePoints(value: unknown): Array<{ input: number; output: number }> {
   if (!Array.isArray(value)) return [];
-  return value.filter(isRecord).map((point) => ({
-    input: finiteNumber(point.input ?? point.x, 0, 0, 255),
-    output: finiteNumber(point.output ?? point.y, 0, 0, 255),
-  }));
+  return value
+    .filter(isRecord)
+    .slice(0, 256)
+    .map((point) => ({
+      ...(typeof point.id === 'string' && point.id.length <= 80 ? { id: point.id } : {}),
+      input: finiteNumber(point.input ?? point.x, 0, 0, 255),
+      output: finiteNumber(point.output ?? point.y, 0, 0, 255),
+    }));
 }
 
 function normalizeEnum(
@@ -510,6 +532,44 @@ export function normalizeAdjustmentStack(
     for (const [key, fallback] of Object.entries(defaults)) {
       if (key === 'visible' || key === 'opacity' || key === 'blendMode') continue;
       normalized[key] = normalizeValue(kind, key, raw[key], fallback);
+    }
+
+    if (kind === 'curves') {
+      normalized.algorithmVersion = raw.algorithmVersion === 2 ? 2 : 1;
+      if (isRecord(raw.channelPoints)) {
+        normalized.channelPoints = Object.fromEntries(
+          ['rgb', 'red', 'green', 'blue']
+            .filter((channel) =>
+              Array.isArray(
+                raw.channelPoints && (raw.channelPoints as Record<string, unknown>)[channel],
+              ),
+            )
+            .map((channel) => [
+              channel,
+              normalizeCurvePoints((raw.channelPoints as Record<string, unknown>)[channel]),
+            ]),
+        );
+      } else delete normalized.channelPoints;
+    }
+    if (kind === 'channelMixer') {
+      if (isRecord(raw.rows)) {
+        normalized.rows = Object.fromEntries(
+          ['red', 'green', 'blue'].map((channel, index) => {
+            const row = isRecord((raw.rows as Record<string, unknown>)[channel])
+              ? (raw.rows as Record<string, Record<string, unknown>>)[channel]!
+              : {};
+            return [
+              channel,
+              {
+                redPercent: finiteNumber(row.redPercent, index === 0 ? 100 : 0),
+                greenPercent: finiteNumber(row.greenPercent, index === 1 ? 100 : 0),
+                bluePercent: finiteNumber(row.bluePercent, index === 2 ? 100 : 0),
+                constant: finiteNumber(row.constant, 0),
+              },
+            ];
+          }),
+        );
+      } else delete normalized.rows;
     }
 
     // Optional ramps are not present in every adjustment's defaults. Keep

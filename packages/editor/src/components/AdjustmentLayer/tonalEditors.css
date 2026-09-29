@@ -1,0 +1,47 @@
+.tonal-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.tonal-editor__hint {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  margin: 0;
+}
+.tonal-editor__fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+.tonal-editor__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+.tonal-source-preview {
+  display: block;
+  border: var(--border-micro);
+  border-radius: var(--radius-control-compact);
+  padding: 0;
+  width: 100%;
+  background: var(--color-surface-sunken);
+  cursor: crosshair;
+  overflow: hidden;
+}
+.tonal-source-preview canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  pointer-events: none;
+}
+.tonal-source-preview:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-accent-primary);
+  outline-offset: var(--space-1);
+}
+
+.tonal-editor__swatch {
+  height: var(--space-5);
+  border: var(--border-micro);
+  border-radius: var(--radius-control-compact);
+}

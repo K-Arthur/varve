@@ -88,6 +88,8 @@ const FILTER_KIND_ICONS: Record<AdjustmentKind, SolidIconName> = {
   hueRotate: 'ArrowClockwise',
   vibrance: 'Sparkle',
   colorBalance: 'Swatches',
+  whiteBalance: 'Eyedropper',
+  splitTone: 'Swatches',
   temperature: 'ThermometerHot',
   tint: 'Eyedropper',
   selectiveColor: 'Fingerprint',

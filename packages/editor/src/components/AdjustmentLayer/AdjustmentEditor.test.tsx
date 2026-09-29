@@ -169,12 +169,14 @@ describe('AdjustmentEditor — curves', () => {
     );
     const resetBtn = screen.getByRole('button', { name: /reset curve/i });
     resetBtn.click();
-    expect(onChange).toHaveBeenCalledWith({
-      points: [
-        { input: 0, output: 0 },
-        { input: 255, output: 255 },
-      ],
-    });
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        points: [
+          { input: 0, output: 0 },
+          { input: 255, output: 255 },
+        ],
+      }),
+    );
   });
 });
 

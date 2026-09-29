@@ -57,6 +57,8 @@ export const ADJUSTMENT_KINDS = [
   'surfaceSmooth',
   'edgeInk',
   'sharpen',
+  'whiteBalance',
+  'splitTone',
   'temperature',
   'tint',
   'vibrance',
@@ -190,6 +192,26 @@ export interface SharpenAdjustment extends AdjustmentBase {
   radius: number;
   threshold: number;
 }
+export interface WhiteBalanceAdjustment extends AdjustmentBase {
+  kind: 'whiteBalance';
+  algorithmVersion: 1;
+  temperature: number;
+  tint: number;
+  redGain: number;
+  greenGain: number;
+  blueGain: number;
+}
+export interface SplitToneAdjustment extends AdjustmentBase {
+  kind: 'splitTone';
+  algorithmVersion: 1;
+  shadowHue: number;
+  shadowSaturation: number;
+  highlightHue: number;
+  highlightSaturation: number;
+  balance: number;
+  blending: number;
+  strength: number;
+}
 export interface TemperatureAdjustment extends AdjustmentBase {
   kind: 'temperature';
   value: number;
@@ -212,6 +234,7 @@ export interface LevelsAdjustment extends AdjustmentBase {
   channel: 'rgb' | 'red' | 'green' | 'blue';
 }
 export interface CurvesPoint {
+  id?: string;
   input: number;
   output: number;
 }
@@ -219,6 +242,8 @@ export interface CurvesAdjustment extends AdjustmentBase {
   kind: 'curves';
   channel: 'rgb' | 'red' | 'green' | 'blue';
   points: CurvesPoint[];
+  algorithmVersion?: 1 | 2;
+  channelPoints?: Partial<Record<'rgb' | 'red' | 'green' | 'blue', CurvesPoint[]>>;
 }
 export interface SelectiveColorAdjustment extends AdjustmentBase {
   kind: 'selectiveColor';
@@ -252,6 +277,12 @@ export interface ColorBalanceAdjustment extends AdjustmentBase {
   /** Version of the documented scalar Color Balance algorithm. */
   algorithmVersion?: 1;
 }
+export interface ChannelMixerRow {
+  redPercent: number;
+  greenPercent: number;
+  bluePercent: number;
+  constant: number;
+}
 export interface ChannelMixerAdjustment extends AdjustmentBase {
   kind: 'channelMixer';
   outputChannel: 'red' | 'green' | 'blue';
@@ -260,6 +291,7 @@ export interface ChannelMixerAdjustment extends AdjustmentBase {
   bluePercent: number;
   constant: number;
   monochrome: boolean;
+  rows?: Record<'red' | 'green' | 'blue', ChannelMixerRow>;
 }
 export interface PhotoFilterAdjustment extends AdjustmentBase {
   kind: 'photoFilter';
@@ -827,6 +859,8 @@ export type Adjustment =
   | OpacityAdjustment
   | BlurAdjustment
   | SharpenAdjustment
+  | WhiteBalanceAdjustment
+  | SplitToneAdjustment
   | TemperatureAdjustment
   | TintAdjustment
   | VibranceAdjustment
@@ -939,6 +973,30 @@ export function adjustmentToFilter(adjustment: Adjustment): FilterIR {
         threshold: adjustment.threshold,
         ...base,
       };
+    case 'whiteBalance':
+      return {
+        kind: 'whiteBalance',
+        algorithmVersion: 1,
+        temperature: adjustment.temperature,
+        tint: adjustment.tint,
+        redGain: adjustment.redGain,
+        greenGain: adjustment.greenGain,
+        blueGain: adjustment.blueGain,
+        ...base,
+      };
+    case 'splitTone':
+      return {
+        kind: 'splitTone',
+        algorithmVersion: 1,
+        shadowHue: adjustment.shadowHue,
+        shadowSaturation: adjustment.shadowSaturation,
+        highlightHue: adjustment.highlightHue,
+        highlightSaturation: adjustment.highlightSaturation,
+        balance: adjustment.balance,
+        blending: adjustment.blending,
+        strength: adjustment.strength,
+        ...base,
+      };
     case 'temperature':
       return { kind: 'temperature', value: adjustment.value, ...base };
     case 'tint':
@@ -957,7 +1015,14 @@ export function adjustmentToFilter(adjustment: Adjustment): FilterIR {
         ...base,
       };
     case 'curves':
-      return { kind: 'curves', channel: adjustment.channel, points: adjustment.points, ...base };
+      return {
+        kind: 'curves',
+        channel: adjustment.channel,
+        points: adjustment.points,
+        algorithmVersion: adjustment.algorithmVersion,
+        channelPoints: adjustment.channelPoints,
+        ...base,
+      };
     case 'selectiveColor':
       return {
         kind: 'selectiveColor',
@@ -988,6 +1053,7 @@ export function adjustmentToFilter(adjustment: Adjustment): FilterIR {
         bluePercent: adjustment.bluePercent,
         constant: adjustment.constant,
         monochrome: adjustment.monochrome,
+        rows: adjustment.rows,
         ...base,
       };
     case 'photoFilter':
@@ -1462,6 +1528,8 @@ export function filterToCss(filter: FilterIR): string | null {
     case 'exposure':
     case 'sharpen':
     case 'hueSaturation':
+    case 'whiteBalance':
+    case 'splitTone':
     case 'temperature':
     case 'tint':
     case 'levels':
@@ -1534,6 +1602,10 @@ export function filterKindDisplayName(kind: AdjustmentKind): string {
   if (isImageTreatmentKind(kind)) return imageTreatmentSchema(kind).label;
 
   switch (kind) {
+    case 'whiteBalance':
+      return 'White Balance';
+    case 'splitTone':
+      return 'Split Toning';
     case 'hueRotate':
       return 'Hue Rotate';
     case 'hueSaturation':
@@ -1648,6 +1720,28 @@ export function adjustmentDefaults(kind: AdjustmentKind): Omit<Adjustment, 'id' 
       } as Omit<Adjustment, 'id' | 'kind'>;
     case 'sharpen':
       return { ...base, amount: 0, radius: 1, threshold: 0 } as Omit<Adjustment, 'id' | 'kind'>;
+    case 'whiteBalance':
+      return {
+        ...base,
+        algorithmVersion: 1,
+        temperature: 0,
+        tint: 0,
+        redGain: 1,
+        greenGain: 1,
+        blueGain: 1,
+      } as Omit<Adjustment, 'id' | 'kind'>;
+    case 'splitTone':
+      return {
+        ...base,
+        algorithmVersion: 1,
+        shadowHue: 240,
+        shadowSaturation: 0,
+        highlightHue: 60,
+        highlightSaturation: 0,
+        balance: 0.5,
+        blending: 0.5,
+        strength: 1,
+      } as Omit<Adjustment, 'id' | 'kind'>;
     case 'temperature':
     case 'tint':
       return { ...base, value: 0 } as Omit<Adjustment, 'id' | 'kind'>;
@@ -1662,7 +1756,10 @@ export function adjustmentDefaults(kind: AdjustmentKind): Omit<Adjustment, 'id' 
         channel: 'rgb',
       } as Omit<Adjustment, 'id' | 'kind'>;
     case 'curves':
-      return { ...base, channel: 'rgb', points: [] } as Omit<Adjustment, 'id' | 'kind'>;
+      return { ...base, channel: 'rgb', points: [], algorithmVersion: 2 } as Omit<
+        Adjustment,
+        'id' | 'kind'
+      >;
     case 'selectiveColor':
       return {
         ...base,

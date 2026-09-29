@@ -151,6 +151,7 @@ describe('CurveEditor', () => {
     const svg = screen.getByRole('img', { name: /curve editor/i });
 
     fireEvent.pointerDown(svg, { clientX: 30, clientY: 210 });
+    fireEvent.pointerUp(svg);
     onDragStart.mockClear();
     onDragEnd.mockClear();
 

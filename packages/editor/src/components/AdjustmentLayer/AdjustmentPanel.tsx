@@ -2,9 +2,9 @@ import {
   ADJUSTMENT_LAYER_KINDS,
   ADJUSTMENT_LAYER_PRESETS,
   type AdjustmentBlendMode,
-  autoWhiteBalanceParams,
   type BlendMode,
   EFFECT_SURFACE_GUIDANCE,
+  estimateRelativeWhiteBalance,
   filterKindDisplayName,
   type SurfacePreset,
 } from '@varve/engine';
@@ -12,6 +12,7 @@ import type { Adjustment, AdjustmentKind, AdjustmentNode, SceneNode } from '@var
 import { cryptoId, makeAdjustment } from '@varve/scene';
 import { Menu, type MenuItem, Select, SOLID_CHROME_ICONS, SolidIcon, Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { computeAdjustmentSourceSample } from '../../canvas/adjustmentHistogramSource';
 import { useEditor } from '../../context';
 import { NumberField } from '../Inspector/controls/NumberField';
 import { RangeValueControl } from '../Inspector/controls/RangeValueControl';
@@ -94,11 +95,11 @@ export function AdjustmentPanel() {
 
   // The histogram is the scoped composite before the selected entry. With no
   // entry selected it remains the source of the first stack stage.
-  const { histogram: sourceHistogram, loading: histogramLoading } = useAdjustmentHistogram(
-    state.document,
-    adjNodeRef,
-    selectedHistogramEntryId,
-  );
+  const {
+    histogram: sourceHistogram,
+    sourceImageData,
+    loading: histogramLoading,
+  } = useAdjustmentHistogram(state.document, adjNodeRef, selectedHistogramEntryId);
 
   const startEditTransaction = useCallback(() => {
     if (editTransactionRef.current) return;
@@ -161,22 +162,47 @@ export function AdjustmentPanel() {
     [mutateNode, nodeId],
   );
 
-  const handleAutoWhiteBalance = useCallback(() => {
-    if (!nodeId || !sourceHistogram) return;
-    const correction = autoWhiteBalanceParams(sourceHistogram);
-    const id = cryptoId();
-    const auto = makeAdjustment(id, 'colorBalance', {
-      shadows: correction,
-      midtones: correction,
-      highlights: correction,
-      preserveLuminosity: true,
+  const latestDocument = useRef(state.document);
+  latestDocument.current = state.document;
+  const handleAutoWhiteBalance = useCallback(async () => {
+    if (!nodeId || !adjNodeRef) return;
+    const snapshot = state.document;
+    const existing = adjNodeRef.adjustments?.find((a) => a.kind === 'whiteBalance');
+    const sample = await computeAdjustmentSourceSample(snapshot, adjNodeRef, existing?.id);
+    if (latestDocument.current !== snapshot) {
+      announce('Source changed. Run Auto White Balance again.');
+      return;
+    }
+    if (!sample) {
+      announce('Source preview unavailable.');
+      return;
+    }
+    const estimate = estimateRelativeWhiteBalance(sample.imageData);
+    if (!estimate.ok) {
+      announce(estimate.reason);
+      return;
+    }
+    const id = existing?.id ?? cryptoId();
+    const auto = makeAdjustment(id, 'whiteBalance', {
+      temperature: 0,
+      tint: 0,
+      redGain: estimate.gains[0],
+      greenGain: estimate.gains[1],
+      blueGain: estimate.gains[2],
     } as Partial<Adjustment>);
     mutateNode(nodeId, (n) => {
       if (n.kind !== 'adjustment') return n;
-      return { ...n, adjustments: [...(n.adjustments ?? []), auto] } as SceneNode;
+      const adjustments = n.adjustments ?? [];
+      return {
+        ...n,
+        adjustments: existing
+          ? adjustments.map((a) => (a.id === id ? { ...a, ...auto } : a))
+          : [auto, ...adjustments],
+      } as SceneNode;
     });
     setSelectedAdjId(id);
-  }, [mutateNode, nodeId, sourceHistogram]);
+    announce(`Applied relative white balance using ${estimate.samples} neutral source samples.`);
+  }, [announce, mutateNode, nodeId, adjNodeRef, state.document]);
 
   const applyPreset = useCallback(
     (preset: SurfacePreset) => {
@@ -504,6 +530,7 @@ export function AdjustmentPanel() {
             onEditEnd={finishEditTransaction}
             doc={state.document}
             sourceHistogram={sourceHistogram}
+            sourceImageData={sourceImageData}
             histogramSourceLabel={histogramSourceLabel}
             histogramLoading={histogramLoading}
           />

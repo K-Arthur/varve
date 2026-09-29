@@ -45,6 +45,47 @@ export function isIdentityFilter(filter: FilterIR): boolean {
     case 'tint':
     case 'vibrance':
       return near(filter.value, 0);
+    case 'curves': {
+      const channels = filter.channelPoints ?? { [filter.channel]: filter.points };
+      return Object.values(channels).every(
+        (points) =>
+          points.length === 0 ||
+          ((filter.algorithmVersion === 2 ||
+            (points.length === 2 &&
+              points.some((p) => p.input === 0) &&
+              points.some((p) => p.input === 255))) &&
+            points.every((p) => near(p.input, p.output))),
+      );
+    }
+    case 'channelMixer': {
+      if (filter.monochrome) return false;
+      const identityRow = (
+        row: { redPercent: number; greenPercent: number; bluePercent: number; constant: number },
+        output: string,
+      ) =>
+        ['red', 'green', 'blue'].every((channel) =>
+          near(
+            row[`${channel}Percent` as 'redPercent' | 'greenPercent' | 'bluePercent'],
+            channel === output ? 100 : 0,
+          ),
+        ) && near(row.constant, 0);
+      return filter.rows
+        ? Object.entries(filter.rows).every(([channel, row]) => identityRow(row, channel))
+        : identityRow(filter, filter.outputChannel);
+    }
+    case 'whiteBalance':
+      return (
+        near(filter.temperature, 0) &&
+        near(filter.tint, 0) &&
+        near(filter.redGain, 1) &&
+        near(filter.greenGain, 1) &&
+        near(filter.blueGain, 1)
+      );
+    case 'splitTone':
+      return (
+        near(filter.strength, 0) ||
+        (near(filter.shadowSaturation, 0) && near(filter.highlightSaturation, 0))
+      );
     case 'exposure':
       return near(filter.value, 0) && near(filter.offset, 0) && near(filter.gammaCorrection, 1);
     case 'shadowHighlight':

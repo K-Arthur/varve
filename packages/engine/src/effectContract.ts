@@ -65,6 +65,30 @@ export interface EffectContractEntry {
 }
 
 const EFFECT_CONTRACTS: Record<string, EffectContractEntry> = {
+  whiteBalance: {
+    name: 'White Balance',
+    workingSpace: 'linear-light',
+    alphaConvention: 'straight',
+    alphaPolicy: 'preserve-source-alpha',
+    hasApproximatePreview: false,
+    previewTolerance: 0,
+    requiresRasterForExport: true,
+    cssFilterEquivalent: null,
+    gpuStatus: 'not-implemented',
+    nativeStatus: 'not-implemented',
+  },
+  splitTone: {
+    name: 'Split Toning',
+    workingSpace: 'oklab',
+    alphaConvention: 'straight',
+    alphaPolicy: 'preserve-source-alpha',
+    hasApproximatePreview: false,
+    previewTolerance: 0,
+    requiresRasterForExport: true,
+    cssFilterEquivalent: null,
+    gpuStatus: 'not-implemented',
+    nativeStatus: 'not-implemented',
+  },
   brightness: {
     name: 'Brightness',
     workingSpace: 'srgb-gamma',

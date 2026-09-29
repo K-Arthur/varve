@@ -16,6 +16,10 @@ mathematics.
 | Threshold | Vertical slice | `threshold.ts` + Adjustment Panel editor | RGBA8/Canvas2D reference path; no GPU kernel |
 | Gradient Map | Implemented reference path with preset/import support | `gradientMap.ts` + `GradientMapEditor` | Wide-gamut/HDR/ICC-accurate effect math is deferred |
 | Color Balance | Vertical slice | `colorBalance.ts` + tonal-range editor | CPU reference path; native/WebGPU acceleration is not claimed |
+| Curves | Versioned point curves | `adjustment/curves.ts`, `tonalCurveFilter.ts`, `CurveEditor` | The renderer boundary is RGBA8; float evaluation does not imply HDR processing |
+| Channel Mixer | Independent matrix rows | `tonalState.ts` + software compositor | RGB components, not print separations |
+| White Balance | Relative rendered-RGB correction | `whiteBalance.ts` + source preview picker | No inferred Kelvin, camera illuminant or As Shot metadata |
+| Split Toning | Photographic chroma treatment | `splitTone.ts` + shadow/highlight controls | Software Oklab/sRGB gamut boundary |
 
 The catalogue is centralized in `packages/engine/src/filters.ts`:
 `ADJUSTMENT_KINDS`, the `Adjustment` union, defaults, and
@@ -218,3 +222,82 @@ can change hue/chroma where gamut clipping occurs. RGB mode gates on the
 largest component delta, retaining isoluminant chromatic edges. Sharpening
 can amplify noise and produce halos; it is opt-in and does not replace
 creative sharpening earlier in the authored stack.
+
+## Channels and versioned curves
+
+Channel Mixer evaluates `out = matrix × original RGB + offset` in encoded
+sRGB code values. Three independent rows persist; coefficients may be negative
+and are not normalized. Monochrome uses the red output row for all three
+components. Legacy entries without rows retain their single selected row.
+Choosing another row promotes that entry to a full matrix without discarding
+its previous coefficients.
+
+New Curves use algorithm version 2, PCHIP. Files without a version use version
+1's historical Catmull-Rom transfer until explicitly upgraded. Both graph and
+renderer call `compileCurve`. Inputs outside [0,1] clamp. Nonfinite points are
+excluded; exact duplicate X keeps the last sorted value; v2 additionally
+consolidates separations at or below 1e-9 to avoid ill-conditioned slopes.
+Absent endpoints extend to (0,0)/(1,1); explicit endpoint heights are retained.
+Intentional inversions remain supported. Point count is bounded to 256 and
+compiled transfers to 32 cached entries. Point storage order/ids remain stable
+while evaluation sorts a separate copy.
+
+Master RGB applies to each component, followed by its individual curve. V2
+keeps that intermediate floating and quantizes once into RGBA8. The graph is
+the continuous transfer; the displayed output surface quantizes to bytes.
+Input/output numeric values retain fractional 0–255 code values. Explicit
+point actions supplement pointer and keyboard editing. Reset current and Reset
+all channels have distinct scopes. Source sampling adds a point on the current
+transfer; RGB samples the encoded arithmetic mean, while an individual channel
+samples its component after the current master curve.
+
+Selection Sources contains Channels for a selected image's original source.
+The 256px preview supports composite, grayscale/colorized RGB and opaque alpha
+coverage. View state never changes the edit target, layer visibility or export.
+Channel to selection decodes original pixels within the existing 16MP mask
+budget; it does not turn the preview into a saved mask. RGB snapshots multiply
+component coverage by source alpha; alpha snapshots preserve partial coverage.
+The canonical source-to-local-to-world mapping handles placement, crop and
+nested transforms. Replace/add/subtract/intersect and inversion use area
+selection semantics. Save selection, rename, duplicate, delete, reload and
+Object → Create Mask from Selection use existing durable selection/mask
+resources. These are snapshots, not live dependencies. Direct RGB painting
+and CMYK/spot-channel editing are not offered by this surface.
+
+## Relative white balance and split toning
+
+White Balance v1 operates on straight RGBA8 interpreted as rendered sRGB/D65,
+decoding components before multiplying linear RGB gains and encoding once.
+Warmth/tint are relative units [-100,100], not Kelvin. Gain bases are [0.25,4];
+warmth multiplies R/B by opposite powers of two, tint multiplies R/B together
+and G oppositely. Neutral parameters bypass exactly. Existing Temperature,
+Tint and Color Balance keep their old semantics. RAW camera reference and As
+Shot remain owned by RAW Develop; this adjustment does not read or reapply
+camera gains.
+
+The shared source diagnostic now retains one RGBA sample and histogram per
+request, max 256px and eight cached entries (about 2MiB of pixel payload).
+The preview represents the scoped composite before the selected entry, with
+canonical upstream order. Its approximate bounds are suitable for diagnostic
+patch selection, not a claim of full-resolution or main-canvas picking.
+Sampling a 3×3 preview patch estimates gains that neutralize mean linear RGB
+at its weighted luminance. Alpha below 250, any component below 12 or above
+243 is excluded. Auto additionally requires low encoded chroma (spread/max
+≤0.15), at least 16 samples and 1% of eligible opaque pixels. Rejection is
+explicit and leaves the stack unchanged; it cannot identify neutral objects
+in arbitrary artwork or perfectly balance mixed lighting.
+
+Auto White Balance reuses the first existing WB entry and samples before it.
+If none exists, it inserts at the start and samples the unadjusted scope.
+Existing entries are never reordered. A document identity check rejects stale
+asynchronous estimates. Repeat clicks replace gains from the same upstream
+stage rather than append cumulative corrections.
+
+Split Toning v1 decodes sRGB, adds Oklab a/b chroma at fixed source L, then uses
+the existing shared gamut compressor. Smoothstep weights sum to one, with a
+[0,1] shadow pivot and [0.01,1] transition width; the input lightness determines
+weights once. Each chroma vector has maximum magnitude 0.15 × saturation ×
+strength and a `4L(1-L)` endpoint envelope. Pure black/white remain protected;
+zero strength or both saturations zero is exact identity. Quantization can
+change L slightly (tested tolerance 0.004); gamut compression reduces chroma
+rather than claiming unlimited saturation or perfect hue retention.

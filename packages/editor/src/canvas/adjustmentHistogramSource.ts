@@ -28,6 +28,11 @@ import type { Adjustment, AdjustmentNode, Document } from '@varve/scene';
 import { resolveAdjustmentScope } from '@varve/scene';
 import { flattenSceneToEngine } from '../render/sceneToEngine';
 
+export interface AdjustmentSourceSample {
+  imageData: ImageData;
+  histogram: Histogram;
+}
+
 /** Maximum dimension (px) of the histogram sample canvas. */
 const SAMPLE_MAX = 256;
 
@@ -42,7 +47,7 @@ const MAX_CACHE_ENTRIES = 8;
 const histogramCache: Array<{
   doc: Document;
   key: string;
-  result: Histogram;
+  result: AdjustmentSourceSample;
 }> = [];
 
 function buildCacheKey(
@@ -142,11 +147,11 @@ export function adjustmentsBeforeEntry(
  *
  * This is async because `engine.buildIr` may delegate to WASM/native.
  */
-export async function computeAdjustmentSourceHistogram(
+export async function computeAdjustmentSourceSample(
   doc: Document,
   adjNode: AdjustmentNode,
   beforeAdjustmentId?: string,
-): Promise<Histogram | null> {
+): Promise<AdjustmentSourceSample | null> {
   const targets = getAdjustmentTargetIds(doc, adjNode);
   if (!targets) return null;
 
@@ -198,9 +203,10 @@ export async function computeAdjustmentSourceHistogram(
       (entry) => entry.doc === doc && entry.key === key,
     );
     if (existingIndex >= 0) histogramCache.splice(existingIndex, 1);
-    histogramCache.unshift({ doc, key, result: histogram });
+    const result = { imageData, histogram };
+    histogramCache.unshift({ doc, key, result });
     if (histogramCache.length > MAX_CACHE_ENTRIES) histogramCache.pop();
-    return histogram;
+    return result;
   } catch {
     return null;
   }
@@ -212,4 +218,13 @@ export async function computeAdjustmentSourceHistogram(
  */
 export function clearHistogramCache(): void {
   histogramCache.length = 0;
+}
+
+/** Histogram-only compatibility facade over the same bounded source sample. */
+export async function computeAdjustmentSourceHistogram(
+  doc: Document,
+  adjNode: AdjustmentNode,
+  beforeAdjustmentId?: string,
+): Promise<Histogram | null> {
+  return (await computeAdjustmentSourceSample(doc, adjNode, beforeAdjustmentId))?.histogram ?? null;
 }

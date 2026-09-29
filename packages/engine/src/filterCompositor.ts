@@ -13,7 +13,6 @@
  */
 
 import { linearToSrgbUnit, srgbToLinearUnit } from '@varve/shared';
-import { applyCurve, buildCurveLUT } from './adjustment/curves';
 import { applyHueSaturation } from './adjustment/hueSaturation';
 import { applyLevels } from './adjustment/levels';
 import type { SelectiveColorParams, SelectiveColorTarget } from './adjustment/selectiveColor';
@@ -68,9 +67,13 @@ import { applyLutToImageData } from './lut/apply';
 import { deserializeLutTransform } from './lut/codec';
 import { applyPosterize } from './posterize';
 import { createRasterSurface, type RasterCanvasContext } from './rasterSurface';
+import { applySplitTone } from './splitTone';
 import { applyThreshold } from './threshold';
+import { applyTonalCurves } from './tonalCurveFilter';
+import { mixerRows } from './tonalState';
 import { applyTritone } from './tritone';
 import type { FilterIR } from './types';
+import { applyRelativeWhiteBalance } from './whiteBalance';
 
 /**
  * Render options for a filter chain: the caller's quality tier (the serialized
@@ -326,25 +329,7 @@ export function applySoftwareFilter(
       break;
     }
     case 'curves': {
-      const channel =
-        'channel' in filter
-          ? ((filter as { channel: string }).channel as 'rgb' | 'red' | 'green' | 'blue')
-          : 'rgb';
-      const serializedPoints =
-        'points' in filter
-          ? (
-              filter as unknown as {
-                points: Array<{ input?: number; output?: number; x?: number; y?: number }>;
-              }
-            ).points
-          : [];
-      const points = serializedPoints.map((point) => ({
-        x: point.input !== undefined ? point.input / 255 : (point.x ?? 0),
-        y: point.output !== undefined ? point.output / 255 : (point.y ?? 0),
-      }));
-      const lut = buildCurveLUT(points);
-      const result = applyCurve(imageData, channel, lut);
-      ctx.putImageData(result, 0, 0);
+      ctx.putImageData(applyTonalCurves(imageData, filter), 0, 0);
       break;
     }
     case 'levels': {
@@ -471,6 +456,16 @@ export function applySoftwareFilter(
       ctx.putImageData(imageData, 0, 0);
       break;
     }
+    case 'whiteBalance': {
+      applyRelativeWhiteBalance(imageData, filter);
+      ctx.putImageData(imageData, 0, 0);
+      break;
+    }
+    case 'splitTone': {
+      applySplitTone(imageData, filter);
+      ctx.putImageData(imageData, 0, 0);
+      break;
+    }
     case 'temperature': {
       const tf = filter as { value: number };
       applyTemperature(imageData, tf.value ?? 0);
@@ -502,51 +497,23 @@ export function applySoftwareFilter(
       break;
     }
     case 'channelMixer': {
-      // FilterIR has single-output-channel format; engine expects all 3 at once.
-      // Convert: outputChannel + redPercent/greenPercent/bluePercent define the
-      // mix for one output channel; other channels pass through unchanged.
-      const cmf = filter as {
-        outputChannel: string;
-        redPercent: number;
-        greenPercent: number;
-        bluePercent: number;
-        constant: number;
-        monochrome: boolean;
-      };
-      const rPct = cmf.redPercent ?? 100;
-      const gPct = cmf.greenPercent ?? 0;
-      const bPct = cmf.bluePercent ?? 0;
-      const cnst = cmf.constant ?? 0;
-      let red: [number, number, number];
-      let green: [number, number, number];
-      let blue: [number, number, number];
-      let constant: [number, number, number];
-      switch (cmf.outputChannel) {
-        case 'red':
-          red = [rPct, gPct, bPct];
-          green = [0, 100, 0];
-          blue = [0, 0, 100];
-          constant = [cnst, 0, 0];
-          break;
-        case 'green':
-          red = [100, 0, 0];
-          green = [rPct, gPct, bPct];
-          blue = [0, 0, 100];
-          constant = [0, cnst, 0];
-          break;
-        case 'blue':
-          red = [100, 0, 0];
-          green = [0, 100, 0];
-          blue = [rPct, gPct, bPct];
-          constant = [0, 0, cnst];
-          break;
-        default:
-          red = [100, 0, 0];
-          green = [0, 100, 0];
-          blue = [0, 0, 100];
-          constant = [0, 0, 0];
-      }
-      applyChannelMixer(imageData, red, green, blue, constant, cmf.monochrome ?? false);
+      const rows = mixerRows({
+        ...filter,
+        outputChannel: filter.outputChannel as 'red' | 'green' | 'blue',
+      });
+      const row = (channel: 'red' | 'green' | 'blue'): [number, number, number] => [
+        rows[channel].redPercent,
+        rows[channel].greenPercent,
+        rows[channel].bluePercent,
+      ];
+      applyChannelMixer(
+        imageData,
+        row('red'),
+        row('green'),
+        row('blue'),
+        [rows.red.constant, rows.green.constant, rows.blue.constant],
+        filter.monochrome,
+      );
       ctx.putImageData(imageData, 0, 0);
       break;
     }

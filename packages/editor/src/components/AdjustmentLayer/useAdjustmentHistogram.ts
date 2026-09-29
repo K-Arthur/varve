@@ -25,10 +25,11 @@
 import type { Histogram } from '@varve/engine';
 import type { AdjustmentNode, Document } from '@varve/scene';
 import { useEffect, useRef, useState } from 'react';
-import { computeAdjustmentSourceHistogram } from '../../canvas/adjustmentHistogramSource';
+import { computeAdjustmentSourceSample } from '../../canvas/adjustmentHistogramSource';
 
 export interface UseAdjustmentHistogramResult {
   histogram: Histogram | null;
+  sourceImageData: ImageData | null;
   loading: boolean;
 }
 
@@ -37,6 +38,7 @@ export function useAdjustmentHistogram(
   adjNode: AdjustmentNode | undefined,
   beforeAdjustmentId?: string,
 ): UseAdjustmentHistogramResult {
+  const [sourceImageData, setSourceImageData] = useState<ImageData | null>(null);
   const [histogram, setHistogram] = useState<Histogram | null>(null);
   const [loading, setLoading] = useState(false);
   const abortRef = useRef(0);
@@ -44,6 +46,7 @@ export function useAdjustmentHistogram(
   useEffect(() => {
     if (!doc || !adjNode) {
       setHistogram(null);
+      setSourceImageData(null);
       setLoading(false);
       return;
     }
@@ -53,17 +56,20 @@ export function useAdjustmentHistogram(
     // Do not display the previous stage's distribution under the new stage
     // label while the revisioned diagnostic job is pending.
     setHistogram(null);
+    setSourceImageData(null);
     setLoading(true);
 
-    computeAdjustmentSourceHistogram(doc, adjNode, beforeAdjustmentId)
+    computeAdjustmentSourceSample(doc, adjNode, beforeAdjustmentId)
       .then((result) => {
         if (cancelled || generation !== abortRef.current) return;
-        setHistogram(result);
+        setHistogram(result?.histogram ?? null);
+        setSourceImageData(result?.imageData ?? null);
         setLoading(false);
       })
       .catch(() => {
         if (cancelled || generation !== abortRef.current) return;
         setHistogram(null);
+        setSourceImageData(null);
         setLoading(false);
       });
 
@@ -75,5 +81,5 @@ export function useAdjustmentHistogram(
     // histogram stale after an edit to an existing scoped target.
   }, [doc, adjNode?.id, adjNode?.scope, beforeAdjustmentId]);
 
-  return { histogram, loading };
+  return { histogram, sourceImageData, loading };
 }

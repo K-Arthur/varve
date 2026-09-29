@@ -1,128 +1,37 @@
-/**
- * CurveEditor — interactive tonal curve adjustment widget for the Inspector.
- *
- * SVG-based grid (4x4) with draggable anchor points. Click adds a point,
- * double-click removes it. A Catmull-Rom spline is drawn through all
- * points as an SVG path. Channel selector filters to RGB / Red / Green / Blue.
- *
- * Research basis: Photoshop Curves panel; SVG pointer-event compositing.
- */
-import type { CurvePoint, Histogram } from '@varve/engine';
-import { Icon, SegmentedControl } from '@varve/ui';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { type CurveAlgorithm, type CurvePoint, compileCurve, type Histogram } from '@varve/engine';
+import { Button, SegmentedControl, Select } from '@varve/ui';
+import { useEffect, useRef, useState } from 'react';
+import { NumberField } from './NumberField';
+import './curveEditor.css';
 
-const WIDTH = 300;
-const HEIGHT = 240;
-const PADDING = 30;
-const PLOT_W = WIDTH - PADDING * 2;
-const PLOT_H = HEIGHT - PADDING * 2;
-const HANDLE_R = 5;
-
+const WIDTH = 300,
+  HEIGHT = 240,
+  PAD = 30,
+  PLOT_W = 240,
+  PLOT_H = 180;
 type Channel = 'rgb' | 'red' | 'green' | 'blue';
-
-const CHANNELS: { value: Channel; label: string }[] = [
+const CHANNELS = [
   { value: 'rgb', label: 'RGB' },
   { value: 'red', label: 'R' },
   { value: 'green', label: 'G' },
   { value: 'blue', label: 'B' },
+] as const;
+const identity = (): CurvePoint[] => [
+  { x: 0, y: 0 },
+  { x: 1, y: 1 },
 ];
+const clamp = (v: number) => Math.max(0, Math.min(1, v));
 
-function identityPoints(): CurvePoint[] {
-  return [
-    { x: 0, y: 0 },
-    { x: 1, y: 1 },
-  ];
-}
-
-function toSvgCoord(p: CurvePoint): { sx: number; sy: number } {
-  return {
-    sx: PADDING + p.x * PLOT_W,
-    sy: PADDING + (1 - p.y) * PLOT_H,
-  };
-}
-
-function toCurveCoord(sx: number, sy: number): CurvePoint {
-  return {
-    x: Math.max(0, Math.min(1, (sx - PADDING) / PLOT_W)),
-    y: Math.max(0, Math.min(1, 1 - (sy - PADDING) / PLOT_H)),
-  };
-}
-
-function catmullRom1d(p0: number, p1: number, p2: number, p3: number, t: number): number {
-  const t2 = t * t;
-  const t3 = t2 * t;
-  return (
-    0.5 *
-    (2 * p1 +
-      (-p0 + p2) * t +
-      (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 +
-      (-p0 + 3 * p1 - 3 * p2 + p3) * t3)
-  );
-}
-
-function buildSplinePath(points: CurvePoint[]): string {
-  if (points.length === 0) return '';
-  const sorted = [...points].sort((a, b) => a.x - b.x);
-  const pts = sorted.length === 1 ? [...sorted, { x: 1, y: 1 }] : sorted;
-  const extended = pts.length === 2 ? pts : pts;
-
-  let d = '';
-  const first = toSvgCoord(extended[0]!);
-  d = `M ${first.sx} ${first.sy}`;
-
-  if (extended.length === 2) {
-    const last = toSvgCoord(extended[1]!);
-    d += ` L ${last.sx} ${last.sy}`;
-  } else {
-    for (let i = 0; i < extended.length - 1; i++) {
-      const p0 = extended[Math.max(0, i - 1)]!;
-      const p1 = extended[i]!;
-      const p2 = extended[Math.min(extended.length - 1, i + 1)]!;
-      const p3 = extended[Math.min(extended.length - 1, i + 2)]!;
-      const steps = 20;
-      for (let s = 1; s <= steps; s++) {
-        const t = s / steps;
-        const x = catmullRom1d(p0.x, p1.x, p2.x, p3.x, t);
-        const y = catmullRom1d(p0.y, p1.y, p2.y, p3.y, t);
-        const c = toSvgCoord({ x, y });
-        d += ` L ${c.sx} ${c.sy}`;
-      }
-    }
+function pointerPoint(svg: SVGSVGElement, clientX: number, clientY: number): CurvePoint {
+  const matrix = svg.getScreenCTM?.();
+  if (matrix && typeof DOMPoint !== 'undefined') {
+    const p = new DOMPoint(clientX, clientY).matrixTransform(matrix.inverse());
+    return { x: clamp((p.x - PAD) / PLOT_W), y: clamp(1 - (p.y - PAD) / PLOT_H) };
   }
-  return d;
-}
-
-function gridLines(): { x1: number; y1: number; x2: number; y2: number }[] {
-  const lines: { x1: number; y1: number; x2: number; y2: number }[] = [];
-  for (let i = 0; i <= 4; i++) {
-    const frac = i / 4;
-    const x = PADDING + frac * PLOT_W;
-    const y = PADDING + frac * PLOT_H;
-    lines.push({ x1: x, y1: PADDING, x2: x, y2: PADDING + PLOT_H });
-    lines.push({ x1: PADDING, y1: y, x2: PADDING + PLOT_W, y2: y });
-  }
-  return lines;
-}
-
-function gridLabels(): { x: number; y: number; label: string; isX: boolean }[] {
-  const labels: { x: number; y: number; label: string; isX: boolean }[] = [];
-  for (let i = 0; i <= 4; i++) {
-    const frac = i / 4;
-    const pct = `${frac * 100}%`;
-    labels.push({
-      x: PADDING + frac * PLOT_W,
-      y: HEIGHT - 2,
-      label: pct,
-      isX: true,
-    });
-    labels.push({
-      x: 2,
-      y: PADDING + (1 - frac) * PLOT_H + 4,
-      label: pct,
-      isX: false,
-    });
-  }
-  return labels;
+  const rect = svg.getBoundingClientRect();
+  const x = ((clientX - rect.left) * WIDTH) / (rect.width || WIDTH);
+  const y = ((clientY - rect.top) * HEIGHT) / (rect.height || HEIGHT);
+  return { x: clamp((x - PAD) / PLOT_W), y: clamp(1 - (y - PAD) / PLOT_H) };
 }
 
 export interface CurveEditorProps {
@@ -130,18 +39,10 @@ export interface CurveEditorProps {
   onChange: (points: CurvePoint[]) => void;
   onDragStart?: () => void;
   onDragEnd?: () => void;
-  /**
-   * Controlled channel selection. Omit to fall back to uncontrolled local
-   * state (the channel buttons still render and toggle visually, but don't
-   * drive anything outside the component — fine for a single-channel curve).
-   * Pass both props when the consumer stores per-channel curves, so the
-   * buttons actually select what's being edited instead of only looking like
-   * they do.
-   */
   channel?: Channel;
   onChannelChange?: (channel: Channel) => void;
-  /** Optional source histogram painted behind the SVG curve grid. */
   histogram?: Histogram;
+  algorithm?: CurveAlgorithm;
 }
 
 export function CurveEditor({
@@ -149,193 +50,92 @@ export function CurveEditor({
   onChange,
   onDragStart,
   onDragEnd,
-  channel: channelProp,
+  channel: controlled,
   onChannelChange,
   histogram,
+  algorithm = 'legacy',
 }: CurveEditorProps) {
   const [internalChannel, setInternalChannel] = useState<Channel>('rgb');
-  const channel = channelProp ?? internalChannel;
-  const setChannel = useCallback(
-    (next: Channel) => {
-      if (onChannelChange) onChannelChange(next);
-      else setInternalChannel(next);
-    },
-    [onChannelChange],
-  );
-  const [dragIndex, setDragIndex] = useState<number | null>(null);
-  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const channel = controlled ?? internalChannel;
+  const [selected, setSelected] = useState(0);
+  const [dragging, setDragging] = useState(false);
   const svgRef = useRef<SVGSVGElement>(null);
-  const onDragStartRef = useRef(onDragStart);
-  onDragStartRef.current = onDragStart;
-  const onDragEndRef = useRef(onDragEnd);
-  onDragEndRef.current = onDragEnd;
+  const gesture = useRef<{ index: number; original: CurvePoint[]; pointer?: number } | null>(null);
+  const callbacks = useRef({ onChange, onDragStart, onDragEnd });
+  callbacks.current = { onChange, onDragStart, onDragEnd };
+  const points = value.length ? value : identity();
+  const selectedPoint = points[Math.min(selected, points.length - 1)]!;
+  const evaluate = compileCurve(points, algorithm);
+  const path = Array.from(
+    { length: 257 },
+    (_, i) =>
+      `${i ? 'L' : 'M'} ${PAD + (i / 256) * PLOT_W} ${PAD + (1 - evaluate(i / 256)) * PLOT_H}`,
+  ).join(' ');
 
-  const points = value.length === 0 ? identityPoints() : value;
-  const sorted = [...points].sort((a, b) => a.x - b.x);
-
-  const reset = useCallback(() => {
-    onChange(identityPoints());
-  }, [onChange]);
-
-  const handlePointerDown = useCallback(
-    (e: React.PointerEvent<SVGSVGElement>) => {
-      if (!svgRef.current) return;
-      const rect = svgRef.current.getBoundingClientRect();
-      const sx = e.clientX - rect.left;
-      const sy = e.clientY - rect.top;
-
-      const hitRadius = 12;
-      const hitIdx = sorted.findIndex((p) => {
-        const c = toSvgCoord(p);
-        return Math.abs(c.sx - sx) <= hitRadius && Math.abs(c.sy - sy) <= hitRadius;
-      });
-
-      if (hitIdx >= 0) {
-        onDragStartRef.current?.();
-        setDragIndex(hitIdx);
-        setSelectedIndex(hitIdx);
-        svgRef.current.focus();
-        return;
+  function finish(cancel = false) {
+    const active = gesture.current;
+    if (!active) return;
+    gesture.current = null;
+    setDragging(false);
+    if (cancel) callbacks.current.onChange(active.original);
+    callbacks.current.onDragEnd?.();
+  }
+  function begin(index: number, pointer?: number) {
+    if (gesture.current) finish();
+    gesture.current = { index, original: points.map((p) => ({ ...p })), pointer };
+    callbacks.current.onDragStart?.();
+    setSelected(index);
+    setDragging(pointer !== undefined);
+  }
+  function update(index: number, patch: Partial<CurvePoint>) {
+    onChange(points.map((p, i) => (i === index ? { ...p, ...patch } : p)));
+  }
+  function add(point: CurvePoint) {
+    if (points.length >= 256) return;
+    onChange([...points, { ...point, id: crypto.randomUUID() }]);
+    setSelected(points.length);
+  }
+  function remove(index: number) {
+    if (points.length <= 2) return;
+    onChange(points.filter((_, i) => i !== index));
+    setSelected(Math.max(0, index - 1));
+  }
+  function hit(point: CurvePoint) {
+    const rect = svgRef.current?.getBoundingClientRect();
+    const scale = (rect?.width || WIDTH) / WIDTH;
+    let closest = -1,
+      distance = 10;
+    points.forEach((p, i) => {
+      const d = Math.hypot((p.x - point.x) * PLOT_W * scale, (p.y - point.y) * PLOT_H * scale);
+      if (d < distance) {
+        distance = d;
+        closest = i;
       }
-
-      onDragStartRef.current?.();
-      const newPoint = toCurveCoord(sx, sy);
-      onChange([...points, newPoint]);
-      onDragEndRef.current?.();
-      // Select the newly added point (it's now the last in the unsorted array)
-      setSelectedIndex(sorted.length);
-    },
-    [points, sorted, onChange],
-  );
-
-  const handleDoubleClick = useCallback(
-    (e: React.MouseEvent<SVGSVGElement>) => {
-      if (!svgRef.current) return;
-      const rect = svgRef.current.getBoundingClientRect();
-      const sx = e.clientX - rect.left;
-      const sy = e.clientY - rect.top;
-      const hitRadius = 12;
-      const hitIdx = sorted.findIndex((p) => {
-        const c = toSvgCoord(p);
-        return Math.abs(c.sx - sx) <= hitRadius && Math.abs(c.sy - sy) <= hitRadius;
-      });
-      if (hitIdx < 0) return;
-      const removedId = sorted[hitIdx];
-      if (!removedId) return;
-      const remaining = points.filter((p) => p !== removedId);
-      if (remaining.length >= 2) {
-        onChange(remaining);
-      }
-    },
-    [points, sorted, onChange],
-  );
-
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent<SVGSVGElement>) => {
-      if (selectedIndex === null) return;
-      const step = e.shiftKey ? 0.05 : 0.02;
-      const current = sorted[selectedIndex];
-      if (!current) return;
-
-      let newX = current.x;
-      let newY = current.y;
-
-      switch (e.key) {
-        case 'ArrowUp':
-          newY = Math.min(1, newY + step);
-          e.preventDefault();
-          break;
-        case 'ArrowDown':
-          newY = Math.max(0, newY - step);
-          e.preventDefault();
-          break;
-        case 'ArrowLeft':
-          newX = Math.max(0, newX - step);
-          e.preventDefault();
-          break;
-        case 'ArrowRight':
-          newX = Math.min(1, newX + step);
-          e.preventDefault();
-          break;
-        case 'Tab': {
-          e.preventDefault();
-          const dir = e.shiftKey ? -1 : 1;
-          const next = (selectedIndex + dir + sorted.length) % sorted.length;
-          setSelectedIndex(next);
-          return;
+    });
+    return closest;
+  }
+  useEffect(() => {
+    const end = (event: KeyboardEvent) => {
+      if (event.key.startsWith('Arrow')) {
+        const active = gesture.current;
+        if (active && active.pointer === undefined) {
+          gesture.current = null;
+          callbacks.current.onDragEnd?.();
         }
-        case 'Delete':
-        case 'Backspace': {
-          if (sorted.length <= 2) return; // Keep at least 2 points
-          e.preventDefault();
-          const remaining = points.filter((p) => p !== current);
-          if (remaining.length >= 2) {
-            onChange(remaining);
-            setSelectedIndex(null);
-          }
-          return;
-        }
-        case 'Home':
-          setSelectedIndex(0);
-          e.preventDefault();
-          return;
-        case 'End':
-          setSelectedIndex(sorted.length - 1);
-          e.preventDefault();
-          return;
-        default:
-          return;
       }
-
-      if (!e.repeat) {
-        onDragStartRef.current?.();
-        const onKeyUp = (ke: KeyboardEvent) => {
-          if (ke.key.startsWith('Arrow')) {
-            onDragEndRef.current?.();
-            window.removeEventListener('keyup', onKeyUp);
-          }
-        };
-        window.addEventListener('keyup', onKeyUp);
+    };
+    window.addEventListener('keyup', end);
+    return () => {
+      window.removeEventListener('keyup', end);
+      if (gesture.current) {
+        gesture.current = null;
+        callbacks.current.onDragEnd?.();
       }
-      const updated = [...points];
-      const orig = updated.find((p) => p.x === current.x && p.y === current.y);
-      if (orig) {
-        const idx = updated.indexOf(orig);
-        updated[idx] = { x: newX, y: newY };
-        onChange(updated);
-      }
-    },
-    [selectedIndex, sorted, points, onChange],
-  );
-
-  const handlePointerMove = useCallback(
-    (e: React.PointerEvent<SVGSVGElement>) => {
-      if (dragIndex === null || !svgRef.current) return;
-      const rect = svgRef.current.getBoundingClientRect();
-      const sx = e.clientX - rect.left;
-      const sy = e.clientY - rect.top;
-      const newPoint = toCurveCoord(sx, sy);
-      const updated = [...points];
-      const target = updated.find((p) => p === sorted[dragIndex]);
-      if (!target) return;
-      const idx = updated.indexOf(target);
-      if (idx >= 0) {
-        updated[idx] = newPoint;
-        onChange(updated);
-      }
-    },
-    [dragIndex, points, sorted, onChange],
-  );
-
-  const handlePointerUp = useCallback(() => {
-    setDragIndex(null);
-    onDragEndRef.current?.();
+    };
   }, []);
-
-  const path = buildSplinePath(points);
-  const grid = gridLines();
-  const labels = gridLabels();
-
+  useEffect(() => {
+    setSelected(0);
+  }, [channel]);
   useEffect(() => {
     const canvas = svgRef.current?.previousElementSibling;
     if (!(canvas instanceof HTMLCanvasElement)) return;
@@ -343,152 +143,239 @@ export function CurveEditor({
     if (!ctx) return;
     ctx.clearRect(0, 0, WIDTH, HEIGHT);
     if (!histogram) return;
-    const data = histogram[channel === 'rgb' ? 'luminance' : channel];
-    let max = 0;
-    for (let i = 0; i < 256; i += 1) max = Math.max(max, data[i]!);
+    const bins = histogram[channel === 'rgb' ? 'luminance' : channel];
+    const max = Math.max(...bins);
     if (max <= 0) return;
-    const computed = getComputedStyle(document.documentElement);
-    ctx.fillStyle = computed.getPropertyValue('--color-accent-primary').trim() || '#39d0c6';
+    ctx.fillStyle = getComputedStyle(document.documentElement)
+      .getPropertyValue('--color-accent-primary')
+      .trim();
     ctx.globalAlpha = 0.18;
-    const barW = PLOT_W / 256;
-    for (let i = 0; i < 256; i += 1) {
-      const height = (data[i]! / max) * PLOT_H;
-      ctx.fillRect(PADDING + i * barW, PADDING + PLOT_H - height, Math.max(1, barW), height);
+    for (let i = 0; i < 256; i++) {
+      const height = (bins[i]! / max) * PLOT_H;
+      ctx.fillRect(PAD + (i / 256) * PLOT_W, PAD + PLOT_H - height, PLOT_W / 256, height);
     }
     ctx.globalAlpha = 1;
-  }, [channel, histogram]);
+  }, [histogram, channel]);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
-      <div
-        style={{
-          display: 'flex',
-          gap: 'var(--space-1)',
-          alignItems: 'center',
-          justifyContent: 'space-between',
+    <fieldset
+      className="curve-editor"
+      aria-label="Curve controls"
+      onKeyDown={(e) => {
+        e.stopPropagation();
+      }}
+    >
+      <SegmentedControl
+        label="Channel"
+        value={channel}
+        options={CHANNELS}
+        onChange={(next) => {
+          finish();
+          if (onChannelChange) onChannelChange(next);
+          else setInternalChannel(next);
         }}
-      >
-        <SegmentedControl
-          label="Channel"
-          value={channel}
-          options={CHANNELS}
-          onChange={setChannel}
-          className="insp-curve-channel"
-        />
-        <button
-          type="button"
-          className="insp-inline-btn"
-          aria-label="Reset curve"
-          onClick={reset}
-          style={{ fontSize: 'var(--font-size-2xs)' }}
-        >
-          <Icon name="RotateCcw" label={undefined} size="0.85em" />
-        </button>
-      </div>
-      <div
-        style={{
-          position: 'relative',
-          width: WIDTH,
-          height: HEIGHT,
-          background: 'var(--color-surface-sunken)',
-          borderRadius: 'var(--radius-control-compact)',
-        }}
-      >
-        <canvas
-          width={WIDTH}
-          height={HEIGHT}
-          style={{
-            position: 'absolute',
-            inset: 0,
-            width: WIDTH,
-            height: HEIGHT,
-            borderRadius: 'var(--radius-control-compact)',
-            pointerEvents: 'none',
-          }}
-        />
+        className="insp-curve-channel"
+      />
+      <div className="curve-editor__plot">
+        <canvas width={WIDTH} height={HEIGHT} />
         <svg
           ref={svgRef}
-          role="img"
           width={WIDTH}
           height={HEIGHT}
           viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
-          style={{
-            background: 'transparent',
-            borderRadius: 'var(--radius-control-compact)',
-            cursor: dragIndex !== null ? 'grabbing' : 'crosshair',
-            touchAction: 'none',
-            userSelect: 'none',
+          role="img"
+          aria-label="Curve editor. Input horizontal, output vertical. Arrow keys move point, Tab cycles points, Delete removes."
+          onPointerDown={(e) => {
+            if (e.button > 0) return;
+            const svg = e.currentTarget;
+            const point = pointerPoint(svg, e.clientX, e.clientY);
+            const index = hit(point);
+            (
+              svg.querySelector(`[data-point-index="${Math.max(0, index)}"]`) as SVGElement | null
+            )?.focus();
+            if (index >= 0) {
+              begin(index, e.pointerId);
+              svg.setPointerCapture?.(e.pointerId);
+            } else {
+              onDragStart?.();
+              add(point);
+              onDragEnd?.();
+            }
           }}
-          aria-label="Curve editor. Use arrow keys to move selected point, Tab to cycle, Delete to remove."
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          onPointerLeave={handlePointerUp}
-          onDoubleClick={handleDoubleClick}
-          onKeyDown={handleKeyDown}
+          onPointerMove={(e) => {
+            const active = gesture.current;
+            if (!active || active.pointer !== e.pointerId) return;
+            update(active.index, pointerPoint(e.currentTarget, e.clientX, e.clientY));
+          }}
+          onPointerUp={() => finish()}
+          onPointerCancel={() => finish(true)}
+          onLostPointerCapture={() => finish()}
+          onBlur={() => finish()}
+          onDoubleClick={(e) => {
+            const index = hit(pointerPoint(e.currentTarget, e.clientX, e.clientY));
+            if (index >= 0) remove(index);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') {
+              e.preventDefault();
+              finish(true);
+              return;
+            }
+            if (e.key === 'Delete' || e.key === 'Backspace') {
+              e.preventDefault();
+              finish();
+              remove(selected);
+              return;
+            }
+            const moves: Record<string, [number, number]> = {
+              ArrowLeft: [-1, 0],
+              ArrowRight: [1, 0],
+              ArrowDown: [0, -1],
+              ArrowUp: [0, 1],
+            };
+            const delta = moves[e.key];
+            if (!delta) return;
+            e.preventDefault();
+            if (!e.repeat) begin(selected);
+            const step = (e.shiftKey ? 10 : 1) / 255;
+            update(selected, {
+              x: clamp(selectedPoint.x + delta[0] * step),
+              y: clamp(selectedPoint.y + delta[1] * step),
+            });
+          }}
         >
-          <rect
-            x={PADDING}
-            y={PADDING}
-            width={PLOT_W}
-            height={PLOT_H}
-            fill="none"
-            stroke="var(--color-border-subtle)"
-            strokeWidth="1"
-          />
-          {grid.map((l) => (
-            <line
-              key={`${l.x1}-${l.y1}-${l.x2}-${l.y2}`}
-              x1={l.x1}
-              y1={l.y1}
-              x2={l.x2}
-              y2={l.y2}
-              stroke="var(--color-border-subtle)"
-              strokeWidth="0.5"
-              opacity="0.5"
-            />
-          ))}
-          {labels.map((l) => (
-            <text
-              key={`${l.isX}-${l.x}-${l.y}`}
-              x={l.isX ? l.x : l.x}
-              y={l.isX ? l.y : l.y}
-              fill="var(--color-text-muted)"
-              fontSize="8"
-              textAnchor={l.isX ? 'middle' : 'end'}
-              dominantBaseline={l.isX ? 'text-after-edge' : 'central'}
-            >
-              {l.label}
-            </text>
+          {[0, 0.25, 0.5, 0.75, 1].map((fraction) => (
+            <g key={fraction}>
+              <line
+                x1={PAD + fraction * PLOT_W}
+                x2={PAD + fraction * PLOT_W}
+                y1={PAD}
+                y2={PAD + PLOT_H}
+                stroke="var(--color-border-subtle)"
+              />
+              <line
+                x1={PAD}
+                x2={PAD + PLOT_W}
+                y1={PAD + fraction * PLOT_H}
+                y2={PAD + fraction * PLOT_H}
+                stroke="var(--color-border-subtle)"
+              />
+              <text
+                x={PAD + fraction * PLOT_W}
+                y={HEIGHT - 8}
+                textAnchor="middle"
+                fill="var(--color-text-muted)"
+                fontSize="9"
+              >
+                {fraction * 100}%
+              </text>
+              <text
+                x={PAD - 4}
+                y={PAD + (1 - fraction) * PLOT_H}
+                textAnchor="end"
+                dominantBaseline="central"
+                fill="var(--color-text-muted)"
+                fontSize="9"
+              >
+                {fraction * 100}%
+              </text>
+            </g>
           ))}
           <path
+            data-curve-transfer
             d={path}
             fill="none"
             stroke="var(--color-accent-primary)"
             strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
           />
-          {sorted.map((p, i) => {
-            const c = toSvgCoord(p);
-            return (
+          {points.map((p, i) => (
+            // biome-ignore lint/a11y/useSemanticElements: an SVG point cannot contain an HTML button; the numeric controls provide equivalent editing.
+            <g
+              role="button"
+              tabIndex={0}
+              data-point-index={i}
+              aria-label={`Curve point ${i + 1}`}
+              onFocus={() => setSelected(i)}
+              key={p.id ?? `point-${i}`}
+            >
               <circle
-                // biome-ignore lint/suspicious/noArrayIndexKey: control points move during drag; index is the stable identity (content keys would remount mid-interaction)
-                key={i}
-                cx={c.sx}
-                cy={c.sy}
-                r={HANDLE_R}
+                cx={PAD + p.x * PLOT_W}
+                cy={PAD + (1 - p.y) * PLOT_H}
+                r={i === selected ? 6 : 4}
                 fill={
-                  dragIndex === i ? 'var(--color-accent-primary)' : 'var(--color-surface-overlay)'
+                  i === selected ? 'var(--color-accent-primary)' : 'var(--color-surface-overlay)'
                 }
                 stroke="var(--color-accent-primary)"
                 strokeWidth="2"
-                style={{ cursor: 'grab' }}
               />
-            );
-          })}
+            </g>
+          ))}
         </svg>
       </div>
-    </div>
+      <Select
+        label="Selected curve point"
+        value={String(Math.min(selected, points.length - 1))}
+        options={points.map((p, i) => ({
+          value: String(i),
+          label: `Point ${i + 1}: ${Math.round(p.x * 255)} to ${Math.round(p.y * 255)}`,
+        }))}
+        onChange={(next) => setSelected(Number(next))}
+      />
+      <div className="curve-editor__fields">
+        <NumberField
+          label="Curve input"
+          displayLabel="Input"
+          value={selectedPoint.x * 255}
+          min={0}
+          max={255}
+          step={0.1}
+          onChange={(v) => update(selected, { x: v / 255 })}
+        />
+        <NumberField
+          label="Curve output"
+          displayLabel="Output"
+          value={selectedPoint.y * 255}
+          min={0}
+          max={255}
+          step={0.1}
+          onChange={(v) => update(selected, { y: v / 255 })}
+        />
+      </div>
+      <div className="curve-editor__actions">
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={points.length >= 256}
+          onClick={() => add({ x: 0.5, y: evaluate(0.5) })}
+        >
+          Add point
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={points.length <= 2}
+          onClick={() => remove(selected)}
+        >
+          Delete point
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          aria-label="Reset curve"
+          onClick={() => {
+            finish();
+            onChange(identity());
+            setSelected(0);
+          }}
+        >
+          Reset curve
+        </Button>
+      </div>
+      <span className="curve-editor__hint">
+        {dragging
+          ? 'Editing point'
+          : `${algorithm === 'pchip' ? 'Shape preserving' : 'Legacy'} · input/output 0–255 · RGB applies to components`}
+      </span>
+    </fieldset>
   );
 }

@@ -31,7 +31,8 @@ export {
   analyticalRgbToCmyk,
   convertToCmykIcc,
 } from './adjustment/colorConversion';
-export type { CurvePoint } from './adjustment/curves';
+export type { CurveAlgorithm, CurvePoint } from './adjustment/curves';
+export { compileCurve } from './adjustment/curves';
 export type { Histogram, HistogramStats } from './adjustment/histogram';
 export {
   autoContrastParams,
@@ -1469,6 +1470,7 @@ export {
   spatialBlurRadiusAt,
   spatialBlurSupport,
 } from './spatialBlur';
+export { applySplitTone, splitToneWeights } from './splitTone';
 export * from './storyComposition';
 export type {
   StudioTreatment,
@@ -1543,6 +1545,7 @@ export {
   setThumbnailCapabilitiesForTest,
   THUMBNAIL_RENDERER_VERSION,
 } from './thumbnail/index';
+export { curveChannels, mixerRows } from './tonalState';
 export type { BezierFitOptions } from './traceBezierFit';
 export { fitBezierToContour } from './traceBezierFit';
 export { traceSceneNodeOutline } from './tracing';
@@ -1720,3 +1723,5 @@ export { VISION_CAPABILITIES, visionSourceKey } from './vision/types';
 export * from './warp';
 export type { WasmTraceModule } from './wasmLoader';
 export { loadWasmEngineModule, prewarmWasmEngine, tryLoadTraceWasm } from './wasmLoader';
+export type { RelativeWhiteBalanceParams, WhiteBalanceEstimate } from './whiteBalance';
+export { applyRelativeWhiteBalance, estimateRelativeWhiteBalance } from './whiteBalance';

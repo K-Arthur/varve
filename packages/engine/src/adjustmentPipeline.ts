@@ -366,6 +366,20 @@ const FILTER_PROPERTIES: Record<string, FilterProperties> = {
     hasCssPath: false,
     requiresRasterExport: true,
   },
+  whiteBalance: {
+    name: 'White Balance',
+    capabilities: ['software-cpu'],
+    hasGpuPath: false,
+    hasCssPath: false,
+    requiresRasterExport: true,
+  },
+  splitTone: {
+    name: 'Split Toning',
+    capabilities: ['software-cpu'],
+    hasGpuPath: false,
+    hasCssPath: false,
+    requiresRasterExport: true,
+  },
   curves: {
     name: 'Curves',
     capabilities: ['software-cpu'],

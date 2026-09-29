@@ -1209,6 +1209,30 @@ export type FilterIR =
       opacity: number;
       blendMode: string;
     }
+  | {
+      kind: 'whiteBalance';
+      algorithmVersion: 1;
+      temperature: number;
+      tint: number;
+      redGain: number;
+      greenGain: number;
+      blueGain: number;
+      opacity: number;
+      blendMode: string;
+    }
+  | {
+      kind: 'splitTone';
+      algorithmVersion: 1;
+      shadowHue: number;
+      shadowSaturation: number;
+      highlightHue: number;
+      highlightSaturation: number;
+      balance: number;
+      blending: number;
+      strength: number;
+      opacity: number;
+      blendMode: string;
+    }
   | { kind: 'temperature'; value: number; opacity: number; blendMode: string }
   | { kind: 'tint'; value: number; opacity: number; blendMode: string }
   | { kind: 'vibrance'; value: number; opacity: number; blendMode: string }
@@ -1235,7 +1259,11 @@ export type FilterIR =
   | {
       kind: 'curves';
       channel: string;
-      points: { input: number; output: number }[];
+      points: { id?: string; input: number; output: number }[];
+      algorithmVersion?: 1 | 2;
+      channelPoints?: Partial<
+        Record<'rgb' | 'red' | 'green' | 'blue', { id?: string; input: number; output: number }[]>
+      >;
       opacity: number;
       blendMode: string;
     }
@@ -1268,6 +1296,10 @@ export type FilterIR =
       bluePercent: number;
       constant: number;
       monochrome: boolean;
+      rows?: Record<
+        'red' | 'green' | 'blue',
+        { redPercent: number; greenPercent: number; bluePercent: number; constant: number }
+      >;
       opacity: number;
       blendMode: string;
     }

@@ -35,8 +35,10 @@ import { fingerprintImageData } from '../../context/imageFingerprint';
 import { nodeWorldTransform } from '../../scene/world';
 import type { SelectionPaintTool } from '../../tools/SelectionPaintTool';
 import { deserializeAreaSelection, serializeAreaSelection } from '../../tools/savedAreaSelections';
+import { savedSelectionEdit } from '../../tools/savedSelectionEdit';
 import { selectionCoverageForRasterNode } from '../../tools/selectionCoverage';
 import { areaSelectionFromMaskCoverage, decodeRasterMaskDataUrl } from '../../tools/selectionMask';
+import { ChannelSourcePanel } from './ChannelSourcePanel';
 import { DisclosureSection } from './controls/DisclosureSection';
 import { FieldRow } from './controls/FieldRow';
 import { RangeValueControl } from './controls/RangeValueControl';
@@ -822,10 +824,13 @@ export function SelectionSourcesPanel() {
   };
 
   const remove = (id: string) => {
-    updateDoc((doc) => ({
-      ...doc,
-      savedAreaSelections: (doc.savedAreaSelections ?? []).filter((item) => item.id !== id),
-    }));
+    savedSelectionEdit(
+      { updateDoc, beginTransaction, commitTransaction, abortTransaction },
+      (doc) => ({
+        ...doc,
+        savedAreaSelections: (doc.savedAreaSelections ?? []).filter((item) => item.id !== id),
+      }),
+    );
     announce('Saved area selection deleted');
   };
 
@@ -841,19 +846,22 @@ export function SelectionSourcesPanel() {
       announce('Enter a name and make a pixel selection before saving it');
       return;
     }
-    updateDoc((doc) => ({
-      ...doc,
-      savedAreaSelections: [
-        ...(doc.savedAreaSelections ?? []),
-        {
-          id: createId('saved-area'),
-          name,
-          pageId: doc.activePageId,
-          selection: serializeAreaSelection(selection),
-          createdAt: Date.now(),
-        },
-      ],
-    }));
+    savedSelectionEdit(
+      { updateDoc, beginTransaction, commitTransaction, abortTransaction },
+      (doc) => ({
+        ...doc,
+        savedAreaSelections: [
+          ...(doc.savedAreaSelections ?? []),
+          {
+            id: createId('saved-area'),
+            name,
+            pageId: doc.activePageId,
+            selection: serializeAreaSelection(selection),
+            createdAt: Date.now(),
+          },
+        ],
+      }),
+    );
     setNextName(`Selection ${saved.length + 2}`);
     announce(`Saved area selection as ${name}`);
   };
@@ -906,25 +914,31 @@ export function SelectionSourcesPanel() {
       announce('Saved selection names cannot be empty');
       return;
     }
-    updateDoc((doc) => ({
-      ...doc,
-      savedAreaSelections: (doc.savedAreaSelections ?? []).map((item) =>
-        item.id === id ? { ...item, name } : item,
-      ),
-    }));
+    savedSelectionEdit(
+      { updateDoc, beginTransaction, commitTransaction, abortTransaction },
+      (doc) => ({
+        ...doc,
+        savedAreaSelections: (doc.savedAreaSelections ?? []).map((item) =>
+          item.id === id ? { ...item, name } : item,
+        ),
+      }),
+    );
     setRenamingId(null);
     announce(`Renamed saved selection to ${name}`);
   };
 
   const duplicate = (item: (typeof saved)[number]) => {
     const copyName = `${item.name} copy`;
-    updateDoc((doc) => ({
-      ...doc,
-      savedAreaSelections: [
-        ...(doc.savedAreaSelections ?? []),
-        { ...item, id: createId('saved-area-copy'), name: copyName, createdAt: Date.now() },
-      ],
-    }));
+    savedSelectionEdit(
+      { updateDoc, beginTransaction, commitTransaction, abortTransaction },
+      (doc) => ({
+        ...doc,
+        savedAreaSelections: [
+          ...(doc.savedAreaSelections ?? []),
+          { ...item, id: createId('saved-area-copy'), name: copyName, createdAt: Date.now() },
+        ],
+      }),
+    );
     announce(`Duplicated ${item.name}`);
   };
 
@@ -943,6 +957,7 @@ export function SelectionSourcesPanel() {
   return (
     <DisclosureSection title="Selection Sources" id="selection-sources" defaultExpanded={false}>
       <div className="insp-selection-sources" data-testid="selection-sources-panel">
+        <ChannelSourcePanel />
         <p className="insp-selection-sources__description">
           Build, refine, reuse, and convert document-space coverage without changing layer
           selection.

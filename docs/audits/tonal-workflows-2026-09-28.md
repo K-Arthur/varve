@@ -76,7 +76,7 @@ returned empty, which is not an exhaustive console capture.
 - `pnpm verify:affected --staged`: Tier 0 and direct tests pass; affected
   engine lane: 5,373 tests passed, 13 skipped; one unchanged alpha round-trip
   test fails. Its fixture writes offsets 0/4 (red), then expects them as alpha;
-  `maskFromImageData` correctly reads offsets 3/7. No sharpen import exists
+  `maskFromImageData` takes minimum red/alpha coverage, so zero alpha correctly excludes those samples. No sharpen import exists
   in that path. Reverse-dependent lanes did not execute after fail-fast.
 - `pnpm exec tsc -p packages/engine/tsconfig.json --noEmit`: pass.
 - `pnpm audit:tokens`: 303 contrast pairs and token-usage scan pass.
@@ -88,3 +88,100 @@ returned empty, which is not an exhaustive console capture.
   the final screenshot/evidence set is collected.
 
 Unavailable native/hardware evidence stays pending.
+
+
+### Curves and mixer milestone
+
+`compileCurve` is now shared by the graph and byte transfer. New adjustments
+use PCHIP v2; old documents without a version normalize to legacy v1. Point
+coordinates retain fractional code values and optional ids. Master RGB then
+individual curves have retained independent arrays. Mixer rows are independent
+and every output reads the original input; offsets are code values, not percent.
+Legacy one-row entries remain valid until an explicit edit promotes them.
+
+Focused channel/curve/editor/normalization/compositor tests: 73/73 pass;
+canonical transfer tests plus old curves tests pass. Chromium actual-menu
+workflow passes (1 test, 17.1 s): photo import → Object / New Adjustment Layer
+→ curves / numeric points / channel switches → independent mixer rows.
+Opened `reports/ui-review/tonal-workflows/01-curves-light.png` and
+`02-mixer-light.png`. Graph/histogram fit the inspector. The first visual pass
+found truncated repeated numeric labels; compact visible labels were added
+while retaining complete accessible names. Updated screenshots follow at the
+combined workflow gate. Editor typecheck now reports only an unchanged
+`tools/paintTarget.ts:176` undefined-node error; no tonal file errors remain.
+
+### Relative white balance and split toning
+
+Refreshed darktable development Color Calibration / Split Toning and the
+Oklab author's reference on 2026-09-28 before this milestone. The former
+explicitly distinguishes partial white balancing from full chromatic
+adaptation and warns about gray-world failure on artificial scenes. Varve's
+operator is deliberately documented as linear RGB relative gains, without
+claiming Bradford/CAT16, Kelvin or camera characterization. Split Toning
+reuses shared Oklab conversion and gamut mapping instead of another color
+library. No new dependencies or copied application implementations.
+
+New defaults, normalization, IR dispatch, catalogue entries and frontend
+controls are connected to existing Object Filters/Adjustment Filters. The
+source histogram owner now shares its bounded pixel sample with neutral
+picking, Curves sampling and channel inspection. Auto is explicit, rejects
+insufficient evidence and uses the upstream source. Legacy Temperature/Tint
+and Color Balance remain independent.
+
+Focused numerical/editor tests passed 114/114 before the final codec and
+history checks. New tests include independently calculated linear gain output,
+known neutral patch correction, dominant-color/black/clipped/partial-alpha
+rejection, exact split-tone bypass, hue wrap, endpoint protection and bounded
+Oklab lightness error. The first expanded E2E run passed Curves/Mixer but two
+cases returned to Home during live source reloads; these are rerun with source
+files held stable. Screenshot artifacts from failed startup are failures, not
+verification of the tonal UI.
+
+The channel path uses full-resolution source decoding within the existing
+16MP mask budget, not the inspection preview. It preserves fractional alpha
+coverage through existing source/image/world mapping and area selections.
+Existing Save/Delete/Rename/Duplicate selection operations lacked document
+transactions; the new workflow exposed that history gap and now wraps those
+resource edits in one owning transaction. No second channel resource format.
+
+Stable Chromium rerun: 2/2 pass (WB/split tone 26.4s; channel inspection and
+saved coverage 14.9s). Opened all three updated artifacts at 1280×720. Neutral
+reference becomes gray after patch correction; the upstream preview remains
+uncorrected as labelled. Split-tone swatches, numeric fields and visible
+slider labels fit the narrow inspector, with the remaining controls available
+by scrolling. Channel snapshots preserve the original image; pixel-selection
+context remounts the inspection surface in Composite, so the test reopens it
+instead of assuming old transient preview state survives that context change.
+The first split-tone locator omitted the NumberField's `value` label; the test
+now uses its real accessible name. Architecture CI audit passes enforced
+ratchets; printed pre-existing hub warnings are not silently rebaselined.
+
+Current Agent Validation Report (milestone, not final certification):
+- Changed scope: engine tonal schema/evaluator/dispatch, scene normalization,
+  inspector controls, canonical source diagnostic, channel-to-area-selection
+  adapter and saved-selection transactions, targeted tests, canonical docs.
+- Validation plan: touched-file policies and direct tests, then editor/engine/
+  scene reverse closure; the source diagnostic selects integration E2E/perf
+  lanes. Rust and website E2E are not selected for this core milestone.
+- Commands: isolated-index `pnpm verify:plan --staged`, `pnpm verify:affected
+  --staged`; lease-wrapped Vitest and Chromium commands recorded above;
+  `pnpm typecheck:e2e`; package `tsc --noEmit`; `pnpm audit:docs`,
+  `pnpm audit:emoji`, `pnpm audit:tokens`; architecture audit `--ci`.
+- Passed: focused 114 cases, source/AdjustmentPanel/SelectionSources direct
+  lanes, E2E typecheck, docs/emoji/tokens, enforced architecture audit.
+- Initial affected failure: old identity test expected even an exact diagonal
+  curve to remain active. It is updated for the new proven-neutral contract,
+  with a nonuniform legacy multi-point counterexample retained.
+- Skipped as unrelated: Rust, website E2E and full visual suite at this stage.
+  Reverse lanes after fail-fast are not called passed.
+- Full suite run: no yet; final escalation is required for the shared
+  adjustment/IR changes and will be run with a stated reason.
+
+The actual DocumentCodec round trip initially failed because the test passed
+smart filters through a shape factory option that does not attach them. The
+fixture now explicitly attaches the same node field used by production. The
+codec, compatibility/retained-state and identity repair rerun passes 14/14.
+The wider codec/compositor/catalogue/mask selection run passed 91 other cases;
+its only failure was that corrected fixture. Legacy monochrome mixer entries
+with a non-red editor tab retain their original coefficients. This is covered
+separately from new full-matrix monochrome behavior.

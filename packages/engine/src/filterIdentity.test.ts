@@ -71,7 +71,7 @@ describe('isIdentityFilter', () => {
     ).toBe(false);
   });
 
-  it('leaves kinds without a provable neutral on the compositing path', () => {
+  it('recognizes an exact diagonal curve without an unnecessary surface round trip', () => {
     expect(
       isIdentityFilter({
         kind: 'curves',
@@ -82,6 +82,21 @@ describe('isIdentityFilter', () => {
         ],
         ...base,
       } as FilterIR),
+    ).toBe(true);
+  });
+
+  it('keeps a nonuniform legacy multi-point diagonal active', () => {
+    expect(
+      isIdentityFilter({
+        kind: 'curves',
+        channel: 'rgb',
+        points: [
+          { input: 0, output: 0 },
+          { input: 37, output: 37 },
+          { input: 255, output: 255 },
+        ],
+        ...base,
+      }),
     ).toBe(false);
   });
 

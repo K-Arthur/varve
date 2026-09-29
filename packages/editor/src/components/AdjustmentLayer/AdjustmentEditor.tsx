@@ -3,11 +3,14 @@ import {
   COLOR_HALFTONE_PRESETS,
   type Color,
   type CurvePoint,
+  compileCurve,
+  curveChannels,
   DOC_PIXELS_PER_INCH,
   HALFTONE_PRESETS,
   isImageTreatmentKind,
   isLutInputSpaceImplemented,
   LUT_INPUT_SPACE_LABELS,
+  mixerRows,
   parseLutFile,
   serializeLutForDocument,
   TRITONE_PRESETS,
@@ -15,13 +18,14 @@ import {
 import type { Adjustment, Document, ManagedColor } from '@varve/scene';
 import { rgbFromTuple } from '@varve/scene';
 import { denormalizeChannel, managedColorToRgba, normalizeChannel } from '@varve/shared';
-import { FilePickerButton, Select, Switch } from '@varve/ui';
+import { Button, FilePickerButton, Select, Switch } from '@varve/ui';
 import { ColorPicker } from '@varve/ui/components/ColorPicker';
 import { useCallback, useMemo, useState } from 'react';
 import { CurveEditor } from '../Inspector/controls/CurveEditor';
 import { DisclosureSection } from '../Inspector/controls/DisclosureSection';
 import { GradientMapAdjustmentSection } from '../Inspector/controls/GradientMapAdjustmentSection';
 import { HistogramWidget } from '../Inspector/controls/HistogramWidget';
+import { NumberField } from '../Inspector/controls/NumberField';
 import { RangeValueControl } from '../Inspector/controls/RangeValueControl';
 import { ColorBalanceAdjustmentEditor } from './ColorBalanceAdjustmentEditor';
 import { ImageTreatmentEditor } from './ImageTreatmentEditor';
@@ -37,8 +41,10 @@ import {
   RgbSplitEditor,
   VhsEditor,
 } from './LiveEffectEditors';
+import { SourceChannels } from './SourceChannels';
 import { SpatialEffectEditor } from './SpatialEffectEditors';
 import { ThresholdAdjustmentEditor } from './ThresholdAdjustmentEditor';
+import { SplitToneEditor, WhiteBalanceEditor } from './TonalColorEditors';
 import './adjustment.css';
 
 export interface AdjustmentEditorProps {
@@ -57,6 +63,7 @@ export interface AdjustmentEditorProps {
   /** Human-readable stage represented by the histogram diagnostic. */
   histogramSourceLabel?: string;
   histogramLoading?: boolean;
+  sourceImageData?: ImageData | null;
 }
 
 function BooleanRow({
@@ -99,6 +106,7 @@ function LegacyAdjustmentEditor({
   sourceHistogram,
   histogramSourceLabel,
   histogramLoading,
+  sourceImageData,
 }: AdjustmentEditorProps) {
   const handleValue = useCallback(
     (key: string) => (value: number) => {
@@ -119,6 +127,17 @@ function LegacyAdjustmentEditor({
   const [hueSaturationRange, setHueSaturationRange] = useState('master');
 
   switch (adjustment.kind) {
+    case 'whiteBalance':
+      return (
+        <WhiteBalanceEditor
+          adjustment={adjustment}
+          onChange={onChange}
+          sourceImageData={sourceImageData}
+          histogramSourceLabel={histogramSourceLabel}
+        />
+      );
+    case 'splitTone':
+      return <SplitToneEditor adjustment={adjustment} onChange={onChange} />;
     case 'brightness':
       return (
         <div className="adj-editor__slider-row">
@@ -174,6 +193,7 @@ function LegacyAdjustmentEditor({
           onEditStart={onEditStart}
           onEditEnd={onEditEnd}
           sourceHistogram={sourceHistogram}
+          sourceImageData={sourceImageData}
           histogramSourceLabel={histogramSourceLabel}
           histogramLoading={histogramLoading}
         />
@@ -520,7 +540,12 @@ function LegacyAdjustmentEditor({
       );
 
     case 'channelMixer':
-      return <ChannelMixerEditor adjustment={adjustment} onChange={onChange} />;
+      return (
+        <>
+          <ChannelMixerEditor adjustment={adjustment} onChange={onChange} />
+          <SourceChannels source={sourceImageData} label={histogramSourceLabel} />
+        </>
+      );
 
     case 'photoFilter':
       return (
@@ -930,15 +955,20 @@ function LevelsEditor({
 export function curvesPointsToCurvePoints(
   points: import('@varve/scene').CurvesPoint[],
 ): CurvePoint[] {
-  return points.map((p) => ({ x: p.input / 255, y: p.output / 255 }));
+  return points.map((p) => ({
+    ...(p.id ? { id: p.id } : {}),
+    x: p.input / 255,
+    y: p.output / 255,
+  }));
 }
 
 export function curvePointsToCurvesPoints(
   points: CurvePoint[],
 ): import('@varve/scene').CurvesPoint[] {
   return points.map((p) => ({
-    input: Math.round(Math.max(0, Math.min(1, p.x)) * 255),
-    output: Math.round(Math.max(0, Math.min(1, p.y)) * 255),
+    ...(p.id ? { id: p.id } : {}),
+    input: Math.max(0, Math.min(1, p.x)) * 255,
+    output: Math.max(0, Math.min(1, p.y)) * 255,
   }));
 }
 
@@ -950,10 +980,22 @@ function CurvesEditor({
   sourceHistogram,
   histogramSourceLabel,
   histogramLoading,
+  sourceImageData,
 }: AdjustmentEditorProps) {
   const adj = adjustment as import('@varve/scene').CurvesAdjustment;
-  const handleSelect = (key: string) => (value: string) => {
-    onChange({ [key]: value } as unknown as Partial<Adjustment>);
+  const channels = curveChannels(adj);
+  const changeChannel = (channel: 'rgb' | 'red' | 'green' | 'blue') =>
+    onChange({
+      channel,
+      points: channels[channel] ?? [],
+      channelPoints: channels,
+    } as Partial<Adjustment>);
+  const changePoints = (points: CurvePoint[]) => {
+    const authored = curvePointsToCurvesPoints(points);
+    onChange({
+      points: authored,
+      channelPoints: { ...channels, [adj.channel]: authored },
+    } as Partial<Adjustment>);
   };
 
   return (
@@ -963,16 +1005,71 @@ function CurvesEditor({
           {histogramLoading ? 'Loading histogram…' : `Histogram: ${histogramSourceLabel}`}
         </div>
       )}
-      <CurveEditor
-        value={curvesPointsToCurvePoints(adj.points)}
-        onChange={(points) =>
-          onChange({ points: curvePointsToCurvesPoints(points) } as unknown as Partial<Adjustment>)
+      <Select
+        label="Curve interpolation"
+        value={String(adj.algorithmVersion ?? 1)}
+        options={[
+          { value: '1', label: 'Legacy Catmull-Rom' },
+          { value: '2', label: 'Shape preserving' },
+        ]}
+        onChange={(v) => onChange({ algorithmVersion: Number(v) as 1 | 2 } as Partial<Adjustment>)}
+      />
+      <Button
+        size="sm"
+        variant="ghost"
+        onClick={() =>
+          onChange({
+            points: [],
+            channelPoints: { rgb: [], red: [], green: [], blue: [] },
+          } as Partial<Adjustment>)
         }
+      >
+        Reset all channels
+      </Button>
+      <CurveEditor
+        key={`${adj.id}-${adj.channel}`}
+        value={curvesPointsToCurvePoints(channels[adj.channel] ?? [])}
+        onChange={changePoints}
+        algorithm={adj.algorithmVersion === 2 ? 'pchip' : 'legacy'}
         channel={adj.channel as 'rgb' | 'red' | 'green' | 'blue'}
-        onChannelChange={handleSelect('channel')}
+        onChannelChange={changeChannel}
         histogram={sourceHistogram ?? undefined}
         onDragStart={onEditStart}
         onDragEnd={onEditEnd}
+      />
+      <p className="tonal-editor__hint">
+        Sample upstream input to add a point on the current transfer. RGB uses the arithmetic mean
+        of the three encoded components.
+      </p>
+      <SourceChannels
+        source={sourceImageData}
+        label={histogramSourceLabel}
+        onSample={(x, y) => {
+          if (!sourceImageData || (channels[adj.channel]?.length ?? 0) >= 256) return;
+          const at = (y * sourceImageData.width + x) * 4;
+          if (sourceImageData.data[at + 3] === 0) return;
+          const c = { red: 0, green: 1, blue: 2 };
+          let input =
+            adj.channel === 'rgb'
+              ? (sourceImageData.data[at]! +
+                  sourceImageData.data[at + 1]! +
+                  sourceImageData.data[at + 2]!) /
+                3
+              : sourceImageData.data[at + c[adj.channel]]!;
+          if (adj.channel !== 'rgb') {
+            input =
+              compileCurve(
+                curvesPointsToCurvePoints(channels.rgb ?? []),
+                adj.algorithmVersion === 2 ? 'pchip' : 'legacy',
+              )(input / 255) * 255;
+          }
+          const points = curvesPointsToCurvePoints(channels[adj.channel] ?? []);
+          const output = compileCurve(
+            points,
+            adj.algorithmVersion === 2 ? 'pchip' : 'legacy',
+          )(input / 255);
+          changePoints([...points, { id: crypto.randomUUID(), x: input / 255, y: output }]);
+        }}
       />
     </div>
   );
@@ -1035,80 +1132,83 @@ function SelectiveColorEditor({ adjustment, onChange }: AdjustmentEditorProps) {
 
 function ChannelMixerEditor({ adjustment, onChange }: AdjustmentEditorProps) {
   const adj = adjustment as import('@varve/scene').ChannelMixerAdjustment;
-  const handleNumber = (key: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
-    const v = Number.parseFloat(e.target.value);
-    if (!Number.isNaN(v)) {
-      onChange({ [key]: v } as unknown as Partial<Adjustment>);
-    }
+  const rows = mixerRows(adj),
+    active = adj.monochrome ? 'red' : adj.outputChannel,
+    row = rows[active];
+  const patchRow = (key: keyof typeof row, value: number) => {
+    const updated = { ...row, [key]: value };
+    onChange({ ...updated, rows: { ...rows, [active]: updated } } as Partial<Adjustment>);
   };
-  const handleSelect = (key: string) => (value: string) => {
-    onChange({ [key]: value } as unknown as Partial<Adjustment>);
-  };
-
   return (
-    <div>
-      <div className="adj-editor__row">
-        <span className="adj-editor__label">Output Channel</span>
-        <Select
-          label="Output channel"
-          value={adj.outputChannel}
-          options={[
-            { value: 'red', label: 'Red' },
-            { value: 'green', label: 'Green' },
-            { value: 'blue', label: 'Blue' },
-          ]}
-          onChange={handleSelect('outputChannel')}
-        />
-      </div>
+    <div className="curve-editor">
+      <Select
+        label="Output channel"
+        value={active}
+        disabled={adj.monochrome}
+        options={[
+          { value: 'red', label: 'Red' },
+          { value: 'green', label: 'Green' },
+          { value: 'blue', label: 'Blue' },
+        ]}
+        onChange={(v) => {
+          const channel = v as 'red' | 'green' | 'blue';
+          onChange({ outputChannel: channel, ...rows[channel], rows } as Partial<Adjustment>);
+        }}
+      />
       <BooleanRow
         label="Monochrome"
         checked={adj.monochrome}
-        onChange={(value) => onChange({ monochrome: value } as unknown as Partial<Adjustment>)}
+        onChange={(monochrome) => onChange({ monochrome, rows } as Partial<Adjustment>)}
       />
-      <div className="adj-editor__row">
-        <span className="adj-editor__label">Red %</span>
-        <input
-          type="number"
-          className="adj-editor__number"
-          value={adj.redPercent}
-          onChange={handleNumber('redPercent')}
-          step={1}
-          aria-label="Red percent"
-        />
-      </div>
-      <div className="adj-editor__row">
-        <span className="adj-editor__label">Green %</span>
-        <input
-          type="number"
-          className="adj-editor__number"
-          value={adj.greenPercent}
-          onChange={handleNumber('greenPercent')}
-          step={1}
-          aria-label="Green percent"
-        />
-      </div>
-      <div className="adj-editor__row">
-        <span className="adj-editor__label">Blue %</span>
-        <input
-          type="number"
-          className="adj-editor__number"
-          value={adj.bluePercent}
-          onChange={handleNumber('bluePercent')}
-          step={1}
-          aria-label="Blue percent"
-        />
-      </div>
-      <div className="adj-editor__row">
-        <span className="adj-editor__label">Constant</span>
-        <input
-          type="number"
-          className="adj-editor__number"
-          value={adj.constant}
-          onChange={handleNumber('constant')}
-          step={1}
-          aria-label="Constant"
-        />
-      </div>
+      <NumberField
+        label="Red percent"
+        displayLabel="Red %"
+        value={row.redPercent}
+        onChange={(v) => patchRow('redPercent', v)}
+        step={1}
+      />
+      <NumberField
+        label="Green percent"
+        displayLabel="Green %"
+        value={row.greenPercent}
+        onChange={(v) => patchRow('greenPercent', v)}
+        step={1}
+      />
+      <NumberField
+        label="Blue percent"
+        displayLabel="Blue %"
+        value={row.bluePercent}
+        onChange={(v) => patchRow('bluePercent', v)}
+        step={1}
+      />
+      <NumberField
+        label="Constant (code values)"
+        displayLabel="Offset"
+        value={row.constant}
+        onChange={(v) => patchRow('constant', v)}
+        step={1}
+      />
+      <span className="curve-editor__hint">
+        Every output reads the original RGB. Coefficients are not normalized. Monochrome uses the
+        Red row.
+      </span>
+      <Button
+        size="sm"
+        variant="ghost"
+        onClick={() =>
+          onChange({
+            rows: undefined,
+            outputChannel: 'red',
+            redPercent: 100,
+            greenPercent: 0,
+            bluePercent: 0,
+            constant: 0,
+            monochrome: false,
+          } as Partial<Adjustment>)
+        }
+      >
+        Reset mixer
+      </Button>
     </div>
   );
 }
