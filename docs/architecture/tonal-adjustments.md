@@ -199,3 +199,22 @@ Remaining work is explicit: native/WASM/WebGPU parity, ICC-accurate wide-gamut
 and HDR effect math, independent PDF/raster artifact review, and destructive
 apply wrappers require follow-up slices. None is represented as complete by
 the current CPU reference implementation.
+
+
+## Output sharpening
+
+The canonical export pipeline applies optional sharpening once after its final
+resize. `exportPipeline/sharpen.ts` uses the alpha-weighted floating Gaussian
+operator in `unsharpMask.ts`. Source and blur are both encoded sRGB or both
+linear sRGB; the linear variant decodes before blurring and encodes at the
+output boundary. No intermediate blur is quantized to bytes. Radius uses the
+shared Gaussian three-sigma support convention in output pixels; fractional
+radii are supported. Scratch buffers are tiled and capped at 16 MiB, excluding
+the required RGBA8 source/result.
+
+Alpha and raw hidden RGB remain unchanged. Protect Alpha additionally scales
+correction by source alpha. Luma-only mode applies equal component deltas and
+can change hue/chroma where gamut clipping occurs. RGB mode gates on the
+largest component delta, retaining isoluminant chromatic edges. Sharpening
+can amplify noise and produce halos; it is opt-in and does not replace
+creative sharpening earlier in the authored stack.
