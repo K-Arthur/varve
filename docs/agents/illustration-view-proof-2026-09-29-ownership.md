@@ -27,6 +27,7 @@ Before editing, run `pnpm verify:plan` against an isolated index containing only
 
 ### Results — 2026-09-29
 
+- Implementation commit: `415fcee4c` (`feat(illustration): add view-only canvas proof checks`), local on `master`. The pre-commit format/lint lane passed, then the shared emoji audit blocked on the unrelated `findReplaceSafety.test.ts:208` finding; the commit used the repository's scoped `CI=1` path after the feature checks recorded below passed.
 - Focused tests passed: `pnpm exec vitest run packages/editor/src/components/SoftProofOverlay.test.tsx packages/editor/src/components/viewProofState.test.ts packages/editor/src/components/Inspector/panels/DocumentPanel.test.tsx --maxWorkers=1` (13 tests).
 - Browser workflow passed: `VARVE_E2E_PORT=4385 node scripts/quality/heavy-lease.mjs "e2e: grayscale and mirror view-only proof" -- npx playwright test tests/e2e/paint/view-proof.spec.ts --project=chromium --workers=1 --reporter=list --output=test-results/view-proof-20260929-r2` (1 test).
 - Inspected captures in `test-results/view-proof-20260929-r2/paint-view-proof-grayscale-b5dad-tay-view-only-across-themes-chromium/`: Light grayscale, reflected canvas, and narrow High Contrast. The canvas backing-pixel hash stayed unchanged during both views, and mirror mode blocked the attempted drawing gesture. Dark-mode capture was also inspected.
