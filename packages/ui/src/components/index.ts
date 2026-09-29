@@ -160,6 +160,8 @@ export {
 export type { NumberInputProps } from './NumberInput';
 export { NumberInput } from './NumberInput';
 export type {
+  BackDismissOptions,
+  BackDismissResult,
   OverlayCloseReason,
   OverlayKind,
   OverlayRegistrationInput,
@@ -167,13 +169,17 @@ export type {
   OverlayTraceEvent,
 } from './OverlayRegistry';
 export {
+  BACK_DISMISS_EVENT,
   closeAllOverlays,
   closeOverlayTree,
+  dismissTopmostOverlay,
+  getBackDismissOverlayCount,
   getOverlayCount,
   getOverlaySnapshot,
   getOverlayTrace,
   installOverlayDebugBridge,
   registerOverlay,
+  requestBackDismiss,
   setOverlayDebugEnabled,
   subscribeToOverlayCount,
   traceOverlayEvent,

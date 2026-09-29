@@ -9,7 +9,7 @@ import {
 } from './navigationCoordinator';
 import type { NavigationRequest } from './navigationRequest';
 import { parseNavigationTargetFromUrl } from './navigationTargets';
-import { OVERLAY_GUARD_FLAG } from './overlayGuardFlag';
+import { isOverlayGuardTraversal, OVERLAY_GUARD_FLAG } from './overlayGuardFlag';
 
 export type DeepLinkType = 'finding' | 'unknown';
 
@@ -230,7 +230,7 @@ export function setupDeepLinkListener(deps: () => DeepLinkDeps): () => void {
   // navigation, so they must not re-run a navigation.
   const handlePopState = (event: PopStateEvent) => {
     const state = event.state as Record<string, unknown> | null;
-    if (state?.[OVERLAY_GUARD_FLAG] === true) return;
+    if (isOverlayGuardTraversal(event) || state?.[OVERLAY_GUARD_FLAG] === true) return;
     handleHashChange();
   };
 

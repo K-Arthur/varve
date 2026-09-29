@@ -2,6 +2,8 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  dismissTopmostOverlay,
+  getBackDismissOverlayCount,
   getOverlaySnapshot,
   getOverlayTrace,
   registerOverlay,
@@ -186,5 +188,50 @@ describe('overlay registry', () => {
     closeFirst();
 
     expect(counts).toEqual([1, 2, 1]);
+  });
+
+  it('dismisses the most recently registered eligible overlay and skips tooltips', () => {
+    const menu = document.createElement('div');
+    const tooltip = document.createElement('div');
+    document.body.append(menu, tooltip);
+    const menuClose = vi.fn();
+    const tooltipClose = vi.fn();
+    register('back-menu', menu, {
+      kind: 'menubar-menu',
+      dismissOnEscape: false,
+      onClose: menuClose,
+    });
+    register('back-tooltip', tooltip, {
+      kind: 'tooltip',
+      dismissOnEscape: false,
+      onClose: tooltipClose,
+    });
+
+    expect(getBackDismissOverlayCount(document)).toBe(1);
+    expect(dismissTopmostOverlay(document)).toEqual({ handled: true, overlayId: 'back-menu' });
+    expect(menuClose).toHaveBeenCalledOnce();
+    expect(menuClose).toHaveBeenCalledWith('escape');
+    expect(tooltipClose).not.toHaveBeenCalled();
+    expect(getBackDismissOverlayCount(document)).toBe(0);
+  });
+
+  it('limits Back dismissal to an overlay within the active dialog', () => {
+    const dialog = document.createElement('dialog');
+    const background = document.createElement('div');
+    const nested = document.createElement('div');
+    const trigger = document.createElement('button');
+    dialog.append(trigger);
+    document.body.append(dialog, background, nested);
+    const backgroundClose = vi.fn();
+    const nestedClose = vi.fn();
+    register('back-background', background, { onClose: backgroundClose });
+    register('back-nested', nested, { anchorElement: trigger, onClose: nestedClose });
+
+    expect(dismissTopmostOverlay(document, { within: dialog })).toEqual({
+      handled: true,
+      overlayId: 'back-nested',
+    });
+    expect(nestedClose).toHaveBeenCalledOnce();
+    expect(backgroundClose).not.toHaveBeenCalled();
   });
 });

@@ -13,6 +13,7 @@ import {
   setupDeepLinkListener,
 } from './deepLinkHandler';
 import { createNavigationCoordinator } from './navigationCoordinator';
+import { markOverlayGuardTraversal } from './overlayGuardFlag';
 
 function makeCtx(overrides: Partial<EditorContextValue> = {}): EditorContextValue {
   return {
@@ -152,5 +153,27 @@ describe('setupDeepLinkListener — lifecycle', () => {
 
   it('does not throw when Tauri globals are absent', () => {
     expect(() => setupDeepLinkListener(() => makeDeps())).not.toThrow();
+  });
+
+  it('skips guard-owned popstate without suppressing ordinary deep-link traversal', () => {
+    window.history.replaceState(null, '', '/');
+    const coordinator = vi.fn().mockResolvedValue({ status: 'completed' });
+    const deps = makeDeps({
+      coordinator: coordinator as unknown as DeepLinkDeps['coordinator'],
+    });
+    setCachedEditorContext(makeCtx());
+    const teardown = setupDeepLinkListener(() => deps);
+    window.history.replaceState(null, '', '/?finding=audit-1');
+
+    const guardedPop = new PopStateEvent('popstate', { state: null });
+    markOverlayGuardTraversal(guardedPop);
+    window.dispatchEvent(guardedPop);
+    expect(coordinator).not.toHaveBeenCalled();
+
+    window.dispatchEvent(new PopStateEvent('popstate', { state: null }));
+    expect(coordinator).toHaveBeenCalledOnce();
+
+    teardown();
+    setCachedEditorContext(null);
   });
 });

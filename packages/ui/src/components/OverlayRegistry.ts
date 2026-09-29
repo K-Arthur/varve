@@ -41,6 +41,19 @@ export interface OverlayRegistrationInput {
   dismissOnWindowBlur?: boolean;
 }
 
+export interface BackDismissResult {
+  handled: boolean;
+  overlayId?: string;
+}
+
+export interface BackDismissOptions {
+  /** Limit dismissal to a surface inside this element, such as an open dialog. */
+  within?: Element;
+}
+
+/** Custom event handled by dialogs that explicitly participate in platform Back. */
+export const BACK_DISMISS_EVENT = 'varve:back-dismiss';
+
 export interface OverlaySnapshot {
   id: string;
   kind: OverlayKind;
@@ -196,6 +209,15 @@ function requestClose(
     reason,
   });
   entry.onClose?.(reason);
+}
+
+function canDismissOnBack(entry: OverlayEntry): boolean {
+  // Menubar portals own Escape in their menu key-navigation layer and set
+  // dismissOnEscape=false to prevent the document registry handling it twice.
+  // Their onClose callback is still the canonical close path for platform Back.
+  return (
+    entry.dismissOnEscape === true || entry.kind === 'menubar-menu' || entry.kind === 'submenu'
+  );
 }
 
 function closeTreeEntries(
@@ -507,6 +529,68 @@ export function closeAllOverlays(
 /** Number of overlays currently registered for an owner document. */
 export function getOverlayCount(ownerDocument: Document): number {
   return registries.get(ownerDocument)?.entries.size ?? 0;
+}
+
+/** Number of live overlays that can actually handle an explicit Back dismissal. */
+export function getBackDismissOverlayCount(
+  ownerDocument: Document,
+  options: BackDismissOptions = {},
+): number {
+  const registry = registries.get(ownerDocument);
+  if (!registry) return 0;
+  return Array.from(registry.entries.values()).filter((entry) => {
+    if (
+      !canDismissOnBack(entry) ||
+      typeof entry.onClose !== 'function' ||
+      registry.closingIds.has(entry.id) ||
+      !entry.node.isConnected
+    ) {
+      return false;
+    }
+    const within = options.within;
+    return (
+      !within ||
+      within.contains(entry.node) ||
+      (entry.anchorElement != null && within.contains(entry.anchorElement))
+    );
+  }).length;
+}
+
+/** Request dismissal of exactly the topmost Back-capable registered overlay. */
+export function dismissTopmostOverlay(
+  ownerDocument: Document,
+  options: BackDismissOptions = {},
+): BackDismissResult {
+  const registry = registries.get(ownerDocument);
+  if (!registry) return { handled: false };
+  const candidates = Array.from(registry.entries.values()).filter((entry) => {
+    if (
+      !canDismissOnBack(entry) ||
+      typeof entry.onClose !== 'function' ||
+      registry.closingIds.has(entry.id) ||
+      !entry.node.isConnected
+    ) {
+      return false;
+    }
+    const within = options.within;
+    return (
+      !within ||
+      within.contains(entry.node) ||
+      (entry.anchorElement != null && within.contains(entry.anchorElement))
+    );
+  });
+  const entry = candidates.at(-1);
+  if (!entry) return { handled: false };
+  requestClose(registry, entry, 'escape');
+  return { handled: true, overlayId: entry.id };
+}
+
+/** Dispatch the explicit dialog Back event and report whether a handler claimed it. */
+export function requestBackDismiss(target: HTMLElement): boolean {
+  const EventConstructor = target.ownerDocument.defaultView?.Event ?? Event;
+  const event = new EventConstructor(BACK_DISMISS_EVENT, { bubbles: false, cancelable: true });
+  target.dispatchEvent(event);
+  return event.defaultPrevented;
 }
 
 /**

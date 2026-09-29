@@ -10,23 +10,27 @@
  * Mechanism (the standard modal/back pattern):
  * - While at least one dismissible layer is open, one history entry (the
  *   "guard") is pushed on top of the current one. The URL never changes.
- * - A back gesture pops the guard; the topmost dismissible layer is closed
- *   with the same semantics as Escape. If more layers remain, another guard
+ * - A back gesture pops the guard; the topmost Back-capable layer is closed
+ *   through its owning dismissal API. If more layers remain, another guard
  *   is pushed so each back gesture dismisses exactly one layer.
  * - Closing the last layer from the UI removes the guard with
  *   `history.back()` so no dead history entry is left behind.
  *
  * Layers: registered overlays (menus, popovers, context menus, selects) via
- * the shared registry, plus native `<dialog>` elements, which are dismissed
- * by dispatching Escape so their own dismissible/nested-overlay contracts
- * stay in charge.
+ * the shared registry, plus app dialogs with an explicit Back handler. Legacy
+ * raw dialogs retain Escape fallback behavior.
  *
- * Deep links listen to `popstate` too; `deepLinkHandler` skips entries whose
- * state carries {@link OVERLAY_GUARD_FLAG}.
+ * Deep links listen to `popstate` too; `deepLinkHandler` skips entries marked
+ * by the history state or the shared event-ownership marker.
  */
-import { getOverlayCount, subscribeToOverlayCount } from '@varve/ui';
+import {
+  dismissTopmostOverlay,
+  getBackDismissOverlayCount,
+  requestBackDismiss,
+  subscribeToOverlayCount,
+} from '@varve/ui';
 import { useEffect } from 'react';
-import { OVERLAY_GUARD_FLAG } from './overlayGuardFlag';
+import { markOverlayGuardTraversal, OVERLAY_GUARD_FLAG } from './overlayGuardFlag';
 
 export { OVERLAY_GUARD_FLAG } from './overlayGuardFlag';
 
@@ -34,23 +38,48 @@ function openDialogs(ownerDocument: Document): HTMLDialogElement[] {
   return Array.from(ownerDocument.querySelectorAll<HTMLDialogElement>('dialog[open]'));
 }
 
-function hasDismissableLayer(ownerDocument: Document): boolean {
-  return getOverlayCount(ownerDocument) > 0 || openDialogs(ownerDocument).length > 0;
+function topmostOpenDialog(ownerDocument: Document): HTMLDialogElement | null {
+  const dialogs = openDialogs(ownerDocument);
+  const active = ownerDocument.activeElement;
+  return dialogs.find((dialog) => active && dialog.contains(active)) ?? dialogs.at(-1) ?? null;
 }
 
-/**
- * Dismiss the topmost layer exactly the way the Escape key does. Dispatching
- * on the focused element preserves every consumer's own contract: menubar
- * menus handle Escape in their keynav, registered overlays through the
- * registry's document listener, and native dialogs through their React
- * keydown handler (which respects dismissible/nested-overlay rules).
- */
-function dismissTopLayer(ownerDocument: Document): void {
+function hasDismissableLayer(ownerDocument: Document): boolean {
+  const dialog = topmostOpenDialog(ownerDocument);
+  if (dialog) {
+    return (
+      getBackDismissOverlayCount(ownerDocument, { within: dialog }) > 0 ||
+      dialog.dataset.backDismiss !== 'false'
+    );
+  }
+  return getBackDismissOverlayCount(ownerDocument) > 0;
+}
+
+function dismissDialog(ownerDocument: Document, dialog: HTMLDialogElement): boolean {
+  if (dialog.dataset.backDismiss === 'false') return false;
+  if (dialog.dataset.backDismiss === 'true') return requestBackDismiss(dialog);
   const active = ownerDocument.activeElement;
-  const target = active instanceof Element ? active : ownerDocument.body;
+  const target = active && dialog.contains(active) ? active : dialog;
+  const KeyboardEventConstructor = ownerDocument.defaultView?.KeyboardEvent ?? KeyboardEvent;
   target.dispatchEvent(
-    new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
+    new KeyboardEventConstructor('keydown', {
+      key: 'Escape',
+      bubbles: true,
+      cancelable: true,
+    }),
   );
+  return true;
+}
+
+/** Dismiss one topmost eligible surface and report whether Back was handled. */
+function dismissTopLayer(ownerDocument: Document): { handled: boolean } {
+  const dialog = topmostOpenDialog(ownerDocument);
+  if (dialog) {
+    const nestedOverlay = dismissTopmostOverlay(ownerDocument, { within: dialog });
+    if (nestedOverlay.handled) return nestedOverlay;
+    return { handled: dismissDialog(ownerDocument, dialog) };
+  }
+  return dismissTopmostOverlay(ownerDocument);
 }
 
 function baseHistoryState(): Record<string, unknown> {
@@ -108,9 +137,9 @@ export function TabletBackDismiss(): null {
 
     const unsubscribe = subscribeToOverlayCount(document, () => syncGuard());
 
-    // Native dialogs never register with the overlay registry; observe only
-    // their `open` attribute so the guard covers them without paying for
-    // every DOM mutation in the editor.
+    // Native dialogs do not register with the overlay registry. Observe only
+    // their open/dismissibility attributes so busy dialogs do not hold a
+    // browser-history guard they cannot handle.
     const observer = new MutationObserver((mutations) => {
       for (const mutation of mutations) {
         if (mutation.target instanceof Element && mutation.target.tagName === 'DIALOG') {
@@ -122,12 +151,13 @@ export function TabletBackDismiss(): null {
     observer.observe(document.body, {
       subtree: true,
       attributes: true,
-      attributeFilter: ['open'],
+      attributeFilter: ['open', 'data-back-dismiss'],
     });
 
-    const onPopState = () => {
-      if (!guardPushed) return;
+    const onPopState = (event: PopStateEvent) => {
+      if (!guardPushed && !guardDropPending) return;
       if (guardDropPending) {
+        markOverlayGuardTraversal(event);
         guardDropPending = false;
         guardPushed = false;
         // The pop was the cleanup requested by dropGuard, not a user back
@@ -136,19 +166,30 @@ export function TabletBackDismiss(): null {
         if (hasDismissableLayer(document)) pushGuard();
         return;
       }
+      if (!hasDismissableLayer(document)) {
+        guardPushed = false;
+        return;
+      }
+      const result = dismissTopLayer(document);
+      if (!result.handled) {
+        guardPushed = false;
+        return;
+      }
+      markOverlayGuardTraversal(event);
       guardPushed = false;
-      if (!hasDismissableLayer(document)) return;
-      dismissTopLayer(document);
       // One guard per remaining layer, so the next back gesture closes the
       // next layer instead of leaving the document.
       if (hasDismissableLayer(document)) pushGuard();
     };
-    window.addEventListener('popstate', onPopState);
+    // Capture runs before deep-link routing's bubbling listener. The shared
+    // event marker prevents this guard-owned traversal from replaying the
+    // same URL as a fresh navigation request.
+    window.addEventListener('popstate', onPopState, true);
 
     return () => {
       unsubscribe();
       observer.disconnect();
-      window.removeEventListener('popstate', onPopState);
+      window.removeEventListener('popstate', onPopState, true);
     };
   }, []);
 

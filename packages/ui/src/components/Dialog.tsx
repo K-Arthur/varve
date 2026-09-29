@@ -10,6 +10,7 @@ import {
 import { Button } from './Button';
 import { CloseButton } from './CloseButton';
 import { NestedOverlayProvider, useNestedOverlayRegistry } from './NestedOverlayContext';
+import { BACK_DISMISS_EVENT } from './OverlayRegistry';
 
 // A consumer opts out of the internal dismissal behavior by calling
 // preventDefault in its own handler. Whether the event was ALREADY
@@ -36,6 +37,8 @@ export interface DialogProps extends DialogHTMLAttributes<HTMLDialogElement> {
   children: ReactNode;
   /** When true, clicking the backdrop dismisses the dialog. */
   dismissible?: boolean;
+  /** Whether the dialog participates in the platform Back dismissal stack. */
+  backDismissible?: boolean;
   /** Size variant: 'sm' (default) or 'lg' (wider, used by preset browsers). */
   size?: 'sm' | 'lg';
   /** Sticky footer content, rendered below the scrollable body. */
@@ -73,6 +76,7 @@ export const Dialog = forwardRef<HTMLDialogElement, DialogProps>(function Dialog
     title,
     children,
     dismissible = true,
+    backDismissible = dismissible,
     size = 'sm',
     footer,
     className = '',
@@ -87,6 +91,7 @@ export const Dialog = forwardRef<HTMLDialogElement, DialogProps>(function Dialog
   const innerRef = useRef<HTMLDialogElement | null>(null);
   const titleId = useId();
   const backdropPressRef = useRef<BackdropPress>(CLEARED_PRESS);
+  const backDismissRequestedRef = useRef(false);
 
   useEffect(() => {
     const el = innerRef.current;
@@ -129,6 +134,23 @@ export const Dialog = forwardRef<HTMLDialogElement, DialogProps>(function Dialog
     },
     [ref],
   );
+
+  useEffect(() => {
+    if (!open) {
+      backDismissRequestedRef.current = false;
+      return;
+    }
+    const el = innerRef.current;
+    if (!el || !backDismissible) return;
+    const handleBackDismiss = (event: Event) => {
+      if (event.defaultPrevented || backDismissRequestedRef.current) return;
+      backDismissRequestedRef.current = true;
+      event.preventDefault();
+      onClose();
+    };
+    el.addEventListener(BACK_DISMISS_EVENT, handleBackDismiss);
+    return () => el.removeEventListener(BACK_DISMISS_EVENT, handleBackDismiss);
+  }, [backDismissible, onClose, open]);
 
   // Consumer handlers are composed with the internal dismissal behavior
   // rather than spread over it. Spreading `...rest` after these props let a
@@ -193,6 +215,7 @@ export const Dialog = forwardRef<HTMLDialogElement, DialogProps>(function Dialog
         onKeyDown={handleBackdropKey}
         className={`varve-dialog${size !== 'sm' ? ` varve-dialog--${size}` : ''} ${className}`.trim()}
         {...rest}
+        data-back-dismiss={backDismissible ? 'true' : 'false'}
       >
         <div className="varve-dialog__header">
           <h2 id={titleId} className="varve-dialog__title">
@@ -243,6 +266,7 @@ export function AlertDialog({
       // backdrop click — an accidental tap could discard a destructive
       // confirmation. Esc still cancels via the handler below.
       dismissible={false}
+      backDismissible
       // Focus the least destructive action, not the header Close button or
       // the confirm action: APG's alertdialog guidance, and it prevents an
       // immediate Enter from destroying data.
