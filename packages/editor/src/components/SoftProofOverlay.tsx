@@ -1,6 +1,8 @@
 import { rgbToCmyk } from '@varve/shared';
 import type React from 'react';
 import { useEffect, useRef } from 'react';
+import { useViewProofState } from './viewProofState';
+import './SoftProofOverlay.css';
 
 export interface SoftProofOverlayProps {
   softProofEnabled: boolean;
@@ -17,6 +19,100 @@ export interface SoftProofOverlayProps {
  */
 export function SoftProofOverlay({ softProofEnabled, canvasRef }: SoftProofOverlayProps) {
   const proofCanvasRef = useRef<HTMLCanvasElement>(null);
+  const { grayscale, mirror } = useViewProofState();
+
+  useEffect(() => {
+    const rootAttributes = new Map<
+      HTMLElement,
+      { grayscale: string | null; mirror: string | null }
+    >();
+    const canvasTabIndexes = new Map<HTMLCanvasElement, string | null>();
+
+    const restore = () => {
+      for (const [root, previous] of rootAttributes) {
+        if (previous.grayscale === null) delete root.dataset.viewProofGrayscale;
+        else root.dataset.viewProofGrayscale = previous.grayscale;
+        if (previous.mirror === null) delete root.dataset.viewProofMirror;
+        else root.dataset.viewProofMirror = previous.mirror;
+      }
+      rootAttributes.clear();
+
+      for (const [canvas, tabIndex] of canvasTabIndexes) {
+        if (tabIndex === null) canvas.removeAttribute('tabindex');
+        else canvas.setAttribute('tabindex', tabIndex);
+      }
+      canvasTabIndexes.clear();
+    };
+
+    const restoreRoot = (root: HTMLElement) => {
+      const previous = rootAttributes.get(root);
+      if (!previous) return;
+      if (previous.grayscale === null) delete root.dataset.viewProofGrayscale;
+      else root.dataset.viewProofGrayscale = previous.grayscale;
+      if (previous.mirror === null) delete root.dataset.viewProofMirror;
+      else root.dataset.viewProofMirror = previous.mirror;
+      rootAttributes.delete(root);
+    };
+
+    if (!grayscale && !mirror) return;
+
+    const syncCanvasView = () => {
+      const roots = new Set(document.querySelectorAll<HTMLElement>('.editor-canvas'));
+      for (const root of rootAttributes.keys()) {
+        if (!roots.has(root)) restoreRoot(root);
+      }
+
+      for (const root of roots) {
+        if (!rootAttributes.has(root)) {
+          rootAttributes.set(root, {
+            grayscale: root.getAttribute('data-view-proof-grayscale'),
+            mirror: root.getAttribute('data-view-proof-mirror'),
+          });
+        }
+
+        if (grayscale) root.dataset.viewProofGrayscale = 'true';
+        else delete root.dataset.viewProofGrayscale;
+        if (mirror) root.dataset.viewProofMirror = 'true';
+        else delete root.dataset.viewProofMirror;
+
+        const contentCanvas = root.querySelector<HTMLCanvasElement>(
+          '.editor-canvas__content-layer',
+        );
+        if (!contentCanvas) continue;
+        if (!canvasTabIndexes.has(contentCanvas)) {
+          canvasTabIndexes.set(contentCanvas, contentCanvas.getAttribute('tabindex'));
+        }
+        if (mirror) {
+          if (root.contains(document.activeElement)) {
+            (document.activeElement as HTMLElement).blur?.();
+          }
+          contentCanvas.tabIndex = -1;
+        } else {
+          const tabIndex = canvasTabIndexes.get(contentCanvas);
+          if (tabIndex === null) contentCanvas.removeAttribute('tabindex');
+          else if (tabIndex !== undefined) contentCanvas.setAttribute('tabindex', tabIndex);
+        }
+      }
+
+      for (const canvas of canvasTabIndexes.keys()) {
+        if (!canvas.isConnected) {
+          const tabIndex = canvasTabIndexes.get(canvas);
+          if (tabIndex === null) canvas.removeAttribute('tabindex');
+          else if (tabIndex !== undefined) canvas.setAttribute('tabindex', tabIndex);
+          canvasTabIndexes.delete(canvas);
+        }
+      }
+    };
+
+    const observer = new MutationObserver(syncCanvasView);
+    observer.observe(document.body, { childList: true, subtree: true });
+    syncCanvasView();
+
+    return () => {
+      observer.disconnect();
+      restore();
+    };
+  }, [grayscale, mirror]);
 
   useEffect(() => {
     if (!softProofEnabled || !canvasRef?.current || !proofCanvasRef.current) return;

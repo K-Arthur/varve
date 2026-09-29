@@ -14,6 +14,10 @@ update, not for someone reading the commit log.
 
 ### Added
 
+- **Canvas review views** — Add session-only grayscale and mirrored canvas checks in the existing
+  Document panel. Mirror mode is read-only and disables canvas input; neither view changes saved
+  artwork or exports.
+
 - **Separate linework sampling for flats** — Magic Wand can sample the rendered
   visible artwork, including transparent line art against a white paper matte,
   while the fill goes to a separate editable Flats layer. The workflow keeps

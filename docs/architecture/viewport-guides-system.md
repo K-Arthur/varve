@@ -140,6 +140,15 @@ strokes, and it is distinct from the four-corner perspective transform stored
 on an image fill. Toggling the overlay off or reloading the editor discards its
 vanishing-point positions.
 
+The Document panel's canvas-review controls add session-only grayscale and
+horizontal mirror checks. They set display attributes on the existing
+`.editor-canvas`; the scene, canvas backing pixels, undo history, save data,
+sampling, and export renderer remain unchanged. Grayscale keeps the canvas
+interactive. Mirror mode is read-only: it disables pointer input and removes
+the content canvas from keyboard tab order while the reflected view is active,
+so tools cannot edit against unreflected coordinates. Both checks reset when
+the editor session reloads.
+
 ## Input Pipeline
 
 Canvas navigation is driven by DOM events in `CanvasArea`:

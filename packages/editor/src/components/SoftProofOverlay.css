@@ -1,0 +1,9 @@
+.editor-canvas[data-view-proof-grayscale="true"] {
+  filter: grayscale(1);
+}
+
+.editor-canvas[data-view-proof-mirror="true"] {
+  transform: scaleX(-1);
+  transform-origin: center;
+  pointer-events: none;
+}

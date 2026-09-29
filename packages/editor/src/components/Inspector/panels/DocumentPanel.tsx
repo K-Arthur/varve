@@ -34,6 +34,7 @@ import {
   type ViewportSettingsStore,
 } from '../../../settings';
 import { LayerStatesSection } from '../../LayersPanel/LayerStatesSection';
+import { setViewProofState, useViewProofState } from '../../viewProofState';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { InspectorColorPopover } from '../controls/InspectorColorPopover';
 import { NumberField } from '../controls/NumberField';
@@ -52,6 +53,7 @@ export function whiteForMode(mode: ColorMode): ManagedColor {
 
 /** Document-wide settings are available without changing the current selection. */
 export function DocumentPanel() {
+  const viewProof = useViewProofState();
   const {
     state,
     setCanvasBackground,
@@ -414,10 +416,30 @@ export function DocumentPanel() {
               />
             </div>
           </div>
+          <div className="insp-field">
+            <span className="insp-field__label">Canvas review</span>
+            <div className="insp-field__control insp-field__control--inline">
+              <Switch
+                label="Grayscale view"
+                checked={viewProof.grayscale}
+                onChange={(event) => setViewProofState({ grayscale: event.target.checked })}
+              />
+              <Switch
+                label="Mirror view (read only)"
+                checked={viewProof.mirror}
+                onChange={(event) => setViewProofState({ mirror: event.target.checked })}
+              />
+            </div>
+          </div>
           <p className="insp-panel__color-mode-note" role="note">
             Soft proofing is a display-only preview: document colors are never modified and export
             stays authoritative. Accurate proofing requires a profile-aware runtime; the browser
             shows the source color and reports when proofing is unavailable.
+          </p>
+          <p className="insp-panel__color-mode-note" role="note">
+            Grayscale and mirror checks are session-only views. They do not change saved artwork or
+            exports; mirror view disables canvas pointer input to prevent drawing against reflected
+            coordinates.
           </p>
         </div>
       </DisclosureSection>

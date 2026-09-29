@@ -10,10 +10,12 @@
  * inputs. The tests below pin the commit, clamp, and invalid-input paths.
  */
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { EditorProvider, useEditor } from '../../../context';
+import { getViewProofState, resetViewProofState } from '../../viewProofState';
 import { DocumentPanel } from './DocumentPanel';
 
+beforeEach(() => resetViewProofState());
 afterEach(cleanup);
 
 /** Reads/writes the document canvas background so tests can drive the flow. */
@@ -121,5 +123,22 @@ describe('DocumentPanel grid numerics are spinbuttons', () => {
     expect(screen.getByTestId('grid-state')).toHaveTextContent(before ?? '');
     const alerts = screen.getAllByRole('alert').map((element) => element.textContent ?? '');
     expect(alerts.some((text) => text.includes('Not a valid number or expression'))).toBe(true);
+  });
+});
+
+describe('DocumentPanel canvas view checks', () => {
+  it('keeps grayscale and mirror as independent session-only switches', () => {
+    renderPanel();
+    const disclosure = screen.getByRole('button', { name: /soft proof/i });
+    if (disclosure.getAttribute('aria-expanded') === 'false') fireEvent.click(disclosure);
+
+    const grayscale = screen.getByRole('switch', { name: 'Grayscale view' });
+    const mirror = screen.getByRole('switch', { name: 'Mirror view (read only)' });
+    fireEvent.click(grayscale);
+    fireEvent.click(mirror);
+
+    expect(getViewProofState()).toEqual({ grayscale: true, mirror: true });
+    fireEvent.click(mirror);
+    expect(getViewProofState()).toEqual({ grayscale: true, mirror: false });
   });
 });
