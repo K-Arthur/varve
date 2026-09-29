@@ -15,6 +15,7 @@
 | `packages/editor/src/components/Inspector/panels/DocumentPanel.tsx` and `.test.tsx` | Add accessible switches and explain view-only, session-only behavior inside the existing proof controls. |
 | `tests/e2e/paint/view-proof.spec.ts` | Real browser check that the display changes while the backing artwork pixels remain unchanged; capture Light, Dark, High Contrast, and narrow views. |
 | `docs/architecture/viewport-guides-system.md` | Document the view-only boundary and mirror input lock. |
+| `docs/audits/illustration-concept-art-capability-matrix-2026-09-28.md` | Update verified proof-view evidence and keep the remaining reference/variant gaps explicit. |
 | `CHANGELOG.md` | Record the session-only canvas review capability for the next release. |
 
 ## Boundaries
