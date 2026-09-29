@@ -232,9 +232,11 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
       'Real-world blind image denoising (SCUNet PSNR variant). Removes sensor noise, JPEG artifacts, and grain while preserving detail. Fully convolutional (H,W divisible by 8), identity normalization (pixel/255). Verified end-to-end.',
     sizeBytes: 76_936_854,
     remoteUrl:
-      'https://huggingface.co/Heliosoph/scunet-onnx/resolve/main/scunet_color_real_psnr.onnx',
+      'https://huggingface.co/Heliosoph/scunet-onnx/resolve/6d11417ee2fbcc73783c502a238ac115097754fe/scunet_color_real_psnr.onnx',
     remoteDataUrl:
-      'https://huggingface.co/Heliosoph/scunet-onnx/resolve/main/scunet_color_real_psnr.onnx.data',
+      'https://huggingface.co/Heliosoph/scunet-onnx/resolve/6d11417ee2fbcc73783c502a238ac115097754fe/scunet_color_real_psnr.onnx.data',
+    remoteDataSha256: '98825ea1210b641c71e5f052f582c70c49fd44b35387ebe2c034268c17df3feb',
+    remoteDataSizeBytes: 73_138_176,
     checksum: '231be201ab413dbc999d7951caa9844846b93a12a40a41e037d6b5888ed4e88c',
     bundled: false,
     inputSpec: null,
@@ -252,7 +254,7 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
         filename: 'scunet_color_real_psnr.onnx',
         sizeBytes: 3_798_678,
         remoteUrl:
-          'https://huggingface.co/Heliosoph/scunet-onnx/resolve/main/scunet_color_real_psnr.onnx',
+          'https://huggingface.co/Heliosoph/scunet-onnx/resolve/6d11417ee2fbcc73783c502a238ac115097754fe/scunet_color_real_psnr.onnx',
         checksum: '231be201ab413dbc999d7951caa9844846b93a12a40a41e037d6b5888ed4e88c',
       },
       {
@@ -261,7 +263,8 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
         filename: 'scunet_color_real_psnr.onnx.data',
         sizeBytes: 73_138_176,
         remoteUrl:
-          'https://huggingface.co/Heliosoph/scunet-onnx/resolve/main/scunet_color_real_psnr.onnx.data',
+          'https://huggingface.co/Heliosoph/scunet-onnx/resolve/6d11417ee2fbcc73783c502a238ac115097754fe/scunet_color_real_psnr.onnx.data',
+        checksum: '98825ea1210b641c71e5f052f582c70c49fd44b35387ebe2c034268c17df3feb',
       },
     ],
   },

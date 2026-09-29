@@ -26,6 +26,8 @@ export interface RawManifestEntry {
    * here would download a graph that cannot initialize a session.
    */
   remoteDataUrl?: string;
+  remoteDataSha256?: string;
+  remoteDataSizeBytes?: number;
   precision?: ModelPrecision;
   sourceModelId?: string;
   sourceSha256?: string;
@@ -188,6 +190,8 @@ function normalizeEntry(raw: RawManifestEntry): ModelManifestEntry {
     sizeBytes,
     remoteUrl: raw.remoteUrl ?? '',
     ...(raw.remoteDataUrl ? { remoteDataUrl: raw.remoteDataUrl } : {}),
+    ...(raw.remoteDataSha256 ? { remoteDataSha256: raw.remoteDataSha256 } : {}),
+    ...(raw.remoteDataSizeBytes ? { remoteDataSizeBytes: raw.remoteDataSizeBytes } : {}),
     checksum: raw.sha256 ?? '',
     ...(raw.upstreamChecksum ? { upstreamChecksum: raw.upstreamChecksum } : {}),
     ...(raw.repair ? { repair: raw.repair } : {}),

@@ -129,6 +129,8 @@ export interface ManifestEntry {
   bundled: boolean;
   remoteUrl: string;
   remoteDataUrl?: string;
+  remoteDataSha256?: string;
+  remoteDataSizeBytes?: number;
   precision?: ModelPrecision;
   sourceModelId?: string;
   sourceSha256?: string;
@@ -172,6 +174,8 @@ export interface ModelManifestEntry {
   localPath?: string;
   qualityValidation?: QualityValidationResult;
   remoteDataUrl?: string;
+  remoteDataSha256?: string;
+  remoteDataSizeBytes?: number;
   source?: string;
   sourceLicense?: string;
   tensorContract?: TensorContract;

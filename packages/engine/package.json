@@ -65,6 +65,7 @@
     "corpus:generate": "node scripts/generate-semantic-corpus.mjs"
   },
   "dependencies": {
+    "@noble/hashes": "2.4.0",
     "@varve/platform": "workspace:*",
     "@varve/shared": "workspace:*",
     "bidi-js": "^1.0.3",

@@ -153,6 +153,15 @@ When disabled, the app transitions directly to `home_ready` with no loader.
 - **Requirement:** Must show real percentage/count; include "Cancel" if applicable.
 - **Avoid:** Fake progress bars.
 
+Model download progress counts bytes actually received. A model becomes available
+only after its declared size and SHA-256 pass and the verified artifact is
+published. Cancellation or a broken connection may leave a private resumable
+prefix; the next attempt reuses it only when the URL, ETag, and returned byte
+range agree. A multipart model stays unavailable until every graph/weights
+component passes and the complete set is published together. Checksum, size,
+storage-quota, and resume-validator failures should be shown as actionable
+errors rather than as a successful download or an indefinite spinner.
+
 ### 6. ContentSkeleton
 - **Use:** Placeholder shimmer for structured content (file grids, asset lists, sidebars).
 - **Variants:** `list` (rows), `grid` (matrix of cells), `card` (icon+title+desc), `inline` (text-sized).

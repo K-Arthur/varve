@@ -1,6 +1,6 @@
 import { InferenceError } from './InferenceError';
-import type { ModelStorage } from './ModelStorage';
-import { createModelStorage, migrateFromLocalStorage } from './ModelStorage';
+import type { ModelArtifactHandle, ModelStorage } from './ModelStorage';
+import { getModelStorage, migrateFromLocalStorage } from './ModelStorage';
 import type {
   DownloadProgress,
   DownloadState,
@@ -13,6 +13,7 @@ import type {
 interface ActiveDownload {
   controller: AbortController;
   componentId?: string;
+  completion?: Promise<void>;
 }
 
 type StateListener = (modelId: string, state: ModelState) => void;
@@ -20,11 +21,20 @@ type DownloadListener = (progress: DownloadProgress) => void;
 
 const STATE_PREFIX = 'varve-model-state-';
 const LEGACY_STATE_PREFIX = 'strata-model-state-';
+const INSTALL_WRITE_CHUNK_BYTES = 256 * 1024;
 
 interface StreamDownloadOptions {
   entry?: ModelManifestEntry;
   expectedSizeBytes?: number;
   responseEtag?: string | null;
+}
+
+interface PartialSource {
+  bytes?: Uint8Array;
+  artifact?: ModelArtifactHandle;
+  url: string;
+  etag: string | null;
+  loaded: number;
 }
 
 interface ContentRange {
@@ -66,7 +76,7 @@ export class DownloadManager {
   private storage: ModelStorage;
 
   constructor(storage?: ModelStorage) {
-    this.storage = storage ?? createModelStorage();
+    this.storage = storage ?? getModelStorage();
     this.migrateLegacyStorage();
   }
 
@@ -125,7 +135,7 @@ export class DownloadManager {
       const allReady = await this.areAllComponentsReady(stateComponents);
       if (allReady) return 'ready';
 
-      const anyPartial = await this.anyComponentPartial(stateComponents);
+      const anyPartial = await this.anyComponentPartial(modelId, stateComponents);
       if (anyPartial) return 'paused';
 
       return 'not-downloaded';
@@ -148,9 +158,14 @@ export class DownloadManager {
   }
 
   private async anyComponentPartial(
+    parentId: string,
     components: NonNullable<ModelManifestEntry['components']>,
   ): Promise<boolean> {
-    const results = await Promise.all(components.map((c) => this.storage.loadPartial(c.id)));
+    const results = await Promise.all(
+      components.map((component) =>
+        this.storage.loadPartial(this.componentStageId(parentId, component.id)),
+      ),
+    );
     return results.some(Boolean);
   }
 
@@ -161,15 +176,21 @@ export class DownloadManager {
     if (!components) return states;
 
     for (const comp of components) {
-      const partial = await this.storage.loadPartial(comp.id);
+      const stageId = this.componentStageId(modelId, comp.id);
+      const partial = await this.storage.loadPartial(stageId);
       if (partial) {
         states.set(comp.id, 'paused');
         continue;
       }
       const installed = await this.storage.hasInstalled(comp.id);
-      states.set(comp.id, installed ? 'ready' : 'not-downloaded');
+      const staged = await this.storage.hasInstalled(stageId);
+      states.set(comp.id, installed || staged ? 'ready' : 'not-downloaded');
     }
     return states;
+  }
+
+  private componentStageId(parentId: string, componentId: string): string {
+    return `__varve_component_stage__${encodeURIComponent(parentId)}__${encodeURIComponent(componentId)}`;
   }
 
   async startDownload(modelId: string, signal?: AbortSignal): Promise<void> {
@@ -180,11 +201,12 @@ export class DownloadManager {
     }
 
     const components = this.componentsOf(entry);
-    if (components) {
-      return this.downloadMultiComponent(modelId, components, signal);
-    }
-
-    return this.downloadSingle(modelId, entry, signal);
+    const operation = components
+      ? this.downloadMultiComponent(modelId, components, signal)
+      : this.downloadSingle(modelId, entry, signal);
+    const active = this.activeDownloads.get(modelId);
+    if (active) active.completion = operation;
+    return operation;
   }
 
   private async downloadMultiComponent(
@@ -200,6 +222,7 @@ export class DownloadManager {
 
     this.activeDownloads.set(modelId, { controller });
     this.setState(modelId, 'downloading');
+    const publication: Array<{ stagedId: string; modelId: string }> = [];
 
     try {
       for (const component of components) {
@@ -208,7 +231,7 @@ export class DownloadManager {
         }
 
         const componentEntry: ModelManifestEntry = {
-          id: component.id,
+          id: this.componentStageId(modelId, component.id),
           name: `${modelId} ${component.role}`,
           description: '',
           sizeBytes: component.sizeBytes ?? 0,
@@ -237,7 +260,35 @@ export class DownloadManager {
           componentRole: component.role,
         });
 
-        await this.downloadSingle(component.id, componentEntry, combinedSignal, modelId);
+        const stagedId = componentEntry.id;
+        const expectedChecksum = component.checksum?.toLowerCase();
+        if (!expectedChecksum) {
+          throw new InferenceError('model_download_failed', undefined, {
+            message: `Model component ${component.id} has no checksum.`,
+            technical: 'A multipart installation cannot publish without every component SHA-256.',
+          });
+        }
+        let staged = await this.storage.statInstalled(stagedId);
+        const reusable =
+          staged !== null &&
+          (component.sizeBytes <= 0 || staged.sizeBytes === component.sizeBytes) &&
+          staged.sha256 === expectedChecksum;
+        if (!reusable) {
+          if (staged) await this.storage.deleteInstalled(stagedId);
+          await this.downloadSingle(stagedId, componentEntry, combinedSignal, modelId);
+          staged = await this.storage.statInstalled(stagedId);
+        }
+        if (
+          !staged ||
+          (component.sizeBytes > 0 && staged.sizeBytes !== component.sizeBytes) ||
+          staged.sha256 !== expectedChecksum
+        ) {
+          await this.storage.deleteInstalled(stagedId);
+          throw new InferenceError('checksum_mismatch', undefined, {
+            technical: `Component ${component.id} did not match its declared size and SHA-256.`,
+          });
+        }
+        publication.push({ stagedId, modelId: component.id });
 
         this.notifyDownloadProgress(modelId, {
           modelId,
@@ -251,6 +302,7 @@ export class DownloadManager {
         });
       }
 
+      await this.storage.publishInstalledBatch(publication);
       this.activeDownloads.delete(modelId);
       this.setState(modelId, 'ready');
     } catch (error) {
@@ -299,16 +351,23 @@ export class DownloadManager {
       let partialLoaded = 0;
       let partialChunks: Uint8Array[] = [];
       let storedEtag: string | null = null;
+      let partialArtifact: ModelArtifactHandle | undefined;
+      const partialSize =
+        existingPartial?.bytes?.byteLength ?? existingPartial?.artifact?.metadata.sizeBytes ?? 0;
 
       if (
         existingPartial &&
         existingPartial.url === remoteUrl &&
-        existingPartial.loaded === existingPartial.bytes.length &&
-        (!expectedSizeBytes || existingPartial.bytes.length < expectedSizeBytes)
+        existingPartial.loaded === partialSize &&
+        partialSize > 0 &&
+        (!expectedSizeBytes || partialSize < expectedSizeBytes)
       ) {
-        partialChunks = [existingPartial.bytes];
-        partialLoaded = existingPartial.bytes.length;
+        if (existingPartial.bytes) partialChunks = [existingPartial.bytes];
+        partialArtifact = existingPartial.artifact;
+        partialLoaded = partialSize;
         storedEtag = existingPartial.etag;
+      } else if (existingPartial) {
+        await this.deletePartialCompat(modelId);
       }
 
       const headers: Record<string, string> = {};
@@ -323,9 +382,10 @@ export class DownloadManager {
 
       if (!response.ok && response.status !== 206) {
         if (response.status === 416) {
-          await this.storage.deletePartial(modelId);
+          await this.deletePartialCompat(modelId);
           partialLoaded = 0;
           partialChunks = [];
+          partialArtifact = undefined;
           const retryResponse = await fetch(remoteUrl, { signal: combinedSignal });
           if (!retryResponse.ok) {
             throw new InferenceError('model_download_failed', undefined, {
@@ -344,6 +404,7 @@ export class DownloadManager {
               expectedSizeBytes,
               responseEtag: retryResponse.headers.get('etag'),
             },
+            undefined,
           );
           return;
         }
@@ -373,8 +434,9 @@ export class DownloadManager {
             contentRange.total === expectedSizeBytes);
         if (!rangeMatches || !storedEtag || !responseEtag || storedEtag !== responseEtag) {
           await response.body?.cancel();
-          await this.storage.deletePartial(modelId);
+          await this.deletePartialCompat(modelId);
           partialChunks = [];
+          partialArtifact = undefined;
           partialLoaded = 0;
           const freshResponse = await fetch(remoteUrl, { signal: combinedSignal });
           if (!freshResponse.ok) {
@@ -382,11 +444,20 @@ export class DownloadManager {
               technical: `HTTP ${freshResponse.status} after ETag mismatch`,
             });
           }
-          await this.streamDownload(modelId, notifyId, freshResponse, [], 0, combinedSignal, {
-            entry,
-            expectedSizeBytes,
-            responseEtag: freshResponse.headers.get('etag'),
-          });
+          await this.streamDownload(
+            modelId,
+            notifyId,
+            freshResponse,
+            [],
+            0,
+            combinedSignal,
+            {
+              entry,
+              expectedSizeBytes,
+              responseEtag: freshResponse.headers.get('etag'),
+            },
+            undefined,
+          );
           return;
         }
       } else if (isRangeResponse) {
@@ -394,8 +465,9 @@ export class DownloadManager {
           technical: 'Server returned 206 without a matching resumable range.',
         });
       } else if (partialLoaded > 0) {
-        await this.storage.deletePartial(modelId);
+        await this.deletePartialCompat(modelId);
         partialChunks = [];
+        partialArtifact = undefined;
         partialLoaded = 0;
       }
 
@@ -407,23 +479,14 @@ export class DownloadManager {
         partialLoaded,
         combinedSignal,
         { entry, expectedSizeBytes, responseEtag },
+        partialArtifact,
       );
     } catch (error) {
       if (!parentModelId) {
         this.activeDownloads.delete(modelId);
       }
       if (combinedSignal.aborted) {
-        const partial = await this.getPartialCompat(modelId);
-        if (partial) {
-          await this.savePartialCompat(modelId, partial.bytes, {
-            url: entry.remoteUrl,
-            etag: responseEtag,
-            loaded: partial.loaded,
-          });
-          if (!parentModelId) this.setState(modelId, 'unavailable');
-        } else {
-          if (!parentModelId) this.setState(modelId, 'unavailable');
-        }
+        if (!parentModelId) this.setState(modelId, 'unavailable');
         throw new InferenceError('download_interrupted');
       }
       if (!parentModelId) this.setState(modelId, 'error');
@@ -439,6 +502,7 @@ export class DownloadManager {
     partialLoaded: number,
     combinedSignal: AbortSignal,
     options: StreamDownloadOptions = {},
+    partialArtifact?: ModelArtifactHandle,
   ): Promise<void> {
     const entry = options.entry ?? this.modelMeta.get(modelId);
     const manifestEntry = this.manifestEntries.get(modelId);
@@ -497,22 +561,55 @@ export class DownloadManager {
     }
 
     let loaded = partialLoaded;
-    const chunks: Uint8Array[] = [...partialChunks];
+    const needsRepair = options.entry?.repair === 'sam2-empty-value-info';
+    const chunks: Uint8Array[] = needsRepair ? [...partialChunks] : [];
+    const upstreamChecksum =
+      options.entry?.upstreamChecksum ?? options.entry?.checksum ?? undefined;
+    let writer: Awaited<ReturnType<ModelStorage['beginInstalledWrite']>> | null = null;
+    let writerPaused = false;
     const startTime = performance.now();
 
     try {
+      if (!needsRepair) {
+        writer = await this.storage.beginInstalledWrite(modelId, {
+          expectedSizeBytes,
+          expectedSha256: upstreamChecksum || undefined,
+        });
+        if (partialArtifact) {
+          const partialReader = partialArtifact.openStream().getReader();
+          let restored = 0;
+          try {
+            while (true) {
+              const { done, value } = await partialReader.read();
+              if (done) break;
+              await writer.write(value);
+              restored += value.byteLength;
+            }
+          } finally {
+            await partialReader.cancel().catch(() => undefined);
+          }
+          if (restored !== partialLoaded) {
+            throw new InferenceError('model_download_failed', undefined, {
+              technical: `Stored partial length mismatch: expected ${partialLoaded}, read ${restored}.`,
+            });
+          }
+        } else {
+          for (const chunk of partialChunks) await writer.write(chunk);
+        }
+      } else if (partialArtifact) {
+        chunks.push(new Uint8Array(await partialArtifact.arrayBuffer()));
+      }
+
       while (true) {
         if (combinedSignal.aborted) {
           await reader.cancel();
-          await this.savePartialFromChunks(
-            modelId,
-            chunks,
-            remoteUrl,
-            loaded,
-            options.responseEtag ?? null,
-          );
-          this.setState(notifyId, 'unavailable');
-          return;
+          if (writer && writer.bytesWritten > 0) {
+            await writer.pause({ url: remoteUrl, etag: options.responseEtag ?? null });
+            writerPaused = true;
+          } else if (writer) {
+            await writer.abort();
+          }
+          throw new InferenceError('download_interrupted');
         }
 
         const { done, value } = await reader.read();
@@ -524,7 +621,8 @@ export class DownloadManager {
             technical: `Downloaded more than the declared ${expectedSizeBytes} bytes.`,
           });
         }
-        chunks.push(value);
+        if (writer) await writer.write(value);
+        if (needsRepair) chunks.push(value.slice());
         loaded += value.length;
 
         const elapsed = (performance.now() - startTime) / 1000;
@@ -541,70 +639,106 @@ export class DownloadManager {
         });
       }
 
-      if (expectedSizeBytes !== undefined && loaded !== expectedSizeBytes) {
+      if (
+        (expectedSizeBytes !== undefined && loaded !== expectedSizeBytes) ||
+        (total > 0 && loaded !== total)
+      ) {
         throw new InferenceError('model_download_failed', undefined, {
-          technical: `Incomplete artifact: received ${loaded} of ${expectedSizeBytes} bytes.`,
+          technical: `Incomplete artifact: received ${loaded} of ${expectedSizeBytes ?? total} bytes.`,
         });
-      }
-
-      const totalBytes = chunks.reduce((sum, c) => sum + c.length, 0);
-      let bytes = new Uint8Array(totalBytes);
-      let offset = 0;
-      for (const chunk of chunks) {
-        bytes.set(chunk, offset);
-        offset += chunk.length;
       }
 
       this.setState(notifyId, 'verifying');
 
-      if (entry?.checksum || entry?.upstreamChecksum) {
-        // The downloaded bytes must match what the upstream server serves
-        // (upstreamChecksum when the artifact is post-processed locally,
-        // otherwise checksum).
-        const upstream = await this.sha256Hex(bytes.buffer);
-        const expectedUpstream = (entry?.upstreamChecksum ?? entry?.checksum ?? '').toLowerCase();
-        if (upstream !== expectedUpstream) {
-          throw new InferenceError('checksum_mismatch', undefined, {
-            technical: `Expected ${expectedUpstream}, got ${upstream}`,
-          });
+      if (needsRepair) {
+        const totalBytes = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+        let bytes = new Uint8Array(totalBytes);
+        let offset = 0;
+        for (const chunk of chunks) {
+          bytes.set(chunk, offset);
+          offset += chunk.length;
         }
-      }
-
-      if (entry?.repair === 'sam2-empty-value-info') {
-        const { repairSam2EncoderGraph } = await import('../models/sam2GraphRepair');
-        bytes = new Uint8Array(repairSam2EncoderGraph(bytes));
-        if (entry.checksum) {
-          const repairedHash = await this.sha256Hex(bytes.buffer);
-          if (repairedHash !== entry.checksum.toLowerCase()) {
+        if (upstreamChecksum) {
+          const upstream = await this.sha256Hex(bytes.buffer);
+          const expectedUpstream = upstreamChecksum.toLowerCase();
+          if (upstream !== expectedUpstream) {
             throw new InferenceError('checksum_mismatch', undefined, {
-              technical: `Repaired artifact checksum mismatch: expected ${entry.checksum}, got ${repairedHash}`,
+              technical: `Expected ${expectedUpstream}, got ${upstream}`,
             });
           }
         }
+
+        const { repairSam2EncoderGraph } = await import('../models/sam2GraphRepair');
+        bytes = new Uint8Array(repairSam2EncoderGraph(bytes));
+        if (options.entry?.checksum) {
+          const repairedHash = await this.sha256Hex(bytes.buffer);
+          if (repairedHash !== options.entry.checksum.toLowerCase()) {
+            throw new InferenceError('checksum_mismatch', undefined, {
+              technical: `Repaired artifact checksum mismatch: expected ${options.entry.checksum}, got ${repairedHash}`,
+            });
+          }
+        }
+
+        this.setState(notifyId, 'installing');
+        writer = await this.storage.beginInstalledWrite(modelId, {
+          expectedSizeBytes: bytes.byteLength,
+          expectedSha256: options.entry?.checksum ?? undefined,
+        });
+        for (let offset = 0; offset < bytes.length; offset += INSTALL_WRITE_CHUNK_BYTES) {
+          await writer.write(
+            bytes.subarray(offset, Math.min(offset + INSTALL_WRITE_CHUNK_BYTES, bytes.length)),
+          );
+        }
       }
 
-      this.setState(notifyId, 'installing');
-      await this.storage.saveInstalled(modelId, bytes.buffer);
-      await this.storage.deletePartial(modelId);
+      if (!needsRepair) this.setState(notifyId, 'installing');
+      await writer?.commit();
+      await this.deletePartialCompat(modelId).catch(() => undefined);
 
       if (!this.isComponentDownload(notifyId, modelId)) {
         this.activeDownloads.delete(modelId);
+        this.setState(notifyId, 'ready');
+      } else {
+        this.setState(notifyId, 'installing');
       }
-      this.setState(notifyId, 'ready');
     } catch (error) {
       if (!this.isComponentDownload(notifyId, modelId)) {
         this.activeDownloads.delete(notifyId);
       }
       if (combinedSignal.aborted) {
-        await this.savePartialFromChunks(
-          modelId,
-          chunks,
-          remoteUrl,
-          loaded,
-          options.responseEtag ?? null,
-        );
+        if (writer && !writerPaused && writer.bytesWritten > 0) {
+          await writer.pause({ url: remoteUrl, etag: options.responseEtag ?? null });
+          writerPaused = true;
+        } else if (writer && !writerPaused) {
+          await writer.abort();
+        }
+        if (needsRepair && chunks.length > 0) {
+          await this.savePartialFromChunks(
+            modelId,
+            chunks,
+            remoteUrl,
+            loaded,
+            options.responseEtag ?? null,
+          );
+        }
         this.setState(notifyId, 'unavailable');
         throw new InferenceError('download_interrupted');
+      }
+      if (writer && !writerPaused) {
+        const details = error instanceof InferenceError ? error : null;
+        const isCorrupt = details?.code === 'checksum_mismatch';
+        const invalidLength =
+          details?.code === 'model_download_failed' &&
+          /Expected .* bytes, received/.test(details.technical);
+        if (isCorrupt || invalidLength) {
+          await writer.abort();
+          await this.deletePartialCompat(modelId).catch(() => undefined);
+        } else if (writer.bytesWritten > 0) {
+          await writer.pause({ url: remoteUrl, etag: options.responseEtag ?? null });
+          writerPaused = true;
+        } else {
+          await writer.abort();
+        }
       }
       if (error instanceof InferenceError) throw error;
       this.setState(notifyId, 'error');
@@ -620,7 +754,6 @@ export class DownloadManager {
     const active = this.activeDownloads.get(modelId);
     if (active) {
       active.controller.abort();
-      this.activeDownloads.delete(modelId);
     }
   }
 
@@ -628,7 +761,7 @@ export class DownloadManager {
     const active = this.activeDownloads.get(modelId);
     if (!active) return;
     active.controller.abort();
-    this.activeDownloads.delete(modelId);
+    await active.completion?.catch(() => undefined);
   }
 
   async resumeDownload(modelId: string, signal?: AbortSignal): Promise<void> {
@@ -637,15 +770,19 @@ export class DownloadManager {
 
   async deleteModel(modelId: string): Promise<void> {
     this.cancelDownload(modelId);
+    await this.activeDownloads.get(modelId)?.completion?.catch(() => undefined);
     await this.storage.deleteInstalled(modelId);
-    await this.storage.deletePartial(modelId);
+    await this.deletePartialCompat(modelId);
     this.stateCache.delete(modelId);
 
     const entry = this.modelMeta.get(modelId);
     if (entry?.components) {
       for (const comp of entry.components) {
         await this.storage.deleteInstalled(comp.id);
-        await this.storage.deletePartial(comp.id);
+        await this.deletePartialCompat(comp.id);
+        const stagedId = this.componentStageId(modelId, comp.id);
+        await this.storage.deleteInstalled(stagedId);
+        await this.deletePartialCompat(stagedId);
       }
     }
   }
@@ -656,16 +793,15 @@ export class DownloadManager {
   }
 
   async getInstalledSize(modelId: string): Promise<number | null> {
-    const bytes = await this.getInstalledBytes(modelId);
-    return bytes?.length ?? null;
+    return (await this.storage.statInstalled(modelId))?.sizeBytes ?? null;
   }
 
   async getTotalStorageUsed(): Promise<number> {
     const ids = await this.storage.listInstalled();
     let total = 0;
     for (const id of ids) {
-      const buf = await this.storage.loadInstalled(id);
-      if (buf) total += buf.byteLength;
+      const metadata = await this.storage.statInstalled(id);
+      if (metadata) total += metadata.sizeBytes;
     }
     return total;
   }
@@ -742,9 +878,7 @@ export class DownloadManager {
     }
   }
 
-  private async loadPartialCompat(
-    modelId: string,
-  ): Promise<{ bytes: Uint8Array; url: string; etag: string | null; loaded: number } | null> {
+  private async loadPartialCompat(modelId: string): Promise<PartialSource | null> {
     try {
       const legacyRaw = localStorage.getItem(`strata-model-partial-${modelId}`);
       if (legacyRaw) {
@@ -761,9 +895,24 @@ export class DownloadManager {
       }
     } catch {}
 
-    const record = await this.storage.loadPartial(modelId);
-    if (!record) return null;
-    return { bytes: record.bytes, url: record.url, etag: record.etag, loaded: record.loaded };
+    const metadata = await this.storage.getPartialMetadata(modelId);
+    if (!metadata) return null;
+    const partial = await this.storage.openPartialArtifact(modelId);
+    if (!partial) return null;
+    return {
+      artifact: partial.artifact,
+      url: metadata.url,
+      etag: metadata.etag,
+      loaded: metadata.loaded,
+    };
+  }
+
+  private async deletePartialCompat(modelId: string): Promise<void> {
+    await this.storage.deletePartial(modelId);
+    try {
+      localStorage.removeItem(`strata-model-partial-${modelId}`);
+      localStorage.removeItem(`varve-model-partial-${modelId}`);
+    } catch {}
   }
 
   private async savePartialCompat(
@@ -794,14 +943,6 @@ export class DownloadManager {
       offset += chunk.length;
     }
     await this.savePartialCompat(modelId, bytes, { url, etag, loaded: totalLoaded });
-  }
-
-  private async getPartialCompat(
-    modelId: string,
-  ): Promise<{ bytes: Uint8Array; loaded: number } | null> {
-    const partial = await this.loadPartialCompat(modelId);
-    if (!partial) return null;
-    return { bytes: partial.bytes, loaded: partial.loaded };
   }
 
   private persistState(modelId: string, state: ModelState): void {
@@ -836,7 +977,6 @@ export class DownloadManager {
     for (const id of this.activeDownloads.keys()) {
       this.cancelDownload(id);
     }
-    this.activeDownloads.clear();
     this.stateCache.clear();
     this.stateListeners.clear();
     this.downloadListeners.clear();

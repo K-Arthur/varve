@@ -175,6 +175,9 @@ export interface ModelManifestEntry {
   qualityValidation?: QualityValidation;
   /** Separate .onnx.data file URL for models with external weights (>2GB). */
   remoteDataUrl?: string;
+  /** Integrity and size metadata for an external-data companion artifact. */
+  remoteDataSha256?: string;
+  remoteDataSizeBytes?: number;
   /** Attribution string for the model's origin (e.g. "org/repo-name"). */
   source?: string;
   /** SPDX license identifier for the model weights. */

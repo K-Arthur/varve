@@ -1,3 +1,4 @@
+import { getModelStorage, type StagedModelWrite } from '../inference/core/ModelStorage';
 import { repairSam2EncoderGraph } from '../inference/models/sam2GraphRepair';
 import { getUpscaleModel } from '../upscaleModels';
 import { fetchWithTimeout } from './fetchWithTimeout';
@@ -7,11 +8,11 @@ import {
   deletePartialDownload,
   hasModelBlob,
   loadModelBlob,
-  loadPartialDownload,
   ModelStorageQuotaError,
   type PartialDownloadRecord,
-  saveModelBlob,
   savePartialDownload,
+  sha256ReadableStream,
+  verifyModelBlobChecksum,
 } from './modelStore';
 import type { ModelState } from './types';
 import { AVAILABLE_MODELS } from './types';
@@ -404,7 +405,7 @@ class ModelLoader {
           // UI from ever offering the download path again.
           const manifestEntry = await getManifestEntry(modelId, signal).catch(() => null);
           if (manifestEntry?.sha256) {
-            const ok = await verifyModelChecksum(await blob.arrayBuffer(), manifestEntry.sha256);
+            const ok = await verifyModelBlobChecksum(blob, manifestEntry.sha256);
             if (!ok) {
               await deleteModelBlob(modelId).catch(() => {});
               return null;
@@ -600,6 +601,13 @@ class ModelLoader {
     if (isBrowserEnv()) {
       await deleteModelBlob(modelId);
       await deletePartialDownload(modelId).catch(() => {});
+      const graphStageId = this.stagedArtifactId(modelId, 'graph');
+      const externalStageId = this.stagedArtifactId(modelId, 'external-data');
+      await deleteModelBlob(graphStageId).catch(() => {});
+      await deletePartialDownload(graphStageId).catch(() => {});
+      await deleteModelBlob(externalStageId).catch(() => {});
+      await deletePartialDownload(externalStageId).catch(() => {});
+      await deleteModelBlob(this.externalDataId(modelId)).catch(() => {});
     }
     this.revokeBlobUrl(modelId);
     if (this.currentModelId === modelId) {
@@ -630,6 +638,10 @@ class ModelLoader {
     return `${modelId}__externaldata`;
   }
 
+  private stagedArtifactId(modelId: string, role: 'graph' | 'external-data'): string {
+    return `__varve_artifact_stage__${encodeURIComponent(modelId)}__${role}`;
+  }
+
   /** One authoritative acquisition per model id; concurrent callers coalesce. */
   private activeDownloads = new Map<string, Promise<void>>();
 
@@ -644,23 +656,137 @@ class ModelLoader {
    */
   private async downloadExternalData(
     modelId: string,
-    manifestEntry: { remoteDataUrl?: string; filename?: string } | null | undefined,
+    manifestEntry:
+      | {
+          remoteDataUrl?: string;
+          remoteDataSha256?: string;
+          remoteDataSizeBytes?: number;
+        }
+      | null
+      | undefined,
     onProgress?: (loaded: number, total: number) => void,
     signal?: AbortSignal,
-  ): Promise<void> {
+  ): Promise<string | null> {
     const dataUrl = manifestEntry?.remoteDataUrl;
-    if (!dataUrl || !isBrowserEnv()) return;
-    const response = await fetchWithTimeout(dataUrl, { signal }, MODEL_DOWNLOAD_TIMEOUT);
+    if (!dataUrl || !isBrowserEnv()) return null;
+    if (!manifestEntry.remoteDataSha256) {
+      throw new Error(`Model ${modelId} external weights are missing a verified SHA-256.`);
+    }
+    const stagedId = this.stagedArtifactId(modelId, 'external-data');
+    const storage = getModelStorage();
+    let partial = await storage.openPartialArtifact(stagedId);
+    if (
+      partial &&
+      (partial.metadata.url !== dataUrl ||
+        partial.metadata.loaded !== partial.artifact.metadata.sizeBytes ||
+        partial.metadata.loaded <= 0 ||
+        (manifestEntry.remoteDataSizeBytes !== undefined &&
+          partial.metadata.loaded >= manifestEntry.remoteDataSizeBytes))
+    ) {
+      await deletePartialDownload(stagedId);
+      partial = null;
+    }
+    let loaded = partial?.metadata.loaded ?? 0;
+    let response: Response;
+    if (partial) {
+      const headers: Record<string, string> = { Range: `bytes=${loaded}-` };
+      if (partial.metadata.etag) headers['If-Range'] = partial.metadata.etag;
+      response = await fetchWithTimeout(dataUrl, { signal, headers }, MODEL_DOWNLOAD_TIMEOUT);
+    } else {
+      response = await fetchWithTimeout(dataUrl, { signal }, MODEL_DOWNLOAD_TIMEOUT);
+    }
+    if (partial && (!response.ok || response.status !== 206)) {
+      await response.body?.cancel().catch(() => undefined);
+      await deletePartialDownload(stagedId);
+      partial = null;
+      loaded = 0;
+      response = await fetchWithTimeout(dataUrl, { signal }, MODEL_DOWNLOAD_TIMEOUT);
+    }
     if (!response.ok) {
       throw new Error(
         `Model ${modelId} weights (${dataUrl.split('/').pop()}) failed to download: ${response.statusText}`,
       );
     }
-    const total = Number.parseInt(response.headers.get('content-length') ?? '', 10);
+
+    let responseEtag = response.headers.get('etag');
+    let isRangeResponse = response.status === 206;
+    const declaredTotal = manifestEntry.remoteDataSizeBytes;
+    if (isRangeResponse && partial) {
+      const range = response.headers.get('content-range')?.match(/^bytes\s+(\d+)-(\d+)\/(\d+)$/i);
+      const start = range ? Number(range[1]) : NaN;
+      const end = range ? Number(range[2]) : NaN;
+      const total = range ? Number(range[3]) : NaN;
+      const contentLength = Number.parseInt(response.headers.get('content-length') ?? '', 10);
+      const invalidRange =
+        !range ||
+        start !== loaded ||
+        end < start ||
+        total <= end ||
+        (declaredTotal !== undefined && total !== declaredTotal) ||
+        (Number.isSafeInteger(contentLength) && contentLength !== end - start + 1) ||
+        partial.metadata.etag === null ||
+        responseEtag !== partial.metadata.etag;
+      if (invalidRange) {
+        await response.body?.cancel().catch(() => undefined);
+        await deletePartialDownload(stagedId);
+        partial = null;
+        loaded = 0;
+        response = await fetchWithTimeout(dataUrl, { signal }, MODEL_DOWNLOAD_TIMEOUT);
+        if (!response.ok || response.status === 206) {
+          throw new Error(`Model ${modelId} weights could not be restarted as a full download.`);
+        }
+        responseEtag = response.headers.get('etag');
+        isRangeResponse = false;
+      }
+    } else if (isRangeResponse) {
+      await response.body?.cancel().catch(() => undefined);
+      throw new Error(`Model ${modelId} weights server returned an unsolicited partial response.`);
+    }
+
+    const contentLength = Number.parseInt(response.headers.get('content-length') ?? '', 10);
+    const headerSizeBytes =
+      Number.isSafeInteger(contentLength) && contentLength > 0
+        ? isRangeResponse
+          ? loaded + contentLength
+          : contentLength
+        : undefined;
+    const expectedSizeBytes = declaredTotal ?? headerSizeBytes;
+    if (
+      expectedSizeBytes !== undefined &&
+      headerSizeBytes !== undefined &&
+      expectedSizeBytes !== headerSizeBytes
+    ) {
+      await response.body?.cancel().catch(() => undefined);
+      throw new Error(
+        `Model ${modelId} external weights declared ${headerSizeBytes} bytes; expected ${expectedSizeBytes}.`,
+      );
+    }
     const reader = response.body?.getReader();
-    const chunks: Uint8Array[] = [];
-    let loaded = 0;
-    if (reader) {
+    if (!reader) throw new Error('Model weights response stream is unavailable.');
+    const writer = await storage.beginInstalledWrite(stagedId, {
+      expectedSizeBytes,
+      expectedSha256: manifestEntry.remoteDataSha256,
+    });
+    try {
+      if (partial) {
+        const partialReader = partial.artifact.openStream().getReader();
+        let restored = 0;
+        try {
+          while (true) {
+            const { done, value } = await partialReader.read();
+            if (done) break;
+            await writer.write(value);
+            restored += value.byteLength;
+          }
+        } finally {
+          await partialReader.cancel().catch(() => undefined);
+        }
+        if (restored !== loaded) {
+          throw new Error(
+            `Stored model-weights prefix mismatch: expected ${loaded}, read ${restored}.`,
+          );
+        }
+      }
       while (true) {
         if (signal?.aborted) {
           await reader.cancel();
@@ -668,24 +794,39 @@ class ModelLoader {
         }
         const { done, value } = await reader.read();
         if (done) break;
-        chunks.push(value);
+        if (expectedSizeBytes !== undefined && loaded > expectedSizeBytes - value.length) {
+          await reader.cancel();
+          throw new Error(`Model ${modelId} external weights exceeded ${expectedSizeBytes} bytes.`);
+        }
+        await writer.write(value);
         loaded += value.length;
-        if (Number.isFinite(total)) onProgress?.(loaded, total);
+        if (expectedSizeBytes !== undefined) onProgress?.(loaded, expectedSizeBytes);
       }
-    } else {
-      chunks.push(new Uint8Array(await response.arrayBuffer()));
+      if (expectedSizeBytes !== undefined && loaded !== expectedSizeBytes) {
+        throw new Error(
+          `Model weights were truncated: expected ${expectedSizeBytes}, received ${loaded}.`,
+        );
+      }
+      await writer.commit();
+      await deletePartialDownload(stagedId);
+    } catch (error) {
+      const checksumFailure =
+        error && typeof error === 'object' && 'code' in error && error.code === 'checksum_mismatch';
+      const invalidPartial =
+        error instanceof Error &&
+        /exceeded .* bytes|Stored model-weights prefix mismatch/i.test(error.message);
+      if (checksumFailure || invalidPartial) {
+        await writer.abort();
+        await deletePartialDownload(stagedId).catch(() => undefined);
+      } else if (writer.bytesWritten > 0) {
+        await writer.pause({ url: dataUrl, etag: responseEtag ?? partial?.metadata.etag ?? null });
+      } else {
+        await writer.abort();
+      }
+      await reader.cancel().catch(() => undefined);
+      throw error;
     }
-    const size = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
-    const bytes = new Uint8Array(size);
-    let offset = 0;
-    for (const chunk of chunks) {
-      bytes.set(chunk, offset);
-      offset += chunk.length;
-    }
-    await saveModelBlob(
-      this.externalDataId(modelId),
-      new Blob([bytes], { type: 'application/octet-stream' }),
-    );
+    return stagedId;
   }
 
   /**
@@ -704,8 +845,16 @@ class ModelLoader {
     const path = dataUrl.split('/').pop();
     if (!path) return null;
     if (!isBrowserEnv()) return null;
-    const blob = await loadModelBlob(this.externalDataId(modelId)).catch(() => null);
+    const externalDataId = this.externalDataId(modelId);
+    const blob = await loadModelBlob(externalDataId).catch(() => null);
     if (!blob) return null;
+    if (entry.remoteDataSha256) {
+      const valid = await verifyModelBlobChecksum(blob, entry.remoteDataSha256);
+      if (!valid) {
+        await deleteModelBlob(externalDataId).catch(() => {});
+        return null;
+      }
+    }
     return { path, url: URL.createObjectURL(blob) };
   }
 
@@ -760,10 +909,15 @@ class ModelLoader {
     this.saveState();
 
     let remoteUrl = '';
-    let partialChunks: Uint8Array[] = [];
-    let partialLoaded = 0;
-    let downloadChunks: Uint8Array[] = [];
+    const downloadChunks: Uint8Array[] = [];
+    let writer: StagedModelWrite | null = null;
+    let writerPaused = false;
     let storedEtag: string | null = null;
+    let canResumeFromRemote = false;
+    let bufferedRepair = false;
+    let downloadedExternalDataId: string | null = null;
+    let installModelId = modelId;
+    let hasExternalData = false;
 
     try {
       if (usesNativeBackgroundModelStore(modelId)) {
@@ -799,6 +953,11 @@ class ModelLoader {
             'Use a supported model (u2netp, isnet-general-use, birefnet-general-lite, modnet-portrait) instead.',
         );
       }
+      if (manifestEntry?.remoteDataUrl && !manifestEntry.remoteDataSha256) {
+        throw new Error(`Model ${modelId} external weights are missing a verified SHA-256.`);
+      }
+      hasExternalData = Boolean(manifestEntry?.remoteDataUrl);
+      installModelId = hasExternalData ? this.stagedArtifactId(modelId, 'graph') : modelId;
 
       const sources = await this.resolveDownloadSources(modelId, signal);
       const localPath = sources?.local ?? `/models/${modelId}.onnx`;
@@ -829,25 +988,39 @@ class ModelLoader {
         return;
       }
 
-      const existingPartial =
-        isBrowserEnv() && remoteUrl ? await loadPartialDownload(modelId) : null;
-      if (
-        existingPartial &&
-        existingPartial.meta.url === remoteUrl &&
-        existingPartial.bytes.length > 0
-      ) {
-        partialChunks = [existingPartial.bytes];
-        partialLoaded = existingPartial.bytes.length;
-      } else if (existingPartial) {
-        await deletePartialDownload(modelId);
+      if (!isBrowserEnv()) {
+        throw new Error(
+          'This environment cannot store AI models (IndexedDB unavailable). Use Quick mode, or run in a browser/desktop build with storage enabled.',
+        );
       }
 
+      const storage = getModelStorage();
+      let existingPartial =
+        isBrowserEnv() && remoteUrl ? await storage.openPartialArtifact(installModelId) : null;
+      if (
+        existingPartial &&
+        (existingPartial.metadata.url !== remoteUrl ||
+          existingPartial.metadata.loaded !== existingPartial.artifact.metadata.sizeBytes ||
+          existingPartial.metadata.loaded <= 0)
+      ) {
+        await deletePartialDownload(installModelId);
+        existingPartial = null;
+      }
+      let partialLoaded = existingPartial?.metadata.loaded ?? 0;
+
       let response: Response | null = null;
-      try {
-        response = await fetchWithTimeout(localPath, { signal }, MODEL_DOWNLOAD_TIMEOUT);
-      } catch (_err) {
-        if (signal?.aborted) throw new Error('Download cancelled');
-        response = null;
+      if (partialLoaded > 0) {
+        const headers: Record<string, string> = { Range: `bytes=${partialLoaded}-` };
+        if (existingPartial?.metadata.etag) headers['If-Range'] = existingPartial.metadata.etag;
+        canResumeFromRemote = true;
+        response = await fetchWithTimeout(remoteUrl, { signal, headers }, MODEL_DOWNLOAD_TIMEOUT);
+      } else {
+        try {
+          response = await fetchWithTimeout(localPath, { signal }, MODEL_DOWNLOAD_TIMEOUT);
+        } catch (_err) {
+          if (signal?.aborted) throw new Error('Download cancelled');
+          response = null;
+        }
       }
       // A local hit is only real if it looks like a model. A dev server with SPA
       // history fallback returns 200 + the index HTML for a missing path, and an
@@ -865,11 +1038,8 @@ class ModelLoader {
         if (!remoteUrl) {
           throw new Error(`Model ${modelId} is not bundled; download explicitly from settings.`);
         }
-        const headers: Record<string, string> = {};
-        if (partialLoaded > 0) {
-          headers.Range = `bytes=${partialLoaded}-`;
-        }
-        response = await fetchWithTimeout(remoteUrl, { signal, headers }, MODEL_DOWNLOAD_TIMEOUT);
+        canResumeFromRemote = true;
+        response = await fetchWithTimeout(remoteUrl, { signal }, MODEL_DOWNLOAD_TIMEOUT);
       }
 
       if (!response.ok) {
@@ -877,27 +1047,40 @@ class ModelLoader {
       }
 
       const responseEtag = response.headers.get('etag');
-      storedEtag = responseEtag ?? existingPartial?.meta.etag ?? null;
+      storedEtag = responseEtag ?? existingPartial?.metadata.etag ?? null;
       const isRangeResponse = response.status === 206;
 
       if (isRangeResponse && partialLoaded > 0) {
-        if (
-          existingPartial?.meta.etag &&
-          responseEtag &&
-          existingPartial.meta.etag !== responseEtag
-        ) {
-          await deletePartialDownload(modelId);
-          partialChunks = [];
+        const range = response.headers.get('content-range')?.match(/^bytes\s+(\d+)-(\d+)\/(\d+)$/i);
+        const rangeStart = range ? Number(range[1]) : NaN;
+        const rangeEnd = range ? Number(range[2]) : NaN;
+        const rangeTotal = range ? Number(range[3]) : NaN;
+        const invalidRange =
+          !range ||
+          rangeStart !== partialLoaded ||
+          rangeEnd < rangeStart ||
+          rangeTotal <= rangeEnd ||
+          !existingPartial?.metadata.etag ||
+          existingPartial.metadata.etag !== responseEtag;
+        if (invalidRange) {
+          await response.body?.cancel().catch(() => undefined);
+          await deletePartialDownload(installModelId);
+          existingPartial = null;
           partialLoaded = 0;
           response = await fetchWithTimeout(remoteUrl, { signal }, MODEL_DOWNLOAD_TIMEOUT);
           if (!response.ok) {
             throw new Error(`Failed to download model: ${response.statusText}`);
           }
+          storedEtag = response.headers.get('etag');
         }
       } else if (partialLoaded > 0) {
-        await deletePartialDownload(modelId);
-        partialChunks = [];
+        await deletePartialDownload(installModelId);
+        existingPartial = null;
         partialLoaded = 0;
+      }
+
+      if (response.status === 206 && partialLoaded === 0) {
+        throw new Error('Server returned a partial model without a valid stored prefix.');
       }
 
       const contentLength = response.headers.get('content-length');
@@ -906,41 +1089,92 @@ class ModelLoader {
         ? parseInt(contentRangeTotal, 10)
         : contentLength
           ? partialLoaded + parseInt(contentLength, 10)
-          : model.size;
+          : manifestEntry?.sizeBytes || model.size;
       let loaded = partialLoaded;
 
       const reader = response.body?.getReader();
-      downloadChunks = [...partialChunks];
+      if (!reader) throw new Error('Download stream unavailable');
+      const needsRepair = manifestEntry?.repair === 'sam2-empty-value-info';
+      bufferedRepair = needsRepair;
+      const expectedSizeBytes = total > 0 ? total : undefined;
+      const expectedSha256 =
+        manifestEntry?.upstreamChecksum ?? manifestEntry?.sha256 ?? model.checksum;
+      if (!needsRepair) {
+        writer = await storage.beginInstalledWrite(installModelId, {
+          expectedSizeBytes,
+          expectedSha256: expectedSha256 || undefined,
+        });
+        if (existingPartial) {
+          const partialReader = existingPartial.artifact.openStream().getReader();
+          let restored = 0;
+          try {
+            while (true) {
+              const { done, value } = await partialReader.read();
+              if (done) break;
+              await writer.write(value);
+              restored += value.byteLength;
+            }
+          } finally {
+            await partialReader.cancel().catch(() => undefined);
+          }
+          if (restored !== partialLoaded) {
+            throw new Error(
+              `Stored partial length mismatch: expected ${partialLoaded}, read ${restored}.`,
+            );
+          }
+        }
+      } else if (existingPartial) {
+        const partialReader = existingPartial.artifact.openStream().getReader();
+        try {
+          while (true) {
+            const { done, value } = await partialReader.read();
+            if (done) break;
+            downloadChunks.push(value.slice());
+          }
+        } finally {
+          await partialReader.cancel().catch(() => undefined);
+        }
+      }
 
       while (true) {
         if (signal?.aborted) {
-          await reader?.cancel();
+          await reader.cancel();
           throw new Error('Download cancelled');
         }
-        if (!reader) throw new Error('Download stream unavailable');
         const { done, value } = await reader.read();
         if (done) break;
-        downloadChunks.push(value);
+        if (expectedSizeBytes !== undefined && loaded > expectedSizeBytes - value.length) {
+          await reader.cancel();
+          throw new Error(
+            `Model ${modelId} exceeded its declared size of ${expectedSizeBytes} bytes.`,
+          );
+        }
+        if (writer) await writer.write(value);
+        if (needsRepair) downloadChunks.push(value.slice());
         loaded += value.length;
         onProgress?.(loaded, total);
       }
 
-      const totalBytes = downloadChunks.reduce((sum, chunk) => sum + chunk.length, 0);
-      let bytes = new Uint8Array(totalBytes);
-      let offset = 0;
-      for (const chunk of downloadChunks) {
-        bytes.set(chunk, offset);
-        offset += chunk.length;
-      }
-      const upstreamBuffer = bytes.buffer;
-      const expectedUpstream =
-        manifestEntry?.upstreamChecksum ?? manifestEntry?.sha256 ?? model.checksum ?? null;
-      if (!(await verifyModelChecksum(upstreamBuffer, expectedUpstream))) {
-        await deletePartialDownload(modelId);
-        throw new Error(`Model ${modelId} failed SHA-256 verification`);
+      if (expectedSizeBytes !== undefined && loaded !== expectedSizeBytes) {
+        throw new Error(
+          `Model ${modelId} was truncated: expected ${expectedSizeBytes}, received ${loaded}.`,
+        );
       }
 
-      if (manifestEntry?.repair === 'sam2-empty-value-info') {
+      if (needsRepair) {
+        const totalBytes = downloadChunks.reduce((sum, chunk) => sum + chunk.length, 0);
+        const bytes = new Uint8Array(totalBytes);
+        let offset = 0;
+        for (const chunk of downloadChunks) {
+          bytes.set(chunk, offset);
+          offset += chunk.length;
+        }
+        const expectedUpstream =
+          manifestEntry?.upstreamChecksum ?? manifestEntry?.sha256 ?? model.checksum ?? null;
+        if (!(await verifyModelChecksum(bytes.buffer, expectedUpstream))) {
+          await deletePartialDownload(installModelId);
+          throw new Error(`Model ${modelId} failed SHA-256 verification`);
+        }
         const repairedBytes = repairSam2EncoderGraph(bytes);
         const installedBytes = new Uint8Array(repairedBytes.length);
         installedBytes.set(repairedBytes);
@@ -948,26 +1182,56 @@ class ModelLoader {
           manifestEntry.sha256 &&
           !(await verifyModelChecksum(installedBytes.buffer, manifestEntry.sha256))
         ) {
-          await deletePartialDownload(modelId);
+          await deletePartialDownload(installModelId);
           throw new Error(`Model ${modelId} failed repaired SHA-256 verification`);
         }
-        bytes = installedBytes;
+        writer = await storage.beginInstalledWrite(installModelId, {
+          expectedSizeBytes: installedBytes.byteLength,
+          expectedSha256: manifestEntry?.sha256 ?? undefined,
+        });
+        for (let offset = 0; offset < installedBytes.length; offset += 256 * 1024) {
+          await writer.write(
+            installedBytes.subarray(offset, Math.min(offset + 256 * 1024, installedBytes.length)),
+          );
+        }
       }
 
-      const blob = new Blob([bytes], { type: 'application/octet-stream' });
-
       if (isBrowserEnv()) {
-        await saveModelBlob(modelId, blob);
+        try {
+          await writer?.commit();
+        } catch (error) {
+          if (
+            error &&
+            typeof error === 'object' &&
+            'code' in error &&
+            error.code === 'checksum_mismatch'
+          ) {
+            throw new Error(`Model ${modelId} failed SHA-256 verification.`, { cause: error });
+          }
+          throw error;
+        }
+        writer = null;
+        downloadedExternalDataId = await this.downloadExternalData(
+          modelId,
+          manifestEntry,
+          onProgress,
+          signal,
+        );
+        if (downloadedExternalDataId) {
+          await storage.publishInstalledBatch([
+            { stagedId: installModelId, modelId },
+            {
+              stagedId: downloadedExternalDataId,
+              modelId: this.externalDataId(modelId),
+            },
+          ]);
+          downloadedExternalDataId = null;
+        }
         // A successful replacement must not leave callers with a URL for the
         // previous bytes. The next resolve creates a URL for the verified blob
         // now in IndexedDB; URLs for other split artifacts remain valid.
         this.revokeBlobUrl(modelId);
-        await deletePartialDownload(modelId);
-        // Models above the 2GB protobuf limit keep their weights in a sibling
-        // `.onnx.data` file. The graph alone parses but cannot initialize, so a
-        // graph-only download would report success and then fail at session
-        // creation. Fetch the sidecar as part of the same download.
-        await this.downloadExternalData(modelId, manifestEntry, onProgress, signal);
+        await deletePartialDownload(installModelId);
       } else {
         throw new Error(
           'This environment cannot store AI models (IndexedDB unavailable). Use Quick mode, or run in a browser/desktop build with storage enabled.',
@@ -979,41 +1243,60 @@ class ModelLoader {
       this.saveState();
     } catch (error) {
       const cancelled = signal?.aborted || (error as Error).message === 'Download cancelled';
-      if (!cancelled && isBrowserEnv() && remoteUrl && downloadChunks.length > 0) {
+      if (writer && isBrowserEnv() && remoteUrl && writer.bytesWritten > 0) {
+        try {
+          if (canResumeFromRemote) {
+            await writer.pause({ url: remoteUrl, etag: storedEtag });
+            writerPaused = true;
+          } else {
+            await writer.abort();
+          }
+        } catch {
+          await writer.abort().catch(() => undefined);
+        }
+      } else if (writer && !writerPaused) {
+        await writer.abort().catch(() => undefined);
+      }
+      if (bufferedRepair && downloadChunks.length > 0 && isBrowserEnv() && canResumeFromRemote) {
         try {
           const combined = new Uint8Array(
             downloadChunks.reduce((sum, chunk) => sum + chunk.length, 0),
           );
-          let off = 0;
+          let offset = 0;
           for (const chunk of downloadChunks) {
-            combined.set(chunk, off);
-            off += chunk.length;
+            combined.set(chunk, offset);
+            offset += chunk.length;
           }
           const record: PartialDownloadRecord = {
             bytes: combined,
-            meta: {
-              url: remoteUrl,
-              etag: storedEtag,
-              loaded: combined.length,
-            },
+            meta: { url: remoteUrl, etag: storedEtag, loaded: combined.length },
           };
-          await savePartialDownload(modelId, record);
+          await savePartialDownload(installModelId, record);
         } catch {
-          // Best-effort partial persistence; quota errors bubble below.
+          // Keep the primary network/integrity failure; partial persistence is best effort.
         }
       }
-      if (cancelled && isBrowserEnv()) {
-        await deletePartialDownload(modelId).catch(() => {});
+      if (hasExternalData) {
+        await deleteModelBlob(installModelId).catch(() => {});
       }
-      if (error instanceof ModelStorageQuotaError) {
-        throw new ModelStorageQuotaError(
-          'Storage quota exceeded. Free disk space or delete old models in Settings, Offline Models.',
-        );
+      if (downloadedExternalDataId) {
+        await deleteModelBlob(downloadedExternalDataId).catch(() => {});
       }
       this.state = cancelled ? 'unavailable' : 'error';
       this.currentModelId = '';
       this.notify();
       this.saveState();
+      if (
+        error instanceof ModelStorageQuotaError ||
+        (error &&
+          typeof error === 'object' &&
+          'code' in error &&
+          error.code === 'insufficient_disk_space')
+      ) {
+        throw new ModelStorageQuotaError(
+          'Storage quota exceeded. Free disk space or delete old models in Settings, Offline Models.',
+        );
+      }
       throw error;
     }
   }
@@ -1030,8 +1313,13 @@ class ModelLoader {
     try {
       const response = await fetchWithTimeout(bundled, { signal }, MODEL_PATH_PROBE_TIMEOUT);
       if (!response.ok) return 'corrupt';
-      const buffer = await response.arrayBuffer();
-      const ok = await verifyModelChecksum(buffer, entry.sha256);
+      const actual = response.body
+        ? await sha256ReadableStream(response.body)
+        : await response.arrayBuffer().then(async (buffer) => {
+            const verified = await verifyModelChecksum(buffer, entry.sha256!);
+            return verified ? entry.sha256!.toLowerCase() : '';
+          });
+      const ok = actual === entry.sha256.toLowerCase();
       return ok ? 'verified' : 'corrupt';
     } catch {
       return 'corrupt';

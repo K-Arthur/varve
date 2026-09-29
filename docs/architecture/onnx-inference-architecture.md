@@ -104,6 +104,46 @@ upstream checksum, repair operation, and expected size through the same
 validation path; the parent is not marked ready until every component is
 installed.
 
+### Model artifact storage and publication
+
+`ModelStorage` is shared by inference and background-removal downloads. Browser
+downloads write each response chunk into a staged artifact while an incremental
+SHA-256 and byte count are maintained. A verified commit publishes metadata
+only after the declared size and checksum pass. Artifact handles provide
+metadata, a backpressured stream, and bounded prefix reads; callers that need a
+Blob or `ArrayBuffer` must opt into that materialization.
+
+The browser store prefers Origin Private File System (OPFS) files. When OPFS is
+unavailable it writes 256 KiB Blob chunks to IndexedDB and keeps one chunk in
+flight while reading. Existing IndexedDB Blob and ArrayBuffer records remain
+readable. Legacy localStorage JSON records remain read-only and can be migrated
+to IndexedDB; new weights are never written as JSON number arrays. The Tauri
+adapter refuses byte-array IPC writes. Desktop acquisition uses the existing
+Rust streaming downloader, which verifies the pinned digest before publishing
+the app-managed file.
+
+Multipart installs download and verify components under internal staging IDs.
+One IndexedDB transaction swaps every verified artifact reference into its
+public model ID; if any component is missing or the transaction fails, the
+previous public set remains available. A completed component can be reused on
+retry only when its stored checksum and size still match the manifest. Graphs
+with external ONNX data use the same atomic publication boundary for the graph
+and sidecar, so a failed or interrupted companion download cannot replace only
+half of an installed pair. Interrupted streams retain a private partial with
+its URL and ETag; reuse requires a matching validator and exact
+`Content-Range`, otherwise the download restarts from byte zero.
+
+The SCUNet graph and external weights are pinned to
+[`Heliosoph/scunet-onnx@6d11417`](https://huggingface.co/Heliosoph/scunet-onnx/tree/6d11417ee2fbcc73783c502a238ac115097754fe).
+The weights sidecar has a recorded size of 73,138,176 bytes and SHA-256
+`98825ea1210b641c71e5f052f582c70c49fd44b35387ebe2c034268c17df3feb`.
+
+This storage contract bounds download-time buffering. It does not yet provide
+the same stream-native representation to every session consumer: some feature
+paths still create a Blob URL or `ArrayBuffer` when the runtime requires a
+single model source. OPFS quota/eviction policy, browser-specific OPFS behavior,
+and native ARM64 device storage remain separate validation work.
+
 ### Verified bundled model examples
 
 The small segmentation and upscaling models below are examples of models that

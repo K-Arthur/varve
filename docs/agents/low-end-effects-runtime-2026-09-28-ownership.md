@@ -122,35 +122,34 @@ toolchain, and validation-infrastructure changes select the full suite; the
 affected command stops before starting lanes. That frozen-SHA gate remains a
 final integration checkpoint.
 
-## M6 source baseline — bounded model storage and installation
+## M6 implementation — bounded model storage and verified publication
 
-Pre-edit HEAD is `b6727dfe5` on `master`. Immediately before this storage pass,
+Pre-edit HEAD is `53f442ae2` on `master`. Immediately before this storage pass,
 the candidate storage paths below were clean in the shared index and worktree;
 other staged/unstaged changes remain outside this ownership. Refresh status and
 review exact diffs again before staging or committing.
 
-Source review found that `ModelStorage` accepts full `ArrayBuffer` values,
-IndexedDB stores a single full record, `DownloadManager` retains response chunks
-and then allocates/assembles another full buffer for checksum and installation,
-localStorage serializes model and partial bytes as JSON number arrays, and the
-Tauri adapter transfers `Vec<u8>` as a JSON number array. The second browser
-store used by background-removal already stores `Blob` values in IndexedDB but
-duplicates model-store responsibilities. Resume currently serializes its full
-partial in memory, though the existing range/ETag checks are validated and
-should be preserved.
+The source review confirmed that generic downloads concatenated response
+chunks, background-removal owned a second model store, and the localStorage and
+Tauri adapters still exposed large JSON byte-array write paths. The shared
+storage layer now stages incremental writes in OPFS or chunked IndexedDB,
+streams legacy artifacts through handles where possible, and verifies size and
+digest before metadata publication. The existing native Rust streaming command
+was reused; the concurrently dirty `apps/desktop/src-tauri/src/lib.rs` was not
+edited.
 
 | Paths | M6 ownership under review |
 |---|---|
-| `packages/engine/src/inference/core/ModelStorage.ts` and a focused storage test | Metadata/stat, artifact handle, staged chunk writes with verified commit/abort, OPFS preference, chunked IndexedDB fallback, and read compatibility for legacy records. Stop writing model weights to localStorage JSON. |
-| `packages/engine/src/inference/core/DownloadManager.ts` and `core/__tests__/DownloadManager.test.ts` | Stream response chunks into a stage, verify size/checksum before publish, coordinate in-flight duplicate downloads, retain range/ETag resume behavior, avoid final concatenation except for transformations that require a whole model. |
-| `packages/engine/src/inference/core/TauriModelStorage.ts` and Rust model IPC implementation | Use bounded native streaming transfer and artifact handles where the clean boundary permits; inspect the shared dirty `apps/desktop/src-tauri/src/lib.rs` hunks before any edit. |
-| `packages/engine/src/backgroundRemoval/modelStore.ts` and model loader consumers (only if required for a single compatible artifact contract) | Reuse Blob/file-backed artifacts without creating a parallel whole-buffer path; preserve the old installed-record formats. |
-| This file, `docs/architecture/onnx-inference-architecture.md`, `docs/architecture/loading-system.md`, baseline audit | Document the storage contract, migration, evidence, and limitations. |
+| `packages/engine/src/inference/core/ModelStorage.ts`, `core/__tests__/ModelStorage.test.ts`, and `core/index.ts` | Metadata/stat, artifact handles, staged verified writes, OPFS preference, 256 KiB IndexedDB chunk fallback, read compatibility, and atomic batch reference publication. |
+| `packages/engine/src/inference/core/DownloadManager.ts`, `TauriModelStorage.ts`, and `core/__tests__/DownloadManager.test.ts` | Stream model bytes, preserve validated resume, keep multipart artifacts private until a verified batch commit, and disable large JSON-array IPC writes. The pre-existing Rust streaming downloader remains the desktop installer. |
+| `packages/engine/src/backgroundRemoval/modelStore.ts`, `modelLoader.ts`, and `backgroundRemoval/__tests__/modelLoader.test.ts` | Reuse shared staged storage, stream ordinary model and external-data artifacts, resume only matching partials, and atomically publish graph plus sidecar. |
+| `packages/engine/src/inference/types.ts`, `manifest.ts`, `core/types.ts`, `modelCatalog.ts`, `packages/engine/src/backgroundRemoval/modelManifest.ts`, and `apps/desktop/public/models/manifest.json` | Carry external-data checksum/size metadata and pin SCUNet graph/weights to one upstream revision. |
+| `packages/engine/package.json`, `pnpm-lock.yaml` | Add the incremental SHA-256 implementation dependency. Keep ONNX Runtime at its existing pinned version. |
+| `docs/architecture/onnx-inference-architecture.md`, `docs/architecture/loading-system.md`, this file, and the baseline audit | Record the verified storage/publication contract, evidence, and known boundaries. |
 
-Do not change Tauri model commands until exact ownership of the currently dirty
-`lib.rs` region is confirmed. The storage API must not claim OPFS availability
-where the browser does not provide it. Native and browser acceptance will be
-reported separately.
+No Rust source was changed. OPFS remains a preferred backend only when the
+browser exposes it; IndexedDB chunks are the fallback. Physical and browser
+engine acceptance remain separate and are not established by the M6 tests.
 
 ## Current milestone ownership — responsive live-effect job lane
 

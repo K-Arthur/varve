@@ -1,19 +1,14 @@
-import type { ModelStorage, PartialDownloadRecord, StorageQuota } from './ModelStorage';
-
-function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
-  const w = typeof window !== 'undefined' ? window : undefined;
-  const core = (
-    w as unknown as {
-      __TAURI__?: {
-        core: { invoke: (cmd: string, args?: Record<string, unknown>) => Promise<unknown> };
-      };
-    }
-  )?.__TAURI__?.core;
-  if (!core) {
-    return Promise.reject(new Error('Tauri IPC not available'));
-  }
-  return core.invoke(cmd, args) as Promise<T>;
-}
+import type {
+  ModelArtifactHandle,
+  ModelArtifactMetadata,
+  ModelInstallOptions,
+  ModelStorage,
+  PartialArtifactHandle,
+  PartialDownloadMetadata,
+  PartialDownloadRecord,
+  StagedModelWrite,
+  StorageQuota,
+} from './ModelStorage';
 
 export class TauriModelStorage implements ModelStorage {
   readonly name = 'tauri';
@@ -28,62 +23,60 @@ export class TauriModelStorage implements ModelStorage {
     return '__TAURI__' in window;
   }
 
-  private async withFallback<T>(
-    action: () => Promise<T>,
-    fallbackAction: () => Promise<T>,
-  ): Promise<T> {
-    if (this.isAvailable()) {
-      try {
-        return await action();
-      } catch (err) {
-        if (this.fallback && String(err).includes('not available')) {
-          return fallbackAction();
-        }
-        throw err;
-      }
-    }
-    if (this.fallback) return fallbackAction();
-    throw new Error('TauriModelStorage: not available and no fallback');
-  }
-
   async saveInstalled(modelId: string, bytes: ArrayBuffer): Promise<void> {
-    return this.withFallback(
-      () => invoke('write_model_file', { modelId, data: Array.from(new Uint8Array(bytes)) }),
-      () => this.fallback!.saveInstalled(modelId, bytes),
-    );
+    if (!this.fallback) {
+      throw new Error(
+        'Native model writes must use the verified streaming model downloader; JSON byte-array IPC is disabled.',
+      );
+    }
+    return this.fallback.saveInstalled(modelId, bytes);
   }
 
   async loadInstalled(modelId: string): Promise<ArrayBuffer | null> {
-    return this.withFallback(
-      async () => {
-        const data = await invoke<number[]>('read_model_file', { modelId });
-        return new Uint8Array(data).buffer;
-      },
-      () => this.fallback!.loadInstalled(modelId),
-    );
+    return this.fallback?.loadInstalled(modelId) ?? Promise.resolve(null);
+  }
+
+  async statInstalled(modelId: string): Promise<ModelArtifactMetadata | null> {
+    return this.fallback?.statInstalled(modelId) ?? Promise.resolve(null);
+  }
+
+  async openInstalledArtifact(modelId: string): Promise<ModelArtifactHandle | null> {
+    return this.fallback?.openInstalledArtifact(modelId) ?? Promise.resolve(null);
+  }
+
+  async beginInstalledWrite(
+    modelId: string,
+    options?: ModelInstallOptions,
+  ): Promise<StagedModelWrite> {
+    if (!this.fallback) {
+      throw new Error(
+        'Native model writes must use the verified streaming model downloader; JSON byte-array IPC is disabled.',
+      );
+    }
+    return this.fallback.beginInstalledWrite(modelId, options);
+  }
+
+  async publishInstalledBatch(
+    entries: Array<{ stagedId: string; modelId: string }>,
+  ): Promise<void> {
+    if (!this.fallback) {
+      throw new Error(
+        'Native model publication must use the verified streaming model downloader; JSON byte-array IPC is disabled.',
+      );
+    }
+    return this.fallback.publishInstalledBatch(entries);
   }
 
   async deleteInstalled(modelId: string): Promise<void> {
-    return this.withFallback(
-      () => invoke('delete_model_file', { modelId }),
-      () => this.fallback!.deleteInstalled(modelId),
-    );
+    if (this.fallback) await this.fallback.deleteInstalled(modelId);
   }
 
   async hasInstalled(modelId: string): Promise<boolean> {
-    try {
-      const bytes = await this.loadInstalled(modelId);
-      return bytes !== null;
-    } catch {
-      return false;
-    }
+    return this.fallback?.hasInstalled(modelId) ?? false;
   }
 
   async listInstalled(): Promise<string[]> {
-    return this.withFallback(
-      () => invoke<string[]>('list_model_files'),
-      () => this.fallback!.listInstalled(),
-    );
+    return this.fallback?.listInstalled() ?? [];
   }
 
   async savePartial(modelId: string, record: PartialDownloadRecord): Promise<void> {
@@ -98,6 +91,14 @@ export class TauriModelStorage implements ModelStorage {
       return this.fallback.loadPartial(modelId);
     }
     return null;
+  }
+
+  async getPartialMetadata(modelId: string): Promise<PartialDownloadMetadata | null> {
+    return this.fallback?.getPartialMetadata(modelId) ?? null;
+  }
+
+  async openPartialArtifact(modelId: string): Promise<PartialArtifactHandle | null> {
+    return this.fallback?.openPartialArtifact(modelId) ?? null;
   }
 
   async deletePartial(modelId: string): Promise<void> {

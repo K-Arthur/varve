@@ -434,3 +434,56 @@ persisted model-grid dimensions plus affine registration. The inspected first fa
 `test-results/low-end-depth-m5-0929b/canvas-depth-blur-Depth-Bl-5f52a--picks-focus-and-removes-it-chromium/test-failed-1.png`;
 the missing-stub capture is
 `test-results/low-end-depth-m5-0929d/canvas-depth-blur-Depth-Bl-5f52a--picks-focus-and-removes-it-chromium/test-failed-1.png`.
+
+## M6 — Bounded model artifacts and verified publication
+
+Before M6, inference and background-removal used separate IndexedDB Blob
+writers, generic downloads concatenated every response chunk into one large
+buffer, and legacy localStorage storage could serialize model bytes as JSON
+number arrays. Tauri's generic storage adapter also exposed byte arrays through
+JSON IPC even though the desktop already has a streaming Rust downloader.
+Those paths could duplicate a large artifact in memory, publish components
+before their siblings had passed verification, or leave a graph installed
+without its external ONNX weights.
+
+ModelStorage now shares one staged artifact contract across both download
+systems. It hashes incrementally and checks expected byte count before
+publication. Browser writes prefer OPFS and fall back to 256 KiB IndexedDB
+chunks; stats and bounded-prefix reads do not assemble the full artifact.
+Existing IndexedDB Blob/ArrayBuffer and localStorage JSON records remain
+readable, while all new model writes avoid localStorage. Tauri's byte-array IPC
+write path is disabled and the existing native streaming installer remains the
+desktop path. The generic downloader and background-removal loader now stream
+directly into staged storage, and partial data remains private until a later
+verified completion.
+
+Multipart model components now install under private staging IDs. After every
+component passes its recorded size and SHA-256, one IndexedDB transaction
+publishes the complete set and removes the staging references. If an install is
+interrupted, fully verified staging artifacts can be reused only when their
+stored metadata still matches. External-data graphs use the same publication
+boundary for the graph and sidecar. SCUNet's sidecar had no checksum and used a
+mutable main URL; its source now pins repository revision
+[6d11417ee2fbcc73783c502a238ac115097754fe](https://huggingface.co/Heliosoph/scunet-onnx/tree/6d11417ee2fbcc73783c502a238ac115097754fe),
+with the 73,138,176-byte weights digest recorded in both the fallback catalog
+and shipped manifest.
+
+Validation for M6:
+
+- Biome checked 12 exact engine/model manifest and test paths; no fixes were
+  required on the final run.
+- Focused Vitest run: 6 files passed, 381 tests passed, 0 failed. Coverage
+  includes staged writes, legacy reads, valid and invalid resume paths,
+  incomplete batch rollback, component staging and reuse, atomic graph/weights
+  publication, and manifest contracts.
+- Engine typecheck passed.
+
+The SCUNet checksum and content length were read from the Hugging Face Hub's
+artifact response metadata at the pinned repository revision; the source page
+is linked above. No model weights were downloaded during this check. M6 makes
+download-time storage bounded but does not make every ONNX consumer
+stream-native: feature paths may still create a Blob URL or ArrayBuffer for
+session creation. The external-data path resumes only after matching URL,
+ETag, range start, total, and chunk length; physical browser/device behavior is
+not established by these Node tests. OPFS browser qualification and the Duet
+device-kit checks remain pending.

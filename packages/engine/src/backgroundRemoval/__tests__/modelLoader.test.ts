@@ -11,6 +11,7 @@ const {
   mockLoadPartial,
   mockDeletePartial,
   mockRepair,
+  mockModelStorage,
 } = vi.hoisted(() => ({
   mockSave: vi.fn(),
   mockLoad: vi.fn(),
@@ -20,6 +21,11 @@ const {
   mockLoadPartial: vi.fn(),
   mockDeletePartial: vi.fn(),
   mockRepair: vi.fn(),
+  mockModelStorage: {
+    openPartialArtifact: vi.fn(),
+    beginInstalledWrite: vi.fn(),
+    publishInstalledBatch: vi.fn(),
+  },
 }));
 
 vi.mock('../modelStore', () => ({
@@ -40,6 +46,10 @@ vi.mock('../modelStore', () => ({
 
 vi.mock('../../inference/models/sam2GraphRepair', () => ({
   repairSam2EncoderGraph: mockRepair,
+}));
+
+vi.mock('../../inference/core/ModelStorage', () => ({
+  getModelStorage: () => mockModelStorage,
 }));
 
 function checksum(chunks: Uint8Array[]): string {
@@ -97,6 +107,79 @@ describe('ModelLoader', () => {
     mockLoadPartial.mockReset().mockResolvedValue(null);
     mockDeletePartial.mockReset().mockResolvedValue(undefined);
     mockRepair.mockReset();
+    mockModelStorage.openPartialArtifact.mockReset();
+    mockModelStorage.beginInstalledWrite.mockReset();
+    mockModelStorage.publishInstalledBatch.mockReset().mockResolvedValue(undefined);
+    mockModelStorage.openPartialArtifact.mockImplementation(async (modelId: string) => {
+      const partial = await mockLoadPartial(modelId);
+      if (!partial) return null;
+      const bytes = partial.bytes as Uint8Array;
+      return {
+        metadata: { modelId, ...partial.meta },
+        artifact: {
+          metadata: { sizeBytes: bytes.length },
+          openStream: () =>
+            new ReadableStream<Uint8Array>({
+              start(controller) {
+                controller.enqueue(bytes.slice());
+                controller.close();
+              },
+            }),
+        },
+      };
+    });
+    mockModelStorage.beginInstalledWrite.mockImplementation(
+      async (
+        modelId: string,
+        options?: { expectedSizeBytes?: number; expectedSha256?: string },
+      ) => {
+        const chunks: Uint8Array[] = [];
+        let bytesWritten = 0;
+        return {
+          modelId,
+          get bytesWritten() {
+            return bytesWritten;
+          },
+          write: async (bytes: Uint8Array) => {
+            chunks.push(bytes.slice());
+            bytesWritten += bytes.byteLength;
+          },
+          commit: async () => {
+            const bytes = new Uint8Array(bytesWritten);
+            let offset = 0;
+            for (const chunk of chunks) {
+              bytes.set(chunk, offset);
+              offset += chunk.byteLength;
+            }
+            if (
+              options?.expectedSizeBytes !== undefined &&
+              bytesWritten !== options.expectedSizeBytes
+            ) {
+              throw Object.assign(new Error('size mismatch'), { code: 'model_download_failed' });
+            }
+            if (
+              options?.expectedSha256 &&
+              checksum([bytes]) !== options.expectedSha256.toLowerCase()
+            ) {
+              throw Object.assign(new Error('checksum mismatch'), { code: 'checksum_mismatch' });
+            }
+            const blob = new Blob([bytes], { type: 'application/octet-stream' });
+            await mockSave(modelId, blob);
+            return { modelId, sizeBytes: blob.size, sha256: null, installedAt: Date.now() };
+          },
+          pause: async (meta: { url: string; etag: string | null }) => {
+            const bytes = new Uint8Array(bytesWritten);
+            let offset = 0;
+            for (const chunk of chunks) {
+              bytes.set(chunk, offset);
+              offset += chunk.byteLength;
+            }
+            await mockSavePartial(modelId, { bytes, meta: { ...meta, loaded: bytesWritten } });
+          },
+          abort: async () => undefined,
+        };
+      },
+    );
     localStorage.clear();
     const { resetModelManifestCache } = await import('../modelManifest');
     resetModelManifestCache();
@@ -218,6 +301,145 @@ describe('ModelLoader', () => {
     expect(mockRepair).toHaveBeenCalledWith(expect.any(Uint8Array));
     const saved = mockSave.mock.calls.at(-1)?.[1] as Blob;
     expect(new Uint8Array(await saved.arrayBuffer())).toEqual(repaired);
+  });
+
+  it('publishes an external-data model only after graph and weights both verify', async () => {
+    const graph = new Uint8Array([1, 2, 3]);
+    const weights = new Uint8Array([4, 5]);
+    const graphChecksum = checksum([graph]);
+    const weightsChecksum = checksum([weights]);
+    const { getModelLoaderReady, resetModelLoader } = await import('../modelLoader');
+    resetModelLoader();
+    const loader = await getModelLoaderReady();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) => {
+        if (url.includes('manifest.json')) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({
+              version: 1,
+              models: [
+                {
+                  id: 'u2netp',
+                  filename: 'u2netp.onnx',
+                  localPath: '/models/u2netp.onnx',
+                  sha256: graphChecksum,
+                  bundled: false,
+                  remoteUrl: 'https://example.com/u2netp.onnx',
+                  remoteDataUrl: 'https://example.com/u2netp.onnx.data',
+                  remoteDataSha256: weightsChecksum,
+                  remoteDataSizeBytes: weights.length,
+                },
+              ],
+            }),
+          });
+        }
+        return Promise.resolve(
+          mockFetchResponse({ ok: true, chunks: [url.endsWith('.data') ? weights : graph] }),
+        );
+      }),
+    );
+
+    await loader.downloadModel('u2netp');
+
+    expect(mockModelStorage.publishInstalledBatch).toHaveBeenCalledWith([
+      { stagedId: '__varve_artifact_stage__u2netp__graph', modelId: 'u2netp' },
+      {
+        stagedId: '__varve_artifact_stage__u2netp__external-data',
+        modelId: 'u2netp__externaldata',
+      },
+    ]);
+    expect(mockSave.mock.calls.map(([id]) => id)).toEqual([
+      '__varve_artifact_stage__u2netp__graph',
+      '__varve_artifact_stage__u2netp__external-data',
+    ]);
+  });
+
+  it('resumes external weights only when range, total, and ETag match', async () => {
+    const graph = new Uint8Array([6, 7]);
+    const prefix = new Uint8Array([1, 2]);
+    const suffix = new Uint8Array([3, 4]);
+    const weights = new Uint8Array([1, 2, 3, 4]);
+    const graphChecksum = checksum([graph]);
+    const weightsChecksum = checksum([weights]);
+    const externalStageId = '__varve_artifact_stage__u2netp__external-data';
+    mockLoadPartial.mockImplementation(async (id: string) =>
+      id === externalStageId
+        ? {
+            bytes: prefix,
+            meta: { url: 'https://example.com/u2netp.onnx.data', etag: 'weights-v1', loaded: 2 },
+          }
+        : null,
+    );
+    const { getModelLoaderReady, resetModelLoader } = await import('../modelLoader');
+    resetModelLoader();
+    const loader = await getModelLoaderReady();
+    const requests: Array<[string, RequestInit | undefined]> = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string, init?: RequestInit) => {
+        requests.push([url, init]);
+        if (url.includes('manifest.json')) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({
+              version: 1,
+              models: [
+                {
+                  id: 'u2netp',
+                  filename: 'u2netp.onnx',
+                  localPath: '/models/u2netp.onnx',
+                  sha256: graphChecksum,
+                  bundled: false,
+                  remoteUrl: 'https://example.com/u2netp.onnx',
+                  remoteDataUrl: 'https://example.com/u2netp.onnx.data',
+                  remoteDataSha256: weightsChecksum,
+                  remoteDataSizeBytes: weights.length,
+                },
+              ],
+            }),
+          });
+        }
+        if (url.endsWith('.data')) {
+          let sent = false;
+          return Promise.resolve({
+            ok: true,
+            status: 206,
+            statusText: 'Partial Content',
+            headers: {
+              get: (name: string) => {
+                if (name.toLowerCase() === 'etag') return 'weights-v1';
+                if (name.toLowerCase() === 'content-range') return 'bytes 2-3/4';
+                if (name.toLowerCase() === 'content-length') return '2';
+                return null;
+              },
+            },
+            body: {
+              getReader: () => ({
+                read: async () => {
+                  if (sent) return { done: true, value: undefined };
+                  sent = true;
+                  return { done: false, value: suffix };
+                },
+                cancel: async () => undefined,
+              }),
+            },
+          });
+        }
+        return Promise.resolve(mockFetchResponse({ ok: true, chunks: [graph] }));
+      }),
+    );
+
+    await loader.downloadModel('u2netp');
+
+    const sidecarRequest = requests.find(([url]) => url.endsWith('.data'))?.[1];
+    expect(sidecarRequest?.headers).toEqual({
+      Range: 'bytes=2-',
+      'If-Range': 'weights-v1',
+    });
+    expect(mockDeletePartial).toHaveBeenCalledWith(externalStageId);
+    expect(mockModelStorage.publishInstalledBatch).toHaveBeenCalledOnce();
   });
 
   it('downloadModel transitions to error state and rethrows when both sources fail', async () => {
@@ -595,7 +817,7 @@ describe('ModelLoader', () => {
     await expect(download).rejects.toThrow(/cancelled/i);
     expect(loader.getState()).toBe('unavailable');
     expect(mockSave).not.toHaveBeenCalled();
-    expect(mockDeletePartial).toHaveBeenCalledWith('u2netp');
+    expect(mockDeletePartial).not.toHaveBeenCalled();
   });
 
   it('resumes interrupted download from partial bytes with Range header', async () => {

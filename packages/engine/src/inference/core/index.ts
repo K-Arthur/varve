@@ -16,13 +16,20 @@ export {
 export type { ModelSelectorOptions } from './ModelSelector';
 export { ModelSelector } from './ModelSelector';
 export type {
+  ModelArtifactHandle,
+  ModelArtifactMetadata,
+  ModelInstallOptions,
   ModelStorage,
+  PartialArtifactHandle,
+  PartialDownloadMetadata,
   PartialDownloadRecord,
+  StagedModelWrite,
   StorageQuota,
   StoredModel,
 } from './ModelStorage';
 export {
   createModelStorage,
+  getModelStorage,
   migrateFromLocalStorage,
 } from './ModelStorage';
 export {

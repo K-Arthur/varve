@@ -1,38 +1,11 @@
+import { createHash } from 'node:crypto';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DownloadManager } from '../DownloadManager';
-import type { ModelStorage } from '../ModelStorage';
+import { createModelStorage } from '../ModelStorage';
 import type { ModelManifestEntry } from '../types';
 
-function makeStorage(): ModelStorage {
-  const installed = new Map<string, ArrayBuffer>();
-  const partials = new Map<
-    string,
-    { bytes: Uint8Array; url: string; etag: string | null; loaded: number }
-  >();
-  return {
-    name: 'test',
-    isAvailable: () => true,
-    saveInstalled: async (id, bytes) => {
-      installed.set(id, bytes.slice(0));
-    },
-    loadInstalled: async (id) => installed.get(id) ?? null,
-    deleteInstalled: async (id) => void installed.delete(id),
-    hasInstalled: async (id) => installed.has(id),
-    listInstalled: async () => [...installed.keys()],
-    savePartial: async (id, record) => {
-      partials.set(id, { ...record, bytes: new Uint8Array(record.bytes) });
-    },
-    loadPartial: async (id) => {
-      const record = partials.get(id);
-      return record ? { ...record, bytes: new Uint8Array(record.bytes) } : null;
-    },
-    deletePartial: async (id) => void partials.delete(id),
-    getQuota: async () => ({ used: 0, available: 10_000_000 }),
-    clear: async () => {
-      installed.clear();
-      partials.clear();
-    },
-  };
+function makeStorage() {
+  return createModelStorage('memory');
 }
 
 function makeEntry(id: string, overrides?: Partial<ModelManifestEntry>): ModelManifestEntry {
@@ -63,6 +36,10 @@ function makeResponse(
 ): Response {
   const body = typeof bytes === 'string' ? bytes : (bytes as unknown as BodyInit);
   return new Response(body, { status, headers });
+}
+
+function sha256(bytes: Uint8Array): string {
+  return createHash('sha256').update(bytes).digest('hex');
 }
 
 describe('DownloadManager', () => {
@@ -146,6 +123,85 @@ describe('DownloadManager', () => {
     manager.registerModel(makeEntry('model-b'));
     const total = await manager.getTotalStorageUsed();
     expect(total).toBe(0);
+  });
+
+  it('streams received chunks into staged storage instead of saving a concatenated buffer', async () => {
+    manager.registerModel(makeEntry('streamed', { sizeBytes: 6 }));
+    const storage = manager.getStorage();
+    const beginWrite = vi.spyOn(storage, 'beginInstalledWrite');
+    const saveInstalled = vi.spyOn(storage, 'saveInstalled');
+    const parts = ['abc', 'def'].map((value) => new TextEncoder().encode(value));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(
+            new ReadableStream<Uint8Array>({
+              start(controller) {
+                for (const part of parts) controller.enqueue(part);
+                controller.close();
+              },
+            }),
+            { headers: { 'Content-Length': '6', ETag: 'v1' } },
+          ),
+      ),
+    );
+
+    await manager.startDownload('streamed');
+
+    expect(beginWrite).toHaveBeenCalledOnce();
+    expect(saveInstalled).not.toHaveBeenCalled();
+    expect(await manager.getInstalledSize('streamed')).toBe(6);
+    expect(await storage.statInstalled('streamed')).toMatchObject({
+      sizeBytes: 6,
+      sha256: expect.any(String),
+    });
+    vi.unstubAllGlobals();
+  });
+
+  it('resumes a paused staged artifact only after the range and ETag match', async () => {
+    const controller = new AbortController();
+    manager.registerModel(makeEntry('stream-resume', { sizeBytes: 4 }));
+    const storage = manager.getStorage();
+    const requests: RequestInit[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_input: string, init?: RequestInit) => {
+        requests.push(init ?? {});
+        if (requests.length === 1) {
+          return new Response(
+            new ReadableStream<Uint8Array>({
+              start(streamController) {
+                streamController.enqueue(new Uint8Array([1, 2]));
+              },
+            }),
+            { headers: { 'Content-Length': '4', ETag: 'v1' } },
+          );
+        }
+        return makeResponse(new Uint8Array([3, 4]), 206, {
+          'Content-Range': 'bytes 2-3/4',
+          'Content-Length': '2',
+          ETag: 'v1',
+        });
+      }),
+    );
+    manager.subscribeDownloadProgress('stream-resume', (progress) => {
+      if (progress.loaded >= 2) controller.abort();
+    });
+
+    await expect(manager.startDownload('stream-resume', controller.signal)).rejects.toMatchObject({
+      code: 'download_interrupted',
+    });
+    expect(await storage.getPartialMetadata('stream-resume')).toMatchObject({
+      loaded: 2,
+      etag: 'v1',
+    });
+    await manager.startDownload('stream-resume');
+
+    expect(requests[1]?.headers).toEqual({ Range: 'bytes=2-' });
+    expect(await manager.getInstalledBytes('stream-resume')).toEqual(new Uint8Array([1, 2, 3, 4]));
+    expect(await storage.getPartialMetadata('stream-resume')).toBeNull();
+    vi.unstubAllGlobals();
   });
 
   it('rejects duplicate download attempt', async () => {
@@ -251,6 +307,58 @@ describe('DownloadManager', () => {
     );
   });
 
+  it('does not expose a multipart model until all verified components are available', async () => {
+    const storage = manager.getStorage();
+    const graph = new Uint8Array([1, 2]);
+    const weights = new Uint8Array([3, 4, 5]);
+    manager.registerModel(
+      makeEntry('multi-model', {
+        components: [
+          {
+            id: 'multi-graph',
+            role: 'graph',
+            filename: 'model.onnx',
+            sizeBytes: graph.byteLength,
+            remoteUrl: 'https://example.com/model.onnx',
+            checksum: sha256(graph),
+          },
+          {
+            id: 'multi-weights',
+            role: 'weights',
+            filename: 'model.onnx.data',
+            sizeBytes: weights.byteLength,
+            remoteUrl: 'https://example.com/model.onnx.data',
+            checksum: sha256(weights),
+          },
+        ],
+      }),
+    );
+    let failWeights = true;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: string | URL) => {
+        const url = String(input);
+        if (url.endsWith('.data') && failWeights) return new Response('offline', { status: 503 });
+        return new Response(url.endsWith('.data') ? weights : graph);
+      }),
+    );
+
+    await expect(manager.startDownload('multi-model')).rejects.toThrow();
+    expect(await storage.hasInstalled('multi-graph')).toBe(false);
+    expect(await storage.hasInstalled('multi-weights')).toBe(false);
+    expect(await manager.getDownloadState('multi-model')).toBe('error');
+
+    failWeights = false;
+    await manager.startDownload('multi-model');
+    expect(await storage.hasInstalled('multi-graph')).toBe(true);
+    expect(await storage.hasInstalled('multi-weights')).toBe(true);
+    expect(
+      (await storage.listInstalled()).some((id) => id.startsWith('__varve_component_stage__')),
+    ).toBe(false);
+    expect(await manager.getDownloadState('multi-model')).toBe('ready');
+    vi.unstubAllGlobals();
+  });
+
   it('rejects truncated or HTML responses before installing them', async () => {
     manager.registerModel(makeEntry('truncated', { sizeBytes: 6 }));
     vi.stubGlobal(
@@ -315,6 +423,7 @@ describe('component downloads without the multiComponent flag', () => {
         filename: 'scunet_color_real_psnr.onnx',
         sizeBytes: 3_798_678,
         remoteUrl: 'https://example.com/scunet_color_real_psnr.onnx',
+        checksum: 'a'.repeat(64),
       },
       {
         id: 'scunet-weights',
@@ -322,6 +431,7 @@ describe('component downloads without the multiComponent flag', () => {
         filename: 'scunet_color_real_psnr.onnx.data',
         sizeBytes: 73_138_176,
         remoteUrl: 'https://example.com/scunet_color_real_psnr.onnx.data',
+        checksum: 'b'.repeat(64),
       },
     ] as ModelManifestEntry['components'],
   });

@@ -32,6 +32,8 @@ export interface ModelManifestEntry {
    * for models split that way; the graph is unusable without it.
    */
   remoteDataUrl?: string;
+  remoteDataSha256?: string;
+  remoteDataSizeBytes?: number;
   /** Weight precision. 'fp32' is the default when omitted. */
   precision?: 'fp32' | 'int8';
   /** For INT8 variants: the FP32 source model this was quantized from. */
@@ -60,6 +62,8 @@ function toLegacyEntry(e: InfModelManifestEntry): ModelManifestEntry {
     bundled: e.bundled,
     remoteUrl: e.remoteUrl,
     remoteDataUrl: e.remoteDataUrl,
+    remoteDataSha256: e.remoteDataSha256,
+    remoteDataSizeBytes: e.remoteDataSizeBytes,
     upstreamChecksum: e.upstreamChecksum,
     repair: e.repair,
     precision: e.precision as 'fp32' | 'int8' | undefined,
