@@ -28,6 +28,9 @@ import '../../../styles/docs-prose.css';
           Paint follows the selected pixel layer. With no layer selected, it uses an eligible pixel layer on the active page, or creates a named <strong>Brush Layer</strong> when the canvas has no target. If a vector or other non-pixel object is selected, Varve refuses the stroke instead of quietly painting elsewhere; the screen-reader announcement explains how to create and select a paint layer.
         </p>
         <p>
+          Stay in <strong>Design</strong>: choose <strong>Paint</strong> from the Design toolbar (or <strong>More tools → Raster → Paint</strong> when it is collapsed), then select the visible raster source and choose <strong>Create clipped paint layer</strong> in Tool options. Varve adds a separate raster child named <strong>Shading</strong> with a live alpha matte; the source remains editable. The browser-verified workflow preserves the clip through undo/redo, save/reopen, and transparent PNG export.
+        </p>
+        <p>
           <strong>Sample merged layers</strong> is an explicit opt-in setting. It reads a read-only snapshot of visible raster-layer tiles while depositing only on the active target, which makes clipped texture and paintover passes safer. It does not implicitly sample vector nodes, group isolation, effects, or transformed non-raster content; use an explicit flattened raster copy when those sources are required.
         </p>
         <h3>Selections into flats</h3>

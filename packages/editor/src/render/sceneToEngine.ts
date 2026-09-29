@@ -505,6 +505,65 @@ export interface FlattenedEngineScene {
   nodes: EngineNode[];
 }
 
+/**
+ * Collect node render dependencies referenced by masks in a scene subtree.
+ * Structural replayers need the matte's IR even when it is outside the
+ * exported/sample root, while rootIds still control which artwork is drawn.
+ */
+export function collectMaskSourceDependencies(
+  document: Document,
+  rootIds: readonly NodeId[],
+): NodeId[] {
+  const contained = new Set<NodeId>();
+  const indexSubtree = (nodeId: NodeId): void => {
+    if (contained.has(nodeId)) return;
+    contained.add(nodeId);
+    const node = document.nodes[nodeId];
+    if (!node || !('children' in node) || !Array.isArray(node.children)) return;
+    for (const childId of node.children) indexSubtree(childId);
+  };
+  for (const rootId of rootIds) indexSubtree(rootId);
+
+  const dependencies = new Set<NodeId>();
+  const expanded = new Set<NodeId>();
+  const inspect = (nodeId: NodeId): void => {
+    if (expanded.has(nodeId)) return;
+    expanded.add(nodeId);
+    const node = document.nodes[nodeId];
+    if (!node) return;
+
+    const masks: unknown[] = [];
+    if ('mask' in node && node.mask) masks.push(node.mask);
+    if ('effects' in node && Array.isArray(node.effects)) {
+      for (const effect of node.effects) {
+        if (effect && typeof effect === 'object' && 'mask' in effect && effect.mask) {
+          masks.push(effect.mask);
+        }
+      }
+    }
+    for (const value of masks) {
+      const mask = value as {
+        sourceNodeId?: NodeId;
+        matteSource?: { kind?: string; nodeId?: NodeId };
+      };
+      const sourceIds = [
+        mask.sourceNodeId,
+        mask.matteSource?.kind === 'scene-node' ? mask.matteSource.nodeId : undefined,
+      ];
+      for (const sourceId of sourceIds) {
+        if (!sourceId || !document.nodes[sourceId]) continue;
+        if (!contained.has(sourceId)) dependencies.add(sourceId);
+        inspect(sourceId);
+      }
+    }
+    if ('children' in node && Array.isArray(node.children)) {
+      for (const childId of node.children) inspect(childId);
+    }
+  };
+  for (const rootId of rootIds) inspect(rootId);
+  return [...dependencies];
+}
+
 /** Resolve document semantics and flatten visible roots in stable paint order. */
 export function flattenSceneToEngine(
   document: Document,

@@ -1,5 +1,13 @@
+import { readFile } from 'node:fs/promises';
+import { createRequire } from 'node:module';
+import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
 import { navigateToEditor } from '../shared';
+
+const requireFromEngine = createRequire(join(process.cwd(), 'packages', 'engine', 'package.json'));
+const { PNG } = requireFromEngine('pngjs') as {
+  PNG: { sync: { read(input: Buffer): { width: number; height: number; data: Buffer } } };
+};
 
 /**
  * Exercises the paint UI in the running app.
@@ -36,7 +44,13 @@ async function activatePaint(page: import('@playwright/test').Page) {
   if (!(await paint.isVisible().catch(() => false))) {
     // Paint may live behind the toolbar's overflow at this viewport.
     await page.getByRole('button', { name: /More tools|Overflow/i }).click();
-    await page.getByRole('menuitemradio', { name: /Paint/i }).click();
+    const paintOption = page.getByRole('menuitemradio', { name: /^Paint$/i });
+    if (await paintOption.isVisible().catch(() => false)) {
+      await paintOption.click();
+    } else {
+      await page.getByRole('menuitem', { name: 'Raster', exact: true }).click();
+      await page.getByRole('menuitemradio', { name: /^Paint$/i }).click();
+    }
   } else {
     await paint.click();
   }
@@ -300,6 +314,248 @@ test.describe('paint UI in the running app', () => {
 
     await expect.poll(() => contentCanvasHash(page), { timeout: 10000 }).not.toBe(before);
     await surface.screenshot({ path: testInfo.outputPath('painted-stroke.png') });
+  });
+
+  test('a clipped shading stroke stays inside its visible raster source', async ({
+    page,
+  }, testInfo) => {
+    test.setTimeout(600000);
+    page.setDefaultTimeout(45000);
+    await page.setViewportSize(VIEWPORT);
+    await navigateToEditor(page);
+    await activatePaint(page);
+    const designWorkspace = page.locator('.workspace-dock__item[aria-label="Design workspace"]');
+    await expect(designWorkspace).toHaveAttribute('aria-checked', 'true');
+    await page.locator('.editor-menubar__doc-name-text').click();
+    const documentName = page.getByRole('textbox', { name: 'Document name', exact: true });
+    await documentName.fill('Clipped paint regression');
+    await documentName.press('Enter');
+    const options = await openToolOptions(page);
+    const browser = options.locator('.brush-browser');
+    const opaquePaint = browser.getByRole('button', { name: 'Opaque Paint', exact: true });
+    await opaquePaint.scrollIntoViewIfNeeded();
+    await opaquePaint.click();
+    const sourceSize = options.getByLabel('Size');
+    await sourceSize.fill('100');
+    await sourceSize.press('Enter');
+    const sourceColor = options.getByLabel('Foreground color');
+    await sourceColor.fill('#2020ff');
+    await expect(sourceColor).toHaveValue('#2020ff');
+
+    const surface = page.locator('.editor-canvas');
+    const box = await surface.boundingBox();
+    if (!box) throw new Error('editor canvas surface not found');
+    const y = box.y + box.height * 0.5;
+    const sourceStart = { x: box.x + box.width * 0.32, y };
+    const sourceEnd = { x: box.x + box.width * 0.48, y };
+    await page.getByRole('button', { name: 'Tool options' }).click();
+    await page.waitForTimeout(500);
+    const blank = await contentCanvasHash(page);
+    const sourcePixel = { x: box.x + box.width * 0.4, y };
+    const outsidePixel = { x: box.x + box.width * 0.66, y };
+    const outsideBeforeSource = await contentPixelAtScreenPoint(page, outsidePixel);
+    await page.mouse.move(sourceStart.x, sourceStart.y);
+    await page.mouse.down();
+    await page.mouse.move(sourceEnd.x, sourceEnd.y, { steps: 18 });
+    await page.mouse.up();
+    await expect.poll(() => contentCanvasHash(page), { timeout: 10000 }).not.toBe(blank);
+    await page.waitForTimeout(500);
+    await page.screenshot({ path: testInfo.outputPath('clipped-paint-source.png') });
+
+    const sourcePixelBeforeShade = await contentPixelAtScreenPoint(page, sourcePixel);
+    const outsideBeforeShade = await contentPixelAtScreenPoint(page, outsidePixel);
+    expect(sourcePixelBeforeShade.a).toBeGreaterThan(200);
+    expect(sourcePixelBeforeShade.b).toBeGreaterThan(sourcePixelBeforeShade.r + 80);
+    expect(outsideBeforeShade).toEqual(outsideBeforeSource);
+
+    const sourceRow = page.getByRole('treeitem').filter({ hasText: 'Brush Layer' }).first();
+    await expect(sourceRow).toBeVisible();
+    await sourceRow.click();
+    const paintOptions = await openToolOptions(page);
+    await paintOptions.getByRole('button', { name: 'Create clipped paint layer' }).click();
+    await expect(
+      page.getByRole('treeitem').filter({ hasText: /Brush Layer clipped paint/ }),
+    ).toBeVisible();
+    await expect(page.getByRole('treeitem').filter({ hasText: 'Shading' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    await page.screenshot({ path: testInfo.outputPath('clipped-paint-layer-created.png') });
+    await page.keyboard.press('Control+z');
+    await expect(
+      page.getByRole('treeitem').filter({ hasText: /Brush Layer clipped paint/ }),
+    ).toHaveCount(0);
+    await page.keyboard.press('Control+Shift+z');
+    await expect(
+      page.getByRole('treeitem').filter({ hasText: /Brush Layer clipped paint/ }),
+    ).toBeVisible();
+    await page.getByRole('treeitem').filter({ hasText: 'Shading' }).click();
+    const restoredPaintOptions = await openToolOptions(page);
+    const foregroundColor = restoredPaintOptions.getByLabel('Foreground color');
+    await foregroundColor.fill('#ff2020');
+    await expect(foregroundColor).toHaveValue('#ff2020');
+    await page.getByRole('button', { name: 'Tool options' }).click();
+
+    const clippedStart = { x: box.x + box.width * 0.37, y };
+    const clippedEnd = { x: box.x + box.width * 0.72, y };
+    const beforeShading = await contentCanvasHash(page);
+    await page.mouse.move(clippedStart.x, clippedStart.y);
+    await page.mouse.down();
+    await page.mouse.move(clippedEnd.x, clippedEnd.y, { steps: 36 });
+    await page.mouse.up();
+    await expect
+      .poll(
+        async () => {
+          const pixel = await contentPixelAtScreenPoint(page, sourcePixel);
+          return pixel.r > pixel.g + 30;
+        },
+        { timeout: 15000 },
+      )
+      .toBe(true);
+    await testInfo.attach('clipped-paint-pointer-state.json', {
+      body: JSON.stringify({
+        beforeShading,
+        afterPointer: await contentCanvasHash(page),
+        inside: await contentPixelAtScreenPoint(page, sourcePixel),
+        outside: await contentPixelAtScreenPoint(page, outsidePixel),
+      }),
+      contentType: 'application/json',
+    });
+    expect(await contentCanvasHash(page)).not.toBe(beforeShading);
+    const insideAfter = await contentPixelAtScreenPoint(page, sourcePixel);
+    const outsideAfter = await contentPixelAtScreenPoint(page, outsidePixel);
+    expect(insideAfter.r).toBeGreaterThan(insideAfter.g + 30);
+    expect(insideAfter.a).toBeGreaterThan(200);
+    expect(outsideAfter).toEqual(outsideBeforeShade);
+    await surface.screenshot({ path: testInfo.outputPath('clipped-paint-shading.png') });
+    await page.screenshot({ path: testInfo.outputPath('clipped-paint-editor.png') });
+
+    const shadedHash = await contentCanvasHash(page);
+    await page.keyboard.press('Control+z');
+    await expect
+      .poll(async () => contentPixelAtScreenPoint(page, sourcePixel), { timeout: 15000 })
+      .toMatchObject({ r: 32, g: 32, b: 255, a: 255 });
+    await page.keyboard.press('Control+Shift+z');
+    await expect
+      .poll(
+        async () => {
+          const pixel = await contentPixelAtScreenPoint(page, sourcePixel);
+          return pixel.r > pixel.g + 100 && pixel.r > pixel.b + 100;
+        },
+        { timeout: 15000 },
+      )
+      .toBe(true);
+    expect(await contentCanvasHash(page)).toBe(shadedHash);
+
+    await page.keyboard.press('Control+s');
+    await expect(page.locator('.save-status')).toHaveText('Saved', { timeout: 60000 });
+    await page.reload({ timeout: 180000, waitUntil: 'commit' });
+    await page.locator('.varve-home').waitFor({ timeout: 45000 });
+    const savedCard = page.getByRole('gridcell', { name: /Clipped paint regression/ });
+    await expect(savedCard).toBeVisible({ timeout: 30000 });
+    await savedCard.dblclick();
+    await page.locator('.layers-panel').waitFor({ timeout: 60000 });
+    await page.waitForTimeout(500);
+    await expect(designWorkspace).toHaveAttribute('aria-checked', 'true');
+    await page.screenshot({ path: testInfo.outputPath('clipped-paint-reopened.png') });
+    const reopenedCanvas = page.locator('.editor-canvas');
+    const reopenedBox = await reopenedCanvas.boundingBox();
+    if (!reopenedBox) throw new Error('reopened editor canvas surface not found');
+    const reopenedPixel = {
+      x: reopenedBox.x + reopenedBox.width * 0.4,
+      y: reopenedBox.y + reopenedBox.height * 0.5,
+    };
+    await expect
+      .poll(
+        async () => {
+          const pixel = await contentPixelAtScreenPoint(page, reopenedPixel);
+          return pixel.a === 255 && pixel.r > pixel.g + 100 && pixel.r > pixel.b + 100;
+        },
+        { timeout: 15000 },
+      )
+      .toBe(true);
+    const reopenedColor = await contentPixelAtScreenPoint(page, reopenedPixel);
+    expect(reopenedColor.r).toBeGreaterThan(reopenedColor.g + 100);
+    expect(reopenedColor.r).toBeGreaterThan(reopenedColor.b + 100);
+
+    await page
+      .getByRole('treeitem')
+      .filter({ hasText: /Brush Layer clipped paint/ })
+      .first()
+      .click();
+    const exportTab = page.getByRole('tab', { name: 'Export', exact: true });
+    if (await exportTab.isVisible().catch(() => false)) {
+      await exportTab.click();
+    } else {
+      await page.getByRole('button', { name: /^More inspector tabs/ }).click();
+      await page
+        .getByRole('menu', { name: 'More inspector tabs' })
+        .getByRole('menuitem', { name: 'Export', exact: true })
+        .click();
+    }
+    await page.getByRole('radio', { name: 'PNG', exact: true }).first().click();
+    const downloadPromise = page.waitForEvent('download', { timeout: 180000 });
+    await page.getByRole('button', { name: 'Download PNG', exact: true }).click();
+    const download = await downloadPromise;
+    const downloadPath = await download.path();
+    if (!downloadPath) throw new Error('clipped paint PNG export was not written');
+    await download.saveAs(testInfo.outputPath('clipped-paint-export.png'));
+    const pngBytes = await readFile(downloadPath);
+    expect(pngBytes.subarray(0, 8)).toEqual(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
+    const exportedImage = PNG.sync.read(pngBytes);
+    let exportedRedPixels = 0;
+    let exportedTransparentPixels = 0;
+    for (let offset = 0; offset < exportedImage.data.length; offset += 4) {
+      const r = exportedImage.data[offset] ?? 0;
+      const g = exportedImage.data[offset + 1] ?? 0;
+      const b = exportedImage.data[offset + 2] ?? 0;
+      const a = exportedImage.data[offset + 3] ?? 0;
+      if (a > 200 && r > 200 && g < 80 && b < 80) exportedRedPixels++;
+      if (a === 0) exportedTransparentPixels++;
+    }
+    expect(exportedRedPixels).toBeGreaterThan(1000);
+    expect(exportedTransparentPixels).toBeGreaterThan(1000);
+    await testInfo.attach('clipped-paint-transparent-export.png', {
+      body: pngBytes,
+      contentType: 'image/png',
+    });
+
+    for (const theme of ['light', 'dark', 'high-contrast'] as const) {
+      await page.evaluate((value) => localStorage.setItem('varve-theme', value), theme);
+      await page.reload({ timeout: 180000, waitUntil: 'commit' });
+      await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
+      await page.locator('.varve-home').waitFor({ timeout: 45000 });
+      await page.getByRole('gridcell', { name: /Clipped paint regression/ }).dblclick();
+      await page.locator('.layers-panel').waitFor({ timeout: 60000 });
+      await page.waitForTimeout(500);
+      await expect(designWorkspace).toHaveAttribute('aria-checked', 'true');
+      const themeCanvas = page.locator('.editor-canvas');
+      const themeCanvasBox = await themeCanvas.boundingBox();
+      if (!themeCanvasBox) throw new Error('themed editor canvas surface not found');
+      const themePixel = {
+        x: themeCanvasBox.x + themeCanvasBox.width * 0.4,
+        y: themeCanvasBox.y + themeCanvasBox.height * 0.5,
+      };
+      await expect
+        .poll(
+          async () => {
+            const pixel = await contentPixelAtScreenPoint(page, themePixel);
+            return pixel.a === 255 && pixel.r > pixel.g + 100 && pixel.r > pixel.b + 100;
+          },
+          { timeout: 15000 },
+        )
+        .toBe(true);
+      await page.screenshot({ path: testInfo.outputPath(`clipped-paint-${theme}.png`) });
+      await themeCanvas.screenshot({
+        path: testInfo.outputPath(`clipped-paint-${theme}-canvas.png`),
+      });
+    }
+
+    await page.setViewportSize({ width: 1024, height: 768 });
+    await page.screenshot({ path: testInfo.outputPath('clipped-paint-high-contrast-narrow.png') });
+    await page.locator('.editor-canvas').screenshot({
+      path: testInfo.outputPath('clipped-paint-high-contrast-narrow-canvas.png'),
+    });
   });
 
   test('stroke-opacity brush limits one gesture and lets a later stroke build further', async ({

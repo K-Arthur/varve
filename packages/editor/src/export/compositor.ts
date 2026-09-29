@@ -55,7 +55,7 @@ import {
   settleMockupTemplateAssets,
 } from '../render/mockup/mockupExport';
 import { replayStructuredScene } from '../render/replayScene';
-import { flattenSceneToEngine } from '../render/sceneToEngine';
+import { collectMaskSourceDependencies, flattenSceneToEngine } from '../render/sceneToEngine';
 import { settleEngineImageResources } from './resourceReadiness';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -1089,7 +1089,8 @@ async function renderBoundaryToSurface(
   // Mockup frames present live-bound sources: include them in the flattened
   // set so the surface bake can replay them at export resolution.
   const sourceIds = collectMockupLiveSourceIds(doc, [boundaryNodeId]);
-  const flattened = flattenSceneToEngine(doc, [boundaryNodeId, ...sourceIds]);
+  const maskSourceIds = collectMaskSourceDependencies(doc, [boundaryNodeId]);
+  const flattened = flattenSceneToEngine(doc, [boundaryNodeId, ...sourceIds, ...maskSourceIds]);
   // Export barrier: no replay may begin until every required image resource
   // has settled. Permanent failures throw so the export fails clearly rather
   // than silently baking a gray placeholder; pending resources throw a

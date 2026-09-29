@@ -476,6 +476,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         { toolId: 'knife' },
         { toolId: 'shapeBuilder' },
         { toolId: 'nodeEdit' },
+        { toolId: 'paint', groupStart: true },
         { toolId: 'text', groupStart: true },
         { toolId: 'frame' },
         { toolId: 'panel' },

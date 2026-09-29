@@ -111,6 +111,33 @@ through the production dab generator and tile compositor so the selected mode
 is visible in the preview. This change addresses the opacity/flow expectation
 recorded from the manual; it does not claim brush-engine parity with Krita.
 
+## Varve clipped-paint follow-up (2026-09-29)
+
+The product reports above did not identify this Varve defect; the reproduction
+came from validating the planned clipped-shading workflow. Creating a group
+matte over a raster source produced correct child pixels, but the live
+compositor applied the camera transform again while compositing a full-surface
+mask, so the result rendered transparent. After that was repaired, the first
+save/reopen PNG was still transparent because the selected group was flattened
+without its matte's external scene-node source. These were two independent
+Varve integration defects, reproduced before each repair in the real browser.
+
+The compositor now isolates callback transforms and composites full-surface
+masks in identity coordinates. Structured node raster export, subtree
+compositing, and artwork sampling collect mask source nodes as render
+dependencies while retaining the selected subtree as the visible boundary.
+The Paint tool options offer **Create clipped paint layer** for a visible
+raster source; it creates a normal editable raster child in a group with a
+live scene-node alpha matte. A workspace review also found that Design's
+built-in toolbar omitted Paint entirely. Paint is now declared in the Design
+toolbar, reachable through its Raster overflow at narrow widths, while sparse
+user toolbar overrides continue to merge normally. The real browser flow
+starts in Design and stays there through creation, paint, undo/redo, save,
+reopen, and export. A leased Chromium regression confirms pixels stay
+inside the source alpha and survive undo/redo, save/reopen, and transparent
+PNG export. This is implementation and browser evidence, not qualification of
+SVG/PDF, WebKitGTK, pen hardware, or transformed/masked/effected source variants.
+
 ## Artifact provenance caution
 
 The existing anime-restoration ONNX file's SHA-256 was found to match the

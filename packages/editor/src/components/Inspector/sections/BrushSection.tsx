@@ -1,4 +1,5 @@
 import { BUILT_IN_BRUSH_PRESETS, defaultBrushPreset, validateBrushPreset } from '@varve/scene';
+import { rgbToHex } from '@varve/shared';
 import { Select } from '@varve/ui';
 
 const BLEND_MODE_OPTIONS = [
@@ -37,13 +38,18 @@ const BUILTIN_OPTIONS = Object.values(BUILT_IN_BRUSH_PRESETS).map((p) => ({
 }));
 
 export function BrushSection({ tool, sectionId }: BrushSectionProps) {
-  const { state, setBrushSetting } = useEditor();
+  const { state, setBrushSetting, setForegroundColor } = useEditor();
   const isEraser = tool === 'eraser';
   const isPencil = tool === 'pencil';
   const isSmudge = tool === 'smudge';
   const { brushSettings } = state;
 
   const heading = isPencil ? 'Pencil' : isEraser ? 'Eraser' : isSmudge ? 'Smudge' : 'Brush';
+  const foregroundHex = rgbToHex(
+    state.foregroundColor[0],
+    state.foregroundColor[1],
+    state.foregroundColor[2],
+  );
 
   const handlePresetChange = useCallback(
     (presetId: string) => {
@@ -161,6 +167,27 @@ export function BrushSection({ tool, sectionId }: BrushSectionProps) {
         unit="%"
         onChange={(v) => setBrushSetting('flow', v / 100)}
       />
+
+      {tool === 'paint' && state.workspaceMode !== 'drawing' && (
+        <label className="tool-options__field">
+          <span>Foreground color</span>
+          <input
+            type="color"
+            aria-label="Foreground color"
+            value={foregroundHex}
+            onChange={(event) => {
+              const hex = event.target.value.replace('#', '');
+              const rgb: [number, number, number, number] = [
+                Number.parseInt(hex.slice(0, 2), 16),
+                Number.parseInt(hex.slice(2, 4), 16),
+                Number.parseInt(hex.slice(4, 6), 16),
+                255,
+              ];
+              setForegroundColor(rgb);
+            }}
+          />
+        </label>
+      )}
 
       <Select
         label="Accumulation"

@@ -175,6 +175,7 @@ describe('applyMaskAlpha', () => {
     if (!ctx) throw new Error('no 2d context');
     const gco = vi.spyOn(ctx, 'globalCompositeOperation', 'set');
     const drawImage = vi.spyOn(ctx, 'drawImage');
+    const setTransform = vi.spyOn(ctx, 'setTransform');
     const save = vi.spyOn(ctx, 'save');
     const restore = vi.spyOn(ctx, 'restore');
 
@@ -185,6 +186,7 @@ describe('applyMaskAlpha', () => {
 
     // destination-in was set for the mask composite…
     expect(gco).toHaveBeenCalledWith('destination-in');
+    expect(setTransform).toHaveBeenCalledWith(1, 0, 0, 1, 0, 0);
     expect(drawImage).toHaveBeenCalled();
     // …and the composite ran inside save/restore, so the canvas state is
     // restored afterwards (the jsdom mock's restore is a no-op, but the

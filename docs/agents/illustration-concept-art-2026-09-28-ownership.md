@@ -469,3 +469,82 @@ errors after its Astro check passes (171 files, zero diagnostics). These files
 are outside this slice. `node scripts/audit-architecture.mjs --ci` exits 0;
 it reports 14 known cycles within the configured ceiling, no layer violations,
 and the existing hub-budget warnings. No architecture baseline was changed.
+
+## Clipped-paint-layer slice — ownership recorded before editing (2026-09-29)
+
+The next integration is limited to a clipped paint group with a live alpha
+matte from an existing visible raster layer. The matte stays attached by node
+identity; the source remains editable and visible, and the paint destination
+remains a separate raster layer inside the group. Code inspection confirmed
+that the structured export renderer already routes live scene-node mattes on
+containers, but the interactive render pipeline only looked at the legacy
+`sourceNodeId` field. The browser reproduction showed the clipped group painting
+outside its source. This slice therefore also owns the small live-render
+dispatch repair, with an end-to-end pixel regression. Leaf raster masks still
+do not accept scene-node sources. No schema, pointer-worker, CanvasArea, or
+context-provider changes are planned.
+
+| Owned path | Scope |
+|---|---|
+| `packages/editor/src/tools/clippedPaintLayer.ts` and its test | Create a selected raster destination inside a clipped group with an alpha `matteSource` to a validated raster on the active editor surface. |
+| `packages/editor/src/components/FloatingToolbar/ClippedPaintLayerAction.tsx` and its test | Offer “Create clipped paint layer” when one eligible raster source is selected. |
+| `packages/editor/src/components/FloatingToolbar/ToolOptionsPopover.tsx` | Mount the action within the existing Paint options popover. |
+| `packages/editor/src/components/Inspector/sections/BrushSection.tsx` and its test | Expose the existing foreground-color setting within Paint options outside Drawing workspace, so an illustration stroke can be colored without changing workspaces. |
+| `packages/editor/src/canvas/renderPipeline.ts` | Resolve a live scene-node matte as the interactive container renderer's source id, alongside the legacy source-node field. |
+| `tests/e2e/paint/brush-ui.spec.ts` | Real pointer-stroke proof that pixels outside the source alpha remain unchanged; verify undo and save/reopen where the existing fixture permits. |
+| Paint-system docs, Strokes artist/marketing copy, help, changelog, capability matrix, research ledger, and this record | Describe only the tested live-matte behavior, export boundaries, and remaining platform limits. Shared website/changelog paths will be partially staged where concurrent changes remain. |
+
+The action must refuse a missing, hidden, non-raster, or off-surface matte
+source, and it must not create a mask that points back to the new destination.
+The renderer-backed browser proof and exported PNG pixel comparison are
+required before calling the raster sketch → ink → flats → clipped shading
+workflow verified.
+
+### Result and evidence (2026-09-29)
+
+The action validates the active-surface raster source, creates a named group
+with an ordinary Shading raster child, and maps the child through source and
+surface transforms. The Design toolbar now includes Paint and continues to
+merge sparse user tool preferences. A separate foreground color control makes
+colored strokes available in Paint options outside the Draw workspace.
+
+The browser reproduction identified two independent failures. The live matte
+compositor reused a content camera transform when combining full-surface mask
+pixels, shifting the clip; after that was fixed, PNG save/reopen omitted the
+external matte node from flattened render dependencies. Callback transforms
+are now isolated, mask composition uses identity surface coordinates, and
+selected subtree exports, subtree composition, and artwork sampling include
+mask source nodes as render dependencies while retaining the requested output
+boundary.
+
+The leased Chromium E2E starts and remains in Design. It checks the clip
+boundary, unchanged outside pixels, creation undo/redo, stroke undo/redo,
+save/reopen, and the actual 4096×4096 transparent PNG. The export contains
+41,146 opaque red pixels and 16,730,091 fully transparent pixels. The inspected
+captures are:
+
+- `test-results/clipped-paint-design-workspace-final-20260929-r11/paint-brush-ui-paint-UI-in-2de46-e-its-visible-raster-source-chromium/clipped-paint-editor.png`
+- `test-results/clipped-paint-design-workspace-final-20260929-r11/paint-brush-ui-paint-UI-in-2de46-e-its-visible-raster-source-chromium/clipped-paint-shading.png`
+- `test-results/clipped-paint-design-workspace-final-20260929-r11/paint-brush-ui-paint-UI-in-2de46-e-its-visible-raster-source-chromium/clipped-paint-export.png`
+
+The website captures in
+`test-results/strokes-target-copy-Stroke-25b22-mes-widths-and-deploy-bases-ghpages/`
+were visually inspected on desktop and mobile. The final leased test passed
+2/2 for GitHub Pages and custom-domain paths, including theme switching,
+overflow, alt text, the two changed Strokes artwork images, guide/product
+links, and browser errors. The product screenshots are copy-only updates; all
+new raster artwork is shown on the Strokes page.
+
+The clipped workflow is verified for browser rendering and grouped transparent
+PNG. SVG/PDF appearance for this live scene-node matte, physical stylus input,
+Linux Tauri/WebKitGTK, and transformed, masked, or effect-bearing source
+variants remain unverified. The broader three-project illustration/concept-art
+acceptance remains open.
+
+The later leased visual run also reopens the saved artwork under Light, Dark,
+and High Contrast preferences, waits for a sampled red canvas pixel before
+capturing, and inspects full-editor and canvas closeups at 1440×900 plus a
+1024×768 narrow layout. These captures are in
+`test-results/clipped-paint-visual-themes-20260929-r13/paint-brush-ui-paint-UI-in-2de46-e-its-visible-raster-source-chromium/`.
+The visual run passed 1/1; it does not change or prove saved document pixels
+for alternate UI themes because theme preferences remain session state.

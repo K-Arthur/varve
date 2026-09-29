@@ -61,7 +61,7 @@ import {
   subtreeNeedsDecoration,
 } from '../../render/mockup/mockupExport';
 import { replayStructuredScene } from '../../render/replayScene';
-import { flattenSceneToEngine } from '../../render/sceneToEngine';
+import { collectMaskSourceDependencies, flattenSceneToEngine } from '../../render/sceneToEngine';
 import { nodeWorldTransform } from '../../scene/world';
 import { worldBBox } from './measurement';
 import { makeRasterImagePdf } from './rasterPdf';
@@ -359,7 +359,8 @@ export async function exportNodeAsRaster(
   // while the resolved render node uses a different resource.
   clearMockupExportCache();
   const mockupSourceIds = collectMockupLiveSourceIds(doc, [node.id]);
-  const flattened = flattenSceneToEngine(doc, [node.id, ...mockupSourceIds], {
+  const maskSourceIds = collectMaskSourceDependencies(doc, [node.id]);
+  const flattened = flattenSceneToEngine(doc, [node.id, ...mockupSourceIds, ...maskSourceIds], {
     mediaFrameResolver: posterFrameResolver,
   });
   // Guard against exporting mid-font-swap: a font requested via fontFamily

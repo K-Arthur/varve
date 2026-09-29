@@ -19,6 +19,7 @@ import { setToolOptionsHandler } from '../../context/toolOptionsBridge';
 import { toolLabel } from '../../tools/toolRegistry';
 import { NumberField } from '../Inspector/controls/NumberField';
 import { hasToolOptions } from '../Inspector/toolContext';
+import { ClippedPaintLayerAction } from './ClippedPaintLayerAction';
 import { PaintLayerRecoveryAction } from './PaintLayerRecoveryAction';
 import { type RetouchToolId, RetouchToolOptions } from './RetouchToolOptions';
 import './ToolOptionsPopover.css';
@@ -470,6 +471,7 @@ export function ToolOptionsPopover() {
                   sectionId="brush-settings"
                 />
                 {state.tool === 'paint' && <PaintLayerRecoveryAction />}
+                {state.tool === 'paint' && <ClippedPaintLayerAction />}
                 {/* The pencil draws vector strokes, so raster brush presets
                     have nothing to apply to. */}
                 {state.tool !== 'pencil' && <BrushLibraryPanel />}

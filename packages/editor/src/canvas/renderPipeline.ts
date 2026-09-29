@@ -1375,7 +1375,9 @@ export function renderContent(deps: RenderContentDeps): void {
       const item = irByRenderKey.get(instanceKey(nodeId, instancePrefix));
 
       const mask = 'mask' in n && n.mask && n.mask.visible ? n.mask : null;
-      const maskSrcId = mask ? mask.sourceNodeId : null;
+      const maskSrcId =
+        mask?.sourceNodeId ??
+        (mask?.matteSource?.kind === 'scene-node' ? mask.matteSource.nodeId : null);
       const maskChild = maskSrcId ? doc.nodes[maskSrcId] : null;
       // Container masks (clip/alpha/luminance on frames and groups) replay
       // through the shared maskReplay module. Shape-level raster masks

@@ -28,6 +28,12 @@ update, not for someone reading the commit log.
   can build further. Existing and imported brushes keep their previous buildup
   behavior; the built-in Soft Shade preset uses the new mode.
 
+- **Clipped raster shading** — Paint is available from the existing Design
+  toolbar, where it can create a separate Shading layer whose live alpha matte
+  follows a selected raster source. The clip renders in the editor and
+  survives undo/redo, save/reopen, and transparent PNG export; mask dependencies
+  are included when a subtree is flattened for sampling or export.
+
 - **Mesh mockups for folded fabric** — A new bounded mesh envelope joins flat,
   perspective, and cylindrical mockup surfaces, for the jobs those cannot do:
   folded banners, draped textiles, curved paper. Apply the new "Fabric Banner —

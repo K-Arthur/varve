@@ -270,6 +270,39 @@ describe('renderEnhancedMask', () => {
     expect(contentDraw).toHaveBeenCalled();
   });
 
+  it('restores callback transforms before compositing full-surface mask pixels', () => {
+    const contexts: CanvasRenderingContext2D[] = [];
+    renderEnhancedMask(
+      mainCtx,
+      {
+        draw: (ctx) => {
+          contexts.push(ctx);
+          ctx.setTransform(2, 0, 0, 2, 20, 20);
+          ctx.fillStyle = 'white';
+          ctx.fillRect(0, 0, 20, 20);
+        },
+      },
+      {
+        draw: (ctx) => {
+          contexts.push(ctx);
+          ctx.setTransform(2, 0, 0, 2, 20, 20);
+          ctx.fillStyle = 'red';
+          ctx.fillRect(0, 0, 20, 20);
+        },
+      },
+    );
+
+    expect(contexts[0]?.getTransform()).toMatchObject({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 });
+    expect(contexts[1]?.getTransform()).toMatchObject({
+      a: 1,
+      b: 0,
+      c: 0,
+      d: 1,
+      e: 0,
+      f: 0,
+    });
+  });
+
   it('does not throw for zero-size canvas', () => {
     const zeroCanvas = document.createElement('canvas');
     zeroCanvas.width = 0;

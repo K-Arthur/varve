@@ -1,10 +1,15 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { EditorProvider } from '../../../context';
+import { EditorProvider, useEditor } from '../../../context';
 import { BrushSection } from './BrushSection';
+
+function ForegroundProbe() {
+  const { state } = useEditor();
+  return <output data-testid="foreground-color">{state.foregroundColor.join(',')}</output>;
+}
 
 describe('BrushSection', () => {
   it('shows the full raster brush controls for the paint tool', () => {
@@ -19,9 +24,22 @@ describe('BrushSection', () => {
     expect(screen.getByLabelText(/^Opacity/)).toBeInTheDocument();
     expect(screen.getByLabelText(/^Flow/)).toBeInTheDocument();
     expect(screen.getByLabelText('Accumulation')).toBeInTheDocument();
+    expect(screen.getByLabelText('Foreground color')).toBeInTheDocument();
     expect(screen.getByLabelText(/^Hardness/)).toBeInTheDocument();
     expect(screen.getByLabelText(/^Spacing/)).toBeInTheDocument();
     expect(screen.getByLabelText(/^Smoothing/)).toBeInTheDocument();
+  });
+
+  it('sets brush color in a non-Drawing workspace from Paint options', () => {
+    render(
+      <EditorProvider>
+        <BrushSection tool="paint" />
+        <ForegroundProbe />
+      </EditorProvider>,
+    );
+
+    fireEvent.change(screen.getByLabelText('Foreground color'), { target: { value: '#ff2020' } });
+    expect(screen.getByTestId('foreground-color')).toHaveTextContent('255,32,32,255');
   });
 
   it('shows only a stabilization control for the pencil tool, not raster brush concepts', () => {

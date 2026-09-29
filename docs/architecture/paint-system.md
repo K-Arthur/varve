@@ -71,6 +71,21 @@ operation; the sample snapshot is temporary and never becomes document
 content. Transparent linework is sampled over white so enclosed regions can be
 selected without painting white pixels into the document.
 
+For shading over an existing raster layer, select that visible raster source
+and choose **Create clipped paint layer** in Paint tool options. Paint is
+available from the existing Design toolbar as well as the specialist drawing
+and photo toolbars, so this workflow does not require leaving Design. Varve creates
+an ordinary raster child named **Shading** inside a named group whose live
+scene-node alpha matte references the source. The source remains editable, and
+paint deposits stay on the new child. The child's transform is mapped through
+the active surface and the source's world transform; hidden, off-surface, or
+singularly transformed sources are refused. Structured raster exports,
+subtree-compositor exports, and artwork sampling include the external matte
+source as a render dependency while keeping it outside the selected output
+boundary. The browser regression verifies the clip, unchanged pixels outside
+the source, undo/redo, save/reopen, and a transparent PNG export. SVG/PDF
+round-trip appearance for this new workflow is not yet browser-qualified.
+
 Clone Stamp, Healing Brush, Spot Heal, Patch, and Dodge Burn use the same
 resolver but with stricter ownership: an explicitly selected raster layer is
 the destination, a

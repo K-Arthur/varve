@@ -216,7 +216,7 @@ only to migrate layouts saved by older versions.
 
 | Workspace | Shortcut | Focus |
 |---|---|---|
-| Design | `Ctrl+Shift+1` | UI/UX, components, prototyping, Logo tools, developer handoff |
+| Design | `Ctrl+Shift+1` | UI/UX, vector and raster illustration, components, prototyping, Logo tools, developer handoff |
 | Print | `Ctrl+Shift+2` | Multi-page layout, typography, preflight, colour management |
 | Draw | `Ctrl+Shift+3` | Raster painting, vector freehand, brushes |
 | Photo | `Ctrl+Shift+4` | Nondestructive photo editing and adjustments |

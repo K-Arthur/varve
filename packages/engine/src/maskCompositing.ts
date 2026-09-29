@@ -316,6 +316,10 @@ export function applyMaskAlpha(
 
     target.save();
     try {
+      // Both the content and mask surfaces use full-canvas pixel coordinates.
+      // The caller may have drawn the content under a document-to-device
+      // transform, which must not be applied a second time to this mask image.
+      target.setTransform(1, 0, 0, 1, 0, 0);
       target.globalCompositeOperation = 'destination-in';
       target.drawImage(maskCanvas, 0, 0);
     } finally {
@@ -376,21 +380,23 @@ export function renderEnhancedMask(
     const contentCtx = contentCanvas.getContext('2d');
     if (!contentCtx) return;
 
-    // Render mask source content
-    // Apply unlinked mask transform if specified
-    if (opts.unlinked && opts.maskTransform) {
-      maskCtx.save();
-      maskCtx.setTransform(
-        opts.maskTransform[0],
-        opts.maskTransform[1],
-        opts.maskTransform[2],
-        opts.maskTransform[3],
-        opts.maskTransform[4],
-        opts.maskTransform[5],
-      );
-    }
-    maskSource.draw(maskCtx);
-    if (opts.unlinked && opts.maskTransform) {
+    // Render mask source content. Callbacks may set a document-to-device
+    // transform; contain that state so later pixel-space processing still
+    // lines up with the canvas-sized mask and content surfaces.
+    maskCtx.save();
+    try {
+      if (opts.unlinked && opts.maskTransform) {
+        maskCtx.setTransform(
+          opts.maskTransform[0],
+          opts.maskTransform[1],
+          opts.maskTransform[2],
+          opts.maskTransform[3],
+          opts.maskTransform[4],
+          opts.maskTransform[5],
+        );
+      }
+      maskSource.draw(maskCtx);
+    } finally {
       maskCtx.restore();
     }
 
@@ -406,12 +412,27 @@ export function renderEnhancedMask(
       }
     }
 
-    // Render content
-    content.draw(contentCtx);
+    // Render content. Restore the callback's transform and compositing state
+    // before combining the two full-surface images below.
+    contentCtx.save();
+    try {
+      content.draw(contentCtx);
+    } finally {
+      contentCtx.restore();
+    }
 
-    // Composite: destination-in keeps content only where mask has non-zero alpha
-    contentCtx.globalCompositeOperation = 'destination-in';
-    contentCtx.drawImage(maskCanvas, 0, 0);
+    // Composite in surface pixel space: destination-in keeps content only
+    // where the mask has non-zero alpha. Reusing a callback's document
+    // transform here shifts/scales the mask a second time and can erase the
+    // whole result for translated or zoomed canvases.
+    contentCtx.save();
+    try {
+      contentCtx.setTransform(1, 0, 0, 1, 0, 0);
+      contentCtx.globalCompositeOperation = 'destination-in';
+      contentCtx.drawImage(maskCanvas, 0, 0);
+    } finally {
+      contentCtx.restore();
+    }
 
     // Draw the composited result onto the main canvas
     ctx.drawImage(contentCanvas, 0, 0);

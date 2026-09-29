@@ -139,6 +139,10 @@ describe('workspaceTypes', () => {
     expect(config.defaultTool).toBe('paint');
   });
 
+  it('keeps raster paint available from the Design toolbar for mixed illustration work', () => {
+    expect(getVisibleToolbarToolIds(getWorkspaceConfig('design')).has('paint')).toBe(true);
+  });
+
   it('image mode has pixel grid overlay', () => {
     const config = getWorkspaceConfig('image');
     expect(config.canvasOverlays.pixelGrid).toBe(true);
@@ -198,10 +202,10 @@ describe('workspaceTypes', () => {
     expect(toolIds).toContain('crop');
   });
 
-  it('design mode toolbar does not have paint tool', () => {
+  it('design mode toolbar has raster paint for mixed illustration work', () => {
     const config = getWorkspaceConfig('design');
     const toolIds = config.toolbar.tools.map((t) => t.toolId);
-    expect(toolIds).not.toContain('paint');
+    expect(toolIds).toContain('paint');
   });
 
   it('design mode toolbar does not have retouch tools', () => {
@@ -284,9 +288,9 @@ describe('workspaceTypes', () => {
 
   // ─── Hidden tools ────────────────────────────────────────────────────────
 
-  it('design mode hides paint and retouch tools', () => {
+  it('design mode hides advanced retouch tools but keeps paint reachable', () => {
     const hidden = getHiddenTools('design');
-    expect(hidden.has('paint')).toBe(true);
+    expect(hidden.has('paint')).toBe(false);
     expect(hidden.has('eraser')).toBe(true);
     expect(hidden.has('cloneStamp')).toBe(true);
     expect(hidden.has('healBrush')).toBe(true);
@@ -331,7 +335,7 @@ describe('workspaceTypes', () => {
   });
 
   it('falls back from a hidden tool without activating command-only flyout members', () => {
-    expect(resolveWorkspaceTool(getWorkspaceConfig('design'), 'paint')).toBe('select');
+    expect(resolveWorkspaceTool(getWorkspaceConfig('design'), 'paint')).toBe('paint');
     expect(resolveWorkspaceTool(getWorkspaceConfig('design'), 'booleanUnion')).toBe('select');
     expect(resolveWorkspaceTool(getWorkspaceConfig('drawing'), 'paint')).toBe('paint');
   });
