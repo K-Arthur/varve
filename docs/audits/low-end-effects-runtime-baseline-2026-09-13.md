@@ -502,17 +502,31 @@ wait-for-cleanup behavior.
 
 Frequent Effect Studio controls and model-download actions receive 44 CSS-pixel
 minimum targets on coarse-pointer devices, and the filter list no longer traps
-touch users in a short nested scroll region. A real Chromium mobile/touch E2E
-case now exercises portrait reachability, numeric entry, preview cancel, apply,
+touch users in a short nested scroll region. A Chromium mobile/touch E2E was
+added to exercise portrait reachability, numeric entry, preview cancel, apply,
 reorder target dimensions, and the intended save/reopen/export sequence. Its
 first run did not reach the spec: global setup waited three minutes for the
 editor home control, then the browser reported that the engine barrel lacked
 `MAX_AREA_SELECTION_PIXELS`, imported by the shared, untracked
 `packages/editor/src/tools/artworkSampling.ts`. That path is outside this
 milestone's ownership and was preserved. The control geometry and save/reopen
-flow therefore remain unverified in the app browser. Host emulation also does
-not establish physical Duet keyboard occlusion, pen behavior, or suspend and
-resume.
+flow therefore remain unverified in the app browser. A post-M9 lease-wrapped
+retry at isolated port 1723 also stopped in global setup before the spec: Vite
+did not answer `http://localhost:1723/` within the setup's 60-second warm-up
+window, and no screenshot was generated. The separate M9 adjustment preview
+E2E did start the app and pass on port 1722, but it does not cover this longer
+touch/save/reopen/export journey. Host emulation also does not establish
+physical Duet keyboard occlusion, pen behavior, or suspend and resume.
+
+The retry command was:
+
+```bash
+VARVE_LEASE_TIMEOUT=1800000 VARVE_E2E_PORT=1723 VARVE_E2E_OUTPUT_DIR=low-end-touch-final-0929 node scripts/quality/heavy-lease.mjs "e2e: retry touch workflow after app startup recovery" -- npx playwright test tests/e2e/effects/low-end-touch-workflow.spec.ts --project=chromium --workers=1 --reporter=list
+```
+
+Result: exit 1 in global setup with “dev server not reachable at
+http://localhost:1723 after 60000ms”; the test body and screenshot assertions
+did not run.
 
 The enhancement feature/help pages now explain explicit downloads, verified
 installation, the difference between storage and inference memory, and durable
@@ -734,10 +748,16 @@ evidence is recorded in a follow-up documentation commit. No push or
 publication was performed.
 
 The follow-up documentation review ran on `master` after the presentation
-research docs-only commit `53c14b0da`: `pnpm audit:docs` remained clean (1,113
-docs, 715 links, 177 ADRs), `pnpm audit:emoji` scanned 5,155 files cleanly, and
+research docs-only commit `53c14b0da`: `pnpm audit:docs` was clean (1,113 docs,
+715 links, 177 ADRs), `pnpm audit:emoji` scanned 5,155 files cleanly, and
 `pnpm audit:tokens` passed all 303 pairs across three themes with clean token
-usage. The shared planner's latest snapshot reported 510 changed paths with
-the same full-suite escalation; `pnpm verify:affected` exited 2 before starting
-lanes. No second full-gate run was started after that docs-only change; it did
-not alter the M9 code or the failures recorded above.
+usage. That snapshot's planner reported 510 changed paths with the same
+full-suite escalation; `pnpm verify:affected` exited 2 before starting lanes.
+
+After recording the M7 touch-workflow retry, the shared tree changed again
+while validation ran: `pnpm verify:plan` reported 527 paths and
+`pnpm verify:affected` then reported 528 paths, ten affected JS packages, and
+`varve-bridge`; both still required the full suite, and affected exited 2 before
+starting lanes. The latest docs audit remained clean (1,115 docs, 720 links,
+178 ADRs). No full-gate rerun was started for these documentation-only updates:
+they did not alter the M9 code or the blockers recorded above.
