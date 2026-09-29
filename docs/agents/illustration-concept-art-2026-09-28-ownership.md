@@ -71,9 +71,10 @@ implementation ownership is limited to the following clean paths:
   edits. Each exact website path will be checked for ownership and status
   immediately before any proposed edit.
 - `CHANGELOG.md` has an active unrelated shortcut correction under the
-  workspace-switcher review ownership. The illustration entries remain pending
-  until that path is released so its staged/unstaged text is not captured in
-  this task's commit.
+  workspace-switcher review ownership. This task's illustration bullets are
+  append-only additions to the Unreleased section and are partially staged as
+  isolated hunks; the shortcut correction and other changelog additions remain
+  outside this task's commit.
 
 ## Validation and commit protocol
 
@@ -373,3 +374,76 @@ errors; the token-usage audit still reports the unrelated literal `--name` in
 `packages/codegen/src/tailwind.ts`. Full suite was not run: the planner did
 not escalate, and the required affected command was blocked at the unrelated
 radius audit. These broader quality issues remain explicit follow-up items.
+
+## Brush-accumulation integration handoff (2026-09-29)
+
+This slice extends the existing raster dab compositor only for optional
+per-gesture stroke-opacity accumulation. The integration owner covers the
+shared preset contract and compositor option in `packages/scene/src/brush.ts`,
+`rasterLayer.ts`, and `strokeOpacity.ts`; the PaintTool session owns the
+bounded map until confirmed work drains or the stroke aborts. Brush Browser,
+BrushSection, Brush Editor, and the preview renderer expose the setting through
+existing controls. No worker protocol, input normalization, renderer hub, or
+GPU compositor ownership changes are included. `packages/editor/src/context/types.ts`
+also contains in-flight selection and object-edit fields; only the brush
+accumulation import and optional setting field are assigned to this slice and
+must be staged separately.
+
+Additional paths in this slice are `packages/scene/src/index.ts`, the focused
+scene/editor tests and `paintAccumulation.bench.ts`, the Brush Editor and
+BrushSection controls, `packages/help/src/content/tools.ts` (Paint article
+only), the paint-system architecture note, the two Strokes website surfaces,
+their existing website E2E, the research/capability ledger, and this ownership
+record. `CHANGELOG.md` receives only the two illustration-related bullets via
+partial staging. Other changes within those shared files remain with their
+recorded owners.
+
+The Brush Editor save callback retains `stroke-opacity`; legacy and imported
+presets resolve to `buildup`. Soft Shade opts into stroke opacity, where flow
+sets the rate of convergence and later gestures can deepen the result. A
+per-stroke coverage map is capped at 64 MiB. If new tiles exceed that cap, new
+areas fall back to buildup and the app announces the limit. The production
+preview uses the actual stroke generator and raster compositor.
+
+Validation for this slice:
+
+- Nine focused scene/editor unit files pass: 175/175 tests. The set covers
+  legacy defaults, per-gesture opacity, flow, later gestures, eraser coverage,
+  cap fallback, editor save state, BrushSection control and preview invalidation.
+- The leased Chromium Brush Browser and pointer-stroke checks pass 2/2. The
+  first and second Soft Shade gestures show the expected alpha increase; the
+  preview and both gesture captures were inspected from
+  `test-results/brush-accumulation-20260929/`.
+- The compositor benchmark command
+  `pnpm exec vitest bench --run --pool=forks packages/scene/src/__benchmarks__/paintAccumulation.bench.ts`
+  passes in Node and jsdom. Node means were 7.0/13.8/29.6 ms for 1K/2K/4K
+  buildup strokes and 9.0/17.2/35.4 ms with stroke-opacity tracking. This is a
+  relative compositor microbenchmark; it does not measure browser frame time,
+  cold start, physical stylus input, or full document memory.
+- Website static and Pages builds passed with zero Astro diagnostics and 114
+  routes. The leased Strokes guidance check passed 2/2 across `/varve` and `/`
+  bases, including desktop/mobile Light/Dark checks, no horizontal overflow,
+  loaded and described imagery, guide links, and no unexpected browser errors.
+- `pnpm typecheck:e2e`, the scene package typecheck, `pnpm audit:docs`,
+  `pnpm audit:emoji`, `pnpm audit:radius`, `pnpm audit:spacing`, and
+  `node scripts/audit-architecture.mjs --ci` passed. Token contrast passed all
+  303 pairs in three themes; the token-usage scan remains blocked by the
+  unrelated literal `--name` in `packages/codegen/src/tailwind.ts`. The editor
+  typecheck reports existing `CurveEditor.test.tsx` overload errors.
+  `pnpm verify:affected --staged` stopped at that token
+  audit before later lanes; its plan did not escalate to the full suite.
+
+Website copy is updated in the Strokes feature page, artist guide, and the
+in-app `tool:paint` help entry; the Unreleased changelog records the brush
+contract. The larger sketch → ink → flats → clipped shading workflow is not
+yet accepted, and Linux Tauri/WebKitGTK plus real stylus hardware remain
+unverified.
+
+Latest shared-checkout recheck: `pnpm typecheck:e2e` now fails in the
+concurrently edited `packages/scene/src/operations/ops/presentationOps.ts` and
+`packages/scene/src/presentation/layoutTemplates.ts`; the website typecheck
+also reports unrelated `screenshot-delivery.spec.ts` and `visual.spec.ts`
+errors after its Astro check passes (171 files, zero diagnostics). These files
+are outside this slice. `node scripts/audit-architecture.mjs --ci` exits 0;
+it reports 14 known cycles within the configured ceiling, no layer violations,
+and the existing hub-budget warnings. No architecture baseline was changed.

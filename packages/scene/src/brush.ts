@@ -21,6 +21,7 @@ export type BrushDynamicsInput =
   | 'stroke'
   | 'custom';
 export type BrushDynamicsTarget = 'size' | 'opacity' | 'flow' | 'hardness' | 'rotation' | 'spacing';
+export type BrushAccumulation = 'buildup' | 'stroke-opacity';
 
 export interface BrushDynamicsMapping {
   input: BrushDynamicsInput;
@@ -41,6 +42,12 @@ export interface BrushPreset {
   opacity: number;
   /** Flow controls how overlapping dabs accumulate (0-1). */
   flow: number;
+  /**
+   * Buildup deposits every dab; stroke-opacity caps one gesture at its brush
+   * opacity so flow controls how quickly coverage reaches that limit.
+   * Optional for compatibility with older saved brush packages.
+   */
+  accumulation?: BrushAccumulation;
   /** Base hardness (0-1), inner solidity of the brush. */
   hardness: number;
   /** Spacing between dabs as a fraction of brush diameter. */
@@ -116,6 +123,7 @@ export function defaultBrushPreset(id: string, name: string): BrushPreset {
     radius: 10,
     opacity: 1,
     flow: 1,
+    accumulation: 'buildup',
     hardness: 0.8,
     spacing: 0.25,
     angle: 0,
@@ -1066,6 +1074,7 @@ export const BUILT_IN_BRUSH_PRESETS: Record<string, BrushPreset> = {
   'built-in-soft-shade': {
     ...defaultBrushPreset('built-in-soft-shade', 'Soft Shade'),
     id: 'built-in-soft-shade',
+    accumulation: 'stroke-opacity',
     radius: 28,
     opacity: 0.38,
     flow: 0.24,
@@ -1141,6 +1150,10 @@ export function validateBrushPreset(preset: unknown): BrushPreset | null {
     radius: Math.max(0.5, Math.min(1000, (p.radius as number) ?? fallback.radius)),
     opacity: clampUnit(p.opacity as number | undefined, fallback.opacity),
     flow: clampUnit(p.flow as number | undefined, fallback.flow),
+    accumulation:
+      p.accumulation === 'stroke-opacity' || p.accumulation === 'buildup'
+        ? p.accumulation
+        : (fallback.accumulation ?? 'buildup'),
     hardness: clampUnit(p.hardness as number | undefined, fallback.hardness),
     spacing: Math.max(0.01, clampUnit(p.spacing as number | undefined, fallback.spacing)),
     angle: (p.angle as number) ?? fallback.angle,

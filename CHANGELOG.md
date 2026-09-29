@@ -14,6 +14,20 @@ update, not for someone reading the commit log.
 
 ### Added
 
+- **Separate linework sampling for flats** — Magic Wand can sample the rendered
+  visible artwork, including transparent line art against a white paper matte,
+  while the fill goes to a separate editable Flats layer. The workflow keeps
+  linework intact through undo/redo, save/reopen, and grouped PNG export;
+  current-layer sampling remains the default. A bounded 0–8 px edge expansion
+  lets the flat tuck beneath antialiased ink; open contours still need manual
+  checking because edge expansion does not close gaps.
+
+- **Brush opacity and flow controls** — Brush presets can opt into stroke-opacity
+  accumulation, which limits overlapping dabs within one gesture to the chosen
+  opacity while flow controls how quickly the limit is reached. A later gesture
+  can build further. Existing and imported brushes keep their previous buildup
+  behavior; the built-in Soft Shade preset uses the new mode.
+
 - **Mesh mockups for folded fabric** — A new bounded mesh envelope joins flat,
   perspective, and cylindrical mockup surfaces, for the jobs those cannot do:
   folded banners, draped textiles, curved paper. Apply the new "Fabric Banner —

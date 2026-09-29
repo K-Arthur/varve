@@ -156,6 +156,7 @@ export * from './state-machine-validation';
 export * from './storyOps';
 export * from './strokeEngine';
 export * from './strokeIdentity';
+export * from './strokeOpacity';
 export * from './styles';
 export * from './suppressions';
 export * from './surfaceModel';

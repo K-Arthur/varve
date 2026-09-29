@@ -26,7 +26,17 @@ test('Strokes guidance stays readable across themes, widths, and deploy bases', 
   await page.goto(route('/features/strokes/'));
   await expect(page.getByRole('heading', { name: 'Stroke System', exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Paint stays on its target' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Selection-to-flats' })).toBeVisible();
   await expect(page.getByText(/never redirects a stroke to another layer/i)).toBeVisible();
+  await expect(page.getByText(/sample one raster or the visible artwork/i)).toBeVisible();
+  await expect(page.getByText(/Soft Shade limits one gesture to its opacity/i)).toBeVisible();
+  const proofImage = page.getByRole('img', {
+    name: 'Varve showing a red apple flat beneath editable black linework on a separate Flats layer',
+  });
+  await expect(proofImage).toBeVisible();
+  await expect
+    .poll(() => proofImage.evaluate((image) => (image as HTMLImageElement).naturalWidth))
+    .toBeGreaterThan(0);
 
   for (const theme of ['light', 'dark'] as const) {
     const control = page.locator('.desktop-theme-toggle').getByRole('radio', {
@@ -68,9 +78,37 @@ test('Strokes guidance stays readable across themes, widths, and deploy bases', 
   const guide = page.getByRole('link', { name: 'Read the stroke guide' });
   const guidePath = await guide.getAttribute('href');
   expect(guidePath).toBe(`${basePath}/docs/tools/strokes`);
+  await expect(page.getByRole('link', { name: 'Read the Object Selection guide' })).toHaveAttribute(
+    'href',
+    `${basePath}/docs/tools/object-selection`,
+  );
   await guide.click();
   await expect(page.getByRole('heading', { name: 'Strokes', exact: true })).toBeVisible();
   await expect(page.getByText(/creates a named Brush Layer/i)).toBeVisible();
+  await expect(page.getByText(/Stroke-opacity mode caps one gesture/i)).toBeVisible();
+
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto(route('/docs/tools/object-selection/'));
+  await expect(
+    page.getByRole('heading', { name: 'Magic Wand for linework and flats' }),
+  ).toBeVisible();
+  await expect(page.getByText(/Create flats layer/i)).toBeVisible();
+  await page.screenshot({
+    path: testInfo.outputPath('selection-flats-guide-desktop.png'),
+    fullPage: true,
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  const guideWidth = await page.evaluate(() => ({
+    viewport: document.documentElement.clientWidth,
+    content: document.documentElement.scrollWidth,
+  }));
+  expect(guideWidth.content, 'selection guide fits a narrow mobile viewport').toBeLessThanOrEqual(
+    guideWidth.viewport + 1,
+  );
+  await page.screenshot({
+    path: testInfo.outputPath('selection-flats-guide-mobile.png'),
+    fullPage: true,
+  });
   expect(errors).toEqual([]);
 
   const images = await page.locator('img').evaluateAll((nodes) =>

@@ -12,7 +12,15 @@
  * same thumbnail every time.
  */
 import type { BrushPreset } from '@varve/scene';
-import { appendStrokePoints, beginStroke, strokePoint } from '@varve/scene';
+import {
+  appendStrokePoints,
+  beginStroke,
+  compositeDabOnNode,
+  createStrokeOpacityAccumulator,
+  makeRasterLayerNode,
+  strokePoint,
+  TILE_SIZE,
+} from '@varve/scene';
 
 export interface BrushPreviewOptions {
   width: number;
@@ -24,7 +32,7 @@ export interface BrushPreviewOptions {
 }
 
 /** Bumped whenever the preview drawing changes, to invalidate cached images. */
-export const BRUSH_PREVIEW_RENDERER_VERSION = 2;
+export const BRUSH_PREVIEW_RENDERER_VERSION = 3;
 
 const DEFAULT_INK = '#1b1b1f';
 
@@ -41,6 +49,7 @@ export function brushPreviewFingerprint(preset: BrushPreset, options: BrushPrevi
     preset.radius,
     preset.opacity,
     preset.flow,
+    preset.accumulation ?? 'buildup',
     preset.hardness,
     preset.spacing,
     preset.angle,
@@ -101,11 +110,9 @@ export function previewStrokePoints(width: number, height: number) {
 }
 
 /**
- * Render a preview into a canvas 2D context.
- *
- * Drawn with plain canvas arcs rather than the tile compositor: a thumbnail
- * does not need document-accurate pixels, and going through the raster path
- * would allocate tiles per preview for hundreds of brushes.
+ * Render a preview into a canvas 2D context through the production stroke
+ * generator and tile compositor. Brush previews therefore show the actual
+ * grain, opacity accumulation and tip treatment used by a document stroke.
  */
 export function renderBrushPreview(
   ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
@@ -113,7 +120,6 @@ export function renderBrushPreview(
   options: BrushPreviewOptions,
 ): void {
   const { width, height } = options;
-  const ink = options.ink ?? DEFAULT_INK;
   ctx.clearRect(0, 0, width, height);
 
   // Scale the brush so a 300px brush and a 3px brush both read as themselves
@@ -124,11 +130,11 @@ export function renderBrushPreview(
   const state = beginStroke(preset.id, 0, scaled, seedFor(preset.id));
   const { dabs } = appendStrokePoints(state, previewStrokePoints(width, height));
 
-  ctx.save();
   if (preset.eraser) {
     // An eraser has nothing to erase on an empty tile, so show its footprint
     // as an outline instead of drawing nothing at all.
-    ctx.strokeStyle = ink;
+    ctx.save();
+    ctx.strokeStyle = options.ink ?? DEFAULT_INK;
     ctx.globalAlpha = 0.55;
     ctx.lineWidth = 1;
     for (const dab of dabs) {
@@ -140,38 +146,33 @@ export function renderBrushPreview(
     return;
   }
 
-  ctx.fillStyle = ink;
-  // Not every 2D context implementation provides gradients (headless canvases
-  // and test environments among them); a flat dab is a worse preview than a
-  // soft one, but an exception would take the whole panel down.
-  const canGradient = typeof ctx.createRadialGradient === 'function';
+  const color = previewInkRgba(options.ink ?? DEFAULT_INK);
+  let layer = makeRasterLayerNode('brush-preview', { width, height });
+  const opacity =
+    preset.accumulation === 'stroke-opacity'
+      ? createStrokeOpacityAccumulator(TILE_SIZE * TILE_SIZE, TILE_SIZE * TILE_SIZE * 16)
+      : null;
   for (const dab of dabs) {
-    const alpha = Math.max(0, Math.min(1, dab.opacity * dab.flow));
-    if (alpha <= 0) continue;
-    ctx.globalAlpha = alpha;
-    if (dab.hardness >= 0.99 || !canGradient) {
-      ctx.beginPath();
-      ctx.ellipse(dab.x, dab.y, dab.radius, dab.radius * dab.roundness, dab.angle, 0, Math.PI * 2);
-      ctx.fill();
-    } else {
-      const gradient = ctx.createRadialGradient(
-        dab.x,
-        dab.y,
-        dab.radius * dab.hardness,
-        dab.x,
-        dab.y,
-        Math.max(dab.radius, dab.radius * dab.hardness + 0.01),
-      );
-      gradient.addColorStop(0, ink);
-      gradient.addColorStop(1, 'transparent');
-      ctx.fillStyle = gradient;
-      ctx.beginPath();
-      ctx.ellipse(dab.x, dab.y, dab.radius, dab.radius * dab.roundness, dab.angle, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = ink;
-    }
+    layer = compositeDabOnNode(layer, dab, color, opacity ? { strokeOpacity: opacity } : false);
   }
-  ctx.restore();
+  for (const [key, tile] of layer.tiles) {
+    const [col, row] = key.split(':').map(Number);
+    const image = ctx.createImageData(TILE_SIZE, TILE_SIZE);
+    image.data.set(tile.pixels);
+    ctx.putImageData(image, col! * TILE_SIZE, row! * TILE_SIZE);
+  }
+}
+
+function previewInkRgba(ink: string): [number, number, number, number] {
+  const match = /^#([\da-f]{6})([\da-f]{2})?$/i.exec(ink.trim());
+  if (!match) return [27, 27, 31, 255];
+  const hex = match[1]!;
+  return [
+    Number.parseInt(hex.slice(0, 2), 16),
+    Number.parseInt(hex.slice(2, 4), 16),
+    Number.parseInt(hex.slice(4, 6), 16),
+    match[2] ? Number.parseInt(match[2], 16) : 255,
+  ];
 }
 
 interface CacheEntry {

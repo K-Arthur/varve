@@ -246,6 +246,20 @@ function TransferSection({ draft, set }: SectionProps) {
         unit="%"
         onChange={(v) => set('flow', v / 100)}
       />
+      <NativeSelect
+        className="brush-editor__field brush-editor__native-select"
+        id="brush-accumulation"
+        label="Accumulation"
+        value={draft.accumulation ?? 'buildup'}
+        onValueChange={(value) => set('accumulation', value as BrushPreset['accumulation'])}
+        options={[
+          { value: 'buildup', label: 'Buildup — each dab adds paint' },
+          { value: 'stroke-opacity', label: 'Stroke opacity — flow builds to the opacity limit' },
+        ]}
+      />
+      <p className="brush-editor__help">
+        Stroke opacity caps each gesture at the brush opacity. A later gesture can build further.
+      </p>
       <NumberField
         label="Opacity jitter"
         value={Math.round(draft.opacityJitter * 100)}

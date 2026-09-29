@@ -95,6 +95,22 @@ identical narrow-viewport full-redraw hash. This mitigation leaves the LOD
 root cause unresolved; no LOD performance or correctness claim is made, and
 the earlier banded screenshot is not suitable for marketing.
 
+## Varve brush-accumulation follow-up (2026-09-29)
+
+The Krita manual describes opacity as the stroke-level ceiling and flow as
+per-dab deposition; this supports a familiar optional mode, not a requirement
+that every brush engine behave identically. Varve now persists an optional
+`buildup` or `stroke-opacity` value in brush presets. Existing and imported
+presets without it resolve to the former buildup behavior. The built-in Soft
+Shade uses stroke opacity: overlap reaches the preset opacity within one
+pointer gesture, flow controls the rate, and a separate gesture can build
+further. The per-gesture byte map is bounded to 64 MiB; beyond the tracked-tile
+limit new tiles use buildup with an announcement. Mask strokes retain their
+pre-existing convergence-to-target semantics. Brush thumbnails now render
+through the production dab generator and tile compositor so the selected mode
+is visible in the preview. This change addresses the opacity/flow expectation
+recorded from the manual; it does not claim brush-engine parity with Krita.
+
 ## Artifact provenance caution
 
 The existing anime-restoration ONNX file's SHA-256 was found to match the

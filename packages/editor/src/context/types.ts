@@ -12,6 +12,7 @@ import type { PrototypeData, PrototypeDebugConsole, PrototypeRuntime } from '@va
 import type {
   AdjustmentScope,
   BackgroundRemovalMethod,
+  BrushAccumulation,
   ColorMode,
   Document,
   DocumentAsset,
@@ -568,6 +569,7 @@ export interface EditorState {
     radius: number;
     opacity: number;
     flow: number;
+    accumulation?: BrushAccumulation;
     hardness: number;
     smoothing: number;
     spacing: number;

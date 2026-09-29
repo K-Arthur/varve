@@ -211,6 +211,7 @@ describe('brush preset validation', () => {
     );
     expect(BUILT_IN_BRUSH_PRESETS['built-in-opaque-paint']!.opacity).toBe(1);
     expect(BUILT_IN_BRUSH_PRESETS['built-in-soft-shade']!.opacity).toBeLessThan(0.5);
+    expect(BUILT_IN_BRUSH_PRESETS['built-in-soft-shade']!.accumulation).toBe('stroke-opacity');
   });
 
   it('validateBrushPreset rejects non-objects', () => {
@@ -228,6 +229,20 @@ describe('brush preset validation', () => {
     const result = validateBrushPreset({ id: 't2', name: 'T2', shape: 'circle', radius: 10 });
     expect(result).not.toBeNull();
     expect(result!.blendMode).toBe('normal');
+    expect(result!.accumulation).toBe('buildup');
+  });
+
+  it('preserves the explicit accumulation mode and defaults legacy brushes to buildup', () => {
+    const legacy = {
+      id: 'legacy',
+      name: 'Legacy',
+      shape: 'circle',
+      radius: 10,
+      accumulation: undefined,
+    };
+    const strokeOpacity = validateBrushPreset({ ...legacy, accumulation: 'stroke-opacity' });
+    expect(validateBrushPreset(legacy)?.accumulation).toBe('buildup');
+    expect(strokeOpacity?.accumulation).toBe('stroke-opacity');
   });
 
   it('isBuiltInPreset returns true for built-in presets', () => {

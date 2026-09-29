@@ -58,6 +58,7 @@ export function BrushSection({ tool, sectionId }: BrushSectionProps) {
       setBrushSetting('radius', found.radius);
       setBrushSetting('opacity', found.opacity);
       setBrushSetting('flow', found.flow);
+      setBrushSetting('accumulation', found.accumulation ?? 'buildup');
       setBrushSetting('hardness', found.hardness);
       setBrushSetting('smoothing', found.smoothing);
       setBrushSetting('spacing', found.spacing);
@@ -159,6 +160,16 @@ export function BrushSection({ tool, sectionId }: BrushSectionProps) {
         shiftStep={10}
         unit="%"
         onChange={(v) => setBrushSetting('flow', v / 100)}
+      />
+
+      <Select
+        label="Accumulation"
+        value={brushSettings.accumulation ?? 'buildup'}
+        options={[
+          { value: 'buildup', label: 'Buildup' },
+          { value: 'stroke-opacity', label: 'Stroke opacity' },
+        ]}
+        onChange={(value) => setBrushSetting('accumulation', value as 'buildup' | 'stroke-opacity')}
       />
 
       <NumberField

@@ -22,7 +22,7 @@ import '../../../styles/docs-prose.css';
           This guide covers editable vector strokes. For pixel-level illustration work, use the existing Paint, Eraser, and Smudge tools on the same canvas and document. Smudge exposes three reservoir modes in Tool options: <strong>Pure smudge</strong>, <strong>Loaded paint</strong>, and <strong>Fingerpaint</strong>.
         </p>
         <p>
-          The brush browser includes pressure-shaped <strong>Sketch Pencil</strong> and <strong>Inking Nib</strong> presets, plus <strong>Opaque Paint</strong> and <strong>Soft Shade</strong> starting points. Adjust their size, opacity, and flow through the existing brush controls.
+          The brush browser includes pressure-shaped <strong>Sketch Pencil</strong> and <strong>Inking Nib</strong> presets, plus <strong>Opaque Paint</strong> and <strong>Soft Shade</strong> starting points. Adjust their size, opacity, flow, and accumulation through the existing brush controls. Stroke-opacity mode caps one gesture at the brush opacity while flow controls buildup; a later gesture can deepen the mark. Existing and imported presets without this setting keep the original buildup behavior. Save custom accumulation choices in the Brush Editor.
         </p>
         <p>
           Paint follows the selected pixel layer. With no layer selected, it uses an eligible pixel layer on the active page, or creates a named <strong>Brush Layer</strong> when the canvas has no target. If a vector or other non-pixel object is selected, Varve refuses the stroke instead of quietly painting elsewhere; the screen-reader announcement explains how to create and select a paint layer.

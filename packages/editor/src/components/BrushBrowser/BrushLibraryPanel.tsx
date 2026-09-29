@@ -52,6 +52,7 @@ export function BrushLibraryPanel() {
       setBrushSetting('radius', preset.radius);
       setBrushSetting('opacity', preset.opacity);
       setBrushSetting('flow', preset.flow);
+      setBrushSetting('accumulation', preset.accumulation ?? 'buildup');
       setBrushSetting('hardness', preset.hardness);
       setBrushSetting('smoothing', preset.smoothing);
       setBrushSetting('spacing', preset.spacing);

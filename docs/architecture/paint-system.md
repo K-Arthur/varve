@@ -63,6 +63,14 @@ editor surface and selects it; it does not reuse the selected object or consume
 the refused pointer gesture, so the artist paints with a deliberate next
 stroke.
 
+Pixel-selection sources and pixel destinations are also independent. Magic
+Wand's **Visible artwork** source samples a bounded renderer-produced snapshot
+of the active scene, while **Selection Sources → Create flats layer** creates a
+separate output layer for **Fill pixel layer**. The fill is one undoable
+operation; the sample snapshot is temporary and never becomes document
+content. Transparent linework is sampled over white so enclosed regions can be
+selected without painting white pixels into the document.
+
 Clone Stamp, Healing Brush, Spot Heal, Patch, and Dodge Burn use the same
 resolver but with stricter ownership: an explicitly selected raster layer is
 the destination, a
@@ -249,6 +257,23 @@ blink or jump one pixel at a time.
 `PaintStrokeSession` freezes the preset, colour, alpha lock and area selection
 at pointer-down. Changing brush size mid-stroke cannot produce a stroke built
 from two brushes.
+
+Brush presets also carry an optional `accumulation` setting. `buildup` remains
+the compatibility default for existing presets and preserves the earlier
+per-dab source-over behavior. `stroke-opacity` uses a bounded, one-byte-per-
+pixel map shared across symmetry branches: each pixel builds toward that dab's
+opacity ceiling during one pointer gesture, and a new gesture can deposit
+again. Flow controls the rate of that buildup. The brush editor saves this
+setting with a local brush preset; selecting a built-in Soft Shade preset
+loads its stroke-opacity behavior. The preview uses the same stroke generator
+and tile compositor, so overlap and opacity reflect the selected mode.
+
+The per-gesture map is capped at 64 MiB. If a stroke touches more raster tiles
+than fit, painting continues in buildup mode for new tiles and the editor
+announces the fallback; already tracked tiles remain capped. Mask strokes
+continue to converge toward the chosen mask value, which is their existing
+coverage contract. A stroke-opacity mode does not change document pixels after
+the stroke ends; separate gestures are independent history entries.
 
 ### Drying is not a command stream
 
@@ -482,6 +507,13 @@ allocation, and sample buffers exist only in detailed mode.
 `shouldUseWorker` scores a brush by dab area, density, grain and symmetry. A
 small hard round stays on the main thread, where it beats a structured clone
 each way; large, textured or symmetric brushes move off it.
+
+`packages/scene/src/__benchmarks__/paintAccumulation.bench.ts` compares the
+canonical tile compositor in the default buildup mode and opt-in stroke-opacity
+mode on 1K, 2K and 4K wide traces. The first local Node run measured about
+7.0/13.8/29.6 ms for buildup and 9.0/17.2/35.4 ms for stroke opacity. These are
+compositor microbenchmarks, not input-to-screen latency or physical stylus
+measurements; use them to catch relative cost changes in the optional mode.
 
 ## Visual fixtures
 

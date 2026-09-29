@@ -55,11 +55,13 @@ describe('brush export', () => {
   });
 
   it('round-trips through serialization', () => {
-    const pkg = exportBrushPackage([preset('a', 'paper')], { resolveResource: (id) => grain(id) });
+    const custom = { ...preset('a', 'paper'), accumulation: 'stroke-opacity' as const };
+    const pkg = exportBrushPackage([custom], { resolveResource: (id) => grain(id) });
     const result = importBrushPackage(serializeBrushPackage(pkg));
     expect(result.ok).toBe(true);
     expect(result.presets[0]!.id).toBe('a');
     expect(result.resources[0]!.id).toBe('paper');
+    expect(result.presets[0]!.accumulation).toBe('stroke-opacity');
   });
 });
 

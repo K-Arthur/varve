@@ -1,6 +1,15 @@
 import type { HelpArticle } from './helpTypes';
 
 export const TOOLS: Record<string, HelpArticle> = {
+  'tool:paint': {
+    id: 'tool:paint',
+    title: 'Paint Tool (B)',
+    summary: 'Paint on a selected raster layer with editable brush presets.',
+    body: 'Choose a paint layer and select Sketch Pencil, Inking Nib, Opaque Paint, or Soft Shade from the Brush Browser. Flow controls how quickly repeated dabs build. In the Brush Editor, Buildup deposits every dab as before; Stroke opacity limits one gesture to the brush opacity, and a later gesture can deepen the mark. Older and imported presets keep their existing buildup behavior. On a blank canvas, the first stroke creates a named Brush Layer. If another object is explicitly selected, Paint will not redirect the stroke; choose Create paint layer to continue.',
+    keywords: ['paint', 'brush', 'accumulation', 'flow', 'raster'],
+    category: 'Tools',
+    related: ['panel:layers', 'tool:pencil'],
+  },
   'tool:select': {
     id: 'tool:select',
     title: 'Select Tool (V)',

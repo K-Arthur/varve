@@ -18,6 +18,7 @@ describe('BrushSection', () => {
     expect(screen.getByLabelText(/^Size/)).toBeInTheDocument();
     expect(screen.getByLabelText(/^Opacity/)).toBeInTheDocument();
     expect(screen.getByLabelText(/^Flow/)).toBeInTheDocument();
+    expect(screen.getByLabelText('Accumulation')).toBeInTheDocument();
     expect(screen.getByLabelText(/^Hardness/)).toBeInTheDocument();
     expect(screen.getByLabelText(/^Spacing/)).toBeInTheDocument();
     expect(screen.getByLabelText(/^Smoothing/)).toBeInTheDocument();

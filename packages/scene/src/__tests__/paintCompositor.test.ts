@@ -9,6 +9,7 @@ import {
   makeTileKey,
   TILE_SIZE,
 } from '../rasterLayer';
+import { createStrokeOpacityAccumulator } from '../strokeOpacity';
 import type { RasterLayerNode } from '../types';
 
 function dab(overrides: Partial<BrushDab> = {}): BrushDab {
@@ -186,6 +187,47 @@ describe('source-over compositing', () => {
     const first = px(out, 20, 20)!.a;
     out = compositeDabOnNode(out, dab({ opacity: 0.5 }), RED);
     expect(px(out, 20, 20)!.a).toBeGreaterThan(first);
+  });
+
+  it('caps overlapping dabs within one gesture while flow controls how quickly it builds', () => {
+    const node = makeRasterLayerNode('n', { width: TILE_SIZE, height: TILE_SIZE });
+    const opacity = createStrokeOpacityAccumulator(TILE_SIZE * TILE_SIZE);
+    let out = compositeDabOnNode(node, dab({ opacity: 0.5, flow: 0.25 }), RED, {
+      strokeOpacity: opacity,
+    });
+    const first = px(out, 20, 20)!.a;
+    expect(first).toBeGreaterThan(0);
+    expect(first).toBeLessThan(64);
+
+    for (let i = 0; i < 24; i++) {
+      out = compositeDabOnNode(out, dab({ opacity: 0.5, flow: 0.25 }), RED, {
+        strokeOpacity: opacity,
+      });
+    }
+    expect(px(out, 20, 20)!.a).toBeGreaterThanOrEqual(127);
+    expect(px(out, 20, 20)!.a).toBeLessThanOrEqual(128);
+  });
+
+  it('lets a later gesture build on a previous stroke-opacity gesture', () => {
+    const firstStroke = createStrokeOpacityAccumulator(TILE_SIZE * TILE_SIZE);
+    let out = makeRasterLayerNode('n', { width: TILE_SIZE, height: TILE_SIZE });
+    for (let i = 0; i < 24; i++) {
+      out = compositeDabOnNode(out, dab({ opacity: 0.5 }), RED, { strokeOpacity: firstStroke });
+    }
+    const secondStroke = createStrokeOpacityAccumulator(TILE_SIZE * TILE_SIZE);
+    out = compositeDabOnNode(out, dab({ opacity: 0.5 }), RED, { strokeOpacity: secondStroke });
+    expect(px(out, 20, 20)!.a).toBeGreaterThan(127);
+  });
+
+  it('caps eraser coverage per gesture too', () => {
+    const node = layerFilled(0, 0, 255, 255);
+    const opacity = createStrokeOpacityAccumulator(TILE_SIZE * TILE_SIZE);
+    let out = eraseDabOnNode(node, dab({ opacity: 0.5 }), { strokeOpacity: opacity });
+    for (let i = 0; i < 12; i++) {
+      out = eraseDabOnNode(out, dab({ opacity: 0.5 }), { strokeOpacity: opacity });
+    }
+    expect(px(out, 20, 20)!.a).toBeGreaterThanOrEqual(127);
+    expect(px(out, 20, 20)!.a).toBeLessThanOrEqual(128);
   });
 });
 

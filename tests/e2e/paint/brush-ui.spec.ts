@@ -86,6 +86,33 @@ async function contentCanvasHash(page: import('@playwright/test').Page): Promise
   });
 }
 
+async function contentPixelAtScreenPoint(
+  page: import('@playwright/test').Page,
+  point: { x: number; y: number },
+): Promise<{ r: number; g: number; b: number; a: number }> {
+  return page.locator('canvas.editor-canvas__content-layer').evaluate((element, screenPoint) => {
+    const canvas = element as HTMLCanvasElement;
+    const rect = canvas.getBoundingClientRect();
+    const x = Math.max(
+      0,
+      Math.min(
+        canvas.width - 1,
+        Math.floor((screenPoint.x - rect.left) * (canvas.width / rect.width)),
+      ),
+    );
+    const y = Math.max(
+      0,
+      Math.min(
+        canvas.height - 1,
+        Math.floor((screenPoint.y - rect.top) * (canvas.height / rect.height)),
+      ),
+    );
+    const pixel = canvas.getContext('2d')?.getImageData(x, y, 1, 1).data;
+    if (!pixel) throw new Error('content canvas pixel is unavailable');
+    return { r: pixel[0]!, g: pixel[1]!, b: pixel[2]!, a: pixel[3]! };
+  }, point);
+}
+
 test.describe('paint UI in the running app', () => {
   test('brush browser renders, searches and filters', async ({ page }, testInfo) => {
     const consoleErrors: string[] = [];
@@ -273,6 +300,67 @@ test.describe('paint UI in the running app', () => {
 
     await expect.poll(() => contentCanvasHash(page), { timeout: 10000 }).not.toBe(before);
     await surface.screenshot({ path: testInfo.outputPath('painted-stroke.png') });
+  });
+
+  test('stroke-opacity brush limits one gesture and lets a later stroke build further', async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize(VIEWPORT);
+    await navigateToEditor(page);
+    await switchToPhotoWorkspace(page);
+    await activatePaint(page);
+    const popover = await openToolOptions(page);
+    const browser = popover.locator('.brush-browser');
+    const softShade = browser.getByRole('button', { name: 'Soft Shade', exact: true });
+    await softShade.scrollIntoViewIfNeeded();
+    await softShade.click();
+    const optionsButton = page.getByRole('button', { name: 'Tool options' });
+    if ((await optionsButton.getAttribute('aria-expanded')) === 'true') await optionsButton.click();
+
+    const surface = page.locator('.editor-canvas');
+    const box = await surface.boundingBox();
+    if (!box) throw new Error('editor canvas surface not found');
+    const point = { x: box.x + box.width * 0.5, y: box.y + box.height * 0.5 };
+    await page.waitForTimeout(500);
+    const before = await contentPixelAtScreenPoint(page, point);
+
+    const paintGesture = async () => {
+      await page.mouse.move(point.x - 3, point.y);
+      await page.mouse.down();
+      for (let i = 0; i < 30; i++) {
+        const side = i % 2 === 0 ? 3 : -3;
+        await page.mouse.move(point.x + side, point.y + (i % 4 < 2 ? 2 : -2), { steps: 1 });
+      }
+      await page.mouse.up();
+      await page.waitForTimeout(250);
+    };
+
+    await paintGesture();
+    const once = await contentPixelAtScreenPoint(page, point);
+    await page.screenshot({ path: testInfo.outputPath('stroke-opacity-first-gesture.png') });
+    await paintGesture();
+    const twice = await contentPixelAtScreenPoint(page, point);
+    await page.screenshot({ path: testInfo.outputPath('stroke-opacity-second-gesture.png') });
+
+    const channelDelta = (from: typeof before, to: typeof before) =>
+      Math.max(
+        Math.abs(from.r - to.r),
+        Math.abs(from.g - to.g),
+        Math.abs(from.b - to.b),
+        Math.abs(from.a - to.a),
+      );
+    expect(channelDelta(before, once)).toBeGreaterThan(20);
+    expect(channelDelta(once, twice)).toBeGreaterThan(5);
+    if (before.a < 250) {
+      // The page is transparent at this point: one gesture stays below the
+      // 38% Soft Shade ceiling, while the next gesture builds onto it.
+      expect(once.a).toBeLessThanOrEqual(100);
+      expect(twice.a).toBeGreaterThan(once.a);
+    } else {
+      expect(once.r).toBeGreaterThan(120);
+      expect(once.r).toBeLessThan(235);
+      expect(twice.r).toBeLessThan(once.r);
+    }
   });
 
   test('an explicit vector selection blocks painting into another raster layer', async ({

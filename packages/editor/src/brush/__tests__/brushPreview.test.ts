@@ -23,6 +23,9 @@ describe('brush preview fingerprint', () => {
     expect(brushPreviewFingerprint({ ...p, hardness: 0.2 }, opts)).not.toBe(before);
     expect(brushPreviewFingerprint({ ...p, grainId: 'paper' }, opts)).not.toBe(before);
     expect(brushPreviewFingerprint({ ...p, spacing: 0.9 }, opts)).not.toBe(before);
+    expect(brushPreviewFingerprint({ ...p, accumulation: 'stroke-opacity' }, opts)).not.toBe(
+      before,
+    );
   });
 
   it('ignores the preset name, which does not affect the image', () => {

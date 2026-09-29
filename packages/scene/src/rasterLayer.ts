@@ -2,6 +2,7 @@ import type { Affine } from '@varve/engine';
 import { resolveGrainValueSync } from '@varve/engine';
 import type { BrushDab } from './brush';
 import { type CoverageMask, sampleCoverage } from './paintCoverage';
+import { limitStrokeOpacityDeposit, type StrokeOpacityAccumulator } from './strokeOpacity';
 import type { RasterLayerNode, RasterTile } from './types';
 import { wetEdgeDarkening } from './wetPaint';
 
@@ -424,6 +425,8 @@ export interface DabCompositeOptions {
    * usual way a wet edge goes wrong.
    */
   wetEdge?: { size: number; darken: number } | null;
+  /** Optional per-gesture source-alpha ceiling shared across dab overlaps. */
+  strokeOpacity?: StrokeOpacityAccumulator | null;
 }
 
 export type DabCompositeArg = boolean | DabCompositeOptions;
@@ -432,12 +435,16 @@ function normalizeCompositeOptions(arg: DabCompositeArg | undefined): {
   alphaLock: boolean;
   coverage: CoverageMask | null;
   wetEdge: { size: number; darken: number } | null;
+  strokeOpacity: StrokeOpacityAccumulator | null;
 } {
-  if (typeof arg === 'boolean') return { alphaLock: arg, coverage: null, wetEdge: null };
+  if (typeof arg === 'boolean') {
+    return { alphaLock: arg, coverage: null, wetEdge: null, strokeOpacity: null };
+  }
   return {
     alphaLock: arg?.alphaLock ?? false,
     coverage: arg?.coverage ?? null,
     wetEdge: arg?.wetEdge ?? null,
+    strokeOpacity: arg?.strokeOpacity ?? null,
   };
 }
 
@@ -459,6 +466,8 @@ function compositeBrushDabOnPixels(
   tileOriginY = 0,
   coverage: CoverageMask | null = null,
   wetEdge: { size: number; darken: number } | null = null,
+  strokeOpacity: StrokeOpacityAccumulator | null = null,
+  tileKey = '',
 ): boolean {
   const size = Math.ceil(dabRadius * 2);
   const coverageRadius = dabRadius + (dabRadius <= 1 ? 0.5 : 0);
@@ -535,6 +544,15 @@ function compositeBrushDabOnPixels(
       if (alphaLock) {
         if (destAlpha <= 0) continue;
         effectiveAlpha *= destAlpha;
+      }
+      if (strokeOpacity) {
+        effectiveAlpha = limitStrokeOpacityDeposit(
+          strokeOpacity,
+          tileKey,
+          py * tileW + px,
+          effectiveAlpha,
+          dabOpacity * srcAlpha * (alphaLock ? destAlpha : 1),
+        );
       }
       if (effectiveAlpha <= 0) continue;
       wrote = true;
@@ -674,7 +692,7 @@ export function compositeDabOnNode(
   color: readonly [number, number, number, number],
   options: DabCompositeArg = false,
 ): RasterLayerNode {
-  const { alphaLock, coverage, wetEdge } = normalizeCompositeOptions(options);
+  const { alphaLock, coverage, wetEdge, strokeOpacity } = normalizeCompositeOptions(options);
   const brushShape = dab.shape ?? 'circle';
   const brushMask = createBrushMask(dab.radius, dab.hardness, brushShape, dab.angle, dab.roundness);
   const tileKeys = tilesForDab(dab);
@@ -715,6 +733,8 @@ export function compositeDabOnNode(
       tileOriginY,
       coverage,
       wetEdge,
+      strokeOpacity,
+      key,
     );
 
     // A brand-new tile that received nothing (fully masked out by a selection)
@@ -859,7 +879,7 @@ export function eraseDabOnNode(
   dab: BrushDab,
   options: DabCompositeArg = false,
 ): RasterLayerNode {
-  const { coverage } = normalizeCompositeOptions(options);
+  const { coverage, strokeOpacity } = normalizeCompositeOptions(options);
   const brushShape = dab.shape ?? 'circle';
   const brushMask = createBrushMask(dab.radius, dab.hardness, brushShape, dab.angle, dab.roundness);
   const size = Math.ceil(dab.radius * 2);
@@ -886,7 +906,7 @@ export function eraseDabOnNode(
           ? sampleCoverage(coverage, col * TILE_SIZE + px, row * TILE_SIZE + py)
           : 1;
         if (selectionValue <= 0) continue;
-        const eraseAlpha =
+        let eraseAlpha =
           sampleBrushMask(
             brushMask,
             size,
@@ -897,6 +917,15 @@ export function eraseDabOnNode(
           dab.opacity *
           dab.flow *
           selectionValue;
+        if (strokeOpacity) {
+          eraseAlpha = limitStrokeOpacityDeposit(
+            strokeOpacity,
+            key,
+            py * TILE_SIZE + px,
+            eraseAlpha,
+            dab.opacity,
+          );
+        }
         if (eraseAlpha <= 0) continue;
         const index = (py * TILE_SIZE + px) * 4;
         const remaining = Math.max(0, 1 - eraseAlpha);

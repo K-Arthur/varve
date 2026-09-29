@@ -16,6 +16,7 @@
  */
 import type { AreaSelection } from '@varve/engine';
 import type {
+  BrushAccumulation,
   BrushDab,
   BrushPreset,
   RasterLayerNode,
@@ -27,9 +28,12 @@ import {
   beginStroke,
   cloneStrokeEngineState,
   compositeDabOnNode,
+  createStrokeOpacityAccumulator,
   defaultBrushPreset,
   eraseDabOnNode,
   maskValueFromColor,
+  type StrokeOpacityAccumulator,
+  TILE_SIZE,
 } from '@varve/scene';
 import { BrushWorkerHost, type StrokeBatchEvent } from '../render/brushWorkerHost';
 import { getPaintProfiler } from '../render/paintProfiler';
@@ -64,6 +68,7 @@ export interface BrushToolSettings {
   radius: number;
   opacity: number;
   flow: number;
+  accumulation?: BrushAccumulation;
   hardness: number;
   smoothing: number;
   spacing: number;
@@ -102,6 +107,9 @@ interface PaintStrokeSession {
   wet: boolean;
   /** Wet-edge parameters for this stroke, or null when the effect is off. */
   wetEdge: { size: number; darken: number } | null;
+  /** Bounded per-pixel deposition map for stroke-opacity presets. */
+  strokeOpacity: StrokeOpacityAccumulator | null;
+  strokeOpacityLimitAnnounced: boolean;
   /** Set when this stroke paints a mask rather than layer pixels. */
   mask: MaskPaintSession | null;
   /** Mask coverage the brush paints towards, from the foreground luminance. */
@@ -199,6 +207,7 @@ export class PaintTool extends BaseTool {
     this.preset.radius = settings.radius;
     this.preset.opacity = settings.opacity;
     this.preset.flow = settings.flow;
+    this.preset.accumulation = settings.accumulation ?? 'buildup';
     this.preset.hardness = settings.hardness;
     this.preset.smoothing = settings.smoothing;
     this.preset.spacing = settings.spacing;
@@ -217,6 +226,7 @@ export class PaintTool extends BaseTool {
       radius: this.preset.radius,
       opacity: this.preset.opacity,
       flow: this.preset.flow,
+      accumulation: this.preset.accumulation ?? 'buildup',
       hardness: this.preset.hardness,
       smoothing: this.preset.smoothing,
       spacing: this.preset.spacing,
@@ -340,6 +350,11 @@ export class PaintTool extends BaseTool {
         preset.wetEnabled && preset.wetEdge && !maskSession
           ? { size: preset.wetEdgeSize, darken: preset.wetEdgeDarken }
           : null,
+      strokeOpacity:
+        preset.accumulation === 'stroke-opacity' && !maskSession
+          ? createStrokeOpacityAccumulator(TILE_SIZE * TILE_SIZE)
+          : null,
+      strokeOpacityLimitAnnounced: false,
       mask: maskSession,
       // Painting a mask sets coverage, not colour: white reveals, black
       // conceals. An eraser on a mask reveals, mirroring its meaning on pixels.
@@ -585,7 +600,10 @@ export class PaintTool extends BaseTool {
       for (const dab of batch.dabs) {
         const coverage = selectionCoverageForDab(ctx, rasterNodeId, dab, areaSelection);
         if (eraser) {
-          updated = eraseDabOnNode(updated, dab, { coverage });
+          updated = eraseDabOnNode(updated, dab, {
+            coverage,
+            strokeOpacity: session.strokeOpacity,
+          });
           continue;
         }
         const dabColor = session.wet ? this.mixWet(session, dab, color) : color;
@@ -594,10 +612,15 @@ export class PaintTool extends BaseTool {
           alphaLock,
           coverage,
           wetEdge: session.wetEdge,
+          strokeOpacity: session.strokeOpacity,
         });
       }
       return updated;
     });
+    if (session.strokeOpacity?.overflowed && !session.strokeOpacityLimitAnnounced) {
+      session.strokeOpacityLimitAnnounced = true;
+      ctx.announce('Stroke-opacity memory limit reached; additional areas use brush buildup.');
+    }
     // Waking the scheduler is what starts drying; a stroke that deposited no
     // wet paint leaves the document idle.
     if (deposited) this.onWetDeposit?.();
@@ -711,6 +734,7 @@ export class PaintTool extends BaseTool {
   private abortStroke(ctx: ToolContext): void {
     const session = this.session;
     if (!session) return;
+    session.strokeOpacity?.tiles.clear();
     this.session = null;
     // Cancel the stroke that is actually in flight — its own generation, not a
     // freshly incremented one that no worker job was ever tagged with.
@@ -725,6 +749,7 @@ export class PaintTool extends BaseTool {
   private finishStroke(ctx: ToolContext): void {
     const session = this.session;
     if (!session) return;
+    session.strokeOpacity?.tiles.clear();
     this.session = null;
     if (session.dirty) {
       this.lastStrokeBounds = {
