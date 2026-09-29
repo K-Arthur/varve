@@ -129,9 +129,11 @@ describe('workspaceTypes', () => {
     expect(sections).not.toContain('preflight');
   });
 
-  it('design mode has layout score section', () => {
+  it('design mode has one document-health section covering the three scanners', () => {
     const sections = getVisibleStatusSections('design');
-    expect(sections).toContain('layoutScore');
+    expect(sections).toContain('documentHealth');
+    expect(sections).not.toContain('debt');
+    expect(sections).not.toContain('layoutScore');
   });
 
   it('drawing mode has paint as default tool', () => {
@@ -163,9 +165,23 @@ describe('workspaceTypes', () => {
     expect(sections).toContain('colorMode');
   });
 
-  it('design mode has debt status section', () => {
-    const sections = getVisibleStatusSections('design');
-    expect(sections).toContain('debt');
+  it('save status is clamped visible even when a config hides it', () => {
+    const base = getWorkspaceConfig('design');
+    const hidden = {
+      ...base,
+      statusSections: base.statusSections.map((section) =>
+        section.id === 'saveStatus' ? { ...section, visible: false } : section,
+      ),
+    };
+    expect(getVisibleStatusSections('design', hidden)).toContain('saveStatus');
+  });
+
+  it('the tool name and selection info are not repeated in the status bar', () => {
+    for (const mode of ALL_WORKSPACE_MODES) {
+      const sections = getVisibleStatusSections(mode);
+      expect(sections).not.toContain('toolName');
+      expect(sections).not.toContain('selectionInfo');
+    }
   });
 
   // ─── Toolbar composition ─────────────────────────────────────────────────

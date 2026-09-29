@@ -1108,9 +1108,6 @@ input[type="number"] {
   }
 }
 @media (max-width: 700px) {
-  .editor-status .editor-status__score-badge {
-    display: none;
-  }
   .editor-status .varve-select {
     display: none;
   }
@@ -1307,11 +1304,17 @@ input[type="number"] {
 .editor-status__toggle[aria-pressed="true"]:hover {
   background: var(--color-interactive-hover);
 }
-/* Separator dashes in status bar */
-.editor-status > [aria-hidden] {
-  color: var(--color-border-subtle);
-  user-select: none;
-  margin: 0 var(--space-05);
+/* The structural boundary between the information cluster and the control
+ * cluster. Two `—` glyphs used to sit here and one other place in the row,
+ * marking neither the cluster boundary nor any group; the flex gap now does
+ * all the separating. The spacer absorbs spare width so the controls read as
+ * a right-aligned cluster, and collapses to zero when the row overflows so
+ * the bar scrolls instead of clipping. */
+.editor-status > .editor-status__spacer {
+  flex: 1 1 0;
+  flex-shrink: 1;
+  min-width: 0;
+  align-self: stretch;
 }
 [data-theme="high-contrast"] .editor-status {
   border-top: 1px solid var(--color-border-subtle);
@@ -1347,12 +1350,64 @@ input[type="number"] {
     color var(--duration-quick) var(--ease-standard);
 }
 
-/* Status-bar badges are interactive controls too (debt report, layout score,
- * save state). They take the status tier in the block axis and the 24px
- * WCAG floor in the inline axis, without changing how the same components
- * render in other, denser contexts. */
-.editor-status .debt-badge,
-.editor-status .editor-status__score-badge,
+/* ── Document health badge (StatusBar) ──────────────── */
+/* One pill for the audit, debt, and layout scanners. Outline, not a solid
+ * fill: this is L1 passive status, and a solid red chip in a permanent row
+ * reads as an alarm rather than as instrumentation. */
+.document-health-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-05) var(--space-2);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-default);
+  color: var(--color-text-muted);
+  font-family: inherit;
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  font-feature-settings: "tnum";
+  line-height: 1.4;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background var(--duration-quick) var(--ease-standard),
+    border-color var(--duration-quick) var(--ease-standard);
+}
+.document-health-badge:hover {
+  background: var(--color-surface-raised);
+  border-color: var(--color-border-strong);
+}
+.document-health-badge:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 1px;
+}
+.document-health-badge--error {
+  color: var(--color-feedback-danger);
+  border-color: var(--color-feedback-danger);
+}
+.document-health-badge--error:hover {
+  background: color-mix(in oklab, var(--color-feedback-danger) 12%, var(--color-surface-raised));
+}
+.document-health-badge--warning {
+  color: var(--color-feedback-warning);
+  border-color: var(--color-feedback-warning);
+}
+.document-health-badge--warning:hover {
+  background: color-mix(in oklab, var(--color-feedback-warning) 14%, var(--color-surface-raised));
+}
+.document-health-badge__count {
+  font-weight: var(--font-weight-medium);
+}
+[data-theme="high-contrast"] .document-health-badge {
+  border-width: 2px;
+}
+
+/* Status-bar badges are interactive controls too (document health, save
+ * state). They take the status tier in the block axis and the 24px WCAG floor
+ * in the inline axis, without changing how a badge renders in any other,
+ * denser context. */
+.editor-status .document-health-badge,
 .editor-status .save-status {
   min-height: var(--component-compact-height);
   min-width: var(--target-min-compact);
@@ -1367,44 +1422,61 @@ input[type="number"] {
   outline-offset: -1px;
 }
 
-.editor-status__info {
-  margin-left: auto;
+/* ── View-control cluster (StatusBar) ───────────────── */
+/* Pixel grid, snapping, spacing, ruler origin, baseline grid, clear guides.
+ * One group so the row drops it as a unit rather than leaving a stray toggle
+ * with no group to belong to. */
+.editor-status__view-group {
   display: inline-flex;
   align-items: center;
-  gap: 0.15em;
-  min-width: 0;
-  overflow: hidden;
+  gap: var(--space-1);
 }
 
-.editor-status__info > * {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.editor-status__snap-grid {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
 }
-
-/* ── Layout Score badge (StatusBar) ─────────────────── */
-.editor-status__score-badge {
-  font-variant-numeric: tabular-nums;
-  padding: 0 0.4em;
-  border-radius: var(--radius-control-compact);
+.editor-status__snap-grid-label {
   font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-muted);
+  user-select: none;
+}
+.editor-status__snap-grid .number-input {
+  min-width: 3rem;
+}
+
+/* ── View rotation chip (StatusBar) ─────────────────── */
+/* Replaces a bare `15°` span plus a separate "Reset rot" button: the value
+ * and its one action are the same control, so the bar carries one item with
+ * one accessible name instead of a naked number and an abbreviation. */
+.editor-status__rotation {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-05);
+  min-height: var(--component-compact-height);
+  padding: 0 var(--space-2);
+  background: var(--elevation-surface-default);
+  border: var(--border-micro);
+  border-radius: var(--radius-control-compact);
+  color: var(--color-text-secondary);
+  font-family: inherit;
+  font-size: var(--font-size-xs);
+  font-feature-settings: "tnum";
   cursor: pointer;
-  border: none;
-  line-height: var(--font-line-relaxed);
-  margin-left: var(--space-1);
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition:
+    background var(--duration-quick) var(--ease-standard),
+    color var(--duration-quick) var(--ease-standard);
 }
-.editor-status__score-badge--good {
-  background: var(--color-feedback-success-strong);
-  color: var(--color-text-on-feedback);
+.editor-status__rotation:hover {
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
 }
-.editor-status__score-badge--warn {
-  background: var(--color-feedback-warning-strong);
-  color: var(--color-text-on-feedback);
-}
-.editor-status__score-badge--bad {
-  background: var(--color-feedback-danger);
-  color: var(--color-text-on-feedback);
+.editor-status__rotation:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -1px;
 }
 
 /* ── Shortcut tip chip (StatusBar) ──────────────────── */
@@ -1979,40 +2051,6 @@ input[type="number"] {
   min-width: 0;
 }
 
-.editor-menubar__zoom {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-}
-.editor-menubar__zoom-input {
-  width: var(--space-8);
-  background: var(--elevation-surface-sunken);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-control-compact);
-  color: var(--color-text-primary);
-  font: inherit;
-  font-size: var(--font-size-xs);
-  font-feature-settings: "tnum";
-  text-align: right;
-  cursor: text;
-  padding: 1px var(--space-1);
-  outline: none;
-  transition:
-    border-color var(--duration-quick) var(--ease-standard),
-    background var(--duration-quick) var(--ease-standard);
-}
-.editor-menubar__zoom-input:hover {
-  border-color: var(--color-interactive-default);
-  background: var(--elevation-surface-default);
-}
-.editor-menubar__zoom-input:focus-visible {
-  border-color: var(--color-interactive-default);
-  background: var(--elevation-surface-default);
-  outline: 2px solid var(--color-interactive-focus-ring);
-  outline-offset: -2px;
-}
 .editor-menubar__zoom-divider {
   /* The span still carries a "|" for no-JS/no-style fallbacks; the rule is
    * the divider, so the glyph is clipped instead of setting the geometry. */
@@ -2023,11 +2061,6 @@ input[type="number"] {
   overflow: hidden;
   color: transparent;
   flex-shrink: 0;
-  user-select: none;
-}
-
-.editor-menubar__zoom-unit {
-  color: var(--color-text-muted);
   user-select: none;
 }
 
@@ -2254,7 +2287,6 @@ input[type="number"] {
      when the strip is genuinely too narrow — that decision belongs to the
      measurement, not to a width query.
      (docs/audits/workspace-switcher-design-review-2026-09-29.md F5) */
-  .editor-menubar__zoom,
   .editor-menubar__zoom-divider {
     display: none;
   }
@@ -2297,8 +2329,7 @@ input[type="number"] {
   .editor-menubar .editor-menubar__doc-name-text,
   .editor-menubar .editor-menubar__doc-name-input,
   .editor-status .save-status,
-  .editor-status .editor-status__score-badge,
-  .editor-status .debt-badge,
+  .editor-status .document-health-badge,
   .editor-status .varve-select__trigger {
     min-height: 24px;
   }
@@ -3055,9 +3086,11 @@ html[data-layout-mode="tablet"] .editor-menubar .workspace-dock {
 }
 
 /* ── Portrait menubar consolidation ──
- * The document title is duplicated in the tab strip and the status bar, and
- * the menubar zoom duplicates the status-bar zoom chip. Portrait keeps the
- * menu strip, the workspace switcher, and undo/redo, and makes the menu strip
+ * The document title is duplicated in the tab strip and the status bar's
+ * Document Info, so portrait drops the duplicate name. The menubar's own zoom
+ * field — which also duplicated the status-bar chip — was removed outright
+ * (docs/audits/bottom-bar-review-2026-09-29.md P2). Portrait keeps the menu
+ * strip, the workspace switcher, and undo/redo, and makes the menu strip
  * scrollable so a wider workspace menu set can never clip an option.
  *
  * The switcher's own portrait sizing lives in ONE place — the two-tier block
@@ -3072,7 +3105,6 @@ html[data-layout-mode="tablet"] .editor-menubar .workspace-dock {
     display: none;
   }
 
-  .editor-menubar__zoom,
   .editor-menubar__zoom-divider {
     display: none;
   }
@@ -3884,14 +3916,6 @@ dialog.varve-dialog--settings[open] {
 .settings-shortcuts-table code {
   font-family: var(--font-mono);
   font-size: var(--font-size-xs);
-}
-.editor-status__snap-grid {
-  display: inline-flex;
-  align-items: center;
-  max-width: 4.5rem;
-}
-.editor-status__snap-grid .number-input {
-  min-width: 3rem;
 }
 .bg-models-list {
   list-style: none;

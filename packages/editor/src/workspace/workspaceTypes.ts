@@ -220,19 +220,35 @@ export interface InspectorTabConfig {
 // Status bar configuration
 // ---------------------------------------------------------------------------
 
+/**
+ * The status bar's section vocabulary.
+ *
+ * One id per *fact*, not per widget. A fact that already has a home elsewhere
+ * in the chrome must not get a second one here — that rule is what removed
+ * `toolName` (the palette labels the active tool), `selectionInfo` (the
+ * `SelectionInfoBar` strip above owns selection identity and geometry), and the
+ * `debt`/`layoutScore` pair (the Audit tab owns document health; the bar shows
+ * one count and one click target).
+ *
+ * Sections fall into two clusters, fixed per id by
+ * `STATUS_SECTION_CLUSTERS` in `StatusBar.tsx`: instrumentation on the left,
+ * controls on the right. `order` sorts within a cluster.
+ */
 export type StatusSectionId =
-  | 'toolName'
-  | 'cursorPos'
-  | 'zoom'
-  | 'selectionInfo'
-  | 'unit'
-  | 'preflight'
-  | 'debt'
-  | 'layoutScore'
+  | 'renderer'
+  | 'pageInfo'
   | 'colorMode'
   | 'imageInfo'
-  | 'pageInfo'
-  | 'shortcutTip';
+  | 'cursorPos'
+  | 'preflight'
+  | 'documentHealth'
+  | 'saveStatus'
+  | 'shortcutTip'
+  | 'unit'
+  | 'viewToggles'
+  | 'zoom'
+  | 'fit'
+  | 'aiStatus';
 
 export interface StatusSectionConfig {
   id: StatusSectionId;
@@ -248,19 +264,34 @@ export interface StatusSectionConfig {
  * bar, and any future surface must not re-derive labels from ids.
  */
 export const STATUS_SECTION_LABELS: Record<StatusSectionId, string> = {
-  toolName: 'Active Tool',
-  cursorPos: 'Cursor Position',
-  zoom: 'Zoom Controls',
-  selectionInfo: 'Selection Info',
-  unit: 'Units',
-  preflight: 'Preflight Warnings',
-  debt: 'Design Debt',
-  layoutScore: 'Layout Score',
+  renderer: 'Renderer Status',
+  pageInfo: 'Page Info',
   colorMode: 'Color Mode',
   imageInfo: 'Image Info',
-  pageInfo: 'Page Info',
+  cursorPos: 'Cursor Position',
+  preflight: 'Preflight Warnings',
+  documentHealth: 'Document Health',
+  saveStatus: 'Save Status',
   shortcutTip: 'Shortcut Tips',
+  unit: 'Units',
+  viewToggles: 'View Toggles',
+  zoom: 'Zoom Controls',
+  fit: 'Fit Controls',
+  aiStatus: 'On-Device AI Status',
 };
+
+/**
+ * Sections a workspace may not hide.
+ *
+ * `getVisibleStatusSections` clamps these into the rendered set regardless of
+ * the workspace default or a user override, the same way `ESSENTIAL_TOOL_IDS`
+ * keeps Select/Hand/Zoom in the palette. Hiding save state would leave an
+ * unsaved document with no truthful persistence signal outside a modal —
+ * `docs/architecture/workspace-system.md` forbids a workspace from hiding save,
+ * recovery, or undo, so this is that rule applied to the bottom bar rather than
+ * a new one.
+ */
+export const ESSENTIAL_STATUS_SECTION_IDS: ReadonlySet<StatusSectionId> = new Set(['saveStatus']);
 
 // ---------------------------------------------------------------------------
 // Canvas overlay configuration
@@ -381,6 +412,10 @@ export const CHROME_CONFIG_LABELS: Record<keyof ChromeConfig, string> = {
 // ---------------------------------------------------------------------------
 
 export interface WorkspacePreference {
+  /** Monotonic logical revision for this workspace's customization decisions. */
+  revision?: number;
+  /** Stable local writer id used to resolve equal-revision cross-window edits. */
+  writerId?: string;
   /** Optional workspace-owned nested dock tree; absent means use the built-in arrangement. */
   dockLayout?: DockLayout;
   /** Startup recovery state and the last mounted dock tree for this workspace. */
@@ -518,14 +553,16 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       { id: 'fonts', label: 'Fonts', visible: true, group: 'workflow' },
     ],
     statusSections: [
-      { id: 'toolName', visible: true, order: 0 },
+      { id: 'renderer', visible: true, order: 0 },
       { id: 'cursorPos', visible: true, order: 10 },
-      { id: 'layoutScore', visible: true, order: 11 },
-      { id: 'unit', visible: true, order: 20 },
-      { id: 'debt', visible: true, order: 21 },
-      { id: 'shortcutTip', visible: true, order: 25 },
-      { id: 'zoom', visible: true, order: 30 },
-      { id: 'selectionInfo', visible: true, order: 40 },
+      { id: 'documentHealth', visible: true, order: 20 },
+      { id: 'saveStatus', visible: true, order: 22 },
+      { id: 'shortcutTip', visible: true, order: 24 },
+      { id: 'unit', visible: true, order: 30 },
+      { id: 'viewToggles', visible: true, order: 32 },
+      { id: 'zoom', visible: true, order: 40 },
+      { id: 'fit', visible: true, order: 42 },
+      { id: 'aiStatus', visible: true, order: 50 },
     ],
     canvasOverlays: {
       rulers: true,
@@ -625,15 +662,19 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       { id: 'fonts', label: 'Fonts', visible: true, group: 'workflow' },
     ],
     statusSections: [
-      { id: 'toolName', visible: true, order: 0 },
-      { id: 'pageInfo', visible: true, order: 5 },
+      { id: 'renderer', visible: true, order: 0 },
+      { id: 'pageInfo', visible: true, order: 8 },
       { id: 'cursorPos', visible: true, order: 10 },
-      { id: 'preflight', visible: true, order: 12 },
-      { id: 'unit', visible: true, order: 20 },
-      { id: 'colorMode', visible: true, order: 22 },
-      { id: 'shortcutTip', visible: true, order: 25 },
-      { id: 'zoom', visible: true, order: 30 },
-      { id: 'selectionInfo', visible: true, order: 40 },
+      { id: 'preflight', visible: true, order: 14 },
+      { id: 'colorMode', visible: true, order: 16 },
+      { id: 'documentHealth', visible: true, order: 20 },
+      { id: 'saveStatus', visible: true, order: 22 },
+      { id: 'shortcutTip', visible: true, order: 24 },
+      { id: 'unit', visible: true, order: 30 },
+      { id: 'viewToggles', visible: true, order: 32 },
+      { id: 'zoom', visible: true, order: 40 },
+      { id: 'fit', visible: true, order: 42 },
+      { id: 'aiStatus', visible: true, order: 50 },
     ],
     canvasOverlays: {
       rulers: true,
@@ -733,13 +774,16 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       { id: 'fonts', label: 'Fonts', visible: false, group: 'workflow' },
     ],
     statusSections: [
-      { id: 'toolName', visible: true, order: 0 },
+      { id: 'renderer', visible: true, order: 0 },
       { id: 'cursorPos', visible: true, order: 10 },
-      { id: 'unit', visible: true, order: 20 },
-      { id: 'debt', visible: true, order: 21 },
-      { id: 'shortcutTip', visible: true, order: 25 },
-      { id: 'zoom', visible: true, order: 30 },
-      { id: 'selectionInfo', visible: true, order: 40 },
+      { id: 'documentHealth', visible: true, order: 20 },
+      { id: 'saveStatus', visible: true, order: 22 },
+      { id: 'shortcutTip', visible: true, order: 24 },
+      { id: 'unit', visible: true, order: 30 },
+      { id: 'viewToggles', visible: true, order: 32 },
+      { id: 'zoom', visible: true, order: 40 },
+      { id: 'fit', visible: true, order: 42 },
+      { id: 'aiStatus', visible: true, order: 50 },
     ],
     canvasOverlays: {
       rulers: true,
@@ -850,14 +894,18 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       { id: 'fonts', label: 'Fonts', visible: false, group: 'workflow' },
     ],
     statusSections: [
-      { id: 'toolName', visible: true, order: 0 },
-      { id: 'imageInfo', visible: true, order: 5 },
+      { id: 'renderer', visible: true, order: 0 },
+      { id: 'imageInfo', visible: true, order: 8 },
       { id: 'cursorPos', visible: true, order: 10 },
-      { id: 'unit', visible: true, order: 20 },
-      { id: 'colorMode', visible: true, order: 22 },
-      { id: 'shortcutTip', visible: true, order: 25 },
-      { id: 'zoom', visible: true, order: 30 },
-      { id: 'selectionInfo', visible: true, order: 40 },
+      { id: 'colorMode', visible: true, order: 16 },
+      { id: 'documentHealth', visible: true, order: 20 },
+      { id: 'saveStatus', visible: true, order: 22 },
+      { id: 'shortcutTip', visible: true, order: 24 },
+      { id: 'unit', visible: true, order: 30 },
+      { id: 'viewToggles', visible: true, order: 32 },
+      { id: 'zoom', visible: true, order: 40 },
+      { id: 'fit', visible: true, order: 42 },
+      { id: 'aiStatus', visible: true, order: 50 },
     ],
     canvasOverlays: {
       rulers: true,
@@ -944,14 +992,16 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       { id: 'fonts', label: 'Fonts', visible: false, group: 'workflow' },
     ],
     statusSections: [
-      { id: 'toolName', visible: true, order: 0 },
+      { id: 'renderer', visible: true, order: 0 },
       { id: 'cursorPos', visible: true, order: 10 },
-      { id: 'layoutScore', visible: true, order: 11 },
-      { id: 'selectionInfo', visible: true, order: 12 },
-      { id: 'unit', visible: true, order: 20 },
-      { id: 'debt', visible: true, order: 21 },
-      { id: 'shortcutTip', visible: true, order: 25 },
-      { id: 'zoom', visible: true, order: 30 },
+      { id: 'documentHealth', visible: true, order: 20 },
+      { id: 'saveStatus', visible: true, order: 22 },
+      { id: 'shortcutTip', visible: true, order: 24 },
+      { id: 'unit', visible: true, order: 30 },
+      { id: 'viewToggles', visible: true, order: 32 },
+      { id: 'zoom', visible: true, order: 40 },
+      { id: 'fit', visible: true, order: 42 },
+      { id: 'aiStatus', visible: true, order: 50 },
     ],
     canvasOverlays: {
       rulers: true,
@@ -1043,13 +1093,17 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       { id: 'fonts', label: 'Fonts', visible: true, group: 'workflow' },
     ],
     statusSections: [
-      { id: 'toolName', visible: true, order: 0 },
+      { id: 'renderer', visible: true, order: 0 },
       { id: 'cursorPos', visible: true, order: 10 },
-      { id: 'preflight', visible: true, order: 12 },
-      { id: 'unit', visible: true, order: 20 },
-      { id: 'shortcutTip', visible: true, order: 25 },
-      { id: 'zoom', visible: true, order: 30 },
-      { id: 'selectionInfo', visible: true, order: 40 },
+      { id: 'preflight', visible: true, order: 14 },
+      { id: 'documentHealth', visible: true, order: 20 },
+      { id: 'saveStatus', visible: true, order: 22 },
+      { id: 'shortcutTip', visible: true, order: 24 },
+      { id: 'unit', visible: true, order: 30 },
+      { id: 'viewToggles', visible: true, order: 32 },
+      { id: 'zoom', visible: true, order: 40 },
+      { id: 'fit', visible: true, order: 42 },
+      { id: 'aiStatus', visible: true, order: 50 },
     ],
     canvasOverlays: {
       rulers: true,
@@ -1170,16 +1224,32 @@ export const WORKSPACE_OVERFLOW_PRIORITY: Record<WorkspaceMode, number> = {
 // Status bar helpers
 // ---------------------------------------------------------------------------
 
-/** Get visible status sections sorted by order. */
+/**
+ * Get visible status sections sorted by order.
+ *
+ * Essential sections are clamped into the result no matter what the config or
+ * a user override says (see `ESSENTIAL_STATUS_SECTION_IDS`), so a workspace
+ * cannot end up with an unsaved document and no persistence signal.
+ */
 export function getVisibleStatusSections(
   mode: WorkspaceMode,
   config?: WorkspaceConfig,
 ): StatusSectionId[] {
   const cfg = config ?? getWorkspaceConfig(mode);
-  return cfg.statusSections
-    .filter((s) => s.visible)
-    .sort((a, b) => a.order - b.order)
-    .map((s) => s.id);
+  const declared = cfg.statusSections.filter(
+    (s) => s.visible || ESSENTIAL_STATUS_SECTION_IDS.has(s.id),
+  );
+  const present = new Set(declared.map((s) => s.id));
+  // A clamped section that the mode's config does not declare at all (a
+  // hand-authored or migrated payload) still has to render.
+  const missing = [...ESSENTIAL_STATUS_SECTION_IDS]
+    .filter((id) => !present.has(id))
+    .map<StatusSectionConfig>((id, index) => ({
+      id,
+      visible: true,
+      order: Number.MAX_SAFE_INTEGER - index,
+    }));
+  return [...declared, ...missing].sort((a, b) => a.order - b.order).map((s) => s.id);
 }
 
 /** Get visible inspector tabs for a mode. */
@@ -1384,6 +1454,7 @@ export function migrateWorkspaceConfig(
         pixelGrid?: boolean;
         dotGrid?: boolean;
       };
+      /** Historic section vocabulary — read only, never written back. */
       statusSections?: {
         toolName?: boolean;
         cursorPos?: boolean;
@@ -1392,6 +1463,7 @@ export function migrateWorkspaceConfig(
         unit?: boolean;
         preflight?: boolean;
         debt?: boolean;
+        layoutScore?: boolean;
       };
     };
 
@@ -1431,8 +1503,18 @@ export function migrateWorkspaceConfig(
         baselineGrid: base.canvasOverlays.baselineGrid,
       },
       statusSections: base.statusSections.map((s) => {
-        const oldKey = s.id === 'layoutScore' ? 'debt' : s.id;
-        const oldVal = (old.statusSections as Record<string, boolean> | undefined)?.[oldKey];
+        // Pre-v1 payloads named the layout score and design debt separately and
+        // never had `toolName`/`selectionInfo` rename targets. Both retired ids
+        // now describe the one Document Health badge: a payload that hid BOTH
+        // keeps it hidden; anything else keeps it visible.
+        if (s.id === 'documentHealth') {
+          const legacy = old.statusSections as Record<string, boolean> | undefined;
+          const hidDebt = legacy?.debt === false;
+          const hidScore = legacy?.layoutScore === false;
+          const hadLegacy = legacy?.debt !== undefined || legacy?.layoutScore !== undefined;
+          return { ...s, visible: hadLegacy && hidDebt && hidScore ? false : s.visible };
+        }
+        const oldVal = (old.statusSections as Record<string, boolean> | undefined)?.[s.id];
         return { ...s, visible: oldVal ?? s.visible };
       }),
     };

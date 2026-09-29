@@ -2,15 +2,20 @@
 
 import '@testing-library/jest-dom/vitest';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import type { Platform } from '@varve/platform';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { EditorProvider, useEditor } from '../context';
 import { validateDockLayout } from '../workspace/dock/dockOps';
 import { registerBuiltinPanels } from '../workspace/panelDefinitions';
 import { resetPanelRegistry } from '../workspace/panelRegistry';
 import {
+  attachWorkspacePreferencePlatform,
+  flushWorkspacePreferences,
   getEffectiveWorkspaceConfig,
   getWorkspacePreferences,
   resetWorkspacePreferenceCache,
+  setPanelOverride,
+  updateWorkspacePreferences,
 } from '../workspace/workspaceStore';
 import { WorkspaceCustomizeDialog } from './WorkspaceCustomizeDialog';
 
@@ -76,16 +81,23 @@ describe('WorkspaceCustomizeDialog', () => {
     for (const label of [
       'Cursor Position',
       'Zoom Controls',
-      'Selection Info',
-      'Layout Score',
-      'Active Tool',
+      'Document Health',
+      'Renderer Status',
+      'View Toggles',
+      'Fit Controls',
+      'Save Status',
       'Units',
     ]) {
       expect(within(dialog).getByText(label)).toBeTruthy();
     }
     // Raw camelCase ids must not leak into the UI.
     expect(within(dialog).queryByText(/cursor Pos/)).toBeNull();
-    expect(within(dialog).queryByText(/layout Score/)).toBeNull();
+    expect(within(dialog).queryByText(/document Health/)).toBeNull();
+    // Save status exists as a row so the list describes the whole bar, but it
+    // is clamped visible: a workspace may not hide save state.
+    const saveToggle = within(dialog).getByRole('checkbox', { name: /Save Status/ });
+    expect((saveToggle as HTMLInputElement).disabled).toBe(true);
+    expect(within(dialog).getByText(/Always shown/)).toBeTruthy();
   });
 
   it('requires explicit confirmation before resetting all workspaces', () => {
@@ -138,6 +150,40 @@ describe('WorkspaceCustomizeDialog', () => {
 
     fireEvent.click(within(dialog).getByRole('checkbox', { name: /History/ }));
     await waitFor(() => expect(editor?.state.historyPanelVisible).toBe(false));
+  });
+
+  it('surfaces durable-save failures and clears the warning after a successful retry', async () => {
+    renderDialog();
+    let shouldFail = true;
+    const platform = {
+      getAppSetting: vi.fn(async () => null),
+      setAppSetting: vi.fn(async () => {
+        if (shouldFail) throw new Error('disk is read-only');
+      }),
+    } as unknown as Platform;
+    attachWorkspacePreferencePlatform(platform);
+    act(() => {
+      updateWorkspacePreferences((current) =>
+        setPanelOverride(current, 'design', 'history', { visible: true }),
+      );
+    });
+    await act(async () => {
+      await flushWorkspacePreferences();
+    });
+
+    const alert = screen
+      .getByText(/Workspace preferences could not be saved to/i)
+      .closest<HTMLElement>('[role="alert"]');
+    if (!alert) throw new Error('Missing workspace preference save warning.');
+    expect(alert).toHaveTextContent(/could not be saved to platform storage/i);
+    expect(alert).toHaveTextContent('disk is read-only');
+    expect(getWorkspacePreferences().design.panelOverrides?.history?.visible).toBe(true);
+
+    shouldFail = false;
+    fireEvent.click(within(alert).getByRole('button', { name: 'Retry saving' }));
+    await waitFor(() =>
+      expect(document.querySelector('.workspace-customize__save-error')).not.toBeInTheDocument(),
+    );
   });
 
   it('moves a panel through the accessible controls and persists the validated dock tree', () => {

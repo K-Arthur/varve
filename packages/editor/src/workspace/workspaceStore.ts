@@ -26,6 +26,7 @@ import {
   ALL_WORKSPACE_PREFERENCE_MODES,
   CHROME_CONFIG_KEYS,
   type ChromeConfig,
+  ESSENTIAL_STATUS_SECTION_IDS,
   getToolbarToolIds,
   getWorkspaceConfig,
   type InspectorTabId,
@@ -44,6 +45,18 @@ import {
 
 const STORAGE_KEY = 'varve-workspace-preferences';
 const LEGACY_STORAGE_KEY = 'strata-workspace-preferences';
+const MAX_PREFERENCE_REVISION = 2_147_483_647;
+const PREFERENCE_WRITER_ID = createPreferenceWriterId();
+
+function createPreferenceWriterId(): string {
+  try {
+    const id = globalThis.crypto?.randomUUID?.();
+    if (id && /^[A-Za-z0-9-]{1,64}$/.test(id)) return id;
+  } catch {
+    // Fall through for runtimes without crypto.randomUUID.
+  }
+  return `writer-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+}
 
 /** Default preference for a mode (no customizations). */
 function defaultPreference(): WorkspacePreference {
@@ -175,6 +188,21 @@ function sanitizePreference(
     for (const [sectionId, val] of Object.entries(sectionRaw)) {
       if (baseSectionIds.has(sectionId as StatusSectionId) && typeof val === 'boolean') {
         cleanSections[sectionId as StatusSectionId] = val;
+      }
+    }
+    // Retired ids fold forward instead of being dropped: `debt` and
+    // `layoutScore` were two badges for one question, now one
+    // `documentHealth` section. A saved preference that hid BOTH keeps the
+    // merged badge hidden; a preference that hid only one leaves it visible,
+    // which is the conservative direction (a health count reappears rather
+    // than a user's "show me this" being silently discarded).
+    if (baseSectionIds.has('documentHealth')) {
+      const legacyBools = Object.entries(sectionRaw)
+        .filter(([id]) => id === 'debt' || id === 'layoutScore')
+        .map(([, value]) => value)
+        .filter((value): value is boolean => typeof value === 'boolean');
+      if (legacyBools.length > 0 && legacyBools.every((visible) => visible === false)) {
+        cleanSections.documentHealth = false;
       }
     }
   }
@@ -335,6 +363,14 @@ function sanitizePreference(
     ...(cleanPlacement ? { toolbarPlacement: cleanPlacement } : {}),
     ...(defaultToolOverride ? { defaultToolOverride } : {}),
     customized: pref.customized === true,
+    ...(typeof pref.revision === 'number' &&
+    Number.isSafeInteger(pref.revision) &&
+    pref.revision >= 0
+      ? { revision: Math.min(MAX_PREFERENCE_REVISION, pref.revision) }
+      : {}),
+    ...(typeof pref.writerId === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(pref.writerId)
+      ? { writerId: pref.writerId }
+      : {}),
     ...(typeof pref.lastCustomized === 'number' ? { lastCustomized: pref.lastCustomized } : {}),
     ...(typeof pref.clearedAt === 'number' ? { clearedAt: pref.clearedAt } : {}),
   };
@@ -349,9 +385,36 @@ function sanitizePreference(
  */
 let lastPersistenceError: { at: number; layer: 'local' | 'platform'; message: string } | null =
   null;
+const persistenceListeners = new Set<() => void>();
 
 export function getWorkspacePersistenceError() {
   return lastPersistenceError;
+}
+
+export function subscribeWorkspacePersistence(listener: () => void): () => void {
+  persistenceListeners.add(listener);
+  return () => persistenceListeners.delete(listener);
+}
+
+function clearWorkspacePersistenceError(layer: 'local' | 'platform'): void {
+  if (lastPersistenceError?.layer !== layer) return;
+  lastPersistenceError = null;
+  for (const listener of persistenceListeners) listener();
+}
+
+/** Retry the latest session snapshot after a reported preference save failure. */
+export async function retryWorkspacePreferenceSave(): Promise<boolean> {
+  const failedLayer = lastPersistenceError?.layer;
+  saveWorkspacePreferences(getWorkspacePreferences());
+  await flushWorkspacePreferences();
+  if (
+    !durablePlatform &&
+    failedLayer === 'platform' &&
+    lastPersistenceError?.layer === 'platform'
+  ) {
+    recordPersistenceError('platform', 'Durable workspace storage is unavailable in this session.');
+  }
+  return lastPersistenceError === null;
 }
 
 function recordPersistenceError(layer: 'local' | 'platform', err: unknown): void {
@@ -360,6 +423,7 @@ function recordPersistenceError(layer: 'local' | 'platform', err: unknown): void
     layer,
     message: err instanceof Error ? err.message : String(err),
   };
+  for (const listener of persistenceListeners) listener();
 }
 
 /**
@@ -377,6 +441,7 @@ function recordPersistenceError(layer: 'local' | 'platform', err: unknown): void
 export function saveWorkspacePreferences(prefs: WorkspacePreferences): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs));
+    clearWorkspacePersistenceError('local');
   } catch (err) {
     // Quota exceeded, private browsing, storage disabled. The in-memory
     // snapshot still serves this session.
@@ -425,12 +490,25 @@ function scheduleDurableSave(prefs: WorkspacePreferences): void {
   }, DURABLE_SAVE_DEBOUNCE_MS);
 }
 
-/** Serialize durable writes so an older in-flight snapshot cannot finish last. */
+/** Serialize durable writes and merge concurrent windows with logical revisions. */
 function enqueueDurableWrite(platform: Platform, prefs: WorkspacePreferences): Promise<void> {
-  const payload = JSON.stringify(prefs);
   durableWriteQueue = durableWriteQueue.then(async () => {
     try {
-      await platform.setAppSetting(APP_SETTING_KEY, payload);
+      if (!platform.compareAndSetAppSetting) {
+        await platform.setAppSetting(APP_SETTING_KEY, JSON.stringify(prefs));
+        clearWorkspacePersistenceError('platform');
+        return;
+      }
+      for (let attempt = 0; attempt < 8; attempt++) {
+        const raw = await platform.getAppSetting(APP_SETTING_KEY);
+        const remote = raw ? sanitizePreferences(JSON.parse(raw)) : createDefaultPreferences();
+        const merged = mergePreferencesByRecency(prefs, remote);
+        if (await platform.compareAndSetAppSetting(APP_SETTING_KEY, raw, JSON.stringify(merged))) {
+          clearWorkspacePersistenceError('platform');
+          return;
+        }
+      }
+      throw new Error('Workspace preferences changed repeatedly while saving; retry the save.');
     } catch (err) {
       recordPersistenceError('platform', err);
     }
@@ -457,14 +535,80 @@ export async function flushWorkspacePreferences(): Promise<void> {
  * Both stores are legitimate sources: localStorage can be wiped by the
  * WebView while platform storage survives, and platform storage can lag
  * behind a write that has not flushed yet or was made by another window.
- * `lastCustomized` and `clearedAt` are the only event ordering we have:
- * a reset is a decision and must beat an older customization, and a
- * customization made after a reset must beat the reset. When neither copy
- * carries an event (both untouched), an uncustomized entry never displaces
- * a customized one.
+ * Newer entries are ordered by logical revision and writer identity. Legacy
+ * entries without a revision still use lastCustomized/clearedAt to migrate
+ * old data; timestamps no longer decide conflicts once both sides have a
+ * revision. A reset is stored as a versioned uncustomized entry, not absence.
  */
 function preferenceEventTime(pref: WorkspacePreference): number {
   return Math.max(pref.lastCustomized ?? 0, pref.clearedAt ?? 0);
+}
+
+function preferenceRevision(pref: WorkspacePreference): number {
+  return Number.isSafeInteger(pref.revision) && (pref.revision ?? -1) >= 0
+    ? Math.min(MAX_PREFERENCE_REVISION, pref.revision ?? 0)
+    : 0;
+}
+
+function comparePreferenceEvents(a: WorkspacePreference, b: WorkspacePreference): number {
+  const aRevision = preferenceRevision(a);
+  const bRevision = preferenceRevision(b);
+  if (aRevision === 0 || bRevision === 0) {
+    // A legacy timestamp is meaningful only while migrating an unversioned
+    // entry. Once both sides carry revisions, clocks no longer order edits.
+    const migrationTimeOrder = preferenceEventTime(a) - preferenceEventTime(b);
+    if (migrationTimeOrder !== 0) return Math.sign(migrationTimeOrder);
+  }
+  const revisionOrder = aRevision - bRevision;
+  if (revisionOrder !== 0) return Math.sign(revisionOrder);
+  if (aRevision > 0) {
+    const writerOrder = (a.writerId ?? 'legacy').localeCompare(b.writerId ?? 'legacy');
+    if (writerOrder !== 0) return Math.sign(writerOrder);
+  }
+  const timeOrder = preferenceEventTime(a) - preferenceEventTime(b);
+  if (timeOrder !== 0) return Math.sign(timeOrder);
+  if (a.customized !== b.customized) return a.customized ? 1 : -1;
+  return 0;
+}
+
+function preferenceContent(pref: WorkspacePreference): string {
+  const { revision: _revision, writerId: _writerId, dockRestore: _dockRestore, ...content } = pref;
+  return JSON.stringify(content);
+}
+
+function restampPreferenceAfter(
+  preference: WorkspacePreference,
+  other: WorkspacePreference,
+): WorkspacePreference {
+  return {
+    ...preference,
+    revision: Math.min(
+      MAX_PREFERENCE_REVISION,
+      Math.max(preferenceRevision(preference), preferenceRevision(other)) + 1,
+    ),
+    writerId: PREFERENCE_WRITER_ID,
+  };
+}
+
+function stampChangedPreferences(
+  previous: WorkspacePreferences,
+  next: WorkspacePreferences,
+): WorkspacePreferences {
+  const stamped = { ...next } as WorkspacePreferences;
+  for (const mode of ALL_WORKSPACE_PREFERENCE_MODES) {
+    const before = previous[mode] ?? defaultPreference();
+    const after = next[mode] ?? defaultPreference();
+    if (preferenceContent(before) !== preferenceContent(after)) {
+      stamped[mode] = restampPreferenceAfter(after, before);
+    } else if (preferenceRevision(after) < preferenceRevision(before)) {
+      stamped[mode] = {
+        ...after,
+        revision: before.revision,
+        ...(before.writerId ? { writerId: before.writerId } : {}),
+      };
+    }
+  }
+  return stamped;
 }
 
 function mergePreferencesByRecency(
@@ -475,20 +619,7 @@ function mergePreferencesByRecency(
   for (const mode of ALL_WORKSPACE_PREFERENCE_MODES) {
     const l = local[mode] ?? defaultPreference();
     const r = remote[mode] ?? defaultPreference();
-    const localTime = preferenceEventTime(l);
-    const remoteTime = preferenceEventTime(r);
-    if (localTime !== remoteTime) {
-      const selected = localTime > remoteTime ? l : r;
-      const dockRestore = mergeDockRestoreState(l.dockRestore, r.dockRestore);
-      merged[mode] = dockRestore ? { ...selected, dockRestore } : selected;
-      continue;
-    }
-    // Same event time (usually both zero): preserve the old customized-wins
-    // rule, then fall back to the current session's copy.
-    let selected: WorkspacePreference;
-    if (!r.customized && l.customized) selected = l;
-    else if (!l.customized && r.customized) selected = r;
-    else selected = l;
+    const selected = comparePreferenceEvents(l, r) >= 0 ? l : r;
     const dockRestore = mergeDockRestoreState(l.dockRestore, r.dockRestore);
     merged[mode] = dockRestore ? { ...selected, dockRestore } : selected;
   }
@@ -508,6 +639,7 @@ export async function hydrateWorkspacePreferencesFromPlatform(
 ): Promise<boolean> {
   attachWorkspacePreferencePlatform(platform);
   preferenceHydrationState = 'pending';
+  const hydrationStart = getWorkspacePreferences();
   try {
     let raw: string | null = null;
     try {
@@ -527,9 +659,19 @@ export async function hydrateWorkspacePreferencesFromPlatform(
     }
 
     const local = getWorkspacePreferences();
+    const changedDuringHydration = new Set(
+      ALL_WORKSPACE_PREFERENCE_MODES.filter(
+        (mode) => preferenceContent(local[mode]) !== preferenceContent(hydrationStart[mode]),
+      ),
+    );
     const merged = mergePreferencesByRecency(local, remote);
+    for (const mode of changedDuringHydration) {
+      // An edit made after hydration began is a new local decision, even if
+      // its offline revision started below the already-durable revision.
+      merged[mode] = restampPreferenceAfter(local[mode], remote[mode] ?? defaultPreference());
+    }
     if (JSON.stringify(merged) === JSON.stringify(local)) return false;
-    setWorkspacePreferences(merged);
+    publishWorkspacePreferences(merged);
     return true;
   } finally {
     preferenceHydrationState = 'settled';
@@ -563,6 +705,11 @@ export function getWorkspacePreferences(): WorkspacePreferences {
 
 /** Replace the in-memory snapshot (e.g. after a settings reset). */
 export function setWorkspacePreferences(prefs: WorkspacePreferences): void {
+  const previous = getWorkspacePreferences();
+  publishWorkspacePreferences(stampChangedPreferences(previous, prefs));
+}
+
+function publishWorkspacePreferences(prefs: WorkspacePreferences): void {
   cachedPrefs = prefs;
   saveWorkspacePreferences(prefs);
   for (const listener of listeners) listener();
@@ -592,6 +739,7 @@ export function resetWorkspacePreferenceCache(): void {
   durablePending = null;
   durablePlatform = null;
   lastPersistenceError = null;
+  persistenceListeners.clear();
 }
 
 // ---------------------------------------------------------------------------
@@ -863,7 +1011,15 @@ export function setStatusSectionOverride(
   const updated = { ...prefs };
   const modePrefs = { ...updated[mode] };
   const sectionOverrides = { ...(modePrefs.statusSectionOverrides ?? {}) };
-  sectionOverrides[sectionId] = visible;
+  // Essential sections cannot be hidden (see ESSENTIAL_STATUS_SECTION_IDS).
+  // Recording the override anyway would leave a durable "hidden" preference
+  // that silently re-applies the day the section stops being essential, so a
+  // request to hide one clears any stored value instead.
+  if (ESSENTIAL_STATUS_SECTION_IDS.has(sectionId)) {
+    delete sectionOverrides[sectionId];
+  } else {
+    sectionOverrides[sectionId] = visible;
+  }
   modePrefs.statusSectionOverrides = sectionOverrides;
   modePrefs.customized = true;
   modePrefs.lastCustomized = Date.now();

@@ -4937,12 +4937,6 @@ fieldset.insp-canvas-props,
   max-width: 100%;
 }
 
-/* ─── DebtBadge (status bar debt count pill) ──────────── */
-
-[data-theme="high-contrast"] .debt-badge {
-  border-width: 2px;
-}
-
 /* ─── BindingMenu (variable binding combobox) ─────────── */
 .binding-menu {
   width: 14rem;
@@ -5091,39 +5085,6 @@ fieldset.insp-canvas-props,
 .gradient-editor__remove-btn:disabled {
   cursor: not-allowed;
   opacity: 0.5;
-}
-
-/* ─── DebtBadge (status bar debt count pill) ──────────── */
-.debt-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  padding: 1px 5px;
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-pill);
-  font-size: var(--font-size-2xs);
-  font-weight: var(--font-weight-semibold);
-  cursor: pointer;
-  transition:
-    background var(--duration-quick) var(--ease-standard),
-    border-color var(--duration-quick) var(--ease-standard);
-  font-family: inherit;
-  line-height: 1.4;
-  white-space: nowrap;
-}
-.debt-badge:hover {
-  border-color: var(--color-border-strong);
-}
-.debt-badge:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
-  outline-offset: 1px;
-}
-.debt-badge__count {
-  font-feature-settings: "tnum";
-}
-
-[data-theme="high-contrast"] .debt-badge {
-  border-width: 2px;
 }
 
 /* Constraint section feedback */
@@ -5302,47 +5263,6 @@ fieldset.insp-canvas-props,
 }
 
 /* ------------------------------------------------------------------ */
-/*  AuditBadge — L1 status bar indicator                               */
-/* ------------------------------------------------------------------ */
-
-.audit-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: 2px 8px;
-  border-radius: var(--radius-control-compact);
-  border: 1px solid var(--color-border-subtle);
-  background: var(--color-surface-default);
-  color: var(--color-text-muted);
-  font-size: var(--font-size-xs);
-  cursor: pointer;
-  transition:
-    background var(--duration-fast),
-    color var(--duration-fast);
-  line-height: 1;
-}
-.audit-badge:hover {
-  background: var(--color-surface-raised);
-}
-.audit-badge--error {
-  color: var(--color-feedback-danger);
-  border-color: var(--color-feedback-danger);
-}
-.audit-badge--error:hover {
-  background: color-mix(in oklab, var(--color-feedback-danger) 12%, var(--color-surface-raised));
-}
-.audit-badge--warning {
-  color: var(--color-feedback-warning);
-  border-color: var(--color-feedback-warning);
-}
-.audit-badge--warning:hover {
-  background: color-mix(in oklab, var(--color-feedback-warning) 14%, var(--color-surface-raised));
-}
-.audit-badge__count {
-  font-weight: var(--font-weight-medium);
-}
-
-/* ------------------------------------------------------------------ */
 /*  ContextualAuditSummary — L2 inline findings                        */
 /* ------------------------------------------------------------------ */
 
@@ -5479,12 +5399,6 @@ fieldset.insp-canvas-props,
   /* Break to its own line inside insp-field (flex row) so multi-line hints
    * don't collide with the control or subsequent elements. */
   flex-basis: 100%;
-}
-
-/* AuditBadge — keyboard focus (badge itself styled above). */
-.audit-badge:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
-  outline-offset: 1px;
 }
 
 /* ─── Icon section (document icon provenance) ────────── */
@@ -5660,6 +5574,11 @@ fieldset.insp-canvas-props,
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control);
   background: var(--color-surface-sunken);
+}
+.email-output-panel {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
 }
 .email-panel__group h3,
 .email-panel__link h4 {

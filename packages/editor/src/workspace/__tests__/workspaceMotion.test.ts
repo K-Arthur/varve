@@ -68,10 +68,13 @@ describe('Motion workspace config', () => {
     expect(toolIds).toContain('arrow');
   });
 
-  it('has layoutScore status section', () => {
-    const sections = motionConfig.statusSections;
-    expect(sections.some((s) => s.id === 'layoutScore')).toBe(true);
-    expect(sections.some((s) => s.id === 'selectionInfo')).toBe(true);
+  it('has a single document-health status section', () => {
+    const ids = motionConfig.statusSections.map((s) => String(s.id));
+    expect(ids).toContain('documentHealth');
+    // The audit, debt, and layout scanners used to declare three sections and
+    // render three adjacent badges for one question.
+    expect(ids).not.toContain('debt');
+    expect(ids).not.toContain('layoutScore');
   });
 
   it('has audit inspector tab', () => {

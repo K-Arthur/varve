@@ -83,10 +83,14 @@ describe('WorkspaceConfig', () => {
     for (const mode of ALL_WORKSPACE_MODES) {
       const sections = getVisibleStatusSections(mode);
       expect(sections.length).toBeGreaterThan(0);
-      expect(sections).toContain('toolName');
+      expect(sections).toContain('renderer');
       expect(sections).toContain('cursorPos');
       expect(sections).toContain('zoom');
-      expect(sections).toContain('selectionInfo');
+      expect(sections).toContain('saveStatus');
+      // One id per fact: the active tool and the selection readout live in
+      // the palette and in SelectionInfoBar respectively.
+      expect(sections).not.toContain('toolName');
+      expect(sections).not.toContain('selectionInfo');
     }
   });
 
@@ -103,17 +107,11 @@ describe('WorkspaceConfig', () => {
     }
   });
 
-  it('labels are defined for all modes', () => {
-    expect(Object.keys(WORKSPACE_LABELS).sort()).toEqual([
-      'codegen',
-      'design',
-      'drawing',
-      'email',
-      'image',
-      'logo',
-      'motion',
-      'print',
-    ]);
+  it('labels are defined for exactly the current modes', () => {
+    // Derived from the mode list rather than written out: Logo and Codegen
+    // stopped being workspace modes, and a hand-maintained copy of the keys
+    // outlived them.
+    expect(Object.keys(WORKSPACE_LABELS).sort()).toEqual([...ALL_WORKSPACE_MODES].sort());
   });
 
   it('timeline panel is hidden in all modes by default except motion', () => {
@@ -150,11 +148,18 @@ describe('WorkspaceConfig', () => {
     expect(config.performance).toBeUndefined();
   });
 
-  it('each mode has unique toolbar tools', () => {
-    const designTools = new Set(WORKSPACE_CONFIGS.design.toolbar.tools.map((t) => t.toolId));
-    const drawingTools = new Set(WORKSPACE_CONFIGS.drawing.toolbar.tools.map((t) => t.toolId));
-    // Drawing mode should have paint, design should not
+  it('each mode has its own toolbar tool set', () => {
+    const toolSet = (mode: keyof typeof WORKSPACE_CONFIGS) =>
+      new Set(WORKSPACE_CONFIGS[mode].toolbar.tools.map((t) => t.toolId));
+    const designTools = toolSet('design');
+    const drawingTools = toolSet('drawing');
+    // Draw leads with paint and defaults to it. Design also carries paint now
+    // (Shading layers live there), so the old "design must not have paint"
+    // premise is gone; what must hold is that neither workspace is a copy of
+    // the other's.
+    expect(WORKSPACE_CONFIGS.drawing.defaultTool).toBe('paint');
     expect(drawingTools.has('paint')).toBe(true);
-    expect(designTools.has('paint')).toBe(false);
+    expect(drawingTools).not.toEqual(designTools);
+    expect(designTools.size).toBeGreaterThan(0);
   });
 });

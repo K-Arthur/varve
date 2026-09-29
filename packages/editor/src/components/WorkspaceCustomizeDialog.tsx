@@ -7,7 +7,7 @@
  * to built-in defaults (and leaves a recoverable snapshot in Manage Layouts).
  */
 import { Button, Checkbox, Dialog, IconButton, NativeSelect, SearchField } from '@varve/ui';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useEditor } from '../context';
 import type { ToolId } from '../tools/toolRegistry';
 import {
@@ -34,7 +34,9 @@ import {
   useWorkspaceCustomizations,
 } from '../workspace/useWorkspaceConfig';
 import {
+  getWorkspacePersistenceError,
   getWorkspacePreferences,
+  retryWorkspacePreferenceSave,
   setChromeOverride,
   setDockLayoutOverride,
   setInspectorTabOrderOverride,
@@ -46,12 +48,14 @@ import {
   setToolbarToolOrderOverride,
   setToolbarToolOverride,
   setToolbarToolPinnedOverride,
+  subscribeWorkspacePersistence,
   updateWorkspacePreferences,
 } from '../workspace/workspaceStore';
 import {
   CHROME_CONFIG_KEYS,
   CHROME_CONFIG_LABELS,
   type ChromeConfig,
+  ESSENTIAL_STATUS_SECTION_IDS,
   getToolbarToolIds,
   getWorkspaceConfig,
   type InspectorTabId,
@@ -173,6 +177,23 @@ export function WorkspaceCustomizeDialog({
   const [dockTarget, setDockTarget] = useState<PanelId>('inspector');
   const [dockPlacement, setDockPlacement] = useState<DockMovePlacement>('tab');
   const [dockMoveMessage, setDockMoveMessage] = useState('');
+  const [persistenceError, setPersistenceError] = useState(getWorkspacePersistenceError);
+  const [retryingSave, setRetryingSave] = useState(false);
+
+  useEffect(
+    () => subscribeWorkspacePersistence(() => setPersistenceError(getWorkspacePersistenceError())),
+    [],
+  );
+
+  const handleRetrySave = useCallback(async () => {
+    setRetryingSave(true);
+    try {
+      await retryWorkspacePreferenceSave();
+    } finally {
+      setRetryingSave(false);
+      setPersistenceError(getWorkspacePersistenceError());
+    }
+  }, []);
 
   const handleTogglePanel = useCallback(
     (panelId: PanelId, visible: boolean) => {
@@ -485,6 +506,19 @@ export function WorkspaceCustomizeDialog({
       <div className="workspace-customize">
         <p className="workspace-customize__description">{builtIn.onboarding.description}</p>
 
+        {persistenceError && (
+          <section className="workspace-customize__save-error" role="alert">
+            <p>
+              Workspace preferences could not be saved to {persistenceError.layer} storage. You can
+              continue editing; the current session remains available.
+            </p>
+            <p>{persistenceError.message}</p>
+            <Button variant="secondary" disabled={retryingSave} onClick={handleRetrySave}>
+              {retryingSave ? 'Retrying…' : 'Retry saving'}
+            </Button>
+          </section>
+        )}
+
         {/* Keyboard and touch-accessible alternative to panel drag-and-drop. */}
         <section
           className="workspace-customize__section"
@@ -726,29 +760,41 @@ export function WorkspaceCustomizeDialog({
         {/* Status sections */}
         <section className="workspace-customize__section">
           <h3>Status Bar Sections</h3>
-          {effectiveConfig.statusSections.map((section, index) => (
-            <div key={section.id} className="workspace-customize__arrangement-row">
-              <div className="workspace-customize__toggle">
-                <Checkbox
-                  label={STATUS_SECTION_LABELS[section.id]}
-                  checked={section.visible}
-                  onChange={(e) => handleToggleStatusSection(section.id, e.target.checked)}
+          <p className="workspace-customize__hint">
+            Sections sort inside two clusters: instrumentation on the left, controls on the right.
+            Reordering moves a section within its own cluster; it cannot cross the boundary. Save
+            status is always shown.
+          </p>
+          {effectiveConfig.statusSections.map((section, index) => {
+            const essential = ESSENTIAL_STATUS_SECTION_IDS.has(section.id);
+            return (
+              <div key={section.id} className="workspace-customize__arrangement-row">
+                <div className="workspace-customize__toggle">
+                  <Checkbox
+                    label={STATUS_SECTION_LABELS[section.id]}
+                    checked={section.visible}
+                    disabled={essential}
+                    description={
+                      essential ? 'Always shown — a workspace cannot hide save state.' : undefined
+                    }
+                    onChange={(e) => handleToggleStatusSection(section.id, e.target.checked)}
+                  />
+                </div>
+                <IconButton
+                  icon="ArrowUp"
+                  label={`Move ${STATUS_SECTION_LABELS[section.id]} earlier`}
+                  disabled={index === 0}
+                  onClick={() => handleMoveStatusSection(section.id, -1)}
+                />
+                <IconButton
+                  icon="ArrowDown"
+                  label={`Move ${STATUS_SECTION_LABELS[section.id]} later`}
+                  disabled={index === effectiveConfig.statusSections.length - 1}
+                  onClick={() => handleMoveStatusSection(section.id, 1)}
                 />
               </div>
-              <IconButton
-                icon="ArrowUp"
-                label={`Move ${STATUS_SECTION_LABELS[section.id]} earlier`}
-                disabled={index === 0}
-                onClick={() => handleMoveStatusSection(section.id, -1)}
-              />
-              <IconButton
-                icon="ArrowDown"
-                label={`Move ${STATUS_SECTION_LABELS[section.id]} later`}
-                disabled={index === effectiveConfig.statusSections.length - 1}
-                onClick={() => handleMoveStatusSection(section.id, 1)}
-              />
-            </div>
-          ))}
+            );
+          })}
         </section>
 
         {/* Actions */}

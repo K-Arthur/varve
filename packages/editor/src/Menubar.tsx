@@ -1,7 +1,7 @@
 // COMPLEXITY: 275 cyclo (over ceiling 200) — see Phase 5 of architecture-health-remediation-2026-07-26.md
 
 import { adoptBrowserFileHandle, contentHash } from '@varve/platform';
-import { MAX_ZOOM, MIN_ZOOM, VARVE_URLS } from '@varve/shared';
+import { VARVE_URLS } from '@varve/shared';
 import {
   AlertDialog,
   elementAnchor,
@@ -74,78 +74,6 @@ function ariaShortcut(binding: {
 }
 
 const INSTALL_DISMISS_KEY = 'strata-install-desktop-dismissed';
-
-function formatZoomPercent(zoom: number): string {
-  const safeZoom = Number.isFinite(zoom) && zoom > 0 ? zoom : 1;
-  const clamped = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, safeZoom));
-  return String(Math.round(clamped * 100 * 100) / 100);
-}
-
-function parseZoomPercent(value: string): number | null {
-  const trimmed = value.trim();
-  if (trimmed.length === 0) return null;
-  const percent = Number(trimmed);
-  if (!Number.isFinite(percent) || percent <= 0) return null;
-  return Math.min(MAX_ZOOM * 100, Math.max(MIN_ZOOM * 100, percent)) / 100;
-}
-
-function ZoomInput({
-  id,
-  className,
-  zoom,
-  setZoom,
-}: {
-  id: string;
-  className: string;
-  zoom: number;
-  setZoom: (value: number) => void;
-}) {
-  const [draft, setDraft] = useState<string | null>(null);
-  const cancelRef = useRef(false);
-
-  const commit = (value: string) => {
-    const nextZoom = parseZoomPercent(value);
-    setDraft(null);
-    if (nextZoom !== null) setZoom(nextZoom);
-  };
-
-  return (
-    <input
-      id={id}
-      className={className}
-      type="number"
-      min={MIN_ZOOM * 100}
-      max={MAX_ZOOM * 100}
-      step={0.1}
-      inputMode="decimal"
-      value={draft ?? formatZoomPercent(zoom)}
-      onChange={(e) => setDraft(e.target.value)}
-      onFocus={() => {
-        cancelRef.current = false;
-        setDraft((current) => current ?? formatZoomPercent(zoom));
-      }}
-      onKeyDown={(e) => {
-        if (e.key === 'Escape') {
-          e.preventDefault();
-          cancelRef.current = true;
-          setDraft(null);
-          e.currentTarget.blur();
-        } else if (e.key === 'Enter') {
-          e.preventDefault();
-          e.currentTarget.blur();
-        }
-      }}
-      onBlur={(e) => {
-        if (cancelRef.current) {
-          cancelRef.current = false;
-          return;
-        }
-        commit(e.currentTarget.value);
-      }}
-      aria-label={`Zoom ${formatZoomPercent(zoom)}%`}
-    />
-  );
-}
 
 function safeLocalStorageGet(key: string): string | null {
   try {
@@ -453,6 +381,11 @@ function buildMenus(
           shortcut: shortcutText('newLogoProject'),
           ariaKeyshortcut: ks('newLogoProject'),
           action: 'newLogoProject',
+        },
+        {
+          label: 'Create Presentation from Selected Frames…',
+          action: 'createPresentationFromSelection',
+          disabled: !hasSelection,
         },
         {
           label: 'Logo',
@@ -1916,7 +1849,6 @@ export function Menubar({
     openFile,
     undo,
     redo,
-    setZoom,
     clearAllGuides,
     startPresentation,
     addMaskToSelected,
@@ -2804,7 +2736,11 @@ export function Menubar({
         </div>
       </div>
 
-      {/* ── Right: Workspace tabs + Zoom + Undo/Redo ── */}
+      {/* ── Right: Workspace tabs + Undo/Redo ──
+          No zoom field here: the status-bar zoom chip is the single owner
+          (editor.css documents the duplication this removes, and the portrait
+          rule that used to hide this copy as a workaround). Zoom stays in the
+          View menu and on its shortcuts. */}
       <div className="editor-menubar__controls">
         <WorkspaceTabs />
         <span aria-hidden className="editor-menubar__zoom-divider">
@@ -2826,21 +2762,6 @@ export function Menubar({
           onClick={redo}
           disabled={!state.canRedo}
         />
-        <div className="editor-menubar__zoom">
-          <span aria-hidden className="editor-menubar__zoom-divider">
-            |
-          </span>
-          <label htmlFor="menubar-zoom" className="sr-only">
-            Zoom
-          </label>
-          <ZoomInput
-            id="menubar-zoom"
-            className="editor-menubar__zoom-input"
-            zoom={state.zoom}
-            setZoom={setZoom}
-          />
-          <span className="editor-menubar__zoom-unit">%</span>
-        </div>
       </div>
 
       <AlertDialog

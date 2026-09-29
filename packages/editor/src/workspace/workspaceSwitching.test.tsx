@@ -97,10 +97,10 @@ describe('Workspace mode switching — motion mode', () => {
 
     it('has motion-specific status sections', () => {
       const sections = getVisibleStatusSections('motion');
-      expect(sections).toContain('toolName');
+      expect(sections).toContain('renderer');
       expect(sections).toContain('cursorPos');
       expect(sections).toContain('zoom');
-      expect(sections).toContain('selectionInfo');
+      expect(sections).toContain('viewToggles');
     });
 
     it('has motion-specific inspector tabs', () => {
