@@ -104,9 +104,14 @@ Photoshop stale-measurement bug, Illustrator's one-and-done zoom field) live in
   grid row uses (floored to 26px inside `.editor-shell` so 24px controls
   fit). A separate literal (the old `28px`) let the shell's `overflow: hidden`
   clip the bottom of the bar at every width below 1920px.
-- Interactive controls are a **24px minimum** (WCAG 2.2 SC 2.5.8): status
-  toggles, zoom steps, and the unit select are `var(--space-6)`. The zoom chip
-  has no vertical padding so its 24px targets define its height.
+- Interactive controls are a **24px minimum** (WCAG 2.2 SC 2.5.8): every
+  block-axis control height in the bar reads `--statusbar-control-height`,
+  declared on `.editor-shell` next to `--statusbar-height` precisely because it
+  has to fit inside it (26–28px including the bar's own 1px top border). The
+  inline axis keeps `--component-compact-height`, which the row has room for.
+  Do not swap either back for `--space-6`: it resolves to 22.4px at a narrow
+  window and 29.6px at 1920 — below the floor at one end, taller than the row
+  at the other.
 - If content still exceeds the row (very narrow windows, enlarged text), the
   bar scrolls horizontally instead of silently clipping a control.
   Informational text ellipsizes first.

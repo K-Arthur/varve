@@ -170,6 +170,47 @@ tooltip carries the angle, and whose press resets. The value is still visible �
 the failure mode to avoid here is Figma UI3 *hiding* width/height and rotation
 values designers relied on, not showing them once.
 
+### P1 — The row's own controls were taller than the row
+
+**Evidence.** Every status-bar control took `min-height: var(--component-compact-height)`
+(28px). The shell clamps `--statusbar-height` to
+`max(26px, clamp(24px, 1.45rem + 0.25vw, 28px))` — **26.8px at 1440px, minus
+its 1px top border**, so the content box is 25.8px. A 28px control centered in
+it overflowed by ~1.2px and the shell's `overflow: hidden` ate that. Measured by
+`tests/e2e/workspace/bottom-bar.spec.ts`, which reports the bar's box beside
+every control's box:
+
+```text
+Modified — open Document Info clips at 1440px
+bar [871.0, 897.8], control [870.0, 898.0]
+```
+
+The same class of bug shipped in Photoshop's status bar (a control that reads as
+present but is partly cut), and it is invisible at a glance: 1.2px of a chip is
+not something a person reports.
+
+**Root cause.** The `editor.css` comments already state the intent — *"the
+status bar's control tier … floored to 26px inside `.editor-shell` so 24px
+controls fit"* — but the rules reused `--component-compact-height`, a 28px
+token belonging to the toolbars. The comment and the value had diverged.
+
+**Fix.** One token, `--statusbar-control-height: var(--component-xs-height)`
+(24px, the WCAG 2.2 SC 2.5.8 floor), declared beside the row height it has to
+fit inside. Every block-axis control height in the bar reads it; widths keep
+`--component-compact-height`, which the row has room for.
+
+### P1 — The preflight badge sat under the WCAG target floor
+
+**Evidence.** `.preflight-warnings__badge` carries no `min-height` at all —
+roughly 19px tall from `font-size × line-height + padding + border` — and it
+was also missing from the coarse-pointer block that raises the other status
+badges to 24px. It is an interactive button in the status bar of the Print and
+Email workspaces, so it failed SC 2.5.8 there while every neighbour passed.
+
+**Fix.** It joins the status-bar badge rule (`min-height:
+--statusbar-control-height`, `min-width: --target-min-compact`) and the
+coarse-pointer block.
+
 ### P2 — Informational dashes marked nothing
 
 **Evidence.** Two `<span aria-hidden>—</span>` elements separated the bar.
@@ -210,7 +251,7 @@ by other applications.
 | `packages/editor/src/workspace/workspaceTypes.ts` | Section vocabulary updated (`+documentHealth`, `+renderer`, `+viewToggles`, `+fit`, `+saveStatus`, `+aiStatus`; `−toolName`, `−selectionInfo`, `−debt`, `−layoutScore`), six configs updated, `ESSENTIAL_STATUS_SECTION_IDS`, legacy fold in `migrateWorkspaceConfig`. |
 | `packages/editor/src/workspace/workspaceStore.ts` | Folds legacy `debt`/`layoutScore` overrides into `documentHealth` before sanitizing. |
 | `packages/editor/src/Menubar.tsx` | Menubar zoom control removed (duplicate of the status-bar chip). |
-| `packages/editor/src/editor.css` | Status-bar cluster/spacer rules; removed the informational dash rule and the menubar zoom rules. |
+| `packages/editor/src/editor.css` | Status-bar cluster/spacer rules; `--statusbar-control-height` (the row's own control tier) replacing the 28px toolbar token; preflight badge target size; removed the informational dash rule and the menubar zoom rules. |
 | `packages/editor/src/components/WorkspaceCustomizeDialog.tsx` | Save-status row renders disabled with a reason; hint text describes the two clusters. |
 
 ## Verification
@@ -221,13 +262,39 @@ by other applications.
   `workspaceStore.test.ts`.
 - Browser: `tests/e2e/workspace/bottom-bar.spec.ts` — single-ownership
   assertions (no second selection readout, no second zoom field, exactly one
-  health badge), 24px target floor, no vertical clipping, and reachability
-  under 200% text.
-- Visual: `tests/e2e/visual/bottom-bar.visual.spec.ts` captures before/after
-  pairs into `docs/screenshots/bottom-bar-2026-09-29/`.
+  health badge), the customize dialog driving the row, and every visible
+  control at ≥24px with nothing clipped at six widths. That last check is what
+  found the control-tier bug above, and it now reports the bar's box beside
+  each control's so a future failure names the geometry instead of a boolean.
+- Browser: `tests/e2e/canvas/toolbar-followup.spec.ts` and
+  `tests/e2e/interaction/chromeos-device-matrix.spec.ts` — the pre-existing
+  status-bar target and coarse-pointer floors, re-run against the new tier.
+- Visual: `tests/e2e/visual/bottom-bar-visual.spec.ts` captures human-review
+  PNGs into `VARVE_VISUAL_QA_DIR` (promoted into
+  `docs/screenshots/bottom-bar-2026-09-29/` for this review): the design row
+  selected and unselected in light, dark, and high contrast; the print row with
+  its preflight badge; the rotation chip carrying the angle; the 640px row
+  after every tier has dropped; and the customize dialog's section list.
+
+**Results.** `tests/e2e/workspace/bottom-bar.spec.ts` +
+`bottom-bar-visual.spec.ts`: **8/8 passed**. `toolbar-followup.spec.ts` +
+`chromeos-device-matrix.spec.ts`: **41 passed, 1 failed** — the failure is the
+floating palette's placement, whose source is another session's uncommitted
+work, while this change's own geometry assertions in that file passed. The
+seven other edited specs: **15 passed, 6 failed**, all at assertions this task
+did not write (undo history, workspace-switcher overflow, Email dock tabs,
+View-menu workspace labels, artboard coordinates). Full attribution is in
+`docs/agents/bottom-bar-2026-09-29-ownership.md`.
 
 ## Remaining work (honest list)
 
+- The **Editor chrome ▸ Status bar** checkbox in *Customize Workspace* gates
+  `SelectionInfoBar` and `StatusBar` together (both render inside
+  `effectiveConfig.statusBar`). It behaves as "hide the bottom bar", which is
+  defensible, but the label still says *Status bar* and the selection strip now
+  owns facts the status bar no longer repeats. Either rename the toggle to
+  *Bottom bar* or split the preference — the split is the more honest option
+  and needs a `chromeOverrides` key that persisted layouts can carry.
 - The information cluster's `.editor-status__meta` still caps at `14rem` each;
   four long labels on a narrow window ellipsize before the tier rules fire.
   Tiering by *content length* would need measurement, not media queries.
