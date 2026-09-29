@@ -1,6 +1,6 @@
 # Input System — Behavior Matrix (cross-platform)
 
-Canonical behavior — refreshed 2026-09-17 on `master`
+Canonical behavior — refreshed 2026-09-29 on `master`
 
 This matrix is the canonical statement of *intended* input behavior for the
 Varve canvas. It accompanies the dated audits in
@@ -53,7 +53,7 @@ diagnostics behavior.
 |---|---|
 | One finger | Routed to the active tool by default. Settings > Drawing input can reversibly switch one-finger touch to viewport navigation. |
 | Two-finger pinch | Combined pan + zoom around the gesture centroid. |
-| Two-finger pan | Pans the viewport; the provisional first tool interaction is cancelled for that pointer only; no global undo or history entry is created. |
+| Two-finger pan | The provisional first tool interaction is cancelled for that pointer only; its capture transfers into navigation ownership and the viewport pans without global undo or a history entry. |
 | Three or more fingers | Navigation-owned or ignored; never creates a path, selection change, or paint dab. |
 | Return from pinch | A remaining finger stays navigation-owned; a new contact is required before drawing resumes. |
 | Pointer cancel / capture loss | Cancels only the owning interaction; gesture state is reset idempotently. |
@@ -62,10 +62,10 @@ diagnostics behavior.
 
 | Input | Behavior |
 |---|---|
-| Pen draw | Routed to the active tool; pressure/tilt/twist are preserved when events provide them. Missing/default values do not prove a sensor is present. |
+| Pen draw | Routed to the active tool; pressure/tilt/twist are preserved when events provide them. Pressure capability is observed only from active-contact samples; a constant default `0.5`, hover values, and pen-up samples do not prove pressure sensitivity. |
 | Eraser tip | Active eraser state uses button 5, the active `buttons` bitfield, or an explicit eraser channel; a transition value alone is not enough. |
 | Barrel button | Button state is preserved for tools/diagnostics; no universal action is claimed. |
-| Pen + touch coexistence | During a pen stroke, foreign touch/compatibility contacts are ignored; hovering and between-stroke navigation remain runtime-dependent. |
+| Pen + touch coexistence | Pen takes canvas ownership; concurrent touch identities are removed from navigation coordinates and stay ignored until they lift. Fresh touch input is accepted afterward. Hovering and between-stroke navigation remain runtime-dependent. |
 
 ### 2.5 Keyboard (canvas focused)
 
@@ -124,7 +124,7 @@ Settings > Nudging & Movement for the local small/big amounts.
 | 100% | 1 document unit per CSS pixel |
 | UI zoom field range | 0.1–6400% (fractional; shared `MIN_ZOOM` / `MAX_ZOOM`) |
 | Rotation | Supported; all transforms rotation-aware (affine) |
-| Zoom entry points | Canvas keys, ActionRegistry shortcuts, StatusBar, Menubar, wheel, trackpad pinch, touch pinch, ZoomTool, minimap — all route through `commitCamera` / `computeZoom*` |
+| Camera entry points | Canvas keys, ActionRegistry shortcuts, StatusBar, Menubar, ZoomTool, minimap, and fit/reveal commands commit through the shared camera operations. Continuous wheel, trackpad/touch pinch, one-finger pan, Hand-tool drag/inertia, and edge auto-pan publish viewport-only previews during input and commit the final camera when the gesture settles; smooth reveal still advances committed camera state during its animation. |
 
 ## 4. Platform support
 
@@ -143,6 +143,13 @@ fallback is `Ctrl/Cmd+wheel` and the on-screen zoom controls. This is
 documented in `docs/audits/input-system-audit-2026-08-01.md` (G13, manual
 hardware checklist).
 
+The Linux Tauri workflow soak (`tests/wdio/native-fluidity-cycle.e2e.ts`)
+repeats document creation, edits, wheel navigation, a pen-shaped paint stroke,
+save, and document close in the real WebKitGTK application. Pointer and wheel
+events are dispatched from WebDriver JavaScript and are labeled synthetic in
+the evidence. They test the app workflow and persistence path; they do not
+confirm physical pen, touchpad, OS-trusted input, or presentation latency.
+
 ## 5. Interaction state (navigation layer)
 
 The canvas navigation is a small explicit state machine owned by
@@ -151,15 +158,28 @@ The canvas navigation is a small explicit state machine owned by
 | State | Enters | Exits |
 |---|---|---|
 | Idle | — | pointerdown, wheel, keydown |
-| Tool drag | pointerdown (button 0/2/pen) | pointerup / pointercancel / Escape / blur |
+| Tap candidate | Primary pointerdown on canvas; the active tool retains the original target and selection snapshot | Pointerup resolves a tap; movement past the CSS-pixel drag threshold becomes editing/drawing; cancellation restores the starting state |
+| Editing | Select/transform gesture crosses its drag threshold and owns capture | Pointerup commits once; cancel, capture loss, blur, tool/document change, modal takeover, or disposal restores geometry, selection, dirty state, and history |
+| Drawing | Active drawing tool receives pen, touch, or mouse contact | Pointerup commits the final endpoint; cancellation clears draft, queued paint, preview, and capture |
+| Long press | Touch/pen remains within the movement tolerance for `LONG_PRESS_MS` | Deep-selection menu opens; movement or cancellation clears the timer |
+| UI-owned contact | Pointerdown targets a control, inspector, or dismissible surface | The UI control handles the contact; it never becomes a canvas gesture |
 | Pan (wheel) | wheel (plain) | wheel idle, momentum decay |
 | Zoom (wheel) | ctrl/meta+wheel | wheel idle |
-| Touch pinch | second touch pointer down | pointerup below 2 pointers / pointercancel |
+| Navigation ownership | configured finger-navigation contact, middle-button/Hand drag, or second touch during a provisional tool interaction | Gesture end commits camera; pinch return leaves remaining contacts navigation-owned until they lift |
+| Tool-to-navigation transfer | A second contact claims navigation during a provisional tool interaction | Tool interaction is cancelled synchronously, then the still-live contacts belong to navigation; capture release cannot cancel the pinch |
+| Cancellation | pointercancel, lost capture, Escape, blur/visibility loss, modal takeover, tool/document switch, or disposal | One idempotent close path clears timers, previews, scheduled work, drag flags, and capture; a fresh contact starts a new interaction |
 | Space-hand | Space keydown | Space keyup / blur |
 
-Cancellation is explicit: window `blur`, `visibilitychange`, `pointercancel`,
-`lostpointercapture`, and Escape all reset transient state so a lost key/pointer
-cannot leave the editor stuck.
+Each tool-owned pointer has a session-scoped interaction record containing its
+pointer, tool manager and instance, document session, generation, original tool
+context, and closed state. Cancellation is idempotent and resolves the owning
+tool before a tool or document switch, modal focus takeover, canvas disposal,
+window `blur`, `visibilitychange`, `pointercancel`, `lostpointercapture`, or
+Escape. It clears drag flags, long-press timers, previews, pointer capture,
+auto-pan and deferred stroke work. Cancelled selection moves restore selection
+history and dirty/history metadata without a global Undo step. A touch changed
+from tool ownership to navigation ownership is a separate handoff: losing tool
+capture cannot dismantle the active pinch.
 
 ## 6. Remaining gaps / unsupported cases
 
@@ -199,8 +219,9 @@ Before shipping an input milestone, verify on each available device:
 
 ## 8. ChromeOS and browser-route constraints
 
-Research basis: ChromeOS Help "Chromebook keyboard shortcuts" and "Use your
-Chromebook touchpad" (Google, accessed 2026-09-12; ChromeOS stable 152).
+Research basis: [ChromeOS Help, "Chromebook keyboard shortcuts"](https://support.google.com/chromebook/answer/183101?hl=en)
+and "Use your Chromebook touchpad" (Google, accessed 2026-09-27; ChromeOS
+stable 152).
 Reserved combinations are owned by the OS/browser and cannot be intercepted by
 page code. These are discovered from the documentation and observed on Chrome
 for desktop; they are not yet re-verified on the Duet.
@@ -233,6 +254,7 @@ for desktop; they are not yet re-verified on the Duet.
 | Two-finger touch | Pan + zoom about the centroid; second contact cancels only the first pointer’s provisional tool interaction | `inputPolicy` unit tests + `drawing-input.spec.ts`; physical touch pending |
 | Touch long-press | Opens the deep-selection menu (SelectTool, `LONG_PRESS_MS`) | unit tests + implementation |
 | Touch multi-select | Toolbar toggle (`state.touchMultiSelect`) with marquee suppression | E2E and unit tests |
+| Tablet editing controls | Floating toolbar popover: Constrain, From centre, Bypass snap, one-shot deep select, Duplicate, six alignment actions, Bring forward, Send backward | `TabletTouchControls.test.tsx`, ToolManager/SelectTool modifier tests; browser touch emulation pending recheck |
 | Pen | Pressure/tilt/twist normalized when reported; missing data falls back to constant pressure, never dropped; observed capabilities remain separate from API availability | `inputNormalizer` unit tests; synthetic E2E; physical pressure pending |
 | Pen + touch | Foreign contacts cannot cancel or merge into an active pen stroke | `inputPolicy` unit tests + synthetic E2E; real arbitration is a device check |
 | Eraser tip | Active state uses button 5 or the active button/channel state | `inputNormalizer` unit tests; hardware behavior pending |
@@ -252,10 +274,13 @@ for desktop; they are not yet re-verified on the Duet.
   (`primary chrome meets the 24 CSS px target floor`) measures every button in
   the menubar, status bar, floating toolbar, and FAB cluster at 800x1280 with
   a coarse pointer and fails on any visible control below 24px.
-- Portrait menubar: the workspace switcher is icon-only (32px, 44px under a
-  coarse pointer), the menu strip scrolls instead of clipping options, and the
-  document title and menubar zoom are hidden because the tab strip and status
-  bar already expose them. Asserted by the `portrait menubar compaction` E2E.
+- Portrait menubar: the workspace switcher keeps the active workspace's name
+  and gives every tab a 44px target, the menu strip scrolls instead of clipping
+  options, and the document title and menubar zoom are hidden because the tab
+  strip and status bar already expose them. Asserted by the `portrait menubar
+  compaction` E2E; the switcher's own treatment at this tier (a flat part of the
+  top bar rather than a raised card) is in
+  [`responsive-workspace.md`](./responsive-workspace.md).
 
 ### 8.4 Virtual keyboard
 
@@ -273,9 +298,9 @@ for desktop; they are not yet re-verified on the Duet.
 
 | Input / condition | Behavior | Evidence |
 |---|---|---|
-| Left-edge swipe with a menu, popover, or dialog open | Dismisses the topmost layer with Escape semantics; the document is not left and the URL does not change; a second swipe dismisses the next layer | E2E `system back dismisses an open menu instead of leaving the editor`; guard cleanup test |
+| Back traversal with an eligible menu, popover, or dialog open | Explicitly dismisses the topmost eligible layer; nested surfaces close one at a time. Tooltips and nondismissible surfaces do not consume Back. | E2E `system back dismisses a nested submenu before its parent menu`; guard cleanup and deep-link tests |
 | Back with no layers open | Normal browser/deep-link history behavior; no guard is pushed | `TabletBackDismiss` + deep-link guard skip |
-| Portrait compact width | Inspector/library/logo present as bottom sheets; layers stays a side drawer | E2E portrait sheet test; screenshots inspected |
+| Portrait compact width | Inspector is a nonmodal lower pane; Resources remains a modal sheet; Layers stays a side drawer | E2E responsive-panel test; screenshots inspected |
 | Landscape compact width (`<=899px`) | Supplementary panels stay right side drawers | E2E landscape test |
 | `>899px` | Regular docked columns | viewport matrix + rotation test |
 | Rotation mid-gesture | `pointercancel` rolls the gesture back; no stuck tool, no partial undo entry; the next gesture works | E2E `rotation mid-gesture does not leave a stuck interaction` |
@@ -283,8 +308,9 @@ for desktop; they are not yet re-verified on the Duet.
 
 The OS back gesture starts in a narrow left-edge inset and cannot be claimed
 by page content; a canvas stroke that intersects it receives `pointercancel`
-and is rolled back. ChromeOS-reserved combinations remain documented in
-section 8.1.
+and is rolled back. Browser history emulation verifies the dismissal route but
+does not certify the physical ChromeOS edge gesture. ChromeOS-reserved
+combinations remain documented in section 8.1.
 
 ### 8.6 Keyboard-free alternatives (WCAG 2.2 SC 2.5.7)
 
@@ -297,6 +323,9 @@ field-based equivalent:
 | Resize | drag a handle | W/H fields; the **Constrain proportions** lock preserves the aspect ratio while typing |
 | Context actions | right-click | touch/pen long-press deep-selection menu |
 | Multi-select | Shift/Ctrl+click | touch multi-select toggle in the floating toolbar |
+| Constrain / centre / snap bypass | Shift / Alt / Ctrl or Command while drawing or transforming | latched modifier buttons in the tablet Editing controls popover; From centre applies to creation tools and selection resize handles, while Select's Alt-drag duplicate stays unchanged |
+| Deep select | Ctrl/Cmd+click or touch long-press | arm Deep select next tap, then tap the canvas once |
+| Duplicate / align / layer order | keyboard shortcuts, dragging, Inspector controls | tablet Editing controls popover; actions call editor commands directly |
 | Undo / redo | `Ctrl+Z` / `Ctrl+Shift+Z` | Edit menu items (also the menubar icon buttons); E2E verified at 800x1280 |
 | Canvas navigation | drag / wheel | status-bar zoom stepper and field; Hand tool; keyboard zoom |
 | ChromeOS function keys | top-row keys are actions (F1 = Back) | `Search`/`Launcher` + key, or the Help menu; Delete is `Backspace`, forward-delete is the OS `Alt+Backspace` and is not required by any Varve action |
