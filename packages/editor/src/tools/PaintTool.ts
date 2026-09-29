@@ -277,6 +277,7 @@ export class PaintTool extends BaseTool {
       selection: ctx.selection,
       maskEditTarget: ctx.maskEditTarget ?? null,
       fallbackLayerId: findEditableRasterLayer(ctx),
+      getWorldTransform: ctx.getWorldTransform,
     });
 
     let maskSession: MaskPaintSession | null = null;
@@ -294,8 +295,9 @@ export class PaintTool extends BaseTool {
       rasterNodeId = target.nodeId;
       this.lastOwnedLayer = false;
     } else {
-      if (!target.canCreateLayer) {
-        // Locked or hidden: say why instead of silently doing nothing.
+      if (!target.canCreateLayer || ctx.selection.length > 0) {
+        // An explicit selection is never an invitation to paint on some other
+        // raster layer. The spoken refusal also tells the artist how to recover.
         ctx.announce(target.reason);
         ctx.abortTransaction();
         return { consumed: false };

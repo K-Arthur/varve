@@ -278,6 +278,37 @@ describe('PaintTool', () => {
     expect(ctx.beginTransaction).toHaveBeenCalledOnce();
   });
 
+  it('refuses an explicit vector selection instead of redirecting to a raster layer', () => {
+    const raster = makeRasterLayerNode('paint-below', { width: 64, height: 64 });
+    const vector = {
+      id: 'vector',
+      kind: 'shape',
+      name: 'Selected vector',
+      visible: true,
+      locked: false,
+      shape: { type: 'rect', x: 0, y: 0, width: 64, height: 64 },
+    };
+    const ctx = makeCtx({
+      document: {
+        nodes: { vector, 'paint-below': raster },
+        rootChildren: ['vector', 'paint-below'],
+      } as unknown as ToolContext['document'],
+      selection: ['vector'],
+      getNode: (id: string) =>
+        id === 'vector' ? (vector as never) : id === 'paint-below' ? raster : undefined,
+    });
+    const paint = new PaintTool(false);
+    paint.setWorkerHost(new BrushWorkerHost(null));
+
+    const result = paint.onPointerDown(makePointerEvent(10, 10), ctx);
+
+    expect(result.consumed).toBe(false);
+    expect(ctx.announce).toHaveBeenCalledWith(expect.stringContaining('Create a paint layer'));
+    expect(ctx.createRasterLayer).not.toHaveBeenCalled();
+    expect(ctx.updateNode).not.toHaveBeenCalled();
+    expect(ctx.abortTransaction).toHaveBeenCalledOnce();
+  });
+
   it('eraser mode sets createRasterLayer with eraser defaults', () => {
     const eraser = new PaintTool(true);
     expect(eraser.id).toBe('eraser');
@@ -605,6 +636,11 @@ describe('PaintTool wet media', () => {
 
 describe('PaintTool mask painting', () => {
   function maskCtx(overrides: Partial<ToolContext> = {}) {
+    const mask = {
+      assetId: 'm1',
+      coordinateSpace: 'container-local-pixels',
+      sourceIdentity: { kind: 'source-metadata', locator: 'fixture:frame-1', revision: 1 },
+    };
     const node = {
       id: 'frame-1',
       kind: 'frame',
@@ -613,13 +649,22 @@ describe('PaintTool mask painting', () => {
       h: 64,
       visible: true,
       locked: false,
-      mask: {},
+      mask: { rasterMask: mask },
     };
     return makeCtx({
       document: {
         nodes: { 'frame-1': node },
         rootChildren: ['frame-1'],
-        rasterMaskAssets: {},
+        rasterMaskAssets: {
+          m1: {
+            id: 'm1',
+            mimeType: 'image/png',
+            dataUrl: 'data:image/png;base64,AA==',
+            width: 64,
+            height: 64,
+            byteLength: 1,
+          },
+        },
       } as unknown as ToolContext['document'],
       selection: ['frame-1'],
       maskEditTarget: { nodeId: 'frame-1', maskId: 'm1' },
@@ -631,6 +676,11 @@ describe('PaintTool mask painting', () => {
 
   function paintStroke(tool: PaintTool, ctx: ToolContext) {
     tool.setWorkerHost(new BrushWorkerHost(null));
+    tool.setMaskDecoder(() => ({
+      data: new Uint8ClampedArray(64 * 64 * 4).fill(255),
+      width: 64,
+      height: 64,
+    }));
     tool.onPointerDown(makePointerEvent(10, 10), ctx);
     tool.onPointerMove(makePointerEvent(30, 30), ctx);
     tool.onPointerUp(makePointerEvent(30, 30), ctx);
@@ -669,18 +719,25 @@ describe('PaintTool mask painting', () => {
     // A stroke entirely outside the mask plane touches no pixels.
     const ctx = maskCtx();
     tool.setWorkerHost(new BrushWorkerHost(null));
+    tool.setMaskDecoder(() => ({
+      data: new Uint8ClampedArray(64 * 64 * 4).fill(255),
+      width: 64,
+      height: 64,
+    }));
     tool.onPointerDown(makePointerEvent(-500, -500), ctx);
     tool.onPointerUp(makePointerEvent(-500, -500), ctx);
     expect(ctx.commitRasterMask).not.toHaveBeenCalled();
     expect(ctx.abortTransaction).toHaveBeenCalled();
   });
 
-  it('paints layer pixels again once the mask target is cleared', () => {
+  it('refuses the frame selection after its mask target is cleared', () => {
     const tool = new PaintTool(false);
     const ctx = maskCtx({ maskEditTarget: null });
     paintStroke(tool, ctx);
     expect(ctx.commitRasterMask).not.toHaveBeenCalled();
-    expect(ctx.updateNode).toHaveBeenCalled();
+    expect(ctx.updateNode).not.toHaveBeenCalled();
+    expect(ctx.createRasterLayer).not.toHaveBeenCalled();
+    expect(ctx.announce).toHaveBeenCalledWith(expect.stringContaining('Create a paint layer'));
   });
 
   it('refuses a locked layer with a spoken reason instead of failing silently', () => {

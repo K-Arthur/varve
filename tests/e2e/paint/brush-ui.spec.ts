@@ -256,6 +256,63 @@ test.describe('paint UI in the running app', () => {
     await surface.screenshot({ path: testInfo.outputPath('painted-stroke.png') });
   });
 
+  test('an explicit vector selection blocks painting into another raster layer', async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize(VIEWPORT);
+    await navigateToEditor(page);
+    await switchToPhotoWorkspace(page);
+    const surface = page.locator('.editor-canvas');
+    const canvas = page.locator('canvas.editor-canvas__content-layer');
+    const box = await surface.boundingBox();
+    if (!box) throw new Error('editor canvas surface not found');
+
+    // Establish an unrelated raster fallback through the normal paint path.
+    await activatePaint(page);
+    const y = box.y + box.height * 0.42;
+    const blank = await contentCanvasHash(page);
+    await page.mouse.move(box.x + box.width * 0.2, y);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width * 0.32, y + 16, { steps: 8 });
+    await page.mouse.up();
+    await expect.poll(() => contentCanvasHash(page), { timeout: 10000 }).not.toBe(blank);
+    await page.waitForTimeout(500);
+    await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10000 });
+    await expect(page.getByRole('treeitem').first()).toContainText('Brush Layer');
+    await page.screenshot({ path: testInfo.outputPath('paint-layer-before-vector.png') });
+
+    // Add and leave a vector rectangle explicitly selected above that raster.
+    await page.keyboard.press('r');
+    await expect(page.getByRole('treeitem').first()).toContainText('Brush Layer');
+    await page.mouse.move(box.x + box.width * 0.48, box.y + box.height * 0.38);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width * 0.67, box.y + box.height * 0.62, { steps: 8 });
+    await page.mouse.up();
+    await page.screenshot({ path: testInfo.outputPath('vector-layer-after-drag.png') });
+    await expect(page.getByRole('treeitem')).toHaveCount(2, { timeout: 10000 });
+    const vectorRow = page.getByRole('treeitem').filter({ hasText: /rect/i });
+    await expect(vectorRow).toBeVisible();
+    await expect(vectorRow).toHaveAttribute('aria-selected', 'true');
+
+    // The attempt must be refused, with no change to the already-painted
+    // raster and no third layer silently created in the background.
+    await activatePaint(page);
+    await page.waitForTimeout(250);
+    const before = await contentCanvasHash(page);
+    await page.mouse.move(box.x + box.width * 0.72, y);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width * 0.8, y + 14, { steps: 8 });
+    await page.mouse.up();
+
+    await expect(page.locator('#strata-canvas-announcer-polite')).toHaveText(
+      /Create a paint layer, then select it to paint/i,
+    );
+    await expect.poll(() => contentCanvasHash(page)).toBe(before);
+    await expect(page.getByRole('treeitem')).toHaveCount(2);
+    await page.screenshot({ path: testInfo.outputPath('vector-selected-paint-refusal.png') });
+    await expect(canvas).toBeVisible();
+  });
+
   test('smudge mode and sampling controls drive a real canvas stroke', async ({
     page,
   }, testInfo) => {

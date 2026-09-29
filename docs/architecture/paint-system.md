@@ -1,7 +1,7 @@
 # Paint System
 
 **Status:** Implemented; see Limitations for what is not
-**Updated:** 2026-09-13
+**Updated:** 2026-09-28
 
 ## Scope
 
@@ -39,10 +39,23 @@ The output target is deliberately explicit:
 
 Painting resolves its raster target in this order:
 
-1. selected visible, unlocked raster layer;
-2. visible, unlocked raster layer in the active page subtree;
-3. a new page-sized raster layer, parented to the containing frame when one is
-   active.
+1. an explicitly selected raster layer, after checking it and its ancestors
+   for visibility, locks, active-page membership, and an invertible world
+   transform;
+2. when selection is empty, an eligible raster layer in the active page
+   subtree;
+3. when selection is empty and no eligible layer exists, one page-sized
+   `Brush Layer`, parented to the containing frame when one is active.
+
+An explicit non-raster selection is refused. The brush does not route that
+stroke to a different raster layer behind the selection. A stale or deleted
+fallback, invalid page membership, inaccessible ancestor, singular transform,
+or mask whose id does not match the selected node's mask asset is likewise a
+refusal; these states cannot redirect a stroke. Mask painting also requires a
+present, dimensioned asset in the coordinate space currently supported by the
+mask session. The resolver's refusal reason is announced to assistive
+technology. A visible recovery action is tracked separately from this spoken
+feedback and is not yet verified.
 
 Clone Stamp, Healing Brush, Spot Heal, Patch, and Dodge Burn use the same
 resolver but with stricter ownership: an explicitly selected raster layer is
