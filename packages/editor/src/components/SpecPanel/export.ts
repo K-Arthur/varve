@@ -64,6 +64,7 @@ import { replayStructuredScene } from '../../render/replayScene';
 import { flattenSceneToEngine } from '../../render/sceneToEngine';
 import { nodeWorldTransform } from '../../scene/world';
 import { worldBBox } from './measurement';
+import { makeRasterImagePdf } from './rasterPdf';
 
 export type RasterFormat = 'image/png' | 'image/jpeg' | 'image/webp';
 
@@ -638,93 +639,6 @@ export function buildFilename(nodeName: string, ext: string, suffix = ''): strin
 }
 
 /**
- * Generate a minimal 1-page PDF with an embedded RGB image.
- * Standard PDF structure: header, objects, cross-reference table, trailer.
- */
-function makeSimpleImagePdf(rgbaPixels: Uint8Array, width: number, height: number): Uint8Array {
-  // Strip alpha → RGB for the PDF image XObject
-  const rgb = new Uint8Array(width * height * 3);
-  for (let i = 0; i < width * height; i++) {
-    const off = i * 4;
-    rgb[off] = rgbaPixels[off]!;
-    rgb[off + 1] = rgbaPixels[off + 1]!;
-    rgb[off + 2] = rgbaPixels[off + 2]!;
-  }
-
-  const streamData = rgb;
-  const streamLen = streamData.length;
-
-  // Object numbers
-  const CATALOG = 1;
-  const PAGES = 2;
-  const PAGE = 3;
-  const STREAM = 4;
-  const XREF = 5;
-
-  const sb: string[] = [];
-  const push = (s: string) => sb.push(s);
-  const emitObj = (num: number, body: string) => {
-    push(`${num} 0 obj`);
-    push(body);
-    push('endobj');
-  };
-
-  push('%PDF-1.4');
-
-  // Catalog
-  emitObj(CATALOG, `<< /Type /Catalog /Pages ${PAGES} 0 R >>`);
-  // Pages
-  emitObj(PAGES, `<< /Type /Pages /Kids [ ${PAGE} 0 R ] /Count 1 >>`);
-  // Page with image
-  const pageContent = `q\n${width} 0 0 ${height} 0 0 cm\n/Im0 Do\nQ`;
-  emitObj(
-    PAGE,
-    `<< /Type /Page /Parent ${PAGES} 0 R /MediaBox [ 0 0 ${width} ${height} ] /Contents ${STREAM + 1} 0 R /Resources << /XObject << /Im0 ${STREAM} 0 R >> >> >>`,
-  );
-  // Image XObject stream
-  emitObj(
-    STREAM,
-    `<< /Type /XObject /Subtype /Image /Width ${width} /Height ${height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Length ${streamLen} >>\nstream\n<NOT_ESCAPED>\nendstream`,
-  );
-  // Content stream
-  emitObj(STREAM + 1, `<< /Length ${pageContent.length} >>\nstream\n${pageContent}\nendstream`);
-
-  const body = sb.join('\n');
-  const bodyBytes = new TextEncoder().encode(body);
-
-  // Build the final bytes: body then xref then trailer
-  const xrefOffset = bodyBytes.length + 1; // +1 for newline
-  const xref = `xref\n0 ${XREF + 1}\n0000000000 65535 f \n${'0'.repeat(10)} 00000 n \n${'0'.repeat(10)} 00000 n \n${'0'.repeat(10)} 00000 n \n${'0'.repeat(10)} 00000 n \n${'0'.repeat(10)} 00000 n \ntrailer\n<< /Size ${XREF + 1} /Root ${CATALOG} 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
-
-  const xrefBytes = new TextEncoder().encode(xref);
-
-  // Now construct the actual file with stream data inserted
-  const result = new Uint8Array(bodyBytes.length + streamLen + xrefBytes.length + 64);
-  let pos = 0;
-
-  // Write body up to the placeholder marker
-  const bodyStr = body;
-  const marker = '<NOT_ESCAPED>';
-  const markerIdx = bodyStr.indexOf(marker);
-  // Write everything before the marker
-  const beforeMarker = new TextEncoder().encode(bodyStr.slice(0, markerIdx));
-  result.set(beforeMarker, pos);
-  pos += beforeMarker.length;
-  // Write the stream data
-  result.set(streamData, pos);
-  pos += streamData.length;
-  // Write everything after the marker
-  const afterMarker = new TextEncoder().encode(bodyStr.slice(markerIdx + marker.length));
-  result.set(afterMarker, pos);
-  pos += afterMarker.length;
-  // Write xref/trailer
-  result.set(xrefBytes, pos);
-  pos += xrefBytes.length;
-
-  return result.slice(0, pos);
-}
-
-/**
  * Check whether a subtree requires raster fallback for PDF export.
  *
  * Uses the compositor for scene-level structural analysis (effects, masks,
@@ -807,12 +721,8 @@ async function rasterizeSubtreeToPdf(
   const imageData = ctx.getImageData(0, 0, img.width, img.height);
   img.close();
 
-  const pdfBytes = makeSimpleImagePdf(
-    imageData.data as unknown as Uint8Array,
-    img.width,
-    img.height,
-  );
-  return { bytes: pdfBytes, pixelWidth: img.width, pixelHeight: img.height };
+  const pdfBytes = makeRasterImagePdf(imageData.data, imageData.width, imageData.height);
+  return { bytes: pdfBytes, pixelWidth: imageData.width, pixelHeight: imageData.height };
 }
 
 /**
