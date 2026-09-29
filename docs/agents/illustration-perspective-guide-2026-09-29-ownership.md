@@ -23,7 +23,7 @@ guide.
   perspective line geometry, world-space handles, and camera-aware placement.
 - New `tests/e2e/paint/two-point-perspective-guide.spec.ts` — real editor
   interaction, drag/visibility, view-only behavior, and inspected captures.
-- `docs/architecture/guide-system.md`, the illustration capability matrix,
+- `docs/architecture/viewport-guides-system.md`, the illustration capability matrix,
   and `CHANGELOG.md` — verified behavior and explicit view-only limits.
 
 ## Shared-file boundaries
