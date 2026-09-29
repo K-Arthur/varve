@@ -16,7 +16,9 @@
  *   F3 every mode's pill and every inactive icon meets 4.5:1 as *rendered*
  *      (colors are painted to a canvas and measured from sRGB bytes);
  *   F4 phone-width landscape keeps the active workspace named, and the pill
- *      only compacts when the measurement genuinely cannot fit it;
+ *      only compacts when the measurement genuinely cannot fit it (asserted by
+ *      sweeping widths, because the threshold is a measurement and not a
+ *      query);
  *   F5 the switcher never renders over, or steals the hit area of, the
  *      application menu rail it shares a row with.
  *
@@ -290,6 +292,13 @@ test.describe('workspace switcher design review', () => {
   test('F3 — every mode pill and inactive icon is AA as rendered', async ({ page }) => {
     test.setTimeout(600_000);
     await page.setViewportSize({ width: 1920, height: 1080 });
+    // Measure the RESTING state. `.workspace-dock__item` transitions colour, so
+    // an item that just lost the active class animates from `text-on-accent`
+    // toward its mode tint; a sample taken inside that window reads an
+    // intermediate blend (measured 1.06-2.87:1) that no user ever rests on.
+    // Reduced motion removes the transition window entirely, and the resting
+    // colours are unchanged by it.
+    await page.emulateMedia({ reducedMotion: 'reduce' });
 
     const failures: string[] = [];
     for (const theme of THEMES) {
@@ -310,6 +319,9 @@ test.describe('workspace switcher design review', () => {
           'data-mode',
           mode,
         );
+        // Belt and braces with reduced motion: let the style engine settle so a
+        // loaded machine cannot hand us a half-computed color.
+        await page.waitForTimeout(120);
         const measured = await readRenderedContrast(page);
         expect(measured.error, `F3 ${theme}/${mode}: ${measured.error}`).toBe('');
         for (const row of measured.rows) {
@@ -348,28 +360,49 @@ test.describe('workspace switcher design review', () => {
     await expectSwitcherMounted(page, 'F4 named');
 
     const geometry = await readGeometry(page);
-    expect(geometry.activeLabel, 'active workspace name missing').not.toBeNull();
+    expect(geometry.activeLabel, 'active workspace name missing at 640x400').not.toBeNull();
     expect(geometry.activeLabel!.text).toBe('Design');
     expect(geometry.activeLabel!.display).not.toBe('none');
     expect(geometry.activeLabel!.opacity).toBe('1');
     expect(geometry.activeLabel!.width).toBeGreaterThan(20);
     expect(geometry.compactActive, 'label rendered while the pill claims compact').toBe(false);
 
-    // The name is only dropped when the strip genuinely cannot hold it. 700×500
-    // is the narrowest case the app produces here: the zoom field is visible
-    // again above the 640px tier, so the dock's flex width shrinks — exactly
-    // the condition the measurement exists to detect. Then the pill compacts
-    // to its icon and the name stays in the tooltip and accessible name
-    // instead of a zero-width label sitting in the DOM.
-    await page.setViewportSize({ width: 700, height: 500 });
-    await expect
-      .poll(async () => (await readGeometry(page)).compactActive, { timeout: 10_000 })
-      .toBe(true);
-    const narrow = await readGeometry(page);
-    expect(narrow.activeLabel).toBeNull();
+    // The threshold is a measurement, not a width. How much room the dock's
+    // flex wrapper gets is set by the rest of the top bar (undo/redo, the zoom
+    // field, the menu rail), and those change; an assertion pinned to one
+    // viewport breaks whenever a neighbour changes size. Sweep down until the
+    // measurement reports that the strip no longer fits with a name, and hold
+    // the invariant at every step: the name is in the DOM exactly when the pill
+    // is not compact — which is only true if the layout math, and not a width
+    // query, is making the decision.
+    let compactedAt: number | null = null;
+    for (const width of [620, 580, 560, 520, 480, 440, 400, 360]) {
+      await page.setViewportSize({ width, height: 400 });
+      await page.waitForTimeout(300);
+      const step = await readGeometry(page);
+      expect(
+        step.compactActive,
+        `${width}x400: pill compact=${step.compactActive} but label present=${step.activeLabel !== null}`,
+      ).toBe(step.activeLabel === null);
+      if (step.compactActive) {
+        compactedAt = width;
+        break;
+      }
+    }
+    expect(
+      compactedAt,
+      'the strip never compacted across the swept widths — the measurement no longer needs to evict the name',
+    ).not.toBeNull();
+
+    // Compacting is not hiding: the radio keeps its accessible name and chord,
+    // so the mode is still identifiable and still reachable.
     await expect(page.getByRole('radio', { name: 'Design workspace' })).toHaveAttribute(
       'aria-checked',
       'true',
+    );
+    await expect(page.getByRole('radio', { name: 'Design workspace' })).toHaveAttribute(
+      'aria-keyshortcuts',
+      'Control+Shift+1',
     );
   });
 
