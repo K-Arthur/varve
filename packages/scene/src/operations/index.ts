@@ -30,6 +30,7 @@ export type {
   PageResizePayload,
 } from './ops/pageOps';
 export type {
+  PresentationBuiltInLayoutCreatePayload,
   PresentationDeckCreatePayload,
   PresentationDeckIdPayload,
   PresentationDeckRenamePayload,

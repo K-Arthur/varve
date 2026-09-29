@@ -9,6 +9,11 @@ import {
   updatePresentationLayoutSource,
 } from '../../presentation/layouts';
 import {
+  createBuiltInPresentationLayout,
+  PRESENTATION_BUILT_IN_LAYOUTS,
+  type PresentationBuiltInLayoutId,
+} from '../../presentation/layoutTemplates';
+import {
   addPresentationDeck,
   addPresentationSection,
   addPresentationSlide,
@@ -79,6 +84,12 @@ export interface PresentationSectionDeletePayload extends PresentationDeckIdPayl
 
 export interface PresentationLayoutRegisterPayload {
   source: PresentationLayoutSource;
+}
+
+export interface PresentationBuiltInLayoutCreatePayload {
+  deckId: string;
+  sourceId: string;
+  templateId: PresentationBuiltInLayoutId;
 }
 
 export interface PresentationLayoutUpdatePayload {
@@ -403,6 +414,30 @@ function validateLayoutRegister(
     return { ok: false, errors: ['presentation.layout.register requires a valid layout source'] };
   }
   return { ok: true, value: { source: payload.source } };
+}
+
+function validateBuiltInLayoutCreate(
+  payload: unknown,
+): ValidationResult<PresentationBuiltInLayoutCreatePayload> {
+  if (
+    !record(payload) ||
+    !nonEmptyString(payload.deckId) ||
+    !nonEmptyString(payload.sourceId) ||
+    !PRESENTATION_BUILT_IN_LAYOUTS.some(({ id }) => id === payload.templateId)
+  ) {
+    return {
+      ok: false,
+      errors: ['presentation.layout.builtin.create requires a deck, source id, and known template'],
+    };
+  }
+  return {
+    ok: true,
+    value: {
+      deckId: payload.deckId,
+      sourceId: payload.sourceId,
+      templateId: payload.templateId as PresentationBuiltInLayoutId,
+    },
+  };
 }
 
 function validateLayoutUpdate(payload: unknown): ValidationResult<PresentationLayoutUpdatePayload> {
@@ -757,6 +792,35 @@ export function registerPresentationOperations(): void {
       sectionExists(document, payload.deckId, payload.sectionId)
         ? null
         : `presentation section does not exist: ${payload.sectionId}`,
+    maxPayloadBytes: 8_000,
+  });
+
+  registerOperation<PresentationBuiltInLayoutCreatePayload>({
+    type: 'presentation.layout.builtin.create',
+    schemaVersion: 1,
+    validate: validateBuiltInLayoutCreate,
+    apply: (document, payload) =>
+      createBuiltInPresentationLayout(
+        document,
+        payload.deckId,
+        payload.sourceId,
+        payload.templateId,
+      ),
+    summarize: (payload) => ({
+      label: `Create ${PRESENTATION_BUILT_IN_LAYOUTS.find(({ id }) => id === payload.templateId)?.name ?? 'built-in'} layout`,
+      kind: 'create',
+      affectedEntityIds: [payload.deckId, payload.sourceId],
+    }),
+    affectedEntities: (payload) => [payload.deckId, payload.sourceId],
+    precondition: (document, payload) => {
+      if (!findPresentationDeck(document, payload.deckId)) {
+        return `presentation deck does not exist: ${payload.deckId}`;
+      }
+      if (document.presentation?.layouts.some((layout) => layout.id === payload.sourceId)) {
+        return `presentation layout id already exists: ${payload.sourceId}`;
+      }
+      return null;
+    },
     maxPayloadBytes: 8_000,
   });
 

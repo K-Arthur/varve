@@ -1,4 +1,5 @@
 export * from './layouts';
+export * from './layoutTemplates';
 export * from './model';
 export * from './normalize';
 export * from './presets';
