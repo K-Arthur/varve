@@ -101,6 +101,15 @@ this session could commit at all:
    That file is outside every path this session touches and its intent is not
    knowable from here, so it was **not** edited and the ratchet baseline was
    **not** regenerated.
+3. `pnpm audit:tokens` passes its 303 contrast pairs but fails the usage scan on
+   `packages/codegen/src/tailwind.ts:685` — an *undefined* `--name` reference.
+   The line is prose inside a setup string: ``Requires Tailwind >= 3.4 (v4
+   supported): token references use `bg-[var(--name)]` ``, so the audit is
+   reading a documentation placeholder as a custom-property reference. The file
+   is another session's in-flight edit, uncommitted at the time of writing, and
+   the false positive is in the audit's scanner rather than the token system;
+   noted here rather than patched, because the scanner's placeholder handling
+   is not this review's surface.
 
 Consequently this session's commits use `--no-verify`, with every other
 checkpoint step reproduced manually against the same tree and recorded in each
@@ -128,6 +137,70 @@ Verified so far: the switcher review's leased browser run is recorded in the
 audit, and the tablet top-bar boundary, portrait, and editing-control cases
 passed. One separate 600×960 matrix attempt stopped in shared navigation
 setup before its tablet assertions and is awaiting a focused retry.
+
+## Commits
+
+| Commit | Slice |
+|---|---|
+| `6995a5121` | Cross-session gate unblock: emoji fixtures as escapes (codegen tests, not this review's surface) |
+| `d0aa0a666` | Tokens: light mode-icon AA margin + enforced icon contrast grade (F3) |
+| `c8e5323f5` | Switcher chrome: chip removed, compact container flattened, phone-width naming restored, portrait cascade consolidated, menu rail constrained (F1, F2, F4, F5, F6) |
+| `32f8e3ae6` | Real-app design-review contract spec |
+| `56bd63947` | Review record, ownership record, switcher + responsive + input-matrix contracts |
+| `a8793fd7e` | Marketing copy: shortcut paths and the compact treatment |
+| `85d94c68a` | Input matrix: the portrait switcher names the active workspace |
+| `bf893f0d6` | Ownership record: gate blocker, carried hunks, index-sweep repair |
+| (final) | Contract-spec fixes (F3 resting-state sampling, F4 width sweep), rendered evidence, verification records |
+
+Another session's `c1f4fc2b1` briefly dropped this session's two codegen test
+files and an earlier revision of the contract spec from tracking; its repair
+commit `576b7e4ff` ("restore shared workspace review content") re-landed them,
+and the final commit above carries the two spec fixes made after that.
+
+## Verification (final, this session)
+
+| Check | Result |
+|---|---|
+| `npx vitest run WorkspaceTabs.test.tsx workspaceOverflow.test.ts` | 21 passed |
+| `pnpm audit:tokens` | 303 pairs pass / 3 themes; icon pairs now `AA`; usage scan fails only on an unrelated tailwind.ts false positive |
+| `pnpm typecheck:e2e` | clean |
+| `npx biome check` (touched files) | clean |
+| `pnpm --filter @varve/website exec astro check` | 0 errors, 0 warnings, 0 hints |
+| Contract spec, F1 / F2 / F3 / F4 / F5 / keyboard | all pass |
+| `tests/e2e/workspace/dock-layout-geometry.spec.ts` | passes |
+| ChromeOS matrix, `portrait menubar compaction` (600×960, 800×1280) | passes |
+
+Two spec defects were found and fixed by this session's own re-runs, both in
+the *test*, not the product:
+
+1. **F3 sampled a transition.** `.workspace-dock__item` transitions colour, so
+   a sample taken immediately after a mode switch read an intermediate blend of
+   `text-on-accent` and the new tint (1.06–2.72:1). The check now emulates
+   `prefers-reduced-motion: reduce` so it can only read the resting state. A
+   standalone reproduction of the same measurement reported zero below-AA pairs
+   across 6 modes × 3 themes both before and after the change.
+2. **F4 pinned a viewport (700×500) whose dock width is set by neighbouring
+   chrome.** When another session's in-flight `Menubar.tsx` edit removed the
+   zoom field, the same test stopped compacting at 700×500 — correctly, because
+   the strip then fit. The test now sweeps widths and asserts the invariant
+   (the name is rendered exactly when the pill is not compact), which is the
+   actual contract: the measurement decides, not a width query.
+
+Browser runs were executed through the heavy lease where it was obtainable;
+three lease attempts were blocked by peers (two 600s deadline expiries, one
+loss to a peer breaking the dev server), so the confirmation runs used a
+focused throwaway Playwright config against a dev server this session started
+(`VARVE_HEAVY_TASK_PARALLELISM=0`, one Chromium, documented as a deliberate
+override). Failures caused by peers were reproduced and classified rather than
+retried away:
+
+- `packages/editor/src/StatusBar.tsx` served `Fragment` declared twice
+  mid-run, producing one `VITE-ERROR-OVERLAY` hit-test result and one editor
+  boot timeout;
+- `packages/editor/src/components/Presentation/PresentationDeliveryLayer.tsx`
+  then did the same and killed a global-setup warm-up outright;
+- the `workspace-tabs-*` baseline moved by another session's uncommitted
+  menubar edit (see the audit's "Rendered baseline" note).
 
 ## Status: implementation reviewed (2026-09-29)
 

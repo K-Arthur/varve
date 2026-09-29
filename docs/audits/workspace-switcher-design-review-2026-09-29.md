@@ -199,10 +199,16 @@ clicking.
 
 **Fix.** The width query is gone; `computeWorkspaceLayout` decides. At 640×400
 the bar now measures 240px, the name is present at `width: 44`, `opacity: 1`,
-and `compactActive` is false. At 360×740 the measurement genuinely does not fit
-six tabs with a name, so the pill compacts to its icon and the name moves to
-the tooltip and accessible name — the documented contract, now driven by the
-measurement rather than by a media query.
+and `compactActive` is false. The width at which the pill *does* compact is not
+a fixed breakpoint: it is wherever the dock's flex wrapper stops fitting the
+strip with a name, and that depends on the rest of the top bar (undo/redo, the
+zoom field, the menu rail). Measured at the time of the review the transition
+sat at 560×420 landscape (wrapper 203px, bar 185px); when another session's
+in-flight `Menubar.tsx` change removed the zoom field from that row the same
+test compacted 100px wider. That is why the contract spec sweeps widths and
+asserts the *invariant* — the name is in the DOM exactly when the pill is not
+compact — instead of pinning a viewport. The name is never dropped by a width
+query; it is dropped by the measurement.
 
 ### F6 — Between 641px and ~750px the switcher covered the Help menu, and stole its clicks (P1, verified)
 
@@ -312,21 +318,85 @@ Environment: Linux (CachyOS), Chromium via Playwright, isolated dev server,
 
 ### Verification results
 
-Filled in from the leased run recorded in
-`docs/agents/workspace-switcher-design-2026-09-29-ownership.md`; the raw
-captures are the PNGs in this directory.
+Full record: `docs/agents/workspace-switcher-design-2026-09-29-ownership.md`.
+Summary of the leased browser run and the direct checks:
 
-- **F1** — zero painted chips and zero overhanging tab children at 1920; six
-  `data-shortcut-key` carriers in radio order; `aria-keyshortcuts` intact.
-- **F2** — opaque surface + shadow at 1024; transparent surface, no shadow at
-  899/800/640/480, with the active pill still opaque at each.
-- **F3** — 18 mode/theme combinations measured from painted sRGB bytes; every
-  pill label, pill icon and inactive icon ≥ 4.5:1.
-- **F4** — 800×1280 portrait: 44px switcher items, active name visible.
-- **F5** — 640×400: name present at 44px, `opacity: 1`, `compactActive` false;
-  360×740: pill compacts and the name moves to tooltip/accessible name.
-- **Menu rail** — the switcher paints at or after the rail's end at
-  640/700/899/900, and the overflow still lists every hidden mode.
+- **Unit** — `WorkspaceTabs.test.tsx` + `workspaceOverflow.test.ts`: 21 passed.
+- **Tokens** — `pnpm audit:tokens`: all 303 contrast pairs pass in the three
+  themes, with the six `workspace-icon-*` pairs now graded `AA`. The usage scan
+  fails on an unrelated, pre-existing false positive in another session's
+  `packages/codegen/src/tailwind.ts` (a `bg-[var(--name)]` placeholder inside a
+  setup string is read as a custom-property reference); recorded, not patched.
+- **Types/lint** — `pnpm typecheck:e2e` clean; `biome check` clean on every
+  touched file (the three `noDescendingSpecificity` warnings in `editor.css`
+  are pre-existing and in untouched regions).
+- **Website** — `pnpm --filter @varve/website exec astro check`: 0 errors,
+  0 warnings, 0 hints.
+- **Browser (heavy lease)** — 12 of 15 selected cases passed on the first
+  attempt, plus the six regenerated visual baselines. What the passing cases
+  established:
+  - **F1** — zero painted chips, zero tab children outside their control, six
+    `data-shortcut-key` carriers in radio order, `aria-keyshortcuts` intact.
+  - **F2** — opaque surface plus shadow at 1024px; transparent surface, no
+    shadow, and an opaque accent pill at 899 / 800 / 640 / 480.
+  - **F4** — 640×400: name present at 44px, `opacity: 1`, `compactActive`
+    false; sweeping 620→360px: the invariant holds at every step (the name is
+    rendered exactly when the pill is not compact) and the strip does compact
+    within the sweep, with the accessible name and `aria-keyshortcuts` intact
+    afterwards.
+  - **Keyboard/overflow/endurance** — arrows move focus with the selection,
+    `End` reaches the last mode, no console or page errors.
+  - **Dock geometry** (`tests/e2e/workspace/dock-layout-geometry.spec.ts`) —
+    the six-workspace projection still passes, including the ordered-key lookup
+    moved from the chip to `data-shortcut-key`.
+  - **Portrait tablet** — both menubar compaction cases (`600x960`, `800x1280`)
+    pass with the switch's 44px items and a visible active name.
+  - **F3 (re-run)** — green through the lease after the reduced-motion fix, and
+    **F5 (re-run)** — green, confirming the menu-rail hit test against a
+    healthy tree.
+  The three failures were classified rather than waved through:
+  - **F3 — measurement flake, fixed.** The pill and inactive icon colours are
+    transitioned; sampling immediately after a mode switch caught an
+    intermediate blend of `text-on-accent` and the new tint (measured
+    1.06–2.72:1) that no user rests on. The check now emulates
+    `prefers-reduced-motion: reduce` — the base CSS already sets
+    `transition: none` on the active pill for exactly this reason — so it can
+    only sample the resting state. A standalone reproduction of the same
+    measurement reports zero below-AA pairs across 6 modes × 3 themes at rest,
+    before and after that change; the change removes the measurement window, it
+    does not alter a colour.
+  - **F5 and the portrait-800×1280 matrix case — environmental.** Both failed
+    while another writer to the shared tree was serving a Vite transform error
+    (`packages/editor/src/StatusBar.tsx`: `Fragment` declared twice). One timed
+    out waiting for the editor, the other hit `VITE-ERROR-OVERLAY` in the top
+    bar's hit test. Neither failure concerned the switcher's geometry, and the
+    tree was healthy again within the minute; the confirmation run is recorded
+    in the ownership record.
+- **Rendered baseline — deliberately not regenerated.** The committed
+  `workspace-tabs-{light,dark,high-contrast}` snapshots matched through the
+  first full run (which is independent evidence that the number chip was the
+  only difference the change made to the resting strip), and then started
+  failing with `Expected an image 436px by 37px, received 517px by 37px`. That
+  81px is not the switcher: `.workspace-dock` is a `flex: 1 1 0` wrapper, and
+  another session's **uncommitted** `packages/editor/src/Menubar.tsx` edit had
+  just removed the menubar zoom field from that row, so the wrapper got the
+  space the zoom used to hold. The switcher's own contents in the capture are
+  unchanged. Regenerating the baseline would commit that in-flight change as a
+  reviewed switcher baseline, so it is left for the session that owns it —
+  the same disposition the 2026-09-15 review recorded for these baselines.
+  `full-editor-*` was stale since 2026-09-03 for the same reason (many sessions
+  of app change) and was reverted after review for consistency.
+
+### Measurement hazard recorded for the next reviewer
+
+`.workspace-dock__item` carries a colour transition and `.workspace-dock__item--active`
+deliberately does not (`transition: none`, so the label and the pill switch
+together instead of blending through a below-AA pair). The consequence is that
+any rendered-contrast check on this surface must sample the *resting* state:
+immediately after a mode switch an item that just lost the active class is
+animating out of `text-on-accent`, and a sample inside that window reads a
+transient blend. Automated checks should emulate reduced motion, as this one
+now does.
 
 ## Remaining work
 
