@@ -699,3 +699,45 @@ next integration checkpoint below. No performance improvement
 is claimed: there are no matched production rounds, interaction-latency data,
 100-cycle soak, WebKitGTK run, or full-redraw oracle for this separate inspector
 preview. Physical Duet/browser/PWA/Crostini checks remain pending.
+
+### Final integration attempt after M9 — gate started from `531323765`
+
+The frozen-M9 gate used this reason:
+
+```text
+Final integration gate for low-end effects and model runtime implementation after M9 on frozen master SHA 531323765; shared-tree validation already escalated and focused M9 checks passed.
+```
+
+`pnpm verify:full` did not pass. At gate start `master` was
+`5313237652060fb73eb8f27cb8a24326f21db99b`; while the long-running gate was
+still scanning, another task advanced `master` to `53c14b0da` with a
+documentation-only presentation research commit. No M9 source path changed in
+that commit. This was a shared-worktree integration run, not an isolated clean
+checkout.
+
+The whole-tree formatter stopped on two shared changes outside M9:
+`native-webgl2-2026-09-28T10-16-25-630Z.json` is untracked and lacks a final
+newline, and `packages/editor/src/tools/__tests__/ToolManager.test.ts` has a
+formatting difference. The full-gate architecture phase then timed out in
+`npx ts-prune -p "packages/editor/tsconfig.json" ...`; the separate
+`node scripts/audit-architecture.mjs --ci` run completed with exit 0 and no M9
+cycle or layer violation. Recursive workspace typecheck reached the editor and
+failed on two unchanged `CurveEditor.test.tsx` `getByRole` option errors and
+three errors in the shared untracked `tools/artworkSampling.ts`. Because that
+typecheck command failed, `typecheck:e2e` and the remaining full-suite unit,
+Playwright, native, and benchmark lanes did not run in this gate. The direct M9
+E2E, its E2E-source typecheck, 7 focused unit tests, editor-scoped Biome/CSS
+lint, and the normal commit checkpoint did pass as listed above.
+
+M9 source and UI changes are in commit `531323765` on `master`; the final gate
+evidence is recorded in a follow-up documentation commit. No push or
+publication was performed.
+
+The follow-up documentation review ran on `master` after the presentation
+research docs-only commit `53c14b0da`: `pnpm audit:docs` remained clean (1,113
+docs, 715 links, 177 ADRs), `pnpm audit:emoji` scanned 5,155 files cleanly, and
+`pnpm audit:tokens` passed all 303 pairs across three themes with clean token
+usage. The shared planner's latest snapshot reported 510 changed paths with
+the same full-suite escalation; `pnpm verify:affected` exited 2 before starting
+lanes. No second full-gate run was started after that docs-only change; it did
+not alter the M9 code or the failures recorded above.
