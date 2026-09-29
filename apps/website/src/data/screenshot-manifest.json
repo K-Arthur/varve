@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "note": "GENERATED FILE — do not hand-edit. Written by scripts/screenshots/product.mjs and validated by scripts/screenshots/validate.mjs. Each scene maps one canonical screenshot consumed by the website and documentation. status: 'captured' when the pipeline produced the file, 'skipped' when the scene could not be produced (reason required).",
-  "generatedAt": "2026-09-29T09:47:52.890Z",
+  "generatedAt": "2026-09-29T12:53:06.008Z",
   "scenes": {
     "workspace": {
       "file": "workspace-light.png",
@@ -512,7 +512,7 @@
       "kind": "full"
     },
     "tablet-workspace": {
-      "sha256": "3e019554d2700921ccbda224803f443113c0460e2bbf250e2c77bb13dfcfb297",
+      "sha256": "b074217b275e9de713c4c66811b2c090c2b314ef16550948218443e813c3f583",
       "file": "tablet-workspace-light.png",
       "alt": "The Varve poster workspace in tablet presentation, with the Inspector beside the canvas and a touch popover for keyboardless editing actions",
       "caption": "Touch-sized controls and keyboardless editing actions beside the canvas",
@@ -521,14 +521,18 @@
       "width": 1200,
       "height": 750,
       "status": "captured",
-      "lastValidatedAgainst": null,
+      "lastValidatedAgainst": "576b7e4ff82c1aff01bc2daaf1b3c15b14002dac",
       "kind": "full",
       "viewport": {
         "width": 1200,
         "height": 750
       },
       "scale": 1,
-      "provenanceUnknown": true
+      "capturedAt": "2026-09-29T12:51:04.602Z",
+      "provenance": {
+        "promotedFrom": "2026-09-29T12-50-30-639Z-1062473",
+        "promotedAt": "2026-09-29T12:53:06.004Z"
+      }
     },
     "performance-settings": {
       "file": "performance-settings-dark.png",
@@ -557,6 +561,35 @@
       "sha256": "dbf4e906876270f5a4dd73ffdd9a9c8fb2368253b74197993fa2a71cd9e3cd5d",
       "source": "tests/e2e/inspector/token-binding-runtime.spec.ts",
       "provenanceUnknown": true
+    },
+    "tablet-controls": {
+      "sha256": "cedf7a0bae3fa4d5fe4512df73add6849e6ef77d663bff10374c624afe560c1a",
+      "file": "tablet-controls-detail-light.png",
+      "alt": "Tablet editing controls for modifiers, multi-selection, alignment, and layer order beside a Varve poster canvas",
+      "caption": "Constrain, draw from centre, bypass snapping, duplicate, align, and reorder without a keyboard",
+      "feature": "tablet-editing",
+      "theme": "light",
+      "kind": "detail",
+      "width": 800,
+      "height": 600,
+      "status": "captured",
+      "crop": {
+        "x": 380,
+        "y": 70,
+        "width": 800,
+        "height": 600
+      },
+      "viewport": {
+        "width": 1200,
+        "height": 750
+      },
+      "scale": 1,
+      "capturedAt": "2026-09-29T12:51:21.495Z",
+      "lastValidatedAgainst": "576b7e4ff82c1aff01bc2daaf1b3c15b14002dac",
+      "provenance": {
+        "promotedFrom": "2026-09-29T12-50-30-639Z-1062473",
+        "promotedAt": "2026-09-29T12:53:06.008Z"
+      }
     }
   },
   "provenance": {

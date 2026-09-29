@@ -377,3 +377,25 @@ Skipped as unrelated: Rust/cargo workspace, native desktop matrices,
 Escalations: none.
 Full suite run: no. Reason: no workspace/toolchain/test-runner/schema change.
 ```
+
+## Tablet top-bar integration follow-up
+
+The tablet review extended beyond the workspace pills to the full app bar: the
+menu rail, active workspace, Undo/Redo, document name, and touch controls now
+share a measured 44px target rhythm. Portrait tablets use a menu row followed
+by an aligned workspace/history row. In compact landscape, the duplicate
+document title yields before it can touch either the menu rail or workspace
+dock; the document tab keeps the title available. This is documented in
+`docs/architecture/responsive-workspace.md`.
+
+Final browser verification on committed `master`
+`576b7e4ff82c1aff01bc2daaf1b3c15b14002dac` covered 899×600 and 1095×700
+landscape, 600×960 and 800×1280 portrait, and a keyboardless controls popover
+through orientation change. Six cases passed on the first run; the remaining
+600×960 case timed out during shared editor navigation setup before reaching
+its assertions, then passed on an exact retry. The reviewed product captures
+are [tablet workspace](../screenshots/product/tablet-workspace-light.png) and
+[tablet editing controls](../screenshots/product/tablet-controls-detail-light.png).
+They show a cohesive switcher/menu/history bar and touch-sized modifier,
+selection, alignment, and layer-order controls. This is Linux Chromium browser
+emulation, not physical tablet certification.

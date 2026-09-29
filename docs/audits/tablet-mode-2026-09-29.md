@@ -336,21 +336,22 @@ and are not presented as fresh validation of the current checkout.
   with no layer violations, while reporting 14 existing cycles and the shared
   hub import warnings.
 - Latest recheck after the compact-width correction: `pnpm verify:plan`
-  selected 735 shared-worktree files and again reported `FULL-SUITE ESCALATION:
+  selected 755 shared-worktree files and again reported `FULL-SUITE ESCALATION:
   YES`; the focused overflow and workspace-tab suites pass 21/21, and
-  `pnpm audit:docs` passes at 1,121 documents, 729 links, and 178 ADRs. The
+  `pnpm audit:docs` passes at 1,121 documents, 732 links, and 178 ADRs. A fresh
+  `pnpm audit:emoji` passes across 5,197 files. The
   spacing audit now reports only the unrelated legacy
   `Presentation/presentationNavigator.css` declaration; the earlier
   ProductShowcase/ScreenshotImage drift has been documented and cleared.
-- Final focused browser run: **6 passed, 1 failed** under the heavy-task lease
-  in Chromium 151.0.7922.34. The 899×600 and 1095×700 landscape boundaries,
+- Final focused browser run: **6 passed, 1 transient setup failure**, followed
+  by a passing retry of that exact case, under the heavy-task lease in
+  Chromium 151.0.7922.34. The 899×600 and 1095×700 landscape boundaries,
   portrait compaction at 600×960 and 800×1280, and the keyboardless modifier
-  popover after orientation change passed. The remaining 600×960 matrix case
-  failed in shared `navigateToEditor` setup before tablet assertions: the
-  helper timed out waiting for a visible canvas and its recovery screenshot
-  still showed Home. A retry of that exact case remains required. Captures for
-  the passed viewport cases are in
-  `docs/screenshots/tablet-mode-2026-09-29/topbar-review-final4/`.
+  popover after orientation change all pass. The first 600×960 attempt timed
+  out in shared `navigateToEditor` before tablet assertions; the same case then
+  passed on retry and produced a valid capture. Final screenshots are in
+  `docs/screenshots/tablet-mode-2026-09-29/topbar-review-final4/` and
+  `topbar-review-retry/`.
 - Visual inspection of the final 899×600, 1095×700, and 800×1280 captures
   confirms the title/menu collision is gone, the active workspace is named,
   number badges are absent, and portrait history controls align on the second
@@ -360,23 +361,46 @@ and are not presented as fresh validation of the current checkout.
   its screenshots remain useful as **before** evidence only. A later queue
   attempt timed out without launching. The current run supplies the first
   post-fix browser evidence.
+- The reviewed tablet workspace and editing-controls scenes were recaptured
+  from committed `master` `576b7e4ff82c1aff01bc2daaf1b3c15b14002dac` and
+  promoted to the website screenshot manifest. Both entries now record that
+  commit in `lastValidatedAgainst`; the manifest and product/website copies
+  resolve to the reviewed captures.
 - Current shared-tree failures outside these top-bar files: editor typecheck in
   `CurveEditor.test.tsx` and `exportService.test.ts`; `audit:sizing`,
   `audit:radius`, and interface-sizing drift in
-  `Presentation/presentationNavigator.css`; two emoji fixture literals in
-  codegen; the one 600×960 matrix attempt failed in shared navigation setup
-  (canvas not visible; screenshot remained on Home); and eight pre-existing
+  `Presentation/presentationNavigator.css`; one initial 600×960 navigation
+  setup timeout (its exact retry
+  passed); and eight pre-existing
   editor CSS Stylelint findings. `pnpm typecheck:e2e` now passes. The inspector
   CSS audit is clean with its non-blocking debt inventory warnings.
+
+### Final tablet top-bar and website verification
+
+- Post-commit product capture command:
+  `pnpm screenshots:product -- --scenes tablet-workspace,tablet-controls --review-dir /tmp/varve-tablet-topbar-postcommit-2026-09-29 --sync-reviewed`.
+  The reviewed 1200×750 workspace capture shows the named Design pill, a
+  coherent menu/workspace/history rhythm, the tablet Inspector beside the
+  canvas, and a keyboardless text-edit row. The 800×600 controls detail shows
+  visible tool modifiers, duplicate, alignment, and layer-order controls.
+- Visual inspection of both promoted PNGs passed. The browser evidence is
+  Linux Chromium emulation; it does not certify physical tablet hardware.
+- `pnpm --filter @varve/website exec astro check` passed: 171 files, zero
+  errors, warnings, or hints. `pnpm build:website` and
+  `pnpm build:website:pages` both passed and each built 114 routes.
+- The screenshot manifest records the implementation commit above as
+  `lastValidatedAgainst` for both tablet scenes. Website showcase and image
+  component spacing exceptions are documented inline for the scoped spacing
+  audit.
 
 ## Agent Validation Report
 
 ```text
 Changed scope: editor pointer ownership/transactions, tablet layout/settings, keyboard inset and Back routing; architecture/user docs, marketing pages and screenshot manifest/assets; focused E2E and unit regressions.
-Validation plan: latest `pnpm verify:plan` selected 701 shared-worktree files, Tier 0–4 affected closure, and FULL-SUITE ESCALATION: YES (workspace/toolchain/validation-infrastructure and high-risk framework/runtime dependency).
-Commands actually run: `pnpm verify:plan` (488, 493, 504, then 481 changed files); `pnpm verify:affected`; `pnpm verify:triage`; the stated-reason `pnpm verify:full` (run twice); focused Vitest (13 files, 224 tests); `pnpm typecheck:e2e`; tablet viewport/theme/gesture and editing-subflow E2E under heavy-lease; save/offline/file-import/panel E2E under heavy-lease; production workload `vector-500` single-drag (100 samples); attempted `vector-5k` production workload (build blocked); `pnpm build:website`; `pnpm build:website:pages`; website showcase visual E2E; `pnpm --filter @varve/website typecheck`; focused interaction Vitest (6 files/152 tests plus 2 transaction files/22 tests); commit checkpoint (5 files/144 tests); `pnpm typecheck:e2e` (failed on concurrent raster-magic-wand coordinate narrowing); architecture `--ci` audit; `pnpm audit:docs`; `pnpm audit:emoji`; `pnpm audit:tokens`; `pnpm audit:radius`; `pnpm audit:spacing`; `pnpm audit:sizing`; `pnpm audit:inspector-css`; `pnpm lint:css`.
-Passed: 152 focused interaction tests, 22 transaction/history tests, and 144 commit-hook tests; 224 earlier focused unit tests; 13/13 viewport matrix before the final typography correction; 2/2 theme/reduced-motion screenshots; corrected focused pointer assertion; nested Back/gesture/pointer checks; 10/10 keyboardless editing subflows; 4/4 save/offline cases; 1/1 revoked-permission retry; standalone E2E typecheck; both website builds; focused product-showcase visual; website Astro diagnostics; docs, emoji, token, radius, spacing, final sizing, inspector-CSS, CSS lint, and health audits.
-Failed or blocked: post-commit `pnpm typecheck:e2e` hit possibly-undefined coordinates in concurrently edited `tests/e2e/canvas/raster-magic-wand.spec.ts:243`; `verify:affected` required full-gate escalation; triage stopped on shared generated-JSON formatting; latest full gate reported shared formatting, 15 cycles including a new engine cycle, 73 unstable modules, hub import budgets over, and unrelated editor type errors in `CurveEditor.test.tsx`, Magic Wand defaults, and `artworkSampling.ts`; `vector-5k` performance build and final visual rerun stopped on the shared missing engine export; JPEG import screenshot baseline size mismatch; shared Logo/Code E2E update-depth error.
+Validation plan: latest `pnpm verify:plan` selected 755 shared-worktree files, Tier 0–4 affected closure, and FULL-SUITE ESCALATION: YES (workspace/toolchain/validation-infrastructure and high-risk framework/runtime dependency).
+Commands actually run: `pnpm verify:plan` (488, 493, 504, 481, 701, 748, then 755 shared-worktree files); `pnpm verify:affected`; `pnpm verify:triage`; the stated-reason `pnpm verify:full` (run twice); focused Vitest (13 files, 224 tests); `pnpm typecheck:e2e`; tablet viewport/theme/gesture and editing-subflow E2E under heavy-lease; save/offline/file-import/panel E2E under heavy-lease; production workload `vector-500` single-drag (100 samples); attempted `vector-5k` production workload (build blocked); `pnpm screenshots:product -- --scenes tablet-workspace,tablet-controls --review-dir /tmp/varve-tablet-topbar-postcommit-2026-09-29 --sync-reviewed`; `pnpm --filter @varve/website exec astro check`; `pnpm build:website`; `pnpm build:website:pages`; website showcase visual E2E; `pnpm --filter @varve/website typecheck`; focused interaction Vitest (6 files/152 tests plus 2 transaction files/22 tests); commit checkpoint (5 files/144 tests); `pnpm typecheck:e2e` (failed on concurrent raster-magic-wand coordinate narrowing); architecture `--ci` audit; `pnpm audit:docs`; `pnpm audit:emoji`; `pnpm audit:tokens`; `pnpm audit:radius`; `pnpm audit:spacing`; `pnpm audit:sizing`; `pnpm audit:inspector-css`; `pnpm lint:css`.
+Passed: 152 focused interaction tests, 22 transaction/history tests, and 144 commit-hook tests; 224 earlier focused unit tests; 13/13 viewport matrix before the final typography correction; 2/2 theme/reduced-motion screenshots; corrected focused pointer assertion; nested Back/gesture/pointer checks; 10/10 keyboardless editing subflows; 4/4 save/offline cases; 1/1 revoked-permission retry; standalone E2E typecheck on the final retry; focused top-bar E2E (6/7 on first run, with the sole setup timeout passing on exact retry); 2/2 reviewed post-commit tablet captures; website Astro diagnostics (171 files, zero diagnostics); both website builds (114 routes each); focused product-showcase visual; docs, emoji, token, inspector-CSS, architecture, and health audits.
+Failed or blocked: an earlier `pnpm typecheck:e2e` invocation hit possibly-undefined coordinates in concurrently edited `tests/e2e/canvas/raster-magic-wand.spec.ts:243` and passed on a later standalone retry; `audit:radius`, `audit:sizing`, interface-sizing, and `audit:spacing` report unrelated legacy findings in `Presentation/presentationNavigator.css`; `lint:css` reports eight existing editor CSS findings; `verify:affected` required full-gate escalation; triage stopped on shared generated-JSON formatting; latest full gate reported shared formatting, 15 cycles including a new engine cycle, 73 unstable modules, hub import budgets over, and unrelated editor type errors in `CurveEditor.test.tsx`, Magic Wand defaults, and `artworkSampling.ts`; `vector-5k` performance build and final visual rerun stopped on the shared missing engine export; JPEG import screenshot baseline size mismatch; shared Logo/Code E2E update-depth error.
 Skipped as unrelated or unavailable: physical Lenovo Duet/USI, physical Windows-touch, Android and iPadOS checks; installed-PWA file launch and physical OSK/IME; actual browser zoom versus equivalent CSS viewport; offline reload/reopen and interrupted recovery; constrained 4 GB and reference 8 GB hardware profiles; full poster save/reopen/export fidelity; 5k performance profile, React commit counts, Long Task counts, and a clean matched before/after performance comparison.
 Escalations: full repository gate required by planner; executed with the stated tablet integration and workspace/toolchain/framework reason.
 Full suite run: yes (escalated gate attempted; blocked before completion by shared formatter/architecture/typecheck failures).
