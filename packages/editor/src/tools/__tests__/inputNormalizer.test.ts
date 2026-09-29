@@ -6,6 +6,8 @@ import {
   hasGenuineStylusData,
   inputToStrokePoint,
   normalizeInputEvent,
+  observeInputCapabilities,
+  resetObservedInputCapabilities,
   worldDistanceForCssPixels,
 } from '../inputNormalizer';
 
@@ -397,9 +399,31 @@ describe('hasGenuineStylusData', () => {
   });
 
   it('returns true for a non-default pen pressure sample', () => {
-    expect(hasGenuineStylusData(makePointerEvent({ pointerType: 'pen', pressure: 0.75 }))).toBe(
-      true,
-    );
+    expect(
+      hasGenuineStylusData(makePointerEvent({ pointerType: 'pen', pressure: 0.75, buttons: 1 })),
+    ).toBe(true);
+  });
+
+  it('does not treat hover or pointer-up pressure as contact pressure', () => {
+    expect(
+      hasGenuineStylusData(makePointerEvent({ pointerType: 'pen', pressure: 0.8, buttons: 0 })),
+    ).toBe(false);
+  });
+
+  it('observes pressure variation only across active pen-contact samples', () => {
+    resetObservedInputCapabilities();
+    observeInputCapabilities(makePointerEvent({ pointerType: 'pen', pressure: 0.1, buttons: 0 }));
+    observeInputCapabilities(makePointerEvent({ pointerType: 'pen', pressure: 0.5, buttons: 1 }));
+    observeInputCapabilities(makePointerEvent({ pointerType: 'pen', pressure: 0.5, buttons: 1 }));
+    observeInputCapabilities(makePointerEvent({ pointerType: 'pen', pressure: 0, buttons: 0 }));
+    expect(
+      observeInputCapabilities(makePointerEvent({ pointerType: 'pen', pressure: 0.5, buttons: 0 }))
+        .pressure,
+    ).toBe('unknown');
+    expect(
+      observeInputCapabilities(makePointerEvent({ pointerType: 'pen', pressure: 0.75, buttons: 1 }))
+        .pressure,
+    ).toBe('observed');
   });
 
   it('returns true for pen with tilt', () => {

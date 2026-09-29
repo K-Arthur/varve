@@ -1241,6 +1241,10 @@ export interface EditorContextValue {
   setBindingField: (field: string | null) => void;
   focusedField: string | null;
   setFocusedField: (field: string | null) => void;
+  /** Register the active canvas owner's synchronous rollback for this session. */
+  registerCanvasInteractionCancellation: (sessionId: string, cancel: () => void) => () => void;
+  /** Cancel an in-flight canvas gesture before changing tools or documents. */
+  cancelCanvasInteraction: (sessionId: string) => boolean;
   setSelectedCornerSmoothing: (value: number) => void;
 
   // Canvas state

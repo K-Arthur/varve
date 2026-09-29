@@ -7,7 +7,12 @@ import {
   type KeyboardInset,
   readKeyboardInsetSignals,
   subscribeToKeyboardInset,
+  VIRTUAL_KEYBOARD_HEIGHT_PROPERTY,
+  VIRTUAL_KEYBOARD_WIDTH_PROPERTY,
+  VIRTUAL_KEYBOARD_X_PROPERTY,
+  VIRTUAL_KEYBOARD_Y_PROPERTY,
   VISUAL_VIEWPORT_HEIGHT_PROPERTY,
+  VISUAL_VIEWPORT_OFFSET_LEFT_PROPERTY,
   VISUAL_VIEWPORT_OFFSET_TOP_PROPERTY,
 } from '../keyboardInset';
 
@@ -17,8 +22,9 @@ const BASE_SIGNALS = {
   visualViewportWidth: 1200,
   visualViewportHeight: 800,
   visualViewportOffsetTop: 0,
+  visualViewportOffsetLeft: 0,
   visualViewportScale: 1,
-  keyboardBoundingRectHeight: null,
+  keyboardBoundingRect: null,
 };
 
 describe('computeKeyboardInset', () => {
@@ -28,6 +34,7 @@ describe('computeKeyboardInset', () => {
       visualViewportWidth: null,
       visualViewportHeight: null,
       visualViewportOffsetTop: null,
+      visualViewportOffsetLeft: null,
       visualViewportScale: null,
     });
     expect(inset.keyboardHeight).toBe(0);
@@ -38,9 +45,9 @@ describe('computeKeyboardInset', () => {
   it('prefers the reported virtual-keyboard bounding rect', () => {
     const inset = computeKeyboardInset({
       ...BASE_SIGNALS,
-      keyboardBoundingRectHeight: 312,
-      // Even with a contradictory visual viewport, the explicit keyboard
-      // measurement wins.
+      keyboardBoundingRect: { x: 0, y: 488, width: 1200, height: 312 },
+      // The viewport remains full-height, so the reported docked keyboard
+      // still intersects its bottom 312 pixels.
       visualViewportHeight: 800,
     });
     expect(inset.keyboardHeight).toBe(312);
@@ -60,6 +67,39 @@ describe('computeKeyboardInset', () => {
       visualViewportOffsetTop: 100,
     });
     expect(inset.keyboardHeight).toBe(200);
+  });
+
+  it('does not subtract a docked keyboard twice when the visible viewport ends at it', () => {
+    const inset = computeKeyboardInset({
+      ...BASE_SIGNALS,
+      visualViewportHeight: 500,
+      keyboardBoundingRect: { x: 0, y: 500, width: 1200, height: 300 },
+    });
+    expect(inset.keyboardHeight).toBe(0);
+    expect(inset.isKeyboardLikelyOpen).toBe(true);
+    expect(inset.isFloatingKeyboard).toBe(false);
+  });
+
+  it('reports a floating keyboard rectangle without reserving the full bottom edge', () => {
+    const inset = computeKeyboardInset({
+      ...BASE_SIGNALS,
+      keyboardBoundingRect: { x: 240, y: 410, width: 720, height: 280 },
+    });
+    expect(inset.keyboardHeight).toBe(0);
+    expect(inset.isKeyboardLikelyOpen).toBe(true);
+    expect(inset.isFloatingKeyboard).toBe(true);
+    expect(inset.keyboardBounds).toEqual({ x: 240, y: 410, width: 720, height: 280 });
+  });
+
+  it('uses horizontal visual-viewport intersection for docked keyboards', () => {
+    const inset = computeKeyboardInset({
+      ...BASE_SIGNALS,
+      visualViewportWidth: 500,
+      visualViewportOffsetLeft: 700,
+      keyboardBoundingRect: { x: 0, y: 500, width: 1200, height: 300 },
+    });
+    expect(inset.visualViewportOffsetLeft).toBe(700);
+    expect(inset.keyboardHeight).toBe(300);
   });
 
   it('does not treat pinch zoom as a keyboard', () => {
@@ -91,7 +131,7 @@ describe('computeKeyboardInset', () => {
   it('clamps the inset to the layout viewport height', () => {
     const inset = computeKeyboardInset({
       ...BASE_SIGNALS,
-      keyboardBoundingRectHeight: 2000,
+      keyboardBoundingRect: { x: 0, y: 0, width: 1200, height: 2000 },
     });
     expect(inset.keyboardHeight).toBe(800);
   });
@@ -114,6 +154,7 @@ interface FakeViewport {
   width: number;
   height: number;
   offsetTop: number;
+  offsetLeft: number;
   scale: number;
   addEventListener: (type: string, listener: () => void) => void;
   removeEventListener: (type: string, listener: () => void) => void;
@@ -126,6 +167,7 @@ function createFakeWindow(overrides: { virtualKeyboardHeight?: number | null } =
     width: 1200,
     height: 800,
     offsetTop: 0,
+    offsetLeft: 0,
     scale: 1,
     addEventListener(type, listener) {
       const set = listeners.get(type) ?? new Set();
@@ -139,12 +181,13 @@ function createFakeWindow(overrides: { virtualKeyboardHeight?: number | null } =
   const windowListeners = new Map<string, Set<() => void>>();
   const virtualKeyboardListeners = new Set<() => void>();
   const documentListeners = new Map<string, Set<() => void>>();
+  const initialKeyboardHeight = overrides.virtualKeyboardHeight ?? 0;
   const virtualKeyboardRect = {
-    height: overrides.virtualKeyboardHeight ?? 0,
+    height: initialKeyboardHeight,
     width: 1200,
     x: 0,
-    y: 800,
-    top: 800,
+    y: 800 - initialKeyboardHeight,
+    top: 800 - initialKeyboardHeight,
     left: 0,
     right: 1200,
     bottom: 800,
@@ -231,7 +274,12 @@ describe('readKeyboardInsetSignals', () => {
     expect(signals.layoutViewportHeight).toBe(800);
     expect(signals.visualViewportHeight).toBe(500);
     expect(signals.visualViewportOffsetTop).toBe(12);
-    expect(signals.keyboardBoundingRectHeight).toBe(300);
+    expect(signals.keyboardBoundingRect).toEqual({
+      x: 0,
+      y: 500,
+      width: 1200,
+      height: 300,
+    });
   });
 
   it('survives a window without visualViewport or virtualKeyboard', () => {
@@ -243,7 +291,7 @@ describe('readKeyboardInsetSignals', () => {
     } as unknown as Window;
     const signals = readKeyboardInsetSignals(bare);
     expect(signals.visualViewportHeight).toBeNull();
-    expect(signals.keyboardBoundingRectHeight).toBeNull();
+    expect(signals.keyboardBoundingRect).toBeNull();
   });
 });
 
@@ -284,11 +332,23 @@ describe('subscribeToKeyboardInset', () => {
     onChange.mockClear();
 
     fake.virtualKeyboardRect.height = 300;
+    fake.virtualKeyboardRect.y = 500;
+    fake.virtualKeyboardRect.top = 500;
     fake.emitVirtualKeyboard();
     fake.flushFrames();
     expect(onChange).toHaveBeenCalledTimes(1);
     expect(onChange.mock.calls[0]?.[0].keyboardHeight).toBe(300);
     expect(onChange.mock.calls[0]?.[0].isKeyboardLikelyOpen).toBe(true);
+
+    fake.virtualKeyboardRect.x = 200;
+    fake.virtualKeyboardRect.width = 800;
+    fake.virtualKeyboardRect.left = 200;
+    fake.virtualKeyboardRect.right = 1000;
+    fake.emitVirtualKeyboard();
+    fake.flushFrames();
+    expect(onChange).toHaveBeenCalledTimes(2);
+    expect(onChange.mock.calls[1]?.[0].keyboardHeight).toBe(0);
+    expect(onChange.mock.calls[1]?.[0].isFloatingKeyboard).toBe(true);
   });
 
   it('does not re-emit identical values', () => {
@@ -313,12 +373,15 @@ describe('subscribeToKeyboardInset', () => {
 });
 
 describe('applyKeyboardInsetToDocument', () => {
-  it('writes the three custom properties and is replaceable', () => {
+  it('writes and replaces viewport and keyboard geometry', () => {
     const inset: KeyboardInset = {
       keyboardHeight: 288,
       visualViewportHeight: 512,
       visualViewportOffsetTop: 0,
+      visualViewportOffsetLeft: 0,
       layoutViewportHeight: 800,
+      keyboardBounds: { x: 0, y: 512, width: 1200, height: 288 },
+      isFloatingKeyboard: false,
       isKeyboardLikelyOpen: true,
     };
     applyKeyboardInsetToDocument(document, inset);
@@ -326,12 +389,32 @@ describe('applyKeyboardInsetToDocument', () => {
     expect(root.style.getPropertyValue(KEYBOARD_INSET_PROPERTY)).toBe('288px');
     expect(root.style.getPropertyValue(VISUAL_VIEWPORT_HEIGHT_PROPERTY)).toBe('512px');
     expect(root.style.getPropertyValue(VISUAL_VIEWPORT_OFFSET_TOP_PROPERTY)).toBe('0px');
+    expect(root.style.getPropertyValue(VISUAL_VIEWPORT_OFFSET_LEFT_PROPERTY)).toBe('0px');
+    expect(root.style.getPropertyValue(VIRTUAL_KEYBOARD_X_PROPERTY)).toBe('0px');
+    expect(root.style.getPropertyValue(VIRTUAL_KEYBOARD_Y_PROPERTY)).toBe('512px');
+    expect(root.style.getPropertyValue(VIRTUAL_KEYBOARD_WIDTH_PROPERTY)).toBe('1200px');
+    expect(root.style.getPropertyValue(VIRTUAL_KEYBOARD_HEIGHT_PROPERTY)).toBe('288px');
+    expect(root.dataset.virtualKeyboardOpen).toBe('true');
+    expect(root.dataset.virtualKeyboardFloating).toBe('false');
 
-    applyKeyboardInsetToDocument(document, { ...inset, keyboardHeight: 0 });
+    applyKeyboardInsetToDocument(document, computeKeyboardInset(BASE_SIGNALS));
     expect(root.style.getPropertyValue(KEYBOARD_INSET_PROPERTY)).toBe('0px');
-    root.style.removeProperty(KEYBOARD_INSET_PROPERTY);
-    root.style.removeProperty(VISUAL_VIEWPORT_HEIGHT_PROPERTY);
-    root.style.removeProperty(VISUAL_VIEWPORT_OFFSET_TOP_PROPERTY);
+    expect(root.style.getPropertyValue(VIRTUAL_KEYBOARD_WIDTH_PROPERTY)).toBe('0px');
+    expect(root.dataset.virtualKeyboardOpen).toBe('false');
+    for (const property of [
+      KEYBOARD_INSET_PROPERTY,
+      VISUAL_VIEWPORT_HEIGHT_PROPERTY,
+      VISUAL_VIEWPORT_OFFSET_TOP_PROPERTY,
+      VISUAL_VIEWPORT_OFFSET_LEFT_PROPERTY,
+      VIRTUAL_KEYBOARD_X_PROPERTY,
+      VIRTUAL_KEYBOARD_Y_PROPERTY,
+      VIRTUAL_KEYBOARD_WIDTH_PROPERTY,
+      VIRTUAL_KEYBOARD_HEIGHT_PROPERTY,
+    ]) {
+      root.style.removeProperty(property);
+    }
+    delete root.dataset.virtualKeyboardOpen;
+    delete root.dataset.virtualKeyboardFloating;
   });
 
   it('does not throw for a document without documentElement styles', () => {
@@ -341,7 +424,10 @@ describe('applyKeyboardInsetToDocument', () => {
         keyboardHeight: 0,
         visualViewportHeight: 0,
         visualViewportOffsetTop: 0,
+        visualViewportOffsetLeft: 0,
         layoutViewportHeight: 0,
+        keyboardBounds: null,
+        isFloatingKeyboard: false,
         isKeyboardLikelyOpen: false,
       }),
     ).not.toThrow();

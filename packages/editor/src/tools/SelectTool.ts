@@ -274,11 +274,14 @@ export class SelectTool extends BaseTool {
   }
 
   private beginMoveGesture(ctx: ToolContext, hit: HitTarget): void {
+    // The first movement resolves a tap candidate into a move and may change
+    // selection before applying any geometry. Snapshot the old selection
+    // before that change so pointer cancellation restores the complete intent.
+    ctx.beginTransaction();
     const selection = this.applyHitSelection(ctx, hit);
     this.gestureSelectionIds = selection;
     this.marqueeActive = false;
     this.isMoveGesture = true;
-    ctx.beginTransaction();
     this.initialPositions.clear();
     this.initialWorldBounds.clear();
     for (const id of selection) {

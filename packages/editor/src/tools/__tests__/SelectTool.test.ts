@@ -195,6 +195,28 @@ function makeDocWithNodes(count: number) {
 }
 
 describe('SelectTool', () => {
+  it('begins the move transaction before resolving a new selection', () => {
+    const tool = new SelectTool();
+    const document = documentWithRootNodes(['picked']);
+    const calls: string[] = [];
+    const ctx = makeCtx({
+      document,
+      selection: [],
+      hitTest: vi.fn().mockReturnValue({
+        nodeId: 'picked',
+        node: document.nodes.picked,
+      }),
+      getNode: vi.fn((id: string) => document.nodes[id]),
+      beginTransaction: vi.fn(() => calls.push('begin')),
+      setSelection: vi.fn(() => calls.push('select')),
+    });
+
+    tool.onPointerDown({ clientX: 10, clientY: 10, pointerId: 1, button: 0 } as any, ctx);
+    (tool as any).onDragStart?.(ctx);
+
+    expect(calls).toEqual(['begin', 'select']);
+  });
+
   it('selects a node on click via hitTest + setSelection', () => {
     const tool = new SelectTool();
     const hitNode = { id: 'n1', kind: 'shape' as const, name: 'Rect' };

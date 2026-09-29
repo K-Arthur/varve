@@ -8,7 +8,7 @@
  *
  * Signals, in preferred order:
  *
- * 1. `navigator.virtualKeyboard.boundingRect.height` when the VirtualKeyboard
+ * 1. `navigator.virtualKeyboard.boundingRect` when the VirtualKeyboard
  *    API is present and actually reports a keyboard. Chromium exposes the
  *    API; the page does NOT opt into `overlaysContent`, so the browser keeps
  *    its default viewport behavior and this is only used as a measurement.
@@ -37,10 +37,23 @@ export interface KeyboardInset {
   visualViewportHeight: number;
   /** Visual viewport top offset in CSS pixels (0 when unavailable). */
   visualViewportOffsetTop: number;
+  /** Visual viewport left offset in CSS pixels (0 when unavailable). */
+  visualViewportOffsetLeft: number;
   /** Layout viewport height (`window.innerHeight`) in CSS pixels. */
   layoutViewportHeight: number;
-  /** True when the measured inset is large enough to be a keyboard. */
+  /** Virtual keyboard rectangle in layout-viewport coordinates, when reported. */
+  keyboardBounds: KeyboardBounds | null;
+  /** True when a reported keyboard is not a bottom-docked, full-width surface. */
+  isFloatingKeyboard: boolean;
+  /** True when valid keyboard geometry is reported or a bottom inset is inferred. */
   isKeyboardLikelyOpen: boolean;
+}
+
+export interface KeyboardBounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 }
 
 export interface KeyboardInsetSignals {
@@ -49,9 +62,10 @@ export interface KeyboardInsetSignals {
   visualViewportWidth: number | null;
   visualViewportHeight: number | null;
   visualViewportOffsetTop: number | null;
+  visualViewportOffsetLeft: number | null;
   visualViewportScale: number | null;
-  /** `navigator.virtualKeyboard.boundingRect.height`, when available. */
-  keyboardBoundingRectHeight: number | null;
+  /** `navigator.virtualKeyboard.boundingRect`, in layout-viewport coordinates. */
+  keyboardBoundingRect: KeyboardBounds | null;
 }
 
 function finiteNonNegative(value: number | null | undefined, fallback: number): number {
@@ -74,17 +88,44 @@ export function computeKeyboardInset(signals: KeyboardInsetSignals): KeyboardIns
     signals.visualViewportOffsetTop !== null && Number.isFinite(signals.visualViewportOffsetTop)
       ? Math.max(0, signals.visualViewportOffsetTop)
       : 0;
+  const visualOffsetLeft =
+    signals.visualViewportOffsetLeft !== null && Number.isFinite(signals.visualViewportOffsetLeft)
+      ? Math.max(0, signals.visualViewportOffsetLeft)
+      : 0;
+  const visualWidth = finiteNonNegative(signals.visualViewportWidth, layoutWidth);
+  const visualBottom = Math.min(layoutHeight, visualOffsetTop + visualHeight);
+  const visualRight = Math.min(layoutWidth, visualOffsetLeft + visualWidth);
 
   let keyboardHeight = 0;
-
-  const reported = signals.keyboardBoundingRectHeight;
-  if (typeof reported === 'number' && Number.isFinite(reported) && reported > 0) {
-    keyboardHeight = reported;
+  let keyboardBounds: KeyboardBounds | null = null;
+  let isFloatingKeyboard = false;
+  const reported = signals.keyboardBoundingRect;
+  if (
+    reported &&
+    [reported.x, reported.y, reported.width, reported.height].every(Number.isFinite)
+  ) {
+    const x = Math.max(0, reported.x);
+    const y = Math.max(0, reported.y);
+    const right = Math.min(layoutWidth, reported.x + reported.width);
+    const bottom = Math.min(layoutHeight, reported.y + reported.height);
+    const width = Math.max(0, right - x);
+    const height = Math.max(0, bottom - y);
+    if (width >= MIN_KEYBOARD_INSET_CSS_PX && height >= MIN_KEYBOARD_INSET_CSS_PX) {
+      keyboardBounds = { x, y, width, height };
+      const touchesLayoutBottom = reported.y + reported.height >= layoutHeight - 1;
+      const spansLayoutWidth = layoutWidth <= 0 || width >= layoutWidth * 0.8;
+      isFloatingKeyboard = !(touchesLayoutBottom && spansLayoutWidth);
+      if (!isFloatingKeyboard && visualRight > x && visualOffsetLeft < right) {
+        // Reserve only the keyboard area that still intersects the visible
+        // viewport. If the viewport already ends at the keyboard top this is
+        // zero, avoiding a second subtraction for the same obstruction.
+        keyboardHeight = Math.max(0, Math.min(visualBottom, bottom) - Math.max(visualOffsetTop, y));
+      }
+    }
   } else if (layoutHeight > 0) {
     const scale = signals.visualViewportScale;
     const scaleLooksUnzoomed =
       typeof scale !== 'number' || !Number.isFinite(scale) || scale <= MAX_PINCH_SCALE_FOR_KEYBOARD;
-    const visualWidth = signals.visualViewportWidth;
     const widthLooksUnchanged =
       layoutWidth <= 0 ||
       typeof visualWidth !== 'number' ||
@@ -102,8 +143,11 @@ export function computeKeyboardInset(signals: KeyboardInsetSignals): KeyboardIns
     keyboardHeight,
     visualViewportHeight: visualHeight,
     visualViewportOffsetTop: visualOffsetTop,
+    visualViewportOffsetLeft: visualOffsetLeft,
     layoutViewportHeight: layoutHeight,
-    isKeyboardLikelyOpen: keyboardHeight > 0,
+    keyboardBounds,
+    isFloatingKeyboard,
+    isKeyboardLikelyOpen: keyboardHeight > 0 || keyboardBounds !== null,
   };
 }
 
@@ -122,9 +166,20 @@ export function readKeyboardInsetSignals(ownerWindow: Window): KeyboardInsetSign
     visualViewportWidth: visual?.width ?? null,
     visualViewportHeight: visual?.height ?? null,
     visualViewportOffsetTop: visual?.offsetTop ?? null,
+    visualViewportOffsetLeft: visual?.offsetLeft ?? null,
     visualViewportScale: visual?.scale ?? null,
-    keyboardBoundingRectHeight:
-      boundingRect && Number.isFinite(boundingRect.height) ? boundingRect.height : null,
+    keyboardBoundingRect:
+      boundingRect &&
+      [boundingRect.x, boundingRect.y, boundingRect.width, boundingRect.height].every(
+        Number.isFinite,
+      )
+        ? {
+            x: boundingRect.x,
+            y: boundingRect.y,
+            width: boundingRect.width,
+            height: boundingRect.height,
+          }
+        : null,
   };
 }
 
@@ -146,6 +201,9 @@ export function subscribeToKeyboardInset(
   let lastKeyboardHeight = -1;
   let lastVisualHeight = -1;
   let lastOffsetTop = -1;
+  let lastOffsetLeft = -1;
+  let lastKeyboardBounds = '';
+  let lastFloating = false;
 
   const emit = (): void => {
     scheduled = false;
@@ -153,13 +211,19 @@ export function subscribeToKeyboardInset(
     if (
       next.keyboardHeight === lastKeyboardHeight &&
       next.visualViewportHeight === lastVisualHeight &&
-      next.visualViewportOffsetTop === lastOffsetTop
+      next.visualViewportOffsetTop === lastOffsetTop &&
+      next.visualViewportOffsetLeft === lastOffsetLeft &&
+      JSON.stringify(next.keyboardBounds) === lastKeyboardBounds &&
+      next.isFloatingKeyboard === lastFloating
     ) {
       return;
     }
     lastKeyboardHeight = next.keyboardHeight;
     lastVisualHeight = next.visualViewportHeight;
     lastOffsetTop = next.visualViewportOffsetTop;
+    lastOffsetLeft = next.visualViewportOffsetLeft;
+    lastKeyboardBounds = JSON.stringify(next.keyboardBounds);
+    lastFloating = next.isFloatingKeyboard;
     onChange(next);
   };
 
@@ -201,6 +265,11 @@ export function subscribeToKeyboardInset(
 export const KEYBOARD_INSET_PROPERTY = '--keyboard-inset-bottom';
 export const VISUAL_VIEWPORT_HEIGHT_PROPERTY = '--visual-viewport-height';
 export const VISUAL_VIEWPORT_OFFSET_TOP_PROPERTY = '--visual-viewport-offset-top';
+export const VISUAL_VIEWPORT_OFFSET_LEFT_PROPERTY = '--visual-viewport-offset-left';
+export const VIRTUAL_KEYBOARD_X_PROPERTY = '--virtual-keyboard-x';
+export const VIRTUAL_KEYBOARD_Y_PROPERTY = '--virtual-keyboard-y';
+export const VIRTUAL_KEYBOARD_WIDTH_PROPERTY = '--virtual-keyboard-width';
+export const VIRTUAL_KEYBOARD_HEIGHT_PROPERTY = '--virtual-keyboard-height';
 
 /**
  * Publish the inset as CSS custom properties on the document element.
@@ -214,11 +283,22 @@ export function applyKeyboardInsetToDocument(ownerDocument: Document, inset: Key
   root.style.setProperty(KEYBOARD_INSET_PROPERTY, `${inset.keyboardHeight}px`);
   root.style.setProperty(VISUAL_VIEWPORT_HEIGHT_PROPERTY, `${inset.visualViewportHeight}px`);
   root.style.setProperty(VISUAL_VIEWPORT_OFFSET_TOP_PROPERTY, `${inset.visualViewportOffsetTop}px`);
+  root.style.setProperty(
+    VISUAL_VIEWPORT_OFFSET_LEFT_PROPERTY,
+    `${inset.visualViewportOffsetLeft}px`,
+  );
+  const bounds = inset.keyboardBounds;
+  root.style.setProperty(VIRTUAL_KEYBOARD_X_PROPERTY, `${bounds?.x ?? 0}px`);
+  root.style.setProperty(VIRTUAL_KEYBOARD_Y_PROPERTY, `${bounds?.y ?? 0}px`);
+  root.style.setProperty(VIRTUAL_KEYBOARD_WIDTH_PROPERTY, `${bounds?.width ?? 0}px`);
+  root.style.setProperty(VIRTUAL_KEYBOARD_HEIGHT_PROPERTY, `${bounds?.height ?? 0}px`);
+  root.dataset.virtualKeyboardOpen = String(inset.isKeyboardLikelyOpen);
+  root.dataset.virtualKeyboardFloating = String(inset.isFloatingKeyboard);
 }
 
 /**
  * Install the document-level publisher. Returns a disposer that removes the
- * listeners and the three custom properties it owns.
+ * listeners and the geometry properties/data attributes it owns.
  */
 export function installKeyboardInsetPublisher(ownerDocument: Document): () => void {
   const ownerWindow = ownerDocument?.defaultView;
@@ -232,5 +312,12 @@ export function installKeyboardInsetPublisher(ownerDocument: Document): () => vo
     root.style.removeProperty(KEYBOARD_INSET_PROPERTY);
     root.style.removeProperty(VISUAL_VIEWPORT_HEIGHT_PROPERTY);
     root.style.removeProperty(VISUAL_VIEWPORT_OFFSET_TOP_PROPERTY);
+    root.style.removeProperty(VISUAL_VIEWPORT_OFFSET_LEFT_PROPERTY);
+    root.style.removeProperty(VIRTUAL_KEYBOARD_X_PROPERTY);
+    root.style.removeProperty(VIRTUAL_KEYBOARD_Y_PROPERTY);
+    root.style.removeProperty(VIRTUAL_KEYBOARD_WIDTH_PROPERTY);
+    root.style.removeProperty(VIRTUAL_KEYBOARD_HEIGHT_PROPERTY);
+    delete root.dataset.virtualKeyboardOpen;
+    delete root.dataset.virtualKeyboardFloating;
   };
 }

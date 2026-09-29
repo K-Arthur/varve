@@ -103,6 +103,7 @@ export interface UseCanvasInputsOptions {
     announceOperation: (op: string, detail: string) => void;
     announceSelection: (nodes: SceneNode[]) => void;
     announce: (msg: string) => void;
+    registerCanvasInteractionCancellation: (sessionId: string, cancel: () => void) => () => void;
     commitTransaction: () => void;
     hitTestNode: (world: { x: number; y: number }) => { node: SceneNode } | null;
     getWorldBounds: (id: NodeId) => { x: number; y: number; w: number; h: number } | null;
@@ -141,6 +142,46 @@ export interface UseCanvasInputsResult {
   onPointerLeave: () => void;
   onBlur: () => void;
   stopAutoPan: () => void;
+}
+
+interface CanvasPointerInteractionRecord {
+  pointerId: number;
+  toolManager: ToolManager;
+  toolInstance: ToolManager['activeTool'];
+  sessionId: string;
+  generation: number;
+  originalContext: ToolContext;
+  isMiddlePan: boolean;
+  closed: boolean;
+}
+
+function ownsCanvasPointerInteraction(
+  record: CanvasPointerInteractionRecord | null,
+  pointerId: number,
+  sessionId: string,
+  manager: ToolManager | null,
+): boolean {
+  return Boolean(
+    record &&
+      !record.closed &&
+      record.pointerId === pointerId &&
+      record.sessionId === sessionId &&
+      record.toolManager === manager &&
+      (record.isMiddlePan || record.toolManager.activeTool === record.toolInstance),
+  );
+}
+
+function cancelRecordedCanvasPointer(
+  record: CanvasPointerInteractionRecord,
+  event: PointerEvent,
+): void {
+  if (record.closed) return;
+  record.closed = true;
+  if (record.isMiddlePan || record.toolManager.activeTool === record.toolInstance) {
+    record.toolManager.handlePointerCancel(event, record.originalContext);
+  } else {
+    record.toolInstance.onPointerCancel?.(event, record.originalContext);
+  }
 }
 
 /** Hover hit testing is informational and must never tax an active drag. */
@@ -295,6 +336,9 @@ export function useCanvasInputs({
   const autoPanVelocity = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const autoPanFrameTime = useRef<number | null>(null);
   const activeDragPointer = useRef<PointerEvent | null>(null);
+  const transferredPointerIds = useRef(new Set<number>());
+  const activeInteractionRecord = useRef<CanvasPointerInteractionRecord | null>(null);
+  const interactionGeneration = useRef(0);
 
   const stopAutoPan = useCallback(() => {
     const frameKey = autoPanFrameKey.current;
@@ -324,6 +368,119 @@ export function useCanvasInputs({
       endEditorInteraction();
     }
   }, []);
+
+  const cancelCanvasInteraction = useCallback(() => {
+    const canvas = contentCanvasRef.current;
+    const contacts = [...pointerOwnershipRef.current.contacts.keys()];
+    const heldPointer = activeDragPointer.current;
+    const heldContact = heldPointer
+      ? getPointerContact(pointerOwnershipRef.current, heldPointer.pointerId)
+      : null;
+
+    const camera = stateRef.current;
+    commitCamera({ zoom: camera.zoom, pan: camera.pan, rotation: camera.cameraRotation });
+    stopAutoPan();
+    cancelWheelInertiaRef.current?.();
+    if (wheelInteractionEndTimer.current !== null) {
+      clearTimeout(wheelInteractionEndTimer.current);
+      wheelInteractionEndTimer.current = null;
+    }
+    if (wheelEditorInteractionOpen.current) {
+      wheelEditorInteractionOpen.current = false;
+      endEditorInteraction();
+    }
+    if (nativeFactorInteractionEndTimer.current !== null) {
+      clearTimeout(nativeFactorInteractionEndTimer.current);
+      nativeFactorInteractionEndTimer.current = null;
+    }
+    if (nativeGestureEditorInteractionOpen.current) {
+      nativeGestureEditorInteractionOpen.current = false;
+      endEditorInteraction();
+    }
+
+    if (heldPointer && heldContact?.role === 'tool') {
+      const record = activeInteractionRecord.current;
+      if (record && !record.closed && record.pointerId === heldPointer.pointerId) {
+        cancelRecordedCanvasPointer(record, heldPointer);
+      } else {
+        tmRef.current?.handlePointerCancel(heldPointer, buildToolCtx(heldPointer));
+      }
+    }
+    for (const pointerId of contacts) {
+      try {
+        if (canvas?.hasPointerCapture(pointerId)) canvas.releasePointerCapture(pointerId);
+      } catch {
+        // Capture may already have been released by the tool's cancel hook.
+      }
+    }
+
+    activeDragPointer.current = null;
+    activeInteractionRecord.current = null;
+    touchPointers.current.clear();
+    pinchRef.current = null;
+    nativeGestureRef.current = null;
+    transferredPointerIds.current.clear();
+    resetPointerOwnership(pointerOwnershipRef.current);
+    wheelEditorInteractionOpen.current = false;
+    clearViewportAnchor();
+    advanceNavigation({ type: 'reset' });
+    setSnapGuides([]);
+    closePointerEditorInteraction();
+    closeTouchNavigationInteraction();
+    closeKeyboardEditorInteraction();
+    resetEditorInteractions();
+    if (hoverTraceEndTimer.current !== null) {
+      clearTimeout(hoverTraceEndTimer.current);
+      hoverTraceEndTimer.current = null;
+    }
+    endInteraction();
+    tmRef.current?.resetModifiers();
+    interactionSession.reset();
+    const cancelEvent = heldPointer ?? ({ pointerType: 'mouse', pressure: 0 } as PointerEvent);
+    const ctx = buildToolCtx(cancelEvent);
+    tmRef.current?.handleFocusLoss(ctx);
+    if (tmRef.current?.springActive) tmRef.current.releaseSpring(ctx);
+  }, [
+    contentCanvasRef,
+    stateRef,
+    commitCamera,
+    stopAutoPan,
+    tmRef,
+    buildToolCtx,
+    pointerOwnershipRef,
+    setSnapGuides,
+    closePointerEditorInteraction,
+    closeTouchNavigationInteraction,
+    closeKeyboardEditorInteraction,
+  ]);
+
+  const interactionSessionId = stateRef.current.activeId;
+  useEffect(
+    () =>
+      editor.registerCanvasInteractionCancellation(interactionSessionId, cancelCanvasInteraction),
+    [editor.registerCanvasInteractionCancellation, interactionSessionId, cancelCanvasInteraction],
+  );
+  useEffect(() => () => cancelCanvasInteraction(), [cancelCanvasInteraction]);
+  useEffect(() => {
+    const endSuppressedContact = (event: PointerEvent) => {
+      const contact = getPointerContact(pointerOwnershipRef.current, event.pointerId);
+      if (contact?.role !== 'ignored' || !contact.requiresFreshContact) return;
+      touchPointers.current.delete(event.pointerId);
+      transferredPointerIds.current.delete(event.pointerId);
+      endPointerContact(pointerOwnershipRef.current, event.pointerId);
+      closeTouchNavigationInteraction();
+      if (touchPointers.current.size === 0) {
+        pinchRef.current = null;
+        clearViewportAnchor();
+      }
+    };
+    document.addEventListener('pointerup', endSuppressedContact, true);
+    document.addEventListener('pointercancel', endSuppressedContact, true);
+    return () => {
+      document.removeEventListener('pointerup', endSuppressedContact, true);
+      document.removeEventListener('pointercancel', endSuppressedContact, true);
+    };
+  }, [pointerOwnershipRef, closeTouchNavigationInteraction]);
 
   const internalSnapSessionRef = useRef(createSnapSession());
   const internalSnapIndexRef = useRef<{
@@ -398,6 +555,28 @@ export function useCanvasInputs({
         drawingInput.fingerMode,
       );
 
+      if (decision.suppressedPointerIds.length > 0) {
+        for (const suppressedId of decision.suppressedPointerIds) {
+          touchPointers.current.delete(suppressedId);
+        }
+        if (pinchRef.current) endInteractionIfKind('pinch');
+        pinchRef.current = null;
+        if (touchPointers.current.size === 0) {
+          clearViewportAnchor();
+          closeTouchNavigationInteraction();
+        }
+        advanceNavigation({ type: 'reset' });
+      }
+
+      const contactToCancel =
+        decision.cancelPointerId === null
+          ? null
+          : getPointerContact(pointerOwnershipRef.current, decision.cancelPointerId);
+      const transferringTouchToNavigation = contactToCancel?.role === 'navigation';
+      if (transferringTouchToNavigation && decision.cancelPointerId !== null) {
+        transferredPointerIds.current.add(decision.cancelPointerId);
+      }
+
       e.currentTarget.focus({ preventScroll: true });
 
       if (decision.cancelPointerId !== null) {
@@ -418,7 +597,20 @@ export function useCanvasInputs({
                 buttons: 0,
                 pressure: 0,
               } as PointerEvent);
-        tmInst.handlePointerCancel(cancelEvent, buildToolCtx(cancelEvent));
+        const record = activeInteractionRecord.current;
+        if (record && !record.closed && record.pointerId === decision.cancelPointerId) {
+          cancelRecordedCanvasPointer(record, cancelEvent);
+          activeInteractionRecord.current = null;
+        } else {
+          tmInst.handlePointerCancel(cancelEvent, buildToolCtx(cancelEvent));
+        }
+        if (transferringTouchToNavigation) {
+          try {
+            e.currentTarget.setPointerCapture(decision.cancelPointerId);
+          } catch {
+            // Capture transfer is best-effort in limited WebViews.
+          }
+        }
         activeDragPointer.current = null;
         stopAutoPan();
         setSnapGuides([]);
@@ -487,6 +679,16 @@ export function useCanvasInputs({
         : 'unknown';
       if (isInteractionTracingEnabled()) beginInteraction('pointer-drag', ne.timeStamp);
       activeDragPointer.current = snapshotHeldPointer(ne);
+      activeInteractionRecord.current = {
+        pointerId: ne.pointerId,
+        toolManager: tmInst,
+        toolInstance: tmInst.activeTool,
+        sessionId: stateRef.current.activeId,
+        generation: ++interactionGeneration.current,
+        originalContext: ctx,
+        isMiddlePan: e.button === 1 && tmInst.activeToolId !== 'hand',
+        closed: false,
+      };
       snapSessionForPointer.current = createSnapSession();
       snapIndexForPointer.current = null;
       beginEditorInteraction();
@@ -494,6 +696,10 @@ export function useCanvasInputs({
       dispatchToTool('down', ne, dispatchAttributes(), () => {
         tmInst.handlePointerDown(ne, ctx);
       });
+      const record = activeInteractionRecord.current;
+      if (record?.pointerId === ne.pointerId && e.button === 1 && tmInst.activeToolId !== 'hand') {
+        record.toolInstance = tmInst.getTool('hand') ?? tmInst.activeTool;
+      }
       markInteractionCanvasChanged();
     },
     [
@@ -528,6 +734,29 @@ export function useCanvasInputs({
         trackedMove?.contact ?? getPointerContact(pointerOwnershipRef.current, e.pointerId);
 
       if (contact?.role === 'ignored') {
+        e.preventDefault();
+        return;
+      }
+
+      if (
+        contact?.role === 'tool' &&
+        !ownsCanvasPointerInteraction(
+          activeInteractionRecord.current,
+          e.pointerId,
+          stateRef.current.activeId,
+          tmRef.current,
+        )
+      ) {
+        const record = activeInteractionRecord.current;
+        if (record && !record.closed && record.pointerId === e.pointerId) {
+          cancelRecordedCanvasPointer(record, ne);
+          activeInteractionRecord.current = null;
+          activeDragPointer.current = null;
+          stopAutoPan();
+          setSnapGuides([]);
+          closePointerEditorInteraction();
+          endPointerContact(pointerOwnershipRef.current, e.pointerId);
+        }
         e.preventDefault();
         return;
       }
@@ -699,8 +928,20 @@ export function useCanvasInputs({
           if (!autoPanActive.current) {
             const frameKey = autoPanFrameKey.current;
             if (!frameKey) return;
+            const gestureGeneration = activeInteractionRecord.current?.generation;
             autoPanActive.current = true;
             const tick = (frameTimeMs: number) => {
+              const record = activeInteractionRecord.current;
+              if (
+                !record ||
+                record.closed ||
+                record.generation !== gestureGeneration ||
+                record.sessionId !== stateRef.current.activeId ||
+                record.toolManager !== tmRef.current
+              ) {
+                stopAutoPan();
+                return;
+              }
               const v = autoPanVelocity.current;
               if (v.x === 0 && v.y === 0) {
                 stopAutoPan();
@@ -721,7 +962,7 @@ export function useCanvasInputs({
               // it here (right-edge scrolling moves the camera left).
               editor.panBy(-delta.x, -delta.y);
               const heldPointer = activeDragPointer.current;
-              const activeTool = tmRef.current;
+              const activeTool = record.toolManager;
               if (heldPointer && activeTool) {
                 // Camera motion changes the world point under a stationary
                 // edge pointer. Re-sample the active drag after panBy has
@@ -757,6 +998,8 @@ export function useCanvasInputs({
       buildToolCtx,
       setHoveredNode,
       stopAutoPan,
+      setSnapGuides,
+      closePointerEditorInteraction,
       dispatchAttributes,
       traceEventId,
     ],
@@ -780,6 +1023,7 @@ export function useCanvasInputs({
       const touchLike = isTouchLikeContact(contact);
       if (contact?.role === 'navigation' || contact?.role === 'ignored') {
         endPointerContact(pointerOwnershipRef.current, pointerId);
+        transferredPointerIds.current.delete(pointerId);
         if (touchLike) {
           touchPointers.current.delete(pointerId);
           advanceNavigation({
@@ -814,6 +1058,23 @@ export function useCanvasInputs({
         return;
       }
 
+      const activeRecord = activeInteractionRecord.current;
+      if (
+        !activeRecord ||
+        !ownsCanvasPointerInteraction(
+          activeRecord,
+          pointerId,
+          stateRef.current.activeId,
+          tmRef.current,
+        )
+      ) {
+        activeDragPointer.current = null;
+        endPointerContact(pointerOwnershipRef.current, pointerId);
+        if (activeRecord?.pointerId === pointerId) activeInteractionRecord.current = null;
+        closePointerEditorInteraction();
+        return;
+      }
+
       if (activeDragPointer.current?.pointerId === pointerId) {
         activeDragPointer.current = null;
       }
@@ -839,6 +1100,8 @@ export function useCanvasInputs({
       const tmInst = tmRef.current;
       if (!tmInst) {
         endPointerContact(pointerOwnershipRef.current, pointerId);
+        activeRecord.closed = true;
+        activeInteractionRecord.current = null;
         endInteraction();
         closePointerEditorInteraction();
         return;
@@ -855,6 +1118,8 @@ export function useCanvasInputs({
       dispatchToTool('up', ne, dispatchAttributes(), () => {
         tmInst.handlePointerUp(ne, upCtx);
       });
+      activeRecord.closed = true;
+      activeInteractionRecord.current = null;
       markInteractionCanvasChanged();
       endPointerContact(pointerOwnershipRef.current, pointerId);
       endInteraction();
@@ -885,6 +1150,7 @@ export function useCanvasInputs({
         }
         return;
       }
+      transferredPointerIds.current.delete(pointerId);
       if (nativeGestureRef.current && isTouchLikePointerType(e.pointerType)) {
         endPointerContact(pointerOwnershipRef.current, pointerId);
         if (isTouchLikeContact(contact)) touchPointers.current.delete(pointerId);
@@ -919,7 +1185,17 @@ export function useCanvasInputs({
       });
       const ne = e.nativeEvent as PointerEvent;
       if (contact.role === 'tool') {
-        tmRef.current?.handlePointerCancel(ne, buildToolCtx(ne));
+        const record = activeInteractionRecord.current;
+        if (
+          record &&
+          ownsCanvasPointerInteraction(record, pointerId, stateRef.current.activeId, tmRef.current)
+        ) {
+          cancelRecordedCanvasPointer(record, ne);
+          activeInteractionRecord.current = null;
+        } else if (record && !record.closed && record.pointerId === pointerId) {
+          cancelRecordedCanvasPointer(record, ne);
+          activeInteractionRecord.current = null;
+        }
         setSnapGuides([]);
         closePointerEditorInteraction();
         endInteraction();
@@ -1241,7 +1517,22 @@ export function useCanvasInputs({
         ? getPointerContact(pointerOwnershipRef.current, activePointer.pointerId)
         : null;
       if (activePointer && activeContact?.role === 'tool') {
-        tmRef.current?.handlePointerCancel(activePointer, buildToolCtx(activePointer));
+        const record = activeInteractionRecord.current;
+        if (
+          record &&
+          ownsCanvasPointerInteraction(
+            record,
+            activePointer.pointerId,
+            stateRef.current.activeId,
+            tmRef.current,
+          )
+        ) {
+          cancelRecordedCanvasPointer(record, activePointer);
+          activeInteractionRecord.current = null;
+        } else if (record && !record.closed && record.pointerId === activePointer.pointerId) {
+          cancelRecordedCanvasPointer(record, activePointer);
+          activeInteractionRecord.current = null;
+        }
         endPointerContact(pointerOwnershipRef.current, activePointer.pointerId);
         activeDragPointer.current = null;
         stopAutoPan();
@@ -1529,6 +1820,10 @@ export function useCanvasInputs({
     // up drag state — otherwise the tool may remain in a "dragging" state
     // with no matching pointerup.
     const onLostPointerCapture = (e: PointerEvent) => {
+      // A tool-owned touch may be cancelled specifically to transfer it into
+      // the navigation set. Releasing and reacquiring capture is part of that
+      // handoff, not a terminal cancellation of the pinch.
+      if (transferredPointerIds.current.delete(e.pointerId)) return;
       // BaseTool releases capture during a normal pointer-up. The browser may
       // deliver the resulting lostpointercapture event after the up handler
       // has already cleared activeDragPointer; that is an expected release,
@@ -1536,6 +1831,7 @@ export function useCanvasInputs({
       // still tracked as an active drag.
       const contact = getPointerContact(pointerOwnershipRef.current, e.pointerId);
       if (!contact) return;
+      if (contact.role === 'ignored' && contact.requiresFreshContact) return;
       if (contact.role === 'tool' && activeDragPointer.current?.pointerId !== e.pointerId) return;
       const tmInst = tmRef.current;
       if (activeDragPointer.current?.pointerId === e.pointerId) {
@@ -1567,7 +1863,17 @@ export function useCanvasInputs({
         pointerCount: touchLike ? touchPointers.current.size : undefined,
       });
       if (contact.role === 'tool') {
-        if (tmInst) tmInst.handlePointerCancel(e, buildToolCtx(e));
+        const record = activeInteractionRecord.current;
+        if (
+          record &&
+          ownsCanvasPointerInteraction(record, e.pointerId, stateRef.current.activeId, tmInst)
+        ) {
+          cancelRecordedCanvasPointer(record, e);
+          activeInteractionRecord.current = null;
+        } else if (record && !record.closed && record.pointerId === e.pointerId) {
+          cancelRecordedCanvasPointer(record, e);
+          activeInteractionRecord.current = null;
+        }
         setSnapGuides([]);
         closePointerEditorInteraction();
         endInteraction();
@@ -1751,6 +2057,7 @@ export function useCanvasInputs({
       if (e.key === ' ') {
         e.preventDefault();
         if (!e.repeat && tmInst) {
+          if (activeInteractionRecord.current) cancelCanvasInteraction();
           tmInst.springLoadTool(
             'hand',
             ne,
@@ -2025,6 +2332,8 @@ export function useCanvasInputs({
       rootNodes,
       stopAutoPan,
       setSnapGuides,
+      closePointerEditorInteraction,
+      cancelCanvasInteraction,
     ],
   );
 
@@ -2078,58 +2387,7 @@ export function useCanvasInputs({
     endInteraction();
   }, [stopAutoPan]);
 
-  const onBlur = useCallback(() => {
-    stopAutoPan();
-    cancelWheelInertiaRef.current?.();
-    nativeGestureRef.current = null;
-    if (nativeFactorInteractionEndTimer.current !== null) {
-      clearTimeout(nativeFactorInteractionEndTimer.current);
-      nativeFactorInteractionEndTimer.current = null;
-    }
-    if (nativeGestureEditorInteractionOpen.current) {
-      nativeGestureEditorInteractionOpen.current = false;
-      endEditorInteraction();
-    }
-    const heldPointer = activeDragPointer.current;
-    const heldContact = heldPointer
-      ? getPointerContact(pointerOwnershipRef.current, heldPointer.pointerId)
-      : null;
-    if (heldPointer && heldContact?.role === 'tool') {
-      const heldCtx = buildToolCtx(heldPointer);
-      tmRef.current?.handlePointerCancel(heldPointer, heldCtx);
-      closePointerEditorInteraction();
-    }
-    activeDragPointer.current = null;
-    touchPointers.current.clear();
-    pinchRef.current = null;
-    resetPointerOwnership(pointerOwnershipRef.current);
-    clearViewportAnchor();
-    if (hoverTraceEndTimer.current !== null) {
-      clearTimeout(hoverTraceEndTimer.current);
-      hoverTraceEndTimer.current = null;
-    }
-    endInteraction();
-    pointerEditorInteractionOpen.current = false;
-    wheelEditorInteractionOpen.current = false;
-    closeTouchNavigationInteraction();
-    closeKeyboardEditorInteraction();
-    resetEditorInteractions();
-    const cancelEvent = heldPointer ?? ({ pointerType: 'mouse', pressure: 0 } as PointerEvent);
-    const ctx = buildToolCtx(cancelEvent);
-    tmRef.current?.handleFocusLoss(ctx);
-    if (tmRef.current?.springActive) {
-      tmRef.current.releaseSpring(ctx);
-    }
-  }, [
-    tmRef,
-    stopAutoPan,
-    editor,
-    buildToolCtx,
-    pointerOwnershipRef,
-    closePointerEditorInteraction,
-    closeTouchNavigationInteraction,
-    closeKeyboardEditorInteraction,
-  ]);
+  const onBlur = useCallback(() => cancelCanvasInteraction(), [cancelCanvasInteraction]);
 
   // B4 + G7: Reset modifier state and cancel active interactions when the
   // window loses focus or the page becomes hidden. Without this, a key
@@ -2137,56 +2395,11 @@ export function useCanvasInputs({
   // Ctrl/Shift) leaves the modifier state stuck, and a drag started before
   // tab-switching can remain active indefinitely.
   useEffect(() => {
-    function resetInputState(): PointerEvent | null {
-      const heldPointer = activeDragPointer.current;
-      tmRef.current?.resetModifiers();
-      interactionSession.reset();
-      stopAutoPan();
-      cancelWheelInertiaRef.current?.();
-      activeDragPointer.current = null;
-      touchPointers.current.clear();
-      pinchRef.current = null;
-      nativeGestureRef.current = null;
-      if (nativeFactorInteractionEndTimer.current !== null) {
-        clearTimeout(nativeFactorInteractionEndTimer.current);
-        nativeFactorInteractionEndTimer.current = null;
-      }
-      if (nativeGestureEditorInteractionOpen.current) {
-        nativeGestureEditorInteractionOpen.current = false;
-        endEditorInteraction();
-      }
-      resetPointerOwnership(pointerOwnershipRef.current);
-      pointerEditorInteractionOpen.current = false;
-      wheelEditorInteractionOpen.current = false;
-      clearViewportAnchor();
-      advanceNavigation({ type: 'reset' });
-      // Force-close any open interaction depth (a lost pointerup must never
-      // leave background work permanently deferred).
-      resetEditorInteractions();
-      endInteraction();
-      return heldPointer;
-    }
     function onWindowBlur() {
-      const heldPointer = resetInputState();
-      if (heldPointer) {
-        tmRef.current?.handlePointerCancel(heldPointer, buildToolCtx(heldPointer));
-      }
-      const cancelEvent = heldPointer ?? ({ pointerType: 'mouse', pressure: 0 } as PointerEvent);
-      const ctx = buildToolCtx(cancelEvent);
-      tmRef.current?.handleFocusLoss(ctx);
-      if (tmRef.current?.springActive) {
-        tmRef.current.releaseSpring(ctx);
-      }
+      cancelCanvasInteraction();
     }
     function onVisibilityChange() {
-      if (document.visibilityState === 'hidden') {
-        const heldPointer = resetInputState();
-        if (heldPointer) {
-          tmRef.current?.handlePointerCancel(heldPointer, buildToolCtx(heldPointer));
-        }
-        const cancelEvent = heldPointer ?? ({ pointerType: 'mouse', pressure: 0 } as PointerEvent);
-        tmRef.current?.handleFocusLoss(buildToolCtx(cancelEvent));
-      }
+      if (document.visibilityState === 'hidden') cancelCanvasInteraction();
     }
     window.addEventListener('blur', onWindowBlur);
     document.addEventListener('visibilitychange', onVisibilityChange);
@@ -2194,15 +2407,7 @@ export function useCanvasInputs({
       window.removeEventListener('blur', onWindowBlur);
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
-  }, [
-    tmRef,
-    editor,
-    buildToolCtx,
-    stopAutoPan,
-    pointerOwnershipRef,
-    closeTouchNavigationInteraction,
-    closeKeyboardEditorInteraction,
-  ]);
+  }, [cancelCanvasInteraction]);
 
   return {
     handlePointerDown,

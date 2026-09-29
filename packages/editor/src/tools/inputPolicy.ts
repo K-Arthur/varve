@@ -98,7 +98,18 @@ export function beginPointerContact(
     // pen stroke or move the viewport underneath it.
     role = 'ignored';
   } else if (pointerType === 'touch' || pointerType === 'unknown') {
-    if (fingerMode === 'navigate') {
+    const suppressedContactStillDown = [...state.contacts.values()].some(
+      (contact) =>
+        isTouchLike(contact.pointerType) &&
+        contact.role === 'ignored' &&
+        contact.requiresFreshContact,
+    );
+    if (suppressedContactStillDown) {
+      // A touch suppressed by pen takeover cannot become navigation or
+      // drawing input when the pen lifts. Wait for every suppressed contact
+      // to lift before accepting a fresh touch gesture.
+      role = 'ignored';
+    } else if (fingerMode === 'navigate') {
       role = 'navigation';
     } else {
       const currentTool = getToolContact(state);
@@ -141,7 +152,7 @@ export function beginPointerContact(
     role,
     x: start.clientX,
     y: start.clientY,
-    requiresFreshContact: false,
+    requiresFreshContact: role === 'ignored' && isTouchLike(pointerType),
   });
   if (role === 'ignored') suppressedPointerIds.push(start.pointerId);
   return { role, cancelPointerId, suppressedPointerIds };

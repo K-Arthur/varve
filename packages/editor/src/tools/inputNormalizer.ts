@@ -146,12 +146,13 @@ export function observeInputCapabilities(ev: PointerEvent): ObservedInputCapabil
   if (pointerType !== 'pen') return { ...observedCapabilities };
 
   const pressure = safeNumber(ev, 'pressure', Number.NaN);
-  if (Number.isFinite(pressure) && pressure >= 0 && pressure <= 1) {
+  const activeContact = safeNumber(ev, 'buttons', 0) > 0;
+  if (activeContact && Number.isFinite(pressure) && pressure >= 0 && pressure <= 1) {
     observedPressureValues.add(pressure);
     // A single default value is not evidence either way. Two distinct values
     // are the smallest useful observation that this channel is dynamic.
     if (observedPressureValues.size > 1) observedCapabilities.pressure = 'observed';
-  } else {
+  } else if (activeContact) {
     observedCapabilities.pressure = 'unavailable';
   }
 
@@ -183,7 +184,10 @@ export function hasGenuineStylusData(ev: PointerEvent): boolean {
   if (safeString(ev, 'pointerType', '') !== 'pen') return false;
   const pressure = safeNumber(ev, 'pressure', Number.NaN);
   return (
-    (Number.isFinite(pressure) && pressure > 0 && Math.abs(pressure - 0.5) > 0.001) ||
+    (safeNumber(ev, 'buttons', 0) > 0 &&
+      Number.isFinite(pressure) &&
+      pressure > 0 &&
+      Math.abs(pressure - 0.5) > 0.001) ||
     safeNumber(ev, 'tiltX', 0) !== 0 ||
     safeNumber(ev, 'tiltY', 0) !== 0 ||
     (safeNumber(ev, 'twist', 0) !== 0 && safeNumber(ev, 'twist', 0) >= 0)

@@ -3106,6 +3106,30 @@ export function EditorProvider({
   const txSnapshotRef = useRef<Document | null>(null);
   const txSelRef = useRef<NodeId[] | null>(null);
   const txBaseDocumentRevisionRef = useRef<number | null>(null);
+  type TransactionRollbackState = Pick<
+    EditorState,
+    | 'selection'
+    | 'primaryId'
+    | 'focusedNodeId'
+    | 'activeContainerId'
+    | 'selectionMode'
+    | 'selectionOrigin'
+    | 'selectionRevision'
+    | 'selectionPreview'
+    | 'selectionRange'
+    | 'pendingFormat'
+    | 'selectedGuideId'
+    | 'dirty'
+    | 'canUndo'
+    | 'canRedo'
+    | 'undoLabel'
+    | 'redoLabel'
+    | 'revision'
+    | 'sessions'
+  >;
+  const txRollbackStateRef = useRef<TransactionRollbackState | null>(null);
+  const txSelectionHistoryRef = useRef<ReturnType<typeof selectionHistory.snapshot> | null>(null);
+  const txLastMutationRef = useRef<typeof lastMutatedDocRef.current>(null);
   const interactionState = useInteractionState();
   /** Auto-save + versioned-backup services (absent in an auxiliary projection). */
   const { autoSaveRef, backupRef, recoveryRef } = useAutoBackupServices(
@@ -3463,8 +3487,31 @@ export function EditorProvider({
     // document render. Read the synchronous ref so a transaction always
     // snapshots the document the user is actually seeing, not the closure's
     // previous render.
-    txSnapshotRef.current = stateRef.current.document;
-    txSelRef.current = stateRef.current.selection;
+    const snapshot = stateRef.current;
+    txSnapshotRef.current = snapshot.document;
+    txSelRef.current = [...snapshot.selection];
+    txRollbackStateRef.current = {
+      selection: [...snapshot.selection],
+      primaryId: snapshot.primaryId,
+      focusedNodeId: snapshot.focusedNodeId,
+      activeContainerId: snapshot.activeContainerId,
+      selectionMode: snapshot.selectionMode,
+      selectionOrigin: snapshot.selectionOrigin,
+      selectionRevision: snapshot.selectionRevision,
+      selectionPreview: snapshot.selectionPreview,
+      selectionRange: snapshot.selectionRange,
+      pendingFormat: snapshot.pendingFormat,
+      selectedGuideId: snapshot.selectedGuideId,
+      dirty: snapshot.dirty,
+      canUndo: snapshot.canUndo,
+      canRedo: snapshot.canRedo,
+      undoLabel: snapshot.undoLabel,
+      redoLabel: snapshot.redoLabel,
+      revision: snapshot.revision,
+      sessions: snapshot.sessions.map((session) => ({ ...session })),
+    };
+    txSelectionHistoryRef.current = selectionHistory.snapshot();
+    txLastMutationRef.current = lastMutatedDocRef.current;
     txBaseDocumentRevisionRef.current = documentRevisionRef.current;
     getTransactionHooks().onBeginTransaction();
   }, []);
@@ -3525,6 +3572,9 @@ export function EditorProvider({
         txSnapshotRef.current = null;
         txSelRef.current = null;
         txBaseDocumentRevisionRef.current = null;
+        txRollbackStateRef.current = null;
+        txSelectionHistoryRef.current = null;
+        txLastMutationRef.current = null;
         transactionModeRef.current = 'edit';
         txLabelRef.current = 'Edit';
         getTransactionHooks().onCommitTransaction();
@@ -3552,12 +3602,48 @@ export function EditorProvider({
       if (!inTransactionRef.current) return;
       inTransactionRef.current = false;
       txDepthRef.current = 0;
+      const currentDocument = stateRef.current.document;
+      const rollbackDocument =
+        reconcile?.(txSnapshotRef.current!, currentDocument) ?? txSnapshotRef.current!;
+      if (rollbackDocument !== currentDocument) historySkipRef.current = true;
+      lastMutatedDocRef.current = txLastMutationRef.current;
+      if (txSelectionHistoryRef.current) selectionHistory.restore(txSelectionHistoryRef.current);
+      const grids = editorGridFromDoc(rollbackDocument);
+      const rollbackPatch: Partial<EditorState> = {
+        dirty: txRollbackStateRef.current?.dirty,
+        canUndo: txRollbackStateRef.current?.canUndo,
+        canRedo: txRollbackStateRef.current?.canRedo,
+        undoLabel: txRollbackStateRef.current?.undoLabel,
+        redoLabel: txRollbackStateRef.current?.redoLabel,
+        revision: txRollbackStateRef.current?.revision,
+        sessions: txRollbackStateRef.current?.sessions,
+      };
+      if (!reconcile) {
+        Object.assign(rollbackPatch, {
+          selection: txRollbackStateRef.current?.selection ?? txSelRef.current ?? [],
+          primaryId: txRollbackStateRef.current?.primaryId ?? null,
+          focusedNodeId: txRollbackStateRef.current?.focusedNodeId ?? null,
+          activeContainerId: txRollbackStateRef.current?.activeContainerId ?? null,
+          selectionMode: txRollbackStateRef.current?.selectionMode,
+          selectionOrigin: txRollbackStateRef.current?.selectionOrigin,
+          selectionRevision: txRollbackStateRef.current?.selectionRevision,
+          selectionPreview: txRollbackStateRef.current?.selectionPreview,
+          selectionRange: txRollbackStateRef.current?.selectionRange,
+          pendingFormat: txRollbackStateRef.current?.pendingFormat,
+          selectedGuideId: txRollbackStateRef.current?.selectedGuideId,
+        });
+      }
       patch({
-        document:
-          reconcile?.(txSnapshotRef.current!, stateRef.current.document) ?? txSnapshotRef.current!,
-        ...(reconcile ? {} : { selection: txSelRef.current ?? [] }),
+        document: rollbackDocument,
+        documentGrid: grids.documentGrid,
+        isometricGrid: grids.isometricGrid,
+        snapGrid: grids.documentGrid.spacingX,
+        ...rollbackPatch,
       });
       txSnapshotRef.current = txSelRef.current = txBaseDocumentRevisionRef.current = null;
+      txRollbackStateRef.current = null;
+      txSelectionHistoryRef.current = null;
+      txLastMutationRef.current = null;
       transactionModeRef.current = 'edit';
       txLabelRef.current = 'Edit';
       getTransactionHooks().onAbortTransaction();
@@ -4045,7 +4131,10 @@ export function EditorProvider({
       detachIconNodes: iconAssets.detachIconNodes,
       getIconAsset: iconAssets.getIconAsset,
       getIconAssetForNode: iconAssets.getIconAssetForNode,
-      setTool: (t) => applyToolChange(t, toolRef, patch),
+      setTool: (t) => {
+        interactionState.cancelCanvasInteraction(stateRef.current.activeId);
+        applyToolChange(t, toolRef, patch);
+      },
       setCamera,
       setZoom: (z) => {
         cancelCameraTransition(panAnimRef);
@@ -8616,6 +8705,8 @@ export function EditorProvider({
       setBindingField: interactionState.setBindingField,
       focusedField: interactionState.focusedField,
       setFocusedField: interactionState.setFocusedField,
+      registerCanvasInteractionCancellation: interactionState.registerCanvasInteractionCancellation,
+      cancelCanvasInteraction: interactionState.cancelCanvasInteraction,
 
       setSelectedCornerSmoothing: (value) => {
         const sel = state.selection;
@@ -9138,9 +9229,15 @@ export function EditorProvider({
         updateDoc((doc) => setVariableModeOnDocumentDoc(doc, mode));
       },
 
-      newTab: () => openInNewSession(createDocument('Untitled')),
+      newTab: () => {
+        interactionState.cancelCanvasInteraction(stateRef.current.activeId);
+        openInNewSession(createDocument('Untitled'));
+      },
 
       switchTab: (id) => {
+        if (id !== stateRef.current.activeId) {
+          interactionState.cancelCanvasInteraction(stateRef.current.activeId);
+        }
         setState((s) => {
           if (id === s.activeId) return s;
           sessionStoreRef.current.set(
@@ -9225,6 +9322,7 @@ export function EditorProvider({
         } catch {
           doc = createDocument(name || 'Untitled');
         }
+        interactionState.cancelCanvasInteraction(stateRef.current.activeId);
         setState((s) => {
           // Dedupe: if this file is already open in a tab, switch to it
           // instead of opening a duplicate.
@@ -10542,6 +10640,9 @@ export function EditorProvider({
       closeTab: (id, force = false) => {
         const sess = state.sessions.find((s) => s.id === id);
         if (sess?.dirty && !force) return false;
+        if (id === stateRef.current.activeId) {
+          interactionState.cancelCanvasInteraction(stateRef.current.activeId);
+        }
         const closingDocumentId =
           id === state.activeId ? state.document.id : sessionStoreRef.current.get(id)?.document.id;
         const hasOtherOpenSession = closingDocumentId
@@ -10698,6 +10799,8 @@ export function EditorProvider({
       interactionState.setBindingField,
       interactionState.focusedField,
       interactionState.setFocusedField,
+      interactionState.registerCanvasInteractionCancellation,
+      interactionState.cancelCanvasInteraction,
       dialogState.showExportDialog,
       dialogState.showArchiveDialog,
       dialogState.archiveDialogMode,

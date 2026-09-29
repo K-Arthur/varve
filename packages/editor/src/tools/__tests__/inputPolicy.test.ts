@@ -74,6 +74,23 @@ describe('pointer ownership policy', () => {
     expect(isNavigationPointer(state, 8)).toBe(false);
   });
 
+  it('keeps pen-suppressed fingers inert until every old contact lifts', () => {
+    const state = createPointerOwnershipState();
+    beginPointerContact(state, start(1, 'touch'), 'draw');
+    const pen = beginPointerContact(state, start(2, 'pen'), 'draw');
+    expect(pen).toMatchObject({ role: 'tool', cancelPointerId: 1, suppressedPointerIds: [1] });
+    expect(getPointerContact(state, 1)).toMatchObject({
+      role: 'ignored',
+      requiresFreshContact: true,
+    });
+
+    endPointerContact(state, 2);
+    expect(beginPointerContact(state, start(3, 'touch'), 'draw').role).toBe('ignored');
+    endPointerContact(state, 3);
+    endPointerContact(state, 1);
+    expect(beginPointerContact(state, start(4, 'touch'), 'draw').role).toBe('tool');
+  });
+
   it('makes a replacement pen the only tool owner', () => {
     const state = createPointerOwnershipState();
     beginPointerContact(state, start(7, 'pen'), 'draw');

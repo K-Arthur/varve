@@ -133,6 +133,7 @@ export abstract class BaseTool implements Tool {
       return;
     }
     this.onDragCancel?.(ctx);
+    this.dragStartFired = false;
     ctx.releasePointerCapture(e.pointerId);
     this.drag = this.freshDrag();
     this.activePointerType = 'mouse';
