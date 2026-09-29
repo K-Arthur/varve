@@ -11,6 +11,7 @@ import { registerDocumentAssetOperations } from './ops/documentAssetOps';
 import { registerMasterOperations } from './ops/masterOps';
 import { registerNodeOperations } from './ops/nodeOps';
 import { registerPageOperations } from './ops/pageOps';
+import { registerPresentationOperations } from './ops/presentationOps';
 
 let registered = false;
 
@@ -21,6 +22,7 @@ export function registerBuiltinOperations(): void {
   registerDocumentAssetOperations();
   registerPageOperations();
   registerMasterOperations();
+  registerPresentationOperations();
   registerCaptureOperation();
   registered = true;
 }

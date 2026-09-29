@@ -34,7 +34,13 @@ import { applyComicWorkflowProfile, COMIC_PROFILE_DEFAULTS } from './comicWorkfl
 import { createDesignCanvas, designCanvasContentRoot } from './designCanvas';
 import { createDocument, type Document, makeFrameNode, nextNodeId } from './document';
 import { addChild, addNode } from './document-nodes';
+import { cryptoId } from './document-utils';
 import { DocumentCodec } from './documentCodec';
+import {
+  getPresentationSizePreset,
+  PRESENTATION_SCHEMA_VERSION,
+  type PresentationSizePresetId,
+} from './presentation';
 import {
   comicProfileForPreset,
   createDocumentOptionsFromPreset,
@@ -46,7 +52,13 @@ import type { ComicWorkflowProfile, NodeId } from './types';
  *  fixed-96dpi world unit. Mirrors the engine's practical scene limits. */
 export const MAX_FRAME_DIMENSION = 100_000;
 
-export type NewDocumentStartMode = 'empty' | 'pages' | 'framePreset' | 'customFrame' | 'template';
+export type NewDocumentStartMode =
+  | 'empty'
+  | 'pages'
+  | 'framePreset'
+  | 'customFrame'
+  | 'presentation'
+  | 'template';
 
 export interface NewDocumentCustomFrame {
   width: number;
@@ -63,6 +75,10 @@ export interface NewDocumentRequest {
   preset?: Preset;
   /** Custom frame dimensions ('customFrame'). */
   customFrame?: NewDocumentCustomFrame;
+  /** Preset slide size used when startMode is 'presentation'. Defaults to widescreen 16:9. */
+  presentationPreset?: PresentationSizePresetId;
+  /** Custom slide size used when startMode is 'presentation'. */
+  presentationCustomSize?: NewDocumentCustomFrame;
   /** Serialized template document ('template'); decoded through the same
    *  versioned migration pipeline as any opened file. */
   templateJson?: string;
@@ -168,6 +184,10 @@ export function createNewDocument(request: NewDocumentRequest): NewDocumentReque
     const error = validateCustomFrame(request.customFrame);
     if (error) return { ok: false, error };
   }
+  if (startMode === 'presentation' && request.presentationCustomSize) {
+    const error = validateCustomFrame(request.presentationCustomSize);
+    if (error) return { ok: false, error };
+  }
 
   const documentName = request.documentName?.trim() || 'Untitled';
   const workflowProfile =
@@ -228,6 +248,43 @@ export function createNewDocument(request: NewDocumentRequest): NewDocumentReque
     });
     doc = d;
     initialFrameId = id;
+  }
+
+  if (!workflowProfile && startMode === 'presentation') {
+    const customSize = request.presentationCustomSize;
+    const preset = getPresentationSizePreset(request.presentationPreset);
+    const size = customSize
+      ? {
+          width: physicalToPx(customSize.width, customSize.unit),
+          height: physicalToPx(customSize.height, customSize.unit),
+        }
+      : { width: preset.width, height: preset.height };
+    const { doc: withFrame, id } = makeInitialFrame(doc, {
+      name: 'Slide 1',
+      width: size.width,
+      height: size.height,
+      unit: 'px',
+    });
+    initialFrameId = id;
+    const deckId = cryptoId();
+    doc = {
+      ...withFrame,
+      presentation: {
+        schemaVersion: PRESENTATION_SCHEMA_VERSION,
+        decks: [
+          {
+            id: deckId,
+            name: documentName,
+            width: size.width,
+            height: size.height,
+            slides: [{ id: cryptoId(), frameId: id, title: 'Slide 1' }],
+            sections: [],
+          },
+        ],
+        layouts: [],
+        themes: [],
+      },
+    };
   }
 
   // Advanced document settings — document-level metadata only.

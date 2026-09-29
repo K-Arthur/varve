@@ -24,6 +24,7 @@ export type OperationSource =
   | 'plugin'
   | 'merge'
   | 'recovery'
+  | 'presentation'
   | 'api';
 
 export interface OperationActor {

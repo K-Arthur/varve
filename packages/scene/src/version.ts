@@ -17,8 +17,9 @@ import { migrateV224ToV225 } from './version-migrations-v225';
 import { migrateV227ToV228 } from './version-migrations-v228';
 import { migrateV228ToV229 } from './version-migrations-v229';
 import { migrateV229ToV230 } from './version-migrations-v230';
+import { migrateV230ToV231 } from './version-migrations-v231';
 
-export const CURRENT_DOCUMENT_VERSION = '2.30';
+export const CURRENT_DOCUMENT_VERSION = '2.31';
 
 function normalizeLayoutSizingFields(raw: Record<string, unknown>): Record<string, unknown> {
   const rawNodes = raw.nodes;
@@ -156,6 +157,7 @@ export const SUPPORTED_VERSIONS = [
   '2.28',
   '2.29',
   '2.30',
+  '2.31',
 ];
 
 export interface DocumentMigration {
@@ -957,6 +959,11 @@ const migrations: DocumentMigration[] = [
     from: '2.29',
     to: '2.30',
     migrate: (raw) => migrateV229ToV230(raw),
+  },
+  {
+    from: '2.30',
+    to: '2.31',
+    migrate: (raw) => migrateV230ToV231(raw),
   },
 ];
 

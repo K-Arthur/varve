@@ -82,6 +82,52 @@ describe('createNewDocument — framePreset mode', () => {
   });
 });
 
+describe('createNewDocument — presentation mode', () => {
+  it('starts with one editable 16:9 frame referenced by an ordered deck', () => {
+    const res = createNewDocument({ documentName: 'Client pitch', startMode: 'presentation' });
+    if (!res.ok) throw new Error(res.error);
+    const { document, initialFrameId } = res.result;
+    const frame = document.nodes[initialFrameId!];
+
+    expect(document.designCanvases).toHaveLength(1);
+    expect(frame).toMatchObject({ kind: 'frame', name: 'Slide 1', w: 1920, h: 1080 });
+    expect(document.presentation?.decks[0]).toMatchObject({
+      name: 'Client pitch',
+      width: 1920,
+      height: 1080,
+      slides: [{ frameId: initialFrameId, title: 'Slide 1' }],
+    });
+  });
+
+  it.each([
+    ['classic', 1440, 1080],
+    ['vertical', 1080, 1920],
+  ] as const)('supports the %s size', (presentationPreset, width, height) => {
+    const res = createNewDocument({ startMode: 'presentation', presentationPreset });
+    if (!res.ok) throw new Error(res.error);
+    const deck = res.result.document.presentation?.decks[0];
+    expect(deck).toMatchObject({ width, height });
+    const frame = res.result.document.nodes[res.result.initialFrameId!];
+    expect(frame).toMatchObject({ kind: 'frame', w: width, h: height });
+  });
+
+  it('validates custom slide dimensions and creates the frame in pixels', () => {
+    const invalid = createNewDocument({
+      startMode: 'presentation',
+      presentationCustomSize: { width: 100_001, height: 100, unit: 'px' },
+    });
+    expect(invalid.ok).toBe(false);
+
+    const custom = createNewDocument({
+      startMode: 'presentation',
+      presentationCustomSize: { width: 10, height: 5, unit: 'in' },
+    });
+    if (!custom.ok) throw new Error(custom.error);
+    const frame = custom.result.document.nodes[custom.result.initialFrameId!];
+    expect(frame).toMatchObject({ kind: 'frame', w: 960, h: 480 });
+  });
+});
+
 describe('createNewDocument — comic workflow profiles', () => {
   const COMIC_PRINT = findBuiltinPreset('comic-print-a4')!;
   const MANGA = findBuiltinPreset('manga-a5')!;

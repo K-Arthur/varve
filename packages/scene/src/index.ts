@@ -129,6 +129,7 @@ export * from './paintOrder';
 export * from './pasteboardLayout';
 export * from './photoSource';
 export * from './preflight';
+export * from './presentation';
 export * from './presetToDocument';
 export * from './printGeometry';
 export * from './printPreflight';

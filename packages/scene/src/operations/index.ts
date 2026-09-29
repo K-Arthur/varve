@@ -29,6 +29,22 @@ export type {
   PageRenamePayload,
   PageResizePayload,
 } from './ops/pageOps';
+export type {
+  PresentationDeckCreatePayload,
+  PresentationDeckIdPayload,
+  PresentationDeckRenamePayload,
+  PresentationLayoutApplyPayload,
+  PresentationLayoutDeletePayload,
+  PresentationLayoutRegisterPayload,
+  PresentationLayoutUpdatePayload,
+  PresentationSectionCreatePayload,
+  PresentationSectionDeletePayload,
+  PresentationSectionRenamePayload,
+  PresentationSlideAddPayload,
+  PresentationSlideReferencePayload,
+  PresentationSlideReorderPayload,
+  PresentationSlideUpdatePayload,
+} from './ops/presentationOps';
 export {
   affectedEntitiesOf,
   applyOperation,

@@ -97,6 +97,7 @@ const DOCUMENT_KEY_ORDER: readonly string[] = [
   'mockupTemplates',
   'gradientPresets',
   'logoProject',
+  'presentation',
   'emailProfile',
   'emailSemantics',
   'linterConfig',

@@ -43,6 +43,7 @@ import {
 import { sanitizeMockupState } from './mockup/normalize';
 import { resolveNodePaints } from './paint';
 import { validatePhotoSourceBinding, validateRetouchProvenance } from './photoSource';
+import { normalizePresentationMetadata } from './presentation/normalize';
 import { deserializeTiles, type SerializableTiles } from './rasterLayer';
 import { normalizeSavedAreaSelections } from './savedAreaSelection';
 import { createEmptySelectionSetsData } from './selectionSet';
@@ -1041,6 +1042,10 @@ function normalizeDocument(doc: Document): DocumentNormalizeResult {
   }
   if (document.logoProject !== undefined) {
     document = { ...document, logoProject: normalizeLogoProject(document.logoProject) };
+  }
+  if (document.presentation !== undefined) {
+    const presentation = normalizePresentationMetadata(document.presentation);
+    if (presentation) document = { ...document, presentation };
   }
   return { document, warnings };
 }

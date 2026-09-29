@@ -47,6 +47,7 @@ import {
   validateIsometricGrid,
 } from './gridTypes';
 import { nextNodeId } from './node-id';
+import type { PresentationMetadata } from './presentation/types';
 import { createEmptySelectionSetsData } from './selectionSet';
 import { createTableModel, type TableColumnDefinition, type TableModel } from './table';
 import type {
@@ -174,6 +175,8 @@ export interface Document {
    * over ordinary artboard frames. Optional — plain documents have none.
    */
   logoProject?: import('./types').LogoProject;
+  /** Optional versioned ordered presentation decks over ordinary frame nodes. */
+  presentation?: PresentationMetadata;
   /**
    * V1.8+: Reusable Paint entities keyed by paint id.
    * Each Paint wraps a Fill with identity so multiple nodes can reference
