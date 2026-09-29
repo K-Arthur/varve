@@ -1,5 +1,6 @@
 ---
 import Layout from '../../layouts/Layout.astro';
+import FeatureVisual from '../../components/FeatureVisual.astro';
 import { sitePath } from '../../lib/siteUrl';
 import '../../styles/docs-prose.css';
 ---
@@ -22,7 +23,7 @@ import '../../styles/docs-prose.css';
           Access settings from the menubar: <strong>File &gt; Settings</strong> (or press the keyboard shortcut if configured). The settings dialog has several focused sections:
         </p>
         <ul>
-          <li><strong>Appearance</strong> — Theme, grid, and snap preferences</li>
+          <li><strong>Appearance</strong> — Theme, workspace layout, grid, and snap preferences</li>
           <li><strong>Drawing Input</strong> — Finger ownership, wheel policy, sensitivity, and optional mouse-wheel continuation</li>
           <li><strong>Performance</strong> — Interactive preview quality, diagnostics, and platform capability checks</li>
           <li><strong>Export</strong> — Default export format, scale, ICC profile, bleed, and text outlining</li>
@@ -119,6 +120,23 @@ import '../../styles/docs-prose.css';
         <p>
           The default canvas mode on startup: Full (all fills and effects), Outline (structure-only), or Preview (clean display).
         </p>
+
+        <h3>Workspace layout</h3>
+        <p>
+          Choose <strong>Automatic</strong>, <strong>Tablet</strong>, or <strong>Desktop</strong>
+          in Appearance settings, or from <strong>View &gt; Workspace layout</strong>. Automatic
+          responds to the available CSS viewport width and pointer capabilities the browser
+          reports; Varve does not detect a detachable keyboard or ChromeOS tablet-mode switch.
+          This preference controls panel presentation and touch-target sizing independently of
+          Drawing Input and density. It takes effect after active contacts and text composition
+          finish so changing it does not interrupt an edit.
+        </p>
+        <h3>Mirror tablet controls</h3>
+        <p>
+          The Appearance switch places the Layers, Inspector, and Resources launchers on the
+          opposite side of the canvas for left-handed or alternate reach. It is saved separately
+          from the layout choice and does not change desktop panel docking.
+        </p>
       </section>
 
       <section class="docs-section" data-testid="navigation-settings-help">
@@ -156,30 +174,23 @@ import '../../styles/docs-prose.css';
           active backend, frame age/cadence, queue state, preview tier, and fallback reason
           without collecting artwork or persistent hardware identifiers.
         </p>
-        <figure class="settings-performance-figure">
-          <img
-            src={sitePath('/screenshots/performance-settings-dark.png')}
-            alt="Varve's Performance settings tab, with Automatic interactive preview selected and the local diagnostics panel below it"
-            width="920"
-            height="760"
-            loading="lazy"
-            decoding="async"
-          />
-          <figcaption>
-            The Performance tab shows the current preview-quality control and opt-in local
-            diagnostics. This is a capture from the running editor interface, not a mockup.
-          </figcaption>
-        </figure>
+        <FeatureVisual
+          scene="performance-settings"
+          sizes="(min-width: 1100px) 760px, 100vw"
+          caption="The Performance dialog shows the current preview-quality control and opt-in local diagnostics. This is a capture from the running editor interface, not a mockup."
+        />
       </section>
 
       <section class="docs-section">
         <h2>How binary settings behave</h2>
         <p>
           A compact switch is reserved for a setting that is genuinely on or off, such as Show
-          guides, Enable snapping, or Prefer WebGPU when available. The WebGPU switch requests
-          an optional renderer; the active path can still be Canvas2D when a device is unavailable
-          or the artwork does not qualify. Supporting copy appears beside controls that have a
-          consequence or dependency.
+          guides or Enable snapping. Canvas renderer is a peer choice: Canvas2D is the default,
+          WebGPU is used when a usable device is available, and experimental WebGL2 currently
+          handles eligible simple shapes and uncropped stretch image fills with Canvas2D replay
+          for the rest. The active path can still be Canvas2D when a backend is unavailable or the
+          artwork does not qualify.
+          Supporting copy appears beside controls that have a consequence or dependency.
         </p>
         <p>
           Peer choices such as theme, color space, and canvas mode use a radio group, segmented
@@ -271,26 +282,8 @@ import '../../styles/docs-prose.css';
 </Layout>
 
 <style>
-  .settings-performance-figure {
-    margin: 1.5rem 0;
-    overflow: hidden;
-    border: 1px solid var(--border-default);
-    border-radius: var(--website-radius-surface);
-    background: var(--surface-card);
-  }
-
-  .settings-performance-figure img {
-    display: block;
-    width: 100%;
-    height: auto;
-  }
-
-  .settings-performance-figure figcaption {
-    padding: 0.75rem 1rem;
-    border-top: 1px solid var(--border-default);
-    color: var(--text-muted);
-    font-size: 0.875rem;
-  }
+  /* The performance visual uses FeatureVisual's own framing; nothing
+     page-specific is layered on top of it. */
 </style>
 
 <style>

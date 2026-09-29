@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { spawn } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 /**
  * Product screenshot capture pipeline.
@@ -27,10 +27,11 @@ import { createHash } from 'node:crypto';
  * If a scene cannot be produced it is recorded as skipped with a reason —
  * never silently replaced by an older screenshot. --strict fails the run.
  */
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, expect } from '@playwright/test';
+import { analyseImage, buffersEqual, pngDimensions } from './lib/image-analysis.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const args = process.argv.slice(2);
@@ -43,6 +44,15 @@ const CANONICAL_DIR = join(ROOT, 'docs', 'screenshots', 'product');
 const OUT_DIR = reviewDir ? resolve(reviewDir) : CANONICAL_DIR;
 const PUBLIC_DIR = join(ROOT, 'apps', 'website', 'public', 'screenshots');
 const MANIFEST_PATH = join(ROOT, 'apps', 'website', 'src', 'data', 'screenshot-manifest.json');
+/**
+ * Where a failing scene's diagnostic frame goes.
+ *
+ * This must never be the canonical or published screenshot directory: a debug
+ * dump that lands next to published captures looks like a published capture
+ * (it broke `validate.mjs`'s orphan check on the shared checkout, 2026-09-29).
+ * `reports/` is gitignored, so diagnostics are never committed.
+ */
+const DEBUG_DIR = join(ROOT, 'reports', 'screenshot-debug');
 const PORT = Number(process.env.VARVE_SHOT_PORT ?? 1430);
 const BASE = `http://localhost:${PORT}`;
 
@@ -61,30 +71,128 @@ const onlyScenes = new Set(
 );
 const strict = args.includes('--strict');
 
+/* ------------------------------------------------------------------ */
+/* Provenance, atomic writes, and the manifest concurrency guard        */
+/* ------------------------------------------------------------------ */
+
+function sha256Hex(buf) {
+  return createHash('sha256').update(buf).digest('hex');
+}
+
+function git(args_) {
+  try {
+    return execFileSync('git', args_, {
+      cwd: ROOT,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Source identity for the capture, independent of the volatile run clock.
+ *
+ * `sourceRevision` is the exact commit; `sourceDirty`/`sourceDigest` describe
+ * uncommitted changes to the paths that decide what a capture looks like, so a
+ * capture taken from a dirty tree records which tree rather than claiming a
+ * clean revision it does not have.
+ */
+const SOURCE_PATHS = [
+  'scripts/screenshots',
+  'packages/editor/src',
+  'packages/scene/src',
+  'packages/engine/src',
+  'packages/shared/src',
+  'packages/compositor/src',
+  'apps/desktop/src',
+];
+function computeSourceIdentity() {
+  const sourceRevision = git(['rev-parse', 'HEAD']) ?? 'unknown';
+  const status = git(['status', '--porcelain', '--', ...SOURCE_PATHS]) ?? '';
+  const diff = git(['diff', 'HEAD', '--', ...SOURCE_PATHS]) ?? '';
+  return {
+    sourceRevision,
+    sourceDirty: status.length > 0,
+    sourceDigest: sha256Hex(`${sourceRevision}\n${status}\n${diff}`).slice(0, 64),
+  };
+}
+
+function playwrightVersion() {
+  for (const p of ['playwright', 'playwright-core']) {
+    try {
+      return JSON.parse(readFileSync(join(ROOT, 'node_modules', p, 'package.json'), 'utf8'))
+        .version;
+    } catch {
+      /* try the next candidate */
+    }
+  }
+  return 'unknown';
+}
+
+/**
+ * Write a file atomically: a reader (a website build, another agent) must see
+ * either the previous bytes or the new bytes, never a half-written file.
+ */
+function writeFileAtomicSync(path, data) {
+  const tmp = `${path}.tmp-${process.pid}-${Date.now()}`;
+  writeFileSync(tmp, data);
+  renameSync(tmp, path);
+}
+
+const manifestBytesAtStart = readFileSync(MANIFEST_PATH);
+const manifestDigestAtStart = sha256Hex(manifestBytesAtStart);
+
 if (args.includes('--sync-reviewed')) {
   if (!reviewDir || onlyScenes.size === 0) {
     throw new Error('--sync-reviewed requires --review-dir and explicit --scenes');
   }
   const reviewed = JSON.parse(readFileSync(OUTPUT_MANIFEST, 'utf8'));
-  const current = JSON.parse(readFileSync(MANIFEST_PATH, 'utf8'));
+  // The review manifest records the published manifest it was reviewed
+  // against. If the published manifest changed since (another capture run, a
+  // concurrent agent), promoting now would silently drop that work.
+  const reviewedAgainst = reviewed.reviewedAgainst;
+  const currentBytes = readFileSync(MANIFEST_PATH);
+  if (reviewedAgainst && sha256Hex(currentBytes) !== reviewedAgainst) {
+    throw new Error(
+      'Published manifest changed since this review was captured — re-run the review before syncing',
+    );
+  }
+  const current = JSON.parse(currentBytes.toString('utf8'));
   const approved = [...onlyScenes].map((id) => {
     const entry = reviewed.scenes[id];
     if (entry?.status !== 'captured' || basename(entry.file) !== entry.file) {
       throw new Error(`No successful reviewed capture for ${id}`);
     }
     const bytes = readFileSync(join(OUT_DIR, entry.file));
-    if (createHash('sha256').update(bytes).digest('hex') !== entry.sha256) {
+    // Tamper check: the reviewed bytes must still hash to what the review
+    // recorded. A modified review file is refused, not promoted.
+    if (sha256Hex(bytes) !== entry.sha256) {
       throw new Error(`Reviewed capture changed after capture: ${id}`);
+    }
+    const analysis = analyseImage(bytes);
+    if (!analysis.valid) {
+      throw new Error(`Reviewed capture for ${id} does not decode: ${analysis.errors.join('; ')}`);
     }
     return { id, entry, bytes };
   });
   for (const { id, entry, bytes } of approved) {
-    writeFileSync(join(CANONICAL_DIR, entry.file), bytes);
-    writeFileSync(join(PUBLIC_DIR, entry.file), bytes);
-    current.scenes[id] = entry;
+    // Files first, then the manifest: a build reading the manifest never finds
+    // a name whose bytes are not on disk yet.
+    writeFileAtomicSync(join(CANONICAL_DIR, entry.file), bytes);
+    writeFileAtomicSync(join(PUBLIC_DIR, entry.file), bytes);
+    current.scenes[id] = {
+      ...entry,
+      provenance: {
+        ...(entry.provenance ?? {}),
+        promotedFrom: reviewed.provenance?.runId ?? 'unknown-review-run',
+        promotedAt: new Date().toISOString(),
+      },
+    };
   }
   current.generatedAt = new Date().toISOString();
-  writeFileSync(MANIFEST_PATH, `${JSON.stringify(current, null, 2)}\n`);
+  writeFileAtomicSync(MANIFEST_PATH, `${JSON.stringify(current, null, 2)}\n`);
   console.log(`Synced ${approved.length} reviewed captures; other scenes preserved.`);
   process.exit(0);
 }
@@ -92,12 +200,9 @@ if (args.includes('--sync-reviewed')) {
 mkdirSync(OUT_DIR, { recursive: true });
 mkdirSync(PUBLIC_DIR, { recursive: true });
 
-/** Minimal PNG size reader (width/height live in the IHDR at fixed offsets). */
+/** PNG dimensions, shared with the validator so both agree on what "valid" means. */
 function pngSize(buf) {
-  if (buf.length < 24) return null;
-  const sig = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
-  if (sig.some((b, i) => buf[i] !== b)) return null;
-  return { width: buf.readUInt32BE(16), height: buf.readUInt32BE(20) };
+  return pngDimensions(buf);
 }
 
 /* ------------------------------------------------------------------ */
@@ -123,7 +228,12 @@ async function startServer() {
           : {}),
       },
       stdio: 'ignore',
-      detached: false,
+      // Own process group, so the whole tree can be terminated. `pnpm` spawns
+      // Vite as a grandchild; killing only the `pnpm` pid left a Vite server
+      // listening on the capture port after every run (observed 2026-09-29),
+      // which then made the next `--strictPort` capture fail and kept a dev
+      // server resident.
+      detached: true,
     },
   );
   const deadline = Date.now() + 150000;
@@ -131,7 +241,7 @@ async function startServer() {
     if (await probe()) return child;
     await new Promise((r) => setTimeout(r, 1000));
   }
-  child.kill();
+  await stopServer(child);
   throw new Error(`Vite dev server did not come up on :${PORT} within 150s`);
 }
 
@@ -147,10 +257,35 @@ function probe() {
   });
 }
 
+/**
+ * Terminate the dev server and everything it spawned.
+ *
+ * SIGTERM to the process group first (Vite is a grandchild of `pnpm`), then to
+ * the direct child as a fallback. Without the group signal the dev server
+ * survived the capture and held the port.
+ */
 async function stopServer(child) {
+  if (!child || child.exitCode !== null) return;
   try {
-    child.kill('SIGTERM');
-  } catch {}
+    process.kill(-child.pid, 'SIGTERM');
+  } catch {
+    try {
+      child.kill('SIGTERM');
+    } catch {}
+  }
+  // Give it a moment to release the port before the process exits, so the next
+  // run does not race a still-listening socket.
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    if (child.exitCode !== null || child.signalCode !== null) return;
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  try {
+    process.kill(-child.pid, 'SIGKILL');
+  } catch {
+    try {
+      child.kill('SIGKILL');
+    } catch {}
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -193,13 +328,95 @@ const SEED_FIRST_RUN_STATE = () => {
  * Opens a committed demo document through the application's own File > Open
  * input. The editor renders it exactly as it renders a user's document; the
  * screenshots therefore show real output, not a staged approximation.
+ *
+ * Readiness is the *document identity*, not a sleep. The editor exposes the
+ * active session name in the shell's screen-reader heading ("<name> — Varve"),
+ * so a load that failed or was rejected cannot pass as the intended document:
+ * the heading would still name the previous document. A fixed sleep used to
+ * sit here, which made the wrong-document capture more likely rather than less.
  */
 async function openDemoDocument(page, name) {
   const fixture = join(ROOT, 'scripts', 'screenshots', 'fixtures', `${name}.varve`);
+  const expectedName = basename(fixture);
+  // The demo documents are committed JSON, so the exact font families they
+  // need are knowable up front rather than guessed per scene.
+  let requiredFonts = [];
+  try {
+    const doc = JSON.parse(readFileSync(fixture, 'utf8'));
+    requiredFonts = [
+      ...new Set(
+        Object.values(doc.nodes ?? {})
+          .map((node) => node?.fontFamily)
+          .filter((family) => typeof family === 'string' && family.length > 0),
+      ),
+    ];
+  } catch {
+    // A fixture that does not parse is caught by the identity assertion below.
+  }
   await page.setInputFiles('#file-open-input', fixture);
-  // The new document opens in its own tab; wait for the title to switch.
-  await page.waitForTimeout(1500);
-  await page.locator('.layers-panel').waitFor({ timeout: 30000 });
+  try {
+    await page.waitForFunction(
+      (expected) => {
+        const heading = document.querySelector('.editor-shell h1.sr-only');
+        return !!heading && (heading.textContent ?? '').trim().startsWith(expected);
+      },
+      expectedName,
+      { timeout: 30000 },
+    );
+  } catch {
+    const seen = await page
+      .locator('.editor-shell h1.sr-only')
+      .textContent({ timeout: 2000 })
+      .catch(() => null);
+    throw new Error(
+      `opening ${expectedName} did not change the active document heading (still "${seen ?? 'unknown'}")`,
+    );
+  }
+  await page.locator('.editor-canvas').waitFor({ state: 'visible', timeout: 30000 });
+  // A document whose type would silently render in a substituted face is not a
+  // faithful capture of that document.
+  await waitForFonts(page, requiredFonts);
+}
+
+/**
+ * Confirms the fonts a scene needs are actually loaded, not just that
+ * `document.fonts.ready` resolved.
+ *
+ * `document.fonts.ready` resolves once pending loads finish; it does not tell
+ * you *which* face was selected, and a substitution (a missing family falling
+ * back to a default) resolves just as happily. `check()` reports whether a
+ * face matching the given font shorthand is available and loaded, so a
+ * missing family fails the scene instead of silently shipping substituted
+ * type. Chromium headless can also drop default font families after a
+ * beyond-viewport capture (playwright#42962), which is why this is asserted
+ * per scene rather than once at startup.
+ */
+async function waitForFonts(page, families = []) {
+  await page.evaluate(() => document.fonts.ready);
+  const status = await page.evaluate(() => document.fonts.status);
+  if (status !== 'loaded') {
+    throw new Error(`fonts did not finish loading (document.fonts.status = "${status}")`);
+  }
+  for (const family of families) {
+    // Wait briefly for a late load to register before declaring it missing.
+    const ok = await page
+      .waitForFunction(
+        (f) =>
+          [...document.fonts].some(
+            (face) => face.family.replace(/["']/g, '') === f && face.status === 'loaded',
+          ),
+        family,
+        { timeout: 5000 },
+      )
+      .then(() => true)
+      .catch(() => false);
+    if (!ok) {
+      const available = await page.evaluate(() => [...document.fonts].map((f) => f.family));
+      throw new Error(
+        `required font "${family}" is not loaded (available: ${available.slice(0, 12).join(', ')})`,
+      );
+    }
+  }
 }
 
 /**
@@ -269,10 +486,24 @@ async function currentZoom(page) {
 
 /** Selects a named layer so the inspector shows real properties, not "No selection". */
 async function selectLayer(page, pattern) {
-  const item = page.getByRole('treeitem').filter({ hasText: pattern }).first();
-  if (await item.isVisible({ timeout: 4000 }).catch(() => false)) {
-    await item.click({ timeout: 5000 }).catch(() => undefined);
-    await page.waitForTimeout(500);
+  const panel = page.locator('#editor-layers-panel');
+  let openedDrawer = false;
+  let item = page.getByRole('treeitem').filter({ hasText: pattern }).first();
+  if (!(await item.isVisible({ timeout: 500 }).catch(() => false))) {
+    const showLayers = page.getByRole('button', { name: 'Show layers panel' });
+    if (await showLayers.isVisible({ timeout: 1000 }).catch(() => false)) {
+      await showLayers.click();
+      await panel.waitFor({ state: 'visible', timeout: 5000 });
+      openedDrawer = true;
+      item = page.getByRole('treeitem').filter({ hasText: pattern }).first();
+    }
+  }
+  await item.waitFor({ state: 'visible', timeout: 5000 });
+  await item.click({ timeout: 5000 });
+  await page.waitForTimeout(500);
+  if (openedDrawer) {
+    await page.getByRole('button', { name: /Collapse Layers panel/ }).click();
+    await panel.waitFor({ state: 'hidden', timeout: 5000 });
   }
 }
 
@@ -317,8 +548,8 @@ async function openCleanEditor(page, { print = false } = {}) {
     .or(page.locator('dialog[open]').getByRole('button', { name: /create/i }))
     .first()
     .click({ timeout: 30000 });
-  await page.locator('.layers-panel').waitFor({ timeout: 120000 });
-  await page.locator('.editor-shell').waitFor({ timeout: 15000 });
+  await page.locator('.editor-shell').waitFor({ state: 'visible', timeout: 120000 });
+  await page.locator('.editor-canvas').waitFor({ state: 'visible', timeout: 30000 });
   // Close stacked startup dialogs deterministically.
   for (let attempt = 0; attempt < 4; attempt += 1) {
     const openDialogs = page.locator('dialog[open]');
@@ -380,15 +611,93 @@ async function parkMouse(page, preserveFocus = false) {
   if (!preserveFocus) await page.evaluate(() => document.activeElement?.blur?.());
 }
 
-/** Wait for rendering to settle: fonts + two frames + replay pass. */
-async function settle(page, preserveFocus = false) {
-  await page.evaluate(() => document.fonts.ready);
+/**
+ * Wait until the canvas region stops changing, bounded.
+ *
+ * Two animation frames prove nothing about a rendering pipeline that commits
+ * later (a worker bitmap, a deferred replay pass), and a fixed sleep is either
+ * too short or wasted. This samples the actual canvas box and returns when two
+ * consecutive samples are byte-identical, falling back to "best effort" rather
+ * than failing: the blank/near-uniform guard after the capture is what catches
+ * a canvas that never painted.
+ */
+async function waitForStableCanvas(page, { timeoutMs = 6000, intervalMs = 120 } = {}) {
+  const box = await page.locator('.editor-canvas').first().boundingBox();
+  if (!box || box.width < 4 || box.height < 4) {
+    throw new Error('canvas has no measurable geometry before capture');
+  }
+  const clip = {
+    x: Math.max(0, Math.round(box.x)),
+    y: Math.max(0, Math.round(box.y)),
+    width: Math.max(1, Math.floor(box.width)),
+    height: Math.max(1, Math.floor(box.height)),
+  };
+  const deadline = Date.now() + timeoutMs;
+  let previous = null;
+  while (Date.now() < deadline) {
+    const sample = await page.screenshot({ clip });
+    if (previous && buffersEqual(previous, sample)) return true;
+    previous = sample;
+    await page.waitForTimeout(intervalMs);
+  }
+  return false;
+}
+
+/** Wait for rendering to settle: fonts, then a stable canvas, then a parked mouse. */
+async function settle(page, scene = {}) {
+  await waitForFonts(page, scene.requireFonts ?? []);
   await page.evaluate(
     () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))),
   );
-  await page.waitForTimeout(700);
-  await parkMouse(page, preserveFocus);
-  await page.waitForTimeout(300);
+  await waitForStableCanvas(page);
+  await parkMouse(page, scene.preserveFocus);
+  await waitForStableCanvas(page, { timeoutMs: 2500 });
+}
+
+/**
+ * Measure a crop window from a real container instead of fixed coordinates.
+ *
+ * A scene may declare `clipFrom` — a real container selector — and the clip is
+ * measured from that element at capture time. That is preferred for panels,
+ * whose internal layout moves as sections are added: the `layers` crop below
+ * was tuned to a panel that has since gained a "Design Canvases" block, so its
+ * fixed window started framing that block instead of the layer rows.
+ */
+async function clipFromLocator(page, { selector, top, bottom, padding = 0, maxHeight, minHeight }) {
+  const boxOf = async (target) => {
+    const box = await page.locator(target).first().boundingBox();
+    if (!box || box.width < 8 || box.height < 8) {
+      throw new Error(`crop target "${target}" has no measurable layout box`);
+    }
+    return box;
+  };
+  // `selector` owns the horizontal extent; `top`/`bottom` (when given) bound the
+  // vertical extent, so a crop can frame "from the panel header to the list"
+  // without hardcoding either edge.
+  const container = await boxOf(selector);
+  const topBox = top ? await boxOf(top) : container;
+  const bottomBox = bottom ? await boxOf(bottom) : container;
+  const viewport = page.viewportSize();
+  if (!viewport) throw new Error('viewport unknown while measuring a crop target');
+  const left = Math.min(container.x, topBox.x, bottomBox.x);
+  const right = Math.max(
+    container.x + container.width,
+    topBox.x + topBox.width,
+    bottomBox.x + bottomBox.width,
+  );
+  const bottomEdge = Math.max(topBox.y + topBox.height, bottomBox.y + bottomBox.height);
+  const x = Math.max(0, Math.floor(left - padding));
+  const y = Math.max(0, Math.floor(topBox.y - padding));
+  let width = Math.ceil(right - x + padding);
+  let height = Math.ceil(bottomEdge - y + padding);
+  if (maxHeight) height = Math.min(height, maxHeight);
+  if (minHeight) height = Math.max(height, minHeight);
+  width = Math.min(width, viewport.width - x);
+  height = Math.min(height, viewport.height - y);
+  if (width < 8 || height < 8) {
+    throw new Error(`crop target "${selector}" measured ${width}x${height} at ${x},${y}`);
+  }
+  return { x, y, width, height };
 }
 
 /**
@@ -405,9 +714,6 @@ const CROP = {
   // Full inspector column: starts below the tab strip and stops above the
   // status bar, so a long stack of sections is not clipped mid-row.
   inspectorTall: { x: 1120, y: 122, width: 320, height: 722 },
-  // Starts below the document thumbnail and Pages strip so the crop lands on
-  // the layer rows themselves, where the blend/opacity badges are.
-  layers: { x: 0, y: 350, width: 288, height: 380 },
   // Spans the full width so the track-name column is included, and starts at
   // the panel's own top edge rather than partway up the canvas above it.
   timeline: { x: 0, y: 636, width: 1440, height: 264 },
@@ -472,6 +778,55 @@ const SCENES = [
       await openDemoDocument(page, 'poster');
       await selectLayer(page, /display headline/i);
       await fitContent(page);
+    },
+  },
+  {
+    id: 'tablet-workspace',
+    file: 'tablet-workspace-light.png',
+    theme: 'light',
+    feature: 'tablet-editing',
+    viewport: { width: 1200, height: 750 },
+    hasTouch: true,
+    alt: 'The Varve poster workspace in tablet presentation, with the Inspector beside the canvas and a touch popover for keyboardless editing actions',
+    caption: 'Touch-sized controls and keyboardless editing actions beside the canvas',
+    async run(page) {
+      await openCleanEditor(page);
+      await openDemoDocument(page, 'poster');
+      await selectLayer(page, /display headline/i);
+      await fitContent(page);
+      await expect(page.locator('html')).toHaveAttribute('data-layout-mode', 'tablet');
+      const inspector = page.locator('.editor__inspector-panel');
+      await expect(inspector).toBeVisible();
+    },
+  },
+  {
+    id: 'tablet-controls',
+    file: 'tablet-controls-detail-light.png',
+    theme: 'light',
+    feature: 'tablet-editing',
+    viewport: { width: 1200, height: 750 },
+    hasTouch: true,
+    clip: { x: 380, y: 70, width: 800, height: 600 },
+    alt: 'Tablet editing controls for modifiers, multi-selection, alignment, and layer order beside a Varve poster canvas',
+    caption:
+      'Constrain, draw from centre, bypass snapping, duplicate, align, and reorder without a keyboard',
+    async run(page) {
+      await openCleanEditor(page);
+      await openDemoDocument(page, 'poster');
+      await selectLayer(page, /display headline/i);
+      const bodyCopy = page.getByRole('treeitem').filter({ hasText: /body copy/i });
+      await bodyCopy.click({ modifiers: ['Shift'] });
+      const multiSelectHint = page.getByRole('button', { name: 'Dismiss hint' });
+      if (await multiSelectHint.isVisible({ timeout: 1000 }).catch(() => false)) {
+        await multiSelectHint.click();
+      }
+      await fitContent(page);
+      await expect(page.locator('html')).toHaveAttribute('data-layout-mode', 'tablet');
+      await page.getByRole('button', { name: 'Tablet editing controls' }).click();
+      const controls = page.getByRole('dialog', { name: 'Tablet editing controls' });
+      await expect(controls).toBeVisible();
+      await expect(controls.getByRole('button', { name: 'Duplicate' })).toBeEnabled();
+      await expect(controls.getByRole('button', { name: 'Align left' })).toBeEnabled();
     },
   },
   {
@@ -643,14 +998,34 @@ const SCENES = [
     file: 'layers-light.png',
     theme: 'light',
     feature: 'canvas',
-    clip: CROP.layers,
-    alt: 'The Varve layers panel listing the poster’s named layers with blend mode and opacity badges',
+    // A taller window lets the panel's layer tree take its flex space instead
+    // of being squeezed to its 160px minimum by the sections below it, so the
+    // crop shows complete rows rather than one clipped at the bottom edge.
+    viewport: { width: 1440, height: 1200 },
+    // Measured from the panel's own header through its layer tree. A fixed
+    // window here went stale when the panel gained a "Design Canvases" section
+    // above the list, so the crop started framing that section instead.
+    clipFrom: {
+      selector: '.editor__layers-panel',
+      top: '.layers-panel__header',
+      bottom: '.layers-panel__tree',
+    },
+    alt: 'The Varve layers panel listing the poster’s named layers, with a blend-mode badge on the Disc layer and opacity badges on the tinted bands',
     caption: 'Layers, blend modes, and opacity',
     async run(page) {
       await openCleanEditor(page);
       await openDemoDocument(page, 'poster');
       await selectLayer(page, /disc/i);
       await fitContent(page);
+    },
+    async verify(page) {
+      // The caption claims blend/opacity badges, so at least one layer row with
+      // a badge has to be inside the measured crop, not merely somewhere in the
+      // panel's scroll extent.
+      const tree = page.locator('.layers-panel__tree');
+      await expect(tree.getByRole('treeitem').first()).toBeVisible();
+      await expect(tree.getByText(/Multiply/).first()).toBeVisible();
+      await expect(tree.getByText(/%/).first()).toBeVisible();
     },
   },
   {
@@ -1132,6 +1507,82 @@ const SCENES = [
     },
   },
   {
+    id: 'workspace-shared-workflows',
+    file: 'workspace-shared-workflows-light.png',
+    theme: 'light',
+    feature: 'workspaces',
+    clip: { x: 0, y: 0, width: 936, height: 900 },
+    alt: 'The Design workspace with Logo project controls and generated Code output open beside the same poster document',
+    caption:
+      'Logo tools stay in Design; the shared Code panel remains available alongside the same document.',
+    async run(page) {
+      const trace = (step) => {
+        if (process.env.VARVE_SHOT_DEBUG) {
+          console.log(`  [workspace-shared-workflows:step] ${step}`);
+        }
+      };
+      await openCleanEditor(page);
+      trace('editor ready');
+      await openDemoDocument(page, 'poster');
+      trace('poster opened');
+      await fitContent(page);
+      trace('poster fit');
+      // At this width the dock min-size guard exercises the same recoverable
+      // compact projection used in the responsive E2E, rather than stretching
+      // a saved desktop split over the canvas when three task panels are open.
+      await page.setViewportSize({ width: 936, height: 900 });
+      await page.waitForTimeout(250);
+      const zoomInput = page.locator('#status-zoom');
+      await zoomInput.fill('30');
+      await zoomInput.press('Enter');
+      await zoomInput.evaluate((input) => input.blur());
+      await page.waitForTimeout(500);
+      trace('viewport and zoom set');
+      await page.keyboard.press('Control+Shift+7');
+      await expect(page.getByRole('radio', { name: 'Design workspace' })).toHaveAttribute(
+        'aria-checked',
+        'true',
+      );
+      const logo = page.getByTestId('logo-panel');
+      await logo.waitFor({ state: 'visible', timeout: 15000 });
+      trace('Logo Tools shown');
+      const startProject = logo.getByRole('button', { name: /Start a logo project/i });
+      if (await startProject.isVisible().catch(() => false)) await startProject.click();
+      const brandName = logo.getByLabel('Brand name');
+      await brandName.fill('Varve');
+      // Workspace commands intentionally respect text-entry focus. Commit the
+      // brand edit before invoking the shared Code workflow shortcut.
+      await brandName.evaluate((input) => input.blur());
+      trace('Logo project edited');
+      await page.keyboard.press('Control+Shift+8');
+      const code = page.locator('[data-panel="codegen"]');
+      await code.waitFor({ state: 'visible', timeout: 15000 });
+      await code.locator('.code-panel__line').first().waitFor({ state: 'visible', timeout: 10000 });
+      await page.waitForTimeout(500);
+      trace('shared Code shown');
+    },
+    async verify(page) {
+      const viewportWidth = await page.evaluate(() => window.innerWidth);
+      const [shell, logo, code] = await Promise.all([
+        page.locator('.editor-shell').boundingBox(),
+        page.locator('[data-panel="logo"]').boundingBox(),
+        page.locator('[data-panel="codegen"]').boundingBox(),
+      ]);
+      expect(viewportWidth).toBe(936);
+      expect(shell).not.toBeNull();
+      expect(logo).not.toBeNull();
+      expect(code).not.toBeNull();
+      expect(logo.x).toBeGreaterThanOrEqual(shell.x);
+      expect(logo.x + logo.width).toBeLessThanOrEqual(shell.x + shell.width + 1);
+      expect(code.x).toBeGreaterThanOrEqual(shell.x);
+      expect(code.x + code.width).toBeLessThanOrEqual(shell.x + shell.width + 1);
+      const unobstructedCanvasLeft = Math.max(shell.x, logo.x + logo.width);
+      const unobstructedCanvasRight = Math.min(shell.x + shell.width, code.x);
+      expect(unobstructedCanvasRight).toBeGreaterThanOrEqual(unobstructedCanvasLeft);
+      expect(unobstructedCanvasRight - unobstructedCanvasLeft).toBeGreaterThanOrEqual(320);
+    },
+  },
+  {
     id: 'print-production',
     file: 'print-production-light.png',
     theme: 'light',
@@ -1224,7 +1675,220 @@ const SCENES = [
 /* Main                                                                */
 /* ------------------------------------------------------------------ */
 
-const manifest = JSON.parse(readFileSync(MANIFEST_PATH, 'utf8'));
+/**
+ * E2E-produced scenes: real captures of the running app whose producer is a
+ * Playwright spec rather than this script. They are listed here so the
+ * manifest stays generated and complete instead of relying on a hardcoded
+ * path in a page plus an unmanaged file in `public/screenshots/`.
+ *
+ * These are *inputs*, not captures: this script verifies and registers the
+ * bytes that are already committed, and copies them to the canonical docs
+ * directory. Re-recording them is the owning spec's job.
+ */
+const SOURCE_SCENES = [
+  {
+    id: 'performance-settings',
+    file: 'performance-settings-dark.png',
+    producer: 'tests/e2e/settings/performance-guidance.visual.spec.ts',
+    alt: "Varve's Performance settings dialog in dark theme, with Automatic interactive preview selected and the local diagnostics panel below it",
+    caption: 'Performance settings with opt-in local diagnostics',
+    feature: 'performance',
+    theme: 'dark',
+    kind: 'detail',
+  },
+  {
+    id: 'design-tokens-contrast',
+    file: 'design-tokens-alias-bound-light.png',
+    producer: 'tests/e2e/inspector/token-binding-runtime.spec.ts',
+    alt: 'Varve showing a blue rectangle whose fill is linked to the semantic.brand.curlyAlias token, with the resolved colour painted on the canvas',
+    caption:
+      'A source alias bound through the Inspector, with its resolved colour painted on the canvas',
+    feature: 'design-tokens',
+    theme: 'light',
+    kind: 'full',
+  },
+];
+
+const manifest = JSON.parse(manifestBytesAtStart.toString('utf8'));
+const runId = `${new Date().toISOString().replace(/[:.]/g, '-')}-${process.pid}`;
+const sourceIdentity = computeSourceIdentity();
+/**
+ * A cropped scene's `kind` is derived from the capture geometry it actually
+ * asked for, not from a style attribute at the consumer. `panel` is a tall
+ * narrow column, `wide` is a short full-width strip, everything else cropped
+ * is a `detail`, and an uncropped scene is a `full` frame. The website uses
+ * this to pick a fit policy, so a new panel crop is never forced through a
+ * landscape `cover` window (which silently cropped the layer rows away).
+ */
+function sceneKind(scene) {
+  if (scene.kind) return scene.kind;
+  if (!scene.clip) return 'full';
+  // A panel is a narrow column (the inspector / layers sidebar) whether it is
+  // a 380px-tall slice or a full-height stack; `wide` is a short full-width
+  // strip (the timeline). Everything else cropped is a detail.
+  if (scene.clip.width <= 360) return 'panel';
+  if (scene.clip.width >= 1200 && scene.clip.height <= 320) return 'wide';
+  return 'detail';
+}
+
+/**
+ * Kind for an externally-produced scene (a plugin or tonal capture, say) whose
+ * capture geometry this script does not own. Derived from the measured size of
+ * the file that is actually published — a measurement, not a guess.
+ */
+function kindFromGeometry(width, height) {
+  if (height <= 320) return 'wide';
+  if (width <= 360) return 'panel';
+  if (width >= 1024 && height >= 600) return 'full';
+  return 'detail';
+}
+
+let failures = 0;
+let ranThisRun = 0;
+let capturedThisRun = 0;
+let optedOut = 0;
+const skippedThisRun = [];
+
+/**
+ * `--normalize`: re-derive the manifest's *measurable* metadata from the files
+ * that are already published, without recapturing a single pixel.
+ *
+ * Why this exists: several scenes' screenshots were captured before the
+ * manifest recorded `kind`/`crop`/`viewport`, and recapturing all 32 scenes to
+ * add a metadata field would needlessly churn committed binaries (and would
+ * overwrite a capture another agent is actively iterating on). Dependency-aware
+ * freshness says an unchanged screenshot should not be re-shot for a metadata
+ * change.
+ *
+ * What it will and will not write:
+ *   - writes: dimensions, hashes and geometry *measured from the real files*,
+ *     plus this run's provenance block;
+ *   - refuses: `capturedAt` and `lastValidatedAgainst` for scenes this run did
+ *     not capture, and instead marks them `provenanceUnknown: true` so a
+ *     legacy record is honest rather than backfilled with a guessed revision.
+ */
+function normalizeManifest() {
+  let changed = 0;
+  for (const scene of SCENES) {
+    const entry = manifest.scenes[scene.id] ?? {};
+    const publishedPath = join(PUBLIC_DIR, scene.file);
+    if (!existsSync(publishedPath)) {
+      if (entry.status === 'captured' || Object.keys(entry).length > 0) {
+        console.error(`FAIL ${scene.id}: no published capture at ${scene.file}`);
+        failures++;
+      }
+      continue;
+    }
+    const bytes = readFileSync(publishedPath);
+    const analysis = analyseImage(bytes);
+    if (!analysis.valid) {
+      console.error(
+        `FAIL ${scene.id}: ${scene.file} does not decode: ${analysis.errors.join('; ')}`,
+      );
+      failures++;
+      continue;
+    }
+    const recordedHash = sha256Hex(bytes);
+    const wasCaptured = entry.status === 'captured';
+    if (wasCaptured && entry.sha256 && entry.sha256 !== recordedHash) {
+      // The file on disk is not the file the manifest describes: normalising
+      // would launder an edited asset into a trusted record.
+      console.error(`FAIL ${scene.id}: ${scene.file} does not match its recorded sha256`);
+      failures++;
+      continue;
+    }
+    const next = {
+      ...entry,
+      file: scene.file,
+      alt: scene.alt,
+      caption: scene.caption,
+      feature: scene.feature,
+      theme: scene.theme,
+      kind: sceneKind(scene),
+      width: analysis.width,
+      height: analysis.height,
+      status: 'captured',
+      reason: undefined,
+      sha256: recordedHash,
+      crop: scene.clip ? { ...scene.clip } : undefined,
+      viewport:
+        scene.viewport && (scene.viewport.width !== 1440 || scene.viewport.height !== 900)
+          ? { ...scene.viewport }
+          : undefined,
+      scale: 1,
+    };
+    if (!entry.capturedAt && !entry.lastValidatedAgainst) next.provenanceUnknown = true;
+    if (JSON.stringify(next) !== JSON.stringify(entry)) changed++;
+    manifest.scenes[scene.id] = next;
+  }
+  // Externally-produced scenes (plugin, tonal, comic) are not in SCENES, so
+  // they never pass through `sceneKind`. Derive their kind from the measured
+  // size of the published file so the website has a fit policy for every
+  // captured scene rather than only for the ones this script captures.
+  for (const [id, entry] of Object.entries(manifest.scenes)) {
+    if (entry.status !== 'captured' || entry.kind || !entry.width || !entry.height) continue;
+    manifest.scenes[id] = { ...entry, kind: kindFromGeometry(entry.width, entry.height) };
+    changed++;
+  }
+  for (const source of SOURCE_SCENES) {
+    const publishedPath = join(PUBLIC_DIR, source.file);
+    if (!existsSync(publishedPath)) {
+      console.error(`FAIL source scene ${source.id}: no ${source.file} in public/screenshots`);
+      failures++;
+      continue;
+    }
+    const bytes = readFileSync(publishedPath);
+    const analysis = analyseImage(bytes);
+    if (!analysis.valid) {
+      console.error(`FAIL source scene ${source.id}: ${source.file} does not decode`);
+      failures++;
+      continue;
+    }
+    writeFileAtomicSync(join(CANONICAL_DIR, source.file), bytes);
+    manifest.scenes[source.id] = {
+      ...manifest.scenes[source.id],
+      file: source.file,
+      alt: source.alt,
+      caption: source.caption,
+      feature: source.feature,
+      theme: source.theme,
+      kind: source.kind,
+      width: analysis.width,
+      height: analysis.height,
+      status: 'captured',
+      reason: undefined,
+      sha256: sha256Hex(bytes),
+      source: source.producer,
+      provenanceUnknown: true,
+    };
+  }
+  const nowBytes = readFileSync(MANIFEST_PATH);
+  if (sha256Hex(nowBytes) !== manifestDigestAtStart) {
+    console.error('FAIL the manifest changed while normalising — refusing to overwrite it');
+    process.exit(1);
+  }
+  manifest.schemaVersion = 2;
+  manifest.generatedAt = new Date().toISOString();
+  manifest.provenance = {
+    runId,
+    runtime: 'metadata-only (--normalize; no capture)',
+    captureTool: `playwright ${playwrightVersion()}`,
+    sourceRevision: sourceIdentity.sourceRevision,
+    sourceDirty: sourceIdentity.sourceDirty,
+    sourceDigest: sourceIdentity.sourceDigest,
+  };
+  manifest.sourceRevision = sourceIdentity.sourceRevision;
+  manifest.sourceDigest = sourceIdentity.sourceDigest;
+  manifest.captureTool = manifest.provenance.captureTool;
+  writeFileAtomicSync(MANIFEST_PATH, `${JSON.stringify(manifest, null, 2)}\n`);
+  console.log(
+    `normalised manifest: ${changed} scene record(s) updated, ${failures} failure(s) → ${MANIFEST_PATH}`,
+  );
+  process.exit(failures > 0 ? 1 : 0);
+}
+
+if (args.includes('--normalize')) normalizeManifest();
+
 /**
  * Chromium exposes `navigator.gpu` on a secure context by default, but with no
  * adapter behind it — and the inference paths ask for a *hardware* adapter
@@ -1248,9 +1912,6 @@ const GPU_ARGS = [
 ];
 const browser = await chromium.launch(process.env.VARVE_SHOT_MODELS ? { args: GPU_ARGS } : {});
 const server = await startServer();
-let failures = 0;
-let ranThisRun = 0;
-let optedOut = 0;
 
 /**
  * One throwaway load before the scene loop.
@@ -1306,8 +1967,9 @@ try {
     const entry = manifest.scenes[scene.id];
     ranThisRun++;
     const ctx = await browser.newContext({
-      viewport: { width: 1440, height: 900 },
+      viewport: scene.viewport ?? { width: 1440, height: 900 },
       deviceScaleFactor: 1,
+      ...(scene.hasTouch ? { hasTouch: true } : {}),
     });
     await ctx.addInitScript(SEED_FIRST_RUN_STATE);
     const page = await ctx.newPage();
@@ -1315,8 +1977,26 @@ try {
     // it got stuck on, which cannot distinguish "still working" from "threw
     // and the spinner never cleared". VARVE_SHOT_DEBUG surfaces the console.
     if (process.env.VARVE_SHOT_DEBUG) {
-      page.on('console', (msg) => {
-        console.log(`  [${scene.id}:${msg.type()}] ${msg.text().slice(0, 300)}`);
+      page.on('console', async (msg) => {
+        const values = await Promise.all(
+          msg
+            .args()
+            .map((arg) =>
+              arg
+                .evaluate((value) =>
+                  value instanceof Error
+                    ? { name: value.name, message: value.message, stack: value.stack }
+                    : String(value),
+                )
+                .catch(() => '[unserializable console value]'),
+            ),
+        );
+        const serialized = JSON.stringify(values);
+        console.log(
+          `  [${scene.id}:${msg.type()}] ${
+            msg.type() === 'error' ? serialized.slice(0, 8000) : serialized.slice(0, 1200)
+          }`,
+        );
       });
       page.on('pageerror', (err) =>
         console.log(`  [${scene.id}:pageerror] ${String(err).slice(0, 300)}`),
@@ -1336,34 +2016,61 @@ try {
         forcedColors: 'none',
       });
       await scene.run(page);
-      await settle(page, scene.preserveFocus);
+      await settle(page, scene);
       await scene.verify?.(page);
       // Detail scenes are cropped at capture time so the website can show
       // them small without scaling a full window down to an unreadable smear.
-      const shot = await page.screenshot(scene.clip ? { clip: scene.clip } : undefined);
+      // A scene with `clipFrom` measures its own window from the real
+      // container now that panels, fonts and selection have settled.
+      const clip = scene.clipFrom ? await clipFromLocator(page, scene.clipFrom) : scene.clip;
+      const shot = await page.screenshot(clip ? { clip } : undefined);
       const dims = pngSize(shot);
       // Full frames are 1440x900; cropped details are smaller but must still
       // match the clip they asked for, which catches a mis-laid-out capture.
-      const expected = scene.clip ?? { width: 1440, height: 900 };
+      const expected = clip ?? scene.viewport ?? { width: 1440, height: 900 };
       if (!dims || dims.width !== expected.width || dims.height !== expected.height) {
         throw new Error(
           `screenshot malformed: got ${JSON.stringify(dims)}, expected ${expected.width}x${expected.height}`,
         );
       }
-      for (const dir of OUTPUT_DIRS) writeFileSync(join(dir, scene.file), shot);
-      entry.sha256 = createHash('sha256').update(shot).digest('hex');
+      // A valid PNG is not proof of a valid screenshot: a blank canvas, a
+      // uniform panel and a broken render all encode to a perfectly legal
+      // file. Reject obviously empty output before it can be published.
+      const analysis = analyseImage(shot);
+      if (!analysis.valid) {
+        throw new Error(`capture does not decode cleanly: ${analysis.errors.join('; ')}`);
+      }
+      for (const dir of OUTPUT_DIRS) {
+        // Temp + rename: a website build (or another agent) reading the
+        // published directory must never observe a partially written image.
+        writeFileAtomicSync(join(dir, scene.file), shot);
+      }
+      entry.sha256 = sha256Hex(shot);
       entry.file = scene.file;
       entry.alt = scene.alt;
       entry.caption = scene.caption;
       entry.feature = scene.feature;
       entry.theme = scene.theme;
+      entry.kind = sceneKind({ ...scene, clip: scene.clip ?? clip });
       entry.width = dims.width;
       entry.height = dims.height;
       entry.status = 'captured';
       entry.reason = undefined;
-      entry.lastValidatedAgainst = null;
+      entry.source = undefined;
+      entry.crop = clip ? { ...clip } : undefined;
+      entry.viewport =
+        scene.viewport && (scene.viewport.width !== 1440 || scene.viewport.height !== 900)
+          ? { ...scene.viewport }
+          : undefined;
+      entry.scale = 1;
+      entry.capturedAt = new Date().toISOString();
+      entry.provenanceUnknown = undefined;
+      // The revision this image is evidence about. Previously written as a
+      // permanent null, which made the field meaningless.
+      entry.lastValidatedAgainst = sourceIdentity.sourceRevision;
+      capturedThisRun++;
       console.log(
-        `captured ${scene.id} -> docs/screenshots/product/${scene.file} (${dims.width}x${dims.height})`,
+        `captured ${scene.id} -> docs/screenshots/product/${scene.file} (${dims.width}x${dims.height}, ${entry.kind})`,
       );
     } catch (err) {
       // Descriptive fields are written on the failure path too: a skipped
@@ -1377,8 +2084,10 @@ try {
       entry.status = 'skipped';
       entry.reason = String(err instanceof Error ? err.message : err).slice(0, 400);
       entry.lastValidatedAgainst = null;
+      entry.sha256 = undefined;
       entry.width = undefined;
       entry.height = undefined;
+      entry.capturedAt = undefined;
       // Delete any previous output for this scene. A skipped scene must not
       // leave a stale screenshot behind for the site to keep serving — that
       // is exactly the silent substitution this pipeline exists to prevent.
@@ -1388,15 +2097,19 @@ try {
       console.error(`SKIPPED ${scene.id}: ${entry.reason}`);
       // A skip reports the text it gave up on, which is rarely enough to tell
       // what the UI was actually showing. Keep the frame under VARVE_SHOT_DEBUG
-      // so a failure can be looked at rather than only read about.
+      // so a failure can be looked at rather than only read about — but never
+      // in a screenshot output directory, where it would sit beside published
+      // captures and be mistaken for one.
       if (process.env.VARVE_SHOT_DEBUG) {
-        const debugPath = join(OUT_DIR, `debug-${scene.id}.png`);
+        mkdirSync(DEBUG_DIR, { recursive: true });
+        const debugPath = join(DEBUG_DIR, `${runId}-${scene.id}.png`);
         await page
           .screenshot({ path: debugPath })
           .then(() => console.error(`  wrote ${debugPath}`))
           .catch(() => undefined);
       }
       if (strict) failures++;
+      skippedThisRun.push(scene.id);
     } finally {
       await ctx.close();
     }
@@ -1410,13 +2123,85 @@ try {
       const stale = manifest.scenes[id];
       if (stale?.file) {
         for (const dir of OUTPUT_DIRS) rmSync(join(dir, stale.file), { force: true });
+        for (const variant of stale.variants ?? []) {
+          for (const dir of OUTPUT_DIRS) rmSync(join(dir, variant.file), { force: true });
+        }
       }
       delete manifest.scenes[id];
       console.log(`pruned removed scene ${id}`);
     }
   }
+
+  // E2E-produced scenes: real captures whose producer is a Playwright spec and
+  // whose bytes are already committed to public/screenshots. They are not
+  // recaptured here, but they must still be first-class manifest entries —
+  // otherwise the only trace of them is a hardcoded path in a page and an
+  // orphan file the validator rejects.
+  for (const source of SOURCE_SCENES) {
+    const publishedPath = join(PUBLIC_DIR, source.file);
+    if (!existsSync(publishedPath)) {
+      console.warn(`skipping source scene ${source.id} (no ${source.file} in public/screenshots)`);
+      continue;
+    }
+    const bytes = readFileSync(publishedPath);
+    const analysis = analyseImage(bytes);
+    if (!analysis.valid) {
+      throw new Error(
+        `source scene ${source.id}: ${source.file} does not decode: ${analysis.errors.join('; ')}`,
+      );
+    }
+    writeFileAtomicSync(join(CANONICAL_DIR, source.file), bytes);
+    manifest.scenes[source.id] = {
+      ...manifest.scenes[source.id],
+      file: source.file,
+      alt: source.alt,
+      caption: source.caption,
+      feature: source.feature,
+      theme: source.theme,
+      kind: source.kind,
+      width: analysis.width,
+      height: analysis.height,
+      status: 'captured',
+      reason: undefined,
+      sha256: sha256Hex(bytes),
+      source: source.producer,
+      lastValidatedAgainst: sourceIdentity.sourceRevision,
+    };
+  }
+
+  // Concurrency guard: this process read the manifest once, at startup, and a
+  // capture run can take many minutes. If another writer (a second capture, a
+  // concurrent agent) changed it in the meantime, writing our snapshot would
+  // silently discard their scenes. Refuse instead of clobbering.
+  const manifestBytesNow = readFileSync(MANIFEST_PATH);
+  if (OUTPUT_MANIFEST === MANIFEST_PATH && sha256Hex(manifestBytesNow) !== manifestDigestAtStart) {
+    throw new Error(
+      'the screenshot manifest changed while this run was capturing — refusing to overwrite it. ' +
+        'Re-run the capture; use --review-dir to capture without touching published state.',
+    );
+  }
+
+  manifest.schemaVersion = 2;
   manifest.generatedAt = new Date().toISOString();
-  writeFileSync(OUTPUT_MANIFEST, `${JSON.stringify(manifest, null, 2)}\n`);
+  manifest.provenance = {
+    runId,
+    runtime: 'chromium-headless (web)',
+    captureTool: `playwright ${playwrightVersion()} / chromium ${browser.version()}`,
+    sourceRevision: sourceIdentity.sourceRevision,
+    sourceDirty: sourceIdentity.sourceDirty,
+    sourceDigest: sourceIdentity.sourceDigest,
+    viewport: { width: 1440, height: 900 },
+    scale: 1,
+    reducedMotion: true,
+  };
+  // Top-level identity fields are what the validator checks; `provenance` is
+  // the detailed record. Content identity (sha256 per scene) never contains a
+  // timestamp; `generatedAt` is volatile and lives only here.
+  manifest.sourceRevision = sourceIdentity.sourceRevision;
+  manifest.sourceDigest = sourceIdentity.sourceDigest;
+  manifest.captureTool = manifest.provenance.captureTool;
+  if (reviewDir) manifest.reviewedAgainst = manifestDigestAtStart;
+  writeFileAtomicSync(OUTPUT_MANIFEST, `${JSON.stringify(manifest, null, 2)}\n`);
   console.log(`manifest written: ${OUTPUT_MANIFEST}`);
 } finally {
   await stopServer(server);
@@ -1427,7 +2212,9 @@ try {
 // nothing still leaves a manifest full of previously-captured scenes, which
 // reads like success unless this run's own tally is shown.
 console.log(
-  `this run: ${ranThisRun} scene(s) attempted${optedOut > 0 ? `, ${optedOut} opted out` : ''}`,
+  `this run: ${ranThisRun} scene(s) attempted, ${capturedThisRun} captured, ` +
+    `${skippedThisRun.length} failed-to-capture, ${optedOut} opted out` +
+    `${skippedThisRun.length > 0 ? ` (${skippedThisRun.join(', ')})` : ''}`,
 );
 // Opting out is a deliberate choice, not a mis-typed filter — only an empty
 // run with nothing opted out means the selection matched nothing.
@@ -1438,5 +2225,10 @@ if (ranThisRun === 0 && optedOut === 0) {
 
 const captured = Object.values(manifest.scenes).filter((s) => s.status === 'captured').length;
 const skipped = Object.values(manifest.scenes).filter((s) => s.status === 'skipped').length;
-console.log(`done: ${captured} captured, ${skipped} skipped, ${failures} failures`);
+const untouched = Object.entries(manifest.scenes).filter(
+  ([id, s]) => s.status === 'captured' && onlyScenes.size > 0 && !onlyScenes.has(id),
+).length;
+console.log(
+  `manifest: ${captured} captured (${untouched} untouched by this run), ${skipped} skipped, ${failures} failure(s)`,
+);
 process.exit(failures > 0 ? 1 : 0);
