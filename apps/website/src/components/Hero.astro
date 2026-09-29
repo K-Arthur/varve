@@ -130,7 +130,9 @@ import { PRODUCT_STATUS } from '@varve/shared';
   <div class="hero-content">
     <p class="hero-eyebrow">
       <span class="hero-eyebrow-dot" aria-hidden="true"></span>
-      Local-first design suite&nbsp;&middot;&nbsp;{PRODUCT_STATUS.label.toLowerCase()}
+      <span class="hero-eyebrow-copy">
+        Local-first design suite &middot; <span class="hero-eyebrow-status">{PRODUCT_STATUS.label.toLowerCase()}</span>
+      </span>
     </p>
     <h1 id="hero-title" class="hero-title">
       Design locally.
@@ -462,10 +464,14 @@ import { PRODUCT_STATUS } from '@varve/shared';
   }
 
   .hero-eyebrow {
+    box-sizing: border-box;
     display: inline-flex;
     align-items: center;
     gap: var(--space-3);
+    inline-size: fit-content;
+    max-inline-size: calc(100% - var(--space-8));
     font-size: var(--type-interface-caption-size);
+    line-height: var(--type-interface-caption-line-height);
     font-weight: 600;
     letter-spacing: 0.12em;
     text-transform: uppercase;
@@ -475,6 +481,16 @@ import { PRODUCT_STATUS } from '@varve/shared';
     padding: var(--space-2) var(--space-5);
     margin-bottom: var(--space-7);
     background: color-mix(in oklab, var(--surface-card) 60%, transparent);
+  }
+
+  .hero-eyebrow-copy {
+    display: block;
+    min-inline-size: 0;
+    text-wrap: balance;
+  }
+
+  .hero-eyebrow-status {
+    white-space: nowrap;
   }
 
   .hero-eyebrow-dot {
@@ -533,6 +549,11 @@ import { PRODUCT_STATUS } from '@varve/shared';
 
   @media (max-width: 640px) {
     .hero { padding-top: var(--space-9); }
+    .hero-eyebrow {
+      gap: min(var(--space-3), 12px);
+      max-inline-size: calc(100% - 30px);
+      padding-inline: min(var(--space-3), 12px);
+    }
     .hero-title { letter-spacing: -0.025em; }
     .hero-ctas {
       flex-direction: column;

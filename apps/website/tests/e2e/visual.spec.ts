@@ -140,6 +140,60 @@ async function expectCurrentHomepageCopy(page: import('@playwright/test').Page) 
   await expect(page.locator('.hero-subtitle')).toContainText('no account, no subscription');
 }
 
+const HERO_EYEBROW_VIEWPORTS = [320, 360, 375, 390, 414, 768, 1024, 1280, 1440];
+
+async function getHeroEyebrowGeometry(page: import('@playwright/test').Page) {
+  return page.locator('.hero-eyebrow').evaluate((element) => {
+    const copy = element.querySelector<HTMLElement>('.hero-eyebrow-copy');
+    const status = element.querySelector<HTMLElement>('.hero-eyebrow-status');
+    if (!copy || !status) throw new Error('Hero eyebrow copy/status markup is missing.');
+
+    const rect = (node: Element) => {
+      const bounds = node.getBoundingClientRect();
+      return {
+        left: bounds.left,
+        right: bounds.right,
+        top: bounds.top,
+        bottom: bounds.bottom,
+        width: bounds.width,
+        height: bounds.height,
+      };
+    };
+
+    return {
+      viewportWidth: window.innerWidth,
+      documentWidth: document.documentElement.scrollWidth,
+      fontSize: Number.parseFloat(getComputedStyle(element).fontSize),
+      lineHeight: Number.parseFloat(getComputedStyle(element).lineHeight),
+      eyebrow: rect(element),
+      copy: {
+        ...rect(copy),
+        clientWidth: copy.clientWidth,
+        scrollWidth: copy.scrollWidth,
+      },
+      status: rect(status),
+    };
+  });
+}
+
+function expectHeroEyebrowContained(geometry: Awaited<ReturnType<typeof getHeroEyebrowGeometry>>) {
+  expect(geometry.eyebrow.left).toBeGreaterThanOrEqual(15);
+  expect(geometry.eyebrow.right).toBeLessThanOrEqual(geometry.viewportWidth - 15);
+  expect(
+    Math.abs((geometry.eyebrow.left + geometry.eyebrow.right) / 2 - geometry.viewportWidth / 2),
+  ).toBeLessThanOrEqual(2);
+  expect(geometry.documentWidth).toBeLessThanOrEqual(geometry.viewportWidth + 1);
+  expect(geometry.fontSize).toBeGreaterThanOrEqual(12);
+  expect(geometry.copy.scrollWidth).toBeLessThanOrEqual(geometry.copy.clientWidth + 1);
+  expect(geometry.copy.left).toBeGreaterThanOrEqual(geometry.eyebrow.left);
+  expect(geometry.copy.right).toBeLessThanOrEqual(geometry.eyebrow.right);
+  expect(geometry.status.left).toBeGreaterThanOrEqual(geometry.eyebrow.left);
+  expect(geometry.status.right).toBeLessThanOrEqual(geometry.eyebrow.right);
+  expect(geometry.status.top).toBeGreaterThanOrEqual(geometry.eyebrow.top);
+  expect(geometry.status.bottom).toBeLessThanOrEqual(geometry.eyebrow.bottom);
+  expect(geometry.status.height).toBeLessThanOrEqual(geometry.lineHeight + 1);
+}
+
 test('homepage light', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'light', reducedMotion: 'reduce' });
   await seedTheme(page, 'light');
@@ -209,6 +263,58 @@ test('hero light', async ({ page }) => {
     maxDiffPixelRatio: 0.02,
   });
 });
+
+for (const theme of THEMES) {
+  test(`hero eyebrow stays contained across viewport sizes (${theme.name})`, async ({ page }) => {
+    await page.emulateMedia({ colorScheme: theme.colorScheme, reducedMotion: 'reduce' });
+    await seedTheme(page, theme.name);
+    await page.setViewportSize({ width: 320, height: 900 });
+    await page.goto('/?test-motion=static');
+    await waitForImages(page);
+    await page.evaluate(() => document.fonts.ready);
+
+    const eyebrow = page.locator('.hero-eyebrow');
+    await expect(eyebrow).toBeVisible();
+    await expect(eyebrow.locator('.hero-eyebrow-copy')).toContainText(
+      /Local-first design suite\s*·\s*public beta/i,
+    );
+    await expect(eyebrow.locator('.hero-eyebrow-status')).toHaveText('public beta');
+    await expect(page.locator('.hero')).toHaveScreenshot(`hero-eyebrow-mobile-${theme.name}.png`, {
+      maxDiffPixelRatio: 0.02,
+    });
+    if (theme.name === 'light') {
+      await page.setViewportSize({ width: 375, height: 900 });
+      await expect(page.locator('.hero')).toHaveScreenshot('hero-eyebrow-mobile-375-light.png', {
+        maxDiffPixelRatio: 0.02,
+      });
+    }
+
+    for (const width of HERO_EYEBROW_VIEWPORTS) {
+      await page.setViewportSize({ width, height: 900 });
+      expectHeroEyebrowContained(await getHeroEyebrowGeometry(page));
+    }
+
+    if (theme.name === 'light') {
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await expect(page.locator('.hero')).toHaveScreenshot('hero-eyebrow-desktop-light.png', {
+        maxDiffPixelRatio: 0.02,
+      });
+    }
+
+    await page.setViewportSize({ width: 320, height: 900 });
+    await page.evaluate(() => {
+      document.documentElement.style.fontSize = '200%';
+    });
+    const enlargedGeometry = await getHeroEyebrowGeometry(page);
+    expect(enlargedGeometry.fontSize).toBeGreaterThanOrEqual(24);
+    expectHeroEyebrowContained(enlargedGeometry);
+    if (theme.name === 'light') {
+      await expect(eyebrow).toHaveScreenshot('hero-eyebrow-mobile-text-200-light.png', {
+        maxDiffPixelRatio: 0.02,
+      });
+    }
+  });
+}
 
 test('footer dark', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'dark', reducedMotion: 'reduce' });
