@@ -328,10 +328,6 @@ export type SemanticToken =
   | 'workspace-icon-print'
   | 'workspace-accent-motion'
   | 'workspace-icon-motion'
-  | 'workspace-accent-codegen'
-  | 'workspace-icon-codegen'
-  | 'workspace-accent-logo'
-  | 'workspace-icon-logo'
   | 'workspace-accent-email'
   | 'workspace-icon-email'
   | 'tree-row'
@@ -389,7 +385,6 @@ const V = (i: number): Oklch => VIOLET[i - 1] as Oklch;
 const A = (i: number): Oklch => AMBER[i - 1] as Oklch;
 const G = (i: number): Oklch => GREEN[i - 1] as Oklch;
 const O = (i: number): Oklch => ORANGE[i - 1] as Oklch;
-const R = (i: number): Oklch => ROSE[i - 1] as Oklch;
 const I = (i: number): Oklch => INDIGO[i - 1] as Oklch;
 
 /**
@@ -605,20 +600,25 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Oklch>> = {
     'layer-tag-blue': LAYER_TAG_BLUE,
     'layer-tag-purple': LAYER_TAG_PURPLE,
     'layer-tag-gray': LAYER_TAG_GRAY,
+    /* Light theme: the inactive icon is an active mode's only visible
+     * identifier, so it gets the same step as that mode's pill accent instead
+     * of a lighter tint. The tint steps (B6/G8/I7/V7/O8) measured 3.23, 3.90,
+     * 4.22, 4.32 and 3.59 against surface-raised — the Design and Motion
+     * glyphs sat 0.23 and 0.59 above the 3:1 non-text floor and read as
+     * washed out at a 16px stroke. The accent steps measure 4.61–5.85, so one
+     * hue and one step serve both roles in this theme and the AA grade below
+     * is real margin rather than a technicality.
+     * (docs/audits/workspace-switcher-design-review-2026-09-29.md F3) */
     'workspace-accent-design': B(8),
-    'workspace-icon-design': B(6),
+    'workspace-icon-design': B(8),
     'workspace-accent-drawing': G(9),
-    'workspace-icon-drawing': G(8),
+    'workspace-icon-drawing': G(9),
     'workspace-accent-image': I(8),
-    'workspace-icon-image': I(7),
+    'workspace-icon-image': I(8),
     'workspace-accent-print': V(8),
-    'workspace-icon-print': V(7),
+    'workspace-icon-print': V(8),
     'workspace-accent-motion': O(9),
-    'workspace-icon-motion': O(8),
-    'workspace-accent-codegen': R(7),
-    'workspace-icon-codegen': R(6),
-    'workspace-accent-logo': A(9),
-    'workspace-icon-logo': A(8),
+    'workspace-icon-motion': O(9),
     'workspace-accent-email': T(8),
     'workspace-icon-email': T(8),
     'text-primary-on-default': N(12),
@@ -747,10 +747,6 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Oklch>> = {
     'workspace-icon-print': V(4),
     'workspace-accent-motion': O(7),
     'workspace-icon-motion': O(5),
-    'workspace-accent-codegen': R(6),
-    'workspace-icon-codegen': R(4),
-    'workspace-accent-logo': A(6),
-    'workspace-icon-logo': A(5),
     'workspace-accent-email': T(6),
     'workspace-icon-email': T(4),
     'text-primary-on-default': N(2),
@@ -875,10 +871,6 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Oklch>> = {
     'workspace-icon-print': ok(1.0, 0.0, 0),
     'workspace-accent-motion': ok(0.9519, 0.2924, 111.62),
     'workspace-icon-motion': ok(1.0, 0.0, 0),
-    'workspace-accent-codegen': ok(0.9519, 0.2924, 111.62),
-    'workspace-icon-codegen': ok(1.0, 0.0, 0),
-    'workspace-accent-logo': ok(0.9519, 0.2924, 111.62),
-    'workspace-icon-logo': ok(1.0, 0.0, 0),
     'workspace-accent-email': ok(0.9519, 0.2924, 111.62),
     'workspace-icon-email': ok(1.0, 0.0, 0),
     'text-primary-on-default': ok(1.0, 0.0, 0),
@@ -910,22 +902,16 @@ export interface ContrastPair {
 }
 
 /**
- * Workspace-mode identity pairs (2026-09-15). Every mode must host
- * `text-on-accent` on its pill (AA) and clear non-text contrast as an
- * inactive icon against the menubar surface (UI). Generators keep the
- * eight modes identical in shape so a wiring mistake in one mode cannot
- * silently pass the audit.
+ * Workspace-mode identity pairs. Every mode must host `text-on-accent` on its
+ * pill (AA) and hold AA as an inactive icon against the menubar surface. The
+ * icon grade is deliberately stricter than WCAG 1.4.11's 3:1 non-text floor:
+ * the glyph is the *only* visual identifier of an inactive mode (its name
+ * lives in the tooltip and the accessible name), so it is held to the same
+ * 4.5:1 bar as text. Measured 2026-09-29: 4.61–5.85 light, 9.5–11.2 dark,
+ * 19.68 high contrast. Generators keep all six modes identical in shape so a
+ * wiring mistake in one mode cannot silently pass the audit.
  */
-const WORKSPACE_MODE_KEYS = [
-  'design',
-  'drawing',
-  'image',
-  'print',
-  'motion',
-  'codegen',
-  'logo',
-  'email',
-] as const;
+const WORKSPACE_MODE_KEYS = ['design', 'print', 'drawing', 'image', 'motion', 'email'] as const;
 
 const WORKSPACE_MODE_CONTRAST_PAIRS: readonly ContrastPair[] = WORKSPACE_MODE_KEYS.flatMap(
   (mode): ContrastPair[] => [
@@ -939,7 +925,7 @@ const WORKSPACE_MODE_CONTRAST_PAIRS: readonly ContrastPair[] = WORKSPACE_MODE_KE
       name: `workspace-icon-${mode} on surface-raised`,
       fg: `workspace-icon-${mode}`,
       bg: 'surface-raised',
-      grade: 'UI',
+      grade: 'AA',
     },
   ],
 );
