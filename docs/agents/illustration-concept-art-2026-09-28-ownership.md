@@ -184,3 +184,10 @@ hardware gaps remain explicit in the final handoff.
 - `pnpm audit:tokens` passes all 303 pairs across three themes and the token
   usage scan. Full suite was not escalated or run. The latest affected command
   stopped at the E2E failure before package-level downstream checks.
+
+- `5b68b6822` — `fix(paint): preserve released strokes across tool changes` —
+  commits the pointer-up/tool-deactivation lifecycle repair, the focused
+  PaintTool regression, the paint-system contract note, and the selection-fill
+  E2E camera/interaction updates. The affected run's non-E2E gates passed; the
+  live browser interruption and remaining reopen-pixel check are recorded
+  above. Commit remains local on `master`.
