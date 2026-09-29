@@ -12,6 +12,7 @@ import {
   type CSSProperties,
   type PointerEvent as ReactPointerEvent,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from 'react';
@@ -38,6 +39,15 @@ interface ComparisonImages {
   stale: boolean;
 }
 
+type QualityCheckStatus = 'loading' | 'ready' | 'stale' | 'provisional' | 'error';
+
+interface QualityCheck {
+  scopeKey: string;
+  status: QualityCheckStatus;
+  original?: PreviewImage;
+  effects?: PreviewImage;
+}
+
 interface PreviewImageLayerProps {
   dataUrl: string;
   alt: string;
@@ -61,11 +71,14 @@ export interface EffectStudioComparisonProps {
   hasEffects: boolean;
   /** A multi-selection is represented by the first target and disclosed here. */
   targetCount?: number;
+  /** Selection identity used to invalidate a proof when the representative set changes. */
+  targetIds?: readonly string[];
   targetLabel?: string;
   isDraftPreview?: boolean;
 }
 
 const VARIANT = THUMBNAIL_VARIANTS['effect-studio-preview'];
+const PROOF_VARIANT = THUMBNAIL_VARIANTS['effect-studio-proof'];
 
 function targetKey(document: Document, node: SceneNode): string {
   return `${document.id}:${node.id}`;
@@ -112,6 +125,35 @@ function cacheKey(document: Document, node: SceneNode): string {
   }).key;
 }
 
+function comparisonScopeKey(
+  document: Document,
+  baselineDocument: Document | null | undefined,
+  node: SceneNode | undefined,
+  hasEffects: boolean,
+  targetSelectionKey: string,
+): string {
+  if (!node) return 'no-selection';
+  const acceptedDocument = baselineDocument ?? document;
+  return [
+    document.id,
+    node.id,
+    documentRevisionHash(acceptedDocument),
+    documentRevisionHash(document),
+    targetSelectionKey,
+    hasEffects ? 'effects' : 'accepted-only',
+  ].join(':');
+}
+
+function qualityCheckStatus(
+  original: PreviewImage | undefined,
+  effects: PreviewImage | undefined,
+): Exclude<QualityCheckStatus, 'loading' | 'stale'> {
+  const checked = [original, ...(effects ? [effects] : [])];
+  if (checked.some((image) => image?.status === 'provisional')) return 'provisional';
+  if (checked.some((image) => !image?.dataUrl || image.status !== 'ready')) return 'error';
+  return 'ready';
+}
+
 function resultMessage(slot: PreviewImage | undefined, side: string): string | undefined {
   if (!slot) return undefined;
   if (slot.status === 'error')
@@ -132,6 +174,7 @@ export function EffectStudioComparison({
   node,
   hasEffects,
   targetCount = 1,
+  targetIds,
   targetLabel = 'selected object',
   isDraftPreview = false,
 }: EffectStudioComparisonProps) {
@@ -143,7 +186,15 @@ export function EffectStudioComparison({
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [retryNonce, setRetryNonce] = useState(0);
   const [settledCache] = useState(() => new Map<string, RenderDocThumbnailOutcome>());
+  const [qualityCheck, setQualityCheck] = useState<QualityCheck | null>(null);
   const retryScopeRef = useRef('');
+  const qualityControllerRef = useRef<AbortController | null>(null);
+  const targetSelectionKey = (targetIds ?? (node ? [node.id] : [])).join(',');
+  const qualityScope = useMemo(
+    () => comparisonScopeKey(document, baselineDocument, node, hasEffects, targetSelectionKey),
+    [baselineDocument, document, hasEffects, node?.id, targetSelectionKey],
+  );
+  const qualityScopeRef = useRef(qualityScope);
   const panStartRef = useRef<{
     pointerId: number;
     clientX: number;
@@ -151,6 +202,22 @@ export function EffectStudioComparison({
     originX: number;
     originY: number;
   } | null>(null);
+
+  useEffect(() => {
+    if (qualityScopeRef.current !== qualityScope) {
+      qualityControllerRef.current?.abort();
+      qualityControllerRef.current = null;
+      setQualityCheck((current) => (current ? { ...current, status: 'stale' } : null));
+      qualityScopeRef.current = qualityScope;
+    }
+  }, [qualityScope]);
+
+  useEffect(
+    () => () => {
+      qualityControllerRef.current?.abort();
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!node) {
@@ -236,8 +303,72 @@ export function EffectStudioComparison({
     };
   }, [baselineDocument, document, hasEffects, node, retryNonce, settledCache]);
 
-  const canShowOriginal = Boolean(images?.original?.dataUrl);
-  const canShowEffects = hasEffects && Boolean(images?.effects?.dataUrl);
+  const runQualityCheck = async () => {
+    if (!node || loading || !images || images.stale) return;
+
+    const controller = new AbortController();
+    qualityControllerRef.current = controller;
+    setQualityCheck({ scopeKey: qualityScope, status: 'loading' });
+
+    const acceptedDocument = baselineDocument ?? document;
+    const acceptedNode = acceptedDocument.nodes[node.id] as SceneNode | undefined;
+    const candidateNode = document.nodes[node.id] as SceneNode | undefined;
+    const source = { type: 'selection' as const, nodeIds: [node.id] };
+    const render = (sourceDocument: Document) =>
+      renderDocThumbnail(sourceDocument, {
+        source,
+        variant: PROOF_VARIANT,
+        signal: controller.signal,
+      });
+
+    const originalPromise = acceptedNode
+      ? render(acceptedDocument)
+      : Promise.reject(new Error('The accepted target is no longer available.'));
+    const effectsPromise = hasEffects
+      ? candidateNode
+        ? render(document)
+        : Promise.reject(new Error('The current target is no longer available.'))
+      : null;
+
+    const results = await Promise.allSettled([
+      originalPromise,
+      ...(effectsPromise ? [effectsPromise] : []),
+    ]);
+    if (controller.signal.aborted || qualityScopeRef.current !== qualityScope) return;
+
+    const originalResult = results[0];
+    const effectsResult = results[1];
+    const original =
+      originalResult?.status === 'fulfilled'
+        ? imageFromOutcome(originalResult.value)
+        : failedImage(originalResult?.reason);
+    const effects = effectsPromise
+      ? effectsResult?.status === 'fulfilled'
+        ? imageFromOutcome(effectsResult.value)
+        : failedImage(effectsResult?.reason)
+      : undefined;
+
+    setQualityCheck({
+      scopeKey: qualityScope,
+      status: qualityCheckStatus(original, effects),
+      original,
+      effects,
+    });
+    if (qualityControllerRef.current === controller) qualityControllerRef.current = null;
+  };
+
+  const currentQualityCheck =
+    qualityCheck?.status === 'stale' || qualityCheck?.scopeKey === qualityScope
+      ? qualityCheck
+      : null;
+  const proofImages =
+    currentQualityCheck?.scopeKey === qualityScope && currentQualityCheck.status === 'ready'
+      ? currentQualityCheck
+      : undefined;
+  const displayedOriginal = proofImages?.original ?? images?.original;
+  const displayedEffects = proofImages?.effects ?? images?.effects;
+  const canShowOriginal = Boolean(displayedOriginal?.dataUrl);
+  const canShowEffects = hasEffects && Boolean(displayedEffects?.dataUrl);
   const activeView: ComparisonView = !canShowEffects
     ? canShowOriginal
       ? 'original'
@@ -248,9 +379,29 @@ export function EffectStudioComparison({
   const beforeLabel = isDraftPreview ? 'Before this edit' : 'Accepted state';
   const afterLabel = isDraftPreview ? 'Current candidate' : 'Accepted result';
   const errorMessages = [
-    resultMessage(images?.original, beforeLabel),
-    hasEffects ? resultMessage(images?.effects, afterLabel) : undefined,
+    resultMessage(displayedOriginal, beforeLabel),
+    hasEffects ? resultMessage(displayedEffects, afterLabel) : undefined,
   ].filter((message): message is string => Boolean(message));
+  const qualityMessage = currentQualityCheck
+    ? currentQualityCheck.status === 'loading'
+      ? 'Checking both states at 2x. The live preview and Apply remain available.'
+      : currentQualityCheck.status === 'ready'
+        ? 'Settled 2x check complete · up to 1536 x 1152 pixels per state.'
+        : currentQualityCheck.status === 'stale'
+          ? 'This 2x check is stale because the target or its settings changed.'
+          : currentQualityCheck.status === 'provisional'
+            ? 'The 2x check is provisional while fonts or images settle. Run it again after the live preview settles.'
+            : 'The 2x check failed. The live preview remains available.'
+    : undefined;
+  const qualityMessageDetails =
+    currentQualityCheck?.status === 'error'
+      ? [
+          resultMessage(currentQualityCheck.original, beforeLabel),
+          hasEffects ? resultMessage(currentQualityCheck.effects, afterLabel) : undefined,
+        ]
+          .filter((message): message is string => Boolean(message))
+          .join(' ')
+      : undefined;
 
   const selectViewport = (mode: ViewportMode) => {
     setViewport(mode);
@@ -297,6 +448,8 @@ export function EffectStudioComparison({
   return (
     <section
       className="effect-studio-comparison"
+      id="effect-studio-preview"
+      tabIndex={-1}
       aria-label={`${beforeLabel} and ${afterLabel}`}
       data-testid="effect-studio-comparison"
     >
@@ -371,6 +524,32 @@ export function EffectStudioComparison({
         </button>
       </fieldset>
 
+      <div className="effect-studio__quality-action">
+        <button
+          type="button"
+          onClick={() => void runQualityCheck()}
+          disabled={
+            !node || loading || !images || images.stale || currentQualityCheck?.status === 'loading'
+          }
+        >
+          {currentQualityCheck?.status === 'loading'
+            ? 'Checking at 2x…'
+            : currentQualityCheck?.status === 'ready'
+              ? 'Check again at 2x'
+              : 'Check at 2x'}
+        </button>
+        {qualityMessage && (
+          <span role="status" aria-live="polite">
+            {qualityMessage}
+          </span>
+        )}
+      </div>
+      {qualityMessageDetails && (
+        <p className="effect-studio-comparison__notice" role="status">
+          {qualityMessageDetails}
+        </p>
+      )}
+
       {images ? (
         <>
           <div
@@ -378,6 +557,7 @@ export function EffectStudioComparison({
             data-testid="effect-studio-preview-stage"
             data-view={activeView}
             data-zoom={viewport}
+            data-quality={proofImages ? 'settled-2x' : 'live-preview'}
             data-pan-x={pan.x}
             data-pan-y={pan.y}
             style={stageStyle}
@@ -386,39 +566,41 @@ export function EffectStudioComparison({
             onPointerUp={stopPreviewPan}
             onPointerCancel={stopPreviewPan}
           >
-            {activeView === 'original' && images.original?.dataUrl && (
+            {activeView === 'original' && displayedOriginal?.dataUrl && (
               <PreviewImageLayer
                 alt="Original selected object without Object Filters"
-                dataUrl={images.original.dataUrl}
+                dataUrl={displayedOriginal.dataUrl}
               />
             )}
-            {activeView === 'effects' && images.effects?.dataUrl && (
+            {activeView === 'effects' && displayedEffects?.dataUrl && (
               <PreviewImageLayer
                 alt="Selected object with its Object Filters"
-                dataUrl={images.effects.dataUrl}
+                dataUrl={displayedEffects.dataUrl}
               />
             )}
-            {activeView === 'compare' && images.original?.dataUrl && images.effects?.dataUrl && (
-              <>
-                <PreviewImageLayer
-                  alt="Selected object with its Object Filters"
-                  className="effect-studio-comparison__effects-layer"
-                  dataUrl={images.effects.dataUrl}
-                />
-                <PreviewImageLayer
-                  alt="Original selected object without Object Filters"
-                  className="effect-studio-comparison__original-layer"
-                  dataUrl={images.original.dataUrl}
-                />
-                <span className="effect-studio-comparison__divider" aria-hidden="true" />
-                <span className="effect-studio-comparison__label effect-studio-comparison__label--before">
-                  {beforeLabel}
-                </span>
-                <span className="effect-studio-comparison__label effect-studio-comparison__label--after">
-                  {afterLabel}
-                </span>
-              </>
-            )}
+            {activeView === 'compare' &&
+              displayedOriginal?.dataUrl &&
+              displayedEffects?.dataUrl && (
+                <>
+                  <PreviewImageLayer
+                    alt="Selected object with its Object Filters"
+                    className="effect-studio-comparison__effects-layer"
+                    dataUrl={displayedEffects.dataUrl}
+                  />
+                  <PreviewImageLayer
+                    alt="Original selected object without Object Filters"
+                    className="effect-studio-comparison__original-layer"
+                    dataUrl={displayedOriginal.dataUrl}
+                  />
+                  <span className="effect-studio-comparison__divider" aria-hidden="true" />
+                  <span className="effect-studio-comparison__label effect-studio-comparison__label--before">
+                    {beforeLabel}
+                  </span>
+                  <span className="effect-studio-comparison__label effect-studio-comparison__label--after">
+                    {afterLabel}
+                  </span>
+                </>
+              )}
           </div>
           {activeView === 'compare' && (
             <label className="effect-studio-comparison__split-control">

@@ -77,6 +77,28 @@ describe('generateThumbnail', () => {
     expect(result!.metadata.scaleFactor).toBeLessThan(1);
   });
 
+  it('upscales small sources when the output profile explicitly allows it', async () => {
+    const result = await generateThumbnail(
+      [
+        {
+          id: 'n1',
+          name: 'Small proof source',
+          kind: 'shape',
+          transform: [1, 0, 0, 1, 0, 0],
+          shape: { kind: 'rect', x: 0, y: 0, w: 220, h: 160 },
+          fill: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 },
+        },
+      ],
+      EMPTY_REVISION,
+      { maxWidth: 1536, maxHeight: 1152, fit: 'contain', allowUpscale: true },
+    );
+
+    expect(result).not.toBeNull();
+    expect(result!.metadata.outputWidth).toBe(1536);
+    expect(result!.metadata.outputHeight).toBeGreaterThan(1100);
+    expect(result!.metadata.scaleFactor).toBeGreaterThan(1);
+  });
+
   it('respects cover fit mode', async () => {
     const result = await generateThumbnail(
       [

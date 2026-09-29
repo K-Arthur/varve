@@ -8,6 +8,10 @@
   min-width: 0;
 }
 
+.effect-studio__quick-nav {
+  display: none;
+}
+
 /* The dialog body owns scrolling. Keep the content fluid so the gallery uses
  * the available modal width without creating a second nested scroll region. */
 .effect-studio-panel {
@@ -30,7 +34,7 @@
   display: grid;
   gap: var(--space-3);
   grid-template-areas: "preview browser inspector";
-  grid-template-columns: minmax(18rem, 1.05fr) minmax(18rem, 1fr) minmax(17rem, 0.9fr);
+  grid-template-columns: minmax(20rem, 1.2fr) minmax(20rem, 1.15fr) minmax(17rem, 0.9fr);
 }
 
 .effect-studio__browser {
@@ -51,7 +55,7 @@
 /* Keep the applied stack and current recipe controls available while the
  * gallery below is being browsed. The single-column mobile layout remains a
  * normal document flow so sticky controls never cover the gallery. */
-@media (min-width: 48.01rem) {
+@media (min-width: 64.01rem) {
   .effect-studio__inspector {
     position: sticky;
     top: var(--space-3);
@@ -301,6 +305,30 @@
   padding: var(--space-1) var(--space-2);
 }
 
+.effect-studio__quality-action {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  justify-content: space-between;
+}
+
+.effect-studio__quality-action span {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+  line-height: var(--font-line-normal);
+}
+
+.effect-studio__browser-heading {
+  border-bottom: 1px solid var(--color-border-subtle);
+  padding-bottom: var(--space-2);
+}
+
+.effect-studio__browser-heading p {
+  line-height: var(--font-line-normal);
+  margin: var(--space-1) 0 0;
+}
+
 .effect-studio__intro,
 .effect-studio__looks-header {
   align-items: flex-start;
@@ -311,6 +339,7 @@
 
 .effect-studio__intro h3,
 .effect-studio__looks h3,
+.effect-studio__browser-heading h3,
 .effect-studio__treatment-group h4 {
   color: var(--color-text-primary);
   font-size: var(--font-size-sm);
@@ -320,6 +349,7 @@
 .effect-studio__intro p,
 .effect-studio__selection-note,
 .effect-studio__looks p,
+.effect-studio__browser-heading p,
 .effect-studio__stack-note,
 .effect-studio__treatment-group-header p,
 .effect-studio__primitives p {
@@ -352,8 +382,10 @@
 }
 
 .effect-studio__compare,
+.effect-studio__quick-nav button,
 .effect-studio__looks-header button,
 .effect-studio__preview-status button,
+.effect-studio__quality-action button,
 .effect-studio__card-actions button,
 .effect-studio__applied button,
 .effect-studio__tuning button,
@@ -376,10 +408,14 @@
 
 .effect-studio__compare:hover:not(:disabled),
 .effect-studio__compare:focus-visible,
+.effect-studio__quick-nav button:hover,
+.effect-studio__quick-nav button:focus-visible,
 .effect-studio__looks-header button:hover:not(:disabled),
 .effect-studio__looks-header button:focus-visible,
 .effect-studio__preview-status button:hover,
 .effect-studio__preview-status button:focus-visible,
+.effect-studio__quality-action button:hover:not(:disabled),
+.effect-studio__quality-action button:focus-visible,
 .effect-studio__card-actions button:hover:not(:disabled),
 .effect-studio__card-actions button:focus-visible,
 .effect-studio__applied button:hover:not(:disabled),
@@ -395,8 +431,10 @@
 }
 
 .effect-studio__compare:focus-visible,
+.effect-studio__quick-nav button:focus-visible,
 .effect-studio__looks-header button:focus-visible,
 .effect-studio__preview-status button:focus-visible,
+.effect-studio__quality-action button:focus-visible,
 .effect-studio__card-actions button:focus-visible,
 .effect-studio__applied button:focus-visible,
 .effect-studio__tuning button:focus-visible,
@@ -411,6 +449,7 @@
 .effect-studio__compare:disabled,
 .effect-studio__looks-header button:disabled,
 .effect-studio__card-actions button:disabled,
+.effect-studio__quality-action button:disabled,
 .effect-studio__tuning button:disabled,
 .effect-studio__recent button:disabled {
   cursor: default;
@@ -442,11 +481,6 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-1);
-}
-
-.effect-studio__filters {
-  max-height: 5.5rem;
-  overflow: auto;
 }
 
 .effect-studio__filters button,
@@ -1343,10 +1377,12 @@
 }
 
 .effect-studio__looks {
-  border-top: 1px solid var(--color-border-subtle);
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
   display: grid;
   gap: var(--space-2);
-  padding-top: var(--space-3);
+  padding: var(--space-3);
 }
 
 .effect-studio__looks > label {
@@ -1409,13 +1445,57 @@
 @media (max-width: 64rem) {
   .effect-studio__workspace {
     grid-template-areas:
-      "preview inspector"
-      "browser browser";
-    grid-template-columns: minmax(0, 1fr) minmax(17.5rem, 22rem);
+      "preview browser"
+      "inspector inspector";
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 64rem) {
+  .effect-studio__quick-nav {
+    align-items: stretch;
+    backdrop-filter: blur(12px);
+    background: var(--color-surface-raised);
+    border-bottom: 1px solid var(--color-border-subtle);
+    display: grid;
+    gap: var(--space-1);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    margin: calc(-1 * var(--space-3)) calc(-1 * var(--space-4)) 0;
+    padding: var(--space-1) var(--space-2);
+    position: sticky;
+    top: 0;
+    z-index: 5;
   }
 
-  .effect-studio__browser {
-    grid-column: 1 / -1;
+  .effect-studio__quick-nav button {
+    align-items: center;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-control-compact);
+    color: var(--color-text-primary);
+    display: flex;
+    font-size: var(--font-size-2xs);
+    justify-content: center;
+    line-height: var(--font-line-control);
+    min-height: 44px;
+    min-width: 0;
+    padding: var(--space-1);
+    text-align: center;
+    text-decoration: none;
+    white-space: normal;
+  }
+
+  .effect-studio__quick-nav button:hover,
+  .effect-studio__quick-nav button:focus-visible {
+    border-color: var(--color-interactive-default);
+    outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
+    outline-offset: 1px;
+  }
+
+  #effect-studio-preview,
+  #effect-studio-treatments,
+  #effect-studio-stack,
+  #effect-studio-treatment-settings {
+    scroll-margin-top: calc(4.25rem + var(--space-3));
   }
 }
 
@@ -1423,8 +1503,8 @@
   .effect-studio__workspace {
     grid-template-areas:
       "preview"
-      "inspector"
-      "browser";
+      "browser"
+      "inspector";
     grid-template-columns: minmax(0, 1fr);
   }
 
@@ -1461,6 +1541,11 @@
     flex-direction: column;
   }
 
+  .effect-studio__quality-action {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
   .effect-studio-comparison__split-control {
     grid-template-columns: 1fr auto;
   }
@@ -1490,8 +1575,12 @@
     min-height: 44px;
   }
 
-  .effect-studio__filters {
-    max-height: none;
-    overflow: visible;
+  .effect-studio [role="spinbutton"] {
+    min-width: 44px;
+  }
+
+  .effect-studio__search-label input,
+  .effect-studio__looks > label input {
+    min-height: 44px;
   }
 }

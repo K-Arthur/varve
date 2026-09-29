@@ -238,4 +238,147 @@ describe('EffectStudioComparison', () => {
       'data:image/png;base64,bmV3',
     );
   });
+
+  it('runs an optional settled 2x check with matching before and after profiles', async () => {
+    const node = { ...effectNode(), smartFiltersEnabled: true };
+    const acceptedNode = { ...node, smartFiltersEnabled: undefined };
+    mockedRenderDocThumbnail
+      .mockResolvedValueOnce(outcome('data:image/png;base64,bGl2ZS1iZWZvcmU='))
+      .mockResolvedValueOnce(outcome('data:image/png;base64,bGl2ZS1hZnRlcg=='))
+      .mockResolvedValueOnce(outcome('data:image/png;base64,cHJvb2YtYmVmb3Jl'))
+      .mockResolvedValueOnce(outcome('data:image/png;base64,cHJvb2YtYWZ0ZXI='));
+
+    render(
+      <EffectStudioComparison
+        document={testDocument(node)}
+        baselineDocument={testDocument(acceptedNode)}
+        node={node}
+        hasEffects
+        isDraftPreview
+      />,
+    );
+
+    await screen.findByAltText('Original selected object without Object Filters');
+    expect(
+      mockedRenderDocThumbnail.mock.calls.filter(
+        ([, options]) => options.variant.role === 'effect-studio-proof',
+      ),
+    ).toHaveLength(0);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Check at 2x' }));
+    expect(screen.getByText(/Checking both states at 2x/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Checking at 2x…' })).toBeDisabled();
+    expect(await screen.findByText(/Settled 2x check complete/)).toBeInTheDocument();
+    expect(screen.getByTestId('effect-studio-preview-stage')).toHaveAttribute(
+      'data-quality',
+      'settled-2x',
+    );
+    expect(screen.getByAltText('Original selected object without Object Filters')).toHaveAttribute(
+      'src',
+      'data:image/png;base64,cHJvb2YtYmVmb3Jl',
+    );
+    expect(screen.getByAltText('Selected object with its Object Filters')).toHaveAttribute(
+      'src',
+      'data:image/png;base64,cHJvb2YtYWZ0ZXI=',
+    );
+
+    const proofCalls = mockedRenderDocThumbnail.mock.calls.filter(
+      ([, options]) => options.variant.role === 'effect-studio-proof',
+    );
+    expect(proofCalls).toHaveLength(2);
+    expect(proofCalls[0]?.[1].source).toEqual(proofCalls[1]?.[1].source);
+    expect(proofCalls[0]?.[1].variant).toEqual(proofCalls[1]?.[1].variant);
+  });
+
+  it('cancels an obsolete 2x check and marks it stale when settings change', async () => {
+    const firstNode = effectNode();
+    const nextNode = { ...firstNode, name: 'Changed shape' };
+    const firstDocument = testDocument(firstNode);
+    const nextDocument = testDocument(nextNode);
+    const pendingProof = deferred<Awaited<ReturnType<typeof renderDocThumbnail>>>();
+    const proofSignals: AbortSignal[] = [];
+    mockedRenderDocThumbnail.mockImplementation((_document, options) => {
+      if (options.variant.role === 'effect-studio-proof') {
+        proofSignals.push(options.signal!);
+        return pendingProof.promise;
+      }
+      return Promise.resolve(outcome('data:image/png;base64,bGl2ZQ=='));
+    });
+
+    const view = render(
+      <EffectStudioComparison document={firstDocument} node={firstNode} hasEffects={false} />,
+    );
+    await screen.findByAltText('Original selected object without Object Filters');
+    fireEvent.click(screen.getByRole('button', { name: 'Check at 2x' }));
+    expect(await screen.findByText(/Checking both states at 2x/)).toBeInTheDocument();
+
+    view.rerender(
+      <EffectStudioComparison document={nextDocument} node={nextNode} hasEffects={false} />,
+    );
+    expect(await screen.findByText(/2x check is stale/)).toBeInTheDocument();
+    expect(proofSignals).toHaveLength(1);
+    expect(proofSignals[0]?.aborted).toBe(true);
+    expect(screen.getByTestId('effect-studio-preview-stage')).toHaveAttribute(
+      'data-quality',
+      'live-preview',
+    );
+
+    pendingProof.resolve(outcome('data:image/png;base64,c3RhbGU='));
+  });
+
+  it('keeps the live preview visible when the 2x check fails', async () => {
+    const node = effectNode();
+    mockedRenderDocThumbnail
+      .mockResolvedValueOnce(outcome('data:image/png;base64,bGl2ZS1iZWZvcmU='))
+      .mockResolvedValueOnce(outcome('data:image/png;base64,bGl2ZS1hZnRlcg=='))
+      .mockResolvedValueOnce(outcome('data:image/png;base64,cHJvb2YtYmVmb3Jl'))
+      .mockRejectedValueOnce(new Error('proof renderer unavailable'));
+
+    render(<EffectStudioComparison document={testDocument(node)} node={node} hasEffects />);
+    await screen.findByAltText('Original selected object without Object Filters');
+    fireEvent.click(screen.getByRole('button', { name: 'Check at 2x' }));
+
+    expect(await screen.findByText(/2x check failed/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/accepted result preview failed: proof renderer unavailable/i),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId('effect-studio-preview-stage')).toHaveAttribute(
+      'data-quality',
+      'live-preview',
+    );
+    expect(screen.getByAltText('Selected object with its Object Filters')).toHaveAttribute(
+      'src',
+      'data:image/png;base64,bGl2ZS1hZnRlcg==',
+    );
+  });
+
+  it('keeps the live pair active when the 2x result is provisional', async () => {
+    const node = effectNode();
+    mockedRenderDocThumbnail
+      .mockResolvedValueOnce(outcome('data:image/png;base64,bGl2ZS1iZWZvcmU='))
+      .mockResolvedValueOnce(outcome('data:image/png;base64,bGl2ZS1hZnRlcg=='))
+      .mockResolvedValueOnce({
+        ...outcome('data:image/png;base64,cHJvdmlzaW9uYWwtYmVmb3Jl', {
+          isProvisional: true,
+        }),
+        status: 'provisional',
+      })
+      .mockResolvedValueOnce(outcome('data:image/png;base64,cHJvb2YtYWZ0ZXI='));
+
+    render(<EffectStudioComparison document={testDocument(node)} node={node} hasEffects />);
+    await screen.findByAltText('Original selected object without Object Filters');
+    fireEvent.click(screen.getByRole('button', { name: 'Check at 2x' }));
+
+    expect(
+      await screen.findByText(/2x check is provisional while fonts or images settle/),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId('effect-studio-preview-stage')).toHaveAttribute(
+      'data-quality',
+      'live-preview',
+    );
+    expect(screen.getByAltText('Original selected object without Object Filters')).toHaveAttribute(
+      'src',
+      'data:image/png;base64,bGl2ZS1iZWZvcmU=',
+    );
+  });
 });

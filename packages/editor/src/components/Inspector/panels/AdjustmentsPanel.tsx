@@ -74,6 +74,7 @@ export function AdjustmentsPanel() {
 
   return (
     <>
+      <EffectStudioAccessSection nodes={nodes} />
       <ImageTuningSection nodes={nodes} />
       {nodes.length === 1 && (
         <>

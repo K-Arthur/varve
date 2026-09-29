@@ -1,7 +1,39 @@
 import { readFile } from 'node:fs/promises';
 import { expect, test } from '@playwright/test';
-import { navigateToCleanEditor } from '../helpers/nav';
 import { dragOnCanvas } from '../shared';
+
+async function navigateToPortraitEditor(page: import('@playwright/test').Page) {
+  await page.goto('/', { timeout: 120000, waitUntil: 'domcontentloaded' });
+  await page.getByRole('button', { name: /^new$/i }).click({ timeout: 30000 });
+  await page
+    .locator('dialog[open]')
+    .getByRole('button', { name: /^create design$/i })
+    .click({ timeout: 30000 });
+
+  // The phone layout can hide the Layers panel, so detect the editor itself
+  // rather than treating that panel as proof that document creation finished.
+  await page.getByRole('region', { name: 'Canvas' }).waitFor({ timeout: 120000 });
+  const onboardingDismiss = page.locator('.onboarding-checklist__dismiss');
+  if (await onboardingDismiss.isVisible({ timeout: 1000 }).catch(() => false)) {
+    await onboardingDismiss.click({ timeout: 5000 });
+  }
+  await page.waitForTimeout(1000);
+}
+
+async function openEffectStudio(page: import('@playwright/test').Page) {
+  const launcher = page.getByTestId('open-effect-studio');
+  if (!(await launcher.isVisible().catch(() => false))) {
+    const collapseLayers = page.getByRole('button', { name: /^Collapse Layers panel/ });
+    if (await collapseLayers.isVisible().catch(() => false)) {
+      await page.keyboard.press('Escape');
+      await expect(page.getByRole('button', { name: 'Show layers panel' })).toBeVisible();
+    }
+    const showInspector = page.getByRole('button', { name: 'Show inspector panel' });
+    if (await showInspector.isVisible().catch(() => false)) await showInspector.click();
+    await page.getByRole('tab', { name: /^Adjustments$/i }).click();
+  }
+  await launcher.click();
+}
 
 test.describe('Effect Studio portrait touch workflow', () => {
   test.use({
@@ -14,15 +46,18 @@ test.describe('Effect Studio portrait touch workflow', () => {
   test('keeps preview, cancel, apply, and reorder actions touch-sized and reachable', async ({
     page,
   }, testInfo) => {
-    await navigateToCleanEditor(page);
+    await navigateToPortraitEditor(page);
     await expect
       .poll(() => page.evaluate(() => matchMedia('(pointer: coarse)').matches))
       .toBe(true);
 
     await page.keyboard.press('r');
     await dragOnCanvas(page, 140, 140, 330, 290);
-    await expect(page.getByRole('treeitem').first()).toBeVisible({ timeout: 30_000 });
-    await page.getByTestId('open-effect-studio').click();
+    await expect(page.getByRole('toolbar', { name: 'Contextual properties' })).toContainText(
+      /shape/i,
+      { timeout: 30_000 },
+    );
+    await openEffectStudio(page);
 
     const studio = page.getByTestId('effect-studio-dialog');
     await expect(studio).toBeVisible({ timeout: 30_000 });
@@ -36,12 +71,20 @@ test.describe('Effect Studio portrait touch workflow', () => {
     await expect(numberField).toBeVisible();
     await assertTouchTarget(numberField);
 
-    const preview = studio.getByRole('button', { name: 'Preview', exact: true });
+    const preview = studio
+      .getByLabel('Reticulation settings')
+      .getByRole('button', { name: 'Preview', exact: true });
     await expect(preview).toBeVisible();
     await assertTouchTarget(preview);
     await preview.scrollIntoViewIfNeeded();
     await expect(preview).toBeInViewport();
     await preview.click();
+
+    const qualityCheck = studio.getByRole('button', { name: 'Check at 2x' });
+    await expect(qualityCheck).toBeVisible({ timeout: 30_000 });
+    await assertTouchTarget(qualityCheck);
+    await qualityCheck.scrollIntoViewIfNeeded();
+    await expect(qualityCheck).toBeInViewport();
 
     const cancel = studio.getByRole('button', { name: 'Cancel preview' });
     await expect(cancel).toBeVisible({ timeout: 30_000 });
@@ -72,21 +115,19 @@ test.describe('Effect Studio portrait touch workflow', () => {
     await expect(reorder).toBeInViewport();
 
     await studio.getByRole('button', { name: 'Close dialog' }).click();
-    const documentName = page.locator('.editor-menubar__doc-name-text');
-    await documentName.click();
-    const documentNameInput = page.getByRole('textbox', { name: 'Document name', exact: true });
-    await documentNameInput.fill('Low-end touch fixture');
-    await documentNameInput.press('Enter');
     await page.keyboard.press('Control+s');
     await expect(page.locator('.save-status')).toHaveText('Saved', { timeout: 60_000 });
 
     await page.reload({ timeout: 120_000, waitUntil: 'commit' });
-    const savedCard = page.getByRole('gridcell', { name: /Low-end touch fixture/ });
+    const savedCard = page.getByRole('gridcell', { name: /Untitled 1/ });
     await expect(savedCard).toBeVisible({ timeout: 30_000 });
     await savedCard.dblclick();
+    await page.getByRole('region', { name: 'Canvas' }).waitFor({ timeout: 60_000 });
+    const showLayers = page.getByRole('button', { name: 'Show layers panel' });
+    if (await showLayers.isVisible().catch(() => false)) await showLayers.click();
     await page.locator('.layers-panel').waitFor({ timeout: 60_000 });
     await page.locator('.layers-panel__tree [role="treeitem"]').first().click();
-    await page.getByTestId('open-effect-studio').click();
+    await openEffectStudio(page);
     const reopenedStudio = page.getByTestId('effect-studio-dialog');
     await expect(reopenedStudio).toContainText('Reticulation');
     await page.screenshot({

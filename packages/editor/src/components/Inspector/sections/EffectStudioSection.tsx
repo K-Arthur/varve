@@ -24,7 +24,15 @@ import {
   type SceneNode,
 } from '@varve/scene';
 import { SOLID_CHROME_ICONS, SolidIcon, Tooltip } from '@varve/ui';
-import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  type MouseEvent as ReactMouseEvent,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { useEditor } from '../../../context';
 import { EffectStudioComparison } from '../../EffectStudio/EffectStudioComparison';
 import {
@@ -38,6 +46,14 @@ import './effectStudio.css';
 const FAVORITES_KEY = 'varve:effect-studio:favorites';
 const RECENTS_KEY = 'varve:effect-studio:recents';
 const MAX_LIBRARY_IDS = 32;
+
+function focusStudioSection(event: ReactMouseEvent<HTMLButtonElement>, sectionId: string) {
+  const root = event.currentTarget.closest('[data-effect-studio]');
+  const section = root?.querySelector<HTMLElement>(`#${sectionId}`);
+  if (!section) return;
+  section.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  section.focus({ preventScroll: true });
+}
 
 /** Preserve prior raw-effect saves when the Studio becomes treatment-first. */
 const LEGACY_TREATMENT_BY_PRIMITIVE: Readonly<Record<string, string>> = {
@@ -487,7 +503,7 @@ function treatmentGroupsFor(
       ? [
           {
             id: favoritesOnly ? 'saved' : 'results',
-            label: favoritesOnly ? 'Saved treatments' : 'Search results',
+            label: favoritesOnly ? 'Favorite treatments' : 'Search results',
             description: favoritesOnly
               ? 'Treatments saved on this device.'
               : 'Treatment recipes matching your search.',
@@ -1001,6 +1017,31 @@ export function EffectStudioSection({
   return (
     <EffectStudioSurface presentation={presentation}>
       <div className="effect-studio" data-effect-studio>
+        <nav className="effect-studio__quick-nav" aria-label="Effect Studio sections">
+          <button
+            type="button"
+            onClick={(event) => focusStudioSection(event, 'effect-studio-preview')}
+          >
+            Preview
+          </button>
+          <button
+            type="button"
+            onClick={(event) => focusStudioSection(event, 'effect-studio-treatments')}
+          >
+            Treatments
+          </button>
+          <button
+            type="button"
+            onClick={(event) =>
+              focusStudioSection(
+                event,
+                tuning ? 'effect-studio-treatment-settings' : 'effect-studio-stack',
+              )
+            }
+          >
+            Stack &amp; settings
+          </button>
+        </nav>
         <div className="effect-studio__intro">
           <div>
             <h3>Curated editable treatments</h3>
@@ -1039,10 +1080,270 @@ export function EffectStudioSection({
             node={node}
             hasEffects={filters.length > 0}
             targetCount={nodes.length}
+            targetIds={nodes.map((target) => target.id)}
             targetLabel={targetLabel}
             isDraftPreview={previewing}
           />
-          <aside className="effect-studio__inspector" aria-label="Effect stack and settings">
+          <section
+            className="effect-studio__browser"
+            id="effect-studio-treatments"
+            aria-labelledby="effect-studio-browser-title"
+            tabIndex={-1}
+          >
+            <div className="effect-studio__browser-heading">
+              <h3 id="effect-studio-browser-title">Curated treatment gallery</h3>
+              <p>
+                Favorites are saved on this device. Document Looks below are ordered recipes saved
+                with this document.
+              </p>
+            </div>
+            <label className="effect-studio__search-label">
+              <span className="sr-only">Search treatments</span>
+              <input
+                type="search"
+                value={query}
+                ref={searchRef}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search treatments"
+                aria-label="Search treatments"
+              />
+            </label>
+
+            <div
+              className="effect-studio__filters"
+              role="toolbar"
+              aria-label="Treatment gallery filters"
+            >
+              <button
+                type="button"
+                className={!category && !favoritesOnly ? 'is-selected' : ''}
+                aria-pressed={!category && !favoritesOnly}
+                onClick={() => {
+                  setCategory(undefined);
+                  setFavoritesOnly(false);
+                }}
+              >
+                All
+              </button>
+              <button
+                type="button"
+                className={favoritesOnly ? 'is-selected' : ''}
+                aria-pressed={favoritesOnly}
+                onClick={() => {
+                  setFavoritesOnly(true);
+                  setCategory(undefined);
+                }}
+              >
+                Favorites
+              </button>
+              {EFFECT_STUDIO_CATEGORIES.map((entry) => (
+                <button
+                  type="button"
+                  key={entry.id}
+                  className={category === entry.id ? 'is-selected' : ''}
+                  aria-pressed={category === entry.id}
+                  onClick={() => {
+                    setCategory(entry.id);
+                    setFavoritesOnly(false);
+                  }}
+                >
+                  {entry.label}
+                </button>
+              ))}
+            </div>
+
+            {recentTreatments.length > 0 && !query && !category && !favoritesOnly && (
+              <fieldset className="effect-studio__recent">
+                <legend>Recent treatments</legend>
+                {recentTreatments.map((treatment) => (
+                  <button
+                    type="button"
+                    key={treatment.id}
+                    onClick={() => previewTreatment(treatment)}
+                    disabled={!canPreview || preview?.treatmentId === treatment.id}
+                    aria-label={`Preview ${treatment.name}`}
+                  >
+                    {treatment.name}
+                  </button>
+                ))}
+              </fieldset>
+            )}
+
+            <section className="effect-studio__gallery" aria-label="Treatment Gallery">
+              {groups.map((group) => (
+                <section className="effect-studio__treatment-group" key={group.id}>
+                  <div className="effect-studio__treatment-group-header">
+                    <h4>{group.label}</h4>
+                    <p>{group.description}</p>
+                  </div>
+                  <ul className="effect-studio__treatment-grid">
+                    {group.treatments.map((treatment) => {
+                      const isFavorite = favorites.includes(treatment.id);
+                      const isPreview = preview?.treatmentId === treatment.id;
+                      const isApplied = appliedTreatments.some(
+                        (instance) => instance.treatment.id === treatment.id,
+                      );
+                      return (
+                        <li className={isPreview ? 'is-previewing' : ''} key={treatment.id}>
+                          <div
+                            className="effect-studio__treatment-art"
+                            data-treatment-art={treatment.art}
+                            data-treatment-category={treatment.categoryId}
+                            aria-hidden="true"
+                          />
+                          <div className="effect-studio__treatment-copy">
+                            <strong>{treatment.name}</strong>
+                            <span>{treatment.description}</span>
+                            <small>
+                              {treatment.effects.length} editable effect
+                              {treatment.effects.length === 1 ? '' : 's'} · raster + vector
+                            </small>
+                          </div>
+                          <div className="effect-studio__card-actions">
+                            <button
+                              type="button"
+                              onClick={() => openTreatmentTuning(treatment)}
+                              aria-label={`Adjust ${treatment.name} recipe`}
+                            >
+                              Adjust
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                openTreatmentTuning(treatment);
+                                previewTreatment(treatment);
+                              }}
+                              disabled={!canPreview || isPreview}
+                              aria-label={`Preview ${treatment.name}`}
+                            >
+                              {isPreview ? 'Previewing' : 'Preview'}
+                            </button>
+                            <button
+                              type="button"
+                              className="effect-studio__add"
+                              onClick={() =>
+                                applyTreatment(
+                                  treatment,
+                                  {},
+                                  { allowDuplicate: isPreview || isApplied },
+                                )
+                              }
+                              aria-label={
+                                isPreview
+                                  ? `Keep ${treatment.name}`
+                                  : isApplied
+                                    ? `Add another ${treatment.name}`
+                                    : `Apply ${treatment.name}`
+                              }
+                            >
+                              {isPreview ? 'Keep' : isApplied ? 'Add another' : 'Apply'}
+                            </button>
+                            <button
+                              type="button"
+                              className="effect-studio__favorite"
+                              aria-pressed={isFavorite}
+                              aria-label={
+                                isFavorite
+                                  ? `Remove ${treatment.name} from favorites`
+                                  : `Add ${treatment.name} to favorites`
+                              }
+                              onClick={() => toggleFavorite(treatment.id)}
+                            >
+                              {isFavorite ? 'Saved' : 'Save'}
+                            </button>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </section>
+              ))}
+            </section>
+            {treatments.length === 0 && (
+              <p className="effect-studio__empty" role="status">
+                No treatments match this search. Try a category or clear the query.
+              </p>
+            )}
+            <section className="effect-studio__looks" aria-labelledby="effect-studio-looks-title">
+              <div className="effect-studio__looks-header">
+                <div>
+                  <h3 id="effect-studio-looks-title">Document Looks</h3>
+                  <p>
+                    Save ordered recipes with this document; these are separate from device
+                    Favorites.
+                  </p>
+                </div>
+                <button type="button" onClick={saveLook} disabled={filters.length === 0}>
+                  Save current stack
+                </button>
+              </div>
+              <label>
+                <span>Look name</span>
+                <input value={lookName} onChange={(event) => setLookName(event.target.value)} />
+              </label>
+              {looks.length > 0 ? (
+                <ul aria-label="Saved Looks">
+                  {looks.map((look) => (
+                    <li key={look.id}>
+                      <span>
+                        <strong>{look.name}</strong>
+                        <small>
+                          {look.effects.length} effect{look.effects.length === 1 ? '' : 's'}
+                        </small>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => applyLook(look)}
+                        aria-label={`Apply Look ${look.name}`}
+                      >
+                        Apply
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => deleteLook(look.id)}
+                        aria-label={`Delete Look ${look.name}`}
+                      >
+                        Delete
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="effect-studio__empty">No Looks saved in this document.</p>
+              )}
+            </section>
+            <details className="effect-studio__primitives">
+              <summary>Advanced individual effects</summary>
+              <p>
+                These are raw building blocks, not a second treatment gallery. Tune an applied named
+                treatment above to retain its intent. Add one here only when you know the operator
+                you need; Object Filters then exposes its parameters, order, mask, and blend. Raw
+                changes to a curated treatment are marked Customized rather than silently
+                relabelled. Use Image Tuning for photo correction and Adjustment Filters for a
+                scoped backdrop correction.
+              </p>
+              <ul aria-label="Individual creative effects">
+                {primitiveDefinitions.map((definition) => (
+                  <li key={definition.id}>
+                    <span>{definition.displayName}</span>
+                    <button
+                      type="button"
+                      onClick={() => addPrimitive(definition)}
+                      aria-label={`Add ${definition.displayName} primitive to stack`}
+                    >
+                      Add
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          </section>
+          <aside
+            className="effect-studio__inspector"
+            id="effect-studio-stack"
+            tabIndex={-1}
+            aria-label="Effect stack and settings"
+          >
             <section className="effect-studio__applied" aria-label="Applied effect stack">
               <div className="effect-studio__applied-header">
                 <div>
@@ -1206,6 +1507,8 @@ export function EffectStudioSection({
             {tuning && tuningTreatment ? (
               <section
                 className="effect-studio__tuning"
+                id="effect-studio-treatment-settings"
+                tabIndex={-1}
                 aria-label={`${tuningTreatment.name} settings`}
               >
                 <div className="effect-studio__tuning-header">
@@ -1358,247 +1661,6 @@ export function EffectStudioSection({
               </div>
             )}
           </aside>
-
-          <div className="effect-studio__browser">
-            <label className="effect-studio__search-label">
-              <span className="sr-only">Search treatments</span>
-              <input
-                type="search"
-                value={query}
-                ref={searchRef}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search treatments"
-                aria-label="Search treatments"
-              />
-            </label>
-
-            <div
-              className="effect-studio__filters"
-              role="toolbar"
-              aria-label="Treatment gallery filters"
-            >
-              <button
-                type="button"
-                className={!category && !favoritesOnly ? 'is-selected' : ''}
-                aria-pressed={!category && !favoritesOnly}
-                onClick={() => {
-                  setCategory(undefined);
-                  setFavoritesOnly(false);
-                }}
-              >
-                All
-              </button>
-              <button
-                type="button"
-                className={favoritesOnly ? 'is-selected' : ''}
-                aria-pressed={favoritesOnly}
-                onClick={() => {
-                  setFavoritesOnly(true);
-                  setCategory(undefined);
-                }}
-              >
-                Saved
-              </button>
-              {EFFECT_STUDIO_CATEGORIES.map((entry) => (
-                <button
-                  type="button"
-                  key={entry.id}
-                  className={category === entry.id ? 'is-selected' : ''}
-                  aria-pressed={category === entry.id}
-                  onClick={() => {
-                    setCategory(entry.id);
-                    setFavoritesOnly(false);
-                  }}
-                >
-                  {entry.label}
-                </button>
-              ))}
-            </div>
-
-            {recentTreatments.length > 0 && !query && !category && !favoritesOnly && (
-              <fieldset className="effect-studio__recent">
-                <legend>Recent treatments</legend>
-                {recentTreatments.map((treatment) => (
-                  <button
-                    type="button"
-                    key={treatment.id}
-                    onClick={() => previewTreatment(treatment)}
-                    disabled={!canPreview || preview?.treatmentId === treatment.id}
-                    aria-label={`Preview ${treatment.name}`}
-                  >
-                    {treatment.name}
-                  </button>
-                ))}
-              </fieldset>
-            )}
-
-            <section className="effect-studio__gallery" aria-label="Treatment Gallery">
-              {groups.map((group) => (
-                <section className="effect-studio__treatment-group" key={group.id}>
-                  <div className="effect-studio__treatment-group-header">
-                    <h4>{group.label}</h4>
-                    <p>{group.description}</p>
-                  </div>
-                  <ul className="effect-studio__treatment-grid">
-                    {group.treatments.map((treatment) => {
-                      const isFavorite = favorites.includes(treatment.id);
-                      const isPreview = preview?.treatmentId === treatment.id;
-                      const isApplied = appliedTreatments.some(
-                        (instance) => instance.treatment.id === treatment.id,
-                      );
-                      return (
-                        <li className={isPreview ? 'is-previewing' : ''} key={treatment.id}>
-                          <div
-                            className="effect-studio__treatment-art"
-                            data-treatment-art={treatment.art}
-                            data-treatment-category={treatment.categoryId}
-                            aria-hidden="true"
-                          />
-                          <div className="effect-studio__treatment-copy">
-                            <strong>{treatment.name}</strong>
-                            <span>{treatment.description}</span>
-                            <small>
-                              {treatment.effects.length} editable effect
-                              {treatment.effects.length === 1 ? '' : 's'} · raster + vector
-                            </small>
-                          </div>
-                          <div className="effect-studio__card-actions">
-                            <button
-                              type="button"
-                              onClick={() => openTreatmentTuning(treatment)}
-                              aria-label={`Adjust ${treatment.name} recipe`}
-                            >
-                              Adjust
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                openTreatmentTuning(treatment);
-                                previewTreatment(treatment);
-                              }}
-                              disabled={!canPreview || isPreview}
-                              aria-label={`Preview ${treatment.name}`}
-                            >
-                              {isPreview ? 'Previewing' : 'Preview'}
-                            </button>
-                            <button
-                              type="button"
-                              className="effect-studio__add"
-                              onClick={() =>
-                                applyTreatment(
-                                  treatment,
-                                  {},
-                                  { allowDuplicate: isPreview || isApplied },
-                                )
-                              }
-                              aria-label={
-                                isPreview
-                                  ? `Keep ${treatment.name}`
-                                  : isApplied
-                                    ? `Add another ${treatment.name}`
-                                    : `Apply ${treatment.name}`
-                              }
-                            >
-                              {isPreview ? 'Keep' : isApplied ? 'Add another' : 'Apply'}
-                            </button>
-                            <button
-                              type="button"
-                              className="effect-studio__favorite"
-                              aria-pressed={isFavorite}
-                              aria-label={
-                                isFavorite
-                                  ? `Remove ${treatment.name} from saved treatments`
-                                  : `Save ${treatment.name}`
-                              }
-                              onClick={() => toggleFavorite(treatment.id)}
-                            >
-                              {isFavorite ? 'Saved' : 'Save'}
-                            </button>
-                          </div>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </section>
-              ))}
-            </section>
-            {treatments.length === 0 && (
-              <p className="effect-studio__empty" role="status">
-                No treatments match this search. Try a category or clear the query.
-              </p>
-            )}
-          </div>
-        </div>
-
-        <details className="effect-studio__primitives">
-          <summary>Individual creative effects</summary>
-          <p>
-            These are raw building blocks, not a second treatment gallery. Tune an applied named
-            treatment above to retain its intent. Add one here only when you know the operator you
-            need; Object Filters then exposes its parameters, order, mask, and blend. Raw changes to
-            a curated treatment are marked Customized rather than silently relabelled. Use Image
-            Tuning for photo correction and Adjustment Filters for a scoped backdrop correction.
-          </p>
-          <ul aria-label="Individual creative effects">
-            {primitiveDefinitions.map((definition) => (
-              <li key={definition.id}>
-                <span>{definition.displayName}</span>
-                <button
-                  type="button"
-                  onClick={() => addPrimitive(definition)}
-                  aria-label={`Add ${definition.displayName} primitive to stack`}
-                >
-                  Add
-                </button>
-              </li>
-            ))}
-          </ul>
-        </details>
-
-        <div className="effect-studio__looks">
-          <div className="effect-studio__looks-header">
-            <div>
-              <h3>Looks</h3>
-              <p>Save an ordered recipe without flattening the artwork.</p>
-            </div>
-            <button type="button" onClick={saveLook} disabled={filters.length === 0}>
-              Save current stack
-            </button>
-          </div>
-          <label>
-            <span>Look name</span>
-            <input value={lookName} onChange={(event) => setLookName(event.target.value)} />
-          </label>
-          {looks.length > 0 ? (
-            <ul aria-label="Saved Looks">
-              {looks.map((look) => (
-                <li key={look.id}>
-                  <span>
-                    <strong>{look.name}</strong>
-                    <small>
-                      {look.effects.length} effect{look.effects.length === 1 ? '' : 's'}
-                    </small>
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => applyLook(look)}
-                    aria-label={`Apply Look ${look.name}`}
-                  >
-                    Apply
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => deleteLook(look.id)}
-                    aria-label={`Delete Look ${look.name}`}
-                  >
-                    Delete
-                  </button>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="effect-studio__empty">No Looks saved in this document.</p>
-          )}
         </div>
 
         <p className="effect-studio__stack-note">

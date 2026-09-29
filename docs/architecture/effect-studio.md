@@ -1,6 +1,6 @@
 # Effect Studio
 
-**Status:** current architecture · **Date:** 2026-09-08
+**Status:** current architecture · **Date:** 2026-09-29
 
 Effect Studio is Varve's discovery surface for object-local creative effects.
 It is a Filter Gallery-style way to explore, preview, and apply designed
@@ -74,15 +74,28 @@ is pressed, Varve commits that preview first and then appends the requested
 recipe, so an explicit Apply action cannot silently discard an earlier effect.
 
 The dialog follows a three-zone workflow: a large rendered preview, a compact
-treatment browser, and a focused applied-stack/settings column. The gallery
-has search, category filters, saved treatments, recent treatments, and
-preview/keep/cancel. The preview offers Before this edit, Current candidate,
-and a keyboard-accessible split comparison; its two images are canonical rendered
-variants of the selected object rather than card art. A collapsed **Individual creative
-effects** section retains the thirteen raw Studio primitives for users who
-already know the operator they want. It explicitly directs parameter editing,
-order, masks, and blending to Object Filters instead of creating a second
-stack editor.
+treatment browser, and a focused applied-stack/settings column. The browser
+keeps device Favorites and document Looks together, followed by a collapsed
+Advanced individual effects section; the inspector remains the place to edit
+an applied treatment stack. Wide screens
+place those zones side by side; medium screens place preview and gallery above
+a full-width stack/settings area; narrow screens use one scrollable flow. The
+DOM, keyboard, and reading order follow that visual order. Coarse-pointer
+controls retain 44 px targets. On medium and narrow screens a sticky three-button
+rail jumps directly to Preview, Treatments, or the active Stack/settings
+section. It stays inside the dialog's single scroll flow; the gallery and
+settings do not create nested scrolling regions.
+
+The gallery has search, category filters, device-local **Favorites**, recent
+treatments, and Preview/Keep/Cancel. **Document Looks** sit in that same browser
+column as ordered recipes stored with the current document, separate from
+device Favorites. **Advanced individual effects** are raw creative building
+blocks for users who already know the operator they want; parameter editing,
+order, masks, and blending remain in Object Filters instead of creating a
+second stack editor. The preview
+offers Before this edit, Current candidate, and a keyboard-accessible split
+comparison; its images are canonical renders of the selected object rather
+than card art.
 
 ## Treatment identity and direct controls
 
@@ -108,6 +121,12 @@ blue-noise clustered dither followed by seeded material grain. Its controls
 are Amount, Cluster density, Tone steps, and Material grain. It is a
 Varve-native irregular-tone/material treatment, not a claim to reproduce
 another application's implementation.
+
+With multiple treatments, tuning one recipe leaves its neighbors in the
+applied stack. Reorder controls move a complete named recipe block, and remove
+acts on only the chosen recipe. The UI keeps this stack visible beside the
+settings while browsing on wide screens, then places the same inspector after
+the browser on medium and narrow screens.
 
 Moving an entire named treatment swaps its contiguous recipe block with the
 next or previous stack block, so its identity and curated meaning remain
@@ -211,13 +230,29 @@ document's saved `smartFiltersEnabled` value. For an already-applied treatment,
 the Studio uses the accepted document at the moment live tuning opens as its
 comparison baseline.
 
-Both variants use the `effect-studio-preview` canonical renderer profile and
-the same selection source, coordinate frame, and renderer version. The result
-remains typed until the UI has inspected its identity, bounds, quality,
-provisional/placeholder state, warnings, and failure status. A provisional
-same-target frame may remain visible while a bounded retry runs, but it is
-labelled; placeholders and failed results are never presented as a successful
-comparison. A late result cannot replace a newer target or generation.
+The live Before and After variants use the `effect-studio-preview` canonical
+profile (768 × 576), the same one-object selection source, and the same renderer
+version. Because the source geometry and selection frame are shared, both sides
+fit to matching bounds. The result remains typed until the UI has inspected its
+identity, bounds, quality, provisional/placeholder state, warnings, and failure
+status. A provisional same-target frame may remain visible while a bounded
+retry runs, but it is labelled; placeholders and failed results are never
+presented as a successful comparison. A late result cannot replace a newer
+target or generation.
+
+When the live preview is settled, **Check at 2x** optionally renders Before
+and After with the same canonical renderer and selection source using the
+`effect-studio-proof` profile (1536 × 1152). The check is explicit, uses
+matched before/after bounds, and renders small sources up to the profile
+dimensions. Actual bitmap dimensions can be lower when the source aspect ratio
+does not fill the profile. It does not delay Apply. A successful check
+replaces the displayed preview pair until the selection or document revision
+changes. Target, treatment, or parameter changes abort in-flight proof renders
+and mark a completed proof stale; the live preview stays visible and the user
+can run the check again. Provisional or failed proof results are disclosed and
+do not replace the live pair. Both profiles are bounded editing previews,
+never persisted as document assets; the canvas and export remain the
+full-resolution references.
 
 The preview is representative for multi-selection: it renders the first
 selected object and says so beside the target count. Apply explicitly affects
@@ -234,19 +269,20 @@ semantics:
   canvas camera.
 - **100%** displays the preview bitmap at one CSS pixel per encoded preview
   pixel. It is 1:1 with the editing-preview result, not a second automatic
-  fit of the stage. **200%** doubles that display scale.
+  fit of the stage. **200%** doubles that display scale. While the settled 2×
+  check is active, its encoded image can use up to the 1536 × 1152 profile; the
+  same display controls inspect its additional detail.
 - At 100% and 200%, dragging the stage pans both comparison sides through the
   same transform. **Center** restores the inspection origin; changing the
   zoom mode also resets the preview-only pan. The split divider clips at the
   stage boundary, so it remains aligned while a large image is panned.
 
-The scale is defined against the bounded `effect-studio-preview` render
-result, whose metadata remains available to the UI. It is not a claim that a
-fixed-size preview bitmap contains every source pixel of a large image. The
-canvas and export paths remain the authorities for full-resolution judgment.
-Shared paint-reference and shapeless-image geometry must be resolved before
-the thumbnail frame is computed; otherwise Fit can crop a current wide image
-to a stale node snapshot.
+The scale is defined against the active bounded Effect Studio render result,
+whose metadata remains available to the UI. Neither profile contains every
+source pixel of a large image. The canvas and export paths remain the
+authorities for full-resolution judgment. Shared paint-reference and
+shapeless-image geometry must be resolved before the thumbnail frame is
+computed; otherwise Fit can crop a current wide image to a stale node snapshot.
 
 ## Decision record — 2026-09-08
 
@@ -297,7 +333,7 @@ full-sized editors:
 | **Properties** | Normal opacity/blend controls and **Add adjustment layer** for eligible selection | The Object Filter stack and Studio gallery |
 | **Appearance & Effects** | Advanced Object Filters and Layer Effects | The Studio gallery and its applied-treatment manager |
 | **Effect Studio dialog** | Curated gallery, preview/compare, Applied treatments, direct recipe tuning, raw creative primitives, and Looks | Inspector tabs and the raw Object Filter stack editor |
-| **Adjustments** | Image Tuning for raster selection; eligible vector/object selections get compact Effect Studio access and summary, the object-local raw stack, Layer Effects, and scoped Adjustment Layer access; adjustment nodes get the complete Adjustment Layer editor | Image-only tuning, enhancement, cleanup, recognition, and compositing controls on vector selections |
+| **Adjustments** | Raster selections get compact Effect Studio access alongside Image Tuning; eligible vector/object selections get the same access and summary, the object-local raw stack, Layer Effects, and scoped Adjustment Layer access; adjustment nodes get the complete Adjustment Layer editor | Image-only tuning, enhancement, cleanup, recognition, and compositing controls on vector selections |
 
 **Object → Open Effect Studio**, the command palette, and
 **Ctrl/Cmd+Alt/Option+A** open the controlled **Effect Studio dialog** in the
@@ -309,12 +345,15 @@ to workspace preferences. **Object → New Adjustment Layer** (and
 Adjustments with the new layer selected.
 
 The dialog owns the full gallery, live comparison, direct recipe tuning, raw
-creative primitives, and Looks workflow. Its search field receives focus when
-the dialog opens, and the applied-stack inspector stays visible while the
-gallery is scrolled on wider layouts. With multiple objects selected, the
-preview deliberately represents the first object while Apply affects the whole
-selection; direct recipe tuning remains a single-object operation so it cannot
-silently diverge across a mixed selection.
+creative primitives, and Document Looks workflow. Its search field receives
+focus when the dialog opens. On wide layouts the applied-stack inspector stays
+visible while the gallery is scrolled; narrower layouts keep all zones in
+visual and keyboard order in one dialog scroll flow and keep their three key
+areas one tap away. When a recipe is being tuned, the settings shortcut targets
+its controls directly; otherwise it targets the applied stack. With multiple objects
+selected, the preview deliberately represents the first object while Apply
+affects the whole selection; direct recipe tuning remains a single-object
+operation so it cannot silently diverge across a mixed selection.
 
 Layer-row stack badges keep their destinations explicit:
 

@@ -45,6 +45,8 @@ export interface ThumbnailOptions {
    * downscales. Total pixels are hard-capped.
    */
   devicePixelRatio?: number;
+  /** Allow contain-fit to enlarge sources that are smaller than the output profile. */
+  allowUpscale?: boolean;
   /** Encoded format (default 'png'; falls back to png when unsupported). */
   format?: ThumbnailFormat;
   /**

@@ -176,12 +176,22 @@ describe('renderDocThumbnail — cancellation', () => {
   });
 
   it('returns an editing quality contract and keeps warnings beside the image', async () => {
-    const outcome = await renderDocThumbnail(docWithPageContent(), {
+    const doc = docWithPageContent();
+    const outcome = await renderDocThumbnail(doc, {
       variant: THUMBNAIL_VARIANTS['effect-studio-preview'],
     });
     expect(outcome.qualityTier).toBe('editing-preview');
     expect(outcome.renderer).toBe('canonical-engine');
     expect(outcome.warnings).toEqual(outcome.result?.metadata.warnings ?? []);
+
+    const proof = await renderDocThumbnail(doc, {
+      variant: THUMBNAIL_VARIANTS['effect-studio-proof'],
+    });
+    expect(proof.qualityTier).toBe('editing-preview');
+    expect(proof.renderer).toBe('canonical-engine');
+    expect(proof.result?.metadata.outputWidth).toBeGreaterThan(
+      outcome.result?.metadata.outputWidth ?? 0,
+    );
   });
 
   it('renders page sources in page-local coordinates', async () => {

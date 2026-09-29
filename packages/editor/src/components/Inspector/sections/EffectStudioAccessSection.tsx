@@ -29,9 +29,7 @@ export function EffectStudioAccessSection({ nodes }: { nodes: SceneNode[] }) {
     <DisclosureSection title="Effect Studio" id="effect-studio-adjustments" defaultExpanded>
       <div className="insp-adjustment-access">
         <p className="insp-adjustment-access__description">
-          Browse and tune the full creative treatment gallery in the Studio modal. The editable
-          Object Filter stack remains available below for direct parameter, order, opacity, and
-          blend control.
+          Browse named treatments in Studio; fine-tune individual Object Filters below.
         </p>
         {appliedNames.length > 0 && (
           <p className="insp-adjustment-access__description">

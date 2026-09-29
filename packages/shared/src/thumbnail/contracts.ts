@@ -58,6 +58,7 @@ export type ThumbnailRole =
   | 'version-history'
   | 'picker-preview'
   | 'effect-studio-preview'
+  | 'effect-studio-proof'
   | 'export-preview';
 
 export type ThumbnailFit = 'contain' | 'cover' | 'fill';
@@ -80,6 +81,8 @@ export interface ThumbnailVariant {
   readonly format: ThumbnailFormat;
   /** Pixel density; 2 renders a HiDPI image that is downscaled on display. */
   readonly devicePixelRatio: 1 | 2;
+  /** Render small sources up to the profile dimensions instead of clamping at 1:1. */
+  readonly allowUpscale?: boolean;
 }
 
 /** Registry of every variant the product requests. Add roles here, not ad hoc. */
@@ -146,6 +149,16 @@ export const THUMBNAIL_VARIANTS: Record<ThumbnailRole, ThumbnailVariant> = {
     background: { type: 'checkerboard' },
     format: 'png',
     devicePixelRatio: 1,
+  },
+  'effect-studio-proof': {
+    role: 'effect-studio-proof',
+    width: 1536,
+    height: 1152,
+    fit: 'contain',
+    background: { type: 'checkerboard' },
+    format: 'png',
+    devicePixelRatio: 1,
+    allowUpscale: true,
   },
   'export-preview': {
     role: 'export-preview',
@@ -280,7 +293,7 @@ export function thumbnailVariantKey(variant: ThumbnailVariant): string {
     variant.background.type === 'solid'
       ? `solid:${variant.background.color}`
       : variant.background.type;
-  return `${variant.role}:${variant.width}x${variant.height}:${variant.fit}:${bg}:${variant.format}:${variant.devicePixelRatio}x`;
+  return `${variant.role}:${variant.width}x${variant.height}:${variant.fit}:${bg}:${variant.format}:${variant.devicePixelRatio}x:${variant.allowUpscale ? 'upscale' : 'native'}`;
 }
 
 export interface ThumbnailIdentityInput {

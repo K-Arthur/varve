@@ -183,10 +183,21 @@ describe('thumbnail variants', () => {
 
   it('provides a larger editing profile separate from picker thumbnails', () => {
     const editing = THUMBNAIL_VARIANTS['effect-studio-preview'];
+    const proof = THUMBNAIL_VARIANTS['effect-studio-proof'];
     const picker = THUMBNAIL_VARIANTS['picker-preview'];
     expect(editing.role).toBe('effect-studio-preview');
     expect(editing.width).toBeGreaterThan(picker.width);
     expect(editing.height).toBeGreaterThan(picker.height);
+    expect(proof).toMatchObject({
+      role: 'effect-studio-proof',
+      width: 1536,
+      height: 1152,
+      devicePixelRatio: 1,
+      fit: 'contain',
+      allowUpscale: true,
+    });
+    expect(proof.width).toBe(editing.width * 2);
+    expect(proof.height).toBe(editing.height * 2);
   });
 });
 

@@ -458,12 +458,12 @@ describe('EffectStudioSection', () => {
   it('persists saved treatments locally and filters the gallery by them', () => {
     render(<EffectStudioSection nodes={[effectNode()]} />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Save Analog Signal' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add Analog Signal to favorites' }));
     fireEvent.click(
       within(screen.getByRole('toolbar', { name: 'Treatment gallery filters' })).getByRole(
         'button',
         {
-          name: 'Saved',
+          name: 'Favorites',
         },
       ),
     );
@@ -481,7 +481,7 @@ describe('EffectStudioSection', () => {
       within(screen.getByRole('toolbar', { name: 'Treatment gallery filters' })).getByRole(
         'button',
         {
-          name: 'Saved',
+          name: 'Favorites',
         },
       ),
     );

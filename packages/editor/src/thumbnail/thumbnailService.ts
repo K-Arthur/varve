@@ -125,7 +125,10 @@ export async function renderDocThumbnail(
   });
   const revisionHash = options.revisionHash ?? documentRevisionHash(doc);
   const qualityTier =
-    options.variant.role === 'effect-studio-preview' ? 'editing-preview' : 'thumbnail';
+    options.variant.role === 'effect-studio-preview' ||
+    options.variant.role === 'effect-studio-proof'
+      ? 'editing-preview'
+      : 'thumbnail';
 
   const outcome = (
     result: ThumbnailResult | null,
@@ -293,6 +296,7 @@ export async function renderDocThumbnail(
         background: options.variant.background,
         format: options.variant.format,
         devicePixelRatio: options.variant.devicePixelRatio,
+        allowUpscale: options.variant.allowUpscale,
         frame: selection.worldFrame ?? undefined,
         sourceLabel: sourceDisplayLabel(effectiveSource),
         buildIr:

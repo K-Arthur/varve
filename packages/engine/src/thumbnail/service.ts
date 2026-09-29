@@ -177,6 +177,7 @@ function computeScale(
   outW: number,
   outH: number,
   fit: ThumbnailFit,
+  allowUpscale = false,
 ): number {
   if (boundsW <= 0 || boundsH <= 0) return 1;
   const scaleX = outW / boundsW;
@@ -187,7 +188,7 @@ function computeScale(
     case 'cover':
       return Math.max(scaleX, scaleY);
     default:
-      return Math.min(scaleX, scaleY, 1);
+      return allowUpscale ? Math.min(scaleX, scaleY) : Math.min(scaleX, scaleY, 1);
   }
 }
 
@@ -367,7 +368,14 @@ export async function generateThumbnail(
 
   if (signal?.aborted) return null;
 
-  const scale = computeScale(renderBounds.w, renderBounds.h, outW, outH, opts.fit ?? 'contain');
+  const scale = computeScale(
+    renderBounds.w,
+    renderBounds.h,
+    outW,
+    outH,
+    opts.fit ?? 'contain',
+    opts.allowUpscale,
+  );
   let cw = Math.max(1, Math.round(renderBounds.w * scale));
   let ch = Math.max(1, Math.round(renderBounds.h * scale));
 
