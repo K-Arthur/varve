@@ -227,8 +227,8 @@ pnpm verify:affected
   `pnpm verify:full`; no affected test lane was started by that command.
 ```
 
-The inference lifecycle milestone is committed as `8fcdfeb34`. The current
-shared-admission milestone is still uncommitted. The platform memory
+The inference lifecycle milestone is committed as `8fcdfeb34`, and the shared
+byte-admission milestone is committed as `0112de9a8`. The platform memory
 implementation remains excluded while its shared-tree diff is owned by another
 writer.
 
@@ -257,12 +257,18 @@ all workspace packages and again reported `FULL-SUITE ESCALATION: YES` for
 shared validation-infrastructure/dependency-toolchain changes. The required
 `pnpm verify:affected` stopped with exit 2 at that escalation and recommended
 `pnpm verify:full`; it did not start affected lanes. `pnpm audit:docs` passed
-(1100 docs, 679 links, 177 ADRs), `pnpm audit:emoji` passed after a transient
+(1101 docs, 679 links, 177 ADRs), `pnpm audit:emoji` passed after a transient
 failure on generated pages from another task, and `pnpm audit:tokens` passed
 all 303 contrast pairs plus the usage scan. No generated report files were
 changed by this task. The platform typecheck and 60 focused tests pass; the
 engine typecheck remains blocked only by the two unrelated
 `tonalControls.bench.ts` callback errors recorded above.
+
+The shared-admission commit also passed its normal scoped commit checkpoint:
+Biome, emoji, health, impact-config, secret, contacts, docs and import-boundary
+checks, followed by 47 tests across the four admission/provider suites. This
+is additional evidence; it does not replace the seven-suite, 60-test focused
+run above.
 
 The fresh source/runtime baseline was verified on 2026-09-28 local time; it is
 not a hardware profile:

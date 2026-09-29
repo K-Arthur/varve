@@ -71,7 +71,13 @@ behavior and inspect any newly appearing hunks before editing or committing.
 |---|---|
 | `33c00bf51` | Refreshed continuation source/research baseline. |
 | `8fcdfeb34` | Retain inference reservations through actual execution completion and prevent overlapping session-provider fallback. |
-| Pending | Shared byte admission and inference compatibility adapter. |
+| `0112de9a8` | Shared byte admission and inference compatibility adapter; normal scoped commit checks passed. |
+
+The baseline audit contains the exact focused validation commands and outcomes
+for both completed milestones. The admission commit hook reran 47 tests across
+four suites; the pre-commit seven-suite validation ran 60 tests. Engine
+typecheck remains blocked by the unrelated shared `tonalControls.bench.ts`
+callback errors documented in the audit.
 
 Validation follows `AGENTS.md` and
 `docs/quality/validation-strategy.md`: inspect diffs, run `pnpm verify:plan`,
