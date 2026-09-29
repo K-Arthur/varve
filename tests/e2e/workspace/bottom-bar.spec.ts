@@ -40,30 +40,25 @@ test.describe('bottom bar', () => {
 
   test('every fact has exactly one owner across the two strips', async ({ page }) => {
     await navigateToEditor(page);
-    await seedLayers(page, 3);
 
     const status = page.locator('.editor-status');
     const selectionStrip = page.locator('.selection-info-bar');
     await expect(status).toBeVisible();
     await expect(selectionStrip).toBeVisible();
 
-    // 1. Selection identity: SelectionInfoBar only. The status bar used to
-    //    repeat the node name (and a layer count derived differently).
-    const firstRow = page.getByRole('treeitem').first();
-    const layerName = (await firstRow.innerText()).trim();
-    expect(layerName.length).toBeGreaterThan(0);
-    await firstRow.click();
-    await expect(selectionStrip).toContainText(layerName);
-    await expect(status).not.toContainText(layerName);
-    await expect(status).not.toContainText('selected');
-    await expect(status).not.toContainText('layers');
+    // 1. Nothing selected yet, so the fit cluster must not offer an action
+    //    that cannot do anything.
+    await expect(
+      page.getByRole('button', { name: 'Fit selection to viewport', exact: true }),
+    ).toHaveCount(0);
 
     // 2. Zoom: one input, one id. The menubar used to carry a second one with
     //    the same accessible name (Illustrator shipped this pair and broke it).
     await expect(page.locator('#status-zoom')).toHaveCount(1);
     await expect(page.locator('#menubar-zoom')).toHaveCount(0);
-    const zoomInputs = page.locator('input[aria-label^="Zoom "]:not([aria-label="Zoom"])');
-    await expect(zoomInputs).toHaveCount(1);
+    await expect(page.locator('input[aria-label^="Zoom "]:not([aria-label="Zoom"])')).toHaveCount(
+      1,
+    );
 
     // 3. Document health: at most one badge, and never the three it replaced.
     await expect(page.locator('.audit-badge')).toHaveCount(0);
@@ -74,25 +69,31 @@ test.describe('bottom bar', () => {
     // 4. Save state is always present — clamped by ESSENTIAL_STATUS_SECTION_IDS.
     await expect(page.getByRole('button', { name: /open Document Info/i })).toBeVisible();
 
-    // 5. The fit cluster never offers an action that cannot do anything: with
-    //    a selection, "Fit selection" exists; with none, it does not.
-    await expect(
-      page.getByRole('button', { name: 'Fit selection to viewport', exact: true }),
-    ).toHaveCount(1);
-    await page.keyboard.press('Escape');
-    await page.locator('canvas.editor-canvas__content-layer').click({ position: { x: 5, y: 5 } });
-    await expect(
-      page.getByRole('button', { name: 'Fit selection to viewport', exact: true }),
-    ).toHaveCount(0);
-
-    // 6. The grid-spacing field is labelled and only present while it can do
-    //    something; snapping is on by default, so it should be visible now.
+    // 5. The grid-spacing field is labelled and only present while it can do
+    //    something. Snapping is on by default, so it shows now; turning snapping
+    //    off removes it instead of leaving a number that changes nothing.
     await expect(page.getByLabel('Grid spacing in pixels')).toBeVisible();
-    const snapToggle = page.getByRole('button', { name: 'Disable snapping' });
-    await snapToggle.click();
+    await page.getByRole('button', { name: 'Disable snapping' }).click();
     await expect(page.getByLabel('Grid spacing in pixels')).toHaveCount(0);
     await page.getByRole('button', { name: 'Enable snapping' }).click();
     await expect(page.getByLabel('Grid spacing in pixels')).toBeVisible();
+
+    // 6. Selection identity: SelectionInfoBar only.
+    await seedLayers(page, 3);
+    await page.getByRole('treeitem').first().click();
+    const nodeName = await page.locator('.selection-info-bar__name').innerText({ timeout: 10_000 });
+    expect(nodeName.trim().length).toBeGreaterThan(0);
+    await expect(selectionStrip).toContainText(nodeName);
+    // The status bar used to repeat the node name, a selection count, and a
+    // layer count derived differently from the strip above it.
+    await expect(status).not.toContainText(nodeName);
+    await expect(status).not.toContainText('selected');
+    await expect(status).not.toContainText('layers');
+
+    // 7. …and with a selection, "Fit selection" appears.
+    await expect(
+      page.getByRole('button', { name: 'Fit selection to viewport', exact: true }),
+    ).toHaveCount(1);
   });
 
   test('information reads left of controls, and the customize dialog drives both', async ({
@@ -117,16 +118,35 @@ test.describe('bottom bar', () => {
     await expect(saveToggle).toBeDisabled();
     await expect(dialog.getByText(/Always shown/)).toBeVisible();
 
-    const viewToggle = dialog.getByRole('checkbox', { name: 'View Toggles' });
-    await viewToggle.uncheck({ force: true });
+    // Toggle through the row's own label. A force-click on the 1px native
+    // input aims at whatever sits above it, and in a long dialog that can be
+    // the sticky footer — which closes the dialog instead of toggling.
+    const toggleSection = async (name: string) => {
+      const label = dialog.getByText(name, { exact: true });
+      await label.scrollIntoViewIfNeeded();
+      await label.click();
+      await expect(dialog).toBeVisible();
+    };
+
+    await toggleSection('View Toggles');
     await expect(page.locator('.editor-status__view-group')).toHaveCount(0);
-    await viewToggle.check({ force: true });
+    await toggleSection('View Toggles');
     await expect(page.locator('.editor-status__view-group')).toHaveCount(1);
 
+    // Units is a deterministic section: a clean document has no health
+    // findings to show or hide, so the round trip proves the dialog drives the
+    // row on a section whose output is always present.
+    await toggleSection('Units');
+    await expect(status.getByRole('combobox', { name: 'Units' })).toHaveCount(0);
+    await toggleSection('Units');
+    await expect(status.getByRole('combobox', { name: 'Units' })).toHaveCount(1);
+
     const healthToggle = dialog.getByRole('checkbox', { name: 'Document Health' });
-    await healthToggle.uncheck({ force: true });
-    await expect(page.locator('.document-health-badge')).toHaveCount(0);
-    await healthToggle.check({ force: true });
+    await expect(healthToggle).toBeChecked();
+    await toggleSection('Document Health');
+    await expect(healthToggle).not.toBeChecked();
+    await toggleSection('Document Health');
+    await expect(healthToggle).toBeChecked();
 
     await dialog.getByRole('button', { name: 'Done' }).click();
     await expect(dialog).toBeHidden();
@@ -151,12 +171,16 @@ test.describe('bottom bar', () => {
             getComputedStyle(button).display !== 'none' && button.getClientRects().length > 0,
         );
         return {
+          barTop: barRect.top,
+          barBottom: barRect.bottom,
           buttons: buttons.map((button) => {
             const rect = button.getBoundingClientRect();
             return {
               label: button.getAttribute('aria-label') ?? button.textContent ?? '',
               w: rect.width,
               h: rect.height,
+              top: rect.top,
+              bottom: rect.bottom,
               clippedVertically: rect.bottom > barRect.bottom + 0.5 || rect.top < barRect.top - 0.5,
             };
           }),
@@ -170,7 +194,10 @@ test.describe('bottom bar', () => {
       for (const button of report!.buttons) {
         expect(button.w, `${button.label} width at ${width}px`).toBeGreaterThan(0);
         expect(button.h, `${button.label} height at ${width}px`).toBeGreaterThanOrEqual(23.5);
-        expect(button.clippedVertically, `${button.label} clips at ${width}px`).toBe(false);
+        expect(
+          button.clippedVertically,
+          `${button.label} clips at ${width}px — bar [${report!.barTop.toFixed(1)}, ${report!.barBottom.toFixed(1)}], control [${button.top.toFixed(1)}, ${button.bottom.toFixed(1)}]`,
+        ).toBe(false);
       }
       expect(report!.overflowX).toBe('auto');
       if (report!.scrollWidth > report!.clientWidth + 1) {

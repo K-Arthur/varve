@@ -313,6 +313,13 @@ input[type="number"] {
    * always agree; the bar previously hard-coded 28px against a 24.8-28px
    * row and was silently clipped at narrow widths. */
   --statusbar-height: max(1.625rem, clamp(1.5rem, 1.45rem + 0.25vw, 1.75rem));
+  /* Control tier inside that row: the 24px WCAG 2.2 SC 2.5.8 floor, never the
+   * 28px --component-compact-height. The row is 26–28px *including* its 1px
+   * top border, so a 28px control overflowed it and the shell's
+   * overflow:hidden clipped the difference (measured 2026-09-29: the save
+   * status chip lost ~1.2px at 1440px). Block axis only — the inline axis has
+   * plenty of room, so widths keep --component-compact-height. */
+  --statusbar-control-height: var(--component-xs-height);
   /* Total height of the header stack: menubar + context control bar + tab strip.
    * Used by responsive panel drawers (<=899px) so they start below the header
    * instead of covering the context control bar. */
@@ -1222,7 +1229,7 @@ input[type="number"] {
   width: 3rem;
   /* Text-entry target: the status bar's control tier, never a spacing token
    * (--space-6 resolved to 22.4px at a narrow window and 29.6px at 1920). */
-  min-height: var(--component-compact-height);
+  min-height: var(--statusbar-control-height);
   text-align: right;
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
@@ -1254,8 +1261,8 @@ input[type="number"] {
   width: auto;
 }
 .editor-status .varve-select__trigger {
-  min-height: var(--component-compact-height);
-  height: var(--component-compact-height);
+  min-height: var(--statusbar-control-height);
+  height: var(--statusbar-control-height);
   padding: 0 var(--space-2);
   font-size: var(--font-size-xs);
   border-radius: var(--radius-control-compact);
@@ -1281,7 +1288,8 @@ input[type="number"] {
   /* The status bar's control tier; a spacing token here made the target
    * 22.4px at a narrow window (WCAG 2.2 SC 2.5.8 failure). */
   min-width: var(--component-compact-height);
-  height: var(--component-compact-height);
+  min-height: var(--statusbar-control-height);
+  height: var(--statusbar-control-height);
   padding: 0 var(--space-1);
   background: none;
   border: none;
@@ -1329,7 +1337,7 @@ input[type="number"] {
 /* Zoom chip toggles (inline, but still on the status tier) */
 .editor-status__zoom-chip .editor-status__toggle {
   width: var(--component-compact-height);
-  height: var(--component-compact-height);
+  height: var(--statusbar-control-height);
   border-radius: var(--radius-control-compact);
 }
 
@@ -1341,7 +1349,7 @@ input[type="number"] {
   font: inherit;
   font-size: var(--font-size-xs);
   /* Interactive control: the status bar's control tier. */
-  min-height: var(--component-compact-height);
+  min-height: var(--statusbar-control-height);
   padding: 0 var(--space-2);
   border-radius: var(--radius-control-compact);
   white-space: nowrap;
@@ -1404,12 +1412,15 @@ input[type="number"] {
 }
 
 /* Status-bar badges are interactive controls too (document health, save
- * state). They take the status tier in the block axis and the 24px WCAG floor
- * in the inline axis, without changing how a badge renders in any other,
- * denser context. */
+ * state, preflight). They take the status tier in the block axis and the 24px
+ * WCAG floor in the inline axis, without changing how a badge renders in any
+ * other, denser context. Preflight was the one badge left out, so it drew at
+ * its intrinsic ~19px inside the row — an interactive control under the WCAG
+ * 2.5.8 floor, on touch in particular. */
 .editor-status .document-health-badge,
+.editor-status .preflight-warnings__badge,
 .editor-status .save-status {
-  min-height: var(--component-compact-height);
+  min-height: var(--statusbar-control-height);
   min-width: var(--target-min-compact);
   justify-content: center;
 }
@@ -1454,7 +1465,7 @@ input[type="number"] {
   display: inline-flex;
   align-items: center;
   gap: var(--space-05);
-  min-height: var(--component-compact-height);
+  min-height: var(--statusbar-control-height);
   padding: 0 var(--space-2);
   background: var(--elevation-surface-default);
   border: var(--border-micro);
@@ -2330,6 +2341,7 @@ input[type="number"] {
   .editor-menubar .editor-menubar__doc-name-input,
   .editor-status .save-status,
   .editor-status .document-health-badge,
+  .editor-status .preflight-warnings__badge,
   .editor-status .varve-select__trigger {
     min-height: 24px;
   }

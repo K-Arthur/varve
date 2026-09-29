@@ -89,12 +89,19 @@ test.describe('bottom bar visual QA', () => {
     await captureBottomStack(page, 'design-selected-high-contrast');
   });
 
-  test('print row: page info, colour mode, and preflight', async ({ page }) => {
+  test('print row: preflight and the print-only sections', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await navigateToEditor(page, '/', { startupTimeout: 120_000 });
     await page.keyboard.press('Control+Shift+2');
-    await expect(page.locator('.editor-status')).toContainText('Page', { timeout: 20_000 });
-    await expect(page.locator('.editor-status')).toContainText('CMYK');
+    // A Design Canvas fixture has no publishing pages or colour config, so
+    // page info and colour mode have nothing to render — what this row proves
+    // is that Print brings its own sections (preflight) and drops the Design
+    // ones, from the same single vocabulary.
+    const printTab = page.locator('.workspace-dock__item[aria-label="Print workspace"]');
+    await expect(printTab).toHaveAttribute('aria-checked', 'true', { timeout: 20_000 });
+    await expect(
+      page.locator('.editor-status').getByRole('button', { name: /Preflight/ }),
+    ).toBeVisible();
     await setTheme(page, 'light');
     await captureBottomStack(page, 'print-row-light');
   });
@@ -114,7 +121,8 @@ test.describe('bottom bar visual QA', () => {
   test('narrow row drops its tiers instead of clipping', async ({ page }) => {
     await page.setViewportSize({ width: 640, height: 900 });
     await navigateToEditor(page, '/', { startupTimeout: 120_000 });
-    await seedLayers(page, 2);
+    // No layers: at 640px the Layers panel is a drawer, so seeding would be
+    // fighting the responsive layout for a capture that is about the row.
     await setTheme(page, 'light');
     await expect(page.locator('.editor-status')).toBeVisible();
     await captureBottomStack(page, 'narrow-640-light');
