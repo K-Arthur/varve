@@ -5,7 +5,11 @@
  * and stale-result rejection via generation tracking.
  */
 
-import { estimateInferenceReservation, getInferenceAdmission } from './admission';
+import {
+  estimateInferenceReservation,
+  getInferenceAdmission,
+  type InferenceAdmission,
+} from './admission';
 import { InferenceError } from './core/InferenceError';
 import type {
   WorkerInferRequest,
@@ -28,6 +32,9 @@ interface PendingJob {
   resolve: (result: WorkerInferResult) => void;
   reject: (error: Error) => void;
   timer: ReturnType<typeof setTimeout>;
+  /** Release admission only when this worker request is actually finished. */
+  finishExecution: () => void;
+  callerSettled: boolean;
   abortCleanup?: () => void;
 }
 
@@ -63,12 +70,13 @@ export class InferenceWorkerHost {
     unresolvedBytes: 0,
     lastReport: null as WorkerReleaseResponse | null,
   };
-  /** Requests whose caller stopped caring while the graph is still running. */
-  private discardedRequestIds = new Set<string>();
   private nextRequestId = 0;
   private workerReady = false;
 
-  constructor(private workerUrl?: string | URL) {}
+  constructor(
+    private workerUrl?: string | URL,
+    private admission: InferenceAdmission = getInferenceAdmission(),
+  ) {}
 
   private ensureWorker(): Worker {
     if (this.worker) return this.worker;
@@ -118,21 +126,32 @@ export class InferenceWorkerHost {
       return;
     }
 
-    const job = this.pendingJobs.get(msg.requestId);
-    if (!job) {
-      this.discardedRequestIds.delete(msg.requestId);
+    if (msg.type === 'fatal') {
+      this.restartWorker(
+        new InferenceError('worker_crash', undefined, {
+          message: 'Inference worker retired after an unreleased session creation.',
+          technical: msg.message,
+        }),
+      );
       return;
     }
+
+    const job = this.pendingJobs.get(msg.requestId);
+    if (!job) return;
 
     clearTimeout(job.timer);
     job.abortCleanup?.();
     this.pendingJobs.delete(msg.requestId);
 
-    if (msg.type === 'result') {
-      job.resolve(msg);
-    } else {
-      job.reject(inferenceErrorFromMessage(msg.message));
+    if (!job.callerSettled) {
+      job.callerSettled = true;
+      if (msg.type === 'result') {
+        job.resolve(msg);
+      } else {
+        job.reject(inferenceErrorFromMessage(msg.message));
+      }
     }
+    job.finishExecution();
   }
 
   private handleWorkerError(e: ErrorEvent): void {
@@ -162,7 +181,11 @@ export class InferenceWorkerHost {
       clearTimeout(job.timer);
       job.abortCleanup?.();
       this.pendingJobs.delete(id);
-      job.reject(reason);
+      if (!job.callerSettled) {
+        job.callerSettled = true;
+        job.reject(reason);
+      }
+      job.finishExecution();
     }
     for (const [id, pending] of this.pendingReleases) {
       clearTimeout(pending.timer);
@@ -173,29 +196,29 @@ export class InferenceWorkerHost {
     // reclaimed by the platform. This is the one case where accounting may
     // return to zero without a successful release call.
     this.residency.unresolvedBytes = 0;
-    this.discardedRequestIds.clear();
   }
 
   /**
-   * Stop observing one request without tearing down the shared worker.
+   * Stop waiting for one request without tearing down the shared worker.
    *
    * ORT does not expose a portable cancellation hook for every graph, so the
-   * computation may finish in the worker. Its late result is discarded by
-   * request id. Callers that need hard interruption use the timeout/crash path,
-   * which explicitly reports that the shared worker was restarted.
+   * computation may finish in the worker. Keep its request, deadline, and
+   * admission lease until the late result arrives or the worker is restarted.
+   * This prevents a cancelled caller from admitting overlapping work while
+   * its original graph still owns CPU/GPU and model memory.
    */
   cancel(requestId: string): boolean {
     const job = this.pendingJobs.get(requestId);
-    if (!job) return false;
-    clearTimeout(job.timer);
+    if (!job || job.callerSettled) return false;
     job.abortCleanup?.();
-    this.pendingJobs.delete(requestId);
-    this.discardedRequestIds.add(requestId);
+    job.callerSettled = true;
     job.reject(
       new InferenceError('inference_cancelled', undefined, {
         message: 'Inference result discarded after cancellation.',
-        technical: 'The request was detached from its caller; the shared worker was kept alive.',
-        recovery: 'Retry the operation when ready.',
+        technical:
+          'The caller stopped waiting; its worker request remains accounted until it finishes.',
+        recovery:
+          'The result will be discarded. New inference waits for the worker request to finish.',
       }),
     );
     return true;
@@ -216,9 +239,10 @@ export class InferenceWorkerHost {
       label: `${request.modelType} inference`,
     };
     const lease =
-      getInferenceAdmission().tryAcquire(admissionRequest) ??
-      (await getInferenceAdmission().acquire(admissionRequest));
+      this.admission.tryAcquire(admissionRequest) ??
+      (await this.admission.acquire(admissionRequest));
 
+    let executionOwned = false;
     try {
       const worker = this.ensureWorker();
       const requestId = `inf_${++this.nextRequestId}_${Date.now().toString(36)}`;
@@ -236,33 +260,41 @@ export class InferenceWorkerHost {
           if (!job) return;
           this.pendingJobs.delete(requestId);
           job.abortCleanup?.();
-          job.reject(
-            new InferenceError('inference_timeout', undefined, {
-              message: `Inference timed out after ${timeout}ms`,
-              technical: `The ${request.modelType} request exceeded the host deadline.`,
-            }),
-          );
-          // ONNX Runtime does not expose cooperative cancellation for every
-          // graph. Terminating the worker is the only way to prevent a timed-out
-          // request from occupying the shared worker and poisoning the retry.
-          this.worker?.terminate();
-          this.worker = null;
-          this.workerReady = false;
-          for (const [id, other] of this.pendingJobs) {
-            clearTimeout(other.timer);
-            other.abortCleanup?.();
-            this.pendingJobs.delete(id);
-            other.reject(
-              new InferenceError('worker_crash', undefined, {
-                message: 'Inference worker restarted after a timeout.',
-                technical: 'The worker was terminated to stop a non-cancellable graph.',
+          if (!job.callerSettled) {
+            job.callerSettled = true;
+            job.reject(
+              new InferenceError('inference_timeout', undefined, {
+                message: `Inference timed out after ${timeout}ms`,
+                technical: `The ${request.modelType} request exceeded the host deadline.`,
               }),
             );
           }
+          // ONNX Runtime does not expose cooperative cancellation for every
+          // graph. Terminating the worker is the only way to prevent a timed-out
+          // request from occupying the shared worker and poisoning the retry.
+          this.restartWorker(
+            new InferenceError('worker_crash', undefined, {
+              message: 'Inference worker restarted after a timeout.',
+              technical: 'The worker was terminated to stop a non-cancellable graph.',
+            }),
+          );
+          job.finishExecution();
         }, timeout);
 
-        const job: PendingJob = { resolve, reject, timer };
+        let finished = false;
+        const job: PendingJob = {
+          resolve,
+          reject,
+          timer,
+          callerSettled: false,
+          finishExecution: () => {
+            if (finished) return;
+            finished = true;
+            lease.release();
+          },
+        };
         this.pendingJobs.set(requestId, job);
+        executionOwned = true;
 
         const fullRequest: WorkerInferRequest = { ...request, requestId };
         try {
@@ -271,6 +303,8 @@ export class InferenceWorkerHost {
           clearTimeout(timer);
           job.abortCleanup?.();
           this.pendingJobs.delete(requestId);
+          job.callerSettled = true;
+          job.finishExecution();
           reject(error instanceof Error ? error : new Error(String(error)));
           return;
         }
@@ -284,7 +318,9 @@ export class InferenceWorkerHost {
         }
       });
     } finally {
-      lease.release();
+      // After posting, the response, deadline, or worker teardown releases the
+      // lease. Caller cancellation alone leaves the underlying request owned.
+      if (!executionOwned) lease.release();
     }
   }
 
@@ -369,24 +405,7 @@ export class InferenceWorkerHost {
 
   /** Cancel all pending jobs and terminate the worker */
   dispose(): void {
-    for (const [id, job] of this.pendingJobs) {
-      clearTimeout(job.timer);
-      job.abortCleanup?.();
-      job.reject(new Error('Worker disposed'));
-      this.pendingJobs.delete(id);
-    }
-    for (const [id, pending] of this.pendingReleases) {
-      clearTimeout(pending.timer);
-      this.pendingReleases.delete(id);
-      pending.reject(new Error('Worker disposed'));
-    }
-    if (this.worker) {
-      this.worker.terminate();
-      this.worker = null;
-    }
-    this.workerReady = false;
-    this.residency.unresolvedBytes = 0;
-    this.discardedRequestIds.clear();
+    this.restartWorker(new Error('Worker disposed'));
   }
 
   get isReady(): boolean {

@@ -17,6 +17,7 @@ import {
   preprocessSemanticInput,
   type SemanticResizeSpec,
 } from '../semanticSimilarity/preprocess';
+import { createSessionWithTimeout, SessionCleanupFailedError } from './core/sessionCreation';
 import type { TensorSpec } from './imageTensor';
 import { packNchwTensor, packNhwcTensor } from './imageTensor';
 import { computeLetterboxGeometry } from './letterboxGeometry';
@@ -161,6 +162,13 @@ export interface WorkerInferError {
   message: string;
 }
 
+/** Signal that the host must terminate this worker to reclaim unknown memory. */
+export interface WorkerFatal {
+  type: 'fatal';
+  requestId: string;
+  message: string;
+}
+
 export interface WorkerReady {
   type: 'ready';
 }
@@ -187,6 +195,7 @@ export type WorkerRequest = WorkerInferRequest | WorkerReleaseRequest;
 export type WorkerResponse =
   | WorkerInferResult
   | WorkerInferError
+  | WorkerFatal
   | WorkerReady
   | WorkerReleaseResponse;
 
@@ -543,37 +552,6 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): 
   });
 }
 
-/**
- * Session creation under a deadline. When the deadline loses the race, the
- * underlying `InferenceSession.create` keeps running: the runtime has no
- * portable cancel. A session that resolves late is released here instead of
- * being dropped, so an abandoned WebGPU attempt cannot quietly pin its
- * device heap and raise the OOM odds for the next job in this worker.
- */
-function withTimeoutReleasingSession<T extends { release?: () => Promise<void> | void }>(
-  create: Promise<T>,
-  timeoutMs: number,
-  label: string,
-): Promise<T> {
-  let timedOut = false;
-  create.then(
-    (session) => {
-      if (!timedOut) return;
-      try {
-        void session.release?.();
-      } catch {
-        // A late release is best-effort; the job already failed.
-      }
-    },
-    () => {
-      // A late rejection has no resources to release.
-    },
-  );
-  return withTimeout(create, timeoutMs, label).finally(() => {
-    timedOut = true;
-  });
-}
-
 async function getPreferredProviders(modelId: string): Promise<string[]> {
   try {
     const { getRecommendedProvider } = await import('./modelCatalog');
@@ -653,7 +631,7 @@ async function getSession(
     for (const provider of providers) {
       if (provider === 'wasm') continue;
       try {
-        const session = await withTimeoutReleasingSession(
+        const session = await createSessionWithTimeout(
           ort.InferenceSession.create(modelPath, {
             executionProviders: [provider],
             ...externalDataOption,
@@ -668,6 +646,7 @@ async function getSession(
           estimateBytes: sessionPeakBytes ?? 0,
         };
       } catch (err) {
+        if (err instanceof SessionCleanupFailedError) throw err;
         lastError = err instanceof Error ? err : new Error(String(err));
       }
     }
@@ -688,7 +667,7 @@ async function getSession(
           );
     }
 
-    const session = await withTimeoutReleasingSession(
+    const session = await createSessionWithTimeout(
       ort.InferenceSession.create(modelPath, {
         executionProviders: ['wasm'],
         ...externalDataOption,
@@ -1119,6 +1098,14 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
       },
     } satisfies WorkerInferResult);
   } catch (err) {
+    if (err instanceof SessionCleanupFailedError) {
+      self.postMessage({
+        type: 'fatal',
+        requestId,
+        message: err.message,
+      } satisfies WorkerFatal);
+      return;
+    }
     const error: WorkerInferError = {
       type: 'error',
       requestId,

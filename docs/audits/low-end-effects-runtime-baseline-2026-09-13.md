@@ -187,12 +187,35 @@ gaps:
 
 | Area | Reproduced from source | Required acceptance |
 | --- | --- | --- |
-| Inference cancellation | `InferenceWorkerHost.cancel` removes and rejects a caller's pending job while its worker may keep executing. `infer` releases the admission lease when that caller promise settles, so a second model job can start before the first execution ends. The cancellation path also clears the execution deadline. | Keep execution identity, deadline, and reservation until completion or termination of the worker that owns the request. Prove the next request cannot overlap and that cancellation never commits a late result. |
+| Inference cancellation | Fixed in the current continuation: `InferenceWorkerHost.cancel` now rejects the caller promptly while retaining the worker request, deadline, and admission lease. Result/error, timeout-driven worker termination, and host disposal are the only terminal release paths. | Focused tests verify late results are discarded, replacement requests remain queued, timeout terminates the owner, and disposal kills it before releasing its lease. |
+| Session creation timeout | Before this continuation, accelerated `InferenceSession.create` timed out into the provider loop while its underlying promise could continue. A late session was released best-effort without awaiting confirmation. | The current continuation waits for late creation and confirmed release before provider fallback. If cleanup cannot be confirmed, the worker sends a fatal response and the host terminates it. Tests cover late success, late rejection, and failed release. |
 | Effects and preview | `packages/editor/src/canvas/renderPipeline.ts` has in-flight shared work, and the effect-bearing whole-scene worker path remains behind the pixel-fidelity guard recorded in the canvas audit. `packages/engine/src/liveEffects/dispatch.ts` has no production caller; its provider chain is not yet an application rendering path. | Wire expensive RGBA effect work into actual preview/export consumers. Preserve canonical source capture and prove exact or contract-tolerant results with the independent full-redraw oracle before enabling a provider. |
 | Export completeness | `exportNodeAsRaster` records image settlement failures as warnings and can continue with missing images. A timed-out image can be absent from the completed file. The raster safety fit can reduce dimensions and return the smaller result with a warning. | Make required missing resources and unavailable requested output dimensions blocking states. Generate another file only after an explicit user choice accepts changed dimensions or quality. |
 | Model working set | The browser downloader retains chunks, assembles another full-size buffer, and hashes/writes that assembled artifact. IndexedDB loading materializes an `ArrayBuffer`; the generic Tauri adapter serializes bytes as a number array. | Measure before/after peak memory. Prefer native streaming on desktop and staged, verified chunk storage in browser runtimes without breaking existing installed-model reads. |
 | Admission and budgets | Inference admission and platform-derived-work admission have separate active counts. Inference's default aggregate byte limit is unbounded, while image, effect, and export surface reservations are not part of that ledger. | Test shared peak reservations and refusal before decode/allocation, including resident sessions and effects competing with explicit export. |
 | UI/model dispatch | The existing `dispatchLiveEffect` is exercised by unit tests only. Runtime provider support remains a capability signal rather than proof that a representative model graph executes correctly. | Keep UI status truthful and qualify an accelerated provider with the actual graph and output comparison; leave unqualified providers unavailable. |
+
+The inference lifecycle correction was validated with the following focused
+checks before its milestone commit:
+
+```text
+node scripts/quality/heavy-lease.mjs 'inference lifecycle regression suite' -- \
+  pnpm exec vitest run \
+    packages/engine/src/inference/__tests__/workerHostMessages.test.ts \
+    packages/engine/src/inference/core/__tests__/sessionCreation.test.ts \
+    packages/engine/src/inference/admission.test.ts \
+    packages/engine/src/inference/sessionRegistry.test.ts \
+    packages/engine/src/inference/core/__tests__/DownloadManager.test.ts \
+    --maxWorkers=1
+Result: 5 files passed, 45 tests passed, 0 failed.
+pnpm --filter @varve/engine typecheck
+Result: passed.
+```
+
+Repository-wide affected validation and the frozen-SHA final gate remain
+outstanding; the shared-tree planner currently selects unrelated work across
+the workspace and escalates to the full suite. No hardware or visual claim is
+made by these lifecycle tests.
 
 The fresh source/runtime baseline was verified on 2026-09-28 local time; it is
 not a hardware profile:

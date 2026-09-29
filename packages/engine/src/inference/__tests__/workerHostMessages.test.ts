@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { InferenceAdmission } from '../admission';
 import { InferenceWorkerHost } from '../inferenceWorkerHost';
 
 /**
@@ -35,16 +36,23 @@ function makeHost() {
       created = this;
     }
   }
+  const admission = new InferenceAdmission({ maxConcurrent: 1 });
   vi.stubGlobal('Worker', StubWorker as unknown as typeof Worker);
-  const host = new InferenceWorkerHost('about:blank');
+  const host = new InferenceWorkerHost('about:blank', admission);
   return {
     host,
+    admission,
     get worker(): FakeWorker {
       if (!created) throw new Error('host never constructed a worker');
       return created;
     },
   };
 }
+
+afterEach(() => {
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+});
 
 /** `infer` posts synchronously inside the promise executor. */
 function requestIdOf(worker: FakeWorker): string {
@@ -84,18 +92,111 @@ describe('InferenceWorkerHost message handling', () => {
     const controller = new AbortController();
     const pending = h.host.infer(
       { type: 'infer', modelType: 'scunet', modelPath: '/m.onnx', modelId: 'scunet' } as never,
-      { timeoutMs: 5000, signal: controller.signal },
+      { timeoutMs: 5000, signal: controller.signal, reservationBytes: 5_000_000 },
     );
     const requestId = requestIdOf(h.worker);
     controller.abort();
     await expect(pending).rejects.toMatchObject({ code: 'inference_cancelled' });
     expect(h.worker.terminated).toBe(false);
-    expect(h.host.pendingCount).toBe(0);
+    expect(h.host.pendingCount).toBe(1);
+    expect(h.admission.getSnapshot()).toMatchObject({
+      active: 1,
+      pending: 0,
+      reservedBytes: 5_000_000,
+    });
+    expect(h.host.recycleWorkerIfIdle()).toBe(false);
 
-    // The late worker response is harmless and does not resurrect the request.
+    // A replacement stays queued until the old graph returns its terminal
+    // response. Its result is discarded, then the single-worker lease moves.
+    const replacement = h.host.infer(
+      { type: 'infer', modelType: 'scunet', modelPath: '/next.onnx', modelId: 'scunet' } as never,
+      { timeoutMs: 5000, reservationBytes: 3_000_000 },
+    );
+    expect(h.admission.getSnapshot()).toMatchObject({
+      active: 1,
+      pending: 1,
+      reservedBytes: 5_000_000,
+    });
+    expect(h.worker.posted).toHaveLength(1);
+
     h.worker.emit({ type: 'result', requestId, outputs: { stale: true } });
+    await vi.waitFor(() => expect(h.worker.posted).toHaveLength(2));
+    expect(h.admission.getSnapshot()).toMatchObject({
+      active: 1,
+      pending: 0,
+      reservedBytes: 3_000_000,
+    });
+    const replacementId = (h.worker.posted[1] as { requestId: string }).requestId;
+    h.worker.emit({ type: 'result', requestId: replacementId, outputs: { fresh: true } });
+    await expect(replacement).resolves.toMatchObject({ outputs: { fresh: true } });
     expect(h.host.pendingCount).toBe(0);
-    vi.unstubAllGlobals();
+    expect(h.admission.getSnapshot()).toMatchObject({
+      active: 0,
+      pending: 0,
+      reservedBytes: 0,
+    });
+  });
+
+  it('keeps a cancelled execution reserved until its deadline terminates the worker', async () => {
+    vi.useFakeTimers();
+    const h = makeHost();
+    const controller = new AbortController();
+    const pending = h.host.infer(
+      { type: 'infer', modelType: 'scunet', modelPath: '/m.onnx', modelId: 'scunet' } as never,
+      { timeoutMs: 10, signal: controller.signal, reservationBytes: 7_000_000 },
+    );
+    const owner = h.worker;
+    controller.abort();
+    await expect(pending).rejects.toMatchObject({ code: 'inference_cancelled' });
+    expect(h.admission.getSnapshot()).toMatchObject({
+      active: 1,
+      reservedBytes: 7_000_000,
+    });
+
+    await vi.advanceTimersByTimeAsync(11);
+    expect(owner.terminated).toBe(true);
+    expect(h.host.pendingCount).toBe(0);
+    expect(h.admission.getSnapshot()).toMatchObject({ active: 0, reservedBytes: 0 });
+  });
+
+  it('terminates the worker when late session cleanup cannot be confirmed', async () => {
+    const h = makeHost();
+    const pending = h.host.infer(
+      { type: 'infer', modelType: 'scunet', modelPath: '/m.onnx', modelId: 'scunet' } as never,
+      { timeoutMs: 5000, reservationBytes: 9_000_000 },
+    );
+    const owner = h.worker;
+    owner.emit({
+      type: 'fatal',
+      requestId: requestIdOf(owner),
+      message: 'late session release failed',
+    });
+
+    await expect(pending).rejects.toMatchObject({ code: 'worker_crash' });
+    expect(owner.terminated).toBe(true);
+    expect(h.host.pendingCount).toBe(0);
+    expect(h.admission.getSnapshot()).toMatchObject({ active: 0, reservedBytes: 0 });
+  });
+
+  it('keeps admission until dispose has terminated the cancelled request owner', async () => {
+    const h = makeHost();
+    const controller = new AbortController();
+    const pending = h.host.infer(
+      { type: 'infer', modelType: 'scunet', modelPath: '/m.onnx', modelId: 'scunet' } as never,
+      { timeoutMs: 5000, signal: controller.signal, reservationBytes: 4_000_000 },
+    );
+    const owner = h.worker;
+    controller.abort();
+    await expect(pending).rejects.toMatchObject({ code: 'inference_cancelled' });
+    expect(h.admission.getSnapshot()).toMatchObject({
+      active: 1,
+      reservedBytes: 4_000_000,
+    });
+
+    h.host.dispose();
+    expect(owner.terminated).toBe(true);
+    expect(h.host.pendingCount).toBe(0);
+    expect(h.admission.getSnapshot()).toMatchObject({ active: 0, reservedBytes: 0 });
   });
 
   it('terminates the worker on timeout so a retry gets a clean worker', async () => {
