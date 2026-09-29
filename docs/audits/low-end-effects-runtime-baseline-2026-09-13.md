@@ -615,7 +615,7 @@ Shared unrelated failures remain attributed to their owners.
 | `pnpm exec biome check packages/engine/src/liveEffects/contracts.ts packages/engine/src/liveEffects/cpuProvider.ts packages/engine/src/liveEffects/dispatch.ts packages/engine/src/liveEffects/effectPreviewRunner.ts` | Passed after import-order correction. |
 | `pnpm audit:docs`, `pnpm audit:emoji`, `pnpm audit:tokens` | Passed: 1,107 docs / 710 links / 177 ADRs; 5,144 files; 303 contrast pairs in 3 themes and clean token usage. |
 | `node scripts/audit-architecture.mjs --ci` after M8 repair | Completed with no new cycle regression. The former M4 cycle is gone; it reports 2 existing engine cycles, 11 scene cycles, and 1 shared editor render-worker cycle. Layer boundaries and dead-code checks are clean; existing hub-budget warnings remain. |
-| Architecture repair | Extracted effect request/provider contracts to a leaf module; dispatcher public type re-exports remain compatible. |
+| Architecture repair | Commit `0540e343c` extracted effect request/provider contracts to a leaf module; dispatcher public type re-exports remain compatible. |
 
 The final full gate remains unpassed because the shared generated JSON formatting
 error and shared editor typecheck failures are outside this task's ownership.

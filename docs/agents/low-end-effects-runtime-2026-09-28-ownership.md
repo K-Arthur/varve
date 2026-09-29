@@ -115,6 +115,7 @@ showing the selected artwork and saved Depth Blur controls, was inspected at
 | `b6727dfe5` | Runtime entrypoint selection, worker session resident accounting, compact registered depth resources; focused browser and unit checks passed. |
 | `a2b37c5b1` | Streamed model storage, incremental integrity checks, and atomic publication of verified model artifacts; normal commit checkpoint passed. |
 | `727927c99` | Touch workflow and truthful model-download status, plus enhancement marketing/help content and the device kit. |
+| `0540e343c` | Extract shared live-effect contracts to remove the worker/dispatcher import cycle; focused engine checks passed. |
 
 ## M8 follow-up — keep the canonical effect provider graph acyclic
 
