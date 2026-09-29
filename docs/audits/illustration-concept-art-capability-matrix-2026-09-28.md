@@ -17,7 +17,7 @@ each workflow receives real UI, save/reopen, undo and export checks.
 | Paint with a vector selected while another pixel layer exists | Resolver chose a raster fallback when selection contained no raster, silently redirecting the stroke. | `paintTarget.ts` + `PaintTool`; refuse the incompatible explicit selection and identify “Create a paint layer” as recovery. | Existing spoken feedback; a visible recovery control remains pending. | Reproduced and repaired in resolver tests; real Chromium stroke leaves canvas and layer list unchanged. Before/after images were inspected: `test-results/illustration-target-20260928-1631/paint-brush-ui-paint-UI-in-7e966-g-into-another-raster-layer-chromium/vector-layer-after-drag.png` and `.../vector-selected-paint-refusal.png`. Undo/reopen/export and visible recovery action pending. |
 | Paint a mask | Resolver checked only node existence/lock; it accepted hidden nodes and arbitrary mask IDs. Mask-session coordinate handling must match the identified mask asset. | Existing raster-mask session and asset registry; validate node, exact asset identity, visibility/locks, active page and invertible mapping. | Existing mask target/inspector surface. | Resolver and PaintTool unit regressions pass for stale/wrong mask and selection clearing; real mask UI workflow pending. Node-local mask coordinate spaces are refused pending an explicitly supported mapping. |
 | Paint when a fallback layer has been deleted | Resolver dereferenced the missing fallback node. | Shared resolver returns a stable refusal; no exception and no redirected deposit. | Existing spoken feedback. | Deleted fallback and inaccessible-target resolver cases covered by focused tests; layer-creation recovery and persisted project check pending. |
-| Raster sketch → ink → flats → shading → transparent PNG | Separate brush/selection operations exist, but cross-tool target and save/export continuity has not been verified as one authored workflow in this audit. | Existing paint, selection, layer-mask, persistence and export systems; use ordinary layers and current format. | Existing tool options, inspector, save and export dialogs. | No end-to-end baseline project yet. |
+| Raster sketch → ink → flats → shading → transparent PNG | Separate brush/selection operations exist, but cross-tool target and save/export continuity has not been verified as one authored workflow in this audit. | Existing paint, selection, layer-mask, persistence and export systems; use ordinary layers and current format. | Existing tool options, inspector, save and export dialogs. | A narrow Magic Wand → Fill pixel layer → PNG export → save/reopen Chromium journey passes on `master`. It samples and fills the same painted layer; the exported 640×480 PNG contains 2,845 opaque black pixels. This confirms the existing command and persistence path, but not clean-linework sampling into a separate flats destination, shading, transparency, or undo. Full workflow pending. |
 | Editable vector contours with raster texture | The path and raster systems coexist; hybrid-edit and SVG/PDF subtree fidelity need a real round-trip check. | Existing Pen/path, raster layers and export flattening boundaries. | Existing canvas and export controls. | Not yet verified end to end. |
 | Thumbnails, references, perspective block-in, variants and presentation export | Existing pages, image nodes, guides and transforms are available; reference inclusion and view-only proof behavior need workflow evidence. | Existing images/assets, guides, view transforms, duplication and exports. | Existing guide and viewport surfaces. | Not yet verified end to end. |
 | Existing restoration/upscale paths | Artifact hash identity is recorded separately from source-license/provenance, quality, parity and memory qualification. | Existing restoration/upscale/session infrastructure only; no additional checkpoint is authorized by this plan. | Current enhancement dialog/status. | Not qualified by this audit. |
@@ -61,6 +61,22 @@ dark themes after the rebuilt output was served. The starting-brush and
 target-behavior copy is readable at both widths. Capture paths are under
 `test-results/strokes-target-copy-Stroke-25b22-mes-widths-and-deploy-bases-ghpages/`
 and the corresponding `-custom-domain/` folder.
+
+The current Magic Wand journey ran on isolated port 4361 through the existing
+selection-source and Inspector export controls. It selected painted pixels,
+invoked **Fill pixel layer**, exported a 640×480 PNG, then saved and reopened
+the document from the Home library. The test passed and the selection,
+post-fill and reopened application captures were inspected:
+
+- `test-results/run-227676-4361/canvas-raster-magic-wand-r-ea64f-e-existing-flat-fill-action-chromium/raster-magic-wand-selection.png`
+- `test-results/run-227676-4361/canvas-raster-magic-wand-r-ea64f-e-existing-flat-fill-action-chromium/raster-magic-wand-filled.png`
+- `test-results/run-227676-4361/canvas-raster-magic-wand-r-ea64f-e-existing-flat-fill-action-chromium/raster-magic-wand-reopened.png`
+- `test-results/run-227676-4361/canvas-raster-magic-wand-r-ea64f-e-existing-flat-fill-action-chromium/raster-magic-wand.png`
+
+The test currently samples and fills the same raster with its foreground
+colour. Its export contains 2,845 opaque black pixels, so this validates the
+existing command/save/export path but is not evidence of a separated
+linework-to-flats workflow. That stronger proof remains open.
 
 The baseline planner selected unrelated package, native, website and full-suite
 lanes because the shared checkout already contained other tasks' changes. No

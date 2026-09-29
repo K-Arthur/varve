@@ -25,6 +25,8 @@ implementation ownership is limited to the following clean paths:
 | `packages/editor/src/tools/PaintTool.ts` | Only target admission/recovery behavior; preserve the stroke worker, transaction and input lifecycle. |
 | `packages/editor/src/tools/__tests__/PaintTool.test.ts` | Only fixtures/assertions affected by stricter target admission. |
 | `tests/e2e/paint/brush-ui.spec.ts` | Isolated real-canvas target-refusal regression and production Brush Browser visual check for the illustration starting presets. |
+| `tests/e2e/canvas/raster-magic-wand.spec.ts` | Verify the existing painted raster → Magic Wand → flat-fill route, save/export/reopen; maintain the current Inspector export-tab access in the real UI. |
+| `tests/e2e/canvas/selection-fill.spec.ts` | Verify selection-to-flats undo/redo, save/export/reopen; maintain the current Inspector export-tab access in the real UI. |
 | `docs/architecture/paint-system.md` | Current target resolution, mask validation and refusal contract. |
 | `apps/website/src/pages/features/strokes.astro` | Evidence-backed public description of shared raster/vector editing and target refusal. |
 | `apps/website/src/pages/docs/tools/strokes.astro` | Artist-facing steps for paint destination behavior. |
@@ -89,18 +91,39 @@ hardware gaps remain explicit in the final handoff.
   owned paths with `CI=1 git commit --only` so unrelated hooks would not stage
   or modify other work.
 
-- The brush-preset and Strokes marketing slice passed its focused tests and
-  is ready for a scoped commit. The production Brush Browser thumbnail was
-  inspected in the running editor. The Strokes static site built at the
-  custom-domain root and `/varve` base; its two-project E2E passed after
-  scoping theme controls to the responsive desktop/mobile header group, and
-  four fresh theme/width captures were inspected. The broader staged affected
-  run had already passed its selected formatting, lint, audits, E2E typecheck,
-  direct unit tests and six paint Chromium tests before hitting an unrelated
-  missing website screenshot manifest entry for `performance-settings-dark.png`.
-  The latest exact 11-file plan also stopped at `audit:docs` because three
-  unrelated pages link to the absent `docs/audits/website-navbar-audit-2026-09-28.md`.
-  `audit:tokens` passes all 303 pairs; website typecheck passes, while the
-  workspace E2E typecheck is blocked by unrelated errors in
-  `packages/engine/src/liveEffects/effectPreviewRunner.ts`. These blockers are
-  recorded for the final validation report.
+- `e9f788745` — `feat(paint): add illustration starting brushes` — added
+  Sketch Pencil, Inking Nib, Opaque Paint and Soft Shade presets; corrected
+  built-in categories; updated Strokes marketing and artist docs; added a
+  production preview UI check and responsive site regression. Focused brush
+  tests passed 74/74; all six paint UI Chromium tests and both website base-path
+  tests passed. The custom-domain and `/varve` builds succeeded, and four
+  desktop/mobile light/dark captures were inspected. The exact 11-file plan
+  selected no full suite. `verify:affected --staged` stopped at `audit:docs`
+  because three unrelated pages link to the absent
+  `docs/audits/website-navbar-audit-2026-09-28.md`; an earlier affected pass
+  reached website-unit before failing on the unrelated missing screenshot
+  manifest entry `performance-settings-dark.png`. `audit:tokens` passes all
+  303 pairs and website typecheck passes. Root `pnpm typecheck:e2e` reports
+  unrelated errors in `packages/engine/src/liveEffects/effectPreviewRunner.ts`.
+  The paint preview capture is `test-results/run-171764-1420/paint-brush-ui-paint-UI-in-91069-enders-searches-and-filters-chromium/brush-browser-paint-presets.png`.
+
+- The raster Magic Wand E2E path now uses the current Inspector Export access
+  (direct tab when visible, otherwise “More inspector tabs” → Export). It
+  passed twice, including save, PNG export and Home-library reopen; captures
+  and its same-layer sampling limitation are recorded in the capability
+  matrix. The selection-fill E2E was stale in two places: Export had moved into
+  the Inspector overflow, and Rectangular Marquee is responsive. The test now
+  uses current UI routes and asserts the active tool and raster target. Several
+  isolated runs have not passed that assertion yet: submenu activation is
+  unstable at 1280px, and the existing click/fill run left Fill pixel layer
+  disabled. A 2400px one-worker run on isolated port 4370 is pending. Do not
+  count marquee fill, undo/redo, or its export/reopen as verified. The staged
+  three-path plan for the Magic Wand evidence slice selects touched-file
+  format/lint, emoji/docs audits, E2E typecheck and its direct spec, with no
+  full-suite escalation. On the four-path plan, the affected runner passed
+  format, lint, emoji, docs, E2E typecheck, and Magic Wand E2E before the
+  selection-fill spec failed. A later three-path affected run passed format,
+  lint, emoji, and docs, then stopped at E2E typecheck on an unrelated shared
+  checkout error: `packages/engine/src/inference/inferenceWorkerHost.ts:43`
+  cannot find `InferenceLease`. Standalone E2E typecheck, Biome, and
+  `git diff --check` passed before that concurrent engine edit.

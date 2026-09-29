@@ -25,6 +25,22 @@ function opaqueBlackPixels(input: Buffer): number {
   return count;
 }
 
+async function selectExportTab(page: import('@playwright/test').Page): Promise<void> {
+  const exportTab = page
+    .getByRole('tablist', { name: 'Inspector tabs' })
+    .getByRole('tab', { name: 'Export', exact: true });
+  if (await exportTab.isVisible().catch(() => false)) {
+    await exportTab.click();
+  } else {
+    await page.getByRole('button', { name: /More inspector tabs/ }).click();
+    await page
+      .getByRole('menu', { name: 'More inspector tabs' })
+      .getByRole('menuitem', { name: 'Export', exact: true })
+      .click();
+  }
+  await page.locator('#insp-sub-tab-format').waitFor({ state: 'visible', timeout: 10000 });
+}
+
 const VIEWPORT = { width: 1280, height: 800 };
 
 test.describe('raster Magic Wand workflow', () => {
@@ -164,10 +180,7 @@ test.describe('raster Magic Wand workflow', () => {
     await expect(page.locator('.save-status')).toHaveText('Saved', { timeout: 30000 });
     await page.waitForTimeout(750);
 
-    const exportTab = page.locator('[role="tablist"] button[role="tab"]', {
-      hasText: /^export$/i,
-    });
-    await exportTab.click();
+    await selectExportTab(page);
     const pngGroup = page.locator('.spec-export__group').filter({ hasText: 'PNG' }).first();
     await pngGroup.getByRole('radio', { name: 'PNG', exact: true }).click();
     const exportDownloadPromise = page.waitForEvent('download', { timeout: 180000 });
