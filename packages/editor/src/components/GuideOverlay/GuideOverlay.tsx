@@ -1,13 +1,14 @@
 import type { Guide } from '@varve/scene';
 import { type OverlayAnchor, pointAnchor, viewportPoint } from '@varve/ui';
 import { useCallback, useRef, useState } from 'react';
-import { getEditorViewport } from '../../canvas/cameraState';
+import { editorScreenToWorld, getEditorViewport } from '../../canvas/cameraState';
 import {
   distanceSqToGuideLine,
   guideLineScreenEndpoints,
   screenToGuidePosition,
 } from '../../canvas/guideGeometry';
 import { GuideContextMenu } from './GuideContextMenu';
+import { PerspectiveGuideOverlay } from './PerspectiveGuideOverlay';
 import './GuideOverlay.css';
 
 interface GuideOverlayProps {
@@ -25,6 +26,8 @@ interface GuideOverlayProps {
 }
 
 const GUIDE_HIT = 8;
+type WorldPoint = readonly [number, number];
+type PerspectiveVanishingPoints = { left: WorldPoint; right: WorldPoint };
 
 export function GuideOverlay({
   guides,
@@ -40,6 +43,9 @@ export function GuideOverlay({
   onSelectGuide,
 }: GuideOverlayProps) {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [perspectivePoints, setPerspectivePoints] = useState<PerspectiveVanishingPoints | null>(
+    null,
+  );
   const [contextMenu, setContextMenu] = useState<{
     anchor: OverlayAnchor;
     guideId: string;
@@ -98,6 +104,31 @@ export function GuideOverlay({
 
   const closeContextMenu = useCallback(() => {
     setContextMenu(null);
+  }, []);
+
+  const togglePerspectiveGuide = useCallback(() => {
+    setPerspectivePoints((current) => {
+      if (current) return null;
+      const viewport = getEditorViewport();
+      const left = editorScreenToWorld(
+        camState,
+        viewport.width * 0.18,
+        viewport.height * 0.42,
+        viewport,
+      );
+      const right = editorScreenToWorld(
+        camState,
+        viewport.width * 0.82,
+        viewport.height * 0.42,
+        viewport,
+      );
+      return { left, right };
+    });
+    closeContextMenu();
+  }, [zoom, pan.x, pan.y, cameraRotation, closeContextMenu]);
+
+  const movePerspectivePoint = useCallback((side: 'left' | 'right', point: WorldPoint) => {
+    setPerspectivePoints((current) => (current ? { ...current, [side]: point } : current));
   }, []);
 
   const handlePointerMove = useCallback(
@@ -165,12 +196,11 @@ export function GuideOverlay({
 
   const ctxGuide = contextMenu ? guides.find((g) => g.id === contextMenu.guideId) : null;
 
-  if (!visible || guides.length === 0) return null;
+  if (!visible || (guides.length === 0 && !perspectivePoints)) return null;
 
   return (
     <div
       className="guide-overlay"
-      aria-hidden
       ref={containerRef}
       onPointerMove={handleOverlayPointerMove}
       onPointerLeave={() => setHoveredId(null)}
@@ -211,6 +241,7 @@ export function GuideOverlay({
                 y2={line.y2}
                 stroke="transparent"
                 strokeWidth={GUIDE_HIT}
+                className="guide-overlay__hit-area"
                 style={{
                   pointerEvents: 'auto',
                   cursor: guide.locked ? 'default' : 'grab',
@@ -233,12 +264,22 @@ export function GuideOverlay({
           );
         })}
       </svg>
+      {perspectivePoints && (
+        <PerspectiveGuideOverlay
+          camera={{ zoom, pan, cameraRotation }}
+          left={perspectivePoints.left}
+          right={perspectivePoints.right}
+          onMovePoint={movePerspectivePoint}
+        />
+      )}
       {ctxGuide && contextMenu && (
         <GuideContextMenu
           anchor={contextMenu.anchor}
           guideId={contextMenu.guideId}
           isLocked={ctxGuide.locked ?? false}
+          perspectiveGuideVisible={perspectivePoints !== null}
           onToggleLock={onToggleLock}
+          onTogglePerspectiveGuide={togglePerspectiveGuide}
           onRemove={onRemoveGuide}
           onClose={closeContextMenu}
         />

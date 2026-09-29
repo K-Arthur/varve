@@ -8,7 +8,9 @@ interface GuideContextMenuProps {
   y?: number;
   guideId: string;
   isLocked: boolean;
+  perspectiveGuideVisible?: boolean;
   onToggleLock: (id: string) => void;
+  onTogglePerspectiveGuide?: () => void;
   onRemove: (id: string) => void;
   onClose: () => void;
 }
@@ -19,7 +21,9 @@ export function GuideContextMenu({
   y,
   guideId,
   isLocked,
+  perspectiveGuideVisible = false,
   onToggleLock,
+  onTogglePerspectiveGuide,
   onRemove,
   onClose,
 }: GuideContextMenuProps) {
@@ -31,8 +35,23 @@ export function GuideContextMenu({
     onRemove(guideId);
   }, [guideId, onRemove]);
 
+  const handleTogglePerspectiveGuide = useCallback(() => {
+    onTogglePerspectiveGuide?.();
+  }, [onTogglePerspectiveGuide]);
+
   const items: MenuEntry[] = [
     { id: 'guide-label', label: 'Guide', type: 'label' },
+    ...(onTogglePerspectiveGuide
+      ? [
+          {
+            id: 'toggle-perspective-guide',
+            label: perspectiveGuideVisible
+              ? 'Hide two-point perspective guide'
+              : 'Show two-point perspective guide',
+            onAction: handleTogglePerspectiveGuide,
+          },
+        ]
+      : []),
     {
       id: 'toggle-lock',
       label: isLocked ? 'Unlock' : 'Lock',

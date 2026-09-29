@@ -42,6 +42,33 @@ describe('GuideContextMenu', () => {
     expect(onRemove).toHaveBeenCalledWith('guide-1');
   });
 
+  it('offers the perspective overlay only when its toggle is available', async () => {
+    const { rerender } = render(<GuideContextMenu {...defaultProps} />);
+    let menu = await screen.findByRole('menu', { name: 'Guide context menu' });
+    expect(menu.textContent).not.toContain('perspective guide');
+
+    rerender(
+      <GuideContextMenu
+        {...defaultProps}
+        onTogglePerspectiveGuide={vi.fn()}
+        perspectiveGuideVisible
+      />,
+    );
+    menu = await screen.findByRole('menu', { name: 'Guide context menu' });
+    expect(menu.textContent).toContain('Hide two-point perspective guide');
+  });
+
+  it('toggles the perspective guide from the ruler-guide menu', async () => {
+    const onTogglePerspectiveGuide = vi.fn();
+    render(
+      <GuideContextMenu {...defaultProps} onTogglePerspectiveGuide={onTogglePerspectiveGuide} />,
+    );
+    fireEvent.click(
+      await screen.findByRole('menuitem', { name: 'Show two-point perspective guide' }),
+    );
+    expect(onTogglePerspectiveGuide).toHaveBeenCalledOnce();
+  });
+
   it('fires onClose after Lock/Unlock action', () => {
     const onClose = vi.fn();
     render(<GuideContextMenu {...defaultProps} onClose={onClose} />);

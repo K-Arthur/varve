@@ -1,6 +1,6 @@
 # Viewport and Guides System
 
-**Updated:** 2026-07-13
+**Updated:** 2026-09-29
 
 ## Target Model
 
@@ -130,6 +130,15 @@ for subsequent pointer movement.
 
 Layout guides, snap overlays, and ruler ticks use rotation-aware projection via
 `guideGeometry.ts` / `rulerGeometry.ts`.
+
+The ruler-guide context menu can also show a two-point perspective construction
+overlay. Its two vanishing-point handles are session-only world positions;
+dragging or nudging them changes the guide, not document geometry. The overlay
+draws a bounded set of rays and verticals above the canvas and is excluded from
+the document renderer, artwork sampling, saves, and exports. It does not snap
+strokes, and it is distinct from the four-corner perspective transform stored
+on an image fill. Toggling the overlay off or reloading the editor discards its
+vanishing-point positions.
 
 ## Input Pipeline
 
