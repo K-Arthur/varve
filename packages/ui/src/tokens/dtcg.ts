@@ -105,6 +105,10 @@ function tokenToPath(token: SemanticToken): string[] {
     const rest = token.slice(6); // layer-accent-frame → accent/frame
     return ['color', 'layer', ...rest.split('-')];
   }
+  if (token.startsWith('minimap-')) {
+    const rest = token.slice(8); // minimap-ink-frame → ink/frame
+    return ['color', 'minimap', ...rest.split('-')];
+  }
   if (token.startsWith('hero-') || token.startsWith('brand-')) {
     return ['color', 'brand', token];
   }

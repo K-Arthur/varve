@@ -223,6 +223,26 @@ const LAYER_WASH_ADJUSTMENT_LIGHT: Oklch = ok(0.965, 0.02, 30);
 const LAYER_ACCENT_ADJUSTMENT_DARK: Oklch = ok(0.6, 0.16, 30);
 const LAYER_WASH_ADJUSTMENT_DARK: Oklch = ok(0.2, 0.025, 30);
 
+/**
+ * Minimap overview ink — one shared value per role, used by all three themes.
+ *
+ * The overview is a shape map, not a legible document: its marks are 1–2 CSS
+ * px and its background is the recessed `surface-sunken` well. Hue is only a
+ * *supplementary* cue (form carries the primary distinction: frames are
+ * outlined containers, leaves are masses, adjustment nodes are bars), so
+ * these values exist to make every kind readable rather than to carry
+ * identity on colour alone.
+ *
+ * Enforced by `MINIMAP_OVERVIEW_CONTRAST_PAIRS`: each ink clears 3:1 against
+ * `surface-sunken` in Light, Dark, and High Contrast with real margin
+ * (measured 3.50–5.19:1; re-measure with `pnpm audit:tokens`).
+ */
+const MINIMAP_INK_FRAME: Oklch = ok(0.5741, 0.1309, 252.23); // BLUE 7 hue
+const MINIMAP_INK_SHAPE: Oklch = ok(0.6042, 0.1298, 57.3); // shape hue
+const MINIMAP_INK_TEXT: Oklch = ok(0.5052, 0.1304, 148.06); // GREEN 9 hue
+const MINIMAP_INK_IMAGE: Oklch = ok(0.6173, 0.18, 330); // image hue
+const MINIMAP_INK_ADJUSTMENT: Oklch = ok(0.6125, 0.16, 30); // adjustment hue
+
 /** Semantic token names exposed as CSS custom properties. */
 export type SemanticToken =
   | 'surface-app'
@@ -349,6 +369,19 @@ export type SemanticToken =
   | 'layer-wash-image'
   | 'layer-accent-adjustment'
   | 'layer-wash-adjustment'
+  /* Minimap overview ink (2026-09-29). The minimap is a miniature: its marks
+   * are 1–2 CSS px, and it is drawn on its own recessed backplate
+   * (`surface-sunken`) rather than on a tree row. Reusing the
+   * `layer-accent-*` steps there measured 2.88–3.53:1 in Light — below or
+   * barely above the WCAG 1.4.11 non-text floor — so the overview gets its
+   * own enforced ink set. Hue is preserved from the matching accent role so
+   * a node still reads as the same kind in the Layers panel; only the
+   * lightness step moves. See docs/architecture/minimap-system.md. */
+  | 'minimap-ink-frame'
+  | 'minimap-ink-shape'
+  | 'minimap-ink-text'
+  | 'minimap-ink-image'
+  | 'minimap-ink-adjustment'
   | 'layer-tag-red'
   | 'layer-tag-orange'
   | 'layer-tag-yellow'
@@ -588,6 +621,11 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Oklch>> = {
     'layer-wash-image': LAYER_WASH_IMAGE_LIGHT,
     'layer-accent-adjustment': LAYER_ACCENT_ADJUSTMENT_LIGHT,
     'layer-wash-adjustment': LAYER_WASH_ADJUSTMENT_LIGHT,
+    'minimap-ink-frame': MINIMAP_INK_FRAME,
+    'minimap-ink-shape': MINIMAP_INK_SHAPE,
+    'minimap-ink-text': MINIMAP_INK_TEXT,
+    'minimap-ink-image': MINIMAP_INK_IMAGE,
+    'minimap-ink-adjustment': MINIMAP_INK_ADJUSTMENT,
     'hero-glow': T(6),
     'brand-teal': T(6),
     'brand-sandstone': BRAND_SANDSTONE,
@@ -722,6 +760,11 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Oklch>> = {
     'layer-wash-image': LAYER_WASH_IMAGE_DARK,
     'layer-accent-adjustment': LAYER_ACCENT_ADJUSTMENT_DARK,
     'layer-wash-adjustment': LAYER_WASH_ADJUSTMENT_DARK,
+    'minimap-ink-frame': MINIMAP_INK_FRAME,
+    'minimap-ink-shape': MINIMAP_INK_SHAPE,
+    'minimap-ink-text': MINIMAP_INK_TEXT,
+    'minimap-ink-image': MINIMAP_INK_IMAGE,
+    'minimap-ink-adjustment': MINIMAP_INK_ADJUSTMENT,
     'hero-glow': T(6),
     'brand-teal': T(6),
     'brand-sandstone': BRAND_SANDSTONE,
@@ -848,6 +891,14 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Oklch>> = {
     'layer-wash-image': ok(0.3156, 0.0, 0),
     'layer-accent-adjustment': ok(0.75, 0.28, 25),
     'layer-wash-adjustment': ok(0.3156, 0.0, 0),
+    /* High Contrast collapses every overview ink onto the single HC accent:
+     * hue is not an identity cue in this theme, and one 19.08:1 tone on the
+     * black backplate is the whole point of the theme. */
+    'minimap-ink-frame': ok(0.9519, 0.2924, 111.62),
+    'minimap-ink-shape': ok(0.9519, 0.2924, 111.62),
+    'minimap-ink-text': ok(0.9519, 0.2924, 111.62),
+    'minimap-ink-image': ok(0.9519, 0.2924, 111.62),
+    'minimap-ink-adjustment': ok(0.9519, 0.2924, 111.62),
     'hero-glow': ok(0.0, 0.0, 0),
     'brand-teal': ok(0.9519, 0.2924, 111.62),
     'brand-sandstone': ok(0.7161, 0.1398, 60.04),
@@ -930,8 +981,45 @@ const WORKSPACE_MODE_CONTRAST_PAIRS: readonly ContrastPair[] = WORKSPACE_MODE_KE
   ],
 );
 
+/**
+ * Minimap overview contract (2026-09-29).
+ *
+ * The minimap draws on its own recessed backplate and its marks are 1–2 CSS
+ * px, so each ink is graded as a non-text graphic (WCAG 1.4.11, 3:1) against
+ * that backplate in all three themes *with margin* — a 3.01:1 technicality on
+ * a 2px mark is not readable. Before this contract the overview reused
+ * `border-subtle` for shape/text/group ink, which measured 1.19:1 in Light:
+ * the artwork was effectively invisible in the default theme.
+ *
+ * Also locked here: the page trim outline, the viewport rectangle (the one
+ * mark a user must always be able to find), and the frame/page label ink.
+ * The exceptional-scale marker reuses `feedback-danger`, which the feedback
+ * graphics matrix above already checks on this same backplate.
+ */
+const MINIMAP_OVERVIEW_CONTRAST_PAIRS: readonly ContrastPair[] = [
+  ...(
+    [
+      'minimap-ink-frame',
+      'minimap-ink-shape',
+      'minimap-ink-text',
+      'minimap-ink-image',
+      'minimap-ink-adjustment',
+      'canvas-selection',
+      'border-strong',
+    ] as const
+  ).map(
+    (fg): ContrastPair => ({
+      name: `${fg} on surface-sunken`,
+      fg,
+      bg: 'surface-sunken',
+      grade: 'UI',
+    }),
+  ),
+];
+
 export const CONTRAST_PAIRS: readonly ContrastPair[] = [
   ...WORKSPACE_MODE_CONTRAST_PAIRS,
+  ...MINIMAP_OVERVIEW_CONTRAST_PAIRS,
   { name: 'text-primary on surface-app', fg: 'text-primary', bg: 'surface-app', grade: 'AA' },
   { name: 'text-secondary on surface-app', fg: 'text-secondary', bg: 'surface-app', grade: 'AA' },
   { name: 'text-muted on surface-app', fg: 'text-muted', bg: 'surface-app', grade: 'AA' },
