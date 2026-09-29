@@ -1,7 +1,7 @@
 # Varve positioning and discovery brief
 
 **Status:** Current operating brief
-**Last verified:** 2026-09-09
+**Last verified:** 2026-09-28
 **Owner:** Varve project maintainer
 
 This is the source of truth for public-facing positioning, audience priorities,
@@ -48,6 +48,21 @@ locally, and supports offline core editing on Linux, macOS, and Windows.
    complex-script text support is still in development, and the `.varve` format
    may change. The website must keep those limitations adjacent to conversion
    paths.
+
+### Website navigation and conversion copy
+
+The marketing header guides people through **Product → Features → Docs →
+Learn → Support**, with Download as the primary action. “Try in browser” is a
+secondary invitation to the bounded browser demo, which is a smaller browser
+build rather than a hosted replacement for the desktop suite. The link opens
+in a new tab, and `/docs/browser-demo` explains the demo's scope. Do not call
+it the web app or imply desktop parity. On narrow phones, keep Download in the
+header and put search, theme selection, and the demo inside the menu.
+Contribution and project links remain in the footer.
+
+The current shared navigation and its verified route, theme, contrast, and
+small-screen behavior are recorded in the
+[`2026-09-28 navbar audit`](../audits/website-navbar-audit-2026-09-28.md).
 
 ### Category essentials and differentiators
 

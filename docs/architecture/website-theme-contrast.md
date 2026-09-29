@@ -30,8 +30,9 @@ light-page and dark-component rendering. A computed-style audit found
    | Borders/focus | `--border-default`, `--border-subtle`, `--border-strong`, `--border-interactive`, `--border-accent`, `--border-warning`, `--border-footer`, `--divider`, `--focus-ring`, `--focus-ring-offset` |
    | Brand/status | `--accent-primary`, `--accent-primary-hover`, `--accent-strong`, `--accent-strong-hover`, `--accent-soft`, `--brand-teal`, `--brand-sandstone`, `--brand-terracotta`, `--status-built`, `--status-partial`, `--status-dev` |
 
-   Every group has a complete light and dark set, plus
-   `prefers-color-scheme` (no-JS) and `forced-colors: active` fallbacks.
+   Every group has a complete light and dark set, plus a full semantic
+   `prefers-color-scheme` (no-JS/pre-paint) fallback and
+   `forced-colors: active` mappings.
    `color-scheme` is set per theme so native controls, scrollbars and form
    fields match.
 3. `apps/website/src/styles/global.css` — element defaults and shared
@@ -66,6 +67,9 @@ palette consumed by CSS:
   `{"light","dark"}`) wins;
 - otherwise the OS preference drives, tracked with a `matchMedia` change
   listener so a first-time visitor follows a mid-session OS switch;
+- if browser storage is unavailable, the latest explicit choice remains in
+  page memory and continues to apply until the page closes; it is not
+  persisted;
 - theme changes in another same-origin tab are reconciled through the storage
   event, then announced through `varve:theme-change` so every visible selector
   refreshes without reloading;
@@ -75,7 +79,8 @@ palette consumed by CSS:
   the OS preference and are replaced by the next explicit choice — they are
   never rendered as a theme;
 - with JavaScript disabled, the `prefers-color-scheme` fallback blocks in
-  `theme.css`/`tokens.css` keep rendering readable.
+  `theme.css`/`tokens.css` reproduce the semantic dark palette, not just the
+  native `color-scheme`, and keep rendering readable.
 
 There is no site high-contrast theme. Native OS forced-colors (Windows High
 Contrast and similar) remains fully supported through the
@@ -90,6 +95,10 @@ All ratios are computed with exact oklch -> sRGB -> WCAG relative luminance
 
 - normal text 4.5:1, large text 3:1,
 - interactive boundaries and focus indicators 3:1,
+- navigation links and descriptions use the same normal-text threshold;
+  selected sections also carry a non-color marker;
+- menu links, close controls, and theme controls provide 44px targets on
+  coarse pointers;
 - disabled controls are exempt but must stay recognizable,
 - purely decorative text is exempt (WCAG 1.4.3 covers text that conveys
   information). Exactly one element qualifies: the oversized footer wordmark,
@@ -108,6 +117,30 @@ Notable tuned values (see `theme.css` for the full set):
   at ~4.8:1 on the dark page (the shared editor tokens are 2.6:1 on the
   website's darker surface).
 - status badges use brand tints light enough for dark text (>= 4.5:1).
+
+## Website navigation surface
+
+The shared header uses an opaque `--surface-header` in both themes and while
+scrolling, normal link lists inside native `<details>` disclosures, and a
+full-viewport native `<dialog>` for narrow-screen navigation. The closed
+dialog is outside the sticky header, so scroll-state effects cannot constrain
+its height. Its scroll region owns overflow on short screens; the browser
+supplies modal focus containment, inert background interaction, and Escape
+handling. A native disclosure remains available when JavaScript is disabled.
+
+The responsive breakpoints are 48rem and 80rem. The center navigation order
+is Product, Features, Docs, Learn, Support. Only an exact link carries
+`aria-current="page"`; a matching parent section uses a separate visible
+marker. The model in `apps/website/src/data/siteNavigation.ts` supplies both
+desktop and mobile lists. Learn has the learning hub, tutorials, examples,
+and community. Support has its home, FAQ, troubleshooting, known issues, issue
+reporting, and contact. Contribution links stay in the footer. On narrow
+phones, search, theme selection, and the bounded browser demo remain in the
+menu while Download stays visible in the header.
+
+The dated findings, source links, before/after observations, screenshots,
+measured contrast, and validation record are in
+[`website-navbar-audit-2026-09-28.md`](../audits/website-navbar-audit-2026-09-28.md).
 
 ## Verification pipeline
 
@@ -128,8 +161,10 @@ Browser (`pnpm test:website:e2e` — Playwright, `playwright.website.config.ts`)
   and no-FOUC ordering; forced-colors emulation resolves surfaces to system
   colors;
 - hero/feature/card visibility regression tests (the reported defects);
-- mobile menu a11y, focus rings, skip link, hash anchors under the sticky
-  header;
+- mobile menu after scroll, viewport coverage, internal scrolling, dismissal,
+  focus return and page-scroll restoration; route parity, disclosure keyboard
+  behavior, search handoff, touch targets, dark fallback, and download/demo
+  links in both deployment modes;
 - axe-core (wcag2a/aa/21/22) on representative routes;
 - asset integrity: every local asset resolves 200 in both base modes;
 - screenshot baselines (`visual.spec.ts`), regenerate deliberately with

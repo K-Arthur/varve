@@ -1,6 +1,6 @@
 # Varve — Website Architecture and Launch Plan
 
-**Last verified:** 2026-09-02
+**Last verified:** 2026-09-28
 **Status:** implemented and deployed at **https://varve.studio** (custom
 domain, registered and DNS at Porkbun, hosted on GitHub Pages). The current
 published release is v0.2.1. See `custom-domain-runbook.md` for the DNS
@@ -88,6 +88,31 @@ alternatives, and verification evidence live in
 Editor-facing content changes in the search index (titles, descriptions,
 headings) are covered by `pnpm test:website` and the search spec in
 `apps/website/tests/e2e/search.spec.ts`.
+
+### Global navigation and conversion paths
+
+`apps/website/src/data/siteNavigation.ts` is the typed route list shared by
+the header disclosure menus and the mobile dialog. The visual order is
+Product, Features, Docs, Learn, Support. Learn points to the learning hub,
+tutorials, examples, and community; Support points to its home, FAQ,
+troubleshooting, known issues, issue reporting, and contact. Project
+contribution stays in the footer. Links use `sitePath()` so `/` and `/varve`
+deployments keep the same destinations.
+
+The header keeps Download as its primary action. “Try in browser” opens the
+bounded browser demo in a new tab; its scope and desktop-product boundaries
+are explained at [`/docs/browser-demo`](../../apps/website/src/pages/docs/browser-demo.astro).
+The compact header label stays “Download” when a release is available and
+falls back to “Beta status” while there is no downloadable release. Do not
+replace that state with a download promise. Footer links retain the project's
+contribution and complete support destinations.
+
+On narrow screens the logo, Download, and Menu remain in the header. The
+modal navigation and search are native dialogs, with focus and page-scroll
+restoration covered by `apps/website/tests/e2e/navbar.spec.ts`. The disclosure
+fallback and OS theme palette continue to work when JavaScript is disabled.
+The responsive, theme, and contrast evidence is in
+[`website-navbar-audit-2026-09-28.md`](../audits/website-navbar-audit-2026-09-28.md).
 
 ### The download manifest flow
 

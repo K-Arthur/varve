@@ -211,6 +211,34 @@ test('download and browser demo use the site base and preserve the new-tab annou
   await expect(demo).toContainText('opens in a new tab');
 });
 
+test('footer keeps browser demo, support, and contribution paths discoverable', async ({
+  page,
+}) => {
+  await page.goto('/product');
+  const footer = page.locator('.site-footer');
+  const demo = footer.locator('a[data-analytics-demo-launch]');
+  await expect(demo).toHaveCount(1);
+  await expect(demo).toHaveAttribute('href', /\/try\/?$/);
+  await expect(demo).toHaveAttribute('target', '_blank');
+  await expect(demo).toContainText('opens in a new tab');
+  await expect(footer.getByRole('link', { name: 'Browser demo details' })).toHaveAttribute(
+    'href',
+    /\/docs\/browser-demo\/?$/,
+  );
+  for (const name of [
+    'Support home',
+    'FAQ',
+    'Troubleshooting',
+    'Known issues',
+    'Report an issue',
+    'Contact Varve',
+    'Contribute',
+    'Support the project',
+  ]) {
+    await expect(footer.getByRole('link', { name, exact: true })).toBeAttached();
+  }
+});
+
 test('compact header download label stays stable on a mobile user agent', async ({ page }) => {
   await page.addInitScript(() => {
     Object.defineProperty(navigator, 'userAgent', {
