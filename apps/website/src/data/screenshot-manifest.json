@@ -355,6 +355,32 @@
       "height": 900,
       "status": "captured",
       "lastValidatedAgainst": null
+    },
+    "tonal-curves": {
+      "file": "tonal-curves-light.png",
+      "alt": "An imported photographic fixture with the Curves graph, retained channel selector and precise point controls in Varve",
+      "caption": "Precise point curves on an editable adjustment layer, with an upstream histogram and source preview.",
+      "width": 1280,
+      "height": 720,
+      "sha256": "b8351d9fe2fdc6c66aa11adf58917fb5a77ae9ea29fbebb281e8f6603ef99dc6",
+      "feature": "tonal-adjustments",
+      "theme": "light",
+      "status": "captured",
+      "source": "tests/e2e/effects/tonal-workflows.spec.ts",
+      "lastValidatedAgainst": null
+    },
+    "tonal-split-tone": {
+      "file": "tonal-split-tone-light.png",
+      "alt": "Split Toning shadow and highlight controls beside a synthetic neutral ramp and color reference in Varve",
+      "caption": "Editable shadow and highlight toning on a synthetic reference that makes color shifts easy to compare.",
+      "width": 1280,
+      "height": 720,
+      "sha256": "ff899a7fb96c10ebb443e8332589e3102681a40c3d05c76c3ab26502313bc960",
+      "feature": "tonal-adjustments",
+      "theme": "light",
+      "status": "captured",
+      "source": "tests/e2e/effects/tonal-workflows.spec.ts",
+      "lastValidatedAgainst": null
     }
   }
 }
