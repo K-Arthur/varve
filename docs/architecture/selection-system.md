@@ -106,6 +106,13 @@ that can be made safe. The pre-existing source commands remain exposed as
 **Select from Image Alpha**, **Select from Image Luminance**, and **Magic Wand
 from Image** in the Pixel Selection menu and Selection Sources panel.
 
+Image-backed Magic Wand requests pin their pointer sequence, source node and
+settings before decoding. A later pointer action or tool deactivation cancels
+an earlier decode; before applying a completed mask, the tool confirms the
+source node is still the same live node. If it changed, the request is refused
+and the artist can click again against the current image. This prevents a slow
+decode from applying an old click or old target after a newer interaction.
+
 SAM2 subject segmentation (`Sam2SegmentationTool`) produces raster masks
 first. **Use as selection** is the one explicit bridge: the committed subject
 mask is converted through `areaSelectionFromMaskCoverage()` into a

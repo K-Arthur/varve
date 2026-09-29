@@ -42,15 +42,20 @@ function featherToOklab(value: number): number {
 export class MagicWandTool extends BaseTool {
   id = 'magicWand' as const;
 
+  private selectionRequestSequence = 0;
+
   cursor(_state: ToolCursorState): CursorSpec {
     return { css: 'crosshair', fallback: 'crosshair' };
   }
 
   override onPointerDown(event: PointerEvent, ctx: ToolContext): GestureResult {
+    // Image-backed selections decode asynchronously. Every new pointer action
+    // supersedes that work, including a click on an unsupported target.
+    const requestSequence = ++this.selectionRequestSequence;
     const world = ctx.canvasToWorld(event.clientX, event.clientY);
     const hit = ctx.hitTest(world);
     if (hit?.node.kind === 'rasterLayer') {
-      const settings = ctx.magicWandSettings ?? DEFAULT_MAGIC_WAND_SETTINGS;
+      const settings = { ...(ctx.magicWandSettings ?? DEFAULT_MAGIC_WAND_SETTINGS) };
       const operation =
         event.shiftKey || event.altKey
           ? selectionOperationFromModifiers(event)
@@ -68,7 +73,7 @@ export class MagicWandTool extends BaseTool {
       selectedRaster?.kind === 'rasterLayer' &&
       (hit === null || hit.node.kind !== 'shape' || !isImageShape(hit.node))
     ) {
-      const settings = ctx.magicWandSettings ?? DEFAULT_MAGIC_WAND_SETTINGS;
+      const settings = { ...(ctx.magicWandSettings ?? DEFAULT_MAGIC_WAND_SETTINGS) };
       const operation =
         event.shiftKey || event.altKey
           ? selectionOperationFromModifiers(event)
@@ -88,11 +93,25 @@ export class MagicWandTool extends BaseTool {
       ctx.announce('The image source is unavailable');
       return { consumed: true };
     }
-    const settings = ctx.magicWandSettings ?? DEFAULT_MAGIC_WAND_SETTINGS;
+    const settings = { ...(ctx.magicWandSettings ?? DEFAULT_MAGIC_WAND_SETTINGS) };
     const operation =
       event.shiftKey || event.altKey ? selectionOperationFromModifiers(event) : settings.operation;
-    void this.select(ctx, hit.nodeId, hit.node, image, source, world, operation);
+    void this.select(
+      ctx,
+      requestSequence,
+      hit.nodeId,
+      hit.node,
+      image,
+      source,
+      world,
+      operation,
+      settings,
+    );
     return { consumed: true };
+  }
+
+  override onDeactivate(): void {
+    this.selectionRequestSequence += 1;
   }
 
   private selectRaster(
@@ -156,38 +175,53 @@ export class MagicWandTool extends BaseTool {
 
   private async select(
     ctx: ToolContext,
+    requestSequence: number,
     nodeId: string,
     node: import('@varve/scene').SceneNode,
     image: ImageFillData,
     source: string,
     click: { x: number; y: number },
     operation: AreaSelectionOperation,
+    settings: NonNullable<ToolContext['magicWandSettings']>,
   ): Promise<void> {
     const decoded = await decodeRasterMaskDataUrl(source);
+    if (requestSequence !== this.selectionRequestSequence) return;
     if (!decoded || !ctx.setAreaSelection) {
       ctx.announce('The image could not be decoded for selection');
       return;
     }
-    const bounds = nodeLocalBounds(node, ctx.document);
-    const worldTransform = nodeWorldTransform(
-      ctx.document,
-      nodeId,
-      buildParentIndexMap(ctx.document),
-    );
+    const currentNode = ctx.getNode(nodeId);
+    const currentImage =
+      currentNode?.kind === 'shape' && isImageShape(currentNode)
+        ? getImageFill(currentNode)?.image
+        : undefined;
+    if (
+      currentNode !== node ||
+      !currentImage ||
+      currentImage.src !== image.src ||
+      currentImage.assetId !== image.assetId
+    ) {
+      ctx.announce('The image changed before Magic Wand could finish; click it again');
+      return;
+    }
+    const bounds = nodeLocalBounds(currentNode, ctx.document);
+    const worldTransform =
+      ctx.getWorldTransform?.(nodeId) ??
+      nodeWorldTransform(ctx.document, nodeId, buildParentIndexMap(ctx.document));
     const placement =
       bounds &&
       computeImagePlacement({
-        fit: image.fit,
+        fit: currentImage.fit,
         sourceWidth: decoded.width,
         sourceHeight: decoded.height,
         bounds,
-        x: image.x,
-        y: image.y,
-        scale: image.scale,
-        sourceCrop: image.crop,
-        rotation: image.rotation,
-        flipH: image.flipH,
-        flipV: image.flipV,
+        x: currentImage.x,
+        y: currentImage.y,
+        scale: currentImage.scale,
+        sourceCrop: currentImage.crop,
+        rotation: currentImage.rotation,
+        flipH: currentImage.flipH,
+        flipV: currentImage.flipV,
       });
     const mapping = placement && visibleImageSourceMapping(placement, worldTransform);
     const inverseWorld = tryInvertAffine(worldTransform);
@@ -212,7 +246,6 @@ export class MagicWandTool extends BaseTool {
       ctx.announce('Fully transparent pixels cannot seed Magic Wand');
       return;
     }
-    const settings = ctx.magicWandSettings ?? DEFAULT_MAGIC_WAND_SETTINGS;
     const sourceSelection = areaSelectionFromColorRange(
       { data: decoded.data, width: decoded.width, height: decoded.height },
       { r: decoded.data[offset]!, g: decoded.data[offset + 1]!, b: decoded.data[offset + 2]! },

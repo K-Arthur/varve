@@ -27,6 +27,9 @@ implementation ownership is limited to the following clean paths:
 | `tests/e2e/paint/brush-ui.spec.ts` | Isolated real-canvas target-refusal regression and production Brush Browser visual check for the illustration starting presets. |
 | `tests/e2e/canvas/raster-magic-wand.spec.ts` | Verify the existing painted raster → Magic Wand → flat-fill route, save/export/reopen; maintain the current Inspector export-tab access in the real UI. |
 | `tests/e2e/canvas/selection-fill.spec.ts` | Verify selection-to-flats undo/redo, save/export/reopen; maintain the current Inspector export-tab access in the real UI. |
+| `packages/editor/src/tools/MagicWandTool.ts` | Only asynchronous image-backed selection request ordering, source identity revalidation and captured settings; no sampling-source redesign. |
+| `packages/editor/src/tools/__tests__/MagicWandTool.test.ts` | Deterministic stale-decode, tool-deactivation and changed-target regressions. |
+| `docs/architecture/selection-system.md` | Record the image-backed Magic Wand async request contract. |
 | `docs/architecture/paint-system.md` | Current target resolution, mask validation and refusal contract. |
 | `apps/website/src/pages/features/strokes.astro` | Evidence-backed public description of shared raster/vector editing and target refusal. |
 | `apps/website/src/pages/docs/tools/strokes.astro` | Artist-facing steps for paint destination behavior. |
@@ -116,7 +119,8 @@ hardware gaps remain explicit in the final handoff.
   uses current UI routes and asserts the active tool and raster target. Several
   isolated runs have not passed that assertion yet: submenu activation is
   unstable at 1280px, and the existing click/fill run left Fill pixel layer
-  disabled. A 2400px one-worker run on isolated port 4370 is pending. Do not
+  disabled. The queued 2400px run on isolated port 4370 was canceled before
+  launch because another website run occupied the shared heavy-task lease. Do not
   count marquee fill, undo/redo, or its export/reopen as verified. The staged
   three-path plan for the Magic Wand evidence slice selects touched-file
   format/lint, emoji/docs audits, E2E typecheck and its direct spec, with no
@@ -127,3 +131,23 @@ hardware gaps remain explicit in the final handoff.
   checkout error: `packages/engine/src/inference/inferenceWorkerHost.ts:43`
   cannot find `InferenceLease`. Standalone E2E typecheck, Biome, and
   `git diff --check` passed before that concurrent engine edit.
+
+- `MagicWandTool` now invalidates pending image decodes on later pointer
+  actions and tool deactivation, captures its settings at request time, and
+  refuses to apply a result if the live source node changed. Its three focused
+  unit regressions pass. Selection contract documentation is updated. The
+  selection-fill browser test remains unverified. No marquee-fill or separate
+  linework-to-flats claim is made.
+
+  For the five owned paths, `pnpm verify:plan --staged` selected touched-file
+  format/lint, emoji/docs/radius audits, the exact new test, and the editor and
+  desktop unit/typecheck closures; it reported no full-suite escalation. The
+  affected run passed format, lint, emoji, docs and radius, and the new test
+  (3/3), then reported 837 editor test files passed, two skipped and five
+  unrelated files failed seven tests: workspace config/registry/dock and the
+  concurrent drawing-input `inputNormalizer` changes. It stopped before the
+  downstream package typechecks. A direct editor typecheck after correcting
+  this test's call found only two existing unrelated `CurveEditor.test.tsx`
+  overload errors. The touched files pass Biome; `pnpm audit:tokens` passes all
+  303 pairs across three themes and the token-usage scan. Full suite was not
+  run.
