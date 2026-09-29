@@ -48,11 +48,13 @@ test.describe('Cross-mode workflow — safe switching preserves document state',
 
     const rectangleLayer = page.getByRole('treeitem', { name: /Rectangle 1/i });
     await expect(rectangleLayer).toHaveCount(1, { timeout: 10000 });
-    const selectionLabel = page.locator('.editor-status').getByText('Rectangle 1', { exact: true });
+    const selectionLabel = page
+      .locator('.selection-info-bar')
+      .getByText('Rectangle 1', { exact: true });
     await expect(selectionLabel).toBeVisible();
 
     // Set a distinctive zoom level (viewport state) before switching modes.
-    const zoomInput = page.locator('#menubar-zoom');
+    const zoomInput = page.locator('#status-zoom');
     await zoomInput.fill('250');
     await zoomInput.press('Enter');
     await expect(zoomInput).toHaveValue('250');

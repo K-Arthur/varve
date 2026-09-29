@@ -14,7 +14,7 @@ async function setNavigationMode(page: import('@playwright/test').Page, label: s
 }
 
 async function setZoom(page: import('@playwright/test').Page, percent: number) {
-  const zoom = page.locator('#menubar-zoom');
+  const zoom = page.locator('#status-zoom');
   await zoom.fill(String(percent));
   await zoom.press('Enter');
   await expect(zoom).toHaveValue(String(percent));
@@ -61,14 +61,14 @@ test.describe('Layers selection navigation', () => {
 
     const items = page.getByRole('treeitem');
     await items.nth(0).click();
-    const zoomBeforeFocusMove = await page.locator('#menubar-zoom').inputValue();
+    const zoomBeforeFocusMove = await page.locator('#status-zoom').inputValue();
     await page.screenshot({ path: 'test-results/layer-navigation-select-only.png' });
 
     const tree = page.getByRole('tree', { name: /layers/i });
     await tree.focus();
     await page.keyboard.press('ArrowDown');
     await expect(items.nth(0)).toHaveAttribute('aria-selected', 'true');
-    await expect(page.locator('#menubar-zoom')).toHaveValue(zoomBeforeFocusMove);
+    await expect(page.locator('#status-zoom')).toHaveValue(zoomBeforeFocusMove);
     await page.screenshot({ path: 'test-results/layer-navigation-focus-only.png' });
   });
 
@@ -80,14 +80,14 @@ test.describe('Layers selection navigation', () => {
     await setNavigationMode(page, 'Reveal when needed');
     await setZoom(page, 25);
     await items.nth(3).click();
-    await expect(page.locator('#menubar-zoom')).toHaveValue('25');
+    await expect(page.locator('#status-zoom')).toHaveValue('25');
     await selectionRect(page);
     await page.screenshot({ path: 'test-results/layer-navigation-reveal.png' });
 
     await setNavigationMode(page, 'Center selection');
     await setZoom(page, 25);
     await items.nth(1).click();
-    await expect(page.locator('#menubar-zoom')).toHaveValue('25');
+    await expect(page.locator('#status-zoom')).toHaveValue('25');
     const centered = await selectionRect(page);
     const center = await canvasCenter(page);
     expect(Math.abs(centered.x + centered.width / 2 - center.x)).toBeLessThan(35);
@@ -98,7 +98,7 @@ test.describe('Layers selection navigation', () => {
     await setZoom(page, 25);
     await items.nth(2).click();
     await expect
-      .poll(async () => Number.parseFloat(await page.locator('#menubar-zoom').inputValue()))
+      .poll(async () => Number.parseFloat(await page.locator('#status-zoom').inputValue()))
       .not.toBe(25);
     const fitted = await selectionRect(page);
     const fitCenter = await canvasCenter(page);

@@ -46,7 +46,7 @@ async function selectMarqueeTool(page: import('@playwright/test').Page): Promise
   const directTool = toolbar.locator('[data-tool="marquee"]');
   if (await directTool.isVisible().catch(() => false)) {
     await directTool.click();
-    await expect(page.locator('.editor-status')).toContainText('Rectangular Marquee');
+    await expect(toolbar.locator('[data-tool="marquee"]')).toHaveAttribute('aria-pressed', 'true');
     return;
   }
 
@@ -62,7 +62,7 @@ async function selectMarqueeTool(page: import('@playwright/test').Page): Promise
   });
   await expect(marqueeItem).toBeVisible();
   await marqueeItem.click({ timeout: 5000 });
-  await expect(page.locator('.editor-status')).toContainText('Rectangular Marquee');
+  await expect(toolbar.locator('[data-tool="marquee"]')).toHaveAttribute('aria-pressed', 'true');
 }
 
 // Keep the full Photo tool row visible here so the workflow assertion targets

@@ -436,10 +436,9 @@ test.describe('Workspace switcher contract', () => {
       };
     });
 
-    // The literal `|` glyphs used to render at 5×22.1 and 4×18.7 because each
-    // inherited a different font size; both rules must now be identical.
-    expect(m.dividers).toHaveLength(2);
-    expect(m.dividers[0]).toEqual(m.dividers[1]);
+    // The literal `|` glyph used to render at 5×22.1 because it inherited a
+    // font size; the divider is now a token-sized rule, not a glyph.
+    expect(m.dividers).toHaveLength(1);
     expect(m.dividers[0]!.w).toBeLessThanOrEqual(2);
     // The elevated dock bar must clear its neighbours by at least the gap its
     // own items keep from each other, or the bar reads as part of undo/redo.

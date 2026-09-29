@@ -232,12 +232,12 @@ test.describe('Layers — workspace projection', () => {
     await expect(page.locator('.layers-filter-bar__count')).toContainText('6 of 6 layers');
 
     await page.getByRole('button', { name: 'Select matches' }).click();
-    await expect(page.locator('.editor-status__info')).toContainText('6');
-    await expect(page.locator('.editor-status__info')).toContainText('selected');
+    await expect(page.locator('.selection-info-bar')).toContainText('6');
+    await expect(page.locator('.selection-info-bar')).toContainText('selected');
 
     // Clearing the filter keeps the selection (selection is not the filter).
     await page.getByRole('button', { name: 'Clear all filters' }).click();
-    await expect(page.locator('.editor-status__info')).toContainText('selected');
+    await expect(page.locator('.selection-info-bar')).toContainText('selected');
   });
 
   test('unpinned row controls reveal on hover without leaving the a11y tree', async ({ page }) => {

@@ -83,7 +83,7 @@ test.describe('Workspace Mode Switching — Functional Assertions', () => {
   });
 
   test('mode switch preserves zoom', async ({ page }) => {
-    const zoomInput = page.locator('#menubar-zoom');
+    const zoomInput = page.locator('#status-zoom');
     await zoomInput.fill('200');
     await zoomInput.press('Enter');
     await expect(zoomInput).toHaveValue('200');

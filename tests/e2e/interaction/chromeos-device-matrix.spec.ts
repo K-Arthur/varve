@@ -686,7 +686,7 @@ test.describe('touch interaction', () => {
     await navigateToEditor(page);
     await settleLayout(page);
 
-    const zoomBefore = Number.parseFloat(await page.locator('#menubar-zoom').inputValue());
+    const zoomBefore = Number.parseFloat(await page.locator('#status-zoom').inputValue());
     expect(zoomBefore).toBeGreaterThan(0);
 
     const box = await page.locator('canvas.editor-canvas__content-layer').boundingBox();
@@ -719,7 +719,7 @@ test.describe('touch interaction', () => {
     }
     await page.waitForTimeout(200);
 
-    const zoomAfter = Number.parseFloat(await page.locator('#menubar-zoom').inputValue());
+    const zoomAfter = Number.parseFloat(await page.locator('#status-zoom').inputValue());
     expect(zoomAfter).toBeGreaterThan(zoomBefore * 1.1);
     const pageScale = await page.evaluate(() => window.visualViewport?.scale ?? 1);
     expect(pageScale).toBeCloseTo(1, 2);
@@ -734,7 +734,7 @@ test.describe('touch interaction', () => {
 
     const canvas = page.locator('canvas.editor-canvas__content-layer');
     const beforeDocument = await serializeEditorDocument(page);
-    const zoomBefore = Number.parseFloat(await page.locator('#menubar-zoom').inputValue());
+    const zoomBefore = Number.parseFloat(await page.locator('#status-zoom').inputValue());
     const bounds = await canvas.boundingBox();
     if (!bounds) throw new Error('content canvas not laid out');
 
@@ -786,7 +786,7 @@ test.describe('touch interaction', () => {
     );
 
     await expect
-      .poll(async () => Number.parseFloat(await page.locator('#menubar-zoom').inputValue()), {
+      .poll(async () => Number.parseFloat(await page.locator('#status-zoom').inputValue()), {
         timeout: 5000,
       })
       .toBeGreaterThan(zoomBefore * 1.1);
@@ -1395,7 +1395,7 @@ test.describe('accessibility alternatives and input scoping', () => {
       const rowBox = await firstRow.boundingBox();
       if (!rowBox) throw new Error('layers row not laid out');
       const beforeRowY = rowBox.y;
-      const zoomBefore = Number.parseFloat(await page.locator('#menubar-zoom').inputValue());
+      const zoomBefore = Number.parseFloat(await page.locator('#status-zoom').inputValue());
       await page.mouse.move(rowBox.x + rowBox.width / 2, rowBox.y + rowBox.height / 2);
       await page.mouse.wheel(0, 600);
       await page.waitForTimeout(250);
@@ -1433,7 +1433,7 @@ test.describe('accessibility alternatives and input scoping', () => {
         `wheel did not move the layers panel: ${JSON.stringify(wheelDiagnostics)}`,
       ).toBe(true);
       // Wheel over the panel must not zoom the canvas.
-      const zoomAfterPanel = Number.parseFloat(await page.locator('#menubar-zoom').inputValue());
+      const zoomAfterPanel = Number.parseFloat(await page.locator('#status-zoom').inputValue());
       expect(zoomAfterPanel).toBeCloseTo(zoomBefore, 1);
 
       // Ctrl+wheel over the canvas is the trackpad-pinch equivalent and zooms.
@@ -1442,7 +1442,7 @@ test.describe('accessibility alternatives and input scoping', () => {
       await page.mouse.wheel(0, -240);
       await page.keyboard.up('Control');
       await expect
-        .poll(async () => Number.parseFloat(await page.locator('#menubar-zoom').inputValue()), {
+        .poll(async () => Number.parseFloat(await page.locator('#status-zoom').inputValue()), {
           timeout: 5000,
         })
         .toBeGreaterThan(zoomAfterPanel);

@@ -249,7 +249,7 @@ test.describe('Artboard-local coordinates', () => {
       y: childBox.y + childBox.height / 2,
     };
 
-    const zoomPercent = Number(await page.locator('#menubar-zoom').inputValue());
+    const zoomPercent = Number(await page.locator('#status-zoom').inputValue());
     const targetLocalX = childX + 50;
     const worldDelta = frameBX - frameAX + 50;
     const screenDelta = worldDelta * (zoomPercent / 100);
