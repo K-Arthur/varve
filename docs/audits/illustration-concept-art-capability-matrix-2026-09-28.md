@@ -13,6 +13,7 @@ each workflow receives real UI, save/reopen, undo and export checks.
 
 | Artist task | Starting friction / root cause | Existing subsystem and planned repair | Frontend surface | Baseline evidence / status |
 |---|---|---|---|---|
+| Choose a brush for sketch, ink, flats and shading | Built-ins lacked clear starting points and categorized Airbrush as Smudge because the category guess treated the shared default `smudgeStrength` as intent. | Add pressure-shaped Sketch Pencil and Inking Nib, Opaque Paint and Soft Shade using existing preset fields and stroke generation; assign built-in categories explicitly. | Existing Brush Browser, Tool options and brush preview tiles. | Implemented and visually verified in the running editor. Six paint UI Chromium tests pass, including the real preview/category check. Inspected `test-results/run-171764-1420/paint-brush-ui-paint-UI-in-91069-enders-searches-and-filters-chromium/brush-browser-paint-presets.png`. Marketing copy passes both `/varve` and root-base site tests at desktop/mobile widths, with light/dark captures inspected. |
 | Paint with a vector selected while another pixel layer exists | Resolver chose a raster fallback when selection contained no raster, silently redirecting the stroke. | `paintTarget.ts` + `PaintTool`; refuse the incompatible explicit selection and identify “Create a paint layer” as recovery. | Existing spoken feedback; a visible recovery control remains pending. | Reproduced and repaired in resolver tests; real Chromium stroke leaves canvas and layer list unchanged. Before/after images were inspected: `test-results/illustration-target-20260928-1631/paint-brush-ui-paint-UI-in-7e966-g-into-another-raster-layer-chromium/vector-layer-after-drag.png` and `.../vector-selected-paint-refusal.png`. Undo/reopen/export and visible recovery action pending. |
 | Paint a mask | Resolver checked only node existence/lock; it accepted hidden nodes and arbitrary mask IDs. Mask-session coordinate handling must match the identified mask asset. | Existing raster-mask session and asset registry; validate node, exact asset identity, visibility/locks, active page and invertible mapping. | Existing mask target/inspector surface. | Resolver and PaintTool unit regressions pass for stale/wrong mask and selection clearing; real mask UI workflow pending. Node-local mask coordinate spaces are refused pending an explicitly supported mapping. |
 | Paint when a fallback layer has been deleted | Resolver dereferenced the missing fallback node. | Shared resolver returns a stable refusal; no exception and no redirected deposit. | Existing spoken feedback. | Deleted fallback and inaccessible-target resolver cases covered by focused tests; layer-creation recovery and persisted project check pending. |
@@ -49,6 +50,17 @@ change content pixels or create a third layer. The refusal is currently
 available through the existing screen-reader announcement; the screenshot
 does not show a visible recovery action. Focused tests: 57/57 passed. The full
 save/reopen/export round trip is still pending.
+
+The updated Strokes feature page was rebuilt for both the custom-domain root
+and the GitHub Pages `/varve` base. The focused site regression passed in both
+projects (2/2). It exercises the visible desktop theme controls and opens the
+mobile navigation to use its theme controls, checks deploy-base-aware links,
+and verifies 390px overflow, image loading/alternatives, and unexpected
+page/console errors. Desktop and mobile captures were inspected in light and
+dark themes after the rebuilt output was served. The starting-brush and
+target-behavior copy is readable at both widths. Capture paths are under
+`test-results/strokes-target-copy-Stroke-25b22-mes-widths-and-deploy-bases-ghpages/`
+and the corresponding `-custom-domain/` folder.
 
 The baseline planner selected unrelated package, native, website and full-suite
 lanes because the shared checkout already contained other tasks' changes. No

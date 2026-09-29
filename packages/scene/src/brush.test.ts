@@ -3,6 +3,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
+  BUILT_IN_BRUSH_PRESETS,
   clampBrushPreset,
   defaultBrushPreset,
   generateDabs,
@@ -191,6 +192,27 @@ describe('OneEuroFilter', () => {
 });
 
 describe('brush preset validation', () => {
+  it('ships differentiated sketch, ink, opaque-paint and soft-shading presets', () => {
+    for (const id of [
+      'built-in-sketch',
+      'built-in-ink',
+      'built-in-opaque-paint',
+      'built-in-soft-shade',
+    ]) {
+      const preset = BUILT_IN_BRUSH_PRESETS[id];
+      expect(preset).toBeDefined();
+      expect(validateBrushPreset(preset)).toEqual(preset);
+      expect(isBuiltInPreset(id)).toBe(true);
+      expect(preset!.dynamics.length).toBeGreaterThan(0);
+    }
+
+    expect(BUILT_IN_BRUSH_PRESETS['built-in-ink']!.hardness).toBeGreaterThan(
+      BUILT_IN_BRUSH_PRESETS['built-in-soft-shade']!.hardness,
+    );
+    expect(BUILT_IN_BRUSH_PRESETS['built-in-opaque-paint']!.opacity).toBe(1);
+    expect(BUILT_IN_BRUSH_PRESETS['built-in-soft-shade']!.opacity).toBeLessThan(0.5);
+  });
+
   it('validateBrushPreset rejects non-objects', () => {
     expect(validateBrushPreset(null)).toBeNull();
     expect(validateBrushPreset(42)).toBeNull();

@@ -45,6 +45,19 @@ export interface BrushBrowserProps {
 
 type Filter = 'all' | 'favorites' | 'recent' | BrushCategory | string;
 
+const BUILT_IN_CATEGORIES: Record<string, BrushCategory> = {
+  'built-in-round': 'basic',
+  'built-in-sketch': 'pencil',
+  'built-in-ink': 'ink',
+  'built-in-opaque-paint': 'paint',
+  'built-in-soft-shade': 'paint',
+  'built-in-soft': 'paint',
+  'built-in-marker': 'ink',
+  'built-in-airbrush': 'paint',
+  'built-in-textured': 'texture',
+  'built-in-eraser': 'basic',
+};
+
 function builtInItems(): BrushBrowserItem[] {
   return Object.values(BUILT_IN_BRUSH_PRESETS).map((preset) => ({
     id: preset.id,
@@ -58,9 +71,10 @@ function builtInItems(): BrushBrowserItem[] {
 
 /** Best-effort category for a built-in, from what the preset actually does. */
 function categoryFor(preset: BrushPreset): BrushCategory {
+  const explicit = BUILT_IN_CATEGORIES[preset.id];
+  if (explicit) return explicit;
   if (preset.eraser) return 'basic';
   if (preset.grainId) return 'texture';
-  if (preset.smudgeStrength > 0 && preset.opacity < 0.6) return 'smudge';
   if (preset.hardness >= 0.85) return 'ink';
   if (preset.hardness <= 0.35) return 'paint';
   return 'basic';

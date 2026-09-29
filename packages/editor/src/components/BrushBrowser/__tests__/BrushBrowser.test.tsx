@@ -38,6 +38,21 @@ describe('BrushBrowser', () => {
     expect(screen.getByRole('button', { name: 'Charcoal Stick' })).toBeTruthy();
   });
 
+  it('groups illustration presets by their use instead of default smudge strength', () => {
+    renderBrowser();
+
+    fireEvent.click(screen.getByRole('radio', { name: 'Paint' }));
+    expect(screen.getByRole('button', { name: 'Airbrush' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Soft Shade' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Opaque Paint' })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('radio', { name: 'Pencil' }));
+    expect(screen.getByRole('button', { name: 'Sketch Pencil' })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('radio', { name: 'Ink' }));
+    expect(screen.getByRole('button', { name: 'Inking Nib' })).toBeTruthy();
+  });
+
   it('exposes every brush as a named button, not just an image', () => {
     renderBrowser();
     const list = screen.getByRole('list', { name: 'Brushes' });

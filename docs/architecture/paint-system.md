@@ -445,6 +445,14 @@ User state (custom brushes, favourites, recents, tags) is keyed by stable id, so
 renaming a brush cannot orphan a favourite or a document reference. It is user
 state, not document state, and is never written into a `.varve`.
 
+Built-in starting points include a pressure-shaped Sketch Pencil and Inking
+Nib, a firm Opaque Paint brush, a low-hardness Soft Shade brush, and the
+existing round, marker, airbrush, textured, soft and eraser presets. Their
+browser thumbnails use the same production dab generator as strokes. Built-in
+categories are explicit: the general preset default has a nonzero
+`smudgeStrength`, so inferring the Smudge category from that field incorrectly
+filed the Airbrush as Smudge.
+
 Brush packages are versioned and validated. Presets referencing a user grain
 embed its bytes; built-in grains stay id references. Import treats its input as
 untrusted: fields are validated individually so unknown keys never reach a

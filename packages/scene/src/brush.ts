@@ -1001,6 +1001,86 @@ export function oneEuroFilterPoint(point: StrokePoint, filter: OneEuroFilter): S
 
 export const BUILT_IN_BRUSH_PRESETS: Record<string, BrushPreset> = {
   'built-in-round': { ...defaultBrushPreset('built-in-round', 'Round'), id: 'built-in-round' },
+  'built-in-sketch': {
+    ...defaultBrushPreset('built-in-sketch', 'Sketch Pencil'),
+    id: 'built-in-sketch',
+    radius: 5,
+    opacity: 0.62,
+    flow: 0.55,
+    hardness: 0.74,
+    spacing: 0.16,
+    smoothing: 0.18,
+    dynamics: [
+      {
+        input: 'pressure',
+        target: 'size',
+        curve: [0.18, 0, 0.62, 1],
+        min: 0.28,
+        max: 1,
+      },
+      {
+        input: 'pressure',
+        target: 'opacity',
+        curve: [0.12, 0, 0.68, 1],
+        min: 0.32,
+        max: 1,
+      },
+    ],
+  },
+  'built-in-ink': {
+    ...defaultBrushPreset('built-in-ink', 'Inking Nib'),
+    id: 'built-in-ink',
+    radius: 4,
+    opacity: 1,
+    flow: 1,
+    hardness: 0.98,
+    spacing: 0.12,
+    dynamics: [
+      {
+        input: 'pressure',
+        target: 'size',
+        curve: [0.16, 0, 0.58, 1],
+        min: 0.12,
+        max: 1,
+      },
+    ],
+  },
+  'built-in-opaque-paint': {
+    ...defaultBrushPreset('built-in-opaque-paint', 'Opaque Paint'),
+    id: 'built-in-opaque-paint',
+    radius: 14,
+    opacity: 1,
+    flow: 0.86,
+    hardness: 0.92,
+    spacing: 0.2,
+    dynamics: [
+      {
+        input: 'pressure',
+        target: 'size',
+        curve: [0.24, 0, 0.66, 1],
+        min: 0.38,
+        max: 1,
+      },
+    ],
+  },
+  'built-in-soft-shade': {
+    ...defaultBrushPreset('built-in-soft-shade', 'Soft Shade'),
+    id: 'built-in-soft-shade',
+    radius: 28,
+    opacity: 0.38,
+    flow: 0.24,
+    hardness: 0.12,
+    spacing: 0.08,
+    dynamics: [
+      {
+        input: 'pressure',
+        target: 'flow',
+        curve: [0.18, 0, 0.72, 1],
+        min: 0.14,
+        max: 0.8,
+      },
+    ],
+  },
   'built-in-soft': {
     ...defaultBrushPreset('built-in-soft', 'Soft'),
     id: 'built-in-soft',

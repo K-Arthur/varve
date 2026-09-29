@@ -116,6 +116,21 @@ test.describe('paint UI in the running app', () => {
       'data:image/png',
     );
 
+    // The illustration starting points are classified by what they do, not
+    // the default `smudgeStrength` value shared by every preset. Scroll the
+    // production brush grid so Soft Shade's real preview is visible too.
+    await browser.locator('.brush-browser__filters').getByText('Paint', { exact: true }).click();
+    await expect(browser.getByRole('radio', { name: 'Paint' })).toBeChecked();
+    await expect(browser.getByRole('button', { name: 'Airbrush', exact: true })).toBeVisible();
+    const softShade = browser.getByRole('button', { name: 'Soft Shade', exact: true });
+    await softShade.scrollIntoViewIfNeeded();
+    await expect(softShade).toBeVisible();
+    await expect(softShade.locator('.brush-browser__preview img')).toHaveAttribute(
+      'src',
+      /^data:image\/png/,
+    );
+    await page.screenshot({ path: testInfo.outputPath('brush-browser-paint-presets.png') });
+
     // Search narrows the list.
     await browser.getByLabel('Search brushes').fill('airbrush');
     await expect(browser.getByRole('button', { name: 'Airbrush', exact: true })).toBeVisible();
@@ -197,7 +212,11 @@ test.describe('paint UI in the running app', () => {
     await favourite.click();
     await expect(browser.getByRole('button', { name: 'Unfavorite Round' })).toBeVisible();
 
-    await browser.getByRole('tab', { name: 'Favorites' }).click();
+    await browser
+      .locator('.brush-browser__filters')
+      .getByText('Favorites', { exact: true })
+      .click();
+    await expect(browser.getByRole('radio', { name: 'Favorites' })).toBeChecked();
     await expect(browser.getByRole('button', { name: 'Round', exact: true })).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath('brush-browser-favorites.png') });
 
