@@ -46,7 +46,7 @@ test('no internal link or asset escapes the site base path', async ({ page, base
   expect(escaped).toEqual([]);
 });
 
-test('mobile menu: aria-expanded, Escape closes, focus returns', async ({ page }) => {
+test('mobile menu uses a modal dialog: Escape closes and focus returns', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 800 });
   await page.goto('/');
   const toggle = page.locator('.mobile-menu-toggle');
@@ -55,13 +55,15 @@ test('mobile menu: aria-expanded, Escape closes, focus returns', async ({ page }
 
   await toggle.click();
   await expect(toggle).toHaveAttribute('aria-expanded', 'true');
-  // The redesigned header opens a dedicated mobile panel (aria-hidden toggles
-  // to false); the desktop .nav-links list is hidden at mobile widths.
-  await expect(page.locator('.mobile-nav-panel')).toHaveAttribute('aria-hidden', 'false');
+  const dialog = page.locator('.mobile-nav-dialog');
+  await expect(dialog).toHaveAttribute('open', '');
+  await expect(
+    dialog.getByRole('navigation', { name: 'Main menu' }).getByRole('link', { name: 'Product' }),
+  ).toBeVisible();
 
   await page.keyboard.press('Escape');
   await expect(toggle).toHaveAttribute('aria-expanded', 'false');
-  await expect(page.locator('.mobile-nav-panel')).toHaveAttribute('aria-hidden', 'true');
+  await expect(dialog).not.toHaveAttribute('open', '');
   await expect(toggle).toBeFocused();
 });
 
@@ -69,37 +71,39 @@ test('mobile menu closes after choosing a destination', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 800 });
   await page.goto('/');
   await page.locator('.mobile-menu-toggle').click();
-  await page.locator('.mobile-nav-panel a[href$="/download"]').click();
+  await page.locator('.mobile-nav-dialog a[href$="/download"]').first().click();
   await expect(page).toHaveURL(/\/download/);
-  await expect(page.locator('.mobile-nav-panel')).toHaveAttribute('aria-hidden', 'true');
+  await expect(page.locator('.mobile-nav-dialog')).not.toHaveAttribute('open', '');
 });
 
 test('active navigation state marks the current section', async ({ page }) => {
   await page.goto('/docs');
   const current = page.locator('.nav-links a[aria-current="page"]');
   await expect(current).toHaveCount(1);
-  await expect(current.locator('.nav-menu-item-label, .nav-link-text')).toHaveText('Docs');
+  await expect(current).toHaveText('Docs');
   await page.goto('/');
-  await expect(page.locator('.nav-links a[aria-current="page"]')).toHaveCount(0);
+  await expect(page.locator('#site-nav-links > li > a[aria-current="page"]')).toHaveCount(0);
 });
 
-test('desktop grouped navigation exposes keyboard-safe Learn and Support menus', async ({
+test('desktop disclosure navigation supports keyboard use and exact current routes', async ({
   page,
 }, testInfo) => {
   await page.setViewportSize({ width: 1280, height: 800 });
-  await page.goto('/docs');
+  await page.goto('/learn/tutorials');
 
-  const learnTrigger = page.locator('[aria-controls="learn-menu"]');
+  const learnDetails = page.locator('details[data-nav-details]').first();
+  const learnTrigger = learnDetails.locator('summary');
   const learnMenu = page.locator('#learn-menu');
-  await expect(learnTrigger).toHaveAttribute('aria-expanded', 'false');
+  await expect(learnDetails).not.toHaveAttribute('open', '');
   await learnTrigger.click();
-  await expect(learnTrigger).toHaveAttribute('aria-expanded', 'true');
+  await expect(learnDetails).toHaveAttribute('open', '');
   await expect(learnMenu).toBeVisible();
-  await expect(learnMenu.getByRole('menuitem')).toHaveCount(4);
-  await expect(learnMenu.getByRole('menuitem', { name: 'Docs' })).toHaveAttribute(
+  await expect(learnMenu.getByRole('link')).toHaveCount(4);
+  await expect(learnMenu.getByRole('link', { name: 'Tutorials' })).toHaveAttribute(
     'aria-current',
     'page',
   );
+  await expect(page.locator('#site-nav-links > li > a[aria-current="page"]')).toHaveCount(0);
 
   await page.screenshot({ path: testInfo.outputPath('website-nav-learn-open.png') });
 
@@ -107,16 +111,21 @@ test('desktop grouped navigation exposes keyboard-safe Learn and Support menus',
   await expect(learnMenu).toBeHidden();
   await expect(learnTrigger).toBeFocused();
 
-  await learnTrigger.press('ArrowDown');
-  await expect(learnMenu.getByRole('menuitem').first()).toBeFocused();
-  await page.keyboard.press('ArrowDown');
-  await expect(learnMenu.getByRole('menuitem').nth(1)).toBeFocused();
+  await learnTrigger.focus();
+  await page.keyboard.press('Enter');
+  await expect(learnMenu).toBeVisible();
+  await learnMenu.getByRole('link').first().focus();
   await page.keyboard.press('Escape');
+  await expect(learnTrigger).toBeFocused();
 
-  const supportTrigger = page.locator('[aria-controls="support-menu"]');
+  const supportDetails = page.locator('details[data-nav-details]').nth(1);
+  const supportTrigger = supportDetails.locator('summary');
   await supportTrigger.click();
+  await expect(supportDetails).toHaveAttribute('open', '');
   await expect(page.locator('#support-menu')).toBeVisible();
   await expect(page.locator('#learn-menu')).toBeHidden();
+  await page.locator('.site-logo').focus();
+  await expect(page.locator('#support-menu')).toBeHidden();
 });
 
 test('platform selector: tablist semantics and arrow-key navigation', async ({ page, baseURL }) => {

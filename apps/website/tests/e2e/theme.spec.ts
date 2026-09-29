@@ -490,14 +490,11 @@ test.describe('mobile navigation', () => {
     await expect(toggle).toBeVisible();
     await toggle.click();
     await expect(toggle).toHaveAttribute('aria-expanded', 'true');
-    await expect(page.locator('.mobile-nav-panel')).toHaveAttribute('aria-hidden', 'false');
+    await expect(page.locator('.mobile-nav-dialog')).toHaveAttribute('open', '');
     await expect(page.getByRole('link', { name: 'Product', exact: true })).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(toggle).toHaveAttribute('aria-expanded', 'false');
-    // Wait for the panel to finish hiding first; the focus return is
-    // synchronous with closeMenu, so asserting it after the panel state
-    // settles cannot race the close animation under parallel load.
-    await expect(page.locator('.mobile-nav-panel')).toHaveAttribute('aria-hidden', 'true');
+    await expect(page.locator('.mobile-nav-dialog')).not.toHaveAttribute('open', '');
     await expect(toggle).toBeFocused();
   });
 
@@ -505,27 +502,20 @@ test.describe('mobile navigation', () => {
     await page.setViewportSize({ width: 375, height: 812 });
     await page.goto('/');
     await page.locator('.mobile-menu-toggle').click();
-    await expect(page.locator('.mobile-nav-panel')).toHaveAttribute('aria-hidden', 'false');
+    await expect(page.locator('.mobile-nav-dialog')).toHaveAttribute('open', '');
     await page.setViewportSize({ width: 1280, height: 900 });
-    await expect(page.locator('.mobile-nav-panel')).toHaveAttribute('aria-hidden', 'true');
+    await expect(page.locator('.mobile-nav-dialog')).not.toHaveAttribute('open', '');
   });
 
   test('mobile menu offers a Download entry', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 });
     await page.goto('/');
     await page.locator('.mobile-menu-toggle').click();
-    await expect(
-      page
-        .locator('.mobile-nav-panel')
-        .getByRole('link', { name: /download/i })
-        .first(),
-    ).toBeVisible();
-    await expect(
-      page
-        .locator('.mobile-nav-panel')
-        .getByRole('link', { name: /download/i })
-        .first(),
-    ).toHaveAttribute('href', /\/download/);
+    await expect(page.locator('.mobile-nav-dialog [data-download-cta]')).toBeVisible();
+    await expect(page.locator('.mobile-nav-dialog [data-download-cta]')).toHaveAttribute(
+      'href',
+      /\/download/,
+    );
   });
 });
 
@@ -562,13 +552,11 @@ test.describe('focus and keyboard', () => {
       // Exercise the keyboard path so Chromium applies :focus-visible; a
       // programmatic locator.focus() alone intentionally does not establish
       // keyboard modality.
-      const learnTrigger = mainNav.getByRole('button', { name: 'Learn', exact: true });
+      const learnTrigger = mainNav.locator('.nav-disclosure-summary').filter({ hasText: 'Learn' });
       await learnTrigger.focus();
       await page.keyboard.press('Enter');
-      await page.keyboard.press('ArrowDown');
-      const link = mainNav
-        .getByRole('menu', { name: 'Learn menu' })
-        .getByRole('menuitem', { name: /^Docs\b/ });
+      const link = page.locator('#learn-menu').getByRole('link', { name: 'Tutorials' });
+      await link.focus();
       await expect(link).toBeFocused();
       const outline = await link.evaluate((el) => {
         const cs = getComputedStyle(el);

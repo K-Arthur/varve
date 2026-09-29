@@ -5,7 +5,18 @@ test('coarse-pointer header controls have comfortable targets without overflow',
 }) => {
   for (const route of ['/', '/features', '/docs']) {
     await page.goto(route);
-    const controls = page.locator('.site-nav .theme-option, .mobile-menu-toggle');
+    const menuToggle = page.locator('.mobile-menu-toggle');
+    const menuToggleBox = await menuToggle.boundingBox();
+    expect(menuToggleBox, `${route} menu toggle should be measurable`).toBeTruthy();
+    if (menuToggleBox) {
+      expect(menuToggleBox.width, `${route} menu toggle width`).toBeGreaterThanOrEqual(44);
+      expect(menuToggleBox.height, `${route} menu toggle height`).toBeGreaterThanOrEqual(44);
+    }
+
+    await menuToggle.click();
+    const controls = page.locator(
+      '.site-nav [data-download-cta], .mobile-nav-dialog .theme-option, .mobile-menu-close',
+    );
     for (const control of await controls.all()) {
       const box = await control.boundingBox();
       expect(box, `${route} header control should be measurable`).toBeTruthy();
@@ -15,7 +26,6 @@ test('coarse-pointer header controls have comfortable targets without overflow',
       }
     }
 
-    await page.locator('.mobile-menu-toggle').click();
     const close = page.locator('.mobile-menu-close');
     const closeBox = await close.boundingBox();
     expect(closeBox, `${route} mobile close should be measurable`).toBeTruthy();

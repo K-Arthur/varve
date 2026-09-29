@@ -61,10 +61,10 @@ test('the contact page is reachable from the site header and footer', async ({ p
   await page.goto('/');
 
   const mainNav = page.getByRole('navigation', { name: 'Main' });
-  await mainNav.getByRole('button', { name: 'Support', exact: true }).click();
-  await mainNav
-    .getByRole('menu', { name: 'Support menu' })
-    .getByRole('menuitem', { name: /^Contact\b/ })
+  await mainNav.getByText('Support', { exact: true }).click();
+  await page
+    .locator('#support-menu')
+    .getByRole('link', { name: /^Contact\b/ })
     .click();
   await expect(page).toHaveURL(/\/contact\/?$/);
   await expect(page.getByRole('heading', { level: 1, name: 'Contact Varve' })).toBeVisible();

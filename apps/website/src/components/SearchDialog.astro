@@ -3,8 +3,8 @@
  * Site search dialog.
  *
  * Rendered once per page by Layout.astro and opened by the triggers in
- * SiteHeader.astro (the desktop header button and the mobile menu row) or by
- * `/` and Ctrl/Cmd+K. The index is generated at build time by
+ * the desktop or mobile header button, or by `/` and Ctrl/Cmd+K. The mobile
+ * button dismisses its navigation sheet before search opens. The index is generated at build time by
  * scripts/search-index.mjs and fetched lazily, so a page load that never
  * opens search transfers none of it.
  *
@@ -618,6 +618,19 @@ const magnifier = 'M11 4a7 7 0 1 0 4.2 12.6l4.1 4.1a1 1 0 0 0 1.4-1.4l-4.1-4.1A7
         event?.type === 'click'
           ? (event.currentTarget as HTMLElement)
           : (document.activeElement as HTMLElement | null);
+      const mobileMenu = opener?.closest<HTMLDialogElement>('[data-mobile-nav-dialog]');
+      if (mobileMenu?.open) {
+        opener = document.querySelector<HTMLElement>('.mobile-menu-toggle');
+        mobileMenu.addEventListener('close', () => {
+          requestAnimationFrame(presentSearch);
+        }, { once: true });
+        mobileMenu.close();
+        return;
+      }
+      presentSearch();
+    }
+
+    function presentSearch(): void {
       dialog!.showModal();
       input!.focus();
       input!.select();
@@ -688,6 +701,8 @@ const magnifier = 'M11 4a7 7 0 1 0 4.2 12.6l4.1 4.1a1 1 0 0 0 1.4-1.4l-4.1-4.1A7
         openSearch();
       }
     });
+
+    document.documentElement.setAttribute('data-search-ready', '');
 
     if (canPrefetch()) {
       const prefetch = () => {

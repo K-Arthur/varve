@@ -1,75 +1,35 @@
 ---
-/**
- * SiteHeader — persistent navigation with distinctive Varve identity.
- *
- * Design language: the header borrows from a design tool's interface —
- * a slim navigation rail with the brand mark, centrally composed links
- * with a vector-anchor active indicator, and a subtle technical grid
- * texture that appears on scroll. The 2px varve spine remains
- * as the brand's signature edge.
- *
- * States:
- *   1. At top: lighter, more transparent, integrates with hero
- *   2. After scroll: slightly compact, elevated/blurred surface
- *   Never shifts layout (scroll-padding-top is fixed).
- *
- * Mobile: full-screen overlay with focus management, Escape close,
- * body scroll lock, safe-area support.
- */
+/** Shared, theme-aware navigation for the Varve marketing site. */
 import ThemeToggle from './ThemeToggle.astro';
 import DownloadCTA from './DownloadCTA.astro';
 import { sitePath } from '../lib/siteUrl';
 import release from '../data/release-manifest.json';
-
-const navItems = [
-  { href: '/product', label: 'Product' },
-  { href: '/features', label: 'Features' },
-  { href: '/docs', label: 'Docs' },
-  { href: '/support', label: 'Support' },
-  { href: '/contact', label: 'Contact' },
-  { href: '/contribute', label: 'Contribute' },
-];
-
-const desktopNavGroups = [
-  {
-    id: 'learn-menu',
-    label: 'Learn',
-    items: [
-      { href: '/learn', label: 'Learning hub', description: 'Guides, tutorials, and examples' },
-      { href: '/docs', label: 'Docs', description: 'Product documentation and reference' },
-      { href: '/learn/tutorials', label: 'Tutorials', description: 'Build confidence with step-by-step lessons' },
-      { href: '/learn/examples', label: 'Examples', description: 'See Varve workflows in practice' },
-    ],
-  },
-  {
-    id: 'support-menu',
-    label: 'Support',
-    items: [
-      { href: '/support', label: 'Support home', description: 'Find answers and troubleshooting help' },
-      { href: '/support/faq', label: 'FAQ', description: 'Quick answers to common questions' },
-      { href: '/contact', label: 'Contact', description: 'Talk with the Varve team' },
-      { href: '/contribute', label: 'Contribute', description: 'Help shape the project' },
-    ],
-  },
-];
+import {
+  allNavigationLinks,
+  isExactNavigationRoute,
+  isNavigationSectionActive,
+  navigationGroups,
+  primaryNavigation,
+} from '../data/siteNavigation';
 
 const basePrefix = (import.meta.env.BASE_URL || '/').replace(/\/?$/, '/');
-const currentPath = Astro.url.pathname.startsWith(basePrefix)
+const routePath = Astro.url.pathname.startsWith(basePrefix)
   ? `/${Astro.url.pathname.slice(basePrefix.length)}`
   : Astro.url.pathname;
+const currentPath = routePath.replace(/\/+$/, '') || '/';
+const versionLabel = release.hasRelease && release.version ? `v${release.version}` : null;
+const demoHref = sitePath('/try/');
 
 function isCurrent(href: string): boolean {
-  if (href === '/') return currentPath === '/';
-  return currentPath === href || currentPath.startsWith(`${href}/`);
+  return isExactNavigationRoute(currentPath, href);
 }
 
-const versionLabel = release.hasRelease && release.version
-  ? `v${release.version}`
-  : null;
+function linkClass(href: string): string[] {
+  return isCurrent(href) ? ['nav-link', 'nav-link-current'] : ['nav-link'];
+}
 ---
 
 <header class="site-header" data-site-header>
-  <div class="header-grid-texture" aria-hidden="true"></div>
   <nav class="site-nav" aria-label="Main">
     <a href={sitePath('/')} class="site-logo" aria-label="Varve home">
       <svg width="28" height="28" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -82,1016 +42,773 @@ const versionLabel = release.hasRelease && release.version
     </a>
 
     <ul class="nav-links" id="site-nav-links">
-      {navItems.slice(0, 2).map((item) => (
+      {primaryNavigation.map((item) => (
         <li>
           <a
             href={sitePath(item.href)}
-            class:list={[{ 'nav-active': isCurrent(item.href) }]}
+            class:list={[
+              ...linkClass(item.href),
+              { 'nav-section-current': isNavigationSectionActive(currentPath, [item]) },
+            ]}
             aria-current={isCurrent(item.href) ? 'page' : undefined}
           >
-            <span class="nav-link-text">{item.label}</span>
+            {item.label}
             {isCurrent(item.href) && <span class="nav-active-marker" aria-hidden="true"></span>}
           </a>
         </li>
       ))}
-      {desktopNavGroups.map((group) => {
-        const groupIsCurrent = group.items.some((item) => isCurrent(item.href));
+      {navigationGroups.map((group) => {
+        const active = isNavigationSectionActive(currentPath, group.links);
         return (
-          <li class="nav-menu" data-desktop-nav-menu>
-            <button
-              class:list={['nav-menu-trigger', { 'nav-active': groupIsCurrent }]}
-              type="button"
-              aria-haspopup="true"
-              aria-expanded="false"
-              aria-controls={group.id}
-            >
-              <span class="nav-link-text">{group.label}</span>
-              <svg class="nav-menu-chevron" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="m4 6 4 4 4-4" />
-              </svg>
-              {groupIsCurrent && <span class="nav-active-marker" aria-hidden="true"></span>}
-            </button>
-            <div class="nav-menu-panel" id={group.id} role="menu" aria-label={`${group.label} menu`} hidden>
-              {group.items.map((item) => (
-                <a
-                  href={sitePath(item.href)}
-                  role="menuitem"
-                  class:list={[{ 'nav-menu-item-active': isCurrent(item.href) }]}
-                  aria-current={isCurrent(item.href) ? 'page' : undefined}
-                >
-                  <span class="nav-menu-item-label">{item.label}</span>
-                  <span class="nav-menu-item-description">{item.description}</span>
-                </a>
-              ))}
-            </div>
+          <li class="nav-disclosure" data-nav-disclosure>
+            <details data-nav-details>
+              <summary
+                class:list={['nav-link', 'nav-disclosure-summary', { 'nav-section-current': active }]}
+                aria-controls={group.id}
+              >
+                {group.label}
+                <svg class="nav-chevron" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="m4 6 4 4 4-4" />
+                </svg>
+                {active && <span class="nav-active-marker" aria-hidden="true"></span>}
+              </summary>
+              <ul class="nav-popover" id={group.id} aria-label={`${group.label} links`}>
+                {group.links.map((item) => (
+                  <li>
+                    <a
+                      href={sitePath(item.href)}
+                      class:list={['nav-popover-link', { 'nav-link-current': isCurrent(item.href) }]}
+                      aria-current={isCurrent(item.href) ? 'page' : undefined}
+                    >
+                      <span class="nav-popover-label">{item.label}</span>
+                      <span class="nav-popover-description">{item.description}</span>
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </details>
           </li>
         );
       })}
     </ul>
 
     <div class="nav-actions">
-      <button class="nav-search-trigger" type="button" data-search-open>
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-          <path d="M11 4a7 7 0 1 0 4.2 12.6l4.1 4.1a1 1 0 0 0 1.4-1.4l-4.1-4.1A7 7 0 0 0 11 4Zm0 2a5 5 0 1 1 0 10 5 5 0 0 1 0-10Z"></path>
+      <button class="nav-search-trigger" type="button" data-search-open aria-label="Search the site">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M11 4a7 7 0 1 0 4.2 12.6l4.1 4.1a1 1 0 0 0 1.4-1.4l-4.1-4.1A7 7 0 0 0 11 4Zm0 2a5 5 0 1 1 0 10 5 5 0 0 1 0-10Z" />
         </svg>
-        <span class="nav-search-trigger__label">Search</span>
-        <span class="nav-search-trigger__hint" aria-hidden="true">/</span>
+        <span>Search</span>
+        <kbd aria-hidden="true">/</kbd>
       </button>
-      <ThemeToggle />
+      <div class="desktop-theme-toggle"><ThemeToggle /></div>
       <a
-        href={sitePath('/try/')}
-        class="nav-try-cta"
+        href={demoHref}
+        class="nav-demo-link"
         target="_blank"
         rel="noopener noreferrer"
         data-analytics-demo-launch
       >
-        Try
+        Try in browser<span class="sr-only"> (opens in a new tab)</span>
       </a>
-      <DownloadCTA variant="default" size="compact" label="Download" class="nav-download-cta" />
+      <DownloadCTA variant="default" size="compact" platformLabel="Download" class="nav-download-cta" />
+      <details class="mobile-nav-fallback">
+        <summary class="mobile-menu-fallback-trigger">Menu</summary>
+        <nav class="mobile-fallback-panel" aria-label="Main menu">
+          <ul>
+            {allNavigationLinks.map((item) => (
+              <li>
+                <a href={sitePath(item.href)} aria-current={isCurrent(item.href) ? 'page' : undefined}>
+                  {item.label}
+                </a>
+              </li>
+            ))}
+          </ul>
+          <a class="mobile-fallback-demo" href={demoHref} target="_blank" rel="noopener noreferrer">
+            Try in browser<span class="sr-only"> (opens in a new tab)</span>
+          </a>
+        </nav>
+      </details>
       <button
         class="mobile-menu-toggle"
         aria-label="Open menu"
         aria-expanded="false"
         aria-controls="site-nav-panel"
         type="button"
+        hidden
       >
-        <svg class="menu-icon-open" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
-          <line x1="3" y1="6" x2="21" y2="6"></line>
-          <line x1="3" y1="12" x2="21" y2="12"></line>
-          <line x1="3" y1="18" x2="21" y2="18"></line>
-        </svg>
-        <svg class="menu-icon-close" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
-          <line x1="18" y1="6" x2="6" y2="18"></line>
-          <line x1="6" y1="6" x2="18" y2="18"></line>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+          <path d="M3 6h18M3 12h18M3 18h18" />
         </svg>
       </button>
     </div>
   </nav>
+</header>
 
-  <!-- Mobile overlay panel -->
-  <div class="mobile-nav-panel" id="site-nav-panel" aria-hidden="true">
-    <div class="mobile-nav-backdrop"></div>
-    <div class="mobile-nav-sheet">
-      <div class="mobile-nav-header">
-        <a href={sitePath('/')} class="mobile-nav-logo" aria-label="Varve home">
-          <svg width="24" height="24" viewBox="0 0 32 32" fill="none" aria-hidden="true">
-            <path class="logo-varve-1" d="M5,6.5 H21 L23.5,12.5 H7.5 Z" />
-            <path class="logo-varve-2" d="M7.5,13.5 H23.5 L26,19.5 H10 Z" />
-            <path class="logo-varve-3" d="M10,20.5 H26 L28.5,26.5 H12.5 Z" />
+<dialog class="mobile-nav-dialog" id="site-nav-panel" aria-labelledby="mobile-nav-title" data-mobile-nav-dialog>
+  <div class="mobile-nav-sheet">
+    <h2 class="sr-only" id="mobile-nav-title">Site navigation</h2>
+    <div class="mobile-nav-header">
+      <a href={sitePath('/')} class="mobile-nav-logo" aria-label="Varve home">
+        <svg width="26" height="26" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+          <path class="logo-varve-1" d="M5,6.5 H21 L23.5,12.5 H7.5 Z" />
+          <path class="logo-varve-2" d="M7.5,13.5 H23.5 L26,19.5 H10 Z" />
+          <path class="logo-varve-3" d="M10,20.5 H26 L28.5,26.5 H12.5 Z" />
+        </svg>
+        <span>Varve</span>
+      </a>
+      <div class="mobile-nav-header-actions">
+        <div class="mobile-theme-toggle"><ThemeToggle /></div>
+        <button class="mobile-menu-close" type="button" aria-label="Close menu">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+            <path d="m18 6-12 12M6 6l12 12" />
           </svg>
-          <span>Varve</span>
-        </a>
-        <div class="mobile-nav-actions">
-          <ThemeToggle />
-          <button class="mobile-menu-close" aria-label="Close menu" type="button">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
-              <line x1="18" y1="6" x2="6" y2="18"></line>
-              <line x1="6" y1="6" x2="18" y2="18"></line>
-            </svg>
-          </button>
-        </div>
-      </div>
-      <nav class="mobile-nav-links" aria-label="Mobile navigation">
-        <button class="mobile-nav-link mobile-nav-search" type="button" data-search-open>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-            <path d="M11 4a7 7 0 1 0 4.2 12.6l4.1 4.1a1 1 0 0 0 1.4-1.4l-4.1-4.1A7 7 0 0 0 11 4Zm0 2a5 5 0 1 1 0 10 5 5 0 0 1 0-10Z"></path>
-          </svg>
-          <span>Search docs</span>
         </button>
-        {navItems.map((item) => (
+      </div>
+    </div>
+
+    <div class="mobile-nav-scroll">
+      <div class="mobile-nav-utilities">
+        <button class="mobile-nav-search" type="button" data-search-open>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M11 4a7 7 0 1 0 4.2 12.6l4.1 4.1a1 1 0 0 0 1.4-1.4l-4.1-4.1A7 7 0 0 0 11 4Zm0 2a5 5 0 1 1 0 10 5 5 0 0 1 0-10Z" />
+          </svg>
+          Search the site
+        </button>
+        <a class="mobile-nav-demo" href={demoHref} target="_blank" rel="noopener noreferrer" data-analytics-demo-launch>
+          Try in browser<span class="sr-only"> (opens in a new tab)</span>
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+            <path d="M6 3h7v7M13 3 6 10M11 9v4H3V5h4" />
+          </svg>
+        </a>
+      </div>
+      <nav class="mobile-nav-links" aria-label="Main menu">
+        {primaryNavigation.map((item) => (
           <a
             href={sitePath(item.href)}
-            class:list={['mobile-nav-link', { 'is-active': isCurrent(item.href) }]}
+            class:list={['mobile-nav-link', { 'nav-link-current': isCurrent(item.href) }]}
             aria-current={isCurrent(item.href) ? 'page' : undefined}
           >
             {item.label}
           </a>
         ))}
+        {navigationGroups.map((group) => (
+          <section class="mobile-nav-group" aria-labelledby={`mobile-${group.id}-heading`}>
+            <h2 id={`mobile-${group.id}-heading`}>{group.label}</h2>
+            {group.links.map((item) => (
+              <a
+                href={sitePath(item.href)}
+                class:list={['mobile-nav-link', 'mobile-nav-child', { 'nav-link-current': isCurrent(item.href) }]}
+                aria-current={isCurrent(item.href) ? 'page' : undefined}
+              >
+                {item.label}
+              </a>
+            ))}
+          </section>
+        ))}
       </nav>
-      <div class="mobile-nav-footer">
+      <div class="mobile-nav-download">
         <DownloadCTA size="large" beta />
       </div>
     </div>
   </div>
-</header>
+</dialog>
 
 <script>
   const header = document.querySelector<HTMLElement>('[data-site-header]');
-  const toggle = document.querySelector<HTMLButtonElement>('.mobile-menu-toggle');
-  const panel = document.querySelector<HTMLElement>('#site-nav-panel');
-  const closeBtn = document.querySelector<HTMLButtonElement>('.mobile-menu-close');
-  const backdrop = panel?.querySelector<HTMLElement>('.mobile-nav-backdrop');
-  const navLinks = panel?.querySelectorAll<HTMLAnchorElement>('.mobile-nav-link');
-  const desktopMenus = [...document.querySelectorAll<HTMLElement>('[data-desktop-nav-menu]')];
+  const menuDialog = document.querySelector<HTMLDialogElement>('[data-mobile-nav-dialog]');
+  const menuToggle = document.querySelector<HTMLButtonElement>('.mobile-menu-toggle');
+  const menuClose = document.querySelector<HTMLButtonElement>('.mobile-menu-close');
+  const homeLink = document.querySelector<HTMLAnchorElement>('.site-logo');
+  const desktopDisclosures = [...document.querySelectorAll<HTMLDetailsElement>('[data-nav-details]')];
+  const phoneLayout = window.matchMedia('(max-width: 47.999rem)');
+  let previousScrollY = 0;
+  let previousBodyStyles: { overflow: string; position: string; top: string; width: string } | null = null;
 
-  let isOpen = false;
-
-  function closeDesktopMenus(returnFocus = false) {
-    for (const menu of desktopMenus) {
-      const trigger = menu.querySelector<HTMLButtonElement>('.nav-menu-trigger');
-      const panel = menu.querySelector<HTMLElement>('.nav-menu-panel');
-      if (!trigger || !panel) continue;
-      trigger.setAttribute('aria-expanded', 'false');
-      menu.classList.remove('is-open');
-      panel.hidden = true;
-      if (returnFocus && document.activeElement === panel) trigger.focus();
+  function closeDisclosures(except?: HTMLDetailsElement) {
+    for (const disclosure of desktopDisclosures) {
+      if (disclosure !== except) disclosure.open = false;
     }
   }
 
-  function openDesktopMenu(menu: HTMLElement, focusFirst = false) {
-    closeDesktopMenus();
-    const trigger = menu.querySelector<HTMLButtonElement>('.nav-menu-trigger');
-    const panel = menu.querySelector<HTMLElement>('.nav-menu-panel');
-    if (!trigger || !panel) return;
-    menu.classList.add('is-open');
-    trigger.setAttribute('aria-expanded', 'true');
-    panel.hidden = false;
-    if (focusFirst) panel.querySelector<HTMLAnchorElement>('[role="menuitem"]')?.focus();
+  for (const disclosure of desktopDisclosures) {
+    disclosure.addEventListener('toggle', () => {
+      if (disclosure.open) closeDisclosures(disclosure);
+    });
   }
 
-  for (const menu of desktopMenus) {
-    const trigger = menu.querySelector<HTMLButtonElement>('.nav-menu-trigger');
-    const menuPanel = menu.querySelector<HTMLElement>('.nav-menu-panel');
-    const menuItems = () => [...(menuPanel?.querySelectorAll<HTMLAnchorElement>('[role="menuitem"]') ?? [])];
-    trigger?.addEventListener('click', () => {
-      const expanded = trigger.getAttribute('aria-expanded') === 'true';
-      expanded ? closeDesktopMenus() : openDesktopMenu(menu);
-    });
-    trigger?.addEventListener('keydown', (event) => {
-      if (event.key === 'ArrowDown' || event.key === 'Enter' || event.key === ' ') {
-        event.preventDefault();
-        openDesktopMenu(menu, true);
-      } else if (event.key === 'Escape') {
-        closeDesktopMenus();
-      }
-    });
-    menuPanel?.addEventListener('keydown', (event) => {
-      const items = menuItems();
-      const index = items.indexOf(document.activeElement as HTMLAnchorElement);
-      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-        event.preventDefault();
-        const offset = event.key === 'ArrowDown' ? 1 : -1;
-        items[(index + offset + items.length) % items.length]?.focus();
-      } else if (event.key === 'Home') {
-        event.preventDefault();
-        items[0]?.focus();
-      } else if (event.key === 'End') {
-        event.preventDefault();
-        items.at(-1)?.focus();
-      } else if (event.key === 'Escape') {
-        event.preventDefault();
-        closeDesktopMenus();
-        trigger?.focus();
-      }
-    });
-    menuPanel?.querySelectorAll<HTMLAnchorElement>('[role="menuitem"]').forEach((item) => {
-      item.addEventListener('click', () => closeDesktopMenus());
-    });
-  }
+  document.addEventListener('focusin', (event) => {
+    for (const disclosure of desktopDisclosures) {
+      if (disclosure.open && !disclosure.contains(event.target as Node)) disclosure.open = false;
+    }
+  });
 
   document.addEventListener('pointerdown', (event) => {
-    if (!desktopMenus.some((menu) => menu.contains(event.target as Node))) closeDesktopMenus();
-  });
-
-  function openMenu() {
-    if (!panel || !toggle) return;
-    isOpen = true;
-    panel.setAttribute('aria-hidden', 'false');
-    toggle.setAttribute('aria-expanded', 'true');
-    toggle.setAttribute('aria-label', 'Close menu');
-    document.body.style.overflow = 'hidden';
-    // Focus first link after animation. The panel close uses a delayed
-    // visibility transition (0.3s), so a rAF that lands after Escape could
-    // still move focus into the closing sheet and steal it from the toggle
-    // (CI caught this: Escape + rAF race on fast runners, 2026-08-12).
-    // Guard on isOpen so the handoff only happens while the menu stays open.
-    requestAnimationFrame(() => {
-      if (isOpen) navLinks?.[0]?.focus();
-    });
-  }
-
-  function closeMenu(returnFocus = false) {
-    if (!panel || !toggle) return;
-    isOpen = false;
-    panel.setAttribute('aria-hidden', 'true');
-    toggle.setAttribute('aria-expanded', 'false');
-    toggle.setAttribute('aria-label', 'Open menu');
-    document.body.style.overflow = '';
-    if (returnFocus) toggle.focus();
-  }
-
-  toggle?.addEventListener('click', () => {
-    isOpen ? closeMenu(true) : openMenu();
-  });
-
-  closeBtn?.addEventListener('click', () => closeMenu(true));
-  // Backdrop dismissal must also return focus to the toggle: focus was left on
-  // a now-hidden panel link (or fell back to <body>), losing the user's place.
-  backdrop?.addEventListener('click', () => closeMenu(true));
-
-  // Close on Escape
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && isOpen) closeMenu(true);
-  });
-
-  // Close on nav link click
-  navLinks?.forEach((link) => {
-    link.addEventListener('click', () => closeMenu(false));
-  });
-
-  // Close on resize to desktop. Focus is returned to the toggle because the
-  // panel (and whatever inside it had focus) becomes hidden at this breakpoint.
-  const desktopQuery = window.matchMedia('(min-width: 961px)');
-  desktopQuery.addEventListener('change', (e) => {
-    if (e.matches && isOpen) {
-      const focusWasInPanel = panel?.contains(document.activeElement) ?? false;
-      closeMenu(focusWasInPanel);
+    if (!desktopDisclosures.some((disclosure) => disclosure.contains(event.target as Node))) {
+      closeDisclosures();
     }
   });
 
-  // Trap focus inside panel when open
-  panel?.addEventListener('keydown', (e) => {
-    if (e.key !== 'Tab' || !isOpen) return;
-    const focusable = panel.querySelectorAll<HTMLElement>(
-      'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])'
-    );
-    if (focusable.length === 0) return;
+  document.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape') return;
+    const activeDisclosure = desktopDisclosures.find((disclosure) => disclosure.open);
+    if (!activeDisclosure) return;
+    event.preventDefault();
+    const hadFocus = activeDisclosure.contains(document.activeElement);
+    activeDisclosure.open = false;
+    if (hadFocus) activeDisclosure.querySelector<HTMLElement>('summary')?.focus();
+  });
+
+  function syncMenuToggle() {
+    const isOpen = menuDialog?.open ?? false;
+    menuToggle?.setAttribute('aria-expanded', String(isOpen));
+    menuToggle?.setAttribute('aria-label', isOpen ? 'Close menu' : 'Open menu');
+  }
+
+  menuToggle?.addEventListener('click', () => {
+    if (!menuDialog) return;
+    if (menuDialog.open) {
+      menuDialog.close();
+      return;
+    }
+    closeDisclosures();
+    previousScrollY = window.scrollY;
+    previousBodyStyles = {
+      overflow: document.body.style.overflow,
+      position: document.body.style.position,
+      top: document.body.style.top,
+      width: document.body.style.width,
+    };
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${previousScrollY}px`;
+    document.body.style.width = '100%';
+    document.body.style.overflow = 'hidden';
+    menuDialog.showModal();
+    syncMenuToggle();
+    menuClose?.focus();
+  });
+
+  menuClose?.addEventListener('click', () => menuDialog?.close());
+  menuDialog?.addEventListener('keydown', (event) => {
+    if (event.key !== 'Tab') return;
+    const focusable = [...menuDialog.querySelectorAll<HTMLElement>(
+      'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+    )].filter((element) => element.getClientRects().length > 0);
     const first = focusable[0];
     const last = focusable[focusable.length - 1];
-    if (e.shiftKey && document.activeElement === first) {
-      e.preventDefault();
+    if (event.shiftKey && (document.activeElement === first || !menuDialog.contains(document.activeElement))) {
+      event.preventDefault();
       last?.focus();
-    } else if (!e.shiftKey && document.activeElement === last) {
-      e.preventDefault();
+    } else if (!event.shiftKey && (document.activeElement === last || !menuDialog.contains(document.activeElement))) {
+      event.preventDefault();
       first?.focus();
     }
   });
+  menuDialog?.addEventListener('click', (event) => {
+    if (event.target === menuDialog) menuDialog.close();
+  });
+  menuDialog?.addEventListener('close', () => {
+    const restoreScrollY = previousScrollY;
+    if (previousBodyStyles) {
+      document.body.style.overflow = previousBodyStyles.overflow;
+      document.body.style.position = previousBodyStyles.position;
+      document.body.style.top = previousBodyStyles.top;
+      document.body.style.width = previousBodyStyles.width;
+      previousBodyStyles = null;
+    }
+    syncMenuToggle();
+    if (!phoneLayout.matches) homeLink?.focus({ preventScroll: true });
+    else menuToggle?.focus({ preventScroll: true });
+    // Native dialog focus restoration can scroll the sticky header back into
+    // view after the close event. Restore the saved page offset after that
+    // focus handoff has settled instead of racing it synchronously.
+    requestAnimationFrame(() => window.scrollTo(0, restoreScrollY));
+  });
 
-  // Glass scroll state
-  if (header) {
-    let ticking = false;
-    const THRESHOLD = 8;
-    const apply = () => {
-      ticking = false;
-      header.dataset.scrolled = window.scrollY > THRESHOLD ? 'true' : 'false';
-    };
-    apply();
-    window.addEventListener('scroll', () => {
-      if (ticking) return;
-      ticking = true;
-      requestAnimationFrame(apply);
-    }, { passive: true });
+  phoneLayout.addEventListener('change', (event) => {
+    if (!event.matches && menuDialog?.open) menuDialog.close();
+  });
+
+  if (header && menuDialog && menuToggle) {
+    document.documentElement.setAttribute('data-site-nav-enhanced', '');
   }
 </script>
 
 <style>
   .site-header {
     position: sticky;
-    top: 0;
+    inset-block-start: 0;
     z-index: 100;
     background: var(--surface-header);
-    border-bottom: 1px solid var(--border-default);
-    transition:
-      background-color var(--duration-base) var(--ease-default),
-      border-color var(--duration-base) var(--ease-default),
-      box-shadow var(--duration-base) var(--ease-default);
+    border-block-end: 1px solid var(--border-default);
+    box-shadow: 0 1px 0 transparent;
+    transition: border-color var(--duration-quick) var(--ease-default),
+      box-shadow var(--duration-quick) var(--ease-default);
   }
 
-  /* The varve spine: brand's three bands as a 2px hairline. */
   .site-header::before {
     content: '';
     position: absolute;
-    inset: 0 0 auto 0;
-    height: 2px;
-    background: linear-gradient(
-      90deg,
-      var(--brand-teal) 0%,
-      var(--brand-sandstone) 50%,
-      var(--brand-terracotta) 100%
-    );
+    inset: 0 0 auto;
     z-index: 1;
+    block-size: 2px;
+    background: linear-gradient(90deg, var(--brand-teal), var(--brand-sandstone), var(--brand-terracotta));
   }
 
-  /* Subtle grid texture that appears on scroll — a quiet nod to the
-     design tool's canvas grid. */
-  .header-grid-texture {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    opacity: 0;
-    background-image:
-      linear-gradient(var(--grid-line) 1px, transparent 1px),
-      linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
-    background-size: 24px 24px;
-    transition: opacity var(--duration-base) var(--ease-default);
-  }
-
-  .site-header[data-scrolled='true'] .header-grid-texture {
-    opacity: 0.3;
-  }
-
-  /* Glass state on scroll */
   .site-header[data-scrolled='true'] {
-    background: color-mix(in oklab, var(--surface-header) 82%, transparent);
-    border-bottom-color: var(--border-subtle);
-    box-shadow: 0 1px 0 var(--border-subtle), 0 12px 24px -18px oklch(0 0 0 / 0.35);
-  }
-
-
-
-  /* Scroll-state changes must not animate for reduced-motion users — the
-     full-page screenshot stitch also relies on this: the scroll-driven
-     background/border/opacity transitions left the header mid-animation
-     between the two stability passes and fullPage captures never settled
-     (CI, 2026-08-12). */
-  @media (prefers-reduced-motion: reduce) {
-    .site-header,
-    .site-header[data-scrolled='true'] .header-grid-texture {
-      transition: none;
-    }
-  }
-
-  @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
-    .site-header[data-scrolled='true'] {
-      backdrop-filter: blur(12px) saturate(1.5);
-      -webkit-backdrop-filter: blur(12px) saturate(1.5);
-    }
+    border-color: var(--border-subtle);
+    box-shadow: var(--elevation-shadow-raised);
   }
 
   .site-nav {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding-block: var(--space-3);
-    padding-inline: var(--space-page-inline);
+    position: relative;
+    z-index: 2;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: var(--space-control-group);
-    position: relative;
-    z-index: 2;
+    max-inline-size: 1280px;
+    min-block-size: var(--component-large-height);
+    margin-inline: auto;
+    padding: var(--space-2) var(--space-page-inline);
   }
 
-  /* Logo lockup */
-  .site-logo {
+  .site-logo,
+  .mobile-nav-logo {
     display: inline-flex;
     align-items: center;
+    flex: 0 0 auto;
     gap: var(--space-icon-label);
     color: var(--text-primary);
     text-decoration: none;
-    flex: 0 0 auto;
   }
 
-  .site-logo:visited {
+  .site-logo { min-block-size: var(--component-large-height); }
+
+  .site-logo:visited,
+  .mobile-nav-logo:visited {
     color: var(--text-primary);
   }
 
-  .site-logo svg {
-    width: 28px;
-    height: 28px;
-    overflow: visible;
-  }
-
-  .site-logo-text {
+  .site-logo svg { inline-size: 28px; block-size: 28px; }
+  .site-logo-text,
+  .mobile-nav-logo span {
     font-family: var(--font-editorial);
+    font-size: 1.25rem;
     font-weight: 600;
     font-variation-settings: 'opsz' 24;
-    /* Display typography: the wordmark is brand art, not interface chrome. */
-    font-size: 1.25rem;
     letter-spacing: -0.005em;
   }
 
-  /* Version badge: tiny, unobtrusive, always truthful */
   .site-version {
-    font-family: var(--font-mono);
-    font-size: var(--type-interface-micro-size);
-    font-weight: 600;
-    letter-spacing: 0.02em;
     padding: 0.15em 0.45em;
     border-radius: var(--website-radius-control-compact);
     background: var(--surface-accent-soft);
     color: var(--accent-primary);
+    font-family: var(--font-mono);
+    font-size: var(--type-interface-micro-size);
+    font-weight: 600;
     line-height: 1;
-    vertical-align: middle;
-  }
-
-  /* Logo varve hover: the three bands fan out a hair */
-  .logo-varve-1,
-  .logo-varve-2,
-  .logo-varve-3 {
-    transition: transform var(--duration-fast) var(--ease-default);
-    transform-box: fill-box;
-    transform-origin: center;
   }
 
   .logo-varve-1 { fill: var(--brand-teal); }
   .logo-varve-2 { fill: var(--brand-sandstone); }
   .logo-varve-3 { fill: var(--brand-terracotta); }
 
-  @media (prefers-reduced-motion: no-preference) {
-    .site-logo:hover .logo-varve-1 {
-      transform: translate(-1px, -1px);
-    }
-    .site-logo:hover .logo-varve-3 {
-      transform: translate(1px, 1px);
-    }
-  }
-
-  /* Nav links with anchor-marker active state */
   .nav-links {
     display: flex;
-    list-style: none;
-    gap: var(--space-toolbar-item);
-    margin: 0 auto;
     align-items: center;
+    gap: clamp(var(--space-1), 0.8vw, var(--space-3));
+    margin: 0 auto;
+    padding: 0;
+    list-style: none;
   }
 
-  .nav-menu {
-    position: relative;
-  }
-
+  .nav-links > li { position: relative; }
   .nav-links a,
-  .nav-menu-trigger {
+  .nav-disclosure-summary {
+    position: relative;
     display: inline-flex;
     align-items: center;
-    gap: var(--space-icon-label);
-    color: var(--text-secondary);
-    font-weight: 500;
-    font-size: var(--type-interface-control-size);
-    text-decoration: none;
+    gap: var(--space-2);
+    min-block-size: var(--component-large-height);
     padding: var(--space-2) var(--space-3);
+    border: 1px solid transparent;
     border-radius: var(--website-radius-control-compact);
-    position: relative;
-    transition:
-      color var(--duration-quick) var(--ease-default),
-      background-color var(--duration-quick) var(--ease-default);
-  }
-
-  .nav-menu-trigger {
-    border: 0;
-    font: inherit;
-    cursor: pointer;
-  }
-
-  .nav-links a:visited {
+    background: transparent;
     color: var(--text-secondary);
+    font-family: var(--font-interface);
+    font-size: var(--type-interface-control-size);
+    font-weight: 550;
+    line-height: 1.25;
+    text-decoration: none;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color var(--duration-quick) var(--ease-default),
+      border-color var(--duration-quick) var(--ease-default), color var(--duration-quick) var(--ease-default);
   }
+
+  .nav-links a:visited { color: var(--text-secondary); }
+  .nav-disclosure-summary { list-style: none; }
+  .nav-disclosure-summary::-webkit-details-marker { display: none; }
 
   .nav-links a:hover,
-  .nav-menu-trigger:hover,
-  .nav-menu.is-open .nav-menu-trigger {
-    color: var(--text-link);
+  .nav-disclosure-summary:hover,
+  .nav-disclosure details[open] > .nav-disclosure-summary {
+    border-color: var(--border-default);
     background: var(--surface-muted);
-  }
-
-  .nav-links a.nav-active,
-  .nav-menu-trigger.nav-active {
-    color: var(--text-primary);
-    background: var(--surface-selected);
-    font-weight: 600;
-  }
-
-  .nav-menu-chevron {
-    transition: transform var(--duration-quick) var(--ease-default);
-  }
-
-  .nav-menu.is-open .nav-menu-chevron {
-    transform: rotate(180deg);
-  }
-
-  .nav-menu-panel {
-    position: absolute;
-    top: calc(100% + var(--space-2));
-    left: 50%;
-    z-index: 110;
-    display: grid;
-    width: 15rem;
-    gap: var(--space-1);
-    padding: var(--space-2);
-    transform: translateX(-50%);
-    background: var(--surface-card);
-    border: 1px solid var(--border-default);
-    border-radius: var(--website-radius-surface);
-    box-shadow: var(--elevation-shadow-overlay);
-  }
-
-  .nav-menu-panel[hidden] {
-    display: none;
-  }
-
-  .nav-menu-panel a {
-    display: grid;
-    gap: var(--space-1);
-    padding: var(--space-2) var(--space-3);
-    border-radius: var(--website-radius-control-compact);
-    color: var(--text-primary);
-    text-decoration: none;
-  }
-
-  .nav-menu-panel a:visited {
     color: var(--text-primary);
   }
 
-  .nav-menu-panel a:hover,
-  .nav-menu-panel a:focus-visible,
-  .nav-menu-panel a.nav-menu-item-active {
+  .nav-links a:active,
+  .nav-disclosure-summary:active { background: var(--interaction-pressed-surface); }
+
+  .nav-links a.nav-section-current,
+  .nav-disclosure-summary.nav-section-current {
     background: var(--surface-selected);
     color: var(--text-primary);
+    font-weight: 650;
   }
 
-  .nav-menu-item-label {
-    font-weight: 600;
-  }
+  .nav-links a.nav-section-current:active,
+  .nav-disclosure-summary.nav-section-current:active { background: var(--interaction-pressed-surface); }
 
-  .nav-menu-item-description {
-    color: var(--text-secondary);
-    font-size: var(--type-interface-micro-size);
-    line-height: 1.35;
-  }
-
-  /* Active marker: a small diamond below the active link — the vector
-     anchor node motif translated into navigation. */
   .nav-active-marker {
-    width: 5px;
-    height: 5px;
-    background: var(--accent-primary);
+    position: absolute;
+    inset-block-end: 4px;
+    inset-inline-start: calc(50% - 3px);
+    inline-size: 6px;
+    block-size: 6px;
     transform: rotate(45deg);
     border-radius: 1px;
-    position: absolute;
-    bottom: 2px;
-    left: 50%;
-    /* audit-spacing: allow optical alignment of the badge against its icon */
-    margin-left: -2.5px;
+    background: var(--accent-primary);
   }
 
-  /* Desktop actions */
+  .nav-chevron { transition: transform var(--duration-quick) var(--ease-default); }
+  .nav-disclosure details[open] > .nav-disclosure-summary .nav-chevron { transform: rotate(180deg); }
+
+  .nav-popover {
+    position: absolute;
+    inset-block-start: calc(100% + var(--space-2));
+    inset-inline-start: 50%;
+    z-index: 5;
+    display: grid;
+    inline-size: min(21rem, calc(100vw - var(--space-6)));
+    gap: var(--space-1);
+    margin: 0;
+    padding: var(--space-2);
+    transform: translateX(-50%);
+    border: 1px solid var(--border-default);
+    border-radius: var(--website-radius-surface);
+    background: var(--surface-card);
+    box-shadow: var(--elevation-shadow-overlay);
+    list-style: none;
+  }
+
+  .nav-popover-link {
+    display: grid !important;
+    gap: var(--space-1) !important;
+    min-block-size: unset !important;
+    padding: var(--space-3) !important;
+    border-radius: var(--website-radius-control-compact) !important;
+    color: var(--text-primary) !important;
+    white-space: normal !important;
+  }
+
+  .nav-popover-link:hover,
+  .nav-popover-link.nav-link-current {
+    background: var(--surface-selected) !important;
+  }
+
+  .nav-popover-label { font-weight: 650; }
+  .nav-popover-description { color: var(--text-secondary); font-size: var(--type-interface-micro-size); line-height: 1.4; }
+
   .nav-actions {
     display: flex;
+    flex: 0 0 auto;
     align-items: center;
     gap: var(--space-control-group);
-    flex: 0 0 auto;
   }
 
-  /* Search trigger. Hidden until the SearchDialog script marks the document
-     ready, so a failed script never leaves a dead control in the header. */
   .nav-search-trigger {
     display: none;
     align-items: center;
     gap: var(--space-2);
-    padding: 0 var(--space-3);
-    min-block-size: 2rem;
+    min-block-size: var(--component-large-height);
+    padding-inline: var(--space-3);
     border: 1px solid var(--border-default);
     border-radius: var(--website-radius-control-compact);
     background: var(--surface-muted);
     color: var(--text-secondary);
-    font-family: var(--font-interface);
-    font-size: var(--font-size-sm);
+    font: 500 var(--type-interface-control-size)/1.25 var(--font-interface);
     cursor: pointer;
-    transition:
-      color var(--duration-quick) var(--ease-default),
-      background-color var(--duration-quick) var(--ease-default);
   }
 
-  @media (min-width: 961px) {
-    :global(html[data-search-ready]) .nav-search-trigger {
-      display: inline-flex;
-    }
-  }
-
-  .nav-search-trigger:hover,
-  .nav-search-trigger:focus-visible {
-    color: var(--text-primary);
-    background: var(--surface-card-hover);
-  }
-
-  .nav-search-trigger__hint {
-    padding: 0 var(--space-2);
+  .nav-search-trigger kbd {
+    padding-inline: var(--space-2);
     border: 1px solid var(--border-default);
-    border-radius: var(--radius-control-compact);
+    border-radius: var(--website-radius-control-compact);
     background: var(--surface-card);
-    color: var(--text-subtle);
-    font-family: var(--font-mono);
-    font-size: var(--type-interface-micro-size);
-    line-height: 1.5;
+    color: var(--text-secondary);
+    font: inherit;
   }
 
-  @media (pointer: coarse), (any-pointer: coarse) {
-    .nav-search-trigger {
-      min-block-size: var(--touch-target-min);
-    }
-  }
+  .nav-search-trigger:hover { background: var(--surface-card-hover); color: var(--text-primary); }
+  .nav-search-trigger:active { background: var(--interaction-pressed-surface); }
+  :global(html[data-search-ready]) .nav-search-trigger { display: inline-flex; }
 
-  :global(.nav-download-cta) {
-    padding: var(--space-2) var(--space-3);
-    font-size: var(--type-interface-control-size);
-    border-radius: var(--website-radius-control);
-    position: relative;
-    transition:
-      background-color var(--duration-quick) var(--ease-default),
-      box-shadow var(--duration-quick) var(--ease-default);
-  }
-
-  :global(.nav-download-cta:hover),
-  :global(.nav-download-cta:focus-visible) {
-    box-shadow: 0 2px 10px -2px color-mix(in oklab, var(--accent-primary) 55%, transparent);
-  }
-
-  :global(.nav-try-cta) {
+  .nav-demo-link {
     display: inline-flex;
     align-items: center;
-    padding: var(--space-2) var(--space-3);
+    min-block-size: var(--component-large-height);
+    padding-inline: var(--space-3);
+    border: 1px solid var(--border-interactive);
+    border-radius: var(--website-radius-control);
+    color: var(--text-link);
+    font-family: var(--font-interface);
     font-size: var(--type-interface-control-size);
     font-weight: 600;
-    border-radius: var(--website-radius-control);
     text-decoration: none;
-    color: var(--accent-primary);
-    border: 1px solid currentColor;
-    transition:
-      background-color var(--duration-quick) var(--ease-default),
-      box-shadow var(--duration-quick) var(--ease-default);
+    white-space: nowrap;
   }
 
-  :global(.nav-try-cta:hover),
-  :global(.nav-try-cta:focus-visible) {
-    background: color-mix(in oklab, var(--accent-primary) 8%, transparent);
-  }
-
-  /* Mobile toggle */
-  .mobile-menu-toggle {
-    display: none;
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: var(--space-2);
-    color: var(--text-secondary);
-    border-radius: var(--website-radius-control-compact);
-    position: relative;
-    width: var(--component-large-height);
-    height: var(--component-large-height);
-    align-items: center;
-    justify-content: center;
-  }
-
-  .mobile-menu-toggle:hover,
-  .mobile-menu-toggle:focus-visible {
-    color: var(--text-primary);
-    background: var(--surface-muted);
-  }
+  .nav-demo-link:visited { color: var(--text-link); }
+  .nav-demo-link:hover { background: var(--surface-accent-soft); color: var(--text-primary); }
+  :global(.nav-download-cta) { min-block-size: var(--component-large-height); padding: var(--space-2) var(--space-3); white-space: nowrap; }
+  :global(.nav-download-cta:hover) { box-shadow: 0 2px 10px -2px color-mix(in oklab, var(--accent-primary) 45%, transparent); }
 
   @media (pointer: coarse), (any-pointer: coarse) {
-    .mobile-menu-toggle {
-      width: var(--touch-target-min);
-      height: var(--touch-target-min);
-    }
+    .site-logo,
+    .nav-links a,
+    .nav-disclosure-summary,
+    .nav-search-trigger,
+    .nav-demo-link { min-block-size: var(--touch-target-min); }
+    :global(.nav-download-cta) { min-block-size: var(--touch-target-min); }
   }
 
-  .menu-icon-close {
-    display: none;
+  .mobile-menu-toggle,
+  .mobile-nav-fallback { display: none; }
+
+  .mobile-nav-dialog {
+    position: fixed;
+    inset: 0;
+    inline-size: 100%;
+    max-inline-size: none;
+    block-size: 100%;
+    max-block-size: none;
+    margin: 0;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    overflow: hidden;
+    border: 0;
+    background: transparent;
+    color: var(--text-primary);
   }
 
-  .mobile-menu-toggle[aria-expanded='true'] .menu-icon-open {
-    display: none;
+  .mobile-nav-dialog::backdrop { background: oklch(0 0 0 / 0.48); }
+  .mobile-nav-dialog[open] { display: block; }
+
+  .mobile-nav-sheet {
+    display: flex;
+    flex-direction: column;
+    inline-size: 100%;
+    block-size: 100%;
+    min-block-size: 0;
+    overflow: hidden;
+    background: var(--surface-page);
+    color: var(--text-primary);
   }
 
-  .mobile-menu-toggle[aria-expanded='true'] .menu-icon-close {
-    display: block;
+  .mobile-nav-header {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    border-block-end: 1px solid var(--border-default);
+    background: var(--surface-header);
   }
 
-  /* --- Mobile overlay panel --- */
-  .mobile-nav-panel {
-    display: none;
+  .mobile-nav-logo { font-size: 1.15rem; }
+  .mobile-nav-logo svg { inline-size: 26px; block-size: 26px; }
+  .mobile-nav-header-actions { display: flex; align-items: center; gap: var(--space-3); }
+
+  .mobile-menu-close,
+  .mobile-menu-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    inline-size: var(--touch-target-min);
+    block-size: var(--touch-target-min);
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: var(--website-radius-control-compact);
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
   }
 
-  /* The full navigation needs roughly 920px once touch-safe controls and
-     readable link spacing are included. Switch to the mobile sheet before
-     the tablet/intermediate range can clip the persistent header. */
-  @media (max-width: 960px) {
-    .nav-links {
-      display: none;
-    }
+  .mobile-menu-close:hover,
+  .mobile-menu-toggle:hover { border-color: var(--border-default); background: var(--surface-muted); color: var(--text-primary); }
+  .mobile-nav-scroll { flex: 1 1 auto; min-block-size: 0; overflow-y: auto; overscroll-behavior: contain; }
 
-    .mobile-menu-toggle {
-      display: flex;
-    }
-
-    .nav-actions {
-      gap: var(--space-icon-label);
-    }
-
-    :global(.nav-download-cta .download-cta-beta) {
-      display: none;
-    }
-
-    /* The browser-demo entry remains available in the mobile menu/download
-       funnel; hiding the compact desktop pill keeps the persistent header
-       within a 320px viewport alongside the theme toggle and menu button. */
-    :global(.nav-try-cta) {
-      display: none;
-    }
-
-    .site-nav {
-      padding-block: var(--space-2);
-      padding-inline: var(--space-page-inline);
-    }
-
-    /* Full-screen overlay */
-    .mobile-nav-panel {
-      display: block;
-      position: fixed;
-      inset: 0;
-      z-index: 200;
-      pointer-events: none;
-      /* The closed sheet is translated 100% off-canvas; transform does not
-         remove it from scrollWidth, which made the page overflow at 320px
-         (measured: /features overflowed by 14px, 2026-08-12). visibility
-         removes the closed panel from the scrollable overflow entirely,
-         and the open state's visibility change happens after the slide
-         transition starts, so the animation is unaffected. */
-      visibility: hidden;
-      overflow: hidden;
-      overflow: clip;
-    }
-
-    .mobile-nav-panel[aria-hidden='false'] {
-      pointer-events: auto;
-      visibility: visible;
-      /* Delay visibility so the slide-in is visible: hidden -> visible
-         applies immediately on open; visible -> hidden waits for the slide
-         to finish on close. */
-      transition: visibility 0s 0s;
-    }
-    .mobile-nav-panel[aria-hidden='true'] {
-      transition: visibility 0s 0.3s;
-    }
-
-    .mobile-nav-backdrop {
-      position: absolute;
-      inset: 0;
-      background: oklch(0 0 0 / 0.5);
-      opacity: 0;
-      transition: opacity 0.25s var(--ease-default);
-    }
-
-    .mobile-nav-panel[aria-hidden='false'] .mobile-nav-backdrop {
-      opacity: 1;
-    }
-
-    .mobile-nav-sheet {
-      position: absolute;
-      top: 0;
-      right: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: var(--surface-page);
-      border-left: 0;
-      display: flex;
-      flex-direction: column;
-      transform: translateX(-100%);
-      transition: transform 0.3s var(--ease-default);
-      box-shadow: -8px 0 24px oklch(0 0 0 / 0.15);
-      overflow: clip;
-    }
-
-    .mobile-nav-panel[aria-hidden='false'] .mobile-nav-sheet {
-      transform: translateX(0);
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-      .mobile-nav-sheet {
-        transition: none;
-      }
-      .mobile-nav-backdrop {
-        transition: none;
-      }
-    }
-
-    .mobile-nav-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: var(--space-4) var(--space-5);
-      border-bottom: 1px solid var(--border-default);
-    }
-
-    .mobile-nav-logo {
-      display: inline-flex;
-      align-items: center;
-      gap: var(--space-icon-label);
-      color: var(--text-primary);
-      text-decoration: none;
-      font-family: var(--font-editorial);
-      font-weight: 600;
-      font-variation-settings: 'opsz' 24;
-      /* Display typography: the mobile wordmark is brand art. */
-      font-size: 1.15rem;
-    }
-
-    .mobile-nav-logo:visited {
-      color: var(--text-primary);
-    }
-
-    .mobile-nav-logo svg {
-      width: 24px;
-      height: 24px;
-    }
-
-    .mobile-nav-actions {
-      display: flex;
-      align-items: center;
-      gap: var(--space-3);
-    }
-
-    .mobile-menu-close {
-      background: none;
-      border: none;
-      cursor: pointer;
-      padding: var(--space-2);
-      color: var(--text-secondary);
-      border-radius: var(--website-radius-control-compact);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    @media (pointer: coarse), (any-pointer: coarse) {
-      .mobile-menu-close {
-        min-inline-size: var(--touch-target-min);
-        min-block-size: var(--touch-target-min);
-      }
-    }
-
-    .mobile-menu-close:hover,
-    .mobile-menu-close:focus-visible {
-      color: var(--text-primary);
-      background: var(--surface-muted);
-    }
-
-    .mobile-nav-links {
-      flex: 1;
-      min-height: 0;
-      display: flex;
-      flex-direction: column;
-      padding: var(--space-3);
-      gap: var(--space-toolbar-item);
-      overflow-y: auto;
-    }
-
-    .mobile-nav-link {
-      display: flex;
-      align-items: center;
-      gap: var(--space-icon-label);
-      padding: var(--space-4) var(--space-5);
-      color: var(--text-secondary);
-      font-weight: 500;
-      font-size: var(--type-interface-body-size);
-      text-decoration: none;
-      border-radius: var(--website-radius-control);
-      transition:
-        color var(--duration-quick) var(--ease-default),
-        background-color var(--duration-quick) var(--ease-default);
-    }
-
-    .mobile-nav-link:visited {
-      color: var(--text-secondary);
-    }
-
-    .mobile-nav-link:hover,
-    .mobile-nav-link:focus-visible {
-      color: var(--text-primary);
-      background: var(--surface-muted);
-    }
-
-    .mobile-nav-link.is-active {
-      color: var(--text-primary);
-      background: var(--surface-selected);
-      font-weight: 600;
-    }
-
-    /* The search row is a button, not a link; it closes the sheet (via the
-       shared .mobile-nav-link click handler) and opens the search dialog.
-       Hidden until the search script is ready so a failed script cannot
-       leave a dead row behind. */
-    .mobile-nav-search {
-      display: none;
-      width: 100%;
-      border: 0;
-      font-family: inherit;
-      text-align: start;
-      cursor: pointer;
-    }
-
-    :global(html[data-search-ready]) .mobile-nav-search {
-      display: flex;
-    }
-
-    .mobile-nav-footer {
-      padding: var(--space-4) var(--space-5);
-      border-top: 1px solid var(--border-default);
-    }
-
-    .mobile-nav-footer :global(.btn) {
-      width: 100%;
-      justify-content: center;
-    }
-
-    .mobile-nav-footer :global(.download-cta-large) {
-      box-sizing: border-box;
-      max-width: 100%;
-      flex-wrap: wrap;
-      white-space: normal;
-    }
-
-    .mobile-nav-footer :global(.download-cta-label) {
-      min-width: 0;
-      max-width: 100%;
-      white-space: normal;
-      overflow-wrap: anywhere;
-    }
+  .mobile-nav-utilities {
+    display: grid;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-4);
+    border-block-end: 1px solid var(--border-default);
   }
 
-  /* At standard phone widths, the compact header CTA competes with two
-     44px theme choices and the menu control. The full mobile sheet retains
-     Download, so remove only this duplicate entry from the persistent row. */
-  @media (max-width: 480px) {
-    :global(.nav-download-cta) {
-      display: none;
-    }
-
-    /* Text enlargement scales the logo lockup as well as the controls. Let
-       the brand give up its optional version badge and share the narrow row
-       with the theme/menu controls instead of creating page overflow. */
-    .site-nav {
-      gap: var(--space-2);
-      padding-inline: var(--space-4);
-    }
-
-    .site-logo {
-      min-width: 0;
-      flex: 1 1 auto;
-    }
-
-    .site-logo-text {
-      min-width: 0;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .site-version {
-      display: none;
-    }
+  .mobile-nav-search,
+  .mobile-nav-demo {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    min-block-size: var(--touch-target-min);
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--border-default);
+    border-radius: var(--website-radius-control-compact);
+    background: var(--surface-muted);
+    color: var(--text-primary);
+    font: 550 var(--type-interface-control-size)/1.3 var(--font-interface);
+    text-align: start;
+    text-decoration: none;
+    cursor: pointer;
   }
 
-  /* Safe area insets for notched devices. The sheet fills the whole viewport,
-     so the top (notch/status bar) and bottom (home indicator) insets matter as
-     much as the right one — without them the Close button and the bottom
-     Download action could sit under device chrome. */
-  @supports (padding: env(safe-area-inset-right)) {
-    .mobile-nav-sheet {
-      padding-top: env(safe-area-inset-top);
-      padding-right: env(safe-area-inset-right);
-      padding-bottom: env(safe-area-inset-bottom);
-      padding-left: env(safe-area-inset-left);
-    }
+  .mobile-nav-search { display: none; }
+  :global(html[data-search-ready]) .mobile-nav-search { display: flex; }
+  .mobile-nav-demo { justify-content: space-between; border-color: var(--border-interactive); }
+  .mobile-nav-search:hover,
+  .mobile-nav-demo:hover { background: var(--surface-card-hover); }
+
+  .mobile-nav-links { display: grid; padding: var(--space-2) var(--space-4) var(--space-3); }
+  .mobile-nav-link {
+    display: flex;
+    align-items: center;
+    min-block-size: var(--touch-target-min);
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--website-radius-control-compact);
+    color: var(--text-primary);
+    font-family: var(--font-interface);
+    font-size: var(--type-interface-control-size);
+    font-weight: 550;
+    text-decoration: none;
+  }
+
+  .mobile-nav-link:visited { color: var(--text-primary); }
+  .mobile-nav-link:hover { background: var(--surface-muted); }
+  .mobile-nav-link:active { background: var(--interaction-pressed-surface); }
+  .mobile-nav-link.nav-link-current { background: var(--surface-selected); font-weight: 650; }
+  .mobile-nav-link.nav-link-current:active { background: var(--interaction-pressed-surface); }
+  .mobile-nav-group { display: grid; padding-block-start: var(--space-2); }
+  .mobile-nav-group h2 { padding: var(--space-2) var(--space-3); color: var(--text-secondary); font: 650 var(--type-interface-micro-size)/1.3 var(--font-interface); letter-spacing: 0.04em; text-transform: uppercase; }
+  .mobile-nav-child { padding-inline-start: var(--space-5); }
+
+  .mobile-nav-download { padding: var(--space-3) var(--space-4) var(--space-5); border-block-start: 1px solid var(--border-default); }
+  .mobile-nav-download :global(.download-cta) { display: flex; justify-content: center; min-block-size: var(--touch-target-min); }
+  .mobile-theme-toggle { display: none; }
+  .desktop-theme-toggle { display: none; }
+  :global(html[data-theme-ready]) .desktop-theme-toggle { display: block; }
+  .mobile-nav-fallback { position: relative; }
+
+  .mobile-nav-fallback > summary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-inline-size: var(--touch-target-min);
+    min-block-size: var(--touch-target-min);
+    padding-inline: var(--space-3);
+    border: 1px solid var(--border-default);
+    border-radius: var(--website-radius-control-compact);
+    background: var(--surface-muted);
+    color: var(--text-primary);
+    font: 600 var(--type-interface-control-size)/1.2 var(--font-interface);
+    list-style: none;
+    cursor: pointer;
+  }
+
+  .mobile-nav-fallback > summary::-webkit-details-marker { display: none; }
+  .mobile-fallback-panel {
+    position: absolute;
+    inset-block-start: calc(100% + var(--space-2));
+    inset-inline-end: 0;
+    z-index: 5;
+    inline-size: min(22rem, calc(100vw - var(--space-6)));
+    max-block-size: min(70dvh, 38rem);
+    overflow: auto;
+    padding: var(--space-3);
+    border: 1px solid var(--border-default);
+    border-radius: var(--website-radius-surface);
+    background: var(--surface-card);
+    box-shadow: var(--elevation-shadow-overlay);
+  }
+
+  .mobile-fallback-panel ul { display: grid; list-style: none; }
+  .mobile-fallback-panel a { display: flex; align-items: center; min-block-size: var(--touch-target-min); padding-inline: var(--space-3); border-radius: var(--website-radius-control-compact); color: var(--text-primary); text-decoration: none; }
+  .mobile-fallback-panel a:hover { background: var(--surface-muted); }
+  .mobile-fallback-demo { margin-block-start: var(--space-2); border-block-start: 1px solid var(--border-default); }
+
+  .site-header :focus-visible,
+  .mobile-nav-dialog :focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+
+  @media (min-width: 80rem) {
+    :global(html[data-search-ready]) .nav-search-trigger { display: inline-flex; }
+  }
+
+  @media (min-width: 48rem) {
+    .mobile-menu-toggle { display: none; }
+  }
+
+  @media (min-width: 48rem) and (max-width: 79.999rem) {
+    .site-nav { gap: var(--space-2); }
+    .nav-links { gap: var(--space-1); }
+    .nav-links a,
+    .nav-disclosure-summary { padding-inline: var(--space-2); }
+    .nav-actions { gap: var(--space-2); }
+    .site-version { display: none; }
+    .nav-demo-link,
+    .nav-search-trigger { display: none !important; }
+    .nav-download-cta :global(.download-cta-label) { min-inline-size: 0; }
+  }
+
+  @media (max-width: 47.999rem) {
+    .site-nav { min-block-size: var(--component-large-height); padding-block: var(--space-2); }
+    .nav-links,
+    .desktop-theme-toggle,
+    .nav-demo-link,
+    .nav-search-trigger { display: none !important; }
+    .nav-actions { gap: var(--space-2); }
+    .nav-download-cta { display: inline-flex; }
+    .nav-download-cta :global(.download-cta-label) { min-inline-size: 0; }
+    .mobile-nav-fallback { display: block; }
+    .mobile-menu-toggle { display: none; }
+    :global(html[data-site-nav-enhanced]) .mobile-nav-fallback { display: none; }
+    :global(html[data-site-nav-enhanced]) .mobile-menu-toggle { display: inline-flex; }
+    :global(html[data-site-nav-enhanced]) .mobile-theme-toggle { display: block; }
+    .mobile-theme-toggle :global(.theme-switcher) { gap: var(--space-1); }
+  }
+
+  @media (max-width: 24rem) {
+    .site-nav { flex-wrap: wrap; gap: var(--space-2); padding-inline: var(--space-2); }
+    .site-logo { gap: var(--space-1); }
+    .site-version { display: none; }
+    .nav-actions { gap: var(--space-1); }
+    :global(.nav-download-cta) { padding-inline: var(--space-2); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .site-header,
+    .nav-chevron { transition: none; }
+  }
+
+  @media (forced-colors: active) {
+    .site-header,
+    .mobile-nav-sheet,
+    .nav-popover,
+    .mobile-fallback-panel { border-color: CanvasText; }
+    .nav-active-marker { background: LinkText; }
   }
 </style>
