@@ -111,6 +111,46 @@ showing the selected artwork and saved Depth Blur controls, was inspected at
 | `33c00bf51` | Refreshed continuation source/research baseline. |
 | `8fcdfeb34` | Retain inference reservations through actual execution completion and prevent overlapping session-provider fallback. |
 | `0112de9a8` | Shared byte admission and inference compatibility adapter; normal scoped commit checks passed. |
+| `b6727dfe5` | Runtime entrypoint selection, worker session resident accounting, compact registered depth resources; focused browser and unit checks passed. |
+
+M5's normal scoped commit checkpoint passed all hooks, including typecheck of
+E2E sources and four direct suites (43 tests). A separate focused run passed
+six suites (59 tests), and the lease-wrapped depth Save/mask browser flow passed
+both cases. The selected-artwork screenshot after Save was inspected. The
+shared planner still sees 527 files and escalates because concurrent workspace,
+toolchain, and validation-infrastructure changes select the full suite; the
+affected command stops before starting lanes. That frozen-SHA gate remains a
+final integration checkpoint.
+
+## M6 source baseline — bounded model storage and installation
+
+Pre-edit HEAD is `b6727dfe5` on `master`. Immediately before this storage pass,
+the candidate storage paths below were clean in the shared index and worktree;
+other staged/unstaged changes remain outside this ownership. Refresh status and
+review exact diffs again before staging or committing.
+
+Source review found that `ModelStorage` accepts full `ArrayBuffer` values,
+IndexedDB stores a single full record, `DownloadManager` retains response chunks
+and then allocates/assembles another full buffer for checksum and installation,
+localStorage serializes model and partial bytes as JSON number arrays, and the
+Tauri adapter transfers `Vec<u8>` as a JSON number array. The second browser
+store used by background-removal already stores `Blob` values in IndexedDB but
+duplicates model-store responsibilities. Resume currently serializes its full
+partial in memory, though the existing range/ETag checks are validated and
+should be preserved.
+
+| Paths | M6 ownership under review |
+|---|---|
+| `packages/engine/src/inference/core/ModelStorage.ts` and a focused storage test | Metadata/stat, artifact handle, staged chunk writes with verified commit/abort, OPFS preference, chunked IndexedDB fallback, and read compatibility for legacy records. Stop writing model weights to localStorage JSON. |
+| `packages/engine/src/inference/core/DownloadManager.ts` and `core/__tests__/DownloadManager.test.ts` | Stream response chunks into a stage, verify size/checksum before publish, coordinate in-flight duplicate downloads, retain range/ETag resume behavior, avoid final concatenation except for transformations that require a whole model. |
+| `packages/engine/src/inference/core/TauriModelStorage.ts` and Rust model IPC implementation | Use bounded native streaming transfer and artifact handles where the clean boundary permits; inspect the shared dirty `apps/desktop/src-tauri/src/lib.rs` hunks before any edit. |
+| `packages/engine/src/backgroundRemoval/modelStore.ts` and model loader consumers (only if required for a single compatible artifact contract) | Reuse Blob/file-backed artifacts without creating a parallel whole-buffer path; preserve the old installed-record formats. |
+| This file, `docs/architecture/onnx-inference-architecture.md`, `docs/architecture/loading-system.md`, baseline audit | Document the storage contract, migration, evidence, and limitations. |
+
+Do not change Tauri model commands until exact ownership of the currently dirty
+`lib.rs` region is confirmed. The storage API must not claim OPFS availability
+where the browser does not provide it. Native and browser acceptance will be
+reported separately.
 
 ## Current milestone ownership — responsive live-effect job lane
 

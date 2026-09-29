@@ -378,7 +378,7 @@ work, and mixed model/export pressure ([long filter waits](https://www.reddit.co
 These reports support prioritizing bounded work and responsive controls; they
 do not support advertising a device-level latency guarantee.
 
-## M5 — Runtime/session residency and compact depth registration
+## M5 — Runtime/session residency and compact depth registration (`b6727dfe5`)
 
 The 1.27.0 ONNX Runtime worker now has one single-flight module loader. It
 selects the WebGPU-flavored entrypoint when capability detection requests that
