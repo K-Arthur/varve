@@ -71,6 +71,25 @@ test('two-point perspective assistance stays a draggable view overlay', async ({
     .toBeGreaterThan(leftBefore + 30);
   expect(await contentHash(page)).toBe(before);
 
+  const toolbar = page.getByTestId('toolbar');
+  await toolbar.getByRole('button', { name: 'Rectangle', exact: true }).click();
+  const blockInCanvas = await canvas.boundingBox();
+  if (!blockInCanvas) throw new Error('canvas was not found for perspective block-in');
+  const blockInBefore = await contentHash(page);
+  await page.mouse.move(
+    blockInCanvas.x + blockInCanvas.width * 0.28,
+    blockInCanvas.y + blockInCanvas.height * 0.12,
+  );
+  await page.mouse.down();
+  await page.mouse.move(
+    blockInCanvas.x + blockInCanvas.width * 0.43,
+    blockInCanvas.y + blockInCanvas.height * 0.28,
+    { steps: 8 },
+  );
+  await page.mouse.up();
+  await expect(page.getByRole('treeitem', { name: /Rectangle 1/ })).toBeVisible();
+  await expect.poll(() => contentHash(page)).not.toBe(blockInBefore);
+
   await page.screenshot({ path: testInfo.outputPath('perspective-guide-light-desktop.png') });
   await canvas.screenshot({ path: testInfo.outputPath('perspective-guide-light-closeup.png') });
   for (const theme of ['dark', 'high-contrast'] as const) {
