@@ -83,7 +83,9 @@ clears them. See §4 for the field support matrix.
 
 Double-click / Enter / Space / Home on the minimap fit the **whole
 document** (`fitAll`); click-drag pans; the selection fit remains a separate
-status-bar action ("Fit sel"). The aria-label states the real behavior.
+status-bar action ("Fit selection", rendered only while a selection exists —
+an inert Fit button with nothing to fit is the pattern this replaced). The
+aria-label states the real behavior.
 
 ### D5 — Side buttons = selection history
 

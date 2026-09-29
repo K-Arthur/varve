@@ -218,6 +218,24 @@ update, not for someone reading the commit log.
 
 ### Changed
 
+- **A bottom bar with one owner per fact** — The two strips at the bottom of the
+  editor no longer report the same thing twice. The selection strip keeps
+  selection identity and geometry (name, type, size, position, breadcrumbs, layer
+  count); the status bar keeps instrumentation and view controls, and its
+  duplicate selection readout — which counted layers differently — is gone. The
+  three document badges (audit findings, design debt, layout score) are now one
+  **Document health** pill that opens the Audit tab where those views live, and
+  the three scans behind them share one idle task instead of three timers. Zoom
+  now exists once: the menubar's second input, which repeated the status bar's
+  field under the same accessible name, was removed. View rotation shows the
+  angle and its reset as one control instead of a bare number plus a "Reset rot"
+  button, the snap-grid field is labelled and appears only while it can affect
+  something, and "Fit sel" is now "Fit selection" and appears only with a
+  selection. Renderer status, view toggles, fit controls, save status, and
+  on-device AI status became sections too, so **Customize Workspace** describes
+  the entire row: reordering now actually works (it was persisted but ignored),
+  and save status is pinned on with a stated reason.
+
 - **One slider, everywhere** — Every slider in the editor now renders the same
   native range primitive with the same track, thumb, focus ring, and touch
   target. The Inspector, adjustment editors, Colorize, Font Browser axes, HDR
