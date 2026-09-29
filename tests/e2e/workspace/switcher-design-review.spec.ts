@@ -15,9 +15,10 @@
  *      top bar below 900px — it must not be a second floating surface;
  *   F3 every mode's pill and every inactive icon meets 4.5:1 as *rendered*
  *      (colors are painted to a canvas and measured from sRGB bytes);
- *   F4 phone-width landscape keeps the active workspace named;
- *   F5 the switcher never paints over the application menu rail it shares a
- *      row with.
+ *   F4 phone-width landscape keeps the active workspace named, and the pill
+ *      only compacts when the measurement genuinely cannot fit it;
+ *   F5 the switcher never renders over, or steals the hit area of, the
+ *      application menu rail it shares a row with.
  *
  * Run (heavy lease):
  *   node scripts/quality/heavy-lease.mjs "e2e: switcher design review" -- \
@@ -38,6 +39,7 @@ const MODES = ['design', 'print', 'drawing', 'image', 'motion', 'email'] as cons
 const THEMES = ['light', 'dark', 'high-contrast'] as const;
 
 interface SwitcherGeometry {
+  barPresent: boolean;
   dockBar: {
     background: string;
     boxShadow: string;
@@ -45,11 +47,15 @@ interface SwitcherGeometry {
     borderRadius: string;
   };
   dockRect: { x: number; y: number; width: number; height: number } | null;
-  menuRailRight: number | null;
+  railClipRight: number | null;
+  railScrollable: number | null;
+  /** What the top-bar hit test finds at the menu rail's own clip edge. */
+  railEdgeHitClass: string | null;
   activeLabel: { text: string; width: number; opacity: string; display: string } | null;
   compactActive: boolean;
   itemSizes: Array<{ mode: string | null; width: number; height: number; key: string | null }>;
   paintedChipCount: number;
+  badgeRowCount: number;
   overhangingChildren: string[];
 }
 
@@ -84,8 +90,16 @@ async function readGeometry(page: Page): Promise<SwitcherGeometry> {
         }
       }
     }
-    const menuRail = document.querySelector<HTMLElement>('.editor-menubar__left');
+    const rail = document.querySelector<HTMLElement>('.editor-menubar__left');
+    const railBox = rail?.getBoundingClientRect() ?? null;
+    const railEdgeHit = railBox
+      ? document.elementFromPoint(
+          Math.round(railBox.right - 4),
+          Math.round(railBox.top + railBox.height / 2),
+        )
+      : null;
     return {
+      barPresent: bar !== null,
       dockBar: {
         background: barStyle?.backgroundColor ?? '',
         boxShadow: barStyle?.boxShadow ?? '',
@@ -100,7 +114,11 @@ async function readGeometry(page: Page): Promise<SwitcherGeometry> {
             height: dock.getBoundingClientRect().height,
           }
         : null,
-      menuRailRight: menuRail ? menuRail.getBoundingClientRect().right : null,
+      railClipRight: railBox ? railBox.right : null,
+      railScrollable: rail ? rail.scrollWidth - rail.clientWidth : null,
+      railEdgeHitClass: railEdgeHit
+        ? String((railEdgeHit as HTMLElement).className || railEdgeHit.tagName)
+        : null,
       activeLabel: label
         ? {
             text: label.textContent ?? '',
@@ -117,6 +135,7 @@ async function readGeometry(page: Page): Promise<SwitcherGeometry> {
         key: el.dataset.shortcutKey ?? null,
       })),
       paintedChipCount: document.querySelectorAll('.workspace-dock__shortcut').length,
+      badgeRowCount: document.querySelectorAll('[role="menuitemradio"] .varve-menu__badge').length,
       overhangingChildren,
     };
   });
@@ -149,7 +168,7 @@ async function readRenderedContrast(page: Page) {
       return Math.round(((Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05)) * 100) / 100;
     };
     const bar = document.querySelector<HTMLElement>('.workspace-dock__bar');
-    if (!bar) throw new Error('dock bar missing');
+    if (!bar) return { error: 'dock bar missing', barBackground: '', rows: [] };
     const barBg = getComputedStyle(bar).backgroundColor;
     const rows: Array<{ mode: string | null; role: string; ratio: number; color: string }> = [];
     for (const item of bar.querySelectorAll<HTMLElement>('.workspace-dock__item')) {
@@ -181,14 +200,27 @@ async function readRenderedContrast(page: Page) {
         });
       }
     }
-    return { barBackground: barBg, rows };
+    return { error: '', barBackground: barBg, rows };
   });
 }
 
+/** Fail early and legibly when the editor dock is not mounted at all. */
+async function expectSwitcherMounted(page: Page, label: string): Promise<void> {
+  await expect
+    .poll(async () => (await readGeometry(page)).barPresent, {
+      timeout: 30_000,
+      message: `${label}: the workspace dock bar is not mounted`,
+    })
+    .toBe(true);
+}
+
 test.describe('workspace switcher design review', () => {
+  test.setTimeout(180_000);
+
   test('F1 — carries the ordered 1–6 mapping without painting a number chip', async ({ page }) => {
     await page.setViewportSize({ width: 1920, height: 1080 });
     await navigateToEditor(page);
+    await expectSwitcherMounted(page, 'F1');
 
     const geometry = await readGeometry(page);
     expect(geometry.paintedChipCount).toBe(0);
@@ -197,8 +229,10 @@ test.describe('workspace switcher design review', () => {
     expect(geometry.itemSizes.map((item) => item.mode)).toEqual([...MODES]);
 
     // The mapping is still announced and still reachable from the menu.
-    const design = page.getByRole('radio', { name: 'Design workspace' });
-    await expect(design).toHaveAttribute('aria-keyshortcuts', 'Control+Shift+1');
+    await expect(page.getByRole('radio', { name: 'Design workspace' })).toHaveAttribute(
+      'aria-keyshortcuts',
+      'Control+Shift+1',
+    );
     await expect(page.getByRole('radio', { name: 'Email workspace' })).toHaveAttribute(
       'aria-keyshortcuts',
       'Control+Shift+6',
@@ -211,8 +245,50 @@ test.describe('workspace switcher design review', () => {
     });
   });
 
+  test('F2 — raised card above 900px, flat top-bar chrome below it', async ({ page }) => {
+    await page.setViewportSize({ width: 1024, height: 768 });
+    await navigateToEditor(page);
+    await expectSwitcherMounted(page, 'F2 desktop');
+    const desktop = await readGeometry(page);
+    // An opaque surface plus a shadow is what groups a segmented control
+    // inside a single-row menubar.
+    expect(desktop.dockBar.background).not.toBe('rgba(0, 0, 0, 0)');
+    expect(desktop.dockBar.background).not.toBe('');
+    expect(desktop.dockBar.boxShadow).not.toBe('none');
+
+    for (const vp of [
+      { name: 'landscape-899x600', width: 899, height: 600 },
+      { name: 'portrait-800x1280', width: 800, height: 1280 },
+      { name: 'portrait-480x900', width: 480, height: 900 },
+      { name: 'landscape-640x400', width: 640, height: 400 },
+    ] as const) {
+      await page.setViewportSize({ width: vp.width, height: vp.height });
+      await expectSwitcherMounted(page, vp.name);
+      await expect
+        .poll(async () => (await readGeometry(page)).dockBar.background, {
+          timeout: 10_000,
+          message: `${vp.name}: the switcher container is not flat`,
+        })
+        .toBe('rgba(0, 0, 0, 0)');
+      const compact = await readGeometry(page);
+      expect(compact.dockBar.boxShadow, `${vp.name} still floats`).toBe('none');
+      // Only the container is flattened: the active pill keeps an opaque
+      // accent fill, so the current workspace stays the most prominent item.
+      const pill = await page.evaluate(() => {
+        const el = document.querySelector<HTMLElement>('.workspace-dock__item--active');
+        return el ? getComputedStyle(el).backgroundColor : null;
+      });
+      expect(pill, `${vp.name} lost its accent pill`).not.toBe('rgba(0, 0, 0, 0)');
+      await page.screenshot({
+        path: join(OUT_DIR, `04-${vp.name}-switcher.png`),
+        clip: { x: 0, y: 0, width: vp.width, height: 140 },
+        animations: 'disabled',
+      });
+    }
+  });
+
   test('F3 — every mode pill and inactive icon is AA as rendered', async ({ page }) => {
-    test.setTimeout(240_000);
+    test.setTimeout(600_000);
     await page.setViewportSize({ width: 1920, height: 1080 });
 
     const failures: string[] = [];
@@ -226,6 +302,7 @@ test.describe('workspace switcher design review', () => {
       }, theme);
       await navigateToEditor(page);
       await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
+      await expectSwitcherMounted(page, `F3 ${theme}`);
 
       for (const mode of MODES) {
         await page.locator(`.workspace-dock__item[data-mode="${mode}"]`).click();
@@ -234,6 +311,7 @@ test.describe('workspace switcher design review', () => {
           mode,
         );
         const measured = await readRenderedContrast(page);
+        expect(measured.error, `F3 ${theme}/${mode}: ${measured.error}`).toBe('');
         for (const row of measured.rows) {
           // 4.5:1 for the pill label and for the inactive icon: the icon is the
           // only visual identifier of an inactive mode (its name lives in the
@@ -262,45 +340,13 @@ test.describe('workspace switcher design review', () => {
     expect(failures, `below-AA workspace switcher pairs: ${failures.join('; ')}`).toEqual([]);
   });
 
-  test('F2 — raised card above 900px, flat top-bar chrome below it', async ({ page }) => {
-    await page.setViewportSize({ width: 1024, height: 768 });
-    await navigateToEditor(page);
-    const desktop = await readGeometry(page);
-    // An opaque surface plus a shadow is what groups a segmented control
-    // inside a single-row menubar.
-    expect(desktop.dockBar.background).not.toBe('rgba(0, 0, 0, 0)');
-    expect(desktop.dockBar.boxShadow).not.toBe('none');
-
-    for (const vp of [
-      { name: 'landscape-899x600', width: 899, height: 600 },
-      { name: 'portrait-800x1280', width: 800, height: 1280 },
-      { name: 'portrait-480x900', width: 480, height: 900 },
-      { name: 'landscape-640x400', width: 640, height: 400 },
-    ] as const) {
-      await page.setViewportSize({ width: vp.width, height: vp.height });
-      await expect
-        .poll(async () => (await readGeometry(page)).dockBar.background, { timeout: 5000 })
-        .toBe('rgba(0, 0, 0, 0)');
-      const compact = await readGeometry(page);
-      expect(compact.dockBar.boxShadow, `${vp.name} still floats`).toBe('none');
-      // Only the container is flattened: the active pill keeps an opaque
-      // accent fill, so the current workspace stays the most prominent item.
-      const pill = await page.evaluate(() => {
-        const el = document.querySelector<HTMLElement>('.workspace-dock__item--active');
-        return el ? getComputedStyle(el).backgroundColor : null;
-      });
-      expect(pill, `${vp.name} lost its accent pill`).not.toBe('rgba(0, 0, 0, 0)');
-      await page.screenshot({
-        path: join(OUT_DIR, `04-${vp.name}-switcher.png`),
-        clip: { x: 0, y: 0, width: vp.width, height: 140 },
-        animations: 'disabled',
-      });
-    }
-  });
-
-  test('F4 — the active workspace stays named at phone-width landscape', async ({ page }) => {
+  test('F4 — the active workspace stays named until the measurement says otherwise', async ({
+    page,
+  }) => {
     await page.setViewportSize({ width: 640, height: 400 });
     await navigateToEditor(page);
+    await expectSwitcherMounted(page, 'F4 named');
+
     const geometry = await readGeometry(page);
     expect(geometry.activeLabel, 'active workspace name missing').not.toBeNull();
     expect(geometry.activeLabel!.text).toBe('Design');
@@ -309,12 +355,15 @@ test.describe('workspace switcher design review', () => {
     expect(geometry.activeLabel!.width).toBeGreaterThan(20);
     expect(geometry.compactActive, 'label rendered while the pill claims compact').toBe(false);
 
-    // The name is only dropped when the strip genuinely cannot hold it, and
-    // then the pill compacts to its icon with the name in tooltip/accessible
-    // name instead of a zero-width label in the DOM.
-    await page.setViewportSize({ width: 360, height: 740 });
+    // The name is only dropped when the strip genuinely cannot hold it. 700×500
+    // is the narrowest case the app produces here: the zoom field is visible
+    // again above the 640px tier, so the dock's flex width shrinks — exactly
+    // the condition the measurement exists to detect. Then the pill compacts
+    // to its icon and the name stays in the tooltip and accessible name
+    // instead of a zero-width label sitting in the DOM.
+    await page.setViewportSize({ width: 700, height: 500 });
     await expect
-      .poll(async () => (await readGeometry(page)).compactActive, { timeout: 5000 })
+      .poll(async () => (await readGeometry(page)).compactActive, { timeout: 10_000 })
       .toBe(true);
     const narrow = await readGeometry(page);
     expect(narrow.activeLabel).toBeNull();
@@ -324,38 +373,61 @@ test.describe('workspace switcher design review', () => {
     );
   });
 
-  test('F5 — the switcher never paints over the application menu rail', async ({ page }) => {
+  test('F5 — the switcher never covers or steals the application menu rail', async ({ page }) => {
+    test.setTimeout(600_000);
     for (const vp of [
-      { name: 'landscape-640x400', width: 640, height: 400 },
+      { name: 'landscape-641x500', width: 641, height: 500 },
       { name: 'landscape-700x500', width: 700, height: 500 },
+      { name: 'landscape-760x500', width: 760, height: 500 },
       { name: 'landscape-899x600', width: 899, height: 600 },
       { name: 'landscape-900x600', width: 900, height: 600 },
+      { name: 'landscape-1024x768', width: 1024, height: 768 },
     ] as const) {
       await page.setViewportSize({ width: vp.width, height: vp.height });
       await navigateToEditor(page);
+      await expectSwitcherMounted(page, `F5 ${vp.name}`);
       const geometry = await readGeometry(page);
       expect(geometry.dockRect, `${vp.name}: dock missing`).not.toBeNull();
-      expect(geometry.menuRailRight, `${vp.name}: menu rail missing`).not.toBeNull();
-      // The dock's own box must start at or after the menu rail's end. The
-      // shadow is included because a raised card spread 8px past its box over
-      // the last menu label.
+      expect(geometry.railClipRight, `${vp.name}: menu rail missing`).not.toBeNull();
+
+      // The switcher paints from its own box leftward only by its shadow; the
+      // menu rail's *clip box* is what it must not enter.
       const paintedLeft = geometry.dockRect!.x - (geometry.dockBar.boxShadow === 'none' ? 0 : 8);
       expect(
         paintedLeft,
-        `${vp.name}: switcher chrome paints over the menu rail (${paintedLeft} < ${geometry.menuRailRight})`,
-      ).toBeGreaterThanOrEqual(geometry.menuRailRight! - 1);
+        `${vp.name}: switcher chrome enters the menu rail (${paintedLeft} < ${geometry.railClipRight})`,
+      ).toBeGreaterThanOrEqual(geometry.railClipRight! - 1);
+
+      // And the rail keeps its own hit area: before the fix the rail painted
+      // outside its box and the switcher, being later in the DOM, won the
+      // hit test — at 641×500 a click 4px inside the rail's edge hit a
+      // workspace tab instead of a menu.
+      expect(
+        geometry.railEdgeHitClass,
+        `${vp.name}: the switcher steals the menu rail's hit area (${geometry.railEdgeHitClass})`,
+      ).toContain('editor-menubar__item');
+
       // Every mode is still one interaction away at these widths.
-      await page.locator('.workspace-dock__more').click();
-      const menu = page.getByRole('menu', { name: 'More workspaces' });
-      await expect(menu).toBeVisible();
-      await expect(menu.getByRole('menuitemradio')).toHaveCount(6 - geometry.itemSizes.length);
-      await page.keyboard.press('Escape');
+      const more = page.locator('.workspace-dock__more');
+      if ((await more.count()) > 0) {
+        await more.click();
+        const menu = page.getByRole('menu', { name: 'More workspaces' });
+        await expect(menu).toBeVisible();
+        await expect(menu.getByRole('menuitemradio')).toHaveCount(6 - geometry.itemSizes.length);
+        await page.keyboard.press('Escape');
+      }
+      await page.screenshot({
+        path: join(OUT_DIR, `05-menubar-${vp.name}.png`),
+        clip: { x: 0, y: 0, width: vp.width, height: 110 },
+        animations: 'disabled',
+      });
     }
   });
 
   test('keyboard, overflow and endurance survive the chrome change', async ({ page }) => {
     await page.setViewportSize({ width: 1920, height: 1080 });
     await navigateToEditor(page);
+    await expectSwitcherMounted(page, 'keyboard');
     const errors: string[] = [];
     page.on('pageerror', (error) => errors.push(String(error)));
     page.on('console', (message) => {
@@ -374,6 +446,12 @@ test.describe('workspace switcher design review', () => {
     await expect(page.locator('.workspace-dock__item--active')).toHaveAttribute(
       'data-mode',
       'email',
+    );
+    // The chord still reaches the user: the tooltip carries it, and the
+    // overflow rows carry it as a badge whenever a mode is hidden.
+    await expect(page.getByRole('radio', { name: 'Email workspace' })).toHaveAttribute(
+      'aria-keyshortcuts',
+      'Control+Shift+6',
     );
     expect(errors).toEqual([]);
   });

@@ -41,6 +41,16 @@ import '../../../styles/docs-prose.css';
           <li><strong>Inspector Panel</strong> — the right-side panel (Ctrl+Shift+B) for editing the selection, active tool, and document properties</li>
           <li><strong>Status Bar</strong> — the bottom strip showing zoom level, canvas info, on-device AI status, and toggle controls</li>
         </ul>
+        <p>
+          Choose <strong>Automatic</strong>, <strong>Tablet</strong>, or
+          <strong>Desktop</strong> from Appearance settings or <strong>View &gt; Workspace
+          layout</strong>. Automatic uses the available viewport and pointer capabilities; it
+          does not detect whether a detachable keyboard is connected. Tablet presentation keeps
+          the Inspector available without blocking canvas input: a side rail in landscape and a
+          shallow lower pane in portrait. Layers and Resources remain dismissible drawers, and
+          primary tablet controls use 44 CSS-pixel targets. The same document, selection, tool,
+          and history stay active as the workspace reflows.
+        </p>
       </section>
 
       <section class="docs-section" aria-labelledby="surface-terms-heading">
@@ -169,12 +179,13 @@ import '../../../styles/docs-prose.css';
       <section class="docs-section">
         <h2>Layers Panel</h2>
         <p>
-          The layers panel (right sidebar, top) displays your document as a hierarchical tree of nodes. Key features:
+          The Layers panel displays your document as a hierarchical tree of nodes. On a tablet it
+          opens as a dismissible drawer. Key features:
         </p>
         <ul>
           <li><strong>Tree view</strong> — Expandable/collapsible hierarchy showing parent-child relationships</li>
-          <li><strong>Multi-select</strong> — Ctrl+click for disjoint selection, Shift+click for range selection</li>
-          <li><strong>Drag and drop</strong> — Reorder and reparent nodes by dragging between tree entries</li>
+          <li><strong>Multi-select</strong> — Ctrl+click for disjoint selection, Shift+click for range selection, or enable the touch multi-select control before marquee selection</li>
+          <li><strong>Drag and drop</strong> — Reorder and reparent nodes by dragging between tree entries; use layer context and Arrange menus for tap-accessible order commands</li>
           <li><strong>Filter/search</strong> — Type-ahead filtering to quickly find layers by name</li>
           <li><strong>Inline rename</strong> — Double-click or press F2 to rename any layer</li>
           <li><strong>Batch Rename</strong> — Right-click a layer and choose <em>Batch Rename…</em> to find and replace across the selection or every layer, with a live preview before anything changes</li>
@@ -399,16 +410,22 @@ import '../../../styles/docs-prose.css';
           longer fits moves into the switcher's overflow menu rather than disappearing. Each
           workspace curates the toolbar and workflow for its task, and every mode edits the same
           document with the same selection, viewport, and undo history — switch workspaces with
-          <code>Ctrl+Shift+1</code> through <code>Ctrl+Shift+6</code>; each tab shows its matching
-          number, and overflow items keep their full shortcut labels. The next keys are actions:
+          <code>Ctrl+Shift+1</code> through <code>Ctrl+Shift+6</code> in the switcher's order;
+          hovering a mode names it with its shortcut, the overflow menu lists each remaining mode
+          with its full shortcut label, and the active workspace keeps its name at every width
+          where the strip has room for it (below that the pill compacts to its icon and the name
+          stays in the tooltip). The next keys are actions:
           <a href={sitePath('/features/logo')}>Logo Tools</a> uses <code>Ctrl+Shift+7</code> to
-          open Design and reveal its panel, while the <a href={sitePath('/features/code')}>shared
+          open Design and reveal its panel. <code>Ctrl+Alt+Shift+L</code> also toggles Logo Tools
+          from any workspace (<code>Command+Option+Shift+L</code> on macOS), while the <a href={sitePath('/features/code')}>shared
           Code panel</a> uses <code>Ctrl+Shift+8</code> in the current workspace, and the existing
           <code>Ctrl+Shift+J</code> shortcut toggles that same panel in the desktop app. Browsers
           may reserve it for Developer Tools, so use <code>Ctrl+Shift+8</code> or View &gt; Panels
           &gt; Code Panel in the browser. On macOS, use Command+Shift with the same numbers and
           Command+Shift+J for the desktop Code toggle; Chrome uses that chord for Downloads, so
-          use Command+Shift+8 or the View menu for Code in the browser.
+          use Command+Shift+8 or the View menu for Code in the browser. The
+          <a href={sitePath('/docs/keyboard-shortcuts')}>keyboard shortcut reference</a> keeps
+          workspace order and panel toggle alternatives in one place.
         </p>
         <p>
           The toolbar itself is composed per workspace: tools, their order, and flyout

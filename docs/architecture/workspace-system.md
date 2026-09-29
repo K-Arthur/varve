@@ -145,27 +145,26 @@ reappear every launch, fixed for onboarding the same way (see
 `onboard/onboardingStore.ts`). Preferences are written to both; durable writes
 are debounced (400 ms) and can be flushed explicitly.
 
-Writes within each store are serialized after the debounce: if a save is still
-in flight when a newer snapshot is queued, the newer snapshot is written after
-it and cannot be overwritten by the older completion. Per-mode preferences
-still merge by event time. Named layouts use logical revisions and a persisted
-local writer identity for deterministic concurrent-edit ties; variants,
-deletion tombstones, and reset-snapshot clears all carry those stamps. Desktop
-SQLite and web IndexedDB compare-and-set the durable app-setting value in one
-transaction, retrying after a concurrent write and merging before saving.
-Legacy variants and numeric deletion timestamps migrate to revision stamps.
-Writer identity remains local metadata and is excluded from portable layout
-exports.
+Writes within each store are serialized after the debounce. Per-workspace
+preferences and named layouts use monotonic logical revisions plus a stable
+local writer identity for deterministic cross-window conflict ordering.
+Desktop SQLite and web IndexedDB compare-and-set the durable app-setting value
+in one transaction, retrying after a concurrent write and merging before
+saving. Preference reset entries and named-layout deletion/reset tombstones
+remain explicit versioned events, so stale data cannot resurrect cleared
+state. Legacy preference timestamps and named-layout numeric deletion
+timestamps are used only while migrating old, unstamped data. Writer identity
+stays local metadata and is excluded from portable layout exports.
 
-`hydrateWorkspacePreferencesFromPlatform` runs once at startup and merges
-**per mode by event time** (`lastCustomized` or `clearedAt`). Both stores are
-legitimate sources — localStorage can be wiped while platform storage
-survives, and platform storage can lag a write that has not flushed or came
-from another window. A reset is a decision: it beats an older customization,
-and a customization made after a reset beats the reset. When neither copy
-carries an event, an uncustomized entry never displaces a customized one, so
-durability can never itself lose a customization. A missing, empty, or corrupt
-payload leaves the local snapshot untouched.
+`hydrateWorkspacePreferencesFromPlatform` merges per-workspace revisions.
+Changes made locally while hydration is in flight receive a revision above the
+durable snapshot before merge, preventing a slower startup read from replacing
+a fresh edit. Old preferences without revisions are resolved by their
+`lastCustomized`/`clearedAt` event time once, then acquire revisions on their
+next edit. A missing, empty, or corrupt payload leaves the local snapshot
+untouched. Failed durable preference and named-layout writes are visible in
+their respective customization dialogs, where a retry saves the current
+session snapshot; editing remains available while a save is unavailable.
 
 An unrecognized future dock-layout schema is not applied by an older build.
 The preference sanitizer retains that raw dock payload as opaque data through
@@ -225,10 +224,11 @@ only to migrate layouts saved by older versions.
 | Email | `Ctrl+Shift+6` | Email-specific structure, responsive preview, compatibility checks, and export |
 
 The workspace switcher follows this same order and each tab resolves its
-shortcut label from `workspaceShortcutLabel(mode)`. Its visible number marker
-is read from that mode's effective shortcut binding, so icon-only tabs still
-show the 1–6 sequence. Dedicated workflow actions
-follow the six mode keys: `Ctrl+Shift+7` shows Logo Tools in Design and
+shortcut label from `workspaceShortcutLabel(mode)`. The switcher paints no
+shortcut chip: the ordered 1–6 mapping reaches the user through each tab's
+tooltip, `aria-keyshortcuts`, the `data-shortcut-key` carried on the radio, the
+overflow menu's rows, and the View ▸ Workspace submenu. Dedicated workflow
+actions follow the six mode keys: `Ctrl+Shift+7` shows Logo Tools in Design and
 `Ctrl+Shift+8` shows the shared Code panel. `Ctrl+Alt+Shift+L` toggles Logo
 Tools, routing to Design when opening from another workspace. In the desktop
 app, `Ctrl+Shift+J` toggles the same shared Code panel. The legacy action ids
@@ -593,17 +593,47 @@ contract (review: `docs/audits/workspace-switcher-review-2026-09-15.md`):
   siblings of the group. Every mode owns `--color-workspace-accent-<mode>`
   (the active pill, hosting `text-on-accent`) and
   `--color-workspace-icon-<mode>` (the inactive icon). Both are generated from
-  the token ramps and are contrast pairs in `audit:tokens` for every theme, so
-  a hue cannot ship below AA/3:1. High Contrast defines all six workspaces as the
-  single HC accent — hue is never a state cue there.
-- **The active mode is always visible and named.** `computeWorkspaceLayout`
-  evicts a lower-priority tab rather than the active one; the active pill
-  keeps its label down to `WORKSPACE_ACTIVE_LABEL_MIN_WIDTH`, below which it
-  compacts to its icon and the name stays in the tooltip/accessible name.
+  the token ramps and are `AA` contrast pairs in `audit:tokens` for every
+  theme: the pill pair because it is text, and the icon pair because the glyph
+  is the only visual identifier of an inactive mode (its name lives in the
+  tooltip and the accessible name). High Contrast defines all six workspaces as
+  the single HC accent — hue is never a state cue there.
+  In light theme both roles resolve to the same ramp step per mode (one hue,
+  one step, two roles); the darker tint steps the icons used before measured
+  3.23:1 for Design and 3.59:1 for Motion, i.e. barely over the 3:1 non-text
+  floor. Dark and high contrast keep distinct steps per role.
+  (`docs/audits/workspace-switcher-design-review-2026-09-29.md` F3)
+- **The switcher paints no shortcut chip.** The ordered `Ctrl+Shift+1…6`
+  mapping is carried by `data-shortcut-key` on each radio, by
+  `aria-keyshortcuts`, by each tab's tooltip, by the rows of the overflow
+  menu, by the View ▸ Workspace submenu and by the shortcut reference. A
+  numbered chip was removed in 2026-09-29 because it duplicated those channels
+  inside the same control, overhung its own box, and read as a notification
+  counter on the active pill (F1).
+- **The container tier follows the presentation tier.** At `>=900px` the
+  switcher is a raised card (`--elevation-surface-raised`,
+  `--color-border-subtle`, `--radius-floating`, a small shadow): that is what
+  groups the segmented control inside a single-row menubar. At `<=899px` the
+  container is flat — transparent background and border, no shadow — because
+  the layout already groups it (a second row in portrait, the space behind the
+  menu rail in landscape) and an identical raised card there reproduced the
+  floating toolbar's surface a few rows above the real one. Only the container
+  flattens: the active pill keeps its opaque accent fill (F2).
+- **The active mode is always visible and named.**
+  `computeWorkspaceLayout` evicts a lower-priority tab rather than the active
+  one; the active pill keeps its name down to
+  `WORKSPACE_ACTIVE_LABEL_MIN_WIDTH`, below which it compacts to its icon and
+  the name stays in the tooltip/accessible name. No width query may collapse
+  that name: the layout math reads *rendered* box widths, so a CSS-collapsed
+  label is measured as zero for ever and the pill can never compact for the
+  right reason. At 640×400 the name is present; at 360×740 the measurement
+  genuinely does not fit and the pill compacts (F5).
 - **Edges come from the shared radius API.** The bar is a floating surface
   (`--radius-floating`, like the toolbar) with `--radius-control-compact`
-  members — not a pill container. The overflow divider uses the menubar
-  family's single vertical group rule (see `docs/architecture/separator-system.md`).
+  members — not a pill container. Below 900px the surface treatment is dropped
+  entirely (see "The container tier follows the presentation tier") while the
+  radius tokens stay declared. The overflow divider uses the menubar family's
+  single vertical group rule (see `docs/architecture/separator-system.md`).
 - **Workspace labels come from `WORKSPACE_LABELS`.** The Code panel and Logo
   tools are shared/design surfaces and do not appear as workspace tabs.
 - **The overflow math measures; it never assumes.** Tab widths are read from
@@ -638,6 +668,10 @@ These are known gaps, not settled design:
   a modal has no cancellable UI and is deliberately `continue` because a
   workspace change never unmounts the AI or motion stores. Canvas pointer
   capture held by an arbitrary overlay is still not individually inspectable.
+  The selected mask-preview appearance (checkerboard, overlay, and related
+  modes) is a presentation preference, not proof of an active preview; only
+  actual background-removal or object-selection preview sessions are
+  classified, and those sessions continue across workspace changes.
   `requestWorkspaceSwitch` still returns `Promise<boolean>`; the typed plan is
   executed internally and a blocked transition announces its reason.
 - **Panel overrides now support visibility, widths, inspector tabs, status
@@ -685,11 +719,11 @@ These are known gaps, not settled design:
 - **Detached panel windows are desktop-only and deliberately narrow.**
   Layers, Inspector, Assets, Code, and Logo can move to auxiliary windows;
   Timeline, Page Navigator, and History cannot. The single-window layout
-  variants do not move or resize detached windows — device placement stays in
-  the panel-placement store. The nested dock payload now preserves portable
-  single-window layout intent in preferences and named variants, while the
-  multi-window logical-layout path and recovery snapshot
-  (`layoutPersistence.ts`, legacy `dockOps.ts`) remain unwired.
+  variants do not move or resize detached windows. Their machine-local
+  geometry stays in `panelWindowPlacement.ts`, separate from portable dock
+  intent. Detaching hides the panel in the primary shell while leaving its
+  dock-tree home intact; reattaching reveals it in that same location. A
+  detached window is never automatically recreated after a crash.
 - **The nested dock tree now positions the live shell panels.**
   `useEditorDockGeometry` resolves the primary-window tree into shell-relative
   pixel rectangles, enforces registered minimum sizes when the viewport can
@@ -711,11 +745,17 @@ These are known gaps, not settled design:
   dragged and resized inside the primary window; pointer changes preview live
   and commit once on pointer-up. Escape, blur, pointer-cancel, and lost capture
   discard an unfinished gesture. Float intent is stored as normalized bounds,
-  never screen pixels, and dialogs remain above float controls. Dragging a
-  docked panel directly onto a dock target, hidden-panel recovery commands,
-  and native transfer round-trips remain outstanding.
-  The old `workspace/dockTypes.ts` / `dockOps.ts` model remains in the manager
-  and recovery path and still needs to be adapted to the registry-aware tree.
+  never screen pixels, and dialogs remain above float controls. Docked
+  singleton panels reserve a 32 CSS-pixel title row for the Move handle;
+  tabbed panels use the reserved tab strip. Floating groups keep Move, Reset,
+  Redock, and Resize in their title row, with panel content starting below
+  that row and any tabs. No resize affordance covers panel content. Keyboard
+  and touch alternatives remain in Customize Workspace. The native transfer
+  round-trip remains outstanding.
+  The disconnected multi-window layout, browser-fallback, and recovery model
+  has been retired. The registry-aware tree in `workspace/dock/` is the only
+  logical dock authority; native detached-window placement remains a separate
+  machine-local store.
 
 ### Email output surface separation (2026-09-27)
 
@@ -762,12 +802,18 @@ adjust a split by two percentage points, and Home/End choose its permitted
 extent. The focused geometry E2E exercises keyboard and real pointer input,
 Escape cancellation, and captures the resized workspace. Floating panel groups
 are now draggable, resizable, resettable, and redockable, including keyboard
-arrow movement and resize. Direct drag-and-drop from one dock host to another
-and old manager/recovery retirement remain pending.
+arrow movement and resize. Direct dock-panel movement has a targeted
+real-pointer case that previews and cancels a move before committing Layers
+below Inspector and capturing the resulting workspace. Its run and screenshot
+review are pending the shared Playwright lease; native transfer round-trip
+verification remains pending.
 The float controls and resized group are visually recorded in
 `docs/screenshots/workspace-dock-layout/float-controls-light.png`; the
 single-worker Chromium E2E verifies create, drag preview, resize, keyboard
-movement, reset, portable persistence, and redock.
+movement, reset, portable persistence, compact-width projection, and redock.
+Dock title rows are included in registered minimum geometry. Chromium checks
+that Inspector's Collapse control remains clickable beside the dock Move
+handle, and that resizing a float changes its dimensions without moving it.
 
 Visual revalidation found that the desktop compact-fallback CSS still tested
 for absolute positioning on `.editor-canvas`, while the dock renderer now
