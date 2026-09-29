@@ -114,6 +114,26 @@ showing the selected artwork and saved Depth Blur controls, was inspected at
 | `0112de9a8` | Shared byte admission and inference compatibility adapter; normal scoped commit checks passed. |
 | `b6727dfe5` | Runtime entrypoint selection, worker session resident accounting, compact registered depth resources; focused browser and unit checks passed. |
 | `a2b37c5b1` | Streamed model storage, incremental integrity checks, and atomic publication of verified model artifacts; normal commit checkpoint passed. |
+| `727927c99` | Touch workflow and truthful model-download status, plus enhancement marketing/help content and the device kit. |
+
+## M8 follow-up — keep the canonical effect provider graph acyclic
+
+At the frozen M7 integration checkpoint (`727927c99f6efc880ca735f761115832adda0703`),
+the required architecture audit identified a new engine cycle:
+`liveEffects/cpuProvider.ts → liveEffects/dispatch.ts`. The CPU provider only
+needed request/provider interfaces, but importing them from the dispatcher
+made the canonical kernel depend on the module that registers it. The shared
+checkout also reports unrelated existing engine/scene cycles and a dirty
+editor render-worker cycle; those paths remain outside this fix.
+
+| Paths | M8 ownership |
+|---|---|
+| `packages/engine/src/liveEffects/contracts.ts` | Own the serializable request, effect-kind, and provider interfaces as a leaf module. |
+| `packages/engine/src/liveEffects/cpuProvider.ts`, `dispatch.ts`, `effectPreviewRunner.ts` | Import types from the leaf contract; preserve dispatcher re-exports and runtime provider order. |
+| `docs/architecture/live-effects-system.md`, this file, and the baseline audit | Record the dependency boundary and final-check evidence. |
+
+No live rendering behavior changes in M8. The worker lane remains synthetic
+and the actual-artwork integration boundary remains unchanged.
 
 M5's normal scoped commit checkpoint passed all hooks, including typecheck of
 E2E sources and four direct suites (43 tests). A separate focused run passed

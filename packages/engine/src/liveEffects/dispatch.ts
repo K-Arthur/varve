@@ -21,10 +21,10 @@
  */
 
 import { isTauriRuntime as isTauri } from '@varve/platform';
+import type { EffectDispatchRequest, LiveEffectKind, LiveEffectProvider } from './contracts';
 import { cpuEffectProvider } from './cpuProvider';
-import type { CoordSpace } from './dither';
-import type { EffectQuality } from './quality';
 
+export type { EffectDispatchRequest, LiveEffectKind, LiveEffectProvider } from './contracts';
 export { cpuEffectProvider } from './cpuProvider';
 
 export const LIVE_EFFECT_KINDS = new Set<FilterKind>([
@@ -41,35 +41,6 @@ export const LIVE_EFFECT_KINDS = new Set<FilterKind>([
 ]);
 
 type FilterKind = LiveEffectKind;
-
-export type LiveEffectKind =
-  | 'dither'
-  | 'paletteSnap'
-  | 'bloom'
-  | 'rgbSplit'
-  | 'crt'
-  | 'vhs'
-  | 'lightShafts'
-  | 'lensFlare'
-  | 'lightLeak'
-  | 'caustics';
-
-export interface EffectDispatchRequest {
-  effect: LiveEffectKind;
-  width: number;
-  height: number;
-  /** Caller render tier ('auto' params resolve against it, as in the kernels). */
-  quality: EffectQuality;
-  coordSpace?: CoordSpace;
-  params: Record<string, unknown>;
-}
-
-export interface LiveEffectProvider {
-  readonly id: string;
-  readonly label: string;
-  isAvailable(): Promise<boolean>;
-  apply(request: EffectDispatchRequest, rgba: Uint8ClampedArray): Promise<Uint8ClampedArray>;
-}
 
 function arrayBufferForBytes(bytes: Uint8ClampedArray | Uint8Array): ArrayBuffer {
   const buffer = bytes.buffer as ArrayBuffer;

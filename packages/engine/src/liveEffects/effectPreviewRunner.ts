@@ -3,7 +3,7 @@ import {
   type DerivedWorkPriority,
   getDerivedWorkAdmission,
 } from '@varve/platform';
-import type { EffectDispatchRequest } from './dispatch';
+import type { EffectDispatchRequest } from './contracts';
 
 export type EffectRevision = string | number;
 

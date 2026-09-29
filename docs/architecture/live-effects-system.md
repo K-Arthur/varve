@@ -153,6 +153,12 @@ same-camera/full-redraw pixel oracle, interaction-latency measurement, and
 WebKitGTK checks remain required before wiring it to artwork or making
 performance claims.
 
+The shared provider/request interfaces live in `liveEffects/contracts.ts`.
+Both the synchronous CPU kernels and asynchronous provider dispatcher import
+that leaf contract, while `dispatch.ts` re-exports the same public types for
+existing consumers. This keeps the worker's canonical CPU implementation from
+depending on the runtime dispatcher that itself registers the CPU provider.
+
 ---
 
 ## 3. Quality tiers

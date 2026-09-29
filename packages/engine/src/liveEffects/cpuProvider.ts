@@ -1,8 +1,8 @@
 /** Canonical TypeScript effect kernels shared by replay and worker jobs. */
 import { applyBloom } from './bloom';
 import { applyCaustics } from './caustics';
+import type { EffectDispatchRequest, LiveEffectProvider } from './contracts';
 import { applyCrt } from './crt';
-import type { EffectDispatchRequest, LiveEffectProvider } from './dispatch';
 import { applyDither } from './dither';
 import { applyLensFlare } from './lensFlare';
 import { applyLightLeak } from './lightLeak';

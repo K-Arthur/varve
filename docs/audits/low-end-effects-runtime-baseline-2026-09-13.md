@@ -577,3 +577,49 @@ full gate remains outstanding at this entry's creation. The [physical device
 kit](../quality/low-end-effects-device-kit-2026-09-29.md) is the remaining
 acceptance route for ChromeOS browser/PWA and ARM64 Crostini, including actual
 keyboard, pen, suspend, offline reopen, and device memory behavior.
+
+## Frozen-M7 integration checkpoint and architecture repair
+
+The planned shared-tree integration checkpoint froze `master` at
+`727927c99f6efc880ca735f761115832adda0703`. The workspace still contained
+hundreds of unrelated staged, unstaged, and untracked paths. The triage planner
+selected the full suite and stopped at Tier 0 because a separate untracked
+generated file, `packages/compositor/src/webgl2/native-webgl2-2026-09-28T10-16-25-630Z.json`,
+was missing its final newline. The required full-gate attempt used the stated
+reason for this frozen SHA. Its touched-file formatter found that same error;
+the repository-wide architecture audit then identified the M4 provider cycle
+recorded below. It also reported shared-tree editor typecheck failures in the
+unchanged `CurveEditor.test.tsx` and untracked `artworkSampling.ts`.
+
+The architecture audit caught a task-owned dependency cycle:
+`liveEffects/cpuProvider.ts → liveEffects/dispatch.ts`. The provider needed only
+type contracts, so those interfaces now live in the leaf module
+`liveEffects/contracts.ts`; `dispatch.ts` re-exports them to preserve existing
+imports. The worker and dispatcher continue to use the same canonical CPU
+kernels. This boundary change does not wire the worker into selected-artwork
+rendering or change effect output.
+
+The final gate did not pass. It stopped before unit, browser, native, and
+benchmark lanes because shared formatting failed; its architecture check also
+reported the new cycle before this follow-up repair. The remaining full gate
+must be rerun after task-owned checks against the new exact `master` SHA.
+Shared unrelated failures remain attributed to their owners.
+
+| Check | Result |
+| --- | --- |
+| `pnpm verify:triage` | Failed in touched-file formatting on the unrelated untracked WebGL2 JSON described above. |
+| `VARVE_FULL_GATE_REASON="Final integration checkpoint for low-end effects and model runtime milestones at master SHA 727927c99; triage found a shared generated WebGL2 JSON formatting failure." pnpm verify:full` | Failed: shared formatter error; architecture audit found the task-owned cycle; editor typecheck also reported unchanged `CurveEditor.test.tsx` `getByRole` typing errors and untracked `artworkSampling.ts` errors. It did not reach unit/E2E/benchmark lanes. |
+| `pnpm verify:plan` / `pnpm verify:affected` after M8 edits | The shared plan selected 496 changed files and escalated to the full suite for workspace/toolchain/validation-infrastructure changes. `verify:affected` exited 2 at the escalation before starting lanes. |
+| `pnpm --filter @varve/engine typecheck` | Passed after the final import cleanup. |
+| `pnpm exec vitest run packages/engine/src/liveEffects/__tests__/dispatch.test.ts packages/engine/src/liveEffects/__tests__/effectPreviewRunner.test.ts --maxWorkers=1` | 2 files, 16 tests passed. |
+| `pnpm exec biome check packages/engine/src/liveEffects/contracts.ts packages/engine/src/liveEffects/cpuProvider.ts packages/engine/src/liveEffects/dispatch.ts packages/engine/src/liveEffects/effectPreviewRunner.ts` | Passed after import-order correction. |
+| `pnpm audit:docs`, `pnpm audit:emoji`, `pnpm audit:tokens` | Passed: 1,107 docs / 710 links / 177 ADRs; 5,144 files; 303 contrast pairs in 3 themes and clean token usage. |
+| `node scripts/audit-architecture.mjs --ci` after M8 repair | Completed with no new cycle regression. The former M4 cycle is gone; it reports 2 existing engine cycles, 11 scene cycles, and 1 shared editor render-worker cycle. Layer boundaries and dead-code checks are clean; existing hub-budget warnings remain. |
+| Architecture repair | Extracted effect request/provider contracts to a leaf module; dispatcher public type re-exports remain compatible. |
+
+The final full gate remains unpassed because the shared generated JSON formatting
+error and shared editor typecheck failures are outside this task's ownership.
+No follow-up full browser/native/benchmark lane ran after triage. The app touch
+flow, physical Duet and Crostini checks, actual-artwork worker integration,
+full memory soak, mixed production benchmark, and export blocking acceptance
+remain open as described above.
