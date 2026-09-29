@@ -170,3 +170,60 @@ Every rendering change requires numerical fixtures plus an inspected screenshot
 or exported artifact. Browser automation is labeled separately from physical
 hardware evidence. The Duet and Crostini rows remain pending until the supplied
 runtime can be measured.
+
+## Continuation checkpoint — 2026-09-28
+
+This review was made on `master` at `b39129198`; the shared worktree also held
+unrelated staged and unstaged work. Those changes were preserved. The installed
+`onnxruntime-web` artifact remains pinned to 1.27.0 in `pnpm-lock.yaml`; current
+ONNX Runtime Web guidance confirms that the JavaScript bundle and WASM files
+must come from the same build and that the proxy worker does not support the
+WebGPU execution provider. The runtime has not been upgraded as part of this
+review ([environment flags and session options](https://onnxruntime.ai/docs/tutorials/web/env-flags-and-session-options.html),
+[WebGPU provider](https://onnxruntime.ai/docs/tutorials/web/ep-webgpu.html)).
+
+Current source inspection identifies these remaining correctness and ownership
+gaps:
+
+| Area | Reproduced from source | Required acceptance |
+| --- | --- | --- |
+| Inference cancellation | `InferenceWorkerHost.cancel` removes and rejects a caller's pending job while its worker may keep executing. `infer` releases the admission lease when that caller promise settles, so a second model job can start before the first execution ends. The cancellation path also clears the execution deadline. | Keep execution identity, deadline, and reservation until completion or termination of the worker that owns the request. Prove the next request cannot overlap and that cancellation never commits a late result. |
+| Effects and preview | `packages/editor/src/canvas/renderPipeline.ts` has in-flight shared work, and the effect-bearing whole-scene worker path remains behind the pixel-fidelity guard recorded in the canvas audit. `packages/engine/src/liveEffects/dispatch.ts` has no production caller; its provider chain is not yet an application rendering path. | Wire expensive RGBA effect work into actual preview/export consumers. Preserve canonical source capture and prove exact or contract-tolerant results with the independent full-redraw oracle before enabling a provider. |
+| Export completeness | `exportNodeAsRaster` records image settlement failures as warnings and can continue with missing images. A timed-out image can be absent from the completed file. The raster safety fit can reduce dimensions and return the smaller result with a warning. | Make required missing resources and unavailable requested output dimensions blocking states. Generate another file only after an explicit user choice accepts changed dimensions or quality. |
+| Model working set | The browser downloader retains chunks, assembles another full-size buffer, and hashes/writes that assembled artifact. IndexedDB loading materializes an `ArrayBuffer`; the generic Tauri adapter serializes bytes as a number array. | Measure before/after peak memory. Prefer native streaming on desktop and staged, verified chunk storage in browser runtimes without breaking existing installed-model reads. |
+| Admission and budgets | Inference admission and platform-derived-work admission have separate active counts. Inference's default aggregate byte limit is unbounded, while image, effect, and export surface reservations are not part of that ledger. | Test shared peak reservations and refusal before decode/allocation, including resident sessions and effects competing with explicit export. |
+| UI/model dispatch | The existing `dispatchLiveEffect` is exercised by unit tests only. Runtime provider support remains a capability signal rather than proof that a representative model graph executes correctly. | Keep UI status truthful and qualify an accelerated provider with the actual graph and output comparison; leave unqualified providers unavailable. |
+
+The fresh source/runtime baseline was verified on 2026-09-28 local time; it is
+not a hardware profile:
+
+```text
+HEAD: b39129198, branch master
+Runtime: onnxruntime-web 1.27.0 (locked)
+Host: Linux x86_64; WebKitGTK 2.52.6
+Command:
+  node scripts/quality/heavy-lease.mjs 'low-end effects planning baseline' -- \
+    pnpm exec vitest run \
+      packages/engine/src/inference/admission.test.ts \
+      packages/engine/src/inference/sessionRegistry.test.ts \
+      packages/engine/src/inference/__tests__/workerHostMessages.test.ts \
+      packages/engine/src/inference/core/__tests__/DownloadManager.test.ts \
+      --maxWorkers=1
+Result: 4 files passed, 38 tests passed, 0 failed
+```
+
+The other worktree processes and dirty paths were left untouched. In particular,
+the GPU qualification notes own `packages/editor/src/canvas/renderPipeline.ts`
+and related rendering files; the canvas-fluidity notes reserve that path's
+stale-frame and worker-oracle changes. This continuation must not claim or
+commit those shared-file changes without a clean ownership boundary.
+
+The Photopea user reports were refreshed as failure leads: users describe
+multi-second waits and stalled tool/input changes on complex files, while
+other reports attribute some slowdowns to browser or page conditions. They do
+not establish a product-wide failure rate or root cause. Varve's cases remain
+specific: parameter scrubbing during expensive previews, navigation during
+work, and mixed model/export pressure ([long filter waits](https://www.reddit.com/r/photopea/comments/11nqi3n/photopea_is_unbearably_laggy/),
+[tool and input stalls](https://www.reddit.com/r/photopea/comments/1cfim22)).
+These reports support prioritizing bounded work and responsive controls; they
+do not support advertising a device-level latency guarantee.
