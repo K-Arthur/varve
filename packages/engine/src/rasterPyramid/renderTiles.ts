@@ -292,6 +292,55 @@ export interface RasterLodDrawResult {
 }
 
 /**
+ * Mark every pyramid tile that contains an authored source tile. Sparse
+ * regions with no source tiles are known transparent and need no derived
+ * residency before they can be omitted from the draw.
+ */
+const authoredColumnsByTiles = new WeakMap<object, ReadonlyMap<number, readonly number[]>>();
+
+function authoredTileColumnsByRow(
+  source: PyramidLayerSource,
+): ReadonlyMap<number, readonly number[]> {
+  const tileTable = source.tiles as object;
+  const cached = authoredColumnsByTiles.get(tileTable);
+  if (cached) return cached;
+
+  const keys = source.tiles instanceof Map ? [...source.tiles.keys()] : Object.keys(source.tiles);
+  const columnsByRow = new Map<number, number[]>();
+  for (const key of keys) {
+    const [col, row] = key.split(':').map(Number);
+    if (!Number.isInteger(col) || !Number.isInteger(row)) continue;
+    const columns = columnsByRow.get(row!) ?? [];
+    columns.push(col!);
+    columnsByRow.set(row!, columns);
+  }
+  authoredColumnsByTiles.set(tileTable, columnsByRow);
+  return columnsByRow;
+}
+
+function hasAuthoredTileBelow(
+  columnsByRow: ReadonlyMap<number, readonly number[]>,
+  source: PyramidLayerSource,
+  level: number,
+  col: number,
+  row: number,
+  tileSize: number,
+): boolean {
+  const factor = 2 ** level;
+  const sourceColStart = col * factor;
+  const sourceColEnd = Math.min(Math.ceil(source.width / tileSize), (col + 1) * factor);
+  const sourceRowStart = row * factor;
+  const sourceRowEnd = Math.min(Math.ceil(source.height / tileSize), (row + 1) * factor);
+  for (let sourceRow = sourceRowStart; sourceRow < sourceRowEnd; sourceRow += 1) {
+    const columns = columnsByRow.get(sourceRow);
+    if (columns?.some((sourceCol) => sourceCol >= sourceColStart && sourceCol < sourceColEnd)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
  * Draw the visible region of a raster layer from resident pyramid tiles.
  * Falls back to coarser resident ancestors when the ideal level is not
  * ready (brief §30) and reports missing tiles for the scheduler. Tiles are
@@ -315,6 +364,10 @@ export function drawRasterLayerLod(
 
   if (!target.drawImage || !target.getTransform)
     return { drawnTiles: 0, missingTiles: 0, level: idealLevel, fallbackLevel: -1 };
+  if (idealLevel <= 0)
+    return { drawnTiles: 0, missingTiles: 0, level: idealLevel, fallbackLevel: -1 };
+
+  const authoredColumnsByRow = authoredTileColumnsByRow(source);
 
   // Clip to the layer bounds so gutters never paint outside the layer.
   target.save();
@@ -339,11 +392,28 @@ export function drawRasterLayerLod(
     const f = 2 ** level;
     let levelDrawn = 0;
     let levelMissing = 0;
+    let incomplete = false;
+    const ready: Array<{ canvas: CanvasImageSource; col: number; row: number }> = [];
     for (const coord of visible.tiles) {
       const entry = resolveGutterTile(source, level, coord.col, coord.row, store);
       if (!entry) {
-        levelMissing++;
-        if (attempt === 0) {
+        // Missing tiles with no authored source below them are transparent,
+        // not unfinished work. Missing tiles over authored pixels make this
+        // level incomplete: do not paint a partial layer while async LOD
+        // generation catches up.
+        const hasAuthoredPixels = hasAuthoredTileBelow(
+          authoredColumnsByRow,
+          source,
+          level,
+          coord.col,
+          coord.row,
+          tileSize,
+        );
+        if (hasAuthoredPixels) {
+          levelMissing++;
+          incomplete = true;
+        }
+        if (hasAuthoredPixels && attempt === 0) {
           schedule?.(source, level, coord.col, coord.row);
         }
         continue;
@@ -351,28 +421,33 @@ export function drawRasterLayerLod(
       const canvas = canvasCache.get(entry.key, entry.pixels, tileSize, gutter);
       if (!canvas) {
         levelMissing++;
+        incomplete = true;
         continue;
       }
-      const ox = coord.col * tileSize * f - gutter * f;
-      const oy = coord.row * tileSize * f - gutter * f;
-      const span = (tileSize + gutter * 2) * f;
-      target.drawImage(
-        canvas,
-        0,
-        0,
-        tileSize + gutter * 2,
-        tileSize + gutter * 2,
-        ox,
-        oy,
-        span,
-        span,
-      );
-      levelDrawn++;
+      ready.push({ canvas, col: coord.col, row: coord.row });
     }
-    drawn += levelDrawn;
-    if (levelDrawn > 0) {
+    if (!incomplete) {
+      for (const { canvas, col, row } of ready) {
+        const ox = col * tileSize * f - gutter * f;
+        const oy = row * tileSize * f - gutter * f;
+        const span = (tileSize + gutter * 2) * f;
+        target.drawImage(
+          canvas,
+          0,
+          0,
+          tileSize + gutter * 2,
+          tileSize + gutter * 2,
+          ox,
+          oy,
+          span,
+          span,
+        );
+        levelDrawn++;
+      }
+      drawn += levelDrawn;
       missing = levelMissing;
-      break;
+      if (levelDrawn > 0 || levelMissing === 0) break;
+      continue;
     }
     missing = levelMissing;
   }

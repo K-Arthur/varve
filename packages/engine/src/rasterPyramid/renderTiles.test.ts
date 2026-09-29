@@ -11,6 +11,7 @@ import {
 } from './pyramidCache';
 import {
   decideRasterStrategy,
+  drawRasterLayerLod,
   effectiveScaleFromTransform,
   GutterCanvasCache,
   layerVisibleRect,
@@ -227,5 +228,116 @@ describe('gutter tile generation (integration)', () => {
     };
     expect(r.has(before!.key)).toBe(true);
     expect(resolveGutterTile(s1, 1, 0, 0, r)).toBeNull();
+  });
+});
+
+describe('drawRasterLayerLod coverage', () => {
+  function target() {
+    const draws: unknown[][] = [];
+    return {
+      draws,
+      save() {},
+      beginPath() {},
+      rect() {},
+      clip() {},
+      restore() {},
+      getTransform: () => ({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 }),
+      drawImage: (...args: unknown[]) => draws.push(args),
+    };
+  }
+
+  function canvasCache() {
+    return { get: () => ({}) as CanvasImageSource } as unknown as GutterCanvasCache;
+  }
+
+  function residency() {
+    return new PyramidResidency({
+      budgetBytes: 64 * 1024,
+      tileBytes: (T + 2) * (T + 2) * 4,
+    });
+  }
+
+  it('does not draw a partial visible level when authored tiles are still missing', () => {
+    const layer = source(32, 8, [
+      [0, 0, 1],
+      [1, 0, 1],
+      [2, 0, 1],
+    ]);
+    const store = residency();
+    ensureGutterTile(layer, 1, 0, 0, store);
+    const surface = target();
+    const scheduled: Array<[number, number]> = [];
+
+    const result = drawRasterLayerLod(
+      surface as unknown as Parameters<typeof drawRasterLayerLod>[0],
+      layer,
+      store,
+      1,
+      { x: 0, y: 0, width: 32, height: 8 },
+      {
+        tileSize: T,
+        canvasCache: canvasCache(),
+        schedule: (_source, _level, col, row) => scheduled.push([col, row]),
+      },
+    );
+
+    expect(result.drawnTiles).toBe(0);
+    expect(result.missingTiles).toBeGreaterThan(0);
+    expect(surface.draws).toHaveLength(0);
+    expect(scheduled).toContainEqual([1, 0]);
+  });
+
+  it('allows absent sparse source regions to remain transparent', () => {
+    const layer = source(32, 8, [[0, 0, 1]]);
+    const store = residency();
+    ensureGutterTile(layer, 1, 0, 0, store);
+    const surface = target();
+    let scheduleCount = 0;
+
+    const result = drawRasterLayerLod(
+      surface as unknown as Parameters<typeof drawRasterLayerLod>[0],
+      layer,
+      store,
+      1,
+      { x: 0, y: 0, width: 32, height: 8 },
+      {
+        tileSize: T,
+        canvasCache: canvasCache(),
+        schedule: () => {
+          scheduleCount += 1;
+        },
+      },
+    );
+
+    expect(result.drawnTiles).toBe(1);
+    expect(result.missingTiles).toBe(0);
+    expect(surface.draws).toHaveLength(1);
+    expect(scheduleCount).toBe(0);
+  });
+
+  it('uses a complete coarser resident level when the ideal level is incomplete', () => {
+    const layer = source(64, 8, [
+      [0, 0, 1],
+      [1, 0, 1],
+      [4, 0, 1],
+      [5, 0, 1],
+    ]);
+    const store = residency();
+    ensureGutterTile(layer, 1, 0, 0, store);
+    ensureGutterTile(layer, 1, 2, 0, store);
+    const surface = target();
+
+    const result = drawRasterLayerLod(
+      surface as unknown as Parameters<typeof drawRasterLayerLod>[0],
+      layer,
+      store,
+      2,
+      { x: 0, y: 0, width: 64, height: 8 },
+      { tileSize: T, canvasCache: canvasCache() },
+    );
+
+    expect(result.fallbackLevel).toBe(1);
+    expect(result.drawnTiles).toBe(2);
+    expect(surface.draws).toHaveLength(2);
   });
 });

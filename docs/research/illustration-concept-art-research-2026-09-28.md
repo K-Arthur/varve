@@ -85,8 +85,15 @@ and two animation frames, then compared the live pixels with the same-camera
 authoritative redraw. The hashes differ
 (`a461eac4…e125348` versus `cc31c2c3…90bddccb`), and the before/after redraw
 captures both show the bands. The downloaded grouped PNG is clean. This is a
-reproduced screen-render defect; its root cause and repair remain open, so the
-narrow screenshot is not suitable for marketing.
+reproduced screen-render defect. A second same-camera comparison isolated the
+experimental raster LOD path: it mismatched 27,040 of 68,770 red-mask pixels
+(39.3%) after save/reopen, while the retained-surface redraw and grouped PNG
+were clean. The completeness guard did not remove the artifact. The normal
+editor adapter now keeps LOD disabled, and the leased Chromium save/reopen
+workflow passes with zero red-mask mismatches at the original viewport and an
+identical narrow-viewport full-redraw hash. This mitigation leaves the LOD
+root cause unresolved; no LOD performance or correctness claim is made, and
+the earlier banded screenshot is not suitable for marketing.
 
 ## Artifact provenance caution
 

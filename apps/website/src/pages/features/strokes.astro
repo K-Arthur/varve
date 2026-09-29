@@ -69,7 +69,7 @@ import StatusPill from '../../components/StatusPill.astro';
           </article>
           <article>
             <h3>Selection-to-flats</h3>
-            <p>Build a marquee, lasso, or image-derived selection, select the destination pixel layer, and fill it without changing the source artwork. Soft edges and transparent pixels remain real tile data.</p>
+            <p>Sample one raster or the visible artwork with Magic Wand, create a separate Flats layer, and fill color beneath your linework. The outline stays editable; undo, save, reopen, and grouped PNG export preserve the combined result.</p>
           </article>
           <article>
             <h3>Paint stays on its target</h3>
@@ -77,10 +77,23 @@ import StatusPill from '../../components/StatusPill.astro';
           </article>
           <article>
             <h3>Honest boundaries</h3>
-            <p>Selection fills currently target one visible, unlocked raster layer. Vector, group, effect, and transformed-content sampling remains explicit work rather than a hidden flattening step.</p>
+            <p>Current layer sampling stays available when the selection should come from one raster. Visible artwork uses the rendered active surface as its source, while fills still write to one selected pixel layer. Edge expansion grows coverage by up to 8 source pixels under antialiased linework. Contiguous visible-artwork sampling can also close short contour gaps with a bounded 0–8 px radius; larger openings may still reach the exterior, so inspect the selection before filling.</p>
           </article>
         </div>
       </section>
+
+      <figure class="feature-proof">
+        <img
+          src={sitePath('/screenshots/illustration-linework-flats.png')}
+          alt="Varve showing a red apple flat beneath editable black linework on a separate Flats layer"
+          width="1280"
+          height="800"
+        />
+        <figcaption>
+          Visible-artwork Magic Wand selects inside the ink while a separate Flats layer carries the
+          color. Undo, save and reopen, and grouped PNG export were verified in the editor.
+        </figcaption>
+      </figure>
 
       <section class="feature-section limitations">
         <h2>Export boundaries</h2>
@@ -94,6 +107,9 @@ import StatusPill from '../../components/StatusPill.astro';
 
       <div class="feature-cta">
         <Button href={sitePath('/docs/tools/strokes')}>Read the stroke guide</Button>
+        <Button variant="secondary" href={sitePath('/docs/tools/object-selection')}>
+          Read the Object Selection guide
+        </Button>
         <Button variant="secondary" href={sitePath('/features/vector-tools')}>Explore vector tools</Button>
       </div>
     </div>
@@ -159,6 +175,25 @@ import StatusPill from '../../components/StatusPill.astro';
   }
 
   .capability-grid h3 { margin-bottom: 0.5rem; }
+
+  .feature-proof {
+    margin: 0 0 3rem;
+  }
+
+  .feature-proof img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border: 1px solid var(--border-default);
+    border-radius: var(--website-radius-card);
+  }
+
+  .feature-proof figcaption {
+    margin-top: 0.75rem;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    line-height: 1.6;
+  }
 
   .limitations {
     border-left: 3px solid var(--border-accent);

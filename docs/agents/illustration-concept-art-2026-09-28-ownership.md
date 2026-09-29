@@ -299,7 +299,25 @@ that can show a partial layer while missing derived tiles are generated.
 The focused handoff is to keep the authoritative retained-surface fallback
 visible until a complete visible LOD coverage is ready, with deterministic
 missing-tile coverage tests and the real browser oracle. Do not change the
-renderer owner’s unrelated backend, worker, or pixel-reuse work.
+renderer owner's unrelated backend, worker, or pixel-reuse work.
+
+The completeness guard and additional same-camera browser oracle did not
+qualify the LOD output: after save/reopen, the LOD red mask differed from the
+retained redraw on 27,040 of the 68,770 union pixels (39.3%), with visible
+tile-shaped gaps. The downloaded PNG and retained redraw were clean. As a
+scoped mitigation, the `useRasterLod` editor adapter now leaves interactive
+LOD disabled; `?perf=1` diagnostics may still explicitly enable it for
+qualification. This does not identify or repair the underlying LOD geometry
+or residency cause. The E2E now asserts the safe default and same-camera
+retained result. Do not report the experimental tiled path as verified.
+
+The mitigation and retained surface pass the reopened-project oracle in the
+leased Chromium run on 2026-09-29: both red masks contain 55,752 pixels, the
+same-camera red mismatch rate is 0%, and the captured surface hashes match
+(`0807b0df3f550c40071aad826610dab540b3659d62de3a4a2f2bcb4f9074b1c6`). The
+same E2E verifies the transparent PNG, undo/redo, save/reopen, and narrow
+viewport full-redraw equality. This is Chromium at DPR 1; Linux Tauri/WebKitGTK
+and physical-pen checks remain open.
 
 ## Narrow artist-guide integration handoff (2026-09-29)
 
@@ -313,3 +331,45 @@ control names, their separate 0–8 source-pixel bounds, and the larger-gap
 limitation. No object-selection model, mask, or refinement guidance is
 changed. The updated paragraph remains pending the website's final visual and
 base-path checks.
+
+## Marketing capture and validation (2026-09-29)
+
+`apps/website/public/screenshots/illustration-linework-flats.png` is the
+inspected capture from the reopened hybrid project. It shows the red flat
+inside transparent black linework, the separate Flats layer, and the editor
+surface. `apps/website/src/pages/features/strokes.astro` now uses this verified
+image for its example; visible website copy and alt text describe the verified
+Visible artwork → separate Flats workflow.
+
+The Strokes page passed visual browser checks for both GitHub Pages and the
+custom-domain base paths, on desktop and mobile, including theme switching,
+image loading, alt text, internal route links, horizontal overflow, and browser
+console errors. `pnpm build:website` and `pnpm build:website:pages` both
+completed (Astro check: 0 errors, warnings, or hints; 114 routes). The leased
+website E2E command was:
+
+```text
+VARVE_WEBSITE_E2E_PORT=4386 VARVE_WEBSITE_E2E_PORT_ROOT=4387 node scripts/quality/heavy-lease.mjs "website: validate verified illustration marketing on both deploy bases" -- pnpm exec playwright test -c playwright.website.config.ts apps/website/tests/e2e/strokes-target-copy.spec.ts --project=ghpages --project=custom-domain --workers=1 --reporter=list
+```
+
+It passed 2/2 tests. The hybrid canvas E2E also passed under the heavy-task
+lease on Chromium. Its screenshots were visually inspected in Light, Dark,
+High Contrast, and narrow layout; the marketing source capture is the clean
+Light reopened state.
+
+For the 9-path scoped change, `pnpm verify:plan --staged` selected touched-file
+format/lint, emoji/radius/docs audits, E2E typecheck, the focused engine test,
+the hybrid E2E, website/editor/engine unit and typecheck closures, and website
+E2E. It reported no full-suite escalation, though the closure covers 82% of
+repository test files. `pnpm verify:affected --staged` stopped at the existing
+radius audit failure in
+`packages/editor/src/components/Presentation/presentationNavigator.css`
+(nine raw radius values), before running downstream lanes. Separately,
+`pnpm audit:docs`, `pnpm typecheck:e2e`, focused `renderTiles` tests (18/18),
+Biome on all four changed code/test files, the architecture CI audit, both
+website builds, the leased canvas E2E, and both leased website E2Es passed.
+The editor typecheck still reports existing `CurveEditor.test.tsx` overload
+errors; the token-usage audit still reports the unrelated literal `--name` in
+`packages/codegen/src/tailwind.ts`. Full suite was not run: the planner did
+not escalate, and the required affected command was blocked at the unrelated
+radius audit. These broader quality issues remain explicit follow-up items.

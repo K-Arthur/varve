@@ -35,6 +35,12 @@ const PRESSURE_MULTIPLIER: Record<PressureProfile, number> = {
   '2gb': 0.25,
 };
 
+// Keep the experimental tiled path behind the explicit performance probe
+// until a cold-residency frame passes the same-camera retained-surface oracle.
+// The raster Magic Wand save/reopen workflow reproduced a 39.3% red-pixel-mask
+// mismatch with the normal interactive LOD path enabled.
+const INTERACTIVE_RASTER_LOD_QUALIFIED = false;
+
 /**
  * Enable the pyramid and keep viewport + budget in sync. Idempotent per
  * mount; disables on unmount so tests and other surfaces keep the default
@@ -47,7 +53,7 @@ export function useRasterLod(
 ): void {
   useEffect(() => {
     if (!enabled) return;
-    setRasterPyramidEnabled(true);
+    setRasterPyramidEnabled(INTERACTIVE_RASTER_LOD_QUALIFIED);
     const syncViewport = () => {
       if (typeof window === 'undefined') return;
       setPyramidViewport(window.innerWidth, window.innerHeight);
