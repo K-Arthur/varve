@@ -132,12 +132,13 @@ hardware gaps remain explicit in the final handoff.
   cannot find `InferenceLease`. Standalone E2E typecheck, Biome, and
   `git diff --check` passed before that concurrent engine edit.
 
-- `MagicWandTool` now invalidates pending image decodes on later pointer
-  actions and tool deactivation, captures its settings at request time, and
-  refuses to apply a result if the live source node changed. Its three focused
-  unit regressions pass. Selection contract documentation is updated. The
-  selection-fill browser test remains unverified. No marquee-fill or separate
-  linework-to-flats claim is made.
+- `b239d6922` — `fix(selection): discard stale Magic Wand requests` —
+  invalidates pending image decodes on later pointer actions and tool
+  deactivation, captures settings at request time, and refuses to apply a
+  result if the live source node changed. Three focused unit regressions pass;
+  the selection contract and capability matrix are updated. The selection-fill
+  browser test remains unverified. No marquee-fill or separate linework-to-flats
+  claim is made.
 
   For the five owned paths, `pnpm verify:plan --staged` selected touched-file
   format/lint, emoji/docs/radius audits, the exact new test, and the editor and
