@@ -29,16 +29,19 @@ import FeatureVisual from '../../components/FeatureVisual.astro';
           history — switching workspaces never forks your work, and switching back restores what
           you left. Switch from the menubar switcher, the View &gt; Workspace menu, the command
           palette, or <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>1</kbd>…<kbd>6</kbd> in the same order
-          as the switcher, with each tab marked by its matching number; the active workspace is
-          always named, and workspaces that don't fit stay in the switcher's overflow menu. On
+          as the switcher; hovering a tab names the workspace with its shortcut, the active
+          workspace keeps its name, and workspaces that don't fit stay in the switcher's overflow
+          menu with their full shortcut labels. On
           macOS, use Command+Shift with the same numbers. Logo Tools use
-          Ctrl+Shift+7 to open Design and reveal the Logo panel. Code uses
+          Ctrl+Shift+7 to open Design and reveal the Logo panel; Ctrl+Alt+Shift+L toggles it and
+          also opens Design when needed (Command+Option+Shift+L on macOS). Code uses
           Ctrl+Shift+8 to show the shared panel in the current workspace; in the desktop app,
           Ctrl+Shift+J also toggles that panel. Browsers may reserve Ctrl+Shift+J for Developer
           Tools, so use Ctrl+Shift+8 or View &gt; Panels &gt; Code Panel in the browser. These are
           actions, not workspace tabs. On macOS, use Command+Shift with the same keys in the
           desktop app; Chrome uses Command+Shift+J for Downloads, so use Command+Shift+8 or the
-          View menu for Code in the browser.
+          View menu for Code in the browser. The <a href={sitePath('/docs/keyboard-shortcuts')}>keyboard shortcut reference</a>
+          lists the complete workspace order and panel toggle alternatives.
         </p>
         <ul>
           <li><strong>Design</strong> — UI/UX design, components, tokens, responsive layouts, prototyping, Logo tools, and developer handoff.</li>
@@ -49,11 +52,22 @@ import FeatureVisual from '../../components/FeatureVisual.astro';
           <li><strong>Email</strong> — responsive email template authoring, email-specific preflight, and HTML export.</li>
         </ul>
         <p>
+          Draw also covers a linework-to-flats pass on the same canvas: Magic Wand can sample the
+          visible ink while a separate Flats layer receives colour. The 0–8 source-pixel edge
+          expansion tucks colour beneath antialiased edges; it does not close open contours. The
+          verified workflow uses ordinary editable layers and PNG export, not another workspace or
+          document format. <a href={sitePath('/features/strokes')}>See the stroke workflow</a>.
+        </p>
+        <p>
           Explore <a href={sitePath('/features/logo')}>Logo tools in Design</a>, the dedicated
           <a href={sitePath('/features/email')}>Email authoring workflow</a>, and
           <a href={sitePath('/features/code')}>shared Code export</a>. Opening Code never switches
           workspaces. Email preview is rendered in Varve's browser surface; it does not claim
           client-by-client Gmail or Outlook verification.
+        </p>
+        <p>
+          Design also has a <a href={sitePath('/features/presentations')}>source-build preview of
+          presentation authoring</a>, where ordered decks reference editable frames on the same canvas.
         </p>
       </section>
 
