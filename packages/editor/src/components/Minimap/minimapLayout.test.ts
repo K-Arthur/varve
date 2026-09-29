@@ -13,12 +13,16 @@ import {
 import { describe, expect, it } from 'vitest';
 import {
   buildMinimapScene,
+  clipFootprintToStage,
   computeMinimapSize,
   computeMinimapTransform,
   computeViewportMinimapFootprint,
   computeViewportMinimapRect,
   computeViewportWorldCenter,
   computeViewportWorldRect,
+  expandFootprintForHitTest,
+  inflateFootprintToMinimum,
+  isOrientationLabelWorthy,
   minimapToWorld,
   panForViewportCenter,
   pointInMinimapFootprint,
@@ -474,33 +478,173 @@ describe('computeViewportMinimapFootprint', () => {
 /* -------------------------------------------------------------------------- */
 
 describe('computeMinimapSize', () => {
-  it('returns max dimensions for empty content', () => {
+  it('returns a full stage for empty content', () => {
     const size = computeMinimapSize({ x: 0, y: 0, w: 0, h: 0 });
     expect(size.width).toBe(160);
-    expect(size.height).toBe(120);
+    expect(size.height).toBeLessThanOrEqual(120);
+    expect(size.height).toBeGreaterThanOrEqual(48);
   });
 
-  it('returns max dimensions for zero-area content', () => {
+  it('returns a full stage for zero-area content', () => {
     const size = computeMinimapSize({ x: 0, y: 0, w: 0, h: 50 });
     expect(size.width).toBe(160);
-    expect(size.height).toBe(120);
+    expect(size.height).toBeLessThanOrEqual(120);
+    expect(size.height).toBeGreaterThanOrEqual(48);
   });
 
-  it('preserves aspect ratio for wide content', () => {
+  it('fills the available width and derives the height from wide content', () => {
     const size = computeMinimapSize({ x: 0, y: 0, w: 400, h: 100 });
     expect(size.width).toBe(160);
     expect(size.height).toBeLessThan(120);
+    expect(size.height).toBeGreaterThan(48);
   });
 
-  it('preserves aspect ratio for tall content', () => {
+  it('fills the width and caps the height for tall content', () => {
     const size = computeMinimapSize({ x: 0, y: 0, w: 100, h: 400 });
+    expect(size.width).toBe(160);
     expect(size.height).toBe(120);
-    expect(size.width).toBeLessThan(160);
+  });
+
+  it('never returns a stage narrower than the width it was given', () => {
+    // Regression guard: the canvas used to hug the content aspect instead,
+    // which left roughly half of the panel card empty on a normal sidebar.
+    for (const bounds of [
+      { x: 0, y: 0, w: 400, h: 100 },
+      { x: 0, y: 0, w: 100, h: 400 },
+      { x: 0, y: 0, w: 1200, h: 90 },
+    ]) {
+      expect(computeMinimapSize(bounds, 300, 168).width).toBe(300);
+    }
   });
 
   it('respects custom max dimensions', () => {
     const size = computeMinimapSize({ x: 0, y: 0, w: 200, h: 200 }, 100, 80);
-    expect(size.width).toBeLessThanOrEqual(100);
+    expect(size.width).toBe(100);
     expect(size.height).toBeLessThanOrEqual(80);
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/*  Tests: viewfinder minimum size and hit tolerance                           */
+/* -------------------------------------------------------------------------- */
+
+function footprintOf(x: number, y: number, w: number, h: number) {
+  return {
+    points: [
+      [x, y],
+      [x + w, y],
+      [x + w, y + h],
+      [x, y + h],
+    ] as Array<[number, number]>,
+    bounds: { x, y, w, h },
+  };
+}
+
+describe('inflateFootprintToMinimum', () => {
+  it('leaves a large enough footprint untouched', () => {
+    const original = footprintOf(10, 10, 40, 40);
+    expect(inflateFootprintToMinimum(original, 14)).toBe(original);
+  });
+
+  it('grows a sub-pixel footprint to the minimum drawn size', () => {
+    const inflated = inflateFootprintToMinimum(footprintOf(10, 10, 0.4, 0.2), 14);
+    expect(inflated.bounds.w).toBeGreaterThanOrEqual(14);
+    expect(inflated.bounds.h).toBeGreaterThanOrEqual(14);
+  });
+  it('keeps the footprint centred on the same point', () => {
+    const inflated = inflateFootprintToMinimum(footprintOf(10, 20, 1, 1), 14);
+    expect(inflated.bounds.x + inflated.bounds.w / 2).toBeCloseTo(10.5, 5);
+    expect(inflated.bounds.y + inflated.bounds.h / 2).toBeCloseTo(20.5, 5);
+  });
+
+  it('preserves a rotated quad instead of growing an axis-aligned box', () => {
+    const rotated = {
+      points: [
+        [20, 10],
+        [30, 20],
+        [20, 30],
+        [10, 20],
+      ] as Array<[number, number]>,
+      bounds: { x: 10, y: 10, w: 20, h: 20 },
+    };
+    const inflated = inflateFootprintToMinimum(rotated, 40);
+    const diagonal = inflated.points[0]![0] - inflated.points[1]![0];
+    expect(diagonal).toBeLessThan(0);
+  });
+});
+
+describe('expandFootprintForHitTest', () => {
+  it('clears the WCAG 2.5.8 24x24 target minimum from the minimum drawn size', () => {
+    const expanded = expandFootprintForHitTest(footprintOf(10, 10, 0.2, 0.2));
+    expect(expanded.bounds.w).toBeGreaterThanOrEqual(24);
+    expect(expanded.bounds.h).toBeGreaterThanOrEqual(24);
+  });
+
+  it('contains the drawn rectangle, so what looks grabbable is grabbable', () => {
+    const drawn = inflateFootprintToMinimum(footprintOf(30, 30, 2, 2), 14);
+    const hit = expandFootprintForHitTest(footprintOf(30, 30, 2, 2));
+    for (const point of drawn.points) {
+      expect(pointInMinimapFootprint(point, hit)).toBe(true);
+    }
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/*  Tests: orientation label worthiness                                        */
+/* -------------------------------------------------------------------------- */
+
+describe('isOrientationLabelWorthy', () => {
+  it('accepts authored names', () => {
+    expect(isOrientationLabelWorthy('Checkout flow')).toBe(true);
+    expect(isOrientationLabelWorthy('Hero')).toBe(true);
+  });
+
+  it('rejects auto-generated names', () => {
+    for (const name of ['Rectangle 3', 'Frame 12', 'Ellipse 1', 'Group 4', 'Text 2', 'Frame']) {
+      expect(isOrientationLabelWorthy(name), name).toBe(false);
+    }
+  });
+
+  it('rejects empty and single-character names', () => {
+    expect(isOrientationLabelWorthy('')).toBe(false);
+    expect(isOrientationLabelWorthy('   ')).toBe(false);
+    expect(isOrientationLabelWorthy('x')).toBe(false);
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/*  Tests: clipping the viewfinder to the map stage                            */
+/* -------------------------------------------------------------------------- */
+
+describe('clipFootprintToStage', () => {
+  it('returns the footprint unchanged when it is already inside', () => {
+    const clipped = clipFootprintToStage(footprintOf(20, 20, 40, 40), 160, 120);
+    expect(clipped).not.toBeNull();
+    expect(clipped!.bounds).toEqual({ x: 20, y: 20, w: 40, h: 40 });
+  });
+
+  it('clamps an overhanging footprint to the stage rectangle', () => {
+    const clipped = clipFootprintToStage(footprintOf(-40, -30, 240, 120), 160, 120);
+    expect(clipped).not.toBeNull();
+    expect(clipped!.bounds.x).toBe(0);
+    expect(clipped!.bounds.y).toBe(0);
+    expect(clipped!.bounds.x + clipped!.bounds.w).toBeLessThanOrEqual(160);
+    expect(clipped!.bounds.y + clipped!.bounds.h).toBeLessThanOrEqual(120);
+  });
+
+  it('returns null when the footprint misses the stage entirely', () => {
+    // Panning past your own document: the outline must be replaced by a
+    // pointer rather than left in limbo outside the visible map.
+    expect(clipFootprintToStage(footprintOf(400, 400, 60, 40), 160, 120)).toBeNull();
+  });
+
+  it('keeps every produced vertex inside the stage', () => {
+    const clipped = clipFootprintToStage(footprintOf(-10, 30, 400, 40), 160, 120);
+    for (const [x, y] of clipped!.points) {
+      expect(x).toBeGreaterThanOrEqual(0);
+      expect(x).toBeLessThanOrEqual(160);
+      expect(y).toBeGreaterThanOrEqual(0);
+      expect(y).toBeLessThanOrEqual(120);
+    }
   });
 });

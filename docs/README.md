@@ -345,7 +345,7 @@ pass report in
 | `architecture/blend-spaces.md` | Blend-space model from the 2026-08-17 blend-space landing |
 | `architecture/surface-model.md` | Page-layout surfaces, design frames, artboards, export markers, and workspace disclosure |
 | `architecture/editor-surface-scope.md` | Shared current-surface occurrence contract for rendering, labels, accessibility, minimap, hit testing, and editor overlays |
-| `architecture/minimap-system.md` | Live canvas minimap geometry, navigation, scope, persistence, lifecycle, and validation |
+| `architecture/minimap-system.md` | Live canvas minimap geometry, navigation, stage sizing, the enforced ink-contrast contract, honest states, lifecycle, and validation |
 | `architecture/page-layout-guides.md` | Publishing page margins, columns, inheritance, and view-only guides |
 | `architecture/page-export-selection.md` | Ordered page export selection, exclusions, ranges, and spread units |
 | `architecture/master-pages.md` | Master source ownership, projection, assignments, and sparse overrides |
@@ -608,6 +608,7 @@ records; check the current code before acting on their findings.
 | `audits/object-selection-repair-validation-2026-09-02.md` | Object Selection prompt/overlay, inference recovery, automatic bounds trim, and marketing validation record |
 | `audits/effects-surfaces-audit-2026-08-29.md` | Research-backed separation of Effect Studio, Image Tuning, Object Filters, and Adjustment Filters, including raster/vector behavior |
 | `audits/effect-studio-ux-review-2026-09-29.md` | Responsive Effect Studio findings, preview proof contract, and anecdotal competitor complaint research |
+| `audits/minimap-design-review-2026-09-29.md` | Minimap contrast, redundancy, viewfinder affordance, and responsive findings, with the competitor complaint evidence behind each fix and what was deliberately left alone |
 | `audits/photo-editing-compositing-audit-2026-09-08.md` | Current photo editing/compositing capability map, ownership boundaries, RIFE truth, and remaining validation limits |
 | `audits/pages-master-layout-audit-2026-08-29.md` | Current page, parent/master, spread, frame, workspace, I/O, and validation capability audit |
 | `audits/shine-border-opportunity-audit-2026-08-31.md` | Repository-wide Shine Border candidate ranking, explicit rejects, and approved production ceiling |

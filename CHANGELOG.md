@@ -238,10 +238,7 @@ update, not for someone reading the commit log.
   selection. Renderer status, view toggles, fit controls, save status, and
   on-device AI status became sections too, so **Customize Workspace** describes
   the entire row: reordering now actually works (it was persisted but ignored),
-  and save status is pinned on with a stated reason. The permanent "On-Device
-  AI" pill is gone too — a claim that is always true is not a status — so the
-  chip now appears only while an on-device job is queued or running, and is
-  unmissable precisely when there is something to see.
+  and save status is pinned on with a stated reason.
 
 - **One slider, everywhere** — Every slider in the editor now renders the same
   native range primitive with the same track, thumb, focus ring, and touch
@@ -256,6 +253,21 @@ update, not for someone reading the commit log.
   whole product gains the WCAG 2.5.7 single-pointer path for free.
 
 ### Fixed
+
+- **The minimap is readable again, and no longer wastes half its panel** — The
+  overview drew its artwork in `border-subtle`, which measures **1.19:1**
+  against its own backplate in the default Light theme: the shapes were
+  effectively invisible, and only 1.55:1 in Dark. The canvas also hugged the
+  content aspect inside a card that stretched the full sidebar, so at a normal
+  window size **51% of the panel was empty card** while the border still
+  claimed it. The overview now fills its stage, draws each object kind in a
+  measured ink family that clears 3:1 in all three themes (checked by
+  `audit:tokens`), and re-resolves its palette whenever the theme changes —
+  including OS and system-preference changes it used to miss, which left
+  light-theme pixels under a dark panel. Circles and ellipses render as
+  silhouettes instead of their bounding boxes, labels below 7 px are omitted
+  rather than drawn as mush, and auto-generated names like "Frame 4" are never
+  drawn.
 
 - **Right-click opens the canvas context menu again** — The onboarding hint
   bubble that floats over the canvas was swallowing real right-clicks, and

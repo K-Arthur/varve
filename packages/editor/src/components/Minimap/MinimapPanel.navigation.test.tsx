@@ -115,10 +115,27 @@ describe('MinimapPanel — fit-all semantics', () => {
     expect(setPan).toHaveBeenCalledTimes(2);
   });
 
-  it('aria-label describes the real interaction contract', () => {
+  it('aria-label describes the real interaction contract', async () => {
+    const owner = document.createElement('div');
+    Object.defineProperties(owner, {
+      clientWidth: { configurable: true, value: 800 },
+      clientHeight: { configurable: true, value: 600 },
+    });
+    render(<MinimapPanel canvasOwnerRef={{ current: owner }} />);
+    const canvas = screen.getByRole('img', { name: /Document minimap/ });
+    await waitFor(() =>
+      expect(canvas.getAttribute('aria-label')).toContain('fit the whole document'),
+    );
+    const label = canvas.getAttribute('aria-label') ?? '';
+    expect(label).toContain('Click or drag to navigate');
+    expect(label).toContain('arrow keys pan');
+  });
+
+  it('aria-label admits when there is no measurable viewport to navigate', () => {
     renderMinimap();
     const canvas = screen.getByRole('img', { name: /Document minimap/ });
-    const label = canvas.getAttribute('aria-label') ?? '';
-    expect(label).toContain('fit the whole document');
+    // Without a measured canvas owner there is nothing to project, so the map
+    // must say so rather than advertise controls that silently do nothing.
+    expect(canvas.getAttribute('aria-label')).toContain('Navigation is unavailable');
   });
 });

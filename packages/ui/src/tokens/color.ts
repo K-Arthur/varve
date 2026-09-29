@@ -991,10 +991,13 @@ const WORKSPACE_MODE_CONTRAST_PAIRS: readonly ContrastPair[] = WORKSPACE_MODE_KE
  * `border-subtle` for shape/text/group ink, which measured 1.19:1 in Light:
  * the artwork was effectively invisible in the default theme.
  *
- * Also locked here: the page trim outline, the viewport rectangle (the one
- * mark a user must always be able to find), and the frame/page label ink.
- * The exceptional-scale marker reuses `feedback-danger`, which the feedback
- * graphics matrix above already checks on this same backplate.
+ * Also locked here: the page trim outline and the viewport rectangle's accent
+ * core. The frame/page label ink is `text-muted` (7.04:1 on this backplate,
+ * already graded by `text-muted on surface-sunken`), and the viewfinder's
+ * contrast ring is `text-primary` (15.8–21:1, already graded by
+ * `text-primary on surface-sunken`). The exceptional-scale marker reuses
+ * `feedback-danger`, which the feedback graphics matrix above already checks
+ * on this same backplate.
  */
 const MINIMAP_OVERVIEW_CONTRAST_PAIRS: readonly ContrastPair[] = [
   ...(

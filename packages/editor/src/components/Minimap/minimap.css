@@ -1,3 +1,17 @@
+/**
+ * Minimap panel.
+ *
+ * Composition: a compact header (count + optional exceptional-scale action +
+ * two collapse controls in two different scopes) over a map stage that spans
+ * the card. The panel deliberately owns no "Fit" control — fitting lives in
+ * the StatusBar Fit group, the View menu, and the map's own double-click /
+ * Enter / Home gesture.
+ *
+ * The canvas carries its own backing-store size from
+ * `renderMinimapToCanvas`; this file must not restate `width`/`height`, or a
+ * stale declaration silently fights the measured stage.
+ */
+
 .minimap-panel {
   border: var(--border-micro);
   border-radius: var(--radius-floating);
@@ -20,12 +34,103 @@
   padding: 0 0 var(--space-1) 0;
 }
 
+.minimap-panel__title {
+  font-size: var(--font-size-2xs);
+  line-height: 1;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  flex: 1;
+}
+
+/*
+ * The map stage. `position: relative` so the empty-state caption can sit over
+ * the backplate without replacing the canvas (a swapped DOM node would drop
+ * the map's tab stop and re-run layout on the first object added).
+ * The border is on the stage, not the canvas: the canvas rect is what pointer
+ * mapping measures, so nothing may sit between it and the drawn pixels.
+ */
+.minimap-panel__stage {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-width: 0;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
+  background: var(--color-surface-sunken);
+  overflow: hidden;
+}
+
+.minimap-panel__stage[data-empty] {
+  min-height: var(--space-12);
+}
+
+.minimap-panel__canvas {
+  display: block;
+  margin: 0 auto;
+  cursor: pointer;
+  outline: none;
+  max-width: 100%;
+  touch-action: none;
+  user-select: none;
+  border-radius: inherit;
+}
+
+/* Grabbability: the viewfinder is a draggable handle, so the cursor says so.
+ * Hover only strengthens the drawn outline; it never moves focus. */
+.minimap-panel__canvas[data-navigable] {
+  cursor: grab;
+}
+
+.minimap-panel__canvas[data-navigable]:active,
+.minimap-panel[data-dragging] .minimap-panel__canvas {
+  cursor: grabbing;
+}
+
+.minimap-panel__canvas:focus-visible {
+  box-shadow: 0 0 0 2px var(--color-interactive-focus-ring);
+}
+
+.minimap-panel__empty {
+  position: absolute;
+  inset: auto 0 0 0;
+  margin: 0;
+  padding: var(--space-2);
+  font-size: var(--font-size-2xs);
+  line-height: var(--font-line-normal);
+  color: var(--color-text-muted);
+  text-align: center;
+  background: color-mix(in oklab, var(--color-surface-sunken) 92%, transparent);
+  pointer-events: none;
+}
+
+.minimap-panel__outlier-btn {
+  border: 1px solid color-mix(in oklab, var(--color-feedback-danger) 45%, transparent);
+  border-radius: var(--radius-control-compact);
+  background: transparent;
+  color: var(--color-feedback-danger);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-medium);
+  padding: 0 var(--space-1);
+  min-block-size: var(--component-xs-height);
+  flex-shrink: 0;
+}
+
+.minimap-panel__outlier-btn:hover {
+  background: color-mix(in oklab, var(--color-feedback-danger) 12%, transparent);
+}
+
 .minimap-panel__collapse-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
+  width: var(--component-xs-height);
+  height: var(--component-xs-height);
   border: none;
   background: transparent;
   color: var(--color-text-muted);
@@ -40,61 +145,22 @@
   color: var(--color-text-primary);
 }
 
-.minimap-panel__title {
-  font-size: var(--font-size-2xs);
-  line-height: 1;
-  color: var(--color-text-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-width: 0;
-  flex: 1;
-}
-
-.minimap-panel__outlier-badge {
-  color: var(--color-feedback-danger);
-  font-weight: 500;
-}
-
-.minimap-panel__canvas {
-  display: block;
-  width: 100%;
-  height: auto;
-  border-radius: var(--radius-control-compact);
-  cursor: pointer;
-  outline: none;
-  max-width: 100%;
-  touch-action: none;
-  user-select: none;
-}
-
-.minimap-panel__fit-btn {
-  border: 0;
-  border-radius: var(--radius-control-compact);
-  background: transparent;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  font: inherit;
-  font-size: var(--font-size-2xs);
-  padding: var(--space-1) var(--space-2);
-  min-block-size: var(--component-xs-height);
-  flex-shrink: 0;
-}
-
-.minimap-panel__fit-btn:hover,
-.minimap-panel__fit-btn:focus-visible {
-  background: var(--color-surface-hover);
-  color: var(--color-text-primary);
-}
-
-.minimap-panel__fit-btn:focus-visible,
+.minimap-panel__outlier-btn:focus-visible,
 .minimap-panel__collapse-btn:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: -1px;
 }
 
-.minimap-panel__canvas:focus-visible {
-  box-shadow: 0 0 0 2px var(--color-interactive-default);
+/*
+ * The rail-level panel-collapse control lives in this header, but it is not a
+ * minimap control. A hairline separator keeps the two scopes apart so the
+ * chevron (hide the map) and the panel glyph (collapse the Layers rail) do not
+ * read as one control.
+ */
+.minimap-panel__header .editor__collapse-btn {
+  border-left: 1px solid var(--color-border-subtle);
+  padding-left: var(--space-1);
+  margin-left: var(--space-1);
 }
 
 /* Collapsed state */
@@ -131,6 +197,19 @@
   background: var(--color-surface-default);
 }
 
+[data-theme="high-contrast"] .minimap-panel__stage {
+  border-color: var(--color-border-strong);
+}
+
 [data-theme="high-contrast"] .minimap-panel__canvas:focus-visible {
   box-shadow: 0 0 0 3px var(--color-interactive-default);
+}
+
+/* The map is canvas-drawn; under forced colors only the frame and controls
+ * remain, so make that boundary explicit rather than leaving a stray well. */
+@media (forced-colors: active) {
+  .minimap-panel__stage {
+    border-color: CanvasText;
+    background: Canvas;
+  }
 }

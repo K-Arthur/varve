@@ -20,6 +20,7 @@ import {
   assertOccurrencesInScope,
   buildPlacedScene,
   type Document,
+  isImageShape,
   multipageRootNodes,
   type NodeId,
   type ResolvedEditorSceneScope,
@@ -49,6 +50,16 @@ export interface MinimapEntry {
   /** Authored node id, used for selection state and commands. */
   nodeId?: NodeId;
   kind: SceneNode['kind'];
+  /**
+   * How this entry is drawn in the overview.
+   *
+   * Deliberately coarser than `kind`: the overview distinguishes structural
+   * containers from content masses, and a 2 px mark cannot carry the full
+   * Layers-panel category palette (WCAG 1.4.1 — no colour-only cues). The
+   * component/instance split is absent because it needs a document-wide
+   * component index; both are frames here.
+   */
+  paint: MinimapEntryPaint;
   /** World-space axis-aligned bounding box. */
   bounds: Rect;
   /** Whether the node is visible in the scene. */
@@ -63,9 +74,24 @@ export interface MinimapEntry {
   selected: boolean;
   /** Node name for labels / tooltips. */
   name: string;
+  /**
+   * Whether `name` is worth rendering as a label. Auto-generated names
+   * ("Rectangle 3") carry no orientation value and are omitted.
+   */
+  labelWorthy: boolean;
   /** Depth in the tree (0 = root level). */
   depth: number;
 }
+
+/** Overview paint class for one entry. See `MinimapEntry.paint`. */
+export type MinimapEntryPaint =
+  | 'frame'
+  | 'group'
+  | 'text'
+  | 'image'
+  | 'shape'
+  | 'ellipse'
+  | 'adjustment';
 
 /** The full minimap scene — a snapshot of all renderable entries plus layout metadata. */
 export interface MinimapScene {
@@ -151,10 +177,89 @@ const MAX_MM_WIDTH = 160;
 const MAX_MM_HEIGHT = 120;
 const CONTENT_PADDING = 24;
 const DEGENERATE_WORLD_SIZE = 1;
+/** Floor for the map stage height, so a thin document still has a usable map. */
+const MIN_STAGE_HEIGHT = 48;
+/** Stage aspect (width ÷ height) used before any document bounds exist. */
+const DEFAULT_STAGE_ASPECT = 1.5;
+
+/**
+ * Smallest viewfinder rectangle the overview will draw, in CSS px.
+ *
+ * A high zoom ratio collapses the true projected rectangle to a sub-pixel
+ * sliver that cannot be seen or grabbed — the long-standing failure reported
+ * against QGIS (`the red overview square is nearly invisible at the statewide
+ * scale`) and identified as the scalability limit of zoomable overviews
+ * (Chittaro et al., MOBHCI 2008: "the viewfinder may shrink too much in size
+ * and make its manipulation more difficult for users"). The drawn rectangle is
+ * inflated to this floor, and interaction uses the same inflated polygon plus
+ * `VIEWFINDER_HIT_TOLERANCE_PX`, so the effective target is ~34 CSS px and
+ * clears WCAG 2.5.8's 24×24 minimum.
+ */
+export const MIN_VIEWFINDER_CSS_PX = 14;
+
+/** Extra hit area around the drawn viewfinder rectangle, in CSS px. */
+const VIEWFINDER_HIT_TOLERANCE_PX = 10;
+
+/**
+ * Auto-generated names carry no orientation value. Mirrors the auto-namer's
+ * default-name shape (`DEFAULT_NAME_RE` in `intelligence/autoNamer.ts`) but
+ * asks a different question — "would this name help someone find the frame?"
+ * rather than "is this name still the default?".
+ */
+const AUTO_GENERATED_NAME_RE =
+  /^(?:Rectangle|Rect|Ellipse|Circle|Line|Polygon|Star|Frame|Panel|Group|Text|Image|Adjustment)\s*\d*$/i;
+
+/** Whether a node name is worth spending label pixels on. */
+export function isOrientationLabelWorthy(name: string): boolean {
+  const trimmed = name.trim();
+  if (trimmed.length < 2) return false;
+  return !AUTO_GENERATED_NAME_RE.test(trimmed);
+}
 
 /* -------------------------------------------------------------------------- */
 /*  Minimap scene builder                                                     */
 /* -------------------------------------------------------------------------- */
+
+/**
+ * Overview paint class for a node.
+ *
+ * Uses the canonical `isImageShape` predicate from `@varve/scene` rather than
+ * a local fill test, so the overview agrees with the Layers panel and the
+ * Inspector about what an image is.
+ */
+function minimapPaintFor(node: SceneNode): MinimapEntryPaint {
+  switch (node.kind) {
+    case 'frame':
+      return 'frame';
+    case 'group':
+      return 'group';
+    case 'text':
+      return 'text';
+    // A table reads as a text mass at overview scale.
+    case 'table':
+      return 'text';
+    case 'rasterLayer':
+      return 'image';
+    case 'adjustment':
+      return 'adjustment';
+    case 'shape': {
+      // Form wins over hue: an ellipse's silhouette is the single most
+      // recognisable thing about it, and drawing its bounding box instead
+      // turned every circle into a square.
+      if (isEllipseLikeShape(node)) return 'ellipse';
+      return isImageShape(node) ? 'image' : 'shape';
+    }
+    default:
+      return isImageShape(node) ? 'image' : 'shape';
+  }
+}
+
+/** True for shapes the overview draws as an ellipse rather than a box. */
+function isEllipseLikeShape(node: SceneNode): boolean {
+  if (node.kind !== 'shape') return false;
+  const kind = node.shape?.kind;
+  return kind === 'ellipse' || kind === 'circle';
+}
 
 /**
  * Recursively collect minimap entries from a node subtree.
@@ -204,6 +309,7 @@ function collectEntries(
     const entry: MinimapEntry = {
       id,
       kind: node.kind,
+      paint: minimapPaintFor(node),
       bounds: bounds ?? { x: 0, y: 0, w: 0, h: 0 },
       visible: isVisible,
       locked: isLocked,
@@ -211,6 +317,7 @@ function collectEntries(
       isContainer,
       selected: selectedIds.has(id),
       name: node.name || '',
+      labelWorthy: isOrientationLabelWorthy(node.name || ''),
       depth,
     };
 
@@ -252,6 +359,7 @@ function collectOccurrenceEntries(
       id: occurrence.instanceId,
       nodeId: occurrence.nodeId,
       kind: node.kind,
+      paint: minimapPaintFor(node),
       bounds,
       visible: isVisible,
       locked: isLocked,
@@ -259,6 +367,7 @@ function collectOccurrenceEntries(
       isContainer,
       selected: selectedIds.has(occurrence.nodeId),
       name: node.name || '',
+      labelWorthy: isOrientationLabelWorthy(node.name || ''),
       depth: occurrence.depth,
     });
   }
@@ -526,7 +635,16 @@ export function worldRectToMinimap(rect: Rect, tf: MinimapTransform): Rect {
   };
 }
 
-/** Compute the minimap canvas dimensions to fit content bounds. */
+/**
+ * Compute the map **stage** size for a document.
+ *
+ * The stage fills the available width and takes its height from the content
+ * aspect, clamped to `maxHeight`. Previous behaviour shrank the canvas to hug
+ * the content instead, which left roughly half of the panel card empty on a
+ * normal sidebar (a 120 px map inside a 302 px card) while the card's border
+ * still claimed the whole area. A stage that tracks the content aspect keeps
+ * the map's own framing honest without wasting the width.
+ */
 export function computeMinimapSize(
   contentBounds: Rect,
   maxWidth: number = MAX_MM_WIDTH,
@@ -534,30 +652,21 @@ export function computeMinimapSize(
 ): { width: number; height: number } {
   const safeMaxWidth = Number.isFinite(maxWidth) && maxWidth > 0 ? maxWidth : MAX_MM_WIDTH;
   const safeMaxHeight = Number.isFinite(maxHeight) && maxHeight > 0 ? maxHeight : MAX_MM_HEIGHT;
-  if (
-    ![contentBounds.x, contentBounds.y, contentBounds.w, contentBounds.h].every(Number.isFinite) ||
-    contentBounds.w <= 0 ||
-    contentBounds.h <= 0
-  ) {
-    return { width: safeMaxWidth, height: safeMaxHeight };
-  }
+
+  const usable =
+    [contentBounds.x, contentBounds.y, contentBounds.w, contentBounds.h].every(Number.isFinite) &&
+    contentBounds.w > 0 &&
+    contentBounds.h > 0;
 
   const paddedW = contentBounds.w + CONTENT_PADDING * 2;
   const paddedH = contentBounds.h + CONTENT_PADDING * 2;
+  const aspect = usable && paddedW > 0 && paddedH > 0 ? paddedW / paddedH : DEFAULT_STAGE_ASPECT;
 
-  if (paddedW <= 0 || paddedH <= 0) {
-    return { width: safeMaxWidth, height: safeMaxHeight };
-  }
-
-  const aspect = paddedW / paddedH;
-  let mmW = safeMaxWidth;
-  let mmH = mmW / aspect;
-  if (mmH > safeMaxHeight) {
-    mmH = safeMaxHeight;
-    mmW = mmH * aspect;
-  }
-
-  return { width: Math.max(mmW, 40), height: Math.max(mmH, 30) };
+  const height = Math.min(safeMaxHeight, safeMaxWidth / aspect);
+  return {
+    width: safeMaxWidth,
+    height: Math.max(MIN_STAGE_HEIGHT, Number.isFinite(height) ? height : safeMaxHeight),
+  };
 }
 
 /** Compute the viewport indicator rect in world space from camera state. */
@@ -670,4 +779,140 @@ export function pointInMinimapFootprint(point: Point, footprint: MinimapFootprin
     }
   }
   return inside;
+}
+
+/**
+ * Scale a footprint about its centroid. Preserves the projected quad's shape
+ * and rotation, unlike growing an axis-aligned box.
+ */
+function scaleFootprint(footprint: MinimapFootprint, scale: number): MinimapFootprint {
+  const factor = Number.isFinite(scale) && scale > 0 ? scale : 1;
+  if (factor === 1) return footprint;
+  const cx = footprint.bounds.x + footprint.bounds.w / 2;
+  const cy = footprint.bounds.y + footprint.bounds.h / 2;
+  const points = footprint.points.map(
+    ([x, y]) => [cx + (x - cx) * factor, cy + (y - cy) * factor] as Point,
+  );
+  const xs = points.map(([x]) => x);
+  const ys = points.map(([, y]) => y);
+  const minX = Math.min(...xs);
+  const minY = Math.min(...ys);
+  return {
+    points,
+    bounds: { x: minX, y: minY, w: Math.max(...xs) - minX, h: Math.max(...ys) - minY },
+  };
+}
+
+/**
+ * Grow a footprint until its bounding box is at least `minPx` on both axes.
+ *
+ * This is the minimum *drawn* size of the viewport rectangle. The renderer and
+ * the interaction surface both consume the inflated polygon, so the rectangle
+ * a user sees as grabbable is the rectangle that is grabbable.
+ */
+export function inflateFootprintToMinimum(
+  footprint: MinimapFootprint,
+  minPx: number,
+): MinimapFootprint {
+  const { w, h } = footprint.bounds;
+  if (!Number.isFinite(w) || !Number.isFinite(h) || minPx <= 0) return footprint;
+  const needed = Math.max(w > 0 ? minPx / w : 1, h > 0 ? minPx / h : 1);
+  // The relative float guard keeps the floor exact: scaling points about a
+  // centroid loses low-order bits, which otherwise lands a hair under the
+  // floor (13.99999999999996 for a 14 px minimum).
+  const scale = Math.max(1, needed * (1 + 1e-12));
+  return scaleFootprint(footprint, scale);
+}
+
+/**
+ * The interaction surface for the viewport rectangle: the drawn minimum-size
+ * polygon plus a pointer tolerance, which lifts the effective target above
+ * WCAG 2.5.8's 24×24 CSS px minimum even at the minimum drawn size.
+ */
+export function expandFootprintForHitTest(
+  footprint: MinimapFootprint,
+  padPx: number = VIEWFINDER_HIT_TOLERANCE_PX,
+): MinimapFootprint {
+  const drawn = inflateFootprintToMinimum(footprint, MIN_VIEWFINDER_CSS_PX);
+  const { w, h } = drawn.bounds;
+  if (!Number.isFinite(w) || !Number.isFinite(h) || w <= 0 || h <= 0) return drawn;
+  return scaleFootprint(drawn, Math.max((w + padPx * 2) / w, (h + padPx * 2) / h));
+}
+
+/** Clip a convex polygon to an axis-aligned rectangle (Sutherland–Hodgman). */
+function clipPointsToRect(points: Point[], x: number, y: number, w: number, h: number): Point[] {
+  const edges: Array<{
+    inside: (point: Point) => boolean;
+    intersect: (a: Point, b: Point) => Point;
+  }> = [
+    {
+      inside: ([px]) => px >= x,
+      intersect: (a, b) => [x, a[1] + ((b[1] - a[1]) * (x - a[0])) / (b[0] - a[0])],
+    },
+    {
+      inside: ([px]) => px <= x + w,
+      intersect: (a, b) => [x + w, a[1] + ((b[1] - a[1]) * (x + w - a[0])) / (b[0] - a[0])],
+    },
+    {
+      inside: ([, py]) => py >= y,
+      intersect: (a, b) => [a[0] + ((b[0] - a[0]) * (y - a[1])) / (b[1] - a[1]), y],
+    },
+    {
+      inside: ([, py]) => py <= y + h,
+      intersect: (a, b) => [a[0] + ((b[0] - a[0]) * (y + h - a[1])) / (b[1] - a[1]), y + h],
+    },
+  ];
+
+  let output = points;
+  for (const edge of edges) {
+    const input = output;
+    if (input.length === 0) return [];
+    output = [];
+    for (let i = 0; i < input.length; i++) {
+      const current = input[i]!;
+      const previous = input[(i + input.length - 1) % input.length]!;
+      const currentInside = edge.inside(current);
+      const previousInside = edge.inside(previous);
+      if (currentInside) {
+        if (!previousInside) output.push(edge.intersect(previous, current));
+        output.push(current);
+      } else if (previousInside) {
+        output.push(edge.intersect(previous, current));
+      }
+    }
+  }
+  return output;
+}
+
+/**
+ * The portion of a footprint that is inside the map stage.
+ *
+ * Returns `null` when the viewport misses the stage entirely, which the
+ * renderer turns into a "you are off the map" pointer instead of a stray
+ * outline. Clamping matters: while panning near a document's edge the true
+ * projected rectangle runs off the map, and its surviving half is two bare
+ * lines through the artwork rather than a recognisable viewfinder.
+ */
+export function clipFootprintToStage(
+  footprint: MinimapFootprint,
+  stageWidth: number,
+  stageHeight: number,
+): MinimapFootprint | null {
+  if (!Number.isFinite(stageWidth) || !Number.isFinite(stageHeight)) return footprint;
+  const points = clipPointsToRect(
+    footprint.points,
+    0,
+    0,
+    Math.max(1, stageWidth),
+    Math.max(1, stageHeight),
+  );
+  if (points.length < 3) return null;
+  const xs = points.map(([x]) => x);
+  const ys = points.map(([, y]) => y);
+  const minX = Math.min(...xs);
+  const minY = Math.min(...ys);
+  return {
+    points,
+    bounds: { x: minX, y: minY, w: Math.max(...xs) - minX, h: Math.max(...ys) - minY },
+  };
 }
