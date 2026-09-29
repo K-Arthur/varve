@@ -214,6 +214,32 @@ tensor, transfer, surface, or export-buffer allocation. Native execution also
 remains subject to its native process-wide pool; the JS admission ceiling does
 not certify Rust-side allocation behavior.
 
+### Browser runtime entrypoint and resident sessions
+
+The generic inference worker owns one ONNX Runtime module for its lifetime.
+`createOrtRuntimeLoader` chooses the matching `onnxruntime-web/webgpu` module
+when capability detection requests WebGPU, otherwise it loads the ordinary
+WASM module. If loading the WebGPU entrypoint itself fails and WASM is allowed,
+the loader initializes WASM before creating a session. It never swaps module
+entrypoints under an initialized worker: a failed initialization clears its
+single-flight promise, while a worker restart creates a new runtime generation.
+The installed runtime and companion assets remain pinned to the same 1.27.0
+version. WASM worker threads remain disabled (`numThreads = 1`); the worker
+proxy path is not used for WebGPU.
+
+Before the first model session, the host reserves the catalog's conservative
+session working-set estimate plus request tensors and surfaces. A correlated
+`session-ready` message transfers the resident portion to a shared admission
+lease only after the worker confirms the exact key and byte estimate. Cache
+keys include model type/path, model/artifact revision, sidecar identity,
+precision, requested provider profile, runtime settings, and worker/device
+generation; the session registry separately records the provider that actually
+created the session. Idle eviction releases the host lease only after the
+worker confirms disposal. Failed release remains resident-accounted, and
+worker termination is the reclamation boundary for the worker's WASM/GPU heap.
+This tracks estimated model-session residency in the browser process; it does
+not measure allocator fragmentation or guarantee an OS-level RSS reduction.
+
 ### Native Path (Tauri Desktop)
 
 1. Frontend calls Tauri IPC command

@@ -52,6 +52,45 @@ Historical inference ownership records describe completed earlier work. This
 continuation owns only the current diffs named above; preserve pre-existing
 behavior and inspect any newly appearing hunks before editing or committing.
 
+## Milestone 5 implementation ownership (pre-edit HEAD: `63d67d723`)
+
+Before this pass, `git status --short --branch` showed `master` with 248 local
+commits ahead of `origin/master` and a large set of unrelated staged,
+unstaged, and untracked files. The current integration owner had added several
+unrelated commits since the earlier M4 snapshot; this work remains on master
+and does not include those paths. The following exact M5 files are task-owned:
+
+| Paths | Owned change |
+|---|---|
+| `packages/engine/src/inference/core/ortRuntime.ts`, `core/__tests__/ortRuntime.test.ts` | Single-flight runtime entrypoint selection, matching WASM/WebGPU module selection, WebGPU-import fallback, failed-promise reset, and no in-worker entrypoint switching. |
+| `packages/engine/src/inference/inferenceWorker.ts`, `inferenceWorkerHost.ts`, `sessionKeys.ts`, `sessionKeys.test.ts`, `__tests__/workerHostMessages.test.ts` | Resident session byte transfer, confirmed-release eviction, artifact/runtime/device-generation identity, per-request creation confirmation, and cache-residency diagnostics. The registry records the actual execution provider; the host key distinguishes the requested provider profile. |
+| `packages/engine/src/depthMap.ts`, `depthMap.test.ts`, `index.ts` | Persist source-to-model-grid registration and resample registered depth directly into a disposable render surface without persisting source-sized samples. |
+| `packages/editor/src/components/Inspector/sections/LensBlurSection.tsx`, `packages/editor/src/render/groupEffectStages.ts`, `tests/e2e/canvas/depth-blur.spec.ts` | Generate compact registered depth resources, use the same registration-aware runtime resampling in preview and compositor, and assert Save persists the model-grid resource. |
+| `docs/architecture/onnx-inference-architecture.md`, `docs/architecture/depth-aware-imaging.md`, `docs/audits/low-end-effects-runtime-baseline-2026-09-13.md`, this file | Update runtime/session/depth contracts, evidence, validation, and known limitations. |
+
+These paths were reviewed against the current shared status before edits. The
+coexisting website, workspace, GPU, tablet, and unrelated editor changes are
+not M5-owned and must not be staged with this milestone. Keep the exact-path
+stage/commit boundary when committing.
+
+The M5 browser reproduction initially exposed a resampling metadata bug: the
+saved model-grid map had been carrying its model-grid `validSampleCount` into a
+source-sized aligned view. The Depth Mask histogram correctly rejected that
+inconsistent metadata. This milestone now recounts valid samples whenever a
+depth grid is resampled, while retaining source range metadata only when at
+least one valid output sample remains. A separate repeat showed the E2E setup
+helpers returned script strings but were passed as Playwright callbacks, so
+they never installed the worker stub or seeded model. The spec now passes the
+returned scripts to `addInitScript` and asserts that the stub responds. The
+first failing screenshot was
+inspected at
+`test-results/low-end-depth-m5-0929b/canvas-depth-blur-Depth-Bl-5f52a--picks-focus-and-removes-it-chromium/test-failed-1.png`;
+the spinner capture from the harness failure is at
+`test-results/low-end-depth-m5-0929d/canvas-depth-blur-Depth-Bl-5f52a--picks-focus-and-removes-it-chromium/test-failed-1.png`.
+The corrected repeat passed both tests in 51.4s. Its saved-state screenshot,
+showing the selected artwork and saved Depth Blur controls, was inspected at
+`test-results/low-end-depth-m5-0929f/canvas-depth-blur-Depth-Bl-5f52a--picks-focus-and-removes-it-chromium/depth-resource-saved.png`.
+
 ## Reserved / shared paths
 
 - Canvas compositor, render worker, `CanvasArea.tsx`, `Shell.tsx`, and current
@@ -128,16 +167,17 @@ typecheck for M4 passes. The earlier M3 engine typecheck was blocked by the
 unrelated shared `tonalControls.bench.ts` callback errors documented in the
 audit.
 
-## Next milestone ownership — inference session/runtime working set
+## M5 source baseline — inference session/runtime working set
 
-Source review for the next runtime milestone found that `InferenceSessionRegistry`
+The source review before M5 found that `InferenceSessionRegistry`
 already provides single-flight creation, active-run protection, release
 confirmation, and failed-release retention, but its live session bytes are not
 transferred into the shared platform ledger. `InferenceWorkerHost` currently
 reserves inputs and adds failed-release bytes to later requests; successful
 cached sessions can therefore sit outside shared admission. Its cache key is
-currently only `modelType:modelPath`. `WorkerInferRequest.sessionPeakBytes` has
-no production writer, even though model catalog peak estimates are available.
+currently only `modelType:modelPath`. `WorkerInferRequest.sessionPeakBytes` had
+no production writer, even though model catalog peak estimates were available.
+The M5 implementation ownership and result are recorded above.
 
 | Paths | Intended change |
 |---|---|
@@ -157,10 +197,10 @@ versions ([environment flags and session options](https://onnxruntime.ai/docs/tu
 [WebGPU](https://onnxruntime.ai/docs/tutorials/web/ep-webgpu.html)).
 
 The depth resource serializer already stores its actual `width`/`height` and
-registration, but the lens-blur acceptance path currently expands inference
-output to source-image dimensions before serialization. Preserve the registered
-model-resolution map in the document resource; any source-sized raster needed
-for an operation must be a separately admitted, disposable runtime surface.
+registration. M5 changes the lens-blur acceptance path to retain the registered
+model-grid map and resample it through that transform for source-sized preview
+and compositor surfaces. This avoids persisting a source-sized intermediate;
+full pre-decode admission for every caller remains later integration work.
 
 Validation follows `AGENTS.md` and
 `docs/quality/validation-strategy.md`: inspect diffs, run `pnpm verify:plan`,

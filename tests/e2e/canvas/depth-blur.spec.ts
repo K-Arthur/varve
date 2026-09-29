@@ -19,10 +19,12 @@ function installWorkerStub() {
   return `
     (() => {
       const RealWorker = window.Worker;
+      window.__varveDepthWorkerMessages = [];
       class DepthWorkerStub {
         onmessage = null;
         onerror = null;
         postMessage(message) {
+          window.__varveDepthWorkerMessages.push({ phase: 'request', type: message.type, modelType: message.modelType });
           const depthOutput = () => {
             const size = 518;
             const data = new Float32Array(size * size);
@@ -34,7 +36,9 @@ function installWorkerStub() {
             }
             return { data, dims: [1, size, size] };
           };
+          const letterbox = { offsetX: 0, offsetY: 52, contentWidth: 518, contentHeight: 414 };
           const respond = (outputs) => {
+            window.__varveDepthWorkerMessages.push({ phase: 'response', type: 'result', modelType: message.modelType });
             queueMicrotask(() => {
               this.onmessage?.({ data: { type: 'result', requestId: message.requestId, outputs } });
             });
@@ -43,6 +47,7 @@ function installWorkerStub() {
             respond({
               executionProvider: 'e2e-depth-stub',
               predicted_depth: depthOutput(),
+              letterbox,
             });
           } else if (message.type === 'infer') {
             respond({ executionProvider: 'e2e-depth-stub', output: depthOutput() });
@@ -173,6 +178,51 @@ async function importTestImage(page: import('@playwright/test').Page) {
   await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10000 });
 }
 
+async function readDocumentDepthState(page: import('@playwright/test').Page) {
+  return page.evaluate(() => {
+    const container = document.getElementById('root');
+    const fiberKey = container
+      ? Object.keys(container).find(
+          (key) => key.startsWith('__reactFiber$') || key.startsWith('__reactContainer$'),
+        )
+      : undefined;
+    if (!container || !fiberKey) return { depthResources: [], rasterMaskedNodeIds: [] };
+    function walk(fiber: Record<string, unknown> | null): Record<string, unknown> | null {
+      if (!fiber) return null;
+      for (const key of ['memoizedProps', 'pendingProps'] as const) {
+        const value = (fiber[key] as Record<string, unknown> | undefined)?.value as
+          | Record<string, unknown>
+          | undefined;
+        if (value && typeof value === 'object' && 'createAdjustmentLayer' in value) return value;
+      }
+      return (
+        walk(fiber.child as Record<string, unknown> | null) ||
+        walk(fiber.sibling as Record<string, unknown> | null)
+      );
+    }
+    const context = walk(
+      (container as unknown as Record<string, unknown>)[fiberKey] as Record<string, unknown> | null,
+    );
+    const state = context?.state as Record<string, unknown> | undefined;
+    const doc = state?.document as Record<string, unknown> | undefined;
+    const resources = (doc?.depthMaps ?? {}) as Record<string, Record<string, unknown>>;
+    const nodes = (doc?.nodes ?? {}) as Record<string, Record<string, unknown>>;
+    const rasterMaskedNodeIds = Object.values(nodes).flatMap((node) => {
+      const mask = node.mask as Record<string, unknown> | undefined;
+      return mask?.rasterMask && typeof node.id === 'string' ? [node.id] : [];
+    });
+    return {
+      depthResources: Object.values(resources).map((resource) => ({
+        width: resource.width,
+        height: resource.height,
+        byteLength: resource.byteLength,
+        registration: resource.registration,
+      })),
+      rasterMaskedNodeIds,
+    };
+  });
+}
+
 /** Open the Inspector's Adjustments tab and expand the Depth Blur disclosure. */
 async function openDepthBlurSection(page: import('@playwright/test').Page) {
   const adjustmentsTab = page.getByRole('tab', { name: 'Adjustments' });
@@ -187,7 +237,10 @@ async function openDepthBlurSection(page: import('@playwright/test').Page) {
   return page.getByRole('group', { name: 'Depth Blur' });
 }
 
-async function generateDepthMap(section: import('@playwright/test').Locator) {
+async function generateDepthMap(
+  page: import('@playwright/test').Page,
+  section: import('@playwright/test').Locator,
+) {
   const enableButton = section.getByRole('button', { name: /enable depth blur/i });
   if (await enableButton.isVisible({ timeout: 2000 }).catch(() => false)) {
     await enableButton.click();
@@ -195,19 +248,30 @@ async function generateDepthMap(section: import('@playwright/test').Locator) {
   const generateButton = section.getByRole('button', { name: /generate depth map/i });
   await expect(generateButton).toBeVisible({ timeout: 30000 });
   await generateButton.click();
+  await expect
+    .poll(
+      () =>
+        page.evaluate(() =>
+          (
+            window as unknown as { __varveDepthWorkerMessages?: { phase: string }[] }
+          ).__varveDepthWorkerMessages?.some((message) => message.phase === 'response'),
+        ),
+      { timeout: 5000 },
+    )
+    .toBe(true);
 }
 
 test.describe('Depth Blur workflow', () => {
   test.beforeEach(async ({ page }) => {
-    await page.addInitScript(installWorkerStub);
-    await page.addInitScript(installSyntheticManifestStub);
-    await page.addInitScript(seedModelStore);
+    await page.addInitScript(installWorkerStub());
+    await page.addInitScript(installSyntheticManifestStub());
+    await page.addInitScript(seedModelStore());
     await navigateWithSeededModel(page);
   });
 
   test('generates a depth map, applies Depth Blur, picks focus, and removes it', async ({
     page,
-  }) => {
+  }, testInfo) => {
     test.setTimeout(180000);
     const wasmBuildFailures: string[] = [];
     page.on('console', (message) => {
@@ -220,7 +284,7 @@ test.describe('Depth Blur workflow', () => {
 
     // The model store is seeded, but the app can briefly render the
     // download-first state while its cached-model check settles.
-    await generateDepthMap(section);
+    await generateDepthMap(page, section);
     await expect(section.getByRole('button', { name: /save depth blur/i })).toBeVisible({
       timeout: 30000,
     });
@@ -241,6 +305,21 @@ test.describe('Depth Blur workflow', () => {
       timeout: 15000,
     });
     await expect(section.getByRole('button', { name: /save depth blur/i })).toBeVisible();
+    const documentState = await readDocumentDepthState(page);
+    expect(documentState.depthResources).toContainEqual(
+      expect.objectContaining({
+        width: 518,
+        height: 518,
+        registration: expect.objectContaining({
+          sourceWidth: 200,
+          sourceHeight: 160,
+          mapWidth: 518,
+          mapHeight: 518,
+          sourceToMap: [2.59, 0, 0, 2.5875, 0, 52],
+        }),
+      }),
+    );
+    await page.screenshot({ path: testInfo.outputPath('depth-resource-saved.png') });
     // Render at least two frames after saving. The native/WASM bridge must
     // carry the depth resource through `buildIr`, rather than quietly falling
     // back to the JS stub renderer for the remainder of the document session.
@@ -263,13 +342,13 @@ test.describe('Depth Blur workflow', () => {
     await page.locator('.layers-panel').getByRole('treeitem').click();
     const blurSection = await openDepthBlurSection(page);
 
-    await generateDepthMap(blurSection);
+    await generateDepthMap(page, blurSection);
     await expect(blurSection.getByRole('button', { name: /save depth map/i })).toBeVisible({
       timeout: 30000,
     });
     await blurSection.getByRole('button', { name: /save depth map/i }).click();
 
-    const maskTrigger = page.getByRole('button', { name: 'Depth Mask' });
+    const maskTrigger = page.getByRole('button', { name: 'Depth Mask', exact: true });
     await expect(maskTrigger).toBeVisible({ timeout: 15000 });
     if ((await maskTrigger.getAttribute('aria-expanded')) === 'false') {
       await maskTrigger.click();
@@ -282,11 +361,8 @@ test.describe('Depth Blur workflow', () => {
     await section.getByRole('slider', { name: 'Depth mask near endpoint' }).fill('0');
     await section.getByRole('slider', { name: 'Depth mask far endpoint' }).fill('45');
     await section.getByRole('button', { name: /apply depth mask/i }).click();
-    // The mask is exposed as an accessible badge on its owner row. The
-    // displayed type may be alpha/luminance rather than the literal word
-    // "mask", so assert the semantic label rather than rendered text.
-    await expect(page.getByRole('treeitem').getByLabel(/mask$/i)).toBeVisible({
-      timeout: 15000,
-    });
+    await expect
+      .poll(() => readDocumentDepthState(page).then((state) => state.rasterMaskedNodeIds.length))
+      .toBe(1);
   });
 });

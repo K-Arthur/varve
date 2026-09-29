@@ -5,10 +5,12 @@
  * and stale-result rejection via generation tracking.
  */
 
+import type { DerivedResidentLease } from '@varve/platform';
 import {
   estimateInferenceReservation,
   getInferenceAdmission,
   type InferenceAdmission,
+  type InferenceLease,
 } from './admission';
 import { InferenceError } from './core/InferenceError';
 import type {
@@ -17,8 +19,11 @@ import type {
   WorkerReleaseRequest,
   WorkerReleaseResponse,
   WorkerResponse,
+  WorkerSessionReady,
   WorkerTensor,
 } from './inferenceWorker';
+import { estimateModelMemory, getModelById, getRecommendedProvider } from './modelCatalog';
+import type { WorkerSessionIdentity } from './sessionKeys';
 import { workerSessionKey } from './sessionKeys';
 
 export interface InferenceJobOptions {
@@ -32,10 +37,19 @@ interface PendingJob {
   resolve: (result: WorkerInferResult) => void;
   reject: (error: Error) => void;
   timer: ReturnType<typeof setTimeout>;
+  admissionLease: InferenceLease;
+  sessionKey: string;
+  sessionEstimateBytes: number;
   /** Release admission only when this worker request is actually finished. */
   finishExecution: () => void;
   callerSettled: boolean;
   abortCleanup?: () => void;
+}
+
+interface TrackedSessionResident {
+  estimateBytes: number;
+  legacyKey: string;
+  lease: DerivedResidentLease | null;
 }
 
 // The host deadline covers session creation plus execution. Encoder graphs are
@@ -53,6 +67,9 @@ const RELEASE_TIMEOUT_MS = 30_000;
 
 export class InferenceWorkerHost {
   private worker: Worker | null = null;
+  private workerGeneration = 0;
+  private sessionResidents = new Map<string, TrackedSessionResident>();
+  private legacySessionKeys = new Map<string, Set<string>>();
   private pendingJobs = new Map<string, PendingJob>();
   private pendingReleases = new Map<
     string,
@@ -81,6 +98,8 @@ export class InferenceWorkerHost {
   private ensureWorker(): Worker {
     if (this.worker) return this.worker;
 
+    this.workerGeneration += 1;
+
     // The default URL MUST be a literal `new Worker(new URL(...))` expression
     // for Vite to bundle the worker: a URL routed through a variable (or a
     // constructor parameter) is treated as a plain asset, the raw .ts source
@@ -94,12 +113,9 @@ export class InferenceWorkerHost {
         type: 'module',
       });
     }
-    // A single permanent handler. An earlier readiness probe replaced this with
-    // a listener that forwarded only `ready` and discarded everything else —
-    // and because the worker emits `ready` *after* creating a session inside an
-    // infer request (not at startup), any failure before that point posted an
-    // `error` that was silently dropped, leaving the caller to time out minutes
-    // later with no diagnostic. `handleMessage` already tracks readiness.
+    // A single permanent handler for module readiness, correlated session
+    // creation, inference results, and release confirmations. A readiness-only
+    // probe would discard failures and resident-session accounting messages.
     this.worker.onmessage = (e: MessageEvent<WorkerResponse>) => this.handleMessage(e.data);
     this.worker.onerror = (e) => this.handleWorkerError(e);
     this.worker.onmessageerror = () => this.handleWorkerMessageError();
@@ -121,8 +137,21 @@ export class InferenceWorkerHost {
       this.residency.lastReport = msg;
       this.residency.releasedSessions += msg.released.length;
       this.residency.failedReleases += msg.failed.length;
-      this.residency.unresolvedBytes = msg.snapshot.unresolvedBytes;
+      for (const key of msg.released) this.clearSessionResident(key);
+      const accountedFailedBytes = msg.snapshot.unresolvedKeys.reduce((sum, key) => {
+        const resident = this.sessionResidents.get(key);
+        return sum + (resident?.lease ? resident.estimateBytes : 0);
+      }, 0);
+      this.residency.unresolvedBytes = Math.max(
+        0,
+        msg.snapshot.unresolvedBytes - accountedFailedBytes,
+      );
       pending.resolve(msg);
+      return;
+    }
+
+    if (msg.type === 'session-ready') {
+      this.acceptSessionReady(msg);
       return;
     }
 
@@ -152,6 +181,91 @@ export class InferenceWorkerHost {
       }
     }
     job.finishExecution();
+  }
+
+  private acceptSessionReady(message: WorkerSessionReady): void {
+    const job = this.pendingJobs.get(message.requestId);
+    if (
+      !job ||
+      job.sessionKey !== message.sessionKey ||
+      job.sessionEstimateBytes !== message.estimateBytes
+    ) {
+      this.restartWorker(
+        new InferenceError('worker_crash', undefined, {
+          message: 'Inference session admission identity did not match its worker result.',
+          technical: `Unaccounted or mismatched session '${message.sessionKey}' was reported.`,
+        }),
+      );
+      return;
+    }
+
+    for (const key of message.evictedKeys) this.clearSessionResident(key);
+    if (this.sessionResidents.has(message.sessionKey)) {
+      this.restartWorker(
+        new InferenceError('worker_crash', undefined, {
+          message: 'Inference worker recreated a session that the host still tracks.',
+          technical: `Duplicate resident identity '${message.sessionKey}'.`,
+        }),
+      );
+      return;
+    }
+
+    let residentLease: DerivedResidentLease | null = null;
+    try {
+      if (message.estimateBytes > 0) {
+        residentLease = job.admissionLease.retainResident(message.estimateBytes, {
+          key: `inference-session:${message.sessionKey}`,
+          priority: 'background',
+          onEvict: () => this.evictSession(message.sessionKey),
+        });
+      }
+    } catch (error) {
+      this.restartWorker(
+        new InferenceError('worker_crash', undefined, {
+          message: 'Inference session could not transfer its reserved bytes to resident ownership.',
+          technical: error instanceof Error ? error.message : String(error),
+        }),
+      );
+      return;
+    }
+
+    const legacyKey = workerSessionKey(message.modelType, message.modelPath);
+    this.sessionResidents.set(message.sessionKey, {
+      estimateBytes: message.estimateBytes,
+      legacyKey,
+      lease: residentLease,
+    });
+    const aliases = this.legacySessionKeys.get(legacyKey) ?? new Set<string>();
+    aliases.add(message.sessionKey);
+    this.legacySessionKeys.set(legacyKey, aliases);
+  }
+
+  private async evictSession(sessionKey: string): Promise<boolean> {
+    if (!this.sessionResidents.has(sessionKey)) return true;
+    try {
+      const report = await this.releaseModels([sessionKey]);
+      return report.released.includes(sessionKey);
+    } catch {
+      // A failed IPC release can still coincide with a worker crash. The
+      // restart path clears residents only after terminating that owner.
+      return !this.sessionResidents.has(sessionKey);
+    }
+  }
+
+  private clearSessionResident(sessionKey: string): void {
+    const resident = this.sessionResidents.get(sessionKey);
+    if (!resident) return;
+    resident.lease?.release();
+    this.sessionResidents.delete(sessionKey);
+    const aliases = this.legacySessionKeys.get(resident.legacyKey);
+    aliases?.delete(sessionKey);
+    if (aliases?.size === 0) this.legacySessionKeys.delete(resident.legacyKey);
+  }
+
+  private clearAllSessionResidents(): void {
+    for (const resident of this.sessionResidents.values()) resident.lease?.release();
+    this.sessionResidents.clear();
+    this.legacySessionKeys.clear();
   }
 
   private handleWorkerError(e: ErrorEvent): void {
@@ -195,6 +309,7 @@ export class InferenceWorkerHost {
     // The worker process is gone, so its wasm heap and GPU resources are
     // reclaimed by the platform. This is the one case where accounting may
     // return to zero without a successful release call.
+    this.clearAllSessionResidents();
     this.residency.unresolvedBytes = 0;
   }
 
@@ -228,19 +343,73 @@ export class InferenceWorkerHost {
     request: Omit<WorkerInferRequest, 'requestId'>,
     options: InferenceJobOptions = {},
   ): Promise<WorkerInferResult> {
-    const admissionRequest = {
-      kind: 'worker' as const,
-      // Unresolved residency from a failed release cannot be proven reclaimed,
-      // so the next expensive stage reserves it again until a recycle clears it.
-      reservationBytes:
-        (options.reservationBytes ?? estimateWorkerReservation(request)) +
-        this.residency.unresolvedBytes,
-      signal: options.signal,
-      label: `${request.modelType} inference`,
+    const model = getModelById(request.modelId);
+    const sessionEstimateBytes = request.sessionPeakBytes ?? estimateModelMemory(request.modelId);
+    if (!Number.isSafeInteger(sessionEstimateBytes) || sessionEstimateBytes < 0) {
+      throw new RangeError(
+        'Inference session memory estimate must be a non-negative safe integer.',
+      );
+    }
+    const recommendedProvider = getRecommendedProvider(request.modelId);
+    const baseSessionIdentity: Omit<WorkerSessionIdentity, 'deviceGeneration'> = {
+      ...request.sessionIdentity,
+      artifactRevision:
+        request.sessionIdentity?.artifactRevision ?? model?.checksum ?? request.modelPath,
+      precision: request.sessionIdentity?.precision ?? model?.precision ?? 'unknown',
+      providerConfiguration:
+        request.sessionIdentity?.providerConfiguration ??
+        (recommendedProvider === 'cpu'
+          ? 'wasm-only'
+          : recommendedProvider === 'gpu'
+            ? 'accelerator-with-wasm-fallback'
+            : 'runtime-auto'),
+      runtimeConfiguration:
+        request.sessionIdentity?.runtimeConfiguration ?? 'ort-worker:threads=1:proxy=off',
+      externalDataRevision:
+        request.sessionIdentity?.externalDataRevision ??
+        request.externalData?.checksum ??
+        request.externalData?.url,
     };
-    const lease =
-      this.admission.tryAcquire(admissionRequest) ??
-      (await this.admission.acquire(admissionRequest));
+    const transientBytes = options.reservationBytes ?? estimateWorkerReservation(request);
+    let expectedWorkerGeneration = this.worker ? this.workerGeneration : this.workerGeneration + 1;
+    let sessionIdentity: WorkerSessionIdentity;
+    let sessionKey: string;
+    let lease: InferenceLease;
+    while (true) {
+      sessionIdentity = { ...baseSessionIdentity, deviceGeneration: expectedWorkerGeneration };
+      sessionKey = workerSessionKey(request.modelType, request.modelPath, {
+        ...sessionIdentity,
+        modelId: request.modelId,
+        externalDataPath: request.externalData?.path,
+      });
+      const sessionBytesToReserve = this.sessionResidents.has(sessionKey)
+        ? 0
+        : sessionEstimateBytes;
+      const admissionRequest = {
+        kind: 'worker' as const,
+        // New sessions are admitted with their model working set plus transient
+        // tensors/surfaces. A cached session already owns a resident lease and
+        // is therefore not charged twice. Any legacy failed-release bytes that
+        // have no matching resident lease remain conservatively reserved.
+        reservationBytes: transientBytes + sessionBytesToReserve + this.residency.unresolvedBytes,
+        signal: options.signal,
+        label: `${request.modelType} inference`,
+      };
+      lease =
+        this.admission.tryAcquire(admissionRequest) ??
+        (await this.admission.acquire(admissionRequest));
+
+      const currentWorkerGeneration = this.worker
+        ? this.workerGeneration
+        : this.workerGeneration + 1;
+      if (currentWorkerGeneration === expectedWorkerGeneration) break;
+
+      // The request waited in the shared queue while its worker was retired.
+      // Do not post an old-generation key or try transferring bytes that the
+      // new worker did not reserve. Re-enter admission for the new identity.
+      lease.release();
+      expectedWorkerGeneration = currentWorkerGeneration;
+    }
 
     let executionOwned = false;
     try {
@@ -286,6 +455,9 @@ export class InferenceWorkerHost {
           resolve,
           reject,
           timer,
+          admissionLease: lease,
+          sessionKey,
+          sessionEstimateBytes,
           callerSettled: false,
           finishExecution: () => {
             if (finished) return;
@@ -296,7 +468,12 @@ export class InferenceWorkerHost {
         this.pendingJobs.set(requestId, job);
         executionOwned = true;
 
-        const fullRequest: WorkerInferRequest = { ...request, requestId };
+        const fullRequest: WorkerInferRequest = {
+          ...request,
+          sessionPeakBytes: sessionEstimateBytes,
+          sessionIdentity,
+          requestId,
+        };
         try {
           worker.postMessage(fullRequest);
         } catch (error) {
@@ -335,10 +512,14 @@ export class InferenceWorkerHost {
   ): Promise<WorkerReleaseResponse> {
     const worker = this.ensureWorker();
     const requestId = `rel_${++this.nextRequestId}_${Date.now().toString(36)}`;
+    const resolvedKeys = keys?.flatMap((key) => {
+      const aliases = this.legacySessionKeys.get(key);
+      return aliases?.size ? [...aliases] : [key];
+    });
     const request: WorkerReleaseRequest = {
       type: 'release',
       requestId,
-      ...(keys ? { keys: [...keys] } : {}),
+      ...(resolvedKeys ? { keys: resolvedKeys } : {}),
     };
     const timeout = options.timeoutMs ?? RELEASE_TIMEOUT_MS;
     return new Promise<WorkerReleaseResponse>((resolve, reject) => {
@@ -375,6 +556,8 @@ export class InferenceWorkerHost {
     releasedSessions: number;
     failedReleases: number;
     unresolvedBytes: number;
+    residentSessions: number;
+    trackedResidentBytes: number;
     pendingReleases: number;
     lastReport: WorkerReleaseResponse | null;
   } {
@@ -382,6 +565,11 @@ export class InferenceWorkerHost {
       releasedSessions: this.residency.releasedSessions,
       failedReleases: this.residency.failedReleases,
       unresolvedBytes: this.residency.unresolvedBytes,
+      residentSessions: this.sessionResidents.size,
+      trackedResidentBytes: [...this.sessionResidents.values()].reduce(
+        (sum, resident) => sum + (resident.lease?.bytes ?? 0),
+        0,
+      ),
       pendingReleases: this.pendingReleases.size,
       lastReport: this.residency.lastReport,
     };
@@ -399,6 +587,7 @@ export class InferenceWorkerHost {
     this.worker.terminate();
     this.worker = null;
     this.workerReady = false;
+    this.clearAllSessionResidents();
     this.residency.unresolvedBytes = 0;
     return true;
   }

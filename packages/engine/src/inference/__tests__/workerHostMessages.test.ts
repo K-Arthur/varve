@@ -1,14 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { InferenceAdmission } from '../admission';
+import type { WorkerInferRequest, WorkerReleaseRequest } from '../inferenceWorker';
 import { InferenceWorkerHost } from '../inferenceWorkerHost';
+import { workerSessionKey } from '../sessionKeys';
 
-/**
- * The host installed a readiness probe that replaced its message handler with
- * one forwarding only `ready` and discarding everything else. The worker emits
- * `ready` *after* creating a session inside an infer request, so any failure
- * before that point posted an `error` that was dropped — the caller then waited
- * out its full timeout (5 minutes for denoise) with no diagnostic at all.
- */
+/** The host must route readiness, session-residency, errors, and results together. */
 class FakeWorker {
   onmessage: ((e: { data: unknown }) => void) | null = null;
   onerror: ((e: unknown) => void) | null = null;
@@ -61,13 +57,44 @@ function requestIdOf(worker: FakeWorker): string {
   return first.requestId;
 }
 
+/** Most protocol tests isolate host lifetimes from model-memory estimates. */
+function workerRequest(
+  modelType: string,
+  modelPath: string,
+  modelId = modelType,
+  sessionPeakBytes = 0,
+) {
+  return { type: 'infer', modelType, modelPath, modelId, sessionPeakBytes } as never;
+}
+
+function sessionKeyFrom(worker: FakeWorker): string {
+  const request = worker.posted[0] as WorkerInferRequest;
+  return workerSessionKey(request.modelType, request.modelPath, {
+    ...request.sessionIdentity,
+    modelId: request.modelId,
+    externalDataPath: request.externalData?.path,
+  });
+}
+
+function emitSessionReady(worker: FakeWorker, requestId: string, estimateBytes: number): string {
+  const request = worker.posted[0] as WorkerInferRequest;
+  const sessionKey = sessionKeyFrom(worker);
+  worker.emit({
+    type: 'session-ready',
+    requestId,
+    sessionKey,
+    modelType: request.modelType,
+    modelPath: request.modelPath,
+    estimateBytes,
+    evictedKeys: [],
+  });
+  return sessionKey;
+}
+
 describe('InferenceWorkerHost message handling', () => {
   it('surfaces a worker error instead of waiting out the timeout', async () => {
     const h = makeHost();
-    const pending = h.host.infer(
-      { type: 'infer', modelType: 'scunet', modelPath: '/m.onnx', modelId: 'scunet' } as never,
-      { timeoutMs: 5000 },
-    );
+    const pending = h.host.infer(workerRequest('scunet', '/m.onnx'), { timeoutMs: 5000 });
     const requestId = requestIdOf(h.worker);
     // An error arriving before any `ready` must still reach the caller.
     h.worker.emit({ type: 'error', requestId, message: 'Model exceeds safe WASM memory limit.' });
@@ -77,10 +104,7 @@ describe('InferenceWorkerHost message handling', () => {
 
   it('resolves a result that arrives without a preceding ready message', async () => {
     const h = makeHost();
-    const pending = h.host.infer(
-      { type: 'infer', modelType: 'scunet', modelPath: '/m.onnx', modelId: 'scunet' } as never,
-      { timeoutMs: 5000 },
-    );
+    const pending = h.host.infer(workerRequest('scunet', '/m.onnx'), { timeoutMs: 5000 });
     const requestId = requestIdOf(h.worker);
     h.worker.emit({ type: 'result', requestId, outputs: { out: 42 } });
     await expect(pending).resolves.toMatchObject({ outputs: { out: 42 } });
@@ -90,10 +114,11 @@ describe('InferenceWorkerHost message handling', () => {
   it('detaches a cancelled request without terminating unrelated worker work', async () => {
     const h = makeHost();
     const controller = new AbortController();
-    const pending = h.host.infer(
-      { type: 'infer', modelType: 'scunet', modelPath: '/m.onnx', modelId: 'scunet' } as never,
-      { timeoutMs: 5000, signal: controller.signal, reservationBytes: 5_000_000 },
-    );
+    const pending = h.host.infer(workerRequest('scunet', '/m.onnx'), {
+      timeoutMs: 5000,
+      signal: controller.signal,
+      reservationBytes: 5_000_000,
+    });
     const requestId = requestIdOf(h.worker);
     controller.abort();
     await expect(pending).rejects.toMatchObject({ code: 'inference_cancelled' });
@@ -108,10 +133,10 @@ describe('InferenceWorkerHost message handling', () => {
 
     // A replacement stays queued until the old graph returns its terminal
     // response. Its result is discarded, then the single-worker lease moves.
-    const replacement = h.host.infer(
-      { type: 'infer', modelType: 'scunet', modelPath: '/next.onnx', modelId: 'scunet' } as never,
-      { timeoutMs: 5000, reservationBytes: 3_000_000 },
-    );
+    const replacement = h.host.infer(workerRequest('scunet', '/next.onnx'), {
+      timeoutMs: 5000,
+      reservationBytes: 3_000_000,
+    });
     expect(h.admission.getSnapshot()).toMatchObject({
       active: 1,
       pending: 1,
@@ -141,10 +166,11 @@ describe('InferenceWorkerHost message handling', () => {
     vi.useFakeTimers();
     const h = makeHost();
     const controller = new AbortController();
-    const pending = h.host.infer(
-      { type: 'infer', modelType: 'scunet', modelPath: '/m.onnx', modelId: 'scunet' } as never,
-      { timeoutMs: 10, signal: controller.signal, reservationBytes: 7_000_000 },
-    );
+    const pending = h.host.infer(workerRequest('scunet', '/m.onnx'), {
+      timeoutMs: 10,
+      signal: controller.signal,
+      reservationBytes: 7_000_000,
+    });
     const owner = h.worker;
     controller.abort();
     await expect(pending).rejects.toMatchObject({ code: 'inference_cancelled' });
@@ -161,10 +187,10 @@ describe('InferenceWorkerHost message handling', () => {
 
   it('terminates the worker when late session cleanup cannot be confirmed', async () => {
     const h = makeHost();
-    const pending = h.host.infer(
-      { type: 'infer', modelType: 'scunet', modelPath: '/m.onnx', modelId: 'scunet' } as never,
-      { timeoutMs: 5000, reservationBytes: 9_000_000 },
-    );
+    const pending = h.host.infer(workerRequest('scunet', '/m.onnx'), {
+      timeoutMs: 5000,
+      reservationBytes: 9_000_000,
+    });
     const owner = h.worker;
     owner.emit({
       type: 'fatal',
@@ -181,10 +207,11 @@ describe('InferenceWorkerHost message handling', () => {
   it('keeps admission until dispose has terminated the cancelled request owner', async () => {
     const h = makeHost();
     const controller = new AbortController();
-    const pending = h.host.infer(
-      { type: 'infer', modelType: 'scunet', modelPath: '/m.onnx', modelId: 'scunet' } as never,
-      { timeoutMs: 5000, signal: controller.signal, reservationBytes: 4_000_000 },
-    );
+    const pending = h.host.infer(workerRequest('scunet', '/m.onnx'), {
+      timeoutMs: 5000,
+      signal: controller.signal,
+      reservationBytes: 4_000_000,
+    });
     const owner = h.worker;
     controller.abort();
     await expect(pending).rejects.toMatchObject({ code: 'inference_cancelled' });
@@ -202,20 +229,14 @@ describe('InferenceWorkerHost message handling', () => {
   it('terminates the worker on timeout so a retry gets a clean worker', async () => {
     vi.useFakeTimers();
     const h = makeHost();
-    const pending = h.host.infer(
-      { type: 'infer', modelType: 'detr', modelPath: '/m.onnx', modelId: 'detr' } as never,
-      { timeoutMs: 10 },
-    );
+    const pending = h.host.infer(workerRequest('detr', '/m.onnx'), { timeoutMs: 10 });
     const rejection = expect(pending).rejects.toThrow(/timed out/i);
     const firstWorker = h.worker;
     await vi.advanceTimersByTimeAsync(11);
     await rejection;
     expect(firstWorker.terminated).toBe(true);
 
-    const retry = h.host.infer(
-      { type: 'infer', modelType: 'detr', modelPath: '/m.onnx', modelId: 'detr' } as never,
-      { timeoutMs: 100 },
-    );
+    const retry = h.host.infer(workerRequest('detr', '/m.onnx'), { timeoutMs: 100 });
     const secondWorker = h.worker;
     expect(secondWorker).not.toBe(firstWorker);
     secondWorker.emit({
@@ -328,6 +349,166 @@ describe('InferenceWorkerHost message handling', () => {
     expect(h.host.recycleWorkerIfIdle()).toBe(true);
     expect(firstWorker.terminated).toBe(true);
     expect(h.host.getResidencyDiagnostics().unresolvedBytes).toBe(0);
+    vi.unstubAllGlobals();
+  });
+
+  it('transfers a created model estimate to resident admission and releases it only on confirmation', async () => {
+    const h = makeHost();
+    const pending = h.host.infer(
+      workerRequest('depth', '/models/depth.onnx', 'depth-anything-v2-small', 100_000_000),
+      { reservationBytes: 20_000_000 },
+    );
+    const requestId = requestIdOf(h.worker);
+    expect(h.admission.getSnapshot()).toMatchObject({
+      reservedBytes: 120_000_000,
+      residentBytes: 0,
+    });
+
+    const sessionKey = emitSessionReady(h.worker, requestId, 100_000_000);
+    expect(h.admission.getSnapshot()).toMatchObject({
+      activeBytes: 20_000_000,
+      residentBytes: 100_000_000,
+      reservedBytes: 120_000_000,
+    });
+    h.worker.emit({ type: 'result', requestId, outputs: { depth: true } });
+    await expect(pending).resolves.toMatchObject({ outputs: { depth: true } });
+
+    const release = h.host.releaseModel('depth', '/models/depth.onnx');
+    const releaseMessage = h.worker.posted[1] as WorkerReleaseRequest;
+    expect(releaseMessage.keys).toEqual([sessionKey]);
+    h.worker.emit({
+      type: 'released',
+      requestId: releaseMessage.requestId,
+      released: [sessionKey],
+      failed: [],
+      inUse: [],
+      possiblyResidentBytes: 0,
+      remaining: 0,
+      snapshot: {
+        cached: 0,
+        inUse: 0,
+        unresolvedKeys: [],
+        unresolvedBytes: 0,
+        retainedCapacityBytes: 0,
+        highWaterBytes: 100_000_000,
+      },
+    });
+    await expect(release).resolves.toMatchObject({ released: [sessionKey] });
+    expect(h.admission.getSnapshot()).toMatchObject({ reservedBytes: 0, residentBytes: 0 });
+    h.host.dispose();
+    vi.unstubAllGlobals();
+  });
+
+  it('terminates the worker when a created session exceeds its reserved estimate', async () => {
+    const h = makeHost();
+    const pending = h.host.infer(workerRequest('depth', '/models/depth.onnx', 'depth', 100), {
+      reservationBytes: 20,
+    });
+    const worker = h.worker;
+    const requestId = requestIdOf(worker);
+    const sessionKey = sessionKeyFrom(worker);
+    worker.emit({
+      type: 'session-ready',
+      requestId,
+      sessionKey,
+      modelType: 'depth',
+      modelPath: '/models/depth.onnx',
+      estimateBytes: 101,
+      evictedKeys: [],
+    });
+
+    await expect(pending).rejects.toMatchObject({ code: 'worker_crash' });
+    expect(worker.terminated).toBe(true);
+    expect(h.host.getResidencyDiagnostics()).toMatchObject({ residentSessions: 0 });
+    expect(h.admission.getSnapshot()).toMatchObject({ reservedBytes: 0, residentBytes: 0 });
+    vi.unstubAllGlobals();
+  });
+
+  it('rekeys a queued inference when its worker generation changes before admission', async () => {
+    const h = makeHost();
+    const first = h.host.infer(workerRequest('scunet', '/first.onnx'), {
+      reservationBytes: 0,
+    });
+    const firstWorker = h.worker;
+    const firstId = requestIdOf(firstWorker);
+    firstWorker.emit({ type: 'result', requestId: firstId, outputs: {} });
+    await expect(first).resolves.toMatchObject({ type: 'result' });
+
+    const blocker = h.admission.tryAcquire({ kind: 'other', reservationBytes: 0 });
+    expect(blocker).not.toBeNull();
+    const queued = h.host.infer(workerRequest('scunet', '/next.onnx', 'scunet', 100), {
+      timeoutMs: 5000,
+      reservationBytes: 10,
+    });
+    await vi.waitFor(() => expect(h.admission.getSnapshot().pending).toBe(1));
+
+    h.host.dispose();
+    expect(firstWorker.terminated).toBe(true);
+    blocker!.release();
+    await vi.waitFor(() => expect(h.host.pendingCount).toBe(1));
+
+    const nextWorker = h.worker;
+    const request = nextWorker.posted[0] as WorkerInferRequest;
+    expect(request.sessionIdentity?.deviceGeneration).toBe(2);
+    const requestId = requestIdOf(nextWorker);
+    const sessionKey = sessionKeyFrom(nextWorker);
+    nextWorker.emit({
+      type: 'session-ready',
+      requestId,
+      sessionKey,
+      modelType: request.modelType,
+      modelPath: request.modelPath,
+      estimateBytes: 100,
+      evictedKeys: [],
+    });
+    nextWorker.emit({ type: 'result', requestId, outputs: {} });
+    await expect(queued).resolves.toMatchObject({ type: 'result' });
+    h.host.dispose();
+    vi.unstubAllGlobals();
+  });
+
+  it('keeps a failed-release session resident without charging it twice on reuse', async () => {
+    const h = makeHost();
+    const first = h.host.infer(workerRequest('scunet', '/m.onnx', 'scunet', 100_000_000), {
+      reservationBytes: 20_000_000,
+    });
+    const firstId = requestIdOf(h.worker);
+    const sessionKey = emitSessionReady(h.worker, firstId, 100_000_000);
+    h.worker.emit({ type: 'result', requestId: firstId, outputs: {} });
+    await expect(first).resolves.toMatchObject({ type: 'result' });
+
+    const release = h.host.releaseModel('scunet', '/m.onnx');
+    const releaseMessage = h.worker.posted[1] as WorkerReleaseRequest;
+    h.worker.emit({
+      type: 'released',
+      requestId: releaseMessage.requestId,
+      released: [],
+      failed: [{ key: sessionKey, message: 'release unavailable' }],
+      inUse: [],
+      possiblyResidentBytes: 100_000_000,
+      remaining: 1,
+      snapshot: {
+        cached: 1,
+        inUse: 0,
+        unresolvedKeys: [sessionKey],
+        unresolvedBytes: 100_000_000,
+        retainedCapacityBytes: 100_000_000,
+        highWaterBytes: 100_000_000,
+      },
+    });
+    await expect(release).resolves.toMatchObject({ failed: [{ key: sessionKey }] });
+    expect(h.admission.getSnapshot()).toMatchObject({ residentBytes: 100_000_000 });
+    expect(h.host.getResidencyDiagnostics().unresolvedBytes).toBe(0);
+
+    const reuse = h.host.infer(workerRequest('scunet', '/m.onnx', 'scunet', 100_000_000), {
+      reservationBytes: 20_000_000,
+    });
+    const reuseId = (h.worker.posted[2] as { requestId: string }).requestId;
+    expect(h.admission.getSnapshot()).toMatchObject({ reservedBytes: 120_000_000 });
+    h.worker.emit({ type: 'result', requestId: reuseId, outputs: { reused: true } });
+    await expect(reuse).resolves.toMatchObject({ outputs: { reused: true } });
+    h.host.dispose();
+    expect(h.admission.getSnapshot()).toMatchObject({ residentBytes: 0, reservedBytes: 0 });
     vi.unstubAllGlobals();
   });
 });

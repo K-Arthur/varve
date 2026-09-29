@@ -26,7 +26,7 @@ import {
   type EffectMaskResolver,
   getImageCache,
   type RenderItem,
-  resizeDepthMap,
+  resizeRegisteredDepthMap,
 } from '@varve/engine';
 import { type Document, type Effect, layerEffectStage } from '@varve/scene';
 import { tryInvertAffine } from '@varve/shared';
@@ -324,7 +324,7 @@ export function applyGroupContentEffects(
       try {
         const input = gCanvas.getImageData(0, 0, gCanvas.width, gCanvas.height);
         const decoded = deserializeDepthMap(resource);
-        const depthMap = resizeDepthMap(decoded, input.width, input.height);
+        const depthMap = resizeRegisteredDepthMap(decoded, input.width, input.height);
         gCanvas.putImageData(
           applyDepthBlur(input, depthMap, {
             blurAmount: effect.blurStrength,

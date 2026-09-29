@@ -6,11 +6,11 @@ import {
   getInferenceWorkerHost,
   getModelLoader,
   normalizeDepthPrediction,
-  resizeDepthMap,
+  registerDepthMapToSource,
+  resizeRegisteredDepthMap,
   sampleDepth,
   serializeDepthMap,
   sourceAlphaToDepthValidity,
-  unletterboxDepthMap,
 } from '@varve/engine';
 import type { Effect, SceneNode, ShapeNode } from '@varve/scene';
 import { imageShapeSrc, isImageShape } from '@varve/scene';
@@ -247,7 +247,7 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
-      const depthResized = resizeDepthMap(depthData, canvas.width, canvas.height);
+      const depthResized = resizeRegisteredDepthMap(depthData, canvas.width, canvas.height);
       const result = applyDepthBlur(imageData, depthResized, {
         blurAmount: params.blurAmount,
         focalDepth: params.focalDepth / 100,
@@ -433,23 +433,16 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
           generatedAt: Date.now(),
         },
       });
-      const aligned = letterbox
-        ? unletterboxDepthMap(normalized, imageData.width, imageData.height, letterbox)
-        : resizeDepthMap(normalized, imageData.width, imageData.height);
+      const registered = registerDepthMapToSource(
+        normalized,
+        imageData.width,
+        imageData.height,
+        letterbox,
+      );
       const accepted = {
-        ...aligned,
+        ...registered,
         metadata: {
-          ...aligned.metadata,
-          registration: {
-            schemaVersion: 1 as const,
-            sourceWidth: imageData.width,
-            sourceHeight: imageData.height,
-            mapWidth: aligned.width,
-            mapHeight: aligned.height,
-            coordinateSpace: 'source-image-pixels' as const,
-            orientation: 'top-left' as const,
-            sourceToMap: [1, 0, 0, 1, 0, 0] as const,
-          },
+          ...registered.metadata,
           provenance: {
             origin: 'generated' as const,
             format: 'onnx',

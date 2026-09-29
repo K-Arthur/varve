@@ -429,6 +429,30 @@ function copyMetadata(metadata: DepthMapMetadata): DepthMapMetadata {
   };
 }
 
+/** Keep grid-relative validity diagnostics consistent after a resample. */
+function metadataWithValidityCount(
+  metadata: DepthMapMetadata,
+  valid: Uint8Array,
+): DepthMapMetadata {
+  if (!metadata.normalization) return copyMetadata(metadata);
+  let validSampleCount = 0;
+  for (const sample of valid) validSampleCount += sample === 1 ? 1 : 0;
+  const { noValidSamples: _noValidSamples, ...normalization } = metadata.normalization;
+  return {
+    ...copyMetadata(metadata),
+    normalization:
+      validSampleCount === 0
+        ? {
+            ...normalization,
+            sourceMin: null,
+            sourceMax: null,
+            validSampleCount,
+            noValidSamples: true,
+          }
+        : { ...normalization, validSampleCount },
+  };
+}
+
 /**
  * Carry a source-to-map registration through a pixel-grid resample. The
  * affine is expressed in index coordinates; pixel-centre offsets cancel when
@@ -786,12 +810,9 @@ export function resizeDepthMap(map: DepthMap, width: number, height: number): De
     values,
     valid,
     ...(measurements ? { measurements } : {}),
-    metadata: remapRegistration(
-      map.metadata,
-      width,
-      height,
-      width / map.width,
-      height / map.height,
+    metadata: metadataWithValidityCount(
+      remapRegistration(map.metadata, width, height, width / map.width, height / map.height),
+      valid,
     ),
   };
 }
@@ -828,6 +849,104 @@ function letterboxContent(
     throw new Error('Depth letterbox registration is invalid');
   }
   return content;
+}
+
+/**
+ * Keep a model-resolution depth field compact while recording how source
+ * pixels map into its content rectangle. Rendering may resample a disposable
+ * surface later; the accepted document resource remains at model resolution.
+ */
+export function registerDepthMapToSource(
+  map: DepthMap,
+  sourceWidth: number,
+  sourceHeight: number,
+  transform: DepthLetterboxTransform = { offsetX: 0, offsetY: 0 },
+): DepthMap {
+  validateMapBuffers(map);
+  validateDimensions(sourceWidth, sourceHeight);
+  const content = letterboxContent(transform, map.width, map.height);
+  const scaleX = content.contentWidth / sourceWidth;
+  const scaleY = content.contentHeight / sourceHeight;
+  const registration: DepthMapRegistration = {
+    schemaVersion: 1,
+    sourceWidth,
+    sourceHeight,
+    mapWidth: map.width,
+    mapHeight: map.height,
+    coordinateSpace: 'source-image-pixels',
+    orientation: 'top-left',
+    sourceToMap: [scaleX, 0, 0, scaleY, content.offsetX, content.offsetY],
+  };
+  validateRegistrationMetadata(registration, map.width, map.height);
+  return {
+    ...map,
+    metadata: { ...copyMetadata(map.metadata), registration },
+  };
+}
+
+/**
+ * Resample registered model-grid data into a source-proportional runtime
+ * surface without first allocating an intermediate source-sized map. Letterbox
+ * padding stays out of the rendered depth field because each target pixel is
+ * sampled through the persisted source-to-map transform.
+ */
+export function resizeRegisteredDepthMap(map: DepthMap, width: number, height: number): DepthMap {
+  validateMapBuffers(map);
+  const pixels = validateDimensions(width, height);
+  const registration = map.metadata.registration;
+  if (!registration) return resizeDepthMap(map, width, height);
+  validateRegistrationMetadata(registration, map.width, map.height);
+
+  const values = new Float32Array(pixels);
+  const valid = new Uint8Array(pixels);
+  const measurements = map.measurements ? new Float32Array(pixels) : undefined;
+  const [a, b, c, d, e, f] = registration.sourceToMap ?? [1, 0, 0, 1, 0, 0];
+  for (let y = 0; y < height; y++) {
+    const sourceY = ((y + 0.5) * registration.sourceHeight) / height;
+    for (let x = 0; x < width; x++) {
+      const sourceX = ((x + 0.5) * registration.sourceWidth) / width;
+      const mapX = a * sourceX + c * sourceY + e - 0.5;
+      const mapY = b * sourceX + d * sourceY + f - 0.5;
+      const sample = sampleDepthBilinearInside(map, mapX, mapY);
+      const index = y * width + x;
+      if (!sample) {
+        values[index] = 0.5;
+        if (measurements) measurements[index] = 0;
+        continue;
+      }
+      values[index] = sample.value;
+      if (measurements) measurements[index] = sample.measurement ?? 0;
+      valid[index] = 1;
+    }
+  }
+
+  return {
+    ...map,
+    width,
+    height,
+    values,
+    valid,
+    ...(measurements ? { measurements } : {}),
+    metadata: metadataWithValidityCount(
+      {
+        ...copyMetadata(map.metadata),
+        registration: {
+          ...registration,
+          mapWidth: width,
+          mapHeight: height,
+          sourceToMap: [
+            width / registration.sourceWidth,
+            0,
+            0,
+            height / registration.sourceHeight,
+            0,
+            0,
+          ],
+        },
+      },
+      valid,
+    ),
+  };
 }
 
 /**
@@ -976,15 +1095,18 @@ export function alignDepthMapToSource(
     values,
     valid,
     ...(measurements ? { measurements } : {}),
-    metadata: {
-      ...copyMetadata(map.metadata),
-      registration: {
-        ...registration,
-        mapWidth: sourceWidth,
-        mapHeight: sourceHeight,
-        sourceToMap: [1, 0, 0, 1, 0, 0],
+    metadata: metadataWithValidityCount(
+      {
+        ...copyMetadata(map.metadata),
+        registration: {
+          ...registration,
+          mapWidth: sourceWidth,
+          mapHeight: sourceHeight,
+          sourceToMap: [1, 0, 0, 1, 0, 0],
+        },
       },
-    },
+      valid,
+    ),
   };
 }
 
@@ -1035,14 +1157,9 @@ export function unletterboxDepthMap(
     values,
     valid,
     ...(measurements ? { measurements } : {}),
-    metadata: remapRegistration(
-      map.metadata,
-      width,
-      height,
-      1 / scaleX,
-      1 / scaleY,
-      offsetX,
-      offsetY,
+    metadata: metadataWithValidityCount(
+      remapRegistration(map.metadata, width, height, 1 / scaleX, 1 / scaleY, offsetX, offsetY),
+      valid,
     ),
   };
 }

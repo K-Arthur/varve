@@ -135,8 +135,11 @@ kernel and commits through the existing raster-mask owner.
   applies a premultiplied-alpha depth-aware gather with explicit occlusion
   rules (see below). The Inspector preview calls the same canonical gather
   with the same near-is-low map and options, rather than adapting through the
-  legacy 8-bit lens-blur API. Model-space letterbox padding is removed before
-  the map is aligned to the source image. The focus picker uses a robust local
+  legacy 8-bit lens-blur API. Generated resources remain at model-grid
+  resolution and persist a source-to-map registration, including letterbox
+  padding. Preview and compositor surfaces sample through that registration,
+  so padding does not become false depth data and a source-sized intermediate
+  is not required before persistence. The focus picker uses a robust local
   median, not a single potentially noisy model pixel.
 - Replay decodes persisted maps through a small LRU bounded by both entry count
   and decoded byte size; resource identity includes payload metadata so a

@@ -17,6 +17,7 @@ import {
   preprocessSemanticInput,
   type SemanticResizeSpec,
 } from '../semanticSimilarity/preprocess';
+import { createOrtRuntimeLoader } from './core/ortRuntime';
 import { createSessionWithTimeout, SessionCleanupFailedError } from './core/sessionCreation';
 import type { TensorSpec } from './imageTensor';
 import { packNchwTensor, packNhwcTensor } from './imageTensor';
@@ -55,6 +56,7 @@ import { encodeSam2Prompts, SAM2_INPUT_SIZE, SAM2_TENSOR_SPEC } from './models/s
 import { SCUNET_INPUT_SIZE, SCUNET_TENSOR_SPEC } from './models/scunet';
 import { SIGLIP_IMAGE_SIZE, SIGLIP_IMAGE_TENSOR_SPEC, siglipConstantFeeds } from './models/siglip';
 import { TROCR_INPUT_SIZE, TROCR_TENSOR_SPEC } from './models/trocr';
+import type { WorkerSessionIdentity } from './sessionKeys';
 import { workerSessionKey } from './sessionKeys';
 import {
   InferenceSessionRegistry,
@@ -111,6 +113,8 @@ export interface WorkerLetterbox {
 export interface ExternalDataSpec {
   path: string;
   url: string;
+  /** Optional sidecar content digest when its URL is not content-addressed. */
+  checksum?: string;
 }
 
 export interface WorkerInferRequest {
@@ -138,6 +142,8 @@ export interface WorkerInferRequest {
    * removal with reclaimed memory.
    */
   sessionPeakBytes?: number;
+  /** Host-resolved artifact/runtime identity shared with the session registry. */
+  sessionIdentity?: WorkerSessionIdentity;
 }
 
 export interface WorkerInferTimings {
@@ -173,6 +179,18 @@ export interface WorkerReady {
   type: 'ready';
 }
 
+/** A created resident session whose estimated bytes can be transferred by the host. */
+export interface WorkerSessionReady {
+  type: 'session-ready';
+  requestId: string;
+  sessionKey: string;
+  modelType: WorkerModelType;
+  modelPath: string;
+  estimateBytes: number;
+  /** Confirmed releases caused by the worker's session-count cap. */
+  evictedKeys: string[];
+}
+
 /**
  * Release cached sessions before the next memory-heavy stage. Entries are
  * removed only after their underlying release resolves; failures are reported
@@ -181,7 +199,7 @@ export interface WorkerReady {
 export interface WorkerReleaseRequest {
   type: 'release';
   requestId: string;
-  /** Cache keys (`modelType:modelPath`); omit to release every idle session. */
+  /** Keys returned by `workerSessionKey`; omit to release every idle session. */
   keys?: string[];
 }
 
@@ -197,6 +215,7 @@ export type WorkerResponse =
   | WorkerInferError
   | WorkerFatal
   | WorkerReady
+  | WorkerSessionReady
   | WorkerReleaseResponse;
 
 /** Describes a second image input fed alongside the primary image. */
@@ -527,6 +546,7 @@ registerModelType('font-classify', {
  */
 const sessionRegistry = new InferenceSessionRegistry(3);
 let preferredOnnxProviders: string[] | null = null;
+let preferredOnnxProvidersPromise: Promise<string[]> | null = null;
 
 const PROVIDER_PROBE_TIMEOUT = 15_000;
 const ACCELERATED_SESSION_TIMEOUT = 45_000;
@@ -552,6 +572,29 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): 
   });
 }
 
+async function loadPreferredProviders(): Promise<string[]> {
+  if (preferredOnnxProviders) return preferredOnnxProviders;
+  if (!preferredOnnxProvidersPromise) {
+    const initialization = (async () => {
+      try {
+        const { getBestOnnxProviders } = await import(
+          '../backgroundRemoval/environmentCapabilities'
+        );
+        preferredOnnxProviders = await withTimeout(
+          getBestOnnxProviders(),
+          PROVIDER_PROBE_TIMEOUT,
+          'ONNX provider detection',
+        );
+      } catch {
+        preferredOnnxProviders = ['wasm'];
+      }
+      return preferredOnnxProviders;
+    })();
+    preferredOnnxProvidersPromise = initialization;
+  }
+  return preferredOnnxProvidersPromise;
+}
+
 async function getPreferredProviders(modelId: string): Promise<string[]> {
   try {
     const { getRecommendedProvider } = await import('./modelCatalog');
@@ -563,15 +606,10 @@ async function getPreferredProviders(modelId: string): Promise<string[]> {
     if (getRecommendedProvider(modelId) === 'cpu') {
       return ['wasm'];
     }
-    if (preferredOnnxProviders) return preferredOnnxProviders;
-    const { getBestOnnxProviders } = await import('../backgroundRemoval/environmentCapabilities');
-    preferredOnnxProviders = await withTimeout(
-      getBestOnnxProviders(),
-      PROVIDER_PROBE_TIMEOUT,
-      'ONNX provider detection',
-    );
+    return await loadPreferredProviders();
   } catch {
     preferredOnnxProviders = ['wasm'];
+    preferredOnnxProvidersPromise = Promise.resolve(preferredOnnxProviders);
   }
   return preferredOnnxProviders;
 }
@@ -587,17 +625,20 @@ async function getPreferredProviders(modelId: string): Promise<string[]> {
  * inference worker did not, which left every model routed through it
  * (denoise, depth, line art, segmentation, ...) unable to run.
  */
-let ortModulePromise: Promise<OrtModule> | null = null;
+const ortRuntimeLoader = createOrtRuntimeLoader<OrtModule>({
+  loadWasm: async () => (await import('onnxruntime-web')) as unknown as OrtModule,
+  loadWebGpu: async () => (await import('onnxruntime-web/webgpu')) as unknown as OrtModule,
+  configure: async (ort) => {
+    const { configureOrtRuntime } = await import('../backgroundRemoval/ortRuntimeAssets');
+    configureOrtRuntime(ort as unknown as typeof import('onnxruntime-web'));
+  },
+});
+
 async function loadOrt(): Promise<OrtModule> {
-  if (!ortModulePromise) {
-    ortModulePromise = (async () => {
-      const ort = await import('onnxruntime-web');
-      const { configureOrtRuntime } = await import('../backgroundRemoval/ortRuntimeAssets');
-      configureOrtRuntime(ort);
-      return ort as unknown as OrtModule;
-    })();
-  }
-  return ortModulePromise;
+  const loaded = await ortRuntimeLoader.load(await loadPreferredProviders());
+  preferredOnnxProviders = [...loaded.providers];
+  preferredOnnxProvidersPromise = Promise.resolve(preferredOnnxProviders);
+  return loaded.runtime;
 }
 
 /** Result of resolving a session for one inference request. */
@@ -607,6 +648,7 @@ interface ResolvedSession {
   cacheKey: string;
   created: boolean;
   sessionMs: number;
+  evictedKeys: string[];
 }
 
 async function getSession(
@@ -615,8 +657,15 @@ async function getSession(
   modelType: WorkerModelType,
   externalData: ExternalDataSpec | undefined,
   sessionPeakBytes: number | undefined,
+  sessionIdentity: WorkerSessionIdentity | undefined,
 ): Promise<ResolvedSession> {
-  const cacheKey = workerSessionKey(modelType, modelPath);
+  const cacheKey = workerSessionKey(modelType, modelPath, {
+    ...sessionIdentity,
+    modelId,
+    externalDataPath: externalData?.path,
+    externalDataRevision:
+      sessionIdentity?.externalDataRevision ?? externalData?.checksum ?? externalData?.url,
+  });
   const creation = await sessionRegistry.getOrCreate(cacheKey, async () => {
     const ort = await loadOrt();
     const providers = await getPreferredProviders(modelId);
@@ -683,11 +732,13 @@ async function getSession(
     };
   });
 
+  let evictedKeys: string[] = [];
   if (creation.created) {
     // Respect the cache cap without touching a session some other job is
     // still using; over-capacity is allowed transiently and re-checked after
     // every run.
-    await sessionRegistry.evictIdleToCapacity();
+    const report = await sessionRegistry.evictIdleToCapacity();
+    evictedKeys = report.released;
   }
   return {
     session: creation.entry.session,
@@ -695,6 +746,7 @@ async function getSession(
     cacheKey,
     created: creation.created,
     sessionMs: creation.sessionMs,
+    evictedKeys,
   };
 }
 
@@ -893,6 +945,7 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
     targetHeight,
     externalData,
     sessionPeakBytes,
+    sessionIdentity,
   } = data;
 
   let runHeld = false;
@@ -904,7 +957,13 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
     }
 
     const ort = await loadOrt();
-    const cacheKey = workerSessionKey(modelType, modelPath);
+    const cacheKey = workerSessionKey(modelType, modelPath, {
+      ...sessionIdentity,
+      modelId,
+      externalDataPath: externalData?.path,
+      externalDataRevision:
+        sessionIdentity?.externalDataRevision ?? externalData?.checksum ?? externalData?.url,
+    });
     const cached = sessionRegistry.get(cacheKey);
 
     const resolved =
@@ -915,12 +974,28 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
             cacheKey,
             created: false,
             sessionMs: 0,
+            evictedKeys: [],
           }
-        : await getSession(modelPath, modelId, modelType, externalData, sessionPeakBytes);
+        : await getSession(
+            modelPath,
+            modelId,
+            modelType,
+            externalData,
+            sessionPeakBytes,
+            sessionIdentity,
+          );
     const { session, executionProvider } = resolved;
 
-    if (!cached || resolved.created) {
-      self.postMessage({ type: 'ready' } satisfies WorkerReady);
+    if (resolved.created) {
+      self.postMessage({
+        type: 'session-ready',
+        requestId,
+        sessionKey: resolved.cacheKey,
+        modelType,
+        modelPath,
+        estimateBytes: sessionRegistry.get(resolved.cacheKey)?.estimateBytes ?? 0,
+        evictedKeys: resolved.evictedKeys,
+      } satisfies WorkerSessionReady);
     }
     sessionRegistry.beginRun(resolved.cacheKey);
     runHeld = true;
@@ -1131,4 +1206,6 @@ if (typeof self.postMessage === 'function') {
 export function __resetSessionCache(): void {
   sessionRegistry.clear();
   preferredOnnxProviders = null;
+  preferredOnnxProvidersPromise = null;
+  ortRuntimeLoader.reset();
 }

@@ -377,3 +377,60 @@ work, and mixed model/export pressure ([long filter waits](https://www.reddit.co
 [tool and input stalls](https://www.reddit.com/r/photopea/comments/1cfim22)).
 These reports support prioritizing bounded work and responsive controls; they
 do not support advertising a device-level latency guarantee.
+
+## M5 — Runtime/session residency and compact depth registration
+
+The 1.27.0 ONNX Runtime worker now has one single-flight module loader. It
+selects the WebGPU-flavored entrypoint when capability detection requests that
+provider set, falls back to the matching WASM module if the WebGPU module
+cannot be imported, clears failed initialization for retry, and refuses to
+switch entrypoints under an initialized worker. WASM remains single-threaded
+inside the dedicated worker. These loader tests verify module selection and
+recovery; they do not execute a representative installed graph or prove
+WebGPU operator support on a device.
+
+Inference session requests reserve the catalog's conservative working-set
+estimate alongside transient buffers. A correlated worker message transfers
+the session portion into the shared resident ledger only when key and estimate
+match the request. Confirmed worker evictions/releases free that resident
+lease; failed release remains tracked, and worker termination is the confirmed
+reclamation boundary. Session identity separates artifact and sidecar revision,
+precision, requested provider profile, runtime settings, and worker/device
+generation; `InferenceSessionRegistry` records the actual provider selected by
+the runtime. Catalog estimates remain estimates, not observed RSS. The cache
+key uses the requested provider profile and does not yet independently key on
+the actual provider; hardware graph qualification is still required.
+
+Depth resources now remain at the model output grid and persist their source
+registration, including letterbox padding. Inspector and group compositor
+surfaces sample through that registration rather than first persisting a
+source-sized field. All four grid-resampling paths now update normalization's
+valid-sample count, which fixed a browser-visible Depth Mask histogram failure
+when a 518×518 model map was aligned to a 200×160 source. A later rerun also
+found that the pre-existing E2E helper functions returned JavaScript source
+but had been passed as callbacks, so the seeded model and worker stub were not
+installed. The spec now evaluates those returned scripts, checks for the
+stub's result, and supplies the same integer letterbox geometry as production.
+
+M5 focused validation so far:
+
+```text
+pnpm exec vitest run packages/engine/src/inference/core/__tests__/ortRuntime.test.ts packages/engine/src/inference/sessionKeys.test.ts packages/engine/src/inference/__tests__/workerHostMessages.test.ts packages/engine/src/inference/inferenceWorker.test.ts packages/engine/src/inference/sessionRegistry.test.ts packages/engine/src/depthMap.test.ts --maxWorkers=1
+Result: 6 files passed, 59 tests passed, 0 failed (including confirmed resident release, no-double-charge reuse, over-estimate worker retirement, and generation rekey after queue wait).
+pnpm --filter @varve/engine typecheck
+Result: passed after the inference-host generation-rekey change.
+pnpm typecheck:e2e
+Result: passed after the final setup-script and compact-resource assertions.
+VARVE_LEASE_TIMEOUT=1800000 VARVE_E2E_PORT=1699 VARVE_E2E_OUTPUT_DIR=low-end-depth-m5-0929f \
+  node scripts/quality/heavy-lease.mjs "e2e: compact depth Save and raster mask persistence" -- \
+  npx playwright test tests/e2e/canvas/depth-blur.spec.ts --project=chromium --workers=1 --reporter=list
+Result: 2 Chromium tests passed (51.4s). Save persisted a 518x518 map with its source-to-map affine; the second test persisted a raster mask on its image node. The saved-state capture was visually inspected at `test-results/low-end-depth-m5-0929f/canvas-depth-blur-Depth-Bl-5f52a--picks-focus-and-removes-it-chromium/depth-resource-saved.png`.
+```
+
+The two preceding attempts failed before acceptance: one exposed the stale
+normalized sample count and one exposed the unexecuted setup scripts. Both
+causes are fixed; the passing repeat asserts the worker-stub response and
+persisted model-grid dimensions plus affine registration. The inspected first failure image is
+`test-results/low-end-depth-m5-0929b/canvas-depth-blur-Depth-Bl-5f52a--picks-focus-and-removes-it-chromium/test-failed-1.png`;
+the missing-stub capture is
+`test-results/low-end-depth-m5-0929d/canvas-depth-blur-Depth-Bl-5f52a--picks-focus-and-removes-it-chromium/test-failed-1.png`.

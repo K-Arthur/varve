@@ -12,7 +12,9 @@ import {
   deserializeDepthMap,
   normalizeDepthPrediction,
   normalizeMetricDepth,
+  registerDepthMapToSource,
   resizeDepthMap,
+  resizeRegisteredDepthMap,
   sampleDepth,
   serializeDepthMap,
   sourceAlphaToDepthValidity,
@@ -312,6 +314,97 @@ describe('DepthMap', () => {
     });
     expect(restored.values[0]).toBeCloseTo((1.5 + 0.5 * (5 / 3) - 0.5) / 7, 5);
     expect(restored.values[8]).toBeCloseTo((1.5 + 2.5 * (5 / 3) - 0.5) / 7, 5);
+  });
+
+  it('keeps model-resolution samples compact and preserves letterbox registration', () => {
+    const values = new Float32Array(16);
+    const valid = new Uint8Array(16);
+    for (let y = 0; y < 4; y++) {
+      for (let x = 0; x < 4; x++) {
+        const index = y * 4 + x;
+        values[index] = y / 3;
+        if (y === 1 || y === 2) valid[index] = 1;
+      }
+    }
+    const map: DepthMap = {
+      width: 4,
+      height: 4,
+      values,
+      valid,
+      metadata: {
+        depthType: 'relative',
+        unit: 'normalized',
+        nearFarConvention: 'nearIsLow',
+        inferenceVersion: 1,
+        preprocessingVersion: 1,
+        normalization: {
+          method: 'identity',
+          sourceMin: 0,
+          sourceMax: 1,
+          lowPercentile: 0,
+          highPercentile: 1,
+          validSampleCount: 8,
+          inputNearFarConvention: 'nearIsHigh',
+        },
+      },
+    };
+    const transform = { offsetX: 0, offsetY: 1, contentWidth: 4, contentHeight: 2 };
+    const registered = registerDepthMapToSource(map, 4, 2, transform);
+    const aligned = alignDepthMapToSource(registered, 4, 2);
+    const expandedBeforePersistence = unletterboxDepthMap(map, 4, 2, transform);
+    const registeredPreview = resizeRegisteredDepthMap(registered, 8, 4);
+    const expandedPreview = resizeDepthMap(expandedBeforePersistence, 8, 4);
+
+    expect(registered.width).toBe(4);
+    expect(registered.height).toBe(4);
+    expect(registered.metadata.registration).toMatchObject({
+      sourceWidth: 4,
+      sourceHeight: 2,
+      mapWidth: 4,
+      mapHeight: 4,
+      sourceToMap: [1, 0, 0, 1, 0, 1],
+    });
+    expect([...aligned.values]).toEqual([...expandedBeforePersistence.values]);
+    expect([...aligned.valid]).toEqual([...expandedBeforePersistence.valid]);
+    expect(aligned.metadata.normalization?.validSampleCount).toBe(8);
+    for (let index = 0; index < registeredPreview.values.length; index++) {
+      expect(registeredPreview.valid[index]).toBe(expandedPreview.valid[index]);
+      expect(registeredPreview.values[index]).toBeCloseTo(expandedPreview.values[index]!, 5);
+    }
+    expect(registeredPreview.metadata.normalization?.validSampleCount).toBe(32);
+  });
+
+  it('serializes only model-grid bytes when registering a large source image', () => {
+    const map: DepthMap = {
+      width: 4,
+      height: 4,
+      values: new Float32Array(16).fill(0.5),
+      valid: new Uint8Array(16).fill(1),
+      metadata: {
+        depthType: 'relative',
+        unit: 'normalized',
+        nearFarConvention: 'nearIsLow',
+        inferenceVersion: 1,
+        preprocessingVersion: 1,
+      },
+    };
+    const registered = registerDepthMapToSource(map, 4000, 2000, {
+      offsetX: 0,
+      offsetY: 1,
+      contentWidth: 4,
+      contentHeight: 2,
+    });
+    const resource = serializeDepthMap(registered, 'compact-depth');
+
+    expect(resource.width).toBe(4);
+    expect(resource.height).toBe(4);
+    expect(resource.byteLength).toBeLessThan(4000 * 2000 * 2);
+    expect(resource.registration).toMatchObject({
+      sourceWidth: 4000,
+      sourceHeight: 2000,
+      mapWidth: 4,
+      mapHeight: 4,
+    });
   });
 
   it('uses explicit registration for source-size changes without clamping outside samples', () => {
