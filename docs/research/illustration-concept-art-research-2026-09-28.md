@@ -165,12 +165,12 @@ result.
 
 The repair computes a transformed raster AABB, places a matte-group fallback
 from its world crop origin, and includes rasterized fallback bounds in the SVG
-view box. A real Chromium flow passed creation, clip-edge pixels, undo/redo,
+view box. The real Chromium flow passed creation, clip-edge pixels, undo/redo,
 save/reopen, and SVG/PDF downloads; the rendered SVG and PDF were opened and
 visually inspected. The SVG retained a native vector contour beside the
-embedded clipped raster. An immediate final-repeat attempt later failed before
-the editor opened because the shared checkout's unrelated `Menubar.tsx` threw
-`ReferenceError: ZoomInput is not defined`; focused unit and SVG-placement
-tests still pass. Linux Tauri/WebKitGTK, transformed ancestor variants,
-PDF/X/native print, alpha-edge stress fixtures, and real stylus input are not
-covered by this browser run.
+embedded clipped raster. An interim retry failed before editor startup because
+the shared checkout's unrelated `Menubar.tsx` threw
+`ReferenceError: ZoomInput is not defined`; the later affected-plan app E2E
+passed on the recovered checkout. Linux Tauri/WebKitGTK, transformed ancestor
+variants, PDF/X/native print, alpha-edge stress fixtures, and real stylus input
+are not covered by this browser run.
