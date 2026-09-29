@@ -235,7 +235,7 @@ test('footer keeps browser demo, support, and contribution paths discoverable', 
     'Contribute',
     'Support the project',
   ]) {
-    await expect(footer.getByRole('link', { name, exact: true })).toBeAttached();
+    await expect(footer.getByRole('link', { name, exact: true }).first()).toBeAttached();
   }
 });
 
