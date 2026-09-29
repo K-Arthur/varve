@@ -122,6 +122,37 @@ Adjustment → FilterIR → applyFilterWithCompositing (sync, interactive previe
 - A missing backend can never destroy content: the dispatch chain always
   ends at the CPU reference kernels.
 
+### Optional transferable preview jobs
+
+`EffectPreviewRunner` is an engine-level asynchronous lane for a consumer that
+owns an authoritative RGBA capture. It shares the canonical TypeScript kernels
+with `cpuEffectProvider`, so the worker does not introduce a second effect
+implementation. Each request includes owner, document, target, source,
+parameter, mask, time, and generation identity. The caller must check that full
+identity against current state before accepting the returned pixels.
+
+The runner reserves three RGBA buffers in the shared derived-work ledger
+before it invokes the source-capture callback. It transfers one exact-size
+buffer to one module worker at a time and keeps only the newest queued request
+for each preview owner. Cancelling a caller rejects its promise promptly but
+retains the memory lease until the worker answers or a five-second response
+backstop terminates it. A missing or blocked worker is reported before source
+capture; callers keep the canonical replay path active.
+
+This lane is an opt-in substrate, not the default editor render path. The first
+editor consumer is a deliberately synthetic kernel sample shown in the live
+effect preset controls. It renders representative detail and transparency to
+show the canonical kernel's treatment, and labels itself as separate from the
+selected artwork. It does not replace that artwork's preview. No interactive
+artwork filter, treatment, thumbnail, comparison, animation, or export
+consumer has been switched to the lane. It does not cache returned surfaces
+because the current consumer API has no release callback proving that the
+caller dropped its reference. The worker protocol and lifecycle have focused
+unit coverage; real-browser transfer, visual-output inspection, the
+same-camera/full-redraw pixel oracle, interaction-latency measurement, and
+WebKitGTK checks remain required before wiring it to artwork or making
+performance claims.
+
 ---
 
 ## 3. Quality tiers

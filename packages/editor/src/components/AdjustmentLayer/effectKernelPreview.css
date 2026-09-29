@@ -1,0 +1,47 @@
+.live-effect-kernel-preview {
+  align-items: center;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
+  display: grid;
+  gap: var(--space-2);
+  grid-template-columns: 112px minmax(0, 1fr);
+  margin: var(--space-1) 0 var(--space-2);
+  min-width: 0;
+  padding: var(--space-2);
+}
+
+.live-effect-kernel-preview canvas {
+  background: var(--color-surface-base);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
+  display: block;
+  height: 72px;
+  max-width: 100%;
+  width: 112px;
+}
+
+.live-effect-kernel-preview figcaption {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.live-effect-kernel-preview figcaption > span:first-child {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+}
+
+.live-effect-kernel-preview [role="status"] {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 360px) {
+  .live-effect-kernel-preview {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

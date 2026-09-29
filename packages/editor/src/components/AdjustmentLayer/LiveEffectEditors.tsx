@@ -34,6 +34,7 @@ import { paletteFileFormat, parsePaletteFile } from '@varve/shared';
 import { FilePickerButton, Select, Switch, Tooltip } from '@varve/ui';
 import { useCallback, useMemo, useState } from 'react';
 import { RangeValueControl } from '../Inspector/controls/RangeValueControl';
+import { EffectKernelPreview } from './EffectKernelPreview';
 
 export interface LiveEffectEditorProps {
   adjustment: Adjustment;
@@ -212,23 +213,34 @@ const DITHER_ALGORITHM_OPTIONS = [
   { value: 'blue-noise', label: 'Blue noise' },
 ];
 
-function PresetRow({ kind, onChange }: { kind: AdjustmentKind; onChange: (p: Patch) => void }) {
+function PresetRow({
+  adjustment,
+  kind,
+  onChange,
+}: {
+  adjustment: Adjustment;
+  kind: AdjustmentKind;
+  onChange: (p: Patch) => void;
+}) {
   const presets = useMemo(() => presetsForKind(kind), [kind]);
   if (presets.length === 0) return null;
   return (
-    <div className="adj-editor__row">
-      <span className="adj-editor__label">Preset</span>
-      <Select
-        label={`${kind} preset`}
-        value=""
-        placeholder="Custom"
-        options={presets.map((p) => ({ value: p.id, label: p.name }))}
-        onChange={(v) => {
-          const preset = presets.find((p) => p.id === v);
-          if (preset) onChange(preset.params as Patch);
-        }}
-      />
-    </div>
+    <>
+      <div className="adj-editor__row">
+        <span className="adj-editor__label">Preset</span>
+        <Select
+          label={`${kind} preset`}
+          value=""
+          placeholder="Custom"
+          options={presets.map((p) => ({ value: p.id, label: p.name }))}
+          onChange={(v) => {
+            const preset = presets.find((p) => p.id === v);
+            if (preset) onChange(preset.params as Patch);
+          }}
+        />
+      </div>
+      <EffectKernelPreview adjustment={adjustment} />
+    </>
   );
 }
 
@@ -423,7 +435,7 @@ export function DitherEditor({ adjustment, onChange }: LiveEffectEditorProps) {
   const p = (patch: Patch) => onChange(patchOf(patch));
   return (
     <div className="adj-editor__group">
-      <PresetRow kind="dither" onChange={p} />
+      <PresetRow adjustment={adjustment} kind="dither" onChange={p} />
       <SelectRow
         label="Algorithm"
         value={adj.algorithm}
@@ -527,7 +539,7 @@ export function PaletteSnapEditor({ adjustment, onChange, doc }: LiveEffectEdito
   const p = (patch: Patch) => onChange(patchOf(patch));
   return (
     <div className="adj-editor__group">
-      <PresetRow kind="paletteSnap" onChange={p} />
+      <PresetRow adjustment={adjustment} kind="paletteSnap" onChange={p} />
       <SelectRow
         label="Metric"
         value={adj.metric}
@@ -598,7 +610,7 @@ export function BloomEditor({ adjustment, onChange }: LiveEffectEditorProps) {
   const p = (patch: Patch) => onChange(patchOf(patch));
   return (
     <div className="adj-editor__group">
-      <PresetRow kind="bloom" onChange={p} />
+      <PresetRow adjustment={adjustment} kind="bloom" onChange={p} />
       <SliderRow
         label="Threshold"
         value={adj.threshold}
@@ -735,7 +747,7 @@ export function RgbSplitEditor({ adjustment, onChange }: LiveEffectEditorProps) 
   const p = (patch: Patch) => onChange(patchOf(patch));
   return (
     <div className="adj-editor__group">
-      <PresetRow kind="rgbSplit" onChange={p} />
+      <PresetRow adjustment={adjustment} kind="rgbSplit" onChange={p} />
       <SelectRow
         label="Mode"
         value={adj.mode}
@@ -862,7 +874,7 @@ export function CrtEditor({ adjustment, onChange }: LiveEffectEditorProps) {
   const p = (patch: Patch) => onChange(patchOf(patch));
   return (
     <div className="adj-editor__group">
-      <PresetRow kind="crt" onChange={p} />
+      <PresetRow adjustment={adjustment} kind="crt" onChange={p} />
       <SliderRow
         label="Curvature"
         value={adj.curvature}
@@ -1039,7 +1051,7 @@ export function VhsEditor({ adjustment, onChange }: LiveEffectEditorProps) {
   );
   return (
     <div className="adj-editor__group">
-      <PresetRow kind="vhs" onChange={p} />
+      <PresetRow adjustment={adjustment} kind="vhs" onChange={p} />
       {noise('lumaNoise')}
       {noise('chromaNoise')}
       {noise('chromaBleed')}
@@ -1083,7 +1095,7 @@ export function LightShaftsEditor({ adjustment, onChange }: LiveEffectEditorProp
   const p = (patch: Patch) => onChange(patchOf(patch));
   return (
     <div className="adj-editor__group">
-      <PresetRow kind="lightShafts" onChange={p} />
+      <PresetRow adjustment={adjustment} kind="lightShafts" onChange={p} />
       <SelectRow
         label="Light type"
         value={adj.lightType}
@@ -1219,7 +1231,7 @@ export function LensFlareEditor({ adjustment, onChange }: LiveEffectEditorProps)
   const p = (patch: Patch) => onChange(patchOf(patch));
   return (
     <div className="adj-editor__group">
-      <PresetRow kind="lensFlare" onChange={p} />
+      <PresetRow adjustment={adjustment} kind="lensFlare" onChange={p} />
       <SliderRow
         label="Source X"
         value={adj.sourceX}
@@ -1349,7 +1361,7 @@ export function LightLeakEditor({ adjustment, onChange }: LiveEffectEditorProps)
   const p = (patch: Patch) => onChange(patchOf(patch));
   return (
     <div className="adj-editor__group">
-      <PresetRow kind="lightLeak" onChange={p} />
+      <PresetRow adjustment={adjustment} kind="lightLeak" onChange={p} />
       <SliderRow
         label="X"
         value={adj.x}
@@ -1458,7 +1470,7 @@ export function CausticsEditor({ adjustment, onChange }: LiveEffectEditorProps) 
   const p = (patch: Patch) => onChange(patchOf(patch));
   return (
     <div className="adj-editor__group">
-      <PresetRow kind="caustics" onChange={p} />
+      <PresetRow adjustment={adjustment} kind="caustics" onChange={p} />
       <SliderRow
         label="Scale"
         value={adj.scale}

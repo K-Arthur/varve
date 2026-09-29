@@ -15,6 +15,7 @@ export * from './crt';
 export * from './dispatch';
 export * from './dither';
 export * from './edgeInk';
+export * from './effectPreviewRunner';
 export * from './lensFlare';
 export * from './lightLeak';
 export * from './lightShafts';

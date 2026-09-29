@@ -189,7 +189,7 @@ gaps:
 | --- | --- | --- |
 | Inference cancellation | Fixed in the current continuation: `InferenceWorkerHost.cancel` now rejects the caller promptly while retaining the worker request, deadline, and admission lease. Result/error, timeout-driven worker termination, and host disposal are the only terminal release paths. | Focused tests verify late results are discarded, replacement requests remain queued, timeout terminates the owner, and disposal kills it before releasing its lease. |
 | Session creation timeout | Before this continuation, accelerated `InferenceSession.create` timed out into the provider loop while its underlying promise could continue. A late session was released best-effort without awaiting confirmation. | The current continuation waits for late creation and confirmed release before provider fallback. If cleanup cannot be confirmed, the worker sends a fatal response and the host terminates it. Tests cover late success, late rejection, and failed release. |
-| Effects and preview | `packages/editor/src/canvas/renderPipeline.ts` has in-flight shared work, and the effect-bearing whole-scene worker path remains behind the pixel-fidelity guard recorded in the canvas audit. `packages/engine/src/liveEffects/dispatch.ts` has no production caller; its provider chain is not yet an application rendering path. | Wire expensive RGBA effect work into actual preview/export consumers. Preserve canonical source capture and prove exact or contract-tolerant results with the independent full-redraw oracle before enabling a provider. |
+| Effects and preview | `packages/editor/src/canvas/renderPipeline.ts` has in-flight shared work, and the effect-bearing whole-scene worker path remains behind the pixel-fidelity guard recorded in the canvas audit. M4 adds an opt-in engine worker lane and a synthetic canonical-kernel sample in the existing effect controls. The sample is not the selected artwork preview; interactive art filters and scene replay remain on their current path. The main scene pipeline/compositor files are actively modified by other owners. | Integrate at a separately reviewed artwork consumer boundary, preserve masks/order, and prove output with the independent full-redraw oracle before enabling a provider. Add a release-bound surface cache only when its owner can confirm disposal. |
 | Export completeness | `exportNodeAsRaster` records image settlement failures as warnings and can continue with missing images. A timed-out image can be absent from the completed file. The raster safety fit can reduce dimensions and return the smaller result with a warning. | Make required missing resources and unavailable requested output dimensions blocking states. Generate another file only after an explicit user choice accepts changed dimensions or quality. |
 | Model working set | The browser downloader retains chunks, assembles another full-size buffer, and hashes/writes that assembled artifact. IndexedDB loading materializes an `ArrayBuffer`; the generic Tauri adapter serializes bytes as a number array. | Measure before/after peak memory. Prefer native streaming on desktop and staged, verified chunk storage in browser runtimes without breaking existing installed-model reads. |
 | Admission and budgets | Fixed for the gate/adapter in this continuation: inference and derived work now share a 400 MB conservative default ledger, with an explicit 600 MB reference-8-GB profile, transfer-to-resident leases, eviction confirmation, export aging, and shared snapshots. Legacy derived-work callers can still omit estimates, so their allocations are not yet represented. | M3 focused tests prove cross-kind contention, resident transfer/eviction, over-ceiling refusal, and export ordering. Continue wiring estimates before every decode, tensor, transfer, session, surface, and export allocation; calibrate profiles on target hardware. |
@@ -269,6 +269,80 @@ Biome, emoji, health, impact-config, secret, contacts, docs and import-boundary
 checks, followed by 47 tests across the four admission/provider suites. This
 is additional evidence; it does not replace the seven-suite, 60-test focused
 run above.
+
+The fresh source/runtime baseline was verified on 2026-09-28 local time; it is
+not a hardware profile. The same-day research refresh reopened the four
+reported competitor issues. Photopea's individual report describes a 3692×4800
+PNG with 20–30 second filter and slider waits, and says reducing it to
+1000×1300 made little difference. The Krita issue reports a plugin-version
+regression while connected to remote ComfyUI; its proposed GUI-thread event-loop
+explanation is explicitly a hypothesis. Adobe's official known-issues page
+lists model downloads that can fail after starting, Colorize transparency
+artifacts, loss of detail in JPEG-artifact removal, and pauses when Landscape
+Mixer is combined with other filters. A Figma forum user reports lag while
+space-panning, switching pages, and exporting SVG; support asks for more
+information but does not identify a cause. These reports motivate focused
+acceptance cases; they do not establish population rates or compare products.
+See the source links in the ownership record above.
+
+The first responsive-effects change is deliberately only an opt-in worker job
+lane. It splits the canonical CPU provider into a shared module, captures a
+single transferable surface only after the 400/600 MB shared gate grants a
+three-buffer estimate, serializes expensive work through one worker, and keeps
+one replaceable pending job per owner. Current identity checks cover document,
+target, source, parameters, mask, time, and generation. Worker failure or a
+five-second missing-response deadline retires the worker before the lease is
+released. The live-effect controls now include a separate synthetic kernel
+sample as the first UI consumer. It demonstrates the shared canonical kernel
+with checker detail and translucent edges; it does not display or replace the
+selected artwork's preview. The lane is not wired to the synchronous canvas,
+artwork treatments, thumbnail, comparison, animation, or export path; no
+performance improvement is claimed, and the independent full-redraw pixel
+oracle has not been run for artwork output.
+
+```text
+pnpm exec vitest run \
+  packages/engine/src/liveEffects/__tests__/dispatch.test.ts \
+  packages/engine/src/liveEffects/__tests__/effectPreviewRunner.test.ts --maxWorkers=1
+Result: 2 files passed, 16 tests passed, 0 failed.
+pnpm --filter @varve/engine typecheck
+Result: passed after fixing a constructor-default annotation found by typecheck.
+pnpm exec vitest run packages/editor/src/components/AdjustmentLayer/EffectKernelPreview.test.tsx packages/engine/src/liveEffects/__tests__/effectPreviewRunner.test.ts packages/engine/src/liveEffects/__tests__/dispatch.test.ts --maxWorkers=1
+Result: 3 files passed, 19 tests passed, 0 failed.
+pnpm --filter @varve/editor typecheck
+Result: failed only in the unchanged `packages/editor/src/components/Inspector/controls/CurveEditor.test.tsx` (two existing `getByRole` `exact` option type errors). No diagnostics remained in this task's editor component after correction.
+pnpm typecheck:e2e
+Result: passed after adding the real-worker kernel-preview browser spec.
+pnpm exec biome check packages/editor/src/components/AdjustmentLayer/LiveEffectEditors.tsx packages/editor/src/components/AdjustmentLayer/EffectKernelPreview.tsx packages/editor/src/components/AdjustmentLayer/EffectKernelPreview.test.tsx packages/editor/src/components/AdjustmentLayer/effectKernelPreview.css
+Result: passed; `git diff --check` passed for those paths.
+```
+
+The unit runner tests use a fake worker. The lease-wrapped Chromium case also
+passed with the real module worker; it saved and I inspected the light, dark,
+and high-contrast screenshots at
+`test-results/low-end-effects-m4-themes-0929a/effects-live-effect-kernel-a4022--sample-in-all-three-themes-chromium/`.
+The sample is legible in all three themes and keeps its checker detail,
+translucent border, and ready state. An exploratory extension that resized the
+full editor to 360px and enabled forced colors stopped progressing after the
+theme captures and was interrupted; that narrow forced-colors case remains
+pending the dedicated touch/portrait integration milestone. WebKitGTK,
+navigation during an artwork effect, a full-redraw pixel oracle for artwork,
+and matched-build performance measurements have not passed. The sample is
+synthetic and no selected-artwork performance improvement is claimed.
+
+```text
+VARVE_LEASE_TIMEOUT=1800000 VARVE_E2E_PORT=1693 VARVE_E2E_OUTPUT_DIR=low-end-effects-m4-themes-0929a \
+  node scripts/quality/heavy-lease.mjs "e2e: live effect kernel preview three-theme worker acceptance" -- \
+  npx playwright test tests/e2e/effects/live-effect-kernel-preview.spec.ts --project=chromium --workers=1 --reporter=list
+Result: 1 test passed; real module worker; 40.2s total. Three screenshots saved and visually inspected.
+```
+
+The latest planner sees 535 changes across ten JS packages and `varve-bridge`
+in the shared checkout and reports `FULL-SUITE ESCALATION: YES` for unrelated
+workspace/validation-infrastructure changes. `pnpm verify:affected` exits 2 at
+that escalation before starting lanes; the full gate remains a later frozen-SHA
+checkpoint. The docs audit passes (1105 docs, 698 links, 177 ADRs); emoji audit
+passes (5122 files); token audit passes all 303 theme pairs and the usage scan.
 
 The fresh source/runtime baseline was verified on 2026-09-28 local time; it is
 not a hardware profile:
