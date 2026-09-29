@@ -49,6 +49,8 @@ import { useEffectiveWorkspaceConfig } from '../../workspace/useWorkspaceConfig'
 import { resolveLayersPanelConfig } from '../../workspace/workspaceTypes';
 import { BatchRenameDialog } from '../BatchRename/BatchRenameDialog';
 import { PanelDetachButton, PanelDragHandle } from '../PanelDragHandle';
+import { PresentationNavigator } from '../Presentation/PresentationNavigator';
+import { CREATE_PRESENTATION_FROM_SELECTION_EVENT } from '../Presentation/presentationCommands';
 import { LayerBulkBar } from './LayerBulkBar';
 import { LayerDetailsPopover } from './LayerDetailsPopover';
 import { LayerFilterBar } from './LayerFilterBar';
@@ -84,7 +86,13 @@ function effectStackEntryCount(node: SceneNode, kind: EffectStackKind): number {
     : (node.smartFilters?.length ?? 0);
 }
 
-export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHandle | null> }) {
+function LayersPanelContent({
+  dndRef,
+  showDetach = true,
+}: {
+  dndRef?: React.RefObject<LayersDnDHandle | null>;
+  showDetach?: boolean;
+}) {
   const {
     state,
     setSelection,
@@ -736,7 +744,7 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
     state.selection.length === 1 && detailsTargetId === state.selection[0];
 
   return (
-    <div ref={panelRootRef} className="editor-layers layers-panel" data-panel-root="layers">
+    <div ref={panelRootRef} className="editor-layers layers-panel__content">
       <PanelDragHandle
         panelTypeId="layers"
         panelInstanceId="layers-primary"
@@ -846,7 +854,7 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
                   </button>
                 </Tooltip>
               )}
-              <PanelDetachButton />
+              {showDetach && <PanelDetachButton />}
             </div>
           </TooltipProvider>
         </div>
@@ -997,6 +1005,115 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
       />
 
       <SelectionSetsSection />
+    </div>
+  );
+}
+
+export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHandle | null> }) {
+  const { state } = useEditor();
+  const [activeTab, setActiveTab] = useState<'layers' | 'slides'>('layers');
+  const showPresentationTabs = state.workspaceMode === 'design';
+  const workspaceRootRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!showPresentationTabs) setActiveTab('layers');
+  }, [showPresentationTabs]);
+
+  useEffect(() => {
+    const layersHost = workspaceRootRef.current?.closest('.editor__layers-panel');
+    if (!layersHost) return;
+    if (showPresentationTabs && activeTab === 'slides') {
+      layersHost.setAttribute('data-presentation-view', 'true');
+    } else {
+      layersHost.removeAttribute('data-presentation-view');
+    }
+    return () => layersHost.removeAttribute('data-presentation-view');
+  }, [activeTab, showPresentationTabs]);
+
+  useEffect(() => {
+    const handleCreateRequest = () => setActiveTab('slides');
+    window.addEventListener(CREATE_PRESENTATION_FROM_SELECTION_EVENT, handleCreateRequest);
+    return () =>
+      window.removeEventListener(CREATE_PRESENTATION_FROM_SELECTION_EVENT, handleCreateRequest);
+  }, []);
+
+  const handleTabKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+    event.preventDefault();
+    const focusedTab = (event.target as HTMLButtonElement).id.endsWith('-layers')
+      ? 'layers'
+      : 'slides';
+    const nextTab = focusedTab === 'layers' ? 'slides' : 'layers';
+    setActiveTab(nextTab);
+    event.currentTarget
+      .querySelector<HTMLButtonElement>(`#presentation-panel-tab-${nextTab}`)
+      ?.focus();
+  };
+
+  return (
+    <div
+      ref={workspaceRootRef}
+      className="editor-layers layers-panel layers-panel-workspace"
+      data-panel-root="layers"
+    >
+      {showPresentationTabs && (
+        <div
+          className="layers-panel-workspace__tabs"
+          role="tablist"
+          aria-label="Design panel"
+          onKeyDown={handleTabKeyDown}
+        >
+          <button
+            id="presentation-panel-tab-layers"
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'layers'}
+            aria-controls="presentation-panel-content-layers"
+            tabIndex={activeTab === 'layers' ? 0 : -1}
+            onClick={() => setActiveTab('layers')}
+          >
+            Layers
+          </button>
+          <button
+            id="presentation-panel-tab-slides"
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'slides'}
+            aria-controls="presentation-panel-content-slides"
+            tabIndex={activeTab === 'slides' ? 0 : -1}
+            onClick={() => setActiveTab('slides')}
+          >
+            Slides
+          </button>
+        </div>
+      )}
+      <div className="layers-panel-workspace__content">
+        <div
+          {...(showPresentationTabs
+            ? {
+                id: 'presentation-panel-content-layers',
+                role: 'tabpanel',
+                'aria-labelledby': 'presentation-panel-tab-layers',
+                hidden: activeTab !== 'layers',
+              }
+            : {})}
+        >
+          <LayersPanelContent
+            dndRef={dndRef}
+            showDetach={!showPresentationTabs || activeTab === 'layers'}
+          />
+        </div>
+        {showPresentationTabs && (
+          <div
+            id="presentation-panel-content-slides"
+            role="tabpanel"
+            aria-labelledby="presentation-panel-tab-slides"
+            hidden={activeTab !== 'slides'}
+          >
+            <PresentationNavigator showDetach={activeTab === 'slides'} />
+          </div>
+        )}
+      </div>
     </div>
   );
 }

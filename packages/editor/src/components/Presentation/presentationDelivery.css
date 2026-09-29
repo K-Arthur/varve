@@ -1,0 +1,151 @@
+.varve-dialog.presentation-audience-dialog {
+  box-sizing: border-box;
+  width: 100vw;
+  max-width: 100vw;
+  height: 100dvh;
+  max-height: 100dvh;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: var(--color-surface-app);
+  color: var(--color-text-primary);
+}
+
+.varve-dialog.presentation-audience-dialog[open] {
+  display: flex;
+  animation: none;
+  transform: none;
+}
+
+.presentation-audience-dialog::backdrop {
+  background: var(--color-surface-app);
+}
+
+.presentation-audience-dialog .varve-dialog__header {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.presentation-audience-dialog .varve-dialog__body {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  overflow: hidden;
+}
+
+.presentation-audience {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  background: var(--color-surface-app);
+}
+
+.presentation-audience__stage {
+  display: grid;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  place-items: center;
+  padding: var(--space-4);
+  overflow: hidden;
+}
+
+.presentation-audience__image {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  background: white;
+  box-shadow: 0 12px 48px rgb(0 0 0 / 0.28);
+}
+
+.presentation-audience__controls {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border-top: 1px solid var(--color-border-subtle);
+  background: var(--color-surface-raised);
+}
+
+.presentation-audience__controls > span {
+  min-width: 7rem;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.presentation-audience__warning,
+.presentation-audience__error,
+.presentation-delivery__error,
+.presentation-delivery__limit,
+.presentation-delivery > p {
+  margin: var(--space-3) var(--space-4);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+}
+
+.presentation-audience__error,
+.presentation-delivery__error {
+  color: var(--color-text-danger);
+}
+
+.presentation-delivery__limit {
+  padding: var(--space-2) var(--space-3);
+  border-inline-start: 3px solid var(--color-border-strong);
+  background: var(--color-surface-sunken);
+}
+
+.presentation-delivery__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin: var(--space-4);
+}
+
+.presentation-delivery__warnings {
+  margin: var(--space-3) var(--space-4);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+}
+
+.presentation-export-dialog progress {
+  width: calc(100% - 2 * var(--space-4));
+  margin: 0 var(--space-4);
+  accent-color: var(--color-interactive-default);
+}
+
+@media (max-width: 680px) {
+  .presentation-audience__stage {
+    padding: var(--space-2);
+  }
+
+  .presentation-audience__controls {
+    justify-content: space-between;
+  }
+
+  .presentation-audience__controls > span {
+    order: -1;
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .presentation-audience-dialog,
+  .presentation-export-dialog {
+    scroll-behavior: auto;
+  }
+}

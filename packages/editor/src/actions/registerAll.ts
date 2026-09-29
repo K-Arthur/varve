@@ -2,6 +2,7 @@ import { isTauriRuntime } from '@varve/platform';
 import { type ContactChannelId, contactMailto } from '@varve/shared';
 import { isCapabilityRestricted } from '../capabilities/restrictions';
 import { registerColorConversionActions } from '../components/ColorConversion/colorConversionCommands';
+import { registerPresentationActions } from '../components/Presentation/presentationCommands';
 import type { EditorContextValue } from '../context';
 import {
   createMockupTemplateFromSelection,
@@ -132,6 +133,12 @@ export function registerEditorActions(
       }
     }
   }
+
+  // Presentation commands run AFTER the SHORTCUT_DEFS loop above: they
+  // re-route the generic "present" action through the deck/prototype
+  // decision, and that loop would otherwise overwrite the routed handler
+  // with the raw prototype toggle on every state update.
+  registerPresentationActions(ctx);
 
   const menuActions = [
     ['new', 'New Document', 'file'],
