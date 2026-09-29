@@ -48,7 +48,7 @@ const fallbackLabel = label ?? (hasRelease ? (platformLabel ?? 'Download Varve')
 
 <Button
   href={sitePath('/download')}
-  variant={variant === 'ghost' ? 'secondary' : variant}
+  variant={variant}
   class={`download-cta download-cta-${size}${className ? ` ${className}` : ''}`}
   data-download-cta
   data-has-release={hasRelease ? 'true' : 'false'}
