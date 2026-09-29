@@ -537,6 +537,18 @@ function ShellInner({
     });
 
     const onKey = (e: KeyboardEvent) => {
+      if (
+        document.documentElement.dataset.layoutMode === 'tablet' &&
+        inspectorVisible &&
+        !layersVisible &&
+        !libraryPanelVisible
+      ) {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          closeResponsivePanels();
+        }
+        return;
+      }
       if (e.key === 'Escape') {
         e.preventDefault();
         closeResponsivePanels();

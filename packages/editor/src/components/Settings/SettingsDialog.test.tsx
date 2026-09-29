@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { enableDrawDiagnostics, isDiagnosticsEnabled } from '../../canvas/drawDiagnostics';
 import { EditorProvider } from '../../context';
 import { setCompositorDiagnostics } from '../../render/compositorDiagnosticsStore';
+import { loadSettings } from '../../settings';
 import { SettingsProvider } from './SettingsContext';
 import { SettingsDialog } from './SettingsDialog';
 
@@ -168,6 +169,18 @@ describe('AppearanceSettingsTab', () => {
     const density = screen.getByRole('combobox', { name: 'Interface density' });
     expect(density).toHaveTextContent('Default Pro');
     expect(screen.getByText('Comfortable 34px rows for pointer-first work.')).toBeTruthy();
+  });
+
+  it('persists the tablet workspace layout independently of interface density', async () => {
+    renderWithProvider(<SettingsDialog open={true} onClose={() => {}} />);
+    fireEvent.click(screen.getByRole('tab', { name: 'Appearance' }));
+
+    fireEvent.click(screen.getByRole('combobox', { name: 'Workspace layout' }));
+    fireEvent.click(await screen.findByRole('option', { name: 'Tablet' }));
+
+    expect(loadSettings().appearance.layoutPreference).toBe('tablet');
+    expect(loadSettings().appearance.uiDensity).toBe('default');
+    expect(document.documentElement.dataset.layoutMode).toBe('tablet');
   });
 
   it('persists Compact Pro and announces the compact contract', async () => {

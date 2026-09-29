@@ -31,6 +31,9 @@ export type FontSizeUI = 'small' | 'medium' | 'large';
  */
 export type InterfaceDensity = 'default' | 'compact';
 
+/** Responsive shell presentation. This is independent of panel docking. */
+export type LayoutPreference = 'auto' | 'tablet' | 'desktop';
+
 /**
  * Source of the interface accent family. `'fixed'` (default) keeps the brand
  * teal; `'document'` derives the accent hue from the active page preview via
@@ -98,6 +101,8 @@ export interface AppearanceSettingsStore {
   fontSizeUI: FontSizeUI;
   /** Row density for scan-heavy surfaces (Layers, lists, tables). */
   uiDensity: InterfaceDensity;
+  /** Responsive tablet/desktop presentation; never rewrites dock preferences. */
+  layoutPreference: LayoutPreference;
   /** Interface accent source; see {@link AccentSourcePreference}. */
   accentSource: AccentSourcePreference;
 }
@@ -290,6 +295,7 @@ export const DEFAULT_APPEARANCE_SETTINGS: AppearanceSettingsStore = {
   showShortcutTips: true,
   fontSizeUI: 'medium',
   uiDensity: 'default',
+  layoutPreference: 'auto',
   accentSource: 'fixed',
 };
 
@@ -683,6 +689,10 @@ function normalizeAppearanceSettings(
     ...appearance,
     fontSizeUI: normalizeFontSizeUI(appearance.fontSizeUI),
     uiDensity: normalizeInterfaceDensity(appearance.uiDensity),
+    layoutPreference:
+      appearance.layoutPreference === 'tablet' || appearance.layoutPreference === 'desktop'
+        ? appearance.layoutPreference
+        : 'auto',
     accentSource: normalizeAccentSource(appearance.accentSource),
   };
 }

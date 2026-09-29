@@ -104,6 +104,12 @@ const DENSITY_HINT: Record<string, string> = {
   compact: '28px rows show more of the stack at once; text and targets keep their readable floor.',
 };
 
+const LAYOUT_PREFERENCE_OPTIONS = [
+  { value: 'auto', label: 'Automatic' },
+  { value: 'tablet', label: 'Tablet' },
+  { value: 'desktop', label: 'Desktop' },
+];
+
 // Interface accent source. 'document' re-tints accent/interactive controls
 // from the active page; focus rings, canvas selection and handles, semantic
 // feedback, and High-Contrast always keep their fixed colors.
@@ -639,6 +645,18 @@ function AppearanceSection({ onThemeChange }: { onThemeChange: (theme: string) =
         />
       </SettingsFieldRow>
       <p className="settings-hint">{DENSITY_HINT[settings.appearance.uiDensity]}</p>
+      <SettingsFieldRow label="Workspace layout">
+        <Select
+          options={LAYOUT_PREFERENCE_OPTIONS}
+          value={settings.appearance.layoutPreference}
+          onChange={(v) => updateSection('appearance', { layoutPreference: v })}
+          label="Workspace layout"
+        />
+      </SettingsFieldRow>
+      <p className="settings-hint">
+        Automatic keeps compact controls below 900px and selects tablet presentation for touch
+        devices through 1280px. A tablet override adapts to constrained widths.
+      </p>
       <SettingsFieldRow label="Accent source">
         <Select
           options={ACCENT_SOURCE_OPTIONS}

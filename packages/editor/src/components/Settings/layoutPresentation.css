@@ -1,0 +1,162 @@
+/* Tablet controls keep stable, separate hit targets instead of deriving
+   placement from panel widths that may change with the inspector. */
+:root[data-layout-mode="tablet"] .editor__fab {
+  width: var(--touch-target-min, 44px);
+  height: var(--touch-target-min, 44px);
+}
+
+:root[data-layout-mode="tablet"] .editor__fab--library {
+  right: calc(var(--space-3) + var(--touch-target-min, 44px) + var(--space-2));
+}
+
+/* Saved dock layouts keep their panels in place at tablet widths. In that
+   presentation the Layers dock already owns the lower-left hit region, so its
+   floating drawer launcher must yield while the dock is visible. */
+:root[data-layout-mode="tablet"]
+  .editor-shell:has(.editor-shell__canvas-dock[style*="position: absolute"]):has(
+    .editor__layers-panel:not([data-collapsed])
+  )
+  .editor__fab--layers {
+  display: none;
+}
+
+/* On coarse input the contextual toolbar grows to the 44px touch target and
+   its vertical spacing. Keep fixed drawers below that actual header stack. */
+@media (pointer: coarse), (any-pointer: coarse) {
+  :root[data-layout-mode="tablet"] .editor-shell {
+    --menubar-total-height: calc(
+      var(--topbar-height) +
+      2 *
+      var(--space-2) +
+      var(--touch-target-min, 44px) +
+      2 *
+      var(--space-toolbar) +
+      1px +
+      var(--space-1) +
+      32px
+    );
+  }
+}
+
+@media (min-width: 900px) {
+  :root[data-layout-mode="tablet"] .editor__fab {
+    display: flex;
+    bottom: calc(
+      var(--statusbar-height) +
+      28px +
+      var(--space-3) +
+      var(--floating-toolbar-height, var(--toolbar-height)) +
+      var(--space-2) +
+      env(safe-area-inset-bottom, 0px)
+    );
+  }
+
+  /* The inspector remains a reserved, scrollable grid column on tablet-sized
+     windows; Layers and Resources keep their existing dismissible drawers. */
+  :root[data-layout-mode="tablet"]
+  .editor-shell:not(:has(.editor-shell__canvas-dock[style*="position: absolute"])) {
+    --sidebar-width: 0px;
+    --inspector-width: clamp(280px, 30vw, 360px);
+    grid-template-columns: 0 minmax(320px, 1fr) var(--inspector-width) 0;
+  }
+
+  :root[data-layout-mode="tablet"] .editor__fab--inspector {
+    display: none;
+  }
+
+  :root[data-layout-mode="tablet"] .editor__fab--library {
+    right: calc(var(--inspector-width) + var(--space-3));
+  }
+
+  :root[data-layout-mode="tablet"]
+    .editor-shell:not(:has(.editor-shell__canvas-dock[style*="position: absolute"]))
+    .editor__layers-panel {
+    position: fixed;
+    inset: var(--menubar-total-height) auto var(--statusbar-height) 0;
+    width: min(320px, 360px);
+    z-index: var(--z-overlay);
+    transform: translateX(-100%);
+    transition: transform var(--duration-base) var(--ease-out);
+    visibility: hidden;
+  }
+
+  :root[data-layout-mode="tablet"]
+    .editor-shell:not(:has(.editor-shell__canvas-dock[style*="position: absolute"]))
+    .editor__layers-panel[data-visible] {
+    transform: translateX(0);
+    visibility: visible;
+  }
+}
+
+@media (max-width: 899px) and (orientation: portrait) {
+  /* The compact tablet inspector is a shallow, nonmodal lower pane. Its
+     controls remain interactive, and the uncovered canvas remains available
+     for direct manipulation. */
+  :root[data-layout-mode="tablet"] .editor__inspector-panel[data-visible] {
+    height: min(36dvh, 360px);
+    max-height: calc(100dvh - env(safe-area-inset-top, 0px) - 24px);
+  }
+
+  :root[data-layout-mode="tablet"]
+    .editor-shell:has(.editor__inspector-panel[data-visible]):not(
+      :has(.editor__layers-panel[data-visible], .editor__library-panel[data-visible])
+    )
+    .editor__panel-backdrop {
+    display: none;
+  }
+}
+
+@media (max-width: 899px) and (orientation: landscape) {
+  /* Landscape has room for a narrow Inspector rail. Keep the panel nonmodal
+     and leave the uncovered canvas available for navigation and editing. */
+  :root[data-layout-mode="tablet"] .editor__inspector-panel {
+    width: min(320px, 45vw);
+    max-width: none;
+    height: auto;
+    max-height: none;
+    border-radius: 0;
+  }
+
+  :root[data-layout-mode="tablet"]
+    .editor-shell:has(.editor__inspector-panel[data-visible]):not(
+      :has(.editor__layers-panel[data-visible], .editor__library-panel[data-visible])
+    )
+    .editor__panel-backdrop {
+    display: none;
+  }
+}
+
+/* The menubar has both a centered document title and the workspace dock. At
+   constrained landscape widths their content boxes can intersect even when
+   the full page does not overflow. The document title remains visible in the
+   tab strip and status bar, so hide only this duplicate name until both sides
+   of the header have room again. */
+@media (min-width: 900px) and (max-width: 1094px) {
+  .editor-menubar__center {
+    display: none;
+  }
+}
+
+@media (max-width: 1280px) {
+  /* Keep the touch multi-select modifier intact beside the horizontally
+     scrollable tool row. Narrow canvases can clip its long caption even on a
+     laptop-sized viewport, so use a short visible label and preserve its
+     state and purpose beside the scrollable tool row. */
+  :root[data-layout-mode="tablet"] .floating-toolbar__touch-multi {
+    flex-direction: column;
+    gap: 0;
+    width: var(--touch-target-min, 44px);
+    min-width: var(--touch-target-min, 44px);
+    padding-inline: 0;
+  }
+
+  :root[data-layout-mode="tablet"] .floating-toolbar__touch-multi-label {
+    display: none;
+  }
+
+  :root[data-layout-mode="tablet"] .floating-toolbar__touch-multi::after {
+    content: "Multi";
+    font-size: var(--font-size-2xs);
+    line-height: 1;
+  }
+}

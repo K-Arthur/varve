@@ -876,6 +876,14 @@ function buildMenus(
           })),
         },
         {
+          label: 'Workspace layout',
+          items: [
+            { label: 'Automatic', action: 'layoutPreference:auto' },
+            { label: 'Tablet', action: 'layoutPreference:tablet' },
+            { label: 'Desktop', action: 'layoutPreference:desktop' },
+          ],
+        },
+        {
           label: 'Zoom',
           items: [
             {

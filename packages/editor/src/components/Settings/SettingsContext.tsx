@@ -1,4 +1,12 @@
-import { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from 'react';
+import {
+  createContext,
+  type ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import { documentAccentController } from '../../appearance/documentAccent';
 import {
   refreshInteractivePreviewSettings,
@@ -13,6 +21,13 @@ import {
   saveSettings as saveEditorSettings,
 } from '../../settings';
 import { applyInterfaceAppearance } from '../../settings/interfaceDensity';
+import { registerLayoutPreferenceCommands } from '../../settings/layoutPreferenceCommands';
+import {
+  LAYOUT_PREFERENCE_REQUEST_EVENT,
+  mountLayoutPresentation,
+  setLayoutPreference,
+} from '../../settings/layoutPresentation';
+import './layoutPresentation.css';
 
 export type Settings = EditorSettings;
 
@@ -52,6 +67,14 @@ const SettingsCtx = createContext<SettingsContextValue | null>(null);
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<EditorSettings>(loadEditorSettings);
+  const layoutPreferenceRef = useRef(settings.appearance.layoutPreference);
+  layoutPreferenceRef.current = settings.appearance.layoutPreference;
+
+  useEffect(() => mountLayoutPresentation(layoutPreferenceRef.current), []);
+  useEffect(() => registerLayoutPreferenceCommands(), []);
+
+  const layoutPreference = settings.appearance.layoutPreference;
+  useEffect(() => setLayoutPreference(layoutPreference), [layoutPreference]);
 
   // Interface appearance (density, UI font size) is root-level DOM state,
   // like the theme. The pre-paint script applies the persisted values before
@@ -96,6 +119,17 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     },
     [persist],
   );
+
+  useEffect(() => {
+    const handleLayoutPreferenceRequest = (event: Event) => {
+      const preference = (event as CustomEvent<{ preference?: unknown }>).detail?.preference;
+      if (preference !== 'auto' && preference !== 'tablet' && preference !== 'desktop') return;
+      updateSettings({ appearance: { layoutPreference: preference } });
+    };
+    window.addEventListener(LAYOUT_PREFERENCE_REQUEST_EVENT, handleLayoutPreferenceRequest);
+    return () =>
+      window.removeEventListener(LAYOUT_PREFERENCE_REQUEST_EVENT, handleLayoutPreferenceRequest);
+  }, [updateSettings]);
 
   const updateSection = useCallback(
     (section: SettingsSection, values: Record<string, unknown>) => {
