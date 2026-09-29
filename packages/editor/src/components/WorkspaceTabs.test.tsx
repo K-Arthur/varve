@@ -72,11 +72,17 @@ describe('WorkspaceTabs', () => {
       'Control+Shift+5',
       'Control+Shift+6',
     ]);
+    // The ordered 1–6 mapping is carried on the radio itself (and in
+    // aria-keyshortcuts above) rather than as a rendered number chip. The chip
+    // duplicated the tooltip chord, this attribute, aria-keyshortcuts and the
+    // overflow menu badge, and sat half outside its own control.
     expect(
-      [...group.querySelectorAll('.workspace-dock__shortcut')].map((key) =>
-        key.getAttribute('data-shortcut-key'),
+      [...group.querySelectorAll('[role="radio"]')].map((tab) =>
+        tab.getAttribute('data-shortcut-key'),
       ),
     ).toEqual(['1', '2', '3', '4', '5', '6']);
+    // No number chip is painted, and no tab child overhangs its control.
+    expect(group.querySelectorAll('.workspace-dock__shortcut')).toHaveLength(0);
     expect(within(group).getByRole('radio', { name: /Design/ })).toHaveAttribute(
       'aria-checked',
       'true',

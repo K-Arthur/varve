@@ -2244,14 +2244,16 @@ input[type="number"] {
   .editor-menubar__controls .workspace-dock {
     justify-content: flex-start;
   }
-  .editor-menubar .workspace-dock__item--active {
-    width: 28px;
-    padding-inline: 0;
-  }
-  .editor-menubar .workspace-dock__item--active .workspace-dock__label {
-    width: 0;
-    opacity: 0;
-  }
+  /* The active workspace keeps its name at phone widths too. The pill used to
+     be forced to 28px with `width: 0; opacity: 0` on its label here, which is
+     the one thing the layout math cannot recover from: it measures rendered
+     tab widths, so a CSS-collapsed label reads as zero forever and
+     `compactActive` can never be true for the right reason. At 640×400 the
+     row left 96px of the dock's wrapper unused while the name (44px) was
+     hidden. `computeWorkspaceLayout` already compacts the pill to its icon
+     when the strip is genuinely too narrow — that decision belongs to the
+     measurement, not to a width query.
+     (docs/audits/workspace-switcher-design-review-2026-09-29.md F5) */
   .editor-menubar__zoom,
   .editor-menubar__zoom-divider {
     display: none;
@@ -2301,6 +2303,30 @@ input[type="number"] {
     min-height: 24px;
   }
 
+  /* Keep the whole top chrome on one touch scale. The switcher already grows
+   * to 44px on coarse pointers; menu, home, and history actions should not
+   * remain visually and physically smaller beside it. */
+  .editor-menubar .editor-menubar__home,
+  .editor-menubar .editor-menubar__item,
+  .editor-menubar .editor-menubar__doc-name-text,
+  .editor-menubar .editor-menubar__doc-name-input,
+  .editor-menubar .editor-menubar__controls .varve-iconbtn {
+    min-block-size: var(--touch-target-min);
+  }
+
+  .editor-menubar .editor-menubar__item {
+    font-size: var(--font-size-xs);
+  }
+
+  .editor-menubar .editor-menubar__home,
+  .editor-menubar .editor-menubar__controls .varve-iconbtn {
+    min-inline-size: var(--touch-target-min);
+  }
+
+  .editor-menubar .workspace-dock {
+    --dock-item-size: var(--touch-target-min);
+  }
+
   .editor-status__toggle,
   .editor-status__zoom-chip .editor-status__toggle {
     width: 24px;
@@ -2313,6 +2339,34 @@ input[type="number"] {
   .editor-status__zoom-value {
     min-height: 24px;
   }
+}
+
+html[data-layout-mode="tablet"] .editor-menubar .editor-menubar__home,
+html[data-layout-mode="tablet"] .editor-menubar .editor-menubar__item,
+html[data-layout-mode="tablet"] .editor-menubar .editor-menubar__doc-name-text,
+html[data-layout-mode="tablet"] .editor-menubar .editor-menubar__doc-name-input,
+html[data-layout-mode="tablet"] .editor-menubar .editor-menubar__controls .varve-iconbtn,
+html[data-layout-mode="tablet"] .workspace-dock__item,
+html[data-layout-mode="tablet"] .workspace-dock__more {
+  min-inline-size: var(--touch-target-min);
+  min-block-size: var(--touch-target-min);
+}
+
+html[data-layout-mode="tablet"] .editor-menubar .editor-menubar__home {
+  inline-size: var(--touch-target-min);
+  block-size: var(--touch-target-min);
+}
+
+html[data-layout-mode="tablet"] .editor-menubar .editor-menubar__item {
+  font-size: var(--font-size-xs);
+}
+
+html[data-layout-mode="tablet"] .workspace-dock__bar {
+  min-block-size: calc(var(--touch-target-min) + var(--space-2));
+}
+
+html[data-layout-mode="tablet"] .editor-menubar .workspace-dock {
+  --dock-item-size: var(--touch-target-min);
 }
 
 /* ── Container queries for panels ── */
@@ -3003,9 +3057,16 @@ input[type="number"] {
 /* ── Portrait menubar consolidation ──
  * The document title is duplicated in the tab strip and the status bar, and
  * the menubar zoom duplicates the status-bar zoom chip. Portrait keeps the
- * menu strip, the icon-only workspace switcher, and undo/redo, and makes the
- * menu strip scrollable so a wider workspace menu set can never clip an
- * option. */
+ * menu strip, the workspace switcher, and undo/redo, and makes the menu strip
+ * scrollable so a wider workspace menu set can never clip an option.
+ *
+ * The switcher's own portrait sizing lives in ONE place — the two-tier block
+ * below, which sets the 44px item/dock tokens and keeps the active label.
+ * Earlier revisions duplicated those rules here with opposite intent
+ * (`min-inline-size: 32px`, `label { display: none }`), which the later block
+ * then overrode: dead declarations that made the narrow-width behavior
+ * impossible to read from the cascade.
+ * (docs/audits/workspace-switcher-design-review-2026-09-29.md F4) */
 @media (max-width: 899px) and (orientation: portrait) {
   .editor-menubar__center {
     display: none;
@@ -3013,20 +3074,6 @@ input[type="number"] {
 
   .editor-menubar__zoom,
   .editor-menubar__zoom-divider {
-    display: none;
-  }
-
-  .editor-menubar .workspace-dock {
-    gap: var(--space-1);
-  }
-
-  .editor-menubar .workspace-dock__item,
-  .editor-menubar .workspace-dock__more {
-    min-inline-size: 32px;
-    padding-inline: var(--space-1);
-  }
-
-  .editor-menubar .workspace-dock__label {
     display: none;
   }
 
@@ -3040,10 +3087,109 @@ input[type="number"] {
   .editor-menubar__left::-webkit-scrollbar {
     display: none;
   }
+}
+
+/* Portrait tablets have enough vertical room to stop compressing the app
+ * menus, workspace switcher, and history controls into one uneven strip.
+ * Keep navigation on the first line and group workspace/history actions on a
+ * second line with a shared 44px control rhythm. */
+@media (max-width: 899px) and (orientation: portrait) {
+  .editor-shell {
+    --menubar-total-height: calc(
+      var(--topbar-height) +
+      var(--space-2) +
+      var(--touch-target-min) +
+      var(--space-2) +
+      var(--space-1) +
+      var(--space-2) +
+      var(--toolbar-height) +
+      2px +
+      32px
+    );
+  }
+
+  .editor-menubar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    align-content: center;
+    gap: var(--space-1);
+    padding: var(--space-1) var(--space-2);
+  }
+
+  .editor-menubar__side {
+    grid-row: 1;
+    width: 100%;
+    min-height: var(--touch-target-min);
+    flex: 1 1 auto;
+    gap: var(--space-2);
+  }
+
+  .editor-menubar__home {
+    width: var(--touch-target-min);
+    height: var(--touch-target-min);
+    flex: 0 0 var(--touch-target-min);
+  }
+
+  .editor-menubar__left {
+    gap: var(--space-1);
+  }
+
+  .editor-menubar__item {
+    min-height: var(--touch-target-min);
+    padding-inline: var(--space-2);
+    border-radius: var(--radius-control);
+    font-size: var(--font-size-xs);
+  }
 
   .editor-menubar__controls {
+    grid-row: 2;
+    grid-column: 1;
+    width: 100%;
+    min-height: calc(var(--touch-target-min) + var(--space-2));
     flex: 0 0 auto;
-    margin-left: auto;
+    justify-content: space-between;
+    gap: var(--space-2);
+    margin-left: 0;
+  }
+
+  .editor-menubar__controls .workspace-dock {
+    --dock-item-size: var(--touch-target-min);
+    --dock-bar-height: calc(var(--touch-target-min) + var(--space-2));
+    --dock-inset-inline: var(--space-2);
+    --dock-tab-gap: var(--space-1);
+
+    flex: 1 1 0;
+    justify-content: flex-start;
+  }
+
+  .editor-menubar .workspace-dock__label {
+    display: inline;
+    width: auto;
+    opacity: 1;
+  }
+
+  .editor-menubar .workspace-dock__item--active .workspace-dock__label {
+    width: auto;
+    opacity: 1;
+  }
+
+  .editor-menubar
+    .workspace-dock__bar:not(.workspace-dock--compact-active)
+    .workspace-dock__item--active {
+    width: auto;
+    padding-inline: var(--space-3);
+  }
+
+  .editor-menubar .workspace-dock--compact-active .workspace-dock__label {
+    display: none;
+  }
+
+  .editor-menubar .editor-menubar__controls .varve-iconbtn,
+  .editor-menubar .workspace-dock__item,
+  .editor-menubar .workspace-dock__more {
+    min-inline-size: var(--touch-target-min);
+    min-block-size: var(--touch-target-min);
   }
 }
 
@@ -3053,6 +3199,55 @@ input[type="number"] {
   .editor__library-panel,
   .editor__logo-panel {
     transition: none;
+  }
+}
+
+/* ── Compact chrome: the switcher stops being a floating surface ──
+ * At >=900px the switcher is a raised card inside a single-row menubar: the
+ * card is what groups the segmented control and separates it from undo/redo
+ * and the zoom field on the same line.
+ *
+ * Below 900px that job is done by layout instead. In landscape the dock sits
+ * inline behind the application menu rail, and the card's own box covered the
+ * last menu label ("Help" at 640×400); in portrait the dock owns a full
+ * second row, so an opaque card with --radius-floating and a drop shadow is a
+ * second floating surface reproduced three rows above the actual floating
+ * toolbar — the same shape, the same radius, the same shadow. The switcher is
+ * chrome in the top bar, and at these widths it should read that way.
+ *
+ * Only the container is flattened. The active pill keeps its accent fill, so
+ * the current workspace stays the most prominent thing in the strip, and every
+ * hit target keeps the 44px rhythm set by the two-tier/coarse rules above.
+ * (docs/audits/workspace-switcher-design-review-2026-09-29.md F2)
+ *
+ * The application menu rail is constrained in the same tier. `.editor-menubar__side`
+ * and `.editor-menubar__controls` are both `flex: 1 1 0` so the document title
+ * lands on the bar's true midpoint; below 900px the title is hidden, but the
+ * symmetry still gives the menu rail half the bar — less than the menus'
+ * min-content width between 641px and ~750px. The rail had no `min-width: 0`,
+ * so it painted *outside* its own box and over the switcher, and because the
+ * controls follow it in the DOM the switcher won hit-testing: at 641×500 the
+ * last 50px of the Help label hit a workspace tab, at 700×500 the last 22px
+ * hit the dock bar. `min-width: 0` + a hidden-scrollbar `overflow-x` keeps the
+ * rail inside its box and makes the menu strip scroll rather than spill — the
+ * same treatment the portrait tier already documented.
+ * (docs/audits/workspace-switcher-design-review-2026-09-29.md F6) */
+@media (max-width: 899px) {
+  .editor-menubar .workspace-dock__bar {
+    background: transparent;
+    border-color: transparent;
+    box-shadow: none;
+  }
+
+  .editor-menubar__left {
+    min-width: 0;
+    flex-shrink: 1;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .editor-menubar__left::-webkit-scrollbar {
+    display: none;
   }
 }
 
@@ -5864,6 +6059,21 @@ dialog.varve-dialog--settings[open] {
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
   margin-bottom: var(--space-4);
+}
+.workspace-customize__save-error,
+.workspace-layouts__save-error {
+  margin: 0 0 var(--space-4);
+  padding: var(--space-3);
+  color: var(--color-text-danger);
+  font-size: var(--font-size-xs);
+  line-height: var(--font-line-normal);
+  background: var(--color-surface-sunken);
+  border: var(--border-micro);
+  border-radius: var(--radius-control);
+}
+.workspace-customize__save-error p,
+.workspace-layouts__save-error p {
+  margin: 0 0 var(--space-2);
 }
 .workspace-customize__section {
   margin-bottom: var(--space-4);

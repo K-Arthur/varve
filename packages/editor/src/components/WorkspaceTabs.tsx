@@ -44,11 +44,11 @@
  */
 import { Menu, TablerIcon, type TablerIconName, Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import './WorkspaceTabs.css';
 import { allowedWorkspaceModes } from '../capabilities/restrictions';
 import { useEditor } from '../context';
 import {
   computeWorkspaceLayout,
+  WORKSPACE_ICON_BUTTON_WIDTH,
   WORKSPACE_TAB_GAP_FALLBACK,
   type WorkspaceLayoutResult,
 } from '../workspace/workspaceOverflow';
@@ -113,6 +113,19 @@ function resolveTabGap(el: HTMLElement | null): number {
   return Number.isFinite(gap) ? gap : WORKSPACE_TAB_GAP_FALLBACK;
 }
 
+/** Keep overflow measurement aligned with the icon target rendered by CSS. */
+function resolveIconButtonWidth(el: HTMLElement): number {
+  const configuredWidth = Number.parseFloat(
+    getComputedStyle(el).getPropertyValue('--dock-item-size'),
+  );
+  if (Number.isFinite(configuredWidth) && configuredWidth > 0) {
+    return Math.max(WORKSPACE_ICON_BUTTON_WIDTH, configuredWidth);
+  }
+  return document.documentElement.dataset.layoutMode === 'tablet'
+    ? 44
+    : WORKSPACE_ICON_BUTTON_WIDTH;
+}
+
 export function WorkspaceTabs() {
   const { state, requestWorkspaceSwitch, resetWorkspaceToDefault } = useEditor();
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -132,6 +145,7 @@ export function WorkspaceTabs() {
     if (!wrap) return;
     if (wrap.clientWidth <= 0) return;
     const tabGap = resolveTabGap(groupRef.current);
+    const iconButtonWidth = resolveIconButtonWidth(wrap);
     for (const mode of allowedModes) {
       const el = tabRefs.current[mode];
       if (el && el.offsetWidth > 0) naturalWidths.current[mode] = el.offsetWidth;
@@ -142,7 +156,8 @@ export function WorkspaceTabs() {
         activeMode: state.workspaceMode,
         availableWidth: Math.max(0, wrap.clientWidth - DOCK_CHROME_WIDTH),
         tabWidths: naturalWidths.current,
-        overflowMenuWidth: OVERFLOW_BTN_WIDTH,
+        overflowMenuWidth: Math.max(OVERFLOW_BTN_WIDTH, iconButtonWidth),
+        iconButtonWidth,
         overflowPriority: WORKSPACE_OVERFLOW_PRIORITY,
         tabGap,
       }),
@@ -266,6 +281,17 @@ export function WorkspaceTabs() {
                   type="button"
                   role="radio"
                   data-mode={mode}
+                  /* Ordered-shortcut carrier. The switcher itself renders no
+                     number chip any more: the chip duplicated the tooltip's
+                     chord, this attribute, `aria-keyshortcuts` and the
+                     overflow menu's badge, and read as a notification counter
+                     on the active pill. The order still tells the user which
+                     Ctrl+Shift number belongs to which mode, and the View >
+                     Workspace submenu and the shortcut reference list the same
+                     sequence. See
+                     docs/audits/workspace-switcher-design-review-2026-09-29.md
+                     (F1). */
+                  data-shortcut-key={shortcutKey}
                   aria-checked={isActive}
                   aria-label={`${WORKSPACE_LABELS[mode]} workspace`}
                   aria-keyshortcuts={toAriaKeyshortcuts(workspaceShortcutLabel(mode))}
@@ -283,9 +309,6 @@ export function WorkspaceTabs() {
                       data-workspace-icon={WORKSPACE_ICON_NAMES[mode]}
                     />
                   </span>
-                  <kbd className="workspace-dock__shortcut" data-shortcut-key={shortcutKey}>
-                    {shortcutKey}
-                  </kbd>
                   {/* Inactive modes are icon-only; the active mode keeps its
                       name unless the strip is too narrow even for the pill, so
                       the desktop presentation always names the active
