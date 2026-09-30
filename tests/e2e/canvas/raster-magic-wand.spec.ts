@@ -143,6 +143,22 @@ function opaqueRedPixels(input: Buffer): number {
   return count;
 }
 
+function opaqueCyanPixels(input: Buffer): number {
+  const image = PNG.sync.read(input);
+  let count = 0;
+  for (let offset = 0; offset < image.data.length; offset += 4) {
+    if (
+      (image.data[offset + 3] ?? 0) > 200 &&
+      (image.data[offset] ?? 255) < 40 &&
+      (image.data[offset + 1] ?? 0) > 180 &&
+      (image.data[offset + 2] ?? 0) > 180
+    ) {
+      count += 1;
+    }
+  }
+  return count;
+}
+
 function opaqueRedPixelsAt(data: Buffer, offset: number): boolean {
   return (
     (data[offset + 3] ?? 0) > 200 &&
@@ -167,8 +183,11 @@ async function surfaceHash(page: import('@playwright/test').Page): Promise<strin
 
 async function canvasColorStats(
   canvas: import('@playwright/test').Locator,
-  color: 'black' | 'red',
-): Promise<{ count: number; bounds: number[] | null }> {
+  color: 'black' | 'red' | 'blue' | 'cyan',
+): Promise<{
+  count: number;
+  bounds: readonly [number, number, number, number] | null;
+}> {
   return canvas.evaluate((element, expectedColor) => {
     const surface = element as HTMLCanvasElement;
     const context = surface.getContext('2d');
@@ -186,11 +205,16 @@ async function canvasColorStats(
         const red = data[offset] ?? 0;
         const green = data[offset + 1] ?? 0;
         const blue = data[offset + 2] ?? 0;
+        const alphaMatches = expectedColor === 'blue' ? alpha > 48 : alpha > 200;
         const matches =
-          alpha > 200 &&
+          alphaMatches &&
           (expectedColor === 'red'
             ? red > 200 && green < 40 && blue < 40
-            : red < 16 && green < 16 && blue < 16);
+            : expectedColor === 'blue'
+              ? red < 120 && green < 160 && blue > 180
+              : expectedColor === 'cyan'
+                ? red < 40 && green > 180 && blue > 180
+                : red < 16 && green < 16 && blue < 16);
         if (!matches) continue;
         count += 1;
         minX = Math.min(minX, x);
@@ -199,7 +223,10 @@ async function canvasColorStats(
         maxY = Math.max(maxY, y);
       }
     }
-    return { count, bounds: count === 0 ? null : [minX, minY, maxX, maxY] };
+    return {
+      count,
+      bounds: count === 0 ? null : ([minX, minY, maxX, maxY] as const),
+    };
   }, color);
 }
 
@@ -346,9 +373,10 @@ const VIEWPORT = { width: 1280, height: 800 };
 test.describe('hybrid illustration Magic Wand workflow', () => {
   test.describe.configure({ timeout: 300000 });
 
-  test('samples closed raster linework into a separate flats layer, then saves and reopens', async ({
+  test('sketches, inks, fills flats, adds clipped shading, then saves and reopens', async ({
     page,
   }, testInfo) => {
+    test.setTimeout(600000);
     page.on('pageerror', (error) =>
       console.error(`[hybrid workflow pageerror] ${error.stack ?? error.message}`),
     );
@@ -382,12 +410,10 @@ test.describe('hybrid illustration Magic Wand workflow', () => {
     await page.getByTestId('new-file-button').click({ force: true });
     const newDialog = page.locator('dialog.varve-dialog[open]');
     await expect(newDialog).toBeVisible({ timeout: 10000 });
-    await newDialog.getByRole('button', { name: /advanced settings/i }).click();
-    await newDialog
-      .getByRole('radiogroup', { name: 'Document intent' })
-      .locator('label')
-      .filter({ hasText: /^Print$/ })
-      .click();
+    await newDialog.locator('label.varve-radio').filter({ hasText: 'Start with a frame' }).click();
+    await newDialog.getByRole('radio', { name: 'Custom size' }).click();
+    await newDialog.getByRole('textbox', { name: 'Width' }).fill('640');
+    await newDialog.getByRole('textbox', { name: 'Height' }).fill('480');
     await newDialog.getByTestId('create-design-button').click();
     await page.locator('.editor-shell').waitFor({ state: 'visible', timeout: 60000 });
     await page.locator('canvas.editor-canvas__content-layer').waitFor({
@@ -395,27 +421,96 @@ test.describe('hybrid illustration Magic Wand workflow', () => {
       timeout: 60000,
     });
 
-    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
-    await page.keyboard.press('Escape');
-    await page.keyboard.press('q');
-    const canvas = page.locator('canvas.editor-canvas__content-layer');
-    const pageBox = await canvas.boundingBox();
-    if (!pageBox) throw new Error('page canvas not found');
-    await page.mouse.click(pageBox.x + pageBox.width / 2, pageBox.y + pageBox.height / 2);
-    await page.getByText('Page Print').first().waitFor({ timeout: 10000 });
-    const printSection = page.locator('.page-print');
-    await printSection.getByLabel(/page width/i).fill('640');
-    await printSection.getByLabel(/page height/i).fill('480');
-    await printSection.getByLabel(/page height/i).press('Enter');
-    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
-    await page.keyboard.press('Escape');
-    await page.waitForTimeout(300);
-
     await switchWorkspace(page, 'Draw');
-    await page.getByRole('button', { name: 'Fit active page' }).click();
+    const frameRow = page.getByRole('treeitem').filter({ hasText: 'Custom frame' }).first();
+    await expect(frameRow).toBeVisible();
+    await frameRow.click();
+    await page.getByRole('button', { name: 'Fit selection to viewport' }).click({ timeout: 15000 });
+    await page.keyboard.press('Escape');
+    const canvas = page.locator('canvas.editor-canvas__content-layer');
     await expect
       .poll(async () => page.evaluate(() => Boolean(window.__varveIsoTest?.worldToScreen)))
       .toBe(true);
+
+    // Start with an actual editable raster sketch pass. The following imported
+    // transparent linework acts as the clean ink pass, so the rest of this test
+    // qualifies one continuous sketch → ink → flats → clipped-shading project.
+    const paintTool = page.locator('[data-testid="toolbar"] [data-tool="paint"]');
+    if (await paintTool.isVisible().catch(() => false)) {
+      await paintTool.click();
+    } else {
+      await page.getByRole('button', { name: /More tools|Overflow/i }).click();
+      const paintChoice = page.getByRole('menuitemradio', { name: /^Paint$/i });
+      if (await paintChoice.isVisible().catch(() => false)) await paintChoice.click();
+      else {
+        await page.getByRole('menuitem', { name: 'Raster', exact: true }).click();
+        await page.getByRole('menuitemradio', { name: /^Paint$/i }).click();
+      }
+    }
+    const toolOptionsTrigger = page.getByRole('button', { name: 'Tool options' });
+    await expect(toolOptionsTrigger).toBeVisible();
+    if ((await toolOptionsTrigger.getAttribute('aria-expanded')) !== 'true') {
+      await toolOptionsTrigger.click();
+    }
+    const paintOptions = page.locator('.tool-options__popover');
+    const brushBrowser = paintOptions.locator('.brush-browser');
+    await brushBrowser.getByText('Pencil', { exact: true }).click();
+    await brushBrowser.getByRole('button', { name: 'Sketch Pencil', exact: true }).click();
+    // The color field is in the contextual paint toolbar, beside (rather
+    // than inside) the preset browser popover in the Draw workspace.
+    const sketchColor = page.getByLabel('Foreground color');
+    await sketchColor.fill('#244aff');
+    const sketchSize = paintOptions.getByLabel('Size');
+    await sketchSize.fill('5');
+    await sketchSize.press('Enter');
+    // The frame remains explicitly selected after changing tools. Respect the
+    // paint-target refusal and use its visible recovery action instead of
+    // silently painting into some other raster node.
+    const recoverPaintTarget = paintOptions.getByRole('button', { name: 'Create paint layer' });
+    await expect(recoverPaintTarget).toBeVisible();
+    await recoverPaintTarget.click();
+    const recoveredPaintLayer = page
+      .locator('[role="treeitem"][data-node-id]')
+      .filter({ hasText: 'Paint Layer' })
+      .first();
+    await expect(recoveredPaintLayer).toHaveAttribute('aria-selected', 'true');
+    await toolOptionsTrigger.click();
+    const sketchCanvas = page.locator('canvas.editor-canvas__content-layer');
+    const sketchStart = await page.evaluate(() => {
+      const hook = (
+        window as Window & {
+          __varveIsoTest?: { worldToScreen: (x: number, y: number) => { x: number; y: number } };
+        }
+      ).__varveIsoTest;
+      const surface = document.querySelector<HTMLElement>('.editor-canvas');
+      if (!hook || !surface) throw new Error('canvas projection helper is unavailable');
+      const rect = surface.getBoundingClientRect();
+      return [
+        [218, 208],
+        [231, 195],
+        [247, 190],
+        [263, 198],
+        [276, 210],
+      ].map(([x, y]) => {
+        const point = hook.worldToScreen(x!, y!);
+        return { x: rect.left + point.x, y: rect.top + point.y };
+      });
+    });
+    const beforeSketch = await surfaceHash(page);
+    const firstSketchPoint = sketchStart[0]!;
+    await page.mouse.move(firstSketchPoint.x, firstSketchPoint.y);
+    await page.mouse.down();
+    for (const point of sketchStart.slice(1)) {
+      await page.mouse.move(point!.x, point!.y, { steps: 3 });
+    }
+    await page.mouse.up();
+    await expect.poll(() => surfaceHash(page), { timeout: 15000 }).not.toBe(beforeSketch);
+    await expect
+      .poll(async () => (await canvasColorStats(sketchCanvas, 'blue')).count, { timeout: 15000 })
+      .toBeGreaterThan(20);
+    await expect(recoveredPaintLayer).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath('illustration-raster-sketch.png') });
+
     await page.locator('#file-import-input').setInputFiles({
       name: 'line-art.png',
       mimeType: 'image/png',
@@ -481,7 +576,7 @@ test.describe('hybrid illustration Magic Wand workflow', () => {
     const flatsLayer = sources.getByRole('button', { name: 'Create flats layer' });
     await expect(flatsLayer).toBeVisible();
     await flatsLayer.click();
-    const flatsRow = page.locator('[role="treeitem"][data-node-id]').filter({ hasText: 'Flats' });
+    const flatsRow = page.getByRole('treeitem', { name: 'Flats, Raster layer' });
     await expect(flatsRow).toHaveAttribute('aria-selected', 'true');
     const fillColor = sources.getByLabel('Fill color');
     await fillColor.evaluate((element) => {
@@ -536,12 +631,111 @@ test.describe('hybrid illustration Magic Wand workflow', () => {
       .toBeGreaterThan(1000);
     await page.screenshot({ path: testInfo.outputPath('hybrid-linework-flats-redo.png') });
 
+    // Add editable cyan shading to the ordinary Flats raster via the same
+    // alpha-clipping action artists use on any raster source. The gesture
+    // extends beyond the contour, while the exported pixels must stay within it.
+    await flatsRow.click();
+    if (await paintTool.isVisible().catch(() => false)) {
+      await paintTool.click();
+    } else {
+      await page.getByRole('button', { name: /More tools|Overflow/i }).click();
+      const paintChoice = page.getByRole('menuitemradio', { name: /^Paint$/i });
+      if (await paintChoice.isVisible().catch(() => false)) await paintChoice.click();
+      else {
+        await page.getByRole('menuitem', { name: 'Raster', exact: true }).click();
+        await page.getByRole('menuitemradio', { name: /^Paint$/i }).click();
+      }
+    }
+    const shadingOptionsTrigger = page.getByRole('button', { name: 'Tool options' });
+    if ((await shadingOptionsTrigger.getAttribute('aria-expanded')) !== 'true') {
+      await shadingOptionsTrigger.click();
+    }
+    const shadingOptions = page.locator('.tool-options__popover');
+    await shadingOptions.getByRole('button', { name: 'Create clipped paint layer' }).click();
+    const clippedFlatsGroup = page
+      .locator('[role="treeitem"][data-node-id]')
+      .filter({ hasText: 'Flats clipped paint' })
+      .first();
+    await expect(clippedFlatsGroup).toBeVisible();
+    await expect(page.getByRole('treeitem').filter({ hasText: 'Shading' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    const shadingBrushBrowser = shadingOptions.locator('.brush-browser');
+    await shadingBrushBrowser.getByText('Paint', { exact: true }).click();
+    await shadingBrushBrowser.getByRole('button', { name: 'Opaque Paint', exact: true }).click();
+    const shadingColor = page.getByLabel('Foreground color');
+    await shadingColor.fill('#00e5e5');
+    const shadingSize = shadingOptions.getByLabel('Size');
+    await shadingSize.fill('54');
+    await shadingSize.press('Enter');
+    await shadingOptionsTrigger.click();
+    const shadePoints = await page.evaluate(() => {
+      const hook = (
+        window as Window & {
+          __varveIsoTest?: { worldToScreen: (x: number, y: number) => { x: number; y: number } };
+        }
+      ).__varveIsoTest;
+      const surface = document.querySelector<HTMLElement>('.editor-canvas');
+      if (!hook || !surface) throw new Error('canvas projection helper is unavailable');
+      const rect = surface.getBoundingClientRect();
+      return [
+        [202, 246],
+        [236, 248],
+        [272, 248],
+        [309, 248],
+        [346, 248],
+        [382, 246],
+      ].map(([x, y]) => {
+        const point = hook.worldToScreen(x!, y!);
+        return { x: rect.left + point.x, y: rect.top + point.y };
+      });
+    });
+    const preShade = await canvasColorStats(canvas, 'cyan');
+    const firstShadePoint = shadePoints[0]!;
+    await page.mouse.move(firstShadePoint.x, firstShadePoint.y);
+    await page.mouse.down();
+    for (const point of shadePoints.slice(1)) {
+      await page.mouse.move(point!.x, point!.y, { steps: 4 });
+    }
+    await page.mouse.up();
+    await expect
+      .poll(async () => (await canvasColorStats(canvas, 'cyan')).count, { timeout: 20000 })
+      .toBeGreaterThan(preShade.count + 100);
+    const shaded = await canvasColorStats(canvas, 'cyan');
+    const flatPixels = await canvasColorStats(canvas, 'red');
+    expect(shaded.bounds).not.toBeNull();
+    expect(flatPixels.bounds).not.toBeNull();
+    const [shadeLeft, shadeTop, shadeRight, shadeBottom] = shaded.bounds!;
+    const [flatLeft, flatTop, flatRight, flatBottom] = flatPixels.bounds!;
+    // Raster edge coverage is antialiased at the current zoom. Permit a few
+    // display pixels at the contour edge while still rejecting any unbounded
+    // stroke that escapes the filled shape.
+    expect(shadeLeft).toBeGreaterThanOrEqual(flatLeft - 5);
+    expect(shadeTop).toBeGreaterThanOrEqual(flatTop - 5);
+    expect(shadeRight).toBeLessThanOrEqual(flatRight + 5);
+    expect(shadeBottom).toBeLessThanOrEqual(flatBottom + 5);
+    await page.screenshot({ path: testInfo.outputPath('illustration-clipped-flats-shading.png') });
+    await page.keyboard.press('Control+z');
+    await expect
+      .poll(async () => (await canvasColorStats(canvas, 'cyan')).count, { timeout: 15000 })
+      .toBe(preShade.count);
+    await page.keyboard.press('Control+Shift+z');
+    await expect
+      .poll(async () => (await canvasColorStats(canvas, 'cyan')).count, { timeout: 15000 })
+      .toBeGreaterThan(preShade.count + 100);
+    await page.screenshot({
+      path: testInfo.outputPath('illustration-sketch-ink-flats-shading.png'),
+    });
+
     // Export the editable linework and flats together as one composed artwork
     // item. The Inspector's compact Export controls export only the selected
     // node, so grouping preserves both child layers while giving that route a
     // single truthful PNG appearance.
     await flatsRow.click();
+    await clippedFlatsGroup.click({ modifiers: ['Control'] });
     await rasterRow.click({ modifiers: ['Control'] });
+    await recoveredPaintLayer.click({ modifiers: ['Control'] });
     await page.getByRole('tree', { name: /layers/i }).press('Control+g');
     const artworkGroup = page.locator('[role="treeitem"][aria-selected="true"]');
     await expect(artworkGroup).toContainText(/Group/);
@@ -575,6 +769,7 @@ test.describe('hybrid illustration Magic Wand workflow', () => {
     expect(exportedPng.height).toBe(4096);
     expect(opaqueBlackPixels(exported)).toBeGreaterThan(100);
     expect(opaqueRedPixels(exported)).toBeGreaterThan(5000);
+    expect(opaqueCyanPixels(exported)).toBeGreaterThan(1000);
     for (const [x, y] of [
       [8, 8],
       [4087, 8],
@@ -605,7 +800,11 @@ test.describe('hybrid illustration Magic Wand workflow', () => {
       timeout: 60000,
     });
     await expect(page.locator('[role="treeitem"][data-node-id]')).not.toHaveCount(0);
-    await page.getByRole('button', { name: 'Fit active page' }).click();
+    // The design surface has no active publishing page. Fit the imported
+    // 640×480 linework bounds so the whole reopened composition is in view.
+    await expect(rasterRow).toBeVisible({ timeout: 15000 });
+    await rasterRow.click();
+    await page.getByRole('button', { name: 'Fit selection to viewport' }).click({ timeout: 15000 });
     const reopenedCanvas = page.locator('canvas.editor-canvas__content-layer');
     await expect
       .poll(async () => (await canvasColorStats(reopenedCanvas, 'red')).count, { timeout: 15000 })
