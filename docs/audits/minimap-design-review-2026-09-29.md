@@ -14,6 +14,10 @@ Two user-reported symptoms drove the review:
 2. **"Bad contrast"** — the drawn artwork was effectively invisible in the
    default theme.
 
+A third was reported during review and turned out to be the most far-reaching:
+the minimap's own tooltips were hidden behind the Layers panel's move button
+(see D-17 — a stacking defect in the shared tooltip layer, not in the map).
+
 The canonical contract after this review is
 [Minimap System](../architecture/minimap-system.md).
 
@@ -70,6 +74,8 @@ only by its edge, and that edge was the same 1.19:1 tone.
 | D-14 | Low | An empty surface showed a blank tile. | A caption over the backplate explains why. The canvas stays mounted so the tab stop and layout do not jump when the first object appears. |
 | D-15 | Low | Exceptional-scale markers drew a dashed box **plus an X glyph** — noisy, and two signals for one fact. | Corner ticks only: the dashed outline and the X were both dropped, leaving one quiet marker in the danger token. |
 | D-16 | Low | `lockedStroke` was declared in the palette and never drawn. | Removed. Lock state reads in the Layers panel; a 2 px map mark cannot carry it usefully. |
+| D-17 | High | **Reported in review: the minimap's own tooltips were painted over by the Layers panel's "Layers / Move" chrome.** Root-caused as systemic, not minimap-local: tooltips portal to `document.body` at `--z-popover` (200) while the dock sets panel chrome/tab strips/floating groups/drag previews to `--z-overlay + 1..4` (1000–1004), and `.editor-shell` opens no stacking context — so both ladders compete in the root context. Every tooltip whose bubble landed on a panel header was lost; the minimap's two collapse controls were simply the most exposed, sitting directly under that header. | Moved the tooltip layer to `--z-tooltip` (1300), the level the token table already names for it and that `MicroHint` already uses — with `--z-toast` at 1200 and `--z-dialog` at 1100 the declared ladder already puts tooltips on top, and native `<dialog>` modals stay above regardless via the browser top layer. Verified with `elementFromPoint` at the bubble centre before and after, and pinned by a new E2E case that fails if any probe point on the bubble resolves to another surface. |
+| D-18 | Medium | The palette observer watched `prefers-color-scheme` and `prefers-contrast` but not `forced-colors`. Forced colours rewrite the custom properties the canvas reads (`--color-surface-sunken` becomes `Canvas`, `--color-text-primary` becomes `CanvasText`) **without touching `data-theme`**, so a live OS high-contrast toggle repainted the panel chrome and left the map drawing the previous palette — the same class of defect as D-03, through a different door. | Observe `(forced-colors: active)` alongside the other two media queries. Measured through Playwright: `forced → none → forced` moves the map backplate between `rgb(255,255,255)` and `rgb(235,239,244)` and back, in both directions, with the artwork ink unchanged — canvas pixels are never system-recoloured by the browser, so the map keeps its kind hues (4.01:1 on the forced `Canvas` backplate) while taking the system values for backplate, outlines and borders. Pinned by an E2E case that toggles the media query twice. |
 
 ## What was deliberately not changed
 
@@ -253,6 +259,41 @@ The responsive assertions are behavioural rather than eyeballed: the painted
 canvas must fill its stage at 900, 1024, 1440 and 1920 CSS px, and the map must
 be more than 1.5× wider at 1920 than at 900. The first run failed that
 assertion and exposed the 320 px ceiling recorded in D-02.
+
+### Stacking validation (D-17)
+
+- Reproduced with `document.elementFromPoint` at the bubble's centre: before
+  the fix the topmost element was `.workspace-dock-panel-chrome` ("LayersMove");
+  after it, the tooltip itself. Probed across four `Tooltip`-driven triggers
+  (minimap hide, minimap rail collapse, status Fit, toolbar button): **0
+  occluded**. The dock "Move" handles and the Layers filter never showed a
+  tooltip at all — they use the native `title` attribute, which the browser
+  draws above any z-index — so they were never affected.
+- `pnpm exec vitest run packages/ui/src/components/Tooltip packages/ui/src/components/FloatingPortal.test.tsx`
+  — **33 tests passed**.
+- `npx playwright test tests/e2e/canvas/tooltip-system.spec.ts tests/e2e/home/tooltips.spec.ts --project=chromium --workers=1 --reporter=list`
+  (through `heavy-lease`) — **11 passed, 2 pre-existing skips**.
+- New regression case `tooltip is not painted over by the docked panel chrome`
+  probes the bubble's centre and four edges and asserts each resolves to the
+  tooltip, plus that the layer clears the dock ladder by a real margin —
+  **10 passed** in `tooltip-system.spec.ts` (the case included).
+
+### Adjacent defect found while root-causing D-17
+
+The same measurement showed the dock ladder sitting *above* the menu layer
+(`--z-overlay + 3` vs `--z-overlay`), which the overlay policy says should be
+the other way around. With the Layers panel open, the File menu overlaps the
+panel header chrome across a 232×30 band, and every probe point in it resolves
+to `.workspace-dock-panel-chrome` — those menu rows cannot receive a pointer
+event.
+
+It is not a minimap defect and it is not cheap to fix safely: the whole ladder
+has to move below the popover layer *and* the chrome has to be re-indexed
+relative to its host panel, because panels are drawn at `--z-overlay` when they
+become drawers at narrow viewports, so a flat lower z-index would hide the
+chrome behind its own panel. Recorded in
+[Overlay system](../architecture/overlay-system.md) as a known gap with the
+measurement, and deliberately left unapplied rather than half-applied.
 
 Deliberately skipped: Rust workspace tests, the full Playwright suite, and the
 full Vitest suite — no native dependency, schema, or shared infrastructure

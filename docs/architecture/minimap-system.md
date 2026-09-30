@@ -193,9 +193,21 @@ that cache key so hovering never repaints the document.
 resolved palette can also change outside React — the OS colour scheme or
 contrast preference under a `system` preference, a `storage` event from
 another window, or a direct `applyThemePreference` call. The panel therefore
-observes `data-theme` with a `MutationObserver` plus both media queries and
-re-resolves colours on any change. Without it the map kept painting
-light-theme tokens under a dark panel.
+observes `data-theme` with a `MutationObserver` plus `prefers-color-scheme`,
+`prefers-contrast` and `forced-colors`, and re-resolves colours on any change.
+Without the first two the map kept painting light-theme tokens under a dark
+panel. `forced-colors` is the same hole from the other direction: it rewrites
+the custom properties the canvas reads (`--color-surface-sunken` becomes
+`Canvas`, `--color-text-primary` becomes `CanvasText`) without touching
+`data-theme` at all, so an OS high-contrast toggle would repaint the chrome and
+leave the map on the previous palette.
+
+Under forced colours the map deliberately keeps its `minimap-ink-*` hues rather
+than collapsing onto system colours: the browser never recolours canvas pixels,
+so those hues are the only way the overview can still distinguish frames from
+text from rasters. What does switch is the chrome the system owns — backplate,
+outlines and borders take the system values, and the ink measures 4.01:1 on the
+forced `Canvas` backplate.
 
 Pointer sessions use the primary button, preserve the grab offset when the
 viewport outline is dragged, and use pointer capture. Pointer up, cancel, lost

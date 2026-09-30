@@ -251,14 +251,46 @@ canvas < sticky chrome < dropdown/menu/listbox/rich popover
 
 Portaled menus, listboxes, and rich popovers use `--z-overlay`; dialogs and
 native top-layer surfaces retain their dialog-specific policy. Transient
-tooltips use `--z-popover` so they remain below an active menu and cannot
-obscure its items. A portal inside a native dialog stays in that dialog's
-owner host so it cannot fall behind the dialog backdrop. No overlay feature
-should introduce an arbitrary extreme z-index. Canvas editing overlays (for
-example the inline text textarea) remain separate because their CSS transform
-is the camera-rendered world-to-screen transform rather than menu geometry;
-they still need an owner-window migration before detached canvas windows are
-enabled.
+tooltips use `--z-tooltip` so they clear the docked panel ladder: the dock
+positions its panel chrome, tab strips, floating groups and drag previews at
+`--z-overlay` … `--z-overlay + 4`, and `.editor-shell` opens no stacking
+context, so those levels compete in the root context — a tooltip at
+`--z-popover` (200) was painted over by every panel header its bubble landed
+on (the minimap's two collapse controls sat directly under the Layers header
+and could never show theirs; see
+[Minimap design review 2026-09-29](../audits/minimap-design-review-2026-09-29.md)
+D-17).
+
+Lifting tooltips above `--z-overlay` reverses their old relationship to the
+menu layer, so the original intent — *a tooltip must never obscure a menu* —
+is now a code rule rather than an accident of z-index: **do not attach a
+`Tooltip` to a row inside a dropdown menu.** Menu items carry their shortcut
+inline, and `Menubar` only uses `Tooltip` on top-level buttons outside a
+dropdown, which keeps the invariant true by construction. A portal inside a
+native dialog stays in that dialog's owner host so it cannot fall behind the
+dialog backdrop. No overlay feature should introduce an arbitrary extreme
+z-index. Canvas editing overlays (for example the inline text textarea) remain
+separate because their CSS transform is the camera-rendered world-to-screen
+transform rather than menu geometry; they still need an owner-window migration
+before detached canvas windows are enabled.
+
+### Known gap: the dock ladder sits above the menu layer
+
+The dock's ladder starts at `--z-overlay` (1000) and offsets upward, while the
+policy above puts `sticky chrome` *below* `dropdown/menu/listbox/rich popover`.
+In practice the panel header chrome (`--z-overlay + 3`) therefore paints over an
+open dropdown menu that overlaps it. Measured 2026-09-29 with the Layers panel
+open: the File menu spans x 40–272 and the chrome spans x 0–317 at y 124–154,
+and **every probe point in that 232×30 band resolves to
+`.workspace-dock-panel-chrome`**, so those menu rows cannot receive a pointer
+event.
+
+Closing this gap is not a one-line z-index change: lowering the whole ladder
+below `--z-popover` would put the chrome behind its own panel at viewports
+where panels are drawn as drawers at `--z-overlay`, so the chrome has to be
+re-indexed relative to its host panel rather than relative to the root. The
+fix needs the workspace visual suite alongside it; it is recorded as an open
+defect rather than half-applied.
 
 ## Diagnostics
 
