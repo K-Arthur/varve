@@ -24,8 +24,21 @@ function fakePointer(options: {
   } as unknown as PointerEvent;
 }
 
+/**
+ * `ToolManager.buildContext` layers modifier state derived from the event over
+ * the caller's base context, so the object a tool receives carries `shiftKey`
+ * and `altKey` (plus `ctrlKey`/`metaKey`, which stay `undefined` for a synthetic
+ * event that omits them and which `toEqual` therefore ignores). The fixture
+ * carries the two booleans so the identity assertions below stay exact rather
+ * than becoming a subset match.
+ */
 function makeCtx(): ToolContext {
-  return { setPan: vi.fn(), announce: vi.fn() } as unknown as ToolContext;
+  return {
+    setPan: vi.fn(),
+    announce: vi.fn(),
+    altKey: false,
+    shiftKey: false,
+  } as unknown as ToolContext;
 }
 
 function fakeTool(id: string, result: GestureResult = { consumed: true }): Tool {
