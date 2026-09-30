@@ -267,7 +267,7 @@ import { sitePath } from '../../lib/siteUrl';
           <li><strong>Interactive spacing:</strong> Canvas gap handles with numeric entry, keyboard access, preview, and Escape cancellation</li>
           <li><strong>Independent paint order:</strong> Bring forward, send backward, front, and back preserve sibling semantics</li>
           <li><strong>Multi-page support:</strong> Work with multiple artboards/pages in one document</li>
-          <li><strong>Live minimap:</strong> See the active design canvas or publishing pasteboard, then click or drag to navigate without changing your artwork</li>
+          <li><strong>Live minimap:</strong> See the active design canvas or publishing pasteboard, then click or drag to navigate without changing your artwork. It fills its panel at every window size instead of sitting at a fixed pixel size, and it says so when there is no measurable viewport to navigate yet</li>
           <li><strong>Surface-aware labels:</strong> Keep frame names readable and local to the active canvas, with accessible names and safe long-name handling</li>
           <li><strong>Rulers and guides:</strong> Visual guides for alignment and measurement</li>
           <li><strong>Grid systems:</strong> Document, pixel, baseline, isometric, and multi-guide frame overlays with explicit visibility and snapping controls</li>
@@ -278,7 +278,7 @@ import { sitePath } from '../../lib/siteUrl';
       <section class="feature-section">
         <h2>Technical Depth</h2>
         <p>
-          The rendering pipeline is built on IR-replay (ADR-0001), validated empirically on Wayland Linux. The engine uses viewport culling, dirty-rect redraw, and spatial indexing for fast hit testing. The SubtreeReplayCache optimizes repeated rendering of unchanged subtrees. The minimap reuses the same world bounds, page placement, camera rotation, and live canvas dimensions as the main surface, so navigation remains an honest overview rather than a second approximation of the document.
+          The rendering pipeline is built on IR-replay (ADR-0001), validated empirically on Wayland Linux. The engine uses viewport culling, dirty-rect redraw, and spatial indexing for fast hit testing. The SubtreeReplayCache optimizes repeated rendering of unchanged subtrees. The minimap reuses the same world bounds, page placement, camera rotation, and live canvas dimensions as the main surface, so navigation remains an honest overview rather than a second approximation of the document. The overview's own ink is not eyeballed either: every object kind resolves from an audited token held to a 3:1 non-text contrast floor against the map backplate in Light, Dark, and High Contrast, and the viewport rectangle — the one mark you have to be able to find — has a minimum drawn size and a contrast ring so it stays readable and grabbable at any zoom.
         </p>
         <p>
           The same facade works on desktop (native Rust via Tauri IPC) and web (WASM), with the browser-side renderer retaining an authoritative replay fallback when an accelerated or worker path cannot provide a fresh frame.
