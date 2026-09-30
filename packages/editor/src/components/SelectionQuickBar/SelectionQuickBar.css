@@ -131,11 +131,17 @@
   opacity: 0.55;
 }
 
+/* Same rule as every other command surface (see
+ * `components/FloatingToolbar/FloatingToolbar.css#.floating-toolbar__divider`). */
 .selection-quick-bar__separator {
-  width: 1px;
-  height: 20px;
+  inline-size: var(--separator-thickness);
+  block-size: calc(
+    var(--selection-quick-bar-control-height) *
+    var(--separator-toolbar-length-ratio)
+  );
   margin: 0 var(--space-1);
-  background: var(--color-border-subtle);
+  border-radius: 0;
+  background: var(--color-separator-subtle);
   flex-shrink: 0;
   align-self: center;
 }

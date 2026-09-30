@@ -49,11 +49,19 @@
 }
 
 /* ── Divider ── */
+/* The same rule the floating palette draws (see
+ * `components/FloatingToolbar/FloatingToolbar.css#.floating-toolbar__divider`):
+ * 1px, square, and a fixed share of the row's control height so it stays
+ * proportionate under Compact Pro and under touch promotion. The previous
+ * literals (`height: 20px`, `--color-border-subtle`) made the context bar the
+ * only surface that could not follow density, and made high contrast draw a
+ * white rule where the menu and menubar draw their quieter separator. */
 .ccb__divider {
   display: inline-block;
-  width: 1px;
-  height: 20px;
-  background: var(--color-border-subtle);
+  inline-size: var(--separator-thickness);
+  block-size: calc(var(--context-toolbar-control-height) * var(--separator-toolbar-length-ratio));
+  border-radius: 0;
+  background: var(--color-separator-subtle);
   flex-shrink: 0;
 }
 

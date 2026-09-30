@@ -100,6 +100,13 @@ ${Object.entries(SPACING_LAYOUT)
   --separator-content-gap: var(--space-3);
   --separator-inset: var(--space-4);
   --separator-min-length: var(--space-4);
+  /* Ratio, not a length: a divider inside a row of controls must stay
+   * proportionate when density compacts the row (Compact Pro) and when a
+   * coarse pointer promotes it to --touch-target-min. 0.625 x the 32px
+   * comfortable control is the 20px rule the context bar, text bar and
+   * selection quick bar have always drawn; the floating palette now draws the
+   * same rule instead of a 1px border-left on a rounded button. */
+  --separator-toolbar-length-ratio: 0.625;
 `;
 
 const sizingBlock = `

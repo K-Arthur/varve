@@ -32,9 +32,13 @@ function renderInMode(mode: WorkspaceMode) {
 }
 
 describe('FloatingToolbar — per-mode tool adaptation', () => {
-  it('Design mode hides raster paint/retouch tools but keeps shape and boolean tools', () => {
+  it('Design keeps the Paint Brush for clipped shading but hides the other raster tools', async () => {
+    // Design declares `paint` deliberately: "Clipped paint layer" is a Design
+    // workflow (see docs/architecture/paint-system.md), so the assertion that
+    // Design hides every raster tool was stale. Everything else raster and all
+    // retouch tools stay out of Design.
     renderInMode('design');
-    expect(screen.queryByLabelText('Paint Brush')).not.toBeInTheDocument();
+    expect(await screen.findByLabelText('Paint Brush')).toBeInTheDocument();
     expect(screen.queryByLabelText('Eraser')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Clone Stamp')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Healing Brush')).not.toBeInTheDocument();
@@ -125,8 +129,8 @@ describe('FloatingToolbar — per-mode tool adaptation', () => {
     expect(within(menu).getByRole('menuitem', { name: 'Trimap Edit' })).toBeInTheDocument();
   });
 
-  it('Logo mode exposes the node-edit tool its workspace declares', async () => {
-    renderInMode('logo');
+  it('Design exposes the node-edit tool for Logo work', async () => {
+    renderInMode('design');
     expect(await screen.findByLabelText('Node Edit')).toBeInTheDocument();
   });
 

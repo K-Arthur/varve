@@ -14,7 +14,8 @@ import {
   Tooltip,
   TooltipProvider,
 } from '@varve/ui';
-import { useLayoutEffect, useMemo, useState } from 'react';
+import type { CSSProperties } from 'react';
+import { Fragment, useLayoutEffect, useMemo, useState } from 'react';
 import { type ToolId, useEditor } from '../../context';
 import { toolAriaKeyShortcut, toolShortcutLabel } from '../../shortcuts';
 import { getToolDefinition } from '../../tools/toolRegistry';
@@ -30,7 +31,9 @@ import { resolveToolbarPlacement } from '../../workspace/workspaceTypes';
 import { ToolOptionsPopover } from './ToolOptionsPopover';
 import './FloatingToolbar.css';
 import { toolIconName, toolLabel } from '../../workspace/toolLabels';
+import { hasToolOptions } from '../Inspector/toolContext';
 import { useHasTouchInput } from './useHasTouchInput';
+import { useTabletLayout } from './useTabletLayout';
 import { useToolbarOverflow } from './useToolbarOverflow';
 
 const TOUCH_MULTISELECT_ACTIVE_CLASS = 'floating-toolbar__touch-multi--active';
@@ -46,16 +49,29 @@ const BOOLEAN_OP_MAP: Record<string, BooleanOpKind> = {
  *  tools that become active. Boolean operations need 2+ selected shapes. */
 const ACTION_FLYOUT_ID = 'boolean';
 const RESPONSIVE_MORE_ID = 'responsive-more-tools';
+
+/**
+ * A declared group boundary. Rendered as its own flex item so the rule can be
+ * square and evenly spaced; see `.floating-toolbar__divider` for why it is not
+ * a `border-left` on the tool button.
+ *
+ * `aria-hidden` because the grouping it expresses is decorative — every tool
+ * still carries its own name, and `role="toolbar"` has no "group" semantics to
+ * attach it to.
+ */
+function ToolbarDivider() {
+  return <span className="floating-toolbar__divider" aria-hidden="true" />;
+}
+
 interface ToolButtonProps {
   id: ToolId;
-  groupStart?: boolean;
 }
 
 function iconName(id: string): IconName {
   return toolIconName(id as ToolId);
 }
 
-function ToolButton({ id, groupStart }: ToolButtonProps) {
+function ToolButton({ id }: ToolButtonProps) {
   const { state, setTool } = useEditor();
   const label = toolLabel(id);
   const shortcut = toolShortcutLabel(id);
@@ -68,7 +84,7 @@ function ToolButton({ id, groupStart }: ToolButtonProps) {
         label={label}
         pressed={state.tool === id}
         onPressedChange={() => setTool(id)}
-        className={`floating-toolbar__btn${groupStart ? ' floating-toolbar__btn--group-start' : ''}`}
+        className="floating-toolbar__btn"
         data-tool={id}
         aria-keyshortcuts={ariaShortcut}
       />
@@ -106,7 +122,7 @@ function FlyoutButton({
       <Button
         variant="toolbar"
         size="icon-sm"
-        className={`floating-toolbar__btn${slot.groupStart ? ' floating-toolbar__btn--group-start' : ''}`}
+        className="floating-toolbar__btn"
         aria-label={toolLabel(current)}
         data-tool={current}
         disabled={disabled}
@@ -124,7 +140,7 @@ function FlyoutButton({
         disabled={disabled}
         aria-disabled={disabled || undefined}
         onPressedChange={() => onActivate(current)}
-        className={`floating-toolbar__btn${slot.groupStart ? ' floating-toolbar__btn--group-start' : ''}`}
+        className="floating-toolbar__btn"
         data-tool={current}
         aria-keyshortcuts={toolAriaKeyShortcut(current)}
       />
@@ -168,7 +184,7 @@ function ToolbarSlotView({
   onToggleMenu,
 }: ToolbarSlotViewProps) {
   if (slot.kind === 'tool') {
-    return <ToolButton id={slot.toolId} groupStart={slot.groupStart} />;
+    return <ToolButton id={slot.toolId} />;
   }
 
   const isAction = slot.id === ACTION_FLYOUT_ID;
@@ -391,7 +407,7 @@ function DrawingToolbarControls() {
   );
 }
 
-export function FloatingToolbar() {
+export function FloatingToolbar({ style }: { style?: CSSProperties } = {}) {
   const {
     state,
     setTool,
@@ -425,6 +441,13 @@ export function FloatingToolbar() {
     config.toolbarPinnedToolIds,
   );
   const hasTouchInput = useHasTouchInput();
+  const isTabletLayout = useTabletLayout();
+  // The trailing cluster exists only when it has a control to show. Without
+  // this the palette painted an empty padded box with a `border-left` — a stray
+  // 1px stub at the row's trailing edge in every viewport. The three reasons it
+  // can be non-empty are the same three the cluster itself renders.
+  const hasTrailingActions =
+    hasToolOptions(state.tool) || isTabletLayout || hasTouchInput || state.touchMultiSelect.active;
 
   // Publish the palette's rendered height so bottom-anchored chrome (the
   // responsive drawer FABs) can clear it in every workspace, including
@@ -466,6 +489,7 @@ export function FloatingToolbar() {
       <div
         className={`floating-toolbar floating-toolbar--modal-options${placementClass}`}
         data-placement={placement}
+        style={style}
       >
         <ToolOptionsPopover />
       </div>
@@ -504,40 +528,52 @@ export function FloatingToolbar() {
     <>
       <div
         ref={rootRef}
-        className={`floating-toolbar${placementClass}`}
+        className={`floating-toolbar floating-toolbar__card${placementClass}`}
         data-placement={placement}
         data-testid="toolbar"
+        style={style}
       >
         <TooltipProvider>
           <div className="floating-toolbar__row">
             <Toolbar label="Drawing tools">
               {state.tool === 'table' && (
-                <Tooltip label="Create table from spreadsheet data">
-                  <Button
-                    variant="toolbar"
-                    size="icon-sm"
-                    className="floating-toolbar__btn floating-toolbar__btn--group-start"
-                    aria-label="Table from data"
-                    data-tool="tableFromData"
-                    onClick={() => openCreateTableFromDataDialog?.()}
-                  >
-                    <Icon name="FileSpreadsheet" size={16} />
-                  </Button>
-                </Tooltip>
+                <>
+                  <Tooltip label="Create table from spreadsheet data">
+                    <Button
+                      variant="toolbar"
+                      size="icon-sm"
+                      className="floating-toolbar__btn"
+                      aria-label="Table from data"
+                      data-tool="tableFromData"
+                      onClick={() => openCreateTableFromDataDialog?.()}
+                    >
+                      <Icon name="FileSpreadsheet" size={16} />
+                    </Button>
+                  </Tooltip>
+                  <ToolbarDivider />
+                </>
               )}
-              {visibleSlots.map((slot) => (
-                <ToolbarSlotView
-                  key={toolbarSlotKey(slot)}
-                  slot={slot}
-                  activeTool={state.tool as ToolId}
-                  canBoolean={canBoolean}
-                  onActivate={activate}
-                  onToggleMenu={(id, element) =>
-                    setOpenMenu((prev) =>
-                      prev?.id === id ? null : { id, anchor: elementAnchor(element) },
-                    )
-                  }
-                />
+              {visibleSlots.map((slot, index) => (
+                <Fragment key={toolbarSlotKey(slot)}>
+                  {/* A rule at the very start of the row separates nothing.
+                   * The first declared group is almost always declared with
+                   * `groupStart: true`, so without this guard the palette
+                   * opened with a stray divider after its own padding — the
+                   * same defect class Chrome DevTools' toolbar fixes in
+                   * `hideSeparatorDupes()`. */}
+                  {index > 0 && slot.groupStart && <ToolbarDivider />}
+                  <ToolbarSlotView
+                    slot={slot}
+                    activeTool={state.tool as ToolId}
+                    canBoolean={canBoolean}
+                    onActivate={activate}
+                    onToggleMenu={(id, element) =>
+                      setOpenMenu((prev) =>
+                        prev?.id === id ? null : { id, anchor: elementAnchor(element) },
+                      )
+                    }
+                  />
+                </Fragment>
               ))}
               {/* Overflow control sits at the trailing edge, where the missing
                * tools would have been. It stays pinned to the scrollport end
@@ -560,34 +596,46 @@ export function FloatingToolbar() {
                 />
               )}
             </Toolbar>
-            <div className="floating-toolbar__actions">
-              <ToolOptionsPopover />
-              {(hasTouchInput || state.touchMultiSelect.active) && (
-                <Tooltip
-                  label={
-                    state.touchMultiSelect.active
-                      ? 'Touch multi-select is on: tapping adds to the selection. Select to turn off.'
-                      : 'Touch multi-select: tapping adds to the selection instead of replacing it'
-                  }
-                >
-                  <ToggleButton
-                    size="sm"
-                    pressed={state.touchMultiSelect.active}
-                    onPressedChange={setTouchMultiSelect}
-                    label={
-                      state.touchMultiSelect.active
-                        ? 'Disable touch multi-select'
-                        : 'Enable touch multi-select'
-                    }
-                    className={`floating-toolbar__btn floating-toolbar__touch-multi${state.touchMultiSelect.active ? ` ${TOUCH_MULTISELECT_ACTIVE_CLASS}` : ''}`}
-                    data-testid="touch-multiselect-toggle"
-                    icon="SquareDashedMousePointer"
-                  >
-                    <span className="floating-toolbar__touch-multi-label">Multi-select</span>
-                  </ToggleButton>
-                </Tooltip>
-              )}
-            </div>
+            {/* The trailing cluster is chrome for controls that may not exist:
+             * Tool options renders nothing for a tool without options, and the
+             * tablet control is `display: none` off tablet. An unconditional
+             * container therefore painted a ~11x10px box with a `border-left`
+             * — a stray 1px stub hanging at the palette's trailing edge in
+             * every viewport. Chromium's own toolbar solves the same case by
+             * letting an empty trailing cluster contribute zero padding. */}
+            {hasTrailingActions && (
+              <div className="floating-toolbar__actions">
+                <ToolOptionsPopover />
+                {(hasTouchInput || state.touchMultiSelect.active) && (
+                  <>
+                    <ToolbarDivider />
+                    <Tooltip
+                      label={
+                        state.touchMultiSelect.active
+                          ? 'Touch multi-select is on: tapping adds to the selection. Select to turn off.'
+                          : 'Touch multi-select: tapping adds to the selection instead of replacing it'
+                      }
+                    >
+                      <ToggleButton
+                        size="sm"
+                        pressed={state.touchMultiSelect.active}
+                        onPressedChange={setTouchMultiSelect}
+                        label={
+                          state.touchMultiSelect.active
+                            ? 'Disable touch multi-select'
+                            : 'Enable touch multi-select'
+                        }
+                        className={`floating-toolbar__btn floating-toolbar__touch-multi${state.touchMultiSelect.active ? ` ${TOUCH_MULTISELECT_ACTIVE_CLASS}` : ''}`}
+                        data-testid="touch-multiselect-toggle"
+                        icon="SquareDashedMousePointer"
+                      >
+                        <span className="floating-toolbar__touch-multi-label">Multi-select</span>
+                      </ToggleButton>
+                    </Tooltip>
+                  </>
+                )}
+              </div>
+            )}
           </div>
         </TooltipProvider>
         {isDrawingMode && <DrawingToolbarControls />}

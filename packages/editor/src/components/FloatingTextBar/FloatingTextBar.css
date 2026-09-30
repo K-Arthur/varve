@@ -40,10 +40,15 @@
   -webkit-overflow-scrolling: touch;
 }
 
+/* Same rule as every other command surface (see
+ * `components/FloatingToolbar/FloatingToolbar.css#.floating-toolbar__divider`):
+ * 1px, square, and a share of the row's control height rather than the `20px`
+ * literal that ignored density and touch promotion. */
 .floating-text-bar__separator {
-  width: 1px;
-  height: 20px;
-  background: var(--color-border-subtle);
+  inline-size: var(--separator-thickness);
+  block-size: calc(var(--text-toolbar-control-height) * var(--separator-toolbar-length-ratio));
+  border-radius: 0;
+  background: var(--color-separator-subtle);
   flex-shrink: 0;
 }
 

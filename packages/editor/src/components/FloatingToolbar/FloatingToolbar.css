@@ -17,11 +17,61 @@
   pointer-events: none;
   width: max-content;
   /* The canvas grid area is narrower than the whole shell when side panels
-   * are open. Keep the palette inside that cell; the inner row scrolls when
-   * the workspace has more tools than the available canvas width. */
+   * are open, and a 19-tool row is wider than a narrow viewport (728px
+   * measured at 430px). One rule handles both: the palette is content-sized
+   * and centred when it fits, and bounded by the canvas when it does not —
+   * `.floating-toolbar__row`'s `max-width: 100%` then caps the card at that
+   * bound and the inner `[role=toolbar]` (`overflow-x: auto`) scrolls, so
+   * every tool stays reachable.
+   *
+   * A `@media (max-width: 640px)` override that spanned the wrapper
+   * (`left`/`right`/`width: auto`, `transform: none`) used to solve the same
+   * case. It was removed in the 2026-09-29 review: spanning only helped
+   * because the card *is* the wrapper, so the content-sized row was pinned to
+   * the wrapper's leading edge and left dead surface on its trailing side
+   * (measured: a 447px card inside a 468px wrapper at 480x700). The base rule
+   * above already produces the bounded, centred, scrollable strip without
+   * that side effect. */
   max-width: calc(100% - var(--space-4));
   height: max-content;
   margin: 0;
+  /* One vertical stack: the tool row, and — in the drawing workspace — the
+   * brush row. `align-items: center` is what keeps a content-sized card
+   * centred inside a spanning wrapper at narrow widths; a card that stretches
+   * to the wrapper would leave dead surface beside its tools. */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/*
+ * The palette surface. On the positioning wrapper itself — which also makes it
+ * the drawing workspace's second row's parent — so border, radius, surface and
+ * shadow are declared exactly once instead of on both the row and the inner
+ * scroll box.
+ *
+ * Its own bounding rule comes from `.floating-toolbar` (`width: max-content`,
+ * capped by `max-width: calc(100% - var(--space-4))`), so the card is
+ * content-sized and centred when it fits and bounded by the canvas when it
+ * does not. Do not add a `max-width` here: it would win over the base rule
+ * (same specificity, declared later) and drop the canvas inset.
+ *
+ * The crop/modal-options container deliberately gets no surface — it holds
+ * only the tool-options entry point and must not draw a card over the crop
+ * handles.
+ */
+.floating-toolbar__card {
+  display: flex;
+  flex-direction: column;
+  background: var(--elevation-surface-raised);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-floating);
+  box-shadow: var(--elevation-shadow-raised);
+  /* Clip the rows to the radius; the tool row still scrolls inside. */
+  overflow: hidden;
+  /* The surface absorbs pointer input across its whole border box; there are
+   * no margins of its own for canvas clicks to pass through. */
+  pointer-events: auto;
 }
 
 /* Resources overlays the left side of the canvas cell. Keep the palette in
@@ -65,10 +115,6 @@
    * when the toolbar rhythm changed. */
   gap: var(--space-toolbar-item);
   padding: var(--space-2) var(--space-3);
-  background: var(--elevation-surface-raised);
-  border-radius: var(--radius-floating);
-  border: 1px solid var(--color-border-subtle);
-  box-shadow: var(--elevation-shadow-raised);
   pointer-events: auto;
   max-width: 100%;
   overflow-x: auto;
@@ -77,34 +123,63 @@
   -webkit-overflow-scrolling: touch;
 }
 
-/* Keep the option and touch actions outside the scrollable tool row. When the
- * canvas is narrowed by side panels, those actions must remain visible so a
- * portal can never mistake their clipped trigger for a detached anchor. */
+/**
+ * Group divider.
+ *
+ * A divider is a rule, not a glyph: `--separator-thickness` wide,
+ * `--separator-toolbar-length-ratio` of the control height tall, square, and
+ * centred in an equal flex gap on both sides.
+ *
+ * It must be its own element. The previous implementation drew it as
+ * `border-left` on the tool button, which had three consequences the palette
+ * could not fix from there:
+ *
+ *  - the button's `--radius-control-compact` curved the 1px border into a "("
+ *    at each end, so the divider read as a bracket rather than a rule;
+ *  - the same rule's `padding-left` shrank the button's content box, pushing
+ *    every group-leading icon 1.94px off the row's centreline (measured);
+ *  - the button's `margin-left` put the rule 5.76px from the previous group
+ *    but only 2.88px from its own, so groups were not evenly spaced.
+ *
+ * Deliberately the same rule the menubar (`--editor-menubar__zoom-divider`),
+ * the menu separator, the context bar and the quick bars draw, so a divider
+ * means one thing across every command surface.
+ */
+.floating-toolbar__divider {
+  flex: 0 0 auto;
+  align-self: center;
+  inline-size: var(--separator-thickness);
+  block-size: calc(var(--floating-toolbar-control-height) * var(--separator-toolbar-length-ratio));
+  /* Square on purpose — see docs/architecture/toolbar-system.md. */
+  border-radius: 0;
+  background: var(--color-separator-subtle);
+  pointer-events: none;
+}
+
+/* The tool row inside the card. It owns layout only — the card owns the
+ * surface (see `.floating-toolbar__card`). `overflow: hidden` is deliberate:
+ * the actions cluster beside the scrolling tool row must not be pushable off
+ * the card's rounded edge. */
 .floating-toolbar__row {
   display: flex;
   align-items: center;
   width: max-content;
   max-width: 100%;
   overflow: hidden;
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-floating);
-  background: var(--elevation-surface-raised);
-  box-shadow: var(--elevation-shadow-raised);
   pointer-events: auto;
 }
 
+/* Keep the option and touch actions outside the scrollable tool row. When the
+ * canvas is narrowed by side panels, those actions must remain visible so a
+ * portal can never mistake their clipped trigger for a detached anchor. */
 .floating-toolbar__row [role="toolbar"] {
   min-width: 0;
   flex: 1 1 auto;
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
-  background: transparent;
 }
 
 /* Compact Pro: the palette row compacts with its 28px controls instead of the
  * viewport-fluid toolbar clamp (which density never changes). Comfortable is
- * pixel-identical to before. The row's own 1px borders complete the border box
+ * pixel-identical to before. The card's own 1px borders complete the border box
  * to match the context bar/text-bar compact minimums (+2px). */
 [data-density="compact"] .floating-toolbar [role="toolbar"] {
   min-block-size: calc(var(--density-control-size) + 2 * var(--space-toolbar));
@@ -116,7 +191,9 @@
   flex: 0 0 auto;
   gap: var(--space-1);
   padding: var(--space-2);
-  border-left: 1px solid var(--color-border-subtle);
+  /* Same rule as the group dividers, at the same length: a divider inside a
+   * toolbar is one thing, whatever it is separating. */
+  border-inline-start: var(--separator-thickness) solid var(--color-separator-subtle);
   background: var(--elevation-surface-raised);
 }
 
@@ -183,12 +260,6 @@
   cursor: not-allowed;
 }
 
-.floating-toolbar__btn--group-start {
-  border-left: 1px solid var(--color-border-subtle);
-  margin-left: var(--space-1);
-  padding-left: var(--space-1);
-}
-
 /* The overflow control is the last child of the scrollable tool row. Sticky
  * keeps it at the scrollport's trailing edge so it cannot be scrolled out of
  * reach when the row becomes a horizontal strip (narrow canvas cell, small
@@ -203,6 +274,12 @@
   background: var(--color-interactive-hover-surface);
 }
 
+/* The chevron is a normal flex item: the row's `gap` already separates it
+ * from its primary button and from whatever follows. It used to carry
+ * `margin-right: var(--space-1)` as well, which doubled the space after every
+ * flyout (5.92px after a chevron vs 2.96px between any two tools) and made
+ * the group divider that followed it sit at a different distance from each of
+ * its neighbours — measured as a 2.95px asymmetry. */
 .floating-toolbar__chevron {
   display: flex;
   align-items: center;
@@ -218,27 +295,10 @@
   color: var(--color-text-muted);
   cursor: pointer;
   padding: 0;
-  margin-right: var(--space-1);
   flex: 0 0 auto;
   transition:
     background-color 120ms ease,
     color 120ms ease;
-}
-
-/* L2 (2026-08-10): at <=640px the 19-tool row is wider than the viewport
- * (728px measured at 430px) and the edges were clipped with no way to reach
- * them. The palette becomes a horizontally scrollable strip within the
- * canvas instead — every tool stays reachable on touch and via Tab. */
-@media (max-width: 640px) {
-  .floating-toolbar {
-    left: var(--space-2);
-    right: var(--space-2);
-    transform: none;
-    width: auto;
-  }
-  .floating-toolbar [role="toolbar"] {
-    max-width: 100%;
-  }
 }
 
 @media (pointer: coarse), (any-pointer: coarse) {
@@ -256,15 +316,20 @@
   color: var(--color-text-on-accent);
 }
 
-[data-theme="high-contrast"] .floating-toolbar [role="toolbar"] {
-  border-color: var(--color-border-subtle);
-  outline: 1px solid var(--color-border-subtle);
+/* High Contrast thickens the card edge rather than adding a second outline:
+ * the palette is a floating surface, and an outline on the inner scroll row
+ * drew a second rectangle inside the card. */
+[data-theme="high-contrast"] .floating-toolbar__card {
+  border-width: 2px;
+  border-color: var(--color-border-strong);
 }
 
+/* One divider grammar: the touch multi-select toggle is separated from the
+ * tool-options control by the same square rule the group boundaries use, not
+ * by a curved border on a rounded button (see `.floating-toolbar__divider`).
+ * It takes no margin of its own — the row gap and the actions cluster's own
+ * gap already space it. */
 .floating-toolbar__touch-multi {
-  border-left: 1px solid var(--color-border-subtle);
-  margin-left: var(--space-2);
-  padding-left: var(--space-2);
   gap: var(--space-1);
   width: auto;
   padding-inline: var(--space-2);
@@ -295,18 +360,18 @@
 }
 
 /* ─── Drawing mode controls (brush size / opacity / colors) ─── */
+/* The brush row is the second row of the SAME card, separated by a rule —
+ * not a second floating card with its own border, radius and shadow. It
+ * stretches to the card's width so both rows share the same edges. */
 .floating-toolbar__drawing {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  margin-top: var(--space-1);
+  align-self: stretch;
   padding: var(--space-2) var(--space-3);
-  background: var(--elevation-surface-raised);
-  border-radius: var(--radius-floating);
-  border: 1px solid var(--color-border-subtle);
-  box-shadow: var(--elevation-shadow-raised);
+  border-top: var(--separator-thickness) solid var(--color-separator-subtle);
   pointer-events: auto;
-  width: max-content;
+  width: auto;
 }
 .floating-toolbar__drawing-label {
   font-size: var(--font-size-2xs);
@@ -335,9 +400,11 @@
   display: flex;
   align-items: center;
   gap: var(--space-1);
-  margin-left: var(--space-1);
+  /* The row gap already spaces this section from the opacity field; a
+   * `margin-left` on top of it put the rule 8.72px from its predecessor but
+   * 5.76px from its own contents. One distance either side. */
   padding-left: var(--space-2);
-  border-left: 1px solid var(--color-border-subtle);
+  border-inline-start: var(--separator-thickness) solid var(--color-separator-subtle);
 }
 .floating-toolbar__color-swatch {
   position: relative;
