@@ -28,6 +28,7 @@ import {
 } from '../../workspace/toolbarComposition';
 import { useEffectiveWorkspaceConfig } from '../../workspace/useWorkspaceConfig';
 import { resolveToolbarPlacement } from '../../workspace/workspaceTypes';
+import { TabletTouchControls } from './TabletTouchControls';
 import { ToolOptionsPopover } from './ToolOptionsPopover';
 import './FloatingToolbar.css';
 import { toolIconName, toolLabel } from '../../workspace/toolLabels';
@@ -606,6 +607,7 @@ export function FloatingToolbar({ style }: { style?: CSSProperties } = {}) {
             {hasTrailingActions && (
               <div className="floating-toolbar__actions">
                 <ToolOptionsPopover />
+                <TabletTouchControls />
                 {(hasTouchInput || state.touchMultiSelect.active) && (
                   <>
                     <ToolbarDivider />

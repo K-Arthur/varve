@@ -11,6 +11,7 @@ import {
 } from '@varve/scene';
 import type { Affine } from '@varve/shared';
 import { describe, expect, it, vi } from 'vitest';
+import { interactionSession } from '../InteractionContext';
 import { SelectTool } from '../SelectTool';
 import { ToolManager } from '../ToolManager';
 import type { ToolContext } from '../types';
@@ -1364,6 +1365,45 @@ describe('SelectTool deep selection (Ctrl+click)', () => {
     tool.onPointerUp({ pointerId: 1 } as any, ctx);
     // Should select the child, not the frame
     expect(ctx.setSelection).toHaveBeenCalledWith('c1');
+  });
+
+  it('uses the one-tap deep-select control without a physical keyboard modifier', () => {
+    const tool = new SelectTool();
+    const frameNode = { id: 'f1', kind: 'frame' as const, name: 'Frame', children: ['c1'] };
+    const childNode = { id: 'c1', kind: 'shape' as const, name: 'Child' };
+    const ctx = makeCtx({
+      hitTest: vi.fn().mockReturnValue({ nodeId: 'f1', node: frameNode }),
+      isSelected: vi.fn().mockReturnValue(false),
+      getNode: vi.fn((id: string) => (id === 'f1' ? frameNode : childNode)),
+      document: {
+        nodes: { f1: frameNode, c1: childNode },
+        pages: [],
+        rootChildren: ['f1'],
+        activePageId: 'page1',
+      } as any,
+    });
+    (tool as any).findNodesAtPoint = vi.fn().mockReturnValue([
+      { nodeId: 'f1', node: frameNode },
+      { nodeId: 'c1', node: childNode },
+    ]);
+    interactionSession.armDeepSelect(true);
+
+    tool.onPointerDown(
+      {
+        clientX: 50,
+        clientY: 50,
+        pointerId: 1,
+        button: 0,
+        shiftKey: false,
+        ctrlKey: false,
+        metaKey: false,
+      } as any,
+      ctx,
+    );
+    tool.onPointerUp({ pointerId: 1 } as any, ctx);
+
+    expect(ctx.setSelection).toHaveBeenCalledWith('c1');
+    expect(interactionSession.getControlSnapshot().deepSelectArmed).toBe(false);
   });
 
   it('Ctrl+Shift+click deep-selects and adds to selection', () => {

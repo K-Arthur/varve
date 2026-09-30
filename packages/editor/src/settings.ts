@@ -103,6 +103,8 @@ export interface AppearanceSettingsStore {
   uiDensity: InterfaceDensity;
   /** Responsive tablet/desktop presentation; never rewrites dock preferences. */
   layoutPreference: LayoutPreference;
+  /** Mirror tablet drawer and floating-control placement for left-handed reach. */
+  tabletControlsMirrored: boolean;
   /** Interface accent source; see {@link AccentSourcePreference}. */
   accentSource: AccentSourcePreference;
 }
@@ -296,6 +298,7 @@ export const DEFAULT_APPEARANCE_SETTINGS: AppearanceSettingsStore = {
   fontSizeUI: 'medium',
   uiDensity: 'default',
   layoutPreference: 'auto',
+  tabletControlsMirrored: false,
   accentSource: 'fixed',
 };
 
@@ -693,6 +696,7 @@ function normalizeAppearanceSettings(
       appearance.layoutPreference === 'tablet' || appearance.layoutPreference === 'desktop'
         ? appearance.layoutPreference
         : 'auto',
+    tabletControlsMirrored: appearance.tabletControlsMirrored === true,
     accentSource: normalizeAccentSource(appearance.accentSource),
   };
 }

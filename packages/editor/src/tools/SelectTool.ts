@@ -185,6 +185,7 @@ export class SelectTool extends BaseTool {
     // menu captured its invocation snapshot, and the stale-target guard would
     // close the menu before it could be used.
     if (e.button > 0) return { consumed: false };
+    const tapToDeepSelect = interactionSession.consumeDeepSelect();
     // Capture the semantic modes at pointer-down. Modifier changes during a
     // drag may affect other interactions, but must not make one marquee switch
     // between replace/add/subtract or containment halfway through the gesture.
@@ -234,7 +235,9 @@ export class SelectTool extends BaseTool {
     // explicit deep-selection gesture and Shift still toggles selection.
     const normalHit = this.resolveHit(world, ctx);
     const selectedLeafHit =
-      !e.shiftKey && !e.ctrlKey && !e.metaKey ? this.findSelectedLeafAtPoint(world, ctx) : null;
+      !e.shiftKey && !e.ctrlKey && !e.metaKey && !tapToDeepSelect
+        ? this.findSelectedLeafAtPoint(world, ctx)
+        : null;
     const selectedLeafOverridesHit =
       selectedLeafHit !== null &&
       (normalHit?.nodeId !== selectedLeafHit.nodeId ||
@@ -248,7 +251,7 @@ export class SelectTool extends BaseTool {
     this.pointerDownSelection = [...ctx.selection];
     this.pointerDownSelectedLeafOverridesHit = selectedLeafOverridesHit;
     this.pointerDownShift = e.shiftKey;
-    this.pointerDownCtrl = e.ctrlKey;
+    this.pointerDownCtrl = e.ctrlKey || tapToDeepSelect;
     this.pointerDownMeta = e.metaKey;
     this.pointerDownTouchMulti = ctx.touchMultiSelect.active;
     this.pointerDownSurfaceKey = ctx.selectionSurfaceKey ?? null;

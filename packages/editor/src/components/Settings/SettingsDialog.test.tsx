@@ -183,6 +183,18 @@ describe('AppearanceSettingsTab', () => {
     expect(document.documentElement.dataset.layoutMode).toBe('tablet');
   });
 
+  it('persists mirrored tablet controls without changing layout or density', () => {
+    renderWithProvider(<SettingsDialog open={true} onClose={() => {}} />);
+    fireEvent.click(screen.getByRole('tab', { name: 'Appearance' }));
+
+    fireEvent.click(screen.getByRole('switch', { name: 'Mirror tablet controls' }));
+
+    expect(loadSettings().appearance.tabletControlsMirrored).toBe(true);
+    expect(loadSettings().appearance.layoutPreference).toBe('auto');
+    expect(loadSettings().appearance.uiDensity).toBe('default');
+    expect(document.documentElement.dataset.tabletControlsMirrored).toBe('true');
+  });
+
   it('persists Compact Pro and announces the compact contract', async () => {
     renderWithProvider(<SettingsDialog open={true} onClose={() => {}} />);
     fireEvent.click(screen.getByRole('tab', { name: 'Appearance' }));

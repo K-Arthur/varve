@@ -1,0 +1,38 @@
+{
+  "browser": "chromium",
+  "browserVersion": "151.0.7922.34",
+  "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Safari/537.36",
+  "theme": "dark",
+  "reducedMotion": true,
+  "viewport": {
+    "width": 960,
+    "height": 600,
+    "dpr": 1
+  },
+  "documentScrollWidth": 960,
+  "inspector": {
+    "x": 720,
+    "y": 172.875,
+    "width": 240,
+    "height": 373.125,
+    "right": 960,
+    "bottom": 546
+  },
+  "inspectorTransition": "0s",
+  "canvas": {
+    "x": 211.1875,
+    "y": 140.875,
+    "width": 508.796875,
+    "height": 405.125,
+    "right": 719.984375,
+    "bottom": 546
+  },
+  "floatingToolbar": {
+    "x": 232.671875,
+    "y": 480.15625,
+    "width": 465.84375,
+    "height": 56.875,
+    "right": 698.515625,
+    "bottom": 537.03125
+  }
+}

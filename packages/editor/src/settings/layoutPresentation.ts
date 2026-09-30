@@ -31,6 +31,7 @@ export function resolveLayoutPresentation(
 
 export interface LayoutPresentationController {
   setPreference: (preference: LayoutPreference) => void;
+  setControlsMirrored: (mirrored: boolean) => void;
   updateCapabilities: () => void;
   contactStart: (pointerId: number, pointerType?: string) => void;
   contactEnd: (pointerId: number) => void;
@@ -43,8 +44,10 @@ export function createLayoutPresentationController(
   root: Pick<HTMLElement, 'dataset'>,
   getCapabilities: () => LayoutCapabilities,
   initialPreference: LayoutPreference = 'auto',
+  initialControlsMirrored = false,
 ): LayoutPresentationController {
   let preference = initialPreference;
+  let controlsMirrored = initialControlsMirrored;
   let composing = false;
   let pending = false;
   let observedTouchOrPen = false;
@@ -61,6 +64,7 @@ export function createLayoutPresentationController(
       ...getCapabilities(),
       observedTouchOrPen,
     });
+    root.dataset.tabletControlsMirrored = String(controlsMirrored);
   };
 
   const flush = () => {
@@ -71,6 +75,10 @@ export function createLayoutPresentationController(
   return {
     setPreference(next) {
       preference = next;
+      apply();
+    },
+    setControlsMirrored(next) {
+      controlsMirrored = next;
       apply();
     },
     updateCapabilities: apply,
@@ -113,13 +121,17 @@ function readBrowserCapabilities(): LayoutCapabilities {
 let mountedController: LayoutPresentationController | null = null;
 
 /** Observe device/viewport changes once while the application settings provider is mounted. */
-export function mountLayoutPresentation(preference: LayoutPreference): () => void {
+export function mountLayoutPresentation(
+  preference: LayoutPreference,
+  controlsMirrored = false,
+): () => void {
   if (typeof window === 'undefined' || typeof document === 'undefined') return () => {};
   mountedController?.clearContacts();
   const controller = createLayoutPresentationController(
     document.documentElement,
     readBrowserCapabilities,
     preference,
+    controlsMirrored,
   );
   mountedController = controller;
 
@@ -178,6 +190,15 @@ export function setLayoutPreference(preference: LayoutPreference): void {
     preference,
     readBrowserCapabilities(),
   );
+}
+
+export function setTabletControlsMirrored(mirrored: boolean): void {
+  if (mountedController) {
+    mountedController.setControlsMirrored(mirrored);
+    return;
+  }
+  if (typeof document === 'undefined') return;
+  document.documentElement.dataset.tabletControlsMirrored = String(mirrored);
 }
 
 export const LAYOUT_PREFERENCE_REQUEST_EVENT = 'varve:layout-preference-request';

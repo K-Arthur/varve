@@ -1,5 +1,6 @@
 import { addNode, createDocument, makeShapeNode } from '@varve/scene';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { interactionSession } from '../InteractionContext';
 import { RefineMaskTool } from '../RefineMaskTool';
 import { SelectTool } from '../SelectTool';
 import { ToolManager } from '../ToolManager';
@@ -37,6 +38,120 @@ describe('ToolManager.getTool', () => {
     tm.handleFocusLoss(ctx);
 
     expect(onFocusLoss).toHaveBeenCalledWith(ctx);
+  });
+});
+
+describe('ToolManager latched tablet modifiers', () => {
+  afterEach(() => {
+    interactionSession.setLatchedModifier('constrain', false);
+    interactionSession.setLatchedModifier('fromCenter', false);
+    interactionSession.setLatchedModifier('bypassSnap', false);
+  });
+
+  it('forwards constrain/from-centre to drawing tools but preserves Select Alt-drag', () => {
+    const framePointer = vi.fn().mockReturnValue({ consumed: true });
+    const selectPointer = vi.fn().mockReturnValue({ consumed: true });
+    const manager = new ToolManager('frame');
+    const tool = (id: 'frame' | 'select', onPointerDown: typeof framePointer) =>
+      ({
+        id,
+        cursor: () => ({ css: 'crosshair' }),
+        onPointerDown,
+      }) as unknown as import('../types').Tool;
+    manager.register('frame', () => tool('frame', framePointer));
+    manager.register('select', () => tool('select', selectPointer));
+    interactionSession.setLatchedModifier('constrain', true);
+    interactionSession.setLatchedModifier('fromCenter', true);
+
+    const pointer = {
+      pointerId: 8,
+      button: 0,
+      buttons: 1,
+      clientX: 12,
+      clientY: 14,
+      pointerType: 'mouse',
+      shiftKey: false,
+      altKey: false,
+      ctrlKey: false,
+      metaKey: false,
+    } as unknown as PointerEvent;
+    const context = {} as ToolContext;
+    manager.handlePointerDown(pointer, context);
+    const frameEvent = framePointer.mock.calls[0]![0] as PointerEvent;
+    const frameContext = framePointer.mock.calls[0]![1] as ToolContext;
+    expect(frameEvent.shiftKey).toBe(true);
+    expect(frameEvent.altKey).toBe(true);
+    expect(frameContext.shiftKey).toBe(true);
+    expect(frameContext.altKey).toBe(true);
+
+    manager.setTool('select', context);
+    manager.handlePointerDown(pointer, context);
+    const selectEvent = selectPointer.mock.calls[0]![0] as PointerEvent;
+    expect(selectEvent.shiftKey).toBe(true);
+    expect(selectEvent.altKey).toBe(false);
+  });
+
+  it('does not apply latched pointer modifiers to keyboard events', () => {
+    const onKeyDown = vi.fn().mockReturnValue(true);
+    const manager = new ToolManager('frame');
+    manager.register(
+      'frame',
+      () =>
+        ({
+          id: 'frame',
+          cursor: () => ({ css: 'crosshair' }),
+          onKeyDown,
+        }) as unknown as import('../types').Tool,
+    );
+    interactionSession.setLatchedModifier('constrain', true);
+    interactionSession.setLatchedModifier('fromCenter', true);
+
+    manager.handleKeyDown(new KeyboardEvent('keydown', { key: 'x' }), {} as ToolContext);
+
+    expect(onKeyDown.mock.calls[0]![1]).toMatchObject({ shiftKey: false, altKey: false });
+  });
+
+  it('keeps the pointer-down modifier snapshot through a gesture', () => {
+    const onPointerDown = vi.fn().mockReturnValue({ consumed: true });
+    const onPointerMove = vi.fn();
+    const onPointerUp = vi.fn();
+    const manager = new ToolManager('frame');
+    manager.register(
+      'frame',
+      () =>
+        ({
+          id: 'frame',
+          cursor: () => ({ css: 'crosshair' }),
+          onPointerDown,
+          onPointerMove,
+          onPointerUp,
+        }) as unknown as import('../types').Tool,
+    );
+    interactionSession.setLatchedModifier('constrain', true);
+    const pointer = {
+      pointerId: 11,
+      button: 0,
+      buttons: 1,
+      clientX: 12,
+      clientY: 14,
+      pointerType: 'pen',
+      shiftKey: false,
+      altKey: false,
+      ctrlKey: false,
+      metaKey: false,
+    } as unknown as PointerEvent;
+
+    manager.handlePointerDown(pointer, {} as ToolContext);
+    interactionSession.setLatchedModifier('constrain', false);
+    manager.handlePointerMove(pointer, {} as ToolContext);
+    manager.handlePointerUp(pointer, {} as ToolContext);
+
+    expect((onPointerMove.mock.calls[0]![0] as PointerEvent).shiftKey).toBe(true);
+    expect((onPointerMove.mock.calls[0]![1] as ToolContext).shiftKey).toBe(true);
+    expect((onPointerUp.mock.calls[0]![0] as PointerEvent).shiftKey).toBe(true);
+
+    manager.handlePointerDown({ ...pointer, pointerId: 12 } as PointerEvent, {} as ToolContext);
+    expect((onPointerDown.mock.calls[1]![0] as PointerEvent).shiftKey).toBe(false);
   });
 });
 

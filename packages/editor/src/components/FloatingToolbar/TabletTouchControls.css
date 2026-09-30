@@ -1,0 +1,146 @@
+.tablet-touch-controls {
+  display: none;
+}
+
+.tablet-touch-controls__trigger {
+  display: inline-flex;
+  width: var(--touch-target-min, 44px);
+  height: var(--touch-target-min, 44px);
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: var(--radius-control-compact);
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.tablet-touch-controls__trigger:hover,
+.tablet-touch-controls__trigger[aria-expanded="true"] {
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+}
+
+.tablet-touch-controls__portal {
+  z-index: var(--z-overlay);
+  width: min(340px, calc(100vw - 16px));
+  box-sizing: border-box;
+}
+
+.tablet-touch-controls__panel {
+  display: grid;
+  gap: var(--space-2);
+  max-height: inherit;
+  overflow-y: auto;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-floating);
+  background: var(--elevation-surface-raised);
+  color: var(--color-text-primary);
+  box-shadow: var(--elevation-shadow-raised);
+}
+
+.tablet-touch-controls__heading {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.tablet-touch-controls__grid,
+.tablet-touch-controls__section {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-1);
+}
+
+.tablet-touch-controls__section {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.tablet-touch-controls__action {
+  box-sizing: border-box;
+  min-width: 0;
+  min-inline-size: 44px;
+  min-height: var(--touch-target-min, 44px);
+  min-block-size: 44px;
+  padding: var(--space-1);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--font-size-2xs);
+  line-height: 1.15;
+  text-align: center;
+  cursor: pointer;
+}
+
+.tablet-touch-controls__action.varve-toggle-btn {
+  inline-size: 100%;
+}
+
+.tablet-touch-controls__action[aria-pressed="true"],
+.tablet-touch-controls__action.varve-toggle-btn--pressed {
+  border-color: var(--color-interactive-selected-border);
+  background: var(--color-interactive-selected-surface);
+  color: var(--color-interactive-selected-foreground);
+}
+
+.tablet-touch-controls__action:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.tablet-touch-controls__hint {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-2xs);
+  line-height: 1.4;
+}
+
+.tablet-touch-controls__guide {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.tablet-touch-controls__guide-title {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+}
+
+.tablet-touch-controls__gestures {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-05) var(--space-1);
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-2xs);
+  line-height: 1.35;
+}
+
+.tablet-touch-controls__gestures dt {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+}
+
+.tablet-touch-controls__gestures dd {
+  margin: 0;
+}
+
+:root[data-layout-mode="tablet"] .tablet-touch-controls {
+  display: flex;
+  align-items: center;
+}
+
+@media (max-width: 380px) {
+  .tablet-touch-controls__portal {
+    width: calc(100vw - 16px);
+  }
+
+  .tablet-touch-controls__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

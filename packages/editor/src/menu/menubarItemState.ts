@@ -37,6 +37,7 @@ export function menubarItemRole(
   item: MenubarItemLike,
 ): 'menuitem' | 'menuitemradio' | 'menuitemcheckbox' {
   if (item.action?.startsWith('theme:')) return 'menuitemradio';
+  if (item.action?.startsWith('layoutPreference:')) return 'menuitemradio';
   if (
     item.action === 'canvasModeOutline' ||
     item.action === 'canvasModePreview' ||
@@ -64,6 +65,14 @@ export function menubarItemAriaChecked(
   if (item.action === 'viewToolbarTop') return toolbarPlacement === 'top';
   if (item.action === 'viewToolbarBottom') return toolbarPlacement === 'bottom';
   if (item.action === 'toggleLogoPanel') return state.logoPanelVisible;
+  if (item.action?.startsWith('layoutPreference:')) {
+    const requested = item.action.slice('layoutPreference:'.length);
+    const active =
+      typeof document === 'undefined'
+        ? 'auto'
+        : (document.documentElement.dataset.layoutPreference ?? 'auto');
+    return active === requested;
+  }
   if (item.action?.startsWith('theme:')) {
     return currentTheme === item.action.slice(6);
   }

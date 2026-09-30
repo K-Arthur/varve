@@ -13,6 +13,7 @@ describe('loadSettings', () => {
     expect(s.export.defaultFormat).toBe('png');
     expect(s.export.defaultScale).toEqual({ type: 'factor', value: 2 });
     expect(s.appearance.theme).toBe('system');
+    expect(s.appearance.tabletControlsMirrored).toBe(false);
     expect(s.startup.showBrandedLoader).toBe(true);
     expect(s.viewport.snapEnabled).toBe(true);
     expect(s.viewport.snapTolerancePx).toBe(8);
@@ -172,6 +173,20 @@ describe('loadSettings', () => {
       JSON.stringify({ appearance: { uiDensity: 'compact', fontSizeUI: 'large' } }),
     );
     expect(loadSettings().appearance).toMatchObject({ uiDensity: 'compact', fontSizeUI: 'large' });
+  });
+
+  it('normalizes the persisted tablet-control mirror preference', () => {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ appearance: { tabletControlsMirrored: true } }),
+    );
+    expect(loadSettings().appearance.tabletControlsMirrored).toBe(true);
+
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ appearance: { tabletControlsMirrored: 'left' } }),
+    );
+    expect(loadSettings().appearance.tabletControlsMirrored).toBe(false);
   });
 
   it('preserves the minimap view preference and recovers missing legacy values', () => {

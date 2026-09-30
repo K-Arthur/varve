@@ -1,0 +1,22 @@
+{
+  "browser": "chromium",
+  "browserVersion": "151.0.7922.34",
+  "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Safari/537.36",
+  "devicePixelRatio": 1,
+  "viewport": {
+    "width": 600,
+    "height": 960
+  },
+  "panel": ".editor__inspector-panel",
+  "geometry": {
+    "left": 0,
+    "right": 600,
+    "top": 614.40625,
+    "bottom": 960,
+    "width": 600,
+    "height": 345.59375,
+    "radiusTopLeft": "14px",
+    "position": "fixed",
+    "innerHeight": 960
+  }
+}

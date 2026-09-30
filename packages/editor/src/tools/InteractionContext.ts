@@ -15,9 +15,19 @@ export interface InteractionSnapshot {
   readonly isDuplicate: boolean;
   readonly snapEnabled: boolean;
   readonly bypassSnap: boolean;
+  readonly fromCenter: boolean;
   /** Ctrl/Cmd+Shift preserves the current parent while dragging. */
   readonly preserveParent: boolean;
   readonly preferences: Readonly<SnapPreferences>;
+}
+
+export type LatchedToolModifier = 'constrain' | 'fromCenter' | 'bypassSnap';
+
+export interface TabletControlSnapshot {
+  readonly constrain: boolean;
+  readonly fromCenter: boolean;
+  readonly bypassSnap: boolean;
+  readonly deepSelectArmed: boolean;
 }
 
 export interface SnapPreferences {
@@ -48,8 +58,46 @@ export class InteractionSession {
     snapToLayoutGrid: true,
   };
   private _frozen: InteractionSnapshot | null = null;
+  private _controlSnapshot: TabletControlSnapshot = Object.freeze({
+    constrain: false,
+    fromCenter: false,
+    bypassSnap: false,
+    deepSelectArmed: false,
+  });
+  private _activeControlSnapshot: TabletControlSnapshot | null = null;
+  private listeners = new Set<() => void>();
+
+  subscribe = (listener: () => void): (() => void) => {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  };
+
+  getControlSnapshot = (): TabletControlSnapshot => this._controlSnapshot;
+
+  setLatchedModifier(modifier: LatchedToolModifier, enabled: boolean): void {
+    if (this._controlSnapshot[modifier] === enabled) return;
+    this.updateControlSnapshot({ [modifier]: enabled });
+    this._frozen = null;
+  }
+
+  armDeepSelect(enabled: boolean): void {
+    if (this._controlSnapshot.deepSelectArmed === enabled) return;
+    this.updateControlSnapshot({ deepSelectArmed: enabled });
+  }
+
+  consumeDeepSelect(): boolean {
+    const armed = this._controlSnapshot.deepSelectArmed;
+    if (armed) this.armDeepSelect(false);
+    return armed;
+  }
+
+  private updateControlSnapshot(patch: Partial<TabletControlSnapshot>): void {
+    this._controlSnapshot = Object.freeze({ ...this._controlSnapshot, ...patch });
+    for (const listener of this.listeners) listener();
+  }
 
   begin(inputSource: InputSource, operation: OperationType, snapEnabled: boolean): void {
+    this._activeControlSnapshot = this._controlSnapshot;
     this._inputSource = inputSource;
     this._operation = operation;
     this._snapEnabled = snapEnabled;
@@ -89,8 +137,9 @@ export class InteractionSession {
 
   freeze(): InteractionSnapshot {
     if (this._frozen) return this._frozen;
+    const latched = this._activeControlSnapshot ?? this._controlSnapshot;
     this._frozen = Object.freeze({
-      shiftKey: this._shiftKey,
+      shiftKey: this._shiftKey || latched.constrain,
       altKey: this._altKey,
       ctrlKey: this._ctrlKey,
       metaKey: this._metaKey,
@@ -102,7 +151,8 @@ export class InteractionSession {
       // Ctrl/Cmd is the snap bypass. Adding Shift changes the intent to
       // preserve-parent, so snap bypass and reparent suppression are no
       // longer coupled to one opaque flag.
-      bypassSnap: this.cmdKey && !this._shiftKey,
+      bypassSnap: latched.bypassSnap || (this.cmdKey && !this._shiftKey),
+      fromCenter: latched.fromCenter,
       preserveParent: this.cmdKey && this._shiftKey,
       preferences: Object.freeze({ ...this._preferences }),
     });
@@ -120,6 +170,8 @@ export class InteractionSession {
     this._isDuplicate = false;
     this._snapEnabled = true;
     this._frozen = null;
+    this._activeControlSnapshot = null;
+    this.armDeepSelect(false);
   }
 }
 

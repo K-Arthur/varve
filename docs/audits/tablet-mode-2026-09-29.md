@@ -3,9 +3,11 @@
 **Status:** adaptive tablet layout and scoped gesture-cancellation/rollback
 changes are committed on `master`; architecture and website copy plus reviewed
 screenshots are prepared in the shared worktree. Focused browser/site checks
-pass for the tested flows. The complete poster round trip, current shared-tree
-build, clean full-repository gate, matched performance comparison, and
-physical-device acceptance remain open as described below.
+pass for the tested flows. The keyboardless touch-only editing round trip and
+the import→edit→save→reopen→export poster round trip now have integrated browser
+regressions (Milestones 9 and 10). The current shared-tree build, a clean
+full-repository gate, a matched performance comparison, and physical-device
+acceptance remain open as described below.
 **Initial audit baseline:** `master` at
 `220553d97aafc4db010e8cb239c5807fead9d0c0` (`docs: record shared admission
 milestone evidence`), 231 commits ahead of `origin/master` at inspection.
@@ -392,6 +394,179 @@ and are not presented as fresh validation of the current checkout.
   `lastValidatedAgainst` for both tablet scenes. Website showcase and image
   component spacing exceptions are documented inline for the scoped spacing
   audit.
+
+### Milestone 9 — keyboardless workflow integration and gate repair
+
+- Fixed the one failing tablet unit test. `TabletTouchControls` renders only in
+  tablet presentation, and `data-layout-mode` is published by
+  `SettingsProvider`'s mount effect, so the trigger appears one microtask after
+  first render. The test asserted that pre-effect frame; it now awaits the
+  element (`findByRole`) exactly as the browser does. Root cause is recorded in
+  the test so it is not re-broken by a future "just set the attribute" shortcut.
+- Removed leftover debug scaffolding
+  `packages/editor/src/components/FloatingToolbar/zz-debug.test.tsx`
+  (`expect(true).toBe(true)` plus console dumps) — a tablet-session artifact
+  with no assertions, superceded by the real test above.
+- Added `tests/e2e/interaction/tablet-keyboardless-workflow.spec.ts`, the
+  integrated touch-only round trip this audit previously listed as missing:
+  touch tool selection, two shapes authored by touch drag, tap-select,
+  touch-multi-select, align-left through the tablet controls popover, layer
+  reorder through the same popover, and undo/redo from the Edit menu — no
+  keyboard event reaches the editor. Assertions read the serialized document
+  (world left edges, fractional layer keys, exact serialization equality after
+  undo), not the chrome, so a passing screenshot is not the evidence.
+- Two behaviours the test had to account for, both correct but worth recording:
+  a tap on an already-selected member preserves the multi-selection (so a group
+  can be dragged), and arrangement rewrites each moved node's fractional
+  `order` key while the page container's `children` array carries the
+  structure — `rootChildren` holds the page, not the shapes.
+- Evidence: the new spec passed in the official Playwright configuration under
+  the heavy-task lease (`VARVE_E2E_PORT=4436`, Chromium, `--workers=1`) — 1
+  passed in 1.7m — and `tablet-editing-controls.spec.ts` passed 1/1 in the same
+  lease window. The three tablet browser specs together then passed **3/3 in
+  1.5m** in the final official lease run (`VARVE_E2E_PORT=4442`,
+  `--timeout=300000`). `pnpm typecheck:e2e` passed; `biome check` passed on both
+  touched test files. The inspected capture (1200×750) shows two rectangles
+  sharing left edge 193, the tablet Inspector rail reporting two selected
+  shapes, and the palette's trailing cluster carrying the tablet controls
+  trigger beside Multi.
+- 11 focused tablet unit files passed 118 tests (FloatingToolbar, layout
+  presentation, menubar overflow, tablet Back dismissal, deep-link handling,
+  SelectionOverlay, layout-preference commands, InteractionContext, overlay
+  registry, Dialog).
+- Environment limits unchanged: Chromium emulation only. USI pressure, palm
+  rejection, real OSK/IME, physical ChromeOS, Windows touch, Android and
+  iPadOS remain unverified device checks.
+
+### Milestone 10 — poster round trip (the last open acceptance flow)
+
+- Added `tests/e2e/interaction/tablet-poster-round-trip.spec.ts`, the
+  single-document flow this audit left open: an unbound document imports a real
+  1280×850 JPEG through `#file-import-input`, is edited by touch (Duplicate via
+  the tablet control popover), saved through the File menu, reopened from the
+  written bytes in a fresh session, and exported to SVG.
+- Fidelity is asserted on bytes, not chrome: a content signature over every
+  node (id, kind, transform, shape geometry, fill) is identical across the save
+  boundary; the asset count survives; the reopened document has the same node
+  count; the exported SVG contains `<image`, so the imported raster is embedded
+  rather than dropped.
+- Findings recorded while building it:
+  - Home-created documents are backed by Varve Library storage, so their Save
+    never reaches the file picker. The round trip must start from File > New
+    (the same contract `save/save-flow.spec.ts` documents).
+  - `tests/e2e/fixtures/flower.jpg` is a 29-byte HTML file, not a JPEG. Pointing
+    an import at it fails with "0 layers inserted, 1 file failed" — correct
+    rejection, misleading fixture name. A real raster (`photo-fixture.jpg`)
+    imports cleanly and becomes a rect shape carrying a document asset.
+  - **Export defect (outside this task's scope, reported for the export
+    owners):** with the real `showSaveFilePicker` present, File > Export SVG…
+    announces "SVG export cancelled" and writes nothing. The browser write path
+    (`packages/platform/src/web.ts` `saveBinaryFile`) treats every picker
+    failure that is not `NotAllowedError` as a user cancel and returns `null`;
+    the export calls the picker only after `await`s, so Chrome's transient
+    activation has expired and the picker throws `SecurityError`. The user has
+    no way to tell this from a deliberate cancel. `packages/platform/src/web.ts`
+    is under another agent's active edit, so this was not patched here. The
+    round-trip spec stubs the picker (exactly as the save specs do), so what it
+    validates is the export pipeline and its bytes, not the picker handshake.
+- Under shared-machine load one synthetic touch drag can be dropped; the spec
+  retries the authoring drag until the document actually gains a rectangle
+  rather than assuming a single drag lands, and asserts the tablet palette is
+  visible before depending on it. Neither change weakens an assertion.
+- Closing the popover by tapping its trigger also lost Playwright's
+  actionability race against the palette re-render that follows a document edit
+  ("`<html>` intercepts pointer events", then "element was detached"). Both
+  specs now close it through one shared helper
+  (`tests/e2e/helpers/tabletControls.ts`), which prefers the trigger tap, falls
+  back to an outside canvas tap, and then asserts the close changed neither the
+  document nor the selection — so the touch dismissal path is covered and
+  click-through is caught. The same helper owns `readEditorState`, replacing
+  the near-identical fiber readers.
+
+### Milestone 11 — compact gesture guide in the tablet controls
+
+- The tablet brief asks for a discoverable gesture surface and clearly visible
+  active modes without a keyboard. The popover already showed latched modifier
+  state (`aria-pressed`) and every action had a visible control, but nothing
+  named the canvas gestures themselves; the only description lived in
+  Settings > Drawing input.
+- `TabletTouchControls` now carries a compact **Gestures** definition list in the
+  same popover: one finger (follows Drawing input: draw, or pan when set to
+  navigate), two fingers (pan and zoom), long press (pick a nested object),
+  Multi (tap to add to the selection), and pen (always draws; finger contacts
+  stay out of the way while it is down). Each statement matches behaviour that
+  already has a documented test, and every gesture it names also has a visible
+  control in the same panel, so no gesture is the only path.
+- Additive and tablet-only: the popover renders only under
+  `data-layout-mode="tablet"`, so desktop chrome is unchanged.
+- Regression: `TabletTouchControls.test.tsx` opens the popover and asserts the
+  guide is present alongside the corresponding controls (2 tests in the file).
+  `biome check`, stylelint on the stylesheet, and `audit:sizing` pass; the
+  stylesheet adds only existing design tokens.
+
+### Milestone 12 — remaining-work triage (2026-09-30)
+
+Three items remained after Milestones 9–11. Two are blocked by concurrent
+ownership and one was partially closed; all are recorded here with the evidence
+so they can be picked up without repeating the investigation.
+
+**1. Commit boundary — blocked, documented.** The tablet and canvas-fluidity
+changes are co-edited inside the same hunks of
+`packages/editor/src/SelectionOverlay.tsx` (and the move-gesture region of
+`SelectTool.ts`), so `git apply --cached` cannot split them:
+`dragRef.current = { …, tabletModifiers }` sits in a hunk whose context is the
+fluidity `renderDocument`, `e.shiftKey || g.tabletModifiers.constrain` is inside
+a hunk that switches `state.document` → `renderDocument`, and the
+`HANDLE_TARGET_HALF` change shares a hunk with the `visibleHandles` rewrite.
+The tablet slice must therefore land with the fluidity work, or be committed by
+a coordinator who owns both. The exact stage/exclude map is in the ownership
+record.
+
+**2. Browser export handshake — blocked, reported.** `packages/platform/src/web.ts`
+is under another agent's active edit, so the `saveBinaryFile` fix (treat
+`AbortError` as the only cancel; fall back to the Blob download for
+`SecurityError` and other failures) was left to its owner with the mechanism and
+probe evidence recorded in Milestone 10.
+
+**3. Crash-recovery acceptance — blocked on an unestablished diagnostic.**
+Trying to build the "restore an interrupted session" E2E surfaced an observation
+I could not explain within this task's scope, so no test was added that would
+encode unverified behaviour or seed the recovery store directly.
+
+Observed in headless Chromium against the dev server, after editing an unbound
+document and idling 15–18 s: `varve-recovery` exists (`version 1`, store
+`sessions`) with **0** `recovery_` keys; `varve-backups` is **0** across
+`backups`/`assets`/`indices`/`manifests`; `varve-history` is **populated**
+(`revisions 3`, `snapshots 2`, `branches 2`, `segments 1`); and
+`.save-status` stays `save-status--dirty` ("Modified"), never entering a saving
+or error state.
+
+Ruled out while investigating: `projectionMode` (only `AuxiliaryShell` sets it;
+the main editor's default is false, so `useAutoBackupServices` is enabled); a
+missing store (the DB and store exist); a swallowed write error (the status
+never became `save-status--error`); and the 5-minute `intervalMs` gate for the
+*specific* case tested — a Home-created library document legitimately shows no
+new point for 5 minutes, which is why the first probe was repeated from File >
+New, whose session records no prior save and so is due ~3 s after an edit given
+`idleThresholdMs: 2000` and the 1 s poll.
+
+Strongest remaining candidate: `isEditorInteractionActive()` returning true, or
+the background frame lane (`requestEditorFrame(key, 'background', …)`) never
+running the job — both `AutoSaveService` and `BackupService` early-return on the
+former, which would explain the complete absence of *both* while history (which
+does not consult it) keeps writing. Not established; the frame scheduler's
+interaction state is not exposed to the page (`window.__varvePerf` is absent in
+this build), so it needs an owner with in-repo instrumentation.
+
+**4. Performance — partially closed.** `pnpm bench:canvas` passed 6 bench tests
+in 8.0 s, including the real assertions
+`expect(replay.p95).toBeLessThan(50)` (small fixture) and
+`expect(replay.p95).toBeLessThan(500)` (large fixture), so the IR-replay hot path
+that ADR-0001 and the render/replay rule protect still meets its budgets on this
+tree. The matched production-workload comparison
+(`scripts/perf/run-production-workload.mjs`, `vector-500`, `single-drag`)
+remains open: it requires a production build, and on a tree carrying several
+agents' uncommitted work any figure would be classified non-authoritative.
 
 ## Agent Validation Report
 

@@ -657,6 +657,14 @@ function AppearanceSection({ onThemeChange }: { onThemeChange: (theme: string) =
         Automatic keeps compact controls below 900px and selects tablet presentation for touch
         devices through 1280px. A tablet override adapts to constrained widths.
       </p>
+      <SwitchField
+        label="Mirror tablet controls"
+        description="Move the Layers and panel controls to the opposite side for left-handed reach."
+        checked={settings.appearance.tabletControlsMirrored}
+        onChange={(e) =>
+          updateSettings({ appearance: { tabletControlsMirrored: e.target.checked } })
+        }
+      />
       <SettingsFieldRow label="Accent source">
         <Select
           options={ACCENT_SOURCE_OPTIONS}

@@ -26,6 +26,7 @@ import {
   LAYOUT_PREFERENCE_REQUEST_EVENT,
   mountLayoutPresentation,
   setLayoutPreference,
+  setTabletControlsMirrored,
 } from '../../settings/layoutPresentation';
 import './layoutPresentation.css';
 
@@ -69,12 +70,19 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<EditorSettings>(loadEditorSettings);
   const layoutPreferenceRef = useRef(settings.appearance.layoutPreference);
   layoutPreferenceRef.current = settings.appearance.layoutPreference;
+  const tabletControlsMirroredRef = useRef(settings.appearance.tabletControlsMirrored);
+  tabletControlsMirroredRef.current = settings.appearance.tabletControlsMirrored;
 
-  useEffect(() => mountLayoutPresentation(layoutPreferenceRef.current), []);
+  useEffect(
+    () => mountLayoutPresentation(layoutPreferenceRef.current, tabletControlsMirroredRef.current),
+    [],
+  );
   useEffect(() => registerLayoutPreferenceCommands(), []);
 
   const layoutPreference = settings.appearance.layoutPreference;
   useEffect(() => setLayoutPreference(layoutPreference), [layoutPreference]);
+  const tabletControlsMirrored = settings.appearance.tabletControlsMirrored;
+  useEffect(() => setTabletControlsMirrored(tabletControlsMirrored), [tabletControlsMirrored]);
 
   // Interface appearance (density, UI font size) is root-level DOM state,
   // like the theme. The pre-paint script applies the persisted values before

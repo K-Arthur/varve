@@ -1,0 +1,67 @@
+{
+  "browser": "chromium",
+  "browserVersion": "151.0.7922.34",
+  "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Safari/537.36",
+  "devicePixelRatio": 1,
+  "viewport": {
+    "width": 1094,
+    "height": 700,
+    "dpr": 1
+  },
+  "documentScrollWidth": 1094,
+  "bodyScrollWidth": 1094,
+  "canvas": {
+    "x": 240.671875,
+    "y": 141.5,
+    "width": 613.3125,
+    "height": 504.5
+  },
+  "toolbar": {
+    "x": 266.859375,
+    "y": 579.703125,
+    "width": 560.9375,
+    "height": 57.125
+  },
+  "bottomChrome": {
+    "toolbar": {
+      "top": 580,
+      "bottom": 637,
+      "left": 267,
+      "right": 828,
+      "width": 561,
+      "height": 57
+    },
+    "fabs": [
+      {
+        "cls": "editor__fab editor__fab--library",
+        "rect": {
+          "top": 529,
+          "bottom": 573,
+          "left": 745,
+          "right": 789,
+          "width": 44,
+          "height": 44
+        }
+      }
+    ]
+  },
+  "panelLauncherOverlaps": [],
+  "touchModifier": {
+    "width": 44,
+    "height": 44,
+    "right": 821.234375,
+    "rowRight": 827.796875,
+    "compactCaption": "\"Multi\""
+  },
+  "topChrome": {
+    "documentName": null,
+    "workspaceDock": {
+      "left": 560.40625,
+      "right": 906.09375,
+      "top": 0,
+      "bottom": 52,
+      "width": 345.6875,
+      "height": 52
+    }
+  }
+}

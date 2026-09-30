@@ -1,0 +1,97 @@
+{
+  "browser": "chromium",
+  "browserVersion": "151.0.7922.34",
+  "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Safari/537.36",
+  "devicePixelRatio": 1,
+  "viewport": {
+    "width": 899,
+    "height": 600,
+    "dpr": 1
+  },
+  "documentScrollWidth": 899,
+  "bodyScrollWidth": 899,
+  "canvas": {
+    "x": 0,
+    "y": 140.75,
+    "width": 899,
+    "height": 405.25
+  },
+  "toolbar": {
+    "x": 6.1796875,
+    "y": 480.390625,
+    "width": 886.640625,
+    "height": 56.75
+  },
+  "bottomChrome": {
+    "toolbar": {
+      "top": 480,
+      "bottom": 537,
+      "left": 6,
+      "right": 893,
+      "width": 887,
+      "height": 57
+    },
+    "fabs": [
+      {
+        "cls": "editor__fab editor__fab--layers",
+        "rect": {
+          "top": 431,
+          "bottom": 475,
+          "left": 9,
+          "right": 53,
+          "width": 44,
+          "height": 44
+        }
+      },
+      {
+        "cls": "editor__fab editor__fab--inspector",
+        "rect": {
+          "top": 431,
+          "bottom": 475,
+          "left": 846,
+          "right": 890,
+          "width": 44,
+          "height": 44
+        }
+      },
+      {
+        "cls": "editor__fab editor__fab--library",
+        "rect": {
+          "top": 431,
+          "bottom": 475,
+          "left": 797,
+          "right": 841,
+          "width": 44,
+          "height": 44
+        }
+      }
+    ]
+  },
+  "panelLauncherOverlaps": [],
+  "touchModifier": {
+    "width": 44,
+    "height": 44,
+    "right": 886.4453125,
+    "rowRight": 892.8203125,
+    "compactCaption": "\"Multi\""
+  },
+  "topChrome": {
+    "documentName": null,
+    "menuRail": {
+      "left": 5.375,
+      "right": 448.15625,
+      "top": 0,
+      "bottom": 52,
+      "width": 442.78125,
+      "height": 52
+    },
+    "workspaceDock": {
+      "left": 506.578125,
+      "right": 714.171875,
+      "top": 0,
+      "bottom": 52,
+      "width": 207.59375,
+      "height": 52
+    }
+  }
+}

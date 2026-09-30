@@ -9,12 +9,25 @@
  *                 Spring-loaded tools: holding a key activates the tool
  *                 temporarily, reverting on release (Space=Hand pattern).
  */
+import { interactionSession, type TabletControlSnapshot } from './InteractionContext';
 import { CanvasNudgeController } from './nudgeController';
 import type { GestureResult, Tool, ToolContext, ToolCursorState, ToolId } from './types';
 
 export type ToolFactory = () => Tool;
 
 const SPRING_LOAD_DELAY_MS = 150;
+const FROM_CENTER_TOOLS = new Set<ToolId>([
+  'frame',
+  'panel',
+  'rect',
+  'ellipse',
+  'polygon',
+  'star',
+  'line',
+  'arrow',
+  'text',
+  'table',
+]);
 
 interface SpringLoadState {
   previousId: ToolId;
@@ -37,6 +50,8 @@ export class ToolManager {
   private genericNudge = new CanvasNudgeController();
   /** Pointer driving an in-progress middle-button pan, when any. */
   private middlePanPointerId: number | null = null;
+  /** Latches are captured at pointer-down so a second contact cannot alter a live gesture. */
+  private pointerModifiers = new Map<number, TabletControlSnapshot>();
 
   constructor(defaultTool: ToolId = 'select') {
     this.activeId = defaultTool;
@@ -182,20 +197,47 @@ export class ToolManager {
     this._altKey = false;
     this._ctrlKey = false;
     this._metaKey = false;
+    this.pointerModifiers.clear();
   }
 
   private buildContext(e: PointerEvent | KeyboardEvent, base: ToolContext): ToolContext {
     this.updateModifiers(e);
+    const latched = 'pointerId' in e ? this.getPointerModifiers(e) : undefined;
     return {
       ...base,
-      shiftKey: this._shiftKey,
-      altKey: this._altKey,
+      shiftKey: this._shiftKey || (latched?.constrain ?? false),
+      // Alt-drag on Select duplicates. Keep that established gesture intact;
+      // the latched from-centre modifier applies to creation/edit tools.
+      altKey:
+        this._altKey || ((latched?.fromCenter ?? false) && FROM_CENTER_TOOLS.has(this.activeId)),
       ctrlKey: this._ctrlKey,
       metaKey: this._metaKey,
     };
   }
 
+  private getPointerModifiers(e: PointerEvent): TabletControlSnapshot {
+    return this.pointerModifiers.get(e.pointerId) ?? interactionSession.getControlSnapshot();
+  }
+
+  private withLatchedPointerModifiers(
+    e: PointerEvent,
+    latched = this.getPointerModifiers(e),
+  ): PointerEvent {
+    const fromCenter = latched.fromCenter && FROM_CENTER_TOOLS.has(this.activeId);
+    if (!latched.constrain && !fromCenter) return e;
+    return new Proxy(e, {
+      get(target, property) {
+        if (property === 'shiftKey') return target.shiftKey || latched.constrain;
+        if (property === 'altKey') return target.altKey || fromCenter;
+        const value = Reflect.get(target, property, target);
+        return typeof value === 'function' ? value.bind(target) : value;
+      },
+    });
+  }
+
   handlePointerDown(e: PointerEvent, base: ToolContext): GestureResult {
+    this.pointerModifiers.set(e.pointerId, interactionSession.getControlSnapshot());
+    e = this.withLatchedPointerModifiers(e, this.pointerModifiers.get(e.pointerId));
     const ctx = this.buildContext(e, base);
     // The middle button is viewport navigation wherever it lands (the
     // Figma/Illustrator convention): route it to the Hand tool even under
@@ -217,13 +259,17 @@ export class ToolManager {
     // selection/state change from that commit immediately closed the canvas
     // context menu the same click was meant to open.
     if (e.button === 2) {
+      this.pointerModifiers.delete(e.pointerId);
       return { consumed: false };
     }
     this.cursorState = 'drag';
-    return this.activeTool.onPointerDown?.(e, ctx) ?? { consumed: false };
+    const result = this.activeTool.onPointerDown?.(e, ctx) ?? { consumed: false };
+    if (!result.consumed) this.pointerModifiers.delete(e.pointerId);
+    return result;
   }
 
   handlePointerMove(e: PointerEvent, base: ToolContext): void {
+    e = this.withLatchedPointerModifiers(e);
     const ctx = this.buildContext(e, base);
     if (this.cursorState === 'idle') this.cursorState = 'hover';
     if (this.middlePanPointerId !== null && this.middlePanPointerId === e.pointerId) {
@@ -234,27 +280,38 @@ export class ToolManager {
   }
 
   handlePointerUp(e: PointerEvent, base: ToolContext): void {
+    const pointerId = e.pointerId;
+    e = this.withLatchedPointerModifiers(e);
     const ctx = this.buildContext(e, base);
     this.cursorState = 'idle';
-    if (this.middlePanPointerId !== null && this.middlePanPointerId === e.pointerId) {
-      this.middlePanPointerId = null;
-      this.getOrCreate('hand').onPointerUp?.(e, ctx);
-      return;
+    try {
+      if (this.middlePanPointerId !== null && this.middlePanPointerId === e.pointerId) {
+        this.middlePanPointerId = null;
+        this.getOrCreate('hand').onPointerUp?.(e, ctx);
+        return;
+      }
+      this.activeTool.onPointerUp?.(e, ctx);
+    } finally {
+      this.pointerModifiers.delete(pointerId);
     }
-    this.activeTool.onPointerUp?.(e, ctx);
   }
 
   handlePointerCancel(e: PointerEvent, base: ToolContext): void {
+    e = this.withLatchedPointerModifiers(e);
     const ctx = this.buildContext(e, base);
     this.cursorState = 'idle';
     // A cancel ends an in-progress middle pan (its pointer may no longer
     // exist, so match on the pan being open rather than the event id) while
     // the active tool's own drag keeps its existing cancel contract.
-    if (this.middlePanPointerId !== null) {
-      this.middlePanPointerId = null;
-      this.getOrCreate('hand').onPointerCancel?.(e, ctx);
+    try {
+      if (this.middlePanPointerId !== null) {
+        this.middlePanPointerId = null;
+        this.getOrCreate('hand').onPointerCancel?.(e, ctx);
+      }
+      this.activeTool.onPointerCancel?.(e, ctx);
+    } finally {
+      this.pointerModifiers.clear();
     }
-    this.activeTool.onPointerCancel?.(e, ctx);
   }
 
   handleKeyDown(e: KeyboardEvent, base: ToolContext): boolean {
@@ -288,9 +345,11 @@ export class ToolManager {
     this.cursorState = 'idle';
     this.activeTool.onFocusLoss?.(base);
     this.genericNudge.finish(base);
+    this.pointerModifiers.clear();
   }
 
   handleDoubleClick(e: PointerEvent, base: ToolContext): void {
+    e = this.withLatchedPointerModifiers(e);
     const ctx = this.buildContext(e, base);
     this.activeTool.onDoubleClick?.(e, ctx);
   }

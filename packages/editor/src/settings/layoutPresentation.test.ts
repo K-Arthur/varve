@@ -103,4 +103,22 @@ describe('responsive layout presentation', () => {
     controller.contactEnd(4);
     expect(root.dataset.layoutMode).toBe('tablet');
   });
+
+  it('defers mirrored control placement until contacts and IME composition end', () => {
+    const root = { dataset: {} as DOMStringMap };
+    const controller = createLayoutPresentationController(root, () => touchLaptop, 'tablet');
+    expect(root.dataset.tabletControlsMirrored).toBe('false');
+
+    controller.contactStart(9, 'pen');
+    controller.setControlsMirrored(true);
+    expect(root.dataset.tabletControlsMirrored).toBe('false');
+    controller.contactEnd(9);
+    expect(root.dataset.tabletControlsMirrored).toBe('true');
+
+    controller.compositionStart();
+    controller.setControlsMirrored(false);
+    expect(root.dataset.tabletControlsMirrored).toBe('true');
+    controller.compositionEnd();
+    expect(root.dataset.tabletControlsMirrored).toBe('false');
+  });
 });

@@ -45,7 +45,10 @@ choice. It mirrors the Layers, Inspector, and Resources launchers for alternate
 reach; it does not change desktop dock ownership or panel visibility. The
 tablet toolbar's Editing controls popover supplies latched Constrain, From
 centre, and Bypass snap modifiers, plus a one-shot deep-select action for the
-next canvas tap, Duplicate, alignment, and layer-order commands. From centre
+next canvas tap, Duplicate, alignment, and layer-order commands, and a compact
+Gestures reference (one finger, two fingers, long press, Multi, pen). Every
+gesture it names also has a visible control in the same popover, so no gesture
+is the only path. From centre
 applies to creation tools and selection-handle resizing. The existing
 Alt-drag duplicate gesture remains unchanged while Select is active. Modifiers
 remain latched until explicitly toggled off.
@@ -232,6 +235,20 @@ gesture; ChromeOS hardware behavior remains a device-validation item.
   clearance, system-back menu dismissal, guard cleanup, portrait bottom
   sheets, landscape side drawers, rotation presentation switching, and
   rotation mid-gesture.
+- `tests/e2e/interaction/tablet-editing-controls.spec.ts` — tablet control
+  popover reachability, 44px targets, latched modifier survival across
+  landscape-to-portrait reflow, and popover bounds in both orientations.
+- `tests/e2e/interaction/tablet-keyboardless-workflow.spec.ts` — one integrated
+  touch-only round trip: tool selection, authoring two shapes, tap-select,
+  multi-select, align-left, layer reorder, and undo/redo, asserting the
+  serialized document (geometry, layer keys) rather than the chrome. This is
+  the cross-surface companion to the per-behaviour matrix above; it does not
+  certify physical pen/palm/keyboard behavior.
+- `tests/e2e/interaction/tablet-poster-round-trip.spec.ts` — single-document
+  file round trip: import a real raster, duplicate through the tablet controls,
+  save, reopen the written bytes in a fresh session, and export SVG. Content
+  fidelity (per-node geometry, fill, and asset count) is compared across the
+  save boundary; the exported SVG must still contain the embedded image.
 - `tests/e2e/a11y/responsive-panels.spec.ts` — drawer focus trap and return.
 - `packages/editor/src/canvas/__tests__/keyboardInset.test.ts` — pure model
   and subscription behavior.

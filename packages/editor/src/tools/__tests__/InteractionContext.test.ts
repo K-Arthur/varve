@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { InteractionSession } from '../InteractionContext';
 
 describe('InteractionSession', () => {
@@ -16,6 +16,7 @@ describe('InteractionSession', () => {
     expect(snap.isDuplicate).toBe(false);
     expect(snap.snapEnabled).toBe(true);
     expect(snap.bypassSnap).toBe(false);
+    expect(snap.fromCenter).toBe(false);
     expect(snap.preserveParent).toBe(false);
   });
 
@@ -69,5 +70,56 @@ describe('InteractionSession', () => {
     const snap = s.freeze();
     expect(snap.isDuplicate).toBe(true);
     expect(snap.axisLock).toBe('x');
+  });
+
+  it('keeps latched tablet modifiers across interaction resets and consumes deep select once', () => {
+    const s = new InteractionSession();
+    const listener = vi.fn();
+    const unsubscribe = s.subscribe(listener);
+    s.setLatchedModifier('constrain', true);
+    s.setLatchedModifier('fromCenter', true);
+    s.setLatchedModifier('bypassSnap', true);
+    s.armDeepSelect(true);
+
+    s.begin('touch', 'move', true);
+    expect(s.freeze()).toMatchObject({
+      shiftKey: true,
+      fromCenter: true,
+      bypassSnap: true,
+    });
+    expect(s.consumeDeepSelect()).toBe(true);
+    expect(s.consumeDeepSelect()).toBe(false);
+    expect(s.getControlSnapshot().deepSelectArmed).toBe(false);
+
+    s.reset();
+    s.begin('touch', 'move', true);
+    expect(s.freeze()).toMatchObject({ shiftKey: true, fromCenter: true, bypassSnap: true });
+    expect(listener).toHaveBeenCalledTimes(5);
+    unsubscribe();
+  });
+
+  it('keeps the gesture-start tablet modifiers when controls change mid-interaction', () => {
+    const s = new InteractionSession();
+    s.setLatchedModifier('constrain', true);
+    s.setLatchedModifier('fromCenter', true);
+    s.setLatchedModifier('bypassSnap', true);
+    s.begin('pen', 'resize', true);
+
+    s.setLatchedModifier('constrain', false);
+    s.setLatchedModifier('fromCenter', false);
+    s.setLatchedModifier('bypassSnap', false);
+
+    expect(s.freeze()).toMatchObject({
+      shiftKey: true,
+      fromCenter: true,
+      bypassSnap: true,
+    });
+    s.reset();
+    s.begin('pen', 'resize', true);
+    expect(s.freeze()).toMatchObject({
+      shiftKey: false,
+      fromCenter: false,
+      bypassSnap: false,
+    });
   });
 });
