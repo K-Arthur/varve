@@ -1,0 +1,152 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import StatusPill from '../../components/StatusPill.astro';
+import { sitePath } from '../../lib/siteUrl';
+---
+
+<Layout
+  title="Reusable Patterns"
+  description="Create reusable patterns from selected vector artwork, imported raster tiles, or a procedural recipe, then place them independently on objects in Varve."
+>
+  <div class="container-custom">
+    <main class="pattern-feature">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href={sitePath('/features')}>Features</a> / Reusable Patterns
+      </nav>
+
+      <header class="feature-hero">
+        <StatusPill status="experimental" label="Source-build preview" />
+        <h1>Make a repeat once. Place it where the design needs it.</h1>
+        <p class="feature-intro">
+          Build a reusable pattern from copied vector artwork, an image tile, or a procedural
+          recipe. Apply that definition to selected objects, then adjust each fill’s tile scale,
+          phase, and rotation in the inspector.
+        </p>
+        <p class="release-note">
+          This pattern library is available in the current source build and is not included in a
+          published Varve release yet.
+        </p>
+      </header>
+
+      <section class="model-card site-card site-card--surface" aria-labelledby="model-title">
+        <div class="model-copy">
+          <p class="eyebrow">Four things, kept distinct</p>
+          <h2 id="model-title">Source, repeat, definition, and placement have separate jobs.</h2>
+          <p>
+            A copied motif or tile is the source. Its definition stores cell and repeat data. An
+            object’s fill points to that reusable definition and owns its own placement values.
+            Editing those placement values does not resize or move the original artwork on the
+            canvas.
+          </p>
+        </div>
+        <div class="pattern-flow" aria-label="Pattern structure: source becomes a reusable definition, which is placed as a fill on an object">
+          <div class="flow-step"><span>01 · SOURCE</span><strong>Artwork or tile</strong><small>Copied vector, raster image, or recipe</small></div>
+          <span class="flow-arrow" aria-hidden="true">→</span>
+          <div class="flow-step flow-step--accent"><span>02 · DEFINITION</span><strong>Reusable pattern</strong><small>Cell bounds and repeat settings</small></div>
+          <span class="flow-arrow" aria-hidden="true">→</span>
+          <div class="flow-step"><span>03 · APPLICATION</span><strong>One object fill</strong><small>Independent scale, phase, and rotation</small></div>
+        </div>
+        <p class="diagram-note">Conceptual model — this diagram is not an application screenshot.</p>
+      </section>
+
+      <section class="capabilities" aria-labelledby="today-title">
+        <p class="eyebrow">In the source-build preview</p>
+        <h2 id="today-title">A practical start for reusable surface design.</h2>
+        <div class="capability-grid">
+          <article>
+            <h3>Copy a vector selection</h3>
+            <p>
+              Create a definition from selected artwork in the Paint inspector. The selected source
+              artwork remains on the canvas; the pattern keeps its own copied source data.
+            </p>
+          </article>
+          <article>
+            <h3>Bring in a raster tile</h3>
+            <p>
+              Import PNG, JPEG, WebP, GIF, or AVIF. The image is embedded as a document asset, so the
+              definition does not depend on its original file path.
+            </p>
+          </article>
+          <article>
+            <h3>Start with a recipe</h3>
+            <p>
+              New pattern creates a checkerboard recipe that is saved with the document, alongside
+              its generated preview.
+            </p>
+          </article>
+          <article>
+            <h3>Apply and make unique</h3>
+            <p>
+              Apply a library entry to selected objects. A fill can be made unique for one selected
+              object, with its own definition identity for later source changes.
+            </p>
+          </article>
+          <article>
+            <h3>Adjust the fill in place</h3>
+            <p>
+              Set tile width, tile height, horizontal and vertical phase, and rotation for the
+              selected fill. The current repeat preview helps inspect the applied arrangement.
+            </p>
+          </article>
+          <article>
+            <h3>Keep assets with the file</h3>
+            <p>
+              Pattern definitions and imported tile bytes are part of document data. The normal
+              document save path carries their source and dependencies together.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <aside class="limits" aria-labelledby="limits-title">
+        <p class="eyebrow">Current boundaries</p>
+        <h2 id="limits-title">Source editing and some output paths are still being built.</h2>
+        <p>
+          The current UI creates, lists, applies, and makes definitions unique; definition settings
+          can change the shared cell size and repeat arrangement. A library source can be replaced
+          with an imported raster tile, which updates every linked use; make a fill unique first
+          when only one use should change. The UI does not yet open a contextual session to edit the
+          shared vector source. Raster edge repair, wraparound painting, shared page-origin
+          alignment, and finite expansion are not available here. Export Tile saves one source
+          cell; Export Supertile saves the full rectangular period for grid and conventional
+          half-drop or brick repeats with mirror parity. Applied-fill SVG keeps supported
+          linked grid patterns as reusable vector pattern definitions; unsupported cases use a
+          raster fallback with a warning. PDF currently supports axis-aligned grids with positive
+          gaps and reports unsupported transforms. PDF/X-1a omits transparent tiles or fills with
+          non-opaque opacity.
+        </p>
+        <a href={sitePath('/docs/tools/patterns')}>Read the pattern workflow and limits →</a>
+      </aside>
+    </main>
+  </div>
+</Layout>
+
+<style>
+  .pattern-feature { max-width: 920px; margin: 0 auto; padding: 3rem 0 5rem; }
+  .breadcrumb { color: var(--text-secondary); font-size: var(--type-interface-caption-size); margin-bottom: 2rem; }
+  .breadcrumb a { color: var(--text-secondary); }
+  .feature-hero { max-width: 760px; margin-bottom: 3rem; }
+  .feature-hero h1 { color: var(--text-primary); font: 700 clamp(2.4rem, 6vw, 4.25rem)/1.05 var(--font-editorial); letter-spacing: -.03em; margin: 1rem 0; }
+  .feature-intro { color: var(--text-secondary); font-size: var(--type-content-lead-size); line-height: 1.65; max-width: 720px; }
+  .release-note { border-inline-start: 3px solid var(--border-accent); color: var(--text-secondary); margin-top: 1.25rem; padding-inline-start: 1rem; }
+  .model-card, .limits { background: var(--surface-card); border: 1px solid var(--border-default); border-radius: var(--website-radius-card); padding: clamp(1.5rem, 4vw, 2.5rem); }
+  .eyebrow { color: var(--accent-primary); font-size: var(--type-interface-micro-size); font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+  .model-copy { max-width: 700px; }
+  .model-copy h2, .capabilities h2, .limits h2 { color: var(--text-primary); font-size: clamp(1.6rem, 3vw, 2.25rem); line-height: 1.2; margin: .5rem 0 1rem; }
+  .model-copy p:not(.eyebrow), .limits p:not(.eyebrow) { color: var(--text-secondary); line-height: 1.75; }
+  .pattern-flow { align-items: stretch; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr); gap: 1rem; margin-top: 2rem; }
+  .flow-step { background: var(--surface-muted); border: 1px solid var(--border-default); border-radius: var(--website-radius-surface); display: flex; flex-direction: column; gap: .6rem; min-width: 0; padding: 1rem; }
+  .flow-step--accent { background: var(--surface-accent-soft); border-color: var(--border-accent); }
+  .flow-step span { color: var(--text-tertiary); font-size: var(--type-interface-micro-size); font-weight: 700; letter-spacing: .06em; }
+  .flow-step strong { color: var(--text-primary); }
+  .flow-step small { color: var(--text-secondary); line-height: 1.45; }
+  .flow-arrow { align-self: center; color: var(--accent-primary); font-size: var(--type-display-section-size); }
+  .diagram-note { color: var(--text-tertiary); font-size: var(--type-interface-caption-size); margin: 1rem 0 0; text-align: center; }
+  .capabilities { padding: 4rem 0; }
+  .capability-grid { display: grid; gap: 2rem 1.5rem; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .capability-grid article { border-top: 2px solid var(--border-accent); padding-top: 1rem; }
+  .capability-grid h3 { color: var(--text-primary); margin: 0 0 .5rem; }
+  .capability-grid p { color: var(--text-secondary); line-height: 1.65; margin: 0; }
+  .limits a { color: var(--text-link); font-weight: 600; }
+  @media (max-width: 720px) { .pattern-flow { grid-template-columns: 1fr; } .flow-arrow { justify-self: center; transform: rotate(90deg); } .capability-grid { grid-template-columns: 1fr; } }
+</style>

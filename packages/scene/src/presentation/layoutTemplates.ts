@@ -161,6 +161,11 @@ export function createBuiltInPresentationLayout(
     result = createDesignCanvas(result, {
       name: PRESENTATION_LAYOUT_CANVAS_NAME,
       activate: false,
+      // The canvas identity is derived from its role rather than drawn at
+      // random, so a document built from this template encodes identically on
+      // every run. A caller that needs a fresh identity can still create the
+      // canvas itself before requesting the layout.
+      id: 'presentation-layouts-canvas',
     });
     canvas = result.designCanvases?.find(
       (candidate) => candidate.name === PRESENTATION_LAYOUT_CANVAS_NAME,

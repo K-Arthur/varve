@@ -27,6 +27,8 @@ import {
   makeTextNode,
 } from '../../packages/scene/src/document.ts';
 import { DocumentCodec } from '../../packages/scene/src/documentCodec.ts';
+import { resetDefaultIdRng, setDefaultIdRng } from '../../packages/scene/src/identity.ts';
+import { createBuiltInPresentationLayout } from '../../packages/scene/src/presentation/layoutTemplates.ts';
 import type { Fill, ManagedColor, Stroke } from '../../packages/scene/src/types.ts';
 
 /* -------------------------------------------------------------------- */
@@ -561,6 +563,184 @@ export function createLayoutDocument(): Document {
   return doc;
 }
 
+/* -------------------------------------------------------------------- */
+/* 5. Presentation — a real, ordered three-slide Design document          */
+/* -------------------------------------------------------------------- */
+
+/**
+ * A compact presentation fixture for the product capture pipeline. Its slide
+ * sequence is deliberately unrelated to the x positions of the frames; the
+ * deck metadata is the only ordering source. The notes are private and are
+ * included so the audience-preview capture can verify they stay hidden.
+ */
+export function createPresentationDocument(): Document {
+  let doc = seeded(
+    createDocument('Local field notes', true),
+    'varve-demo-presentation',
+    'Local field notes',
+  );
+  const slides = [
+    { id: 'field-title', x: 0, title: 'A better story,\nby design.', eyebrow: 'FIELD NOTES · 01' },
+    {
+      id: 'field-sequence',
+      x: 1460,
+      title: 'The order\nis the story.',
+      eyebrow: 'FIELD NOTES · 02',
+    },
+    {
+      id: 'field-local',
+      x: 2920,
+      title: 'Your work\nstays here.',
+      eyebrow: 'FIELD NOTES · 03',
+    },
+  ] as const;
+  for (const [index, slide] of slides.entries()) {
+    const dark = index === 0;
+    const ground = index === 2 ? TEAL_DEEP : dark ? INK : PAPER;
+    const headline = dark || index === 2 ? PAPER : INK;
+    const frame = makeFrameNode(slide.id, {
+      name:
+        slide.id === 'field-title'
+          ? 'Title slide'
+          : slide.id === 'field-sequence'
+            ? 'Sequence'
+            : 'Local work',
+      w: 1280,
+      h: 720,
+      transform: translate(slide.x, 0),
+      fill: ground,
+      clipContent: true,
+    });
+    doc = addNode(doc, frame);
+    doc = addChild(
+      doc,
+      frame.id,
+      makeTextNode(`${slide.id}-eyebrow`, slide.eyebrow, {
+        name: 'Eyebrow',
+        transform: translate(88, 76),
+        fontSize: 18,
+        fontWeight: 700,
+        letterSpacing: 2,
+        fill: index === 1 ? TEAL_DEEP : TEAL,
+        order: 'a1',
+      }),
+    );
+    doc = addChild(
+      doc,
+      frame.id,
+      makeTextNode(`${slide.id}-headline`, slide.title, {
+        name: 'Headline',
+        transform: translate(88, 174),
+        w: 760,
+        h: 265,
+        fontSize: 78,
+        fontWeight: 750,
+        lineHeight: 0.98,
+        letterSpacing: -2,
+        fill: headline,
+        order: 'a2',
+      }),
+    );
+    doc = addChild(
+      doc,
+      frame.id,
+      makeTextNode(
+        `${slide.id}-body`,
+        index === 0
+          ? 'An editable canvas for ideas that need a clear beginning, middle, and end.'
+          : index === 1
+            ? 'Put the important frame first. Reorder slides without moving the artwork.'
+            : 'Build and save a deck on your device. Speaker notes stay private.',
+        {
+          name: 'Supporting copy',
+          transform: translate(92, 492),
+          w: 740,
+          fontSize: 26,
+          lineHeight: 1.45,
+          fill: headline,
+          order: 'a3',
+        },
+      ),
+    );
+    const bars = [
+      { y: 212, w: 236, h: 24, color: TEAL },
+      { y: 260, w: 312, h: 24, color: SAND },
+      { y: 308, w: 188, h: 24, color: TERRA },
+    ];
+    for (const [barIndex, bar] of bars.entries()) {
+      doc = addChild(
+        doc,
+        frame.id,
+        makeShapeNode(
+          `${slide.id}-strata-${barIndex}`,
+          { kind: 'rect', x: 0, y: 0, w: bar.w, h: bar.h },
+          {
+            name: `Stratum ${barIndex + 1}`,
+            transform: translate(930, bar.y),
+            fill: bar.color,
+            order: `a${barIndex + 4}`,
+          },
+        ),
+      );
+    }
+    doc = addChild(
+      doc,
+      frame.id,
+      makeTextNode(`${slide.id}-folio`, `0${index + 1}  /  03`, {
+        name: 'Folio',
+        transform: translate(1088, 640),
+        fontSize: 16,
+        fontWeight: 700,
+        letterSpacing: 1.5,
+        fill: index === 1 ? TEAL_DEEP : PAPER,
+        order: 'a8',
+      }),
+    );
+  }
+
+  doc.presentation = {
+    schemaVersion: 1,
+    decks: [
+      {
+        id: 'field-notes-deck',
+        name: 'Local field notes',
+        width: 1280,
+        height: 720,
+        sections: [
+          { id: 'opening', title: 'Opening' },
+          { id: 'close', title: 'Close' },
+        ],
+        slides: slides.map((slide, index) => ({
+          id: `field-entry-${index + 1}`,
+          frameId: slide.id,
+          title:
+            slide.id === 'field-title'
+              ? 'A better story'
+              : slide.id === 'field-sequence'
+                ? 'The sequence'
+                : 'Local work',
+          ...(index === 0 ? { sectionId: 'opening' } : {}),
+          ...(index === 2 ? { sectionId: 'close' } : {}),
+          ...(index === 0
+            ? { notes: 'Internal note: discuss the customer example before sharing.' }
+            : {}),
+          ...(index === 2
+            ? { altText: 'Three colored strata bars beside the closing headline.' }
+            : {}),
+        })),
+      },
+    ],
+    layouts: [],
+    themes: [],
+  };
+  return createBuiltInPresentationLayout(
+    doc,
+    'field-notes-deck',
+    'field-layout-title',
+    'title-section',
+  );
+}
+
 /** Two columns per page, distinct copy so the spread reads as real work. */
 const COLUMNS: string[][] = [
   [
@@ -582,10 +762,23 @@ export const DEMO_DOCUMENTS: Record<string, () => Document> = {
   vector: createVectorDocument,
   type: createTypeSpecimenDocument,
   layout: createLayoutDocument,
+  presentation: createPresentationDocument,
 };
 
 export function encodeDemoDocument(name: keyof typeof DEMO_DOCUMENTS | string): string {
   const build = DEMO_DOCUMENTS[name];
   if (!build) throw new Error(`unknown demo document "${name}"`);
-  return DocumentCodec.encode(build());
+  // New node ids carry a random component (ADR-0025) so independently edited
+  // copies of a document cannot collide. A fixture has the opposite
+  // requirement: the committed `.varve` file is compared byte-for-byte on every
+  // build, so the ids must be reproducible. The identity module exposes the
+  // RNG for exactly this purpose, and it is restored afterwards so no other
+  // caller in the process inherits a fixed source.
+  let counter = 0;
+  setDefaultIdRng(() => `demo${(counter++).toString(16).padStart(2, '0')}`);
+  try {
+    return DocumentCodec.encode(build());
+  } finally {
+    resetDefaultIdRng();
+  }
 }

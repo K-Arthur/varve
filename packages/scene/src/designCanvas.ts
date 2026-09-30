@@ -21,6 +21,13 @@ export interface CreateDesignCanvasOptions {
   name?: string;
   /** Defaults to true, making the newly created canvas immediately editable. */
   activate?: boolean;
+  /**
+   * Explicit identity for the new canvas. Required when the result must be
+   * reproducible byte-for-byte — demo fixtures and golden documents encode the
+   * document and compare it on every build, and a random id makes that
+   * comparison fail for reasons unrelated to the content being checked.
+   */
+  id?: string;
 }
 
 export type DeleteDesignCanvasPolicy = 'delete-content' | 'move-to-canvas' | 'move-to-pasteboard';
@@ -78,7 +85,7 @@ export function createDesignCanvas(
     children: [],
   });
   const canvas: DesignCanvas = {
-    id: cryptoId(),
+    id: options.id ?? cryptoId(),
     name,
     order: nextCanvasOrder(doc),
     contentRoot: contentRootId,
