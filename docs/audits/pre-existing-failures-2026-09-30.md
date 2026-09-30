@@ -460,6 +460,15 @@ rejected:
 | Continuation: `scripts/screenshots/validate.mjs` (G2) | 12 violations | 0 violations, 46 scenes verified |
 | Continuation: `apps/website/src/test` (G2) | 8 failed | 7 failed — `screenshots.test.ts` green; remaining are G1 (6) and G3 (1) |
 | Continuation: `pnpm build:website` | — | clean (the two rewritten `.astro` pages compile and build) |
+| Continuation: `pnpm build:website:pages` | — | clean (116 pages) |
+| Continuation: website browser specs for the two rewritten pages | — | **10 passed** on both deploy bases (`ghpages` + `custom-domain`): Effect Studio feature page rendering and mobile reflow, `/features/strokes` and `/docs/tools/strokes` guidance, and the strokes copy spec's readability pass across themes and widths |
+
+The website browser evidence is scoped: it runs the two pages' dedicated specs
+(`effect-studio-feature.spec.ts`, `stroke-marketing.spec.ts`,
+`strokes-target-copy.spec.ts`) against both built bases, which covers the
+rewritten markup, the `<picture>` wrapper, the mobile reflow, and URL resolution
+through `sitePath` under a subpath deployment. It is not the site-wide
+pixel-snapshot suite (`visual.spec.ts`), which was not run.
 
 **Full suite.** The triage run measured **21,684 tests: 21,608 passed, 59 failed,
 17 skipped** across 27 failing spec files. After the fixes, those 27 files reduce
