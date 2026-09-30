@@ -161,9 +161,12 @@ function releasePointerCapture(canvas: HTMLCanvasElement | null, pointerId: numb
  * resolved palette can also change from outside React — the OS colour scheme
  * or contrast preference under a `system` preference, a storage event in
  * another window, or a direct `applyThemePreference` call. Watching the
- * `data-theme` attribute plus both media queries keeps the canvas pixels in
- * step with the CSS the rest of the panel is painted with; without it the map
- * kept light-theme tokens under a dark panel.
+ * `data-theme` attribute plus `prefers-color-scheme`, `prefers-contrast` and
+ * `forced-colors` keeps the canvas pixels in step with the CSS the rest of the
+ * panel is painted with; without it the map kept light-theme tokens under a
+ * dark panel. `forced-colors` is the same hole from the other direction: it
+ * rewrites the custom properties the map reads without touching `data-theme`
+ * at all.
  */
 function useResolvedThemeRevision(existingRevision: number): number {
   const [externalRevision, setExternalRevision] = useState(0);
@@ -184,6 +187,11 @@ function useResolvedThemeRevision(existingRevision: number): number {
         ? [
             window.matchMedia('(prefers-color-scheme: dark)'),
             window.matchMedia('(prefers-contrast: more)'),
+            // Forced colours rewrites the same custom properties the map
+            // reads, without changing `data-theme`, so it has to be observed
+            // too — otherwise a live OS high-contrast toggle repaints the
+            // chrome and leaves the canvas drawing the old palette.
+            window.matchMedia('(forced-colors: active)'),
           ]
         : [];
     const onMediaChange = () => setExternalRevision((revision) => revision + 1);
