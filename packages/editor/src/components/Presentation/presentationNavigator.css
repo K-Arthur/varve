@@ -643,3 +643,44 @@
   font-size: var(--font-size-sm);
   line-height: 1.5;
 }
+
+.presentation-navigator__theme > summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.presentation-navigator__theme-body {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.presentation-navigator__theme-roles {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.presentation-navigator__theme-roles li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-size-xs);
+}
+
+.presentation-navigator__theme-mapping {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.presentation-navigator__theme-mapping > strong {
+  font-size: var(--font-size-xs);
+}
+
+.presentation-navigator__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}

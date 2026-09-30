@@ -5,4 +5,5 @@ export * from './model';
 export * from './normalize';
 export * from './presets';
 export * from './resize';
+export * from './themes';
 export * from './types';

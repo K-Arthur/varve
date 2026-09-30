@@ -7,6 +7,8 @@ import {
   createDocument,
   type Document,
   makeFrameNode,
+  makeShapeNode,
+  makeTextNode,
   registerBuiltinOperations,
 } from '@varve/scene';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -79,6 +81,70 @@ function mockEditor(document: Document, selection: string[] = []) {
       return currentDocument;
     },
   };
+}
+
+/** Create a brand theme and apply it, the way the UI does. */
+function withTheme(document: Document): Document {
+  const themed = applyOperation(document, 'presentation.theme.create', {
+    id: 'theme-brand',
+    name: 'Brand',
+  });
+  return applyOperation(themed, 'presentation.theme.apply', {
+    deckId: 'deck-a',
+    entryId: 'entry-a',
+    themeId: 'theme-brand',
+  });
+}
+
+/** Slide with a layout binding so theme roles resolve to real slide objects. */
+function themedSlideDocument(): Document {
+  const title = makeTextNode('title-node', 'Headline', {
+    name: 'Headline',
+    transform: [1, 0, 0, 1, 88, 174],
+    fill: { space: 'rgb', r: 28, g: 28, b: 28, a: 255 },
+    fontSize: 78,
+  });
+  const accent = makeShapeNode(
+    'accent-node',
+    { kind: 'rect', x: 88, y: 76, w: 6, h: 40 },
+    { name: 'Stratum 1', transform: [1, 0, 0, 1, 88, 76] },
+  );
+  const frame = makeFrameNode('slide-frame', {
+    name: 'Title slide',
+    w: 1280,
+    h: 720,
+    transform: [1, 0, 0, 1, 0, 0],
+    children: [title.id, accent.id],
+  });
+  let next: Document = {
+    ...createDocument('Theme navigator test', true),
+    nodes: Object.fromEntries([title, accent, frame].map((node) => [node.id, node])),
+    rootChildren: [frame.id],
+  };
+  next = applyOperation(next, 'presentation.deck.create', {
+    id: 'deck-a',
+    name: 'Research update',
+    width: 1280,
+    height: 720,
+  });
+  next = applyOperation(next, 'presentation.slide.add', {
+    deckId: 'deck-a',
+    entry: { id: 'entry-a', frameId: frame.id, title: 'Opening' },
+  });
+  const decks = next.presentation!.decks.map((deck) => ({
+    ...deck,
+    slides: deck.slides.map((slide) => ({
+      ...slide,
+      layoutBinding: {
+        sourceId: 'layout-x',
+        sourceFrameId: 'source-frame',
+        appliedRevision: 1,
+        roleNodes: { title: title.id, accent: accent.id },
+        managedBaseline: {},
+      },
+    })),
+  }));
+  return { ...next, presentation: { ...next.presentation!, decks } };
 }
 
 describe('PresentationNavigator', () => {
@@ -299,5 +365,39 @@ describe('PresentationNavigator', () => {
     });
     expect(editor.value.announce).toHaveBeenCalledWith(expect.stringContaining('1440 x 1080'));
     expect(screen.queryByRole('dialog', { name: 'Review slide size change' })).toBeNull();
+  });
+
+  it('creates a theme from the slide with ordinary document variables', async () => {
+    const user = userEvent.setup();
+    const editor = mockEditor(themedSlideDocument());
+    render(<PresentationNavigator showDetach />);
+
+    await user.click(screen.getByText(/Theme/));
+    await user.click(screen.getByRole('button', { name: 'Create theme from this slide' }));
+
+    expect(editor.value.groupCompoundOperation).toHaveBeenCalledTimes(1);
+    const presentation = editor.document.presentation!;
+    expect(presentation.themes).toHaveLength(1);
+    expect(Object.keys(presentation.themes[0]!.colorVariables)).toHaveLength(6);
+
+    // The colours live in the document variable store, not in a parallel system.
+    const accentVariableId = presentation.themes[0]!.colorVariables.accent!;
+    expect(editor.document.variableStore!.variables[accentVariableId]).toBeDefined();
+    expect(presentation.decks[0]!.slides[0]!.themeId).toBe(presentation.themes[0]!.id);
+    expect(editor.document.nodes['accent-node']?.bindings?.fill?.variableId).toBe(accentVariableId);
+  });
+
+  it('shows linked versus not-used roles for a themed slide', () => {
+    mockEditor(withTheme(themedSlideDocument()));
+    render(<PresentationNavigator showDetach />);
+
+    // title and accent follow the theme; the other four roles are unused.
+    const roleStatus = screen.getByRole('list', { name: 'Theme role status' });
+    expect(within(roleStatus).getAllByText('Linked to theme')).toHaveLength(2);
+    expect(within(roleStatus).getAllByText('Not used')).toHaveLength(4);
+    expect(screen.getByRole('button', { name: 'Detach theme' })).toBeEnabled();
+
+    const summary = screen.getByText('Theme').closest('summary') as HTMLElement;
+    expect(summary.textContent).toContain('Brand');
   });
 });

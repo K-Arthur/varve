@@ -37,6 +37,14 @@ import {
   type PresentationResizePreview,
   previewPresentationResize,
 } from '../../presentation/resize';
+import {
+  applyPresentationTheme,
+  createPresentationTheme,
+  PRESENTATION_THEME_ROLES,
+  type PresentationThemeRole,
+  removePresentationTheme,
+  unlinkPresentationTheme,
+} from '../../presentation/themes';
 import type {
   PresentationDeck,
   PresentationLayoutSource,
@@ -115,6 +123,25 @@ export interface PresentationLayoutDeletePayload {
 
 export interface PresentationLayoutApplyPayload {
   preview: PresentationLayoutPreview;
+}
+
+export interface PresentationThemeCreatePayload {
+  id: string;
+  name: string;
+  /** Role to initial `#rrggbb`. Missing roles keep the documented defaults. */
+  colors?: Partial<Record<PresentationThemeRole, string>>;
+}
+
+export interface PresentationThemeApplyPayload {
+  deckId: string;
+  entryId: string;
+  themeId: string;
+  /** Role to slide object. Defaults to the slide's layout roles. */
+  roleNodes?: Partial<Record<PresentationThemeRole, NodeId>>;
+}
+
+export interface PresentationThemeIdPayload {
+  themeId: string;
 }
 
 export interface PresentationDeckResizePayload {
@@ -461,6 +488,75 @@ function validateBuiltInLayoutCreate(
       templateId: payload.templateId as PresentationBuiltInLayoutId,
     },
   };
+}
+
+function validateThemeCreate(payload: unknown): ValidationResult<PresentationThemeCreatePayload> {
+  if (!record(payload) || !nonEmptyString(payload.id) || !nonEmptyString(payload.name)) {
+    return { ok: false, errors: ['presentation.theme.create requires an id and a name'] };
+  }
+  const colors = payload.colors;
+  if (colors !== undefined && !record(colors)) {
+    return { ok: false, errors: ['presentation.theme.create colors must be an object'] };
+  }
+  for (const [role, value] of Object.entries((colors as Record<string, unknown>) ?? {})) {
+    if (!PRESENTATION_THEME_ROLES.includes(role as PresentationThemeRole)) {
+      return { ok: false, errors: [`presentation.theme.create: unknown role “${role}”`] };
+    }
+    if (typeof value !== 'string' || !/^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/.test(value)) {
+      return { ok: false, errors: [`presentation.theme.create: “${role}” is not a hex colour`] };
+    }
+  }
+  return {
+    ok: true,
+    value: {
+      id: payload.id as string,
+      name: payload.name as string,
+      ...(record(colors) ? { colors: colors as PresentationThemeCreatePayload['colors'] } : {}),
+    },
+  };
+}
+
+function validateThemeApply(payload: unknown): ValidationResult<PresentationThemeApplyPayload> {
+  if (
+    !record(payload) ||
+    !nonEmptyString(payload.deckId) ||
+    !nonEmptyString(payload.entryId) ||
+    !nonEmptyString(payload.themeId)
+  ) {
+    return { ok: false, errors: ['presentation.theme.apply requires deck, slide, and theme ids'] };
+  }
+  const roleNodes = payload.roleNodes;
+  if (roleNodes !== undefined) {
+    if (!record(roleNodes)) {
+      return { ok: false, errors: ['presentation.theme.apply roleNodes must be an object'] };
+    }
+    for (const [role, value] of Object.entries(roleNodes as Record<string, unknown>)) {
+      if (!PRESENTATION_THEME_ROLES.includes(role as PresentationThemeRole)) {
+        return { ok: false, errors: [`presentation.theme.apply: unknown role “${role}”`] };
+      }
+      if (!nonEmptyString(value)) {
+        return { ok: false, errors: [`presentation.theme.apply: “${role}” needs a node id`] };
+      }
+    }
+  }
+  return {
+    ok: true,
+    value: {
+      deckId: payload.deckId as string,
+      entryId: payload.entryId as string,
+      themeId: payload.themeId as string,
+      ...(record(roleNodes)
+        ? { roleNodes: roleNodes as PresentationThemeApplyPayload['roleNodes'] }
+        : {}),
+    },
+  };
+}
+
+function validateThemeId(payload: unknown): ValidationResult<PresentationThemeIdPayload> {
+  if (!record(payload) || !nonEmptyString(payload.themeId)) {
+    return { ok: false, errors: ['presentation theme id is required'] };
+  }
+  return { ok: true, value: { themeId: payload.themeId as string } };
 }
 
 function validateResize(payload: unknown): ValidationResult<PresentationDeckResizePayload> {
@@ -1159,5 +1255,100 @@ export function registerPresentationOperations(): void {
       }
     },
     maxPayloadBytes: 500_000,
+  });
+
+  registerOperation<PresentationThemeCreatePayload>({
+    type: 'presentation.theme.create',
+    schemaVersion: 1,
+    validate: validateThemeCreate,
+    apply: (document, payload) => createPresentationTheme(document, payload),
+    summarize: (payload) => ({
+      label: `Create presentation theme “${payload.name}”`,
+      kind: 'create',
+      affectedEntityIds: [],
+    }),
+    affectedEntities: (payload) => [payload.id],
+    precondition: (document, _payload) =>
+      document.presentation ? null : 'A presentation deck is required before creating a theme.',
+    maxPayloadBytes: 8_000,
+  });
+
+  registerOperation<PresentationThemeIdPayload>({
+    type: 'presentation.theme.remove',
+    schemaVersion: 1,
+    validate: validateThemeId,
+    apply: (document, payload) => removePresentationTheme(document, payload.themeId),
+    summarize: () => ({
+      label: 'Remove presentation theme',
+      kind: 'delete',
+      affectedEntityIds: [],
+    }),
+    affectedEntities: (payload) => [payload.themeId],
+    precondition: (document, payload) =>
+      document.presentation?.themes.some((theme) => theme.id === payload.themeId)
+        ? null
+        : `presentation theme does not exist: ${payload.themeId}`,
+    maxPayloadBytes: 4_000,
+  });
+
+  registerOperation<PresentationThemeApplyPayload>({
+    type: 'presentation.theme.apply',
+    schemaVersion: 1,
+    validate: validateThemeApply,
+    apply: (document, payload) =>
+      applyPresentationTheme(
+        document,
+        payload.deckId,
+        payload.entryId,
+        payload.themeId,
+        payload.roleNodes,
+      ),
+    summarize: () => ({
+      label: 'Apply presentation theme',
+      kind: 'modify',
+      affectedEntityIds: [],
+    }),
+    affectedEntities: (payload) => [payload.deckId, payload.entryId, payload.themeId],
+    precondition: (document, payload) => {
+      const deck = findPresentationDeck(document, payload.deckId);
+      if (!deck) return `presentation deck does not exist: ${payload.deckId}`;
+      if (!deck.slides.some((slide) => slide.id === payload.entryId)) {
+        return `presentation slide does not exist: ${payload.entryId}`;
+      }
+      return document.presentation?.themes.some((theme) => theme.id === payload.themeId)
+        ? null
+        : `presentation theme does not exist: ${payload.themeId}`;
+    },
+    maxPayloadBytes: 64_000,
+  });
+
+  registerOperation<PresentationSlideReferencePayload>({
+    type: 'presentation.theme.unlink',
+    schemaVersion: 1,
+    validate: (payload) =>
+      validateThemeApply(payload as unknown as Record<string, unknown>).ok
+        ? {
+            ok: true,
+            value: {
+              deckId: (payload as { deckId: string }).deckId,
+              entryId: (payload as { entryId: string }).entryId,
+            },
+          }
+        : { ok: false, errors: ['presentation.theme.unlink requires deck and slide ids'] },
+    apply: (document, payload) =>
+      unlinkPresentationTheme(document, payload.deckId, payload.entryId),
+    summarize: () => ({
+      label: 'Detach theme from slide',
+      kind: 'modify',
+      affectedEntityIds: [],
+    }),
+    affectedEntities: (payload) => [payload.deckId, payload.entryId],
+    precondition: (document, payload) => {
+      const deck = findPresentationDeck(document, payload.deckId);
+      const entry = deck?.slides.find((slide) => slide.id === payload.entryId);
+      if (!entry) return `presentation slide does not exist: ${payload.entryId}`;
+      return entry.themeId ? null : 'This slide is not using a presentation theme.';
+    },
+    maxPayloadBytes: 4_000,
   });
 }

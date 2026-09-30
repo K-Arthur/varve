@@ -48,6 +48,8 @@ export type {
   PresentationSlideReferencePayload,
   PresentationSlideReorderPayload,
   PresentationSlideUpdatePayload,
+  PresentationThemeApplyPayload,
+  PresentationThemeCreatePayload,
 } from './ops/presentationOps';
 export {
   affectedEntitiesOf,

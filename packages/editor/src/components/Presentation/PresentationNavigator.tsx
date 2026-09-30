@@ -3,17 +3,22 @@ import {
   type ContainerNode,
   cryptoId,
   deepCloneSubtree,
+  describePresentationTheme,
   isContainer,
   type NodeId,
   PRESENTATION_RESIZE_MODES,
   PRESENTATION_SIZE_PRESETS,
+  PRESENTATION_THEME_ROLES,
   type PresentationResizeMode,
   type PresentationResizePreview,
   type PresentationSlideEntry,
+  type PresentationThemeRole,
+  type PresentationThemeState,
   previewPresentationResize,
   reparentNode,
   resolvePresentationSlides,
   type SceneNode,
+  sampleThemeColors,
 } from '@varve/scene';
 import { Button, Dialog, NumberInput } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -31,6 +36,14 @@ import {
 import './presentationNavigator.css';
 
 type FrameNode = Extract<SceneNode, { kind: 'frame' }>;
+
+/** Spelled out in words so the state never depends on colour alone. */
+const STATUS_LABELS: Record<PresentationThemeState['roles'][number]['status'], string> = {
+  linked: 'Linked to theme',
+  local: 'Local colour',
+  missing: 'Object removed',
+  unmapped: 'Not used',
+};
 
 interface SlideDraft {
   frameId: NodeId;
@@ -77,6 +90,9 @@ export function PresentationNavigator({ showDetach = true }: { showDetach?: bool
   const [sectionNameDraft, setSectionNameDraft] = useState('');
   const [slideDrafts, setSlideDrafts] = useState<SlideDraft[]>([]);
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
+  const [themeRoleNodes, setThemeRoleNodes] = useState<
+    Partial<Record<PresentationThemeRole, string>>
+  >({});
   const [sizePreset, setSizePreset] = useState<string>('custom');
   const [customSize, setCustomSize] = useState({ width: 0, height: 0 });
   const [resizeMode, setResizeMode] = useState<PresentationResizeMode>('fit');
@@ -103,11 +119,24 @@ export function PresentationNavigator({ showDetach = true }: { showDetach?: bool
     [state.document, deckId],
   );
 
+  /** The slide this panel acts on: the focused one, or the first when none is focused. */
+  const focusSlide =
+    resolution.deck?.slides.find((slide) => slide.id === activeEntryId) ??
+    resolution.deck?.slides[0];
+
   // Custom dimensions start from the deck's real size, so an author who wants a
   // taller canvas edits one field instead of clearing two zeroes.
   useEffect(() => {
     setCustomSize({ width: resolution.deck?.width ?? 0, height: resolution.deck?.height ?? 0 });
   }, [resolution.deck?.id, resolution.deck?.width, resolution.deck?.height]);
+
+  // Theme roles default to the slide's layout roles; mapping is per slide, so
+  // it resets when the author moves to another one.
+  const layoutRoleNodes = focusSlide?.layoutBinding?.roleNodes;
+  useEffect(() => {
+    setThemeRoleNodes({ ...(layoutRoleNodes ?? {}) });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeEntryId, layoutRoleNodes]);
 
   const selectedFrames = useMemo(
     () => getSelectedFrames(state.selection, state.document.nodes),
@@ -439,6 +468,92 @@ export function PresentationNavigator({ showDetach = true }: { showDetach?: bool
     [activeEntryId, announce, deckId, runOperation],
   );
 
+  const activeSlide =
+    resolution.deck?.slides.find((slide) => slide.id === activeEntryId) ??
+    resolution.deck?.slides[0];
+  const activeThemeId = activeSlide?.themeId ?? resolution.deck?.themeId;
+  const activeTheme = activeThemeId
+    ? state.document.presentation?.themes.find((theme) => theme.id === activeThemeId)
+    : undefined;
+  const themeState: PresentationThemeState | null = useMemo(() => {
+    if (!activeThemeId || !activeSlide) return null;
+    try {
+      return describePresentationTheme(
+        state.document,
+        deckId,
+        activeSlide.id,
+        activeThemeId,
+        themeRoleNodes,
+      );
+    } catch {
+      return null;
+    }
+  }, [activeSlide, activeThemeId, deckId, state.document, themeRoleNodes]);
+
+  const slideChildren = useMemo(() => {
+    const frame = activeSlide ? state.document.nodes[activeSlide.frameId] : undefined;
+    if (frame?.kind !== 'frame') return [];
+    return frame.children
+      .map((id) => state.document.nodes[id])
+      .filter((node): node is SceneNode => Boolean(node));
+  }, [activeSlide, state.document.nodes]);
+
+  const createTheme = useCallback(() => {
+    if (!activeSlide || !resolution.deck) {
+      announce('Add a slide before creating a theme');
+      return;
+    }
+    const themeId = `theme-${cryptoId()}`;
+    runOperations('Create presentation theme from slide', [
+      {
+        type: 'presentation.theme.create',
+        payload: {
+          id: themeId,
+          name: `${resolution.deck.name || 'Presentation'} theme`,
+          colors: sampleThemeColors(state.document, activeSlide.frameId),
+        },
+      },
+      {
+        type: 'presentation.theme.apply',
+        payload: {
+          deckId,
+          entryId: activeSlide.id,
+          themeId,
+          roleNodes: themeRoleNodes,
+        },
+      },
+    ]);
+    announce('Theme created from this slide and applied to its mapped objects');
+  }, [
+    activeSlide,
+    announce,
+    deckId,
+    resolution.deck,
+    runOperations,
+    state.document,
+    themeRoleNodes,
+  ]);
+
+  const applyTheme = useCallback(() => {
+    if (!activeTheme || !activeSlide) return;
+    runOperation('Apply presentation theme', 'presentation.theme.apply', {
+      deckId,
+      entryId: activeSlide.id,
+      themeId: activeTheme.id,
+      roleNodes: themeRoleNodes,
+    });
+    announce(`Applied “${activeTheme.name}” to this slide`);
+  }, [activeSlide, activeTheme, announce, deckId, runOperation, themeRoleNodes]);
+
+  const detachTheme = useCallback(() => {
+    if (!activeSlide) return;
+    runOperation('Detach theme from slide', 'presentation.theme.unlink', {
+      deckId,
+      entryId: activeSlide.id,
+    });
+    announce('Slide keeps its current colours and no longer follows the theme');
+  }, [activeSlide, announce, deckId, runOperation]);
+
   const applyResize = useCallback(() => {
     if (!resizePreview) return;
     try {
@@ -606,6 +721,88 @@ export function PresentationNavigator({ showDetach = true }: { showDetach?: bool
             {resizeError && (
               <p className="presentation-navigator__error" role="alert">
                 {resizeError}
+              </p>
+            )}
+          </div>
+        </details>
+      )}
+
+      {resolution.deck && (
+        <details className="presentation-navigator__theme">
+          <summary>
+            Theme <span>{activeTheme?.name ?? 'Not set'}</span>
+          </summary>
+          <div className="presentation-navigator__theme-body">
+            <p className="presentation-navigator__size-hint">
+              A theme links slide colours to document variables, so changing a colour in the
+              Variables panel recolours every bound slide. Objects you recolour yourself keep their
+              colour when you switch themes.
+            </p>
+            {themeState && (
+              <ul className="presentation-navigator__theme-roles" aria-label="Theme role status">
+                {themeState.roles.map((role) => (
+                  <li key={role.role}>
+                    <span>{role.label}</span>
+                    <span
+                      className={`presentation-layouts__badge presentation-layouts__badge--${
+                        role.status === 'linked'
+                          ? 'inherited'
+                          : role.status === 'local'
+                            ? 'overridden'
+                            : 'missing'
+                      }`}
+                    >
+                      {STATUS_LABELS[role.status]}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="presentation-navigator__theme-mapping">
+              <strong>Objects on this slide</strong>
+              {PRESENTATION_THEME_ROLES.map((role) => (
+                <label className="presentation-navigator__field" key={role}>
+                  <span>{role}</span>
+                  <select
+                    aria-label={`Slide object for theme role ${role}`}
+                    value={themeRoleNodes[role] ?? ''}
+                    onChange={(event) =>
+                      setThemeRoleNodes((current) => ({
+                        ...current,
+                        [role]: event.target.value,
+                      }))
+                    }
+                  >
+                    <option value="">Not used</option>
+                    {slideChildren.map((node) => (
+                      <option key={node.id} value={node.id}>
+                        {node.name || node.kind}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ))}
+            </div>
+            <div className="presentation-navigator__actions">
+              <Button size="sm" variant="default" onClick={createTheme}>
+                Create theme from this slide
+              </Button>
+              <Button size="sm" variant="ghost" disabled={!activeTheme} onClick={applyTheme}>
+                Apply theme to this slide
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={!themeState?.themed}
+                onClick={detachTheme}
+              >
+                Detach theme
+              </Button>
+            </div>
+            {activeTheme && (
+              <p className="presentation-navigator__size-hint">
+                Edit the colours in the Variables panel; the change reaches every slide that still
+                follows them.
               </p>
             )}
           </div>
