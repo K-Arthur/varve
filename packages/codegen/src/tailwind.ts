@@ -682,7 +682,7 @@ export function exportNodeToTailwindBundle(
     dependencies: { react: '>=18', tailwindcss: '>=3.4' },
     setup: [
       `Copy ${fileStem}.tsx into your project and render <${componentName} />.`,
-      'Requires Tailwind >= 3.4 (v4 supported): token references use `bg-[var(--name)]`.',
+      'Requires Tailwind >= 3.4 (v4 supported): token references use the explicit var() form, named after the bound document variable.',
       'Ensure the file is inside your Tailwind source globs so the classes are detected.',
     ],
     diagnostics: tailwindDiagnostics(node, doc),
