@@ -227,11 +227,18 @@ Each was re-run with the review's own changes reverted and failed identically:
 3. `packages/editor/src/workspace/dock/__tests__/dockProperty.test.ts` — random
    operation sequences violate a layout invariant.
 4. `tests/e2e/canvas/toolbar-layout.spec.ts`'s beforeEach `Add publishing page`
-   click is intermittently unstable (reproduced on baseline with the review's
-   files at HEAD). Its *assertion* also failed deterministically on baseline
-   because it compared `floatingToolbar.bottom` against `pageNav.top` while
-   Print's page nav is a left-hand column — that form is repaired in this
-   review.
+   click was intermittently unstable because the shell transitions
+   `grid-template-columns` under it and the canvas dock sweeps over the layers
+   panel; its *assertion* also failed deterministically on master because it
+   compared `floatingToolbar.bottom` against `pageNav.top` while Print's page
+   nav is a left-hand column. Both forms are repaired in this review (see the
+   last commit), and the repaired first test now passes with these changes.
+5. `toolbar-layout`'s second test — `rectsOverlap(quickBar, pageNav)` returns
+   `true`. **Reproduced on master**: the review's source files were reverted to
+   their pre-review versions and this spec's own assertions run against them;
+   it fails identically. The selection quick bar and page-nav overlap in the
+   import-and-flip scenario, independent of anything in this review, and is
+   left open rather than weakened.
 
 ## Remaining work (open, and why)
 
