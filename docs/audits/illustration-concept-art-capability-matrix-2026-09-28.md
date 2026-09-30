@@ -24,7 +24,7 @@ each workflow receives real UI, save/reopen, undo and export checks.
 | Clip paint to a raster source | The live matte callback left the camera transform on its full-surface composition context, offsetting the mask; compact raster export also omitted the matte's external scene node. | Create an ordinary raster Shading child in a group with a live scene-node alpha matte; preserve source/destination separation and include external mask dependencies in structured render/export/sampling paths. | Paint tool options action on an explicitly selected raster source. | Reproduced in Chromium: red deposits existed in the child but the live group result was transparent; after the compositor transform fix, red appeared only within the blue source. The save/reopen path then exposed an all-transparent PNG because the source node was absent from flattened IR. Both defects are repaired. The leased one-worker E2E passes boundary pixels, undo/redo of layer creation and stroke, save/reopen, and PNG decode without leaving Design. Its 4096×4096 transparent export contains 41,146 red pixels and 16,730,091 fully transparent pixels. Inspected the full editor (`test-results/clipped-paint-design-workspace-final-20260929-r11/paint-brush-ui-paint-UI-in-2de46-e-its-visible-raster-source-chromium/clipped-paint-editor.png`), canvas (`.../clipped-paint-shading.png`), and exported PNG (`.../clipped-paint-export.png`). SVG/PDF appearance, Linux WebKitGTK, and physical stylus checks remain unverified. |
 | Reopened illustration with raster LOD enabled | A cold visible-tile frame after save/reopen shows broad red tile bands, while the saved PNG and retained-surface redraw are clean. The existing “do not draw incomplete coverage” guard does not eliminate the mismatch. | Keep interactive raster LOD out of the default editor path until a cold-residency frame matches the same-camera retained-surface oracle. Preserve the explicit performance-probe opt-in for renderer qualification. | Existing `useRasterLod` adapter and same hybrid illustration E2E. | Reproduced on 2026-09-29 in the save/reopen E2E. The red-mask union was 68,770 pixels with 27,040 mismatches (39.3%); the LOD screenshot shows tile-shaped gaps. Disabling LOD and forcing an authoritative retained redraw produces the clean apple, and the downloaded transparent PNG is clean. The normal editor adapter now holds LOD disabled; this is a mitigation, not a root-cause repair. Cold LOD residency and cross-renderer parity remain unqualified. |
 | Editable vector contours with raster texture | Raster fallback initially emitted at the document origin and the export view box ignored the raster island bounds. | Existing vector contour, live scene-node matte, raster layer, and smallest-boundary export fallback. | Existing Design canvas and export controls. | Verified for a bounded rectangle-plus-texture case: Chromium created the vector contour, clipped raster shading, undid/redid, saved/reopened, and downloaded SVG/PDF. Inspected SVG keeps the contour as vector geometry and embeds only the clipped texture group as a raster image; browser PDF preserves appearance via a raster fallback. The compositor bounds transformed raster layers and includes the raster island in the SVG view box. One interim retry hit a shared `ZoomInput is not defined` startup error; the later affected-plan app E2E passed. Arbitrary artwork, Linux Tauri/WebKitGTK, and physical stylus checks remain unverified. |
-| Thumbnails, references, perspective block-in, variants and presentation export | Existing pages, image nodes, guides and transforms are available; reference inclusion and view-only proof behavior needed workflow evidence. | Existing images/assets, guides, view transforms, duplication and exports. | Inspector → Fill → Details; existing guide and viewport surfaces. | A bounded two-point perspective overlay and a simple Rectangle 1 block-in are browser-verified. The image-reference flow now passes a real UI Chromium journey with the attributed forest photo: role changes leave the content-canvas hash unchanged, sampling and export are independently off by default, excluded references refuse direct export, and enabling export yields a decoded 1280×853 PNG containing the reference. Role and both opt-ins undo/redo independently and survive save/reopen. Light, Dark, High Contrast, 1024×768 narrow, reopened editor and PNG captures were inspected in `test-results/illustration-concept-art-refs-20260930-r5/canvas-concept-art-referen-5862e-mpling-and-saves-the-opt-in-chromium/`; the Light capture now backs the website feature page. Session-only grayscale/mirror checks leave saved pixels unchanged and mirror blocks canvas input. Perspective snapping/convergence, composition thumbnails, paintover, variants, and presentation-sheet export remain unverified. |
+| Thumbnails, references, perspective block-in, variants and presentation export | Existing pages, image nodes, guides and transforms are available; reference inclusion and view-only proof behavior needed workflow evidence. | Existing images/assets, guides, view transforms, duplication and exports. | Inspector → Fill → Details; existing guide and viewport surfaces. | Verified as two complementary real-UI journeys. The reference workflow proves role changes leave the content-canvas hash unchanged, sampling/export are independently off by default, excluded references refuse direct export, and opt-ins undo/redo and survive save/reopen; its decoded 1280×853 export is the reference-page image used on the website. The integrated concept-art journey creates three editable frame variants, adds block-in geometry and an orange Paint Layer paintover, keeps the local forest reference outside the grouped presentation sheet, exports a transparent PNG with the orange pixels, then saves/reopens and rechecks the reference's disabled sampling/export switches. Perspective guide movement and a block-in beneath its moved vanishing point are separately verified in the perspective-guide E2E. Reopened, export, reference, paintover, Dark, High Contrast, and 1024×768 captures were inspected in `test-results/concept-art-workflow-20260930-r7/canvas-concept-art-referen-77b06-lock-in-and-exports-a-sheet-chromium/`. The existing Light reference capture backs the website feature page. Perspective snapping/convergence, a polished art-directed thumbnail set, physical stylus, Linux WebKitGTK, and non-1x-DPI checks remain unverified. |
 | Existing restoration/upscale paths | The anime ONNX manifest had a 63-character digest, so its integrity-admission check rejected the downloaded file. Metadata also treated the upstream checkpoint license and a 22 MB memory estimate as if they qualified the converted artifact. | Keep the existing model/session infrastructure. Pin and verify the exact artifact; separately track converter provenance, distribution rights, image quality, runtime parity, and whole-document memory. | Existing enhancement dialog/status; unqualified anime mode is disabled with its open gates shown. | Reproduced the checksum mismatch against the 17,906,556-byte file and corrected the digest. Single-threaded ONNX Runtime Web smoke passes on synthetic fixtures, but the 320×320 padded tile took 112.809 s and peaked at 1,458,688,000 bytes RSS on one x86_64 host. The manifest now admits only a 1.6 GB tile estimate, while the mode remains unavailable (`not-validated` / `experimental`). A comparative artist corpus, converter provenance, converted-file redistribution review, whole-output peak, Tauri/native, GPU and other-device qualification remain open. Details: [`illustration-model-qualification-2026-09-30.md`](illustration-model-qualification-2026-09-30.md). |
 
 ## Starting visual and test evidence
@@ -148,8 +148,8 @@ confirms mirror mode blocks a drawing gesture and removes the canvas from the
 tab order. Light, Dark, High Contrast, and 1024×768 narrow captures were
 inspected at browser DPR 1. Images are in
 `test-results/view-proof-20260929-r2/paint-view-proof-grayscale-b5dad-tay-view-only-across-themes-chromium/`.
-These view checks change neither saved artwork nor exports. Local references,
-variants, and presentation export remain open.
+These view checks change neither saved artwork nor exports. Integrated local
+references, variants, and presentation export are recorded below.
 
 ## Integrated raster illustration pass (2026-09-30)
 
@@ -168,6 +168,33 @@ edit was stopped by an unrelated, untracked E2E spec's type error; the exact
 illustration Chromium spec was rerun separately under the lease and passed
 1/1. The model, physical-device, Linux WebKitGTK, and non-1x-DPI qualifications
 remain outside this browser proof.
+
+## Integrated concept-art workflow pass (2026-09-30)
+
+The leased Chromium journey builds three independently positioned, editable
+frame thumbnails in Design, adds block-in geometry, imports a local forest
+reference, and keeps reference sampling and export disabled. It creates a
+paint layer through the explicit recovery action and paints an orange stroke
+over the third variant, groups the three frames with that paint layer, and
+downloads the group as a transparent PNG. The decoded export contains the
+orange paintover and transparent pixels; the reference remains a separate
+tree item outside the group.
+
+The test saves through the editor, reloads through the Home library, verifies
+the three frames and paint pixels return, then selects the reopened reference
+to confirm its role persisted while sampling and export remain off. The
+two-point guide and a block-in beneath its moved vanishing point are verified
+by the dedicated `89434d189` workflow; that guide overlay is session-only and
+is not serialized into this project.
+
+The final leased Chromium test passed 1/1 on isolated port 4481. The reopened
+view, transparent PNG, reference placement, paintover, Light, Dark, High
+Contrast, and 1024×768 captures are in
+`test-results/concept-art-workflow-20260930-r7/canvas-concept-art-referen-77b06-lock-in-and-exports-a-sheet-chromium/`.
+The PNG uses the document-sized transparent canvas, so the grouped thumbnails
+occupy only part of its full bounds. It is verified as an export path, not
+presented as a polished marketing image. The separate verified reference
+capture continues to back the marketing feature page.
 
 ## Status vocabulary
 

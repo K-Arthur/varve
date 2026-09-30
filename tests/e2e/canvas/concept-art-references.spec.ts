@@ -3,7 +3,7 @@ import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
 import { openMenu } from '../helpers/menu-helpers';
-import { navigateToEditor } from '../shared';
+import { dragOnCanvas, navigateToEditor } from '../shared';
 
 const requireFromEngine = createRequire(join(process.cwd(), 'packages', 'engine', 'package.json'));
 type PngPixels = { width: number; height: number; data: Buffer };
@@ -99,6 +99,75 @@ async function referencePoint(page: import('@playwright/test').Page) {
     const point = hook.worldToScreen(320, 240);
     return { x: rect.left + point.x, y: rect.top + point.y };
   });
+}
+
+async function conceptScreenPoint(page: import('@playwright/test').Page, x: number, y: number) {
+  return page.evaluate(
+    ({ worldX, worldY }) => {
+      const hook = (
+        window as Window & {
+          __varveIsoTest?: { worldToScreen: (x: number, y: number) => { x: number; y: number } };
+        }
+      ).__varveIsoTest;
+      const surface = document.querySelector<HTMLElement>('.editor-canvas');
+      if (!hook || !surface) throw new Error('canvas projection helper is unavailable');
+      const rect = surface.getBoundingClientRect();
+      const point = hook.worldToScreen(worldX, worldY);
+      return { x: rect.left + point.x, y: rect.top + point.y };
+    },
+    { worldX: x, worldY: y },
+  );
+}
+
+async function drawConceptRect(
+  page: import('@playwright/test').Page,
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  toolId: 'frame' | 'rect',
+) {
+  const tool = page.locator(`.floating-toolbar [data-tool="${toolId}"]`);
+  await expect(tool).toBeVisible();
+  await tool.click();
+  await expect(tool).toHaveAttribute('aria-pressed', 'true');
+  const start = await conceptScreenPoint(page, x1, y1);
+  const end = await conceptScreenPoint(page, x2, y2);
+  await page.mouse.move(start.x, start.y);
+  await page.mouse.down();
+  await page.mouse.move(end.x, end.y, { steps: 6 });
+  await page.mouse.up();
+}
+
+async function orangePaintPixels(page: import('@playwright/test').Page): Promise<number> {
+  return page.locator('canvas.editor-canvas__content-layer').evaluate((element) => {
+    const canvas = element as HTMLCanvasElement;
+    const data = canvas.getContext('2d')?.getImageData(0, 0, canvas.width, canvas.height).data;
+    if (!data) throw new Error('content canvas is unavailable');
+    let count = 0;
+    for (let offset = 0; offset < data.length; offset += 4) {
+      if (
+        (data[offset + 3] ?? 0) > 128 &&
+        (data[offset] ?? 0) > 180 &&
+        (data[offset + 1] ?? 0) > 60 &&
+        (data[offset + 1] ?? 255) < 190 &&
+        (data[offset + 2] ?? 255) < 80
+      ) {
+        count += 1;
+      }
+    }
+    return count;
+  });
+}
+
+async function selectConceptFrameAtX(page: import('@playwright/test').Page, expectedX: number) {
+  const frames = page.locator('[role="treeitem"][data-layer-type="frame"]');
+  const xField = page.getByRole('spinbutton', { name: 'X (px)' });
+  for (let index = 0; index < (await frames.count()); index += 1) {
+    await frames.nth(index).click();
+    if (Number(await xField.inputValue()) === expectedX) return;
+  }
+  throw new Error(`no concept frame found at x=${expectedX}`);
 }
 
 test.describe('concept-art reference workflow', () => {
@@ -266,5 +335,205 @@ test.describe('concept-art reference workflow', () => {
     await expect(page.getByRole('switch', { name: 'Include in artwork exports' })).toBeChecked();
     await expect.poll(() => coloredPixels(page)).toBeGreaterThan(100);
     await page.screenshot({ path: info.outputPath('concept-reference-reopened.png') });
+  });
+
+  test('builds thumbnail variants around a reference, paints over a perspective block-in, and exports a sheet', async ({
+    page,
+  }, info) => {
+    test.setTimeout(420000);
+    await page.addInitScript(() => localStorage.setItem('varve.renderWorker', 'off'));
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await navigateToEditor(page, '/?isoTest=1');
+
+    // Three editable frame thumbnails share one Design canvas. Ctrl+D creates
+    // two real variants; their frame positions are then set through Inspector.
+    const frameTool = page.locator('.floating-toolbar [data-tool="frame"]');
+    await frameTool.click();
+    await expect(frameTool).toHaveAttribute('aria-pressed', 'true');
+    await dragOnCanvas(page, 150, 150, 500, 450);
+    const frames = page.locator('[role="treeitem"][data-layer-type="frame"]');
+    await expect(frames).toHaveCount(1);
+    await frames.first().click();
+    const xField = page.getByRole('spinbutton', { name: 'X (px)' });
+    const yField = page.getByRole('spinbutton', { name: 'Y (px)' });
+    await xField.fill('40');
+    await xField.press('Enter');
+    await yField.fill('60');
+    await yField.press('Enter');
+    await xField.evaluate((element) => (element as HTMLElement).blur());
+    const rectTool = page.locator('.floating-toolbar [data-tool="rect"]');
+    await rectTool.click();
+    await drawConceptRect(page, 78, 92, 250, 220, 'rect');
+    await page.locator('.floating-toolbar [data-tool="select"]').click();
+    await page.keyboard.press('Control+d');
+    await expect(frames).toHaveCount(2);
+    await xField.fill('340');
+    await xField.press('Enter');
+    await xField.evaluate((element) => (element as HTMLElement).blur());
+    await page.keyboard.press('Control+d');
+    await expect(frames).toHaveCount(3);
+    await xField.fill('640');
+    await xField.press('Enter');
+    await xField.evaluate((element) => (element as HTMLElement).blur());
+    await drawConceptRect(page, 690, 95, 785, 165, 'rect');
+    await page.locator('.floating-toolbar [data-tool="select"]').click();
+    await page.getByRole('button', { name: 'Fit all to viewport' }).click();
+    // The third thumbnail contains the block-in rectangle; the two-point guide
+    // overlay itself is covered by the dedicated perspective-guide E2E.
+    await page.screenshot({ path: info.outputPath('concept-art-perspective-block-in.png') });
+
+    // A local photo stays visible as a reference while the two artwork
+    // permissions remain independent and disabled by default.
+    await page.locator('#file-import-input').setInputFiles({
+      name: 'beech-forest.jpg',
+      mimeType: 'image/jpeg',
+      buffer: readFileSync(REFERENCE_FIXTURE),
+    });
+    const referenceRow = page
+      .locator('[role="treeitem"][data-node-id]')
+      .filter({ hasText: 'beech-forest.jpg' })
+      .first();
+    await expect(referenceRow).toBeVisible({ timeout: 30000 });
+    await referenceRow.click();
+    await page.keyboard.press('Shift+2');
+    const referenceSwitch = page.getByRole('switch', { name: 'Use as concept reference' });
+    await expect(referenceSwitch).toBeVisible();
+    await referenceSwitch.check();
+    await expect(
+      page.getByRole('switch', { name: 'Include in artwork sampling' }),
+    ).not.toBeChecked();
+    const referenceExportSwitch = page.getByRole('switch', {
+      name: 'Include in artwork exports',
+    });
+    await expect(referenceExportSwitch).not.toBeChecked();
+    await page.getByRole('tab', { name: 'Design', exact: true }).click();
+    const referenceX = page.getByRole('spinbutton', { name: 'X (px)' });
+    await referenceX.fill('940');
+    await referenceX.press('Enter');
+    await referenceX.evaluate((element) => (element as HTMLElement).blur());
+    await page.getByRole('button', { name: 'Fit all to viewport' }).click();
+    await page.screenshot({ path: info.outputPath('concept-art-thumbnails-with-reference.png') });
+
+    // Recover explicitly from a selected frame into a paint layer, then add a
+    // warm paintover to the third variant with a real browser pointer stroke.
+    await selectConceptFrameAtX(page, 640);
+    const paintTool = page.locator('[data-testid="toolbar"] [data-tool="paint"]');
+    if (await paintTool.isVisible().catch(() => false)) {
+      await paintTool.click();
+    } else {
+      await page.getByRole('button', { name: /More tools|Overflow/i }).click();
+      const paintChoice = page.getByRole('menuitemradio', { name: /^Paint$/i });
+      if (await paintChoice.isVisible().catch(() => false)) await paintChoice.click();
+      else {
+        await page.getByRole('menuitem', { name: 'Raster', exact: true }).click();
+        await page.getByRole('menuitemradio', { name: /^Paint$/i }).click();
+      }
+    }
+    const optionsTrigger = page.getByRole('button', { name: 'Tool options' });
+    if ((await optionsTrigger.getAttribute('aria-expanded')) !== 'true')
+      await optionsTrigger.click();
+    const options = page.locator('.tool-options__popover');
+    const brushBrowser = options.locator('.brush-browser');
+    await brushBrowser.getByText('Paint', { exact: true }).click();
+    await brushBrowser.getByRole('button', { name: 'Opaque Paint', exact: true }).click();
+    await page.getByLabel('Foreground color').fill('#ff8c20');
+    await options.getByLabel('Size').fill('18');
+    await options.getByLabel('Size').press('Enter');
+    const recovery = options.getByRole('button', { name: 'Create paint layer' });
+    await expect(recovery).toBeVisible();
+    await recovery.click();
+    const paintLayer = page
+      .locator('[role="treeitem"][data-node-id]')
+      .filter({ hasText: 'Paint Layer' })
+      .first();
+    await expect(paintLayer).toHaveAttribute('aria-selected', 'true');
+    await optionsTrigger.click();
+    const beforePaintover = await contentHash(page);
+    const paintStart = await conceptScreenPoint(page, 660, 215);
+    const paintEnd = await conceptScreenPoint(page, 800, 230);
+    await page.mouse.move(paintStart.x, paintStart.y);
+    await page.mouse.down();
+    await page.mouse.move(paintEnd.x, paintEnd.y, { steps: 7 });
+    await page.mouse.up();
+    await expect.poll(() => contentHash(page)).not.toBe(beforePaintover);
+    await expect.poll(() => orangePaintPixels(page)).toBeGreaterThan(10);
+    await page.screenshot({ path: info.outputPath('concept-art-variants-paintover.png') });
+
+    // Compose only the three thumbnails and paintover into a presentation
+    // sheet. The local reference remains outside the group and excluded from
+    // sampling/export by default.
+    await frames.first().click();
+    for (let index = 1; index < (await frames.count()); index += 1) {
+      await frames.nth(index).click({ modifiers: ['Control'] });
+    }
+    await paintLayer.click({ modifiers: ['Control'] });
+    await page.getByRole('tree', { name: /layers/i }).press('Control+g');
+    const presentationSheet = page.locator('[role="treeitem"][aria-selected="true"]');
+    await expect(presentationSheet).toContainText(/Group/);
+    await expect(presentationSheet).not.toContainText('beech-forest.jpg');
+    await selectExportTab(page);
+    const pngGroup = page.locator('.spec-export__group').filter({ hasText: 'PNG' }).first();
+    await pngGroup.getByRole('radio', { name: 'PNG', exact: true }).click();
+    const sheetDownloadPromise = page.waitForEvent('download', { timeout: 120000 });
+    await page.getByRole('button', { name: 'Download PNG', exact: true }).click();
+    const sheetDownload = await sheetDownloadPromise;
+    const sheetPath = info.outputPath('concept-art-presentation-sheet.png');
+    await sheetDownload.saveAs(sheetPath);
+    const { readFile } = await import('node:fs/promises');
+    const sheetBytes = await readFile(sheetPath);
+    const sheet = PNG.sync.read(sheetBytes);
+    let sheetOrangePixels = 0;
+    for (let offset = 0; offset < sheet.data.length; offset += 4) {
+      if (
+        (sheet.data[offset + 3] ?? 0) > 128 &&
+        (sheet.data[offset] ?? 0) > 180 &&
+        (sheet.data[offset + 1] ?? 0) > 60 &&
+        (sheet.data[offset + 1] ?? 255) < 190 &&
+        (sheet.data[offset + 2] ?? 255) < 80
+      ) {
+        sheetOrangePixels += 1;
+      }
+    }
+    expect(sheetOrangePixels).toBeGreaterThan(10);
+    expect(sheet.data[sheet.width * 4 + 3]).toBe(0);
+    await page.screenshot({ path: info.outputPath('concept-art-sheet-export-ui.png') });
+
+    await page.evaluate(() => {
+      Object.defineProperty(window, 'showSaveFilePicker', { configurable: true, value: undefined });
+    });
+    await page.keyboard.press('Control+s');
+    await expect(page.locator('.save-status')).toHaveText('Saved', { timeout: 30000 });
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.locator('.varve-home__toolbar').waitFor({ state: 'visible', timeout: 30000 });
+    await page.getByRole('gridcell').first().dblclick();
+    await page
+      .locator('canvas.editor-canvas__content-layer')
+      .waitFor({ state: 'visible', timeout: 60000 });
+    await expect(page.locator('[role="treeitem"][data-layer-type="frame"]')).toHaveCount(3);
+    await page.getByRole('button', { name: 'Fit all to viewport' }).click();
+    await expect.poll(() => orangePaintPixels(page)).toBeGreaterThan(10);
+    await page.screenshot({ path: info.outputPath('concept-art-sheet-reopened.png') });
+    for (const theme of ['dark', 'high-contrast'] as const) {
+      await page.evaluate(
+        (value) => document.documentElement.setAttribute('data-theme', value),
+        theme,
+      );
+      await page.screenshot({ path: info.outputPath(`concept-art-sheet-${theme}.png`) });
+    }
+    await page.setViewportSize({ width: 1024, height: 768 });
+    await page.screenshot({ path: info.outputPath('concept-art-sheet-narrow.png') });
+    const reopenedReferenceRow = page
+      .locator('[role="treeitem"][data-node-id]')
+      .filter({ hasText: 'beech-forest.jpg' })
+      .first();
+    await reopenedReferenceRow.click();
+    await page.keyboard.press('Shift+2');
+    await expect(page.getByRole('switch', { name: 'Use as concept reference' })).toBeChecked();
+    await expect(
+      page.getByRole('switch', { name: 'Include in artwork sampling' }),
+    ).not.toBeChecked();
+    await expect(
+      page.getByRole('switch', { name: 'Include in artwork exports' }),
+    ).not.toBeChecked();
   });
 });
