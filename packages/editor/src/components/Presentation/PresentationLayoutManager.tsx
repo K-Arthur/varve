@@ -1,6 +1,7 @@
 import {
   cryptoId,
   type Document,
+  describePresentationLayoutOverrides,
   isPresentationLayoutSourceOutdated,
   type NodeId,
   PRESENTATION_BUILT_IN_LAYOUTS,
@@ -96,6 +97,10 @@ export function PresentationLayoutManager({
             isPresentationLayoutSourceOutdated(document, selectedSource)),
       ).length
     : 0;
+  const overrides = useMemo(
+    () => (slide ? describePresentationLayoutOverrides(document, deck.id, slide.id) : null),
+    [document, deck.id, slide],
+  );
 
   const registerSource = () => {
     if (!sourceFrame) return;
@@ -389,6 +394,92 @@ export function PresentationLayoutManager({
               </Button>
             </div>
           )}
+        {overrides && slide && (
+          <div className="presentation-layouts__overrides">
+            <strong>Layout on “{slide.title}”</strong>
+            <p className="presentation-layouts__status">
+              {overrides.sourceName} · applied revision {overrides.appliedRevision}
+              {overrides.sourceOutdated
+                ? ` · source is now revision ${overrides.sourceRevision}; reapply to catch up`
+                : ''}
+            </p>
+            <ul className="presentation-layouts__override-list">
+              {overrides.nodes.map((node) => (
+                <li key={node.nodeId} className="presentation-layouts__override-item">
+                  <span className="presentation-layouts__override-name">
+                    {node.nodeName}
+                    {node.role ? ` · ${node.role}` : ''}
+                  </span>
+                  <span
+                    className={`presentation-layouts__badge presentation-layouts__badge--${node.status}`}
+                  >
+                    {node.status === 'inherited'
+                      ? 'Inherited'
+                      : node.status === 'overridden'
+                        ? 'Locally changed'
+                        : 'Object removed'}
+                  </span>
+                  {node.properties
+                    .filter((property) => property.status === 'overridden')
+                    .map((property) => (
+                      <Button
+                        key={property.key}
+                        size="sm"
+                        variant="ghost"
+                        aria-label={`Reset ${property.key} of ${node.nodeName} to the layout`}
+                        onClick={() =>
+                          runOperation(
+                            `Reset ${property.key} to the layout`,
+                            'presentation.layout.overrides.reset',
+                            {
+                              deckId: deck.id,
+                              entryId: slide.id,
+                              nodeId: node.nodeId,
+                              property: property.key,
+                            },
+                          )
+                        }
+                      >
+                        Reset {property.key}
+                      </Button>
+                    ))}
+                </li>
+              ))}
+            </ul>
+            <div className="presentation-layouts__actions">
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={overrides.overriddenPropertyCount === 0}
+                onClick={() =>
+                  runOperation('Reset layout overrides', 'presentation.layout.overrides.reset', {
+                    deckId: deck.id,
+                    entryId: slide.id,
+                  })
+                }
+              >
+                Reset all to layout
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() =>
+                  runOperation('Detach layout from slide', 'presentation.layout.detach', {
+                    deckId: deck.id,
+                    entryId: slide.id,
+                  })
+                }
+              >
+                Detach layout (keep appearance)
+              </Button>
+            </div>
+            <p className="presentation-layouts__hint">
+              Reset restores the layout geometry and leaves text, fills, effects, and this
+              slide&apos;s identity untouched. Detaching stops tracking the layout only: every
+              object keeps its current position, size, and appearance.
+            </p>
+          </div>
+        )}
         {error && (
           <p className="presentation-layouts__error" role="alert">
             {error}

@@ -1,5 +1,9 @@
 import type { Document } from '../../document';
 import {
+  detachPresentationLayout,
+  resetPresentationLayoutOverrides,
+} from '../../presentation/layoutOverrides';
+import {
   applyPresentationLayoutPreview,
   isPresentationLayoutSourceOutdated,
   type PresentationLayoutPreview,
@@ -106,6 +110,15 @@ export interface PresentationLayoutDeletePayload {
 export interface PresentationLayoutApplyPayload {
   preview: PresentationLayoutPreview;
 }
+
+export interface PresentationLayoutResetPayload extends PresentationSlideReferencePayload {
+  /** Narrow the reset to one mapped object. */
+  nodeId?: NodeId;
+  /** Narrow further to one managed property; requires `nodeId`. */
+  property?: string;
+}
+
+export interface PresentationLayoutDetachPayload extends PresentationSlideReferencePayload {}
 
 function record(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -437,6 +450,47 @@ function validateBuiltInLayoutCreate(
       sourceId: payload.sourceId,
       templateId: payload.templateId as PresentationBuiltInLayoutId,
     },
+  };
+}
+
+function validateLayoutReset(payload: unknown): ValidationResult<PresentationLayoutResetPayload> {
+  if (!record(payload) || !nonEmptyString(payload.deckId) || !nonEmptyString(payload.entryId)) {
+    return {
+      ok: false,
+      errors: ['presentation.layout.overrides.reset requires deckId and entryId'],
+    };
+  }
+  if (payload.nodeId !== undefined && !nonEmptyString(payload.nodeId)) {
+    return { ok: false, errors: ['presentation.layout.overrides.reset nodeId must be a string'] };
+  }
+  if (payload.property !== undefined && !nonEmptyString(payload.property)) {
+    return { ok: false, errors: ['presentation.layout.overrides.reset property must be a string'] };
+  }
+  if (payload.property !== undefined && payload.nodeId === undefined) {
+    return {
+      ok: false,
+      errors: ['presentation.layout.overrides.reset requires a nodeId when resetting one property'],
+    };
+  }
+  const value: PresentationLayoutResetPayload = {
+    deckId: payload.deckId as string,
+    entryId: payload.entryId as string,
+  };
+  if (payload.nodeId !== undefined) value.nodeId = payload.nodeId as NodeId;
+  if (payload.property !== undefined) value.property = payload.property as string;
+  return { ok: true, value };
+}
+
+function validateLayoutDetach(payload: unknown): ValidationResult<PresentationLayoutDetachPayload> {
+  if (!record(payload) || !nonEmptyString(payload.deckId) || !nonEmptyString(payload.entryId)) {
+    return {
+      ok: false,
+      errors: ['presentation.layout.detach requires deckId and entryId'],
+    };
+  }
+  return {
+    ok: true,
+    value: { deckId: payload.deckId as string, entryId: payload.entryId as string },
   };
 }
 
@@ -956,5 +1010,69 @@ export function registerPresentationOperations(): void {
       }
     },
     maxPayloadBytes: 500_000,
+  });
+
+  registerOperation<PresentationLayoutResetPayload>({
+    type: 'presentation.layout.overrides.reset',
+    schemaVersion: 1,
+    validate: validateLayoutReset,
+    apply: (document, payload) => {
+      const selector = payload.nodeId
+        ? {
+            nodeId: payload.nodeId,
+            ...(payload.property ? { property: payload.property } : {}),
+          }
+        : {};
+      return resetPresentationLayoutOverrides(document, payload.deckId, payload.entryId, selector);
+    },
+    summarize: (payload) => ({
+      label: payload.property
+        ? `Reset ${payload.property} to the layout`
+        : 'Reset layout overrides',
+      kind: 'modify',
+      affectedEntityIds: [payload.entryId],
+    }),
+    affectedEntities: (payload) => [payload.deckId, payload.entryId],
+    precondition: (document, payload) => {
+      const entry = findPresentationDeck(document, payload.deckId)?.slides.find(
+        (slide) => slide.id === payload.entryId,
+      );
+      if (!entry) return `presentation slide does not exist: ${payload.entryId}`;
+      if (!entry.layoutBinding) return 'This slide has no layout to reset.';
+      if (
+        payload.property &&
+        payload.nodeId &&
+        !Object.hasOwn(
+          entry.layoutBinding.managedBaseline?.[payload.nodeId] ?? {},
+          payload.property,
+        )
+      ) {
+        return `The layout does not manage “${payload.property}” on this object.`;
+      }
+      return null;
+    },
+    maxPayloadBytes: 8_000,
+  });
+
+  registerOperation<PresentationLayoutDetachPayload>({
+    type: 'presentation.layout.detach',
+    schemaVersion: 1,
+    validate: validateLayoutDetach,
+    apply: (document, payload) =>
+      detachPresentationLayout(document, payload.deckId, payload.entryId),
+    summarize: () => ({
+      label: 'Detach layout from slide',
+      kind: 'modify',
+      affectedEntityIds: [],
+    }),
+    affectedEntities: (payload) => [payload.deckId, payload.entryId],
+    precondition: (document, payload) => {
+      const entry = findPresentationDeck(document, payload.deckId)?.slides.find(
+        (slide) => slide.id === payload.entryId,
+      );
+      if (!entry) return `presentation slide does not exist: ${payload.entryId}`;
+      return entry.layoutBinding ? null : 'This slide has no layout to detach.';
+    },
+    maxPayloadBytes: 8_000,
   });
 }

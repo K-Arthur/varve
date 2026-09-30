@@ -1,0 +1,161 @@
+---
+import Button from '../../components/Button.astro';
+import FeatureVisual from '../../components/FeatureVisual.astro';
+import Layout from '../../layouts/Layout.astro';
+import StatusPill from '../../components/StatusPill.astro';
+import { sitePath } from '../../lib/siteUrl';
+---
+
+<Layout
+  title="Presentation Authoring"
+  description="Author ordered presentation decks from editable frames in Varve Design. Source-build preview; delivery features are in development."
+>
+  <div class="container-custom">
+    <main class="feature-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href={sitePath('/features')}>Features</a> / Presentations
+      </nav>
+      <StatusPill status="experimental" label="Source-build preview" />
+      <h1 class="site-page-title">Presentation authoring in Design</h1>
+      <p class="feature-intro">
+        Build a slide sequence from ordinary editable frames on the Design Canvas. The deck owns its
+        order; canvas position and layer order stay available for the rest of your design work.
+      </p>
+
+      <section class="feature-section presentation-visuals" aria-labelledby="presentation-visuals-title">
+        <h2 id="presentation-visuals-title">A local deck from canvas to delivery</h2>
+        <p>
+          The same editable frames appear in the Slides navigator, on the canvas, in audience preview,
+          and in exported files. Preview navigation does not change the document or reveal private notes.
+        </p>
+        <FeatureVisual scene="presentation-navigator" priority />
+        <FeatureVisual scene="presentation-slide" />
+        <FeatureVisual scene="presentation-layout-revision" />
+        <FeatureVisual scene="presentation-preview" />
+        <FeatureVisual scene="presentation-export" />
+      </section>
+
+      <section class="feature-section">
+        <h2>One canvas, an explicit slide order</h2>
+        <p>
+          Create a presentation with a 16:9, 4:3, vertical, or custom first slide, or assemble a deck
+          from selected frames after reviewing their order. The Slides navigator supports titles,
+          private speaker notes, sections, skipped drafts, multi-selection, and visible Move earlier,
+          Move later, and Move to position controls. Removing a slide reference keeps its frame artwork.
+        </p>
+        <p>
+          Each slide remains editable in the normal Design canvas and participates in the document's
+          save and undo history. Multiple decks can reference the same artwork, and missing frame
+          references remain listed with their notes so they can be repaired.
+        </p>
+      </section>
+
+      <section class="feature-section">
+        <h2>Layouts you can see, trace, and undo</h2>
+        <p>
+          Applying a layout records what it managed on each object. The Slides layout manager then
+          reports every mapped object as Inherited, Locally changed, or Object removed, names the
+          exact property that changed, and offers a reset for that one property or for the whole
+          slide. Reset restores only the values the layout owns, so corner radii, gradients, fills,
+          effects, text, and object identity are untouched. Detaching removes the tracking metadata
+          only; the artwork on screen is unchanged, because nothing stays live between a layout
+          source and a slide.
+        </p>
+        <p>
+          This targets a specific failure other tools leave with users: Figma staff state that a
+          slide's layout cannot be changed after creation, and forum threads describe people
+          rebuilding imported slides by hand. Reapplying here is always previewed and confirmed, and
+          it is one undo step.
+        </p>
+      </section>
+
+      <section class="feature-section">
+        <h2>One Present command</h2>
+        <p>
+          Presenting a deck document plays the deck; presenting a document without one still plays
+          the prototype. The same command routes the decision, so the menubar, the keyboard shortcut,
+          and the command palette never disagree about what Present means. Deck commands are also
+          reachable directly from the palette: present from the current slide, export the deck, or
+          add selected frames.
+        </p>
+        <p>
+          During playback the stage owns the keyboard: Space and Enter advance, the arrows and
+          PageUp/PageDown move, Home and End jump, and Escape exits with focus returned to the control
+          that opened the preview. Reaching either end stops and announces the boundary rather than
+          wrapping silently, so a presenter can tell a finished deck from a dropped keypress.
+        </p>
+      </section>
+
+      <section class="feature-section note">
+        <h2>Current source-build preview</h2>
+        <p>
+          The current source build covers deck creation, ordered slide navigation with rendered
+          thumbnails, private notes, sections, audience preview, and multipage PDF or PNG-sequence
+          delivery for either the whole deck or selected slide references. This capability is not yet
+          included in a published Varve release.
+        </p>
+        <p>
+          PDF is a compressed raster screen document, one page per included slide. It preserves
+          appearance, but its text and vectors are not editable or searchable and it has no tagged
+          accessibility structure. Speaker notes stay private. PNG output is an ordered archive with
+          numbered slide filenames. Skipped and scene-hidden slides are excluded; an included missing
+          frame blocks export and remains repairable in Slides.
+        </p>
+        <p>
+          Initial slide checks flag missing artwork, placeholder text, small type, transformed
+          off-slide content, unavailable fonts or image assets, low contrast when solid foreground
+          and background colors are known, and slides without alt descriptions. These checks are
+          advisory except for missing included artwork, and contrast is skipped when the background
+          is ambiguous. Geometry-only reusable layout sources are also in the source build: map stable
+          roles, review reflow/fit/crop, then apply in one undoable step. Slide text, paint, effects,
+          crop intent, overrides, and unmatched artwork stay intact. Seven original editable layout
+          sources cover title/section, body, image/text, comparison, evidence, process, and conclusion;
+          they live on a dedicated Design Canvas and use bundled typography with no external stock
+          media. On top of that, per-object override reporting, single-property and whole-slide
+          geometry reset, and appearance-preserving detach are in the source build. Preview and the
+          delivered PNG are checked against each other in the test suite — the same slide rasterizes
+          identically in both, at the deck's declared pixel size. Layout formatting inheritance,
+          linked themes, detailed readability analysis, and deck-wide aspect-ratio conversion remain
+          in development.
+        </p>
+      </section>
+
+      <section class="feature-section">
+        <h2>Built around real workflow failures</h2>
+        <p>
+          Existing-layout rebuilding, masks disappearing in slide export, and export actions that
+          become unavailable are documented as regression scenarios. The roadmap treats layout
+          reapplication as a preview-and-confirm operation, requires output checks against the editor,
+          and keeps failures actionable instead of silently omitting content.
+        </p>
+        <p>
+          Read the <a href={sitePath('/docs/presentations')}>presentation authoring guide</a> for
+          current behavior and the documented delivery boundaries.
+        </p>
+      </section>
+
+      <div class="feature-cta">
+        <h2>Follow the source-build preview</h2>
+        <p>This presentation workflow is not included in a published Varve release yet.</p>
+        <Button href={sitePath('/docs/presentations')}>Read the presentation guide</Button>
+      </div>
+    </main>
+  </div>
+</Layout>
+
+<style>
+  .feature-page { max-width: 800px; margin: 0 auto; padding: 3rem 0; }
+  .breadcrumb { font-size: 0.875rem; margin-bottom: 1.5rem; }
+  .breadcrumb a { color: var(--text-secondary); }
+  .feature-page h1 { font-family: var(--font-editorial); margin: 1rem 0; color: var(--text-primary); }
+  .feature-intro { font-size: 1.25rem; color: var(--text-secondary); margin-bottom: 3rem; line-height: 1.7; }
+  .feature-section { margin-bottom: 3rem; }
+  .presentation-visuals { margin-top: 2rem; }
+  .presentation-visuals :global(.feature-visual) { margin-block: 1.5rem 2.5rem; }
+  .feature-section h2 { font-size: 1.5rem; margin-bottom: 1rem; color: var(--text-primary); }
+  .feature-section p { color: var(--text-secondary); line-height: 1.8; margin-bottom: 1rem; }
+  .note { border-left: 3px solid var(--accent-primary); padding-left: 1rem; }
+  .feature-cta { padding: 1.5rem; border: 1px solid var(--border-default); border-radius: var(--website-radius-card); background: var(--surface-card); }
+  .feature-cta h2 { color: var(--text-primary); }
+  .feature-cta p { color: var(--text-secondary); }
+</style>

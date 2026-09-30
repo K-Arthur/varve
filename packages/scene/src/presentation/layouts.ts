@@ -60,6 +60,15 @@ function shapeGeometry(shape: Shape): Record<string, unknown> | null {
   }
 }
 
+/**
+ * Snapshot of the geometry a layout manages on a shape. Exported because the
+ * override report compares live values against the stored baseline with
+ * exactly this projection — a second implementation would drift.
+ */
+export function presentationShapeGeometry(shape: Shape): Record<string, unknown> | null {
+  return shapeGeometry(shape);
+}
+
 function managedGeometry(node: SceneNode): Record<string, unknown> | null {
   if (node.kind === 'shape') {
     const shape = shapeGeometry(node.shape);

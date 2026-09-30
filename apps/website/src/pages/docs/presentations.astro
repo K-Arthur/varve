@@ -1,0 +1,162 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { sitePath } from '../../lib/siteUrl';
+import '../../styles/docs-prose.css';
+---
+
+<Layout
+  title="Presentation Authoring — Varve Docs"
+  description="Create and organize a presentation from editable Design frames, with explicit order, private notes, and documented preview and export status."
+>
+  <div class="container-custom">
+    <main class="docs-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href={sitePath('/docs')}>Documentation</a> / Presentation authoring
+      </nav>
+      <h1 class="site-page-title">Presentation authoring</h1>
+      <p class="docs-intro">
+        Presentation metadata organizes ordinary frames into one or more ordered decks. The slide
+        sequence is independent of canvas coordinates and layer paint order.
+      </p>
+
+      <section class="docs-section">
+        <h2>Create a deck</h2>
+        <ol>
+          <li>Choose <strong>New</strong>, then select <strong>New presentation</strong>.</li>
+          <li>Choose 16:9, 4:3, vertical, or a custom pixel size. New decks default to 16:9.</li>
+          <li>Create the first editable frame, then use the Slides tab beside Layers to manage the deck.</li>
+        </ol>
+        <p>
+          To assemble an existing canvas, select frames and choose <strong>Create presentation from
+          selected frames</strong>. Review the proposed order and titles before creating the deck.
+          This adds references; it does not duplicate or reposition those frames.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Organize and edit slides</h2>
+        <ul>
+          <li>Activate a slide from its row, then choose <strong>Edit slide</strong> to focus its frame on the existing canvas.</li>
+          <li>Use <strong>Earlier</strong>, <strong>Later</strong>, or <strong>Move to position</strong> to change sequence without dragging.</li>
+          <li>Rename slides, assign sections, skip drafts, write speaker notes, or select several slides for grouped actions.</li>
+          <li><strong>Remove</strong> removes only the deck reference. The frame and its artwork remain editable on the canvas.</li>
+        </ul>
+        <p>Speaker notes are private document metadata and are not rendered into slide artwork.</p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Presenting</h2>
+        <p>
+          One <strong>Present</strong> command decides by document: a document with a deck plays the
+          deck, and a document without one still plays the prototype. The menubar item, the
+          <kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> shortcut, and the command
+          palette all go through that decision, so they cannot disagree. The palette also lists
+          <em>Present Deck from Current Slide</em>, <em>Export Presentation Deck…</em>, and
+          <em>Add Selected Frames to Presentation Deck</em>. A deck whose slides are all skipped or
+          unresolvable explains that instead of presenting nothing.
+        </p>
+        <p>
+          While playback is open the stage keeps focus, so the keyboard belongs to the presentation:
+          Space or Enter advances, the arrow keys and PageUp/PageDown move, Home and End jump, and
+          Escape exits. Reaching the first or last slide stops and announces the boundary rather than
+          wrapping around, and the Previous/Next buttons disable at the ends. Focus returns to the
+          control that opened playback when it closes. Speaker notes are never shown during playback.
+        </p>
+        <p>
+          Playback is a modal surface, so app-wide shortcuts are deliberately suspended while it is
+          open — use Escape or the visible Exit control to leave.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Save, reopen, and repair</h2>
+        <p>
+          Deck metadata is saved with the document. Slides reference normal frame nodes, so reopening
+          the document retains the editable artwork. A removed or invalid frame reference stays in the
+          deck as a repairable entry; its title and notes remain available. One frame can be referenced
+          by multiple decks, and the resolver reports that shared use.
+        </p>
+        <p>Duplicate slide references within a deck are rejected. A slide cannot be delivered while its referenced frame is missing or invalid.</p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Reusable geometry layouts</h2>
+        <p>
+          In Design, open Reusable layouts in the Slides panel. Register a non-slide frame as a source,
+          give its direct child objects stable role names, and map those roles to compatible slide
+          objects. Preview reflow, uniform fit, or uniform crop before applying. Apply is a single
+          undoable geometry operation; slide text and rich runs, fills, effects, image-fill crop
+          intent, notes, identities, local geometry overrides, and unmatched objects remain intact.
+          A changed source must be refreshed before dependent slides can be reapplied. Removing a
+          source preserves artwork already materialized on slides.
+        </p>
+        <p>
+          Seven original sources cover title/section, body, image/text, comparison, evidence,
+          process, and conclusion. They are native editable frames on the Presentation Layouts Design
+          Canvas, use the bundled artwork font, and include no external stock media. Authors can
+          revise a source in Design and explicitly refresh it before previewing dependent slides.
+          Layout application does not create new content.
+        </p>
+        <p>
+          Each slide that has a layout shows its own state: which objects still match the layout
+          (<strong>Inherited</strong>), which were moved or resized locally (<strong>Locally changed</strong>),
+          and which mapped object was deleted (<strong>Object removed</strong>). A changed object
+          offers a reset for the specific property that drifted, plus <strong>Reset all to layout</strong>
+          for the whole slide. Reset writes only the values the layout manages, so corner radii,
+          gradients, fills, effects, text, and object identity are preserved, and it is one undo step.
+          <strong>Detach layout (keep appearance)</strong> stops tracking the layout without moving
+          anything on screen. Resetting a property the layout never managed is refused with an
+          explanation rather than silently ignored.
+        </p>
+        <p>
+          Formatting inheritance, linked themes, and automatic role selection remain in
+          development.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Current status and delivery limits</h2>
+        <p>
+          The current source-build preview includes new-deck creation, rendered slide thumbnails,
+          ordered slide references, selected-frame order review, notes, sections, skip state,
+          keyboard-accessible ordering controls, audience preview, multipage PDF, PNG-sequence export,
+          and whole-deck or selected-slide delivery. An initial advisory preflight flags missing
+          artwork, placeholder text, small type, transformed off-slide content, unavailable fonts
+          and image assets, low contrast when both solid colors are known, and missing slide
+          descriptions. Only missing included artwork blocks delivery. Contrast checks skip image,
+          gradient, transparent, and otherwise ambiguous backgrounds. This capability is not yet
+          included in a published Varve release. Geometry-only reusable layout sources, seven
+          built-in layouts, and previewed reapplication are also present in this source build.
+          Detailed readability analysis, formatting inheritance, linked themes, and deck-wide
+          aspect-ratio conversion remain in development.
+        </p>
+        <p>
+          The PDF is a compressed raster screen PDF that preserves slide appearance, not editable
+          vector content, searchable text, notes, or tagged accessibility structure. The PNG sequence
+          is an ordered archive with numbered filenames. Skipped slides and scene-hidden frames are
+          excluded; missing included frame references block delivery with a repair route. For general
+          document exports, see
+          <a href={sitePath('/docs/tools/export')}>Export &amp; Code Generation</a>.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Known regression scenarios</h2>
+        <ul>
+          <li>Revising an existing layout must preview the change and require reapplication; it must not rebuild slide content silently.</li>
+          <li>Mask and effect output must be checked against the editor, not assumed correct from an export dialog preview.</li>
+          <li>Unavailable export capability must be reported clearly and offer a recovery route.</li>
+        </ul>
+        <p>
+          See the <a href={sitePath('/features/presentations')}>presentation feature status</a> and
+          <a href={sitePath('/docs/workspaces')}>workspace guide</a> for related Design-mode details.
+        </p>
+      </section>
+    </main>
+  </div>
+</Layout>
+
+<style>
+  .docs-page { max-width: 800px; margin: 0 auto; padding: 3rem 0; }
+  .docs-section { margin-bottom: 2.5rem; }
+</style>
