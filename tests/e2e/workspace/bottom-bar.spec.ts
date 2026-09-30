@@ -166,14 +166,20 @@ test.describe('bottom bar', () => {
         const bar = document.querySelector('.editor-status');
         if (!bar) return null;
         const barRect = bar.getBoundingClientRect();
-        const buttons = Array.from(bar.querySelectorAll('button')).filter(
-          (button) =>
-            getComputedStyle(button).display !== 'none' && button.getClientRects().length > 0,
+        // Buttons AND field-shaped controls. The first version of this check
+        // measured only <button>, which is how the grid-spacing input shipped
+        // at 28px in a 25.8px content box: a non-button control is still a
+        // control in this row.
+        const controls = Array.from(
+          bar.querySelectorAll('button, input, [role="combobox"], [role="spinbutton"]'),
+        ).filter(
+          (control) =>
+            getComputedStyle(control).display !== 'none' && control.getClientRects().length > 0,
         );
         return {
           barTop: barRect.top,
           barBottom: barRect.bottom,
-          buttons: buttons.map((button) => {
+          buttons: controls.map((button) => {
             const rect = button.getBoundingClientRect();
             return {
               label: button.getAttribute('aria-label') ?? button.textContent ?? '',

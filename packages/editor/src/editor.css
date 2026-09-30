@@ -1453,8 +1453,20 @@ input[type="number"] {
   color: var(--color-text-muted);
   user-select: none;
 }
-.editor-status__snap-grid .number-input {
+/* The grid-spacing field is the one control in the row that comes from
+ * @varve/ui, so it arrives carrying that package's field contract:
+ * `min-height: var(--component-compact-height)` (28px) and `font-size: -sm`.
+ * In a 26.8px row that overflows the content box by ~1.1px on each side and
+ * reads as a bigger, off-centre box among 24px controls — the "improper
+ * centering" a review spotted. Re-scope it to the bar's own tier, and fix the
+ * selector while here: `.number-input` never matched `varve-number-input`, so
+ * the intended width cap was dead. */
+.editor-status__snap-grid .varve-number-input {
   min-width: 3rem;
+  min-height: var(--statusbar-control-height);
+  height: var(--statusbar-control-height);
+  padding: 0 var(--space-1);
+  font-size: var(--font-size-xs);
 }
 
 /* ── View rotation chip (StatusBar) ─────────────────── */

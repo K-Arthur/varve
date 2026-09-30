@@ -213,6 +213,30 @@ Email workspaces, so it failed SC 2.5.8 there while every neighbour passed.
 --statusbar-control-height`, `min-width: --target-min-compact`) and the
 coarse-pointer block.
 
+### P1 — The grid-spacing field was a 28px field in a 26px row (regression, caught in review)
+
+**Evidence.** A follow-up review screenshot showed the grid-spacing input
+sitting proud of the row. `.varve-number-input` (from `@varve/ui`) carries that
+package's field contract — `min-height: var(--component-compact-height)` (28px)
+and `font-size: var(--font-size-sm)` — and nothing in the status bar overrode
+it, so it overflowed the 25.8px content box by ~1.1px each side and rendered
+bigger than every 24px control beside it. Optically it read as off-centre even
+though `align-items: center` was doing its job: the box was taller than the row
+it was being centred in.
+
+**Why the check missed it.** The geometry assertion measured
+`bar.querySelectorAll('button')`. A field is not a button, so the one
+non-button control in the row was the one control never measured.
+
+**Fix.** `.editor-status__snap-grid .varve-number-input` is re-scoped to
+`--statusbar-control-height`, `--font-size-xs`, and the row's own padding.
+While there: the previous rule targeted `.number-input`, which never matched
+`varve-number-input`, so the intended width cap was dead CSS.
+
+**Regression guard.** The geometry check now measures
+`button, input, [role="combobox"], [role="spinbutton"]` — every interactive
+shape in the row, not just buttons — and it asserts height as well as clipping.
+
 ### P2 — The idle AI chip was a claim, not a status
 
 **Evidence.** `AIStatusIndicator` spent nearly all of its life rendering
@@ -279,7 +303,7 @@ by other applications.
   running, `null` otherwise; permanent `sr-only` live region; `aiStatus`
   retired as a section id. |
 | `packages/editor/src/Menubar.tsx` | Menubar zoom control removed (duplicate of the status-bar chip). |
-| `packages/editor/src/editor.css` | Status-bar cluster/spacer rules; `--statusbar-control-height` (the row's own control tier) replacing the 28px toolbar token; preflight badge target size; removed the informational dash rule and the menubar zoom rules. |
+| `packages/editor/src/editor.css` | Status-bar cluster/spacer rules; `--statusbar-control-height` (the row's own control tier) replacing the 28px toolbar token; preflight badge target size; grid-spacing field re-scoped to that same tier (and its dead `.number-input` selector corrected to `.varve-number-input`); removed the informational dash rule and the menubar zoom rules. |
 | `packages/editor/src/components/WorkspaceCustomizeDialog.tsx` | Save-status row renders disabled with a reason; hint text describes the two clusters. |
 
 ## Verification
