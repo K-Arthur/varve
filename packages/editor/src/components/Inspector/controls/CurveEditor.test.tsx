@@ -20,8 +20,8 @@ describe('CurveEditor', () => {
         onDragEnd={end}
       />,
     );
-    fireEvent.click(screen.getByRole('combobox', { name: 'Curve preset', exact: true }));
-    fireEvent.click(await screen.findByRole('option', { name: 'Soft contrast', exact: true }));
+    fireEvent.click(screen.getByRole('combobox', { name: /^Curve preset$/ }));
+    fireEvent.click(await screen.findByRole('option', { name: /^Soft contrast$/ }));
     expect(start).toHaveBeenCalledTimes(1);
     expect(end).toHaveBeenCalledTimes(1);
     expect(onChange).toHaveBeenCalledTimes(1);
