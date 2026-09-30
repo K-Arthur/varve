@@ -578,7 +578,7 @@
   padding-inline: var(--space-1);
   padding-block: var(--space-0);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   color: var(--color-text-muted);
   font-size: var(--font-size-xs);
 }
