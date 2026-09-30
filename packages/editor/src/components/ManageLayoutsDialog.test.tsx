@@ -161,7 +161,9 @@ describe('ManageLayoutsDialog', () => {
     await waitFor(() => expect(getEditor()).toBeDefined());
 
     const outer = screen.getByRole('dialog');
-    const row = within(outer).getByText('Escapable').closest<HTMLElement>('.workspace-layouts__row')!;
+    const row = within(outer)
+      .getByText('Escapable')
+      .closest<HTMLElement>('.workspace-layouts__row')!;
     fireEvent.click(within(row).getByRole('button', { name: 'Delete' }));
     const confirm = screen.getAllByRole('dialog').at(-1)!;
     expect(within(confirm).getByText(/Delete “Escapable”/)).toBeTruthy();
