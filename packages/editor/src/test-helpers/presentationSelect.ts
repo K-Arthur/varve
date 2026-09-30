@@ -11,10 +11,7 @@ import type userEvent from '@testing-library/user-event';
 
 type User = ReturnType<typeof userEvent.setup>;
 
-function optionNode(
-  listbox: HTMLElement,
-  valueOrLabel: string | RegExp,
-): HTMLElement | null {
+function optionNode(listbox: HTMLElement, valueOrLabel: string | RegExp): HTMLElement | null {
   const byName = within(listbox).queryByRole('option', { name: valueOrLabel } as never);
   if (byName) return byName as HTMLElement;
   if (valueOrLabel instanceof RegExp) return null;
