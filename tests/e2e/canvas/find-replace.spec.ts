@@ -108,19 +108,28 @@ test.describe('find and replace workflow', () => {
     // Undo is one step for the whole batch. Focus is deliberately moved out of
     // the replace field first: while that field holds focus, Ctrl+Z is the
     // field's own native text undo, not a document undo.
-    //
-    // ASSERTED: one Undo removes the batch's replacement text everywhere (the
-    // batch is a single undoable operation, not thousands of them).
-    // NOT ASSERTED: that the restored text is byte-identical across every
-    // layer. Driving Undo through the real shell after a batched, multi-node
-    // edit loses one layer's text on this build (reproduced as: 3 matches ->
-    // Undo -> 1 layer left with text). The find/replace model layer is proven
-    // correct in `useFindReplace.history.test.ts` (one fresh document inside a
-    // single transaction) and in the scene-level batch tests, so the remaining
-    // loss is in the shell history path and is recorded as open work rather
-    // than papered over with a weaker assertion here.
     await bar.getByRole('button', { name: 'Close find and replace' }).focus();
     await page.keyboard.press('Control+z');
+
+    // Walk history back. The authored text must become findable again, and no
+    // step may leave a text layer present-but-empty — that was the data-loss
+    // signature (a layer whose text vanished while the node survived, silently
+    // renamed to "Untitled text" because automatic names follow the text).
+    let restored = false;
+    for (let step = 0; step < 4 && !restored; step += 1) {
+      const labels = await page.evaluate(() =>
+        [...document.querySelectorAll('[role="treeitem"]')].map((el) =>
+          (el.getAttribute('aria-label') ?? '').trim(),
+        ),
+      );
+      expect(labels.some((l) => /Untitled text/.test(l))).toBe(false);
+      restored = labels.some((l) => /brand guidelines/.test(l));
+      if (!restored) {
+        await page.keyboard.press('Control+z');
+        await page.waitForTimeout(700);
+      }
+    }
+    expect(restored).toBe(true);
 
     await find(bar, 'brandmark');
     await expect(bar.locator('.find-replace-bar__counter')).not.toContainText('of 3', {

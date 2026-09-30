@@ -64,6 +64,7 @@ import type {
 import type { SelectionMode, SelectionOrigin } from './selectionState';
 import type { TableEditState } from './tableEditState';
 
+export { DEFAULT_MAGIC_WAND_SETTINGS } from '../tools/magicWandSettings';
 export { createCopyEffectStackToNodes } from './effectStackTransfer';
 export type { ObjectSelectionSession } from './objectSelectionTypes';
 export * from './selectionState';
@@ -1391,7 +1392,7 @@ export interface EditorContextValue {
     };
     sourcePrompts?: ObjectSelectionSourcePrompts;
     signal?: AbortSignal;
-    operation: 'preview' | 'mask' | 'selection';
+    operation: 'preview' | 'mask' | 'selection' | 'layer';
     candidateIndex?: number;
     /** How a `mask` commit combines with the mask already on the node. */
     combination?: AlphaMaskCombineMode;

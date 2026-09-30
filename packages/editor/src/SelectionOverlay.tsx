@@ -9,7 +9,7 @@
  * Research basis: Figma/Penpot handle layout conventions; MDN SVG coordinate system.
  */
 
-import type { ShapeNode } from '@varve/scene';
+import type { SceneNode, ShapeNode } from '@varve/scene';
 import { buildParentIndexMap, resolveEditorSceneScope } from '@varve/scene';
 import type { Affine, Camera, Point, Rect, Viewport } from '@varve/shared';
 import {
@@ -24,9 +24,10 @@ import {
   tryInvertAffine,
   worldToScreen,
 } from '@varve/shared';
-import { Fragment, useCallback, useMemo, useRef } from 'react';
+import { Fragment, useCallback, useMemo, useRef, useSyncExternalStore } from 'react';
 import { CANVAS_INTERACTIVE_OVERLAY_Z_INDEX } from './canvas/overlayZIndex';
 import { useEditor } from './context';
+import type { TransformPreviewStore } from './context/ViewportContext';
 import {
   isNodeEffectivelyLocked,
   nodeLocalBounds,
@@ -34,16 +35,18 @@ import {
   nodeWorldTransform,
 } from './scene/world';
 import { loadSettings } from './settings';
+import { interactionSession } from './tools/InteractionContext';
 import { buildSelectionSnapTargets } from './tools/selectionSnapTargets';
 import { filterSnapTargetEntries, type SnapBoxOptions, snapSelectionBox } from './tools/snapping';
 import { storeRepeatTransform } from './transform/repeatTransform';
 import { type SkewAxis, TransformEngine } from './transform/TransformEngine';
 
 const HANDLE_HALF = 4;
-const ROT_OFFSET = 20;
+const HANDLE_TARGET_HALF = 12;
+const ROT_OFFSET = 28;
 const ROT_SNAP = 15 * (Math.PI / 180);
-/** Minimum screen-px between adjacent handles before collapse. */
-const MIN_HANDLE_SPACING_PX = 14;
+/** Resize hit targets are 24px wide; hide or reduce handles before they overlap. */
+const MIN_HANDLE_SPACING_PX = HANDLE_TARGET_HALF * 2;
 /**
  * Minimum screen-px box dimension before skew handles render. The skew hit
  * targets are 20x20 screen px at the box edge midpoints; on a smaller box
@@ -52,6 +55,8 @@ const MIN_HANDLE_SPACING_PX = 14;
  * affordance so tiny selections keep working as plain move/resize targets.
  */
 const MIN_SKEW_BOX_PX = 60;
+const emptyTransformPreview = () => null;
+const subscribeToNoTransformPreview = (_listener: () => void) => () => {};
 
 /** Return which handle indices to show based on screen-space size. */
 function visibleHandles(
@@ -62,24 +67,20 @@ function visibleHandles(
 ): { indices: Set<number>; showRotation: boolean } {
   const sw = boxW * zoom;
   const sh = boxH * zoom;
-  // Single selection: always show all 8 handles + rotation, even at extreme
-  // zoom. The handles are screen-space sized (HANDLE_HALF) so they don't
-  // become microscopic — only the spacing changes.
-  if (isSingle) {
-    return { indices: new Set([0, 1, 2, 3, 4, 5, 6, 7]), showRotation: true };
-  }
-  // Multi-select: show all handles if box is large enough on screen.
+  const showRotation = isSingle;
   if (sw >= MIN_HANDLE_SPACING_PX && sh >= MIN_HANDLE_SPACING_PX) {
-    return { indices: new Set([0, 1, 2, 3, 4, 5, 6, 7]), showRotation: false };
+    return { indices: new Set([0, 1, 2, 3, 4, 5, 6, 7]), showRotation };
   }
-  // Tiny multi-select: only center pivot
+  // Keep only opposite edge handles when one axis is too small for 24px hit
+  // targets to remain distinct. Selection remains movable and exact values
+  // remain available in the Inspector when neither axis can fit handles.
   if (sw < MIN_HANDLE_SPACING_PX && sh < MIN_HANDLE_SPACING_PX) {
-    return { indices: new Set<number>(), showRotation: false };
+    return { indices: new Set<number>(), showRotation };
   }
   if (sw < MIN_HANDLE_SPACING_PX) {
-    return { indices: new Set([1, 5]), showRotation: false };
+    return { indices: new Set([1, 5]), showRotation };
   }
-  return { indices: new Set([3, 7]), showRotation: false };
+  return { indices: new Set([3, 7]), showRotation };
 }
 
 /** Cursor per handle index: TL, T, TR, R, BR, B, BL, L */
@@ -117,6 +118,10 @@ interface DragState {
   initialAngle: number;
   canvasOffsetX: number;
   canvasOffsetY: number;
+  tabletModifiers: Pick<
+    ReturnType<typeof interactionSession.getControlSnapshot>,
+    'constrain' | 'fromCenter' | 'bypassSnap'
+  >;
 }
 
 /** Drag state for corner-radius handle drag. */
@@ -338,11 +343,21 @@ export function computeRotatedLocalBBox(
 
 export interface SelectionOverlayProps {
   canvasRef?: React.RefObject<HTMLCanvasElement | null>;
+  transformPreviewStore?: TransformPreviewStore;
 }
 
-export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
-  const { state, selectedNodes, updateDoc, beginTransaction, commitTransaction } = useEditor();
-  const sel = selectedNodes();
+export function SelectionOverlay({ canvasRef, transformPreviewStore }: SelectionOverlayProps = {}) {
+  const { state, updateDoc, beginTransaction, commitTransaction } = useEditor();
+  const transformPreview = useSyncExternalStore(
+    transformPreviewStore?.subscribe ?? subscribeToNoTransformPreview,
+    transformPreviewStore?.getSnapshot ?? emptyTransformPreview,
+    transformPreviewStore?.getSnapshot ?? emptyTransformPreview,
+  );
+  const renderDocument =
+    transformPreview?.baseDocument === state.document ? transformPreview.document : state.document;
+  const sel = state.selection
+    .map((id) => renderDocument.nodes[id])
+    .filter((node): node is SceneNode => Boolean(node));
   const dragRef = useRef<DragState | null>(null);
   const skewDragRef = useRef<SkewDragState | null>(null);
   const endpointDragRef = useRef<EndpointDragState | null>(null);
@@ -392,12 +407,12 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
       return null;
     const candidates = state.selection
       .map((id) => {
-        const node = state.document.nodes[id];
+        const node = renderDocument.nodes[id];
         if (!node) return null;
-        const worldMat = nodeWorldTransform(state.document, id, parentIndex);
-        let localRect = nodeLocalBounds(node, state.document);
+        const worldMat = nodeWorldTransform(renderDocument, id, parentIndex);
+        let localRect = nodeLocalBounds(node, renderDocument);
         if (!localRect) {
-          const worldBounds = nodeWorldBounds(state.document, id, parentIndex);
+          const worldBounds = nodeWorldBounds(renderDocument, id, parentIndex);
           if (!worldBounds) return null;
           const inv = tryInvertAffine(worldMat);
           if (!inv) return null;
@@ -407,12 +422,12 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
       })
       .filter((c): c is { localRect: Rect; worldTransform: Affine } => c !== null);
     return computeSelectionBox(candidates);
-  }, [state.document, state.selection]);
+  }, [renderDocument, state.selection]);
 
   const previewRects = useMemo(() => {
     if (state.selectionPreview?.source !== 'canvas-object-marquee') return [];
     return state.selectionPreview.ids.flatMap((id) => {
-      const bounds = nodeWorldBounds(state.document, id, parentIndex);
+      const bounds = nodeWorldBounds(renderDocument, id, parentIndex);
       if (!bounds) return [];
       const corners = [
         overlayWorldToScreen(bounds.x, bounds.y),
@@ -429,7 +444,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
   }, [
     parentIndex,
     state.cameraRotation,
-    state.document,
+    renderDocument,
     state.pan,
     state.selectionPreview,
     state.zoom,
@@ -441,7 +456,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
   const isFrame = node?.kind === 'frame';
   const isText = node?.kind === 'text';
   const isLockedSelection =
-    isSingle && node !== undefined && isNodeEffectivelyLocked(state.document, node.id);
+    isSingle && node !== undefined && isNodeEffectivelyLocked(renderDocument, node.id);
   const hasInteractiveHandles =
     isSingle && (isShape || isFrame || isText) && node !== undefined && !isLockedSelection;
 
@@ -458,7 +473,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
     const sn = node as ShapeNode;
     const shape = sn.shape;
     if (shape.kind === 'line' || shape.kind === 'arrow') {
-      const worldMat = nodeWorldTransform(state.document, node.id, parentIndex);
+      const worldMat = nodeWorldTransform(renderDocument, node.id, parentIndex);
       fromWorld = applyAffine(worldMat, shape.from);
       toWorld = applyAffine(worldMat, shape.to);
     }
@@ -472,7 +487,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
       if (uniform <= 0) return null;
       const localBounds = nodeLocalBounds(node);
       if (!localBounds) return null;
-      const worldMat = nodeWorldTransform(state.document, node.id, parentIndex);
+      const worldMat = nodeWorldTransform(renderDocument, node.id, parentIndex);
       const [wx, wy] = applyAffine(worldMat, [localBounds.x + uniform, localBounds.y]);
       return [wx, wy] as Point;
     }
@@ -482,12 +497,12 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
       const r = node.cornerRadius ?? 0;
       const uniform = typeof r === 'number' ? r : Array.isArray(r) ? r[0] : 0;
       if (uniform <= 0) return null;
-      const worldMat = nodeWorldTransform(state.document, node.id, parentIndex);
+      const worldMat = nodeWorldTransform(renderDocument, node.id, parentIndex);
       const [wx, wy] = applyAffine(worldMat, [s.x + uniform, s.y]);
       return [wx, wy] as Point;
     }
     return null;
-  }, [isSingle, node, state.document]);
+  }, [isSingle, node, renderDocument]);
 
   // Snap targets for handle drags. Built ONCE when a handle drag begins
   // (handlePointerDown / handleSkewPointerDown), not as a render memo: the
@@ -501,10 +516,10 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
   const buildSnapOptions = useCallback((): SnapBoxOptions => {
     if (snapOptionsRef.current) return snapOptionsRef.current;
     const snapPreferences = loadSettings().viewport;
-    const sceneScope = resolveEditorSceneScope(state.document, {
+    const sceneScope = resolveEditorSceneScope(renderDocument, {
       workspaceMode: state.workspaceMode,
-      activePageId: state.document.activePageId ?? null,
-      activeDesignCanvasId: state.document.activeDesignCanvasId ?? null,
+      activePageId: renderDocument.activePageId ?? null,
+      activeDesignCanvasId: renderDocument.activeDesignCanvasId ?? null,
       masterEditId: state.masterEditId,
       isolatedNodeId: state.isolatedNodeId,
     });
@@ -512,11 +527,11 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
       nodeId: string;
       bounds: { x: number; y: number; w: number; h: number };
     }> = [];
-    for (const [id, candidate] of Object.entries(state.document.nodes)) {
+    for (const [id, candidate] of Object.entries(renderDocument.nodes)) {
       if (state.selection.includes(id)) continue;
       if (!sceneScope.authoredNodeIds.has(id)) continue;
       if (candidate.visible === false || candidate.snapExcluded === true) continue;
-      const bounds = nodeWorldBounds(state.document, id, parentIndex);
+      const bounds = nodeWorldBounds(renderDocument, id, parentIndex);
       if (bounds) otherBoundsWithIds.push({ nodeId: id, bounds });
     }
     const selectionBounds = box
@@ -535,7 +550,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
           ).map((target) => target.bounds)
         : [];
     const snapTargets = state.snapEnabled
-      ? buildSelectionSnapTargets(state.document, state.selection, parentIndex, {
+      ? buildSelectionSnapTargets(renderDocument, state.selection, parentIndex, {
           includePages: snapPreferences.snapToPages,
           includeGuides: snapPreferences.snapToGuides,
         })
@@ -551,7 +566,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
     };
     return snapOptionsRef.current;
   }, [
-    state.document,
+    renderDocument,
     state.selection,
     state.zoom,
     state.snapEnabled,
@@ -579,7 +594,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
       const pointerScreenY = e.clientY - canvasOffsetY;
       const pointerWorld: Point = overlayScreenToWorld(pointerScreenX, pointerScreenY);
 
-      const engine = new TransformEngine(state.document, state.selection, {
+      const engine = new TransformEngine(renderDocument, state.selection, {
         bakeOnCommit: true,
         snapBox: (b, context) =>
           snapSelectionBox(b, {
@@ -597,6 +612,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
         : (HANDLE_KEYS[handleIndex] as ResizeHandle);
       const center: Point = [box.cx, box.cy];
       const initialAngle = Math.atan2(pointerWorld[1] - center[1], pointerWorld[0] - center[0]);
+      const controls = interactionSession.getControlSnapshot();
 
       dragRef.current = {
         engine,
@@ -608,6 +624,11 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
         initialAngle,
         canvasOffsetX,
         canvasOffsetY,
+        tabletModifiers: {
+          constrain: controls.constrain,
+          fromCenter: controls.fromCenter,
+          bypassSnap: controls.bypassSnap,
+        },
       };
     },
     [
@@ -616,7 +637,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
       canvasRef,
       state.pan,
       state.zoom,
-      state.document,
+      renderDocument,
       state.selection,
       beginTransaction,
       buildSnapOptions,
@@ -632,7 +653,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
       const rect = canvasEl?.getBoundingClientRect();
       const canvasOffsetX = rect?.left ?? 0;
       const canvasOffsetY = rect?.top ?? 0;
-      const engine = new TransformEngine(state.document, state.selection, {
+      const engine = new TransformEngine(renderDocument, state.selection, {
         bakeOnCommit: true,
         snapBox: (b) => snapSelectionBox(b, buildSnapOptions()),
       });
@@ -643,7 +664,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
       hasInteractiveHandles,
       box,
       canvasRef,
-      state.document,
+      renderDocument,
       state.selection,
       beginTransaction,
       buildSnapOptions,
@@ -665,7 +686,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
       const sn = node as ShapeNode;
       const shape = sn.shape;
       if (shape.kind !== 'line' && shape.kind !== 'arrow') return;
-      const worldMat = nodeWorldTransform(state.document, node.id, parentIndex);
+      const worldMat = nodeWorldTransform(renderDocument, node.id, parentIndex);
       const invMat = tryInvertAffine(worldMat);
       if (!invMat) return;
       beginTransaction();
@@ -681,7 +702,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
         invWorldTransform: invMat,
       };
     },
-    [isLineOrArrow, node, canvasRef, state.zoom, state.pan, state.document, beginTransaction],
+    [isLineOrArrow, node, canvasRef, state.zoom, state.pan, renderDocument, beginTransaction],
   );
 
   const handleCornerRadiusPointerDown = useCallback(
@@ -708,7 +729,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
       const pointerScreenX = e.clientX - canvasOffsetX;
       const pointerScreenY = e.clientY - canvasOffsetY;
       const pw: Point = overlayScreenToWorld(pointerScreenX, pointerScreenY);
-      const worldMat = nodeWorldTransform(state.document, node.id, parentIndex);
+      const worldMat = nodeWorldTransform(renderDocument, node.id, parentIndex);
       const invMat = tryInvertAffine(worldMat);
       if (!invMat) return;
       beginTransaction();
@@ -723,7 +744,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
         canvasOffsetY,
       };
     },
-    [isSingle, node, canvasRef, state.zoom, state.pan, state.document, beginTransaction],
+    [isSingle, node, canvasRef, state.zoom, state.pan, renderDocument, beginTransaction],
   );
 
   const handlePointerMove = useCallback(
@@ -794,20 +815,22 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
       if (g.isRotation) {
         const angle = Math.atan2(pointerWorld[1] - g.center[1], pointerWorld[0] - g.center[0]);
         let angleDelta = angle - g.initialAngle;
-        if (e.shiftKey) {
+        if (e.shiftKey || g.tabletModifiers.constrain) {
           angleDelta = Math.round(angleDelta / ROT_SNAP) * ROT_SNAP;
         }
         updateDoc((doc) => g.engine.rotate(angleDelta, g.center, doc));
       } else {
         const defaultPolicy = g.engine.getResizePolicy({});
+        const isMac =
+          typeof navigator !== 'undefined' &&
+          (navigator.platform?.toLowerCase().includes('mac') ?? false);
         const mods = computeResizeModifiers(
-          e.shiftKey,
-          e.altKey,
+          e.shiftKey || g.tabletModifiers.constrain,
+          e.altKey || g.tabletModifiers.fromCenter,
           e.ctrlKey,
           e.metaKey,
           g.engine.isAllRaster(),
-          typeof navigator !== 'undefined' &&
-            (navigator.platform?.toLowerCase().includes('mac') ?? false),
+          isMac,
           g.handle.length === 1,
           defaultPolicy.proportional,
         );
@@ -815,6 +838,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
         // Default frame resize preserves child positions unless they have constraints.
         const isFrameResize = g.engine.isAllRaster() === false;
         const scaleContents = mods.bypassSnap && isFrameResize;
+        const bypassSnap = mods.bypassSnap || g.tabletModifiers.bypassSnap;
         updateDoc((doc) =>
           g.engine.resize(
             pointerWorld,
@@ -822,7 +846,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
             {
               centered: mods.centered,
               proportional: mods.proportional,
-              bypassSnap: mods.bypassSnap,
+              bypassSnap,
               scaleContents,
             },
             doc,
@@ -950,10 +974,10 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
               handle stays HANDLE_HALF*2 — pointer/touch accuracy must not
               be tied to the visual handle size. */}
           <rect
-            x={sx - 12}
-            y={sy - 12}
-            width={24}
-            height={24}
+            x={sx - HANDLE_TARGET_HALF}
+            y={sy - HANDLE_TARGET_HALF}
+            width={HANDLE_TARGET_HALF * 2}
+            height={HANDLE_TARGET_HALF * 2}
             fill="transparent"
             style={{
               pointerEvents: hasInteractiveHandles ? 'auto' : 'none',
@@ -1297,7 +1321,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
 
       {sel.length === 1 &&
         (() => {
-          const world = nodeWorldBounds(state.document, node!.id, parentIndex);
+          const world = nodeWorldBounds(renderDocument, node!.id, parentIndex);
           if (!world) return null;
           const [sx, sy] = overlayWorldToScreen(world.x, world.y + world.h);
           return (

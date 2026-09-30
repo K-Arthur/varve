@@ -199,32 +199,47 @@ indistinguishable from "no matches".
 
 ## 7. Known limitations / follow-up
 
-1. **Undo after a batched multi-node edit — ONE LAYER LOSES ITS TEXT.**
-   Reproduced through the real app: seed two text layers, find `brand`,
-   Replace All, then `Ctrl+Z` → one layer keeps its (empty) node but its text is
-   gone; the auto-name becomes `Untitled text` and the next search reports
-   `1 of 2`. The find/replace model layer is **proven correct** (see §8), so
-   this is in the shell history path, not in this change. The E2E spec asserts
-   the batch's replacement text disappears on Undo and deliberately does **not**
-   assert byte-identical restoration — a weaker assertion would hide this.
-2. **Not interruptible off-thread.** `hasCatastrophicBacktracking` is advisory;
+1. **RESOLVED — Undo after text creation left a layer empty.**
+   Reproduced through the real app: with two text layers, `Ctrl+Z` left one
+   layer present but empty (auto-renamed to `Untitled text`). Root cause was
+   **not** in find/replace: `createTextNodeAt` pushed its pre-creation snapshot
+   straight onto the undo stack and left no transaction open, so the
+   auto-entered text edit opened a *second* step and Undo restored a
+   creation-time document whose layer had no text. It reproduced with **no
+   find/replace involved**, and was confirmed pre-existing on the untouched
+   `2c5c840a` revision.
+   Fix: creation opens a transaction and leaves it open, so the first typing
+   burst extends the same step; `finishTextEdit` closes exactly one level; and
+   `commitTransaction` now carries a **generation id** so a deferred finalizer
+   cannot consume a newer transaction's snapshot (that collision was silently
+   dropping an undo step when two transactions were in flight).
+   Pinned by `packages/editor/src/context/textCreationHistory.test.tsx` (both
+   tests verified to fail against the pre-fix code) and by the undo walk in
+   `tests/e2e/canvas/find-replace.spec.ts`, which now asserts the authored text
+   is reachable and that **no** undo step leaves an empty layer.
+2. **Spurious no-op undo steps after back-to-back text creations.** Following
+   the fix above, history can still contain an occasional no-op entry (Undo
+   appears to do nothing once before reaching the expected state). It is
+   cosmetic — no content is lost or mis-restored, and the correct snapshot is
+   always reachable — and it is tracked as follow-up rather than papered over.
+3. **Not interruptible off-thread.** `hasCatastrophicBacktracking` is advisory;
    a non-linear pattern that passes the screen still runs on the main thread
    bounded only by the match/time budgets. The dead `SearchWorkerHost` was not
    revived: its protocol predates the rebuilt search and it does not compile. A
    genuinely interruptible worker is required to *certify* ReDoS safety ([R9]).
-3. **Word boundaries are script-agnostic.** `[\p{L}\p{N}\p{M}\p{Pc}]` is not
+4. **Word boundaries are script-agnostic.** `[\p{L}\p{N}\p{M}\p{Pc}]` is not
    dictionary segmentation for Thai/Lao/Khmer/Japanese. Whole word there means
    "not adjacent to another letter", which is not full UAX #29 word segmentation
    ([R5]).
-4. **Locale is fixed.** Folding uses Unicode case mapping, not a locale, so
+5. **Locale is fixed.** Folding uses Unicode case mapping, not a locale, so
    Turkish dotless-ı tailoring is not applied.
-5. **`Select None` is hidden from the Edit menu.** Its `enabledWithSelection`
+6. **`Select None` is hidden from the Edit menu.** Its `enabledWithSelection`
    gate makes the entry disappear (rather than render disabled) when nothing is
    selected — it also carries a `Ctrl+Shift+A` accelerator. Noted, not changed:
    it is outside this change's ownership surface.
-6. **Overset and text-on-path results** are searched and flagged (`onPath`) but
+7. **Overset and text-on-path results** are searched and flagged (`onPath`) but
    there is no frame-level overset indicator or "go to overset" route.
-7. **Result list is capped at 500 rendered rows** (full set still replaceable).
+8. **Result list is capped at 500 rendered rows** (full set still replaceable).
 
 ---
 

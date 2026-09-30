@@ -30,6 +30,7 @@ import { CanvasNameLabels } from '../canvas/CanvasNameLabels';
 import { viewportWorldRect } from '../canvas/cameraState';
 import { useEditor } from '../context';
 import type { GridOverlayMode } from '../context/types';
+import type { TransformPreviewStore } from '../context/ViewportContext';
 import { DebugOverlayHost } from '../debug/DebugOverlayHost';
 import { SelectionOverlay } from '../SelectionOverlay';
 import { nodeWorldBounds, worldRectToScreenAabb } from '../scene/world';
@@ -79,7 +80,6 @@ import { applyTypographyChanges } from './Typography/typographyCommand';
 import { VariantBox } from './VariantBox/VariantBox';
 import { WarpOverlay } from './WarpOverlay';
 import { ZoomIndicator } from './ZoomIndicator';
-
 export function markNewTextEditTarget(
   ref: React.MutableRefObject<NodeId | null>,
   id: NodeId,
@@ -97,6 +97,7 @@ export interface CanvasOverlaysProps {
   tool: string;
   selection: readonly NodeId[];
   document: Document;
+  transformPreviewStore: TransformPreviewStore;
   canvasMode: 'full' | 'outline' | 'preview';
   gridOverlayMode: GridOverlayMode;
   colorBlindnessView: ColorBlindnessView;
@@ -144,6 +145,7 @@ export function CanvasOverlays({
   tool,
   selection,
   document: doc,
+  transformPreviewStore,
   canvasMode,
   gridOverlayMode,
   colorBlindnessView,
@@ -516,11 +518,18 @@ export function CanvasOverlays({
       h: Math.max(projectedBounds?.h ?? (n.h ?? (n.fontSize ?? 16) * 1.4) * zoom, 20),
     };
     const finishTextEdit = (finalText: string) => {
-      if (newTextEditTargetRef.current === n.id && finalText.length === 0) {
-        editor.beginTransaction();
+      const wasNewLayer = newTextEditTargetRef.current === n.id;
+      if (wasNewLayer && finalText.length === 0) {
+        // Abandoned empty layer: remove it inside the still-open creation
+        // transaction so the whole gesture collapses into one step.
         editor.removeSelected([n.id]);
-        editor.commitTransaction();
       }
+      // Close the creation transaction exactly once. A newly created layer
+      // leaves it open so the first typing burst extends the same undo step
+      // (see createTextNodeAt); the burst timers inside TextEditOverlay close
+      // only their own nested level. `commitTransaction` is a no-op at depth 0,
+      // so this is safe on the existing-layer path too.
+      editor.commitTransaction();
       newTextEditTargetRef.current = null;
       editor.setSelectionRange(null);
       editor.setPendingFormat(null);
@@ -758,7 +767,10 @@ export function CanvasOverlays({
             setTargetId={setNodeEditTargetId}
           />
         )}
-      <SelectionOverlay canvasRef={contentCanvasRef} />
+      <SelectionOverlay
+        canvasRef={contentCanvasRef}
+        transformPreviewStore={transformPreviewStore}
+      />
       {retouchBadge && (
         <PaintOverlay
           camera={{ zoom, pan, rotation: cameraRotation ?? 0 }}
@@ -817,6 +829,7 @@ export function CanvasOverlays({
       {showOverlays && (
         <CanvasNameLabels
           doc={doc}
+          transformPreviewStore={transformPreviewStore}
           zoom={zoom}
           pan={pan}
           cameraRotation={cameraRotation}

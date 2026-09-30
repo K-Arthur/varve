@@ -12,7 +12,8 @@ import {
   type ResolvedEditorSceneScope,
 } from '@varve/scene';
 import type { Viewport } from '@varve/shared';
-import { useMemo } from 'react';
+import { useMemo, useRef, useSyncExternalStore } from 'react';
+import type { TransformPreviewStore } from '../context/ViewportContext';
 import { occurrenceGeometry } from '../scene/occurrenceGeometry';
 import { screenRectToWorldRect, worldRectToScreenAabbProjector } from '../scene/world';
 import { toCamera } from './cameraState';
@@ -33,6 +34,15 @@ export interface CanvasNameLabelsProps {
   viewport: Viewport;
   hoveredNodeId?: NodeId | null;
   editingNodeId?: NodeId | null;
+  transformPreviewStore?: TransformPreviewStore;
+}
+
+interface CandidateCache {
+  document: Document;
+  scope: ResolvedEditorSceneScope;
+  revision: string | number;
+  candidates: NameLabelCandidate[];
+  byInstanceId: Map<string, NameLabelCandidate>;
 }
 
 function collectCandidates(
@@ -78,29 +88,69 @@ export function CanvasNameLabels({
   viewport,
   hoveredNodeId = null,
   editingNodeId = null,
+  transformPreviewStore,
 }: CanvasNameLabelsProps) {
+  const transformPreview = useSyncExternalStore(
+    transformPreviewStore?.subscribe ?? subscribeToNoTransformPreview,
+    transformPreviewStore?.getSnapshot ?? emptyTransformPreview,
+    transformPreviewStore?.getSnapshot ?? emptyTransformPreview,
+  );
+  const previewMatchesDocument = transformPreview?.baseDocument === doc;
+  const renderDocument = previewMatchesDocument ? transformPreview.document : doc;
+  const candidateCacheRef = useRef<CandidateCache | null>(null);
   // World-space candidates do not depend on the camera. Keeping them out of
   // the projection memo means a pan or zoom frame re-projects and re-picks
   // only, instead of recomputing every occurrence's world bounds.
   // Text bounds follow loaded font metrics; the revision refreshes candidates
   // on the next render after a font load, as camera changes used to.
   const fontRevision = getFontRegistry().revision;
-  const geometry = useMemo(
-    () => occurrenceGeometry(doc, scope, { revision: fontRevision }),
-    [doc, fontRevision, scope],
-  );
-  const baseCandidates = useMemo(
-    () => collectCandidates(doc, scope, geometry.boundsByInstanceId),
-    [doc, geometry, scope],
-  );
+  const baseCandidates = useMemo(() => {
+    const geometry = occurrenceGeometry(renderDocument, scope, {
+      revision: fontRevision,
+      ...(previewMatchesDocument
+        ? { transformChangedNodeIds: transformPreview.changedNodeIds }
+        : {}),
+    });
+    const existing = candidateCacheRef.current;
+    if (
+      previewMatchesDocument &&
+      existing?.document === doc &&
+      existing.scope === scope &&
+      existing.revision === fontRevision
+    ) {
+      for (const instanceId of geometry.recalculatedInstanceIds) {
+        const candidate = existing.byInstanceId.get(instanceId);
+        const bounds = geometry.boundsByInstanceId.get(instanceId);
+        if (!candidate || !bounds) continue;
+        candidate.x = bounds.x;
+        candidate.y = bounds.y;
+        candidate.w = Math.max(0, bounds.w);
+        candidate.h = Math.max(0, bounds.h);
+      }
+      return existing.candidates;
+    }
+
+    const candidates = collectCandidates(renderDocument, scope, geometry.boundsByInstanceId);
+    candidateCacheRef.current = {
+      document: doc,
+      scope,
+      revision: fontRevision,
+      candidates,
+      byInstanceId: new Map(candidates.map((candidate) => [candidate.id, candidate])),
+    };
+    return candidates;
+  }, [doc, fontRevision, previewMatchesDocument, renderDocument, scope, transformPreview]);
   const candidates = useMemo(() => {
     const selectedIds = new Set(selection);
-    return baseCandidates.map((candidate) => ({
-      ...candidate,
-      selected: candidate.nodeId ? selectedIds.has(candidate.nodeId) : false,
-      hovered: hoveredNodeId === candidate.nodeId,
-      editing: editingNodeId === candidate.nodeId,
-    }));
+    for (const candidate of baseCandidates) {
+      candidate.selected = candidate.nodeId ? selectedIds.has(candidate.nodeId) : false;
+      candidate.hovered = hoveredNodeId === candidate.nodeId;
+      candidate.editing = editingNodeId === candidate.nodeId;
+    }
+    // A new array invalidates the priority-order memo only when selection,
+    // hover, or text editing changes. Transform previews update candidate
+    // coordinates in place and retain this stable ordered view.
+    return [...baseCandidates];
   }, [baseCandidates, editingNodeId, hoveredNodeId, selection]);
   const labels = useMemo(() => {
     const camera = toCamera({ zoom, pan, cameraRotation });
@@ -146,7 +196,7 @@ export function CanvasNameLabels({
       picked.map((label) => label.id),
     );
     return picked;
-  }, [cameraRotation, candidates, pan, scope, viewport, zoom]);
+  }, [cameraRotation, candidates, pan, scope, transformPreview?.revision, viewport, zoom]);
 
   if (labels.length === 0) return null;
 
@@ -194,3 +244,6 @@ export function CanvasNameLabels({
     </svg>
   );
 }
+
+const emptyTransformPreview = () => null;
+const subscribeToNoTransformPreview = (_listener: () => void) => () => {};

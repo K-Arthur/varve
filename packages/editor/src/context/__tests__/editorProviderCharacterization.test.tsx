@@ -10,7 +10,7 @@
  * Where a test documents behavior that looks like a bug, it says so in a comment and preserves
  * the behavior anyway — fixing it is a separate, later change (test-reality.md's own rule).
  */
-import { render, waitFor } from '@testing-library/react';
+import { act, render, waitFor } from '@testing-library/react';
 import { StrictMode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { EditorProvider, getBackupService, useEditor } from '../../context';
@@ -129,6 +129,65 @@ describe('EditorProvider projection mode', () => {
 });
 
 describe('EditorProvider characterization — context value identity', () => {
+  it('keeps camera previews local to viewport subscribers until the camera is committed', async () => {
+    let viewportCtx: ReturnType<typeof useViewport> | undefined;
+    let editorCtx: ReturnType<typeof useEditor> | undefined;
+    let viewportRenders = 0;
+    let editorRenders = 0;
+
+    function ViewportProbe() {
+      viewportRenders += 1;
+      viewportCtx = useViewport();
+      return null;
+    }
+    function EditorProbe() {
+      editorRenders += 1;
+      editorCtx = useEditor();
+      return null;
+    }
+
+    render(
+      <EditorProvider>
+        <ViewportProbe />
+        <EditorProbe />
+      </EditorProvider>,
+    );
+
+    await waitFor(() => {
+      expect(viewportCtx).toBeDefined();
+      expect(editorCtx).toBeDefined();
+    });
+
+    const originalCamera = {
+      zoom: editorCtx?.state.zoom ?? 1,
+      pan: editorCtx?.state.pan ?? { x: 0, y: 0 },
+      rotation: editorCtx?.state.cameraRotation ?? 0,
+    };
+    const beforeViewportRenders = viewportRenders;
+    const beforeEditorRenders = editorRenders;
+    const previewCamera = {
+      zoom: originalCamera.zoom * 1.25,
+      pan: { x: originalCamera.pan.x + 36, y: originalCamera.pan.y - 18 },
+      rotation: originalCamera.rotation,
+    };
+
+    act(() => viewportCtx?.previewCamera(previewCamera));
+
+    await waitFor(() => expect(viewportCtx?.zoom).toBe(previewCamera.zoom));
+    expect(viewportCtx?.pan).toEqual(previewCamera.pan);
+    expect(editorCtx?.state.zoom).toBe(originalCamera.zoom);
+    expect(editorCtx?.state.pan).toEqual(originalCamera.pan);
+    expect(viewportRenders).toBeGreaterThan(beforeViewportRenders);
+    expect(editorRenders).toBe(beforeEditorRenders);
+
+    act(() => viewportCtx?.setCamera(previewCamera));
+
+    await waitFor(() => {
+      expect(editorCtx?.state.zoom).toBe(previewCamera.zoom);
+      expect(editorCtx?.state.pan).toEqual(previewCamera.pan);
+    });
+  });
+
   it('useSelection() returns a new reference when selection changes', async () => {
     let selectionCtx: ReturnType<typeof useSelection> | undefined;
     let editorCtx: ReturnType<typeof useEditor> | undefined;

@@ -4,7 +4,7 @@
  * Research basis: TDD for overlay handle completeness (Phase A4).
  */
 
-import { render } from '@testing-library/react';
+import { act, fireEvent, render } from '@testing-library/react';
 import type { Document, SceneNode, ShapeNode } from '@varve/scene';
 import type { Affine } from '@varve/shared';
 import { describe, expect, it, vi } from 'vitest';
@@ -20,6 +20,9 @@ vi.mock('./context', () => ({
 }));
 
 import { useEditor } from './context';
+import type { TransformPreviewSnapshot, TransformPreviewStore } from './context/ViewportContext';
+import { interactionSession } from './tools/InteractionContext';
+import { TransformEngine } from './transform/TransformEngine';
 
 const MOCK_PAN = { x: 0, y: 0 };
 const MOCK_ZOOM = 1;
@@ -73,6 +76,7 @@ function renderOverlay(
   props: SelectionOverlayProps = {},
   pan = MOCK_PAN,
   zoom = MOCK_ZOOM,
+  contextOverrides: Record<string, unknown> = {},
 ) {
   const nodeMap: Record<string, SceneNode> = {};
   for (const n of nodes) {
@@ -96,6 +100,7 @@ function renderOverlay(
     beginTransaction: vi.fn(),
     commitTransaction: vi.fn(),
     setSelectedRotation: vi.fn(),
+    ...contextOverrides,
   });
 
   const { container } = render(<SelectionOverlay {...props} />);
@@ -140,6 +145,65 @@ describe('computeRotatedLocalBBox', () => {
       false,
     );
     expect(result.w / result.h).toBeCloseTo(2, 1);
+  });
+});
+
+describe('SelectionOverlay transform preview', () => {
+  it('moves selection geometry from the external preview without a document context update', () => {
+    const node = makeShapeNode('preview-node', { kind: 'rect', x: 0, y: 0, w: 100, h: 80 });
+    const baseDocument = buildDoc({ [node.id]: node });
+    const movedNode = { ...node, transform: [1, 0, 0, 1, 40, 0] as const };
+    const previewDocument = {
+      ...baseDocument,
+      nodes: { ...baseDocument.nodes, [node.id]: movedNode },
+    };
+    let snapshot: TransformPreviewSnapshot | null = null;
+    const listeners = new Set<() => void>();
+    const store: TransformPreviewStore = {
+      getSnapshot: () => snapshot,
+      subscribe: (listener) => {
+        listeners.add(listener);
+        return () => listeners.delete(listener);
+      },
+      preview: vi.fn(),
+      clear: vi.fn(),
+    };
+    const mockUseEditor = useEditor as unknown as { mockReturnValue: (v: unknown) => void };
+    mockUseEditor.mockReturnValue({
+      state: {
+        document: baseDocument,
+        selection: [node.id],
+        pan: MOCK_PAN,
+        zoom: MOCK_ZOOM,
+        cameraRotation: 0,
+        tool: 'select',
+      },
+      selectedNodes: () => [node],
+      setNodePosition: vi.fn(),
+      setNodePositions: vi.fn(),
+      updateNodes: vi.fn(),
+      setNodeSize: vi.fn(),
+      updateNode: vi.fn(),
+      beginTransaction: vi.fn(),
+      commitTransaction: vi.fn(),
+      setSelectedRotation: vi.fn(),
+    });
+
+    const { container } = render(<SelectionOverlay transformPreviewStore={store} />);
+    const selectionBox = () => container.querySelector('svg > rect[fill="none"]');
+    expect(selectionBox()).toHaveAttribute('x', '0');
+
+    act(() => {
+      snapshot = {
+        baseDocument,
+        document: previewDocument,
+        changedNodeIds: [node.id],
+        revision: 1,
+      };
+      for (const listener of listeners) listener();
+    });
+
+    expect(selectionBox()).toHaveAttribute('x', '40');
   });
 });
 
@@ -391,6 +455,77 @@ describe('SelectionOverlay — multi-selection', () => {
 });
 
 describe('SelectionOverlay — resize routing conditions', () => {
+  it('applies tablet modifiers to resize handles captured at pointer-down', () => {
+    const node = makeShapeNode('tablet-resize', {
+      kind: 'rect',
+      x: 0,
+      y: 0,
+      w: 200,
+      h: 100,
+    });
+    const document = buildDoc({ [node.id]: node });
+    const updateDoc = vi.fn((update: (current: Document) => Document) => update(document));
+    const beginTransaction = vi.fn();
+    const resize = vi.spyOn(TransformEngine.prototype, 'resize');
+    interactionSession.setLatchedModifier('constrain', true);
+    interactionSession.setLatchedModifier('fromCenter', true);
+    interactionSession.setLatchedModifier('bypassSnap', true);
+
+    try {
+      const container = renderOverlay([node], {}, MOCK_PAN, MOCK_ZOOM, {
+        beginTransaction,
+        updateDoc,
+      });
+      const visibleHandle = container.querySelector<SVGRectElement>(
+        'rect[aria-label="Bottom-right resize handle"]',
+      );
+      const svg = container.querySelector('svg');
+      expect(visibleHandle).not.toBeNull();
+      expect(svg).not.toBeNull();
+      const hitTarget = [...container.querySelectorAll<SVGRectElement>('rect[fill="transparent"]')]
+        .filter((target) => target.style.pointerEvents === 'auto')
+        .find(
+          (target) =>
+            Number(target.getAttribute('x')) === Number(visibleHandle?.getAttribute('x')) - 8 &&
+            Number(target.getAttribute('y')) === Number(visibleHandle?.getAttribute('y')) - 8,
+        );
+      expect(hitTarget).toBeDefined();
+
+      fireEvent.pointerDown(hitTarget as SVGRectElement, {
+        button: 0,
+        clientX: 200,
+        clientY: 100,
+        pointerId: 3,
+        pointerType: 'mouse',
+      });
+      expect(beginTransaction).toHaveBeenCalledOnce();
+      fireEvent.pointerMove(svg as SVGSVGElement, {
+        clientX: 240,
+        clientY: 120,
+        pointerId: 3,
+        pointerType: 'mouse',
+      });
+
+      expect(resize).toHaveBeenCalledWith(
+        [240, 120],
+        'se',
+        expect.objectContaining({
+          centered: true,
+          proportional: true,
+          bypassSnap: true,
+          scaleContents: false,
+        }),
+        document,
+      );
+      expect(updateDoc).toHaveBeenCalledOnce();
+    } finally {
+      interactionSession.setLatchedModifier('constrain', false);
+      interactionSession.setLatchedModifier('fromCenter', false);
+      interactionSession.setLatchedModifier('bypassSnap', false);
+      resize.mockRestore();
+    }
+  });
+
   it('resize for polygon calls setNodePosition and setNodeSize', () => {
     const s: { kind: string } = { kind: 'polygon' };
     const isRoutable =
@@ -489,66 +624,80 @@ describe('SelectionOverlay — accessibility', () => {
 });
 
 describe('SelectionOverlay — touch targets', () => {
-  it('handle hit area is at least 16px even when visual is 8px', () => {
+  it('interactive resize hit areas meet the 24px AA minimum while visuals stay compact', () => {
     const container = renderOverlay([
       makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 200, h: 100 }),
     ]);
-    // Touch targets have fill="transparent" and width=16
-    const touchTargets = container.querySelectorAll('rect[fill="transparent"]');
+    const touchTargets = [
+      ...container.querySelectorAll<SVGRectElement>('rect[fill="transparent"]'),
+    ].filter((target) => target.style.pointerEvents === 'auto');
     expect(touchTargets.length).toBeGreaterThanOrEqual(8);
     for (const t of touchTargets) {
       const w = parseFloat(t.getAttribute('width') ?? '0');
       const h = parseFloat(t.getAttribute('height') ?? '0');
-      expect(Math.max(w, h)).toBeGreaterThanOrEqual(16);
+      expect(w).toBeGreaterThanOrEqual(24);
+      expect(h).toBeGreaterThanOrEqual(24);
     }
   });
 
-  it('rotation handle hit area is at least 16px', () => {
+  it('rotation hit target meets 24px and clears the top resize target', () => {
     const container = renderOverlay([
       makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 200, h: 100 }),
     ]);
-    const transparentCircles = container.querySelectorAll('circle[fill="transparent"]');
-    expect(transparentCircles.length).toBeGreaterThanOrEqual(1);
-    for (const c of transparentCircles) {
-      const r = parseFloat(c.getAttribute('r') ?? '0');
-      expect(r * 2).toBeGreaterThanOrEqual(16);
-    }
+    const rotationTarget = container.querySelector<SVGCircleElement>(
+      'circle[fill="transparent"][style*="pointer-events: auto"]',
+    );
+    expect(rotationTarget).not.toBeNull();
+    expect(Number(rotationTarget?.getAttribute('r')) * 2).toBeGreaterThanOrEqual(24);
+    const topResizeTarget = container.querySelector<SVGRectElement>(
+      'rect[fill="transparent"][style*="pointer-events: auto"]',
+    );
+    expect(topResizeTarget).not.toBeNull();
+    const rotationY = Number(rotationTarget?.getAttribute('cy'));
+    const rotationRadius = Number(rotationTarget?.getAttribute('r'));
+    const topY = Number(topResizeTarget?.getAttribute('y'));
+    expect(rotationY + rotationRadius).toBeLessThanOrEqual(topY);
   });
 
-  // G: Handle visibility at extreme zoom — single selections always show all
-  // 8 resize handles + rotation, but the skew handles are gated on a minimum
-  // box size: their 20px hit targets would cover a tiny box and swallow the
-  // shape's own move-drag (the drag at the box centre becomes a skew).
-  it('shows all 8 handles but no skew handles for a very small box (single selection)', () => {
+  it('keeps resize targets disjoint when a very small single selection is zoomed out', () => {
     const container = renderOverlay([
       makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 4, h: 4 }),
     ]);
-    // 1 bbox + 8 handles × (1 hit + 1 visual) = 17 (no skew: 4x4 < 60px)
-    const rects = container.querySelectorAll('svg > rect');
-    expect(rects.length).toBe(17);
+    expect(container.querySelectorAll('rect[aria-label$="resize handle"]')).toHaveLength(0);
+    expect(container.querySelector('circle[aria-label="Rotate"]')).not.toBeNull();
   });
 
-  it('shows all 8 handles but no skew handles for a narrow box (single selection)', () => {
+  it('keeps only separated top and bottom resize targets for a narrow box', () => {
     const container = renderOverlay(
       [makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 4, h: 100 })],
       {},
       { x: 0, y: 0 },
       1,
     );
-    // Narrow boxes (< 60px on one axis) get no skew: 1 bbox + 16 = 17
-    const rects = container.querySelectorAll('svg > rect');
-    expect(rects.length).toBe(17);
+    const handles = [...container.querySelectorAll('rect[aria-label$="resize handle"]')].map(
+      (handle) => handle.getAttribute('aria-label'),
+    );
+    expect(handles).toEqual(['Top resize handle', 'Bottom resize handle']);
+    const targets = [
+      ...container.querySelectorAll<SVGRectElement>('rect[fill="transparent"]'),
+    ].filter((target) => target.style.pointerEvents === 'auto');
+    expect(targets).toHaveLength(2);
+    expect(
+      Math.abs(Number(targets[0]?.getAttribute('y')) - Number(targets[1]?.getAttribute('y'))),
+    ).toBeGreaterThanOrEqual(24);
   });
 
-  it('shows all 8 handles but no skew handles for a flat box (single selection)', () => {
+  it('keeps only separated left and right resize targets for a flat box', () => {
     const container = renderOverlay(
       [makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 100, h: 4 })],
       {},
       { x: 0, y: 0 },
       1,
     );
-    const rects = container.querySelectorAll('svg > rect');
-    expect(rects.length).toBe(17);
+    const handles = [...container.querySelectorAll('rect[aria-label$="resize handle"]')].map(
+      (handle) => handle.getAttribute('aria-label'),
+    );
+    expect(handles).toEqual(['Right resize handle', 'Left resize handle']);
   });
 
   it('shows skew handles once the box is large enough on both axes', () => {

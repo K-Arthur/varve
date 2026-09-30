@@ -488,6 +488,7 @@ import {
   commitFloatingRasterIfCurrent,
   createCopyEffectStackToNodes,
   createDefaultDocumentGridSettings,
+  DEFAULT_MAGIC_WAND_SETTINGS,
   DEFAULT_SELECTION_ORIGIN,
   mergeMagicWandSettings,
   newSessionId,
@@ -1685,7 +1686,7 @@ export interface EditorContextValue extends CanonicalEditorContextValue {
     };
     sourcePrompts?: import('./context/objectSelectionTypes').ObjectSelectionSourcePrompts;
     signal?: AbortSignal;
-    operation: 'preview' | 'mask' | 'selection';
+    operation: 'preview' | 'mask' | 'selection' | 'layer';
     candidateIndex?: number;
     /** How a `mask` commit combines with the mask already on the node. */
     combination?: import('@varve/engine').AlphaMaskCombineMode;
@@ -2727,12 +2728,7 @@ export function EditorProvider({
         feather: 0,
         antialias: true,
       },
-      magicWandSettings: {
-        tolerance: 8,
-        edgeFeather: 0,
-        mode: 'contiguous',
-        operation: 'replace',
-      },
+      magicWandSettings: { ...DEFAULT_MAGIC_WAND_SETTINGS },
       floatingRaster: null,
       selectionOrigin: 'api' as const,
       selectionRevision: 0,
@@ -3104,6 +3100,18 @@ export function EditorProvider({
   const txDepthRef = useRef(0);
   const txLabelRef = useRef('Edit');
   const txSnapshotRef = useRef<Document | null>(null);
+  /**
+   * Monotonic identity for the currently open transaction.
+   *
+   * `commitTransaction` finalizes inside a deferred `setState`, so with two
+   * transactions in flight (for example two text-layer creations in quick
+   * succession) the first finalizer can run after the second has already
+   * re-armed `inTransactionRef`. Without an identity to compare against, that
+   * first finalizer consumes the SECOND transaction's snapshot and the second
+   * finalizer then finds nothing left to commit — silently dropping an undo
+   * step and recording the wrong document for the surviving one.
+   */
+  const txGenerationRef = useRef(0);
   const txSelRef = useRef<NodeId[] | null>(null);
   const txBaseDocumentRevisionRef = useRef<number | null>(null);
   type TransactionRollbackState = Pick<
@@ -3482,6 +3490,7 @@ export function EditorProvider({
     }
     inTransactionRef.current = true;
     txDepthRef.current = 1;
+    txGenerationRef.current += 1;
     transactionModeRef.current = mode;
     // Gesture callbacks can be retained by portaled controls across a
     // document render. Read the synchronous ref so a transaction always
@@ -3523,12 +3532,16 @@ export function EditorProvider({
       return;
     }
     txDepthRef.current = 0;
+    // Identity of the transaction this call is closing. A later transaction may
+    // begin before this finalizer runs (deferred into setState below), so the
+    // finalizer must not touch state that belongs to a newer generation.
+    const generation = txGenerationRef.current;
     // Queue finalization behind any document updater scheduled by the same
     // pointer event. Ending the transaction synchronously lets that updater
     // observe `inTransaction=false` and push the already-transformed document
     // on top of the real snapshot, making the first Undo appear to do nothing.
     setState((current) => {
-      if (inTransactionRef.current) {
+      if (inTransactionRef.current && txGenerationRef.current === generation) {
         const transactionMode = transactionModeRef.current;
         inTransactionRef.current = false;
         const transactionLabel = txLabelRef.current;
@@ -4299,8 +4312,11 @@ export function EditorProvider({
         recordPanelVisibilityOverride(state.workspaceMode, 'codegen', next);
       },
       toggleLogoPanel: () => {
-        if (state.workspaceMode !== 'logo') {
-          announcerRef.current?.announce('Switch to the Logo workspace to use the Logo panel');
+        // Logo Tools are a Design workflow, not a workspace of their own, so
+        // the panel is only meaningful while Design is active. `'logo'` is a
+        // legacy workspace spelling that no longer exists in `WorkspaceMode`.
+        if (state.workspaceMode !== 'design') {
+          announcerRef.current?.announce('Logo Tools live in the Design workspace');
           return;
         }
         const next = !state.logoPanelVisible;
@@ -4951,9 +4967,25 @@ export function EditorProvider({
       },
 
       createTextNodeAt: (world, size, parentId, text = '') => {
+        // Open the creation transaction and LEAVE IT OPEN so the auto-entered
+        // text edit extends the same step: its `beginTransaction` only nests
+        // the depth, so one Undo removes the layer together with the text
+        // typed into it.
+        //
+        // Recording the pre-creation document through a transaction boundary
+        // (instead of pushing it here) is what fixes the data loss. Previously
+        // this pushed the snapshot directly and left no transaction open, so
+        // the text edit opened its OWN step. Undo then restored a
+        // creation-time document whose layer was present but empty — and since
+        // automatic names follow the text, the layer silently became
+        // "Untitled text".
+        //
+        // TextEditOverlay's commit/blur handoff closes this transaction, and
+        // abandoning an empty new layer removes it (finishTextEdit in
+        // CanvasOverlays). `commitTransaction` is a no-op at depth 0.
+        beginTransaction();
+        txLabelRef.current = 'Add text';
         setState((s) => {
-          undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
-          undoLabelsRef.current = [...undoLabelsRef.current.slice(-50), 'Edit'];
           redoStackRef.current = [];
           redoLabelsRef.current = [];
 
