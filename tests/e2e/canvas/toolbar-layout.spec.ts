@@ -29,16 +29,28 @@ test.describe('Toolbar layout', () => {
     // Design mode intentionally hides page navigation for a single-page
     // document. Create a second page so this layout contract exercises the
     // chrome stack it names instead of depending on an optional element.
+    //
+    // The two adds dispatch the event rather than performing an actionability
+    // check: switching workspace transitions `.editor-shell`'s
+    // grid-template-columns, and during that transition the canvas dock sweeps
+    // across the layers panel, so Playwright's hit-target probe intermittently
+    // reports the canvas on top of this button and then retries for the whole
+    // test timeout. The button itself is visible and never moves out of the
+    // panel; only the surface *over* it does, transiently. What this spec
+    // actually tests is geometry, so the setup should establish state without
+    // depending on a race.
     const addPage = page
       .getByTestId('layers-panel')
       .getByRole('button', { name: 'Add publishing page' });
-    await addPage.click();
-    // The workspace switch animates the shell's grid columns and the page list
-    // re-renders when the first page lands, so the target keeps moving for a
-    // moment. Let both settle before the second click rather than racing a
-    // target Playwright will retry against for the whole test timeout.
-    await page.waitForTimeout(500);
-    await addPage.click();
+    const pages = page.locator('.pages-panel__row');
+    await expect(addPage).toBeVisible();
+    const before = await pages.count();
+    // A dispatched event is not subject to actionability, so confirm each add
+    // actually landed before firing the next one instead of assuming.
+    await addPage.dispatchEvent('click');
+    await expect.poll(() => pages.count(), { timeout: 15000 }).toBe(before + 1);
+    await addPage.dispatchEvent('click');
+    await expect.poll(() => pages.count(), { timeout: 15000 }).toBe(before + 2);
     await expect(page.locator('.page-nav-container')).toBeVisible();
   });
 
@@ -58,9 +70,43 @@ test.describe('Toolbar layout', () => {
     });
   }
 
+  /**
+   * The shell transitions `grid-template-columns` when a workspace switch or a
+   * page add changes the panel set, and `.editor-shell`'s dock geometry derives
+   * the palette's inline `top` from a canvas box measured in an earlier pass.
+   * Measuring during that transition reads a palette one pass out of date
+   * against a page-nav that has already moved — the same race that made the
+   * setup clicks unreliable. Wait for two consecutive animation frames with
+   * identical grid and canvas geometry before asserting.
+   */
+  async function waitForStableLayout(page: import('@playwright/test').Page) {
+    await page.evaluate(async () => {
+      const shell = document.querySelector('.editor-shell');
+      const canvas = document.querySelector('.editor-canvas');
+      const palette = document.querySelector('[data-testid="toolbar"]');
+      const pageNav = document.querySelector('.page-nav-container');
+      if (!shell || !canvas || !palette || !pageNav) return;
+      const read = () =>
+        [
+          getComputedStyle(shell).gridTemplateColumns,
+          JSON.stringify(canvas.getBoundingClientRect()),
+          JSON.stringify(palette.getBoundingClientRect()),
+          JSON.stringify(pageNav.getBoundingClientRect()),
+        ].join('|');
+      let previous = read();
+      for (let i = 0; i < 300; i += 1) {
+        await new Promise((resolve) => requestAnimationFrame(() => resolve(null)));
+        const next = read();
+        if (next === previous) return;
+        previous = next;
+      }
+    });
+  }
+
   test('the floating toolbar never overlaps the page-nav, selection-info, or status bars', async ({
     page,
   }) => {
+    await waitForStableLayout(page);
     const floatingToolbar = await boxOf(page, '.floating-toolbar');
     const pageNav = await boxOf(page, '.page-nav-container');
     const status = await boxOf(page, '.editor-status');
@@ -88,7 +134,11 @@ test.describe('Toolbar layout', () => {
       .locator('#file-import-input')
       .setInputFiles(path.resolve('apps/desktop/public/icons/favicon-16x16.png'));
     await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10000 });
-    await page.getByRole('treeitem').first().click();
+    // Same transient overlap as the setup above: the layers row is visible and
+    // stationary, but the canvas dock sweeps over the panel while the shell
+    // transitions its grid columns, so a hit-target check intermittently
+    // refuses. The selection is the state this test needs, not the gesture.
+    await page.getByRole('treeitem').first().dispatchEvent('click');
     await page.waitForTimeout(200);
 
     const wField = page.getByRole('spinbutton', { name: 'W (px)', exact: true });
