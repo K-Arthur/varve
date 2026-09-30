@@ -465,7 +465,11 @@ export function getEditMenu(runAction: (id: string) => void): MenuItemDef[] {
       accelerator: a('a', true, true),
       kind: 'command',
       group: 'selection',
-      enabled: enabledWithSelection,
+      // Deliberately ungated: clearing an empty selection is a no-op, and the
+      // entry carries Ctrl+Shift+A, so gating it would grey out (and, with an
+      // accelerator present, hide) a documented chord whenever nothing is
+      // selected. selectAll and invertSelection are ungated for the same
+      // reason. See docs/audits/pre-existing-failures-2026-09-30.md (F3).
       run: () => runAction('selectNone'),
     },
     {
