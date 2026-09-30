@@ -566,8 +566,14 @@ describe('planner validation budget and test-only changes', () => {
   });
 
   it('test-only change in a shared package does not fan out to dependents', () => {
-    const plan = buildPlan(['packages/shared/src/product.test.ts']);
-    expect(plan.tiers[1].some((l) => l.includes('product.test.ts'))).toBe(true);
+    // The fixture has to be a real path. The planner only emits a direct-test
+    // lane for a file that exists (`existsSync` in affected-plan.mjs), and this
+    // case used `packages/shared/src/product.test.ts`, a name that was never
+    // added to the repository — it passed only while the planner did not check.
+    const changed = 'packages/shared/src/debounce.test.ts';
+    expect(existsSync(join(ROOT, changed)), `${changed} must exist`).toBe(true);
+    const plan = buildPlan([changed]);
+    expect(plan.tiers[1].some((l) => l.includes('debounce.test.ts'))).toBe(true);
     expect(plan.tiers[3]).toHaveLength(0);
     expect(plan.full).toBe(false);
   });
