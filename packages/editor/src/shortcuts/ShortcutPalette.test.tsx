@@ -56,10 +56,11 @@ describe('ShortcutPalette', () => {
   it('marks shortcuts for tools that are hidden from the active workspace toolbar', () => {
     render(<ShortcutPalette open onClose={vi.fn()} onSelect={vi.fn()} workspaceMode="design" />);
 
-    const paintLabel = screen.getByText('Paint brush');
-    expect(paintLabel).toBeInTheDocument();
-    expect(paintLabel.parentElement).toHaveTextContent('Hidden from toolbar');
-    expect(paintLabel.closest('[role="option"]')).toHaveAttribute(
+    // Pencil is hidden in Design; Paint is not any more (b99e818cf, 2026-09-29).
+    const pencilLabel = screen.getByText('Pencil tool');
+    expect(pencilLabel).toBeInTheDocument();
+    expect(pencilLabel.parentElement).toHaveTextContent('Hidden from toolbar');
+    expect(pencilLabel.closest('[role="option"]')).toHaveAttribute(
       'aria-label',
       expect.stringContaining('hidden from current toolbar'),
     );

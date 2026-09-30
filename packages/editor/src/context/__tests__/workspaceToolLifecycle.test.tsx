@@ -29,8 +29,11 @@ describe('workspace tool lifecycle', () => {
     });
     expect(switched).toBe(true);
     await waitFor(() => expect(editor?.state.workspaceMode).toBe('drawing'));
-    act(() => editor?.setTool('paint'));
-    await waitFor(() => expect(editor?.state.tool).toBe('paint'));
+    // Pencil is declared by Draw and not by Design. Paint used to stand in for
+    // it, but Design gained the Paint tool in b99e818cf (2026-09-29), so the
+    // premise silently stopped holding and the switch no longer fell back.
+    act(() => editor?.setTool('pencil'));
+    await waitFor(() => expect(editor?.state.tool).toBe('pencil'));
 
     await act(async () => {
       switched = (await editor?.requestWorkspaceSwitch('design')) ?? false;

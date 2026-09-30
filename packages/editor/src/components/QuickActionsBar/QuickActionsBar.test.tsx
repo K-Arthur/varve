@@ -156,17 +156,20 @@ describe('QuickActionsBar', () => {
   });
 
   it('marks a tool action that is available but hidden from the current toolbar', async () => {
+    // Pencil is hidden in Design (Draw declares it, Design does not). Paint
+    // used to stand in for a hidden tool, but Design gained Paint in b99e818cf
+    // (2026-09-29), so this case stopped exercising the hidden state at all.
     getActionRegistry().register(
-      { id: 'toolPaint', label: 'Paint brush', category: 'tools' },
+      { id: 'toolPencil', label: 'Pencil tool', category: 'tools' },
       () => {},
     );
     render(<QuickActionsBar open={true} onClose={vi.fn()} workspaceMode="design" />);
 
-    expect(screen.getByText('Paint brush')).toBeInTheDocument();
+    expect(screen.getByText('Pencil tool')).toBeInTheDocument();
     expect(screen.getByText('Hidden from toolbar')).toBeInTheDocument();
     expect(
       await waitFor(() =>
-        screen.getByRole('option', { name: /paint brush, hidden from current toolbar/i }),
+        screen.getByRole('option', { name: /pencil tool, hidden from current toolbar/i }),
       ),
     ).toBeInTheDocument();
   });
