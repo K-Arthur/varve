@@ -31,6 +31,18 @@ const exportShot = scenes.export?.status === 'captured' ? scenes.export : null;
           adds design-time trim and bleed guides so the production area stays visible while you
           design.
         </p>
+        <p>
+          Pattern fills can be printed as raster tiles for axis-aligned grid repeats. Shifted layouts,
+          rotation, phase, and mirroring are not included in PDF output yet; PDF/X-1a omits
+          transparent tiles and fills with non-opaque opacity, with a warning. See the{' '}
+          <a href={sitePath('/features/patterns')}>pattern feature status</a> for current output limits.
+        </p>
+        <p>
+          Presentation PDF and PNG-sequence delivery are available in the source build, but are not
+          part of a published release. PDF is raster-only and does not contain tagged accessibility
+          structure. See the <a href={sitePath('/features/presentations')}>presentation feature
+          status</a> for supported behavior and limits.
+        </p>
       </section>
 
       {exportShot && (
@@ -127,7 +139,7 @@ const exportShot = scenes.export?.status === 'captured' ? scenes.export : null;
   }
   
   .breadcrumb {
-    font-size: 0.875rem;
+    font-size: var(--type-interface-readout-size);
     margin-bottom: 1.5rem;
   }
   
@@ -175,7 +187,7 @@ const exportShot = scenes.export?.status === 'captured' ? scenes.export : null;
   .feature-visual figcaption {
     margin-top: 0.75rem;
     color: var(--text-secondary);
-    font-size: 0.875rem;
+    font-size: var(--type-interface-readout-size);
     line-height: 1.5;
     text-align: center;
   }

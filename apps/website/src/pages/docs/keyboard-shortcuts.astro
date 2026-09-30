@@ -256,7 +256,9 @@ import '../../styles/docs-prose.css';
         <p class="shortcuts-note">
           The first six shortcuts follow the workspace switcher order, which is also marked on its
           tabs. Logo Tools and Code follow at 7 and 8 as workflow actions. On macOS, use
-          Command+Shift with the same numbers.
+          Command+Shift with the same numbers. The switcher and View &gt; Workspace menu keep the
+          six workspaces in this order; Logo and Code are listed separately because neither is a
+          workspace.
         </p>
       </section>
 
@@ -275,7 +277,21 @@ import '../../styles/docs-prose.css';
             <code>Ctrl + L</code>
             <span>Toggle layers</span>
           </div>
+          <div class="shortcut-item">
+            <code>Ctrl + Alt + Shift + L</code>
+            <span>Toggle Logo Tools; opens Design when needed</span>
+          </div>
+          <div class="shortcut-item">
+            <code>Ctrl + Shift + J</code>
+            <span>Toggle the shared Code panel in the desktop app</span>
+          </div>
         </div>
+        <p class="shortcuts-note">
+          On macOS, use Command+Option+Shift+L for the Logo Tools toggle and Command+Shift+J for
+          the Code toggle in the desktop app. Browsers may reserve Ctrl+Shift+J for Developer Tools;
+          Chrome uses Command+Shift+J for Downloads on macOS. In the browser, use the Code action at
+          <code>Ctrl/Command+Shift+8</code> above or View &gt; Panels &gt; Code Panel.
+        </p>
       </section>
 
       <section class="shortcuts-section">
@@ -415,7 +431,7 @@ import '../../styles/docs-prose.css';
     padding: 0.25rem 0.5rem;
     border-radius: var(--website-radius-control-compact);
     font-family: monospace;
-    font-size: 0.875rem;
+    font-size: var(--type-interface-readout-size);
     font-weight: 600;
     min-width: 120px;
     text-align: center;
@@ -423,7 +439,7 @@ import '../../styles/docs-prose.css';
 
   .shortcut-item span {
     color: var(--text-secondary);
-    font-size: 0.875rem;
+    font-size: var(--type-interface-readout-size);
   }
 
   .shortcuts-note {

@@ -40,6 +40,17 @@ import { sitePath } from '../../lib/siteUrl';
       </section>
 
       <section class="feature-section">
+        <h2>Paintovers stay in the same illustration</h2>
+        <p>
+          Retouch brushes keep their source scope separate from the selected raster destination.
+          For linework and flat colour, the same document can also hold editable ink and a separate
+          Flats layer; the Visible artwork Magic Wand samples the rendered lines while the fill
+          stays on that destination. Open-contour repair and fully merged effect-stack sampling are
+          not implied by these controls. <a href={sitePath('/features/strokes')}>See the illustration workflow</a>.
+        </p>
+      </section>
+
+      <section class="feature-section">
         <h2>Frequency Separation</h2>
         <p>
           Split a raster layer into a tone/colour layer and a texture layer, retouch each
@@ -107,7 +118,7 @@ import { sitePath } from '../../lib/siteUrl';
 
 <style>
   .feature-page { max-width: 800px; margin: 0 auto; padding: 3rem 0; }
-  .breadcrumb { font-size: 0.875rem; margin-bottom: 1.5rem; }
+  .breadcrumb { font-size: var(--type-interface-readout-size); margin-bottom: 1.5rem; }
   .breadcrumb a { color: var(--text-secondary); }.feature-page h1 { font-family: var(--font-editorial); margin-bottom: 1rem; color: var(--text-primary); }
   .feature-intro { font-size: 1.25rem; color: var(--text-secondary); margin-bottom: 3rem; }
   .feature-section { margin-bottom: 3rem; }

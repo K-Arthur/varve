@@ -274,6 +274,10 @@ import { sitePath } from '../../lib/siteUrl';
             <code>Ctrl+Shift+1…6</code>; Logo Tools and the shared Code panel use{' '}
             <code>Ctrl+Shift+7</code> and <code>Ctrl+Shift+8</code>. Use the <code>8</code> action
             or View &gt; Panels &gt; Code Panel when the browser reserves <code>Ctrl+Shift+J</code>.
+            The Logo Tools toggle is <code>Ctrl+Alt+Shift+L</code>; it switches to Design when
+            opening from another workspace. See the{' '}
+            <a href={sitePath('/docs/keyboard-shortcuts')}>keyboard shortcut reference</a> for
+            workspace order and browser-specific alternatives.
             Use Varve's View menu for Inspector and Minimap when Chrome reserves their desktop
             chords. Zoom keys are matched by physical key position, so they behave the same on
             French and English Chromebook keyboards. On macOS, use Command+Shift with the same
@@ -284,11 +288,34 @@ import { sitePath } from '../../lib/siteUrl';
         <div class="troubleshoot-item">
           <h3>The on-screen keyboard covers the editor</h3>
           <p>
-            <strong>Solution:</strong> Chromium-based browsers report the on-screen keyboard
-            geometry, and the demo reserves that height for dialogs, toasts, and the panel drawer
-            buttons. If a specific field is still covered, dismiss and refocus the field so the
-            operating system scrolls it back into view; if it persists, report it with your
-            ChromeOS version and device model.
+            <strong>Solution:</strong> Varve uses keyboard bounds when the browser exposes them
+            and visible-viewport geometry as a fallback. If a field or its Done/Cancel controls
+            are still covered, dismiss and refocus the field so the operating system can scroll
+            it into view. Floating keyboard placement varies by operating system and has not
+            been certified on physical tablet hardware; report the browser, device, viewport,
+            and whether the keyboard is docked or floating.
+          </p>
+        </div>
+
+        <div class="troubleshoot-item">
+          <h3>I need modifier keys or layer actions without a keyboard</h3>
+          <p>
+            <strong>Solution:</strong> open Editing controls from the floating toolbar. Constrain,
+            From centre, and Bypass snap stay latched until you turn them off; Deep select arms
+            the next canvas tap. The same surface offers Duplicate, alignment, and layer-order
+            actions. Use Appearance &gt; Mirror tablet controls to move the panel launchers across
+            the screen.
+          </p>
+        </div>
+
+        <div class="troubleshoot-item">
+          <h3>Back closes the wrong surface or leaves the editor</h3>
+          <p>
+            <strong>Expected behavior:</strong> browser Back dismisses the topmost eligible open
+            Varve dialog or menu before following an in-app route. Tooltips and surfaces that
+            cannot safely close are skipped. ChromeOS controls its system edge gesture, so if
+            that gesture bypasses the app, use the visible close or Back control and report the
+            browser/device route; browser emulation does not certify system-gesture dispatch.
           </p>
         </div>
       </div>
@@ -329,7 +356,7 @@ import { sitePath } from '../../lib/siteUrl';
   }
   
   .breadcrumb {
-    font-size: 0.875rem;
+    font-size: var(--type-interface-readout-size);
     margin-bottom: 1.5rem;
   }
   

@@ -201,14 +201,16 @@ import '../../styles/docs-prose.css';
         <h2>Touch, pen, and keyboard on a tablet</h2>
         <p>
           The browser demo adapts to tablet and split-screen widths instead of assuming a desktop
-          window. At narrow widths the Layers, Resources, and Inspector panels become on-screen
-          drawers, the tool palette and status bar stay reachable, and controls grow to
-          comfortable touch targets.
+          window. Appearance settings and View &gt; Workspace layout let you choose Automatic,
+          Tablet, or Desktop; Automatic uses available width and reported touch capabilities,
+          not keyboard attachment. In tablet presentation the compact Inspector keeps the canvas
+          interactive, while Layers and Resources remain dismissible drawers.
         </p>
         <ul>
           <li><strong>One finger</strong> draws or selects with the active tool by default. Settings &gt; Drawing input can switch one-finger touch to viewport navigation.</li>
           <li><strong>Two fingers</strong> cancel only a provisional first-pointer action, then pan and pinch-zoom the canvas around the gesture; page zoom is not affected. Lift both fingers and start a new contact before drawing again.</li>
           <li><strong>Long-press</strong> a stack of overlapping layers for the deep-selection menu — the touch equivalent of right-click.</li>
+          <li><strong>Without a keyboard</strong>, use the toolbar's Editing controls for latched shape modifiers, deep selection, Duplicate, alignment, and layer-order actions. Touch multi-select stays on the toolbar.</li>
           <li><strong>Pen</strong> input is treated as a precision pointer: pressure, tilt, and twist are used when the browser and device report useful values, and strokes fall back to a stable constant response when they do not. Eraser-tip input is preserved where the platform exposes it, but real pressure, palm rejection, hover, and USI button behavior are not certified by browser emulation.</li>
         </ul>
         <p>
@@ -220,20 +222,31 @@ import '../../styles/docs-prose.css';
           <a href={sitePath('/docs/touch-and-pen')}>Touch, pen, keyboard, and trackpad</a>.
         </p>
         <p>
-          Portrait and landscape are treated as a width change, not two different apps. In
-          portrait the inspector and library open as bottom sheets; in landscape they stay at the
-          side. Rotating with a panel open keeps it open and does not touch your document,
-          selection, or scroll position. On a Chromebook tablet, a swipe from the left edge —
-          the system's back gesture — closes the open menu or dialog instead of leaving the page.
+          Portrait and landscape use the same editor and document. In portrait the compact
+          Inspector is a shallow lower pane; Resources remains a dismissible modal sheet and
+          Layers is a drawer. In landscape the Inspector uses a reserved side rail. Changing
+          orientation keeps the editor mounted. Browser Back closes the topmost eligible Varve
+          surface when the browser delivers the app's same-page dismissal entry; ChromeOS owns
+          edge-swipe gestures, so physical gesture dispatch remains unverified.
         </p>
         <p>
           ChromeOS owns some keyboard combinations. Varve switches workspaces with{' '}
           <code>Ctrl+Shift+1…6</code> for workspaces, then <code>Ctrl+Shift+7</code> for Logo Tools
-          and <code>Ctrl+Shift+8</code> for the shared Code panel (not the browser's
-          <code>Ctrl+1…8</code> tab switches). On macOS, use Command+Shift with the same numbers.
+          and <code>Ctrl+Shift+8</code> for the shared Code panel. Logo's
+          <code>Ctrl+Alt+Shift+L</code> toggle opens Design when needed. Browsers may reserve
+          <code>Ctrl+Shift+J</code> for Developer Tools, so use the <code>8</code> action or
+          View &gt; Panels &gt; Code Panel in the browser. In the desktop app,
+          <code>Ctrl+Shift+J</code> toggles that same panel. On macOS, use Command+Shift with the
+          same numbers and Command+Shift+J for the desktop Code toggle. Chrome uses
+          Command+Shift+J for Downloads on macOS, so use Command+Shift+8 or the View menu for Code
+          in the browser. Chrome may also reserve Command+Shift+B/M for browser controls; use
+          Varve's View menu for Inspector and Minimap. See the
+          <a href={sitePath('/docs/keyboard-shortcuts')}>keyboard shortcut reference</a> for
+          the ordered workspace list and panel alternatives.
           Combinations such as <code>Ctrl+T</code>, <code>Ctrl+W</code>,
-          <code>Ctrl+Shift+I</code>, and <code>Ctrl+P</code> belong to the browser, so use the
-          menu, tab strip, or command palette for those actions in the browser demo.
+          <code>Ctrl+Shift+I</code>, <code>Ctrl+Shift+J</code>, <code>Ctrl+Shift+B</code>,
+          <code>Ctrl+Shift+M</code>, and <code>Ctrl+P</code> belong to browser controls, so use
+          Varve's View menu, tab strip, or command palette for those actions in the browser demo.
         </p>
       </section>
 
@@ -276,7 +289,7 @@ import '../../styles/docs-prose.css';
     padding: 0.125rem 0.375rem;
     border-radius: var(--website-radius-control-compact);
     font-family: monospace;
-    font-size: 0.875rem;
+    font-size: var(--type-interface-readout-size);
   }
   .docs-section kbd {
     background: var(--surface-muted);

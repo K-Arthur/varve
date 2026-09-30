@@ -944,7 +944,7 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
     background: var(--accent-primary);
     color: var(--text-on-accent);
     font-weight: 600;
-    font-size: 0.875rem;
+    font-size: var(--type-interface-readout-size);
     text-decoration: none;
     white-space: nowrap;
     transition: background-color var(--duration-quick) var(--ease-default);
@@ -1271,7 +1271,7 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
   .distro-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 0.875rem;
+    font-size: var(--type-interface-readout-size);
     line-height: 1.5;
   }
 
@@ -1342,7 +1342,7 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
 
   .format-notes p {
     color: var(--text-secondary);
-    font-size: 0.875rem;
+    font-size: var(--type-interface-readout-size);
     line-height: 1.55;
     margin: 0;
   }
@@ -1420,7 +1420,7 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
     border: 1px solid var(--border-accent);
     color: var(--accent-primary);
     font-weight: 700;
-    font-size: 0.875rem;
+    font-size: var(--type-interface-readout-size);
   }
 
   .install-step-content {
@@ -1746,7 +1746,7 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
   }
   
   .download-meta {
-    font-size: 0.875rem;
+    font-size: var(--type-interface-readout-size);
     color: var(--text-muted);
     margin-top: 0.75rem;
   }
@@ -1915,7 +1915,7 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
     background: var(--surface-card);
     color: var(--text-secondary);
     font: inherit;
-    font-size: 0.875rem;
+    font-size: var(--type-interface-readout-size);
     font-weight: 600;
     cursor: pointer;
     min-height: 2.5rem;

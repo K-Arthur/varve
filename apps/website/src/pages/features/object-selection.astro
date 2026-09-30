@@ -123,6 +123,17 @@ import { sitePath } from '../../lib/siteUrl';
       </section>
 
       <section class="feature-section">
+        <h2>For line art, use a colour-region selection</h2>
+        <p>
+          Object Selection is prompt-driven segmentation. For a closed ink drawing that needs flat
+          colour, the Magic Wand can sample <strong>Visible artwork</strong> and write the fill to a
+          separate Flats layer instead. Its edge expansion grows coverage by up to eight source
+          pixels beneath antialiased ink; it does not repair open contours. This pixel workflow
+          needs no segmentation model. <a href={sitePath('/features/strokes')}>See the linework-to-flats steps</a>.
+        </p>
+      </section>
+
+      <section class="feature-section">
         <h2>Local by design</h2>
         <p>
           Optional segmentation models are downloaded explicitly from Settings &gt; Offline Models,
@@ -151,7 +162,7 @@ import { sitePath } from '../../lib/siteUrl';
 
 <style>
   .feature-page { max-width: 800px; margin: 0 auto; padding: 3rem 0; }
-  .breadcrumb { font-size: 0.875rem; margin-bottom: 1.5rem; }
+  .breadcrumb { font-size: var(--type-interface-readout-size); margin-bottom: 1.5rem; }
   .breadcrumb a { color: var(--text-secondary); }.feature-page h1 { font-family: var(--font-editorial); margin-bottom: 1rem; color: var(--text-primary); }
   .feature-intro { font-size: 1.25rem; color: var(--text-secondary); margin-bottom: 3rem; }
   .feature-section { margin-bottom: 3rem; }

@@ -646,7 +646,7 @@
     border-radius: var(--website-radius-surface);
     border: 1px solid var(--border-default);
     font-family: var(--font-mono);
-    font-size: 0.875rem;
+    font-size: var(--type-interface-readout-size);
     line-height: 1.7;
     margin-block: var(--space-control-group);
     overflow-x: auto;
