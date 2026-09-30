@@ -89,10 +89,13 @@ test.describe('Floating toolbar adapts per workspace mode', () => {
     return true;
   }
 
-  test('Design mode: no paint/retouch tools, shapes and boolean ops reachable', async ({
+  test('Design mode: paint present for illustration, other raster tools absent', async ({
     page,
   }) => {
-    await expect(page.locator('[data-tool="paint"]')).not.toBeVisible();
+    // Design declares Paint (clipped paint layers are a Design workflow —
+    // docs/architecture/paint-system.md); the rest of the raster family stays
+    // out of this workspace.
+    await expect(page.locator('[data-tool="paint"]')).toBeVisible();
     await expect(page.locator('[data-tool="eraser"]')).not.toBeVisible();
     await expect(page.locator('[data-tool="cloneStamp"]')).not.toBeVisible();
     await expect(page.locator('[data-tool="pencil"]')).not.toBeVisible();
@@ -102,10 +105,17 @@ test.describe('Floating toolbar adapts per workspace mode', () => {
     expect(await toolReachable(page, 'Boolean Union')).toBe(true);
   });
 
-  test('Print mode: no paint/retouch tools, shapes and boolean ops reachable', async ({ page }) => {
+  test('Print mode: no paint/retouch/marquee tools, shapes and boolean ops reachable', async ({
+    page,
+  }) => {
     await switchTo(page, 'Print');
     await expect(page.locator('[data-tool="paint"]')).not.toBeVisible();
     await expect(page.locator('[data-tool="healBrush"]')).not.toBeVisible();
+    // Print declares no pixel-selection tools, matching Design (its sibling
+    // vector workspace). The marquee tools stay registered and reachable from
+    // the command palette as "Hidden from toolbar" and from Customize
+    // Workspace; they are simply not this workspace's business.
+    await expect(page.getByLabel('Rectangular Marquee')).not.toBeVisible();
     await expect(page.getByLabel('Shapes menu')).toBeVisible();
     expect(await toolReachable(page, 'Boolean Union')).toBe(true);
   });

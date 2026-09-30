@@ -478,6 +478,45 @@ export type WorkspacePreferences = Record<WorkspacePreferenceMode, WorkspacePref
 // Built-in workspace configurations
 // ---------------------------------------------------------------------------
 
+/**
+ * Built-in workspace toolbars.
+ *
+ * ## Grouping rule
+ *
+ * `groupStart: true` draws a divider before that slot. A divider has one job:
+ * to say "what follows is a different concern from what preceded it". Every
+ * group therefore maps to a single recognisable concern — the registry
+ * `category` where one exists, or an explicitly documented pairing where the
+ * concern spans categories:
+ *
+ *   shapes            Shape creation (or the Shapes flyout anchored on rect)
+ *   line/arrow        Line and arrow creation
+ *   pen…warp          Path creation and editing (all `vector`)
+ *   paint…liquify     Raster tools (`drawing`, plus `liquify`)
+ *   text…table        Content and containers (`typography` + `layout`)
+ *   select…zoom       Selection and navigation
+ *   slice…inspect     Measure, sample and inspect
+ *   cloneStamp…       Retouch / mask (as a flyout)
+ *   sam2Segment       AI
+ *
+ * Three shapes are deliberately wrong and must not be reintroduced:
+ *
+ *  1. **A divider before the first rendered slot.** The first declared tool of
+ *     every workspace carries `groupStart`, so `FloatingToolbar` suppresses the
+ *     rule at index 0 — a rule after the row's own padding separates nothing.
+ *  2. **A group that mixes three or more concerns.** Drawing used to declare
+ *     one group of ten tools spanning selection, navigation, typography,
+ *     layout and inspection; the divider at its edge advertised a boundary the
+ *     group did not have.
+ *  3. **A tool stranded from its siblings in its own group.** Warp used to sit
+ *     between the measurement group and the AI helper, two groups away from the
+ *     `pen knife shapeBuilder nodeEdit` tools of its own category.
+ *
+ * A single-tool group *is* correct where the tool has no sibling in the row and
+ * marks a genuine class change: `paint` in Design starts the raster tools,
+ * `sam2Segment` is the row's only AI helper. What is wrong is splitting a tool
+ * off from tools of its own class.
+ */
 export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
   // ─── Design Mode (UI/UX, components, prototyping) ──────────────────────
   design: {
@@ -509,6 +548,11 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         { toolId: 'knife' },
         { toolId: 'shapeBuilder' },
         { toolId: 'nodeEdit' },
+        // Warp is a vector tool; it used to declare its own trailing group, so
+        // the row read `… table │ Warp │ select …` — a separator whose two
+        // neighbours were both unrelated to it (the failure the Adobe "Move the
+        // Toolbar separator" request describes). It belongs with path editing.
+        { toolId: 'warp' },
         { toolId: 'paint', groupStart: true },
         { toolId: 'text', groupStart: true },
         { toolId: 'frame' },
@@ -518,12 +562,11 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         { toolId: 'lasso' },
         { toolId: 'hand' },
         { toolId: 'zoom' },
-        { toolId: 'slice' },
+        { toolId: 'slice', groupStart: true },
         { toolId: 'eyedropper' },
         { toolId: 'pixelProbe' },
         { toolId: 'scale' },
         { toolId: 'inspect' },
-        { toolId: 'warp', groupStart: true },
         { toolId: 'sam2Segment', groupStart: true },
       ],
       flyouts: [
@@ -622,13 +665,20 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         { toolId: 'frame' },
         { toolId: 'panel' },
         { toolId: 'table' },
+        // No pixel-selection tools: Print is a vector, typography and preflight
+        // workspace, and Design — its sibling vector workspace — does not
+        // declare them either. Rect/Elliptical Marquee were declared here as
+        // two flat buttons, which exposed half of a five-tool family (Pixel
+        // Lasso, Magic Wand and Selection Brush were absent entirely) in a
+        // workspace whose focus is pages and type. Both tools stay registered
+        // and reachable from the command palette, which lists a toolbar-hidden
+        // tool as "Hidden from toolbar" rather than deleting it, and from
+        // Customize Workspace (see workspace-system.md → tool states).
         { toolId: 'select', groupStart: true },
         { toolId: 'lasso' },
-        { toolId: 'marquee' },
-        { toolId: 'ellipseMarquee' },
         { toolId: 'hand' },
         { toolId: 'zoom' },
-        { toolId: 'slice' },
+        { toolId: 'slice', groupStart: true },
         { toolId: 'eyedropper' },
         { toolId: 'pixelProbe' },
         { toolId: 'scale' },
@@ -735,12 +785,19 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         { toolId: 'lasso' },
         { toolId: 'hand' },
         { toolId: 'zoom' },
-        { toolId: 'text' },
-        { toolId: 'eyedropper' },
-        { toolId: 'pixelProbe' },
+        { toolId: 'text', groupStart: true },
         { toolId: 'frame' },
         { toolId: 'panel' },
         { toolId: 'table' },
+        // Sampling and probing belong at the row's trailing measure/inspect
+        // edge (Design, Print, Motion, and this workspace); Image groups them
+        // with its other pixel tools instead. `eyedropper` and `pixelProbe` are
+        // declared as a pair in every workspace that declares either. They used
+        // to sit inside a single 10-tool group that also held selection,
+        // navigation, typography and layout, so the one separator at its edge
+        // marked a boundary the group itself did not have.
+        { toolId: 'eyedropper', groupStart: true },
+        { toolId: 'pixelProbe' },
         { toolId: 'sam2Segment', groupStart: true },
       ],
       flyouts: [
@@ -854,7 +911,10 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         { toolId: 'line' },
         { toolId: 'text' },
         { toolId: 'table' },
-        { toolId: 'scale' },
+        // `scale` pairs with `inspect` in every workspace that declares both;
+        // it was the sixth tool of a group that began with Pen and Line, so
+        // transform sat on the wrong side of a creation boundary.
+        { toolId: 'scale', groupStart: true },
         { toolId: 'inspect' },
         { toolId: 'rect', groupStart: true },
         { toolId: 'ellipse' },

@@ -33,6 +33,11 @@ test.describe('Toolbar layout', () => {
       .getByTestId('layers-panel')
       .getByRole('button', { name: 'Add publishing page' });
     await addPage.click();
+    // The workspace switch animates the shell's grid columns and the page list
+    // re-renders when the first page lands, so the target keeps moving for a
+    // moment. Let both settle before the second click rather than racing a
+    // target Playwright will retry against for the whole test timeout.
+    await page.waitForTimeout(500);
     await addPage.click();
     await expect(page.locator('.page-nav-container')).toBeVisible();
   });
@@ -60,11 +65,20 @@ test.describe('Toolbar layout', () => {
     const pageNav = await boxOf(page, '.page-nav-container');
     const status = await boxOf(page, '.editor-status');
 
+    // Page navigation is a bottom strip when the stack is horizontal and a
+    // left-hand column in the Print workspace's multi-page layout. The palette
+    // must stay clear of it either way, so this check is
+    // orientation-independent.
     expect(rectsOverlap(floatingToolbar, pageNav)).toBe(false);
     expect(rectsOverlap(floatingToolbar, status)).toBe(false);
-    // The toolbar should sit fully above the chrome stack, not just avoid
-    // pixel overlap by coincidence.
-    expect(floatingToolbar.bottom).toBeLessThanOrEqual(pageNav.top);
+
+    // "The toolbar sits fully above the chrome stack" is a claim about the
+    // canvas cell's bottom edge, so assert it against the status bar — the
+    // bottom-most chrome in every workspace. The previous form compared
+    // against `pageNav.top`, which is the *top* of a left-hand page column
+    // (~154px), so the assertion failed in every workspace whose page nav is
+    // not a bottom strip even when nothing overlapped at all.
+    expect(floatingToolbar.bottom).toBeLessThanOrEqual(status.top);
   });
 
   test('the selection quick bar flips above the selection instead of overlapping page-nav when there is no room below', async ({
