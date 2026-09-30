@@ -33,12 +33,17 @@ reader can interpret the evidence:
 | Presentation fill chrome | `packages/editor/src/components/Presentation/presentationNavigator.css` |
 | Minimap chrome | `packages/editor/src/components/Minimap/minimap.css` |
 | Codegen setup copy | `packages/codegen/src/tailwind.ts` |
+| Menu enablement | `packages/editor/src/menu/defs.ts` |
+| Stale expectations repaired | `packages/editor/src/workspace/__tests__/panelRegistry.test.ts`, `packages/editor/src/workspace/layersPanelConfig.test.ts`, `packages/editor/src/context/__tests__/workspaceToolLifecycle.test.tsx`, `packages/editor/src/components/QuickActionsBar/QuickActionsBar.test.tsx`, `packages/editor/src/shortcuts/ShortcutPalette.test.tsx`, `packages/editor/src/tools/__tests__/ToolManager.middlePan.test.ts` |
 | Documents | this file, `docs/audits/pre-existing-failures-2026-09-30.md` |
 
-Further files are added to this table as each failure is attributed. Files that
-belong to another session's uncommitted work are **diagnosed and recorded, not
-edited** — formatting or landing half-finished work under this task's message
-would misattribute it.
+Files that belong to another session's uncommitted work are **diagnosed and
+recorded, not edited** — `packages/scene/src/version.ts` (schema 2.31 → 2.32),
+`packages/editor/src/workspace/dock/dockOps.ts`, `packages/engine/src/replay.ts`,
+`scripts/quality/affected-plan.mjs`, the pattern-fill files, and the `zz-`
+diagnostic probes. Formatting or landing half-finished work under this task's
+message would misattribute it, and the implicated dock, replay and planner paths
+are being edited as this sweep runs.
 
 ## Non-overlap statement
 

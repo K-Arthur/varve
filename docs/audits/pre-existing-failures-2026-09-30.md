@@ -358,11 +358,12 @@ rejected:
 
 **Full suite.** The triage run measured **21,684 tests: 21,608 passed, 59 failed,
 17 skipped** across 27 failing spec files. After the fixes, those 27 files reduce
-to the deferred groups above — F1-F7 account for 35 of the 59 failing tests and
-all seven are green, F8 for one, F9 plus G1-G7 for the rest. A full-suite re-run
-was not performed; the reason is recorded under Process deviations. The claim is
-therefore "every repaired spec is green and no repair regressed its neighbours",
-not "the suite is green".
+to the deferred groups above — F3, F5, F6, F7 and F8 account for 31 of the 59
+failing tests and all five are green (120 tests across the seven repaired spec
+files, re-run together as the closing check), F9 plus G1-G7 account for the rest.
+A full-suite re-run was not performed; the reason is recorded under Process
+deviations. The claim is therefore "every repaired spec is green and no repair
+regressed its neighbours", not "the suite is green".
 
 **Browser and visual validation.** Run under the heavy-task lease on the shared
 checkout, `--workers=1`, isolated port, against the two surfaces this sweep
