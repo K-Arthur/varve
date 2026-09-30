@@ -80,8 +80,9 @@ code must not be "simplified" back into permissive defaults.
 
 1. **Contrast is enforced, not eyeballed.** Every ink clears 3:1 against the
    `surface-sunken` backplate in Light, Dark, and High Contrast with margin
-   (measured 3.49–5.19:1). The pairs live in `MINIMAP_OVERVIEW_CONTRAST_PAIRS`
-   and are checked by `pnpm audit:tokens` in all three themes. Before this
+   (3.49–4.79:1 Light, 3.67–5.04:1 Dark, 19.08:1 High Contrast). The pairs live
+   in `MINIMAP_OVERVIEW_CONTRAST_PAIRS` and are checked by `pnpm audit:tokens`
+   in all three themes. Before this
    contract the renderer used `--color-border-subtle` for shape/text/group ink,
    which measures **1.19:1 in Light** — the artwork was effectively invisible
    in the default theme.

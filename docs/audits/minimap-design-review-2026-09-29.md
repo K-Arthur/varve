@@ -54,7 +54,7 @@ only by its edge, and that edge was the same 1.19:1 tone.
 
 | ID | Severity | Finding | Correction |
 |---|---|---|---|
-| D-01 | High | Shape, text and group ink all resolved from `--color-border-subtle`, measuring **1.19:1** against the map backplate in Light. The default theme's artwork was invisible. | New `minimap-ink-frame/shape/text/image/adjustment` tokens, each measured **3.49–5.19:1** against `surface-sunken` across all three themes and locked as contrast pairs so `pnpm audit:tokens` re-verifies them. |
+| D-01 | High | Shape, text and group ink all resolved from `--color-border-subtle`, measuring **1.19:1** against the map backplate in Light. The default theme's artwork was invisible. | New `minimap-ink-frame/shape/text/image/adjustment` tokens, each measured **3.49–4.79:1 in Light, 3.67–5.04:1 in Dark and 19.08:1 in High Contrast** against `surface-sunken`, and locked as contrast pairs so `pnpm audit:tokens` re-verifies them. |
 | D-02 | High | The canvas was sized to hug the content aspect inside a card that stretched the full sidebar width, leaving **51% of the card empty** at the default window size, and `minimap.css` simultaneously declared `width: 100%` on the canvas — a declaration the inline size from the renderer always overrode, so the stylesheet and the layout disagreed about who owned the size. | `computeMinimapSize` now produces a *stage* that fills the available width and takes its height from the content, clamped to 48–168 px tall. The dead `width`/`height` declarations were removed; the stage's own content box is the width budget. An initial 320 px width ceiling was caught by the responsive E2E assertion at 1920 (`canvas fills its stage`) and removed: for a wide document the *width* binds the fit, so the ceiling was making the map 23% smaller than the rail could carry — the same "fixed pixel size on a growing display" failure the competitor threads complain about. |
 | D-03 | High | The map kept **light-theme colours under a dark panel** whenever the theme changed outside React (OS scheme under a `system` preference, a `storage` event, a direct `applyThemePreference`). `colors` was memoised on `editor.state.themeRevision` alone. | Observe `data-theme` with a `MutationObserver` plus `prefers-color-scheme` and `prefers-contrast`, and re-resolve on any change. |
 | D-04 | Medium | The header repeated a **"Fit" button** that duplicates the StatusBar Fit group (Fit page / Fit all / Fit selection), the View menu, and the map's own double-click/`Enter`/`Space`/`Home` gesture — four routes to one command inside one 12 px strip. | Removed. The map keeps the documented gestures; the StatusBar and View menu keep the buttons. |
@@ -68,7 +68,7 @@ only by its edge, and that edge was the same 1.19:1 tone.
 | D-12 | Low | The hide-map chevron target was **20×20 px**, below WCAG 2.5.8's 24×24 minimum. | Sized from `--component-xs-height` (24 px). |
 | D-13 | Low | With no measurable viewport, the map still advertised click/drag/arrow interaction that silently did nothing. | `data-navigable` drives the `grab` cursor and the accessible name now states that navigation is unavailable. |
 | D-14 | Low | An empty surface showed a blank tile. | A caption over the backplate explains why. The canvas stays mounted so the tab stop and layout do not jump when the first object appears. |
-| D-15 | Low | Exceptional-scale markers drew a dashed box **plus an X glyph** — noisy, and two signals for one fact. | A dashed outline with a corner tick in the danger token. |
+| D-15 | Low | Exceptional-scale markers drew a dashed box **plus an X glyph** — noisy, and two signals for one fact. | Corner ticks only: the dashed outline and the X were both dropped, leaving one quiet marker in the danger token. |
 | D-16 | Low | `lockedStroke` was declared in the palette and never drawn. | Removed. Lock state reads in the Layers panel; a 2 px map mark cannot carry it usefully. |
 
 ## What was deliberately not changed
@@ -125,7 +125,7 @@ it or already single-sourced. The one command it duplicated is gone.
 | Any visual information necessary to identify a control or its state needs **3:1**; the test is "if the least-contrasting area is less than 3:1, assume that area is invisible" | https://www.w3.org/WAI/WCAG21/Understanding/non-text-contrast.html |
 | Interactive targets must be **≥24×24 CSS px** at Level AA | https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum.html |
 
-**Resolved:** D-01 (enforced 3:1+ ink family, 3.49–5.19:1 measured), D-05 (7 px
+**Resolved:** D-01 (enforced 3:1+ ink family, 3.49:1 minimum measured), D-05 (7 px
 label floor), D-12 (24 px targets), D-02/D-08 (map scales with the sidebar
 instead of a fixed 120–160 px).
 

@@ -233,9 +233,10 @@ const LAYER_WASH_ADJUSTMENT_DARK: Oklch = ok(0.2, 0.025, 30);
  * these values exist to make every kind readable rather than to carry
  * identity on colour alone.
  *
- * Enforced by `MINIMAP_OVERVIEW_CONTRAST_PAIRS`: each ink clears 3:1 against
- * `surface-sunken` in Light, Dark, and High Contrast with real margin
- * (measured 3.50–5.19:1; re-measure with `pnpm audit:tokens`).
+ * Enforced by `MINIMAP_OVERVIEW_CONTRAST_PAIRS`: each ink clears the 3:1
+ * non-text floor against `surface-sunken` in all three themes with margin —
+ * 3.49–4.79:1 Light, 3.67–5.04:1 Dark, 19.08:1 High Contrast. Re-measure with
+ * `pnpm audit:tokens`; do not trust these figures by hand.
  */
 const MINIMAP_INK_FRAME: Oklch = ok(0.5741, 0.1309, 252.23); // BLUE 7 hue
 const MINIMAP_INK_SHAPE: Oklch = ok(0.6042, 0.1298, 57.3); // shape hue
