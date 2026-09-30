@@ -167,3 +167,120 @@ Record any newly discovered overlapping edits here before modifying them.
   office/PPTX interoperability remain unverified. Built-in layout collections,
   linked themes, formatting/reset, and cross-document layout/theme clipboard
   mapping are still open work.
+
+## Current implementation and validation checkpoint — 2026-09-29
+
+- The presentation foundation and research are already committed on `master`:
+  `53c14b0da`, `8ac182076`, and `b2dd87ca4`. The current authoring, built-in
+  layout, delivery, marketing, and screenshot additions remain in the shared
+  worktree pending the next exclusive index window.
+- Seven editable native layout sources now create on a separate
+  `Presentation Layouts` Design Canvas: title/section, body, image/text,
+  comparison, evidence, process, and conclusion. They use editable text and
+  vector shapes, the bundled artwork font, and no external asset download.
+  The screenshot fixture is generated from this source builder. A focused
+  browser assertion creates a source through the UI and confirms its registered
+  revision.
+- Visual capture review passed for the refreshed 1200×750 dark tablet layout
+  preview, and that one reviewed scene was synchronized to the website while
+  preserving other manifest entries. The feature page was visually checked
+  from desktop light and mobile dark full-page captures.
+- `pnpm verify:plan` sees 690 shared changed paths and reports
+  `FULL-SUITE ESCALATION: YES` for shared workspace/toolchain and validation
+  infrastructure changes. The final `pnpm verify:affected` stopped at that
+  mandated escalation. A schema-migration full gate was attempted earlier in
+  this run and stopped before browser/Rust/test lanes on unrelated shared-tree
+  Biome errors, an architecture `ts-prune` timeout, and an existing editor test
+  typing error; do not repeat it until those blockers change.
+- Passing focused checks: 43 scene/style/layout/editor tests; scene, home, and
+  help package typechecks; `pnpm typecheck:e2e`; scoped Biome; `pnpm audit:docs`
+  (1121 docs, 732 links, 178 ADRs); `pnpm audit:emoji` (5203 files); radius,
+  spacing, sizing, and inspector CSS audits; and both website builds (114
+  routes each). The editor package typecheck still fails only at
+  `CurveEditor.test.tsx` calls that use unsupported Testing Library `exact`
+  options, which is outside this feature.
+- The 2-test lease-wrapped browser slice passed built-in source creation and
+  the populated three-slide PDF/PNG export. `pdfinfo` confirmed three 960×540pt
+  pages; `unzip -l` showed the three PNG entries in deck order and `unzip -t`
+  passed. All three rasterized PDF pages were inspected at full size. The PDF
+  is untagged. The two-base-path feature and guide E2E passed 4/4 after using
+  isolated ports; the default port was already owned by another local server.
+- `pnpm audit:tokens` passed all 303 theme contrast pairs, but its usage scan
+  found an unrelated undefined `--name` reference in
+  `packages/codegen/src/tailwind.ts:685`. The architecture audit completed
+  with 14 cycles, no layer violations, and current shared hub-budget warnings
+  for `Shell.tsx`, `Menubar.tsx`, and `context.tsx`; no presentation code was
+  added to those hub files.
+- Current index check still finds nine staged paths owned by concurrent
+  illustration work. No presentation paths are staged. Do not commit until
+  those paths are released and the full index and owned-file diffs are
+  rechecked.
+- Still open from the requested plan: linked presentation themes and color
+  variables, formatting/layout reset controls, cross-document layout/theme
+  clipboard mapping, image/mask/effect export fidelity and failure cases,
+  aspect-ratio conversion journeys, and broad modest-deck editor/thumbnail/
+  preview/reopen/export pixel comparisons. The source-build pages disclose
+  this status and defer PPTX pending a separate interoperability assessment.
+
+## Session continuation — 2026-09-29 (presentation mode, preview contract, override controls)
+
+Worked on `master` only; no branch or worktree was created. The shared index was
+used concurrently by other sessions (illustration, find/replace, minimap,
+switcher), so every presentation commit was built through a temporary
+`GIT_INDEX_FILE` containing only this task's paths. That left other owners'
+staged entries untouched. HEAD moved several times mid-commit; commits were
+retried against the new HEAD rather than forcing anything.
+
+Commits from this session, in order:
+
+- `bf6fb5851` — the seven built-in layout sources plus the
+  `presentation.layout.builtin.create` operation (scene layer first, so each
+  commit leaves `master` buildable).
+- `ca499698c` — the Design-mode presentation UI, navigator, delivery layer,
+  and presentation commands. This also repaired `master`: an earlier
+  concurrent commit had swept in the `ExportLayer` import of
+  `PresentationDeliveryLayer` while the whole `components/Presentation/`
+  directory was still untracked, so `master` did not build until the directory
+  landed.
+- `b1ac57ed1` — audience-preview fidelity fix and the Playwright suites for
+  the preview contract and cross-surface identity.
+- `8e90e6ca0` — override reporting, reset, detach, their tests, the research
+  ledger, defect-matrix rows, and the feature/guide page updates.
+
+Confirmed defects this session reproduced in the running app and fixed:
+
+- **Preview cropped the slide.** The audience stage sized its implicit grid row
+  from the slide image itself, so the image overflowed a clipped container.
+  Measured in-browser: image box 705.25px against a 679.5px stage. Fixed with
+  an explicitly sized 1fr area; guarded by containment and aspect assertions.
+- **Two competing meanings of Present.** Deck playback and prototype playback
+  were both called Present, and deck preview was reachable only from the Slides
+  panel. Now routed through one decision point in `presentationMode.ts`, with
+  deck commands registered in the palette.
+- **Preview input contract.** Space did not advance, Escape did not exit, and
+  navigation wrapped silently from the last slide to the first. Space/Enter now
+  advance, Escape exits with focus restoration, and each end stops with a
+  live-region announcement while Previous/Next disable.
+- **No proof that preview equals output.** Added a test that decodes the
+  preview raster and the delivered PNG for the same slide and compares pixels,
+  plus every delivered page's declared size.
+
+Research: `docs/research/presentation-workflow-followup-2026-09-29.md` is a
+40-row ledger with all seven original anchors re-fetched and 22 rows tagged
+VERIFIED-BY-FETCH. Four new rows were added to the defect matrix (P-10 to
+P-13).
+
+Validation actually run by this session is listed in the Agent Validation
+Report below. `pnpm verify:plan` reports 596 changed paths and
+`FULL-SUITE ESCALATION: YES`, driven by shared workspace/toolchain and
+validation-infrastructure changes from concurrent sessions; `pnpm
+verify:affected` stops at that escalation. The escalation is therefore a
+property of the shared working tree, not of this change, and the presentation
+checks were run directly instead.
+
+Still open after this session: linked presentation themes and colour
+variables, formatting (non-geometry) inheritance and reset, cross-document
+layout/theme clipboard mapping, image/mask/effect export fidelity and failure
+cases, deck-wide aspect-ratio conversion, and broad modest-deck pixel
+comparisons across editor/thumbnail/preview/reopen. PPTX remains deferred
+pending a separate interoperability assessment.

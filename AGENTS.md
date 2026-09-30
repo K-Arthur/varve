@@ -1023,3 +1023,51 @@ failures: `docs/research/comic-lettering-research-2026-09-19.md`. Evidence:
 - **Known defect**: the live canvas renders shape corner radii square although
   the IR carries `cornerRadius` and `replayIr` calls `roundRect`. Do not
   "fix" it by removing radius from balloon recipes; fix the editor frame path.
+
+## Presentation system
+
+Canonical doc: `docs/architecture/presentation-system.md`. ADR-0240.
+Research ledger: `docs/research/presentation-workflow-2026-09-29.md` (plus the
+follow-up ledger of the same date). Defect matrix:
+`docs/audits/presentation-workflow-defects-2026-09-29.md`.
+
+Presentations are **ordered views over ordinary editable frames**. There is no
+second scene graph, renderer, or history stack: slides reference existing
+`FrameNode`s, and deck membership never changes frame ownership, page
+placement, paint order, or canvas coordinates.
+
+- `Document.presentation` is optional, versioned (schema 1, additive 2.30→2.31
+  migration), and holds decks, reusable layout sources, and themes.
+- **Slide sequence is the array order — nothing else.** Never derive order from
+  z-order, canvas position, viewport, or incidental traversal.
+- `resolvePresentationSlides(document, deckId)` is the single inclusion and
+  ordering contract for the navigator, preflight, audience preview, and
+  export. It reports skipped, hidden, broken, and shared references.
+- Removing a slide reference never deletes artwork; deleting artwork leaves the
+  entry recoverable with its title and notes.
+- Thumbnails, audience preview, and export share **one** frame-local capture
+  (`capturePresentationFrame`). Do not add a second renderer for presentation.
+- One `present` decision point (`presentationMode.ts`): a deck document presents
+  the deck, a document without one still presents the prototype. Deck commands
+  are registered in the ActionRegistry so the palette and menubar agree.
+- Audience preview is a modal, keyboard-owned surface: Space/Enter advance,
+  arrows move, Home/End jump, Escape exits, and **each end stops with an
+  announced boundary** instead of wrapping. Focus returns to the opener.
+
+Invariants:
+1. Presentation features must not force every frame into a deck, convert the
+   infinite canvas into one slide, or flatten existing artwork.
+2. Slides, previews, and navigation never mutate the document or create history
+   steps; only `presentation.*` operations do, inside the existing transaction.
+3. Stating that a layout was detached means the appearance is preserved — true
+   here because layout application materializes values and keeps no live link.
+4. Raster PDF/PNG output is disclosed as appearance-only: not editable, not
+   searchable, not tagged. Do not claim accessibility that the inspected file
+   does not have.
+5. PPTX interoperability stays deferred until its own feasibility and fidelity
+   assessment.
+
+Open work: linked themes and colour variables, formatting (non-geometry)
+inheritance and reset, cross-document layout/theme clipboard mapping,
+image/mask/effect export fidelity cases, deck-wide aspect-ratio conversion, and
+PPTX.
