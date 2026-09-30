@@ -278,22 +278,27 @@ assertion and exposed the 320 px ceiling recorded in D-02.
   tooltip, plus that the layer clears the dock ladder by a real margin —
   **10 passed** in `tooltip-system.spec.ts` (the case included).
 
-### Adjacent defect found while root-causing D-17
+### Adjacent defect found while root-causing D-17 — fixed
 
 The same measurement showed the dock ladder sitting *above* the menu layer
 (`--z-overlay + 3` vs `--z-overlay`), which the overlay policy says should be
 the other way around. With the Layers panel open, the File menu overlaps the
-panel header chrome across a 232×30 band, and every probe point in it resolves
-to `.workspace-dock-panel-chrome` — those menu rows cannot receive a pointer
-event.
+panel header chrome across a 232×30 band, and **all five probe points in that
+band resolved to `.workspace-dock-panel-chrome`** — those menu rows could not
+receive a pointer event. The same inversion applied to `Popover`, the
+onboarding spotlight and the contextual help panel.
 
-It is not a minimap defect and it is not cheap to fix safely: the whole ladder
-has to move below the popover layer *and* the chrome has to be re-indexed
-relative to its host panel, because panels are drawn at `--z-overlay` when they
-become drawers at narrow viewports, so a flat lower z-index would hide the
-chrome behind its own panel. Recorded in
-[Overlay system](../architecture/overlay-system.md) as a known gap with the
-measurement, and deliberately left unapplied rather than half-applied.
+It could not be repaired by lowering the dock ladder: panels drawn as drawers
+and as the compact projection both resolve to `--z-overlay`, and the chrome is
+a *sibling* of those panels, so it has to out-rank 1000 in every mode or it
+disappears behind its own header. The **overlay** band moved instead —
+`OVERLAY_Z_INDEX` in `FloatingPortal` now reads
+`calc(var(--z-overlay) + 10)` and is the single source for `Popover` and
+`.varve-floating-layer`, with the spotlight and help panel on the same
+expression. After the change the same five probes resolve to menu labels, the
+tooltip still resolves to itself at 1300, and the dock's own `+1..4` ladder is
+untouched, so drawer and tab-strip stacking did not move. See
+[Overlay system](../architecture/overlay-system.md) for the two-band rule.
 
 Deliberately skipped: Rust workspace tests, the full Playwright suite, and the
 full Vitest suite — no native dependency, schema, or shared infrastructure
