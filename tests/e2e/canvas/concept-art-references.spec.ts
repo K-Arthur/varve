@@ -340,6 +340,7 @@ test.describe('concept-art reference workflow', () => {
   test('builds thumbnail variants around a reference, paints over a perspective block-in, and exports a sheet', async ({
     page,
   }, info) => {
+    test.setTimeout(180000);
     test.setTimeout(420000);
     await page.addInitScript(() => localStorage.setItem('varve.renderWorker', 'off'));
     await page.setViewportSize({ width: 1440, height: 900 });
@@ -448,6 +449,7 @@ test.describe('concept-art reference workflow', () => {
       .first();
     await expect(paintLayer).toHaveAttribute('aria-selected', 'true');
     await optionsTrigger.click();
+    const orangePixelsBeforePaintover = await orangePaintPixels(page);
     const beforePaintover = await contentHash(page);
     const paintStart = await conceptScreenPoint(page, 660, 215);
     const paintEnd = await conceptScreenPoint(page, 800, 230);
@@ -456,7 +458,20 @@ test.describe('concept-art reference workflow', () => {
     await page.mouse.move(paintEnd.x, paintEnd.y, { steps: 7 });
     await page.mouse.up();
     await expect.poll(() => contentHash(page)).not.toBe(beforePaintover);
-    await expect.poll(() => orangePaintPixels(page)).toBeGreaterThan(10);
+    await expect
+      .poll(() => orangePaintPixels(page))
+      .toBeGreaterThan(orangePixelsBeforePaintover + 10);
+    const paintedHash = await contentHash(page);
+    await page.keyboard.press('Control+z');
+    await expect.poll(() => contentHash(page)).toBe(beforePaintover);
+    await expect
+      .poll(() => orangePaintPixels(page))
+      .toBeLessThanOrEqual(orangePixelsBeforePaintover + 1);
+    await page.keyboard.press('Control+Shift+z');
+    await expect.poll(() => contentHash(page)).toBe(paintedHash);
+    await expect
+      .poll(() => orangePaintPixels(page))
+      .toBeGreaterThan(orangePixelsBeforePaintover + 10);
     await page.screenshot({ path: info.outputPath('concept-art-variants-paintover.png') });
 
     // Compose only the three thumbnails and paintover into a presentation
@@ -471,9 +486,12 @@ test.describe('concept-art reference workflow', () => {
     const presentationSheet = page.locator('[role="treeitem"][aria-selected="true"]');
     await expect(presentationSheet).toContainText(/Group/);
     await expect(presentationSheet).not.toContainText('beech-forest.jpg');
+    await expect(page.locator('.editor-canvas')).toBeVisible();
     await selectExportTab(page);
     const pngGroup = page.locator('.spec-export__group').filter({ hasText: 'PNG' }).first();
-    await pngGroup.getByRole('radio', { name: 'PNG', exact: true }).click();
+    const pngFormat = pngGroup.getByRole('radio', { name: 'PNG', exact: true });
+    await pngFormat.check();
+    await expect(pngFormat).toBeChecked();
     const sheetDownloadPromise = page.waitForEvent('download', { timeout: 120000 });
     await page.getByRole('button', { name: 'Download PNG', exact: true }).click();
     const sheetDownload = await sheetDownloadPromise;
