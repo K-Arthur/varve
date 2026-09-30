@@ -52,9 +52,13 @@ export const LANES = {
   'format:touched': 'biome format --staged --no-errors-on-unmatched',
   'lint:touched': 'biome check --staged --no-errors-on-unmatched',
   'lint:all': 'biome check .',
+  // Design-system stylesheets: hex colours, duplicate selectors, and BEM
+  // pattern (the only gate over packages/ui/src CSS beyond Biome).
+  'lint:css': 'pnpm lint:css',
   'audit:docs': 'pnpm audit:docs',
   'audit:emoji': 'pnpm audit:emoji',
   'audit:tokens': 'pnpm audit:tokens',
+  'audit:radius': 'pnpm audit:radius',
   'audit:inspector-css': 'pnpm audit:inspector-css',
   'audit:spacing': 'pnpm audit:spacing',
   'audit:sizing': 'pnpm audit:sizing',
@@ -249,6 +253,7 @@ export function laneArgv(lane, { files = [], pkgDir } = {}) {
     'audit:docs': ['pnpm', 'audit:docs'],
     'audit:emoji': ['pnpm', 'audit:emoji'],
     'audit:tokens': ['pnpm', 'audit:tokens'],
+    'audit:radius': ['pnpm', 'audit:radius'],
     'audit:inspector-css': ['pnpm', 'audit:inspector-css'],
     'audit:spacing': ['pnpm', 'audit:spacing'],
     'audit:sizing': ['pnpm', 'audit:sizing'],
