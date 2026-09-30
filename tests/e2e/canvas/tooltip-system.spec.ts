@@ -22,6 +22,45 @@ test.describe('Tooltip system', () => {
     expect(await tooltip.count()).toBeGreaterThanOrEqual(1);
   });
 
+  test('tooltip is not painted over by the docked panel chrome', async ({ page }) => {
+    // The dock positions its panel headers, tab strips, floating groups and
+    // drag previews at `--z-overlay + 1..4` in the root stacking context, so a
+    // tooltip at `--z-popover` lost whenever its bubble landed on a header.
+    // The minimap's collapse control is the case that exposed it: it sits
+    // directly under the Layers chrome, so its tooltip always overlapped.
+    const trigger = page.locator('.minimap-panel__header .minimap-panel__collapse-btn').first();
+    await trigger.hover();
+
+    const tooltip = page.locator('[role="tooltip"]');
+    await expect(tooltip).toBeVisible({ timeout: 1500 });
+
+    const probes = await tooltip.evaluate((tip) => {
+      const box = tip.getBoundingClientRect();
+      const hit = (x: number, y: number): string => {
+        const el = document.elementFromPoint(Math.round(x), Math.round(y));
+        if (!el) return 'nothing';
+        return tip.contains(el)
+          ? 'tooltip'
+          : `${el.tagName}.${(el.className || '').toString().slice(0, 40)}`;
+      };
+      return {
+        centre: hit(box.left + box.width / 2, box.top + box.height / 2),
+        topEdge: hit(box.left + box.width / 2, box.top + 2),
+        leftEdge: hit(box.left + 2, box.top + box.height / 2),
+        rightEdge: hit(box.right - 2, box.top + box.height / 2),
+        bottomEdge: hit(box.left + box.width / 2, box.bottom - 2),
+        zIndex: getComputedStyle(tip.closest('.varve-floating-layer') ?? tip).zIndex,
+      };
+    });
+
+    // Every probe point on the bubble must resolve to the bubble itself.
+    for (const point of ['centre', 'topEdge', 'leftEdge', 'rightEdge', 'bottomEdge'] as const) {
+      expect(probes[point], `tooltip ${point} is covered by another surface`).toBe('tooltip');
+    }
+    // And the layer must clear the dock ladder (1000–1004) by a real margin.
+    expect(Number(probes.zIndex)).toBeGreaterThan(1004);
+  });
+
   test('shows keyboard shortcut badge in tooltip', async ({ page }) => {
     const toolbar = page.locator('[role="toolbar"]').first();
     await expect(toolbar).toBeVisible({ timeout: 10000 });

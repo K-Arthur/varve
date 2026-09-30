@@ -245,6 +245,43 @@ test.describe('Canvas minimap', () => {
     expect(highZoom).toBeGreaterThan(4);
   });
 
+  test('follows a forced-colors change without a reload', async ({ page }) => {
+    // Forced colours rewrite the custom properties the canvas reads while
+    // leaving `data-theme` alone, so the map has to observe the media query
+    // itself — otherwise an OS high-contrast toggle repaints the panel chrome
+    // and leaves the canvas drawing the previous palette.
+    const canvas = page.locator('canvas.minimap-panel__canvas');
+    await expect(canvas).toBeVisible();
+    await expect(page.getByTestId('minimap-panel')).toContainText('0 objects');
+
+    const backplate = () =>
+      canvas.evaluate((node) => {
+        const htmlCanvas = node as HTMLCanvasElement;
+        const context = htmlCanvas.getContext('2d');
+        if (!context) return null;
+        const { width, height } = htmlCanvas;
+        const data = context.getImageData(0, 0, width, height).data;
+        const counts = new Map<string, number>();
+        for (let i = 0; i < data.length; i += 4) {
+          const key = `${data[i]},${data[i + 1]},${data[i + 2]}`;
+          counts.set(key, (counts.get(key) ?? 0) + 1);
+        }
+        const [top] = [...counts.entries()].sort((a, b) => b[1] - a[1]);
+        return { tone: top?.[0] ?? null, distinct: counts.size };
+      });
+
+    await page.emulateMedia({ forcedColors: 'active' });
+    await expect.poll(async () => (await backplate())?.distinct ?? 0).toBeGreaterThan(1);
+    const forced = await backplate();
+
+    await page.emulateMedia({ forcedColors: 'none' });
+    await expect.poll(async () => (await backplate())?.tone).not.toBe(forced?.tone ?? null);
+
+    // And back again: the observer must work in both directions, not once.
+    await page.emulateMedia({ forcedColors: 'active' });
+    await expect.poll(async () => (await backplate())?.tone).toBe(forced?.tone ?? null);
+  });
+
   test('reports an honest empty surface instead of a blank tile', async ({ page }) => {
     const minimap = page.getByTestId('minimap-panel');
     const caption = minimap.locator('.minimap-panel__empty');
