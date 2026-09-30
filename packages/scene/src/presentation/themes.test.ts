@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { applyBindingsToNode } from '../bindings';
+import type { ManagedColor } from '../colorManagement';
 import {
   createDocument,
   type Document,
@@ -8,12 +9,14 @@ import {
   makeTextNode,
   updateVariableInDocument,
 } from '../document';
+import { DocumentCodec } from '../documentCodec';
 import {
   applyOperation,
   preconditionFailure,
   registerBuiltinOperations,
   validatePayload,
 } from '../operations';
+import { normalizePresentationMetadata } from './normalize';
 import {
   applyPresentationTheme,
   createPresentationTheme,
@@ -26,8 +29,6 @@ import {
 } from './themes';
 
 registerBuiltinOperations();
-
-import type { ManagedColor } from '../colorManagement';
 
 const TEAL: ManagedColor = { space: 'rgb', r: 30, g: 122, b: 138, a: 255 };
 const INK: ManagedColor = { space: 'rgb', r: 28, g: 28, b: 28, a: 255 };
@@ -253,10 +254,18 @@ describe('presentation themes', () => {
 
     const unlinked = unlinkPresentationTheme(document, 'deck', 'entry');
     expect(unlinked.presentation!.decks[0]!.slides[0]!.themeId).toBeUndefined();
-    // Unlinking keeps what is on screen.
-    expect(unlinked.nodes['accent-node']?.bindings?.fill?.variableId).toBe(
+    // Detaching bakes what is on screen: no binding, same colour.
+    const accent = unlinked.nodes['accent-node'] as { fill?: { r: number; g: number; b: number } };
+    expect(accent.fill).toMatchObject({ r: 30, g: 122, b: 138 });
+    expect(unlinked.nodes['accent-node']?.bindings?.fill).toBeUndefined();
+
+    // Applying again is an explicit choice, so it re-links every mapped object
+    // — the "first apply" path a detached slide is back on.
+    const recoloured = applyPresentationTheme(unlinked, 'deck', 'entry', 'theme-brand', ROLE_MAP);
+    expect(recoloured.nodes['accent-node']?.bindings?.fill?.variableId).toBe(
       document.presentation!.themes[0]!.colorVariables.accent,
     );
+    expect(recoloured.presentation!.decks[0]!.slides[0]!.themeId).toBe('theme-brand');
     expect(() => unlinkPresentationTheme(unlinked, 'deck', 'entry')).toThrow(/not using/);
     expect(() => applyPresentationTheme(document, 'deck', 'missing', 'theme-brand')).toThrow(
       /does not exist/,
@@ -286,5 +295,31 @@ describe('presentation themes', () => {
       }),
     ).toMatch(/slide does not exist/);
     void payload;
+  });
+
+  it('round-trips the slide theme binding through save and reopen', () => {
+    const document = themedDocument();
+    const slide = document.presentation!.decks[0]!.slides[0]!;
+    expect(slide.themeBinding).toMatchObject({
+      themeId: 'theme-brand',
+      roleNodes: { ...ROLE_MAP },
+    });
+
+    const reopened = DocumentCodec.decode(DocumentCodec.encode(document));
+    expect(reopened.ok).toBe(true);
+    if (!reopened.ok) return;
+    const restored = reopened.document.presentation!.decks[0]!.slides[0]!;
+    expect(restored.themeId).toBe('theme-brand');
+    expect(restored.themeBinding).toEqual(slide.themeBinding);
+    expect(normalizePresentationMetadata(reopened.document.presentation)).toEqual(
+      reopened.document.presentation,
+    );
+    // Detach and re-apply still find the same objects after a reload.
+    const detached = unlinkPresentationTheme(reopened.document, 'deck', 'entry');
+    expect(detached.nodes['accent-node']?.bindings?.fill).toBeUndefined();
+    const reapplied = applyPresentationTheme(detached, 'deck', 'entry', 'theme-brand');
+    expect(reapplied.nodes['accent-node']?.bindings?.fill?.variableId).toBe(
+      document.presentation!.themes[0]!.colorVariables.accent,
+    );
   });
 });

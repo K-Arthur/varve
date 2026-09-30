@@ -6,6 +6,7 @@ import {
   type PresentationSection,
   type PresentationSlideEntry,
   type PresentationSlideLayoutBinding,
+  type PresentationSlideThemeBinding,
   type PresentationTheme,
 } from './types';
 
@@ -64,6 +65,12 @@ function normalizeBinding(value: unknown): PresentationSlideLayoutBinding | unde
   };
 }
 
+function normalizeThemeBinding(value: unknown): PresentationSlideThemeBinding | null {
+  const raw = asRecord(value);
+  if (!raw || typeof raw.themeId !== 'string' || !raw.themeId) return null;
+  return { themeId: raw.themeId, roleNodes: stringMap(raw.roleNodes) };
+}
+
 function normalizeSlide(value: unknown, index: number): PresentationSlideEntry | null {
   const raw = asRecord(value);
   if (!raw) return null;
@@ -77,6 +84,7 @@ function normalizeSlide(value: unknown, index: number): PresentationSlideEntry |
     ? raw.readingOrder.filter((id): id is string => typeof id === 'string')
     : undefined;
   const layoutBinding = normalizeBinding(raw.layoutBinding);
+  const themeBinding = normalizeThemeBinding(raw.themeBinding);
   return {
     id,
     frameId,
@@ -85,6 +93,7 @@ function normalizeSlide(value: unknown, index: number): PresentationSlideEntry |
     ...(typeof raw.skipped === 'boolean' ? { skipped: raw.skipped } : {}),
     ...(typeof raw.sectionId === 'string' ? { sectionId: raw.sectionId } : {}),
     ...(layoutBinding ? { layoutBinding } : {}),
+    ...(themeBinding ? { themeBinding } : {}),
     ...(typeof raw.themeId === 'string' ? { themeId: raw.themeId } : {}),
     ...(typeof raw.language === 'string' ? { language: raw.language } : {}),
     ...(typeof raw.altText === 'string' ? { altText: raw.altText } : {}),

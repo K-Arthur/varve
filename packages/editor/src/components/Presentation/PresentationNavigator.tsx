@@ -132,7 +132,8 @@ export function PresentationNavigator({ showDetach = true }: { showDetach?: bool
 
   // Theme roles default to the slide's layout roles; mapping is per slide, so
   // it resets when the author moves to another one.
-  const layoutRoleNodes = focusSlide?.layoutBinding?.roleNodes;
+  const layoutRoleNodes =
+    focusSlide?.themeBinding?.roleNodes ?? focusSlide?.layoutBinding?.roleNodes;
   useEffect(() => {
     setThemeRoleNodes({ ...(layoutRoleNodes ?? {}) });
     // eslint-disable-next-line react-hooks/exhaustive-deps

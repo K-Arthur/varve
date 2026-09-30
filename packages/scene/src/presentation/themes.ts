@@ -1,7 +1,9 @@
+import { bindingValueToFill } from '../bindings';
+import type { ManagedColor } from '../colorManagement';
 import { addVariableToDocument, type Document } from '../document';
 import { randomHex } from '../identity';
 import type { NodeId, SceneNode } from '../types';
-import type { Variable } from '../variables';
+import { resolve, type Variable } from '../variables';
 import { findPresentationDeck, updatePresentationSlide } from './model';
 import type { PresentationTheme } from './types';
 
@@ -297,7 +299,13 @@ export function applyPresentationTheme(
   if (!metadata) return document;
   // Record the theme even when every mapped object stayed local: the slide is
   // now themed, which is what makes later applies skip local colour work.
-  const updated = updatePresentationSlide({ ...document, nodes }, deckId, entryId, { themeId });
+  const updated = updatePresentationSlide({ ...document, nodes }, deckId, entryId, {
+    themeId,
+    // Persist what the author mapped: without it a manually mapped slide would
+    // lose its roles on reload and neither detach nor a later apply could find
+    // the objects again.
+    themeBinding: { themeId, roleNodes: { ...mapping } },
+  });
   return {
     ...updated,
     presentation: {
@@ -309,17 +317,57 @@ export function applyPresentationTheme(
   };
 }
 
-/** Drop the theme link from one slide, keeping the colours that are showing. */
+/**
+ * Stop a slide following its theme while keeping exactly what is showing.
+ *
+ * "Detach" has to mean the object no longer moves when the variable changes,
+ * so the currently resolved colour is baked into the node and the binding is
+ * removed — the same contract `unlinkStyleFromNode` honours for text styles.
+ * Clearing the link alone would leave the colour following the brand, which is
+ * the opposite of what the word detach promises.
+ */
 export function unlinkPresentationTheme(
   document: Document,
   deckId: string,
   entryId: string,
+  roleNodes?: Partial<Record<PresentationThemeRole, NodeId>>,
 ): Document {
   const deck = findPresentationDeck(document, deckId);
   const entry = deck?.slides.find((slide) => slide.id === entryId);
   if (!deck || !entry) throw new Error('The selected slide does not exist.');
   if (!entry.themeId) throw new Error('This slide is not using a presentation theme.');
-  return updatePresentationSlide(document, deckId, entryId, { themeId: null });
+
+  const mapping = resolveRoleNodes(document, deckId, entryId, roleNodes);
+  const store = document.variableStore;
+  const nodes = { ...document.nodes };
+
+  for (const nodeId of Object.values(mapping)) {
+    if (!nodeId) continue;
+    const node = nodes[nodeId];
+    if (!node) continue;
+    const binding = fillBinding(node);
+    if (!binding?.variableId) continue;
+    let baked: ManagedColor | undefined;
+    if (store) {
+      try {
+        baked = bindingValueToFill(resolve(store, binding.variableId));
+      } catch {
+        // A deleted variable cannot be resolved; keep the current fill.
+        baked = undefined;
+      }
+    }
+    const remaining = { ...(node.bindings ?? {}) } as Record<string, { variableId: string }>;
+    delete remaining.fill;
+    // Drop the record outright when nothing is left: omitting the key in a
+    // spread would leave the original bindings object in place.
+    const next = { ...node } as unknown as Record<string, unknown>;
+    delete next.bindings;
+    if (Object.keys(remaining).length > 0) next.bindings = remaining;
+    if (baked) next.fill = baked;
+    nodes[nodeId] = next as unknown as SceneNode;
+  }
+
+  return updatePresentationSlide({ ...document, nodes }, deckId, entryId, { themeId: null });
 }
 
 /**
@@ -390,8 +438,9 @@ function resolveRoleNodes(
   // Only the binding's role map is used: it points at *slide* objects. A
   // layout source's own role map points inside the source frame, and recolouring
   // that would repaint the template instead of the slide.
+  const persisted = entry?.themeBinding?.roleNodes;
   for (const role of PRESENTATION_THEME_ROLES) {
-    const nodeId = entry?.layoutBinding?.roleNodes?.[role];
+    const nodeId = persisted?.[role] ?? entry?.layoutBinding?.roleNodes?.[role];
     if (nodeId) mapping[role] = nodeId;
   }
   return mapping;

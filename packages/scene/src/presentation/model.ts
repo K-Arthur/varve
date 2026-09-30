@@ -128,6 +128,7 @@ export type PresentationSlideUpdate = Omit<
       | 'language'
       | 'altText'
       | 'readingOrder'
+      | 'themeBinding'
     >
   >,
   'notes' | 'sectionId' | 'themeId' | 'language' | 'altText' | 'readingOrder'

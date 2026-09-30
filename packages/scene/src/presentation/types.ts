@@ -16,6 +16,13 @@ export interface PresentationSlideLayoutBinding {
   managedBaseline?: Record<NodeId, Record<string, unknown>>;
 }
 
+/** Theme roles chosen for one slide. Survives detach so re-applying works. */
+export interface PresentationSlideThemeBinding {
+  themeId: string;
+  /** Theme role → slide object id, as chosen by the author. */
+  roleNodes: Record<string, NodeId>;
+}
+
 export interface PresentationSlideEntry {
   /** Stable id for this deck entry, independent of the referenced frame. */
   id: string;
@@ -26,6 +33,7 @@ export interface PresentationSlideEntry {
   skipped?: boolean;
   sectionId?: string;
   layoutBinding?: PresentationSlideLayoutBinding;
+  themeBinding?: PresentationSlideThemeBinding;
   /** A per-slide theme reference overrides the deck theme when present. */
   themeId?: string;
   /** Accessibility metadata is independent of paint and layer order. */
