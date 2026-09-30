@@ -34,6 +34,10 @@ reader can interpret the evidence:
 | Minimap chrome | `packages/editor/src/components/Minimap/minimap.css` |
 | Codegen setup copy | `packages/codegen/src/tailwind.ts` |
 | Menu enablement | `packages/editor/src/menu/defs.ts` |
+| Dock node identity | `packages/editor/src/workspace/dock/dockOps.ts` |
+| Engine filter routing spec | `packages/engine/src/replay-filter.test.ts` |
+| Validation planner spec | `tests/unit/validationPolicy.test.ts` |
+| Website screenshot registration | `scripts/screenshots/product.mjs`, `apps/website/src/data/screenshot-manifest.json`, `apps/website/src/pages/features/strokes.astro`, `apps/website/src/pages/features/effect-studio.astro`, `docs/screenshots/product/` (6 captures) |
 | Stale expectations repaired | `packages/editor/src/workspace/__tests__/panelRegistry.test.ts`, `packages/editor/src/workspace/layersPanelConfig.test.ts`, `packages/editor/src/context/__tests__/workspaceToolLifecycle.test.tsx`, `packages/editor/src/components/QuickActionsBar/QuickActionsBar.test.tsx`, `packages/editor/src/shortcuts/ShortcutPalette.test.tsx`, `packages/editor/src/tools/__tests__/ToolManager.middlePan.test.ts` |
 | Documents | this file, `docs/audits/pre-existing-failures-2026-09-30.md` |
 

@@ -206,7 +206,7 @@ are the stale side. This is the clearest case in the sweep of §7's
 | **Expected** | After every dock operation, `validateDockLayout(layout)` reports no violations |
 | **Evidence** | An instrumented copy of the spec (created and deleted inside the attribution worktree, never in the shared tree) printed the invariant: `invariant broken after {"op":"move"}: duplicate dock node id 'panel-<uuid>' in layout` — for every shrunk counterexample, and always after `move`. Panel node ids are derived from the instance id (`id: \`panel-${instanceId}\`` at `dockOps.ts:350, 434, 743, 1165, 1215`), so a duplicated instance necessarily duplicates its node id. The offending branch is inside `movePanelBetweenWindows` (`dockOps.ts:1186-1236`), whose empty-target path mints `id: \`panel-${ref.instanceId}\`` after `removePanelFromWindow` |
 | **Attribution** | **Pre-existing at the committed revision, proven by reproduction.** A read-only worktree at the committed revision (`/tmp/opencode/head-attr`, no uncommitted changes) fails the same spec: `1 failed \| 3 passed`, counterexample `[insert layers, move, insert layers]`. This is *not* caused by the in-flight `dockOps.ts` edit, whose only semantic change is adding `DOCK_PANEL_CHROME_HEIGHT` (32px) to a panel's minimum height — a value the spec's invariants never consult, since `getDockNodeMinimumSize` is consumed by `dockGeometry.ts`, not by `validateDockLayout` |
-| **Fix** | **Not applied. Escalated.** The fix belongs inside `movePanelBetweenWindows`, in a file a concurrent session is actively editing (`dockOps.ts`, `dockGeometry.ts`, `dockOps.test.ts`, `useEditorDockGeometry.ts` and `useFloatingGroupInteractions.ts` were all modified during this sweep). Docking is a high-blast-radius interaction path, and resolving it needs the dock author's context on what `removePanelFromWindow` is guaranteed to leave behind |
+| **Fix** | **Applied** — see Continuation. The root cause was not in `movePanelBetweenWindows`'s removal logic but in two id-composition rules; both are now injective, and the property spec passes 5 consecutive runs plus a 30x stress run |
 | **Confidence** | High for attribution and for the mechanism; **Medium** for the precise offending branch, which is localised but not proven line-by-line |
 
 Reproduction:
@@ -227,11 +227,11 @@ others are F1-F9 and the order-dependent set below.
 | Group | Files (failures) | Root cause | Attribution | Status |
 |-------|-----------------|------------|-------------|--------|
 | **G1** Document schema bump | `canonicalGolden.test.ts` (2), `canonicalProperties.fuzz.test.ts` (2), `presentation/migration.test.ts` (1), `apps/website/src/test/demoDocuments.test.ts` (7, including cross-build determinism) | One cause: `packages/scene/src/version.ts` raises `CURRENT_DOCUMENT_VERSION` from `2.31` to `2.32` in the working tree. The committed migration expectation (`expected '2.32' to be '2.31'`), the canonical text/digest goldens and the `.varve` demo fixtures are all still generated at 2.31 | **In-flight** — `version.ts` is modified in the working tree, and every failing spec is unmodified | Deferred to the session bumping the schema; regenerating goldens and fixtures belongs inside that change |
-| **G2** Website screenshot registration | `apps/website/src/test/screenshots.test.ts` (1) | `apps/website/src/pages/features/effect-studio.astro:49,59` links two screenshots with literal `/screenshots/...` paths. Guard 5 bans that: URLs may only be built through `lib/screenshot.ts`, because a hand-written `src` keeps a stale alt and caption after the capture underneath is renamed or re-cropped. Both PNGs exist in `public/screenshots/` but are not registered as manifest scenes | **Pre-existing** — the page and the spec are unmodified in the tree | Deferred with a specified remedy, below |
-| **G3** Website font-size ratchet | `apps/website/src/test/tokens.test.ts` (1) | `raw font-size declarations grew to 349 (ceiling 344)`. The ratchet guards the type scale, and five raw declarations in website components are not expressed as `--type-*` roles. Every file the failure names is unmodified in the tree, so the growth is in committed sources | **Pre-existing** | Deferred; the remedy is migration to `--type-*` roles, not raising the ceiling |
-| **G4** Engine filter routing | `packages/engine/src/replay-filter.test.ts` (1) | "routes non-CSS filter 'curves' at default opacity/blendMode to pixel-level compositing instead of silently dropping it" — expected 1 call, got 0: a non-CSS filter is dropped rather than composited | **Pre-existing, proven** — fails in the clean committed worktree | Deferred: `engine/src/replay.ts` is being edited concurrently and replay is a hot, high-blast-radius path |
-| **G5** Validation planner policy | `tests/unit/validationPolicy.test.ts` (1) | "test-only change in a shared package does not fan out to dependents" — expected `true`, received `false` | **Pre-existing, proven** by the same clean-worktree run | Deferred: `scripts/quality/affected-plan.mjs` is modified concurrently, so the owning session is mid-change here |
-| **G6** Native/benchmark lanes | `backgroundRemoval/__tests__/{index,dispatch,dispatchDeadline,connectedComponents}.test.ts` (6), `backgroundRemoval/modelPathProbe.test.ts` (1), `bench/selectionRefinement.bench.test.ts` (1) | Not run in isolation. The shape — a model-path probe, ONNX dispatch, a benchmark budget — points at absent downloaded model artifacts and load-sensitive budgets rather than product logic | Unverified | Deferred, classified only; see Remaining risks |
+| **G2** Website screenshot registration | `apps/website/src/test/screenshots.test.ts` (1) | Six reviewed captures (Effect Studio ×2, illustration ×4) were committed straight into `public/screenshots` and referenced by literal `/screenshots/...` paths, so each was both an unresolvable reference and an orphan file — the failure the pipeline documents in its own SOURCE_SCENES note. Guard 5 bans literal paths for exactly this | **Pre-existing**, introduced by five commits (`cbb1cb3d1`, `f34e17069`, `ecb081330`, `a5e6cbd23`, `b99e818cf`) | **Fixed** — see Continuation |
+| **G3** Website font-size ratchet | `apps/website/src/test/tokens.test.ts` (1) | `raw font-size declarations grew to 349 (ceiling 344)`. Six declarations added since the ceiling was set, in four feature pages: `effect-studio.astro` `.breadcrumb` .875rem, `patterns.astro` `.flow-arrow` 1.4rem, `presentations.astro` breadcrumb/intro/h2 (0.875/1.25/1.5rem), `strokes.astro` figcaption 0.9rem | **Pre-existing**, introduced by those pages | **Escalated** — migration is a design change, see Escalations 3 |
+| **G4** Engine filter routing | `packages/engine/src/replay-filter.test.ts` (1) | "routes non-CSS filter 'curves' at default opacity/blendMode to pixel-level compositing instead of silently dropping it" — expected 1 call, got 0 | **Pre-existing, proven** in the clean committed worktree; caused by the fixture, not the router (`65bf05d42` taught `isIdentityFilter` about `curves`) | **Fixed** — see Continuation |
+| **G5** Validation planner policy | `tests/unit/validationPolicy.test.ts` (1) | "test-only change in a shared package does not fan out to dependents" — expected `true`, received `false`. The fixture named `packages/shared/src/product.test.ts`, which never existed; the planner now requires the file to exist, which turned a ghost fixture into a failure | **Pre-existing** | **Fixed** — see Continuation |
+| **G6** Native/benchmark lanes | `backgroundRemoval/__tests__/{index,dispatch,dispatchDeadline,connectedComponents}.test.ts` (6), `modelPathProbe.test.ts` (1), `bench/selectionRefinement.bench.test.ts` (1) | Run in isolation: 7 failed of 554 in the lane, one root cause — `InferenceAdmissionError: Request reserves 536871168 bytes, above the 400000000-byte process limit`. The inference path is never entered, so the assertions that expect an AI request, a deadline error, or an alpha round-trip fail on the admission rejection instead | **Pre-existing**, deterministic under the admission limit | Classified: the fixture requests exceed the process admission budget. Whether the budget or the fixtures are wrong is a maintainer call — recorded in Remaining risks |
 | **G7** Diagnostic probe | `packages/scene/src/zz-desc-probe.test.ts` (0 failed assertions, file failed) | An untracked `zz-` diagnostic probe left in the tree by another session; it is not a product test and should not be committed | Not this task's | Recorded only |
 
 Verification of the two attributions that mattered: run in the clean worktree at
@@ -244,6 +244,88 @@ Test Files  2 failed (2)      Tests  2 failed | 60 passed (62)      # pre-existi
 npx vitest run packages/editor/src/workspace/dock/__tests__/dockProperty.test.ts
 Test Files  1 failed (1)      Tests  1 failed | 3 passed (4)       # pre-existing confirmed (F9)
 ```
+
+## Continuation — the deferred findings, resolved
+
+A second pass fixed everything that was left open except the two items that need
+a human decision (Escalations). Commits, in order: `c18de34c5` (G4),
+`fed490a77` (G5), `f9b287f90` (F9), `fc119ca9b` (G2).
+
+### F9 — dock node ids are injective now
+
+Two composition rules minted a node id out of *another* node's id, which cannot
+be injective while `validateDockLayout` requires unique ids:
+
+1. `removePanel` replaced a removed panel leaf with `createEmptyNode(root.id)`.
+   A panel node is `panel-${instanceId}`, so the placeholder held an id that the
+   next placement of the same instance minted again. It now takes `newId()`.
+2. `addToTabGroup` numbered a new tabs group `tabs-${targetNodeId}` — with a
+   panel host that is `tabs-panel-${instanceId}`, which is exactly what a
+   previous tabs group over the same instance left behind when it collapsed to
+   one panel (a collapse keeps the container's id). The new group now takes
+   `newId()`; adding to an existing group still keeps *its* id.
+
+Split ids never needed a change: production callers already pass `newId()`.
+Verified in isolation, 5 consecutive spec runs, and a scratch copy at
+`numRuns: 3000`.
+
+### G2 — six published screenshots registered
+
+Measured from their published bytes, each marked `provenanceUnknown: true`
+(no run in this repository captured them, and a backfilled revision would be a
+guess), and each naming the spec that owns the surface as `source`:
+
+| Scene | Producer |
+|---|---|
+| `effect-studio-desktop-light`, `effect-studio-mobile-light` | `tests/e2e/workspace/effect-studio.spec.ts` |
+| `illustration-linework-flats`, `illustration-clipped-shading`, `illustration-vector-clipped-texture` | `tests/e2e/canvas/strokes.spec.ts` |
+| `concept-art-reference-workflow` | `tests/e2e/canvas/concept-art-references.spec.ts` |
+
+`SOURCE_SCENES` gained a carried `viewport` in both the capture and `--normalize`
+paths, so the geometry guard holds for a 390x844 phone frame and two 1000px-tall
+ones. Both pages now use `ScreenshotImage` with a manifest id, which is
+layout-equivalent here (both stylesheets already set `img { display: block;
+width: 100% }`), and it corrected geometry nothing was checking:
+`strokes.astro` declared 1440x1000 for a 1280x800 capture.
+
+`node scripts/screenshots/validate.mjs` went from 12 violations to **0** (46
+scenes verified), and `apps/website/src/test/screenshots.test.ts` is green.
+
+The manifest was **not** regenerated with `product.mjs --normalize`: that path
+re-derives every scene's crop/kind from the SCENES declarations, erased the
+`layers` scene's recorded crop and turned a `panel` crop into a `full` frame,
+tripping the geometry guard it had been run to satisfy. The six entries were
+added on top of the committed manifest instead — a 108-line diff and no other
+scene touched — and the pipeline's own SOURCE_SCENES handling reproduces them on
+a real capture run.
+
+### G4 — a real curve, and the neutral-drop decision pinned
+
+The fixture, not the router, was wrong: `points: []` is identity, and
+`isIdentityFilter` has classified an empty `curves` as neutral since
+`65bf05d42`. The `it.each` case now uses a real tonal adjustment, and a separate
+case pins the deliberate neutral drop so the question stops being implied.
+
+### G5 — the ghost fixture
+
+`packages/shared/src/product.test.ts` never existed
+(`git log --all --diff-filter=A` is empty). The case now names
+`packages/shared/src/debounce.test.ts` and asserts the path exists before
+building the plan, so the same rot cannot recur silently.
+
+### Process incident: a commit swept the other session's staged work
+
+The first attempt at G2's commit was issued as `git commit` (no pathspec) while
+the concurrent session was staging its own files, and it committed **their five
+paths under this sweep's message** — the hazard
+`docs/agents/workspace-switcher-design-2026-09-29-ownership.md` already documents
+from an earlier session. It was repaired the same way that record describes:
+`git reset --soft` to the parent, restore the other session's staged set, and
+re-issue the commit with an explicit pathspec. Verified afterwards: the commit
+holds exactly its ten paths, and the other session's five files are staged and
+untouched in the working tree (one of them also carried further uncommitted edits
+at the time, which are preserved). Every later commit in this sweep uses the
+pathspec form.
 
 ## Failures that were order- or load-dependent, not defects
 
@@ -269,12 +351,12 @@ as order/load-dependent and deferred with that reading stated as such.
 | The 15 Biome errors | Every one is in another session's untracked or modified file. Recorded for the owning session; see the table above |
 | `native-webgl2-…json` at the repository root | A stray artifact of `scripts/perf/nativeQualification.mjs` that `.gitignore` does not cover, so repository-wide Biome picks it up. Diagnosed, not deleted: the file is not this task's output |
 | The snapshot spec's fictional "with selection" fixture | Fixing it changes unrelated menu facts and snapshots. Diagnosed in F3 |
-| `movePanelBetweenWindows` duplication (F9) | Escalated: the file is being edited concurrently and the path is high-blast-radius |
+| `movePanelBetweenWindows` duplication (F9) | **Fixed** in the continuation (`f9b287f90`) |
 | Schema-bump artifacts (G1) | Belongs inside the schema change that raised the version; regenerating them from here would bake a half-finished migration into goldens |
-| Engine filter routing (G4) and the planner policy test (G5) | Both proven pre-existing, but both implicated files are modified concurrently, and replay plus validation selection are hot paths |
-| Website: screenshot registration (G2) | Remedy: register `effect-studio-desktop-light` and `effect-studio-mobile-light` as manifest scenes and switch the page to `<ScreenshotImage scene={getScene(...)!} />` as `features/typography.astro:155` does. Registering a scene is not just a manifest object: guard 2 requires declared `width`/`height` to match the decodable PNG, `sha256` to match its bytes, and a byte-identical canonical copy under `docs/screenshots/product/`. That is the capture pipeline's output (`scripts/screenshots/product.mjs`), so the honest fix is to register the scenes through the pipeline rather than hand-forge three of its fields |
-| Website: raw font-size ratchet (G3) | Remedy: migrate the five new raw declarations to `--type-*` roles and then lower `RAW_FONT_SIZE_CEILING` (`apps/website/src/test/tokens.test.ts:351`). The failure lists candidate declarations but not which five are new; identifying them needs the commit that introduced the ceiling, which was out of proportion to the remaining budget |
-| Native and benchmark lanes (G6) | Classified only, not run in isolation |
+| Engine filter routing (G4) and the planner policy test (G5) | **Fixed** in the continuation (`c18de34c5`, `fed490a77`) |
+| Website: screenshot registration (G2) | **Fixed** in the continuation (`fc119ca9b`); six scenes registered and both pages manifest-backed |
+| Website: raw font-size ratchet (G3) | **Escalated** — see Escalations 3. The six added declarations follow the site's dominant convention (20+ pages spell the same breadcrumb/intro/h2/figcaption sizes raw), so migrating only these six would make them inconsistent *and* change their type sizes by 1-2px. Either the ceiling tracks page growth, or a dedicated typography pass migrates the convention and lowers it |
+| Native and benchmark lanes (G6) | Classified in the continuation: one root cause, `InferenceAdmissionError ... above the 400000000-byte process limit` |
 | Four order/load-dependent specs | Classified above; not defects |
 | Rust workspace tests | No Rust source was touched by this sweep, so the affected closure does not select a Rust lane. The full gate owns it |
 | Full-suite re-run after the fixes | The brief asks for the full suite after each fix; this repository's validation policy reserves the full suite for an escalated final gate and the shared heavy-task lease was held by this sweep's own triage run. The affected closure plus every previously-failing spec was re-run instead, and the deviation is stated rather than hidden |
@@ -344,6 +426,18 @@ rejected:
    while it is unavailable — never let the entry vanish. The reported complaint
    in GIMP and SketchUp is precisely a greyed entry whose advertised shortcut
    does nothing.
+3. **The website font-size ratchet has no room left (G3).** `RAW_FONT_SIZE_CEILING`
+   is 344 and the tree holds 349. The six declarations added since the ceiling
+   was set are in four feature pages and follow the site's dominant convention:
+   `grep` finds `.breadcrumb { font-size: 0.875rem }` in seven other pages,
+   `.feature-intro { font-size: 1.25rem }` in five, `.feature-section h2 {
+   font-size: 1.5rem }` in six, and most figcaptions raw. Only `code.astro` and
+   `email.astro` use roles. So migrating just these six would make them
+   inconsistent with their siblings *and* move type by 1-2px, because the role
+   ladder has no 0.875rem/0.9rem/1.25rem/1.4rem/1.5rem entry. The available
+   choices are: let the ceiling track page growth, or run a dedicated typography
+   pass across the convention and lower it then. Both are maintainer calls, and
+   the second is a visual change that wants the site's visual lanes.
 
 ## Regression verification
 
@@ -360,6 +454,12 @@ rejected:
 | `packages/codegen/src` (typecheck) | — | `tsc --noEmit` clean |
 | `packages/editor` (typecheck) | — | `tsc --noEmit` clean |
 | Combined affected re-run (6 specs, F1-F7) | 28 failed | 6 files, 114 passed |
+| Continuation: `dockProperty.test.ts` (F9) | 1 failed / 3 passed | 5 consecutive runs green; scratch copy at `numRuns: 3000` green; all 5 dock spec files 67 passed |
+| Continuation: `replay-filter.test.ts` (G4) | 1 failed / 12 passed | 13 passed |
+| Continuation: `validationPolicy.test.ts` (G5) | 1 failed / 49 passed | 50 passed |
+| Continuation: `scripts/screenshots/validate.mjs` (G2) | 12 violations | 0 violations, 46 scenes verified |
+| Continuation: `apps/website/src/test` (G2) | 8 failed | 7 failed — `screenshots.test.ts` green; remaining are G1 (6) and G3 (1) |
+| Continuation: `pnpm build:website` | — | clean (the two rewritten `.astro` pages compile and build) |
 
 **Full suite.** The triage run measured **21,684 tests: 21,608 passed, 59 failed,
 17 skipped** across 27 failing spec files. After the fixes, those 27 files reduce
@@ -456,10 +556,11 @@ find it.
 | F3 | High for the fix, **Medium for intent** | Restores the snapshot-encoded contract. If greying out `Select None` on an empty selection was actually wanted, this reverts it; Escalation 2 states the decision and its cost |
 | F4 | High | The scanner still reads prose placeholders as references. A future placeholder in delivered copy will trip the gate again; that is a deliberate trade against narrowing the gate |
 | F5, F6, F7, F8 | High | Each expectation change is pinned to the commit that invalidated it. The underlying brittleness remains: three specs encode "which tools Design hides", one hard-codes the `PanelId` union, and one hand-copies the projection table |
-| F9 | High attribution, **Medium** root cause | The duplication path is localised to `movePanelBetweenWindows` but not proven line-by-line. Until it is fixed, moving a panel between windows can produce a layout that `validateDockLayout` rejects |
+| F9 | High attribution, **root cause now proven** | Fixed: both id-composition rules are injective. Verified in isolation, 5 consecutive runs, and a 30x stress run. Residual: it remains a *convention* that a collapse keeps its container's id — sound today because panel ids are the only re-mintable ones and a placeholder no longer takes one |
 | G1 | High attribution | A schema bump is half-landed in the working tree. Any session committing now may bake 2.32 into artifacts with 2.31 goldens |
-| G2, G3 | High attribution, not fixed | Both are committed website defects with specified remedies |
-| G4 | High attribution | A non-CSS filter is dropped rather than composited. Attribution is proven; the user-visible impact was not measured |
-| G5 | High attribution | The planner may fan out a test-only change in a shared package, which costs CI time rather than correctness |
-| G6 | **Low** | Not run. Classified by shape only (model artifacts, benchmark budgets) |
+| G2 | High | Fixed and validator-clean. Residual: the six scenes carry `provenanceUnknown: true` because no recorded run produced them; naming a producer would have been a guess |
+| G3 | High attribution, **decision pending** | Escalated. Not migrated, because the six values have no matching `--type-*` role and their siblings are raw too |
+| G4 | High | Fixed; the assertion it was making was about a neutral no-op, and a new case pins the real decision |
+| G5 | High | Fixed; the fixture now cannot silently point at nothing |
+| G6 | High attribution | Seven failures from one admission-budget rejection. Whether the budget or the fixtures are wrong is unresolved |
 | Order/load-dependent four | **Medium** | Confirmed non-deterministic across contexts but with no failure-rate measurement, so "flaky" is deliberately not claimed |
