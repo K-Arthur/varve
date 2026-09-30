@@ -510,17 +510,15 @@ Three items remained after Milestones 9–11. Two are blocked by concurrent
 ownership and one was partially closed; all are recorded here with the evidence
 so they can be picked up without repeating the investigation.
 
-**1. Commit boundary — blocked, documented.** The tablet and canvas-fluidity
-changes are co-edited inside the same hunks of
-`packages/editor/src/SelectionOverlay.tsx` (and the move-gesture region of
-`SelectTool.ts`), so `git apply --cached` cannot split them:
-`dragRef.current = { …, tabletModifiers }` sits in a hunk whose context is the
-fluidity `renderDocument`, `e.shiftKey || g.tabletModifiers.constrain` is inside
-a hunk that switches `state.document` → `renderDocument`, and the
-`HANDLE_TARGET_HALF` change shares a hunk with the `visibleHandles` rewrite.
-The tablet slice must therefore land with the fluidity work, or be committed by
-a coordinator who owns both. The exact stage/exclude map is in the ownership
-record.
+**1. Commit boundary — resolved for the separable slice, documented.** The
+tablet/fluidity entanglement is real: in
+`packages/editor/src/SelectionOverlay.tsx` the two changes share hunks, so that
+file cannot be split. The rest *is* separable, and was committed as
+`301806b45` (146 files) with the entangled files plus the renderer-setting work
+left uncommitted for their owners. The commit was built on an isolated index and
+verified by extracting its tree and diffing typecheck error sets against plain
+`HEAD` (no new errors in either project) and by running its own unit tests in
+that checkout (6 files / 51 passed). Details in the ownership record.
 
 **2. Browser export handshake — blocked, reported.** `packages/platform/src/web.ts`
 is under another agent's active edit, so the `saveBinaryFile` fix (treat

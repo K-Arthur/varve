@@ -55,6 +55,26 @@ fresh product/standards research is in
 
 ## Commit boundary (why this task did not commit)
 
+**Outcome (2026-09-30): committed as `301806b45`** — 146 files, the whole-file
+set plus the hunk-selected set below, with `SelectionOverlay*`, `tools/types.ts`,
+`Menubar.tsx` (find-replace), `ui/Dialog.tsx` (dialog focus), `Shell.tsx`,
+`context.tsx`, `canvas/inputPipeline.ts`, `menu/defs.ts` and
+`platform/src/web.ts` left uncommitted for their owners.
+
+Built on an isolated index (`GIT_INDEX_FILE` seeded with `git read-tree HEAD`,
+never the shared index) and verified before committing by extracting the
+resulting tree and comparing typecheck error sets against a plain `HEAD` tree:
+**editor 5 errors in both, e2e 1 error in both, and no error present in the
+staged tree that is absent from `HEAD`** — i.e. the change adds none. (Those
+pre-existing errors are the botched `SpecPanel/export.ts` merge in `HEAD` and
+`packages/scene/src/auditAdapter.ts:365`; the working tree already carries the
+`export.ts` fix, uncommitted, from its owner.) The committed tree then ran its
+own unit tests from the extracted checkout: **6 files / 51 tests passed**.
+
+The analysis below is retained because it is what the hunk selection was
+derived from, and because the same boundary applies to any follow-up.
+
+
 The tablet slice cannot be committed safely from this checkout without hunk-level
 selection, because several tablet-owned files also carry another task's
 uncommitted work (canvas-fluidity's render-only transform previews). Committing
