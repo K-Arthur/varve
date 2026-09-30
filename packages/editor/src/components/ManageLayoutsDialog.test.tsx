@@ -137,7 +137,43 @@ describe('ManageLayoutsDialog', () => {
     expect(within(confirm).getByText(/Delete “Doomed”/)).toBeTruthy();
     fireEvent.click(within(confirm).getByRole('button', { name: 'Delete layout' }));
     await waitFor(() => expect(getLayoutStore().variants).toHaveLength(0));
-    expect(getLayoutStore().tombstones['lv-doomed']).toBeTypeOf('number');
+    expect(getLayoutStore().tombstones['lv-doomed']).toMatchObject({
+      revision: expect.any(Number),
+      writerId: expect.any(String),
+    });
+  });
+
+  it('cancels the delete confirmation on Escape instead of closing the dialog', async () => {
+    setLayoutStore({
+      ...getLayoutStore(),
+      variants: [
+        {
+          id: 'lv-esc',
+          name: 'Escapable',
+          builtIn: false,
+          createdAt: 1,
+          updatedAt: 1,
+          payload: {},
+        },
+      ],
+    });
+    const getEditor = renderDialogWithEditor();
+    await waitFor(() => expect(getEditor()).toBeDefined());
+
+    const outer = screen.getByRole('dialog');
+    const row = within(outer).getByText('Escapable').closest<HTMLElement>('.workspace-layouts__row')!;
+    fireEvent.click(within(row).getByRole('button', { name: 'Delete' }));
+    const confirm = screen.getAllByRole('dialog').at(-1)!;
+    expect(within(confirm).getByText(/Delete “Escapable”/)).toBeTruthy();
+
+    // The confirmation sits inside the Manage Layouts dialog, so its keydown
+    // also reaches that ancestor. Escape must cancel the confirmation and stop
+    // there — not close the enclosing dialog with the confirmation still
+    // pending, and not delete the layout.
+    fireEvent.keyDown(confirm, { key: 'Escape' });
+    await waitFor(() => expect(screen.getAllByRole('dialog')).toHaveLength(1));
+    expect(getEditor.onClose).not.toHaveBeenCalled();
+    expect(getLayoutStore().variants).toHaveLength(1);
   });
 
   it('imports a valid layout and rejects an invalid payload', async () => {

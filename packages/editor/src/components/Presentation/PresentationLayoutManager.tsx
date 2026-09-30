@@ -14,7 +14,7 @@ import {
   type SceneNode,
   supportsPresentationLayoutNode,
 } from '@varve/scene';
-import { Button, Dialog } from '@varve/ui';
+import { Button, Dialog, Select } from '@varve/ui';
 import { useMemo, useState } from 'react';
 
 interface PresentationLayoutManagerProps {
@@ -224,19 +224,21 @@ export function PresentationLayoutManager({
           </p>
           <label className="presentation-navigator__field">
             <span>Built-in layout</span>
-            <select
+            <Select
+              label="Built-in layout"
               aria-label="Built-in layout"
               value={builtInLayoutId}
-              onChange={(event) =>
-                setBuiltInLayoutId(event.target.value as PresentationBuiltInLayoutId)
-              }
-            >
-              {PRESENTATION_BUILT_IN_LAYOUTS.map((layout) => (
-                <option key={layout.id} value={layout.id}>
-                  {layout.name} · {layout.description}
-                </option>
-              ))}
-            </select>
+              onValueChange={(value) => {
+                setBuiltInLayoutId(value as PresentationBuiltInLayoutId);
+              }}
+              options={[
+                ...PRESENTATION_BUILT_IN_LAYOUTS.map((layout, index) => ({
+                  key: layout.id ?? index,
+                  value: layout.id,
+                  label: `${layout.name} · ${layout.description}`,
+                })),
+              ]}
+            />
           </label>
           <Button size="sm" variant="default" onClick={addBuiltInLayout}>
             Add editable layout source
@@ -245,22 +247,24 @@ export function PresentationLayoutManager({
         {sources.length > 0 && (
           <label className="presentation-navigator__field">
             <span>Layout source</span>
-            <select
+            <Select
+              label="Layout source"
               aria-label="Layout source"
               value={sourceId}
-              onChange={(event) => {
-                setSourceId(event.target.value);
+              onValueChange={(value) => {
+                setSourceId(value);
                 setTargetRoles({});
                 setPreview(null);
               }}
-            >
-              <option value="">Choose layout</option>
-              {sources.map((source) => (
-                <option key={source.id} value={source.id}>
-                  {source.name}
-                </option>
-              ))}
-            </select>
+              options={[
+                { value: '', label: `Choose layout` },
+                ...sources.map((source, index) => ({
+                  key: source.id ?? index,
+                  value: source.id,
+                  label: `${source.name}`,
+                })),
+              ]}
+            />
           </label>
         )}
         {selectedSource && (
@@ -296,21 +300,23 @@ export function PresentationLayoutManager({
             <strong>Register a source frame</strong>
             <label className="presentation-navigator__field">
               <span>Source frame</span>
-              <select
+              <Select
+                label="Source frame"
                 aria-label="Source frame"
                 value={sourceFrame?.id ?? ''}
-                onChange={(event) => {
-                  setSourceFrameId(event.target.value);
+                onValueChange={(value) => {
+                  setSourceFrameId(value);
                   setRoleDraft({});
                   setError('');
                 }}
-              >
-                {frames.map((frame) => (
-                  <option key={frame.id} value={frame.id}>
-                    {frame.name}
-                  </option>
-                ))}
-              </select>
+                options={[
+                  ...frames.map((frame, index) => ({
+                    key: frame.id ?? index,
+                    value: frame.id,
+                    label: `${frame.name}`,
+                  })),
+                ]}
+              />
             </label>
             <label className="presentation-navigator__field">
               <span>Layout name</span>
@@ -356,38 +362,44 @@ export function PresentationLayoutManager({
                 return (
                   <label className="presentation-navigator__field" key={role}>
                     <span>{role}</span>
-                    <select
+                    <Select
+                      label={`Slide object for ${role}`}
                       aria-label={`Slide object for ${role}`}
                       value={
                         targetChildren.some((target) => target.id === targetRoles[role])
                           ? targetRoles[role]
                           : ''
                       }
-                      onChange={(event) =>
-                        setTargetRoles((roles) => ({ ...roles, [role]: event.target.value }))
-                      }
-                    >
-                      <option value="">Leave unmatched</option>
-                      {candidates.map((target) => (
-                        <option key={target.id} value={target.id}>
-                          {target.name || target.kind}
-                        </option>
-                      ))}
-                    </select>
+                      onValueChange={(value) => {
+                        setTargetRoles((roles) => ({ ...roles, [role]: value }));
+                      }}
+                      options={[
+                        { value: '', label: `Leave unmatched` },
+                        ...candidates.map((target, index) => ({
+                          key: target.id ?? index,
+                          value: target.id,
+                          label: `${target.name || target.kind}`,
+                        })),
+                      ]}
+                    />
                   </label>
                 );
               })}
               <label className="presentation-navigator__field">
                 <span>Aspect ratio change</span>
-                <select
+                <Select
+                  label="Aspect ratio change"
                   aria-label="Aspect ratio change"
                   value={mode}
-                  onChange={(event) => setMode(event.target.value as PresentationLayoutReflowMode)}
-                >
-                  <option value="reflow">Preview reflow</option>
-                  <option value="fit">Uniform fit</option>
-                  <option value="crop">Uniform crop</option>
-                </select>
+                  onValueChange={(value) => {
+                    setMode(value as PresentationLayoutReflowMode);
+                  }}
+                  options={[
+                    { value: 'reflow', label: `Preview reflow` },
+                    { value: 'fit', label: `Uniform fit` },
+                    { value: 'crop', label: `Uniform crop` },
+                  ]}
+                />
               </label>
               <Button size="sm" variant="default" onClick={buildPreview}>
                 Preview and reapply…

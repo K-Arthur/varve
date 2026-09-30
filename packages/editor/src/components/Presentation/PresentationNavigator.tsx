@@ -20,7 +20,7 @@ import {
   type SceneNode,
   sampleThemeColors,
 } from '@varve/scene';
-import { Button, Dialog, NumberInput } from '@varve/ui';
+import { Button, Dialog, NumberInput, Select } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../context';
 import { PanelDetachButton } from '../PanelDragHandle';
@@ -581,21 +581,23 @@ export function PresentationNavigator({ showDetach = true }: { showDetach?: bool
           {decks.length > 1 && (
             <label className="presentation-navigator__deck-label">
               <span>Presentation</span>
-              <select
+              <Select
+                label="Presentation"
                 aria-label="Presentation"
                 value={deckId}
-                onChange={(event) => {
-                  setDeckId(event.target.value);
+                onValueChange={(value) => {
+                  setDeckId(value);
                   setSelectedEntryIds([]);
                   setActiveEntryId(null);
                 }}
-              >
-                {decks.map((deck) => (
-                  <option key={deck.id} value={deck.id}>
-                    {deck.name}
-                  </option>
-                ))}
-              </select>
+                options={[
+                  ...decks.map((deck, index) => ({
+                    key: deck.id ?? index,
+                    value: deck.id,
+                    label: `${deck.name}`,
+                  })),
+                ]}
+              />
             </label>
           )}
           {showDetach && <PanelDetachButton />}
@@ -639,18 +641,22 @@ export function PresentationNavigator({ showDetach = true }: { showDetach?: bool
             </p>
             <label className="presentation-navigator__field">
               <span>Size</span>
-              <select
+              <Select
+                label="Slide size preset"
                 aria-label="Slide size preset"
                 value={sizePreset}
-                onChange={(event) => setSizePreset(event.target.value)}
-              >
-                {PRESENTATION_SIZE_PRESETS.map((preset) => (
-                  <option key={preset.id} value={preset.id}>
-                    {preset.name} · {preset.width} x {preset.height}
-                  </option>
-                ))}
-                <option value="custom">Custom…</option>
-              </select>
+                onValueChange={(value) => {
+                  setSizePreset(value);
+                }}
+                options={[
+                  { value: 'custom', label: `Custom…` },
+                  ...PRESENTATION_SIZE_PRESETS.map((preset, index) => ({
+                    key: preset.id ?? index,
+                    value: preset.id,
+                    label: `${preset.name} · ${preset.width} x ${preset.height}`,
+                  })),
+                ]}
+              />
             </label>
             {sizePreset === 'custom' && (
               <div className="presentation-navigator__size-custom">
@@ -681,17 +687,21 @@ export function PresentationNavigator({ showDetach = true }: { showDetach?: bool
             )}
             <label className="presentation-navigator__field">
               <span>How to fill</span>
-              <select
+              <Select
+                label="Slide size mode"
                 aria-label="Slide size mode"
                 value={resizeMode}
-                onChange={(event) => setResizeMode(event.target.value as PresentationResizeMode)}
-              >
-                {PRESENTATION_RESIZE_MODES.map((option) => (
-                  <option key={option.id} value={option.id}>
-                    {option.name} — {option.description}
-                  </option>
-                ))}
-              </select>
+                onValueChange={(value) => {
+                  setResizeMode(value as PresentationResizeMode);
+                }}
+                options={[
+                  ...PRESENTATION_RESIZE_MODES.map((option, index) => ({
+                    key: option.id ?? index,
+                    value: option.id,
+                    label: `${option.name} — ${option.description}`,
+                  })),
+                ]}
+              />
             </label>
             <Button
               size="sm"
@@ -764,23 +774,25 @@ export function PresentationNavigator({ showDetach = true }: { showDetach?: bool
               {PRESENTATION_THEME_ROLES.map((role) => (
                 <label className="presentation-navigator__field" key={role}>
                   <span>{role}</span>
-                  <select
+                  <Select
+                    label={`Slide object for theme role ${role}`}
                     aria-label={`Slide object for theme role ${role}`}
                     value={themeRoleNodes[role] ?? ''}
-                    onChange={(event) =>
+                    onValueChange={(value) => {
                       setThemeRoleNodes((current) => ({
                         ...current,
-                        [role]: event.target.value,
-                      }))
-                    }
-                  >
-                    <option value="">Not used</option>
-                    {slideChildren.map((node) => (
-                      <option key={node.id} value={node.id}>
-                        {node.name || node.kind}
-                      </option>
-                    ))}
-                  </select>
+                        [role]: value,
+                      }));
+                    }}
+                    options={[
+                      { value: '', label: `Not used` },
+                      ...slideChildren.map((node, index) => ({
+                        key: node.id ?? index,
+                        value: node.id,
+                        label: `${node.name || node.kind}`,
+                      })),
+                    ]}
+                  />
                 </label>
               ))}
             </div>
@@ -1097,24 +1109,26 @@ export function PresentationNavigator({ showDetach = true }: { showDetach?: bool
                 </label>
                 <label className="presentation-navigator__field">
                   <span>Section</span>
-                  <select
+                  <Select
+                    label={`Section for ${entry.title}`}
                     aria-label={`Section for ${entry.title}`}
                     value={entry.sectionId ?? ''}
-                    onChange={(event) =>
+                    onValueChange={(value) => {
                       updateEntry(
                         entry.id,
-                        { sectionId: event.target.value || null },
+                        { sectionId: value || null },
                         'Assign presentation section',
-                      )
-                    }
-                  >
-                    <option value="">No section</option>
-                    {resolution.deck?.sections.map((section) => (
-                      <option key={section.id} value={section.id}>
-                        {section.title}
-                      </option>
-                    ))}
-                  </select>
+                      );
+                    }}
+                    options={[
+                      { value: '', label: `No section` },
+                      ...(resolution.deck?.sections ?? []).map((section, index) => ({
+                        key: section.id ?? index,
+                        value: section.id,
+                        label: `${section.title}`,
+                      })),
+                    ]}
+                  />
                 </label>
                 <label className="presentation-navigator__field">
                   <span>Speaker notes (private)</span>

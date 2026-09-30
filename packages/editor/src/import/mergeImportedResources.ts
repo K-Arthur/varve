@@ -8,10 +8,11 @@ import type {
   IccProfileEntry,
   LiveMatteSource,
   MockupTemplateAsset,
+  PatternDefinition,
   RasterMaskAsset,
   SceneNode,
 } from '@varve/scene';
-import { nextNodeId } from '@varve/scene';
+import { deepCloneSubtree, nextNodeId } from '@varve/scene';
 import {
   remapGenerativeEditLineage,
   remapGenerativeEditOverlays,
@@ -24,6 +25,12 @@ export interface ImportedResourceSet {
 
 interface ResourceMaps {
   nodeIds: Map<string, string>;
+  /**
+   * Node ids that exist in the source document. A `string` that names a node
+   * there is a reference to be remapped or released; anything else (a data URL,
+   * an asset handle) is opaque payload and must pass through untouched.
+   */
+  sourceNodeIds: ReadonlySet<string>;
   componentIds: Map<string, string>;
   styleIds: Map<string, string>;
   paintIds: Map<string, string>;
@@ -39,6 +46,7 @@ interface ResourceMaps {
   depthMapIds: Map<string, string>;
   iconAssetIds: Map<string, string>;
   iccProfileIds: Map<string, string>;
+  patternIds: Map<string, string>;
 }
 
 function allocateResourceId(doc: Document, occupied: Set<string>): { id: string; doc: Document } {
@@ -46,6 +54,25 @@ function allocateResourceId(doc: Document, occupied: Set<string>): { id: string;
   while (occupied.has(next.id)) next = nextNodeId(next.doc);
   occupied.add(next.id);
   return { id: next.id, doc: next.doc };
+}
+
+function deepClonePatternSource(
+  doc: Document,
+  source: Extract<PatternDefinition['source'], { kind: 'vector' }>,
+): { document: Document; idMap: Map<string, string>; nodes: Record<string, SceneNode> } {
+  const [firstRoot, ...otherRoots] = source.rootIds;
+  if (!firstRoot) return { document: doc, idMap: new Map(), nodes: {} };
+  const clone = deepCloneSubtree(source.nodes, doc.nextId, firstRoot, {
+    additionalRootIds: [
+      ...otherRoots,
+      ...Object.keys(source.nodes).filter((id) => id !== firstRoot),
+    ],
+  });
+  return {
+    document: { ...doc, nextId: clone.nextId },
+    idMap: clone.idMap,
+    nodes: clone.nodes,
+  };
 }
 
 function remapId(value: string | undefined, ids: Map<string, string>): string | undefined {
@@ -123,7 +150,35 @@ function remapEffects(effects: readonly Effect[], maps: ResourceMaps): Effect[] 
   });
 }
 
-function remapFill(fill: Fill, maps: ResourceMaps, assets: Document['assets']): Fill {
+function remapFill(
+  fill: Fill,
+  maps: ResourceMaps,
+  assets: Document['assets'],
+  sourceNodeIds: ReadonlySet<string>,
+): Fill {
+  if (fill.type === 'pattern' && fill.pattern) {
+    const definitionId = fill.pattern.definitionId
+      ? maps.patternIds.get(fill.pattern.definitionId)
+      : undefined;
+    // A pattern may name a scene node as its tile source. Batch import clones
+    // each root with its own id map, so a tile node belonging to another
+    // imported root arrives still carrying the source document's id. Remap it
+    // through the transport's node map, and release a tile node the transport
+    // never cloned instead of leaving a reference the target cannot resolve.
+    // A data URL or asset handle is not a source-document node id, so it is
+    // left exactly as imported.
+    const tileSrc = fill.pattern.tileSrc;
+    const tileSrcIsNodeRef = Boolean(tileSrc && sourceNodeIds.has(tileSrc));
+    const remappedTileSrc = tileSrcIsNodeRef ? maps.nodeIds.get(tileSrc!) : undefined;
+    return {
+      ...fill,
+      pattern: {
+        ...fill.pattern,
+        ...(definitionId ? { definitionId } : { definitionId: undefined }),
+        ...(tileSrcIsNodeRef ? { tileSrc: remappedTileSrc ?? '' } : {}),
+      },
+    };
+  }
   if (fill.type !== 'image' || !fill.image) return fill;
   const assetId = remapId(fill.image.assetId, maps.assetIds);
   const asset = assetId ? assets?.[assetId] : undefined;
@@ -154,7 +209,7 @@ function remapNodeAssetReferences(
   if (node.fills) {
     result = {
       ...result,
-      fills: node.fills.map((fill) => remapFill(fill, maps, assets)),
+      fills: node.fills.map((fill) => remapFill(fill, maps, assets, maps.sourceNodeIds)),
     } as SceneNode;
   }
   if (node.mask) {
@@ -251,6 +306,48 @@ function remapNodeAssetReferences(
     } as SceneNode;
   }
   return result;
+}
+
+function remapPatternSourceNode(
+  node: SceneNode,
+  maps: ResourceMaps,
+  assets: Document['assets'],
+): SceneNode {
+  const candidate = remapNodeAssetReferences(node, maps, assets) as SceneNode & {
+    componentId?: string;
+    styleId?: string;
+    paintRefs?: string[];
+    bindings?: Record<string, { variableId: string }>;
+  };
+  if (candidate.componentId) {
+    const componentId = maps.componentIds.get(candidate.componentId);
+    if (componentId) candidate.componentId = componentId;
+    else delete candidate.componentId;
+  }
+  if (candidate.styleId) {
+    const styleId = maps.styleIds.get(candidate.styleId);
+    if (styleId) candidate.styleId = styleId;
+    else delete candidate.styleId;
+  }
+  if (candidate.paintRefs) {
+    candidate.paintRefs = candidate.paintRefs
+      .map((paintId) => maps.paintIds.get(paintId))
+      .filter((paintId): paintId is string => Boolean(paintId));
+    if (candidate.paintRefs.length === 0) delete candidate.paintRefs;
+  }
+  if (candidate.bindings) {
+    const bindings = Object.fromEntries(
+      Object.entries(candidate.bindings)
+        .map(([key, binding]) => {
+          const variableId = maps.variableIds.get(binding.variableId);
+          return variableId ? [key, { ...binding, variableId }] : null;
+        })
+        .filter((entry): entry is [string, { variableId: string }] => Boolean(entry)),
+    );
+    if (Object.keys(bindings).length > 0) candidate.bindings = bindings;
+    else delete candidate.bindings;
+  }
+  return candidate;
 }
 
 function remapGenerativeEditAssets(
@@ -460,6 +557,7 @@ function mergeGroup(
   let doc = target;
   const maps: ResourceMaps = {
     nodeIds,
+    sourceNodeIds: new Set(Object.keys(sourceDoc.nodes)),
     componentIds: new Map(),
     styleIds: new Map(),
     paintIds: new Map(),
@@ -475,6 +573,7 @@ function mergeGroup(
     depthMapIds: new Map(),
     iconAssetIds: new Map(),
     iccProfileIds: new Map(),
+    patternIds: new Map(),
   };
 
   let mapped = mapImportedAssetIds(doc, sourceDoc.assets, doc.assets, occupied);
@@ -545,6 +644,21 @@ function mergeGroup(
     doc = allocated.doc;
     maps.motionPresetIds.set(id, allocated.id);
   }
+  for (const [sourceId, source] of Object.entries(sourceDoc.patternDefinitions ?? {})) {
+    const existing = doc.patternDefinitions?.[sourceId];
+    if (existing && resourcesEquivalent(existing, source)) {
+      maps.patternIds.set(sourceId, sourceId);
+      continue;
+    }
+    if (!existing && !occupied.has(sourceId)) {
+      occupied.add(sourceId);
+      maps.patternIds.set(sourceId, sourceId);
+      continue;
+    }
+    const allocated = allocateResourceId(doc, occupied);
+    doc = allocated.doc;
+    maps.patternIds.set(sourceId, allocated.id);
+  }
 
   const components = { ...doc.components };
   for (const [sourceId, source] of Object.entries(sourceDoc.components)) {
@@ -583,7 +697,7 @@ function mergeGroup(
     if (!id) continue;
     styles[id] =
       source.type === 'color'
-        ? { ...source, id, fill: remapFill(source.fill, maps, doc.assets) }
+        ? { ...source, id, fill: remapFill(source.fill, maps, doc.assets, maps.sourceNodeIds) }
         : source.type === 'effect'
           ? { ...source, id, effects: remapEffects(source.effects, maps) }
           : { ...source, id };
@@ -596,8 +710,60 @@ function mergeGroup(
     paints[id] = {
       ...source,
       id,
-      fill: remapFill(structuredClone(source.fill), maps, doc.assets),
+      fill: remapFill(structuredClone(source.fill), maps, doc.assets, maps.sourceNodeIds),
     };
+  }
+
+  const patternDefinitions = { ...(doc.patternDefinitions ?? {}) };
+  for (const [sourceId, source] of Object.entries(sourceDoc.patternDefinitions ?? {})) {
+    const id = maps.patternIds.get(sourceId);
+    if (!id) continue;
+    const existing = patternDefinitions[id];
+    if (existing && resourcesEquivalent(existing, source)) continue;
+    const definition = structuredClone(source) as PatternDefinition;
+    definition.id = id;
+    definition.dependencyPatternIds = definition.dependencyPatternIds
+      ?.map((dependencyId) => maps.patternIds.get(dependencyId))
+      .filter((dependencyId): dependencyId is string => Boolean(dependencyId));
+    if (definition.source.kind === 'raster') {
+      const assetId = maps.assetIds.get(definition.source.assetId);
+      if (!assetId) continue;
+      definition.source.assetId = assetId;
+    } else if (definition.source.kind === 'vector') {
+      if (definition.source.rootIds.length > 0) {
+        const cloned = deepClonePatternSource(doc, definition.source);
+        doc = cloned.document;
+        const sourceNodeIds = new Map(maps.nodeIds);
+        for (const [sourceNodeId, targetNodeId] of cloned.idMap) {
+          sourceNodeIds.set(sourceNodeId, targetNodeId);
+        }
+        const sourceMaps: ResourceMaps = { ...maps, nodeIds: sourceNodeIds };
+        const clonedNodes: Record<string, SceneNode> = {};
+        for (const [nodeId, node] of Object.entries(cloned.nodes)) {
+          clonedNodes[nodeId] = remapPatternSourceNode(node, sourceMaps, doc.assets);
+        }
+        definition.source = {
+          ...definition.source,
+          rootIds: definition.source.rootIds
+            .map((rootId) => cloned.idMap.get(rootId))
+            .filter((rootId): rootId is string => Boolean(rootId)),
+          nodes: clonedNodes,
+          assetIds: definition.source.assetIds
+            .map((assetId) => maps.assetIds.get(assetId))
+            .filter((assetId): assetId is string => Boolean(assetId)),
+          styleIds: definition.source.styleIds
+            .map((styleId) => maps.styleIds.get(styleId))
+            .filter((styleId): styleId is string => Boolean(styleId)),
+          componentIds: definition.source.componentIds
+            .map((componentId) => maps.componentIds.get(componentId))
+            .filter((componentId): componentId is string => Boolean(componentId)),
+        };
+        // The preview is self-contained SVG generated from the source artwork.
+        // Keep it across ID remapping so paste can render immediately; the
+        // canonical editable nodes below receive fresh destination identities.
+      }
+    }
+    patternDefinitions[id] = definition;
   }
 
   const mockupTemplates = { ...(doc.mockupTemplates ?? {}) };
@@ -825,6 +991,7 @@ function mergeGroup(
       components,
       ...(Object.keys(styles).length > 0 ? { styles } : {}),
       ...(Object.keys(paints).length > 0 ? { paints } : {}),
+      ...(Object.keys(patternDefinitions).length > 0 ? { patternDefinitions } : {}),
       ...(Object.keys(mockupTemplates).length > 0 ? { mockupTemplates } : {}),
       ...(Object.keys(interactions).length > 0 ? { interactions } : {}),
       ...(Object.keys(stories).length > 0 ? { stories } : {}),
@@ -865,6 +1032,7 @@ export function mergeImportedResources(target: Document, imports: ImportedResour
     ...Object.keys(doc.depthMaps ?? {}),
     ...Object.keys(doc.iconAssets ?? {}),
     ...Object.keys(doc.iccProfiles ?? {}),
+    ...Object.keys(doc.patternDefinitions ?? {}),
   ]);
   for (const [sourceDoc, entries] of grouped) {
     const merged = mergeGroup(doc, sourceDoc, entries, occupied);

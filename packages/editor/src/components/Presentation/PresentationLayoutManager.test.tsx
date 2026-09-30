@@ -15,6 +15,7 @@ import {
 } from '@varve/scene';
 import { useCallback, useState } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
+import { chooseOption } from '../../test-helpers/presentationSelect';
 import { PresentationLayoutManager } from './PresentationLayoutManager';
 
 afterEach(cleanup);
@@ -136,10 +137,7 @@ function Harness({ operations }: { operations: string[] }) {
 async function applyLayout(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByText(/Reusable layouts/));
   await user.click(screen.getByRole('button', { name: 'Register layout source' }));
-  await user.selectOptions(
-    screen.getByRole('combobox', { name: 'Slide object for source-title' }),
-    'target-text',
-  );
+  await chooseOption(user, 'Slide object for source-title', 'Slide title');
   await user.click(screen.getByRole('button', { name: 'Preview and reapply…' }));
   await user.click(
     within(screen.getByRole('dialog', { name: 'Review layout changes' })).getByRole('button', {
@@ -155,18 +153,16 @@ describe('PresentationLayoutManager', () => {
     render(<Harness operations={operations} />);
 
     await user.click(screen.getByText(/Reusable layouts/));
-    await user.selectOptions(
-      screen.getByRole('combobox', { name: 'Built-in layout' }),
-      'image-text',
-    );
+    await chooseOption(user, 'Built-in layout', /^Image and text/);
     await user.click(screen.getByRole('button', { name: 'Add editable layout source' }));
 
     expect(operations).toEqual(['presentation.layout.builtin.create']);
     expect(screen.getByTestId('layout-names').textContent).toBe('Image and text');
-    const selectedSource = screen.getByRole('combobox', {
-      name: 'Layout source',
-    }) as HTMLSelectElement;
-    expect(selectedSource.value.startsWith('layout-')).toBe(true);
+    // The shared Select is a button + listbox, so the new source is asserted
+    // through the option list rather than a native `value`.
+    await user.click(screen.getByRole('combobox', { name: 'Layout source' }));
+    const sourceOptions = await screen.findByRole('listbox', { name: 'Layout source' });
+    expect(sourceOptions.textContent).toContain('Image and text');
   });
 
   it('canceling leaves artwork unchanged; Apply reuses one typed operation', async () => {
@@ -176,10 +172,7 @@ describe('PresentationLayoutManager', () => {
 
     await user.click(screen.getByText(/Reusable layouts/));
     await user.click(screen.getByRole('button', { name: 'Register layout source' }));
-    await user.selectOptions(
-      screen.getByRole('combobox', { name: 'Slide object for source-title' }),
-      'target-text',
-    );
+    await chooseOption(user, 'Slide object for source-title', 'Slide title');
     await user.click(screen.getByRole('button', { name: 'Preview and reapply…' }));
 
     const dialog = screen.getByRole('dialog', { name: 'Review layout changes' });

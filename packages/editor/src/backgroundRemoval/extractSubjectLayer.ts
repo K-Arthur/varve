@@ -100,5 +100,11 @@ export function extractSubjectToLayer(
   }
 
   const committed = commitRasterMask(next, cloned.rootId, maskCommit);
+  // `commitRasterMask` returns its input unchanged when it refuses the mask,
+  // and the clone it was handed had `root.mask` deliberately stripped (the
+  // reviewed mask replaces the source's). Reporting success there would leave
+  // an exact, unmasked duplicate stacked on the source and a selection pointing
+  // at it, so refuse the whole extraction and let the caller say so.
+  if (!committed.nodes[cloned.rootId]?.mask?.rasterMask?.assetId) return null;
   return { doc: committed, newNodeId: cloned.rootId };
 }

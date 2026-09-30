@@ -821,6 +821,15 @@ export function WorkspaceCustomizeDialog({
         onClose={() => setConfirmResetAll(false)}
         title="Reset all workspaces?"
         dismissible={false}
+        // Nested inside the Customize dialog, so an unhandled Escape would
+        // bubble to the ancestor and close the whole surface with this
+        // confirmation still pending. Cancel the confirmation and stop.
+        onKeyDown={(event) => {
+          if (event.key !== 'Escape') return;
+          event.preventDefault();
+          event.stopPropagation();
+          setConfirmResetAll(false);
+        }}
       >
         <p>
           This discards every panel, toolbar, inspector, and status-bar customization in all six

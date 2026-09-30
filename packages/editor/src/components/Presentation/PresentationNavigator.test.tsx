@@ -13,6 +13,7 @@ import {
 } from '@varve/scene';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useEditor } from '../../context';
+import { chooseOption } from '../../test-helpers/presentationSelect';
 import { PresentationNavigator } from './PresentationNavigator';
 import { CREATE_PRESENTATION_FROM_SELECTION_EVENT } from './presentationCommands';
 
@@ -335,9 +336,8 @@ describe('PresentationNavigator', () => {
     render(<PresentationNavigator showDetach />);
 
     await user.click(screen.getByText(/Slide size/));
-    const preset = screen.getByRole('combobox', { name: 'Slide size preset' });
-    await user.selectOptions(preset, 'classic');
-    await user.selectOptions(screen.getByRole('combobox', { name: 'Slide size mode' }), 'fit');
+    await chooseOption(user, 'Slide size preset', /^Classic 4:3/);
+    await chooseOption(user, 'Slide size mode', /^Fit inside/);
 
     await user.click(screen.getByRole('button', { name: 'Review slide size change…' }));
     const dialog = screen.getByRole('dialog', { name: 'Review slide size change' });

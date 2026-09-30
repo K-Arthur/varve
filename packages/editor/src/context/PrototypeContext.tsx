@@ -232,9 +232,22 @@ export function PrototypeProvider({
         const v = doc.variableStore?.variables[id];
         if (!v) return doc;
         const mode = doc.variableStore?.activeMode ?? 'default';
-        return updateVariableInDocument(doc, id, {
-          valuesByMode: { ...v.valuesByMode, [mode]: value },
-        });
+        try {
+          return updateVariableInDocument(doc, id, {
+            valuesByMode: { ...v.valuesByMode, [mode]: value },
+          });
+        } catch {
+          // A token-linked variable refuses a value it cannot project
+          // (`synchronizeVariableEdit` throws on token/sync diagnostics), and
+          // that refusal must not escape a prototype interaction: the throw
+          // would leave playback mid-gesture, and writing the bound value
+          // anyway would desynchronise the token document. The runtime value
+          // set above is what the running prototype reads, so the interaction
+          // keeps its behaviour; only the document projection is skipped. The
+          // Variables panel surfaces the same refusal to the user when the
+          // value is edited directly.
+          return doc;
+        }
       });
     },
     [updateDoc, prototypeRuntimeRef],

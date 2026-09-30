@@ -728,6 +728,10 @@ export function createRenderWorkerHost(
         provisionFonts();
         const delay = Math.min(2 ** restartCount, 30) * 1000;
         restartTimeout = setTimeout(() => {
+          // The handshake gate below tests `restartTimeout === null`, so a fired
+          // timer must clear itself or that guard can never pass again for the
+          // rest of the realm's life.
+          restartTimeout = null;
           if (permanentFailure) return;
           if (pendingRender) {
             dispatchPendingRender();

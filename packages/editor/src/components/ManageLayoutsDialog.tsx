@@ -15,7 +15,7 @@
  *   validated and can only reference known panels, tabs, sections, and tools.
  */
 import { Button, Dialog, SearchField } from '@varve/ui';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useEditor } from '../context';
 import {
   addImportedLayoutVariant,
@@ -25,11 +25,14 @@ import {
   deleteLayoutVariant,
   duplicateLayoutVariant,
   exportLayoutVariant,
+  getLayoutPersistenceError,
   getLayoutStore,
   importLayoutVariantFromJson,
   isLayoutVariantApplied,
   renameLayoutVariant,
+  retryLayoutStoreSave,
   setLayoutStore,
+  subscribeLayoutPersistence,
   updateLayoutVariantPayload,
   type WorkspaceLayoutVariant,
 } from '../workspace/layoutVariants';
@@ -58,6 +61,23 @@ export function ManageLayoutsDialog({ open, onClose }: { open: boolean; onClose:
   const [importText, setImportText] = useState('');
   const [importOpen, setImportOpen] = useState(false);
   const [pendingImport, setPendingImport] = useState<WorkspaceLayoutVariant | null>(null);
+  const [persistenceError, setPersistenceError] = useState(getLayoutPersistenceError);
+  const [retryingSave, setRetryingSave] = useState(false);
+
+  useEffect(
+    () => subscribeLayoutPersistence(() => setPersistenceError(getLayoutPersistenceError())),
+    [],
+  );
+
+  const handleRetrySave = useCallback(async () => {
+    setRetryingSave(true);
+    try {
+      await retryLayoutStoreSave();
+    } finally {
+      setRetryingSave(false);
+      setPersistenceError(getLayoutPersistenceError());
+    }
+  }, []);
 
   const filter = search.trim().toLocaleLowerCase();
   const userVariants = useMemo(
@@ -246,6 +266,19 @@ export function ManageLayoutsDialog({ open, onClose }: { open: boolean; onClose:
           ). Applying a layout never switches workspace and never changes the document.
         </p>
 
+        {persistenceError && (
+          <section className="workspace-layouts__save-error" role="alert">
+            <p>
+              Named layouts could not be saved to {persistenceError.layer} storage. Editing can
+              continue; this session is still available.
+            </p>
+            <p>{persistenceError.message}</p>
+            <Button variant="secondary" disabled={retryingSave} onClick={handleRetrySave}>
+              {retryingSave ? 'Retrying…' : 'Retry saving'}
+            </Button>
+          </section>
+        )}
+
         <SearchField
           value={search}
           onChange={setSearch}
@@ -303,7 +336,12 @@ export function ManageLayoutsDialog({ open, onClose }: { open: boolean; onClose:
                 {variant.name}
                 {variant.sourceMode && (
                   <span className="workspace-layouts__mode">
-                    from {WORKSPACE_LABELS[variant.sourceMode]}
+                    from{' '}
+                    {variant.sourceMode === 'logo'
+                      ? 'Logo (legacy)'
+                      : variant.sourceMode === 'codegen'
+                        ? 'Code (legacy)'
+                        : WORKSPACE_LABELS[variant.sourceMode]}
                   </span>
                 )}
                 {isLayoutVariantApplied(variant, mode) && (
@@ -416,6 +454,17 @@ export function ManageLayoutsDialog({ open, onClose }: { open: boolean; onClose:
         onClose={() => setPendingDelete(null)}
         title="Delete layout?"
         dismissible={false}
+        // This confirmation is rendered inside the Manage Layouts dialog, and a
+        // React keydown from the front dialog still bubbles through that
+        // ancestor. Without an explicit stop the outer dialog's Escape handler
+        // closes the whole surface while this confirmation stays pending (the
+        // component never unmounts). Cancel the confirmation here and stop.
+        onKeyDown={(event) => {
+          if (event.key !== 'Escape') return;
+          event.preventDefault();
+          event.stopPropagation();
+          setPendingDelete(null);
+        }}
       >
         <p>
           Delete “{pendingDelete?.name}”? This removes the saved arrangement. The current workspace
@@ -436,6 +485,14 @@ export function ManageLayoutsDialog({ open, onClose }: { open: boolean; onClose:
         onClose={() => setPendingImport(null)}
         title="Layout name already exists"
         dismissible={false}
+        // Same nesting as the delete confirmation above: cancel here and stop,
+        // so Escape cannot close the enclosing Manage Layouts dialog.
+        onKeyDown={(event) => {
+          if (event.key !== 'Escape') return;
+          event.preventDefault();
+          event.stopPropagation();
+          setPendingImport(null);
+        }}
       >
         <p>
           A layout named “{pendingImport?.name}” already exists. Replace it with the imported
