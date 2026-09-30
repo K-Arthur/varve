@@ -45,8 +45,8 @@ import {
   composeFlattenedRasterAssetsForNode,
   findFlattenBoundaries,
 } from '../../export/compositor';
-import {
 import { prepareArtworkExport } from '../../export/conceptArtReferencePolicy';
+import {
   buildPrintImageManifestForSrcs,
   buildPrintImageManifestFromPngBlob,
   collectImageFillSrcs,
