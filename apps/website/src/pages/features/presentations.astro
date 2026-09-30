@@ -114,9 +114,28 @@ import { sitePath } from '../../lib/siteUrl';
           media. On top of that, per-object override reporting, single-property and whole-slide
           geometry reset, and appearance-preserving detach are in the source build. Preview and the
           delivered PNG are checked against each other in the test suite — the same slide rasterizes
-          identically in both, at the deck's declared pixel size. Layout formatting inheritance,
-          linked themes, detailed readability analysis, and deck-wide aspect-ratio conversion remain
-          in development.
+          identically in both, at the deck's declared pixel size. Detailed readability analysis and
+          formatting inheritance remain in development.
+        </p>
+      </section>
+
+      <section class="feature-section">
+        <h2>Change the format without losing the work</h2>
+        <p>
+          Pick 16:9, 4:3, vertical, or a custom size and the deck shows a before-and-after review
+          first: how many slides are affected, what happens to their content, and every warning.
+          <strong>Fit inside</strong> and <strong>Fill and crop</strong> keep proportions;
+          <strong>Stretch</strong> is the only mode that changes them, is labelled as such, and is
+          never applied by accident. The conversion is one undo step, frames keep their canvas
+          position, and artwork outside the deck is untouched.
+        </p>
+        <p>
+          A theme links each role — title, subtitle, body, caption, accent, background — to a real
+          document colour variable. Editing that variable in the Variables panel recolours every
+          slide that still follows it, so a brand change is one edit rather than a walk through the
+          deck. Objects you deliberately recoloured are left alone when you switch, and
+          <em>Detach theme</em> bakes the colour that is on screen so the object stops following the
+          brand without changing how it looks.
         </p>
       </section>
 

@@ -50,8 +50,15 @@ native vector geometry, and the bundled default artwork font, so source
 creation needs no network or external stock asset. The author can also register
 any ordinary non-slide frame as a layout source. Every mapped object reports
 inherited versus locally changed state against its recorded baseline, with
-per-object and per-property reset. Linked themes and formatting inheritance are
-still planned.
+per-object and per-property reset. Formatting inheritance is still planned.
+
+Two more capabilities are in the source build. Slide-size conversion (16:9 to
+4:3 or vertical, or a custom size) is previewed before it is applied and lands
+in one undo step; it offers Fit inside, Fill and crop, and an explicitly
+labelled Stretch, and it never moves frames on the canvas. Linked colour
+themes point slide objects at real document variables, so editing a colour in
+the Variables panel recolours every bound slide at once while deliberately
+recoloured objects stay as they are.
 
 The Slides tab has initial advisory preflight for missing included frames,
 unfinished placeholder text, small type, off-slide content, missing slide alt
@@ -146,12 +153,54 @@ registry, so a reset on a property the layout does not own is refused with an
 actionable message instead of silently doing nothing. Formatting inheritance
 and formatting (as opposed to geometry) reset remain unimplemented.
 
-Themes are not implemented yet. The text-style resolver now retains font
-references, paragraph spacing, vertical alignment, and zero-valued style
-properties; presentation themes still need linked color/style bindings and a
-clear route for user formatting into local overrides. Theme fragments and
-layout-source IDs also still need to join the existing cross-document clipboard
-resource maps. Paste must retain local artwork without creating deck membership.
+### Themes
+
+A theme is not a snapshot of colours. Each theme role (`title`, `subtitle`,
+`body`, `caption`, `accent`, `background`) points at an ordinary document colour
+variable created in the `Presentation themes` collection, and slide objects hold
+a `bindings.fill` reference to that variable — the same binding path the
+renderer already resolves on every frame. Editing one variable therefore
+recolours every bound object with no rebuild, no deck walk, and no flattened
+output, and the colours remain editable in the Variables panel rather than
+living in a private palette.
+
+`PresentationSlideThemeBinding` persists which theme and which role-to-object
+mapping a slide uses, so a mapping chosen by hand survives reload, and it is
+deliberately kept across detach so re-applying resumes the author's mapping
+instead of starting over.
+
+Local overrides are preserved by rule rather than by memory: once a slide has
+been themed, an object whose fill no longer follows a theme variable is an
+intentional colour and is skipped when a later theme is applied. Detach bakes
+the currently resolved colour into the node and removes the binding — the same
+contract `unlinkStyleFromNode` keeps for text styles — so appearance is
+identical while the object stops following the brand.
+
+Typography is not applied yet: `PresentationTheme.textStyles` stays
+schema-ready, and the text-style resolver retains font references, paragraph
+spacing, vertical alignment, and zero-valued style properties, but a per-role
+text style changes font metrics and therefore reflow, which needs its own
+review. Theme fragments and layout-source IDs also still need to join the
+existing cross-document clipboard resource maps; paste must retain local
+artwork without creating deck membership.
+
+### Deck size and aspect-ratio conversion
+
+The deck declares one slide size; its frames are ordinary artwork parked on the
+canvas. `previewPresentationResize` is a pure function that reports, per slide,
+the frame change, the content scale, and the centering offset, plus warnings for
+the mode, for mixed-size slides, and for unresolvable references.
+`presentation.deck.resize` re-checks that preview against the current deck
+before applying, so a stale preview is refused rather than committed.
+
+Content is scaled by applying `T·S·child` to each frame's *direct* children in
+their parent's local space. Because `world = parent ∘ local`, every descendant,
+text size, gradient, and vector shape follows without a descendant walk and
+without rewriting geometry. Each slide ends at the chosen size; Fit and Fill
+scale uniformly and centre, while Stretch scales each axis independently and
+says so before anything commits. Frame transforms are never touched, so canvas
+positions are unchanged, and an anisotropic conversion round-trips exactly with
+its inverse.
 
 ## Rendering and delivery
 

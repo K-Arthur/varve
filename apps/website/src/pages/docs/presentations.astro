@@ -115,6 +115,33 @@ import '../../styles/docs-prose.css';
       </section>
 
       <section class="docs-section">
+        <h2>Slide size</h2>
+        <p>
+          Open <strong>Slide size</strong> in the Slides panel, choose a preset or a custom width and
+          height, choose how to fill it, then <strong>Review slide size change</strong>. The review
+          shows the old and new sizes, the number of slides affected, and any warning — including the
+          mixed-size policy (every slide lands on the new size) and the distortion warning for
+          Stretch. Confirming applies the whole conversion as one undo step. Frames do not move on the
+          canvas, and artwork outside the deck is left alone.
+        </p>
+
+        <h2>Themes</h2>
+        <p>
+          Open <strong>Theme</strong> in the Slides panel. Map theme roles to objects on the current
+          slide (the slide's layout roles are used when it has one), then
+          <strong>Create theme from this slide</strong>. Each role becomes an ordinary document colour
+          variable in the Variables panel, so editing the colour there recolours every slide that
+          follows it. The panel reports each role as <em>Linked to theme</em>, <em>Local colour</em>,
+          <em>Object removed</em>, or <em>Not used</em>.
+        </p>
+        <p>
+          Applying a second theme keeps colours you deliberately changed: once a slide is themed, an
+          object that no longer follows a theme variable is treated as intentional. <strong>Detach
+          theme</strong> bakes the current colour and removes the link, so the appearance does not
+          change and later edits to the brand no longer move that object. Detaching keeps your role
+          mapping, so applying again resumes where you left off.
+        </p>
+
         <h2>Current status and delivery limits</h2>
         <p>
           The current source-build preview includes new-deck creation, rendered slide thumbnails,
@@ -127,8 +154,8 @@ import '../../styles/docs-prose.css';
           gradient, transparent, and otherwise ambiguous backgrounds. This capability is not yet
           included in a published Varve release. Geometry-only reusable layout sources, seven
           built-in layouts, and previewed reapplication are also present in this source build.
-          Detailed readability analysis, formatting inheritance, linked themes, and deck-wide
-          aspect-ratio conversion remain in development.
+          Detailed readability analysis and formatting inheritance remain in development.
+          Typography theming (a shared text style per role) is schema-ready but not applied yet.
         </p>
         <p>
           The PDF is a compressed raster screen PDF that preserves slide appearance, not editable

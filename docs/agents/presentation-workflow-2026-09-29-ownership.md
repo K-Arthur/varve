@@ -284,3 +284,62 @@ layout/theme clipboard mapping, image/mask/effect export fidelity and failure
 cases, deck-wide aspect-ratio conversion, and broad modest-deck pixel
 comparisons across editor/thumbnail/preview/reopen. PPTX remains deferred
 pending a separate interoperability assessment.
+
+## Second continuation — 2026-09-29/30 (documented open work)
+
+Three of the items previously listed as open were implemented, each with unit,
+component and Playwright coverage, and committed separately:
+
+- `dd975b3cb` — **deck-wide slide-size / aspect-ratio conversion.**
+  `presentation.deck.resize` with a pure preview (`previewPresentationResize`),
+  three disclosed modes (Fit inside, Fill and crop, Stretch), a stale-preview
+  precondition, and a Slides navigator disclosure with a before/after review
+  dialog. Content is scaled as `T·S·child` against each frame's direct children
+  in local space, so descendants, text, gradients and vector geometry follow
+  through `parent ∘ local` without a descendant walk. Canvas positions never
+  change; frames outside the deck are untouched; an anisotropic conversion
+  round-trips exactly with its inverse. Nine scene tests, one component test for
+  preview-before-apply, and two journeys (convert + undo, distortion warning).
+- `219c763e5` — **linked colour themes.** Theme roles point at ordinary document
+  colour variables and slide objects bind to them, so the renderer's existing
+  binding path delivers a global brand change with no rebuild. Local colour is
+  preserved by rule once a slide has been themed. Four operations
+  (create/remove/apply/unlink) with validation and preconditions, plus the
+  navigator's Theme disclosure with role mapping, status list, apply and detach.
+- `61610da89` — **two defects found by driving that panel.** The manually chosen
+  role mapping was only in component state, so it did not survive a reload;
+  `PresentationSlideThemeBinding` now persists it (and survives detach so
+  re-applying resumes the author's mapping). "Detach theme" only cleared the
+  slide's theme reference while the fill stayed bound to the variable, so the
+  colour still followed the brand; it now bakes the resolved colour into the
+  node and removes the binding, matching `unlinkStyleFromNode`.
+
+Evidence collected:
+
+- Full presentation suite: **9 Playwright tests across 5 specs** (layout
+  overrides, cross-surface fidelity, presentation mode, slide size, themes) and
+  **85 unit/component tests across 16 files**. Scene and editor typechecks are
+  clean for presentation files; `pnpm typecheck:e2e` passes; Biome reports no
+  issues on the presentation paths; `audit:docs` and `audit:emoji` are clean.
+- Website builds at 114 pages; feature and guide pages now describe slide size
+  and themes, and their "in development" lists were corrected.
+- Visual evidence in `reports/presentation-audit/`: `slide-size-review-dialog.png`
+  (before/after with mode and warnings), `theme-linked.png`, `theme-detached.png`,
+  `overrides-overridden.png`, `layout-review-dialog.png`, and the audience
+  preview captures.
+
+Still open: typography theming (`theme.textStyles` is schema-ready but applying
+a per-role text style changes font metrics and therefore reflow), formatting
+(non-geometry) inheritance and reset, cross-document layout/theme clipboard
+mapping, image/mask/effect export fidelity cases, and PPTX (deferred pending
+its own feasibility and fidelity assessment).
+
+Validation notes for this session: `pnpm verify:plan` continues to report
+`FULL-SUITE ESCALATION: YES` from concurrent sessions' workspace/toolchain
+changes (600+ changed paths), so `pnpm verify:affected` stops at that
+escalation; the presentation-scoped checks above were run directly instead. Two
+commit attempts were blocked by transient failures in shared-tree lanes
+(`direct-unit`, `typecheck:e2e`, `biome --staged`) that passed when rerun
+immediately, and `audit:emoji` was blocked for a period by an unrelated
+untracked file owned by another session — no presentation file violated it.
+

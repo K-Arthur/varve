@@ -1053,6 +1053,17 @@ placement, paint order, or canvas coordinates.
 - Audience preview is a modal, keyboard-owned surface: Space/Enter advance,
   arrows move, Home/End jump, Escape exits, and **each end stops with an
   announced boundary** instead of wrapping. Focus returns to the opener.
+- **Slide-size conversion** (`presentation.deck.resize`) is previewed and lands
+  in one undo step. Fit and Fill keep proportions; Stretch is the only mode that
+  changes them and it must be chosen explicitly. It scales content through each
+  frame's direct children in their own local space, so descendants, text, and
+  vector geometry follow; canvas positions never change.
+- **Colour themes** point roles at real document colour variables and bind slide
+  objects to them, so editing a variable in the Variables panel recolours every
+  bound slide. Deliberately recoloured objects are skipped on later applies.
+  Detach bakes the visible colour and drops the binding. `PresentationSlideThemeBinding`
+  persists the role mapping. Typography theming (`theme.textStyles`) is not
+  applied yet.
 
 Invariants:
 1. Presentation features must not force every frame into a deck, convert the
@@ -1067,7 +1078,7 @@ Invariants:
 5. PPTX interoperability stays deferred until its own feasibility and fidelity
    assessment.
 
-Open work: linked themes and colour variables, formatting (non-geometry)
-inheritance and reset, cross-document layout/theme clipboard mapping,
-image/mask/effect export fidelity cases, deck-wide aspect-ratio conversion, and
-PPTX.
+Open work: typography theming (`theme.textStyles`), formatting (non-geometry)
+inheritance and reset, cross-document layout/theme clipboard mapping, and
+image/mask/effect export fidelity cases. PPTX remains deferred until its own
+feasibility and fidelity assessment.
