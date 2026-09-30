@@ -162,7 +162,15 @@ describe('replay filter chain', () => {
     {
       kind: 'curves' as const,
       channel: 'rgb' as const,
-      points: [],
+      // A real tonal adjustment, deliberately not `points: []`. An empty point
+      // set is identity, and `isIdentityFilter` classifies it as neutral so a
+      // reset control cannot force the offscreen path (replay.ts, "Neutral
+      // entries are dropped first"). The neutral case is pinned separately
+      // below; using it here asserted nothing about filter routing.
+      points: [
+        { input: 0, output: 0 },
+        { input: 255, output: 128 },
+      ],
       opacity: 1,
       blendMode: 'normal' as const,
     },
@@ -176,6 +184,29 @@ describe('replay filter chain', () => {
       expect(appliedFilters).toEqual([filter]);
     },
   );
+
+  it('drops a neutral filter chain instead of forcing the offscreen path', () => {
+    const { target } = makeRecorder();
+    // A reset tonal control is identity by construction. Routing it through
+    // offscreen compositing would move antialiased pixels for no visual reason,
+    // so neutral entries are dropped rather than applied — the decision
+    // recorded in replay.ts ("Neutral entries are dropped first ...").
+    replayIr(target, [
+      {
+        ...rectItem(10, 10),
+        filters: [
+          {
+            kind: 'curves' as const,
+            channel: 'rgb' as const,
+            points: [],
+            opacity: 1,
+            blendMode: 'normal' as const,
+          },
+        ],
+      },
+    ]);
+    expect(applyFilterWithCompositingSpy).not.toHaveBeenCalled();
+  });
 
   it('applies complex filters to an isolated item surface without clearing prior layers', () => {
     const { target, calls } = makeRecorder();
