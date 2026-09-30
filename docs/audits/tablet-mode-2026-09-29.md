@@ -539,22 +539,30 @@ document and idling 15–18 s: `varve-recovery` exists (`version 1`, store
 `.save-status` stays `save-status--dirty` ("Modified"), never entering a saving
 or error state.
 
-Ruled out while investigating: `projectionMode` (only `AuxiliaryShell` sets it;
-the main editor's default is false, so `useAutoBackupServices` is enabled); a
-missing store (the DB and store exist); a swallowed write error (the status
-never became `save-status--error`); and the 5-minute `intervalMs` gate for the
-*specific* case tested — a Home-created library document legitimately shows no
-new point for 5 minutes, which is why the first probe was repeated from File >
-New, whose session records no prior save and so is due ~3 s after an edit given
-`idleThresholdMs: 2000` and the 1 s poll.
+This is **not established as a user-facing defect.** Both
+`AutoSaveService` and `BackupService` submit their work through
+`requestEditorFrame(key, 'background', …)`, and `frameScheduler.flush` runs the
+background lane only when `interactionDepth === 0 && now() - interactionEndedAt
+>= interactionSettleMs` **and** `now() - startedAt < authoritativeMs -
+backgroundMs` (`frameScheduler.ts` lines 153–163). So the observation is
+explained by either a leaked `beginEditorInteraction()` (depth pinned above
+zero) or by the background slice never fitting the frame budget.
 
-Strongest remaining candidate: `isEditorInteractionActive()` returning true, or
-the background frame lane (`requestEditorFrame(key, 'background', …)`) never
-running the job — both `AutoSaveService` and `BackupService` early-return on the
-former, which would explain the complete absence of *both* while history (which
-does not consult it) keeps writing. Not established; the frame scheduler's
-interaction state is not exposed to the page (`window.__varvePerf` is absent in
-this build), so it needs an owner with in-repo instrumentation.
+Ruled out: the document being hidden (`document.visibilityState === 'visible'`,
+`document.hidden === false`, `hasFocus()` true in that context — so the
+`scheduledFrame`/`visible` gate is not the cause); `projectionMode` (only
+`AuxiliaryShell` sets it; the main editor defaults to false); a missing DB or
+store (both exist); a swallowed write error (the status never became
+`--error`); and the 5-minute `intervalMs` gate for the case tested (a
+Home-created library document legitimately shows no new point for 5 minutes,
+which is why the probe was repeated from File > New).
+
+`interactionDepth` is not exposed to the page (`window.__varvePerf` is absent in
+this build; `window.__varveCrashTest` covers crash reporting only), so the
+balance of the seven `beginEditorInteraction()` sites against the eight
+`endEditorInteraction()` sites in `canvas/inputPipeline.ts` is the thing to
+instrument. That file is under another agent's active edit and its uncommitted
+diff changes exactly those close paths, so the check belongs with its owner.
 
 **4. Performance — partially closed.** `pnpm bench:canvas` passed 6 bench tests
 in 8.0 s, including the real assertions
@@ -565,6 +573,68 @@ tree. The matched production-workload comparison
 (`scripts/perf/run-production-workload.mjs`, `vector-500`, `single-drag`)
 remains open: it requires a production build, and on a tree carrying several
 agents' uncommitted work any figure would be classified non-authoritative.
+
+### Milestone 13 — repository repairs (2026-09-30)
+
+Three defects encountered while completing the items above were fixed, because
+each one blocked everyone rather than this task only.
+
+- **`master` did not type-check.** `f34e17069` left an unterminated `import {`
+  in `packages/editor/src/components/SpecPanel/export.ts` (line 49), so the file
+  did not parse. Worse, **a syntax error suppresses semantic checking for the
+  whole program**: `tsc` reported only those five syntax errors and hid 24 real
+  type errors that the repository already had. Repaired in `510232d94` by
+  restoring the intended import order (no behaviour change; the frame-local
+  export feature that the working tree adds on top of that file is not
+  included). This also corrects an earlier claim in this audit: the tablet
+  commit's "no new errors" comparison was measured *with the mask in place* and
+  was therefore not sound. Re-done with the repair applied to both trees —
+  `HEAD+repair` and `tablet+repair` — the two produce **24 identical errors**,
+  so the tablet commit introduces none.
+- **Unsatisfiable testing-library options.** Two `CurveEditor` queries passed
+  `exact: true`, which does not exist on `ByRoleOptions`, so the editor package
+  failed to compile. Fixed in `5c4ca00b6` with anchored name regexes; the test
+  still passes (12 tests) and the package loses those two errors.
+- **A refused save picker was reported as a user cancel.**
+  `platform.saveBinaryFile` mapped every picker failure except
+  `NotAllowedError` to "cancelled". The usual one is a `SecurityError`: the
+  picker is opened after the async work that prepares the bytes, so the
+  transient activation live when the command started has expired. The user saw
+  only "SVG export cancelled" and nothing was written — a silent total failure
+  of browser export. Fixed in `cf20557c6`: only `AbortError` is a cancel; any
+  other refusal falls through to the blob-download path, and `NotAllowedError`
+  still propagates. Regression added:
+  `tests/e2e/export/export-picker-fallback.spec.ts` (3 passed) drives the real
+  File > Export SVG path with a stubbed picker — refusal downloads a valid SVG,
+  cancel writes nothing, blocked writes nothing and is not announced as a
+  cancellation.
+
+**The 24 remaining errors belong to other owners.** They are all "a committed
+file depends on a sibling that is still uncommitted", so no repair is possible
+without committing someone else's in-flight work:
+
+| File (errors) | Depends on |
+|---|---|
+| `components/SpecPanel/export.test.ts` (9) | uncommitted `frameLocal` support in `SpecPanel/export.ts` |
+| `context.tsx` (4) | an uncommitted `selectionHistory.snapshot`/`restore` API |
+| `components/Inspector/controls/CurveEditor.test.tsx` (2) | *fixed here* |
+| `CanvasArea.tsx` (2) | uncommitted render-worker refs |
+| `Presentation/presentationCapture.ts` (1) | uncommitted `ExportOptions.frameLocal` |
+| `canvas/toolContext.ts` (1), `Inspector/sections/BackgroundRemovalSection.tsx` (1) | an uncommitted `'layer'` operation in the tool context |
+| `components/ManageLayoutsDialog.tsx` (1), `menu/__tests__/nativeAdapter.test.ts` (1), `navigation/navigationCoordinator.test.ts` (1) | an uncommitted `WorkspaceMode`/`codegen` change |
+| `canvas/__tests__/renderPipelineBaseline.test.ts` (1) | uncommitted `RenderContentDeps` fields |
+
+**Index hygiene (for whoever commits next).** Using plumbing
+(`read-tree`/`apply --cached`/`write-tree`/`commit-tree`) against an isolated
+`GIT_INDEX_FILE` kept the shared index safe, but two things did write stale
+entries into it: `git commit` with an isolated index, and running
+`pnpm verify:commit` manually with one. Both times the shared index ended up
+holding *reverts* of the files just committed (including reverts of the two
+repairs above), which a plain `git commit` by anyone would have applied. Both
+were detected by comparing `HEAD:`/index/worktree blob hashes and cleared with
+`git reset -- <my paths>`; only paths I authored were touched. Verify with
+`git diff --cached --name-status` before committing in this checkout — a stray
+`D` for a file that exists means the index is stale.
 
 ## Agent Validation Report
 
