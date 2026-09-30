@@ -1204,29 +1204,39 @@ export async function createWebPlatform(_options: WebPlatformOptions = {}): Prom
       const suggested = name.endsWith(`.${ext}`) ? name : `${name}.${ext}`;
       const acceptType = { description: mimeType, accept: { [mimeType]: [`.${ext}`] } };
       if (w?.showSaveFilePicker) {
-        let handle: FileSystemFileHandle | undefined;
         try {
-          handle = await w.showSaveFilePicker({ suggestedName: suggested, types: [acceptType] });
+          const handle = await w.showSaveFilePicker({
+            suggestedName: suggested,
+            types: [acceptType],
+          });
+          if (!handle) return null;
+          const writable = await (
+            handle as unknown as {
+              createWritable: () => Promise<{
+                write: (d: Uint8Array) => Promise<void>;
+                close: () => Promise<void>;
+              }>;
+            }
+          ).createWritable();
+          await writable.write(data);
+          await writable.close();
+          return handle.name;
         } catch (err) {
+          if (err instanceof DOMException && err.name === 'AbortError') {
+            // The user dismissed the picker: a genuine cancel, not a failure.
+            return null;
+          }
           if (err instanceof DOMException && err.name === 'NotAllowedError') {
             // Permission denied is not a cancel: propagate so the caller can
             // tell the user the browser blocked the save dialog.
             throw err;
           }
-          return null;
+          // Any other picker failure is a refusal, not a cancel — most often a
+          // SecurityError because the transient activation that was live when
+          // the command started has expired during the async work that prepared
+          // the bytes. Treating that as a cancel silently discarded the export,
+          // so fall through to the download path and let the user keep the file.
         }
-        if (!handle) return null;
-        const writable = await (
-          handle as unknown as {
-            createWritable: () => Promise<{
-              write: (d: Uint8Array) => Promise<void>;
-              close: () => Promise<void>;
-            }>;
-          }
-        ).createWritable();
-        await writable.write(data);
-        await writable.close();
-        return handle.name;
       }
       // Fallback: Blob download.
       const blob = new Blob([data as unknown as ArrayBuffer], { type: mimeType });
