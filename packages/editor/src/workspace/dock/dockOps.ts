@@ -404,7 +404,16 @@ export function addToTabGroup(
     const existing = listPanelInstances(target)[0];
     const tabs: DockNode = {
       kind: 'tabs',
-      id: `tabs-${targetNodeId}`,
+      // A fresh id, not `tabs-${targetNodeId}`. Composing the host's id made
+      // ids non-injective: a host panel node is `panel-${instanceId}`, so this
+      // produced `tabs-panel-${instanceId}` — exactly the id a *previous* tabs
+      // group over the same instance had already left behind in a collapsed
+      // node, because a tabs group that drops to one panel keeps its own id.
+      // Re-minting it put that id in the layout twice, which `validateDockLayout`
+      // rejects ("duplicate dock node id"), and the dock property test found it
+      // on a two-move sequence. Adding to an existing tabs group is unchanged
+      // and still keeps that group's id.
+      id: `tabs-${newId()}`,
       panels: existing ? [existing, panel] : [panel],
       activePanelInstanceId: makeActive ? panel.instanceId : undefined,
     };
@@ -795,7 +804,16 @@ export function removePanel(
 ): { tree: DockNode; removed?: PanelInstanceRef } {
   if (root.kind === 'panel' && root.panelInstanceId === instanceId) {
     return {
-      tree: createEmptyNode(root.id),
+      // A fresh id, deliberately not `root.id`. Panel node ids are derived from
+      // the instance id (`panel-${instanceId}`), which is only unique while the
+      // instance sits in exactly one place: a placeholder that inherited the id
+      // collided the moment the same instance was placed again — a move between
+      // windows, or an insert into the emptied slot — and the layout then held
+      // that id twice, which `validateDockLayout` rejects with "duplicate dock
+      // node id". The dock property test reproduced it after `move`. Split and
+      // tabs node ids come from `newId()` or from a host id that is consumed on
+      // use, so the panel leaf was the only re-mintable one.
+      tree: createEmptyNode(`empty-${newId()}`),
       removed: { instanceId: root.panelInstanceId, panelTypeId: root.panelTypeId },
     };
   }
