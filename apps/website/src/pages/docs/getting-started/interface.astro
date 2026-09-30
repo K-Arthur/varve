@@ -142,13 +142,29 @@ import '../../../styles/docs-prose.css';
         </p>
         <h3>Groups, flyouts, and overflow</h3>
         <p>
-          Related tools are grouped by separators, and a tool with a chevron opens a
-          <strong>flyout</strong> menu — Shapes holds rectangle, ellipse, polygon, and
-          star. When the window is too narrow for every tool, the palette keeps the
+          Related tools are grouped by <strong>dividers</strong> — short, straight
+          vertical rules, one per group boundary. A divider always marks a change
+          of concern (shapes, then lines, then path tools, then selection, then
+          measurement), so you can read the row by its groups rather than hunting
+          for individual icons, and none of them opens a group of one. A tool with
+          a chevron opens a <strong>flyout</strong> menu — Shapes holds rectangle,
+          ellipse, polygon, and star.
+        </p>
+        <p>
+          When the window is too narrow for every tool, the palette keeps the
           tools you reach for most (creation first, then selection, editing, and
           navigation) and moves the rest behind the <strong>More tools</strong>
-          control at the end of the row, which names how many tools it holds. The More
-          menu groups the hidden tools by category, so nothing becomes unreachable.
+          control at the end of the row, which names how many tools it holds. The
+          More menu groups the hidden tools by category, so nothing becomes
+          unreachable. Nothing that a workspace hides is ever deleted: the command
+          palette lists it as <em>Hidden from toolbar</em>, and
+          <strong>Customize Workspace…</strong> puts it back.
+        </p>
+        <p>
+          In <strong>Draw</strong>, the palette carries a second row inside the
+          same card for brush size, opacity, and the foreground/background
+          colours — so the brush controls sit with the tools rather than in a
+          separate floating bar.
         </p>
         <p>See the <a href={sitePath('/docs/keyboard-shortcuts')}>full keyboard shortcuts reference</a> and <a href={sitePath('/docs/tools/vector')}>Vector Tools</a> for detailed usage.</p>
       </section>

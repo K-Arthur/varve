@@ -5,7 +5,10 @@ its contents are composed, how it behaves when space runs out, and how it is
 operated without a pointer. Related docs: `workspace-system.md` (per-mode
 configuration and overrides), `spacing-system.md` and
 `interface-sizing-system.md` (tokens), `menu-system.md` (the flyout and
-overflow menus themselves), `focus-navigation.md` (region order).
+overflow menus themselves), `focus-navigation.md` (region order). Review
+evidence (divider, surface, narrow-viewport and grouping findings, with the
+external failure record) lives in
+`docs/audits/toolbar-design-review-2026-09-29.md`.
 
 ## Surfaces and ownership
 
@@ -41,6 +44,51 @@ display strings come from `workspace/toolLabels.ts` and
 `shortcuts/toolShortcutLabel.ts`. Never hard-code a label or a shortcut in the
 palette — remapped keybindings must flow through `getEffectiveBinding`.
 
+### Grouping
+
+`groupStart` draws a divider, and a divider has one job: to say *what follows is
+a different concern from what preceded it*. The rule and the three shapes it
+forbids (a rule before the first rendered slot, a group spanning three or more
+concerns, a tool stranded from tools of its own category) are written at
+`WORKSPACE_CONFIGS` in `workspace/workspaceTypes.ts`, next to the configs they
+govern. Read that before adding a tool.
+
+Two consequences live here rather than in the config:
+
+- **The palette suppresses the rule before the first rendered slot.** The first
+  declared tool of every workspace carries `groupStart`, so without the guard
+  (`index > 0` in `FloatingToolbar`) the row opened with a stray divider after
+  its own padding — the same defect class Chrome DevTools' toolbar fixes in
+  `hideSeparatorDupes()`.
+- **Collapse can move a group boundary.** `useToolbarOverflow` promotes
+  `groupStart` to the first surviving slot of each declared group, so a
+  collapsed group takes its separator with it instead of merging its remainder
+  into the previous group.
+
+## Divider language
+
+A divider in any command surface is one object: `--separator-thickness` wide,
+`--separator-toolbar-length-ratio` of that surface's control height tall,
+square, in `--color-separator-subtle`, and separated from both neighbours by
+the same distance. The ratio (not a length) is what lets it follow Compact Pro
+and coarse-pointer promotion.
+
+`.floating-toolbar__divider` implements it for the palette; `.ccb__divider`,
+`.floating-text-bar__separator` and `.selection-quick-bar__separator` implement
+the same rule for the context bar, text bar and selection quick bar; the menubar
+(`.editor-menubar__zoom-divider`) and the menu separator already did.
+
+**A divider must be its own element, never a `border-left` on a rounded
+button.** The palette used to draw it that way, which had three consequences
+the palette could not fix from there: the button's `--radius-control-compact`
+curved the 1px border into a bracket at each end; the same rule's
+`padding-left` shrank the button's content box and pushed every group-leading
+icon 1.94px off the row's centreline (measured); and the rule's `margin-left`
+put it 5.76px from the previous group but 2.88px from its own. A `margin` on a
+neighbouring control (the flyout chevron's old `margin-right`, the drawing
+row's colour section) has the same effect — it adds a second distance where
+the row gap already defines one.
+
 ## Placement
 
 The palette is anchored to the canvas cell's bottom edge by default. A user
@@ -63,6 +111,32 @@ from the action can move it to the top:
 Research basis and the external failure evidence (Figma's UI3 docking
 threads, the "Click This!" placement study) live in
 `docs/research/toolbar-followup-2026-09-15.md`.
+
+## Palette surface
+
+The palette is **one** card: `.floating-toolbar__card` owns border, radius,
+surface and shadow, and the tool row plus (in the drawing workspace) the brush
+row are sections of it. The row and the inner scroll box are layout only.
+
+- Do not re-add chrome to `.floating-toolbar__row` or to
+  `.floating-toolbar [role="toolbar"]`. Two owners made the surface look
+  half-overridden, and the drawing workspace then stacked a *second* card
+  under a wider first one instead of extending it.
+- The **trailing action cluster renders only when it has a control.** It holds
+  exactly three possible children (tool options, the tablet control, touch
+  multi-select), and when all three are absent an unconditional container
+  painted an ~11×10px box with a `border-left` — a stray divider at the
+  palette's trailing edge in every viewport. Chromium's own toolbar handles the
+  same case by letting an empty trailing cluster contribute zero padding.
+- **One width rule, at every viewport.** `.floating-toolbar` is `width:
+  max-content` capped by `max-width: calc(100% - var(--space-4))`, so the card
+  is content-sized and centred when it fits and bounded by the canvas when it
+  does not — the row's `max-width: 100%` then caps it and the inner
+  `[role=toolbar]` (`overflow-x: auto`) scrolls. The `@media (max-width:
+  640px)` override that spanned the wrapper was removed: spanning only helped
+  because the card *is* the wrapper, and it pinned the content-sized row to the
+  wrapper's leading edge, leaving dead surface on the trailing side (measured:
+  a 447px card in a 468px wrapper at 480×700).
 
 ## Status bar
 
@@ -281,7 +355,11 @@ trusting its anchor:
   workspace preference),
   `components/SelectionQuickBar/selectionQuickBarPosition.test.ts` and
   `SelectionQuickBar.test.tsx` (edge clamp, palette-band reserve, flip).
-- Browser: `tests/e2e/canvas/toolbar-layout.spec.ts` (chrome overlap),
+- Browser: `tests/e2e/canvas/toolbar-divider-chrome.spec.ts` (square,
+  token-derived, evenly spaced dividers that never lead the row; icon
+  centring to within 0.5px; no empty trailing cluster; one declared surface;
+  the drawing workspace's single card; centred and bounded at 480px),
+  `tests/e2e/canvas/toolbar-layout.spec.ts` (chrome overlap),
   `toolbar-per-mode.spec.ts`, `toolbar-followup.spec.ts` (placement radio pair
   and persistence, status-bar row/target geometry across widths, quick-bar
   keyboard contract and duplication, combined real-world journey, and
