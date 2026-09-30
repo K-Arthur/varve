@@ -101,6 +101,16 @@ consumer"): ordering had a UI, a store, a schema, and no effect.
 information cluster and the control cluster — and the clusters are fixed, so a
 section cannot land on the wrong side of the bar.
 
+**Reviewed and retained (2026-09-29).** A follow-up screenshot raised the
+resulting void between the two clusters as suspected "improper centring". It
+was re-checked against the alternatives — left-packing every control (the old
+shape, void at the right edge) and centring the whole row — and kept: the
+left/right split is the VS Code and Blender convention, it is what the
+geometry spec already asserts (`save.x < units.x`), and it puts the void
+between *categories* rather than at the end of a row that then reads as
+truncated. The real centring defect in that same screenshot was the
+grid-spacing field, fixed above — which is why the two were easy to confuse.
+
 ### P1 — The customize dialog described a bar it did not control
 
 **Evidence.** The dialog listed 12 sections. The bar rendered those 12 *plus*
