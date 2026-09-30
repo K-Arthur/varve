@@ -222,7 +222,7 @@ export function PresentationLayoutManager({
             These editable text and vector sources use the bundled font and work offline. Edit them
             on the Presentation Layouts Design Canvas.
           </p>
-          <label className="presentation-navigator__field">
+          <div className="presentation-navigator__field">
             <span>Built-in layout</span>
             <Select
               label="Built-in layout"
@@ -239,13 +239,13 @@ export function PresentationLayoutManager({
                 })),
               ]}
             />
-          </label>
+          </div>
           <Button size="sm" variant="default" onClick={addBuiltInLayout}>
             Add editable layout source
           </Button>
         </div>
         {sources.length > 0 && (
-          <label className="presentation-navigator__field">
+          <div className="presentation-navigator__field">
             <span>Layout source</span>
             <Select
               label="Layout source"
@@ -265,7 +265,7 @@ export function PresentationLayoutManager({
                 })),
               ]}
             />
-          </label>
+          </div>
         )}
         {selectedSource && (
           <>
@@ -298,7 +298,7 @@ export function PresentationLayoutManager({
         {frames.length > 0 && (
           <div className="presentation-layouts__register">
             <strong>Register a source frame</strong>
-            <label className="presentation-navigator__field">
+            <div className="presentation-navigator__field">
               <span>Source frame</span>
               <Select
                 label="Source frame"
@@ -317,7 +317,7 @@ export function PresentationLayoutManager({
                   })),
                 ]}
               />
-            </label>
+            </div>
             <label className="presentation-navigator__field">
               <span>Layout name</span>
               <input
@@ -360,7 +360,7 @@ export function PresentationLayoutManager({
                   (target) => sourceNode && compatibleNode(sourceNode, target),
                 );
                 return (
-                  <label className="presentation-navigator__field" key={role}>
+                  <div className="presentation-navigator__field" key={role}>
                     <span>{role}</span>
                     <Select
                       label={`Slide object for ${role}`}
@@ -382,10 +382,10 @@ export function PresentationLayoutManager({
                         })),
                       ]}
                     />
-                  </label>
+                  </div>
                 );
               })}
-              <label className="presentation-navigator__field">
+              <div className="presentation-navigator__field">
                 <span>Aspect ratio change</span>
                 <Select
                   label="Aspect ratio change"
@@ -400,7 +400,7 @@ export function PresentationLayoutManager({
                     { value: 'crop', label: `Uniform crop` },
                   ]}
                 />
-              </label>
+              </div>
               <Button size="sm" variant="default" onClick={buildPreview}>
                 Preview and reapply…
               </Button>

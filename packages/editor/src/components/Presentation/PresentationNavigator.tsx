@@ -579,7 +579,7 @@ export function PresentationNavigator({ showDetach = true }: { showDetach?: bool
         </div>
         <div className="presentation-navigator__header-actions">
           {decks.length > 1 && (
-            <label className="presentation-navigator__deck-label">
+            <div className="presentation-navigator__deck-label">
               <span>Presentation</span>
               <Select
                 label="Presentation"
@@ -598,7 +598,7 @@ export function PresentationNavigator({ showDetach = true }: { showDetach?: bool
                   })),
                 ]}
               />
-            </label>
+            </div>
           )}
           {showDetach && <PanelDetachButton />}
         </div>
@@ -639,7 +639,7 @@ export function PresentationNavigator({ showDetach = true }: { showDetach?: bool
               Every slide becomes the size you choose. Fit and Fill keep proportions; Stretch is the
               only mode that changes them, and it never applies without a preview.
             </p>
-            <label className="presentation-navigator__field">
+            <div className="presentation-navigator__field">
               <span>Size</span>
               <Select
                 label="Slide size preset"
@@ -657,7 +657,7 @@ export function PresentationNavigator({ showDetach = true }: { showDetach?: bool
                   })),
                 ]}
               />
-            </label>
+            </div>
             {sizePreset === 'custom' && (
               <div className="presentation-navigator__size-custom">
                 {/* NumberInput carries its own accessible name, so this is a
@@ -685,7 +685,7 @@ export function PresentationNavigator({ showDetach = true }: { showDetach?: bool
                 </div>
               </div>
             )}
-            <label className="presentation-navigator__field">
+            <div className="presentation-navigator__field">
               <span>How to fill</span>
               <Select
                 label="Slide size mode"
@@ -702,7 +702,7 @@ export function PresentationNavigator({ showDetach = true }: { showDetach?: bool
                   })),
                 ]}
               />
-            </label>
+            </div>
             <Button
               size="sm"
               variant="default"
@@ -772,7 +772,7 @@ export function PresentationNavigator({ showDetach = true }: { showDetach?: bool
             <div className="presentation-navigator__theme-mapping">
               <strong>Objects on this slide</strong>
               {PRESENTATION_THEME_ROLES.map((role) => (
-                <label className="presentation-navigator__field" key={role}>
+                <div className="presentation-navigator__field" key={role}>
                   <span>{role}</span>
                   <Select
                     label={`Slide object for theme role ${role}`}
@@ -793,7 +793,7 @@ export function PresentationNavigator({ showDetach = true }: { showDetach?: bool
                       })),
                     ]}
                   />
-                </label>
+                </div>
               ))}
             </div>
             <div className="presentation-navigator__actions">
@@ -1107,7 +1107,7 @@ export function PresentationNavigator({ showDetach = true }: { showDetach?: bool
                     }}
                   />
                 </label>
-                <label className="presentation-navigator__field">
+                <div className="presentation-navigator__field">
                   <span>Section</span>
                   <Select
                     label={`Section for ${entry.title}`}
@@ -1129,7 +1129,7 @@ export function PresentationNavigator({ showDetach = true }: { showDetach?: bool
                       })),
                     ]}
                   />
-                </label>
+                </div>
                 <label className="presentation-navigator__field">
                   <span>Speaker notes (private)</span>
                   <textarea
