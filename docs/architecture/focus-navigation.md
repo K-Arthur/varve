@@ -248,5 +248,12 @@ It cannot receive focus and has no accessibility implications. No fix needed.
 - **Collab cursors** — Collaborative presence cursors remain visual-only and
   correctly non-focusable.
 
-- **Minimap** — The minimap is correctly excluded from tab order as a
-  non-interactive visual reference.
+- **Minimap** — The minimap *is* a tab stop, and deliberately so: it is a
+  navigation control, not a decorative reference image. It renders as
+  `role="img"` on a focusable canvas with a label that states the whole
+  interaction contract (click/drag to navigate, double-click/Enter/Home to fit,
+  arrows to pan), visible focus styling, and header controls that are native
+  buttons sized from `--component-xs-height` (24 px). When the canvas has no
+  measurable viewport the label reports that navigation is unavailable instead
+  of advertising controls that silently do nothing. See
+  [`minimap-system.md`](minimap-system.md).
