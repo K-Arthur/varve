@@ -13,12 +13,11 @@ written and are not updated retroactively. Current guidance lives in
 ## Entry points
 
 The local application plugin API, trust boundary, and verification matrix are
-in [`architecture/plugin-system.md`](architecture/plugin-system.md). The
-current failure-mode evidence ledger is
-[`audits/plugin-system-evidence-2026-09-27.md`](audits/plugin-system-evidence-2026-09-27.md),
+in [`architecture/plugin-system.md`](architecture/plugin-system.md). The dated
+source and complaint ledger is
+[`audits/plugin-system-evidence-2026-09-25.md`](audits/plugin-system-evidence-2026-09-25.md),
 with the executed validation record in
-[`audits/plugin-system-validation-2026-09-27.md`](audits/plugin-system-validation-2026-09-27.md).
-The 2026-09-25 records remain as historical baseline evidence.
+[`audits/plugin-system-validation-2026-09-25.md`](audits/plugin-system-validation-2026-09-25.md).
 
 Current image-enhancement architecture and evidence requirements are documented
 in [`architecture/image-enhancement-system.md`](architecture/image-enhancement-system.md)
@@ -90,10 +89,7 @@ pass report in
 | [brand/github-repository-presence.md](brand/github-repository-presence.md) | Canonical GitHub metadata, social preview, and public-content maintenance |
 | [marketing/positioning-and-discovery.md](marketing/positioning-and-discovery.md) | Current positioning, audience/search intent, claim register, and SEO/GEO/AEO contract |
 | [research/design-tool-failure-modes-2026-09-21.md](research/design-tool-failure-modes-2026-09-21.md) | Public complaint research and realistic local-first, export, portability, and trust responses |
-| [research/presentation-workflow-2026-09-29.md](research/presentation-workflow-2026-09-29.md) | Dated presentation-product evidence, Varve baseline audit, and implementation decisions |
-| [audits/presentation-workflow-defects-2026-09-29.md](audits/presentation-workflow-defects-2026-09-29.md) | Reproduced Varve defects and presentation regression scenarios |
 | [audits/website-homepage-hero-eyebrow-2026-09-29.md](audits/website-homepage-hero-eyebrow-2026-09-29.md) | Homepage hero eyebrow responsive findings, failure-mode research, screenshots, and validation |
-| [audits/toolbar-design-review-2026-09-29.md](audits/toolbar-design-review-2026-09-29.md) | Palette divider, surface, narrow-viewport and workspace-grouping findings, external failure evidence, screenshots, and validation |
 
 ## Architecture Decision Records
 
@@ -287,7 +283,6 @@ pass report in
 | `architecture/adaptive-render-residency.md` | Adaptive visibility, residency, raster representation, fidelity, and budget policy |
 | `architecture/wasm-backends.md` | WASM backend architecture |
 | `architecture/motion-system.md` | Motion/animation architecture |
-| `architecture/presentation-system.md` | Frame-referenced decks, layout roles, notes, audience preview, and multi-page delivery |
 | `architecture/text-pipeline.md` | Multilingual text rendering and layout |
 | `architecture/text-on-path.md` | Text-on-path data, rendering, editing, export, and fidelity limits |
 | `architecture/clipboard-system.md` | System clipboard ownership, fragment fidelity, representation negotiation, placement, and Cut safety |
@@ -297,7 +292,7 @@ pass report in
 | `architecture/workspace-system.md` | Workspace mode contract, resolution, and persistence |
 | `architecture/plugin-system.md` | Local application plugin package, Wasm capability boundary, lifecycle, permissions, and evidence matrix |
 | `architecture/comic-workflow.md` | Shared comic, manga, and webtoon profiles, story metadata, panels, painting resolution, and bounded export |
-| `architecture/toolbar-system.md` | Command-surface ownership, toolbar composition and grouping rule, divider language, palette surface, responsive overflow retention, keyboard/target contract, capability gating |
+| `architecture/toolbar-system.md` | Command-surface ownership, toolbar composition, responsive overflow retention, keyboard/target contract, capability gating |
 | `architecture/overlay-system.md` | Shared floating geometry, owner-document, overlay-tree, dismissal, and focus contracts |
 | `architecture/menu-system.md` | Shared menu taxonomy, visual contract, metadata, interaction, and validation |
 | `architecture/lifecycle-system.md` | Quit/close/exit lifecycle and shutdown architecture |
@@ -601,8 +596,6 @@ records; check the current code before acting on their findings.
 
 | `audits/plugin-system-evidence-2026-09-25.md` | Baseline reconnaissance, official platform sources, user complaints, and mitigation trail |
 | `audits/plugin-system-validation-2026-09-25.md` | Local plugin scenario results, resource limits, visual evidence, and native hardware gap |
-| `audits/plugin-system-evidence-2026-09-27.md` | User-reported plugin/settings failure modes, replies and uncertainty, practical mitigations, and acceptance tests |
-| `audits/plugin-system-validation-2026-09-27.md` | Current plugin implementation, validation commands, visual review, resource limits, and native platform status |
 | `audits/color-quantization-boundary-inventory.md` | Current high-precision color quantization-boundary inventory |
 | `audits/filesystem-hardening-2026-08-13.md` | Cross-OS directory/path hardening pass: findings fixed, storage map, limitations |
 | `audits/figma-import-audit-2026-08-20.md` | Figma acquisition, semantic conversion, editor integration, fidelity matrix, and backlog |
