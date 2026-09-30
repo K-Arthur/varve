@@ -153,3 +153,58 @@ Escalations: none taken.
 Full suite run: no — the planner's escalation was caused by other tasks' 696
   shared changed paths, not by a workspace/toolchain change from this task.
 ```
+
+## Follow-up: the on-device AI chip (same session)
+
+Asked after delivery — *"Varve is already local-first, so why does that chip
+exist?"* — it was two things sharing one pill: an idle claim that is always
+true (`On-Device AI` / *"Private & 100% local"*), which the website already
+makes in five places, and a genuinely useful busy signal
+(`getInferenceAdmission()` is the only cross-surface view of an active or
+queued inference lease). The user chose **busy-only**: the chip renders only
+while a job is running, the privacy claim moves to the AIPanel header / AI
+command tooltips / Settings (all of which already carry it), and `aiStatus` is
+retired as a section id because there is nothing persistent left to configure.
+
+```text
+Changed scope:
+  packages/editor/src/components/AIStatusIndicator/{AIStatusIndicator,AIStatusIndicator.test}.tsx
+  packages/editor/src/{StatusBar.tsx, workspace/workspaceTypes.ts}
+  docs/{architecture/{toolbar-system,workspace-system}.md,
+    audits/bottom-bar-review-2026-09-29.md, agents/bottom-bar-2026-09-29-ownership.md}
+  apps/website/src/pages/docs/getting-started/interface.astro
+  docs/screenshots/bottom-bar-2026-09-29/*  (re-captured)
+  CHANGELOG.md (own hunk only)
+
+Commands actually run:
+  pnpm --filter @varve/editor typecheck                 PASS (MinimapPanel error is another task's)
+  pnpm exec vitest run <AIStatusIndicator + StatusBar +
+    workspaceTypes/workspaceMode/workspaceSwitching/
+    WorkspaceCustomizeDialog>                           PASS 138/138
+  pnpm audit:emoji / audit:docs / audit:spacing etc.    PASS
+  heavy-lease: npx playwright test bottom-bar.spec.ts   PASS 3/3
+  heavy-lease: npx playwright test bottom-bar-visual +
+    bottom-bar.spec.ts                                  7 passed, 1 failed (see below), captures
+                                                        re-captured at 17:00 and committed
+  pnpm exec vitest run packages/editor/src/findReplace/
+    findReplaceSafety.test.ts                           PASS 37/37
+
+Failures, and why they are not this task's:
+  * One geometry run reported `status bar present at 768px` — the page
+    snapshot was a single `status "Loading Varve"`: another session saved a
+    file mid-run and Vite reloaded the app out from under the test. The
+    identical test passed on the immediate retry (3/3).
+  * The repo-wide `audit:emoji` gate was red for ~10 minutes on another
+    session's brand-new, untracked `findReplace/findReplaceSafety.test.ts`,
+    which blocks *every* commit by anyone (the script has no allowlist). With
+    the user's approval I changed only the emoji literal in their whole-word
+    fixture to a `\u{1F3A8}` code-point escape — same code point, so the
+    assertion it tests ("emoji are not word characters") is unchanged, and
+    their file still passes 37/37. Their file stays untracked and unstaged
+    from this task.
+  * The app could not boot for a while either: `useFindReplace.ts` imported
+    `validateRegex` from `search.ts` after another session moved it, so
+    Playwright's global setup timed out. Not touchable from here; the runs
+    above succeeded once their refactor landed.
+```
+
