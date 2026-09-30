@@ -85,8 +85,10 @@ describe('Layers panel workspace projection', () => {
       print: { badges: ['print', 'appearance'], quick: ['threaded-text', 'export-regions'] },
       drawing: { badges: ['mask', 'appearance'], quick: ['masks'] },
       image: { badges: ['mask', 'appearance', 'media'], quick: ['masks'] },
-      codegen: { badges: ['component', 'layout'], quick: ['components'] },
-      logo: { badges: ['component', 'appearance'], quick: ['components'] },
+      // Logo and Code are not workspace modes: `resolveWorkspaceMode` routes
+      // both to Design, so `getWorkspaceConfig('logo' | 'codegen')` returns the
+      // Design row above. Listing them separately asserted a table row the
+      // runtime no longer has.
       motion: { badges: ['motion'], quick: ['animated'] },
       email: { badges: ['email', 'appearance'], quick: ['mobile-hidden'] },
     };
