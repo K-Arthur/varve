@@ -200,6 +200,8 @@ confirmed and left alone.
 | No map-level zoom / density preference | The sidebar is already the size control; adding a second one risks the redundancy class of defect fixed here. |
 | Hue-only distinction between vector and raster leaves | Form is primary (frame / mass / bar / ellipse); hue is supplementary. At 1–2 px, additional hue-only distinctions would not be perceivable, which is the WCAG 1.4.1 failure mode the form hierarchy exists to avoid. |
 | Groups are invisible | Intentional; their children carry the same edge. A group *outline* would be restored only with a reason to distinguish it from its content. |
+| No misclick guard on click-to-jump | Research calls for one (a dwell or move threshold before a stray click re-centres the view). Deferred: the overview sits inside a panel rather than over the artwork, so the accidental-jump hazard that motivates it is much lower here, and a dwell rule interacts with the documented drag semantics and the navigation E2E. Revisit if a click-through is ever reproduced. |
+| No object/frame jump list beside the map | The semantic alternative already exists and is open all the time: the Layers panel below it is the named, keyboard-navigable list. Adding a second list in the same rail would be the redundancy this review removed elsewhere. |
 
 ## Validation record
 
