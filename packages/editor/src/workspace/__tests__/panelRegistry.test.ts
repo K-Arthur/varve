@@ -86,7 +86,7 @@ describe('panel registry: built-in registration', () => {
 
   it('registers every built-in panel with the PanelId set', () => {
     registerBuiltinPanels();
-    expect(listPanelDefinitions()).toHaveLength(8);
+    expect(listPanelDefinitions()).toHaveLength(10);
     expect(assertPanelInvariants(ALL_PANEL_TYPES)).toEqual([]);
     for (const id of ALL_PANEL_TYPES) {
       expect(getPanelDefinition(id).id).toBe(id);
@@ -104,7 +104,14 @@ describe('panel registry: built-in registration', () => {
       'codegen',
       'logo',
       'history',
+      'emailPreview',
+      'emailOutput',
     ];
+    // This list is the drift detector, so it must itself be kept in step with
+    // the canonical type set. Without this assertion a panel added to
+    // ALL_PANEL_TYPES drifts silently and is only reported as a registry
+    // failure the next time someone runs the suite.
+    expect([...union].sort()).toEqual([...ALL_PANEL_TYPES].sort());
     const registered = listPanelDefinitions()
       .map((d) => d.id)
       .sort();
