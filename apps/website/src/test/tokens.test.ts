@@ -348,7 +348,7 @@ function collectCssSources(dir: string, acc: string[] = []): string[] {
  * same change. The separate exact-value check below prevents the shared role
  * values from ever being spelled as raw numbers again.
  */
-const RAW_FONT_SIZE_CEILING = 344;
+const RAW_FONT_SIZE_CEILING = 280;
 
 /** Raw values that exactly equal a shared role token; those must use the role. */
 const EXACT_ROLE_VALUES = new Map<string, string>([

@@ -243,6 +243,7 @@
   --font-line-label: 1.35;
   --font-size-2xs: 0.75rem;
   --font-size-xs: 0.8125rem;
+  --font-size-smd: 0.875rem;
   --font-size-sm: 0.9375rem;
   --font-size-md: 1.0625rem;
   --font-size-lg: 1.3125rem;
@@ -262,6 +263,10 @@
   --type-interface-label-line-height: var(--font-line-label);
   --type-interface-label-weight: var(--font-weight-medium);
   --type-interface-label-family: var(--font-interface);
+  --type-interface-readout-size: var(--font-size-smd);
+  --type-interface-readout-line-height: var(--font-line-normal);
+  --type-interface-readout-weight: var(--font-weight-regular);
+  --type-interface-readout-family: var(--font-interface);
   --type-interface-control-size: var(--font-size-sm);
   --type-interface-control-line-height: var(--font-line-control);
   --type-interface-control-weight: var(--font-weight-medium);

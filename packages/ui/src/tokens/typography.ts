@@ -24,6 +24,7 @@
 export const FONT_SIZES = {
   '2xs': '0.75rem',
   xs: '0.8125rem',
+  smd: '0.875rem',
   sm: '0.9375rem',
   md: '1.0625rem',
   lg: '1.3125rem',
@@ -60,6 +61,18 @@ export const TYPOGRAPHY_ROLES = {
     size: 'var(--font-size-xs)',
     lineHeight: 'var(--font-line-label)',
     weight: 'var(--font-weight-medium)',
+    family: 'var(--font-interface)',
+  },
+  /**
+   * Prose that sits inside interface chrome: marketing body copy, footnote
+   * runs, and the standalone code blocks the site uses for install commands.
+   * The 14px step between caption and control; it was the most common bespoke
+   * size on the marketing surface before this role existed.
+   */
+  'interface-readout': {
+    size: 'var(--font-size-smd)',
+    lineHeight: 'var(--font-line-normal)',
+    weight: 'var(--font-weight-regular)',
     family: 'var(--font-interface)',
   },
   /** Buttons, menus, tabs, select triggers, inputs, inspector values. */
