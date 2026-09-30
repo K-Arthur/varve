@@ -12,9 +12,9 @@ import {
   getPanelWindowDiagnostics,
   setPanelWindowDiagnosticsEnabledForTest,
 } from './panelWindowDiagnostics';
+import { loadPanelPlacements, savePanelPlacement } from './panelWindowPlacement';
 import { bringAllPanelsToCurrentDisplay, resetPanelWindowLayout } from './panelWindowRecovery';
 import { resetSessionBroker } from './sessionBroker';
-import { loadPanelPlacements, savePanelPlacement } from './workspaceManager';
 
 const SESSION_ID = 'panel-session-recovery-test';
 

@@ -19,15 +19,15 @@ import {
 } from './detachedPanelsStore';
 import type { PanelTypeId } from './panelRegistry';
 import { recordPanelWindowDiagnostic } from './panelWindowDiagnostics';
-import { bringAllPanelsToCurrentDisplay, resetPanelWindowLayout } from './panelWindowRecovery';
-import { getPanelWindowSessionId } from './panelWindowSession';
-import type { BrokerSnapshot } from './sessionBroker';
-import { attachSessionBroker, getSessionBroker } from './sessionBroker';
 import {
   loadPanelPlacements,
   reconcilePanelPlacements,
   savePanelPlacement,
-} from './workspaceManager';
+} from './panelWindowPlacement';
+import { bringAllPanelsToCurrentDisplay, resetPanelWindowLayout } from './panelWindowRecovery';
+import { getPanelWindowSessionId } from './panelWindowSession';
+import type { BrokerSnapshot } from './sessionBroker';
+import { attachSessionBroker, getSessionBroker } from './sessionBroker';
 
 export interface DetachedPanelsController {
   /** Panel type ids currently hosted in auxiliary windows. */

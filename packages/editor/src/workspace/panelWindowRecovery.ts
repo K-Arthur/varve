@@ -14,14 +14,14 @@ import {
   markPanelReattached,
 } from './detachedPanelsStore';
 import { recordPanelWindowDiagnostic } from './panelWindowDiagnostics';
-import { getSessionBroker } from './sessionBroker';
 import {
   clearPanelPlacementForWindow,
   clearPanelPlacements,
   gatherPanelPlacementsOntoDisplay,
   loadPanelPlacements,
   savePanelPlacement,
-} from './workspaceManager';
+} from './panelWindowPlacement';
+import { getSessionBroker } from './sessionBroker';
 
 export interface PanelWindowRecoveryOptions {
   windowService: NativeWindowService;

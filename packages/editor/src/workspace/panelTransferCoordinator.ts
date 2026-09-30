@@ -20,10 +20,10 @@ import {
   type PanelTypeId,
 } from './panelRegistry';
 import { recordPanelWindowDiagnostic } from './panelWindowDiagnostics';
+import { loadPanelPlacement, restorePanelPlacement } from './panelWindowPlacement';
 import { createPanelWindowId, getPanelWindowSessionId } from './panelWindowSession';
 import { getSessionBroker } from './sessionBroker';
 import { TransferStateMachine } from './transferStateMachine';
-import { loadPanelPlacement, restorePanelPlacement } from './workspaceManager';
 
 export type PanelTransferFailureCode =
   | 'unsupported'

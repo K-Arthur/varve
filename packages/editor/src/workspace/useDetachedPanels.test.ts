@@ -15,8 +15,8 @@ import {
   getPanelWindowDiagnostics,
   setPanelWindowDiagnosticsEnabledForTest,
 } from './panelWindowDiagnostics';
+import { savePanelPlacement } from './panelWindowPlacement';
 import { decodeDetachedDocument, reconcileDetachedPanelWindowTopology } from './useDetachedPanels';
-import { savePanelPlacement } from './workspaceManager';
 
 type MutableMemoryWindowService = NativeWindowService & {
   setMonitorFixture(
