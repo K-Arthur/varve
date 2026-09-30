@@ -360,6 +360,7 @@ credentials, DNS credentials, or backend secrets — a future edit that tries
 | `build.yml` | push, PR (paths), dispatch | D | `contents: read` | — | none | WASM + dev bundles |
 | `ci-smoke.yml` | dispatch only | D | `contents: read` | — | none | Pipeline health smoke |
 | `e2e-keyboard-nav.yml` | push, PR (paths) | D | `contents: read` | — | none | Keyboard-nav E2E |
+| `webgl2-qualification.yml` | push (`codex/webgl2-qualification/**`), PR to `master`, dispatch | D | `contents: read` | — | none | WebGL2/Canvas2D agreement on hosted Chromium. Reports compatibility, not physical-GPU execution. Its branch guard is a scope filter, not a security control — a fork can name a head branch to match it, which is acceptable only because the workflow holds no secret and no write scope |
 | `model-validation.yml`, `quantize.yml` | push, PR (paths), schedule, dispatch | D | `contents: read` | — | none | Model supply-chain validation |
 | `visual-baselines.yml` | dispatch only | D+ | `contents: read` | — | none | Produces an inspected baseline artifact; a human commits approved PNGs in a reviewed change |
 | `ci-debug.yml` | `workflow_run` (8 upstreams), completed | D+ trusted default branch | `contents: read`, `actions: read`; `issues: write` only on `post-pr-comment` | — | `GITHUB_TOKEN` only | Failure reports (redacted) and deduplicated PR comments |

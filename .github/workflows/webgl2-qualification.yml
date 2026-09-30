@@ -1,0 +1,203 @@
+name: WebGL2 qualification compatibility
+
+on:
+  push:
+    branches: ['codex/webgl2-qualification/**']
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+concurrency:
+  group: webgl2-qualification-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  candidate-guard:
+    name: Require a focused qualification reference
+    runs-on: ubuntu-latest
+    # Scope filter, not a security control: `github.head_ref` is chosen by the
+    # contributor, so a fork can match it. It is safe here only because this
+    # workflow holds no secret and no write scope (see
+    # docs/security/trust-boundaries.md, Workflow matrix).
+    if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'codex/webgl2-qualification/')
+    steps:
+      - name: Check reference scope
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          HEAD_REF: ${{ github.head_ref }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          if [[ "$EVENT_NAME" == "pull_request" && "$HEAD_REF" != codex/webgl2-qualification/* ]]; then
+            echo "This workflow only validates codex/webgl2-qualification/* pull requests." >&2
+            exit 1
+          fi
+          if [[ "$EVENT_NAME" == "workflow_dispatch" && "$REF_NAME" != codex/webgl2-qualification/* ]]; then
+            echo "Run this workflow from a codex/webgl2-qualification/* temporary ref." >&2
+            exit 1
+          fi
+
+  browser-correctness:
+    name: Hosted Chromium correctness (software/hardware unspecified)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    needs: [candidate-guard]
+    # Scope filter, not a security control: `github.head_ref` is chosen by the
+    # contributor, so a fork can match it. It is safe here only because this
+    # workflow holds no secret and no write scope (see
+    # docs/security/trust-boundaries.md, Workflow matrix).
+    if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'codex/webgl2-qualification/')
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
+        with:
+          version: 11.9.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 26
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Typecheck and run focused compositor/editor tests
+        run: |
+          pnpm --filter @varve/compositor typecheck
+          pnpm exec vitest run \
+            packages/compositor/src/webgl2/backend.test.ts \
+            packages/editor/src/render/rendererAttribution.test.ts \
+            packages/editor/src/render/__tests__/workerEligibility.test.ts \
+            packages/editor/src/performance/workloadCorpus.test.ts
+          node --test \
+            scripts/perf/productionEvidence.test.mjs \
+            scripts/perf/workloadGeometry.test.mjs \
+            scripts/perf/qualificationAnalysis.test.mjs \
+            scripts/perf/nativeQualification.test.mjs \
+            scripts/perf/nativePairedAnalysis.test.mjs
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+      - name: WebGL2 browser correctness
+        env:
+          CI: '1'
+          VARVE_E2E_PORT: '1827'
+          VARVE_E2E_WORKERS: '1'
+          VARVE_E2E_OUTPUT_DIR: webgl2-qualification-${{ github.run_id }}
+        run: >-
+          node scripts/quality/heavy-lease.mjs "e2e: WebGL2 qualification correctness" --
+          pnpm exec playwright test tests/e2e/webgl2/webgl2-smoke.spec.ts
+          --project=chromium --workers=1 --reporter=list
+      - name: Upload browser correctness artifacts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: webgl2-browser-correctness-${{ github.run_id }}
+          path: |
+            test-results/webgl2-qualification-${{ github.run_id }}/
+            playwright-report/webgl2-qualification-${{ github.run_id }}/
+          if-no-files-found: ignore
+          retention-days: 30
+
+  native-webview-compatibility:
+    name: Tauri webview integration (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    needs: [candidate-guard]
+    # Scope filter, not a security control: `github.head_ref` is chosen by the
+    # contributor, so a fork can match it. It is safe here only because this
+    # workflow holds no secret and no write scope (see
+    # docs/security/trust-boundaries.md, Workflow matrix).
+    if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'codex/webgl2-qualification/')
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        include:
+          - name: linux-x11-software
+            os: ubuntu-latest
+            xvfb: true
+          - name: windows-webview2
+            os: windows-latest
+            xvfb: false
+          - name: macos-wkwebview
+            os: macos-latest
+            xvfb: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
+        with:
+          version: 11.9.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 26
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - name: Install JavaScript dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install Linux Tauri/WebKitGTK dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libssl-dev \
+            libfontconfig1-dev libglib2.0-dev libsoup-3.0-dev \
+            libgdk-pixbuf2.0-dev libcairo2-dev libpango1.0-dev \
+            cmake pkg-config patchelf xvfb dbus-x11 at-spi2-core mesa-utils \
+            squashfs-tools xdg-utils
+      - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
+        with:
+          toolchain: 1.97.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+      - name: Report hosted renderer limits
+        shell: bash
+        run: |
+          echo "runner=${{ matrix.name }}"
+          echo "This lane checks Tauri/webview integration only. Hosted GPU execution and physical presentation are not qualification evidence."
+          if [[ "${{ matrix.xvfb }}" == "true" ]]; then
+            echo "Linux uses Xvfb/Mesa software rendering; it does not represent native Wayland GPU behavior."
+          fi
+      - name: Build desktop test binary
+        run: pnpm desktop:build:test
+      - name: Run focused Tauri WebGL2 compatibility test (Linux software)
+        if: matrix.xvfb
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
+          VARVE_WDIO_SPECS: ./tests/wdio/webgl2-native.e2e.ts
+        run: dbus-run-session -- xvfb-run --auto-servernum pnpm exec wdio run wdio.conf.ts
+      - name: Run focused Tauri WebGL2 compatibility test (Windows/macOS)
+        if: ${{ !matrix.xvfb }}
+        env:
+          VARVE_WDIO_SPECS: ./tests/wdio/webgl2-native.e2e.ts
+        run: pnpm exec wdio run wdio.conf.ts
+      - name: Build pruned release AppImage for the packaged WebKit smoke
+        if: matrix.xvfb
+        run: |
+          node scripts/fetch-onnxruntime.mjs
+          node scripts/release/prune-foreign-runtimes.mjs
+          cd apps/desktop
+          NO_STRIP=1 pnpm tauri build --bundles appimage --ci --features ai --config '{"bundle":{"createUpdaterArtifacts":false}}'
+          cd ../..
+          node scripts/release/prune-appimage-bundled-libs.mjs --bundle-dir apps/desktop/src-tauri/target/release/bundle
+      - name: Verify packaged AppImage default and explicit DMA-BUF overrides
+        if: matrix.xvfb
+        run: |
+          IMAGE="$(find apps/desktop/src-tauri/target/release/bundle/appimage -maxdepth 1 -name '*.AppImage' -print -quit)"
+          if [[ -z "$IMAGE" ]]; then
+            echo "::error::The release packaging pipeline did not produce an AppImage."
+            exit 1
+          fi
+          node scripts/perf/smoke-appimage-dmabuf.mjs \
+            --image="$IMAGE" \
+            --out="webgl2-appimage-qualification.json" \
+            --wait-ms=25000
+      - name: Upload packaged AppImage WebKit smoke evidence
+        if: always() && matrix.xvfb
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: webgl2-appimage-smoke-${{ github.run_id }}
+          path: webgl2-appimage-qualification.json
+          if-no-files-found: ignore
+          retention-days: 30
