@@ -499,7 +499,20 @@ export function Tooltip({
       offsetDistance={8}
       kind="tooltip"
       className="varve-floating-layer"
-      zIndex="var(--z-popover)"
+      /**
+       * The tooltip must clear the dock ladder, not sit under it.
+       *
+       * Docked panels position their chrome, tab strips, floating groups and
+       * drag previews at `--z-overlay` … `--z-overlay + 4` (1000–1004) with
+       * `position: absolute`, and `.editor-shell` does not open a stacking
+       * context, so those levels compete in the root context. A tooltip at
+       * `--z-popover` (200) therefore lost every time its bubble landed on a
+       * panel header — the Layers "Layers / Move" chrome covered the minimap's
+       * own collapse tooltip, for example. `--z-tooltip` is the layer named for
+       * this (MicroHint already uses it); native `<dialog>` modals stay above
+       * regardless because they live in the browser top layer.
+       */
+      zIndex="var(--z-tooltip)"
       dismissOnPointerDown={false}
       dismissOnEscape={false}
       dismissOnWindowBlur
