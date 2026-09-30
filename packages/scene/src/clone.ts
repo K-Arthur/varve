@@ -471,6 +471,29 @@ export function deepCloneSubtree(
         }
       }
     }
+    // Remap pattern tile node references. A pattern fill may name a scene node
+    // as its tile source (`collectNodeClosure` in `documentCodec` treats
+    // `pattern.tileSrc` as a node reference); a clone that kept the original id
+    // would paint the source node's pixels, and a cross-document paste would
+    // reference a node that does not exist in the target document. A tile
+    // source that is not a node id (a data URL or asset handle) is left alone.
+    const originalFills = (original as { fills?: import('./types').Fill[] }).fills;
+    if (originalFills?.some((fill) => fill.type === 'pattern' && !!fill.pattern?.tileSrc)) {
+      const clonedFills = originalFills.map((fill) => {
+        const tileSrc = fill.pattern?.tileSrc;
+        if (fill.type !== 'pattern' || !fill.pattern || !tileSrc) return fill;
+        const mapped = idMap.get(tileSrc as NodeId);
+        if (mapped) return { ...fill, pattern: { ...fill.pattern, tileSrc: mapped } };
+        if (dropForeign && nodes[tileSrc as NodeId]) {
+          // The tile node was not part of the clone: a dangling reference would
+          // render as a missing resource, so release it to a transparent tile.
+          return { ...fill, pattern: { ...fill.pattern, tileSrc: '' } };
+        }
+        return fill;
+      });
+      newNodes[newId] = { ...newNodes[newId], fills: clonedFills } as SceneNode;
+    }
+
     // Remap pathTextSettings.pathNodeId: if the referenced path was cloned,
     // point at the new clone. Under dropForeign (cross-document paste), a
     // foreign path that was not included in the clone is invalid — detach

@@ -885,6 +885,7 @@ export function renderContent(deps: RenderContentDeps): void {
       doc.rasterMaskAssets,
       doc.styles,
       s.showOriginalBgNodeId ?? '',
+      doc.patternDefinitions,
     );
     for (const entry of entries) {
       const id = entry.nodeId;

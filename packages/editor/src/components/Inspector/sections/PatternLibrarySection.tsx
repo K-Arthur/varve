@@ -15,7 +15,10 @@ import type { PatternArrangement } from '@varve/shared';
 import { Icon, SearchField, Select } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
-import { exportPatternDefinitionTileSvg } from '../../../export/patternTileSvg';
+import {
+  exportPatternDefinitionSupertileSvg,
+  exportPatternDefinitionTileSvg,
+} from '../../../export/patternTileSvg';
 import { compilePatternPreview } from '../../../patterns/compilePatternPreview';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { PatternRepeatPreview } from './PatternRepeatPreview';
@@ -346,6 +349,24 @@ export function PatternLibrarySection() {
     [doc, editor, announceError],
   );
 
+  const exportSupertile = useCallback(
+    (definition: PatternDefinition) => {
+      try {
+        const svg = exportPatternDefinitionSupertileSvg(doc, definition);
+        const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml;charset=utf-8' }));
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = `${safeFileStem(definition.name)}-supertile.svg`;
+        anchor.click();
+        window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+        editor.announce(`Exported ${definition.name} repeating supertile as SVG`);
+      } catch (error) {
+        announceError(error);
+      }
+    },
+    [doc, editor, announceError],
+  );
+
   const beginTileImport = useCallback(() => {
     pendingReplacement.current = null;
     importGeneration.current += 1;
@@ -658,6 +679,15 @@ export function PatternLibrarySection() {
                   </button>
                   <button
                     type="button"
+                    className="insp-paint-library__action-btn"
+                    onClick={() => exportSupertile(definition)}
+                    aria-label={`Export ${definition.name} repeating supertile as SVG`}
+                    title="Export rectangular repeat supertile as SVG"
+                  >
+                    <Icon name="Copy" label={undefined} size="0.85em" />
+                  </button>
+                  <button
+                    type="button"
                     className="insp-paint-library__action-btn insp-paint-library__action-btn--danger"
                     onClick={() => deleteUnused(definition.id)}
                     aria-label={`Delete ${definition.name}`}
@@ -725,9 +755,16 @@ function PatternDefinitionSettings({
           label="Repeat arrangement"
           aria-label="Definition repeat arrangement"
           value={definition.repeat.arrangement}
-          onValueChange={(value) =>
-            onChange(definition.id, { repeat: { arrangement: value as PatternArrangement } })
-          }
+          onValueChange={(value) => {
+            const arrangement = value as PatternArrangement;
+            onChange(definition.id, {
+              repeat: {
+                arrangement,
+                rowShift: arrangement === 'brick' ? 0.5 : 0,
+                columnShift: arrangement === 'half-drop' ? 0.5 : 0,
+              },
+            });
+          }}
           options={[
             { value: 'grid', label: 'Grid' },
             { value: 'half-drop', label: 'Half-drop' },

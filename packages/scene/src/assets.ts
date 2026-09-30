@@ -40,6 +40,17 @@ interface AssetNodeMap {
   >;
   assets?: Record<string, DocumentAsset>;
   paints?: Record<string, { fill: { type: string; image?: { assetId?: string } } }>;
+  patternDefinitions?: Record<
+    string,
+    {
+      source?: {
+        kind?: string;
+        assetId?: string;
+        assetIds?: string[];
+        nodes?: Record<string, { fills?: Array<{ type: string; image?: { assetId?: string } }> }>;
+      };
+    }
+  >;
   /** Template plate images and clip/occlusion coverage masks. */
   mockupTemplates?: Record<
     string,
@@ -461,6 +472,16 @@ export function isAssetReferenced(doc: AssetNodeMap, assetId: string): boolean {
   if (doc.paints) {
     for (const paint of Object.values(doc.paints)) {
       if (paint.fill.type === 'image') retainImage(paint.fill.image);
+    }
+  }
+  for (const definition of Object.values(doc.patternDefinitions ?? {})) {
+    const source = definition.source;
+    retain(source?.assetId);
+    for (const sourceAssetId of source?.assetIds ?? []) retain(sourceAssetId);
+    for (const node of Object.values(source?.nodes ?? {})) {
+      for (const fill of node.fills ?? []) {
+        if (fill.type === 'image') retainImage(fill.image);
+      }
     }
   }
   for (const edit of Object.values(doc.generativeEdits ?? {})) {

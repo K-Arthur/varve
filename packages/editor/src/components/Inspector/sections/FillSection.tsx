@@ -32,9 +32,10 @@ import {
   imageFill,
   isImageShape,
   nodeLocalBounds,
+  patternDefinitionTileSrc,
   patternFill,
   resolveBoundTokenColor,
-  resolveNodeFills,
+  resolveNodePaints,
   solidFill,
 } from '@varve/scene';
 import { managedColorKey, managedColorToRgba } from '@varve/shared';
@@ -55,6 +56,10 @@ import { rgbToHex } from '@varve/ui/components/ColorPicker';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { docVariableStore } from '../../../docVariableStore';
+import {
+  applyPatternTileImport,
+  capturePatternTileImportTargets,
+} from '../../../patterns/patternTileImport';
 import {
   resolvedGradientHueInterpolation,
   resolvedGradientInterpolationSpace,
@@ -206,15 +211,36 @@ export function FillSection({ nodes }: FillSectionProps) {
   // containing a group would otherwise show rows and write fill state that the
   // group can never paint.
   const fillNodes = useMemo(() => nodes.filter(canPaintFills), [nodes]);
+  const hasSharedPaint = fillNodes.some((node) => Boolean(node.paintRefs?.length));
+  const sharedPaintNames = [
+    ...new Set(
+      fillNodes.flatMap((node) =>
+        (node.paintRefs ?? []).map(
+          (paintId) => editor.state.document.paints?.[paintId]?.name ?? paintId,
+        ),
+      ),
+    ),
+  ];
 
   const fills = useMemo(() => {
-    const all = fillNodes.map((n) => resolveNodeFills(n));
+    const all = fillNodes.map((node) =>
+      resolveNodePaints(
+        node as unknown as Parameters<typeof resolveNodePaints>[0],
+        editor.state.document,
+      ),
+    );
     if (all.length === 0) return [];
     const minLen = Math.min(...all.map((f) => f.length));
     return Array.from({ length: minLen }, (_, i) => all[0]?.[i] ?? all[0]?.[0]) as Fill[];
-  }, [fillNodes]);
+  }, [editor.state.document, fillNodes]);
 
-  const countMixed = fillNodes.some((n) => resolveNodeFills(n).length !== fills.length);
+  const countMixed = fillNodes.some(
+    (node) =>
+      resolveNodePaints(
+        node as unknown as Parameters<typeof resolveNodePaints>[0],
+        editor.state.document,
+      ).length !== fills.length,
+  );
   // The paint model keeps at least one fill per node; removal is only real
   // when a stack exists on some selected layer.
   const canRemoveFill = fills.length > 1 || countMixed;
@@ -272,6 +298,34 @@ export function FillSection({ nodes }: FillSectionProps) {
     },
     [editor.groupCompoundOperation, updateSelectedFillAt],
   );
+
+  const detachSharedPaints = useCallback(() => {
+    const sourceDocumentId = editor.state.document.id;
+    const nodeIds = fillNodes.map((node) => node.id);
+    editor.groupCompoundOperation('Detach shared paint', () => {
+      editor.updateDoc((document) => {
+        if (document.id !== sourceDocumentId) return document;
+        const nextNodes = { ...document.nodes };
+        let changed = false;
+        for (const id of nodeIds) {
+          const node = nextNodes[id];
+          if (!node?.paintRefs?.length) continue;
+          const fills = resolveNodePaints(
+            node as unknown as Parameters<typeof resolveNodePaints>[0],
+            document,
+          );
+          const { paintRefs: _paintRefs, ...inlineNode } = node;
+          nextNodes[id] = {
+            ...inlineNode,
+            fills: fills.length > 0 ? fills : node.fills,
+          } as SceneNode;
+          changed = true;
+        }
+        return changed ? { ...document, nodes: nextNodes } : document;
+      });
+    });
+    editor.announce('Shared paint detached. Fill edits now apply only to the selected objects.');
+  }, [editor, fillNodes]);
 
   const addFill = useCallback(
     (kind: AddFillKind) => {
@@ -344,6 +398,7 @@ export function FillSection({ nodes }: FillSectionProps) {
             className="insp-add-btn insp-fill-add__trigger"
             aria-haspopup="menu"
             aria-expanded={addMenuOpen}
+            disabled={hasSharedPaint}
             onClick={() => setAddMenuOpen((v) => !v)}
           >
             <Icon name="Plus" label={undefined} size="0.85em" />
@@ -360,106 +415,123 @@ export function FillSection({ nodes }: FillSectionProps) {
         </div>
       }
     >
-      {fills.length === 0 && <div className="insp-empty-message">No fill</div>}
-      <div ref={bindingTriggerRef} className="insp-field-group">
-        <Sortable
-          items={fillSortIds}
-          layout="vertical"
-          onDragStart={startReorder}
-          onDragCancel={() => finishReorder(true)}
-          onReorder={handleFillReorder}
-          renderOverlay={(id) => {
-            const index = fillSortIds.indexOf(String(id));
-            return (
-              <SortableOverlay className="insp-paint-stack__drag-overlay">
-                {index >= 0 ? (index === 0 ? 'Fill' : `Fill ${index + 1}`) : 'Fill'}
-              </SortableOverlay>
-            );
-          }}
-        >
-          {fills.map((fill, i) => (
-            <SortableItem
-              key={fillSortIds[i]}
-              id={fillSortIds[i]!}
-              className="insp-paint-stack__sortable-item"
-              data={{ type: 'fill', index: i }}
+      {hasSharedPaint ? (
+        <div className="insp-shared-paint-notice" role="note">
+          <strong>Shared paint: {sharedPaintNames.join(', ') || 'Unavailable paint'}</strong>
+          <p>
+            These fills come from a shared paint. Detach it before changing this object’s fill stack
+            or pattern placement.
+          </p>
+          <button type="button" className="insp-add-btn" onClick={detachSharedPaints}>
+            Detach shared paint to edit this fill
+          </button>
+        </div>
+      ) : (
+        <>
+          {fills.length === 0 && <div className="insp-empty-message">No fill</div>}
+          <div ref={bindingTriggerRef} className="insp-field-group">
+            <Sortable
+              items={fillSortIds}
+              layout="vertical"
+              onDragStart={startReorder}
+              onDragCancel={() => finishReorder(true)}
+              onReorder={handleFillReorder}
+              renderOverlay={(id) => {
+                const index = fillSortIds.indexOf(String(id));
+                return (
+                  <SortableOverlay className="insp-paint-stack__drag-overlay">
+                    {index >= 0 ? (index === 0 ? 'Fill' : `Fill ${index + 1}`) : 'Fill'}
+                  </SortableOverlay>
+                );
+              }}
             >
-              <FillRow
-                index={i}
-                totalFills={fills.length}
-                canRemove={canRemoveFill}
-                fill={fill}
-                nodes={fillNodes}
-                onChange={(f) => updateFill(i, f)}
-                onRemove={() => removeFill(i)}
-                onReorder={(dir) => reorderFill(i, i + dir)}
-                canMoveUp={i > 0}
-                canMoveDown={i < fills.length - 1}
-                onEditStart={beginTransaction}
-                onEditEnd={commitTransaction}
-                binding={
-                  i === 0
-                    ? (fillNodes[0]?.bindings?.fill as
-                        | import('@varve/scene').PropertyBinding
-                        | undefined)
-                    : undefined
+              {fills.map((fill, i) => (
+                <SortableItem
+                  key={fillSortIds[i]}
+                  id={fillSortIds[i]!}
+                  className="insp-paint-stack__sortable-item"
+                  data={{ type: 'fill', index: i }}
+                >
+                  <FillRow
+                    index={i}
+                    totalFills={fills.length}
+                    canRemove={canRemoveFill}
+                    fill={fill}
+                    nodes={fillNodes}
+                    onChange={(f) => updateFill(i, f)}
+                    onRemove={() => removeFill(i)}
+                    onReorder={(dir) => reorderFill(i, i + dir)}
+                    canMoveUp={i > 0}
+                    canMoveDown={i < fills.length - 1}
+                    onEditStart={beginTransaction}
+                    onEditEnd={commitTransaction}
+                    binding={
+                      i === 0
+                        ? (fillNodes[0]?.bindings?.fill as
+                            | import('@varve/scene').PropertyBinding
+                            | undefined)
+                        : undefined
+                    }
+                    modifierAnchorRef={modifierAnchorRef}
+                    onOpenModifier={() => {
+                      const binding = nodes[0]?.bindings?.fill;
+                      if (!binding) return;
+                      const store = docVariableStore(editor.state.document);
+                      const tokenColor = resolveBoundTokenColor(store, binding);
+                      if (!tokenColor) return;
+                      const variableName =
+                        store.variables[binding.variableId]?.name ?? binding.variableId;
+                      setFillModifierState({
+                        binding,
+                        tokenColor,
+                        modifiers: (binding.modifiers ?? []).filter(
+                          (m): m is import('@varve/scene').AlphaModifier => m.kind === 'alpha',
+                        ),
+                        anchorRef: modifierAnchorRef,
+                        variableName,
+                      });
+                    }}
+                  />
+                </SortableItem>
+              ))}
+            </Sortable>
+          </div>
+          {countMixed && fills.length > 0 && (
+            <div className="insp-empty-message">
+              Some selected layers have extra fills beyond these
+            </div>
+          )}
+          {editor.bindingField === 'fill' && (
+            <BindingMenu
+              variableStore={docVariableStore(editor.state.document)}
+              targetType="color"
+              onBind={(variableId, expression) => {
+                editor.setSelectedBinding('fill', { variableId, expression });
+                editor.setBindingField(null);
+              }}
+              onClose={() => editor.setBindingField(null)}
+              triggerRef={bindingTriggerRef}
+            />
+          )}
+          {fillModifierState && (
+            <VariableModifierPopover
+              tokenColor={fillModifierState.tokenColor}
+              modifiers={fillModifierState.modifiers}
+              anchorRef={fillModifierState.anchorRef}
+              onCommit={(modifiers) => {
+                const binding = fillModifierState.binding;
+                if (modifiers) {
+                  editor.setSelectedBinding('fill', { ...binding, modifiers });
+                } else {
+                  const { modifiers: _drop, ...rest } = binding;
+                  editor.setSelectedBinding('fill', rest);
                 }
-                modifierAnchorRef={modifierAnchorRef}
-                onOpenModifier={() => {
-                  const binding = nodes[0]?.bindings?.fill;
-                  if (!binding) return;
-                  const store = docVariableStore(editor.state.document);
-                  const tokenColor = resolveBoundTokenColor(store, binding);
-                  if (!tokenColor) return;
-                  const variableName =
-                    store.variables[binding.variableId]?.name ?? binding.variableId;
-                  setFillModifierState({
-                    binding,
-                    tokenColor,
-                    modifiers: (binding.modifiers ?? []).filter(
-                      (m): m is import('@varve/scene').AlphaModifier => m.kind === 'alpha',
-                    ),
-                    anchorRef: modifierAnchorRef,
-                    variableName,
-                  });
-                }}
-              />
-            </SortableItem>
-          ))}
-        </Sortable>
-      </div>
-      {countMixed && fills.length > 0 && (
-        <div className="insp-empty-message">Some selected layers have extra fills beyond these</div>
-      )}
-      {editor.bindingField === 'fill' && (
-        <BindingMenu
-          variableStore={docVariableStore(editor.state.document)}
-          targetType="color"
-          onBind={(variableId, expression) => {
-            editor.setSelectedBinding('fill', { variableId, expression });
-            editor.setBindingField(null);
-          }}
-          onClose={() => editor.setBindingField(null)}
-          triggerRef={bindingTriggerRef}
-        />
-      )}
-      {fillModifierState && (
-        <VariableModifierPopover
-          tokenColor={fillModifierState.tokenColor}
-          modifiers={fillModifierState.modifiers}
-          anchorRef={fillModifierState.anchorRef}
-          onCommit={(modifiers) => {
-            const binding = fillModifierState.binding;
-            if (modifiers) {
-              editor.setSelectedBinding('fill', { ...binding, modifiers });
-            } else {
-              const { modifiers: _drop, ...rest } = binding;
-              editor.setSelectedBinding('fill', rest);
-            }
-            editor.announce(modifiers ? 'Alpha modifier applied' : 'Alpha modifier reset');
-          }}
-          onClose={() => setFillModifierState(null)}
-        />
+                editor.announce(modifiers ? 'Alpha modifier applied' : 'Alpha modifier reset');
+              }}
+              onClose={() => setFillModifierState(null)}
+            />
+          )}
+        </>
       )}
     </DisclosureSection>
   );
@@ -504,6 +576,10 @@ function FillRow({
 }: FillRowProps) {
   const editor = useEditor();
   const label = index === 0 ? 'Fill' : `Fill ${index + 1}`;
+  const linkedPatternDefinition =
+    fill.type === 'pattern' && fill.pattern?.definitionId
+      ? editor.state.document.patternDefinitions?.[fill.pattern.definitionId]
+      : undefined;
   const bindingStore = docVariableStore(editor.state.document);
   const bindingVariableName = binding
     ? (bindingStore.variables[binding.variableId]?.name ?? binding.variableId)
@@ -532,17 +608,48 @@ function FillRow({
   const displayFill: Fill =
     boundColor && fill.type === 'solid' ? { ...fill, color: boundColor } : fill;
 
-  const visibleRaw = commonValue(nodes, (n) => resolveNodeFills(n)[index]?.visible ?? true);
-  const typeRaw = commonValue(nodes, (n) => resolveNodeFills(n)[index]?.type ?? 'solid');
-  const opacityRaw = commonValue(nodes, (n) => resolveNodeFills(n)[index]?.opacity ?? 1);
-  const blendRaw = commonValue(nodes, (n) => resolveNodeFills(n)[index]?.blendMode ?? 'normal');
+  const visibleRaw = commonValue(
+    nodes,
+    (node) =>
+      resolveNodePaints(
+        node as unknown as Parameters<typeof resolveNodePaints>[0],
+        editor.state.document,
+      )[index]?.visible ?? true,
+  );
+  const typeRaw = commonValue(
+    nodes,
+    (node) =>
+      resolveNodePaints(
+        node as unknown as Parameters<typeof resolveNodePaints>[0],
+        editor.state.document,
+      )[index]?.type ?? 'solid',
+  );
+  const opacityRaw = commonValue(
+    nodes,
+    (node) =>
+      resolveNodePaints(
+        node as unknown as Parameters<typeof resolveNodePaints>[0],
+        editor.state.document,
+      )[index]?.opacity ?? 1,
+  );
+  const blendRaw = commonValue(
+    nodes,
+    (node) =>
+      resolveNodePaints(
+        node as unknown as Parameters<typeof resolveNodePaints>[0],
+        editor.state.document,
+      )[index]?.blendMode ?? 'normal',
+  );
 
   // Paint identity across the selection: the same kind and, for solids, the
   // same canonical colour. Previously the swatch showed the first node's
   // colour as if it were shared; a mixed selection now says so on the row and
   // in the trigger's accessible name (editing still broadcasts to all).
   const paintKeyRaw = commonValue(nodes, (n) => {
-    const f = resolveNodeFills(n)[index];
+    const f = resolveNodePaints(
+      n as unknown as Parameters<typeof resolveNodePaints>[0],
+      editor.state.document,
+    )[index];
     if (!f) return 'missing';
     if (f.type === 'solid' && f.color) return `solid:${managedColorKey(f.color)}`;
     return f.type;
@@ -567,20 +674,31 @@ function FillRow({
   // is sRGB, while interpolationSource=document inherits the document value.
   const interpRaw = commonValue(nodes, (n) =>
     resolvedGradientInterpolationSpace(
-      resolveNodeFills(n)[index]?.gradient,
+      resolveNodePaints(
+        n as unknown as Parameters<typeof resolveNodePaints>[0],
+        editor.state.document,
+      )[index]?.gradient,
       documentGradientInterpolation,
     ),
   );
   const hueRaw = commonValue(nodes, (n) =>
     resolvedGradientHueInterpolation(
-      resolveNodeFills(n)[index]?.gradient,
+      resolveNodePaints(
+        n as unknown as Parameters<typeof resolveNodePaints>[0],
+        editor.state.document,
+      )[index]?.gradient,
       documentGradientInterpolation,
     ),
   );
   const gradientInterpMixed = isMixed(interpRaw);
   const gradientHueMixed = isMixed(hueRaw);
   const representativeGradient =
-    fill?.gradient ?? (nodes[0] ? resolveNodeFills(nodes[0])[index]?.gradient : undefined);
+    (fill?.gradient ?? nodes[0])
+      ? resolveNodePaints(
+          nodes[0] as unknown as Parameters<typeof resolveNodePaints>[0],
+          editor.state.document,
+        )[index]?.gradient
+      : undefined;
   const gradientBounds =
     nodes.length === 1 && nodes[0] ? nodeLocalBounds(nodes[0], editor.state.document) : undefined;
 
@@ -603,6 +721,35 @@ function FillRow({
   const patch = useCallback(
     (partial: Partial<Fill>) => onChange({ ...fill, ...partial }),
     [fill, onChange],
+  );
+  const patternImportDocumentId = editor.state.document.id;
+  const patternImportTargets = useMemo(() => {
+    return capturePatternTileImportTargets(
+      editor.state.document,
+      nodes.map((node) => node.id),
+      index,
+    );
+  }, [editor.state.document, index, nodes]);
+  const importPatternTile = useCallback(
+    (dataUrl: string) => {
+      let updatedCount = 0;
+      editor.groupCompoundOperation('Import pattern tile', () => {
+        editor.updateDoc((document) => {
+          if (document.id !== patternImportDocumentId) return document;
+          const result = applyPatternTileImport(document, index, patternImportTargets, dataUrl);
+          updatedCount = result.updatedCount;
+          return result.document;
+        });
+      });
+      if (updatedCount > 0) {
+        editor.announce(
+          `Imported pattern tile to ${updatedCount} fill${updatedCount === 1 ? '' : 's'}`,
+        );
+      } else {
+        editor.announce('Pattern tile was not applied because its target changed.');
+      }
+    },
+    [editor, index, patternImportDocumentId, patternImportTargets],
   );
   const referenceShape =
     nodes.length === 1 && nodes[0]?.kind === 'shape' && isImageShape(nodes[0])
@@ -1060,7 +1207,14 @@ function FillRow({
       {fill.type === 'pattern' && fill.pattern && (
         <PatternFillControls
           pattern={fill.pattern}
+          definition={linkedPatternDefinition}
+          definitionTileSrc={
+            linkedPatternDefinition
+              ? patternDefinitionTileSrc(linkedPatternDefinition, editor.state.document.assets)
+              : undefined
+          }
           onChange={(p: PatternFillData) => patch({ pattern: p })}
+          onImportTile={importPatternTile}
         />
       )}
 

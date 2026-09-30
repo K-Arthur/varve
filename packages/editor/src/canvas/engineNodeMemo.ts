@@ -63,6 +63,7 @@ export class EngineNodeMemo {
   private paintsRef: unknown = UNINITIALIZED;
   private maskAssetsRef: unknown = UNINITIALIZED;
   private stylesRef: unknown = UNINITIALIZED;
+  private patternDefinitionsRef: unknown = UNINITIALIZED;
   private extraKey: unknown = UNINITIALIZED;
   private computeCount = 0;
   private hitCount = 0;
@@ -75,16 +76,24 @@ export class EngineNodeMemo {
    * a stale engine node can never survive a shared-paint, mask-asset, or
    * compare-toggle edit.
    */
-  beginFrame(paints: unknown, rasterMaskAssets: unknown, styles: unknown, extraKey: string): void {
+  beginFrame(
+    paints: unknown,
+    rasterMaskAssets: unknown,
+    styles: unknown,
+    extraKey: string,
+    patternDefinitions?: unknown,
+  ): void {
     if (
       paints !== this.paintsRef ||
       rasterMaskAssets !== this.maskAssetsRef ||
       styles !== this.stylesRef ||
+      patternDefinitions !== this.patternDefinitionsRef ||
       extraKey !== this.extraKey
     ) {
       this.entries.clear();
       this.paintsRef = paints;
       this.maskAssetsRef = rasterMaskAssets;
+      this.patternDefinitionsRef = patternDefinitions;
       this.stylesRef = styles;
       this.extraKey = extraKey;
     }

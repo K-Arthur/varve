@@ -8,6 +8,8 @@
  *
  * Research basis: Figma/Sketch fill stacks (paint order bottom→top).
  */
+
+import type { PatternArrangement, PatternRepeatParams } from '@varve/shared';
 import type { ManagedColor } from './colorManagement';
 import type {
   BlendMode,
@@ -113,10 +115,23 @@ export function imageFill(
 export function patternFill(
   tileSrc: string,
   opts: {
+    definitionId?: string;
     spacing?: number;
     rotation?: number;
     imageWidth?: number;
     imageHeight?: number;
+    gapX?: number;
+    gapY?: number;
+    arrangement?: PatternArrangement;
+    rowShift?: number;
+    columnShift?: number;
+    mirrorX?: boolean;
+    mirrorY?: boolean;
+    offsetX?: number;
+    offsetY?: number;
+    logicalWidth?: number;
+    logicalHeight?: number;
+    alignment?: PatternFillData['alignment'];
     opacity?: number;
     blendMode?: BlendMode;
     visible?: boolean;
@@ -126,8 +141,21 @@ export function patternFill(
     tileSrc,
     spacing: opts.spacing ?? 0,
     rotation: opts.rotation ?? 0,
+    ...(opts.definitionId !== undefined ? { definitionId: opts.definitionId } : {}),
     ...(opts.imageWidth !== undefined ? { imageWidth: opts.imageWidth } : {}),
     ...(opts.imageHeight !== undefined ? { imageHeight: opts.imageHeight } : {}),
+    ...(opts.gapX !== undefined ? { gapX: opts.gapX } : {}),
+    ...(opts.gapY !== undefined ? { gapY: opts.gapY } : {}),
+    ...(opts.arrangement !== undefined ? { arrangement: opts.arrangement } : {}),
+    ...(opts.rowShift !== undefined ? { rowShift: opts.rowShift } : {}),
+    ...(opts.columnShift !== undefined ? { columnShift: opts.columnShift } : {}),
+    ...(opts.mirrorX !== undefined ? { mirrorX: opts.mirrorX } : {}),
+    ...(opts.mirrorY !== undefined ? { mirrorY: opts.mirrorY } : {}),
+    ...(opts.offsetX !== undefined ? { offsetX: opts.offsetX } : {}),
+    ...(opts.offsetY !== undefined ? { offsetY: opts.offsetY } : {}),
+    ...(opts.logicalWidth !== undefined ? { logicalWidth: opts.logicalWidth } : {}),
+    ...(opts.logicalHeight !== undefined ? { logicalHeight: opts.logicalHeight } : {}),
+    ...(opts.alignment !== undefined ? { alignment: opts.alignment } : {}),
   };
   return {
     type: 'pattern',
@@ -135,6 +163,39 @@ export function patternFill(
     opacity: opts.opacity ?? 1,
     blendMode: opts.blendMode ?? 'normal',
     visible: opts.visible ?? true,
+  };
+}
+
+/**
+ * Resolve a scene pattern fill into the shared repeat contract.
+ *
+ * `tileWidth`/`tileHeight` are the *resolved raster placement size* (the fill's
+ * `imageWidth`/`imageHeight` overrides, or the decoded natural size). The
+ * legacy uniform `spacing` feeds both axes when `gapX`/`gapY` are absent, so a
+ * pre-v2.32 fill resolves to the lattice it always had.
+ *
+ * Lives here (scene) rather than in the engine because `@varve/engine` must not
+ * depend on `@varve/scene`; the engine builds the same params from its own IR.
+ */
+export function patternRepeatParams(
+  pattern: PatternFillData,
+  tileWidth: number,
+  tileHeight: number,
+): PatternRepeatParams {
+  const gapX = pattern.gapX !== undefined ? pattern.gapX : pattern.spacing;
+  const gapY = pattern.gapY !== undefined ? pattern.gapY : pattern.spacing;
+  return {
+    tileWidth,
+    tileHeight,
+    gapX,
+    gapY,
+    arrangement: pattern.arrangement,
+    rowShift: pattern.rowShift,
+    columnShift: pattern.columnShift,
+    mirrorX: pattern.mirrorX,
+    mirrorY: pattern.mirrorY,
+    offsetX: pattern.offsetX,
+    offsetY: pattern.offsetY,
   };
 }
 

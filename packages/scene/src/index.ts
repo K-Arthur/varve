@@ -127,6 +127,7 @@ export * from './paint';
 export * from './paintCoverage';
 export * from './paintOrder';
 export * from './pasteboardLayout';
+export * from './patternDefinitions';
 export * from './photoSource';
 export * from './preflight';
 export * from './presentation';

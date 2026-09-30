@@ -179,6 +179,26 @@ pub struct IpcEnginePatternFillData {
     pub image_width: Option<f64>,
     #[serde(default, rename = "imageHeight")]
     pub image_height: Option<f64>,
+    /// v2.32 repeat geometry. The bridge does not interpret these; it only
+    /// carries them so the webview's repeat evaluator receives them.
+    #[serde(default, rename = "gapX")]
+    pub gap_x: Option<f64>,
+    #[serde(default, rename = "gapY")]
+    pub gap_y: Option<f64>,
+    #[serde(default)]
+    pub arrangement: Option<String>,
+    #[serde(default, rename = "rowShift")]
+    pub row_shift: Option<f64>,
+    #[serde(default, rename = "columnShift")]
+    pub column_shift: Option<f64>,
+    #[serde(default, rename = "mirrorX")]
+    pub mirror_x: Option<bool>,
+    #[serde(default, rename = "mirrorY")]
+    pub mirror_y: Option<bool>,
+    #[serde(default, rename = "offsetX")]
+    pub offset_x: Option<f64>,
+    #[serde(default, rename = "offsetY")]
+    pub offset_y: Option<f64>,
 }
 
 /// TypeScript `@varve/engine` EngineFill shape (nested variant data).
@@ -285,6 +305,15 @@ impl IpcEngineFill {
                 rotation: pattern.rotation,
                 image_width: pattern.image_width,
                 image_height: pattern.image_height,
+                gap_x: pattern.gap_x,
+                gap_y: pattern.gap_y,
+                arrangement: pattern.arrangement,
+                row_shift: pattern.row_shift,
+                column_shift: pattern.column_shift,
+                mirror_x: pattern.mirror_x,
+                mirror_y: pattern.mirror_y,
+                offset_x: pattern.offset_x,
+                offset_y: pattern.offset_y,
                 opacity,
                 blend_mode,
                 visible,
@@ -911,4 +940,124 @@ fn ipc_table_shape_passes_through_unchanged() {
     assert_eq!(payload["cells"][0]["text"]["lines"][0], "Header A");
     let wire = serde_json::to_value(&converted[0].shape).expect("serialize shape");
     assert_eq!(wire["Table"]["w"], 300.0);
+}
+
+/// v2.32 pattern repeat geometry must survive the wire round trip.
+///
+/// The Rust engine does not tile patterns; it passes fills through to the
+/// TypeScript replayer, which owns the repeat lattice. If the bridge drops
+/// these fields the webview silently falls back to a plain grid, which is
+/// exactly the regression this test guards (found via `tests/e2e/canvas/
+/// pattern-repeat.spec.ts` before the fields were wired).
+#[cfg(test)]
+mod pattern_repeat_wire_tests {
+    use super::*;
+
+    #[test]
+    fn pattern_repeat_fields_survive_the_bridge() {
+        let json = serde_json::json!([{
+            "id": "n1",
+            "name": "Rect",
+            "transform": [1.0, 0.0, 0.0, 1.0, 0.0, 0.0],
+            "shape": { "kind": "rect", "x": 0.0, "y": 0.0, "w": 100.0, "h": 100.0 },
+            "fill": { "space": "rgb", "r": 0.0, "g": 0.0, "b": 0.0, "a": 255.0 },
+            "fills": [{
+                "type": "pattern",
+                "pattern": {
+                    "tileSrc": "data:image/png;base64,AA",
+                    "spacing": 0.0,
+                    "rotation": 0.0,
+                    "gapX": 4.5,
+                    "gapY": 2.25,
+                    "arrangement": "half-drop",
+                    "rowShift": 0.25,
+                    "columnShift": 0.125,
+                    "mirrorX": true,
+                    "mirrorY": false,
+                    "offsetX": -3.5,
+                    "offsetY": 7.125
+                },
+                "opacity": 1.0,
+                "blendMode": "normal",
+                "visible": true
+            }]
+        }]);
+
+        let nodes: Vec<IpcSceneNode> = serde_json::from_value(json).expect("deserialize");
+        let scene = convert_engine_nodes(nodes);
+        let Some(fills) = scene[0].fills.as_ref() else {
+            panic!("fills missing");
+        };
+        let FillIR::Pattern {
+            gap_x,
+            gap_y,
+            arrangement,
+            row_shift,
+            column_shift,
+            mirror_x,
+            mirror_y,
+            offset_x,
+            offset_y,
+            ..
+        } = &fills[0]
+        else {
+            panic!("expected a pattern fill");
+        };
+        assert_eq!(*gap_x, Some(4.5));
+        assert_eq!(*gap_y, Some(2.25));
+        assert_eq!(arrangement.as_deref(), Some("half-drop"));
+        assert_eq!(*row_shift, Some(0.25));
+        assert_eq!(*column_shift, Some(0.125));
+        assert_eq!(*mirror_x, Some(true));
+        assert_eq!(*mirror_y, Some(false));
+        assert_eq!(*offset_x, Some(-3.5));
+        assert_eq!(*offset_y, Some(7.125));
+
+        // And back out to the JSON the webview consumes.
+        let wire = serde_json::to_value(&fills[0]).expect("serialize fill");
+        assert_eq!(wire["arrangement"], "half-drop");
+        assert_eq!(wire["columnShift"], 0.125);
+        assert_eq!(wire["gapX"], 4.5);
+        assert_eq!(wire["mirrorX"], true);
+        assert_eq!(wire["offsetY"], 7.125);
+    }
+
+    #[test]
+    fn legacy_pattern_json_serializes_without_the_new_fields() {
+        // Pre-v2.32 documents must produce byte-identical wire output: the new
+        // fields are Optional and skipped when absent.
+        let json = serde_json::json!([{
+            "id": "n1",
+            "name": "Rect",
+            "transform": [1.0, 0.0, 0.0, 1.0, 0.0, 0.0],
+            "shape": { "kind": "rect", "x": 0.0, "y": 0.0, "w": 100.0, "h": 100.0 },
+            "fill": { "space": "rgb", "r": 0.0, "g": 0.0, "b": 0.0, "a": 255.0 },
+            "fills": [{
+                "type": "pattern",
+                "pattern": { "tileSrc": "tile.png", "spacing": 6.0, "rotation": 0.0 },
+                "opacity": 1.0,
+                "blendMode": "normal",
+                "visible": true
+            }]
+        }]);
+        let nodes: Vec<IpcSceneNode> = serde_json::from_value(json).expect("deserialize");
+        let scene = convert_engine_nodes(nodes);
+        let fills = scene[0].fills.as_ref().expect("fills");
+        let wire = serde_json::to_value(&fills[0]).expect("serialize fill");
+        let object = wire.as_object().expect("object");
+        for absent in [
+            "gapX",
+            "gapY",
+            "arrangement",
+            "rowShift",
+            "columnShift",
+            "mirrorX",
+            "mirrorY",
+            "offsetX",
+            "offsetY",
+        ] {
+            assert!(!object.contains_key(absent), "{absent} should be omitted");
+        }
+        assert_eq!(object["spacing"], 6.0);
+    }
 }

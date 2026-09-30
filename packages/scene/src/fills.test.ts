@@ -8,6 +8,7 @@ import {
   gradientFill,
   imageFill,
   patternFill,
+  patternRepeatParams,
   primaryColor,
   resolveNodeFills,
   solidFill,
@@ -86,6 +87,67 @@ describe('patternFill', () => {
     const fill = patternFill('tile:abc', { imageWidth: 64, imageHeight: 48 });
     expect(fill.pattern?.imageWidth).toBe(64);
     expect(fill.pattern?.imageHeight).toBe(48);
+  });
+
+  it('omits the v2.32 refinement fields when they are not requested', () => {
+    const fill = patternFill('tile:abc');
+    expect(fill.pattern?.arrangement).toBeUndefined();
+    expect(fill.pattern?.gapX).toBeUndefined();
+    expect(fill.pattern?.gapY).toBeUndefined();
+    expect(fill.pattern?.mirrorX).toBeUndefined();
+    expect(fill.pattern?.offsetX).toBeUndefined();
+  });
+
+  it('carries arrangement, gaps, mirroring and phase', () => {
+    const fill = patternFill('tile:abc', {
+      arrangement: 'half-drop',
+      gapX: 4,
+      gapY: 2,
+      mirrorX: true,
+      mirrorY: false,
+      offsetX: 1.5,
+      offsetY: -2.25,
+      logicalWidth: 32,
+      logicalHeight: 16,
+    });
+    expect(fill.pattern?.arrangement).toBe('half-drop');
+    expect(fill.pattern?.gapX).toBe(4);
+    expect(fill.pattern?.gapY).toBe(2);
+    expect(fill.pattern?.mirrorX).toBe(true);
+    expect(fill.pattern?.offsetX).toBe(1.5);
+    expect(fill.pattern?.logicalWidth).toBe(32);
+  });
+});
+
+describe('patternRepeatParams', () => {
+  it('maps the legacy uniform spacing onto both axes', () => {
+    const fill = patternFill('tile:abc', { spacing: 6 });
+    const params = patternRepeatParams(fill.pattern!, 20, 10);
+    expect(params.gapX).toBe(6);
+    expect(params.gapY).toBe(6);
+    expect(params.tileWidth).toBe(20);
+    expect(params.tileHeight).toBe(10);
+  });
+
+  it('lets an explicit per-axis gap override the legacy spacing', () => {
+    const fill = patternFill('tile:abc', { spacing: 6, gapX: 0, gapY: 12 });
+    const params = patternRepeatParams(fill.pattern!, 20, 10);
+    expect(params.gapX).toBe(0);
+    expect(params.gapY).toBe(12);
+  });
+
+  it('forwards arrangement, mirroring and phase to the shared contract', () => {
+    const fill = patternFill('tile:abc', {
+      arrangement: 'brick',
+      rowShift: 0.25,
+      mirrorY: true,
+      offsetX: 3,
+    });
+    const params = patternRepeatParams(fill.pattern!, 20, 10);
+    expect(params.arrangement).toBe('brick');
+    expect(params.rowShift).toBe(0.25);
+    expect(params.mirrorY).toBe(true);
+    expect(params.offsetX).toBe(3);
   });
 });
 

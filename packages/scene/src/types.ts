@@ -30,6 +30,7 @@ import type {
 import type {
   AnimatedAssetMetadata,
   MediaFillSettings,
+  PatternArrangement,
   RasterColorEncoding,
   OpenTypeFeatureMap as SharedOpenTypeFeatureMap,
   TextWrapShape,
@@ -956,17 +957,159 @@ export interface ImageFillData {
   media?: MediaFillSettings;
 }
 
+/**
+ * A procedural pattern recipe (v2.32+).
+ *
+ * The recipe — not the generated bitmap — is the editable source of truth for a
+ * procedural pattern, so it survives save/reopen, can be regenerated
+ * deterministically from its seed, and never re-rolls on zoom, backend switch,
+ * or export. `tileSrc` remains the derived data URL that the renderer consumes;
+ * it is a cache, and the recipe is what the Inspector edits.
+ */
+export interface PatternGeneratorRecipe {
+  /** Generator kind. Kept as a string so an unknown future kind round-trips. */
+  type: string;
+  tileWidth: number;
+  tileHeight: number;
+  color1: string;
+  color2: string;
+  seed?: number;
+  angle?: number;
+  density?: number;
+  gap?: number;
+}
+
+/**
+ * Repeat geometry stored on a reusable pattern definition. Fill instances may
+ * override placement, while this record describes the source's authored
+ * lattice. Cell dimensions are independent of the visible artwork bounds.
+ */
+export interface PatternRepeatDefinition {
+  arrangement: PatternArrangement;
+  gapX: number;
+  gapY: number;
+  /** Horizontal displacement of odd rows as a fraction of the column step. */
+  rowShift: number;
+  /** Vertical displacement of odd columns as a fraction of the row step. */
+  columnShift?: number;
+  mirrorX: boolean;
+  mirrorY: boolean;
+  originX: number;
+  originY: number;
+}
+
+export interface PatternCellBounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/** Editable source captured by a reusable pattern definition. */
+export type PatternDefinitionSource =
+  | {
+      kind: 'vector';
+      /** Root motif IDs in this private mini-scene. */
+      rootIds: NodeId[];
+      /** Copied nodes; edits to the original document artwork do not affect it. */
+      nodes: Record<NodeId, SceneNode>;
+      /** Content-addressed document resources referenced by the mini-scene. */
+      assetIds: string[];
+      styleIds: string[];
+      componentIds: string[];
+    }
+  | {
+      kind: 'raster';
+      assetId: string;
+      width: number;
+      height: number;
+      fileName?: string;
+    }
+  | {
+      kind: 'procedural';
+      recipe: PatternGeneratorRecipe;
+    };
+
+/**
+ * Document-level, editable pattern. `previewSrc` is a derived render cache;
+ * the vector mini-scene, raster asset, or procedural recipe remains the
+ * source of truth. A cache is valid only when previewRevision matches revision.
+ */
+export interface PatternDefinition {
+  id: string;
+  name: string;
+  revision: number;
+  cell: PatternCellBounds;
+  repeat: PatternRepeatDefinition;
+  source: PatternDefinitionSource;
+  /** Data URL cache used by current raster-oriented render paths. */
+  previewSrc?: string;
+  previewRevision?: number;
+  /** Pattern definitions referenced by supported nested sources. */
+  dependencyPatternIds?: string[];
+}
+
 export interface PatternFillData {
   /** Reference to a tile node id or a data URL of the tile pattern. */
   tileSrc: string;
-  /** Tile spacing in px between repetitions. */
+  /** Shared editable source in Document.patternDefinitions, when present. */
+  definitionId?: string;
+  /**
+   * Uniform gap in px between repetitions. Legacy single-axis value: used for
+   * both axes when `gapX`/`gapY` are absent, so files written before v2.32
+   * keep their exact spacing.
+   */
   spacing: number;
-  /** Rotation of the pattern in degrees. */
+  /** Rotation of the pattern field in degrees about the object centre. */
   rotation: number;
   /** Tile width in px override. When omitted, natural image width is used. */
   imageWidth?: number;
   /** Tile height in px override. When omitted, natural image height is used. */
   imageHeight?: number;
+  /**
+   * Horizontal gap between columns in px (v2.32+). Overrides `spacing` on the
+   * x axis only, so a pattern can be looser across than down.
+   */
+  gapX?: number;
+  /** Vertical gap between rows in px (v2.32+). Overrides `spacing` on y. */
+  gapY?: number;
+  /**
+   * Repetition lattice (v2.32+): `grid`, `half-drop`, or `brick`. Absent means
+   * `grid`, which is the pre-v2.32 behaviour.
+   */
+  arrangement?: PatternArrangement;
+  /**
+   * Row shift as a fraction of the column step (v2.32+). Overrides the
+   * arrangement default; lets a document describe an arbitrary
+   * staggered/hex-compatible lattice. See `@varve/shared` `patternRepeat`.
+   */
+  rowShift?: number;
+  /** Vertical displacement of odd columns as a fraction of the row step. */
+  columnShift?: number;
+  /** Flip alternating columns horizontally (v2.32+). Default false. */
+  mirrorX?: boolean;
+  /** Flip alternating rows vertically (v2.32+). Default false. */
+  mirrorY?: boolean;
+  /**
+   * Authored phase of the lattice in px, in the fill's pattern space
+   * (v2.32+). Fractional and negative values are preserved.
+   */
+  offsetX?: number;
+  offsetY?: number;
+  /**
+   * Logical width/height of the tile in px before any per-fill scaling
+   * (v2.32+). This is the size the artwork was authored at; `imageWidth`
+   * remains the raster placement size. Absent means it equals the raster size.
+   */
+  logicalWidth?: number;
+  logicalHeight?: number;
+  /** Shared document/page alignment; omitted keeps legacy object-relative phase. */
+  alignment?: 'object' | 'document';
+  /**
+   * Procedural recipe this tile was generated from (v2.32+). When present the
+   * recipe is the editable source; `tileSrc` holds the derived bitmap.
+   */
+  generator?: PatternGeneratorRecipe;
 }
 
 export type FillType = 'solid' | 'gradient' | 'image' | 'pattern';

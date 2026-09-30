@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { Document } from './document';
 import {
   CURRENT_DOCUMENT_VERSION,
   detectForwardCompatWarning,
@@ -14,8 +15,42 @@ import {
 
 describe('Document Versioning', () => {
   it('uses the native raster-mask schema version', () => {
-    expect(CURRENT_DOCUMENT_VERSION).toBe('2.31');
+    expect(CURRENT_DOCUMENT_VERSION).toBe('2.32');
     expect(SUPPORTED_VERSIONS).toContain('2.4');
+  });
+
+  it('adds an empty editable-pattern library without changing legacy pattern fills', () => {
+    const legacy = {
+      formatVersion: '2.31',
+      id: 'legacy-pattern-document',
+      name: 'Legacy pattern',
+      rootChildren: ['tile-node', 'shape-node'],
+      nodes: {
+        'tile-node': { id: 'tile-node', kind: 'shape' },
+        'shape-node': {
+          id: 'shape-node',
+          kind: 'shape',
+          fills: [
+            {
+              type: 'pattern',
+              pattern: { tileSrc: 'tile-node', spacing: 3, rotation: 12 },
+              opacity: 1,
+              blendMode: 'normal',
+              visible: true,
+            },
+          ],
+        },
+      },
+    };
+
+    const migrated = migrateDocument(legacy) as Document | null;
+
+    expect(migrated?.formatVersion).toBe('2.32');
+    expect(migrated?.patternDefinitions).toEqual({});
+    expect(migrated?.nodes['shape-node']?.fills?.[0]).toMatchObject({
+      type: 'pattern',
+      pattern: { tileSrc: 'tile-node', spacing: 3, rotation: 12 },
+    });
   });
 
   it('normalizes exact font references and drops malformed identities', () => {

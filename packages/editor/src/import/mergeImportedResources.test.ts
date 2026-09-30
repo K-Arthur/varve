@@ -1,4 +1,9 @@
-import type { GenerativeEditRecord, MockupTemplateAsset } from '@varve/scene';
+import type {
+  DocumentAsset,
+  GenerativeEditRecord,
+  MockupTemplateAsset,
+  PatternDefinition,
+} from '@varve/scene';
 import {
   createDocument,
   createVariableStore,
@@ -7,11 +12,167 @@ import {
   makeGroupNode,
   makeShapeNode,
   makeTextNode,
+  patternFill,
 } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { mergeImportedResources } from './mergeImportedResources';
 
 describe('mergeImportedResources', () => {
+  it('remaps colliding pattern definition IDs and keeps pasted fills attached to their source', () => {
+    const makeDefinition = (name: string, seed: number): PatternDefinition => ({
+      id: 'pattern-shared',
+      name,
+      revision: 1,
+      cell: { x: 0, y: 0, width: 16, height: 16 },
+      repeat: {
+        arrangement: 'grid',
+        gapX: 0,
+        gapY: 0,
+        rowShift: 0,
+        mirrorX: false,
+        mirrorY: false,
+        originX: 0,
+        originY: 0,
+      },
+      source: {
+        kind: 'procedural',
+        recipe: {
+          type: 'checkerboard',
+          tileWidth: 16,
+          tileHeight: 16,
+          color1: '#fff',
+          color2: '#000',
+          seed,
+        },
+      },
+      previewSrc: `data:image/png;base64,${seed}`,
+      previewRevision: 1,
+    });
+    const sourceNode = {
+      ...makeShapeNode('source-pattern', { kind: 'rect', x: 0, y: 0, w: 32, h: 32 }),
+      fills: [patternFill('data:image/png;base64,2', { definitionId: 'pattern-shared' })],
+    };
+    const source = {
+      ...createDocument('source-pattern'),
+      rootChildren: [sourceNode.id],
+      nodes: { [sourceNode.id]: sourceNode },
+      patternDefinitions: { 'pattern-shared': makeDefinition('Source pattern', 2) },
+    };
+    const targetNode = makeShapeNode('target-pattern', {
+      kind: 'rect',
+      x: 0,
+      y: 0,
+      w: 32,
+      h: 32,
+    });
+    const target = {
+      ...createDocument('target-pattern'),
+      rootChildren: [targetNode.id],
+      nodes: { [targetNode.id]: targetNode },
+      patternDefinitions: { 'pattern-shared': makeDefinition('Destination pattern', 1) },
+    };
+    const clone = deepCloneSubtree(source.nodes, target.nextId, sourceNode.id);
+    const merged = mergeImportedResources(
+      {
+        ...target,
+        nodes: { ...target.nodes, ...clone.nodes },
+        rootChildren: [...target.rootChildren, clone.rootId],
+        nextId: clone.nextId,
+      },
+      [{ sourceDoc: source, idMap: clone.idMap }],
+    );
+    const pasted = merged.nodes[clone.rootId];
+    const fill = pasted?.fills?.[0];
+    const definitionId = fill?.type === 'pattern' ? fill.pattern?.definitionId : undefined;
+    expect(definitionId).toBeTruthy();
+    expect(definitionId).not.toBe('pattern-shared');
+    expect(merged.patternDefinitions?.[definitionId!]?.name).toBe('Source pattern');
+    expect(merged.patternDefinitions?.['pattern-shared']?.name).toBe('Destination pattern');
+  });
+
+  it('remaps a colliding raster source asset with its imported pattern definition', () => {
+    const makeAsset = (dataUrl: string): DocumentAsset => ({
+      id: 'asset-shared',
+      storage: 'embedded',
+      mimeType: 'image/png',
+      dataUrl,
+      naturalWidth: 2,
+      naturalHeight: 2,
+      byteLength: dataUrl.length,
+      hash: dataUrl,
+    });
+    const makeDefinition = (name: string): PatternDefinition => ({
+      id: 'pattern-shared',
+      name,
+      revision: 1,
+      cell: { x: 0, y: 0, width: 2, height: 2 },
+      repeat: {
+        arrangement: 'grid',
+        gapX: 0,
+        gapY: 0,
+        rowShift: 0,
+        mirrorX: false,
+        mirrorY: false,
+        originX: 0,
+        originY: 0,
+      },
+      source: { kind: 'raster', assetId: 'asset-shared', width: 2, height: 2 },
+      previewSrc: 'data:image/png;base64,c291cmNl',
+      previewRevision: 1,
+    });
+    const sourceNode = {
+      ...makeShapeNode('source-pattern', { kind: 'rect', x: 0, y: 0, w: 32, h: 32 }),
+      fills: [patternFill('data:image/png;base64,c291cmNl', { definitionId: 'pattern-shared' })],
+    };
+    const sourceAsset = makeAsset('data:image/png;base64,c291cmNl');
+    const source = {
+      ...createDocument('source-pattern-raster'),
+      rootChildren: [sourceNode.id],
+      nodes: { [sourceNode.id]: sourceNode },
+      assets: { [sourceAsset.id]: sourceAsset },
+      patternDefinitions: { 'pattern-shared': makeDefinition('Source raster pattern') },
+    };
+    const targetAsset = makeAsset('data:image/png;base64,dGFyZ2V0');
+    const targetNode = makeShapeNode('target-pattern-raster', {
+      kind: 'rect',
+      x: 0,
+      y: 0,
+      w: 32,
+      h: 32,
+    });
+    const target = {
+      ...createDocument('target-pattern-raster'),
+      rootChildren: [targetNode.id],
+      nodes: { [targetNode.id]: targetNode },
+      assets: { [targetAsset.id]: targetAsset },
+      patternDefinitions: { 'pattern-shared': makeDefinition('Destination raster pattern') },
+    };
+    const clone = deepCloneSubtree(source.nodes, target.nextId, sourceNode.id);
+    const merged = mergeImportedResources(
+      {
+        ...target,
+        nodes: { ...target.nodes, ...clone.nodes },
+        rootChildren: [...target.rootChildren, clone.rootId],
+        nextId: clone.nextId,
+      },
+      [{ sourceDoc: source, idMap: clone.idMap }],
+    );
+
+    const pasted = merged.nodes[clone.rootId];
+    const definitionId =
+      pasted?.fills?.[0]?.type === 'pattern' ? pasted.fills[0].pattern?.definitionId : undefined;
+    const imported = definitionId ? merged.patternDefinitions?.[definitionId] : undefined;
+    const importedAssetId =
+      imported?.source.kind === 'raster' ? imported.source.assetId : undefined;
+    expect(definitionId).toBeTruthy();
+    expect(definitionId).not.toBe('pattern-shared');
+    expect(imported?.name).toBe('Source raster pattern');
+    expect(importedAssetId).toBeTruthy();
+    expect(importedAssetId).not.toBe('asset-shared');
+    expect(merged.assets?.['asset-shared']?.dataUrl).toBe(targetAsset.dataUrl);
+    expect(merged.assets?.[importedAssetId!]?.dataUrl).toBe(sourceAsset.dataUrl);
+  });
+
   it('merges exact font manifest provenance without collapsing same-family faces', () => {
     const firstReference = { artifactHash: 'a'.repeat(64), collectionIndex: 0 };
     const secondReference = { artifactHash: 'b'.repeat(64), collectionIndex: 1 };

@@ -1,4 +1,10 @@
-import type { Document, DocumentAsset, RasterMaskAsset, SceneNode } from '@varve/scene';
+import type {
+  Document,
+  DocumentAsset,
+  PatternDefinition,
+  RasterMaskAsset,
+  SceneNode,
+} from '@varve/scene';
 import type { Affine } from '@varve/shared';
 import { describe, expect, it, vi } from 'vitest';
 import {
@@ -873,7 +879,7 @@ describe('readFromClipboardEvent', () => {
   });
 
   it('transports bounded reusable definitions in v4 and rejects recursive sources', () => {
-    const patternDefinition = {
+    const patternDefinition: PatternDefinition = {
       id: 'pattern-1',
       name: 'Pattern',
       revision: 1,
@@ -939,7 +945,7 @@ describe('readFromClipboardEvent', () => {
     // payload whose fills reference a definition the fragment does not own, and
     // the placement overrides are silently dropped on paste. This drives the
     // writer and reads it back.
-    const patternDefinition = {
+    const patternDefinition: PatternDefinition = {
       id: 'pattern-1',
       name: 'Pattern',
       revision: 1,

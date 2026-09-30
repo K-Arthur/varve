@@ -42,6 +42,7 @@ import {
   type SceneNode,
   type SerializableTiles,
   serializeTiles,
+  validatePatternDefinitionDependencies,
 } from '@varve/scene';
 import type { Affine } from '@varve/shared';
 
@@ -77,8 +78,8 @@ const NATIVE_CLIPBOARD_READ_TYPES = [
   'text/plain',
 ];
 const VARVE_CLIPBOARD_FORMAT = 'varve-clipboard';
-/** Versions 1/2 remain readable; v3 carries frame-owned guide metadata. */
-const VARVE_CLIPBOARD_VERSION = 3 as const;
+/** Versions 1–3 remain readable; v4 adds reusable pattern definitions. */
+const VARVE_CLIPBOARD_VERSION = 4 as const;
 const LEGACY_CLIPBOARD_VERSION = 1 as const;
 const MAX_CLIPBOARD_JSON_BYTES = 64 * 1024 * 1024;
 const MAX_CLIPBOARD_NODES = 100_000;
@@ -99,7 +100,7 @@ function isVarvePayloadType(type: string): boolean {
 export interface ClipboardData {
   /** Versioned fragment envelope. Absent only on legacy pre-envelope copies. */
   format?: typeof VARVE_CLIPBOARD_FORMAT;
-  version?: 1 | 2 | typeof VARVE_CLIPBOARD_VERSION;
+  version?: 1 | 2 | 3 | typeof VARVE_CLIPBOARD_VERSION;
   /** Source document identity, used to distinguish in-document paste from a foreign paste. */
   sourceDocumentId?: string;
   nodes: SceneNode[];
@@ -124,6 +125,7 @@ export interface ClipboardData {
   components?: Document['components'];
   styles?: Document['styles'];
   paints?: Document['paints'];
+  patternDefinitions?: Document['patternDefinitions'];
   variableStore?: Document['variableStore'];
   interactions?: Document['interactions'];
   timelines?: Document['timelines'];
@@ -641,6 +643,90 @@ function validClipboardFontManifest(value: unknown): value is Document['fontMani
   return Array.isArray(value.fonts) && value.fonts.length <= MAX_CLIPBOARD_FONT_DEPENDENCIES;
 }
 
+function validClipboardPatternDefinitions(
+  value: unknown,
+): value is NonNullable<Document['patternDefinitions']> {
+  if (value === undefined) return true;
+  if (!isRecord(value) || !finitePayload(value)) return false;
+  for (const [id, entry] of Object.entries(value)) {
+    if (
+      !isRecord(entry) ||
+      entry.id !== id ||
+      typeof entry.name !== 'string' ||
+      !Number.isInteger(entry.revision) ||
+      (entry.revision as number) < 1 ||
+      !isRecord(entry.cell) ||
+      ![entry.cell.x, entry.cell.y, entry.cell.width, entry.cell.height].every(
+        (number) => typeof number === 'number' && Number.isFinite(number),
+      ) ||
+      (entry.cell.width as number) <= 0 ||
+      (entry.cell.height as number) <= 0 ||
+      !isRecord(entry.repeat) ||
+      !isRecord(entry.source)
+    ) {
+      return false;
+    }
+    if (
+      entry.dependencyPatternIds !== undefined &&
+      (!Array.isArray(entry.dependencyPatternIds) ||
+        entry.dependencyPatternIds.some((dependency) => typeof dependency !== 'string'))
+    ) {
+      return false;
+    }
+    const source = entry.source as Record<string, unknown>;
+    if (source.kind === 'vector') {
+      const rootIds = source.rootIds;
+      const sourceNodes = source.nodes;
+      if (
+        !Array.isArray(rootIds) ||
+        rootIds.length === 0 ||
+        new Set(rootIds).size !== rootIds.length ||
+        !isRecord(sourceNodes) ||
+        !Array.isArray(source.assetIds) ||
+        !Array.isArray(source.styleIds) ||
+        !Array.isArray(source.componentIds) ||
+        rootIds.some((rootId) => typeof rootId !== 'string' || !isRecord(sourceNodes[rootId])) ||
+        [...source.assetIds, ...source.styleIds, ...source.componentIds].some(
+          (dependencyId) => typeof dependencyId !== 'string',
+        )
+      ) {
+        return false;
+      }
+      const motifNodes = Object.entries(sourceNodes).map(([nodeId, value]) => {
+        const parsed = parseClipboardNode(value);
+        return parsed?.id === nodeId ? parsed : null;
+      });
+      const parsedMotifNodes = motifNodes.filter((node): node is SceneNode => node !== null);
+      if (
+        motifNodes.some((node) => node === null) ||
+        !validateNodeGraph(parsedMotifNodes) ||
+        rootIds.some((rootId) => typeof rootId !== 'string')
+      ) {
+        return false;
+      }
+    } else if (
+      entry.source.kind === 'raster' &&
+      (typeof source.assetId !== 'string' ||
+        typeof source.width !== 'number' ||
+        !Number.isFinite(source.width) ||
+        source.width <= 0 ||
+        typeof source.height !== 'number' ||
+        !Number.isFinite(source.height) ||
+        source.height <= 0)
+    ) {
+      return false;
+    } else if (source.kind === 'procedural' && !isRecord(source.recipe)) {
+      return false;
+    } else if (!['vector', 'raster', 'procedural'].includes(String(source.kind))) {
+      return false;
+    }
+  }
+  return (
+    validatePatternDefinitionDependencies(value as NonNullable<Document['patternDefinitions']>)
+      .length === 0
+  );
+}
+
 /** Reject NaN/Infinity anywhere in a transported fragment without recursive stack growth. */
 function finitePayload(value: unknown): boolean {
   const stack: Array<{ value: unknown; depth: number }> = [{ value, depth: 0 }];
@@ -678,7 +764,8 @@ export function parseClipboardData(text: string): ClipboardData | null {
   }
   if (
     !validClipboardFontManifest(raw.fontManifest) ||
-    !validClipboardFontDependencies(raw.fontDependencies)
+    !validClipboardFontDependencies(raw.fontDependencies) ||
+    !validClipboardPatternDefinitions(raw.patternDefinitions)
   ) {
     return null;
   }
@@ -687,6 +774,7 @@ export function parseClipboardData(text: string): ClipboardData | null {
     (raw.format !== VARVE_CLIPBOARD_FORMAT ||
       (raw.version !== LEGACY_CLIPBOARD_VERSION &&
         raw.version !== 2 &&
+        raw.version !== 3 &&
         raw.version !== VARVE_CLIPBOARD_VERSION))
   ) {
     return null;
@@ -739,6 +827,7 @@ export function parseClipboardData(text: string): ClipboardData | null {
   ) {
     return null;
   }
+  if (raw.patternDefinitions !== undefined && !finitePayload(raw.patternDefinitions)) return null;
   if (
     raw.worldAnchor !== undefined &&
     (!isRecord(raw.worldAnchor) ||
@@ -760,7 +849,9 @@ export function parseClipboardData(text: string): ClipboardData | null {
               ? VARVE_CLIPBOARD_VERSION
               : raw.version === 2
                 ? 2
-                : LEGACY_CLIPBOARD_VERSION,
+                : raw.version === 3
+                  ? 3
+                  : LEGACY_CLIPBOARD_VERSION,
         }
       : {}),
     ...(typeof raw.sourceDocumentId === 'string' ? { sourceDocumentId: raw.sourceDocumentId } : {}),
@@ -792,6 +883,9 @@ export function parseClipboardData(text: string): ClipboardData | null {
       : {}),
     ...(isRecord(raw.styles) ? { styles: raw.styles as ClipboardData['styles'] } : {}),
     ...(isRecord(raw.paints) ? { paints: raw.paints as ClipboardData['paints'] } : {}),
+    ...(isRecord(raw.patternDefinitions)
+      ? { patternDefinitions: raw.patternDefinitions as ClipboardData['patternDefinitions'] }
+      : {}),
     ...(isRecord(raw.variableStore)
       ? { variableStore: raw.variableStore as unknown as ClipboardData['variableStore'] }
       : {}),
@@ -839,6 +933,7 @@ function serializeClipboardData(
   fontManifest?: Document['fontManifest'],
   fontDependencies?: ClipboardFontDependency[],
   frameGuideLayouts?: Record<string, LayoutGrid[]>,
+  patternDefinitions?: Document['patternDefinitions'],
 ): string {
   const data: ClipboardData = {
     format: VARVE_CLIPBOARD_FORMAT,
@@ -862,6 +957,9 @@ function serializeClipboardData(
     ...(components && Object.keys(components).length > 0 ? { components } : {}),
     ...(styles && Object.keys(styles).length > 0 ? { styles } : {}),
     ...(paints && Object.keys(paints).length > 0 ? { paints } : {}),
+    ...(patternDefinitions && Object.keys(patternDefinitions).length > 0
+      ? { patternDefinitions }
+      : {}),
     ...(variableStore && Object.keys(variableStore.variables).length > 0 ? { variableStore } : {}),
     ...(interactions && Object.keys(interactions).length > 0 ? { interactions } : {}),
     ...(timelines && Object.keys(timelines).length > 0 ? { timelines } : {}),
@@ -916,6 +1014,7 @@ export function writeClipboardOutcome(
   depthMaps?: Record<string, DepthMapResource>,
   fontManifest?: Document['fontManifest'],
   frameGuideLayouts?: Record<string, LayoutGrid[]>,
+  patternDefinitions?: Document['patternDefinitions'],
 ): Promise<ClipboardWriteOutcome> {
   return enqueueClipboardWrite((generation) =>
     writeClipboardOutcomeNow(
@@ -943,6 +1042,7 @@ export function writeClipboardOutcome(
       depthMaps,
       fontManifest,
       frameGuideLayouts,
+      patternDefinitions,
     ),
   );
 }
@@ -1038,6 +1138,7 @@ async function writeClipboardOutcomeNow(
   depthMaps?: Record<string, DepthMapResource>,
   fontManifest?: Document['fontManifest'],
   frameGuideLayouts?: Record<string, LayoutGrid[]>,
+  patternDefinitions?: Document['patternDefinitions'],
 ): Promise<ClipboardWriteOutcome> {
   const isCurrentWrite = (): boolean =>
     generation === undefined || generation === latestClipboardWrite;
@@ -1070,6 +1171,7 @@ async function writeClipboardOutcomeNow(
       fontManifest,
       fontDependencies,
       frameGuideLayouts,
+      patternDefinitions,
     );
   } catch {
     return { status: 'failed', reason: 'write-failed' };
@@ -1184,6 +1286,7 @@ export async function writeClipboard(
   motionPresets?: Document['motionPresets'],
   dependencyIds?: string[],
   depthMaps?: Record<string, DepthMapResource>,
+  patternDefinitions?: Document['patternDefinitions'],
 ): Promise<boolean> {
   return (
     (
@@ -1209,6 +1312,9 @@ export async function writeClipboard(
         motionPresets,
         dependencyIds,
         depthMaps,
+        undefined,
+        undefined,
+        patternDefinitions,
       )
     ).status === 'editable'
   );

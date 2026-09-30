@@ -283,6 +283,42 @@ pub enum FillIR {
             rename = "imageHeight"
         )]
         image_height: Option<f64>,
+        // ── v2.32 repeat geometry ───────────────────────────────────────────
+        // The Rust engine does not tile patterns itself; it passes fills
+        // straight through to the TypeScript replayer, which owns the repeat
+        // lattice (`@varve/shared` `patternRepeat`). These fields therefore
+        // only need to survive the wire round trip. All are optional and
+        // skipped when absent, so IR produced before v2.32 is byte-identical.
+        /// Horizontal gap between columns in px. Falls back to `spacing`.
+        #[serde(default, skip_serializing_if = "Option::is_none", rename = "gapX")]
+        gap_x: Option<f64>,
+        /// Vertical gap between rows in px. Falls back to `spacing`.
+        #[serde(default, skip_serializing_if = "Option::is_none", rename = "gapY")]
+        gap_y: Option<f64>,
+        /// Repetition lattice: `grid`, `half-drop`, or `brick`.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        arrangement: Option<String>,
+        /// Row shift as a fraction of the column step (overrides arrangement).
+        #[serde(
+            default,
+            skip_serializing_if = "Option::is_none",
+            rename = "rowShift"
+        )]
+        row_shift: Option<f64>,
+        /// Vertical displacement of odd columns as a fraction of row step.
+        #[serde(default, skip_serializing_if = "Option::is_none", rename = "columnShift")]
+        column_shift: Option<f64>,
+        /// Flip alternating columns.
+        #[serde(default, skip_serializing_if = "Option::is_none", rename = "mirrorX")]
+        mirror_x: Option<bool>,
+        /// Flip alternating rows.
+        #[serde(default, skip_serializing_if = "Option::is_none", rename = "mirrorY")]
+        mirror_y: Option<bool>,
+        /// Authored lattice phase in px.
+        #[serde(default, skip_serializing_if = "Option::is_none", rename = "offsetX")]
+        offset_x: Option<f64>,
+        #[serde(default, skip_serializing_if = "Option::is_none", rename = "offsetY")]
+        offset_y: Option<f64>,
         opacity: f64,
         #[serde(rename = "blendMode")]
         blend_mode: BlendMode,

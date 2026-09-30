@@ -184,6 +184,8 @@ export interface Document {
    * paint reuse: changing one Paint updates all nodes that reference it.
    */
   paints?: Record<string, Paint>;
+  /** Reusable editable pattern sources keyed by stable pattern id (v2.32+). */
+  patternDefinitions?: Record<string, import('./types').PatternDefinition>;
   /** Reusable styles keyed by style id (color, text, effect, layout). */
   styles?: Record<string, Style>;
   /** Persisted variable store with collections and modes. */
@@ -417,6 +419,7 @@ export function createDocument(
     rootChildren: [],
     nodes: {},
     components: {},
+    patternDefinitions: {},
     nextId: 1,
     selectionSets: createEmptySelectionSetsData(),
     savedAreaSelections: [],

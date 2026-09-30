@@ -57,6 +57,7 @@ import {
 } from './mockup/warpReplay';
 import { pathFillRule, pathRings } from './pathCompound';
 import { flattenShapedRuns, mergePotentialLigatureClusters, placeLinesOnPath } from './pathText';
+import { paintPatternFill } from './patterns/replayPatternFill';
 import { getRasterLayerCache } from './rasterLayerCache';
 import {
   decideRasterStrategy,
@@ -1588,7 +1589,7 @@ function paintFill(target: ReplayTarget, fill: FillIR, item: RenderItem): void {
       target.beginPath();
       traceOutline(target, item.primitive);
       target.clip();
-      paintPatternFill(target, fill, item);
+      paintPatternFill(target, fill, primitiveBounds(item.primitive));
     } finally {
       target.restore();
     }
@@ -1953,131 +1954,6 @@ function applyImageTransform(
   if (scaleX !== 1 || scaleY !== 1) {
     ctx.scale(scaleX, scaleY);
   }
-}
-
-/** Paint a pattern (tiled) fill over the primitive bounds. */
-function paintPatternFill(
-  target: ReplayTarget,
-  fill: Extract<FillIR, { type: 'pattern' }>,
-  item: RenderItem,
-): void {
-  const bounds = primitiveBounds(item.primitive);
-  const bw = bounds.w || 1;
-  const bh = bounds.h || 1;
-
-  const cache = getImageCache();
-  const tileEntry = cache.get(fill.tileSrc);
-  if (fill.tileSrc && (!tileEntry || tileEntry.state === 'idle')) {
-    cache.load(fill.tileSrc).catch(() => {
-      /* errors recorded in cache entry */
-    });
-  }
-  if (tileEntry?.state === 'loaded' && tileEntry.image) {
-    const tileImage = tileEntry.image as HTMLImageElement;
-    const imageWidth = fill.imageWidth ?? tileImage.naturalWidth;
-    const imageHeight = fill.imageHeight ?? tileImage.naturalHeight;
-    const spacing = Number.isFinite(fill.spacing) ? fill.spacing : Number.NaN;
-    const stepX = imageWidth + spacing;
-    const stepY = imageHeight + spacing;
-    if (
-      !Number.isFinite(imageWidth) ||
-      !Number.isFinite(imageHeight) ||
-      imageWidth <= 0 ||
-      imageHeight <= 0 ||
-      !Number.isFinite(stepX) ||
-      !Number.isFinite(stepY) ||
-      stepX < 1 ||
-      stepY < 1
-    ) {
-      paintPatternFallback(target, bounds.x, bounds.y, bw, bh);
-      return;
-    }
-
-    const radians = Number.isFinite(fill.rotation) ? (fill.rotation * Math.PI) / 180 : 0;
-    const cosine = Math.cos(radians);
-    const sine = Math.sin(radians);
-    const centerX = bounds.x + bw / 2;
-    const centerY = bounds.y + bh / 2;
-
-    // A zero-spacing tile maps directly to CanvasPattern. Pattern transforms
-    // preserve the bounds-relative origin while rotating about the object center.
-    if (spacing === 0 && target.createPattern) {
-      const pattern = target.createPattern(tileEntry.image, 'repeat');
-      if (pattern && typeof pattern.setTransform === 'function') {
-        try {
-          pattern.setTransform({
-            a: cosine,
-            b: sine,
-            c: -sine,
-            d: cosine,
-            e: centerX - cosine * (bw / 2) + sine * (bh / 2),
-            f: centerY - sine * (bw / 2) - cosine * (bh / 2),
-          });
-          target.fillStyle = pattern as unknown as CanvasPattern;
-          target.fillRect(bounds.x, bounds.y, bw, bh);
-          return;
-        } catch {
-          // Older targets may expose createPattern without transform support.
-          // The explicit draw loop below preserves the same visual semantics.
-        }
-      }
-    }
-
-    if (!target.drawImage) {
-      paintPatternFallback(target, bounds.x, bounds.y, bw, bh);
-      return;
-    }
-
-    let minX = bounds.x;
-    let minY = bounds.y;
-    let maxX = bounds.x + bw;
-    let maxY = bounds.y + bh;
-    if (radians !== 0) {
-      target.transform(
-        cosine,
-        sine,
-        -sine,
-        cosine,
-        centerX - cosine * centerX + sine * centerY,
-        centerY - sine * centerX - cosine * centerY,
-      );
-      const inverseCorners = [
-        [bounds.x, bounds.y],
-        [bounds.x + bw, bounds.y],
-        [bounds.x + bw, bounds.y + bh],
-        [bounds.x, bounds.y + bh],
-      ].map(([x, y]) => {
-        const dx = (x ?? 0) - centerX;
-        const dy = (y ?? 0) - centerY;
-        return [centerX + cosine * dx + sine * dy, centerY - sine * dx + cosine * dy];
-      });
-      minX = Math.min(...inverseCorners.map(([x]) => x ?? bounds.x));
-      minY = Math.min(...inverseCorners.map(([, y]) => y ?? bounds.y));
-      maxX = Math.max(...inverseCorners.map(([x]) => x ?? bounds.x + bw));
-      maxY = Math.max(...inverseCorners.map(([, y]) => y ?? bounds.y + bh));
-    }
-
-    const startX = bounds.x + Math.floor((minX - bounds.x) / stepX) * stepX;
-    const startY = bounds.y + Math.floor((minY - bounds.y) / stepY) * stepY;
-    for (let ty = startY; ty < maxY; ty += stepY) {
-      for (let tx = startX; tx < maxX; tx += stepX) {
-        target.drawImage(tileEntry.image, tx, ty, imageWidth, imageHeight);
-      }
-    }
-  } else {
-    paintPatternFallback(target, bounds.x, bounds.y, bw, bh);
-  }
-}
-
-function paintPatternFallback(
-  target: ReplayTarget,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-): void {
-  target.fillStyle = 'rgba(200,200,200,0.5)';
-  target.fillRect(x, y, width, height);
 }
 
 // ── Backdrop blur cache ──────────────────────────────────────────────

@@ -42,6 +42,7 @@ import {
 } from './masks';
 import { sanitizeMockupState } from './mockup/normalize';
 import { resolveNodePaints } from './paint';
+import { validatePatternDefinitionDependencies } from './patternDefinitions';
 import { validatePhotoSourceBinding, validateRetouchProvenance } from './photoSource';
 import { normalizePresentationMetadata } from './presentation/normalize';
 import { deserializeTiles, type SerializableTiles } from './rasterLayer';
@@ -95,6 +96,8 @@ export interface DocumentClosure {
   styles?: Document['styles'];
   /** Reusable paints referenced by closure nodes. */
   paints?: Document['paints'];
+  /** Reusable pattern definitions referenced by closure fills. */
+  patternDefinitions?: Document['patternDefinitions'];
   /** Variable bindings and their referenced aliases. */
   variableStore?: Document['variableStore'];
   /** Prototype interactions owned by closure nodes. */
@@ -157,6 +160,12 @@ function validateRuntimeCollections(raw: Record<string, unknown>): string | null
     if (!isRecord(raw.assets)) return 'Document assets must be an object';
     for (const [assetId, asset] of Object.entries(raw.assets)) {
       if (!isRecord(asset)) return `Document asset ${assetId} must be an object`;
+    }
+  }
+  if (raw.patternDefinitions !== undefined) {
+    if (!isRecord(raw.patternDefinitions)) return 'Document patternDefinitions must be an object';
+    for (const [patternId, definition] of Object.entries(raw.patternDefinitions)) {
+      if (!isRecord(definition)) return `Pattern definition ${patternId} must be an object`;
     }
   }
   if (raw.depthMaps !== undefined) {
@@ -970,9 +979,19 @@ function normalizeDocument(doc: Document): DocumentNormalizeResult {
     nodes,
     nextId,
     components: doc.components ?? {},
+    patternDefinitions: doc.patternDefinitions ?? {},
     pages,
     activePageId,
   };
+  const patternGraphErrors = validatePatternDefinitionDependencies(
+    document.patternDefinitions ?? {},
+    document,
+  );
+  for (const message of patternGraphErrors) {
+    warnings.push(
+      warning('document.invalid-pattern-dependency', message, 'warning', 'patternDefinitions'),
+    );
+  }
   document = normalizeImageFillGeometry(document);
   document = normalizeInlineImageFills(document, warnings);
   document = sanitizeStructuralMaskState(document, warnings);
@@ -1078,6 +1097,8 @@ function normalizeDocument(doc: Document): DocumentNormalizeResult {
 function collectNodeClosure(doc: Document, rootIds: NodeId[]): DocumentClosure {
   const nodeIds = new Set<NodeId>();
   const nodes: Record<NodeId, SceneNode> = {};
+  const patternDefinitionIds = new Set<string>();
+  const pendingPatternIds: string[] = [];
 
   function visit(id: NodeId): void {
     const pending = [id];
@@ -1106,7 +1127,14 @@ function collectNodeClosure(doc: Document, rootIds: NodeId[]): DocumentClosure {
 
   const visitFillReferences = (fill: unknown): void => {
     if (!fill || typeof fill !== 'object') return;
-    const pattern = (fill as { pattern?: { tileSrc?: unknown } }).pattern;
+    const pattern = (fill as { pattern?: { tileSrc?: unknown; definitionId?: unknown } }).pattern;
+    if (
+      typeof pattern?.definitionId === 'string' &&
+      !patternDefinitionIds.has(pattern.definitionId)
+    ) {
+      patternDefinitionIds.add(pattern.definitionId);
+      pendingPatternIds.push(pattern.definitionId);
+    }
     if (typeof pattern?.tileSrc === 'string' && doc.nodes[pattern.tileSrc]) {
       visit(pattern.tileSrc);
     }
@@ -1237,6 +1265,49 @@ function collectNodeClosure(doc: Document, rootIds: NodeId[]): DocumentClosure {
     }
   }
 
+  const patternDefinitions: NonNullable<Document['patternDefinitions']> = {};
+  const patternComponentIds = new Set<string>();
+  const patternStyleIds = new Set<string>();
+  const patternVariableIds = new Set<string>();
+  const patternSourceNodes: SceneNode[] = [];
+  for (let index = 0; index < pendingPatternIds.length; index += 1) {
+    const patternId = pendingPatternIds[index]!;
+    const definition = doc.patternDefinitions?.[patternId];
+    if (!definition) continue;
+    patternDefinitions[patternId] = definition;
+    for (const dependencyId of definition.dependencyPatternIds ?? []) {
+      if (!patternDefinitionIds.has(dependencyId)) {
+        patternDefinitionIds.add(dependencyId);
+        pendingPatternIds.push(dependencyId);
+      }
+    }
+    if (definition.source.kind === 'vector') {
+      for (const node of Object.values(definition.source.nodes)) {
+        patternSourceNodes.push(node);
+        for (const fill of node.fills ?? []) visitFillReferences(fill);
+        const sourceMaskId = node.mask?.sourceNodeId;
+        if (sourceMaskId && doc.nodes[sourceMaskId]) visit(sourceMaskId);
+        const pathNodeId = node.kind === 'text' ? node.pathTextSettings?.pathNodeId : undefined;
+        if (pathNodeId && doc.nodes[pathNodeId]) visit(pathNodeId);
+        const candidate = node as SceneNode & {
+          componentId?: string;
+          styleId?: string;
+          bindings?: Record<string, { variableId?: string }>;
+        };
+        if (candidate.componentId) {
+          patternComponentIds.add(candidate.componentId);
+          const component = doc.components[candidate.componentId];
+          if (component) visit(component.masterRootId);
+        }
+        if (candidate.styleId) patternStyleIds.add(candidate.styleId);
+        for (const binding of Object.values(candidate.bindings ?? {})) {
+          if (binding.variableId) patternVariableIds.add(binding.variableId);
+        }
+      }
+      for (const styleId of definition.source.styleIds) patternStyleIds.add(styleId);
+    }
+  }
+
   const components: NonNullable<Document['components']> = {};
   const styles: NonNullable<Document['styles']> = {};
   const paints: NonNullable<Document['paints']> = {};
@@ -1245,7 +1316,7 @@ function collectNodeClosure(doc: Document, rootIds: NodeId[]): DocumentClosure {
   const timelines: NonNullable<Document['timelines']> = {};
   const motionExtensions: NonNullable<Document['motionExtensions']> = {};
   const motionPresets: NonNullable<Document['motionPresets']> = {};
-  const variableIds = new Set<string>();
+  const variableIds = new Set<string>(patternVariableIds);
   const collectionIds = new Set<string>();
   const timelineIds = new Set<string>();
   for (const node of Object.values(nodes)) {
@@ -1280,6 +1351,14 @@ function collectNodeClosure(doc: Document, rootIds: NodeId[]): DocumentClosure {
         timelines[timelineId] = timeline;
       }
     }
+  }
+  for (const componentId of patternComponentIds) {
+    const component = doc.components[componentId];
+    if (component && nodeIds.has(component.masterRootId)) components[component.id] = component;
+  }
+  for (const styleId of patternStyleIds) {
+    const style = doc.styles?.[styleId];
+    if (style) styles[styleId] = style;
   }
   // Include nested motion timelines and the variable collections/aliases that
   // own every referenced variable. Alias values may use either a variable id
@@ -1374,7 +1453,8 @@ function collectNodeClosure(doc: Document, rootIds: NodeId[]): DocumentClosure {
   }
   const rasterMaskAssets: NonNullable<Document['rasterMaskAssets']> = {};
   const depthMapIds = new Set<string>();
-  for (const node of Object.values(nodes)) {
+  const allClosureNodes = [...Object.values(nodes), ...patternSourceNodes];
+  for (const node of allClosureNodes) {
     const assetId = node.mask?.rasterMask?.assetId;
     const asset = assetId ? getOwnRasterMaskAsset(doc, assetId) : undefined;
     if (assetId && asset) rasterMaskAssets[assetId] = asset;
@@ -1395,7 +1475,7 @@ function collectNodeClosure(doc: Document, rootIds: NodeId[]): DocumentClosure {
     if (resource) depthMaps[id] = resource;
   }
   const assets: NonNullable<Document['assets']> = {};
-  for (const node of Object.values(nodes)) {
+  for (const node of allClosureNodes) {
     for (const fill of node.fills ?? []) {
       const assetId = fill.type === 'image' ? fill.image?.assetId : undefined;
       const asset = assetId ? doc.assets?.[assetId] : undefined;
@@ -1411,8 +1491,26 @@ function collectNodeClosure(doc: Document, rootIds: NodeId[]): DocumentClosure {
       }
     }
   }
+  for (const definition of Object.values(patternDefinitions)) {
+    if (definition.source.kind === 'raster') {
+      const asset = doc.assets?.[definition.source.assetId];
+      if (asset) assets[asset.id] = asset;
+    } else if (definition.source.kind === 'vector') {
+      for (const assetId of definition.source.assetIds) {
+        const asset = doc.assets?.[assetId];
+        if (asset) assets[asset.id] = asset;
+      }
+      for (const sourceNode of Object.values(definition.source.nodes)) {
+        for (const fill of sourceNode.fills ?? []) {
+          const assetId = fill.type === 'image' ? fill.image?.assetId : undefined;
+          const asset = assetId ? doc.assets?.[assetId] : undefined;
+          if (asset) assets[asset.id] = asset;
+        }
+      }
+    }
+  }
   const iconAssets: NonNullable<Document['iconAssets']> = {};
-  for (const node of Object.values(nodes)) {
+  for (const node of allClosureNodes) {
     const assetId = node.iconAssetId;
     const asset = assetId ? doc.iconAssets?.[assetId] : undefined;
     if (assetId && asset) iconAssets[assetId] = asset;
@@ -1475,7 +1573,8 @@ function collectNodeClosure(doc: Document, rootIds: NodeId[]): DocumentClosure {
       }
     }
   }
-  const fontManifest = collectFontManifestClosure(doc, nodes, styles);
+  const fontNodes = Object.fromEntries(allClosureNodes.map((node) => [node.id, node]));
+  const fontManifest = collectFontManifestClosure(doc, fontNodes, styles);
   return {
     nodeIds,
     nodes,
@@ -1483,6 +1582,7 @@ function collectNodeClosure(doc: Document, rootIds: NodeId[]): DocumentClosure {
     components: Object.keys(components).length > 0 ? components : undefined,
     styles: Object.keys(styles).length > 0 ? styles : undefined,
     paints: Object.keys(paints).length > 0 ? paints : undefined,
+    patternDefinitions: Object.keys(patternDefinitions).length > 0 ? patternDefinitions : undefined,
     variableStore:
       variableStore && Object.keys(variableStore.variables).length > 0 ? variableStore : undefined,
     interactions: Object.keys(interactions).length > 0 ? interactions : undefined,
@@ -1635,6 +1735,37 @@ export const DocumentCodec = {
       };
     }
 
+    // A recursive pattern source can recurse through a vector motif or a
+    // component master without creating a parent-graph cycle. Reject it at
+    // the document boundary before preview, replay, or clipboard traversal.
+    let patternGraphErrors: string[];
+    try {
+      const candidate = migration.document as unknown as Document;
+      patternGraphErrors = validatePatternDefinitionDependencies(
+        candidate.patternDefinitions ?? {},
+        candidate,
+      );
+    } catch (error) {
+      patternGraphErrors = [
+        `Invalid pattern definitions: ${error instanceof Error ? error.message : 'unknown error'}`,
+      ];
+    }
+    if (patternGraphErrors.length > 0) {
+      const errorMessage = patternGraphErrors[0]!;
+      return {
+        ok: false,
+        error: errorMessage,
+        warnings: [
+          warning(
+            'document.invalid-pattern-dependency',
+            errorMessage,
+            'error',
+            'patternDefinitions',
+          ),
+        ],
+      };
+    }
+
     let maskError: string | null;
     try {
       maskError = validateRasterMaskDocument(migration.document as unknown as Document);
@@ -1686,6 +1817,11 @@ export const DocumentCodec = {
   },
 
   encode(doc: Document): string {
+    const patternGraphError = validatePatternDefinitionDependencies(
+      doc.patternDefinitions ?? {},
+      doc,
+    )[0];
+    if (patternGraphError) throw new Error(patternGraphError);
     return serializeVersionedDocument(normalizeDocument(doc).document);
   },
 

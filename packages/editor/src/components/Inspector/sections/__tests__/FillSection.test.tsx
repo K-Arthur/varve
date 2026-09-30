@@ -6,6 +6,7 @@ import {
   createVariableStore,
   type ManagedColor,
   makeShapeNode,
+  patternFill,
 } from '@varve/scene';
 import * as React from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -313,5 +314,75 @@ describe('FillSection variable-link honesty', () => {
     // what the canvas paints, with the badge naming the source.
     await screen.findByText('#FF007F');
     expect(screen.queryByText('#1478DC')).toBeNull();
+  });
+});
+
+describe('FillSection shared pattern paint behavior', () => {
+  it('shows the effective shared pattern, then requires detach before per-object placement edits', async () => {
+    const definitionId = 'pattern-shared';
+    const paintId = 'paint-shared-pattern';
+    const previewSrc = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg"/>')}`;
+    const sharedFill = patternFill(previewSrc, {
+      definitionId,
+      spacing: 0,
+      rotation: 0,
+      imageWidth: 12,
+      imageHeight: 12,
+    });
+    const patternDefinition = {
+      id: definitionId,
+      name: 'Shared leaves',
+      revision: 1,
+      cell: { x: 0, y: 0, width: 12, height: 12 },
+      repeat: {
+        arrangement: 'grid' as const,
+        gapX: 0,
+        gapY: 0,
+        rowShift: 0,
+        mirrorX: false,
+        mirrorY: false,
+        originX: 0,
+        originY: 0,
+      },
+      source: {
+        kind: 'procedural' as const,
+        recipe: {
+          type: 'checkerboard' as const,
+          tileWidth: 12,
+          tileHeight: 12,
+          color1: '#fff',
+          color2: '#000',
+          seed: 0,
+        },
+      },
+      previewSrc,
+      previewRevision: 1,
+    };
+    const { nodeId, getCtx } = renderSelectedSection(
+      (nodes) => <FillSection nodes={nodes} />,
+      { paintRefs: [paintId] },
+      (doc) => ({
+        ...doc,
+        paints: { [paintId]: { id: paintId, name: 'Shared leaves paint', fill: sharedFill } },
+        patternDefinitions: { [definitionId]: patternDefinition },
+      }),
+    );
+
+    expect(await screen.findByText(/Shared paint: Shared leaves paint/)).toBeTruthy();
+    expect(screen.queryByLabelText('Tile width (px)')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /detach shared paint to edit/i }));
+
+    const tileWidth = await screen.findByRole('spinbutton', { name: /Tile width/ });
+    fireEvent.change(tileWidth, { target: { value: '24' } });
+    fireEvent.keyDown(tileWidth, { key: 'Enter' });
+    await waitFor(() => {
+      const node = getCtx()?.state.document.nodes[nodeId] as {
+        paintRefs?: string[];
+        fills?: Array<{ pattern?: { definitionId?: string; imageWidth?: number } }>;
+      };
+      expect(node.paintRefs).toBeUndefined();
+      expect(node.fills?.[0]?.pattern?.definitionId).toBe(definitionId);
+      expect(node.fills?.[0]?.pattern?.imageWidth).toBe(24);
+    });
   });
 });

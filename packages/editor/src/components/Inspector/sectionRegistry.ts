@@ -382,6 +382,7 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     essential: false,
     order: 230,
     category: 'appearance',
+    subsections: { patterns: { defaultExpanded: false } },
     isAvailable: (ctx) => hasNodes(ctx),
   },
   {

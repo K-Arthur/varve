@@ -12,11 +12,16 @@
  * for the canvas renderer.
  */
 
-import type { OpenTypeFeatureMap, PathNodeMode, TextWrapShape } from '@varve/shared';
+import type {
+  OpenTypeFeatureMap,
+  PathNodeMode,
+  PatternArrangement,
+  TextWrapShape,
+} from '@varve/shared';
 import type { FontReference } from './font/fontIdentity';
 import type { SpatialBlurEffect } from './spatialBlur';
 
-export type { PathNodeMode } from '@varve/shared';
+export type { PathNodeMode, PatternArrangement } from '@varve/shared';
 
 export type Point = readonly [number, number];
 
@@ -581,6 +586,23 @@ export interface EnginePatternFillData {
   imageWidth?: number;
   /** Tile height override in px. When omitted, natural image height is used. */
   imageHeight?: number;
+  /** Horizontal gap between columns in px. Falls back to `spacing`. */
+  gapX?: number;
+  /** Vertical gap between rows in px. Falls back to `spacing`. */
+  gapY?: number;
+  /** Repetition lattice. Absent means `grid`. */
+  arrangement?: PatternArrangement;
+  /** Row shift fraction of the column step; overrides the arrangement default. */
+  rowShift?: number;
+  /** Column shift fraction of the row step; overrides the arrangement default. */
+  columnShift?: number;
+  /** Flip alternating columns. */
+  mirrorX?: boolean;
+  /** Flip alternating rows. */
+  mirrorY?: boolean;
+  /** Authored lattice phase in px. */
+  offsetX?: number;
+  offsetY?: number;
 }
 
 /**
@@ -1738,6 +1760,23 @@ export type FillIR =
       imageWidth?: number;
       /** Tile height override in px. When omitted, natural image height is used. */
       imageHeight?: number;
+      /** Horizontal gap between columns in px. Falls back to `spacing`. */
+      gapX?: number;
+      /** Vertical gap between rows in px. Falls back to `spacing`. */
+      gapY?: number;
+      /** Repetition lattice. Absent means `grid`. */
+      arrangement?: PatternArrangement;
+      /** Row shift fraction of the column step; overrides the arrangement default. */
+      rowShift?: number;
+      /** Column shift fraction of the row step; overrides the arrangement default. */
+      columnShift?: number;
+      /** Flip alternating columns. */
+      mirrorX?: boolean;
+      /** Flip alternating rows. */
+      mirrorY?: boolean;
+      /** Authored lattice phase in px. */
+      offsetX?: number;
+      offsetY?: number;
       opacity: number;
       blendMode: BlendMode;
       visible: boolean;

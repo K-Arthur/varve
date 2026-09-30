@@ -451,6 +451,29 @@ export {
   snapToKeyframe,
 } from './pathProjection';
 export type {
+  PatternArrangement,
+  PatternCellHit,
+  PatternIndexRange,
+  PatternInstanceWalk,
+  PatternLattice,
+  PatternRect,
+  PatternRepeatParams,
+} from './patternRepeat';
+export {
+  forEachPatternInstance,
+  PATTERN_ARRANGEMENT_LABELS,
+  PATTERN_ARRANGEMENTS,
+  PATTERN_MAX_INSTANCES,
+  PATTERN_MAX_ROW_SHIFT,
+  patternCellAt,
+  patternIndexRange,
+  patternInstanceBounds,
+  patternInstanceMatrix,
+  patternRepeatSignature,
+  resolvePatternLattice,
+  resolveRowShift,
+} from './patternRepeat';
+export type {
   BenchmarkResult,
   CapabilitySupport,
   DurationSummary,

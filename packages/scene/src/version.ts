@@ -19,7 +19,7 @@ import { migrateV228ToV229 } from './version-migrations-v229';
 import { migrateV229ToV230 } from './version-migrations-v230';
 import { migrateV230ToV231 } from './version-migrations-v231';
 
-export const CURRENT_DOCUMENT_VERSION = '2.31';
+export const CURRENT_DOCUMENT_VERSION = '2.32';
 
 function normalizeLayoutSizingFields(raw: Record<string, unknown>): Record<string, unknown> {
   const rawNodes = raw.nodes;
@@ -158,6 +158,7 @@ export const SUPPORTED_VERSIONS = [
   '2.29',
   '2.30',
   '2.31',
+  '2.32',
 ];
 
 export interface DocumentMigration {
@@ -965,6 +966,18 @@ const migrations: DocumentMigration[] = [
     to: '2.31',
     migrate: (raw) => migrateV230ToV231(raw),
   },
+  {
+    from: '2.31',
+    to: '2.32',
+    migrate: (raw) => ({
+      ...raw,
+      formatVersion: '2.32',
+      // Existing tileSrc-based fills are intentionally left untouched. The
+      // document-level source library is additive, so legacy appearance and
+      // source semantics remain exact after this migration.
+      patternDefinitions: raw.patternDefinitions ?? {},
+    }),
+  },
 ];
 
 /**
@@ -1038,11 +1051,51 @@ export function rehydrateEmbeddedAssetSrc(raw: Record<string, unknown>): Record<
     }
   }
 
-  if (!nodesChanged && !paintsChanged) return raw;
+  const patternDefinitions = raw.patternDefinitions as
+    | Record<string, Record<string, unknown>>
+    | undefined;
+  let patternsChanged = false;
+  let rehydratedPatterns: Record<string, Record<string, unknown>> | undefined;
+  if (patternDefinitions) {
+    rehydratedPatterns = {};
+    for (const [id, definition] of Object.entries(patternDefinitions)) {
+      const source = definition.source as Record<string, unknown> | undefined;
+      const sourceNodes = source?.nodes as Record<string, Record<string, unknown>> | undefined;
+      if (source?.kind !== 'vector' || !sourceNodes) {
+        rehydratedPatterns[id] = definition;
+        continue;
+      }
+      let sourceChanged = false;
+      const nextSourceNodes: Record<string, Record<string, unknown>> = {};
+      for (const [nodeId, node] of Object.entries(sourceNodes)) {
+        const originalFills = node.fills;
+        if (!Array.isArray(originalFills)) {
+          nextSourceNodes[nodeId] = node;
+          continue;
+        }
+        const fills = originalFills.map(rehydrateFill);
+        if (fills.some((fill, index) => fill !== originalFills[index])) {
+          nextSourceNodes[nodeId] = { ...node, fills };
+          sourceChanged = true;
+        } else {
+          nextSourceNodes[nodeId] = node;
+        }
+      }
+      if (sourceChanged) {
+        rehydratedPatterns[id] = { ...definition, source: { ...source, nodes: nextSourceNodes } };
+        patternsChanged = true;
+      } else {
+        rehydratedPatterns[id] = definition;
+      }
+    }
+  }
+
+  if (!nodesChanged && !paintsChanged && !patternsChanged) return raw;
   return {
     ...raw,
     ...(nodesChanged ? { nodes: rehydratedNodes } : {}),
     ...(paintsChanged ? { paints: rehydratedPaints } : {}),
+    ...(patternsChanged ? { patternDefinitions: rehydratedPatterns } : {}),
   };
 }
 
@@ -1090,10 +1143,31 @@ function stripEmbeddedAssetPayloads(raw: Record<string, unknown>): Record<string
       )
     : undefined;
 
+  const patternDefinitions = raw.patternDefinitions as
+    | Record<string, Record<string, unknown>>
+    | undefined;
+  const strippedPatterns = patternDefinitions
+    ? Object.fromEntries(
+        Object.entries(patternDefinitions).map(([id, definition]) => {
+          const source = definition.source as Record<string, unknown> | undefined;
+          const sourceNodes = source?.nodes as Record<string, Record<string, unknown>> | undefined;
+          if (source?.kind !== 'vector' || !sourceNodes) return [id, definition];
+          const nextNodes = Object.fromEntries(
+            Object.entries(sourceNodes).map(([nodeId, node]) => [
+              nodeId,
+              Array.isArray(node.fills) ? { ...node, fills: node.fills.map(stripFill) } : node,
+            ]),
+          );
+          return [id, { ...definition, source: { ...source, nodes: nextNodes } }];
+        }),
+      )
+    : undefined;
+
   return {
     ...raw,
     nodes: strippedNodes,
     ...(strippedPaints ? { paints: strippedPaints } : {}),
+    ...(strippedPatterns ? { patternDefinitions: strippedPatterns } : {}),
   };
 }
 
