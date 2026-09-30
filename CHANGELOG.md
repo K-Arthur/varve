@@ -227,6 +227,11 @@ update, not for someone reading the commit log.
 
 ### Changed
 
+- **Anime enhancement remains gated** — The artifact checksum now matches, but
+  conversion provenance, converted-file redistribution, artist-quality results,
+  and whole-document memory remain unqualified. The mode stays disabled with
+  its reason visible; Quality/Lanczos and the separate general-AI path remain.
+
 - **A bottom bar with one owner per fact** — The two strips at the bottom of the
   editor no longer report the same thing twice. The selection strip keeps
   selection identity and geometry (name, type, size, position, breadcrumbs, layer

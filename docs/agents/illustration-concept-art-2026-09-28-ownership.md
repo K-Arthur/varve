@@ -594,3 +594,79 @@ and both relevant browser flows were run separately. Full suite: **no**; the
 exact plan reported no escalation. Rust/native tests and other product E2Es
 were skipped as unrelated or outside the browser-qualified scope. No push or
 website deployment was performed.
+
+## Follow-up integration — references and model qualification (2026-09-30)
+
+The following slices extend the existing shared editor. The persisted scene
+metadata foundation is `92d82860b`; no new workspace or parallel document
+system was added.
+
+- `633be2729 fix(enhance): gate unqualified anime model` — corrects the
+  malformed 63-character artifact digest, records the measured 64-character
+  SHA and pinned upload revision, makes conversion provenance/distribution
+  review/artist quality explicit open gates, updates the tile memory estimate,
+  and disables that mode through the current dialog. A stale saved mode also
+  skips model acquisition, preview, and apply. Direct ONNX Runtime Web smoke
+  results and limits are in
+  `docs/audits/illustration-model-qualification-2026-09-30.md`.
+- `f34e17069 feat(illustration): add concept-art reference workflow` — adds
+  undoable reference controls to Inspector → Fill → Details, independent
+  sampling and export opt-ins, bounded artwork sampling, reference exclusion
+  in raster/SVG/PDF/PDF/X subtree exports, help, product copy, and an inspected
+  attributed editor capture on the Strokes page. Its isolated commit index
+  excluded concurrent presentation/export edits.
+
+### Agent Validation Report — anime model gate
+
+Changed scope: model manifest and inference metadata, restoration admission,
+Enhance dialog, focused tests, model qualification audit, research/capability
+ledger, and one E2E case. Commit: `633be2729` on `master`.
+
+Validation plan: `pnpm verify:plan --staged` on the 17-path isolated index
+selected Tiers 0–4, direct inference/model tests, E2E typecheck, and a model
+validation lane; it reported no full-suite escalation and warned that reverse
+dependency selection covers 79% of repository tests. `pnpm verify:affected
+--staged` passed touched format/lint, emoji and docs, then stopped at a
+pre-existing radius violation in
+`packages/editor/src/components/Presentation/presentationNavigator.css:581`.
+
+Commands and outcomes:
+
+- `pnpm exec vitest run packages/editor/src/components/Upscale/upscaleModeOptions.test.ts packages/engine/src/inference/__tests__/manifestContracts.test.ts packages/engine/src/inference/manifest.test.ts packages/engine/src/inference/modelCatalog.test.ts packages/engine/src/restoration.test.ts packages/engine/src/upscaleModes.test.ts packages/engine/src/upscaleProviders/aiUpscale.test.ts --maxWorkers=1` — 7 files, 372 tests passed.
+- `pnpm --filter @varve/engine typecheck` and `pnpm typecheck:e2e` passed. Commit checkpoint also passed and reran 320 tests across four selected files.
+- `VARVE_E2E_PORT=4411 VARVE_E2E_OUTPUT_DIR=illustration-anime-gate-20260930-r2 node scripts/quality/heavy-lease.mjs "e2e: verify unavailable anime enhancement option" -- pnpm exec playwright test tests/e2e/canvas/upscale-dialog-visual.spec.ts --project=chromium --workers=1 --reporter=list --grep "does not offer the anime model"` — 1/1 passed. Inspected
+  `test-results/illustration-anime-gate-20260930-r2/canvas-upscale-dialog-visu-8345f-ance-and-quality-gates-pass-chromium/anime-model-unavailable.png`.
+- `pnpm audit:docs` and `pnpm audit:emoji` passed. All 324 token contrast pairs passed; the usage scan still reports the unrelated generic `--name` example in `packages/codegen/src/tailwind.ts:685`.
+
+Skipped after the fail-fast radius audit: broad downstream package/reverse-
+dependency test suites. Rust/native and full visual suites were unrelated to
+this change. `pnpm --filter @varve/editor typecheck` still reports existing
+`getByRole({ exact })` errors in `CurveEditor.test.tsx`; at the time of the
+desktop check, the concurrent PresentationNavigator worktree had unused-import
+errors. Full suite: **no**; no escalation condition applied.
+
+### Agent Validation Report — concept-art reference workflow
+
+Changed scope: 23 paths across Inspector, sampling/export adapters, help,
+architecture/positioning docs, changelog, Strokes/product website copy, tests,
+and the inspected screenshot. Commit: `f34e17069` on `master`.
+
+Validation plan: `pnpm verify:plan --staged` selected Tiers 0–4, focused
+Inspector/sampling/export tests, E2E typecheck, and browser tests for the app
+and website; no full-suite escalation. `pnpm verify:affected --staged` passed
+format, lint, emoji and docs, then stopped at the same unrelated radius audit.
+
+Commands and outcomes:
+
+- `pnpm exec vitest run packages/editor/src/components/Inspector/sections/ConceptArtReferenceControls.test.tsx packages/editor/src/components/Inspector/sections/__tests__/FillSection.test.tsx packages/editor/src/components/SpecPanel/conceptArtReferenceExport.test.ts packages/editor/src/export/conceptArtReferencePolicy.test.ts packages/editor/src/tools/__tests__/artworkSampling.test.ts --maxWorkers=1` — 5 files, 25 tests passed.
+- `pnpm --filter @varve/help typecheck`, `pnpm audit:inspector-css`, and `pnpm audit:sizing` passed. The Inspector audit printed existing debt-inventory warnings. `pnpm build:website` and `pnpm build:website:pages` passed; Astro Check reported 171 files with zero errors, warnings, or hints.
+- `VARVE_E2E_PORT=4403 VARVE_E2E_OUTPUT_DIR=illustration-concept-art-refs-20260930-r5 node scripts/quality/heavy-lease.mjs "e2e: concept-art reference sampling, export, persistence, and theme views (PNG reselect fix)" -- pnpm exec playwright test tests/e2e/canvas/concept-art-references.spec.ts --project=chromium --workers=1 --reporter=list` — 1/1 passed. Role/opt-in undo/redo, excluded direct-export refusal, included decoded PNG, save/reopen, and sampling are covered.
+- `VARVE_WEBSITE_E2E_PORT=4520 VARVE_WEBSITE_E2E_PORT_ROOT=4521 VARVE_WEBSITE_E2E_OUTPUT_DIR=illustration-website-20260930-r3 node scripts/quality/heavy-lease.mjs "e2e: verify illustration and concept reference website guidance" -- pnpm exec playwright test -c playwright.website.config.ts apps/website/tests/e2e/strokes-target-copy.spec.ts --project=ghpages --project=custom-domain --workers=1 --reporter=list` — 2/2 passed. Desktop/mobile and light/dark screenshots in `test-results/strokes-target-copy-Stroke-25b22-mes-widths-and-deploy-bases-ghpages/` and the corresponding `-custom-domain/` folder were inspected.
+- `pnpm audit:docs`, `pnpm audit:emoji`, `pnpm audit:inspector-css`, and `pnpm audit:sizing` passed. Token contrast passed all 324 pairs; its separate usage scan still flags `--name` in `packages/codegen/src/tailwind.ts:685`. The repository radius audit still flags PresentationNavigator CSS; the spacing audit's existing failure is `packages/editor/src/components/Minimap/minimap.css` (`margin: 0 auto`).
+
+Skipped after fail-fast radius audit: broad editor/desktop package suites and
+the generic import/export E2E lanes; the bounded feature E2E exercises image
+authoring, sampling, save/reopen, direct refusal, and decoded export. Linux
+Tauri/WebKitGTK, physical stylus, ARM, other browsers/devices, and additional
+DPI tiers remain unqualified. Full suite: **no**; the plan reported no
+escalation. No push or website deployment was performed.
