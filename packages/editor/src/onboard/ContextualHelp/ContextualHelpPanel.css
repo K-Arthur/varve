@@ -6,7 +6,10 @@
   height: calc(100vh - var(--menubar-total-height, 36px));
   background: var(--elevation-surface-default);
   border-left: var(--border-micro);
-  z-index: var(--z-overlay, 100);
+  /* A floating panel over the workspace, so it belongs to the overlay band:
+   * above the dock chrome (which paints at --z-overlay + 1..4) rather than
+   * beneath it, where the panel header would cut across it. */
+  z-index: calc(var(--z-overlay) + 10);
   display: flex;
   flex-direction: column;
   box-shadow: var(--elevation-shadow-overlay);

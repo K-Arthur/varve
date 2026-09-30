@@ -131,9 +131,27 @@ function resolveAnchor(
   return element ? { kind: 'element', element } : null;
 }
 
+/**
+ * Transient and floating overlays sit **above** the workspace chrome band.
+ *
+ * The dock positions panels, their header chrome, tab strips, floating groups
+ * and drag previews at `--z-overlay` … `--z-overlay + 4` (1000–1004), and
+ * panels drawn as drawers also resolve to `--z-overlay`. Anything that floats
+ * over the workspace — a menubar menu, a listbox, a rich popover, the onboarding
+ * spotlight, the help panel — has to clear that band or the workspace chrome
+ * paints straight over it. It did: every File-menu row in the band where the
+ * Layers header overlapped it hit-tested to `.workspace-dock-panel-chrome`
+ * instead, so those rows could not receive a pointer event.
+ *
+ * `+10` keeps the documented order intact: chrome band < floating overlays
+ * (1010) < dialog (1100) < toast (1200) < tooltip (1300). See
+ * `docs/architecture/overlay-system.md` for the two-band rule.
+ */
+export const OVERLAY_Z_INDEX = 'calc(var(--z-overlay) + 10)';
+
 function hiddenStyle(
   maxHeight?: number,
-  zIndex: CSSProperties['zIndex'] = 'var(--z-overlay)',
+  zIndex: CSSProperties['zIndex'] = OVERLAY_Z_INDEX,
 ): CSSProperties {
   return {
     position: 'fixed',
@@ -201,7 +219,7 @@ export function FloatingPortal({
   open,
   children,
   className,
-  zIndex = 'var(--z-overlay)',
+  zIndex = OVERLAY_Z_INDEX,
   placement = 'bottom-start',
   logicalPlacement = false,
   fallbackPlacements,

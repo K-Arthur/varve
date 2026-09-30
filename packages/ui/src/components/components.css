@@ -714,10 +714,15 @@
 
 /* The fixed outer layer is the placement reference. Menu content must retain
  * intrinsic dimensions so Floating UI measures the real surface, including
- * shortcut and submenu-indicator lanes. */
+ * shortcut and submenu-indicator lanes.
+ *
+ * The z-index mirrors OVERLAY_Z_INDEX in FloatingPortal.tsx (the inline style
+ * is what wins, but this rule is the fallback for any consumer that sets no
+ * inline layer): floating overlays sit above the workspace chrome band, which
+ * runs --z-overlay .. +4. See docs/architecture/overlay-system.md. */
 .varve-floating-layer {
   position: fixed;
-  z-index: var(--z-overlay);
+  z-index: calc(var(--z-overlay) + 10);
   box-sizing: border-box;
   width: max-content;
   max-width: calc(100vw - (var(--space-4) * 2));

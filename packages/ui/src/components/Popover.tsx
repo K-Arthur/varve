@@ -23,7 +23,7 @@ import {
   useState,
 } from 'react';
 import { createPortal } from 'react-dom';
-import { OverlayParentContext } from './FloatingPortal';
+import { OVERLAY_Z_INDEX, OverlayParentContext } from './FloatingPortal';
 import { FocusTrap } from './FocusTrap';
 import { focusAdjacentTabbable, getFocusableElements } from './focusOrder';
 import { type OverlayCloseReason, registerOverlay, traceOverlayEvent } from './OverlayRegistry';
@@ -476,7 +476,7 @@ export function Popover({
       left: posStyle?.left ?? 0,
       top: posStyle?.top ?? 0,
       margin: 0,
-      zIndex: 'var(--z-overlay)' as unknown as number,
+      zIndex: OVERLAY_Z_INDEX as unknown as number,
       visibility: isOpen && posStyle ? 'visible' : 'hidden',
       pointerEvents: isOpen && posStyle ? 'auto' : 'none',
     };
