@@ -53,6 +53,7 @@ import { emptyTableModel, tableContentNodeIds } from './table';
 import { normalizeTableModelDefensively } from './tableOps';
 import {
   type NodeId,
+  normalizeConceptArtReferenceMetadata,
   normalizeImageFillData,
   type Page,
   type RasterMaskAsset,
@@ -792,7 +793,7 @@ function normalizeDocument(doc: Document): DocumentNormalizeResult {
       );
     }
 
-    const nodeWithStrokeIds =
+    let nodeWithStrokeIds =
       'strokes' in node
         ? ({
             ...node,
@@ -802,6 +803,30 @@ function normalizeDocument(doc: Document): DocumentNormalizeResult {
             ),
           } as SceneNode)
         : node;
+
+    if ('conceptArtReference' in nodeWithStrokeIds) {
+      const normalizedReference = hasImageFill(doc, nodeWithStrokeIds)
+        ? normalizeConceptArtReferenceMetadata(
+            (nodeWithStrokeIds as { conceptArtReference?: unknown }).conceptArtReference,
+          )
+        : undefined;
+      if (normalizedReference) {
+        nodeWithStrokeIds = { ...nodeWithStrokeIds, conceptArtReference: normalizedReference };
+      } else {
+        const { conceptArtReference: _discarded, ...withoutReference } = nodeWithStrokeIds as
+          | (SceneNode & { conceptArtReference?: unknown })
+          | (Record<string, unknown> & { conceptArtReference?: unknown });
+        nodeWithStrokeIds = withoutReference as SceneNode;
+        warnings.push(
+          warning(
+            'document.invalid-concept-art-reference',
+            `Reference metadata on node ${id} was invalid or the node was not an image shape; it was removed`,
+            'warning',
+            `${id}.conceptArtReference`,
+          ),
+        );
+      }
+    }
 
     const rawChildren = (nodeWithStrokeIds as { children?: unknown }).children;
     if (isContainer(nodeWithStrokeIds) || Array.isArray(rawChildren)) {

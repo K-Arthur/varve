@@ -61,6 +61,11 @@ operation:
 - Reference images and image fills retain intentional data URLs because their
   scene contracts persist embedded content. They do not use object URLs for
   durable state.
+- An image-filled shape may carry optional concept-art reference metadata with
+  a portable source filename and independent sampling/export inclusion flags.
+  Older image nodes have no such role and retain their existing behavior;
+  reference defaults and the later editor filtering path are documented with
+  the concept-art reference workflow.
 - Icon packs, brushes, LUTs, palettes, and token sources retain their
   format-specific parsers and sanitizers while sharing browse affordances
   where it does not alter their semantics.

@@ -39,3 +39,49 @@ then the affected checks and the full gate with the stated reason
 contract; verify compatibility and serialization across the workspace`.
 Keep the existing document format version. Record full-gate blockers that
 belong to concurrent work without broadening this slice to repair them.
+
+## Validation report — metadata foundation
+
+Changed scope: `packages/scene/src/types.ts`,
+`packages/scene/src/documentCodec.ts`,
+`packages/scene/src/documentCodec.test.ts`,
+`docs/architecture/file-ingestion-system.md`, this ownership record, and the
+capability matrix.
+
+Validation plan: `pnpm verify:plan --staged` selected touched-file format and
+lint, emoji/docs audits, E2E typecheck, the direct codec test, the full scene
+test/typecheck pair, dependent package checks, and export E2E. It escalated to
+the full gate because a persisted scene/document codec contract can affect
+every package.
+
+Commands actually run:
+
+```text
+pnpm exec biome check packages/scene/src/types.ts packages/scene/src/documentCodec.ts packages/scene/src/documentCodec.test.ts
+pnpm exec vitest run packages/scene/src/documentCodec.test.ts --maxWorkers=1
+pnpm --filter @varve/scene typecheck
+pnpm audit:docs
+GIT_INDEX_FILE=/tmp/varve-reference-metadata-current.index pnpm verify:plan --staged
+GIT_INDEX_FILE=/tmp/varve-reference-metadata-current.index pnpm verify:affected --staged
+GIT_INDEX_FILE=/tmp/varve-reference-metadata-current.index VARVE_FULL_GATE_REASON="optional persisted reference metadata changes the scene/document codec contract; verify compatibility and serialization across the workspace" pnpm verify:full
+```
+
+Passed: touched-file Biome, direct codec tests (32/32), scene typecheck,
+`audit:docs` (1128 documents, 735 links, 178 ADRs), and the full-gate emoji
+audit. The full gate typechecked the scene package and the earlier dependent
+packages successfully.
+
+Skipped or blocked: `verify:affected --staged` stopped as designed and required
+the full gate. `verify:full` exited 1 before test lanes: repository-wide
+formatting found an unrelated missing final newline in
+`native-webgl2-2026-09-28T10-16-25-630Z.json`; the shared health audit found
+`packages/editor/src/Shell.tsx` above its line ceiling; the architecture
+dead-code scan timed out in `ts-prune` on the large editor package; and the
+editor typecheck failed on the existing `CurveEditor.test.tsx` use of an
+unsupported `ByRoleOptions.exact` field. E2E typecheck and full test suites did
+not run because the package typecheck command stopped at that error. These
+failures are outside this metadata slice and were not repaired here.
+
+Escalation: full gate required for the persisted contract change.
+Full suite run: no; full-gate escalation was attempted, but the gate stopped
+at editor typecheck before test execution.

@@ -1449,6 +1449,42 @@ export interface NodeBase {
   smartFiltersEnabled?: boolean;
 }
 
+/** Optional authoring metadata for an image shape used as a concept reference. */
+export interface ConceptArtReferenceMetadata {
+  /** Portable display name only; never store the original filesystem path. */
+  sourceFileName?: string;
+  /** References stay out of sampling unless an artist explicitly opts in. */
+  includeInSampling: boolean;
+  /** References stay out of artwork exports unless an artist explicitly opts in. */
+  includeInExport: boolean;
+}
+
+/** Normalize untrusted reference metadata while keeping source paths private. */
+export function normalizeConceptArtReferenceMetadata(
+  value: unknown,
+): ConceptArtReferenceMetadata | undefined {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  const raw = value as Record<string, unknown>;
+  const candidate = typeof raw.sourceFileName === 'string' ? raw.sourceFileName : '';
+  const sourceFileName = candidate
+    .replace(/\\/g, '/')
+    .split('/')
+    .at(-1)
+    ?.split('')
+    .filter((character) => {
+      const codePoint = character.codePointAt(0) ?? 0;
+      return codePoint > 0x1f && (codePoint < 0x7f || codePoint > 0x9f);
+    })
+    .join('')
+    .trim()
+    .slice(0, 255);
+  return {
+    ...(sourceFileName ? { sourceFileName } : {}),
+    includeInSampling: raw.includeInSampling === true,
+    includeInExport: raw.includeInExport === true,
+  };
+}
+
 export interface ShapeNode extends NodeBase {
   kind: 'shape';
   /** Geometry in local coordinates. When `shapeless` is true, geometry is
@@ -1484,6 +1520,8 @@ export interface ShapeNode extends NodeBase {
   liveTrace?: LiveTraceState;
   /** Accepted non-destructive generative edit that produced this raster. */
   generativeEditId?: string;
+  /** Present only when this image-filled shape is authored as a local reference. */
+  conceptArtReference?: ConceptArtReferenceMetadata;
 }
 
 export interface TextNode extends NodeBase {

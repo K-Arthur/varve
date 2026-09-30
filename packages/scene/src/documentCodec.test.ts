@@ -68,6 +68,74 @@ describe('DocumentCodec', () => {
     });
   });
 
+  it('round-trips safe reference metadata without changing the document version', () => {
+    let doc = createDocument('Image reference', true);
+    doc = addNode(doc, {
+      ...makeShapeNode('reference', { kind: 'rect', x: 0, y: 0, w: 100, h: 100 }),
+      fills: [imageFill(PNG_DATA_URL)],
+      conceptArtReference: {
+        sourceFileName: 'C:\\private\\references\\forest.png',
+        includeInSampling: true,
+        includeInExport: false,
+      },
+    });
+
+    const serialized = DocumentCodec.encode(doc);
+    const result = DocumentCodec.decode(serialized);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.document.formatVersion).toBe(CURRENT_DOCUMENT_VERSION);
+    expect(result.document.nodes.reference).toMatchObject({
+      conceptArtReference: {
+        sourceFileName: 'forest.png',
+        includeInSampling: true,
+        includeInExport: false,
+      },
+    });
+    expect(serialized).not.toContain('C:\\private');
+  });
+
+  it('keeps legacy image nodes ordinary when reference metadata is absent', () => {
+    let doc = createDocument('Legacy image', true);
+    doc = addNode(doc, {
+      ...makeShapeNode('image', { kind: 'rect', x: 0, y: 0, w: 100, h: 100 }),
+      fills: [imageFill(PNG_DATA_URL)],
+    });
+
+    const result = DocumentCodec.decode(DocumentCodec.encode(doc));
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.document.nodes.image).not.toHaveProperty('conceptArtReference');
+  });
+
+  it('drops malformed reference metadata and reference roles on non-image shapes', () => {
+    let doc = createDocument('Invalid image reference', true);
+    doc = addNode(doc, {
+      ...makeShapeNode('malformed', { kind: 'rect', x: 0, y: 0, w: 100, h: 100 }),
+      fills: [imageFill(PNG_DATA_URL)],
+      conceptArtReference: 'not-an-object',
+    } as unknown as ReturnType<typeof makeShapeNode>);
+    doc = addNode(doc, {
+      ...makeShapeNode('not-image', { kind: 'rect', x: 120, y: 0, w: 100, h: 100 }),
+      conceptArtReference: {
+        includeInSampling: false,
+        includeInExport: false,
+      },
+    } as unknown as ReturnType<typeof makeShapeNode>);
+
+    const result = DocumentCodec.decode(JSON.stringify(doc));
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.document.nodes.malformed).not.toHaveProperty('conceptArtReference');
+    expect(result.document.nodes['not-image']).not.toHaveProperty('conceptArtReference');
+    expect(
+      result.warnings.filter((entry) => entry.code === 'document.invalid-concept-art-reference'),
+    ).toHaveLength(2);
+  });
+
   it('round-trips layer color tags and clears unknown persisted values', () => {
     let doc = createDocument('Color tags', true);
     doc = addNode(
