@@ -113,4 +113,153 @@ test.describe('Canvas minimap', () => {
 
     await finalMinimap.screenshot({ path: '/tmp/varve-minimap-visual.png' });
   });
+
+  test('renders a legible overview in every theme and at every rail width', async ({ page }) => {
+    const minimap = page.getByTestId('minimap-panel');
+    const stage = minimap.locator('.minimap-panel__stage');
+    const canvas = minimap.locator('canvas.minimap-panel__canvas');
+    const out = 'docs/screenshots/minimap-design-review-2026-09-29';
+
+    // Populate the surface with a mixed set of objects.
+    await page.keyboard.press('r');
+    await dragOnCanvas(page, 120, 100, 360, 280);
+    await page.keyboard.press('o');
+    await dragOnCanvas(page, 420, 140, 640, 340);
+    await page.keyboard.press('v');
+    await expect(minimap).toContainText('2 objects');
+
+    // Every header control belongs to one of two scopes, and the map owns no
+    // third copy of a command the StatusBar already offers.
+    const headerButtons = await minimap
+      .locator('.minimap-panel__header button')
+      .evaluateAll((nodes) =>
+        nodes.map((n) => n.getAttribute('aria-label') ?? n.textContent ?? ''),
+      );
+    expect(headerButtons).toContain('Hide minimap');
+    expect(headerButtons.some((label) => /fit/i.test(label))).toBe(false);
+
+    // The card must not claim space it does not paint: the canvas fills its
+    // stage to within a hair.
+    const stageBox = await stage.boundingBox();
+    const canvasBox = await canvas.boundingBox();
+    expect(canvasBox).not.toBeNull();
+    expect(canvasBox!.width).toBeCloseTo(stageBox!.width - 2, 0);
+    expect(canvasBox!.width).toBeGreaterThan(120);
+    expect(canvasBox!.height).toBeGreaterThan(60);
+
+    for (const theme of ['light', 'dark', 'high-contrast'] as const) {
+      // Written straight to the root attribute: that is exactly what
+      // `applyThemePreference` writes, and it is the path where the map used to
+      // keep painting light tokens under a dark panel.
+      await page.evaluate((t) => {
+        document.documentElement.dataset.theme = t;
+      }, theme);
+      await page.waitForTimeout(500);
+
+      await minimap.screenshot({ path: `${out}/01-${theme}-1440.png` });
+
+      // The overview must show more than a flat field: ink, backplate, and the
+      // viewfinder outline are all present at distinct tones.
+      const tones = await canvas.evaluate((node) => {
+        const htmlCanvas = node as HTMLCanvasElement;
+        const context = htmlCanvas.getContext('2d');
+        if (!context) return 0;
+        const pixels = context.getImageData(0, 0, htmlCanvas.width, htmlCanvas.height).data;
+        const colors = new Set<string>();
+        for (let i = 0; i < pixels.length; i += 4) {
+          colors.add(`${pixels[i]},${pixels[i + 1]},${pixels[i + 2]}`);
+        }
+        return colors.size;
+      });
+      expect(tones, `minimap renders as a flat field in ${theme}`).toBeGreaterThan(4);
+      await minimap.screenshot({ path: `${out}/02-${theme}-panel.png` });
+    }
+
+    await page.evaluate(() => {
+      document.documentElement.dataset.theme = 'light';
+    });
+
+    const widthsSeen: Record<'wide-1920' | 'narrow-1024' | 'compact-900', number> = {
+      'wide-1920': 0,
+      'narrow-1024': 0,
+      'compact-900': 0,
+    };
+    for (const [width, height, name] of [
+      [1920, 1080, 'wide-1920'],
+      [1024, 700, 'narrow-1024'],
+      [900, 600, 'compact-900'],
+    ] as const) {
+      await page.setViewportSize({ width, height });
+      await expect(minimap).toBeVisible();
+      await page.waitForTimeout(500);
+      const sized = await minimap.evaluate((node) => {
+        const panel = node as HTMLElement;
+        const panelBox = panel.getBoundingClientRect();
+        const stageBox = panel.querySelector('.minimap-panel__stage')?.getBoundingClientRect();
+        const canvas = panel.querySelector('canvas.minimap-panel__canvas');
+        const canvasBox = canvas?.getBoundingClientRect();
+        return {
+          panelWidth: panelBox.width,
+          stageWidth: stageBox?.width ?? 0,
+          canvasWidth: canvasBox?.width ?? 0,
+          canvasHeight: canvasBox?.height ?? 0,
+        };
+      });
+      // At every rail width the painted map fills its stage, so there is no
+      // width where the card claims a region the map does not use.
+      expect(sized.canvasWidth, `${name}: canvas fills its stage`).toBeGreaterThan(
+        sized.stageWidth - 6,
+      );
+      expect(sized.canvasWidth).toBeGreaterThan(0);
+      expect(sized.canvasHeight).toBeGreaterThan(0);
+      widthsSeen[name] = sized.canvasWidth;
+      await minimap.screenshot({ path: `${out}/03-${name}.png` });
+    }
+    // The overview scales with its rail instead of being pinned to a fixed
+    // pixel size, which is how a small overview becomes a permanently small
+    // overview on a large display.
+    expect(widthsSeen['wide-1920']).toBeGreaterThan(widthsSeen['compact-900'] * 1.5);
+
+    // A high zoom shrinks the true projected viewport; the drawn rectangle has
+    // a floor, so it must remain a real, findable rectangle rather than
+    // collapsing to a hairline.
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.waitForTimeout(400);
+    const zoomIn = page.getByRole('button', { name: 'Zoom in' });
+    for (let i = 0; i < 30; i++) {
+      await zoomIn.click({ timeout: 4000 }).catch(() => undefined);
+    }
+    await page.waitForTimeout(700);
+    await minimap.screenshot({ path: `${out}/04-high-zoom-minimum-viewfinder.png` });
+    const highZoom = await canvas.evaluate((node) => {
+      const htmlCanvas = node as HTMLCanvasElement;
+      const context = htmlCanvas.getContext('2d');
+      if (!context) return 0;
+      const pixels = context.getImageData(0, 0, htmlCanvas.width, htmlCanvas.height).data;
+      const colors = new Set<string>();
+      for (let i = 0; i < pixels.length; i += 4) {
+        colors.add(`${pixels[i]},${pixels[i + 1]},${pixels[i + 2]}`);
+      }
+      return colors.size;
+    });
+    expect(highZoom).toBeGreaterThan(4);
+  });
+
+  test('reports an honest empty surface instead of a blank tile', async ({ page }) => {
+    const minimap = page.getByTestId('minimap-panel');
+    const caption = minimap.locator('.minimap-panel__empty');
+    await expect(caption).toBeVisible();
+    await expect(caption).toContainText('Nothing on this surface yet');
+    // The canvas stays mounted so the tab stop does not move when the first
+    // object appears.
+    await expect(minimap.locator('canvas.minimap-panel__canvas')).toBeVisible();
+    await minimap.screenshot({
+      path: 'docs/screenshots/minimap-design-review-2026-09-29/05-empty-state.png',
+    });
+
+    await page.keyboard.press('r');
+    await dragOnCanvas(page, 140, 120, 360, 300);
+    await expect(minimap).toContainText('1 object');
+    await expect(caption).toHaveCount(0);
+  });
 });
