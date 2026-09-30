@@ -872,6 +872,154 @@ describe('readFromClipboardEvent', () => {
     ).toBeNull();
   });
 
+  it('transports bounded reusable definitions in v4 and rejects recursive sources', () => {
+    const patternDefinition = {
+      id: 'pattern-1',
+      name: 'Pattern',
+      revision: 1,
+      cell: { x: 0, y: 0, width: 16, height: 16 },
+      repeat: {
+        arrangement: 'grid',
+        gapX: 0,
+        gapY: 0,
+        rowShift: 0,
+        mirrorX: false,
+        mirrorY: false,
+        originX: 0,
+        originY: 0,
+      },
+      source: {
+        kind: 'procedural',
+        recipe: {
+          type: 'checkerboard',
+          tileWidth: 16,
+          tileHeight: 16,
+          color1: '#fff',
+          color2: '#000',
+          seed: 0,
+        },
+      },
+    };
+    const parsed = parseClipboardData(
+      JSON.stringify({
+        format: 'varve-clipboard',
+        version: 4,
+        nodes: [{ id: 'shape-1', kind: 'shape' }],
+        rootIds: ['shape-1'],
+        patternDefinitions: { 'pattern-1': patternDefinition },
+      }),
+    );
+    expect(parsed?.version).toBe(4);
+    expect(parsed?.patternDefinitions?.['pattern-1']).toEqual(patternDefinition);
+
+    const cyclic = {
+      'pattern-1': { ...patternDefinition, dependencyPatternIds: ['pattern-2'] },
+      'pattern-2': { ...patternDefinition, id: 'pattern-2', dependencyPatternIds: ['pattern-1'] },
+    };
+    expect(
+      parseClipboardData(
+        JSON.stringify({
+          format: 'varve-clipboard',
+          version: 4,
+          nodes: [{ id: 'shape-1', kind: 'shape' }],
+          rootIds: ['shape-1'],
+          patternDefinitions: cyclic,
+        }),
+      ),
+    ).toBeNull();
+  });
+
+  it('carries pattern definitions through the real write path, not only the parser', async () => {
+    const originalClipboard = navigator.clipboard;
+    const originalClipboardItem = globalThis.ClipboardItem;
+    Object.defineProperty(globalThis, 'ClipboardItem', { configurable: true, value: undefined });
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: undefined });
+    // The parser accepting `patternDefinitions` is not the contract that
+    // matters: a copy that never forwards the closure's definitions produces a
+    // payload whose fills reference a definition the fragment does not own, and
+    // the placement overrides are silently dropped on paste. This drives the
+    // writer and reads it back.
+    const patternDefinition = {
+      id: 'pattern-1',
+      name: 'Pattern',
+      revision: 1,
+      cell: { x: 0, y: 0, width: 16, height: 16 },
+      repeat: {
+        arrangement: 'grid',
+        gapX: 0,
+        gapY: 0,
+        rowShift: 0,
+        mirrorX: false,
+        mirrorY: false,
+        originX: 0,
+        originY: 0,
+      },
+      source: {
+        kind: 'procedural',
+        recipe: {
+          type: 'checkerboard',
+          tileWidth: 16,
+          tileHeight: 16,
+          color1: '#fff',
+          color2: '#000',
+          seed: 0,
+        },
+      },
+    };
+    const written: Array<{ mimeType: string; data: Uint8Array }> = [];
+    const outcome = await writeClipboardOutcome(
+      [{ id: 'shape-1', kind: 'shape', name: 'Tiled' } as unknown as SceneNode],
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      ['shape-1'],
+      undefined,
+      {
+        kind: 'tauri',
+        writeClipboardData: async (items) => {
+          written.push(...items);
+          return true;
+        },
+      },
+      'doc-1',
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      { 'pattern-1': patternDefinition },
+    );
+    expect(outcome.status).toBe('editable');
+
+    try {
+      // The Tauri path offers the two native MIME types; the web path adds the
+      // `web `-prefixed variants. Either way the JSON payload is the same bytes.
+      const varveItem = written.find((item) => item.mimeType === 'application/vnd.varve+json');
+      expect(varveItem).toBeTruthy();
+      const parsed = parseClipboardData(new TextDecoder().decode(varveItem!.data));
+      expect(parsed?.patternDefinitions?.['pattern-1']).toMatchObject({ name: 'Pattern' });
+    } finally {
+      Object.defineProperty(globalThis, 'ClipboardItem', {
+        configurable: true,
+        value: originalClipboardItem,
+      });
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        value: originalClipboard,
+      });
+    }
+  });
+
   it('carries scoped exact font metadata and permitted-byte references across clipboard reads', () => {
     const reference = { artifactHash: 'a'.repeat(64), collectionIndex: 0 };
     const fontManifest = {

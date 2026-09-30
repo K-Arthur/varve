@@ -8389,6 +8389,7 @@ export function EditorProvider({
           closure.depthMaps,
           closure.fontManifest,
           frameGuideLayouts,
+          closure.patternDefinitions,
         ).then(
           (outcome) => {
             if (outcome.status === 'editable') {
@@ -8463,6 +8464,7 @@ export function EditorProvider({
           closure.depthMaps,
           closure.fontManifest,
           frameGuideLayouts,
+          closure.patternDefinitions,
         ).then(
           (outcome) => {
             if (outcome.status !== 'editable') {
@@ -8617,6 +8619,13 @@ export function EditorProvider({
             ...(varveData.stories ? { stories: varveData.stories } : {}),
             ...(varveData.motionExtensions ? { motionExtensions: varveData.motionExtensions } : {}),
             ...(varveData.motionPresets ? { motionPresets: varveData.motionPresets } : {}),
+            // A pattern fill's definition is a document resource: the fragment
+            // document must own the definitions its new nodes reference, or the
+            // fill resolves against nothing and the placement overrides are
+            // dropped on paste.
+            ...(varveData.patternDefinitions
+              ? { patternDefinitions: varveData.patternDefinitions }
+              : {}),
           };
           const childIds = new Set<NodeId>();
           for (const node of varveData.nodes) {
