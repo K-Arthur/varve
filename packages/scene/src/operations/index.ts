@@ -34,6 +34,7 @@ export type {
   PresentationDeckCreatePayload,
   PresentationDeckIdPayload,
   PresentationDeckRenamePayload,
+  PresentationDeckResizePayload,
   PresentationLayoutApplyPayload,
   PresentationLayoutDeletePayload,
   PresentationLayoutDetachPayload,

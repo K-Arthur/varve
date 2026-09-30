@@ -5,7 +5,12 @@ import {
   deepCloneSubtree,
   isContainer,
   type NodeId,
+  PRESENTATION_RESIZE_MODES,
+  PRESENTATION_SIZE_PRESETS,
+  type PresentationResizeMode,
+  type PresentationResizePreview,
   type PresentationSlideEntry,
+  previewPresentationResize,
   reparentNode,
   resolvePresentationSlides,
   type SceneNode,
@@ -72,6 +77,11 @@ export function PresentationNavigator({ showDetach = true }: { showDetach?: bool
   const [sectionNameDraft, setSectionNameDraft] = useState('');
   const [slideDrafts, setSlideDrafts] = useState<SlideDraft[]>([]);
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
+  const [sizePreset, setSizePreset] = useState<string>('custom');
+  const [customSize, setCustomSize] = useState({ width: 0, height: 0 });
+  const [resizeMode, setResizeMode] = useState<PresentationResizeMode>('fit');
+  const [resizePreview, setResizePreview] = useState<PresentationResizePreview | null>(null);
+  const [resizeError, setResizeError] = useState('');
   const previousSelection = useRef<NodeId[]>([]);
 
   useEffect(() => {
@@ -92,6 +102,13 @@ export function PresentationNavigator({ showDetach = true }: { showDetach?: bool
     () => resolvePresentationSlides(state.document, deckId),
     [state.document, deckId],
   );
+
+  // Custom dimensions start from the deck's real size, so an author who wants a
+  // taller canvas edits one field instead of clearing two zeroes.
+  useEffect(() => {
+    setCustomSize({ width: resolution.deck?.width ?? 0, height: resolution.deck?.height ?? 0 });
+  }, [resolution.deck?.id, resolution.deck?.width, resolution.deck?.height]);
+
   const selectedFrames = useMemo(
     () => getSelectedFrames(state.selection, state.document.nodes),
     [state.selection, state.document.nodes],
@@ -422,6 +439,21 @@ export function PresentationNavigator({ showDetach = true }: { showDetach?: bool
     [activeEntryId, announce, deckId, runOperation],
   );
 
+  const applyResize = useCallback(() => {
+    if (!resizePreview) return;
+    try {
+      runOperation('Change slide size', 'presentation.deck.resize', { preview: resizePreview });
+      announce(
+        `Slide size changed to ${resizePreview.to.width} x ${resizePreview.to.height}. Undo restores the previous size.`,
+      );
+      setResizePreview(null);
+      setResizeError('');
+    } catch (cause) {
+      setResizeError(cause instanceof Error ? cause.message : 'Could not change the slide size.');
+      setResizePreview(null);
+    }
+  }, [announce, resizePreview, runOperation]);
+
   return (
     <div className="presentation-navigator">
       <div className="presentation-navigator__header">
@@ -474,6 +506,110 @@ export function PresentationNavigator({ showDetach = true }: { showDetach?: bool
             }}
           />
         </label>
+      )}
+
+      {resolution.deck && (
+        <details className="presentation-navigator__size">
+          <summary>
+            Slide size{' '}
+            <span>
+              {resolution.deck.width} x {resolution.deck.height}
+            </span>
+          </summary>
+          <div className="presentation-navigator__size-body">
+            <p className="presentation-navigator__size-hint">
+              Every slide becomes the size you choose. Fit and Fill keep proportions; Stretch is the
+              only mode that changes them, and it never applies without a preview.
+            </p>
+            <label className="presentation-navigator__field">
+              <span>Size</span>
+              <select
+                aria-label="Slide size preset"
+                value={sizePreset}
+                onChange={(event) => setSizePreset(event.target.value)}
+              >
+                {PRESENTATION_SIZE_PRESETS.map((preset) => (
+                  <option key={preset.id} value={preset.id}>
+                    {preset.name} · {preset.width} x {preset.height}
+                  </option>
+                ))}
+                <option value="custom">Custom…</option>
+              </select>
+            </label>
+            {sizePreset === 'custom' && (
+              <div className="presentation-navigator__size-custom">
+                {/* NumberInput carries its own accessible name, so this is a
+                    plain field: a <label> wrapper here would hold no control the
+                    accessibility linter can see. */}
+                <div className="presentation-navigator__field">
+                  <span aria-hidden="true">Width</span>
+                  <NumberInput
+                    label="Width"
+                    value={customSize.width}
+                    min={1}
+                    onChange={(value) => setCustomSize((current) => ({ ...current, width: value }))}
+                  />
+                </div>
+                <div className="presentation-navigator__field">
+                  <span aria-hidden="true">Height</span>
+                  <NumberInput
+                    label="Height"
+                    value={customSize.height}
+                    min={1}
+                    onChange={(value) =>
+                      setCustomSize((current) => ({ ...current, height: value }))
+                    }
+                  />
+                </div>
+              </div>
+            )}
+            <label className="presentation-navigator__field">
+              <span>How to fill</span>
+              <select
+                aria-label="Slide size mode"
+                value={resizeMode}
+                onChange={(event) => setResizeMode(event.target.value as PresentationResizeMode)}
+              >
+                {PRESENTATION_RESIZE_MODES.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.name} — {option.description}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <Button
+              size="sm"
+              variant="default"
+              onClick={() => {
+                const target =
+                  sizePreset === 'custom'
+                    ? { width: customSize.width, height: customSize.height }
+                    : (PRESENTATION_SIZE_PRESETS.find((preset) => preset.id === sizePreset) ?? {
+                        width: resolution.deck?.width ?? 1,
+                        height: resolution.deck?.height ?? 1,
+                      });
+                try {
+                  setResizePreview(
+                    previewPresentationResize(state.document, deckId, target, resizeMode),
+                  );
+                  setResizeError('');
+                } catch (cause) {
+                  setResizePreview(null);
+                  setResizeError(
+                    cause instanceof Error ? cause.message : 'Could not preview that slide size.',
+                  );
+                }
+              }}
+            >
+              Review slide size change…
+            </Button>
+            {resizeError && (
+              <p className="presentation-navigator__error" role="alert">
+                {resizeError}
+              </p>
+            )}
+          </div>
+        </details>
       )}
 
       <div className="presentation-navigator__toolbar">
@@ -876,6 +1012,63 @@ export function PresentationNavigator({ showDetach = true }: { showDetach?: bool
             ))}
           </ol>
         </div>
+      </Dialog>
+      <Dialog
+        open={resizePreview !== null}
+        onClose={() => setResizePreview(null)}
+        title="Review slide size change"
+        size="lg"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setResizePreview(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="default"
+              onClick={applyResize}
+              disabled={!resizePreview || resizePreview.changes.length === 0}
+            >
+              Change slide size
+            </Button>
+          </>
+        }
+      >
+        {resizePreview && (
+          <div className="presentation-navigator__review">
+            <p>
+              {resizePreview.from.width} x {resizePreview.from.height} becomes{' '}
+              <strong>
+                {resizePreview.to.width} x {resizePreview.to.height}
+              </strong>{' '}
+              on {resizePreview.slideCount} slide(s). Frames keep their position on the canvas, and
+              this applies as one undo step.
+            </p>
+            <p>
+              Mode:{' '}
+              <strong>
+                {PRESENTATION_RESIZE_MODES.find((option) => option.id === resizePreview.mode)?.name}
+              </strong>
+              {' — '}
+              {
+                PRESENTATION_RESIZE_MODES.find((option) => option.id === resizePreview.mode)
+                  ?.description
+              }
+            </p>
+            {resizePreview.warnings.length > 0 && (
+              <ul className="presentation-navigator__warnings">
+                {resizePreview.warnings.map((warning) => (
+                  <li key={warning}>{warning}</li>
+                ))}
+              </ul>
+            )}
+            {resizePreview.changes.length === 0 && (
+              <p role="status">
+                No slide in this deck has a usable frame, so applying would only change the declared
+                size.
+              </p>
+            )}
+          </div>
+        )}
       </Dialog>
     </div>
   );

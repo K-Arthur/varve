@@ -31,6 +31,12 @@ import {
   reorderPresentationSlide,
   updatePresentationSlide,
 } from '../../presentation/model';
+import {
+  applyPresentationResizePreview,
+  type PresentationResizeMode,
+  type PresentationResizePreview,
+  previewPresentationResize,
+} from '../../presentation/resize';
 import type {
   PresentationDeck,
   PresentationLayoutSource,
@@ -109,6 +115,10 @@ export interface PresentationLayoutDeletePayload {
 
 export interface PresentationLayoutApplyPayload {
   preview: PresentationLayoutPreview;
+}
+
+export interface PresentationDeckResizePayload {
+  preview: PresentationResizePreview;
 }
 
 export interface PresentationLayoutResetPayload extends PresentationSlideReferencePayload {
@@ -450,6 +460,45 @@ function validateBuiltInLayoutCreate(
       sourceId: payload.sourceId,
       templateId: payload.templateId as PresentationBuiltInLayoutId,
     },
+  };
+}
+
+function validateResize(payload: unknown): ValidationResult<PresentationDeckResizePayload> {
+  if (!record(payload))
+    return { ok: false, errors: ['presentation.deck.resize requires a preview'] };
+  const preview = payload.preview;
+  if (!record(preview)) {
+    return { ok: false, errors: ['presentation.deck.resize requires a preview'] };
+  }
+  if (!nonEmptyString(preview.deckId) || !nonEmptyString(preview.mode)) {
+    return { ok: false, errors: ['presentation.deck.resize preview needs a deck id and mode'] };
+  }
+  if (!['fit', 'crop', 'reflow'].includes(preview.mode as string)) {
+    return { ok: false, errors: ['presentation.deck.resize mode must be fit, crop, or reflow'] };
+  }
+  for (const key of ['from', 'to'] as const) {
+    const size = preview[key];
+    if (
+      !record(size) ||
+      typeof size.width !== 'number' ||
+      typeof size.height !== 'number' ||
+      !Number.isFinite(size.width) ||
+      !Number.isFinite(size.height) ||
+      size.width <= 0 ||
+      size.height <= 0
+    ) {
+      return {
+        ok: false,
+        errors: [`presentation.deck.resize ${key} needs positive finite numbers`],
+      };
+    }
+  }
+  if (!Array.isArray(preview.changes)) {
+    return { ok: false, errors: ['presentation.deck.resize preview needs its changes list'] };
+  }
+  return {
+    ok: true,
+    value: { preview: preview as unknown as PresentationResizePreview },
   };
 }
 
@@ -1074,5 +1123,41 @@ export function registerPresentationOperations(): void {
       return entry.layoutBinding ? null : 'This slide has no layout to detach.';
     },
     maxPayloadBytes: 8_000,
+  });
+
+  registerOperation<PresentationDeckResizePayload>({
+    type: 'presentation.deck.resize',
+    schemaVersion: 1,
+    validate: validateResize,
+    apply: (document, payload) => applyPresentationResizePreview(document, payload.preview),
+    summarize: (payload) => ({
+      label: `Resize deck to ${payload.preview.to.width}x${payload.preview.to.height}`,
+      kind: 'modify',
+      affectedEntityIds: [payload.preview.deckId],
+    }),
+    affectedEntities: (payload) => [
+      payload.preview.deckId,
+      ...payload.preview.changes.map((change) => change.frameId),
+    ],
+    precondition: (document, payload) => {
+      const deck = findPresentationDeck(document, payload.preview.deckId);
+      if (!deck) return `presentation deck does not exist: ${payload.preview.deckId}`;
+      try {
+        const fresh = previewPresentationResize(
+          document,
+          payload.preview.deckId,
+          payload.preview.to,
+          payload.preview.mode as PresentationResizeMode,
+        );
+        return JSON.stringify(fresh) === JSON.stringify(payload.preview)
+          ? null
+          : 'The deck changed after this preview. Review the conversion again before applying.';
+      } catch (error) {
+        return error instanceof Error
+          ? error.message
+          : 'This slide size conversion is no longer available.';
+      }
+    },
+    maxPayloadBytes: 500_000,
   });
 }

@@ -603,3 +603,43 @@
   color: var(--color-text-muted);
   font-size: var(--font-size-xs);
 }
+
+.presentation-navigator__size > summary,
+.presentation-navigator__sections > summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.presentation-navigator__size-body {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.presentation-navigator__size-hint {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.presentation-navigator__size-custom {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-2);
+}
+
+.presentation-navigator__error {
+  margin: 0;
+  color: var(--color-text-danger);
+  font-size: var(--font-size-xs);
+}
+
+.presentation-navigator__warnings {
+  margin: 0;
+  padding-inline-start: var(--space-5);
+}
+
+.presentation-navigator__warnings li {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+}

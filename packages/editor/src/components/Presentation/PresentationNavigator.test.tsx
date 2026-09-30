@@ -262,4 +262,42 @@ describe('PresentationNavigator', () => {
     expect(editor.document.presentation?.decks[0]?.sections[0]?.title).toBe('Introduction');
     expect(Object.keys(editor.document.nodes)).toEqual(['frame-a', 'frame-b']);
   });
+
+  it('converts the deck slide size only after an explicit preview', async () => {
+    const user = userEvent.setup();
+    const editor = mockEditor(addDeck(makeDocument()));
+    render(<PresentationNavigator showDetach />);
+
+    await user.click(screen.getByText(/Slide size/));
+    const preset = screen.getByRole('combobox', { name: 'Slide size preset' });
+    await user.selectOptions(preset, 'classic');
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Slide size mode' }), 'fit');
+
+    await user.click(screen.getByRole('button', { name: 'Review slide size change…' }));
+    const dialog = screen.getByRole('dialog', { name: 'Review slide size change' });
+    expect(dialog.textContent).toContain('1920 x 1080');
+    expect(dialog.textContent).toContain('1440 x 1080');
+    expect(dialog.textContent).toMatch(/one undo step/);
+    expect(dialog.textContent).toMatch(/Frames keep their position on the canvas/);
+
+    // Nothing has changed yet: preview is side-effect free.
+    expect(editor.document.presentation!.decks[0]).toMatchObject({ width: 1920, height: 1080 });
+    expect(editor.value.announce).not.toHaveBeenCalledWith(
+      expect.stringContaining('Slide size changed'),
+    );
+
+    await user.click(within(dialog).getByRole('button', { name: 'Change slide size' }));
+    expect(editor.value.groupCompoundOperation).toHaveBeenCalledWith(
+      'Change slide size',
+      expect.any(Function),
+    );
+    expect(editor.document.presentation!.decks[0]).toMatchObject({ width: 1440, height: 1080 });
+    const frame = editor.document.nodes['frame-a'];
+    expect(frame?.kind === 'frame' ? { w: frame.w, h: frame.h } : null).toEqual({
+      w: 1440,
+      h: 1080,
+    });
+    expect(editor.value.announce).toHaveBeenCalledWith(expect.stringContaining('1440 x 1080'));
+    expect(screen.queryByRole('dialog', { name: 'Review slide size change' })).toBeNull();
+  });
 });
