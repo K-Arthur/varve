@@ -1,21 +1,24 @@
 # Minimap System
 
-Status: current-state (2026-09-05).
+Status: current-state (2026-09-29).
 
 The minimap is a navigation projection of the active editor surface. It is
 not a second scene, a second camera, or a second persistence store. The
 implementation is split between:
 
 - `packages/editor/src/components/Minimap/minimapLayout.ts` — document scope,
-  world bounds, transforms, and viewport geometry;
+  world bounds, transforms, stage sizing, and viewport geometry;
 - `packages/editor/src/components/Minimap/minimapRenderer.ts` — a small,
-  DPR-aware Canvas2D renderer;
+  DPR-aware Canvas2D renderer with a retained document layer;
 - `packages/editor/src/components/Minimap/MinimapPanel.tsx` — live canvas
   measurement, pointer/keyboard interaction, and lifecycle ownership;
 - `packages/editor/src/Shell.tsx` — supplies the actual `.editor-canvas`
   element through `canvasOwnerRef`;
-- `packages/editor/src/settings.ts` — the global `panel.minimapVisible`
-  preference; workspace panel configuration does not own this feature.
+- `packages/ui/src/tokens/color.ts` — the `minimap-ink-*` token family and
+  `MINIMAP_OVERVIEW_CONTRAST_PAIRS`, the enforced contrast contract.
+
+Review evidence and the external research behind the rendering decisions:
+[Minimap design review 2026-09-29](../audits/minimap-design-review-2026-09-29.md).
 
 ## Coordinate contract
 
@@ -37,7 +40,8 @@ actual viewport centre.
 The minimap never fabricates a canvas viewport from `window.innerWidth`, a
 fixed 800×600 value, or an unrelated canvas. Until the supplied owner has a
 positive measured size, it renders the document overview without a viewport
-indicator and ignores navigation input.
+indicator and ignores navigation input — and says so in the accessible name
+(see [Honest states](#honest-states)).
 
 ## Scene and surface scope
 
@@ -64,7 +68,83 @@ selectable scene entries.
 
 Exceptional scale is diagnostic, not destructive. Entries may be marked as
 flagged/outliers, but they remain in the content union. A minimap must not
-silently make legitimate distant or oversized artwork disappear.
+silently make legitimate distant or oversized artwork disappear. The header
+badge is an **action** (`revealSelection` on the flagged object), not a
+counter — a diagnostic with no verb is a dead end.
+
+## Rendering contract
+
+The overview is a *shape* map, not a legible document. Its marks are 1–2 CSS
+px, so the contract below is what keeps them readable; it is why the drawing
+code must not be "simplified" back into permissive defaults.
+
+1. **Contrast is enforced, not eyeballed.** Every ink clears 3:1 against the
+   `surface-sunken` backplate in Light, Dark, and High Contrast with margin
+   (measured 3.49–5.19:1). The pairs live in `MINIMAP_OVERVIEW_CONTRAST_PAIRS`
+   and are checked by `pnpm audit:tokens` in all three themes. Before this
+   contract the renderer used `--color-border-subtle` for shape/text/group ink,
+   which measures **1.19:1 in Light** — the artwork was effectively invisible
+   in the default theme.
+2. **Form carries the distinction; hue is supplementary.** Frames are outlined
+   containers with a wash, leaves are solid masses, ellipses are silhouettes,
+   adjustment nodes are bars. Kind hue (`minimap-ink-*`) only reinforces that
+   because a 2 px mark cannot carry a colour-only cue (WCAG 1.4.1).
+   `MinimapEntry.paint` is the closed set the renderer switches on, deliberately
+   coarser than `MinimapEntry.kind`.
+3. **Groups are not painted.** A group's bounds are the union of its painted
+   children, so an outline would be a second rectangle over no visible object.
+   Groups still contribute to content bounds.
+4. **Text renders only when legible.** Labels are omitted below 7 CSS px and
+   capped at 10 px; auto-generated names ("Frame 4") are never drawn
+   (`isOrientationLabelWorthy`). Sub-7 px mush costs attention and conveys
+   nothing.
+5. **No interior wash on the viewport rectangle.** It composited the accent over
+   every ink beneath it and pulled the measured ink contrast back down toward
+   2:1 wherever the camera saw most of the document.
+6. **Hidden nodes are ghosts, deliberately below the contrast floor.** Absence
+   is the information; only reachable when the scene is built with
+   `includeHidden`.
+
+### Viewport rectangle
+
+- Drawn at its true projected quad, inflated to `MIN_VIEWFINDER_CSS_PX` (14 CSS
+  px) so a high zoom ratio can never shrink it into an unfindable sliver.
+- **Clipped to the map stage** (`clipFootprintToStage`). Without this, panning
+  near a document edge leaves the rectangle's surviving half as two bare lines
+  through the artwork rather than a viewfinder.
+- When the viewport misses the stage entirely, a chevron on the nearest edge
+  points at it instead of drawing nothing — "where did my view go" stays
+  answerable from the map.
+- Outlined with a contrast ring (`canvas-handle-fill`, the opposite tone) under
+  the accent outline (`canvas-selection`), so it reads over artwork of either
+  tone. Hover and drag thicken the accent outline; both states are drawn, not
+  implied.
+- The interaction polygon is the drawn polygon plus a 10 px pointer tolerance,
+  giving a ~34 CSS px effective target (WCAG 2.5.8 requires 24×24). Drawn and
+  hit-tested polygons are the same shape, clipped to the same stage, so what
+  looks grabbable is grabbable.
+- The cursor reports `grab` over a navigable map and `grabbing` while dragging.
+
+## Stage layout
+
+`computeMinimapSize` fills the available width and derives the height from the
+content aspect, clamped by `MIN_STAGE_HEIGHT` … `MAX_STAGE_HEIGHT`. The canvas
+therefore always fills its stage; a previous implementation sized the canvas to
+hug the content aspect, which left roughly half of a normal sidebar's card empty
+(a 120 px map inside a 302 px card) while the card border still claimed the
+whole area.
+
+Measurement details that are easy to regress:
+
+- The stage's own content box is the width budget (not the panel minus guessed
+  padding), so the canvas exactly fills the stage and pointer mapping stays
+  exact.
+- Available height is read from the **nearest ancestor with a layout box**.
+  The panel sits inside an `<ErrorBoundary>` wrapper that is
+  `display: contents` (see AGENTS.md) and reports zero, which silently disabled
+  every height budget.
+- The first measurement runs in a `useLayoutEffect`, so the first painted frame
+  is already correctly sized.
 
 ## State ownership and recovery
 
@@ -76,48 +156,85 @@ command palette, and `Ctrl+Shift+M` all call the same `toggleMinimap` action.
 
 The header collapse control is a local presentation state for the mounted
 panel. The View command is the durable recovery path when the minimap has been
-hidden entirely. Workspace switching and document switching preserve the
-global preference; the scene and camera are recomputed for the new surface.
+hidden entirely. Workspace switching and document switching preserve the global
+preference; the scene and camera are recomputed for the new surface.
+
+### Control ownership
+
+The overview deliberately owns **no Fit button**. Fitting is a canvas command
+with three better-known homes: the StatusBar Fit group (Fit page / Fit all /
+Fit selection), the View menu, and the map's own double-click / `Enter` / `Space`
+/ `Home` gesture. A fourth, smaller copy of the same command in a 12 px header
+was redundancy, not reachability. The `editor__collapse-btn` in this header
+collapses the *Layers rail*, not the minimap; a hairline separator keeps the two
+scopes visually distinct.
 
 ## Resize, display, and lifecycle rules
 
-`MinimapPanel` observes its layout slot, its parent panel, and the supplied
-canvas owner with `ResizeObserver`, plus `window` and `visualViewport` resize
-events. Zero-size measurements are recorded as zero rather than replaced by a
-fallback. The viewport footprint is recomputed whenever the live canvas size,
-camera, document scope, or minimap transform changes.
+`MinimapPanel` observes its layout slot, its map stage, the nearest boxed
+ancestor, and the supplied canvas owner with `ResizeObserver`, plus `window`
+and `visualViewport` resize events. Zero-size measurements are recorded as zero
+rather than replaced by a fallback. The viewport footprint is recomputed
+whenever the live canvas size, camera, document scope, or minimap transform
+changes.
 
 The renderer uses CSS pixels for drawing coordinates and the owner window's
 `devicePixelRatio` for the backing store. `canvas.width` and `canvas.height`
 are assigned only when their rounded device-pixel dimensions change, so a
-camera pan does not clear/reallocate the minimap bitmap.
+camera pan does not clear/reallocate the minimap bitmap. The document pass is
+cached per canvas and copied 1:1; only the viewport rectangle redraws on a
+camera change, and viewfinder interaction state is deliberately *not* part of
+that cache key so hovering never repaints the document.
+
+### Theme correctness
+
+`editor.state.themeRevision` only moves when React changed the theme. The
+resolved palette can also change outside React — the OS colour scheme or
+contrast preference under a `system` preference, a `storage` event from
+another window, or a direct `applyThemePreference` call. The panel therefore
+observes `data-theme` with a `MutationObserver` plus both media queries and
+re-resolves colours on any change. Without it the map kept painting
+light-theme tokens under a dark panel.
 
 Pointer sessions use the primary button, preserve the grab offset when the
-viewport outline is dragged, and use pointer capture. Pointer up, cancel,
-lost capture, window blur, document visibility changes, unmount, and document
-or workspace changes all terminate the session. Minimap events prevent
+viewport outline is dragged, and use pointer capture. Pointer up, cancel, lost
+capture, window blur, document visibility changes, unmount, and document or
+workspace changes all terminate the session. Minimap events prevent
 click-through into the artwork canvas. Keyboard arrows pan in screen pixels;
-Enter, Space, Home, the Fit button, and double-click fit the whole document.
+Enter, Space, Home, and double-click fit the whole document.
 
-## Rendering and accessibility
+## Honest states
 
-Document scene construction is memoized by document, selection, and surface
-scope. Camera changes recompute only the viewport footprint and redraw the
-existing scene snapshot. The Canvas2D context is cleared and redrawn from the
-authoritative snapshot; collapsed panels do not retain an active interaction
-session.
+- **No measurable viewport** — navigation input is ignored and the accessible
+  name says "Navigation is unavailable until the canvas has a measurable size",
+  rather than advertising controls that silently do nothing.
+- **Nothing on the surface** — a caption over the backplate explains why the map
+  is empty. The canvas stays mounted so the tab stop and layout do not jump when
+  the first object appears.
+- **Flagged object** — the badge reveals the offending object
+  (`revealSelection({ behavior: 'reveal' })`); it never selects or edits.
 
-The minimap is a single keyboard stop with `role="img"`, a descriptive label,
-visible focus styling, a durable View-menu recovery command, and a direct Fit
-button. It does not claim to select layers or alter document history.
+## Accessibility
+
+The minimap is a single keyboard stop with `role="img"`, a descriptive label
+that enumerates the visible object and page counts and states the interaction
+contract, visible focus styling, a durable View-menu recovery command, and
+keyboard pan/fit equivalents. It does not claim to select layers or alter
+document history. Header controls are native buttons with 24×24 CSS px targets
+(`--component-xs-height`), which also clears WCAG 2.5.8.
 
 ## Validation contract
 
 Geometry tests cover page placement, exceptional bounds, degenerate geometry,
-rotation, inverse navigation, and finite transforms. Component tests cover
-fit semantics, keyboard navigation, and collapse behavior. The canvas-facing
-regression path is Playwright: resize the actual editor, navigate through the
-minimap, switch workspace/document surfaces, and capture a screenshot for
-visual inspection. Pixel-reuse changes should additionally use the render
-oracle documented in `docs/architecture/render-pipeline.md` when they touch
-the main canvas surface.
+rotation, inverse navigation, finite transforms, stage sizing, the viewfinder
+minimum and pointer tolerance, footprint clipping, and label worthiness.
+Component tests cover fit semantics, keyboard navigation, collapse behavior,
+and both accessible-name branches. Renderer tests cover ink selection, group
+suppression, legibility floors, clipping, the off-stage pointer, and the
+retained-layer invariant.
+
+The canvas-facing regression path is Playwright: resize the actual editor,
+navigate through the minimap in all three themes, and capture screenshots to
+`docs/screenshots/minimap-design-review-2026-09-29/` for inspection. Pixel-reuse
+changes touching the main canvas should additionally use the render oracle
+documented in `docs/architecture/render-pipeline.md`.
