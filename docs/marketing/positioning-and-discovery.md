@@ -1,7 +1,7 @@
 # Varve positioning and discovery brief
 
 **Status:** Current operating brief
-**Last verified:** 2026-09-28
+**Last verified:** 2026-09-30
 **Owner:** Varve project maintainer
 
 This is the source of truth for public-facing positioning, audience priorities,
@@ -72,6 +72,7 @@ small-screen behavior are recorded in the
 | Essential | Supported platforms and install requirements | Generated release manifest and `/download` |
 | Differentiator | No account or mandatory cloud sync; core editing works offline | `/product`, `/about/privacy`, `/support/faq` |
 | Differentiator | One document model spans vector, layout, type, motion, prototyping, and print | `/product`, `/features`, workspace and print architecture docs |
+| Differentiator | Raster and vector illustration, clipped shading, and local image references use ordinary layers and Inspector controls in the shared editor | `/features/strokes`; browser-verified reference sampling/export opt-ins, undo, save/reopen, and PNG output |
 | Differentiator | Free Community Edition with source available under FSL-1.1-MIT | `/about/license`, `COMMERCIAL.md` |
 | Differentiator | Native Linux support and a Rust desktop engine | Product architecture and `/features/canvas` |
 | Proof of maturity | Public beta, published release, checksums, SBOMs, and known issues | `/releases`, `/download`, `/support/known-issues` |
@@ -90,6 +91,7 @@ Do not create location pages, competitor doorway pages, or thin keyword pages.
 |---|---|---|---|---|
 | Linux creator | What design software runs natively on Linux? | Linux design app, Linux vector editor, Linux print design | `/product` and `/download` | Check requirements and download |
 | Independent designer | Can one tool cover vector, layout, motion, and print? | free design suite, multidisciplinary design app | `/features` and `/product` | Explore a feature or start beta |
+| Illustrator / concept artist | Can I keep references, linework, flats, and paintovers together without a dedicated art workspace? | illustration editor, concept art references, raster vector workflow | `/features/strokes` and `/docs/workspaces` | Review verified limits, then try a local project |
 | Privacy-conscious creator | Can I design without an account or cloud storage? | offline design software, local-first design tool | `/features/local-first` and `/about/privacy` | Read data handling, then download |
 | Print designer | Can a free tool export CMYK PDF/X files? | free CMYK design software, PDF/X export | `/features/print-production` and `/features/export` | Review preflight limits |
 | Technical designer | Can design work become code? | design to React, Flutter export, SwiftUI export | `/features/export` | Review supported outputs |
@@ -150,6 +152,11 @@ The website implements the following technical contract:
 - “Print production” means the implemented CMYK/ICC, PDF/X, marks, and
   preflight workflows, with beta caveats and a recommendation to test before
   critical work.
+- “Illustration and concept art” refers to shared editor workflows built from
+  existing image, raster, vector, guide, layer, and export systems. Image
+  references remain visible by default; sampling and artwork export inclusion
+  are separate explicit options. Browser checks cover Chromium; Linux
+  WebKitGTK and physical stylus hardware are still not qualified.
 
 ### Removed or prohibited
 

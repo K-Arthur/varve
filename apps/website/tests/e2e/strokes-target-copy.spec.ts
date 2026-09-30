@@ -27,13 +27,15 @@ test('Strokes guidance stays readable across themes, widths, and deploy bases', 
   await expect(page.getByRole('heading', { name: 'Stroke System', exact: true })).toBeVisible();
   await expect(page.locator('meta[name="description"]')).toHaveAttribute(
     'content',
-    /existing Design workspace/,
+    /existing editor/,
   );
   await expect(page.getByRole('heading', { name: 'Paint stays on its target' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Selection-to-flats' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Clipped shading' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Local concept references' })).toBeVisible();
   await expect(page.getByText(/never redirects a stroke to another layer/i)).toBeVisible();
   await expect(page.getByText(/sample one raster or the visible artwork/i)).toBeVisible();
+  await expect(page.getByText(/sampling and artwork export are separate opt-ins/i)).toBeVisible();
   await expect(page.getByText(/Soft Shade limits one gesture to its opacity/i)).toBeVisible();
   const proofImage = page.getByRole('img', {
     name: 'Varve showing a red apple flat beneath editable black linework on a separate Flats layer',
@@ -58,6 +60,15 @@ test('Strokes guidance stays readable across themes, widths, and deploy bases', 
     .poll(() => vectorTextureImage.evaluate((image) => (image as HTMLImageElement).naturalWidth))
     .toBeGreaterThan(0);
   await expect(page.getByText(/keeps supported contour geometry native/i)).toBeVisible();
+  const referenceProof = page.getByRole('img', {
+    name: 'Varve Design workspace with a forest photograph selected as a concept reference and separate sampling and export switches enabled',
+  });
+  await expect(referenceProof).toBeVisible();
+  await referenceProof.scrollIntoViewIfNeeded();
+  await expect
+    .poll(() => referenceProof.evaluate((image) => (image as HTMLImageElement).naturalWidth))
+    .toBeGreaterThan(0);
+  await expect(page.getByRole('link', { name: /Beech Forest.*CC BY-SA 4.0/ })).toBeVisible();
 
   for (const theme of ['light', 'dark'] as const) {
     const control = page.locator('.desktop-theme-toggle').getByRole('radio', {
@@ -116,6 +127,7 @@ test('Strokes guidance stays readable across themes, widths, and deploy bases', 
     page.getByRole('heading', { name: 'Magic Wand for linework and flats' }),
   ).toBeVisible();
   await expect(page.getByText(/Create flats layer/i)).toBeVisible();
+  await expect(page.getByText(/Concept references stay visible/i)).toBeVisible();
   await page.screenshot({
     path: testInfo.outputPath('selection-flats-guide-desktop.png'),
     fullPage: true,
@@ -146,9 +158,10 @@ test('Strokes guidance stays readable across themes, widths, and deploy bases', 
     page.getByText(/Paint and clipped shading are also available from the Design toolbar/i),
   ).toBeVisible();
   const productStrokeLink = page.getByRole('link', {
-    name: 'See the verified strokes, flats, and clipped-shading workflows',
+    name: 'See the verified strokes, flats, references, and clipped-shading workflows',
   });
   await expect(productStrokeLink).toHaveAttribute('href', `${basePath}/features/strokes`);
+  await expect(page.getByText(/sampling and export inclusion separately/i)).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('product-dark-mobile.png'), fullPage: true });
 
   await page.setViewportSize({ width: 1440, height: 1000 });

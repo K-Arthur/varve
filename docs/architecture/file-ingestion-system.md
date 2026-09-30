@@ -64,8 +64,16 @@ operation:
 - An image-filled shape may carry optional concept-art reference metadata with
   a portable source filename and independent sampling/export inclusion flags.
   Older image nodes have no such role and retain their existing behavior;
-  reference defaults and the later editor filtering path are documented with
-  the concept-art reference workflow.
+  missing inclusion flags normalize to false. Select one imported image shape
+  and enable **Use as concept reference** in Inspector → Fill → Details to mark
+  it. This leaves the image visible and editable; the existing layer visibility
+  control remains independent. **Include in artwork sampling** and **Include in
+  artwork exports** are separate opt-ins. Visible-artwork sampling and subtree
+  raster, SVG, PDF, and PDF/X exports consume disposable filtered document
+  snapshots, so opting out never hides or rewrites the saved reference. Direct
+  export of a selected, excluded reference is refused with an Inspector recovery
+  instruction rather than producing an empty file. The source metadata stores
+  only a portable filename, never the imported filesystem path.
 - Icon packs, brushes, LUTs, palettes, and token sources retain their
   format-specific parsers and sanitizers while sharing browse affordances
   where it does not alter their semantics.

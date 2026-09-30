@@ -5,7 +5,7 @@ import { sitePath } from '../../lib/siteUrl';
 import StatusPill from '../../components/StatusPill.astro';
 ---
 
-<Layout title="Stroke System" description="Varve combines editable vector contours with raster sketching, inking, clipped shading, and transparent export in the existing Design workspace.">
+<Layout title="Stroke System" description="Varve combines editable vector contours with raster sketching, inking, local concept references, clipped shading, and transparent export in the existing editor.">
   <div class="container-custom">
     <div class="feature-page">
       <nav class="breadcrumb" aria-label="Breadcrumb">
@@ -72,6 +72,10 @@ import StatusPill from '../../components/StatusPill.astro';
             <p>Sample one raster or the visible artwork with Magic Wand, create a separate Flats layer, and fill color beneath your linework. The outline stays editable; undo, save, reopen, and grouped PNG export preserve the combined result.</p>
           </article>
           <article>
+            <h3>Local concept references</h3>
+            <p>Mark an imported image in the existing Fill Inspector while keeping it visible on the canvas. Visible-artwork sampling and artwork export are separate opt-ins, each off by default; the image and settings survive save and reopen. Only the source filename is stored as metadata, not the original path.</p>
+          </article>
+          <article>
             <h3>Clipped shading</h3>
             <p>In Design, select a visible raster layer and create a separate Shading layer clipped to its alpha. The live matte keeps paint inside the source silhouette, while edits remain undoable and survive save/reopen and transparent PNG export.</p>
           </article>
@@ -90,8 +94,8 @@ import StatusPill from '../../components/StatusPill.astro';
         <img
           src={sitePath('/screenshots/illustration-linework-flats.png')}
           alt="Varve showing a red apple flat beneath editable black linework on a separate Flats layer"
-          width="1280"
-          height="800"
+          width="1440"
+          height="1000"
         />
         <figcaption>
           Visible-artwork Magic Wand selects inside the ink while a separate Flats layer carries the
@@ -124,6 +128,24 @@ import StatusPill from '../../components/StatusPill.astro';
           A vector contour and raster shading share one editable document. The verified SVG keeps
           supported contour geometry native and embeds the clipped texture as a bounded raster
           fallback; browser PDF preserves the appearance through raster export.
+        </figcaption>
+      </figure>
+
+      <figure class="feature-proof">
+        <img
+          src={sitePath('/screenshots/concept-art-reference-workflow.png')}
+          alt="Varve Design workspace with a forest photograph selected as a concept reference and separate sampling and export switches enabled"
+          width="1280"
+          height="800"
+          loading="lazy"
+        />
+        <figcaption>
+          The imported forest photograph stays visible while sampling and export remain
+          independently controlled. Reference image: <a
+            href="https://commons.wikimedia.org/wiki/File:Beech_Forest_(AU),_Great_Otway_National_Park,_Beauchamp_Falls_--_2019_--_1271.jpg"
+            rel="noopener noreferrer"
+            target="_blank"
+          >Beech Forest, Great Otway National Park, by Dietmar Rabich (CC BY-SA 4.0)</a>.
         </figcaption>
       </figure>
 

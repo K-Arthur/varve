@@ -14,6 +14,11 @@ update, not for someone reading the commit log.
 
 ### Added
 
+- **Local concept-art references** — Mark an imported image as a reference in
+  the existing Inspector, keep it visible and editable, and independently opt
+  it into visible-artwork sampling or artwork export. The reference role and
+  choices survive undo/redo and save/reopen; both opt-ins start off.
+
 - **Canvas review views** — Add session-only grayscale and mirrored canvas checks in the existing
   Document panel. Mirror mode is read-only and disables canvas input; neither view changes saved
   artwork or exports.

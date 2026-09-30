@@ -14,6 +14,7 @@
 import { blendModesForDomain, complementaryHarmony } from '@varve/engine';
 import type {
   BlendMode,
+  ConceptArtReferenceMetadata,
   Fill,
   FillType,
   GradientStop,
@@ -29,6 +30,7 @@ import {
   fillBindingApplicability,
   gradientFill,
   imageFill,
+  isImageShape,
   nodeLocalBounds,
   patternFill,
   resolveBoundTokenColor,
@@ -65,6 +67,7 @@ import { NumberField } from '../controls/NumberField';
 
 import { VariableModifierPopover } from '../controls/VariableModifierPopover';
 import { commonValue, isMixed } from '../selection/selectionState';
+import { ConceptArtReferenceControls } from './ConceptArtReferenceControls';
 import { FillContrastIndicator } from './FillContrastIndicator';
 import { ImageFillControls } from './ImageFillControls';
 import { PatternFillControls } from './PatternFillControls';
@@ -601,6 +604,20 @@ function FillRow({
     (partial: Partial<Fill>) => onChange({ ...fill, ...partial }),
     [fill, onChange],
   );
+  const referenceShape =
+    nodes.length === 1 && nodes[0]?.kind === 'shape' && isImageShape(nodes[0])
+      ? nodes[0]
+      : undefined;
+  const updateReferenceMetadata = (metadata: ConceptArtReferenceMetadata | undefined) => {
+    if (!referenceShape) return;
+    editor.updateNode(referenceShape.id, (current) => {
+      if (current.kind !== 'shape' || !isImageShape(current)) return current;
+      if (metadata) return { ...current, conceptArtReference: metadata };
+      const next = { ...current };
+      delete next.conceptArtReference;
+      return next;
+    });
+  };
 
   /**
    * Write a literal colour to this row. A bound fill paints the variable's
@@ -1029,6 +1046,14 @@ function FillRow({
               : undefined
           }
           asset={embeddedAssetId ? editor.state.document.assets?.[embeddedAssetId] : undefined}
+        />
+      )}
+
+      {fill.type === 'image' && referenceShape && (
+        <ConceptArtReferenceControls
+          metadata={referenceShape.conceptArtReference}
+          sourceFileName={referenceShape.conceptArtReference?.sourceFileName ?? referenceShape.name}
+          onChange={updateReferenceMetadata}
         />
       )}
 

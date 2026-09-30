@@ -46,6 +46,7 @@ import {
   findFlattenBoundaries,
 } from '../../export/compositor';
 import {
+import { prepareArtworkExport } from '../../export/conceptArtReferencePolicy';
   buildPrintImageManifestForSrcs,
   buildPrintImageManifestFromPngBlob,
   collectImageFillSrcs,
@@ -354,6 +355,7 @@ export async function exportNodeAsRaster(
   eng: Engine,
   opts: ExportOptions,
 ): Promise<RasterExportResult> {
+  ({ node, document: doc } = prepareArtworkExport(node, doc));
   // Resolve variants, bindings, reusable styles, and world transforms before
   // resource readiness. Waiting on the raw model can load a stale font/image
   // while the resolved render node uses a different resource.
@@ -596,6 +598,7 @@ export async function exportNodeToSvgMarkup(
   doc: SceneDocument,
   eng?: Engine,
 ): Promise<string> {
+  ({ node, document: doc } = prepareArtworkExport(node, doc));
   const rasterAssets = await composeFlattenedRasterAssetsForNode(node, doc, 'svg', {
     scale: 1,
     engine: eng,
@@ -801,6 +804,7 @@ export async function exportNodeAsPdf(
   scale: number,
   eng?: Engine,
 ): Promise<{ bytes: Uint8Array; filename: string }> {
+  ({ node, document: doc } = prepareArtworkExport(node, doc));
   // ── Decision: vector vs raster path ──────────────────────────────────
   // The Rust print engine (strata-print) handles solid fills, strokes,
   // and basic shapes natively. Everything else falls back to a rasterized
@@ -919,6 +923,7 @@ export async function exportNodeAsPdfX(
   standard: PdfXStandard,
   options: PdfXExportOptions = {},
 ): Promise<{ bytes: Uint8Array; filename: string }> {
+  ({ node, document: doc } = prepareArtworkExport(node, doc));
   // Press export must never silently drop a mockup: the PDF/X route feeds
   // `flattenSceneToEngine` straight to the Rust print pipeline, which never
   // runs the mockup decoration the canvas and raster/SVG/PDF routes share.
