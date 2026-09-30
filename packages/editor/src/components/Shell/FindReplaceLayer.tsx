@@ -20,13 +20,22 @@ export const FindReplaceLayer = forwardRef<FindReplaceLayerHandle>(
       editor.setSelection,
       editor.announce,
       editor.state.revision,
+      () => editor.state.revision,
     );
 
     const close = useCallback(() => {
       api.close();
       const restoreTarget = restoreFocusRef.current;
       restoreFocusRef.current = null;
-      requestAnimationFrame(() => restoreTarget?.focus());
+      // If the panel closed while it held focus, hand focus back explicitly.
+      // Otherwise focus falls to <body>, where a second Escape reaches the
+      // canvas and silently clears the editor selection.
+      const active = document.activeElement;
+      const stranded = active === null || active === document.body;
+      requestAnimationFrame(() => {
+        if (active && !stranded && active.isConnected) return;
+        if (restoreTarget?.isConnected) restoreTarget.focus();
+      });
     }, [api]);
 
     useImperativeHandle(

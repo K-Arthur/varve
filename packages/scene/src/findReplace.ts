@@ -1,5 +1,5 @@
-import { mergeAdjacentRuns } from './richTextOps';
-import type { Paragraph, RichText, TextRun } from './typography';
+import { replaceRichTextRange } from './richTextOps';
+import type { RichText } from './typography';
 
 export interface FlatMapping {
   paragraphIndex: number;
@@ -97,79 +97,22 @@ export function flatToRichSelection(
   return { paraSegments: segments };
 }
 
+/**
+ * Replace a flat UTF-16 range in a rich-text story.
+ *
+ * @deprecated Prefer `replaceRichTextRange` from `./richTextOps` directly. This
+ * function is a thin compatibility wrapper: it previously reimplemented range
+ * rewriting and mishandled paragraph separators (a `\n` in the flat surface was
+ * skipped rather than joining paragraphs). It now delegates to the canonical
+ * operation so the two can never diverge again.
+ */
 export function richTextReplace(
   rich: RichText,
   matchFlatStart: number,
   matchFlatEnd: number,
   replacement: string,
 ): RichText {
-  const { text, mapping } = flatTextFromRichText(rich);
-  if (matchFlatStart < 0 || matchFlatEnd > text.length || matchFlatStart > matchFlatEnd) {
-    return rich;
-  }
-
-  const clonePara = (p: Paragraph): Paragraph => ({
-    ...p,
-    runs: p.runs.map((r) => ({ ...r, text: r.text })),
-  });
-
-  const result: RichText = {
-    paragraphs: rich.paragraphs.map(clonePara),
-  };
-
-  const firstMapping = mapping[matchFlatStart];
-
-  let inheritFormat: TextRun['format'] | undefined;
-  let inheritStyleId: NodeId | undefined;
-  if (firstMapping && firstMapping.paragraphIndex >= 0) {
-    const srcPara = result.paragraphs[firstMapping.paragraphIndex];
-    if (srcPara) {
-      const srcRun = srcPara.runs[firstMapping.runIndex];
-      if (srcRun) {
-        inheritFormat = srcRun.format;
-        inheritStyleId = srcRun.characterStyleId;
-      }
-    }
-  }
-
-  const segments = flatToRichSelection(rich, matchFlatStart, matchFlatEnd).paraSegments;
-
-  for (const seg of segments) {
-    const { paragraphIndex, runIndex, runOffset, length } = seg;
-    const para = result.paragraphs[paragraphIndex];
-    if (!para) continue;
-    const run = para.runs[runIndex];
-    if (!run) continue;
-
-    const before = run.text.slice(0, runOffset);
-    const after = run.text.slice(runOffset + length);
-    run.text = before + after;
-  }
-
-  const insertParaIdx = firstMapping ? firstMapping.paragraphIndex : 0;
-  const insertRunIdx = firstMapping ? firstMapping.runIndex : 0;
-  const insertPara = result.paragraphs[insertParaIdx];
-  if (!insertPara) return rich;
-
-  const destRun = insertPara.runs[insertRunIdx];
-  if (!destRun) {
-    insertPara.runs.splice(insertRunIdx, 0, {
-      text: replacement,
-      format: inheritFormat,
-      characterStyleId: inheritStyleId,
-    });
-  } else {
-    destRun.text =
-      destRun.text.slice(0, firstMapping?.runOffset ?? 0) +
-      replacement +
-      destRun.text.slice(firstMapping?.runOffset ?? 0);
-  }
-
-  result.paragraphs = result.paragraphs
-    .filter((p): p is Paragraph => p !== undefined)
-    .map(mergeAdjacentRuns);
-
-  return result;
+  return replaceRichTextRange(rich, matchFlatStart, matchFlatEnd, replacement);
 }
 
 export function richTextSearch(
@@ -186,5 +129,3 @@ export function richTextSearch(
     };
   });
 }
-
-import type { NodeId } from './types';

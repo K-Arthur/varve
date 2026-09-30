@@ -9,6 +9,7 @@ import {
   openMockupsWithSelection,
 } from '../mockup/mockupActions';
 import { SHORTCUT_DEFS } from '../shortcuts/ShortcutManager';
+import type { ShortcutBinding } from '../shortcuts/types';
 import { registerThumbnailActions } from '../thumbnail/thumbnailCommands';
 import { type ActionCategory, getActionRegistry } from './ActionRegistry';
 import { type ActionHandlerCallbacks, createActionHandlers } from './createActionHandlers';
@@ -81,6 +82,27 @@ export function openVarveContact(contact: ContactChannelId): void {
   }
 }
 
+/**
+ * Commands with a documented menu accelerator but no `SHORTCUT_DEFS` entry.
+ *
+ * These are dispatched through the action registry's declared `shortcut` (see
+ * `useShortcuts`), so the keyboard path and the menu label stay in sync. Add a
+ * row here instead of hand-wiring a bespoke keydown listener.
+ */
+const MENU_ACCELERATOR_COMMANDS: ReadonlyArray<{
+  id: string;
+  label: string;
+  category: ActionCategory;
+  accelerator: ShortcutBinding;
+}> = [
+  {
+    id: 'findReplace',
+    label: 'Find and Replace',
+    category: 'edit',
+    accelerator: { key: 'f', ctrl: true },
+  },
+];
+
 export function registerAllShortcuts(exec: (id: string) => (() => void) | null): void {
   const r = getActionRegistry();
   for (const [id, def] of Object.entries(SHORTCUT_DEFS)) {
@@ -96,6 +118,23 @@ export function registerAllShortcuts(exec: (id: string) => (() => void) | null):
         () => exec(id)?.(),
       );
     }
+  }
+  // Commands that own a documented menu accelerator but no SHORTCUT_DEFS
+  // entry would otherwise be menu-only: the menubar advertises the chord while
+  // the keydown dispatcher, which iterates SHORTCUT_DEFS, never sees it. The
+  // registry entry carries the binding so no-op stubs still declare it.
+  for (const { id, label, category, accelerator } of MENU_ACCELERATOR_COMMANDS) {
+    if (r.has(id)) continue;
+    r.register(
+      {
+        id,
+        label,
+        category: categoryFromShortcut(category),
+        shortcut: accelerator,
+        placeholder: true,
+      },
+      () => exec(id)?.(),
+    );
   }
 }
 

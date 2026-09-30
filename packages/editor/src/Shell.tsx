@@ -408,20 +408,23 @@ function ShellInner({
   }, []);
 
   // Register all actions into the ActionRegistry.
-  // NOTE: registerEditorActions MUST run first so its handlers take
-  // priority over the no-op stubs from registerAllShortcuts.
+  // ORDER: stubs first (registerAllShortcuts), then registerEditorActions
+  // replaces placeholders with real handlers. registerEditorActions updates any
+  // existing id, so stubs-first still lets real handlers win. Stub-first is
+  // required because the menubar resolves accelerators through the registry for
+  // commands with a menu accelerator but no SHORTCUT_DEFS entry (Find and
+  // Replace), and entry order determines handler priority.
   //
-  // This effect re-runs on every editor state change, because the context
-  // value is a new object on each state update. registerEditorActions needs
-  // that fresh context (its handlers close over it), but the other two
-  // registrations are context-independent and must run exactly once:
-  // re-running registerBuiltinRules on every state update re-registered every
-  // audit rule, and each re-registration logs "[audit] Overwriting rule: <id>".
-  // During a drag that produced ~28 warnings per pointer move (thousands per
-  // gesture), which both flooded the console and burned main-thread time
-  // formatting messages inside the interaction path.
+  // Re-runs on every editor state change (the context value is a new object
+  // each update) so handlers close over fresh context; the other registrations
+  // must run exactly once (re-running registerBuiltinRules logged
+  // "[audit] Overwriting rule: <id>" ~28 times per pointer move during a drag).
   const staticActionsRegistered = useRef(false);
   useEffect(() => {
+    if (!staticActionsRegistered.current) {
+      staticActionsRegistered.current = true;
+      registerAllShortcuts(() => null);
+    }
     registerEditorActions(editor, {
       onBackToHome,
       onOpenHelp: () => editorHelp.openContextualHelp(),
@@ -457,9 +460,6 @@ function ShellInner({
         void exportLayerRef.current?.copySelectionAsPng(scale, selection),
       onExportSvg: () => exportLayerRef.current?.exportSvg(),
     });
-    if (staticActionsRegistered.current) return;
-    staticActionsRegistered.current = true;
-    registerAllShortcuts(() => null);
     // Populate the audit rule registry. Without this, runAudit() (the
     // IntelligencePanel's Audit tab) silently scans against zero rules.
     registerBuiltinRules();

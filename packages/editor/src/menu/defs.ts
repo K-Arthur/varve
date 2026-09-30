@@ -465,6 +465,7 @@ export function getEditMenu(runAction: (id: string) => void): MenuItemDef[] {
       accelerator: a('a', true, true),
       kind: 'command',
       group: 'selection',
+      enabled: enabledWithSelection,
       run: () => runAction('selectNone'),
     },
     {

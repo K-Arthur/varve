@@ -1,4 +1,5 @@
 import { isMac as isMacPlatform } from '@varve/platform';
+import { getActionRegistry } from '../actions/ActionRegistry';
 import { canonicalShortcutKey, physicalKeyFromEvent } from '../input/physicalKey';
 import type { KeymapExport, ShortcutBinding, ShortcutDef } from './types';
 
@@ -779,7 +780,13 @@ export function getEffectiveBinding(id: string): ShortcutBinding {
   const overrides = getOverrides();
   if (overrides[id]) return overrides[id];
   const def = SHORTCUT_DEFS[id as keyof typeof SHORTCUT_DEFS];
-  return def?.binding ?? { key: '' };
+  if (def?.binding) return def.binding;
+  // Commands with a documented menu accelerator but no SHORTCUT_DEFS entry
+  // (for example Find and Replace) carry their binding on the action registry,
+  // which is where the keydown dispatcher reads it. Resolving it here keeps the
+  // menu label, `aria-keyshortcuts`, and the executing chord in sync instead of
+  // the label silently dropping the shortcut.
+  return getActionRegistry().get(id)?.shortcut ?? { key: '' };
 }
 
 // ── Key capture ────────────────────────────────────────────────────────
@@ -898,6 +905,13 @@ export function shouldIgnoreShortcutTarget(target: Element | null): boolean {
   const activeEl = document.activeElement;
   if (activeEl && isIMEComposing(activeEl)) return true;
 
+  // Any open dialog owns keyboard input, including the non-modal find/replace
+  // panel. Find/replace keeps focus inside itself on purpose, so Escape reaches
+  // its own handler (which closes the panel) instead of being claimed by an
+  // unrelated global binding first. The panel is marked `aria-modal="false"`,
+  // which is also how it identifies itself to this guard.
+  if (target.closest?.('dialog[open],[role="dialog"]')) return true;
+
   // Walk up to nearest widget that signals keyboard-input ownership
   const widget = target.closest?.(`${SHORTCUT_IGNORE_SELECTOR},[data-shortcut-ignore]`);
   if (widget) return true;
@@ -913,7 +927,16 @@ export function shouldIgnoreShortcutTarget(target: Element | null): boolean {
 export function shouldIgnoreHistoryShortcutTarget(target: Element | null): boolean {
   if (!target) return false;
   const toggleInput = target.closest?.('input[type="checkbox"],input[type="radio"]');
-  return shouldIgnoreShortcutTarget(toggleInput?.parentElement ?? target);
+  const resolved = toggleInput?.parentElement ?? target;
+  // Undo/redo are global editor commands and stay live inside the find/replace
+  // panel, where the user must be able to undo a replacement without first
+  // clicking the canvas. Text-entry fields keep native undo for their own
+  // content, so those still suppress the global binding.
+  if (resolved.closest?.('[data-find-replace]')) {
+    const tag = resolved.tagName?.toLowerCase();
+    return tag === 'input' || tag === 'textarea';
+  }
+  return shouldIgnoreShortcutTarget(resolved);
 }
 
 /**

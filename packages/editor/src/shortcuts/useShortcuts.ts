@@ -103,6 +103,22 @@ export function useShortcuts(
       if (shouldIgnoreShortcutTarget(e.target as Element | null)) return;
       if (e.isComposing) return;
 
+      // Commands registered with a declared binding but no SHORTCUT_DEFS entry
+      // (menu-accelerator commands such as Find and Replace) are dispatched from
+      // the registry, so their key path and their menu label cannot drift apart.
+      // Skip ids SHORTCUT_DEFS already owns: those were matched above and the
+      // loop there owns their dispatch order and paste/Escape special cases.
+      const registry = getActionRegistry();
+      for (const action of registry.getAll()) {
+        if (!action.shortcut?.key) continue;
+        if (action.id in SHORTCUT_DEFS) continue;
+        if (!bindingMatchesEvent(e, action.shortcut)) continue;
+        e.preventDefault();
+        ref.current.recordAction(`shortcut:${action.id}`);
+        getHandler(action.id)?.();
+        return;
+      }
+
       const editor = ref.current;
       const guideId = editor.state.selectedGuideId;
       if (guideId && !e.ctrlKey && !e.metaKey && !e.altKey) {

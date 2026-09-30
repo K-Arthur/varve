@@ -204,7 +204,11 @@ export function replaceRichTextRange(
 
   const prefixRuns = sliceRuns(startParagraph.runs, 0, startAddress.offset);
   const suffixRuns = sliceRuns(endParagraph.runs, endAddress.offset, paragraphLength(endParagraph));
-  const insertionRun = runAtOffset(startParagraph, startAddress.offset);
+  const insertionRun = insertionAnchorRun(
+    startParagraph,
+    startAddress.offset,
+    safeStart === safeEnd,
+  );
   const replacementLines = replacement.split('\n');
   const before = rich.paragraphs.slice(0, startAddress.paragraphIndex).map(cloneParagraph);
   const after = rich.paragraphs.slice(endAddress.paragraphIndex + 1).map(cloneParagraph);
@@ -344,6 +348,31 @@ function runAtOffset(para: Paragraph, offset: number): TextRun | undefined {
   for (const run of para.runs) {
     if (offset <= cursor + run.text.length) return run;
     cursor += run.text.length;
+  }
+  return para.runs[para.runs.length - 1];
+}
+
+/**
+ * Choose the run whose format a replacement inherits.
+ *
+ * - A zero-width insertion follows the text editor's caret affinity: it
+ *   inherits from the run ending at the caret, so typing at a run boundary
+ *   continues the run the caret sits in.
+ * - A replacement of existing characters inherits from the run that owns the
+ *   *first replaced character*, so replacing a range at a run boundary takes
+ *   the style of the text being removed rather than the text before it.
+ */
+function insertionAnchorRun(
+  para: Paragraph,
+  offset: number,
+  zeroWidth: boolean,
+): TextRun | undefined {
+  if (zeroWidth) return runAtOffset(para, offset);
+  let cursor = 0;
+  for (const run of para.runs) {
+    const end = cursor + run.text.length;
+    if (offset < end) return run;
+    cursor = end;
   }
   return para.runs[para.runs.length - 1];
 }

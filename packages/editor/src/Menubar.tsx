@@ -694,6 +694,8 @@ function buildMenus(
         { label: '---' },
         {
           label: 'Find & Replace…',
+          shortcut: shortcutText('findReplace'),
+          ariaKeyshortcut: ks('findReplace'),
           action: 'findReplace',
         },
         { label: '---' },

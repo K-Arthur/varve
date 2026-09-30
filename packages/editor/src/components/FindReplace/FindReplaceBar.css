@@ -189,10 +189,30 @@
   font-weight: var(--font-weight-semibold);
 }
 
+.find-results-group__badge {
+  color: var(--color-feedback-info);
+  font-weight: var(--font-weight-regular);
+}
+
 .find-results-item {
-  display: block;
+  display: flex;
+  gap: var(--space-1);
+  align-items: center;
   inline-size: 100%;
-  padding: var(--space-1) var(--space-4) var(--space-1) var(--space-5);
+  padding-inline: var(--space-3) var(--space-4);
+}
+
+.find-results-item__check {
+  flex: none;
+}
+
+.find-results-item__button {
+  display: flex;
+  flex: 1;
+  min-inline-size: 0;
+  gap: var(--space-2);
+  align-items: baseline;
+  padding: var(--space-1) 0;
   color: var(--color-text-primary);
   font-family: var(--font-mono);
   font-size: var(--font-size-2xs);
@@ -202,19 +222,41 @@
   border: 0;
 }
 
+.find-results-item__snippet {
+  flex: 1;
+  min-inline-size: 0;
+  overflow: hidden;
+  color: var(--color-text-secondary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.find-results-item__match {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-semibold);
+  background: var(--color-accent-subtle);
+}
+
+.find-results-item__flag {
+  flex: none;
+  color: var(--color-feedback-warning);
+  font-family: var(--font-body);
+  font-size: var(--font-size-2xs);
+  white-space: nowrap;
+}
+
 .find-results-item:hover {
   background: var(--color-surface-hover);
 }
 
 .find-results-item--active {
   background: var(--color-accent-subtle);
+  /* The active match must stay visibly distinct from neighbouring results —
+     hovering it must not blend it back into the list. */
+  box-shadow: inset 2px 0 0 var(--color-interactive-default);
 }
 .find-results-item--active:hover {
-  background: var(--color-surface-hover);
-}
-
-.find-results-item__snippet {
-  color: var(--color-text-secondary);
+  background: var(--color-accent-subtle);
 }
 
 @media (max-width: 640px) {
