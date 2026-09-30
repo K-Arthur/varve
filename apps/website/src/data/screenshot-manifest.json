@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "note": "GENERATED FILE — do not hand-edit. Written by scripts/screenshots/product.mjs and validated by scripts/screenshots/validate.mjs. Each scene maps one canonical screenshot consumed by the website and documentation. status: 'captured' when the pipeline produced the file, 'skipped' when the scene could not be produced (reason required).",
-  "generatedAt": "2026-09-29T12:53:06.008Z",
+  "generatedAt": "2026-09-29T14:47:44.083Z",
   "scenes": {
     "workspace": {
       "file": "workspace-light.png",
@@ -589,6 +589,105 @@
       "provenance": {
         "promotedFrom": "2026-09-29T12-50-30-639Z-1062473",
         "promotedAt": "2026-09-29T12:53:06.008Z"
+      }
+    },
+    "presentation-navigator": {
+      "sha256": "19257391559c832453a5ddbcc50ae35b516d283da8fdd2a4902b22b02ea46693",
+      "file": "presentation-navigator-light.png",
+      "alt": "Varve Design showing an ordered three-slide presentation in the Slides navigator beside the editable canvas",
+      "caption": "An explicit slide sequence beside the editable Design canvas",
+      "feature": "presentations",
+      "theme": "light",
+      "kind": "full",
+      "width": 1440,
+      "height": 900,
+      "status": "captured",
+      "scale": 1,
+      "capturedAt": "2026-09-29T13:26:31.989Z",
+      "lastValidatedAgainst": "5b57dec3eadda3ee1364b81e93f542382b8d5c45",
+      "provenance": {
+        "promotedFrom": "2026-09-29T13-25-49-039Z-1109652",
+        "promotedAt": "2026-09-29T13:29:30.324Z"
+      }
+    },
+    "presentation-slide": {
+      "sha256": "3fd15d46d50e563567b98b1c7628b2eefc14ddabc973da47a683b4ca304181c9",
+      "file": "presentation-slide-light.png",
+      "alt": "An editable title slide on the Varve Design canvas, with layered teal, sand, and terracotta bars",
+      "caption": "Each slide remains an editable frame on the Design canvas",
+      "feature": "presentations",
+      "theme": "light",
+      "kind": "full",
+      "width": 1440,
+      "height": 900,
+      "status": "captured",
+      "scale": 1,
+      "capturedAt": "2026-09-29T13:26:50.550Z",
+      "lastValidatedAgainst": "5b57dec3eadda3ee1364b81e93f542382b8d5c45",
+      "provenance": {
+        "promotedFrom": "2026-09-29T13-25-49-039Z-1109652",
+        "promotedAt": "2026-09-29T13:29:30.328Z"
+      }
+    },
+    "presentation-layout-revision": {
+      "sha256": "eb02bf94ad981cd4d197f54c36d2ff6fa58a4dcb088f06e1c070f8464497387d",
+      "file": "presentation-layout-revision-tablet-dark.png",
+      "alt": "Varve showing a preview of reusable presentation layout geometry before applying the revision",
+      "caption": "Review compatible layout geometry before reapplying it to a slide",
+      "feature": "presentations",
+      "theme": "dark",
+      "kind": "full",
+      "width": 1200,
+      "height": 750,
+      "status": "captured",
+      "viewport": {
+        "width": 1200,
+        "height": 750
+      },
+      "scale": 1,
+      "capturedAt": "2026-09-29T14:47:21.718Z",
+      "lastValidatedAgainst": "cbb1cb3d149152257c3ea159d33a25faa134dc66",
+      "provenance": {
+        "promotedFrom": "2026-09-29T14-46-58-165Z-1202287",
+        "promotedAt": "2026-09-29T14:47:44.083Z"
+      }
+    },
+    "presentation-preview": {
+      "sha256": "09d7238cace8936f324353f0e5db80925e6bd4c2665e3cf1d44d188072753c0b",
+      "file": "presentation-preview-light.png",
+      "alt": "Audience preview displaying a Varve presentation slide without editor dock controls",
+      "caption": "Audience preview hides the editing docks; speaker notes stay private",
+      "feature": "presentations",
+      "theme": "light",
+      "kind": "full",
+      "width": 1440,
+      "height": 900,
+      "status": "captured",
+      "scale": 1,
+      "capturedAt": "2026-09-29T13:27:20.914Z",
+      "lastValidatedAgainst": "5b57dec3eadda3ee1364b81e93f542382b8d5c45",
+      "provenance": {
+        "promotedFrom": "2026-09-29T13-25-49-039Z-1109652",
+        "promotedAt": "2026-09-29T13:29:30.330Z"
+      }
+    },
+    "presentation-export": {
+      "sha256": "e48c49240f70c1baa439a38c8c5e0a2ad222eddc151a7363322993b1b9f9a25b",
+      "file": "presentation-export-light.png",
+      "alt": "Varve presentation export dialog showing raster PDF and ordered PNG sequence output options",
+      "caption": "Export an ordered raster PDF or PNG sequence from the local deck",
+      "feature": "presentations",
+      "theme": "light",
+      "kind": "full",
+      "width": 1440,
+      "height": 900,
+      "status": "captured",
+      "scale": 1,
+      "capturedAt": "2026-09-29T13:27:41.004Z",
+      "lastValidatedAgainst": "5b57dec3eadda3ee1364b81e93f542382b8d5c45",
+      "provenance": {
+        "promotedFrom": "2026-09-29T13-25-49-039Z-1109652",
+        "promotedAt": "2026-09-29T13:29:30.332Z"
       }
     }
   },
