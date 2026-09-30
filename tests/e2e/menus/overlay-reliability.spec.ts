@@ -1,4 +1,5 @@
 import { expect, type Page, type TestInfo, test } from '@playwright/test';
+import { openMenu } from '../helpers/menu-helpers';
 import { navigateToEditor, seedLayers } from '../shared';
 
 type Rect = {
@@ -288,5 +289,68 @@ test.describe('Overlay geometry and event reliability', () => {
     // it removes the hint without opening anything else.
     await hint.getByRole('button', { name: 'Dismiss hint' }).click();
     await expect(hint).toHaveCount(0);
+  });
+
+  test('menu rows stay above the docked panel header', async ({ page }) => {
+    // The dock puts its panel header at --z-overlay + 3 (1003), and panels
+    // drawn as drawers also resolve to --z-overlay, so the chrome has to
+    // out-rank 1000 in every mode simply to stay above its own panel. Floating
+    // overlays therefore live at calc(var(--z-overlay) + 10) instead of at
+    // 1000. Before they moved, every File-menu row in the band where the
+    // Layers header overlapped the menu hit-tested to that header, so those
+    // rows could not receive a pointer event at all — and nothing failed,
+    // because every other menu assertion only checked that a row existed.
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await navigateToEditor(page);
+
+    const menu = page.locator('.editor-menubar__menu');
+    // Both docked panels render a chrome bar; the File menu hangs over the
+    // Layers one, so address it by its label rather than by position.
+    const chrome = page.locator('.workspace-dock-panel-chrome[aria-label="Layers panel controls"]');
+    await openMenu(page, 'File');
+    await expect(menu).toBeVisible();
+    await expect(chrome).toBeVisible();
+
+    const probe = await page.evaluate(() => {
+      const open = document.querySelector<HTMLElement>('.editor-menubar__menu');
+      const header = document.querySelector<HTMLElement>(
+        '.workspace-dock-panel-chrome[aria-label="Layers panel controls"]',
+      );
+      if (!open || !header) return null;
+      const m = open.getBoundingClientRect();
+      const c = header.getBoundingClientRect();
+      const left = Math.max(m.left, c.left);
+      const right = Math.min(m.right, c.right);
+      const top = Math.max(m.top, c.top);
+      const bottom = Math.min(m.bottom, c.bottom);
+      const overlapArea = Math.max(0, right - left) * Math.max(0, bottom - top);
+      const cy = Math.round((top + bottom) / 2);
+      const hits = [0.1, 0.3, 0.5, 0.7, 0.9].map((t) => {
+        const el = document.elementFromPoint(Math.round(left + (right - left) * t), cy);
+        if (!el) return 'nothing';
+        return open.contains(el)
+          ? 'menu'
+          : `${el.tagName}.${(el.className || '').toString().slice(0, 44)}`;
+      });
+      return {
+        overlapArea,
+        hits,
+        menuZ: Number.parseFloat(getComputedStyle(open).zIndex),
+        chromeZ: Number.parseFloat(getComputedStyle(header).zIndex),
+      };
+    });
+    await page.keyboard.press('Escape');
+
+    expect(probe, 'File menu and panel header both exist').not.toBeNull();
+    // Precondition: this only means anything where the two overlap. If a
+    // layout change stops them overlapping, this fails loudly rather than
+    // letting the probes below pass without testing anything.
+    expect(probe!.overlapArea, 'File menu overlaps the panel header').toBeGreaterThan(0);
+    for (const hit of probe!.hits) {
+      expect(hit, `point inside the menu/header overlap band resolved to ${hit}`).toBe('menu');
+    }
+    expect(probe!.menuZ, 'overlay band must clear the dock chrome band').toBeGreaterThan(
+      probe!.chromeZ,
+    );
   });
 });

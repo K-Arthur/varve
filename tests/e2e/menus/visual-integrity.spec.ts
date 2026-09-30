@@ -35,8 +35,9 @@ test.describe('Menubar visual integrity', () => {
     const menuLayer = page.locator('.editor-menubar__menu');
     const menu = menuLayer.getByRole('menu', { name: 'View' });
     // Workspace radios live in the Workspace submenu now that the View root
-    // is grouped to fit one screen.
-    await menu.getByRole('menuitem', { name: 'Workspace' }).hover();
+    // is grouped to fit one screen. `exact` is load-bearing: the View menu
+    // also lists "Workspace layout", and a substring match resolves to both.
+    await menu.getByRole('menuitem', { name: 'Workspace', exact: true }).hover();
     const workspaceMenu = page.locator('[role="menu"][aria-label="Workspace"]');
     const activeWorkspace = workspaceMenu.getByRole('menuitemradio', {
       name: 'Workspace: Design',
