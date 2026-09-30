@@ -338,7 +338,12 @@ rejected:
    Reverted to the snapshot-encoded behaviour because the introducing commit
    called the gated behaviour a defect and did not update the snapshots. If the
    product intent is to gate it, the fix is 12 empty-selection snapshots plus a
-   real-selection fixture, and it should be a deliberate decision.
+   real-selection fixture, and it should be a deliberate decision. The external
+   evidence in "External evidence for the open decisions" narrows the decision:
+   gate it by greying it out, and stop advertising `Ctrl+Shift+A` in the label
+   while it is unavailable — never let the entry vanish. The reported complaint
+   in GIMP and SketchUp is precisely a greyed entry whose advertised shortcut
+   does nothing.
 
 ## Regression verification
 
@@ -387,6 +392,61 @@ substitution that resolves to the same value (`--radius-sm` is defined as
 `var(--radius-control-compact)`), so pixel equality is expected by construction;
 the browser run confirms the stylesheet still parses and the surface still
 renders.
+
+## External evidence for the open decisions
+
+The brief asks for competitor and user-complaint evidence where a resolution is a
+behaviour question rather than a bug. Two of the findings above are that kind of
+question, so they were researched before being decided or escalated. As with the
+repository's own pattern research, an individual report is version-specific and
+proves nothing about Varve; it is used here only to show which failure mode users
+actually complain about.
+
+**`Select None` gating (F3).** The documented complaint is not "it is greyed" but
+"it is greyed *and* the advertised shortcut does nothing":
+
+- GIMP users report exactly this shape — "the menu item is greyed out. The
+  keystroke sequence Ctrl+Shift+A does not work"
+  ([GIMP Chat](http://gimpchat.com/viewtopic.php?f=8&t=20293),
+  [GIMP forum](https://www.gimp-forum.net/Thread-Deselect-Not-Working-in-2-10)).
+- SketchUp users puzzle over the same thing: "I can't deselect all or select
+  none?" and "you're showing the command greyed out in the pull down menu? That
+  would be weird"
+  ([SketchUp Community](https://forums.sketchup.com/t/i-cant-deselect-all-or-select-none/181765)).
+- The opposing convention exists too — Unity users file the *opposite* bug,
+  "not greyed out and active when nothing is selected and does nothing"
+  ([Unity issue tracker](https://issuetracker.unity.com/issues/13732/cut-copy-duplicate-rename-delete-and-other-options-are-not-greyed-out-and-active-when-nothing-in-the-editor-is-selected-and-does-nothing-when-pressed)),
+  and Unity declined to fix it.
+- Blender's design record states the rule the two complaints sit either side of:
+  keep items constant "since it breaks muscle memory", prefer greying out over
+  hiding, and for state that is not visible in the menu "we use graying out"
+  ([Blender T74158](https://archive.blender.org/developer/maniphest/0074/0074158/index.html)).
+
+Varve's failure matched the first pattern rather than the second: the entry was
+gated *and* carries `Ctrl+Shift+A`, so the gate removed a chord the menu
+advertises. Removing the gate is the option that cannot reproduce any of the
+reported complaints, which is why F3 was repaired that way rather than by
+rewriting the snapshots. If the product does want it gated, the evidence says
+grey it out and stop advertising the chord — never hide it. That is Escalation 2.
+
+**Dock layout corruption (F9).** Panel loss and duplication after panel moves is
+one of the most-reported classes in the tools Varve competes with, which is what
+makes F9 the highest-value item left rather than a curiosity:
+
+- Photoshop: docked panels vanishing, and panels that can no longer be docked at
+  all ([Adobe Community 1137828](https://community.adobe.com/questions-712/docked-panels-disappear-when-images-are-brought-in-from-finder-on-macos-1137828),
+  [Adobe Community 1161084](https://community.adobe.com/questions-712/can-t-dock-dock-panels-anymore-1161084)).
+- Figma: the right-hand panel disappearing, and the docked-versus-floating
+  controversy across two long threads
+  ([Figma Forum 21217](https://forum.figma.com/ask-the-community-7/right-side-design-panel-has-disappeared-21217),
+  [Figma Forum 23789](https://forum.figma.com/suggest-a-feature-11/launched-fixed-panels-are-back-23789/index3.html)).
+- Figma: layers silently lost when moving content between two windows
+  ([Figma Forum 54952](https://forum.figma.com/report-a-problem-6/copy-pasting-design-across-two-figma-instances-on-multiple-monitors-results-in-missing-elements-54952)).
+
+Varve's F9 is the same class — a layout that `validateDockLayout` rejects after a
+move, with the same panel node present twice. It is not user-reported yet
+because it was found by the model's own property test, which is the right time to
+find it.
 
 ## Remaining risks and confidence
 
