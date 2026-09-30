@@ -689,6 +689,114 @@
         "promotedFrom": "2026-09-29T13-25-49-039Z-1109652",
         "promotedAt": "2026-09-29T13:29:30.332Z"
       }
+    },
+    "effect-studio-desktop-light": {
+      "file": "effect-studio-desktop-light.png",
+      "alt": "Effect Studio on a wide screen, with the treatment preview, gallery, and applied stack arranged side by side.",
+      "caption": "Wide workspace with preview, treatments, and editable stack in view.",
+      "feature": "effect-studio",
+      "theme": "light",
+      "kind": "full",
+      "width": 1440,
+      "height": 900,
+      "status": "captured",
+      "sha256": "6b4d3379f72c1002a1afe83838a32bc91fa93968e4585fbeac3396326fb80bce",
+      "source": "tests/e2e/workspace/effect-studio.spec.ts",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "provenanceUnknown": true
+    },
+    "effect-studio-mobile-light": {
+      "file": "effect-studio-mobile-light.png",
+      "alt": "Effect Studio on a phone-sized screen, reflowed into a single scrollable layout with touch-sized controls.",
+      "caption": "Phone layout keeps the same order in one scrollable flow.",
+      "feature": "effect-studio",
+      "theme": "light",
+      "kind": "full",
+      "width": 390,
+      "height": 844,
+      "status": "captured",
+      "sha256": "d42d8b87993ab42c5debcca8011cdc2d19005c2ea204b019dd07419870607d0a",
+      "source": "tests/e2e/workspace/effect-studio.spec.ts",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "provenanceUnknown": true
+    },
+    "illustration-linework-flats": {
+      "file": "illustration-linework-flats.png",
+      "alt": "Varve showing a red apple flat beneath editable black linework on a separate Flats layer",
+      "caption": "Visible-artwork Magic Wand selects inside the ink while a separate Flats layer carries the colour.",
+      "feature": "strokes",
+      "theme": "light",
+      "kind": "full",
+      "width": 1280,
+      "height": 800,
+      "status": "captured",
+      "sha256": "685ec43c866c5a4eb7a4ebd01b903e4ec87eb068c27fcf85159f743a500671bc",
+      "source": "tests/e2e/canvas/strokes.spec.ts",
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "provenanceUnknown": true
+    },
+    "illustration-clipped-shading": {
+      "file": "illustration-clipped-shading.png",
+      "alt": "Varve Design workspace with red shading clipped inside a blue painted shape on a separate Shading layer",
+      "caption": "The separate Shading layer stays within the source raster alpha across undo, save/reopen, and transparent PNG export.",
+      "feature": "strokes",
+      "theme": "light",
+      "kind": "full",
+      "width": 1440,
+      "height": 900,
+      "status": "captured",
+      "sha256": "60391bb50efaefa1ebf72e7bf7faf7a7a1f3758dcbf271209a1204c1834c460c",
+      "source": "tests/e2e/canvas/strokes.spec.ts",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "provenanceUnknown": true
+    },
+    "illustration-vector-clipped-texture": {
+      "file": "illustration-vector-clipped-texture.png",
+      "alt": "Varve Design workspace showing a red raster shading stroke clipped inside a teal vector contour",
+      "caption": "A vector contour and raster shading share one editable document, exported as editable contour geometry with a bounded embedded texture.",
+      "feature": "strokes",
+      "theme": "light",
+      "kind": "full",
+      "width": 1440,
+      "height": 900,
+      "status": "captured",
+      "sha256": "6fb0773352732b8214480a1f49d1f19aae1434423d4497d8a8f588dac87be8e9",
+      "source": "tests/e2e/canvas/strokes.spec.ts",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "provenanceUnknown": true
+    },
+    "concept-art-reference-workflow": {
+      "file": "concept-art-reference-workflow.png",
+      "alt": "Varve Design workspace with a forest photograph selected as a concept reference and separate sampling and export switches enabled",
+      "caption": "The imported forest photograph stays visible while sampling and export remain independently controlled.",
+      "feature": "strokes",
+      "theme": "light",
+      "kind": "full",
+      "width": 1440,
+      "height": 1000,
+      "status": "captured",
+      "sha256": "dbb2787cd196c64ce6816315f0fd55a869c2c13a21134f6e100587688b8b3451",
+      "source": "tests/e2e/canvas/concept-art-references.spec.ts",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "provenanceUnknown": true
     }
   },
   "provenance": {

@@ -1,6 +1,8 @@
 ---
 import Button from '../../components/Button.astro';
 import Layout from '../../layouts/Layout.astro';
+import ScreenshotImage from '../../components/ScreenshotImage.astro';
+import { getScene } from '../../lib/screenshot';
 import { sitePath } from '../../lib/siteUrl';
 import StatusPill from '../../components/StatusPill.astro';
 ---
@@ -91,12 +93,7 @@ import StatusPill from '../../components/StatusPill.astro';
       </section>
 
       <figure class="feature-proof">
-        <img
-          src={sitePath('/screenshots/illustration-linework-flats.png')}
-          alt="Varve showing a red apple flat beneath editable black linework on a separate Flats layer"
-          width="1440"
-          height="1000"
-        />
+        <ScreenshotImage scene={getScene('illustration-linework-flats')!} />
         <figcaption>
           Visible-artwork Magic Wand selects inside the ink while a separate Flats layer carries the
           color. Undo, save and reopen, and grouped PNG export were verified in the editor.
@@ -104,12 +101,7 @@ import StatusPill from '../../components/StatusPill.astro';
       </figure>
 
       <figure class="feature-proof">
-        <img
-          src={sitePath('/screenshots/illustration-clipped-shading.png')}
-          alt="Varve Design workspace with red shading clipped inside a blue painted shape on a separate Shading layer"
-          width="1440"
-          height="900"
-        />
+        <ScreenshotImage scene={getScene('illustration-clipped-shading')!} />
         <figcaption>
           The separate Shading layer stays within the source raster alpha. The real editor
           workflow was checked for boundary pixels, undo/redo, save/reopen, and transparent PNG.
@@ -117,13 +109,7 @@ import StatusPill from '../../components/StatusPill.astro';
       </figure>
 
       <figure class="feature-proof">
-        <img
-          src={sitePath('/screenshots/illustration-vector-clipped-texture.png')}
-          alt="Varve Design workspace showing a red raster shading stroke clipped inside a teal vector contour"
-          width="1440"
-          height="900"
-          loading="lazy"
-        />
+        <ScreenshotImage scene={getScene('illustration-vector-clipped-texture')!} />
         <figcaption>
           A vector contour and raster shading share one editable document. The verified SVG keeps
           supported contour geometry native and embeds the clipped texture as a bounded raster
@@ -132,13 +118,7 @@ import StatusPill from '../../components/StatusPill.astro';
       </figure>
 
       <figure class="feature-proof">
-        <img
-          src={sitePath('/screenshots/concept-art-reference-workflow.png')}
-          alt="Varve Design workspace with a forest photograph selected as a concept reference and separate sampling and export switches enabled"
-          width="1280"
-          height="800"
-          loading="lazy"
-        />
+        <ScreenshotImage scene={getScene('concept-art-reference-workflow')!} />
         <figcaption>
           The imported forest photograph stays visible while sampling and export remain
           independently controlled. Reference image: <a

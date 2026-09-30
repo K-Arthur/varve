@@ -1,6 +1,8 @@
 ---
 import Button from '../../components/Button.astro';
 import Layout from '../../layouts/Layout.astro';
+import ScreenshotImage from '../../components/ScreenshotImage.astro';
+import { getScene } from '../../lib/screenshot';
 import { sitePath } from '../../lib/siteUrl';
 import StatusPill from '../../components/StatusPill.astro';
 ---
@@ -45,23 +47,11 @@ import StatusPill from '../../components/StatusPill.astro';
         </p>
         <div class="feature-preview__screenshots">
           <figure>
-            <img
-              src={sitePath('/screenshots/effect-studio-desktop-light.png')}
-              alt="Effect Studio on a wide screen, with the treatment preview, gallery, and applied stack arranged side by side."
-              width="1440"
-              height="900"
-              loading="lazy"
-            />
+            <ScreenshotImage scene={getScene('effect-studio-desktop-light')!} />
             <figcaption>Wide workspace with preview, treatments, and editable stack in view.</figcaption>
           </figure>
           <figure class="feature-preview__mobile">
-            <img
-              src={sitePath('/screenshots/effect-studio-mobile-light.png')}
-              alt="Effect Studio on a phone-sized screen, reflowed into a single scrollable layout with touch-sized controls."
-              width="390"
-              height="844"
-              loading="lazy"
-            />
+            <ScreenshotImage scene={getScene('effect-studio-mobile-light')!} />
             <figcaption>Phone layout keeps the same order in one scrollable flow.</figcaption>
           </figure>
         </div>

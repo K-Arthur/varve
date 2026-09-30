@@ -781,6 +781,106 @@ const SCENES = [
     },
   },
   {
+    id: 'presentation-navigator',
+    file: 'presentation-navigator-light.png',
+    theme: 'light',
+    feature: 'presentations',
+    alt: 'Varve Design showing an ordered three-slide presentation in the Slides navigator beside the editable canvas',
+    caption: 'An explicit slide sequence beside the editable Design canvas',
+    async run(page) {
+      await openCleanEditor(page);
+      await openDemoDocument(page, 'presentation');
+      await page.getByRole('tab', { name: 'Slides' }).click();
+      const slides = page.getByRole('list', { name: 'Slides in presentation order' });
+      await expect(slides.locator(':scope > li')).toHaveCount(3);
+      await expect(page.locator('.presentation-navigator__thumbnail img').first()).toBeVisible({
+        timeout: 30000,
+      });
+    },
+  },
+  {
+    id: 'presentation-slide',
+    file: 'presentation-slide-light.png',
+    theme: 'light',
+    feature: 'presentations',
+    alt: 'An editable title slide on the Varve Design canvas, with layered teal, sand, and terracotta bars',
+    caption: 'Each slide remains an editable frame on the Design canvas',
+    async run(page) {
+      await openCleanEditor(page);
+      await openDemoDocument(page, 'presentation');
+      await page.getByRole('tab', { name: 'Slides' }).click();
+      await page
+        .getByRole('button', { name: /Edit slide/ })
+        .first()
+        .click();
+      await page.locator('.editor-canvas__content-layer').waitFor({ state: 'visible' });
+      await page.getByRole('button', { name: 'Fit selection to viewport' }).click();
+      await page.waitForTimeout(800);
+    },
+  },
+  {
+    id: 'presentation-layout-revision',
+    file: 'presentation-layout-revision-tablet-dark.png',
+    theme: 'dark',
+    viewport: { width: 1200, height: 750 },
+    hasTouch: true,
+    feature: 'presentations',
+    alt: 'Varve showing a preview of reusable presentation layout geometry before applying the revision',
+    caption: 'Review compatible layout geometry before reapplying it to a slide',
+    async run(page) {
+      await openCleanEditor(page);
+      await openDemoDocument(page, 'presentation');
+      await page.getByRole('tab', { name: 'Slides' }).click();
+      await page.locator('.presentation-layouts > summary').click();
+      await page
+        .getByRole('combobox', { name: 'Layout source' })
+        .selectOption({ label: 'Title / section' });
+      await page
+        .getByRole('combobox', { name: 'Slide object for title' })
+        .selectOption({ label: 'Headline' });
+      await page.getByRole('button', { name: 'Preview and reapply…' }).click();
+      await expect(page.getByRole('dialog', { name: 'Review layout changes' })).toContainText(
+        'geometry changes',
+      );
+    },
+  },
+  {
+    id: 'presentation-preview',
+    file: 'presentation-preview-light.png',
+    theme: 'light',
+    feature: 'presentations',
+    alt: 'Audience preview displaying a Varve presentation slide without editor dock controls',
+    caption: 'Audience preview hides the editing docks; speaker notes stay private',
+    async run(page) {
+      await openCleanEditor(page);
+      await openDemoDocument(page, 'presentation');
+      await page.getByRole('tab', { name: 'Slides' }).click();
+      await page.getByRole('button', { name: 'Present', exact: true }).click();
+      const audience = page.getByRole('dialog', { name: /audience preview/ });
+      await expect(audience.locator('.presentation-audience__image')).toBeVisible({
+        timeout: 30000,
+      });
+      await expect(audience).not.toContainText('Internal note:');
+    },
+  },
+  {
+    id: 'presentation-export',
+    file: 'presentation-export-light.png',
+    theme: 'light',
+    feature: 'presentations',
+    alt: 'Varve presentation export dialog showing raster PDF and ordered PNG sequence output options',
+    caption: 'Export an ordered raster PDF or PNG sequence from the local deck',
+    async run(page) {
+      await openCleanEditor(page);
+      await openDemoDocument(page, 'presentation');
+      await page.getByRole('tab', { name: 'Slides' }).click();
+      await page.getByRole('button', { name: 'Export deck…' }).click();
+      const exportDialog = page.getByRole('dialog', { name: /Export Local field notes/ });
+      await expect(exportDialog.getByRole('button', { name: 'Export PDF' })).toBeEnabled();
+      await expect(exportDialog.getByRole('button', { name: 'Export PNG sequence' })).toBeEnabled();
+    },
+  },
+  {
     id: 'tablet-workspace',
     file: 'tablet-workspace-light.png',
     theme: 'light',
@@ -1707,6 +1807,83 @@ const SOURCE_SCENES = [
     theme: 'light',
     kind: 'full',
   },
+  // Reviewed captures promoted from the specs that own the surface. Their
+  // published bytes are committed under public/screenshots; `producer` names
+  // the spec the capture came from, and `viewport` is the measured frame, so
+  // the geometry check holds for frames that are not the 1440x900 default.
+  {
+    id: 'effect-studio-desktop-light',
+    file: 'effect-studio-desktop-light.png',
+    producer: 'tests/e2e/workspace/effect-studio.spec.ts',
+    alt: 'Effect Studio on a wide screen, with the treatment preview, gallery, and applied stack arranged side by side.',
+    caption: 'Wide workspace with preview, treatments, and editable stack in view.',
+    feature: 'effect-studio',
+    theme: 'light',
+    kind: 'full',
+    viewport: { width: 1440, height: 900 },
+  },
+  {
+    id: 'effect-studio-mobile-light',
+    file: 'effect-studio-mobile-light.png',
+    producer: 'tests/e2e/workspace/effect-studio.spec.ts',
+    alt: 'Effect Studio on a phone-sized screen, reflowed into a single scrollable layout with touch-sized controls.',
+    caption: 'Phone layout keeps the same order in one scrollable flow.',
+    feature: 'effect-studio',
+    theme: 'light',
+    kind: 'full',
+    viewport: { width: 390, height: 844 },
+  },
+  {
+    id: 'illustration-linework-flats',
+    file: 'illustration-linework-flats.png',
+    producer: 'tests/e2e/canvas/strokes.spec.ts',
+    alt: 'Varve showing a red apple flat beneath editable black linework on a separate Flats layer',
+    caption:
+      'Visible-artwork Magic Wand selects inside the ink while a separate Flats layer carries the colour.',
+    feature: 'strokes',
+    theme: 'light',
+    kind: 'full',
+    // Measured from the published capture. The page's own `width`/`height`
+    // attributes said 1440x1000; the file is 1280x800 — one of the drifts the
+    // manifest removes by becoming the single source for geometry.
+    viewport: { width: 1280, height: 800 },
+  },
+  {
+    id: 'illustration-clipped-shading',
+    file: 'illustration-clipped-shading.png',
+    producer: 'tests/e2e/canvas/strokes.spec.ts',
+    alt: 'Varve Design workspace with red shading clipped inside a blue painted shape on a separate Shading layer',
+    caption:
+      'The separate Shading layer stays within the source raster alpha across undo, save/reopen, and transparent PNG export.',
+    feature: 'strokes',
+    theme: 'light',
+    kind: 'full',
+    viewport: { width: 1440, height: 900 },
+  },
+  {
+    id: 'illustration-vector-clipped-texture',
+    file: 'illustration-vector-clipped-texture.png',
+    producer: 'tests/e2e/canvas/strokes.spec.ts',
+    alt: 'Varve Design workspace showing a red raster shading stroke clipped inside a teal vector contour',
+    caption:
+      'A vector contour and raster shading share one editable document, exported as editable contour geometry with a bounded embedded texture.',
+    feature: 'strokes',
+    theme: 'light',
+    kind: 'full',
+    viewport: { width: 1440, height: 900 },
+  },
+  {
+    id: 'concept-art-reference-workflow',
+    file: 'concept-art-reference-workflow.png',
+    producer: 'tests/e2e/canvas/concept-art-references.spec.ts',
+    alt: 'Varve Design workspace with a forest photograph selected as a concept reference and separate sampling and export switches enabled',
+    caption:
+      'The imported forest photograph stays visible while sampling and export remain independently controlled.',
+    feature: 'strokes',
+    theme: 'light',
+    kind: 'full',
+    viewport: { width: 1440, height: 1000 },
+  },
 ];
 
 const manifest = JSON.parse(manifestBytesAtStart.toString('utf8'));
@@ -1859,6 +2036,9 @@ function normalizeManifest() {
       reason: undefined,
       sha256: sha256Hex(bytes),
       source: source.producer,
+      // The measured frame, so the geometry check holds for a capture whose
+      // frame differs from the 1440x900 default (a phone-sized or taller one).
+      viewport: source.viewport ? { ...source.viewport } : undefined,
       provenanceUnknown: true,
     };
   }
@@ -2165,6 +2345,9 @@ try {
       reason: undefined,
       sha256: sha256Hex(bytes),
       source: source.producer,
+      // The measured frame, so the geometry check holds for a capture whose
+      // frame differs from the 1440x900 default (a phone-sized or taller one).
+      viewport: source.viewport ? { ...source.viewport } : undefined,
       lastValidatedAgainst: sourceIdentity.sourceRevision,
     };
   }
