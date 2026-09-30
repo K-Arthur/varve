@@ -699,13 +699,13 @@
       "id": "upscale-realesrgan-anime",
       "filename": "realesrgan-anime-6b.onnx",
       "localPath": "/models/realesrgan-anime-6b.onnx",
-      "sha256": "2648cab4c4343541caa291c6754e9e8edbe7a813fffc2a677423dd12cb6b7f7",
+      "sha256": "2648cab4c4343541c1aa291c6754e9e8edbe7a813fffc2a677423dd12cb6b7f7",
       "bundled": false,
       "remoteUrl": "https://github.com/K-Arthur/varve/releases/download/varve-models-v1/realesrgan-anime-6b.onnx",
       "precision": "fp32",
       "modelVersion": "1.0.0",
-      "sourceRevision": "xinntao/Real-ESRGAN anime_6B, reproducible ONNX export via deepghs/imgutils-models",
-      "sourceLicense": "BSD-3-Clause",
+      "sourceRevision": "xinntao/Real-ESRGAN anime_6B upstream checkpoint; deepghs/imgutils-models upload @ 35e0ed8f35ce0dbea674568161a48b31ba7d2a99; converter toolchain unrecorded",
+      "sourceLicense": "Upstream checkpoint BSD-3-Clause; converted-artifact distribution review pending",
       "preprocessingVersion": 1,
       "postprocessingVersion": 1,
       "supportedProviders": [
@@ -753,20 +753,20 @@
           "channelOrder": "rgb"
         },
         "outputActivation": "none",
-        "peakMemoryBytes": 22000000
+        "peakMemoryBytes": 1600000000
       },
       "validation": {
         "contractVerified": true,
         "integrityVerified": true,
-        "provenanceStatus": "verified",
+        "provenanceStatus": "unverified",
         "inferenceVerified": true,
-        "validationSummary": "Pinned ONNX artifact with verified tensor contract, integrity, provenance, and dimension-sweep inference checks.",
-        "integrityVerifiedAt": "2026-08-22T00:00:00Z",
+        "validationSummary": "Pinned SHA-256, RGB tensor contract, and fixed 4x output are verified. Single-threaded browser-WASM smoke checks passed on deterministic fixtures; the production-sized 320x320 tile used 1458688000 bytes peak RSS and 112809 ms on the recorded x86_64 host. Conversion provenance, converted-artifact distribution review, artist-quality corpus comparison, and other providers/platforms remain unverified.",
+        "integrityVerifiedAt": "2026-09-30T00:00:00Z",
         "contractVersion": 1,
-        "contractVerifiedAt": "2026-08-22T00:00:00Z",
-        "inferenceVerifiedAt": "2026-08-22T00:00:00Z"
+        "contractVerifiedAt": "2026-09-30T00:00:00Z",
+        "inferenceVerifiedAt": "2026-09-30T00:00:00Z"
       },
-      "notes": "Optional download for anime, illustration, and line-art enhancement. Fixed 4x output; no silent fallback to the general checkpoint. Quality corpus benchmark is tracked separately."
+      "notes": "Experimental optional anime-oriented model; do not treat as quality-qualified. Fixed 4x output. Compare against the untouched source and classical Lanczos on a duplicate before keeping a result. Conversion provenance and artifact distribution review are pending. The 1.6 GB WASM memory admission estimate includes headroom over one measured 320x320 tile; whole-document output memory is additional. No silent fallback to the general checkpoint."
     },
     {
       "id": "scunet",

@@ -152,6 +152,35 @@ describe('Semantic similarity model contract', () => {
   });
 });
 
+describe('Experimental anime upscaler qualification', () => {
+  const manifest = loadManifest();
+  const anime = manifest.models.find((model) => model.id === 'upscale-realesrgan-anime') as
+    | (ModelManifestEntry & {
+        tensorContract?: NonNullable<ModelManifestEntry['tensorContract']> & {
+          peakMemoryBytes?: number;
+        };
+        notes?: string;
+      })
+    | undefined;
+
+  it('does not equate a pinned hash with conversion provenance, distribution, or quality', () => {
+    expect(anime).toMatchObject({
+      sha256: '2648cab4c4343541c1aa291c6754e9e8edbe7a813fffc2a677423dd12cb6b7f7',
+      bundled: false,
+      sourceLicense: expect.stringContaining('review pending'),
+      validation: {
+        integrityVerified: true,
+        contractVerified: true,
+        provenanceStatus: 'unverified',
+        inferenceVerified: true,
+      },
+    });
+    expect(anime?.tensorContract?.peakMemoryBytes).toBe(1_600_000_000);
+    expect(anime?.notes).toMatch(/do not treat as quality-qualified/i);
+    expect(anime?.validation?.validationSummary).toMatch(/1458688000 bytes peak RSS/);
+  });
+});
+
 describe('Model validation consistency', () => {
   const manifest = loadManifest();
 

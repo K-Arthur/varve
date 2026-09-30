@@ -98,9 +98,9 @@ export const UPSCALE_MODES: UpscaleMode[] = [
   },
   {
     id: 'illustration',
-    label: 'Illustration & anime',
+    label: 'Illustration & anime (not available yet)',
     description:
-      'Tuned for line art, flat colours, and cel shading. Uses the validated Real-ESRGAN anime x4 checkpoint when it is installed; the general model remains a separate photo-oriented mode.',
+      'Experimental anime-oriented checkpoint; Varve has only synthetic browser-WASM smoke evidence. Conversion provenance, artifact distribution review, and artist-quality results remain unverified.',
     method: 'ai',
     isAi: true,
     lockedScale: true,

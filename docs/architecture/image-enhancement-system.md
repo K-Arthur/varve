@@ -34,11 +34,15 @@ The shipped AI capabilities are:
   on the `varve-models-v1` GitHub release with a pinned SHA-256.
 - `upscale-realesr-general`: Real-ESRGAN general x4 super-resolution, ONNX,
   using the worker's 256px core / 32px padding tile provider.
-- `upscale-realesrgan-anime`: Real-ESRGAN anime/illustration x4 (6B), with a
-  pinned ONNX artifact, checksum, source license, and contract/inference
-  validation in the model manifest. It is optional and downloaded on demand;
-  the UI never silently substitutes the general checkpoint when it is absent.
-  The task-quality corpus benchmark remains a separate measured gate.
+- `upscale-realesrgan-anime`: experimental optional anime-oriented x4 artifact.
+  Its SHA-256 and RGB/4x tensor contract are checked, and a synthetic
+  single-threaded browser-WASM smoke passed. Conversion provenance and
+  converted-artifact distribution review remain pending; the artist-quality
+  corpus gate is not passed. A 320×320 tile measured 1.459 GB RSS and 112.8 s
+  on one x86_64 host. The 1.6 GB model admission estimate includes headroom;
+  whole-output allocation is additional. The UI keeps this mode unavailable
+  until the pending reviews and corpus tests are complete, and never silently
+  substitutes the general checkpoint.
 
 JPEG artifact removal is represented as a user operation but is rejected by
 both planner (`planRestoration` throws `unsupported-operation`) and dispatch

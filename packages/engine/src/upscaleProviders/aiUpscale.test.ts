@@ -109,6 +109,29 @@ describe('Real-ESRGAN worker helpers', () => {
     expect([...packRgbChw(image)]).toEqual([0, 0, 0]);
   });
 
+  it('restores fractional alpha from the source after opaque RGB inference', async () => {
+    getBestOnnxProviders.mockResolvedValue(['wasm']);
+    createSession.mockResolvedValueOnce({
+      inputNames: ['input'],
+      outputNames: ['output'],
+      run: vi.fn(async () => ({
+        output: { data: new Float32Array(8 * 4 * 3).fill(0.5), dims: [1, 3, 4, 8] },
+      })),
+      release: vi.fn(async () => {}),
+    });
+    const source = new ImageData(new Uint8ClampedArray([255, 0, 0, 0, 0, 0, 255, 255]), 2, 1);
+
+    const result = await upscaleWithRealEsrgan(source, '/models/realesr.onnx', () => false);
+
+    expect(result.width).toBe(8);
+    expect(result.height).toBe(4);
+    expect(result.data[3]).toBe(0);
+    expect(result.data[0]).toBe(0);
+    expect(result.data[7 * 4 + 3]).toBe(255);
+    expect(result.data[3 * 4 + 3]).toBeGreaterThan(0);
+    expect(result.data[3 * 4 + 3]).toBeLessThan(255);
+  });
+
   it('copies only a tile core so padded overlaps cannot create seams', () => {
     const destination = new Uint8ClampedArray(4 * 4 * 4);
     const tileRgb = new Float32Array(6 * 6 * 3);

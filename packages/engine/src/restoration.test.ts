@@ -115,6 +115,27 @@ describe('restoration capability planning', () => {
     expect(isRestorationOperationAvailable('none')).toBe(true);
   });
 
+  it('refuses the anime artifact until provenance, distribution, quality, and memory are qualified', () => {
+    const anime = capabilitiesForTask('upscale').find(
+      (capability) => capability.id === 'upscale-realesrgan-anime',
+    );
+
+    expect(anime).toMatchObject({
+      status: 'not-validated',
+      redistribution: 'pending',
+      qualityTier: 'experimental',
+      peakMemoryBytes: 1_600_000_000,
+    });
+    expect(anime?.statusReason).toMatch(/artist-quality corpus comparison/i);
+    expect(() =>
+      planRestoration({
+        operation: 'upscale',
+        upscale: { method: 'ai', modelId: 'upscale-realesrgan-anime', scale: 4 },
+      }),
+    ).toThrow(/artist-quality corpus comparison/i);
+    expect(firstAvailableCapability('upscale')?.id).toBe('upscale-realesr-general');
+  });
+
   it('never advertises a model for a task it was not validated for', () => {
     expect(firstAvailableCapability('deblur')?.id).toBe('nafnet-deblur-gopro');
     // The deblur checkpoint must not leak into the denoise registry and the

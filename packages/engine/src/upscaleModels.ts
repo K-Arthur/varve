@@ -34,10 +34,11 @@ export const UPSCALE_MODELS: UpscaleModelMetadata[] = [
     id: 'upscale-realesrgan-anime',
     name: 'Real-ESRGAN Anime (x4)',
     description:
-      'Optional download: validated x4 model optimized for anime, illustrations, and line art. It is selected only when the pinned ONNX artifact is acquired; it never silently substitutes the general model.',
+      'Experimental optional x4 model based on the upstream anime_6B checkpoint. Varve has only synthetic browser-WASM smoke evidence; conversion provenance, artifact distribution, artist-quality results, and non-WASM runtimes remain unverified. Compare on a duplicate; it never silently substitutes the general model.',
     size: 17_906_556,
     filename: 'realesrgan-anime-6b.onnx',
-    sourceRelease: 'Real-ESRGAN anime_6B, reproducible ONNX export via deepghs/imgutils-models',
+    sourceRelease:
+      'Real-ESRGAN anime_6B; deepghs ONNX upload @ 35e0ed8f35ce0dbea674568161a48b31ba7d2a99 (converter unrecorded)',
     sourceUrl:
       'https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.5.0/RealESRGAN_x4plus_anime_6B.pth',
     remoteUrl:

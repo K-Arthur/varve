@@ -29,7 +29,6 @@ import {
   recommendationStrengthLabel,
   runRestoration,
   toRestorationError,
-  UPSCALE_MODES,
   upscalePreviewRegion,
 } from '@varve/engine';
 import { Button, Dialog, SegmentedControl, Select } from '@varve/ui';
@@ -41,6 +40,7 @@ import {
   type EnhancementPresetId,
   getEnhancementPreset,
 } from './enhancementPresets';
+import { getUpscaleModeOptions } from './upscaleModeOptions';
 
 type OutputBehavior = 'new-layer' | 'replace-source' | 'non-destructive';
 
@@ -193,6 +193,9 @@ export function UpscaleDialog({
   const denoiseUserEditedRef = useRef(false);
 
   const mode = useMemo(() => getUpscaleMode(modeId), [modeId]);
+  const modeOptions = useMemo(getUpscaleModeOptions, []);
+  const selectedModeOption = modeOptions.find((option) => option.value === modeId);
+  const selectedModeUnavailable = selectedModeOption?.disabled ?? false;
 
   /**
    * Resolve Auto once and reuse that result for preview, model checks, output
@@ -278,6 +281,7 @@ export function UpscaleDialog({
     effectiveOperation === 'upscale' ||
     effectiveOperation === 'restore-upscale' ||
     effectiveOperation === 'deblur-upscale';
+  const selectedUpscaleModeUnavailable = usesUpscale && selectedModeUnavailable;
   const usesDenoise = effectiveOperation === 'denoise' || effectiveOperation === 'restore-upscale';
   const requiresDenoiseModel = usesDenoise && denoiseStrength !== 'none';
 
@@ -328,9 +332,10 @@ export function UpscaleDialog({
   // resampling modes need nothing. Checking here means a missing model is
   // offered as a download up front instead of surfacing as a backend
   // failure after the user commits to the operation.
-  // Anime mode uses the validated anime-optimized model; CPU resampling
-  // modes need nothing.
+  // Do not acquire prerequisites for an upscale mode that has not passed its
+  // model qualification gates. CPU resampling modes need no model download.
   const requiredModelIds = useMemo(() => {
+    if (selectedUpscaleModeUnavailable) return [];
     const ids: string[] = [];
     if (requiresDenoiseModel) ids.push('scunet');
     if (effectiveOperation === 'deblur' || effectiveOperation === 'deblur-upscale') {
@@ -340,7 +345,14 @@ export function UpscaleDialog({
       ids.push(modeId === 'illustration' ? 'upscale-realesrgan-anime' : 'upscale-realesr-general');
     }
     return ids;
-  }, [effectiveOperation, mode?.isAi, modeId, requiresDenoiseModel, usesUpscale]);
+  }, [
+    effectiveOperation,
+    mode?.isAi,
+    modeId,
+    requiresDenoiseModel,
+    selectedUpscaleModeUnavailable,
+    usesUpscale,
+  ]);
   const [missingModelIds, setMissingModelIds] = useState<string[]>([]);
   const [modelCheckKey, setModelCheckKey] = useState<string | null>(null);
   const modelMissing = missingModelIds.length > 0;
@@ -541,6 +553,7 @@ export function UpscaleDialog({
     if (
       !sourceImageData ||
       !mode ||
+      selectedUpscaleModeUnavailable ||
       !operationAvailable ||
       modelCheckPending ||
       modelMissing ||
@@ -635,6 +648,7 @@ export function UpscaleDialog({
   const handleApply = useCallback(async () => {
     if (
       !mode ||
+      selectedUpscaleModeUnavailable ||
       memoryExceeded ||
       processing ||
       !operationAvailable ||
@@ -732,6 +746,7 @@ export function UpscaleDialog({
     }
   }, [
     mode,
+    selectedUpscaleModeUnavailable,
     operation,
     effectiveOperation,
     modeId,
@@ -859,11 +874,6 @@ export function UpscaleDialog({
         ? 'upscale-preview__slider-handle--end'
         : '';
 
-  const modeOptions = UPSCALE_MODES.map((m) => ({
-    value: m.id,
-    label: m.label,
-  }));
-
   const scaleOptions = (mode?.scaleOptions ?? [2]).map((s) => ({
     value: String(s),
     label: `${s}x`,
@@ -897,6 +907,7 @@ export function UpscaleDialog({
               size="sm"
               disabled={
                 processing ||
+                selectedUpscaleModeUnavailable ||
                 memoryExceeded ||
                 !mode ||
                 modelCheckPending ||
@@ -1272,10 +1283,10 @@ export function UpscaleDialog({
                   }}
                 />
                 {mode && <p className="insp-hint">{mode.description}</p>}
-                {modeId === 'illustration' && (
-                  <p className="insp-hint">
-                    Anime-optimized Real-ESRGAN x4 (6B RRDB blocks) — produces sharper edges and
-                    cleaner lines on anime and illustrations than the general model.
+                {selectedUpscaleModeUnavailable && selectedModeOption?.disabledReason && (
+                  <p className="insp-hint" role="status">
+                    {selectedModeOption.disabledReason} Choose Quality/Lanczos or the separately
+                    qualified general AI enhancement mode instead.
                   </p>
                 )}
                 {mode?.isAi && (
@@ -1284,7 +1295,7 @@ export function UpscaleDialog({
                       type="button"
                       variant="ghost"
                       size="sm"
-                      disabled={previewGenerating || processing}
+                      disabled={previewGenerating || processing || selectedUpscaleModeUnavailable}
                       onClick={() => void generatePreview()}
                     >
                       {previewGenerating ? 'Generating…' : 'Generate AI preview'}

@@ -118,6 +118,26 @@ test('Enhance dialog pixel-art mode', async ({ page }) => {
   });
 });
 
+test('does not offer the anime model before its provenance and quality gates pass', async ({
+  page,
+}, testInfo) => {
+  await importTestImage(page);
+  await openDialog(page);
+
+  await page.getByRole('combobox', { name: 'Enhancement operation' }).click();
+  await page.getByRole('option', { name: 'Upscale', exact: true }).click();
+  const modeSelect = page.getByRole('combobox', { name: 'Upscale quality' });
+  await modeSelect.click();
+
+  const animeOption = page.getByRole('option', {
+    name: /Illustration & anime \(not available yet\)/,
+  });
+  await expect(animeOption).toBeDisabled();
+  await expect(page.getByText(/320×320 tile used 1\.459 GB peak RSS/i)).toBeVisible();
+  await expect(page.getByText(/conversion provenance.*artist-quality corpus/i)).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('anime-model-unavailable.png') });
+});
+
 test('preview crop and zoom controls update the comparison view', async ({ page }) => {
   await importTestImage(page);
   await openDialog(page);

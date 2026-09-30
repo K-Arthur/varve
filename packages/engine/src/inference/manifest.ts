@@ -134,7 +134,7 @@ function entryDescription(id: string, notes?: string): string {
   if (id === 'upscale-realesr-general' || id === 'upscale-realesr-general-int8')
     return 'Real-ESRGAN x4 general-purpose upscaling for photos and illustrations. Bundled with the app.';
   if (id === 'upscale-realesrgan-anime')
-    return 'Validated Real-ESRGAN anime x4 upscaling for line art, illustrations, and cel shading. Optional download.';
+    return 'Experimental anime-oriented Real-ESRGAN x4 checkpoint. Synthetic browser-WASM smoke-tested only; conversion provenance, artifact distribution review, and artist-quality results are not qualified. Compare against the untouched source and classical Lanczos.';
   if (id === 'scunet')
     return 'SCUNet — conservative blind denoising for sensor noise and grain in photos. It is not a dedicated JPEG-artifact remover.';
   if (id === 'sam2-hiera-tiny' || id === 'sam2-hiera-small')

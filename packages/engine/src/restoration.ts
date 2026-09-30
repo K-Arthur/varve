@@ -126,12 +126,13 @@ export const RESTORATION_CAPABILITIES: readonly RestorationCapability[] = [
     family: 'Real-ESRGAN',
     architecture: 'Real-ESRGAN anime x4 (6B)',
     variant: 'anime/illustration super-resolution',
-    revision: 'v0.2.2.4 / x4plus_anime_6B, ONNX via deepghs/imgutils-models, SHA-256 pinned',
-    source: 'xinntao/Real-ESRGAN (community ONNX export)',
+    revision:
+      'x4plus_anime_6B upstream; deepghs/imgutils-models upload @ 35e0ed8f35ce0dbea674568161a48b31ba7d2a99; converter unrecorded',
+    source: 'xinntao/Real-ESRGAN checkpoint; community ONNX conversion provenance pending',
     sourceUrl:
-      'https://huggingface.co/deepghs/imgutils-models/resolve/main/real_esrgan/RealESRGAN_x4plus_anime_6B.onnx',
-    license: 'BSD-3-Clause',
-    redistribution: 'verified',
+      'https://huggingface.co/deepghs/imgutils-models/resolve/35e0ed8f35ce0dbea674568161a48b31ba7d2a99/real_esrgan/RealESRGAN_x4plus_anime_6B.onnx',
+    license: 'Upstream checkpoint BSD-3-Clause; converted-artifact review pending',
+    redistribution: 'pending',
     runtime: 'onnx-native',
     modelSizeBytes: 17_906_556,
     sha256: '2648cab4c4343541c1aa291c6754e9e8edbe7a813fffc2a677423dd12cb6b7f7',
@@ -139,11 +140,11 @@ export const RESTORATION_CAPABILITIES: readonly RestorationCapability[] = [
     inputRange: '[0,1]',
     paddingMultiple: 1,
     outputScale: 4,
-    peakMemoryBytes: 22_000_000,
-    qualityTier: 'balanced',
-    status: 'available',
+    peakMemoryBytes: 1_600_000_000,
+    qualityTier: 'experimental',
+    status: 'not-validated',
     statusReason:
-      'Dimension sweep passes all tested sizes (1-513px). 5.9x sharper than general model on block-edge content. No padding constraint. Uploaded to varve-models-v1 release.',
+      'Only a synthetic browser-WASM smoke check is qualified. A 320×320 tile used 1.459 GB peak RSS and took 112.8 s on the recorded x86_64 host. Conversion provenance, converted-artifact distribution review, artist-quality corpus comparison, native runtime, and other platforms remain unverified; use a classical upscale or the separately qualified general model.',
   },
 ];
 

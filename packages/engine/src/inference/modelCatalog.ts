@@ -292,7 +292,7 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     id: 'upscale-realesrgan-anime',
     name: 'Real-ESRGAN Anime x4 (6B)',
     description:
-      'Validated anime/illustration-optimized Real-ESRGAN with 6 RRDB blocks (lighter than the 23-block general model). Produces sharper edges and cleaner lines on anime and illustrations. 4x fixed scale; optional download.',
+      'Experimental anime-oriented Real-ESRGAN x4. Browser-WASM smoke-tested only; 320×320 tile measured 1.459 GB peak RSS and 112.8 s on one x86_64 host. Conversion provenance, artifact distribution review, and artist-quality results are not qualified. Optional download; compare against the source and Lanczos on a duplicate.',
     sizeBytes: 17_906_556,
     remoteUrl:
       'https://github.com/K-Arthur/varve/releases/download/varve-models-v1/realesrgan-anime-6b.onnx',
@@ -302,10 +302,11 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     quality: 4,
     precision: 'fp32',
     category: 'upscaling',
-    peakMemoryBytes: 22_000_000,
+    peakMemoryBytes: 1_600_000_000,
     gpuRecommended: false,
-    source: 'xinntao/Real-ESRGAN (BSD-3-Clause, community ONNX export via deepghs/imgutils-models)',
-    sourceLicense: 'BSD-3-Clause',
+    source:
+      'xinntao/Real-ESRGAN checkpoint; deepghs ONNX upload @ 35e0ed8f35ce0dbea674568161a48b31ba7d2a99',
+    sourceLicense: 'Upstream checkpoint BSD-3-Clause; converted-artifact review pending',
     components: [],
   },
   {
