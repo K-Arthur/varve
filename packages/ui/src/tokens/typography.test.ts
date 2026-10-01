@@ -5,13 +5,23 @@ import { FONT_LINE_HEIGHTS, FONT_SIZES, TYPOGRAPHY_ROLES } from './typography';
 const tokensCss = readFileSync(new URL('./tokens.css', import.meta.url), 'utf8');
 
 /** Steps that describe interface chrome; these must be stable rem. */
-const STABLE_STEPS = ['2xs', 'xs', 'sm', 'md', 'lg', 'xl'] as const;
+const STABLE_STEPS = ['2xs', 'xs', 'smd', 'sm', 'md', 'lg', 'xl'] as const;
 /** Display steps; these are allowed to be bounded fluid clamps. */
 const FLUID_STEPS = ['2xl', '3xl'] as const;
 
 describe('typography source', () => {
   it('keeps a finite primitive scale', () => {
-    expect(Object.keys(FONT_SIZES)).toEqual(['2xs', 'xs', 'sm', 'md', 'lg', 'xl', '2xl', '3xl']);
+    expect(Object.keys(FONT_SIZES)).toEqual([
+      '2xs',
+      'xs',
+      'smd',
+      'sm',
+      'md',
+      'lg',
+      'xl',
+      '2xl',
+      '3xl',
+    ]);
     expect(FONT_LINE_HEIGHTS.control).toBe('1.25');
     expect(FONT_LINE_HEIGHTS.label).toBe('1.35');
   });
