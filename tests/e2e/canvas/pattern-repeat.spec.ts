@@ -395,15 +395,18 @@ test.describe('pattern repeat', () => {
     await page.screenshot({ path: 'test-results/pattern-library/01-vector-source.png' });
 
     await entry.getByRole('button', { name: `Apply ${name} to selection` }).click();
-    await expect(entry.locator('.insp-paint-library__badge')).toContainText('1 use');
-    await entry.getByRole('button', { name: `Make ${name} unique for this fill` }).click();
+    await entry.getByRole('button', { name: `Apply ${name} to selection` }).click();
+    await expect(entry.locator('.insp-paint-library__badge')).toContainText('2 uses');
+    await entry.getByRole('button', { name: `Make ${name} unique for fill 2` }).click();
     await expect(entries).toHaveCount(2);
     await expect(entries.nth(1)).toContainText('vector');
+    await expect(entry.locator('.insp-paint-library__badge')).toContainText('1 use');
+    await expect(entries.nth(1).locator('.insp-paint-library__badge')).toContainText('1 use');
     await page.screenshot({ path: 'test-results/pattern-library/02-unique-use.png' });
 
     await page.keyboard.press('Control+z');
     await expect(entries).toHaveCount(1);
-    await expect(entry.locator('.insp-paint-library__badge')).toContainText('1 use');
+    await expect(entry.locator('.insp-paint-library__badge')).toContainText('2 uses');
     await page.keyboard.press('Control+Shift+z');
     await expect(entries).toHaveCount(2);
     expect(historyWarnings).toEqual([]);

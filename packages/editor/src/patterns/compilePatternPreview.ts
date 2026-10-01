@@ -1,5 +1,6 @@
 import { exportNodeToSvg } from '@varve/codegen';
 import type { Document, PatternDefinition } from '@varve/scene';
+import { type PatternSourceImage, periodicPatternSourceMarkup } from './patternPeriodicSource';
 
 /** Compile editable source nodes into the SVG tile consumed by current renderers. */
 export function compilePatternPreview(document: Document, definition: PatternDefinition): string {
@@ -26,7 +27,11 @@ export function compilePatternPreview(document: Document, definition: PatternDef
     rootChildren: source.rootIds,
     components: document.components ?? {},
   } as Document;
-  const imageMarkup: string[] = [];
+  const { width, height } = definition.cell;
+  if (![width, height].every(Number.isFinite) || width <= 0 || height <= 0) {
+    throw new Error('Pattern tile dimensions must be positive and finite.');
+  }
+  const sourceImages: PatternSourceImage[] = [];
   for (const node of roots) {
     const svg = exportNodeToSvg(node, sourceDocument, { background: 'transparent' });
     if (/(?:href|xlink:href)="(?:https?:|file:|\/\/)/i.test(svg)) {
@@ -43,23 +48,30 @@ export function compilePatternPreview(document: Document, definition: PatternDef
     const [x, y, width, height] = values as [number, number, number, number];
     if (width <= 0 || height <= 0) continue;
     const href = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
-    imageMarkup.push(
-      `<image href="${escapeXml(href)}" x="${x}" y="${y}" width="${width}" height="${height}" preserveAspectRatio="none"/>`,
-    );
+    sourceImages.push({ href, x, y, width, height });
   }
-  if (imageMarkup.length === 0)
+  if (sourceImages.length === 0)
     throw new Error('Pattern source contains no visible vector artwork.');
-  const { width, height } = definition.cell;
-  if (![width, height].every(Number.isFinite) || width <= 0 || height <= 0) {
-    throw new Error('Pattern tile dimensions must be positive and finite.');
-  }
+  const imageMarkup = periodicPatternSourceMarkup(
+    sourceImages,
+    { width, height },
+    {
+      tileWidth: width,
+      tileHeight: height,
+      gapX: definition.repeat.gapX,
+      gapY: definition.repeat.gapY,
+      arrangement: definition.repeat.arrangement,
+      rowShift: definition.repeat.rowShift,
+      columnShift: definition.repeat.columnShift,
+      mirrorX: definition.repeat.mirrorX,
+      mirrorY: definition.repeat.mirrorY,
+      offsetX: 0,
+      offsetY: 0,
+    },
+  );
   const tileSvg =
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}">` +
     imageMarkup.join('') +
     '</svg>';
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(tileSvg)}`;
-}
-
-function escapeXml(value: string): string {
-  return value.replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;');
 }

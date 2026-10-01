@@ -50,6 +50,33 @@ describe('editable pattern definitions', () => {
     expect(next?.previewRevision).toBe(next?.revision);
   });
 
+  it('invalidates vector source previews when the repeat lattice changes', () => {
+    const artwork = shape('lattice-motif', 0, 0);
+    const sourceDoc = addNode(createDocument('Vector cache', true), artwork);
+    const created = createPatternDefinitionFromSelection(sourceDoc, [artwork.id], {
+      id: 'vector-cache',
+    });
+    const definition = {
+      ...created.definition,
+      previewSrc: 'data:image/svg+xml;base64,PHN2Zz4=',
+      previewRevision: 1,
+    };
+    const doc = {
+      ...created.document,
+      patternDefinitions: { [definition.id]: definition },
+    };
+
+    const updated = updatePatternDefinition(doc, definition.id, (current) => ({
+      ...current,
+      repeat: { ...current.repeat, arrangement: 'brick', rowShift: 0.5 },
+    }));
+
+    const next = updated.patternDefinitions?.[definition.id];
+    expect(next?.revision).toBe(2);
+    expect(next?.previewSrc).toBeUndefined();
+    expect(next?.previewRevision).toBeUndefined();
+  });
+
   it('copies selected vector artwork into a private mini-scene and leaves the originals intact', () => {
     const first = shape('source-a', 40, 30);
     const second = shape('source-b', 72, 30);

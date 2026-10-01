@@ -204,8 +204,11 @@ export function updatePatternDefinition(
   if (!current) return doc;
   const proposed = update(current);
   const sourceChanged = proposed.source !== current.source || proposed.cell !== current.cell;
+  const vectorRepeatChanged =
+    current.source.kind === 'vector' && proposed.repeat !== current.repeat;
   const revision = current.revision + 1;
-  const previewSrc = sourceChanged ? undefined : (proposed.previewSrc ?? current.previewSrc);
+  const previewSrc =
+    sourceChanged || vectorRepeatChanged ? undefined : (proposed.previewSrc ?? current.previewSrc);
   const next: PatternDefinition = {
     ...proposed,
     id: current.id,

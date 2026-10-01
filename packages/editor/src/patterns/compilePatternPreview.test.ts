@@ -35,4 +35,43 @@ describe('compilePatternPreview', () => {
     expect(nestedSvg).toContain('<rect x="0" y="0" width="18" height="12"');
     expect(svg).not.toContain('<rect width="100%" height="100%" fill="#ffffff"');
   });
+
+  it('carries vector motifs across the cell edge using the authored half-drop basis', () => {
+    const motif = makeShapeNode('overhanging motif', {
+      kind: 'rect',
+      x: 0,
+      y: 0,
+      w: 16,
+      h: 16,
+    });
+    const doc = addNode(createDocument('Pattern edge', true), motif);
+    const created = createPatternDefinitionFromSelection(doc, [motif.id], {
+      id: 'edge-tile',
+      name: 'Edge tile',
+      repeat: { arrangement: 'half-drop', columnShift: 0.5 },
+    });
+    if (created.definition.source.kind !== 'vector') throw new Error('expected vector source');
+    const rootId = created.definition.source.rootIds[0]!;
+    const root = created.definition.source.nodes[rootId]!;
+    const shifted = {
+      ...created.definition,
+      source: {
+        ...created.definition.source,
+        nodes: {
+          ...created.definition.source.nodes,
+          [rootId]: {
+            ...root,
+            transform: [1, 0, 0, 1, -4, 0] as [number, number, number, number, number, number],
+          },
+        },
+      },
+    };
+
+    const preview = compilePatternPreview(created.document, shifted);
+    const svg = decodeURIComponent(preview.slice(preview.indexOf(',') + 1));
+    const placements = [...svg.matchAll(/<image\b([^>]*)\/>/g)].map((match) => match[1] ?? '');
+
+    expect(placements.length).toBeGreaterThan(1);
+    expect(placements.some((placement) => placement.includes('matrix(1 0 0 1 16 8)'))).toBe(true);
+  });
 });

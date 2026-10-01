@@ -66,6 +66,12 @@ route delegates from `packages/engine/src/replay.ts` to
 `packages/engine/src/patterns/replayPatternFill.ts`; the Inspector preview
 (`PatternRepeatPreview.tsx`) uses the same evaluator. A browser pixel regression
 found and now guards against a stale grid-only painter bypassing the evaluator.
+Compiled vector source tiles include motif portions that cross the cell edge,
+enumerated with the same repeat basis and mirror parity. Their SVG preview is a
+derived cache, so a cell or repeat-lattice edit invalidates and rebuilds it;
+raster source previews remain unchanged when only the arrangement changes.
+Neighbor copies are visual only: the current source editor still selects and
+transforms canonical root motifs, not individual ghost copies.
 `patternCellAt` is
 available as an inverse-mapping utility but is not wired to canvas hit testing
 or a wraparound editing session yet. Legacy files that only carry a uniform `spacing`

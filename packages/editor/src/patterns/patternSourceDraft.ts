@@ -1,4 +1,4 @@
-import type { PatternDefinition, SceneNode } from '@varve/scene';
+import type { Document, PatternDefinition, SceneNode } from '@varve/scene';
 import type { Affine } from '@varve/shared';
 
 /** Move a top-level motif in the copied source scene without touching the document. */
@@ -19,18 +19,30 @@ export function translatePatternSourceRoot(
     if (!transform.every(Number.isFinite)) {
       throw new Error('This pattern motif has an invalid transform.');
     }
+    const x = transform[4] + dx;
+    const y = transform[5] + dy;
+    if (!Number.isFinite(x) || !Number.isFinite(y)) {
+      throw new Error('Pattern motif movement exceeds finite coordinates.');
+    }
     return {
       ...node,
-      transform: [
-        transform[0],
-        transform[1],
-        transform[2],
-        transform[3],
-        transform[4] + dx,
-        transform[5] + dy,
-      ],
+      transform: [transform[0], transform[1], transform[2], transform[3], x, y],
     } as SceneNode;
   });
+}
+
+/** Check the document and definition captured when a source draft was opened. */
+export function getPatternSourceDraftStatus(
+  document: Pick<Document, 'id' | 'patternDefinitions'>,
+  definitionId: string,
+  expectedDocumentId: string,
+  expectedRevision: number,
+): 'ready' | 'document-changed' | 'missing' | 'stale' {
+  if (document.id !== expectedDocumentId) return 'document-changed';
+  const current = document.patternDefinitions?.[definitionId];
+  if (!current) return 'missing';
+  if (current.revision !== expectedRevision) return 'stale';
+  return 'ready';
 }
 
 /** Set the authored rotation of one root motif in the copied source scene. */

@@ -20,6 +20,8 @@ import {
   exportPatternDefinitionTileSvg,
 } from '../../../export/patternTileSvg';
 import { compilePatternPreview } from '../../../patterns/compilePatternPreview';
+import { getPatternSourceDraftStatus } from '../../../patterns/patternSourceDraft';
+import { countPatternUses } from '../../../patterns/patternUsage';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { PatternRepeatPreview } from './PatternRepeatPreview';
 import { PatternSourceEditor } from './PatternSourceEditor';
@@ -49,6 +51,11 @@ export function PatternLibrarySection() {
   const [newName, setNewName] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [sourceEditingId, setSourceEditingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setEditingId(null);
+    setSourceEditingId(null);
+  }, [doc.id]);
 
   const bindFileInput = useCallback((input: HTMLInputElement | null) => {
     fileInputRef.current = input;
@@ -190,7 +197,7 @@ export function PatternLibrarySection() {
   );
 
   const makeUniqueForSelection = useCallback(
-    (definitionId: string) => {
+    (definitionId: string, fillIndex: number) => {
       if (selected.length !== 1) return;
       const node = selected[0];
       if (!node || node.paintRefs?.length) {
@@ -202,27 +209,25 @@ export function PatternLibrarySection() {
         doc,
       );
       if (
-        !fills.some(
-          (fill) => fill.type === 'pattern' && fill.pattern?.definitionId === definitionId,
-        )
+        fills[fillIndex]?.type !== 'pattern' ||
+        fills[fillIndex]?.pattern?.definitionId !== definitionId
       ) {
-        editor.announce('Select an object using this pattern to make it unique.');
+        editor.announce('That fill no longer uses this pattern. Reopen the library and retry.');
         return;
       }
       try {
         const result = makePatternDefinitionUnique(doc, definitionId);
-        const uniqueFills = fills.map((fill) =>
-          fill.type === 'pattern' && fill.pattern?.definitionId === definitionId
-            ? {
-                ...fill,
-                pattern: {
-                  ...fill.pattern,
-                  definitionId: result.definition.id,
-                  tileSrc: patternDefinitionTileSrc(result.definition, result.document.assets),
-                },
-              }
-            : fill,
-        );
+        const uniqueFills = [...fills];
+        const fill = fills[fillIndex];
+        if (fill?.type !== 'pattern' || fill.pattern?.definitionId !== definitionId) return;
+        uniqueFills[fillIndex] = {
+          ...fill,
+          pattern: {
+            ...fill.pattern,
+            definitionId: result.definition.id,
+            tileSrc: patternDefinitionTileSrc(result.definition, result.document.assets),
+          },
+        };
         const nodes = {
           ...result.document.nodes,
           [node.id]: { ...result.document.nodes[node.id], fills: uniqueFills } as SceneNode,
@@ -292,13 +297,18 @@ export function PatternLibrarySection() {
                 : {}),
               repeat: patch.repeat ? { ...definition.repeat, ...patch.repeat } : definition.repeat,
             }));
-            if (!patch.cell) return updated;
             const definition = updated.patternDefinitions?.[id];
             if (!definition) return updated;
+            const compileVectorPreview =
+              definition.source.kind === 'vector' && Boolean(patch.cell || patch.repeat);
+            const regenerateProceduralPreview =
+              definition.source.kind === 'procedural' && Boolean(patch.cell);
+            if (!compileVectorPreview && !regenerateProceduralPreview) return updated;
             let previewSrc: string | undefined;
-            if (definition.source.kind === 'vector') {
+            if (compileVectorPreview && definition.source.kind === 'vector') {
               previewSrc = compilePatternPreview(updated, definition);
             } else if (
+              regenerateProceduralPreview &&
               definition.source.kind === 'procedural' &&
               (PATTERN_TYPES as readonly string[]).includes(definition.source.recipe.type)
             ) {
@@ -335,58 +345,66 @@ export function PatternLibrarySection() {
   );
 
   const commitSourceDraft = useCallback(
-    (draft: PatternDefinition, expectedRevision: number) => {
-      const outcome: { result: 'saved' | 'stale' | 'missing' | 'invalid' } = { result: 'missing' };
-      try {
-        editor.groupCompoundOperation('Edit pattern source', () => {
-          editor.updateDoc((current) => {
-            if (current.id !== doc.id) return current;
-            const existing = current.patternDefinitions?.[draft.id];
-            if (!existing) return current;
-            if (existing.revision !== expectedRevision) {
-              outcome.result = 'stale';
-              return current;
-            }
-            const updated = updatePatternDefinition(current, draft.id, (definition) => ({
-              ...definition,
-              source: draft.source,
-            }));
-            const updatedDefinition = updated.patternDefinitions?.[draft.id];
-            if (!updatedDefinition) return updated;
-            const previewSrc = compilePatternPreview(updated, updatedDefinition);
-            outcome.result = 'saved';
-            return {
-              ...updated,
-              patternDefinitions: {
-                ...updated.patternDefinitions,
-                [draft.id]: {
-                  ...updatedDefinition,
-                  previewSrc,
-                  previewRevision: updatedDefinition.revision,
-                },
-              },
-            };
-          });
-        });
-      } catch (error) {
-        outcome.result = 'invalid';
-        announceError(error);
-      }
-      if (outcome.result === 'saved') {
-        setSourceEditingId(null);
-        editor.announce(`Updated shared source for ${draft.name}`);
-        return true;
-      }
-      if (outcome.result === 'stale') {
+    (draft: PatternDefinition, expectedDocumentId: string, expectedRevision: number) => {
+      const status = getPatternSourceDraftStatus(
+        doc,
+        draft.id,
+        expectedDocumentId,
+        expectedRevision,
+      );
+      if (status !== 'ready') {
         editor.announce(
-          'This pattern changed while its source was being edited. Reopen the editor and retry.',
+          status === 'document-changed'
+            ? 'The active document changed. Reopen this pattern source to edit it.'
+            : status === 'stale'
+              ? 'This pattern changed while its source was being edited. Reopen the editor and retry.'
+              : 'This pattern no longer exists in the current document.',
         );
-      } else if (outcome.result === 'missing') {
-        editor.announce('This pattern no longer exists in the current document.');
+        return false;
       }
-      return false;
+
+      let nextDocument: typeof doc;
+      try {
+        const updated = updatePatternDefinition(doc, draft.id, (definition) => ({
+          ...definition,
+          source: draft.source,
+        }));
+        const updatedDefinition = updated.patternDefinitions?.[draft.id];
+        if (!updatedDefinition) throw new Error('This pattern no longer exists.');
+        const previewSrc = compilePatternPreview(updated, updatedDefinition);
+        nextDocument = {
+          ...updated,
+          patternDefinitions: {
+            ...updated.patternDefinitions,
+            [draft.id]: {
+              ...updatedDefinition,
+              previewSrc,
+              previewRevision: updatedDefinition.revision,
+            },
+          },
+        };
+      } catch (error) {
+        announceError(error);
+        return false;
+      }
+
+      editor.groupCompoundOperation('Edit pattern source', () => {
+        editor.updateDoc((current) => {
+          if (
+            current !== doc ||
+            getPatternSourceDraftStatus(current, draft.id, expectedDocumentId, expectedRevision) !==
+              'ready'
+          ) {
+            return current;
+          }
+          return nextDocument;
+        });
+      });
+      setSourceEditingId(null);
+      editor.announce(`Updated shared source for ${draft.name}`);
+      return true;
     },
-    [doc.id, editor, announceError],
+    [doc, editor, announceError],
   );
 
   const exportTile = useCallback(
@@ -653,20 +671,23 @@ export function PatternLibrarySection() {
           {entries.map((definition) => {
             const tileSrc = patternDefinitionTileSrc(definition, doc.assets);
             const usageCount = countPatternUses(doc, definition.id);
-            const usingPattern =
-              selected.length === 1 &&
-              selected.some((node) =>
-                resolveNodePaints(
-                  node as unknown as Parameters<typeof resolveNodePaints>[0],
-                  doc,
-                ).some(
-                  (fill) => fill.type === 'pattern' && fill.pattern?.definitionId === definition.id,
-                ),
-              );
+            const matchingFillIndexes =
+              selected.length === 1
+                ? selected.flatMap((node) =>
+                    resolveNodePaints(
+                      node as unknown as Parameters<typeof resolveNodePaints>[0],
+                      doc,
+                    ).flatMap((fill, index) =>
+                      fill.type === 'pattern' && fill.pattern?.definitionId === definition.id
+                        ? [index]
+                        : [],
+                    ),
+                  )
+                : [];
             const preview = patternFillForDefinition(definition, {}, tileSrc);
             return (
               <li
-                key={definition.id}
+                key={`${doc.id}:${definition.id}`}
                 className="insp-paint-library__entry insp-pattern-library__entry"
                 data-pattern-id={definition.id}
               >
@@ -694,17 +715,22 @@ export function PatternLibrarySection() {
                       <Icon name="Check" label={undefined} size="0.85em" />
                     </button>
                   )}
-                  {usingPattern && (
+                  {matchingFillIndexes.map((fillIndex) => (
                     <button
+                      key={`${definition.id}:unique:${fillIndex}`}
                       type="button"
                       className="insp-paint-library__action-btn"
-                      onClick={() => makeUniqueForSelection(definition.id)}
-                      aria-label={`Make ${definition.name} unique for this fill`}
-                      title="Make unique for this fill"
+                      onClick={() => makeUniqueForSelection(definition.id, fillIndex)}
+                      aria-label={
+                        matchingFillIndexes.length === 1
+                          ? `Make ${definition.name} unique for this fill`
+                          : `Make ${definition.name} unique for fill ${fillIndex + 1}`
+                      }
+                      title={`Make fill ${fillIndex + 1} unique`}
                     >
                       <Icon name="Copy" label={undefined} size="0.85em" />
                     </button>
-                  )}
+                  ))}
                   {definition.source.kind === 'vector' && (
                     <button
                       type="button"
@@ -953,33 +979,6 @@ function safeFileStem(name: string): string {
       .replace(/[^a-z0-9_-]+/gi, '-')
       .replace(/^-+|-+$/g, '') || 'pattern'
   );
-}
-
-function countPatternUses(
-  doc: ReturnType<typeof useEditor>['state']['document'],
-  id: string,
-): number {
-  let count = 0;
-  const scan = (fills: readonly import('@varve/scene').Fill[] | undefined) => {
-    for (const fill of fills ?? []) {
-      if (fill.type === 'pattern' && fill.pattern?.definitionId === id) count += 1;
-    }
-  };
-  const referencedPaintIds = new Set<string>();
-  for (const node of Object.values(doc.nodes)) {
-    for (const paintId of node.paintRefs ?? []) referencedPaintIds.add(paintId);
-    scan(resolveNodePaints(node as unknown as Parameters<typeof resolveNodePaints>[0], doc));
-  }
-  for (const paint of Object.values(doc.paints ?? {})) {
-    if (!referencedPaintIds.has(paint.id)) scan([paint.fill]);
-  }
-  for (const definition of Object.values(doc.patternDefinitions ?? {})) {
-    if (definition.dependencyPatternIds?.includes(id)) count += 1;
-    if (definition.source.kind === 'vector') {
-      for (const node of Object.values(definition.source.nodes)) scan(node.fills);
-    }
-  }
-  return count;
 }
 
 function defaultRepeat(): PatternDefinition['repeat'] {

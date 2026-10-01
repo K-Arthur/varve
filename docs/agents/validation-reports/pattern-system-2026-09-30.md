@@ -26,8 +26,16 @@ Task-owned commits on `master`:
 - Added grid, column-offset half-drop, and row-offset brick evaluation with
   fractional and negative phase, mirror parity, bounded instance walks, and
   deterministic generator seeds including zero.
+- Compiled vector source tiles now include root-motif overhang using the
+  authored lattice and mirror parity. Vector repeat edits invalidate and
+  rebuild that derived preview; raster source previews keep their cache when
+  only the arrangement changes.
 - Added per-fill pattern placement and linked-paint scope checks; grouped
   Pattern Library document mutations into labeled history transactions.
+- Made Make Unique target exactly one matching fill, including objects with
+  multiple fills that reference the same definition. Usage counts now count a
+  nested pattern edge once even when both vector source fills and dependency
+  metadata describe it.
 - Added a revision-checked vector source draft editor with repeated preview,
   canonical top-level motif selection, translation and rotation controls,
   keyboard nudges, Done/Cancel, and one shared-source history commit. Cancel
@@ -50,7 +58,7 @@ The current product contract and export limitations are in
 
 ## Validation plan
 
-The latest `pnpm verify:plan` reported 434 changed files, all 11 JS packages,
+The latest `pnpm verify:plan` reported 443 changed files, all 11 JS packages,
 and Rust crates `varve-bridge` and `varve-print`; it selected
 `FULL-SUITE ESCALATION: YES` because the shared checkout includes workspace,
 toolchain, and validation-infrastructure changes. Earlier snapshots ranged
@@ -149,6 +157,68 @@ pnpm --filter @varve/website build
 
 cargo test -p varve-print
   Passed: 168 tests.
+
+pnpm verify:plan
+  Latest continuation: 443 changed paths, 11 JS packages, and Rust
+  varve-print/varve-bridge. FULL-SUITE ESCALATION: YES for shared
+  workspace/toolchain/validation-infrastructure changes.
+
+pnpm verify:affected
+  Exited 2 after printing the plan and required pnpm verify:full because the
+  shared working tree triggers the full-suite escalation.
+
+pnpm exec vitest run packages/scene/src/patternDefinitions.test.ts packages/editor/src/patterns/compilePatternPreview.test.ts packages/editor/src/patterns/patternSourceDraft.test.ts packages/editor/src/patterns/patternUsage.test.ts
+  Passed: 4 files, 20 tests, including vector-repeat cache invalidation,
+  lattice-based overhang copies, document collision rejection, translation
+  overflow, one-fill usage and dependency counts.
+
+pnpm --filter @varve/editor typecheck
+  Passed after tightening tuple typing for the translated source-image corners.
+
+pnpm typecheck:e2e
+  Passed.
+
+pnpm exec biome check packages/scene/src/patternDefinitions.ts packages/scene/src/patternDefinitions.test.ts packages/editor/src/components/Inspector/sections/PatternLibrarySection.tsx packages/editor/src/patterns/compilePatternPreview.ts packages/editor/src/patterns/compilePatternPreview.test.ts packages/editor/src/patterns/patternPeriodicSource.ts packages/editor/src/patterns/patternSourceDraft.ts packages/editor/src/patterns/patternSourceDraft.test.ts packages/editor/src/patterns/patternUsage.ts packages/editor/src/patterns/patternUsage.test.ts tests/e2e/canvas/pattern-repeat.spec.ts
+  Passed: 11 files; no fixes applied.
+
+VARVE_E2E_PORT=5294 node scripts/quality/heavy-lease.mjs "e2e: verify copied vector pattern source editing, repeat cache refresh, and unique fills" -- npx playwright test tests/e2e/canvas/pattern-repeat.spec.ts --project=chromium --workers=1 --reporter=list --grep "edits a copied vector motif|creates a reusable vector source"
+  Passed: 2 Chromium workflows in 1.1 minutes. The source-edit test checks
+  draft preview, Cancel, shared commit and Undo; the reuse test checks export,
+  one-fill Make Unique, usage counts and Undo/Redo. It refreshed
+  app-source-edit.png, which was inspected at 1280×720; there was no horizontal
+  overflow, while lower inspector controls require vertical scrolling.
+
+pnpm audit:docs
+  Passed: 1,123 docs, 744 links, 178 ADRs indexed.
+
+pnpm audit:emoji
+  Passed: 5,211 files.
+
+pnpm audit:tokens
+  Passed: all 324 contrast pairs across 3 themes and usage scan (597 custom
+  properties, 9 documented override hooks).
+
+node scripts/audit-architecture.mjs --ci
+  Exited 0. It reported 14 existing dependency cycles, 75 unstable modules,
+  zero layer violations, and existing Shell/Menubar/context import-budget
+  warnings in the shared dirty checkout. The pattern slice does not touch those
+  hubs; no architecture baseline was updated.
+
+pnpm audit:radius
+  Passed: 2,684 source files; no legacy radius consumers.
+
+pnpm audit:inspector-css
+  Passed. It printed the existing non-blocking inspector debt inventory,
+  including 3 grid-template-columns declarations in PatternLibrarySection.css.
+
+pnpm audit:spacing
+  Passed: 311 raw declarations are tracked by 244 buckets.
+
+pnpm audit:sizing
+  Passed: 67 ratcheted interface declarations.
+
+pnpm lint:css
+  Passed.
 ```
 
 The focused suite covers definition create/apply/unique, source persistence and

@@ -3,9 +3,14 @@ import {
   createDocument,
   createPatternDefinitionFromSelection,
   makeShapeNode,
+  type PatternDefinition,
 } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
-import { setPatternSourceRootRotation, translatePatternSourceRoot } from './patternSourceDraft';
+import {
+  getPatternSourceDraftStatus,
+  setPatternSourceRootRotation,
+  translatePatternSourceRoot,
+} from './patternSourceDraft';
 
 describe('pattern source drafts', () => {
   function makeDefinition() {
@@ -58,5 +63,44 @@ describe('pattern source drafts', () => {
     expect(() =>
       setPatternSourceRootRotation(definition, rootId, Number.POSITIVE_INFINITY),
     ).toThrow(/finite/);
+  });
+
+  it('rejects finite deltas whose resulting transform overflows', () => {
+    const { definition, rootId } = makeDefinition();
+    if (definition.source.kind !== 'vector') throw new Error('expected vector source');
+    const root = definition.source.nodes[rootId]!;
+    const overflowing = {
+      ...definition,
+      source: {
+        ...definition.source,
+        nodes: {
+          ...definition.source.nodes,
+          [rootId]: { ...root, transform: [1, 0, 0, 1, Number.MAX_VALUE, 0] },
+        },
+      },
+    } as PatternDefinition;
+
+    expect(() => translatePatternSourceRoot(overflowing, rootId, Number.MAX_VALUE, 0)).toThrow(
+      /exceeds finite coordinates/,
+    );
+  });
+
+  it('rejects a source draft when another document has the same definition ID', () => {
+    const { definition } = makeDefinition();
+    const originalDocument = createDocument('Original pattern document', true);
+    const currentDocument = {
+      ...originalDocument,
+      id: 'different-document',
+      patternDefinitions: { [definition.id]: definition },
+    };
+
+    expect(
+      getPatternSourceDraftStatus(
+        currentDocument,
+        definition.id,
+        originalDocument.id,
+        definition.revision,
+      ),
+    ).toBe('document-changed');
   });
 });
