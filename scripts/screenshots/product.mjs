@@ -528,6 +528,23 @@ async function selectLayer(page, pattern) {
   }
 }
 
+/** Select the Page tool whether it is in the visible toolbar or its Layout overflow. */
+async function activatePageTool(page) {
+  const toolbar = page.getByTestId('toolbar');
+  const pageTool = toolbar.locator('[data-tool="page"]');
+  if (await pageTool.isVisible().catch(() => false)) {
+    await pageTool.click();
+  } else {
+    // Print intentionally keeps the Page tool out of its toolbar.
+    await page.keyboard.press('q');
+  }
+  // The overlay wrapper contains only absolutely-positioned children and has
+  // zero intrinsic size, so Playwright correctly considers the wrapper hidden.
+  // Assert the actual trim outline instead: it is visible only with the Page
+  // tool active and an active page selected.
+  await expect(page.locator('.page-tool-overlay > div').first()).toBeVisible();
+}
+
 async function openCleanEditor(page, { print = false } = {}) {
   await page.goto(`${BASE}/`, { timeout: 120000, waitUntil: 'domcontentloaded' });
   // Crash recovery dialog / safe-mode leftovers must not leak into shots.
@@ -653,8 +670,8 @@ async function waitForInferenceResult(success, section, timeout) {
   }
 }
 
-async function parkMouse(page, preserveFocus = false) {
-  await page.mouse.move(4, 4);
+async function parkMouse(page, preserveFocus = false, position = { x: 4, y: 4 }) {
+  await page.mouse.move(position.x, position.y);
   if (!preserveFocus) await page.evaluate(() => document.activeElement?.blur?.());
 }
 
@@ -697,7 +714,7 @@ async function settle(page, scene = {}) {
     () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))),
   );
   await waitForStableCanvas(page);
-  await parkMouse(page, scene.preserveFocus);
+  await parkMouse(page, scene.preserveFocus, scene.parkAt);
   await waitForStableCanvas(page, { timeoutMs: 2500 });
 }
 
@@ -1805,8 +1822,12 @@ const SCENES = [
     file: 'print-production-light.png',
     theme: 'light',
     feature: 'print-production',
-    alt: 'The default page on the Varve canvas with a dashed bleed guide beyond the trim edge and the Page Print inspector showing per-edge bleed values',
-    caption: 'Bleed and trim guides render on canvas as you set them in the Page Print inspector.',
+    // Leave the pointer in the empty gutter between the page and Inspector so
+    // the responsive panel stays open without a hover effect in the capture.
+    parkAt: { x: 1435, y: 500 },
+    clip: { x: 700, y: 120, width: 740, height: 650 },
+    alt: 'A publishing page outlined by 20 px dashed bleed guides, with the Page Print inspector showing the same value on each edge',
+    caption: 'Set equal per-edge bleed and check the print boundary on canvas.',
     async run(page) {
       // Bleed is a publishing-page property; this scene authors a real Page
       // and edits its per-edge values through the Page Print inspector.
@@ -1818,60 +1839,56 @@ const SCENES = [
       await page.waitForTimeout(1200);
       await page.getByRole('button', { name: 'Add publishing page' }).click();
       await page.waitForTimeout(400);
-      await page.locator('canvas.editor-canvas__content-layer').waitFor({ timeout: 10000 });
+      const canvas = page.locator('canvas.editor-canvas__content-layer');
+      await canvas.waitFor({ timeout: 10000 });
 
-      // Open the inspector drawer if this workspace starts with it collapsed.
       const inspector = page.locator('.editor__inspector-panel');
       const showInspector = page.getByRole('button', { name: 'Show inspector panel' });
+      // Choose a calm, legible page scale before opening the responsive
+      // Inspector; focusing this status-bar field after opening a drawer
+      // correctly returns focus out of that drawer and dismisses it.
+      const zoomInput = page.locator('.editor-status__zoom-value');
+      await zoomInput.fill('6');
+      await zoomInput.press('Enter');
+      await expect(zoomInput).toHaveValue('6');
+      await page.waitForTimeout(300);
+
       if (await showInspector.isVisible().catch(() => false)) {
-        await showInspector.click({ force: true, timeout: 5000 });
+        // The adjacent responsive FABs can overlap at their edges. Dispatch the
+        // actual button click handler instead of letting pointer hit-testing
+        // choose the neighboring launcher.
+        await showInspector.evaluate((button) => button.click());
       }
       await inspector.waitFor({ state: 'visible', timeout: 8000 });
-      const inspectorResize = page.getByRole('separator', { name: 'Resize inspector panel' });
-      if (await inspectorResize.isVisible().catch(() => false)) {
-        await inspectorResize.focus();
-        for (let attempt = 0; attempt < 12; attempt += 1) {
-          const width = Number(await inspectorResize.getAttribute('aria-valuenow'));
-          if (width >= 480) break;
-          await page.keyboard.press('ArrowLeft');
-        }
-      }
 
-      // Fit the real publishing page, then select it with the Page tool.
-      const fitPage = page.getByRole('button', { name: /fit active page/i }).first();
-      await fitPage.waitFor({ state: 'visible', timeout: 8000 });
-      await fitPage.click({ force: true, timeout: 5000 });
-      await page.waitForTimeout(500);
-      await page.evaluate(() => {
-        if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
-      });
-      await page.keyboard.press('Escape');
-      await page.keyboard.press('q');
-      const canvasDock = await page.locator('.editor-shell__canvas-dock').boundingBox();
-      if (!canvasDock) throw new Error('canvas dock bounding box unavailable');
-      await page.mouse.click(
-        canvasDock.x + canvasDock.width / 2,
-        canvasDock.y + canvasDock.height / 2,
-      );
-      const pagePrintLabel = page.getByText('Page Print').first();
-      if (!(await pagePrintLabel.isVisible({ timeout: 5000 }).catch(() => false))) {
-        throw new Error(
-          'Page Print inspector section did not appear after selecting the page with the page tool',
-        );
-      }
-      const pagePrintDisclosure = page
-        .locator('.insp-disclosure')
+      await activatePageTool(page);
+      const pageBounds = await page.locator('.page-tool-overlay > div').first().boundingBox();
+      if (!pageBounds) throw new Error('Page tool did not expose the active page trim bounds');
+      const pageCenter = {
+        x: pageBounds.x + pageBounds.width / 2,
+        y: pageBounds.y + pageBounds.height / 2,
+      };
+      await page.mouse.click(pageCenter.x, pageCenter.y);
+
+      const pagePrintSection = page
+        .locator('.insp-disclosure:visible')
         .filter({ hasText: 'Page Print' })
+        .first();
+      const pagePrintDisclosure = pagePrintSection
         .getByRole('button', { name: 'Page Print' })
         .first();
+      await pagePrintDisclosure.waitFor({ state: 'visible', timeout: 8000 });
       if ((await pagePrintDisclosure.getAttribute('aria-expanded')) === 'false') {
         await pagePrintDisclosure.click();
       }
-      await page.getByLabel(/bleed top/i).fill('20');
-      await page.getByLabel(/bleed right/i).fill('20');
-      await page.getByLabel(/bleed bottom/i).fill('20');
-      await page.getByLabel(/bleed left/i).fill('20');
-      await page.getByLabel(/bleed left/i).press('Enter');
+      const bleedTop = pagePrintSection.getByLabel(/bleed top/i);
+      await bleedTop.fill('20');
+      await pagePrintSection.getByLabel(/bleed right/i).fill('20');
+      await pagePrintSection.getByLabel(/bleed bottom/i).fill('20');
+      const bleedLeft = pagePrintSection.getByLabel(/bleed left/i);
+      await bleedLeft.fill('20');
+      await bleedLeft.press('Enter');
+
       const guide = page.locator('.print-bleed-guide');
       if ((await guide.count()) === 0) {
         await page
@@ -1891,7 +1908,6 @@ const SCENES = [
       if (!inspectorBox || inspectorBox.width < 100) {
         throw new Error('Inspector panel did not open to a usable width for the Print capture');
       }
-      const bleedTop = page.getByLabel(/bleed top/i);
       await bleedTop.waitFor({ state: 'visible', timeout: 8000 });
       await expect(bleedTop).toHaveValue('20');
     },
@@ -2385,7 +2401,7 @@ try {
       entry.lastValidatedAgainst = sourceIdentity.sourceRevision;
       capturedThisRun++;
       console.log(
-        `captured ${scene.id} -> docs/screenshots/product/${scene.file} (${dims.width}x${dims.height}, ${entry.kind})`,
+        `captured ${scene.id} -> ${join(OUT_DIR, scene.file)} (${dims.width}x${dims.height}, ${entry.kind})`,
       );
     } catch (err) {
       // Descriptive fields are written on the failure path too: a skipped
@@ -2416,6 +2432,38 @@ try {
       // in a screenshot output directory, where it would sit beside published
       // captures and be mistaken for one.
       if (process.env.VARVE_SHOT_DEBUG) {
+        const layout = await page
+          .evaluate(() => {
+            const describe = (selector) => {
+              const element = document.querySelector(selector);
+              if (!(element instanceof HTMLElement)) return null;
+              const rect = element.getBoundingClientRect();
+              const style = getComputedStyle(element);
+              return {
+                rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+                display: style.display,
+                visibility: style.visibility,
+                pointerEvents: style.pointerEvents,
+                transform: style.transform,
+                inlineStyle: element.getAttribute('style'),
+                dataVisible: element.getAttribute('data-visible'),
+              };
+            };
+            return {
+              viewport: { width: innerWidth, height: innerHeight },
+              layoutMode: document.documentElement.dataset.layoutMode,
+              shell: describe('.editor-shell'),
+              dock: describe('.editor-shell__canvas-dock'),
+              inspector: describe('.editor__inspector-panel'),
+              launcher: describe('.editor__fab--inspector'),
+              toolbar: describe('[data-testid="toolbar"]'),
+              moreTools: describe('[data-testid="toolbar-more-tools"]'),
+              pageTool: describe('[data-testid="toolbar"] [data-tool="page"]'),
+              backdrop: describe('.editor__panel-backdrop'),
+            };
+          })
+          .catch(() => null);
+        console.error(`  layout: ${JSON.stringify(layout)}`);
         mkdirSync(DEBUG_DIR, { recursive: true });
         const debugPath = join(DEBUG_DIR, `${runId}-${scene.id}.png`);
         await page
