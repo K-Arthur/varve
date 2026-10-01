@@ -49,6 +49,37 @@ function renderSelectedSection(
   return { nodeId: node.id, getCtx: () => ctx };
 }
 
+function renderMultiPatternSection() {
+  const base = createDocument('multi-pattern-fill-test');
+  const rootId = base.pages?.[0]?.contentRoot as string;
+  const first = {
+    ...makeShapeNode('pattern-first', { kind: 'rect', x: 0, y: 0, w: 40, h: 40 }),
+    fills: [patternFill('shared-tile', { imageWidth: 20, offsetX: 2, rotation: 10, gapX: 3 })],
+  };
+  const second = {
+    ...makeShapeNode('pattern-second', { kind: 'rect', x: 60, y: 0, w: 40, h: 40 }),
+    fills: [patternFill('shared-tile', { imageWidth: 32, offsetX: 12, rotation: 30, gapX: 8 })],
+  };
+  const withFirst = addChild(base, rootId, first);
+  const document = addChild(withFirst, rootId, second);
+  let ctx: ReturnType<typeof useEditor> | undefined;
+  function Harness() {
+    ctx = useEditor();
+    React.useEffect(() => {
+      ctx?.setSelection(first.id);
+      ctx?.toggleSelection(second.id, true);
+    }, []);
+    const nodes = ctx.selectedNodes();
+    return nodes.length > 0 ? <FillSection nodes={nodes} /> : null;
+  }
+  render(
+    <EditorProvider initialDocumentJson={JSON.stringify(document)}>
+      <Harness />
+    </EditorProvider>,
+  );
+  return { getCtx: () => ctx };
+}
+
 describe('FillSection Redesign & Multi-Fill Controls', () => {
   it('single fill: shows a scrubbable opacity field, hides direct stack clutter, and keeps actions labelled', async () => {
     const { nodeId, getCtx } = renderSelectedSection((nodes) => <FillSection nodes={nodes} />, {
@@ -383,6 +414,49 @@ describe('FillSection shared pattern paint behavior', () => {
       expect(node.paintRefs).toBeUndefined();
       expect(node.fills?.[0]?.pattern?.definitionId).toBe(definitionId);
       expect(node.fills?.[0]?.pattern?.imageWidth).toBe(24);
+    });
+  });
+});
+
+describe('FillSection multi-selection pattern placement', () => {
+  it('shows mixed fields, applies typed values absolutely, and keeps other fields per fill', async () => {
+    const { getCtx } = renderMultiPatternSection();
+    const offset = await screen.findByRole('spinbutton', { name: /Phase across/ });
+    const rotation = screen.getByRole('spinbutton', { name: /Rotation/ });
+    expect(offset.getAttribute('aria-valuetext')).toBe('Mixed values');
+    expect(rotation.getAttribute('aria-valuetext')).toBe('Mixed values');
+
+    fireEvent.change(offset, { target: { value: '-6' } });
+    fireEvent.keyDown(offset, { key: 'Enter' });
+    await waitFor(() => {
+      const first = getCtx()?.state.document.nodes['pattern-first'] as {
+        fills?: Array<{ pattern?: { offsetX?: number; rotation?: number; imageWidth?: number } }>;
+      };
+      const second = getCtx()?.state.document.nodes['pattern-second'] as {
+        fills?: Array<{ pattern?: { offsetX?: number; rotation?: number; imageWidth?: number } }>;
+      };
+      expect(first.fills?.[0]?.pattern).toMatchObject({
+        offsetX: -6,
+        rotation: 10,
+        imageWidth: 20,
+      });
+      expect(second.fills?.[0]?.pattern).toMatchObject({
+        offsetX: -6,
+        rotation: 30,
+        imageWidth: 32,
+      });
+    });
+
+    fireEvent.keyDown(rotation, { key: 'ArrowUp' });
+    await waitFor(() => {
+      const first = getCtx()?.state.document.nodes['pattern-first'] as {
+        fills?: Array<{ pattern?: { rotation?: number; imageWidth?: number } }>;
+      };
+      const second = getCtx()?.state.document.nodes['pattern-second'] as {
+        fills?: Array<{ pattern?: { rotation?: number; imageWidth?: number } }>;
+      };
+      expect(first.fills?.[0]?.pattern).toMatchObject({ rotation: 11, imageWidth: 20 });
+      expect(second.fills?.[0]?.pattern).toMatchObject({ rotation: 31, imageWidth: 32 });
     });
   });
 });

@@ -57,6 +57,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { docVariableStore } from '../../../docVariableStore';
 import {
+  applyPatternFillFieldChange,
+  applyPatternFillPatchToSelection,
+  PATTERN_NUMERIC_FIELDS,
+  type PatternFillFieldChange,
+  type PatternNumericField,
+  patternFillFieldValue,
+} from '../../../patterns/patternSelectionFields';
+import {
   applyPatternTileImport,
   capturePatternTileImportTargets,
 } from '../../../patterns/patternTileImport';
@@ -730,6 +738,83 @@ function FillRow({
       index,
     );
   }, [editor.state.document, index, nodes]);
+  const patternFieldNodeIds = useMemo(() => nodes.map((node) => node.id), [nodes]);
+  const applyPatternPatch = useCallback(
+    (patternPatch: Partial<PatternFillData>) => {
+      editor.groupCompoundOperation('Edit pattern fill', () => {
+        editor.updateDoc((document) => {
+          if (document.id !== patternImportDocumentId) return document;
+          return applyPatternFillPatchToSelection(
+            document,
+            patternFieldNodeIds,
+            index,
+            patternPatch,
+          );
+        });
+      });
+    },
+    [editor, index, patternFieldNodeIds, patternImportDocumentId],
+  );
+  const applyPatternFieldChange = useCallback(
+    (field: PatternNumericField, change: PatternFillFieldChange) => {
+      editor.groupCompoundOperation('Edit pattern placement', () => {
+        editor.updateDoc((document) => {
+          if (document.id !== patternImportDocumentId) return document;
+          return applyPatternFillFieldChange(document, patternFieldNodeIds, index, field, change);
+        });
+      });
+    },
+    [editor, index, patternFieldNodeIds, patternImportDocumentId],
+  );
+  const mixedPatternFields = useMemo(() => {
+    if (fill.type !== 'pattern' || typeIsMixed) return undefined;
+    const fields: Partial<Record<PatternNumericField, boolean>> = {};
+    for (const field of PATTERN_NUMERIC_FIELDS) {
+      fields[field] = isMixed(
+        commonValue(nodes, (node) =>
+          patternFillFieldValue(editor.state.document, node.id, index, field),
+        ),
+      );
+    }
+    return fields;
+  }, [editor.state.document, fill.type, index, nodes, typeIsMixed]);
+  const mixedPatternRepeatSettings = useMemo(() => {
+    if (fill.type !== 'pattern' || typeIsMixed) return undefined;
+    const read = (node: SceneNode) => {
+      const pattern = resolveNodePaints(
+        node as unknown as Parameters<typeof resolveNodePaints>[0],
+        editor.state.document,
+      )[index]?.pattern;
+      const definition = pattern?.definitionId
+        ? editor.state.document.patternDefinitions?.[pattern.definitionId]
+        : undefined;
+      return {
+        arrangement: pattern?.arrangement ?? definition?.repeat.arrangement ?? 'grid',
+        mirrorX: pattern?.mirrorX ?? definition?.repeat.mirrorX ?? false,
+        mirrorY: pattern?.mirrorY ?? definition?.repeat.mirrorY ?? false,
+      };
+    };
+    return {
+      arrangement: isMixed(commonValue(nodes, (node) => read(node).arrangement)),
+      mirrorX: isMixed(commonValue(nodes, (node) => read(node).mirrorX)),
+      mirrorY: isMixed(commonValue(nodes, (node) => read(node).mirrorY)),
+    };
+  }, [editor.state.document, fill.type, index, nodes, typeIsMixed]);
+  const patternSourceMixed = useMemo(() => {
+    if (fill.type !== 'pattern' || typeIsMixed) return false;
+    return isMixed(
+      commonValue(nodes, (node) => {
+        const pattern = resolveNodePaints(
+          node as unknown as Parameters<typeof resolveNodePaints>[0],
+          editor.state.document,
+        )[index]?.pattern;
+        if (!pattern) return 'missing';
+        return pattern.definitionId
+          ? { kind: 'definition', id: pattern.definitionId }
+          : { kind: 'inline', tileSrc: pattern.tileSrc, generator: pattern.generator ?? null };
+      }),
+    );
+  }, [editor.state.document, fill.type, index, nodes, typeIsMixed]);
   const importPatternTile = useCallback(
     (dataUrl: string) => {
       let updatedCount = 0;
@@ -1204,19 +1289,39 @@ function FillRow({
         />
       )}
 
-      {fill.type === 'pattern' && fill.pattern && (
-        <PatternFillControls
-          pattern={fill.pattern}
-          definition={linkedPatternDefinition}
-          definitionTileSrc={
-            linkedPatternDefinition
-              ? patternDefinitionTileSrc(linkedPatternDefinition, editor.state.document.assets)
-              : undefined
-          }
-          onChange={(p: PatternFillData) => patch({ pattern: p })}
-          onImportTile={importPatternTile}
-        />
-      )}
+      {fill.type === 'pattern' &&
+        fill.pattern &&
+        (typeIsMixed ? (
+          <p className="insp-hint" role="note">
+            Pattern settings are hidden while this fill slot has different paint types across the
+            selection.
+          </p>
+        ) : patternSourceMixed ? (
+          <p className="insp-hint" role="note">
+            Selected fills use different pattern sources. Select fills with one common source to
+            edit their repeat settings together.
+          </p>
+        ) : (
+          <PatternFillControls
+            pattern={fill.pattern}
+            definition={linkedPatternDefinition}
+            definitionTileSrc={
+              linkedPatternDefinition
+                ? patternDefinitionTileSrc(linkedPatternDefinition, editor.state.document.assets)
+                : undefined
+            }
+            onChange={(p: PatternFillData) => patch({ pattern: p })}
+            onPatternPatch={applyPatternPatch}
+            onFieldChange={(field, value) => applyPatternFieldChange(field, { type: 'set', value })}
+            onFieldDelta={(field, delta) =>
+              applyPatternFieldChange(field, { type: 'delta', delta })
+            }
+            mixedFields={mixedPatternFields}
+            mixedRepeatSettings={mixedPatternRepeatSettings}
+            allowDetach={nodes.length === 1}
+            onImportTile={importPatternTile}
+          />
+        ))}
 
       {/* Fill type and opacity are the repeat-use properties. Blend mode is a
           low-frequency per-paint override: it remains in the colour editor or

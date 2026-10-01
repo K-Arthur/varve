@@ -1,11 +1,13 @@
 /**
  * PatternFillControls — source, generator, repeat arrangement, placement, and a
- * live repeat preview for a pattern fill.
+ * live repeat preview for one pattern fill or a multi-selection with a common
+ * source.
  *
- * Scope, stated on screen: these controls edit **one fill's** source and
- * placement. A fill that resolves through a shared Paint/asset is edited on the
- * shared object's own surface, so a shared change cannot be mistaken for a
- * per-object fill transform.
+ * Numeric batch edits show Mixed when selected values differ. Typing sets the
+ * named field to one absolute value; arrow, wheel, and label-scrub gestures
+ * apply the same delta to each fill's own value. A fill that resolves through
+ * a shared Paint/asset is edited on the shared object's own surface, so a
+ * shared change cannot be mistaken for a per-object fill transform.
  *
  * Terminology used by the field labels (so a number is never ambiguous):
  * - **tile** — the bitmap the pattern is made of;
@@ -32,6 +34,7 @@ import {
 } from '@varve/shared';
 import { Checkbox, Icon, Select } from '@varve/ui';
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import type { PatternNumericField } from '../../../patterns/patternSelectionFields';
 import { FieldRow } from '../controls/FieldRow';
 import { NumberField } from '../controls/NumberField';
 import { PatternRepeatPreview } from './PatternRepeatPreview';
@@ -42,12 +45,24 @@ export function PatternFillControls({
   onImportTile,
   definition,
   definitionTileSrc,
+  mixedFields,
+  onFieldChange,
+  onFieldDelta,
+  onPatternPatch,
+  allowDetach = true,
+  mixedRepeatSettings,
 }: {
   pattern: PatternFillData;
   onChange: (p: PatternFillData) => void;
   onImportTile?: (dataUrl: string) => void;
   definition?: PatternDefinition;
   definitionTileSrc?: string;
+  mixedFields?: Partial<Record<PatternNumericField, boolean>>;
+  onFieldChange?: (field: PatternNumericField, value: number | undefined) => void;
+  onFieldDelta?: (field: PatternNumericField, delta: number) => void;
+  onPatternPatch?: (patch: Partial<PatternFillData>) => void;
+  allowDetach?: boolean;
+  mixedRepeatSettings?: { arrangement?: boolean; mirrorX?: boolean; mirrorY?: boolean };
 }) {
   const linkedDefinition = definition?.id === pattern.definitionId ? definition : undefined;
   const resolvedPattern = linkedDefinition
@@ -66,7 +81,11 @@ export function PatternFillControls({
         offsetX: pattern.offsetX ?? linkedDefinition.repeat.originX,
         offsetY: pattern.offsetY ?? linkedDefinition.repeat.originY,
       }
-    : pattern;
+    : {
+        ...pattern,
+        imageWidth: pattern.imageWidth ?? pattern.logicalWidth,
+        imageHeight: pattern.imageHeight ?? pattern.logicalHeight,
+      };
   const fileInputId = useId();
   const fileRef = useRef<HTMLInputElement>(null);
   const pickPendingRef = useRef(false);
@@ -76,15 +95,23 @@ export function PatternFillControls({
     pattern: PatternFillData;
     onChange: (value: PatternFillData) => void;
     onImportTile?: (dataUrl: string) => void;
+    onPatternPatch?: (patch: Partial<PatternFillData>) => void;
   } | null>(null);
   const hasSrc = Boolean(resolvedPattern.tileSrc);
+  const patch = useCallback(
+    (next: Partial<PatternFillData>) => {
+      if (onPatternPatch) onPatternPatch(next);
+      else onChange({ ...pattern, ...next });
+    },
+    [onChange, onPatternPatch, pattern],
+  );
 
   const openFilePicker = useCallback(() => {
     const generation = ++importGenerationRef.current;
-    pendingImportRef.current = { generation, pattern, onChange, onImportTile };
+    pendingImportRef.current = { generation, pattern, onChange, onImportTile, onPatternPatch };
     pickPendingRef.current = true;
     fileRef.current?.click();
-  }, [pattern, onChange, onImportTile]);
+  }, [pattern, onChange, onImportTile, onPatternPatch]);
 
   const handleFileChange = useCallback((e: Event) => {
     const input = e.target as HTMLInputElement;
@@ -102,6 +129,8 @@ export function PatternFillControls({
         // procedurally. Say so by dropping the recipe rather than keeping a
         // recipe that no longer feeds the tile.
         if (pending.onImportTile) pending.onImportTile(result);
+        else if (pending.onPatternPatch)
+          pending.onPatternPatch({ tileSrc: result, generator: undefined });
         else pending.onChange({ ...pending.pattern, tileSrc: result, generator: undefined });
       }
     };
@@ -154,19 +183,28 @@ export function PatternFillControls({
   const clearTile = useCallback(() => {
     importGenerationRef.current += 1;
     pendingImportRef.current = null;
-    onChange({ ...pattern, tileSrc: '', generator: undefined });
-  }, [pattern, onChange]);
+    patch({ tileSrc: '', generator: undefined });
+  }, [patch]);
 
   const arrangement: PatternArrangement = pattern.arrangement ?? 'grid';
   const rowShiftDefault = arrangement === 'brick' ? 0.5 : 0;
   const columnShiftDefault = arrangement === 'half-drop' ? 0.5 : 0;
   const defaultSeedRef = useRef<number>(randomPatternSeed());
   const recipe = pattern.generator;
-
-  const patch = useCallback(
-    (next: Partial<PatternFillData>) => onChange({ ...pattern, ...next }),
-    [pattern, onChange],
+  const changeNumber = useCallback(
+    (field: PatternNumericField, value: number | undefined) => {
+      if (onFieldChange) onFieldChange(field, value);
+      else patch({ [field]: value });
+    },
+    [onFieldChange, patch],
   );
+  const deltaNumber = useCallback(
+    (field: PatternNumericField) =>
+      onFieldDelta ? (delta: number) => onFieldDelta(field, delta) : undefined,
+    [onFieldDelta],
+  );
+  const hasMixedField = Object.values(mixedFields ?? {}).some(Boolean);
+  const hasMixedRepeatSetting = Object.values(mixedRepeatSettings ?? {}).some(Boolean);
 
   const regenerate = useCallback(
     (nextRecipe: PatternGeneratorRecipe) => {
@@ -246,6 +284,11 @@ export function PatternFillControls({
   return (
     <div className="insp-pattern-controls">
       <PatternRepeatPreview pattern={resolvedPattern} />
+      {hasMixedField || hasMixedRepeatSetting ? (
+        <p className="insp-hint" role="note">
+          Preview shows the first selected fill while these values are mixed.
+        </p>
+      ) : null}
       {!hasSrc && (
         <p className="insp-hint insp-image-fill__empty-hint" role="note">
           No tile selected — the fill is transparent until you choose a tile or generate one.
@@ -263,13 +306,19 @@ export function PatternFillControls({
             Source and repeat geometry are shared by {linkedDefinitionUsageLabel(linkedDefinition)}.
             Change this fill’s tile scale, phase and rotation below.
           </p>
-          <button
-            type="button"
-            className="insp-add-btn"
-            onClick={() => onChange({ ...resolvedPattern, definitionId: undefined })}
-          >
-            Detach this fill from the definition
-          </button>
+          {allowDetach ? (
+            <button
+              type="button"
+              className="insp-add-btn"
+              onClick={() => onChange({ ...resolvedPattern, definitionId: undefined })}
+            >
+              Detach this fill from the definition
+            </button>
+          ) : (
+            <p className="insp-hint" role="note">
+              Detach one selected fill at a time to preserve different pattern sources.
+            </p>
+          )}
         </>
       ) : (
         <>
@@ -293,7 +342,7 @@ export function PatternFillControls({
                 value={pattern.tileSrc}
                 aria-label="Pattern tile source"
                 placeholder="URL or choose a file"
-                onChange={(e) => onChange({ ...pattern, tileSrc: e.target.value })}
+                onChange={(e) => patch({ tileSrc: e.target.value })}
                 className="insp-num__input"
               />
             </FieldRow>
@@ -423,33 +472,47 @@ export function PatternFillControls({
         <>
           <Select
             label="Arrangement"
-            value={arrangement}
-            options={PATTERN_ARRANGEMENTS.map((value) => ({
-              value,
-              label: PATTERN_ARRANGEMENT_LABELS[value],
-            }))}
+            value={mixedRepeatSettings?.arrangement ? '' : arrangement}
+            placeholder={mixedRepeatSettings?.arrangement ? 'Mixed' : undefined}
+            options={[
+              ...(mixedRepeatSettings?.arrangement
+                ? [{ value: '', label: 'Mixed', disabled: true }]
+                : []),
+              ...PATTERN_ARRANGEMENTS.map((value) => ({
+                value,
+                label: PATTERN_ARRANGEMENT_LABELS[value],
+              })),
+            ]}
             onValueChange={(value) => patch({ arrangement: value as PatternArrangement })}
           />
-          {(arrangement === 'brick' || pattern.rowShift !== undefined) && (
+          {(mixedRepeatSettings?.arrangement === true ||
+            arrangement === 'brick' ||
+            pattern.rowShift !== undefined) && (
             <NumberField
               label="Row offset"
               value={pattern.rowShift ?? rowShiftDefault}
+              mixed={mixedFields?.rowShift}
               min={-8}
               max={8}
               step={0.05}
               labelWrap
-              onChange={(v) => patch({ rowShift: v })}
+              onChange={(v) => changeNumber('rowShift', v)}
+              onDelta={deltaNumber('rowShift')}
             />
           )}
-          {(arrangement === 'half-drop' || pattern.columnShift !== undefined) && (
+          {(mixedRepeatSettings?.arrangement === true ||
+            arrangement === 'half-drop' ||
+            pattern.columnShift !== undefined) && (
             <NumberField
               label="Column offset"
               value={pattern.columnShift ?? columnShiftDefault}
+              mixed={mixedFields?.columnShift}
               min={-8}
               max={8}
               step={0.05}
               labelWrap
-              onChange={(v) => patch({ columnShift: v })}
+              onChange={(v) => changeNumber('columnShift', v)}
+              onDelta={deltaNumber('columnShift')}
             />
           )}
           <NumberField
@@ -457,23 +520,29 @@ export function PatternFillControls({
             labelWrap
             unit="px"
             value={pattern.gapX ?? pattern.spacing}
-            onChange={(v) => patch({ gapX: v })}
+            mixed={mixedFields?.gapX}
+            onChange={(v) => changeNumber('gapX', v)}
+            onDelta={deltaNumber('gapX')}
           />
           <NumberField
             label="Gap down"
             labelWrap
             unit="px"
             value={pattern.gapY ?? pattern.spacing}
-            onChange={(v) => patch({ gapY: v })}
+            mixed={mixedFields?.gapY}
+            onChange={(v) => changeNumber('gapY', v)}
+            onDelta={deltaNumber('gapY')}
           />
           <Checkbox
             label="Mirror across columns"
-            checked={pattern.mirrorX === true}
+            checked={mixedRepeatSettings?.mirrorX ? false : pattern.mirrorX === true}
+            indeterminate={mixedRepeatSettings?.mirrorX}
             onChange={(e) => patch({ mirrorX: e.target.checked })}
           />
           <Checkbox
             label="Mirror down rows"
-            checked={pattern.mirrorY === true}
+            checked={mixedRepeatSettings?.mirrorY ? false : pattern.mirrorY === true}
+            indeterminate={mixedRepeatSettings?.mirrorY}
             onChange={(e) => patch({ mirrorY: e.target.checked })}
           />
         </>
@@ -482,15 +551,19 @@ export function PatternFillControls({
         label="Phase across"
         labelWrap
         unit="px"
-        value={pattern.offsetX ?? 0}
-        onChange={(v) => patch({ offsetX: v })}
+        value={resolvedPattern.offsetX ?? 0}
+        mixed={mixedFields?.offsetX}
+        onChange={(v) => changeNumber('offsetX', v)}
+        onDelta={deltaNumber('offsetX')}
       />
       <NumberField
         label="Phase down"
         labelWrap
         unit="px"
-        value={pattern.offsetY ?? 0}
-        onChange={(v) => patch({ offsetY: v })}
+        value={resolvedPattern.offsetY ?? 0}
+        mixed={mixedFields?.offsetY}
+        onChange={(v) => changeNumber('offsetY', v)}
+        onDelta={deltaNumber('offsetY')}
       />
       {/* ── Placement ─────────────────────────────────────────────── */}{' '}
       <NumberField
@@ -498,24 +571,36 @@ export function PatternFillControls({
         labelWrap
         unit="px"
         value={resolvedPattern.imageWidth ?? 0}
+        mixed={mixedFields?.imageWidth}
         min={1}
-        onChange={(v) => patch({ imageWidth: v || undefined })}
+        onChange={(v) => changeNumber('imageWidth', v || undefined)}
+        onDelta={deltaNumber('imageWidth')}
       />
       <NumberField
         label="Tile height"
         labelWrap
         unit="px"
         value={resolvedPattern.imageHeight ?? 0}
+        mixed={mixedFields?.imageHeight}
         min={1}
-        onChange={(v) => patch({ imageHeight: v || undefined })}
+        onChange={(v) => changeNumber('imageHeight', v || undefined)}
+        onDelta={deltaNumber('imageHeight')}
       />
       <NumberField
         label="Rotation"
         labelWrap
         unit="deg"
         value={pattern.rotation}
-        onChange={(v) => patch({ rotation: v })}
+        mixed={mixedFields?.rotation}
+        onChange={(v) => changeNumber('rotation', v)}
+        onDelta={deltaNumber('rotation')}
       />
+      {hasMixedField && (
+        <p className="insp-hint" role="note">
+          Mixed values: type a number to set it on every selected fill; use arrows or scrub to apply
+          the same change to each fill’s current value.
+        </p>
+      )}
       <p className="insp-hint" role="note">
         {linkedDefinition
           ? 'Tile width and height scale this fill independently; phase shifts this fill and rotation turns its pattern field about the object centre.'
