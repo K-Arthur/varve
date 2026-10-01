@@ -17,6 +17,7 @@ Task-owned commits on `master`:
 - `54b9f1369` — update pattern validation report.
 - `42293a033` — raster seam inspection and cyclic offset editing.
 - `f26111d2b` — PDF and PDF/X preflight for missing pattern sources.
+- `42d997504` — three-panel reusable-pattern browser workflow and inspected capture.
 
 ## Delivered
 
@@ -305,9 +306,8 @@ pnpm verify:plan
   workspace/toolchain/validation-infrastructure changes.
 
 pnpm verify:affected
-  Exited 2 after printing that full-suite escalation. The final full-gate run
-  remains pending at the requested final coherent revision; the previous
-  escalated run is documented below.
+  Exited 2 after printing that full-suite escalation. The subsequent final
+  full-gate attempts and their blockers are documented below.
 ```
 
 The focused suite covers definition create/apply/unique, source persistence and
@@ -320,29 +320,53 @@ Unique undo/redo, and absence of history-bypass warnings.
 ### Required escalated gate
 
 ```text
-VARVE_FULL_GATE_REASON="Pattern definition schema, engine wire, SVG/PDF export paths, and marketing docs are integrated; required final gate for persisted format and cross-package contracts." pnpm verify:full
-  Latest rerun exited 1 in scripts/audit-contacts.test.mjs. Six fixture cases
-  could not add temporary files because a pre-existing .git/index.lock blocked
-  Git; the lock was not removed or modified in this shared checkout. The
-  standalone E2E typecheck passed in this run. The full Vitest and Cargo
-  workspace suites were not reached.
+VARVE_FULL_GATE_REASON="Pattern schema and cross-package scene-render-export contracts changed; final full validation requested by the implementation plan." pnpm verify:full
+  On the shared checkout this reached the CI tooling tests, then seven
+  `audit-contacts.test.mjs` fixture cases could not write because another
+  process held the shared `.git/index.lock`. The lock and unrelated process
+  were left untouched. All 20 workspace package typechecks passed in that run.
+
+GIT_INDEX_FILE=/home/kevina/CodingProjects/varve/.git/pattern-validation-final.index pnpm verify:full
+  The relative-index retry moved past the contacts test but caused
+  `validation-snapshot.test.mjs` to fail in its temporary Git repository.
+  That test also failed with an absolute index override because its fixture
+  commit then referenced objects from the parent repository. This workaround
+  was abandoned.
+
+VARVE_FULL_GATE_REASON="Pattern definition schema and cross-package render/export contracts changed; validating committed master revision 42d997504 in an isolated detached worktree." pnpm verify:full
+  The detached worktree at `42d997504` stopped at workspace typecheck:
+  `packages/compositor/src/webgl2/backend.ts` uses id `"webgl2"`, which is
+  absent from the committed `CompositorBackendId` type. The shared checkout
+  contains an uncommitted contract update for that concurrent WebGL2 work.
+
+PATH=/tmp/pattern-git-index-bin:$PATH VARVE_FULL_GATE_REASON="Pattern schema and cross-package scene-render-export contracts changed; final full validation for the shared master working tree, with only audit-contacts fixture Git writes isolated from the held shared index." pnpm verify:full
+  The contacts test passed through a wrapper that isolates only its fixture
+  index. Format checking reported an unrelated formatting error in the
+  concurrent `packages/editor/src/editor.css` change. All 20 package
+  typechecks passed; E2E typechecking then exited 1.
+
+pnpm typecheck:e2e
+  Reproduced the E2E typecheck failure directly:
+  `tests/e2e/responsive/layers-inspector-panels.spec.ts(46,36): TS18047` —
+  `n.textContent` may be null. That test file is outside the pattern scope.
+
+PATH=/tmp/pattern-git-index-bin:$PATH node scripts/audit-contacts.test.mjs
+  Passed all 8 fixture cases with only that test's Git writes routed to the
+  separate index.
 ```
 
-All 20 workspace package typechecks and `typecheck:e2e` passed in the latest
-gate run. Its maintenance-script tests progressed through `audit-contacts`,
-where six Git-fixture cases failed because `.git/index.lock` already existed;
-the failure output identifies lock contention rather than pattern code. The
-full Vitest and Cargo workspace suites were not reached, so the full gate is
-**not green**. The formatter also reported one unrelated existing error in
-`native-webgl2-2026-09-28T10-16-25-630Z.json` (missing final newline); it was
-left untouched.
+The final `pnpm verify:plan` before the packaging commit reported 456 changed
+paths, 11 JS packages, Rust crates `varve-print` and `varve-bridge`, and
+`FULL-SUITE ESCALATION: YES`; `pnpm verify:affected` exited 2 as required by
+that escalation. `pnpm audit:docs`, `pnpm audit:emoji`, and `pnpm audit:tokens`
+passed after the documentation and E2E updates.
 
-The architecture audit found 14 dependency cycles, no layer violations, and
-75 unstable modules. The supplied AGENTS guidance says 49; the checked-in
-`.architecture-baseline.json` currently says 55. The 75-module result exceeds
-both readings. Existing Shell/Menubar/context import-budget warnings also
-remain. No hub files were modified for the pattern work; these metrics include
-the concurrent dirty workspace and cannot be attributed to this feature alone.
+The architecture audit completed with 14 dependency cycles, zero layer
+violations, and 74–75 unstable modules depending on whether it ran in the
+committed detached worktree or the dirty shared checkout. Existing
+Shell/Menubar/context import-budget warnings remain. The pattern work did not
+touch those hubs. Because the full workspace Vitest and Cargo suites were not
+reached in the final shared-checkout attempt, the full gate is **not green**.
 
 ## Visual and output evidence
 
@@ -421,10 +445,13 @@ collected.
   the documented linked-grid subset; PDF support is narrower
   than editor rendering. Other generated code targets do not provide native
   editable pattern definitions.
-- The full repository gate remains red because six Git-fixture cases could not
-  acquire the pre-existing shared `.git/index.lock`; the full workspace
-  Vitest/Cargo suites were not reached. The latest workspace and E2E typechecks
-  passed.
+- The full repository gate is not green. The final shared-checkout attempt
+  passed workspace package typechecks but failed E2E typechecking on an
+  unrelated nullability error; the detached committed-checkout attempt failed
+  on the uncommitted WebGL2 type-contract dependency. The full workspace
+  Vitest/Cargo suites were not reached. Earlier shared-checkout attempts also
+  encountered the pre-existing `.git/index.lock` and an unrelated formatter
+  error, as detailed above.
 
 Do not describe the work as full pattern-authoring completion until these
 limitations are closed and the three design workflows pass end to end.
