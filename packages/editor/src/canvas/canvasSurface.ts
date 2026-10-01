@@ -28,7 +28,7 @@ export interface CanvasGeometryState {
    * and pinch boundaries, and a layout read per sample forced a synchronous
    * reflow on every hover and drag move.
    */
-  refreshCanvasRectForEvent: (event: { type: string }) => void;
+  refreshCanvasRectForEvent: (event: { type: string; clientX?: number; clientY?: number }) => void;
 }
 
 function finiteOrZero(value: number): number {
@@ -153,21 +153,17 @@ export function commitCameraAnchorOnResize<State extends CanvasCameraState>(
 export function subscribeToCanvasGeometry(
   canvas: HTMLElement,
   onChange: (geometry: CanvasGeometry) => void,
+  onPendingChange?: () => void,
+  onStable?: () => void,
 ): () => void {
   const ownerWindow = canvas.ownerDocument.defaultView;
   let previous: CanvasGeometry | null = null;
   let frame: number | null = null;
   let frameIsTimeout = false;
+  let settling = false;
+  let stableReads = 0;
 
-  const emit = (): void => {
-    frame = null;
-    const next = readCanvasGeometry(canvas);
-    if (previous && sameCanvasGeometry(previous, next)) return;
-    previous = next;
-    onChange(next);
-  };
-
-  const schedule = (): void => {
+  const scheduleFrame = (): void => {
     if (frame !== null) return;
     if (ownerWindow?.requestAnimationFrame) {
       frameIsTimeout = false;
@@ -178,6 +174,30 @@ export function subscribeToCanvasGeometry(
     } else {
       emit();
     }
+  };
+
+  const emit = (): void => {
+    frame = null;
+    const next = readCanvasGeometry(canvas);
+    const changed = previous === null || !sameCanvasGeometry(previous, next);
+    previous = next;
+    if (changed) onChange(next);
+    if (!settling) return;
+    stableReads = changed ? 0 : stableReads + 1;
+    if (stableReads >= 2) {
+      settling = false;
+      stableReads = 0;
+      onStable?.();
+      return;
+    }
+    scheduleFrame();
+  };
+
+  const schedule = (): void => {
+    onPendingChange?.();
+    settling = true;
+    stableReads = 0;
+    scheduleFrame();
   };
 
   const resizeObserver =
@@ -222,11 +242,22 @@ export function useCanvasGeometry(
 ): CanvasGeometryState {
   const canvasRectRef = useRef({ left: 0, top: 0 });
   const viewportAnchorRef = useRef<CanvasViewportAnchor | null>(null);
+  const pendingGeometryAnchorRef = useRef<CanvasViewportAnchor | null>(null);
   const canvasGeometryRef = useRef<CanvasGeometry | null>(null);
+  const geometryRefreshPendingRef = useRef(false);
+  const viewportSizeRef = useRef<{ width: number; height: number } | null>(null);
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 });
 
   const applyCanvasGeometry = useCallback(
     (geometry: CanvasGeometry) => {
+      geometryRefreshPendingRef.current = false;
+      const ownerWindow = canvasRef.current?.ownerDocument.defaultView;
+      if (ownerWindow) {
+        viewportSizeRef.current = {
+          width: ownerWindow.innerWidth,
+          height: ownerWindow.innerHeight,
+        };
+      }
       const previous = canvasGeometryRef.current;
       // An unchanged measurement is not a resize. Re-running the anchor math
       // on identical geometry round-trips screen→world→screen, and its
@@ -234,7 +265,11 @@ export function useCanvasGeometry(
       // full editor re-render and content redraw on every pointer sample.
       if (previous && sameCanvasGeometry(previous, geometry)) return;
       if (previous && previous.width > 0 && previous.height > 0) {
-        onGeometryChange?.(previous, geometry, viewportAnchorRef.current);
+        onGeometryChange?.(
+          previous,
+          geometry,
+          viewportAnchorRef.current ?? pendingGeometryAnchorRef.current,
+        );
       }
       canvasGeometryRef.current = geometry;
       canvasRectRef.current = { left: geometry.left, top: geometry.top };
@@ -254,8 +289,41 @@ export function useCanvasGeometry(
   }, [applyCanvasGeometry, canvasRef]);
 
   const refreshCanvasRectForEvent = useCallback(
-    (event: { type: string }) => {
-      if (event.type === 'pointermove' || event.type === 'pointerrawupdate') return;
+    (event: { type: string; clientX?: number; clientY?: number }) => {
+      if (event.type === 'pointermove' || event.type === 'pointerrawupdate') {
+        // Pointer samples stay on the cached fast path unless a ResizeObserver,
+        // scroll, or viewport event has already told us layout may have moved.
+        // A browser may deliver its first pointer sample after a viewport
+        // resize but before ResizeObserver/rAF. Detect that cheap viewport
+        // change synchronously so the active drag doesn't convert through a
+        // stale canvas origin.
+        const ownerWindow = canvasRef.current?.ownerDocument.defaultView;
+        const previousViewport = viewportSizeRef.current;
+        if (
+          ownerWindow &&
+          previousViewport &&
+          (ownerWindow.innerWidth !== previousViewport.width ||
+            ownerWindow.innerHeight !== previousViewport.height)
+        ) {
+          geometryRefreshPendingRef.current = true;
+          if (Number.isFinite(event.clientX) && Number.isFinite(event.clientY)) {
+            pendingGeometryAnchorRef.current = {
+              clientX: event.clientX as number,
+              clientY: event.clientY as number,
+            };
+          }
+        }
+        // During an active gesture, rebase the resize around this current
+        // pointer before converting it to world coordinates.
+        const anchor = viewportAnchorRef.current;
+        if (!anchor || !geometryRefreshPendingRef.current) return;
+        if (Number.isFinite(event.clientX) && Number.isFinite(event.clientY)) {
+          viewportAnchorRef.current = {
+            clientX: event.clientX as number,
+            clientY: event.clientY as number,
+          };
+        }
+      }
       refreshCanvasRect();
     },
     [refreshCanvasRect],
@@ -264,7 +332,19 @@ export function useCanvasGeometry(
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    return subscribeToCanvasGeometry(canvas, applyCanvasGeometry);
+    return subscribeToCanvasGeometry(
+      canvas,
+      applyCanvasGeometry,
+      () => {
+        geometryRefreshPendingRef.current = true;
+        if (viewportAnchorRef.current) {
+          pendingGeometryAnchorRef.current = viewportAnchorRef.current;
+        }
+      },
+      () => {
+        pendingGeometryAnchorRef.current = null;
+      },
+    );
   }, [applyCanvasGeometry, canvasRef, canvasRevision]);
 
   return {

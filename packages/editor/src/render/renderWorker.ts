@@ -13,11 +13,8 @@ import { applyWorkerCamera } from './workerCamera';
 import { adoptFontFacesDetailed } from './workerFonts';
 import type { WorkerCommand, WorkerRenderTiming, WorkerResponse } from './workerHost';
 
-// The worker is the primary display path; the raster LOD pyramid (ADR-0214)
-// is a display acceleration structure, so it is on by default in this realm
-// (per-realm flag — the main thread's session enable/disable is mirrored
-// through the setRasterLod command for the visual corpus).
-setRasterPyramidEnabled(true);
+// The engine's raster LOD flag defaults off, matching the main-thread editor.
+// Explicit raster-LOD probes toggle both realms through `setRasterLod`.
 
 let canvas: OffscreenCanvas | null = null;
 let ctx: OffscreenCanvasRenderingContext2D | null = null;
@@ -112,6 +109,8 @@ self.onmessage = (e: MessageEvent<WorkerCommand>) => {
     }
     try {
       const renderStartedAt = timingEnabled ? performance.now() : 0;
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
       ctx.setTransform(msg.dpr, 0, 0, msg.dpr, 0, 0);
       ctx.clearRect(0, 0, msg.viewport.width, msg.viewport.height);
       ctx.save();

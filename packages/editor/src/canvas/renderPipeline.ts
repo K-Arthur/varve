@@ -16,6 +16,8 @@ import {
   gaussianBlurSeparable,
   getImageCache,
   mapBlendMode,
+  primitiveBounds,
+  type RenderItem,
   type ReplayTarget,
   releaseMaskSurface,
   replayIr,
@@ -45,6 +47,7 @@ import {
   createWorldRectViewportTest,
   managedColorToCss,
   managedColorToRgba,
+  multiplyAffine,
   resolveBlendEvaluationSpace,
   worldToScreen,
 } from '@varve/shared';
@@ -69,7 +72,11 @@ import {
   sceneNodeToEngineNode,
   workerBitmapDelta,
 } from '../render/canvasRenderAdapter';
-import { admitWorkerImagePayload, workerSourceCapFor } from '../render/collectImageBitmaps';
+import {
+  admitWorkerImagePayload,
+  imageSrcsFromIr,
+  workerSourceCapFor,
+} from '../render/collectImageBitmaps';
 import {
   applyGroupContentEffects,
   compositeGroupBackdropEffect,
@@ -159,6 +166,88 @@ import type { NodeHashMemo, SubtreeIrCache } from './subtreeIrCache';
 import { appearancePaddingWorld, expandRect, nodeVisualWorldBounds } from './visualBounds';
 
 let _showOriginalBgNodeId: string | null = null;
+
+function projectedLongEdgeForAffine(
+  width: number,
+  height: number,
+  transform: readonly number[],
+): number {
+  const longEdge = Math.max(1, Math.abs(width), Math.abs(height));
+  const a = transform[0] ?? 1;
+  const b = transform[1] ?? 0;
+  const c = transform[2] ?? 0;
+  const d = transform[3] ?? 1;
+  if (![a, b, c, d].every(Number.isFinite)) return longEdge;
+  const trace = a * a + b * b + c * c + d * d;
+  const determinant = a * d - b * c;
+  const discriminant = Math.max(0, trace * trace - 4 * determinant * determinant);
+  return longEdge * Math.sqrt(Math.max(0, (trace + Math.sqrt(discriminant)) / 2));
+}
+
+function workerImageSourceCapsForFrame(
+  ir: readonly RenderItem[],
+  input: {
+    viewportWidth: number;
+    viewportHeight: number;
+    devicePixelRatio: number;
+    zoom: number;
+    rotation: number;
+    cameraMoving: boolean;
+    maxDecodedBytes: number;
+    intent: 'interactive' | 'settled-preview';
+  },
+): Map<string, number> {
+  const scale = input.devicePixelRatio * input.zoom;
+  const cosine = Math.cos(input.rotation);
+  const sine = Math.sin(input.rotation);
+  const cameraTransform = [
+    scale * cosine,
+    scale * sine,
+    -scale * sine,
+    scale * cosine,
+    0,
+    0,
+  ] as const;
+  const caps = new Map<string, number>();
+
+  for (const item of ir) {
+    if (!item.fills?.some((fill) => fill.type === 'image' && fill.src && fill.visible !== false)) {
+      continue;
+    }
+    const bounds = primitiveBounds(item.primitive);
+    const transform = multiplyAffine(cameraTransform, item.transform);
+    const projectedLongEdge = projectedLongEdgeForAffine(bounds.w, bounds.h, transform);
+
+    for (const fill of item.fills ?? []) {
+      if (fill.type !== 'image' || !fill.src || fill.visible === false) continue;
+      const sourceWidth = fill.imageWidth;
+      const sourceHeight = fill.imageHeight;
+      if (
+        typeof sourceWidth !== 'number' ||
+        typeof sourceHeight !== 'number' ||
+        sourceWidth <= 0 ||
+        sourceHeight <= 0
+      ) {
+        continue;
+      }
+      const cap = selectRasterRepresentation({
+        viewportWidth: input.viewportWidth,
+        viewportHeight: input.viewportHeight,
+        devicePixelRatio: input.devicePixelRatio,
+        zoom: input.zoom,
+        projectedLongEdge,
+        sourceWidth,
+        sourceHeight,
+        maxDecodedBytes: input.maxDecodedBytes,
+        cameraMoving: input.cameraMoving,
+        intent: input.intent,
+      }).maxSourceDim;
+      caps.set(fill.src, Math.max(caps.get(fill.src) ?? 0, cap));
+    }
+  }
+
+  return caps;
+}
 
 /**
  * Document id that owns the current mockup surface cache. Node ids are
@@ -2053,9 +2142,35 @@ export function renderContent(deps: RenderContentDeps): void {
     // nothing after: fit-all showed one image out of thirteen, and panning
     // smeared the old frame instead of repainting. Deciding here keeps the
     // rule "never composite a stale bitmap unless a fresh one is coming".
+    const workerFallbackSourceCap = workerSourceCapFor(Math.max(VP_W, VP_H), dpr, s.zoom);
+    const maxSourceDimBySource = workerImageSourceCapsForFrame(ir, {
+      viewportWidth: VP_W,
+      viewportHeight: VP_H,
+      devicePixelRatio: dpr,
+      zoom: s.zoom,
+      rotation: s.cameraRotation ?? 0,
+      cameraMoving,
+      maxDecodedBytes: budgets.imageCacheBytes,
+      intent: imageIntent,
+    });
+    const workerImageSourceCapsBySource = new Map(
+      imageSrcsFromIr(ir).map((src) => [
+        src,
+        maxSourceDimBySource.get(src) ?? workerFallbackSourceCap,
+      ]),
+    );
+    const workerImageSourceCaps = Object.fromEntries(workerImageSourceCapsBySource);
+    const workerAtAdmission = renderWorkerRef.current;
+    const residentSources = new Set(
+      [...(workerAtAdmission?.knownImageSources ?? [])].filter(
+        (src) =>
+          workerAtAdmission?.knownImageSourceCaps.get(src) ===
+          workerImageSourceCapsBySource.get(src),
+      ),
+    );
     const workerImageRefusal = admitWorkerImagePayload(ir, {
       maxEntries: budgets.workerImageBitmaps,
-      residentSources: renderWorkerRef.current?.knownImageSources,
+      residentSources,
     });
     const workerReady =
       workerImageRefusal === null &&
@@ -2176,19 +2291,18 @@ export function renderContent(deps: RenderContentDeps): void {
       // clones that multi-MB payload across the worker boundary, pinning
       // a CPU core indefinitely and starving the main thread.
       if (!bitmapIsCurrent) {
-        const hostAtCollection = renderWorkerRef.current;
         // Viewport-sufficient source cap for the worker transport: a 48 MP
         // photo decodes to a ~2-4K transferable bitmap that fits the worker
         // admission budget instead of a full-RGBA transfer that would be
         // refused. Power-of-two steps give zoom hysteresis (no representation
         // thrash around the cap boundary); zooming deeper raises the cap and
         // the at-size cache entry change re-renders the frame sharper.
-        const maxSourceDim = workerSourceCapFor(Math.max(VP_W, VP_H), dpr, s.zoom);
         void submitWorkerFrame({
           collection: collectImageBitmaps(ir, {
             maxEntries: budgets.workerImageBitmaps,
-            residentSources: hostAtCollection?.knownImageSources,
-            ...(maxSourceDim > 0 ? { maxSourceDim } : {}),
+            residentSources,
+            ...(maxSourceDimBySource.size > 0 ? { maxSourceDimBySource } : {}),
+            ...(workerFallbackSourceCap > 0 ? { maxSourceDim: workerFallbackSourceCap } : {}),
           }),
           host: () => renderWorkerRef.current,
           currentRevision: () => workerRenderRevisionRef.current,
@@ -2202,6 +2316,7 @@ export function renderContent(deps: RenderContentDeps): void {
             proof: editor.proofEnabled ? editor.proofConfig : null,
             blendEvaluationSpace: replayColorOptions.blendEvaluationSpace,
             dpr,
+            imageSourceCaps: workerImageSourceCaps,
           },
           requestFallback: (source) =>
             requestContentDrawRef.current?.(source, 'backing-store-recovery'),

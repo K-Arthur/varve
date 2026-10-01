@@ -436,6 +436,31 @@ describe('canonical resource handles in worker collection', () => {
     expect(collected?.bytes).toBe(1024 * 768 * 4);
   });
 
+  it('uses the image-specific display bucket before the worker-wide fallback', async () => {
+    registerImageResourceHandle('asset-specific', 'data:image/png;base64,SPECIFIC');
+    const source = 'data:image/png;base64,SPECIFIC';
+    const preview = sizedBitmap(vi.fn(), 512, 342);
+    const cache = getImageCache();
+    const loadAtSize = vi
+      .spyOn(cache, 'loadAtSize')
+      .mockResolvedValue(preview as unknown as Awaited<ReturnType<typeof cache.loadAtSize>>);
+    const item = imageItem('asset-specific');
+    item.fills![0] = {
+      ...(item.fills![0] as Record<string, unknown>),
+      imageWidth: 4000,
+      imageHeight: 2670,
+    } as NonNullable<typeof item.fills>[number];
+
+    await expect(
+      collectImageBitmaps([item], {
+        maxSourceDim: 2048,
+        maxSourceDimBySource: new Map([['asset-specific', 512]]),
+      }),
+    ).resolves.toBeNull();
+
+    expect(loadAtSize).toHaveBeenCalledWith(source, 512, { width: 4000, height: 2670 });
+  });
+
   it('collects at-size dims from table cell content fills', async () => {
     registerImageResourceHandle('asset-cell', 'data:image/png;base64,CELL');
     const cellImage = imageItem('asset-cell');

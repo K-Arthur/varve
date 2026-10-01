@@ -352,6 +352,27 @@ async function forceFullRedraw(page: import('@playwright/test').Page): Promise<v
   expect(['compositor', 'structural']).toContain(result?.renderPath);
 }
 
+async function screenshotWithoutPerfOverlay(
+  page: import('@playwright/test').Page,
+  path: string,
+): Promise<void> {
+  await page.evaluate(() =>
+    (
+      window as Window & { __varvePerf?: { enable?: (enabled: boolean) => void } }
+    ).__varvePerf?.enable?.(false),
+  );
+  try {
+    await forceFullRedraw(page);
+    await page.screenshot({ path });
+  } finally {
+    await page.evaluate(() =>
+      (
+        window as Window & { __varvePerf?: { enable?: (enabled: boolean) => void } }
+      ).__varvePerf?.enable?.(true),
+    );
+  }
+}
+
 async function selectExportTab(page: import('@playwright/test').Page): Promise<void> {
   const exportTab = page
     .getByRole('tablist', { name: 'Inspector tabs' })
@@ -597,7 +618,10 @@ test.describe('hybrid illustration Magic Wand workflow', () => {
     await expect(page.locator('.editor-shell')).toBeVisible();
     await expect(page.locator('.safe-mode-screen')).toBeHidden();
     expect((await canvasColorStats(canvas, 'black')).count).toBeGreaterThan(100);
-    await page.screenshot({ path: testInfo.outputPath('hybrid-linework-flats-filled.png') });
+    await screenshotWithoutPerfOverlay(
+      page,
+      testInfo.outputPath('hybrid-linework-flats-filled.png'),
+    );
 
     await openMenu(page, 'Edit');
     await page
@@ -715,7 +739,10 @@ test.describe('hybrid illustration Magic Wand workflow', () => {
     expect(shadeTop).toBeGreaterThanOrEqual(flatTop - 5);
     expect(shadeRight).toBeLessThanOrEqual(flatRight + 5);
     expect(shadeBottom).toBeLessThanOrEqual(flatBottom + 5);
-    await page.screenshot({ path: testInfo.outputPath('illustration-clipped-flats-shading.png') });
+    await screenshotWithoutPerfOverlay(
+      page,
+      testInfo.outputPath('illustration-clipped-flats-shading.png'),
+    );
     await page.keyboard.press('Control+z');
     await expect
       .poll(async () => (await canvasColorStats(canvas, 'cyan')).count, { timeout: 15000 })

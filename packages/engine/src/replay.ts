@@ -1575,9 +1575,11 @@ function paintFill(target: ReplayTarget, fill: FillIR, item: RenderItem): void {
     if (!fill.src) return;
     target.save();
     try {
-      target.beginPath();
-      traceOutline(target, item.primitive);
-      target.clip();
+      if (!canSkipImageRectClip(fill, item)) {
+        target.beginPath();
+        traceOutline(target, item.primitive);
+        target.clip();
+      }
       paintImageFill(target, fill, item);
     } finally {
       target.restore();
@@ -1594,6 +1596,45 @@ function paintFill(target: ReplayTarget, fill: FillIR, item: RenderItem): void {
       target.restore();
     }
   }
+}
+
+/**
+ * A plain rectangle needs no separate clip when the image draw exactly fills
+ * it. Besides avoiding redundant work, this keeps worker and main-thread
+ * Canvas2D output pixel-identical at fractional camera scales; their clip
+ * masks can otherwise differ at the image edge.
+ */
+function canSkipImageRectClip(fill: Extract<FillIR, { type: 'image' }>, item: RenderItem): boolean {
+  if (item.primitive.kind !== 'rect' || fill.alphaMask) return false;
+  const primitive = item.primitive as typeof item.primitive & {
+    cornerRadius?: number;
+    cornerSmoothing?: number;
+  };
+  if ((primitive.cornerRadius ?? 0) > 0 || (primitive.cornerSmoothing ?? 0) > 0) return false;
+  if (
+    (fill.x ?? 0) !== 0 ||
+    (fill.y ?? 0) !== 0 ||
+    (fill.scale ?? 1) !== 1 ||
+    (fill.rotation ?? 0) !== 0 ||
+    fill.flipH ||
+    fill.flipV ||
+    fill.crop
+  ) {
+    return false;
+  }
+
+  const bounds = primitiveBounds(item.primitive);
+  const sourceWidth = fill.imageWidth ?? bounds.w;
+  const sourceHeight = fill.imageHeight ?? bounds.h;
+  if (sourceWidth <= 0 || sourceHeight <= 0 || bounds.w <= 0 || bounds.h <= 0) return false;
+
+  const fit = fill.fit ?? 'fill';
+  if (fit === 'stretch') return true;
+  if (fit !== 'fill' && fit !== 'fit') return false;
+  const aspectDelta = Math.abs(sourceWidth * bounds.h - sourceHeight * bounds.w);
+  return (
+    aspectDelta <= Number.EPSILON * 16 * Math.max(sourceWidth * bounds.h, sourceHeight * bounds.w)
+  );
 }
 
 /** Paint an image fill over the primitive bounds. */

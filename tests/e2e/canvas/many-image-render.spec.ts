@@ -94,7 +94,7 @@ function writeFixtures(count: number): string[] {
 /** Painted coverage, distinct colours, and a content hash of the whole surface. */
 async function surfaceState(
   page: import('@playwright/test').Page,
-): Promise<{ coverage: number; distinctColours: number; hash: number }> {
+): Promise<{ coverage: number; distinctColours: number; hash: number; samples: number[] }> {
   return page.locator('canvas.editor-canvas__content-layer').evaluate((element) => {
     const surface = element as HTMLCanvasElement;
     const context = surface.getContext('2d');
@@ -105,6 +105,7 @@ async function surfaceState(
     let total = 0;
     let hash = 2166136261;
     const colours = new Set<number>();
+    const samples: number[] = [];
     // Every 4th pixel: enough to make the hash sensitive to any real
     // difference, a quarter of the work of a full-surface walk (this runs
     // five times per test on a ~4M-pixel backing store).
@@ -112,6 +113,7 @@ async function surfaceState(
       const r = data[i] ?? 0;
       const g = data[i + 1] ?? 0;
       const b = data[i + 2] ?? 0;
+      if (i % 256 === 0) samples.push((r << 16) | (g << 8) | b);
       hash ^= r;
       hash = Math.imul(hash, 16777619);
       hash ^= g;
@@ -130,7 +132,37 @@ async function surfaceState(
       coverage: total > 0 ? painted / total : 0,
       distinctColours: colours.size,
       hash: hash >>> 0,
+      samples,
     };
+  });
+}
+
+async function recentFrameSummary(page: import('@playwright/test').Page): Promise<unknown[]> {
+  return page.evaluate(() => {
+    const perf = window as Window & {
+      __varvePerf?: {
+        getFrames?: (count: number) => Array<Record<string, unknown>>;
+      };
+    };
+    return (perf.__varvePerf?.getFrames?.(6) ?? []).map(
+      ({
+        frameIndex,
+        renderPath,
+        actualDrawingPath,
+        frameSource,
+        frameDecision,
+        partialRedraw,
+        camera,
+      }) => ({
+        frameIndex,
+        renderPath,
+        actualDrawingPath,
+        frameSource,
+        frameDecision,
+        partialRedraw,
+        camera,
+      }),
+    );
   });
 }
 
@@ -211,17 +243,29 @@ test.describe('many-image canvas rendering', () => {
       await page.waitForTimeout(600);
 
       const live = await surfaceState(page);
-      await page.evaluate(() => {
-        (
-          window as unknown as { __varvePerf?: { forceFullRedraw?: () => void } }
-        ).__varvePerf?.forceFullRedraw?.();
+      const previousFrames = await recentFrameSummary(page);
+      await page.evaluate(async () => {
+        const perf = (
+          window as unknown as {
+            __varvePerf?: {
+              forceFullRedraw?: () => Promise<unknown>;
+            };
+          }
+        ).__varvePerf;
+        await perf?.forceFullRedraw?.();
       });
       await page.waitForTimeout(700);
       const authoritative = await surfaceState(page);
+      const redrawFrames = await recentFrameSummary(page);
+      const differences = live.samples.flatMap((value, index) =>
+        value === authoritative.samples[index]
+          ? []
+          : [[index * 64, value, authoritative.samples[index]]],
+      );
 
       expect(
         live.hash,
-        `burst ${burst}: surface after scrolling must equal a full redraw of the same camera`,
+        `burst ${burst}: surface after scrolling must equal a full redraw of the same camera; ${differences.length} sampled pixels differ: ${JSON.stringify(differences.slice(0, 16))}; before=${JSON.stringify(previousFrames)}; after=${JSON.stringify(redrawFrames)}`,
       ).toBe(authoritative.hash);
       expect(
         authoritative.coverage,

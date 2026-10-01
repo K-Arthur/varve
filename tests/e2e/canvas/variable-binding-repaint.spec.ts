@@ -15,10 +15,9 @@
  * Structured data first: the assertions are exact pixel counts on the content
  * canvas; the screenshots are inspected evidence, not the oracle.
  *
- * Note: `addColorVariable` in tests/e2e/shared.ts still targets the Layers
- * panel, but VariablePanel moved into the "Variables and tokens" dialog
- * (ff1470aa0) — this spec opens the dialog itself until that helper is
- * repaired.
+ * The shared `addColorVariable` helper creates document variables through
+ * the current Variables and tokens dialog, which owns both VariablePanel and
+ * Token Sync.
  */
 import { expect, type Locator, type Page, test } from '@playwright/test';
 import { dragOnCanvas, navigateToEditor } from '../shared';

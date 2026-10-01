@@ -247,15 +247,35 @@ export async function activateTableTool(page: Page): Promise<void> {
     .click();
 }
 
-/** Create a color variable through the Layers panel's scoped add form. */
+/** Create a color variable through the document-scoped Variables and Tokens dialog. */
 export async function addColorVariable(page: Page, name: string, value: string): Promise<void> {
-  const layersPanel = page.getByTestId('layers-panel');
-  await layersPanel.getByRole('button', { name: '+ Add', exact: true }).click();
-  const addForm = layersPanel.locator('.variable-panel__add-form');
+  const dialog = await openVariablesAndTokensDialog(page);
+  await dialog.getByRole('button', { name: '+ Add', exact: true }).click();
+  const addForm = dialog.locator('.variable-panel__add-form');
   await addForm.getByPlaceholder('name', { exact: true }).fill(name);
   const valueInput = addForm.getByPlaceholder('value', { exact: true });
   await valueInput.fill(value);
   await valueInput.press('Enter');
+  await expect(dialog.getByText(name, { exact: true })).toBeVisible({ timeout: 5000 });
+  await closeVariablesAndTokensDialog(dialog);
+}
+
+/** Open the document-scoped variable editor through its current menu entry. */
+export async function openVariablesAndTokensDialog(page: Page): Promise<Locator> {
+  await page.getByRole('menuitem', { name: 'View', exact: true }).click();
+  const viewMenu = page.getByRole('menu', { name: 'View' });
+  await viewMenu.getByRole('menuitem', { name: 'Panels', exact: true }).hover();
+  await page.getByRole('menuitem', { name: 'Variables and Tokens…' }).click();
+
+  const dialog = page.getByRole('dialog', { name: 'Variables and tokens' });
+  await expect(dialog).toBeVisible({ timeout: 5000 });
+  return dialog;
+}
+
+/** Close the document-scoped variable editor. */
+export async function closeVariablesAndTokensDialog(dialog: Locator): Promise<void> {
+  await dialog.getByRole('button', { name: 'Close dialog' }).click();
+  await expect(dialog).toBeHidden({ timeout: 5000 });
 }
 
 /**

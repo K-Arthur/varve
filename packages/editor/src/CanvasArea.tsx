@@ -293,7 +293,8 @@ export function CanvasArea({
     drawOverlayRef,
   });
   // Cached canvas position for pointer→world coordinate conversion.
-  // Updated by ResizeObserver and refreshed on pointerdown for safety.
+  // Updated by ResizeObserver, refreshed at gesture boundaries, and checked
+  // on pointer-move only when an active gesture has pending layout changes.
   // Avoids getBoundingClientRect() on every pointer-move (the single
   // highest-frequency DOM layout read in the application).
   const handleCanvasGeometryChange = useCallback(

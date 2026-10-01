@@ -37,6 +37,8 @@ export class Canvas2DBackend implements CompositorBackend {
     if (!this.ctx) return;
     this.dpr = window.devicePixelRatio || 1;
     const { viewport } = frame;
+    this.ctx.imageSmoothingEnabled = true;
+    this.ctx.imageSmoothingQuality = 'high';
     const shouldClear = opts?.clear !== false;
     this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     if (shouldClear) {

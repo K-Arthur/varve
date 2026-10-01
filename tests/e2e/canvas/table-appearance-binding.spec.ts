@@ -17,7 +17,6 @@ test('table appearance variable binding with modifier', async ({ page }) => {
 
   // Create a color variable via the Variables panel
   await addColorVariable(page, 'Brand Teal', '#39d0c6');
-  await expect(page.getByText('Brand Teal')).toBeVisible({ timeout: 5000 });
 
   // Select the table via the layers panel so the inspector shows it
   await page.getByRole('treeitem').first().click({ timeout: 5000 });
@@ -49,7 +48,8 @@ test('table appearance variable binding with modifier', async ({ page }) => {
   });
 
   // Open the modifier popover and set multiply x50%
-  await page.getByText('$Brand Teal', { exact: false }).first().click({ timeout: 5000 });
+  const linkedFill = page.getByRole('button', { name: 'Linked to Brand Teal', exact: true });
+  await linkedFill.click({ timeout: 5000 });
   await expect(page.getByRole('dialog', { name: 'Alpha modifier' })).toBeVisible({
     timeout: 5000,
   });

@@ -77,6 +77,7 @@ import {
   type FrameDiagnostics,
   getRecentFrames,
   installPerfDiagnosticsHandle as installDrawDiagnosticsHandle,
+  isDiagnosticsEnabled,
   renderDrawDiagnostics,
   resolveDirtyScreenRect,
 } from './drawDiagnostics';
@@ -851,6 +852,7 @@ export function endFrame(args: EndFrameArgs): PerformanceProfile {
 
 /** Draw the dev-only HUD overlay. No-op unless setPerfHudEnabled(true) was called. */
 export function renderPerfHud(ctx: CanvasRenderingContext2D, canvasWidth: number): void {
+  if (!isDiagnosticsEnabled()) return;
   renderDrawDiagnostics(ctx, canvasWidth);
   renderSecondaryPerfPanel(ctx, canvasWidth);
 }

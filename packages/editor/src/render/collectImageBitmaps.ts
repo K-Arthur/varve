@@ -209,6 +209,8 @@ export interface CollectImageBitmapsOptions {
    * stamp re-render picks up the sharper representation.
    */
   maxSourceDim?: number;
+  /** Exact display bucket selected for each IR image identity when known. */
+  maxSourceDimBySource?: ReadonlyMap<string, number>;
 }
 
 /**
@@ -343,17 +345,18 @@ export async function collectImageBitmaps(
     const loadable = resolved[i] as string;
     if (options.residentSources?.has(identity)) continue;
     const dims = sourceDims.get(identity) ?? null;
+    const maxSourceDim = options.maxSourceDimBySource?.get(identity) ?? options.maxSourceDim;
     const useAtSize =
-      options.maxSourceDim !== undefined &&
+      maxSourceDim !== undefined &&
       cache.isRepresentationCapable(loadable) &&
       dims !== null &&
-      Math.max(dims.width, dims.height) > options.maxSourceDim;
+      Math.max(dims.width, dims.height) > maxSourceDim;
     let img: CachedImage | null = null;
     if (useAtSize) {
-      img = cache.getImageAtSize(loadable, options.maxSourceDim as number);
+      img = cache.getImageAtSize(loadable, maxSourceDim as number);
       if (!img) {
         void cache
-          .loadAtSize(loadable, options.maxSourceDim as number, dims ?? undefined)
+          .loadAtSize(loadable, maxSourceDim as number, dims ?? undefined)
           .catch(() => undefined);
         return fail();
       }

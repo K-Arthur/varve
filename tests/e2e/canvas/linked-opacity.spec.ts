@@ -3,22 +3,16 @@
  * (ADR-0016 workflow 2).
  */
 import { expect, type Page, test } from '@playwright/test';
-import { dragOnCanvas, navigateToEditor } from '../shared';
+import { addColorVariable, dragOnCanvas, navigateToEditor } from '../shared';
 
 async function createColorVariable(page: Page, name: string, hex: string): Promise<void> {
-  await page.getByRole('button', { name: '+ Add' }).first().click({ force: true });
-  const nameField = page.locator('.variable-panel__add-input');
-  await expect(nameField).toBeVisible({ timeout: 5000 });
-  await nameField.fill(name);
-  await page.locator('.variable-panel__add-value-input').fill(hex);
-  await page.keyboard.press('Enter');
-  await expect(nameField).toHaveCount(0, { timeout: 5000 });
+  await addColorVariable(page, name, hex);
 }
 
 async function bindFillToVariable(page: Page, variableName: string): Promise<void> {
-  await page.keyboard.press('Escape');
-  await page.getByRole('button', { name: 'Rectangle', exact: true }).first().click({ force: true });
-  await page.getByRole('button', { name: 'Link fill to a variable' }).click();
+  await page.getByRole('treeitem').first().click();
+  await page.getByRole('button', { name: 'Fill actions', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Link to variable', exact: true }).click();
   const bindMenu = page.locator('.binding-menu').first();
   await expect(bindMenu).toBeVisible({ timeout: 5000 });
   await bindMenu.locator('input[role="combobox"]').fill(variableName);
@@ -63,12 +57,19 @@ test.describe('Linked color modifiers', () => {
     await expect(badge).toBeVisible({ timeout: 8000 });
     await badge.click();
     await page.getByRole('button', { name: 'Apply' }).click();
-    const valueField = page.locator('.variable-panel__value-btn').first();
+    await page.getByRole('menuitem', { name: 'View', exact: true }).click();
+    const viewMenu = page.getByRole('menu', { name: 'View' });
+    await viewMenu.getByRole('menuitem', { name: 'Panels', exact: true }).hover();
+    await page.getByRole('menuitem', { name: 'Variables and Tokens…' }).click();
+    const variablesDialog = page.getByRole('dialog', { name: 'Variables and tokens' });
+    await expect(variablesDialog).toBeVisible({ timeout: 5000 });
+    const valueField = variablesDialog.locator('.variable-panel__value-btn').first();
     await valueField.click();
-    const editInput = page.locator('.variable-panel__edit-input');
+    const editInput = variablesDialog.locator('.variable-panel__edit-input');
     await editInput.fill('#39d0c680');
     await page.keyboard.press('Enter');
-    await page.keyboard.press('Escape');
+    await variablesDialog.getByRole('button', { name: 'Close dialog' }).click();
+    await expect(variablesDialog).toBeHidden({ timeout: 5000 });
     await expect(badge).toBeVisible({ timeout: 5000 });
     await expect(badge).toContainText(/50%/);
   });

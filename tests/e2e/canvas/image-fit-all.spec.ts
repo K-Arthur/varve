@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
-import { navigateToEditor } from '../shared';
+import { dragOnCanvas, navigateToEditor } from '../shared';
 
 const VIEWPORT = { width: 1280, height: 800 };
 
@@ -254,15 +254,12 @@ test.describe('image rendering after camera commands', () => {
 
     // Frame tool: drag a frame onto the canvas.
     await page.keyboard.press('f');
-    await page.mouse.move(300, 250);
-    await page.mouse.down();
-    await page.mouse.move(600, 450, { steps: 3 });
-    await page.mouse.up();
+    await dragOnCanvas(page, 150, 120, 450, 420);
 
     // Select the frame, then import a photo into it.
     await page.keyboard.press('v');
     await page.keyboard.press('Escape');
-    await canvas.click({ position: { x: 450, y: 350 } });
+    await canvas.click({ position: { x: 300, y: 270 } });
     await page
       .locator('#file-import-input')
       .setInputFiles(path.resolve('tests/e2e/fixtures/photo-fixture.jpg'));

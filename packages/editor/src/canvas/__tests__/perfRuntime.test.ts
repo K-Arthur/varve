@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetProfile } from '../adaptiveProfile';
 import { getFrameCount, getLastFrame, resetDiagnostics } from '../drawDiagnostics';
 import { resetFrameTimings } from '../frameBudget';
@@ -10,6 +10,7 @@ import {
   resolveMemoryBudgets,
   setPerfHudEnabled,
 } from '../perfRuntime';
+import { enableSnapMetrics, recordSnapMetrics } from '../snapDiagnostics';
 import { SubtreeIrCache } from '../subtreeIrCache';
 
 describe('perfRuntime', () => {
@@ -18,6 +19,7 @@ describe('perfRuntime', () => {
     resetFrameTimings();
     resetProfile();
     setPerfHudEnabled(false);
+    enableSnapMetrics(false);
   });
 
   it('initCanvasPerf runs without error', () => {
@@ -89,6 +91,34 @@ describe('perfRuntime', () => {
       fillText: () => {},
     } as unknown as CanvasRenderingContext2D;
     expect(() => renderPerfHud(fakeCtx, 800)).not.toThrow();
+  });
+
+  it('keeps secondary performance metrics hidden while the HUD is disabled', () => {
+    enableSnapMetrics(true);
+    recordSnapMetrics({
+      ts: performance.now(),
+      sceneObjectCount: 100,
+      indexedCandidateCount: 100,
+      broadPhaseResultCount: 12,
+      semanticFilteredCount: 8,
+      finePhaseEvalCount: 8,
+      queryDurationMs: 0.1,
+      evalDurationMs: 0.2,
+      winningX: true,
+      winningY: false,
+    });
+    const fillText = vi.fn();
+    const fakeCtx = {
+      save: () => {},
+      restore: () => {},
+      setTransform: () => {},
+      fillRect: () => {},
+      fillText,
+    } as unknown as CanvasRenderingContext2D;
+
+    renderPerfHud(fakeCtx, 800);
+
+    expect(fillText).not.toHaveBeenCalled();
   });
 
   it('resolveMemoryBudgets returns tiered presets matching memoryBudget.ts', () => {

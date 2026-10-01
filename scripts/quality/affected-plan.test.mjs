@@ -39,6 +39,12 @@ assert.ok(
   'a deleted unit test must not be selected as an executable validation lane',
 );
 
+const removedE2eTest = 'tests/e2e/canvas/variable-debug.spec.ts';
+assert.ok(
+  !buildPlan([removedE2eTest]).tiers[1].includes(`e2e:file:${removedE2eTest}`),
+  'a deleted Playwright spec must not be selected as an executable validation lane',
+);
+
 const owner = 'tests/e2e/canvas/alignment-arrangement.spec.ts';
 const snapshots = [
   `${owner}-snapshots/nested-frame-reference-alignment-chromium-linux.png`,

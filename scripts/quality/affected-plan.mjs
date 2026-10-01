@@ -418,7 +418,7 @@ function buildPlan(files, { includeReverse = true } = {}) {
         // Keep it at Tier 1 instead of expanding to every spec in its
         // directory; renderer, config, and helper changes below retain
         // their domain/full-suite blast radius.
-        directE2eFiles.add(f);
+        if (existsSync(join(ROOT, f))) directE2eFiles.add(f);
       } else if (f.includes('/tests/e2e/')) {
         if (f.startsWith('apps/website/')) plan.tiers[4].push('website-e2e');
         else {

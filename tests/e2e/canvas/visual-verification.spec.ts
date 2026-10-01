@@ -5,7 +5,14 @@
  * at each step of the workflow.
  */
 import { expect, type Page, test } from '@playwright/test';
-import { activateTableTool, addColorVariable, dragOnCanvas, navigateToEditor } from '../shared';
+import {
+  activateTableTool,
+  addColorVariable,
+  closeVariablesAndTokensDialog,
+  dragOnCanvas,
+  navigateToEditor,
+  openVariablesAndTokensDialog,
+} from '../shared';
 
 // Helper to insert a table
 async function insertTable(page: Page): Promise<void> {
@@ -107,31 +114,32 @@ test.describe('Table and modifier visual verification', () => {
     await page.screenshot({ path: 'test-results/visual/08-after-reload.png', fullPage: false });
   });
 
-  test('Variable creation and modifier workflow', async ({ page }) => {
+  test('Variable creation and modifier workflow', async ({ page }, testInfo) => {
     // Step 1: Create color variables
     await createColorVariable(page, 'Primary', '#39d0c6');
     await createColorVariable(page, 'Secondary', '#ff6b6b');
 
+    const variables = await openVariablesAndTokensDialog(page);
+    const primaryRow = variables.getByRole('row').filter({ hasText: 'Primary' });
+    await expect(primaryRow).toBeVisible();
+    await expect(variables.getByRole('row').filter({ hasText: 'Secondary' })).toBeVisible();
     await page.screenshot({
-      path: 'test-results/visual/09-variables-created.png',
+      path: testInfo.outputPath('variables-created.png'),
       fullPage: false,
     });
 
-    // Step 2: Verify variables exist
-    await expect(page.getByText('Primary')).toBeVisible();
-    await expect(page.getByText('Secondary')).toBeVisible();
-
-    // Step 3: Edit the authored value, not the duplicate resolved preview.
-    const variables = page.getByTestId('layers-panel');
-    await variables.getByRole('button', { name: '#39d0c6', exact: true }).click();
-    const editInput = variables.getByRole('textbox', { name: 'Variable value' });
+    // Edit the authored value in the document-scoped variable manager.
+    await primaryRow.getByRole('button', { name: '#39d0c6', exact: true }).click();
+    const editInput = primaryRow.getByRole('textbox', { name: 'Variable value' });
     await editInput.fill('#00ff88');
     await editInput.press('Enter');
 
-    await page.screenshot({ path: 'test-results/visual/10-variable-edited.png', fullPage: false });
-
-    // Step 4: Verify the variable was updated
-    await expect(variables.getByRole('button', { name: '#00ff88', exact: true })).toBeVisible();
+    await expect(primaryRow.getByRole('button', { name: '#00ff88', exact: true })).toBeVisible();
+    await page.screenshot({
+      path: testInfo.outputPath('variables-edited.png'),
+      fullPage: false,
+    });
+    await closeVariablesAndTokensDialog(variables);
   });
 
   test('Table import from CSV', async ({ page }) => {

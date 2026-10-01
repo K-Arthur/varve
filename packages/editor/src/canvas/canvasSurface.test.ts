@@ -196,7 +196,7 @@ describe('synchronous geometry refresh', () => {
     unmount();
   });
 
-  it('skips layout reads for pointer-move tool contexts only', () => {
+  it('skips pointer-move layout reads unless observed geometry is dirty during a gesture', () => {
     const { canvas, rect } = measuredCanvas(288);
     const { result, unmount } = renderHook(() => useCanvasGeometry({ current: canvas }));
     rect.mockClear();
@@ -206,6 +206,50 @@ describe('synchronous geometry refresh', () => {
     result.current.refreshCanvasRectForEvent({ type: 'keydown' });
     expect(rect).toHaveBeenCalledTimes(2);
     unmount();
+  });
+
+  it('refreshes observed geometry at the current pointer during an active drag', () => {
+    const { canvas, rect } = measuredCanvas(288);
+    const onGeometryChange = vi.fn();
+    const requestFrame = vi.spyOn(window, 'requestAnimationFrame').mockReturnValue(17);
+    const cancelFrame = vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {});
+    const { result, unmount } = renderHook(() =>
+      useCanvasGeometry({ current: canvas }, onGeometryChange),
+    );
+
+    result.current.viewportAnchorRef.current = { clientX: 500, clientY: 300 };
+    rect.mockReturnValue({
+      left: 240,
+      top: 140,
+      width: 760,
+      height: 650,
+      right: 1000,
+      bottom: 790,
+      x: 240,
+      y: 140,
+      toJSON: () => ({}),
+    });
+    Object.defineProperties(canvas, {
+      clientWidth: { configurable: true, value: 760 },
+      clientHeight: { configurable: true, value: 650 },
+    });
+    window.dispatchEvent(new Event('resize'));
+    result.current.refreshCanvasRectForEvent({
+      type: 'pointermove',
+      clientX: 520,
+      clientY: 315,
+    });
+
+    expect(onGeometryChange).toHaveBeenCalledWith(
+      { left: 288, top: 122.71875, width: 832, height: 722.484375 },
+      { left: 240, top: 140, width: 760, height: 650 },
+      { clientX: 520, clientY: 315 },
+    );
+    expect(result.current.canvasRectRef.current).toEqual({ left: 240, top: 140 });
+    expect(requestFrame).toHaveBeenCalledOnce();
+    unmount();
+    requestFrame.mockRestore();
+    cancelFrame.mockRestore();
   });
 });
 

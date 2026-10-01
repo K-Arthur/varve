@@ -313,12 +313,21 @@ describe('render worker host restarts', () => {
 
     expect(host.knownImageSources.size).toBe(0);
     expect(
-      host.post(renderCommand({ imageSources: ['fresh'], images: { fresh: bitmap } }), [bitmap]),
+      host.post(
+        renderCommand({
+          imageSources: ['fresh'],
+          imageSourceCaps: { fresh: 512 },
+          images: { fresh: bitmap },
+        }),
+        [bitmap],
+      ),
     ).toBe(true);
     expect([...host.knownImageSources]).toEqual(['fresh']);
+    expect([...host.knownImageSourceCaps]).toEqual([['fresh', 512]]);
 
     host.terminate();
     expect(host.knownImageSources.size).toBe(0);
+    expect(host.knownImageSourceCaps.size).toBe(0);
   });
 
   it('releases transferred bitmap reservations when a render returns an error', () => {

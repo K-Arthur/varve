@@ -42,6 +42,8 @@ export interface WorkerRenderCommand {
   images?: Record<string, ImageBitmap>;
   /** Full authoritative image-source manifest; `images` may contain only the missing delta. */
   imageSources?: string[];
+  /** Display-resolution bucket retained for each image-source manifest entry. */
+  imageSourceCaps?: Record<string, number>;
   /** Display-only proof transform applied inside the worker before replay. */
   proof?: import('@varve/shared').ProofTransformConfig | null;
   /** Explicit artistic blend evaluation policy for worker replay. */
@@ -162,6 +164,8 @@ export interface RenderWorkerHost {
   readonly lastAcceptedRenderRevision: RenderRevision | null;
   /** Sources already resident or in the command currently dispatched to this worker generation. */
   readonly knownImageSources: ReadonlySet<string>;
+  /** Resolution buckets already resident or in the dispatched worker command. */
+  readonly knownImageSourceCaps: ReadonlyMap<string, number>;
   readonly bitmapBudget: RenderBitmapBudget;
   getBitmapBudgetState(): BitmapBudgetState;
   /** Current main<->worker clock calibration, or null before the first exchange. */
@@ -255,6 +259,8 @@ export function createRenderWorkerHost(
   let inFlightTransferBytes = 0;
   let residentImageSources = new Set<string>();
   let inFlightImageSources: Set<string> | null = null;
+  let residentImageSourceCaps = new Map<string, number>();
+  let inFlightImageSourceCaps: Map<string, number> | null = null;
   /** Worker-reported estimated bytes of source bitmaps resident inside it. */
   let residentSourceBytes = 0;
   let lastForwardedFrame: ImageBitmap | null = null;
@@ -398,6 +404,8 @@ export function createRenderWorkerHost(
     inFlightTransferBytes = 0;
     residentImageSources.clear();
     inFlightImageSources = null;
+    residentImageSourceCaps.clear();
+    inFlightImageSourceCaps = null;
     lastRenderCommand = null;
     lastRenderUsedTransfer = false;
     lastRenderDependsOnImages = false;
@@ -517,6 +525,9 @@ export function createRenderWorkerHost(
       : render.command.images
         ? new Set(Object.keys(render.command.images))
         : null;
+    inFlightImageSourceCaps = render.command.imageSourceCaps
+      ? new Map(Object.entries(render.command.imageSourceCaps))
+      : null;
     lastRenderUsedTransfer = Boolean(render.transfer?.length);
     lastRenderDependsOnImages = Boolean(render.command.imageSources?.length);
     // Transferred or cloned ImageBitmaps cannot be replayed safely after a
@@ -632,8 +643,10 @@ export function createRenderWorkerHost(
             }
             bitmapBudget.recordSourceSetDelta(adds, removes, reuses);
             residentImageSources = inFlightImageSources;
+            residentImageSourceCaps = inFlightImageSourceCaps ?? new Map();
           }
           inFlightImageSources = null;
+          inFlightImageSourceCaps = null;
           if (obsolete) {
             if (msg.bitmap) {
               // Record the discard so a drag that renders ten frames and
@@ -681,6 +694,7 @@ export function createRenderWorkerHost(
             inFlightTransferBytes = 0;
           }
           inFlightImageSources = null;
+          inFlightImageSourceCaps = null;
           const obsolete =
             latestRequestedRevision !== null && msg.renderRevision < latestRequestedRevision;
           if (!obsolete) onResponse(msg);
@@ -790,6 +804,9 @@ export function createRenderWorkerHost(
     get knownImageSources() {
       return inFlightImageSources ?? residentImageSources;
     },
+    get knownImageSourceCaps() {
+      return inFlightImageSourceCaps ?? residentImageSourceCaps;
+    },
     setRasterLod(enabled: boolean) {
       if (!worker || permanentFailure) return;
       try {
@@ -888,6 +905,8 @@ export function createRenderWorkerHost(
       inFlightTransferBytes = 0;
       residentImageSources.clear();
       inFlightImageSources = null;
+      residentImageSourceCaps.clear();
+      inFlightImageSourceCaps = null;
       lastRenderCommand = null;
       lastRenderUsedTransfer = false;
       lastRenderDependsOnImages = false;

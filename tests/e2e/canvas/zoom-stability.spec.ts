@@ -31,13 +31,26 @@ async function expectSelectionPainted(canvas: Locator, selection: SelectionRect)
     const scaleX = surface.width / surface.clientWidth;
     const scaleY = surface.height / surface.clientHeight;
     const background = context.getImageData(0, 0, 1, 1).data;
+    const visibleLeft = Math.max(0, box.x);
+    const visibleTop = Math.max(0, box.y);
+    const visibleRight = Math.min(surface.clientWidth, box.x + box.width);
+    const visibleBottom = Math.min(surface.clientHeight, box.y + box.height);
     return [0.25, 0.5, 0.75].map((fraction) => {
       const pixel = context.getImageData(
         Math.max(
           0,
-          Math.min(surface.width - 1, Math.round((box.x + box.width * fraction) * scaleX)),
+          Math.min(
+            surface.width - 1,
+            Math.round((visibleLeft + (visibleRight - visibleLeft) * fraction) * scaleX),
+          ),
         ),
-        Math.max(0, Math.min(surface.height - 1, Math.round((box.y + box.height / 2) * scaleY))),
+        Math.max(
+          0,
+          Math.min(
+            surface.height - 1,
+            Math.round((visibleTop + (visibleBottom - visibleTop) / 2) * scaleY),
+          ),
+        ),
         1,
         1,
       ).data;
@@ -64,8 +77,6 @@ test.describe('Zoom camera stability', () => {
     page,
   }) => {
     const canvas = page.locator('canvas.editor-canvas__content-layer');
-    const canvasBox = await canvas.boundingBox();
-    if (!canvasBox) throw new Error('content canvas not found');
 
     await page.keyboard.press('r');
     // Keep the test shape large enough that the 24px resize hit targets do not
@@ -97,6 +108,8 @@ test.describe('Zoom camera stability', () => {
     await canvas.focus();
     await page.keyboard.press('Shift+2');
     await page.waitForTimeout(350);
+    const canvasBox = await canvas.boundingBox();
+    if (!canvasBox) throw new Error('content canvas not found after selection layout settled');
 
     const fitted = await selectionRect(page);
     expect(fitted.x + fitted.width / 2).toBeCloseTo(canvasBox.width / 2, 0);
@@ -231,8 +244,10 @@ test.describe('Zoom camera stability', () => {
     await page.waitForTimeout(150);
 
     const afterZoom = await selectionRect(page);
-    expect(afterZoom.x).toBeGreaterThan(0);
-    expect(afterZoom.x + afterZoom.width).toBeLessThan(canvasBox.width);
+    expect(afterZoom.x + afterZoom.width).toBeGreaterThan(0);
+    expect(afterZoom.x).toBeLessThan(canvasBox.width);
+    expect(afterZoom.y + afterZoom.height).toBeGreaterThan(0);
+    expect(afterZoom.y).toBeLessThan(canvasBox.height);
     await expectSelectionPainted(canvas, afterZoom);
   });
 });
