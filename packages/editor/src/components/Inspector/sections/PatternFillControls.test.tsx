@@ -77,8 +77,30 @@ describe('PatternFillControls', () => {
   it('shows the arrangement and mirror controls', () => {
     render(<PatternFillControls pattern={defaultPattern()} onChange={() => {}} />);
     expect(screen.getByRole('combobox', { name: /Arrangement/i })).toBeTruthy();
+    expect(screen.getByRole('combobox', { name: /Pattern alignment/i })).toBeTruthy();
     expect(screen.getByRole('checkbox', { name: /mirror across/i })).toBeTruthy();
     expect(screen.getByRole('checkbox', { name: /mirror down/i })).toBeTruthy();
+  });
+
+  it('sets document alignment as one per-fill placement field', async () => {
+    const onChange = vi.fn();
+    render(<PatternFillControls pattern={defaultPattern()} onChange={onChange} />);
+
+    fireEvent.click(screen.getByRole('combobox', { name: /Pattern alignment/i }));
+    fireEvent.click(await screen.findByRole('option', { name: /Document\/page/i }));
+
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ alignment: 'document' }));
+  });
+
+  it('shows mixed alignment without choosing one fill as the apparent value', () => {
+    render(
+      <PatternFillControls
+        pattern={defaultPattern()}
+        onChange={() => {}}
+        mixedRepeatSettings={{ alignment: true }}
+      />,
+    );
+    expect(screen.getByRole('combobox', { name: /Pattern alignment/i })).toHaveTextContent('Mixed');
   });
 
   it('keeps a linked definition source and repeat geometry out of per-fill controls', () => {

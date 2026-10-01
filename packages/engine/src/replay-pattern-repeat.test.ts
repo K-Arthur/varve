@@ -23,9 +23,10 @@ type PatternFields = Extract<FillIR, { type: 'pattern' }>;
 function patternItem(
   fields: Partial<PatternFields>,
   primitive: RenderItem['primitive'] = { kind: 'rect', x: 0, y: 0, w: 30, h: 40 },
+  transform: RenderItem['transform'] = [1, 0, 0, 1, 0, 0],
 ): RenderItem {
   return {
-    transform: [1, 0, 0, 1, 0, 0],
+    transform,
     fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
     fills: [
       {
@@ -46,6 +47,7 @@ function patternItem(
 interface Capture {
   target: ReplayTarget;
   draws: Array<{ x: number; y: number; w: number; h: number }>;
+  fillRects: Array<{ x: number; y: number; w: number; h: number }>;
   transforms: number[][];
   patternTransforms: Array<Record<string, number>>;
   patternUsed: () => boolean;
@@ -53,6 +55,7 @@ interface Capture {
 
 function capture(overrides: Partial<ReplayTarget> = {}): Capture {
   const draws: Array<{ x: number; y: number; w: number; h: number }> = [];
+  const fillRects: Array<{ x: number; y: number; w: number; h: number }> = [];
   const transforms: number[][] = [];
   const patternTransforms: Array<Record<string, number>> = [];
   let used = false;
@@ -65,7 +68,7 @@ function capture(overrides: Partial<ReplayTarget> = {}): Capture {
     translate: () => undefined,
     rotate: () => undefined,
     scale: () => undefined,
-    fillRect: () => undefined,
+    fillRect: (x, y, w, h) => fillRects.push({ x, y, w, h }),
     strokeRect: () => undefined,
     beginPath: () => undefined,
     rect: () => undefined,
@@ -113,6 +116,7 @@ function capture(overrides: Partial<ReplayTarget> = {}): Capture {
   return {
     target: tracked,
     draws,
+    fillRects,
     transforms,
     patternTransforms,
     patternUsed: () => used,
@@ -252,6 +256,46 @@ describe('pattern repeat lattice in replay', () => {
     // Rotation 0 -> the pattern transform is the phase translation itself.
     expect(cap.patternTransforms[0]?.e).toBeCloseTo(3, 10);
     expect(cap.patternTransforms[0]?.f).toBeCloseTo(2, 10);
+  });
+
+  it('keeps document-aligned repeats in page coordinates across object transforms', () => {
+    getImageCache().setLoaded('tile.png', mockImage(10, 10));
+    const cap = capture();
+    const item = patternItem(
+      { offsetX: 3, offsetY: 2, alignment: 'document' } as unknown as Partial<PatternFields>,
+      { kind: 'rect', x: 10, y: 20, w: 30, h: 40 },
+      [1, 0, 0, 1, 100, 50],
+    );
+
+    replayIr(cap.target, [item]);
+
+    expect(
+      cap.transforms.some(
+        (matrix) =>
+          Math.abs(matrix[0]! - 1) < 1e-10 &&
+          Math.abs(matrix[3]! - 1) < 1e-10 &&
+          Math.abs(matrix[4]! + 100) < 1e-10 &&
+          Math.abs(matrix[5]! + 50) < 1e-10,
+      ),
+    ).toBe(true);
+    expect(cap.patternTransforms[0]).toMatchObject({ e: 3, f: 2 });
+    expect(cap.fillRects).toContainEqual({ x: 110, y: 70, w: 30, h: 40 });
+  });
+
+  it('rebases document alignment through rotation and nonuniform scale', () => {
+    getImageCache().setLoaded('tile.png', mockImage(10, 10));
+    const cap = capture();
+    const item = patternItem(
+      { offsetX: 3, offsetY: 2, alignment: 'document' } as unknown as Partial<PatternFields>,
+      { kind: 'rect', x: 10, y: 20, w: 30, h: 40 },
+      [0, 2, -3, 0, 100, 50],
+    );
+
+    replayIr(cap.target, [item]);
+
+    expect(cap.transforms).toContainEqual([0, -1 / 3, 1 / 2, 0, -25, 100 / 3]);
+    expect(cap.fillRects).toContainEqual({ x: -80, y: 70, w: 120, h: 60 });
+    expect(cap.patternTransforms[0]).toMatchObject({ e: 3, f: 2 });
   });
 
   it('treats a non-finite phase as an absent phase', () => {

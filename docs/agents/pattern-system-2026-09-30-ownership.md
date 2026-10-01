@@ -28,8 +28,10 @@ path or alter the shared index. Hub files remain outside the pattern scope.
 - Selected vector art is copied into a definition; the original source remains
   in the document. Raster assets stay embedded. Generator recipes and seeds are
   stored as the source of truth; preview tiles are caches.
-- Fills reference a definition and keep per-fill placement. Shared source edits
-  and Make Unique have distinct scope. Pattern Library mutations use labeled
+- Fills reference a definition and keep per-fill placement. Object alignment
+  follows the shape; Document/page alignment preserves shared phase across
+  adjacent objects, and the Rust PDF route currently warns and omits that mode.
+  Shared source edits and Make Unique have distinct scope. Pattern Library mutations use labeled
   history transactions; stale raster import results are revision-checked.
 - Grid, column-offset half-drop, and row-offset brick share one repeat
   evaluator. Mirror flags use negative-index parity. Walks are bounded and
@@ -59,28 +61,30 @@ path or alter the shared index. Hub files remain outside the pattern scope.
 
 ## Validation status
 
-The 300-test pattern-specific Vitest suite and 5-test Chromium workflow pass;
-the added supertile exporter has 5 focused passing tests and a focused Chromium
-download workflow also passes.
-The browser flow verifies pixel periodicity, arrangement changes, raster source
-replacement, Make Unique undo/redo, and no history-bypass warnings. Website and
-codegen builds, docs/emoji/token/inspector audits, a standalone E2E typecheck,
-and targeted PDF tests pass. The escalated full gate is not green: its formatter
-blocks on an unrelated missing newline in
-`native-webgl2-2026-09-28T10-16-25-630Z.json`; its full-run E2E typecheck exited
-silently but passed standalone. The shared-tree architecture audit also sees
-75 unstable modules; the supplied AGENTS guidance says the ceiling is 49, while
-`.architecture-baseline.json` says 55. The audit result exceeds both, alongside
-existing hub import-budget warnings. Details and exact commands are recorded
-in the validation report.
+Focused pattern tests, the Chromium repeat/source-edit workflows, editor and
+E2E typechecks, website/codegen builds, docs/emoji/token/inspector audits, and
+targeted PDF tests pass. Browser checks cover pixel periodicity, arrangement
+changes, raster source replacement, Make Unique undo/redo, source-draft Cancel,
+offline browser save/reopen, mirrored ghost dragging, and no history-bypass
+warnings. The latest escalated full gate is not green: the shared checkout has
+an unrelated whole-tree format error in `packages/editor/src/editor.css` and
+the combined E2E typecheck step exited without a diagnostic. The standalone
+E2E typecheck immediately afterward passed; the full Vitest and Cargo lanes
+were not reached. The architecture audit reported 14 distinct cycles, 76
+unstable modules, and existing Shell/Menubar/context import-budget overruns,
+with no layer violations. Exact commands and earlier attempts are recorded in
+the validation report.
 
 ## Remaining scope
 
-No contextual canvas motif-edit session, neighbor ghost hit mapping, session
-Cancel, raster seam synthesis or wraparound painting, Expand-to-objects, or
-shared page-origin mode is implemented. Raster offset inspection is present
-but only repositions existing texels. The three
-requested rich real-world design documents,
-offline real-app save/reopen, native Tauri/physical touch validation, and dense
-repeat performance measurements remain unverified. These gaps are listed in
-the validation report and must remain visible in user-facing status copy.
+The source editor supports top-level motif selection, ghost-copy hit mapping,
+translation/rotation, and draft Cancel/Done in the inspector. A contextual
+canvas editing session with normal path, nested-child, text, paint, and raster
+tools remains unimplemented. Raster offset inspection repositions existing
+texels; it does not synthesize seams or enable wraparound painting. Finite
+Expand-to-objects remains unimplemented. Document/page alignment now works in
+browser replay and the Rust bridge; PDF warns and omits that mode. The
+three requested rich real-world design documents, dense-repeat performance
+measurements, and native Tauri/physical-touch validation remain unverified.
+Browser offline save/reopen is covered; native offline persistence is not.
+Keep these limits visible in user-facing status copy.

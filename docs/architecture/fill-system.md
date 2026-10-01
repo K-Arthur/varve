@@ -98,7 +98,7 @@ identically.
 The Rust engine does not tile patterns — it is a pass-through for fills, and
 the TypeScript replayer owns the lattice. That makes the **wire type** load
 `IpcEnginePatternFillData` must carry `gapX`/`gapY`/`arrangement`/`rowShift`/`columnShift`/
-`mirrorX`/`mirrorY`/`offsetX`/`offsetY`, or the browser's WASM IR path silently
+`mirrorX`/`mirrorY`/`offsetX`/`offsetY`/`alignment`, or the browser's WASM IR path silently
 renders a plain grid while the Inspector preview shows the arrangement. Every
 new field is optional and skipped when absent, so pre-v2.32 IR stays
 byte-identical. `crates/varve-bridge` tests
@@ -117,11 +117,14 @@ Rules the evaluator enforces:
   sub-pixel period over a huge shape cannot launch an unbounded loop. When the
   renderer's explicit walk reaches that budget, it skips the partial field,
   paints a warning hatch, and logs one bounded diagnostic for the lattice.
-- `offsetX`/`offsetY` are the lattice phase **inside the object's own
-  coordinate space** (the object's bounds are the anchor), so the pattern
-  follows the object and camera pan/zoom can never change authored phase.
-  Document-origin (shared across adjacent objects) alignment is **not**
-  implemented yet.
+- `offsetX`/`offsetY` are the lattice phase in the selected alignment space.
+  `alignment: 'object'` (the legacy default) anchors the repeat to object
+  bounds. `alignment: 'document'` anchors it to the shared document origin so
+  adjacent objects keep the same phase. Replay temporarily cancels the item's
+  invertible affine transform for that fill only; the original shape clip is
+  retained. Document-aligned rotation turns the shared lattice around the
+  document origin, while object-aligned rotation remains centred on the object.
+  Camera pan/zoom never changes authored phase.
 
 Rendering: a zero-gap lattice is a pure linear map of the tile, so it uses a
 single `createPattern` fill — including the independent half-drop and brick
@@ -352,8 +355,12 @@ original source containing the bytes is required for the old pixels to return.
 - **Shared definition settings and per-fill placement are separate controls.**
   The Pattern Library edits the shared definition name, cell dimensions,
   gaps, arrangement, and mirror state. Fill placement remains independent.
-  A shared page-origin mode is not implemented; phase is anchored to each
-  object's own bounds, so adjacent objects cannot yet share one lattice origin.
+  Per-fill placement exposes **Object** and **Document/page** alignment.
+  Document alignment is preserved through the browser replay and native bridge,
+  uses the document origin for phase and rotation, and has translated-object IR
+  and renderer regressions. PDF currently warns and omits this mode; the native
+  SVG pattern writer uses the export compositor with a fidelity warning because
+  its vector pattern branch remains object-space-only.
 - The shared evaluator currently supports grid, column-offset half-drop, and
   row-offset brick layouts, plus mirror flags. It does not implement a hex or
   general staggered lattice. Mirror and shifted repeats render in Varve, but
@@ -388,7 +395,7 @@ original source containing the bytes is required for the old pixels to return.
   opacity; PDF/X-4 preserves alpha and opacity; PDF/X-1a converts opaque RGB
   tile samples to CMYK. PDF/X-1a omits transparent tiles or non-opaque fills
   with an explicit warning. Shifted arrangements, mirrors, phase offsets,
-  rotation, and negative gaps are omitted with a PDF warning rather than
+  rotation, document alignment, and negative gaps are omitted with a PDF warning rather than
   approximated. The print renderer also omits a fill when its estimated tile
   count exceeds 100,000. The Rust print renderer omits missing sources with a
   warning comment and never represents them as a gray rectangle. Before the

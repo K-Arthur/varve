@@ -792,12 +792,14 @@ function FillRow({
         arrangement: pattern?.arrangement ?? definition?.repeat.arrangement ?? 'grid',
         mirrorX: pattern?.mirrorX ?? definition?.repeat.mirrorX ?? false,
         mirrorY: pattern?.mirrorY ?? definition?.repeat.mirrorY ?? false,
+        alignment: pattern?.alignment ?? 'object',
       };
     };
     return {
       arrangement: isMixed(commonValue(nodes, (node) => read(node).arrangement)),
       mirrorX: isMixed(commonValue(nodes, (node) => read(node).mirrorX)),
       mirrorY: isMixed(commonValue(nodes, (node) => read(node).mirrorY)),
+      alignment: isMixed(commonValue(nodes, (node) => read(node).alignment)),
     };
   }, [editor.state.document, fill.type, index, nodes, typeIsMixed]);
   const patternSourceMixed = useMemo(() => {

@@ -1589,7 +1589,7 @@ function paintFill(target: ReplayTarget, fill: FillIR, item: RenderItem): void {
       target.beginPath();
       traceOutline(target, item.primitive);
       target.clip();
-      paintPatternFill(target, fill, primitiveBounds(item.primitive));
+      paintPatternFill(target, fill, primitiveBounds(item.primitive), item.transform);
     } finally {
       target.restore();
     }

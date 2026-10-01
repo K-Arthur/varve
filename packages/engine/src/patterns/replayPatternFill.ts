@@ -36,6 +36,78 @@ export function paintPatternFill(
   target: ReplayTarget,
   fill: Extract<FillIR, { type: 'pattern' }>,
   bounds: PatternPaintBounds,
+  itemTransform: PatternAffine = [1, 0, 0, 1, 0, 0],
+): void {
+  if (fill.alignment !== 'document') {
+    paintPatternField(target, fill, bounds, false);
+    return;
+  }
+
+  const inverse = invertPatternAffine(itemTransform);
+  const documentBounds = transformPatternBounds(bounds, itemTransform);
+  if (!inverse || !documentBounds) {
+    console.warn(
+      '[Varve] Document-aligned pattern needs a finite, invertible object transform. The fill is marked with a warning hatch.',
+    );
+    paintPatternOverflowWarning(target, bounds.x, bounds.y, bounds.w || 1, bounds.h || 1);
+    return;
+  }
+
+  // replayIr has already applied the item transform. Cancel it for this fill
+  // so tile size, phase, and rotation use shared document coordinates while
+  // the already-established shape clip remains unchanged.
+  target.save();
+  try {
+    target.transform(...inverse);
+    paintPatternField(target, fill, documentBounds, true);
+  } finally {
+    target.restore();
+  }
+}
+
+function invertPatternAffine(matrix: PatternAffine): PatternAffine | null {
+  const [a, b, c, d, e, f] = matrix;
+  const determinant = a * d - b * c;
+  if (!Number.isFinite(determinant) || determinant === 0) return null;
+  const inverse: PatternAffine = [
+    d / determinant,
+    -b / determinant,
+    -c / determinant,
+    a / determinant,
+    (c * f - d * e) / determinant,
+    (b * e - a * f) / determinant,
+  ];
+  return inverse.every(Number.isFinite) ? inverse : null;
+}
+
+function transformPatternBounds(
+  bounds: PatternPaintBounds,
+  matrix: PatternAffine,
+): PatternPaintBounds | null {
+  const corners = [
+    [bounds.x, bounds.y],
+    [bounds.x + bounds.w, bounds.y],
+    [bounds.x + bounds.w, bounds.y + bounds.h],
+    [bounds.x, bounds.y + bounds.h],
+  ].map(([x, y]) => [
+    matrix[0] * (x ?? 0) + matrix[2] * (y ?? 0) + matrix[4],
+    matrix[1] * (x ?? 0) + matrix[3] * (y ?? 0) + matrix[5],
+  ]);
+  if (corners.some(([x, y]) => !Number.isFinite(x) || !Number.isFinite(y))) return null;
+  const xs = corners.map(([x]) => x as number);
+  const ys = corners.map(([, y]) => y as number);
+  const minX = Math.min(...xs);
+  const minY = Math.min(...ys);
+  const maxX = Math.max(...xs);
+  const maxY = Math.max(...ys);
+  return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+}
+
+function paintPatternField(
+  target: ReplayTarget,
+  fill: Extract<FillIR, { type: 'pattern' }>,
+  bounds: PatternPaintBounds,
+  documentAligned: boolean,
 ): void {
   const bw = bounds.w || 1;
   const bh = bounds.h || 1;
@@ -58,9 +130,9 @@ export function paintPatternFill(
   const imageHeight = fill.imageHeight ?? tileImage.naturalHeight;
 
   // Resolve the repeat through the shared contract (`@varve/shared`
-  // `patternRepeat`). The lattice phase is anchored to the object's bounds so
-  // the pattern follows the object; an authored offset shifts it within that
-  // anchor. Camera pan/zoom is never an input, so it can never change phase.
+  // `patternRepeat`). Object alignment anchors the phase to object bounds;
+  // document alignment is evaluated after rebasing into document coordinates.
+  // Camera pan/zoom is never an input, so it can never change authored phase.
   const params: PatternRepeatParams = {
     tileWidth: imageWidth,
     tileHeight: imageHeight,
@@ -71,8 +143,12 @@ export function paintPatternFill(
     columnShift: fill.columnShift,
     mirrorX: fill.mirrorX,
     mirrorY: fill.mirrorY,
-    offsetX: bounds.x + (Number.isFinite(fill.offsetX) ? (fill.offsetX as number) : 0),
-    offsetY: bounds.y + (Number.isFinite(fill.offsetY) ? (fill.offsetY as number) : 0),
+    offsetX:
+      (documentAligned ? 0 : bounds.x) +
+      (Number.isFinite(fill.offsetX) ? (fill.offsetX as number) : 0),
+    offsetY:
+      (documentAligned ? 0 : bounds.y) +
+      (Number.isFinite(fill.offsetY) ? (fill.offsetY as number) : 0),
   };
   const lattice = resolvePatternLattice(params);
   if (!lattice) {
@@ -84,11 +160,12 @@ export function paintPatternFill(
   const radians = Number.isFinite(fill.rotation) ? (fill.rotation * Math.PI) / 180 : 0;
   const cosine = Math.cos(radians);
   const sine = Math.sin(radians);
-  const centerX = bounds.x + bw / 2;
-  const centerY = bounds.y + bh / 2;
+  const centerX = documentAligned ? 0 : bounds.x + bw / 2;
+  const centerY = documentAligned ? 0 : bounds.y + bh / 2;
 
-  // Rotation about the object centre, applied once to the target. The tile
-  // walk below then works in the unrotated pattern space.
+  // Object-aligned rotation uses the object centre. A document-aligned
+  // rotation turns the shared lattice around the document origin, so adjacent
+  // fills with the same rotation retain the same phase.
   const rotationMatrix: PatternAffine = [
     cosine,
     sine,

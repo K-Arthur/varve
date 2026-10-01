@@ -685,3 +685,79 @@ clean full gate.
 
 Command: VARVE_FULL_GATE_REASON="Pattern source-edit hit testing, repeat-lattice interaction, and cross-package pattern contracts require the mandated final gate; the shared master checkout also includes unrelated workspace/toolchain changes." pnpm verify:full
 Result: exit 1. Standalone pnpm typecheck:e2e immediately afterward: passed.
+
+## Document/page alignment slice (2026-10-01)
+
+Added a per-fill Object versus Document/page alignment control. Document/page
+alignment removes the target object's affine transform for pattern evaluation,
+so phase and rotation use the shared document origin; shape clipping remains in
+place. The engine IR, browser WASM bridge, Rust print IR, and PDF unsupported
+layout warning all carry the explicit alignment field. Updated the feature page,
+pattern guide, fill architecture and research ledger. PDF warns and omits
+document-aligned patterns; SVG's existing compositor fallback warns and rasterizes
+unsupported alignment cases.
+
+Focused and visual validation:
+
+```text
+pnpm verify:plan
+  491 changed shared-tree paths; selected 11 JS packages and Rust
+  varve-print/varve-bridge/varve-core; FULL-SUITE ESCALATION: YES.
+
+pnpm verify:affected
+  Exited 2 after reporting the escalation and requiring pnpm verify:full.
+
+pnpm exec vitest run packages/engine/src/replay-pattern-repeat.test.ts
+  Passed: 1 file, 12 tests, including translation and rotation/nonuniform-scale
+  document-coordinate rebasing.
+
+pnpm exec biome check packages/engine/src/replay-pattern-repeat.test.ts packages/editor/src/components/Inspector/sections/PatternFillControls.tsx packages/editor/src/components/Inspector/sections/PatternFillControls.test.tsx packages/editor/src/render/__tests__/patternArrangement.test.ts tests/e2e/canvas/pattern-document-alignment.spec.ts
+  Passed: 5 files.
+
+cargo test -p varve-bridge pattern_repeat_wire_tests::pattern_repeat_fields_survive_the_bridge --lib
+  Passed: 1 Rust test.
+
+cargo test -p varve-print --lib render_fills_pattern_with_rotation_and_document_alignment_reports_unsupported_layout
+  Passed: 1 Rust test.
+
+pnpm typecheck:e2e
+  Passed standalone.
+
+pnpm audit:docs
+  Passed: 1,127 docs, 749 links, 178 ADRs indexed.
+
+pnpm audit:emoji
+  Passed: 5,220 files.
+
+pnpm audit:tokens
+  Passed: all 324 pairs across 3 themes; token usage clean (597 variables,
+  9 documented override hooks).
+
+pnpm --filter @varve/website build
+  Passed: Astro diagnostics reported 0 errors/warnings/hints; 116 static routes.
+
+VARVE_E2E_PORT=4179 node scripts/quality/heavy-lease.mjs "e2e: pattern document alignment with current WASM contract" -- npx playwright test tests/e2e/canvas/pattern-document-alignment.spec.ts --project=chromium --workers=1 --reporter=list
+  Passed: 1 Chromium workflow in 28.9s. The UI control changed the live canvas
+  pixels; screenshot: ../screenshots/pattern-system-2026-09-30/app-document-alignment.png.
+
+Built-site captures used a local static preview on port 4387. Inspected the
+desktop feature page, mobile feature page, and desktop guide; no clipping or
+horizontal overflow was visible. Captures:
+../screenshots/pattern-system-2026-09-30/feature-document-alignment-2026-10-01-desktop.png,
+../screenshots/pattern-system-2026-09-30/feature-document-alignment-2026-10-01-mobile.png,
+and ../screenshots/pattern-system-2026-09-30/guide-document-alignment-2026-10-01-desktop.png.
+The app screenshot shows the Document/page control and the changed repeat field.
+
+node scripts/audit-architecture.mjs --ci
+  Reported 14 dependency cycles, 76 unstable modules, and existing hub budget
+  overruns (Shell, Menubar, context); no layer violations. These findings are
+  outside this slice.
+
+VARVE_FULL_GATE_REASON="Pattern document-alignment contract crosses scene, engine replay, Rust bridge, print export, and browser UI; the shared master checkout also carries workspace-wide changes selected by the planner." pnpm verify:full
+  Exited 1. The full-tree formatter found the unrelated existing
+  packages/editor/src/editor.css format difference; the architecture audit
+  reported the existing cycle/instability ceilings. All 20 workspace package
+  typechecks passed, but the combined E2E typecheck exited without a
+  diagnostic (the standalone E2E typecheck passed immediately afterward).
+  Full Vitest and Cargo suites were not reached.
+```

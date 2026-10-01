@@ -199,6 +199,9 @@ pub struct IpcEnginePatternFillData {
     pub offset_x: Option<f64>,
     #[serde(default, rename = "offsetY")]
     pub offset_y: Option<f64>,
+    /// Pattern phase follows object bounds or the shared document origin.
+    #[serde(default)]
+    pub alignment: Option<String>,
 }
 
 /// TypeScript `@varve/engine` EngineFill shape (nested variant data).
@@ -314,6 +317,7 @@ impl IpcEngineFill {
                 mirror_y: pattern.mirror_y,
                 offset_x: pattern.offset_x,
                 offset_y: pattern.offset_y,
+                alignment: pattern.alignment,
                 opacity,
                 blend_mode,
                 visible,
@@ -975,7 +979,8 @@ mod pattern_repeat_wire_tests {
                     "mirrorX": true,
                     "mirrorY": false,
                     "offsetX": -3.5,
-                    "offsetY": 7.125
+                    "offsetY": 7.125,
+                    "alignment": "document"
                 },
                 "opacity": 1.0,
                 "blendMode": "normal",
@@ -998,6 +1003,7 @@ mod pattern_repeat_wire_tests {
             mirror_y,
             offset_x,
             offset_y,
+            alignment,
             ..
         } = &fills[0]
         else {
@@ -1012,6 +1018,7 @@ mod pattern_repeat_wire_tests {
         assert_eq!(*mirror_y, Some(false));
         assert_eq!(*offset_x, Some(-3.5));
         assert_eq!(*offset_y, Some(7.125));
+        assert_eq!(alignment.as_deref(), Some("document"));
 
         // And back out to the JSON the webview consumes.
         let wire = serde_json::to_value(&fills[0]).expect("serialize fill");
@@ -1020,6 +1027,7 @@ mod pattern_repeat_wire_tests {
         assert_eq!(wire["gapX"], 4.5);
         assert_eq!(wire["mirrorX"], true);
         assert_eq!(wire["offsetY"], 7.125);
+        assert_eq!(wire["alignment"], "document");
     }
 
     #[test]

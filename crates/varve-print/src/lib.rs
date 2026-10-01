@@ -1683,6 +1683,7 @@ fn render_fills(
                         mirror_y,
                         offset_x,
                         offset_y,
+                        alignment,
                         opacity,
                         blend_mode: _,
                         visible: _,
@@ -1721,6 +1722,9 @@ fn render_fills(
                                     || mirror_y.unwrap_or(false)
                                     || offset_x.unwrap_or(0.0) != 0.0
                                     || offset_y.unwrap_or(0.0) != 0.0
+                                    || alignment
+                                        .as_deref()
+                                        .is_some_and(|value| value != "object")
                                     || gap_x < 0.0
                                     || gap_y < 0.0
                                     || *rotation != 0.0;
@@ -4348,6 +4352,7 @@ mod tests {
             mirror_y: None,
             offset_x: None,
             offset_y: None,
+            alignment: None,
             opacity: 1.0,
             blend_mode: BlendMode::Normal,
             visible: true,
@@ -4382,6 +4387,7 @@ mod tests {
             mirror_y: None,
             offset_x: None,
             offset_y: None,
+            alignment: None,
             opacity: 0.75,
             blend_mode: BlendMode::Normal,
             visible: true,
@@ -4428,6 +4434,7 @@ mod tests {
             mirror_y: None,
             offset_x: None,
             offset_y: None,
+            alignment: None,
             opacity: 0.8,
             blend_mode: BlendMode::Normal,
             visible: true,
@@ -4502,6 +4509,7 @@ mod tests {
             mirror_y: None,
             offset_x: None,
             offset_y: None,
+            alignment: None,
             opacity: 1.0,
             blend_mode: BlendMode::Normal,
             visible: true,
@@ -4556,6 +4564,7 @@ mod tests {
             mirror_y: None,
             offset_x: None,
             offset_y: None,
+            alignment: None,
             opacity: 1.0,
             blend_mode: BlendMode::Normal,
             visible: true,
@@ -4580,7 +4589,7 @@ mod tests {
     }
 
     #[test]
-    fn render_fills_pattern_with_rotation_reports_unsupported_layout() {
+    fn render_fills_pattern_with_rotation_and_document_alignment_reports_unsupported_layout() {
         use crate::resources::{ExportManifest, ImageResource, PatternResource};
 
         let manifest = ExportManifest {
@@ -4619,6 +4628,7 @@ mod tests {
             mirror_y: None,
             offset_x: None,
             offset_y: None,
+            alignment: None,
             opacity: 0.8,
             blend_mode: BlendMode::Normal,
             visible: true,
@@ -4641,6 +4651,30 @@ mod tests {
             !s.contains("/Pat"),
             "unsupported transformed layout must not be approximated: {s}"
         );
+        assert!(s.contains("WARNING: pattern layout is unsupported"), "{s}");
+
+        // PDF keeps the old object-aligned grid subset. Document alignment
+        // must fail closed until PDF can preserve the page-space phase.
+        let Some(FillIR::Pattern {
+            rotation, alignment, ..
+        }) = node.fills.as_mut().and_then(|fills| fills.first_mut())
+        else {
+            panic!("expected pattern fill");
+        };
+        *rotation = 0.0;
+        *alignment = Some("document".into());
+        let content = render_fills(
+            &node,
+            800.0,
+            false,
+            Some(&mut state),
+            Some(&manifest),
+            None,
+            None,
+            false,
+        );
+        let s = String::from_utf8_lossy(&content);
+        assert!(!s.contains("/Pat"), "document alignment must not be exported with an object-relative phase: {s}");
         assert!(s.contains("WARNING: pattern layout is unsupported"), "{s}");
     }
 
@@ -4743,6 +4777,7 @@ mod tests {
             mirror_y: None,
             offset_x: None,
             offset_y: None,
+            alignment: None,
             opacity: 0.8,
             blend_mode: BlendMode::Normal,
             visible: true,

@@ -102,24 +102,27 @@ import { sitePath } from '../../lib/siteUrl';
         <p class="eyebrow">Current boundaries</p>
         <h2 id="limits-title">Vector source editing is compact; raster repair and some output paths remain limited.</h2>
         <p>
-          The current UI creates, lists, applies, and makes definitions unique; definition settings
-          can change the shared cell size and repeat arrangement. A library source can be replaced
-          with an imported raster tile, which updates every linked use; make a fill unique first
-          when only one use should change. For vector definitions, Edit source motifs opens a
-          cancelable draft where top-level copied motifs can be selected and moved from any visible
-          repeated preview copy, then adjusted with numeric translation or rotation controls. A
-          drag across a tile edge maps back to the same source motif; Done updates linked uses as
-          one history action. It does not yet edit nested children, vector points, text content,
-          paint, or raster pixels, and is not a full canvas tool session. Raster seam inspection can cyclically offset existing
-          pixels into a new embedded PNG (up to 16 megapixels); it does not invent edge content or
-          support wraparound painting. Shared page-origin alignment and finite expansion are not
-          available here. Export Tile saves
-          one source cell; Export Supertile saves the full rectangular period for grid and conventional
-          half-drop or brick repeats with mirror parity. Applied-fill SVG keeps supported
-          linked grid patterns as reusable vector pattern definitions; unsupported cases use a
-          raster fallback with a warning. PDF currently supports axis-aligned grids with positive
-          gaps and reports unsupported transforms. PDF/X-1a omits transparent tiles or fills with
-          non-opaque opacity.
+          Create, apply, rename, and make definitions unique from the Pattern Library. Definition
+          settings control shared cell size and repeat arrangement. A linked fill keeps its own
+          scale, phase, rotation, and Object or Document/page alignment. Choose Make unique before
+          changing one use independently.
+        </p>
+        <p>
+          Vector source editing is a cancelable draft for copied top-level motifs: select and move a
+          motif from any visible repeat copy, including across a tile edge, or use numeric
+          translation and rotation. Done updates linked fills as one history action. The compact
+          editor does not yet edit nested children, vector points, text, paint, or raster pixels;
+          normal canvas tools are not available in this source-edit session.
+        </p>
+        <p>
+          Raster seam inspection cyclically offsets existing pixels into a new embedded PNG (up to
+          16 megapixels). It does not invent edge content or support wraparound painting. Export Tile
+          saves one source cell; Export Supertile saves tested rectangular periods for grid and
+          conventional half-drop or brick repeats with mirror parity. Applied-fill SVG uses
+          reusable vector patterns for supported linked grid fills and warns when it falls back to
+          raster. PDF supports axis-aligned grids with positive gaps and warns on unsupported
+          transforms; PDF/X-1a omits transparent tiles or fills with non-opaque opacity. Finite
+          expansion is not available.
         </p>
         <a href={sitePath('/docs/tools/patterns')}>Read the pattern workflow and limits →</a>
       </aside>

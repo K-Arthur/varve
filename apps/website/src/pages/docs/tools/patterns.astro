@@ -79,14 +79,15 @@ import '../../../styles/docs-prose.css';
         <ul>
           <li><strong>Tile width</strong> and <strong>Tile height</strong> scale this fill’s tile.</li>
           <li><strong>Phase across</strong> and <strong>Phase down</strong> shift this fill’s repeat origin.</li>
-          <li><strong>Rotation</strong> turns this fill’s pattern field about the object centre.</li>
+          <li><strong>Pattern alignment</strong> anchors the repeat to the object or document/page origin.</li>
+          <li><strong>Rotation</strong> turns the field about the selected alignment origin.</li>
         </ul>
         <p>
           For a definition linked from the library, its source and repeat geometry are shared; the
           placement fields above belong to the selected fill. The library’s definition settings
           edit the shared repeat arrangement. Half-drop offsets columns vertically; brick shifts
-          rows horizontally. The current UI does not yet provide a shared page-origin alignment
-          mode.
+          rows horizontally. Document/page alignment shares a phase across adjacent objects; PDF
+          currently warns and omits this mode because its pattern path remains object-aligned.
         </p>
       </section>
 

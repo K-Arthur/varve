@@ -319,6 +319,9 @@ pub enum FillIR {
         offset_x: Option<f64>,
         #[serde(default, skip_serializing_if = "Option::is_none", rename = "offsetY")]
         offset_y: Option<f64>,
+        /// Pattern phase follows the object bounds or shared document origin.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        alignment: Option<String>,
         opacity: f64,
         #[serde(rename = "blendMode")]
         blend_mode: BlendMode,

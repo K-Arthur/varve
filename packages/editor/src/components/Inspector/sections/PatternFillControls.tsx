@@ -14,7 +14,8 @@
  * - **gap** — empty space between tile copies;
  * - **row shift** — how far every other row slides sideways;
  * - **phase** — where the lattice origin sits;
- * - **rotation** — the whole pattern field, about the object centre.
+ * - **alignment** — whether the lattice follows the object or document origin;
+ * - **rotation** — the whole pattern field, about its selected alignment origin.
  *
  * Research basis: Adobe Illustrator "Create and apply patterns" (artwork → tile,
  * tile vs art bounds, shared swatch editing); the fill system contract in
@@ -62,7 +63,12 @@ export function PatternFillControls({
   onFieldDelta?: (field: PatternNumericField, delta: number) => void;
   onPatternPatch?: (patch: Partial<PatternFillData>) => void;
   allowDetach?: boolean;
-  mixedRepeatSettings?: { arrangement?: boolean; mirrorX?: boolean; mirrorY?: boolean };
+  mixedRepeatSettings?: {
+    arrangement?: boolean;
+    mirrorX?: boolean;
+    mirrorY?: boolean;
+    alignment?: boolean;
+  };
 }) {
   const linkedDefinition = definition?.id === pattern.definitionId ? definition : undefined;
   const resolvedPattern = linkedDefinition
@@ -547,6 +553,19 @@ export function PatternFillControls({
           />
         </>
       )}
+      <Select
+        label="Pattern alignment"
+        value={mixedRepeatSettings?.alignment ? '' : (pattern.alignment ?? 'object')}
+        placeholder={mixedRepeatSettings?.alignment ? 'Mixed' : undefined}
+        options={[
+          ...(mixedRepeatSettings?.alignment
+            ? [{ value: '', label: 'Mixed', disabled: true }]
+            : []),
+          { value: 'object', label: 'Object' },
+          { value: 'document', label: 'Document/page' },
+        ]}
+        onValueChange={(value) => patch({ alignment: value as PatternFillData['alignment'] })}
+      />
       <NumberField
         label="Phase across"
         labelWrap
@@ -603,8 +622,8 @@ export function PatternFillControls({
       )}
       <p className="insp-hint" role="note">
         {linkedDefinition
-          ? 'Tile width and height scale this fill independently; phase shifts this fill and rotation turns its pattern field about the object centre.'
-          : 'Arrangement, gaps and phase change this fill’s lattice. Tile width and height scale the placed raster; rotation turns the pattern field about the object centre.'}
+          ? `Tile width and height scale this fill independently; phase shifts this fill. Rotation turns the lattice about the ${resolvedPattern.alignment === 'document' ? 'document origin' : 'object centre'}.`
+          : `Arrangement, gaps and phase change this fill’s lattice. Tile width and height scale the placed raster; rotation turns the field about the ${resolvedPattern.alignment === 'document' ? 'document origin' : 'object centre'}.`}
       </p>
     </div>
   );

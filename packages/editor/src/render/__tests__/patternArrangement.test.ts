@@ -27,6 +27,7 @@ describe('pattern arrangement through the IR', () => {
                 gapY: 2,
                 offsetX: 3,
                 mirrorX: true,
+                alignment: 'document',
               },
               opacity: 1,
               blendMode: 'normal',
@@ -46,6 +47,7 @@ describe('pattern arrangement through the IR', () => {
       gapY: 2,
       offsetX: 3,
       mirrorX: true,
+      alignment: 'document',
     });
   });
 });

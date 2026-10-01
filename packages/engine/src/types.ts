@@ -603,6 +603,8 @@ export interface EnginePatternFillData {
   /** Authored lattice phase in px. */
   offsetX?: number;
   offsetY?: number;
+  /** Whether the repeat follows object bounds or the shared document origin. */
+  alignment?: 'object' | 'document';
 }
 
 /**
@@ -1777,6 +1779,8 @@ export type FillIR =
       /** Authored lattice phase in px. */
       offsetX?: number;
       offsetY?: number;
+      /** Whether the repeat follows object bounds or the shared document origin. */
+      alignment?: 'object' | 'document';
       opacity: number;
       blendMode: BlendMode;
       visible: boolean;

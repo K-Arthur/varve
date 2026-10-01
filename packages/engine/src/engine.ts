@@ -377,6 +377,7 @@ function stubEngine(): Engine {
                   mirrorY: f.pattern.mirrorY,
                   offsetX: f.pattern.offsetX,
                   offsetY: f.pattern.offsetY,
+                  alignment: f.pattern.alignment,
                   opacity: f.opacity,
                   blendMode: f.blendMode,
                   visible: f.visible,
