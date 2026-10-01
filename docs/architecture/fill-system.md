@@ -380,9 +380,13 @@ original source containing the bytes is required for the old pixels to return.
   with an explicit warning. Shifted arrangements, mirrors, phase offsets,
   rotation, and negative gaps are omitted with a PDF warning rather than
   approximated. The print renderer also omits a fill when its estimated tile
-  count exceeds 100,000. Missing sources are omitted with a warning; they are
-  never represented by a gray rectangle. These boundaries are covered by
-  `printImageManifest.test.ts` and `varve-print` pattern export tests.
+  count exceeds 100,000. The Rust print renderer omits missing sources with a
+  warning comment and never represents them as a gray rectangle. Before the
+  editor invokes the PDF or PDF/X pipeline, it rejects any visible pattern
+  fill with no resolved tile source and reports which source must be replaced
+  or reimported; this prevents a valid-looking file with missing artwork.
+  Resource detection is covered by `printImageManifest.test.ts`, the PDF/X
+  export-service test, and `varve-print` pattern export tests.
 - SVG node export emits a native `<pattern>` for the supported linked-grid
   subset above. Unsupported SVG cases use the export compositor's raster
   fallback with a fidelity warning. Other generated code targets continue to
@@ -390,8 +394,9 @@ original source containing the bytes is required for the old pixels to return.
   pattern branch.
 - The Canvas2D editor preview can show its translucent load-fallback grey
   while a tile decodes; a tile that fails to decode stays grey by design
-  (`ImageLoadError` state). PDF export does not reuse that placeholder as
-  final artwork: a missing tile is omitted and reported in the PDF content.
+  (`ImageLoadError` state). PDF/PDF-X export stops before writing when a
+  visible tile source is missing. The lower-level Rust print renderer also
+  omits a missing resource with a warning comment as a defensive fallback.
 - A procedural tile is generated at its own resolution; scaling it up via
   `imageWidth`/`imageHeight` resamples the raster rather than regenerating at
   the higher resolution.

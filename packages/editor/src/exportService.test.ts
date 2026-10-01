@@ -6,6 +6,7 @@ import {
   type ExportJob,
   makeFrameNode,
   makeShapeNode,
+  patternFill,
 } from '@varve/scene';
 import { describe, expect, it, vi } from 'vitest';
 import {
@@ -369,6 +370,40 @@ describe('ExportService', () => {
       expect(options).toHaveProperty('includeCropMarks');
       expect(options).toHaveProperty('bleedMm');
       expect(args.page_height).toBe(100);
+    } finally {
+      (window as unknown as Record<string, unknown>).__TAURI__ = undefined;
+    }
+  });
+
+  it('fails PDF/X when a visible pattern has no source instead of exporting missing artwork', async () => {
+    const node = {
+      ...makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 200, h: 100 }, { name: 'Print' }),
+      fills: [
+        patternFill('', { definitionId: 'missing-pattern', imageWidth: 16, imageHeight: 16 }),
+      ],
+    };
+    const doc = { ...createDocument('Doc', true), rootChildren: ['n1'], nodes: { n1: node } };
+    const invoke = vi.fn(async () => [0x25, 0x50, 0x44, 0x46]);
+    (window as unknown as Record<string, unknown>).__TAURI__ = { core: { invoke } };
+
+    try {
+      const batch = {
+        ...svgBatch('n1'),
+        jobs: [
+          {
+            ...svgBatch('n1').jobs[0]!,
+            format: 'pdf-x4' as const,
+            fileName: 'Print.pdf',
+            dimensions: { w: 200, h: 100 },
+          },
+        ],
+      };
+
+      const report = await ExportService.run(batch, { document: doc }, undefined, 'tauri');
+
+      expect(report.failureCount).toBe(1);
+      expect(report.files[0]?.error).toMatch(/pattern.*no tile source/i);
+      expect(invoke).not.toHaveBeenCalled();
     } finally {
       (window as unknown as Record<string, unknown>).__TAURI__ = undefined;
     }

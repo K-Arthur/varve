@@ -187,3 +187,25 @@ export function collectImageFillSrcs(
   }
   return srcs;
 }
+
+/** Count visible pattern fills whose resolved raster tile source is absent. */
+export function countPatternFillsWithoutTileSource(
+  nodes: readonly {
+    fills?: readonly {
+      type?: string;
+      visible?: boolean;
+      pattern?: { tileSrc?: string };
+      tileSrc?: string;
+    }[];
+  }[],
+): number {
+  let missing = 0;
+  for (const node of nodes) {
+    for (const fill of node.fills ?? []) {
+      if (fill.type !== 'pattern' || fill.visible === false) continue;
+      const tileSrc = fill.pattern?.tileSrc ?? fill.tileSrc;
+      if (!tileSrc?.trim()) missing += 1;
+    }
+  }
+  return missing;
+}

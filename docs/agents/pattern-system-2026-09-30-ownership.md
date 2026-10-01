@@ -50,6 +50,9 @@ path or alter the shared index. Hub files remain outside the pattern scope.
   up to 16 megapixels. It writes a new PNG from the original texels and changes
   linked uses of that definition; it does not synthesize edge content or
   enable wraparound painting.
+- PDF and PDF/X preflight stops when a visible pattern fill has no resolved
+  tile source. The Rust print renderer still omits missing resources with a
+  warning comment as a defensive fallback; it never substitutes gray artwork.
 - The research ledger links versioned primary documentation and firsthand
   issue reports to product decisions and acceptance checks. Competitor reports
   are regression leads, not Varve defects.

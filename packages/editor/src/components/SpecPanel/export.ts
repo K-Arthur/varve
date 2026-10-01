@@ -50,6 +50,7 @@ import {
   buildPrintImageManifestForSrcs,
   buildPrintImageManifestFromPngBlob,
   collectImageFillSrcs,
+  countPatternFillsWithoutTileSource,
 } from '../../export/printImageManifest';
 import { failureWarning, settleEngineImageResources } from '../../export/resourceReadiness';
 import {
@@ -805,6 +806,8 @@ export async function exportNodeAsPdf(
   eng?: Engine,
 ): Promise<{ bytes: Uint8Array; filename: string }> {
   ({ node, document: doc } = prepareArtworkExport(node, doc));
+  const subtree = flattenSceneToEngine(doc, [node.id]);
+  assertPdfPatternSources(subtree.nodes, 'PDF');
   // ── Decision: vector vs raster path ──────────────────────────────────
   // The Rust print engine (strata-print) handles solid fills, strokes,
   // and basic shapes natively. Everything else falls back to a rasterized
@@ -835,7 +838,6 @@ export async function exportNodeAsPdf(
   }
 
   // ── Vector path (pure solid-fill shapes, no effects) ─────────────────
-  const subtree = flattenSceneToEngine(doc, [node.id]);
   const fontRequests = collectEngineFonts(subtree.nodes);
   await awaitExportsReady(fontRequests);
 
@@ -941,6 +943,7 @@ export async function exportNodeAsPdfX(
   }
 
   const subtree = flattenSceneToEngine(doc, [node.id]);
+  assertPdfPatternSources(subtree.nodes, standard === 'pdf-x1a' ? 'PDF/X-1a' : 'PDF/X-4');
   const fontRequests = collectEngineFonts(subtree.nodes);
   await awaitExportsReady(fontRequests);
 
@@ -1006,4 +1009,16 @@ export async function exportNodeAsPdfX(
   })) as number[];
 
   return { bytes: new Uint8Array(bytes), filename: buildFilename(node.name, 'pdf') };
+}
+
+function assertPdfPatternSources(
+  nodes: Parameters<typeof countPatternFillsWithoutTileSource>[0],
+  format: 'PDF' | 'PDF/X-1a' | 'PDF/X-4',
+): void {
+  const count = countPatternFillsWithoutTileSource(nodes);
+  if (count === 0) return;
+  const fillLabel = count === 1 ? 'pattern fill has' : 'pattern fills have';
+  throw new Error(
+    `${format} export stopped: ${count} visible ${fillLabel} no tile source. Replace or reimport the missing pattern tile, then export again.`,
+  );
 }

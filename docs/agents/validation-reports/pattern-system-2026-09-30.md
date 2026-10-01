@@ -12,7 +12,10 @@ Task-owned commits on `master`:
 - `4d9dd0aed` — Pattern Library inspector settings layout.
 - `2d0d466f3` — marketing feature page and pattern workflow guide.
 - `184fd433b` — cancelable copied-vector source motif editing.
+- `302712c81` — record pattern validation evidence.
 - `e988d6462` — periodic source overhang, scoped Make Unique, and draft guards.
+- `54b9f1369` — update pattern validation report.
+- `42293a033` — raster seam inspection and cyclic offset editing.
 
 ## Delivered
 
@@ -421,3 +424,56 @@ collected.
 
 Do not describe the work as full pattern-authoring completion until these
 limitations are closed and the three design workflows pass end to end.
+
+## PDF missing-source preflight slice
+
+The editor now refuses standard PDF and PDF/X generation when any visible
+pattern fill in the flattened export subtree has no resolved tile source. The
+failure names the missing pattern source and tells the user to replace or
+reimport it. The lower-level Rust renderer retains its warning-and-omit
+fallback and does not draw a gray rectangle. This closes a misleading-success
+case where an incomplete PDF/X could previously be returned as a successful
+export.
+
+Commands for this slice:
+
+```text
+pnpm exec vitest run packages/editor/src/export/printImageManifest.test.ts packages/editor/src/exportService.test.ts
+  Passed: 2 files, 20 tests. The new PDF/X regression proves the native export
+  command is never called for a missing visible tile source.
+
+pnpm --filter @varve/editor typecheck
+  Passed.
+
+pnpm exec biome check packages/editor/src/export/printImageManifest.ts packages/editor/src/export/printImageManifest.test.ts packages/editor/src/components/SpecPanel/export.ts packages/editor/src/exportService.test.ts
+  Passed after applying the formatter's one-line wrap.
+
+pnpm verify:plan
+  Selected 453 dirty shared-tree paths, 11 JS packages, Rust varve-print and
+  varve-bridge, and FULL-SUITE ESCALATION: YES because of unrelated workspace,
+  toolchain, and validation-infrastructure changes.
+
+pnpm verify:affected
+  Exited 2 after printing that plan and requiring pnpm verify:full.
+
+pnpm audit:docs
+  Passed: 1,124 docs, 744 links, 178 ADRs indexed.
+
+pnpm audit:emoji
+  Passed: 5,211 files.
+
+pnpm audit:tokens
+  Passed: all 324 contrast pairs across 3 themes and token-usage scan.
+
+pnpm --filter @varve/website build
+  Passed: Astro check found 0 errors/warnings/hints; 116 static routes built.
+
+node scripts/quality/heavy-lease.mjs "pattern docs guide visual check" -- pnpm exec playwright screenshot --browser chromium --viewport-size='1280,960' --full-page --wait-for-selector='h1' http://localhost:4323/docs/tools/patterns/ docs/screenshots/pattern-system-2026-09-30/guide-export-missing-source-desktop.png
+node scripts/quality/heavy-lease.mjs "pattern docs guide mobile visual check" -- pnpm exec playwright screenshot --browser chromium --viewport-size='390,844' --full-page --wait-for-selector='h1' http://localhost:4323/docs/tools/patterns/ docs/screenshots/pattern-system-2026-09-30/guide-export-missing-source-mobile.png
+  Both captures were inspected. The updated export status wording is visible;
+  no clipping was observed at either viewport. These are local website captures.
+```
+
+This slice did not rerun the full gate. The prior full-gate attempts and the
+shared-tree lock/formatter blockers remain documented above; the plan requires
+one final full-gate attempt on the last coherent revision.

@@ -130,7 +130,9 @@ import '../../../styles/docs-prose.css';
           arrangements, sources, stacks, blends, and alignment use an export-resolution raster
           fallback with a warning. PDF supports an axis-aligned grid with positive gaps; PDF/X-1a omits transparent tiles or non-opaque fills with a warning.
           Shifted arrangements, mirror, phase, and rotation are omitted from PDF with a warning.
-          Check the output limits in the <a href={sitePath('/docs/tools/export')}>export guide</a>.
+          If a visible pattern has no resolved tile source, PDF and PDF/X export stops before
+          writing an incomplete file; replace or reimport that tile first. Check the output limits
+          in the <a href={sitePath('/docs/tools/export')}>export guide</a>.
         </p>
         <p>
           See the <a href={sitePath('/features/patterns')}>pattern feature status</a> for the current
