@@ -34,6 +34,15 @@
   width: 100%;
 }
 
+.insp-pattern-preview__canvas--editable {
+  cursor: grab;
+  touch-action: none;
+}
+
+.insp-pattern-preview__canvas--editable:active {
+  cursor: grabbing;
+}
+
 .insp-pattern-colors {
   align-items: center;
   display: flex;

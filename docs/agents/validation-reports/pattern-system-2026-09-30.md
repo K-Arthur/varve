@@ -589,3 +589,79 @@ Visual inspection
 
 The screenshot is local browser evidence, not a native Tauri capture. The final
 full-gate attempt remains required on the final coherent revision.
+
+## Repeat-ghost motif dragging
+
+The compact vector source editor now lets a user hit a visible motif copy in
+the repeated preview and drag the canonical source motif. Hit testing uses the
+shared repeat lattice, negative indices, mirror parity, motif bounds, paint
+order, and bounded candidate enumeration. A drag retains the transform of the
+copy where it began, so crossing into a mirrored neighbor does not reverse the
+pointer delta halfway through the gesture. Cancel still discards the draft.
+This remains a top-level translation/rotation editor, not a full canvas source
+session with path, nested-child, text, paint, or raster tools.
+
+```text
+pnpm exec vitest run packages/editor/src/patterns/patternSourceHitTest.test.ts packages/editor/src/patterns/patternSourceDraft.test.ts
+  Passed: 2 files, 10 tests. Hit cases cover negative indices, half-drop and
+  mirror parity, and motifs overhanging the source cell; draft tests cover
+  immutable translation, root identity, rotation, non-finite transforms,
+  rebasing unrelated document edits, and stale-revision rejection.
+
+VARVE_E2E_PORT=5373 node scripts/quality/heavy-lease.mjs "e2e: drag source motifs through mirrored repeat parity" -- npx playwright test tests/e2e/canvas/pattern-source-drag.spec.ts --project=chromium --workers=1 --reporter=list
+  Passed: 1 Chromium workflow. It creates a copied ellipse pattern, enables
+  mirrored columns, drags a negative-index repeated copy across into the next
+  mirror parity, checks the canonical source translation, and confirms Cancel
+  returns the draft to its saved value.
+
+pnpm exec biome check packages/editor/src/patterns/patternSourceHitTest.ts packages/editor/src/patterns/patternSourceHitTest.test.ts packages/editor/src/components/Inspector/sections/PatternRepeatPreview.tsx packages/editor/src/components/Inspector/sections/PatternSourceEditor.tsx packages/editor/src/components/Inspector/sections/PatternLibrarySection.css tests/e2e/canvas/pattern-source-drag.spec.ts
+  Passed: 6 files.
+
+pnpm --filter @varve/editor typecheck
+pnpm typecheck:e2e
+  Both passed.
+
+pnpm audit:docs
+  Passed: 1,127 docs, 749 links, 178 ADRs indexed.
+
+pnpm audit:emoji
+  Passed: 5,219 files.
+
+pnpm audit:tokens
+  Passed: all 324 pairs across 3 themes and the token-usage scan.
+
+pnpm audit:inspector-css
+  Passed. The audit retained its existing non-blocking raw-grid inventory,
+  including five grid-template-columns declarations in PatternLibrarySection.css.
+
+pnpm --filter @varve/website build
+  Passed: Astro check reported 0 errors, warnings, or hints; 116 static routes
+  built from 173 Astro files.
+
+node scripts/quality/heavy-lease.mjs "pattern marketing desktop visual review" -- pnpm exec playwright screenshot --browser chromium --viewport-size='1280,960' --full-page --wait-for-selector='h1' http://127.0.0.1:4331/docs/tools/patterns/ docs/screenshots/pattern-system-2026-09-30/guide-source-drag-desktop.png
+node scripts/quality/heavy-lease.mjs "pattern marketing mobile visual review" -- pnpm exec playwright screenshot --browser chromium --viewport-size='390,844' --full-page --wait-for-selector='h1' http://127.0.0.1:4331/docs/tools/patterns/ docs/screenshots/pattern-system-2026-09-30/guide-source-drag-mobile.png
+node scripts/quality/heavy-lease.mjs "pattern feature page desktop visual review" -- pnpm exec playwright screenshot --browser chromium --viewport-size='1280,960' --full-page --wait-for-selector='h1' http://127.0.0.1:4331/features/patterns/ docs/screenshots/pattern-system-2026-09-30/feature-source-drag-desktop.png
+node scripts/quality/heavy-lease.mjs "pattern feature page mobile visual review" -- pnpm exec playwright screenshot --browser chromium --viewport-size='390,844' --full-page --wait-for-selector='h1' http://127.0.0.1:4331/features/patterns/ docs/screenshots/pattern-system-2026-09-30/feature-source-drag-mobile.png
+  All captures completed from the built local site served on an isolated
+  read-only port; nothing was published. At both desktop and mobile widths,
+  the workflow/feature copy fits the page and the responsive pattern flow
+  stacks vertically. These are page captures, not a native app or device run.
+
+Visual inspection
+  Inspected app-source-ghost-drag-desktop.png at 1280×720 and
+  app-source-ghost-preview.png at 172×172. The app capture shows the selected
+  fill and source-edit guidance in the inspector; the close-up shows the
+  mirrored repeat and dashed selected source bounds. The full docs/feature
+  captures were inspected at desktop and mobile viewports; no clipping or
+  horizontal page overflow was visible.
+
+pnpm verify:plan
+  Selected 480 shared-tree paths across 11 JS packages and Rust
+  varve-print/varve-bridge; FULL-SUITE ESCALATION: YES for shared
+  workspace/toolchain/validation-infrastructure and dependency changes.
+
+pnpm verify:affected
+  Exited 2 after emitting the plan and requiring pnpm verify:full, per the
+  workspace escalation. The final full gate remains pending on the final
+  coherent revision.
+```

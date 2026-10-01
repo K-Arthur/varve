@@ -33,14 +33,17 @@ import '../../../styles/docs-prose.css';
           It leaves the original artwork in the document. The new definition is a separate source;
           changing the original selection later does not update it. Choose <strong>Edit source
           motifs</strong> on a vector definition to open a draft with a repeated preview and
-          per-motif Translation X, Translation Y, and Rotation controls. The motif list supports
-          arrow-key nudging; Done commits the shared source in one history step, and Cancel drops
-          the draft without undoing unrelated work.
+          per-motif Translation X, Translation Y, and Rotation controls. Click or drag a motif in
+          any visible repeat copy, including a dimmed neighbor, to select and move the same source
+          motif. A drag can cross the tile boundary; it updates the canonical source instead of
+          creating a second motif. The motif list supports arrow-key nudging. Done commits the
+          shared source in one history step after it is confirmed, and Cancel drops the draft
+          without undoing unrelated work.
         </p>
         <p>
           This compact editor works on top-level copied motifs. It does not yet edit path points,
-          nested children, text content, paint, or raster pixels, and it does not select a motif by
-          clicking a dimmed neighbour copy.
+          nested children, text content, paint, or raster pixels, and it is not a full canvas tool
+          session.
         </p>
       </section>
 

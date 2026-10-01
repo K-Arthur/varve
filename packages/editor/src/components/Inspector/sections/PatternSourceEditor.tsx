@@ -1,5 +1,5 @@
 import type { Document, PatternDefinition, SceneNode } from '@varve/scene';
-import { patternFillForDefinition } from '@varve/scene';
+import { nodeWorldBounds, patternFillForDefinition } from '@varve/scene';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { compilePatternPreview } from '../../../patterns/compilePatternPreview';
 import {
@@ -47,6 +47,27 @@ export function PatternSourceEditor({
   }, [document, draft]);
 
   const source = draft.source;
+  const sourceDocument = useMemo(
+    () =>
+      source.kind === 'vector'
+        ? {
+            ...document,
+            nodes: { ...document.nodes, ...source.nodes },
+            rootChildren: source.rootIds,
+          }
+        : document,
+    [document, source],
+  );
+  const sourceMotifs = useMemo(
+    () =>
+      source.kind === 'vector'
+        ? source.rootIds.flatMap((id, order) => {
+            const bounds = nodeWorldBounds(sourceDocument, id);
+            return bounds ? [{ id, ...bounds, order }] : [];
+          })
+        : [],
+    [source, sourceDocument],
+  );
   const selectedNode =
     source.kind === 'vector' && selectedRootId ? source.nodes[selectedRootId] : undefined;
   const transform = readNodeTransform(selectedNode);
@@ -164,12 +185,18 @@ export function PatternSourceEditor({
         </p>
       )}
       <p className="insp-hint">
-        Select a copied motif, then change its translation or rotation while watching the repeat
-        preview. {usageCount} linked fill{usageCount === 1 ? '' : 's'} will update when you choose
-        Done. Cancel discards this draft.
+        Click or drag a copied motif in any repeat, then use numeric fields or arrow keys for exact
+        placement. {usageCount} linked fill{usageCount === 1 ? '' : 's'} update when you choose
+        Done. Cancel discards only the draft.
       </p>
       {preview.tileSrc ? (
-        <PatternRepeatPreview pattern={patternFillForDefinition(draft, {}, preview.tileSrc)} />
+        <PatternRepeatPreview
+          pattern={patternFillForDefinition(draft, {}, preview.tileSrc)}
+          sourceMotifs={sourceMotifs}
+          selectedSourceMotifId={selectedRootId}
+          onSourceMotifSelect={setSelectedRootId}
+          onSourceMotifMove={move}
+        />
       ) : (
         <p className="insp-hint" role="alert">
           {preview.error}

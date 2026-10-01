@@ -81,13 +81,17 @@ Compiled vector source tiles include motif portions that cross the cell edge,
 enumerated with the same repeat basis and mirror parity. Their SVG preview is a
 derived cache, so a cell or repeat-lattice edit invalidates and rebuilds it;
 raster source previews remain unchanged when only the arrangement changes.
-Neighbor copies are visual only: the current source editor still selects and
-transforms canonical root motifs, not individual ghost copies.
-`patternCellAt` is
-available as an inverse-mapping utility but is not wired to canvas hit testing
-or a wraparound editing session yet. Legacy files that only carry a uniform `spacing`
-resolve to the lattice they always had (`spacing` feeds both axes when
-`gapX`/`gapY` are absent), so an old document renders identically.
+Dimmed neighbor copies in the source editor can be selected and dragged. Hit
+testing uses motif bounds and the authored lattice, including negative indices
+and mirror parity, then maps movement back to the one canonical root. A drag can
+cross a cell edge without editing a duplicate. The repeat transform of the
+copy where the drag began stays fixed for that gesture, so crossing into a
+mirrored neighbor does not reverse its movement delta. This preview interaction
+only translates top-level motifs; it is not a full canvas tool session and does
+not provide path-point, child, text, paint, or raster editing. Legacy files that
+only carry a uniform `spacing` resolve to the lattice they always had (`spacing`
+feeds both axes when `gapX`/`gapY` are absent), so an old document renders
+identically.
 
 ### The repeat geometry must survive the engine wire
 

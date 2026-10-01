@@ -100,16 +100,17 @@ import { sitePath } from '../../lib/siteUrl';
 
       <aside class="limits" aria-labelledby="limits-title">
         <p class="eyebrow">Current boundaries</p>
-        <h2 id="limits-title">Vector source editing is in progress; raster repair and some output paths remain limited.</h2>
+        <h2 id="limits-title">Vector source editing is compact; raster repair and some output paths remain limited.</h2>
         <p>
           The current UI creates, lists, applies, and makes definitions unique; definition settings
           can change the shared cell size and repeat arrangement. A library source can be replaced
           with an imported raster tile, which updates every linked use; make a fill unique first
           when only one use should change. For vector definitions, Edit source motifs opens a
-          cancelable draft where top-level copied motifs can be moved or rotated against the
-          repeated preview; Done updates linked uses as one history action. It does not yet edit
-          nested children, vector points, text content, paint, or raster pixels, and neighbour
-          copies cannot be selected directly. Raster seam inspection can cyclically offset existing
+          cancelable draft where top-level copied motifs can be selected and moved from any visible
+          repeated preview copy, then adjusted with numeric translation or rotation controls. A
+          drag across a tile edge maps back to the same source motif; Done updates linked uses as
+          one history action. It does not yet edit nested children, vector points, text content,
+          paint, or raster pixels, and is not a full canvas tool session. Raster seam inspection can cyclically offset existing
           pixels into a new embedded PNG (up to 16 megapixels); it does not invent edge content or
           support wraparound painting. Shared page-origin alignment and finite expansion are not
           available here. Export Tile saves

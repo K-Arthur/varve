@@ -24,18 +24,120 @@ import { patternRepeatParams } from '@varve/scene';
 import {
   forEachPatternInstance,
   PATTERN_ARRANGEMENT_LABELS,
+  type PatternLattice,
+  patternInstanceMatrix,
   resolvePatternLattice,
 } from '@varve/shared';
-import { useEffect, useRef, useState } from 'react';
+import type { PointerEvent as ReactPointerEvent } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import type { PatternSourceMotifBounds } from '../../../patterns/patternSourceHitTest';
+import { hitTestPatternSourceMotifs } from '../../../patterns/patternSourceHitTest';
 
 const PREVIEW_SIZE = 132;
 /** Tiles shown per axis (centred on the source cell): -1…+1 at minimum. */
 const SPAN = 3;
 
-export function PatternRepeatPreview({ pattern }: { pattern: PatternFillData }) {
+interface PatternRepeatPreviewProps {
+  pattern: PatternFillData;
+  sourceMotifs?: readonly PatternSourceMotifBounds[];
+  selectedSourceMotifId?: string | null;
+  onSourceMotifSelect?: (id: string) => void;
+  onSourceMotifMove?: (id: string, dx: number, dy: number) => void;
+}
+
+interface PreviewInteractionState {
+  lattice: PatternLattice;
+  scale: number;
+}
+
+interface ActiveSourceDrag {
+  pointerId: number;
+  id: string;
+  lastX: number;
+  lastY: number;
+  flipX: number;
+  flipY: number;
+}
+
+export function PatternRepeatPreview({
+  pattern,
+  sourceMotifs,
+  selectedSourceMotifId,
+  onSourceMotifSelect,
+  onSourceMotifMove,
+}: PatternRepeatPreviewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const interactionRef = useRef<PreviewInteractionState | null>(null);
+  const sourceDragRef = useRef<ActiveSourceDrag | null>(null);
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
+
+  const mapPreviewPoint = useCallback((event: ReactPointerEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    const interaction = interactionRef.current;
+    const bounds = canvas?.getBoundingClientRect();
+    if (!interaction || !bounds || bounds.width <= 0 || bounds.height <= 0) return null;
+    const canvasX = ((event.clientX - bounds.left) / bounds.width) * PREVIEW_SIZE;
+    const canvasY = ((event.clientY - bounds.top) / bounds.height) * PREVIEW_SIZE;
+    return {
+      x: (canvasX - PREVIEW_SIZE / 2) / interaction.scale + interaction.lattice.phaseX,
+      y: (canvasY - PREVIEW_SIZE / 2) / interaction.scale + interaction.lattice.phaseY,
+      interaction,
+    };
+  }, []);
+
+  const handlePointerDown = useCallback(
+    (event: ReactPointerEvent<HTMLCanvasElement>) => {
+      if (!sourceMotifs || !onSourceMotifMove || event.button !== 0) return;
+      const point = mapPreviewPoint(event);
+      if (!point) return;
+      const hit = hitTestPatternSourceMotifs(
+        point.interaction.lattice,
+        point.x,
+        point.y,
+        sourceMotifs,
+      );
+      if (!hit) return;
+      const matrix = patternInstanceMatrix(point.interaction.lattice, hit.i, hit.j);
+      onSourceMotifSelect?.(hit.id);
+      sourceDragRef.current = {
+        pointerId: event.pointerId,
+        id: hit.id,
+        lastX: point.x,
+        lastY: point.y,
+        flipX: matrix[0],
+        flipY: matrix[3],
+      };
+      event.currentTarget.setPointerCapture(event.pointerId);
+      event.preventDefault();
+    },
+    [mapPreviewPoint, onSourceMotifMove, onSourceMotifSelect, sourceMotifs],
+  );
+
+  const handlePointerMove = useCallback(
+    (event: ReactPointerEvent<HTMLCanvasElement>) => {
+      const drag = sourceDragRef.current;
+      if (!drag || drag.pointerId !== event.pointerId || !onSourceMotifMove) return;
+      const point = mapPreviewPoint(event);
+      if (!point) return;
+      // Keep the transform of the copy where the gesture began. Re-resolving
+      // parity after every pointer event reverses the delta at a mirror seam,
+      // which makes a continuous drag jump when it crosses into the next copy.
+      const dx = (point.x - drag.lastX) * drag.flipX;
+      const dy = (point.y - drag.lastY) * drag.flipY;
+      if (dx !== 0 || dy !== 0) onSourceMotifMove(drag.id, dx, dy);
+      sourceDragRef.current = { ...drag, lastX: point.x, lastY: point.y };
+    },
+    [mapPreviewPoint, onSourceMotifMove],
+  );
+
+  const endSourceDrag = useCallback((event: ReactPointerEvent<HTMLCanvasElement>) => {
+    if (sourceDragRef.current?.pointerId !== event.pointerId) return;
+    sourceDragRef.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  }, []);
 
   useEffect(() => {
     if (!pattern.tileSrc) {
@@ -84,6 +186,7 @@ export function PatternRepeatPreview({ pattern }: { pattern: PatternFillData }) 
       tokens.getPropertyValue('--color-accent-primary').trim() || 'currentColor';
     const originMark = tokens.getPropertyValue('--color-feedback-danger').trim() || 'currentColor';
 
+    interactionRef.current = null;
     if (!image) return;
     const tileWidth = pattern.imageWidth ?? image.naturalWidth;
     const tileHeight = pattern.imageHeight ?? image.naturalHeight;
@@ -98,6 +201,7 @@ export function PatternRepeatPreview({ pattern }: { pattern: PatternFillData }) 
 
     // Fit a SPAN × SPAN block of tiles into the preview box.
     const scale = Math.min(PREVIEW_SIZE / (SPAN * tileWidth), PREVIEW_SIZE / (SPAN * tileHeight));
+    interactionRef.current = { scale, lattice };
     const rect = {
       x: lattice.phaseX - tileWidth * ((SPAN - 1) / 2),
       y: lattice.phaseY - tileHeight * ((SPAN - 1) / 2),
@@ -126,6 +230,17 @@ export function PatternRepeatPreview({ pattern }: { pattern: PatternFillData }) 
       ctx.restore();
     });
 
+    const selectedMotif = sourceMotifs?.find((motif) => motif.id === selectedSourceMotifId);
+    if (selectedMotif) {
+      ctx.save();
+      ctx.globalAlpha = 1;
+      ctx.lineWidth = 1.5 / scale;
+      ctx.strokeStyle = sourceOutline;
+      ctx.setLineDash([4 / scale, 2 / scale]);
+      ctx.strokeRect(selectedMotif.x, selectedMotif.y, selectedMotif.w, selectedMotif.h);
+      ctx.restore();
+    }
+
     // Origin marker at pattern (0, 0).
     ctx.globalAlpha = 1;
     ctx.strokeStyle = originMark;
@@ -138,22 +253,31 @@ export function PatternRepeatPreview({ pattern }: { pattern: PatternFillData }) 
     ctx.lineTo(lattice.phaseX, lattice.phaseY + originLength);
     ctx.stroke();
     ctx.restore();
-  }, [image, pattern]);
+  }, [image, pattern, selectedSourceMotifId, sourceMotifs]);
 
   const arrangementLabel = PATTERN_ARRANGEMENT_LABELS[pattern.arrangement ?? 'grid'];
+  const editable = Boolean(sourceMotifs?.length && onSourceMotifMove);
   const description = !pattern.tileSrc
     ? 'No tile yet — the preview appears once a source or generator is set.'
     : loadFailed
       ? 'The tile could not be decoded. The editor may show a placeholder; export reports a missing resource.'
-      : `${arrangementLabel} repeat · source cell outlined, neighbours dimmed`;
+      : `${arrangementLabel} repeat · source cell outlined, neighbours dimmed${editable ? ' · click and drag a motif to move its source' : ''}`;
 
   return (
     <div className="insp-pattern-preview">
       <canvas
         ref={canvasRef}
-        className="insp-pattern-preview__canvas"
         width={PREVIEW_SIZE}
         height={PREVIEW_SIZE}
+        className={
+          editable
+            ? 'insp-pattern-preview__canvas insp-pattern-preview__canvas--editable'
+            : 'insp-pattern-preview__canvas'
+        }
+        onPointerDown={editable ? handlePointerDown : undefined}
+        onPointerMove={editable ? handlePointerMove : undefined}
+        onPointerUp={editable ? endSourceDrag : undefined}
+        onPointerCancel={editable ? endSourceDrag : undefined}
         role="img"
         aria-label={`Pattern repeat preview. ${description}`}
       />
