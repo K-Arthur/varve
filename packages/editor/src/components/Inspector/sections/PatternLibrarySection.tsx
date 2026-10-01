@@ -21,7 +21,7 @@ import {
 } from '../../../export/patternTileSvg';
 import { compilePatternPreview } from '../../../patterns/compilePatternPreview';
 import {
-  applyPatternSourceDraft,
+  applyPatternSourceDraftWithPreview,
   getPatternSourceDraftStatus,
 } from '../../../patterns/patternSourceDraft';
 import { countPatternUses } from '../../../patterns/patternUsage';
@@ -352,69 +352,38 @@ export function PatternLibrarySection() {
 
   const commitSourceDraft = useCallback(
     (draft: PatternDefinition, expectedDocumentId: string, expectedRevision: number) => {
-      const status = getPatternSourceDraftStatus(
+      const previewReady = applyPatternSourceDraftWithPreview(
         doc,
-        draft.id,
+        draft,
         expectedDocumentId,
         expectedRevision,
+        compilePatternPreview,
       );
-      if (status !== 'ready') {
+      if (previewReady.status !== 'ready') {
+        if (previewReady.status === 'preview-failed') {
+          announceError(previewReady.error);
+          return false;
+        }
         editor.announce(
-          status === 'document-changed'
+          previewReady.status === 'document-changed'
             ? 'The active document changed. Reopen this pattern source to edit it.'
-            : status === 'stale'
+            : previewReady.status === 'stale'
               ? 'This pattern changed while its source was being edited. Reopen the editor and retry.'
               : 'This pattern no longer exists in the current document.',
         );
         return false;
       }
 
-      let nextDocument: typeof doc;
-      try {
-        const applied = applyPatternSourceDraft(doc, draft, expectedDocumentId, expectedRevision);
-        if (applied.status !== 'ready') return false;
-        const updated = applied.document;
-        const updatedDefinition = updated.patternDefinitions?.[draft.id];
-        if (!updatedDefinition) throw new Error('This pattern no longer exists.');
-        const previewSrc = compilePatternPreview(updated, updatedDefinition);
-        nextDocument = {
-          ...updated,
-          patternDefinitions: {
-            ...updated.patternDefinitions,
-            [draft.id]: {
-              ...updatedDefinition,
-              previewSrc,
-              previewRevision: updatedDefinition.revision,
-            },
-          },
-        };
-      } catch (error) {
-        announceError(error);
-        return false;
-      }
-
       editor.groupCompoundOperation('Edit pattern source', () => {
         editor.updateDoc((current) => {
-          const applied = applyPatternSourceDraft(
+          const committed = applyPatternSourceDraftWithPreview(
             current,
             draft,
             expectedDocumentId,
             expectedRevision,
+            compilePatternPreview,
           );
-          if (applied.status !== 'ready') return current;
-          const nextDefinition = applied.document.patternDefinitions?.[draft.id];
-          if (!nextDefinition) return current;
-          return {
-            ...applied.document,
-            patternDefinitions: {
-              ...applied.document.patternDefinitions,
-              [draft.id]: {
-                ...nextDefinition,
-                previewSrc: nextDocument.patternDefinitions?.[draft.id]?.previewSrc,
-                previewRevision: nextDefinition.revision,
-              },
-            },
-          };
+          return committed.status === 'ready' ? committed.document : current;
         });
       });
       return true;

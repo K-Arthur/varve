@@ -1,7 +1,10 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import { sitePath } from '../../lib/siteUrl';
+import { publishedFeatureVersion } from '../../lib/feature-release';
 import '../../styles/docs-prose.css';
+
+const presentationReleaseVersion = publishedFeatureVersion('0.5.0');
 ---
 
 <Layout
@@ -61,7 +64,7 @@ import '../../styles/docs-prose.css';
         <p>
           In Design, the <strong>Slides</strong> panel organizes ordinary frames into an explicitly
           ordered presentation deck. See the <a href={sitePath('/docs/presentations')}>presentation
-          authoring guide</a> for its source-build preview status and current limits.
+          authoring guide</a> for its {presentationReleaseVersion ? `experimental v${presentationReleaseVersion} status` : 'source-build preview status'} and current limits.
         </p>
         <p>
           Note: the older <code>Ctrl+Shift+D/P/R/I/M</code> bindings shown in some

@@ -3,6 +3,9 @@ import Button from '../../components/Button.astro';
 import Layout from '../../layouts/Layout.astro';
 import { sitePath } from '../../lib/siteUrl';
 import FeatureVisual from '../../components/FeatureVisual.astro';
+import { publishedFeatureVersion } from '../../lib/feature-release';
+
+const presentationReleaseVersion = publishedFeatureVersion('0.5.0');
 ---
 
 <Layout
@@ -66,8 +69,7 @@ import FeatureVisual from '../../components/FeatureVisual.astro';
           client-by-client Gmail or Outlook verification.
         </p>
         <p>
-          Design also has a <a href={sitePath('/features/presentations')}>source-build preview of
-          presentation authoring</a>, where ordered decks reference editable frames on the same canvas.
+          Design also has a <a href={sitePath('/features/presentations')}>{presentationReleaseVersion ? `experimental presentation workflow in v${presentationReleaseVersion}` : 'source-build preview of presentation authoring'}</a>, where ordered decks reference editable frames on the same canvas.
         </p>
       </section>
 

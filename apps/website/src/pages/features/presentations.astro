@@ -4,18 +4,24 @@ import FeatureVisual from '../../components/FeatureVisual.astro';
 import Layout from '../../layouts/Layout.astro';
 import StatusPill from '../../components/StatusPill.astro';
 import { sitePath } from '../../lib/siteUrl';
+import { publishedFeatureVersion } from '../../lib/feature-release';
+
+const presentationReleaseVersion = publishedFeatureVersion('0.5.0');
 ---
 
 <Layout
   title="Presentation Authoring"
-  description="Author ordered presentation decks from editable frames in Varve Design. Source-build preview; delivery features are in development."
+  description="Author ordered presentation decks from editable frames in Varve Design, with raster PDF and PNG delivery limits clearly documented."
 >
   <div class="container-custom">
     <main class="feature-page">
       <nav class="breadcrumb" aria-label="Breadcrumb">
         <a href={sitePath('/features')}>Features</a> / Presentations
       </nav>
-      <StatusPill status="experimental" label="Source-build preview" />
+      <StatusPill
+        status="experimental"
+        label={presentationReleaseVersion ? `Experimental · v${presentationReleaseVersion}` : 'Source-build preview'}
+      />
       <h1 class="site-page-title">Presentation authoring in Design</h1>
       <p class="feature-intro">
         Build a slide sequence from ordinary editable frames on the Design Canvas. The deck owns its
@@ -62,10 +68,9 @@ import { sitePath } from '../../lib/siteUrl';
           source and a slide.
         </p>
         <p>
-          This targets a specific failure other tools leave with users: Figma staff state that a
-          slide's layout cannot be changed after creation, and forum threads describe people
-          rebuilding imported slides by hand. Reapplying here is always previewed and confirmed, and
-          it is one undo step.
+          Reapplying a layout is previewed and confirmed before it changes the frame, and the
+          change is one undo step. The layout only manages mapped geometry; it does not transfer
+          typography, fills, effects, or other formatting.
         </p>
       </section>
 
@@ -87,12 +92,11 @@ import { sitePath } from '../../lib/siteUrl';
       </section>
 
       <section class="feature-section note">
-        <h2>Current source-build preview</h2>
+        <h2>{presentationReleaseVersion ? 'Included in the published beta' : 'Current source-build preview'}</h2>
         <p>
-          The current source build covers deck creation, ordered slide navigation with rendered
-          thumbnails, private notes, sections, audience preview, and multipage PDF or PNG-sequence
-          delivery for either the whole deck or selected slide references. This capability is not yet
-          included in a published Varve release.
+          {presentationReleaseVersion
+            ? `Published public beta v${presentationReleaseVersion} includes deck creation, ordered slide navigation with rendered thumbnails, private notes, sections, audience preview, and multipage PDF or PNG-sequence delivery for the whole deck or selected slides. The workflow remains experimental.`
+            : 'The current source build covers deck creation, ordered slide navigation with rendered thumbnails, private notes, sections, audience preview, and multipage PDF or PNG-sequence delivery for the whole deck or selected slides. This capability is not yet included in a published Varve release.'}
         </p>
         <p>
           PDF is a compressed raster screen document, one page per included slide. It preserves
@@ -154,8 +158,12 @@ import { sitePath } from '../../lib/siteUrl';
       </section>
 
       <div class="feature-cta">
-        <h2>Follow the source-build preview</h2>
-        <p>This presentation workflow is not included in a published Varve release yet.</p>
+        <h2>{presentationReleaseVersion ? 'Try the experimental beta workflow' : 'Follow the source-build preview'}</h2>
+        <p>
+          {presentationReleaseVersion
+            ? `Presentation authoring is included in published public beta v${presentationReleaseVersion}.`
+            : 'This presentation workflow is not included in a published Varve release yet.'}
+        </p>
         <Button href={sitePath('/docs/presentations')}>Read the presentation guide</Button>
       </div>
     </main>

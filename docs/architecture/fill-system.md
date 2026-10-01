@@ -65,8 +65,12 @@ without being rewritten.
 Committing a source draft applies it to the latest document state, preserving
 unrelated edits that were queued while the editor was open. It validates the
 captured document ID and definition revision in the same state update. The
-editor stays in a saving state until the committed source revision is visible;
-a concurrent edit to that definition is rejected and shown as a conflict.
+preview is rebuilt from that same latest state before the source is committed,
+so a queued asset or style update cannot leave a stale cached tile behind. If
+the latest source cannot be compiled, the draft is not saved. The editor waits
+for the committed source revision and reports a bounded save failure instead
+of remaining in a permanent saving state; a concurrent edit to that definition
+is rejected and shown as a conflict.
 
 One evaluator, `@varve/shared` `patternRepeat`, owns the geometry:
 `p(i, j) = phase + i·u + j·v`, with `u = (tileW + gapX, columnShift·(tileH + gapY))`
@@ -348,10 +352,12 @@ original source containing the bytes is required for the old pixels to return.
 
 ## Known limitations
 
-- On-canvas gradient handles (`GradientHandleOverlay.tsx`) exist but are
-  not wired: the component derives geometry from the obsolete
-  `node.x/y/w/h` shape and needs porting to `node.shape` + world
-  transforms and integration into the overlay/pointer system.
+- On-canvas linear and radial gradient handles are mounted by
+  `CanvasOverlays` for selected objects. Their geometry uses the scene's full
+  affine world transform and camera transform, and pointer edits update the
+  selected fill through the normal document history path. The real-browser
+  regression is `tests/e2e/canvas/gradient-geometry.spec.ts`; it covers
+  rotated/transformed geometry and handle movement.
 - **Shared definition settings and per-fill placement are separate controls.**
   The Pattern Library edits the shared definition name, cell dimensions,
   gaps, arrangement, and mirror state. Fill placement remains independent.

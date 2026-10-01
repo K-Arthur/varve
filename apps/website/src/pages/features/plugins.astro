@@ -4,18 +4,23 @@ import StatusPill from '../../components/StatusPill.astro';
 import Layout from '../../layouts/Layout.astro';
 import screenshotManifest from '../../data/screenshot-manifest.json';
 import { sitePath } from '../../lib/siteUrl';
+import { publishedFeatureVersion } from '../../lib/feature-release';
 
 const pluginScenes = screenshotManifest.scenes;
+const pluginReleaseVersion = publishedFeatureVersion('0.5.0');
 ---
 
 <Layout
   title="Local Plugins — Varve"
-  description="A source-build preview of local Varve plugins: review access, run selected-layer analysis, and preview undoable batch renames."
+  description="Review access and run bounded local WebAssembly plugins for selected-layer analysis and undoable batch renames."
 >
   <div class="container-custom">
     <main class="plugin-feature">
       <nav class="breadcrumb" aria-label="Breadcrumb"><a href={sitePath('/features')}>Features</a> / Local plugins</nav>
-      <StatusPill status="experimental" label="Source-build preview" />
+      <StatusPill
+        status="experimental"
+        label={pluginReleaseVersion ? `Experimental · v${pluginReleaseVersion}` : 'Source-build preview'}
+      />
       <h1>Useful extensions, with the document in your hands.</h1>
       <p class="intro">Install a local package, see exactly which document access it requests, and run it when you choose. Varve shows proposed edits before applying them through ordinary undoable document history.</p>
 

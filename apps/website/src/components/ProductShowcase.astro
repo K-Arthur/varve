@@ -17,12 +17,14 @@ import ScreenshotZoom from './ScreenshotZoom.astro';
 import { sitePath } from '../lib/siteUrl';
 import { PRODUCT_STATUS } from '@varve/shared';
 import { getScene, type ScreenshotScene } from '../lib/screenshot';
+import { publishedFeatureVersion } from '../lib/feature-release';
 
 /** Only captured scenes are renderable; a skipped scene has no file on disk. */
 const captured = (key: string): ScreenshotScene | null => getScene(key);
 
 const PRIMARY = captured('workspace');
 const TABLET = captured('tablet-workspace');
+const presentationReleaseVersion = publishedFeatureVersion('0.5.0');
 // Cropped details, each showing one thing: canvas artwork, type, panel state.
 // A *full* application frame is deliberately excluded: at a third of the page
 // width a 1200x750 window scales to about 18% and its text is unreadable, which
@@ -54,7 +56,7 @@ const DETAILS = ['vector', 'typography', 'tablet-controls', 'layers', 'motion']
       </Button>
       <p class="showcase-text showcase-presentation-link">
         <a href={sitePath('/features/presentations')}>Explore presentation authoring in Design</a>
-        <span> · source-build preview</span>
+        <span> · {presentationReleaseVersion ? `experimental · v${presentationReleaseVersion}` : 'source-build preview'}</span>
       </p>
     </div>
 

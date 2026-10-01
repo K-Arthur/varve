@@ -2,6 +2,9 @@
 import Layout from '../../layouts/Layout.astro';
 import StatusPill from '../../components/StatusPill.astro';
 import { sitePath } from '../../lib/siteUrl';
+import { publishedFeatureVersion } from '../../lib/feature-release';
+
+const patternReleaseVersion = publishedFeatureVersion('0.5.0');
 ---
 
 <Layout
@@ -15,7 +18,10 @@ import { sitePath } from '../../lib/siteUrl';
       </nav>
 
       <header class="feature-hero">
-        <StatusPill status="experimental" label="Source-build preview" />
+        <StatusPill
+          status="experimental"
+          label={patternReleaseVersion ? `Experimental · v${patternReleaseVersion}` : 'Source-build preview'}
+        />
         <h1>Make a repeat once. Place it where the design needs it.</h1>
         <p class="feature-intro">
           Build a reusable pattern from copied vector artwork, an image tile, or a procedural
@@ -23,8 +29,9 @@ import { sitePath } from '../../lib/siteUrl';
           phase, and rotation in the inspector.
         </p>
         <p class="release-note">
-          This pattern library is available in the current source build and is not included in a
-          published Varve release yet.
+          {patternReleaseVersion
+            ? `This experimental workflow is included in the published public beta v${patternReleaseVersion}.`
+            : 'This pattern library is available in the current source build and is not included in a published Varve release yet.'}
         </p>
       </header>
 
@@ -50,7 +57,9 @@ import { sitePath } from '../../lib/siteUrl';
       </section>
 
       <section class="capabilities" aria-labelledby="today-title">
-        <p class="eyebrow">In the source-build preview</p>
+        <p class="eyebrow">
+          {patternReleaseVersion ? 'In the experimental beta release' : 'In the source-build preview'}
+        </p>
         <h2 id="today-title">A practical start for reusable surface design.</h2>
         <div class="capability-grid">
           <article>

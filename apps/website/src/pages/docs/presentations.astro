@@ -1,7 +1,10 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import { sitePath } from '../../lib/siteUrl';
+import { publishedFeatureVersion } from '../../lib/feature-release';
 import '../../styles/docs-prose.css';
+
+const presentationReleaseVersion = publishedFeatureVersion('0.5.0');
 ---
 
 <Layout
@@ -144,15 +147,14 @@ import '../../styles/docs-prose.css';
 
         <h2>Current status and delivery limits</h2>
         <p>
-          The current source-build preview includes new-deck creation, rendered slide thumbnails,
+          {presentationReleaseVersion ? `Version ${presentationReleaseVersion} includes` : 'The current source-build preview includes'} new-deck creation, rendered slide thumbnails,
           ordered slide references, selected-frame order review, notes, sections, skip state,
           keyboard-accessible ordering controls, audience preview, multipage PDF, PNG-sequence export,
           and whole-deck or selected-slide delivery. An initial advisory preflight flags missing
           artwork, placeholder text, small type, transformed off-slide content, unavailable fonts
           and image assets, low contrast when both solid colors are known, and missing slide
           descriptions. Only missing included artwork blocks delivery. Contrast checks skip image,
-          gradient, transparent, and otherwise ambiguous backgrounds. This capability is not yet
-          included in a published Varve release. Geometry-only reusable layout sources, seven
+          gradient, transparent, and otherwise ambiguous backgrounds. Geometry-only reusable layout sources, seven
           built-in layouts, and previewed reapplication are also present in this source build.
           Detailed readability analysis and formatting inheritance remain in development.
           Typography theming (a shared text style per role) is schema-ready but not applied yet.

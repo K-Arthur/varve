@@ -8,6 +8,7 @@ import {
 import { describe, expect, it } from 'vitest';
 import {
   applyPatternSourceDraft,
+  applyPatternSourceDraftWithPreview,
   getPatternSourceDraftStatus,
   setPatternSourceRootRotation,
   translatePatternSourceRoot,
@@ -64,6 +65,51 @@ describe('pattern source drafts', () => {
     expect(saved?.revision).toBe(definition.revision + 1);
     if (saved?.source.kind !== 'vector') throw new Error('expected vector pattern source');
     expect(saved.source.nodes[rootId]?.transform).toEqual([1, 0, 0, 1, 7, -2]);
+  });
+
+  it('rebuilds the committed preview from the latest rebased document', () => {
+    const { document, definition, rootId } = makeDefinition();
+    const draft = translatePatternSourceRoot(definition, rootId, 7, -2);
+    const queuedNode = makeShapeNode(
+      'queued-node',
+      { kind: 'rect', x: 60, y: 30, w: 8, h: 8 },
+      { name: 'Concurrent artwork' },
+    );
+    const current = addNode(document, queuedNode);
+    const previewCompiler = (latest: typeof current, updated: PatternDefinition) =>
+      `${latest.nodes[queuedNode.id]?.name}:${updated.revision}`;
+
+    const result = applyPatternSourceDraftWithPreview(
+      current,
+      draft,
+      document.id,
+      definition.revision,
+      previewCompiler,
+    );
+
+    expect(result.status).toBe('ready');
+    const saved = result.document.patternDefinitions?.[definition.id];
+    expect(saved?.previewSrc).toBe('Concurrent artwork:2');
+    expect(saved?.previewRevision).toBe(saved?.revision);
+  });
+
+  it('does not save a source draft if its latest preview cannot be rebuilt', () => {
+    const { document, definition, rootId } = makeDefinition();
+    const draft = translatePatternSourceRoot(definition, rootId, 7, -2);
+    const result = applyPatternSourceDraftWithPreview(
+      document,
+      draft,
+      document.id,
+      definition.revision,
+      () => {
+        throw new Error('missing source dependency');
+      },
+    );
+
+    expect(result.status).toBe('preview-failed');
+    expect(result.error).toEqual(new Error('missing source dependency'));
+    expect(result.document).toBe(document);
+    expect(result.document.patternDefinitions?.[definition.id]).toBe(definition);
   });
 
   it('rejects a draft when the definition revision changed before commit', () => {

@@ -73,6 +73,48 @@ export function applyPatternSourceDraft(
   };
 }
 
+/** Rebase a source draft and compile its cached preview from that same document revision. */
+export function applyPatternSourceDraftWithPreview(
+  document: Document,
+  draft: PatternDefinition,
+  expectedDocumentId: string,
+  expectedRevision: number,
+  compilePreview: (document: Document, definition: PatternDefinition) => string,
+): {
+  status: 'ready' | 'document-changed' | 'missing' | 'stale' | 'preview-failed';
+  document: Document;
+  error?: unknown;
+} {
+  const applied = applyPatternSourceDraft(document, draft, expectedDocumentId, expectedRevision);
+  if (applied.status !== 'ready') return applied;
+
+  const definition = applied.document.patternDefinitions?.[draft.id];
+  if (!definition) return { status: 'missing', document };
+
+  let previewSrc: string;
+  try {
+    previewSrc = compilePreview(applied.document, definition);
+    if (!previewSrc) throw new Error('The pattern preview is empty.');
+  } catch (error) {
+    return { status: 'preview-failed', document, error };
+  }
+
+  return {
+    status: 'ready',
+    document: {
+      ...applied.document,
+      patternDefinitions: {
+        ...applied.document.patternDefinitions,
+        [draft.id]: {
+          ...definition,
+          previewSrc,
+          previewRevision: definition.revision,
+        },
+      },
+    },
+  };
+}
+
 /** Set the authored rotation of one root motif in the copied source scene. */
 export function setPatternSourceRootRotation(
   definition: PatternDefinition,

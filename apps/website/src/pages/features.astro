@@ -3,6 +3,11 @@ import Layout from '../layouts/Layout.astro';
 import { sitePath } from '../lib/siteUrl';
 import StatusPill from '../components/StatusPill.astro';
 import ClosingCTA from '../components/ClosingCTA.astro';
+import { publishedFeatureVersion } from '../lib/feature-release';
+
+const presentationReleaseVersion = publishedFeatureVersion('0.5.0');
+const pluginReleaseVersion = publishedFeatureVersion('0.5.0');
+const patternReleaseVersion = publishedFeatureVersion('0.5.0');
 ---
 
 <Layout title="Features" description="Explore what Varve can do today — vector design, raster editing, layout, typography, motion, prototyping, color management, and code export.">
@@ -12,13 +17,17 @@ import ClosingCTA from '../components/ClosingCTA.astro';
       <p class="page-hero-sub">
         Vector, layout, typography, motion, and print — all in one application. Honest status for each area. Varve is in beta — features are functional but evolving.
       </p>
+      <p class="page-hero-sub">
+        <a href={sitePath('/features/presentations')}>Presentation authoring in Design</a>
+        <span> · {presentationReleaseVersion ? `Experimental · v${presentationReleaseVersion}` : 'source-build preview'} for ordered, editable frame-based decks</span>
+      </p>
 
       <div class="features-grid site-card-grid">
         <a href={sitePath('/features/plugins')} class="feature-card site-card site-card--interactive">
           <div class="feature-icon" aria-hidden="true">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h14v16H5z"/><path d="M9 9h6M9 13h6M9 17h3" opacity=".6"/><circle cx="18" cy="17" r="2"/></svg>
           </div>
-          <StatusPill status="experimental" label="Source-build preview" class="feature-card-pill" />
+          <StatusPill status="experimental" label={pluginReleaseVersion ? `Experimental · v${pluginReleaseVersion}` : 'Source-build preview'} class="feature-card-pill" />
           <h2>Local Plugins</h2>
           <p>Review access, run selected-layer analysis, and preview undoable batch renames from local packages</p>
         </a>
@@ -305,7 +314,7 @@ import ClosingCTA from '../components/ClosingCTA.astro';
           <div class="feature-icon" aria-hidden="true">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h8v8H3zM13 3h8v8h-8zM3 13h8v8H3zM13 13h8v8h-8z"/><circle cx="7" cy="7" r="1"/><circle cx="17" cy="17" r="1"/></svg>
           </div>
-          <StatusPill status="experimental" label="Source-build preview" class="feature-card-pill" />
+          <StatusPill status="experimental" label={patternReleaseVersion ? `Experimental · v${patternReleaseVersion}` : 'Source-build preview'} class="feature-card-pill" />
           <h2>Reusable Patterns</h2>
           <p>Create copied vector, embedded raster, or procedural definitions; edit shared repeat settings, place fills independently, and export a source tile or supported rectangular repeat as SVG</p>
         </a>

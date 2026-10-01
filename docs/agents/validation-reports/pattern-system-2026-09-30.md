@@ -761,3 +761,29 @@ VARVE_FULL_GATE_REASON="Pattern document-alignment contract crosses scene, engin
   diagnostic (the standalone E2E typecheck passed immediately afterward).
   Full Vitest and Cargo suites were not reached.
 ```
+
+## Source draft preview integrity (2026-10-01)
+
+An audit found that a vector source draft was applied to the latest queued
+document while its cached tile preview came from the document captured before
+that queued update. The draft application now recompiles the preview from the
+same rebased document before committing. A preview failure leaves the saved
+definition untouched. The source editor also leaves its saving state with a
+visible error if an accepted update does not become observable.
+
+The preview-compiler regression supplies an unrelated queued scene change and
+asserts the committed cache was built from that newer document revision. A
+failure regression verifies no definition changes when preview compilation
+fails. A component test advances the pending-save timeout and verifies the
+editor exits “Saving…” with an actionable message.
+
+```text
+pnpm exec vitest run packages/editor/src/patterns/patternSourceDraft.test.ts packages/editor/src/patterns/compilePatternPreview.test.ts packages/editor/src/components/Inspector/sections/PatternSourceEditor.test.tsx
+  Passed: 3 files, 12 tests.
+
+pnpm exec biome check packages/editor/src/patterns/patternSourceDraft.ts packages/editor/src/patterns/patternSourceDraft.test.ts packages/editor/src/components/Inspector/sections/PatternLibrarySection.tsx packages/editor/src/components/Inspector/sections/PatternSourceEditor.tsx packages/editor/src/components/Inspector/sections/PatternSourceEditor.test.tsx
+  Passed: 5 files.
+
+pnpm --filter @varve/editor typecheck
+  Passed.
+```

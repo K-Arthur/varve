@@ -248,7 +248,9 @@ async function inspectRasterSourceSvg(
 }
 
 test.describe('pattern repeat', () => {
-  test('edits a copied vector motif in a cancelable shared-source draft', async ({ page }) => {
+  test('edits a copied vector motif in a cancelable shared-source draft', async ({
+    page,
+  }, testInfo) => {
     test.setTimeout(240000);
     await navigateToCleanEditor(page);
     await createEllipse(page);
@@ -277,7 +279,7 @@ test.describe('pattern repeat', () => {
     await translateX.fill('24');
     await expect.poll(() => canvasHash(canvas)).not.toBe(originalPreview);
     await page.screenshot({
-      path: 'docs/screenshots/pattern-system-2026-09-30/app-source-edit.png',
+      path: testInfo.outputPath('app-source-edit.png'),
     });
     await session.getByRole('button', { name: 'Cancel', exact: true }).click();
     await expect(session).toBeHidden();
@@ -439,7 +441,7 @@ test.describe('pattern repeat', () => {
     expect(historyWarnings).toEqual([]);
   });
 
-  test('replaces a definition source with an embedded raster tile', async ({ page }) => {
+  test('replaces a definition source with an embedded raster tile', async ({ page }, testInfo) => {
     test.setTimeout(240000);
     const historyWarnings: string[] = [];
     page.on('console', (message) => {
@@ -496,11 +498,11 @@ test.describe('pattern repeat', () => {
     await expect.poll(() => canvasHash(offsetPreview)).not.toBe(originalOffsetPreview);
     await expect(offsetEditor.getByRole('button', { name: 'Apply offset' })).toBeEnabled();
     await page.screenshot({
-      path: 'docs/screenshots/pattern-system-2026-09-30/app-raster-offset-edit.png',
+      path: testInfo.outputPath('app-raster-offset-edit.png'),
     });
     await offsetEditor.getByRole('button', { name: 'Apply offset' }).scrollIntoViewIfNeeded();
     await page.screenshot({
-      path: 'docs/screenshots/pattern-system-2026-09-30/app-raster-offset-controls.png',
+      path: testInfo.outputPath('app-raster-offset-controls.png'),
     });
     await offsetEditor.getByRole('button', { name: 'Apply offset' }).click();
     await expect(offsetEditor).toBeHidden();
@@ -527,7 +529,9 @@ test.describe('pattern repeat', () => {
     expect(historyWarnings).toEqual([]);
   });
 
-  test('applies one reusable pattern to a three-panel packaging layout', async ({ page }) => {
+  test('applies one reusable pattern to a three-panel packaging layout', async ({
+    page,
+  }, testInfo) => {
     test.setTimeout(90000);
     await navigateToCleanEditor(page);
     const canvas = page.locator('canvas.editor-canvas__content-layer');
@@ -581,7 +585,7 @@ test.describe('pattern repeat', () => {
     }
 
     await page.screenshot({
-      path: 'docs/screenshots/pattern-system-2026-09-30/app-packaging-panels.png',
+      path: testInfo.outputPath('app-packaging-panels.png'),
     });
   });
 

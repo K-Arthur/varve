@@ -1,6 +1,10 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import { sitePath } from '../lib/siteUrl';
+import { publishedFeatureVersion } from '../lib/feature-release';
+
+const patternReleaseVersion = publishedFeatureVersion('0.5.0');
+const presentationReleaseVersion = publishedFeatureVersion('0.5.0');
 ---
 
 <Layout title="Documentation — Varve Docs" description="Varve documentation: installation, getting started, interface overview, keyboard shortcuts, tools, and technical architecture.">
@@ -59,7 +63,7 @@ import { sitePath } from '../lib/siteUrl';
             <li><a href={sitePath('/docs/tools/shape-building')}>Shape Builder</a></li>
             <li><a href={sitePath('/docs/tools/typography')}>Typography</a></li>
             <li><a href={sitePath('/docs/tools/color')}>Color & Effects</a></li>
-            <li><a href={sitePath('/docs/tools/patterns')}>Pattern Library (source-build preview)</a></li>
+            <li><a href={sitePath('/docs/tools/patterns')}>Pattern Library ({patternReleaseVersion ? `experimental · v${patternReleaseVersion}` : 'source-build preview'})</a></li>
             <li><a href={sitePath('/docs/tools/halftone')}>Halftone &amp; Screens</a></li>
             <li><a href={sitePath('/docs/tools/shader-effects')}>Shader Effects</a></li>
             <li><a href={sitePath('/docs/tools/colorization')}>Colorize &amp; Recolor</a></li>
@@ -79,6 +83,7 @@ import { sitePath } from '../lib/siteUrl';
             <li><a href={sitePath('/docs/tools/precision-placement')}>Precision Placement</a></li>
             <li><a href={sitePath('/features/clipboard')}>Clipboard & Interoperability</a></li>
             <li><a href={sitePath('/docs/tools/export')}>Export & Code Generation</a></li>
+            <li><a href={sitePath('/docs/presentations')}>Presentation Authoring ({presentationReleaseVersion ? `experimental · v${presentationReleaseVersion}` : 'source-build preview'})</a></li>
             <li><a href={sitePath('/docs/workspaces')}>Workspaces</a></li>
           </ul>
         </div>

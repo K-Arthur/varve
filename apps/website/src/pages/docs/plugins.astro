@@ -2,14 +2,22 @@
 import Layout from '../../layouts/Layout.astro';
 import { sitePath } from '../../lib/siteUrl';
 import '../../styles/docs-prose.css';
+import { publishedFeatureVersion } from '../../lib/feature-release';
+
+const pluginReleaseVersion = publishedFeatureVersion('0.5.0');
 ---
 
-<Layout title="Local Plugins — Varve Docs" description="Install, review, run, stop, and develop local Varve plugin packages in the source-build preview.">
+<Layout title="Local Plugins — Varve Docs" description="Install, review, run, stop, and develop bounded local Varve WebAssembly plugin packages.">
   <div class="container-custom">
     <div class="docs-page">
       <nav class="breadcrumb" aria-label="Breadcrumb"><a href={sitePath('/docs')}>Documentation</a> / Local plugins</nav>
       <h1 class="site-page-title">Local plugins</h1>
-      <p class="docs-intro">The current source-build preview accepts explicit local <code>.varveplugin</code> packages. It runs selected-layer analysis and previews batch renames. The first public API is deliberately small; see <a href={sitePath('/features/plugins')}>the feature overview</a> for its boundaries.</p>
+      <p class="docs-intro">
+        {pluginReleaseVersion
+          ? `The experimental plugin API is included in published public beta v${pluginReleaseVersion}.`
+          : 'The source-build preview accepts explicit local .varveplugin packages.'}
+        {' '}It runs selected-layer analysis and previews batch renames. The first public API is deliberately small; see <a href={sitePath('/features/plugins')}>the feature overview</a> for its boundaries.
+      </p>
 
       <section class="docs-section">
         <h2>Install and find a plugin</h2>

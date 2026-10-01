@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 150" width="240" height="150">
+
+  <defs>
+    <g id="varve-pattern-source-70-6f-6c-6b-61">
+        <circle cx="2" cy="2" r="2" fill="rgba(25,137,143,1.000)" transform="matrix(1,0,0,1,1,1)" />
+    </g>
+    <pattern id="varve-pattern-70-61-6e-65-6c-0" patternUnits="userSpaceOnUse" patternContentUnits="userSpaceOnUse" x="0.5" y="-0.25" width="12" height="12">
+      <use href="#varve-pattern-source-70-6f-6c-6b-61" transform="matrix(1 0 0 1 0 0)" />
+    </pattern>
+  </defs>
+
+    <rect x="0" y="0" width="240" height="150" fill="url(#varve-pattern-70-61-6e-65-6c-0)" fill-opacity="0.85" transform="matrix(1,0,0,1,0,0)" />
+</svg>

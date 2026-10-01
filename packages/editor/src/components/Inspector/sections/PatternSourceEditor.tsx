@@ -95,6 +95,15 @@ export function PatternSourceEditor({
     setDraftError('This pattern changed while its source was being saved. Reopen the editor.');
   }, [definition.id, document, draft, expectedDocumentId, expectedRevision, onCommitted, saving]);
 
+  useEffect(() => {
+    if (!saving) return;
+    const timeout = window.setTimeout(() => {
+      setSaving(false);
+      setDraftError('The pattern source was not saved. Reopen the editor and try again.');
+    }, 8000);
+    return () => window.clearTimeout(timeout);
+  }, [saving]);
+
   const move = useCallback(
     (nodeId: string, dx: number, dy: number) => {
       try {
@@ -186,7 +195,7 @@ export function PatternSourceEditor({
       )}
       <p className="insp-hint">
         Click or drag a copied motif in any repeat, then use numeric fields or arrow keys for exact
-        placement. {usageCount} linked fill{usageCount === 1 ? '' : 's'} update when you choose
+        placement. {usageCount} linked fill{usageCount === 1 ? '' : 's'} will update when you choose
         Done. Cancel discards only the draft.
       </p>
       {preview.tileSrc ? (

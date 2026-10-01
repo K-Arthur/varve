@@ -39,7 +39,7 @@ import type { Document as SceneDocument, SceneNode, ShapeNode } from '@varve/sce
 import { effectPadding, imageFill } from '@varve/scene';
 import type { MetadataPolicy } from '@varve/scene/export';
 import { capabilitiesForFormat, sanitizeFileName, stripSourceExtension } from '@varve/scene/export';
-import { DEFAULT_ARTWORK_FONT_FAMILY, transformRect } from '@varve/shared';
+import { DEFAULT_ARTWORK_FONT_FAMILY, transformRect, tryInvertAffine } from '@varve/shared';
 import { appearancePaddingWorld, expandRect } from '../../canvas/visualBounds';
 import {
   composeFlattenedRasterAssetsForNode,
@@ -95,6 +95,8 @@ export interface ExportOptions {
   color?: import('@varve/engine').RasterExportColorPolicy;
   /** Metadata policy applied to the encoded PNG/JPEG bytes. */
   metadata?: { policy: MetadataPolicy; content?: MetadataContent };
+  /** Render a frame into its declared local width/height and clip exactly to that slide. */
+  frameLocal?: boolean;
 }
 
 export interface RasterExportResult {
@@ -419,7 +421,15 @@ export async function exportNodeAsRaster(
   warnings.push(...decoration.missingSurfaces.map(missingSurfaceWarning));
   await settleMockupSurfaces(decoration.extrasByNodeId);
   const extraItems = [...decoration.extrasByNodeId.values()].flat();
-  const bbox = exportWorldBounds(node, doc, flattened.ids, ir, extraItems);
+  const frameNode = opts.frameLocal && node.kind === 'frame' ? node : undefined;
+  const frameWorld = frameNode ? nodeWorldTransform(doc, frameNode.id) : undefined;
+  const frameInverse = frameWorld ? tryInvertAffine(frameWorld) : undefined;
+  if (frameWorld && !frameInverse) {
+    throw new Error(`Frame “${node.name}” has a singular transform and cannot be captured.`);
+  }
+  const bbox = frameNode
+    ? { x: 0, y: 0, w: frameNode.w, h: frameNode.h }
+    : exportWorldBounds(node, doc, flattened.ids, ir, extraItems);
 
   let scale = opts.scale;
   const requestedW = Math.max(Math.round(bbox.w * scale), 1);
@@ -473,6 +483,19 @@ export async function exportNodeAsRaster(
     // strict raster transform rejects a zero source extent, so preserve the
     // legacy document-space translation for this compatibility case.
     ctx.setTransform(scale, 0, 0, scale, -bbox.x * scale, -bbox.y * scale);
+  }
+
+  if (frameWorld && frameInverse && frameNode) {
+    ctx.transform(...frameInverse);
+    // Clip in slide-local space while preserving the world-to-pixel transform
+    // used by the scene IR. The composition returns to the exact local page
+    // rectangle even when the frame sits on a Design Canvas or is rotated.
+    ctx.save();
+    ctx.transform(...frameWorld);
+    ctx.beginPath();
+    ctx.rect(0, 0, frameNode.w, frameNode.h);
+    ctx.clip();
+    ctx.restore();
   }
 
   replayStructuredScene(ctx, {
@@ -718,12 +741,14 @@ async function rasterizeSubtreeToPdf(
   const rasterResult = await exportNodeAsRaster(node, doc, eng, { format: 'image/png', scale });
   const blob = rasterResult.blob;
   const img = await createImageBitmap(blob);
+  const pixelWidth = img.width;
+  const pixelHeight = img.height;
   const canvas = document.createElement('canvas');
-  canvas.width = img.width;
-  canvas.height = img.height;
+  canvas.width = pixelWidth;
+  canvas.height = pixelHeight;
   const ctx = canvas.getContext('2d')!;
   ctx.drawImage(img, 0, 0);
-  const imageData = ctx.getImageData(0, 0, img.width, img.height);
+  const imageData = ctx.getImageData(0, 0, pixelWidth, pixelHeight);
   img.close();
 
   const pdfBytes = makeRasterImagePdf(imageData.data, imageData.width, imageData.height);
