@@ -57,8 +57,11 @@ import '../../../styles/docs-prose.css';
         </ul>
         <p>
           Importing a tile does not make its pixels editable as vector artwork. A repeating preview
-          also does not guarantee that the source edges meet seamlessly; inspect the result at its
-          intended scale before using it in finished work.
+          does not guarantee that the source edges meet seamlessly. Raster definitions include seam
+          inspection with whole-pixel horizontal and vertical offsets. Applying an offset cyclically
+          moves the existing texels into a new embedded PNG; it changes the tile phase, not its
+          content, and cannot synthesize a missing edge or repair a discontinuity. Offsets are
+          limited to tiles up to 16 megapixels.
         </p>
       </section>
 
@@ -108,9 +111,10 @@ import '../../../styles/docs-prose.css';
         </p>
         <p>
           The current authoring UI supports renaming definitions and replacing a definition source
-          with an imported raster tile. Replacement affects every linked use. It does not include
-          tile-edge editing, offset-based seam repair, wraparound painting, or finite expansion.
-          Those operations are not implied by the repeat preview.
+          with an imported raster tile. Replacement affects every linked use. Raster seam inspection
+          can cyclically offset existing pixels and apply the result as a new embedded PNG; it does
+          not synthesize seamless edges or provide wraparound painting. Finite expansion is not
+          available. Those operations are not implied by the repeat preview.
         </p>
       </section>
 

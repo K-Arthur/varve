@@ -51,6 +51,11 @@ Task-owned commits on `master`:
 - Added a Patterns feature page and tool guide, linked from the feature/docs
   indexes, and corrected the export support claims. The site was built and
   previewed locally; it was not published.
+- Added raster seam inspection and whole-pixel cyclic offset editing for
+  embedded tiles up to 16 megapixels. Applying an offset stores a new PNG with
+  existing pixels repositioned; it does not synthesize seam content or enable
+  wraparound painting. A real Chromium workflow verifies the preview, shared
+  definition update, and exported tile pixels.
 
 The research-to-decision ledger is
 [`pattern-authoring-research-2026-09-30.md`](../../research/pattern-authoring-research-2026-09-30.md).
@@ -231,6 +236,74 @@ VARVE_FULL_GATE_REASON="Pattern definition schema, scene/editor repeat evaluatio
 
 pnpm typecheck:e2e
   Passed when run alone immediately after the full-gate exit.
+
+Raster seam-offset slice:
+
+pnpm exec vitest run packages/editor/src/patterns/rasterPatternOffset.test.ts packages/editor/src/patterns/patternSourceDraft.test.ts packages/editor/src/patterns/compilePatternPreview.test.ts packages/editor/src/patterns/patternUsage.test.ts packages/scene/src/patternDefinitions.test.ts
+  Passed: 5 files, 23 tests. Includes whole-pixel modulo placement for
+  horizontal/vertical offsets and input validation.
+
+VARVE_E2E_PORT=5306 node scripts/quality/heavy-lease.mjs "e2e: inspect final raster offset controls and prove exported tile pixels" -- npx playwright test tests/e2e/canvas/pattern-repeat.spec.ts --project=chromium --workers=1 --reporter=list --grep "replaces a definition source"
+  Passed: 1 Chromium workflow in 34 seconds at the normal 1280×720 viewport.
+  It checks shared-definition replacement, changed preview and swatch pixels,
+  and decodes the exported SVG tile to assert that an X offset cyclically
+  rotates its source texels. Captures include the preview and separately
+  scrolled, full-width Cancel/Apply controls.
+
+pnpm --filter @varve/editor typecheck
+  Passed.
+
+pnpm typecheck:e2e
+  Passed.
+
+pnpm --filter @varve/website build
+  Passed: 173 Astro files checked, 116 static routes built.
+
+pnpm exec playwright screenshot --browser chromium --viewport-size='1280,960' --full-page --wait-for-selector='h1' http://localhost:4323/docs/tools/patterns/ docs/screenshots/pattern-system-2026-09-30/guide-raster-offset-desktop.png
+  Captured the rebuilt local guide for visual review.
+
+pnpm exec playwright screenshot --browser chromium --viewport-size='390,844' --full-page --wait-for-selector='h1' http://localhost:4323/features/patterns/ docs/screenshots/pattern-system-2026-09-30/feature-raster-offset-mobile.png
+  Captured the rebuilt local feature page for mobile-width review.
+
+pnpm exec biome check packages/editor/src/components/Inspector/sections/PatternLibrarySection.css packages/editor/src/components/Inspector/sections/PatternRasterOffsetEditor.tsx packages/editor/src/patterns/rasterPatternOffset.ts packages/editor/src/patterns/rasterPatternOffset.test.ts tests/e2e/canvas/pattern-repeat.spec.ts
+  Passed: 5 files, no fixes or warnings after arranging the responsive rules
+  after the shared button rules.
+
+pnpm audit:docs
+  Passed: 1,124 docs, 744 links, 178 ADRs indexed.
+
+pnpm audit:emoji
+  Passed: 5,211 files.
+
+pnpm audit:tokens
+  Passed: all 324 contrast pairs across 3 themes plus token-usage scan.
+
+pnpm audit:radius
+  Passed: 2,687 active source files, zero legacy radius consumers.
+
+pnpm audit:inspector-css
+  Passed with existing non-blocking inspector debt inventory; the pattern
+  stylesheet reports its pre-existing grid-column count.
+
+pnpm audit:spacing
+  Passed: 311 raw declarations tracked by 244 buckets.
+
+pnpm audit:sizing
+  Passed: 67 ratcheted interface declarations.
+
+pnpm lint:css
+  Passed. Existing inspector-css debt remains a non-blocking inventory outside
+  this slice.
+
+pnpm verify:plan
+  Reported 449 shared changed files across 11 JS packages and Rust crates
+  varve-print/varve-bridge; FULL-SUITE ESCALATION: YES due to unrelated shared
+  workspace/toolchain/validation-infrastructure changes.
+
+pnpm verify:affected
+  Exited 2 after printing that full-suite escalation. The final full-gate run
+  remains pending at the requested final coherent revision; the previous
+  escalated run is documented below.
 ```
 
 The focused suite covers definition create/apply/unique, source persistence and
@@ -269,7 +342,7 @@ the concurrent dirty workspace and cannot be attributed to this feature alone.
 
 ## Visual and output evidence
 
-All browser captures are real Chromium Canvas2D output, 1280×720. The first
+Application screenshots are real Chromium Canvas2D output at 1280×720. The first
 review caught the full repeat preview's explanatory text escaping the 20px
 library swatch. The swatch is now clipped to its own bounds, the hint is hidden
 inside the compact swatch, and the browser test asserts those layout bounds.
@@ -285,6 +358,14 @@ The corrected screenshots are in
   motif editor open after a translation change. The 1280×720 view fits the
   canvas and inspector without horizontal overflow; the inspector scrolls to
   reach the remaining transform fields.
+- `app-raster-offset-edit.png` shows the repeated raster seam preview and
+  selected one-pixel X offset. `app-raster-offset-controls.png` shows the
+  scrolled inspector with full-width Cancel and Apply offset controls at the
+  same viewport; this capture caught and drove the narrow-inspector sizing fix.
+- `guide-raster-offset-desktop.png` and `feature-raster-offset-mobile.png` are
+  screenshots of the rebuilt local marketing guide and feature page after the
+  offset limitations were documented. The page content fits without horizontal
+  overflow; these are local builds and were not published.
 - `feature-desktop.png` and `feature-mobile.png` are local marketing-site
   captures. They were inspected for layout and mobile overflow; the long mobile
   page is naturally scaled down in the contact view. `guide-desktop.png` is an
@@ -316,8 +397,9 @@ collected.
   wraparound editing. The inspector source editor currently supports top-level
   motif translation/rotation with numeric, keyboard, and repeated-preview
   feedback controls.
-- No raster seam-inspection or offset-repair UI, wraparound brush editing,
-  or finite Expand-to-objects command. Custom stagger fractions outside the
+- No raster pixel repair or wraparound brush editing, and no finite
+  Expand-to-objects command. The new raster offset inspector only cyclically
+  repositions existing texels. Custom stagger fractions outside the
   conventional Grid/Half-drop/Brick geometries are rejected for rectangular
   supertile export.
 - No shared page-origin alignment; phase remains object-local.

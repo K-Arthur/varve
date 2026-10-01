@@ -243,3 +243,21 @@
 .insp-pattern-source-editor__transform > button {
   grid-column: 1 / -1;
 }
+
+.insp-pattern-raster-offset-editor .insp-pattern-source-editor__header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.insp-pattern-raster-offset-editor .insp-pattern-source-editor__header > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  width: 100%;
+}
+
+.insp-pattern-raster-offset-editor .insp-pattern-source-editor__header button {
+  flex: none;
+  min-width: 0;
+  white-space: normal;
+  width: 100%;
+}

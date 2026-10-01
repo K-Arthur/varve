@@ -23,6 +23,7 @@ import { compilePatternPreview } from '../../../patterns/compilePatternPreview';
 import { getPatternSourceDraftStatus } from '../../../patterns/patternSourceDraft';
 import { countPatternUses } from '../../../patterns/patternUsage';
 import { DisclosureSection } from '../controls/DisclosureSection';
+import { PatternRasterOffsetEditor } from './PatternRasterOffsetEditor';
 import { PatternRepeatPreview } from './PatternRepeatPreview';
 import { PatternSourceEditor } from './PatternSourceEditor';
 import './PatternLibrarySection.css';
@@ -51,10 +52,12 @@ export function PatternLibrarySection() {
   const [newName, setNewName] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [sourceEditingId, setSourceEditingId] = useState<string | null>(null);
+  const [rasterOffsetEditingId, setRasterOffsetEditingId] = useState<string | null>(null);
 
   useEffect(() => {
     setEditingId(null);
     setSourceEditingId(null);
+    setRasterOffsetEditingId(null);
   }, [doc.id]);
 
   const bindFileInput = useCallback((input: HTMLInputElement | null) => {
@@ -455,6 +458,87 @@ export function PatternLibrarySection() {
     fileInputRef.current?.click();
   }, []);
 
+  const beginRasterOffset = useCallback((definition: PatternDefinition) => {
+    importGeneration.current += 1;
+    pendingReplacement.current = null;
+    setEditingId(null);
+    setSourceEditingId(null);
+    setRasterOffsetEditingId((current) => (current === definition.id ? null : definition.id));
+  }, []);
+
+  const applyRasterOffset = useCallback(
+    (
+      id: string,
+      expectedDocumentId: string,
+      expectedRevision: number,
+      dataUrl: string,
+    ): boolean => {
+      const status = getPatternSourceDraftStatus(doc, id, expectedDocumentId, expectedRevision);
+      if (status !== 'ready') {
+        editor.announce(
+          status === 'document-changed'
+            ? 'The active document changed. Reopen seam inspection before applying.'
+            : status === 'stale'
+              ? 'This pattern changed during seam inspection. Reopen it and retry.'
+              : 'This pattern no longer exists in the current document.',
+        );
+        return false;
+      }
+      const definition = doc.patternDefinitions?.[id];
+      if (definition?.source.kind !== 'raster') return false;
+
+      try {
+        const embedded = findOrCreateEmbeddedAsset(doc, {
+          dataUrl,
+          mimeType: 'image/png',
+          naturalWidth: definition.source.width,
+          naturalHeight: definition.source.height,
+        });
+        const asset = embedded.document.assets?.[embedded.assetId];
+        if (!asset) throw new Error('The offset tile asset could not be stored.');
+        const prepared = updatePatternDefinition(embedded.document, id, (current) => ({
+          ...current,
+          source:
+            current.source.kind === 'raster'
+              ? { ...current.source, assetId: embedded.assetId }
+              : current.source,
+        }));
+        const updatedDefinition = prepared.patternDefinitions?.[id];
+        if (!updatedDefinition) throw new Error('This pattern no longer exists.');
+
+        editor.groupCompoundOperation('Offset raster pattern source', () => {
+          editor.updateDoc((current) => {
+            const latest = current.patternDefinitions?.[id];
+            if (
+              current.id !== expectedDocumentId ||
+              latest?.revision !== expectedRevision ||
+              latest.source.kind !== 'raster'
+            ) {
+              return current;
+            }
+            return {
+              ...current,
+              assets: { ...current.assets, [asset.id]: asset },
+              patternDefinitions: {
+                ...current.patternDefinitions,
+                [id]: updatedDefinition,
+              },
+            };
+          });
+        });
+        setRasterOffsetEditingId(null);
+        editor.announce(
+          `Applied a cyclic offset to the shared raster source for ${definition.name}`,
+        );
+        return true;
+      } catch (error) {
+        announceError(error);
+        return false;
+      }
+    },
+    [doc, editor, announceError],
+  );
+
   const handleTileFile = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
       const file = event.currentTarget.files?.[0];
@@ -665,7 +749,7 @@ export function PatternLibrarySection() {
           </div>
         )}
         <ul
-          className={`insp-paint-library__list${editingId ? ' insp-pattern-library__list--editing' : ''}`}
+          className={`insp-paint-library__list${editingId || sourceEditingId || rasterOffsetEditingId ? ' insp-pattern-library__list--editing' : ''}`}
           aria-label="Reusable patterns"
         >
           {entries.map((definition) => {
@@ -748,6 +832,18 @@ export function PatternLibrarySection() {
                       <Icon name="Pencil" label={undefined} size="0.85em" />
                     </button>
                   )}
+                  {definition.source.kind === 'raster' && tileSrc && (
+                    <button
+                      type="button"
+                      className="insp-paint-library__action-btn"
+                      onClick={() => beginRasterOffset(definition)}
+                      aria-label={`${rasterOffsetEditingId === definition.id ? 'Close' : 'Inspect'} ${definition.name} tile seams`}
+                      aria-expanded={rasterOffsetEditingId === definition.id}
+                      title="Inspect raster tile seams with cyclic offset editing"
+                    >
+                      <Icon name="Move" label={undefined} size="0.85em" />
+                    </button>
+                  )}
                   <button
                     type="button"
                     className="insp-paint-library__action-btn"
@@ -805,6 +901,16 @@ export function PatternLibrarySection() {
                     usageCount={usageCount}
                     onCommit={commitSourceDraft}
                     onCancel={() => setSourceEditingId(null)}
+                  />
+                ) : rasterOffsetEditingId === definition.id &&
+                  definition.source.kind === 'raster' ? (
+                  <PatternRasterOffsetEditor
+                    documentId={doc.id}
+                    definition={definition}
+                    assetDataUrl={doc.assets?.[definition.source.assetId]?.dataUrl ?? ''}
+                    usageCount={usageCount}
+                    onApply={applyRasterOffset}
+                    onCancel={() => setRasterOffsetEditingId(null)}
                   />
                 ) : editingId === definition.id ? (
                   <PatternDefinitionSettings definition={definition} onChange={editDefinition} />

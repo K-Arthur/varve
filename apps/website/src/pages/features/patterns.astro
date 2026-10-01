@@ -109,8 +109,10 @@ import { sitePath } from '../../lib/siteUrl';
           cancelable draft where top-level copied motifs can be moved or rotated against the
           repeated preview; Done updates linked uses as one history action. It does not yet edit
           nested children, vector points, text content, paint, or raster pixels, and neighbour
-          copies cannot be selected directly. Raster edge repair, wraparound painting, shared
-          page-origin alignment, and finite expansion are not available here. Export Tile saves
+          copies cannot be selected directly. Raster seam inspection can cyclically offset existing
+          pixels into a new embedded PNG (up to 16 megapixels); it does not invent edge content or
+          support wraparound painting. Shared page-origin alignment and finite expansion are not
+          available here. Export Tile saves
           one source cell; Export Supertile saves the full rectangular period for grid and conventional
           half-drop or brick repeats with mirror parity. Applied-fill SVG keeps supported
           linked grid patterns as reusable vector pattern definitions; unsupported cases use a

@@ -46,6 +46,10 @@ path or alter the shared index. Hub files remain outside the pattern scope.
   support the conventional Grid, Half-drop, and Brick layouts, including
   mirror parity; custom stagger fractions without a supported rectangular
   period are rejected.
+- Raster seam inspection applies whole-pixel cyclic offsets to embedded tiles
+  up to 16 megapixels. It writes a new PNG from the original texels and changes
+  linked uses of that definition; it does not synthesize edge content or
+  enable wraparound painting.
 - The research ledger links versioned primary documentation and firsthand
   issue reports to product decisions and acceptance checks. Competitor reports
   are regression leads, not Varve defects.
@@ -70,8 +74,9 @@ in the validation report.
 ## Remaining scope
 
 No contextual canvas motif-edit session, neighbor ghost hit mapping, session
-Cancel, raster seam inspection/offset repair, wraparound painting,
-Expand-to-objects, or shared page-origin mode is implemented. The three
+Cancel, raster seam synthesis or wraparound painting, Expand-to-objects, or
+shared page-origin mode is implemented. Raster offset inspection is present
+but only repositions existing texels. The three
 requested rich real-world design documents,
 offline real-app save/reopen, native Tauri/physical touch validation, and dense
 repeat performance measurements remain unverified. These gaps are listed in

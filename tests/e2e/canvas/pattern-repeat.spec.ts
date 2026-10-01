@@ -220,6 +220,33 @@ async function inspectSvgSupertile(
   }, svg);
 }
 
+async function inspectRasterSourceSvg(
+  page: Page,
+  svg: string,
+): Promise<Array<[number, number, number, number]>> {
+  return page.evaluate(async (source) => {
+    const dataUrl = /href="(data:image\/png;base64,[^"]+)"/.exec(source)?.[1];
+    if (!dataUrl) throw new Error('exported raster source did not embed its PNG bytes');
+    const image = new Image();
+    image.src = dataUrl;
+    await new Promise<void>((resolve, reject) => {
+      image.onload = () => resolve();
+      image.onerror = () => reject(new Error('offset source PNG did not decode'));
+    });
+    const canvas = document.createElement('canvas');
+    canvas.width = image.naturalWidth;
+    canvas.height = image.naturalHeight;
+    const context = canvas.getContext('2d', { willReadFrequently: true });
+    if (!context) throw new Error('2D canvas unavailable');
+    context.drawImage(image, 0, 0);
+    const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+    return [
+      [pixels[0]!, pixels[1]!, pixels[2]!, pixels[3]!],
+      [pixels[4]!, pixels[5]!, pixels[6]!, pixels[7]!],
+    ];
+  }, svg);
+}
+
 test.describe('pattern repeat', () => {
   test('edits a copied vector motif in a cancelable shared-source draft', async ({ page }) => {
     test.setTimeout(240000);
@@ -455,6 +482,39 @@ test.describe('pattern repeat', () => {
     });
     await expect(entry.locator('.insp-paint-library__badge')).toContainText('raster · 2 by 3');
     await expect(entry.locator('.insp-paint-library__badge')).toContainText('1 use');
+    const libraryCanvas = entry.locator('.insp-pattern-library__swatch canvas');
+    const originalLibraryPreview = await canvasHash(libraryCanvas);
+    await entry.getByRole('button', { name: `Inspect ${name} tile seams` }).click();
+    const offsetEditor = entry.getByRole('region', {
+      name: `Inspect ${name} raster tile seams`,
+    });
+    await expect(offsetEditor).toBeVisible();
+    await expect(offsetEditor).toContainText('does not repair the image');
+    const offsetPreview = offsetEditor.locator('canvas.insp-pattern-preview__canvas');
+    const originalOffsetPreview = await canvasHash(offsetPreview);
+    await offsetEditor.getByRole('spinbutton', { name: 'Raster tile offset X' }).fill('1');
+    await expect.poll(() => canvasHash(offsetPreview)).not.toBe(originalOffsetPreview);
+    await expect(offsetEditor.getByRole('button', { name: 'Apply offset' })).toBeEnabled();
+    await page.screenshot({
+      path: 'docs/screenshots/pattern-system-2026-09-30/app-raster-offset-edit.png',
+    });
+    await offsetEditor.getByRole('button', { name: 'Apply offset' }).scrollIntoViewIfNeeded();
+    await page.screenshot({
+      path: 'docs/screenshots/pattern-system-2026-09-30/app-raster-offset-controls.png',
+    });
+    await offsetEditor.getByRole('button', { name: 'Apply offset' }).click();
+    await expect(offsetEditor).toBeHidden();
+    await expect.poll(() => canvasHash(libraryCanvas)).not.toBe(originalLibraryPreview);
+    const tileDownloadPromise = page.waitForEvent('download');
+    await entry.getByRole('button', { name: `Export ${name} source tile as SVG` }).click();
+    const tileDownload = await tileDownloadPromise;
+    const tilePath = await tileDownload.path();
+    expect(tilePath).toBeTruthy();
+    const tilePixels = await inspectRasterSourceSvg(page, await readFile(tilePath!, 'utf8'));
+    expect(tilePixels).toEqual([
+      [228, 103, 48, 255],
+      [28, 146, 197, 255],
+    ]);
     await page.waitForTimeout(500);
     const line = await sampleLine(page, box, box.y + 250);
     expect(distinctColours(line), 'the replaced source must paint the linked fill').toBeGreaterThan(

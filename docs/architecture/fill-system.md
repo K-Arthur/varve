@@ -46,7 +46,12 @@ source cell or a rectangular repeat supertile as SVG. The supertile export
 supports Grid and the conventional Half-drop/Brick settings, including mirror
 parity; unsupported custom stagger fractions are refused. Replacing a shared
 source changes all linked uses; make a fill unique first to isolate that
-change. For vector definitions, **Edit source motifs** opens a draft with the
+change. Raster definitions also provide seam inspection: a whole-pixel offset
+preview cyclically moves existing texels across the tile edges. Applying it
+stores a new embedded PNG and updates every linked use; make one fill unique
+first to scope the change. This changes phase only and does not synthesize
+missing edge content or enable wraparound painting. For vector definitions,
+**Edit source motifs** opens a draft with the
 repeated preview and per-root translation/rotation controls. Arrow keys nudge
 the selected root motif; Done revision-checks and commits the new source and
 preview as one history action, while Cancel discards only the draft. This is a
@@ -344,14 +349,15 @@ original source containing the bytes is required for the old pixels to return.
   general staggered lattice. Mirror and shifted repeats render in Varve, but
   PDF export warns and omits them; native SVG export currently supports only
   the linked grid subset described below.
-- **Source editing and seam repair have different limits.** The Pattern
+- **Source editing and raster seam inspection have different limits.** The Pattern
   Library edits translation and rotation of top-level copied vector motifs in
   a cancelable draft, with a repeated preview and one shared-source history
   commit. It does not enter that source in the document canvas, edit nested
   nodes/path points/text/paint, or map direct clicks on neighbor ghosts back to
-  their canonical roots. Raster imports and replacements appear in a repeat
-  preview; there is no seam inspection, offset repair, or wraparound painting
-  tool.
+  their canonical roots. Raster seam inspection can offset embedded tiles by
+  whole pixels (up to 16 megapixels) and save the cyclic shift as a new PNG;
+  it reuses existing pixels and cannot repair a discontinuity by inventing
+  edge content. There is no wraparound painting tool.
 - **Source-tile, repeat-supertile, and applied-fill SVG are different outputs.**
   Export Tile writes one definition source cell into an SVG wrapper; current
   vector previews are embedded as a nested SVG image, not editable motif
