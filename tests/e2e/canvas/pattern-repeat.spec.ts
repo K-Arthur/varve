@@ -34,6 +34,23 @@ async function createRect(page: Page): Promise<{ box: { x: number; y: number } }
   return { box };
 }
 
+async function createEllipse(page: Page): Promise<{ box: { x: number; y: number } }> {
+  await page.keyboard.press('o');
+  const canvas = page.locator('canvas.editor-canvas__content-layer');
+  await canvas.waitFor({ state: 'visible', timeout: 15000 });
+  const box = await canvas.boundingBox();
+  if (!box) throw new Error('no canvas');
+  await page.mouse.move(box.x + 150, box.y + 150);
+  await page.mouse.down();
+  await page.mouse.move(box.x + 450, box.y + 350);
+  await page.mouse.up();
+  await page.waitForTimeout(300);
+  await page.keyboard.press('v');
+  await page.mouse.click(box.x + 300, box.y + 250);
+  await page.waitForTimeout(400);
+  return { box };
+}
+
 type Rgba = [number, number, number, number];
 
 async function samplePixels(page: Page, points: Array<{ x: number; y: number }>): Promise<Rgba[]> {
@@ -74,9 +91,11 @@ async function sampleLine(page: Page, box: { x: number; y: number }, y: number):
  */
 async function regionSignature(page: Page, box: { x: number; y: number }): Promise<string> {
   const points: Array<{ x: number; y: number }> = [];
+  // Avoid regular sampling intervals that can alias against dot/stripe tiles.
+  // These relatively prime steps cover most of the object at several phases.
   for (let gy = 0; gy < 14; gy++) {
-    for (let gx = 0; gx < 14; gx++) {
-      points.push({ x: box.x + 180 + gx * 19, y: box.y + 170 + gy * 13 });
+    for (let gx = 0; gx < 24; gx++) {
+      points.push({ x: box.x + 180 + gx * 11, y: box.y + 170 + gy * 13 });
     }
   }
   const sampled = await samplePixels(page, points);
@@ -128,6 +147,64 @@ async function useGenerator(page: Page, label: string): Promise<void> {
   await page.waitForTimeout(900);
 }
 
+async function inspectSvgSupertile(
+  page: Page,
+  svg: string,
+): Promise<{
+  distinctPixels: number;
+  visiblePixels: number;
+  differentFromXRepeat: number;
+  differentFromYRepeat: number;
+}> {
+  return page.evaluate(async (source) => {
+    const image = new Image();
+    image.src = URL.createObjectURL(new Blob([source], { type: 'image/svg+xml' }));
+    await new Promise<void>((resolve, reject) => {
+      image.onload = () => resolve();
+      image.onerror = () => reject(new Error('exported SVG did not decode'));
+    });
+    const canvas = document.createElement('canvas');
+    canvas.width = 600;
+    canvas.height = 800;
+    const context = canvas.getContext('2d', { willReadFrequently: true });
+    if (!context) throw new Error('2D canvas unavailable');
+    const repeat = context.createPattern(image, 'repeat');
+    if (!repeat) throw new Error('could not tile the exported supercell');
+    context.fillStyle = repeat;
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    URL.revokeObjectURL(image.src);
+    const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+    const colours = new Set<string>();
+    let visiblePixels = 0;
+    let differentFromXRepeat = 0;
+    let differentFromYRepeat = 0;
+    for (let y = 0; y < 400; y++) {
+      for (let x = 0; x < 300; x++) {
+        const offset = (y * canvas.width + x) * 4;
+        const xRepeatOffset = (y * canvas.width + x + 300) * 4;
+        const yRepeatOffset = ((y + 400) * canvas.width + x) * 4;
+        const pixel = `${pixels[offset]},${pixels[offset + 1]},${pixels[offset + 2]},${pixels[offset + 3]}`;
+        colours.add(pixel);
+        if (pixels[offset + 3]! > 0) visiblePixels++;
+        for (let channel = 0; channel < 4; channel++) {
+          if (pixels[offset + channel] !== pixels[xRepeatOffset + channel]) {
+            differentFromXRepeat++;
+          }
+          if (pixels[offset + channel] !== pixels[yRepeatOffset + channel]) {
+            differentFromYRepeat++;
+          }
+        }
+      }
+    }
+    return {
+      distinctPixels: colours.size,
+      visiblePixels,
+      differentFromXRepeat,
+      differentFromYRepeat,
+    };
+  }, svg);
+}
+
 test.describe('pattern repeat', () => {
   test('creates a reusable vector source, applies it, and makes one use unique', async ({
     page,
@@ -140,7 +217,7 @@ test.describe('pattern repeat', () => {
       }
     });
     await navigateToCleanEditor(page);
-    await createRect(page);
+    await createEllipse(page);
     await page.getByRole('button', { name: 'Paint Library', exact: true }).click();
     await page.getByRole('button', { name: 'Pattern Library', exact: true }).click();
 
@@ -226,6 +303,18 @@ test.describe('pattern repeat', () => {
     await supertileDownload.saveAs('test-results/pattern-library/05-supertile.svg');
     expect(supertileSvg).toContain('viewBox="0 0 300 400"');
     expect(supertileSvg).toContain('clip-path="url(#pattern-supertile-clip)"');
+    const repeatPixels = await inspectSvgSupertile(page, supertileSvg);
+    expect(repeatPixels.distinctPixels).toBeGreaterThan(1);
+    expect(repeatPixels.visiblePixels).toBeGreaterThan(0);
+    expect(repeatPixels.differentFromXRepeat).toBe(0);
+    expect(repeatPixels.differentFromYRepeat).toBe(0);
+    await page.mouse.move(640, 10);
+    const microHint = page.locator('.micro-hint');
+    if (await microHint.isVisible().catch(() => false)) {
+      await microHint.getByRole('button', { name: 'Dismiss hint' }).click();
+      await microHint.waitFor({ state: 'hidden' });
+    }
+    await page.waitForTimeout(300);
     await page.screenshot({ path: 'test-results/pattern-library/01-vector-source.png' });
 
     await entry.getByRole('button', { name: `Apply ${name} to selection` }).click();
@@ -339,7 +428,9 @@ test.describe('pattern repeat', () => {
     await selectFillType(page, 'Pattern');
     await page.getByRole('button', { name: /generate pattern/i }).click();
     await page.waitForTimeout(1200);
-    await useGenerator(page, 'Checkerboard');
+    // Checkerboard is invariant under a half-cell phase shift, so it cannot
+    // prove that a staggered arrangement changed the visible field.
+    await useGenerator(page, 'Dots');
 
     const gridLine = await sampleLine(page, box, box.y + 260);
     const grid = smallestPeriod(gridLine);

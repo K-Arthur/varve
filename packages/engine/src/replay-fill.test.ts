@@ -1917,6 +1917,49 @@ describe('multi-item compositing edge cases', () => {
     expect(patternTransform?.f).toBeCloseTo(35);
   });
 
+  it('routes half-drop fills through the shared repeat lattice', () => {
+    getImageCache().setLoaded('half-drop-tile.png', mockImage('half-drop-tile.png', 8, 8));
+    const rec = recorder();
+    const patternTransforms: DOMMatrix2DInit[] = [];
+    rec.target.createPattern = () =>
+      ({
+        setTransform(transform: DOMMatrix2DInit) {
+          patternTransforms.push(transform);
+        },
+      }) as unknown as CanvasPattern;
+
+    replayIr(rec.target, [
+      {
+        transform: [1, 0, 0, 1, 0, 0],
+        fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+        fills: [
+          {
+            type: 'pattern',
+            tileSrc: 'half-drop-tile.png',
+            spacing: 0,
+            gapX: 0,
+            gapY: 0,
+            imageWidth: 8,
+            imageHeight: 8,
+            arrangement: 'half-drop',
+            columnShift: 0.5,
+            rotation: 0,
+            opacity: 1,
+            blendMode: 'normal',
+            visible: true,
+          },
+        ],
+        primitive: { kind: 'rect', x: 30, y: 40, w: 40, h: 32 },
+      },
+    ]);
+
+    expect(patternTransforms).toHaveLength(1);
+    expect(patternTransforms[0]?.a).toBeCloseTo(1);
+    expect(patternTransforms[0]?.b).toBeCloseTo(0.5);
+    expect(patternTransforms[0]?.c).toBeCloseTo(0);
+    expect(patternTransforms[0]?.d).toBeCloseTo(1);
+  });
+
   it('image fill renders placeholder when drawImage unavailable', () => {
     const rec = recorder();
     const item: RenderItem = {

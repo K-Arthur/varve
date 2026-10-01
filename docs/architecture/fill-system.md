@@ -55,9 +55,12 @@ One evaluator, `@varve/shared` `patternRepeat`, owns the geometry:
 `p(i, j) = phase + i·u + j·v`, with `u = (tileW + gapX, columnShift·(tileH + gapY))`
 and `v = (rowShift·(tileW + gapX), tileH + gapY)`. Grid defaults both shifts
 to 0; half-drop defaults to a 0.5 vertical offset for odd columns; brick
-defaults to a 0.5 horizontal offset for odd rows. The Canvas2D renderer
-(`packages/engine/src/replay.ts` `paintPatternFill`) and the Inspector preview
-(`PatternRepeatPreview.tsx`) consume the shared evaluator. `patternCellAt` is
+defaults to a 0.5 horizontal offset for odd rows. The active Canvas2D replay
+route delegates from `packages/engine/src/replay.ts` to
+`packages/engine/src/patterns/replayPatternFill.ts`; the Inspector preview
+(`PatternRepeatPreview.tsx`) uses the same evaluator. A browser pixel regression
+found and now guards against a stale grid-only painter bypassing the evaluator.
+`patternCellAt` is
 available as an inverse-mapping utility but is not wired to canvas hit testing
 or a wraparound editing session yet. Legacy files that only carry a uniform `spacing`
 resolve to the lattice they always had (`spacing` feeds both axes when
