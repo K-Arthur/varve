@@ -40,7 +40,7 @@ test('homepage and About describe local file access without a browser-only claim
   await page.goto('/');
   const home = page.locator('.interface-section');
   await expect(home).toContainText('during an outage');
-  await expect(home).toContainText('local files');
+  await expect(home).toContainText('Documents remain local');
   await expect(home).not.toContainText('Figma requires a browser');
 
   await page.goto('/about');

@@ -58,6 +58,15 @@ each file):
   tail-percentile result (continuation, 2026-09-27). These measurement files
   contain concurrent edits; only the interval-provenance and p95/p99
   qualification additions belong to this task.
+- `scripts/perf/webkit-profile.mjs`, `scripts/perf/capture-webkit-env.mjs`, and
+  `docs/perf/webkitgtk-profiling.md`; this continuation corrects the stale
+  blanket worker-disabled claim and records the verified WebKitGTK capability
+  gate and host profile.
+- `docs/audits/canvas-fluidity-2026-09-25.md`; this continuation records the
+  matched browser-engine findings, same-state pixel checks, and native-build
+  qualification limits without presenting old snapshots as current builds.
+- `docs/perf/ledger.md`; this continuation adds the qualified Linux
+  WebKitGTK/Chromium navigation results and their creation/worker limitations.
 - `packages/editor/src/context/types.ts` (deprecation notes only)
 - `packages/scene/src/editorSceneScope.ts` and its test
 - `packages/shared/src/viewport.ts`, `index.ts`, `viewportProjector.test.ts` (new)

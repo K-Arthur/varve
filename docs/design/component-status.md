@@ -1,6 +1,6 @@
 # Component Status — `@varve/ui` maturity tracker
 
-**Last updated:** 2026-09-05
+**Last updated:** 2026-09-27 (design-system audit: corrected Combobox/Spinner/AlertDialog status)
 **See:** ADR-0011 (governance), `docs/design/design-principles.md`
 
 ## Maturity states
@@ -18,7 +18,7 @@
 | Component | Maturity | Story | Test | Notes |
 |---|---|---|---|---|
 | Button | ✅ | ✅ | ✅ | 6 variants × 3 sizes |
-| IconButton | ✅ | — | — | Wraps Button |
+| IconButton | ✅ | ✅ | ✅ | Wraps Button |
 | Checkbox | ✅ | — | — | Includes indeterminate |
 | Radio | 🧪 | ✅ | ✅ | Native radio groups and roving choice surfaces; decision rules in [radio-group-system.md](radio-group-system.md) |
 | Switch | 🧪 | ✅ | ✅ | `Switch` + `SwitchField`; see switch-system.md |
@@ -28,7 +28,7 @@
 | NumberInput | ✅ | — | ✅ | Scrubbable |
 | SearchField | ✅ | — | ✅ | With highlight match |
 | Select | ✅ | ✅ | ✅ | APG combobox pattern |
-| Combobox | 🧪 | — | — | Not yet extracted |
+| Combobox | ✅ | ✅ | ✅ | Free-text entry + listbox; extracted, contract in `docs/architecture/select-system.md` |
 | Slider | ✅ | — | ✅ | APG slider pattern |
 | Tabs | ✅ | — | ✅ | APG tabs + roving tabindex |
 | SegmentedControl | ✅ | ✅ | ✅ | Canonical APG radiogroup for short enumerations; inset-pill style, `variant="pill"`, distributed tracks, per-option `hideLabel`/`tooltip`/`disabledReason`; contract in [radio-group-system.md](radio-group-system.md) |
@@ -41,7 +41,7 @@
 | Component | Maturity | Story | Test | Notes |
 |---|---|---|---|---|
 | Dialog | ✅ | ✅ | ✅ | Uses native `<dialog>` |
-| AlertDialog | ✅ | — | — | Variant of Dialog |
+| AlertDialog | ✅ | — | ✅ | Variant of Dialog; initial focus on the cancel action (tested in Dialog.test.tsx) |
 | Popover | ✅ | ✅ | ✅ | `popover="auto"` + floating-ui |
 | Tooltip | ✅ | ✅ | ✅ | Provider, warm timing, truncation-only mode |
 | Menu | ✅ | — | ✅ | Full keyboard nav, typeahead, submenus |
@@ -83,10 +83,8 @@
 These exist only as inline implementations in `packages/editor`. They should be
 extracted to `@varve/ui` as `beta` components:
 
-- Combobox (distinct from Select — free-text entry with suggestions)
 - Tree / TreeGrid
 - VirtualList (for large layer/component lists)
 - Badge / Tag
-- Progress (indeterminate)
-- Spinner
+- Progress (indeterminate bar; `Spinner` covers the spinner form)
 - Breadcrumbs

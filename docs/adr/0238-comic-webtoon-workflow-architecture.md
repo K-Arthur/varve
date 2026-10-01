@@ -4,8 +4,10 @@
 
 ## Context
 
-Varve ships eight workspace modes and shared scene, page, text, and halftone
-foundations. This decision answers one gating question before comic work is
+At adoption Varve shipped eight workspace modes and shared scene, page, text,
+and halftone foundations. The current six-mode taxonomy is recorded in
+ADR-0239; the no-dedicated-comic-mode decision below remains in force. This
+decision answers one gating question before comic work is
 implemented:
 
 > Does comic / manga / webcomic production require a dedicated Varve workspace?

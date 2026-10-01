@@ -1,5 +1,3 @@
-import { mkdirSync } from 'node:fs';
-import path from 'node:path';
 import { expect, test } from '@playwright/test';
 
 test('tonal feature links to a readable, honest guide with real editor images', async ({
@@ -17,23 +15,21 @@ test('tonal feature links to a readable, honest guide with real editor images', 
   ).toBeVisible();
   await expect(page.locator('.docs-page')).toContainText('It is not measured Kelvin');
   await expect(page.locator('.docs-page')).toContainText('straight-alpha RGBA8');
-  const evidence = path.resolve('reports/ui-review/tonal-website');
-  mkdirSync(evidence, { recursive: true });
   for (const theme of ['light', 'dark']) {
     await page.emulateMedia({ colorScheme: theme as 'light' | 'dark' });
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.screenshot({
-      path: path.join(evidence, `${info.project.name}-${theme}.png`),
+      path: info.outputPath(`${info.project.name}-${theme}.png`),
       fullPage: true,
     });
     await page.setViewportSize({ width: 390, height: 844 });
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
     expect(overflow).toBeLessThanOrEqual(1);
     await page.screenshot({
-      path: path.join(evidence, `${info.project.name}-${theme}-mobile-top.png`),
+      path: info.outputPath(`${info.project.name}-${theme}-mobile-top.png`),
     });
     await page.screenshot({
-      path: path.join(evidence, `${info.project.name}-${theme}-mobile.png`),
+      path: info.outputPath(`${info.project.name}-${theme}-mobile.png`),
       fullPage: true,
     });
   }
@@ -48,7 +44,7 @@ test('tonal feature links to a readable, honest guide with real editor images', 
   await page.emulateMedia({ forcedColors: 'active' });
   await expect(page.getByRole('heading', { name: 'Save and compare' })).toBeVisible();
   await page.screenshot({
-    path: path.join(evidence, `${info.project.name}-forced-colors.png`),
+    path: info.outputPath(`${info.project.name}-forced-colors.png`),
     fullPage: true,
   });
 });

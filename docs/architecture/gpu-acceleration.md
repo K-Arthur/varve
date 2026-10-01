@@ -1,15 +1,16 @@
 # GPU Acceleration System
 
-Status: current-state documentation (2026-09-25). Companion to
+Status: current-state documentation (2026-10-01). Companion to
 [render-pipeline.md](render-pipeline.md), [canvas2d-system.md](canvas2d-system.md),
 [native-acceleration.md](native-acceleration.md), ADR-0003, and ADR-0237.
 
 This document defines what "GPU acceleration" means in Varve, which parts of
 it are real today, what each platform can expect, and which failure modes the
 design avoids. It exists because the honest answer to "does Varve use my GPU?"
-is layered: a WebGPU scene path exists and now draws real solid-paint content,
-GPU compute kernels for effects exist but are not wired to a consumer yet, and
-the Canvas2D replay remains the authoritative production path everywhere.
+is layered: WebGPU and WebGL2 scene paths are opt-in experiments with bounded
+content admission and Canvas2D fallback; GPU compute kernels for effects are
+measured 3–64× faster than CPU but are not wired to a consumer yet; and
+Canvas2D remains the default renderer and authoritative fallback.
 
 ---
 
@@ -18,8 +19,8 @@ the Canvas2D replay remains the authoritative production path everywhere.
 | Layer | What it is | State |
 |---|---|---|
 | Display rendering | How the webview presents pixels (browser-composited Canvas2D/WebGPU under the hood) | Not inferred, not claimed. Status text never equates a backend name with hardware execution |
-| Scene GPU path | `WebGPUBackend` in `packages/compositor`: solid rect/oval runs rendered offscreen via WebGPU, composited onto the Canvas2D present surface | Implemented, opt-in (`settings.render.preferWebGpu`, default off), draws real solid-paint documents since 2026-09-25 |
-| GPU compute effects | `GpuEffectRunner` + nine WGSL kernels (bloom, caustics, CRT, VHS, light shafts, lens flare, light leak, palette snap, RGB split) behind the live-effect provider chain | Implemented and tested in isolation; **no application consumer yet** (see §7) |
+| Scene GPU paths | `WebGPUBackend` and experimental `WebGL2Backend` in `packages/compositor`, rendering admitted content offscreen and compositing onto the Canvas2D present surface | Both are opt-in; Canvas2D is the default. WebGPU admits selected solid rectangles/ovals; WebGL2 admits a narrower set of device-pixel-aligned rectangles and simple stretched images. Unsupported content falls back to Canvas2D. |
+| GPU compute effects | `GpuEffectRunner` + nine WGSL kernels (bloom, caustics, CRT, VHS, light shafts, lens flare, light leak, palette snap, RGB split) behind the live-effect provider chain | Implemented and tested in isolation; **no application consumer yet** — but measured 3–64× faster than CPU end-to-end on this host (see §5) |
 | Native acceleration | `varve-accel` wgpu compute with truthful capability stages (discovered → runtime-loadable → device-usable → execution-verified) | Per ADR-0237; consumer is the (unwired) effect chain; see [native-acceleration.md](native-acceleration.md) |
 
 ## 2. Architecture
@@ -27,8 +28,8 @@ the Canvas2D replay remains the authoritative production path everywhere.
 ### 2.1 Canvas ownership (the 2026-07-13 invert)
 
 The *present* canvas is always Canvas2D. GPU work renders to an offscreen
-`<canvas>` carrying a `webgpu` context, and completed GPU runs are blitted to
-the present surface with an identity transform. A browser canvas's context
+`<canvas>` carrying either a `webgpu` or `webgl2` context, and completed GPU
+runs are blitted to the present surface with an identity transform. A browser canvas's context
 type is fixed for its lifetime, so the earlier design — binding `webgpu` on
 the content canvas — could never fall back without a remount. With the
 invert, device loss, init failure, and unsupported content all degrade to the
@@ -101,6 +102,28 @@ driver-reset resilience on real hardware — the
 [manual verification checklist](webgpu-manual-verification.md) covers the
 latter before releases that touch this path.
 
+### 2.6 Presentation self-test and pipeline warm-up
+
+`initGpuResources` validates more than API presence before `gpuReady`:
+
+1. **Pipelines** are created once, at init, with
+   `createRenderPipelineAsync` — never in the frame loop — so compilation
+   cannot stall a frame; `pipelineInitMs` reports the init cost (a null
+   value means no pipeline initialized, not zero milliseconds).
+2. **Presentation probe** (`defaultPresentationProbe`): clear the offscreen
+   surface to a known premultiplied color, submit, await queue completion,
+   and read the result back through `drawImage` on a 2D probe canvas — the
+   exact cross-context path every GPU frame uses to reach the present
+   surface. Failure (unsupported `drawImage`, wrong alpha handling, channel
+   swap, incomplete implementation) declines WebGPU *before any frame draws*
+   with `initFailureReason: 'WebGPU presentation probe failed'`, and device
+   loss recovery re-runs the probe on the replacement device. jsdom cannot
+   rasterize WebGPU output, so mock-device unit tests inject probe success
+   and one unit test pins the fail-closed behavior; the success path is
+   proven on hardware by `tests/e2e/webgpu/circle-transform-parity.spec.ts`,
+   which reads real pixels back through the same path (a probe failure there
+   skips with the adapter message).
+
 ## 3. Capability and coverage matrix
 
 Evidence classes: **automated** (unit/golden tests), **browser** (Playwright,
@@ -109,18 +132,20 @@ see the manual checklist), **unverified** (no evidence on this class yet).
 
 | Content / operation | Path | Status | Evidence |
 |---|---|---|---|
-| Solid rect (legacy fill or single-solid stack) | WebGPU run | Reachable; pixel parity within golden tolerance | automated + browser |
-| Solid circle / ellipse | WebGPU run (shared oval stage) | Reachable; same coverage math as circles | automated + browser |
+| Solid rect (legacy fill or single-solid stack) | WebGPU run | Reachable; analytic edge coverage parity vs Canvas2D — mean channel diff ≤0.40 on aligned/rotated/fractional-zoom fixtures (aliased baseline 0.00–3.84), tightened spec thresholds | automated + hardware (AMD adapter, this host, 2026-09-26) |
+| Solid circle / ellipse | WebGPU run (shared oval stage) | Reachable; same analytic coverage math — mean 0.01–1.00 (aliased baseline 2.74–5.81), coverage ratios 0.999–1.011 | automated + hardware (AMD adapter, this host, 2026-09-26) |
+| Device-pixel-aligned solid rectangles and simple stretched images | Experimental WebGL2 run | Reachable only for the admitted subset; fractional, rotated, unsupported, or uncached content stays on Canvas2D. This is not a platform-support or hardware-performance claim. | automated + browser; see [`../perf/webgl2-qualification.md`](../perf/webgl2-qualification.md) for the separate hardware promotion gate |
 | Solid paint on mixed z-order documents | Ordered runs + islands | Reachable; islands preserve stacking | automated |
 | Gradient / image / pattern / stacked fills | Canvas2D island | Verified fallback by design | automated |
 | Strokes, text, paths, rounded rects | Canvas2D island | Verified fallback by design | automated |
 | Blend modes, masks, group isolation, effects | Structural replay (main thread) | Verified fallback by design | automated + browser |
 | Worker-rendered frames | Worker Canvas2D replay + bitmap present | Verified fallback (compositor bypassed) | automated + browser |
 | Device loss mid-session | Canvas2D continuity + bounded recovery | Implemented; simulated-loss tests only | automated |
-| GPU compute effects (9 kernels) | `GpuEffectRunner` | Implemented, **unwired consumer** (§7) | automated (harness + golden) |
+| Presentation self-test (offscreen → present `drawImage`) | Init + recovery gate | Implemented; passes on this host's hardware adapter (parity runs do not skip), fails closed in mock env | automated + hardware (AMD adapter, this host, 2026-09-26) |
+| GPU compute effects (9 kernels) | `GpuEffectRunner` | Implemented; **measured 3–64× faster than CPU end-to-end** at 512²–2048² (§5, perf ledger); consumer still unwired — wiring is now justified by measurement and scoped | automated + hardware (AMD adapter, this host, 2026-09-26) |
 | Native wgpu compute | `varve-accel` capability stages | Per ADR-0237; consumer unwired | automated (self-test) |
 | Native scene presentation | — | Not implemented; no measured need (§8) | — |
-| WebGL backend | — | Not implemented by decision (§8) | — |
+| Other WebGL2 content | Canvas2D island | Verified fallback by admission tests; no general GPU coverage claim | automated |
 
 Diagnostics (`CompositorDiagnostics`) back this matrix at runtime:
 `lastFrameGpuItems`, `fallbackIslandCount/NodeCount/Reasons`, `deviceLost`,
@@ -146,7 +171,7 @@ identity is never equated with hardware execution. Diagnostics are local by
 default and carry fixed, non-identifying failure reasons; no exact-VRAM
 numbers are claimed anywhere.
 
-## 5. GPU compute effects — implemented, deliberately unwired
+## 5. GPU compute effects — measured, wiring justified, execution scoped
 
 The runner, kernels, harness (`compareGpuCpu` agreement), provider chain
 (native GPU → native → WebGPU → CPU), and capability report are complete and
@@ -154,13 +179,31 @@ tested. **No application code calls the chain yet**: interactive replay and
 export apply effects through the synchronous CPU kernels in the engine's
 filter compositor, which are the byte-level reference the previews match.
 
-Wiring the chain into export is scoped work with a clear shape: an async
-variant of the filter compositor that dispatches each live-effect filter
-through the chain at the point where the CPU kernel would run, keeping
-opacity/blend compositing identical, falling back per effect on any failure,
-and recording the serving provider in export diagnostics. It is gated on that
-consumer — the kernels stay unreachable infrastructure until then, and the
-website says so.
+**The measured-need gate is now satisfied** (2026-09-26,
+`tests/e2e/effects/gpu-agreement.spec.ts` timing test, real AMD adapter, end-to-end samples
+including upload + readback — full table in `docs/perf/ledger.md`):
+GPU medians beat CPU medians by **3–64×** across all nine kernels at
+512²–2048² (e.g. crt at 1024²: 1014 ms CPU → 15.9 ms GPU; bloom at 2048²:
+1.34 s → 44 ms), with cold first-use pipeline compilation of only 6–106 ms.
+CPU cost scales linearly with pixels while GPU stays under ~71 ms at 2048² —
+so effect-heavy exports are the operation where this consumer matters.
+
+**Integration shape (execution scoped, not yet landed):** an async variant of
+`applyFilterWithCompositing` (packages/engine/filterCompositor.ts:108) that
+dispatches each live-effect filter through `dispatchLiveEffect` at the point
+the CPU kernel would run, keeping opacity/blend compositing identical,
+falling back per effect on any failure, and recording the serving provider in
+export diagnostics. The ripple is the reason it has not landed: all four
+call sites live inside the synchronous 1,100-line
+`replayStructuredSceneInner` closure tree (render/replayScene.ts:386), whose
+five external callers include a **synchronous** `renderSubtree` callback
+contract (render/mockup/mockupExport.ts:210 → `decorateMockupIr`). Making
+that tree async without breaking the callback contract (TypeScript's
+void-return assignability would *not* catch an unawaited promise there) is a
+dedicated milestone requiring the full export E2E/visual gate — not a
+side-quest inside a renderer change. Until it lands, the website's "explicit
+asynchronous effect consumers" boundary note stays accurate, and the kernels
+remain measured, harness-validated infrastructure.
 
 ## 6. Platform reality (researched 2026-09-25/26)
 
@@ -195,6 +238,12 @@ controlled studies; confirmed causes marked.
 | Acceleration silently degrading per platform with no user signal (Krita bug 515658, 2026-02 WONTFIX: OpenGL unavailable on M1+) | Krita macOS | Status text distinguishes requested preference, GPU-ready, actually-drew, and named fallback reasons; capability is reported per operation, never as a binary "GPU: on" |
 | "Turn off Hardware Acceleration" as the universal support answer (Affinity staff advice across forum threads, 2022+) | Affinity suite | The fallback is automatic, bounded, and observable (diagnostics + status), not a hidden checkbox users must discover |
 | Export output differing from preview when an accelerator serves the export | Various | Unwired consumer (§5): previews and export share the CPU kernels byte-for-byte today; the future GPU export path is gated on provider recording and per-effect fallback |
+| Device loss under interleaved upload/submit bursts — a real app lost the device seconds in; app-side coalescing to one upload per frame eliminated the repro (WebKit PR #71563, 2026-08-17, reviewer-confirmed *mitigation* rather than cure) | macOS WKWebView (Safari 26.3) | Uploads are bounded (4 MiB chunks) and each chunk submits before its pooled buffer is rewritten; device loss is already recoverable with bounded retries (§2.5). Full per-frame write coalescing is **not** implemented — verifying it needs a macOS soak, on the manual checklist |
+| The spec clears/blanks a WebGPU canvas when its device is lost mid-frame, and `drawImage` may return blank afterwards (gpuweb #4859 WG resolution + Chromium clearing the last frame) | Chromium et al. | The present surface is Canvas2D and keeps the last good pixels; the loss handler publishes diagnostics and requests an authoritative redraw before anything else, so a blanked offscreen blit cannot persist |
+| `alphaMode` affects `drawImage`/`toDataURL` output, not just compositing (gpuweb PR #2905, 2024); WebKit's `rgba16float` offscreen read back as opaque (bug 318726, confirmed) | All browsers | One fixed configuration: `alphaMode: 'premultiplied'` matched to vertex premultiplication and the one/one-minus-src-alpha blend; the init presentation probe verifies a premultiplied color survives the readback exactly |
+| WebKit implemented `drawImage` *from a WebGPU canvas* only in 2026 (PRs #71628/#72118), and a working WebGPU view simply stopped rendering after a Safari update (bug 315186, confirmed with regression test) | macOS WKWebView | Presentation probe at init (§2.6): a broken blit path declines WebGPU with a named reason instead of painting holes while diagnostics report submission; the Canvas2D present surface stays authoritative |
+| Pipeline compilation stalls first use; per-frame pipeline creation can peg the CPU (Khronos WebGPU best practices; Apple WWDC25; Chrome 135/136 WGSL compiler notes) | All browsers | Both scene pipelines are created once at init with `createRenderPipelineAsync`, never in the frame loop; effects-runner pipelines are created lazily per kernel and cached by key |
+| DPR-2 and unrounded viewport math produce blurry/stale canvases; maintainer-confirmed thumbnail-instead-of-live causes (Penpot #7751/#8092/#9775) and repeated upstream Chromium DPR bugs found by a canvas maintainer (tldraw #1575, #8482) | Chrome/Firefox | DPR changes invalidate the backing store and force a full redraw (`subscribeToDevicePixelRatio` → `surfaceMatchesBackingStore('surface-resized')`); partial-redraw clips snap to whole device pixels (2026-09-25 seam fix) |
 
 ## 8. Decision record
 
@@ -202,10 +251,12 @@ controlled studies; confirmed causes marked.
   2026-09-25).** In-place fallback beats a "pure" full-GPU presentation that
   cannot degrade without remounting. Revisit only with evidence that blit
   cost of GPU runs is a measured bottleneck (it has not been).
-- **No WebGL backend.** WebGPU covers the GPU-capable runtimes Varve ships
-  to; a second GPU backend doubles shader/safety surface for a shrinking
-  legacy set. Revisit only if a supported target cannot run WebGPU but can
-  run WebGL *and* shows a measured Canvas2D bottleneck.
+- **WebGL2 remains an experimental opt-in backend.** It currently admits a
+  narrower scene subset than WebGPU and is not the default. It stays
+  experimental until exact-frame correctness, fallback, startup, packaging,
+  resource-soak, and paired native performance gates pass on a specific
+  hardware profile. The qualification contract is in
+  [`../perf/webgl2-qualification.md`](../perf/webgl2-qualification.md).
 - **No native scene presentation.** Native computation (wgpu kernels) can
   win for bounded raster work; native presentation adds surface embedding,
   DPI, input alignment, and packaging costs across three webviews. Full-frame
@@ -219,9 +270,13 @@ controlled studies; confirmed causes marked.
 
 ## 9. Remaining work
 
-1. **Effect-chain consumer** (§5): async filter-compositor dispatch for
-   export with provider recording; then the website's "explicit asynchronous
-   effect consumers" becomes an in-app reality rather than a boundary note.
+1. **Effect-chain export consumer** (§5): the measurement gate is satisfied
+   (3–64× GPU speedups on this host) and the integration shape is specified
+   in §5; the remaining work is executing the async conversion of
+   `replayStructuredSceneInner` *with* its synchronous callback contracts
+   (notably `mockupExport`'s `renderSubtree`) under the full export
+   E2E/visual gate, plus per-effect CPU fallback and provider recording in
+   export diagnostics. This is the highest-value open item.
 2. ~~**Resume/DPR-triggered full redraw**~~ — **done 2026-09-26.** The DPR
    half was already live (`subscribeToDevicePixelRatio` → `displayDpr` frame
    dep → `surfaceMatchesBackingStore('surface-resized')`); the resume half
@@ -229,13 +284,21 @@ controlled studies; confirmed causes marked.
    CanvasArea to the painted-surface invalidator. The Krita 490641 sleep
    class now has an in-app mitigation; real sleep/wake hardware verification
    remains on the manual checklist.
-3. **Oval edge quality**: the oval stage discards hard edges while Canvas2D
-   antialiases; coverage parity passes today, but edge-quality parity would
-   need a distance-based blend — benchmark before adopting.
+3. ~~**Oval/rect edge quality**~~ — **done 2026-09-26.** Both stages now
+   derive analytic ~1 device-pixel coverage from `fwidth` (the oval's hard
+   `discard` is gone), with the vertex stage expanding its quad ~1 px so the
+   outside band has geometry. Before/after numbers, screenshots, and the
+   tightened parity thresholds: `docs/perf/ledger.md` → "Edge antialiasing
+   parity (2026-09-26)".
 4. **Worker WebGPU**: OffscreenCanvas + WebGPU in the render worker is
    Chromium-only today and WebKitGTK has none; revisit after the platform
    matrix changes.
-5. **Hardware lane**: run `tests/e2e/webgpu/circle-transform-parity.spec.ts`
-   and the manual checklist on real adapters (Linux/Windows/macOS) before the
-   next release that touches this path; headless SwiftShader cannot certify
-   hardware behavior.
+5. **Hardware lane**: `circle-transform-parity.spec.ts` (with the tightened
+   edge-parity thresholds), the presentation probe, and the timing report now
+   run green against this host's real AMD adapter — a first hardware data
+   point, not coverage. Run the manual checklist on Windows/WebView2,
+   macOS/WKWebView, and an ARM/ChromeOS device before the next release that
+   touches this path; headless SwiftShader cannot certify hardware behavior.
+6. **macOS soak for upload coalescing** (§7): the Safari 26.3
+   interleaved-upload device-loss class needs a WKWebView soak before any
+   claim that Varve's bounded chunk submits avoid it.

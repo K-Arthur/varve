@@ -10,402 +10,64 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 build a tag that has no matching section. Write for someone deciding whether to install the
 update, not for someone reading the commit log.
 
-## [Unreleased]
+## [0.5.0] - 2026-10-01
 
-### Added
+Varve remains in public beta. This release adds broad authoring workflows while
+keeping optional, hardware-dependent, and format-limited capabilities clearly
+marked.
 
-- **Local concept-art references** — Mark an imported image as a reference in
-  the existing Inspector, keep it visible and editable, and independently opt
-  it into visible-artwork sampling or artwork export. The reference role and
-  choices survive undo/redo and save/reopen; both opt-ins start off.
+### Added and improved
 
-- **Canvas review views** — Add session-only grayscale and mirrored canvas checks in the existing
-  Document panel. Mirror mode is read-only and disables canvas input; neither view changes saved
-  artwork or exports.
-
-- **Separate linework sampling for flats** — Magic Wand can sample the rendered
-  visible artwork, including transparent line art against a white paper matte,
-  while the fill goes to a separate editable Flats layer. The workflow keeps
-  linework intact through undo/redo, save/reopen, and grouped PNG export;
-  current-layer sampling remains the default. A bounded 0–8 px edge expansion
-  lets the flat tuck beneath antialiased ink; open contours still need manual
-  checking because edge expansion does not close gaps.
-
-- **Brush opacity and flow controls** — Brush presets can opt into stroke-opacity
-  accumulation, which limits overlapping dabs within one gesture to the chosen
-  opacity while flow controls how quickly the limit is reached. A later gesture
-  can build further. Existing and imported brushes keep their previous buildup
-  behavior; the built-in Soft Shade preset uses the new mode.
-
-- **Clipped raster shading** — Paint is available from the existing Design
-  toolbar, where it can create a separate Shading layer whose live alpha matte
-  follows a selected raster source. The clip renders in the editor and
-  survives undo/redo, save/reopen, and transparent PNG export; mask dependencies
-  are included when a subtree is flattened for sampling or export.
-
-- **Vector-contour texture export** — A vector shape can supply the live matte
-  for a separate raster Shading layer. SVG retains supported contour geometry
-  and embeds the clipped paint group as a bounded raster fallback with
-  world-space placement. Browser PDF preserves the appearance through a
-  raster fallback; it does not claim editable vector content.
-
-- **Mesh mockups for folded fabric** — A new bounded mesh envelope joins flat,
-  perspective, and cylindrical mockup surfaces, for the jobs those cannot do:
-  folded banners, draped textiles, curved paper. Apply the new "Fabric Banner —
-  Folded" built-in template (or any template you author with a mesh surface),
-  then drag the grid vertices on the canvas to shape the folds — moves that
-  would turn a cell inside out are refused, so the artwork can never fold
-  through itself. Surface placement, fit, masks, snapshot/reconnect, and
-  export all behave exactly like the other mockup kinds, Home covers now show
-  the composed mockup instead of a bare frame, and the envelope is honest
-  about its boundary: folds and drape, not 3D — no lighting solve, no hidden
-  backside, no camera. Documents with mesh templates are version 3 templates
-  and older documents migrate silently.
-- **PSD smart objects are now counted, not just disclaimed** — Importing a
-  PSD reports how many smart object layers were detected and what that means:
-  each imports as its rendered pixels only — the embedded artwork, its warps,
-  and re-editability do not come along. Knowing "3 smart objects" before you
-  start beats discovering them one broken layer at a time.
-
-- **Isometric construction that matches its grid** — The isometric grid is now a real
-  construction system rather than a static overlay. True isometric (30°), exact 2:1
-  dimetric (`atan2(1, 2)`, with ratio-to-angle entry), and an explicitly illustrative
-  three-angle guide are available; spacing is the projected step along each axis, so the
-  three line families meet at true lattice intersections. Choose a Top, Front, or Side
-  construction plane — or turn plane-aware drawing Off — and draw projected rectangles,
-  exact ellipse projections, and plane-constrained lines; the active plane never transforms
-  existing artwork. Snapping resolves to the nearest lattice intersection with an exact
-  2-D search (not independently rounded coordinates) and moves a multi-object selection by
-  one translation, so relative arrangement is preserved. `Fit to Plane` and `Unproject`
-  are deliberate, invertible commands that keep text, images, and paths editable, and
-  `Create Grid Artwork` converts the grid into bounded editable vector lines on demand.
-  Hiding the grid never changes artwork, and exports never include the construction aid.
-  Isometric grids persist with an explicit active grid and active plane; documents saved
-  before 2.28 are migrated explicitly (their drawn grid is preserved) and custom axes
-  survive visiting a preset.
-
-- **Trustworthy image tracing** — Image Trace previews now render the exact
-  curves, holes, fills, and strokes that Apply commits: cubic handles are
-  drawn (not polylines), every hole subpath closes, and artwork paint no
-  longer follows the UI theme. The dialog adds Source / Prepared / Overlay /
-  Vector views, an anchor overlay, 1:1 zoom, and provider plus
-  effective-resolution diagnostics. Source preparation gains explicit
-  border-connected background removal (enclosed white counters survive),
-  adaptive thresholding for uneven scans, and a user-visible alpha cutoff;
-  colour and pixel-art modes can emit cutout (compound holes) or stacked
-  (back-to-front, transparency-aware holes) regions; centerline traces keep
-  genuine closed loops as closed strokes. Every trace stores a reproducible
-  recipe — the full preparation stack, the provider that actually ran, the
-  effective trace resolution, and a source identity hash — and Edit Trace
-  restores it, warning when the linked source changed.
-
-- **Selection refinement and closed-form matting** — Pixel-selection coverage
-  now has the full documented operation set: Feather (Gaussian), Smooth
-  (boundary open/close, not a blur), Grow/Shrink, Harden (contrast),
-  Threshold, Antialias, Border (inside/outside/centered), Shift edge
-  (translates a soft transition without flattening it), and Cleanup
-  (islands/holes), each with numeric inputs and one undoable Apply in the
-  Selection Sources inspector. The refine brush gains explicit
-  Add / Subtract / Restore-original intents, gap-free interpolated strokes,
-  and an opt-in (default off) clip-to-selection behavior so missing detail
-  outside the current selection can be recovered. Edge refinement offers
-  guided smoothing for soft edges and a corrected closed-form matting solver
-  over a spatial unknown band for hard/binary masks, with bounded regions,
-  solver diagnostics, a guided fallback when a solve is declined, and
-  trimap labels that stay categorical instead of treating unknown as 50%
-  opacity — including a colour-coded trimap preview (green foreground, grey
-  background, amber unknown) so the constraint regions are visible while
-  painting. All operations run locally with no model, network, or new
-  dependency.
-
-- **Frequency Separation and Liquify** — Two source-preserving raster
-  retouching workflows. Frequency Separation converts a raster layer into a
-  marked group of ordinary Tone and Detail layers; the render path recombines
-  them exactly (max 1 LSB per 8-bit channel, measured in the dialog), tone and
-  texture can be retouched independently with every existing tool, changing
-  the radius re-splits the current retouched state instead of discarding it,
-  and Flatten bakes the result. Liquify stores a bounded output→source
-  displacement field on the target and resamples it at render/export time, so
-  Push, Expand, Contract, Twirl, Restore, Smooth, and Freeze/Thaw stay
-  re-editable and reversible; one undo per stroke, no pixel bake. Both run
-  entirely on-device with no model, network, or new dependency.
-- **Ultra HDR gain-map JPEG sharing** — A scene-linear HDR master can now be
-  shared as an Ultra HDR gain-map JPEG (XMP `hdrgm` + GContainer directory and
-  ISO 21496-1 metadata in an MPF container). The base image is the stored SDR
-  rendition you reviewed, never a silent re-render, and an unapplied output
-  transform blocks export instead of drifting the SDR fallback. Varve verifies
-  the encoded file by decoding it again and reports the worst and p95
-  reconstruction error in stops; the range-bearing OpenEXR master remains the
-  authority. Display-linear exposure-fusion output reports that it has no extra
-  headroom instead of writing an identity map.
-- **Advanced typography and artistic text** — The Typography inspector now
-  exposes face-aware OpenType values (including indexed and source-ranged
-  settings where the shaping backend supports them), variable-font axes, a
-  keyboard-accessible alternate-feature browser, cluster-safe wordmark
-  adjustments, path-text controls, bounded deformation, and explicit
-  text-to-outlines conversion with source-range/font provenance.
-- **Depth-aware masking** — Reusable relative depth maps can now be imported
-  or saved from Depth Blur, inspected with a valid-only heatmap/histogram,
-  range-picked and combined into non-destructive layer or adjustment masks.
-  Recipes, manual coverage corrections, undo, save/reopen, duplicate/paste,
-  scalar export, and model-free reuse are preserved through the existing mask
-  and resource systems; Depth Blur is not required to edit an accepted map.
-- **Colorize workflow completion** — The Inspector exposes one task-oriented
-  Colorize surface: absolute/relative tint with mask or explicit whole-image
-  scope, document-swatch palettes with shaded and strict mapping, file-based
-  reference transfer and harmonization, and a model-gated photo lane with a
-  quality-mapped preview, split-view comparator, real progress phases, and a
-  source-preserving Apply that commits an embedded result asset. Photo previews
-  carry their predicted chroma, so Apply rebuilds the approved colors at full
-  resolution. Deterministic modes stay offline and need no model.
-- **Line-art colorization from color hints** — A deterministic Line art mode
-  spreads user color hints up to the linework, seals small gaps with a bounded
-  radius, preserves strokes and their antialiased edges, and keeps unhinted
-  regions transparent. Hints may be a different resolution; the preview reports
-  filled area, unassigned area, and seed count. No model required.
-- **Local AI model delivery** — DDColor Tiny and DDColor are exported from the
-  official Apache-2.0 checkpoints, hash-pinned, and published to the
-  `models-v1` release. Desktop downloads them through a native Rust command
-  that verifies the catalog SHA-256 before installing and serves the file to
-  the ONNX worker through the scoped asset protocol; the web build uses a
-  CORS-enabled HuggingFace mirror (mirror script included) because GitHub
-  release assets send no CORS headers.
-- **Curve and node editing** — Node editing now supports compound contours and
-  holes, multi-anchor movement, relative-handle numeric controls, distinct
-  corner/smooth/symmetric/automatic modes, nearest-parameter Bézier insertion,
-  open/close/reverse, line/curve conversion, and visible disabled states for
-  topology operations that are not yet safe.
-- **Precision placement** — Exact configurable fractional nudges, scoped pointer
-  snapping with stable target identity and temporary bypass, explicit page/frame/key
-  alignment references, and separate equal-gap, equal-center, fixed-gap, and Tidy Up
-  commands are now documented and exposed through the editor's shared geometry paths.
-- **Drawing input controls** — Settings now exposes a reversible one-finger
-  draw/navigation policy, pressure enablement/curve, and an opt-in pointer test
-  surface that reports observed capability state without collecting artwork.
-- **Canvas navigation** — Wheel policy and sensitivity controls, explicit Hand
-  keyboard panning, rotation-aware focal-point zoom, and full-resolution
-  interactive preview choice keep navigation precise without changing authored
-  geometry or artwork history.
-- **Spatial Object Filters** — Motion Blur, Mosaic, Surface Smooth, and Edge
-  Ink are available in the ordered Object Filters stack with bounded CPU
-  replay, object-local coordinates, transparent-edge handling, expanded bounds,
-  save/reload support, and raster export.
-- **Image Enhance frontend completeness** — reviewed presets now cover the
-  supported restoration and upscale paths, Deblur + Upscale is exposed in the
-  operation menu, and manual processing changes mark the dialog Custom while
-  preserving output behavior.
-- **Generative Expand** — Extend an image beyond its bounds with per-side
-  margins and a visible output frame. The retained source is copied through
-  exactly, the full new border including corners is generated locally with the
-  optional LaMa model (PatchMatch texture continuation otherwise), and large
-  sources are generated at a device-budgeted proxy size then recomposed at full
-  resolution. The same source-safe surface provides Remove / Generative
-  Subtract as a bounded editable background reconstruction. Prompt-conditioned
-  expansion remains gated.
-- **RAW, bracket merge, and persistent photo retouching** — Photo/Image
-  Tuning can develop the verified classic DNG subset from sensor data, retain
-  immutable source bytes and versioned recipes, review exposure brackets with
-  separate radiance/fusion semantics, and export a range-bearing OpenEXR
-  master beside a disposable SDR rendition. Clone, heal, spot-heal, and patch
-  repairs remain on explicit raster layers with undo/reopen persistence.
-  Scene-linear masters can also be shared as verified Ultra HDR gain-map JPEGs
-  while keeping the reviewed SDR rendition as the fallback. Unsupported camera
-  variants, PQ/HLG output encoding, and physical HDR display presentation
-  remain clearly labeled as unsupported or unverified.
-- **Shape Builder** — A staged region-construction tool for overlapping filled
-  shapes and closed paths. Select eligible sources, then click or sweep the
-  regions you mean — including thin regions crossed between pointer samples —
-  and preview Merge, Erase, Extract, Create, and Divide with real output and
-  remainder overlays before committing one undoable transaction. Create
-  retains the sources and places the result above them; every committed result
-  is selected immediately, and a path result opens in Node Edit on
-  double-click. Rounded-rectangle rendering, per-source fill rules, compound
-  holes, disconnected components, mixed-scale artwork, and self-intersecting
-  paths are supported; open paths, visible strokes, masks, effects,
-  images/patterns, locked or hidden layers, and live Boolean groups explain the
-  required conversion instead of being silently altered.
-
-### Changed
-
-- **Anime enhancement remains gated** — The artifact checksum now matches, but
-  conversion provenance, converted-file redistribution, artist-quality results,
-  and whole-document memory remain unqualified. The mode stays disabled with
-  its reason visible; Quality/Lanczos and the separate general-AI path remain.
-
-- **A bottom bar with one owner per fact** — The two strips at the bottom of the
-  editor no longer report the same thing twice. The selection strip keeps
-  selection identity and geometry (name, type, size, position, breadcrumbs, layer
-  count); the status bar keeps instrumentation and view controls, and its
-  duplicate selection readout — which counted layers differently — is gone. The
-  three document badges (audit findings, design debt, layout score) are now one
-  **Document health** pill that opens the Audit tab where those views live, and
-  the three scans behind them share one idle task instead of three timers. Zoom
-  now exists once: the menubar's second input, which repeated the status bar's
-  field under the same accessible name, was removed. View rotation shows the
-  angle and its reset as one control instead of a bare number plus a "Reset rot"
-  button, the snap-grid field is labelled and appears only while it can affect
-  something, and "Fit sel" is now "Fit selection" and appears only with a
-  selection. Renderer status, view toggles, fit controls, save status, and
-  on-device AI status became sections too, so **Customize Workspace** describes
-  the entire row: reordering now actually works (it was persisted but ignored),
-  and save status is pinned on with a stated reason. The permanent "On-Device
-  AI" pill is gone too — a claim that is always true is not a status — so the
-  chip now appears only while an on-device job is queued or running, and is
-  unmissable precisely when there is something to see.
-
-- **One slider, everywhere** — Every slider in the editor now renders the same
-  native range primitive with the same track, thumb, focus ring, and touch
-  target. The Inspector, adjustment editors, Colorize, Font Browser axes, HDR
-  and RAW photo controls, Crop, Liquify, Quick Convert, tool options, Content
-  Aware Fill, Gradient editor, and Vectorize previously used five different
-  hand-maintained skins (and ten surfaces fell back to platform chrome); the
-  visual language is now identical, and the Vectorize sliders keep their
-  progress fill through the shared skin. The `Slider` component keeps its API
-  (label, value, optional number field, reset, sizes) while the browser now
-  owns keyboard stepping, Home/End, PageUp/PageDown, and click-to-set, so the
-  whole product gains the WCAG 2.5.7 single-pointer path for free.
-
-### Fixed
-
-- **The minimap is readable again, and no longer wastes half its panel** — The
-  overview drew its artwork in `border-subtle`, which measures **1.19:1**
-  against its own backplate in the default Light theme: the shapes were
-  effectively invisible, and only 1.55:1 in Dark. The canvas also hugged the
-  content aspect inside a card that stretched the full sidebar, so at a normal
-  window size **51% of the panel was empty card** while the border still
-  claimed it. The overview now fills its stage, draws each object kind in a
-  measured ink family that clears 3:1 in all three themes (checked by
-  `audit:tokens`), and re-resolves its palette whenever the theme changes —
-  including OS and system-preference changes it used to miss, which left
-  light-theme pixels under a dark panel. Circles and ellipses render as
-  silhouettes instead of their bounding boxes, labels below 7 px are omitted
-  rather than drawn as mush, and auto-generated names like "Frame 4" are never
-  drawn.
-
-- **Right-click opens the canvas context menu again** — The onboarding hint
-  bubble that floats over the canvas was swallowing real right-clicks, and
-  worse: with a drawing tool active, the right-click also silently committed
-  a shape underneath (a right-click could litter the document with empty
-  rectangles). Tool gestures no longer start on the right mouse button — it
-  belongs to context actions — so the context menu, including "Apply
-  Mockup…", is reachable while any tool is active.
-
-- **Mockups now survive every export route** — SVG and vector-PDF export no
-  longer drop the mockup composition and silently ship the frame background:
-  a mockup frame is recognised as needing the shared decoration pipeline and
-  is rasterized as an export boundary (including nested and childless
-  containers), verified by decoding the embedded raster from a real SVG
-  export. The desktop PDF raster fallback and PDF/X press export now embed
-  real image pixels instead of a 16×16 checkerboard placeholder (a decoded,
-  bounded image manifest travels with the print request). Press PDF/X export
-  of a mockup frame is refused up front with an actionable message and a
-  blocking preflight finding — the press pipeline has no mockup compositor —
-  and code exports (React/Flutter/SwiftUI) carry an advisory warning that
-  mockups are not represented in vector-structure code output.
-
-- **Slider accessibility** — Sliders whose stored value differs from what the
-  user sees (normalized percentages, unit-bearing values) now announce the
-  displayed value to screen readers instead of the raw number, and the shared
-  slider skin falls back to system colors in Windows Contrast Themes
-  (`forced-colors`), where custom range tracks could previously vanish into the
-  background. Stale end-to-end locators for the colour picker's slider were
-  corrected.
-
-- **Selection mask geometry and refinement parameters** — Raster-mask coverage
-  is now evaluated at cell centres, removing a systematic half-pixel shift
-  from every selection-to-mask round trip (and any blur/shift accumulation
-  when refinement was applied repeatedly). Zero-radius grow/shrink/feather/
-  contrast/shift-edge calls are byte-exact no-ops, malformed parameters are
-  clamped instead of producing NaN coverage, and the previously broken default
-  threshold now hashes at 0.5 as documented. Morphology, feathering, and
-  distance transforms are bounded linear-time operations rather than
-  radius-quadratic loops, and the guided filter uses O(N) sliding-window box
-  statistics.
-
-- **Retouch target ownership and merged sampling** — Clone Stamp, Healing Brush,
-  Spot Heal, and Patch now refuse a locked layer or a selected non-pixel object
-  with a stated reason instead of silently editing another layer or fabricating
-  an empty one. Sampling scope is explicit (Current layer / Current and below /
-  All visible layers); merged sampling follows active-page paint order, excludes
-  hidden layers and ancestors, applies layer opacity and blend modes, and maps
-  transformed layers into the destination's local pixel space. The clone/heal
-  source marker and the live destination/refusal badge are now on the canvas,
-  the pointer-up position is stamped so fast strokes keep their tail, and
-  strokes whose pixels are byte-identical no-ops no longer bump tile versions
-  or leave a history step.
-- **Selection-aware retouch and dodge/burn** — Clone, heal, spot-heal, and
-  patch repairs clip to the active selection and can respect alpha lock.
-  Clone/heal strokes use pen pressure for flow. Dodge and Burn provide local
-  linear-light exposure in stops with shadows, midtones, and highlights focus;
-  they adjust existing raster pixels and keep the documented RGBA8/sRGB
-  boundary.
-- **Shaping and outline fidelity** — Browser replay keeps ligature-sensitive
-  source runs intact; HarfBuzz/rustybuzz shaping now preserves UTF-16 clusters,
-  numeric feature values, ranges, inferred direction, metrics, and face identity.
-  Supported monochrome outline conversion uses the actual shaped glyph IDs and
-  refuses missing, corrupt, collection-face, or colour-font inputs instead of
-  producing placeholder geometry. PDF preflight rasterizes shaping-sensitive
-  text through the live renderer so advanced typography cannot silently change
-  during export.
-- **DDColor input contract and preview/apply agreement** — Photo colorization
-  now feeds the grayscale-derived RGB the official pipeline expects (source L*
-  -> Lab(L*,0,0) -> RGB, squished to the square model input) instead of passing
-  original color channels, resizes only the predicted a*b* planes back to the
-  source, returns the approved chroma with the preview, and rebuilds it at full
-  resolution on Apply without a second inference. The unused photo lightness
-  parameter is gone; photo mode always retains source L*.
-- **Path editing correctness** — Full affine and rotated-camera projection now
-  keeps hit targets aligned at arbitrary zoom, selection-only clicks avoid
-  history, pointer cancellation restores the pre-drag shape, and topology edits
-  no longer silently update only a legacy outer-point array or break dependent
-  text, mask, motion, and interaction references.
-- **Touch and stylus ownership** — pointer IDs, active button state, coalesced
-  dynamics, capture loss, foreign contacts, and cancellation now flow through
-  one policy. A second finger resolves only its provisional interaction, a
-  remaining pinch contact cannot resume drawing, and predicted samples stay out
-  of committed artwork, history, persistence, and export.
-- **Pen/Pencil input fallbacks** — malformed or unavailable pressure/tilt/eraser
-  data degrades to a usable constant response while valid zero pressure,
-  unchanged-coordinate dynamics, final endpoints, and custom pointer types are
-  preserved.
-- **Image Enhance model execution** — AI upscaling now configures the same
-  single-threaded ONNX WASM runtime as other inference workers, avoiding a
-  Chromium/headless session-creation deadlock. Denoise waits for SCUNet's
-  graph and external weights to be available before preview or Apply, and an
-  explicit None strength is preserved as a no-op instead of silently running
-  medium denoise. Resource warnings now use conservative peak-memory estimates.
-- Inspector field rows and image colour metadata now keep labels, values, and
-  actions separated at narrow panel widths, including long URLs and format
-  supplied colour strings.
-- Adjustment panel rows now preserve label/control separation for long effect
-  names, colour labels, select values, and action buttons at narrow widths.
-- Partial-strength normal filters now interpolate premultiplied incoming and
-  filtered pixels, so neutral colour adjustments no longer increase the
-  coverage of semitransparent artwork.
-- Object Filter edits now own undoable transactions, and palette settings,
-  deterministic seeds, and explicit export quality survive normalization and
-  browser reopen.
-- Effect catalog metadata now uses operation-specific ranges and explicit
-  colour parameter keys instead of inferring semantics from array shape.
-- Vector selections in the Photo workspace's Adjustments tab now expose
-  compact Effect Studio access and treatment summary, the Object Filter stack,
-  Layer Effects, and scoped Adjustment Layer access while keeping the full
-  gallery in its modal; applying a Studio recipe remains a single undoable
-  transaction without flattening the vector.
-- Applying a different Effect Studio recipe while another recipe is previewed
-  now commits the preview and appends the new recipe instead of replacing the
-  earlier effect. Object Filter recipe members expose the full blend-mode set
-  on both raster and vector objects, with each member retaining its own blend
-  mode through replay and export.
-- WebGPU canvas presentation now tests circle coverage in object-local space,
-  so circles scaled non-uniformly or skewed render as the same ellipses
-  Canvas2D produces instead of being clipped back to an unscaled circle.
-  Singular transforms fall back to Canvas2D, where they paint nothing.
-- **Whole-document SVG export** now routes the existing File → Export SVG
-  command through the structural flattening compositor, so adjustment layers
-  and other non-native effects are embedded at the smallest required raster
-  boundary instead of being silently omitted. A document edit during export
-  cancels the stale save rather than exporting the wrong revision.
+- **Six task workspaces and flexible panels** — Design, Print, Draw, Photo,
+  Motion, and Email share one document model. Docked, floating, and split panel
+  layouts can be adjusted and restored; Logo tools stay in Design and Code
+  export remains a shared panel.
+- **Illustration and tablet controls** — Separate flats and clipped shading
+  layers, brush opacity and flow, pressure settings, and one-finger draw or
+  navigation controls extend the painting workflow. Check pressure and tilt
+  support on the device you use.
+- **Comic lettering** — Build speech, thought, and shout balloons, captions,
+  panel layouts, and editable lettering with localization support.
+- **Photo workflows** — Source-preserving retouch, Frequency Separation,
+  Liquify, depth-aware masks, bracket merging, and verified Ultra HDR sharing
+  join image tuning and colorization. RAW development is limited to the
+  documented camera subset; model-based features may require optional downloads.
+- **Vector and type tools** — Shape Builder, compound-path editing, more precise
+  tracing, path text, variable-font controls, and shaped-glyph outlines improve
+  illustration and lettering workflows.
+- **Reusable pattern authoring** — Create definitions from copied vector art,
+  raster tiles, or recipes; tune repeat and per-fill placement, inspect raster
+  seams, and edit copied vector motifs in a bounded source editor. SVG and PDF
+  support defined subsets; unsupported PDF layouts are warned and omitted.
+- **Presentation decks** — Order editable Design frames, preview a deck, and
+  export slides as a raster screen PDF or numbered PNG archive. PDF output is
+  not editable/searchable and has no tagged accessibility structure; layout
+  formatting inheritance remains limited.
+- **Manual Token Sync** — Import and re-import token sources and review mapping
+  diagnostics. Automatic watching, Git integration, and write-back to source
+  files are not included.
+- **Local Wasm plugins** — Review and run bounded local packages for selected-
+  layer analysis and batch renaming. There is no marketplace, arbitrary
+  JavaScript/HTML, or plugin-owned network and filesystem access.
+- **Mockups and exports** — Folded-mesh mockups join planar, perspective, and
+  cylindrical surfaces. SVG and PDF export preserve more supported artwork;
+  unsupported content can still use raster fallbacks or documented warnings.
+- **Experimental rendering options** — Canvas2D remains the default. WebGL2
+  and WebGPU are opt-in experiments with capability checks and Canvas2D
+  fallback; results depend on the browser, driver, and hardware.
+- **Document compatibility** — The app now writes document schema 2.32;
+  published v0.2.1 used schema 2.21. Older documents migrate on open, but
+  newer files are not backward-compatible. Back up important `.varve` files
+  before opening them in this release.
+- **Save and recovery feedback** — Saved, Saving, Modified, and Save failed
+  states are explicit, and failed writes retain recovery paths. Confirm a
+  save by its successful destination write before closing important work.
+- **Responsive and accessible controls** — Workspace panels, menus, touch
+  targets, focus handling, and enlarged-text layouts have been refined across
+  compact, tablet, and desktop widths.
+- **Bounded browser demo** — `/try/` remains a sample-document experience with
+  browser-local storage and a limited workspace set; desktop-only print,
+  inference, and other capabilities are not implied by the demo.
 
 ## [0.2.1] - 2026-08-24
 
@@ -665,7 +327,7 @@ update, not for someone reading the commit log.
   bounded, cancellable, worker-backed when available, and does not upload
   image pixels or add derived analysis data to the document schema.
 - **Email workspace** (desktop) — a new workspace mode
-  (Ctrl+Shift+7) for visual email authoring with a dedicated IR, HTML and
+  (Ctrl+Shift+6) for visual email authoring with a dedicated IR, HTML and
   plain-text compilers, embedded-asset packaging, URL preflight diagnostics,
   and multi-provider output. Template types, preview, and export are
   available today; rendering fidelity depends on the recipient's email

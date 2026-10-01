@@ -39,6 +39,16 @@ Review captures do not change website images or its manifest. Sync checks each
 capture's recorded SHA-256 and preserves all other scene entries. It does not
 rerun the editor or approve an image automatically.
 
+The reusable-pattern workflow is scene `patterns`. It creates vector artwork,
+copies the selected motif into the Pattern Library, applies it to a second
+shape, and captures the resulting repeat with its source visible. Review and
+promote it through the same isolated path:
+
+```sh
+pnpm screenshots:product -- --scenes patterns --strict --review-dir reports/pattern-review
+pnpm screenshots:product -- --scenes patterns --review-dir reports/pattern-review --sync-reviewed
+```
+
 The plugin scenes come from the real editor state driven by
 `tests/e2e/plugins/local-manager.spec.ts`. After running the spec and opening
 `plugin-inspector.png`, `plugin-manager-pinned.png`,

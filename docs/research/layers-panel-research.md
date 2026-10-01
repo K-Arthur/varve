@@ -138,7 +138,7 @@ existing component/variant badges", documented as such.
 
 **Takeaway for Varve.** [inference] The only Layers-side lever for Codegen is
 **name quality**: the panel already renders a ghost auto-name for unnamed
-nodes and has explicit-rename support, so the Codegen workspace should
+nodes and has explicit-rename support, so the shared Code panel should
 emphasize explicit names over generated ones (badge `auto-named` rows, offer
 "Name this layer" first in the context menu, and show the generated code name
 as a tooltip). That is a projection; no schema change.

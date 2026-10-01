@@ -159,10 +159,10 @@ function writeTarget(target, version) {
         return `<!-- VARVE_VERSION -->${prefix}${version}<!-- /VARVE_VERSION -->`;
       },
     );
-    if (updated === text) {
+    if (updated === text && readTarget(target).value !== version) {
       throw new Error(`Could not locate <!-- VARVE_VERSION --> markers in ${target.path}`);
     }
-    writeFileSync(abs, updated);
+    if (updated !== text) writeFileSync(abs, updated);
     return;
   }
 

@@ -88,6 +88,11 @@ const defined = new Set();
 function collectDefinitions(file) {
   const text = readFileSync(file, 'utf8');
   for (const line of text.split('\n')) {
+    // Parity with the reference scan below: a token mentioned only in a
+    // comment or documentation string is not a definition. Without this,
+    // documenting `--foo:` in a comment satisfies every `var(--foo)` reference
+    // and the whole gate becomes vacuous for hand-typed token names.
+    if (isCommentLine(line)) continue;
     for (const m of line.matchAll(/(^|[;{\s,"'`])--([a-zA-Z0-9_-]+)\s*['"`]?\s*:/g)) {
       defined.add(`--${m[2]}`);
     }
@@ -96,6 +101,12 @@ function collectDefinitions(file) {
     }
     // `'--custom-prop': value` object keys and `--x, value` setProperty args
     for (const m of line.matchAll(/['"`](--[a-zA-Z0-9_-]+)['"`]\s*[,:)]/g)) {
+      defined.add(m[1]);
+    }
+    // A token name assigned to a constant — `VISUAL_VIEWPORT_HEIGHT_PROPERTY
+    // = '--visual-viewport-height'` — is the runtime publisher's definition
+    // (the setProperty call then uses the identifier, not the literal).
+    for (const m of line.matchAll(/=\s*['"`](--[a-zA-Z0-9_-]+)['"`]/g)) {
       defined.add(m[1]);
     }
   }

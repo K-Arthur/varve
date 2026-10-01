@@ -401,7 +401,7 @@ The token audit enforces contrast ratios on every declared pair:
 | AAA | 7:1 | Enhanced readability (optional) |
 | UI | 3:1 | Interactive elements, icons, focus rings |
 
-**Enforced pairs** (30+ in `CONTRAST_PAIRS`):
+**Enforced pairs** (315 in `CONTRAST_PAIRS`, checked across all three themes by `pnpm audit:tokens`):
 - `text-primary` on every surface elevation
 - `text-on-accent` on `interactive-default`
 - `text-on-feedback` on every feedback fill

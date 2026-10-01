@@ -52,6 +52,22 @@ is adopted.
       to "GPU lost · Canvas2D" (`CompositorDiagnostics.deviceLost`). Rendering must
       **continue** on Canvas2D without a remount (ownership invert). Reload only if you want to
       re-acquire the GPU adapter.
+- [ ] **Suspend and resume the machine while the editor is focused** (sleep/wake, or close and
+      restore the window from history). The canvas must repaint to the correct artwork without a
+      reload — this exercises `subscribeToSystemResume`'s authoritative full redraw (Krita bug
+      490641 class: accelerated content corrupted across sleep until restart). Simulating the
+      boundary with `window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true }))`
+      is a *simulation* of the trigger, not proof of driver-reset resilience; record which one
+      you ran.
+- [ ] **Presentation probe**: check Settings → Performance diagnostics for
+      `WebGPU presentation probe failed`. It means the offscreen → present `drawImage` path did
+      not round-trip a known color (the failure mode WebKit shipped on older Safari versions);
+      the backend must have declined to Canvas2D with that reason rather than drawing holes.
+- [ ] **Edge quality at fractional zoom and rotation**: draw a solid rectangle and a circle,
+      zoom to a non-round percentage (e.g. 137%), and rotate the view. GPU-path edges must be
+      antialiased like Canvas2D — no staircases or crawling hard edges — with crisp edges at
+      aligned integer zoom. `tests/e2e/webgpu/circle-transform-parity.spec.ts` compares both
+      backends numerically; this item is for the human look at the same thing.
 - [ ] **Check `pipelineInitMs` via Performance → Copy performance diagnostics** and
       investigate a multi-hundred-ms outlier on this hardware. A null value means no
       WebGPU pipeline was initialized; it is not a zero-millisecond result.

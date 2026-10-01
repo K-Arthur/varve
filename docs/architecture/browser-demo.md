@@ -16,7 +16,7 @@ seconds of page load.
   as demo when `location.pathname` starts with `/try` or the URL carries `?try=1`
   / `?demo=1`. Desktop (Tauri) is excluded regardless of URL.
 - **Sample seeding**: `apps/desktop/src/demo/sampleDocument.ts` builds the sample
-  document from the scene model API (schema 2.20, `createDocument` + `addNode` +
+  document from the scene model API (current schema 2.32, `createDocument` + `addNode` +
   `serializeDocument`). Seeded into IndexedDB on first visit; never overwrites user
   edits. Its fonts are preloaded before the document opens.
 - **Direct open**: `useDemoEntry` orchestrates seed → open → banner. The editor
@@ -40,9 +40,10 @@ web build are unaffected. Each line is a real browser limit, not an artificial l
 |----------|--------|
 | On-device inference (background removal, upscaling, visual search) | ~25 MB ONNX Runtime download before the first result, then a heavy compute job in the tab. Also the clearest case where native genuinely wins. |
 | Print production (PDF, CMYK, bleed, colour-managed output) | No pipeline to hand it to — `getPrinters()` returns empty in a browser. |
-| Workspaces beyond Design / Draw / Photo | Print is broken per the above; Motion needs a frame budget WASM + Canvas2D in a tab cannot hold; Codegen, Logo, and Email are narrow power-user surfaces. |
+| Workspaces beyond Design / Draw / Photo | Print is unavailable for the production-output reason above; Motion and Email are not part of the bounded demo. Logo Tools stay within Design, and shared Code export is an action/panel rather than an additional workspace. |
 
-**Raster and vector export stay.** PNG, JPEG, WebP, and SVG all work, so a visitor
+**Raster and vector export stay.** PNG, JPEG, WebP, and SVG work in the browser
+demo, within their documented format limits, so a visitor
 can always take their work out — the demo is not a trap.
 
 **Import stays too.** File > Import ingests PNG, JPEG, SVG and the rest of the
@@ -167,17 +168,17 @@ an opaque loading overlay that never went away. Only the image showed it.
 ## Known limitations
 
 - Files stored in this browser only (IndexedDB); clearing site data deletes them.
+- The current sample is seeded with document schema 2.32. Opening it in an older
+  desktop build depends on that build's supported schema; keep a backup and use
+  a release that understands schema 2.32 before continuing to edit it.
 - WASM engine, not native desktop engine — slower rendering on large documents.
 - No autosave: edits must be saved explicitly (Ctrl+S), and anything after the
   last save is lost on close. An explicit save does now update the browser-local
   copy in every browser, so reopening restores the saved work — that was broken
   in Firefox and Safari until the download-only mirror was added.
 - No service worker; offline only while the tab is open.
-- Background removal, upscaling, print production, and five workspaces are
-  desktop-only (see above).
-- The sample document opens at 100% zoom rather than fitted to the viewport, so a
-  visitor sees the poster cropped until they zoom out. `Shell` has no fit-on-open
-  prop; adding one is the fix.
+- Background removal, upscaling, print production, Motion, and Email are
+  desktop-only (see above). The sample poster opens fitted to the viewport.
 
 ## Testing
 

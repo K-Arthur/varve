@@ -42,7 +42,7 @@ continue to come from the surrounding control.
 | Varve concept | Current mapping | Reason |
 | --- | --- | --- |
 | Warp | Lucide `Spline` | Matches deformation more clearly than a generic grid. |
-| Workspace modes | Tabler `LayoutDashboard`, `Brush`, `Photo`, `Printer`, `PlayerPlay`, `Code`, `Badge` | Gives every mode a distinct, recognizable metaphor at a heavier 2.25px stroke. |
+| Workspace modes | Tabler `LayoutDashboard`, `Printer`, `Brush`, `Photo`, `Play`, `FileText` | Gives each of the six task workspaces a distinct, recognizable metaphor at a heavier 2.25px stroke. |
 | Search | Tabler `Search` | Consistent rounded outline language across home and editor. |
 | Settings | Tabler `Settings` | Keeps the established gear metaphor with one stroke family. |
 
@@ -62,5 +62,13 @@ distinct Tabler glyphs with the expected family marker.
 
 The toolbar remains on its established Lucide treatment; the Tabler change is
 intentionally scoped to the workspace switcher and homepage semantic icons.
+
+## Workspace taxonomy update — 2026-09-27
+
+The editor switcher now shows Design, Print, Draw, Photo, Motion, and Email in
+that order, matching `Ctrl+Shift+1` through `Ctrl+Shift+6` (or `⌘⇧1` through
+`⌘⇧6` on macOS). Logo and Code remain discoverable workflows, not mode icons.
+The current visual review is recorded with the workspace evidence under
+`docs/screenshots/2026-09-27-workspace-layouts/`.
 Screenshots are manually inspected after each icon-family change. A passing
 DOM assertion alone is not visual approval.

@@ -3413,7 +3413,7 @@ dependencies = [
 
 [[package]]
 name = "varve-accel"
-version = "0.2.1"
+version = "0.5.0"
 dependencies = [
  "image",
  "pollster",
@@ -3426,7 +3426,7 @@ dependencies = [
 
 [[package]]
 name = "varve-bgremove"
-version = "0.2.1"
+version = "0.5.0"
 dependencies = [
  "base64 0.23.1",
  "dirs-next",
@@ -3439,7 +3439,7 @@ dependencies = [
 
 [[package]]
 name = "varve-bridge"
-version = "0.2.1"
+version = "0.5.0"
 dependencies = [
  "naga",
  "serde",
@@ -3449,7 +3449,7 @@ dependencies = [
 
 [[package]]
 name = "varve-colour"
-version = "0.2.1"
+version = "0.5.0"
 dependencies = [
  "proptest",
  "serde",
@@ -3461,7 +3461,7 @@ dependencies = [
 
 [[package]]
 name = "varve-core"
-version = "0.2.1"
+version = "0.5.0"
 dependencies = [
  "kurbo",
  "proptest",
@@ -3471,7 +3471,7 @@ dependencies = [
 
 [[package]]
 name = "varve-effects"
-version = "0.2.1"
+version = "0.5.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -3479,7 +3479,7 @@ dependencies = [
 
 [[package]]
 name = "varve-engine"
-version = "0.2.1"
+version = "0.5.0"
 dependencies = [
  "kurbo",
  "serde",
@@ -3489,7 +3489,7 @@ dependencies = [
 
 [[package]]
 name = "varve-generative-helper"
-version = "0.2.1"
+version = "0.5.0"
 dependencies = [
  "diffusion-rs",
  "image",
@@ -3499,7 +3499,7 @@ dependencies = [
 
 [[package]]
 name = "varve-layout"
-version = "0.2.1"
+version = "0.5.0"
 dependencies = [
  "serde",
  "taffy",
@@ -3508,7 +3508,7 @@ dependencies = [
 
 [[package]]
 name = "varve-media"
-version = "0.2.1"
+version = "0.5.0"
 dependencies = [
  "base64 0.23.1",
  "gif",
@@ -3519,7 +3519,7 @@ dependencies = [
 
 [[package]]
 name = "varve-print"
-version = "0.2.1"
+version = "0.5.0"
 dependencies = [
  "ab_glyph",
  "base64 0.23.1",
@@ -3535,7 +3535,7 @@ dependencies = [
 
 [[package]]
 name = "varve-sync"
-version = "0.2.1"
+version = "0.5.0"
 dependencies = [
  "chrono",
  "rusqlite",
@@ -3543,7 +3543,7 @@ dependencies = [
 
 [[package]]
 name = "varve-trace"
-version = "0.2.1"
+version = "0.5.0"
 dependencies = [
  "rayon",
  "serde",
@@ -3553,7 +3553,7 @@ dependencies = [
 
 [[package]]
 name = "varve-upscale"
-version = "0.2.1"
+version = "0.5.0"
 dependencies = [
  "dirs-next",
  "image",
@@ -3563,7 +3563,7 @@ dependencies = [
 
 [[package]]
 name = "varve-wasm"
-version = "0.2.1"
+version = "0.5.0"
 dependencies = [
  "js-sys",
  "serde",

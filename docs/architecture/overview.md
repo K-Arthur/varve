@@ -43,7 +43,7 @@ flowchart TD
 |---|---|---|
 | Editor UI → native process | Tauri IPC commands/events | The frontend sends typed intent; native Rust validates paths, performs privileged filesystem/network work, and returns typed results. |
 | Scene → renderer | `@varve/engine` facade | Native and WASM implementations produce the same scene/render contract; the webview replays render IR. |
-| Renderer → pixels | `@varve/compositor` | Canvas2D is the baseline. WebGPU is capability-gated and falls back when unavailable. |
+| Renderer → pixels | `@varve/compositor` | Canvas2D is the default. WebGPU and WebGL2 are opt-in experimental paths; unsupported content or unavailable contexts fall back to Canvas2D. |
 | Editor → persistence | `@varve/platform`, history, native storage | Desktop persistence is local and Tauri-resolved; browser compatibility storage uses IndexedDB. The frontend must not derive OS application directories. |
 | Website → downloads | Release workflow and generated manifest | The website consumes verified published release assets; it does not build, sign, or invent installer metadata. |
 | Website → desktop | None | The marketing site is untrusted public content. It has no privileged bridge into the desktop application. |
@@ -60,7 +60,7 @@ trust zones are in [`../security/trust-boundaries.md`](../security/trust-boundar
 | `apps/website/` | Static marketing, public docs, support pages, release/download presentation, SEO and consent UI | [`apps/website/README.md`](../../apps/website/README.md), [`../release/website.md`](../release/website.md) |
 | `packages/editor/` | React editor shell, canvas tools, panels, interaction state, shortcuts, lifecycle | [`workspace-system.md`](workspace-system.md), [`lifecycle-system.md`](lifecycle-system.md) |
 | `packages/scene/` | Serializable document model, scene graph, pages, operations, derived export/layout contracts | [`pages-layers-frames-shapes-system.md`](pages-layers-frames-shapes-system.md), [`persistent-history.md`](persistent-history.md) |
-| `packages/engine/` + `packages/compositor/` | Backend-neutral engine facade, render replay, Canvas2D/WebGPU composition | [`render-pipeline.md`](render-pipeline.md), [`wasm-backends.md`](wasm-backends.md) |
+| `packages/engine/` + `packages/compositor/` | Backend-neutral engine facade, render replay, Canvas2D/WebGPU/WebGL2 composition | [`render-pipeline.md`](render-pipeline.md), [`wasm-backends.md`](wasm-backends.md), [`gpu-acceleration.md`](gpu-acceleration.md) |
 | `packages/shared/` + `packages/ui/` | Cross-package primitives, design tokens, icons, accessible UI components | [`../adr/0002-design-tokens.md`](../adr/0002-design-tokens.md), [`../design/icon-system.md`](../design/icon-system.md) |
 | `crates/` | Native geometry, render IR, print, colour, trace, media, effects, sync, and WASM bindings | [`../adr/0004-wasm-crate-boundary.md`](../adr/0004-wasm-crate-boundary.md) |
 | `scripts/` | Validation, release assembly, website data refresh, screenshots, and CI diagnostics | [`../quality/validation-strategy.md`](../quality/validation-strategy.md), [`../release/README.md`](../release/README.md) |

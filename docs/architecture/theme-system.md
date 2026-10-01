@@ -51,9 +51,15 @@ Every application document follows this order:
    pre-paint state and owns the operating-system and storage listeners.
 3. An OS colour-scheme change updates the resolved theme only when the
    preference is System.
-4. A same-origin storage event reconciles browser tabs and Tauri WebView
+4. Under System the OS contrast request outranks the colour scheme:
+   `prefers-contrast: more` (macOS Increase Contrast, Linux/Windows
+   high-contrast themes) resolves to the High Contrast palette. An explicit
+   Light, Dark, or High Contrast choice always wins over both OS signals.
+   The pre-paint script in `apps/desktop/index.html` mirrors this rule so
+   first paint agrees with the runtime.
+5. A same-origin storage event reconciles browser tabs and Tauri WebView
    windows without reloading them.
-5. Settings and View-menu commands call `setThemePreference()`; neither writes
+6. Settings and View-menu commands call `setThemePreference()`; neither writes
    attributes or storage independently.
 
 The Settings `appearance.theme` field is a compatibility mirror for the

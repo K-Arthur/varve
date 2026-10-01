@@ -305,9 +305,11 @@ Structural changes to section or panel rhythm need more than a green audit: the
 audit sees declarations, not rendered ratios. Capture the surface, read the
 computed `gap`/`margin`/`padding` of the section and of its content, and confirm
 the inter-section gap is still clearly larger than the intra-section one. The
-captures and measurements for the 2026-09-19 pass are in
-`reports/spacing-review/` and the diagnostic specs that produced them follow the
-`tests/e2e/inspector/zz-*.spec.ts` throwaway pattern (not committed).
+captures and measurements for the 2026-09-19 pass were local review artifacts
+under the ignored `reports/spacing-review/` directory. Those one-off diagnostic
+specs are archived outside the repository; future checks should use a named
+maintained E2E spec or ignored report output rather than adding temporary
+`zz-*` tests to the committed test tree.
 
 Known debt and open items:
 

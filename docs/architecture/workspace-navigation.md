@@ -182,20 +182,14 @@ coordinate → teardown-safe listeners.
   settings` (pre-existing). Corrupted JSON falls back to defaults; unknown
   panel ids, invalid field types, and invalid panel widths are sanitized.
 
-### Browser fallback geometry
+### Responsive dock projection
 
-The single-window browser fallback (`workspace/browserFallback.ts`) maps the
-logical dock layout to CSS-grid regions without relying on native windows.
-Visible panels in the same region are treated as tabs, so the region uses the
-largest configured slot size rather than adding tab widths together. Left and
-right regions use their configured preferred sizes, while timeline/bottom
-regions use their configured height (200px by default).
-
-When a narrow viewport cannot accommodate those preferred side-panel sizes
-while preserving the layout's requested `centerRatio`, the side regions are
-scaled proportionally. Region geometry is clamped to finite, non-negative
-dimensions, keeping the canvas and hit-testing coordinates valid during
-responsive resize and malformed host-size input.
+The editor resolves the same registered dock tree in browser and desktop
+windows. At compact widths, panels project into the existing drawers while
+the saved desktop tree and normalized float bounds remain unchanged. Returning
+to a wide viewport restores the saved desktop arrangement. Native detached
+panels use separate machine-local placement records; they are not recreated
+as browser popups after a crash.
 
 ## 5. Accessibility behavior
 

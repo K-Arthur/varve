@@ -14,7 +14,7 @@ It does not cover:
    icon libraries directly.
 2. **Application/installer icons** — `apps/desktop/src-tauri/icons/` and
    `apps/desktop/public/icons/`, generated from `varve-app-icon.svg`.
-3. **Logo-workspace export icons** — `packages/scene/src/logo/`.
+3. **Logo workflow export icons** — `packages/scene/src/logo/` (Logo tools are part of Design).
 
 ## 1. System overview
 

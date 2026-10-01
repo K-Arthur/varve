@@ -111,7 +111,13 @@ TitleBar X    File menu/Shortcuts  OS event (Alt+F4, WM close, Cmd+Q,
   On the web, a non-bfcache `pagehide` may mark a clean session only when the
   coordinator is idle or committed and no document is dirty; an active
   transaction or dirty session stays unclean. A crash mid-quit remains
-  recoverable.
+  recoverable. **Crash-loop classification reads the same marker with
+  evidence-only rules** (`readUncleanShutdownMarker`): only an explicitly
+  armed, never-finalized `'false'` counts as an interrupted run — an absent
+  marker is a fresh profile or a surface that never mounts the lifecycle
+  (Home), and a failed storage read proves nothing, so neither can accrue
+  startup failures or open safe mode (audit 2026-09-27 §7.4,
+  `tests/e2e/crash/safe-mode-counter.spec.ts`).
 - **Native authority**: Rust prevents close/exit, asks the webview; one-shot
   per-window tokens prevent recursion. Auxiliary windows close freely
   (ADR-0211 D1).

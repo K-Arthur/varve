@@ -411,10 +411,18 @@ if (typeof globalThis.requestIdleCallback === 'undefined') {
   }) as unknown as typeof globalThis.cancelIdleCallback;
 }
 
-// jsdom does not implement HTMLDialogElement
+// jsdom does not implement HTMLDialogElement. The polyfills mirror the two
+// platform steps product tests depend on: showModal() moves focus to the
+// first focusable descendant (the HTML dialog "focus" step), and close()
+// releases the top-layer state. Without the focus step, jsdom silently
+// skips the initial-focus half of every dialog accessibility contract.
 if (typeof HTMLDialogElement !== 'undefined') {
   HTMLDialogElement.prototype.showModal = vi.fn(function (this: HTMLDialogElement) {
     this.setAttribute('open', '');
+    const firstFocusable = this.querySelector<HTMLElement>(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+    );
+    firstFocusable?.focus();
   });
   HTMLDialogElement.prototype.close = vi.fn(function (this: HTMLDialogElement) {
     this.removeAttribute('open');

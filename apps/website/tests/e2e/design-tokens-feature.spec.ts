@@ -1,8 +1,4 @@
-import { mkdirSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { expect, test } from '@playwright/test';
-
-const captures = resolve('docs/screenshots/dtcg-website-2026-09-25');
 
 for (const variant of [
   { name: 'desktop-light', width: 1440, height: 1000, theme: 'light' },
@@ -11,7 +7,6 @@ for (const variant of [
   test(`design token workflow and limits remain readable: ${variant.name}`, async ({
     page,
   }, info) => {
-    mkdirSync(captures, { recursive: true });
     await page.setViewportSize({ width: variant.width, height: variant.height });
     await page.emulateMedia({ colorScheme: variant.theme, reducedMotion: 'reduce' });
     const base = String(info.project.use.baseURL).replace(/\/$/, '');
@@ -70,7 +65,7 @@ for (const variant of [
     // Capture the visible viewport rather than letting an oversized element
     // screenshot recenter the page and place its sticky header over a row.
     await page.screenshot({
-      path: resolve(captures, `${info.project.name}-${variant.name}-matrix.png`),
+      path: info.outputPath(`${info.project.name}-${variant.name}-matrix.png`),
       clip,
     });
     if (variant.width < 760) {
@@ -78,7 +73,7 @@ for (const variant of [
       await page.mouse.wheel(900, 0);
       await expect.poll(() => matrix.evaluate((element) => element.scrollLeft)).toBeGreaterThan(0);
       await page.screenshot({
-        path: resolve(captures, `${info.project.name}-${variant.name}-matrix-limits.png`),
+        path: info.outputPath(`${info.project.name}-${variant.name}-matrix-limits.png`),
         clip,
       });
     }
@@ -86,9 +81,9 @@ for (const variant of [
     await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
     await page
       .locator('.page-hero')
-      .screenshot({ path: resolve(captures, `${info.project.name}-${variant.name}-hero.png`) });
+      .screenshot({ path: info.outputPath(`${info.project.name}-${variant.name}-hero.png`) });
     await page.screenshot({
-      path: resolve(captures, `${info.project.name}-${variant.name}.png`),
+      path: info.outputPath(`${info.project.name}-${variant.name}.png`),
       fullPage: true,
     });
   });

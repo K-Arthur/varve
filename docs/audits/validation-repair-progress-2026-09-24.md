@@ -3,7 +3,8 @@
 Branch: `master`. The initial full code checkpoint was `4f93cb47f` (pushed).
 Subsequent pushed repairs include browser storage and WASM validation
 (`24a5a25b5`), document-scoped history capture (`729344137`), and precise
-homepage/About copy (`3aa1f4425`). The final full gate on the latest pushed
+homepage/About copy (`3aa1f4425`), followed by cross-platform CI repairs
+(`2c5c840ac`). The final full gate on the latest pushed
 code checkpoint remains pending; the results below distinguish completed
 checks from pending ones.
 
@@ -69,9 +70,9 @@ started jobs normally and exposed four separate failures:
 | Lane | Root cause | Repair and current verification |
 |---|---|---|
 | Pipeline validation | `release-candidate.yml` quoted a `${{ inputs.mode }}` expression inside an `if`, which actionlint evaluates as always true. | Use `inputs.mode == 'final'` directly. The pinned actionlint 1.7.7 binary validates all 11 workflows locally with no findings. |
-| Windows typecheck | `PluginSections.tsx` and `pluginSections.ts` differ only by case before the extension. Windows resolved the `.ts` registry for the component import and TypeScript reported TS2305, TS1149, and TS1261. | Rename the renderer to `InspectorPluginSections.tsx` and update its two imports. A case-folded `.ts`/`.tsx` basename scan has no collisions; the affected editor and desktop unit/typecheck closure passes locally. Windows runner confirmation is pending. |
-| macOS typecheck | Node 26 on arm64 gave the editor TypeScript process a 2,050 MB heap; it aborted near that limit while checking the editor. | Set a 4,096 MB heap for the build workflow's typecheck step. The configured V8 limit is 4,144 MB locally. macOS runner confirmation is pending. |
-| Ubuntu JavaScript tests | One Menubar structure test queried accessible menu items during the portal's hidden measurement phase; all other 20,581 tests passed there. | Wait for the entire Object menu to become accessible, retaining every role/name assertion. The direct Menubar test and the 800-file/7,843-test affected editor corpus pass locally. Ubuntu runner confirmation is pending. |
+| Windows typecheck | `PluginSections.tsx` and `pluginSections.ts` differ only by case before the extension. Windows resolved the `.ts` registry for the component import and TypeScript reported TS2305, TS1149, and TS1261. | Rename the renderer to `InspectorPluginSections.tsx` and update its two imports. A case-folded `.ts`/`.tsx` basename scan has no collisions; the affected editor and desktop unit/typecheck closure passes locally. The Windows build reached Rust after passing typecheck at `2c5c840ac`. |
+| macOS typecheck | Node 26 on arm64 gave the editor TypeScript process a 2,050 MB heap; it aborted near that limit while checking the editor. | Set a 4,096 MB heap for the build workflow's typecheck step. The configured V8 limit is 4,144 MB locally. The macOS build reached Rust after passing typecheck at `2c5c840ac`. |
+| Ubuntu JavaScript tests | One Menubar structure test queried accessible menu items during the portal's hidden measurement phase; all other 20,581 tests passed there. | Wait for the entire Object menu to become accessible, retaining every role/name assertion. The direct Menubar test and the 800-file/7,843-test affected editor corpus pass locally. The remote JS job passed at `2c5c840ac`. |
 
 The repair's `pnpm verify:plan --staged` selected six files, editor and desktop
 checks, Inspector CSS, spacing, emoji, and 315 token pairs, and required a
@@ -80,6 +81,32 @@ full-suite escalation because workflow files changed. `pnpm verify:triage
 28 PropertiesPanel direct tests; 7,843 editor tests; 80 desktop tests; both
 package typechecks; and the selected audits. `pnpm verify:affected --staged`
 correctly exited with the planner's escalation notice before running tests.
+
+### Second remote checkpoint
+
+[CI at `2c5c840ac`](https://github.com/K-Arthur/varve/actions/runs/36090462580)
+passed pipeline validation, the full JavaScript job, website E2E, WASM,
+model-manifest policy, and render benchmarks. The
+[platform build](https://github.com/K-Arthur/varve/actions/runs/36090462617)
+passed its WASM producer. Its Windows and macOS typechecks passed before later
+Rust steps failed. These clean-runner failures were separate from the earlier
+type and menu failures:
+
+| Lane | Root cause | Repair and verification so far |
+|---|---|---|
+| macOS/Windows Rust and packaging | The glibc-only bindgen `FILE` shim was injected on every host. It redefined the macOS SDK's `FILE` and sent a Unix-style `-include` path to Windows Clang. | Apply the shim only on Linux in both Cargo launchers. Await clean macOS/Windows runner confirmation. |
+| Native desktop E2E on all three hosts | The test build disabled bundling but inherited a production resource glob requiring the separately built release helper. | The test config now has an empty resource list. A real Linux native debug build and Xvfb/WebKitGTK WebDriver run passed: 13/13 checks across document creation, rectangle drawing, native IPC, and menus. Clean macOS/Windows runners remain to verify. The production configuration retains the helper requirement. |
+| Ubuntu platform build's desktop Rust tests | Its `cargo test` command also compiled the desktop crate before the release helper existed. The frontend and preceding JS/Rust checks passed. | The Cargo validation launcher now excludes bundle resources only for `check`, `clippy`, and `test`; the package build retains its release-helper requirement. Clean-runner confirmation remains pending. |
+| Ubuntu Rust coverage | Coverage compiles the desktop crate outside the Tauri package command, so the same production resource glob blocked its tests after root-workspace coverage passed at 79.84% lines. | Pass a test-only `TAURI_CONFIG` resource override to the desktop coverage subprocess. Clean-runner coverage confirmation remains pending. |
+| GPU visual replay | The new content-aware stroke fixture had 1×/2×/3× snapshots but no GPU snapshot. The other 13 GPU fixtures and all 42 DPR fixtures passed. | Inspected the actual 420×220 GPU image from CI, added that one baseline, and passed its exact GPU browser check locally. All 42 DPR fixtures passed locally again. |
+| Layer context-menu browser assertion | A locator right click recomputed the row center after the test captured its rectangle, creating one 3.6 px mismatch; its retry passed. | Send a real mouse click at the measured viewport coordinate and compare the menu with that same coordinate. The affected real-browser test passed without changing its 3 px tolerance. |
+
+`pnpm verify:plan --staged` selected the touched scripts/configuration, E2E
+typecheck, the overlay and replay specs, and desktop unit/typecheck; it
+escalated to a final full gate for validation infrastructure. The affected
+closure via `CI=1 pnpm verify:triage --staged` passed the overlay test, 42
+visual replay cases, 80 desktop unit tests, desktop and E2E TypeScript,
+format/lint, and emoji audit. The exact GPU replay check also passed.
 
 ## CSS warning classification
 

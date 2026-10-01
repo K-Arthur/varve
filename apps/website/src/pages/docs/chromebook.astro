@@ -107,8 +107,8 @@ const releaseLabel = release.hasRelease ? `v${release.version}` : 'the next rele
             </tr>
             <tr>
               <td>Responsive layout, touch/pen input, virtual keyboard, back gesture</td>
-              <td>13–21 emulated Chromebook viewports and CDP touch/pen events, 2026-09-12</td>
-              <td>Regression-tested; hardware behavior unverified</td>
+              <td>Playwright Chromium 151 on Linux emulation: 13 CSS viewports, touch/pen ownership, nested Back, and synthetic keyboard geometry, 2026-09-29</td>
+              <td>Browser-regression-tested; ChromeOS, installed-PWA, and physical pen/keyboard behavior unverified</td>
             </tr>
             <tr>
               <td>Linux ARM64 package metadata, checksums, glibc floor, dependency closure</td>
@@ -138,7 +138,7 @@ const releaseLabel = release.hasRelease ? `v${release.version}` : 'the next rele
               <td>Native application</td>
             </tr>
             <tr>
-              <td>Motion, Codegen, Logo, Email workspaces</td>
+              <td>Motion and Email workspaces; Logo tools and shared Code panel</td>
               <td>Not included</td>
               <td>Not included</td>
               <td>Implemented (device run pending)</td>
@@ -230,7 +230,7 @@ const releaseLabel = release.hasRelease ? `v${release.version}` : 'the next rele
         <h2>Known limitations, stated plainly</h2>
         <ul>
           <li>The browser build is a bounded demo, not the full desktop product.</li>
-          <li>No cross-origin isolation is available on the current host, so multi-threaded WASM is unavailable and large documents are slower than on desktop.</li>
+          <li>The public varve.studio demo is hosted on GitHub Pages, which cannot configure the cross-origin isolation headers required for shared-memory WASM; multi-threaded WASM is unavailable there. This describes the current public host, not all browser deployments, and does not establish a general speed comparison with desktop.</li>
           <li>A browser can discard a tab under memory pressure. Recovery copies are a safety net, not a save: keep important work in a real file.</li>
           <li>The Linux route has package-level evidence but no recorded GUI launch on a Chromebook. Rendering, input, fonts, suspend/resume, and printing remain unverified.</li>
           <li>Uninstalling the installed app with "delete data", clearing browsing data, or removing the Linux environment all delete local work. Back up first.</li>

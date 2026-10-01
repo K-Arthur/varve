@@ -3,8 +3,10 @@ import Layout from '../../layouts/Layout.astro';
 import StatusPill from '../../components/StatusPill.astro';
 import { sitePath } from '../../lib/siteUrl';
 import { publishedFeatureVersion } from '../../lib/feature-release';
+import { getScene } from '../../lib/screenshot';
 
 const patternReleaseVersion = publishedFeatureVersion('0.5.0');
+const patternShot = getScene('patterns');
 ---
 
 <Layout
@@ -55,6 +57,20 @@ const patternReleaseVersion = publishedFeatureVersion('0.5.0');
         </div>
         <p class="diagram-note">Conceptual model — this diagram is not an application screenshot.</p>
       </section>
+
+      {patternShot && (
+        <figure class="pattern-shot">
+          <img
+            src={sitePath(`/screenshots/${patternShot.file}`)}
+            width={patternShot.width}
+            height={patternShot.height}
+            alt={patternShot.alt}
+            loading="lazy"
+            decoding="async"
+          />
+          <figcaption>{patternShot.caption}</figcaption>
+        </figure>
+      )}
 
       <section class="capabilities" aria-labelledby="today-title">
         <p class="eyebrow">
@@ -160,6 +176,9 @@ const patternReleaseVersion = publishedFeatureVersion('0.5.0');
   .flow-step small { color: var(--text-secondary); line-height: 1.45; }
   .flow-arrow { align-self: center; color: var(--accent-primary); font-size: var(--type-display-section-size); }
   .diagram-note { color: var(--text-tertiary); font-size: var(--type-interface-caption-size); margin: 1rem 0 0; text-align: center; }
+  .pattern-shot { margin: 2rem 0 0; }
+  .pattern-shot img { border: 1px solid var(--border-default); border-radius: var(--website-radius-card); display: block; height: auto; width: 100%; }
+  .pattern-shot figcaption { color: var(--text-secondary); font-size: var(--type-interface-caption-size); margin-top: .75rem; text-align: center; }
   .capabilities { padding: 4rem 0; }
   .capability-grid { display: grid; gap: 2rem 1.5rem; grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .capability-grid article { border-top: 2px solid var(--border-accent); padding-top: 1rem; }

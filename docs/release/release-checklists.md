@@ -104,8 +104,8 @@ Everything in Alpha, plus:
 ## Stable
 
 - [ ] Everything above
-- [ ] `RELEASE_EXPECT_SIGNED=true` is set (repo variable)
-- [ ] `signing-preflight` resolved `signed` for every platform being built
+- [ ] If the release explicitly requires signed installers, `RELEASE_EXPECT_SIGNED=true` is set
+- [ ] Signing preflight resolved `signed` where required; otherwise the release is explicitly permitted to publish unsigned installers
 - [ ] Windows: installer carries a valid Authenticode signature —
       `signing-report-windows.json` says `verification: valid`, and the
       publisher shown in UAC matches the verified legal name

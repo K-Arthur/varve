@@ -4,8 +4,8 @@
  * The guide exists because the browser route's saving, offline, storage, and
  * install behavior differs from the desktop app. These assertions keep the
  * published promises aligned with the tested implementation: the offline
- * setup requirement, the storage-cleanup distinction, and the desktop-only
- * exclusions must all remain stated.
+ * setup requirement, the storage-cleanup distinction, and the browser
+ * capability boundary must all remain stated.
  */
 import { expect, test } from '@playwright/test';
 
@@ -21,7 +21,8 @@ test.describe('browser demo docs', () => {
     expect(body).toMatch(/not available offline yet/i);
     expect(body).toMatch(/Clear offline app copies/i);
     expect(body).toMatch(/documents and recovery copies are untouched/i);
-    expect(body).toMatch(/desktop-only/i);
+    expect(body).toMatch(/Motion and Email authoring remain outside this bounded demo/i);
+    expect(body).toMatch(/Logo tools are part of Design and Code export is a shared panel/i);
   });
 
   test('FAQ answers the browser question with a pointer to the guide', async ({ page }) => {

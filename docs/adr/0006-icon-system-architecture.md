@@ -13,7 +13,7 @@ The four distinct icon categories are:
 2. **User-inserted document icons** — `packages/engine/src/icon/`,
    `packages/editor/.../IconBrowser/`, `packages/scene/src/iconAsset.ts`.
 3. **Application/installer icons** — `apps/desktop/src-tauri/icons/`.
-4. **Logo-workspace export icons** — `packages/scene/src/logo/`.
+4. **Logo workflow export icons** — `packages/scene/src/logo/` (Logo tools are part of Design).
 
 ## Context
 

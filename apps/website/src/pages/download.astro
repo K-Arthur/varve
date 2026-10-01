@@ -857,10 +857,13 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
               </li>
               <li>
                 <strong>Linux — AppImage will not start (FUSE2 missing):</strong> install the{' '}
-                <code>fuse2</code> package for your distro (e.g. <code>sudo pacman -S fuse2</code>
-                on Arch, <code>sudo apt install fuse libfuse2</code> on Debian/Ubuntu), or run
-                with <code>--appimage-extract-and-run</code>. Alternatively, build the AUR package
-                on Arch which does not need FUSE at all.
+                <code>fuse2</code> package on Arch (<code>sudo pacman -S fuse2</code>),
+                <code>libfuse2</code> on Debian 12 or Ubuntu 22.04
+                (<code>sudo apt install libfuse2</code>), or <code>libfuse2t64</code> on Debian 13
+                or Ubuntu 24.04 and later (<code>sudo apt install libfuse2t64</code>). You can
+                also run <code>./Varve-*.AppImage --appimage-extract-and-run</code>. The Arch AUR
+                package extracts the AppImage and does not need FUSE. See the{' '}
+                <a href="https://github.com/AppImage/AppImageKit/wiki/FUSE" target="_blank" rel="noopener noreferrer">official AppImage FUSE guide</a> for other distributions.
               </li>
               <li>
                 <strong>Linux — AppImage white screen or EGL error:</strong> some GPU/driver

@@ -141,6 +141,8 @@ tests/fixtures/restore-corpus/
 .claude/
 .codex/
 .agents/
+.zcode/
+/.zcodeignore
 
 # --- Devin AI agent (workflows directory intentionally empty) ---
 .devin/
@@ -154,6 +156,9 @@ apps/desktop/src-tauri/onnxruntime-libs/
 # --- Render-perf raw run output (regenerated every run; .render-perf-baseline.json is the
 # committed, deliberately-updated artifact — see scripts/audit-render-perf.mjs) ---
 .render-perf-results.json
+# Older native qualification runs wrote machine-local diagnostics at the repo
+# root. New runs go under reports/perf/; keep any legacy output out of releases.
+/native-webgl2-*.json
 scripts/diagnostics/
 .replay-browser-results.json
 

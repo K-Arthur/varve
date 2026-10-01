@@ -1,43 +1,41 @@
 /**
  * FAQ disclosure visual capture — review artifacts, not assertions.
  *
- * Writes rendered states to `reports/disclosure-review-2026-09-15/` (generated,
- * gitignored) for human inspection of the FAQ chevrons, focus ring, open/closed
- * states, print reveal, and the changelog's older-releases label. The
- * behavioural contract lives in `faq-disclosure.spec.ts`.
+ * Saves rendered states into Playwright's per-test output directory for human
+ * inspection of the FAQ chevrons, focus ring, open/closed states, print reveal,
+ * and the changelog's older-releases label. The behavioural contract lives in
+ * `faq-disclosure.spec.ts`.
  */
 import { expect, test } from '@playwright/test';
 
-const OUT = 'reports/disclosure-review-2026-09-15';
-
-test('captures FAQ disclosure states', async ({ page }) => {
+test('captures FAQ disclosure states', async ({ page }, testInfo) => {
   await page.goto('/support/faq');
   const first = page.locator('details.faq-item').first();
   await expect(first).toBeVisible();
   await first.scrollIntoViewIfNeeded();
   await page.screenshot({
-    path: `${OUT}/website-faq-closed.png`,
+    path: testInfo.outputPath('website-faq-closed.png'),
     clip: { x: 0, y: 0, width: 1280, height: 720 },
   });
 
   await first.locator('summary').focus();
   await page.screenshot({
-    path: `${OUT}/website-faq-focused.png`,
+    path: testInfo.outputPath('website-faq-focused.png'),
     clip: { x: 0, y: 0, width: 1280, height: 720 },
   });
 
   await page.keyboard.press('Enter');
   await expect(first).toHaveAttribute('open', '');
   await page.screenshot({
-    path: `${OUT}/website-faq-open.png`,
+    path: testInfo.outputPath('website-faq-open.png'),
     clip: { x: 0, y: 0, width: 1280, height: 720 },
   });
 
   await page.emulateMedia({ media: 'print' });
-  await page.screenshot({ path: `${OUT}/website-faq-print.png`, fullPage: false });
+  await page.screenshot({ path: testInfo.outputPath('website-faq-print.png'), fullPage: false });
 });
 
-test('captures compare FAQ and changelog disclosure', async ({ page }) => {
+test('captures compare FAQ and changelog disclosure', async ({ page }, testInfo) => {
   await page.goto('/compare');
   const compareFaq = page.locator('details.faq-item').first();
   await compareFaq.scrollIntoViewIfNeeded();
@@ -45,7 +43,7 @@ test('captures compare FAQ and changelog disclosure', async ({ page }) => {
   await expect(compareFaq).toHaveAttribute('open', '');
   await compareFaq.locator('summary').scrollIntoViewIfNeeded();
   await page.screenshot({
-    path: `${OUT}/website-compare-faq-open.png`,
+    path: testInfo.outputPath('website-compare-faq-open.png'),
     clip: { x: 0, y: 0, width: 1280, height: 720 },
   });
 
@@ -57,7 +55,7 @@ test('captures compare FAQ and changelog disclosure', async ({ page }) => {
     await expect(older).toHaveAttribute('open', '');
     await older.locator('summary').scrollIntoViewIfNeeded();
     await page.screenshot({
-      path: `${OUT}/website-changelog-older-open.png`,
+      path: testInfo.outputPath('website-changelog-older-open.png'),
       clip: { x: 0, y: 0, width: 1280, height: 720 },
     });
   }

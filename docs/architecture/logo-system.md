@@ -16,6 +16,17 @@ selection, and history. `Ctrl+Shift+7` opens Design when needed and reveals the
 panel without replacing the user's saved Design arrangement. The six-mode
 taxonomy and ordered shortcuts are defined in
 [`workspace-system.md`](workspace-system.md) and [ADR-0239](../adr/0239-six-task-workspaces-and-ordered-shortcuts.md).
+`Ctrl+Alt+Shift+L` also toggles this panel, resolving to Design when it is opened
+from another workspace; macOS uses Command+Option+Shift+L.
+
+Logo Tools is closed in the built-in Design layout and opens on request. The
+general Design setup keeps its canvas focused; the logo workflow command,
+View menu, or the Logo panel action exposes the project brief, concepts,
+variants, vectorization, typography, validation, and export when needed. A
+user's saved Design layout takes precedence over that built-in default. A
+Logo creation or concept/variant command invoked from another workspace first
+resolves the workspace switch and reveals Logo Tools; a blocked switch leaves
+the document untouched.
 
 ## Components
 

@@ -240,9 +240,7 @@ the same one-click access without a hidden state change.
 | Draw | mask, appearance | masks |
 | Photo | mask, appearance, media | masks |
 | Motion | motion | animated |
-| Logo | component, appearance | components |
 | Email | email, appearance | mobile-hidden |
-| Codegen | component, layout | components |
 
 Solo pinned only in Photo (the workspace where auditioning variants is the
 core workflow); hover/focus-revealed elsewhere, always in the context menu.
@@ -263,7 +261,7 @@ would be emphasis without evidence.
 | Export-region filter | Print | `isExportRegion(node)` | **No — projection** |
 | Animated filter | Motion | keyframe counts (`computeKeyframeCounts`) + animated media assets | **No — projection** |
 | Mask filter | Photo, Draw | `node.mask != null` (existing `isMasked` attribute) | **No — projection** |
-| Component filter | Design, Logo, Codegen | existing `isComponent`/`isInstance` attributes | **No — projection** |
+| Component filter | Design | existing `isComponent`/`isInstance` attributes | **No — projection** |
 | Trace provenance badge | all (unpinned) | `GroupNode.traceMetadata` (schema 2.16) | **No — projection** |
 | Blend/effects badges | Photo | existing `blendMode`, `effects` | **No — projection** |
 | Non-printing flag | Print | would need `NodeBase.printExcluded` | **Yes — deferred (REQ-010)** |
@@ -324,12 +322,12 @@ would be emphasis without evidence.
 | Control | Before | After | Still reachable via |
 |---|---|---|---|
 | Solo | Always visible on every row | Pinned in Photo; hover/focus-revealed elsewhere; always visible on touch | Context menu, bulk bar, command palette |
-| Component/instance/sync/variant | Always | Pinned in Design/Logo/Codegen; hover/focus elsewhere | Row aria name, Inspector, context menu |
+| Component/instance/sync/variant | Always | Pinned in Design; hover/focus elsewhere | Row aria name, Inspector, context menu |
 | Motion dot + keyframes | Always | Pinned in Motion; hover/focus elsewhere | Row aria name, Timeline |
 | Mask type + role | Always | Pinned in Photo/Draw; hover/focus elsewhere | Row aria name, Inspector Mask section, context menu |
 | Blend/opacity, effects, filters | Always | Pinned in Photo/Draw; effects stay visible when they are transfer sources | Row aria name, Inspector, effect-stack badges |
 | Animated-media frame count | Always | Pinned in Photo/Motion; hover/focus elsewhere | Row aria name, Image inspector |
-| Grid-layout / linked-style | Always | Pinned in Design/Logo/Codegen; hover/focus elsewhere | Tooltip, Inspector |
+| Grid-layout / linked-style | Always | Pinned in Design; hover/focus elsewhere | Tooltip, Inspector |
 | Email mobile-hidden | Absent | Pinned in Email only | — (new) |
 | Print thread / master origin | Absent | Pinned in Print only | — (new) |
 

@@ -15,7 +15,9 @@ test('feature and guide are searchable and linked under both site base paths', a
   await page.goto(route(baseURL, 'features'));
   await page.getByRole('link', { name: 'Presentation authoring in Design' }).click();
   await expect(page).toHaveURL(/\/features\/presentations$/);
-  await expect(page.locator('.status-pill-experimental')).toContainText('Source-build preview');
+  await expect(page.locator('.status-pill-experimental')).toContainText(
+    /Source-build preview|Experimental · v\d+\.\d+\.\d+/,
+  );
   await expect(
     page.getByRole('heading', { name: 'Presentation authoring in Design' }),
   ).toBeVisible();

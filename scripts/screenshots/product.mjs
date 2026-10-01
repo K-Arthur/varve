@@ -31,6 +31,11 @@ import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync 
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, expect } from '@playwright/test';
+import {
+  assertPortAvailable,
+  assertReviewDirectorySafe,
+  sourceSceneProvenance,
+} from './capture-safety.mjs';
 import { analyseImage, buffersEqual, pngDimensions } from './lib/image-analysis.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -58,6 +63,7 @@ const BASE = `http://localhost:${PORT}`;
 
 const OUTPUT_DIRS = reviewDir ? [OUT_DIR] : [OUT_DIR, PUBLIC_DIR];
 const OUTPUT_MANIFEST = reviewDir ? join(OUT_DIR, 'manifest.json') : MANIFEST_PATH;
+if (reviewDir) assertReviewDirectorySafe(OUT_DIR, [CANONICAL_DIR, PUBLIC_DIR]);
 
 // indexOf returns -1 when --scenes is absent, so reading args[index + 1]
 // unguarded picks up args[0] — turning `--strict` into a scene filter that
@@ -210,6 +216,8 @@ function pngSize(buf) {
 /* ------------------------------------------------------------------ */
 
 async function startServer() {
+  await assertPortAvailable(PORT);
+  let serverOutput = '';
   const child = spawn(
     'pnpm',
     ['--filter', '@varve/desktop', 'exec', 'vite', '--port', String(PORT), '--strictPort'],
@@ -227,7 +235,7 @@ async function startServer() {
           ? { VARVE_CROSS_ORIGIN_ISOLATION: '1' }
           : {}),
       },
-      stdio: 'ignore',
+      stdio: ['ignore', 'pipe', 'pipe'],
       // Own process group, so the whole tree can be terminated. `pnpm` spawns
       // Vite as a grandchild; killing only the `pnpm` pid left a Vite server
       // listening on the capture port after every run (observed 2026-09-29),
@@ -236,13 +244,26 @@ async function startServer() {
       detached: true,
     },
   );
+  child.stdout?.on('data', (chunk) => {
+    serverOutput += chunk.toString();
+  });
+  child.stderr?.on('data', (chunk) => {
+    serverOutput += chunk.toString();
+  });
   const deadline = Date.now() + 150000;
   while (Date.now() < deadline) {
     if (await probe()) return child;
+    if (child.exitCode !== null || child.signalCode !== null) {
+      throw new Error(
+        `Vite capture server exited before becoming ready on :${PORT}. ${serverOutput.trim()}`,
+      );
+    }
     await new Promise((r) => setTimeout(r, 1000));
   }
   await stopServer(child);
-  throw new Error(`Vite dev server did not come up on :${PORT} within 150s`);
+  throw new Error(
+    `Vite dev server did not come up on :${PORT} within 150s. ${serverOutput.trim()}`,
+  );
 }
 
 function probe() {
@@ -778,6 +799,63 @@ const SCENES = [
       await openDemoDocument(page, 'poster');
       await selectLayer(page, /display headline/i);
       await fitContent(page);
+    },
+  },
+  {
+    id: 'patterns',
+    file: 'patterns-light.png',
+    theme: 'light',
+    feature: 'patterns',
+    alt: 'An orange vector ellipse repeats across a teal rectangle in Varve while the source ellipse and Pattern Library remain visible',
+    caption: 'Apply a copied vector motif to another shape as a reusable pattern',
+    async run(page) {
+      await openCleanEditor(page);
+      const canvas = page.locator('canvas.editor-canvas__content-layer');
+      const bounds = await canvas.boundingBox();
+      if (!bounds) throw new Error('canvas bounds unavailable for pattern capture');
+
+      await page.getByRole('button', { name: 'Rectangle', exact: true }).click();
+      await page.mouse.move(bounds.x + 380, bounds.y + 180);
+      await page.mouse.down();
+      await page.mouse.move(bounds.x + 690, bounds.y + 410, { steps: 8 });
+      await page.mouse.up();
+      await page.keyboard.press('o');
+      await page.mouse.move(bounds.x + 160, bounds.y + 220);
+      await page.mouse.down();
+      await page.mouse.move(bounds.x + 250, bounds.y + 290, { steps: 8 });
+      await page.mouse.up();
+      await page.keyboard.press('v');
+      const source = page.getByRole('treeitem').filter({ hasText: /Ellipse 1/ });
+      await source.click();
+      const fillColour = page.getByRole('button', { name: /fill colour$/i }).first();
+      await fillColour.click();
+      const colourPicker = page.getByRole('dialog', { name: /pick fill colour/i });
+      const hex = colourPicker.getByLabel('Hex color');
+      await hex.fill('#C76B3C');
+      await hex.press('Enter');
+      await page.keyboard.press('Escape');
+
+      const paintLibrary = page.getByRole('button', { name: 'Paint Library', exact: true });
+      if ((await paintLibrary.getAttribute('aria-expanded')) === 'false')
+        await paintLibrary.click();
+      const patternLibrary = page.getByRole('button', { name: 'Pattern Library', exact: true });
+      if ((await patternLibrary.getAttribute('aria-expanded')) === 'false') {
+        await patternLibrary.click();
+      }
+      await page.getByRole('button', { name: /create from selection/i }).click();
+      const entry = page.locator('ul[aria-label="Reusable patterns"] > li').first();
+      const name = await entry.locator('.insp-paint-library__name').innerText();
+      await page
+        .getByRole('treeitem')
+        .filter({ hasText: /Rectangle 1/ })
+        .click();
+      await entry.getByRole('button', { name: `Apply ${name} to selection` }).click();
+      await expect(
+        entry.getByRole('button', { name: `Edit ${name} definition settings` }),
+      ).toBeVisible();
+      await expect(entry).toContainText('1 use');
+      const dismissHint = page.getByRole('button', { name: 'Dismiss hint' });
+      if (await dismissHint.isVisible()) await dismissHint.click();
     },
   },
   {
@@ -2021,9 +2099,16 @@ function normalizeManifest() {
       failures++;
       continue;
     }
-    writeFileAtomicSync(join(CANONICAL_DIR, source.file), bytes);
+    if (reviewDir) {
+      writeFileAtomicSync(join(OUT_DIR, source.file), bytes);
+    } else {
+      writeFileAtomicSync(join(CANONICAL_DIR, source.file), bytes);
+    }
+    const previous = manifest.scenes[source.id] ?? {};
+    const sourceHash = sha256Hex(bytes);
+    const provenance = sourceSceneProvenance(previous, sourceHash);
     manifest.scenes[source.id] = {
-      ...manifest.scenes[source.id],
+      ...previous,
       file: source.file,
       alt: source.alt,
       caption: source.caption,
@@ -2034,12 +2119,12 @@ function normalizeManifest() {
       height: analysis.height,
       status: 'captured',
       reason: undefined,
-      sha256: sha256Hex(bytes),
+      sha256: sourceHash,
       source: source.producer,
       // The measured frame, so the geometry check holds for a capture whose
       // frame differs from the 1440x900 default (a phone-sized or taller one).
       viewport: source.viewport ? { ...source.viewport } : undefined,
-      provenanceUnknown: true,
+      ...provenance,
     };
   }
   const nowBytes = readFileSync(MANIFEST_PATH);
@@ -2060,9 +2145,10 @@ function normalizeManifest() {
   manifest.sourceRevision = sourceIdentity.sourceRevision;
   manifest.sourceDigest = sourceIdentity.sourceDigest;
   manifest.captureTool = manifest.provenance.captureTool;
-  writeFileAtomicSync(MANIFEST_PATH, `${JSON.stringify(manifest, null, 2)}\n`);
+  if (reviewDir) manifest.reviewedAgainst = manifestDigestAtStart;
+  writeFileAtomicSync(OUTPUT_MANIFEST, `${JSON.stringify(manifest, null, 2)}\n`);
   console.log(
-    `normalised manifest: ${changed} scene record(s) updated, ${failures} failure(s) → ${MANIFEST_PATH}`,
+    `normalised manifest: ${changed} scene record(s) updated, ${failures} failure(s) → ${OUTPUT_MANIFEST}`,
   );
   process.exit(failures > 0 ? 1 : 0);
 }
@@ -2330,9 +2416,16 @@ try {
         `source scene ${source.id}: ${source.file} does not decode: ${analysis.errors.join('; ')}`,
       );
     }
-    writeFileAtomicSync(join(CANONICAL_DIR, source.file), bytes);
+    const previous = manifest.scenes[source.id] ?? {};
+    const sourceHash = sha256Hex(bytes);
+    const provenance = sourceSceneProvenance(previous, sourceHash);
+    if (reviewDir) {
+      writeFileAtomicSync(join(OUT_DIR, source.file), bytes);
+    } else {
+      writeFileAtomicSync(join(CANONICAL_DIR, source.file), bytes);
+    }
     manifest.scenes[source.id] = {
-      ...manifest.scenes[source.id],
+      ...previous,
       file: source.file,
       alt: source.alt,
       caption: source.caption,
@@ -2343,12 +2436,12 @@ try {
       height: analysis.height,
       status: 'captured',
       reason: undefined,
-      sha256: sha256Hex(bytes),
+      sha256: sourceHash,
       source: source.producer,
       // The measured frame, so the geometry check holds for a capture whose
       // frame differs from the 1440x900 default (a phone-sized or taller one).
       viewport: source.viewport ? { ...source.viewport } : undefined,
-      lastValidatedAgainst: sourceIdentity.sourceRevision,
+      ...provenance,
     };
   }
 

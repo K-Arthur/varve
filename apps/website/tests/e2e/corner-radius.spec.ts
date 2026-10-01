@@ -28,7 +28,7 @@ async function seedTheme(page: import('@playwright/test').Page, theme: 'light' |
 
 test.describe('corner radius system', () => {
   for (const theme of ['light', 'dark'] as const) {
-    test(`${theme} geometry and screenshot`, async ({ page }) => {
+    test(`${theme} geometry and screenshot`, async ({ page }, testInfo) => {
       await page.emulateMedia({ colorScheme: theme, reducedMotion: 'reduce' });
       await seedTheme(page, theme);
       await page.goto('/');
@@ -53,7 +53,7 @@ test.describe('corner radius system', () => {
       });
 
       await page.screenshot({
-        path: `test-results/corner-radius-home-${theme}.png`,
+        path: testInfo.outputPath(`corner-radius-home-${theme}.png`),
         fullPage: false,
       });
 
@@ -79,7 +79,7 @@ test.describe('corner radius system', () => {
       });
 
       await page.screenshot({
-        path: `test-results/corner-radius-download-${theme}.png`,
+        path: testInfo.outputPath(`corner-radius-download-${theme}.png`),
         fullPage: false,
       });
     });

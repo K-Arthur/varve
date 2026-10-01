@@ -40,7 +40,6 @@ export default {
     'no-descending-specificity': null,
     'custom-property-empty-line-before': null,
     'declaration-property-value-keyword-no-deprecated': null,
-    'no-duplicate-selectors': null,
     'media-feature-range-notation': null,
     'declaration-block-no-redundant-longhand-properties': null,
   },

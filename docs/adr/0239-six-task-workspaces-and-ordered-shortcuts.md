@@ -35,8 +35,12 @@ help, and marketing workspace descriptions must use this same order.
 
 Logo remains discoverable within Design. `Ctrl+Shift+7` opens Design and
 reveals Logo Tools. Code export remains a shared panel and workflow;
-`Ctrl+Shift+8` opens it in the current workspace. These are actions, not
-workspace selectors or radio items. The legacy `workspaceLogo` and
+`Ctrl+Shift+8` opens it in the current workspace. `Ctrl+Alt+Shift+L` toggles
+Logo Tools and switches to Design when opening from another workspace; the
+desktop app's `Ctrl+Shift+J` toggles the shared Code panel. Browsers can reserve
+`Ctrl+Shift+J`, so the Code show action at `Ctrl+Shift+8` and View menu remain
+available. These are actions, not workspace selectors or radio items. The
+legacy `workspaceLogo` and
 `workspaceCodegen` action identifiers are retained at the action/shortcut
 boundary, while legacy `logo` and `codegen` preference keys exist only long
 enough to migrate customized arrangements into named layouts.

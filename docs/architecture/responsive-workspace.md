@@ -16,7 +16,7 @@ handled.
 | `<= 899px` + portrait | Two-tier top bar: application menus stay on the first line, with the workspace switcher and undo/redo grouped on the second line. The active workspace keeps its name when it fits, then compacts to its icon in the narrowest strips. Menu, home, workspace, and history actions use a consistent 44px target rhythm; the menu strip can scroll rather than clip. The duplicate document title and zoom controls are hidden. Inspector uses a shallow nonmodal lower pane; Resources remains a modal sheet. |
 | `<= 1094px` width | Hide the duplicate menubar document title so the application menu rail and workspace/history controls never compete for the same space; the document tab retains its name. |
 | `<= 640px` width | Compact menu labels. Portrait keeps the two-tier navigation/control grouping; landscape retains one row and allows the menu rail to scroll. Zoom has one control, in the status bar. |
-| `html { min-width: 320px }` | Absolute floor only. 320 CSS px is the WCAG 1.4.10 reflow width; the shell must never force horizontal page scrolling at supported viewport sizes, including split-screen. |
+| `html { min-width: 320px }` | Absolute floor only. 320 CSS px is the WCAG 1.4.10 reflow width; the shell must never force horizontal page scrolling at supported viewport sizes, including split-screen. Asserted by the `reflow-floor-320x640` entry of the viewport matrix. |
 
 Tablet presentation removes the dock's tiny numbered keyboard badges to keep
 the switcher visually quiet. Workspace shortcuts remain registered and
@@ -79,16 +79,42 @@ masked form of this bug hid the name at 640×400 while the row held 96px of
 unused space — F5). Below the fit threshold the pill compacts to its icon and
 the name stays in the tooltip and the accessible name.
 
-The same tier constrains the application menu rail
-(`.editor-menubar__left { min-width: 0; flex-shrink: 1; overflow-x: auto }`,
-hidden scrollbar). `.editor-menubar__side` and `.editor-menubar__controls` are
-both `flex: 1 1 0` so the document title sits on the bar's true midpoint; below
-900px the title is hidden but the symmetry still gives the menus half the bar,
-which is less than their min-content width between 641px and ~750px. Without
-`min-width: 0` the rail painted outside its own box and, because the controls
-follow it in the DOM, the switcher won hit-testing — the last 50px of the Help
-label activated a workspace at 641px (F6). The menu strip now scrolls rather
-than spilling, matching the portrait rule.
+The application menu rail is constrained at **every** width, not only in the
+compact tiers (`.editor-menubar__left { min-width: 0; flex-shrink: 1;
+overflow-x: auto; scrollbar-width: none }`, hidden scrollbar).
+`.editor-menubar__side` and `.editor-menubar__controls` are both `flex: 1 1 0`
+so the document title sits on the bar's true midpoint; below 900px the title is
+hidden but the symmetry still gives the menus half the bar, which is less than
+their min-content width between 641px and ~750px. Without `min-width: 0` the
+rail painted outside its own box and, because the controls follow it in the DOM,
+the switcher won hit-testing — the last 50px of the Help label activated a
+workspace at 641px (F6). The menu strip scrolls rather than spilling.
+
+The same containment is what keeps the rail honest under **text enlargement**
+(see below): the compact-tier rule alone left `> 899px` unguarded, and at a 200%
+root text size the rail's content painted over the document title instead of
+staying inside its own box.
+
+## Text enlargement (WCAG 2.2 SC 1.4.4)
+
+Interface type is rem-based and interface geometry is px-based (`tokens/`), so a
+user who enlarges text only — Firefox "Zoom text only", a user stylesheet, an
+OS text-size preference — grows chrome labels without growing the bars that hold
+them. Full-page browser zoom scales both and is unaffected.
+
+- **The application menu rail scrolls; it never spills.** Its containment is
+  base-rule, not tier-scoped. At 1280×800 with a 200% root text size the rail
+  holds 519px of a 704px strip, so the last menus are reached by horizontal
+  scroll or by keyboard menubar navigation. Verified by
+  `chromeos-device-matrix.spec.ts` → "text enlargement (WCAG 1.4.4)", which also
+  asserts that no application menu loses its own hit test.
+- **Known gaps at 200% text, with evidence and proposed fixes, are recorded in
+  `docs/audits/text-enlargement-2026-09-30.md`:** the shell grid resolves 45px
+  wider than the viewport (the panel tracks are rem-derived while the canvas
+  track floors at 320px), and the workspace dock panel chrome covers the
+  document tab strip.
+- WCAG 1.4.12 text-spacing overrides were checked at 1280×800 and produce no
+  overlap, clipping, or page overflow.
 
 ## Drawers and focus
 
@@ -222,19 +248,32 @@ gesture; ChromeOS hardware behavior remains a device-validation item.
   absolutely-positioned grid-area mechanism as the floating toolbar. Do not
   replace this with viewport-fixed offsets computed from header tokens:
   `--menubar-total-height` arithmetic has drifted under the tab strip / top
-  toolbar whenever the real header height moved. Geometry is asserted in
-  `tests/e2e/layers/layers-panel-visual.spec.ts`.
+  toolbar whenever the real header height moved. The cell's top edge is also
+  where the selection-path row begins when a selection exists, and that row's
+  height is content-driven, so `SelectionBreadcrumb` publishes it as
+  `--selection-path-height` (the same measured-custom-property mechanism as
+  `--floating-toolbar-height`) and the chip's offset adds it. Geometry is
+  asserted in `tests/e2e/layers/layers-panel-visual.spec.ts`.
 
 ## Test coverage
 
-- `tests/e2e/interaction/chromeos-device-matrix.spec.ts` — 21 Chromium tests:
-  viewport matrix (960x600, 1200x750, 1280x800, 600x960, 800x1280, 480x640,
-  640x400 as the 200%-zoom equivalent), fractional DPR 1.25, coarse-pointer
+- `tests/e2e/interaction/chromeos-device-matrix.spec.ts` — 39 Chromium tests
+  (`--list`). The 15-entry viewport matrix (960x600, 1200x750, 1280x800,
+  800x1280, 600x960, 360x780, 320x640 as the WCAG 1.4.10 reflow floor /
+  400%-zoom equivalent, 480x640, 640x400 as the 200%-zoom equivalent) plus
+  fractional DPR 1.25, coarse-pointer
   target floor, one-finger touch, tap-does-not-move, two-finger pinch,
   synthetic pen pressure, keyboard-inset publication, bottom-chrome
   clearance, system-back menu dismissal, guard cleanup, portrait bottom
-  sheets, landscape side drawers, rotation presentation switching, and
-  rotation mid-gesture.
+  sheets, landscape side drawers, rotation presentation switching, rotation
+  mid-gesture, and the text-enlargement rail contract below.
+- Text enlargement (WCAG 2.2 SC 1.4.4): the same spec's "text enlargement"
+  test drives a 200% root text size at 1280x800 and asserts that the
+  application menu rail stays inside its own segment and that every on-screen
+  menu receives its own hit test (`elementFromPoint`), then activates the
+  previously-covered `Page` and `Help` menus through the real click path.
+  `docs/audits/text-enlargement-2026-09-30.md` records the two remaining gaps
+  at that size.
 - `tests/e2e/interaction/tablet-editing-controls.spec.ts` — tablet control
   popover reachability, 44px targets, latched modifier survival across
   landscape-to-portrait reflow, and popover bounds in both orientations.

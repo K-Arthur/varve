@@ -15,7 +15,8 @@
   <a href="https://github.com/sponsors/K-Arthur"><img src="https://img.shields.io/github/sponsors/K-Arthur?label=sponsors" alt="GitHub Sponsors"></a>
 </p>
 
-> **Public beta.** The latest published application release is `v0.2.1`.
+> **Public beta.** The latest published application release remains `v0.2.1`
+> while the `0.5.0` release candidate is prepared.
 > Installers are published for Linux, macOS, and Windows. Core workflows are
 > usable today, but the `.varve` document format and interfaces can still
 > change, and Windows/macOS builds are not yet code-signed. The release
@@ -45,19 +46,34 @@ WASM for the browser. No account, no forced cloud sync, no feature paywall.
 
 ## What works today
 
-- **Vector editing** — paths, shapes, node/Bézier editing, boolean ops
-- **Page layout** — multi-page documents, flex/grid layout, reusable components
-- **Typography** — paragraph/character styling, OpenType features, variable fonts, text-on-path
-- **Motion** (alpha) — timeline with keyframes, easing, auto-keyframe assist
-- **Print production** (desktop) — CMYK via ICC profiles, PDF/X export, crop/registration marks
-- **Export** — SVG, React, Svelte, Vue, Flutter, SwiftUI, email HTML,
-  Web Components, Tailwind, Lottie/CSS/SVG animation — computed locally,
-  no network round-trip
-- **Images and local intelligence** — adjustments, effects, raster-to-vector
-  trace, background removal, optional on-device enhancement, palette
-  extraction, object selection, depth blur, and asset search
-- **Email design** (desktop) — visual email authoring, preview, and
-  multi-format export (HTML, plain text) with preflight diagnostics
+- **Six task workspaces** — Design, Print, Draw, Photo, Motion, and Email share
+  one document. Panels can be docked, split, floated, and restored; Logo tools
+  stay in Design and Code export is available from every workspace.
+- **Vector and layout** — paths, Boolean operations, Shape Builder, node editing,
+  multi-page documents, flex/grid layout, reusable components, and pattern
+  definitions with bounded editing and export support.
+- **Typography** — paragraph and character styling, supported OpenType features,
+  variable-font axes, text-on-path, and shaped-glyph outlines.
+- **Illustration and comics** — brush opacity/flow, stylus controls, separable
+  flats and shading, panel layouts, editable captions and balloons, and
+  localization-aware lettering.
+- **Photo work** — adjustments, retouching, tracing, masks, and colorization;
+  supported RAW input and model-assisted workflows have documented limits.
+- **Motion and prototyping** — a timeline with keyframes, easing, and interactive
+  prototypes. Motion is still in public beta.
+- **Presentation decks** — ordered editable frames with preview and raster PDF or
+  PNG delivery. The PDF is not editable or searchable and has no tagged reading
+  order.
+- **Print production** (desktop) — CMYK via ICC profiles, PDF/X export, and
+  printer marks. Export support varies by format and document content.
+- **Tokens and local plugins** — manual token import/re-import and bounded local
+  WebAssembly plugins for selected-layer analysis and batch renaming; there is
+  no automatic token write-back or plugin marketplace.
+- **Export** — SVG, PDF, React, Svelte, Vue, Flutter, SwiftUI, email HTML,
+  Web Components, Tailwind, and Lottie/CSS/SVG animation, computed locally.
+- **Images and local intelligence** — adjustments, effects, background removal,
+  palette extraction, object selection, depth blur, and optional on-device
+  enhancement. Optional models download only when requested.
 
 **Not yet implemented:** real-time collaboration exists only as UI scaffolding.
 The native desktop application is the full product; an experimental browser build
@@ -126,6 +142,13 @@ product page.
 <img src="docs/screenshots/product/typography-panel-light.png" alt="The Varve typography inspector showing font family, weight, style, size, line height and letter spacing for the selected text" width="100%">
 <p align="center">Type controls for the selected text</p>
 </td>
+</tr>
+<tr>
+<td width="50%">
+<img src="docs/screenshots/product/patterns-light.png" alt="An orange vector ellipse repeats across a teal rectangle in Varve while the source ellipse and Pattern Library remain visible" width="100%">
+<p align="center">Create a repeat from vector artwork, then adjust its placement on the fill</p>
+</td>
+<td width="50%"></td>
 </tr>
 </table>
 
@@ -233,11 +256,12 @@ Rust native ⇄ WASM     (crates/varve-core, varve-layout, varve-effects, …)
         ↓
 Render IR
         ↓
-Canvas2D / WebGPU
+Canvas2D (default) / WebGPU and WebGL2 (experimental, opt-in)
 ```
 
 The Rust engine computes a scene and emits a compact render IR; the webview
-replays it to Canvas2D or WebGPU. Start with the
+replays it to Canvas2D by default. WebGPU and WebGL2 are opt-in experimental
+paths with hardware-dependent coverage and Canvas2D fallback. Start with the
 [architecture overview](docs/architecture/overview.md), then see
 [ADR-0001](docs/adr/0001-native-render-in-tauri-webview.md) for the
 rationale and [docs/architecture/render-pipeline.md](docs/architecture/render-pipeline.md)
@@ -266,13 +290,16 @@ scripts/    release, screenshot, and quality-gate tooling
 ## Project status
 
 Varve is in **public beta**. The latest published application release is
-`v0.2.1` (published installer releases are `v0.1.0`, `v0.1.1`, `v0.1.2`,
-`v0.2.0`, and `v0.2.1`), covering Linux, macOS (Apple Silicon), and Windows. The checkout
-represented by this source tree is version `<!-- VARVE_VERSION -->0.2.1<!-- /VARVE_VERSION -->`. Versioning follows [SemVer](https://semver.org/); release notes are
-kept in [CHANGELOG.md](CHANGELOG.md). Expect rough edges, and keep backups —
-the `.varve` document format can still change between releases. Documents
-saved with the legacy `.strata` extension (from before the project's rename
-from Strata to Varve) remain openable through the versioned migration pipeline.
+`v0.2.1` until the 0.5.0 candidate is certified and published. Published
+installers cover Linux, macOS (Apple Silicon), and Windows. This checkout
+targets source version `<!-- VARVE_VERSION -->0.5.0<!-- /VARVE_VERSION -->`.
+Versioning follows [SemVer](https://semver.org/); release notes are kept in
+[CHANGELOG.md](CHANGELOG.md). Published v0.2.1 used document schema 2.21; this
+source tree writes schema 2.32. The app version and document schema are
+separate. A 2.32 file may not open safely in older app versions, so back up
+important documents and use v0.5.0 or later for files saved by this release.
+Documents with the legacy `.strata` extension remain openable through the
+migration pipeline.
 
 ## Frequently asked questions
 

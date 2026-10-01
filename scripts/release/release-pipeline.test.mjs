@@ -624,6 +624,7 @@ assert.throws(
     'apps/desktop/src-tauri/tauri.conf.json',
     'Cargo.toml',
     'apps/desktop/src-tauri/Cargo.toml',
+    'README.md',
     'apps/desktop/src-tauri/linux/dev.varve.desktop.metainfo.xml',
     'packaging/aur/varve-desktop-bin/PKGBUILD',
     'packaging/aur/varve-desktop-bin/.SRCINFO',
@@ -642,6 +643,12 @@ assert.throws(
       runVersion(['verify'], env),
       /All version manifests agree on 1\.2\.3\./,
       'fixture verify after set',
+    );
+    runVersion(['set', '1.2.3'], env);
+    assert.match(
+      runVersion(['verify'], env),
+      /All version manifests agree on 1\.2\.3\./,
+      'setting an already-synchronized README version is a no-op',
     );
     runVersion(['bump', 'minor'], env);
     assert.equal(runVersion(['get'], env), '1.3.0', 'fixture bump minor -> 1.3.0');

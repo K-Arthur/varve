@@ -425,7 +425,7 @@ function buildPlan(files, { includeReverse = true } = {}) {
           const dom = e2eDomainFor(f);
           if (dom) e2eDomains.add(dom);
         }
-      } else {
+      } else if (existsSync(join(ROOT, f))) {
         directTestFiles.add(f);
       }
     } else if (f.startsWith('tests/e2e/')) {
@@ -479,7 +479,10 @@ function buildPlan(files, { includeReverse = true } = {}) {
             e2eTypecheckRequired = true;
             e2eDomains.add(lane.slice(4));
           } else if (lane.startsWith('bench:')) benchDomains.add(lane.slice(6));
-          else if (lane.startsWith('audit:')) audits.add(lane);
+          // Tier-0 static checks. `riskFlags` are informational only —
+          // verify.mjs executes plan.tiers, so a lane pushed there never
+          // runs; lint:css must join the audits set to be executed.
+          else if (lane.startsWith('audit:') || lane === 'lint:css') audits.add(lane);
           else if (
             lane === 'policy' ||
             lane === 'ci-tools' ||

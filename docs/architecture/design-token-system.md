@@ -32,13 +32,19 @@ component + density tokens (components.css, editor.css consumers)
   `var()` reference to a custom property nothing defines, and on any literal
   fallback attached to a property that *is* defined (a fallback on a defined
   token can only ever paint an unthemed value, and it hides the token's
-  absence). Undefined-by-design runtime hooks are listed in that script with a
-  reason.
+  absence). Comment lines never satisfy the definition scan — the same
+  comment filter the reference scan uses — so documenting a token name in a
+  comment cannot mask an undefined reference; a token name assigned to a
+  constant (`FOO_PROPERTY = '--foo'`) does count, because that is how the
+  runtime publishers define theirs. The script's regression test is
+  `scripts/quality/audit-token-usage.test.mjs`. Undefined-by-design runtime
+  hooks are listed in that script with a reason.
 - Hard rule (AGENTS.md): no hardcoded color/space/type values in component
   CSS — trace to custom properties.
-- `pnpm lint:css` (stylelint over `packages/ui/src`) bans hex colours and
-  duplicate custom properties inside one block, and is part of the affected
-  closure for shared UI stylesheets.
+- `pnpm lint:css` (stylelint over `packages/ui/src`) bans hex colours,
+  duplicate selectors, and duplicate custom properties inside one block. The
+  `ui-css-discipline` impact rule selects it (Tier 0) whenever a stylesheet
+  under `packages/ui/src` changes.
 
 ### Control geometry in dense workflows
 

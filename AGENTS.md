@@ -317,7 +317,7 @@ cleanup tooling, codemods).
 - `just lint` — `cargo clippy -D warnings` + `pnpm lint` (Biome)
 - `just format` — `cargo fmt` + `pnpm format`
 - `pnpm typecheck` — `tsc --noEmit` across packages/* (full workspace — `pnpm verify:affected` runs only the affected closure)
-- `pnpm audit:tokens` — WCAG 2.2 AA token gate (309 pairs across 3 themes) plus
+- `pnpm audit:tokens` — WCAG 2.2 AA token gate (315 pairs across 3 themes) plus
   `scripts/quality/audit-token-usage.mjs`, which fails on `var()` references to
   undefined custom properties and on literal fallbacks attached to defined
   tokens. Override hooks that are undefined by design are listed in that script
@@ -506,7 +506,7 @@ just install-dev-icons
 | Area | Location |
 |---|---|
 | Baseline bench + goldens | `packages/engine/src/bench/`, `packages/engine/src/__goldens__/` |
-| Compositor | `packages/compositor/` — Canvas2D + WebGPU scaffold |
+| Compositor | `packages/compositor/` — Canvas2D default; opt-in experimental WebGPU and WebGL2 paths with Canvas2D fallback |
 | Render worker | `packages/editor/src/render/` — OffscreenCanvas |
 | WASM build | `just wasm-build` → baseline + preferred SIMD artifacts in `apps/desktop/public/wasm/` |
 | Architecture docs | `docs/architecture/render-pipeline.md`, `docs/architecture/wasm-backends.md` |
@@ -563,7 +563,7 @@ Complete timeline-based animation workspace. Canonical doc: `docs/architecture/m
 
 ## Workspace Mode System
 
-Eight task-focused modes over the same document/scene/rendering/command/history
+Six task-focused modes over the same document/scene/rendering/command/history
 systems. Canonical contract, configuration resolution, persistence, and known
 gaps: `docs/architecture/workspace-system.md`.
 
@@ -574,9 +574,14 @@ gaps: `docs/architecture/workspace-system.md`.
 | **Draw** | `Ctrl+Shift+3` | paint | Raster painting, vector freehand, brushes |
 | **Photo** | `Ctrl+Shift+4` | select | Nondestructive photo editing, adjustments |
 | **Motion** | `Ctrl+Shift+5` | select | Timeline animation, keyframes, easing |
-| **Logo** | `Ctrl+Shift+6` | select | Wordmarks, marks, monograms, badges, brand systems |
-| **Email** | `Ctrl+Shift+7` | select | Email template design, semantics, preview, export |
-| **Codegen** | `Ctrl+Shift+9` | select | Code export |
+| **Email** | `Ctrl+Shift+6` | select | Email template design, semantics, preview, export |
+
+Logo is a Design workflow (`Ctrl+Shift+7` opens Design and shows Logo Tools).
+Code export is shared across modes (`Ctrl+Shift+8` shows the Code panel in the
+current workspace, and `Ctrl+Shift+J` toggles that same panel); neither is a
+workspace tab.
+On macOS, use Command+Shift with the same numbers; Command+Shift+J toggles
+the shared Code panel.
 
 Logo workflow docs: `docs/architecture/logo-system.md`,
 `docs/plans/archived/logo-system-progress.md`. New commands must register in
@@ -693,7 +698,7 @@ captured by editor shortcuts while a Space-activatable control has focus
 | `@varve/platform` | **Built** | Platform abstraction (Tauri/web/memory) |
 | `@varve/ai` | **Built** | Auto-trace controller and assist orchestrator (on-device + cloud) |
 | `@varve/collab` | **Built** | CRDT awareness and reconnect over the varve-sync SQLite core |
-| `@varve/compositor` | **Built** | Pluggable render compositor: Canvas2D baseline, WebGPU when available |
+| `@varve/compositor` | **Built** | Pluggable render compositor: Canvas2D default; opt-in experimental WebGPU and WebGL2 paths with Canvas2D fallback |
 | `@varve/crash` | **Built** | Privacy-first crash reporting and recovery core |
 | `@varve/help` | **Built** | Help system documentation and browser |
 | `@varve/home` | **Built** | Home/Start surface: recent files, projects, templates, file management |
@@ -712,8 +717,11 @@ captured by editor shortcuts while a Space-activatable control has focus
 
 ## Release signing (code-signing pipeline)
 
-Varve's release pipeline is certificate-ready but not yet signing: no Apple/
-Azure certificates are owned. Canonical docs: `docs/release/signing-decision-record.md`
+Varve's release pipeline verifies signing when configured. Platform signing is
+optional unless `RELEASE_EXPECT_SIGNED=true`; unsigned installers may be
+published when the policy allows them, and the manifest and download page must
+label them truthfully. Canonical docs: `docs/release/README.md` and
+`docs/release/signing-decision-record.md`
 (strategy + current prices), `docs/release/code-signing-setup.md` (human
 acquisition checklist), `docs/release/signing-rotation-runbook.md` and
 `docs/release/signing-incident-runbook.md` (procedures).
@@ -724,17 +732,20 @@ Rules that must not be violated:
   `verify-macos-signature.sh`), never from secret presence. `signing-policy.mjs`
   encodes the fail-closed policy; `verify-release-trust.mjs` enforces it before
   checksums/attestation/draft.
-- Stable releases require valid Windows Authenticode and macOS
-  Developer ID + notarized + stapled; missing credentials fail in
-  `signing-preflight` BEFORE the platform build starts.
+- When `RELEASE_EXPECT_SIGNED=true`, missing or invalid Windows Authenticode
+  and macOS Developer ID/notarization/stapling evidence fail in
+  `signing-preflight` BEFORE the platform build starts. With that expectation
+  unset, an unsigned release is permitted only when its artifacts and website
+  labels say they are unsigned. Updater-feed signatures are a separate trust
+  layer and do not mean an installer is platform-signed.
 - Windows signing uses Azure Artifact Signing via Tauri `signCommand`
   (artifact-signing-cli 0.11.0). The auth chain is a client secret — OIDC is
   not supported by that tool; do not invent a replacement wrapper without
   re-checking official docs.
 - macOS uses Developer ID Application (never Apple Development/Distribution);
   the identity string is matched exactly.
-- Tauri updater keys (when the updater lands) are separate from all other
-  signing material and are not created until then.
+- Tauri updater keys are separate from all platform-signing material; updater
+  signatures never imply Authenticode or Apple notarization.
 
 ## Trust boundaries (do not violate)
 

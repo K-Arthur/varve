@@ -33,6 +33,12 @@ assert.equal(
 );
 assert.ok(removedCrate.reasons.some((reason) => reason.includes('unrecognized Rust path')));
 
+const removedUnitTest = 'packages/editor/src/workspace/__tests__/removed-model.test.ts';
+assert.ok(
+  !buildPlan([removedUnitTest]).tiers[1].includes(`js-unit:file:${removedUnitTest}`),
+  'a deleted unit test must not be selected as an executable validation lane',
+);
+
 const owner = 'tests/e2e/canvas/alignment-arrangement.spec.ts';
 const snapshots = [
   `${owner}-snapshots/nested-frame-reference-alignment-chromium-linux.png`,

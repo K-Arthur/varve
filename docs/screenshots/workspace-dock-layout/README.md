@@ -29,18 +29,58 @@ selected in Inspector, Preview is selected below the canvas, and Email Output
 is visible as its sibling dock tab. The capture also shows the browser-preview
 compatibility caveat in the panel.
 
+The browser flow in `tests/e2e/email/controls.spec.ts` explicitly enables an
+Email template, creates and expands a saved source block, removes its scene
+node, and verifies the orphan explanation and unchanged authored HTML remain
+available. [email-orphaned-authored-source.png](email-orphaned-authored-source.png)
+was opened and inspected after the passing Chromium run; it shows the expanded
+editor with zero scene layers. This verifies in-app reachability and source
+preservation, not Gmail or Outlook rendering.
+
 The keyboard/touch-accessible Move To workflow has a control screenshot in
 `custom-move-controls-light.png` and the resulting live layout in
 `custom-move-light.png`. `tests/e2e/workspace/customization.spec.ts` moves
 Layers below Inspector, checks the resulting panel rectangles and customization
 dialog width, and confirms the preference contains a dock tree.
 
+`tests/e2e/workspace/dock-layout-geometry.spec.ts` now also includes real
+pointer movement from Layers to the lower drop zone on Inspector, preview
+feedback, Escape cancellation, one committed move, and a screenshot at
+`dock-drag-layers-below-inspector.png`. All three tests in that spec passed in
+Chromium before the panel-header correction on 2026-09-28, including the
+six-workspace geometry pass, splitter commit/cancel, and real panel movement.
+The later focused correction run passed both the floating-group control
+workflow and the Inspector-control collision regression. The first run after
+adding reserved panel chrome exposed two issues: Resize bubbled into the
+title-row Move gesture, and the Inspector test targeted an overflow control
+that is not present at the default width. The Move handler now ignores button
+targets; Resize changes dimensions without moving the group, and the browser
+test clicks the actual Collapse Inspector control. The six-workspace, drag,
+splitter, Email, dark/high-contrast switcher, and updated float screenshots
+were opened and visually inspected. The first splitter run exposed a flaky
+one-off navigation helper; replacing it with the shared recovery-aware
+`navigateToEditor` helper made the splitter test pass in isolation and in the
+complete spec. Earlier runs used the documented one-worker lease opt-out only
+after the shared lease timed out behind another session's long-running full
+Vitest process; the host had approximately 8 GiB available.
+
 `float-controls-light.png` shows the in-window floating Layers group at 1440 ×
-900 CSS pixels, including its visible reset, redock, and resize controls. The
+900 CSS pixels, with Reset location, Redock, and Resize in the title row.
+Singleton dock Move controls live in a separate 32-pixel dock title row;
+tabbed panels use the tab strip. This keeps the Inspector Collapse control
+and panel content outside the Move/Resize hit areas. The
 same E2E creates the float through Customize Workspace, drags it with a live
 preview, resizes it with a pointer, moves it with the keyboard, resets its
 normalized placement, and redocks the group. The test confirms the portable
 `floatingGroups` preference is saved.
+
+`float-inspector-controls-light.png` is a separate live Inspector float at
+1440 × 900 CSS pixels. The float action row sits above the Inspector tabs and
+properties, with no shared hit area. Its browser check asserts the header and
+both Inspector tabs do not overlap, verifies each tab is the hit-tested pointer
+target, then clicks Design and Export while the floating actions remain
+available. This covers the panel controls most likely to be hidden by a
+floating title row; it supplements the Layers collapse-control regression.
 
 `splitters-light.png` records a live resized split. The associated geometry
 E2E uses ArrowRight and a real pointer drag, verifies the accessible value,
@@ -77,7 +117,7 @@ node scripts/quality/heavy-lease.mjs "e2e: validate six workspace dock layouts" 
   --project=chromium --workers=1 --reporter=list
 ```
 
-This is a geometry and default-layout checkpoint. The focused customization
-E2E covers floating-group movement, resize, reset, and redock in the light
-theme. Dock-target drag previews, theme coverage for splitters and floats,
-native windows, and startup recovery from a corrupt saved layout remain open.
+This is a geometry and default-layout checkpoint. The customization E2E also
+covers floating-group movement, resize, reset, and redock in the light theme.
+Broader theme coverage for splitters and floats, native-window transfer
+round-trips, and startup recovery from a corrupt saved layout remain open.

@@ -123,3 +123,32 @@ during migration. Durable saves use compare-and-set transactions in SQLite on
 desktop and IndexedDB on the web; a failed compare reloads and merges the
 concurrent store before retrying. This closes the earlier per-process-only
 write-order guarantee for the named-layout store.
+
+## Amendment (2026-09-28): one runtime dock authority
+
+The earlier `NativeWorkspaceLayout` manager, browser-grid fallback, and
+last-known-good recovery modules never became runtime authorities. Their
+disconnected implementations and tests have been retired. Runtime workspace
+geometry now uses the registry-validated `DockLayout` from
+`packages/editor/src/workspace/dock/`, persisted through the existing
+workspace preference and named-layout stores. It owns the primary canvas,
+splits, tabs, and in-window float groups.
+
+Native detached panel windows remain a separate supported surface. Their
+machine-local monitor placement lives in `panelWindowPlacement.ts` under the
+existing `varve-panel-placements` schema; this placement never enters portable
+workspace exports. Detachment preserves the panel's home in the primary dock
+tree, so reattachment restores that same home. No browser popup is created to
+recover a detached native window after a crash.
+
+## Amendment (2026-09-28): revision-checked workspace preferences
+
+Per-workspace preference entries now carry logical revisions and a stable
+local writer identity. Legacy `lastCustomized` and `clearedAt` timestamps are
+used only while comparing an unstamped entry during migration. Hydration
+restamps any workspace edited while the durable read was pending above the
+loaded revision. Durable writes serialize locally and use the existing
+platform compare-and-set transaction, merging after a concurrent write
+instead of allowing an older timestamp or stale completion to replace newer
+workspace intent. Reset entries remain explicit versioned events; panel
+recovery has its own independent revisioned state.

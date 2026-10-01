@@ -1,10 +1,37 @@
 # Repository Hygiene Audit — Progress Ledger
 
-**Date:** 2026-07-26 (pass 1, complete) / **2026-08-04 (pass 2, complete) / 2026-08-12 (pass 3, complete) / 2026-08-16 (pass 4, complete) / 2026-08-21 (pass 5, complete) / 2026-08-22 (pass 6, complete) / 2026-08-24 to 2026-08-25 (pass 7, complete) / 2026-09-19 (pass 8, complete)**
+**Date:** 2026-07-26 (pass 1, complete) / **2026-08-04 (pass 2, complete) / 2026-08-12 (pass 3, complete) / 2026-08-16 (pass 4, complete) / 2026-08-21 (pass 5, complete) / 2026-08-22 (pass 6, complete) / 2026-08-24 to 2026-08-25 (pass 7, complete) / 2026-09-19 (pass 8, complete) / 2026-10-01 (pass 9, in progress)**
 **Branch:** master
 
 > Working ledger for hygiene audits. Pass 8 is documented below; pass 1–7
 > history is retained further down.
+
+## Pass 9 (2026-10-01, release inventory)
+
+Release-bound repository hygiene review of the pre-existing shared worktree.
+The initial index, patches, untracked files, and hashes are preserved outside
+the repository in the operator's release-recovery archive.
+Confirmed one-off local diagnostics are moved to that recovery directory, not
+destroyed. Current product implementation, its tests, documentation, and
+referenced screenshot evidence remain eligible for explicit review and commit.
+
+| File or Pattern | Category | Tracked? | Decision | Status |
+| --------------- | -------- | -------: | -------- | ------ |
+| `.zcode/`, `.zcodeignore` | Personal local agent plan/config | No | Preserve in place; ignore both so private workflow files cannot enter the release index | Done |
+| `/native-webgl2-*.json` | Legacy machine-local qualification diagnostic | No | Future captures default to ignored `reports/perf/`; ignore old root output; move the existing unsupported/no-driver diagnostic to recovery | Done |
+| `tests/e2e/**/zz-*.spec.ts` (six specs) | Explicit throwaway visual audits and diagnostics, not regression tests; several audits record them as such | No | Move source files to recovery; keep legitimate behavior coverage in named maintained specs | Done |
+| `visual-validate-overlap.mjs` | One-off local overlap probe against a stale fixed port | No | Move source to recovery; maintained responsive/overlap tests own release coverage | Done |
+| `docs/screenshots/product/debug-workspace-shared-workflows.png` | Debug dump; screenshot validator identifies it as an orphan | No | Move image to recovery; retain reviewed canonical product captures | Done |
+| `install-arch.sh` | Unrelated ChatGPT/pacman installer; not Varve packaging | No | Move to recovery; exclude from Varve release | Done |
+| `tests/reference/` (13 unreferenced CPU/GPU model outputs, about 5 MB) | No owning test, generator, or provenance record | No | Exclude from the release tree; original bytes and hashes remain in the pre-release recovery archive. Restore only with a documented generator and consuming test | Removed from source; preserved externally |
+| `docs/screenshots/pattern-system-2026-09-30/`, dated workspace and GPU evidence | Current feature, QA, or qualification evidence with owning docs/specs | Mixed | Preserve and reconcile staged deletions against restored files; review before inclusion | In progress |
+| Dated audit screenshots and historical plans | Historical review evidence | Yes / mixed | Retain unless a filename-level reference and replacement prove supersession; do not purge by age | Reviewed; retained |
+
+The broad screenshot audit previously retained 62 dated evidence captures after
+reference inspection. This release pass keeps that decision: visual evidence
+is not stale merely because it is dated or no longer copied to the marketing
+gallery. Canonical marketing captures are refreshed separately from archived
+review artifacts.
 
 ---
 

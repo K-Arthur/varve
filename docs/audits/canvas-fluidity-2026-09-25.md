@@ -1,9 +1,10 @@
 # Canvas fluidity and input latency — 2026-09-25
 
-**Status:** Implemented on `master`; browser pixel-oracle and website visual
-checks passed. A current Linux Tauri/WebKitGTK workflow soak passed 100/100
-synthetic cycles and its process-memory plateau; physical-device lanes remain
-open.
+**Status:** The recorded renderer/input correctness fixes and 100-cycle Linux
+Tauri workflow soak pass. Linux navigation and drag responsiveness are still
+unqualified and miss the current WebKitGTK cadence targets; this audit does
+not claim those issues are fixed. Physical-device and presentation-timing
+lanes remain open.
 **Scope:** main-thread work on the hover, wheel pan, ctrl-wheel zoom, and drag
 paths of the editor canvas, and correctness of retained pixels.
 **Predecessors:** [canvas-responsiveness-2026-09-08](canvas-responsiveness-2026-09-08.md),
@@ -773,3 +774,86 @@ Linux x86_64 host and synthetic input only; it does not establish physical
 trackpad/pen behavior, input-to-photon latency, or general device performance.
 Matched three-round production performance runs remain pending, and no
 p95/p99 improvement claim is made.
+
+### Linux browser-engine comparison — 2026-09-28
+
+A matched 1,000-vector, 1280×800 CSS-pixel, DPR-1, Canvas2D Full-quality
+diagnostic compared WebKitGTK 2.52.6 and Chromium 151 on the same CachyOS/KDE
+Wayland host. Inputs are DOM-synthetic; the runs measure callback cadence and
+canvas commits, not physical input-to-photon time. The browser-engine build is
+the frozen production frontend at `a967bfa6f` (manifest SHA-256
+`bba9ae24fe7358de33aa41e7932f7a215aea68e1df970fd9c5577e4e2c06df13`); it is
+not a current release Tauri build and does not qualify native IPC.
+
+Three alternating worker-off blocks produced these p95 rAF intervals:
+
+| Runtime | Pan p95 (three blocks) | Item drag p95 (three blocks) | Canvas work p50/p95 |
+|---|---|---|---|
+| WebKitGTK 2.52.6 | 77, 59, 64 ms | 229, 202, 211 ms | about 2–4 / 3–5 ms |
+| Chromium 151 | 16.8, 16.7, 16.8 ms | 33.3, 49.9, 33.4 ms | about 1–2 / 1–4 ms |
+
+WebKitGTK misses the 60 Hz ordinary-workload p95 target (about 33 ms) for both
+pan and drag. In a separate active, visible GTK window run, idle rAF p95 was
+17 ms, while active pan and drag were 60 ms and 283 ms p95. A separate
+worker-on diagnostic for 1k vectors recorded
+worker-internal queue wait at 0 ms p50/p95 and replay at 0/1 ms p50/p95; its
+cross-thread round-trip plus scheduling remainder during drag was 60/88 ms
+p50/p95. Pan's corresponding remainder was 3/29 ms. This points to delay
+outside vector replay and the worker's own render queue, around worker-message
+delivery/main-thread scheduling. These worker-on samples are not a matched
+worker-on/off qualification; the 1k drag subset had only 70 worker spans, so
+its p95 is descriptive and below the 100-sample qualification threshold.
+Across the three worker-off comparison blocks, start-to-start intervals in the
+DOM-synthetic input loop for the 1k scene were p50/p95 29/39 ms for pan and
+75/182 ms for drag in WebKitGTK, versus 20.5/31 ms and 14.7/58.6 ms in
+Chromium (735 intervals per gesture and runtime; p99 is unqualified). These
+are input-loop timer intervals, not hardware-event or presentation latency.
+Disabling DMABUF did not help. The installed WebKitGTK 2.52.6 exposes no Event
+Timing or Long Task/LoAF evidence in this harness, so presentation latency and
+finer task attribution remain unavailable.
+Native attribution is also constrained here: `webkit-profile.mjs --check
+--json` reports no `perf` binary and `ptrace_scope=1` (`canAttachRunningProcess`
+false), so this session cannot sample or attach to an already-running
+WebKitWebProcess with the installed tools.
+
+A separate rectangle-tool sequence used 50 DOM-synthetic pointer moves with
+nominal 8 ms waits per batch. Across five batches, the 1k-vector page produced
+184 worker-off and 185 worker-on rAF intervals: p50 was 16/17 ms and p95 was
+73/93 ms. This is GTK-only and has no matched Chromium creation run; window
+focus was not recorded, and the pixel readback sampled the content canvas but
+not the interaction overlay. It indicates long frame-cadence gaps can occur
+during basic creation, but it is not a pointer-to-artwork latency measurement.
+
+The visual probe found 30,329 differing pixels during a 1k-vector pan and 768
+during item drag versus a forced authoritative redraw; settled comparisons
+were exact (zero differences). The oracle accepts only an authoritative frame
+whose document version and camera match the state captured when the redraw was
+requested. This shows that the live in-gesture canvas can lag its current
+interaction state. In the existing probe, an idle snapshot taken before the
+forced redraw matched the oracle exactly after the 500 ms ordinary / 1 s heavy
+wait, including worker-on pan and drag. The separate probe that was blocked by
+the shared browser lease would have checked stricter frame identity and source
+attribution; those remain unqualified. The warm-refinement sentinel itself
+also did not see a frame classified as `authoritative` within its deadline,
+despite the settled pixel equality, so that signal alone must not be reported
+as a visible-fidelity failure. The creation pixel readback covers only the
+content canvas, not the separate interaction-overlay layers.
+
+This isolates WebKitGTK as a major factor on this host, but not the sole cause:
+there is no fresh release-mode Tauri executable with production
+`custom-protocol` IPC in this comparison. The independent native diagnostic
+binary is debug-mode, source `8f3277de1`, lacks that feature, and reports IPC
+fallback. Do not use it to attribute native bridge cost or claim this Linux
+issue is fixed. The current profile tool correctly reports the worker
+capability gate; WebKitGTK worker use requires the full OffscreenCanvas
+replay/transfer/pixel probe and must be read from `window.__varvePerf.renderPath()`.
+
+Raw browser JSON and PNGs are retained under
+`/var/tmp/varve-linux-comparison-20260927/current/`; the source/build limits and
+original native comparison are described in
+`/var/tmp/varve-linux-comparison-20260927/investigation.md`. On 2026-09-28,
+`webkit-profile.mjs --check --json` and `capture-webkit-env.mjs --json` report
+WebKitGTK 2.52.6, GTK 3.24.52, Mesa 26.2.3, accelerated AMD Lucienne graphics,
+Wayland and a 60 Hz display. WebKitGTK 2.54's compositor improvements remain
+an upstream hypothesis: that version is not available in the host's package
+repository and has not been tested here.

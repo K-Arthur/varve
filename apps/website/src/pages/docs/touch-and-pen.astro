@@ -34,10 +34,12 @@ import '../../styles/docs-prose.css';
       <section class="docs-section">
         <h2>Laptop and tablet workflows</h2>
         <ul>
-          <li><strong>With the detachable keyboard:</strong> a Chromebook behaves like a small laptop. Trackpad and keyboard shortcuts work as documented; the touchscreen stays active at the same time.</li>
-          <li><strong>Tablet mode:</strong> attach/detach changes the layout without remounting the editor. Portrait switches supplementary panels to bottom sheets; landscape keeps side drawers. Rotation and detach preserve the document, selection, and undo history.</li>
-          <li><strong>Back gesture:</strong> a left-edge swipe in ChromeOS tablet mode is browser Back. Varve intercepts it to dismiss the top dialog or menu first, exactly as <kbd>Esc</kbd> does, instead of leaving the document.</li>
-          <li><strong>Split screen:</strong> the layout reflows to the narrow pane instead of forcing a desktop minimum width.</li>
+          <li><strong>Keyboard and trackpad:</strong> use the browser's normal keyboard and pointer routes when those devices are available. Varve does not detect whether a detachable keyboard is attached.</li>
+          <li><strong>Workspace layout:</strong> Appearance settings and View &gt; Workspace layout offer Automatic, Tablet, and Desktop. Automatic responds to the available CSS width and reported touch capabilities; it does not listen for a ChromeOS hinge or keyboard-attachment signal. The preference is independent of Drawing Input and density.</li>
+          <li><strong>Panel behavior:</strong> tablet presentation keeps a compact Inspector available without blocking the canvas; Layers and Resources open as dismissible drawers. Portrait uses a lower Inspector pane, and landscape reserves a side rail. Detailed Inspector editing can expand into a modal surface.</li>
+          <li><strong>Keyboardless editing:</strong> the toolbar's Editing controls popover offers latched Constrain, From centre, and Bypass snap modifiers, one-shot deep selection, Duplicate, alignment, and layer-order actions. Appearance settings can mirror panel launchers for alternate reach.</li>
+          <li><strong>Back navigation:</strong> when browser Back reaches Varve's same-page dismissal entry, the topmost eligible dialog or menu closes first. ChromeOS owns edge-swipe gestures, so this browser-emulated behavior does not certify physical gesture dispatch.</li>
+          <li><strong>Split screen:</strong> the layout reflows to the available pane width instead of forcing a desktop minimum width.</li>
         </ul>
       </section>
 
@@ -103,12 +105,12 @@ import '../../styles/docs-prose.css';
       <section class="docs-section">
         <h2>Virtual keyboard</h2>
         <p>
-          On Chromium-based browsers, Varve reads the virtual-keyboard geometry (the
-          VirtualKeyboard API and its CSS environment insets where available, with{' '}
-          <code>VisualViewport</code> as the fallback). Dialogs, toasts, and the panel
-          drawer buttons reserve the reported height so the caret and commit/cancel
-          controls stay visible and the editor returns to its previous size when the
-          keyboard closes.
+          Varve uses the VirtualKeyboard API when it provides keyboard bounds and the{' '}
+          <code>VisualViewport</code> dimensions and offsets as a fallback. Bottom-docked
+          keyboard space lifts reachable floating controls; visible-viewport bounds also
+          constrain menus and dialogs. A floating keyboard does not reserve its whole
+          height as a bottom inset. Real operating-system keyboard geometry still needs
+          device validation.
         </p>
         <p>
           If a specific field is still covered, dismiss and refocus it so the operating
