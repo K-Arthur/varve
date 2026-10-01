@@ -100,15 +100,18 @@ import { sitePath } from '../../lib/siteUrl';
 
       <aside class="limits" aria-labelledby="limits-title">
         <p class="eyebrow">Current boundaries</p>
-        <h2 id="limits-title">Source editing and some output paths are still being built.</h2>
+        <h2 id="limits-title">Vector source editing is in progress; raster repair and some output paths remain limited.</h2>
         <p>
           The current UI creates, lists, applies, and makes definitions unique; definition settings
           can change the shared cell size and repeat arrangement. A library source can be replaced
           with an imported raster tile, which updates every linked use; make a fill unique first
-          when only one use should change. The UI does not yet open a contextual session to edit the
-          shared vector source. Raster edge repair, wraparound painting, shared page-origin
-          alignment, and finite expansion are not available here. Export Tile saves one source
-          cell; Export Supertile saves the full rectangular period for grid and conventional
+          when only one use should change. For vector definitions, Edit source motifs opens a
+          cancelable draft where top-level copied motifs can be moved or rotated against the
+          repeated preview; Done updates linked uses as one history action. It does not yet edit
+          nested children, vector points, text content, paint, or raster pixels, and neighbour
+          copies cannot be selected directly. Raster edge repair, wraparound painting, shared
+          page-origin alignment, and finite expansion are not available here. Export Tile saves
+          one source cell; Export Supertile saves the full rectangular period for grid and conventional
           half-drop or brick repeats with mirror parity. Applied-fill SVG keeps supported
           linked grid patterns as reusable vector pattern definitions; unsupported cases use a
           raster fallback with a warning. PDF currently supports axis-aligned grids with positive

@@ -13,7 +13,7 @@
  */
 
 import { readFile } from 'node:fs/promises';
-import { expect, type Page, test } from '@playwright/test';
+import { expect, type Locator, type Page, test } from '@playwright/test';
 import { selectFillType } from '../helpers/editor-helpers';
 import { navigateToCleanEditor } from '../helpers/nav';
 
@@ -82,6 +82,21 @@ async function sampleLine(page: Page, box: { x: number; y: number }, y: number):
     page,
     Array.from({ length: N }, (_, i) => ({ x: box.x + 160 + i, y })),
   );
+}
+
+async function canvasHash(canvas: Locator): Promise<string> {
+  return canvas.evaluate((element) => {
+    const canvas = element as HTMLCanvasElement;
+    const context = canvas.getContext('2d', { willReadFrequently: true });
+    if (!context) throw new Error('pattern preview canvas has no 2D context');
+    const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+    let hash = 2166136261;
+    for (const value of pixels) {
+      hash ^= value;
+      hash = Math.imul(hash, 16777619);
+    }
+    return (hash >>> 0).toString(16);
+  });
 }
 
 /**
@@ -206,6 +221,68 @@ async function inspectSvgSupertile(
 }
 
 test.describe('pattern repeat', () => {
+  test('edits a copied vector motif in a cancelable shared-source draft', async ({ page }) => {
+    test.setTimeout(240000);
+    await navigateToCleanEditor(page);
+    await createEllipse(page);
+    await page.getByRole('button', { name: 'Paint Library', exact: true }).click();
+    await page.getByRole('button', { name: 'Pattern Library', exact: true }).click();
+    await page.getByRole('button', { name: /create from selection/i }).click();
+
+    const entry = page.locator('ul[aria-label="Reusable patterns"] > li').first();
+    const name = await entry.locator('.insp-paint-library__name').innerText();
+    const editSource = () => entry.getByRole('button', { name: `Edit ${name} source motifs` });
+    await entry.getByRole('button', { name: `Apply ${name} to selection` }).click();
+    const libraryCanvas = entry.locator('.insp-pattern-library__swatch canvas');
+    const originalLibraryPreview = await canvasHash(libraryCanvas);
+    await editSource().click();
+    const session = entry.getByRole('region', { name: `Edit ${name} source` });
+    await expect(session).toBeVisible();
+    await expect(session).toContainText('1 linked fill will update when you choose Done');
+    const canvas = session.locator('canvas.insp-pattern-preview__canvas');
+    await expect(canvas).toBeVisible();
+    const originalPreview = await canvasHash(canvas);
+
+    const translateX = session.getByRole('spinbutton', { name: 'Motif translation X' });
+    await session.getByRole('button', { name: 'Ellipse 1' }).focus();
+    await page.keyboard.press('ArrowRight');
+    await expect(translateX).toHaveValue('1');
+    await translateX.fill('24');
+    await expect.poll(() => canvasHash(canvas)).not.toBe(originalPreview);
+    await page.screenshot({
+      path: 'docs/screenshots/pattern-system-2026-09-30/app-source-edit.png',
+    });
+    await session.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await expect(session).toBeHidden();
+
+    await editSource().click();
+    const reopened = entry.getByRole('region', { name: `Edit ${name} source` });
+    const reopenedCanvas = reopened.locator('canvas.insp-pattern-preview__canvas');
+    await expect.poll(() => canvasHash(reopenedCanvas)).toBe(originalPreview);
+    await expect(reopened.getByRole('spinbutton', { name: 'Motif translation X' })).toHaveValue(
+      '0',
+    );
+
+    await reopened.getByRole('spinbutton', { name: 'Motif translation X' }).fill('24');
+    await reopened.getByRole('button', { name: 'Done', exact: true }).click();
+    await expect(reopened).toBeHidden();
+    await expect.poll(() => canvasHash(libraryCanvas)).not.toBe(originalLibraryPreview);
+    await editSource().click();
+    const committed = entry.getByRole('region', { name: `Edit ${name} source` });
+    await expect(committed.getByRole('spinbutton', { name: 'Motif translation X' })).toHaveValue(
+      '24',
+    );
+    await page.keyboard.press('Control+z');
+    await committed.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await expect.poll(() => canvasHash(libraryCanvas)).toBe(originalLibraryPreview);
+    await editSource().click();
+    const afterUndo = entry.getByRole('region', { name: `Edit ${name} source` });
+    await expect(afterUndo.getByRole('spinbutton', { name: 'Motif translation X' })).toHaveValue(
+      '0',
+    );
+    await afterUndo.getByRole('button', { name: 'Cancel', exact: true }).click();
+  });
+
   test('creates a reusable vector source, applies it, and makes one use unique', async ({
     page,
   }) => {

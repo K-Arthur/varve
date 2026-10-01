@@ -46,10 +46,16 @@ source cell or a rectangular repeat supertile as SVG. The supertile export
 supports Grid and the conventional Half-drop/Brick settings, including mirror
 parity; unsupported custom stagger fractions are refused. Replacing a shared
 source changes all linked uses; make a fill unique first to isolate that
-change. Clipboard fragments carry the
+change. For vector definitions, **Edit source motifs** opens a draft with the
+repeated preview and per-root translation/rotation controls. Arrow keys nudge
+the selected root motif; Done revision-checks and commits the new source and
+preview as one history action, while Cancel discards only the draft. This is a
+compact root-transform editor, not the full document canvas: nested children,
+path points, text, paint, and raster pixels are not editable there. Clipboard
+fragments carry the
 definitions and assets they reference; paste remaps colliding IDs. Pattern
 definitions are additive in schema 2.32, so older `tileSrc` fills migrate
-without being rewritten. A contextual motif-editing session is not implemented.
+without being rewritten.
 
 One evaluator, `@varve/shared` `patternRepeat`, owns the geometry:
 `p(i, j) = phase + i·u + j·v`, with `u = (tileW + gapX, columnShift·(tileH + gapY))`
@@ -332,11 +338,14 @@ original source containing the bytes is required for the old pixels to return.
   general staggered lattice. Mirror and shifted repeats render in Varve, but
   PDF export warns and omits them; native SVG export currently supports only
   the linked grid subset described below.
-- **Source editing and seam repair are not implemented.** Selected vector art
-  is copied into an editable mini-scene, but the canvas cannot enter that
-  source, show neighbor ghosts, or commit/cancel a definition draft. Raster
-  imports and replacements appear in a repeat preview; there is no seam
-  inspection, offset repair, or wraparound painting tool.
+- **Source editing and seam repair have different limits.** The Pattern
+  Library edits translation and rotation of top-level copied vector motifs in
+  a cancelable draft, with a repeated preview and one shared-source history
+  commit. It does not enter that source in the document canvas, edit nested
+  nodes/path points/text/paint, or map direct clicks on neighbor ghosts back to
+  their canonical roots. Raster imports and replacements appear in a repeat
+  preview; there is no seam inspection, offset repair, or wraparound painting
+  tool.
 - **Source-tile, repeat-supertile, and applied-fill SVG are different outputs.**
   Export Tile writes one definition source cell into an SVG wrapper; current
   vector previews are embedded as a nested SVG image, not editable motif

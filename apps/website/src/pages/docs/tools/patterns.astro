@@ -31,8 +31,16 @@ import '../../../styles/docs-prose.css';
         <p>
           Varve copies the selected artwork and its supported dependencies into a pattern definition.
           It leaves the original artwork in the document. The new definition is a separate source;
-          changing the original selection later does not update it. A contextual editor for opening
-          and changing that copied source is not available yet.
+          changing the original selection later does not update it. Choose <strong>Edit source
+          motifs</strong> on a vector definition to open a draft with a repeated preview and
+          per-motif Translation X, Translation Y, and Rotation controls. The motif list supports
+          arrow-key nudging; Done commits the shared source in one history step, and Cancel drops
+          the draft without undoing unrelated work.
+        </p>
+        <p>
+          This compact editor works on top-level copied motifs. It does not yet edit path points,
+          nested children, text content, paint, or raster pixels, and it does not select a motif by
+          clicking a dimmed neighbour copy.
         </p>
       </section>
 
@@ -72,7 +80,7 @@ import '../../../styles/docs-prose.css';
           placement fields above belong to the selected fill. The library’s definition settings
           edit the shared repeat arrangement. Half-drop offsets columns vertically; brick shifts
           rows horizontally. The current UI does not yet provide a shared page-origin alignment
-          mode or a contextual editor for changing the copied vector motifs.
+          mode.
         </p>
       </section>
 
@@ -82,8 +90,7 @@ import '../../../styles/docs-prose.css';
           Select one object that uses a library pattern, then choose its <strong>Make unique</strong>{' '}
           action in the Pattern Library row. Varve creates a separate definition identity for that
           selected object’s use. Other uses continue to reference the original definition. This
-          prepares the use for independent source changes; a shared-source editing session has not
-          been implemented yet.
+          lets you make subsequent source-motif changes independent of the other uses.
         </p>
         <p>
           A definition in use cannot be deleted from the library. Detaching a linked Paint is a

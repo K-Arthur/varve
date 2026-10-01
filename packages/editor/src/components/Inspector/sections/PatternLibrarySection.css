@@ -149,3 +149,97 @@
   display: flex;
   gap: var(--space-1);
 }
+
+.insp-pattern-source-editor {
+  display: grid;
+  gap: var(--space-2);
+  grid-column: 1 / -1;
+  min-width: 0;
+  padding-block: var(--space-2);
+}
+
+.insp-pattern-source-editor__header,
+.insp-pattern-source-editor__header > div {
+  align-items: center;
+  display: flex;
+  gap: var(--space-1);
+  justify-content: space-between;
+}
+
+.insp-pattern-source-editor__header button,
+.insp-pattern-source-editor__motif,
+.insp-pattern-source-editor__transform > button {
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  min-height: 2.75rem;
+  padding: var(--space-1) var(--space-2);
+}
+
+.insp-pattern-source-editor__header button:hover,
+.insp-pattern-source-editor__motif:hover,
+.insp-pattern-source-editor__transform > button:hover {
+  background: var(--color-surface-hover);
+}
+
+.insp-pattern-source-editor__header button:focus-visible,
+.insp-pattern-source-editor__motif:focus-visible,
+.insp-pattern-source-editor__transform > button:focus-visible {
+  outline: 2px solid var(--color-accent-primary);
+  outline-offset: 2px;
+}
+
+.insp-pattern-source-editor__motifs,
+.insp-pattern-source-editor__transform {
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control);
+  display: grid;
+  gap: var(--space-1);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0;
+  min-width: 0;
+  padding: var(--space-2);
+}
+
+.insp-pattern-source-editor__motifs > legend,
+.insp-pattern-source-editor__transform > legend {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-2xs);
+  padding-inline: var(--space-1);
+}
+
+.insp-pattern-source-editor__motif {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.insp-pattern-source-editor__motif[aria-pressed="true"] {
+  background: var(--color-accent-subtle);
+  border-color: var(--color-accent-primary);
+}
+
+.insp-pattern-source-editor__transform > label {
+  color: var(--color-text-secondary);
+  display: grid;
+  font-size: var(--font-size-2xs);
+  gap: var(--space-05);
+  min-width: 0;
+}
+
+.insp-pattern-source-editor__transform input {
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control);
+  color: var(--color-text-primary);
+  min-height: 2.5rem;
+  min-width: 0;
+  padding-inline: var(--space-1);
+  width: 100%;
+}
+
+.insp-pattern-source-editor__transform > button {
+  grid-column: 1 / -1;
+}

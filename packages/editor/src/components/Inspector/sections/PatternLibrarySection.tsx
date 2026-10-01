@@ -22,6 +22,7 @@ import {
 import { compilePatternPreview } from '../../../patterns/compilePatternPreview';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { PatternRepeatPreview } from './PatternRepeatPreview';
+import { PatternSourceEditor } from './PatternSourceEditor';
 import './PatternLibrarySection.css';
 
 const DEFAULT_RECIPE: PatternGeneratorRecipe = {
@@ -47,6 +48,7 @@ export function PatternLibrarySection() {
   const [search, setSearch] = useState('');
   const [newName, setNewName] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [sourceEditingId, setSourceEditingId] = useState<string | null>(null);
 
   const bindFileInput = useCallback((input: HTMLInputElement | null) => {
     fileInputRef.current = input;
@@ -328,6 +330,61 @@ export function PatternLibrarySection() {
       } catch (error) {
         announceError(error);
       }
+    },
+    [doc.id, editor, announceError],
+  );
+
+  const commitSourceDraft = useCallback(
+    (draft: PatternDefinition, expectedRevision: number) => {
+      const outcome: { result: 'saved' | 'stale' | 'missing' | 'invalid' } = { result: 'missing' };
+      try {
+        editor.groupCompoundOperation('Edit pattern source', () => {
+          editor.updateDoc((current) => {
+            if (current.id !== doc.id) return current;
+            const existing = current.patternDefinitions?.[draft.id];
+            if (!existing) return current;
+            if (existing.revision !== expectedRevision) {
+              outcome.result = 'stale';
+              return current;
+            }
+            const updated = updatePatternDefinition(current, draft.id, (definition) => ({
+              ...definition,
+              source: draft.source,
+            }));
+            const updatedDefinition = updated.patternDefinitions?.[draft.id];
+            if (!updatedDefinition) return updated;
+            const previewSrc = compilePatternPreview(updated, updatedDefinition);
+            outcome.result = 'saved';
+            return {
+              ...updated,
+              patternDefinitions: {
+                ...updated.patternDefinitions,
+                [draft.id]: {
+                  ...updatedDefinition,
+                  previewSrc,
+                  previewRevision: updatedDefinition.revision,
+                },
+              },
+            };
+          });
+        });
+      } catch (error) {
+        outcome.result = 'invalid';
+        announceError(error);
+      }
+      if (outcome.result === 'saved') {
+        setSourceEditingId(null);
+        editor.announce(`Updated shared source for ${draft.name}`);
+        return true;
+      }
+      if (outcome.result === 'stale') {
+        editor.announce(
+          'This pattern changed while its source was being edited. Reopen the editor and retry.',
+        );
+      } else if (outcome.result === 'missing') {
+        editor.announce('This pattern no longer exists in the current document.');
+      }
+      return false;
     },
     [doc.id, editor, announceError],
   );
@@ -648,6 +705,23 @@ export function PatternLibrarySection() {
                       <Icon name="Copy" label={undefined} size="0.85em" />
                     </button>
                   )}
+                  {definition.source.kind === 'vector' && (
+                    <button
+                      type="button"
+                      className="insp-paint-library__action-btn"
+                      onClick={() => {
+                        setEditingId(null);
+                        setSourceEditingId((current) =>
+                          current === definition.id ? null : definition.id,
+                        );
+                      }}
+                      aria-label={`${sourceEditingId === definition.id ? 'Close' : 'Edit'} ${definition.name} source motifs`}
+                      aria-expanded={sourceEditingId === definition.id}
+                      title="Edit copied vector source motifs"
+                    >
+                      <Icon name="Pencil" label={undefined} size="0.85em" />
+                    </button>
+                  )}
                   <button
                     type="button"
                     className="insp-paint-library__action-btn"
@@ -698,9 +772,17 @@ export function PatternLibrarySection() {
                     <Icon name="Trash2" label={undefined} size="0.85em" />
                   </button>
                 </div>
-                {editingId === definition.id && (
+                {sourceEditingId === definition.id ? (
+                  <PatternSourceEditor
+                    document={doc}
+                    definition={definition}
+                    usageCount={usageCount}
+                    onCommit={commitSourceDraft}
+                    onCancel={() => setSourceEditingId(null)}
+                  />
+                ) : editingId === definition.id ? (
                   <PatternDefinitionSettings definition={definition} onChange={editDefinition} />
-                )}
+                ) : null}
               </li>
             );
           })}
