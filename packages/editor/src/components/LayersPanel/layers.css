@@ -1949,6 +1949,23 @@
   border-top: 1px solid var(--color-border-subtle);
   box-shadow: 0 -4px 12px color-mix(in oklab, var(--color-text-primary) 8%, transparent);
   flex-shrink: 0;
+  /* This bar is the only multi-selection affordance in the rail, and the
+   * sections stacked above the tree (minimap, design canvases, filters,
+   * components) routinely leave less room than the tree's floor plus this bar
+   * need: at 1280x720 the content box measured 201px against 350px of
+   * content, so the bar's flow position fell outside the rail — clipped by
+   * `.layers-panel__content`'s `overflow: hidden`, below the fold, and not
+   * reachable by scrolling either, because that clipped content never entered
+   * the rail's scroll height (tests/e2e/layers/layers-panel-visual.spec.ts
+   * caught it as `bulkBottom` past `panelBottom`).
+   *
+   * Sticky keeps the bar in flow — it does not sit on top of the tree while
+   * there is room for it — and pins it to the bottom edge of the content box
+   * when there is not, so the actions stay visible and clickable at every
+   * rail height. */
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
   animation: layers-bulk-bar-slide-in var(--duration-base) var(--ease-standard);
   overflow-x: auto;
 }
