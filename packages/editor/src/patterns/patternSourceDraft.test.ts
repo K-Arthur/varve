@@ -7,6 +7,7 @@ import {
 } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import {
+  applyPatternSourceDraft,
   getPatternSourceDraftStatus,
   setPatternSourceRootRotation,
   translatePatternSourceRoot,
@@ -25,6 +26,7 @@ describe('pattern source drafts', () => {
       name: 'Leaf draft',
     });
     return {
+      document: created.document,
       definition: created.definition,
       rootId:
         created.definition.source.kind === 'vector' ? created.definition.source.rootIds[0]! : '',
@@ -42,6 +44,42 @@ describe('pattern source drafts', () => {
     expect(moved.transform).toEqual([1, 0, 0, 1, 7, -2]);
     expect(definition.source.nodes[rootId]).toBe(original);
     expect(draft.revision).toBe(definition.revision);
+  });
+
+  it('rebases a source draft over unrelated queued document edits', () => {
+    const { document, definition, rootId } = makeDefinition();
+    const draft = translatePatternSourceRoot(definition, rootId, 7, -2);
+    const queuedNode = makeShapeNode(
+      'queued-node',
+      { kind: 'rect', x: 60, y: 30, w: 8, h: 8 },
+      { name: 'Concurrent artwork' },
+    );
+    const current = addNode(document, queuedNode);
+
+    const result = applyPatternSourceDraft(current, draft, document.id, definition.revision);
+
+    expect(result.status).toBe('ready');
+    expect(result.document.nodes[queuedNode.id]?.name).toBe('Concurrent artwork');
+    const saved = result.document.patternDefinitions?.[definition.id];
+    expect(saved?.revision).toBe(definition.revision + 1);
+    if (saved?.source.kind !== 'vector') throw new Error('expected vector pattern source');
+    expect(saved.source.nodes[rootId]?.transform).toEqual([1, 0, 0, 1, 7, -2]);
+  });
+
+  it('rejects a draft when the definition revision changed before commit', () => {
+    const { document, definition, rootId } = makeDefinition();
+    const draft = translatePatternSourceRoot(definition, rootId, 7, -2);
+    const current = applyPatternSourceDraft(
+      document,
+      translatePatternSourceRoot(definition, rootId, 1, 0),
+      document.id,
+      definition.revision,
+    ).document;
+
+    const result = applyPatternSourceDraft(current, draft, document.id, definition.revision);
+
+    expect(result.status).toBe('stale');
+    expect(result.document).toBe(current);
   });
 
   it('sets rotation on the requested source root and rejects ghost identities', () => {

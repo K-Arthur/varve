@@ -1,4 +1,9 @@
-import type { Document, PatternDefinition, SceneNode } from '@varve/scene';
+import {
+  type Document,
+  type PatternDefinition,
+  type SceneNode,
+  updatePatternDefinition,
+} from '@varve/scene';
 import type { Affine } from '@varve/shared';
 
 /** Move a top-level motif in the copied source scene without touching the document. */
@@ -43,6 +48,29 @@ export function getPatternSourceDraftStatus(
   if (!current) return 'missing';
   if (current.revision !== expectedRevision) return 'stale';
   return 'ready';
+}
+
+/** Apply a draft to the latest document while rejecting document/source conflicts. */
+export function applyPatternSourceDraft(
+  document: Document,
+  draft: PatternDefinition,
+  expectedDocumentId: string,
+  expectedRevision: number,
+): { status: 'ready' | 'document-changed' | 'missing' | 'stale'; document: Document } {
+  const status = getPatternSourceDraftStatus(
+    document,
+    draft.id,
+    expectedDocumentId,
+    expectedRevision,
+  );
+  if (status !== 'ready') return { status, document };
+  return {
+    status,
+    document: updatePatternDefinition(document, draft.id, (current) => ({
+      ...current,
+      source: draft.source,
+    })),
+  };
 }
 
 /** Set the authored rotation of one root motif in the copied source scene. */

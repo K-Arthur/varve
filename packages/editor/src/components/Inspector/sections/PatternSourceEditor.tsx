@@ -1,6 +1,6 @@
 import type { Document, PatternDefinition, SceneNode } from '@varve/scene';
 import { patternFillForDefinition } from '@varve/scene';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { compilePatternPreview } from '../../../patterns/compilePatternPreview';
 import {
   setPatternSourceRootRotation,
@@ -13,16 +13,25 @@ export function PatternSourceEditor({
   definition,
   usageCount,
   onCommit,
+  onCommitted,
   onCancel,
 }: {
   document: Document;
   definition: PatternDefinition;
   usageCount: number;
-  onCommit: (draft: PatternDefinition, expectedRevision: number) => boolean;
+  onCommit: (
+    draft: PatternDefinition,
+    expectedDocumentId: string,
+    expectedRevision: number,
+  ) => boolean;
+  onCommitted: (draft: PatternDefinition) => void;
   onCancel: () => void;
 }) {
+  const expectedDocumentId = useRef(document.id).current;
   const expectedRevision = useRef(definition.revision).current;
   const [draft, setDraft] = useState(() => structuredClone(definition));
+  const [draftError, setDraftError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const [selectedRootId, setSelectedRootId] = useState(
     definition.source.kind === 'vector' ? (definition.source.rootIds[0] ?? null) : null,
   );
@@ -42,9 +51,40 @@ export function PatternSourceEditor({
     source.kind === 'vector' && selectedRootId ? source.nodes[selectedRootId] : undefined;
   const transform = readNodeTransform(selectedNode);
 
-  const move = useCallback((nodeId: string, dx: number, dy: number) => {
-    setDraft((current) => translatePatternSourceRoot(current, nodeId, dx, dy));
-  }, []);
+  useEffect(() => {
+    if (!saving) return;
+    if (document.id !== expectedDocumentId) {
+      setSaving(false);
+      setDraftError('The active document changed before this source edit could be saved.');
+      return;
+    }
+    const saved = document.patternDefinitions?.[definition.id];
+    if (!saved) {
+      setSaving(false);
+      setDraftError('This pattern was removed before its source edit could be saved.');
+      return;
+    }
+    if (saved.revision === expectedRevision) return;
+    if (saved.revision === expectedRevision + 1 && saved.source === draft.source) {
+      setSaving(false);
+      onCommitted(draft);
+      return;
+    }
+    setSaving(false);
+    setDraftError('This pattern changed while its source was being saved. Reopen the editor.');
+  }, [definition.id, document, draft, expectedDocumentId, expectedRevision, onCommitted, saving]);
+
+  const move = useCallback(
+    (nodeId: string, dx: number, dy: number) => {
+      try {
+        setDraft(translatePatternSourceRoot(draft, nodeId, dx, dy));
+        setDraftError(null);
+      } catch (error) {
+        setDraftError(error instanceof Error ? error.message : 'This motif cannot be moved.');
+      }
+    },
+    [draft],
+  );
 
   const setTranslation = useCallback(
     (axis: 'x' | 'y', value: string) => {
@@ -68,26 +108,33 @@ export function PatternSourceEditor({
       if (!selectedRootId) return;
       const number = Number(value);
       if (!Number.isFinite(number)) return;
-      setDraft((current) => setPatternSourceRootRotation(current, selectedRootId, number));
+      try {
+        setDraft(setPatternSourceRootRotation(draft, selectedRootId, number));
+        setDraftError(null);
+      } catch (error) {
+        setDraftError(error instanceof Error ? error.message : 'This motif cannot be rotated.');
+      }
     },
-    [selectedRootId],
+    [draft, selectedRootId],
   );
 
   const reset = useCallback(() => {
     if (!selectedRootId) return;
-    setDraft((current) => {
-      const node =
-        current.source.kind === 'vector' ? current.source.nodes[selectedRootId] : undefined;
+    try {
+      const node = draft.source.kind === 'vector' ? draft.source.nodes[selectedRootId] : undefined;
       const currentTransform = readNodeTransform(node);
       const moved = translatePatternSourceRoot(
-        current,
+        draft,
         selectedRootId,
         -currentTransform.x,
         -currentTransform.y,
       );
-      return setPatternSourceRootRotation(moved, selectedRootId, 0);
-    });
-  }, [selectedRootId]);
+      setDraft(setPatternSourceRootRotation(moved, selectedRootId, 0));
+      setDraftError(null);
+    } catch (error) {
+      setDraftError(error instanceof Error ? error.message : 'This motif cannot be reset.');
+    }
+  }, [draft, selectedRootId]);
 
   if (source.kind !== 'vector') return null;
 
@@ -96,18 +143,26 @@ export function PatternSourceEditor({
       <div className="insp-pattern-source-editor__header">
         <strong>Edit source motifs</strong>
         <div>
-          <button type="button" className="insp-num__input" onClick={onCancel}>
+          <button type="button" className="insp-num__input" onClick={onCancel} disabled={saving}>
             Cancel
           </button>
           <button
             type="button"
             className="insp-num__input"
-            onClick={() => onCommit(draft, expectedRevision)}
+            disabled={Boolean(draftError) || !preview.tileSrc || saving}
+            onClick={() => {
+              if (onCommit(draft, expectedDocumentId, expectedRevision)) setSaving(true);
+            }}
           >
-            Done
+            {saving ? 'Saving…' : 'Done'}
           </button>
         </div>
       </div>
+      {saving && (
+        <p className="insp-hint" role="status">
+          Saving pattern source…
+        </p>
+      )}
       <p className="insp-hint">
         Select a copied motif, then change its translation or rotation while watching the repeat
         preview. {usageCount} linked fill{usageCount === 1 ? '' : 's'} will update when you choose
@@ -120,7 +175,12 @@ export function PatternSourceEditor({
           {preview.error}
         </p>
       )}
-      <fieldset className="insp-pattern-source-editor__motifs">
+      {draftError && (
+        <p className="insp-hint" role="alert">
+          {draftError}
+        </p>
+      )}
+      <fieldset className="insp-pattern-source-editor__motifs" disabled={saving}>
         <legend>Source motifs</legend>
         {source.rootIds.map((rootId) => {
           const node = source.nodes[rootId];
@@ -149,7 +209,7 @@ export function PatternSourceEditor({
         })}
       </fieldset>
       {selectedNode && selectedRootId && (
-        <fieldset className="insp-pattern-source-editor__transform">
+        <fieldset className="insp-pattern-source-editor__transform" disabled={saving}>
           <legend>Selected motif transform</legend>
           <label>
             Translation X

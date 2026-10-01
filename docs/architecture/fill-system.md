@@ -62,6 +62,12 @@ definitions and assets they reference; paste remaps colliding IDs. Pattern
 definitions are additive in schema 2.32, so older `tileSrc` fills migrate
 without being rewritten.
 
+Committing a source draft applies it to the latest document state, preserving
+unrelated edits that were queued while the editor was open. It validates the
+captured document ID and definition revision in the same state update. The
+editor stays in a saving state until the committed source revision is visible;
+a concurrent edit to that definition is rejected and shown as a conflict.
+
 One evaluator, `@varve/shared` `patternRepeat`, owns the geometry:
 `p(i, j) = phase + i·u + j·v`, with `u = (tileW + gapX, columnShift·(tileH + gapY))`
 and `v = (rowShift·(tileW + gapX), tileH + gapY)`. Grid defaults both shifts

@@ -437,9 +437,11 @@ collected.
   transforms, or alignment against differently transformed objects. The
   requested 6–12 motif botanical collection and repaired transparent-raster
   design remain unverified.
-- Native Tauri output, offline save/reopen through the real app, physical
-  touch/pen interaction, high-DPR device behavior, and dense-repeat performance
-  were not independently validated.
+- Native Tauri output, physical touch/pen interaction, high-DPR device
+  behavior, and dense-repeat performance were not independently validated.
+  Browser-app save/reopen of one vector definition and its applied fill was
+  verified with networking disabled; this does not establish native offline
+  parity or cover documents with external font dependencies.
 - SVG source-tile export embeds vector previews as a nested SVG image, not as
   independently editable motif objects. Native applied-fill SVG is limited to
   the documented linked-grid subset; PDF support is narrower
@@ -530,3 +532,60 @@ Visual inspection
   at 1280×720. The 3 panels, checker repetition, selected-fill handles, and
   “3 uses” state are visible; no panel is clipped at the captured zoom.
 ```
+
+## Source-draft concurrency and offline persistence
+
+Source-draft commit now applies against the latest document object, preserving
+unrelated edits that were queued while the editor was open. The captured
+document ID and pattern revision are checked inside the update. The source
+editor waits for the matching definition revision before closing and reporting
+success; a conflict remains visible in the editor. The focused unit test first
+failed because no current-document rebase helper existed, then passed after
+the update.
+
+The browser workflow saves a vector source with translation X set to 24,
+reloads the local file with network access disabled, and checks that the
+reopened definition, source transform, use count, and preview pixels match.
+The capture shows the offline banner, selected applied fill, and the vector
+library entry reporting its 300×200 source and one use.
+
+```text
+pnpm exec vitest run packages/editor/src/patterns/patternSourceDraft.test.ts
+  Passed: 1 file, 7 tests, including unrelated-update rebase and stale-revision rejection.
+
+pnpm --filter @varve/editor typecheck
+  Passed.
+
+pnpm typecheck:e2e
+  Passed.
+
+pnpm exec biome check packages/editor/src/patterns/patternSourceDraft.ts packages/editor/src/patterns/patternSourceDraft.test.ts packages/editor/src/components/Inspector/sections/PatternLibrarySection.tsx packages/editor/src/components/Inspector/sections/PatternSourceEditor.tsx
+  Passed: 4 files.
+
+pnpm audit:docs
+  Passed: 1,127 docs, 749 links, 178 ADRs indexed.
+
+pnpm audit:emoji
+  Passed: 5,216 files.
+
+pnpm audit:tokens
+  Passed: all 324 contrast pairs across 3 themes and token-usage scan.
+
+node scripts/audit-architecture.mjs --ci
+  Exited 0: 14 dependency cycles, 76 modules above the instability report threshold, zero layer violations, and existing Shell/Menubar/context import-budget warnings in the shared checkout.
+
+pnpm verify:plan
+  Selected 467 shared-tree paths across 11 JS packages and Rust varve-print/varve-bridge; FULL-SUITE ESCALATION: YES for workspace/toolchain/validation-infrastructure and dependency changes.
+
+pnpm verify:affected
+  Exited 2 after printing that plan and requiring pnpm verify:full.
+
+VARVE_E2E_PORT=5368 node scripts/quality/heavy-lease.mjs "e2e: pattern draft acknowledgement and offline reopen" -- npx playwright test tests/e2e/canvas/pattern-repeat.spec.ts tests/e2e/canvas/pattern-persistence.spec.ts --project=chromium --workers=1 --reporter=list --grep "edits a copied vector motif|embedded vector pattern definition"
+  Passed: 2 Chromium workflows in 1.2 minutes. An earlier queued attempt reached the lease's 10-minute wait deadline before launching; the rerun passed after the unrelated active Chromium batch released the lease.
+
+Visual inspection
+  Inspected docs/screenshots/pattern-system-2026-09-30/app-pattern-offline-reopen.png at 1280×720. The offline banner, applied fill, and one-use vector source entry are visible. The browser E2E also checks the reopened source value and preview pixel hash.
+```
+
+The screenshot is local browser evidence, not a native Tauri capture. The final
+full-gate attempt remains required on the final coherent revision.

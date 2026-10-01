@@ -20,7 +20,10 @@ import {
   exportPatternDefinitionTileSvg,
 } from '../../../export/patternTileSvg';
 import { compilePatternPreview } from '../../../patterns/compilePatternPreview';
-import { getPatternSourceDraftStatus } from '../../../patterns/patternSourceDraft';
+import {
+  applyPatternSourceDraft,
+  getPatternSourceDraftStatus,
+} from '../../../patterns/patternSourceDraft';
 import { countPatternUses } from '../../../patterns/patternUsage';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { PatternRasterOffsetEditor } from './PatternRasterOffsetEditor';
@@ -368,10 +371,9 @@ export function PatternLibrarySection() {
 
       let nextDocument: typeof doc;
       try {
-        const updated = updatePatternDefinition(doc, draft.id, (definition) => ({
-          ...definition,
-          source: draft.source,
-        }));
+        const applied = applyPatternSourceDraft(doc, draft, expectedDocumentId, expectedRevision);
+        if (applied.status !== 'ready') return false;
+        const updated = applied.document;
         const updatedDefinition = updated.patternDefinitions?.[draft.id];
         if (!updatedDefinition) throw new Error('This pattern no longer exists.');
         const previewSrc = compilePatternPreview(updated, updatedDefinition);
@@ -393,21 +395,39 @@ export function PatternLibrarySection() {
 
       editor.groupCompoundOperation('Edit pattern source', () => {
         editor.updateDoc((current) => {
-          if (
-            current !== doc ||
-            getPatternSourceDraftStatus(current, draft.id, expectedDocumentId, expectedRevision) !==
-              'ready'
-          ) {
-            return current;
-          }
-          return nextDocument;
+          const applied = applyPatternSourceDraft(
+            current,
+            draft,
+            expectedDocumentId,
+            expectedRevision,
+          );
+          if (applied.status !== 'ready') return current;
+          const nextDefinition = applied.document.patternDefinitions?.[draft.id];
+          if (!nextDefinition) return current;
+          return {
+            ...applied.document,
+            patternDefinitions: {
+              ...applied.document.patternDefinitions,
+              [draft.id]: {
+                ...nextDefinition,
+                previewSrc: nextDocument.patternDefinitions?.[draft.id]?.previewSrc,
+                previewRevision: nextDefinition.revision,
+              },
+            },
+          };
         });
       });
-      setSourceEditingId(null);
-      editor.announce(`Updated shared source for ${draft.name}`);
       return true;
     },
     [doc, editor, announceError],
+  );
+
+  const completeSourceDraft = useCallback(
+    (draft: PatternDefinition) => {
+      setSourceEditingId(null);
+      editor.announce(`Updated shared source for ${draft.name}`);
+    },
+    [editor],
   );
 
   const exportTile = useCallback(
@@ -900,6 +920,7 @@ export function PatternLibrarySection() {
                     definition={definition}
                     usageCount={usageCount}
                     onCommit={commitSourceDraft}
+                    onCommitted={completeSourceDraft}
                     onCancel={() => setSourceEditingId(null)}
                   />
                 ) : rasterOffsetEditingId === definition.id &&
