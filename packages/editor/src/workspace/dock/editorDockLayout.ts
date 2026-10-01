@@ -1,7 +1,7 @@
 import type { WorkspaceMode } from '../workspaceTypes';
 import { listPanelInstances } from './dockOps';
 import type { DockLayout, DockNode, PanelInstanceRef } from './dockTypes';
-import { DOCK_LAYOUT_SCHEMA_VERSION, newId } from './dockTypes';
+import { DOCK_LAYOUT_SCHEMA_VERSION } from './dockTypes';
 
 const BUILTIN_INSTANCE_IDS: Record<string, string> = {
   layers: 'builtin-layers',
@@ -40,6 +40,16 @@ function split(
 
 function canvas(): DockNode {
   return { kind: 'canvas', id: 'canvas-primary' };
+}
+
+function completedSplitId(panelTypeId: PanelInstanceRef['panelTypeId'], canvasId: string): string {
+  const readable = `complete-${panelTypeId}-${canvasId}`;
+  if (readable.length <= 128) return readable;
+  let hash = 2166136261;
+  for (const character of canvasId) {
+    hash = Math.imul(hash ^ character.charCodeAt(0), 16777619);
+  }
+  return `complete-${panelTypeId}-${(hash >>> 0).toString(36)}`;
 }
 
 /**
@@ -187,7 +197,11 @@ function insertAtCanvas(
     const canvasRatio = bottom ? 0.72 : 0.78;
     return {
       kind: 'split',
-      id: newId(),
+      // Completion is a pure projection of the saved tree and visible panels.
+      // A random id here changes the dock signature on every render when a
+      // runtime-only panel (such as Page Navigator) is added. The restore
+      // success effect then persists again indefinitely.
+      id: completedSplitId(panelRef.panelTypeId, root.id),
       direction: bottom ? 'column' : 'row',
       ratio: panelFirst ? 1 - canvasRatio : canvasRatio,
       first: panelFirst ? panelNode : root,

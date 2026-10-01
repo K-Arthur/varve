@@ -55,6 +55,15 @@ describe('editor dock defaults', () => {
     expect(validateDockLayout(completed)).toEqual([]);
   });
 
+  it('keeps runtime-only panel completion stable across renders', () => {
+    const saved = createDefaultEditorDockLayout('print');
+    const first = completeEditorDockLayout(saved, 'print', false, false, ['pagenav']);
+    const second = completeEditorDockLayout(saved, 'print', false, false, ['pagenav']);
+
+    expect(second).toEqual(first);
+    expect(validateDockLayout(first)).toEqual([]);
+  });
+
   it('does not duplicate panels that are already in a floating group', () => {
     const layout: DockLayout = {
       schemaVersion: 3,

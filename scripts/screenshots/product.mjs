@@ -571,6 +571,24 @@ async function openCleanEditor(page, { print = false } = {}) {
     .click({ timeout: 30000 });
   await page.locator('.editor-shell').waitFor({ state: 'visible', timeout: 120000 });
   await page.locator('.editor-canvas').waitFor({ state: 'visible', timeout: 30000 });
+  // The shell becomes visible before its interaction surfaces finish their
+  // first render. A draw issued in that gap can silently leave an empty
+  // document, so hand a scene control only after the real canvas and layer
+  // tree are mounted at non-zero size (the same readiness contract as E2E).
+  const contentCanvas = page.locator('canvas.editor-canvas__content-layer');
+  await contentCanvas.waitFor({ state: 'visible', timeout: 60000 });
+  await page.locator('.layers-panel').waitFor({ state: 'attached', timeout: 60000 });
+  await page.waitForFunction(
+    () => {
+      const canvas = document.querySelector('canvas.editor-canvas__content-layer');
+      return (
+        canvas instanceof HTMLCanvasElement && canvas.clientWidth > 0 && canvas.clientHeight > 0
+      );
+    },
+    undefined,
+    { timeout: 60000 },
+  );
+  await page.waitForTimeout(250);
   // Close stacked startup dialogs deterministically.
   for (let attempt = 0; attempt < 4; attempt += 1) {
     const openDialogs = page.locator('dialog[open]');
@@ -579,6 +597,14 @@ async function openCleanEditor(page, { print = false } = {}) {
     if (await close.isVisible({ timeout: 400 }).catch(() => false)) {
       await close.click({ timeout: 2000 }).catch(() => undefined);
     }
+  }
+  const exitFocus = page.getByRole('button', { name: /exit distraction-free mode/i });
+  if (await exitFocus.isVisible().catch(() => false)) {
+    await exitFocus.click({ timeout: 5000 });
+    await page.locator('.editor-shell:not(.editor-shell--distraction-free)').waitFor({
+      state: 'visible',
+      timeout: 8000,
+    });
   }
 }
 
@@ -910,12 +936,10 @@ const SCENES = [
       await openDemoDocument(page, 'presentation');
       await page.getByRole('tab', { name: 'Slides' }).click();
       await page.locator('.presentation-layouts > summary').click();
-      await page
-        .getByRole('combobox', { name: 'Layout source' })
-        .selectOption({ label: 'Title / section' });
-      await page
-        .getByRole('combobox', { name: 'Slide object for title' })
-        .selectOption({ label: 'Headline' });
+      await page.getByRole('combobox', { name: 'Layout source' }).click();
+      await page.getByRole('option', { name: 'Title / section', exact: true }).click();
+      await page.getByRole('combobox', { name: 'Slide object for title' }).click();
+      await page.getByRole('option', { name: 'Headline', exact: true }).click();
       await page.getByRole('button', { name: 'Preview and reapply…' }).click();
       await expect(page.getByRole('dialog', { name: 'Review layout changes' })).toContainText(
         'geometry changes',
@@ -1052,6 +1076,11 @@ const SCENES = [
       // Escape exits the tool but keeps the selection, so clear it by
       // clicking empty canvas above/left of the specimen card.
       await page.keyboard.press('v');
+      // The fitted specimen fills its Page. Zoom back just enough to make a
+      // click outside the Page possible; its outer ruler gutters are not part
+      // of the drawing surface and cannot clear the selection.
+      await page.getByRole('button', { name: 'Zoom out' }).click();
+      await page.waitForTimeout(350);
       const canvasBox = await page.locator('canvas.editor-canvas__content-layer').boundingBox();
       if (!canvasBox) throw new Error('canvas bounding box unavailable');
       const quickBar = page.locator('.selection-quick-bar');
@@ -1059,13 +1088,17 @@ const SCENES = [
       // well clear of both the fitted artwork and the floating toolbar
       // (bottom-centre). The document's own top-left corner is not empty —
       // clicking there just selects the frame and keeps the bar up.
-      for (const [dx, dy] of [
-        [18, 24],
-        [canvasBox.width - 18, 24],
-      ]) {
+      for (const [dx, dy] of [[40, 140]]) {
         await page.mouse.click(canvasBox.x + dx, canvasBox.y + dy);
         await page.waitForTimeout(600);
         if (!(await quickBar.isVisible({ timeout: 1000 }).catch(() => false))) break;
+      }
+      // Empty-space clicks are the primary gesture; Escape is the explicit
+      // keyboard path and keeps this specimen clear if the fit camera places
+      // an off-screen frame beneath either trial point.
+      if (await quickBar.isVisible({ timeout: 1000 }).catch(() => false)) {
+        await page.keyboard.press('Escape');
+        await page.waitForTimeout(250);
       }
       if (await quickBar.isVisible({ timeout: 1000 }).catch(() => false)) {
         throw new Error('selection quick bar still visible — it would cover the specimen text');
@@ -1403,8 +1436,14 @@ const SCENES = [
       const exportTab = page.locator('[role="tablist"] button[role="tab"]', {
         hasText: /^export$/i,
       });
-      await exportTab.waitFor({ state: 'visible', timeout: 5000 });
-      await exportTab.click();
+      if (await exportTab.isVisible({ timeout: 1500 }).catch(() => false)) {
+        await exportTab.click();
+      } else {
+        const overflow = page.getByRole('button', { name: /More inspector tabs/ });
+        await overflow.waitFor({ state: 'visible', timeout: 5000 });
+        await overflow.click();
+        await page.getByRole('menuitem', { name: 'Export', exact: true }).click();
+      }
       const exportPanel = page.locator('#insp-tabpanel-export');
       await exportPanel.waitFor({ state: 'visible', timeout: 8000 });
       await page.waitForTimeout(500);
@@ -1489,6 +1528,7 @@ const SCENES = [
       // this scene to a skip (the effects panel review renamed it).
       const addBtn = effects.getByRole('button', { name: /^Add( effect)?$/ });
       await addBtn.click({ timeout: 5000 });
+      await page.getByRole('menuitem', { name: 'Drop Shadow', exact: true }).click();
       await page.waitForTimeout(1200);
       await effects.evaluate((el) => el.scrollIntoView({ block: 'start' }));
       await page.waitForTimeout(600);
@@ -1768,19 +1808,8 @@ const SCENES = [
     alt: 'The default page on the Varve canvas with a dashed bleed guide beyond the trim edge and the Page Print inspector showing per-edge bleed values',
     caption: 'Bleed and trim guides render on canvas as you set them in the Page Print inspector.',
     async run(page) {
-      // Mirrors tests/e2e/canvas/bleed-workflow.spec.ts's seedPrintDocument:
-      // a real Page node comes from the "Add page" control. Bleed/trim is a
-      // Page property, not a generic Frame property — the demo .varve
-      // fixtures' "Page 12"/"Page 13" layers are ordinary Frames named for
-      // the editorial-spread layout (confirmed by the status bar reading
-      // "Frame" rather than "Page" when one is selected), so none of them
-      // can stand in for this scene.
-      //
-      // Bleed guides are a View toggle that defaults to off
-      // (viewportSession.ts: bleedGuidesVisible: false), so setting bleed
-      // values alone renders nothing — CanvasOverlays only mounts
-      // PagePrintOverlays while the toggle is on. The Print workspace picker
-      // below supplies the same real workspace transition used by the app.
+      // Bleed is a publishing-page property; this scene authors a real Page
+      // and edits its per-edge values through the Page Print inspector.
       await openCleanEditor(page);
       const workspaceGroup = page.getByRole('radiogroup', { name: 'Workspace' });
       await workspaceGroup.waitFor({ state: 'visible', timeout: 8000 });
@@ -1790,61 +1819,81 @@ const SCENES = [
       await page.getByRole('button', { name: 'Add publishing page' }).click();
       await page.waitForTimeout(400);
       await page.locator('canvas.editor-canvas__content-layer').waitFor({ timeout: 10000 });
-      await page.keyboard.press('r');
-      const canvas = page.locator('canvas.editor-canvas__content-layer');
-      const canvasBox = await canvas.boundingBox();
-      if (!canvasBox) throw new Error('canvas bounding box unavailable');
-      const sx = canvasBox.x + canvasBox.width * 0.25;
-      const sy = canvasBox.y + canvasBox.height * 0.25;
-      const ex = canvasBox.x + canvasBox.width * 0.75;
-      const ey = canvasBox.y + canvasBox.height * 0.7;
-      await page.mouse.move(sx, sy);
-      await page.mouse.down();
-      await page.mouse.move((sx + ex) / 2, (sy + ey) / 2);
-      await page.mouse.move(ex, ey);
-      await page.mouse.up();
-      await page.keyboard.press('Escape');
-      await page.keyboard.press('Control+Shift+2');
-      await page.waitForTimeout(400);
-      // "Fit all" (the fitContent helper) frames artwork bounds, which here
-      // is the small rectangle just drawn — it would zoom in far past the
-      // page itself. "Fit active page" frames the page/bleed geometry this
-      // scene is actually about.
-      const fitPageBtn = page.getByRole('button', { name: /fit active page/i }).first();
-      await fitPageBtn.waitFor({ state: 'visible', timeout: 8000 });
-      await fitPageBtn.click({ timeout: 5000 });
-      await page.waitForTimeout(600);
-      await page.keyboard.press('q');
-      const guideBefore = page.locator('.print-bleed-guide');
-      const guideBox = (await guideBefore.count()) ? await guideBefore.first().boundingBox() : null;
-      if (guideBox) {
-        await page.mouse.click(guideBox.x + guideBox.width / 2, guideBox.y + guideBox.height / 2);
-      } else {
-        await page.mouse.click(
-          canvasBox.x + canvasBox.width / 2,
-          canvasBox.y + canvasBox.height / 2,
-        );
+
+      // Open the inspector drawer if this workspace starts with it collapsed.
+      const inspector = page.locator('.editor__inspector-panel');
+      const showInspector = page.getByRole('button', { name: 'Show inspector panel' });
+      if (await showInspector.isVisible().catch(() => false)) {
+        await showInspector.click({ force: true, timeout: 5000 });
       }
+      await inspector.waitFor({ state: 'visible', timeout: 8000 });
+      const inspectorResize = page.getByRole('separator', { name: 'Resize inspector panel' });
+      if (await inspectorResize.isVisible().catch(() => false)) {
+        await inspectorResize.focus();
+        for (let attempt = 0; attempt < 12; attempt += 1) {
+          const width = Number(await inspectorResize.getAttribute('aria-valuenow'));
+          if (width >= 480) break;
+          await page.keyboard.press('ArrowLeft');
+        }
+      }
+
+      // Fit the real publishing page, then select it with the Page tool.
+      const fitPage = page.getByRole('button', { name: /fit active page/i }).first();
+      await fitPage.waitFor({ state: 'visible', timeout: 8000 });
+      await fitPage.click({ force: true, timeout: 5000 });
+      await page.waitForTimeout(500);
+      await page.evaluate(() => {
+        if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+      });
+      await page.keyboard.press('Escape');
+      await page.keyboard.press('q');
+      const canvasDock = await page.locator('.editor-shell__canvas-dock').boundingBox();
+      if (!canvasDock) throw new Error('canvas dock bounding box unavailable');
+      await page.mouse.click(
+        canvasDock.x + canvasDock.width / 2,
+        canvasDock.y + canvasDock.height / 2,
+      );
       const pagePrintLabel = page.getByText('Page Print').first();
       if (!(await pagePrintLabel.isVisible({ timeout: 5000 }).catch(() => false))) {
         throw new Error(
           'Page Print inspector section did not appear after selecting the page with the page tool',
         );
       }
+      const pagePrintDisclosure = page
+        .locator('.insp-disclosure')
+        .filter({ hasText: 'Page Print' })
+        .getByRole('button', { name: 'Page Print' })
+        .first();
+      if ((await pagePrintDisclosure.getAttribute('aria-expanded')) === 'false') {
+        await pagePrintDisclosure.click();
+      }
       await page.getByLabel(/bleed top/i).fill('20');
       await page.getByLabel(/bleed right/i).fill('20');
       await page.getByLabel(/bleed bottom/i).fill('20');
       await page.getByLabel(/bleed left/i).fill('20');
       await page.getByLabel(/bleed left/i).press('Enter');
-      await page.waitForTimeout(2000);
       const guide = page.locator('.print-bleed-guide');
       if ((await guide.count()) === 0) {
-        throw new Error(
-          'bleed fields commit correctly (verified visually) but .print-bleed-guide never ' +
-            'mounts on canvas — a real gap between this sequence and the passing ' +
-            'bleed-workflow.spec.ts run, not isolated further; see scene comment above',
-        );
+        await page
+          .getByRole('menubar')
+          .getByRole('menuitem', { name: /^View$/ })
+          .click();
+        const showGuides = page.getByRole('menuitem', { name: /show bleed guides/i });
+        if (await showGuides.isVisible({ timeout: 1000 }).catch(() => false)) {
+          await showGuides.click();
+        }
       }
+      await guide.waitFor({ state: 'attached', timeout: 5000 });
+      if ((await guide.count()) === 0) {
+        throw new Error('.print-bleed-guide did not mount after enabling View → Show Bleed Guides');
+      }
+      const inspectorBox = await inspector.boundingBox();
+      if (!inspectorBox || inspectorBox.width < 100) {
+        throw new Error('Inspector panel did not open to a usable width for the Print capture');
+      }
+      const bleedTop = page.getByLabel(/bleed top/i);
+      await bleedTop.waitFor({ state: 'visible', timeout: 8000 });
+      await expect(bleedTop).toHaveValue('20');
     },
   },
 ];

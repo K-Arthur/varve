@@ -16,9 +16,9 @@ import { computeFloatingOrigin, worldToScreen } from '@varve/shared';
 import { describe, expect, it, vi } from 'vitest';
 import { SelectionOverlay } from './SelectionOverlay';
 
-vi.mock('./context', () => ({ useEditor: vi.fn() }));
+vi.mock('./context', () => ({ useEditor: vi.fn(), useViewport: vi.fn() }));
 
-import { useEditor } from './context';
+import { useEditor, useViewport } from './context';
 
 const VIEWPORT = { width: 1200, height: 800 };
 
@@ -78,6 +78,7 @@ function renderAt(cameraRotation: number, zoom: number, pan: { x: number; y: num
     h: 120,
   } as ShapeNode['shape']);
   const mockUseEditor = useEditor as unknown as { mockReturnValue: (v: unknown) => void };
+  const mockUseViewport = useViewport as unknown as { mockReturnValue: (v: unknown) => void };
   mockUseEditor.mockReturnValue({
     state: {
       document: buildDoc({ r1: node }),
@@ -91,6 +92,7 @@ function renderAt(cameraRotation: number, zoom: number, pan: { x: number; y: num
     beginTransaction: vi.fn(),
     commitTransaction: vi.fn(),
   });
+  mockUseViewport.mockReturnValue({ pan, zoom, cameraRotation });
   const { container } = render(<SelectionOverlay canvasRef={canvasRef()} />);
   return container;
 }
