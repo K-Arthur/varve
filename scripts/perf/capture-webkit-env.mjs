@@ -118,7 +118,8 @@ if (!jsonOnly) {
   const tips = [];
   if (env.profilers.gdb) {
     tips.push(
-      'gdb: attach to the web process to capture JS/WASM stack on a hang:\n' +
+      'gdb: installed; attaching may be blocked by ptrace policy. Check `node scripts/perf/webkit-profile.mjs --check --json` before use.\n' +
+        '  When canAttachRunningProcess is true, capture a JS/WASM stack on a hang with:\n' +
         '  gdb -p $(pgrep -f WebKitWebProcess | head -1) -ex "thread apply all bt" -batch',
     );
   } else {
@@ -145,10 +146,10 @@ if (!jsonOnly) {
     'capability fallbacks: see window.__varvePerf / PerformanceSettingsTab for hasOffscreenCanvas,',
   );
   tips.push(
-    'render worker is disabled on WebKitGTK by profileForTier (enableWorker requires OffscreenCanvas);',
+    'render-worker status is capability-gated, not UA-gated: inspect window.__varvePerf.renderPath() and workerStatus();',
   );
   tips.push(
-    'verify OffscreenCanvas with: typeof OffscreenCanvas !== "undefined" in the devtools console.',
+    'WebKitGTK worker activation requires the full OffscreenCanvas replay/transfer/pixel probe; API presence alone is insufficient.',
   );
   for (const t of tips) console.log(`  - ${t}`);
   console.log();

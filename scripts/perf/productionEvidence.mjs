@@ -2,15 +2,50 @@
 
 export const VALIDITY_ORDER = [
   'valid',
-  'unsupported_presentation',
+  'software_renderer',
   'insufficient_samples',
-  'threshold_breach',
+  'memory_pressure',
   'background_activity',
   'thermally_suspect',
   'contended',
   'instrumentation_error',
   'dirty_build',
 ];
+
+const PRESENTATION_EXPECTED_WORKLOADS = new Set([
+  'single-drag',
+  'multi-drag',
+  'marquee-select',
+  'pan',
+  'zoom',
+  'undo-redo',
+  'resize',
+  'rotate',
+  'alt-drag',
+  'nudge',
+  'brush',
+  'brush-large-tip',
+  'eraser',
+  'layer-visibility',
+  'canvas-resize',
+]);
+
+/** Return only trace/presentation failures; slow performance is reported separately. */
+export function measuredTraceFailure(workload, measuredTraceCount, missingPresentation = 0) {
+  if (measuredTraceCount <= 0) {
+    return {
+      status: 'no-evidence',
+      error: 'workload completed but produced no interaction traces',
+    };
+  }
+  if (PRESENTATION_EXPECTED_WORKLOADS.has(workload) && missingPresentation > 0) {
+    return {
+      status: 'instrumentation-error',
+      error: `${missingPresentation} interaction trace(s) had no presented frame`,
+    };
+  }
+  return null;
+}
 
 function percentile(sorted, percent) {
   if (sorted.length === 0) return null;
@@ -36,13 +71,13 @@ export function classifyRun(state, identity = null, evidence = null, cpuCount = 
     return 'instrumentation_error';
   }
   if (evidence?.insufficientSamples) return 'insufficient_samples';
-  if (evidence?.presentationUnavailable) return 'unsupported_presentation';
-  if (evidence?.thresholdBreaches?.length) return 'threshold_breach';
+  if (evidence?.softwareRenderer) return 'software_renderer';
   const loadOK = Number.isFinite(state.load1) && state.load1 > cpuCount * 1.5;
   if (loadOK) return 'contended';
   if (Array.isArray(state.backgroundActivity) && state.backgroundActivity.length > 0) {
     return 'background_activity';
   }
+  if (state.memoryPressure === true) return 'memory_pressure';
   if (state.thermalMaxC !== null && state.thermalMaxC > 90) return 'thermally_suspect';
   return 'valid';
 }
@@ -55,7 +90,7 @@ export function worstValidity(...values) {
   );
 }
 
-export function performanceEvidence(traces, record, minWarmSamples = 100) {
+export function performanceEvidence(traces, record, minWarmSamples = 100, minTailSamples = 1000) {
   const largeDocument =
     Number(record.sceneNodeCount ?? record.fixture?.nodeCount ?? 0) >= 5_000 ||
     /(?:5k|10k|50k)/i.test(String(record.fixture?.id ?? ''));
@@ -114,6 +149,24 @@ export function performanceEvidence(traces, record, minWarmSamples = 100) {
     commit: distribution(commitValues),
     nextPaint: distribution(nextPaintValues),
   };
+  const sampleAdequacy = {
+    requiredForP95: minWarmSamples,
+    requiredForP99: minTailSamples,
+    queueDelay: {
+      p95Qualified: distributions.queueDelay.count >= minWarmSamples,
+    },
+    handler: {
+      p95Qualified: distributions.handler.count >= minWarmSamples,
+    },
+    commit: {
+      p95Qualified: distributions.commit.count >= minWarmSamples,
+      p99Qualified: distributions.commit.count >= minTailSamples,
+    },
+    nextPaint: {
+      p95Qualified: distributions.nextPaint.count >= minWarmSamples,
+      p99Qualified: distributions.nextPaint.count >= minTailSamples,
+    },
+  };
   const breaches = [];
   if (
     distributions.queueDelay.count >= minWarmSamples &&
@@ -131,7 +184,7 @@ export function performanceEvidence(traces, record, minWarmSamples = 100) {
     if (distributions.commit.p95 > limits.commitP95) {
       breaches.push(`commit p95 ${distributions.commit.p95}ms > ${limits.commitP95}ms`);
     }
-    if (distributions.commit.p99 > limits.commitP99) {
+    if (sampleAdequacy.commit.p99Qualified && distributions.commit.p99 > limits.commitP99) {
       breaches.push(`commit p99 ${distributions.commit.p99}ms > ${limits.commitP99}ms`);
     }
   }
@@ -139,19 +192,116 @@ export function performanceEvidence(traces, record, minWarmSamples = 100) {
   const nativeProfiler = traces.some(
     (trace) => trace.presentationEvidence?.source === 'native-profiler',
   );
-  if ((eventTiming || nativeProfiler) && nextPaintValues.length >= minWarmSamples) {
+  const authoritativePresentation = traces.some((trace) => {
+    const evidence = trace.presentationEvidence;
+    const sameClock =
+      typeof trace.inputClockId === 'string' &&
+      trace.inputClockId.length > 0 &&
+      trace.inputClockId === evidence?.clockId;
+    const inputTimestamp = trace.inputMonotonicTimestampMs;
+    const presentedTimestamp = evidence?.monotonicTimestampMs;
+    const measuredDelta = presentedTimestamp - inputTimestamp;
+    return Boolean(
+      (evidence?.source === 'optical' || evidence?.source === 'native-profiler-correlated') &&
+        evidence?.clockTrust === 'trusted' &&
+        typeof trace.inputIdentity === 'string' &&
+        trace.inputIdentity.length > 0 &&
+        evidence?.inputIdentity === trace.inputIdentity &&
+        typeof trace.contentFrameIdentity === 'string' &&
+        trace.contentFrameIdentity.length > 0 &&
+        evidence?.contentFrameIdentity === trace.contentFrameIdentity &&
+        sameClock &&
+        Number.isFinite(inputTimestamp) &&
+        inputTimestamp >= 0 &&
+        Number.isFinite(presentedTimestamp) &&
+        presentedTimestamp >= inputTimestamp &&
+        Number.isFinite(evidence?.inputToPresentationMs) &&
+        Number.isFinite(evidence?.uncertaintyMs) &&
+        evidence.uncertaintyMs >= 0 &&
+        Math.abs(measuredDelta - evidence.inputToPresentationMs) <= evidence.uncertaintyMs,
+    );
+  });
+  const reportedRenderer = String(
+    record.rendererQualification?.webgl2?.renderer ??
+      record.webglRuntimeEvidence?.glRenderer ??
+      record.rendererExecution?.reportedRenderer ??
+      '',
+  );
+  const softwareRenderer =
+    record.rendererExecution?.compatibilityOnly === true ||
+    record.webglRuntimeEvidence?.softwareRendering === true ||
+    /(swiftshader|llvmpipe|lavapipe|softpipe|swrast|software raster)/i.test(reportedRenderer);
+  if ((eventTiming || nativeProfiler) && sampleAdequacy.nextPaint.p95Qualified) {
     if (distributions.nextPaint.p95 > limits.nextPaintP95) {
       breaches.push(`next-paint p95 ${distributions.nextPaint.p95}ms > ${limits.nextPaintP95}ms`);
     }
-    if (distributions.nextPaint.p99 > limits.nextPaintP99) {
+    if (
+      sampleAdequacy.nextPaint.p99Qualified &&
+      distributions.nextPaint.p99 > limits.nextPaintP99
+    ) {
       breaches.push(`next-paint p99 ${distributions.nextPaint.p99}ms > ${limits.nextPaintP99}ms`);
     }
   }
+  const intervalSource = record.presentation?.refreshIntervalSource;
+  const intervalSamples = record.presentation?.refreshIntervalSamples;
+  const observedInterval = record.presentation?.refreshIntervalMs;
+  const hasMeasuredInterval =
+    intervalSource === 'observed-raf-lower-bound' &&
+    Number.isFinite(intervalSamples) &&
+    intervalSamples >= 8 &&
+    Number.isFinite(observedInterval) &&
+    observedInterval > 0;
+  const frameResponseTargets = !largeDocument
+    ? {
+        basis: hasMeasuredInterval ? 'observed-raf-lower-bound' : 'unavailable',
+        intervalMs: hasMeasuredInterval ? observedInterval : null,
+        intervalSamples: Number.isFinite(intervalSamples) ? intervalSamples : 0,
+        p95: {
+          targetMs: hasMeasuredInterval ? 2 * observedInterval : null,
+          commitSamples: distributions.commit.count,
+          commitObservedMs: distributions.commit.p95,
+          commitQualified: sampleAdequacy.commit.p95Qualified,
+          commitMeetsTarget:
+            hasMeasuredInterval && sampleAdequacy.commit.p95Qualified
+              ? distributions.commit.p95 <= 2 * observedInterval
+              : null,
+          nextPaintSamples: distributions.nextPaint.count,
+          nextPaintObservedMs: distributions.nextPaint.p95,
+          nextPaintQualified: sampleAdequacy.nextPaint.p95Qualified,
+          nextPaintMeetsTarget:
+            hasMeasuredInterval && sampleAdequacy.nextPaint.p95Qualified
+              ? distributions.nextPaint.p95 <= 2 * observedInterval
+              : null,
+        },
+        p99: {
+          targetMs: hasMeasuredInterval ? 3 * observedInterval : null,
+          requiredSamples: minTailSamples,
+          commitSamples: distributions.commit.count,
+          commitObservedMs: distributions.commit.p99,
+          commitQualified: sampleAdequacy.commit.p99Qualified,
+          commitMeetsTarget:
+            hasMeasuredInterval && sampleAdequacy.commit.p99Qualified
+              ? distributions.commit.p99 <= 3 * observedInterval
+              : null,
+          nextPaintSamples: distributions.nextPaint.count,
+          nextPaintObservedMs: distributions.nextPaint.p99,
+          nextPaintQualified: sampleAdequacy.nextPaint.p99Qualified,
+          nextPaintMeetsTarget:
+            hasMeasuredInterval && sampleAdequacy.nextPaint.p99Qualified
+              ? distributions.nextPaint.p99 <= 3 * observedInterval
+              : null,
+        },
+      }
+    : null;
   return {
     largeDocument,
     limits,
     distributions,
+    sampleAdequacy,
+    frameResponseTargets,
     thresholdBreaches: breaches,
+    performanceOutcome:
+      breaches.length > 0 ? 'baseline-threshold-breach' : 'within-baseline-thresholds',
     insufficientSamples:
       distributions.commit.count < minWarmSamples ||
       distributions.queueDelay.count < minWarmSamples ||
@@ -159,6 +309,13 @@ export function performanceEvidence(traces, record, minWarmSamples = 100) {
       ((eventTiming || nativeProfiler) && nextPaintValues.length < minWarmSamples),
     presentationUnavailable:
       eventTiming && !nativeProfiler && nextPaintValues.length < minWarmSamples,
+    authoritativePresentationAvailable: authoritativePresentation,
+    promotionEligible: authoritativePresentation && breaches.length === 0 && !softwareRenderer,
+    promotionBlockers: [
+      ...(!authoritativePresentation ? ['authoritative-presentation-unavailable'] : []),
+      ...(softwareRenderer ? ['software-renderer-compatibility-only'] : []),
+      ...(breaches.length > 0 ? ['baseline-threshold-breach'] : []),
+    ],
   };
 }
 

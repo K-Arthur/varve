@@ -1,21 +1,24 @@
 #!/usr/bin/env node
 /**
- * Native multi-hour soak runner for the Tauri/WebKitGTK desktop build.
+ * Native process-lifetime monitor for the Tauri/WebKitGTK desktop build.
  *
  * A multi-hour run cannot retain every sample in memory, and a run that dies
  * at hour three must not lose the first three hours. This runner therefore
  * streams bounded aggregates to a checkpoint file rather than accumulating
  * samples, and flushes on every exit path including SIGINT and crash.
  *
- * It also detects the conditions that silently invalidate long-run evidence:
- * system sleep (a wall-clock jump the monotonic clock did not see), loss of
- * foreground (a backgrounded window throttles rAF, so latency figures become
- * meaningless), and a development build masquerading as a release one.
+ * It detects sleep and rejects debug builds, and samples the whole launched
+ * process tree. It has no native interaction driver, so it is not the
+ * 100-cycle interaction qualification or the 60-minute navigation soak.
+ *
+ * This utility does not synthesize native input and does not open, interact
+ * with, or close documents. Timer ticks are process-monitor samples only and
+ * cannot satisfy the renderer qualification's interaction/soak gate.
  *
  * Usage:
  *   node scripts/perf/native-soak.mjs --duration=4h
  *   node scripts/perf/native-soak.mjs --duration=30m --checkpoint=soak.json
- *   node scripts/perf/native-soak.mjs --iterations=500 --workloads=small,raster-heavy
+ *   node scripts/perf/native-soak.mjs --iterations=500 # 500 one-second monitor ticks
  *   node scripts/perf/native-soak.mjs --resume=soak.json
  */
 import { execFileSync, spawn } from 'node:child_process';
@@ -45,9 +48,8 @@ const DURATION_MS = parseDuration(args.get('duration')) ?? null;
 const MAX_ITERATIONS = args.get('iterations') ? Number(args.get('iterations')) : null;
 const CHECKPOINT = args.get('checkpoint') ?? 'native-soak-checkpoint.json';
 const RESUME = args.get('resume') ?? null;
-const WARMUP = Number(args.get('warmup') ?? 5);
+const WARMUP_MONITOR_TICKS = Number(args.get('warmup') ?? 5);
 const SAMPLE_EVERY = Number(args.get('sample-every') ?? 10);
-const WORKLOADS = (args.get('workloads') ?? 'small,flat-10k,raster-heavy,effects-masks').split(',');
 const BINARY = args.get('binary') ?? null;
 
 /**
@@ -186,18 +188,27 @@ if (!isMain) {
     RESUME && existsSync(RESUME)
       ? JSON.parse(readFileSync(RESUME, 'utf8'))
       : {
-          schemaVersion: 1,
+          schemaVersion: 2,
           startedAt: new Date().toISOString(),
           binary: binary.path,
           buildMode: 'release',
+          evidenceScope: 'process-lifetime-only-no-native-interaction-driver',
+          qualificationEligible: false,
           commit: run('git', ['rev-parse', 'HEAD'], 'unknown'),
           workloads: WORKLOADS,
-          warmupIterations: WARMUP,
-          completedIterations: 0,
+          warmupMonitorTicks: WARMUP_MONITOR_TICKS,
+          monitorTicks: 0,
+          completedInteractionCycles: 0,
+          trustedOsInteractions: 0,
           warmupComplete: false,
           checkpoints: [],
           anomalies: [],
         };
+  state.schemaVersion = 2;
+  state.evidenceScope = 'process-lifetime-only-no-native-interaction-driver';
+  state.qualificationEligible = false;
+  state.completedInteractionCycles = 0;
+  state.trustedOsInteractions = 0;
 
   const stats = { rssKb: new StreamingStat(), iterationMs: new StreamingStat() };
   const growth = { rssKb: new GrowthSlope() };
@@ -205,14 +216,29 @@ if (!isMain) {
   let child = null;
   let stopping = false;
 
-  function readRssKb(pid) {
-    const status = run(
-      'sh',
-      ['-c', `grep VmRSS /proc/${pid}/status 2>/dev/null | awk '{print $2}'`],
-      null,
-    );
-    const value = Number(status);
-    return Number.isFinite(value) && value > 0 ? value : null;
+  function readProcessTreeRss(pid) {
+    const rows = run('ps', ['-eo', 'pid=,ppid=,rss='], '')
+      .split('\n')
+      .map((line) => line.trim().split(/\s+/).map(Number))
+      .filter((parts) => parts.length === 3 && parts.every(Number.isFinite))
+      .map(([processId, parentId, rssKb]) => ({ processId, parentId, rssKb }));
+    const members = new Set([pid]);
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const row of rows) {
+        if (members.has(row.parentId) && !members.has(row.processId)) {
+          members.add(row.processId);
+          changed = true;
+        }
+      }
+    }
+    const selected = rows.filter((row) => members.has(row.processId));
+    if (selected.length === 0) return { rssKb: null, pids: [] };
+    return {
+      rssKb: selected.reduce((total, row) => total + row.rssKb, 0),
+      pids: selected.map((row) => row.processId),
+    };
   }
 
   function checkpoint(reason) {
@@ -278,14 +304,15 @@ if (!isMain) {
     }
 
     iteration += 1;
-    state.completedIterations = iteration;
-    if (iteration === WARMUP) state.warmupComplete = true;
+    state.monitorTicks = iteration;
+    if (iteration === WARMUP_MONITOR_TICKS) state.warmupComplete = true;
 
-    const rss = child?.pid ? readRssKb(child.pid) : null;
+    const processTree = child?.pid ? readProcessTreeRss(child.pid) : { rssKb: null, pids: [] };
+    const rss = processTree.rssKb;
     if (rss !== null) {
       // Warm-up allocations are one-time; folding them into the growth slope
       // would report a leak that is really JIT and cache stabilisation.
-      if (iteration > WARMUP) {
+      if (iteration > WARMUP_MONITOR_TICKS) {
         stats.rssKb.add(rss);
         growth.rssKb.add(iteration, rss);
       }
@@ -293,10 +320,13 @@ if (!isMain) {
 
     if (iteration % SAMPLE_EVERY === 0) {
       state.checkpoints.push({
-        iteration,
+        monitorTick: iteration,
         atMs: Math.round(elapsedMono),
         rssKb: rss,
-        workload: WORKLOADS[iteration % WORKLOADS.length],
+        processTreePids: processTree.pids,
+        completedInteractionCycles: 0,
+        trustedOsInteractions: 0,
+        activity: 'no-native-driver-observed',
       });
       checkpoint('running');
     }

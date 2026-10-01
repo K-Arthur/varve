@@ -106,8 +106,10 @@ Fallbacks in place:
   `?renderWorker=1` or the `on` preference forces use only after capability
   verification. These overrides are not performance recommendations.
 - `createRenderWorkerHost` still feature-detects and returns null rather than
-  retrying a worker that can only fail. Note it **does not** return null on
-  WebKitGTK 2.52.5 — the profile policy is the gate that actually decides.
+  retrying a worker that can only fail. Host existence alone does not mean a
+  worker frame is being used: `resolveWorkerEligibility` checks the verified
+  capability and activation policy, the selected performance tier applies its
+  worker gate, and runtime `renderPath()` reports the path that actually won.
 - Do not gate on `webKitVersion`: WebKitGTK reports the frozen
   Safari-compatibility token `605.1.15` regardless of the real library version.
 - Visible in Settings → Performance and via

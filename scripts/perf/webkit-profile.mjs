@@ -4,9 +4,9 @@
  * launch/attach, and bounded sampling.
  *
  * Chromium DevTools conclusions do not transfer to WebKitGTK: it has its own
- * multi-process architecture, compositor and canvas acceleration, and the
- * render worker is disabled there entirely (no reliable OffscreenCanvas), so
- * all replay cost lands on the web process's main thread.
+ * multi-process architecture, compositor and canvas acceleration. The render
+ * worker can run only after WebKitGTK's OffscreenCanvas replay/transfer/pixel
+ * probe succeeds; never infer its status from the user agent alone.
  *
  * This runner never assumes a profiler is installed, never requires root, and
  * reports precisely which capability is missing instead of producing an empty

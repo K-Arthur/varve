@@ -137,11 +137,118 @@ traces, span attributes, event IDs, clock trust, causal frame relations,
 fixture checksum, runtime/build metadata, and missing counts remain in the
 result artifact.
 
+`brush`, `brush-large-tip`, and `eraser` profiles use CDP pointer strokes on
+the canvas and undo each stroke between samples. The reset keystroke is
+excluded from their pointer-trace distribution. Each also records its first
+cold stroke separately from the warmed distribution. Use `small` for brush
+work and `retouch-raster` for eraser work so the eraser acts on existing paint.
+Variable-pressure DOM-synthetic samples are useful for handler-path diagnosis,
+but are untrusted input and cannot qualify the production latency
+distributions or stand in for a physical pen.
+
 ```bash
-node scripts/perf/run-production-workload.mjs --fixture=vector-1k \
-    --workloads=single-drag,nudge,zoom --out=results.json
+node scripts/perf/run-production-workload.mjs --quality=full --fixture=vector-1k \
+    --workloads=single-drag,nudge,zoom --out=full.json
+node scripts/perf/run-production-workload.mjs --quality=automatic --fixture=vector-1k \
+    --workloads=single-drag,nudge,zoom --out=automatic.json
+node scripts/perf/run-production-workload.mjs --quality=full --fixture=small \
+    --workloads=brush,brush-large-tip --out=brush-full.json
+node scripts/perf/run-production-workload.mjs --quality=full --fixture=retouch-raster \
+    --workloads=eraser --out=eraser-full.json
+node scripts/perf/run-production-workload.mjs --quality=full --fixture=vector-1k \
+    --workloads=single-drag --width=1024 --height=768 --out=drag-narrow.json
+node scripts/perf/run-production-workload.mjs --quality=full --fixture=vector-1k \
+    --workloads=single-drag --width=1920 --height=1080 --out=drag-wide.json
 node scripts/perf/run-production-workload.mjs --duplications=10  # ~2048-node scene
+node scripts/perf/run-production-workload.mjs --headed --mode=webgl2 \
+    --preflight-only --out=headed-webgl2-preflight.json
 ```
+
+The `--width` and `--height` options default to 1600×1000 and let the same
+scene and input workload be repeated at matched narrow and wide viewports.
+This reproduces viewport-dependent drag reports without changing the document
+or device scale factor.
+
+The --quality argument pins the existing interactive-preview preference for
+the run (default: automatic) and records it at the report and workload
+levels, so Full and Automatic runs can be kept separate during comparison.
+Run matched Full comparisons first, then repeat the same fixture and workload
+set in Automatic mode.
+
+The default headless browser uses SwiftShader in this environment. `--headed`
+allows a local GPU compatibility preflight and paired browser screen, and records
+`browserMode` in both reports. For paired screening, pass it to
+`run-webgl2-qualification.mjs`; the flag is forwarded to every renderer cell.
+These remain browser evidence, not Tauri/WebKitGTK timing or physical
+presentation evidence.
+
+Ordinary-workload response targets are also reported against the observed
+requestAnimationFrame interval lower bound (`2T` at p95, `3T` at p99), separate
+from the existing fixed regression gates. At least 8 recent rAF intervals are
+required to publish that basis; the rAF estimate is cadence evidence, not
+input-to-photon timing or proof of a physical display's refresh rate. A p95
+claim requires 100 valid samples and p99 requires 1,000; smaller p99
+distributions remain descriptive and do not affect the threshold outcome.
+Presentation results are omitted when the runtime cannot provide a supported
+input-to-next-paint signal.
+
+Renderer qualification and its native host-driver event contract are described
+in [webgl2-qualification.md](../../docs/perf/webgl2-qualification.md). For
+local browser-only comparison, use `run-webgl2-qualification.mjs`; its
+Chromium results are screening evidence and cannot qualify native GPU timing.
+
+The native coordinator accepts a host-local executable adapter which launches
+the release Tauri binary and emits one JSON object per line. The adapter must
+perform OS-level input and independently confirm the resulting frame identity;
+WebDriver-dispatched events are not accepted as native input evidence.
+
+```bash
+node scripts/perf/run-native-qualification.mjs \
+  --mode=cycles --cycles=100 --binary=/path/to/target/release/varve-desktop \
+  --driver=/path/to/native-adapter --out=webgl2-cycles.json
+node scripts/perf/run-native-qualification.mjs \
+  --mode=navigation --duration-ms=3600000 \
+  --binary=/path/to/target/release/varve-desktop \
+  --driver=/path/to/native-adapter --out=webgl2-navigation.json
+node scripts/perf/run-native-paired-qualification.mjs \
+  --scenarios=/path/to/scenario-map.json --blocks=12 \
+  --binary=/path/to/target/release/varve-desktop \
+  --driver=/path/to/native-adapter
+```
+
+The JSONL protocol and required event fields are documented in the
+qualification guide. Missing drivers, IDs, cache measurements, textures, or
+presentation evidence produce an unsupported/inconclusive result. The older
+`native-soak.mjs` remains a process-lifetime monitor; its one-second samples are
+not interaction cycles and must not be used as the qualification soak.
+
+### Repeated Tauri workflow soak
+
+The WDIO workflow soak exercises the Tauri/WebKitGTK application through
+repeated create/edit/navigate/brush/save/close cycles. It verifies a visible,
+nonzero editor surface, changed artwork pixels, a settled local save, a closed
+document, and a screenshot before counting each cycle. The runner checkpoints
+whole-process-tree RSS and host memory/load after completed cycles and detects
+sleep, missing events, screenshots, hidden/zero-size WebViews, and runner
+failures. It does not claim trusted OS input, physical pen/touchpad behavior,
+or input-to-photon latency: the pointer and wheel events are explicitly
+WebDriver DOM-synthetic.
+
+Build a fresh Tauri WDIO executable with its matching embedded frontend, then
+run the repeated workflow under the heavy-task lease:
+
+```bash
+node scripts/quality/heavy-lease.mjs "native: build Tauri WDIO executable" -- \
+  pnpm desktop:build:test
+node scripts/quality/heavy-lease.mjs "native: Tauri workflow soak (100 cycles)" -- \
+  node scripts/perf/native-workflow-soak.mjs \
+    --binary=apps/desktop/src-tauri/target/debug/varve-desktop \
+    --cycles=100 --out=artifacts/perf/native-fluidity-100-cycles.json
+```
+
+Fewer than 100 cycles are useful for smoke testing but are marked incomplete
+for soak evidence. Even a complete run remains synthetic-input evidence and
+does not qualify a renderer or physical input device.
 
 `--fixture` seeds a deterministic corpus fixture (see
 `packages/editor/src/performance/workloadCorpus.ts`: vector-100/500/1k/5k,
@@ -154,4 +261,5 @@ checksum and node count all come from the corpus code under test.
 
 Workloads include: `pointer-move-idle`, `single-drag`, `multi-drag`,
 `marquee-select`, `pan`, `zoom`, `undo-redo`, `resize`, `rotate`, `alt-drag`,
-`nudge`, `tool-switch`, `layer-visibility`, `canvas-resize`.
+`nudge`, `brush`, `brush-large-tip`, `eraser`, `tool-switch`, `layer-visibility`,
+`canvas-resize`.

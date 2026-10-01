@@ -55,6 +55,61 @@ reference changes.
 | Cache hit count in diagnostics | cacheHitCount=0 (hardcoded) | Real cacheHitCount tracked per frame | jsdom, Vitest, CachyOS | high | 3 lines added in the cache loop |
 | Diagnostics HUD | No overlay | Overlay shows F#, dv#, rc#, tier, path, dirty state, node/culled/cache counts, build/replay/total ms, avg30/p95 | browser, dev mode | high | `renderDrawDiagnostics()` renders to overlay canvas |
 
+## Edge antialiasing parity (2026-09-26)
+
+Before = pre-antialias WebGPU backend (hard `discard`) on the extended
+`tests/e2e/webgpu/circle-transform-parity.spec.ts` fixtures; after = analytic
+`fwidth` coverage with a ~1 px quad expansion. Same host, same browser
+(Chromium channel, Vulkan flags), same fixtures, real AMD adapter;
+`meanAbsDiff` is the whole-image mean RGBA-channel difference over pixels
+either backend touched (the boundary band dominates it). Raw PNGs:
+`docs/screenshots/gpu-acceleration/edge-aa/{before,after}/`.
+
+| Fixture | meanAbsDiff before → after | Coverage (GPU/Canvas2D) before → after |
+|---|---|---|
+| uniform circle | 5.81 → 0.09 | 1804/1884 → 1884/1884 |
+| scaled ×2 | 3.60 → 0.08 | 3484/3578 → 3575/3578 |
+| skewed ellipse | 2.76 → 0.60 | 4049/4132 → 4157/4132 |
+| two circles | 4.87 → 0.55 | 2824/2934 → 2960/2934 |
+| rotated rect | 3.84 → 0.40 | 5399/5554 → 5591/5554 |
+| fractional zoom (1.37) rect | 2.74 → 0.01 | 10086/10292 → 10292/10292 |
+| aligned rect | 0.00 → 0.03 | 5400/5400 → 5401/5400 |
+| chunk-boundary circles | 4.97 → 1.00 | 3102/3213 → 3244/3213 |
+
+Aligned rects stay crisp before and after (no softening at integer zoom).
+Rotated-rect severe pixels (>100 channel diff) after: 21 of 28,000 (0.075%),
+zero holes inside the opaque reference region. Environment: CachyOS,
+Chromium (channel) with Vulkan flags, AMD adapter, headless — not a frame-
+latency benchmark; this measures output fidelity only.
+
+## Live-effects compute: GPU vs CPU (2026-09-26)
+
+`tests/e2e/effects/gpu-agreement.spec.ts` timing test (report-only, 7 measured
+iterations per cell after one cold run; GPU sample is end-to-end
+upload + dispatch + readback; median). Host: CachyOS, Chromium channel with
+Vulkan flags, real AMD adapter (`gpu-timing probe: {api:true, adapter:amd}`).
+Raw data: `reports/gpu-effects-timing.json`.
+
+| Effect | 512² CPU/GPU (speedup) | 1024² | 2048² |
+|---|---|---|---|
+| bloom | 75.6 / 6.6 ms (11.5×) | 437 / 14.8 ms (29.6×) | 1340 / 44.4 ms (30.2×) |
+| crt | 166.5 / 6.2 ms (26.9×) | 1014 / 15.9 ms (63.8×) | 2658 / 52.6 ms (50.5×) |
+| vhs | 99.0 / 5.9 ms (16.8×) | 582 / 14.8 ms (39.3×) | 2336 / 47.5 ms (49.2×) |
+| lightShafts | 94.0 / 7.0 ms (13.4×) | 524 / 23.5 ms (22.3×) | 2035 / 70.5 ms (28.9×) |
+| lensFlare | 19.3 / 6.1 ms (3.2×) | 111 / 12.3 ms (9.0×) | 434 / 38.5 ms (11.3×) |
+| lightLeak | 28.3 / 5.6 ms (5.1×) | 133 / 11.9 ms (11.2×) | 527 / 36.8 ms (14.3×) |
+| caustics | 86.5 / 5.9 ms (14.7×) | 529 / 14.3 ms (37.0×) | 1361 / 36.5 ms (37.3×) |
+| rgbSplit | 47.6 / 5.8 ms (8.2×) | 317 / 12.2 ms (26.0×) | 793 / 34.9 ms (22.7×) |
+| paletteSnap | 41.1 / 6.8 ms (6.0×) | 235 / 11.6 ms (20.2×) | 935 / 37.3 ms (25.1×) |
+
+Cold GPU first use (pipeline compilation included) was 6–106 ms per effect at
+these sizes — amortized by the export's multi-filter work and cached per
+kernel thereafter. CPU medians scale linearly with pixel count; GPU medians
+stay under ~71 ms even at 2048². One host, one adapter: this justifies
+wiring the async effect chain into export (the §5 gate), it does not
+generalize to every GPU — the export consumer must keep per-effect CPU
+fallback and record the serving provider.
+
 ## Environment Notes
 
 - **Primary dev:** CachyOS, Wayland, WebKitGTK 2.52 — WebGPU unavailable in Tauri webview.
@@ -323,7 +378,7 @@ by a gate; it was deliberately not implemented in the same pass.
 | Raster reconstruction, 8192² (4096 tiles) | unmeasured | p50 855.57 ms, p95 968.37 ms, 256.0 MiB | Same | medium | Intermediate exceeds the whole 128 MiB worker budget |
 | Tile-replay share of reconstruction | unmeasured | 94.3% – 99.8% across all sizes | Same | high | Dirty-tile replay attacks the right term; allocation reuse alone addresses <6% |
 | `interaction.dispatch` span | absent | distinct bounded span | jsdom/Vitest | high | Separable from `pointer.input` handler cost |
-| `render.worker` span | absent | distinct span, calibrated, with disposition | jsdom/Vitest | high | Chromium/WebView2/WKWebView only — worker disabled on WebKitGTK |
+| `render.worker` span | absent | distinct span, calibrated, with disposition | jsdom/Vitest + verified runtime probes | high | Worker use is capability-gated; WebKitGTK may use it after the full OffscreenCanvas replay/transfer/pixel probe passes and a worker frame is observed |
 | Main↔worker clock | assumed identical timeOrigin | NTP-style calibration, uncertainty recorded | jsdom/Vitest | high | Min-RTT sample; 250 ms discontinuity detection |
 | Presentation timing | absent | `present.feedback` (±8 ms) / `composite.estimated` (lower bound) | jsdom/Vitest | high | Never named `composite.present` — no OS evidence exists |
 | Pre-merge dirty rectangles | merged bound only | individual rects with source + node id, capped at 64 | jsdom/Vitest | high | Fixture: two 20px contributions merge to a 60px bound |
@@ -417,3 +472,41 @@ No new p95/p99 claim is made. Existing warm-refinement targets (500 ms for
 ordinary workloads, 1 s for heavy workloads after required assets are ready)
 remain targets rather than guarantees until the matched three-round evidence
 is collected.
+
+## Linux WebKitGTK navigation comparison (2026-09-28)
+
+The current local comparison attributes a large share of pan/drag frame
+cadence misses to the Linux WebKitGTK runtime path, while leaving native Tauri
+IPC unqualified. The matched frozen-frontend browser-engine run measured
+WebKitGTK 2.52.6 pan p95 at 59–77 ms and drag at 202–229 ms; Chromium 151 on
+the same Wayland host measured 16.7–16.8 ms and 33.3–49.9 ms respectively.
+Canvas work remained about 1–5 ms p95 in both engines. A separate worker-on
+GTK run found worker queue wait near zero, replay p50/p95 at 0/1 ms, and
+cross-thread round-trip plus scheduling remainder during 1k-vector drag at
+60/88 ms p50/p95. The worker did not remove drag stalls. These browser-engine
+figures use synthetic DOM input and rAF, not native Tauri, physical input, or
+input-to-photon timing.
+
+Across those three worker-off blocks, the 1k page's DOM-synthetic input-loop
+start interval was p50/p95 29/39 ms for pan and 75/182 ms for drag in GTK,
+versus 20.5/31 ms and 14.7/58.6 ms in Chromium (735 intervals per gesture and
+runtime; p99 unqualified). In the separate worker-on GTK run, 1k-drag worker
+queue wait was 0 ms p50 and p95, replay 0/1 ms, and the cross-thread
+round-trip/scheduling remainder 60/88 ms; that drag subset had only 70 worker
+spans, so its p95 is descriptive, below the qualification sample threshold.
+Together with 3–5 ms main-canvas work, this locates the observed delay outside
+vector replay alone without identifying a single blocking task.
+
+Rectangle-tool input also produced 1k-page rAF p95 of 73 ms with the worker
+disabled and 93 ms with it enabled, but the separate GTK run did not record
+window focus or include the interaction overlay in pixel readback. It has no
+matched Chromium creation sample. Report this as a diagnostic lead, not a
+creation-latency claim. The settled content-canvas snapshots matched forced
+redraw after idle; the in-gesture pan/drag snapshots differed. The full audit,
+source identities, and limitations are in
+[`canvas-fluidity-2026-09-25.md`](../audits/canvas-fluidity-2026-09-25.md).
+
+No Linux-native responsiveness fix or production IPC conclusion is claimed
+from these measurements. A release-mode Tauri executable with production
+`custom-protocol`, current native runtime runs, and physical input/presentation
+measurements remain outstanding.

@@ -18,9 +18,16 @@
  *   node scripts/perf/run-production-workload.mjs --allow-dev-build  # explicit opt-in
  *   node scripts/perf/run-production-workload.mjs --out=results.json
  *   node scripts/perf/run-production-workload.mjs --fixture=vector-1k
+ *   node scripts/perf/run-production-workload.mjs --mode=canvas2d-worker --fixture=vector-1k --preflight-only --out=preflight.json
+ *   node scripts/perf/run-production-workload.mjs --headed --mode=webgl2 --preflight-only --out=headed-preflight.json
+ *   node scripts/perf/run-production-workload.mjs --quality=full --fixture=vector-1k
+ *   node scripts/perf/run-production-workload.mjs --quality=automatic --fixture=vector-1k
+ *   node scripts/perf/run-production-workload.mjs --help
  *   node scripts/perf/run-production-workload.mjs --fixture=vector-5k \
  *       --workloads=single-drag,zoom,undo-redo,nudge
  *
+ * `--quality` explicitly selects Automatic or Full interactive preview quality;
+ * reports record this alongside the renderer mode. The default is Automatic.
  * `--fixture` seeds a deterministic corpus fixture (vector-100/500/1k/5k,
  * dense-overlap, wide-spread, effects-heavy, raster-heavy, ...) through the
  * app itself and opens it from the home screen; the fixture checksum and node
@@ -35,15 +42,19 @@
  * dispatch, coalescing and hit-testing.
  */
 import { execFileSync, spawn } from 'node:child_process';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:net';
+import { dirname as pathDirname, resolve as pathResolve } from 'node:path';
 import { chromium } from '@playwright/test';
 import {
   classifyRun,
+  measuredTraceFailure,
   performanceEvidence,
   summarizeRunnerTraces,
   worstValidity,
 } from './productionEvidence.mjs';
+import { fixtureDragPoint } from './workloadGeometry.mjs';
 
 const ROOT = new URL('../../', import.meta.url).pathname;
 
@@ -54,6 +65,29 @@ const args = new Map(
   }),
 );
 
+if (args.has('help') || args.has('h')) {
+  process.stdout.write(`Usage: node scripts/perf/run-production-workload.mjs [options]
+
+Options:
+  --mode=canvas2d-main|canvas2d-worker|webgl2
+  --fixture=<id>                 Deterministic document fixture
+  --workloads=<a,b,...>          Gesture workloads (default: standard interaction set)
+  --iterations=<count>           Requested measured samples (minimum 100 accepted)
+  --warmup=<count>               Warmup gestures (default: 10)
+  --quality=automatic|full       Interactive preview quality
+  --width=<pixels> --height=<pixels> --dpr=<scale>
+  --headed                       Use the local browser/display for compatibility screening
+  --preflight-only               Build and verify the requested renderer without timing
+  --base=<url>                   Use an existing production preview
+  --out=<path>                   Write the evidence report
+  --help, -h                     Show this help without building or launching a browser
+
+Headless Chromium uses SwiftShader by default. Browser gesture timings do not
+qualify native Tauri/WebKitGTK hardware performance or physical presentation.
+`);
+  process.exit(0);
+}
+
 const ITERATIONS = Number(args.get('iterations') ?? 120);
 const WARMUP = Number(args.get('warmup') ?? 10);
 const MIN_WARM_SAMPLES = 100;
@@ -62,9 +96,19 @@ const ATTEMPTS = Math.min(MAX_ATTEMPTS, Math.max(ITERATIONS + WARMUP, WARMUP + M
 const MEASURED_ATTEMPTS = ATTEMPTS - WARMUP;
 const ALLOW_DEV = args.get('allow-dev-build') === 'true';
 const OUT = args.get('out') ?? null;
+const SNAPSHOT = args.get('snapshot') ?? null;
 const DUPLICATIONS = Number(args.get('duplications') ?? 5);
 const FIXTURE = args.get('fixture') ?? null;
 const FIXTURE_DRAG = args.get('fixture-drag') ?? 'auto';
+const RENDERER_MODE = args.get('mode') ?? 'canvas2d-worker';
+const RENDERER_MODES = new Set(['canvas2d-main', 'canvas2d-worker', 'webgl2']);
+const PREVIEW_QUALITY = args.get('quality') ?? 'automatic';
+const PREVIEW_QUALITIES = new Set(['automatic', 'full']);
+const PREFLIGHT_ONLY = args.get('preflight-only') === 'true';
+const HEADLESS = args.get('headed') !== 'true';
+const DPR = Number(args.get('dpr') ?? 1);
+const VIEWPORT_WIDTH = Number(args.get('width') ?? 1600);
+const VIEWPORT_HEIGHT = Number(args.get('height') ?? 1000);
 /**
  * Attach to an already-serving production build instead of building and
  * serving one. The dev-build signal check still runs against the served
@@ -75,6 +119,38 @@ const WORKLOADS = (
   args.get('workloads') ??
   'pointer-move-idle,single-drag,multi-drag,marquee-select,pan,zoom,undo-redo'
 ).split(',');
+const MEASUREMENT_TRACE_KINDS = {
+  'pointer-move-idle': ['hover'],
+  'single-drag': ['pointer-drag'],
+  'multi-drag': ['pointer-drag'],
+  'marquee-select': ['pointer-drag'],
+  pan: ['pointer-drag'],
+  zoom: ['wheel', 'pinch'],
+  brush: ['pointer-drag'],
+  'brush-large-tip': ['pointer-drag'],
+  eraser: ['pointer-drag'],
+  'undo-redo': ['keyboard'],
+  resize: ['pointer-drag'],
+  rotate: ['pointer-drag'],
+  'alt-drag': ['pointer-drag'],
+  nudge: ['keyboard'],
+  'tool-switch': ['keyboard'],
+  'layer-visibility': ['pointer-drag'],
+};
+
+if (!RENDERER_MODES.has(RENDERER_MODE)) {
+  fail(`unknown --mode '${RENDERER_MODE}'; use canvas2d-main, canvas2d-worker, or webgl2`);
+}
+if (!PREVIEW_QUALITIES.has(PREVIEW_QUALITY)) {
+  fail(`unknown --quality '${PREVIEW_QUALITY}'; use automatic or full`);
+}
+if (!Number.isFinite(DPR) || DPR <= 0 || DPR > 4) fail('--dpr must be between 0 and 4');
+if (!Number.isInteger(VIEWPORT_WIDTH) || VIEWPORT_WIDTH < 320 || VIEWPORT_WIDTH > 8192) {
+  fail('--width must be an integer between 320 and 8192');
+}
+if (!Number.isInteger(VIEWPORT_HEIGHT) || VIEWPORT_HEIGHT < 240 || VIEWPORT_HEIGHT > 8192) {
+  fail('--height must be an integer between 240 and 8192');
+}
 
 const CPU_COUNT = Number(run('nproc', [], '4') ?? 4);
 
@@ -107,7 +183,7 @@ function thermalMaxC() {
       .trim()
       .split('\n')
       .filter(Boolean);
-    let max = NaN;
+    let max = Number.NEGATIVE_INFINITY;
     for (const zone of zones) {
       const temp = readProc(`${zone}/temp`);
       if (temp && !Number.isNaN(Number(temp))) {
@@ -116,25 +192,63 @@ function thermalMaxC() {
         max = Math.max(max, milli ? Number(temp) / 1000 : Number(temp));
       }
     }
-    return max;
+    return Number.isFinite(max) ? max : NaN;
   } catch {
     return NaN;
   }
 }
 
+function psiAvg10(resource) {
+  const raw = readProc(`/proc/pressure/${resource}`);
+  const value = raw?.match(/^some\s+.*?avg10=([\d.]+)/m)?.[1];
+  return value === undefined ? null : Number(value);
+}
+
+function cpuFrequency() {
+  const current = Number(readProc('/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq', 'NaN'));
+  const maximum = Number(readProc('/sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq', 'NaN'));
+  return {
+    currentKHz: Number.isFinite(current) ? current : null,
+    maxKHz: Number.isFinite(maximum) ? maximum : null,
+    fractionOfMaximum:
+      Number.isFinite(current) && Number.isFinite(maximum) && maximum > 0
+        ? current / maximum
+        : null,
+  };
+}
+
 /** Other processes touching this repo or running repo-adjacent tooling. */
 function backgroundActivity(myPids) {
   try {
-    const lines = execFileSync('sh', ['-c', 'ps -eo pid=,args='], { cwd: ROOT, encoding: 'utf8' })
+    const lines = execFileSync('sh', ['-c', 'ps -eo pid=,ppid=,args='], {
+      cwd: ROOT,
+      encoding: 'utf8',
+    })
       .trim()
       .split('\n');
-    const mine = new Set(myPids.map(String));
-    const suspicious = /(vitest|tsx |ts-node|esbuild|tsc |vite|webpack|next dev|madge)/;
+    const processes = lines
+      .map((line) => {
+        const match = line.trim().match(/^(\d+)\s+(\d+)\s+(.*)$/);
+        return match ? { pid: match[1], parent: match[2], args: match[3] } : null;
+      })
+      .filter(Boolean);
+    const mine = new Set(myPids.filter(Number.isFinite).map(String));
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const process of processes) {
+        if (mine.has(process.parent) && !mine.has(process.pid)) {
+          mine.add(process.pid);
+          changed = true;
+        }
+      }
+    }
+    const suspicious =
+      /(vitest|tsx |ts-node|esbuild|tsc |vite|webpack|next dev|madge|varve-desktop|chromium|chrome|WebKitWebProcess)/i;
     const hits = [];
-    for (const line of lines) {
-      const pid = line.trim().split(/\s+/)[0];
-      if (!pid || mine.has(pid)) continue;
-      const rest = line.slice(pid.length);
+    for (const process of processes) {
+      if (mine.has(process.pid)) continue;
+      const rest = process.args;
       if (!rest.includes('Varve') && !suspicious.test(rest)) continue;
       if (rest.includes('grep') || rest.includes('run-production-workload')) continue;
       hits.push(rest.trim().slice(0, 90));
@@ -152,6 +266,10 @@ function captureMachineState(myPids = []) {
   );
   const thermal = thermalMaxC();
   const activity = backgroundActivity(myPids);
+  const memoryPressure10 = psiAvg10('memory');
+  const cpuPressure10 = psiAvg10('cpu');
+  const memLow = Number.isFinite(memAvailableKb) && memAvailableKb < 1024 * 1024;
+  const frequency = cpuFrequency();
   return {
     load1,
     load5,
@@ -159,6 +277,10 @@ function captureMachineState(myPids = []) {
     cpuCount: CPU_COUNT,
     memAvailableKb: Number.isFinite(memAvailableKb) ? memAvailableKb : null,
     thermalMaxC: Number.isFinite(thermal) ? thermal : null,
+    cpuPressureAvg10: Number.isFinite(cpuPressure10) ? cpuPressure10 : null,
+    memoryPressureAvg10: Number.isFinite(memoryPressure10) ? memoryPressure10 : null,
+    memoryPressure: memLow || (Number.isFinite(memoryPressure10) && memoryPressure10 > 1),
+    cpuFrequency: frequency,
     governor: readProc('/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor', 'unknown'),
     backgroundActivity: activity,
   };
@@ -215,9 +337,216 @@ function buildIdentity() {
   };
 }
 
+function hashDirectory(directory) {
+  const hash = createHash('sha256');
+  const visit = (path, relative = '') => {
+    for (const entry of readdirSync(path, { withFileTypes: true }).sort((a, b) =>
+      a.name.localeCompare(b.name),
+    )) {
+      const child = `${path}/${entry.name}`;
+      const childRelative = `${relative}/${entry.name}`;
+      if (entry.isDirectory()) visit(child, childRelative);
+      else {
+        hash.update(childRelative);
+        hash.update(readFileSync(child));
+      }
+    }
+  };
+  visit(directory);
+  return hash.digest('hex');
+}
+
 function fail(message) {
   console.error(`\n  production-workload: ${message}\n`);
   process.exit(1);
+}
+
+async function readChromiumGpuDiagnostics(browser) {
+  let session;
+  try {
+    session = await browser.newBrowserCDPSession();
+    const info = await session.send('SystemInfo.getInfo');
+    const gpu = info?.gpu ?? {};
+    return {
+      source: 'Chrome DevTools SystemInfo.getInfo',
+      softwareRendering: gpu.auxAttributes?.softwareRendering ?? null,
+      glVendor: gpu.auxAttributes?.glVendor ?? null,
+      glRenderer: gpu.auxAttributes?.glRenderer ?? null,
+      glVersion: gpu.auxAttributes?.glVersion ?? null,
+      featureStatus: gpu.featureStatus ?? null,
+      activeDevices: (gpu.devices ?? [])
+        .filter((device) => device.active)
+        .map(({ vendorId, deviceId, vendorString, deviceString, driverVendor, driverVersion }) => ({
+          vendorId,
+          deviceId,
+          vendorString,
+          deviceString,
+          driverVendor,
+          driverVersion,
+        })),
+      hardwareExecution: 'unknown; system GPU diagnostics do not prove this run executed there',
+    };
+  } catch (error) {
+    return {
+      source: 'unavailable',
+      error: error instanceof Error ? error.message : String(error),
+      hardwareExecution: 'unknown',
+    };
+  } finally {
+    await session?.detach().catch(() => {});
+  }
+}
+
+function rendererModeUrl(base, mode) {
+  const url = new URL('/?perf=1', base);
+  if (mode === 'canvas2d-main') url.searchParams.set('renderWorker', '0');
+  if (mode === 'canvas2d-worker') url.searchParams.set('renderWorker', '1');
+  return url.toString();
+}
+
+async function inspectRendererMode(page, mode) {
+  const offscreenProbe =
+    mode === 'canvas2d-worker'
+      ? await page.evaluate(async () => {
+          const perf = window.__varvePerf;
+          return (await perf?.probeOffscreen?.()) ?? null;
+        })
+      : null;
+  const snapshot = await page.evaluate(() => {
+    const perf = window.__varvePerf;
+    const frames = perf?.getFrames?.(120) ?? [];
+    const recent = frames.at(-1);
+    const path = perf?.renderPath?.();
+    return {
+      frames,
+      path,
+      latestPath: recent?.actualDrawingPath ?? null,
+    };
+  });
+  const paths = new Set(snapshot.frames.map((frame) => frame.actualDrawingPath).filter(Boolean));
+  let available = false;
+  let reason = null;
+  if (mode === 'canvas2d-main') {
+    available = paths.has('canvas2d-main');
+    if (!available)
+      reason = `main-thread Canvas2D was not observed (${snapshot.latestPath ?? 'no frame'})`;
+  } else if (mode === 'canvas2d-worker') {
+    available =
+      snapshot.path?.offscreenCanvasVerified === true &&
+      snapshot.path?.workerHostCreated === true &&
+      paths.has('canvas2d-worker');
+    if (!available) reason = snapshot.path?.summary ?? 'verified Canvas2D worker frame unavailable';
+  } else {
+    available = paths.has('webgl2') || paths.has('webgl2-mixed');
+    if (!available)
+      reason = `WebGL2 actual drawing path was not observed (${snapshot.latestPath ?? 'no frame'})`;
+  }
+  return {
+    requestedMode: mode,
+    available,
+    reason,
+    actualPaths: [...paths],
+    workerProbe: snapshot.path
+      ? {
+          offscreenCanvasVerified: snapshot.path.offscreenCanvasVerified,
+          workerHostCreated: snapshot.path.workerHostCreated,
+          fallbackReason: snapshot.path.fallbackReason,
+        }
+      : null,
+    offscreenProbe,
+    webgl2: {
+      contextAvailable: mode === 'webgl2' ? available : null,
+      vendor: null,
+      renderer: null,
+      hardwareExecution: 'unknown',
+      diagnosticsSource: 'native-webview diagnostics not available from Chromium screening runner',
+    },
+  };
+}
+
+async function contentCanvasDigest(page) {
+  return page.locator('canvas.editor-canvas__content-layer').evaluate(async (canvas) => {
+    if (!(canvas instanceof HTMLCanvasElement)) throw new Error('content canvas is missing');
+    const context = canvas.getContext('2d', { willReadFrequently: true });
+    if (!context) throw new Error('content canvas pixels are not readable');
+    const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+    const digest = await crypto.subtle.digest('SHA-256', pixels);
+    return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+  });
+}
+
+/**
+ * History shortcuts are captured at window level before the canvas keyboard
+ * trace handler runs, so undo is not guaranteed to create a keyboard trace.
+ * Verify restoration from the pixels themselves, then ask the independent
+ * full-redraw oracle to confirm those pixels still match the authoritative
+ * document state. The preceding drag must already have changed the digest,
+ * which prevents accepting an old baseline surface before undo commits.
+ */
+async function waitForAuthoritativeCanvasDigest(page, expectedDigest, label) {
+  const deadline = Date.now() + 5_000;
+  let lastDigest = null;
+  while (Date.now() < deadline) {
+    lastDigest = await contentCanvasDigest(page);
+    if (lastDigest === expectedDigest) {
+      const oracle = await page.evaluate(async () => window.__varvePerf?.forceFullRedraw?.());
+      if (oracle?.authoritative === true) {
+        lastDigest = await contentCanvasDigest(page);
+        if (lastDigest === expectedDigest) return;
+      }
+    }
+    await page.waitForTimeout(50);
+  }
+  throw new Error(
+    `${label} did not restore baseline pixels with an authoritative redraw within 5 seconds; last digest=${lastDigest ?? 'unavailable'}`,
+  );
+}
+
+async function readScriptResourceState(page) {
+  return page.evaluate(() => {
+    globalThis.gc?.();
+    const resources = performance
+      .getEntriesByType('resource')
+      .filter((entry) => entry.initiatorType === 'script' || /\.js(?:\?|$)/.test(entry.name))
+      .map((entry) => ({
+        resource: new URL(entry.name).pathname,
+        encodedBytes: entry.encodedBodySize || null,
+        decodedBytes: entry.decodedBodySize || null,
+        startTimeMs: entry.startTime,
+      }));
+    return {
+      heapBytes: performance.memory?.usedJSHeapSize ?? null,
+      resources,
+    };
+  });
+}
+
+function summarizeRendererFrames(frames) {
+  const counts = {};
+  for (const frame of frames) {
+    const path = frame.actualDrawingPath ?? 'unattributed';
+    counts[path] = (counts[path] ?? 0) + 1;
+  }
+  const sum = (key) => frames.reduce((total, frame) => total + (frame[key] ?? 0), 0);
+  const distributions = (key) => {
+    const values = frames
+      .map((frame) => frame[key])
+      .filter(Number.isFinite)
+      .sort((a, b) => a - b);
+    const at = (p) => values[Math.ceil((p / 100) * values.length) - 1] ?? null;
+    return { count: values.length, p50: at(50), p95: at(95), max: values.at(-1) ?? null };
+  };
+  return {
+    frameCount: frames.length,
+    actualPathCounts: counts,
+    visibleItemCount: sum('nodeCount'),
+    gpuSubmittedItems: sum('gpuSubmittedItems'),
+    fallbackCanvasItems: sum('fallbackCanvasItems'),
+    textureUploads: sum('textureUploads'),
+    gpuTextureBytesMax: Math.max(0, ...frames.map((frame) => frame.gpuTextureBytes ?? 0)),
+    gpuSubmitCpuMs: distributions('gpuSubmitCpuMs'),
+    gpuBlitCpuMs: distributions('gpuBlitCpuMs'),
+  };
 }
 
 // ── Workload drivers ────────────────────────────────────────────────────────
@@ -232,6 +561,7 @@ async function openEditorCanvas(page) {
   await page
     .waitForFunction(
       () => document.querySelector('.startup-loader')?.getAttribute('aria-busy') !== 'true',
+      undefined,
       { timeout: 30_000 },
     )
     .catch(() => {});
@@ -278,9 +608,7 @@ async function openFixtureEditor(page, fixtureId) {
   // The perf handle (and therefore the fixture applier) is installed by
   // CanvasArea on mount, so an editor page must exist first.
   await openEditorCanvas(page);
-  await page.waitForFunction(() => Boolean(window.__varvePerf), {
-    timeout: 30_000,
-  });
+  await page.waitForFunction(() => Boolean(window.__varvePerf), undefined, { timeout: 30_000 });
   const seeded = await page.evaluate(async (id) => {
     const perf = window.__varvePerf;
     if (!perf?.fixtures?.apply) return { ok: false, error: 'fixtures.apply missing' };
@@ -319,23 +647,6 @@ async function openFixtureEditor(page, fixtureId) {
  * computable; dense fixtures fall back to the viewport centre, which reliably
  * hits *something*. `--fixture-drag=x,y` overrides everything.
  */
-function fixtureDragPoint(seeded, box, gridSpacing = 140, cell = { w: 64, h: 48 }) {
-  const explicit = FIXTURE_DRAG;
-  if (explicit !== 'auto') {
-    const [x, y] = explicit.split(',').map(Number);
-    if (Number.isFinite(x) && Number.isFinite(y)) return { x: x + box.x, y: y + box.y };
-  }
-  const cx = box.x + box.width / 2;
-  const cy = box.y + box.height / 2;
-  const id = seeded?.id ?? '';
-  if (/^perf-vector-/.test(id)) {
-    const col = Math.max(0, Math.floor((cx - box.x - cell.w / 2) / gridSpacing));
-    const row = Math.max(0, Math.floor((cy - box.y - cell.h / 2) / gridSpacing));
-    return { x: box.x + col * gridSpacing + cell.w / 2, y: box.y + row * gridSpacing + cell.h / 2 };
-  }
-  return { x: cx, y: cy };
-}
-
 /**
  * Draw a seed grid, then double it `duplications` times.
  * Each duplicated batch is nudged well clear of its source. Without that the
@@ -491,10 +802,85 @@ async function resolveDragTarget(page, seedPoint) {
 }
 
 /**
+ * Wait for HandTool inertia to finish before restoring the next sample's
+ * camera. Its bounded momentum keeps issuing real camera frames after pointerup;
+ * a reset started mid-inertia races the oracle's expected state and invalidates
+ * an otherwise correct authoritative redraw.
+ */
+async function waitForCameraToSettle(page) {
+  let previous = null;
+  let stableSamples = 0;
+  for (let attempt = 0; attempt < 50; attempt++) {
+    const camera = await page.evaluate(() => {
+      const value = window.__varvePerf?.getFrames?.(1)?.at(-1)?.camera;
+      return value
+        ? { zoom: value.zoom, panX: value.panX, panY: value.panY, rotation: value.rotation }
+        : null;
+    });
+    if (!camera) throw new Error('cannot verify pan completion without a committed camera frame');
+    const identity = JSON.stringify(camera);
+    stableSamples = identity === previous ? stableSamples + 1 : 0;
+    if (stableSamples >= 2) return;
+    previous = identity;
+    await page.waitForTimeout(50);
+  }
+  throw new Error('camera inertia did not settle within 2.5 seconds');
+}
+
+async function latestInteractionTraceId(page) {
+  return page.evaluate(() => {
+    const traces = window.__varvePerf?.interactions?.getTraces?.(50) ?? [];
+    return traces.reduce((latest, trace) => Math.max(latest, trace.id ?? 0), 0);
+  });
+}
+
+async function waitForCommittedInteraction(page, kind, afterId, label) {
+  try {
+    await page.waitForFunction(
+      ({ expectedKind, minimumId }) => {
+        const traces = window.__varvePerf?.interactions?.getTraces?.(50) ?? [];
+        return traces.some(
+          (trace) =>
+            trace.id > minimumId &&
+            trace.kind === expectedKind &&
+            trace.inputToCommitMs !== null &&
+            trace.frameCount > 0,
+        );
+      },
+      { expectedKind: kind, minimumId: afterId },
+      { timeout: 5_000, polling: 'raf' },
+    );
+  } catch {
+    const recent = await page.evaluate(() => {
+      const traces = window.__varvePerf?.interactions?.getTraces?.(8) ?? [];
+      return traces.map((trace) => ({
+        id: trace.id,
+        kind: trace.kind,
+        inputToCommitMs: trace.inputToCommitMs,
+        frameCount: trace.frameCount,
+        presentationExpected: trace.presentationExpected,
+        instrumentationErrors: trace.instrumentationErrors,
+      }));
+    });
+    throw new Error(
+      `${label} interaction did not produce a causally committed frame after trace ${afterId}; recent=${JSON.stringify(recent)}`,
+    );
+  }
+}
+
+/**
  * One iteration of a named workload. Each is a real gesture, so the resulting
  * traces cover the whole path from browser event dispatch to frame commit.
  */
-async function driveWorkload(page, box, workload, iteration, dragTarget) {
+let largeBrushTipPrepared = false;
+async function driveWorkload(
+  page,
+  box,
+  workload,
+  iteration,
+  dragTarget,
+  baselineFingerprint = null,
+) {
   const cx = box.x + box.width / 2;
   const cy = box.y + box.height / 2;
   const jitter = (iteration % 5) * 3;
@@ -513,6 +899,9 @@ async function driveWorkload(page, box, workload, iteration, dragTarget) {
     'layer-visibility',
     'pan',
     'zoom',
+    'brush',
+    'brush-large-tip',
+    'eraser',
   ]);
   if (pointerWorkloads.has(workload) && !(await ensureCanvasHitTarget(page, dragTarget))) {
     throw new Error(
@@ -530,10 +919,14 @@ async function driveWorkload(page, box, workload, iteration, dragTarget) {
 
     case 'single-drag': {
       await page.keyboard.press('v');
-      // Select the known drag target, then verify the click actually hit it:
-      // an unselected drag is a marquee and measures nothing.
-      await page.mouse.click(dragTarget.x, dragTarget.y);
-      await page.waitForTimeout(80);
+      // The fixture resolver has already selected the first layer row and
+      // chosen an interior point clear of the selection handles. Clicking the
+      // canvas here could hit its floating toolbar, leaving the following
+      // gesture as the selection click rather than the measured drag.
+      if (!(await ensureCanvasHitTarget(page, dragTarget))) {
+        throw new Error('resolved drag target no longer hits the content canvas after selection');
+      }
+      const beforeDragTraceId = await latestInteractionTraceId(page);
       await page.mouse.move(dragTarget.x, dragTarget.y);
       await page.mouse.down();
       for (let i = 0; i < 20; i++) {
@@ -541,12 +934,21 @@ async function driveWorkload(page, box, workload, iteration, dragTarget) {
         await page.waitForTimeout(8);
       }
       await page.mouse.up();
-      // Return the node to its origin so iterations stay comparable.
-      await page.mouse.move(dragTarget.x + 100 + jitter, dragTarget.y + 80);
-      await page.mouse.down();
-      await page.mouse.move(dragTarget.x, dragTarget.y);
-      await page.mouse.up();
+      await waitForCommittedInteraction(page, 'pointer-drag', beforeDragTraceId, 'drag');
       await page.waitForTimeout(80);
+      if (baselineFingerprint) {
+        const movedFingerprint = await contentCanvasDigest(page);
+        if (movedFingerprint === baselineFingerprint) {
+          throw new Error('drag did not change artwork pixels; pointer missed the selected object');
+        }
+      }
+      // Undo the single drag so every iteration starts from byte-identical
+      // artwork; a hand-built inverse drag can leave fractional-pixel residue.
+      // The global history shortcut intentionally runs before canvas keyboard
+      // tracing, so verify its committed effect with the full-redraw oracle
+      // instead of waiting for a keyboard trace that may not exist.
+      await page.keyboard.press('Control+z');
+      await waitForAuthoritativeCanvasDigest(page, baselineFingerprint, 'undo');
       return;
     }
 
@@ -581,7 +983,15 @@ async function driveWorkload(page, box, workload, iteration, dragTarget) {
     }
 
     case 'pan': {
+      // Space spring-loads the Hand tool through the focused canvas handler.
+      // The fixture workflow often leaves focus on its layer row; without
+      // returning focus here the browser sends Space elsewhere and this
+      // sequence is recorded as a pointer trace that never moves the camera.
+      await page.locator('canvas.editor-canvas__content-layer').focus();
       await page.keyboard.down('Space');
+      // Avoid racing ToolManager's 150 ms spring-load guard; otherwise the
+      // drag starts on the previous tool and does not pan the camera.
+      await page.waitForTimeout(175);
       await page.mouse.move(cx, cy);
       await page.mouse.down();
       for (let i = 0; i < 20; i++) {
@@ -590,7 +1000,10 @@ async function driveWorkload(page, box, workload, iteration, dragTarget) {
       }
       await page.mouse.up();
       await page.keyboard.up('Space');
-      await page.waitForTimeout(80);
+      // HandTool keeps a short inertial tail after release. Let it finish
+      // before sampling camera stability or restoring the canonical camera.
+      await page.waitForTimeout(2_000);
+      await waitForCameraToSettle(page);
       return;
     }
 
@@ -601,6 +1014,37 @@ async function driveWorkload(page, box, workload, iteration, dragTarget) {
         await page.waitForTimeout(16);
       }
       await page.waitForTimeout(80);
+      return;
+    }
+
+    case 'brush':
+    case 'brush-large-tip':
+    case 'eraser': {
+      if (workload === 'eraser') {
+        await page.keyboard.press('e');
+      } else {
+        await page.keyboard.press('b');
+        if (workload === 'brush-large-tip' && !largeBrushTipPrepared) {
+          for (let index = 0; index < 12; index++) await page.keyboard.press(']');
+          largeBrushTipPrepared = true;
+        }
+      }
+      await page.mouse.move(cx - 120, cy + 48);
+      await page.mouse.down();
+      for (let index = 1; index <= 24; index++) {
+        const progress = index / 24;
+        await page.mouse.move(
+          cx - 120 + progress * 240,
+          cy + 48 + Math.sin(progress * Math.PI * 2) * 18,
+        );
+        await page.waitForTimeout(8);
+      }
+      await page.mouse.up();
+      await page.waitForTimeout(48);
+      // Keep every sample on the same committed scene; the measurement keeps
+      // only the pointer trace and excludes this reset keystroke.
+      await page.keyboard.press('Control+z');
+      await page.waitForTimeout(64);
       return;
     }
 
@@ -758,9 +1202,12 @@ async function driveWorkload(page, box, workload, iteration, dragTarget) {
  * the production ring's memory budget. Re-reading an existing id lets a late
  * frame commit update the same trace before the workload completes.
  */
-async function drainInteractionTraces(page, collected) {
+async function drainInteractionTraces(page, collected, workload = null) {
   const traces = await page.evaluate(() => window.__varvePerf?.interactions?.getTraces?.(50) ?? []);
   for (const trace of traces) {
+    if (['brush', 'brush-large-tip', 'eraser'].includes(workload) && trace.kind !== 'pointer') {
+      continue;
+    }
     collected.set(`${trace.sessionId ?? 'session'}:${trace.id}`, trace);
   }
 }
@@ -847,11 +1294,17 @@ let exitCode = 0;
 const partial = {
   identity: buildIdentity(),
   buildMode,
+  requestedRendererMode: RENDERER_MODE,
+  previewQuality: PREVIEW_QUALITY,
+  viewport: { width: VIEWPORT_WIDTH, height: VIEWPORT_HEIGHT, dpr: DPR },
+  browserMode: HEADLESS ? 'headless' : 'headed',
+  presentationBoundary: 'browser event-to-commit / EventTiming only; not physical presentation',
   // Recorded so a reader knows the bundle is production-mode but was emitted
   // without the workspace typecheck gate having passed.
   typecheckGateBypassed: !ALLOW_DEV,
   workloads: [],
   errors: [],
+  runtimeErrors: [],
 };
 
 function flush(reason) {
@@ -882,17 +1335,74 @@ try {
   }
 
   browser = await chromium.launch({
-    headless: true,
+    headless: HEADLESS,
     // Exposed GC is required for the forced-heap samples and is explicitly a
     // benchmark-only flag; production never runs with it.
     args: ['--js-flags=--expose-gc'],
   });
-  const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
+  partial.webglRuntimeEvidence = await readChromiumGpuDiagnostics(browser);
+  const page = await browser.newPage({
+    viewport: { width: VIEWPORT_WIDTH, height: VIEWPORT_HEIGHT },
+    deviceScaleFactor: DPR,
+  });
+  await page.addInitScript(
+    ({ mode, previewQuality }) => {
+      if (location.origin === 'null') return;
+      let current = {};
+      try {
+        current = JSON.parse(localStorage.getItem('varve-editor-settings') ?? '{}');
+      } catch {
+        current = {};
+      }
+      const render = current.render ?? {};
+      const renderer = mode === 'webgl2' ? 'webgl2' : 'canvas2d';
+      localStorage.setItem(
+        'varve-editor-settings',
+        JSON.stringify({
+          ...current,
+          render: { ...render, renderer, interactivePreview: previewQuality },
+        }),
+      );
+      localStorage.setItem('varve.renderWorker', mode === 'canvas2d-worker' ? 'on' : 'off');
+      const stats = { trusted: 0, untrusted: 0, types: {} };
+      for (const type of ['pointerdown', 'pointermove', 'pointerup', 'wheel']) {
+        addEventListener(
+          type,
+          (event) => {
+            if (event.isTrusted) stats.trusted++;
+            else stats.untrusted++;
+            stats.types[type] = (stats.types[type] ?? 0) + 1;
+          },
+          true,
+        );
+      }
+      window.__varveQualificationInput = stats;
+    },
+    { mode: RENDERER_MODE, previewQuality: PREVIEW_QUALITY },
+  );
   page.on('console', (msg) => {
-    if (msg.type() === 'error') partial.errors.push(msg.text());
+    if (msg.type() !== 'error') return;
+    const location = msg.location();
+    const message = msg.text();
+    partial.errors.push(message);
+    partial.runtimeErrors.push({
+      source: 'console',
+      message,
+      url: location.url || null,
+      lineNumber: location.lineNumber ?? null,
+      columnNumber: location.columnNumber ?? null,
+    });
+  });
+  page.on('pageerror', (error) => {
+    const message = error.stack ?? error.message;
+    partial.errors.push(message);
+    partial.runtimeErrors.push({ source: 'pageerror', message });
   });
 
-  await page.goto(`${BASE}/?perf=1`, { timeout: 60_000, waitUntil: 'domcontentloaded' });
+  await page.goto(rendererModeUrl(BASE, RENDERER_MODE), {
+    timeout: 60_000,
+    waitUntil: 'domcontentloaded',
+  });
 
   // Refuse to attribute production numbers to a bundle that is actually a dev
   // build — the check is on the artifact, not on our own intent.
@@ -905,24 +1415,50 @@ try {
   if (looksDev && !ALLOW_DEV) {
     fail('the served bundle shows development-build signals; refusing to record it as production');
   }
+  partial.homeBundleCost = await readScriptResourceState(page);
 
   // The perf handle is installed by CanvasArea on mount, so it cannot exist on
   // the home screen — the document has to be open before it is waited on.
   let box;
   let scene;
-  if (FIXTURE) {
+  if (PREFLIGHT_ONLY) {
+    // A preflight only needs the renderer mounted on a live editor canvas.
+    // Avoid fixture generation, asset materialization, and drag-target
+    // resolution so an unavailable renderer can be diagnosed cheaply. Draw
+    // one trusted rectangle so WebGL2 path attribution observes a real GPU
+    // submission instead of mistaking an empty scene for an unavailable path.
+    box = await openEditorCanvas(page);
+    if (!box) fail('the editor canvas has no visible bounds during renderer preflight');
+    await page.waitForFunction(() => Boolean(window.__varvePerf), undefined, { timeout: 30_000 });
+    await page.keyboard.press('r');
+    await page.mouse.move(box.x + 60, box.y + 60);
+    await page.mouse.down();
+    await page.mouse.move(box.x + 150, box.y + 130);
+    await page.mouse.up();
+    await page.getByRole('treeitem').first().waitFor({ state: 'visible', timeout: 15_000 });
+    await page.keyboard.press('v');
+    partial.sceneNodeCount = 1;
+    scene = {};
+  } else if (FIXTURE) {
     const opened = await openFixtureEditor(page, FIXTURE);
     box = opened.box;
-    await page.waitForFunction(() => Boolean(window.__varvePerf), {
-      timeout: 30_000,
-    });
+    await page.waitForFunction(() => Boolean(window.__varvePerf), undefined, { timeout: 30_000 });
     partial.fixture = {
       id: FIXTURE,
       documentId: opened.seeded?.id,
       nodeCount: opened.seeded?.nodeCount,
       fixtureChecksum: opened.seeded?.fixtureChecksum,
+      assets: opened.seeded?.assets ?? null,
     };
-    const seedPoint = fixtureDragPoint(opened.seeded, box);
+    const explicitDragPoint = FIXTURE_DRAG === 'auto' ? null : FIXTURE_DRAG.split(',').map(Number);
+    const camera = await page.evaluate(
+      () => window.__varvePerf?.getFrames?.(1)?.at(-1)?.camera ?? null,
+    );
+    if (!camera) fail('fixture frame did not expose a camera for its drag target');
+    const seedPoint =
+      explicitDragPoint?.length === 2 && explicitDragPoint.every(Number.isFinite)
+        ? { x: explicitDragPoint[0] + box.x, y: explicitDragPoint[1] + box.y }
+        : fixtureDragPoint(opened.seeded, box, camera);
     partial.fixtureDragPoint = seedPoint;
     const resolved = await resolveDragTarget(page, seedPoint);
     partial.fixtureDragTarget = resolved;
@@ -931,213 +1467,498 @@ try {
     console.log(`Fixture opened: ${FIXTURE} (${opened.seeded?.nodeCount} nodes)`);
   } else {
     box = await openEditorCanvas(page);
-    await page.waitForFunction(() => Boolean(window.__varvePerf), {
-      timeout: 30_000,
-    });
+    await page.waitForFunction(() => Boolean(window.__varvePerf), undefined, { timeout: 30_000 });
     partial.sceneSpread = args.get('no-spread') !== 'true';
     scene = await buildScene(page, box, DUPLICATIONS, partial.sceneSpread);
     partial.sceneNodeCount = scene.nodeCount;
     console.log(`Scene built: ${scene.nodeCount} nodes`);
   }
 
-  for (const workload of WORKLOADS) {
-    const beforeState = captureMachineState([process.pid, server?.pid]);
-    const record = {
-      workload,
-      warmupIterations: WARMUP,
-      measuredIterations: MEASURED_ATTEMPTS,
-      machineBefore: beforeState,
-      validity: classifyRun(beforeState, null, null, CPU_COUNT),
-    };
-    try {
-      // Warm-up is separated from measurement: JIT, font and shader
-      // initialisation are one-time costs and must not enter the distribution.
-      for (let i = 0; i < WARMUP; i++)
-        await driveWorkload(page, box, workload, i, scene.dragTarget);
-      // A drag settles the node's selection box with its centre at the drag
-      // point; the measured iterations re-resolve the drag target from the
-      // current box so a drag never starts on a selection handle.
-      if (FIXTURE) {
-        const settled = await resolveDragTarget(page, scene.dragTarget);
-        scene.dragTarget = settled;
-        partial.fixtureDragTarget = settled;
-      }
-
-      await page.evaluate(() => {
-        const perf = window.__varvePerf;
-        perf?.reset?.();
-        perf?.interactions?.reset?.();
-        perf?.nodeWork?.reset?.();
-      });
-
-      const collectedTraces = new Map();
-      const heapSamples = [];
-      for (let i = 0; i < MEASURED_ATTEMPTS; i++) {
-        // Re-resolve from the settled selection box right before each drag so
-        // the pointer never starts on a selection handle (a drag moves the
-        // node's centre to the click point).
-        if (FIXTURE && workload !== 'zoom') {
-          scene.dragTarget = await resolveDragTarget(page, scene.dragTarget);
+  await page.waitForTimeout(1_500);
+  partial.rendererQualification = await inspectRendererMode(page, RENDERER_MODE);
+  const editorResourceState = await readScriptResourceState(page);
+  const initialResources = new Map(
+    (partial.homeBundleCost?.resources ?? []).map((resource) => [resource.resource, resource]),
+  );
+  const addedResources = editorResourceState.resources.filter((resource) => {
+    const initial = initialResources.get(resource.resource);
+    return !initial || initial.encodedBytes !== resource.encodedBytes;
+  });
+  const navigation = await page.evaluate(() => {
+    const entry = performance.getEntriesByType('navigation')[0];
+    return entry
+      ? {
+          responseStartMs: entry.responseStart,
+          domContentLoadedMs: entry.domContentLoadedEventEnd,
+          loadMs: entry.loadEventEnd,
         }
-        await driveWorkload(page, box, workload, i, scene.dragTarget);
-        // Forced GC is a benchmark-only capability (--expose-gc) and is never
-        // available in production; sampling after it isolates retained heap
-        // from collectable garbage.
-        const heap = await page.evaluate(() => {
-          if (typeof globalThis.gc !== 'function') return null;
-          globalThis.gc();
-          return performance.memory?.usedJSHeapSize ?? null;
-        });
-        if (heap !== null) heapSamples.push(heap);
-        await drainInteractionTraces(page, collectedTraces);
-      }
-
-      // Event Timing and the final authoritative frame can arrive after the
-      // last input task. Allow the bounded browser ring to settle before the
-      // runner classifies missing evidence.
-      await page.waitForTimeout(300);
-      await drainInteractionTraces(page, collectedTraces);
-
-      const measured = await page.evaluate(() => {
-        const perf = window.__varvePerf;
-        const traces = perf?.interactions?.getTraces?.(50) ?? [];
-        const distribution = (values) => {
-          const sorted = [...values].sort((a, b) => a - b);
-          const at = (percent) => {
-            if (sorted.length === 0) return null;
-            return sorted[Math.ceil((percent / 100) * sorted.length) - 1];
-          };
-          return {
-            count: sorted.length,
-            p50: at(50),
-            p75: at(75),
-            p90: at(90),
-            p95: at(95),
-            p99: at(99),
-            max: sorted.at(-1) ?? null,
-          };
-        };
-        const spanDurations = {};
-        const traceKinds = {};
-        const frameDispositions = {};
-        const frameTotals = [];
-        let droppedSpans = 0;
-        let droppedFrames = 0;
-        for (const trace of traces) {
-          traceKinds[trace.kind] = (traceKinds[trace.kind] ?? 0) + 1;
-          droppedSpans += trace.droppedSpanCount ?? 0;
-          droppedFrames += trace.droppedFrameCount ?? 0;
-          for (const span of trace.spans ?? []) {
-            const durations = spanDurations[span.name] ?? [];
-            durations.push(span.durationMs);
-            spanDurations[span.name] = durations;
-          }
-          for (const frame of trace.frames ?? []) {
-            const disposition = frame.causalRelation ?? frame.disposition ?? 'unspecified';
-            frameDispositions[disposition] = (frameDispositions[disposition] ?? 0) + 1;
-            frameTotals.push(frame.totalMs);
-          }
-        }
-        return {
-          interactions: perf?.interactions?.summary?.() ?? null,
-          traceCount: perf?.interactions?.count?.() ?? 0,
-          interactionBreakdown: {
-            traceKinds,
-            spans: Object.fromEntries(
-              Object.entries(spanDurations).map(([name, values]) => [name, distribution(values)]),
-            ),
-            frameDispositions,
-            frameTotal: distribution(frameTotals),
-            droppedSpans,
-            droppedFrames,
-          },
-          nodeWork: perf?.nodeWork?.getSamples?.(30) ?? null,
-          frames: perf?.getFrames?.(120) ?? null,
-          workerBitmapBudget: perf?.workerBitmapBudget?.() ?? null,
-          clockCalibration: perf?.clockCalibration?.() ?? null,
-          presentation: perf?.presentation?.() ?? null,
-        };
-      });
-      const traceSummary = summarizeRunnerTraces([...collectedTraces.values()]);
-      Object.assign(record, measured, traceSummary, {
-        heapSamples,
-        status: 'ok',
-      });
-      record.machineAfter = captureMachineState([process.pid, server?.pid]);
-      const collected = [...collectedTraces.values()];
-      const evidence = performanceEvidence(
-        collected,
-        {
-          ...partial,
-          ...record,
-          fixture: partial.fixture,
-          sceneNodeCount: partial.sceneNodeCount,
-        },
-        MIN_WARM_SAMPLES,
-      );
-      record.evidence = {
-        ...evidence,
-        collectedTraceCount: collected.length,
-        requiredWarmSamples: MIN_WARM_SAMPLES,
-      };
-      const evidenceForValidity = {
-        insufficientSamples: evidence.insufficientSamples,
-        presentationUnavailable: evidence.presentationUnavailable,
-        thresholdBreaches: evidence.thresholdBreaches,
-        instrumentationError:
-          (record.interactionBreakdown?.instrumentationErrors ?? 0) > 0 ||
-          (record.interactionBreakdown?.missingPresentation ?? 0) > 0,
-      };
-      record.validity = worstValidity(
-        classifyRun(beforeState, partial.identity, null, CPU_COUNT),
-        classifyRun(record.machineAfter, partial.identity, evidenceForValidity, CPU_COUNT),
-      );
-
-      // A workload that produced no traces measured nothing; recording it as a
-      // success would be worse than recording a failure.
-      if (!collected.length) {
-        record.status = 'no-evidence';
-        record.error = 'workload completed but produced no interaction traces';
-      } else if (
-        new Set([
-          'single-drag',
-          'multi-drag',
-          'marquee-select',
-          'pan',
-          'zoom',
-          'undo-redo',
-          'resize',
-          'rotate',
-          'alt-drag',
-          'nudge',
-          'layer-visibility',
-          'canvas-resize',
-        ]).has(workload) &&
-        (record.interactionBreakdown?.missingPresentation ?? 0) > 0
-      ) {
-        record.status = 'instrumentation-error';
-        record.error = `${record.interactionBreakdown.missingPresentation} interaction trace(s) had no presented frame`;
-      }
-      if (record.validity !== 'valid' || record.status !== 'ok') exitCode = 1;
-    } catch (error) {
-      // One failed workload must not lose the others.
-      record.status = 'failed';
-      record.error = error instanceof Error ? error.message : String(error);
-    }
-    partial.workloads.push(record);
-    const inputToCommit = record.interactions?.inputToCommit;
-    const inputToCommitP95 = inputToCommit?.count
-      ? `${inputToCommit.p95.toFixed(1)}ms (${inputToCommit.count} samples)`
-      : 'n/a (0 samples)';
-    const summary = record.interactions
-      ? `commit p95 ${inputToCommitP95}, ${record.traceCount} traces`
-      : '';
-    console.log(`  ${workload}: ${record.status}${summary}`);
+      : null;
+  });
+  partial.startupAndBundleCost = {
+    startup: navigation,
+    homeHeapBytes: partial.homeBundleCost?.heapBytes ?? null,
+    editorOpenHeapBytes: editorResourceState.heapBytes,
+    homeScriptEncodedBytes: (partial.homeBundleCost?.resources ?? []).reduce(
+      (sum, resource) => sum + (resource.encodedBytes ?? 0),
+      0,
+    ),
+    editorAddedScriptEncodedBytes: addedResources.reduce(
+      (sum, resource) => sum + (resource.encodedBytes ?? 0),
+      0,
+    ),
+    editorAddedScriptDecodedBytes: addedResources.reduce(
+      (sum, resource) => sum + (resource.decodedBytes ?? 0),
+      0,
+    ),
+    likelyRendererChunks: addedResources.filter((resource) =>
+      /webgl|compositor/i.test(resource.resource),
+    ),
+    addedResources,
+  };
+  partial.sourceArtifact = {
+    commit: partial.identity.commit,
+    dirty: partial.identity.dirty,
+    appBundleSha256: existsSync(DIST) ? hashDirectory(DIST) : null,
+    host: 'chromium-browser',
+  };
+  partial.environment = await page.evaluate(
+    (webglEvidence) => ({
+      userAgent: navigator.userAgent,
+      dpr: window.devicePixelRatio,
+      theme:
+        document.documentElement.dataset.theme ??
+        document.body.dataset.theme ??
+        getComputedStyle(document.documentElement).colorScheme,
+      trustedInputDriver: 'Playwright CDP browser input',
+      webglHardwareExecution: webglEvidence?.hardwareExecution ?? 'unknown',
+      navigation: (() => {
+        const nav = performance.getEntriesByType('navigation')[0];
+        return nav
+          ? {
+              responseStartMs: nav.responseStart,
+              domContentLoadedMs: nav.domContentLoadedEventEnd,
+              loadMs: nav.loadEventEnd,
+            }
+          : null;
+      })(),
+      scriptResources: performance
+        .getEntriesByType('resource')
+        .filter((entry) => entry.initiatorType === 'script' || /\.js(?:\?|$)/.test(entry.name))
+        .map((entry) => ({
+          resource: new URL(entry.name).pathname,
+          encodedBytes: entry.encodedBodySize || null,
+          decodedBytes: entry.decodedBodySize || null,
+        })),
+    }),
+    partial.webglRuntimeEvidence,
+  );
+  const rendererAvailable = partial.rendererQualification.available;
+  partial.modeStatus = rendererAvailable ? 'available' : 'unavailable';
+  if (!rendererAvailable) {
+    partial.modeUnavailableReason = partial.rendererQualification.reason;
+    exitCode = 0;
   }
 
-  flush('completed');
+  if (PREFLIGHT_ONLY) partial.preflightOnly = true;
+
+  if (!PREFLIGHT_ONLY) {
+    const baselineCamera = rendererAvailable
+      ? await page.evaluate(() => {
+          const frame = window.__varvePerf?.getFrames?.(1)?.at(-1);
+          return frame?.camera
+            ? {
+                zoom: frame.camera.zoom,
+                pan: { x: frame.camera.panX, y: frame.camera.panY },
+                rotation: frame.camera.rotation,
+              }
+            : null;
+        })
+      : null;
+    partial.baselineCamera = baselineCamera;
+    if (rendererAvailable && !baselineCamera)
+      fail('renderer frame did not expose a baseline camera');
+    const restoreBaselineCamera = async () => {
+      const cameraSet = await page.evaluate((camera) => {
+        const perf = window.__varvePerf;
+        const frameCamera = perf?.getFrames?.(1)?.at(-1)?.camera;
+        const alreadyAtBaseline = Boolean(
+          frameCamera &&
+            frameCamera.zoom === camera.zoom &&
+            frameCamera.panX === camera.pan.x &&
+            frameCamera.panY === camera.pan.y &&
+            frameCamera.rotation === (camera.rotation ?? 0),
+        );
+        if (alreadyAtBaseline) return true;
+        return perf?.camera?.setState?.(camera) === true;
+      }, baselineCamera);
+      if (!cameraSet) throw new Error('cannot reset the benchmark camera through the perf handle');
+      await page.waitForFunction(
+        (camera) => {
+          const frame = window.__varvePerf?.getFrames?.(1)?.at(-1);
+          return Boolean(
+            frame?.camera &&
+              frame.camera.zoom === camera.zoom &&
+              frame.camera.panX === camera.pan.x &&
+              frame.camera.panY === camera.pan.y &&
+              frame.camera.rotation === (camera.rotation ?? 0),
+          );
+        },
+        baselineCamera,
+        { timeout: 3_000, polling: 'raf' },
+      );
+      const oracle = await page.evaluate(async () => window.__varvePerf?.forceFullRedraw?.());
+      if (oracle?.authoritative !== true)
+        throw new Error('camera reset did not produce an authoritative full redraw');
+    };
+    let baselineSceneFingerprint = null;
+    if (rendererAvailable) {
+      await restoreBaselineCamera();
+      baselineSceneFingerprint = await contentCanvasDigest(page);
+    }
+    partial.scenePixelsSha256 = baselineSceneFingerprint;
+    if (SNAPSHOT) {
+      const snapshotPath = pathResolve(SNAPSHOT);
+      mkdirSync(pathDirname(snapshotPath), { recursive: true });
+      const snapshot = await page.locator('canvas.editor-canvas__content-layer').screenshot({
+        path: snapshotPath,
+        animations: 'disabled',
+      });
+      partial.scenePngSha256 = createHash('sha256').update(snapshot).digest('hex');
+      partial.scenePngPath = snapshotPath;
+    }
+
+    for (const workload of rendererAvailable ? WORKLOADS : []) {
+      const browserPid = browser?.process?.()?.pid;
+      const beforeState = captureMachineState([process.pid, server?.pid, browserPid]);
+      const record = {
+        workload,
+        previewQuality: PREVIEW_QUALITY,
+        warmupIterations: WARMUP,
+        measuredIterations: MEASURED_ATTEMPTS,
+        machineBefore: beforeState,
+        validity: classifyRun(beforeState, null, null, CPU_COUNT),
+      };
+      let coldFirstStroke = null;
+      try {
+        if (['brush', 'brush-large-tip', 'eraser'].includes(workload)) {
+          await restoreBaselineCamera();
+          await driveWorkload(page, box, workload, -1, scene.dragTarget);
+          await restoreBaselineCamera();
+          if ((await contentCanvasDigest(page)) !== baselineSceneFingerprint) {
+            throw new Error('cold first stroke did not restore the fixture scene and camera');
+          }
+          await page.waitForTimeout(300);
+          const coldTraces = new Map();
+          await drainInteractionTraces(page, coldTraces, workload);
+          coldFirstStroke =
+            [...coldTraces.values()].find((trace) => trace.kind === 'pointer') ?? null;
+          await page.evaluate(() => window.__varvePerf?.interactions?.reset?.());
+        }
+        // Warm-up is separated from measurement: JIT, font and shader
+        // initialisation are one-time costs and must not enter the distribution.
+        for (let i = 0; i < WARMUP; i++) {
+          await restoreBaselineCamera();
+          await driveWorkload(
+            page,
+            box,
+            workload,
+            i,
+            scene.dragTarget,
+            workload === 'single-drag' ? baselineSceneFingerprint : null,
+          );
+        }
+        // A drag settles the node's selection box with its centre at the drag
+        // point; the measured iterations re-resolve the drag target from the
+        // current box so a drag never starts on a selection handle.
+        if (FIXTURE) {
+          const settled = await resolveDragTarget(page, scene.dragTarget);
+          scene.dragTarget = settled;
+          partial.fixtureDragTarget = settled;
+        }
+        await restoreBaselineCamera();
+        if ((await contentCanvasDigest(page)) !== baselineSceneFingerprint) {
+          throw new Error('warm-up did not restore the fixture scene and camera');
+        }
+
+        await page.evaluate(() => {
+          const perf = window.__varvePerf;
+          perf?.reset?.();
+          perf?.interactions?.reset?.();
+          perf?.nodeWork?.reset?.();
+        });
+        const measurementSeedOracle = await page.evaluate(async () =>
+          window.__varvePerf?.forceFullRedraw?.(),
+        );
+        if (measurementSeedOracle?.authoritative !== true) {
+          throw new Error('measurement baseline did not produce an authoritative full redraw');
+        }
+        await page.evaluate(() => window.__varvePerf?.nodeWork?.reset?.());
+
+        const inputCountsAtStart = await page.evaluate(() => ({
+          trusted: window.__varveQualificationInput?.trusted ?? 0,
+          untrusted: window.__varveQualificationInput?.untrusted ?? 0,
+        }));
+
+        const collectedTraces = new Map();
+        const heapSamples = [];
+        for (let i = 0; i < MEASURED_ATTEMPTS; i++) {
+          // Re-resolve from the settled selection box right before each drag so
+          // the pointer never starts on a selection handle (a drag moves the
+          // node's centre to the click point).
+          if (FIXTURE && workload !== 'zoom') {
+            scene.dragTarget = await resolveDragTarget(page, scene.dragTarget);
+          }
+          await driveWorkload(
+            page,
+            box,
+            workload,
+            i,
+            scene.dragTarget,
+            workload === 'single-drag' ? baselineSceneFingerprint : null,
+          );
+          await restoreBaselineCamera();
+          if ((await contentCanvasDigest(page)) !== baselineSceneFingerprint) {
+            throw new Error(`gesture ${i} did not restore the original scene/camera`);
+          }
+          // Forced GC is a benchmark-only capability (--expose-gc) and is never
+          // available in production; sampling after it isolates retained heap
+          // from collectable garbage.
+          const heap = await page.evaluate(() => {
+            if (typeof globalThis.gc !== 'function') return null;
+            globalThis.gc();
+            return performance.memory?.usedJSHeapSize ?? null;
+          });
+          if (heap !== null) heapSamples.push(heap);
+          await drainInteractionTraces(page, collectedTraces, workload);
+        }
+
+        // Event Timing and the final authoritative frame can arrive after the
+        // last input task. Allow the bounded browser ring to settle before the
+        // runner classifies missing evidence.
+        await page.waitForTimeout(300);
+        await drainInteractionTraces(page, collectedTraces, workload);
+
+        const measured = await page.evaluate(() => {
+          const perf = window.__varvePerf;
+          const traces = perf?.interactions?.getTraces?.(50) ?? [];
+          const distribution = (values) => {
+            const sorted = [...values].sort((a, b) => a - b);
+            const at = (percent) => {
+              if (sorted.length === 0) return null;
+              return sorted[Math.ceil((percent / 100) * sorted.length) - 1];
+            };
+            return {
+              count: sorted.length,
+              p50: at(50),
+              p75: at(75),
+              p90: at(90),
+              p95: at(95),
+              p99: at(99),
+              max: sorted.at(-1) ?? null,
+            };
+          };
+          const spanDurations = {};
+          const traceKinds = {};
+          const frameDispositions = {};
+          const frameTotals = [];
+          let droppedSpans = 0;
+          let droppedFrames = 0;
+          for (const trace of traces) {
+            traceKinds[trace.kind] = (traceKinds[trace.kind] ?? 0) + 1;
+            droppedSpans += trace.droppedSpanCount ?? 0;
+            droppedFrames += trace.droppedFrameCount ?? 0;
+            for (const span of trace.spans ?? []) {
+              const durations = spanDurations[span.name] ?? [];
+              durations.push(span.durationMs);
+              spanDurations[span.name] = durations;
+            }
+            for (const frame of trace.frames ?? []) {
+              const disposition = frame.causalRelation ?? frame.disposition ?? 'unspecified';
+              frameDispositions[disposition] = (frameDispositions[disposition] ?? 0) + 1;
+              frameTotals.push(frame.totalMs);
+            }
+          }
+          return {
+            interactions: perf?.interactions?.summary?.() ?? null,
+            traceCount: perf?.interactions?.count?.() ?? 0,
+            interactionBreakdown: {
+              traceKinds,
+              spans: Object.fromEntries(
+                Object.entries(spanDurations).map(([name, values]) => [name, distribution(values)]),
+              ),
+              frameDispositions,
+              frameTotal: distribution(frameTotals),
+              droppedSpans,
+              droppedFrames,
+            },
+            nodeWork: perf?.nodeWork?.getSamples?.(30) ?? null,
+            frames: perf?.getFrames?.(120) ?? null,
+            workerBitmapBudget: perf?.workerBitmapBudget?.() ?? null,
+            clockCalibration: perf?.clockCalibration?.() ?? null,
+            presentation: perf?.presentation?.() ?? null,
+            rendererQualification: {
+              requested: perf?.getFrames?.(1)?.at(-1)?.requestedRenderer ?? null,
+              actual: perf?.getFrames?.(120)?.at(-1)?.actualDrawingPath ?? null,
+            },
+            trustedInput: window.__varveQualificationInput ?? null,
+          };
+        });
+        measured.rendererQualification.frameSummary = summarizeRendererFrames(
+          measured.frames ?? [],
+        );
+        measured.trustedInput = {
+          ...measured.trustedInput,
+          measuredTrusted: (measured.trustedInput?.trusted ?? 0) - inputCountsAtStart.trusted,
+          measuredUntrusted: (measured.trustedInput?.untrusted ?? 0) - inputCountsAtStart.untrusted,
+        };
+        const allCollectedTraces = [...collectedTraces.values()];
+        const expectedTraceKinds = MEASUREMENT_TRACE_KINDS[workload] ?? null;
+        const measuredTraces = expectedTraceKinds
+          ? allCollectedTraces.filter((trace) => expectedTraceKinds.includes(trace.kind))
+          : allCollectedTraces;
+        const measuredTraceKeys = new Set(
+          measuredTraces.map((trace) => `${trace.sessionId ?? 'session'}:${trace.id}`),
+        );
+        const traceSummary = summarizeRunnerTraces(measuredTraces);
+        Object.assign(record, measured, traceSummary, {
+          allTraceCount: allCollectedTraces.length,
+          measurementTraceKinds: expectedTraceKinds ?? ['all-observed'],
+          heapSamples,
+          coldFirstStroke,
+          status: 'ok',
+          scenePixelsSha256: baselineSceneFingerprint,
+          rawSamples: allCollectedTraces.map((trace) => ({
+            id: trace.id,
+            sessionId: trace.sessionId,
+            kind: trace.kind,
+            measurementSelected: measuredTraceKeys.has(
+              `${trace.sessionId ?? 'session'}:${trace.id}`,
+            ),
+            inputToCommitMs: trace.inputToCommitMs ?? null,
+            inputToNextPaintMs: trace.inputToNextPaintMs ?? null,
+            timestampSource: trace.timestampSource ?? null,
+            presentationEvidence: trace.presentationEvidence ?? null,
+            initialQueueDelayMs: trace.initialQueueDelayMs ?? null,
+            spans: (trace.spans ?? []).map((span) => ({
+              name: span.name,
+              durationMs: span.durationMs,
+              queueDelayMs: span.attributes?.queueDelayMs ?? null,
+              eventSequenceId: span.attributes?.eventSequenceId ?? null,
+            })),
+          })),
+        });
+        const pathCounts = record.rendererQualification?.frameSummary?.actualPathCounts ?? {};
+        const expectedPaths =
+          RENDERER_MODE === 'webgl2'
+            ? ['webgl2', 'webgl2-mixed']
+            : RENDERER_MODE === 'canvas2d-worker'
+              ? ['canvas2d-worker']
+              : ['canvas2d-main'];
+        record.rendererModeVerified = expectedPaths.some((path) => (pathCounts[path] ?? 0) > 0);
+        if (!record.rendererModeVerified) {
+          record.status = 'renderer-path-lost';
+          record.error = `measured frames did not use requested mode ${RENDERER_MODE}`;
+        }
+        record.machineAfter = captureMachineState([process.pid, server?.pid, browserPid]);
+        const evidence = performanceEvidence(
+          measuredTraces,
+          {
+            ...partial,
+            ...record,
+            fixture: partial.fixture,
+            sceneNodeCount: partial.sceneNodeCount,
+          },
+          MIN_WARM_SAMPLES,
+        );
+        record.evidence = {
+          ...evidence,
+          collectedTraceCount: measuredTraces.length,
+          allCollectedTraceCount: allCollectedTraces.length,
+          requiredWarmSamples: MIN_WARM_SAMPLES,
+        };
+        record.performanceOutcome = evidence.performanceOutcome;
+        record.promotionEligible = evidence.promotionEligible;
+        record.promotionBlockers = evidence.promotionBlockers;
+        record.runtimeErrors = [...partial.runtimeErrors];
+        const reportedRenderer = String(partial.webglRuntimeEvidence?.glRenderer ?? '');
+        const softwareRenderer =
+          partial.webglRuntimeEvidence?.softwareRendering === true ||
+          /(swiftshader|llvmpipe|lavapipe|softpipe|swrast|software raster)/i.test(reportedRenderer);
+        record.rendererExecution = {
+          reportedRenderer: reportedRenderer || null,
+          hardwareExecution: 'unknown',
+          compatibilityOnly: softwareRenderer,
+        };
+        const evidenceForValidity = {
+          insufficientSamples: evidence.insufficientSamples,
+          presentationUnavailable: evidence.presentationUnavailable,
+          thresholdBreaches: evidence.thresholdBreaches,
+          softwareRenderer,
+          instrumentationError:
+            partial.runtimeErrors.length > 0 ||
+            (record.interactionBreakdown?.instrumentationErrors ?? 0) > 0 ||
+            (record.interactionBreakdown?.missingPresentation ?? 0) > 0,
+        };
+        record.validity = worstValidity(
+          classifyRun(beforeState, partial.identity, null, CPU_COUNT),
+          classifyRun(record.machineAfter, partial.identity, evidenceForValidity, CPU_COUNT),
+        );
+        if (softwareRenderer) record.validity = worstValidity(record.validity, 'software_renderer');
+        if ((record.trustedInput?.measuredUntrusted ?? 0) > 0) {
+          record.validity = worstValidity(record.validity, 'instrumentation_error');
+        }
+        if (!record.rendererModeVerified) {
+          record.validity = worstValidity(record.validity, 'instrumentation_error');
+        }
+        if (record.runtimeErrors.length > 0) {
+          record.status = 'runtime-error';
+          record.error = `benchmark page emitted ${record.runtimeErrors.length} console or page error(s)`;
+          record.performanceOutcome = 'invalid-run';
+          record.promotionEligible = false;
+          record.promotionBlockers = [
+            ...new Set([...(record.promotionBlockers ?? []), 'runtime-errors']),
+          ];
+        }
+
+        // Measurement availability and measured performance are separate:
+        // valid slow traces remain usable for choosing a baseline target.
+        const traceFailure = measuredTraceFailure(
+          workload,
+          measuredTraces.length,
+          record.interactionBreakdown?.missingPresentation ?? 0,
+        );
+        if (traceFailure) {
+          record.status = traceFailure.status;
+          record.error = traceFailure.error;
+        }
+        if (record.validity !== 'valid' || record.status !== 'ok') exitCode = 1;
+      } catch (error) {
+        // One failed workload must not lose the others.
+        record.status = 'failed';
+        record.error = error instanceof Error ? error.message : String(error);
+      }
+      partial.workloads.push(record);
+      const inputToCommit = record.interactions?.inputToCommit;
+      const inputToCommitP95 = inputToCommit?.count
+        ? `${inputToCommit.p95.toFixed(1)}ms (${inputToCommit.count} samples)`
+        : 'n/a (0 samples)';
+      const summary = record.interactions
+        ? `commit p95 ${inputToCommitP95}, ${record.traceCount} traces`
+        : '';
+      console.log(`  ${workload}: ${record.status}${summary}`);
+    }
+  }
+  const terminationReason = PREFLIGHT_ONLY
+    ? rendererAvailable
+      ? 'preflight completed'
+      : 'requested renderer unavailable'
+    : rendererAvailable
+      ? 'completed'
+      : 'requested renderer unavailable';
+  flush(terminationReason);
 } catch (error) {
   partial.errors.push(error instanceof Error ? error.message : String(error));
+  partial.errorStack = error instanceof Error ? (error.stack ?? null) : null;
   flush('aborted');
   exitCode = 1;
 } finally {
