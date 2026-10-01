@@ -661,7 +661,7 @@ describe('assessNodeCapability', () => {
   });
 
   describe('pattern fills', () => {
-    it('SVG rejects pattern fills', () => {
+    it('SVG keeps inline tiles on the raster fallback', () => {
       const node = makeShapeNode(
         's1',
         { kind: 'rect' },
@@ -679,6 +679,70 @@ describe('assessNodeCapability', () => {
       );
       const doc = makeDoc({ s1: node });
       expect(assessNodeCapability(node, doc, 'svg')).toBe(false);
+    });
+
+    it('SVG preserves a supported linked pattern as a native paint server', () => {
+      const definition = {
+        id: 'pattern-dots',
+        name: 'Dots',
+        revision: 1,
+        cell: { x: 0, y: 0, width: 8, height: 8 },
+        repeat: {
+          arrangement: 'grid',
+          gapX: 0,
+          gapY: 0,
+          rowShift: 0,
+          columnShift: 0,
+          mirrorX: false,
+          mirrorY: false,
+          originX: 0,
+          originY: 0,
+        },
+        source: {
+          kind: 'raster',
+          assetId: 'asset-dots',
+          width: 8,
+          height: 8,
+        },
+        previewSrc: 'data:image/png;base64,AA==',
+      } as const;
+      const node = makeShapeNode(
+        's1',
+        { kind: 'rect' },
+        {
+          fills: [
+            {
+              type: 'pattern',
+              visible: true,
+              pattern: {
+                tileSrc: definition.previewSrc,
+                definitionId: definition.id,
+                spacing: 0,
+                rotation: 0,
+                imageWidth: 8,
+                imageHeight: 8,
+              },
+              opacity: 1,
+              blendMode: 'normal',
+            },
+          ] as any,
+        },
+      );
+      const doc = {
+        ...makeDoc({ s1: node }),
+        patternDefinitions: { [definition.id]: definition },
+        assets: {
+          'asset-dots': {
+            id: 'asset-dots',
+            kind: 'image',
+            mimeType: 'image/png',
+            dataUrl: definition.previewSrc,
+            name: 'dots.png',
+          },
+        },
+      } as any;
+
+      expect(assessNodeCapability(node, doc, 'svg')).toBe(true);
     });
 
     it('PDF supports pattern fills', () => {

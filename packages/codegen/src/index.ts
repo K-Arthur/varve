@@ -15,11 +15,13 @@ import { buildPerspectiveImageSvg } from './perspectiveSvg';
 import { nodeEffectiveTransform, svgCompositing } from './shared';
 import {
   collectPathTextDefs,
+  collectSvgPatternDefs,
   imageContentTransform,
   imagePlacementForShape,
   pathTextSvgContent,
   pathTextSvgDef,
   pathTextSvgId,
+  svgPatternFillForNode,
   svgRect,
 } from './svg';
 import { exportShapeOf } from './warpBake';
@@ -102,7 +104,7 @@ export { runRasterAudit } from './raster-audit';
 export * from './shared';
 export * from './spec';
 export { exportNodeToSvelte, type SvelteExportOptions, svelteTargetGaps } from './svelte';
-export { exportNodeToSvg, svgTargetGaps } from './svg';
+export { exportNodeToSvg, svgPatternFillForNode, svgTargetGaps } from './svg';
 export { exportNodeToSwiftUI, swiftuiTargetGaps } from './swiftui';
 export {
   exportIrNodeToTailwind,
@@ -700,7 +702,15 @@ function nodeToSvg(
   if (!options.includeHidden && !node.visible) return '';
   const precision = options.precision ?? 3;
   const indent = options.minify ? '' : '  '.repeat(depth);
-  const fill = rgba(node.fill);
+  const pattern = node.kind === 'shape' ? svgPatternFillForNode(node, doc) : undefined;
+  const fill = pattern?.supported ? `url(#${pattern.id})` : rgba(node.fill);
+  const fillOpacity =
+    pattern?.supported && pattern.opacity < 1
+      ? ` fill-opacity="${Number(pattern.opacity.toPrecision(12)).toString()}"`
+      : '';
+  const patternWarning = pattern?.warning
+    ? `<!-- varve: SVG pattern export skipped: ${escapeXml(pattern.warning)} -->${options.minify ? '' : '\n'}${indent}`
+    : '';
   const transform = affineToSvg(nodeEffectiveTransform(node));
   const compositing = svgCompositing(node, node.kind === 'frame' || node.kind === 'group');
   const compositingAttrs = [
@@ -761,7 +771,7 @@ function nodeToSvg(
             `${indent}    <image href="${href}" ${svgRect(placement.drawRect)} preserveAspectRatio="none" />`;
           const outerMaskAttr = maskUri ? ` ${maskAttr}="${maskUri}"` : '';
           const nl = options.minify ? '' : '\n';
-          return [
+          const rendered = [
             `${indent}<g transform="${transform}"${outerMaskAttr}${compositingSuffix}>`,
             `${indent}  <clipPath id="${clipId}" clipPathUnits="userSpaceOnUse"><${svgElementForShape(s)} /></clipPath>`,
             cropDef.trimEnd(),
@@ -774,41 +784,43 @@ function nodeToSvg(
           ]
             .filter(Boolean)
             .join(nl);
+          return patternWarning ? `${patternWarning}${rendered}` : rendered;
         }
       }
       let tag: string;
       switch (s.kind) {
         case 'rect':
-          tag = `${indent}<rect x="${fmtNum(s.x, precision)}" y="${fmtNum(s.y, precision)}" width="${fmtNum(s.w, precision)}" height="${fmtNum(s.h, precision)}" fill="${fill}" transform="${transform}"${compositingSuffix} />`;
+          tag = `${indent}<rect x="${fmtNum(s.x, precision)}" y="${fmtNum(s.y, precision)}" width="${fmtNum(s.w, precision)}" height="${fmtNum(s.h, precision)}" fill="${fill}"${fillOpacity} transform="${transform}"${compositingSuffix} />`;
           break;
         case 'ellipse':
-          tag = `${indent}<ellipse cx="${fmtNum(s.cx, precision)}" cy="${fmtNum(s.cy, precision)}" rx="${fmtNum(s.rx, precision)}" ry="${fmtNum(s.ry, precision)}" fill="${fill}" transform="${transform}"${compositingSuffix} />`;
+          tag = `${indent}<ellipse cx="${fmtNum(s.cx, precision)}" cy="${fmtNum(s.cy, precision)}" rx="${fmtNum(s.rx, precision)}" ry="${fmtNum(s.ry, precision)}" fill="${fill}"${fillOpacity} transform="${transform}"${compositingSuffix} />`;
           break;
         case 'circle':
-          tag = `${indent}<circle cx="${fmtNum(s.cx, precision)}" cy="${fmtNum(s.cy, precision)}" r="${fmtNum(s.r, precision)}" fill="${fill}" transform="${transform}"${compositingSuffix} />`;
+          tag = `${indent}<circle cx="${fmtNum(s.cx, precision)}" cy="${fmtNum(s.cy, precision)}" r="${fmtNum(s.r, precision)}" fill="${fill}"${fillOpacity} transform="${transform}"${compositingSuffix} />`;
           break;
         case 'line':
           tag = `${indent}<line x1="${fmtNum(s.from[0], precision)}" y1="${fmtNum(s.from[1], precision)}" x2="${fmtNum(s.to[0], precision)}" y2="${fmtNum(s.to[1], precision)}" stroke="${fill}" stroke-width="${fmtNum(s.tolerance * 2, precision)}" stroke-linecap="round" transform="${transform}"${compositingSuffix} />`;
           break;
         case 'polygon':
-          tag = `${indent}<polygon points="${shapeVerticesToPoints(s, precision)}" fill="${fill}" transform="${transform}"${compositingSuffix} />`;
+          tag = `${indent}<polygon points="${shapeVerticesToPoints(s, precision)}" fill="${fill}"${fillOpacity} transform="${transform}"${compositingSuffix} />`;
           break;
         case 'star':
-          tag = `${indent}<polygon points="${shapeVerticesToPoints(s, precision)}" fill="${fill}" transform="${transform}"${compositingSuffix} />`;
+          tag = `${indent}<polygon points="${shapeVerticesToPoints(s, precision)}" fill="${fill}"${fillOpacity} transform="${transform}"${compositingSuffix} />`;
           break;
         case 'path': {
           const fillRule = s.fillRule ?? (s.holes && s.holes.length > 0 ? 'evenodd' : undefined);
           const fillRuleAttr = fillRule ? ` fill-rule="${fillRule}"` : '';
-          tag = `${indent}<path d="${shapePathToData(s, precision)}" fill="${fill}"${fillRuleAttr} transform="${transform}"${compositingSuffix} />`;
+          tag = `${indent}<path d="${shapePathToData(s, precision)}" fill="${fill}"${fillOpacity}${fillRuleAttr} transform="${transform}"${compositingSuffix} />`;
           break;
         }
         default:
           tag = `${indent}<!-- unsupported shape: ${s.kind} -->`;
       }
+      const warnedTag = patternWarning ? `${patternWarning}${tag}` : tag;
       if (maskUri) {
-        return `${indent}<g ${maskAttr}="${maskUri}" transform="${transform}">\n${tag}\n${indent}</g>`;
+        return `${indent}<g ${maskAttr}="${maskUri}" transform="${transform}">\n${warnedTag}\n${indent}</g>`;
       }
-      return tag;
+      return warnedTag;
     }
     case 'text': {
       const pathDef = pathTextSvgDef(node, doc, indent);
@@ -898,10 +910,13 @@ export function exportDocumentToSvgAdvanced(
     if (!id) return true;
     return all.findIndex((candidate) => candidate.match(/\bid="([^"]+)"/)?.[1] === id) === index;
   });
+  const rootNodes = visibleRootIds
+    .map((id) => doc.nodes[id])
+    .filter((node): node is SceneNode => Boolean(node));
+  const patternDefs = collectSvgPatternDefs(rootNodes, doc);
+  const allDefs = [...maskDefs, ...uniquePathTextDefs, ...patternDefs];
   const defsSection =
-    maskDefs.length > 0 || uniquePathTextDefs.length > 0
-      ? `  <defs>${nl}${[...maskDefs, ...uniquePathTextDefs].join(nl)}${nl}  </defs>${nl}`
-      : '';
+    allDefs.length > 0 ? `  <defs>${nl}${allDefs.join(nl)}${nl}  </defs>${nl}` : '';
 
   const children = visibleRootIds
     .map((id: NodeId) => {

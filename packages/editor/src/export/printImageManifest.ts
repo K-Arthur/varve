@@ -1,13 +1,10 @@
 /**
  * Print image manifest — decoded image pixels for the Rust print pipeline.
  *
- * `varve-print` embeds an image fill only when an `ExportManifest` resolves
- * its `src`; without one, `render_fills` substitutes a 16×16 checkerboard
- * placeholder (see `crates/varve-print/src/lib.rs`). The desktop PDF
- * raster-fallback (`export_node_pdf`) and the PDF/X commands all accept a
- * `manifest_json` argument, but nothing ever built one — so every image
- * reaching those routes would silently export a checkerboard. This module is
- * the single builder.
+ * `varve-print` embeds image and pattern fills only when an `ExportManifest`
+ * resolves their source. This module builds that manifest for the desktop
+ * PDF raster-fallback (`export_node_pdf`) and PDF/X routes. Missing pattern
+ * sources are omitted with a PDF warning; they are not replaced by artwork.
  *
  * Contract (mirrors `resources::ImageResource`, which has no serde rename):
  * - `data`: raw **RGBA** bytes, base64 standard alphabet with padding. The
@@ -15,9 +12,9 @@
  *   IPC payload at ~4/3 of the pixel bytes instead of ~4x.
  * - `color_space`: `'Rgb'` — un-premultiplied sRGB straight from canvas
  *   readback (alpha is extracted into a PDF SMask by the Rust side).
- *   Press CMYK conversion of image pixels is NOT implemented in this path;
- *   PDF/X-1a therefore still receives RGB images (documented boundary —
- *   strictly better than the checkerboard placeholder it replaced).
+ *   Press CMYK conversion of image-fill pixels is NOT implemented in this
+ *   path. Pattern tiles are converted by the Rust PDF/X-1a renderer when the
+ *   repeat can be represented there; transparency is explicitly unsupported.
  * - Bounded: total decoded bytes are capped so a huge page fails with an
  *   actionable error instead of exhausting memory on 4 GB-class devices.
  */
@@ -107,9 +104,9 @@ async function readRgbaFromSource(src: string): Promise<RgbaEntry> {
 }
 
 /**
- * Build the manifest JSON for a set of image-fill sources (scene/engine
- * `fill.src` values). Deduplicates sources; returns `undefined` when the set
- * is empty so callers can omit the IPC argument entirely.
+ * Build the manifest JSON for image and pattern tile sources. Pattern tile
+ * bytes ride in the ordinary image list with their original `src`, allowing
+ * Rust to resolve the exact fill resource without a second ID namespace.
  */
 export async function buildPrintImageManifestForSrcs(
   srcs: readonly string[],
@@ -156,14 +153,12 @@ export async function buildPrintImageManifestFromPngBlob(
 }
 
 /**
- * Collect `src` values of every visible image fill in an engine-flat
+ * Collect `src` values of every visible image fill and pattern tile in an engine-flat
  * subtree (the shape `flattenSceneToEngine` returns). Both fill shapes are
  * accepted: the wire/scene shape nests the payload (`fill.image.src`, which
  * is exactly what `varve-bridge` reads for `FillIR::Image.src`) and the
- * flattened engine IR carries `fill.src` directly. Pattern tiles are
- * intentionally excluded: they need `PatternResource` entries this builder
- * does not produce, and the print pipeline falls back to a grey tile with an
- * explicit warning comment rather than a silent placeholder.
+ * flattened engine IR carries `fill.src` directly. Pattern tiles resolve from
+ * either `fill.pattern.tileSrc` or the flat engine `fill.tileSrc` field.
  */
 export function collectImageFillSrcs(
   nodes: readonly {
@@ -172,14 +167,21 @@ export function collectImageFillSrcs(
       visible?: boolean;
       src?: string;
       image?: { src?: string };
+      pattern?: { tileSrc?: string };
+      tileSrc?: string;
     }[];
   }[],
 ): string[] {
   const srcs: string[] = [];
   for (const node of nodes) {
     for (const fill of node.fills ?? []) {
-      if (fill.type !== 'image' || fill.visible === false) continue;
-      const src = fill.image?.src ?? fill.src;
+      if (fill.visible === false) continue;
+      const src =
+        fill.type === 'image'
+          ? (fill.image?.src ?? fill.src)
+          : fill.type === 'pattern'
+            ? (fill.pattern?.tileSrc ?? fill.tileSrc)
+            : undefined;
       if (src) srcs.push(src);
     }
   }

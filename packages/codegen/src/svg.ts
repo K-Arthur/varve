@@ -45,6 +45,15 @@ import {
 } from './shared';
 import { frameContainerSvg } from './svg-frame';
 import {
+  collectSvgPatternDefs as collectSvgPatternDefsInternal,
+  fmtPatternNumber,
+  type SvgPatternRenderHost,
+  svgPatternFillForNode,
+} from './svg-patterns';
+
+export { svgPatternFillForNode } from './svg-patterns';
+
+import {
   collectGradientDefs,
   strokeAttrs,
   strokeAttrsForNode,
@@ -434,7 +443,25 @@ function fillToSvg(
   nodeId: string,
   doc: SceneDocument,
   preserveColorSpace: boolean,
-): { fillAttr: string; comment?: string; defs?: string; needsRasterFallback?: boolean } {
+): {
+  fillAttr: string;
+  fillOpacityAttr?: string;
+  comment?: string;
+  defs?: string;
+  needsRasterFallback?: boolean;
+} {
+  const pattern = svgPatternFillForNode(node, doc);
+  if (pattern?.supported) {
+    const fillOpacityAttr =
+      pattern.opacity < 1 ? ` fill-opacity="${fmtPatternNumber(pattern.opacity)}"` : '';
+    return { fillAttr: `url(#${pattern.id})`, fillOpacityAttr };
+  }
+  if (pattern?.warning) {
+    return {
+      fillAttr: node.fill ? colorToSvgValue(node.fill, doc, preserveColorSpace).value : 'none',
+      comment: `pattern export skipped: ${pattern.warning}`,
+    };
+  }
   if (!node.fills || node.fills.length === 0) {
     if (node.kind === 'adjustment') {
       return { fillAttr: 'none' };
@@ -485,6 +512,38 @@ function fillToSvg(
     defs: '',
     fillAttr: fillAttrs[fillAttrs.length - 1] ?? rgba(node.fill),
   };
+}
+
+const svgPatternRenderHost: SvgPatternRenderHost = {
+  shapeBounds: (target, doc) => shapeBounds(exportShapeOf(target, doc)),
+  renderVectorSource: (sourceDoc, roots, preserveColorSpace, rasterAssets) => {
+    const defs = roots.flatMap((root) => [
+      ...collectSubtreeMaskDefs(sourceDoc, root),
+      ...collectSubtreePathTextDefs(sourceDoc, root),
+      ...collectGradientDefs(root, root.id, sourceDoc),
+    ]);
+    const markup = roots
+      .map((root) =>
+        nodeToSvgTag(root, sourceDoc, 4, root.transform, preserveColorSpace, rasterAssets),
+      )
+      .join('\n');
+    return { defs, markup };
+  },
+};
+
+export function collectSvgPatternDefs(
+  rootNodes: readonly SceneNode[],
+  doc: SceneDocument,
+  preserveColorSpace = false,
+  rasterAssets?: Record<string, import('./types').RasterAsset>,
+): string[] {
+  return collectSvgPatternDefsInternal(
+    rootNodes,
+    doc,
+    svgPatternRenderHost,
+    preserveColorSpace,
+    rasterAssets,
+  );
 }
 
 // ── Mask def helpers ─────────────────────────────────────────────────────────
@@ -941,7 +1000,11 @@ function nodeToSvgTag(
     return `${indent}<image href="${href}" x="${x}" y="${y}" width="${w}" height="${h}" transform="${t}"${compositingSuffix} />`;
   }
 
-  const { fillAttr, comment } = fillToSvg(node, node.id, doc, preserveColorSpace);
+  const {
+    fillAttr,
+    fillOpacityAttr = '',
+    comment,
+  } = fillToSvg(node, node.id, doc, preserveColorSpace);
   const t = affineToSvg(effTransform);
   const withTransform = ` transform="${t}"`;
   switch (node.kind) {
@@ -991,13 +1054,13 @@ ${shapeInner}`
       let shapeInner: string;
       switch (s.kind) {
         case 'rect':
-          shapeInner = `${indent}<rect x="${s.x}" y="${s.y}" width="${s.w}" height="${s.h}" fill="${fillAttr}"${strokeAttrs(node, node.id)}${withTransform}${compositingSuffix} />`;
+          shapeInner = `${indent}<rect x="${s.x}" y="${s.y}" width="${s.w}" height="${s.h}" fill="${fillAttr}"${fillOpacityAttr}${strokeAttrs(node, node.id)}${withTransform}${compositingSuffix} />`;
           break;
         case 'ellipse':
-          shapeInner = `${indent}<ellipse cx="${s.cx}" cy="${s.cy}" rx="${s.rx}" ry="${s.ry}" fill="${fillAttr}"${strokeAttrs(node, node.id)}${withTransform}${compositingSuffix} />`;
+          shapeInner = `${indent}<ellipse cx="${s.cx}" cy="${s.cy}" rx="${s.rx}" ry="${s.ry}" fill="${fillAttr}"${fillOpacityAttr}${strokeAttrs(node, node.id)}${withTransform}${compositingSuffix} />`;
           break;
         case 'circle':
-          shapeInner = `${indent}<circle cx="${s.cx}" cy="${s.cy}" r="${s.r}" fill="${fillAttr}"${strokeAttrs(node, node.id)}${withTransform}${compositingSuffix} />`;
+          shapeInner = `${indent}<circle cx="${s.cx}" cy="${s.cy}" r="${s.r}" fill="${fillAttr}"${fillOpacityAttr}${strokeAttrs(node, node.id)}${withTransform}${compositingSuffix} />`;
           break;
         case 'line':
         case 'arrow': {
@@ -1017,7 +1080,7 @@ ${shapeInner}`
         }
         case 'polygon':
         case 'star':
-          shapeInner = `${indent}<polygon points="${shapeVerticesToPoints(node)}" fill="${fillAttr}"${strokeAttrs(node, node.id)}${withTransform}${compositingSuffix} />`;
+          shapeInner = `${indent}<polygon points="${shapeVerticesToPoints(node)}" fill="${fillAttr}"${fillOpacityAttr}${strokeAttrs(node, node.id)}${withTransform}${compositingSuffix} />`;
           break;
         case 'path': {
           // Holes are emitted as extra subpaths, so the fill rule has to ride
@@ -1025,7 +1088,7 @@ ${shapeInner}`
           // emitter in index.ts.
           const fillRule = s.fillRule ?? (s.holes && s.holes.length > 0 ? 'evenodd' : undefined);
           const fillRuleAttr = fillRule ? ` fill-rule="${fillRule}"` : '';
-          const pathTag = `${indent}<path d="${pathToData(s)}" fill="${fillAttr}"${fillRuleAttr}${strokeAttrs(node, node.id)}${withTransform} />`;
+          const pathTag = `${indent}<path d="${pathToData(s)}" fill="${fillAttr}"${fillOpacityAttr}${fillRuleAttr}${strokeAttrs(node, node.id)}${withTransform} />`;
           const headTags = pathArrowheadSvgTags(node, node.id, `${indent}  `, withTransform);
           shapeInner =
             headTags.length > 0
@@ -1298,7 +1361,13 @@ export function exportNodeToSvg(
   const maskDefs = collectSubtreeMaskDefs(doc, exportRoot);
   const pathTextDefs = collectSubtreePathTextDefs(doc, exportRoot);
   const gradDefs = collectGradientDefs(exportRoot, exportRoot.id, doc);
-  const allDefs = [...maskDefs, ...pathTextDefs, ...gradDefs];
+  const patternDefs = collectSvgPatternDefs(
+    [exportRoot],
+    doc,
+    opts?.preserveColorSpace ?? false,
+    rasterAssets,
+  );
+  const allDefs = [...maskDefs, ...pathTextDefs, ...gradDefs, ...patternDefs];
   const defsSection = allDefs.length > 0 ? `  <defs>\n${allDefs.join('\n')}\n  </defs>\n` : '';
   const inner = nodeToSvgTag(
     exportRoot,
@@ -1436,13 +1505,14 @@ export function svgTargetGaps(
     }
   }
 
-  if (fills.some((f) => f.type === 'pattern')) {
+  const patternResolution = svgPatternFillForNode(node, doc);
+  if (patternResolution && !patternResolution.supported) {
     gaps.push({
       nodeId: node.id,
       nodeName: node.name,
       feature: 'pattern fill',
       severity: 'warning',
-      fallback: 'Use an SVG <pattern> element with patternUnits="userSpaceOnUse"',
+      fallback: patternResolution.warning,
     });
   }
 

@@ -71,8 +71,9 @@ pub struct PdfOptions {
     pub subset_fonts: bool,
     /// How to handle fonts whose OS/2 fsType restricts embedding.
     pub embedding_restriction_handling: EmbeddingRestriction,
-    /// Optional resource manifest carrying decoded image bytes for pattern fills.
-    /// When `None`, pattern fills fall back to a neutral gray fill.
+    /// Optional resource manifest carrying decoded image bytes for image and
+    /// pattern fills. Missing pattern sources are omitted with a PDF comment;
+    /// they are never substituted with a gray rectangle.
     pub manifest: Option<resources::ExportManifest>,
     /// When true, emit a warning when converting high bit depth colors
     /// (float32/uint16) to 8-bit PDF color values.
@@ -470,6 +471,41 @@ impl<'a> ImageRenderState<'a> {
         self.refs.push((name.clone(), Object::Dictionary(gs)));
         self.gs_cache.insert(key, name.clone());
         name
+    }
+}
+
+/// Add image XObjects and opacity graphics states collected by the fill
+/// renderer to a page resource dictionary. Both the standard PDF and PDF/X
+/// builders share this split so an `/GS… gs` operator always has an
+/// `/ExtGState` resource with the matching name.
+pub(crate) fn add_image_render_resources(
+    resources: &mut lopdf::Dictionary,
+    refs: &[(String, Object)],
+) {
+    let mut xobjects = lopdf::Dictionary::new();
+    let mut graphics_states = lopdf::Dictionary::new();
+    for (name, object) in refs {
+        let is_graphics_state = match object {
+            Object::Dictionary(dictionary) => {
+                dictionary
+                    .get(b"Type")
+                    .ok()
+                    .and_then(|value| value.as_name().ok())
+                    == Some(b"ExtGState")
+            }
+            _ => false,
+        };
+        if is_graphics_state {
+            graphics_states.set(name.as_bytes(), object.clone());
+        } else {
+            xobjects.set(name.as_bytes(), object.clone());
+        }
+    }
+    if !xobjects.is_empty() {
+        resources.set("XObject", xobjects);
+    }
+    if !graphics_states.is_empty() {
+        resources.set("ExtGState", graphics_states);
     }
 }
 
@@ -1638,16 +1674,20 @@ fn render_fills(
                         rotation,
                         image_width,
                         image_height,
+                        gap_x,
+                        gap_y,
+                        arrangement,
+                        row_shift,
+                        column_shift,
+                        mirror_x,
+                        mirror_y,
+                        offset_x,
+                        offset_y,
                         opacity,
                         blend_mode: _,
                         visible: _,
+                        ..
                     } => {
-                        let tile_w = image_width.unwrap_or(32.0);
-                        let tile_h = image_height.unwrap_or(32.0);
-                        let angle = *rotation * std::f64::consts::PI / 180.0;
-                        let cos_a = angle.cos();
-                        let sin_a = angle.sin();
-
                         buf.extend_from_slice(b"q\n");
 
                         // Non-rectangular shapes: clip to the shape path first
@@ -1658,32 +1698,172 @@ fn render_fills(
 
                         // Try to resolve tile from manifest
                         let tile_image = manifest.as_ref().and_then(|m| {
-                            m.patterns
-                                .iter()
-                                .find(|p| p.id == *tile_src || p.tile_image_id == *tile_src)
-                                .and_then(|pat| m.resolve_image(&pat.tile_image_id).ok())
+                            m.resolve_image_by_src(tile_src).ok().or_else(|| {
+                                m.patterns
+                                    .iter()
+                                    .find(|p| p.id == *tile_src || p.tile_image_id == *tile_src)
+                                    .and_then(|pat| m.resolve_image(&pat.tile_image_id).ok())
+                            })
                         });
 
                         match tile_image {
                             Some(img) if img.is_valid() => {
-                                // Convert RGBA to RGB (PDF XObjects use DeviceRGB)
-                                let rgb_data: Vec<u8> = img
-                                    .data
-                                    .chunks_exact(4)
-                                    .flat_map(|rgba| [rgba[0], rgba[1], rgba[2]])
-                                    .collect();
+                                let tile_w = image_width.unwrap_or(img.width as f64);
+                                let tile_h = image_height.unwrap_or(img.height as f64);
+                                let gap_x = gap_x.unwrap_or(*spacing);
+                                let gap_y = gap_y.unwrap_or(*spacing);
+                                let unsupported_layout = arrangement
+                                    .as_deref()
+                                    .is_some_and(|layout| layout != "grid")
+                                    || row_shift.unwrap_or(0.0) != 0.0
+                                    || column_shift.unwrap_or(0.0) != 0.0
+                                    || mirror_x.unwrap_or(false)
+                                    || mirror_y.unwrap_or(false)
+                                    || offset_x.unwrap_or(0.0) != 0.0
+                                    || offset_y.unwrap_or(0.0) != 0.0
+                                    || gap_x < 0.0
+                                    || gap_y < 0.0
+                                    || *rotation != 0.0;
+                                let step_x = tile_w + gap_x;
+                                let step_y = tile_h + gap_y;
+                                if unsupported_layout
+                                    || !tile_w.is_finite()
+                                    || !tile_h.is_finite()
+                                    || tile_w <= 0.0
+                                    || tile_h <= 0.0
+                                    || !step_x.is_finite()
+                                    || !step_y.is_finite()
+                                    || step_x <= 0.0
+                                    || step_y <= 0.0
+                                {
+                                    buf.extend_from_slice(
+                                        b"% WARNING: pattern layout is unsupported in PDF; fill omitted instead of approximated\n",
+                                    );
+                                    buf.extend_from_slice(b"Q\n");
+                                    continue;
+                                }
 
-                                match embed_image(
-                                    image_state.as_mut().unwrap().doc,
-                                    &rgb_data,
-                                    img.width,
-                                    img.height,
-                                ) {
+                                let source_has_alpha =
+                                    matches!(&img.color_space, resources::ColorSpace::Rgb)
+                                        && img.data.chunks_exact(4).any(|rgba| rgba[3] < 255);
+                                if use_cmyk && (*opacity < 1.0 || source_has_alpha) {
+                                    buf.extend_from_slice(
+                                        b"% WARNING: transparent pattern cannot be represented in PDF/X-1a; fill omitted\n",
+                                    );
+                                    buf.extend_from_slice(b"Q\n");
+                                    continue;
+                                }
+
+                                let image_state = image_state.as_mut().unwrap();
+                                let embedded = match (&img.color_space, use_cmyk) {
+                                    (resources::ColorSpace::Rgb, true) => {
+                                        let cmyk_data: Vec<u8> = img
+                                            .data
+                                            .chunks_exact(4)
+                                            .flat_map(|rgba| {
+                                                let (c, m, y, k) = match profile {
+                                                    Some(print_profile) =>
+                                                        crate::cmyk::rgb_to_cmyk_icc(
+                                                            print_profile,
+                                                            rgba[0],
+                                                            rgba[1],
+                                                            rgba[2],
+                                                            crate::profiles::RenderingIntent::Relative,
+                                                            true,
+                                                        ),
+                                                    None => crate::cmyk::rgb_to_cmyk(
+                                                        rgba[0], rgba[1], rgba[2],
+                                                    ),
+                                                };
+                                                [c, m, y, k]
+                                            })
+                                            .collect();
+                                        embed_image_with_colorspace(
+                                            image_state.doc,
+                                            &cmyk_data,
+                                            img.width,
+                                            img.height,
+                                            4,
+                                            "DeviceCMYK",
+                                            None,
+                                        )
+                                    }
+                                    (resources::ColorSpace::Rgb, false) => {
+                                        let rgb_data = rgba_to_rgb(&img.data);
+                                        let alpha = rgba_extract_alpha(&img.data);
+                                        let alpha_data = alpha.iter().any(|value| *value < 255);
+                                        embed_image_with_colorspace(
+                                            image_state.doc,
+                                            &rgb_data,
+                                            img.width,
+                                            img.height,
+                                            3,
+                                            "DeviceRGB",
+                                            alpha_data.then_some(alpha.as_slice()),
+                                        )
+                                    }
+                                    (resources::ColorSpace::Cmyk, _) => {
+                                        embed_image_with_colorspace(
+                                            image_state.doc,
+                                            &img.data,
+                                            img.width,
+                                            img.height,
+                                            4,
+                                            "DeviceCMYK",
+                                            None,
+                                        )
+                                    }
+                                    (resources::ColorSpace::Gray, false) => {
+                                        embed_image_with_colorspace(
+                                            image_state.doc,
+                                            &img.data,
+                                            img.width,
+                                            img.height,
+                                            1,
+                                            "DeviceGray",
+                                            None,
+                                        )
+                                    }
+                                    (resources::ColorSpace::Gray, true) => {
+                                        let cmyk_data: Vec<u8> = img
+                                            .data
+                                            .iter()
+                                            .flat_map(|gray| {
+                                                let (c, m, y, k) = match profile {
+                                                    Some(print_profile) => {
+                                                        crate::cmyk::rgb_to_cmyk_icc(
+                                                            print_profile,
+                                                            *gray,
+                                                            *gray,
+                                                            *gray,
+                                                            crate::profiles::RenderingIntent::Relative,
+                                                            true,
+                                                        )
+                                                    }
+                                                    None => crate::cmyk::rgb_to_cmyk(
+                                                        *gray, *gray, *gray,
+                                                    ),
+                                                };
+                                                [c, m, y, k]
+                                            })
+                                            .collect();
+                                        embed_image_with_colorspace(
+                                            image_state.doc,
+                                            &cmyk_data,
+                                            img.width,
+                                            img.height,
+                                            4,
+                                            "DeviceCMYK",
+                                            None,
+                                        )
+                                    }
+                                };
+
+                                match embedded {
                                     Ok(obj_ref) => {
-                                        let state = image_state.as_mut().unwrap();
-                                        let name = format!("Pat{}", state.counter);
-                                        state.counter += 1;
-                                        state.refs.push((name.clone(), obj_ref));
+                                        let name = format!("Pat{}", image_state.counter);
+                                        image_state.counter += 1;
+                                        image_state.refs.push((name.clone(), obj_ref));
 
                                         // Clip to shape bounds
                                         let (shape_x, shape_y, shape_w, shape_h) =
@@ -1691,16 +1871,30 @@ fn render_fills(
                                         buf.extend_from_slice(b"q\n");
                                         buf.extend(&path_ops);
                                         buf.extend_from_slice(path_clip_operator(node));
+                                        if *opacity < 1.0 {
+                                            let gs_name =
+                                                image_state.get_or_create_opacity_gs(*opacity);
+                                            buf.extend(format!("/{gs_name} gs\n").as_bytes());
+                                        }
 
                                         // Tile the image across shape bounds
-                                        let x_step = tile_w + *spacing;
-                                        let y_step = tile_h + *spacing;
-                                        let max_tiles = ((shape_w / x_step + 1.0)
-                                            * (shape_h / y_step + 1.0))
-                                            as u32;
-                                        if max_tiles > 1000 {
+                                        let x_step = step_x;
+                                        let y_step = step_y;
+                                        let estimated_tiles = ((shape_w + tile_w) / x_step).ceil()
+                                            * ((shape_h + tile_h) / y_step).ceil();
+                                        if !estimated_tiles.is_finite()
+                                            || estimated_tiles > 100_000.0
+                                        {
+                                            buf.extend_from_slice(
+                                                b"% WARNING: pattern tile estimate exceeds 100000; fill omitted instead of truncated\n",
+                                            );
+                                            buf.extend_from_slice(b"Q\n");
+                                            buf.extend_from_slice(b"Q\n");
+                                            continue;
+                                        } else if estimated_tiles > 1000.0 {
                                             buf.extend(format!(
-                                                "% WARNING: pattern tile count {max_tiles} exceeds 1000; consider a larger tile size\n"
+                                                "% WARNING: pattern tile estimate {:.0} exceeds 1000; consider a larger tile size\n",
+                                                estimated_tiles
                                             ).as_bytes());
                                         }
 
@@ -1708,22 +1902,10 @@ fn render_fills(
                                         while y < shape_y + shape_h + tile_h {
                                             let mut x = shape_x;
                                             while x < shape_x + shape_w + tile_w {
-                                                // Apply rotation around tile center
-                                                if *rotation != 0.0 {
-                                                    let cx = x + tile_w / 2.0;
-                                                    let cy = y + tile_h / 2.0;
-                                                    // Rotation matrix: cos -sin sin cos about (cx,cy)
-                                                    // Combined: translate(-cx,-cy) * rotate * translate(cx,cy)
-                                                    // = [cos -sin  cx(1-cos)+cy*sin]
-                                                    //   [sin  cos  cy(1-cos)-cx*sin]
-                                                    buf.extend(format!(
-                                                        "{cos_a:.6} {sin_a:.6} {:.6} {cos_a:.6} {:.4} {:.4} cm\n",
-                                                        -sin_a,
-                                                        cx * (1.0 - cos_a) + cy * sin_a,
-                                                        cy * (1.0 - cos_a) - cx * sin_a,
-                                                    ).as_bytes());
-                                                }
-
+                                                // Isolate each tile's matrix. Without the local
+                                                // graphics state, every `cm` compounds on the
+                                                // previous tile and later copies drift off page.
+                                                buf.extend_from_slice(b"q\n");
                                                 // Position and scale tile
                                                 buf.extend(
                                                     format!(
@@ -1732,18 +1914,7 @@ fn render_fills(
                                                     .as_bytes(),
                                                 );
                                                 buf.extend(format!("/{name} Do\n").as_bytes());
-
-                                                // Undo rotation
-                                                if *rotation != 0.0 {
-                                                    let cx = x + tile_w / 2.0;
-                                                    let cy = y + tile_h / 2.0;
-                                                    buf.extend(format!(
-                                                        "{cos_a:.6} {sin_a:.6} {:.6} {cos_a:.6} {:.4} {:.4} cm\n",
-                                                        -sin_a,
-                                                        cx * (1.0 - cos_a) - cy * sin_a,
-                                                        cy * (1.0 - cos_a) + cx * sin_a,
-                                                    ).as_bytes());
-                                                }
+                                                buf.extend_from_slice(b"Q\n");
 
                                                 x += x_step;
                                             }
@@ -1751,44 +1922,25 @@ fn render_fills(
                                         }
 
                                         // Apply opacity if needed
-                                        if *opacity < 1.0 {
-                                            buf.extend(
-                                                format!("% pattern opacity={:.3}\n", opacity)
-                                                    .as_bytes(),
-                                            );
-                                        }
-
                                         buf.extend_from_slice(b"Q\n"); // restore clip
                                     }
                                     Err(e) => {
                                         buf.extend(
-                                            format!("% pattern tile embed error: {e}\n").as_bytes(),
-                                        );
-                                        // Fallback to gray fill
-                                        buf.extend_from_slice(b"0.75 0.75 0.75 rg\n");
-                                        let (bx, by, bw, bh) = shape_pdf_bounds(node, page_height);
-                                        buf.extend(
-                                            format!("{bx:.4} {by:.4} {bw:.4} {bh:.4} re f\n")
-                                                .as_bytes(),
+                                            format!(
+                                                "% pattern tile embed error; fill omitted: {e}\n"
+                                            )
+                                            .as_bytes(),
                                         );
                                     }
                                 }
                             }
                             _ => {
-                                // No manifest or missing tile — gray fill with warning
-                                buf.extend_from_slice(b"0.75 0.75 0.75 rg\n");
-                                let (bx, by, bw, bh) = shape_pdf_bounds(node, page_height);
-                                buf.extend(
-                                    format!("{bx:.4} {by:.4} {bw:.4} {bh:.4} re f\n").as_bytes(),
-                                );
+                                // Missing source — omit it with a warning rather than
+                                // substituting a gray rectangle as if that were artwork.
                                 buf.extend_from_slice(
-                                    b"% WARNING: pattern tile not found in export manifest; rendered as gray fill\n",
+                                    b"% WARNING: pattern tile not found in export manifest; fill omitted\n",
                                 );
                             }
-                        }
-
-                        if *opacity < 1.0 {
-                            buf.extend(format!("% pattern opacity={opacity:.3}\n").as_bytes());
                         }
 
                         buf.extend_from_slice(b"Q\n");
@@ -3472,27 +3624,7 @@ pub fn export_pdf(nodes: &[SceneNode], opts: &PdfOptions) -> Result<Vec<u8>, Str
     let mut resources = dictionary! {
         "Font" => font_dict,
     };
-    if !image_refs.is_empty() {
-        let mut xdict = lopdf::Dictionary::new();
-        let mut gs_dict = lopdf::Dictionary::new();
-        for (name, ref_obj) in &image_refs {
-            let is_ext_gs = match ref_obj {
-                Object::Dictionary(d) => {
-                    d.get(b"Type").ok().and_then(|o| o.as_name().ok()) == Some(b"ExtGState")
-                }
-                _ => false,
-            };
-            if is_ext_gs {
-                gs_dict.set(name.as_bytes(), ref_obj.clone());
-            } else {
-                xdict.set(name.as_bytes(), ref_obj.clone());
-            }
-        }
-        resources.set("XObject", xdict);
-        if !gs_dict.is_empty() {
-            resources.set("ExtGState", gs_dict);
-        }
-    }
+    add_image_render_resources(&mut resources, &image_refs);
     let shading_resources = shading_registry.create_pdf_objects(&mut doc);
     if !shading_resources.is_empty() {
         let mut sdict = lopdf::Dictionary::new();
@@ -4199,7 +4331,7 @@ mod tests {
     }
 
     #[test]
-    fn render_fills_pattern_renders_gray_fallback_without_manifest() {
+    fn render_fills_pattern_omits_missing_source_instead_of_rendering_gray() {
         let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
         node.fills = Some(vec![FillIR::Pattern {
             tile_src: "data:image/png;base64,AAAA".into(),
@@ -4207,6 +4339,15 @@ mod tests {
             rotation: 0.0,
             image_width: None,
             image_height: None,
+            gap_x: None,
+            gap_y: None,
+            arrangement: None,
+            row_shift: None,
+            column_shift: None,
+            mirror_x: None,
+            mirror_y: None,
+            offset_x: None,
+            offset_y: None,
             opacity: 1.0,
             blend_mode: BlendMode::Normal,
             visible: true,
@@ -4214,8 +4355,8 @@ mod tests {
         let result = render_fills(&node, 100.0, false, None, None, None, None, false);
         let s = String::from_utf8_lossy(&result);
         assert!(
-            s.contains("0.75 0.75 0.75 rg"),
-            "pattern without manifest should fallback to gray fill: {s}"
+            !s.contains("0.75 0.75 0.75 rg"),
+            "pattern without manifest must not become gray artwork: {s}"
         );
         assert!(
             s.contains("WARNING"),
@@ -4232,6 +4373,15 @@ mod tests {
             rotation: 45.0,
             image_width: Some(64.0),
             image_height: Some(48.0),
+            gap_x: None,
+            gap_y: None,
+            arrangement: None,
+            row_shift: None,
+            column_shift: None,
+            mirror_x: None,
+            mirror_y: None,
+            offset_x: None,
+            offset_y: None,
             opacity: 0.75,
             blend_mode: BlendMode::Normal,
             visible: true,
@@ -4239,48 +4389,46 @@ mod tests {
         let result = render_fills(&node, 100.0, false, None, None, None, None, false);
         let s = String::from_utf8_lossy(&result);
         assert!(
-            s.contains("0.75 0.75 0.75 rg"),
-            "should fallback to gray: {s}"
+            !s.contains("0.75 0.75 0.75 rg"),
+            "unsupported pattern must not become gray: {s}"
         );
         assert!(s.contains("WARNING"), "should include warning: {s}");
-        assert!(
-            s.contains("pattern opacity=0.750"),
-            "should include opacity: {s}"
-        );
     }
 
     #[test]
     fn render_fills_pattern_embeds_raster_tile() {
-        use crate::resources::{ExportManifest, ImageResource, PatternResource};
+        use crate::resources::{ExportManifest, ImageResource};
 
         let manifest = ExportManifest {
             images: vec![ImageResource {
                 id: "tile_0".into(),
-                src: None,
+                src: Some("tile.png".into()),
                 mime_type: "image/png".into(),
                 width: 32,
                 height: 32,
                 data: vec![200u8; 32 * 32 * 4],
                 color_space: resources::ColorSpace::Rgb,
             }],
-            patterns: vec![PatternResource {
-                id: "pat_0".into(),
-                tile_image_id: "tile_0".into(),
-                spacing: 5.0,
-                rotation: 0.0,
-                tile_width: 32.0,
-                tile_height: 32.0,
-            }],
+            patterns: vec![],
         };
 
         let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
         node.fills = Some(vec![FillIR::Pattern {
-            tile_src: "pat_0".into(),
+            tile_src: "tile.png".into(),
             spacing: 5.0,
             rotation: 0.0,
             image_width: Some(32.0),
             image_height: Some(32.0),
-            opacity: 1.0,
+            gap_x: None,
+            gap_y: None,
+            arrangement: None,
+            row_shift: None,
+            column_shift: None,
+            mirror_x: None,
+            mirror_y: None,
+            offset_x: None,
+            offset_y: None,
+            opacity: 0.8,
             blend_mode: BlendMode::Normal,
             visible: true,
         }]);
@@ -4311,11 +4459,33 @@ mod tests {
             !s.contains("0.75 0.75 0.75 rg"),
             "should NOT contain fallback gray: {s}"
         );
-        assert_eq!(state.refs.len(), 1, "should have 1 pattern image reference");
+        assert!(
+            s.contains("/GS800 gs"),
+            "pattern opacity should be applied: {s}"
+        );
+        let image = state
+            .refs
+            .iter()
+            .find(|(name, _)| name.starts_with("Pat"))
+            .map(|(_, object)| object)
+            .expect("pattern image XObject reference");
+        let Object::Reference(image_id) = image else {
+            panic!("pattern image reference must be indirect");
+        };
+        let image_stream = state
+            .doc
+            .get_object(*image_id)
+            .expect("embedded pattern image")
+            .as_stream()
+            .expect("pattern image stream");
+        assert!(
+            image_stream.dict.get(b"SMask").is_ok(),
+            "transparent source tile must keep its alpha channel"
+        );
     }
 
     #[test]
-    fn render_fills_pattern_falls_back_to_gray_without_manifest() {
+    fn render_fills_pattern_without_manifest_omits_instead_of_faking_artwork() {
         let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
         node.fills = Some(vec![FillIR::Pattern {
             tile_src: "pat_0".into(),
@@ -4323,6 +4493,15 @@ mod tests {
             rotation: 0.0,
             image_width: Some(32.0),
             image_height: Some(32.0),
+            gap_x: None,
+            gap_y: None,
+            arrangement: None,
+            row_shift: None,
+            column_shift: None,
+            mirror_x: None,
+            mirror_y: None,
+            offset_x: None,
+            offset_y: None,
             opacity: 1.0,
             blend_mode: BlendMode::Normal,
             visible: true,
@@ -4331,14 +4510,14 @@ mod tests {
         let content = render_fills(&node, 800.0, false, None, None, None, None, false);
         let s = String::from_utf8_lossy(&content);
         assert!(
-            s.contains("0.75 0.75 0.75 rg"),
-            "should fallback to gray: {s}"
+            !s.contains("0.75 0.75 0.75 rg"),
+            "missing pattern must not become gray artwork: {s}"
         );
         assert!(s.contains("WARNING"), "should include warning comment: {s}");
     }
 
     #[test]
-    fn render_fills_pattern_missing_tile_in_manifest_falls_back() {
+    fn render_fills_pattern_missing_tile_in_manifest_omits_instead_of_faking_artwork() {
         use crate::resources::{ExportManifest, ImageResource, PatternResource};
 
         let manifest = ExportManifest {
@@ -4368,6 +4547,15 @@ mod tests {
             rotation: 0.0,
             image_width: Some(32.0),
             image_height: Some(32.0),
+            gap_x: None,
+            gap_y: None,
+            arrangement: None,
+            row_shift: None,
+            column_shift: None,
+            mirror_x: None,
+            mirror_y: None,
+            offset_x: None,
+            offset_y: None,
             opacity: 1.0,
             blend_mode: BlendMode::Normal,
             visible: true,
@@ -4385,14 +4573,14 @@ mod tests {
         );
         let s = String::from_utf8_lossy(&content);
         assert!(
-            s.contains("0.75 0.75 0.75 rg"),
-            "missing pattern should fallback to gray: {s}"
+            !s.contains("0.75 0.75 0.75 rg"),
+            "missing pattern must not become gray artwork: {s}"
         );
         assert!(s.contains("WARNING"), "should warn about missing tile: {s}");
     }
 
     #[test]
-    fn render_fills_pattern_with_rotation() {
+    fn render_fills_pattern_with_rotation_reports_unsupported_layout() {
         use crate::resources::{ExportManifest, ImageResource, PatternResource};
 
         let manifest = ExportManifest {
@@ -4422,6 +4610,15 @@ mod tests {
             rotation: 45.0,
             image_width: Some(16.0),
             image_height: Some(16.0),
+            gap_x: None,
+            gap_y: None,
+            arrangement: None,
+            row_shift: None,
+            column_shift: None,
+            mirror_x: None,
+            mirror_y: None,
+            offset_x: None,
+            offset_y: None,
             opacity: 0.8,
             blend_mode: BlendMode::Normal,
             visible: true,
@@ -4440,11 +4637,11 @@ mod tests {
             false,
         );
         let s = String::from_utf8_lossy(&content);
-        assert!(s.contains("/Pat"), "should contain pattern XObject: {s}");
         assert!(
-            s.contains("pattern opacity=0.800"),
-            "should include opacity comment: {s}"
+            !s.contains("/Pat"),
+            "unsupported transformed layout must not be approximated: {s}"
         );
+        assert!(s.contains("WARNING: pattern layout is unsupported"), "{s}");
     }
 
     #[test]
@@ -4526,6 +4723,69 @@ mod tests {
             }],
             patterns: Vec::new(),
         }
+    }
+
+    #[test]
+    fn export_pdf_embeds_pattern_tile_alpha_and_fill_opacity() {
+        let mut node = rect_node(1, 20.0, 20.0, 96.0, 72.0);
+        node.fills = Some(vec![FillIR::Pattern {
+            tile_src: "pattern-source".into(),
+            spacing: 0.0,
+            rotation: 0.0,
+            image_width: Some(16.0),
+            image_height: Some(16.0),
+            gap_x: Some(0.0),
+            gap_y: Some(0.0),
+            arrangement: Some("grid".into()),
+            row_shift: None,
+            column_shift: None,
+            mirror_x: None,
+            mirror_y: None,
+            offset_x: None,
+            offset_y: None,
+            opacity: 0.8,
+            blend_mode: BlendMode::Normal,
+            visible: true,
+        }]);
+        let mut manifest = image_manifest("pattern-source", 2, 2);
+        manifest.images[0].data = vec![
+            30, 150, 200, 255, 220, 80, 40, 128, 30, 150, 200, 255, 220, 80, 40, 255,
+        ];
+        let opts = PdfOptions {
+            manifest: Some(manifest),
+            ..Default::default()
+        };
+
+        let bytes = export_pdf(&[node], &opts).expect("standard PDF with a raster pattern");
+        assert!(bytes.starts_with(b"%PDF"));
+        let doc = Document::load_mem(&bytes).expect("parse standard PDF");
+        let page_id = *doc.get_pages().values().next().expect("PDF has a page");
+        let page_content = doc.get_page_content(page_id);
+        let content = String::from_utf8_lossy(&page_content);
+        assert!(
+            content.contains("/Pat0 Do"),
+            "pattern image must be painted"
+        );
+        assert_eq!(
+            content.matches("/Pat0 Do").count(),
+            42,
+            "the exporter must place the bounded repeat, not one transformed copy"
+        );
+        assert!(
+            content.contains("/GS800 gs"),
+            "fill opacity must be retained"
+        );
+        assert!(
+            doc.objects.values().any(|object| matches!(
+                object,
+                Object::Stream(stream) if stream.dict.has(b"SMask")
+            )),
+            "pattern tile alpha must be retained"
+        );
+        assert!(
+            !content.contains("pattern tile not found"),
+            "resolved pattern source must not take the missing-resource path"
+        );
     }
 
     #[test]

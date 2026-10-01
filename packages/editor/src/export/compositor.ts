@@ -19,7 +19,7 @@
  * groups, and the existing `flattenForExport.ts` adjustment-only flattener.
  */
 
-import type { RasterAsset } from '@varve/codegen';
+import { type RasterAsset, svgPatternFillForNode } from '@varve/codegen';
 import {
   adjustmentsToFilters,
   anyRequiresRasterExport,
@@ -309,7 +309,9 @@ export const CAPABILITY: Record<ExportTarget, FlattenCapability> = {
     supportsImages: true,
     nativeEffectTypes: new Set(),
     supportsStackedFills: false,
-    supportsPatternFills: false,
+    // `assessNodeCapability` asks the SVG pattern serializer about the
+    // particular source/geometry before treating a pattern as native.
+    supportsPatternFills: true,
     supportsComplexBlend: false,
     supportsAdjustments: false,
     supportsMasks: true, // clip-path and mask elements
@@ -589,7 +591,7 @@ function hasUnsupportedTransform(node: SceneNode, cap: FlattenCapability): boole
  */
 export function assessNodeCapability(
   node: SceneNode,
-  _doc: Document,
+  doc: Document,
   target: ExportTarget,
 ): boolean {
   const cap = CAPABILITY[target];
@@ -660,8 +662,15 @@ export function assessNodeCapability(
   // Stacked fills
   if (hasStackedFills(node, cap)) return false;
 
-  // Pattern fills
-  if (hasPatternFills(node, cap)) return false;
+  // SVG can preserve the supported linked-pattern subset as a native
+  // `<pattern>` paint server. Unsupported arrangements and inline tiles keep
+  // the pixel-faithful raster fallback; other targets use their own policy.
+  if (target === 'svg') {
+    const hasPattern = collectNodeFills(node).some((fill) => fill.type === 'pattern');
+    if (hasPattern && !svgPatternFillForNode(node, doc)?.supported) return false;
+  } else if (hasPatternFills(node, cap)) {
+    return false;
+  }
 
   // Complex blend modes on groups with effects
   if (hasComplexBlend(node, cap)) return false;

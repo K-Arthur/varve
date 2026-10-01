@@ -14,7 +14,7 @@ use crate::subset::{
     collect_used_chars, get_subset_tag, subset_font, validate_embedding_permission,
     EmbeddingPermission,
 };
-use crate::{ImageRenderState, PdfOptions};
+use crate::{add_image_render_resources, ImageRenderState, PdfOptions};
 use lopdf::{dictionary, Document, Object, Stream};
 use varve_colour::profiles::PrintProfile;
 pub use varve_colour::{rgb_to_cmyk, rgb_to_cmyk_icc};
@@ -220,7 +220,7 @@ fn build_pdfx_document(
             opts.registration_marks,
             opts.color_bar,
             Some(&mut image_state),
-            None,
+            opts.manifest.as_ref(),
             opts.print_profile,
         );
         (std::mem::take(&mut image_state.refs), c)
@@ -306,13 +306,7 @@ fn build_pdfx_document(
     let mut resources = dictionary! {
         "Font" => font_dict,
     };
-    if !image_refs.is_empty() {
-        let mut xdict = lopdf::Dictionary::new();
-        for (name, ref_obj) in &image_refs {
-            xdict.set(name.as_bytes(), ref_obj.clone());
-        }
-        resources.set("XObject", xdict);
-    }
+    add_image_render_resources(&mut resources, &image_refs);
 
     let page_id = doc.new_object_id();
 
@@ -585,6 +579,184 @@ mod tests {
         assert!(
             !found_rgb_fill,
             "PDF/X-1a content must not contain RGB fill operators"
+        );
+    }
+
+    #[test]
+    fn pdfx1a_embeds_pattern_tiles_from_the_export_manifest_as_cmyk() {
+        let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
+        node.fills = Some(vec![varve_core::FillIR::Pattern {
+            tile_src: "tile.png".into(),
+            spacing: 0.0,
+            rotation: 0.0,
+            image_width: Some(2.0),
+            image_height: Some(2.0),
+            gap_x: None,
+            gap_y: None,
+            arrangement: None,
+            row_shift: None,
+            column_shift: None,
+            mirror_x: None,
+            mirror_y: None,
+            offset_x: None,
+            offset_y: None,
+            opacity: 1.0,
+            blend_mode: varve_core::BlendMode::Normal,
+            visible: true,
+        }]);
+        let manifest = crate::resources::ExportManifest {
+            images: vec![crate::resources::ImageResource {
+                id: "tile-image".into(),
+                src: Some("tile.png".into()),
+                mime_type: "image/raw-rgba".into(),
+                width: 2,
+                height: 2,
+                data: vec![
+                    180, 120, 60, 255, 180, 120, 60, 255, 180, 120, 60, 255, 180, 120, 60, 255,
+                ],
+                color_space: crate::resources::ColorSpace::Rgb,
+            }],
+            patterns: vec![],
+        };
+        let opts = PdfOptions {
+            print_profile: Some(PrintProfile::Fogra39),
+            manifest: Some(manifest),
+            ..Default::default()
+        };
+
+        let bytes = export_pdfx1a(&[node], &opts).expect("PDF/X-1a with a pattern tile");
+        let content = String::from_utf8_lossy(&bytes);
+        assert!(
+            content.contains("/Pat0"),
+            "PDF/X-1a must link the pattern image resource"
+        );
+        assert!(
+            content.contains("/DeviceCMYK"),
+            "PDF/X-1a must embed an opaque RGB pattern tile in CMYK"
+        );
+        assert!(!content.contains("/DeviceRGB"));
+        assert!(!content.contains("/SMask"));
+    }
+
+    #[test]
+    fn pdfx1a_omits_transparent_pattern_tiles_with_an_explicit_warning() {
+        let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
+        node.fills = Some(vec![varve_core::FillIR::Pattern {
+            tile_src: "tile.png".into(),
+            spacing: 0.0,
+            rotation: 0.0,
+            image_width: Some(2.0),
+            image_height: Some(2.0),
+            gap_x: None,
+            gap_y: None,
+            arrangement: None,
+            row_shift: None,
+            column_shift: None,
+            mirror_x: None,
+            mirror_y: None,
+            offset_x: None,
+            offset_y: None,
+            opacity: 1.0,
+            blend_mode: varve_core::BlendMode::Normal,
+            visible: true,
+        }]);
+        let manifest = crate::resources::ExportManifest {
+            images: vec![crate::resources::ImageResource {
+                id: "tile-image".into(),
+                src: Some("tile.png".into()),
+                mime_type: "image/raw-rgba".into(),
+                width: 2,
+                height: 2,
+                data: vec![
+                    180, 120, 60, 128, 180, 120, 60, 255, 180, 120, 60, 255, 180, 120, 60, 255,
+                ],
+                color_space: crate::resources::ColorSpace::Rgb,
+            }],
+            patterns: vec![],
+        };
+        let opts = PdfOptions {
+            print_profile: Some(PrintProfile::Fogra39),
+            manifest: Some(manifest),
+            ..Default::default()
+        };
+
+        let bytes = export_pdfx1a(&[node], &opts).expect("PDF/X-1a with transparent pattern");
+        let doc = Document::load_mem(&bytes).expect("parse PDF/X-1a");
+        let page_id = *doc
+            .get_pages()
+            .values()
+            .next()
+            .expect("PDF/X-1a has a page");
+        let page_content = doc.get_page_content(page_id);
+        let content = String::from_utf8_lossy(&page_content);
+        assert!(!content.contains("/Pat0"));
+        assert!(content.contains("transparent pattern cannot be represented"));
+    }
+
+    #[test]
+    fn pdfx4_preserves_alpha_for_transparent_pattern_tiles() {
+        let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
+        node.fills = Some(vec![varve_core::FillIR::Pattern {
+            tile_src: "tile.png".into(),
+            spacing: 0.0,
+            rotation: 0.0,
+            image_width: Some(2.0),
+            image_height: Some(2.0),
+            gap_x: None,
+            gap_y: None,
+            arrangement: None,
+            row_shift: None,
+            column_shift: None,
+            mirror_x: None,
+            mirror_y: None,
+            offset_x: None,
+            offset_y: None,
+            opacity: 0.8,
+            blend_mode: varve_core::BlendMode::Normal,
+            visible: true,
+        }]);
+        let manifest = crate::resources::ExportManifest {
+            images: vec![crate::resources::ImageResource {
+                id: "tile-image".into(),
+                src: Some("tile.png".into()),
+                mime_type: "image/raw-rgba".into(),
+                width: 2,
+                height: 2,
+                data: vec![
+                    180, 120, 60, 128, 180, 120, 60, 255, 180, 120, 60, 255, 180, 120, 60, 255,
+                ],
+                color_space: crate::resources::ColorSpace::Rgb,
+            }],
+            patterns: vec![],
+        };
+        let opts = PdfOptions {
+            print_profile: Some(PrintProfile::Fogra39),
+            manifest: Some(manifest),
+            ..Default::default()
+        };
+
+        let bytes = export_pdfx4(&[node], &opts).expect("PDF/X-4 with transparent pattern");
+        let doc = Document::load_mem(&bytes).expect("parse PDF/X-4");
+        let page_id = *doc.get_pages().values().next().expect("PDF/X-4 has a page");
+        let page = doc.get_object(page_id).unwrap().as_dict().unwrap();
+        let resources = page.get(b"Resources").unwrap().as_dict().unwrap();
+        let graphics_states = resources.get(b"ExtGState").unwrap().as_dict().unwrap();
+        let xobjects = resources.get(b"XObject").unwrap().as_dict().unwrap();
+        assert!(
+            graphics_states.has(b"GS800"),
+            "fill opacity resource must resolve"
+        );
+        assert!(xobjects.has(b"Pat0"), "pattern tile resource must resolve");
+        let page_content = doc.get_page_content(page_id);
+        let content = String::from_utf8_lossy(&page_content);
+        assert!(content.contains("/Pat0"));
+        assert!(content.contains("/GS800"));
+        assert!(
+            doc.objects.values().any(|object| matches!(
+                object,
+                Object::Stream(stream) if stream.dict.has(b"SMask")
+            )),
+            "transparency mask must be embedded"
         );
     }
 

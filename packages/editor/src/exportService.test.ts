@@ -13,6 +13,7 @@ import {
   ExportService,
   isMultiFileExportFormat,
   rasterScaleForJob,
+  svgPatternFallbackWarning,
 } from './exportService';
 
 function svgBatch(nodeId = 'n1'): ExportBatch {
@@ -59,6 +60,113 @@ describe('ExportService', () => {
     const [, bytes, mime] = call;
     expect(mime).toBe('image/svg+xml');
     expect(new TextDecoder().decode(bytes as Uint8Array)).toContain('<svg');
+  });
+
+  it('exports a supported pattern fill as a reusable SVG paint server', async () => {
+    const tile =
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL8tgAAAABJRU5ErkJggg==';
+    const definition = {
+      id: 'pattern-dots',
+      name: 'Dots',
+      revision: 1,
+      cell: { x: 0, y: 0, width: 8, height: 8 },
+      repeat: {
+        arrangement: 'grid',
+        gapX: 0,
+        gapY: 0,
+        rowShift: 0,
+        columnShift: 0,
+        mirrorX: false,
+        mirrorY: false,
+        originX: 0,
+        originY: 0,
+      },
+      source: { kind: 'raster', assetId: 'tile-asset', width: 8, height: 8 },
+      previewSrc: tile,
+    } as const;
+    const node = {
+      ...makeShapeNode(
+        'n1',
+        { kind: 'rect', x: 0, y: 0, w: 20, h: 10 },
+        { name: 'Patterned logo' },
+      ),
+      fills: [
+        {
+          type: 'pattern',
+          visible: true,
+          pattern: {
+            tileSrc: tile,
+            definitionId: definition.id,
+            spacing: 0,
+            rotation: 0,
+            imageWidth: 8,
+            imageHeight: 8,
+          },
+          opacity: 0.6,
+          blendMode: 'normal',
+        },
+      ],
+    } as any;
+    const doc = {
+      ...createDocument('Doc', true),
+      rootChildren: ['n1'],
+      nodes: { n1: node },
+      patternDefinitions: { [definition.id]: definition },
+      assets: {
+        'tile-asset': {
+          id: 'tile-asset',
+          kind: 'image',
+          mimeType: 'image/png',
+          dataUrl: tile,
+          name: 'dots.png',
+        },
+      },
+    } as any as Document;
+    let output = '';
+
+    const report = await ExportService.run(svgBatch(), {
+      document: doc,
+      saveFile: async (_fileName, bytes) => {
+        output = new TextDecoder().decode(bytes);
+        return '/exports/Logo.svg';
+      },
+    });
+
+    expect(report.successCount).toBe(1);
+    expect(output).toContain('<pattern');
+    expect(output).toContain('patternUnits="userSpaceOnUse"');
+    expect(output).toContain('fill-opacity="0.6"');
+    expect(output).toContain('data:image/png;base64');
+    expect(report.files[0]?.warnings).toEqual([]);
+  });
+
+  it('explains why an unsupported pattern needs the SVG raster fallback', () => {
+    const node = {
+      ...makeShapeNode(
+        'n1',
+        { kind: 'rect', x: 0, y: 0, w: 20, h: 10 },
+        { name: 'Inline pattern' },
+      ),
+      fills: [
+        {
+          type: 'pattern',
+          visible: true,
+          pattern: {
+            tileSrc:
+              'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL8tgAAAABJRU5ErkJggg==',
+            spacing: 0,
+            rotation: 0,
+          },
+          opacity: 1,
+          blendMode: 'normal',
+        },
+      ],
+    } as any;
+    const doc = { ...createDocument('Doc', true), rootChildren: ['n1'], nodes: { n1: node } };
+
+    expect(svgPatternFallbackWarning(node, doc).join(' ')).toMatch(
+      /Only reusable pattern definitions/,
+    );
   });
 
   it('reports real executor stages and completed counts in order', async () => {

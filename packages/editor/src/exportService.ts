@@ -11,6 +11,7 @@ import {
   exportNodeToSvg,
   exportNodeToSwiftUI,
   exportNodeToTailwindBundle,
+  svgPatternFillForNode,
 } from '@varve/codegen';
 import type { Engine } from '@varve/engine';
 import { getFontRegistry } from '@varve/engine';
@@ -176,6 +177,17 @@ function encode(text: string): Uint8Array {
   return new TextEncoder().encode(text);
 }
 
+/** Return the concrete fidelity warning for a pattern the SVG target flattens. */
+export function svgPatternFallbackWarning(
+  node: import('@varve/scene').SceneNode,
+  doc: Document,
+): string[] {
+  const resolution = svgPatternFillForNode(node, doc);
+  return resolution && !resolution.supported
+    ? [`Pattern fill was rasterized for SVG export: ${resolution.warning}`]
+    : [];
+}
+
 async function blobToBytes(blob: Blob): Promise<Uint8Array> {
   if (typeof blob.arrayBuffer === 'function') {
     return new Uint8Array(await blob.arrayBuffer());
@@ -298,6 +310,7 @@ async function renderJob(job: ExportJob, context: ExportRunContext): Promise<Ren
         mimeType: 'image/svg+xml',
         warnings: [
           ...fontWarnings,
+          ...svgPatternFallbackWarning(node, context.document),
           ...collectGradientMapFlattenWarnings(node, context.document, 'svg'),
           ...rasterWarnings,
         ],
