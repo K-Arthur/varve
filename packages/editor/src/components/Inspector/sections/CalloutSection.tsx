@@ -3,6 +3,7 @@ import type { CalloutFitPolicy, CalloutKind, GroupNode, TextWrapShape } from '@v
 import {
   addCalloutTail,
   calloutTails,
+  calloutTailTip,
   detachCalloutRecipe,
   fitCalloutToText,
   flipCalloutTail,
@@ -92,9 +93,7 @@ export function CalloutSection({ node, sectionId }: { node: GroupNode; sectionId
             ? { x: last.shape.cx, y: last.shape.cy }
             : undefined;
         })()
-      : firstTailNode?.kind === 'path' && firstTailNode.points.length > 0
-        ? firstTailNode.points[firstTailNode.points.length - 1]
-        : undefined;
+      : calloutTailTip(firstTailNode);
   const firstTailCurve = firstTail?.curve ?? 0;
   const firstTailBaseWidth = firstTail?.baseWidth;
 

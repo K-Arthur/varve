@@ -295,8 +295,9 @@ installers cover Linux, macOS (Apple Silicon), and Windows. This checkout
 targets source version `<!-- VARVE_VERSION -->0.5.0<!-- /VARVE_VERSION -->`.
 Versioning follows [SemVer](https://semver.org/); release notes are kept in
 [CHANGELOG.md](CHANGELOG.md). Published v0.2.1 used document schema 2.21; this
-source tree writes schema 2.32. The app version and document schema are
-separate. A 2.32 file may not open safely in older app versions, so back up
+source tree writes schema 2.33, including a migration that removes the
+unwanted outline across existing pointed balloon tails. The app version and
+document schema are separate. A 2.33 file may not open safely in older app versions, so back up
 important documents and use v0.5.0 or later for files saved by this release.
 Documents with the legacy `.strata` extension remain openable through the
 migration pipeline.

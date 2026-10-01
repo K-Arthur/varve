@@ -36,7 +36,15 @@ describe('comic callouts', () => {
     expect(group?.callout?.textNodeId).toBe(result.textId);
     expect(group?.children).toEqual([result.bodyId, ...result.tailNodeIds, result.textId]);
     expect(result.document.nodes[result.bodyId]?.kind).toBe('shape');
-    expect(result.document.nodes[result.tailNodeIds[0]!]?.kind).toBe('path');
+    const tail = result.document.nodes[result.tailNodeIds[0]!];
+    expect(tail?.kind).toBe('path');
+    if (tail?.kind !== 'path') throw new Error('callout tail is not a path');
+    // The fill closes implicitly, but the outline must remain open so its
+    // invisible base edge does not draw a black seam across the balloon.
+    expect(tail.closed).toBe(false);
+    expect(tail.points[1]).toMatchObject({ x: 120, y: 135 });
+    expect(tail.points[0]!.y).toBe(97);
+    expect(tail.points[2]!.y).toBe(97);
     expect(result.document.nodes[result.textId]?.kind).toBe('text');
   });
 
@@ -94,7 +102,7 @@ describe('comic callouts', () => {
       y: 124,
     });
     const tail = moved.nodes[secondTail!];
-    expect(tail?.kind === 'path' ? tail.points.at(-1) : undefined).toMatchObject({ x: 88, y: 124 });
+    expect(tail?.kind === 'path' ? tail.points[1] : undefined).toMatchObject({ x: 88, y: 124 });
   });
 
   it('marks a callout detached while retaining ordinary geometry', () => {
@@ -154,10 +162,10 @@ describe('comic callouts', () => {
       tailEndpoint: { x: 12, y: 600 },
     });
     const beforeTail = created.document.nodes[created.tailNodeIds[0]!];
-    const beforeEndpoint = beforeTail?.kind === 'path' ? beforeTail.points.at(-1) : null;
+    const beforeEndpoint = beforeTail?.kind === 'path' ? beforeTail.points[1] : null;
     const doc = fitCalloutToText(created.document, created.groupId);
     const afterTail = doc.nodes[created.tailNodeIds[0]!];
-    expect(afterTail?.kind === 'path' ? afterTail.points.at(-1) : null).toEqual(beforeEndpoint);
+    expect(afterTail?.kind === 'path' ? afterTail.points[1] : null).toEqual(beforeEndpoint);
     expect(afterTail?.kind === 'path' ? afterTail.points[0] : null).not.toEqual(
       beforeTail?.kind === 'path' ? beforeTail.points[0] : null,
     );
@@ -264,7 +272,7 @@ describe('comic callouts', () => {
       textBefore?.kind === 'text' ? textBefore.text : undefined,
     );
     const tail = doc.nodes[created.tailNodeIds[0]!];
-    expect(tail?.kind === 'path' ? tail.points.at(-1) : null).toMatchObject({ x: 30, y: 400 });
+    expect(tail?.kind === 'path' ? tail.points[1] : null).toMatchObject({ x: 30, y: 400 });
     expect(getCalloutFitReport(doc, created.groupId)?.status).not.toBe('overflow');
   });
 
@@ -308,9 +316,11 @@ describe('comic callouts', () => {
     const tailId = created.tailNodeIds[0]!;
     const tail = created.document.nodes[tailId];
     if (tail?.kind !== 'path') throw new Error('expected a path tail');
-    expect(tail.points.at(-1)).toMatchObject({ x: 20, y: 200 });
-    expect(tail.points[0]!.handleIn).not.toBeNull();
+    expect(tail.points[1]).toMatchObject({ x: 20, y: 200 });
+    expect(tail.points[0]!.handleOut).not.toBeNull();
+    expect(tail.points[1]!.handleIn).not.toBeNull();
     expect(tail.points[1]!.handleOut).not.toBeNull();
+    expect(tail.points[2]!.handleIn).not.toBeNull();
 
     const straight = setCalloutTailCurve(created.document, created.groupId, tailId, 0);
     const straightTail = straight.nodes[tailId];
@@ -320,7 +330,7 @@ describe('comic callouts', () => {
     const widerTail = wider.nodes[tailId];
     if (widerTail?.kind !== 'path') throw new Error('expected a path tail');
     const baseLeft = widerTail.points[0]!;
-    const baseRight = widerTail.points[1]!;
+    const baseRight = widerTail.points[2]!;
     expect(Math.abs(baseRight.x - baseLeft.x)).toBeCloseTo(40, 5);
   });
 
@@ -339,7 +349,7 @@ describe('comic callouts', () => {
 
     const flipped = flipCalloutTail(created.document, created.groupId, tailId);
     const flippedTail = flipped.nodes[tailId];
-    expect(flippedTail?.kind === 'path' ? flippedTail.points.at(-1) : null).toMatchObject({
+    expect(flippedTail?.kind === 'path' ? flippedTail.points[1] : null).toMatchObject({
       x: 140,
       y: 200,
     });
@@ -379,7 +389,7 @@ describe('comic callouts', () => {
     expect(pointedGroup.callout?.tailNodeIds).toHaveLength(1);
     const tipId = pointedGroup.callout!.tailNodeIds[0]!;
     const tip = pointed.nodes[tipId];
-    expect(tip?.kind === 'path' ? tip.points.at(-1) : null).toMatchObject({ x: 30, y: 210 });
+    expect(tip?.kind === 'path' ? tip.points[1] : null).toMatchObject({ x: 30, y: 210 });
   });
 
   it('stacks auto-width dialogue into a stacked balloon instead of a ribbon', () => {
@@ -434,7 +444,7 @@ describe('comic callouts', () => {
     const body = doc.nodes[created.bodyId];
     const tail = doc.nodes[created.tailNodeIds[0]!];
     const bodyHeight = body?.kind === 'shape' && body.shape.kind === 'rect' ? body.shape.h : 0;
-    const tip = tail?.kind === 'path' ? tail.points.at(-1) : null;
+    const tip = tail?.kind === 'path' ? tail.points[1] : null;
     expect(tip).not.toBeNull();
     expect(Number.isFinite(tip!.x)).toBe(true);
     expect(tip!.y).toBeGreaterThan(bodyHeight);
@@ -519,7 +529,7 @@ describe('shaped balloons (burst and cloud)', () => {
     expect(outline.shape.innerRadius).toBeCloseTo(Math.max(body.shape.w, body.shape.h) / 2, 1);
     const tail = doc.nodes[created.tailNodeIds[0]!];
     if (tail?.kind !== 'path') throw new Error('no tail');
-    const tip = tail.points[tail.points.length - 1]!;
+    const tip = tail.points[1]!;
     expect(tip.y).toBeGreaterThan(body.shape.h);
   });
 

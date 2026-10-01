@@ -15,7 +15,7 @@ import {
 
 describe('Document Versioning', () => {
   it('uses the current document schema version', () => {
-    expect(CURRENT_DOCUMENT_VERSION).toBe('2.32');
+    expect(CURRENT_DOCUMENT_VERSION).toBe('2.33');
     expect(SUPPORTED_VERSIONS).toContain('2.4');
   });
 
@@ -45,12 +45,55 @@ describe('Document Versioning', () => {
 
     const migrated = migrateDocument(legacy) as Document | null;
 
-    expect(migrated?.formatVersion).toBe('2.32');
+    expect(migrated?.formatVersion).toBe('2.33');
     expect(migrated?.patternDefinitions).toEqual({});
     expect(migrated?.nodes['shape-node']?.fills?.[0]).toMatchObject({
       type: 'pattern',
       pattern: { tileSrc: 'tile-node', spacing: 3, rotation: 12 },
     });
+  });
+
+  it('removes the hidden base stroke from v2.32 pointed callout tails', () => {
+    const left = { x: 30, y: 79, handleIn: null, handleOut: null };
+    const right = { x: 50, y: 79, handleIn: null, handleOut: null };
+    const tip = { x: 40, y: 120, handleIn: null, handleOut: null };
+    const migrated = migrateDocument({
+      formatVersion: '2.32',
+      id: 'callout-doc',
+      name: 'Callout',
+      rootChildren: ['group'],
+      nodes: {
+        group: {
+          id: 'group',
+          kind: 'group',
+          children: ['tail'],
+          callout: { tailNodeIds: ['tail'] },
+        },
+        tail: {
+          id: 'tail',
+          kind: 'path',
+          closed: true,
+          points: [left, right, tip],
+          fill: { space: 'rgb', r: 255, g: 255, b: 255, a: 255 },
+        },
+      },
+      components: {},
+      nextId: 1,
+    });
+
+    const migratedNodes =
+      migrated?.nodes && typeof migrated.nodes === 'object'
+        ? (migrated.nodes as Record<string, unknown>)
+        : undefined;
+    const tailValue = migratedNodes?.tail;
+    const tail =
+      tailValue && typeof tailValue === 'object' && !Array.isArray(tailValue)
+        ? (tailValue as Record<string, unknown>)
+        : undefined;
+    expect(migrated?.formatVersion).toBe('2.33');
+    expect(tail?.kind).toBe('path');
+    expect(tail?.closed).toBe(false);
+    expect(tail?.points).toEqual([{ ...left, y: 77 }, tip, { ...right, y: 77 }]);
   });
 
   it('normalizes exact font references and drops malformed identities', () => {

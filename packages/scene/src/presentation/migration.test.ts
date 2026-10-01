@@ -37,7 +37,7 @@ describe('presentation persistence and migration', () => {
       },
     });
 
-    expect(migrated?.formatVersion).toBe('2.31');
+    expect(migrated?.formatVersion).toBe('2.33');
     expect(migrated?.presentation).toMatchObject({
       schemaVersion: 1,
       decks: [

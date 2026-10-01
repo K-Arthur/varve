@@ -27,7 +27,9 @@ marked.
   navigation controls extend the painting workflow. Check pressure and tilt
   support on the device you use.
 - **Comic lettering** — Build speech, thought, and shout balloons, captions,
-  panel layouts, and editable lettering with localization support.
+  panel layouts, and editable lettering with localization support. Pointed
+  balloon tails now join the bubble outline without a line across the pointer;
+  existing balloons are corrected when their documents migrate.
 - **Photo workflows** — Source-preserving retouch, Frequency Separation,
   Liquify, depth-aware masks, bracket merging, and verified Ultra HDR sharing
   join image tuning and colorization. RAW development is limited to the
@@ -55,10 +57,10 @@ marked.
 - **Experimental rendering options** — Canvas2D remains the default. WebGL2
   and WebGPU are opt-in experiments with capability checks and Canvas2D
   fallback; results depend on the browser, driver, and hardware.
-- **Document compatibility** — The app now writes document schema 2.32;
-  published v0.2.1 used schema 2.21. Older documents migrate on open, but
-  newer files are not backward-compatible. Back up important `.varve` files
-  before opening them in this release.
+- **Document compatibility** — The app now writes document schema 2.33;
+  published v0.2.1 used schema 2.21. Older documents migrate on open, including
+  the 2.32 callout-tail outline correction, but newer files are not
+  backward-compatible. Back up important `.varve` files before opening them.
 - **Save and recovery feedback** — Saved, Saving, Modified, and Save failed
   states are explicit, and failed writes retain recovery paths. Confirm a
   save by its successful destination write before closing important work.

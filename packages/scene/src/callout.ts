@@ -211,26 +211,40 @@ function pointedTailPoints(
   w: number,
   h: number,
   endpoint: { x: number; y: number },
-  options?: { baseWidth?: number; curve?: number },
+  options?: { baseWidth?: number; curve?: number; strokeWeight?: number },
 ): PathPoint[] {
   const base = tailBaseWidth(w, options?.baseWidth);
   const cx = w / 2;
-  const baseY = Math.min(h, h - 1);
+  // Start the white fill inside the balloon far enough to cover its
+  // antialiased bottom stroke. Without this overlap, that stroke remains as a
+  // hairline across the pointer even though the tail outline itself is open.
+  const baseY = Math.max(0, h - (options?.strokeWeight ?? 2) - 1);
   const left = point(cx - base / 2, baseY);
   const right = point(cx + base / 2, baseY);
   const tip = point(endpoint.x, endpoint.y);
   const curve = Math.max(-1, Math.min(1, options?.curve ?? 0));
   if (curve !== 0) {
     const control = tailControlPoint({ x: cx, y: baseY }, endpoint, curve);
-    // Both tail sides bow toward the shared control point, so the outline
-    // bends as one stroke instead of kinking at the tip.
+    // The open outline runs left base → tip → right base. Keep both sides
+    // smooth through the tip; the fill closes the path across the hidden base.
     const k = 0.65;
-    right.handleOut = [(control.x - right.x) * k, (control.y - right.y) * k];
+    left.handleOut = [(control.x - left.x) * k, (control.y - left.y) * k];
     tip.handleIn = [(control.x - tip.x) * k, (control.y - tip.y) * k];
     tip.handleOut = [(control.x - tip.x) * k, (control.y - tip.y) * k];
-    left.handleIn = [(control.x - left.x) * k, (control.y - left.y) * k];
+    right.handleIn = [(control.x - right.x) * k, (control.y - right.y) * k];
   }
-  return [left, right, tip];
+  // The implicit fill closure joins right back to left under the balloon.
+  // Keeping that edge out of the stroke leaves only the two outer pointer
+  // lines, as a single comic balloon contour.
+  return [left, tip, right];
+}
+
+/** Tip point for a generated callout tail, including legacy closed geometry. */
+export function calloutTailTip(node: SceneNode | undefined): PathPoint | undefined {
+  if (node?.kind !== 'path' || node.points.length < 3) return undefined;
+  // Earlier callouts stored [left base, right base, tip] as a closed path.
+  // Current callouts store [left base, tip, right base] with an open outline.
+  return node.closed ? node.points[node.points.length - 1] : node.points[1];
 }
 
 /**
@@ -370,8 +384,14 @@ function buildTailNodes(
   next = idResult.doc;
   const node = makePathNode(idResult.id, {
     name: 'Balloon tail',
-    points: pointedTailPoints(w, h, endpoint, options),
-    closed: true,
+    points: pointedTailPoints(w, h, endpoint, {
+      ...options,
+      strokeWeight: calloutStyle(kind).strokeWeight,
+    }),
+    // An open stroke keeps the hidden base edge from showing across the
+    // balloon. Path fills still close implicitly, so the white tail overlaps
+    // the body cleanly while only its two outside edges are outlined.
+    closed: false,
     fill: WHITE,
     strokes: [bubbleStroke(kind)],
   });
@@ -724,6 +744,7 @@ function updateTailGeometry(
   tails: readonly CalloutTail[],
   width: number,
   height: number,
+  kind: CalloutKind,
 ): Record<NodeId, SceneNode> {
   const next = { ...nodes };
   for (const tail of tails) {
@@ -747,10 +768,20 @@ function updateTailGeometry(
     const nodeId = tail.nodeIds[0];
     const tailNode = nodeId ? next[nodeId] : undefined;
     if (tailNode?.kind !== 'path' || tailNode.points.length < 3) continue;
-    const endpoint = tailNode.points[tailNode.points.length - 1]!;
+    const endpoint = calloutTailTip(tailNode);
+    if (!endpoint) continue;
     next[nodeId!] = {
       ...tailNode,
-      points: pointedTailPoints(width, height, { x: endpoint.x, y: endpoint.y }, tail),
+      closed: false,
+      points: pointedTailPoints(
+        width,
+        height,
+        { x: endpoint.x, y: endpoint.y },
+        {
+          ...tail,
+          strokeWeight: calloutStyle(kind).strokeWeight,
+        },
+      ),
     };
   }
   return next;
@@ -940,7 +971,8 @@ function tailEndpointFor(
   const nodeId = tail.nodeIds[0];
   const node = nodeId ? nodes[nodeId] : undefined;
   if (node?.kind === 'path' && node.points.length > 0) {
-    const tip = node.points[node.points.length - 1]!;
+    const tip = calloutTailTip(node);
+    if (!tip) return { x: body.w / 2, y: body.h + 24 };
     return { x: tip.x, y: tip.y };
   }
   return { x: body.w / 2, y: body.h + 24 };
@@ -978,7 +1010,11 @@ export function updateCalloutTailEndpoint(
     if (node?.kind !== 'path' || node.points.length < 3) return doc;
     nodes[nodeId!] = {
       ...node,
-      points: pointedTailPoints(w, h, endpoint, tail),
+      closed: false,
+      points: pointedTailPoints(w, h, endpoint, {
+        ...tail,
+        strokeWeight: calloutStyle(group.callout.kind).strokeWeight,
+      }),
     };
   }
   return { ...doc, nodes };
@@ -1071,12 +1107,11 @@ function updateTailSetting(
   const endpoint = tailEndpointFor(tail, doc.nodes, body.shape);
   const updated = {
     ...node,
-    points: pointedTailPoints(
-      body.shape.w,
-      tailAnchorHeight(group, body, doc.nodes),
-      endpoint,
-      nextTail,
-    ),
+    closed: false,
+    points: pointedTailPoints(body.shape.w, tailAnchorHeight(group, body, doc.nodes), endpoint, {
+      ...nextTail,
+      strokeWeight: calloutStyle(group.callout.kind).strokeWeight,
+    }),
   };
   const withNode = { ...doc, nodes: { ...doc.nodes, [nodeId!]: updated } };
   return replaceTails(
@@ -1281,10 +1316,15 @@ export function fitCalloutToText(doc: Document, groupId: NodeId): Document {
     } else {
       const nodeId = tail.nodeIds[0];
       const node = nodeId ? nodes[nodeId] : undefined;
-      if (node?.kind === 'path' && node.points.length > 0) {
-        const points = [...node.points];
-        points[points.length - 1] = { ...points[points.length - 1]!, ...projected };
-        nodes[nodeId!] = { ...node, points };
+      if (node?.kind === 'path' && calloutTailTip(node)) {
+        nodes[nodeId!] = {
+          ...node,
+          closed: false,
+          points: pointedTailPoints(localW, nextAnchorH, projected, {
+            ...tail,
+            strokeWeight: calloutStyle(group.callout.kind).strokeWeight,
+          }),
+        };
       }
     }
   }
@@ -1293,7 +1333,7 @@ export function fitCalloutToText(doc: Document, groupId: NodeId): Document {
     [body.id]: { ...body, shape: { ...body.shape, w: localW, h: localH } },
     [text.id]: setTextContainer(text, innerW, innerH, p),
   };
-  nodes = updateTailGeometry(nodes, calloutTails(group), localW, nextAnchorH);
+  nodes = updateTailGeometry(nodes, calloutTails(group), localW, nextAnchorH, group.callout.kind);
   return {
     ...doc,
     nodes: {

@@ -18,8 +18,9 @@ import { migrateV227ToV228 } from './version-migrations-v228';
 import { migrateV228ToV229 } from './version-migrations-v229';
 import { migrateV229ToV230 } from './version-migrations-v230';
 import { migrateV230ToV231 } from './version-migrations-v231';
+import { migrateV232ToV233 } from './version-migrations-v233';
 
-export const CURRENT_DOCUMENT_VERSION = '2.32';
+export const CURRENT_DOCUMENT_VERSION = '2.33';
 
 function normalizeLayoutSizingFields(raw: Record<string, unknown>): Record<string, unknown> {
   const rawNodes = raw.nodes;
@@ -159,6 +160,7 @@ export const SUPPORTED_VERSIONS = [
   '2.30',
   '2.31',
   '2.32',
+  '2.33',
 ];
 
 export interface DocumentMigration {
@@ -977,6 +979,11 @@ const migrations: DocumentMigration[] = [
       // source semantics remain exact after this migration.
       patternDefinitions: raw.patternDefinitions ?? {},
     }),
+  },
+  {
+    from: '2.32',
+    to: '2.33',
+    migrate: (raw) => migrateV232ToV233(raw),
   },
 ];
 

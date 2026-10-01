@@ -16,7 +16,7 @@ seconds of page load.
   as demo when `location.pathname` starts with `/try` or the URL carries `?try=1`
   / `?demo=1`. Desktop (Tauri) is excluded regardless of URL.
 - **Sample seeding**: `apps/desktop/src/demo/sampleDocument.ts` builds the sample
-  document from the scene model API (current schema 2.32, `createDocument` + `addNode` +
+  document from the scene model API (current schema 2.33, `createDocument` + `addNode` +
   `serializeDocument`). Seeded into IndexedDB on first visit; never overwrites user
   edits. Its fonts are preloaded before the document opens.
 - **Direct open**: `useDemoEntry` orchestrates seed → open → banner. The editor
@@ -168,9 +168,9 @@ an opaque loading overlay that never went away. Only the image showed it.
 ## Known limitations
 
 - Files stored in this browser only (IndexedDB); clearing site data deletes them.
-- The current sample is seeded with document schema 2.32. Opening it in an older
+- The current sample is seeded with document schema 2.33. Opening it in an older
   desktop build depends on that build's supported schema; keep a backup and use
-  a release that understands schema 2.32 before continuing to edit it.
+  a release that understands schema 2.33 before continuing to edit it.
 - WASM engine, not native desktop engine — slower rendering on large documents.
 - No autosave: edits must be saved explicitly (Ctrl+S), and anything after the
   last save is lost on close. An explicit save does now update the browser-local
