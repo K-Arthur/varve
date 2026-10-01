@@ -33,7 +33,7 @@ describe('performance workload corpus', () => {
 
   it('records decoded-image admission pressure without allocating image pixels', () => {
     const raster = createPerformanceWorkload('raster-heavy');
-    expect(raster.expected.decodedImageBytes).toBe(3_221_225_472);
+    expect(raster.expected.decodedImageBytes).toBe(6 * 1024 * 1024 * 4);
     expect(raster.expected.nodeCount).toBe(48);
   });
 

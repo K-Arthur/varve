@@ -28,6 +28,7 @@ import {
   useEffect,
   useId,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from 'react';
@@ -166,6 +167,14 @@ function hiddenStyle(
   };
 }
 
+function sameStyle(first: CSSProperties, second: CSSProperties): boolean {
+  const firstEntries = Object.entries(first);
+  const secondEntries = Object.entries(second);
+  if (firstEntries.length !== secondEntries.length) return false;
+  const secondValues = second as Record<string, unknown>;
+  return firstEntries.every(([property, value]) => Object.is(value, secondValues[property]));
+}
+
 function rectDetails(rect: DOMRect | undefined): Record<string, number> | undefined {
   if (!rect) return undefined;
   return {
@@ -252,6 +261,15 @@ export function FloatingPortal({
   positionRef.current = onPositionChange;
   const shouldDismissOnPointerDown = dismissOnPointerDown ?? Boolean(onClose);
   const shouldDismissOnWindowBlur = dismissOnWindowBlur ?? Boolean(onClose);
+  // Many callers pass an inline placement array. Position notifications can
+  // rerender the owner, so effect dependencies must track its value rather
+  // than the fresh array identity or measuring can restart on every frame.
+  const fallbackPlacementsKey = fallbackPlacements?.join('\u0000') ?? '';
+  const stableFallbackPlacements = useMemo(
+    () =>
+      fallbackPlacementsKey ? (fallbackPlacementsKey.split('\u0000') as Placement[]) : undefined,
+    [fallbackPlacementsKey],
+  );
 
   const overlayId = explicitOverlayId ?? `varve-overlay-${generatedId.replace(/[:]/g, '')}`;
   const parentId = explicitParentId ?? inheritedParentId;
@@ -357,7 +375,8 @@ export function FloatingPortal({
 
     const generation = ++generationRef.current;
     let cancelled = false;
-    setPosStyle(hiddenStyle(maxHeight, zIndex));
+    const hidden = hiddenStyle(maxHeight, zIndex);
+    setPosStyle((current) => (sameStyle(current, hidden) ? current : hidden));
     traceOverlayEvent(ownerDocument, {
       event: 'anchor-measured',
       id: overlayId,
@@ -395,7 +414,7 @@ export function FloatingPortal({
           : currentAnchor.element;
     const direction = directionForAnchor(currentAnchor, ownerDocument);
     const resolvedPlacement = resolvePlacementForDirection(placement, direction, logicalPlacement);
-    const resolvedFallbackPlacements = fallbackPlacements?.map((fallback) =>
+    const resolvedFallbackPlacements = stableFallbackPlacements?.map((fallback) =>
       resolvePlacementForDirection(fallback, direction, logicalPlacement),
     );
     const update = () => {
@@ -502,7 +521,7 @@ export function FloatingPortal({
             pointerEvents: hiddenByReference ? 'none' : 'auto',
             zIndex,
           };
-          setPosStyle(nextStyle);
+          setPosStyle((current) => (sameStyle(current, nextStyle) ? current : nextStyle));
           positionRef.current?.({
             x: positionedX,
             y: positionedY,
@@ -537,7 +556,7 @@ export function FloatingPortal({
             offsetDistance,
             ownerDocument,
           );
-          setPosStyle({
+          const fallbackStyle: CSSProperties = {
             position: 'fixed',
             left: fallback.x,
             top: fallback.y,
@@ -545,7 +564,8 @@ export function FloatingPortal({
             visibility: 'visible',
             pointerEvents: 'auto',
             zIndex,
-          });
+          };
+          setPosStyle((current) => (sameStyle(current, fallbackStyle) ? current : fallbackStyle));
           traceOverlayEvent(ownerDocument, {
             event: 'placement-fallback',
             id: overlayId,
@@ -613,7 +633,7 @@ export function FloatingPortal({
     explicitAnchor,
     anchorRef,
     placement,
-    fallbackPlacements,
+    stableFallbackPlacements,
     offsetDistance,
     maxHeight,
     zIndex,

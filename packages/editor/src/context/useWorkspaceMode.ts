@@ -137,7 +137,9 @@ function resolvePendingWorkspaceInteractions(
   const plan = classifyWorkspaceInteractions(
     readWorkspaceInteractionSnapshot({
       tool: state.tool,
-      maskPreviewMode: state.maskPreviewMode,
+      hasMaskPreview: Boolean(
+        state.backgroundRemovalPreviewSession || state.objectSelectionSession,
+      ),
       isPlaying: state.motion.isPlaying,
     }),
   );
@@ -155,11 +157,7 @@ function resolvePendingWorkspaceInteractions(
     }
   }
   for (const resolution of plan.resolutions) {
-    if (
-      resolution.kind === 'node-edit' ||
-      resolution.kind === 'crop' ||
-      resolution.kind === 'mask-preview'
-    ) {
+    if (resolution.kind === 'node-edit' || resolution.kind === 'crop') {
       applyToolChange('select', toolRef, patch);
     } else if (resolution.kind === 'text-edit' || resolution.kind === 'active-control') {
       const active = typeof document !== 'undefined' ? document.activeElement : null;

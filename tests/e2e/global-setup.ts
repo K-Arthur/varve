@@ -92,10 +92,12 @@ export default async function globalSetup(_config: FullConfig): Promise<void> {
       await createInDialog.waitFor({ timeout: 30_000 });
     }
     await createInDialog.click({ timeout: 30_000 });
-    await page
-      .locator('.editor__layers-panel, .layers-panel')
-      .first()
-      .waitFor({ timeout: 180_000 });
+    // Responsive dock layouts can project side panels into closed drawers
+    // even at the default browser viewport. Warm the editor by waiting for
+    // its stable shell and canvas surfaces instead of assuming Layers is
+    // expanded as a desktop sidebar.
+    await page.locator('.editor-shell').waitFor({ state: 'visible', timeout: 180_000 });
+    await page.locator('.editor-canvas').waitFor({ state: 'visible', timeout: 180_000 });
     await page.close();
   } finally {
     await browser?.close();

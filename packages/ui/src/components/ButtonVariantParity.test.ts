@@ -64,3 +64,36 @@ describe('Button vocabulary parity', () => {
     expect(pressedRules?.join('\n')).toContain('--color-interactive-checked-surface');
   });
 });
+
+/**
+ * The unavailable-control contract: `aria-disabled` is the *focusable*
+ * unavailable state that carries `disabledReason`/`title`, so pointer events
+ * must keep flowing to it — a `pointer-events: none` here makes the reason
+ * unhoverable (the defect Fluent UI #17606 and Calcite #5318 fixed).
+ * HTML-disabled keeps pointer events off; there is no reason to read.
+ */
+describe('aria-disabled stays pointer-active', () => {
+  function ruleBody(selector: string): string | undefined {
+    const match = css.match(
+      new RegExp(`${selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\{[^}]*\\}`),
+    );
+    return match?.[0];
+  }
+
+  it('does not block pointer events on aria-disabled buttons', () => {
+    const body = ruleBody('.varve-btn[aria-disabled="true"]');
+    expect(body).toBeDefined();
+    expect(body).not.toContain('pointer-events');
+  });
+
+  it('does not block pointer events on aria-disabled close buttons', () => {
+    const body = ruleBody('.varve-close[aria-disabled="true"]');
+    expect(body).toBeDefined();
+    expect(body).not.toContain('pointer-events');
+  });
+
+  it('still blocks pointer events on HTML-disabled buttons', () => {
+    expect(ruleBody('.varve-btn:disabled')).toContain('pointer-events: none');
+    expect(ruleBody('.varve-close:disabled')).toContain('pointer-events: none');
+  });
+});

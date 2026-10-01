@@ -1,6 +1,7 @@
 import {
   type AreaSelection,
   areaSelectionFromColorRange,
+  refineAreaSelection,
   transformAreaSelection,
 } from '@varve/engine';
 import { makeTileKey, type RasterLayerNode, TILE_SIZE } from '@varve/scene';
@@ -18,6 +19,8 @@ export interface RasterColorSelectionOptions {
   tolerance: number;
   /** Additional OKLab falloff beyond tolerance. */
   feather: number;
+  /** Grow the color coverage in source pixels before mapping it to the layer. */
+  edgeExpansion?: number;
   mode: 'global' | 'contiguous';
 }
 
@@ -133,7 +136,16 @@ export function rasterColorSelectionAt(
   );
   if (!selection) return null;
 
-  return transformAreaSelection(selection, [
+  const edgeExpansion = Number.isFinite(options.edgeExpansion)
+    ? Math.max(0, Math.min(8, Math.round(options.edgeExpansion ?? 0)))
+    : 0;
+  const expanded =
+    edgeExpansion > 0
+      ? refineAreaSelection(selection, 'grow', { amount: edgeExpansion }, selection.generation)
+      : selection;
+  if (!expanded) return null;
+
+  return transformAreaSelection(expanded, [
     node.width / source.width,
     0,
     0,

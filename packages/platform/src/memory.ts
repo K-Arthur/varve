@@ -148,11 +148,13 @@ export function createMemoryPlatform(options: MemoryPlatformOptions = {}): Platf
     };
   }
 
-  // Auto-create a "Personal" workspace if none exist
+  // Auto-create a "Personal" workspace if none exist. Fixed key for the same
+  // reason as the web platform: idempotent under concurrent initialization
+  // and matchable by the Home shell's 'personal' fallback id.
   if (state.workspaces.size === 0) {
     const now = Date.now();
     const personal: Workspace = {
-      id: uuid(),
+      id: 'personal',
       name: 'Personal',
       kind: 'personal',
       createdAt: now,

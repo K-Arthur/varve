@@ -46,7 +46,7 @@ import {
   getWorldTransform as getCachedWorldTransform,
 } from '../scene/transformCache';
 import { nodeLocalBounds } from '../scene/world';
-import type { PenConstructionDraft, PredictedStrokeDraft } from '../tools/types';
+import type { DraftShape, PenConstructionDraft, PredictedStrokeDraft } from '../tools/types';
 import { applyEditorCameraToCtx } from './cameraState';
 import { resizeCanvasBackingStore } from './canvasSurface';
 import { computeGridLines, renderGridOnCtx, resolveCanvasColor } from './gridRenderer';
@@ -66,7 +66,7 @@ export interface UseOverlayDrawOptions {
   displayDpr: number;
   accentColorRef: MutableRefObject<string>;
   sunkenColorRef: MutableRefObject<string>;
-  draft: unknown | null;
+  draftRef: MutableRefObject<unknown | null>;
   objectSelectionSession: EditorState['objectSelectionSession'];
   areaSelection: AreaSelection | null | undefined;
   floatingRaster: FloatingRasterSelection | null | undefined;
@@ -165,6 +165,25 @@ function drawAreaSelectionBoundary(
 }
 
 const floatingPreviewCache = new WeakMap<FloatingRasterSelection, HTMLCanvasElement>();
+
+export function createDraftUpdateHandler(deps: {
+  draftRef: MutableRefObject<DraftShape | null>;
+  setDraftState: (draft: DraftShape | null) => void;
+  cameraPreviewFrameKey: MutableRefObject<string | null>;
+  drawOverlayRef: MutableRefObject<(() => void) | null>;
+}): (draft: DraftShape | null) => void {
+  return (next) => {
+    const previous = deps.draftRef.current;
+    deps.draftRef.current = next;
+    const needsReactProjection = (value: DraftShape | null) =>
+      value?.kind === 'shape-builder' || value?.kind === 'bezier-path';
+    // Ordinary in-progress shapes stay on the overlay canvas. Only drafts with
+    // interactive React controls need a projection through the editor tree.
+    if (needsReactProjection(previous) || needsReactProjection(next)) deps.setDraftState(next);
+    const frameKey = deps.cameraPreviewFrameKey.current;
+    if (frameKey) scheduleCanvasFrame(frameKey, 'ui', () => deps.drawOverlayRef.current?.());
+  };
+}
 
 /**
  * Object-selection masks can be the size of a 33 MP photograph. The overlay
@@ -692,7 +711,7 @@ export function useOverlayDraw({
   transformCacheRef,
   displayDpr,
   accentColorRef,
-  draft,
+  draftRef,
   objectSelectionSession,
   areaSelection,
   floatingRaster,
@@ -723,6 +742,7 @@ export function useOverlayDraw({
     if (!ctx) return;
 
     const s = stateRef.current;
+    const draft = draftRef.current;
     const doc = s.document;
     const cache = transformCacheRef.current;
     const vp = { width: cssW, height: cssH };
@@ -1296,7 +1316,7 @@ export function useOverlayDraw({
     transformCacheRef,
     displayDpr,
     accentColorRef,
-    draft,
+    draftRef,
     objectSelectionSession,
     subjectProposalState,
     areaSelection,

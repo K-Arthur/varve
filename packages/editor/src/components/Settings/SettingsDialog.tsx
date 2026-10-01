@@ -423,12 +423,25 @@ function GeneralSection({ onOnboardingReset }: { onOnboardingReset?: () => void 
       </SettingsFieldRow>
       <Divider />
       <h3 className="settings-section__title">Render performance</h3>
-      <SwitchField
-        label="Prefer WebGPU when available"
-        description="Reload the document tab after changing. Eligible simple shapes may use offscreen WebGPU; other artwork uses Canvas2D or worker replay. Linux WebKitGTK keeps Canvas2D. The status bar and Performance tab show actual frame use and fallback. Export is unchanged."
-        checked={settings.render.preferWebGpu}
-        onChange={(e) => updateSettingsCtx({ render: { preferWebGpu: e.target.checked } })}
-      />
+      <SettingsFieldRow label="Canvas renderer">
+        <Select
+          options={[
+            { value: 'canvas2d', label: 'Canvas2D (recommended)' },
+            { value: 'webgpu', label: 'WebGPU (when available)' },
+            { value: 'webgl2', label: 'WebGL2 (experimental)' },
+          ]}
+          value={settings.render.renderer}
+          onChange={(value) =>
+            updateSettingsCtx({ render: { renderer: value as typeof settings.render.renderer } })
+          }
+          label="Canvas renderer"
+        />
+      </SettingsFieldRow>
+      <p className="settings-hint">
+        Changes apply after the canvas reloads. WebGL2 is experimental and only draws eligible
+        unmodified, pixel-aligned solid rectangles and uncropped stretch image fills. Ellipses and
+        other artwork use Canvas2D. Export is unchanged.
+      </p>
       <Divider />
       <h3 className="settings-section__title">Onboarding</h3>
       <p className="settings-desc">

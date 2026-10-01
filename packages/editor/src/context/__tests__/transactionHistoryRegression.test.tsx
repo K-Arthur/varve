@@ -110,6 +110,81 @@ describe('EditorProvider transaction history ordering', () => {
     await waitFor(() => expect(editor?.state.document.nodes[id]?.transform[4]).toBe(initialX));
   });
 
+  it('restores selection, dirty state, and history after a cancelled selection move', async () => {
+    let editor: ReturnType<typeof useEditor> | undefined;
+    function Consumer() {
+      editor = useEditor();
+      return null;
+    }
+
+    render(
+      <EditorProvider>
+        <Consumer />
+      </EditorProvider>,
+    );
+    await waitFor(() => expect(editor?.persistentHistory.attached).toBe(true));
+    act(() => {
+      editor!.setTool('rect');
+      editor!.createShapeAt({ x: 10, y: 10 }, { w: 100, h: 60 });
+    });
+    await waitFor(() => expect(editor?.state.selection).toHaveLength(1));
+    const firstId = editor!.state.selection[0]!;
+    act(() => editor!.createShapeAt({ x: 150, y: 10 }, { w: 100, h: 60 }));
+    await waitFor(() => expect(editor?.state.selection).toHaveLength(1));
+    const secondId = editor!.state.selection[0]!;
+    expect(secondId).not.toBe(firstId);
+
+    act(() => {
+      editor!.setSelection(firstId);
+      editor!.patch({
+        dirty: false,
+        sessions: editor!.state.sessions.map((session) => ({ ...session, dirty: false })),
+      });
+    });
+    const before = {
+      selection: [...editor!.state.selection],
+      primaryId: editor!.state.primaryId,
+      focusedNodeId: editor!.state.focusedNodeId,
+      selectionRevision: editor!.state.selectionRevision,
+      dirty: editor!.state.dirty,
+      canUndo: editor!.state.canUndo,
+      canRedo: editor!.state.canRedo,
+      undoLabel: editor!.state.undoLabel,
+      redoLabel: editor!.state.redoLabel,
+      revision: editor!.state.revision,
+      persistentSteps: await editor!.persistentHistory.steps(),
+      x: editor!.state.document.nodes[firstId]!.transform[4],
+    };
+
+    act(() => {
+      editor!.beginTransaction();
+      editor!.setSelection(secondId);
+      editor!.updateNode(firstId, (node) => ({
+        ...node,
+        transform: [1, 0, 0, 1, 500, 10],
+      }));
+    });
+    await waitFor(() => expect(editor?.state.document.nodes[firstId]?.transform[4]).toBe(500));
+    act(() => editor!.abortTransaction());
+
+    await waitFor(() => expect(editor?.state.document.nodes[firstId]?.transform[4]).toBe(before.x));
+    expect(editor!.state.selection).toEqual(before.selection);
+    expect(editor!.state.primaryId).toBe(before.primaryId);
+    expect(editor!.state.focusedNodeId).toBe(before.focusedNodeId);
+    expect(editor!.state.selectionRevision).toBe(before.selectionRevision);
+    expect(editor!.state.dirty).toBe(before.dirty);
+    expect(editor!.state.canUndo).toBe(before.canUndo);
+    expect(editor!.state.canRedo).toBe(before.canRedo);
+    expect(editor!.state.undoLabel).toBe(before.undoLabel);
+    expect(editor!.state.redoLabel).toBe(before.redoLabel);
+    expect(editor!.state.revision).toBe(before.revision);
+    expect(await editor!.persistentHistory.steps()).toEqual(before.persistentSteps);
+
+    act(() => editor!.undo());
+    await waitFor(() => expect(editor?.state.document.nodes[secondId]).toBeUndefined());
+    expect(editor!.state.document.nodes[firstId]?.transform[4]).toBe(before.x);
+  });
+
   it('flattens nested transactions until the outermost commit', async () => {
     let editor: ReturnType<typeof useEditor> | undefined;
     function Consumer() {

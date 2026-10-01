@@ -143,7 +143,10 @@ test.describe('Dirty document tab close flow', () => {
     await page.mouse.down();
     await page.mouse.move(box.x + 320, box.y + 320);
     await page.mouse.up();
-    await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 5000 });
+    // Compact dock projection keeps Layers in a closed drawer until opened.
+    // The dirty marker verifies the intended behavior without requiring that
+    // a particular side panel be expanded.
+    await expect(page.locator('.editor-tabs__dirty-dot')).toBeVisible({ timeout: 5000 });
   }
 
   test('closing a dirty tab offers Save / Don\u2019t save / Cancel', async ({ page }) => {
@@ -200,7 +203,7 @@ test.describe('Dirty document tab close flow', () => {
     await expect(tabs).toHaveCount(2);
     // The shape is still there when we return to the dirty tab.
     await tabs.first().click();
-    await expect(page.getByRole('treeitem')).toHaveCount(1);
+    await expect(page.getByRole('listitem', { name: /Rectangle 1/ })).toHaveCount(1);
   });
 
   test("Don't save closes the dirty tab", async ({ page }) => {

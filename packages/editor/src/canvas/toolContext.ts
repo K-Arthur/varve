@@ -5,6 +5,7 @@ import {
   addNode,
   buildParentIndexMap,
   constructionPlaneFromGeometry,
+  type Document,
   designCanvasContentRoot,
   getGuidesForPage,
   makeRasterLayerNode,
@@ -23,6 +24,7 @@ import {
 import type { Camera } from '@varve/shared';
 import { applyAffine } from '@varve/shared';
 import type { EditorContextValue, EditorState } from '../context';
+import type { TransformPreviewStore } from '../context/ViewportContext';
 import { HitTestEngine } from '../hitTest/HitTestEngine';
 import {
   type FrameSpatialIndex,
@@ -33,6 +35,7 @@ import {
 import {
   getWorldBounds as getCachedWorldBounds,
   getWorldTransform as getCachedWorldTransform,
+  invalidateNodes,
   type TransformCache,
 } from '../scene/transformCache';
 import { nodeWorldBounds } from '../scene/world';
@@ -55,7 +58,15 @@ import {
 } from '../tools/snapping';
 import { applyWarpToSelection } from '../warp/warpActions';
 import { resolveLayoutGuideGeometry } from './layoutGridGeometry';
-import { beginInteractionSpan, isSnapMetricsEnabled, recordSnapMetrics } from './perfRuntime';
+import {
+  beginInteractionSpan,
+  cancelCanvasFrame,
+  createCanvasFrameKey,
+  isSnapMetricsEnabled,
+  type RedrawReason as RedrawCoordinatorReason,
+  recordSnapMetrics,
+  scheduleCanvasFrame,
+} from './perfRuntime';
 
 /** Stable empty-guides identity: most drag samples snap to nothing, and a
  *  fresh array per sample would re-render the guides overlay pointlessly. */
@@ -97,6 +108,8 @@ export interface ToolContextDeps {
   pendingAutoTextEditRef: React.MutableRefObject<boolean>;
   nodeEditTargetId: string | null;
   setDraft: (draft: DraftShape | null) => void;
+  previewNodePositions?: ToolContext['previewNodePositions'];
+  clearNodePositionPreview?: ToolContext['clearNodePositionPreview'];
   setPixelProbe: (probe: PixelProbe | null) => void;
   setDropTargetFrameId: (id: NodeId | null) => void;
   setSnapGuides: (guides: SnapGuide[]) => void;
@@ -105,7 +118,116 @@ export interface ToolContextDeps {
   setNodeEditSelectedAnchors: (anchors: ReadonlySet<number>) => void;
   setTextEditTargetId: (id: string | null) => void;
   commitCamera: (camera: Camera) => void;
+  previewCamera: (camera: Camera) => void;
   rootNodes: () => SceneNode[];
+}
+
+interface TransformPreviewControllerDeps {
+  stateRef: React.MutableRefObject<EditorState>;
+  editorRef: React.MutableRefObject<EditorContextValue>;
+  transformCacheRef: React.MutableRefObject<TransformCache>;
+  subtreeIrCacheRef: React.MutableRefObject<{ invalidate: (id?: string) => void }>;
+  engineNodeMemoRef: React.MutableRefObject<{ invalidate: (id: string) => void }>;
+  docVersionRef: React.MutableRefObject<number>;
+  transformPreviewStore: TransformPreviewStore;
+  requestContentDrawRef: React.MutableRefObject<
+    ((source: string, reason: RedrawCoordinatorReason) => void) | null
+  >;
+}
+
+export function createTransformPreviewController(deps: TransformPreviewControllerDeps) {
+  const frameKey = createCanvasFrameKey('transform-preview');
+  let pending: {
+    positions: ReadonlyArray<{ id: NodeId; x: number; y: number }>;
+    affectedIds: readonly NodeId[];
+  } | null = null;
+
+  const clearNodePositionPreview = (): void => {
+    pending = null;
+    cancelCanvasFrame(frameKey);
+    const active = deps.transformPreviewStore.getSnapshot();
+    if (!active) return;
+    deps.transformPreviewStore.clear();
+    deps.stateRef.current = {
+      ...deps.stateRef.current,
+      document: deps.editorRef.current.state.document,
+    };
+    deps.docVersionRef.current += 1;
+    deps.requestContentDrawRef.current?.('transform-preview-cancel', 'scene-mutation');
+  };
+
+  const apply = (
+    positions: ReadonlyArray<{ id: NodeId; x: number; y: number }>,
+    affectedIds: readonly NodeId[],
+  ): Document => {
+    const store = deps.transformPreviewStore;
+    const active = store.getSnapshot();
+    const baseDocument = active?.baseDocument ?? deps.editorRef.current.state.document;
+    const updatedNodes: Record<string, SceneNode> = {};
+    for (const { id, x, y } of positions) {
+      const node = baseDocument.nodes[id];
+      if (!node) continue;
+      const transform = node.transform;
+      if (transform[4] === x && transform[5] === y) continue;
+      updatedNodes[id] = {
+        ...node,
+        transform: [transform[0], transform[1], transform[2], transform[3], x, y],
+      } as SceneNode;
+    }
+    if (Object.keys(updatedNodes).length === 0) {
+      if (active) clearNodePositionPreview();
+      return baseDocument;
+    }
+
+    const previewDocument: Document = {
+      ...baseDocument,
+      nodes: { ...baseDocument.nodes, ...updatedNodes },
+    };
+    store.preview(baseDocument, previewDocument, Object.keys(updatedNodes) as NodeId[]);
+    deps.stateRef.current = { ...deps.stateRef.current, document: previewDocument };
+    const invalidated = [...new Set(affectedIds)];
+    invalidateNodes(deps.transformCacheRef.current, invalidated);
+    for (const id of invalidated) {
+      deps.subtreeIrCacheRef.current.invalidate(id);
+      deps.engineNodeMemoRef.current.invalidate(id);
+    }
+    // Worker acceptance shares this revision, so an earlier bitmap cannot
+    // become the visible response after the transform preview advances.
+    deps.docVersionRef.current += 1;
+    deps.requestContentDrawRef.current?.('transform-preview', 'scene-mutation');
+    return previewDocument;
+  };
+
+  const previewNodePositions = (
+    positions: ReadonlyArray<{ id: NodeId; x: number; y: number }>,
+    affectedIds: readonly NodeId[],
+    flush = false,
+  ): Document | null => {
+    if (positions.length === 0) {
+      clearNodePositionPreview();
+      return deps.editorRef.current.state.document;
+    }
+    pending = { positions, affectedIds };
+    if (flush) {
+      cancelCanvasFrame(frameKey);
+      pending = null;
+      return apply(positions, affectedIds);
+    }
+    scheduleCanvasFrame(frameKey, 'ui', () => {
+      const latest = pending;
+      pending = null;
+      if (latest) apply(latest.positions, latest.affectedIds);
+    });
+    return null;
+  };
+
+  const dispose = (): void => {
+    pending = null;
+    cancelCanvasFrame(frameKey);
+    deps.transformPreviewStore.clear();
+  };
+
+  return { previewNodePositions, clearNodePositionPreview, dispose };
 }
 
 /**
@@ -163,6 +285,8 @@ export function buildToolContext(
 
   return {
     document: s.document,
+    getCurrentDocument: () => deps.stateRef.current.document,
+    getCurrentAreaSelection: () => deps.stateRef.current.areaSelection ?? null,
     selection: s.selection,
     zoom: s.zoom,
     pan: s.pan,
@@ -248,11 +372,21 @@ export function buildToolContext(
     reparentNode: (id, newParentId, toIndex) => e.reparentNode(id, newParentId, toIndex),
     setCamera: (camera) => deps.commitCamera(camera),
     setPan: (p) => e.setPan(p),
+    previewPan: (p) => {
+      const current = deps.stateRef.current;
+      deps.previewCamera({ zoom: current.zoom, pan: p, rotation: current.cameraRotation });
+    },
+    commitPan: (p) => {
+      const current = deps.stateRef.current;
+      deps.commitCamera({ zoom: current.zoom, pan: p, rotation: current.cameraRotation });
+    },
     setZoom: (z) => e.setZoom(z),
     announce: (msg) => e.announce(msg),
     announceSelection: (selected) => e.announceSelection(selected),
     announceOperation: (op, result) => e.announceOperation(op, result),
     setDraft: deps.setDraft,
+    previewNodePositions: deps.previewNodePositions,
+    clearNodePositionPreview: deps.clearNodePositionPreview,
     setPixelProbe: deps.setPixelProbe,
     rootNodes: () => deps.rootNodes(),
     getNode: (id) => s.document.nodes[id],
@@ -275,7 +409,10 @@ export function buildToolContext(
     activeConstructionPlane,
     worldToPlane: planeWorldToPlane,
     planeToWorld: planeToWorldPoint,
-    getWorldTransform: (id) => e.getWorldTransform(id),
+    getWorldTransform: (id) =>
+      s.masterEditId
+        ? e.getWorldTransform(id)
+        : getCachedWorldTransform(deps.transformCacheRef.current, s.document, id),
     queryMarqueeCandidates: (rect) => {
       const sceneScope = resolveEditorSceneScope(s.document, {
         workspaceMode: s.workspaceMode,
@@ -329,7 +466,11 @@ export function buildToolContext(
 
     findContainingFrame: (world) => e.findContainingFrame(world, deps.frameIndexRef.current),
     setDropTargetFrame: deps.setDropTargetFrameId,
-    nodeWorldBounds: (n) => e.nodeWorldBounds(n),
+    nodeWorldBounds: (n) =>
+      s.masterEditId
+        ? e.nodeWorldBounds(n)
+        : (getCachedWorldBounds(deps.transformCacheRef.current, s.document, n.id) ??
+          nodeWorldBounds(s.document, n.id)),
 
     engine: eng,
     canvasElement: deps.contentCanvasRef.current,

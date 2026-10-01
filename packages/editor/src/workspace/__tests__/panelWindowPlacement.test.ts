@@ -238,6 +238,9 @@ describe('panelWindowPlacement: per-panel placement persistence', () => {
       panelTypeId: 'layers',
       windowId: 'panel-layers',
       logicalPosition: { x: 0, y: 0 },
+      logicalSize: { width: 320, height: 480 },
+      state: 'normal',
+      updatedAt: 1,
     });
     expect(localStorage.getItem('varve-panel-placements')).toBe(future);
 

@@ -64,6 +64,22 @@ describe('rasterColorSelectionAt', () => {
     expect(areaSelectionCoverageAt(selection!, { x: 6.5, y: 4.5 })).toBeGreaterThan(0.9);
   });
 
+  it('expands the selected color region by the requested bounded edge amount', () => {
+    const selection = rasterColorSelectionAt(
+      makeSampleLayer(),
+      { x: 1.5, y: 1.5 },
+      {
+        ...options,
+        edgeExpansion: 1,
+      },
+    );
+
+    expect(selection).not.toBeNull();
+    expect(areaSelectionCoverageAt(selection!, { x: 0.5, y: 1.5 })).toBeGreaterThan(0.9);
+    expect(areaSelectionCoverageAt(selection!, { x: 3.5, y: 1.5 })).toBeGreaterThan(0.9);
+    expect(areaSelectionCoverageAt(selection!, { x: 4.5, y: 1.5 })).toBe(0);
+  });
+
   it('does not create a selection from transparent pixels', () => {
     const node = makeSampleLayer();
     const tile = node.tiles.get(makeTileKey(0, 0));

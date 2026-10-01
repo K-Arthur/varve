@@ -68,6 +68,7 @@ export function Ruler({
 }: RulerProps) {
   const topRulerRef = useRef<HTMLCanvasElement>(null);
   const leftRulerRef = useRef<HTMLCanvasElement>(null);
+  const redrawRef = useRef<() => void>(() => {});
   const activeGuideDrag = useRef<{ guideId: string | null } | null>(null);
 
   const camState = { zoom, pan, cameraRotation };
@@ -212,8 +213,25 @@ export function Ruler({
   }, [drawRuler]);
 
   useEffect(() => {
+    redrawRef.current = redraw;
+  }, [redraw]);
+
+  useEffect(() => {
     redraw();
   }, [redraw]);
+
+  useEffect(() => {
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => redrawRef.current());
+    const parents = new Set([
+      topRulerRef.current?.parentElement,
+      leftRulerRef.current?.parentElement,
+    ]);
+    for (const parent of parents) {
+      if (parent) observer.observe(parent);
+    }
+    return () => observer.disconnect();
+  }, []);
 
   const topCanvasRef = useCallback(
     (canvas: HTMLCanvasElement | null) => {

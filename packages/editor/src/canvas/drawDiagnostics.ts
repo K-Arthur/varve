@@ -60,6 +60,22 @@ export interface FrameDiagnostics {
   frameWorkBudgetMs?: number;
   totalMs: number;
   renderPath: 'structural' | 'worker' | 'worker-cached' | 'compositor';
+  /** Concrete renderer that painted this frame; the coarse renderPath remains for older probes. */
+  actualDrawingPath?:
+    | 'canvas2d-main'
+    | 'canvas2d-structural'
+    | 'canvas2d-worker'
+    | 'webgpu'
+    | 'webgpu-mixed'
+    | 'webgl2'
+    | 'webgl2-mixed';
+  requestedRenderer?: 'canvas2d' | 'webgpu' | 'webgl2';
+  gpuSubmittedItems?: number;
+  fallbackCanvasItems?: number;
+  textureUploads?: number;
+  gpuSubmitCpuMs?: number;
+  gpuBlitCpuMs?: number;
+  gpuTextureBytes?: number;
   wasDirty: boolean;
   partialRedraw: boolean;
   cacheBytes: number;

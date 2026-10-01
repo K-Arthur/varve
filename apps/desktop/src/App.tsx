@@ -8,6 +8,7 @@ import {
   installPageLifecycleAdmission,
   KeyboardInsetPublisher,
   type OpenFileRequest,
+  readUncleanShutdownMarker,
   renderProjectThumbnailNow,
   SettingsDialog,
   SettingsProvider,
@@ -516,7 +517,12 @@ export function App() {
       )}
       <CrashCenter
         platformKind={platform.kind}
-        readUncleanShutdown={() => localStorage.getItem('strata-clean-shutdown') !== 'true'}
+        // Crash-loop classification lives with the marker authority: only an
+        // explicitly armed, never-finalized marker is evidence of an
+        // interrupted run. Absent (fresh profile / Home-only sessions, where
+        // LifecycleProvider never mounts) is not a failure — see
+        // readUncleanShutdownMarker and audit 2026-09-27 §7.4.
+        readUncleanShutdown={() => readUncleanShutdownMarker((key) => localStorage.getItem(key))}
         documentSchemaVersion={currentDocumentSchemaVersion()}
         onControllerReady={(controller) => {
           installCrashTestHooks(controller);

@@ -32,6 +32,8 @@ import {
 
 export const MIN_SPLIT_RATIO = 0.05;
 export const MAX_SPLIT_RATIO = 0.95;
+/** Shared height for a dock-owned panel header or tab strip. */
+export const DOCK_PANEL_CHROME_HEIGHT = 32;
 /** Imported layouts stay small enough to validate and render predictably. */
 export const MAX_DOCK_DEPTH = 16;
 export const MAX_DOCK_NODES = 64;
@@ -293,7 +295,9 @@ export function getDockNodeMinimumSize(root: DockNode): PanelSize {
       return { width: 0, height: 0 };
     case 'panel': {
       const size = tryGetPanelDefinition(root.panelTypeId)?.minimumSize;
-      return size ? { ...size } : { width: 0, height: 0 };
+      return size
+        ? { width: size.width, height: size.height + DOCK_PANEL_CHROME_HEIGHT }
+        : { width: 0, height: 0 };
     }
     case 'tabs': {
       const minimum = root.panels.reduce<PanelSize>(

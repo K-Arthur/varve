@@ -1,6 +1,6 @@
 import type { Document, NodeId } from '@varve/scene';
 import { Menu, type MenuEntry, SOLID_CHROME_ICONS, SolidIcon, Tooltip } from '@varve/ui';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../context';
 import {
   buildSelectionContext,
@@ -9,6 +9,39 @@ import {
 import './selectionBreadcrumb.css';
 
 type BreadcrumbSegment = Omit<SelectionHierarchyEntry, 'node'>;
+
+/** Levels a path renders in full before it is folded into the overflow menu. */
+export const MAX_INLINE_BREADCRUMB_SEGMENTS = 5;
+
+export interface BreadcrumbPlan {
+  visible: BreadcrumbSegment[];
+  hidden: BreadcrumbSegment[];
+}
+
+/**
+ * Split a selection path into the levels shown inline and the ones folded
+ * behind the overflow control.
+ *
+ * Paths of up to `MAX_INLINE_BREADCRUMB_SEGMENTS` levels render in full.
+ * Longer paths keep the first two levels (outermost container → its child) and
+ * the last two (inner container → the selected leaf), so the leaf the path
+ * exists to identify is always inline; the levels between them are offered by
+ * the overflow menu. `visible` and `hidden` partition the input: no level is
+ * dropped, and none appears in both places (the overflow menu previously
+ * re-listed the two leading levels the bar already showed).
+ */
+export function planBreadcrumbSegments(
+  segments: readonly BreadcrumbSegment[],
+  maxInline: number = MAX_INLINE_BREADCRUMB_SEGMENTS,
+): BreadcrumbPlan {
+  if (segments.length <= maxInline) {
+    return { visible: [...segments], hidden: [] };
+  }
+  return {
+    visible: [...segments.slice(0, 2), ...segments.slice(-2)],
+    hidden: segments.slice(2, -2),
+  };
+}
 
 export function SelectionBreadcrumb() {
   const { state } = useEditor();
@@ -58,6 +91,36 @@ function BreadcrumbBar({ segments }: BreadcrumbBarProps) {
   const { setSelection, enterIsolation, revealSelection } = useEditor();
   const [overflowOpen, setOverflowOpen] = useState(false);
   const overflowTriggerRef = useRef<HTMLButtonElement>(null);
+  const barRef = useRef<HTMLElement>(null);
+
+  // Publish the bar's rendered height. The dock's `path` row is `auto`, so its
+  // height is content-driven (and grows with text enlargement) and cannot be
+  // expressed as a token — but canvas-corner chrome anchored to the shell's
+  // `canvas` grid area (the panel restore chips) has to clear the path row *and*
+  // the 20px rulers below it. Same mechanism as `--floating-toolbar-height`;
+  // the property is removed when the bar unmounts, which is exactly when there
+  // is no path row. See `.editor__panel-restore-btn` in editor.css.
+  useLayoutEffect(() => {
+    const bar = barRef.current;
+    const rootElement = bar?.ownerDocument.documentElement;
+    if (!bar || !rootElement) return;
+    const publish = () => {
+      const height = bar.getBoundingClientRect().height;
+      if (Number.isFinite(height) && height > 0) {
+        rootElement.style.setProperty('--selection-path-height', `${Math.ceil(height)}px`);
+      }
+    };
+    publish();
+    if (typeof ResizeObserver === 'undefined') {
+      return () => rootElement.style.removeProperty('--selection-path-height');
+    }
+    const observer = new ResizeObserver(publish);
+    observer.observe(bar);
+    return () => {
+      observer.disconnect();
+      rootElement.style.removeProperty('--selection-path-height');
+    };
+  }, []);
 
   const handleSegmentClick = useCallback(
     (segment: BreadcrumbSegment) => {
@@ -77,13 +140,14 @@ function BreadcrumbBar({ segments }: BreadcrumbBarProps) {
     [enterIsolation],
   );
 
-  // Show up to 4 segments, overflow the rest
-  const visible = segments.length <= 5 ? segments : segments.slice(0, 2).concat(segments.slice(-2));
-  const overflowCount = segments.length - visible.length;
+  // Paths longer than the inline limit fold their middle levels into the
+  // overflow menu; the leaf always stays inline (see planBreadcrumbSegments).
+  const { visible, hidden } = useMemo(() => planBreadcrumbSegments(segments), [segments]);
+  const overflowCount = hidden.length;
 
   const overflowItems = useMemo<MenuEntry[]>(
     () =>
-      segments.slice(0, overflowCount + 2).map((segment, index) => ({
+      hidden.map((segment, index) => ({
         id: `breadcrumb-${segment.id || index}`,
         label: `${kindLabel(segment.kind)}: ${segment.name}`,
         onAction: () => {
@@ -95,7 +159,7 @@ function BreadcrumbBar({ segments }: BreadcrumbBarProps) {
           setOverflowOpen(false);
         },
       })),
-    [handleSegmentClick, handleSegmentContext, overflowCount, segments],
+    [handleSegmentClick, handleSegmentContext, hidden],
   );
 
   function kindLabel(kind: string): string {
@@ -118,7 +182,7 @@ function BreadcrumbBar({ segments }: BreadcrumbBarProps) {
   }
 
   return (
-    <nav className="selection-breadcrumb" aria-label="Selection path">
+    <nav ref={barRef} className="selection-breadcrumb" aria-label="Selection path">
       {overflowCount > 0 && (
         <div className="selection-breadcrumb__overflow-wrapper">
           <button

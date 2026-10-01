@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { FloatingPortal } from './FloatingPortal';
 
@@ -126,6 +126,52 @@ describe('FloatingPortal positioning', () => {
       },
       { timeout: 2000 },
     );
+  });
+
+  it('keeps placement stable when an inline fallback list rerenders its owner', async () => {
+    const onPositionChange = vi.fn();
+    function RerenderingOwner() {
+      const anchorRef = useRef<HTMLButtonElement>(null);
+      const [, setPositioned] = useState(false);
+      return (
+        <>
+          <button type="button" ref={anchorRef}>
+            Anchor
+          </button>
+          <FloatingPortal
+            anchorRef={anchorRef}
+            open
+            fallbackPlacements={['top-start', 'bottom-end']}
+            onPositionChange={() => {
+              onPositionChange();
+              setPositioned(true);
+            }}
+            className="rerendering-float"
+          >
+            <span>Positioned content</span>
+          </FloatingPortal>
+        </>
+      );
+    }
+
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      render(<RerenderingOwner />);
+      await vi.waitFor(
+        () => {
+          expect(onPositionChange).toHaveBeenCalled();
+          expect(
+            document.body.querySelector('.rerendering-float')?.getAttribute('data-overlay-state'),
+          ).toBe('visible');
+        },
+        { timeout: 2000 },
+      );
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(onPositionChange.mock.calls.length).toBeLessThan(10);
+      expect(consoleError).not.toHaveBeenCalled();
+    } finally {
+      consoleError.mockRestore();
+    }
   });
 });
 

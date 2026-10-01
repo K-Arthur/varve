@@ -30,6 +30,7 @@ import {
 import {
   activateDockTab,
   DEFAULT_DOCK_FLOAT_BOUNDS,
+  DOCK_PANEL_CHROME_HEIGHT,
   DOCK_TAB_STRIP_MIN_HEIGHT,
   redockFloatingGroup,
   setFloatingGroupBounds,
@@ -44,6 +45,7 @@ import {
 } from './dockRecovery';
 import type { DockFloatingGroup } from './dockTypes';
 import { completeEditorDockLayout, createDefaultEditorDockLayout } from './editorDockLayout';
+import { useDockPanelDrag } from './useDockPanelDrag';
 import {
   type FloatGestureHandlers,
   useFloatingGroupInteractions,
@@ -105,6 +107,8 @@ export interface EditorDockGeometry {
   tabGroups: DockTabGroupView[];
   floatingGroups: DockFloatingGroupView[];
   splitters: DockSplitView[];
+  dockPanelMoveHandles: ReturnType<typeof useDockPanelDrag>['handles'];
+  dockPanelDropPreview: ReturnType<typeof useDockPanelDrag>['preview'];
   tabPanelA11y: Partial<Record<PanelId, DockTabPanelA11y>>;
   selectDockTab: (groupNodeId: string, panelInstanceId: string) => void;
   recoveryNotice: DockRecoveryNotice | null;
@@ -144,6 +148,8 @@ const EMPTY_GEOMETRY: EditorDockGeometry = {
   tabGroups: [],
   floatingGroups: [],
   splitters: [],
+  dockPanelMoveHandles: [],
+  dockPanelDropPreview: null,
   tabPanelA11y: {},
   selectDockTab: () => {},
   recoveryNotice: null,
@@ -217,9 +223,28 @@ export function useEditorDockGeometry(
         setBounds((previous) => (previous === null ? previous : null));
         return;
       }
-      const canvas = shell.querySelector<HTMLElement>('.editor-canvas');
       const toolbar = shell.querySelector<HTMLElement>('.floating-toolbar');
-      const top = canvas ? canvas.getBoundingClientRect().top - shellRect.top : 0;
+      // Where the dock area begins: the shell grid's `canvas` row.
+      //
+      // This was read from `.editor-canvas`'s own top edge. The canvas lives
+      // *inside* the dock this hook positions, so once the dock stopped being a
+      // flush single-cell wrapper around it (the selection-path row now sits
+      // above the canvas) that reference became a feedback loop: it returned
+      // the dock's current output plus the rows above the canvas, so each
+      // measurement pass moved the dock — and every panel placed from these
+      // bounds — further down, opening a growing empty band between the tab
+      // strip and the panels. Computed track sizes are actual layout (not the
+      // `--menubar-total-height` token arithmetic that has drifted before) and
+      // cannot be influenced by where the dock currently sits.
+      const gridRows = getComputedStyle(shell).gridTemplateRows.trim().split(/\s+/);
+      const rowHeight = (index: number) => {
+        const parsed = Number.parseFloat(gridRows[index] ?? '');
+        return Number.isFinite(parsed) ? parsed : 0;
+      };
+      // Rows 0 and 1 are the menubar row (application menu + context bar) and
+      // the tab strip; row 2 is `canvas`. Focus mode collapses the template to
+      // a single `canvas` row, where the dock starts at the shell's top edge.
+      const top = gridRows.length >= 2 ? rowHeight(0) + rowHeight(1) : 0;
       const bottomCandidates = [
         shell.querySelector<HTMLElement>('.page-nav-container'),
         shell.querySelector<HTMLElement>('.selection-info-bar'),
@@ -547,6 +572,13 @@ export function useEditorDockGeometry(
     bounds ? { width: bounds.width, height: bounds.height } : null,
     persistFloatBounds,
   );
+  const dockPanelMove = useDockPanelDrag(
+    mode,
+    shellRef.current,
+    dockLayout,
+    bounds,
+    stableVisibility,
+  );
 
   const cancelSplitResize = useCallback(() => {
     activeSplitResize.current = null;
@@ -629,13 +661,11 @@ export function useEditorDockGeometry(
     });
     const panelStyles: EditorDockGeometry['panelStyles'] = {};
     for (const placement of geometry.panels) {
-      const panelRect = placement.tabGroupNodeId
-        ? {
-            ...placement.rect,
-            y: placement.rect.y + DOCK_TAB_STRIP_MIN_HEIGHT,
-            height: Math.max(0, placement.rect.height - DOCK_TAB_STRIP_MIN_HEIGHT),
-          }
-        : placement.rect;
+      const panelRect = {
+        ...placement.rect,
+        y: placement.rect.y + DOCK_PANEL_CHROME_HEIGHT,
+        height: Math.max(0, placement.rect.height - DOCK_PANEL_CHROME_HEIGHT),
+      };
       panelStyles[placement.panelTypeId] = {
         ...toStyle(panelRect),
         ...(placement.active ? {} : { visibility: 'hidden', pointerEvents: 'none' }),
@@ -658,6 +688,8 @@ export function useEditorDockGeometry(
       style: {
         ...toStyle(group.rect),
         height: DOCK_TAB_STRIP_MIN_HEIGHT,
+        // Keep the panel move grip in its own hit area, clear of tabs and panel controls.
+        ...(group.floating ? {} : { paddingRight: 56 }),
         zIndex: group.floating ? 'calc(var(--z-overlay) + 2)' : 'var(--z-overlay)',
       },
     }));
@@ -821,6 +853,8 @@ export function useEditorDockGeometry(
       tabGroups,
       floatingGroups,
       splitters,
+      dockPanelMoveHandles: dockPanelMove.handles,
+      dockPanelDropPreview: dockPanelMove.preview,
       tabPanelA11y,
       selectDockTab,
       recoveryNotice,
@@ -830,6 +864,8 @@ export function useEditorDockGeometry(
     cancelSplitResize,
     commitSplitResize,
     dockLayout,
+    dockPanelMove.handles,
+    dockPanelMove.preview,
     mode,
     persistSplitRatio,
     persistFloatBounds,

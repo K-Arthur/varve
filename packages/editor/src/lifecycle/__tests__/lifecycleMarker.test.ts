@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   CLEAN_SHUTDOWN_KEY,
   getSharedShutdownMarker,
+  readUncleanShutdownMarker,
   resetSharedShutdownMarker,
   ShutdownMarker,
   type ShutdownMarkerStorage,
@@ -66,5 +67,47 @@ describe('shutdown marker', () => {
     expect(first).toBe(second);
     resetSharedShutdownMarker();
     expect(getSharedShutdownMarker()).not.toBe(first);
+  });
+});
+
+/**
+ * Crash-loop classification (audit 2026-09-27 §7.4): only an explicitly
+ * armed, never-finalized marker is evidence of an interrupted run. The old
+ * `!== 'true'` rule counted absent markers, so every Home load — where
+ * LifecycleProvider never mounts and the key is never written — accrued a
+ * startup failure and the third load opened the safe-mode screen.
+ */
+describe('readUncleanShutdownMarker', () => {
+  it('never treats an absent marker as an interrupted run', () => {
+    expect(readUncleanShutdownMarker(() => null)).toBe(false);
+  });
+
+  it('counts an armed marker that was never finalized', () => {
+    expect(readUncleanShutdownMarker(() => 'false')).toBe(true);
+  });
+
+  it('never counts a finalized marker', () => {
+    expect(readUncleanShutdownMarker(() => 'true')).toBe(false);
+  });
+
+  it('never counts an unrecognized value as evidence', () => {
+    expect(readUncleanShutdownMarker(() => 'garbage')).toBe(false);
+  });
+
+  it('never accuses when the storage read itself fails', () => {
+    expect(
+      readUncleanShutdownMarker(() => {
+        throw new Error('storage blocked');
+      }),
+    ).toBe(false);
+  });
+
+  it('reads the canonical key, not a bare string at the call site', () => {
+    const seen: string[] = [];
+    readUncleanShutdownMarker((key) => {
+      seen.push(key);
+      return 'false';
+    });
+    expect(seen).toEqual([CLEAN_SHUTDOWN_KEY]);
   });
 });

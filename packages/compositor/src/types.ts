@@ -4,12 +4,17 @@
 import type { RenderItem } from '@varve/engine';
 import type { Affine, BlendEvaluationSpace, Camera, Viewport } from '@varve/shared';
 
-export type CompositorBackendId = 'canvas2d' | 'webgpu' | 'native';
+export type CompositorBackendId = 'canvas2d' | 'webgpu' | 'webgl2' | 'native';
 
 export interface CompositorCapabilities {
   /** Router: acquired backend; explicit detection: usable at probe time. */
   webgpu: boolean;
   webgpuReason?: string;
+  /** WebGL2 context, shader execution, and presentation probe succeeded. */
+  webgl2?: boolean;
+  webgl2Reason?: string;
+  /** Why the requested non-default renderer fell back to Canvas2D. */
+  rendererReason?: string;
   isFallbackAdapter?: boolean;
 }
 
@@ -75,12 +80,24 @@ export interface CompositorDiagnostics {
   bundleCacheEntries: number;
   lastFrameVertexBytes: number;
   adapterIsFallback: boolean;
+  /** Non-Canvas preference that resolved to a Canvas2D fallback. */
+  requestedRenderer?: 'webgpu' | 'webgl2';
   /** Fixed, non-identifying reason why a requested GPU backend could not start. */
   initFailureReason?: string;
   /** Canvas presentation itself could not initialize; no fallback is active. */
   fatalError?: string;
-  /** Number of items actually submitted to WebGPU in the last completed frame. */
+  /** Number of items actually submitted to a GPU backend in the last completed frame. */
   lastFrameGpuItems?: number;
+  /** Items replayed through the authoritative Canvas2D fallback in the last frame. */
+  lastFrameFallbackCanvasItems?: number;
+  /** Successfully uploaded image textures in the last frame. */
+  lastFrameTextureUploads?: number;
+  /** CPU time spent submitting and flushing draw commands, not GPU execution time. */
+  lastFrameSubmitCpuMs?: number;
+  /** CPU time spent copying the offscreen GPU canvas into the visible Canvas2D. */
+  lastFrameBlitCpuMs?: number;
+  /** Estimated resident RGBA8 texture bytes for the experimental WebGL2 path. */
+  gpuTextureBytes?: number;
   /** Shader module + pipeline compilation time during init, in ms. Not tracked by Canvas2DBackend. */
   pipelineInitMs?: number;
   /**
@@ -119,4 +136,5 @@ export interface CompositorBackend {
 
 export interface CompositorOptions {
   preferWebGpu?: boolean;
+  renderer?: 'canvas2d' | 'webgpu' | 'webgl2';
 }

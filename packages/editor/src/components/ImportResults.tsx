@@ -1,5 +1,6 @@
 import type { BatchImportResult, ImportCapabilities, ImportReport } from '@varve/import';
-import { type KeyboardEvent, useCallback, useId, useState } from 'react';
+import { Button, Dialog } from '@varve/ui';
+import { useId, useState } from 'react';
 
 import './ImportResults.css';
 
@@ -96,55 +97,43 @@ export function ImportResults({ result, onClose, onRevealSelection }: ImportResu
   const insertedCount = serviceReport ? result.insertedCount : undefined;
   const committedRootIds = serviceReport ? result.committedRootIds : undefined;
 
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.stopPropagation();
-        onClose();
-      }
-    },
-    [onClose],
-  );
-
   const hasFailures = failCount > 0;
   const warningFileCount = rows.filter((file) => file.warnings.length > 0).length;
+  const canReveal = Boolean(committedRootIds && committedRootIds.length > 0 && onRevealSelection);
 
+  // The shared @varve/ui Dialog owns the modal contract: native showModal()
+  // gives focus placement, containment, an inert background, Escape with the
+  // nested-overlay guard, and focus restoration (including on unmount, which
+  // is how this conditionally-mounted report is dismissed). Before this
+  // migration the overlay div claimed aria-modal but never moved focus and
+  // only handled Escape when focus already happened to be inside it.
   return (
-    <div
-      className="import-results-overlay"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Import results"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-      onKeyDown={handleKeyDown}
+    <Dialog
+      open
+      onClose={onClose}
+      title="Import Results"
+      footer={
+        <>
+          {canReveal && (
+            <Button
+              variant="ghost"
+              onClick={() =>
+                onRevealSelection?.(
+                  committedRootIds ?? [],
+                  serviceReport ? result.documentId : undefined,
+                )
+              }
+            >
+              Reveal selection
+            </Button>
+          )}
+          <Button variant="default" onClick={onClose}>
+            Close
+          </Button>
+        </>
+      }
     >
       <div className="import-results">
-        <div className="import-results__header">
-          <h2 className="import-results__title">Import Results</h2>
-          <button
-            type="button"
-            className="import-results__close"
-            aria-label="Close"
-            onClick={onClose}
-          >
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="3"
-              strokeLinecap="round"
-              aria-hidden="true"
-            >
-              <path d="M18 6 6 18" />
-              <path d="m6 6 12 12" />
-            </svg>
-          </button>
-        </div>
-
         <div className="import-results__summary">
           {insertedCount !== undefined && (
             <p className="import-results__stat import-results__stat--success">
@@ -264,27 +253,6 @@ export function ImportResults({ result, onClose, onRevealSelection }: ImportResu
           </div>
         )}
 
-        <div className="import-results__footer">
-          {committedRootIds && committedRootIds.length > 0 && onRevealSelection && (
-            <button
-              type="button"
-              className="import-results__btn"
-              onClick={() =>
-                onRevealSelection(committedRootIds, serviceReport ? result.documentId : undefined)
-              }
-            >
-              Reveal selection
-            </button>
-          )}
-          <button
-            type="button"
-            className="import-results__btn import-results__btn--primary"
-            onClick={onClose}
-          >
-            Close
-          </button>
-        </div>
-
         {warningFileCount > 0 && (
           <div role="status" aria-live="polite" className="varve-visually-hidden">
             Import complete: {successCount} succeeded, {partialCount} partially converted,{' '}
@@ -292,6 +260,6 @@ export function ImportResults({ result, onClose, onRevealSelection }: ImportResu
           </div>
         )}
       </div>
-    </div>
+    </Dialog>
   );
 }

@@ -42,11 +42,26 @@ export interface HarnessStats {
   samples: number;
 }
 
+/**
+ * Wall-clock samples for one effect. `*FirstMs` capture the cold first use
+ * (pipeline compilation / JIT included); the arrays hold per-iteration
+ * samples measured end to end — for the GPU side that includes upload,
+ * dispatch, and readback, which is the cost a real consumer pays.
+ */
+export interface HarnessTiming {
+  cpuFirstMs: number;
+  gpuFirstMs: number;
+  cpuMs: number[];
+  gpuMs: number[];
+  iterations: number;
+}
+
 export interface HarnessResultEntry {
   effect: string;
   gpuReady: boolean;
   stats: HarnessStats | null;
   error?: string;
+  timing?: HarnessTiming;
 }
 
 export interface HarnessResult {
@@ -313,6 +328,7 @@ async function runOne(
   caseSpec: HarnessCase,
   width: number,
   height: number,
+  timingIterations?: number,
 ): Promise<HarnessResultEntry> {
   const input = makeInput(width, height);
   const request: EffectDispatchRequest = {
@@ -323,11 +339,42 @@ async function runOne(
     coordSpace: caseSpec.coordSpace,
     params: caseSpec.params,
   };
+  const cpuStart = performance.now();
   const cpu = await dispatchLiveEffect(request, input, [cpuEffectProvider]);
+  const cpuFirstMs = performance.now() - cpuStart;
   try {
+    const gpuStart = performance.now();
     const gpu = await runner.apply(request, input);
+    const gpuFirstMs = performance.now() - gpuStart;
     const stats = statsOf(cpu, gpu);
-    return { effect: name, gpuReady: true, stats };
+    let timing: HarnessTiming | undefined;
+    if (timingIterations && timingIterations > 0) {
+      const cpuMs: number[] = [];
+      const gpuMs: number[] = [];
+      for (let i = 0; i < timingIterations; i += 1) {
+        // Alternate which side runs first so neither systematically
+        // pre-warms caches or the scheduler for the other.
+        const runCpu = async (): Promise<void> => {
+          const t = performance.now();
+          await dispatchLiveEffect(request, input, [cpuEffectProvider]);
+          cpuMs.push(performance.now() - t);
+        };
+        const runGpu = async (): Promise<void> => {
+          const t = performance.now();
+          await runner.apply(request, input);
+          gpuMs.push(performance.now() - t);
+        };
+        if (i % 2 === 0) {
+          await runCpu();
+          await runGpu();
+        } else {
+          await runGpu();
+          await runCpu();
+        }
+      }
+      timing = { cpuFirstMs, gpuFirstMs, cpuMs, gpuMs, iterations: timingIterations };
+    }
+    return { effect: name, gpuReady: true, stats, ...(timing ? { timing } : {}) };
   } catch (error) {
     return {
       effect: name,
@@ -345,10 +392,21 @@ export async function runHarness(
     height?: number;
     requireHardwareAdapter?: boolean;
     concurrent?: boolean;
+    /**
+     * Collect per-effect wall-clock samples (see HarnessTiming). Timing runs
+     * are always sequential: concurrent dispatch would make each sample
+     * measure queue contention instead of the operation.
+     */
+    timing?: boolean | { iterations?: number };
   },
 ): Promise<HarnessResult> {
   const width = options?.width ?? 48;
   const height = options?.height ?? 32;
+  const timingIterations = options?.timing
+    ? typeof options.timing === 'object'
+      ? (options.timing.iterations ?? 5)
+      : 5
+    : undefined;
   const runner = new GpuEffectRunner();
   registerEffectKernels(runner);
   const ok = await runner.init({
@@ -381,15 +439,16 @@ export async function runHarness(
     const runNamed = async (name: string): Promise<HarnessResultEntry> => {
       const caseSpec = CASES[name];
       if (!caseSpec) return { effect: name, gpuReady: true, stats: null, error: 'unknown case' };
-      return runOne(runner, name, caseSpec, width, height);
+      return runOne(runner, name, caseSpec, width, height, timingIterations);
     };
-    const entries = options?.concurrent
-      ? await Promise.all(effects.map((name) => runNamed(name)))
-      : await (async () => {
-          const ordered: HarnessResultEntry[] = [];
-          for (const name of effects) ordered.push(await runNamed(name));
-          return ordered;
-        })();
+    const entries =
+      options?.concurrent && timingIterations === undefined
+        ? await Promise.all(effects.map((name) => runNamed(name)))
+        : await (async () => {
+            const ordered: HarnessResultEntry[] = [];
+            for (const name of effects) ordered.push(await runNamed(name));
+            return ordered;
+          })();
     return { entries };
   } finally {
     runner.destroy();
@@ -406,6 +465,7 @@ declare global {
           height?: number;
           requireHardwareAdapter?: boolean;
           concurrent?: boolean;
+          timing?: boolean | { iterations?: number };
         },
       ) => Promise<HarnessResult>;
       cpuOnly: (name: string) => Promise<HarnessStats | null>;

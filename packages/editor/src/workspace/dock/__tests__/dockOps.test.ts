@@ -449,7 +449,7 @@ describe('dock ops: normalization and validation', () => {
       first: { kind: 'panel', id: 'p1', panelInstanceId: 'i1', panelTypeId: 'layers' },
       second: { kind: 'panel', id: 'p2', panelInstanceId: 'i2', panelTypeId: 'inspector' },
     };
-    expect(getDockNodeMinimumSize(sideBySide)).toEqual({ width: 420, height: 160 });
+    expect(getDockNodeMinimumSize(sideBySide)).toEqual({ width: 420, height: 192 });
 
     const tabs: DockNode = {
       kind: 'tabs',

@@ -171,6 +171,7 @@ export function getRegisteredRedrawCoordinator(): RedrawCoordinator | null {
 
 export interface PerfCameraController {
   setZoom(zoom: number): void;
+  setCamera(camera: { zoom: number; pan: { x: number; y: number }; rotation?: number }): void;
 }
 
 let perfCameraController: PerfCameraController | null = null;
@@ -182,6 +183,16 @@ export function registerPerfCameraController(controller: PerfCameraController | 
 function perfSetZoom(zoom: number): boolean {
   if (!perfCameraController) return false;
   perfCameraController.setZoom(zoom);
+  return true;
+}
+
+function perfSetCamera(camera: {
+  zoom: number;
+  pan: { x: number; y: number };
+  rotation?: number;
+}): boolean {
+  if (!perfCameraController) return false;
+  perfCameraController.setCamera(camera);
   return true;
 }
 
@@ -512,6 +523,8 @@ function augmentPerfDiagnosticsHandle(): void {
     // (no-op when no editor canvas is mounted).
     camera: {
       setZoom: (zoom: number) => perfSetZoom(zoom),
+      setState: (camera: { zoom: number; pan: { x: number; y: number }; rotation?: number }) =>
+        perfSetCamera(camera),
     },
     // Raster LOD pyramid controls and diagnostics (ADR-0214 §49-50): the
     // visual corpus flips the spatial path in BOTH realms (the worker is
@@ -552,6 +565,11 @@ function augmentPerfDiagnosticsHandle(): void {
       capabilities: detectPresentationCapabilities(),
       evidenceByRuntime: PRESENTATION_EVIDENCE_BY_RUNTIME,
       refreshIntervalMs: refreshEstimator.intervalMs,
+      refreshIntervalSource:
+        refreshEstimator.sampleCount >= 8
+          ? 'observed-raf-lower-bound'
+          : 'insufficient-observations',
+      refreshIntervalSamples: refreshEstimator.sampleCount,
     }),
     clockCalibration: () => getRegisteredWorkerHost()?.getClockCalibration() ?? null,
     /** Logical structured-clone write counters for storage regressions. */
@@ -640,9 +658,13 @@ export async function listCorpusFixtureIds(): Promise<string[]> {
 // registers a handler (CanvasArea) that replaces the open document with a
 // corpus fixture — the same path a real document switch takes.
 
-type ApplyFixtureHandler = (
-  id: string,
-) => Promise<{ ok: boolean; id?: string; nodeCount?: number; fixtureChecksum?: string }>;
+type ApplyFixtureHandler = (id: string) => Promise<{
+  ok: boolean;
+  id?: string;
+  nodeCount?: number;
+  fixtureChecksum?: string;
+  assets?: { count: number; bytes: number; entries: Array<{ source: string; sha256: string }> };
+}>;
 
 let applyFixtureHandler: ApplyFixtureHandler | null = null;
 
@@ -650,9 +672,13 @@ export function setApplyFixtureHandler(handler: ApplyFixtureHandler | null): voi
   applyFixtureHandler = handler;
 }
 
-export async function applyFixtureForPerf(
-  workloadId: string,
-): Promise<{ ok: boolean; id?: string; nodeCount?: number; fixtureChecksum?: string }> {
+export async function applyFixtureForPerf(workloadId: string): Promise<{
+  ok: boolean;
+  id?: string;
+  nodeCount?: number;
+  fixtureChecksum?: string;
+  assets?: { count: number; bytes: number; entries: Array<{ source: string; sha256: string }> };
+}> {
   if (!applyFixtureHandler) return { ok: false };
   return applyFixtureHandler(workloadId);
 }

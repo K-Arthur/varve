@@ -84,6 +84,7 @@ import {
   documentHasPerspectiveImage,
   perspectiveSurfaceCache,
 } from '../render/perspectiveImage';
+import { resolveRendererAttribution } from '../render/rendererAttribution';
 import { observeCanvasRenderRevision } from '../render/renderRevision';
 import { alphaBounds } from '../render/surfaceBounds';
 import {
@@ -651,6 +652,7 @@ export function renderContent(deps: RenderContentDeps): void {
     if (
       !oracleFullRedraw &&
       frameDecision.kind === 'present' &&
+      compositorRef.current?.id !== 'webgl2' &&
       !sceneNeedsMainThreadTypography(doc)
     ) {
       const presented = tryPresentWorkerFrame({
@@ -811,7 +813,11 @@ export function renderContent(deps: RenderContentDeps): void {
     // One profile per frame (pre-loop) so pruning, worker and paint agree.
     const profile = computeProfile(getAverageFrameTime(), getOverBudgetCount(), entries.length);
     const cacheMultiplier = profile.cacheMultiplier;
-    const profileCanUseWorker = profile.enableWorker;
+    // WebGL2 is an explicit compositor trial. Letting the worker bitmap path
+    // win first would render every frame through its Canvas2D worker and make
+    // the WebGL2 preference a no-op. An unavailable WebGL2 request resolves to
+    // the Canvas2D backend and may still use the verified worker path.
+    const profileCanUseWorker = profile.enableWorker && compositorRef.current?.id !== 'webgl2';
     const needsStructural = sceneNeedsStructuralCompositing(doc);
 
     // Pruning is only safe when the paint path uses a partial redraw and
@@ -886,6 +892,9 @@ export function renderContent(deps: RenderContentDeps): void {
       doc.styles,
       s.showOriginalBgNodeId ?? '',
       doc.patternDefinitions,
+      doc.assets,
+      doc.depthMaps,
+      doc.colorConfig,
     );
     for (const entry of entries) {
       const id = entry.nodeId;
@@ -2051,6 +2060,7 @@ export function renderContent(deps: RenderContentDeps): void {
     const workerReady =
       workerImageRefusal === null &&
       workerFallbackRevisionRef.current !== renderRevision &&
+      compositorRef.current?.id !== 'webgl2' &&
       !documentHasPerspectiveImage(doc) &&
       sceneCanUseWorkerRenderer(doc, (src) => getImageCache().isLoaded(src)) &&
       !sceneNeedsMainThreadTypography(doc) &&
@@ -2105,6 +2115,7 @@ export function renderContent(deps: RenderContentDeps): void {
     });
 
     replayStartTime = performance.now();
+    let workerBitmapPresented = false;
     if (needsStructural) {
       const deferredAdjustments: Array<{
         id: string;
@@ -2210,6 +2221,7 @@ export function renderContent(deps: RenderContentDeps): void {
             [1, 0, 0, 1, 0, 0],
             'normal',
           );
+          workerBitmapPresented = compositorRef.current !== null;
         } else {
           const delta = workerBitmapDelta(
             wb.camera,
@@ -2219,6 +2231,7 @@ export function renderContent(deps: RenderContentDeps): void {
           );
           if (delta) {
             compositorRef.current?.compositeRasterLayer('worker-frame', wb.bitmap, delta, 'normal');
+            workerBitmapPresented = compositorRef.current !== null;
             // This surface now shows a RESAMPLED or otherwise obsolete frame,
             // not an authoritative render of the current pixel identity. That
             // includes same-camera frames made stale by resource or async
@@ -2251,6 +2264,12 @@ export function renderContent(deps: RenderContentDeps): void {
       cameraMoving ? 'interaction' : 'authoritative',
     );
     frameBackend?.endFrame();
+    const compositorDiagnostics = frameBackend?.getDiagnostics?.();
+    const rendererAttribution = resolveRendererAttribution({
+      diagnostics: compositorDiagnostics,
+      structural: needsStructural,
+      workerBitmapPresented,
+    });
     compositorFrameOpen = false;
     // Recompute both limits on every tier so recovery restores the user's
     // configured budget. The preset remains a ceiling even in quality mode.
@@ -2332,9 +2351,10 @@ export function renderContent(deps: RenderContentDeps): void {
       totalMs: budget.elapsedMs,
       renderPath: needsStructural
         ? 'structural'
-        : workerBitmapRef.current && !oracleFullRedraw
+        : workerBitmapPresented
           ? 'worker-cached'
           : 'compositor',
+      ...rendererAttribution,
       wasDirty: dirty.kind !== 'none',
       partialRedraw: !!usePartialRedraw,
       cacheBytes: cacheDiag.bytes,
@@ -2361,8 +2381,7 @@ export function renderContent(deps: RenderContentDeps): void {
       fullRedraw:
         oracleFullRedraw || dirty.kind === 'full' || (dirty.kind !== 'none' && !usePartialRedraw),
     });
-    const diag = compositorRef.current?.getDiagnostics?.();
-    if (diag) setCompositorDiagnostics(diag);
+    if (compositorDiagnostics) setCompositorDiagnostics(compositorDiagnostics);
     // The dirty-diff baseline must advance to the document this frame PAINTED,
     // not merely the one that is still current. When a frame is overtaken
     // mid-flight (a document change lands during the async IR build — real on

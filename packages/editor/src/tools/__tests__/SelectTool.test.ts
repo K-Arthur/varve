@@ -230,6 +230,65 @@ describe('SelectTool', () => {
     expect(ctx.announceSelection).toHaveBeenCalled();
   });
 
+  it('previews selection movement per frame and commits the final pointer-up transform once', () => {
+    const tool = new SelectTool();
+    const document = documentWithRootNodes(['drag-me']);
+    const node = document.nodes['drag-me'];
+    const previewNodePositions = vi.fn(
+      (
+        positions: ReadonlyArray<{ id: string; x: number; y: number }>,
+        _affectedIds: readonly string[],
+        flush?: boolean,
+      ) => {
+        if (!flush) return null;
+        const updated = { ...document.nodes };
+        for (const position of positions) {
+          const current = updated[position.id];
+          if (!current) continue;
+          updated[position.id] = {
+            ...current,
+            transform: [
+              current.transform[0],
+              current.transform[1],
+              current.transform[2],
+              current.transform[3],
+              position.x,
+              position.y,
+            ],
+          } as typeof current;
+        }
+        return { ...document, nodes: updated };
+      },
+    );
+    const ctx = makeCtx({
+      document,
+      selection: ['drag-me'],
+      hitTest: vi.fn().mockReturnValue({ nodeId: 'drag-me', node }),
+      getNode: vi.fn((id: string) => document.nodes[id]),
+      previewNodePositions,
+      snapEnabled: false,
+      nodeWorldBounds: vi.fn(() => ({ x: 0, y: 0, w: 40, h: 40 })),
+    });
+
+    tool.onPointerDown({ clientX: 10, clientY: 10, pointerId: 1, button: 0 } as any, ctx);
+    tool.onPointerMove({ clientX: 20, clientY: 10, pointerId: 1 } as any, ctx);
+    tool.onPointerMove({ clientX: 22, clientY: 10, pointerId: 1 } as any, ctx);
+
+    expect(ctx.setNodePositions).not.toHaveBeenCalled();
+    expect(previewNodePositions).toHaveBeenCalledTimes(2);
+
+    tool.onPointerUp({ clientX: 27, clientY: 10, pointerId: 1 } as any, ctx);
+
+    expect(ctx.setNodePositions).toHaveBeenCalledOnce();
+    expect(ctx.setNodePositions).toHaveBeenCalledWith([{ id: 'drag-me', x: 17, y: 0 }]);
+    expect(previewNodePositions).toHaveBeenLastCalledWith(
+      [{ id: 'drag-me', x: 17, y: 0 }],
+      expect.any(Array),
+      true,
+    );
+    expect(ctx.commitTransaction).toHaveBeenCalledOnce();
+  });
+
   it('deselects all when clicking empty space', () => {
     const tool = new SelectTool();
     const ctx = makeCtx({ hitTest: vi.fn().mockReturnValue(null) });
@@ -930,7 +989,7 @@ describe('SelectTool — drop target frame highlighting', () => {
     (tool as any).initialPositions = new Map([['n1', { x: 0, y: 0 }]]);
     (tool as any).onDragMove?.(ctx);
 
-    expect(findContainingFrame).toHaveBeenCalledWith({ x: 50, y: 50 });
+    expect(findContainingFrame).toHaveBeenCalledWith({ x: 60, y: 60 });
     expect(setDropTargetFrame).toHaveBeenCalledWith('frame1');
   });
 

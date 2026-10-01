@@ -5,9 +5,6 @@
  */
 
 /* ── Modal / dialog open ────────────────────────── */
-.varve-dialog {
-  animation: strata-modal-in var(--duration-base) var(--ease-spring);
-}
 .varve-dialog.closing {
   animation: strata-modal-out var(--duration-fast) var(--ease-in);
 }
@@ -414,11 +411,19 @@
   outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: 1px;
 }
-.varve-close:disabled,
-.varve-close[aria-disabled="true"] {
+/* HTML-disabled carries no explanation, so pointer events are off — same as
+ * `.varve-btn:disabled`. `aria-disabled` is the *focusable* unavailable state
+ * (the disabledReason/title pattern): it must keep receiving pointer events
+ * or the reason can never be hovered — the defect Fluent UI #17606 and
+ * Calcite #5318 both shipped fixes for. Mirrors `.varve-btn[aria-disabled]`. */
+.varve-close:disabled {
   cursor: default;
   opacity: 0.5;
   pointer-events: none;
+}
+.varve-close[aria-disabled="true"] {
+  cursor: default;
+  opacity: 0.5;
 }
 .varve-close--sm {
   inline-size: var(--component-xs-height);
@@ -613,6 +618,7 @@
 }
 
 .varve-dialog {
+  animation: strata-modal-in var(--duration-base) var(--ease-spring);
   border: none;
   border-radius: var(--radius-floating);
   background: var(--color-surface-raised);
@@ -1100,9 +1106,6 @@
   height: 1em;
   flex-shrink: 0;
   transition: transform var(--duration-quick) var(--ease-standard);
-}
-
-.varve-select__chevron {
   transform: rotate(0deg);
 }
 
@@ -2746,6 +2749,7 @@
   display: grid;
   grid-template-columns: repeat(1, minmax(0, 1fr));
   gap: var(--space-2);
+  container-type: inline-size;
 }
 .varve-radio-group--card .varve-radio-group__legend,
 .varve-radio-group--card .varve-radio-group__description,
@@ -2848,14 +2852,13 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
-.varve-radio-group--card {
-  container-type: inline-size;
-}
 .varve-radio-group__legend + .varve-radio {
   margin-block-start: var(--space-1);
 }
 .varve-radio--disabled {
   pointer-events: none;
+  opacity: 0.55;
+  cursor: default;
 }
 .varve-radio__input {
   position: absolute;
@@ -2914,10 +2917,6 @@
 .varve-radio__input:focus-visible + .varve-radio__dot {
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 2px;
-}
-.varve-radio--disabled {
-  opacity: 0.55;
-  cursor: default;
 }
 .varve-radio:has(.varve-radio__input:disabled) {
   opacity: 0.55;

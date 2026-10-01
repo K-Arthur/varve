@@ -18,6 +18,8 @@ const webkit = { hasWorker: true, hasOffscreenCanvas: true, isWebKitGTK: true };
 afterEach(() => {
   _resetOffscreenCapability();
   _setWebKitWorkerActivation(null);
+  window.localStorage.removeItem('varve.renderWorker');
+  window.history.replaceState({}, '', '/');
 });
 
 describe('resolveWorkerEligibility', () => {
@@ -26,6 +28,14 @@ describe('resolveWorkerEligibility', () => {
       // Deliberately leave the capability unverified: non-WebKit engines must
       // not start depending on a probe that never runs for them.
       expect(resolveWorkerEligibility(chromium)).toEqual({ allowed: true, reason: 'none' });
+    });
+
+    it('can explicitly select the main-thread Canvas2D comparison mode', () => {
+      window.history.replaceState({}, '', '/?renderWorker=0');
+      expect(resolveWorkerEligibility(chromium)).toEqual({
+        allowed: false,
+        reason: 'worker-policy',
+      });
     });
 
     it('still refuses when the platform has no Worker', () => {

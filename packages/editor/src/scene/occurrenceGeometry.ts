@@ -21,6 +21,12 @@ type BoundsResolver = (doc: Document, id: NodeId, parentIndex?: Map<NodeId, Node
 export interface OccurrenceGeometryOptions {
   /** Font/placement/dependency revision. A change makes incremental reuse unsafe. */
   revision?: string | number;
+  /**
+   * Caller-certified set of IDs changed only by transform in this snapshot.
+   * Use only when the new document was derived from the previous snapshot by
+   * changing those nodes' transforms and no other document fields.
+   */
+  transformChangedNodeIds?: readonly NodeId[];
   /** Test seam; application callers use the canonical placed-world bounds resolver. */
   boundsForNode?: BoundsResolver;
 }
@@ -29,6 +35,7 @@ export interface OccurrenceGeometrySnapshot {
   document: Document;
   scope: ResolvedEditorSceneScope;
   boundsByInstanceId: ReadonlyMap<string, Rect | null>;
+  recalculatedInstanceIds: readonly string[];
   recalculatedOccurrenceCount: number;
   incremental: boolean;
 }
@@ -175,22 +182,30 @@ export function occurrenceGeometry(
   }
 
   const previous = existing;
-  const classification = previous ? classifyNodeChanges(previous.document.nodes, doc.nodes) : null;
+  const certifiedTransformChanges = options.transformChangedNodeIds;
+  const classification =
+    previous && !certifiedTransformChanges
+      ? classifyNodeChanges(previous.document.nodes, doc.nodes)
+      : null;
   const incremental = Boolean(
     previous &&
       previous.scope === scope &&
       boundsResolverBySnapshot.get(previous) === resolveBounds &&
       !topology.containsLiveBoolean &&
-      documentsDifferOnlyInTransforms(previous.document, doc) &&
-      classification?.transformsOnly,
+      (certifiedTransformChanges !== undefined ||
+        (documentsDifferOnlyInTransforms(previous.document, doc) &&
+          classification?.transformsOnly)),
   );
 
   const parentIndex = committedParentIndex(doc);
   let boundsByInstanceId: Map<string, Rect | null>;
+  let recalculatedInstanceIds: readonly string[];
   let recalculatedOccurrenceCount: number;
-  if (incremental && previous && classification) {
+  if (incremental && previous && (classification || certifiedTransformChanges)) {
     boundsByInstanceId = new Map(previous.boundsByInstanceId);
-    const affected = collectAffectedInstances(topology, classification.changedNodeIds);
+    const changedNodeIds = certifiedTransformChanges ?? classification!.changedNodeIds;
+    const affected = collectAffectedInstances(topology, changedNodeIds);
+    recalculatedInstanceIds = [...affected];
     for (const instanceId of affected) {
       const entry = topology.byInstanceId.get(instanceId);
       if (entry) {
@@ -203,6 +218,7 @@ export function occurrenceGeometry(
     recalculatedOccurrenceCount = affected.size;
   } else {
     boundsByInstanceId = new Map();
+    recalculatedInstanceIds = scope.occurrences.map((entry) => entry.instanceId);
     for (const entry of scope.occurrences) {
       boundsByInstanceId.set(
         entry.instanceId,
@@ -216,6 +232,7 @@ export function occurrenceGeometry(
     document: doc,
     scope,
     boundsByInstanceId,
+    recalculatedInstanceIds,
     recalculatedOccurrenceCount,
     incremental,
   };

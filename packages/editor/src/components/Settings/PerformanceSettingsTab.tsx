@@ -81,7 +81,7 @@ export function PerformanceSettingsTab() {
 
   function handleResetDefaults() {
     updateSettings({
-      render: { memoryBudget: 'medium', interactivePreview: 'automatic' },
+      render: { renderer: 'canvas2d', memoryBudget: 'medium', interactivePreview: 'automatic' },
       performance: { reducedMotionOverride: 'system', showPerformanceDiagnostics: false },
     });
     setReducedMotionOverride(null);
@@ -99,11 +99,13 @@ export function PerformanceSettingsTab() {
       averageFrameTimeMs: Number(getAverageFrameTime().toFixed(2)),
       p95FrameTimeMs: Number(getPercentileFrameTime(95).toFixed(2)),
       memoryBudget: settings.render.memoryBudget,
+      rendererPreference: settings.render.renderer,
       interactivePreview: settings.render.interactivePreview,
       reducedMotionOverride: settings.performance.reducedMotionOverride,
       webGpuStatus,
       canvasRenderer: compositorDiag?.backendId ?? null,
       lastFrameGpuItems: compositorDiag?.lastFrameGpuItems ?? null,
+      gpuTextureBytes: compositorDiag?.gpuTextureBytes ?? null,
       rendererFallbackReason: compositorDiag?.initFailureReason ?? null,
       rendererFatalError: compositorDiag?.fatalError ?? null,
       webGpuPipelineInitMs: compositorDiag?.pipelineInitMs ?? null,
@@ -149,9 +151,12 @@ export function PerformanceSettingsTab() {
       </SettingsFieldRow>
       <p className="settings-hint">
         Automatic may lower the temporary canvas backing scale after sustained over-budget frames;
-        it always returns to authoritative full resolution after navigation settles. Full resolution
-        keeps every navigation frame at device scale, which may cost responsiveness on constrained
-        hardware. Exports are full quality in either mode.
+        after input stops, Varve requests an authoritative redraw. Warm refinement targets are 500
+        ms for ordinary work and 1 second for heavy work after required assets are ready; these are
+        targets, not timing guarantees. Cold image or font readiness can extend the wait and is not
+        quantified in current evidence. Full resolution while navigating keeps the full device-pixel
+        target and may cost responsiveness on constrained hardware. Export quality is independent of
+        this setting.
       </p>
 
       <SettingsFieldRow label="Reduce motion">
@@ -216,6 +221,14 @@ export function PerformanceSettingsTab() {
             {rendererStatus?.label ?? 'Not running'}
           </span>
         </div>
+        {compositorDiag?.backendId === 'webgl2' && (
+          <div className="performance-settings__stat">
+            <span className="performance-settings__stat-label">GPU texture memory estimate</span>
+            <span className="performance-settings__stat-value">
+              {((compositorDiag.gpuTextureBytes ?? 0) / (1024 * 1024)).toFixed(1)} MiB
+            </span>
+          </div>
+        )}
       </div>
       <Button variant="secondary" size="sm" onClick={handleCopyDiagnostics}>
         {copied ? 'Copied' : 'Copy performance diagnostics'}

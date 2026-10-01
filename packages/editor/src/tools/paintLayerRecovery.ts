@@ -5,6 +5,7 @@ import { addNodeToActiveWorkspace, isPublishingPageSurface } from '../scene/acti
 export function createPaintLayerForRecovery(
   document: Document,
   workspaceMode: string,
+  name = 'Paint Layer',
 ): { document: Document; nodeId: string } {
   const { id, doc: allocated } = nextNodeId(document);
   const page = document.pages?.find((candidate) => candidate.id === document.activePageId);
@@ -19,7 +20,7 @@ export function createPaintLayerForRecovery(
       width: Math.ceil(width * pixelScale),
       height: Math.ceil(height * pixelScale),
     },
-    { name: 'Paint Layer' },
+    { name },
   );
   if (pixelScale !== 1) {
     layer.transform = [1 / pixelScale, 0, 0, 1 / pixelScale, 0, 0];

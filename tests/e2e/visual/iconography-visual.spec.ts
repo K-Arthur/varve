@@ -106,8 +106,8 @@ test.describe('Iconography visual QA', () => {
       const workspace = page.getByRole('radiogroup', { name: 'Workspace' });
       await expect(workspace).toBeVisible({ timeout: 45000 });
       const workspaceIcons = workspace.locator('[data-workspace-icon]');
-      await expect(workspaceIcons).toHaveCount(8);
-      await expect(workspace.locator('[data-icon-family="tabler"]')).toHaveCount(8);
+      await expect(workspaceIcons).toHaveCount(6);
+      await expect(workspace.locator('[data-icon-family="tabler"]')).toHaveCount(6);
       await workspace.screenshot({
         path: `${outputDir}/editor-${theme}-workspace-switcher.png`,
       });

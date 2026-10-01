@@ -689,12 +689,12 @@ function ShellInner({
             </button>
           </Tooltip>
         )}
-        <SelectionBreadcrumb />
         <div
           className="editor-shell__canvas-dock"
           style={dockGeometry.canvasStyle}
           data-dock-node="canvas"
         >
+          <SelectionBreadcrumb />
           <main className="editor-shell__main" style={{ display: 'contents' }}>
             <ErrorBoundary>
               <CanvasArea
@@ -870,6 +870,8 @@ function ShellInner({
             dockTabGroups={dockGeometry.tabGroups}
             dockFloatingGroups={dockGeometry.floatingGroups}
             dockSplitters={dockGeometry.splitters}
+            dockPanelMoveHandles={dockGeometry.dockPanelMoveHandles}
+            dockPanelDropPreview={dockGeometry.dockPanelDropPreview}
             dockTabPanelA11y={dockGeometry.tabPanelA11y}
             onSelectDockTab={dockGeometry.selectDockTab}
             dockRecovery={dockGeometry.recoveryNotice}

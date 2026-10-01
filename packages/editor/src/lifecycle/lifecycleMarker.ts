@@ -67,6 +67,37 @@ export class ShutdownMarker implements LifecycleMarker {
 
 let shared: ShutdownMarker | null = null;
 
+/**
+ * Crash-loop classification for the clean-shutdown marker (ADR-0216 D6).
+ *
+ * Only an explicitly armed, never-finalized marker (`'false'`) is evidence
+ * that a previous session started and was interrupted: `begin()` writes
+ * `'false'` at startup and `markClean()` replaces it with `'true'` after
+ * completed finalization.
+ *
+ * An **absent** marker means no session ever armed it — a fresh profile, or
+ * a surface such as Home that never mounts `LifecycleProvider`. That is not
+ * an interrupted run and must never count toward the crash-loop threshold:
+ * with the previous `!== 'true'` classification, every Home load accrued a
+ * "startup failure" and the third load within the window opened the
+ * safe-mode screen with no error anywhere (probe evidence:
+ * docs/audits/design-system-audit-2026-09-27.md §7.4). A storage read
+ * error likewise yields no evidence — the crash loop must never fire
+ * without evidence; the ephemeral-storage banner owns that failure mode.
+ *
+ * Deliberately a standalone reader (not `previousSessionWasClean()`):
+ * asking the shared marker to `begin()` would arm `'false'` on surfaces
+ * that otherwise never write the key, manufacturing the very evidence this
+ * function exists to require.
+ */
+export function readUncleanShutdownMarker(getItem: (key: string) => string | null): boolean {
+  try {
+    return getItem(CLEAN_SHUTDOWN_KEY) === 'false';
+  } catch {
+    return false;
+  }
+}
+
 /** App-wide singleton. LifecycleProvider installs the real localStorage
  *  instance; tests install a memory instance. */
 export function getSharedShutdownMarker(): ShutdownMarker {

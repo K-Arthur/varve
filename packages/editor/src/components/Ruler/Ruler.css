@@ -14,13 +14,28 @@
   background: var(--elevation-surface-default);
   border-right: var(--border-micro);
   border-bottom: var(--border-micro);
-  z-index: 2;
+  /* Above both strips: they are anchored to the container origin (below) and
+   * so overlap in this 20x20 box. */
+  z-index: 3;
 }
 
+/* Both strips are anchored to the container's ORIGIN, never inset past the
+ * 20px corner. `Ruler.tsx#redraw` sizes each canvas from its wrapper, and the
+ * tick math (`projectWorldXToTopEdge` / `projectWorldYToLeftEdge`) maps world
+ * zero to the canvas viewport's own top-left corner — an inset wrapper would
+ * shift every tick 20px off the artwork it labels. The opaque `.ruler-corner`
+ * above covers the overlap instead.
+ *
+ * These wrappers were `position: sticky`, which is in-flow: the top strip
+ * pushed the left strip down 20px and the left strip's height was solved from
+ * its own content ("height: 100%" against an indefinite parent = the canvas
+ * element's intrinsic 2:1 ratio), leaving the vertical ruler a 20x10px stub
+ * with its markers placed nowhere near the artwork. `position: absolute`
+ * gives both wrappers the definite boxes the drawing code measures. */
 .ruler-top-wrapper {
-  position: sticky;
+  position: absolute;
   top: 0;
-  left: 20px;
+  left: 0;
   right: 0;
   height: 20px;
   z-index: 2;
@@ -30,9 +45,9 @@
 }
 
 .ruler-left-wrapper {
-  position: sticky;
+  position: absolute;
+  top: 0;
   left: 0;
-  top: 20px;
   bottom: 0;
   width: 20px;
   z-index: 2;

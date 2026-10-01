@@ -4,6 +4,9 @@ import {
   beginInteraction,
   enableInteractionTraces,
   endInteraction,
+  markInteractionCanvasChanged,
+  notifyFrameCommit,
+  recordNextPaintEvidence,
   resetInteractionTraces,
 } from '../interactionTrace';
 
@@ -51,9 +54,10 @@ describe('dispatchToTool', () => {
   it('records a distinct interaction.dispatch span with bounded attributes', () => {
     enableInteractionTraces(true);
     beginInteraction('pointer-drag');
+    const eventTimeStamp = performance.now() - 2;
     dispatchToTool(
       'move',
-      event({ getCoalescedEvents: () => [{}, {}, {}], shiftKey: true }),
+      event({ getCoalescedEvents: () => [{}, {}, {}], shiftKey: true, timeStamp: eventTimeStamp }),
       attributes,
       () => undefined,
     );
@@ -66,6 +70,7 @@ describe('dispatchToTool', () => {
       selectionCount: 1,
       phase: 'move',
       pointerType: 'mouse',
+      eventTimeStamp,
       coalescedCount: 3,
       shift: true,
       pointerSequenceId: 1,
@@ -104,5 +109,29 @@ describe('dispatchToTool', () => {
     const trace = endInteraction();
     expect(trace?.spans.map((s) => s.attributes?.pointerSequenceId)).toEqual([1, 2, 3]);
     expect(trace?.spans.map((s) => s.attributes?.phase)).toEqual(['down', 'move', 'up']);
+  });
+
+  it('correlates next-paint feedback with the dispatched pointer-up event', () => {
+    enableInteractionTraces(true);
+    const eventTimeStamp = performance.now() - 2;
+    beginInteraction('pointer-drag', eventTimeStamp);
+    const identity = markInteractionCanvasChanged();
+    dispatchToTool('up', event({ timeStamp: eventTimeStamp }), attributes, () => undefined);
+    const trace = endInteraction();
+    expect(trace).not.toBeNull();
+
+    notifyFrameCommit(trace!.endedAt + 1, 2, { causeIds: [identity!.interactionId] });
+    expect(
+      recordNextPaintEvidence({
+        startTimeMs: eventTimeStamp,
+        durationMs: 18,
+        source: 'event-timing',
+        clockTrust: 'trusted',
+        uncertaintyMs: 8,
+        eventName: 'pointerup',
+      }),
+    ).toBe(true);
+    expect(trace?.inputToNextPaintMs).toBe(18);
+    expect(trace?.presentationEvidence.source).toBe('event-timing');
   });
 });

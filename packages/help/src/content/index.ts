@@ -6,6 +6,7 @@ export { getHelpContent, HELP_CONTENT, searchHelpContent } from './helpContent';
 export type { HelpArticle } from './helpTypes';
 export { CATEGORIES } from './helpTypes';
 export { PANELS } from './panels';
+export { PRESENTATIONS } from './presentations';
 export { SHORTCUTS_REFERENCE } from './shortcuts';
 export { TOOLS } from './tools';
 export { TROUBLESHOOTING } from './troubleshooting';

@@ -116,8 +116,8 @@ export type WheelNavigationMode = 'auto' | 'pan' | 'zoom';
 export type InteractivePreviewMode = 'automatic' | 'full';
 
 export interface RenderSettingsStore {
-  /** Prefer WebGPU compositor when adapter available (Canvas2D fallback on loss). */
-  preferWebGpu: boolean;
+  /** Requested display compositor; failures always fall back to Canvas2D. */
+  renderer: 'canvas2d' | 'webgpu' | 'webgl2';
   /** IR cache byte budget preset — see packages/editor/src/canvas/memoryBudget.ts. */
   memoryBudget: 'low' | 'medium' | 'high';
   /** Keep full device resolution during navigation instead of using adaptive preview scale. */
@@ -266,7 +266,7 @@ export interface EditorSettings {
     findingsNavigation: boolean;
     /** Show audit findings overlay on canvas by default. */
     findingsOverlay: boolean;
-    /** Enable experimental codegen workspace. */
+    /** Enable the shared Code panel (legacy settings key: codegenWorkspace). */
     codegenWorkspace: boolean;
     /** Enable experimental AI features (background removal, upscaling, etc.). */
     aiFeatures: boolean;
@@ -346,7 +346,7 @@ export const DEFAULT_PANEL_SETTINGS: PanelSettingsStore = {
 };
 
 export const DEFAULT_RENDER_SETTINGS: RenderSettingsStore = {
-  preferWebGpu: false,
+  renderer: 'canvas2d',
   memoryBudget: 'medium',
   interactivePreview: 'automatic',
 };
@@ -759,11 +759,19 @@ function normalizeViewportSettings(
 }
 
 function normalizeRenderSettings(
-  partial: Partial<RenderSettingsStore> | undefined,
+  partial: (Partial<RenderSettingsStore> & { preferWebGpu?: boolean }) | undefined,
 ): RenderSettingsStore {
   const render = mergePartial(DEFAULT_RENDER_SETTINGS, partial);
   return {
     ...render,
+    renderer:
+      partial?.renderer === 'canvas2d' ||
+      partial?.renderer === 'webgpu' ||
+      partial?.renderer === 'webgl2'
+        ? partial.renderer
+        : partial?.preferWebGpu
+          ? 'webgpu'
+          : 'canvas2d',
     interactivePreview:
       render.interactivePreview === 'automatic' || render.interactivePreview === 'full'
         ? render.interactivePreview

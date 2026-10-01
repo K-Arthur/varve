@@ -1415,9 +1415,43 @@ let durableHydrationPending = false;
 let durableSchemaMigrationPending = false;
 let lastPersistenceError: { at: number; layer: 'local' | 'platform'; message: string } | null =
   null;
+const persistenceListeners = new Set<() => void>();
 
 export function getLayoutPersistenceError() {
   return lastPersistenceError;
+}
+
+export function subscribeLayoutPersistence(listener: () => void): () => void {
+  persistenceListeners.add(listener);
+  return () => persistenceListeners.delete(listener);
+}
+
+function clearLayoutPersistenceError(layer: 'local' | 'platform'): void {
+  if (lastPersistenceError?.layer !== layer) return;
+  lastPersistenceError = null;
+  for (const listener of persistenceListeners) listener();
+}
+
+/** Retry the latest named-layout snapshot after a reported durable save failure. */
+export async function retryLayoutStoreSave(): Promise<boolean> {
+  if (durableFutureStorePresent || hasUnreadableLocalFutureStore()) {
+    recordPersistenceError(
+      'platform',
+      'A newer workspace-layout format is preserved until this app can read it.',
+    );
+    return false;
+  }
+  const failedLayer = lastPersistenceError?.layer;
+  setLayoutStore(getLayoutStore());
+  await flushLayoutStore();
+  if (
+    !durablePlatform &&
+    failedLayer === 'platform' &&
+    lastPersistenceError?.layer === 'platform'
+  ) {
+    recordPersistenceError('platform', 'Durable workspace storage is unavailable in this session.');
+  }
+  return lastPersistenceError === null;
 }
 
 function recordPersistenceError(layer: 'local' | 'platform', err: unknown): void {
@@ -1426,6 +1460,7 @@ function recordPersistenceError(layer: 'local' | 'platform', err: unknown): void
     layer,
     message: err instanceof Error ? err.message : String(err),
   };
+  for (const listener of persistenceListeners) listener();
 }
 
 export function loadLayoutStore(): WorkspaceLayoutStoreState {
@@ -1475,6 +1510,7 @@ export function setLayoutStore(state: WorkspaceLayoutStoreState): void {
       );
     } else {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      clearLayoutPersistenceError('local');
     }
   } catch (err) {
     recordPersistenceError('local', err);
@@ -1510,6 +1546,7 @@ export function resetLayoutStoreCache(): void {
   durableSchemaMigrationPending = false;
   lastPersistenceError = null;
   cachedWriterId = null;
+  persistenceListeners.clear();
 }
 
 export function attachLayoutStorePlatform(platform: Platform | undefined): void {
@@ -1538,6 +1575,7 @@ function enqueueDurableWrite(platform: Platform, state: WorkspaceLayoutStoreStat
     try {
       if (!platform.compareAndSetAppSetting) {
         await platform.setAppSetting(APP_SETTING_KEY, JSON.stringify(state));
+        clearLayoutPersistenceError('platform');
         return;
       }
       for (let attempt = 0; attempt < 8; attempt++) {
@@ -1558,6 +1596,7 @@ function enqueueDurableWrite(platform: Platform, state: WorkspaceLayoutStoreStat
         if (
           await platform.compareAndSetAppSetting(APP_SETTING_KEY, raw, JSON.stringify(candidate))
         ) {
+          clearLayoutPersistenceError('platform');
           return;
         }
       }

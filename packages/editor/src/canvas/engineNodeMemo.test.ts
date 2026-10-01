@@ -9,6 +9,10 @@ const engineNode = (id: string): EngineNode =>
 const PAINTS = { p: 1 };
 const STYLES = { s: 1 };
 const MASKS = { m: 1 };
+const PATTERNS = { pattern: 1 };
+const ASSETS = { asset: 1 };
+const DEPTH_MAPS = { depth: 1 };
+const COLOR_CONFIG = { color: 1 };
 
 function freshMemo(max?: number): EngineNodeMemo {
   const memo = new EngineNodeMemo(max);
@@ -98,6 +102,45 @@ describe('EngineNodeMemo', () => {
     memo.set('a', src, world, engineNode('a'));
 
     memo.beginFrame(PAINTS, { m: 2 }, STYLES, '');
+    expect(memo.get('a', src, world)).toBeUndefined();
+  });
+
+  it('drops linked pattern conversions when definitions or embedded assets change', () => {
+    const memo = new EngineNodeMemo();
+    const src = { id: 'a' };
+    const world = [1, 0, 0, 1, 0, 0];
+    memo.beginFrame(PAINTS, MASKS, STYLES, '', PATTERNS, ASSETS, DEPTH_MAPS, COLOR_CONFIG);
+    memo.set('a', src, world, engineNode('a'));
+
+    memo.beginFrame(PAINTS, MASKS, STYLES, '', { pattern: 2 }, ASSETS, DEPTH_MAPS, COLOR_CONFIG);
+    expect(memo.get('a', src, world)).toBeUndefined();
+
+    memo.set('a', src, world, engineNode('a'));
+    memo.beginFrame(
+      PAINTS,
+      MASKS,
+      STYLES,
+      '',
+      { pattern: 2 },
+      { asset: 2 },
+      DEPTH_MAPS,
+      COLOR_CONFIG,
+    );
+    expect(memo.get('a', src, world)).toBeUndefined();
+  });
+
+  it('drops conversions when depth maps or colour settings change', () => {
+    const memo = new EngineNodeMemo();
+    const src = { id: 'a' };
+    const world = [1, 0, 0, 1, 0, 0];
+    memo.beginFrame(PAINTS, MASKS, STYLES, '', PATTERNS, ASSETS, DEPTH_MAPS, COLOR_CONFIG);
+    memo.set('a', src, world, engineNode('a'));
+
+    memo.beginFrame(PAINTS, MASKS, STYLES, '', PATTERNS, ASSETS, { depth: 2 }, COLOR_CONFIG);
+    expect(memo.get('a', src, world)).toBeUndefined();
+
+    memo.set('a', src, world, engineNode('a'));
+    memo.beginFrame(PAINTS, MASKS, STYLES, '', PATTERNS, ASSETS, { depth: 2 }, { color: 2 });
     expect(memo.get('a', src, world)).toBeUndefined();
   });
 

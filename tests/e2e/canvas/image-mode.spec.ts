@@ -67,7 +67,7 @@ test.describe('Image Editing Mode', () => {
       .setInputFiles(path.resolve('tests/e2e/fixtures/test-image.png'));
     await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10000 });
 
-    for (const workspace of ['Photo', 'Draw', 'Print', 'Motion', 'Logo', 'Codegen', 'Design']) {
+    for (const workspace of ['Photo', 'Print', 'Draw', 'Motion', 'Email', 'Design']) {
       await switchWorkspace(page, workspace);
       const workspaceRadio = page.getByRole('radio', {
         name: new RegExp(`^${workspace} workspace$`),

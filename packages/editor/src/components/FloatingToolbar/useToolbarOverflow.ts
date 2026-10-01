@@ -42,7 +42,7 @@ export function useToolbarOverflow(
   const rootRef = useRef<HTMLDivElement>(null);
   const [collapsedSlotIds, setCollapsedSlotIds] = useState<string[]>([]);
   const [layoutVersion, setLayoutVersion] = useState(0);
-  const lastContainerSize = useRef<{ height: number; width: number } | null>(null);
+  const lastContainerSize = useRef<number | null>(null);
   const previousGroupKey = useRef<string | null>(null);
 
   const slotKey = useMemo(
@@ -56,39 +56,78 @@ export function useToolbarOverflow(
     () => slots.filter((slot) => !isPinnedSlot(slot, activeTool, pinnedToolIds)),
     [slots, activeTool, pinnedToolIds],
   );
+  const candidateKey = candidates
+    .map((slot) => `${toolbarSlotKey(slot)}:${getToolbarSlotToolIds(slot).join(',')}`)
+    .join('|');
   const candidateIdSet = useMemo(
     () => new Set(candidates.map((slot) => toolbarSlotKey(slot))),
-    [candidates],
+    [candidateKey],
   );
 
   useLayoutEffect(() => {
     const toolbar = rootRef.current;
-    const container = toolbar?.parentElement;
+    // The toolbar's parent is the whole editor shell, but the menu row is
+    // constrained by the central canvas dock. Observe that actual dock cell
+    // so opening/moving a side panel recomputes overflow against the space
+    // left for the canvas instead of reacting to unrelated shell geometry.
+    const container =
+      toolbar
+        ?.closest<HTMLElement>('.editor-shell')
+        ?.querySelector<HTMLElement>('.editor-shell__canvas-dock') ?? toolbar?.parentElement;
     if (!container) return;
+    let resizeFrame: number | null = null;
 
-    const notifyContainerResize = (width: number, height: number) => {
+    const notifyContainerResize = (width: number) => {
       const previous = lastContainerSize.current;
-      if (previous?.width === width && previous.height === height) return;
-      lastContainerSize.current = { width, height };
-      setCollapsedSlotIds((collapsed) => (collapsed.length === 0 ? collapsed : []));
-      setLayoutVersion((version) => version + 1);
+      // The overflow decision is horizontal. Ignore fractional width jitter
+      // from animated dock tracks so a ResizeObserver delivery cannot keep
+      // scheduling layout state while the workspace is settling.
+      if (previous !== null && Math.abs(previous - width) < 1) return;
+      lastContainerSize.current = width;
+      if (resizeFrame !== null) return;
+      const refresh = () => {
+        resizeFrame = null;
+        setCollapsedSlotIds((collapsed) => (collapsed.length === 0 ? collapsed : []));
+        setLayoutVersion((version) => version + 1);
+      };
+      resizeFrame =
+        typeof window.requestAnimationFrame === 'function'
+          ? window.requestAnimationFrame(refresh)
+          : window.setTimeout(refresh, 0);
     };
 
     if (typeof ResizeObserver !== 'undefined') {
       const observer = new ResizeObserver(([entry]) => {
-        if (entry) notifyContainerResize(entry.contentRect.width, entry.contentRect.height);
+        if (entry) notifyContainerResize(entry.contentRect.width);
       });
       observer.observe(container);
-      return () => observer.disconnect();
+      return () => {
+        observer.disconnect();
+        if (resizeFrame !== null) {
+          if (typeof window.cancelAnimationFrame === 'function') {
+            window.cancelAnimationFrame(resizeFrame);
+          } else {
+            window.clearTimeout(resizeFrame);
+          }
+        }
+      };
     }
 
     if (typeof window === 'undefined') return;
     const onWindowResize = () => {
-      setCollapsedSlotIds((collapsed) => (collapsed.length === 0 ? collapsed : []));
-      setLayoutVersion((version) => version + 1);
+      notifyContainerResize(container.getBoundingClientRect().width);
     };
     window.addEventListener('resize', onWindowResize);
-    return () => window.removeEventListener('resize', onWindowResize);
+    return () => {
+      window.removeEventListener('resize', onWindowResize);
+      if (resizeFrame !== null) {
+        if (typeof window.cancelAnimationFrame === 'function') {
+          window.cancelAnimationFrame(resizeFrame);
+        } else {
+          window.clearTimeout(resizeFrame);
+        }
+      }
+    };
   }, []);
 
   useLayoutEffect(() => {
@@ -110,7 +149,7 @@ export function useToolbarOverflow(
       }
       return valid.length === previous.length ? previous : valid;
     });
-  }, [candidateIdSet, candidates, collapsedSlotIds, slotKey, layoutVersion]);
+  }, [candidateKey, candidateIdSet, collapsedSlotIds, slotKey, layoutVersion]);
 
   const collapsedSet = new Set(collapsedSlotIds);
   const visibleSlots = promoteGroupStarts(

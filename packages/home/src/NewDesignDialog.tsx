@@ -1,5 +1,9 @@
 import type { TemplateLibrary } from '@varve/platform';
-import type { NewDocumentRequest } from '@varve/scene';
+import {
+  getPresentationSizePreset,
+  type NewDocumentRequest,
+  type PresentationSizePresetId,
+} from '@varve/scene';
 import {
   BUILTIN_PRESET_GROUPS,
   type ColorMode,
@@ -47,7 +51,8 @@ export interface NewDesignDialogProps {
   onDeleteCustomPreset?: (preset: CustomPreset) => void;
 }
 
-type StartMode = 'empty' | 'frame' | 'template';
+type StartMode = 'empty' | 'frame' | 'presentation' | 'template';
+type PresentationPresetChoice = PresentationSizePresetId | 'custom';
 type FrameSource = 'preset' | 'custom';
 type DocumentIntent = 'screen' | 'print';
 
@@ -78,6 +83,12 @@ const defaultCustomFrame: { width: number; height: number; unit: DocumentUnit } 
 };
 
 const DEFAULT_PRESET_ID = 'ig-post';
+const presentationPresetOptions: SegmentedOption<PresentationPresetChoice>[] = [
+  { value: 'widescreen', label: '16:9' },
+  { value: 'classic', label: '4:3' },
+  { value: 'vertical', label: 'Vertical' },
+  { value: 'custom', label: 'Custom' },
+];
 
 function defaultPreset(): Preset {
   return (
@@ -110,6 +121,10 @@ export function NewDesignDialog({
   const [startMode, setStartMode] = useState<StartMode>('empty');
   const [frameSource, setFrameSource] = useState<FrameSource>('preset');
   const [selectedPreset, setSelectedPreset] = useState<Preset>(() => defaultPreset());
+  const [presentationPreset, setPresentationPreset] =
+    useState<PresentationPresetChoice>('widescreen');
+  const [presentationCustomW, setPresentationCustomW] = useState(1920);
+  const [presentationCustomH, setPresentationCustomH] = useState(1080);
   const [customW, setCustomW] = useState(defaultCustomFrame.width);
   const [customH, setCustomH] = useState(defaultCustomFrame.height);
   const [unit, setUnit] = useState<DocumentUnit>(defaultCustomFrame.unit);
@@ -140,6 +155,9 @@ export function NewDesignDialog({
       setSavingPresetName(null);
       setIntent('screen');
       setColorMode('rgb');
+      setPresentationPreset('widescreen');
+      setPresentationCustomW(1920);
+      setPresentationCustomH(1080);
       setBleed(3);
       setDpi(300);
       // Let the native dialog finish mounting before focusing the name field.
@@ -159,7 +177,21 @@ export function NewDesignDialog({
       // Template flow calls onCreate directly from the gallery.
       return;
     }
-    if (startMode === 'frame' && frameSource === 'custom') {
+    if (startMode === 'presentation') {
+      request = {
+        documentName: trimmed || defaultName,
+        startMode: 'presentation',
+        ...(presentationPreset === 'custom'
+          ? {
+              presentationCustomSize: {
+                width: presentationCustomW,
+                height: presentationCustomH,
+                unit: 'px' as const,
+              },
+            }
+          : { presentationPreset }),
+      };
+    } else if (startMode === 'frame' && frameSource === 'custom') {
       request = {
         documentName: trimmed || defaultName,
         startMode: 'customFrame',
@@ -181,7 +213,7 @@ export function NewDesignDialog({
       };
     }
 
-    if (intent === 'print' || colorMode !== 'rgb') {
+    if (startMode !== 'presentation' && (intent === 'print' || colorMode !== 'rgb')) {
       request.colorMode = colorMode;
       if (intent === 'print') {
         request.bleed = { value: bleed || 3, unit } as PresetBleed;
@@ -200,6 +232,9 @@ export function NewDesignDialog({
     customH,
     unit,
     selectedPreset,
+    presentationPreset,
+    presentationCustomW,
+    presentationCustomH,
     intent,
     colorMode,
     bleed,
@@ -319,6 +354,13 @@ export function NewDesignDialog({
 
   const customValid =
     Number.isFinite(customW) && Number.isFinite(customH) && customW > 0 && customH > 0;
+  const presentationCustomValid =
+    Number.isFinite(presentationCustomW) &&
+    Number.isFinite(presentationCustomH) &&
+    presentationCustomW > 0 &&
+    presentationCustomH > 0 &&
+    presentationCustomW <= 100_000 &&
+    presentationCustomH <= 100_000;
   const showSaveAsPreset =
     onSaveCustomPreset != null && startMode === 'frame' && frameSource === 'custom' && customValid;
 
@@ -326,7 +368,7 @@ export function NewDesignDialog({
     <Dialog
       open={open}
       onClose={onClose}
-      title="New design"
+      title={startMode === 'presentation' ? 'New presentation' : 'New design'}
       size="lg"
       onKeyDown={handleDialogKeyDown}
       footer={
@@ -363,11 +405,15 @@ export function NewDesignDialog({
               variant="default"
               onClick={handleCreate}
               disabled={
-                creating || (startMode === 'frame' && frameSource === 'custom' && !customValid)
+                creating ||
+                (startMode === 'frame' && frameSource === 'custom' && !customValid) ||
+                (startMode === 'presentation' &&
+                  presentationPreset === 'custom' &&
+                  !presentationCustomValid)
               }
               data-testid="create-design-button"
             >
-              Create design
+              {startMode === 'presentation' ? 'Create presentation' : 'Create design'}
             </Button>
           </div>
         </>
@@ -396,7 +442,7 @@ export function NewDesignDialog({
             name="new-design-start"
             value={startMode}
             variant="card"
-            columns={3}
+            columns={2}
             options={[
               {
                 value: 'empty',
@@ -408,6 +454,12 @@ export function NewDesignDialog({
                 value: 'frame',
                 label: 'Start with a frame',
                 description: 'Create the first in-document frame from a preset or custom size.',
+              },
+              {
+                value: 'presentation',
+                label: 'New presentation',
+                description:
+                  'Create a presentation with an ordered slide deck and a 16:9 first slide.',
               },
               {
                 value: 'template',
@@ -512,90 +564,145 @@ export function NewDesignDialog({
           </div>
         )}
 
+        {startMode === 'presentation' && (
+          <div className="new-design__body-section">
+            <p className="new-design__empty-hint" role="note">
+              Slides are editable frames on the Design Canvas. Presentation order is managed
+              separately from canvas position and layer order.
+            </p>
+            <SegmentedControl
+              label="Slide size"
+              value={presentationPreset}
+              options={presentationPresetOptions}
+              onChange={(value: string) => setPresentationPreset(value as PresentationPresetChoice)}
+            />
+            {presentationPreset === 'custom' ? (
+              <div className="new-design__custom">
+                <div className="new-design__field-row">
+                  <label htmlFor="presentation-width" className="new-design__field-label">
+                    Width (px)
+                  </label>
+                  <NumberInput
+                    value={presentationCustomW}
+                    onChange={setPresentationCustomW}
+                    min={1}
+                    max={100_000}
+                    id="presentation-width"
+                  />
+                  <label htmlFor="presentation-height" className="new-design__field-label">
+                    Height (px)
+                  </label>
+                  <NumberInput
+                    value={presentationCustomH}
+                    onChange={setPresentationCustomH}
+                    min={1}
+                    max={100_000}
+                    id="presentation-height"
+                  />
+                </div>
+                {!presentationCustomValid && (
+                  <p className="new-design__custom-hint" role="alert">
+                    Enter slide dimensions from 1 to 100,000 pixels.
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p className="new-design__custom-hint">
+                {getPresentationSizePreset(presentationPreset).width} by{' '}
+                {getPresentationSizePreset(presentationPreset).height} px
+              </p>
+            )}
+          </div>
+        )}
+
         {startMode === 'template' && (
           <div className="new-design__body-section">
             <TemplatesGallery templates={templates} showSearch onSelect={handleTemplateSelect} />
           </div>
         )}
 
-        <div className="new-design__advanced">
-          <Disclosure open={advancedOpen} onOpenChange={setAdvancedOpen}>
-            <DisclosureTrigger
-              className="new-design__advanced-toggle"
-              indicator={
-                <span
-                  className={`new-design__advanced-chevron${advancedOpen ? ' new-design__advanced-chevron--open' : ''}`}
-                  aria-hidden
-                >
-                  ▾
-                </span>
-              }
-            >
-              <span className="new-design__advanced-toggle-label">Advanced settings</span>
-              <span className="new-design__advanced-toggle-hint">
-                {intent === 'print'
-                  ? 'Print intent: CMYK, bleed, DPI'
-                  : 'Screen intent: RGB at 8-bit'}
-              </span>
-            </DisclosureTrigger>
-            <DisclosureContent className="new-design__advanced-panel">
-              <div className="new-design__field-row">
-                <span className="new-design__field-label">Intent</span>
-                <SegmentedControl
-                  label="Document intent"
-                  value={intent}
-                  options={intentOptions}
-                  onChange={(v: string) => {
-                    setIntent(v as DocumentIntent);
-                    if (v === 'print') {
-                      setColorMode((m) => (m === 'rgb' ? 'cmyk' : m));
-                    }
-                  }}
-                />
-                <span className="new-design__field-label new-design__field-label--gap">Color</span>
-                <SegmentedControl
-                  label="Color mode"
-                  value={colorMode}
-                  options={colorModeOptions}
-                  onChange={(c: string) => setColorMode(c as ColorMode)}
-                />
-              </div>
-              <p className="new-design__advanced-note" role="note">
-                Print documents store CMYK/ICC intent and are soft-proofed for export; on-screen
-                preview always renders in RGB. Bit depth is 8-bit (uint8) — 16-bit rendering is not
-                yet supported end-to-end.
-              </p>
-              {intent === 'print' && (
-                <div className="new-design__field-row">
-                  <label htmlFor="new-design-dpi" className="new-design__field-label">
-                    DPI
-                  </label>
-                  <NumberInput
-                    value={dpi}
-                    onChange={setDpi}
-                    min={72}
-                    max={600}
-                    id="new-design-dpi"
-                  />
-                  <label
-                    htmlFor="new-design-bleed"
-                    className="new-design__field-label new-design__field-label--gap"
+        {startMode !== 'presentation' && (
+          <div className="new-design__advanced">
+            <Disclosure open={advancedOpen} onOpenChange={setAdvancedOpen}>
+              <DisclosureTrigger
+                className="new-design__advanced-toggle"
+                indicator={
+                  <span
+                    className={`new-design__advanced-chevron${advancedOpen ? ' new-design__advanced-chevron--open' : ''}`}
+                    aria-hidden
                   >
-                    Bleed
-                  </label>
-                  <NumberInput
-                    value={bleed}
-                    onChange={setBleed}
-                    min={0}
-                    max={50}
-                    id="new-design-bleed"
+                    ▾
+                  </span>
+                }
+              >
+                <span className="new-design__advanced-toggle-label">Advanced settings</span>
+                <span className="new-design__advanced-toggle-hint">
+                  {intent === 'print'
+                    ? 'Print intent: CMYK, bleed, DPI'
+                    : 'Screen intent: RGB at 8-bit'}
+                </span>
+              </DisclosureTrigger>
+              <DisclosureContent className="new-design__advanced-panel">
+                <div className="new-design__field-row">
+                  <span className="new-design__field-label">Intent</span>
+                  <SegmentedControl
+                    label="Document intent"
+                    value={intent}
+                    options={intentOptions}
+                    onChange={(v: string) => {
+                      setIntent(v as DocumentIntent);
+                      if (v === 'print') {
+                        setColorMode((m) => (m === 'rgb' ? 'cmyk' : m));
+                      }
+                    }}
                   />
-                  <span className="new-design__field-hint">{unit}</span>
+                  <span className="new-design__field-label new-design__field-label--gap">
+                    Color
+                  </span>
+                  <SegmentedControl
+                    label="Color mode"
+                    value={colorMode}
+                    options={colorModeOptions}
+                    onChange={(c: string) => setColorMode(c as ColorMode)}
+                  />
                 </div>
-              )}
-            </DisclosureContent>
-          </Disclosure>
-        </div>
+                <p className="new-design__advanced-note" role="note">
+                  Print documents store CMYK/ICC intent and are soft-proofed for export; on-screen
+                  preview always renders in RGB. Bit depth is 8-bit (uint8) — 16-bit rendering is
+                  not yet supported end-to-end.
+                </p>
+                {intent === 'print' && (
+                  <div className="new-design__field-row">
+                    <label htmlFor="new-design-dpi" className="new-design__field-label">
+                      DPI
+                    </label>
+                    <NumberInput
+                      value={dpi}
+                      onChange={setDpi}
+                      min={72}
+                      max={600}
+                      id="new-design-dpi"
+                    />
+                    <label
+                      htmlFor="new-design-bleed"
+                      className="new-design__field-label new-design__field-label--gap"
+                    >
+                      Bleed
+                    </label>
+                    <NumberInput
+                      value={bleed}
+                      onChange={setBleed}
+                      min={0}
+                      max={50}
+                      id="new-design-bleed"
+                    />
+                    <span className="new-design__field-hint">{unit}</span>
+                  </div>
+                )}
+              </DisclosureContent>
+            </Disclosure>
+          </div>
+        )}
       </div>
     </Dialog>
   );

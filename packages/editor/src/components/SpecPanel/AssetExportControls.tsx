@@ -487,7 +487,7 @@ export function AssetExportControls({
     try {
       if (format === 'pdf') {
         const { bytes, filename } = await exportNodeAsPdf(node, doc, exportScale, eng ?? undefined);
-        if (platform) {
+        if (isTauri && platform) {
           const saved = await platform.saveBinaryFile(filename, bytes, 'application/pdf', '.pdf');
           setMessage(saved ? `Exported ${node.name} as PDF` : 'Export cancelled');
         } else {

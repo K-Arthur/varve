@@ -49,7 +49,7 @@ describe('navigationCoordinator — workspace targets', () => {
 
   it('reports blocked when the switch was rejected', async () => {
     const ctx = makeCtx({ requestWorkspaceSwitch: vi.fn().mockResolvedValue(false) });
-    const r = await navigate(request({ target: { kind: 'workspace', mode: 'logo' } }), ctx);
+    const r = await navigate(request({ target: { kind: 'workspace', mode: 'print' } }), ctx);
     expect(r.status).toBe('blocked');
   });
 });

@@ -118,9 +118,10 @@ test.describe('workspace customization', () => {
     const float = page.locator('.workspace-dock-floating').first();
     await expect(float).toBeVisible();
     const header = float.locator('.workspace-dock-floating__header');
+    const title = float.locator('.workspace-dock-floating__title');
     const initial = await float.boundingBox();
     expect(initial).not.toBeNull();
-    const headerBox = await header.boundingBox();
+    const headerBox = await title.boundingBox();
     expect(headerBox).not.toBeNull();
     await page.mouse.move(headerBox!.x + 80, headerBox!.y + 18);
     await page.mouse.down();
@@ -132,6 +133,10 @@ test.describe('workspace customization', () => {
     const moved = await float.boundingBox();
     expect(moved).not.toBeNull();
     expect(moved!.y).toBeGreaterThan(initial!.y + 20);
+    const floatingLayers = page.locator('.editor__layers-panel');
+    const layersBox = await floatingLayers.boundingBox();
+    expect(layersBox).not.toBeNull();
+    expect(headerBox!.y + headerBox!.height).toBeLessThanOrEqual(layersBox!.y + 1);
 
     const resizedHandle = float.getByRole('button', { name: /Resize floating Layers group/i });
     const handleBox = await resizedHandle.boundingBox();
@@ -143,6 +148,7 @@ test.describe('workspace customization', () => {
     await expect
       .poll(async () => (await float.boundingBox())?.width ?? 0)
       .toBeGreaterThan(moved!.width + 30);
+    await expect.poll(async () => (await float.boundingBox())?.x ?? -1).toBeCloseTo(moved!.x, 0);
 
     await header.focus();
     await page.keyboard.press('ArrowRight');
@@ -164,6 +170,9 @@ test.describe('workspace customization', () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await expect(float).toBeVisible();
     await expect(float.getByRole('button', { name: 'Reset location' })).toBeVisible();
+    await expect(
+      float.getByRole('button', { name: /Resize floating Layers group/i }),
+    ).toBeVisible();
     await page.screenshot({
       path: 'docs/screenshots/workspace-dock-layout/float-controls-light.png',
     });
@@ -173,6 +182,70 @@ test.describe('workspace customization', () => {
     await float.getByRole('button', { name: 'Redock' }).click();
     await expect(page.locator('.workspace-dock-floating')).toHaveCount(0);
     await expect(page.locator('.editor__layers-panel')).toBeVisible();
+  });
+
+  test('floating actions stay clear of Inspector controls and do not steal their clicks', async ({
+    page,
+  }) => {
+    await navigateToEditor(page);
+    await runPaletteAction(page, 'Customize Workspace', /^Customize Workspace$/);
+    const dialog = page.getByRole('dialog', { name: /Customize Design workspace/i });
+    await dialog.getByRole('combobox', { name: 'Panel to move' }).selectOption('inspector');
+    await dialog.getByRole('combobox', { name: 'Panel placement' }).selectOption('float');
+    await dialog.getByRole('button', { name: 'Move panel', exact: true }).click();
+    await expect(dialog.locator('.workspace-customize__hint[role="status"]')).toContainText(
+      'Inspector updated.',
+    );
+    await dialog.getByRole('button', { name: 'Done' }).click();
+
+    const floatingGroup = page.locator('.workspace-dock-floating').filter({
+      has: page.locator('.workspace-dock-floating__title', { hasText: 'Inspector' }),
+    });
+    const header = floatingGroup.locator('.workspace-dock-floating__header');
+    const inspector = page.locator('#editor-inspector-panel');
+    await expect(floatingGroup).toBeVisible();
+    await expect(inspector).toBeVisible();
+
+    const headerBox = await header.boundingBox();
+    const panelBox = await inspector.boundingBox();
+    expect(headerBox).not.toBeNull();
+    expect(panelBox).not.toBeNull();
+    expect(panelBox!.y).toBeGreaterThanOrEqual(headerBox!.y + headerBox!.height - 1);
+
+    for (const name of ['Reset location', 'Redock', 'Resize floating Inspector group']) {
+      const control = floatingGroup.getByRole('button', { name, exact: true });
+      await expect(control).toBeVisible();
+      const controlBox = await control.boundingBox();
+      expect(controlBox).not.toBeNull();
+      expect(controlBox!.y).toBeGreaterThanOrEqual(headerBox!.y);
+      expect(controlBox!.y + controlBox!.height).toBeLessThanOrEqual(
+        headerBox!.y + headerBox!.height + 1,
+      );
+    }
+
+    const propertiesTab = inspector.getByRole('tab', { name: 'Design', exact: true });
+    const exportTab = inspector.getByRole('tab', { name: 'Export', exact: true });
+    for (const tab of [propertiesTab, exportTab]) {
+      const tabBox = await tab.boundingBox();
+      expect(tabBox).not.toBeNull();
+      expect(tabBox!.y).toBeGreaterThanOrEqual(headerBox!.y + headerBox!.height - 1);
+      const receivesPointer = await tab.evaluate((element) => {
+        const rect = element.getBoundingClientRect();
+        const target = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
+        return target === element || (target instanceof Node && element.contains(target));
+      });
+      expect(receivesPointer).toBe(true);
+    }
+
+    // Exercise actual Inspector controls under the floating action chrome.
+    await exportTab.click();
+    await expect(exportTab).toHaveAttribute('aria-selected', 'true');
+    await propertiesTab.click();
+    await expect(propertiesTab).toHaveAttribute('aria-selected', 'true');
+    await page.screenshot({
+      path: 'docs/screenshots/workspace-dock-layout/float-inspector-controls-light.png',
+      animations: 'disabled',
+    });
   });
 
   test('focus canvas template applies and Default restores', async ({ page }) => {

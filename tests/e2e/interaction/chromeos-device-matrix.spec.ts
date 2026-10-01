@@ -45,6 +45,12 @@ const VIEWPORT_MATRIX: MatrixEntry[] = [
   { name: 'laptop-1280x800', width: 1280, height: 800 },
   { name: 'portrait-600x960', width: 600, height: 960 },
   { name: 'portrait-800x1280', width: 800, height: 1280 },
+  { name: 'phone-360x780', width: 360, height: 780 },
+  /* WCAG 1.4.10 reflow floor. The shell documents `320px` as its absolute
+   * floor (`html { min-width: 320px }`) but nothing exercised it: the matrix
+   * previously stopped at 480x640. This is the effective CSS viewport at 400%
+   * zoom on a 1280px window. */
+  { name: 'reflow-floor-320x640', width: 320, height: 640 },
   { name: 'split-480x640', width: 480, height: 640 },
   { name: 'zoom200-equivalent-640x400', width: 640, height: 400 },
 ];
@@ -1685,6 +1691,93 @@ test.describe('keyboard inset publication', () => {
       getComputedStyle(document.documentElement).getPropertyValue('--keyboard-inset-bottom').trim(),
     );
     expect(restored).toBe('0px');
+    expect(pageErrors).toEqual([]);
+  });
+});
+
+/**
+ * Text enlargement (WCAG 2.2 SC 1.4.4).
+ *
+ * Interface type is rem-based while control geometry is px-based, so a user
+ * who enlarges text only (Firefox "Zoom text only", a user stylesheet, or an
+ * operating-system text-size preference) grows the chrome labels without
+ * growing the bars that hold them. The application menu rail was contained
+ * only through 899px; above that the defect reopened at 200% text — `Page` and
+ * `Help` received no hit test at any visible sample because the centred
+ * document title follows the rail in the DOM and won hit-testing.
+ *
+ * These assertions encode the contract, not the implementation: the rail may
+ * not paint outside the segment that owns it, and every application menu that
+ * is on screen must receive its own hit test. The two labels that were
+ * entirely covered are then operated through the real click path (Playwright
+ * scrolls the rail when needed, which is the documented fallback for a rail
+ * that no longer fits).
+ *
+ * Not covered here: the shell grid itself still resolves wider than the
+ * viewport at 200% text because `--sidebar-width` / `--inspector-width` are
+ * rem-derived while the canvas track floors at 320px (measured 1325px of
+ * tracks at a 1280px viewport). That is a separate root cause in the dock /
+ * panel-sizing system, recorded in
+ * `docs/audits/text-enlargement-2026-09-30.md`.
+ */
+test.describe('text enlargement (WCAG 1.4.4)', () => {
+  test('200% text keeps every application menu reachable at 1280x800', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await navigateToEditor(page);
+    await page.evaluate(() => {
+      document.documentElement.style.fontSize = '200%';
+    });
+    await settleLayout(page);
+
+    const metrics = await page.evaluate(() => {
+      const de = document.documentElement;
+      const rail = document.querySelector<HTMLElement>('.editor-menubar__left');
+      const side = document.querySelector<HTMLElement>('.editor-menubar__side');
+      const railRect = rail?.getBoundingClientRect();
+      const sideRect = side?.getBoundingClientRect();
+
+      const unreachable: string[] = [];
+      for (const item of Array.from(
+        document.querySelectorAll<HTMLElement>('.editor-menubar__left .editor-menubar__item'),
+      )) {
+        const rect = item.getBoundingClientRect();
+        // Clip to the rail's own box: the rail is a scroll container, so an
+        // item scrolled past its edge is reachable by scrolling, not lost.
+        const left = Math.max(rect.left, railRect?.left ?? rect.left);
+        const right = Math.min(rect.right, railRect?.right ?? rect.right);
+        if (right - left < 4) continue;
+        const top = document.elementFromPoint((left + right) / 2, rect.top + rect.height / 2);
+        if (!top || (top !== item && !item.contains(top))) {
+          unreachable.push(item.textContent?.trim() ?? '?');
+        }
+      }
+
+      return {
+        clientWidth: de.clientWidth,
+        documentScrollWidth: de.scrollWidth,
+        railRight: railRect ? Math.round(railRect.right) : null,
+        sideRight: sideRect ? Math.round(sideRect.right) : null,
+        unreachable,
+      };
+    });
+
+    expect(metrics.documentScrollWidth).toBeLessThanOrEqual(metrics.clientWidth + 1);
+    expect(
+      metrics.railRight ?? 0,
+      'the application menu rail painted outside its own segment',
+    ).toBeLessThanOrEqual((metrics.sideRight ?? 0) + 1);
+    expect(
+      metrics.unreachable,
+      'these application menus did not receive their own hit test at 200% text',
+    ).toEqual([]);
+
+    for (const label of ['Page', 'Help']) {
+      await page
+        .locator('.editor-menubar__left .editor-menubar__item')
+        .filter({ hasText: new RegExp(`^${label}$`) })
+        .click({ trial: true, timeout: 5000 });
+    }
+
     expect(pageErrors).toEqual([]);
   });
 });

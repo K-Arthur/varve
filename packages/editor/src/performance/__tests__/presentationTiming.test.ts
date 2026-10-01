@@ -61,7 +61,9 @@ describe('estimateCompositeFromRaf', () => {
 
 describe('RefreshIntervalEstimator', () => {
   it('defaults to the 60Hz interval before any sample', () => {
-    expect(new RefreshIntervalEstimator().intervalMs).toBeCloseTo(1000 / 60, 5);
+    const estimator = new RefreshIntervalEstimator();
+    expect(estimator.intervalMs).toBeCloseTo(1000 / 60, 5);
+    expect(estimator.sampleCount).toBe(0);
   });
 
   it('takes the minimum delta, since a delta can only overstate the interval', () => {
@@ -72,6 +74,7 @@ describe('RefreshIntervalEstimator', () => {
       estimator.sample(t);
     }
     expect(estimator.intervalMs).toBeCloseTo(16.6, 5);
+    expect(estimator.sampleCount).toBe(4);
   });
 
   it('rejects implausible deltas from a backgrounded tab', () => {
@@ -88,6 +91,7 @@ describe('RefreshIntervalEstimator', () => {
     expect(estimator.intervalMs).toBeCloseTo(8.3, 5);
     estimator.reset();
     expect(estimator.intervalMs).toBeCloseTo(1000 / 60, 5);
+    expect(estimator.sampleCount).toBe(0);
   });
 });
 

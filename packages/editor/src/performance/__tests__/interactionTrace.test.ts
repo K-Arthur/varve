@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   beginInteraction,
   beginInteractionSpan,
@@ -11,6 +11,7 @@ import {
   isInteractionTracingEnabled,
   MAX_INTERACTION_FRAMES,
   MAX_INTERACTION_SPANS,
+  MAX_PRESENTATION_WAIT_MS,
   markInteractionCanvasChanged,
   nextPointerSequenceId,
   notifyFrameCommit,
@@ -29,6 +30,10 @@ describe('interactionTrace', () => {
     resetInteractionTraces();
     setSlowCaptureOnly(false);
     setSlowInteractionThreshold(50);
+  });
+
+  afterEach(() => {
+    resetInteractionTraces();
   });
 
   it('is disabled by default and drops spans/frames', () => {
@@ -124,6 +129,18 @@ describe('interactionTrace', () => {
     expect(trace.frameCount).toBe(1);
   });
 
+  it('keeps a slow interaction pending long enough to record its delayed frame', () => {
+    enableInteractionTraces(true);
+    beginInteraction('pointer-drag');
+    const trace = endInteraction()!;
+
+    notifyFrameCommit(trace.endedAt + 1_000, 4);
+
+    expect(trace.inputToCommitMs).toBeGreaterThanOrEqual(1_000);
+    expect(trace.frameCount).toBe(1);
+    expect(trace.instrumentationErrors).toEqual([]);
+  });
+
   it('attributes one coalesced frame to every rapid gesture waiting for presentation', () => {
     enableInteractionTraces(true);
     beginInteraction('keyboard');
@@ -145,8 +162,8 @@ describe('interactionTrace', () => {
     beginInteraction('keyboard');
     const trace = endInteraction()!;
 
-    notifyFrameCommit(trace.endedAt + 251, 4);
-    notifyFrameCommit(trace.endedAt + 252, 4);
+    notifyFrameCommit(trace.endedAt + MAX_PRESENTATION_WAIT_MS + 1, 4);
+    notifyFrameCommit(trace.endedAt + MAX_PRESENTATION_WAIT_MS + 2, 4);
 
     expect(trace.deprecated.pointerToPresentMs).toBeNull();
     expect(trace.frameCount).toBe(0);

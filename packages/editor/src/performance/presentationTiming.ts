@@ -162,6 +162,11 @@ export class RefreshIntervalEstimator {
     return Math.min(...this.window);
   }
 
+  /** Number of recent rAF intervals behind intervalMs (not a presentation count). */
+  get sampleCount(): number {
+    return this.window.length;
+  }
+
   /** Drop history — call when the surface or display may have changed. */
   reset(): void {
     this.window.length = 0;

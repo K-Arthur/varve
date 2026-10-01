@@ -6,6 +6,11 @@ import { EmailCodeEditor } from './EmailCodeEditor';
 export function EmailSourceBlocks() {
   const editor = useEditor();
   const blocks = editor.state.document.emailSemantics?.customHtmlBlocks ?? {};
+  const [expandedBlockIds, setExpandedBlockIds] = usePanelLocalState<string[]>(
+    'emailOutput',
+    'expandedSourceBlocks',
+    [],
+  );
   const selected = editor.selectedNodes();
   const selectedNode = selected.length === 1 ? selected[0] : undefined;
 
@@ -57,7 +62,20 @@ export function EmailSourceBlocks() {
         <ul className="email-panel__source-blocks" aria-label="Saved authored source blocks">
           {Object.entries(blocks).map(([nodeId, block]) => (
             <li key={nodeId}>
-              <details>
+              <details
+                open={expandedBlockIds.includes(nodeId)}
+                onToggle={(event) => {
+                  const nextExpanded = event.currentTarget.open
+                    ? [...new Set([...expandedBlockIds, nodeId])]
+                    : expandedBlockIds.filter((id) => id !== nodeId);
+                  if (
+                    nextExpanded.length !== expandedBlockIds.length ||
+                    nextExpanded.some((id, index) => id !== expandedBlockIds[index])
+                  ) {
+                    setExpandedBlockIds(nextExpanded);
+                  }
+                }}
+              >
                 <summary>
                   {editor.state.document.nodes[nodeId]?.name ?? `Source block · ${nodeId}`}
                 </summary>

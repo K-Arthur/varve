@@ -83,6 +83,8 @@ test('circle coverage honors non-uniform scale and skew', async ({ page }) => {
       transform: number[];
       secondCircle?: boolean;
       roundedRect?: boolean;
+      rect?: boolean;
+      zoom?: number;
       chunkBoundary?: boolean;
     }[] = [
       { name: 'uniform', transform: [1, 0, 0, 1, 40, 40] },
@@ -90,6 +92,12 @@ test('circle coverage honors non-uniform scale and skew', async ({ page }) => {
       { name: 'skewed', transform: [2, 0.6, -0.6, 1, 40, 40] },
       { name: 'two-circles', transform: [1, 0, 0, 1, 40, 40], secondCircle: true },
       { name: 'rounded-rect-fallback', transform: [1, 0, 0, 1, 45, 35], roundedRect: true },
+      // Solid rects through the GPU path: aligned edges, a rotated edge
+      // (staircase vs Canvas2D antialiasing), and fractional zoom (edges
+      // land between device pixels — the common case while zooming).
+      { name: 'rect-aligned', transform: [1, 0, 0, 1, 40, 40], rect: true },
+      { name: 'rect-rotated', transform: [0.866, 0.5, -0.5, 0.866, 60, 30], rect: true },
+      { name: 'rect-fractional-zoom', transform: [1, 0, 0, 1, 30, 30], rect: true, zoom: 1.37 },
     ];
 
     const referenceCanvas = document.createElement('canvas');
@@ -208,7 +216,9 @@ test('circle coverage honors non-uniform scale and skew', async ({ page }) => {
           fill: { space: 'rgb', r: 30, g: 160, b: 220, a: 255 },
           primitive: testCase.roundedRect
             ? { kind: 'rect', x: 0, y: 0, w: 90, h: 60, cornerRadius: 24 }
-            : { kind: 'circle', cx: 0, cy: 0, r: 24 },
+            : testCase.rect
+              ? { kind: 'rect', x: 0, y: 0, w: 90, h: 60 }
+              : { kind: 'circle', cx: 0, cy: 0, r: 24 },
           opacity: 1,
           blendMode: 'normal',
           strokes: [],
@@ -255,7 +265,7 @@ test('circle coverage honors non-uniform scale and skew', async ({ page }) => {
       }
       const frame = {
         items,
-        camera: { zoom: 1, pan: { x: 0, y: 0 } },
+        camera: { zoom: testCase.zoom ?? 1, pan: { x: 0, y: 0 } },
         viewport: { width: WIDTH, height: HEIGHT },
         docVersion: 1,
       };
@@ -317,6 +327,9 @@ test('circle coverage honors non-uniform scale and skew', async ({ page }) => {
   );
 
   mkdirSync(SHOT_DIR, { recursive: true });
+  // Persist and log every metric first: a threshold failure on an early case
+  // must not hide the measurements of the cases behind it (baseline captures
+  // of the pre-antialiasing backend failed exactly that way).
   for (const metric of result.metrics) {
     for (const side of ['reference', 'gpu'] as const) {
       const dataUrl = side === 'reference' ? metric.referencePng : metric.gpuPng;
@@ -325,6 +338,16 @@ test('circle coverage honors non-uniform scale and skew', async ({ page }) => {
         Buffer.from(dataUrl.replace(/^data:image\/png;base64,/, ''), 'base64'),
       );
     }
+    // eslint-disable-next-line no-console
+    console.log(
+      `[parity] ${metric.name}: meanAbsDiff=${metric.meanAbsDiff.toFixed(2)} max=${metric.maxAbsDiff} ` +
+        `interiorMean=${metric.meanInteriorDiff.toFixed(2)} ` +
+        `coverage=${metric.gpuCoverage}/${metric.referenceCoverage} ` +
+        `bbox=${metric.gpuBBox.w}x${metric.gpuBBox.h}/${metric.referenceBBox.w}x${metric.referenceBBox.h}`,
+    );
+  }
+
+  for (const metric of result.metrics) {
     const widthRatio = metric.gpuBBox.w / metric.referenceBBox.w;
     const heightRatio = metric.gpuBBox.h / metric.referenceBBox.h;
     const coverageRatio = metric.gpuCoverage / metric.referenceCoverage;
@@ -336,14 +359,25 @@ test('circle coverage honors non-uniform scale and skew', async ({ page }) => {
     expect(heightRatio, `${metric.name}: bbox height ratio`).toBeLessThan(1.08);
     expect(coverageRatio, `${metric.name}: coverage ratio`).toBeGreaterThan(0.9);
     expect(coverageRatio, `${metric.name}: coverage ratio`).toBeLessThan(1.1);
-    expect(metric.meanAbsDiff, `${metric.name}: mean channel diff`).toBeLessThan(12);
-    // Interior-only: WebGPU coverage is aliased (no MSAA) while Canvas2D
-    // antialiases, so the boundary band legitimately differs. A wrong fill
-    // colour or a clipped region shows up in the interior statistics too.
+    // Edge-parity metric: whole-image mean over pixels either backend
+    // touched, dominated by the boundary band. The pre-antialias backend
+    // (hard discard) measured 2.74–5.81 here on 2026-09-26; analytic
+    // coverage measures 0.01–1.00 on the same fixtures. 4 keeps a wide
+    // margin over measured hardware variation while rejecting a return to
+    // aliased edges.
+    expect(metric.meanAbsDiff, `${metric.name}: mean channel diff`).toBeLessThan(4);
+    // Coverage counts (pixels with alpha > 8): the aliased backend lost
+    // partial-coverage edge pixels (ratios down to 0.958); analytic
+    // coverage lands 0.999–1.011 against Canvas2D on this host. The 3%
+    // band tolerates rasterizer rounding differences across hardware.
+    expect(coverageRatio, `${metric.name}: coverage ratio vs Canvas2D`).toBeGreaterThan(0.97);
+    expect(coverageRatio, `${metric.name}: coverage ratio vs Canvas2D`).toBeLessThan(1.03);
+    // Interior-only: a wrong fill colour or a clipped region shows up here
+    // even when the boundary band is legitimately different.
     expect(metric.meanInteriorDiff, `${metric.name}: mean interior diff`).toBeLessThan(4);
     // An opaque base circle makes the translucent top circle's antialiased
-    // edge appear "interior" to this broad alpha classifier. The current GPU
-    // edge is aliased; assert the overlap's actual center separately.
+    // edge appear "interior" to this broad alpha classifier; assert the
+    // overlap's actual center separately for that fixture.
     expect(metric.maxInteriorDiff, `${metric.name}: max interior diff`).toBeLessThan(
       metric.name === 'circle-chunk-boundary' ? 50 : 12,
     );

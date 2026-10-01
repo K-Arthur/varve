@@ -115,6 +115,7 @@ export interface UseCanvasInputsOptions {
   tmRef: MutableRefObject<ToolManager | null>;
   buildToolCtx: (ev: PointerEvent, sourceEvents?: NormalizedInputEvent[]) => ToolContext;
   commitCamera: (cam: Camera) => void;
+  previewCamera: (cam: Camera) => void;
   setSnapGuides: (guides: SnapGuide[]) => void;
   setHoveredNode: (node: SceneNode | null) => void;
   setRenameDialog: (v: { defaultValue: string } | null) => void;
@@ -237,8 +238,9 @@ export function useCanvasInputs({
   editor,
   stateRef,
   tmRef,
-  buildToolCtx,
+  buildToolCtx: buildToolCtxOption,
   commitCamera,
+  previewCamera,
   setSnapGuides,
   setHoveredNode,
   setRenameDialog,
@@ -247,6 +249,17 @@ export function useCanvasInputs({
   snapIndexRef: externalSnapIndexRef,
   canvasFocusedRef,
 }: UseCanvasInputsOptions): UseCanvasInputsResult {
+  // Canvas camera previews deliberately re-render the canvas subscriber at
+  // display cadence. Keep the input handlers and native gesture listeners
+  // attached across those renders while still building each tool context from
+  // the latest canvas state and callbacks.
+  const buildToolCtxRef = useRef(buildToolCtxOption);
+  buildToolCtxRef.current = buildToolCtxOption;
+  const buildToolCtx = useCallback(
+    (event: PointerEvent, sourceEvents?: NormalizedInputEvent[]) =>
+      buildToolCtxRef.current(event, sourceEvents),
+    [],
+  );
   const touchPointers = useRef(new Map<number, { x: number; y: number }>());
   const pointerOwnershipRef = useRef(createPointerOwnershipState());
   const pointerEditorInteractionOpen = useRef(false);
@@ -281,6 +294,7 @@ export function useCanvasInputs({
   // interleave with an active flick.
   const wheelInteractionEndTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wheelEditorInteractionOpen = useRef(false);
+  const wheelInertiaActive = useRef(false);
   const cancelWheelInertiaRef = useRef<(() => void) | null>(null);
   const wheelGestureClassifierRef = useRef<ReturnType<typeof createWheelGestureClassifier> | null>(
     null,
@@ -292,6 +306,10 @@ export function useCanvasInputs({
     }
     wheelInteractionEndTimer.current = setTimeout(() => {
       wheelInteractionEndTimer.current = null;
+      if (!wheelInertiaActive.current) {
+        const camera = stateRef.current;
+        commitCamera({ zoom: camera.zoom, pan: camera.pan, rotation: camera.cameraRotation });
+      }
       if (wheelEditorInteractionOpen.current) {
         wheelEditorInteractionOpen.current = false;
         endEditorInteraction();
@@ -797,13 +815,20 @@ export function useCanvasInputs({
           );
           const factor = pinch.lastDist > 0 ? geo.dist / pinch.lastDist : 1;
           const newCam = zoomAboutPoint(cam, anchor, clampZoom(s.zoom * factor), viewport);
-          commitCamera(newCam);
+          previewCamera(newCam);
           markInteractionCanvasChanged();
           pinchRef.current = { lastDist: geo.dist, lastCentroid: geo.centroid };
         } else if (trackedMove) {
           // One-finger navigation is opt-in and has no tool/history side
           // effects. The delta is already in CSS pixels, matching camera pan.
-          editor.panBy(trackedMove.dx, trackedMove.dy);
+          previewCamera({
+            zoom: stateRef.current.zoom,
+            pan: {
+              x: stateRef.current.pan.x + trackedMove.dx,
+              y: stateRef.current.pan.y + trackedMove.dy,
+            },
+            rotation: stateRef.current.cameraRotation,
+          });
           markInteractionCanvasChanged();
           setViewportAnchor(e.clientX, e.clientY);
         }
@@ -960,7 +985,14 @@ export function useCanvasInputs({
               // travel under the stationary pointer. Camera pan translates
               // artwork in the opposite screen-space direction, so invert
               // it here (right-edge scrolling moves the camera left).
-              editor.panBy(-delta.x, -delta.y);
+              previewCamera({
+                zoom: stateRef.current.zoom,
+                pan: {
+                  x: stateRef.current.pan.x - delta.x,
+                  y: stateRef.current.pan.y - delta.y,
+                },
+                rotation: stateRef.current.cameraRotation,
+              });
               const heldPointer = activeDragPointer.current;
               const activeTool = record.toolManager;
               if (heldPointer && activeTool) {
@@ -995,6 +1027,7 @@ export function useCanvasInputs({
       contentCanvasRef,
       editor,
       commitCamera,
+      previewCamera,
       buildToolCtx,
       setHoveredNode,
       stopAutoPan,
@@ -1047,6 +1080,10 @@ export function useCanvasInputs({
           if (touchPointers.current.size === 0) clearViewportAnchor();
         }
         closeTouchNavigationInteraction();
+        if (contact?.role === 'navigation' && touchPointers.current.size === 0) {
+          const camera = stateRef.current;
+          commitCamera({ zoom: camera.zoom, pan: camera.pan, rotation: camera.cameraRotation });
+        }
         return;
       }
 
@@ -1099,6 +1136,8 @@ export function useCanvasInputs({
       const ne = e.nativeEvent as PointerEvent;
       const tmInst = tmRef.current;
       if (!tmInst) {
+        const camera = stateRef.current;
+        commitCamera({ zoom: camera.zoom, pan: camera.pan, rotation: camera.cameraRotation });
         endPointerContact(pointerOwnershipRef.current, pointerId);
         activeRecord.closed = true;
         activeInteractionRecord.current = null;
@@ -1121,6 +1160,8 @@ export function useCanvasInputs({
       activeRecord.closed = true;
       activeInteractionRecord.current = null;
       markInteractionCanvasChanged();
+      const camera = stateRef.current;
+      commitCamera({ zoom: camera.zoom, pan: camera.pan, rotation: camera.cameraRotation });
       endPointerContact(pointerOwnershipRef.current, pointerId);
       endInteraction();
       closePointerEditorInteraction();
@@ -1135,6 +1176,8 @@ export function useCanvasInputs({
       closePointerEditorInteraction,
       closeTouchNavigationInteraction,
       refreshCanvasRect,
+      commitCamera,
+      stateRef,
     ],
   );
 
@@ -1200,6 +1243,13 @@ export function useCanvasInputs({
         closePointerEditorInteraction();
         endInteraction();
       }
+      if (
+        (contact.role === 'navigation' || contact.role === 'tool') &&
+        touchPointers.current.size === 0
+      ) {
+        const camera = stateRef.current;
+        commitCamera({ zoom: camera.zoom, pan: camera.pan, rotation: camera.cameraRotation });
+      }
       endPointerContact(pointerOwnershipRef.current, pointerId);
     },
     [
@@ -1210,6 +1260,8 @@ export function useCanvasInputs({
       pointerOwnershipRef,
       closePointerEditorInteraction,
       closeTouchNavigationInteraction,
+      commitCamera,
+      stateRef,
     ],
   );
 
@@ -1234,7 +1286,7 @@ export function useCanvasInputs({
       const top = Number.isFinite(rect.top) ? rect.top : 0;
       const anchor = screenToWorld(cam, clientX - left, clientY - top, viewport, origin);
       const newCam = zoomAboutPoint(cam, anchor, clampZoom(newZoom), viewport);
-      commitCamera(newCam);
+      previewCamera(newCam);
     };
 
     const placeWorldAnchorAtClientPoint = (
@@ -1270,7 +1322,7 @@ export function useCanvasInputs({
         clampZoom(newZoom),
         viewport,
       );
-      commitCamera(next);
+      previewCamera(next);
     };
 
     const inertiaRef = { current: { vx: 0, vy: 0, active: false } };
@@ -1287,6 +1339,7 @@ export function useCanvasInputs({
         return;
       }
       inertiaRef.current.active = true;
+      wheelInertiaActive.current = true;
       inertiaFrameTime = null;
       const tick = (frameTimeMs: number) => {
         const v = inertiaRef.current;
@@ -1302,11 +1355,21 @@ export function useCanvasInputs({
           v.active = false;
           v.vx = 0;
           v.vy = 0;
+          wheelInertiaActive.current = false;
+          const camera = stateRef.current;
+          commitCamera({ zoom: camera.zoom, pan: camera.pan, rotation: camera.cameraRotation });
           return;
         }
         // Relative, so a frame that runs before React commits the previous
         // step still advances the scroll instead of re-applying it.
-        editor.panBy(step.delta.x, step.delta.y);
+        previewCamera({
+          zoom: stateRef.current.zoom,
+          pan: {
+            x: stateRef.current.pan.x + step.delta.x,
+            y: stateRef.current.pan.y + step.delta.y,
+          },
+          rotation: stateRef.current.cameraRotation,
+        });
         v.vx = step.velocity.x;
         v.vy = step.velocity.y;
         scheduleCanvasFrame(inertiaFrameKey, 'input', tick);
@@ -1317,6 +1380,7 @@ export function useCanvasInputs({
     function cancelInertia() {
       cancelCanvasFrame(inertiaFrameKey);
       inertiaRef.current.active = false;
+      wheelInertiaActive.current = false;
       inertiaRef.current.vx = 0;
       inertiaRef.current.vy = 0;
       inertiaFrameTime = null;
@@ -1380,13 +1444,24 @@ export function useCanvasInputs({
         zoomAboutClientPoint(e.clientX, e.clientY, s.zoom * action.scale);
         cancelInertia();
       } else if (action.shiftHeld) {
-        editor.panBy(action.deltaX, 0);
+        previewCamera({
+          zoom: stateRef.current.zoom,
+          pan: { x: stateRef.current.pan.x + action.deltaX, y: stateRef.current.pan.y },
+          rotation: stateRef.current.cameraRotation,
+        });
         cancelInertia();
       } else {
         // Relative pan: several wheel events can be delivered in one task, all
         // before React commits. Resolving each against `s.pan` would make every
         // event in the burst compute the same destination, dropping deltas.
-        editor.panBy(action.deltaX, action.deltaY);
+        previewCamera({
+          zoom: stateRef.current.zoom,
+          pan: {
+            x: stateRef.current.pan.x + action.deltaX,
+            y: stateRef.current.pan.y + action.deltaY,
+          },
+          rotation: stateRef.current.cameraRotation,
+        });
         if (action.applyInertia) {
           // Cancel the previously scheduled continuation before replacing its
           // velocity. `cancelInertia` also zeros the stored velocity, so doing
@@ -1598,6 +1673,8 @@ export function useCanvasInputs({
       e.preventDefault();
       nativeGestureRef.current = null;
       pinchRef.current = null;
+      const camera = stateRef.current;
+      commitCamera({ zoom: camera.zoom, pan: camera.pan, rotation: camera.cameraRotation });
       if (nativeGestureEditorInteractionOpen.current) {
         nativeGestureEditorInteractionOpen.current = false;
         endEditorInteraction();
@@ -1789,6 +1866,8 @@ export function useCanvasInputs({
             }
             nativeFactorInteractionEndTimer.current = setTimeout(() => {
               nativeFactorInteractionEndTimer.current = null;
+              const camera = stateRef.current;
+              commitCamera({ zoom: camera.zoom, pan: camera.pan, rotation: camera.cameraRotation });
               if (nativeGestureEditorInteractionOpen.current && !nativeGestureRef.current) {
                 nativeGestureEditorInteractionOpen.current = false;
                 endEditorInteraction();
@@ -1878,6 +1957,13 @@ export function useCanvasInputs({
         closePointerEditorInteraction();
         endInteraction();
       }
+      if (
+        (contact.role === 'navigation' || contact.role === 'tool') &&
+        touchPointers.current.size === 0
+      ) {
+        const camera = stateRef.current;
+        commitCamera({ zoom: camera.zoom, pan: camera.pan, rotation: camera.cameraRotation });
+      }
       endPointerContact(pointerOwnershipRef.current, e.pointerId);
     };
     el.addEventListener('lostpointercapture', onLostPointerCapture);
@@ -1902,6 +1988,7 @@ export function useCanvasInputs({
     stateRef,
     editor,
     commitCamera,
+    previewCamera,
     tmRef,
     buildToolCtx,
     refreshCanvasRect,

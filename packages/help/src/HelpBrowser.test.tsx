@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { HELP_CONTENT, searchHelpContent } from './content/helpContent';
@@ -134,6 +135,42 @@ describe('HelpBrowser', () => {
     await waitFor(() => {
       expect(screen.getByText('Thanks for your feedback!')).toBeTruthy();
     });
+  });
+
+  // The window-level Tab trap only cycled when focus was already inside the
+  // dialog, so a focus that escaped (programmatic focus, restored focus)
+  // stayed outside a modal that claims aria-modal="true" — the Fleet #46974 /
+  // JRASERVER-73482 failure class. The trap must pull focus back in.
+  it('pulls focus back inside when Tab is pressed while focus is outside', () => {
+    const outside = document.createElement('button');
+    outside.textContent = 'Background control';
+    document.body.appendChild(outside);
+
+    renderHelpBrowser(true, vi.fn());
+    outside.focus();
+    expect(outside).toHaveFocus();
+
+    fireEvent.keyDown(window, { key: 'Tab' });
+
+    const dialog = screen.getByRole('dialog');
+    expect(dialog.contains(document.activeElement)).toBe(true);
+
+    outside.remove();
+  });
+
+  // APG Dialog (Modal): when a dialog closes, focus returns to the element
+  // that invoked it. The browser had no restoration at all.
+  it('restores focus to the invoking element when closed', () => {
+    const outside = document.createElement('button');
+    outside.textContent = 'Open help';
+    document.body.appendChild(outside);
+    outside.focus();
+
+    const { rerender } = render(<HelpBrowser open onClose={vi.fn()} />);
+    rerender(<HelpBrowser open={false} onClose={vi.fn()} />);
+
+    expect(outside).toHaveFocus();
+    outside.remove();
   });
 
   it('does not render when closed', () => {

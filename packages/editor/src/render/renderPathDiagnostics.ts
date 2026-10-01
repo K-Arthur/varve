@@ -30,6 +30,7 @@ export type RenderPathFallbackReason =
   | 'offscreen-unavailable'
   | 'offscreen-unverified'
   | 'webkit-policy'
+  | 'worker-policy'
   | 'profile-tier'
   | 'scene-incompatible'
   | 'structural-compositing'

@@ -105,7 +105,10 @@ const MAX_INTERACTION_TRACES = 50;
 export const MAX_INTERACTION_SPANS = 512;
 export const MAX_INTERACTION_FRAMES = 240;
 const DEFAULT_SLOW_THRESHOLD_MS = 50;
-const MAX_PRESENTATION_WAIT_MS = 250;
+// Keep slow interactions correlated with their eventual frame. A 250 ms
+// expiry discarded legitimate responses from longer editing gestures, making
+// those slow samples look like missing instrumentation instead of latency.
+export const MAX_PRESENTATION_WAIT_MS = 5_000;
 const MAX_PENDING_PRESENTATIONS = MAX_INTERACTION_TRACES;
 const ring: InteractionTrace[] = [];
 /**

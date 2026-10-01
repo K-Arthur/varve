@@ -77,7 +77,7 @@ export function isPagePanelUserControlled(mode: WorkspaceMode): boolean {
 export function useEffectiveWorkspaceConfig(mode: WorkspaceMode): WorkspaceConfig {
   const [prefs, setPrefs] = useState(getWorkspacePreferences);
   useEffect(() => subscribeWorkspacePreferences(() => setPrefs(getWorkspacePreferences())), []);
-  return getEffectiveWorkspaceConfig(mode, prefs);
+  return useMemo(() => getEffectiveWorkspaceConfig(mode, prefs), [mode, prefs]);
 }
 
 /**

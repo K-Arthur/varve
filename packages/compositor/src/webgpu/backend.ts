@@ -13,7 +13,8 @@ import type { RenderItem } from '@varve/engine';
  * for its lifetime, so the prior "steal webgpu on the content canvas"
  * design could never fall back without a full remount/reload.
  *
- * Lines are tessellated as thin quads; circles use a discard shader.
+ * Lines are tessellated as thin quads; solid geometry arrives as unit-quad
+ * local coordinates (see `composeItemAffine`); ovals carry per-vertex radii.
  * Explicit pipeline layouts + vertex buffer ring pool.
  */
 import { selectWebGpuAdapter } from '@varve/engine';
@@ -97,25 +98,81 @@ function itemGpuColor(item: RenderItem): [number, number, number, number] {
   return [c[0], c[1], c[2], c[3] * fillOpacity * (item.opacity ?? 1)];
 }
 
+/**
+ * Compose an item affine with a quad-placement affine (I ∘ Q). The quad
+ * places the unit square (0..1)² onto authored geometry — a rect at x/y with
+ * w/h, or a line's perpendicular-offset parallelogram — and the item affine
+ * carries it into world space. Folding lets the vertex shader receive unit
+ * local coordinates, which is what the fragment's analytic edge coverage
+ * measures against: absolute corners cannot recover the rect bounds
+ * per-fragment. Convention matches `x' = a·x + c·y + e`, `y' = b·x + d·y + f`.
+ */
+export function composeItemAffine(
+  item: readonly [number, number, number, number, number, number],
+  quad: readonly [number, number, number, number, number, number],
+): [number, number, number, number, number, number] {
+  const [a, b, c, d, e, f] = item;
+  const [qa, qb, qc, qd, qe, qf] = quad;
+  return [
+    a * qa + c * qb,
+    b * qa + d * qb,
+    a * qc + c * qd,
+    b * qc + d * qd,
+    a * qe + c * qf + e,
+    b * qe + d * qf + f,
+  ];
+}
+
+/** Unit-quad triangulation matching the historical rect corner order. */
+const UNIT_QUAD: readonly [number, number][] = [
+  [0, 0],
+  [1, 0],
+  [0, 1],
+  [1, 0],
+  [0, 1],
+  [1, 1],
+];
+
+/** Unit-quad triangulation matching the historical line corner order. */
+const UNIT_PARALLELOGRAM: readonly [number, number][] = [
+  [0, 0],
+  [1, 0],
+  [0, 1],
+  [1, 0],
+  [1, 1],
+  [0, 1],
+];
+
+function pushUnitQuad(
+  vertices: GpuVertex[],
+  color: [number, number, number, number],
+  composed: readonly [number, number, number, number, number, number],
+  corners: readonly [number, number][],
+): void {
+  const transform: [number, number, number, number] = [
+    composed[0],
+    composed[1],
+    composed[2],
+    composed[3],
+  ];
+  const transform2: [number, number] = [composed[4], composed[5]];
+  for (const p of corners) vertices.push({ localPos: p, color, transform, transform2 });
+}
+
 function buildVertices(items: RenderItem[]): GpuVertex[] {
   const vertices: GpuVertex[] = [];
   for (const item of items) {
     const c = itemGpuColor(item);
     const col: [number, number, number, number] = [c[0], c[1], c[2], c[3]];
     const t = item.transform;
-    const transform: [number, number, number, number] = [t[0], t[1], t[2], t[3]];
-    const transform2: [number, number] = [t[4], t[5]];
     const prim = item.primitive;
     if (prim.kind === 'rect') {
-      const pts: [number, number][] = [
-        [prim.x, prim.y],
-        [prim.x + prim.w, prim.y],
-        [prim.x, prim.y + prim.h],
-        [prim.x + prim.w, prim.y],
-        [prim.x, prim.y + prim.h],
-        [prim.x + prim.w, prim.y + prim.h],
-      ];
-      for (const p of pts) vertices.push({ localPos: p, color: col, transform, transform2 });
+      pushUnitQuad(
+        vertices,
+        col,
+        composeItemAffine(t, [prim.w, 0, 0, prim.h, prim.x, prim.y]),
+        UNIT_QUAD,
+      );
     } else if (prim.kind === 'line') {
       const dx = prim.to[0] - prim.from[0];
       const dy = prim.to[1] - prim.from[1];
@@ -126,10 +183,21 @@ function buildVertices(items: RenderItem[]): GpuVertex[] {
       const p1: [number, number] = [prim.from[0] + nx * hw, prim.from[1] + ny * hw];
       const p2: [number, number] = [prim.from[0] - nx * hw, prim.from[1] - ny * hw];
       const p3: [number, number] = [prim.to[0] + nx * hw, prim.to[1] + ny * hw];
-      const p4: [number, number] = [prim.to[0] - nx * hw, prim.to[1] - ny * hw];
-      for (const p of [p1, p2, p3, p2, p4, p3]) {
-        vertices.push({ localPos: p, color: col, transform, transform2 });
-      }
+      // p4 = p2 + p3 - p1 completes the parallelogram the unit square maps
+      // onto; it is never read directly (UNIT_PARALLELOGRAM carries (1,1)).
+      pushUnitQuad(
+        vertices,
+        col,
+        composeItemAffine(t, [
+          p2[0] - p1[0],
+          p2[1] - p1[1],
+          p3[0] - p1[0],
+          p3[1] - p1[1],
+          p1[0],
+          p1[1],
+        ]),
+        UNIT_PARALLELOGRAM,
+      );
     }
   }
   return vertices;
@@ -254,6 +322,80 @@ export function lineTessellationVertexCount(item: RenderItem): number {
 }
 
 /**
+ * One-time presentation self-test for the offscreen → present `drawImage`
+ * path. Clears the GPU surface to a known premultiplied color, submits,
+ * waits for completion, and reads the result back through `drawImage` on a
+ * 2D probe canvas — the exact cross-context path every GPU frame uses to
+ * reach the present surface. Browser engines have shipped this path broken
+ * (WebKit implemented `drawImage` from a WebGPU canvas only in 2026), and a
+ * broken blit would otherwise leave holes where GPU runs should appear while
+ * diagnostics report successful submission. A failed probe declines WebGPU
+ * before any frame draws; `initFailureReason` carries the named fallback.
+ *
+ * Exported so tests can assert its fail-closed behavior directly; the
+ * hardware evidence for the success path is `circle-transform-parity.spec.ts`
+ * (which reads real pixels back through the same path).
+ */
+export const defaultPresentationProbe = async (
+  device: GPUDevice,
+  gpuCanvas: HTMLCanvasElement,
+): Promise<boolean> => {
+  try {
+    const context = gpuCanvas.getContext('webgpu') as GPUCanvasContext | null;
+    if (!context) return false;
+    const encoder = device.createCommandEncoder();
+    const pass = encoder.beginRenderPass({
+      colorAttachments: [
+        {
+          view: context.getCurrentTexture().createView(),
+          // Premultiplied clear with opaque alpha: a straight/premul mix-up
+          // or an alphaMode mismatch changes the readback, and the known
+          // rgb values detect a channel-order or presentation failure.
+          clearValue: { r: 0.25, g: 0.5, b: 0.75, a: 1 },
+          loadOp: 'clear',
+          storeOp: 'store',
+        },
+      ],
+    });
+    pass.end();
+    device.queue.submit([encoder.finish()]);
+    if (typeof device.queue.onSubmittedWorkDone !== 'function') return false;
+    await device.queue.onSubmittedWorkDone();
+    const probe = document.createElement('canvas');
+    probe.width = 8;
+    probe.height = 8;
+    const ctx = probe.getContext('2d');
+    if (!ctx) return false;
+    ctx.clearRect(0, 0, 8, 8);
+    ctx.drawImage(gpuCanvas, 0, 0, 8, 8);
+    const pixel = ctx.getImageData(4, 4, 1, 1).data;
+    const expected = [64, 128, 191, 255]; // 0.25/0.5/0.75/1.0 × 255
+    let ok = true;
+    for (let i = 0; i < expected.length; i += 1) {
+      const value = pixel[i] ?? 0;
+      if (Math.abs(value - (expected[i] ?? 0)) > 2) ok = false;
+    }
+    return ok;
+  } catch {
+    return false;
+  }
+};
+
+export type GpuPresentationProbe = (
+  device: GPUDevice,
+  gpuCanvas: HTMLCanvasElement,
+) => Promise<boolean>;
+
+export interface WebGPUBackendInitOptions {
+  /**
+   * Overrides the presentation self-test. jsdom cannot rasterize WebGPU
+   * output, so mock-device unit tests inject success; the real probe runs in
+   * hardware browser E2E. Never set this in production code.
+   */
+  presentationProbe?: GpuPresentationProbe;
+}
+
+/**
  * Apply item affine to a local point — same convention as SOLID_VERTEX_WGSL
  * and `@varve/shared` `applyAffine` (`x'=a·x+c·y+e`, `y'=b·x+d·y+f`).
  */
@@ -283,6 +425,7 @@ export class WebGPUBackend {
   /** Set by destroy(): an in-flight recovery must not revive the backend. */
   private destroyed = false;
   private gpuReady = false;
+  private presentationProbe: GpuPresentationProbe = defaultPresentationProbe;
   private initFailureReason: string | undefined;
   private adapterIsFallback = false;
   private deviceLost = false;
@@ -308,8 +451,9 @@ export class WebGPUBackend {
   private fallbackNodeCount = 0;
   private fallbackReasons: Record<string, number> = {};
 
-  async init(canvas: HTMLCanvasElement): Promise<void> {
+  async init(canvas: HTMLCanvasElement, opts?: WebGPUBackendInitOptions): Promise<void> {
     this.canvas = canvas;
+    this.presentationProbe = opts?.presentationProbe ?? defaultPresentationProbe;
     // Present surface is ALWAYS Canvas2D on the content canvas — see file header.
     this.present = new Canvas2DBackend();
     await this.present.init(canvas);
@@ -400,7 +544,7 @@ export class WebGPUBackend {
         blend: PREMUL_BLEND,
       };
 
-      const solidPipeline = device.createRenderPipeline({
+      const solidPipeline = await device.createRenderPipelineAsync({
         layout: solidPipelineLayout,
         vertex: { module: solidModule, entryPoint: 'vs_main', buffers: [vertexBufferLayout] },
         fragment: {
@@ -411,7 +555,7 @@ export class WebGPUBackend {
         primitive: { topology: 'triangle-list' },
       });
 
-      const circlePipeline = device.createRenderPipeline({
+      const circlePipeline = await device.createRenderPipelineAsync({
         layout: solidPipelineLayout,
         vertex: {
           module: circleModule,
@@ -427,6 +571,10 @@ export class WebGPUBackend {
       });
 
       this.pipelineInitMs = performance.now() - pipelineInitStart;
+
+      failureReason = 'WebGPU presentation probe failed';
+      const probeOk = await this.presentationProbe(device, gpuCanvas);
+      if (!probeOk) throw new Error('WebGPU presentation probe failed');
 
       const cameraBuffer = device.createBuffer({
         size: 32,

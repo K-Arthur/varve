@@ -92,7 +92,10 @@ test('real SVG/photo workflow keeps input and pixels authoritative', async ({ pa
   await page.keyboard.press('v');
   await page.mouse.click(center.x - 120, center.y - 60);
   await page.mouse.down();
-  await page.mouse.move(center.x - 40, center.y - 20, { steps: 5 });
+  await page.mouse.move(center.x - 80, center.y - 40, { steps: 1 });
+  await assertFreshSurface(page, 'first drag while pointer is held');
+  await page.screenshot({ path: testInfo.outputPath('real-workflow-mid-drag.png') });
+  await page.mouse.move(center.x - 40, center.y - 20, { steps: 4 });
   await page.mouse.up();
   await assertFreshSurface(page, 'first drag');
   await page.mouse.move(center.x - 40, center.y - 20);

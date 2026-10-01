@@ -266,6 +266,9 @@ function depsFor(h: Harness, doc: Document): RenderContentDeps {
     drawPendingRef: h.drawPendingRef as React.MutableRefObject<boolean>,
     lastRenderedDocRef: h.lastRenderedDocRef as React.MutableRefObject<Document>,
     docVersionRef: h.docVersionRef as React.MutableRefObject<number>,
+    workerRenderRevisionRef: { current: 0 } as React.MutableRefObject<number>,
+    workerFrameDprRef: { current: 1 } as React.MutableRefObject<number>,
+    workerFallbackRevisionRef: { current: null } as React.MutableRefObject<number | null>,
     redrawCoordinatorRef: h.redrawCoordinatorRef as React.MutableRefObject<ReturnType<
       typeof createRedrawCoordinator
     > | null>,
@@ -301,6 +304,7 @@ function depsFor(h: Harness, doc: Document): RenderContentDeps {
   return {
     ...refs,
     displayDpr: 1,
+    canvasContextRevision: 0,
     imageCacheStamp: 0,
     fontLoadStamp: 0,
     precomputedStyles: resolveAllStyles(doc),

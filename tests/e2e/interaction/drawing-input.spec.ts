@@ -148,7 +148,9 @@ test.describe('drawing pointer ownership', () => {
       pressure: 0,
     });
 
-    await expect(page.getByRole('treeitem')).toHaveCount(0);
+    // The pen stroke remains in the document; the foreign finger must not
+    // create a second stroke or cancel the pen-owned one.
+    await expect(page.getByRole('treeitem')).toHaveCount(1);
   });
 
   test('the contact remaining after a pinch does not become an accidental stroke', async ({

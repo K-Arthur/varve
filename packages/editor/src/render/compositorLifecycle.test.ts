@@ -44,7 +44,7 @@ describe('canvas compositor lifecycle', () => {
       onRedraw: vi.fn(),
       onFallback: vi.fn(),
     };
-    const dispose = startCanvasCompositor(document.createElement('canvas'), true, handlers);
+    const dispose = startCanvasCompositor(document.createElement('canvas'), 'webgpu', handlers);
     dispose();
     resolve({ backend, capabilities: { webgpu: true } });
     await Promise.resolve();
@@ -61,6 +61,7 @@ describe('canvas compositor lifecycle', () => {
       getDiagnostics: () => current,
       destroy: vi.fn(),
       onDeviceLost: undefined as (() => Promise<void>) | undefined,
+      onRecovered: undefined as (() => void) | undefined,
     } as unknown as CompositorBackend;
     createBackend.mockResolvedValue({ backend, capabilities: { webgpu: true } });
     const handlers = {
@@ -69,13 +70,16 @@ describe('canvas compositor lifecycle', () => {
       onRedraw: vi.fn(),
       onFallback: vi.fn(),
     };
-    const dispose = startCanvasCompositor(document.createElement('canvas'), true, handlers);
+    const dispose = startCanvasCompositor(document.createElement('canvas'), 'webgpu', handlers);
     await vi.waitFor(() => expect(handlers.onReady).toHaveBeenCalledWith(backend));
     expect(handlers.onRedraw).toHaveBeenCalledWith('compositor-init');
     current = { ...current, gpuActive: false, deviceLost: true };
     await backend.onDeviceLost?.();
     expect(getCompositorDiagnosticsSnapshot()?.deviceLost).toBe(true);
     expect(handlers.onRedraw).toHaveBeenCalledWith('gpu-device-lost');
+    current = { ...current, gpuActive: true, deviceLost: false };
+    backend.onRecovered?.();
+    expect(handlers.onRedraw).toHaveBeenLastCalledWith('compositor-init');
     dispose();
     expect(backend.destroy).toHaveBeenCalledOnce();
   });
@@ -88,7 +92,7 @@ describe('canvas compositor lifecycle', () => {
       onRedraw: vi.fn(),
       onFallback: vi.fn(),
     };
-    const dispose = startCanvasCompositor(document.createElement('canvas'), true, handlers);
+    const dispose = startCanvasCompositor(document.createElement('canvas'), 'webgpu', handlers);
     await vi.waitFor(() =>
       expect(getCompositorDiagnosticsSnapshot()?.fatalError).toBe(
         'Canvas compositor initialization failed',

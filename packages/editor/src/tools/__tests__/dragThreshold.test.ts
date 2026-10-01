@@ -48,8 +48,8 @@ function makeCtx(zoom: number): ToolContext {
   } as unknown as ToolContext;
 }
 
-function pointer(type: string, x: number, y: number): PointerEvent {
-  return { pointerId: 1, clientX: x, clientY: y, type } as unknown as PointerEvent;
+function pointer(type: string, x: number, y: number, pointerId = 1): PointerEvent {
+  return { pointerId, clientX: x, clientY: y, type } as unknown as PointerEvent;
 }
 
 /** Zoom levels spanning Varve's supported range. */
@@ -76,6 +76,30 @@ describe('BaseTool drag threshold', () => {
     expect(tool.moves).toBe(1);
     expect(tool.belowThreshold(ctx)).toBe(false);
     expect(tool.pastThreshold(ctx)).toBe(true);
+  });
+
+  it('delivers a newer pointer-up position as the final drag sample', () => {
+    const tool = new ProbeTool();
+    const ctx = makeCtx(1);
+    tool.onPointerDown(pointer('pointerdown', 100, 100), ctx);
+    tool.onPointerMove(pointer('pointermove', 105, 100), ctx);
+    tool.onPointerUp(pointer('pointerup', 109, 100), ctx);
+    expect(tool.moves).toBe(2);
+    expect(tool.starts).toBe(1);
+  });
+
+  it('starts a fresh drag after the previous pointer is cancelled', () => {
+    const tool = new ProbeTool();
+    const ctx = makeCtx(1);
+    tool.onPointerDown(pointer('pointerdown', 100, 100, 1), ctx);
+    tool.onPointerMove(pointer('pointermove', 105, 100, 1), ctx);
+    tool.onPointerCancel(pointer('pointercancel', 105, 100, 1), ctx);
+
+    tool.onPointerDown(pointer('pointerdown', 200, 200, 2), ctx);
+    tool.onPointerMove(pointer('pointermove', 205, 200, 2), ctx);
+
+    expect(tool.starts).toBe(2);
+    expect(tool.moves).toBe(2);
   });
 
   it('crosses the threshold at the same screen distance at every zoom', () => {

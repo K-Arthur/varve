@@ -26,6 +26,7 @@ interface ThemeStorage {
 interface ApplyThemeOptions {
   persist?: boolean;
   prefersDark?: boolean;
+  prefersMoreContrast?: boolean;
   root?: ThemeRoot;
   storage?: ThemeStorage;
   dispatch?: (detail: ThemeChangeDetail) => void;
@@ -64,6 +65,21 @@ function browserPrefersDark(): boolean {
   );
 }
 
+/**
+ * OS-level high-contrast preference (`prefers-contrast: more` — macOS
+ * "Increase Contrast", Linux high-contrast themes, and Windows contrast
+ * themes whose palette clears the 7:1 ratio). Under System it resolves the
+ * palette to the application's High Contrast theme; an explicit Light, Dark,
+ * or High Contrast choice always wins.
+ */
+function browserPrefersMoreContrast(): boolean {
+  return (
+    typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(prefers-contrast: more)').matches
+  );
+}
+
 export function readThemePreference(
   storage: ThemeStorage | undefined = browserStorage(),
 ): ThemePreference {
@@ -80,8 +96,12 @@ export function readThemePreference(
 export function resolveTheme(
   preference: ThemePreference,
   prefersDark = browserPrefersDark(),
+  prefersMoreContrast = browserPrefersMoreContrast(),
 ): Theme {
   if (preference !== 'system') return preference;
+  // OS high-contrast outranks colour scheme: it is an accessibility request
+  // for the whole application, not a colour-scheme tint.
+  if (prefersMoreContrast) return 'high-contrast';
   return prefersDark ? 'dark' : 'light';
 }
 
@@ -102,7 +122,7 @@ export function applyThemePreference(
   options: ApplyThemeOptions = {},
 ): Theme {
   const preference = normalizeThemePreference(preferenceInput);
-  const resolvedTheme = resolveTheme(preference, options.prefersDark);
+  const resolvedTheme = resolveTheme(preference, options.prefersDark, options.prefersMoreContrast);
   const root = options.root ?? browserRoot();
   const storage = options.storage ?? browserStorage();
   const previousPreference = root ? normalizeThemePreference(root.dataset.themeMode) : null;
@@ -162,27 +182,30 @@ export function initializeThemeLifecycle(): () => void {
   if (typeof window === 'undefined') return () => {};
 
   const media = window.matchMedia?.('(prefers-color-scheme: dark)');
-  applyThemePreference(readThemePreference(), {
+  const contrastMedia = window.matchMedia?.('(prefers-contrast: more)');
+  const currentSystemOptions = () => ({
     persist: false,
     prefersDark: media?.matches ?? false,
+    prefersMoreContrast: contrastMedia?.matches ?? false,
   });
 
-  const handleSystemChange = (event: MediaQueryListEvent) => {
+  applyThemePreference(readThemePreference(), currentSystemOptions());
+
+  const handleSystemChange = () => {
     if (getThemePreference() !== 'system') return;
-    applyThemePreference('system', { persist: false, prefersDark: event.matches });
+    applyThemePreference('system', currentSystemOptions());
   };
   const handleStorage = (event: StorageEvent) => {
     if (event.key !== THEME_STORAGE_KEY && event.key !== LEGACY_THEME_STORAGE_KEY) return;
-    applyThemePreference(readThemePreference(), {
-      persist: false,
-      prefersDark: media?.matches ?? false,
-    });
+    applyThemePreference(readThemePreference(), currentSystemOptions());
   };
 
   media?.addEventListener('change', handleSystemChange);
+  contrastMedia?.addEventListener('change', handleSystemChange);
   window.addEventListener('storage', handleStorage);
   lifecycleCleanup = () => {
     media?.removeEventListener('change', handleSystemChange);
+    contrastMedia?.removeEventListener('change', handleSystemChange);
     window.removeEventListener('storage', handleStorage);
     lifecycleCleanup = null;
   };

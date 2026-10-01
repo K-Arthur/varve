@@ -169,6 +169,23 @@ describe('resolveEditorSceneScope caching', () => {
     expect(far).not.toBe(near);
   });
 
+  it('shares one resolution for pans that keep the same pages in view', () => {
+    const base = createDocument('cache-print-pan', false);
+    const page = base.pages![0]!;
+    const { doc } = addNamedShape(base, page.contentRoot, 'ON_PAGE');
+    const printOptions = { workspaceMode: 'print', activePageId: doc.activePageId ?? null };
+    const first = resolveEditorSceneScope(doc, {
+      ...printOptions,
+      viewportWorldRect: { x: -50, y: -50, w: 400, h: 400 },
+    });
+    const panned = resolveEditorSceneScope(doc, {
+      ...printOptions,
+      viewportWorldRect: { x: -40, y: -30, w: 400, h: 400 },
+    });
+    expect(first.occurrences.length).toBeGreaterThan(0);
+    expect(panned).toBe(first);
+  });
+
   it('re-resolves a new document produced by an edit', () => {
     const doc = createDocument('cache-edit', false);
     const before = resolveEditorSceneScope(doc, options);

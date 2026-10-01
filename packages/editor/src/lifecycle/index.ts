@@ -28,6 +28,7 @@ export { LifecycleProvider } from './LifecycleProvider';
 export {
   CLEAN_SHUTDOWN_KEY,
   getSharedShutdownMarker,
+  readUncleanShutdownMarker,
   resetSharedShutdownMarker,
   ShutdownMarker,
   type ShutdownMarkerStorage,

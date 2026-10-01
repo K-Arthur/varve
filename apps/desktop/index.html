@@ -25,9 +25,13 @@
           : 'system';
         var resolved = preference;
         if (preference === 'system') {
-          resolved = window.matchMedia('(prefers-color-scheme: dark)').matches
-            ? 'dark'
-            : 'light';
+          // Mirror @varve/ui's resolveTheme: OS high-contrast outranks the
+          // colour scheme. Keep this dependency-free and CSP-compatible.
+          resolved = window.matchMedia('(prefers-contrast: more)').matches
+            ? 'high-contrast'
+            : window.matchMedia('(prefers-color-scheme: dark)').matches
+              ? 'dark'
+              : 'light';
         }
         document.documentElement.dataset.themeMode = preference;
         document.documentElement.dataset.theme = resolved;

@@ -18,7 +18,10 @@ export class Canvas2DBackend implements CompositorBackend {
   readonly id = 'canvas2d' as const;
   private ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null = null;
   private dpr = 1;
-  constructor(private readonly initFailureReason?: string) {}
+  constructor(
+    private readonly initFailureReason?: string,
+    private readonly requestedRenderer?: 'webgpu' | 'webgl2',
+  ) {}
 
   async init(canvas: CanvasSurface): Promise<void> {
     this.dpr = window.devicePixelRatio || 1;
@@ -99,6 +102,7 @@ export class Canvas2DBackend implements CompositorBackend {
       bundleCacheEntries: 0,
       lastFrameVertexBytes: 0,
       adapterIsFallback: false,
+      ...(this.requestedRenderer ? { requestedRenderer: this.requestedRenderer } : {}),
       initFailureReason: this.initFailureReason,
     };
   }

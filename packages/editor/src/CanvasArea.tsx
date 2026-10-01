@@ -24,7 +24,7 @@ import {
 } from '@varve/scene';
 import { type Camera, computeFloatingOrigin, screenToWorld } from '@varve/shared';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { getDesktopAnalytics } from './analytics/desktopAnalytics';
+import { reportRendererFallback } from './analytics/desktopAnalytics';
 import { resetProfile } from './canvas/adaptiveProfile';
 import {
   type CanvasGeometry,
@@ -34,13 +34,14 @@ import {
   subscribeToDevicePixelRatio,
   subscribeToSystemResume,
   useCanvasGeometry,
-} from './canvas/canvasSurface';
+  useCanvasViewportController,
+} from './canvas/CanvasSurfaceRuntime';
 import { DirtyRegionRecorder, type PaintedSurfaceIdentity } from './canvas/dirtyRegion';
 import { EngineNodeMemo } from './canvas/engineNodeMemo';
 import { useCanvasInputs } from './canvas/inputPipeline';
 import { computeInvalidationPlan } from './canvas/invalidationPlan';
 import { installIsoTestHooks } from './canvas/isoTestHooks';
-import { useOverlayDraw } from './canvas/overlayManager';
+import { createDraftUpdateHandler, useOverlayDraw } from './canvas/overlayManager';
 import {
   cancelCanvasFrame,
   createCanvasFrameKey,
@@ -69,6 +70,7 @@ import {
   publishImportReport,
   setStartTextEditingHandler,
   useEditor,
+  useViewport,
 } from './context';
 import { LEGACY_FILE_MIME, VARVE_FILE_MIME } from './dnd-types';
 import {
@@ -186,21 +188,6 @@ const EMPTY_STATE_BY_MODE: Record<string, EmptyStateHint> = {
     ],
     hint: 'or drag images to animate',
   },
-  codegen: {
-    title: 'Select artwork to export',
-    shortcuts: [{ key: 'V', label: 'Select' }],
-    hint: 'then choose a code format in the Export panel',
-  },
-  logo: {
-    title: 'Design your mark',
-    shortcuts: [
-      { key: 'F', label: 'Frame' },
-      { key: 'R', label: 'Rectangle' },
-      { key: 'T', label: 'Text' },
-      { key: 'P', label: 'Pen' },
-    ],
-    hint: 'or start from a template',
-  },
   email: {
     title: 'Design your email',
     shortcuts: [
@@ -243,6 +230,7 @@ export function CanvasArea({
   const [canvasContextRevision, setCanvasContextRevision] = useState(0);
   const announcer = useRef<HTMLDivElement>(null);
   const editor = useEditor();
+  const viewport = useViewport();
   const { state, rootNodes } = editor;
   const { setNodeRef: setDroppableRef, isOver: isCanvasDropOver } = useDroppable({
     id: 'canvas-drop-zone',
@@ -268,7 +256,6 @@ export function CanvasArea({
   const workerFrameDprRef = useRef(1);
   const workerFallbackRevisionRef = useRef<number | null>(null);
   const stateRef = useRef<EditorState>(state);
-  stateRef.current = state;
   const editorRef = useRef(editor);
   editorRef.current = editor;
   // Centralized frame invalidation: decides (skip / present / content) before
@@ -289,6 +276,22 @@ export function CanvasArea({
   // document is structurally shared, so every node except the edited one keeps
   // its reference and skips toEngineNode entirely. See EngineNodeMemo.
   const engineNodeMemoRef = useRef(new EngineNodeMemo(budgets.engineNodeMemoEntries));
+  const cameraPreviewFrameKey = useRef<string | null>(null);
+  cameraPreviewFrameKey.current ??= createCanvasFrameKey('camera-preview');
+  const drawOverlayRef = useRef<(() => void) | null>(null);
+  const { transformPreviewController, commitCamera, previewCamera } = useCanvasViewportController({
+    state,
+    viewport,
+    stateRef,
+    editorRef,
+    transformCacheRef,
+    subtreeIrCacheRef,
+    engineNodeMemoRef,
+    docVersionRef,
+    requestContentDrawRef,
+    cameraPreviewFrameKey,
+    drawOverlayRef,
+  });
   // Cached canvas position for pointer→world coordinate conversion.
   // Updated by ResizeObserver and refreshed on pointerdown for safety.
   // Avoids getBoundingClientRect() on every pointer-move (the single
@@ -430,7 +433,8 @@ export function CanvasArea({
     prevDrawDocRef.current = state.document;
   }
 
-  const [draft, setDraft] = useState<DraftShape | null>(null);
+  const [draft, setDraftState] = useState<DraftShape | null>(null);
+  const draftRef = useRef<DraftShape | null>(null);
   const [pixelProbe, setPixelProbe] = useState<PixelProbe | null>(null);
   const [dropTargetFrameId, setDropTargetFrameId] = useState<NodeId | null>(null);
   const [maskDropTargetId, setMaskDropTargetId] = useState<NodeId | null>(null);
@@ -453,6 +457,16 @@ export function CanvasArea({
   const [redrawCount, setRedrawCount] = useState(0);
   const contentDrawFrameKey = useRef<string | null>(null);
   contentDrawFrameKey.current ??= createCanvasFrameKey('content');
+  const setDraft = useMemo(
+    () =>
+      createDraftUpdateHandler({
+        draftRef,
+        setDraftState,
+        cameraPreviewFrameKey,
+        drawOverlayRef,
+      }),
+    [],
+  );
 
   // Concurrency guard for drawContent's async body: `drawContent`'s identity
   // (and thus the RAF-scheduling effect below) changes on every document
@@ -636,7 +650,8 @@ export function CanvasArea({
   useEffect(() => {
     const canvas = contentCanvasRef.current;
     if (!canvas) return;
-    return startCanvasCompositor(canvas, loadSettings().render.preferWebGpu, {
+    const rendererPreference = loadSettings().render.renderer;
+    return startCanvasCompositor(canvas, rendererPreference, {
       onReady: (backend) => {
         compositorRef.current = backend;
       },
@@ -646,13 +661,7 @@ export function CanvasArea({
       onRedraw: (reason) => {
         requestContentDrawRef.current?.(reason, 'backing-store-recovery');
       },
-      onFallback: () => {
-        getDesktopAnalytics().track('renderer_fallback', {
-          from: 'webgpu',
-          to: 'canvas2d',
-          reason: 'unavailable',
-        });
-      },
+      onFallback: (reason) => reportRendererFallback(rendererPreference, reason),
     });
   }, [canvasContextRevision]);
 
@@ -662,8 +671,11 @@ export function CanvasArea({
     registerRedrawCoordinator(redrawCoordinatorRef.current);
     setApplyFixtureHandler(async (id) => {
       try {
-        const { createPerformanceWorkload } = await import('./performance/workloadCorpus');
+        const { createPerformanceWorkload, materializePerformanceWorkloadAssets } = await import(
+          './performance/workloadCorpus'
+        );
         const workload = createPerformanceWorkload(id as never);
+        const assets = await materializePerformanceWorkloadAssets(workload);
         editorRef.current.beginTransaction();
         try {
           editorRef.current.updateDoc((currentDocument) => ({
@@ -681,6 +693,7 @@ export function CanvasArea({
           id: workload.document.id,
           nodeCount: workload.expected.nodeCount,
           fixtureChecksum: workload.fixtureChecksum,
+          assets,
         };
       } catch {
         return { ok: false };
@@ -880,6 +893,8 @@ export function CanvasArea({
         pendingAutoTextEditRef,
         nodeEditTargetId,
         setDraft,
+        previewNodePositions: transformPreviewController.previewNodePositions,
+        clearNodePositionPreview: transformPreviewController.clearNodePositionPreview,
         setPixelProbe,
         setDropTargetFrameId,
         setSnapGuides,
@@ -888,27 +903,12 @@ export function CanvasArea({
         setNodeEditSelectedAnchors,
         setTextEditTargetId,
         commitCamera,
+        previewCamera,
         rootNodes,
       },
       ev,
       sourceEvents,
     );
-  }
-
-  /**
-   * Keep gesture math ahead of React rendering while committing the complete
-   * camera atomically. Trackpads can deliver several wheel events in one task;
-   * updating this ref prevents each event from reusing stale zoom and pan.
-   */
-  function commitCamera(camera: Camera): void {
-    const current = stateRef.current;
-    stateRef.current = {
-      ...current,
-      zoom: camera.zoom,
-      pan: camera.pan,
-      cameraRotation: camera.rotation ?? current.cameraRotation,
-    };
-    editorRef.current.setCamera(camera);
   }
 
   // ── Pre-computed values (memoized on document to avoid per-frame recomputation) ──
@@ -1059,20 +1059,21 @@ export function CanvasArea({
   }, [drawContent]);
 
   // ── Overlay draw pipeline ──────────────────────────────────────────────
-  useOverlayDraw({
+  const drawOverlay = useOverlayDraw({
     overlayCanvasRef,
     stateRef,
     transformCacheRef,
     displayDpr,
     accentColorRef,
     sunkenColorRef,
-    draft,
+    draftRef,
     objectSelectionSession: state.objectSelectionSession,
     areaSelection: state.areaSelection ?? null,
     floatingRaster: state.floatingRaster ?? null,
     dropTargetFrameId,
     maskDropTargetId,
   });
+  drawOverlayRef.current = drawOverlay;
 
   // ─── Input pipeline (pointer, wheel, keyboard handlers) ──────────────────
   const input = useCanvasInputs({
@@ -1086,6 +1087,7 @@ export function CanvasArea({
     tmRef: tm,
     buildToolCtx,
     commitCamera,
+    previewCamera,
     setSnapGuides,
     setHoveredNode,
     setRenameDialog,
@@ -1555,9 +1557,10 @@ export function CanvasArea({
       <CanvasOverlays
         contentCanvasRef={contentCanvasRef}
         announcerRef={announcer}
-        zoom={state.zoom}
-        pan={state.pan}
-        cameraRotation={state.cameraRotation}
+        transformPreviewStore={viewport.transformPreviewStore}
+        zoom={viewport.zoom}
+        pan={viewport.pan}
+        cameraRotation={viewport.cameraRotation}
         tool={state.tool}
         selection={state.selection}
         document={state.document}

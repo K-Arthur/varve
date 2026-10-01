@@ -17,7 +17,7 @@ import {
 function ctx(doc: Document): AuditContext {
   return {
     doc,
-    workspaceMode: 'logo',
+    workspaceMode: 'design',
     canvasMode: 'full',
     tool: 'select',
     selection: [],

@@ -1,3 +1,29 @@
 @import "../Prototype/prototype.css";
 @import "../Upscale/UpscaleDialog.css";
 @import "../ImageResizeDialog.css";
+
+/* The dock owns the canvas rectangle: `useEditorDockGeometry` positions this
+ * element (inline `position: absolute` + rect) and every canvas-anchored
+ * overlay must therefore live *inside* it. Chrome anchored to the shell's
+ * `canvas` grid area instead (the selection path used to be) tracks the grid
+ * track tokens, which are not the same rectangle as the dock's rect: at 1920px
+ * the path bar started 134px left of the canvas (over the Layers rail) and ran
+ * 69px past its right edge (over the Inspector), and the first path segments
+ * were painted underneath the rails.
+ *
+ * The path row is `auto`, so it collapses to zero whenever the path bar is
+ * absent (no selection). The bar is a row of its own rather than an overlay on
+ * the canvas so the 20px ruler — which is anchored to the canvas's own top
+ * edge — is never covered by it.
+ * See tests/e2e/responsive/selection-path.spec.ts. */
+.editor-shell__canvas-dock {
+  display: grid;
+  grid-template-areas:
+    "path"
+    "canvas";
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}

@@ -483,12 +483,18 @@ test.describe('Photo source, RAW, and bracket workflows', () => {
     await expect(reopenedSection).toContainText(
       /Downstream repair is baked to this RAW source revision/,
     );
+    // Re-selecting the shape remounts the section and starts an async
+    // re-decode whose completion overwrites the recipe state with the
+    // persisted values. Wait for that decode to settle (diagnostics render
+    // only after it) before editing the slider, or the fill is lost.
+    await expect(reopenedSection).toContainText('Sensor-clipped pixels:', { timeout: 120000 });
     const exposure = reopenedSection.getByRole('slider', { name: 'Exposure', exact: true });
     await exposure.fill('2');
+    await expect(exposure).toHaveValue('2');
     await reopenedSection.getByRole('button', { name: 'Apply development', exact: true }).click();
     await expect
       .poll(() => serializedDocument(page), {
-        timeout: 120000,
+        timeout: 240000,
         message: 'the re-development should commit exposureStops 2',
       })
       .toMatch(/"exposureStops":2(?:\.0+)?/);

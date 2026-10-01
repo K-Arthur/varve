@@ -63,7 +63,7 @@ export class HandTool extends BaseTool {
     const dx = this.drag.currentCanvas.x - this.drag.startCanvas.x;
     const dy = this.drag.currentCanvas.y - this.drag.startCanvas.y;
     this.currentPan = { x: this.startPan.x + dx, y: this.startPan.y + dy };
-    ctx.setPan(this.currentPan);
+    (ctx.previewPan ?? ctx.setPan)(this.currentPan);
     this.positionHistory.push({
       x: this.drag.currentCanvas.x,
       y: this.drag.currentCanvas.y,
@@ -109,6 +109,7 @@ export class HandTool extends BaseTool {
       const step = stepDecayedMotion(this.velocity, elapsedMs, HAND_DECAY_RATE, HAND_STOP_SPEED);
       if (step.stopped) {
         this.velocity = null;
+        ctx.commitPan?.(this.currentPan);
         return;
       }
       this.velocity = step.velocity;
@@ -116,7 +117,7 @@ export class HandTool extends BaseTool {
         x: this.currentPan.x + step.delta.x,
         y: this.currentPan.y + step.delta.y,
       };
-      ctx.setPan(this.currentPan);
+      (ctx.previewPan ?? ctx.setPan)(this.currentPan);
       requestEditorFrame(this.frameKey, 'input', tick);
     };
     requestEditorFrame(this.frameKey, 'input', tick);

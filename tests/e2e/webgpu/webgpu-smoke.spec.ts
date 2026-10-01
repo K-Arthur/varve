@@ -100,7 +100,9 @@ test.describe('WebGPU smoke test', () => {
     await expect(backendLabel).toHaveText('Canvas2D');
   });
 
-  test('a WebGPU preference persists and reports a declined software adapter', async ({ page }) => {
+  test('the renderer preference persists and WebGPU reports a declined software adapter', async ({
+    page,
+  }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.evaluate(() => {
       const file = [...document.querySelectorAll('button')].find(
@@ -110,17 +112,17 @@ test.describe('WebGPU smoke test', () => {
     });
     await page.getByRole('menuitem', { name: /Settings/ }).click();
     const settings = page.locator('dialog.varve-dialog--settings[open]');
-    const preference = settings.getByRole('switch', { name: 'Prefer WebGPU when available' });
+    const preference = settings.getByRole('combobox', { name: 'Canvas renderer' });
     await preference.click();
-    await expect(preference).toBeChecked();
+    await settings.getByRole('option', { name: 'WebGPU (when available)' }).click();
     const saved = await page.evaluate(() =>
       JSON.parse(localStorage.getItem('varve-editor-settings') ?? '{}'),
     );
-    expect(saved.render?.preferWebGpu).toBe(true);
+    expect(saved.render?.renderer).toBe('webgpu');
 
     await navigateToEditor(page);
     const warning = page.locator('.editor-status__meta--warning');
-    await expect(warning).toHaveText('GPU unavailable · Canvas2D', { timeout: 15000 });
+    await expect(warning).toHaveText('WebGPU unavailable · Canvas2D', { timeout: 15000 });
     await expect(warning).toHaveAttribute('title', /software WebGPU adapter declined/);
     await page.screenshot({ path: '/tmp/varve-gpu-status-fallback.png' });
 

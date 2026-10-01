@@ -5,12 +5,14 @@ import { DEFAULT_MAGIC_WAND_SETTINGS } from '../magicWandSettings';
 import type { DecodedMaskPixels } from '../selectionMask';
 import type { ToolContext } from '../types';
 
-const { decode } = vi.hoisted(() => ({ decode: vi.fn() }));
+const { decode, sampleArtwork } = vi.hoisted(() => ({ decode: vi.fn(), sampleArtwork: vi.fn() }));
 
 vi.mock('../selectionMask', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../selectionMask')>();
   return { ...actual, decodeRasterMaskDataUrl: decode };
 });
+
+vi.mock('../artworkSampling', () => ({ sampleVisibleArtwork: sampleArtwork }));
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -37,15 +39,20 @@ function imageNode(id: string, src: string) {
 function makeContext(nodes: ReturnType<typeof imageNode>[]) {
   let document = createDocument('magic-wand-test');
   for (const node of nodes) document = addNode(document, node);
+  let activeRootIds = [...document.rootChildren];
   let hit = document.nodes[nodes[0]!.id] as ReturnType<typeof imageNode>;
   const setAreaSelection = vi.fn();
   const announce = vi.fn();
+  let liveAreaSelection: ToolContext['areaSelection'] = null;
   const ctx = {
     document,
     selection: [],
     canvasToWorld: vi.fn((x: number, y: number) => ({ x, y })),
     hitTest: vi.fn(() => ({ nodeId: hit.id, node: hit })),
     getNode: vi.fn((id: string) => document.nodes[id]),
+    getCurrentDocument: () => document,
+    getCurrentAreaSelection: () => liveAreaSelection,
+    rootNodes: () => activeRootIds.map((id) => document.nodes[id]!).filter(Boolean),
     getWorldTransform: vi.fn(() => [1, 0, 0, 1, 0, 0] as const),
     magicWandSettings: { ...DEFAULT_MAGIC_WAND_SETTINGS },
     areaSelection: null,
@@ -59,6 +66,12 @@ function makeContext(nodes: ReturnType<typeof imageNode>[]) {
     },
     replaceNode: (node: ReturnType<typeof imageNode>) => {
       document = { ...document, nodes: { ...document.nodes, [node.id]: node } };
+    },
+    setRootIds: (ids: string[]) => {
+      activeRootIds = ids;
+    },
+    setLiveAreaSelection: (selection: typeof liveAreaSelection) => {
+      liveAreaSelection = selection;
     },
     setAreaSelection,
     announce,
@@ -80,7 +93,175 @@ function pointerDown(tool: MagicWandTool, ctx: ToolContext) {
 }
 
 describe('MagicWandTool async image selection', () => {
-  beforeEach(() => decode.mockReset());
+  beforeEach(() => {
+    decode.mockReset();
+    sampleArtwork.mockReset();
+  });
+
+  it('samples visible artwork independently from the later raster fill destination', async () => {
+    const source = imageNode('source', 'data:image/png;base64,visible');
+    const state = makeContext([source]);
+    const ctx = state.ctx as ToolContext & {
+      magicWandSettings: NonNullable<ToolContext['magicWandSettings']>;
+    };
+    ctx.magicWandSettings = {
+      ...DEFAULT_MAGIC_WAND_SETTINGS,
+      sampleSource: 'visibleArtwork',
+    };
+    const rootIds = ctx.rootNodes().map((node) => node.id);
+    const imageData = {
+      width: 2,
+      height: 2,
+      data: new Uint8ClampedArray([
+        255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+      ]),
+    } as ImageData;
+    sampleArtwork.mockResolvedValue({
+      status: 'ready',
+      document: ctx.document,
+      rootIds,
+      bounds: { x: 0, y: 0, width: 2, height: 2 },
+      imageData,
+    });
+
+    const tool = new MagicWandTool();
+    pointerDown(tool, ctx);
+    await vi.waitFor(() => expect(state.setAreaSelection).toHaveBeenCalledOnce());
+
+    expect(sampleArtwork).toHaveBeenCalledWith({
+      document: ctx.document,
+      rootIds,
+      signal: expect.any(AbortSignal),
+    });
+    expect(state.announce).toHaveBeenLastCalledWith(
+      'Contiguous visible-artwork Magic Wand selection created',
+    );
+  });
+
+  it('does not overwrite an area selection changed while artwork is rendering', async () => {
+    const pending = deferred<{
+      status: 'ready';
+      document: ToolContext['document'];
+      rootIds: readonly string[];
+      bounds: { x: number; y: number; width: number; height: number };
+      imageData: ImageData;
+    }>();
+    sampleArtwork.mockReturnValue(pending.promise);
+    const source = imageNode('source', 'data:image/png;base64,visible');
+    const state = makeContext([source]);
+    const ctx = state.ctx as ToolContext & {
+      magicWandSettings: NonNullable<ToolContext['magicWandSettings']>;
+    };
+    ctx.magicWandSettings = {
+      ...DEFAULT_MAGIC_WAND_SETTINGS,
+      sampleSource: 'visibleArtwork',
+    };
+    const tool = new MagicWandTool();
+    pointerDown(tool, ctx);
+    const laterSelection = { generation: 4 } as NonNullable<ToolContext['areaSelection']>;
+    state.setLiveAreaSelection(laterSelection);
+    pending.resolve({
+      status: 'ready',
+      document: ctx.document,
+      rootIds: [source.id],
+      bounds: { x: 0, y: 0, width: 2, height: 2 },
+      imageData: {
+        width: 2,
+        height: 2,
+        data: new Uint8ClampedArray(16).fill(255),
+      } as ImageData,
+    });
+    await vi.waitFor(() =>
+      expect(state.announce).toHaveBeenCalledWith(
+        'The pixel selection changed before Magic Wand could finish; click again',
+      ),
+    );
+
+    expect(state.setAreaSelection).not.toHaveBeenCalled();
+  });
+
+  it('refuses a visible-artwork result after the active surface changes', async () => {
+    const pending = deferred<{
+      status: 'ready';
+      document: ToolContext['document'];
+      rootIds: readonly string[];
+      bounds: { x: number; y: number; width: number; height: number };
+      imageData: ImageData;
+    }>();
+    sampleArtwork.mockReturnValue(pending.promise);
+    const source = imageNode('source', 'data:image/png;base64,visible');
+    const state = makeContext([source]);
+    const ctx = state.ctx as ToolContext & {
+      magicWandSettings: NonNullable<ToolContext['magicWandSettings']>;
+    };
+    ctx.magicWandSettings = {
+      ...DEFAULT_MAGIC_WAND_SETTINGS,
+      sampleSource: 'visibleArtwork',
+    };
+    const tool = new MagicWandTool();
+    pointerDown(tool, ctx);
+    state.setRootIds([]);
+    pending.resolve({
+      status: 'ready',
+      document: ctx.document,
+      rootIds: [source.id],
+      bounds: { x: 0, y: 0, width: 2, height: 2 },
+      imageData: {
+        width: 2,
+        height: 2,
+        data: new Uint8ClampedArray(16).fill(255),
+      } as ImageData,
+    });
+    await vi.waitFor(() =>
+      expect(state.announce).toHaveBeenCalledWith(
+        'The active artwork changed before Magic Wand could finish; click it again',
+      ),
+    );
+
+    expect(state.setAreaSelection).not.toHaveBeenCalled();
+  });
+
+  it('cancels a pending visible-artwork sample when the tool is deactivated', async () => {
+    const pending = deferred<{
+      status: 'ready';
+      document: ToolContext['document'];
+      rootIds: readonly string[];
+      bounds: { x: number; y: number; width: number; height: number };
+      imageData: ImageData;
+    }>();
+    sampleArtwork.mockReturnValue(pending.promise);
+    const source = imageNode('source', 'data:image/png;base64,visible');
+    const state = makeContext([source]);
+    const ctx = state.ctx as ToolContext & {
+      magicWandSettings: NonNullable<ToolContext['magicWandSettings']>;
+    };
+    ctx.magicWandSettings = {
+      ...DEFAULT_MAGIC_WAND_SETTINGS,
+      sampleSource: 'visibleArtwork',
+    };
+    const tool = new MagicWandTool();
+
+    pointerDown(tool, ctx);
+    const signal = sampleArtwork.mock.calls[0]?.[0].signal;
+    expect(signal?.aborted).toBe(false);
+    tool.onDeactivate();
+
+    expect(signal?.aborted).toBe(true);
+    pending.resolve({
+      status: 'ready',
+      document: ctx.document,
+      rootIds: [source.id],
+      bounds: { x: 0, y: 0, width: 2, height: 2 },
+      imageData: {
+        width: 2,
+        height: 2,
+        data: new Uint8ClampedArray(16).fill(255),
+      } as ImageData,
+    });
+    await Promise.resolve();
+
+    expect(state.setAreaSelection).not.toHaveBeenCalled();
+  });
 
   it('discards an earlier decode when a later click finishes first', async () => {
     const first = deferred<DecodedMaskPixels | null>();

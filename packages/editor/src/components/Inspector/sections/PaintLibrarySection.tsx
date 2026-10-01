@@ -16,6 +16,7 @@ import { Icon, SearchField, Tooltip, TooltipProvider } from '@varve/ui';
 import { useCallback, useMemo, useState } from 'react';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
+import { PatternLibrarySection } from './PatternLibrarySection';
 
 function paintSwatchBg(
   paint: Paint,
@@ -223,127 +224,130 @@ export function PaintLibrarySection() {
   }, []);
 
   return (
-    <DisclosureSection title="Paint Library" sectionId="paint-library">
-      <div className="insp-paint-library">
-        <SearchField
-          value={search}
-          onChange={setSearch}
-          placeholder="Filter paints…"
-          aria-label="Filter paint library"
-        />
+    <>
+      <DisclosureSection title="Paint Library" sectionId="paint-library">
+        <div className="insp-paint-library">
+          <SearchField
+            value={search}
+            onChange={setSearch}
+            placeholder="Filter paints…"
+            aria-label="Filter paint library"
+          />
 
-        {hasSelection && (
-          <button
-            type="button"
-            className="insp-paint-library__add-btn"
-            onClick={addToLibrary}
-            aria-label="Add current fill to paint library"
-          >
-            <Icon name="Plus" label={undefined} size="0.85em" />
-            <span>Add to Library</span>
-          </button>
-        )}
-
-        {paintEntries.length === 0 && (
-          <div className="insp-empty-message">
-            {search ? 'No paints match your filter' : 'No paints in library'}
-          </div>
-        )}
-
-        <ul className="insp-paint-library__list" aria-label="Paint library entries">
-          {paintEntries.map((paint) => {
-            const isActive = activePaintRef === paint.id;
-            return (
-              <li
-                key={paint.id}
-                className="insp-paint-library__entry"
-                draggable
-                onDragStart={(e) => handleDragStart(e, paint.id)}
-                data-paint-id={paint.id}
-              >
-                <div
-                  className="insp-paint-library__swatch"
-                  style={{ background: paintSwatchBg(paint, doc.assets) }}
-                  aria-hidden
-                />
-                <div className="insp-paint-library__info">
-                  <span className="insp-paint-library__name">{paint.name}</span>
-                  <span className="insp-paint-library__badge">{paintTypeLabel(paint.fill)}</span>
-                </div>
-                <div className="insp-paint-library__actions">
-                  <TooltipProvider>
-                    {isActive && (
-                      <Tooltip label="Detach">
-                        <button
-                          type="button"
-                          className="insp-paint-library__action-btn"
-                          onClick={detachPaint}
-                          aria-label="Detach paint"
-                        >
-                          <Icon name="Unlink" label={undefined} size="0.85em" />
-                        </button>
-                      </Tooltip>
-                    )}
-                    {hasSelection && (
-                      <Tooltip label="Apply">
-                        <button
-                          type="button"
-                          className="insp-paint-library__action-btn"
-                          onClick={() => applyPaint(paint.id)}
-                          aria-label="Apply paint to selection"
-                        >
-                          <Icon name="Check" label={undefined} size="0.85em" />
-                        </button>
-                      </Tooltip>
-                    )}
-                    <Tooltip label="Delete">
-                      <button
-                        type="button"
-                        className="insp-paint-library__action-btn insp-paint-library__action-btn--danger"
-                        onClick={() => deletePaint(paint.id)}
-                        aria-label="Delete paint"
-                      >
-                        <Icon name="Trash2" label={undefined} size="0.85em" />
-                      </button>
-                    </Tooltip>
-                  </TooltipProvider>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-
-        {activePaintRef && paints[activePaintRef] && (
-          <div className="insp-paint-library__status">
-            <Icon name="Link" label={undefined} size="0.75em" />
-            <span>Referenced — changes update all uses</span>
-          </div>
-        )}
-      </div>
-
-      {confirmDeleteId && (
-        <div className="insp-paint-library__confirm">
-          <p className="insp-paint-library__confirm-message">
-            Paint is in use. Detach all uses and delete?
-          </p>
-          <div className="insp-paint-library__confirm-actions">
+          {hasSelection && (
             <button
               type="button"
-              className="insp-paint-library__confirm-btn insp-paint-library__confirm-btn--danger"
-              onClick={confirmDeleteWithDetach}
+              className="insp-paint-library__add-btn"
+              onClick={addToLibrary}
+              aria-label="Add current fill to paint library"
             >
-              Detach and delete
+              <Icon name="Plus" label={undefined} size="0.85em" />
+              <span>Add to Library</span>
             </button>
-            <button
-              type="button"
-              className="insp-paint-library__confirm-btn"
-              onClick={cancelDelete}
-            >
-              Cancel
-            </button>
-          </div>
+          )}
+
+          {paintEntries.length === 0 && (
+            <div className="insp-empty-message">
+              {search ? 'No paints match your filter' : 'No paints in library'}
+            </div>
+          )}
+
+          <ul className="insp-paint-library__list" aria-label="Paint library entries">
+            {paintEntries.map((paint) => {
+              const isActive = activePaintRef === paint.id;
+              return (
+                <li
+                  key={paint.id}
+                  className="insp-paint-library__entry"
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, paint.id)}
+                  data-paint-id={paint.id}
+                >
+                  <div
+                    className="insp-paint-library__swatch"
+                    style={{ background: paintSwatchBg(paint, doc.assets) }}
+                    aria-hidden
+                  />
+                  <div className="insp-paint-library__info">
+                    <span className="insp-paint-library__name">{paint.name}</span>
+                    <span className="insp-paint-library__badge">{paintTypeLabel(paint.fill)}</span>
+                  </div>
+                  <div className="insp-paint-library__actions">
+                    <TooltipProvider>
+                      {isActive && (
+                        <Tooltip label="Detach">
+                          <button
+                            type="button"
+                            className="insp-paint-library__action-btn"
+                            onClick={detachPaint}
+                            aria-label="Detach paint"
+                          >
+                            <Icon name="Unlink" label={undefined} size="0.85em" />
+                          </button>
+                        </Tooltip>
+                      )}
+                      {hasSelection && (
+                        <Tooltip label="Apply">
+                          <button
+                            type="button"
+                            className="insp-paint-library__action-btn"
+                            onClick={() => applyPaint(paint.id)}
+                            aria-label="Apply paint to selection"
+                          >
+                            <Icon name="Check" label={undefined} size="0.85em" />
+                          </button>
+                        </Tooltip>
+                      )}
+                      <Tooltip label="Delete">
+                        <button
+                          type="button"
+                          className="insp-paint-library__action-btn insp-paint-library__action-btn--danger"
+                          onClick={() => deletePaint(paint.id)}
+                          aria-label="Delete paint"
+                        >
+                          <Icon name="Trash2" label={undefined} size="0.85em" />
+                        </button>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+
+          {activePaintRef && paints[activePaintRef] && (
+            <div className="insp-paint-library__status">
+              <Icon name="Link" label={undefined} size="0.75em" />
+              <span>Referenced — changes update all uses</span>
+            </div>
+          )}
         </div>
-      )}
-    </DisclosureSection>
+
+        {confirmDeleteId && (
+          <div className="insp-paint-library__confirm">
+            <p className="insp-paint-library__confirm-message">
+              Paint is in use. Detach all uses and delete?
+            </p>
+            <div className="insp-paint-library__confirm-actions">
+              <button
+                type="button"
+                className="insp-paint-library__confirm-btn insp-paint-library__confirm-btn--danger"
+                onClick={confirmDeleteWithDetach}
+              >
+                Detach and delete
+              </button>
+              <button
+                type="button"
+                className="insp-paint-library__confirm-btn"
+                onClick={cancelDelete}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+      </DisclosureSection>
+      <PatternLibrarySection />
+    </>
   );
 }

@@ -54,13 +54,58 @@ export function HomeSearchPalette({
   const [contentMatches, setContentMatches] = useState<ContentSearchMatch[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const previouslyFocused = useRef<HTMLElement | null>(null);
 
+  // Initial focus into the palette on open, and focus restoration to the
+  // invoker on close (APG Dialog (Modal)). Without the cleanup, closing the
+  // palette left keyboard focus on <body>.
   useEffect(() => {
-    if (open) {
-      setQuery('');
-      setActiveIdx(0);
-      setTimeout(() => inputRef.current?.focus(), 0);
-    }
+    if (!open) return;
+    previouslyFocused.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setQuery('');
+    setActiveIdx(0);
+    inputRef.current?.focus();
+    return () => {
+      const target = previouslyFocused.current;
+      if (target?.isConnected) target.focus();
+    };
+  }, [open]);
+
+  // Tab containment lives on window, not on the container's onKeyDown: a
+  // container-scoped handler never runs once focus has escaped the modal,
+  // which is exactly when containment matters. Focus already inside keeps
+  // the same first/last cycling as before; focus outside is pulled back in.
+  useEffect(() => {
+    if (!open) return;
+    const handleTab = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab') return;
+      const container = containerRef.current;
+      if (!container) return;
+      const focusable = container.querySelectorAll<HTMLElement>(
+        'input, button, [href], select, textarea, [tabindex]:not([tabindex="-1"])',
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0] as HTMLElement;
+      const last = focusable[focusable.length - 1] as HTMLElement;
+      const active = document.activeElement;
+      if (active && !container.contains(active)) {
+        // The palette claims aria-modal="true"; Tab must never continue in
+        // the background.
+        e.preventDefault();
+        (e.shiftKey ? last : first).focus();
+        return;
+      }
+      if (e.shiftKey && active === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    window.addEventListener('keydown', handleTab);
+    return () => window.removeEventListener('keydown', handleTab);
   }, [open]);
 
   // Debounced content search — 400ms after the user stops typing
@@ -277,23 +322,10 @@ export function HomeSearchPalette({
           e.preventDefault();
           onClose('dismiss');
           break;
-        case 'Tab': {
-          // Focus trap: cycle focus within the container
-          if (!containerRef.current) break;
-          const focusable = containerRef.current.querySelectorAll<HTMLElement>(
-            'input, button, [tabindex]:not([tabindex="-1"])',
-          );
-          const first = focusable[0];
-          const last = focusable[focusable.length - 1];
-          if (e.shiftKey && document.activeElement === first) {
-            e.preventDefault();
-            last?.focus();
-          } else if (!e.shiftKey && document.activeElement === last) {
-            e.preventDefault();
-            first?.focus();
-          }
+        case 'Tab':
+          // Not handled here: the window-level effect owns Tab containment
+          // (it must also run when focus has escaped the container).
           break;
-        }
         case 'ArrowDown':
           e.preventDefault();
           setActiveIdx((i) => {

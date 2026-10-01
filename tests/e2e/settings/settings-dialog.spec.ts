@@ -69,7 +69,9 @@ test.describe('Settings dialog', () => {
     await expect(content.locator('.settings-section')).toBeVisible();
   });
 
-  test('keeps switch fields labeled and inside the dialog at a narrow width', async ({ page }) => {
+  test('keeps switch fields and the renderer select labeled and inside the dialog at a narrow width', async ({
+    page,
+  }) => {
     await navigateToEditor(page);
     await page.setViewportSize({ width: 820, height: 720 });
     await page.evaluate(() => {
@@ -85,9 +87,13 @@ test.describe('Settings dialog', () => {
     const dialogBox = await settingsDialog.boundingBox();
     expect(dialogBox).not.toBeNull();
     await expect(switches).not.toHaveCount(0);
-    await expect(
-      settingsDialog.getByRole('switch', { name: 'Prefer WebGPU when available' }),
-    ).toHaveCount(1);
+    const rendererSelect = settingsDialog.getByRole('combobox', { name: 'Canvas renderer' });
+    await expect(rendererSelect).toHaveCount(1);
+    const rendererBox = await rendererSelect.boundingBox();
+    expect(rendererBox).not.toBeNull();
+    expect(rendererBox!.x + rendererBox!.width).toBeLessThanOrEqual(
+      dialogBox!.x + dialogBox!.width,
+    );
     for (const switchElement of await switches.all()) {
       const switchBox = await switchElement.boundingBox();
       expect(switchBox).not.toBeNull();

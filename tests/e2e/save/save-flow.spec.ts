@@ -26,6 +26,7 @@ async function installSavePickerStub(page: Page): Promise<void> {
     win.__varveLastSuggested = null;
     win.__varveCancelNext = false;
     win.__varveFailWrites = false;
+    win.__varvePermission = 'granted';
     Object.defineProperty(win, 'showOpenFilePicker', {
       configurable: true,
       writable: true,
@@ -42,7 +43,7 @@ async function installSavePickerStub(page: Page): Promise<void> {
         if (win.__varveCancelNext) return undefined;
         return {
           name: opts.suggestedName ?? 'document.varve',
-          queryPermission: async () => 'granted',
+          queryPermission: async () => win.__varvePermission as PermissionState,
           createWritable: async () => ({
             write: async () => {
               if (win.__varveFailWrites) {
@@ -218,6 +219,34 @@ test('write failure keeps the document dirty and reports Save failed', async ({ 
   });
   await page.keyboard.press(`${mod('s')}`);
   await expect(saveStatus(page)).toHaveText('Saved');
+});
+
+test('revoked file permission keeps the active target and modified state', async ({ page }) => {
+  await installSavePickerStub(page);
+  await navigateToCleanEditor(page);
+  await startUnboundDocument(page);
+
+  await page.keyboard.press(`${mod('s')}`);
+  await expect(saveStatus(page)).toHaveText('Saved');
+  expect(await pickerCalls(page)).toBe(1);
+
+  await makeDirty(page);
+  await page.evaluate(() => {
+    (window as unknown as Record<string, unknown>).__varvePermission = 'denied';
+  });
+  await page.keyboard.press(`${mod('s')}`);
+
+  await expect(saveStatus(page)).toHaveText('Save failed');
+  expect(await pickerCalls(page)).toBe(1);
+
+  // Restoring permission retries the same destination; no second picker is
+  // required, and only a successful write clears the modified state.
+  await page.evaluate(() => {
+    (window as unknown as Record<string, unknown>).__varvePermission = 'granted';
+  });
+  await page.keyboard.press(`${mod('s')}`);
+  await expect(saveStatus(page)).toHaveText('Saved');
+  expect(await pickerCalls(page)).toBe(1);
 });
 
 test('stale save finishing after a new edit keeps the document dirty', async ({ page }) => {

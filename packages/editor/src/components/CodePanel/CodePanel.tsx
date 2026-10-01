@@ -1,5 +1,5 @@
 /**
- * CodePanel — dedicated "Codegen & Design Audit" workspace panel.
+ * CodePanel — shared code export and design audit panel.
  *
  * Two primary tabs:
  *   1. Codegen  — framework selector, responsive preview sizing, copy/download
@@ -38,7 +38,7 @@ import './CodePanel.css';
 type PrimaryTab = 'codegen' | 'audit' | 'readiness';
 
 const PRIMARY_TABS: Tab<PrimaryTab>[] = [
-  { value: 'codegen', label: 'Codegen' },
+  { value: 'codegen', label: 'Output' },
   { value: 'audit', label: 'Audit' },
   { value: 'readiness', label: 'Readiness' },
 ];
@@ -502,7 +502,7 @@ export function CodePanel({ doc, selection }: CodePanelProps) {
         title="Code"
       >
         <div className="code-panel__header">
-          <h2 className="code-panel__title">Codegen & Audit</h2>
+          <h2 className="code-panel__title">Code</h2>
           <PanelDetachButton />
         </div>
       </PanelDragHandle>

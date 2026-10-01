@@ -54,7 +54,7 @@ export type SettingsSection =
 export interface SettingsContextValue {
   settings: EditorSettings;
   /**
-   * Section-wise patch: `{ render: { preferWebGpu: true } }` updates one field
+   * Section-wise patch: `{ render: { renderer: 'webgpu' } }` updates one field
    * and leaves the rest of `render` intact. `Partial<EditorSettings>` would
    * have demanded a complete `RenderSettingsStore` for that same call and, if
    * satisfied, silently replaced every other field in the section.

@@ -18,9 +18,16 @@ export function WorkspaceSwitcher({ workspaces, activeId, onSwitch }: WorkspaceS
 
   const popover = (
     <div className="workspace-switcher__dropdown" role="listbox" aria-label="Workspaces">
-      <div className="workspace-switcher__header">Workspaces</div>
+      {/* APG listbox content model: only options/groups belong to the list;
+          static chrome is presentational so AT does not read a generic
+          element as a listbox child. */}
+      <div className="workspace-switcher__header" role="presentation">
+        Workspaces
+      </div>
       {workspaces.length === 0 ? (
-        <div className="workspace-switcher__empty">No workspaces</div>
+        <div className="workspace-switcher__empty" role="presentation">
+          No workspaces
+        </div>
       ) : (
         workspaces.map((w) => {
           const isActive = w.id === activeId;

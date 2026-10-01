@@ -198,6 +198,7 @@ export function Tooltip({
   const isTruncatedRef = useRef(false);
   const pointerDownRef = useRef(false);
   const suppressFocusShowUntilRef = useRef(0);
+  const positionedRef = useRef(false);
   const [positioned, setPositioned] = useState(false);
 
   const warmContext = useContext(TooltipContext);
@@ -305,8 +306,17 @@ export function Tooltip({
   }, [clearTimers]);
 
   useEffect(() => {
-    if (!visible) setPositioned(false);
+    if (!visible && positionedRef.current) {
+      positionedRef.current = false;
+      setPositioned(false);
+    }
   }, [visible]);
+
+  const markPositioned = useCallback(() => {
+    if (positionedRef.current) return;
+    positionedRef.current = true;
+    setPositioned(true);
+  }, []);
 
   useEffect(() => {
     if (!visible) return;
@@ -517,7 +527,7 @@ export function Tooltip({
       dismissOnEscape={false}
       dismissOnWindowBlur
       onClose={handleClose}
-      onPositionChange={() => setPositioned(true)}
+      onPositionChange={markPositioned}
     >
       <div
         ref={tooltipRef}

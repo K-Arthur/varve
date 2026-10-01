@@ -32,7 +32,6 @@
   border-radius: var(--radius-control);
 }
 
-.varve-input__field,
 .varve-input__field {
   border-radius: var(--radius-none);
 }

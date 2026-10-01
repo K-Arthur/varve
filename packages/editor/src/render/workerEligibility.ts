@@ -87,6 +87,21 @@ export function webKitWorkerActivationEnabled(): boolean {
   }
 }
 
+function renderWorkerOverride(): boolean | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const query = new URLSearchParams(window.location?.search ?? '').get('renderWorker');
+    if (query === '0') return false;
+    if (query === '1') return true;
+    const preference = window.localStorage?.getItem('varve.renderWorker');
+    if (preference === 'off') return false;
+    if (preference === 'on') return true;
+  } catch {
+    return null;
+  }
+  return null;
+}
+
 /**
  * Resolve whether the render worker may be used, and why not when it may not.
  *
@@ -97,6 +112,8 @@ export function webKitWorkerActivationEnabled(): boolean {
 export function resolveWorkerEligibility(caps: WorkerCapabilityInputs): WorkerEligibility {
   if (!caps.hasWorker) return { allowed: false, reason: 'worker-unavailable' };
   if (!caps.hasOffscreenCanvas) return { allowed: false, reason: 'offscreen-unavailable' };
+  const override = renderWorkerOverride();
+  if (override === false) return { allowed: false, reason: 'worker-policy' };
 
   // Engines other than WebKitGTK keep their existing behaviour exactly: the
   // API presence check that has always governed them still governs them, so
@@ -111,6 +128,7 @@ export function resolveWorkerEligibility(caps: WorkerCapabilityInputs): WorkerEl
   if (capability !== 'offscreen-supported') {
     return { allowed: false, reason: 'offscreen-unavailable' };
   }
+  if (override === true) return { allowed: true, reason: 'none' };
   if (!webKitWorkerActivationEnabled()) {
     return { allowed: false, reason: 'webkit-policy' };
   }

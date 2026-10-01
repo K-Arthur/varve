@@ -1,3 +1,4 @@
+import { getImageCache } from '@varve/engine';
 import {
   addMask,
   createDocument,
@@ -481,11 +482,13 @@ function blendModes(): PerformanceWorkload {
 }
 
 function mixedRasterVector(): PerformanceWorkload {
+  const imageSourceCount = 6;
   const images = Array.from({ length: 24 }, (_, index) =>
     makeImageShapeNode(`mix-image-${index}`, {
-      src: `asset://mix-${index}.png`,
+      src: `asset://mix-${index % imageSourceCount}.png`,
       imageWidth: 1024,
       imageHeight: 1024,
+      imageFit: 'stretch',
       w: 300,
       h: 300,
       transform: [1, 0, 0, 1, (index % 6) * 340, Math.floor(index / 6) * 340],
@@ -792,14 +795,16 @@ function paintRasterLod(): PerformanceWorkload {
 
 function rasterHeavy(): PerformanceWorkload {
   const imageCount = 48;
-  const dimension = 4096;
+  const imageSourceCount = 6;
+  const dimension = 1024;
   const document = appendNodes(
     workloadDocument('raster-heavy'),
     Array.from({ length: imageCount }, (_, index) =>
       makeImageShapeNode(`raster-${index}`, {
-        src: `asset://raster-${index}.png`,
+        src: `asset://raster-${index % imageSourceCount}.png`,
         imageWidth: dimension,
         imageHeight: dimension,
+        imageFit: 'stretch',
         w: 512,
         h: 512,
         transform: [1, 0, 0, 1, (index % 8) * 520, Math.floor(index / 8) * 520],
@@ -807,8 +812,72 @@ function rasterHeavy(): PerformanceWorkload {
     ),
   );
   return finish('raster-heavy', document, {
-    expected: { decodedImageBytes: imageCount * dimension * dimension * 4 },
+    expected: { decodedImageBytes: imageSourceCount * dimension * dimension * 4 },
   });
+}
+
+export interface MaterializedWorkloadAssets {
+  count: number;
+  bytes: number;
+  entries: Array<{ source: string; sha256: string }>;
+}
+
+/** Create reproducible browser-local PNGs for asset:// workload sources. */
+export async function materializePerformanceWorkloadAssets(
+  workload: PerformanceWorkload,
+): Promise<MaterializedWorkloadAssets> {
+  const sources = new Map<string, number>();
+  for (const node of Object.values(workload.document.nodes)) {
+    if (!('fills' in node)) continue;
+    for (const fill of node.fills ?? []) {
+      if (fill.type !== 'image') continue;
+      const src = fill.image?.src;
+      if (!src) continue;
+      if (src.startsWith('asset://raster-') || src.startsWith('asset://mix-')) {
+        sources.set(src, 1024);
+      }
+    }
+  }
+  if (sources.size === 0) return { count: 0, bytes: 0, entries: [] };
+  if (typeof document === 'undefined' || typeof createImageBitmap !== 'function') {
+    throw new Error('deterministic workload assets require a browser image decoder');
+  }
+
+  const entries: MaterializedWorkloadAssets['entries'] = [];
+  let bytes = 0;
+  for (const [source, dimension] of sources) {
+    const canvas = document.createElement('canvas');
+    canvas.width = dimension;
+    canvas.height = dimension;
+    const context = canvas.getContext('2d', { willReadFrequently: true });
+    if (!context) throw new Error('2D canvas unavailable while materializing workload assets');
+    const pixels = context.createImageData(dimension, dimension);
+    const seed = Number(source.match(/-(\d+)\.png$/)?.[1] ?? 0);
+    for (let y = 0; y < dimension; y++) {
+      for (let x = 0; x < dimension; x++) {
+        const offset = (y * dimension + x) * 4;
+        pixels.data[offset] = (x * 17 + y * 3 + seed * 37) & 0xff;
+        pixels.data[offset + 1] = (x * 5 + y * 19 + seed * 67) & 0xff;
+        pixels.data[offset + 2] = ((x ^ y) + seed * 97) & 0xff;
+        pixels.data[offset + 3] = 255;
+      }
+    }
+    context.putImageData(pixels, 0, 0);
+    const blob = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob((value) =>
+        value ? resolve(value) : reject(new Error('PNG encoding failed for workload asset')),
+      );
+    });
+    const encoded = await blob.arrayBuffer();
+    const digest = await crypto.subtle.digest('SHA-256', encoded);
+    const sha256 = [...new Uint8Array(digest)]
+      .map((value) => value.toString(16).padStart(2, '0'))
+      .join('');
+    getImageCache().setLoaded(source, await createImageBitmap(blob));
+    entries.push({ source, sha256 });
+    bytes += dimension * dimension * 4;
+  }
+  return { count: entries.length, bytes, entries };
 }
 
 function vectorHeavy(): PerformanceWorkload {

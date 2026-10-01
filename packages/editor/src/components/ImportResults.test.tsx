@@ -101,17 +101,15 @@ describe('ImportResults', () => {
 
   it('renders close button', () => {
     const result = makeResult({ successCount: 1, failCount: 0 });
-    const { container } = render(<ImportResults result={result} onClose={() => {}} />);
-    const btn = container.querySelector('.import-results__close');
-    expect(btn).toBeTruthy();
+    render(<ImportResults result={result} onClose={() => {}} />);
+    expect(screen.getByRole('button', { name: 'Close dialog' })).toBeTruthy();
   });
 
   it('calls onClose when close button clicked', () => {
     const onClose = vi.fn();
     const result = makeResult({ successCount: 1, failCount: 0 });
-    const { container } = render(<ImportResults result={result} onClose={onClose} />);
-    const btn = container.querySelector('.import-results__close') as HTMLButtonElement;
-    fireEvent.click(btn);
+    render(<ImportResults result={result} onClose={onClose} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Close dialog' }));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
@@ -220,5 +218,25 @@ describe('ImportResults', () => {
     const result = makeResult({ successCount: 0, failCount: 0 });
     render(<ImportResults result={result} onClose={() => {}} />);
     expect(screen.getByText(/no files/i)).toBeTruthy();
+  });
+
+  // APG Dialog (Modal): when a dialog opens, focus moves to an element
+  // inside it. The div-based overlay never moved focus, so keyboard and
+  // screen-reader users stayed behind the modal.
+  it('moves focus into the dialog when it opens', () => {
+    render(<ImportResults result={makeResult({ successCount: 1 })} onClose={() => {}} />);
+    const dialog = screen.getByRole('dialog');
+    expect(dialog.contains(document.activeElement)).toBe(true);
+  });
+
+  // APG Dialog (Modal): Escape closes the dialog regardless of where focus
+  // started — the old handler only ran when focus already happened to be
+  // inside the div.
+  it('closes on Escape', () => {
+    const onClose = vi.fn();
+    render(<ImportResults result={makeResult({ successCount: 1 })} onClose={onClose} />);
+    const dialog = screen.getByRole('dialog');
+    fireEvent.keyDown(dialog, { key: 'Escape' });
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

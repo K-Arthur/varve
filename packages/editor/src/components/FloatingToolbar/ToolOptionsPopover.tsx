@@ -231,6 +231,16 @@ function MagicWandOptions({
     <div className="tool-options__selection" data-testid="magicwand-options">
       <div className="tool-options__heading">Magic Wand</div>
       <SegmentedRadioGroup
+        legend="Sample source"
+        ariaLabel="Sample source"
+        value={settings.sampleSource}
+        options={[
+          { value: 'currentLayer', label: 'Current layer' },
+          { value: 'visibleArtwork', label: 'Visible artwork' },
+        ]}
+        onChange={(sampleSource) => onChange({ sampleSource })}
+      />
+      <SegmentedRadioGroup
         legend="Operation"
         ariaLabel="Operation"
         value={settings.operation}
@@ -268,6 +278,36 @@ function MagicWandOptions({
         />
         <span className="tool-options__value">{settings.edgeFeather}</span>
       </label>
+      <label className="tool-options__field">
+        <span className="tool-options__label">Edge expansion</span>
+        <input
+          type="range"
+          className="varve-native-range"
+          min={0}
+          max={8}
+          step={1}
+          value={settings.edgeExpansion}
+          onChange={(e) => onChange({ edgeExpansion: Number(e.target.value) })}
+          aria-label="Selection edge expansion"
+        />
+        <span className="tool-options__value">{settings.edgeExpansion}px</span>
+      </label>
+      {settings.sampleSource === 'visibleArtwork' && settings.mode === 'contiguous' && (
+        <label className="tool-options__field">
+          <span className="tool-options__label">Gap closure radius</span>
+          <input
+            type="range"
+            className="varve-native-range"
+            min={0}
+            max={8}
+            step={1}
+            value={settings.gapClosure}
+            onChange={(e) => onChange({ gapClosure: Number(e.target.value) })}
+            aria-label="Selection gap closure radius"
+          />
+          <span className="tool-options__value">{settings.gapClosure}px</span>
+        </label>
+      )}
       <SegmentedRadioGroup
         legend="Mode"
         ariaLabel="Selection mode"
@@ -279,7 +319,10 @@ function MagicWandOptions({
         onChange={(mode) => onChange({ mode })}
       />
       <p className="tool-options__hint">
-        Click on an image to select similar colours. Shift adds, Alt subtracts.
+        Visible artwork samples the active scene without UI overlays; transparent line art is
+        sampled against white. Gap closure bridges short linework breaks for contiguous sampling;
+        expansion grows the resulting selection under antialiased ink. Both are bounded to 8 px. The
+        selection stays separate from the layer you fill.
       </p>
     </div>
   );

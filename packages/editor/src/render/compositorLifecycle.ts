@@ -11,13 +11,13 @@ interface CompositorLifecycleHandlers {
 /** Own the asynchronous backend selection and prevent a late init from reviving an old canvas. */
 export function startCanvasCompositor(
   canvas: HTMLCanvasElement,
-  preferWebGpu: boolean,
+  renderer: 'canvas2d' | 'webgpu' | 'webgl2',
   handlers: CompositorLifecycleHandlers,
 ): () => void {
   let disposed = false;
   let backend: CompositorBackend | null = null;
 
-  void createCompositorBackend(canvas, { preferWebGpu })
+  void createCompositorBackend(canvas, { renderer })
     .then(({ backend: selected, capabilities }) => {
       if (disposed) {
         selected.destroy();
@@ -29,25 +29,27 @@ export function startCanvasCompositor(
         if (!diagnostics) return;
         setCompositorDiagnostics(diagnostics);
       };
-      if (selected.id === 'webgpu') {
+      if (selected.id === 'webgpu' || selected.id === 'webgl2') {
         selected.onDeviceLost = async () => {
           if (disposed) return;
           publishDiagnostics();
           handlers.onRedraw('gpu-device-lost');
         };
         // A successful automatic recovery rebuilds every device-owned
-        // resource; republish so the status flips from "GPU lost" back to
-        // the live backend truth. No forced redraw: the canvas holds correct
-        // Canvas2D pixels, and the next frame resumes GPU drawing.
+        // resource; republish and redraw so the restored backend gets an
+        // authoritative frame immediately.
         selected.onRecovered = () => {
           if (disposed) return;
           publishDiagnostics();
+          handlers.onRedraw('compositor-init');
         };
       }
       handlers.onReady(selected);
       publishDiagnostics();
-      if (preferWebGpu && selected.id !== 'webgpu') {
-        handlers.onFallback(capabilities.webgpuReason ?? 'WebGPU unavailable');
+      if (renderer !== 'canvas2d' && selected.id !== renderer) {
+        handlers.onFallback(
+          capabilities.rendererReason ?? capabilities.webgpuReason ?? `${renderer} unavailable`,
+        );
       }
       handlers.onRedraw('compositor-init');
     })

@@ -5,6 +5,7 @@ import {
   useCallback,
   useEffect,
   useId,
+  useLayoutEffect,
   useRef,
 } from 'react';
 import { Button } from './Button';
@@ -151,6 +152,23 @@ export const Dialog = forwardRef<HTMLDialogElement, DialogProps>(function Dialog
     el.addEventListener(BACK_DISMISS_EVENT, handleBackDismiss);
     return () => el.removeEventListener(BACK_DISMISS_EVENT, handleBackDismiss);
   }, [backDismissible, onClose, open]);
+
+  // A conditionally-mounted dialog never sees `open=false`: the parent
+  // unmounts it when the report/result it renders is dismissed, so the effect
+  // above never runs. Closing here — in a layout effect, while the element is
+  // still in the document — keeps the platform's focus-restoration step
+  // alive for that path; a plain useEffect cleanup runs after React has
+  // already removed the node, which is too late to restore focus to the
+  // invoker (APG Dialog (Modal): "when a dialog closes, focus returns to the
+  // element that invoked the dialog").
+  useLayoutEffect(() => {
+    // Capture the element at mount: React nulls callback refs before some
+    // unmount cleanups run, so the cleanup must not re-read `innerRef`.
+    const el = innerRef.current;
+    return () => {
+      if (el?.open) el.close();
+    };
+  }, []);
 
   // Consumer handlers are composed with the internal dismissal behavior
   // rather than spread over it. Spreading `...rest` after these props let a

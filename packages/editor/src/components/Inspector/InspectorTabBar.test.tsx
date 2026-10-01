@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { Profiler } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { getOverflowedInspectorTabIds, InspectorTabBar } from './InspectorTabBar';
 
@@ -83,5 +84,58 @@ describe('InspectorTabBar', () => {
 
     fireEvent.click(screen.getByRole('menuitem', { name: 'Audit' }));
     expect(onActivate).toHaveBeenCalledWith('audit');
+  });
+
+  it('does not schedule state updates for identical ResizeObserver measurements', async () => {
+    let notifyResize: ResizeObserverCallback | undefined;
+    class TestResizeObserver {
+      constructor(callback: ResizeObserverCallback) {
+        notifyResize = callback;
+      }
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    }
+
+    const previousObserver = globalThis.ResizeObserver;
+    Object.defineProperty(globalThis, 'ResizeObserver', {
+      configurable: true,
+      writable: true,
+      value: TestResizeObserver as unknown as typeof ResizeObserver,
+    });
+    Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
+      configurable: true,
+      value: 150,
+    });
+    const onRender = vi.fn();
+    const view = render(
+      <Profiler id="inspector-tabs" onRender={onRender}>
+        <InspectorTabBar tabs={tabs} activeTab="properties" onActivate={() => {}} />
+      </Profiler>,
+    );
+
+    try {
+      await waitFor(() =>
+        expect(screen.getByRole('button', { name: /more inspector tabs/i })).toBeVisible(),
+      );
+      const committedRenders = onRender.mock.calls.length;
+      act(() => {
+        for (let index = 0; index < 20; index += 1) {
+          notifyResize?.([], {} as ResizeObserver);
+        }
+      });
+      expect(onRender).toHaveBeenCalledTimes(committedRenders);
+    } finally {
+      view.unmount();
+      if (previousObserver) {
+        Object.defineProperty(globalThis, 'ResizeObserver', {
+          configurable: true,
+          writable: true,
+          value: previousObserver,
+        });
+      } else {
+        Reflect.deleteProperty(globalThis, 'ResizeObserver');
+      }
+    }
   });
 });

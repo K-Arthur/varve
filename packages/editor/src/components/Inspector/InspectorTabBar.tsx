@@ -69,12 +69,21 @@ export function InspectorTabBar({ tabs, activeTab, onActivate, onDetach }: Inspe
   const overflowTriggerRef = useRef<HTMLButtonElement>(null);
   const tabRefs = useRef(new Map<InspectorTabId, HTMLButtonElement>());
   const [overflowedIds, setOverflowedIds] = useState<InspectorTabId[]>([]);
+  const overflowedIdsRef = useRef(overflowedIds);
+  overflowedIdsRef.current = overflowedIds;
   const [overflowOpen, setOverflowOpen] = useState(false);
+
+  const updateOverflowedIds = useCallback((next: InspectorTabId[]) => {
+    const current = overflowedIdsRef.current;
+    if (sameIds(current, next)) return;
+    overflowedIdsRef.current = next;
+    setOverflowedIds(next);
+  }, []);
 
   const measureOverflow = useCallback(() => {
     const tabList = tabListRef.current;
     if (!tabList || tabList.clientWidth <= 0) {
-      setOverflowedIds((current) => (current.length === 0 ? current : []));
+      updateOverflowedIds([]);
       return;
     }
 
@@ -95,8 +104,8 @@ export function InspectorTabBar({ tabs, activeTab, onActivate, onDetach }: Inspe
     // subtracting it here again would hide an unnecessary extra tab.
     const availableWidth = tabList.clientWidth;
     const next = getOverflowedInspectorTabIds(tabs, availableWidth, tabWidths, activeTab);
-    setOverflowedIds((current) => (sameIds(current, next) ? current : next));
-  }, [activeTab, overflowedIds.length, tabs]);
+    updateOverflowedIds(next);
+  }, [activeTab, tabs, updateOverflowedIds]);
 
   useEffect(() => {
     measureOverflow();
@@ -110,8 +119,8 @@ export function InspectorTabBar({ tabs, activeTab, onActivate, onDetach }: Inspe
   useEffect(() => {
     if (!tabs.some((tab) => tab.id === activeTab)) return;
     if (!overflowedIds.includes(activeTab)) return;
-    setOverflowedIds((current) => current.filter((id) => id !== activeTab));
-  }, [activeTab, overflowedIds, tabs]);
+    updateOverflowedIds(overflowedIds.filter((id) => id !== activeTab));
+  }, [activeTab, overflowedIds, tabs, updateOverflowedIds]);
 
   const overflowed = useMemo(() => new Set<InspectorTabId>(overflowedIds), [overflowedIds]);
   const visibleTabs = tabs.filter((tab) => !overflowed.has(tab.id));

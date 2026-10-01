@@ -1,5 +1,5 @@
 /**
- * CodePanel styles — dedicated "Codegen & Design Audit" workspace panel.
+ * CodePanel styles — shared code export and design audit panel.
  *
  * Follows CSS token conventions from @varve/ui (elevation, color, space, font,
  * radius tokens). Mirrors patterns from SpecPanel.css and inspector.css.

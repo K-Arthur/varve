@@ -4,6 +4,7 @@ import { FAQ } from './faq';
 import { GETTING_STARTED } from './getting-started';
 import type { HelpArticle } from './helpTypes';
 import { PANELS } from './panels';
+import { PRESENTATIONS } from './presentations';
 import { SHORTCUTS_REFERENCE } from './shortcuts';
 import { TOOLS } from './tools';
 import { TROUBLESHOOTING } from './troubleshooting';
@@ -13,6 +14,7 @@ export const HELP_CONTENT: Record<string, HelpArticle> = {
   ...CLIPBOARD,
   ...TOOLS,
   ...PANELS,
+  ...PRESENTATIONS,
   ...EXPORT,
   shortcuts: SHORTCUTS_REFERENCE,
   ...FAQ,

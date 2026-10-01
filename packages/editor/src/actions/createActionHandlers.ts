@@ -90,6 +90,31 @@ function announceToolChange(toolId: string): void {
   });
 }
 
+/** Put logo-scoped commands in their home workspace before exposing the panel. */
+async function revealLogoTools(editor: EditorContextValue): Promise<boolean> {
+  if (editor.state.workspaceMode !== 'design') {
+    const switched = await editor.requestWorkspaceSwitch('design');
+    if (!switched) return false;
+  }
+  editor.setPanelVisible('logo', true);
+  return true;
+}
+
+async function runLogoWorkflowAction(
+  editor: EditorContextValue,
+  action: () => void,
+): Promise<void> {
+  if (await revealLogoTools(editor)) action();
+}
+
+async function toggleLogoWorkflowPanel(editor: EditorContextValue): Promise<void> {
+  if (editor.state.workspaceMode === 'design' && editor.state.logoPanelVisible) {
+    editor.setPanelVisible('logo', false);
+    return;
+  }
+  await revealLogoTools(editor);
+}
+
 export interface ActionHandlerCallbacks {
   onOpenFile?: () => void;
   onImportFile?: () => void;
@@ -1178,7 +1203,7 @@ export function createActionHandlers(
     toggleRightPanel: () => e.toggleRightPanel(),
     toggleLibraryPanel: () => e.toggleLibraryPanel(),
     toggleCodegenPanel: () => e.toggleCodegenPanel(),
-    toggleLogoPanel: () => e.toggleLogoPanel(),
+    toggleLogoPanel: () => toggleLogoWorkflowPanel(e),
     toggleMinimap: () => e.toggleMinimap(),
     toggleTimelinePanel: () => e.toggleTimelinePanel(),
     toggleHistoryPanel: () => e.toggleHistoryPanel(),
@@ -1196,13 +1221,7 @@ export function createActionHandlers(
     workspaceImage: () => e.requestWorkspaceSwitch('image'),
     workspaceMotion: () => e.requestWorkspaceSwitch('motion'),
     workspaceCodegen: () => e.setPanelVisible('codegen', true),
-    workspaceLogo: async () => {
-      if (e.state.workspaceMode !== 'design') {
-        const switched = await e.requestWorkspaceSwitch('design');
-        if (!switched) return;
-      }
-      e.setPanelVisible('logo', true);
-    },
+    workspaceLogo: () => revealLogoTools(e),
     workspaceEmail: () => e.requestWorkspaceSwitch('email'),
     resetWorkspace: () => e.resetWorkspaceToDefault(),
     resetAllWorkspaces: () => e.resetAllWorkspacesToDefaults(),
@@ -1384,21 +1403,28 @@ export function createActionHandlers(
       if (!Number.isFinite(count) || count < 2) return;
       e.radialDuplicateSelected(count);
     },
-    newLogoProject: () => e.newLogoProject(),
-    createLogoConcept: () => e.createLogoConcept(),
-    duplicateLogoConcept: () => e.duplicateActiveConcept(),
+    newLogoProject: () => runLogoWorkflowAction(e, () => e.newLogoProject()),
+    createLogoConcept: () => runLogoWorkflowAction(e, () => e.createLogoConcept()),
+    duplicateLogoConcept: () => runLogoWorkflowAction(e, () => e.duplicateActiveConcept()),
     createLogoVariant: async () => {
       const { promptDialog } = await import('../components/PromptDialog');
       const raw = await promptDialog('Variant name', 'Icon');
       if (raw === null) return;
-      e.createLogoVariant(raw || 'Variant', 'custom');
+      await runLogoWorkflowAction(e, () => e.createLogoVariant(raw || 'Variant', 'custom'));
     },
-    createMonochromeVariant: () => e.createLogoVariant('Monochrome', 'monochrome'),
-    createReversedVariant: () => e.createLogoVariant('Reversed', 'reversed'),
-    createIconVariant: () => e.createLogoVariant('Icon', 'icon'),
-    createSmallVariant: () => e.createLogoVariant('Small', 'small'),
-    logoPreview: () => e.patch({ logoPreviewDialogOpen: !e.state.logoPreviewDialogOpen }),
+    createMonochromeVariant: () =>
+      runLogoWorkflowAction(e, () => e.createLogoVariant('Monochrome', 'monochrome')),
+    createReversedVariant: () =>
+      runLogoWorkflowAction(e, () => e.createLogoVariant('Reversed', 'reversed')),
+    createIconVariant: () => runLogoWorkflowAction(e, () => e.createLogoVariant('Icon', 'icon')),
+    createSmallVariant: () => runLogoWorkflowAction(e, () => e.createLogoVariant('Small', 'small')),
+    logoPreview: async () => {
+      if (await revealLogoTools(e)) {
+        e.patch({ logoPreviewDialogOpen: !e.state.logoPreviewDialogOpen });
+      }
+    },
     exportLogoPackage: async () => {
+      if (!(await revealLogoTools(e))) return;
       const { buildLogoPackage, saveLogoPackage } = await import('../logo/logoPackageExport');
       const doc = e.state.document;
       if (!doc.logoProject) {

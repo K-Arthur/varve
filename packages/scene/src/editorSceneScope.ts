@@ -19,6 +19,7 @@ import {
   type MultipageNodeInstance,
   type MultipageSceneOptions,
   multipageNodeInstances,
+  publishingPagesInViewport,
 } from './pageScene';
 import type { NodeId } from './types';
 import { applySoloToDocument } from './visibility';
@@ -234,12 +235,14 @@ function sceneScopeKey(
   // camera motion must not defeat the cache there (it did on every pan).
   const viewportCulls = base.kind === 'publishing' && (doc.pages?.length ?? 0) > 0;
   const rect = viewportCulls ? options.viewportWorldRect : undefined;
+  // Culling only chooses which placed pages contribute, so a pan that keeps
+  // the same pages in view shares one resolution.
   const rectPart =
     rect === undefined
       ? '\u0001'
       : rect === null
         ? '\u0000'
-        : `${rect.x},${rect.y},${rect.w},${rect.h}`;
+        : `pages:${publishingPagesInViewport(doc, rect).join(',')}`;
   return [
     options.workspaceMode,
     optionPart(options.activePageId),

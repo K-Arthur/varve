@@ -209,4 +209,38 @@ describe('HandTool inertia fix — immutable ctx.pan', () => {
     expect(lastCallX).toBeDefined();
     expect(lastCallX!).toBeGreaterThan(100);
   });
+
+  it('uses camera previews during a drag and commits when slow momentum settles', () => {
+    const tool = new HandTool();
+    const ctx = makeCtx() as ReturnType<typeof makeCtx> & {
+      previewPan?: (next: { x: number; y: number }) => void;
+      commitPan?: (next: { x: number; y: number }) => void;
+    };
+    const previewPan = vi.fn();
+    const commitPan = vi.fn();
+    ctx.previewPan = previewPan;
+    ctx.commitPan = commitPan;
+
+    tool.onPointerDown({ clientX: 0, clientY: 0, pointerId: 1, button: 0 } as any, ctx);
+    tool.onPointerMove({ clientX: 10, clientY: 12, pointerId: 1 } as any, ctx);
+
+    expect(previewPan).toHaveBeenLastCalledWith({ x: 10, y: 12 });
+    expect(ctx.setPan).not.toHaveBeenCalled();
+
+    // A deliberately slow release ensures the inertia path reaches its stop
+    // condition on the first frame, which must durably commit the preview.
+    (tool as any).positionHistory = [
+      { x: 10, y: 12, time: 0 },
+      { x: 10.01, y: 12.01, time: 1000 },
+    ];
+    tool.onPointerUp({ pointerId: 1 } as any, ctx);
+
+    const entry = rafCallbacks.entries().next().value;
+    if (!entry) throw new Error('expected one settling momentum frame');
+    const [id, callback] = entry;
+    rafCallbacks.delete(id);
+    callback(16);
+
+    expect(commitPan).toHaveBeenCalledWith({ x: 10, y: 12 });
+  });
 });

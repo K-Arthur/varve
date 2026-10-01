@@ -1247,6 +1247,30 @@ export {
   samplePathAtLength,
   transformPathShape,
 } from './pathText';
+export type {
+  PatternField,
+  PatternOptions,
+  PatternTile,
+  PatternType,
+  ResolvedTileSize,
+  Rgba,
+  StripeAngle,
+} from './patterns/patternGenerators';
+export {
+  generatePattern,
+  generatePatternTile,
+  PATTERN_TILE_AREA_BUDGET,
+  PATTERN_TILE_MAX,
+  PATTERN_TILE_MIN,
+  PATTERN_TYPE_LABELS,
+  PATTERN_TYPES,
+  patternField,
+  randomPatternSeed,
+  renderFieldToRgba,
+  resolveStripeAngle,
+  resolveTileSize,
+  seededRandom,
+} from './patterns/patternGenerators';
 export type { PixelArtAlgorithm, PixelArtOptions } from './pixelArtScaling';
 export { scalePixelArt } from './pixelArtScaling';
 export type { PorterDuffOp } from './porterDuff';

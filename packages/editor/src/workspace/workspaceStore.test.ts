@@ -16,6 +16,7 @@ import {
   resetAllPreferences,
   resetModePreferences,
   resetWorkspacePreferenceCache,
+  retryWorkspacePreferenceSave,
   savePanelWidths,
   saveWorkspacePreferences,
   setChromeOverride,
@@ -502,6 +503,151 @@ describe('workspaceStore — durable (platform) persistence', () => {
     expect(getWorkspacePreferenceHydrationState()).toBe('settled');
   });
 
+  it('preserves a local edit made while durable preferences are hydrating', async () => {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        design: {
+          customized: true,
+          revision: 4,
+          writerId: 'old-local',
+          lastCustomized: 100,
+          panelOverrides: { layers: { visible: false } },
+        },
+      }),
+    );
+    let releaseRead!: (value: string | null) => void;
+    const platform = {
+      getAppSetting: vi.fn(() => new Promise<string | null>((resolve) => (releaseRead = resolve))),
+      setAppSetting: vi.fn(async () => {}),
+    } as unknown as Platform;
+
+    const hydration = hydrateWorkspacePreferencesFromPlatform(platform);
+    updateWorkspacePreferences((current) =>
+      setPanelOverride(current, 'design', 'inspector', { visible: false }),
+    );
+    releaseRead(
+      JSON.stringify({
+        design: {
+          customized: true,
+          revision: 50,
+          writerId: 'durable',
+          lastCustomized: 1,
+          panelOverrides: { layers: { visible: true } },
+        },
+      }),
+    );
+    await hydration;
+
+    const design = getWorkspacePreferences().design;
+    expect(design.panelOverrides?.layers?.visible).toBe(false);
+    expect(design.panelOverrides?.inspector?.visible).toBe(false);
+    expect(design.revision).toBe(51);
+  });
+
+  it('orders versioned preferences by revision and writer, not wall-clock time', async () => {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        design: {
+          customized: true,
+          revision: 7,
+          writerId: 'writer-a',
+          lastCustomized: 9_999,
+          panelOverrides: { layers: { visible: false } },
+        },
+      }),
+    );
+    await hydrateWorkspacePreferencesFromPlatform(
+      fakePlatform(
+        JSON.stringify({
+          design: {
+            customized: true,
+            revision: 8,
+            writerId: 'writer-b',
+            lastCustomized: 1,
+            panelOverrides: { layers: { visible: true } },
+          },
+        }),
+      ),
+    );
+    expect(getWorkspacePreferences().design.panelOverrides?.layers?.visible).toBe(true);
+
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        design: {
+          customized: true,
+          revision: 8,
+          writerId: 'writer-a',
+          panelOverrides: { layers: { visible: false } },
+        },
+      }),
+    );
+    resetWorkspacePreferenceCache();
+    await hydrateWorkspacePreferencesFromPlatform(
+      fakePlatform(
+        JSON.stringify({
+          design: {
+            customized: true,
+            revision: 8,
+            writerId: 'writer-z',
+            panelOverrides: { layers: { visible: true } },
+          },
+        }),
+      ),
+    );
+    expect(getWorkspacePreferences().design.panelOverrides?.layers?.visible).toBe(true);
+  });
+
+  it('retries a revision-checked durable write and merges a concurrent workspace edit', async () => {
+    const platform = fakePlatform(
+      JSON.stringify({
+        email: {
+          customized: false,
+          revision: 10,
+          writerId: 'seed',
+        },
+      }),
+    );
+    let raced = false;
+    const compareAndSetAppSetting = vi.fn(
+      async (key: string, expected: string | null, next: string) => {
+        if (!raced) {
+          raced = true;
+          platform.store.set(
+            key,
+            JSON.stringify({
+              email: { customized: false, revision: 10, writerId: 'seed' },
+              print: {
+                customized: true,
+                revision: 20,
+                writerId: 'other-window',
+                panelOverrides: { layers: { visible: false } },
+              },
+            }),
+          );
+          return false;
+        }
+        if ((platform.store.get(key) ?? null) !== expected) return false;
+        platform.store.set(key, next);
+        return true;
+      },
+    );
+    Object.assign(platform, { compareAndSetAppSetting });
+
+    await hydrateWorkspacePreferencesFromPlatform(platform);
+    updateWorkspacePreferences((current) =>
+      setPanelOverride(current, 'email', 'layers', { visible: false }),
+    );
+    await flushWorkspacePreferences();
+
+    expect(compareAndSetAppSetting).toHaveBeenCalledTimes(2);
+    const durable = JSON.parse(platform.store.get('workspace-preferences') ?? '{}');
+    expect(durable.email.panelOverrides.layers.visible).toBe(false);
+    expect(durable.print.panelOverrides.layers.visible).toBe(false);
+  });
+
   it('restores customizations when localStorage has been wiped', async () => {
     // The WebKitGTK failure mode: platform storage survived the relaunch,
     // localStorage did not.
@@ -657,6 +803,26 @@ describe('workspaceStore — durable (platform) persistence', () => {
     expect(getWorkspacePersistenceError()?.message).toContain('quota exceeded');
     // …and the session snapshot is unaffected.
     expect(getWorkspacePreferences().design.panelOverrides?.layers?.visible).toBe(false);
+  });
+
+  it('retries the latest preference snapshot and clears the durable-save warning', async () => {
+    const platform = fakePlatform();
+    vi.mocked(platform.setAppSetting)
+      .mockRejectedValueOnce(new Error('temporary storage failure'))
+      .mockImplementation(async (key, value) => {
+        platform.store.set(key, value);
+      });
+    attachWorkspacePreferencePlatform(platform);
+    updateWorkspacePreferences((p) => setPanelOverride(p, 'design', 'layers', { visible: false }));
+    await flushWorkspacePreferences();
+    expect(getWorkspacePersistenceError()?.layer).toBe('platform');
+
+    expect(await retryWorkspacePreferenceSave()).toBe(true);
+    expect(getWorkspacePersistenceError()).toBeNull();
+    expect(
+      JSON.parse(platform.store.get('workspace-preferences') ?? '{}').design.panelOverrides.layers
+        .visible,
+    ).toBe(false);
   });
 
   it('a reset tombstone beats a stale durable customization', async () => {

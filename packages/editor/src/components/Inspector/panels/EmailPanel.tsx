@@ -12,7 +12,6 @@ import { useEffect, useState } from 'react';
 import { useEditor } from '../../../context';
 import { EmailCodeEditor } from './EmailCodeEditor';
 import { EmailNodeCompatibility } from './EmailNodeCompatibility';
-import { EmailOutputPanel } from './EmailOutputPanel';
 import { getEmailCompilation } from './emailCompilation';
 
 const KIND_OPTIONS = [
@@ -52,7 +51,7 @@ const LINK_OPTIONS = [
   { value: 'merge-tag', label: 'Merge tag' },
 ];
 
-export function EmailPanel({ showOutput = true }: { showOutput?: boolean }) {
+export function EmailPanel() {
   const editor = useEditor();
   const { state } = editor;
   const selected = editor.selectedNodes();
@@ -231,7 +230,6 @@ export function EmailPanel({ showOutput = true }: { showOutput?: boolean }) {
         )}
 
         <VariableEditor />
-        {showOutput && <EmailOutputPanel />}
       </div>
     </div>
   );

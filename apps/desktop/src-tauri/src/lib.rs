@@ -5460,16 +5460,15 @@ pub fn run() {
     // generic Wayland logo. Must run before GTK init inside `Builder::run`.
     #[cfg(target_os = "linux")]
     {
-        // AppImage workaround: the bundle ships GTK/WebKit support libraries
-        // built on the ubuntu-22.04 baseline. On distros with a newer
-        // Mesa/EGL stack (Arch, CachyOS, Fedora), the stale bundled
-        // libwayland-egl combo makes WebKit's DMA-BUF renderer fail EGL
-        // display creation (EGL_BAD_PARAMETER) and the web process aborts,
-        // leaving a white window. Disabling only the DMA-BUF renderer fixes
-        // it while keeping GPU compositing where possible. Installed
-        // (deb/rpm) builds use the host's libraries and never set this.
-        if std::env::var_os("APPIMAGE").is_some() {
-            std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+        // Legacy AppImage safety fallback. Current packaging prunes bundled
+        // GTK/WebKit libraries, so this should not normally be needed. Keep it
+        // until a packaged launch/render check passes without it, and preserve
+        // an explicit user override when diagnosing compositor failures.
+        if let Some(value) = appimage_dmabuf_default(
+            std::env::var_os("APPIMAGE").is_some(),
+            std::env::var_os("WEBKIT_DISABLE_DMABUF_RENDERER").is_some(),
+        ) {
+            std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", value);
         }
 
         glib::set_prgname(Some("dev.varve.desktop"));
@@ -6016,6 +6015,10 @@ pub fn run() {
         });
 }
 
+fn appimage_dmabuf_default(is_appimage: bool, has_user_override: bool) -> Option<&'static str> {
+    (is_appimage && !has_user_override).then_some("1")
+}
+
 // ── Native Print ────────────────────────────────────────────────────────
 
 #[derive(Debug, Serialize)]
@@ -6112,6 +6115,13 @@ fn cancel_print_job(printer_name: String, job_id: u32) -> Result<String, String>
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn appimage_dmabuf_workaround_preserves_explicit_user_overrides() {
+        assert_eq!(appimage_dmabuf_default(true, false), Some("1"));
+        assert_eq!(appimage_dmabuf_default(true, true), None);
+        assert_eq!(appimage_dmabuf_default(false, false), None);
+    }
 
     #[test]
     fn native_touchpad_phases_keep_updates_active_and_cancel_distinct() {

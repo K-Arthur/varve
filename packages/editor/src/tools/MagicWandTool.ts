@@ -6,12 +6,14 @@
  * Node selection remains completely separate.
  */
 import {
+  type AreaSelection,
   type AreaSelectionOperation,
   areaSelectionFromColorRange,
   combineAreaSelections,
   computeImagePlacement,
   createAreaSelection,
   localToSourcePixel,
+  refineAreaSelection,
   transformAreaSelection,
 } from '@varve/engine';
 import {
@@ -24,7 +26,9 @@ import {
 import { applyAffine, tryInvertAffine } from '@varve/shared';
 import { visibleImageSourceMapping } from '../floatingRaster/imagePlacement';
 import { nodeLocalBounds, nodeWorldTransform } from '../scene/world';
+import { sampleVisibleArtwork } from './artworkSampling';
 import { BaseTool } from './BaseTool';
+import { closeMagicWandGaps } from './magicWandGapClosure';
 import { DEFAULT_MAGIC_WAND_SETTINGS } from './magicWandSettings';
 import { rasterColorSelectionAt } from './rasterColorSelection';
 import { decodeRasterMaskDataUrl } from './selectionMask';
@@ -43,6 +47,7 @@ export class MagicWandTool extends BaseTool {
   id = 'magicWand' as const;
 
   private selectionRequestSequence = 0;
+  private artworkRequest: AbortController | null = null;
 
   cursor(_state: ToolCursorState): CursorSpec {
     return { css: 'crosshair', fallback: 'crosshair' };
@@ -52,14 +57,21 @@ export class MagicWandTool extends BaseTool {
     // Image-backed selections decode asynchronously. Every new pointer action
     // supersedes that work, including a click on an unsupported target.
     const requestSequence = ++this.selectionRequestSequence;
+    this.artworkRequest?.abort();
+    this.artworkRequest = null;
     const world = ctx.canvasToWorld(event.clientX, event.clientY);
+    const settings = { ...(ctx.magicWandSettings ?? DEFAULT_MAGIC_WAND_SETTINGS) };
+    const operation =
+      event.shiftKey || event.altKey ? selectionOperationFromModifiers(event) : settings.operation;
+    if (settings.sampleSource === 'visibleArtwork') {
+      const controller = new AbortController();
+      this.artworkRequest = controller;
+      void this.selectVisibleArtwork(ctx, requestSequence, world, operation, settings, controller);
+      return { consumed: true };
+    }
+
     const hit = ctx.hitTest(world);
     if (hit?.node.kind === 'rasterLayer') {
-      const settings = { ...(ctx.magicWandSettings ?? DEFAULT_MAGIC_WAND_SETTINGS) };
-      const operation =
-        event.shiftKey || event.altKey
-          ? selectionOperationFromModifiers(event)
-          : settings.operation;
       this.selectRaster(ctx, hit.nodeId, hit.node, world, operation);
       return { consumed: true };
     }
@@ -73,11 +85,6 @@ export class MagicWandTool extends BaseTool {
       selectedRaster?.kind === 'rasterLayer' &&
       (hit === null || hit.node.kind !== 'shape' || !isImageShape(hit.node))
     ) {
-      const settings = { ...(ctx.magicWandSettings ?? DEFAULT_MAGIC_WAND_SETTINGS) };
-      const operation =
-        event.shiftKey || event.altKey
-          ? selectionOperationFromModifiers(event)
-          : settings.operation;
       this.selectRaster(ctx, selectedRaster.id, selectedRaster, world, operation);
       return { consumed: true };
     }
@@ -93,9 +100,6 @@ export class MagicWandTool extends BaseTool {
       ctx.announce('The image source is unavailable');
       return { consumed: true };
     }
-    const settings = { ...(ctx.magicWandSettings ?? DEFAULT_MAGIC_WAND_SETTINGS) };
-    const operation =
-      event.shiftKey || event.altKey ? selectionOperationFromModifiers(event) : settings.operation;
     void this.select(
       ctx,
       requestSequence,
@@ -112,6 +116,156 @@ export class MagicWandTool extends BaseTool {
 
   override onDeactivate(): void {
     this.selectionRequestSequence += 1;
+    this.artworkRequest?.abort();
+    this.artworkRequest = null;
+  }
+
+  private async selectVisibleArtwork(
+    ctx: ToolContext,
+    requestSequence: number,
+    click: { x: number; y: number },
+    operation: AreaSelectionOperation,
+    settings: NonNullable<ToolContext['magicWandSettings']>,
+    controller: AbortController,
+  ): Promise<void> {
+    const clearRequest = () => {
+      if (this.artworkRequest === controller) this.artworkRequest = null;
+    };
+    if (!ctx.setAreaSelection) {
+      clearRequest();
+      ctx.announce('Pixel selection is unavailable in this editor surface');
+      return;
+    }
+    const sourceDocument = ctx.document;
+    const sourceSelection = ctx.areaSelection ?? null;
+    const rootIds = ctx.rootNodes().map((node) => node.id);
+    const sampled = await sampleVisibleArtwork({
+      document: sourceDocument,
+      rootIds,
+      signal: controller.signal,
+    });
+    if (requestSequence !== this.selectionRequestSequence || controller.signal.aborted) {
+      clearRequest();
+      return;
+    }
+    if (sampled.status !== 'ready') {
+      clearRequest();
+      ctx.announce(sampled.reason);
+      return;
+    }
+    const currentDocument = ctx.getCurrentDocument?.();
+    if (
+      sampled.document !== sourceDocument ||
+      (currentDocument !== undefined && currentDocument !== sourceDocument)
+    ) {
+      clearRequest();
+      ctx.announce('The artwork changed before Magic Wand could finish; click it again');
+      return;
+    }
+    const currentRootIds = ctx.rootNodes().map((node) => node.id);
+    if (
+      currentRootIds.length !== rootIds.length ||
+      currentRootIds.some((id, index) => id !== rootIds[index])
+    ) {
+      clearRequest();
+      ctx.announce('The active artwork changed before Magic Wand could finish; click it again');
+      return;
+    }
+    const liveSelection = ctx.getCurrentAreaSelection
+      ? ctx.getCurrentAreaSelection()
+      : (ctx.areaSelection ?? null);
+    if (liveSelection !== sourceSelection) {
+      clearRequest();
+      ctx.announce('The pixel selection changed before Magic Wand could finish; click again');
+      return;
+    }
+
+    const { bounds, imageData } = sampled;
+    const sampleX = Math.floor(click.x - bounds.x);
+    const sampleY = Math.floor(click.y - bounds.y);
+    if (sampleX < 0 || sampleY < 0 || sampleX >= bounds.width || sampleY >= bounds.height) {
+      clearRequest();
+      ctx.announce('Click within the visible artwork to sample it');
+      return;
+    }
+    const offset = (sampleY * bounds.width + sampleX) * 4;
+    const target = {
+      r: imageData.data[offset]!,
+      g: imageData.data[offset + 1]!,
+      b: imageData.data[offset + 2]!,
+    };
+    if (settings.mode === 'contiguous' && settings.gapClosure > 0) {
+      const gapResult = await closeMagicWandGaps(imageData, {
+        target,
+        reach: toleranceToOklab(settings.tolerance) + featherToOklab(settings.edgeFeather),
+        radius: settings.gapClosure,
+        signal: controller.signal,
+      });
+      if (
+        gapResult === 'cancelled' ||
+        requestSequence !== this.selectionRequestSequence ||
+        controller.signal.aborted
+      ) {
+        clearRequest();
+        return;
+      }
+      const currentDocumentAfterClose = ctx.getCurrentDocument?.();
+      const currentRootsAfterClose = ctx.rootNodes().map((node) => node.id);
+      const currentSelectionAfterClose = ctx.getCurrentAreaSelection
+        ? ctx.getCurrentAreaSelection()
+        : (ctx.areaSelection ?? null);
+      if (
+        (currentDocumentAfterClose !== undefined && currentDocumentAfterClose !== sourceDocument) ||
+        currentRootsAfterClose.length !== rootIds.length ||
+        currentRootsAfterClose.some((id, index) => id !== rootIds[index]) ||
+        currentSelectionAfterClose !== sourceSelection
+      ) {
+        clearRequest();
+        ctx.announce('The artwork changed before Magic Wand could finish; click again');
+        return;
+      }
+    }
+    const sourceSelectionMask = areaSelectionFromColorRange(
+      { data: imageData.data, width: bounds.width, height: bounds.height },
+      target,
+      {
+        tolerance: toleranceToOklab(settings.tolerance),
+        feather: featherToOklab(settings.edgeFeather),
+        mode: settings.mode,
+        seed: settings.mode === 'contiguous' ? { x: sampleX, y: sampleY } : undefined,
+      },
+    );
+    const expandedSelectionMask = this.expandSelection(sourceSelectionMask, settings.edgeExpansion);
+    const documentSelection = expandedSelectionMask
+      ? transformAreaSelection(expandedSelectionMask, [1, 0, 0, 1, bounds.x, bounds.y])
+      : null;
+    if (!documentSelection) {
+      clearRequest();
+      ctx.announce('No matching visible artwork was found');
+      return;
+    }
+    const next = combineAreaSelections(
+      sourceSelection,
+      documentSelection,
+      operation,
+      (sourceSelection?.generation ?? 0) + 1,
+    );
+    if (!next) {
+      clearRequest();
+      ctx.announce(
+        operation === 'intersect'
+          ? 'Nothing to intersect with — make a selection first'
+          : 'Nothing to subtract from — make a selection first',
+      );
+      return;
+    }
+    ctx.setAreaSelection(next);
+    clearRequest();
+    ctx.announce(
+      settings.mode === 'contiguous'
+        ? 'Contiguous visible-artwork Magic Wand selection created'
+        : 'Global visible-artwork Magic Wand selection created',
+    );
   }
 
   private selectRaster(
@@ -142,6 +296,7 @@ export class MagicWandTool extends BaseTool {
     const localSelection = rasterColorSelectionAt(node, localPoint, {
       tolerance: toleranceToOklab(settings.tolerance),
       feather: featherToOklab(settings.edgeFeather),
+      edgeExpansion: settings.edgeExpansion,
       mode: settings.mode,
     });
     const documentSelection = localSelection
@@ -256,14 +411,15 @@ export class MagicWandTool extends BaseTool {
         seed: settings.mode === 'contiguous' ? sourcePoint : undefined,
       },
     );
+    const expandedSourceSelection = this.expandSelection(sourceSelection, settings.edgeExpansion);
     const crop = createAreaSelection({
       kind: 'rectangle',
       ...mapping.visibleSourceRect,
       feather: 0,
       antialias: false,
     });
-    const documentSelection = sourceSelection
-      ? transformAreaSelection(sourceSelection, mapping.sourceToDocument)
+    const documentSelection = expandedSourceSelection
+      ? transformAreaSelection(expandedSourceSelection, mapping.sourceToDocument)
       : null;
     const visibleCrop = crop ? transformAreaSelection(crop, mapping.sourceToDocument) : null;
     if (!documentSelection || !visibleCrop) {
@@ -300,5 +456,18 @@ export class MagicWandTool extends BaseTool {
         ? 'Contiguous Magic Wand selection created'
         : 'Global Magic Wand selection created',
     );
+  }
+
+  private expandSelection(
+    selection: AreaSelection | null,
+    edgeExpansion: number,
+  ): AreaSelection | null {
+    if (!selection) return null;
+    const amount = Number.isFinite(edgeExpansion)
+      ? Math.max(0, Math.min(8, Math.round(edgeExpansion)))
+      : 0;
+    return amount > 0
+      ? refineAreaSelection(selection, 'grow', { amount }, selection.generation)
+      : selection;
   }
 }

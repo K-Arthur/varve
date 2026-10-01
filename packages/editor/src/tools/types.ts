@@ -163,6 +163,10 @@ export interface ToolContext {
   /** Tool that was active immediately before this lifecycle activation. */
   previousToolId?: ToolId;
   document: Document;
+  /** Read the latest immutable document after asynchronous tool work settles. */
+  getCurrentDocument?: () => Document;
+  /** Read the latest area selection so stale async work cannot overwrite it. */
+  getCurrentAreaSelection?: () => AreaSelection | null;
   selection: NodeId[];
   zoom: number;
   pan: { x: number; y: number };
@@ -268,6 +272,14 @@ export interface ToolContext {
    * pointermove/key-repeat.
    */
   setNodePositions: (positions: ReadonlyArray<{ id: NodeId; x: number; y: number }>) => void;
+  /** Render an immutable transform preview without mutating the document/history. */
+  previewNodePositions?: (
+    positions: ReadonlyArray<{ id: NodeId; x: number; y: number }>,
+    affectedIds: readonly NodeId[],
+    flush?: boolean,
+  ) => Document | null | undefined;
+  /** Discard an active render-only transform preview. */
+  clearNodePositionPreview?: () => void;
   setNodeSize: (id: NodeId, w: number, h: number) => void;
   updateNode: (id: NodeId, updater: (n: SceneNode) => SceneNode) => void;
   /**
@@ -295,6 +307,10 @@ export interface ToolContext {
   reparentNode: (id: NodeId, newParentId: NodeId | null, toIndex: number) => void;
   setCamera: (camera: Camera) => void;
   setPan: (p: { x: number; y: number }) => void;
+  /** High-frequency navigation preview; falls back to setPan in lightweight tool harnesses. */
+  previewPan?: (p: { x: number; y: number }) => void;
+  /** Persist the final high-frequency pan preview into editor state. */
+  commitPan?: (p: { x: number; y: number }) => void;
   setZoom: (z: number) => void;
   announce: (msg: string) => void;
   announceSelection: (selected: SceneNode[]) => void;

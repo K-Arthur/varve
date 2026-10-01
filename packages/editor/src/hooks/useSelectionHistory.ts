@@ -17,6 +17,11 @@ export interface SelectionHistoryEntry {
   timestamp: number;
 }
 
+export interface SelectionHistorySnapshot {
+  entries: SelectionHistoryEntry[];
+  currentIndex: number;
+}
+
 export function useSelectionHistory() {
   const historyRef = useRef<SelectionHistoryEntry[]>([]);
   const currentIndexRef = useRef(-1);
@@ -71,6 +76,28 @@ export function useSelectionHistory() {
     currentIndexRef.current = -1;
   }, []);
 
+  const snapshot = useCallback(
+    (): SelectionHistorySnapshot => ({
+      entries: historyRef.current.map((entry) => ({
+        selection: [...entry.selection],
+        timestamp: entry.timestamp,
+      })),
+      currentIndex: currentIndexRef.current,
+    }),
+    [],
+  );
+
+  const restore = useCallback((saved: SelectionHistorySnapshot) => {
+    historyRef.current = saved.entries.map((entry) => ({
+      selection: [...entry.selection],
+      timestamp: entry.timestamp,
+    }));
+    currentIndexRef.current = Math.min(
+      Math.max(saved.currentIndex, -1),
+      historyRef.current.length - 1,
+    );
+  }, []);
+
   return {
     push,
     selectPrevious,
@@ -78,5 +105,7 @@ export function useSelectionHistory() {
     canGoBack,
     canGoForward,
     reset,
+    snapshot,
+    restore,
   };
 }

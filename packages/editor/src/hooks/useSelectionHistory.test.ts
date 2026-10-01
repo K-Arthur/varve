@@ -97,6 +97,23 @@ describe('useSelectionHistory', () => {
     expect(result.current.canGoForward()).toBe(false);
   });
 
+  it('restores the back and forward position after a cancelled selection gesture', () => {
+    const { result } = renderHook(() => useSelectionHistory());
+    let snapshot = result.current.snapshot();
+    act(() => {
+      result.current.push(['node1']);
+      result.current.push(['node2']);
+      result.current.push(['node3']);
+      result.current.selectPrevious();
+      snapshot = result.current.snapshot();
+      result.current.push(['temporary']);
+      result.current.restore(snapshot);
+    });
+
+    expect(result.current.selectNext()).toEqual(['node3']);
+    expect(result.current.canGoForward()).toBe(false);
+  });
+
   it('selectPrevious returns null at start', () => {
     const { result } = renderHook(() => useSelectionHistory());
     act(() => {

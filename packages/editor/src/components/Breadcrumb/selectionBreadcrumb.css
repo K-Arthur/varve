@@ -1,28 +1,53 @@
 .selection-breadcrumb {
-  /* The breadcrumb is a direct child of the editor grid. Without an explicit
-   * area it is auto-placed beneath the menubar/tab strip, which leaves the
-   * visible control covered by editor chrome and impossible to click. */
-  grid-area: canvas;
-  align-self: start;
-  z-index: var(--z-raised);
+  /* The bar is a row of the canvas dock (see shellStyles.css), not an overlay
+   * on the shell's `canvas` grid area: the dock's rectangle is the one
+   * `useEditorDockGeometry` positions and therefore the only one guaranteed
+   * to match the canvas the path describes. Anchored to the grid area
+   * instead, the bar tracked the panel *track tokens* while the rails were
+   * placed by dock geometry — at 1920px it began 134px left of the canvas
+   * (painting its leading segments under the Layers rail) and ran 69px past
+   * the canvas's right edge. Its own dock row also keeps it clear of the
+   * 20px rulers, which are anchored to the canvas's top edge and were
+   * previously covered by the bar whenever a selection existed.
+   *
+   * `container-type: inline-size` lets the segments adapt to the bar's own
+   * width (which is the canvas width, not the viewport width) instead of to
+   * the viewport. */
+  grid-area: path;
+  container-type: inline-size;
+  container-name: selection-path;
   display: flex;
   align-items: center;
   gap: 2px;
+  min-width: 0;
   padding: 2px var(--space-2);
   font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
-  overflow: hidden;
+  /* Last resort only: segments shrink and ellipsize first (below), so this
+   * scrolls just under extreme text enlargement, where even the minimum
+   * segment floor cannot fit. Same treatment as `.editor-menubar__left`:
+   * scroll rather than clip content that has no other way to be reached. */
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
   white-space: nowrap;
   min-height: 22px;
   border-bottom: 1px solid var(--color-border-subtle);
   background: var(--elevation-surface-default);
-  flex-shrink: 0;
+}
+
+.selection-breadcrumb::-webkit-scrollbar {
+  display: none;
 }
 
 .selection-breadcrumb__segment-group {
   display: flex;
   align-items: center;
   gap: 2px;
+  /* Shrinkable: the group must be allowed to track the bar's width, and the
+   * segment inside carries the floor that stops it collapsing. */
+  flex: 0 1 auto;
+  min-width: 0;
 }
 
 .selection-breadcrumb__separator {
@@ -42,7 +67,13 @@
   border-radius: var(--radius-control-compact);
   font-size: var(--font-size-xs);
   white-space: nowrap;
+  /* Shrinkable with a floor: a long path stays individually targetable at the
+   * 320px canvas minimum instead of spilling past the bar's edge, where the
+   * bar's overflow clipped it with no way to reach it. */
+  flex: 0 1 auto;
+  min-width: 3.25rem;
   max-width: 140px;
+  overflow: hidden;
   transition:
     background 0.1s,
     color 0.1s;
@@ -63,15 +94,34 @@
   color: var(--color-text-muted);
   text-transform: lowercase;
   font-size: 0.85em;
+  /* The kind is a short fixed word; it must not be squeezed to "f…" while the
+   * name next to it still has room to ellipsize. */
+  flex: 0 0 auto;
 }
 
 .selection-breadcrumb__segment-name {
+  flex: 0 1 auto;
+  /* Without `min-width: 0` a flex item's automatic minimum size is its
+   * min-content width, and with `white-space: nowrap` that is the whole name:
+   * the name overflowed its segment (and sometimes the bar) instead of
+   * ellipsizing. */
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
+/* Narrow canvas: drop the kind label ("frame", "shape", …) so the node names
+ * keep their room. The kind remains in the segment's accessible name and in
+ * the hover tooltip. */
+@container selection-path (max-width: 34rem) {
+  .selection-breadcrumb__segment-kind {
+    display: none;
+  }
+}
+
 .selection-breadcrumb__overflow-wrapper {
   position: relative;
+  flex: 0 0 auto;
 }
 
 .selection-breadcrumb__overflow-btn {
@@ -98,49 +148,8 @@
   outline-offset: 1px;
 }
 
-.selection-breadcrumb__overflow-menu {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  z-index: var(--z-popover);
-  background: var(--elevation-surface-default);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-control);
-  box-shadow: var(--shadow-lg);
-  padding: var(--space-1);
-  min-width: 160px;
-  max-height: 240px;
-  overflow-y: auto;
-}
-
-.selection-breadcrumb__overflow-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  width: 100%;
-  padding: var(--space-1) var(--space-2);
-  border: none;
-  background: transparent;
-  color: var(--color-text-primary);
-  cursor: pointer;
-  border-radius: var(--radius-control-compact);
-  font-size: var(--font-size-xs);
-  text-align: left;
-}
-
-.selection-breadcrumb__overflow-item:hover {
-  background: var(--color-surface-hover);
-}
-
-.selection-breadcrumb__overflow-item-kind {
-  font-weight: var(--font-weight-medium);
-  color: var(--color-text-muted);
-  flex-shrink: 0;
-}
-
-.selection-breadcrumb__overflow-item-name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
+/* The overflow list itself is the shared `@varve/ui` Menu (see
+ * SelectionBreadcrumb.tsx); the bespoke menu/item rules that used to live here
+ * were replaced by it and had no remaining consumer. */
 
 /* Touch candidate menu — now uses shared .varve-menu classes */

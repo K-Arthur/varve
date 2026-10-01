@@ -85,6 +85,39 @@ describe('createActionHandlers — retired workspace shortcuts', () => {
     await createActionHandlers(editor).workspaceLogo?.();
     expect(setPanelVisible).not.toHaveBeenCalled();
   });
+
+  it('routes the Logo panel toggle to Design from another workspace', async () => {
+    const setPanelVisible = vi.fn();
+    const requestWorkspaceSwitch = vi.fn().mockResolvedValue(true);
+    const editor = makeEditorMock({
+      state: { workspaceMode: 'print', logoPanelVisible: false } as EditorContextValue['state'],
+      setPanelVisible,
+      requestWorkspaceSwitch,
+    });
+
+    await createActionHandlers(editor).toggleLogoPanel?.();
+
+    expect(requestWorkspaceSwitch).toHaveBeenCalledWith('design');
+    expect(setPanelVisible).toHaveBeenCalledWith('logo', true);
+  });
+
+  it('opens Logo Tools in Design before starting a logo project', async () => {
+    const setPanelVisible = vi.fn();
+    const requestWorkspaceSwitch = vi.fn().mockResolvedValue(true);
+    const newLogoProject = vi.fn();
+    const editor = makeEditorMock({
+      state: { workspaceMode: 'print' } as EditorContextValue['state'],
+      setPanelVisible,
+      requestWorkspaceSwitch,
+      newLogoProject,
+    });
+
+    await createActionHandlers(editor).newLogoProject?.();
+
+    expect(requestWorkspaceSwitch).toHaveBeenCalledWith('design');
+    expect(setPanelVisible).toHaveBeenCalledWith('logo', true);
+    expect(newLogoProject).toHaveBeenCalledOnce();
+  });
 });
 
 describe('createActionHandlers — document export', () => {

@@ -61,6 +61,7 @@ export {
   getLifecycleCoordinator,
   getLifecycleFinalizeHandler,
   LifecycleProvider,
+  readUncleanShutdownMarker,
   setLifecycleCommitHook,
   setLifecycleFinalizeHandler,
 } from './lifecycle';

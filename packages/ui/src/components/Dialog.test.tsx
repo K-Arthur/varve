@@ -270,6 +270,32 @@ describe('Dialog', () => {
     expect(fallback).toHaveFocus();
     fallback.remove();
   });
+
+  // A conditionally-mounted dialog (an import/paste/drop report that the
+  // parent unmounts when dismissed) never receives an `open=false` render,
+  // so the close effect above never runs. Without close() the platform never
+  // performs its focus-restoration step and keyboard focus strands on
+  // <body> when the dialog leaves the DOM (APG: focus returns to the invoker
+  // on close).
+  it('closes the native dialog on unmount so focus restoration can run', () => {
+    // vitest.setup.ts installs one shared mock for HTMLDialogElement.close;
+    // clear its history so earlier tests' unmounts do not leak into this one.
+    const closeMock = HTMLDialogElement.prototype.close as unknown as ReturnType<typeof vi.fn>;
+    closeMock.mockClear();
+
+    const { unmount } = render(
+      <Dialog open title="Import Results" onClose={vi.fn()}>
+        <button type="button">focusable</button>
+      </Dialog>,
+    );
+
+    const dialog = document.querySelector('dialog') as HTMLDialogElement;
+    expect(dialog.open).toBe(true);
+    expect(closeMock).not.toHaveBeenCalled();
+
+    unmount();
+    expect(closeMock).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('AlertDialog', () => {

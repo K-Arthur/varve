@@ -77,6 +77,7 @@ export function dispatchToTool(
       phase,
       pointerType: event.pointerType,
       buttons: event.buttons,
+      ...(Number.isFinite(event.timeStamp) ? { eventTimeStamp: event.timeStamp } : {}),
       pointerSequenceId: nextPointerSequenceId(),
       coalescedCount,
       shift: event.shiftKey,

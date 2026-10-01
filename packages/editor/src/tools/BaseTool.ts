@@ -117,6 +117,16 @@ export abstract class BaseTool implements Tool {
 
   onPointerUp(e: PointerEvent, ctx: ToolContext): void {
     if (this.drag.kind !== 'dragging' || this.drag.pointerId !== e.pointerId) return;
+    // Pointer-up can carry a newer coalesced position than the last move
+    // event. Deliver that final sample before ending the gesture so created
+    // shapes, strokes, and transforms land exactly under the released pointer.
+    if (
+      Number.isFinite(e.clientX) &&
+      Number.isFinite(e.clientY) &&
+      (e.clientX !== this.drag.currentCanvas.x || e.clientY !== this.drag.currentCanvas.y)
+    ) {
+      this.onPointerMove(e, ctx);
+    }
     this.dragStartFired = false;
     ctx.releasePointerCapture(e.pointerId);
     this.onDragEnd?.(ctx);

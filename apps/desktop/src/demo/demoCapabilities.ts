@@ -12,10 +12,9 @@
  *  - **Print production** (PDF, CMYK, bleed, colour-managed output) has no
  *    pipeline to talk to in a browser — `getPrinters()` returns an empty list.
  *    Raster and vector export stay, so a visitor can always take work out.
- *  - **Workspaces** are limited to the three the editor itself calls primary.
- *    Print is broken per the above, Motion needs a frame budget a WASM +
- *    Canvas2D tab cannot hold, and Codegen/Logo/Email are narrow power-user
- *    surfaces that only add confusion to a first impression.
+ *  - **Workspaces** are limited to Design, Draw, and Photo for this bounded
+ *    first-run experience. Print production is restricted above; Logo stays
+ *    within Design and shared Code export is not an additional workspace.
  *
  * Excluding these also removes the ONNX runtime and model payload from the
  * deployed artifact — see `demoAssetPrunePlugin` in vite.config.ts.

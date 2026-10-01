@@ -17,9 +17,10 @@ import {
 
 vi.mock('./context', () => ({
   useEditor: vi.fn(),
+  useViewport: vi.fn(),
 }));
 
-import { useEditor } from './context';
+import { useEditor, useViewport } from './context';
 import type { TransformPreviewSnapshot, TransformPreviewStore } from './context/ViewportContext';
 import { interactionSession } from './tools/InteractionContext';
 import { TransformEngine } from './transform/TransformEngine';
@@ -102,6 +103,13 @@ function renderOverlay(
     setSelectedRotation: vi.fn(),
     ...contextOverrides,
   });
+
+  // The overlay converts through the viewport context, which is the camera the
+  // renderer paints with (and the one that follows a camera preview). The mock
+  // mirrors the editor state so these fixtures keep the same camera they always
+  // used.
+  const mockUseViewport = useViewport as unknown as { mockReturnValue: (v: unknown) => void };
+  mockUseViewport.mockReturnValue({ zoom, pan, cameraRotation: 0, ...contextOverrides });
 
   const { container } = render(<SelectionOverlay {...props} />);
   return container;
@@ -188,6 +196,8 @@ describe('SelectionOverlay transform preview', () => {
       commitTransaction: vi.fn(),
       setSelectedRotation: vi.fn(),
     });
+    const mockUseViewport = useViewport as unknown as { mockReturnValue: (v: unknown) => void };
+    mockUseViewport.mockReturnValue({ zoom: MOCK_ZOOM, pan: MOCK_PAN, cameraRotation: 0 });
 
     const { container } = render(<SelectionOverlay transformPreviewStore={store} />);
     const selectionBox = () => container.querySelector('svg > rect[fill="none"]');

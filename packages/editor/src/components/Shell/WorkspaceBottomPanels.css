@@ -62,6 +62,67 @@
   outline-offset: -2px;
 }
 
+.workspace-dock-panel-chrome {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: 0 var(--space-2);
+  color: var(--color-text-secondary);
+  background: var(--elevation-surface-raised);
+  border-bottom: var(--border-micro);
+}
+
+.workspace-dock-panel-chrome__title {
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-dock-move-handle {
+  display: grid;
+  place-items: center;
+  padding: 0 var(--space-1);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  background: var(--elevation-surface-raised);
+  border: var(--border-micro);
+  border-radius: var(--radius-control-compact);
+  box-shadow: var(--shadow-sm);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.workspace-dock-move-handle:active {
+  cursor: grabbing;
+}
+
+.workspace-dock-move-handle:focus-visible {
+  outline: 2px solid var(--color-border-focus);
+  outline-offset: 1px;
+}
+
+.workspace-dock-drop-preview {
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: color-mix(in srgb, var(--color-interactive-default) 12%, transparent);
+  border: 2px dashed var(--color-border-focus);
+  border-radius: var(--radius-card);
+  pointer-events: none;
+}
+
 .workspace-dock-floating {
   position: absolute;
   overflow: hidden;
@@ -114,25 +175,12 @@
   outline-offset: 1px;
 }
 
-.workspace-dock-floating__resize {
-  position: absolute;
-  right: 1px;
-  bottom: 1px;
-  z-index: calc(var(--z-overlay) + 2);
-  width: 20px;
-  height: 20px;
-  padding: 0;
-  pointer-events: auto;
+.workspace-dock-floating__header .workspace-dock-floating__resize-control {
   touch-action: none;
   cursor: nwse-resize;
-  background:
-    linear-gradient(135deg, transparent 48%, var(--color-border-subtle) 50%, transparent 56%),
-    var(--elevation-surface-raised);
-  border: var(--border-micro);
-  border-radius: var(--radius-control-compact);
 }
 
-.workspace-dock-floating__resize:focus-visible {
+.workspace-dock-floating__header .workspace-dock-floating__resize-control:focus-visible {
   outline: 2px solid var(--color-border-focus);
   outline-offset: 1px;
 }

@@ -163,6 +163,17 @@ export function getDesktopAnalytics(): AnalyticsClient {
   return client ?? configureDesktopAnalytics();
 }
 
+export function reportRendererFallback(
+  renderer: 'canvas2d' | 'webgpu' | 'webgl2',
+  detail: string,
+): void {
+  getDesktopAnalytics().track('renderer_fallback', {
+    from: renderer === 'webgl2' ? 'webgl' : renderer,
+    to: 'canvas2d',
+    reason: /failed|unavailable|probe/i.test(detail) ? 'initialization_failed' : 'unavailable',
+  });
+}
+
 export function updateDesktopAnalyticsConsent(settings: PrivacySettingsStore): void {
   getDesktopAnalytics().updateConsent(consentFromSettings(settings));
 }

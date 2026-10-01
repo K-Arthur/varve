@@ -12,12 +12,16 @@
  * CI machines still exercise the shaders).
  *
  * Env filters:
- *   EFFECTS=bloom,crt          — only these kernels
+ *   EFFECTS=bloom,crt          — only these kernels (agreement + timing)
  *   GPU_AGREEMENT_MODE=report  — print stats without asserting (kernel dev)
+ *   GPU_TIMING_SIZES / GPU_TIMING_ITERATIONS — timing report shape
+ *
+ * The second test is a report-only CPU-vs-GPU wall-time table written to
+ * reports/gpu-effects-timing.json (no timing thresholds asserted here).
  */
 import { spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { expect, test } from '@playwright/test';
 
 const bundlePath = join(
@@ -105,17 +109,25 @@ function buildBundle(): void {
   }
 }
 
-test('live effects: WebGPU compute agrees with the CPU kernels', async ({ page }) => {
-  buildBundle();
-  const effects = FILTER.length > 0 ? FILTER : ALL_EFFECTS;
-  const bundle = readFileSync(bundlePath, 'utf8');
+interface GpuProbe {
+  api: boolean;
+  adapter?: string | null;
+  error?: string;
+}
 
+/**
+ * Origin bootstrap, harness injection, and adapter probe shared by the
+ * agreement and timing tests (WebGPU is origin-gated; see the header).
+ * Skips the calling test with a reason when the adapter cannot measure.
+ */
+async function openHarness(page: import('@playwright/test').Page): Promise<GpuProbe> {
+  buildBundle();
+  const bundle = readFileSync(bundlePath, 'utf8');
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   await page.setContent(
     '<html><body><canvas id="probe" width="4" height="4"></canvas></body></html>',
   );
   await page.addScriptTag({ content: bundle });
-
   const gpuProbe = await page.evaluate(async () => {
     if (!navigator.gpu) return { api: false };
     try {
@@ -125,11 +137,25 @@ test('live effects: WebGPU compute agrees with the CPU kernels', async ({ page }
       return { api: true, error: String(error) };
     }
   });
-  console.log(`[gpu-agreement] probe: ${JSON.stringify(gpuProbe)}`);
   test.skip(!gpuProbe.api, 'WebGPU unavailable in this browser');
   if ('adapter' in gpuProbe && !gpuProbe.adapter) {
     test.skip(true, 'no WebGPU adapter');
   }
+  return gpuProbe;
+}
+
+test('live effects: WebGPU compute agrees with the CPU kernels', async ({ page }, testInfo) => {
+  // verify.mjs routes direct-file lanes to the plain `chromium` project;
+  // these specs need the chromium-gpu flags (see the project comment in
+  // playwright.config.ts). Skip with an explicit reason rather than
+  // silently passing or failing in an environment that never had a chance.
+  test.skip(
+    testInfo.project.name !== 'chromium-gpu',
+    'GPU compute specs require --project=chromium-gpu',
+  );
+  const effects = FILTER.length > 0 ? FILTER : ALL_EFFECTS;
+  const gpuProbe = await openHarness(page);
+  console.log(`[gpu-agreement] probe: ${JSON.stringify(gpuProbe)}`);
 
   const result = await page.evaluate(async (names) => {
     return await window.__effectsHarness.run(names, {
@@ -163,6 +189,11 @@ test('live effects: WebGPU compute agrees with the CPU kernels', async ({ page }
 });
 
 test('Color Halftone: 48px rows survive padded WebGPU readback', async ({ page }, testInfo) => {
+  // Demands real WebGPU output; see the project-routing note above.
+  test.skip(
+    testInfo.project.name !== 'chromium-gpu',
+    'GPU compute specs require --project=chromium-gpu',
+  );
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   // Establish the localhost origin, then replace the app DOM before the
   // dynamic module import. The loading shell may finish booting after
@@ -226,4 +257,152 @@ test('Color Halftone: 48px rows survive padded WebGPU readback', async ({ page }
   expect(result.alpha).toBe(255);
   expect(result.redMax, 'readback should contain rendered pixels').toBeGreaterThan(result.redMin);
   expect(result.firstPixel).not.toEqual([242, 245, 251, 255]);
+});
+
+// ---------------------------------------------------------------------------
+// Wall-clock timing (report-only): GPU vs CPU per kernel, end to end.
+//
+// Prints a per-effect table and writes `reports/gpu-effects-timing.json`.
+// No timing thresholds are asserted — a single host cannot pin tail
+// percentiles — only that both paths produced results at each size.
+// Agreement (correctness) bounds live in the first test above. The GPU
+// sample includes upload, dispatch, and readback: exactly what an export
+// consumer would pay. Cold first-use samples (pipeline compilation) are
+// reported separately from warmed medians.
+//
+// Env: EFFECTS=bloom,crt — subset; GPU_TIMING_SIZES=512,1024 — square
+// sizes (default 512,1024,2048); GPU_TIMING_ITERATIONS=7 — samples per
+// effect/size. Full-table history: docs/perf/ledger.md.
+
+const TIMING_SIZES = (process.env.GPU_TIMING_SIZES ?? '512,1024,2048')
+  .split(',')
+  .map((value) => Number(value.trim()))
+  .filter((value) => Number.isFinite(value) && value > 0);
+const TIMING_ITERATIONS = Number(process.env.GPU_TIMING_ITERATIONS ?? 7);
+const TIMING_REPORT_PATH = join(__dirname, '..', '..', '..', 'reports', 'gpu-effects-timing.json');
+
+interface HarnessTimingLike {
+  cpuFirstMs: number;
+  gpuFirstMs: number;
+  cpuMs: number[];
+  gpuMs: number[];
+}
+
+interface HarnessTimingEntry {
+  effect: string;
+  gpuReady: boolean;
+  stats: { meanAbs: number } | null;
+  error?: string;
+  timing?: HarnessTimingLike;
+}
+
+function median(values: number[]): number {
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  if (sorted.length === 0) return Number.NaN;
+  return sorted.length % 2 === 1
+    ? (sorted[mid] ?? 0)
+    : ((sorted[mid - 1] ?? 0) + (sorted[mid] ?? 0)) / 2;
+}
+
+test('live effects: GPU compute wall time vs CPU kernels (report)', async ({ page }, testInfo) => {
+  test.setTimeout(600_000);
+  test.skip(
+    testInfo.project.name !== 'chromium-gpu',
+    'GPU compute specs require --project=chromium-gpu',
+  );
+  const effects = FILTER.length > 0 ? FILTER : ALL_EFFECTS;
+  const gpuProbe = await openHarness(page);
+  console.log(`[gpu-timing] probe: ${JSON.stringify(gpuProbe)}`);
+
+  const rows: Array<{
+    effect: string;
+    size: number;
+    cpuFirstMs: number;
+    gpuFirstMs: number;
+    cpuMedianMs: number;
+    cpuMinMs: number;
+    gpuMedianMs: number;
+    gpuMinMs: number;
+    speedupMedian: number;
+    statsMeanAbs: number | null;
+  }> = [];
+
+  for (const size of TIMING_SIZES) {
+    const result = (await page.evaluate(
+      async ({ names, square, iterations }) => {
+        const harness = (
+          window as unknown as {
+            __effectsHarness: {
+              run(
+                effects: string[],
+                options: {
+                  width: number;
+                  height: number;
+                  timing: { iterations: number };
+                  requireHardwareAdapter: boolean;
+                },
+              ): Promise<{ entries: HarnessTimingEntry[] }>;
+            };
+          }
+        ).__effectsHarness;
+        return await harness.run(names, {
+          width: square,
+          height: square,
+          timing: { iterations },
+          requireHardwareAdapter: true,
+        });
+      },
+      { names: effects, square: size, iterations: TIMING_ITERATIONS },
+    )) as { entries: HarnessTimingEntry[] };
+
+    for (const entry of result.entries) {
+      expect(entry.error, `${entry.effect}@${size}: ${entry.error ?? ''}`).toBeUndefined();
+      expect(entry.gpuReady, `${entry.effect}@${size}: gpuReady`).toBe(true);
+      expect(entry.stats, `${entry.effect}@${size}: agreement stats`).not.toBeNull();
+      expect(entry.timing, `${entry.effect}@${size}: timing samples`).toBeTruthy();
+      const timing = entry.timing;
+      if (!timing) continue;
+      const cpuMedian = median(timing.cpuMs);
+      const gpuMedian = median(timing.gpuMs);
+      rows.push({
+        effect: entry.effect,
+        size,
+        cpuFirstMs: timing.cpuFirstMs,
+        gpuFirstMs: timing.gpuFirstMs,
+        cpuMedianMs: cpuMedian,
+        cpuMinMs: Math.min(...timing.cpuMs),
+        gpuMedianMs: gpuMedian,
+        gpuMinMs: Math.min(...timing.gpuMs),
+        speedupMedian: cpuMedian / gpuMedian,
+        statsMeanAbs: entry.stats?.meanAbs ?? null,
+      });
+      console.log(
+        `[gpu-timing] ${entry.effect}@${size}: cpu med=${cpuMedian.toFixed(1)}ms ` +
+          `min=${Math.min(...timing.cpuMs).toFixed(1)}ms cold=${timing.cpuFirstMs.toFixed(1)}ms | ` +
+          `gpu med=${gpuMedian.toFixed(1)}ms min=${Math.min(...timing.gpuMs).toFixed(1)}ms ` +
+          `cold=${timing.gpuFirstMs.toFixed(1)}ms | x${(cpuMedian / gpuMedian).toFixed(2)}`,
+      );
+    }
+  }
+
+  expect(rows.length, 'every effect produced timing rows').toBe(
+    effects.length * TIMING_SIZES.length,
+  );
+  mkdirSync(dirname(TIMING_REPORT_PATH), { recursive: true });
+  writeFileSync(
+    TIMING_REPORT_PATH,
+    `${JSON.stringify(
+      {
+        date: new Date().toISOString(),
+        adapter: gpuProbe,
+        iterations: TIMING_ITERATIONS,
+        sizes: TIMING_SIZES,
+        rows,
+      },
+      null,
+      2,
+    )}\n`,
+  );
+  console.log(`[gpu-timing] wrote ${TIMING_REPORT_PATH}`);
 });

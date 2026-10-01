@@ -33,6 +33,14 @@ export function formatCompositorStatus(diagnostics: CompositorDiagnostics): {
     };
   }
   if (diagnostics.deviceLost) {
+    if (diagnostics.backendId === 'webgl2') {
+      return {
+        label: 'WebGL2 lost · Canvas2D',
+        detail:
+          'The WebGL2 context was lost. Canvas2D is drawing while bounded recovery is attempted.',
+        warning: true,
+      };
+    }
     return {
       label: 'GPU lost · Canvas2D',
       detail: 'The WebGPU device was lost. Canvas2D is drawing; reload to retry WebGPU.',
@@ -40,9 +48,13 @@ export function formatCompositorStatus(diagnostics: CompositorDiagnostics): {
     };
   }
   if (diagnostics.initFailureReason) {
+    const requested =
+      diagnostics.requestedRenderer === 'webgl2' || diagnostics.backendId === 'webgl2'
+        ? 'WebGL2'
+        : 'WebGPU';
     return {
-      label: 'GPU unavailable · Canvas2D',
-      detail: `WebGPU preference fell back to Canvas2D: ${diagnostics.initFailureReason}.`,
+      label: `${requested} unavailable · Canvas2D`,
+      detail: `${requested} preference fell back to Canvas2D: ${diagnostics.initFailureReason}.`,
       warning: true,
     };
   }
@@ -64,6 +76,17 @@ export function formatCompositorStatus(diagnostics: CompositorDiagnostics): {
     return {
       label: 'Canvas2D · GPU ready',
       detail: 'WebGPU is ready, but the last frame used Canvas2D or worker replay.',
+      warning: false,
+    };
+  }
+  if (diagnostics.backendId === 'webgl2' && diagnostics.gpuActive) {
+    const submitted = diagnostics.lastFrameGpuItems ?? 0;
+    return {
+      label: submitted > 0 ? 'WebGL2 · experimental' : 'WebGL2 ready · experimental',
+      detail:
+        submitted > 0
+          ? `${submitted} eligible item(s) were submitted to WebGL2 in the last frame. Hardware execution is not inferred; other artwork may use Canvas2D.`
+          : 'WebGL2 initialized; the last frame did not report eligible drawing.',
       warning: false,
     };
   }

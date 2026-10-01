@@ -10,6 +10,13 @@
  * `applyCameraTransform` (floating origin, zoom, rotate about viewport
  * centre, pan). Affine on vertices is kurbo/canvas `a·x+c·y+e` /
  * `b·x+d·y+f` with transform=vec4(a,b,c,d), transform2=vec2(e,f).
+ *
+ * Both stages antialias analytically: the fragment derives ~1 device-pixel
+ * edge coverage from fwidth, and the vertex expands its quad ~1 px outward
+ * so the outside half of the band has geometry. The solid stage receives its
+ * geometry as unit-quad local coordinates (the CPU folds the authored rect
+ * or line parallelogram into the item affine) because unit-square distance is
+ * the only per-fragment edge metric available without extra attributes.
  */
 
 export const SOLID_VERTEX_WGSL = /* wgsl */ `
@@ -36,6 +43,7 @@ struct VertexInput {
 struct VertexOutput {
   @builtin(position) position: vec4f,
   @location(0) color: vec4f,
+  @location(1) local: vec2f,
 };
 
 @vertex
@@ -44,9 +52,24 @@ fn vs_main(input: VertexInput) -> VertexOutput {
   // Affine: transform=vec4(a,b,c,d), transform2=vec2(e,f) → x'=a·x+c·y+e, y'=b·x+d·y+f
   // (kurbo / canvas / @varve/shared affine convention). Scalar form avoids
   // WGSL matCxR*vecC column-count traps — see varve-bridge wgsl_validation.
+  //
+  // localPos is the unit quad (0..1)² — the CPU folds the authored rect (or
+  // line parallelogram) into the item affine. Expand the quad ~1 device
+  // pixel outward so the analytic edge-coverage band has geometry on the
+  // outside of the boundary; the fragment stage clamps coverage to zero
+  // beyond it. Screen scale per local axis = camera zoom times the affine
+  // column length (camera rotation preserves length).
+  let scaleX = camera.zoom * sqrt(input.transform.x * input.transform.x + input.transform.y * input.transform.y);
+  let scaleY = camera.zoom * sqrt(input.transform.z * input.transform.z + input.transform.w * input.transform.w);
+  let marginX = 1.0 / max(scaleX, 1e-6);
+  let marginY = 1.0 / max(scaleY, 1e-6);
+  let local = vec2f(
+    select(input.localPos.x - marginX, input.localPos.x + marginX, input.localPos.x > 0.5),
+    select(input.localPos.y - marginY, input.localPos.y + marginY, input.localPos.y > 0.5),
+  );
   let world = vec2f(
-    input.transform.x * input.localPos.x + input.transform.z * input.localPos.y + input.transform2.x,
-    input.transform.y * input.localPos.x + input.transform.w * input.localPos.y + input.transform2.y,
+    input.transform.x * local.x + input.transform.z * local.y + input.transform2.x,
+    input.transform.y * local.x + input.transform.w * local.y + input.transform2.y,
   );
   // Matches buildWorldToScreenAffine / applyCameraTransform: origin → zoom →
   // rotate about viewport centre → pan.
@@ -70,14 +93,29 @@ fn vs_main(input: VertexInput) -> VertexOutput {
   // Premultiply here: canvas configured with alphaMode=premultiplied and
   // pipelines blend with one / one-minus-src-alpha.
   out.color = vec4f(input.color.rgb * input.color.a, input.color.a);
+  out.local = local;
   return out;
 }
 `;
 
 export const SOLID_FRAGMENT_WGSL = /* wgsl */ `
 @fragment
-fn fs_main(@location(0) color: vec4f) -> @location(0) vec4f {
-  return color;
+fn fs_main(
+  @location(0) color: vec4f,
+  @location(1) local: vec2f,
+) -> @location(0) vec4f {
+  // Analytic edge coverage against the unit quad. s is the distance to the
+  // nearest edge in local units; fwidth(s) converts it to per-pixel change,
+  // so s / aa + 0.5 spans about one device pixel across the boundary —
+  // matching Canvas2D's antialiased edge instead of a hard staircase. The
+  // vertex stage expands the quad ~1 px outward so the outside half of the
+  // band has geometry; beyond it coverage clamps to 0 and the premultiplied
+  // blend adds nothing. Aligned edges keep full coverage (fragment centers
+  // sit >= 0.5 px inside), so pixel-aligned rects stay crisp.
+  let s = min(min(local.x, 1.0 - local.x), min(local.y, 1.0 - local.y));
+  let aa = max(fwidth(s), 1e-9);
+  let coverage = clamp(s / aa + 0.5, 0.0, 1.0);
+  return vec4f(color.rgb * coverage, color.a * coverage);
 }
 `;
 
@@ -90,7 +128,9 @@ fn fs_main(@location(0) color: vec4f) -> @location(0) vec4f {
  * or a skew maps the local oval to a differently-proportioned ellipse, and
  * the screen-space test would then clip it back to a circle of radius `r`.
  * `circle` carries (cx, cy, rx, ry); a circle is the rx == ry case, so both
- * primitive kinds share this stage.
+ * primitive kinds share this stage. The quad is expanded ~1 px outward before
+ * rasterization so the fragment's analytic edge-coverage band has geometry on
+ * the outside of the oval boundary.
  */
 export const CIRCLE_VERTEX_WGSL = /* wgsl */ `
 struct CameraUniform {
@@ -124,9 +164,21 @@ struct VertexOutput {
 @vertex
 fn vs_main(input: VertexInput) -> VertexOutput {
   var out: VertexOutput;
+  // Expand the bounding quad ~1 device pixel outward (screen scale = camera
+  // zoom times the affine column length; rotation preserves length) so the
+  // fragment's analytic edge-coverage band has geometry outside the oval
+  // boundary. Coverage clamps to zero beyond the band.
+  let scaleX = camera.zoom * sqrt(input.transform.x * input.transform.x + input.transform.y * input.transform.y);
+  let scaleY = camera.zoom * sqrt(input.transform.z * input.transform.z + input.transform.w * input.transform.w);
+  let marginX = 1.0 / max(scaleX, 1e-6);
+  let marginY = 1.0 / max(scaleY, 1e-6);
+  let local = vec2f(
+    input.localPos.x + sign(input.localPos.x - input.circle.x) * marginX,
+    input.localPos.y + sign(input.localPos.y - input.circle.y) * marginY,
+  );
   let world = vec2f(
-    input.transform.x * input.localPos.x + input.transform.z * input.localPos.y + input.transform2.x,
-    input.transform.y * input.localPos.x + input.transform.w * input.localPos.y + input.transform2.y,
+    input.transform.x * local.x + input.transform.z * local.y + input.transform2.x,
+    input.transform.y * local.x + input.transform.w * local.y + input.transform2.y,
   );
   let zoomed = vec2f(
     (world.x - camera.origin.x) * camera.zoom,
@@ -146,7 +198,7 @@ fn vs_main(input: VertexInput) -> VertexOutput {
   let ndcY = 1.0 - (screen.y / camera.viewportH) * 2.0;
   out.position = vec4f(ndcX, ndcY, 0.0, 1.0);
   out.color = vec4f(input.color.rgb * input.color.a, input.color.a);
-  out.local = input.localPos;
+  out.local = local;
   out.circle = input.circle;
   return out;
 }
@@ -159,13 +211,22 @@ fn fs_main(
   @location(1) local: vec2f,
   @location(2) circle: vec4f,
 ) -> @location(0) vec4f {
-  // Local-space normalized coverage: exact for every affine item transform
-  // and for both radii (a circle is the rx == ry case).
-  let d = (local - circle.xy) / circle.zw;
-  if (dot(d, d) > 1.0) {
-    discard;
-  }
-  return color;
+  // Local-space normalized radial distance: exact for every affine item
+  // transform and for both radii (a circle is the rx == ry case). Radii are
+  // clamped away from zero so a degenerate oval evaluates to a huge q instead
+  // of NaN derivatives.
+  let radii = max(circle.zw, vec2f(1e-6));
+  let q = length((local - circle.xy) / radii);
+  // Analytic edge coverage: fwidth(q) is the per-pixel change of the
+  // normalized radius (1 / radius-in-pixels at the boundary), so
+  // (1 - q) / aa + 0.5 spans about one device pixel across the edge —
+  // matching Canvas2D's antialiasing instead of the previous hard discard.
+  // The vertex stage expands the quad ~1 px outward so the outside half of
+  // the band has geometry; beyond it coverage clamps to 0 and the
+  // premultiplied blend adds nothing.
+  let aa = max(fwidth(q), 1e-9);
+  let coverage = clamp((1.0 - q) / aa + 0.5, 0.0, 1.0);
+  return vec4f(color.rgb * coverage, color.a * coverage);
 }
 `;
 

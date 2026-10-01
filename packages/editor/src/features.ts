@@ -36,8 +36,8 @@ const FEATURE_DESCRIPTIONS: Record<
     experimental: true,
   },
   codegenWorkspace: {
-    label: 'Codegen Workspace',
-    description: 'Enable the Codegen & Audit workspace mode.',
+    label: 'Code Panel',
+    description: 'Enable the shared Code panel for code export and design audit.',
   },
   aiFeatures: {
     label: 'AI Features',

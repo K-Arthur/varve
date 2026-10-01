@@ -26,7 +26,7 @@ const EMPTY_SELECTION: string[] = [];
 
 function buildCtx(
   selection: string[],
-  workspace: 'design' | 'print' | 'drawing' | 'image' | 'motion' | 'codegen',
+  workspace: 'design' | 'print' | 'drawing' | 'image' | 'motion' | 'email',
   platformKind?: string,
 ): MenuContext {
   const doc = createTestDoc();

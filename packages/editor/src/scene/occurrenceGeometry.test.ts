@@ -79,6 +79,35 @@ describe('occurrenceGeometry', () => {
     expect([...after.boundsByInstanceId]).toEqual([...full.boundsByInstanceId]);
   });
 
+  it('uses certified transform IDs to refresh labels without classifying every node', () => {
+    const { doc, scope } = fixture();
+    const resolver = vi.fn((document: Document, id: string) => {
+      const node = document.nodes[id];
+      return node ? { x: node.transform[4], y: node.transform[5], w: 20, h: 10 } : null;
+    });
+    occurrenceGeometry(doc, scope, { revision: 'certified', boundsForNode: resolver });
+
+    const moved: Document = {
+      ...doc,
+      nodes: {
+        ...doc.nodes,
+        child: { ...doc.nodes.child!, transform: [1, 0, 0, 1, 30, 40] },
+      },
+    };
+    const after = occurrenceGeometry(moved, scope, {
+      revision: 'certified',
+      boundsForNode: resolver,
+      transformChangedNodeIds: ['child'],
+    });
+
+    expect(after.incremental).toBe(true);
+    expect(after.recalculatedOccurrenceCount).toBe(2);
+    expect(new Set(after.recalculatedInstanceIds)).toEqual(new Set(['parent', 'child']));
+    expect(resolver).toHaveBeenCalledTimes(5);
+    expect(after.boundsByInstanceId.get('child')?.x).toBe(30);
+    expect(after.boundsByInstanceId.get('child')?.y).toBe(40);
+  });
+
   it('fully rebuilds when the bounds resolver changes', () => {
     const { doc, scope } = fixture();
     const firstResolver = vi.fn(() => ({ x: 1, y: 2, w: 3, h: 4 }));

@@ -33,6 +33,7 @@ import {
   renameLayoutVariant,
   resetLayoutStoreCache,
   restoreResetSnapshotToPreferences,
+  retryLayoutStoreSave,
   sanitizeLayoutPayload,
   sanitizeLayoutStore,
   setLayoutStore,
@@ -712,6 +713,31 @@ describe('layoutVariants: persistence and merge', () => {
       'Local edit',
     ]);
     expect(platform.compareAndSetAppSetting).toHaveBeenCalledTimes(2);
+  });
+
+  it('retries the latest named-layout snapshot and clears the durable-save warning', async () => {
+    const platform = fakePlatform();
+    vi.mocked(platform.setAppSetting)
+      .mockRejectedValueOnce(new Error('temporary storage failure'))
+      .mockImplementation(async (key, value) => {
+        platform.store.set(key, value);
+      });
+    attachLayoutStorePlatform(platform);
+    const added = addLayoutVariant(createEmptyLayoutStore(), {
+      name: 'Retry me',
+      sourceMode: 'design',
+      payload: {},
+    });
+    if (!added.ok) throw new Error('setup failed');
+    setLayoutStore(added.state);
+    await flushLayoutStore();
+    expect(getLayoutPersistenceError()?.layer).toBe('platform');
+
+    expect(await retryLayoutStoreSave()).toBe(true);
+    expect(getLayoutPersistenceError()).toBeNull();
+    expect(JSON.parse(platform.store.get('workspace-layouts') ?? '{}').variants[0].name).toBe(
+      'Retry me',
+    );
   });
 
   it('a local tombstone defeats a stale durable variant', async () => {

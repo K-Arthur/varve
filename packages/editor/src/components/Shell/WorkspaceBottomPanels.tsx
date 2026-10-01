@@ -1,5 +1,9 @@
 import type { CSSProperties, ReactNode } from 'react';
 import type {
+  DockPanelDropPreview,
+  DockPanelMoveHandle,
+} from '../../workspace/dock/useDockPanelDrag';
+import type {
   DockFloatingGroupView,
   DockRecoveryNotice,
   DockTabGroupView,
@@ -34,6 +38,8 @@ export interface WorkspaceBottomPanelsProps {
   dockTabGroups?: readonly DockTabGroupView[];
   dockFloatingGroups?: readonly DockFloatingGroupView[];
   dockSplitters?: EditorDockGeometry['splitters'];
+  dockPanelMoveHandles?: readonly DockPanelMoveHandle[];
+  dockPanelDropPreview?: DockPanelDropPreview | null;
   dockTabPanelA11y?: EditorDockGeometry['tabPanelA11y'];
   dockRecovery?: DockRecoveryNotice | null;
   onSelectDockTab?: (groupNodeId: string, panelInstanceId: string) => void;
@@ -48,6 +54,8 @@ export function WorkspaceBottomPanels({
   dockTabGroups = [],
   dockFloatingGroups = [],
   dockSplitters = [],
+  dockPanelMoveHandles = [],
+  dockPanelDropPreview = null,
   dockTabPanelA11y = {},
   dockRecovery = null,
   onSelectDockTab,
@@ -60,10 +68,7 @@ export function WorkspaceBottomPanels({
   const className = [
     'workspace-bottom-panels',
     docked ? 'workspace-bottom-panels--docked' : '',
-    !hasTimeline &&
-    !showEmailPreview &&
-    !showEmailOutput &&
-    (dockTabGroups.length > 0 || dockFloatingGroups.length > 0)
+    !hasTimeline && !showEmailPreview && !showEmailOutput
       ? 'workspace-bottom-panels--controls-only'
       : '',
     showEmailPreview && hasTimeline ? 'workspace-bottom-panels--split' : '',
@@ -157,21 +162,24 @@ export function WorkspaceBottomPanels({
             <button type="button" onClick={group.onRedock}>
               Redock
             </button>
+            <button
+              type="button"
+              className="workspace-dock-floating__resize-control"
+              data-dock-resize-handle="true"
+              aria-label={`Resize floating ${group.activeTitle} group`}
+              aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight Home End Escape"
+              title="Resize by dragging diagonally or use arrow keys"
+              onPointerDown={group.resizeHandlers.onPointerDown}
+              onPointerMove={group.resizeHandlers.onPointerMove}
+              onPointerUp={group.resizeHandlers.onPointerUp}
+              onPointerCancel={group.resizeHandlers.onPointerCancel}
+              onLostPointerCapture={group.resizeHandlers.onLostPointerCapture}
+              onBlur={group.resizeHandlers.onBlur}
+              onKeyDown={group.resizeHandlers.onKeyDown}
+            >
+              Resize
+            </button>
           </header>
-          <button
-            type="button"
-            className="workspace-dock-floating__resize"
-            data-dock-resize-handle="true"
-            aria-label={`Resize floating ${group.activeTitle} group`}
-            title="Resize floating panel"
-            onPointerDown={group.resizeHandlers.onPointerDown}
-            onPointerMove={group.resizeHandlers.onPointerMove}
-            onPointerUp={group.resizeHandlers.onPointerUp}
-            onPointerCancel={group.resizeHandlers.onPointerCancel}
-            onLostPointerCapture={group.resizeHandlers.onLostPointerCapture}
-            onBlur={group.resizeHandlers.onBlur}
-            onKeyDown={group.resizeHandlers.onKeyDown}
-          />
         </section>
       ))}
       {dockTabGroups.map((group) => (
@@ -245,6 +253,64 @@ export function WorkspaceBottomPanels({
           onKeyDown={splitter.onKeyDown}
         />
       ))}
+      {dockPanelMoveHandles.map((handle) =>
+        handle.tabGroupNodeId ? (
+          <button
+            key={handle.instanceId}
+            type="button"
+            className="workspace-dock-move-handle"
+            data-testid={`dock-panel-move-${handle.panelTypeId}`}
+            style={handle.style}
+            aria-label={`Drag to move ${handle.title} panel`}
+            title="Drag to move. Use Customize Workspace for keyboard and touch controls."
+            onPointerDown={handle.onPointerDown}
+            onPointerMove={handle.onPointerMove}
+            onPointerUp={handle.onPointerUp}
+            onPointerCancel={handle.onPointerCancel}
+            onLostPointerCapture={handle.onLostPointerCapture}
+            onBlur={handle.onBlur}
+            onKeyDown={handle.onKeyDown}
+          >
+            Move
+          </button>
+        ) : (
+          <div
+            key={handle.instanceId}
+            className="workspace-dock-panel-chrome"
+            style={handle.style}
+            role="toolbar"
+            aria-label={`${handle.title} panel controls`}
+          >
+            <span className="workspace-dock-panel-chrome__title">{handle.title}</span>
+            <button
+              type="button"
+              className="workspace-dock-move-handle workspace-dock-panel-chrome__move"
+              data-testid={`dock-panel-move-${handle.panelTypeId}`}
+              aria-label={`Drag to move ${handle.title} panel`}
+              title="Drag to move. Use Customize Workspace for keyboard and touch controls."
+              onPointerDown={handle.onPointerDown}
+              onPointerMove={handle.onPointerMove}
+              onPointerUp={handle.onPointerUp}
+              onPointerCancel={handle.onPointerCancel}
+              onLostPointerCapture={handle.onLostPointerCapture}
+              onBlur={handle.onBlur}
+              onKeyDown={handle.onKeyDown}
+            >
+              Move
+            </button>
+          </div>
+        ),
+      )}
+      {dockPanelDropPreview && (
+        <div
+          className="workspace-dock-drop-preview"
+          data-testid="dock-drop-preview"
+          style={dockPanelDropPreview.style}
+          role="status"
+        >
+          {dockPanelDropPreview.label}
+        </div>
+      )}
     </div>
   );
 }

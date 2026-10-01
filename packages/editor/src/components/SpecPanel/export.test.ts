@@ -163,6 +163,9 @@ describe('exportNodeAsRaster', () => {
     const result = await exportNodeAsPdf(node, doc, 1, eng);
 
     expect(new TextDecoder().decode(result.bytes.slice(0, 4))).toBe('%PDF');
+    const header = new TextDecoder().decode(result.bytes.slice(0, 1024));
+    expect(header).toMatch(/\/MediaBox \[ 0 0 [1-9]\d* [1-9]\d* \]/);
+    expect(header).toMatch(/\/Width [1-9]\d* \/Height [1-9]\d*/);
     expect(result.filename).toBe('Box.pdf');
   });
 
@@ -205,14 +208,15 @@ describe('exportNodeAsRaster', () => {
       patterns: unknown[];
     };
     expect(manifest.images).toHaveLength(1);
-    expect(manifest.images[0].color_space).toBe('Rgb');
+    const image = manifest.images[0]!;
+    expect(image.color_space).toBe('Rgb');
     expect(manifest.patterns).toEqual([]);
-    expect(manifest.images[0].width).toBeGreaterThan(0);
-    expect(manifest.images[0].height).toBeGreaterThan(0);
+    expect(image.width).toBeGreaterThan(0);
+    expect(image.height).toBeGreaterThan(0);
     // base64 must decode to whole RGBA pixels
-    const decoded = atob(manifest.images[0].data);
+    const decoded = atob(image.data);
     expect(decoded.length % 4).toBe(0);
-    expect(decoded.length).toBe(manifest.images[0].width * manifest.images[0].height * 4);
+    expect(decoded.length).toBe(image.width * image.height * 4);
   });
 
   it('passes an image manifest to the PDF/X press pipeline instead of a checkerboard', async () => {
@@ -238,9 +242,10 @@ describe('exportNodeAsRaster', () => {
     };
     expect(manifest.images).toHaveLength(1);
     // Dimensions come from the decoded image-load mock (8x6).
-    expect(manifest.images[0].width).toBe(8);
-    expect(manifest.images[0].height).toBe(6);
-    expect(atob(manifest.images[0].data).length).toBe(8 * 6 * 4);
+    const image = manifest.images[0]!;
+    expect(image.width).toBe(8);
+    expect(image.height).toBe(6);
+    expect(atob(image.data).length).toBe(8 * 6 * 4);
   });
 
   it('blocks PDF/X press export for mockup frames instead of dropping the composition', async () => {
@@ -477,6 +482,27 @@ describe('exportNodeAsRaster', () => {
     await exportNodeAsRaster(frame, doc, eng, { format: 'image/png', scale: 1 });
 
     expect(createRasterSurface).toHaveBeenCalledWith(393, 852, { alpha: true });
+  });
+
+  it('captures rotated frames using slide-local dimensions and clipping', async () => {
+    const doc = createDocument('Rotated slide', true);
+    const angle = Math.PI / 4;
+    const frame = makeFrameNode('rotated-slide', {
+      name: 'Rotated slide',
+      w: 100,
+      h: 50,
+      transform: [Math.cos(angle), Math.sin(angle), -Math.sin(angle), Math.cos(angle), 240, 80],
+    });
+    const frameDoc = addNode(doc, frame);
+    const eng = await createEngine('stub');
+
+    await exportNodeAsRaster(frame, frameDoc, eng, {
+      format: 'image/png',
+      scale: 1,
+      frameLocal: true,
+    });
+
+    expect(createRasterSurface).toHaveBeenCalledWith(100, 50, { alpha: true });
   });
 
   it('pads raster bounds so an outer effect is not cropped', async () => {

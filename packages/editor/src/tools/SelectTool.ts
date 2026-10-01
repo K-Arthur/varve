@@ -32,6 +32,7 @@ import {
   pathPointToBezier,
   pointToSegmentDistSq,
 } from '@varve/shared';
+import { committedParentIndex } from '../scene/parentIndexCache';
 import { planManualWorldTranslationFromOrigins } from '../scene/selectionArrangement';
 import { nodeWorldBounds, nodeWorldTransform } from '../scene/world';
 import { loadSettings } from '../settings';
@@ -98,6 +99,9 @@ export class SelectTool extends BaseTool {
   private marqueeContainment = false;
   private isMoveGesture = false;
   private initialPositions = new Map<string, { x: number; y: number }>();
+  private moveBaseDocument: import('@varve/scene').Document | null = null;
+  private previewAffectedIds: NodeId[] = [];
+  private latestMovePositions: ReadonlyArray<{ id: NodeId; x: number; y: number }> = [];
   /** World-space bounds captured at pointer-down for precise snap proposals. */
   private initialWorldBounds = new Map<string, { x: number; y: number; w: number; h: number }>();
   private hasDuplicated = false;
@@ -145,6 +149,7 @@ export class SelectTool extends BaseTool {
       interactionSession.reset();
       if (this.isMoveGesture) {
         ctx.abortTransaction();
+        ctx.clearNodePositionPreview?.();
       }
       this.drag = {
         kind: 'idle',
@@ -170,6 +175,9 @@ export class SelectTool extends BaseTool {
       this.forceMarqueeHeld = false;
       this.initialPositions.clear();
       this.initialWorldBounds.clear();
+      this.moveBaseDocument = null;
+      this.previewAffectedIds = [];
+      this.latestMovePositions = [];
       this.hasDuplicated = false;
     }
   }
@@ -285,6 +293,9 @@ export class SelectTool extends BaseTool {
     this.gestureSelectionIds = selection;
     this.marqueeActive = false;
     this.isMoveGesture = true;
+    this.moveBaseDocument = ctx.document;
+    this.previewAffectedIds = this.collectPreviewAffectedIds(ctx.document, selection);
+    this.latestMovePositions = [];
     this.initialPositions.clear();
     this.initialWorldBounds.clear();
     for (const id of selection) {
@@ -294,6 +305,32 @@ export class SelectTool extends BaseTool {
       const bounds = node ? ctx.nodeWorldBounds(node) : null;
       if (bounds) this.initialWorldBounds.set(id, bounds);
     }
+  }
+
+  private collectPreviewAffectedIds(
+    document: import('@varve/scene').Document,
+    selection: readonly NodeId[],
+  ): NodeId[] {
+    const parents = committedParentIndex(document);
+    const affected = new Set<NodeId>();
+    for (const id of selection) {
+      const stack = [id];
+      while (stack.length > 0) {
+        const currentId = stack.pop();
+        if (!currentId || affected.has(currentId)) continue;
+        affected.add(currentId);
+        const node = document.nodes[currentId];
+        if (node && 'children' in node && Array.isArray(node.children)) {
+          stack.push(...node.children);
+        }
+      }
+      let parentId = parents.get(id) ?? null;
+      while (parentId) {
+        affected.add(parentId);
+        parentId = parents.get(parentId) ?? null;
+      }
+    }
+    return [...affected];
   }
 
   /** Apply the deferred click semantics and return the effective move set. */
@@ -487,10 +524,10 @@ export class SelectTool extends BaseTool {
       for (const id of sel) {
         const node = ctx.getNode(id);
         if (!node) continue;
-        const bounds = ctx.nodeWorldBounds(node);
+        const bounds = this.initialWorldBounds.get(id) ?? ctx.nodeWorldBounds(node);
         if (bounds) {
-          selCenterX += bounds.x + bounds.w / 2;
-          selCenterY += bounds.y + bounds.h / 2;
+          selCenterX += bounds.x + bounds.w / 2 + totalDelta.dx;
+          selCenterY += bounds.y + bounds.h / 2 + totalDelta.dy;
           selCount++;
         }
       }
@@ -537,15 +574,25 @@ export class SelectTool extends BaseTool {
         }
       }
 
-      const plan = planManualWorldTranslationFromOrigins(ctx.document, sel, this.initialPositions, {
-        x: totalDelta.dx + snapAdjust.x,
-        y: totalDelta.dy + snapAdjust.y,
-      });
+      const plan = planManualWorldTranslationFromOrigins(
+        this.moveBaseDocument ?? ctx.document,
+        sel,
+        this.initialPositions,
+        {
+          x: totalDelta.dx + snapAdjust.x,
+          y: totalDelta.dy + snapAdjust.y,
+        },
+      );
       const positions = plan.positions;
-      // One document update per sample instead of one per node: an N-node
-      // selection previously issued N setNodePosition calls, each spreading
-      // the whole nodes map (N*O(N) key copies per pointermove).
-      if (positions.length > 0) ctx.setNodePositions(positions);
+      this.latestMovePositions = positions;
+      if (ctx.previewNodePositions && !ctx.masterEditId && !this.hasDuplicated) {
+        ctx.previewNodePositions(positions, this.previewAffectedIds);
+      } else if (positions.length > 0) {
+        // Master-source edits and duplicate handoffs retain their existing
+        // mutation path until their different ownership semantics are modeled
+        // by the transient preview store.
+        ctx.setNodePositions(positions);
+      }
     }
   }
 
@@ -556,6 +603,17 @@ export class SelectTool extends BaseTool {
       return;
     }
     ctx.setDropTargetFrame(null);
+    if (
+      this.isMoveGesture &&
+      ctx.previewNodePositions &&
+      !ctx.masterEditId &&
+      !this.hasDuplicated
+    ) {
+      const positions = this.latestMovePositions;
+      const previewDocument = ctx.previewNodePositions(positions, this.previewAffectedIds, true);
+      if (previewDocument) ctx.document = previewDocument;
+      if (positions.length > 0) ctx.setNodePositions(positions);
+    }
     if (this.marqueeActive) {
       ctx.setDraft(null);
       ctx.setSelectionPreview?.(null);
@@ -732,6 +790,9 @@ export class SelectTool extends BaseTool {
     this.marqueeBaseSelection = [];
     this.initialPositions.clear();
     this.initialWorldBounds.clear();
+    this.moveBaseDocument = null;
+    this.previewAffectedIds = [];
+    this.latestMovePositions = [];
     this.hasDuplicated = false;
     this.cancelLongPress();
     interactionSession.reset();
@@ -876,6 +937,7 @@ export class SelectTool extends BaseTool {
     // Abort transaction to revert move
     if (this.isMoveGesture) {
       ctx.abortTransaction();
+      ctx.clearNodePositionPreview?.();
     }
     this.marqueeActive = false;
     this.isMoveGesture = false;
@@ -894,6 +956,9 @@ export class SelectTool extends BaseTool {
     this.marqueeBaseSelection = [];
     this.initialPositions.clear();
     this.initialWorldBounds.clear();
+    this.moveBaseDocument = null;
+    this.previewAffectedIds = [];
+    this.latestMovePositions = [];
     this.hasDuplicated = false;
     interactionSession.reset();
   }

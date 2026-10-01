@@ -31,5 +31,9 @@ export type { DialogState } from './useDialogState';
 export { useDialogState } from './useDialogState';
 export type { InteractionState } from './useInteractionState';
 export { useInteractionState } from './useInteractionState';
-export type { ViewportContextValue } from './ViewportContext';
+export type {
+  TransformPreviewSnapshot,
+  TransformPreviewStore,
+  ViewportContextValue,
+} from './ViewportContext';
 export { useViewport, ViewportProvider } from './ViewportContext';

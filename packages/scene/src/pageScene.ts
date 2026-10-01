@@ -325,6 +325,28 @@ function pageIntersectsViewport(
   return content !== null && rectsOverlap(content, viewport);
 }
 
+/**
+ * Ids of the placed pages a viewport shows. This is the only part of the
+ * viewport that `multipageNodeInstances` depends on, so caches can key on it
+ * instead of on the rectangle, which changes on every pan frame.
+ */
+export function publishingPagesInViewport(
+  doc: Document,
+  viewport: { x: number; y: number; w: number; h: number },
+): NodeId[] {
+  let placedPages = placedPagesByDocument.get(doc);
+  if (!placedPages) {
+    placedPages = buildPlacedScene(doc).pages;
+    placedPagesByDocument.set(doc, placedPages);
+  }
+  return placedPages
+    .filter((placed) => pageIntersectsViewport(doc, placed, viewport))
+    .map((placed) => placed.page.id);
+}
+
+/** Asked on every scene-scope resolution while panning a publishing surface. */
+const placedPagesByDocument = new WeakMap<Document, readonly PlacedPage[]>();
+
 export function multipageRootNodes(doc: Document, options: MultipageSceneOptions = {}): NodeId[] {
   // A master source is edited as its own logical surface. Keep document-wide
   // globals visible, but do not mix page content into the source-edit view.

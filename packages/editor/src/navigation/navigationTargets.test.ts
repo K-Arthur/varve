@@ -60,6 +60,13 @@ describe('parseNavigationTarget — canonical varve:// form', () => {
 });
 
 describe('parseNavigationTarget — legacy and URL forms', () => {
+  it.each(['logo', 'codegen'])('normalizes legacy workspace links for %s to Design', (mode) => {
+    expect(parseNavigationTarget(`varve://navigate/workspace/${mode}`)).toEqual({
+      ok: true,
+      target: { kind: 'workspace', mode: 'design' },
+    });
+  });
+
   it('parses legacy finding: links', () => {
     expect(parseNavigationTarget('finding:audit-42')).toEqual({
       ok: true,
@@ -83,7 +90,7 @@ describe('parseNavigationTarget — legacy and URL forms', () => {
   it('parses varve: scheme URLs from hrefs', () => {
     expect(parseNavigationTargetFromUrl('varve://navigate/workspace/logo')).toEqual({
       ok: true,
-      target: { kind: 'workspace', mode: 'logo' },
+      target: { kind: 'workspace', mode: 'design' },
     });
   });
 });

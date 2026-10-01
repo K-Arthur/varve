@@ -37,7 +37,16 @@ async function importPhoto(page: import('@playwright/test').Page): Promise<void>
 
 async function openImageTuning(page: import('@playwright/test').Page): Promise<void> {
   const inspector = page.locator('.editor__inspector-panel');
-  await inspector.getByRole('tab', { name: 'Adjustments', exact: true }).click();
+  const adjustmentsTab = inspector.getByRole('tab', { name: 'Adjustments', exact: true });
+  if (await adjustmentsTab.isVisible().catch(() => false)) {
+    await adjustmentsTab.click();
+  } else {
+    await inspector.getByRole('button', { name: /^More inspector tabs/ }).click();
+    await page
+      .getByRole('menu', { name: 'More inspector tabs' })
+      .getByRole('menuitem', { name: 'Adjustments', exact: true })
+      .click();
+  }
   const tuning = inspector.getByRole('button', { name: 'Image Tuning', exact: true });
   await expect(tuning).toBeVisible();
   if ((await tuning.getAttribute('aria-expanded')) !== 'true') await tuning.click();

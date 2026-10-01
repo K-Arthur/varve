@@ -6,10 +6,13 @@ import { describe, expect, it, vi } from 'vitest';
 import { Canvas2DBackend } from '../canvas2d/backend';
 import {
   applyItemAffine,
+  composeItemAffine,
+  defaultPresentationProbe,
   isGpuBatchSupported,
   lineTessellationVertexCount,
   normalizedGpuFillColor,
   WebGPUBackend,
+  type WebGPUBackendInitOptions,
 } from './backend';
 
 const FIXTURE_ITEMS: RenderItem[] = [
@@ -174,6 +177,28 @@ describe('WebGPU golden diff vs Canvas2D', () => {
     // Identity must be a true identity (the prior WGSL bug mapped (x,y)→(x+1,0)).
     expect(applyItemAffine([7, 9], [1, 0, 0, 1, 0, 0])).toEqual([7, 9]);
     expect(applyItemAffine([0, 0], [1, 0, 0, 1, 40, 50])).toEqual([40, 50]);
+  });
+
+  it('composeItemAffine maps the unit quad onto the authored rect corners', () => {
+    // The GPU solid path folds the authored rect into the item affine so the
+    // vertex shader receives unit-quad coordinates; folding must reproduce
+    // exactly the world corners the absolute-corner path produced.
+    const item = [2, 0.5, -0.25, 3, 10, -4] as const;
+    const composed = composeItemAffine(item, [90, 0, 0, 60, 40, 20]);
+    const corners = [
+      [40, 20],
+      [130, 20],
+      [40, 80],
+      [130, 80],
+    ] as const;
+    for (const corner of corners) {
+      const unit: [number, number] = [(corner[0] - 40) / 90, (corner[1] - 20) / 60];
+      expect(applyItemAffine(unit, composed)).toEqual(applyItemAffine(corner, item));
+    }
+    // Identity item affine → composed equals the placement affine itself.
+    expect(composeItemAffine([1, 0, 0, 1, 0, 0], [30, 0, 0, 20, 5, 7])).toEqual([
+      30, 0, 0, 20, 5, 7,
+    ]);
   });
 
   it('does not route rounded rectangles to a square-only GPU quad', () => {
@@ -439,12 +464,22 @@ describe('WebGPU golden diff vs Canvas2D', () => {
       createBindGroupLayout: vi.fn(() => ({})),
       createPipelineLayout: vi.fn(() => ({})),
       createRenderPipeline: vi.fn(() => ({})),
+      createRenderPipelineAsync: vi.fn(async () => ({})),
       createBuffer: vi.fn(() => ({ destroy: vi.fn() })),
       createBindGroup: vi.fn(() => ({})),
     } as unknown as GPUDevice & {
       resolveLost: (info: { reason: string; message: string }) => void;
     };
   }
+
+  /**
+   * jsdom cannot rasterize WebGPU output, so mock-device tests inject a
+   * passing presentation probe. The default probe's fail-closed behavior is
+   * asserted directly below, and its success path runs in the hardware
+   * browser parity spec (which reads real pixels back through the same
+   * `drawImage` path).
+   */
+  const PROBE_OK: WebGPUBackendInitOptions = { presentationProbe: async () => true };
 
   it('recovers the GPU side in place after a simulated runtime device loss', async () => {
     const first = makeMockDevice();
@@ -455,7 +490,7 @@ describe('WebGPU golden diff vs Canvas2D', () => {
       canvas.width = 32;
       canvas.height = 32;
       const wgpu = new WebGPUBackend();
-      await wgpu.init(canvas);
+      await wgpu.init(canvas, PROBE_OK);
       expect(wgpu.getDiagnostics().gpuActive, wgpu.getDiagnostics().initFailureReason).toBe(true);
 
       let recovered = 0;
@@ -489,7 +524,7 @@ describe('WebGPU golden diff vs Canvas2D', () => {
       canvas.width = 32;
       canvas.height = 32;
       const wgpu = new WebGPUBackend();
-      await wgpu.init(canvas);
+      await wgpu.init(canvas, PROBE_OK);
       expect(wgpu.getDiagnostics().gpuActive, wgpu.getDiagnostics().initFailureReason).toBe(true);
 
       first.resolveLost({ reason: 'unknown', message: 'simulated device loss' });
@@ -501,6 +536,39 @@ describe('WebGPU golden diff vs Canvas2D', () => {
       });
       expect(wgpu.presentCanvasHas2dContext()).toBe(true);
       wgpu.destroy();
+    } finally {
+      restore();
+    }
+  });
+
+  it('a failed presentation probe declines WebGPU before any frame draws', async () => {
+    // The probe is the last gate of init: it validates the offscreen →
+    // present drawImage path with real pixels. In this mock environment the
+    // path cannot produce pixels, so the default probe must fail closed —
+    // named reason, untouched Canvas2D present surface, no GPU frames.
+    const device = makeMockDevice();
+    const restore = mockWebGpuEnvironment([device]);
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = 32;
+      canvas.height = 32;
+      const wgpu = new WebGPUBackend();
+      await wgpu.init(canvas);
+      const diag = wgpu.getDiagnostics();
+      expect(diag.gpuActive).toBe(false);
+      expect(diag.initFailureReason).toBe('WebGPU presentation probe failed');
+      expect(wgpu.presentCanvasHas2dContext()).toBe(true);
+      // Frames keep painting through the present surface.
+      wgpu.beginFrame(frame, { applyCamera: false });
+      wgpu.drawVectorItems(FIXTURE_ITEMS);
+      wgpu.endFrame();
+      wgpu.destroy();
+
+      // The exported probe itself fails closed on an incomplete device.
+      const probeCanvas = document.createElement('canvas');
+      probeCanvas.width = 32;
+      probeCanvas.height = 32;
+      expect(await defaultPresentationProbe(device, probeCanvas)).toBe(false);
     } finally {
       restore();
     }

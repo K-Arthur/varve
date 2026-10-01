@@ -341,11 +341,24 @@ input[type="number"] {
     "status   status    status    logoarea";
   /* Fourth column is the Logo panel: a reserved 0-width track unless the
    * panel is open, so the logo panel can never overlay or block canvas
-   * tools or other panels (it docks like layers/inspector instead). */
-  grid-template-columns: var(--sidebar-width) minmax(320px, 1fr) var(--inspector-width) var(
-      --logo-panel-width,
-      0px
-    );
+   * tools or other panels (it docks like layers/inspector instead).
+   *
+   * The two panel tracks are minmax(0, <token>) because both tokens are
+   * rem-derived (`clamp(14rem, …)` / `clamp(15rem, …)`): with plain length
+   * tracks their sum is fixed, so at an enlarged root text size (WCAG 1.4.4
+   * text-only enlargement — Firefox "Zoom text only", a user stylesheet, an
+   * OS text-size preference) the three tracks exceeded the viewport, the
+   * full-width chrome rows (menubar, tab strip, context bar, selection info,
+   * status) resolved 45px wider than a 1280px window at 200% text, and
+   * `.editor-shell { overflow: hidden }` clipped their right ends. A 0
+   * minimum lets each panel track yield to the container while still sizing
+   * up to its token when there is room; the canvas floor (320px) is
+   * unchanged. See docs/audits/text-enlargement-2026-09-30.md (D2) and
+   * tests/e2e/responsive/layers-inspector-panels.spec.ts. */
+  grid-template-columns: minmax(0, var(--sidebar-width)) minmax(320px, 1fr) minmax(
+      0,
+      var(--inspector-width)
+    ) var(--logo-panel-width, 0px);
   grid-template-rows: auto 32px minmax(120px, 1fr) auto auto auto auto var(--statusbar-height);
   flex: 1;
   min-height: 0;
@@ -551,6 +564,26 @@ input[type="number"] {
   align-items: center;
   gap: var(--space-1);
   align-self: stretch;
+  /* The rail is contained at EVERY width, not only in the compact tiers.
+   * Interface type is rem-based (`tokens/typography.ts`) while control
+   * geometry is px-based, so user text enlargement grows the menu labels
+   * inside a bar whose half-width share does not grow with them. Without
+   * `min-width: 0` the rail's content exceeded its own box and, because
+   * `.editor-menubar__center` follows it in the DOM, the document title won
+   * hit-testing over the later labels: at 1280x800 with a 200% root text size
+   * `Page` and `Help` were unreachable at every visible sample. The rail
+   * scrolls instead of spilling, which is the same contract the `<= 899px`
+   * tier has carried since
+   * `docs/audits/workspace-switcher-design-review-2026-09-29.md` (F6) -
+   * hoisted here so text enlargement cannot reopen it above 899px. */
+  min-width: 0;
+  flex-shrink: 1;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.editor-menubar__left::-webkit-scrollbar {
+  display: none;
 }
 
 /* Left rail (home mark + menus). flex: 1 1 0 mirrors the right controls
@@ -2450,7 +2483,22 @@ html[data-layout-mode="tablet"] .editor-menubar .workspace-dock {
     overscroll-behavior: contain;
   }
 
-  .editor__layers-panel .editor-layers {
+  /* Target the OUTER workspace wrapper only. This rule used to match every
+   * `.editor-layers`, including the inner `.layers-panel__content`, whose
+   * parent is a ROW-direction flex container
+   * (`.layers-panel-workspace__content > div`). `flex: 0 0 auto` there means
+   * "no horizontal shrink", so the inner content was sized to its max-content
+   * width (the filter bar's natural ~313px) inside a ~280px rail: the right
+   * third of the filter bar — including the "Show filter options" toggle —
+   * was clipped off the panel edge, where the dock splitter's hit band then
+   * covered what remained (the toggle was unreachable by pointer at every
+   * 900-1200x<=900 window). The inner content must keep the base
+   * `.editor-layers { flex: 1 }` (basis 0, shrinkable) so it tracks the rail
+   * width; the vertical "do not squeeze the tree" intent lives on the outer
+   * wrapper, which is a COLUMN flex child where this flex value only affects
+   * height. Verified by tests/e2e/responsive/layers-inspector-panels.spec.ts
+   * ("layers rail contains its filter bar"). */
+  .editor__layers-panel .layers-panel-workspace {
     flex: 0 0 auto;
     min-height: 15rem;
   }
@@ -3132,17 +3180,6 @@ html[data-layout-mode="tablet"] .editor-menubar .workspace-dock {
   .editor-menubar__zoom-divider {
     display: none;
   }
-
-  .editor-menubar__left {
-    min-width: 0;
-    flex-shrink: 1;
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-
-  .editor-menubar__left::-webkit-scrollbar {
-    display: none;
-  }
 }
 
 /* Portrait tablets have enough vertical room to stop compressing the app
@@ -3276,34 +3313,26 @@ html[data-layout-mode="tablet"] .editor-menubar .workspace-dock {
  * hit target keeps the 44px rhythm set by the two-tier/coarse rules above.
  * (docs/audits/workspace-switcher-design-review-2026-09-29.md F2)
  *
- * The application menu rail is constrained in the same tier. `.editor-menubar__side`
- * and `.editor-menubar__controls` are both `flex: 1 1 0` so the document title
+ * The application menu rail is constrained at every width — see the base
+ * `.editor-menubar__left` rule. `.editor-menubar__side` and
+ * `.editor-menubar__controls` are both `flex: 1 1 0` so the document title
  * lands on the bar's true midpoint; below 900px the title is hidden, but the
  * symmetry still gives the menu rail half the bar — less than the menus'
  * min-content width between 641px and ~750px. The rail had no `min-width: 0`,
  * so it painted *outside* its own box and over the switcher, and because the
  * controls follow it in the DOM the switcher won hit-testing: at 641×500 the
  * last 50px of the Help label hit a workspace tab, at 700×500 the last 22px
- * hit the dock bar. `min-width: 0` + a hidden-scrollbar `overflow-x` keeps the
- * rail inside its box and makes the menu strip scroll rather than spill — the
- * same treatment the portrait tier already documented.
+ * hit the dock bar. The same defect reopened above 899px under 200% text
+ * enlargement (the labels grow, the bar does not), so `min-width: 0` + a
+ * hidden-scrollbar `overflow-x` now lives in the base rule instead of this
+ * tier: the rail stays inside its box and the menu strip scrolls rather than
+ * spilling, at every width.
  * (docs/audits/workspace-switcher-design-review-2026-09-29.md F6) */
 @media (max-width: 899px) {
   .editor-menubar .workspace-dock__bar {
     background: transparent;
     border-color: transparent;
     box-shadow: none;
-  }
-
-  .editor-menubar__left {
-    min-width: 0;
-    flex-shrink: 1;
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-
-  .editor-menubar__left::-webkit-scrollbar {
-    display: none;
   }
 }
 
@@ -3592,9 +3621,16 @@ html[data-layout-mode="tablet"] .editor-menubar .workspace-dock {
    * tokens kept drifting into the quick context bar / tab strip whenever the
    * real header height moved. Anchoring to the canvas cell tracks the actual
    * header height; the 20px ruler overlay plus a gap keeps the buttons on
-   * unoccupied canvas just below the ruler, at the cell's top corners. */
+   * unoccupied canvas just below the ruler, at the cell's top corners.
+   *
+   * The cell's top edge is also where the selection-path row starts when a
+   * selection exists, and that row's height is content-driven (it grows with
+   * text enlargement), so it is published as `--selection-path-height` by
+   * SelectionBreadcrumb while the bar is mounted. Without the offset the chip
+   * landed on top of the path bar, or — before the path bar grew its own row —
+   * under the ruler it is supposed to clear. */
   grid-area: canvas;
-  top: calc(20px + var(--space-3));
+  top: calc(var(--selection-path-height, 0px) + 20px + var(--space-3));
   z-index: var(--elevation-z-overlay, 100);
   display: inline-flex;
   align-items: center;

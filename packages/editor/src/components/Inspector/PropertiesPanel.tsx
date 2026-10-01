@@ -106,7 +106,11 @@ export function PropertiesPanel() {
   const { addPreset, updatePreset, removePreset, setShowExportDialog, groupCompoundOperation } =
     useEditor();
   const effectiveConfig = useEffectiveWorkspaceConfig(state.workspaceMode);
-  const selNodes = selectedNodes();
+  // Keep contextual tab membership stable across Inspector-only rerenders.
+  // selectedNodes() derives a new array on every call even when the selected
+  // IDs and document node map are unchanged; using it directly as a memo/effect
+  // dependency can repeatedly reapply the mode's fallback tab.
+  const selNodes = useMemo(selectedNodes, [selectedNodes]);
   const summary = summarize(selNodes);
   // Keyed on exactly the fields `InspectorContextInput` picks, not the whole
   // state: every pan and zoom frame used to re-derive selection restrictions.
@@ -652,7 +656,7 @@ export function PropertiesPanel() {
       )}
       {tab === 'email' && (
         <LazyTabPanel tab={tab} label={getInspectorTabDefinition(tab, effectiveConfig)?.label}>
-          <EmailPanel showOutput={effectiveConfig.panels.emailOutput.visible} />
+          <EmailPanel />
         </LazyTabPanel>
       )}
     </section>

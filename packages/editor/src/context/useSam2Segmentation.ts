@@ -114,6 +114,20 @@ function promptedExecutionProvider(
   return 'wasm';
 }
 
+/**
+ * Entry ceiling for the embedding cache. The documented policy bounds the
+ * cache by bytes; the entry cap only exists as a hard safety ceiling. One
+ * SAM2-Tiny embedding set is ~16 MiB (image_embed + two high-res feature
+ * maps), so a fixed 2-entry cap would bind long before the byte budget and
+ * silently downgrade warm refinement on capable hosts. Derive the ceiling
+ * from the budget instead: the budget evicts, the cap only catches an
+ * estimate gone wrong.
+ */
+export function embeddingCacheMaxEntries(budgetBytes: number): number {
+  const SAM2_TINY_EMBEDDING_BYTES = 16 * 1024 * 1024;
+  return Math.max(2, Math.min(8, Math.floor(budgetBytes / SAM2_TINY_EMBEDDING_BYTES)));
+}
+
 function promptedProviderFacts(
   mobileInstalled: boolean,
   sam2Installed: boolean,
@@ -288,6 +302,7 @@ export function useSam2Segmentation(
     sourceFingerprint: string;
   }> | null>(null);
   if (enabled && !embeddingCacheRef.current) {
+    const budgetBytes = embeddingCacheBudgetBytes();
     embeddingCacheRef.current = new EmbeddingCache<{
       nodeId: NodeId;
       src: string;
@@ -303,8 +318,8 @@ export function useSam2Segmentation(
       naturalH: number;
       sourceFingerprint: string;
     }>({
-      maxEntries: 2,
-      maxBytes: embeddingCacheBudgetBytes(),
+      maxEntries: embeddingCacheMaxEntries(budgetBytes),
+      maxBytes: budgetBytes,
       estimateBytes: (entry) =>
         Object.values(entry.embeddings).reduce(
           (total, tensor) => total + tensor.data.byteLength,

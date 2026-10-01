@@ -143,9 +143,12 @@
   opacity: 1;
 }
 
-/* Match the token system's OS high-contrast mode when no app theme is explicit. */
+/* Match the token system's OS high-contrast mode. The application runtime
+ * resolves System to the High Contrast theme under prefers-contrast: more,
+ * but an explicit Light/Dark choice keeps its palette while the OS request
+ * still gets the stationary edge. */
 @media (prefers-contrast: more) {
-  :root:not([data-theme]) :where(.varve-shine-border--active)::after {
+  :root :where(.varve-shine-border--active)::after {
     animation: none;
     border: 2px solid var(--color-border-strong);
     background: none;

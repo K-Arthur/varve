@@ -103,8 +103,10 @@ export function useUpscaleDialog(): UseUpscaleDialogReturn {
               : options.mode === 'balanced'
                 ? 'bicubic'
                 : 'lanczos3';
-      // Illustration mode uses the validated anime-optimized model with
-      // a pinned SHA-256 hash and corpus evidence (upscale-realesrgan-anime).
+      // Illustration mode points at the explicitly separate experimental
+      // anime checkpoint. Its current capability status refuses planning
+      // until conversion, distribution, quality, and memory qualification is
+      // complete.
       const modelId =
         options.mode === 'illustration'
           ? 'upscale-realesrgan-anime'

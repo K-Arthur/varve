@@ -107,6 +107,12 @@ export function mergeMagicWandSettings(
     edgeFeather: Number.isFinite(patch.edgeFeather)
       ? Math.max(0, Math.min(100, patch.edgeFeather!))
       : current.edgeFeather,
+    edgeExpansion: Number.isFinite(patch.edgeExpansion)
+      ? Math.max(0, Math.min(8, Math.round(patch.edgeExpansion!)))
+      : current.edgeExpansion,
+    gapClosure: Number.isFinite(patch.gapClosure)
+      ? Math.max(0, Math.min(8, Math.round(patch.gapClosure!)))
+      : current.gapClosure,
   };
 }
 

@@ -38,6 +38,20 @@ describe('theme preference resolution', () => {
     expect(resolveTheme('high-contrast', true)).toBe('high-contrast');
   });
 
+  // DESIGN.md: "Activated by prefers-contrast: more or explicit user
+  // selection." The CSS-side guard for this could never match (data-theme is
+  // always written before paint), so the runtime is the only place the OS
+  // request can be honoured.
+  it('resolves System to High Contrast when the OS asks for more contrast', () => {
+    expect(resolveTheme('system', false, true)).toBe('high-contrast');
+    // The contrast request outranks the colour scheme.
+    expect(resolveTheme('system', true, true)).toBe('high-contrast');
+    // An explicit preference always wins over the OS request.
+    expect(resolveTheme('light', true, true)).toBe('light');
+    expect(resolveTheme('dark', false, true)).toBe('dark');
+    expect(resolveTheme('high-contrast', false, false)).toBe('high-contrast');
+  });
+
   it('reads the current key first and migrates a valid legacy preference', () => {
     localStorage.setItem(LEGACY_THEME_STORAGE_KEY, 'dark');
     expect(readThemePreference()).toBe('dark');
@@ -53,6 +67,13 @@ describe('theme application', () => {
     expect(document.documentElement.dataset.theme).toBe('dark');
     expect(getThemePreference()).toBe('system');
     expect(getTheme()).toBe('dark');
+    expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe('system');
+  });
+
+  it('applies OS high contrast under System without persisting it as the preference', () => {
+    applyThemePreference('system', { prefersDark: false, prefersMoreContrast: true });
+    expect(document.documentElement.dataset.themeMode).toBe('system');
+    expect(document.documentElement.dataset.theme).toBe('high-contrast');
     expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe('system');
   });
 
@@ -88,18 +109,39 @@ describe('theme application', () => {
 });
 
 describe('theme lifecycle', () => {
-  it('tracks OS changes only for System and reconciles storage events', () => {
-    let systemListener: ((event: MediaQueryListEvent) => void) | undefined;
-    const media = {
-      matches: false,
-      addEventListener: vi.fn((_type: string, listener: (event: MediaQueryListEvent) => void) => {
-        systemListener = listener;
-      }),
-      removeEventListener: vi.fn(),
+  interface MediaStub {
+    matches: boolean;
+    listeners: Array<() => void>;
+    addEventListener: (type: string, listener: () => void) => void;
+    removeEventListener: (type: string, listener: () => void) => void;
+  }
+
+  function makeMedia(matches: boolean): MediaStub {
+    const stub: MediaStub = {
+      matches,
+      listeners: [],
+      addEventListener: (_type, listener) => {
+        stub.listeners.push(listener);
+      },
+      removeEventListener: (_type, listener) => {
+        stub.listeners = stub.listeners.filter((l) => l !== listener);
+      },
     };
+    return stub;
+  }
+
+  const emit = (media: MediaStub) => {
+    media.listeners.forEach((listener) => {
+      listener();
+    });
+  };
+
+  it('tracks OS colour-scheme and contrast changes only for System and reconciles storage events', () => {
+    const darkMedia = makeMedia(false);
+    const contrastMedia = makeMedia(false);
     vi.stubGlobal(
       'matchMedia',
-      vi.fn(() => media),
+      vi.fn((query: string) => (query.includes('prefers-contrast') ? contrastMedia : darkMedia)),
     );
     localStorage.setItem(THEME_STORAGE_KEY, 'system');
 
@@ -107,16 +149,27 @@ describe('theme lifecycle', () => {
     expect(getThemePreference()).toBe('system');
     expect(getTheme()).toBe('light');
 
-    systemListener?.({ matches: true } as MediaQueryListEvent);
+    darkMedia.matches = true;
+    emit(darkMedia);
     expect(getTheme()).toBe('dark');
 
+    // The OS contrast request resolves System to High Contrast at runtime.
+    contrastMedia.matches = true;
+    emit(contrastMedia);
+    expect(getTheme()).toBe('high-contrast');
+
+    // Explicit preferences are not overridden by either OS signal.
     localStorage.setItem(THEME_STORAGE_KEY, 'light');
     window.dispatchEvent(new StorageEvent('storage', { key: THEME_STORAGE_KEY }));
     expect(getThemePreference()).toBe('light');
     expect(getTheme()).toBe('light');
 
-    systemListener?.({ matches: true } as MediaQueryListEvent);
+    emit(darkMedia);
+    emit(contrastMedia);
     expect(getTheme()).toBe('light');
+
     cleanup();
+    expect(contrastMedia.listeners).toHaveLength(0);
+    expect(darkMedia.listeners).toHaveLength(0);
   });
 });

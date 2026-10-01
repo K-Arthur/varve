@@ -24,6 +24,7 @@ import {
   imageShapeSrc,
   isImageShape,
 } from '@varve/scene';
+import { hexToRgb, rgbToHex } from '@varve/shared';
 import { Icon, Select, Tooltip } from '@varve/ui';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { getActionRegistry } from '../../actions/ActionRegistry';
@@ -33,6 +34,7 @@ import { getToolManager } from '../../canvas/toolDispatcher';
 import { type ToolId, useEditor } from '../../context';
 import { fingerprintImageData } from '../../context/imageFingerprint';
 import { nodeWorldTransform } from '../../scene/world';
+import { createPaintLayerForRecovery } from '../../tools/paintLayerRecovery';
 import type { SelectionPaintTool } from '../../tools/SelectionPaintTool';
 import { deserializeAreaSelection, serializeAreaSelection } from '../../tools/savedAreaSelections';
 import { savedSelectionEdit } from '../../tools/savedSelectionEdit';
@@ -117,7 +119,10 @@ export function SelectionSourcesPanel() {
     state,
     setAreaSelection,
     setTool,
+    setForegroundColor,
     updateDoc,
+    setSelection,
+    groupCompoundOperation,
     beginTransaction,
     commitTransaction,
     abortTransaction,
@@ -203,6 +208,11 @@ export function SelectionSourcesPanel() {
     state.selection.length === 1 ? state.document.nodes[state.selection[0]!] : undefined;
   const selectedRasterNode =
     selectedRasterCandidate?.kind === 'rasterLayer' ? selectedRasterCandidate : undefined;
+  const fillColor = rgbToHex(
+    state.foregroundColor[0],
+    state.foregroundColor[1],
+    state.foregroundColor[2],
+  );
   const paintingSelection = state.tool === 'selectionPaint';
   const subjectTarget =
     selectedNode && selectedSourceLocator
@@ -288,6 +298,17 @@ export function SelectionSourcesPanel() {
       abortTransaction();
       announce(error instanceof Error ? error.message : 'Could not fill the selection');
     }
+  };
+
+  const createFlatsLayer = () => {
+    const { document, nodeId } = createPaintLayerForRecovery(
+      state.document,
+      state.workspaceMode,
+      'Flats',
+    );
+    groupCompoundOperation('Create flats layer', () => updateDoc(() => document));
+    setSelection(nodeId);
+    announce('Created Flats layer. Fill the active selection to color it.');
   };
 
   const cancelPaint = () => {
@@ -971,6 +992,15 @@ export function SelectionSourcesPanel() {
           >
             Paint selection
           </button>
+          {hasAreaSelection && (
+            <button
+              type="button"
+              className="insp-selection-sources__button insp-selection-sources__button--primary insp-selection-sources__button--full"
+              onClick={createFlatsLayer}
+            >
+              Create flats layer
+            </button>
+          )}
           <Tooltip label="Fill active selection" disabledReason={fillDisabledReason}>
             <button
               type="button"
@@ -981,6 +1011,18 @@ export function SelectionSourcesPanel() {
               Fill pixel layer
             </button>
           </Tooltip>
+          <label className="insp-selection-sources__fill-color">
+            <span>Fill color</span>
+            <input
+              type="color"
+              aria-label="Fill color"
+              value={fillColor}
+              onChange={(event) => {
+                const rgb = hexToRgb(event.target.value);
+                if (rgb) setForegroundColor([...rgb, 255]);
+              }}
+            />
+          </label>
           <Tooltip
             label="Path to selection"
             disabledReason={

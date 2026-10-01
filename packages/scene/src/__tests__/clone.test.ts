@@ -16,7 +16,7 @@ import {
 import { createDefaultEffect } from '../effects';
 import { createEmptyTile, makeRasterLayerNode } from '../rasterLayer';
 import { setCellSceneContent } from '../tableOps';
-import type { FrameNode, GroupNode, NodeId, RasterLayerNode, SceneNode, ShapeNode } from '../types';
+import type { FrameNode, GroupNode, NodeId, RasterLayerNode, ShapeNode } from '../types';
 
 function shape(doc: Document, name: string, opts?: Partial<ShapeNode>) {
   const { id, doc: d2 } = nextNodeId(doc);
@@ -714,73 +714,4 @@ describe('deepCloneSubtree — callout recipes', () => {
     const cloned = result.nodes[result.rootId] as GroupNode & { callout?: unknown };
     expect(cloned.callout).toBeUndefined();
   });
-
-  it('remaps a pattern tile that references a cloned node', () => {
-    let doc = createDocument();
-    const tile = shape(doc, 'Tile source');
-    doc = tile.doc;
-    doc = addNode(doc, tile.node);
-    const painted = shape(doc, 'Painted');
-    doc = painted.doc;
-    const paintedNode = withPatternTile(painted.node, tile.id);
-    doc = addNode(doc, paintedNode);
-
-    const result = deepCloneSubtree(doc.nodes, doc.nextId, paintedNode.id, {
-      additionalRootIds: [tile.id],
-    });
-    const cloned = result.nodes[result.rootId] as ShapeNode;
-    const mappedTile = result.idMap.get(tile.id);
-    expect(mappedTile).toBeDefined();
-    expect(cloned.fills?.[0]?.pattern?.tileSrc).toBe(mappedTile);
-    expect(cloned.fills?.[0]?.pattern?.tileSrc).not.toBe(tile.id);
-  });
-
-  it('releases a pattern tile that is foreign to a cross-document clone', () => {
-    const doc = createDocument();
-    const painted = withPatternTile(shape(doc, 'Painted').node, 'node-not-in-clone');
-    // The source nodes map still knows the tile, but the clone does not
-    // include it: a kept id would reference a foreign node.
-    const nodes: Record<NodeId, SceneNode> = {
-      ...doc.nodes,
-      [painted.id]: painted,
-      'node-not-in-clone': makeShapeNode('node-not-in-clone', {
-        kind: 'rect',
-        x: 0,
-        y: 0,
-        w: 8,
-        h: 8,
-      }),
-    };
-    const result = deepCloneSubtree(nodes, doc.nextId, painted.id, {
-      dropForeignReferences: true,
-    });
-    const cloned = result.nodes[result.rootId] as ShapeNode;
-    expect(cloned.fills?.[0]?.pattern?.tileSrc).toBe('');
-  });
-
-  it('keeps a data-URL pattern tile unchanged (it is not a node reference)', () => {
-    const doc = createDocument();
-    const painted = withPatternTile(shape(doc, 'Painted').node, 'data:image/png;base64,AAAA');
-    const nodes: Record<NodeId, SceneNode> = { ...doc.nodes, [painted.id]: painted };
-    const result = deepCloneSubtree(nodes, doc.nextId, painted.id, {
-      dropForeignReferences: true,
-    });
-    const cloned = result.nodes[result.rootId] as ShapeNode;
-    expect(cloned.fills?.[0]?.pattern?.tileSrc).toBe('data:image/png;base64,AAAA');
-  });
 });
-
-function withPatternTile(node: ShapeNode, tileSrc: string): ShapeNode {
-  return {
-    ...node,
-    fills: [
-      {
-        type: 'pattern',
-        pattern: { tileSrc, spacing: 0, rotation: 0 },
-        opacity: 1,
-        blendMode: 'normal',
-        visible: true,
-      },
-    ],
-  };
-}

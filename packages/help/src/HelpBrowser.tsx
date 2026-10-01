@@ -37,6 +37,7 @@ export function HelpBrowser({ open, onClose }: HelpBrowserProps) {
   });
   const searchRef = useRef<HTMLInputElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
+  const previouslyFocused = useRef<HTMLElement | null>(null);
 
   const allArticles = useMemo(() => Object.values(HELP_CONTENT), []);
 
@@ -45,15 +46,22 @@ export function HelpBrowser({ open, onClose }: HelpBrowserProps) {
     [searchQuery],
   );
 
-  // Reset state when opening
+  // Reset state, place initial focus, and restore the invoker's focus on
+  // close. APG Dialog (Modal): focus moves into the dialog when it opens and
+  // returns to the invoking element when it closes; without the cleanup,
+  // closing Help stranded keyboard focus on <body>.
   useEffect(() => {
-    if (open) {
-      setSearchQuery('');
-      setSelectedCategory(null);
-      setSelectedArticle(null);
-      // Focus search on open
-      setTimeout(() => searchRef.current?.focus(), 100);
-    }
+    if (!open) return;
+    previouslyFocused.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setSearchQuery('');
+    setSelectedCategory(null);
+    setSelectedArticle(null);
+    searchRef.current?.focus();
+    return () => {
+      const target = previouslyFocused.current;
+      if (target?.isConnected) target.focus();
+    };
   }, [open]);
 
   // Escape to close
@@ -84,6 +92,16 @@ export function HelpBrowser({ open, onClose }: HelpBrowserProps) {
       if (focusable.length === 0) return;
       const first = focusable[0] as HTMLElement;
       const last = focusable[focusable.length - 1] as HTMLElement;
+      const active = document.activeElement;
+      if (active && !dialog.contains(active)) {
+        // Containment guard: focus is outside the modal (programmatic focus,
+        // a restore race). This dialog claims aria-modal="true", so Tab must
+        // never continue in the background — pull focus back to the edge the
+        // keystroke was heading for.
+        e.preventDefault();
+        (e.shiftKey ? last : first).focus();
+        return;
+      }
       if (e.shiftKey && document.activeElement === first) {
         e.preventDefault();
         last.focus();

@@ -2,7 +2,14 @@
 
 import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { createDocument, type Document, type FrameNode, type TextNode } from '@varve/scene';
+import userEvent from '@testing-library/user-event';
+import {
+  createDocument,
+  type Document,
+  type FrameNode,
+  makeShapeNode,
+  type TextNode,
+} from '@varve/scene';
 import { useEffect } from 'react';
 import { describe, expect, it } from 'vitest';
 import { EditorProvider, useEditor } from '../context';
@@ -197,5 +204,52 @@ describe('IntelligencePanel — Similar tab', () => {
     );
     expect(screen.getByLabelText(/describe an asset/i)).toBeInTheDocument();
     expect(screen.getByText(/select an image or enter a description/i)).toBeInTheDocument();
+  });
+});
+
+/** Two structurally identical shapes differing in exactly one property —
+ * the minimal fixture that produces a variant candidate. */
+function variantDocument(): Document {
+  const red = makeShapeNode(
+    'r1',
+    { kind: 'rect', x: 0, y: 0, w: 120, h: 40 },
+    { name: 'Button', fill: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 } },
+  );
+  const blue = makeShapeNode(
+    'r2',
+    { kind: 'rect', x: 200, y: 0, w: 120, h: 40 },
+    { name: 'Button', fill: { space: 'rgb', r: 0, g: 0, b: 255, a: 255 } },
+  );
+  return {
+    ...createDocument('variant-candidate-test'),
+    nodes: { r1: red, r2: blue },
+    rootChildren: ['r1', 'r2'],
+  };
+}
+
+describe('IntelligencePanel — Promote dialog (shared Dialog contract)', () => {
+  // The promote flow used a div with aria-modal that never moved focus and
+  // only handled Escape when focus already happened to be inside it. It now
+  // runs on @varve/ui's Dialog, so the panel inherits the platform contract:
+  // native showModal() focus placement, containment, Escape, and focus
+  // restoration on unmount (this dialog unmounts when dismissed).
+  it('opens a native dialog with focus inside and closes on Escape', async () => {
+    const user = userEvent.setup();
+    render(
+      <EditorProvider initialDocumentJson={JSON.stringify(variantDocument())}>
+        <IntelligencePanel />
+      </EditorProvider>,
+    );
+
+    await user.click(screen.getByRole('button', { name: /more intelligence tabs/i }));
+    await user.click(await screen.findByRole('menuitem', { name: /components/i }));
+    await user.click(screen.getByRole('button', { name: /promote/i }));
+
+    const dialog = screen.getByRole('dialog');
+    expect(dialog.tagName).toBe('DIALOG');
+    expect(dialog.contains(document.activeElement)).toBe(true);
+
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 });

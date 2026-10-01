@@ -25,9 +25,9 @@
  *   - `world` the cached world transform (returned by reference from
  *             TransformCache while the node is clean).
  *   - the frame-level inputs that `sceneNodeToEngineNode` reads from outside
- *             the node — `doc.paints`, `doc.rasterMaskAssets`, `doc.styles`,
- *             and the "show original background" node id — which `beginFrame`
- *             compares, clearing the whole memo when any of them changes.
+ *             the node — paints, raster masks, styles, pattern definitions,
+ *             image assets, depth maps, colour settings, and the "show original
+ *             background" node id — which `beginFrame` compares.
  *
  * `doc.styles` is a frame-level key rather than a per-node one on purpose. The
  * resolved reusable-style override is a pure function of (node, doc.styles),
@@ -64,6 +64,9 @@ export class EngineNodeMemo {
   private maskAssetsRef: unknown = UNINITIALIZED;
   private stylesRef: unknown = UNINITIALIZED;
   private patternDefinitionsRef: unknown = UNINITIALIZED;
+  private assetsRef: unknown = UNINITIALIZED;
+  private depthMapsRef: unknown = UNINITIALIZED;
+  private colorConfigRef: unknown = UNINITIALIZED;
   private extraKey: unknown = UNINITIALIZED;
   private computeCount = 0;
   private hitCount = 0;
@@ -73,8 +76,7 @@ export class EngineNodeMemo {
   /**
    * Call once per frame before any get/set. Clears the memo when a
    * conversion input that lives outside the individual node has changed, so
-   * a stale engine node can never survive a shared-paint, mask-asset, or
-   * compare-toggle edit.
+   * a stale engine node cannot survive a shared resource or settings edit.
    */
   beginFrame(
     paints: unknown,
@@ -82,19 +84,28 @@ export class EngineNodeMemo {
     styles: unknown,
     extraKey: string,
     patternDefinitions?: unknown,
+    assets?: unknown,
+    depthMaps?: unknown,
+    colorConfig?: unknown,
   ): void {
     if (
       paints !== this.paintsRef ||
       rasterMaskAssets !== this.maskAssetsRef ||
       styles !== this.stylesRef ||
       patternDefinitions !== this.patternDefinitionsRef ||
+      assets !== this.assetsRef ||
+      depthMaps !== this.depthMapsRef ||
+      colorConfig !== this.colorConfigRef ||
       extraKey !== this.extraKey
     ) {
       this.entries.clear();
       this.paintsRef = paints;
       this.maskAssetsRef = rasterMaskAssets;
-      this.patternDefinitionsRef = patternDefinitions;
       this.stylesRef = styles;
+      this.patternDefinitionsRef = patternDefinitions;
+      this.assetsRef = assets;
+      this.depthMapsRef = depthMaps;
+      this.colorConfigRef = colorConfig;
       this.extraKey = extraKey;
     }
   }

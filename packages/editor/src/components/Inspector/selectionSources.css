@@ -44,6 +44,31 @@
   cursor: pointer;
 }
 
+.insp-selection-sources__button--full {
+  grid-column: 1 / -1;
+}
+
+.insp-selection-sources__fill-color {
+  align-items: center;
+  color: var(--color-text-secondary);
+  display: flex;
+  font-size: var(--font-size-xs);
+  gap: var(--space-2);
+  grid-column: 1 / -1;
+  justify-content: space-between;
+  min-height: 30px;
+}
+
+.insp-selection-sources__fill-color input {
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control);
+  cursor: pointer;
+  height: 28px;
+  padding: 0;
+  width: 44px;
+}
+
 .insp-selection-sources__button--primary {
   border-color: var(--color-accent-primary);
   color: var(--color-accent-primary);
@@ -180,7 +205,8 @@
 .insp-selection-sources__saved-action:focus-visible,
 .insp-selection-sources__saved-name:focus-visible,
 .insp-selection-sources__rename-input:focus-visible,
-.insp-selection-sources__name-field input:focus-visible {
+.insp-selection-sources__name-field input:focus-visible,
+.insp-selection-sources__fill-color input:focus-visible {
   outline: var(--focus-ring-width) solid var(--color-accent-primary);
   outline-offset: 1px;
 }

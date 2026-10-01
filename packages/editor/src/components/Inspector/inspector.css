@@ -2120,6 +2120,11 @@
 .insp-align-targets {
   display: inline-flex;
   align-items: center;
+  /* Wrap instead of spilling: at an enlarged root text size (WCAG 1.4.4
+   * text-only enlargement) this cluster's min-content exceeds a fixed-width
+   * rail and the buttons were clipped at the panel edge with no way to
+   * reach them. The buttons' labels stay intact across two lines. */
+  flex-wrap: wrap;
   gap: var(--space-05);
   padding: var(--space-05);
   border: 1px solid var(--color-border-subtle);
@@ -2912,68 +2917,6 @@
   font-size: var(--font-size-2xs);
   text-align: center;
 }
-
-/* Pattern repeat preview: a real lattice render, not a decorative swatch. */
-.insp-pattern-controls {
-  display: flex;
-  flex-direction: column;
-  /* A long label must never set the control's min-content width and clip the
-     group in a narrow inspector. */
-  min-width: 0;
-  gap: var(--space-1);
-}
-.insp-pattern-preview {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-.insp-pattern-preview__canvas {
-  display: block;
-  width: 100%;
-  max-width: var(--insp-preview-max-inline-size, 20rem);
-  aspect-ratio: 1;
-  align-self: center;
-  border-radius: var(--radius-control);
-  border: 1px solid var(--color-border-subtle);
-  /* Checkerboard marks genuine transparency in the tile, not a fill colour. */
-  background-image:
-    linear-gradient(45deg, var(--color-surface-sunken) 25%, transparent 25%),
-    linear-gradient(-45deg, var(--color-surface-sunken) 25%, transparent 25%),
-    linear-gradient(45deg, transparent 75%, var(--color-surface-sunken) 75%),
-    linear-gradient(-45deg, transparent 75%, var(--color-surface-sunken) 75%);
-  background-color: var(--elevation-surface-raised);
-  background-size: var(--space-3) var(--space-3);
-  background-position:
-    0 0,
-    0 calc(var(--space-3) / 2),
-    calc(var(--space-3) / 2) calc(var(--space-3) / -2),
-    calc(var(--space-3) / -2) 0;
-}
-.insp-pattern-colors {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-/* Long source descriptions and integer seeds must truncate, never widen the
-   inspector: a narrow panel clips the whole field group otherwise. */
-.insp-pattern-summary {
-  display: block;
-  min-width: 0;
-  overflow: hidden;
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-xs);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.insp-pattern-colors input[type="color"] {
-  width: var(--space-5);
-  /* Square via aspect-ratio, not a second spacing token as a control height. */
-  aspect-ratio: 1;
-  padding: 0;
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-control);
-  background: none;
-}
 .insp-image-fill__actions {
   display: flex;
   align-items: center;
@@ -3249,15 +3192,10 @@
   max-height: 200px;
   overflow-y: auto;
 }
-.insp-pattern-library__list--editing {
-  max-height: min(55vh, 420px);
-}
 .insp-paint-library__entry {
-  display: grid;
-  grid-template-columns: 1.25rem minmax(0, 1fr);
+  display: flex;
   align-items: center;
-  gap: var(--space-1) var(--space-2);
-  min-width: 0;
+  gap: var(--space-2);
   padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-control-compact);
   cursor: grab;
@@ -3272,8 +3210,6 @@
   outline-offset: -1px;
 }
 .insp-paint-library__swatch {
-  grid-column: 1;
-  grid-row: 1 / span 2;
   width: 1.25rem;
   height: 1.25rem;
   min-width: 1.25rem;
@@ -3282,25 +3218,12 @@
   border-color: var(--color-border-strong);
   flex-shrink: 0;
 }
-.insp-pattern-library__swatch {
-  overflow: hidden;
-}
-.insp-pattern-library__swatch .insp-pattern-preview {
-  display: block;
-  height: 100%;
-  width: 100%;
-}
-.insp-pattern-library__swatch .insp-pattern-preview__canvas {
-  height: 100%;
-  max-width: none;
-}
 .insp-paint-library__info {
-  grid-column: 2;
-  grid-row: 1;
-  min-width: 0;
+  flex: 1;
   display: flex;
   flex-direction: column;
   gap: var(--space-05);
+  min-width: 0;
 }
 .insp-paint-library__name {
   font-size: var(--font-size-xs);
@@ -3317,55 +3240,17 @@
   line-height: 1.2;
 }
 .insp-paint-library__actions {
-  grid-column: 2;
-  grid-row: 2;
   display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
   align-items: center;
   gap: var(--space-1);
-  max-inline-size: 100%;
-  min-width: 0;
-}
-.insp-pattern-definition-settings {
-  border: 0;
-  display: grid;
-  grid-column: 1 / -1;
-  gap: var(--space-2);
-  grid-template-columns: minmax(0, 1fr);
-  margin: 0;
-  min-width: 0;
-  padding: var(--space-2) 0 var(--space-1);
-  user-select: text;
-  width: 100%;
-}
-.insp-pattern-definition-settings > legend {
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-2xs);
-  padding: 0;
-}
-.insp-pattern-definition-settings > label {
-  color: var(--color-text-secondary);
-  display: flex;
-  flex-direction: column;
-  font-size: var(--font-size-2xs);
-  gap: var(--space-05);
-  min-width: 0;
-}
-.insp-pattern-definition-settings .insp-num__input {
-  width: 100%;
-}
-.insp-pattern-definition-settings > .insp-pattern-definition-settings__check {
-  align-items: center;
-  display: flex;
-  gap: var(--space-1);
+  flex-shrink: 0;
 }
 .insp-paint-library__action-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 2rem;
-  min-height: 2rem;
+  width: 1.25rem;
+  height: 1.25rem;
   background: transparent;
   border: none;
   border-radius: var(--radius-control-compact);
@@ -4759,13 +4644,6 @@ fieldset.insp-canvas-props,
   font-size: var(--font-size-xs);
   line-height: 1.35;
   color: var(--color-text-muted);
-}
-.insp-pattern-library__swatch .insp-hint {
-  display: none;
-}
-.insp-pattern-definition-settings > .insp-hint {
-  grid-column: 1 / -1;
-  margin: 0;
 }
 
 .insp-hint--error {
@@ -6386,6 +6264,21 @@ fieldset.insp-canvas-props,
   .insp-field-group--position > .insp-field:nth-child(2) {
     grid-column: auto;
   }
+
+  /* Text-only enlargement (WCAG 1.4.4): the rail is a fixed px width while
+   * labels are rem-based, so at a 200% root text size the same rail measures
+   * under 13rem and every nowrap label ellipsized ("Blend mode" → "Blend
+   * mo…", "Opacity (%)" → "Opacity…"). The rem-based container threshold
+   * engages exactly when the text-to-rail ratio gets tight, which is the
+   * condition being defended: labels wrap like the existing `--wrap`
+   * variant, rows grow vertically, and the value columns keep their
+   * positions. Source order after the base `.insp-field__label` rule keeps
+   * the specificity unchanged. */
+  .insp-field__label {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    line-height: 1.25;
+  }
 }
 
 .insp-field-group--size > .insp-proportion-lock,
@@ -6629,6 +6522,30 @@ fieldset.insp-canvas-props,
   inline-size: 100%;
   max-inline-size: 100%;
   min-inline-size: 0;
+}
+
+/* Option groups wrap onto a second line before their labels ellipsize. The
+ * rail is a fixed px width while interface type is rem, so at an enlarged
+ * root text size (WCAG 1.4.4 text-only enlargement) every label in a
+ * Document/colour segmented group truncated to "Li…" etc., making the
+ * options visually indistinguishable. Wrapping keeps all labels readable
+ * without growing the panel; the per-label ellipsis below still covers a
+ * single option wider than the rail.
+ *
+ * The buttons need `flex-basis: auto` for this to work: `.varve-segmented--distribute`
+ * ships `flex: 1 1 0`, and with a 0px basis every button's hypothetical main
+ * size is 0 — line breaking never fires (0×N always fits) and the buttons
+ * instead share one line and shrink their labels. `flex: 1 0 auto` restores
+ * content-based line breaking while keeping equal-width distribution
+ * *within* each line (grow still fills the line). Measured: the
+ * RGB/CMYK/Grayscale group went from one 55px line with clipped labels to
+ * two full-label lines at a 200% root size. */
+.editor-inspector .varve-segmented {
+  flex-wrap: wrap;
+}
+
+.editor-inspector .varve-segmented > .varve-segmented__btn {
+  flex: 1 0 auto;
 }
 
 .editor-inspector .insp-field__control > .varve-segmented > .varve-segmented__btn {

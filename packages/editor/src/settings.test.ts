@@ -23,6 +23,7 @@ describe('loadSettings', () => {
     expect(s.viewport.guidesVisible).toBe(true);
     expect(s.viewport.snapGrid).toBe(8);
     expect(s.render.memoryBudget).toBe('medium');
+    expect(s.render.renderer).toBe('canvas2d');
     expect(s.render.interactivePreview).toBe('automatic');
     expect(s.viewport.wheelMode).toBe('auto');
     expect(s.viewport.wheelSensitivity).toBe(1);
@@ -52,9 +53,22 @@ describe('loadSettings', () => {
     );
     const s = loadSettings();
     expect(s.render.memoryBudget).toBe('low');
-    expect(s.render.preferWebGpu).toBe(false);
+    expect(s.render.renderer).toBe('canvas2d');
     expect(s.performance.reducedMotionOverride).toBe('always');
     expect(s.performance.showPerformanceDiagnostics).toBe(false);
+  });
+
+  it('migrates the previous WebGPU preference and keeps an explicit renderer choice', () => {
+    localStorage.setItem(
+      'strata-editor-settings',
+      JSON.stringify({ render: { preferWebGpu: true } }),
+    );
+    expect(loadSettings().render.renderer).toBe('webgpu');
+    localStorage.setItem(
+      'strata-editor-settings',
+      JSON.stringify({ render: { renderer: 'webgl2', preferWebGpu: true } }),
+    );
+    expect(loadSettings().render.renderer).toBe('webgl2');
   });
 
   it('performance diagnostics default to false for new installs, missing values, and malformed persisted data', () => {

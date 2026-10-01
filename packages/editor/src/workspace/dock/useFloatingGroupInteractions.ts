@@ -94,7 +94,7 @@ export function useFloatingGroupInteractions(
         if (event.button !== 0 || !host || host.width <= 0 || host.height <= 0) return;
         const button = (event.target as HTMLElement).closest('button');
         if (
-          (button && button.dataset.dockResizeHandle !== 'true') ||
+          (button && (kind !== 'resize' || button.dataset.dockResizeHandle !== 'true')) ||
           (event.target as HTMLElement).closest('[data-no-drag="true"]')
         )
           return;

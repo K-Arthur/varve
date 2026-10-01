@@ -4,7 +4,7 @@ import { expect, test } from '@playwright/test';
 import { dragOnCanvas, navigateToEditor } from '../shared';
 
 /**
- * In-app WebGPU capture: drives the real editor with the preferWebGpu
+ * In-app WebGPU capture: drives the real editor with the WebGPU renderer
  * preference enabled, draws solid rect + ellipse content through the real
  * tools, and captures the canvas, the status bar label, and the Performance
  * settings tab into docs/screenshots/gpu-acceleration/.
@@ -57,7 +57,7 @@ async function drawShapes(page: import('@playwright/test').Page): Promise<void> 
   await expect(page.getByRole('treeitem')).toHaveCount(2, { timeout: 10000 });
 }
 
-async function enablePreferWebGpu(page: import('@playwright/test').Page): Promise<void> {
+async function selectWebGpuRenderer(page: import('@playwright/test').Page): Promise<void> {
   await page.evaluate(() => {
     const file = [...document.querySelectorAll('button')].find(
       (element) => element.textContent?.trim() === 'File',
@@ -66,13 +66,13 @@ async function enablePreferWebGpu(page: import('@playwright/test').Page): Promis
   });
   await page.getByRole('menuitem', { name: /Settings/ }).click();
   const settings = page.locator('dialog.varve-dialog--settings[open]');
-  const preference = settings.getByRole('switch', { name: 'Prefer WebGPU when available' });
+  const preference = settings.getByRole('combobox', { name: 'Canvas renderer' });
   await preference.click();
-  await expect(preference).toBeChecked();
+  await settings.getByRole('option', { name: 'WebGPU (when available)' }).click();
   await page.keyboard.press('Escape');
 }
 
-test('captures the prefer-WebGPU path and its truthful status', async ({ page }) => {
+test('captures the WebGPU renderer preference and its truthful status', async ({ page }) => {
   mkdirSync(SHOT_DIR, { recursive: true });
   await navigateToEditor(page);
   const hardware = await hasHardwareAdapter(page);
@@ -84,7 +84,7 @@ test('captures the prefer-WebGPU path and its truthful status', async ({ page })
   const canvas2dStatus = await page.locator('.editor-status__diagnostic').textContent();
   expect(canvas2dStatus ?? '').toMatch(/Canvas2D/);
 
-  await enablePreferWebGpu(page);
+  await selectWebGpuRenderer(page);
   await page.reload();
   await navigateToEditor(page);
   await drawShapes(page);
@@ -105,7 +105,7 @@ test('captures the prefer-WebGPU path and its truthful status', async ({ page })
   } else {
     // Software adapter must be declined with a named reason, never reported
     // as acceleration.
-    expect(status.trim()).toMatch(/GPU unavailable · Canvas2D|Canvas2D/);
+    expect(status.trim()).toMatch(/WebGPU unavailable · Canvas2D|Canvas2D/);
   }
 
   // Performance tab: the live renderer status lives in the Diagnostics stats

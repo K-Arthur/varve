@@ -132,15 +132,26 @@ describe('WGSL shader strings', () => {
       // A prior bug used transform.w (d) as tx and transform2.x (e) as the
       // y-scale term — identity transforms then mapped (x,y) → (x+1, 0).
       expect(SOLID_VERTEX_WGSL).toMatch(
-        /transform\.x\s*\*\s*input\.localPos\.x\s*\+\s*input\.transform\.z\s*\*\s*input\.localPos\.y\s*\+\s*input\.transform2\.x/,
+        /transform\.x\s*\*\s*local\.x\s*\+\s*input\.transform\.z\s*\*\s*local\.y\s*\+\s*input\.transform2\.x/,
       );
       expect(SOLID_VERTEX_WGSL).toMatch(
-        /transform\.y\s*\*\s*input\.localPos\.x\s*\+\s*input\.transform\.w\s*\*\s*input\.localPos\.y\s*\+\s*input\.transform2\.y/,
+        /transform\.y\s*\*\s*local\.x\s*\+\s*input\.transform\.w\s*\*\s*local\.y\s*\+\s*input\.transform2\.y/,
       );
       // Explicitly reject the broken form.
       expect(SOLID_VERTEX_WGSL).not.toMatch(
-        /transform\.z\s*\*\s*input\.localPos\.y\s*\+\s*input\.transform\.w\s*,/,
+        /transform\.z\s*\*\s*local\.y\s*\+\s*input\.transform\.w\s*,/,
       );
+    });
+
+    it('expands the unit quad ~1 screen pixel for the analytic coverage band', () => {
+      // The CPU folds authored geometry into a unit-quad local frame; the
+      // fragment's edge band needs geometry outside the boundary, so the
+      // vertex pushes corners outward by 1 / (zoom * affine column length).
+      expect(SOLID_VERTEX_WGSL).toContain('1.0 / max(scaleX, 1e-6)');
+      expect(SOLID_VERTEX_WGSL).toContain('1.0 / max(scaleY, 1e-6)');
+      expect(SOLID_VERTEX_WGSL).toContain('select(input.localPos.x - marginX');
+      expect(SOLID_VERTEX_WGSL).toContain('out.local = local');
+      expect(SOLID_VERTEX_WGSL).toContain('camera.zoom * sqrt(');
     });
   });
 
@@ -148,6 +159,20 @@ describe('WGSL shader strings', () => {
     it('is non-empty and contains @fragment', () => {
       expect(SOLID_FRAGMENT_WGSL).toContain('@fragment');
       expect(SOLID_FRAGMENT_WGSL).toContain('fn fs_main');
+    });
+
+    it('derives analytic edge coverage from the unit quad, premultiplied', () => {
+      // Distance to the nearest unit-square edge converted through fwidth
+      // gives a ~1 device-pixel transition (Canvas2D parity); a hard edge or
+      // a discard produced staircases at fractional zoom and rotation.
+      expect(SOLID_FRAGMENT_WGSL).toContain('min(local.x, 1.0 - local.x)');
+      expect(SOLID_FRAGMENT_WGSL).toContain('fwidth(s)');
+      expect(SOLID_FRAGMENT_WGSL).toContain('clamp(s / aa + 0.5, 0.0, 1.0)');
+      expect(SOLID_FRAGMENT_WGSL).toContain('color.rgb * coverage, color.a * coverage');
+      expect(SOLID_FRAGMENT_WGSL).not.toContain('discard;');
+      // The vertex stage owns the outside-band geometry; no framebuffer
+      // position may leak into the coverage term.
+      expect(SOLID_FRAGMENT_WGSL).not.toContain('@builtin(position)');
     });
   });
 
@@ -161,7 +186,11 @@ describe('WGSL shader strings', () => {
       expect(CIRCLE_VERTEX_WGSL).toContain('@location(1) local: vec2f');
       expect(CIRCLE_VERTEX_WGSL).toContain('@location(4) circle: vec4f');
       expect(CIRCLE_VERTEX_WGSL).toContain('@location(2) circle: vec4f');
-      expect(CIRCLE_VERTEX_WGSL).toContain('out.local = input.localPos');
+      // The forwarded local position is the quad-expanded one (the coverage
+      // band needs geometry outside the oval boundary), not the raw corner.
+      expect(CIRCLE_VERTEX_WGSL).toContain('out.local = local');
+      expect(CIRCLE_VERTEX_WGSL).toContain('sign(input.localPos.x - input.circle.x)');
+      expect(CIRCLE_VERTEX_WGSL).toContain('1.0 / max(scaleX, 1e-6)');
       expect(CIRCLE_VERTEX_WGSL).toContain('out.circle = input.circle');
       expect(CIRCLE_VERTEX_WGSL).toContain('camera.origin');
       expect(SOLID_VERTEX_WGSL).toContain('fn vs_main');
@@ -169,9 +198,14 @@ describe('WGSL shader strings', () => {
   });
 
   describe('CIRCLE_FRAGMENT_WGSL', () => {
-    it('discards using object-local coverage, not framebuffer position', () => {
-      expect(CIRCLE_FRAGMENT_WGSL).toContain('discard');
-      // Normalized local-space test: (d/rx)^2 + (d/ry)^2 > 1. A circle is the
+    it('blends analytic object-local coverage, not framebuffer position', () => {
+      // A hard `discard;` produced aliased staircase edges against Canvas2D's
+      // antialiased ellipse; coverage now transitions over ~1 device pixel.
+      expect(CIRCLE_FRAGMENT_WGSL).not.toContain('discard;');
+      expect(CIRCLE_FRAGMENT_WGSL).toContain('fwidth(q)');
+      expect(CIRCLE_FRAGMENT_WGSL).toContain('clamp((1.0 - q) / aa + 0.5, 0.0, 1.0)');
+      expect(CIRCLE_FRAGMENT_WGSL).toContain('color.rgb * coverage, color.a * coverage');
+      // Normalized local-space distance: (local - c) / r. A circle is the
       // rx == ry case, and the per-radius form is what makes ellipses exact.
       expect(CIRCLE_FRAGMENT_WGSL).toContain('circle.zw');
       // A framebuffer-space test is only correct for conformal transforms and

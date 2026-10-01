@@ -15,6 +15,10 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
+# Read `bundle.resources` from tauri.conf.json so development builds can drop
+# the packaged-only native helper glob (see build.rs). Already in the build
+# dependency tree through tauri-build, so it adds no compilation.
+serde_json = "1"
 
 [dependencies]
 tauri = { version = "2", features = ["protocol-asset"] }

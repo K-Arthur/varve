@@ -362,7 +362,7 @@ function createGovernanceRules(): AuditRuleDef[] {
  * (doc.logoProject) or when the user is in the logo workspace.
  */
 function createLogoRules(): AuditRuleDef[] {
-  const logoWorkspaces: WorkspaceMode[] = ['logo', 'design', 'print', 'drawing'];
+  const logoWorkspaces: WorkspaceMode[] = ['design', 'print', 'drawing'];
   return [
     {
       id: 'logo/text-left-editable',

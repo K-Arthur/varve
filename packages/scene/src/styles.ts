@@ -255,16 +255,21 @@ export function resolveNodeStyles(
       break;
     }
     case 'text': {
-      if (styleDef.fontFamily) resolved.fontFamily = styleDef.fontFamily;
-      if (styleDef.fontWeight) resolved.fontWeight = styleDef.fontWeight;
-      if (styleDef.fontStyle) resolved.fontStyle = styleDef.fontStyle;
-      if (styleDef.fontSize) resolved.fontSize = styleDef.fontSize;
-      if (styleDef.lineHeight) resolved.lineHeight = styleDef.lineHeight;
-      if (styleDef.letterSpacing) resolved.letterSpacing = styleDef.letterSpacing;
-      if (styleDef.textAlign) resolved.textAlign = styleDef.textAlign;
-      if (styleDef.textCase) resolved.textCase = styleDef.textCase;
-      if (styleDef.textDecoration) resolved.textDecoration = styleDef.textDecoration;
-      if (styleDef.listStyle) resolved.listStyle = styleDef.listStyle;
+      if (styleDef.fontFamily !== undefined) resolved.fontFamily = styleDef.fontFamily;
+      if (styleDef.fontReference !== undefined) resolved.fontReference = styleDef.fontReference;
+      if (styleDef.fontWeight !== undefined) resolved.fontWeight = styleDef.fontWeight;
+      if (styleDef.fontStyle !== undefined) resolved.fontStyle = styleDef.fontStyle;
+      if (styleDef.fontSize !== undefined) resolved.fontSize = styleDef.fontSize;
+      if (styleDef.lineHeight !== undefined) resolved.lineHeight = styleDef.lineHeight;
+      if (styleDef.letterSpacing !== undefined) resolved.letterSpacing = styleDef.letterSpacing;
+      if (styleDef.paragraphSpacing !== undefined)
+        resolved.paragraphSpacing = styleDef.paragraphSpacing;
+      if (styleDef.textAlign !== undefined) resolved.textAlign = styleDef.textAlign;
+      if (styleDef.textAlignVertical !== undefined)
+        resolved.textAlignVertical = styleDef.textAlignVertical;
+      if (styleDef.textCase !== undefined) resolved.textCase = styleDef.textCase;
+      if (styleDef.textDecoration !== undefined) resolved.textDecoration = styleDef.textDecoration;
+      if (styleDef.listStyle !== undefined) resolved.listStyle = styleDef.listStyle;
       break;
     }
     case 'effect': {

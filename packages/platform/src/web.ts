@@ -307,12 +307,16 @@ export type WebPlatformOptions = Record<string, never>;
 export async function createWebPlatform(_options: WebPlatformOptions = {}): Promise<Platform> {
   const db = await openHomeDb();
 
-  // Auto-create a "Personal" workspace if none exist (parity with memory platform)
+  // Auto-create a "Personal" workspace if none exist (parity with memory
+  // platform). The id is a fixed key, not a uuid: two boots racing here
+  // (dev StrictMode double-init, two windows opening together) must converge
+  // on ONE row, and the Home shell already uses 'personal' as the fallback
+  // workspace id (HomeShell.tsx), which a random uuid could never match.
   const existingWorkspaces = await db.getAll(STORE_WORKSPACES);
   if (existingWorkspaces.length === 0) {
     const now = Date.now();
     const personal: Workspace = {
-      id: uuid(),
+      id: 'personal',
       name: 'Personal',
       kind: 'personal',
       createdAt: now,

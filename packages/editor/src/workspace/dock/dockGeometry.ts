@@ -1,4 +1,8 @@
-import { DOCK_TAB_STRIP_MIN_HEIGHT, getDockNodeMinimumSize } from './dockOps';
+import {
+  DOCK_PANEL_CHROME_HEIGHT,
+  DOCK_TAB_STRIP_MIN_HEIGHT,
+  getDockNodeMinimumSize,
+} from './dockOps';
 import type {
   DockFloatingGroup,
   DockNode,
@@ -262,8 +266,10 @@ export function resolveDockFloatingGroupGeometry(
   const panelMinimum = getDockNodeMinimumSize(minimumNode);
   const headerHeight = 36 + (panels.length > 1 ? DOCK_TAB_STRIP_MIN_HEIGHT : 0);
   const minimumSize = {
-    width: panelMinimum.width,
-    height: panelMinimum.height + headerHeight,
+    // Floating groups own their header/tab chrome already. Undo the generic
+    // dock-header minimum added for docked panel placement.
+    width: Math.max(panelMinimum.width, 320),
+    height: panelMinimum.height - DOCK_PANEL_CHROME_HEIGHT + headerHeight,
   };
   const normalized = group.normalizedBounds;
   const nx = Number.isFinite(normalized?.x) ? clamp(normalized.x, 0, 1) : 0.18;

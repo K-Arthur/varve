@@ -17,6 +17,7 @@ import {
   getNodesUsingStyle,
   getStylesByType,
   getUsedStyleIds,
+  resolveNodeStyles,
   resolveStyle,
   resolveStyleWithOverrides,
   unlinkStyleFromNode,
@@ -101,6 +102,26 @@ describe('Style System — Text Styles', () => {
     const { style } = createTextStyle(doc, 'Body', { fontSize: 16 });
     expect(style.fontSize).toBe(16);
     expect(style.fontFamily).toBeUndefined();
+  });
+
+  it('resolves font identity and zero-valued paragraph and alignment properties', () => {
+    let doc = createDocument('test');
+    const { style, doc: next } = createTextStyle(doc, 'Compact Body', {
+      fontSize: 16,
+      fontFamily: 'Varve Sans',
+      fontReference: { artifactHash: 'a'.repeat(64), postScriptName: 'VarveSans-Regular' },
+      paragraphSpacing: 0,
+      textAlignVertical: 'middle',
+    });
+    doc = next;
+    const node = { ...makeTextNode('n1', 'Text'), styleId: style.id };
+
+    expect(resolveNodeStyles(node, style.id, doc.styles!)).toMatchObject({
+      fontFamily: 'Varve Sans',
+      fontReference: { artifactHash: 'a'.repeat(64) },
+      paragraphSpacing: 0,
+      textAlignVertical: 'middle',
+    });
   });
 });
 

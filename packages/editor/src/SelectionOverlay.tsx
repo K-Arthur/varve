@@ -26,7 +26,7 @@ import {
 } from '@varve/shared';
 import { Fragment, useCallback, useMemo, useRef, useSyncExternalStore } from 'react';
 import { CANVAS_INTERACTIVE_OVERLAY_Z_INDEX } from './canvas/overlayZIndex';
-import { useEditor } from './context';
+import { useEditor, useViewport } from './context';
 import type { TransformPreviewStore } from './context/ViewportContext';
 import {
   isNodeEffectivelyLocked,
@@ -348,6 +348,17 @@ export interface SelectionOverlayProps {
 
 export function SelectionOverlay({ canvasRef, transformPreviewStore }: SelectionOverlayProps = {}) {
   const { state, updateDoc, beginTransaction, commitTransaction } = useEditor();
+  // This overlay draws on top of the artwork, so it must convert through the
+  // camera the renderer is painting with. That is the viewport context value,
+  // which follows a camera preview; the committed editor state only catches up
+  // when the gesture commits, which would leave every box, handle, and hit
+  // target behind the artwork for the whole pan, zoom, or pinch. Same rule the
+  // drag threshold follows: anything compared against or drawn over the
+  // artwork lives in the renderer's camera space.
+  const viewport = useViewport();
+  const zoom = viewport.zoom;
+  const pan = viewport.pan;
+  const cameraRotation = viewport.cameraRotation;
   const transformPreview = useSyncExternalStore(
     transformPreviewStore?.subscribe ?? subscribeToNoTransformPreview,
     transformPreviewStore?.getSnapshot ?? emptyTransformPreview,
@@ -386,9 +397,9 @@ export function SelectionOverlay({ canvasRef, transformPreviewStore }: Selection
     height: canvasRef?.current?.clientHeight ?? 0,
   });
   const overlayCamera = (): Camera => ({
-    pan: state.pan,
-    zoom: state.zoom,
-    rotation: state.cameraRotation,
+    pan: pan,
+    zoom: zoom,
+    rotation: cameraRotation,
   });
   const overlayScreenToWorld = (sx: number, sy: number): Point =>
     screenToWorld(overlayCamera(), sx, sy, overlayViewport());
@@ -441,14 +452,7 @@ export function SelectionOverlay({ canvasRef, transformPreviewStore }: Selection
       const y = Math.min(...ys);
       return [{ id, x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y }];
     });
-  }, [
-    parentIndex,
-    state.cameraRotation,
-    renderDocument,
-    state.pan,
-    state.selectionPreview,
-    state.zoom,
-  ]);
+  }, [parentIndex, cameraRotation, renderDocument, pan, state.selectionPreview, zoom]);
 
   const isSingle = sel.length === 1;
   const node = sel[0];
@@ -541,7 +545,7 @@ export function SelectionOverlay({ canvasRef, transformPreviewStore }: Selection
       state.snapEnabled && snapPreferences.snapToObjects
         ? filterSnapTargetEntries(
             selectionBounds,
-            { zoom: state.zoom },
+            { zoom: zoom },
             otherBoundsWithIds,
             parentIndex,
             state.selection[0] ?? '',
@@ -556,7 +560,7 @@ export function SelectionOverlay({ canvasRef, transformPreviewStore }: Selection
         })
       : { lineTargets: [], segmentTargets: [] };
     snapOptionsRef.current = {
-      zoom: state.zoom,
+      zoom: zoom,
       tolerancePx: snapPreferences.snapTolerancePx,
       otherBounds,
       lineTargets: snapTargets.lineTargets,
@@ -568,7 +572,7 @@ export function SelectionOverlay({ canvasRef, transformPreviewStore }: Selection
   }, [
     renderDocument,
     state.selection,
-    state.zoom,
+    zoom,
     state.snapEnabled,
     state.documentGrid,
     state.pixelGridSnapEnabled,
@@ -635,8 +639,8 @@ export function SelectionOverlay({ canvasRef, transformPreviewStore }: Selection
       hasInteractiveHandles,
       box,
       canvasRef,
-      state.pan,
-      state.zoom,
+      pan,
+      zoom,
       renderDocument,
       state.selection,
       beginTransaction,
@@ -702,7 +706,7 @@ export function SelectionOverlay({ canvasRef, transformPreviewStore }: Selection
         invWorldTransform: invMat,
       };
     },
-    [isLineOrArrow, node, canvasRef, state.zoom, state.pan, renderDocument, beginTransaction],
+    [isLineOrArrow, node, canvasRef, zoom, pan, renderDocument, beginTransaction],
   );
 
   const handleCornerRadiusPointerDown = useCallback(
@@ -744,7 +748,7 @@ export function SelectionOverlay({ canvasRef, transformPreviewStore }: Selection
         canvasOffsetY,
       };
     },
-    [isSingle, node, canvasRef, state.zoom, state.pan, renderDocument, beginTransaction],
+    [isSingle, node, canvasRef, zoom, pan, renderDocument, beginTransaction],
   );
 
   const handlePointerMove = useCallback(
@@ -882,7 +886,7 @@ export function SelectionOverlay({ canvasRef, transformPreviewStore }: Selection
         return;
       }
     },
-    [updateDoc, state.pan, state.zoom],
+    [updateDoc, pan, zoom],
   );
 
   const handlePointerUp = useCallback(() => {
@@ -963,7 +967,7 @@ export function SelectionOverlay({ canvasRef, transformPreviewStore }: Selection
 
   const resizeHandleTargets = (() => {
     if (isLockedSelection) return null;
-    const { indices } = visibleHandles(box.w, box.h, state.zoom, isSingle);
+    const { indices } = visibleHandles(box.w, box.h, zoom, isSingle);
     return HANDLE_KEYS.slice(0, 8).map((key, i) => {
       if (!indices.has(i)) return null;
       const [hx, hy] = handles[key];
@@ -1032,8 +1036,8 @@ export function SelectionOverlay({ canvasRef, transformPreviewStore }: Selection
       <rect
         x={topLeftScreen[0]}
         y={topLeftScreen[1]}
-        width={box.w * state.zoom}
-        height={box.h * state.zoom}
+        width={box.w * zoom}
+        height={box.h * zoom}
         transform={`rotate(${rotationDeg}, ${centerScreen[0]}, ${centerScreen[1]})`}
         fill="none"
         stroke="var(--color-canvas-selection)"
@@ -1044,7 +1048,7 @@ export function SelectionOverlay({ canvasRef, transformPreviewStore }: Selection
 
       {hasInteractiveHandles &&
         (() => {
-          const { showRotation } = visibleHandles(box.w, box.h, state.zoom, isSingle);
+          const { showRotation } = visibleHandles(box.w, box.h, zoom, isSingle);
           if (!showRotation) return null;
           return (
             <>
@@ -1110,8 +1114,8 @@ export function SelectionOverlay({ canvasRef, transformPreviewStore }: Selection
           MIN_SKEW_BOX_PX: their 24px hit targets (WCAG 2.5.8) would cover a
           tiny box and intercept the shape's own move-drag. */}
       {hasInteractiveHandles &&
-        box.w * state.zoom >= MIN_SKEW_BOX_PX &&
-        box.h * state.zoom >= MIN_SKEW_BOX_PX &&
+        box.w * zoom >= MIN_SKEW_BOX_PX &&
+        box.h * zoom >= MIN_SKEW_BOX_PX &&
         (() => {
           const edges: Array<{
             axis: SkewAxis;

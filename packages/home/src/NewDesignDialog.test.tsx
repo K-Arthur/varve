@@ -60,6 +60,48 @@ describe('NewDesignDialog', () => {
     );
   });
 
+  it('creates a presentation with the default widescreen size', async () => {
+    const user = userEvent.setup();
+    const onCreate = vi.fn();
+    render(<NewDesignDialog open onClose={vi.fn()} onCreate={onCreate} defaultName="Pitch" />);
+
+    await user.click(screen.getByRole('radio', { name: /new presentation/i }));
+    expect(screen.getByRole('radiogroup', { name: 'Slide size' })).toBeVisible();
+    expect(screen.getByText('1920 by 1080 px')).toBeVisible();
+    await user.click(screen.getByTestId('create-design-button'));
+
+    expect(onCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        documentName: 'Pitch',
+        startMode: 'presentation',
+        presentationPreset: 'widescreen',
+      }),
+    );
+  });
+
+  it('supports the classic and custom presentation sizes', async () => {
+    const user = userEvent.setup();
+    const onCreate = vi.fn();
+    render(<NewDesignDialog open onClose={vi.fn()} onCreate={onCreate} />);
+
+    await user.click(screen.getByRole('radio', { name: /new presentation/i }));
+    await user.click(screen.getByRole('radio', { name: '4:3' }));
+    expect(screen.getByText('1440 by 1080 px')).toBeVisible();
+    await user.click(screen.getByRole('radio', { name: 'Custom' }));
+    await user.clear(screen.getByLabelText('Width (px)'));
+    await user.type(screen.getByLabelText('Width (px)'), '1600');
+    await user.clear(screen.getByLabelText('Height (px)'));
+    await user.type(screen.getByLabelText('Height (px)'), '900');
+    await user.click(screen.getByTestId('create-design-button'));
+
+    expect(onCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        startMode: 'presentation',
+        presentationCustomSize: { width: 1600, height: 900, unit: 'px' },
+      }),
+    );
+  });
+
   it('honors a typed name without appending an extension', async () => {
     const user = userEvent.setup();
     const onCreate = vi.fn();

@@ -61,7 +61,7 @@ import {
   runLinterScan,
   type SuppressionEntry,
 } from '@varve/scene';
-import { Icon, Menu, type MenuEntry, Switch, Tooltip } from '@varve/ui';
+import { Button, Dialog, Icon, Menu, type MenuEntry, Switch, Tooltip } from '@varve/ui';
 import {
   type KeyboardEvent,
   useCallback,
@@ -2162,42 +2162,29 @@ function PromoteDialog({
     [candidate, state.document, componentName, propertyNames, variantNames],
   );
 
+  // Shared @varve/ui Dialog: native showModal() supplies initial focus,
+  // containment, an inert background, Escape, and — because this dialog is
+  // mounted conditionally — focus restoration on unmount. The div overlay
+  // it replaces claimed aria-modal while moving focus nowhere and only
+  // handled Escape when focus already happened to be inside it.
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label="Promote to component set"
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 1000,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: 'var(--elevation-scrim)',
-      }}
-      onClick={onClose}
-      onKeyDown={(e) => {
-        if (e.key === 'Escape') onClose();
-      }}
+    <Dialog
+      open
+      onClose={onClose}
+      title="Promote to component set"
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button variant="default" onClick={() => onPromote(plan)}>
+            <Icon name="Wand" label={undefined} size="0.85em" />
+            Apply
+          </Button>
+        </>
+      }
     >
-      <div
-        role="document"
-        className="intelligence-issue"
-        style={{ width: '90%', maxWidth: 420, maxHeight: '80vh', overflowY: 'auto' }}
-        onClick={(e) => e.stopPropagation()}
-        onKeyDown={(e) => e.stopPropagation()}
-      >
-        <div
-          style={{
-            fontWeight: 'var(--font-weight-bold)',
-            marginBottom: 'var(--space-2)',
-            fontSize: 'var(--font-size-sm)',
-          }}
-        >
-          Promote to component set
-        </div>
-
+      <div className="intelligence-issue">
         <label
           style={{
             display: 'block',
@@ -2307,26 +2294,8 @@ function PromoteDialog({
             </div>
           ))}
         </div>
-
-        <div style={{ display: 'flex', gap: 'var(--space-1)', justifyContent: 'flex-end' }}>
-          <button
-            type="button"
-            className="intelligence-action-btn"
-            style={{
-              background: 'var(--color-surface-raised)',
-              color: 'var(--color-text-primary)',
-            }}
-            onClick={onClose}
-          >
-            Cancel
-          </button>
-          <button type="button" className="intelligence-action-btn" onClick={() => onPromote(plan)}>
-            <Icon name="Wand" label={undefined} size="0.85em" />
-            Apply
-          </button>
-        </div>
       </div>
-    </div>
+    </Dialog>
   );
 }
 

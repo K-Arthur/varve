@@ -42,8 +42,8 @@ export interface WorkspaceInteractionPlan {
 export interface WorkspaceInteractionSnapshot {
   /** Active selectable/transient tool. */
   tool: ToolId;
-  /** Mask preview mode; anything other than 'none' is an active preview. */
-  maskPreviewMode: string;
+  /** A real preview session is active. The selected preview appearance is only a preference. */
+  hasMaskPreview: boolean;
   /** Whether a timeline is playing. */
   isPlaying: boolean;
   /** Focused element, when one exists. */
@@ -99,11 +99,11 @@ export function classifyWorkspaceInteractions(
   if (snapshot.tool === 'crop') {
     resolutions.push({ kind: 'crop', action: 'commit', detail: 'resolve cropping' });
   }
-  if (snapshot.maskPreviewMode !== 'none') {
+  if (snapshot.hasMaskPreview) {
     resolutions.push({
       kind: 'mask-preview',
-      action: 'commit',
-      detail: 'resolve the mask preview',
+      action: 'continue',
+      detail: 'preserve the active mask preview across workspace changes',
     });
   }
   if (isTextEntry(snapshot.activeElement)) {
@@ -134,14 +134,14 @@ export function classifyWorkspaceInteractions(
 /** DOM probes kept separate from the pure classifier for testability. */
 export function readWorkspaceInteractionSnapshot(input: {
   tool: ToolId;
-  maskPreviewMode: string;
+  hasMaskPreview: boolean;
   isPlaying: boolean;
   document?: Document | null;
 }): WorkspaceInteractionSnapshot {
   const doc = input.document ?? (typeof document !== 'undefined' ? document : null);
   return {
     tool: input.tool,
-    maskPreviewMode: input.maskPreviewMode,
+    hasMaskPreview: input.hasMaskPreview,
     isPlaying: input.isPlaying,
     activeElement: doc?.activeElement ?? null,
     hasOpenModal: Boolean(doc?.querySelector('dialog[open]')),

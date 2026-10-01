@@ -11,6 +11,7 @@ export type {
   CompositorOptions,
   RenderStructureNode,
 } from './types';
+export { WebGL2Backend } from './webgl2/backend';
 export { WebGPUBackend } from './webgpu/backend';
 export type { EffectDispatchRequest as GpuEffectDispatchRequest } from './webgpu/effects/runner';
 export {

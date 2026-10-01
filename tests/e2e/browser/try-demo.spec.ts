@@ -311,8 +311,9 @@ test.describe('browser demo (/try)', () => {
 
   // The demo exposes only the three workspaces that genuinely work in a
   // browser. Print has no printers to talk to, Motion cannot hold a frame
-  // budget in a tab, and Codegen/Logo/Email are narrow power-user surfaces.
-  test('offers only the primary workspaces, and withheld ones stay unreachable', async ({
+  // budget in a tab, and Email is a specialist workspace. Logo and Code are
+  // actions/panels rather than modes.
+  test('offers only the primary workspaces, and withheld modes stay unreachable', async ({
     page,
   }) => {
     await page.goto(DEMO_URL, { timeout: 120000, waitUntil: 'domcontentloaded' });
@@ -328,7 +329,7 @@ test.describe('browser demo (/try)', () => {
 
     // Not merely hidden from the tabs: the View menu keeps withheld capability
     // names visible but genuinely disabled, while allowed modes remain active.
-    for (const mode of ['print', 'motion', 'codegen', 'logo', 'email']) {
+    for (const mode of ['print', 'motion', 'email']) {
       await expect(page.locator(`.workspace-dock [data-mode="${mode}"]`)).toHaveCount(0);
     }
     await page.getByRole('menuitem', { name: 'View' }).click();
@@ -337,7 +338,7 @@ test.describe('browser demo (/try)', () => {
     // is grouped to fit one screen.
     await viewMenu.getByRole('menuitem', { name: 'Workspace' }).hover();
     const workspaceMenu = page.locator('[role="menu"][aria-label="Workspace"]');
-    for (const mode of ['Print', 'Motion', 'Codegen', 'Logo', 'Email']) {
+    for (const mode of ['Print', 'Motion', 'Email']) {
       await expect(
         workspaceMenu.getByRole('menuitemradio', { name: `Workspace: ${mode}` }),
       ).toBeDisabled();

@@ -137,6 +137,67 @@ describe('HomeSearchPalette', () => {
     expect(screen.getByText('Templates')).toBeInTheDocument();
   });
 
+  // The palette's Tab cycling lived on the container's onKeyDown, so it
+  // only ever ran while focus was already inside — a focus that escaped
+  // stayed outside a modal claiming aria-modal="true" (same failure class
+  // as fleetdm/fleet#46974). The trap must pull focus back in.
+  it('pulls focus back inside when Tab is pressed while focus is outside', () => {
+    const outside = document.createElement('button');
+    outside.textContent = 'Background control';
+    document.body.appendChild(outside);
+
+    render(
+      <HomeSearchPalette
+        onOpenProject={vi.fn()}
+        onCreateFromTemplate={vi.fn()}
+        open={true}
+        onClose={vi.fn()}
+        onOpenFile={vi.fn()}
+        files={mockFiles}
+        projects={mockProjects}
+        templates={mockTemplates}
+        platform={mockPlatform}
+      />,
+    );
+    outside.focus();
+    expect(outside).toHaveFocus();
+
+    fireEvent.keyDown(window, { key: 'Tab' });
+
+    const dialog = screen.getByRole('dialog');
+    expect(dialog.contains(document.activeElement)).toBe(true);
+
+    outside.remove();
+  });
+
+  // APG Dialog (Modal): when the palette closes, focus returns to the
+  // element that invoked it.
+  it('restores focus to the invoking element when closed', async () => {
+    const outside = document.createElement('button');
+    outside.textContent = 'Open search';
+    document.body.appendChild(outside);
+    outside.focus();
+
+    const props = {
+      onOpenProject: vi.fn(),
+      onCreateFromTemplate: vi.fn(),
+      onClose: vi.fn(),
+      onOpenFile: vi.fn(),
+      files: mockFiles,
+      projects: mockProjects,
+      templates: mockTemplates,
+      platform: mockPlatform,
+    };
+    const { rerender } = render(<HomeSearchPalette open={true} {...props} />);
+    // The palette takes focus for itself on open; without a restoration
+    // step, closing it strands focus on <body>.
+    await waitFor(() => expect(screen.getByPlaceholderText(/Search/)).toHaveFocus());
+    rerender(<HomeSearchPalette open={false} {...props} />);
+
+    expect(outside).toHaveFocus();
+    outside.remove();
+  });
+
   it('calls onClose on Escape', () => {
     const onClose = vi.fn();
     render(

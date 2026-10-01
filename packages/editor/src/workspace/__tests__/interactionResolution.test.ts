@@ -12,7 +12,7 @@ function snapshot(
 ): WorkspaceInteractionSnapshot {
   return {
     tool: 'select',
-    maskPreviewMode: 'none',
+    hasMaskPreview: false,
     isPlaying: false,
     activeElement: null,
     hasOpenModal: false,
@@ -41,12 +41,8 @@ describe('classifyWorkspaceInteractions', () => {
     expect(plan.blockedReason).toBe('modal-open');
   });
 
-  it('commits node editing, crop, and mask previews back to Select', () => {
-    for (const input of [
-      snapshot({ tool: 'nodeEdit' }),
-      snapshot({ tool: 'crop' }),
-      snapshot({ maskPreviewMode: 'preview' }),
-    ]) {
+  it('commits node and crop editing while preserving an active mask preview', () => {
+    for (const input of [snapshot({ tool: 'nodeEdit' }), snapshot({ tool: 'crop' })]) {
       const plan = classifyWorkspaceInteractions(input);
       expect(plan.blocked).toBe(false);
       expect(plan.resolutions.some((resolution) => resolution.kind !== 'text-edit')).toBe(true);
@@ -56,6 +52,10 @@ describe('classifyWorkspaceInteractions', () => {
         ),
       ).toBe(true);
     }
+
+    expect(classifyWorkspaceInteractions(snapshot({ hasMaskPreview: true })).resolutions).toEqual([
+      expect.objectContaining({ kind: 'mask-preview', action: 'continue' }),
+    ]);
   });
 
   it('commits a focused text field so hiding its panel cannot discard a draft', () => {
@@ -104,7 +104,7 @@ describe('readWorkspaceInteractionSnapshot', () => {
 
     const probe = readWorkspaceInteractionSnapshot({
       tool: 'pen',
-      maskPreviewMode: 'none',
+      hasMaskPreview: false,
       isPlaying: false,
     });
     expect(probe.hasImeComposition).toBe(true);
