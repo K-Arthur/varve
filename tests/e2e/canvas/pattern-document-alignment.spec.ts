@@ -68,6 +68,13 @@ test('document alignment changes the real canvas field and exposes its anchor in
     .poll(() => interiorSignature(page, bounds), { timeout: 10000 })
     .not.toBe(objectSignature);
 
+  // Keep the object selected for its placement controls, but leave drawing
+  // mode so the contextual "click and drag" hint does not cover the pattern.
+  await page.keyboard.press('v');
+  await expect(alignment).toContainText('Document/page');
+  await page.getByRole('button', { name: 'Dismiss hint' }).click();
+  await expect(page.locator('.micro-hint')).toBeHidden();
+
   await page.screenshot({
     path: 'docs/screenshots/pattern-system-2026-09-30/app-document-alignment.png',
   });
