@@ -16,6 +16,7 @@ Task-owned commits on `master`:
 - `e988d6462` — periodic source overhang, scoped Make Unique, and draft guards.
 - `54b9f1369` — update pattern validation report.
 - `42293a033` — raster seam inspection and cyclic offset editing.
+- `f26111d2b` — PDF and PDF/X preflight for missing pattern sources.
 
 ## Delivered
 
@@ -406,9 +407,12 @@ collected.
   conventional Grid/Half-drop/Brick geometries are rejected for rectangular
   supertile export.
 - No shared page-origin alignment; phase remains object-local.
-- The visual E2E documents are basic shapes and generated/raster samples, not
-  the requested 6–12 motif botanical collection, multi-panel packaging
-  document, or repaired transparent-raster design.
+- The visual E2E documents are basic shapes and generated/raster samples. The
+  new packaging case verifies one reusable pattern applied to three adjacent
+  panels, but does not cover the full branded layout with masks, nested
+  transforms, or alignment against differently transformed objects. The
+  requested 6–12 motif botanical collection and repaired transparent-raster
+  design remain unverified.
 - Native Tauri output, offline save/reopen through the real app, physical
   touch/pen interaction, high-DPR device behavior, and dense-repeat performance
   were not independently validated.
@@ -477,3 +481,25 @@ node scripts/quality/heavy-lease.mjs "pattern docs guide mobile visual check" --
 This slice did not rerun the full gate. The prior full-gate attempts and the
 shared-tree lock/formatter blockers remain documented above; the plan requires
 one final full-gate attempt on the last coherent revision.
+
+## Three-panel packaging workflow and inspected capture
+
+The real Chromium workflow creates three canvas rectangles, creates one
+procedural checker definition, applies it separately to each selected panel,
+and verifies the library reports one, two, then three uses. The final capture
+shows all three repeating fills, one selected panel, and the three-use library
+state. This validates a small packaging-style application, not the broader
+brand-layout cases listed above.
+
+```text
+pnpm exec biome check tests/e2e/canvas/pattern-repeat.spec.ts
+  Passed; no fixes applied.
+
+VARVE_E2E_PORT=5323 node scripts/quality/heavy-lease.mjs "e2e: three-panel pattern library workflow" -- npx playwright test tests/e2e/canvas/pattern-repeat.spec.ts --project=chromium --workers=1 --reporter=list --grep "three-panel packaging"
+  Passed: 1 Chromium workflow in 40.5 seconds.
+
+Visual inspection
+  Inspected docs/screenshots/pattern-system-2026-09-30/app-packaging-panels.png
+  at 1280×720. The 3 panels, checker repetition, selected-fill handles, and
+  “3 uses” state are visible; no panel is clipped at the captured zoom.
+```

@@ -527,6 +527,64 @@ test.describe('pattern repeat', () => {
     expect(historyWarnings).toEqual([]);
   });
 
+  test('applies one reusable pattern to a three-panel packaging layout', async ({ page }) => {
+    test.setTimeout(90000);
+    await navigateToCleanEditor(page);
+    const canvas = page.locator('canvas.editor-canvas__content-layer');
+    await canvas.waitFor({ state: 'visible', timeout: 15000 });
+    const bounds = await canvas.boundingBox();
+    if (!bounds) throw new Error('no canvas');
+
+    const panelWidth = Math.min(170, Math.floor(bounds.width / 5));
+    const panelHeight = Math.min(230, Math.floor(bounds.height / 2));
+    const panelGap = 24;
+    const totalWidth = panelWidth * 3 + panelGap * 2;
+    const startX = bounds.x + Math.max(24, (bounds.width - totalWidth) / 2);
+    const startY = bounds.y + Math.max(70, (bounds.height - panelHeight) / 2);
+    const panels = Array.from({ length: 3 }, (_, index) => ({
+      x: startX + index * (panelWidth + panelGap),
+      y: startY,
+    }));
+
+    const canvasObjects = page.getByRole('list', { name: 'Canvas objects' });
+    for (const [index, panel] of panels.entries()) {
+      await page.getByRole('button', { name: 'Rectangle', exact: true }).click();
+      await page.mouse.move(panel.x, panel.y);
+      await page.mouse.down();
+      await page.mouse.move(panel.x + panelWidth, panel.y + panelHeight);
+      await page.mouse.up();
+      await expect(canvasObjects.getByRole('listitem')).toHaveCount(index + 1, { timeout: 10000 });
+    }
+    await page.keyboard.press('v');
+    await page.mouse.click(panels[0]!.x + panelWidth / 2, panels[0]!.y + panelHeight / 2);
+    await expect(page.getByRole('button', { name: 'Paint Library', exact: true })).toBeVisible({
+      timeout: 10000,
+    });
+
+    await page.getByRole('button', { name: 'Paint Library', exact: true }).click();
+    await page.getByRole('button', { name: 'Pattern Library', exact: true }).click();
+    await page.getByRole('button', { name: 'New pattern', exact: true }).click();
+
+    const entries = page.locator('ul[aria-label="Reusable patterns"] > li');
+    await expect(entries).toHaveCount(1);
+    const entry = entries.first();
+    const name = await entry.locator('.insp-paint-library__name').innerText();
+    const badge = entry.locator('.insp-paint-library__badge');
+    const apply = entry.getByRole('button', { name: `Apply ${name} to selection` });
+
+    for (let index = 0; index < panels.length; index++) {
+      const panel = panels[index]!;
+      await page.mouse.click(panel.x + panelWidth / 2, panel.y + panelHeight / 2);
+      await expect(apply).toBeVisible();
+      await apply.click();
+      await expect(badge).toContainText(`${index + 1} use`);
+    }
+
+    await page.screenshot({
+      path: 'docs/screenshots/pattern-system-2026-09-30/app-packaging-panels.png',
+    });
+  });
+
   test('a generated pattern paints a field that repeats at the tile period', async ({ page }) => {
     test.setTimeout(240000);
     await navigateToCleanEditor(page);
