@@ -2643,6 +2643,15 @@ export function Menubar({
                           disabled={item.disabled}
                           tabIndex={activeItemIndex === itemFocusableIdx ? 0 : -1}
                           className={`editor-menubar__menu-item${isActive ? ' editor-menubar__menu-item--active' : ''}${hasSubmenu ? ' editor-menubar__menu-item--submenu' : ''}`}
+                          onMouseDown={(event) => {
+                            // The menu owns a scrollable viewport when its
+                            // commands exceed the available height. Native
+                            // pointer focus can scroll that viewport between
+                            // mouse-down and mouse-up, retargeting a click on
+                            // the last visible row to its neighbor. Keyboard
+                            // focus already follows the roving tabindex.
+                            if (event.button === 0) event.preventDefault();
+                          }}
                           onClick={() => {
                             if (hasSubmenu) {
                               if (item.disabled) return;
