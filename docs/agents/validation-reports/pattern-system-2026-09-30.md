@@ -18,6 +18,9 @@ Task-owned commits on `master`:
 - `42293a033` — raster seam inspection and cyclic offset editing.
 - `f26111d2b` — PDF and PDF/X preflight for missing pattern sources.
 - `42d997504` — three-panel reusable-pattern browser workflow and inspected capture.
+- `bdef4f4c8` — explicit mixed values for multi-fill placement changes.
+- `fed493b21` — preserve concurrent edits and reject stale source drafts.
+- `4fbb9dcbd` — select and drag source motifs from mirrored repeat ghosts.
 
 ## Delivered
 
@@ -665,3 +668,20 @@ pnpm verify:affected
   workspace escalation. The final full gate remains pending on the final
   coherent revision.
 ```
+
+## Final full-gate attempt
+
+The required full-gate command ran against master at 4fbb9dcbd with the shared
+dirty working tree present. It exited 1 before the full Vitest and Cargo lanes
+could run. Whole-tree formatting found an unrelated error in
+packages/editor/src/editor.css; Biome also reported existing lint infos and
+CSS specificity warnings. The architecture audit reported 14 distinct
+cycles, 76 unstable modules, and the existing Shell/Menubar/context
+import-budget overruns; layer-boundary and scene type-only checks passed. All
+20 package typechecks passed. The combined E2E typecheck step then exited 1
+without a diagnostic, but the immediate standalone pnpm typecheck:e2e rerun
+passed. The workspace unit and Rust suites were not reached, so this is not a
+clean full gate.
+
+Command: VARVE_FULL_GATE_REASON="Pattern source-edit hit testing, repeat-lattice interaction, and cross-package pattern contracts require the mandated final gate; the shared master checkout also includes unrelated workspace/toolchain changes." pnpm verify:full
+Result: exit 1. Standalone pnpm typecheck:e2e immediately afterward: passed.
