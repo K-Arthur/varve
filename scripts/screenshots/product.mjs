@@ -1963,7 +1963,7 @@ const SOURCE_SCENES = [
   {
     id: 'illustration-linework-flats',
     file: 'illustration-linework-flats.png',
-    producer: 'tests/e2e/canvas/strokes.spec.ts',
+    producer: 'tests/e2e/canvas/raster-magic-wand.spec.ts',
     alt: 'Varve showing a red apple flat beneath editable black linework on a separate Flats layer',
     caption:
       'Visible-artwork Magic Wand selects inside the ink while a separate Flats layer carries the colour.',
@@ -1978,7 +1978,7 @@ const SOURCE_SCENES = [
   {
     id: 'illustration-clipped-shading',
     file: 'illustration-clipped-shading.png',
-    producer: 'tests/e2e/canvas/strokes.spec.ts',
+    producer: 'tests/e2e/canvas/raster-magic-wand.spec.ts',
     alt: 'Varve Design workspace with red shading clipped inside a blue painted shape on a separate Shading layer',
     caption:
       'The separate Shading layer stays within the source raster alpha across undo, save/reopen, and transparent PNG export.',
@@ -1990,7 +1990,7 @@ const SOURCE_SCENES = [
   {
     id: 'illustration-vector-clipped-texture',
     file: 'illustration-vector-clipped-texture.png',
-    producer: 'tests/e2e/canvas/strokes.spec.ts',
+    producer: 'tests/e2e/paint/clipped-vector-texture.spec.ts',
     alt: 'Varve Design workspace showing a red raster shading stroke clipped inside a teal vector contour',
     caption:
       'A vector contour and raster shading share one editable document, exported as editable contour geometry with a bounded embedded texture.',
