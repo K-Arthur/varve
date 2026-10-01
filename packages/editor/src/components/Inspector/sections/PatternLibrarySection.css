@@ -1,0 +1,151 @@
+.insp-pattern-controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.insp-pattern-preview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.insp-pattern-preview__canvas {
+  align-self: center;
+  aspect-ratio: 1;
+  background-color: var(--elevation-surface-raised);
+  background-image:
+    linear-gradient(45deg, var(--color-surface-sunken) 25%, transparent 25%),
+    linear-gradient(-45deg, var(--color-surface-sunken) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, var(--color-surface-sunken) 75%),
+    linear-gradient(-45deg, transparent 75%, var(--color-surface-sunken) 75%);
+  background-position:
+    0 0,
+    0 calc(var(--space-3) / 2),
+    calc(var(--space-3) / 2) calc(var(--space-3) / -2),
+    calc(var(--space-3) / -2) 0;
+  background-size: var(--space-3) var(--space-3);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control);
+  display: block;
+  max-width: var(--insp-preview-max-inline-size, 20rem);
+  width: 100%;
+}
+
+.insp-pattern-colors {
+  align-items: center;
+  display: flex;
+  gap: var(--space-2);
+}
+
+.insp-pattern-colors input[type="color"] {
+  aspect-ratio: 1;
+  background: none;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control);
+  padding: 0;
+  width: var(--space-5);
+}
+
+.insp-pattern-summary {
+  color: var(--color-text-secondary);
+  display: block;
+  font-size: var(--font-size-xs);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.insp-pattern-library__list--editing {
+  max-height: min(55vh, 420px);
+}
+
+.insp-paint-library__entry.insp-pattern-library__entry {
+  align-items: center;
+  display: grid;
+  gap: var(--space-1) var(--space-2);
+  grid-template-columns: 1.25rem minmax(0, 1fr);
+  min-width: 0;
+}
+
+.insp-pattern-library__entry > .insp-pattern-library__swatch {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  overflow: hidden;
+}
+
+.insp-pattern-library__swatch .insp-pattern-preview {
+  display: block;
+  height: 100%;
+  width: 100%;
+}
+
+.insp-pattern-library__swatch .insp-pattern-preview__canvas {
+  height: 100%;
+  max-width: none;
+}
+
+.insp-pattern-library__swatch .insp-hint {
+  display: none;
+}
+
+.insp-pattern-library__entry > .insp-paint-library__info {
+  grid-column: 2;
+  grid-row: 1;
+  min-width: 0;
+}
+
+.insp-pattern-library__entry > .insp-paint-library__actions {
+  flex-wrap: wrap;
+  grid-column: 2;
+  grid-row: 2;
+  justify-content: flex-end;
+  max-inline-size: 100%;
+  min-width: 0;
+}
+
+.insp-pattern-library__entry .insp-paint-library__action-btn {
+  min-height: 2rem;
+  min-width: 2rem;
+}
+
+.insp-panel fieldset.insp-pattern-definition-settings:not(.insp-disclosure__content) {
+  border: 0;
+  display: grid;
+  gap: var(--space-2);
+  grid-column: 1 / -1;
+  grid-template-columns: minmax(0, 1fr);
+  margin: 0;
+  min-width: 0;
+  padding: var(--space-2) 0 var(--space-1);
+  user-select: text;
+  width: 100%;
+}
+
+.insp-pattern-definition-settings > legend {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-2xs);
+  padding: 0;
+}
+
+.insp-pattern-definition-settings > label {
+  color: var(--color-text-secondary);
+  display: flex;
+  flex-direction: column;
+  font-size: var(--font-size-2xs);
+  gap: var(--space-05);
+  min-width: 0;
+}
+
+.insp-pattern-definition-settings .insp-num__input {
+  width: 100%;
+}
+
+.insp-pattern-definition-settings > .insp-pattern-definition-settings__check {
+  align-items: center;
+  display: flex;
+  gap: var(--space-1);
+}

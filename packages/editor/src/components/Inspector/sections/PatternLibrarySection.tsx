@@ -22,6 +22,7 @@ import {
 import { compilePatternPreview } from '../../../patterns/compilePatternPreview';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { PatternRepeatPreview } from './PatternRepeatPreview';
+import './PatternLibrarySection.css';
 
 const DEFAULT_RECIPE: PatternGeneratorRecipe = {
   type: 'checkerboard',
@@ -609,7 +610,7 @@ export function PatternLibrarySection() {
             return (
               <li
                 key={definition.id}
-                className="insp-paint-library__entry"
+                className="insp-paint-library__entry insp-pattern-library__entry"
                 data-pattern-id={definition.id}
               >
                 <div
