@@ -552,7 +552,6 @@ The following dated files were moved from `docs/architecture/` to
 
 | Doc | Purpose |
 |-----|---------|
-| `implementation/cross-platform-menubar-progress.md` | Menubar buildout progress ledger |
 | `implementation/cross-platform-menubar-strategies.md` | Menubar strategy record |
 | `implementation/export-infrastructure-progress.md` | Export infrastructure progress ledger |
 | `implementation/export-pipeline-progress.md` | Export pipeline milestones ledger (dated 2026-08-02) |
@@ -581,7 +580,6 @@ The following dated files were moved from `docs/architecture/` to
 
 | Doc | Purpose |
 |-----|---------|
-| `plans/website-progress-tracker.md` | Website implementation progress |
 | `plans/discovery-content-plan.md` | Discovery and content architecture plan — SEO, new pages, engineering articles |
 | `plans/social-surface-plan.md` | Social surface plan — brand collision research, account strategy, manual checklist |
 | `plans/sponsorship-readiness.md` | Sponsorship surface readiness — tiers, guardrails, manual activation steps |
@@ -593,6 +591,12 @@ The following dated files were moved from `docs/architecture/` to
 | `plans/comic-lettering-system.md` | Comic lettering architecture decision, feature admission matrix, slice ledger, and known defects |
 | Other `plans/*.md` | Per-session implementation plans and deferred-work records |
 | `plans/archived/*.md` | Completed/superseded plans, archived per the convention in `plans/archived/session-04-packaging.md` |
+
+## Historical Audits
+
+| Doc | Purpose |
+|-----|---------|
+| `audits/menubar-platform-audit-2026-08-01.md` | Historical root-cause investigation and verification of platform menu/window-chrome fixes; use the architecture and strategy docs for current behavior |
 
 ## Audits (historical)
 

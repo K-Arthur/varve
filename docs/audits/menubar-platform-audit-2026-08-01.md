@@ -1,5 +1,7 @@
 # Cross-Platform Menubar and Title-Bar Infrastructure - Progress Report
 
+> Historical investigation, completed 2026-08-01. The initial defect description and interim-state sections below document the investigation, not current behavior. Current platform behavior is described in [`cross-platform-menubar-strategies.md`](../implementation/cross-platform-menubar-strategies.md) and the desktop runtime documentation.
+
 **Status**: Phase 1-9 (Audit → Implementation) Complete | Verification Complete | Documentation In Progress  
 **Date**: 2026-08-01  
 **Scope**: Audit, fix, redesign, standardize, test, and document complete menubar and title-bar infrastructure across Linux, Windows, macOS, and browser.

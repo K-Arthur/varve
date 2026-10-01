@@ -373,6 +373,11 @@ as order/load-dependent and deferred with that reading stated as such.
 |------|--------------|
 | The 15 Biome errors | Every one is in another session's untracked or modified file. Recorded for the owning session; see the table above |
 | `native-webgl2-…json` at the repository root | A stray artifact of `scripts/perf/nativeQualification.mjs` that `.gitignore` does not cover, so repository-wide Biome picks it up. Diagnosed, not deleted: the file is not this task's output |
+
+**Follow-up (2026-10-01):** `.gitignore` now excludes legacy root
+`/native-webgl2-*.json` captures; new qualification output defaults to
+`reports/perf/`. The ignored diagnostic itself remains preserved in the
+release recovery archive.
 | The snapshot spec's fictional "with selection" fixture | Fixing it changes unrelated menu facts and snapshots. Diagnosed in F3 |
 | `movePanelBetweenWindows` duplication (F9) | **Fixed** in the continuation (`f9b287f90`) |
 | Schema-bump artifacts (G1) | Belongs inside the schema change that raised the version; regenerating them from here would bake a half-finished migration into goldens |

@@ -49,7 +49,7 @@
 
 ### 2.3 Assumptions (stated, not verified)
 - Audience: design professionals on desktop (Linux/macOS/Windows), English-primary. Per the requester, a compliance driver (ADA / Section 508 / EN 301 549) is in scope even though the app is a consumer/prosumer tool, not government software.
-- Business goals are **assumed** (no metrics provided): a credible free alternative to proprietary design suites, public-beta positioning (see `docs/plans/website-progress-tracker.md` and recent "public beta" release positioning commits). No analytics were provided, so no conversion claims are made (§10).
+- Business goals are **assumed** (no metrics provided): a credible free alternative to proprietary design suites, public-beta positioning (see the release-driven public status in the [website release operations guide](../release/website.md) and the contemporaneous release-positioning commits). No analytics were provided, so no conversion claims are made (§10).
 - No brand/legal constraints were stated beyond repo rules (tokens, no emoji, no native `<select>`, TS strict). Legal copy on `about/privacy.astro` and `about/security.astro` was treated as read-only except one consistency fix opportunity (deferred, §6.3).
 - Prior audits in `docs/audits/` (workspace-system 08-05, focus-navigation 08-02, motion-system, ui-ux-review-jul, color-management-print, export-resampling-color-print-codegen) were treated as sources of truth; their open items are referenced rather than re-audited.
 
@@ -365,6 +365,4 @@ This review is **not** a professional accessibility audit and does not constitut
 
 ### 11.5 Approval
 No final approval is being issued by this review: per the process, approval requires a named decision-maker to accept the deferred items (§9-1, §9-2, §9-3, §9-6, §9-7, §9-8). This document records the state; acceptance is a product decision, not a reviewer decision.
-
-
 

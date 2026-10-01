@@ -344,6 +344,14 @@ keep no binding affordance rather than a fake one.
 | `VariablePanel` (no search, no usage/why-trace), `TokenSyncPanel`, `BindingMenu`, `importWorkflow`, and the website token page were **being edited by a concurrent session** during this pass | Ownership: see `docs/agents/token-binding-repaint-2026-09-25-ownership.md`. Not edited here to avoid two writers on one file |
 | Watcher/atomic-write engine still has no platform caller (baseline defect 10) | Unchanged deferral — needs Tauri commands + a file watcher; independent of binding correctness |
 
+**Follow-up (2026-10-01):** The shared browser helper now creates variables in
+the document-scoped Variables and Tokens dialog. The maintained creation,
+editing, deletion, persistence, binding, and modifier workflows use that
+surface; clicking a table variable badge now anchors its alpha-modifier
+popover to the badge itself. The console-only `variable-debug` diagnostic was
+removed because it had no assertions and the maintained E2E tests cover the
+behavior.
+
 ### Commit ledger (binding and repaint pass)
 
 | Hash | Subject | Focus |

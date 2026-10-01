@@ -1,6 +1,6 @@
 # Cross-Platform Menubar and Title-Bar Strategies
 
-**Status**: Implemented (see `cross-platform-menubar-progress.md` for verification) | **Date**: 2026-08-01  
+**Status**: Implemented (see [the historical platform menubar audit](../audits/menubar-platform-audit-2026-08-01.md) for verification) | **Date**: 2026-08-01
 **Purpose**: Define explicit platform-specific strategies for menubar, title-bar, and window controls
 
 ## Key Implementation Note
