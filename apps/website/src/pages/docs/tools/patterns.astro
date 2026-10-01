@@ -1,0 +1,132 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+import { sitePath } from '../../../lib/siteUrl';
+import '../../../styles/docs-prose.css';
+---
+
+<Layout
+  title="Pattern Library — Varve Docs"
+  description="Create and apply reusable pattern definitions in Varve's source-build preview, with documented source, fill placement, and delivery limits."
+>
+  <div class="container-custom">
+    <main class="docs-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href={sitePath('/docs')}>Documentation</a> / Tools / Pattern Library
+      </nav>
+
+      <h1 class="site-page-title">Pattern Library</h1>
+      <p class="docs-intro">
+        Pattern definitions separate a reusable source from the way one object uses it. These
+        controls are in the current source-build preview and are not part of a published Varve
+        release yet. The guide below describes the controls that exist today.
+      </p>
+
+      <section class="docs-section">
+        <h2>Create a pattern from vector artwork</h2>
+        <ol>
+          <li>In Design, select the vector artwork you want to use as a motif source.</li>
+          <li>Open <strong>Pattern Library</strong> in the Paint inspector.</li>
+          <li>Optionally enter a name, then choose <strong>Create from Selection</strong>.</li>
+        </ol>
+        <p>
+          Varve copies the selected artwork and its supported dependencies into a pattern definition.
+          It leaves the original artwork in the document. The new definition is a separate source;
+          changing the original selection later does not update it. A contextual editor for opening
+          and changing that copied source is not available yet.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Create or import another source</h2>
+        <ul>
+          <li><strong>New pattern</strong> creates a checkerboard definition with a saved procedural recipe.</li>
+          <li><strong>Import tile</strong> accepts PNG, JPEG, WebP, GIF, and AVIF files. Imports are limited to 64 MB and 64 megapixels, and the image data is embedded in the document.</li>
+          <li><strong>Replace source</strong> on a library entry changes its shared source to an imported raster tile. Every linked fill sees the replacement; make one fill unique first to isolate that change.</li>
+          <li>The library shows each source kind, cell dimensions, and current use count. Search filters by name.</li>
+          <li><strong>Edit definition settings</strong> changes the shared name, cell size, gap, mirror state, and grid/half-drop/brick arrangement for every linked fill.</li>
+          <li><strong>Export source tile</strong> downloads one SVG cell with embedded source artwork or image.</li>
+          <li><strong>Export repeating supertile</strong> downloads a rectangular SVG period for Grid and the conventional Half-drop or Brick arrangement, including mirror parity. Custom stagger fractions are refused when a finite rectangular period is not supported.</li>
+        </ul>
+        <p>
+          Importing a tile does not make its pixels editable as vector artwork. A repeating preview
+          also does not guarantee that the source edges meet seamlessly; inspect the result at its
+          intended scale before using it in finished work.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Apply a definition and place its fill</h2>
+        <ol>
+          <li>Select one or more target objects.</li>
+          <li>In <strong>Pattern Library</strong>, use the apply control on the definition you want.</li>
+          <li>Select a target and open its pattern fill controls to adjust that fill.</li>
+        </ol>
+        <p>The available numeric placement fields are:</p>
+        <ul>
+          <li><strong>Tile width</strong> and <strong>Tile height</strong> scale this fill’s tile.</li>
+          <li><strong>Phase across</strong> and <strong>Phase down</strong> shift this fill’s repeat origin.</li>
+          <li><strong>Rotation</strong> turns this fill’s pattern field about the object centre.</li>
+        </ul>
+        <p>
+          For a definition linked from the library, its source and repeat geometry are shared; the
+          placement fields above belong to the selected fill. The library’s definition settings
+          edit the shared repeat arrangement. Half-drop offsets columns vertically; brick shifts
+          rows horizontally. The current UI does not yet provide a shared page-origin alignment
+          mode or a contextual editor for changing the copied vector motifs.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Make one use unique</h2>
+        <p>
+          Select one object that uses a library pattern, then choose its <strong>Make unique</strong>{' '}
+          action in the Pattern Library row. Varve creates a separate definition identity for that
+          selected object’s use. Other uses continue to reference the original definition. This
+          prepares the use for independent source changes; a shared-source editing session has not
+          been implemented yet.
+        </p>
+        <p>
+          A definition in use cannot be deleted from the library. Detaching a linked Paint is a
+          separate operation; pattern-definition deletion does not silently remove its uses.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Save and reopen</h2>
+        <p>
+          Pattern definitions are stored in the document model. Raster imports reference embedded
+          document assets; vector definitions retain copied scene data; procedural definitions keep
+          their recipe. The document codec includes the required pattern dependencies when encoding
+          and decoding a document. Do not remove referenced embedded assets manually from a file.
+        </p>
+        <p>
+          The current authoring UI supports renaming definitions and replacing a definition source
+          with an imported raster tile. Replacement affects every linked use. It does not include
+          tile-edge editing, offset-based seam repair, wraparound painting, or finite expansion.
+          Those operations are not implied by the repeat preview.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Export status</h2>
+        <p>
+          Export Tile downloads the source cell as an SVG wrapper with its tile image embedded. The
+          copied vector preview stays an SVG image, but its motif objects are not independently
+          editable in the exported file. Export Supertile includes the full rectangular period for
+          Grid and conventional Half-drop or Brick settings, with a clip at the supertile boundary;
+          unsupported custom stagger fractions are rejected. Applied-fill SVG emits reusable
+          vector pattern definitions for linked grid patterns on supported closed shapes. Unsupported
+          arrangements, sources, stacks, blends, and alignment use an export-resolution raster
+          fallback with a warning. PDF supports an axis-aligned grid with positive gaps; PDF/X-1a omits transparent tiles or non-opaque fills with a warning.
+          Shifted arrangements, mirror, phase, and rotation are omitted from PDF with a warning.
+          Check the output limits in the <a href={sitePath('/docs/tools/export')}>export guide</a>.
+        </p>
+        <p>
+          See the <a href={sitePath('/features/patterns')}>pattern feature status</a> for the current
+          capability summary and limitations. General file output is covered in{' '}
+          <a href={sitePath('/docs/tools/export')}>Export &amp; Code Generation</a>.
+        </p>
+      </section>
+    </main>
+  </div>
+</Layout>

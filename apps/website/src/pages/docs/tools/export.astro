@@ -82,6 +82,16 @@ import '../../../styles/docs-prose.css';
           <li><strong>ICC profile embedding</strong> — Bundled sRGB, Adobe RGB, Fogra39, GRACoL, and SWOP profiles</li>
           <li><strong>Color bars and registration marks</strong> — Print production marks with 5-crosshair registration targets</li>
         </ul>
+        <p>
+          Pattern fills in print output currently support axis-aligned grid repeats with positive
+          independent gaps. Standard PDF preserves tile transparency and fill opacity; PDF/X-4
+          preserves transparency; PDF/X-1a converts opaque tiles to CMYK and omits transparent
+          patterns with a warning. Shifted repeats, mirror, phase, rotation, negative gaps, and
+          repeats estimated above 100,000 tiles are omitted with an embedded warning. Linked
+          pattern fills are raster tile images in PDF, not reusable PDF pattern objects. See the{' '}
+          <a href={sitePath('/docs/tools/patterns')}>pattern workflow guide</a> for source-tile and
+          SVG limits.
+        </p>
       </section>
 
       <section class="docs-section">
