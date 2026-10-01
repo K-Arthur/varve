@@ -12,6 +12,7 @@ Task-owned commits on `master`:
 - `4d9dd0aed` — Pattern Library inspector settings layout.
 - `2d0d466f3` — marketing feature page and pattern workflow guide.
 - `184fd433b` — cancelable copied-vector source motif editing.
+- `e988d6462` — periodic source overhang, scoped Make Unique, and draft guards.
 
 ## Delivered
 
@@ -219,6 +220,17 @@ pnpm audit:sizing
 
 pnpm lint:css
   Passed.
+
+VARVE_FULL_GATE_REASON="Pattern definition schema, scene/editor repeat evaluation, SVG/PDF export paths, and cross-package contracts require the mandated final gate." pnpm verify:full
+  Exited 1 after whole-worktree format/lint reported 3 pre-existing format
+  errors in untracked E2E probes: _probe-hit-confirm.spec.ts,
+  _probe-rail.spec.ts, and _probe-topchrome.spec.ts. The architecture audit
+  completed with the same 14 shared-workspace cycles and no layer violations.
+  Workspace package typechecks completed; the combined gate stopped before
+  Vitest and Cargo suites because of the earlier whole-worktree errors.
+
+pnpm typecheck:e2e
+  Passed when run alone immediately after the full-gate exit.
 ```
 
 The focused suite covers definition create/apply/unique, source persistence and
