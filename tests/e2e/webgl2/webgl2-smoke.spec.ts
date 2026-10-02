@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { expect, type Page, type TestInfo, test } from '@playwright/test';
@@ -56,6 +56,83 @@ async function forceAuthoritativeFrame(page: Page): Promise<void> {
     return perf.forceFullRedraw();
   });
   expect(result.authoritative).toBe(true);
+}
+
+async function positionFixtureAtDeviceEdges(page: Page, deviceOffset = 0): Promise<void> {
+  const inspector = page.getByRole('region', { name: 'Inspector', exact: true });
+  const x = Number(await inspector.getByLabel('X (px)', { exact: true }).inputValue());
+  const y = Number(await inspector.getByLabel('Y (px)', { exact: true }).inputValue());
+  expect(Number.isFinite(x) && Number.isFinite(y)).toBe(true);
+  const expected = await page.evaluate(
+    ({ x, y, deviceOffset }) => {
+      const perf = (
+        window as unknown as {
+          __varvePerf?: {
+            getLast: () => {
+              camera?: { zoom: number; panX: number; panY: number; rotation: number };
+            };
+            camera: {
+              setState: (state: {
+                zoom: number;
+                pan: { x: number; y: number };
+                rotation: number;
+              }) => boolean;
+            };
+          };
+        }
+      ).__varvePerf;
+      const camera = perf?.getLast().camera;
+      if (!perf || !camera || camera.zoom !== 1 || camera.rotation !== 0) {
+        throw new Error('This axis-aligned fixture requires the initial 100% camera');
+      }
+      const dpr = window.devicePixelRatio;
+      const pan = {
+        x: (Math.round((x + camera.panX) * dpr) + deviceOffset) / dpr - x,
+        y: (Math.round((y + camera.panY) * dpr) + deviceOffset) / dpr - y,
+      };
+      if (!perf.camera.setState({ zoom: 1, pan, rotation: 0 })) {
+        throw new Error('The production camera controller is unavailable');
+      }
+      return { zoom: 1, panX: pan.x, panY: pan.y, rotation: 0 };
+    },
+    { x, y, deviceOffset },
+  );
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (
+            window as unknown as { __varvePerf: { getLast: () => { camera: unknown } } }
+          ).__varvePerf.getLast().camera,
+      ),
+    )
+    .toEqual(expected);
+}
+
+async function expectSurfaceMatchesAuthoritativeFrame(page: Page, label: string): Promise<void> {
+  const before = await contentFingerprint(page);
+  await forceAuthoritativeFrame(page);
+  expect(await contentFingerprint(page)).toBe(before);
+  const inspector = page.getByRole('region', { name: 'Inspector', exact: true });
+  const geometry = await inspector
+    .locator('input[aria-label]')
+    .evaluateAll((inputs) =>
+      Object.fromEntries(
+        inputs.map((input) => [
+          input.getAttribute('aria-label'),
+          (input as HTMLInputElement).value,
+        ]),
+      ),
+    );
+  const frames = await page.evaluate(() => {
+    const perf = (
+      window as unknown as { __varvePerf?: { getFrames?: (count: number) => unknown[] } }
+    ).__varvePerf;
+    return perf?.getFrames?.(20) ?? [];
+  });
+  const evidence = test.info().outputPath(`webgl2-fixture-${label}.json`);
+  writeFileSync(evidence, `${JSON.stringify({ geometry, frames }, null, 2)}\n`);
+  await test.info().attach(`WebGL2 fixture ${label}`, { path: evidence });
 }
 
 test('WebGL2 preference renders an edited document and agrees with the full-redraw oracle', async ({
@@ -124,6 +201,16 @@ test('WebGL2 preference renders an edited document and agrees with the full-redr
     expect(consoleErrors).toEqual([]);
     return;
   }
+  // Fractional device edges deliberately use the authoritative Canvas2D
+  // rasterizer. Selection chrome can also shift the camera by half a pixel;
+  // make both fallback and eligible execution deterministic through the real
+  // camera controller instead of assuming an old canvas layout.
+  await positionFixtureAtDeviceEdges(page, 0.5);
+  await expectSurfaceMatchesAuthoritativeFrame(page, 'fractional-fallback');
+  await expect(status).toHaveText('WebGL2 ready · experimental');
+  await expect(status).toHaveAttribute('title', /last frame did not report eligible drawing/);
+  await positionFixtureAtDeviceEdges(page);
+  await expectSurfaceMatchesAuthoritativeFrame(page, 'device-aligned');
   await expect(status).toHaveText('WebGL2 · experimental');
   await expect(status).toHaveAttribute('title', /[1-9]\d* eligible item\(s\) were submitted/);
   await page.screenshot({ path: test.info().outputPath('webgl2-edited-document.png') });
@@ -264,6 +351,9 @@ test('WebGL2 document saves, reopens, and exports the same PNG/PDF as Canvas2D',
       'WebGL2 is unavailable in this browser; the fallback test covers this configuration',
     );
   }
+  await forceAuthoritativeFrame(page);
+  await positionFixtureAtDeviceEdges(page);
+  await expectSurfaceMatchesAuthoritativeFrame(page, 'device-aligned');
   await expect(rendererStatus).toHaveText('WebGL2 · experimental');
 
   await page.evaluate(() => {
