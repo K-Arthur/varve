@@ -71,6 +71,23 @@ assert.deepEqual(formatCommands, [
   ['biome', 'format', 'scripts/quality/pre-push.test.mjs', '--no-errors-on-unmatched'],
 ]);
 
+const snapshotEnvironment = { CARGO_TARGET_DIR: '/fixture/common-git/validation/cargo-target' };
+const cargoLane = runLane(
+  'rust-test:varve-print',
+  { union: { paths: [] } },
+  {
+    cwd: '/fixture/exact-snapshot',
+    env: snapshotEnvironment,
+    executeCommand: (_args, options) => {
+      assert.equal(options.cwd, '/fixture/exact-snapshot');
+      assert.deepEqual(options.env, snapshotEnvironment);
+      assert.equal(options.timeoutMs, PUSH_LANE_TIMEOUT_MS.default);
+      return 0;
+    },
+  },
+);
+assert.equal(cargoLane.status, 0);
+
 assert.ok(
   PUSH_LANE_TIMEOUT_MS['js-unit:@varve/editor'] >= 30 * 60 * 1000,
   'the editor package push check must allow its measured 1528-second suite to finish',

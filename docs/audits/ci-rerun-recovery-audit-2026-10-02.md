@@ -104,12 +104,15 @@ commit rather than another attempt of the old run.
     temporary worktree. A 300-second attempt compiled dependencies without
     reaching the selected tests, then deleted that work. Retain a dedicated
     repository-local Cargo target cache under the common Git directory across
-    snapshots. Committed source still comes from the exact detached tree;
+    snapshots and pass its canonical path into Cargo so temporary symlink
+    spellings cannot invalidate build-script fingerprints. Committed source
+    still comes from the exact detached tree;
     Cargo fingerprints and artifact locks govern reuse, and every selected
     check still executes. Keep the existing timeout. The snapshot regression
     verifies cache survival and dirty-source exclusion; its `--cargo` probe
-    builds two different committed programs offline through the same cache
-    and verifies that the second program executes the changed source.
+    builds two different committed programs offline through the same cache,
+    verifies that the second executes the changed source, and proves an
+    unchanged dependency is reused while a changed dependency rebuilds.
 
 ## Validation evidence and boundaries
 

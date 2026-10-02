@@ -88,7 +88,7 @@ function commandArgs(cwd = ROOT) {
 
 function execute(
   argv,
-  { dryRun = false, timeoutMs = PUSH_LANE_TIMEOUT_MS.default, cwd = ROOT } = {},
+  { dryRun = false, timeoutMs = PUSH_LANE_TIMEOUT_MS.default, cwd = ROOT, env = {} } = {},
 ) {
   console.log(`    $ ${argv.map((part) => JSON.stringify(part)).join(' ')}`);
   if (dryRun) return 0;
@@ -97,6 +97,7 @@ function execute(
     [BOUNDED_COMMAND_RUNNER, String(timeoutMs), cwd, argv[0], ...argv.slice(1)],
     {
       ...commandArgs(cwd),
+      env: { ...commandArgs(cwd).env, ...env },
       // The helper terminates the complete process group at timeoutMs and
       // exits after its short forced-kill grace period. This outer timeout is
       // only a fail-safe for a broken helper.
@@ -422,6 +423,7 @@ export function runPushCheckpoint({
           dryRun: flags.dryRun,
           executeCommand,
           cwd: target.path,
+          env: target.env,
         });
         outcomes.push({ lane, targetSha: target.sha, ...outcome });
         if (outcome.status !== 0) {

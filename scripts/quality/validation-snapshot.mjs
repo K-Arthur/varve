@@ -100,6 +100,10 @@ export function createValidationSnapshot({ sha, root = process.cwd() } = {}) {
     path,
     sha,
     cargoCache,
+    // Canonicalize the output path as well as preserving its directory.
+    // Different temporary symlink spellings must not invalidate Cargo's
+    // build-script environment and dependency fingerprints on every retry.
+    env: cargoCache ? { CARGO_TARGET_DIR: cargoCache } : {},
     cleanup() {
       if (cleaned) return;
       cleaned = true;
