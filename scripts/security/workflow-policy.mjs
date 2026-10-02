@@ -40,6 +40,11 @@
  *   18. Every `workflow_run` checkout pins the trusted default branch (or the
  *       verified immutable release SHA on the Pages consumer) and disables
  *       credential persistence.
+ *   19. Fetched shell installers are never executed directly; wasm-pack uses
+ *       an immutable install-action pin, exact version, verified checksum and
+ *       no source-build fallback.
+ *   20. checks: write belongs only to release-candidate.yml's certification
+ *       job; other jobs and workflow-level defaults cannot write check runs.
  */
 
 import { load } from 'js-yaml';
@@ -192,9 +197,145 @@ function hasVerifiedWebsiteSourceFallback(doc) {
   );
 }
 
+const SHELL_INSTALLERS = new Set(['sh', 'bash', 'dash', 'zsh', 'ksh']);
+const FETCH_COMMANDS = new Set(['curl', 'wget']);
+const COMMAND_WRAPPERS = new Set(['sudo', 'env', 'command', 'exec']);
+
+// A bounded lexer for direct command/pipeline forms, not a shell interpreter.
+// Quoted URL/JSON contents stay one word so `curl ... | jq` and diagnostic
+// strings cannot be confused with an executable shell pipeline.
+function shellCommands(run) {
+  const normalized = run.replace(/\\\r?\n/g, ' ');
+  const tokens =
+    normalized.match(/"(?:\\.|[^"\\])*"|'[^']*'|\|\||&&|[|;\n]|(?:\\.|[^\s|;&])+/g) ?? [];
+  const commands = [];
+  let words = [];
+  let comment = false;
+  for (const token of tokens) {
+    if (comment && token !== '\n') continue;
+    if (token.startsWith('#')) {
+      comment = true;
+      continue;
+    }
+    if (['|', '||', '&&', ';', '\n'].includes(token)) {
+      if (words.length > 0) commands.push({ words, separator: token });
+      words = [];
+      comment = false;
+    } else {
+      words.push(token.replace(/^(['"])([\s\S]*)\1$/, '$2'));
+    }
+  }
+  if (words.length > 0) commands.push({ words, separator: '' });
+  return commands;
+}
+
+function shellExecutable(words) {
+  for (const word of words) {
+    if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(word)) continue;
+    const executable = word.split('/').pop();
+    if (COMMAND_WRAPPERS.has(executable) || word.startsWith('-')) continue;
+    return executable;
+  }
+  return '';
+}
+
+function isFetchedCommandSource(source) {
+  const substitution = source.match(/^\$\(([\s\S]*)\)$/) ?? source.match(/^`([\s\S]*)`$/);
+  if (!substitution) return false;
+  const commands = shellCommands(substitution[1]);
+  return commands.length === 1 && FETCH_COMMANDS.has(shellExecutable(commands[0].words));
+}
+
+function directlyExecutesFetchedShell(run, nestedShells = 2) {
+  const commands = shellCommands(run);
+  return commands.some((command, index) => {
+    const executable = shellExecutable(command.words);
+    if (FETCH_COMMANDS.has(executable) && command.separator === '|') {
+      return SHELL_INSTALLERS.has(shellExecutable(commands[index + 1]?.words ?? []));
+    }
+    if (!SHELL_INSTALLERS.has(executable)) return false;
+    const commandFlag = command.words.findIndex((word) => /^-[A-Za-z]*c[A-Za-z]*$/.test(word));
+    if (commandFlag === -1) return false;
+    const source = command.words[commandFlag + 1] ?? '';
+    return (
+      isFetchedCommandSource(source) ||
+      (nestedShells > 0 && directlyExecutesFetchedShell(source, nestedShells - 1))
+    );
+  });
+}
+
+function auditInstallerSteps(doc, base) {
+  const errors = [];
+  for (const [name, job] of jobEntries(doc)) {
+    if (!job || typeof job !== 'object') continue;
+    for (const step of walkSteps(job)) {
+      const where = `${base}: ${name} step "${step.name ?? '(unnamed)'}"`;
+      if (directlyExecutesFetchedShell(String(step.run ?? ''))) {
+        errors.push(
+          `${where} directly executes a fetched shell installer — use a pinned, checksum-verified installer`,
+        );
+      }
+      const uses = String(step.uses ?? '');
+      if (!/^taiki-e\/install-action@/i.test(uses)) continue;
+      const inputs = step.with ?? {};
+      if (typeof inputs.tool !== 'string' || inputs.tool.includes('$' + '{{')) {
+        errors.push(
+          `${where} install-action tool must be a literal specification so the wasm-pack verification contract cannot be hidden by an expression`,
+        );
+      }
+      const tools = String(inputs.tool ?? '')
+        .split(/[\s,]+/)
+        .filter(Boolean);
+      const wasmTools = tools.filter((tool) => /^wasm-pack(?:@|$)/i.test(tool));
+      if (wasmTools.length === 0) continue;
+      if (!/^taiki-e\/install-action@[a-f0-9]{40}$/i.test(uses)) {
+        errors.push(
+          `${where} wasm-pack install-action must use an immutable 40-character commit SHA`,
+        );
+      }
+      if (
+        typeof inputs.tool !== 'string' ||
+        !wasmTools.every((tool) =>
+          /^wasm-pack@(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(tool),
+        )
+      ) {
+        errors.push(
+          `${where} wasm-pack must have an exact literal version (wasm-pack@<major>.<minor>.<patch>)`,
+        );
+      }
+      if (String(inputs.checksum) !== 'true') {
+        errors.push(`${where} wasm-pack installer must set checksum: true`);
+      }
+      if (inputs.fallback !== 'none') {
+        errors.push(`${where} wasm-pack installer must set fallback: none`);
+      }
+    }
+  }
+  return errors;
+}
+
+function auditCheckWritePermissions(doc, base) {
+  const errors = [];
+  if (doc.permissions?.checks === 'write') {
+    errors.push(
+      `${base}: workflow-level checks: write is forbidden; scope it to candidate certification`,
+    );
+  }
+  for (const [name, job] of jobEntries(doc)) {
+    if (job?.permissions?.checks !== 'write') continue;
+    if (base === 'release-candidate.yml' && name === 'certification') continue;
+    errors.push(
+      `${base}: ${name} grants checks: write — allowed only on release-candidate.yml:certification`,
+    );
+  }
+  return errors;
+}
+
 export function auditWorkflow(doc, filename) {
   const errors = [];
   const base = filename.split('/').pop();
+  errors.push(...auditInstallerSteps(doc, base));
+  errors.push(...auditCheckWritePermissions(doc, base));
 
   // 16. `on:` must contain only known trigger keys. A top-level key
   // mis-indented under `on:` (e.g. a `permissions:` block) parses silently —

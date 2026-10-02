@@ -7,6 +7,17 @@ import { computePolicyHash, POLICY_VERSION } from '../quality/validation-policy.
 
 export const INTEGRATION_CHECK_NAME = 'CI / certification';
 export const CANDIDATE_CHECK_NAME = 'Release Candidate / certification';
+const ACTIONS_APP_ID = 15368;
+
+function positiveId(value) {
+  if (typeof value !== 'number' && (typeof value !== 'string' || !/^[1-9]\d*$/.test(value)))
+    return null;
+  return Number.isSafeInteger(Number(value)) && Number(value) > 0 ? Number(value) : null;
+}
+
+function trustedCheck(check) {
+  return check.app?.id === ACTIONS_APP_ID && check.app?.slug === 'github-actions';
+}
 
 function sha256(value) {
   return createHash('sha256').update(value).digest('hex');
@@ -21,38 +32,52 @@ export function integrationArtifactName(commitSha, policyHash) {
 }
 
 export function findSuccessfulExactCheck(checkRuns, { name, commitSha }) {
-  return (
-    (checkRuns ?? []).find(
-      (check) =>
-        check.name === name &&
-        (check.head_sha ?? check.headSha) === commitSha &&
-        check.status === 'completed' &&
-        check.conclusion === 'success',
-    ) ?? null
+  const exact = (checkRuns ?? []).filter(
+    (check) =>
+      check.name === name && (check.head_sha ?? check.headSha) === commitSha && trustedCheck(check),
   );
+  // Check IDs order creation, including queued checks with no start time.
+  // Never search backwards for an older green result after a retry fails.
+  if (exact.some((check) => !positiveId(check.id))) return null;
+  exact.sort(
+    (a, b) =>
+      Number(b.id) - Number(a.id) ||
+      (Date.parse(b.started_at) || 0) - (Date.parse(a.started_at) || 0),
+  );
+  const latest = exact[0];
+  return latest?.status === 'completed' && latest.conclusion === 'success' ? latest : null;
 }
 
-export function findExactCandidateArtifact(artifacts, { commitSha, policyHash }) {
-  const expected = candidateArtifactName(commitSha, policyHash);
+function findBoundArtifact(artifacts, baseName, { commitSha, binding }) {
+  if (!binding?.runId || !binding.runAttempt) return null;
+  const expected = `${baseName}-run-${binding.runId}-attempt-${binding.runAttempt}`;
+  const startedAt = Date.parse(binding.runStartedAt);
+  if (!Number.isFinite(startedAt)) return null;
   return (
     (artifacts ?? []).find(
       (artifact) =>
         artifact.name === expected &&
-        artifact.expired !== true &&
-        (!artifact.workflow_run?.head_sha || artifact.workflow_run.head_sha === commitSha),
+        artifact.expired === false &&
+        positiveId(artifact.workflow_run?.id) === binding.runId &&
+        artifact.workflow_run?.head_sha === commitSha &&
+        Date.parse(artifact.created_at) >= startedAt,
     ) ?? null
   );
 }
 
-export function findExactIntegrationArtifact(artifacts, { commitSha, policyHash }) {
-  const expected = integrationArtifactName(commitSha, policyHash);
-  return (
-    (artifacts ?? []).find(
-      (artifact) =>
-        artifact.name === expected &&
-        artifact.expired !== true &&
-        (!artifact.workflow_run?.head_sha || artifact.workflow_run.head_sha === commitSha),
-    ) ?? null
+export function findExactCandidateArtifact(artifacts, options) {
+  return findBoundArtifact(
+    artifacts,
+    candidateArtifactName(options.commitSha, options.policyHash),
+    options,
+  );
+}
+
+export function findExactIntegrationArtifact(artifacts, options) {
+  return findBoundArtifact(
+    artifacts,
+    integrationArtifactName(options.commitSha, options.policyHash),
+    options,
   );
 }
 
@@ -138,6 +163,82 @@ async function listArtifacts(owner, name, token) {
   return artifacts;
 }
 
+async function listChecks(owner, name, commitSha, token) {
+  const checks = [];
+  for (let page = 1; page <= 100; page += 1) {
+    // GitHub defaults to filter=latest, which can omit a queued retry when
+    // grouping by completed time. Select the latest trusted check ourselves.
+    const data = await githubJson(
+      `/repos/${owner}/${name}/commits/${commitSha}/check-runs?filter=all&app_id=${ACTIONS_APP_ID}&per_page=100&page=${page}`,
+      token,
+    );
+    const batch = Array.isArray(data.check_runs) ? data.check_runs : [];
+    checks.push(...batch);
+    if (batch.length < 100) return checks;
+  }
+  throw new Error('Exact-SHA check history exceeds the certification pagination limit');
+}
+
+function checkDetails(check, repo) {
+  try {
+    const url = new URL(check.details_url);
+    const prefix = `/${repo}/actions/runs/`;
+    if (
+      url.origin !== 'https://github.com' ||
+      url.search ||
+      url.hash ||
+      !url.pathname.toLowerCase().startsWith(prefix.toLowerCase())
+    )
+      return null;
+    const match = url.pathname.slice(prefix.length).match(/^([1-9]\d*)(?:\/job\/([1-9]\d*))?$/);
+    if (!match) return null;
+    return { runId: positiveId(match[1]), jobId: match[2] ? positiveId(match[2]) : null };
+  } catch {
+    return null;
+  }
+}
+
+async function bindSuccessfulCheck(check, { repo, commitSha, token, kind }) {
+  if (!check) return null;
+  const details = checkDetails(check, repo);
+  if (!details?.runId) return null;
+  let runAttempt;
+  if (kind === 'integration') {
+    if (!details.jobId) return null;
+    const job = await githubJson(`/repos/${repo}/actions/jobs/${details.jobId}`, token);
+    if (
+      job.id !== details.jobId ||
+      job.run_id !== details.runId ||
+      job.head_sha !== commitSha ||
+      job.name !== INTEGRATION_CHECK_NAME ||
+      job.status !== 'completed' ||
+      job.conclusion !== 'success' ||
+      job.check_run_url?.toLowerCase() !==
+        `https://api.github.com/repos/${repo}/check-runs/${check.id}`.toLowerCase()
+    )
+      return null;
+    runAttempt = positiveId(job.run_attempt);
+  } else {
+    const identity = String(check.external_id ?? '').match(/^([1-9]\d*):([1-9]\d*)$/);
+    if (details.jobId || !identity || positiveId(identity[1]) !== details.runId) return null;
+    runAttempt = positiveId(identity[2]);
+  }
+  if (!runAttempt) return null;
+  const run = await githubJson(`/repos/${repo}/actions/runs/${details.runId}`, token);
+  const workflow = kind === 'integration' ? 'ci.yml' : 'release-candidate.yml';
+  if (
+    run.id !== details.runId ||
+    run.head_sha !== commitSha ||
+    run.run_attempt !== runAttempt ||
+    run.status !== 'completed' ||
+    run.conclusion !== 'success' ||
+    run.path?.split('@')[0] !== `.github/workflows/${workflow}` ||
+    !Number.isFinite(Date.parse(run.run_started_at))
+  )
+    return null;
+  return { runId: details.runId, runAttempt, runStartedAt: run.run_started_at };
+}
+
 export async function verifyRemoteCertification({
   repo,
   commitSha,
@@ -149,34 +250,46 @@ export async function verifyRemoteCertification({
   if (!token) throw new Error('GITHUB_TOKEN with checks/actions read access is required');
   const [owner, name] = repo.split('/');
   if (!owner || !name) throw new Error(`invalid GitHub repository '${repo}'`);
-  const checks = await githubJson(
-    `/repos/${owner}/${name}/commits/${commitSha}/check-runs?per_page=100`,
-    token,
-  );
-  const integration = findSuccessfulExactCheck(checks.check_runs, {
+  const checks = await listChecks(owner, name, commitSha, token);
+  const integration = findSuccessfulExactCheck(checks, {
     name: INTEGRATION_CHECK_NAME,
     commitSha,
   });
-  const candidate = findSuccessfulExactCheck(checks.check_runs, {
+  const candidate = findSuccessfulExactCheck(checks, {
     name: CANDIDATE_CHECK_NAME,
     commitSha,
   });
+  const integrationBinding = await bindSuccessfulCheck(integration, {
+    repo,
+    commitSha,
+    token,
+    kind: 'integration',
+  });
+  const candidateBinding = requireCandidate
+    ? await bindSuccessfulCheck(candidate, { repo, commitSha, token, kind: 'candidate' })
+    : null;
   const artifacts = await listArtifacts(owner, name, token);
   const integrationArtifact = findExactIntegrationArtifact(artifacts, {
     commitSha,
     policyHash,
+    binding: integrationBinding,
   });
   const artifact = requireCandidate
-    ? findExactCandidateArtifact(artifacts, { commitSha, policyHash })
+    ? findExactCandidateArtifact(artifacts, { commitSha, policyHash, binding: candidateBinding })
     : null;
   const errors = [];
-  if (!integration) errors.push(`missing successful '${INTEGRATION_CHECK_NAME}' for ${commitSha}`);
+  if (!integration || !integrationBinding)
+    errors.push(
+      `latest trusted '${INTEGRATION_CHECK_NAME}' is not a successful exact run/attempt for ${commitSha}`,
+    );
   if (!integrationArtifact)
     errors.push(
       `missing unexpired integration evidence artifact for ${commitSha} and policy ${policyHash}`,
     );
-  if (requireCandidate && !candidate)
-    errors.push(`missing successful '${CANDIDATE_CHECK_NAME}' for ${commitSha}`);
+  if (requireCandidate && (!candidate || !candidateBinding))
+    errors.push(
+      `latest trusted '${CANDIDATE_CHECK_NAME}' is not a successful exact run/attempt for ${commitSha}`,
+    );
   if (requireCandidate && !artifact)
     errors.push(
       `missing unexpired candidate evidence artifact for ${commitSha} and policy ${policyHash}`,
@@ -187,8 +300,10 @@ export async function verifyRemoteCertification({
     policyVersion: POLICY_VERSION,
     policyHash,
     integration,
+    integrationBinding,
     integrationArtifact,
     candidate,
+    candidateBinding,
     artifact,
     errors,
   };

@@ -11,10 +11,10 @@
  *                          multiple attempts") — GitHub capacity/queue issue.
  *                          Not a code failure.
  *   - stuck-queued       — job/run still `queued` long after GitHub accepted it
- *                          (runner starvation during an Actions outage).
- *                          Not a code failure.
- *   - never-started      — job concluded without any recorded step (runner
- *                          outage / infra issue). Not a code failure.
+ *                          (long queue observation; cause unconfirmed).
+ *                          Check concurrency, active work and independent status.
+ *   - never-started      — job concluded without a recorded step; startup
+ *                          cause unknown until annotations/metadata are read.
  *   - real-failure       — at least one step ran and failed. Needs log analysis.
  *
  * Usage:
@@ -25,7 +25,7 @@
  *   node scripts/ci-health.mjs --json          # machine-readable output
  *   node scripts/ci-health.mjs --quiet         # minimal output (pre-push hook)
  *   node scripts/ci-health.mjs --status        # GitHub Actions incident status
- *   node scripts/ci-health.mjs --rerun-stuck   # rerun runs stuck in queue > threshold
+ *   node scripts/ci-health.mjs --rerun-stuck   # compatibility flag: inspect long queues safely
  *
  *   - unknown-telemetry   — GitHub metadata could not be read reliably
  *
@@ -44,8 +44,8 @@ const BILLING_BLOCK_PATTERN =
 // GitHub emits this when a job could not be scheduled on a hosted runner at
 // all — runner pool starvation (capacity constraints, Actions outages).
 const RUNNER_UNAVAILABLE_PATTERN = /was not acquired by Runner of type hosted/i;
-// A job/run still in `queued` state this long after GitHub accepted it means
-// no runner is coming — flag it as infrastructure, not code.
+// Preserve the historical threshold/classification, but a long queue alone
+// does not establish runner starvation or an Actions outage.
 const STUCK_QUEUED_THRESHOLD_MIN = 30;
 const STUCK_QUEUED_THRESHOLD_MS = STUCK_QUEUED_THRESHOLD_MIN * 60 * 1000;
 export const HEALTH_COMMAND_TIMEOUT_MS = 5000;
@@ -159,6 +159,9 @@ async function githubJson(path, token) {
  * @returns {'billing-block'|'runner-unavailable'|'stuck-queued'|'never-started'|'real-failure'|null}
  */
 function classifyJobFailure(job, annotations, nowMs = Date.now()) {
+  if ((job.steps || []).some((step) => ['failure', 'timed_out'].includes(step.conclusion))) {
+    return 'real-failure';
+  }
   if (job.conclusion !== 'failure' && job.conclusion !== 'timed_out') {
     if (isStuckQueued(job, nowMs)) return 'stuck-queued';
     // GitHub records never-started jobs as `cancelled` with zero steps — the
@@ -212,6 +215,7 @@ function classifyRun(jobs, annotationsByJob, run = {}) {
     realFailures: [],
     billingBlocked: false,
     stuckQueued: false,
+    activeJobs: jobs.filter((job) => job.status === 'in_progress').map((job) => job.name),
   };
   for (const job of jobs) {
     const annotations = annotationsByJob.get(job.id) || [];
@@ -234,8 +238,8 @@ function classifyRun(jobs, annotationsByJob, run = {}) {
       result.realFailures.push(job.name);
     }
   }
-  // A run that never started any job and has been sitting in the queue past
-  // the threshold is stuck at the run level (GitHub not scheduling anything).
+  // Retain run-level queue evidence, including when job metadata shows work
+  // in progress. The queue observation does not establish a global outage.
   if (result.infraBlocks.length === 0 && isStuckQueued(run)) {
     result.stuckQueued = true;
     result.infraBlocks.push({ jobName: '(run)', kind: 'stuck-queued', message: null });
@@ -262,10 +266,13 @@ function formatRow(run, classification) {
   else if (run.conclusion === 'cancelled') marker = 'CANCELLED';
   const real = classification.realFailures.join(', ');
   const line = [String(run.id), run.name || 'Unknown', String(run.created_at || ''), marker];
-  const detail =
+  let detail =
     classification.infraBlocks.length > 0
       ? classification.infraBlocks.map((b) => `${b.jobName}: ${b.kind}`).join('; ')
       : real || '-';
+  if (classification.stuckQueued) detail += '; queue cause unconfirmed';
+  if (classification.activeJobs?.length)
+    detail += `; active: ${classification.activeJobs.join(', ')}`;
   return { line, detail, classification };
 }
 
@@ -305,7 +312,7 @@ async function runStatus(quiet) {
   const healthy = status.status === 'operational';
   if (!quiet) {
     console.log(
-      `GitHub Actions: ${status.status}${healthy ? '' : ' — jobs may queue/fail (infra, not code)'}`,
+      `GitHub Actions: ${status.status}${healthy ? '' : ' — independent incident evidence; inspect each failed job separately'}`,
     );
     if (!healthy) {
       console.log(`Watch: https://www.githubstatus.com  (Actions component: ${status.status})`);
@@ -315,75 +322,85 @@ async function runStatus(quiet) {
 }
 
 /**
- * Rerun runs that are stuck in the queue past the threshold (runner
- * starvation). Never touches runs that are progressing or concluded.
- * @returns {Promise<number>} exit code
+ * Compatibility inspection for --rerun-stuck. Live queued/in-progress work is
+ * never restarted, including with --yes. Completed failed infrastructure jobs
+ * can be retried separately after their confirmed cause is resolved.
  */
-async function runRerunStuck(flags, owner, name, token) {
-  const data = await githubJson(
+async function runRerunStuck(
+  _flags,
+  owner,
+  name,
+  token,
+  { request = githubJson, log = console.log } = {},
+) {
+  const data = await request(
     `/repos/${owner}/${name}/actions/runs?status=queued&per_page=100`,
     token,
   );
   const now = Date.now();
   const stuck = (data.workflow_runs || []).filter(
-    (r) =>
-      r.status === 'queued' &&
-      (!r.conclusion || r.conclusion === '') &&
-      r.created_at &&
-      now - Date.parse(r.created_at) > STUCK_QUEUED_THRESHOLD_MS,
+    (run) =>
+      run.status === 'queued' &&
+      !run.conclusion &&
+      run.created_at &&
+      now - Date.parse(run.created_at) > STUCK_QUEUED_THRESHOLD_MS,
   );
   if (stuck.length === 0) {
-    console.log(`No runs stuck in queue > ${STUCK_QUEUED_THRESHOLD_MIN} min. Nothing to rerun.`);
+    log(`No runs queued > ${STUCK_QUEUED_THRESHOLD_MIN} min. No runs restarted.`);
     return 0;
   }
-  console.log(
-    `Found ${stuck.length} run(s) stuck in queue > ${STUCK_QUEUED_THRESHOLD_MIN} min (runner starvation):`,
+  log(
+    `Found ${stuck.length} run(s) queued > ${STUCK_QUEUED_THRESHOLD_MIN} min; cause unconfirmed:`,
   );
-  for (const r of stuck) {
-    console.log(`  ${r.id}  ${r.name || ''}  queued since ${r.created_at}`);
-  }
-  if (flags.yes) {
-    // explicit confirmation given
-  } else if (process.stdin.isTTY) {
-    const readline = await import('node:readline');
-    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-    const answer = await new Promise((resolve) => {
-      rl.question('Rerun all of them? [y/N] ', resolve);
-    });
-    rl.close();
-    if (!/^y/i.test(answer.trim())) {
-      console.log('Aborted.');
-      return 0;
-    }
-  } else {
-    console.log(
-      'Refusing to rerun without confirmation: re-run with `--yes` (or confirm in a TTY).',
-    );
-    return 0;
-  }
-  let failed = 0;
-  for (const r of stuck) {
-    const result = spawnSync('gh', ['run', 'rerun', String(r.id)], {
-      encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'pipe'],
-      timeout: HEALTH_COMMAND_TIMEOUT_MS,
-      killSignal: 'SIGTERM',
-    });
-    if (result.status === 0) {
-      console.log(`  reran ${r.id}`);
-    } else {
-      console.error(`  FAILED to rerun ${r.id}: ${(result.stderr || '').trim()}`);
-      failed += 1;
-    }
-  }
-  if (failed > 0) {
-    console.error(
-      'Rerun failures are usually the same outage that starved the runs — retry once the incident clears:',
-    );
-    console.error('  node scripts/ci-health.mjs --rerun-stuck --yes');
-    return 1;
-  }
+  for (const run of stuck) log(`  ${run.id}  ${run.name || ''}  queued since ${run.created_at}`);
+  log(
+    '--rerun-stuck is retained as an inspection flag; --yes cannot restart queued/in-progress work.',
+  );
+  log(
+    'Inspect existing active jobs, workflow concurrency and runner capacity; check https://www.githubstatus.com for independent incident evidence.',
+  );
+  log(
+    'Watch these existing runs. Retry only completed failed infrastructure jobs after their confirmed cause is resolved.',
+  );
   return 0;
+}
+
+function healthAdvice(rows) {
+  const classifications = rows.map((row) => row.classification).filter(Boolean);
+  const blocks = classifications.flatMap((classification) => classification.infraBlocks);
+  if (!blocks.length) return [];
+  const lines = [
+    `CI HEALTH: ${blocks.length} startup block(s) or long-queue observation(s). Other jobs may still be running.`,
+  ];
+  const active = classifications.flatMap((classification) => classification.activeJobs ?? []);
+  if (active.length) lines.push(`Active work: ${active.join(', ')}.`);
+  if (blocks.some((block) => block.kind === 'stuck-queued')) {
+    lines.push(
+      'Long queue cause is unconfirmed. Inspect workflow concurrency, active jobs and runner capacity; check https://www.githubstatus.com for independent incident evidence.',
+    );
+    lines.push(
+      'Keep queued/in-progress work intact and watch the existing runs; do not restart or duplicate them.',
+    );
+  }
+  if (blocks.some((block) => block.kind === 'billing-block')) {
+    lines.push(
+      'Confirmed billing annotation: resolve the account block at https://github.com/settings/billing.',
+    );
+  }
+  if (blocks.some((block) => block.kind === 'runner-unavailable')) {
+    lines.push(
+      'Runner-unavailable annotation confirms a scheduling failure, not an Actions outage; inspect status and runner metadata.',
+    );
+  }
+  if (blocks.some((block) => block.kind === 'never-started')) {
+    lines.push(
+      'Zero recorded steps leave the startup cause unknown; read annotations and runner metadata before retrying.',
+    );
+  }
+  lines.push(
+    'After a confirmed infrastructure cause is resolved, retry only completed failed jobs. Validate local impact with `pnpm verify:plan` and `pnpm verify:affected`; full validation requires a stated escalation/release reason.',
+  );
+  return lines;
 }
 
 async function main() {
@@ -419,17 +436,6 @@ async function main() {
   let stuckQueuedRuns = 0;
   let telemetryErrors = 0;
   for (const run of runs) {
-    // Runs GitHub accepted but has not scheduled past the threshold.
-    if (run.status === 'queued' && isStuckQueued(run)) {
-      rows.push({
-        line: [String(run.id), run.name || 'Unknown', String(run.created_at || ''), 'STUCK'],
-        detail: `run queued > ${STUCK_QUEUED_THRESHOLD_MIN} min (runner starvation)`,
-        classification: null,
-      });
-      infraBlocksTotal += 1;
-      stuckQueuedRuns += 1;
-      continue;
-    }
     if (run.conclusion === 'success' || run.conclusion === 'neutral') {
       rows.push({
         line: [String(run.id), run.name || 'Unknown', String(run.created_at || ''), 'OK'],
@@ -483,6 +489,8 @@ async function main() {
             created: r.line[2],
             state: r.line[3],
             detail: r.detail,
+            activeJobs: r.classification?.activeJobs ?? [],
+            queueCauseConfirmed: r.classification?.stuckQueued ? false : null,
           })),
           infraBlocksTotal,
           stuckQueuedRuns,
@@ -494,18 +502,7 @@ async function main() {
     );
   } else if (flags.quiet) {
     if (infraBlocksTotal > 0) {
-      console.log(
-        `CI HEALTH: ${infraBlocksTotal} job(s)/run(s) blocked (billing, runner outage, or stuck queue). Remote CI is not running code.`,
-      );
-      if (stuckQueuedRuns > 0) {
-        console.log(
-          `Fix: check https://www.githubstatus.com for an Actions incident; rerun stuck runs with \`node scripts/ci-health.mjs --rerun-stuck --yes\` once it clears.`,
-        );
-      } else {
-        console.log(
-          'Fix: https://github.com/settings/billing — validate locally with `just gate` + `just act-dry` until the block lifts.',
-        );
-      }
+      for (const line of healthAdvice(rows)) console.log(line);
     } else if (telemetryErrors > 0) {
       console.log(
         `CI HEALTH: telemetry incomplete (${telemetryErrors} GitHub API request(s) failed). ` +
@@ -524,15 +521,7 @@ async function main() {
     }
     console.log('');
     if (infraBlocksTotal > 0) {
-      console.log(`Infrastructure blocks: ${infraBlocksTotal} job(s)/run(s) blocked.`);
-      console.log('These are NOT code failures:');
-      if (stuckQueuedRuns > 0) {
-        console.log('  - stuck-queued: GitHub is not scheduling jobs (Actions outage / capacity).');
-        console.log('    Check https://www.githubstatus.com and rerun with:');
-        console.log('      node scripts/ci-health.mjs --rerun-stuck --yes');
-      }
-      console.log('  - billing: resolve at https://github.com/settings/billing');
-      console.log('Validate locally meanwhile: `just gate` and `just act-dry`.');
+      for (const line of healthAdvice(rows)) console.log(line);
     } else if (telemetryErrors > 0) {
       console.log(
         `Telemetry errors: ${telemetryErrors} GitHub API request(s) failed; UNKNOWN-TELEMETRY is not healthy.`,
@@ -557,4 +546,12 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     });
 }
 
-export { billingMessage, classifyJobFailure, classifyRun, isStuckQueued };
+export {
+  billingMessage,
+  classifyJobFailure,
+  classifyRun,
+  formatRow,
+  healthAdvice,
+  isStuckQueued,
+  runRerunStuck,
+};

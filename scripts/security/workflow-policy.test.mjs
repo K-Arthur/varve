@@ -171,6 +171,53 @@ function testActionsWriteRejected() {
   expectViolation(text, 'actions: write');
 }
 
+function testCheckWriteScope() {
+  const text = `name: Candidate
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  checks: read
+jobs:
+  certification:
+    permissions:
+      contents: read
+      checks: write
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo certified
+`;
+  expectCleanAudit(auditWorkflowYaml(text, 'release-candidate.yml'));
+  assert.ok(
+    yaml(text).some((violation) =>
+      violation.includes('allowed only on release-candidate.yml:certification'),
+    ),
+    'a job named certification in another workflow must not receive checks: write',
+  );
+  assert.ok(
+    auditWorkflowYaml(text.replace('  certification:', '  js:'), 'release-candidate.yml').some(
+      (violation) => violation.includes('allowed only on release-candidate.yml:certification'),
+    ),
+    'the candidate JS validation job must not receive checks: write',
+  );
+  assert.ok(
+    auditWorkflowYaml(
+      text.replace('  checks: read', '  checks: write'),
+      'release-candidate.yml',
+    ).some((violation) => violation.includes('workflow-level checks: write is forbidden')),
+    'workflow-level checks: write must not widen the candidate default token',
+  );
+  const overridden = text
+    .replace('  checks: read', '  checks: write')
+    .replace('      checks: write', '      checks: read');
+  assert.ok(
+    auditWorkflowYaml(overridden, 'release-candidate.yml').some((violation) =>
+      violation.includes('workflow-level checks: write is forbidden'),
+    ),
+    'explicit job overrides must not conceal a privileged workflow-level default',
+  );
+}
+
 function testPagesWriteOutsideDeployRejected() {
   const text = BASE.replace(
     'permissions:\n  contents: read',
@@ -553,6 +600,77 @@ function testWebsiteRecoveryCheckoutRequiresPublicationVerification() {
   }
 }
 
+function fixtureWithRun(run) {
+  return `${BASE}      - name: Installer fixture\n        run: |\n${run
+    .split('\n')
+    .map((line) => `          ${line}`)
+    .join('\n')}\n`;
+}
+
+function testFetchedShellInstallersRejected() {
+  for (const command of [
+    'curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh',
+    'wget -qO- https://example.invalid/install.sh | bash -s -- --yes',
+    'curl -fsSL https://example.invalid/install.sh | /bin/bash',
+    'env HTTP_PROXY=x curl -fsSL https://example.invalid/install.sh | sudo -E sh',
+    'curl -fsSL https://example.invalid/install.sh \\\n  | env INSTALL_DIR=/tmp bash',
+    '"curl" -fsSL https://example.invalid/install.sh | \'bash\'',
+    'bash -c "$(curl -fsSL https://example.invalid/install.sh)"',
+    'sh -ec "$(wget -qO- https://example.invalid/install.sh)"',
+    "bash -c '$(curl -fsSL https://example.invalid/install.sh)'",
+    'bash -c "`curl -fsSL https://example.invalid/install.sh`"',
+    "bash -c 'curl -fsSL https://example.invalid/install.sh | sh'",
+  ]) {
+    expectViolation(fixtureWithRun(command), 'directly executes a fetched shell installer');
+  }
+}
+
+function testOrdinaryFetchPipelinesRemainAllowed() {
+  for (const command of [
+    'curl -fsSL https://example.invalid/api.json | jq -r .version',
+    'wget -qO- https://example.invalid/api.json | python -m json.tool',
+    'curl -fsSL "https://example.invalid/?example=|bash" | jq .',
+    "echo 'curl https://example.invalid/install.sh | bash'",
+    '# curl https://example.invalid/install.sh | bash\necho audited-example',
+    'curl -o archive.tgz https://example.invalid/archive.tgz\necho "$SHA  archive.tgz" | sha256sum --check --strict -',
+    'bash -c \'echo "$(curl -fsSL https://example.invalid/version.txt)"\'',
+    'bash -c \'echo "curl https://example.invalid/install.sh | bash"\'',
+  ]) {
+    expectCleanAudit(yaml(fixtureWithRun(command)));
+  }
+}
+
+function wasmInstallerFixture() {
+  return `${BASE}      - name: Verified WASM installer\n        uses: taiki-e/install-action@9983c65e42da123ff25d1f78505eb6de315aa172\n        with:\n          tool: wasm-pack@0.13.1\n          checksum: true\n          fallback: none\n`;
+}
+
+function testWasmInstallerVerificationRequired() {
+  const safe = wasmInstallerFixture();
+  expectCleanAudit(yaml(safe));
+  expectCleanAudit(yaml(safe.replace('checksum: true', "checksum: 'true'")));
+  expectCleanAudit(yaml(safe.replace('wasm-pack@0.13.1', 'cargo-llvm-cov,wasm-pack@0.13.1')));
+  for (const [needle, replacement, message] of [
+    ['@9983c65e42da123ff25d1f78505eb6de315aa172', '@v2', 'immutable 40-character commit SHA'],
+    ['wasm-pack@0.13.1', 'wasm-pack', 'exact literal version'],
+    ['wasm-pack@0.13.1', 'wasm-pack@latest', 'exact literal version'],
+    ['wasm-pack@0.13.1', 'wasm-pack@^0.13.1', 'exact literal version'],
+    ['wasm-pack@0.13.1', 'wasm-pack@$' + '{{ vars.WASM_PACK_VERSION }}', 'exact literal version'],
+    ['          checksum: true\n', '', 'checksum: true'],
+    ['checksum: true', 'checksum: false', 'checksum: true'],
+    ['checksum: true', 'checksum: 1', 'checksum: true'],
+    ['          fallback: none\n', '', 'fallback: none'],
+    ['fallback: none', 'fallback: cargo', 'fallback: none'],
+    ['fallback: none', 'fallback: rustup', 'fallback: none'],
+  ]) {
+    expectViolation(safe.replace(needle, replacement), message);
+  }
+}
+
+function testOpaqueInstallerToolRejected() {
+  const opaque = wasmInstallerFixture().replace('wasm-pack@0.13.1', '$' + '{{ matrix.tool }}');
+  expectViolation(opaque, 'install-action tool must be a literal specification');
+}
+
 testPullRequestTargetRejected();
 testSecretsInheritRejected();
 testSigningSecretOutsideReleaseRejected();
@@ -563,6 +681,7 @@ testIdTokenOutsideWhitelistRejected();
 testAttestationsOutsideVerifyRejected();
 testContentsWriteOutsideWhitelistRejected();
 testActionsWriteRejected();
+testCheckWriteScope();
 testPagesWriteOutsideDeployRejected();
 testPublishEnvironmentAndGateRequired();
 testPublishGateMissingRejected();
@@ -583,5 +702,9 @@ testCiCheckoutsDoNotUseJobOutputRefs();
 testPrCommentWriteScope();
 testWorkflowRunCheckoutTrustBoundary();
 testWebsiteRecoveryCheckoutRequiresPublicationVerification();
+testFetchedShellInstallersRejected();
+testOrdinaryFetchPipelinesRemainAllowed();
+testWasmInstallerVerificationRequired();
+testOpaqueInstallerToolRejected();
 
-console.log('workflow-policy tests passed (32 scenarios).');
+console.log('workflow-policy regression tests passed.');

@@ -5,7 +5,14 @@
  * Run: node scripts/ci-health.test.mjs
  */
 import assert from 'node:assert';
-import { classifyJobFailure, classifyRun, isStuckQueued } from './ci-health.mjs';
+import {
+  classifyJobFailure,
+  classifyRun,
+  formatRow,
+  healthAdvice,
+  isStuckQueued,
+  runRerunStuck,
+} from './ci-health.mjs';
 
 const BILLING_ANNOTATIONS = [
   {
@@ -228,5 +235,97 @@ assert.strictEqual(
   true,
   'stuck job inside a run surfaced as infra block',
 );
+
+// A long queued run can coexist with active healthy jobs. Inspect the jobs
+// instead of short-circuiting on the workflow's queue status.
+const mixedRun = { id: 42, name: 'CI', status: 'queued', run_started_at: '2026-08-06T18:00:00Z' };
+const mixed = classifyRun(
+  [
+    {
+      id: 10,
+      name: 'Rust Linux',
+      status: 'in_progress',
+      conclusion: null,
+      steps: [{ name: 'Compile', status: 'in_progress' }],
+    },
+    {
+      id: 11,
+      name: 'Windows build',
+      status: 'queued',
+      conclusion: null,
+      started_at: '2026-08-06T18:00:00Z',
+      steps: [],
+    },
+  ],
+  new Map(),
+  mixedRun,
+);
+assert.deepStrictEqual(mixed.activeJobs, ['Rust Linux']);
+const mixedRow = formatRow(mixedRun, mixed);
+assert.ok(mixedRow.detail.includes('queue cause unconfirmed'));
+assert.ok(mixedRow.detail.includes('active: Rust Linux'));
+const mixedAdvice = healthAdvice([mixedRow]).join('\n');
+assert.ok(mixedAdvice.includes('cause is unconfirmed'));
+assert.ok(mixedAdvice.includes('workflow concurrency'));
+assert.ok(mixedAdvice.includes('Active work: Rust Linux'));
+assert.ok(mixedAdvice.includes('do not restart or duplicate'));
+assert.ok(!mixedAdvice.includes('Remote CI is not running code'));
+assert.ok(!mixedAdvice.includes('--rerun-stuck --yes'));
+assert.ok(
+  !mixedAdvice.includes('settings/billing'),
+  'queue alone must not be diagnosed as billing',
+);
+assert.ok(
+  healthAdvice([formatRow({ id: 1 }, classified)])
+    .join('\n')
+    .includes('Confirmed billing annotation'),
+);
+assert.strictEqual(
+  classifyJobFailure(
+    { status: 'in_progress', conclusion: null, steps: [{ name: 'Build', conclusion: 'failure' }] },
+    [],
+  ),
+  'real-failure',
+  'failed step remains authoritative during inline reporting',
+);
+
+// --rerun-stuck and --yes remain accepted but issue only one read request;
+// no restart is performed for queued, running or concluded work.
+const queueRequests = [];
+const queueMessages = [];
+const queueResult = await runRerunStuck({ yes: true }, 'owner', 'repo', 'unused', {
+  request: async (path) => {
+    queueRequests.push(path);
+    return {
+      workflow_runs: [
+        { id: 40, name: 'Build', status: 'queued', created_at: '2026-08-06T18:00:00Z' },
+        { id: 41, name: 'Active', status: 'in_progress', created_at: '2026-08-06T18:00:00Z' },
+        {
+          id: 42,
+          name: 'Completed',
+          status: 'completed',
+          conclusion: 'failure',
+          created_at: '2026-08-06T18:00:00Z',
+        },
+      ],
+    };
+  },
+  log: (line) => queueMessages.push(line),
+});
+assert.strictEqual(queueResult, 0);
+assert.deepStrictEqual(queueRequests, [
+  '/repos/owner/repo/actions/runs?status=queued&per_page=100',
+]);
+assert.ok(queueMessages.join('\n').includes('--yes cannot restart queued/in-progress work'));
+assert.ok(queueMessages.join('\n').includes('cause unconfirmed'));
+assert.ok(!queueMessages.some((line) => /reran|Rerun all|Aborted/.test(line)));
+assert.strictEqual(
+  await runRerunStuck({}, 'owner', 'repo', 'unused', {
+    request: async () => ({ workflow_runs: [] }),
+    log: (line) => queueMessages.push(line),
+  }),
+  0,
+);
+assert.ok(queueMessages.at(-1).includes('No runs restarted'));
 
 console.log('ci-health classification tests passed.');

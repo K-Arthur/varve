@@ -183,8 +183,8 @@ and `ci-health.mjs` classify every failed job as one of:
 |---|---|
 | `billing-block` | Zero steps + check-run annotation matching the billing message. Not a code failure. |
 | `runner-unavailable` | Annotation *"The job was not acquired by Runner of type hosted even after multiple attempts"* — GitHub never assigned a hosted runner (capacity constraint / Actions outage). Not a code failure. |
-| `stuck-queued` | Job or run accepted by GitHub (`started_at` set) but still `queued` > 30 min. Runner starvation during an Actions incident. Not a code failure. |
-| `never-started` | Zero steps, no billing/runner annotation (runner outage / infra). Not a code failure. |
+| `stuck-queued` | Still queued after 30 min. A delay observation: inspect concurrency, runner annotations, and service status before attributing an outage. |
+| `never-started` | Zero steps, no billing/runner annotation. Startup cause is unknown; inspect cancellation and concurrency before diagnosing infrastructure. |
 | `real-failure` | At least one step ran and failed. Needs log analysis. |
 
 Note on GitHub's data model: jobs that never started are reported with
@@ -209,15 +209,15 @@ just ci-health ARGS="--workflow CI"
 just ci-health ARGS="--strict"     # exit 1 when any infra block is found
 just ci-health ARGS="--json"       # machine-readable
 just ci-status              # GitHub Actions incident status (githubstatus.com)
-just ci-rerun-stuck         # rerun runs stuck in queue > 30 min (asks for confirmation)
+just ci-rerun-stuck         # inspect long queues; does not restart active work
 ```
 
 Every run of the health check classifies failed runs and prints a one-line
 verdict per run (`BILLING` / `STUCK` / `INFRA` / `OK-CODE` / `OK`). The
-pre-push hook runs `ci-health --quiet` **and** `ci-health --status --quiet` —
-it prints an informational warning when remote CI is blocked or GitHub Actions
-is in an incident, so a red push is never a surprise (both checks are
-warning-only; they never block the push).
+pre-push hook queries health and service status only after a local checkpoint
+failure. Both are informational and preserve that checkpoint's exit status.
+A successful push starts independent remote validation; inspect its exact
+accepted SHA with `just ci-health` and the run's job results.
 
 ## Actions incident playbook (2026-08-06: major outage)
 
@@ -242,15 +242,17 @@ just ci-health ARGS="--runs 20"       # runs show STUCK / INFRA (runner-unavaila
 
 **Response**:
 
-1. Do NOT rerun jobs during the outage — they only re-queue. Do NOT push new
-   commits expecting signal; the pre-push hook warns about the incident.
+1. Do NOT rerun jobs during the outage — they only re-queue. Check service
+   status directly; a successful local push hook does not diagnose remote health.
 2. Wait for `just ci-status` to report `operational`.
-3. Recover starved runs in one command:
+3. Inspect delayed runs:
    ```bash
    node scripts/ci-health.mjs --rerun-stuck --yes
    ```
-   (lists runs queued > 30 min, then reruns each; `gh run rerun <id> --failed`
-   works for concluded runs with real failures.)
+   This lists long queues without restarting active work, including with
+   `--yes`. Once a run has concluded and the external cause is resolved,
+   `gh run rerun RUN_ID --failed` or `gh run rerun --job JOB_ID` retries its
+   failed work at the original SHA.
 4. If no run was ever queued, validate locally first with the bounded checks:
    `pnpm verify:plan`, `pnpm verify:affected`, and (before an outbound push)
    `pnpm verify:push --since origin/master`; use `just act-dry` for workflow
@@ -434,9 +436,34 @@ candidate checkpoint, never as an automatic hook fallback.
   set; `final` mode runs the promised matrix. Repair and rerun the affected
   lane, then certify the new SHA. Do not create an empty commit to restart a
   runner/setup failure.
+- A rerun executes the original SHA and ref. A source repair requires a new
+  reviewed commit and run; retrying the old run cannot test the repair.
+  For an unchanged-source runner/setup failure, use `gh run rerun --job JOB_ID`
+  or `gh run rerun RUN_ID --failed` after the cause is resolved. Never rerun a
+  still queued or running job merely because it has waited a long time.
+- Artifact names include the run attempt and matrix identity. Plan and WASM
+  consumers download immutable artifact IDs from their producer outputs,
+  including unchanged successful producers retained by a partial rerun.
+  Execution receipts remain in separate artifact directories. Aggregation
+  selects the newest receipt per matrix cell and keeps untouched earlier
+  cells; a newer failure, duplicate, malformed receipt, wrong run, or wrong
+  source blocks certification instead of falling back to an older success.
+- Certification checks bind to the GitHub Actions app, exact SHA, workflow
+  run, job or custom-check attempt, policy, and unexpired evidence artifact.
+  A newer pending or failed check supersedes an older green check.
 - Release platform artifacts carry exact-SHA/policy/platform sidecars. The
   resumable collector refuses missing, modified, out-of-tree, or mismatched
   artifacts and writes final checksums only after all required targets exist.
+- Release collection also verifies the latest producing job through the
+  GitHub API before selecting artifact IDs. A newer failed producer cannot
+  supply its previous attempt's package. Publication verifies the draft's
+  actual bytes, checksums, signatures, and provenance again. The website has
+  an independent recovery dispatch from the verified published tag, so a
+  Pages failure does not require rebuilding or republishing installers.
+
+The incident research, demonstrated repository gaps, implemented controls,
+and remaining certification boundaries are recorded in the
+[CI rerun and recovery audit](audits/ci-rerun-recovery-audit-2026-10-02.md).
 
 For a quick syntax/dependency check against the actual GitHub Actions runner image:
 
@@ -717,7 +744,7 @@ problem. To diagnose:
 
 1. Read the streamed progress in the job log — the last test named is where
    it stopped.
-2. Download the `varve-e2e-report-<run_id>-shard<N>` artifact; it uploads
+2. Download the `varve-e2e-report-<run_id>-shard<N>-attempt<A>` artifact; it uploads
    under `if: always()` and so survives a cancellation.
 3. Reproduce that shard locally: `pnpm exec playwright test --project=chromium --shard=N/8`.
 

@@ -403,7 +403,7 @@ receipts are CI evidence only; local validation receipts remain caches and
 cannot satisfy protected checks or release provenance.
 
 `release-candidate.yml` freezes one SHA and emits
-`varve-release-candidate-<sha>-<policy-hash>` plus a stable
+`varve-release-candidate-<sha>-<policy-hash>-run-<run_id>-attempt-<attempt>` plus a stable
 `Release Candidate / certification` check. Its `triage` mode is explicitly
 non-certifying and may run without a successful prior integration check so it
 can collect bounded failures; only `final` produces passed candidate evidence.

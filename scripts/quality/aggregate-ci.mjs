@@ -69,6 +69,28 @@ function expectedReportCount(plan, category) {
   return 1;
 }
 
+/** Keep platform coverage explicit; tests bind these sets to both workflow matrices. */
+export function expectedExecutionMatrices(category, profile) {
+  if (category === 'rust') return ['ubuntu-latest', 'macos-latest', 'windows-latest'];
+  if (category === 'desktop')
+    return profile === 'candidate'
+      ? ['linux', 'macos', 'windows']
+      : ['linux-x11', 'windows-x64', 'macos'];
+  return null;
+}
+
+function matrixEvidenceErrors(report, profile, expected) {
+  const matrices = expectedExecutionMatrices(report.category, profile);
+  if (!matrices) return [];
+  const errors = [];
+  if (!matrices.includes(report.matrix)) errors.push('unexpected platform matrix');
+  if (report.shard != null) errors.push('unexpected platform shard');
+  for (const lane of expected) {
+    if (!report.executedLanes?.includes(lane)) errors.push(`platform did not execute '${lane}'`);
+  }
+  return errors;
+}
+
 function reportKey(report) {
   return `${report.category}:${report.matrix ?? 'default'}:${report.shard ?? 'single'}`;
 }
@@ -92,6 +114,54 @@ function readJsonReports(directory) {
   return reports;
 }
 
+function attemptNumber(value) {
+  return /^[1-9]\d*$/.test(String(value ?? '')) && Number.isSafeInteger(Number(value))
+    ? Number(value)
+    : null;
+}
+
+/** A failed-job rerun keeps untouched jobs and replaces only the retried cells. */
+export function selectCurrentExecutionReports(reports, workflow = {}) {
+  const failures = [];
+  const cells = new Map();
+  const currentAttempt = attemptNumber(workflow.runAttempt);
+  if (workflow.runAttempt != null && currentAttempt === null)
+    failures.push({ job: 'execution', reason: 'invalid current workflow attempt' });
+  for (const report of reports) {
+    const attempt = attemptNumber(report?.workflow?.runAttempt);
+    const errors = [];
+    if (!CI_CATEGORIES.includes(report?.category)) errors.push('invalid receipt category');
+    if (attempt === null) errors.push('invalid receipt attempt');
+    if (currentAttempt !== null && attempt > currentAttempt) errors.push('future receipt attempt');
+    if (workflow.repository && report?.workflow?.repository !== workflow.repository)
+      errors.push('workflow repository mismatch');
+    if (workflow.runId && String(report?.workflow?.runId) !== String(workflow.runId))
+      errors.push('workflow run mismatch');
+    if (errors.length) {
+      failures.push({
+        job: report?.category ?? 'execution',
+        reason: `invalid execution receipt (${errors.join(', ')})`,
+        report: report?.invalidPath ?? reportKey(report ?? {}),
+      });
+      continue;
+    }
+    const key = reportKey(report);
+    const cell = cells.get(key) ?? [];
+    cell.push({ report, attempt });
+    cells.set(key, cell);
+  }
+  const selected = [];
+  const superseded = [];
+  for (const [key, cell] of cells) {
+    const latest = Math.max(...cell.map((entry) => entry.attempt));
+    for (const { report, attempt } of cell) {
+      if (attempt === latest) selected.push(report);
+      else superseded.push({ cell: key, attempt, status: report.status });
+    }
+  }
+  return { reports: selected, failures, superseded };
+}
+
 export function validateExecutionEvidence({
   reports = [],
   plan = {},
@@ -99,20 +169,21 @@ export function validateExecutionEvidence({
   candidateMode = plan.candidateMode ?? null,
   workflow = {},
 } = {}) {
-  const failures = [];
+  const current = selectCurrentExecutionReports(reports, workflow);
+  const failures = [...current.failures];
   const evidence = [];
   const selectedCategories = CI_CATEGORIES.filter(
     (category) => category === 'pipeline' || profile === 'candidate' || plan.categories?.[category],
   );
   for (const category of selectedCategories) {
-    const categoryReports = reports.filter((report) => report?.category === category);
+    const categoryReports = current.reports.filter((report) => report?.category === category);
     const expectedCount = expectedReportCount(plan, category);
     const expected = new Set(expectedLanes(plan, category));
     const valid = [];
     const seen = new Set();
     for (const report of categoryReports) {
       const source = report?.source ?? {};
-      const identityErrors = [];
+      const identityErrors = matrixEvidenceErrors(report, profile, expected);
       if (report?.schema !== 1) identityErrors.push('schema mismatch');
       if (report?.profile !== profile) identityErrors.push('profile mismatch');
       if (profile === 'candidate' && report?.candidateMode !== candidateMode)
@@ -146,11 +217,11 @@ export function validateExecutionEvidence({
       seen.add(key);
       valid.push(report);
     }
-    if (valid.length < expectedCount) {
+    if (valid.length !== expectedCount) {
       failures.push({
         job: category,
         category,
-        reason: `missing execution receipts (${valid.length}/${expectedCount})`,
+        reason: `unexpected execution receipt count (${valid.length}/${expectedCount})`,
       });
     }
     const covered = new Set(valid.flatMap((report) => report.executedLanes ?? []));
@@ -173,10 +244,14 @@ export function validateExecutionEvidence({
       category,
       expectedCount,
       reports: valid.map(reportKey),
+      attempts: valid.map((report) => ({
+        cell: reportKey(report),
+        attempt: report.workflow.runAttempt,
+      })),
       coveredLanes: [...covered],
     });
   }
-  return { passed: failures.length === 0, failures, evidence };
+  return { passed: failures.length === 0, failures, evidence, superseded: current.superseded };
 }
 
 export function aggregateCertification({
@@ -312,6 +387,7 @@ function main() {
     workflow: {
       repository: process.env.GITHUB_REPOSITORY ?? null,
       runId: process.env.GITHUB_RUN_ID ?? null,
+      runAttempt: process.env.GITHUB_RUN_ATTEMPT ?? null,
     },
   });
   const output = args[args.indexOf('--output') + 1] ?? 'ci-certification.json';

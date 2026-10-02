@@ -824,7 +824,7 @@ jobs:
         if: matrix.enabled
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: release-${{ matrix.name }}
+          name: release-${{ matrix.name }}-attempt-${{ github.run_attempt }}
           path: dist/release/
           if-no-files-found: error
           retention-days: 14
@@ -838,7 +838,7 @@ jobs:
         if: matrix.enabled && runner.os == 'Linux'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: debug-binary-${{ matrix.name }}
+          name: debug-binary-${{ matrix.name }}-attempt-${{ github.run_attempt }}
           path: ${{ env.TAURI_TARGET_DIR }}/release/varve-desktop
           if-no-files-found: warn
           retention-days: 90
@@ -876,12 +876,31 @@ jobs:
         with:
           ref: ${{ needs.preflight.outputs.tag }}
 
+      - name: Select successful Linux producer artifact
+        if: matrix.enabled
+        id: artifacts
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/release/select-run-artifacts.mjs select
+          --repo '${{ github.repository }}' --run-id '${{ github.run_id }}'
+          --sha '${{ github.sha }}' --attempt '${{ github.run_attempt }}'
+          --targets 'linux-${{ matrix.arch_slug }}'
+
       - name: Download Linux artifacts
         if: matrix.enabled
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
-          name: ${{ matrix.artifact }}
+          artifact-ids: ${{ steps.artifacts.outputs.artifact_ids }}
+          github-token: ${{ github.token }}
+          run-id: ${{ github.run_id }}
           path: staged/linux-${{ matrix.arch_slug }}
+
+      - name: Verify downloaded Linux source and bytes
+        if: matrix.enabled
+        run: node scripts/release/select-run-artifacts.mjs verify
+          --dir 'staged/linux-${{ matrix.arch_slug }}' --version '${{ needs.preflight.outputs.version }}'
+          --sha '${{ needs.preflight.outputs.tag_sha }}' --policy-hash '${{ needs.preflight.outputs.policy_hash }}'
+          --targets '${{ steps.artifacts.outputs.targets }}'
 
       - name: Install container runtime
         if: matrix.enabled
@@ -962,15 +981,15 @@ jobs:
         include:
           - name: windows
             os: windows-latest
-            artifact: release-windows-x86_64
+            artifact: windows-x86_64
             enabled: ${{ needs.preflight.outputs.build_windows == 'true' }}
           - name: windows-aarch64
             os: windows-11-arm
-            artifact: release-windows-aarch64
+            artifact: windows-aarch64
             enabled: ${{ needs.preflight.outputs.build_windows == 'true' }}
           - name: macos
             os: macos-latest
-            artifact: release-macos-aarch64
+            artifact: macos-aarch64
             enabled: ${{ needs.preflight.outputs.build_macos == 'true' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -978,12 +997,31 @@ jobs:
         with:
           ref: ${{ needs.preflight.outputs.tag }}
 
+      - name: Select successful platform producer artifact
+        if: matrix.enabled
+        id: artifacts
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/release/select-run-artifacts.mjs select
+          --repo '${{ github.repository }}' --run-id '${{ github.run_id }}'
+          --sha '${{ github.sha }}' --attempt '${{ github.run_attempt }}'
+          --targets '${{ matrix.artifact }}'
+
       - name: Download platform artifacts
         if: matrix.enabled
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
-          name: ${{ matrix.artifact }}
+          artifact-ids: ${{ steps.artifacts.outputs.artifact_ids }}
+          github-token: ${{ github.token }}
+          run-id: ${{ github.run_id }}
           path: staged
+
+      - name: Verify downloaded platform source and bytes
+        if: matrix.enabled
+        run: node scripts/release/select-run-artifacts.mjs verify
+          --dir staged --version '${{ needs.preflight.outputs.version }}'
+          --sha '${{ needs.preflight.outputs.tag_sha }}' --policy-hash '${{ needs.preflight.outputs.policy_hash }}'
+          --targets '${{ steps.artifacts.outputs.targets }}'
 
       - name: Windows — silent install, launch smoke, uninstall
         if: matrix.enabled && runner.os == 'Windows'
@@ -1100,6 +1138,7 @@ jobs:
     timeout-minutes: 20
     permissions:
       contents: read
+      actions: read
       id-token: write
       attestations: write
     steps:
@@ -1117,14 +1156,33 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
 
+      # Untouched successful matrix legs may come from an earlier attempt of
+      # this same run. Never merge multiple attempts or reuse stale success
+      # after a newer producer failed or omitted its upload.
+      - name: Select successful platform producer artifacts
+        id: artifacts
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/release/select-run-artifacts.mjs select
+          --repo '${{ github.repository }}' --run-id '${{ github.run_id }}'
+          --sha '${{ github.sha }}' --attempt '${{ github.run_attempt }}'
+          --targets all --windows '${{ needs.preflight.outputs.build_windows }}'
+          --macos '${{ needs.preflight.outputs.build_macos }}'
+
       - name: Download all platform artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
-          # Match release-OS-ARCH bundles, excluding an earlier release-final
-          # artifact if this workflow's complete job graph is rerun.
-          pattern: release-*-*
+          artifact-ids: ${{ steps.artifacts.outputs.artifact_ids }}
+          github-token: ${{ github.token }}
+          run-id: ${{ github.run_id }}
           path: staged
           merge-multiple: false
+
+      - name: Verify downloaded platform source and bytes
+        run: node scripts/release/select-run-artifacts.mjs verify
+          --dir staged --version '${{ needs.preflight.outputs.version }}'
+          --sha '${{ needs.preflight.outputs.tag_sha }}' --policy-hash '${{ needs.preflight.outputs.policy_hash }}'
+          --targets '${{ steps.artifacts.outputs.targets }}'
 
       - name: Merge into one release directory
         shell: bash
@@ -1228,7 +1286,7 @@ jobs:
       - name: Upload verified release set
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: release-final
+          name: release-final-attempt-${{ github.run_attempt }}
           path: |
             dist/release/
             RELEASE_NOTES.md
@@ -1247,6 +1305,7 @@ jobs:
     timeout-minutes: 20
     permissions:
       contents: write
+      actions: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -1262,10 +1321,20 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
 
+      - name: Select successful final producer artifact
+        id: artifacts
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/release/select-run-artifacts.mjs select
+          --repo '${{ github.repository }}' --run-id '${{ github.run_id }}'
+          --sha '${{ github.sha }}' --attempt '${{ github.run_attempt }}' --targets final
+
       - name: Download the verified release set
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
-          name: release-final
+          artifact-ids: ${{ steps.artifacts.outputs.artifact_ids }}
+          github-token: ${{ github.token }}
+          run-id: ${{ github.run_id }}
           path: staged-final
 
       # The release-final artifact stores the assets under a workspace-
@@ -1278,6 +1347,13 @@ jobs:
           mkdir -p dist/release
           find staged-final -type f ! -name 'RELEASE_NOTES.md' -exec cp {} dist/release/ \;
           cp staged-final/RELEASE_NOTES.md RELEASE_NOTES.md
+
+      - name: Verify final downloaded source and bytes
+        run: node scripts/release/select-run-artifacts.mjs verify
+          --dir dist/release --version '${{ needs.preflight.outputs.version }}'
+          --sha '${{ needs.preflight.outputs.tag_sha }}' --policy-hash '${{ needs.preflight.outputs.policy_hash }}'
+          --targets all --windows '${{ needs.preflight.outputs.build_windows }}'
+          --macos '${{ needs.preflight.outputs.build_macos }}'
 
       - name: Create draft release
         uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64

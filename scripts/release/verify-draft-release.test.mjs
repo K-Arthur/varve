@@ -16,6 +16,7 @@ import {
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import test from 'node:test';
+import { load } from 'js-yaml';
 import {
   readSigningReports,
   signingStateFromReport,
@@ -689,7 +690,24 @@ test('publish-only workflow verifies actual assets before changing draft=false',
   const text = readFileSync('.github/workflows/release.yml', 'utf8');
   const workflow = text.split('\n  publish:\n')[1];
   assert.ok(workflow);
-  assert.match(text, /pattern: release-\*-\*/);
+  const verifySteps = load(text).jobs.verify.steps;
+  const selection = verifySteps.findIndex((step) => step.id === 'artifacts');
+  const download = verifySteps.findIndex((step) =>
+    step.uses?.startsWith('actions/download-artifact@'),
+  );
+  assert.ok(
+    selection >= 0 && download > selection,
+    'producer verification precedes artifact download',
+  );
+  assert.equal(
+    verifySteps[download].with['artifact-ids'],
+    '$' + '{{ steps.artifacts.outputs.artifact_ids }}',
+  );
+  assert.equal(
+    verifySteps[download].with.pattern,
+    undefined,
+    'unverified wildcard selection is forbidden',
+  );
   assert.match(
     text,
     /group: release-\$\{\{ github\.event_name == 'workflow_dispatch' && inputs\.tag \|\| github\.ref_name \}\}/,

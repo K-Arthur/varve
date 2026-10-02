@@ -30,6 +30,7 @@ import { readdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { stripVTControlCharacters } from 'node:util';
 import { buildFailureManifest, validateKnownFailures } from './ci/failure-manifest.mjs';
 
 const API_BASE = 'https://api.github.com';
@@ -37,6 +38,7 @@ const API_TIMEOUT_MS = 30_000;
 
 // Patterns that usually indicate a real failure. Lower index = higher priority.
 const FAILURE_PATTERNS = [
+  /^\s*error(?:\[[A-Z]\d+\]|\s+TS\d+):/i,
   /^\s*\[?(?:ERROR|FAIL|FATAL)\]?[\s:]/i,
   /error\s*:/i,
   /failed\s*with/i,
@@ -61,7 +63,7 @@ const FAILURE_PATTERNS = [
   /EPERM:/,
   /404\s*Not Found/,
   /403\s*Forbidden/,
-  /timed?\s*out/i,
+  /\btimed?[\s-]+out\b|\bTimeoutError\b/i,
   /timeout\s*exceeded/i,
   /Traceback \(most recent call last\)/i,
   /pytest.*\bfailed\b/i,
@@ -79,6 +81,11 @@ const IGNORED_PATTERNS = [
   // GitHub includes the action's shell source in the log before executing it.
   // Do not mistake a printf/echo template for the annotation emitted later.
   /(?:printf|echo)\s+['"]?::error::/i,
+  /^\s*#(?!#\[error\])/,
+  /^\s*(?:Downloaded|Compiling|Checking)\s+[\w.-]+\s+v\d/i,
+  /^\s*(?:Run |\+ |(?:echo|printf)\s|(?:if|elif)\s.*;\s*then\b)/i,
+  /^\s*- line \d+:/,
+  /^\s*##\[(?:group|endgroup|command)\]/i,
 ];
 
 // Job-level annotations that mean "the job never started" (infrastructure
@@ -91,8 +98,8 @@ const BILLING_BLOCK_PATTERN =
 // all — runner pool starvation (capacity constraints, Actions outages).
 const RUNNER_UNAVAILABLE_PATTERN = /was not acquired by Runner of type hosted/i;
 
-// A job/run still in `queued` state this long after GitHub accepted it means
-// no runner is coming — runner starvation during an Actions outage.
+// A long queue is an observation, not proof of an outage. Concurrency limits,
+// active work and runner capacity must be checked independently.
 const STUCK_QUEUED_THRESHOLD_MS = 30 * 60 * 1000;
 
 /**
@@ -112,7 +119,7 @@ function isStuckQueued(job, nowMs = Date.now()) {
 }
 
 // A failed job with zero recorded steps never started. There is nothing in the
-// logs to analyze — the failure is infra-level (billing block, runner outage).
+// logs to analyze. An annotation may establish the cause; otherwise it is unknown.
 function hasFailedStep(job) {
   return (job?.steps || []).some(
     (step) => step?.conclusion === 'failure' || step?.conclusion === 'timed_out',
@@ -272,7 +279,7 @@ function runCommand(cmd, args, options = {}) {
   });
   if (result.status !== 0) {
     const err = result.stderr.trim() || `Command failed: ${cmd} ${args.join(' ')}`;
-    throw new Error(err);
+    throw new Error(redactSensitive(err));
   }
   return result.stdout;
 }
@@ -292,7 +299,9 @@ async function githubFetch(path, token) {
     res = await fetch(url, { headers, redirect: 'manual', signal: controller.signal });
   } catch (error) {
     if (error?.name === 'AbortError') {
-      throw new Error(`GitHub API request timed out after ${API_TIMEOUT_MS / 1000}s: ${url}`);
+      throw new Error(
+        `GitHub API request timed out after ${API_TIMEOUT_MS / 1000}s: ${redactSensitive(url)}`,
+      );
     }
     throw error;
   } finally {
@@ -317,7 +326,7 @@ async function githubFetch(path, token) {
     }
     if (!redirectRes.ok) {
       throw new Error(
-        `Download from ${location} failed: ${redirectRes.status} ${redirectRes.statusText}`,
+        `Download from ${redactSensitive(location)} failed: ${redirectRes.status} ${redirectRes.statusText}`,
       );
     }
     return redirectRes;
@@ -326,7 +335,7 @@ async function githubFetch(path, token) {
   if (!res.ok) {
     const body = await res.text();
     throw new Error(
-      `GitHub API ${url} failed: ${res.status} ${res.statusText}\n${body.slice(0, 500)}`,
+      `GitHub API ${redactSensitive(url)} failed: ${res.status} ${res.statusText}\n${redactSensitive(body.slice(0, 500))}`,
     );
   }
 
@@ -488,8 +497,23 @@ function buildPrivateKeyPatterns() {
   ];
 }
 
+function redactCredentialUrl(value) {
+  try {
+    const url = new URL(value);
+    const sensitive = [...url.searchParams.keys()].some((key) =>
+      /(?:token|signature|credential|secret|password|authorization|api[-_]?key)|^(?:sig|auth|key)$/i.test(
+        key,
+      ),
+    );
+    if (!sensitive && !url.username && !url.password) return value;
+    return `${url.protocol}//${url.host}${url.pathname}${sensitive ? '?<redacted>' : ''}`;
+  } catch {
+    return value;
+  }
+}
+
 export function redactSensitive(text) {
-  let out = text;
+  let out = text.replace(/https?:\/\/[^\s<>"'`]+/g, redactCredentialUrl);
   for (const rule of REDACT_PATTERNS) {
     if (rule.id === 'signing-env-value') {
       out = out.replace(rule.re, (_m, name) => `${name}=<redacted>`);
@@ -512,40 +536,65 @@ async function* walkTextFiles(dir) {
   }
 }
 
+function normalizeLogLine(line) {
+  const clean = stripVTControlCharacters(line);
+  // gh run view may prefix the archive timestamp with tab-separated job/step names.
+  const timestamp = /^(?:[^\t]*\t)*\s*\d{4}-\d{2}-\d{2}T[\d:.]+Z\s*/;
+  let normalized = clean;
+  while (timestamp.test(normalized)) normalized = normalized.replace(timestamp, '');
+  return normalized;
+}
+
 function isFailureLine(line) {
-  if (line.length === 0) return false;
-  if (IGNORED_PATTERNS.some((re) => re.test(line))) return false;
-  return FAILURE_PATTERNS.some((re) => re.test(line));
+  const normalized = normalizeLogLine(line);
+  if (normalized.length === 0) return false;
+  if (IGNORED_PATTERNS.some((re) => re.test(normalized))) return false;
+  return FAILURE_PATTERNS.some((re) => re.test(normalized));
 }
 
 function rankLine(line) {
-  for (let i = 0; i < FAILURE_PATTERNS.length; i += 1) {
-    if (FAILURE_PATTERNS[i].test(line)) return i;
+  const normalized = normalizeLogLine(line);
+  // Exit and aggregate summaries describe the consequence, not the cause.
+  if (
+    /Process completed with exit code|\[ELIFECYCLE\]|could not compile|aborting due to.*previous error|failed to build app/i.test(
+      normalized,
+    )
+  ) {
+    return FAILURE_PATTERNS.length;
   }
-  return Number.MAX_SAFE_INTEGER;
+  const rank = FAILURE_PATTERNS.findIndex((pattern) => pattern.test(normalized));
+  return rank < 0 ? Number.MAX_SAFE_INTEGER : rank;
 }
 
 function extractFailures(logText, context = 2) {
-  const lines = logText.split(/\r?\n/);
+  const lines = logText.split(/\r?\n/).map(normalizeLogLine);
   const hits = [];
+  const seen = new Set();
   for (let i = 0; i < lines.length; i += 1) {
     const line = lines[i];
-    if (isFailureLine(line)) {
-      const start = Math.max(0, i - context);
-      const end = Math.min(lines.length, i + context + 1);
-      // Redact before the snippet can reach the report / PR comment: the log
-      // archive may contain values GitHub never masked (see redactSensitive).
-      const snippet = lines.slice(start, end).map(redactSensitive).join('\n');
-      hits.push({
-        line: i + 1,
-        rank: rankLine(line),
-        text: redactSensitive(line.trim()),
-        snippet,
-      });
+    if (!isFailureLine(line)) continue;
+    const start = Math.max(0, i - context);
+    const end = Math.min(lines.length, i + context + 1);
+    // Keep the original archive line number, but remove terminal controls and
+    // credentials before any text can reach an artifact or public comment.
+    const text = redactSensitive(line.trim());
+    const location = lines.slice(i + 1, i + 3).find((value) => /-->/.test(value)) ?? '';
+    const identity = `${text}\n${location}`;
+    if (location && /^error(?:\[[A-Z]\d+\]|\s+TS\d+):/i.test(text)) {
+      if (seen.has(identity)) continue;
+      seen.add(identity);
     }
+    hits.push({
+      line: i + 1,
+      rank: rankLine(line),
+      text,
+      snippet: lines.slice(start, end).map(redactSensitive).join('\n'),
+      ...(/clippy::|-D\s+clippy|clippy lint/i.test(lines.slice(i, i + 16).join('\n'))
+        ? { diagnosticKind: 'rust-clippy' }
+        : {}),
+    });
   }
-  hits.sort((a, b) => a.rank - b.rank || a.line - b.line);
-  return hits;
+  return hits.sort((a, b) => a.rank - b.rank || a.line - b.line);
 }
 
 function normalizeLogSource(value) {
@@ -589,56 +638,127 @@ function readdirSyncSafe(dir) {
   }
 }
 
-function formatInfraBlockSection(infraBlocks) {
+function formatInfraBlockSection(infraBlocks, run, jobs) {
   if (infraBlocks.length === 0) return [];
-  const lines = ['## Infrastructure block detected', ''];
-  lines.push(
-    'The following jobs **never started** (or are stuck in the queue). This is NOT a code or test failure:',
-  );
-  lines.push('');
+  const lines = ['## Infrastructure and queue observations', ''];
   for (const block of infraBlocks) {
     if (block.kind === 'billing-block') {
       lines.push(
-        `- **${block.jobName}** — GitHub billing/spending-limit block: "${block.message}".`,
+        `- **${block.jobName}** — confirmed billing/spending-limit annotation: "${redactSensitive(block.message || '')}".`,
       );
-      lines.push(
-        '  Fix: resolve billing at https://github.com/settings/billing and re-run the workflow.',
-      );
+      lines.push('  Resolve the account block at https://github.com/settings/billing.');
     } else if (block.kind === 'runner-unavailable') {
+      lines.push(`- **${block.jobName}** — GitHub reports that a hosted runner was not acquired.`);
       lines.push(
-        `- **${block.jobName}** — no hosted runner was ever assigned (runner pool starvation / GitHub Actions outage).`,
-      );
-      lines.push('  Check https://www.githubstatus.com for an Actions incident, then rerun with:');
-      lines.push(
-        '    `gh run rerun <id> --failed` or `node scripts/ci-health.mjs --rerun-stuck --yes`',
+        '  The annotation establishes this scheduling failure; an Actions outage is not confirmed by it.',
       );
     } else if (block.kind === 'stuck-queued') {
+      lines.push(`- **${block.jobName}** — queued > 30 min; cause unconfirmed.`);
       lines.push(
-        `- **${block.jobName}** — job accepted by GitHub but still queued > 30 min (runner starvation).`,
+        '  Inspect active work, workflow concurrency and runner capacity, then check https://www.githubstatus.com for independent incident evidence.',
       );
-      lines.push('  Check https://www.githubstatus.com for an Actions incident, then rerun with:');
-      lines.push('    `node scripts/ci-health.mjs --rerun-stuck --yes`');
     } else {
       lines.push(
-        `- **${block.jobName}** — job concluded ${block.conclusion} with zero steps recorded.`,
+        `- **${block.jobName}** — ${block.conclusion || 'failed'} with zero recorded steps; startup cause unknown.`,
       );
       lines.push(
-        '  No runner started for this job (infra outage or runner unavailability). Re-run the workflow.',
+        '  Read check annotations and runner metadata before diagnosing an outage or changing code.',
       );
     }
   }
+  const active = jobs.filter((job) => job.status === 'in_progress').map((job) => job.name);
+  if (active.length) lines.push('', `Currently in progress: ${active.join(', ')}.`);
   lines.push(
     '',
-    'Code-level fixes will not change this outcome. Validate locally while the block persists:',
+    'Keep queued/in-progress work intact; watch the existing run rather than restarting it.',
+  );
+  if (
+    run.status === 'completed' &&
+    ['failure', 'timed_out'].includes(run.conclusion) &&
+    infraBlocks.some((block) => ['billing-block', 'runner-unavailable'].includes(block.kind))
+  ) {
+    lines.push(
+      `After the confirmed infrastructure cause is resolved, retry only failed jobs: \`gh run rerun ${run.id} --failed\`.`,
+    );
+  }
+  lines.push(
+    '',
+    'Inspect local impact while remote work continues:',
+    '',
+    '```bash',
+    'pnpm verify:plan',
+    'pnpm verify:affected',
+    'node scripts/ci-health.mjs --status',
+    '```',
     '',
   );
-  lines.push('```bash');
-  lines.push('just gate                 # full Cascade Review gate, no GitHub minutes');
-  lines.push('just ci-health            # watch for the block lifting across recent runs');
-  lines.push('node scripts/ci-health.mjs --status   # GitHub Actions incident status');
-  lines.push('```');
-  lines.push('');
   return lines;
+}
+
+function failuresForJob(failuresBySource, job) {
+  const expected = normalizeLogSource(job.name);
+  return Object.entries(failuresBySource)
+    .filter(
+      ([source]) =>
+        source === String(job.id) ||
+        normalizeLogSource(source) === expected ||
+        normalizeLogSource(source).endsWith(`_${expected}`) ||
+        expected.endsWith(`_${normalizeLogSource(source)}`),
+    )
+    .flatMap(([source, hits]) => hits.map((hit) => ({ ...hit, source })))
+    .sort((a, b) => a.rank - b.rank || a.line - b.line);
+}
+
+function localReproductionCommand(job, hits = [], testIds = []) {
+  const text = hits.map((hit) => `${hit.text}\n${hit.snippet}`).join('\n');
+  const path = testIds
+    .find((id) => /^[A-Za-z0-9_./-]+\.(?:spec|test)\.[jt]sx?(?::\d+)?$/.test(id))
+    ?.replace(/:\d+$/, '');
+  if (path?.includes('.spec.')) {
+    const website = path.startsWith('apps/website/');
+    const config = website
+      ? '-c playwright.website.config.ts --project=ghpages'
+      : '--project=chromium';
+    return `${website ? '' : 'pnpm typecheck:e2e\n'}node scripts/quality/heavy-lease.mjs "e2e: exact CI failure" -- pnpm exec playwright test ${path} ${config} --workers=1 --reporter=list --update-snapshots=none`;
+  }
+  if (path)
+    return `node scripts/quality/heavy-lease.mjs "unit: exact CI failure" -- pnpm exec vitest run ${path} --maxWorkers=1`;
+  const rust = /error\[E\d+\]|cargo|rust/i.test(`${job.name}\n${text}`);
+  if (rust) {
+    const crate = text.replaceAll('\\', '/').match(/crates\/(varve-[a-z0-9-]+)\/src\//)?.[1];
+    if (crate) {
+      const clippy =
+        hits.some((hit) => hit.diagnosticKind === 'rust-clippy') || /clippy/i.test(text);
+      return clippy
+        ? `cargo clippy -p ${crate} --all-targets -- -D warnings`
+        : `cargo check -p ${crate}`;
+    }
+    if (/desktop|build|varve-desktop/i.test(`${job.name}\n${text}`)) {
+      return 'cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml';
+    }
+  }
+  return 'pnpm verify:affected';
+}
+
+function buildDebugFailureManifest(input) {
+  const sources = Object.fromEntries(
+    input.jobs.map((job) => [job.name, failuresForJob(input.failuresBySource, job)]),
+  );
+  const manifest = buildFailureManifest({ ...input, failuresBySource: sources });
+  for (const entry of manifest.failures) {
+    const job = input.jobs.find((candidate) => candidate.id === entry.jobId) ?? {
+      name: entry.failedJob,
+    };
+    const hits = sources[entry.failedJob] ?? [];
+    entry.localReproductionCommand = localReproductionCommand(job, hits, entry.testIds);
+    // Compiler diagnostics are product/dependency errors, never a download retry.
+    if (hits.some((hit) => /^error(?:\[[A-Z]\d+\]|\s+TS\d+):/i.test(hit.text))) {
+      entry.category = 'product-or-test-regression';
+      entry.retryWithoutCode = false;
+    }
+    entry.logSources = [...new Set(hits.map((hit) => hit.source))];
+  }
+  return manifest;
 }
 
 function formatReport(repo, run, jobs, failuresBySource, infraBlocks = [], { maxHits = 10 } = {}) {
@@ -656,7 +776,7 @@ function formatReport(repo, run, jobs, failuresBySource, infraBlocks = [], { max
     '',
   ];
 
-  lines.push(...formatInfraBlockSection(infraBlocks));
+  lines.push(...formatInfraBlockSection(infraBlocks, run, jobs));
 
   lines.push('## Failed jobs', '');
 
@@ -703,14 +823,36 @@ function formatReport(repo, run, jobs, failuresBySource, infraBlocks = [], { max
     }
   }
 
-  lines.push('', '## Local reproduction', '');
-  lines.push('```bash');
-  lines.push('# Run the failing gate locally');
-  lines.push('just gate');
-  lines.push('');
-  lines.push('# Or reproduce a specific job with act');
-  lines.push('just act-run js');
-  lines.push('```');
+  lines.push(
+    '',
+    '## Local reproduction',
+    '',
+    'Start with the impact planner, then reproduce only the failing lane/spec:',
+    '',
+    '```bash',
+    'pnpm verify:plan',
+    '```',
+  );
+  for (const job of failedJobs.filter((candidate) => (candidate.steps || []).length > 0)) {
+    const hits = failuresForJob(failuresBySource, job);
+    const ids = hits.flatMap(
+      (hit) =>
+        `${hit.text}\n${hit.snippet}`.match(/[A-Za-z0-9_./-]+\.(?:spec|test)\.[jt]sx?(?::\d+)?/g) ??
+        [],
+    );
+    lines.push(
+      '',
+      `**${job.name}** — use the same OS/toolchain as the failed job.`,
+      '',
+      '```bash',
+      localReproductionCommand(job, hits, ids),
+      '```',
+    );
+  }
+  lines.push(
+    '',
+    'Run `pnpm verify:full` only for a planner-selected escalation or final release checkpoint, with an explicit `VARVE_FULL_GATE_REASON`. Keep successful unchanged-input lanes and rerun the repaired spec/lane.',
+  );
 
   return lines.join('\n');
 }
@@ -746,7 +888,7 @@ async function main() {
   try {
     artifactNames = await getRunArtifacts(args.repo, args.runId, token);
   } catch (error) {
-    console.warn(`Artifact listing unavailable: ${error.message}`);
+    console.warn(`Artifact listing unavailable: ${redactSensitive(error.message)}`);
   }
 
   const annotationsByJob = new Map();
@@ -772,7 +914,7 @@ async function main() {
     }
   }
 
-  // A run stuck at the run level (GitHub accepted it, never scheduled a job).
+  // Run-level long queue observation; job metadata may still show active work.
   if (infraBlocks.length === 0 && isStuckQueued(run)) {
     infraBlocks.push({ jobName: '(run)', kind: 'stuck-queued', conclusion: null });
   }
@@ -781,7 +923,7 @@ async function main() {
     // Probe mode: exit 0 when the run contains at least one real (code-level)
     // failure worth a debug report; exit 1 when every failure is
     // infrastructure (billing / runner / stuck queue). Used by ci-debug.yml
-    // to skip debug jobs that would only re-report an outage.
+    // to skip jobs without executed code failures; queue causes remain unconfirmed.
     const classified = classifyRunFailures(jobs, annotationsByJob);
     console.log(
       JSON.stringify(
@@ -803,7 +945,7 @@ async function main() {
   try {
     logDir = await downloadLogs(args.repo, args.runId, token);
   } catch (error) {
-    console.warn(`Run log archive unavailable: ${error.message}`);
+    console.warn(`Run log archive unavailable: ${redactSensitive(error.message)}`);
     console.warn('Falling back to per-job log downloads for executed failed jobs.');
   }
 
@@ -844,7 +986,9 @@ async function main() {
           ];
           continue;
         } catch (error) {
-          console.warn(`Per-job log download failed for ${job.name}: ${error.message}`);
+          console.warn(
+            `Per-job log download failed for ${job.name}: ${redactSensitive(error.message)}`,
+          );
         }
       }
 
@@ -864,7 +1008,7 @@ async function main() {
   });
   writeFileSync(args.output, report);
 
-  const manifest = buildFailureManifest({
+  const manifest = buildDebugFailureManifest({
     run,
     jobs,
     failuresBySource,
@@ -892,20 +1036,24 @@ async function main() {
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main().catch((err) => {
-    console.error(`ci-debug failed: ${err.message}`);
+    console.error(`ci-debug failed: ${redactSensitive(err.message)}`);
     process.exit(1);
   });
 }
 
 export {
+  buildDebugFailureManifest,
   classifyJobFailure,
   classifyRunFailures,
   extractFailures,
   formatReport,
+  githubFetch,
   hasFailedStep,
   hasFailureSourceForJob,
   isFailureLine,
   isStuckQueued,
+  localReproductionCommand,
+  normalizeLogLine,
   normalizeLogSource,
   rankLine,
 };

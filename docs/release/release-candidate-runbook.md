@@ -115,7 +115,8 @@ the extended matrix once. Each candidate matrix cell uploads an exact-source
 execution receipt; final aggregation requires every promised lane, platform,
 and browser shard before it records `POLICY_VERSION` plus the policy hash.
 The final evidence artifact is named
-`varve-release-candidate-<sha>-<policy-hash>`. A candidate from any other SHA
+`varve-release-candidate-<sha>-<policy-hash>-run-<run_id>-attempt-<attempt>`.
+A candidate from any other SHA
 or policy is invalid, even when its tests were green.
 
 Only after the final candidate check is green may an authorized maintainer
@@ -151,12 +152,26 @@ Platform jobs write artifacts and an exact-SHA provenance sidecar containing:
 - artifact filename and SHA-256.
 
 If one platform fails, retain the successful outputs and rerun only the failed
-job. Before final merge, collect all outputs into one directory and run:
+jobs in the same workflow run. Release, final-set and debug uploads include
+`-attempt-<number>` in their immutable names, preserving prior evidence.
+Downstream jobs select explicit artifact IDs from the newest successful
+producer attempt for each requested platform. A newer failed producer or a
+missing upload blocks reuse of an older success. Whole-workflow reruns select
+only their new outputs; unrelated runs, source SHAs and expired uploads fail
+the selector.
+
+The API identity uses the workflow run's head SHA, which can differ from the
+release tag on a manual dispatch. After downloading, installer sidecars and
+hashes must independently match the certified tag SHA, version and policy
+before smoke tests, merging or draft creation. Signing, package formats,
+updater signatures, SBOM and attestation gates still run normally.
+
+For local recovery, collect verified outputs into one directory and run:
 
 ```bash
 pnpm release:resume -- \
   --dir dist/release \
-  --version 0.12.0 \
+  --version 0.5.0 \
   --sha <certified-master-sha> \
   --policy-hash <candidate-policy-hash>
 ```

@@ -38,6 +38,7 @@ artifacts; the exact-SHA candidate and publishing gates below still apply.
 | `version.mjs` | Single-source the version across nine manifests (see TARGETS array in source); `verify` gate on tag agreement **and on every push** (ci.yml `pipeline-validate`); `bump`/`snapshot` for the post-release bump and dev builds |
 | `certification.mjs` / `verify-certification.mjs` | Verify exact-SHA integration/candidate checks and the policy-bound candidate artifact before release setup |
 | `resume.mjs` / `write-artifact-provenance.mjs` | Validate reusable platform artifacts and assemble a complete exact-SHA manifest without mixing releases |
+| `select-run-artifacts.mjs` | Select explicit same-run artifact IDs from each newest successful producer attempt, then verify downloaded installer bytes against the certified tag SHA and policy |
 | `website-release-data-check.mjs` | Validate published release-data changes without rerunning the website source corpus |
 | `check-bundled-assets.mjs` | Fail on LFS pointers, catalog disagreement, and unpinned model downloads |
 | `prune-foreign-runtimes.mjs` | Drop other platforms' ONNX Runtime libraries before packaging |

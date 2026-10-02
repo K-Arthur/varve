@@ -17,7 +17,7 @@ on:
 permissions:
   contents: read
   actions: read
-  checks: write
+  checks: read
 
 # A candidate is frozen. A repair gets a new SHA and a new candidate; an
 # in-flight candidate is never silently cancelled by a later dispatch.
@@ -41,6 +41,7 @@ jobs:
       policy_hash: ${{ steps.plan.outputs.policy_hash }}
       full: ${{ steps.plan.outputs.full }}
       mode: ${{ steps.plan.outputs.candidate_mode }}
+      plan_artifact_id: ${{ steps.upload-plan.outputs.artifact-id }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -67,9 +68,10 @@ jobs:
           --sha "${{ steps.plan.outputs.commit_sha }}" --repo "${GITHUB_REPOSITORY}" \
           --policy-hash "${{ steps.plan.outputs.policy_hash }}"
       - name: Upload exact candidate plan
+        id: upload-plan
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: varve-candidate-plan-${{ inputs.sha }}
+          name: varve-candidate-plan-${{ inputs.sha }}-${{ github.run_id }}-attempt-${{ github.run_attempt }}
           path: ci-plan.json
           retention-days: 90
 
@@ -137,7 +139,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: varve-ci-execution-${{ github.run_id }}-pipeline
+          name: varve-ci-execution-${{ github.run_id }}-pipeline-attempt-${{ github.run_attempt }}
           path: ci-execution/
           if-no-files-found: ignore
 
@@ -176,7 +178,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: varve-ci-execution-${{ github.run_id }}-js
+          name: varve-ci-execution-${{ github.run_id }}-js-attempt-${{ github.run_attempt }}
           path: ci-execution/
           if-no-files-found: ignore
 
@@ -216,7 +218,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: varve-ci-execution-${{ github.run_id }}-rust-${{ matrix.os }}
+          name: varve-ci-execution-${{ github.run_id }}-rust-${{ matrix.os }}-attempt-${{ github.run_attempt }}
           path: ci-execution/
           if-no-files-found: ignore
 
@@ -225,6 +227,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     needs: [changes, pipeline-validate]
+    outputs:
+      artifact_id: ${{ steps.upload-wasm.outputs.artifact-id }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -240,20 +244,19 @@ jobs:
           tool: just@1.54.0
       - name: WASM check
         run: just wasm-check
-      - name: Install wasm-pack
-        run: |
-          set -euo pipefail
-          if ! command -v wasm-pack >/dev/null 2>&1; then
-            curl --fail --silent --show-error --location --retry 3 --retry-delay 2 \
-              https://rustwasm.github.io/wasm-pack/installer/init.sh | sh
-          fi
-          wasm-pack --version
+      - name: Install wasm-pack (pinned, verified)
+        uses: taiki-e/install-action@9983c65e42da123ff25d1f78505eb6de315aa172
+        with:
+          tool: wasm-pack@0.13.1
+          checksum: true
+          fallback: none
       - name: Build WASM (base + SIMD + colour)
         run: just wasm-build-all
       - name: Upload candidate WASM artifact
+        id: upload-wasm
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: varve-candidate-wasm-${{ inputs.sha }}
+          name: varve-candidate-wasm-${{ inputs.sha }}-${{ github.run_id }}-attempt-${{ github.run_attempt }}
           path: apps/desktop/public/wasm/
       - name: Write WASM execution receipt
         if: always()
@@ -268,7 +271,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: varve-ci-execution-${{ github.run_id }}-wasm
+          name: varve-ci-execution-${{ github.run_id }}-wasm-attempt-${{ github.run_attempt }}
           path: ci-execution/
           if-no-files-found: ignore
 
@@ -308,7 +311,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: varve-candidate-website-${{ inputs.sha }}
+          name: varve-candidate-website-${{ inputs.sha }}-${{ github.run_id }}-attempt-${{ github.run_attempt }}
           path: |
             playwright-report/
             test-results/
@@ -326,7 +329,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: varve-ci-execution-${{ github.run_id }}-website
+          name: varve-ci-execution-${{ github.run_id }}-website-attempt-${{ github.run_attempt }}
           path: ci-execution/
           if-no-files-found: ignore
 
@@ -356,7 +359,9 @@ jobs:
       - name: Download candidate WASM artifact
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
-          name: varve-candidate-wasm-${{ inputs.sha }}
+          github-token: ${{ github.token }}
+          run-id: ${{ github.run_id }}
+          artifact-ids: ${{ needs.wasm.outputs.artifact_id }}
           path: apps/desktop/public/wasm/
       - run: pnpm exec playwright install --with-deps chromium
       - name: Browser E2E (candidate)
@@ -370,7 +375,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: varve-candidate-e2e-${{ inputs.sha }}-${{ matrix.shard }}
+          name: varve-candidate-e2e-${{ inputs.sha }}-${{ matrix.shard }}-${{ github.run_id }}-attempt-${{ github.run_attempt }}
           path: |
             playwright-report/
             test-results/
@@ -388,7 +393,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: varve-ci-execution-${{ github.run_id }}-e2e-${{ matrix.shard }}
+          name: varve-ci-execution-${{ github.run_id }}-e2e-${{ matrix.shard }}-attempt-${{ github.run_attempt }}
           path: ci-execution/
           if-no-files-found: ignore
 
@@ -414,7 +419,9 @@ jobs:
       - name: Download candidate WASM artifact
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
-          name: varve-candidate-wasm-${{ inputs.sha }}
+          github-token: ${{ github.token }}
+          run-id: ${{ github.run_id }}
+          artifact-ids: ${{ needs.wasm.outputs.artifact_id }}
           path: apps/desktop/public/wasm/
       - run: pnpm exec playwright install --with-deps chromium
       - name: Visual E2E (candidate)
@@ -428,7 +435,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: varve-candidate-visual-${{ inputs.sha }}
+          name: varve-candidate-visual-${{ inputs.sha }}-${{ github.run_id }}-attempt-${{ github.run_attempt }}
           path: |
             playwright-report/
             test-results/
@@ -447,7 +454,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: varve-ci-execution-${{ github.run_id }}-visual
+          name: varve-ci-execution-${{ github.run_id }}-visual-attempt-${{ github.run_attempt }}
           path: ci-execution/
           if-no-files-found: ignore
 
@@ -484,7 +491,9 @@ jobs:
       - name: Download candidate WASM artifact
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
-          name: varve-candidate-wasm-${{ inputs.sha }}
+          github-token: ${{ github.token }}
+          run-id: ${{ github.run_id }}
+          artifact-ids: ${{ needs.wasm.outputs.artifact_id }}
           path: apps/desktop/public/wasm/
       - name: Native desktop smoke
         run: pnpm test:desktop:native
@@ -501,7 +510,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: varve-ci-execution-${{ github.run_id }}-desktop-${{ matrix.name }}
+          name: varve-ci-execution-${{ github.run_id }}-desktop-${{ matrix.name }}-attempt-${{ github.run_attempt }}
           path: ci-execution/
           if-no-files-found: ignore
 
@@ -529,7 +538,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: varve-ci-execution-${{ github.run_id }}-models
+          name: varve-ci-execution-${{ github.run_id }}-models-attempt-${{ github.run_attempt }}
           path: ci-execution/
           if-no-files-found: ignore
 
@@ -567,14 +576,14 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: varve-ci-execution-${{ github.run_id }}-bench
+          name: varve-ci-execution-${{ github.run_id }}-bench-attempt-${{ github.run_attempt }}
           path: ci-execution/
           if-no-files-found: ignore
       - name: Upload benchmark diagnostics
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: varve-candidate-bench-${{ inputs.sha }}
+          name: varve-candidate-bench-${{ inputs.sha }}-${{ github.run_id }}-attempt-${{ github.run_attempt }}
           path: |
             reports/
             test-results/
@@ -582,6 +591,10 @@ jobs:
 
   certification:
     name: Release Candidate / certification
+    permissions:
+      contents: read
+      actions: read
+      checks: write
     runs-on: ubuntu-latest
     timeout-minutes: 5
     if: ${{ always() }}
@@ -593,14 +606,18 @@ jobs:
           persist-credentials: false
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
-          name: varve-candidate-plan-${{ inputs.sha }}
+          github-token: ${{ github.token }}
+          run-id: ${{ github.run_id }}
+          artifact-ids: ${{ needs.changes.outputs.plan_artifact_id }}
           path: candidate-plan
       - name: Download execution receipts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
+          github-token: ${{ github.token }}
+          run-id: ${{ github.run_id }}
           pattern: varve-ci-execution-${{ github.run_id }}-*
           path: ci-execution
-          merge-multiple: true
+          merge-multiple: false
       - name: Aggregate frozen candidate evidence
         id: aggregate
         if: always()
@@ -633,7 +650,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: varve-release-candidate-${{ needs.changes.outputs.commit_sha }}-${{ needs.changes.outputs.policy_hash }}
+          name: varve-release-candidate-${{ needs.changes.outputs.commit_sha }}-${{ needs.changes.outputs.policy_hash }}-run-${{ github.run_id }}-attempt-${{ github.run_attempt }}
           path: |
             candidate-certification.json
             ci-certification.json
@@ -653,6 +670,8 @@ jobs:
           fi
           gh api --method POST "repos/${REPOSITORY}/check-runs" \
             -f name='Release Candidate / certification' \
+            -f external_id="${GITHUB_RUN_ID}:${GITHUB_RUN_ATTEMPT}" \
+            -f details_url="${GITHUB_SERVER_URL}/${REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
             -f head_sha="${CANDIDATE_SHA}" \
             -f status=completed \
             -f conclusion="${CONCLUSION}" \

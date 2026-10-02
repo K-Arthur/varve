@@ -4,8 +4,10 @@
 
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { load } from 'js-yaml';
 import {
   aggregateCertification,
+  expectedExecutionMatrices,
   REQUIRED_CI_JOBS,
   validateExecutionEvidence,
 } from './aggregate-ci.mjs';
@@ -68,7 +70,7 @@ const pipelineExecution = {
     planHash: strictPlan.planHash,
     policyHash: strictPlan.policyHash,
   },
-  workflow: { repository: 'K-Arthur/varve', runId: '42' },
+  workflow: { repository: 'K-Arthur/varve', runId: '42', runAttempt: '1' },
   matrix: 'ubuntu-latest',
   shard: null,
   executedLanes: ['pipeline-validate', 'ci-tools', 'policy'],
@@ -87,6 +89,59 @@ const strictPassed = aggregateCertification({
 });
 assert.equal(strictPassed.passed, true, 'exact successful execution evidence certifies the plan');
 assert.equal(strictPassed.execution.deferred, undefined);
+
+const attemptWorkflow = { repository: 'K-Arthur/varve', runId: '42', runAttempt: '2' };
+const retryReport = (attempt, status = 'success') => ({
+  ...pipelineExecution,
+  status,
+  workflow: { ...pipelineExecution.workflow, runAttempt: String(attempt) },
+});
+const retryEvidence = (reports) =>
+  validateExecutionEvidence({ reports, plan: strictPlan, workflow: attemptWorkflow });
+assert.equal(
+  retryEvidence([retryReport(1, 'failure'), retryReport(2)]).passed,
+  true,
+  'a successful retry supersedes its failed receipt without deleting failure evidence',
+);
+assert.equal(
+  retryEvidence([retryReport(1), retryReport(2, 'failure')]).passed,
+  false,
+  'a newer failure cannot fall back to an earlier green receipt',
+);
+assert.equal(retryEvidence([retryReport(1)]).passed, true, 'an unchanged green job is retained');
+assert.equal(
+  retryEvidence([retryReport(2), retryReport(2)]).passed,
+  false,
+  'duplicate retry blocks',
+);
+for (const attempt of ['', '0', '-1', '1.5', '3', 'NaN', '2x']) {
+  assert.equal(
+    retryEvidence([retryReport(attempt)]).passed,
+    false,
+    `invalid/future attempt ${attempt}`,
+  );
+}
+assert.equal(
+  retryEvidence([
+    retryReport(1),
+    { ...retryReport(2), source: { ...pipelineExecution.source, commitSha: '0'.repeat(40) } },
+  ]).passed,
+  false,
+  'a retry from another source cannot fall back to the original pass',
+);
+assert.equal(
+  retryEvidence([
+    retryReport(1),
+    { ...retryReport(2), workflow: { ...attemptWorkflow, runId: 'other' } },
+  ]).passed,
+  false,
+  'a receipt from another run is not a superseding retry',
+);
+assert.equal(
+  retryEvidence([retryReport(1), { schema: null, invalidPath: 'corrupt.json' }]).passed,
+  false,
+  'a corrupt downloaded receipt cannot be silently ignored',
+);
 const missingExecution = aggregateCertification({
   needs: strictNeeds,
   ...strictPlan,
@@ -106,6 +161,47 @@ const e2ePlan = {
   selectedLanes: ['e2e:all'],
   e2eShardCount: 2,
 };
+const rustPlan = {
+  ...strictPlan,
+  categories: { ...strictPlan.categories, rust: true },
+  selectedLanes: [...strictPlan.selectedLanes, 'rust-test:all', 'rust-clippy:all', 'cargo-fmt'],
+};
+const rustReports = ['ubuntu-latest', 'macos-latest', 'windows-latest'].map((matrix) => ({
+  ...pipelineExecution,
+  category: 'rust',
+  matrix,
+  executedLanes: ['rust-test:all', 'rust-clippy:all', 'cargo-fmt'],
+}));
+assert.equal(
+  validateExecutionEvidence({ reports: [pipelineExecution, ...rustReports], plan: rustPlan })
+    .passed,
+  true,
+  'every promised Rust platform is accepted',
+);
+assert.equal(
+  validateExecutionEvidence({
+    reports: [
+      pipelineExecution,
+      ...rustReports.map((report, i) => ({ ...report, matrix: `fake-${i}` })),
+    ],
+    plan: rustPlan,
+  }).passed,
+  false,
+  'three arbitrary matrix labels cannot replace the promised platforms',
+);
+assert.equal(
+  validateExecutionEvidence({
+    reports: [
+      pipelineExecution,
+      ...rustReports.map((report, i) =>
+        i === 0 ? { ...report, executedLanes: ['cargo-fmt'] } : report,
+      ),
+    ],
+    plan: rustPlan,
+  }).passed,
+  false,
+  'every platform must execute its promised lanes independently',
+);
 const e2eReports = [1, 2].map((shard) => ({
   ...pipelineExecution,
   category: 'e2e',
@@ -226,6 +322,75 @@ assert.equal(
 // a newly added category was selected by policy but never ran in CI.
 const ci = readFileSync('.github/workflows/ci.yml', 'utf8');
 const candidate = readFileSync('.github/workflows/release-candidate.yml', 'utf8');
+for (const workflowText of [ci, candidate]) {
+  const workflow = load(workflowText);
+  const profile = workflowText === candidate ? 'candidate' : 'integration';
+  assert.deepEqual(
+    workflow.jobs.rust.strategy.matrix.os,
+    expectedExecutionMatrices('rust', profile),
+  );
+  assert.deepEqual(
+    workflow.jobs['desktop-e2e'].strategy.matrix.include.map((cell) => cell.name),
+    expectedExecutionMatrices('desktop', profile),
+  );
+  const names = new Set();
+  for (const [jobId, job] of Object.entries(workflow.jobs)) {
+    for (const step of job.steps ?? []) {
+      if (!step.uses?.startsWith('actions/upload-artifact@')) continue;
+      const template = step.with?.name;
+      assert.ok(
+        template.includes('github.run_attempt'),
+        `${jobId}: upload must preserve each attempt`,
+      );
+      assert.ok(template.includes('github.run_id'), `${jobId}: upload must identify the run`);
+      const matrix = job.strategy?.matrix;
+      const cells =
+        matrix?.include ??
+        (matrix?.os ? matrix.os.map((os) => ({ os })) : [{ shard: 1 }, { shard: 2 }]);
+      for (const attempt of [1, 2]) {
+        for (const cell of cells) {
+          const name = template.replace(/\$\{\{\s*([^}]+?)\s*\}\}/g, (_, expression) => {
+            if (expression === 'github.run_attempt') return String(attempt);
+            if (expression === 'github.run_id') return '123';
+            if (expression.startsWith('matrix.')) return String(cell[expression.slice(7)]);
+            return expression;
+          });
+          // Non-matrix jobs have one writer, irrespective of shard fixtures.
+          if (!matrix && cell.shard === 2) continue;
+          assert.ok(!names.has(name), `${jobId}: immutable upload conflict ${name}`);
+          names.add(name);
+        }
+      }
+    }
+  }
+  const planProducer = workflow.jobs.changes;
+  assert.match(
+    planProducer.outputs.plan_artifact_id,
+    /^\$\{\{ steps\.upload-plan\.outputs\.artifact-id \}\}$/,
+  );
+  assert.match(
+    workflow.jobs.wasm.outputs.artifact_id,
+    /^\$\{\{ steps\.upload-wasm\.outputs\.artifact-id \}\}$/,
+  );
+  for (const job of Object.values(workflow.jobs)) {
+    for (const step of job.steps ?? []) {
+      if (!step.uses?.startsWith('actions/download-artifact@')) continue;
+      assert.match(step.with['github-token'], /^\$\{\{ github\.token \}\}$/);
+      assert.match(step.with['run-id'], /^\$\{\{ github\.run_id \}\}$/);
+      if (step.name?.includes('execution receipts'))
+        assert.equal(
+          step.with['merge-multiple'],
+          false,
+          'receipt downloads retain attempt directories',
+        );
+      else
+        assert.ok(
+          step.with['artifact-ids'],
+          'producer downloads use the retained immutable artifact ID',
+        );
+    }
+  }
+}
 const consumers = {
   pipeline: ['changes', 'pipeline-validate'],
   js: ['js:'],
@@ -272,6 +437,12 @@ assert.match(
 );
 assert.match(candidate, /candidateMode|--mode "\$\{\{ inputs\.mode \}\}"/);
 assert.match(candidate, /CONCLUSION=neutral/);
+assert.match(candidate, /-f external_id="\$\{GITHUB_RUN_ID\}:\$\{GITHUB_RUN_ATTEMPT\}"/);
+assert.match(
+  candidate,
+  /-f details_url="\$\{GITHUB_SERVER_URL\}\/\$\{REPOSITORY\}\/actions\/runs\/\$\{GITHUB_RUN_ID\}"/,
+  'candidate API checks expose the explicit run URL required by certification binding',
+);
 for (const job of Object.keys(REQUIRED_CI_JOBS))
   assert.match(ci, new RegExp(`- ${job}(?:\n|\r)`), `${job} missing from CI aggregation needs`);
 

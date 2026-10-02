@@ -6,14 +6,18 @@
  */
 import assert from 'node:assert';
 import {
+  buildDebugFailureManifest,
   classifyJobFailure,
   classifyRunFailures,
   extractFailures,
   formatReport,
+  githubFetch,
   hasFailedStep,
   hasFailureSourceForJob,
   isFailureLine,
   isStuckQueued,
+  localReproductionCommand,
+  normalizeLogLine,
   normalizeLogSource,
   rankLine,
   redactSensitive,
@@ -73,7 +77,7 @@ assertTrue(
   'should ignore action source that prints an error annotation',
 );
 
-// Rank priority: generic error (index 1) outranks panic (index 5)
+// Ranking is an ordering invariant, independent of array indexes.
 assertTrue(
   rankLine('error: foo') < rankLine('panicked at foo'),
   'error should rank higher than panic',
@@ -322,6 +326,231 @@ assert.ok(
 assert.ok(
   !redactedHits[0].snippet.includes('A'.repeat(36)),
   'hit snippet must not contain the canary token payload',
+);
+
+// Excerpts from sanitized release job logs 110845742234 (macOS) and
+// 110845742476 (Windows), release run 37007931934. Terminal colour is added
+// at runtime to cover the raw runner form as well as the sanitized archive.
+const color = String.fromCharCode(27);
+const nativeLog = [
+  '2026-10-02T13:02:10.0000000Z   Downloaded wait-timeout v0.2.1',
+  '2026-10-02T13:02:11.0000000Z   Compiling wait-timeout v0.2.1',
+  '2026-10-02T13:02:12.0000000Z # Run failing gate locally',
+  '2026-10-02T13:02:13.0000000Z   echo "error: a shell source template"',
+  `2026-10-02T13:03:04.6062960Z ${color}[31merror[E0277]: the trait bound \`u64: std::convert::From<usize>\` is not satisfied${color}[0m`,
+  '2026-10-02T13:03:04.6064000Z     --> src/generative_resources.rs:128:30',
+  '2026-10-02T13:03:04.6065000Z 128 | let page_size = unsafe { u64::from(libc::vm_page_size) };',
+  '2026-10-02T13:03:04.7197740Z error[E0308]: mismatched types',
+  '2026-10-02T13:03:04.7200000Z     --> src/lib.rs:470:5',
+  '2026-10-02T13:03:05.0000000Z error: could not compile `varve-desktop` (lib) due to 2 previous errors',
+  '2026-10-02T13:03:06.0000000Z ##[error]Process completed with exit code 1.',
+  '2026-10-02T13:03:07.0000000Z - line 601: `2026-10-02T13:02:10.0000000Z Downloaded wait-timeout v0.2.1`',
+].join('\n');
+const nativeHits = extractFailures(nativeLog, 2);
+assert.deepStrictEqual(
+  nativeHits.slice(0, 2).map((hit) => hit.text.match(/^error\[(E\d+)\]/)?.[1]),
+  ['E0277', 'E0308'],
+);
+assert.strictEqual(nativeHits[0].line, 5, 'normalization preserves original archive line numbers');
+assert.ok(nativeHits[0].snippet.includes('--> src/generative_resources.rs:128:30'));
+assert.ok(!nativeHits.some((hit) => /wait-timeout|shell source|Run failing gate/.test(hit.text)));
+assert.ok(
+  !nativeHits[0].snippet.includes(color),
+  'terminal control bytes are stripped from evidence',
+);
+assert.strictEqual(
+  normalizeLogLine('Build\tCompile\t2026-10-02T13:08:04.9728589Z error[E0308]: mismatched types'),
+  'error[E0308]: mismatched types',
+);
+assert.ok(
+  isFailureLine('Download timed out after 30 seconds'),
+  'actual network timeouts remain failures',
+);
+assert.ok(
+  isFailureLine('TimeoutError: page.goto timed out'),
+  'real browser timeouts remain failures',
+);
+assert.ok(!isFailureLine('  Checking wait-timeout v0.2.1'));
+assert.ok(
+  rankLine('error[E0308]: mismatched types') < rankLine('error: could not compile `varve-desktop`'),
+);
+const windowsHits = extractFailures(
+  [
+    '2026-10-02T13:08:04.9728589Z error[E0308]: mismatched types',
+    '2026-10-02T13:08:04.9734491Z     --> C:\\Users\\runneradmin\\.cargo\\registry\\src\\wgpu-hal-30.0.1\\src\\dx12\\suballocation.rs:83:71',
+    '2026-10-02T13:08:04.9926780Z error[E0277]: the trait bound `&ID3D12Heap: Param<ID3D12Heap, InterfaceType>` is not satisfied',
+  ].join('\n'),
+);
+assert.ok(windowsHits[0].text.startsWith('error[E0308]'));
+assert.ok(windowsHits[1].text.startsWith('error[E0277]'));
+
+const nativeJob = {
+  id: 110845742234,
+  name: 'Native desktop E2E (macos)',
+  status: 'completed',
+  conclusion: 'failure',
+  steps: [{ number: 8, name: 'Build desktop', conclusion: 'failure' }],
+};
+const nativeRun = {
+  id: 37007931934,
+  head_sha: 'a'.repeat(40),
+  name: 'Release',
+  status: 'completed',
+  conclusion: 'failure',
+};
+const indexedSources = { '0_Native desktop E2E (macos)': nativeHits };
+const nativeManifest = buildDebugFailureManifest({
+  run: nativeRun,
+  jobs: [nativeJob],
+  failuresBySource: indexedSources,
+  artifacts: ['build-110845742234-logs'],
+});
+const nativeFailure = nativeManifest.failures[0];
+assert.ok(
+  nativeFailure.firstUsefulError.startsWith('error[E0277]'),
+  'manifest retains indexed archive compiler cause',
+);
+assert.deepStrictEqual(
+  nativeFailure.logSources,
+  ['0_Native desktop E2E (macos)'],
+  'manifest retains source provenance',
+);
+assert.strictEqual(nativeFailure.category, 'product-or-test-regression');
+assert.strictEqual(
+  nativeFailure.retryWithoutCode,
+  false,
+  'compiler error never recommends a download retry',
+);
+assert.deepStrictEqual(nativeFailure.artifacts, ['build-110845742234-logs']);
+assert.strictEqual(
+  nativeFailure.localReproductionCommand,
+  'cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml',
+);
+const nativeReport = formatReport('K-Arthur/varve', nativeRun, [nativeJob], indexedSources);
+assert.ok(nativeReport.includes('cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml'));
+assert.ok(nativeReport.includes('same OS/toolchain'));
+assert.ok(nativeReport.includes('pnpm verify:plan'));
+assert.ok(nativeReport.includes('VARVE_FULL_GATE_REASON'));
+assert.ok(!nativeReport.includes('just gate'));
+assert.ok(!nativeReport.includes('act-run js'));
+const windowsClippy = extractFailures(
+  [
+    '2026-10-02T13:00:00Z error: these patterns are unneeded as the `..` pattern can match those elements',
+    '2026-10-02T13:00:00Z --> crates\\varve-print\\src\\lib.rs:1688:25',
+    '2026-10-02T13:00:00Z |',
+    '2026-10-02T13:00:00Z = note: `-D clippy::unneeded-struct-pattern` implied by `-D warnings`',
+  ].join('\n'),
+);
+assert.strictEqual(
+  localReproductionCommand({ name: 'Rust (windows-latest)' }, windowsClippy),
+  'cargo clippy -p varve-print --all-targets -- -D warnings',
+  'Windows paths and Clippy diagnostics retain the precise owning lane',
+);
+const exactCommand = localReproductionCommand(
+  { name: 'E2E' },
+  [],
+  ['tests/e2e/canvas/selection.spec.ts:42'],
+);
+assert.ok(exactCommand.includes('pnpm typecheck:e2e\nnode scripts/quality/heavy-lease.mjs'));
+assert.ok(exactCommand.includes('--workers=1'));
+assert.ok(exactCommand.includes('--update-snapshots=none'));
+assert.ok(!exactCommand.includes('e2e:all'));
+assert.strictEqual(
+  localReproductionCommand({ name: 'JS' }, [], ['bad$(danger).spec.ts']),
+  'pnpm verify:affected',
+  'untrusted path text cannot become shell code',
+);
+
+const urlCanary = `credential-${'Q'.repeat(28)}`;
+const signedUrl = `https://downloads.example.com/package.zip?X-Amz-Signature=${urlCanary}&X-Amz-Credential=other`;
+const queryUrl = `https://downloads.example.com/model.bin?token=${urlCanary}`;
+const urlHits = extractFailures(`Error: download failed ${signedUrl}\n${queryUrl}`, 1);
+const urlManifest = buildDebugFailureManifest({
+  run: nativeRun,
+  jobs: [nativeJob],
+  failuresBySource: { [nativeJob.name]: urlHits },
+});
+for (const evidence of [
+  JSON.stringify(urlHits),
+  JSON.stringify(urlManifest),
+  formatReport('K-Arthur/varve', nativeRun, [nativeJob], { [nativeJob.name]: urlHits }),
+]) {
+  assert.ok(
+    !evidence.includes(urlCanary),
+    'signed download URL credentials are redacted in every output',
+  );
+  assert.ok(
+    evidence.includes('https://downloads.example.com/'),
+    'redaction preserves useful origin/path',
+  );
+}
+assert.strictEqual(
+  redactSensitive('https://docs.example.com/help?lang=en'),
+  'https://docs.example.com/help?lang=en',
+);
+const originalFetch = globalThis.fetch;
+try {
+  let requests = 0;
+  globalThis.fetch = async () => {
+    requests += 1;
+    return requests === 1
+      ? { status: 302, headers: new Headers({ location: signedUrl }) }
+      : { ok: false, status: 403, statusText: 'Forbidden' };
+  };
+  await assert.rejects(githubFetch('/repos/owner/repo/actions/jobs/1/logs', 'unused'), (error) => {
+    assert.ok(
+      error.message.includes(
+        'Download from https://downloads.example.com/package.zip?<redacted> failed',
+      ),
+    );
+    assert.ok(
+      !error.message.includes(urlCanary),
+      'download errors are sanitized before console diagnostics',
+    );
+    return true;
+  });
+} finally {
+  globalThis.fetch = originalFetch;
+}
+assert.strictEqual(
+  extractFailures(
+    'Error: expected true\n at tests/first.spec.ts:4\nError: expected true\n at tests/second.spec.ts:8',
+  ).length,
+  2,
+  'distinct test failures must not be collapsed by shared error text',
+);
+const queueReport = formatReport(
+  'K-Arthur/varve',
+  { id: 5, status: 'in_progress' },
+  [
+    {
+      name: 'Rust (Linux)',
+      status: 'in_progress',
+      conclusion: null,
+      steps: [{ name: 'Compile', status: 'in_progress' }],
+    },
+  ],
+  {},
+  [{ jobName: 'Windows build', kind: 'stuck-queued' }],
+);
+assert.ok(queueReport.includes('cause unconfirmed'));
+assert.ok(queueReport.includes('Currently in progress: Rust (Linux)'));
+assert.ok(queueReport.includes('workflow concurrency'));
+assert.ok(
+  !queueReport.includes('gh run rerun'),
+  'live queue report never recommends rerunning active work',
+);
+assert.ok(!queueReport.includes('--rerun-stuck --yes'));
+const completedInfra = formatReport(
+  'K-Arthur/varve',
+  { id: 5, status: 'completed', conclusion: 'failure' },
+  [],
+  {},
+  [{ jobName: 'Rust', kind: 'runner-unavailable' }],
+);
+assert.ok(
+  completedInfra.includes('gh run rerun 5 --failed'),
+  'completed confirmed infra can be retried after repair',
 );
 
 console.log('ci-debug extraction tests passed.');

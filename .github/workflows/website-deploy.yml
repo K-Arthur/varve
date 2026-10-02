@@ -244,11 +244,12 @@ jobs:
         uses: taiki-e/install-action@9983c65e42da123ff25d1f78505eb6de315aa172
         with:
           tool: just@1.54.0
-      - name: Install wasm-pack
-        run: |
-          if ! command -v wasm-pack >/dev/null 2>&1; then
-            curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
-          fi
+      - name: Install wasm-pack (pinned, verified)
+        uses: taiki-e/install-action@9983c65e42da123ff25d1f78505eb6de315aa172
+        with:
+          tool: wasm-pack@0.13.1
+          checksum: true
+          fallback: none
       - name: wasm build (base + simd + colour)
         run: just wasm-build-all
 

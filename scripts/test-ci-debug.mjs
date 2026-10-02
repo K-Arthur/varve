@@ -5,21 +5,16 @@
  * Simulates a failure scenario and verifies the debug tool works correctly
  */
 
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { extractFailures, isFailureLine, rankLine } from './ci-debug.mjs';
 
-const TEST_DIR = '/tmp/ci-debug-test';
+const TEST_DIR = mkdtempSync(join(tmpdir(), 'varve-ci-debug-test-'));
 const TEST_LOG = join(TEST_DIR, 'test-failure.log');
 
 function setupTestEnvironment() {
   console.log('Setting up test environment...');
-
-  try {
-    mkdirSync(TEST_DIR, { recursive: true });
-  } catch {
-    // Directory might already exist
-  }
 
   // Create a simulated failure log with various error patterns
   const testLogContent = `
@@ -50,7 +45,7 @@ note: lint level set to \`deny-warnings\`
 Run pnpm test
   pnpm test
   FAIL test/canvas.spec.ts
-  ● Canvas rendering › should render rectangle
+  * Canvas rendering › should render rectangle
     expect(received).toBe(expected)
     Expected: 200
     Received: 150
@@ -66,7 +61,7 @@ Run typecheck
 `;
 
   writeFileSync(TEST_LOG, testLogContent);
-  console.log('✅ Test log created');
+  console.log('PASS Test log created');
 }
 
 function testExtractionLogic() {
@@ -78,7 +73,7 @@ function testExtractionLogic() {
   console.log(`Found ${failures.length} failure patterns`);
 
   if (failures.length === 0) {
-    console.log('❌ No failures found - extraction logic may be broken');
+    console.log('FAIL No failures found - extraction logic may be broken');
     return false;
   }
 
@@ -96,17 +91,17 @@ function testExtractionLogic() {
   const hasTypeError = errorTypes.some((e) => e.includes('TypeScript') || e.includes('TS'));
 
   console.log('\nError type detection:');
-  console.log(`  npm errors: ${hasNpmError ? '✅' : '❌'}`);
-  console.log(`  cargo errors: ${hasCargoError ? '✅' : '❌'}`);
-  console.log(`  test failures: ${hasTestError ? '✅' : '❌'}`);
-  console.log(`  TypeScript errors: ${hasTypeError ? '✅' : '❌'}`);
+  console.log(`  npm errors: ${hasNpmError ? 'PASS' : 'FAIL'}`);
+  console.log(`  cargo errors: ${hasCargoError ? 'PASS' : 'FAIL'}`);
+  console.log(`  test failures: ${hasTestError ? 'PASS' : 'FAIL'}`);
+  console.log(`  TypeScript errors: ${hasTypeError ? 'PASS' : 'FAIL'}`);
 
   const allDetected = hasNpmError && hasCargoError && hasTestError && hasTypeError;
 
   if (allDetected) {
-    console.log('\n✅ All error types detected correctly');
+    console.log('\nPASS All error types detected correctly');
   } else {
-    console.log('\n❌ Some error types not detected');
+    console.log('\nFAIL Some error types not detected');
   }
 
   return allDetected;
@@ -131,7 +126,7 @@ function testFailureLineDetection() {
     const passed = result === expected;
     allPassed = allPassed && passed;
 
-    console.log(`  ${passed ? '✅' : '❌'} "${line.substring(0, 40)}..." -> ${result}`);
+    console.log(`  ${passed ? 'PASS' : 'FAIL'} "${line.substring(0, 40)}..." -> ${result}`);
   }
 
   return allPassed;
@@ -140,19 +135,12 @@ function testFailureLineDetection() {
 function testRanking() {
   console.log('\n=== Testing failure ranking ===');
 
-  const testCases = [
-    { line: 'error: foo', expectedRank: 0 }, // Matches ERROR/FAIL/FATAL pattern at index 0
-    { line: 'panicked at foo', expectedRank: 7 }, // Lower priority
-  ];
-
   let allPassed = true;
-
-  for (const { line, expectedRank } of testCases) {
-    const rank = rankLine(line);
-    const passed = rank === expectedRank;
-    allPassed = allPassed && passed;
-
-    console.log(`  ${passed ? '✅' : '❌'} "${line}" -> rank ${rank} (expected ${expectedRank})`);
+  const codedRank = rankLine('error[E0308]: mismatched types');
+  const aggregateRank = rankLine('error: could not compile `varve-desktop`');
+  if (codedRank >= aggregateRank) {
+    console.log('  FAIL invariant: compiler cause must outrank aggregate build failure');
+    allPassed = false;
   }
 
   // The invariant that matters: generic error outranks panic regardless of
@@ -160,10 +148,10 @@ function testRanking() {
   const genericRank = rankLine('error: foo');
   const panicRank = rankLine('panicked at foo');
   if (genericRank >= panicRank) {
-    console.log('  ❌ invariant broken: generic "error:" must outrank "panicked at"');
+    console.log('  FAIL invariant broken: generic "error:" must outrank "panicked at"');
     allPassed = false;
   } else {
-    console.log('  ✅ invariant: "error:" outranks "panicked at"');
+    console.log('  PASS invariant: "error:" outranks "panicked at"');
   }
 
   return allPassed;
@@ -173,9 +161,9 @@ function cleanup() {
   console.log('\nCleaning up test environment...');
   try {
     rmSync(TEST_DIR, { recursive: true, force: true });
-    console.log('✅ Cleanup complete');
+    console.log('PASS Cleanup complete');
   } catch (error) {
-    console.warn(`⚠️  Cleanup warning: ${error.message}`);
+    console.warn(`WARNING  Cleanup warning: ${error.message}`);
   }
 }
 
@@ -192,16 +180,16 @@ function main() {
     const allPassed = extractionPassed && detectionPassed && rankingPassed;
 
     console.log('\n=== Test Results ===');
-    console.log(`Extraction logic: ${extractionPassed ? '✅ PASS' : '❌ FAIL'}`);
-    console.log(`Failure detection: ${detectionPassed ? '✅ PASS' : '❌ FAIL'}`);
-    console.log(`Failure ranking: ${rankingPassed ? '✅ PASS' : '❌ FAIL'}`);
-    console.log(`\nOverall: ${allPassed ? '✅ ALL TESTS PASSED' : '❌ SOME TESTS FAILED'}`);
+    console.log(`Extraction logic: ${extractionPassed ? 'PASS PASS' : 'FAIL FAIL'}`);
+    console.log(`Failure detection: ${detectionPassed ? 'PASS PASS' : 'FAIL FAIL'}`);
+    console.log(`Failure ranking: ${rankingPassed ? 'PASS PASS' : 'FAIL FAIL'}`);
+    console.log(`\nOverall: ${allPassed ? 'PASS ALL TESTS PASSED' : 'FAIL SOME TESTS FAILED'}`);
 
     cleanup();
 
     process.exit(allPassed ? 0 : 1);
   } catch (error) {
-    console.error(`\n❌ Test execution failed: ${error.message}`);
+    console.error(`\nFAIL Test execution failed: ${error.message}`);
     cleanup();
     process.exit(1);
   }
