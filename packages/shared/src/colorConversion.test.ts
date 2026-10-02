@@ -310,6 +310,53 @@ describe('managedColorToRgba', () => {
     const result = managedColorToRgba({ space: 'rgb', r: 255, g: 128, b: 64, a: 255 });
     expect(result).toEqual([255, 128, 64, 255]);
   });
+  it('matches authoritative sRGB reduction across every uint8 channel value', () => {
+    for (let value = 0; value <= 255; value++) {
+      const color = {
+        space: 'rgb' as const,
+        r: value,
+        g: (value * 37) % 256,
+        b: (value * 59) % 256,
+        a: 255 - value,
+      };
+      const resolved = managedColorToWorkingRgba(color, {
+        destination: { primaries: 'srgb', transfer: 'srgb' },
+      });
+      expect(resolved.kind).toBe('resolved');
+      if (resolved.kind !== 'resolved') throw new Error('sRGB resolution failed');
+      const expected = resolved.rgba.map((channel) =>
+        Math.round(Math.max(0, Math.min(1, channel)) * 255),
+      );
+      expect(managedColorToRgba(color)).toEqual(expected);
+      expect(managedColorToRgba({ ...color, bitDepth: 'uint8' })).toEqual(expected);
+    }
+  });
+  it.each([
+    -Infinity,
+    -300,
+    -1,
+    -0,
+    0,
+    0.49999999999999,
+    0.5,
+    0.50000000000001,
+    127.5,
+    255,
+    255.5,
+    300,
+    Infinity,
+    NaN,
+  ])('preserves authoritative display reduction at channel %s', (value) => {
+    const color = { space: 'rgb' as const, r: value, g: value, b: value, a: value };
+    const resolved = managedColorToWorkingRgba(color, {
+      destination: { primaries: 'srgb', transfer: 'srgb' },
+    });
+    expect(resolved.kind).toBe('resolved');
+    if (resolved.kind !== 'resolved') throw new Error('sRGB resolution failed');
+    expect(managedColorToRgba(color)).toEqual(
+      resolved.rgba.map((channel) => Math.round(Math.max(0, Math.min(1, channel)) * 255)),
+    );
+  });
   it('converts CmykColor to RGBA tuple via analytical conversion', () => {
     const result = managedColorToRgba({ space: 'cmyk', c: 0, m: 255, y: 255, k: 0, a: 255 });
     expect(result[0]).toBeCloseTo(255, 0);

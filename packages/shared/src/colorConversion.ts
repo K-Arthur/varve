@@ -1331,6 +1331,17 @@ export function managedColorToRgba(color: ManagedColorShim): [number, number, nu
   // non-RGB colours. Their profile-aware paths require an ICC provider;
   // this helper is only the legacy 8-bit display boundary.
   if (color.space !== 'rgb') return managedColorToRgbaLegacy(color);
+  // Unprofiled uint8 RGB already has the destination sRGB encoding. Keep the
+  // same display clamp/rounding while avoiding per-fill profile descriptors,
+  // transform closures and intermediate tuples in the canvas replay path.
+  if (color.profile === undefined && (color.bitDepth ?? DEFAULT_BIT_DEPTH) === 'uint8') {
+    return [
+      denormalizeChannel(Math.max(0, Math.min(1, normalizeChannel(color.r, 'uint8'))), 'uint8'),
+      denormalizeChannel(Math.max(0, Math.min(1, normalizeChannel(color.g, 'uint8'))), 'uint8'),
+      denormalizeChannel(Math.max(0, Math.min(1, normalizeChannel(color.b, 'uint8'))), 'uint8'),
+      denormalizeChannel(Math.max(0, Math.min(1, normalizeChannel(color.a, 'uint8'))), 'uint8'),
+    ];
+  }
   const result = managedColorToWorkingRgba(color, { destination: SRGB_WORKING });
   if (result.kind !== 'resolved') return managedColorToRgbaLegacy(color);
   const [r, g, b, a] = result.rgba;
