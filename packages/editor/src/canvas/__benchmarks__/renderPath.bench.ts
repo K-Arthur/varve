@@ -21,10 +21,12 @@
  * Update baseline: node scripts/audit-render-perf.mjs --update
  */
 
-import { writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { createEngine } from '@varve/engine';
-import { describe, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { SubtreeIrCache } from '../subtreeIrCache';
 
 const THIS_DIR = path.dirname(new URL(import.meta.url).pathname);
@@ -59,8 +61,19 @@ function makeRectNodes(count: number): SceneNodeLike[] {
   return nodes;
 }
 
+/** Keep mock behavior, but do not measure Vitest's growing call-history arrays. */
+function withoutCallRecording(ctx: CanvasRenderingContext2D) {
+  for (const key of Object.keys(ctx)) {
+    const value = Reflect.get(ctx, key);
+    if (vi.isMockFunction(value)) {
+      Reflect.set(ctx, key, value.getMockImplementation() ?? (() => undefined));
+    }
+  }
+  return ctx;
+}
+
 function canvasTarget(canvas: HTMLCanvasElement) {
-  const ctx = canvas.getContext('2d')!;
+  const ctx = withoutCallRecording(canvas.getContext('2d')!);
   return {
     save: () => ctx.save(),
     restore: () => ctx.restore(),
@@ -184,7 +197,22 @@ function summarize(samples: number[]) {
 }
 
 const TIERS = [100, 1_000, 10_000, 50_000] as const;
-const results: Record<string, unknown> = { measuredAt: new Date().toISOString(), tiers: {} };
+const results: Record<string, unknown> = {
+  measuredAt: new Date().toISOString(),
+  harness: 'js-dispatch-no-call-history',
+  nodeVersion: process.version,
+  vitestVersion: JSON.parse(
+    readFileSync(path.join(REPO_ROOT, 'node_modules/vitest/package.json'), 'utf8'),
+  ).version,
+  sourceCommit: execFileSync('git', ['rev-parse', 'HEAD'], {
+    cwd: REPO_ROOT,
+    encoding: 'utf8',
+  }).trim(),
+  harnessSha256: createHash('sha256')
+    .update(readFileSync(new URL(import.meta.url)))
+    .digest('hex'),
+  tiers: {},
+};
 
 /**
  * Fixed-cost control benchmark: a trivial arithmetic loop with no dependency
@@ -205,6 +233,44 @@ function controlBenchmark(): number {
 }
 
 describe('render path perf harness', () => {
+  it('preserves mock implementations without recording timed draw calls', () => {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d')!;
+    const recordedSave = ctx.save;
+    const recordedMeasure = ctx.measureText;
+    ctx.font = '18px sans-serif';
+    const before = ctx.measureText('Varve');
+    withoutCallRecording(ctx);
+    ctx.save();
+    ctx.fillStyle = '#ff0000';
+    expect(ctx.measureText('Varve')).toEqual(before);
+    expect(ctx.fillStyle).toBe('#ff0000');
+    expect(vi.isMockFunction(ctx.save)).toBe(false);
+    expect(vi.isMockFunction(ctx.measureText)).toBe(false);
+    expect(recordedSave).not.toHaveBeenCalled();
+    expect(recordedMeasure).toHaveBeenCalledTimes(1);
+    // A new functional-test context still keeps its ordinary assertions.
+    expect(vi.isMockFunction(document.createElement('canvas').getContext('2d')!.save)).toBe(true);
+  });
+
+  it('retains draw side effects and readback return values outside timing', () => {
+    const ctx = document.createElement('canvas').getContext('2d')!;
+    const calls: string[] = [];
+    const pixels = new ImageData(3, 2);
+    ctx.save = vi.fn(() => calls.push('save'));
+    ctx.fillRect = vi.fn((x, y, w, h) => calls.push(`fillRect:${x},${y},${w},${h}`));
+    ctx.restore = vi.fn(() => calls.push('restore'));
+    ctx.getImageData = vi.fn(() => pixels);
+    const recordedDraw = ctx.fillRect;
+    withoutCallRecording(ctx);
+    ctx.save();
+    ctx.fillRect(1, 2, 3, 4);
+    ctx.restore();
+    expect(ctx.getImageData(0, 0, 3, 2)).toBe(pixels);
+    expect(calls).toEqual(['save', 'fillRect:1,2,3,4', 'restore']);
+    expect(recordedDraw).not.toHaveBeenCalled();
+  });
+
   it('control benchmark (fixed-cost, machine-speed baseline)', () => {
     const samples = [controlBenchmark(), controlBenchmark(), controlBenchmark()];
     (results as { control?: unknown }).control = summarize(samples);
