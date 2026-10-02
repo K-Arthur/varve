@@ -33,7 +33,9 @@ test('new-design dialog is styled with design tokens', async ({ page }, testInfo
   const dialog = page.getByRole('dialog', { name: /new design/i });
   await dialog.waitFor({ timeout: 5000 });
 
-  const card = dialog.locator('.new-design__start-card').first();
+  const emptyCanvas = dialog.getByRole('radio', { name: 'Empty design canvas', exact: true });
+  await expect(emptyCanvas).toBeChecked();
+  const card = emptyCanvas.locator('..');
   await expect(card).toBeVisible();
   const cardInfo = await card.evaluate((el) => {
     const cs = getComputedStyle(el);
@@ -44,7 +46,7 @@ test('new-design dialog is styled with design tokens', async ({ page }, testInfo
 
   await expect(dialog.locator('.new-design__name-input')).toBeVisible();
   await page.screenshot({
-    path: `reports/style-audit/newdesign-${testInfo.project.name}.png`,
+    path: testInfo.outputPath('newdesign.png'),
   });
 });
 
@@ -54,7 +56,7 @@ test('floating toolbar drawing controls are styled', async ({ page }, testInfo) 
   await page.keyboard.press('Control+Shift+3');
   await page.locator('.floating-toolbar__drawing').waitFor({ timeout: 5000 });
   const drawing = page.locator('.floating-toolbar__drawing');
-  const info = await drawing.evaluate((el) => {
+  const info = await page.locator('.floating-toolbar__card').evaluate((el) => {
     const cs = getComputedStyle(el);
     return {
       background: cs.backgroundColor,
@@ -65,10 +67,12 @@ test('floating toolbar drawing controls are styled', async ({ page }, testInfo) 
   });
   expect(info.background).not.toBe('rgba(0, 0, 0, 0)');
   expect(info.radius).not.toBe('0px');
+  expect(info.pointerEvents).toBe('auto');
+  await expect(drawing).toHaveCSS('pointer-events', 'auto');
   await expect(page.locator('.floating-toolbar__color-swatch')).toHaveCount(2);
   await expect(page.locator('.floating-toolbar__color-swap')).toBeVisible();
   await page.screenshot({
-    path: `reports/style-audit/drawing-toolbar-${testInfo.project.name}.png`,
+    path: testInfo.outputPath('drawing-toolbar.png'),
   });
 });
 

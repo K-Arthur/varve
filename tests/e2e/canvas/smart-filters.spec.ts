@@ -6,6 +6,7 @@
  * and visual inspection via screenshots.
  */
 import { expect, type Page, test } from '@playwright/test';
+import { selectInspectorTab } from '../helpers/inspector-tabs';
 import { dragOnCanvas, navigateToEditor } from '../shared';
 
 /** Select a layer by clicking it in the Layers panel. */
@@ -525,7 +526,10 @@ test.describe('Object Filters — Real-world design composition scenario', () =>
 
     // 6. Select the Vignette row to open its compositing card
     const vignetteRow = rows.nth(1);
-    await vignetteRow.locator('.smart-filters__name').click();
+    const vignetteEditor = vignetteRow.locator('.smart-filters__name');
+    if ((await vignetteEditor.getAttribute('aria-expanded')) !== 'true') {
+      await vignetteEditor.click();
+    }
     await page.waitForTimeout(300);
 
     // Verify elevated compositing card is open
@@ -844,10 +848,7 @@ test.describe('Object Filters — redesigned surface behaviour', () => {
     await drawVectorAndOpenFilters(page);
 
     // The Studio launcher lives in the Adjustments tab.
-    await page
-      .locator('[role="tablist"] [role="tab"]')
-      .filter({ hasText: /^Adjustments$/i })
-      .click();
+    await selectInspectorTab(page, 'Adjustments');
     await page.getByTestId('open-effect-studio').click();
     const studio = page.getByTestId('effect-studio-dialog');
     await expect(studio).toBeVisible({ timeout: 30000 });
@@ -860,10 +861,7 @@ test.describe('Object Filters — redesigned surface behaviour', () => {
 
     // Back on the Design surface, the curated recipe is visible as a count,
     // the provenance notice, and a collapsed raw-stack editor.
-    await page
-      .locator('[role="tablist"] [role="tab"]')
-      .filter({ hasText: /^Design$/i })
-      .click();
+    await selectInspectorTab(page, 'Design');
     const section = page.getByRole('button', { name: 'Object Filters', exact: true });
     await section.scrollIntoViewIfNeeded();
     if ((await section.getAttribute('aria-expanded')) !== 'true') await section.click();

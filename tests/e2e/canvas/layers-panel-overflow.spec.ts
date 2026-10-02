@@ -33,7 +33,9 @@ async function navigateToEditor(page: import('@playwright/test').Page) {
 }
 
 test.describe('Layers panel overflow fixes', () => {
-  test('context menu renders fully visible (not clipped by layers panel)', async ({ page }) => {
+  test('context menu renders fully visible (not clipped by layers panel)', async ({
+    page,
+  }, testInfo) => {
     await navigateToEditor(page);
 
     // Add a rectangle so we have a layer to right-click
@@ -94,11 +96,11 @@ test.describe('Layers panel overflow fixes', () => {
     }
 
     // Verify key menu items are visible and text is not truncated
-    const renameItem = ctxMenu.getByText('Rename');
+    const renameItem = ctxMenu.getByRole('menuitem', { name: /^Rename/ });
     await expect(renameItem).toBeVisible();
-    const lockItem = ctxMenu.getByText('Lock');
+    const lockItem = ctxMenu.getByRole('menuitem', { name: /^Lock/ });
     await expect(lockItem).toBeVisible();
-    const hideItem = ctxMenu.getByText('Hide');
+    const hideItem = ctxMenu.getByRole('menuitem', { name: /^Hide/ });
     await expect(hideItem).toBeVisible();
 
     for (const label of [/^Bring to Front/, /^Send to Back/, /^Set File Thumbnail…$/]) {
@@ -120,41 +122,63 @@ test.describe('Layers panel overflow fixes', () => {
     }
 
     // Screenshot for visual review
-    await ctxMenu.screenshot({ path: 'reports/layers-ctxmenu.png' });
-    await page.screenshot({ path: 'reports/layers-ctxmenu-portal.png', fullPage: false });
+    await ctxMenu.screenshot({ path: testInfo.outputPath('layers-ctxmenu.png') });
+    await page.screenshot({
+      path: testInfo.outputPath('layers-ctxmenu-portal.png'),
+      fullPage: false,
+    });
 
     // A long target-relative menu may need a scroll viewport when it opens
     // above a low layer row. Verify the final action remains reachable instead
     // of treating the intentionally constrained viewport as clipped content.
     const finalAction = ctxMenu.getByRole('menuitem', {
-      name: 'Reveal in Layers panel',
+      name: 'Reveal in Layers Panel',
       exact: true,
     });
     const scrollMetricsBefore = await ctxMenu.evaluate((element) => {
-      const layer = element.parentElement;
+      const style = getComputedStyle(element);
       return {
-        clientHeight: layer?.clientHeight ?? 0,
-        scrollHeight: layer?.scrollHeight ?? 0,
-        scrollTop: layer?.scrollTop ?? 0,
+        clientHeight: element.clientHeight,
+        scrollHeight: element.scrollHeight,
+        scrollTop: element.scrollTop,
+        overflowY: style.overflowY,
+        scrollbarColor: style.scrollbarColor,
+        parentOverflowY: element.parentElement
+          ? getComputedStyle(element.parentElement).overflowY
+          : null,
       };
     });
+    await testInfo.attach('menu-scroll-ownership', {
+      body: JSON.stringify(scrollMetricsBefore),
+      contentType: 'application/json',
+    });
     if (scrollMetricsBefore.scrollHeight > scrollMetricsBefore.clientHeight) {
+      expect(scrollMetricsBefore.overflowY).toBe('auto');
+      expect(scrollMetricsBefore.scrollbarColor).not.toBe('auto');
+      expect(scrollMetricsBefore.parentOverflowY).toBe('visible');
       await finalAction.scrollIntoViewIfNeeded();
       await expect(finalAction).toBeVisible();
       const scrollMetricsAfter = await ctxMenu.evaluate((element) => {
-        const layer = element.parentElement;
         return {
-          clientHeight: layer?.clientHeight ?? 0,
-          scrollHeight: layer?.scrollHeight ?? 0,
-          scrollTop: layer?.scrollTop ?? 0,
+          clientHeight: element.clientHeight,
+          scrollHeight: element.scrollHeight,
+          scrollTop: element.scrollTop,
         };
       });
       expect(scrollMetricsAfter.scrollHeight).toBeGreaterThan(scrollMetricsAfter.clientHeight);
       expect(scrollMetricsAfter.scrollTop).toBeGreaterThan(scrollMetricsBefore.scrollTop);
-      await ctxMenu.screenshot({ path: 'reports/layers-ctxmenu-scrolled.png' });
+      await ctxMenu.screenshot({ path: testInfo.outputPath('layers-ctxmenu-scrolled.png') });
     } else {
       await expect(finalAction).toBeVisible();
     }
+    const finalBounds = await finalAction.boundingBox();
+    const scrollBounds = await ctxMenu.boundingBox();
+    expect(finalBounds).not.toBeNull();
+    expect(scrollBounds).not.toBeNull();
+    expect(finalBounds!.y).toBeGreaterThanOrEqual(scrollBounds!.y);
+    expect(finalBounds!.y + finalBounds!.height).toBeLessThanOrEqual(
+      scrollBounds!.y + scrollBounds!.height,
+    );
 
     // Close the context menu
     await page.keyboard.press('Escape');

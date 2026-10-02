@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { expect, test } from '@playwright/test';
+import { selectInspectorTab } from '../helpers/inspector-tabs';
 import { dragOnCanvas, navigateToEditor } from '../shared';
 
 /** Real-pointer coverage for the Stroke inspector and its rendered result. */
@@ -25,10 +26,12 @@ test.describe('Stroke workflow', () => {
       await strokeTrigger.click();
     }
 
-    const strokeSection = strokeTrigger.locator('..');
+    const strokeSection = page.locator('.insp-disclosure[data-section-id="stroke"]');
     await strokeSection.getByRole('button', { name: /add stroke/i }).click();
     const advanced = strokeSection.getByRole('button', { name: 'Advanced', exact: true });
     await advanced.click();
+    await strokeSection.getByRole('combobox', { name: 'Stroke dash style', exact: true }).click();
+    await page.getByRole('option', { name: 'Custom…', exact: true }).click();
 
     await expect(strokeSection.getByLabel('Stroke dash pattern')).toBeVisible();
     await strokeSection.getByLabel('Stroke dash pattern').fill('18, 8');
@@ -39,8 +42,7 @@ test.describe('Stroke workflow', () => {
     await strokeSection.screenshot({ path: testInfo.outputPath('stroke-inspector.png') });
     await page.screenshot({ path: testInfo.outputPath('stroke-workflow.png'), fullPage: false });
 
-    const exportTab = page.getByRole('tab', { name: /^export$/i });
-    await exportTab.click();
+    await selectInspectorTab(page, 'Export');
     await page
       .locator('.spec-export__group')
       .getByRole('radio', { name: 'SVG', exact: true })
@@ -48,7 +50,9 @@ test.describe('Stroke workflow', () => {
     const downloadPromise = page.waitForEvent('download', { timeout: 15000 });
     await page.getByRole('button', { name: /download/i }).click();
     const download = await downloadPromise;
-    const svg = await readFile((await download.path())!, 'utf8');
+    const svgPath = testInfo.outputPath('stroke-export.svg');
+    await download.saveAs(svgPath);
+    const svg = await readFile(svgPath, 'utf8');
     expect(svg).toContain('stroke-dasharray="18 8"');
 
     // Remove the selection overlay before capturing the rendered artwork so

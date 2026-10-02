@@ -14,6 +14,36 @@ async function switchToPhotoWorkspace(page: import('@playwright/test').Page): Pr
   await expect(photo).toHaveAttribute('aria-checked', 'true');
 }
 
+/** Activate through the real flyout or responsive overflow, then use its pinned group. */
+async function selectPixelTool(
+  page: import('@playwright/test').Page,
+  label: string,
+): Promise<void> {
+  const toolbar = page.getByTestId('toolbar');
+  const flyout = toolbar.getByRole('button', { name: 'Pixel selection menu', exact: true });
+  if (await flyout.isVisible()) {
+    await flyout.click();
+    await page
+      .getByRole('menu', { name: 'Pixel selection', exact: true })
+      .getByRole('menuitem', { name: label, exact: true })
+      .click();
+  } else {
+    await toolbar.getByRole('button', { name: /^More tools/ }).click();
+    await page
+      .getByRole('menu', { name: 'More tools', exact: true })
+      .getByRole('menuitem', { name: 'Selection', exact: true })
+      .click();
+    await page
+      .getByRole('menu', { name: 'Selection submenu', exact: true })
+      .getByRole('menuitem', { name: label, exact: true })
+      .click();
+  }
+  await expect(toolbar.getByRole('button', { name: label, exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+}
+
 test.describe('pixel marquee selection', () => {
   test('exposes the raster tool and commits a reverse-direction compound selection', async ({
     page,
@@ -24,20 +54,23 @@ test.describe('pixel marquee selection', () => {
 
     const toolbar = page.locator('[data-testid="toolbar"]');
     const marquee = toolbar.locator('[data-tool="marquee"]');
+    await selectPixelTool(page, 'Rectangular Marquee');
     await expect(marquee).toBeVisible();
-    await marquee.click();
     await expect(marquee).toHaveAttribute('aria-pressed', 'true');
     await toolbar.screenshot({ path: testInfo.outputPath('marquee-toolbar.png') });
     const options = page.locator('[data-testid="marquee-options"]');
     await expect(options).toBeVisible();
-    await expect(options.getByRole('radio', { name: 'replace selection' })).toHaveAttribute(
+    await expect(options.getByRole('radio', { name: 'New', exact: true })).toHaveAttribute(
       'aria-checked',
       'true',
     );
     await options.getByLabel('Selection style').selectOption('fixed-ratio');
-    await expect(options.getByLabel('Selection ratio')).toBeVisible();
+    await expect(options.getByLabel('Ratio (width over height)', { exact: true })).toBeVisible();
     await options.getByLabel('Selection style').selectOption('normal');
-    await options.getByLabel('Selection feather').fill('6');
+    const feather = options.getByLabel('Selection feather (px)', { exact: true });
+    await feather.fill('6');
+    await feather.press('Enter');
+    await expect(feather).toHaveValue('6');
     await options.getByLabel('Anti-alias selection edges').check();
     await page.screenshot({ path: testInfo.outputPath('marquee-options.png') });
     await page.getByRole('button', { name: 'Tool options' }).click();
@@ -97,10 +130,10 @@ test.describe('pixel marquee selection', () => {
     await switchToPhotoWorkspace(page);
 
     const toolbar = page.locator('[data-testid="toolbar"]');
+    await selectPixelTool(page, 'Rectangular Marquee');
     await toolbar.getByRole('button', { name: 'Pixel selection menu' }).click();
     await expect(page.getByRole('menuitem', { name: 'Selection Paint' })).toBeVisible();
     await page.keyboard.press('Escape');
-    await toolbar.locator('[data-tool="marquee"]').click();
     const surface = page.locator('canvas.editor-canvas__content-layer');
     const box = await surface.boundingBox();
     if (!box) throw new Error('editor canvas content surface not found');
@@ -126,7 +159,7 @@ test.describe('pixel marquee selection', () => {
       { timeout: 5000 },
     );
     await page.screenshot({ path: testInfo.outputPath('selection-painted-session.png') });
-    await sources.getByRole('button', { name: 'Apply' }).click();
+    await sources.getByRole('button', { name: 'Apply', exact: true }).click();
     await expect(sources.getByRole('region', { name: 'Selection paint controls' })).toBeHidden();
     await sources.getByRole('button', { name: 'Paint selection' }).click();
     await expect(sources.getByRole('region', { name: 'Selection paint controls' })).toBeVisible();

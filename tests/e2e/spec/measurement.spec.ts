@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { navigateToEditor } from '../shared';
+import { dragOnCanvas, navigateToEditor } from '../shared';
 
 function getCanvas(page: import('@playwright/test').Page) {
   return page.getByTestId('editor-canvas');
@@ -12,23 +12,24 @@ test.describe('Spec Panel Measurement', () => {
   });
 
   async function activateTool(page: import('@playwright/test').Page, name: string) {
-    const btn = page.getByRole('button', { name, exact: true });
-    await btn.waitFor({ state: 'visible', timeout: 5000 });
-    await btn.click();
+    await getCanvas(page).focus();
+    await page.keyboard.press(name === 'Inspect' ? 'i' : 'r');
+    const btn = page.getByTestId('toolbar').getByRole('button', { name, exact: true });
+    await expect(btn).toHaveAttribute('aria-pressed', 'true');
     await page.waitForTimeout(200);
   }
 
   test('enter inspect mode via shortcut I shows spec panel on selection', async ({ page }) => {
     // Create a rect first
     await activateTool(page, 'Rectangle');
-    await getCanvas(page).click({ position: { x: 200, y: 200 }, force: true });
+    await dragOnCanvas(page, 120, 120, 420, 320);
     await page.waitForTimeout(500);
 
     // Switch to inspect mode
     await activateTool(page, 'Inspect');
 
     // Click on canvas to select the rect
-    await getCanvas(page).click({ position: { x: 200, y: 200 }, force: true });
+    await getCanvas(page).click({ position: { x: 270, y: 220 } });
     await page.waitForTimeout(300);
 
     // Inspect mode now keeps the selection in the unified Inspector rather
@@ -43,11 +44,11 @@ test.describe('Spec Panel Measurement', () => {
 
   test('measurement overlay shows dimension label for selected node', async ({ page }) => {
     await activateTool(page, 'Rectangle');
-    await getCanvas(page).click({ position: { x: 200, y: 200 }, force: true });
+    await dragOnCanvas(page, 120, 120, 420, 320);
     await page.waitForTimeout(500);
 
     await activateTool(page, 'Inspect');
-    await getCanvas(page).click({ position: { x: 200, y: 200 }, force: true });
+    await getCanvas(page).click({ position: { x: 270, y: 220 } });
     await page.waitForTimeout(500);
 
     // Measure overlay SVG should be rendered
@@ -60,11 +61,11 @@ test.describe('Spec Panel Measurement', () => {
 
   test('spec panel shows layout readout with width and height', async ({ page }) => {
     await activateTool(page, 'Rectangle');
-    await getCanvas(page).click({ position: { x: 200, y: 200 }, force: true });
+    await dragOnCanvas(page, 120, 120, 420, 320);
     await page.waitForTimeout(500);
 
     await activateTool(page, 'Inspect');
-    await getCanvas(page).click({ position: { x: 200, y: 200 }, force: true });
+    await getCanvas(page).click({ position: { x: 270, y: 220 } });
     await page.waitForTimeout(300);
 
     // The unified Inspector exposes geometry through Position & Size.
@@ -76,11 +77,11 @@ test.describe('Spec Panel Measurement', () => {
 
   test('unified Inspector exposes accessible geometry fields', async ({ page }) => {
     await activateTool(page, 'Rectangle');
-    await getCanvas(page).click({ position: { x: 200, y: 200 }, force: true });
+    await dragOnCanvas(page, 120, 120, 420, 320);
     await page.waitForTimeout(500);
 
     await activateTool(page, 'Inspect');
-    await getCanvas(page).click({ position: { x: 200, y: 200 }, force: true });
+    await getCanvas(page).click({ position: { x: 270, y: 220 } });
     await page.waitForTimeout(300);
 
     await expect(page.getByLabel('X (px)')).toBeVisible({ timeout: 5000 });

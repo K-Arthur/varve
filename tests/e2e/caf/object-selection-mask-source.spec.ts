@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
+import { selectInspectorTab } from '../helpers/inspector-tabs';
 import { navigateToEditor } from '../shared';
 
 /**
@@ -327,7 +328,7 @@ test('can launch Object Selection from the modal mask-source controls', async ({
   await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 30_000 });
 
   const inspector = page.locator('.editor__inspector-panel');
-  await inspector.getByRole('tab', { name: 'Adjustments' }).click();
+  await selectInspectorTab(page, 'Adjustments');
   const generativeSection = inspector.getByRole('button', {
     name: 'Generative Edit',
     exact: true,
@@ -360,7 +361,7 @@ test('keeps the Object Selection handoff disabled after mask painting begins', a
   await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 30_000 });
 
   const inspector = page.locator('.editor__inspector-panel');
-  await inspector.getByRole('tab', { name: 'Adjustments' }).click();
+  await selectInspectorTab(page, 'Adjustments');
   const generativeSection = inspector.getByRole('button', {
     name: 'Generative Edit',
     exact: true,

@@ -336,28 +336,34 @@ test.describe('Focus Navigation', () => {
       await navigateToEditor(page);
       await page.waitForTimeout(500);
 
-      const hiddenFocusable = await page.evaluate(() => {
-        const focusable = document.querySelectorAll(
-          'button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])',
-        );
-        return Array.from(focusable)
-          .filter((el) => {
-            const style = getComputedStyle(el);
-            // `display:none` elements cannot receive focus at all; the
-            // actionable regression is an element that remains in the layout
-            // but is hidden while still participating in the tab order.
-            return style.visibility === 'hidden';
-          })
-          .map((el) => ({
-            tag: el.tagName.toLowerCase(),
-            type: el.getAttribute('type'),
-            id: el.id,
-            className: el.className.toString(),
-            ariaHidden: el.closest('[aria-hidden="true"]') !== null,
-          }));
-      });
-
-      expect(hiddenFocusable, JSON.stringify(hiddenFocusable)).toHaveLength(0);
+      const closedHelp = page.locator('.contextual-help-panel');
+      await expect(closedHelp).toHaveAttribute('inert', '');
+      const traversalLength = await page.evaluate(
+        () =>
+          document.querySelectorAll('button, input, select, textarea, a[href], [tabindex]').length +
+          2,
+      );
+      await page.getByTestId('editor-canvas').focus();
+      const visited = new Set<string>();
+      for (let step = 0; step < traversalLength; step++) {
+        await page.keyboard.press('Tab');
+        const focused = await page.evaluate(() => {
+          const element = document.activeElement as HTMLElement;
+          const style = getComputedStyle(element);
+          return {
+            identity: `${element.tagName}:${element.id}:${element.getAttribute('aria-label')}:${element.textContent?.slice(0, 40)}`,
+            hidden: style.visibility === 'hidden' || style.display === 'none',
+            inert: element.closest('[inert]') !== null,
+            closedHelp:
+              element.closest('.contextual-help-panel:not(.contextual-help-panel--open)') !== null,
+          };
+        });
+        expect(focused.hidden, focused.identity).toBe(false);
+        expect(focused.inert, focused.identity).toBe(false);
+        expect(focused.closedHelp, focused.identity).toBe(false);
+        visited.add(focused.identity);
+      }
+      expect(visited.size).toBeGreaterThan(5);
     });
   });
 

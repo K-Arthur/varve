@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { selectInspectorTab } from '../helpers/inspector-tabs';
 import { dragOnCanvas, navigateToEditor } from '../shared';
 
 test.describe('Export panel — browser download path', () => {
@@ -8,11 +9,7 @@ test.describe('Export panel — browser download path', () => {
   });
 
   async function selectExportTab(page: import('@playwright/test').Page) {
-    const exportTab = page.locator('[role="tablist"] button[role="tab"]', {
-      hasText: /^export$/i,
-    });
-    await exportTab.waitFor({ state: 'visible', timeout: 5000 });
-    await exportTab.click();
+    await selectInspectorTab(page, 'Export');
   }
 
   async function createExportableFrame(page: import('@playwright/test').Page) {

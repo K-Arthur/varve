@@ -42,7 +42,32 @@ test.describe('Generative Edit entry points', () => {
     await imageLayer.click();
     const canvas = page.locator('canvas.editor-canvas__content-layer');
     await expect(canvas).toBeVisible();
-    await canvas.click({ button: 'right', position: { x: 12, y: 300 } });
+    // Fit the selected artwork before choosing a point; the old 12px edge
+    // coordinate hit the panel splitter instead of the image.
+    await page.keyboard.press('Shift+2');
+    const point = await canvas.evaluate((element) => {
+      const surface = element as HTMLCanvasElement;
+      const rect = surface.getBoundingClientRect();
+      const x = rect.width / 2;
+      const y = rect.height / 2;
+      const pixel = surface
+        .getContext('2d')!
+        .getImageData(
+          Math.floor((x * surface.width) / rect.width),
+          Math.floor((y * surface.height) / rect.height),
+          1,
+          1,
+        ).data;
+      return {
+        x,
+        y,
+        alpha: pixel[3],
+        hit: document.elementFromPoint(rect.x + x, rect.y + y) === element,
+      };
+    });
+    expect(point.alpha).toBeGreaterThan(0);
+    expect(point.hit).toBe(true);
+    await canvas.click({ button: 'right', position: { x: point.x, y: point.y } });
 
     const menu = page.getByRole('menu', { name: 'Canvas context menu' });
     await expect(menu).toBeVisible();
