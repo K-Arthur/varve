@@ -221,6 +221,7 @@ ci-tools-test:
     node scripts/test-ci-debug.mjs
     node scripts/ci-health.test.mjs
     node scripts/pin-github-actions.test.mjs
+    pnpm exec vitest run tests/unit/pr-debug-comment.test.ts
 
 validate-workflows:
     node scripts/validate-workflows.mjs
