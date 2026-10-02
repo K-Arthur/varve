@@ -1674,7 +1674,7 @@ describe('multi-item compositing edge cases', () => {
     expect(fs).toBe('rgba(57, 208, 198, 0.00392156862745098)');
   });
 
-  it('image fill draws via drawImage when target supports it', () => {
+  it('skips clipping for an exact-fit image fill while drawing via drawImage', () => {
     // Pre-load the image so paintImageFill takes the cached path.
     getImageCache().setLoaded('test.png', mockImage('test.png', 50, 50));
     const rec = recorder();
@@ -1703,12 +1703,8 @@ describe('multi-item compositing edge cases', () => {
     };
     replayIr(rec.target, [item]);
     expect(drawImageCalled).toBe(true);
-    const clipIndex = rec.calls.indexOf('clip(0)');
-    const restoreIndex = rec.calls.findIndex(
-      (call, index) => index > clipIndex && call === 'restore(0)',
-    );
-    expect(clipIndex).toBeGreaterThanOrEqual(0);
-    expect(restoreIndex).toBeGreaterThan(clipIndex);
+    // Exact-fit square images do not need a redundant rectangle clip.
+    expect(rec.calls).not.toContain('clip(0)');
     expect(rec.calls.some((c) => c.startsWith('restore'))).toBe(true);
   });
 
@@ -1794,7 +1790,8 @@ describe('multi-item compositing edge cases', () => {
         primitive: { kind: 'rect', x: 0, y: 0, w: 50, h: 50 },
       },
     ]);
-    expect(rec.calls).toContain('clip(0)');
+    // The exact-fit placeholder covers the rect directly, just like its loaded image.
+    expect(rec.calls).not.toContain('clip(0)');
     // Placeholder path paints: fillStyle assigned (loading grey) + fillRect.
     expect(rec.calls.filter((c) => c === 'set fillStyle').length).toBeGreaterThanOrEqual(2);
     expect(rec.calls.some((c) => c.startsWith('fillRect'))).toBe(true);
