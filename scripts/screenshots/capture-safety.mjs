@@ -15,12 +15,21 @@ export function assertReviewDirectorySafe(reviewDir, protectedDirs) {
   }
 }
 
-export function sourceSceneProvenance(previous, sourceHash) {
+export function sourceSceneProvenance(previous, sourceHash, freshCapture) {
   const unchanged = previous.sha256 === sourceHash;
   return {
-    capturedAt: unchanged ? previous.capturedAt : undefined,
-    lastValidatedAgainst: unchanged ? previous.lastValidatedAgainst : null,
-    provenanceUnknown: unchanged ? previous.provenanceUnknown : true,
+    capturedAt: unchanged ? previous.capturedAt : freshCapture?.capturedAt,
+    lastValidatedAgainst: unchanged
+      ? previous.lastValidatedAgainst
+      : (freshCapture?.lastValidatedAgainst ?? null),
+    provenanceUnknown: unchanged ? previous.provenanceUnknown : !freshCapture,
+    ...(unchanged && previous.provenance
+      ? { provenance: previous.provenance }
+      : freshCapture?.provenance
+        ? { provenance: freshCapture.provenance }
+        : !unchanged && previous.provenance
+          ? { provenance: undefined }
+          : {}),
   };
 }
 

@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "note": "GENERATED FILE — do not hand-edit. Written by scripts/screenshots/product.mjs and validated by scripts/screenshots/validate.mjs. Each scene maps one canonical screenshot consumed by the website and documentation. status: 'captured' when the pipeline produced the file, 'skipped' when the scene could not be produced (reason required).",
-  "generatedAt": "2026-09-29T14:47:44.083Z",
+  "generatedAt": "2026-10-02T00:43:29.385Z",
   "scenes": {
     "workspace": {
       "file": "workspace-light.png",
@@ -60,13 +60,35 @@
       "caption": "Editable comic lettering with contour-aware wrapping and tail controls",
       "feature": "comic-lettering",
       "theme": "light",
-      "status": "captured",
-      "source": "tests/e2e/canvas/comic-lettering.spec.ts",
+      "kind": "full",
       "width": 1280,
       "height": 720,
-      "sha256": "c32b41c825e7601d311ba8020ab576b1fd322cd164dab7ad5ed9a177af26c06c",
-      "lastValidatedAgainst": null,
-      "kind": "full"
+      "status": "captured",
+      "source": "tests/e2e/canvas/comic-lettering.spec.ts",
+      "viewport": {
+        "width": 1280,
+        "height": 720
+      },
+      "lastValidatedAgainst": "677a614636ae7233d34f00bad535bc4a864fe91b",
+      "provenanceUnknown": false,
+      "sha256": "de50aeede1bdfa10b98f58c7db0e6eb3afe1743a68203016390663be9ee5c277",
+      "capturedAt": "2026-10-02T00:38:02.811Z",
+      "provenance": {
+        "runId": "run-4048262-5590",
+        "runtime": "Chromium headless Playwright E2E",
+        "captureTool": "Playwright 1.62.1 / Chromium revision 1234",
+        "sourceRevision": "677a614636ae7233d34f00bad535bc4a864fe91b",
+        "sourceDirty": true,
+        "sourceDigest": "28b107256eadf1ee8b6e6f8b383c5a86cb9b6baa1245898d5f1c2c5e8feb0cbf",
+        "viewport": {
+          "width": 1280,
+          "height": 720
+        },
+        "deviceScaleFactor": 1,
+        "theme": "light",
+        "promotedFrom": "2026-10-02T00-43-09-746Z-4050122",
+        "promotedAt": "2026-10-02T00:43:29.385Z"
+      }
     },
     "typography": {
       "file": "typography-light.png",
@@ -797,6 +819,42 @@
         "height": 1000
       },
       "provenanceUnknown": true
+    },
+    "patterns": {
+      "file": "patterns-document-alignment.png",
+      "alt": "A reusable dotted vector pattern applied to a selected shape, with repeat and document-alignment controls visible in the inspector",
+      "caption": "A real pattern fill with its repeat settings and document-aligned placement",
+      "feature": "patterns",
+      "theme": "light",
+      "kind": "full",
+      "width": 1280,
+      "height": 720,
+      "status": "captured",
+      "source": "tests/e2e/canvas/pattern-document-alignment.spec.ts",
+      "viewport": {
+        "width": 1280,
+        "height": 720
+      },
+      "lastValidatedAgainst": "66cc3626020787266191131287de4b859eb10a05",
+      "provenanceUnknown": false,
+      "sha256": "665c4c8eacf1f2440fb9bd0dd14751668c543b16873d310471b1aa904aff3569",
+      "capturedAt": "2026-10-01T23:24:00.748Z",
+      "provenance": {
+        "runId": "pattern-affected-e2e-2026-10-01",
+        "runtime": "Chromium headless Playwright E2E",
+        "captureTool": "Playwright 1.62.1 / Chromium revision 1234",
+        "sourceRevision": "66cc3626020787266191131287de4b859eb10a05",
+        "sourceDirty": false,
+        "sourceDigest": "42b7d2597e05e73fb11e894a76b0ae6f84395f288c63891128082bd5526de308",
+        "viewport": {
+          "width": 1280,
+          "height": 720
+        },
+        "deviceScaleFactor": 1,
+        "theme": "light",
+        "promotedFrom": "e2e-visual-review-66cc36260",
+        "promotedAt": "2026-10-01T23:29:36.680Z"
+      }
     }
   },
   "provenance": {

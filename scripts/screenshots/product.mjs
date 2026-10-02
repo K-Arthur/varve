@@ -27,8 +27,17 @@ import { createHash } from 'node:crypto';
  * If a scene cannot be produced it is recorded as skipped with a reason —
  * never silently replaced by an older screenshot. --strict fails the run.
  */
-import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
-import { basename, dirname, join, resolve } from 'node:path';
+import {
+  existsSync,
+  globSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
+import { basename, dirname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, expect } from '@playwright/test';
 import {
@@ -45,6 +54,12 @@ const reviewDir = reviewFlag < 0 ? undefined : args[reviewFlag + 1];
 if (reviewFlag >= 0 && (!reviewDir || reviewDir.startsWith('--'))) {
   throw new Error('--review-dir requires an output directory');
 }
+const sourceScenesFlag = args.indexOf('--source-scenes-dir');
+const sourceScenesArg = sourceScenesFlag < 0 ? undefined : args[sourceScenesFlag + 1];
+if (sourceScenesFlag >= 0 && (!sourceScenesArg || sourceScenesArg.startsWith('--'))) {
+  throw new Error('--source-scenes-dir requires a test-results run directory');
+}
+const sourceScenesDir = sourceScenesArg ? resolve(ROOT, sourceScenesArg) : undefined;
 const CANONICAL_DIR = join(ROOT, 'docs', 'screenshots', 'product');
 const OUT_DIR = reviewDir ? resolve(reviewDir) : CANONICAL_DIR;
 const PUBLIC_DIR = join(ROOT, 'apps', 'website', 'public', 'screenshots');
@@ -107,6 +122,7 @@ function git(args_) {
  */
 const SOURCE_PATHS = [
   'scripts/screenshots',
+  'tests/e2e',
   'packages/editor/src',
   'packages/scene/src',
   'packages/engine/src',
@@ -1924,11 +1940,34 @@ const SCENES = [
  * manifest stays generated and complete instead of relying on a hardcoded
  * path in a page plus an unmanaged file in `public/screenshots/`.
  *
- * These are *inputs*, not captures: this script verifies and registers the
- * bytes that are already committed, and copies them to the canonical docs
- * directory. Re-recording them is the owning spec's job.
+ * These are normally *inputs*: this script verifies and registers the bytes
+ * committed under public/screenshots. `--source-scenes-dir` is the reviewed
+ * import path for a new owning-spec capture under test-results/.
  */
 const SOURCE_SCENES = [
+  {
+    id: 'comic-lettering',
+    file: 'comic-lettering-light.png',
+    captureFile: 'comic-lettering-balloon-inspector.png',
+    producer: 'tests/e2e/canvas/comic-lettering.spec.ts',
+    alt: 'A speech balloon selected in Varve with editable dialogue and the Comic balloon inspector showing fit, line-shape, and tail controls',
+    caption: 'Editable comic lettering with contour-aware wrapping and tail controls',
+    feature: 'comic-lettering',
+    theme: 'light',
+    kind: 'full',
+    viewport: { width: 1280, height: 720 },
+  },
+  {
+    id: 'patterns',
+    file: 'patterns-document-alignment.png',
+    producer: 'tests/e2e/canvas/pattern-document-alignment.spec.ts',
+    alt: 'A reusable dotted vector pattern applied to a selected shape, with repeat and document-alignment controls visible in the inspector',
+    caption: 'A real pattern fill with its repeat settings and document-aligned placement',
+    feature: 'patterns',
+    theme: 'light',
+    kind: 'full',
+    viewport: { width: 1280, height: 720 },
+  },
   {
     id: 'performance-settings',
     file: 'performance-settings-dark.png',
@@ -2029,6 +2068,60 @@ const SOURCE_SCENES = [
   },
 ];
 
+if (sourceScenesDir) {
+  const testResultsRoot = `${resolve(ROOT, 'test-results')}${sep}`;
+  if (
+    !reviewDir ||
+    onlyScenes.size === 0 ||
+    !args.includes('--normalize') ||
+    !sourceScenesDir.startsWith(testResultsRoot) ||
+    !existsSync(sourceScenesDir) ||
+    !statSync(sourceScenesDir).isDirectory()
+  ) {
+    throw new Error(
+      '--source-scenes-dir requires --normalize, --review-dir, explicit --scenes, and a directory under test-results/',
+    );
+  }
+  const sourceIds = new Set(SOURCE_SCENES.map((scene) => scene.id));
+  if ([...onlyScenes].some((id) => !sourceIds.has(id))) {
+    throw new Error('--source-scenes-dir can only import explicitly selected E2E-produced scenes');
+  }
+  if (SOURCE_SCENES.some((scene) => onlyScenes.has(scene.id) && !scene.captureFile)) {
+    throw new Error('each imported E2E scene must declare its producer captureFile');
+  }
+}
+
+function sourceScenePath(source) {
+  if (!sourceScenesDir) return join(PUBLIC_DIR, source.file);
+  const matches = globSync(`**/${source.captureFile}`, { cwd: sourceScenesDir, nodir: true });
+  if (matches.length !== 1) {
+    throw new Error(
+      `${source.id}: expected exactly one ${source.captureFile} under ${sourceScenesDir}, found ${matches.length}`,
+    );
+  }
+  return join(sourceScenesDir, matches[0]);
+}
+
+function freshSourceSceneCapture(source, previous, capturePath) {
+  if (!sourceScenesDir) return undefined;
+  return {
+    capturedAt: statSync(capturePath).mtime.toISOString(),
+    lastValidatedAgainst: sourceIdentity.sourceRevision,
+    provenance: {
+      runId: basename(sourceScenesDir),
+      runtime: previous.provenance?.runtime ?? 'Chromium headless Playwright E2E',
+      captureTool:
+        previous.provenance?.captureTool ?? `Playwright ${playwrightVersion()} / Chromium`,
+      sourceRevision: sourceIdentity.sourceRevision,
+      sourceDirty: sourceIdentity.sourceDirty,
+      sourceDigest: sourceIdentity.sourceDigest,
+      viewport: source.viewport ? { ...source.viewport } : undefined,
+      deviceScaleFactor: 1,
+      theme: source.theme,
+    },
+  };
+}
+
 const manifest = JSON.parse(manifestBytesAtStart.toString('utf8'));
 const runId = `${new Date().toISOString().replace(/[:.]/g, '-')}-${process.pid}`;
 const sourceIdentity = computeSourceIdentity();
@@ -2090,6 +2183,7 @@ const skippedThisRun = [];
 function normalizeManifest() {
   let changed = 0;
   for (const scene of SCENES) {
+    if (onlyScenes.size > 0 && !onlyScenes.has(scene.id)) continue;
     const entry = manifest.scenes[scene.id] ?? {};
     const publishedPath = join(PUBLIC_DIR, scene.file);
     if (!existsSync(publishedPath)) {
@@ -2151,13 +2245,14 @@ function normalizeManifest() {
     changed++;
   }
   for (const source of SOURCE_SCENES) {
-    const publishedPath = join(PUBLIC_DIR, source.file);
-    if (!existsSync(publishedPath)) {
-      console.error(`FAIL source scene ${source.id}: no ${source.file} in public/screenshots`);
+    if (onlyScenes.size > 0 && !onlyScenes.has(source.id)) continue;
+    const capturePath = sourceScenePath(source);
+    if (!existsSync(capturePath)) {
+      console.error(`FAIL source scene ${source.id}: no producer capture at ${capturePath}`);
       failures++;
       continue;
     }
-    const bytes = readFileSync(publishedPath);
+    const bytes = readFileSync(capturePath);
     const analysis = analyseImage(bytes);
     if (!analysis.valid) {
       console.error(`FAIL source scene ${source.id}: ${source.file} does not decode`);
@@ -2171,7 +2266,11 @@ function normalizeManifest() {
     }
     const previous = manifest.scenes[source.id] ?? {};
     const sourceHash = sha256Hex(bytes);
-    const provenance = sourceSceneProvenance(previous, sourceHash);
+    const provenance = sourceSceneProvenance(
+      previous,
+      sourceHash,
+      freshSourceSceneCapture(source, previous, capturePath),
+    );
     manifest.scenes[source.id] = {
       ...previous,
       file: source.file,
@@ -2501,12 +2600,13 @@ try {
   // otherwise the only trace of them is a hardcoded path in a page and an
   // orphan file the validator rejects.
   for (const source of SOURCE_SCENES) {
-    const publishedPath = join(PUBLIC_DIR, source.file);
-    if (!existsSync(publishedPath)) {
-      console.warn(`skipping source scene ${source.id} (no ${source.file} in public/screenshots)`);
+    if (onlyScenes.size > 0 && !onlyScenes.has(source.id)) continue;
+    const capturePath = sourceScenePath(source);
+    if (!existsSync(capturePath)) {
+      console.warn(`skipping source scene ${source.id} (no producer capture at ${capturePath})`);
       continue;
     }
-    const bytes = readFileSync(publishedPath);
+    const bytes = readFileSync(capturePath);
     const analysis = analyseImage(bytes);
     if (!analysis.valid) {
       throw new Error(
@@ -2515,7 +2615,11 @@ try {
     }
     const previous = manifest.scenes[source.id] ?? {};
     const sourceHash = sha256Hex(bytes);
-    const provenance = sourceSceneProvenance(previous, sourceHash);
+    const provenance = sourceSceneProvenance(
+      previous,
+      sourceHash,
+      freshSourceSceneCapture(source, previous, capturePath),
+    );
     if (reviewDir) {
       writeFileAtomicSync(join(OUT_DIR, source.file), bytes);
     } else {

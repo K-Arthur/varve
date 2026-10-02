@@ -145,8 +145,8 @@ product page.
 </tr>
 <tr>
 <td width="50%">
-<img src="docs/screenshots/product/patterns-light.png" alt="An orange vector ellipse repeats across a teal rectangle in Varve while the source ellipse and Pattern Library remain visible" width="100%">
-<p align="center">Create a repeat from vector artwork, then adjust its placement on the fill</p>
+<img src="docs/screenshots/product/patterns-document-alignment.png" alt="A reusable dotted vector pattern fills a selected shape in Varve, with repeat and document-alignment controls visible in the inspector" width="100%">
+<p align="center">Apply a reusable pattern and align it to the document</p>
 </td>
 <td width="50%"></td>
 </tr>

@@ -43,6 +43,19 @@ test('copied producer captures retain historical provenance unless their bytes c
     lastValidatedAgainst: null,
     provenanceUnknown: true,
   });
+  assert.deepEqual(
+    sourceSceneProvenance(previous, 'new-hash', {
+      capturedAt: '2026-10-01T23:40:00.000Z',
+      lastValidatedAgainst: 'def456',
+      provenance: { runId: 'playwright-run', sourceRevision: 'def456' },
+    }),
+    {
+      capturedAt: '2026-10-01T23:40:00.000Z',
+      lastValidatedAgainst: 'def456',
+      provenanceUnknown: false,
+      provenance: { runId: 'playwright-run', sourceRevision: 'def456' },
+    },
+  );
 });
 
 test('capture port preflight rejects an occupied IPv4 port and releases an available one', async () => {
