@@ -145,5 +145,37 @@ const fallbackLabel = label ?? (hasRelease ? (platformLabel ?? 'Download Varve')
     border-radius: var(--website-radius-pill);
     border: 1px solid currentColor;
     opacity: 0.9;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  @media (max-width: 640px) {
+    .download-cta-large {
+      flex-wrap: wrap;
+    }
+
+    .download-cta-large .download-cta-label {
+      min-width: 0;
+      max-inline-size: 100%;
+      white-space: normal;
+    }
+
+    .download-cta-beta {
+      border-radius: var(--website-radius-control-compact);
+      line-height: 1.1;
+      letter-spacing: 0.03em;
+      /* audit-spacing: allow badge inset follows its own caption size at enlarged text */
+      padding-inline: 0.4em;
+      /* audit-spacing: allow compact badge breathing room follows its own caption size */
+      padding-block: 0.05em;
+    }
+  }
+
+  @media (max-width: 380px) {
+    .download-cta-beta {
+      letter-spacing: 0.04em;
+      /* audit-spacing: allow narrow-screen badge inset follows its own caption size */
+      padding-inline: 0.3em;
+    }
   }
 </style>

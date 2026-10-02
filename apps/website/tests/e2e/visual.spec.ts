@@ -148,7 +148,7 @@ async function expectCurrentHomepageCopy(page: import('@playwright/test').Page) 
   await expect(page.locator('.hero-subtitle')).toContainText('no account, no subscription');
 }
 
-const HERO_EYEBROW_VIEWPORTS = [320, 360, 375, 390, 414, 768, 1024, 1280, 1440];
+const HERO_EYEBROW_VIEWPORTS = [320, 360, 375, 390, 414, 640, 641, 768, 1024, 1280, 1440];
 
 async function getHeroEyebrowGeometry(page: import('@playwright/test').Page) {
   return page.locator('.hero-eyebrow').evaluate((element) => {
@@ -200,6 +200,92 @@ function expectHeroEyebrowContained(geometry: Awaited<ReturnType<typeof getHeroE
   expect(geometry.status.top).toBeGreaterThanOrEqual(geometry.eyebrow.top);
   expect(geometry.status.bottom).toBeLessThanOrEqual(geometry.eyebrow.bottom);
   expect(geometry.status.height).toBeLessThanOrEqual(geometry.lineHeight + 1);
+}
+
+async function getMobileHeroContentGeometry(page: import('@playwright/test').Page) {
+  return page.evaluate(() => {
+    const selectors = [
+      '.hero-eyebrow',
+      '.hero-title',
+      '.hero-subtitle',
+      '.hero-ctas',
+      '.hero-platforms',
+    ];
+    const content = selectors.map((selector) => {
+      const element = document.querySelector<HTMLElement>(selector);
+      if (!element) throw new Error(`Homepage hero is missing ${selector}.`);
+      const bounds = element.getBoundingClientRect();
+      return {
+        selector,
+        left: bounds.left,
+        right: bounds.right,
+        width: bounds.width,
+      };
+    });
+    const beta = document.querySelector<HTMLElement>('.hero-ctas .download-cta-beta');
+    if (!beta) throw new Error('Homepage hero download action is missing its beta status.');
+    const download = beta.closest<HTMLElement>('.download-cta');
+    const label = download?.querySelector<HTMLElement>('.download-cta-label');
+    if (!download || !label) throw new Error('Homepage hero download action is missing its label.');
+    const labelRange = document.createRange();
+    labelRange.selectNodeContents(label);
+    const labelBounds = labelRange.getBoundingClientRect();
+    const downloadBounds = download.getBoundingClientRect();
+    const betaBounds = beta.getBoundingClientRect();
+    const betaStyle = getComputedStyle(beta);
+    const betaVerticalInset = [
+      betaStyle.paddingTop,
+      betaStyle.paddingBottom,
+      betaStyle.borderTopWidth,
+      betaStyle.borderBottomWidth,
+    ].reduce((total, value) => total + Number.parseFloat(value), 0);
+    return {
+      viewportWidth: document.documentElement.clientWidth,
+      documentWidth: document.documentElement.scrollWidth,
+      content,
+      download: { left: downloadBounds.left, right: downloadBounds.right },
+      downloadContent: [
+        { selector: '.download-cta-label text', left: labelBounds.left, right: labelBounds.right },
+        { selector: '.download-cta-beta', left: betaBounds.left, right: betaBounds.right },
+      ],
+      labelBetaOverlap:
+        Math.min(labelBounds.right, betaBounds.right) >
+          Math.max(labelBounds.left, betaBounds.left) + 1 &&
+        Math.min(labelBounds.bottom, betaBounds.bottom) >
+          Math.max(labelBounds.top, betaBounds.top) + 1,
+      betaContentHeight: betaBounds.height - betaVerticalInset,
+      betaLineHeight: Number.parseFloat(betaStyle.lineHeight),
+    };
+  });
+}
+
+function expectMobileHeroGutter(
+  geometry: Awaited<ReturnType<typeof getMobileHeroContentGeometry>>,
+) {
+  expect(geometry.documentWidth).toBeLessThanOrEqual(geometry.viewportWidth + 1);
+  expect(geometry.betaContentHeight).toBeLessThanOrEqual(geometry.betaLineHeight + 1);
+  expect(
+    geometry.labelBetaOverlap,
+    'Download label text and beta status should not overlap',
+  ).toBeFalsy();
+  for (const element of geometry.downloadContent) {
+    expect(element.left, `${element.selector} should fit inside its button`).toBeGreaterThanOrEqual(
+      geometry.download.left - 1,
+    );
+    expect(element.right, `${element.selector} should fit inside its button`).toBeLessThanOrEqual(
+      geometry.download.right + 1,
+    );
+  }
+  for (const element of geometry.content) {
+    expect(
+      element.left,
+      `${element.selector} should keep a 16px left gutter`,
+    ).toBeGreaterThanOrEqual(15);
+    expect(
+      element.right,
+      `${element.selector} should keep a 16px right gutter`,
+    ).toBeLessThanOrEqual(geometry.viewportWidth - 15);
+  }
 }
 
 test('homepage light', async ({ page }) => {
@@ -283,28 +369,38 @@ for (const theme of THEMES) {
 
     const eyebrow = page.locator('.hero-eyebrow');
     await expect(eyebrow).toBeVisible();
-    await expect(eyebrow.locator('.hero-eyebrow-copy')).toContainText(
-      /Local-first design suite\s*·\s*public beta/i,
-    );
+    await expect(eyebrow.locator('.hero-eyebrow-copy')).toContainText(/public beta/i);
+    await expect(eyebrow.locator('.hero-eyebrow-prefix')).toBeHidden();
     await expect(eyebrow.locator('.hero-eyebrow-status')).toHaveText('public beta');
-    await expect(page.locator('.hero')).toHaveScreenshot(`hero-eyebrow-mobile-${theme.name}.png`, {
-      maxDiffPixelRatio: 0.02,
-    });
-    if (theme.name === 'light') {
-      await page.setViewportSize({ width: 375, height: 900 });
-      await expect(page.locator('.hero')).toHaveScreenshot('hero-eyebrow-mobile-375-light.png', {
+    expectMobileHeroGutter(await getMobileHeroContentGeometry(page));
+    await expect
+      .soft(page.locator('.hero'))
+      .toHaveScreenshot(`hero-eyebrow-mobile-${theme.name}.png`, {
         maxDiffPixelRatio: 0.02,
       });
+    if (theme.name === 'light') {
+      await page.setViewportSize({ width: 375, height: 900 });
+      await expect
+        .soft(page.locator('.hero'))
+        .toHaveScreenshot('hero-eyebrow-mobile-375-light.png', {
+          maxDiffPixelRatio: 0.02,
+        });
     }
 
     for (const width of HERO_EYEBROW_VIEWPORTS) {
       await page.setViewportSize({ width, height: 900 });
+      if (width <= 640) {
+        await expect(eyebrow.locator('.hero-eyebrow-prefix')).toBeHidden();
+      } else {
+        await expect(eyebrow.locator('.hero-eyebrow-prefix')).toBeVisible();
+      }
       expectHeroEyebrowContained(await getHeroEyebrowGeometry(page));
+      if (width <= 640) expectMobileHeroGutter(await getMobileHeroContentGeometry(page));
     }
 
     if (theme.name === 'light') {
       await page.setViewportSize({ width: 1440, height: 900 });
-      await expect(page.locator('.hero')).toHaveScreenshot('hero-eyebrow-desktop-light.png', {
+      await expect.soft(page.locator('.hero')).toHaveScreenshot('hero-eyebrow-desktop-light.png', {
         maxDiffPixelRatio: 0.02,
       });
     }
@@ -316,8 +412,13 @@ for (const theme of THEMES) {
     const enlargedGeometry = await getHeroEyebrowGeometry(page);
     expect(enlargedGeometry.fontSize).toBeGreaterThanOrEqual(24);
     expectHeroEyebrowContained(enlargedGeometry);
+    expectMobileHeroGutter(await getMobileHeroContentGeometry(page));
+    await page.locator('.hero').screenshot({
+      path: test.info().outputPath(`hero-mobile-text-200-${theme.name}.png`),
+      animations: 'disabled',
+    });
     if (theme.name === 'light') {
-      await expect(eyebrow).toHaveScreenshot('hero-eyebrow-mobile-text-200-light.png', {
+      await expect.soft(eyebrow).toHaveScreenshot('hero-eyebrow-mobile-text-200-light.png', {
         maxDiffPixelRatio: 0.02,
       });
     }

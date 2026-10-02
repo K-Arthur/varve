@@ -131,7 +131,8 @@ import { PRODUCT_STATUS } from '@varve/shared';
     <p class="hero-eyebrow">
       <span class="hero-eyebrow-dot" aria-hidden="true"></span>
       <span class="hero-eyebrow-copy">
-        Local-first design suite &middot; <span class="hero-eyebrow-status">{PRODUCT_STATUS.label.toLowerCase()}</span>
+        <span class="hero-eyebrow-prefix">Local-first design suite &middot;</span>
+        <span class="hero-eyebrow-status">{PRODUCT_STATUS.label.toLowerCase()}</span>
       </span>
     </p>
     <h1 id="hero-title" class="hero-title">
@@ -489,6 +490,10 @@ import { PRODUCT_STATUS } from '@varve/shared';
     text-wrap: balance;
   }
 
+  .hero-eyebrow-prefix {
+    display: inline;
+  }
+
   .hero-eyebrow-status {
     white-space: nowrap;
   }
@@ -549,11 +554,17 @@ import { PRODUCT_STATUS } from '@varve/shared';
 
   @media (max-width: 640px) {
     .hero { padding-top: var(--space-9); }
+    .hero-content {
+      box-sizing: border-box;
+      padding-inline: max(1rem, var(--space-4));
+    }
     .hero-eyebrow {
       gap: min(var(--space-3), 12px);
-      max-inline-size: calc(100% - 30px);
+      max-inline-size: 100%;
       padding-inline: min(var(--space-3), 12px);
+      border-radius: var(--website-radius-control);
     }
+    .hero-eyebrow-prefix { display: none; }
     .hero-title { letter-spacing: -0.025em; }
     .hero-ctas {
       flex-direction: column;
