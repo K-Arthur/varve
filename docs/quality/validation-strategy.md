@@ -33,6 +33,15 @@ The planner (`pnpm verify:plan`) computes which tiers apply to the current
 changes. It never silently decides what to skip — it prints the plan, the
 reasons, and what is deliberately skipped.
 
+Tiers describe scope, not execution order. The affected executor runs selected
+audits and compiler checks first, then its remaining non-browser checks, and
+browser lanes last. It preserves the selected scope. When `e2e:all` is selected,
+that unfiltered app suite covers selected exact app specs, app domains, and
+visual projects in one invocation; the executor prints each coverage mapping
+instead of running those specs twice. Coverage succeeds only when the broader
+lane passes. Website tests retain their separate configuration and both build
+outputs, and `verify:quick` cannot claim coverage from an unselected Tier 4 lane.
+
 ## Four validation profiles
 
 Tiers describe evidence depth. Profiles describe who owns the evidence and
@@ -89,7 +98,7 @@ The frozen candidate check is the extended release evidence for one SHA.
 | `pnpm verify:plan --staged` | Plan for staged changes only | Before commit |
 | `pnpm verify:plan --since <ref>` | Plan the committed changes in `<ref>...HEAD`; excludes staged, unstaged, and untracked files | CI/branch work |
 | `pnpm verify:quick` | Tier 0 + Tier 1 (touched + direct tests) | Trivial/localized edits |
-| `pnpm verify:triage` | Tiers 0–4, but Playwright stops after five failures by default; still runs when a final full gate is required | First discovery pass after a large integration or merge batch |
+| `pnpm verify:triage` | Tiers 0–4; every selected Playwright invocation stops after five failures by default with zero retries; still runs when a final full gate is required | First discovery pass after a large integration or merge batch |
 | `pnpm verify:affected` | Tiers 0–4, risk-aware | **Default inner loop for agents** |
 | `pnpm verify:push` | Exact outgoing-ref push checkpoint; accepts `--pre-push`, `--since <ref>`, `--strict`, `--json`, and `--dry-run` | Normal pre-push hook |
 | `pnpm workflow:status` | Read-only branch/upstream state, hook diagnosis, and recent operation summary | Before synchronization |
@@ -439,6 +448,10 @@ loop instead of restarting a broad browser gate after every individual fix:
    planner also requires a final full gate, catching downstream type/compile
    failures before the expensive checkpoint. Preserve its log and classify
    every failure as product defect, stale assertion, or environmental failure.
+   The same `--max-failures` limit and `--retries=0` apply to exact specs,
+   domains, the whole app suite, visual lanes, and website browser validation.
+   These are discovery bounds; a green bounded run does not replace the
+   required final full gate or exact-SHA certification.
 2. Repair each classified failure and rerun its affected compiler check,
    exact spec, and direct unit tests until they pass. Do not repeatedly rerun
    unrelated, previously green E2E domains while the candidate is still

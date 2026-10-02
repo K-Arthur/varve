@@ -3,7 +3,8 @@
  * Varve validation executor.
  *
  * Runs the smallest sufficient affected validation for the current
- * changes (Tier 0 → 4 in order, fail fast), or the explicit full gate.
+ * changes (selected Tiers 0–4, cheap checks before browsers, fail fast),
+ * or the explicit full gate.
  *
  * Usage:
  *   pnpm verify:quick        Tier 0 (format/lint on touched) + Tier 1 (direct tests)
@@ -35,6 +36,12 @@ import {
   loadPackages,
   parseArgs,
 } from './affected-plan.mjs';
+import {
+  broadBrowserArgv,
+  buildExecutionPlan,
+  formatExecutionPlan,
+  playwrightRunOptions,
+} from './execution-plan.mjs';
 import { runFullGate } from './full-gate.mjs';
 import { LANES, laneCommand, packageDirs } from './validation-lanes.mjs';
 
@@ -85,7 +92,7 @@ function runLeasedPlaywright(args, label) {
   return cmd(['node', 'scripts/quality/heavy-lease.mjs', label, '--', ...args]);
 }
 
-let e2eMaxFailures;
+let browserOptions;
 
 function runE2ePaths(paths) {
   // Domain -> path resolution: consult the impact config first (some domains
@@ -93,9 +100,7 @@ function runE2ePaths(paths) {
   // fall back to the conventional directory.
   const args = ['pnpm', 'exec', 'playwright', 'test'];
   args.push(...paths);
-  const workers = process.env.VARVE_E2E_WORKERS;
-  if (workers) args.push('--workers', workers);
-  if (e2eMaxFailures) args.push('--max-failures', e2eMaxFailures);
+  args.push(...playwrightRunOptions(browserOptions));
   // CachyOS local validation installs Chromium only. Browser farms can opt
   // into the complete matrix with VARVE_E2E_PROJECTS=chromium,firefox,webkit.
   // Replay visual specs are intentionally excluded from the default Chromium
@@ -143,14 +148,6 @@ const HEAVY = new Set([
   'full',
 ]);
 
-const TIER_ORDER = [0, 1, 2, 3, 4];
-
-function flatten(plan) {
-  const lanes = [];
-  for (const t of TIER_ORDER) for (const l of plan.tiers[t]) lanes.push(l);
-  return lanes;
-}
-
 // Changed files that biome can process (existing, supported extensions).
 // Used for format:touched / lint:touched so Tier 0 checks the real worktree
 // (staged + unstaged + untracked), not only what happens to be staged.
@@ -191,21 +188,8 @@ function runLane(lane) {
     status = cmd(args);
   } else if (lane === 'typecheck:all') {
     status = cmd(['pnpm', 'typecheck']);
-  } else if (lane === 'e2e:all') {
-    const args = ['pnpm', 'exec', 'playwright', 'test'];
-    if (process.env.VARVE_E2E_WORKERS) args.push('--workers', process.env.VARVE_E2E_WORKERS);
-    status = runLeasedPlaywright(args, lane);
-  } else if (lane === 'e2e:visual') {
-    const args = [
-      'pnpm',
-      'exec',
-      'playwright',
-      'test',
-      '--project=chromium-visual-1x',
-      '--project=chromium-visual-2x',
-    ];
-    if (process.env.VARVE_E2E_WORKERS) args.push('--workers', process.env.VARVE_E2E_WORKERS);
-    status = runLeasedPlaywright(args, lane);
+  } else if (lane === 'e2e:all' || lane === 'e2e:visual' || lane === 'website-e2e') {
+    status = runLeasedPlaywright(broadBrowserArgv(lane, browserOptions), lane);
   } else if (lane === 'bench:render' || lane === 'bench:table' || lane === 'bench:table-layout') {
     const benchCmd = {
       'bench:render': 'pnpm bench:canvas',
@@ -238,8 +222,11 @@ function main() {
   const args = process.argv.slice(2);
   const mode = args[0];
   const planOpts = parseArgs(['node', 'x', ...args.slice(1)]);
-  e2eMaxFailures = process.env.VARVE_E2E_MAX_FAILURES;
-  if (mode === 'triage' && !e2eMaxFailures) e2eMaxFailures = '5';
+  browserOptions = {
+    workers: process.env.VARVE_E2E_WORKERS,
+    maxFailures: process.env.VARVE_E2E_MAX_FAILURES || (mode === 'triage' ? '5' : undefined),
+    triage: mode === 'triage',
+  };
 
   if (mode === 'plan') {
     let files;
@@ -258,6 +245,11 @@ function main() {
     }
     const plan = buildPlan(files, { includeReverse: !planOpts.noReverse });
     console.log(formatPlan(plan, planOpts));
+    if (!planOpts.json) {
+      console.log(
+        formatExecutionPlan(buildExecutionPlan(plan, { e2eDomains: IMPACT_CONFIG.e2eDomains })),
+      );
+    }
     process.exit(0);
   }
 
@@ -355,15 +347,22 @@ function main() {
   CHANGED_FILES = files;
   const plan = buildPlan(files, { includeReverse: !planOpts.noReverse });
   console.log(formatPlan(plan, planOpts));
+  const execution = buildExecutionPlan(plan, {
+    tiers: mode === 'quick' ? [0, 1] : [0, 1, 2, 3, 4],
+    e2eDomains: IMPACT_CONFIG.e2eDomains,
+  });
+  console.log(formatExecutionPlan(execution));
 
   if (mode === 'quick') {
     // Tier 0 + Tier 1 only
-    for (const l of [...plan.tiers[0], ...plan.tiers[1]]) {
+    for (const l of execution.lanes) {
       if (runLane(l) !== 0) process.exit(1);
     }
   } else if (mode === 'affected' || mode === 'triage') {
     if (mode === 'triage') {
-      console.log(`Triage mode: Playwright stops after ${e2eMaxFailures} failure(s).`);
+      console.log(
+        `Triage mode: Playwright stops after ${browserOptions.maxFailures} failure(s), with zero retries.`,
+      );
     }
     if (plan.full) {
       if (mode === 'affected') {
@@ -374,7 +373,7 @@ function main() {
         '\nFinal full gate required after triage. Continuing with the affected lanes to expose cheap, downstream failures before that checkpoint.',
       );
     }
-    for (const l of flatten(plan)) {
+    for (const l of execution.lanes) {
       if (runLane(l) !== 0) process.exit(1);
     }
   } else {
