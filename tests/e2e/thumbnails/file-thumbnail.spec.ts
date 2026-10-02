@@ -13,10 +13,8 @@
  *   9. Home updates (automatic again)
  *
  * Persistence across a full browser reload is exercised at the platform
- * level by unit/integration suites; this web e2e build intentionally runs
- * on the in-memory platform (createWebPlatform is not wired in the web
- * build), so cross-reload assertions would test the platform choice, not
- * the thumbnail system. In-app navigation keeps the platform session alive.
+ * level by the save/reopen suites. This test covers in-app navigation and
+ * thumbnail-source fallback within the editor session.
  */
 
 import { expect, test } from '@playwright/test';
@@ -87,19 +85,28 @@ test.describe('file thumbnail workflow', () => {
     // 2. Draw canvas artwork: a rect plus a frame.
     const canvas = page.locator('canvas.editor-canvas__content-layer');
     const box = (await canvas.boundingBox())!;
-    const statusBar = page.locator('[class*="status"]').last();
     await page.keyboard.press('r');
     await dragClient(page, box, { x: 40, y: 40 }, { x: 160, y: 120 });
     await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 15000 });
 
     await page.keyboard.press('f');
-    await dragClient(page, box, { x: 220, y: 40 }, { x: 640, y: 360 });
+    // Selection chrome can change the canvas bounds after the first shape.
+    // Measure the live surface and keep the new frame away from that shape.
+    const frameBox = (await canvas.boundingBox())!;
+    await dragClient(
+      page,
+      frameBox,
+      { x: frameBox.width * 0.4, y: frameBox.height * 0.15 },
+      { x: frameBox.width * 0.85, y: frameBox.height * 0.65 },
+    );
     await expect(page.getByRole('treeitem')).toHaveCount(2, { timeout: 15000 });
 
     // 3. Select the frame row, open its context menu with the keyboard
     //    (Shift+F10) and choose "Use Frame as File Thumbnail".
-    await page.getByRole('treeitem').first().click({ timeout: 10000 });
-    await expect(statusBar).toContainText(/frame/i, { timeout: 10000 });
+    const frameRow = page.getByRole('treeitem').filter({ hasText: /Frame 1/ });
+    await expect(frameRow).toHaveCount(1);
+    await frameRow.click({ timeout: 10000 });
+    await expect(frameRow).toHaveAttribute('aria-selected', 'true');
     await page.keyboard.press('Shift+F10');
     const ctx = page.getByRole('menu').last();
     await expect(ctx).toBeVisible({ timeout: 10000 });

@@ -110,7 +110,9 @@ async function readXY(page: Page): Promise<{ x: number; y: number }> {
 
 /** Draw a rect with the rect tool, then return to the select tool. */
 async function drawRect(page: Page, x1: number, y1: number, x2: number, y2: number) {
-  await page.keyboard.press('r');
+  // Inspector switches retain form focus; choose the actual tool before
+  // drawing instead of sending a shortcut into that form.
+  await page.getByRole('button', { name: 'Rectangle', exact: true }).click();
   await dragOnCanvas(page, x1, y1, x2, y2);
   await page.keyboard.press('v');
   await page.waitForTimeout(150);
@@ -187,6 +189,13 @@ test.describe('snapping after a target has moved', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(VIEWPORT);
     await navigateToStableEditor(page);
+    // Object-index freshness is independent of the document lattice. Keep
+    // that competing snap target off, as in the multi-selection fixture.
+    const documentGrid = page.getByRole('button', { name: 'Document Grid', exact: true });
+    if ((await documentGrid.getAttribute('aria-expanded')) !== 'true') await documentGrid.click();
+    const gridSnap = page.getByRole('switch', { name: 'Snap to document grid', exact: true });
+    if (await gridSnap.isChecked()) await gridSnap.uncheck();
+    await expect(gridSnap).not.toBeChecked();
   });
 
   test('snaps to a node that was moved after the document opened', async ({ page }, testInfo) => {

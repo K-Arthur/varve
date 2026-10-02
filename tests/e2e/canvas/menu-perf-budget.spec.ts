@@ -26,6 +26,9 @@ test.describe('Menu performance budgets', () => {
       if (!(fileItem instanceof HTMLElement)) return -1;
 
       const clickTarget = fileItem.querySelector('button') ?? fileItem;
+      // HTMLElement.click() omits the focus transfer a real pointer click
+      // performs. Establish that precondition outside the timed open path.
+      (clickTarget as HTMLElement).focus();
 
       mark('menu:perf:warm-open:start');
       clickTarget.click();
@@ -54,6 +57,12 @@ test.describe('Menu performance budgets', () => {
     expect(elapsed).toBeGreaterThanOrEqual(0);
     expect(elapsed).toBeLessThan(500);
 
+    // The paint measurement can finish before the menu's deferred focus timer.
+    // Send Escape only after the menu has received its normal keyboard focus.
+    await expect(page.getByRole('menu', { name: 'File', exact: true })).toBeVisible();
+    await expect
+      .poll(() => page.evaluate(() => !!document.activeElement?.closest('[role="menu"]')))
+      .toBe(true);
     await closeMenu(page);
   });
 

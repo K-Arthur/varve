@@ -256,7 +256,7 @@ test.describe('Isometric construction workflow (real editor)', () => {
     // Move the origin and confirm the lattice phase follows the authored
     // origin, while the overlay stays view-correct.
     await openIsometricInspector(page);
-    const originX = page.getByRole('spinbutton', { name: /isometric grid origin x/i });
+    const originX = page.getByRole('spinbutton', { name: 'Origin X', exact: true });
     await originX.fill('37');
     await originX.blur();
     await expect.poll(async () => (await grid(page)).origin[0]).toBe(37);
@@ -317,7 +317,9 @@ test.describe('Isometric construction workflow (real editor)', () => {
     await page.screenshot({ path: `${REVIEW_DIR}/02-projected-rect.png`, fullPage: false });
   });
 
-  test('snaps moved artwork onto the lattice and shows the actual target', async ({ page }) => {
+  test('snaps moved artwork onto the lattice and shows the actual target', async ({
+    page,
+  }, testInfo) => {
     await enterIsometricWorkspace(page);
     await setSnapTolerance(page, 32);
     const snapshot = await grid(page);
@@ -344,6 +346,13 @@ test.describe('Isometric construction workflow (real editor)', () => {
     }
     expect(sawCrosshair, 'isometric snap crosshair should appear during the drag').toBe(true);
     await page.screenshot({ path: `${REVIEW_DIR}/03-snap-crosshair.png`, fullPage: false });
+    const guides = await page.locator('.snap-guides-overlay circle').evaluateAll((circles) =>
+      circles.map((circle) => ({
+        cx: circle.getAttribute('cx'),
+        cy: circle.getAttribute('cy'),
+        rect: circle.getBoundingClientRect().toJSON(),
+      })),
+    );
     await page.mouse.up();
     await page.waitForTimeout(200);
 
@@ -355,6 +364,10 @@ test.describe('Isometric construction workflow (real editor)', () => {
     const minDistance = Math.min(
       ...moved.map((point) => nearestLatticeDistance(point, snapshot.origin, snapshot.basis)),
     );
+    await testInfo.attach('snap-geometry', {
+      body: JSON.stringify({ snapshot, before, after, guides, minDistance }),
+      contentType: 'application/json',
+    });
     expect(minDistance).toBeLessThan(0.01);
     // The shape itself moved (the snap is a real translation, not a no-op).
     const beforePts = worldPoints(before);

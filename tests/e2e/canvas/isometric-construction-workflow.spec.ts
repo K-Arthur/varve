@@ -75,31 +75,27 @@ async function grid(page: Page): Promise<GridSnapshot> {
   return value!;
 }
 
-/** Drag the rect tool between two canvas points; waits until a shape is selected. */
+/** Create one new path through the real drawing toolbar and pointer gesture. */
 async function drawRectPath(
   page: Page,
   from: { x: number; y: number },
   to: { x: number; y: number },
 ) {
-  for (let attempt = 0; attempt < 2; attempt++) {
-    await waitForCanvasReady(page);
-    await page.keyboard.press('r');
-    await page.mouse.move(from.x, from.y);
-    await page.mouse.down();
-    await page.mouse.move(to.x, to.y, { steps: 12 });
-    await page.mouse.up();
-    await page.keyboard.press('v');
-    try {
-      await expect
-        .poll(async () => page.evaluate(() => window.__varveIsoTest?.getSelection().length ?? 0), {
-          timeout: 8000,
-        })
-        .toBeGreaterThan(0);
-      return;
-    } catch (error) {
-      if (attempt === 1) throw error;
-    }
-  }
+  await waitForCanvasReady(page);
+  const countBefore = await page.evaluate(() => window.__varveIsoTest?.getNodeCount() ?? 0);
+  // Plane radios retain focus; a drawing shortcut there belongs to the form.
+  await page.getByRole('button', { name: 'Rectangle', exact: true }).click();
+  await page.mouse.move(from.x, from.y);
+  await page.mouse.down();
+  await page.mouse.move(to.x, to.y, { steps: 12 });
+  await page.mouse.up();
+  await expect
+    .poll(async () => page.evaluate(() => window.__varveIsoTest?.getNodeCount() ?? 0))
+    .toBe(countBefore + 1);
+  await expect
+    .poll(async () => page.evaluate(() => window.__varveIsoTest?.getSelection().length ?? 0))
+    .toBe(1);
+  await page.keyboard.press('v');
 }
 
 async function ensureIsometricInspector(page: Page) {
@@ -177,12 +173,6 @@ async function measureZoom(page: Page): Promise<number> {
 }
 
 test.describe('Isometric construction workflow — independent verification', () => {
-  // The shared working tree is edited by other agents while this suite runs;
-  // a Vite HMR reload returns the app to the Home surface mid-gesture. A retry
-  // restarts the identical assertions from a clean page — it is not a weaker
-  // check, and a product regression still fails both attempts.
-  test.describe.configure({ retries: 1 });
-
   test('builds a three-face cube whose shared vertices coincide on the lattice', async ({
     page,
   }) => {
