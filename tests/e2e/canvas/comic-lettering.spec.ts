@@ -117,12 +117,9 @@ test.describe('Comic lettering workflow', () => {
     expect(layers.some((name) => /balloon/i.test(name))).toBe(true);
     expect(layers.some((name) => /text/i.test(name))).toBe(true);
 
-    await page.getByRole('button', { name: 'Fit balloon to text', exact: true }).click();
-    await expect(page.getByRole('combobox', { name: 'Balloon fit policy' })).toHaveText(
-      'Fit balloon to text',
-    );
-    await expect(fitStatus).toContainText(/dialogue fits|close to|exceeds/i);
-
+    // Capture the default result before the optional fit command. Fitting can
+    // rebuild the parametric tail, so a post-fit screenshot would hide a seam
+    // that a lettering user sees immediately after wrapping text.
     mkdirSync(SHOT_DIR, { recursive: true });
     await page.screenshot({
       path: testInfo.outputPath('comic-lettering-balloon-inspector.png'),
@@ -142,6 +139,12 @@ test.describe('Comic lettering workflow', () => {
       path: `${SHOT_DIR}/01-speech-balloon-canvas.png`,
       animations: 'disabled',
     });
+
+    await page.getByRole('button', { name: 'Fit balloon to text', exact: true }).click();
+    await expect(page.getByRole('combobox', { name: 'Balloon fit policy' })).toHaveText(
+      'Fit balloon to text',
+    );
+    await expect(fitStatus).toContainText(/dialogue fits|close to|exceeds/i);
   });
 
   test('expands dialogue to a localization-length replacement and recovers by fitting', async ({
