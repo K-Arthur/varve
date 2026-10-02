@@ -1307,16 +1307,16 @@ function VariableAxesSection({ textNodes, familyRaw, batchUpdate }: VariableAxes
                 rangeAriaLabel={`${info.name} (${tag})`}
                 onChange={(nextValue) => setAxis(tag, nextValue)}
               />
-              <button
-                type="button"
-                className="insp-axis-reset"
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => resetAxis(tag)}
                 disabled={isDefault}
                 title={`Reset ${info.name} to ${info.default}`}
                 aria-label={`Reset ${info.name} to default`}
               >
                 Reset
-              </button>
+              </Button>
             </div>
           </FieldRow>
         );

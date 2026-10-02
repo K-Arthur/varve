@@ -10,7 +10,7 @@ async function selectCustomOption(
   await combo.click();
   const listbox = page.getByRole('listbox', { name: label });
   await expect(listbox).toBeVisible({ timeout: 3000 });
-  await listbox.getByRole('option', { name: optionLabel, exact: true }).click();
+  await listbox.getByRole('option', { name: new RegExp(`^${optionLabel}(?:$| Lines)`) }).click();
   await page.waitForTimeout(200);
 }
 
@@ -49,10 +49,13 @@ test.describe('vertical text canvas workflow', () => {
     const verticalRlPath = testInfo.outputPath('vertical-rl.png');
     await canvas.screenshot({ path: verticalRlPath });
 
+    const advanced = page.getByRole('button', { name: 'Advanced typography', exact: true });
+    await advanced.scrollIntoViewIfNeeded();
+    if ((await advanced.getAttribute('aria-expanded')) !== 'true') await advanced.click();
     const typography = page.getByRole('combobox', { name: 'Writing mode (not rotation)' });
     await expect(typography).toBeVisible({ timeout: 5000 });
-    await selectCustomOption(page, 'Writing mode (not rotation)', 'Vertical LR');
-    await expect(typography).toHaveText('Vertical LR');
+    await selectCustomOption(page, 'Writing mode (not rotation)', 'Vertical, left to right');
+    await expect(typography).toHaveText('Vertical, left to right');
 
     const verticalLrPath = testInfo.outputPath('vertical-lr.png');
     await canvas.screenshot({ path: verticalLrPath });

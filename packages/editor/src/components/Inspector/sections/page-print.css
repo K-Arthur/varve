@@ -15,7 +15,27 @@
 .page-print__edges {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
   gap: var(--space-1) var(--space-2);
+}
+
+/* Each paired field gets a full-width label above its editor. The generic
+ * 38% label track leaves "Page width" and edge names clipped at sidebar
+ * widths. Keep NumberField's wrapping and label-scrub behavior intact. */
+.page-print__edges > .insp-field {
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  gap: var(--space-1);
+}
+
+.page-print__edges > .insp-field > .insp-field__label {
+  min-height: 0;
+}
+
+@container inspector (max-width: 13rem) {
+  .page-print__edges {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .page-print__toggle {

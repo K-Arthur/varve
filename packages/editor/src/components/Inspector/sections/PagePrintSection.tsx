@@ -9,7 +9,7 @@
 import type { BleedConfig, PageLayoutSettings, SafeAreaConfig, SlugConfig } from '@varve/scene';
 import { resolvePageLayout, resolvePagePrintGeometry, updateBleedEdge } from '@varve/scene';
 import { BUILTIN_PRESET_GROUPS, physicalToPx, pxToPhysical } from '@varve/shared';
-import { Select, Switch } from '@varve/ui';
+import { Button, Select, Switch } from '@varve/ui';
 import { useCallback, useMemo } from 'react';
 import { useEditor } from '../../../context';
 import { setPageLayoutCommand } from '../../../pageCommands';
@@ -76,6 +76,7 @@ function EdgeFields({
   return (
     <div className="page-print__edges">
       <NumberField
+        labelWrap
         label={`${label} top`}
         value={values.top}
         unit={unit}
@@ -85,6 +86,7 @@ function EdgeFields({
         onChange={(v) => onChange('top', v)}
       />
       <NumberField
+        labelWrap
         label={`${label} right`}
         value={values.right}
         unit={unit}
@@ -94,6 +96,7 @@ function EdgeFields({
         onChange={(v) => onChange('right', v)}
       />
       <NumberField
+        labelWrap
         label={`${label} bottom`}
         value={values.bottom}
         unit={unit}
@@ -103,6 +106,7 @@ function EdgeFields({
         onChange={(v) => onChange('bottom', v)}
       />
       <NumberField
+        labelWrap
         label={`${label} left`}
         value={values.left}
         unit={unit}
@@ -283,29 +287,28 @@ export function PagePrintSection() {
         </FieldRow>
         <div className="page-print__edges">
           <NumberField
+            labelWrap
             label="Page width"
             value={pageWidth}
             unit="px"
             onChange={(v) => applySize(v, pageHeight)}
           />
           <NumberField
+            labelWrap
             label="Page height"
             value={pageHeight}
             unit="px"
             onChange={(v) => applySize(pageWidth, v)}
           />
         </div>
-        <button
-          type="button"
-          className="page-print__toggle"
-          onClick={() => applySize(pageHeight, pageWidth)}
-        >
+        <Button variant="outline" size="sm" onClick={() => applySize(pageHeight, pageWidth)}>
           Swap orientation
-        </button>
+        </Button>
         <h4 className="page-print__sub">Layout guides</h4>
         <div className="page-print__edges">
           {(['top', 'bottom', 'inside', 'outside'] as const).map((edge) => (
             <NumberField
+              labelWrap
               key={edge}
               label={`Margin ${edge}`}
               value={layoutGeometry.settings.margins[edge]}
@@ -323,6 +326,7 @@ export function PagePrintSection() {
         </div>
         <div className="page-print__edges">
           <NumberField
+            labelWrap
             label="Columns"
             value={layoutGeometry.settings.columns.count}
             min={1}
@@ -336,6 +340,7 @@ export function PagePrintSection() {
             }
           />
           <NumberField
+            labelWrap
             label="Column gutter"
             value={layoutGeometry.settings.columns.gutter}
             unit="px"

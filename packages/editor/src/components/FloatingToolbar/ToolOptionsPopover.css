@@ -22,10 +22,7 @@
 .tool-options__selection {
   display: grid;
   gap: var(--space-3);
-  /* Wide enough that the text options' longest select label ("Vertical
-   * right-to-left") fits the closed control; native selects cannot ellipsize
-   * their closed state portably. */
-  min-inline-size: 20rem;
+  min-inline-size: 0;
   padding: var(--space-3);
 }
 
@@ -128,6 +125,18 @@
   inline-size: auto;
   min-width: 7rem;
   max-width: 12rem;
+}
+
+@media (max-width: 480px) {
+  .tool-options__native-select {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .tool-options__native-select .varve-native-select__control {
+    inline-size: 100%;
+    max-inline-size: 100%;
+  }
 }
 
 /* Bounded trigger for labeled selects (retouch sampling scope) so the row

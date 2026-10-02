@@ -158,6 +158,70 @@ describe('shouldIgnoreShortcutTarget', () => {
   });
 });
 
+describe('Inspector drawer history ownership', () => {
+  it.each([
+    '<button id="target">Swap orientation</button>',
+    '<button><span id="target">Swap orientation</span></button>',
+    '<label role="switch">Show safe area <input type="checkbox" id="target" /></label>',
+    '<label>Show guides <input type="radio" id="target" /></label>',
+  ])('delegates only history from non-editing Inspector controls: %s', (control) => {
+    document.body.innerHTML = `
+      <aside role="dialog" data-editor-shortcut-scope="inspector-history">
+        ${control}
+      </aside>
+    `;
+    const target = document.getElementById('target');
+    expect(shouldIgnoreHistoryShortcutTarget(target)).toBe(false);
+    expect(shouldIgnoreShortcutTarget(target)).toBe(true);
+  });
+
+  it.each([
+    '<input id="target" value="1920" />',
+    '<input id="target" type="number" value="1920" />',
+    '<textarea id="target">Page title</textarea>',
+    '<select id="target"><option>Portrait</option></select>',
+    '<div role="combobox"><button id="target">Preset</button></div>',
+    '<div role="listbox"><button id="target">Preset</button></div>',
+    '<div role="spinbutton"><span id="target">Width</span></div>',
+    '<div role="textbox"><span id="target">Title</span></div>',
+    '<div role="slider"><span id="target">Scale</span></div>',
+    '<div role="radiogroup"><button id="target">Orientation</button></div>',
+    '<div data-shortcut-ignore><button id="target">Reserved</button></div>',
+    '<div role="dialog"><button id="target">Confirm</button></div>',
+    '<div role="alertdialog" aria-modal="true"><button id="target">Confirm</button></div>',
+    '<div role="alertdialog" aria-modal="false"><button id="target">Confirm</button></div>',
+    '<dialog open><button id="target">Confirm</button></dialog>',
+  ])('preserves native editing, widget and nested dialog ownership: %s', (control) => {
+    document.body.innerHTML = `
+      <aside role="dialog" data-editor-shortcut-scope="inspector-history">
+        ${control}
+      </aside>
+    `;
+    expect(shouldIgnoreHistoryShortcutTarget(document.getElementById('target'))).toBe(true);
+  });
+
+  it('preserves editable text ownership inside the Inspector drawer', () => {
+    document.body.innerHTML = `
+      <aside role="dialog" data-editor-shortcut-scope="inspector-history">
+        <span id="target" contenteditable="true">Page title</span>
+      </aside>
+    `;
+    const target = document.getElementById('target')!;
+    Object.defineProperty(target, 'isContentEditable', { value: true });
+    expect(shouldIgnoreHistoryShortcutTarget(target)).toBe(true);
+  });
+
+  it.each([
+    '<aside role="dialog"><button id="target">Swap orientation</button></aside>',
+    '<dialog open><aside role="dialog" data-editor-shortcut-scope="inspector-history"><button id="target">Swap orientation</button></aside></dialog>',
+    '<div role="dialog"><aside role="dialog" data-editor-shortcut-scope="inspector-history"><button id="target">Swap orientation</button></aside></div>',
+    '<div role="alertdialog" aria-modal="true"><aside role="dialog" data-editor-shortcut-scope="inspector-history"><button id="target">Swap orientation</button></aside></div>',
+  ])('does not delegate through unmarked or enclosing dialogs: %s', (markup) => {
+    document.body.innerHTML = markup;
+    expect(shouldIgnoreHistoryShortcutTarget(document.getElementById('target'))).toBe(true);
+  });
+});
+
 describe('shouldIgnoreCropShortcutTarget', () => {
   it('delegates consumed tool keys from the crop overlay and handles without enabling app keys', () => {
     document.body.innerHTML = `

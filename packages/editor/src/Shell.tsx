@@ -100,7 +100,6 @@ import { TabStrip } from './TabStrip';
 import {
   editorHeadingLabel,
   getDockPanelA11yProps,
-  getResponsiveDrawerFocusable,
   isPagePanelUserControlled,
   layersDrawerStyle,
   resolvePageSurfaceVisibility,
@@ -108,6 +107,7 @@ import {
   useEditorDockGeometry,
   useEffectiveWorkspaceConfig,
   useFitOnFirstDocument,
+  useResponsiveDrawerFocus,
   useResponsivePanelClosers,
   useWorkspacePanelWidths,
 } from './workspace/shellHooks';
@@ -500,69 +500,13 @@ function ShellInner({
       triggerRef: responsivePanelTriggerRef,
     });
 
-  // Responsive panel drawers (<=899px) are modal surfaces: focus enters the
-  // opened drawer, Tab stays inside it, and Escape/backdrop close returns focus
-  // to the trigger. The panels remain ordinary complementary regions on
-  // desktop, so this scope is enabled only at the drawer breakpoint.
-  useEffect(() => {
-    if (!layersVisible && !inspectorVisible && !libraryPanelVisible) return;
-    if (!window.matchMedia('(max-width: 899px)').matches) return;
-
-    const trigger = responsivePanelTriggerRef.current;
-    const panelId = trigger?.getAttribute('aria-controls');
-    const panel = panelId ? document.getElementById(panelId) : null;
-    if (!panel) return;
-
-    const focusTimer = window.requestAnimationFrame(() => {
-      const first = getResponsiveDrawerFocusable(panel);
-      if (first[0]) {
-        first[0].focus({ preventScroll: true });
-        return;
-      }
-      panel.setAttribute('tabindex', '-1');
-      panel.focus({ preventScroll: true });
-    });
-
-    const onKey = (e: KeyboardEvent) => {
-      if (
-        document.documentElement.dataset.layoutMode === 'tablet' &&
-        inspectorVisible &&
-        !layersVisible &&
-        !libraryPanelVisible
-      ) {
-        if (e.key === 'Escape') {
-          e.preventDefault();
-          closeResponsivePanels();
-        }
-        return;
-      }
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        closeResponsivePanels();
-        return;
-      }
-      if (e.key !== 'Tab' || !panel.contains(document.activeElement)) return;
-      const focusable = getResponsiveDrawerFocusable(panel);
-      if (focusable.length === 0) return;
-      const first = focusable[0]!;
-      const last = focusable[focusable.length - 1]!;
-      if (e.shiftKey && document.activeElement === first) {
-        e.preventDefault();
-        last.focus({ preventScroll: true });
-      } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault();
-        first.focus({ preventScroll: true });
-      }
-    };
-    // Capture Escape before a nested tree/listbox consumes it, and capture
-    // Tab before the browser advances focus outside the drawer.
-    window.addEventListener('keydown', onKey, true);
-    return () => {
-      window.cancelAnimationFrame(focusTimer);
-      window.removeEventListener('keydown', onKey, true);
-      if (panel.getAttribute('tabindex') === '-1') panel.removeAttribute('tabindex');
-    };
-  }, [closeResponsivePanels, inspectorVisible, layersVisible, libraryPanelVisible]);
+  useResponsiveDrawerFocus({
+    layersVisible,
+    inspectorVisible,
+    libraryPanelVisible,
+    triggerRef: responsivePanelTriggerRef,
+    closeResponsivePanels,
+  });
 
   const gridStyle: React.CSSProperties = { ...shellStyle };
   if (!leftPanelVisible) (gridStyle as Record<string, string>)['--sidebar-width'] = '0px';
@@ -779,6 +723,7 @@ function ShellInner({
           <aside
             className="editor__inspector-panel editor__panel--glass"
             data-panel="inspector"
+            data-editor-shortcut-scope="inspector-history"
             id="editor-inspector-panel"
             data-visible={inspectorVisible || undefined}
             style={dockGeometry.panelStyles.inspector}

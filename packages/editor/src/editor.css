@@ -2298,21 +2298,17 @@ input[type="number"] {
   .editor__fab {
     display: flex;
     --editor-panel-launcher-size: var(--touch-target-min, 44px);
-    /* Clear, from the viewport bottom: the status bar, the selection info
-       strip (28px min-height in SelectionInfoBar.css), the floating toolbar
-       (offset by --space-3; its measured height is published as
-       --floating-toolbar-height, with the toolbar token as fallback), and a
-       gap. The keyboard inset lifts them above the on-screen keyboard while
-       it is open. Previously the offset was a fixed 24-80px, which let the
-       FABs sit on top of toolbar buttons at every <=899px width. */
+    /* Share the palette's canvas grid containing block. Print's PageNav,
+       Motion's timeline, and wrapped lower chrome change the canvas bottom;
+       summing fixed status/selection heights left these controls under the
+       palette. Grid placement follows those actual rows and the keyboard's
+       viewport reduction without another observer or viewport offset. */
+    grid-area: canvas;
+    position: absolute;
     bottom: calc(
-      var(--statusbar-height) +
-      28px +
       var(--space-3) +
       var(--floating-toolbar-height, var(--toolbar-height)) +
-      var(--space-2) +
-      var(--keyboard-inset-bottom, 0px) +
-      env(safe-area-inset-bottom, 0px)
+      var(--space-2)
     );
   }
 }
@@ -7304,13 +7300,12 @@ dialog.varve-dialog--settings[open] {
    * window. Keep the same launch controls reachable in that fallback. */
   .editor-shell:not(:has(.editor-shell__canvas-dock[style*="position: absolute"])) .editor__fab {
     display: flex;
+    grid-area: canvas;
+    position: absolute;
     bottom: calc(
-      var(--statusbar-height) +
-      28px +
       var(--space-3) +
       var(--floating-toolbar-height, var(--toolbar-height)) +
-      var(--space-2) +
-      env(safe-area-inset-bottom, 0px)
+      var(--space-2)
     );
   }
 }

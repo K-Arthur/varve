@@ -1,6 +1,6 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { expect, type Page, test } from '@playwright/test';
+import { expect, type Locator, type Page, test } from '@playwright/test';
 import { captureProducerScreenshot } from '../../../scripts/screenshots/producer-capture.mjs';
 import { navigateToEditor } from '../shared';
 
@@ -79,6 +79,37 @@ async function detailLatencies(page: Page): Promise<number[]> {
   );
 }
 
+/** Scroll only the direct Inspector tab pane; outer hidden rails can scroll on focus. */
+async function frameTonalInspector(page: Page, target: Locator) {
+  await target.evaluate((element) => {
+    const inspector = element.closest('.editor-inspector');
+    const pane = inspector?.querySelector<HTMLElement>(':scope > #insp-tabpanel-adjustments');
+    const dock = element.closest('.editor__inspector-panel');
+    if (!inspector || !pane || !dock) throw new Error('Tonal Inspector scroll owner unavailable');
+    const focused = document.activeElement;
+    if (focused instanceof HTMLElement && inspector.contains(focused)) focused.blur();
+    // scrollIntoView and focused fields can move overflow:hidden ancestors,
+    // placing the tab row underneath the absolute dock header. Keep those
+    // rails at the top and move only the actual direct-child content pane.
+    for (let ancestor = pane.parentElement; ancestor; ancestor = ancestor.parentElement) {
+      ancestor.scrollTop = 0;
+      if (ancestor === dock) break;
+    }
+    const padding = Number.parseFloat(getComputedStyle(pane).paddingTop) || 0;
+    pane.scrollTop +=
+      element.getBoundingClientRect().top - pane.getBoundingClientRect().top - padding;
+  });
+  const tabs = page.getByRole('tablist', { name: 'Inspector tabs', exact: true });
+  const dockHeader = page.getByRole('toolbar', { name: 'Inspector panel controls', exact: true });
+  await expect(tabs).toBeInViewport({ ratio: 1 });
+  await expect(dockHeader).toBeInViewport({ ratio: 1 });
+  await expect(target).toBeInViewport({ ratio: 1 });
+  const [tabsBox, headerBox] = await Promise.all([tabs.boundingBox(), dockHeader.boundingBox()]);
+  expect(tabsBox).not.toBeNull();
+  expect(headerBox).not.toBeNull();
+  expect(tabsBox!.y).toBeGreaterThanOrEqual(headerBox!.y + headerBox!.height - 1);
+}
+
 async function add(page: Page, name: string) {
   await page.getByRole('button', { name: /add adjustment/i }).click();
   await page.getByRole('menuitem', { name, exact: true }).click();
@@ -113,7 +144,7 @@ test('retains curve channels, precise points and mixer rows through actual contr
   await number(page, 'Curve input', '77.25');
   await number(page, 'Curve output', '144.75');
   const graph = page.getByRole('img', { name: /Curve editor/ });
-  await graph.scrollIntoViewIfNeeded();
+  await frameTonalInspector(page, graph);
   const graphBox = await graph.boundingBox();
   const panelBox = await page.getByRole('region', { name: 'Inspector', exact: true }).boundingBox();
   expect(graphBox!.width).toBeLessThanOrEqual(panelBox!.width);
@@ -166,6 +197,18 @@ test('white balance samples upstream pixels, repeats, undoes, and split toning h
     page.getByRole('spinbutton', { name: 'Shadow saturation value (%)', exact: true }),
   ).toHaveValue('18');
   await number(page, 'Shadow range pivot value (%)', '61');
+  await frameTonalInspector(
+    page,
+    page.getByRole('combobox', { name: 'Split tone preset', exact: true }),
+  );
+  for (const name of [
+    'Shadow hue value (°)',
+    'Shadow saturation value (%)',
+    'Highlight hue value (°)',
+    'Highlight saturation value (%)',
+  ]) {
+    await expect(page.getByRole('spinbutton', { name, exact: true })).toBeInViewport({ ratio: 1 });
+  }
   await captureProducerScreenshot(page, test.info(), '04-split-tone-light.png');
   await page.getByRole('button', { name: 'Reset split toning', exact: true }).click();
   await expect(

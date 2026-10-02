@@ -415,6 +415,7 @@
 }
 
 .varve-native-select__control {
+  color-scheme: light;
   min-width: 0;
   min-height: var(--component-compact-height);
   box-sizing: border-box;
@@ -427,6 +428,19 @@
   font-size: var(--type-interface-control-size);
   line-height: var(--type-interface-control-line-height);
   outline-offset: 2px;
+}
+
+/* Native popup and closed-control chrome must follow the app's theme, even
+ * when the operating system uses a different appearance. WebKit can paint
+ * platform control surfaces independently of the authored background. */
+:root:is([data-theme="dark"], [data-theme="high-contrast"]) .varve-native-select__control {
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) .varve-native-select__control {
+    color-scheme: dark;
+  }
 }
 
 .varve-native-select__control:focus-visible {

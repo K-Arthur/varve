@@ -70,14 +70,14 @@
 }
 
 .insp-selection-sources__button--primary {
-  border-color: var(--color-accent-primary);
-  color: var(--color-accent-primary);
+  border-color: var(--color-interactive-default);
+  color: var(--color-interactive-default);
 }
 
 .insp-selection-sources__button--active {
   background: var(--color-accent-subtle, var(--color-surface-hover));
-  border-color: var(--color-accent-primary);
-  color: var(--color-accent-primary);
+  border-color: var(--color-interactive-default);
+  color: var(--color-accent-on-subtle);
 }
 
 .insp-selection-sources__error {

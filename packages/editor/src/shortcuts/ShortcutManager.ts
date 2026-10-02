@@ -895,7 +895,7 @@ const SHORTCUT_IGNORE_SELECTOR =
  */
 function shouldIgnoreShortcutTargetInScope(
   target: Element | null,
-  toolDialog: Element | null,
+  delegatingDialog: Element | null,
 ): boolean {
   if (!target) return false;
 
@@ -936,10 +936,11 @@ function shouldIgnoreShortcutTargetInScope(
   const dialog = target.closest?.('[role="dialog"]');
   if (dialog) {
     const outerDialog = dialog.parentElement?.closest('[role="dialog"],[role="alertdialog"]');
-    // Only the modal tool dispatcher may delegate crop's consumed keys to
-    // its own overlay. Global app shortcuts still treat this as a dialog,
-    // and nested dialogs/typing widgets remain protected above.
-    if (dialog === toolDialog && !outerDialog) return false;
+    // A scoped dispatcher may delegate its own bindings to this surface:
+    // crop's tool keys or the Inspector drawer's document history. General
+    // app shortcuts still treat both as dialogs; nested dialogs and typing
+    // widgets remain protected above.
+    if (dialog === delegatingDialog && !outerDialog) return false;
     const row = target.closest?.('[role="treeitem"][data-node-id]');
     const scope = target.closest?.('[data-editor-shortcut-scope="layers-tree"]');
     return !row || scope !== dialog || Boolean(outerDialog) || isNativeActivationKeyTarget(target);
@@ -959,9 +960,10 @@ export function shouldIgnoreCropShortcutTarget(target: Element | null): boolean 
 }
 
 /**
- * Undo and redo stay available when focus is on a native checkbox or radio
- * input. Inspector switches retain that focus after activation, but they are
- * not text-entry contexts; other global shortcuts remain suppressed there.
+ * Undo and redo stay available on non-editing Inspector controls, including
+ * commands inside its responsive drawer and native checkbox/radio inputs.
+ * Text-entry widgets keep native history, while other global shortcuts remain
+ * suppressed in the drawer.
  */
 export function shouldIgnoreHistoryShortcutTarget(target: Element | null): boolean {
   if (!target) return false;
@@ -975,7 +977,13 @@ export function shouldIgnoreHistoryShortcutTarget(target: Element | null): boole
     const tag = resolved.tagName?.toLowerCase();
     return tag === 'input' || tag === 'textarea';
   }
-  return shouldIgnoreShortcutTarget(resolved);
+  const nearestDialog = resolved.closest?.('[role="dialog"],[role="alertdialog"]');
+  const inspectorDrawer = nearestDialog?.matches(
+    '[role="dialog"][data-editor-shortcut-scope="inspector-history"]',
+  )
+    ? nearestDialog
+    : null;
+  return shouldIgnoreShortcutTargetInScope(resolved, inspectorDrawer);
 }
 
 /**

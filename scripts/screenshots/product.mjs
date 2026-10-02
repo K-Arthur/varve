@@ -1084,6 +1084,22 @@ const SCENES = [
       await page.waitForTimeout(600);
       // Keep the section heading above its fields. Scrolling the first label
       // to the rail's top would put it behind the sticky disclosure header.
+      await typography
+        .getByText(/^Font family$/)
+        .first()
+        .evaluate((label) => {
+          const rail = label.closest('.insp-panel');
+          const header = label
+            .closest('.insp-disclosure')
+            ?.querySelector('.insp-disclosure__header');
+          if (!(rail instanceof HTMLElement) || !header)
+            throw new Error('Typography scroll rail unavailable');
+          rail.scrollTop +=
+            label.getBoundingClientRect().top -
+            rail.getBoundingClientRect().top -
+            header.getBoundingClientRect().height -
+            8;
+        });
       const familyClearOfHeader = await typography
         .getByText(/^Font family$/)
         .first()
@@ -1122,7 +1138,7 @@ const SCENES = [
     file: 'font-toolbar-light.png',
     theme: 'light',
     feature: 'typography',
-    alt: 'The compact text toolbar with its font family menu open above editable text',
+    alt: 'The floating text formatting toolbar with its font family menu open during text editing',
     caption: 'Choose a font while editing text',
     async run(page) {
       await openCleanEditor(page);
@@ -1475,7 +1491,11 @@ const SCENES = [
       'Trace an imported image into editable paths — entirely on-device, with prepare/overlay/vector previews before anything is committed.',
     async run(page) {
       await openCleanEditor(page);
-      await importImage(page, 'earth.jpg');
+      // The default Dialog caps at 42rem even in a taller viewport. This
+      // rights-cleared 16:9 photograph keeps the genuine warning, complete
+      // preview, diagnostics, and Apply/Cancel row in its bounded body.
+      // Source/license/hash: tests/e2e/fixtures/PROVENANCE.md.
+      await importImage(page, '../../../tests/e2e/fixtures/real-life-noaa-deepwater.jpg');
       await selectImageNode(page);
       await fitContent(page);
       const vectorize = page
@@ -1505,10 +1525,36 @@ const SCENES = [
       // only render with a settled result instead of a fixed delay, so the
       // capture never shows the previous mode's (or an empty) preview.
       await dialog.locator('.vectorize__diagnostics').waitFor({ state: 'visible', timeout: 30000 });
-      // The dialog is taller than the viewport; bring the preview into frame
-      // (the point of the capture) before the harness screenshots it.
-      await dialog.locator('.vectorize__preview').scrollIntoViewIfNeeded();
+      // Frame the actual complexity warning and bounded result together.
+      // Scrolling only the preview previously left the warning's final word
+      // clipped below the sticky heading. Never hide a warning for a capture.
+      const warning = dialog.getByRole('alert').filter({ hasText: /extremely complex/i });
+      await expect(warning).toBeVisible();
+      await warning.evaluate((element) => {
+        const body = element.closest('.varve-dialog__body');
+        const actions = body?.querySelector('.vectorize__button-row');
+        if (!body || !actions) throw new Error('Vectorize dialog has no bounded result body');
+        const bodyRect = body.getBoundingClientRect();
+        const warningRect = element.getBoundingClientRect();
+        const actionsRect = actions.getBoundingClientRect();
+        const firstScroll = body.scrollTop + actionsRect.bottom - bodyRect.bottom + 4;
+        const lastScroll = body.scrollTop + warningRect.top - bodyRect.top - 4;
+        if (firstScroll > lastScroll) {
+          throw new Error('Vectorize warning and Apply/Cancel row cannot fit together');
+        }
+        body.scrollTop = Math.max(0, firstScroll);
+      });
       await page.waitForTimeout(400);
+      for (const element of [
+        warning,
+        dialog.locator('.vectorize__preview-controls'),
+        dialog.locator('.vectorize__preview'),
+        dialog.locator('.vectorize__diagnostics'),
+        dialog.getByRole('button', { name: 'Apply trace', exact: true }),
+        dialog.getByRole('button', { name: 'Cancel', exact: true }),
+      ]) {
+        await expect(element).toBeInViewport({ ratio: 1 });
+      }
     },
   },
   {
@@ -1580,7 +1626,7 @@ const SCENES = [
     file: 'background-removal-light.png',
     theme: 'light',
     feature: 'background-removal',
-    alt: 'The Varve background removal inspector after generating a cutout mask on an imported photo, with the mask shown on a checkerboard and confidence reported before applying',
+    alt: 'The Varve background removal inspector after generating a cutout mask on an imported photo, with the mask shown on a checkerboard and its algorithm score reported before applying',
     caption: 'Generate a cutout locally, review the mask on a checkerboard, then apply it.',
     async run(page) {
       await openCleanEditor(page);

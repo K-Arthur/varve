@@ -78,6 +78,39 @@ test.describe('variable font axes', () => {
     await expect(slider).toHaveAttribute('max', '900');
   });
 
+  test('the styled axis reset restores the font default and remains undoable', async ({
+    page,
+  }, testInfo) => {
+    test.setTimeout(120000);
+    await typeSpecimen(page, 'Geist Variable');
+    await openVariableAxes(page);
+
+    const slider = page.getByRole('slider', { name: /Weight \(wght\)/ });
+    const reset = page.getByRole('button', { name: 'Reset Weight to default', exact: true });
+    const defaultValue = await slider.inputValue();
+    await expect(reset).toBeDisabled();
+    await slider.fill('900');
+    await expect(reset).toBeEnabled();
+    await reset.scrollIntoViewIfNeeded();
+    await expect(reset).toBeInViewport({ ratio: 1 });
+    const geometry = await reset.boundingBox();
+    expect(geometry?.height ?? 0).toBeGreaterThanOrEqual(24);
+    expect(geometry?.width ?? 0).toBeGreaterThanOrEqual(24);
+    await reset.focus();
+    await page.keyboard.press('Tab');
+    await page.keyboard.press('Shift+Tab');
+    await expect(reset).toBeFocused();
+    await expect(reset).toHaveCSS('outline-style', 'solid');
+    await page.screenshot({ path: testInfo.outputPath('variable-font-axis-reset.png') });
+
+    await reset.press('Enter');
+    await expect(slider).toHaveValue(defaultValue);
+    await expect(reset).toBeDisabled();
+    await page.keyboard.press('ControlOrMeta+z');
+    await expect(slider).toHaveValue('900');
+    await expect(reset).toBeEnabled();
+  });
+
   test('dragging an axis redraws the glyphs', async ({ page }, testInfo) => {
     test.setTimeout(120000);
     await typeSpecimen(page, 'Geist Variable');

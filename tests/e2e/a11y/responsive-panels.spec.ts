@@ -1,6 +1,9 @@
 import { expect, test } from '@playwright/test';
 import { navigateToEditor, seedLayers } from '../shared';
 
+const focusableSelector =
+  'a[href]:visible, button:not([disabled]):visible, input:not([disabled]):visible, textarea:not([disabled]):visible, select:not([disabled]):visible, [tabindex]:not([tabindex="-1"]):not([disabled]):visible';
+
 test.describe('responsive panel drawers', () => {
   test('opens a usable narrow Layers drawer while its desktop rail stays collapsed', async ({
     page,
@@ -163,6 +166,78 @@ test.describe('responsive panel drawers', () => {
     await expect(restoreInspector).toBeVisible();
     await restoreInspector.click();
     await expect(collapse).toBeVisible();
+  });
+
+  test('an open Inspector releases desktop keyboard capture and reactivates after resizing back', async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await navigateToEditor(page);
+    const launcher = page.locator('.editor__fab--inspector');
+    const panel = page.locator('.editor__inspector-panel');
+    await launcher.click();
+    await expect(launcher).toHaveAttribute('aria-expanded', 'true');
+    await expect(panel).toHaveAttribute('data-visible', 'true');
+    const mobileControls = panel.locator(focusableSelector);
+    await expect(mobileControls.first()).toBeFocused();
+    await mobileControls.last().focus();
+    await page.keyboard.press('Tab');
+    await expect(mobileControls.first()).toBeFocused();
+
+    await page.setViewportSize({ width: 1024, height: 844 });
+    await expect(panel).toBeVisible();
+    await expect(panel).toHaveAttribute('data-visible', 'true');
+    const desktopControls = panel.locator(focusableSelector);
+    await desktopControls.last().focus();
+    await expect(desktopControls.last()).toBeFocused();
+    await page.keyboard.press('Tab');
+    await testInfo.attach('desktop-keyboard-owner', {
+      body: JSON.stringify(
+        await page.evaluate(() => ({
+          width: innerWidth,
+          active: document.activeElement?.outerHTML,
+          inspectorVisible: document
+            .querySelector('.editor__inspector-panel')
+            ?.getAttribute('data-visible'),
+          launcherExpanded: document
+            .querySelector('.editor__fab--inspector')
+            ?.getAttribute('aria-expanded'),
+        })),
+        null,
+        2,
+      ),
+      contentType: 'application/json',
+    });
+    await page.screenshot({ path: testInfo.outputPath('open-inspector-resized-desktop.png') });
+    await expect.soft(desktopControls.first()).not.toBeFocused();
+    await expect(launcher).toHaveAttribute('aria-expanded', 'true');
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(launcher).toHaveAttribute('aria-expanded', 'true');
+    await expect(mobileControls.first()).toBeFocused();
+    await mobileControls.last().focus();
+    await page.keyboard.press('Tab');
+    await expect(mobileControls.first()).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(launcher).toHaveAttribute('aria-expanded', 'false');
+    await expect(launcher).toBeFocused();
+  });
+
+  test('desktop Escape leaves an Inspector opened before resizing intact', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await navigateToEditor(page);
+    const launcher = page.locator('.editor__fab--inspector');
+    const panel = page.locator('.editor__inspector-panel');
+    await launcher.click();
+    await expect(panel.locator(focusableSelector).first()).toBeFocused();
+    await page.setViewportSize({ width: 1024, height: 844 });
+    await expect(panel).toBeVisible();
+    const target = panel.locator(focusableSelector).last();
+    await target.focus();
+    await expect(target).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(launcher).toHaveAttribute('aria-expanded', 'true');
+    await expect(panel).toHaveAttribute('data-visible', 'true');
   });
 
   test('closes each drawer with Escape and restores focus to its trigger', async ({ page }) => {

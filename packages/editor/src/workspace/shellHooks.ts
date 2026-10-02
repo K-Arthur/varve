@@ -15,7 +15,7 @@ export function layersDrawerStyle(
 const RESPONSIVE_DRAWER_FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"]):not([disabled])';
 
-export function getResponsiveDrawerFocusable(container: HTMLElement): HTMLElement[] {
+function getResponsiveDrawerFocusable(container: HTMLElement): HTMLElement[] {
   const ownerWindow = container.ownerDocument.defaultView;
   return Array.from(container.querySelectorAll<HTMLElement>(RESPONSIVE_DRAWER_FOCUSABLE)).filter(
     (element) => {
@@ -83,6 +83,96 @@ export function useResponsivePanelClosers({
   }, [restoreTriggerFocus, setLayersVisible]);
 
   return { closeResponsivePanels, closeResponsiveInspector, closeResponsiveLayers };
+}
+
+type ResponsiveDrawerFocusOptions = Pick<
+  ResponsivePanelClosersOptions,
+  'layersVisible' | 'inspectorVisible' | 'libraryPanelVisible' | 'triggerRef'
+> & {
+  closeResponsivePanels: () => void;
+};
+
+/** Focus a newly opened drawer once; document updates keep its current focus. */
+export function useResponsiveDrawerFocus({
+  layersVisible,
+  inspectorVisible,
+  libraryPanelVisible,
+  triggerRef,
+  closeResponsivePanels,
+}: ResponsiveDrawerFocusOptions): void {
+  const latestRef = useRef({ triggerRef, closeResponsivePanels });
+  latestRef.current = { triggerRef, closeResponsivePanels };
+
+  useEffect(() => {
+    if (!layersVisible && !inspectorVisible && !libraryPanelVisible) return;
+    const mediaQuery = window.matchMedia('(max-width: 899px)');
+    let releaseFocusScope: (() => void) | undefined;
+    const syncFocusScope = () => {
+      releaseFocusScope?.();
+      releaseFocusScope = undefined;
+      if (!mediaQuery.matches) return;
+
+      const trigger = latestRef.current.triggerRef.current;
+      const panelId = trigger?.getAttribute('aria-controls');
+      const panel = panelId ? document.getElementById(panelId) : null;
+      if (!panel) return;
+
+      const focusTimer = window.requestAnimationFrame(() => {
+        const first = getResponsiveDrawerFocusable(panel);
+        if (first[0]) {
+          first[0].focus({ preventScroll: true });
+          return;
+        }
+        panel.setAttribute('tabindex', '-1');
+        panel.focus({ preventScroll: true });
+      });
+
+      const onKey = (event: KeyboardEvent) => {
+        if (
+          document.documentElement.dataset.layoutMode === 'tablet' &&
+          inspectorVisible &&
+          !layersVisible &&
+          !libraryPanelVisible
+        ) {
+          if (event.key === 'Escape') {
+            event.preventDefault();
+            latestRef.current.closeResponsivePanels();
+          }
+          return;
+        }
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          latestRef.current.closeResponsivePanels();
+          return;
+        }
+        if (event.key !== 'Tab' || !panel.contains(document.activeElement)) return;
+        const focusable = getResponsiveDrawerFocusable(panel);
+        if (focusable.length === 0) return;
+        const first = focusable[0]!;
+        const last = focusable[focusable.length - 1]!;
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus({ preventScroll: true });
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus({ preventScroll: true });
+        }
+      };
+      // Capture Escape/Tab before nested widgets consume them or focus exits.
+      window.addEventListener('keydown', onKey, true);
+      releaseFocusScope = () => {
+        window.cancelAnimationFrame(focusTimer);
+        window.removeEventListener('keydown', onKey, true);
+        if (panel.getAttribute('tabindex') === '-1') panel.removeAttribute('tabindex');
+      };
+    };
+    syncFocusScope();
+    mediaQuery.addEventListener('change', syncFocusScope);
+    return () => {
+      mediaQuery.removeEventListener('change', syncFocusScope);
+      releaseFocusScope?.();
+    };
+  }, [inspectorVisible, layersVisible, libraryPanelVisible]);
 }
 
 /** E4 (2026-08-10): document-level heading label for SR heading navigation. */

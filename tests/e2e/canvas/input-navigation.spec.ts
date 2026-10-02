@@ -205,37 +205,61 @@ test.describe('Wheel navigation', () => {
     expect(after.x).not.toBeCloseTo(before.x, 0);
   });
 
-  test('ctrl+wheel zooms around the cursor with focal point preserved', async ({ page }) => {
+  test('ctrl+wheel zooms around the cursor with focal point preserved', async ({
+    page,
+  }, testInfo) => {
     const canvas = page.locator('canvas.editor-canvas__content-layer');
     await page.keyboard.press('r');
     await dragOnCanvas(page, 80, 60, 180, 160);
     await canvas.focus();
     const before = await selectionRect(page);
 
-    // The wheel is dispatched at the selection's center; after zooming in,
-    // that world point must stay under the cursor.
+    // Chromium floors WheelEvent client coordinates. Use the world point
+    // under the actual event, which can differ from the fractional selection
+    // center, rather than requiring that nearby center to remain stationary.
     const center = { x: before.x + before.width / 2, y: before.y + before.height / 2 };
-    await canvas.evaluate((element, anchor) => {
+    const wheelAnchor = await canvas.evaluate((element, anchor) => {
       const bounds = element.getBoundingClientRect();
-      for (let i = 0; i < 8; i += 1) {
-        element.dispatchEvent(
-          new WheelEvent('wheel', {
-            bubbles: true,
-            cancelable: true,
-            clientX: bounds.left + anchor.x,
-            clientY: bounds.top + anchor.y,
-            ctrlKey: true,
-            deltaY: -15,
-          }),
-        );
-      }
+      const wheel = () =>
+        new WheelEvent('wheel', {
+          bubbles: true,
+          cancelable: true,
+          clientX: bounds.left + anchor.x,
+          clientY: bounds.top + anchor.y,
+          ctrlKey: true,
+          deltaY: -15,
+        });
+      const first = wheel();
+      const received = {
+        clientX: first.clientX,
+        clientY: first.clientY,
+        localX: first.clientX - bounds.left,
+        localY: first.clientY - bounds.top,
+      };
+      element.dispatchEvent(first);
+      for (let i = 1; i < 8; i += 1) element.dispatchEvent(wheel());
+      return received;
     }, center);
     await page.waitForTimeout(200);
 
     const after = await selectionRect(page);
+    const afterCanvas = await canvas.boundingBox();
+    if (!afterCanvas) throw new Error('content canvas not found after zoom');
+    const anchorFraction = {
+      x: (wheelAnchor.localX - before.x) / before.width,
+      y: (wheelAnchor.localY - before.y) / before.height,
+    };
+    await testInfo.attach('wheel-focal-geometry', {
+      body: JSON.stringify({ before, after, center, wheelAnchor, afterCanvas, anchorFraction }),
+      contentType: 'application/json',
+    });
     expect(after.width).toBeGreaterThan(before.width * 2);
-    expect(Math.abs(after.x + after.width / 2 - center.x)).toBeLessThanOrEqual(1);
-    expect(Math.abs(after.y + after.height / 2 - center.y)).toBeLessThanOrEqual(1);
+    expect(
+      Math.abs(afterCanvas.x + after.x + after.width * anchorFraction.x - wheelAnchor.clientX),
+    ).toBeLessThanOrEqual(1);
+    expect(
+      Math.abs(afterCanvas.y + after.y + after.height * anchorFraction.y - wheelAnchor.clientY),
+    ).toBeLessThanOrEqual(1);
   });
 });
 

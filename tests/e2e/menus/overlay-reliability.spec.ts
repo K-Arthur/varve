@@ -31,7 +31,12 @@ function assertVerticalOverlap(parent: Rect, child: Rect): void {
 }
 
 async function rect(page: Page, selector: string): Promise<Rect> {
-  return page.locator(selector).evaluate((element) => {
+  return page.locator(selector).evaluate(async (element) => {
+    // The entrance animation scales the floating surface. Measure settled
+    // placement while preserving the real animation and its pointer behavior.
+    await Promise.all(
+      element.getAnimations().map((animation) => animation.finished.catch(() => {})),
+    );
     const value = element.getBoundingClientRect();
     return {
       left: value.left,
@@ -171,13 +176,15 @@ test.describe('Overlay geometry and event reliability', () => {
     // Compare the menu with the exact viewport point sent to the real mouse.
     // A locator click may recalculate its center after the row box is read.
     expect(Math.abs(contextRect.left - invocation.x)).toBeLessThanOrEqual(3);
-    // A tall context menu may flip above the point and be shifted to the safe
-    // viewport edge. Measure the distance to the nearer edge instead of
-    // requiring the point to remain inside a constrained, scrollable surface.
-    const distanceToAnchor = Math.min(
-      Math.abs(contextRect.top - invocation.y),
-      Math.abs(contextRect.bottom - invocation.y),
-    );
+    // A tall context menu can flip above the point and shift to the safe
+    // viewport edge. Measure distance to its visible interval: zero inside
+    // the menu, otherwise distance to the nearer edge.
+    const distanceToAnchor =
+      invocation.y < contextRect.top
+        ? contextRect.top - invocation.y
+        : invocation.y > contextRect.bottom
+          ? invocation.y - contextRect.bottom
+          : 0;
     expect(distanceToAnchor).toBeLessThanOrEqual(12);
 
     const selectItem = contextLayer.getByRole('menuitem', { name: /^Select/ });

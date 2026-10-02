@@ -189,6 +189,15 @@ function rectDetails(rect: DOMRect | undefined): Record<string, number> | undefi
   };
 }
 
+/** Measure the final layout box, independent of an entry-animation scale. */
+function floatingLayoutSize(floating: HTMLElement): { width: number; height: number } {
+  const rect = floating.getBoundingClientRect();
+  return {
+    width: floating.offsetWidth || rect.width,
+    height: floating.offsetHeight || rect.height,
+  };
+}
+
 function fallbackPosition(
   reference: Element | VirtualElement,
   floating: HTMLElement,
@@ -197,7 +206,7 @@ function fallbackPosition(
   ownerDocument: Document,
 ): { x: number; y: number } {
   const referenceRect = reference.getBoundingClientRect();
-  const floatingRect = floating.getBoundingClientRect();
+  const floatingSize = floatingLayoutSize(floating);
   const isTop = placement.startsWith('top');
   const isRight = placement.startsWith('right');
   const isLeft = placement.startsWith('left');
@@ -205,20 +214,20 @@ function fallbackPosition(
   let x = isRight
     ? referenceRect.right + gap
     : isLeft
-      ? referenceRect.left - floatingRect.width - gap
+      ? referenceRect.left - floatingSize.width - gap
       : isEnd
-        ? referenceRect.right - floatingRect.width
+        ? referenceRect.right - floatingSize.width
         : referenceRect.left;
   let y = isTop
-    ? referenceRect.top - floatingRect.height - gap
+    ? referenceRect.top - floatingSize.height - gap
     : placement.startsWith('bottom')
       ? referenceRect.bottom + gap
       : isEnd
-        ? referenceRect.bottom - floatingRect.height
+        ? referenceRect.bottom - floatingSize.height
         : referenceRect.top;
   const safe = safeViewportRect(ownerDocument, SAFE_VIEWPORT_PADDING);
-  x = Math.min(Math.max(safe.left, x), Math.max(safe.left, safe.right - floatingRect.width));
-  y = Math.min(Math.max(safe.top, y), Math.max(safe.top, safe.bottom - floatingRect.height));
+  x = Math.min(Math.max(safe.left, x), Math.max(safe.left, safe.right - floatingSize.width));
+  y = Math.min(Math.max(safe.top, y), Math.max(safe.top, safe.bottom - floatingSize.height));
   return { x, y };
 }
 
@@ -486,21 +495,21 @@ export function FloatingPortal({
           // open, so clamp the computed position into it as a final step and
           // cap the height when the popover is taller than the visible region.
           const clampRect = visualViewportClampRect(ownerDocument, SAFE_VIEWPORT_PADDING);
-          const floatingRect = floating.getBoundingClientRect();
+          const floatingSize = floatingLayoutSize(floating);
           let positionedX = result.x;
           let positionedY = result.y;
           let visualMaxHeight: number | undefined;
           if (clampRect.width > 0 && clampRect.height > 0) {
-            const clampedHeight = Math.min(floatingRect.height, clampRect.height);
+            const clampedHeight = Math.min(floatingSize.height, clampRect.height);
             positionedX = Math.min(
               Math.max(result.x, clampRect.left),
-              Math.max(clampRect.left, clampRect.right - floatingRect.width),
+              Math.max(clampRect.left, clampRect.right - floatingSize.width),
             );
             positionedY = Math.min(
               Math.max(result.y, clampRect.top),
               Math.max(clampRect.top, clampRect.bottom - clampedHeight),
             );
-            if (floatingRect.height > clampRect.height) {
+            if (floatingSize.height > clampRect.height) {
               visualMaxHeight = clampRect.height;
             }
           }

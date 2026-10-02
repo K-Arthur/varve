@@ -590,7 +590,7 @@ describe('Menubar disabled states', () => {
     await user.click(within(screen.getByRole('menubar')).getByRole('menuitem', { name: 'Object' }));
     const menu = await screen.findByRole('menu', { name: 'Object' });
     // Group requires 2+ selected
-    const groupItem = within(menu).getByRole('menuitem', { name: /Group/ });
+    const groupItem = await within(menu).findByRole('menuitem', { name: /Group/ });
     expect(groupItem).toBeDisabled();
   });
 

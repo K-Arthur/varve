@@ -14,6 +14,7 @@
  * running in the editor realm. React boundaries do not catch event-handler
  * errors or rejected promises.
  */
+import { Button } from '@varve/ui';
 import { Component, type ReactNode, useEffect, useState } from 'react';
 import { DisclosureSection } from './controls/DisclosureSection';
 import {
@@ -159,9 +160,9 @@ export function PluginSections({ tab, host }: { tab: string; host: PluginSection
       {errors.map((failure) => (
         <div className="insp-empty-message" role="alert" key={`error-${failure.pluginId}`}>
           {failure.name} stopped: {failure.error}.{' '}
-          <button type="button" onClick={() => requestRetry(failure.pluginId)}>
+          <Button variant="outline" size="sm" onClick={() => requestRetry(failure.pluginId)}>
             Retry plugin
-          </button>
+          </Button>
         </div>
       ))}
       {available.map((contrib) => {
