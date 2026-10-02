@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
+import { captureProducerScreenshot } from '../../../scripts/screenshots/producer-capture.mjs';
 import { openMenu } from '../helpers/menu-helpers';
 import { dragOnCanvas, navigateToEditor } from '../shared';
 
@@ -296,9 +297,7 @@ test.describe('concept-art reference workflow', () => {
       await page.evaluate((selectedTheme) => {
         document.documentElement.dataset.theme = selectedTheme;
       }, theme);
-      await page.screenshot({
-        path: info.outputPath(`concept-reference-${theme}.png`),
-      });
+      await captureProducerScreenshot(page, info, `concept-reference-${theme}.png`);
     }
     await page.setViewportSize({ width: 1024, height: 768 });
     await page.screenshot({ path: info.outputPath('concept-reference-narrow.png') });

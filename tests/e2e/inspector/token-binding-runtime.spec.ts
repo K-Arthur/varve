@@ -4,12 +4,12 @@
  * created through the Inspector's real picker, and the canvas pixels remain
  * the authority for whether a resolved color reached artwork.
  */
-import { mkdirSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { type Download, expect, type Locator, type Page, test } from '@playwright/test';
+import { captureProducerScreenshot } from '../../../scripts/screenshots/producer-capture.mjs';
 import { dragOnCanvas, navigateToEditor } from '../shared';
 
-const SCREENSHOT_DIR = resolve('docs/screenshots/dtcg-runtime-2026-09-25');
 const EXPORT_FIXTURE_PATH = resolve('docs/tokens/fixtures/runtime-export-2026-09-25.tokens.json');
 const CONTENT_CANVAS = 'canvas.editor-canvas__content-layer';
 
@@ -101,7 +101,7 @@ async function verifyArtworkAcrossThemes(page: Page): Promise<void> {
     await expectCanvasRgb(page, { x: 250, y: 240 }, [204, 51, 26]);
     await expectCanvasRgb(page, { x: 540, y: 240 }, [204, 51, 26]);
     await expectCanvasRgb(page, { x: 775, y: 240 }, [204, 51, 26]);
-    await page.screenshot({ path: resolve(SCREENSHOT_DIR, theme.file) });
+    await page.screenshot({ path: test.info().outputPath(theme.file) });
   }
 }
 
@@ -188,7 +188,7 @@ async function expectRemBindingUnavailable(page: Page): Promise<void> {
   await expect(remOption).toHaveCount(1);
   await expect(remOption).toHaveAttribute('aria-disabled', 'true');
   await expect(remOption).toHaveAttribute('title', /root-font size/i);
-  await page.screenshot({ path: resolve(SCREENSHOT_DIR, 'rem-binding-guard.png') });
+  await page.screenshot({ path: test.info().outputPath('rem-binding-guard.png') });
 
   // The option is visibly discoverable with its reason, but selecting it is
   // a no-op and keeps the picker open instead of creating a dead binding.
@@ -250,7 +250,6 @@ async function readDownload(download: Download): Promise<string> {
 test('imported DTCG aliases bind to artwork and follow source edits through history', async ({
   page,
 }) => {
-  mkdirSync(SCREENSHOT_DIR, { recursive: true });
   // Save through the browser download + Home mirror path so the final reload
   // checks the same local persistence path used without File System Access.
   await page.addInitScript(() => {
@@ -269,7 +268,7 @@ test('imported DTCG aliases bind to artwork and follow source edits through hist
   });
   await expect(dialog.getByText(/revision/i)).toBeVisible({ timeout: 15000 });
   await expect(dialog.getByText(/3 tokens ready to import/i)).toBeVisible();
-  await dialog.screenshot({ path: resolve(SCREENSHOT_DIR, 'import-preview.png') });
+  await dialog.screenshot({ path: test.info().outputPath('import-preview.png') });
 
   await dialog.getByRole('button', { name: 'Apply import' }).click();
   const sourceRow = dialog
@@ -277,7 +276,7 @@ test('imported DTCG aliases bind to artwork and follow source edits through hist
     .filter({ hasText: 'brand.tokens.json' });
   await expect(sourceRow).toBeVisible({ timeout: 15000 });
   await expect(sourceRow).toContainText('3 tokens');
-  await dialog.screenshot({ path: resolve(SCREENSHOT_DIR, 'import-applied.png') });
+  await dialog.screenshot({ path: test.info().outputPath('import-applied.png') });
 
   // Create a typed rem dimension and then a local color alias through the
   // actual form. The alias target list is filtered by the exact selected type.
@@ -285,7 +284,7 @@ test('imported DTCG aliases bind to artwork and follow source edits through hist
   await createLocalColorAlias(page, dialog);
   const tokenSummary = dialog.locator('.token-sync-panel__summary');
   await expect(tokenSummary).toContainText('5 tokens');
-  await dialog.screenshot({ path: resolve(SCREENSHOT_DIR, 'local-tokens-created.png') });
+  await dialog.screenshot({ path: test.info().outputPath('local-tokens-created.png') });
 
   await dialog.getByRole('button', { name: 'Close dialog' }).click();
   await expect(dialog).toBeHidden();
@@ -299,7 +298,7 @@ test('imported DTCG aliases bind to artwork and follow source edits through hist
   await shapeRows.first().click();
   await bindSelectedShapeFill(page, 'semantic.brand.curlyAlias');
   await expectCanvasRgb(page, { x: 250, y: 240 }, [51, 102, 204]);
-  await page.screenshot({ path: resolve(SCREENSHOT_DIR, 'curly-alias-bound.png') });
+  await captureProducerScreenshot(page, test.info(), 'curly-alias-bound.png');
   await expectRemBindingUnavailable(page);
 
   await page.keyboard.press('Escape');
@@ -314,7 +313,7 @@ test('imported DTCG aliases bind to artwork and follow source edits through hist
   await bindSelectedShapeFill(page, 'semantic.brand.pointerAlias');
   await expectCanvasRgb(page, { x: 250, y: 240 }, [51, 102, 204]);
   await expectCanvasRgb(page, { x: 540, y: 240 }, [51, 102, 204]);
-  await page.screenshot({ path: resolve(SCREENSHOT_DIR, 'both-aliases-bound.png') });
+  await page.screenshot({ path: test.info().outputPath('both-aliases-bound.png') });
 
   await page.keyboard.press('Escape');
   await page.keyboard.press('r');
@@ -322,7 +321,7 @@ test('imported DTCG aliases bind to artwork and follow source edits through hist
   await expect(shapeRows).toHaveCount(3);
   await bindSelectedShapeFill(page, 'local.brand.alias');
   await expectCanvasRgb(page, { x: 775, y: 240 }, [51, 102, 204]);
-  await page.screenshot({ path: resolve(SCREENSHOT_DIR, 'local-alias-bound.png') });
+  await page.screenshot({ path: test.info().outputPath('local-alias-bound.png') });
   const selectedLocalAliasShape = page.locator(
     '.layers-panel [role="treeitem"][data-layer-type="shape"][aria-selected="true"]',
   );
@@ -344,7 +343,7 @@ test('imported DTCG aliases bind to artwork and follow source edits through hist
   await expect(dialog.getByText(/1 updated from brand\.tokens\.json/i)).toBeVisible({
     timeout: 15000,
   });
-  await dialog.screenshot({ path: resolve(SCREENSHOT_DIR, 'source-edit-preview.png') });
+  await dialog.screenshot({ path: test.info().outputPath('source-edit-preview.png') });
 
   await dialog.getByRole('button', { name: 'Apply update' }).click();
   await expect(dialog.getByText(/revision/i)).toBeHidden();
@@ -352,7 +351,7 @@ test('imported DTCG aliases bind to artwork and follow source edits through hist
   await expectCanvasRgb(page, { x: 250, y: 240 }, [204, 51, 26]);
   await expectCanvasRgb(page, { x: 540, y: 240 }, [204, 51, 26]);
   await expectCanvasRgb(page, { x: 775, y: 240 }, [204, 51, 26]);
-  await page.screenshot({ path: resolve(SCREENSHOT_DIR, 'source-update-applied.png') });
+  await page.screenshot({ path: test.info().outputPath('source-update-applied.png') });
 
   // A source update is a document history entry: undo restores all bound
   // fills, and redo propagates the revised foundation through each alias.
@@ -360,13 +359,13 @@ test('imported DTCG aliases bind to artwork and follow source edits through hist
   await expectCanvasRgb(page, { x: 250, y: 240 }, [51, 102, 204]);
   await expectCanvasRgb(page, { x: 540, y: 240 }, [51, 102, 204]);
   await expectCanvasRgb(page, { x: 775, y: 240 }, [51, 102, 204]);
-  await page.screenshot({ path: resolve(SCREENSHOT_DIR, 'source-update-undone.png') });
+  await page.screenshot({ path: test.info().outputPath('source-update-undone.png') });
 
   await page.keyboard.press('ControlOrMeta+Shift+z');
   await expectCanvasRgb(page, { x: 250, y: 240 }, [204, 51, 26]);
   await expectCanvasRgb(page, { x: 540, y: 240 }, [204, 51, 26]);
   await expectCanvasRgb(page, { x: 775, y: 240 }, [204, 51, 26]);
-  await page.screenshot({ path: resolve(SCREENSHOT_DIR, 'source-update-redone.png') });
+  await page.screenshot({ path: test.info().outputPath('source-update-redone.png') });
 
   // Portable export must retain the source references rather than flattening
   // them to the current resolved RGB value.
@@ -429,7 +428,7 @@ test('imported DTCG aliases bind to artwork and follow source edits through hist
   await ensureFillSectionExpanded(page);
   await expect(page.getByRole('button', { name: /^Linked to local\.brand\.alias/ })).toBeVisible();
   await expectCanvasRgb(page, { x: 775, y: 240 }, [204, 51, 26]);
-  await page.screenshot({ path: resolve(SCREENSHOT_DIR, 'reopened-persisted.png') });
+  await page.screenshot({ path: test.info().outputPath('reopened-persisted.png') });
   dialog = await openVariablesDialog(page);
   await expect(dialog.locator('.token-sync-panel__summary')).toContainText('5 tokens');
 });

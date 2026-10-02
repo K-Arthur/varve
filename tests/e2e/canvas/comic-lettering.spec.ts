@@ -1,5 +1,5 @@
-import { mkdirSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
+import { captureProducerScreenshot } from '../../../scripts/screenshots/producer-capture.mjs';
 import { navigateToEditor } from '../shared';
 
 /**
@@ -8,10 +8,9 @@ import { navigateToEditor } from '../shared';
  * These specs drive the actual editor: type natural dialogue, wrap it into a
  * balloon, grow the dialogue into a localization-length replacement, switch
  * balloon voices, and capture the canvas/inspector states for human review.
- * Screenshots land in docs/screenshots/comic-lettering/ so the visual record
- * travels with the repository.
+ * Screenshots and producer receipts stay in isolated test output for review
+ * before explicit promotion into documentation.
  */
-const SHOT_DIR = 'docs/screenshots/comic-lettering';
 
 async function selectLayer(page: import('@playwright/test').Page, pattern: RegExp) {
   const item = page.getByRole('treeitem', { name: pattern }).first();
@@ -120,23 +119,18 @@ test.describe('Comic lettering workflow', () => {
     // Capture the default result before the optional fit command. Fitting can
     // rebuild the parametric tail, so a post-fit screenshot would hide a seam
     // that a lettering user sees immediately after wrapping text.
-    mkdirSync(SHOT_DIR, { recursive: true });
-    await page.screenshot({
-      path: testInfo.outputPath('comic-lettering-balloon-inspector.png'),
-      animations: 'disabled',
-      fullPage: false,
-    });
+    await captureProducerScreenshot(page, testInfo, 'comic-lettering-balloon-inspector.png');
     await canvas.screenshot({
       path: testInfo.outputPath('comic-lettering-balloon-canvas.png'),
       animations: 'disabled',
     });
     await page.screenshot({
-      path: `${SHOT_DIR}/01-speech-balloon-inspector.png`,
+      path: test.info().outputPath(`01-speech-balloon-inspector.png`),
       animations: 'disabled',
       fullPage: false,
     });
     await canvas.screenshot({
-      path: `${SHOT_DIR}/01-speech-balloon-canvas.png`,
+      path: test.info().outputPath(`01-speech-balloon-canvas.png`),
       animations: 'disabled',
     });
 
@@ -195,20 +189,19 @@ test.describe('Comic lettering workflow', () => {
     await expect(fitStatus).toContainText(/exceeds/i);
     await expect(page.getByRole('treeitem', { name: /speech balloon/i }).first()).toBeVisible();
 
-    mkdirSync(SHOT_DIR, { recursive: true });
     await canvas.screenshot({
-      path: `${SHOT_DIR}/02-localization-overflow.png`,
+      path: test.info().outputPath(`02-localization-overflow.png`),
       animations: 'disabled',
     });
 
     await page.getByRole('button', { name: 'Fit balloon to text', exact: true }).click();
     await expect(fitStatus).toContainText(/dialogue fits|close to/i);
     await canvas.screenshot({
-      path: `${SHOT_DIR}/02-localization-recovered.png`,
+      path: test.info().outputPath(`02-localization-recovered.png`),
       animations: 'disabled',
     });
     await page.screenshot({
-      path: `${SHOT_DIR}/02-localization-inspector.png`,
+      path: test.info().outputPath(`02-localization-inspector.png`),
       animations: 'disabled',
       fullPage: false,
     });
@@ -235,8 +228,6 @@ test.describe('Comic lettering workflow', () => {
     await startBalloonFromSelectedText(page);
     await selectLayer(page, /speech balloon/i);
 
-    mkdirSync(SHOT_DIR, { recursive: true });
-
     // Thought: the tail must become a chain, not a triangle.
     await page.getByRole('combobox', { name: 'Balloon style' }).click();
     await page.getByRole('option', { name: 'Thought' }).click();
@@ -244,7 +235,7 @@ test.describe('Comic lettering workflow', () => {
     const thoughtBubbles = await page.getByRole('treeitem', { name: /thought bubble/i }).count();
     expect(thoughtBubbles).toBeGreaterThanOrEqual(3);
     await canvas.screenshot({
-      path: `${SHOT_DIR}/03-thought-balloon.png`,
+      path: test.info().outputPath(`03-thought-balloon.png`),
       animations: 'disabled',
     });
 
@@ -255,7 +246,7 @@ test.describe('Comic lettering workflow', () => {
       'Rectangle',
     );
     await page.screenshot({
-      path: `${SHOT_DIR}/03-caption-inspector.png`,
+      path: test.info().outputPath(`03-caption-inspector.png`),
       animations: 'disabled',
       fullPage: false,
     });
@@ -267,7 +258,7 @@ test.describe('Comic lettering workflow', () => {
       'Balloon contour',
     );
     await canvas.screenshot({
-      path: `${SHOT_DIR}/03-shout-balloon.png`,
+      path: test.info().outputPath(`03-shout-balloon.png`),
       animations: 'disabled',
     });
   });
@@ -297,14 +288,13 @@ test.describe('Comic lettering workflow', () => {
       await startBalloonFromSelectedText(page);
       await selectLayer(page, /speech balloon/i);
 
-      mkdirSync(SHOT_DIR, { recursive: true });
       await page.screenshot({
-        path: `${SHOT_DIR}/05-${theme}-inspector.png`,
+        path: test.info().outputPath(`05-${theme}-inspector.png`),
         animations: 'disabled',
         fullPage: false,
       });
       await canvas.screenshot({
-        path: `${SHOT_DIR}/05-${theme}-canvas.png`,
+        path: test.info().outputPath(`05-${theme}-canvas.png`),
         animations: 'disabled',
       });
     }
@@ -338,9 +328,8 @@ test.describe('Comic lettering workflow', () => {
       await startBalloonFromSelectedText(page);
     }
 
-    mkdirSync(SHOT_DIR, { recursive: true });
     await canvas.screenshot({
-      path: `${SHOT_DIR}/04-lettered-panel-100.png`,
+      path: test.info().outputPath(`04-lettered-panel-100.png`),
       animations: 'disabled',
     });
 
@@ -348,7 +337,7 @@ test.describe('Comic lettering workflow', () => {
     await page.keyboard.press('Shift+Digit1');
     await page.waitForTimeout(400);
     await canvas.screenshot({
-      path: `${SHOT_DIR}/04-lettered-panel-fit.png`,
+      path: test.info().outputPath(`04-lettered-panel-fit.png`),
       animations: 'disabled',
     });
   });

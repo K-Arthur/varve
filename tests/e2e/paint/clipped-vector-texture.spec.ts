@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { expect, test } from '@playwright/test';
+import { captureProducerScreenshot } from '../../../scripts/screenshots/producer-capture.mjs';
 import { navigateToEditor } from '../shared';
 
 async function readContentPixel(
@@ -108,7 +109,7 @@ test('editable vector contour and clipped raster texture survive SVG and PDF exp
   const outsideAfter = await readContentPixel(page, outside);
   expect(redInside.g).toBeLessThan(redInside.r);
   expect(outsideAfter).toEqual(outsideBefore);
-  await page.screenshot({ path: testInfo.outputPath('vector-contour-clipped-texture.png') });
+  await captureProducerScreenshot(page, testInfo, 'vector-contour-clipped-texture.png');
   await page.keyboard.press('Control+z');
   await expect
     .poll(async () => (await readContentPixel(page, inside)).g, { timeout: 15_000 })

@@ -17,6 +17,9 @@ export function assertReviewDirectorySafe(reviewDir, protectedDirs) {
 
 export function sourceSceneProvenance(previous, sourceHash, freshCapture) {
   const unchanged = previous.sha256 === sourceHash;
+  if (freshCapture) {
+    return { ...freshCapture, provenanceUnknown: false };
+  }
   return {
     capturedAt: unchanged ? previous.capturedAt : freshCapture?.capturedAt,
     lastValidatedAgainst: unchanged

@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { captureProducerScreenshot } from '../../../scripts/screenshots/producer-capture.mjs';
 import { navigateToEditor } from '../shared';
 
 test('performance guidance fits dark settings at 200% text size', async ({ page }, testInfo) => {
@@ -53,9 +54,8 @@ test('performance guidance fits dark settings at 200% text size', async ({ page 
   await page.evaluate(() => {
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
   });
-  await settings.screenshot({
-    path: testInfo.outputPath('performance-settings-dark.png'),
-    animations: 'disabled',
+  await captureProducerScreenshot(page, testInfo, 'performance-settings-dark.png', {
+    target: settings,
   });
 
   await settings.getByRole('tab', { name: 'Appearance', exact: true }).click();

@@ -39,14 +39,16 @@ Review captures do not change website images or its manifest. Sync checks each
 capture's recorded SHA-256 and preserves all other scene entries. It does not
 rerun the editor or approve an image automatically.
 
-The reusable-pattern workflow is scene `patterns`. It creates vector artwork,
-copies the selected motif into the Pattern Library, applies it to a second
-shape, and captures the resulting repeat with its source visible. Review and
-promote it through the same isolated path:
+The reusable-pattern workflow is scene `patterns`, produced exclusively by
+`tests/e2e/canvas/pattern-document-alignment.spec.ts`. It creates a real pattern
+fill, changes its alignment through the Inspector, and verifies the resulting
+canvas pixels. Capture through that spec, inspect its PNG, then import and
+promote the isolated producer output:
 
 ```sh
-pnpm screenshots:product -- --scenes patterns --strict --review-dir reports/pattern-review
-pnpm screenshots:product -- --scenes patterns --review-dir reports/pattern-review --sync-reviewed
+VARVE_E2E_PORT=1492 VARVE_E2E_OUTPUT_DIR=pattern-release-review node scripts/quality/heavy-lease.mjs "e2e: pattern capture" -- pnpm exec playwright test tests/e2e/canvas/pattern-document-alignment.spec.ts --project=chromium --workers=1 --update-snapshots=none
+node scripts/screenshots/product.mjs --normalize --source-scenes-dir test-results/pattern-release-review --scenes patterns --review-dir reports/pattern-review
+node scripts/screenshots/product.mjs --scenes patterns --review-dir reports/pattern-review --sync-reviewed
 ```
 
 The plugin scenes come from the real editor state driven by
@@ -68,6 +70,30 @@ Every run prints `this run: N scene(s) attempted` and fails when `N` is zero.
 The manifest totals printed beside it describe stored state, not the run — a
 run that captured nothing still reports a manifest full of captured scenes,
 so the per-run tally is the line to read.
+
+Externally produced scenes require a receipt written by their owning spec at
+the capture itself. `captureProducerScreenshot` records the actual browser,
+viewport, DPR, theme, source revision and source digest alongside the PNG in
+isolated `test-results/` output. It refuses a source change during the shot.
+Import checks the owning spec, dimensions and SHA-256 against that receipt;
+it never substitutes the import-time HEAD. A repeated capture with identical
+pixels can therefore acquire fresh evidence without rewriting its image bytes.
+
+Run the owning workflows from the committed product source with one worker and
+the heavy-task lease, then inspect the PNGs before importing an explicit list:
+
+```sh
+VARVE_E2E_PORT=1492 VARVE_E2E_OUTPUT_DIR=release-product-producers node scripts/quality/heavy-lease.mjs "e2e: product screenshot producers" -- pnpm exec playwright test tests/e2e/canvas/comic-lettering.spec.ts tests/e2e/canvas/pattern-document-alignment.spec.ts tests/e2e/settings/performance-guidance.visual.spec.ts tests/e2e/inspector/token-binding-runtime.spec.ts tests/e2e/workspace/effect-studio.spec.ts tests/e2e/canvas/raster-magic-wand.spec.ts tests/e2e/paint/clipped-vector-texture.spec.ts tests/e2e/canvas/concept-art-references.spec.ts tests/e2e/plugins/local-manager.spec.ts tests/e2e/effects/tonal-workflows.spec.ts --project=chromium --workers=1 --update-snapshots=none
+node scripts/screenshots/product.mjs --normalize --source-scenes-dir test-results/release-product-producers --scenes performance-settings,design-tokens-contrast --review-dir reports/producer-review
+# Inspect the selected review PNGs, then promote only those scenes:
+node scripts/screenshots/product.mjs --scenes performance-settings,design-tokens-contrast --review-dir reports/producer-review --sync-reviewed
+```
+
+`source-scenes.mjs` is the complete scene-to-producer/filename map, including
+plugins and tonal workflows. Compatibility plugin/tonal sync commands use
+this same schema-2, receipt-checked import path and accept reviewed captures
+beneath `test-results/`. Patterns has one producer, so its review cannot be overwritten by a second
+workflow copying older published bytes.
 
 ## Source of truth
 

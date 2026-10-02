@@ -1,4 +1,5 @@
 import { expect, type Page, test } from '@playwright/test';
+import { captureProducerScreenshot } from '../../../scripts/screenshots/producer-capture.mjs';
 import { selectFillType } from '../helpers/editor-helpers';
 import { navigateToCleanEditor } from '../helpers/nav';
 
@@ -75,7 +76,5 @@ test('document alignment changes the real canvas field and exposes its anchor in
   await page.getByRole('button', { name: 'Dismiss hint' }).click();
   await expect(page.locator('.micro-hint')).toBeHidden();
 
-  await page.screenshot({
-    path: 'docs/screenshots/pattern-system-2026-09-30/app-document-alignment.png',
-  });
+  await captureProducerScreenshot(page, test.info(), 'app-document-alignment.png');
 });

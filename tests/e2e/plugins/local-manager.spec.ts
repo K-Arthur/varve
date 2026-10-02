@@ -1,6 +1,7 @@
 import path from 'node:path';
 import AxeBuilder from '@axe-core/playwright';
 import { expect, type Page, test } from '@playwright/test';
+import { captureProducerScreenshot } from '../../../scripts/screenshots/producer-capture.mjs';
 import { openMenu } from '../helpers/menu-helpers';
 import { dragOnCanvas, navigateToEditor } from '../shared';
 
@@ -235,9 +236,8 @@ test.describe('local application plugins', () => {
     await dialog.getByRole('tab', { name: 'Plugins', exact: true }).click();
     await page.mouse.move(1180, 90);
     await dialog.locator('.plugin-manager__list-heading').scrollIntoViewIfNeeded();
-    await page.screenshot({
-      path: testInfo.outputPath('plugin-manager-pinned.png'),
-      fullPage: true,
+    await captureProducerScreenshot(page, testInfo, 'plugin-manager-pinned.png', {
+      screenshot: { fullPage: true },
     });
     await page.evaluate(() => {
       document.documentElement.style.fontSize = '200%';
@@ -599,7 +599,9 @@ test.describe('local application plugins', () => {
     const inspectorContribution = page.locator('.insp-plugin-sections');
     await expect(inspectorContribution).toContainText('Selection readiness');
     await inspectorContribution.scrollIntoViewIfNeeded();
-    await page.screenshot({ path: testInfo.outputPath('plugin-inspector.png'), fullPage: true });
+    await captureProducerScreenshot(page, testInfo, 'plugin-inspector.png', {
+      screenshot: { fullPage: true },
+    });
     await openPluginManager(page);
     await card.getByRole('button', { name: 'Disable', exact: true }).click();
     await expect(card).toContainText('Disabled');
@@ -716,9 +718,8 @@ test.describe('local application plugins', () => {
     await expect(card.getByRole('heading', { name: 'Preview' })).toBeVisible();
     await expect(card.getByRole('button', { name: 'Apply 1 rename' })).toBeVisible();
     await card.getByRole('button', { name: 'Apply 1 rename' }).scrollIntoViewIfNeeded();
-    await page.screenshot({
-      path: testInfo.outputPath('plugin-rename-preview.png'),
-      fullPage: true,
+    await captureProducerScreenshot(page, testInfo, 'plugin-rename-preview.png', {
+      screenshot: { fullPage: true },
     });
     await card.getByRole('button', { name: 'Apply 1 rename' }).click();
     await expect(page.getByRole('treeitem').first()).toContainText('01 ·');
@@ -806,9 +807,8 @@ test.describe('local application plugins', () => {
     await expect(review).toContainText('Read the current selection');
     await expect(review).toContainText('Change the open document');
     await review.getByRole('heading', { name: 'Review installation' }).scrollIntoViewIfNeeded();
-    await page.screenshot({
-      path: testInfo.outputPath('plugin-review-dark-1024.png'),
-      fullPage: true,
+    await captureProducerScreenshot(page, testInfo, 'plugin-review-dark-1024.png', {
+      screenshot: { fullPage: true },
     });
     const overflow = await dialog
       .locator('.settings-dialog__content')

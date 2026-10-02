@@ -1,3 +1,4 @@
+import { captureProducerScreenshot } from '../../../scripts/screenshots/producer-capture.mjs';
 /**
  * Curated Effect Studio dialog.
  *
@@ -476,12 +477,11 @@ test.describe('Effect Studio dialog', () => {
           expect(Math.abs(before!.width - after!.width)).toBeLessThan(1);
           expect(Math.abs(before!.height - after!.height)).toBeLessThan(1);
         }
-        await page.screenshot({
-          path: testInfo.outputPath(
-            `effect-studio-${theme}-${viewport.width}x${viewport.height}.png`,
-          ),
-          animations: 'disabled',
-        });
+        await captureProducerScreenshot(
+          page,
+          testInfo,
+          `effect-studio-${theme}-${viewport.width}x${viewport.height}.png`,
+        );
       }
     }
 

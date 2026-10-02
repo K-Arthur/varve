@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { execFileSync, spawn } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 /**
  * Product screenshot capture pipeline.
@@ -46,6 +46,8 @@ import {
   sourceSceneProvenance,
 } from './capture-safety.mjs';
 import { analyseImage, buffersEqual, pngDimensions } from './lib/image-analysis.mjs';
+import { captureSourceIdentity, readProducerCaptureReceipt } from './producer-capture.mjs';
+import { SOURCE_SCENES } from './source-scenes.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const args = process.argv.slice(2);
@@ -100,18 +102,6 @@ function sha256Hex(buf) {
   return createHash('sha256').update(buf).digest('hex');
 }
 
-function git(args_) {
-  try {
-    return execFileSync('git', args_, {
-      cwd: ROOT,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-    }).trim();
-  } catch {
-    return null;
-  }
-}
-
 /**
  * Source identity for the capture, independent of the volatile run clock.
  *
@@ -120,25 +110,8 @@ function git(args_) {
  * capture taken from a dirty tree records which tree rather than claiming a
  * clean revision it does not have.
  */
-const SOURCE_PATHS = [
-  'scripts/screenshots',
-  'tests/e2e',
-  'packages/editor/src',
-  'packages/scene/src',
-  'packages/engine/src',
-  'packages/shared/src',
-  'packages/compositor/src',
-  'apps/desktop/src',
-];
 function computeSourceIdentity() {
-  const sourceRevision = git(['rev-parse', 'HEAD']) ?? 'unknown';
-  const status = git(['status', '--porcelain', '--', ...SOURCE_PATHS]) ?? '';
-  const diff = git(['diff', 'HEAD', '--', ...SOURCE_PATHS]) ?? '';
-  return {
-    sourceRevision,
-    sourceDirty: status.length > 0,
-    sourceDigest: sha256Hex(`${sourceRevision}\n${status}\n${diff}`).slice(0, 64),
-  };
+  return captureSourceIdentity(ROOT);
 }
 
 function playwrightVersion() {
@@ -858,63 +831,6 @@ const SCENES = [
       await openDemoDocument(page, 'poster');
       await selectLayer(page, /display headline/i);
       await fitContent(page);
-    },
-  },
-  {
-    id: 'patterns',
-    file: 'patterns-light.png',
-    theme: 'light',
-    feature: 'patterns',
-    alt: 'An orange vector ellipse repeats across a teal rectangle in Varve while the source ellipse and Pattern Library remain visible',
-    caption: 'Apply a copied vector motif to another shape as a reusable pattern',
-    async run(page) {
-      await openCleanEditor(page);
-      const canvas = page.locator('canvas.editor-canvas__content-layer');
-      const bounds = await canvas.boundingBox();
-      if (!bounds) throw new Error('canvas bounds unavailable for pattern capture');
-
-      await page.getByRole('button', { name: 'Rectangle', exact: true }).click();
-      await page.mouse.move(bounds.x + 380, bounds.y + 180);
-      await page.mouse.down();
-      await page.mouse.move(bounds.x + 690, bounds.y + 410, { steps: 8 });
-      await page.mouse.up();
-      await page.keyboard.press('o');
-      await page.mouse.move(bounds.x + 160, bounds.y + 220);
-      await page.mouse.down();
-      await page.mouse.move(bounds.x + 250, bounds.y + 290, { steps: 8 });
-      await page.mouse.up();
-      await page.keyboard.press('v');
-      const source = page.getByRole('treeitem').filter({ hasText: /Ellipse 1/ });
-      await source.click();
-      const fillColour = page.getByRole('button', { name: /fill colour$/i }).first();
-      await fillColour.click();
-      const colourPicker = page.getByRole('dialog', { name: /pick fill colour/i });
-      const hex = colourPicker.getByLabel('Hex color');
-      await hex.fill('#C76B3C');
-      await hex.press('Enter');
-      await page.keyboard.press('Escape');
-
-      const paintLibrary = page.getByRole('button', { name: 'Paint Library', exact: true });
-      if ((await paintLibrary.getAttribute('aria-expanded')) === 'false')
-        await paintLibrary.click();
-      const patternLibrary = page.getByRole('button', { name: 'Pattern Library', exact: true });
-      if ((await patternLibrary.getAttribute('aria-expanded')) === 'false') {
-        await patternLibrary.click();
-      }
-      await page.getByRole('button', { name: /create from selection/i }).click();
-      const entry = page.locator('ul[aria-label="Reusable patterns"] > li').first();
-      const name = await entry.locator('.insp-paint-library__name').innerText();
-      await page
-        .getByRole('treeitem')
-        .filter({ hasText: /Rectangle 1/ })
-        .click();
-      await entry.getByRole('button', { name: `Apply ${name} to selection` }).click();
-      await expect(
-        entry.getByRole('button', { name: `Edit ${name} definition settings` }),
-      ).toBeVisible();
-      await expect(entry).toContainText('1 use');
-      const dismissHint = page.getByRole('button', { name: 'Dismiss hint' });
-      if (await dismissHint.isVisible()) await dismissHint.click();
     },
   },
   {
@@ -1944,129 +1860,6 @@ const SCENES = [
  * committed under public/screenshots. `--source-scenes-dir` is the reviewed
  * import path for a new owning-spec capture under test-results/.
  */
-const SOURCE_SCENES = [
-  {
-    id: 'comic-lettering',
-    file: 'comic-lettering-light.png',
-    captureFile: 'comic-lettering-balloon-inspector.png',
-    producer: 'tests/e2e/canvas/comic-lettering.spec.ts',
-    alt: 'A speech balloon selected in Varve with editable dialogue and the Comic balloon inspector showing fit, line-shape, and tail controls',
-    caption: 'Editable comic lettering with contour-aware wrapping and tail controls',
-    feature: 'comic-lettering',
-    theme: 'light',
-    kind: 'full',
-    viewport: { width: 1280, height: 720 },
-  },
-  {
-    id: 'patterns',
-    file: 'patterns-document-alignment.png',
-    producer: 'tests/e2e/canvas/pattern-document-alignment.spec.ts',
-    alt: 'A reusable dotted vector pattern applied to a selected shape, with repeat and document-alignment controls visible in the inspector',
-    caption: 'A real pattern fill with its repeat settings and document-aligned placement',
-    feature: 'patterns',
-    theme: 'light',
-    kind: 'full',
-    viewport: { width: 1280, height: 720 },
-  },
-  {
-    id: 'performance-settings',
-    file: 'performance-settings-dark.png',
-    producer: 'tests/e2e/settings/performance-guidance.visual.spec.ts',
-    alt: "Varve's Performance settings dialog in dark theme, with Automatic interactive preview selected and the local diagnostics panel below it",
-    caption: 'Performance settings with opt-in local diagnostics',
-    feature: 'performance',
-    theme: 'dark',
-    kind: 'detail',
-  },
-  {
-    id: 'design-tokens-contrast',
-    file: 'design-tokens-alias-bound-light.png',
-    producer: 'tests/e2e/inspector/token-binding-runtime.spec.ts',
-    alt: 'Varve showing a blue rectangle whose fill is linked to the semantic.brand.curlyAlias token, with the resolved colour painted on the canvas',
-    caption:
-      'A source alias bound through the Inspector, with its resolved colour painted on the canvas',
-    feature: 'design-tokens',
-    theme: 'light',
-    kind: 'full',
-  },
-  // Reviewed captures promoted from the specs that own the surface. Their
-  // published bytes are committed under public/screenshots; `producer` names
-  // the spec the capture came from, and `viewport` is the measured frame, so
-  // the geometry check holds for frames that are not the 1440x900 default.
-  {
-    id: 'effect-studio-desktop-light',
-    file: 'effect-studio-desktop-light.png',
-    producer: 'tests/e2e/workspace/effect-studio.spec.ts',
-    alt: 'Effect Studio on a wide screen, with the treatment preview, gallery, and applied stack arranged side by side.',
-    caption: 'Wide workspace with preview, treatments, and editable stack in view.',
-    feature: 'effect-studio',
-    theme: 'light',
-    kind: 'full',
-    viewport: { width: 1440, height: 900 },
-  },
-  {
-    id: 'effect-studio-mobile-light',
-    file: 'effect-studio-mobile-light.png',
-    producer: 'tests/e2e/workspace/effect-studio.spec.ts',
-    alt: 'Effect Studio on a phone-sized screen, reflowed into a single scrollable layout with touch-sized controls.',
-    caption: 'Phone layout keeps the same order in one scrollable flow.',
-    feature: 'effect-studio',
-    theme: 'light',
-    kind: 'full',
-    viewport: { width: 390, height: 844 },
-  },
-  {
-    id: 'illustration-linework-flats',
-    file: 'illustration-linework-flats.png',
-    producer: 'tests/e2e/canvas/raster-magic-wand.spec.ts',
-    alt: 'Varve showing a red apple flat beneath editable black linework on a separate Flats layer',
-    caption:
-      'Visible-artwork Magic Wand selects inside the ink while a separate Flats layer carries the colour.',
-    feature: 'strokes',
-    theme: 'light',
-    kind: 'full',
-    // Measured from the published capture. The page's own `width`/`height`
-    // attributes said 1440x1000; the file is 1280x800 — one of the drifts the
-    // manifest removes by becoming the single source for geometry.
-    viewport: { width: 1280, height: 800 },
-  },
-  {
-    id: 'illustration-clipped-shading',
-    file: 'illustration-clipped-shading.png',
-    producer: 'tests/e2e/canvas/raster-magic-wand.spec.ts',
-    alt: 'Varve Design workspace with red shading clipped inside a blue painted shape on a separate Shading layer',
-    caption:
-      'The separate Shading layer stays within the source raster alpha across undo, save/reopen, and transparent PNG export.',
-    feature: 'strokes',
-    theme: 'light',
-    kind: 'full',
-    viewport: { width: 1440, height: 900 },
-  },
-  {
-    id: 'illustration-vector-clipped-texture',
-    file: 'illustration-vector-clipped-texture.png',
-    producer: 'tests/e2e/paint/clipped-vector-texture.spec.ts',
-    alt: 'Varve Design workspace showing a red raster shading stroke clipped inside a teal vector contour',
-    caption:
-      'A vector contour and raster shading share one editable document, exported as editable contour geometry with a bounded embedded texture.',
-    feature: 'strokes',
-    theme: 'light',
-    kind: 'full',
-    viewport: { width: 1440, height: 900 },
-  },
-  {
-    id: 'concept-art-reference-workflow',
-    file: 'concept-art-reference-workflow.png',
-    producer: 'tests/e2e/canvas/concept-art-references.spec.ts',
-    alt: 'Varve Design workspace with a forest photograph selected as a concept reference and separate sampling and export switches enabled',
-    caption:
-      'The imported forest photograph stays visible while sampling and export remain independently controlled.',
-    feature: 'strokes',
-    theme: 'light',
-    kind: 'full',
-    viewport: { width: 1440, height: 1000 },
-  },
-];
 
 if (sourceScenesDir) {
   const testResultsRoot = `${resolve(ROOT, 'test-results')}${sep}`;
@@ -2102,24 +1895,9 @@ function sourceScenePath(source) {
   return join(sourceScenesDir, matches[0]);
 }
 
-function freshSourceSceneCapture(source, previous, capturePath) {
+function freshSourceSceneCapture(source, capturePath) {
   if (!sourceScenesDir) return undefined;
-  return {
-    capturedAt: statSync(capturePath).mtime.toISOString(),
-    lastValidatedAgainst: sourceIdentity.sourceRevision,
-    provenance: {
-      runId: basename(sourceScenesDir),
-      runtime: previous.provenance?.runtime ?? 'Chromium headless Playwright E2E',
-      captureTool:
-        previous.provenance?.captureTool ?? `Playwright ${playwrightVersion()} / Chromium`,
-      sourceRevision: sourceIdentity.sourceRevision,
-      sourceDirty: sourceIdentity.sourceDirty,
-      sourceDigest: sourceIdentity.sourceDigest,
-      viewport: source.viewport ? { ...source.viewport } : undefined,
-      deviceScaleFactor: 1,
-      theme: source.theme,
-    },
-  };
+  return readProducerCaptureReceipt(capturePath, source);
 }
 
 const manifest = JSON.parse(manifestBytesAtStart.toString('utf8'));
@@ -2269,7 +2047,7 @@ function normalizeManifest() {
     const provenance = sourceSceneProvenance(
       previous,
       sourceHash,
-      freshSourceSceneCapture(source, previous, capturePath),
+      freshSourceSceneCapture(source, capturePath),
     );
     manifest.scenes[source.id] = {
       ...previous,
@@ -2448,12 +2226,18 @@ try {
       await scene.run(page);
       await settle(page, scene);
       await scene.verify?.(page);
+      if (computeSourceIdentity().sourceDigest !== sourceIdentity.sourceDigest) {
+        throw new Error('Capture source changed during this run; retry from a stable tree');
+      }
       // Detail scenes are cropped at capture time so the website can show
       // them small without scaling a full window down to an unreadable smear.
       // A scene with `clipFrom` measures its own window from the real
       // container now that panels, fonts and selection have settled.
       const clip = scene.clipFrom ? await clipFromLocator(page, scene.clipFrom) : scene.clip;
       const shot = await page.screenshot(clip ? { clip } : undefined);
+      if (computeSourceIdentity().sourceDigest !== sourceIdentity.sourceDigest) {
+        throw new Error('Capture source changed during the screenshot; retry from a stable tree');
+      }
       const dims = pngSize(shot);
       // Full frames are 1440x900; cropped details are smaller but must still
       // match the clip they asked for, which catches a mis-laid-out capture.
@@ -2494,7 +2278,16 @@ try {
           : undefined;
       entry.scale = 1;
       entry.capturedAt = new Date().toISOString();
-      entry.provenanceUnknown = undefined;
+      entry.provenanceUnknown = false;
+      entry.provenance = {
+        ...sourceIdentity,
+        runId,
+        runtime: 'chromium-headless (web)',
+        captureTool: `Playwright ${playwrightVersion()} / Chromium ${browser.version()}`,
+        viewport: scene.viewport ?? { width: 1440, height: 900 },
+        deviceScaleFactor: 1,
+        theme: scene.theme,
+      };
       // The revision this image is evidence about. Previously written as a
       // permanent null, which made the field meaningless.
       entry.lastValidatedAgainst = sourceIdentity.sourceRevision;
@@ -2618,7 +2411,7 @@ try {
     const provenance = sourceSceneProvenance(
       previous,
       sourceHash,
-      freshSourceSceneCapture(source, previous, capturePath),
+      freshSourceSceneCapture(source, capturePath),
     );
     if (reviewDir) {
       writeFileAtomicSync(join(OUT_DIR, source.file), bytes);

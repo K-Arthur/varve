@@ -1,6 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { expect, type Page, test } from '@playwright/test';
+import { captureProducerScreenshot } from '../../../scripts/screenshots/producer-capture.mjs';
 import { navigateToEditor } from '../shared';
 
 test.use({ video: 'on' });
@@ -78,7 +79,6 @@ async function detailLatencies(page: Page): Promise<number[]> {
   );
 }
 
-const review = path.resolve('reports/ui-review/tonal-workflows');
 async function add(page: Page, name: string) {
   await page.getByRole('button', { name: /add adjustment/i }).click();
   await page.getByRole('menuitem', { name, exact: true }).click();
@@ -91,7 +91,6 @@ async function number(page: Page, name: string, value: string) {
 test('retains curve channels, precise points and mixer rows through actual controls', async ({
   page,
 }) => {
-  mkdirSync(review, { recursive: true });
   await navigateTonalEditor(page);
   await page
     .locator('#file-import-input')
@@ -118,7 +117,7 @@ test('retains curve channels, precise points and mixer rows through actual contr
   const graphBox = await graph.boundingBox();
   const panelBox = await page.getByRole('region', { name: 'Inspector', exact: true }).boundingBox();
   expect(graphBox!.width).toBeLessThanOrEqual(panelBox!.width);
-  await page.screenshot({ path: path.join(review, '01-curves-light.png') });
+  await captureProducerScreenshot(page, test.info(), '01-curves-light.png');
   await add(page, 'Channel Mixer');
   await number(page, 'Red percent', '70');
   await page.getByRole('combobox', { name: 'Output channel', exact: true }).click();
@@ -129,7 +128,7 @@ test('retains curve channels, precise points and mixer rows through actual contr
   await expect(page.getByRole('spinbutton', { name: 'Red percent', exact: true })).toHaveValue(
     '70',
   );
-  await page.screenshot({ path: path.join(review, '02-mixer-light.png') });
+  await page.screenshot({ path: test.info().outputPath('02-mixer-light.png') });
 });
 
 test('white balance samples upstream pixels, repeats, undoes, and split toning has real controls', async ({
@@ -159,7 +158,7 @@ test('white balance samples upstream pixels, repeats, undoes, and split toning h
   await expect(red).toHaveValue('1');
   await page.keyboard.press('Control+z');
   await expect(red).toHaveValue(gain);
-  await page.screenshot({ path: path.join(review, '03-white-balance-light.png') });
+  await page.screenshot({ path: test.info().outputPath('03-white-balance-light.png') });
   await add(page, 'Split Toning');
   await page.getByRole('combobox', { name: 'Split tone preset', exact: true }).click();
   await page.getByRole('option', { name: 'Cool shadows · warm highlights', exact: true }).click();
@@ -167,7 +166,7 @@ test('white balance samples upstream pixels, repeats, undoes, and split toning h
     page.getByRole('spinbutton', { name: 'Shadow saturation value (%)', exact: true }),
   ).toHaveValue('18');
   await number(page, 'Shadow range pivot value (%)', '61');
-  await page.screenshot({ path: path.join(review, '04-split-tone-light.png') });
+  await captureProducerScreenshot(page, test.info(), '04-split-tone-light.png');
   await page.getByRole('button', { name: 'Reset split toning', exact: true }).click();
   await expect(
     page.getByRole('spinbutton', { name: 'Shadow saturation value (%)', exact: true }),
@@ -200,7 +199,7 @@ test('channel inspection creates reusable selection coverage through the existin
     'width',
     '128',
   );
-  await page.screenshot({ path: path.join(review, '05-channel-selection.png') });
+  await page.screenshot({ path: test.info().outputPath('05-channel-selection.png') });
   const historyWarnings: string[] = [];
   page.on('console', (message) => {
     if (message.text().includes('updateDoc called outside transaction'))
@@ -261,7 +260,7 @@ test('editing sharpening has real domain controls, camera-independent detail and
   expect(durations.every((duration) => Number.isFinite(duration) && duration >= 0)).toBe(true);
   expect(await signature()).toEqual(hashes);
   writeFileSync(
-    path.join(review, 'detail-latency.json'),
+    test.info().outputPath('detail-latency.json'),
     JSON.stringify(
       {
         fixture: '512x384 tonal-reference; Sharpen 80%, radius 3.5, linear sRGB',
@@ -280,7 +279,7 @@ test('editing sharpening has real domain controls, camera-independent detail and
   await page.keyboard.press('Shift+2');
   expect(await signature()).toEqual(hashes);
   await output.scrollIntoViewIfNeeded();
-  await page.screenshot({ path: path.join(review, '06-sharpen-detail-light.png') });
+  await page.screenshot({ path: test.info().outputPath('06-sharpen-detail-light.png') });
   await page.keyboard.press('Control+s');
   await expect(page.locator('.save-status')).toHaveText('Saved');
   await page.reload();
@@ -367,7 +366,7 @@ test.describe('curve pointer and visual detail', () => {
         document.documentElement.dataset.theme = value;
       }, theme);
       await graph.scrollIntoViewIfNeeded();
-      await page.screenshot({ path: path.join(review, `07-curves-${theme}-dpr2.png`) });
+      await page.screenshot({ path: test.info().outputPath(`07-curves-${theme}-dpr2.png`) });
       const graphBox = await graph.boundingBox();
       const inspector = await page
         .getByRole('region', { name: 'Inspector', exact: true })

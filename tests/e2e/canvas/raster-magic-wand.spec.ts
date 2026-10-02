@@ -1,6 +1,7 @@
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
+import { captureProducerScreenshot } from '../../../scripts/screenshots/producer-capture.mjs';
 import { openMenu } from '../helpers/menu-helpers';
 import { switchWorkspace } from '../shared';
 
@@ -354,7 +355,8 @@ async function forceFullRedraw(page: import('@playwright/test').Page): Promise<v
 
 async function screenshotWithoutPerfOverlay(
   page: import('@playwright/test').Page,
-  path: string,
+  testInfo: import('@playwright/test').TestInfo,
+  filename: string,
 ): Promise<void> {
   await page.evaluate(() =>
     (
@@ -363,7 +365,7 @@ async function screenshotWithoutPerfOverlay(
   );
   try {
     await forceFullRedraw(page);
-    await page.screenshot({ path });
+    await captureProducerScreenshot(page, testInfo, filename);
   } finally {
     await page.evaluate(() =>
       (
@@ -618,10 +620,7 @@ test.describe('hybrid illustration Magic Wand workflow', () => {
     await expect(page.locator('.editor-shell')).toBeVisible();
     await expect(page.locator('.safe-mode-screen')).toBeHidden();
     expect((await canvasColorStats(canvas, 'black')).count).toBeGreaterThan(100);
-    await screenshotWithoutPerfOverlay(
-      page,
-      testInfo.outputPath('hybrid-linework-flats-filled.png'),
-    );
+    await screenshotWithoutPerfOverlay(page, testInfo, 'hybrid-linework-flats-filled.png');
 
     await openMenu(page, 'Edit');
     await page
@@ -739,10 +738,7 @@ test.describe('hybrid illustration Magic Wand workflow', () => {
     expect(shadeTop).toBeGreaterThanOrEqual(flatTop - 5);
     expect(shadeRight).toBeLessThanOrEqual(flatRight + 5);
     expect(shadeBottom).toBeLessThanOrEqual(flatBottom + 5);
-    await screenshotWithoutPerfOverlay(
-      page,
-      testInfo.outputPath('illustration-clipped-flats-shading.png'),
-    );
+    await screenshotWithoutPerfOverlay(page, testInfo, 'illustration-clipped-flats-shading.png');
     await page.keyboard.press('Control+z');
     await expect
       .poll(async () => (await canvasColorStats(canvas, 'cyan')).count, { timeout: 15000 })
