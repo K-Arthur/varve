@@ -14,6 +14,7 @@ import { createHash } from 'node:crypto';
 import { copyFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { candidateNextAction } from './release.mjs';
 import { parseChecksums, selectRelease, verifyReleaseIntegrity } from './verify-release-data.mjs';
 import { incrementVersion } from './version.mjs';
 import { buildWebsiteReleaseData, formatCopy } from './website-release-data.mjs';
@@ -25,6 +26,20 @@ import { buildUpdaterConfig } from './write-updater-config.mjs';
 const releaseWorkflow = readFileSync('.github/workflows/release.yml', 'utf8');
 const websiteWorkflow = readFileSync('.github/workflows/website-deploy.yml', 'utf8');
 const visualWorkflow = readFileSync('.github/workflows/visual-baselines.yml', 'utf8');
+
+// Local version readiness must report the next actual release gate. A dirty
+// or unpublished candidate cannot be mistaken for a published release.
+const localCandidate = {
+  dirty: false,
+  changelogSection: true,
+  upstream: 'origin/master',
+  ahead: 0,
+  behind: 0,
+};
+assert.match(candidateNextAction({ ...localCandidate, dirty: true }), /commit/);
+assert.match(candidateNextAction({ ...localCandidate, ahead: 38 }), /Push reviewed master/);
+assert.match(candidateNextAction({ ...localCandidate, behind: 1 }), /reconcile incoming/);
+assert.match(candidateNextAction(localCandidate), /exact-SHA integration certification/);
 
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

@@ -23,6 +23,36 @@ function git(args) {
   return result.stdout;
 }
 
+function upstreamState() {
+  const result = spawnSync(
+    'git',
+    ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{upstream}'],
+    {
+      cwd: ROOT,
+      encoding: 'utf8',
+      shell: false,
+    },
+  );
+  if (result.status !== 0) return { upstream: null, ahead: null, behind: null };
+  const upstream = result.stdout.trim();
+  const [behind, ahead] = git(['rev-list', '--left-right', '--count', `${upstream}...HEAD`])
+    .trim()
+    .split(/\s+/)
+    .map(Number);
+  return { upstream, ahead, behind };
+}
+
+export function candidateNextAction({ dirty, changelogSection, upstream, ahead, behind }) {
+  if (dirty) return 'Review and commit the current files before freezing the candidate SHA.';
+  if (!changelogSection) return 'Add the current version changelog entry before certification.';
+  if (!upstream) return 'Configure and verify the master upstream before synchronization.';
+  if (behind > 0)
+    return 'Fetch and reconcile incoming history, then validate and push the reviewed candidate.';
+  if (ahead > 0)
+    return 'Push reviewed master through its normal hook and verify the accepted remote SHA.';
+  return 'Verify exact-SHA integration certification, then request final release-candidate certification.';
+}
+
 function cleanState() {
   return git(['status', '--porcelain=v1', '-z']).length === 0;
 }
@@ -65,7 +95,11 @@ export function releaseStatus() {
     policyVersion: POLICY_VERSION,
     policyHash: computePolicyHash({ root: ROOT }),
     proposedTag: `v${version}`,
+    ...upstreamState(),
   };
+  result.nextAction = candidateNextAction(result);
+  result.remoteEvidence =
+    'Not queried: version preparation and local validation do not establish certification, publication or deployment.';
   console.log(JSON.stringify(result, null, 2));
   return result;
 }

@@ -35,6 +35,7 @@ import {
   loadPackages,
   parseArgs,
 } from './affected-plan.mjs';
+import { runFullGate } from './full-gate.mjs';
 import { LANES, laneCommand, packageDirs } from './validation-lanes.mjs';
 
 const _PLAN_URL = fileURLToPath(new URL('./affected-plan.mjs', import.meta.url));
@@ -273,20 +274,19 @@ function main() {
     if (reason) console.log(`Full gate reason: ${reason}`);
     console.log('Running full repository gate (Tier 5)...');
     // Order: cheap → heavy
-    const statuses = [
-      cmd(['pnpm', 'exec', 'biome', 'check', '.']),
-      cmd(['pnpm', 'audit:emoji']),
-      cmd(['node', 'scripts/audit-health.mjs']),
-      cmd(['node', 'scripts/audit-architecture.mjs', '--ci']),
-      cmd(['pnpm', 'typecheck']),
+    const cheap = [
+      { label: 'Format and lint', argv: ['pnpm', 'exec', 'biome', 'check', '.'] },
+      { label: 'Emoji audit', argv: ['pnpm', 'audit:emoji'] },
+      { label: 'Health audit', argv: ['node', 'scripts/audit-health.mjs'] },
+      { label: 'Architecture audit', argv: ['node', 'scripts/audit-architecture.mjs', '--ci'] },
+      { label: 'Typecheck', argv: ['pnpm', 'typecheck'] },
     ];
-    if (statuses.some((s) => s !== 0)) process.exit(statuses.find((s) => s !== 0));
     const heavy = [
       { label: 'CI tooling tests', argv: ['pnpm', 'test:ci:tools'] },
       // CI builds these ignored artifacts before its browser jobs. A clean
       // local checkout must do the same or Chromium silently exercises the
       // pure-TS fallback instead of the production WASM engine.
-      { label: 'WASM browser artifacts', argv: ['just', 'wasm-build-all'] },
+      { label: 'WASM browser artifacts', argv: ['just', 'wasm-build-all'], producesRuntime: true },
       { label: 'JavaScript unit tests', argv: ['pnpm', 'exec', 'vitest', 'run'] },
       {
         label: 'Rust workspace tests',
@@ -317,12 +317,21 @@ function main() {
       },
       { label: 'Visual E2E', argv: ['pnpm', 'e2e:visual'] },
     ];
-    for (const { label, argv } of heavy) {
-      // heavy-lease takes a LABEL before `--` and the full command after it.
-      // Pass the complete command after `--`; splitting its executable from
-      // the argv would spawn a bare subcommand such as `test:ci:tools`.
-      const st = cmd(['node', 'scripts/quality/heavy-lease.mjs', label, '--', ...argv]);
-      if (st !== 0) process.exit(st);
+    const result = runFullGate(
+      [
+        ...cheap,
+        ...heavy.map(({ label, argv, producesRuntime }) => ({
+          label,
+          producesRuntime,
+          argv: ['node', 'scripts/quality/heavy-lease.mjs', label, '--', ...argv],
+        })),
+      ],
+      { root: ROOT, execute: cmd, resume: args.includes('--resume') },
+    );
+    if (result.status !== 0) {
+      if (result.message) console.error(result.message);
+      console.error(`Full-gate lane history: ${result.operationPath}`);
+      process.exit(result.status);
     }
     console.log('Full gate passed.');
     process.exit(0);

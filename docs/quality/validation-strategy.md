@@ -98,6 +98,7 @@ The frozen candidate check is the extended release evidence for one SHA.
 | `pnpm workflow:report` | Export the sanitized operation journal as JSON | Attach to review/incident evidence |
 | `pnpm verify:commit` | Staged format/lint, cheap policy audits, changed unit tests, and E2E typechecking when staged | Normal pre-commit hook |
 | `pnpm verify:full` | Full repository gate (Tier 5) | Release checkpoints, explicit request, high-risk changes |
+| `pnpm verify:full -- --resume` | Resume previously passed local full-gate lanes for the same clean candidate and unchanged inputs | Interrupted or failed full gate after repairing an external condition |
 | `pnpm release:prepare <version>` | Validate clean release state, set canonical version, verify changelog, and print the proposed tag | Before a release commit |
 | `pnpm release:status` | Print exact HEAD, version/changelog agreement, and current policy hash | Freeze/review a candidate |
 | `pnpm release:certify -- --sha <sha> --mode final` | Print the exact remote candidate-certification request | After integration succeeds |
@@ -190,6 +191,20 @@ Every invocation rebuilds the push plan and rechecks protected refs, release
 provenance, and complete outgoing history before reading either cache. A dry
 run or emergency override neither reads nor writes reusable lane evidence.
 Affected Playwright runs acquire the shared heavy-task lease and memory gate.
+
+Full-gate attempts also record each completed lane immediately under
+`.git/varve-validation/full-gate-receipts/`, with an operation journal visible
+through `pnpm workflow:history`. A normal full run executes every lane anew;
+`--resume` reuses a passed lane only for the same clean HEAD/tree, command,
+policy, tool versions, environment digest, installed dependency metadata, and
+generated WASM/model bytes within six hours. Environment values are hashed,
+never stored. Dirty trees receive fresh validation without reusable receipts.
+Any source edit or new commit conservatively invalidates all earlier lanes.
+The WASM build records its resulting runtime bytes; later lanes require those
+bytes to remain stable. A fresh failed or interrupted attempt invalidates that
+lane's older pass. These receipts cannot replace exact-SHA remote integration
+or release-candidate certification. After a product repair, run its exact
+checks and freeze the new candidate before the final full checkpoint.
 
 Push operation history is separate from receipts and lives at
 `.git/varve-validation/operations/`. Each attempt gets a unique versioned

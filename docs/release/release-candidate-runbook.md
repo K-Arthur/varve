@@ -84,6 +84,19 @@ pnpm release:certify -- --sha "$(git rev-parse HEAD)" --mode triage
 `release:prepare` updates the canonical version targets through
 `scripts/release/version.mjs`, requires the changelog section, refuses a dirty
 state, and never creates a tag. The version commit must pass integration CI.
+`release:status` reports local upstream counts and the next required action;
+it does not infer publication from a prepared version or a green local test.
+The upstream counts describe the locally fetched remote ref, so refresh the
+remote before using them to freeze a candidate.
+
+Keep the product work stable before the final local full gate. When a gate is
+interrupted or an external condition fails without changing source, retain
+the same reason and use `pnpm verify:full -- --resume`. Its passed lanes are
+reused only for the same clean commit, policy, command, tool/environment and
+dependency/runtime inputs; failed or incomplete lanes run again. A product
+repair changes the candidate and invalidates earlier full-gate lane receipts.
+Repair each exact failing spec first, then run the final checkpoint once the
+new candidate is frozen. Remote certification still runs for that exact SHA.
 
 After the exact `master` SHA is frozen, request final certification:
 
@@ -151,7 +164,11 @@ pnpm release:resume -- \
 The collector rejects missing, modified, out-of-tree, wrong-version,
 wrong-SHA, wrong-platform, or wrong-policy artifacts. It writes the final
 manifest only after every required release target is present, so artifacts from
-different commits cannot be combined. The normal release verification still
+different commits cannot be combined. Multiple formats for one platform
+(Linux AppImage, deb and rpm) are retained. When a collected release manifest
+is present, resume requires its artifact set, platforms and hashes to match
+the verified sidecars and preserves its package and signing metadata. Run the
+normal final checksum generation and artifact checks after resuming. The normal release verification still
 performs signing, checksums, SBOM, provenance/attestation, naming, and draft
 integrity checks. Publishing remains a separate human action through the
 protected release environment:

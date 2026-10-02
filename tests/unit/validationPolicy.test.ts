@@ -137,11 +137,10 @@ describe('validation infrastructure presence', () => {
 
   it('builds real WASM artifacts before the full browser lane', () => {
     const verify = readFileSync(join(ROOT, 'scripts/quality/verify.mjs'), 'utf-8');
-    const build = verify.indexOf(
-      "{ label: 'WASM browser artifacts', argv: ['just', 'wasm-build-all'] }",
-    );
+    const build = verify.indexOf("label: 'WASM browser artifacts'");
     const browser = verify.indexOf("label: 'Chromium E2E'");
     expect(build).toBeGreaterThan(-1);
+    expect(verify.slice(build, browser)).toMatch(/argv: \['just', 'wasm-build-all'\]/);
     expect(browser).toBeGreaterThan(build);
   });
 

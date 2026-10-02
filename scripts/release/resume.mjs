@@ -9,7 +9,7 @@
  */
 
 import { createHash } from 'node:crypto';
-import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { lstatSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 
 export const RELEASE_TARGETS = Object.freeze([
@@ -20,7 +20,6 @@ export const RELEASE_TARGETS = Object.freeze([
   'macos-aarch64',
 ]);
 
-const PLATFORM = /^(?:linux|windows|macos)-(?:x86_64|aarch64)$/;
 const SHA256 = /^[0-9a-f]{64}$/;
 
 function digest(path) {
@@ -35,7 +34,7 @@ export function validateReusableArtifact(metadata, expected) {
   }
   if (expected?.platform && metadata?.platform !== expected.platform)
     errors.push('platform mismatch');
-  if (typeof metadata?.platform !== 'string' || !PLATFORM.test(metadata.platform)) {
+  if (!RELEASE_TARGETS.includes(metadata?.platform)) {
     errors.push('platform is invalid');
   }
   if (
@@ -82,7 +81,7 @@ export function collectResumableArtifacts(dir, expected, { requiredPlatforms = [
         isAbsolute(artifactName) ||
         relativePath === '..' ||
         relativePath.startsWith(`..${sep}`);
-      if (escaped || !statSync(artifactPath, { throwIfNoEntry: false })?.isFile()) {
+      if (escaped || !lstatSync(artifactPath, { throwIfNoEntry: false })?.isFile()) {
         identityErrors.push('artifact file is missing');
       } else if (metadata.sha256 !== digest(artifactPath)) {
         identityErrors.push('artifact SHA-256 does not match provenance');
@@ -90,8 +89,6 @@ export function collectResumableArtifacts(dir, expected, { requiredPlatforms = [
     }
     if (identityErrors.length) {
       errors.push(`${entry.name}: ${identityErrors.join(', ')}`);
-    } else if (entries.some((candidate) => candidate.metadata.platform === metadata.platform)) {
-      errors.push(`${entry.name}: duplicate provenance for platform ${metadata.platform}`);
     } else if (entries.some((candidate) => candidate.metadata.artifact === metadata.artifact)) {
       errors.push(`${entry.name}: duplicate provenance for artifact ${metadata.artifact}`);
     } else {
@@ -108,18 +105,49 @@ export function collectResumableArtifacts(dir, expected, { requiredPlatforms = [
 
 export function writeFinalManifest(dir, result, { version, commitSha, policyHash } = {}) {
   if (!result.ok) throw new Error(`cannot write final manifest: ${result.errors.join('; ')}`);
+  const path = join(dir, 'release-manifest.json');
+  let collected;
+  try {
+    collected = JSON.parse(readFileSync(path, 'utf8'));
+  } catch (error) {
+    if (error.code !== 'ENOENT')
+      throw new Error(`cannot read collected manifest: ${error.message}`);
+  }
+  // The real collector carries format, architecture, size and signing data.
+  // Keep that contract intact rather than replacing it with sidecar-only rows
+  // that downstream verification and the website cannot consume.
+  if (collected) {
+    if (collected.version !== version) throw new Error('collected manifest version mismatch');
+    const byName = new Map(result.entries.map(({ metadata }) => [metadata.artifact, metadata]));
+    if (collected.artifacts?.length !== byName.size)
+      throw new Error('collected manifest and verified provenance artifact sets differ');
+    const seen = new Set();
+    for (const artifact of collected.artifacts) {
+      const name = artifact.filename ?? artifact.artifact;
+      const metadata = byName.get(name);
+      if (!metadata || seen.has(name))
+        throw new Error(`unverified or duplicate collected artifact '${name}'`);
+      seen.add(name);
+      if ((artifact.platform ?? `${artifact.os}-${artifact.arch}`) !== metadata.platform)
+        throw new Error(`collected platform mismatch for '${name}'`);
+      if (artifact.sha256 !== metadata.sha256)
+        throw new Error(`collected SHA-256 mismatch for '${name}'`);
+    }
+  }
   const manifest = {
+    ...collected,
     schema: 1,
     version,
     commitSha,
     policyHash,
-    artifacts: result.entries.map(({ metadata }) => ({
-      platform: metadata.platform,
-      artifact: metadata.artifact,
-      sha256: metadata.sha256,
-    })),
+    artifacts:
+      collected?.artifacts ??
+      result.entries.map(({ metadata }) => ({
+        platform: metadata.platform,
+        artifact: metadata.artifact,
+        sha256: metadata.sha256,
+      })),
   };
-  const path = join(dir, 'release-manifest.json');
   writeFileSync(path, `${JSON.stringify(manifest, null, 2)}\n`, { mode: 0o600 });
   return path;
 }
