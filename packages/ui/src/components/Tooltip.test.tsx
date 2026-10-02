@@ -95,6 +95,48 @@ describe('Tooltip', () => {
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
   });
 
+  it('lets Escape reach document overlays while the tooltip is closed', () => {
+    const documentKeydown = vi.fn();
+    document.addEventListener('keydown', documentKeydown);
+    try {
+      render(
+        <Tooltip label="Helpful tip">
+          <button type="button">Trigger</button>
+        </Tooltip>,
+      );
+      const trigger = screen.getByRole('button', { name: 'Trigger' });
+      expect(fireEvent.keyDown(trigger, { key: 'Escape' })).toBe(true);
+      expect(documentKeydown).toHaveBeenCalledOnce();
+      expect(documentKeydown.mock.calls[0]?.[0].defaultPrevented).toBe(false);
+    } finally {
+      document.removeEventListener('keydown', documentKeydown);
+    }
+  });
+
+  it('consumes Escape for its open tooltip, then yields the next Escape to overlays', async () => {
+    const documentKeydown = vi.fn();
+    document.addEventListener('keydown', documentKeydown);
+    try {
+      render(
+        <Tooltip label="Helpful tip">
+          <button type="button">Trigger</button>
+        </Tooltip>,
+      );
+      const trigger = screen.getByRole('button', { name: 'Trigger' });
+      fireEvent.focus(trigger);
+      expect(await screen.findByRole('tooltip')).toBeInTheDocument();
+
+      expect(fireEvent.keyDown(trigger, { key: 'Escape' })).toBe(false);
+      expect(documentKeydown).not.toHaveBeenCalled();
+      expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+
+      expect(fireEvent.keyDown(trigger, { key: 'Escape' })).toBe(true);
+      expect(documentKeydown).toHaveBeenCalledOnce();
+    } finally {
+      document.removeEventListener('keydown', documentKeydown);
+    }
+  });
+
   it('places aria-describedby on the trigger, not a wrapper', async () => {
     render(
       <Tooltip label="Helpful tip">

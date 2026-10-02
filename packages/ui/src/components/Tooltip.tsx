@@ -392,13 +392,16 @@ export function Tooltip({
   const onKeyDown = useCallback(
     (e: { key: string; preventDefault?: () => void; stopPropagation?: () => void }) => {
       if (e.key === 'Escape') {
+        clearTimers();
+        // A focused trigger may outlive its tooltip. Let the open dialog or
+        // popover own Escape when there is no tooltip left to dismiss.
+        if (!visible) return;
         e.preventDefault?.();
         e.stopPropagation?.();
-        clearTimers();
         setOpen(false);
       }
     },
-    [clearTimers, setOpen],
+    [clearTimers, setOpen, visible],
   );
 
   const onTooltipPointerEnter = useCallback(() => {

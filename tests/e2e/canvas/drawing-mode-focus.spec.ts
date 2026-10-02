@@ -51,11 +51,47 @@ test.describe('Drawing Mode — distraction-free canvas & pencil stabilization',
     await page.locator('.workspace-dock__item[aria-label="Draw workspace"]').click();
 
     await page.keyboard.press('Shift+p');
-    await expect(page.getByLabel(/^Stabilization/)).toBeVisible();
-    await expect(page.getByLabel('Brush preset')).not.toBeVisible();
+    await expect(page.getByRole('button', { name: 'Pencil', exact: true })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    await expect(page.getByRole('button', { name: 'Tool options', exact: true })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
+    const pencilOptions = page.getByRole('dialog', { name: 'Pencil tool options', exact: true });
+    await expect(pencilOptions.getByLabel(/^Stabilization/)).toBeVisible();
+    await expect(pencilOptions.getByLabel('Brush preset')).not.toBeVisible();
+    await page.getByRole('button', { name: 'Tool options', exact: true }).click();
+    await expect(pencilOptions).not.toBeVisible();
 
     await page.keyboard.press('b');
-    await expect(page.getByLabel('Brush preset')).toBeVisible();
-    await expect(page.getByLabel(/^Smoothing/)).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Paint Brush', exact: true })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    await expect(page.getByRole('button', { name: 'Tool options', exact: true })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
+    const brushOptions = page.getByRole('dialog', { name: /paint.*tool options/i });
+    await expect(brushOptions.getByLabel('Brush preset')).toBeVisible();
+    await expect(brushOptions.getByLabel(/^Smoothing/)).toBeVisible();
+  });
+
+  test('Escape dismisses tool options when focus remains on a workspace button with a closed tooltip', async ({
+    page,
+  }) => {
+    const workspace = page.getByRole('radio', { name: 'Draw workspace', exact: true });
+    await workspace.click();
+    await page.keyboard.press('Shift+p');
+    await expect(workspace).toBeFocused();
+    await expect(page.getByRole('tooltip')).not.toBeVisible();
+    const options = page.getByRole('dialog', { name: 'Pencil tool options', exact: true });
+    await expect(options.getByLabel(/^Stabilization/)).toBeVisible();
+
+    await page.keyboard.press('Escape');
+    await expect(options).not.toBeVisible();
+    await expect(page.getByRole('button', { name: 'Tool options', exact: true })).toBeFocused();
   });
 });
