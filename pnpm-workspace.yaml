@@ -13,43 +13,50 @@ overrides:
   # resolves 2.4.0, where the export is absent. Keep this exact and covered by
   # scripts/desktop/compatibility.test.mjs.
   "@wdio/native-utils": 2.5.0
-  # --- Transitive security remediations (2026-08-13) ---
-  # Each override pins a vulnerable transitive dependency to its patched line.
-  # Revisit each when the parent packages catch up and the overrides can be
-  # dropped. Production audit is zero; the resolved graph is checked on every
-  # frozen install, with patched development-only packages validated locally.
-  # GHSA-v2hh-gcrm-f6hx / GHSA-7p8r-x3mc-p8w7: fast-uri host-confusion in
-  # ajv@8.18 (stryker) and yaml-language-server (@astrojs/check) chains.
-  "fast-uri": 3.1.5
-  # GHSA-q8mj-m7cp-5q26: qs DoS in typed-rest-client (stryker) chain.
-  "qs": 6.15.2
+  # --- Transitive security remediations (2026-10-02) ---
+  # Each override pins the audited dependency graph to a patched line. Review
+  # the paths again when updating parent packages and remove overrides once
+  # the parents provide the fixes themselves.
+  # fast-uri advisories affect the ajv/stryker and yaml-language-server chains.
+  "fast-uri": 3.1.8
+  # qs advisories affect typed-rest-client in the Stryker tool chain.
+  "qs": 6.16.0
   # GHSA-5c6j-r48x-rmvq / GHSA-qj8w-gfj5-8c6v: serialize-javascript RCE/DoS
   # in mocha (wdio) worker-pool serializer. 7.x output remains valid for
   # mocha's eval-based deserialization of options objects.
   "serialize-javascript": 7.1.0
-  # GHSA-3jxr-9vmj-r5cp: brace-expansion DoS via minimatch@9 (wdio chain).
-  "brace-expansion@2": 2.1.4
+  # brace-expansion DoS advisories affect the WDIO/Stryker minimatch chains.
+  "brace-expansion@1": 1.1.21
+  "brace-expansion@2": 2.1.7
   # GHSA-ggr8-5vv4-36mx: deepmerge-ts stack exhaustion on recursive object
   # graphs. WDIO currently declares ^7, but its usage is compatible with the
   # patched 8.x API. Keep this override until WDIO widens its own range.
   "deepmerge-ts": 8.0.0
-  # GHSA-mh99-v99m-4gvg / GHSA-rgw5-rvv9-x895: brace-expansion DoS in the
-  # minimatch 10 / Stryker chain. The parent currently resolves 5.0.7.
-  "brace-expansion@5": 5.0.9
-  # GHSA-xcpc-8h2w-3j85: adm-zip can allocate 4 GB for a crafted archive.
-  # onnxruntime-node still declares ^0.5.16; 0.6.0 is API-compatible for its
-  # archive extraction path and is the first patched release.
-  "adm-zip": 0.6.0
+  "brace-expansion@5": 5.0.12
+  # adm-zip archive allocation/path vulnerabilities affect onnxruntime-node.
+  "adm-zip": 0.6.1
+  # Patched minor lines for the remaining reported dependency paths.
+  "colord": 2.10.0
+  "devalue@5": 5.9.4
+  "js-yaml@4": 4.3.2
+  "svgo@4": 4.1.0
+  "ip-address": 10.7.1
+  # The upstream parents resolve three supported undici majors. Keep each on
+  # its own patched line instead of forcing one major across all consumers.
+  "undici@6": 6.29.0
+  "undici@7": 7.30.0
+  "undici@8": 8.11.2
+  # basic-ftp only enters through the local WDIO/Puppeteer tooling graph; the
+  # vulnerable 5.x line has no patched release, so use the fixed 6.x line.
+  "basic-ftp": 6.2.1
   # GHSA-28wg-ghj8-5hjv / GHSA-2v37-7h3g-55p8: nanoid 3.x indefinite loop in
   # postcss (astro/stylelint chains). postcss@8 override dedupes onto
   # 8.5.26; nanoid pin is belt-and-braces for any other 3.x consumer.
   "nanoid@3": 3.3.18
   "postcss@8": 8.5.26
-  # GHSA-f88m-g3jw-g9cj: sharp/libvips CVEs. astro 7 declares sharp as
-  # optional `^0.34.0 || ^0.35.0` which still resolves 0.34.x; force the
-  # patched 0.35 line. Build script stays blocked (allowBuilds) and the
-  # website does not configure the sharp image service.
-  "sharp": 0.35.3
+  # Astro's default Sharp service depends on libheif; keep its optional Sharp
+  # dependency on the patched 0.35 line. Sharp install scripts remain blocked.
+  "sharp": 0.35.5
 
 # pnpm 11 build-script approval (replaces the removed onlyBuiltDependencies).
 # esbuild (used by vitest + biome) ships/verifies its platform binary via
@@ -73,9 +80,9 @@ patchedDependencies:
 # 5 as an optional peer; the architecture audit was exercised against this
 # repository's TypeScript 6 graph, including the large editor graph. Astro's
 # Tailwind 3 integration is deprecated and its peer range stops at Astro 5,
-# but remains in use to retain Tailwind 3 browser support; the Astro 7.2.1
-# website build has passed. Keep both allowances exact and revisit on upgrades.
+# but remains in use to retain Tailwind 3 browser support. Keep both narrow
+# allowances explicit and revalidate them when upgrading their consumers.
 peerDependencyRules:
   allowedVersions:
     "madge>typescript": "6.0.3"
-    "@astrojs/tailwind>astro": "7.2.1"
+    "@astrojs/tailwind>astro": "~7.2.10"

@@ -15,16 +15,20 @@ const lockfile = readFileSync('pnpm-lock.yaml', 'utf8');
 const flatpakSources = readFileSync('packaging/flatpak/pnpm-sources.json', 'utf8');
 const extractPatch = readFileSync('patches/extract-zip@2.0.1.patch', 'utf8');
 
-assert.match(workspace, /"adm-zip": 0\.6\.0/);
-assert.match(workspace, /"brace-expansion@5": 5\.0\.9/);
+assert.match(workspace, /"adm-zip": 0\.6\.1/);
+assert.match(workspace, /"brace-expansion@5": 5\.0\.12/);
+assert.match(workspace, /"fast-uri": 3\.1\.8/);
+assert.match(workspace, /"js-yaml@4": 4\.3\.2/);
+assert.match(workspace, /"sharp": 0\.35\.5/);
+assert.match(workspace, /"svgo@4": 4\.1\.0/);
 assert.match(workspace, /"deepmerge-ts": 8\.0\.0/);
 assert.match(workspace, /extract-zip@2\.0\.1: patches\/extract-zip@2\.0\.1\.patch/);
 
-assert.match(lockfile, /adm-zip: 0\.6\.0/);
-assert.match(lockfile, /brace-expansion@5: 5\.0\.9/);
+assert.match(lockfile, /adm-zip: 0\.6\.1/);
+assert.match(lockfile, /brace-expansion@5: 5\.0\.12/);
 assert.match(lockfile, /deepmerge-ts@8\.0\.0/);
 assert.doesNotMatch(lockfile, /deepmerge-ts@7\.1\.5/);
-assert.match(lockfile, /onnxruntime-node@[\s\S]*?adm-zip: 0\.6\.0/);
+assert.match(lockfile, /onnxruntime-node@[\s\S]*?adm-zip: 0\.6\.1/);
 assert.match(lockfile, /extract-zip: 2\.0\.1\(patch_hash=[0-9a-f]{64}\)/);
 
 assert.match(flatpakSources, /deepmerge-ts-8\.0\.0\.tgz/);
