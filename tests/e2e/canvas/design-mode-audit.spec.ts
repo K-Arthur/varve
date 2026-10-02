@@ -81,7 +81,7 @@ test.describe('Design (Dev/Design) Mode — accessibility audit', () => {
       await insights.click();
     }
     const intelligence = page.locator('.intelligence-panel');
-    await intelligence.getByRole('tab', { name: 'audit', exact: true }).click();
+    await intelligence.getByRole('tab', { name: 'Contrast', exact: true }).click();
     await expect(page.getByText(/WCAG AA minimum/i).first()).toBeVisible();
     await expect(page.getByText('No issues detected')).not.toBeVisible();
 

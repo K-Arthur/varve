@@ -58,20 +58,20 @@ test.describe('Glass Material Effects', () => {
     const effectsSection = await openEffectsSection(page);
     await addLayerEffect(page, effectsSection, 'Glass Material');
 
-    // The GlassTintSwatch renders an InspectorColorPopover with a swatch button
-    // The tint swatch is rendered inline in the effect row (not inside NumberField params)
-    // Look for the color swatch button associated with glass tint
-    // InspectorColorPopover renders a button with class insp-swatch
-    const tintSwatch = page.locator('button.insp-swatch').first();
-    if (await tintSwatch.isVisible()) {
-      await tintSwatch.click();
-      await page.waitForTimeout(300);
-
-      // The InspectorColorPopover should open a dialog
-      // It renders inside a FloatingPortal, look for the open popover
-      const popover = page.locator('[role="dialog"].varve-popover').first();
-      await expect(popover).toBeVisible({ timeout: 5000 });
-    }
+    // Address this effect's named colour control, independently of the
+    // rectangle's Fill swatch and other retained, closed popovers.
+    const tintSwatch = effectsSection.getByRole('button', { name: 'Glass tint', exact: true });
+    await expect(tintSwatch).toBeVisible();
+    const initialTint = await tintSwatch.evaluate((el) => getComputedStyle(el).backgroundColor);
+    await tintSwatch.click();
+    const picker = page.getByRole('dialog', { name: 'Pick Glass tint', exact: true });
+    await expect(picker).toBeVisible();
+    await picker.getByRole('option', { name: /teal 500/i }).click();
+    await picker.getByRole('button', { name: 'Done', exact: true }).click();
+    await expect(picker).not.toBeVisible();
+    await expect
+      .poll(() => tintSwatch.evaluate((el) => getComputedStyle(el).backgroundColor))
+      .not.toBe(initialTint);
   });
 
   test('toggles edge highlight on glass material', async ({ page }) => {

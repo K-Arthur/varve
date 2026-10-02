@@ -11,6 +11,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
+import { selectInspectorTab } from '../helpers/inspector-tabs';
 import { navigateToEditor } from '../shared';
 
 const DEPTH_MODEL_ID = 'depth-anything-v2-small';
@@ -225,10 +226,7 @@ async function readDocumentDepthState(page: import('@playwright/test').Page) {
 
 /** Open the Inspector's Adjustments tab and expand the Depth Blur disclosure. */
 async function openDepthBlurSection(page: import('@playwright/test').Page) {
-  const adjustmentsTab = page.getByRole('tab', { name: 'Adjustments' });
-  if (await adjustmentsTab.isVisible({ timeout: 2000 }).catch(() => false)) {
-    await adjustmentsTab.click();
-  }
+  await selectInspectorTab(page, 'Adjustments');
   const trigger = page.getByRole('button', { name: 'Depth Blur' });
   await expect(trigger).toBeVisible({ timeout: 10000 });
   if ((await trigger.getAttribute('aria-expanded')) === 'false') {

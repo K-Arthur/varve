@@ -10,6 +10,7 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
+import { selectInspectorTab } from '../helpers/inspector-tabs';
 import { navigateToEditor } from '../shared';
 
 const CONTENT_CANVAS = 'canvas.editor-canvas__content-layer';
@@ -51,27 +52,29 @@ function makeRampResource(sourceWidth: number, sourceHeight: number): Record<str
 }
 
 async function openDepthMask(page: import('@playwright/test').Page) {
-  await page.getByRole('tab', { name: 'Adjustments' }).click();
+  await selectInspectorTab(page, 'Adjustments');
   const trigger = page.getByRole('button', { name: 'Depth Mask', exact: true });
   await expect(trigger).toBeVisible({ timeout: 15000 });
   if ((await trigger.getAttribute('aria-expanded')) === 'false') await trigger.click();
   return page.getByRole('group', { name: 'Depth Mask' });
 }
 
-async function openInspectorTab(
-  page: import('@playwright/test').Page,
-  label: string,
+async function sampleDepthPreview(
+  section: import('@playwright/test').Locator,
+  target: 'near' | 'far',
+  fraction: number,
 ): Promise<void> {
-  const tab = page.getByRole('tab', { name: label, exact: true });
-  if (await tab.isVisible()) {
-    await tab.click();
-    return;
-  }
-  await page.getByRole('button', { name: /^More inspector tabs/ }).click();
-  await page
-    .getByRole('menu', { name: 'More inspector tabs' })
-    .getByRole('menuitem', { name: label, exact: true })
-    .click();
+  await section.getByRole('button', { name: `Sample ${target}`, exact: true }).click();
+  const preview = section.locator('canvas.insp-depth-heatmap__canvas');
+  // Activating the picker can scroll the inspector to its button. Address
+  // the preview's current box, rather than reusing pre-scroll page pixels.
+  await preview.scrollIntoViewIfNeeded();
+  const box = await preview.boundingBox();
+  if (!box) throw new Error('depth preview is missing');
+  await preview.click({ position: { x: box.width * fraction, y: box.height * 0.5 } });
+  await expect(
+    section.getByRole('button', { name: `Sample ${target}`, exact: true }),
+  ).toHaveAttribute('aria-pressed', 'false');
 }
 
 async function canvasSignature(page: import('@playwright/test').Page): Promise<string> {
@@ -140,18 +143,8 @@ test.describe('standalone depth masking', () => {
 
     // The picker uses the actual contained canvas rectangle. The two clicks
     // intentionally sample opposite sides of the known asymmetric ramp.
-    const heatmapBox = await heatmap.boundingBox();
-    expect(heatmapBox).not.toBeNull();
-    await section.getByRole('button', { name: 'Sample near', exact: true }).click();
-    await page.mouse.click(
-      heatmapBox!.x + heatmapBox!.width * 0.08,
-      heatmapBox!.y + heatmapBox!.height * 0.5,
-    );
-    await section.getByRole('button', { name: 'Sample far', exact: true }).click();
-    await page.mouse.click(
-      heatmapBox!.x + heatmapBox!.width * 0.92,
-      heatmapBox!.y + heatmapBox!.height * 0.5,
-    );
+    await sampleDepthPreview(section, 'near', 0.08);
+    await sampleDepthPreview(section, 'far', 0.92);
     const sampledFar = Number(
       await section.getByRole('slider', { name: 'Depth mask far endpoint' }).inputValue(),
     );
@@ -190,7 +183,7 @@ test.describe('standalone depth masking', () => {
     // accepted mask also survives the ordinary PNG export route, using the
     // encoded file's own signature and IHDR dimensions rather than a mocked
     // export callback.
-    await openInspectorTab(page, 'Export');
+    await selectInspectorTab(page, 'Export');
     await page
       .getByRole('radiogroup', { name: 'Export format' })
       .getByRole('radio', { name: 'PNG' })
@@ -210,7 +203,7 @@ test.describe('standalone depth masking', () => {
     // later operation and does not require regenerating or changing depth.
     // The Properties panel's inline tab is labelled Design; Properties is the
     // panel's historical name, not a tab label at this viewport.
-    await openInspectorTab(page, 'Design');
+    await selectInspectorTab(page, 'Design');
     await expect(page.getByRole('button', { name: /mask/i }).first()).toBeVisible({
       timeout: 15000,
     });

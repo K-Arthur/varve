@@ -160,7 +160,7 @@ test.describe('Figma import integration', () => {
       mimeType: 'application/json',
       buffer: Buffer.from(JSON.stringify(fixture), 'utf8'),
     });
-    const report = page.locator('.import-results-overlay');
+    const report = page.getByRole('dialog', { name: 'Import Results', exact: true });
     await expect(report).toBeVisible({ timeout: 30000 });
     await expect(report).toContainText('Import Results');
     await report.getByRole('button', { name: /show details/i }).click();

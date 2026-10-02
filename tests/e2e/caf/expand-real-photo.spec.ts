@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
+import { selectInspectorTab } from '../helpers/inspector-tabs';
 import { navigateToEditor } from '../shared';
 
 const PHOTO_PATH = path.resolve(__dirname, '..', 'fixtures', 'real-life-landscape.jpg');
@@ -90,7 +91,7 @@ async function dropPhotoAndSelect(page: import('@playwright/test').Page): Promis
 }
 
 async function openGenerativeEdit(page: import('@playwright/test').Page): Promise<void> {
-  await page.getByRole('tab', { name: 'Adjustments', exact: true }).click();
+  await selectInspectorTab(page, 'Adjustments');
   await expect(page.getByText('Loading adjustments...', { exact: true })).toHaveCount(0, {
     timeout: 30_000,
   });

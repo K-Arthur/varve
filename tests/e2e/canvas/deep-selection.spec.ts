@@ -222,7 +222,7 @@ test.describe('Deep Selection', () => {
     await page.waitForTimeout(200);
 
     // Verify selection set exists in the panel
-    const selectionSetsList = page.getByRole('listbox', { name: 'Selection sets' });
+    const selectionSetsList = page.getByRole('list', { name: 'Selection sets' });
     await expect(selectionSetsList).toBeVisible();
 
     // Click the selection set to restore it

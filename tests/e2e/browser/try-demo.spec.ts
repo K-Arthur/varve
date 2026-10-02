@@ -336,7 +336,7 @@ test.describe('browser demo (/try)', () => {
     const viewMenu = page.locator('.editor-menubar__menu');
     // Workspace radios live in the Workspace submenu now that the View root
     // is grouped to fit one screen.
-    await viewMenu.getByRole('menuitem', { name: 'Workspace' }).hover();
+    await viewMenu.getByRole('menuitem', { name: 'Workspace', exact: true }).hover();
     const workspaceMenu = page.locator('[role="menu"][aria-label="Workspace"]');
     for (const mode of ['Print', 'Motion', 'Email']) {
       await expect(
