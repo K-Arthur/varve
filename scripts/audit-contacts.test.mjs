@@ -12,9 +12,10 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const ROOT = resolve(new URL('../', import.meta.url).pathname);
+const ROOT = fileURLToPath(new URL('../', import.meta.url));
 const AUDIT = join(ROOT, 'scripts/audit-contacts.mjs');
 
 /**

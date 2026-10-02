@@ -128,6 +128,34 @@ commit rather than another attempt of the old run.
     pointing to its committed packages; share third-party installations and
     keep Vite/configuration caches local. A regression resolves and executes a
     committed dependency while the caller contains a different implementation.
+12. **macOS path aliases defeated snapshot isolation.** At `3b846efa6`,
+    packaging exposed `/var` versus `/private/var` assumptions. Canonicalize
+    the caller root before rebasing workspace dependencies and CLI links.
+    The symlinked-temporary-root regression checks actual CLI execution:
+    the original implementation executes dirty caller code and fails.
+13. **Windows command fixtures concealed a runner defect.** The same candidate
+    used POSIX PATH separators and directly spawned package-manager shims.
+    [Node documents the `.cmd` boundary](https://nodejs.org/api/child_process.html#spawning-bat-and-cmd-files-on-windows).
+    Use native path delimiters and the pinned command adapter; reject batch
+    arguments containing line breaks or NUL before spawning, because the
+    [upstream newline report](https://github.com/moxystudio/node-cross-spawn/issues/179)
+    remains open. Simulated adapter tests supplement required native Windows
+    execution; they do not certify Windows packages.
+14. **A successful website build never deployed.** Run
+    [37068845426](https://github.com/K-Arthur/varve/actions/runs/37068845426)
+    built its Pages artifact, but deployment had zero steps. The unused
+    release-data ancestor was deliberately skipped; GitHub's implicit
+    `success()` propagated that skip. Require a successful build and an
+    uncancelled workflow explicitly, retaining source-quality and published
+    tag/SHA validation. Regression cases reject failed, skipped, or cancelled
+    builds and a workflow cancelled after its build.
+15. **A stopped launcher left its supervisor running.** Another interrupted
+    local run left a detached browser wrapper alive without a delivered
+    cancellation signal. The original sender is unknown. Watch the original
+    POSIX parent identity during owned-command execution; confirmed parent
+    loss invokes bounded cleanup and returns failure. A real controller exits
+    normally without signalling its supervisor; the regression verifies
+    detached descendant cleanup and survival of an unrelated sentinel.
 
 ## Validation evidence and boundaries
 

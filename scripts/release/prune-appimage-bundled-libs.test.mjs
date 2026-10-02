@@ -26,7 +26,7 @@ function write(path, contents = 'x') {
 }
 
 function relative(squashfsRoot, path) {
-  return path.slice(squashfsRoot.length + 1);
+  return path.slice(squashfsRoot.length + 1).replaceAll('\\', '/');
 }
 
 try {

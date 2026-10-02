@@ -12,9 +12,10 @@ import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { runValidationCommand } from './heavy-lease.mjs';
 
-const SCRIPT = new URL('./heavy-lease.mjs', import.meta.url).pathname;
+const SCRIPT = fileURLToPath(new URL('./heavy-lease.mjs', import.meta.url));
 
 /** Combined stdout+stderr: the wait/deadline messages are console.warn/error
  * (stderr, correct CLI convention) while the wrapped command's own output is
@@ -112,16 +113,30 @@ function waitForExit(child) {
   }
 }
 
+// Windows ChildProcess.kill('SIGTERM') force-kills without running Node's
+// handler. A file-triggered in-process event exercises that handler while the
+// real Windows CLI, lease and command tree remain intact; POSIX uses real TERM.
+function cancellationPreload(directory, marker) {
+  const path = join(directory, 'cancel-event.mjs');
+  writeFileSync(
+    path,
+    `import fs from 'node:fs';const timer=setInterval(()=>{if(fs.existsSync(${JSON.stringify(marker)})){clearInterval(timer);process.emit('SIGTERM')}},5);timer.unref();`,
+  );
+  return process.platform === 'win32' ? ['--import', path] : [];
+}
+
 // Cancellation during memory admission returns its exact signal exit and
 // releases the lease without ever starting the wrapped command.
 {
   const runtimeDirectory = mkdtempSync(join(tmpdir(), 'varve-heavy-memory-cancel-'));
   const marker = join(runtimeDirectory, 'unexpected-command');
+  const cancelEvent = join(runtimeDirectory, 'cancel-event');
   let owner;
   try {
     owner = spawn(
       process.execPath,
       [
+        ...cancellationPreload(runtimeDirectory, cancelEvent),
         SCRIPT,
         'memory-cancel',
         '--',
@@ -150,7 +165,8 @@ function waitForExit(child) {
     while (!output.includes('below the') && Date.now() < deadline)
       await new Promise((resolve) => setTimeout(resolve, 5));
     assert.match(output, /below the/);
-    owner.kill('SIGTERM');
+    if (process.platform === 'win32') writeFileSync(cancelEvent, 'cancel');
+    else owner.kill('SIGTERM');
     const result = await exit;
     assert.equal(result.code, 143);
     assert.match(output, /cancelled by SIGTERM while waiting for memory; command not launched/);
@@ -274,18 +290,73 @@ function waitForExit(child) {
   }
 }
 
-// The MemAvailable parser must exist and be reachable from the script for
-// the above behavior to mean anything on this platform (guards against the
-// regex silently matching nothing and always falling back to freemem()).
-{
+// Only Linux has /proc/meminfo. The CLI sampling fixtures below exercise
+// Linux's parser and the non-Linux/fallback source on every actual host.
+if (process.platform === 'linux') {
   const meminfo = readFileSync('/proc/meminfo', 'utf-8');
   assert.match(meminfo, /^MemAvailable:\s+\d+\s*kB/m, 'expected Linux /proc/meminfo format');
+}
+for (const sample of [
+  { platform: 'linux', meminfo: 'MemAvailable: 98304 kB\n', freeMB: 8, admitted: true },
+  { platform: 'linux', meminfo: 'MemAvailable: 16384 kB\n', freeMB: 96, admitted: false },
+  { platform: 'linux', meminfo: 'missing available field\n', freeMB: 96, admitted: true },
+  { platform: 'win32', meminfo: 'must not read proc\n', freeMB: 96, admitted: true },
+  { platform: 'darwin', meminfo: 'must not read proc\n', freeMB: 8, admitted: false },
+]) {
+  const directory = mkdtempSync(join(tmpdir(), 'varve-memory-source-'));
+  const marker = join(directory, 'launched');
+  const preload = join(directory, 'memory-source.mjs');
+  try {
+    writeFileSync(
+      preload,
+      `import fs from 'node:fs';import os from 'node:os';import {syncBuiltinESMExports} from 'node:module';const actual=fs.readFileSync;os.platform=()=>${JSON.stringify(sample.platform)};os.freemem=()=>${sample.freeMB}*1024*1024;fs.readFileSync=function(path,...args){if(String(path)==='/proc/meminfo'){if(${JSON.stringify(sample.platform)}!=='linux')throw Error('non-Linux must not sample proc');return ${JSON.stringify(sample.meminfo)}}return actual.call(this,path,...args)};syncBuiltinESMExports();`,
+    );
+    const result = spawnSync(
+      process.execPath,
+      [
+        '--import',
+        preload,
+        SCRIPT,
+        'memory-source',
+        '--',
+        process.execPath,
+        '-e',
+        `require('node:fs').writeFileSync(${JSON.stringify(marker)},'launched')`,
+      ],
+      {
+        encoding: 'utf8',
+        timeout: 2000,
+        env: {
+          ...process.env,
+          XDG_RUNTIME_DIR: directory,
+          VARVE_LEASE_MIN_MEM_MB: '64',
+          VARVE_LEASE_TIMEOUT: '100',
+          VARVE_LEASE_MEM_POLL_MS: '10',
+        },
+      },
+    );
+    assert.equal(result.error, undefined);
+    assert.equal(result.status, sample.admitted ? 0 : 1, result.stderr);
+    assert.equal(
+      existsSync(marker),
+      sample.admitted,
+      'real CLI admission must match its selected memory source',
+    );
+    if (!sample.admitted) assert.match(result.stderr, /command not launched \(deadline reached\)/);
+    assert.deepEqual(readdirSync(join(directory, 'varve-leases')), []);
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
 }
 
 function activeProcess(pid) {
   try {
-    const text = readFileSync(`/proc/${pid}/stat`, 'utf8');
-    return text.slice(text.lastIndexOf(')') + 2).split(' ')[0] !== 'Z';
+    if (process.platform === 'linux') {
+      const text = readFileSync(`/proc/${pid}/stat`, 'utf8');
+      return text.slice(text.lastIndexOf(')') + 2).split(' ')[0] !== 'Z';
+    }
+    process.kill(pid, 0);
+    return true;
   } catch {
     return false;
   }
@@ -300,11 +371,13 @@ async function waitForFile(path) {
 
 // Real detached grandchildren model pnpm's separate process groups. A lease
 // stays held through cooperative cleanup; an unrelated sibling is untouched.
-for (const cooperate of [true, false]) {
+// Windows taskkill is forcible; POSIX additionally covers cooperative TERM.
+for (const cooperate of process.platform === 'win32' ? [false] : [true, false]) {
   const runtimeDirectory = mkdtempSync(join(tmpdir(), 'varve-heavy-cancel-'));
   const ready = join(runtimeDirectory, 'ready.json');
   const signalled = join(runtimeDirectory, 'signalled');
   const finish = join(runtimeDirectory, 'finish');
+  const cancelEvent = join(runtimeDirectory, 'cancel-event');
   let owner;
   let sentinel;
   let pids;
@@ -314,7 +387,18 @@ for (const cooperate of [true, false]) {
     sentinel = spawn(process.execPath, ['-e', 'setInterval(()=>{},1000)'], { stdio: 'ignore' });
     owner = spawn(
       process.execPath,
-      [SCRIPT, 'cancel-owned', '--', process.execPath, '-e', parent, ready, signalled, finish],
+      [
+        ...cancellationPreload(runtimeDirectory, cancelEvent),
+        SCRIPT,
+        'cancel-owned',
+        '--',
+        process.execPath,
+        '-e',
+        parent,
+        ready,
+        signalled,
+        finish,
+      ],
       {
         env: { ...process.env, XDG_RUNTIME_DIR: runtimeDirectory, VARVE_LEASE_MIN_MEM_MB: '0' },
         stdio: 'ignore',
@@ -324,11 +408,15 @@ for (const cooperate of [true, false]) {
     const record = await waitForLease(runtimeDirectory, 'cancel-owned');
     await waitForFile(ready);
     pids = JSON.parse(readFileSync(ready, 'utf8'));
-    owner.kill('SIGTERM');
-    await waitForFile(signalled);
     assert.equal(existsSync(record.path), true, 'lease must remain while a descendant is alive');
     assert.equal(activeProcess(pids.grandchild), true);
     assert.equal(activeProcess(sentinel.pid), true, 'unrelated process must remain alive');
+    if (process.platform === 'win32') writeFileSync(cancelEvent, 'cancel');
+    else {
+      owner.kill('SIGTERM');
+      await waitForFile(signalled);
+      assert.equal(existsSync(record.path), true, 'lease must remain through cooperative cleanup');
+    }
     if (cooperate) writeFileSync(finish, 'release');
     const result = await Promise.race([
       exit,
@@ -362,15 +450,15 @@ for (const cooperate of [true, false]) {
   }
 }
 
-// Windows contract injection exercises failure and thrown-taskkill paths on
-// this POSIX host. It does not certify native Windows process-tree behavior.
+// Failed/throwing taskkill is injected on every host. In-process emission
+// drives Node's cancellation handler; real taskkill success is covered above.
 for (const throws of [false, true]) {
   const directory = mkdtempSync(join(tmpdir(), 'varve-windows-cleanup-'));
   const ready = join(directory, 'ready');
   const receipt = join(directory, 'receipt.json');
   let ownedPid;
   try {
-    const source = `import {runValidationCommand} from ${JSON.stringify(new URL('./heavy-lease.mjs', import.meta.url).href)};import fs from 'node:fs';const ready=${JSON.stringify(ready)};const task=runValidationCommand([process.execPath,'-e',"const fs=require('node:fs');process.on('SIGTERM',()=>{});fs.writeFileSync(process.argv[1],String(process.pid));setInterval(()=>{},1000)",ready],{platform:'win32',graceMs:30,windowsKill:async()=>{${throws ? "throw Error('taskkill unavailable')" : 'return false'}}});while(!fs.existsSync(ready))await new Promise(r=>setTimeout(r,5));process.kill(process.pid,'SIGTERM');const result=await task;fs.writeFileSync(${JSON.stringify(receipt)},JSON.stringify(result));process.exitCode=result.status;`;
+    const source = `import {runValidationCommand} from ${JSON.stringify(new URL('./heavy-lease.mjs', import.meta.url).href)};import fs from 'node:fs';const ready=${JSON.stringify(ready)};const task=runValidationCommand([process.execPath,'-e',"const fs=require('node:fs');process.on('SIGTERM',()=>{});fs.writeFileSync(process.argv[1],String(process.pid));setInterval(()=>{},1000)",ready],{platform:'win32',graceMs:30,windowsKill:async()=>{${throws ? "throw Error('taskkill unavailable')" : 'return false'}}});while(!fs.existsSync(ready))await new Promise(r=>setTimeout(r,5));process.emit('SIGTERM');const result=await task;fs.writeFileSync(${JSON.stringify(receipt)},JSON.stringify(result));process.exitCode=result.status;`;
     const runner = spawn(process.execPath, ['--input-type=module', '-e', source], {
       stdio: 'ignore',
     });
@@ -387,8 +475,19 @@ for (const throws of [false, true]) {
     const evidence = JSON.parse(readFileSync(receipt, 'utf8'));
     assert.equal(result.code, 143);
     assert.equal(evidence.cleanupUnknown, true, 'unverified taskkill cannot release the lease');
-    assert.deepEqual(evidence.remaining, [{ pid: ownedPid, identity: null, depth: 0 }]);
-    assert.equal(activeProcess(ownedPid), true, 'the still-live root must be retained as evidence');
+    if (process.platform === 'win32') {
+      // The fallback kill ends the native root, but failed taskkill cannot
+      // verify its whole tree and must still retain unknown-cleanup evidence.
+      assert.deepEqual(evidence.remaining, []);
+      assert.equal(activeProcess(ownedPid), false);
+    } else {
+      assert.deepEqual(evidence.remaining, [{ pid: ownedPid, identity: null, depth: 0 }]);
+      assert.equal(
+        activeProcess(ownedPid),
+        true,
+        'the still-live root must be retained as evidence',
+      );
+    }
   } finally {
     if (!ownedPid && existsSync(ready)) ownedPid = Number(readFileSync(ready, 'utf8'));
     if (ownedPid) {

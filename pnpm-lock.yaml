@@ -99,6 +99,9 @@ importers:
       '@wdio/tauri-service':
         specifier: 1.3.0
         version: 1.3.0(expect-webdriverio@5.7.0)(supports-color@8.1.1)(tsx@4.23.11)(webdriverio@9.30.1)
+      cross-spawn:
+        specifier: 7.0.6
+        version: 7.0.6
       fake-indexeddb:
         specifier: ^6.2.5
         version: 6.2.5

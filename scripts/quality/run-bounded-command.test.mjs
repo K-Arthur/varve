@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -38,6 +38,84 @@ try {
     assert.equal(result.error, undefined, result.error?.message);
     assert.equal(result.status, status, 'completed commands preserve their exit status');
     assert.doesNotMatch(result.stderr, /timed out|cancelled/);
+  }
+
+  // Exercise the real Windows adapter on this host without starting cmd.exe:
+  // only the OS spawn boundary is injected. This is not native Windows proof.
+  const adapterFixture = `
+    import assert from 'node:assert/strict';
+    import childProcess from 'node:child_process';
+    import { EventEmitter } from 'node:events';
+    import { syncBuiltinESMExports } from 'node:module';
+    Object.defineProperty(process, 'platform', { value: 'win32' });
+    const calls = [];
+    childProcess.spawn = (command, args, options) => {
+      calls.push({ command, args, options });
+      const child = new EventEmitter();
+      process.nextTick(() => child.emit('exit', 7, null));
+      return child;
+    };
+    syncBuiltinESMExports();
+    const { runValidationCommand } = await import(${JSON.stringify(new URL('./heavy-lease.mjs', import.meta.url).href)});
+    const completed = await runValidationCommand(['fixture.cmd', 'space and (parentheses)', 'literal & command'], { stdio: 'ignore' });
+    assert.equal(completed.status, 7);
+    assert.equal(calls.length, 1);
+    assert.match(calls[0].command, /cmd\\.exe$/i);
+    assert.equal(calls[0].options.shell, false);
+    assert.equal(calls[0].options.windowsVerbatimArguments, true);
+    assert.equal(calls[0].options.detached, false);
+    assert.ok(calls[0].args.at(-1).includes('^&'));
+    for (const bad of ['line\\nbreak', 'line\\rbreak', 'nul\\0break']) {
+      const rejected = await runValidationCommand(['fixture.cmd', bad], { stdio: 'ignore' });
+      assert.equal(rejected.status, 1);
+    }
+    assert.equal(calls.length, 1, 'unsafe batch argv must fail before the spawn boundary');
+  `;
+  const adapter = spawnSync(process.execPath, ['--input-type=module', '-e', adapterFixture], {
+    encoding: 'utf8',
+    timeout: 8000,
+  });
+  assert.equal(adapter.error, undefined, adapter.error?.message);
+  assert.equal(adapter.status, 0, adapter.stderr);
+  assert.match(adapter.stderr, /Windows batch command arguments cannot contain line breaks or NUL/);
+  console.log('Windows shim adapter keeps command status, escapes argv and rejects line breaks');
+
+  if (process.platform === 'win32') {
+    const bin = join(tempDir, 'node_modules', '.bin');
+    mkdirSync(bin, { recursive: true });
+    const argvPath = join(tempDir, 'windows-argv.json');
+    writeFileSync(
+      join(bin, 'fixture.mjs'),
+      `import fs from 'node:fs';fs.writeFileSync(process.env.VARVE_FIXTURE_ARGV,JSON.stringify(process.argv.slice(2)));`,
+    );
+    writeFileSync(
+      join(bin, 'fixture.cmd'),
+      `@echo off\r\n"${process.execPath}" "%~dp0fixture.mjs" %*\r\n`,
+    );
+    const args = [
+      'two words',
+      'quote"inside',
+      '(parentheses)',
+      'literal & pipe |',
+      '%VARVE_FIXTURE_VALUE%',
+    ];
+    const native = spawnSync(
+      process.execPath,
+      [runner, '3000', tempDir, join(bin, 'fixture.cmd'), ...args],
+      {
+        encoding: 'utf8',
+        timeout: 8000,
+        env: {
+          ...process.env,
+          VARVE_FIXTURE_ARGV: argvPath,
+          VARVE_FIXTURE_VALUE: 'must-not-expand',
+        },
+      },
+    );
+    assert.equal(native.error, undefined, native.error?.message);
+    assert.equal(native.status, 0, native.stderr);
+    assert.deepEqual(JSON.parse(readFileSync(argvPath, 'utf8')), args);
+    console.log('native Windows .cmd arguments remain literal through the bounded CLI');
   }
 
   // pnpm starts children in separate process groups. Exercise the real CLI,
@@ -130,9 +208,119 @@ try {
     console.log(
       'bounded deadlines and cancellation clean detached descendants, preserving unrelated work',
     );
+    if (process.platform === 'linux' || process.platform === 'darwin')
+      await testSupervisorParentLoss();
   }
 } finally {
   rmSync(tempDir, { recursive: true, force: true });
+}
+
+async function waitForFixtureFile(path, timeoutMs = 3000) {
+  const deadline = Date.now() + timeoutMs;
+  while (!existsSync(path) && Date.now() < deadline)
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  assert.ok(existsSync(path), 'parent-loss fixture did not produce ' + path);
+}
+
+/** The real parent exits normally; it never signals its detached supervisor. */
+async function testSupervisorParentLoss() {
+  const ready = join(tempDir, 'parent-loss-command.json');
+  const ownerPath = join(tempDir, 'parent-loss-owner');
+  const leave = join(tempDir, 'parent-loss-controller-leave');
+  const receipt = join(tempDir, 'parent-loss-result.json');
+  const signalMarker = join(tempDir, 'parent-loss-supervisor-signal');
+  const logPath = join(tempDir, 'parent-loss.log');
+  const supervisorPath = join(tempDir, 'parent-loss-supervisor.mjs');
+  let controller;
+  let sentinel;
+  let owned = [];
+  try {
+    const grandchild = [
+      "const fs = require('node:fs');",
+      "process.on('SIGTERM', () => {});",
+      'fs.writeFileSync(process.argv[1], JSON.stringify({ parent: Number(process.argv[2]), grandchild: process.pid }));',
+      'setInterval(() => {}, 1000);',
+    ].join('\n');
+    const command = [
+      "const { spawn } = require('node:child_process');",
+      "process.on('SIGTERM', () => {});",
+      'const child = spawn(process.execPath, ' +
+        JSON.stringify(['-e', grandchild]) +
+        ".concat([process.argv[1], String(process.pid)]), { detached: true, stdio: 'ignore' });",
+      "child.on('exit', () => process.exit(0));",
+      'setInterval(() => {}, 1000);',
+    ].join('\n');
+    writeFileSync(
+      supervisorPath,
+      [
+        "import fs from 'node:fs';",
+        'import { runValidationCommand } from ' +
+          JSON.stringify(new URL('./heavy-lease.mjs', import.meta.url).href) +
+          ';',
+        "for (const signal of ['SIGTERM', 'SIGINT', 'SIGHUP']) process.on(signal, () => fs.writeFileSync(" +
+          JSON.stringify(signalMarker) +
+          ', signal));',
+        'const result = await runValidationCommand(' +
+          JSON.stringify([process.execPath, '-e', command, ready]) +
+          ", { graceMs: 150, timeoutMs: 10000, stdio: 'ignore' });",
+        'fs.writeFileSync(' + JSON.stringify(receipt) + ', JSON.stringify(result));',
+        'process.exitCode = result.status;',
+      ].join('\n'),
+    );
+    const controllerSource = [
+      "const fs = require('node:fs');",
+      "const { spawn } = require('node:child_process');",
+      "const out = fs.openSync(process.argv[4], 'w');",
+      "const owner = spawn(process.execPath, [process.argv[1]], { detached: true, stdio: ['ignore', out, out] });",
+      'fs.closeSync(out);',
+      'fs.writeFileSync(process.argv[2], String(owner.pid));',
+      'owner.unref();',
+      'setInterval(() => { if (fs.existsSync(process.argv[3])) process.exit(0); }, 5);',
+    ].join('\n');
+    sentinel = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore' });
+    controller = spawn(
+      process.execPath,
+      ['-e', controllerSource, supervisorPath, ownerPath, leave, logPath],
+      { stdio: 'ignore' },
+    );
+    const controllerExit = new Promise((resolve, reject) => {
+      controller.once('error', reject);
+      controller.once('exit', (code, signal) => resolve({ code, signal }));
+    });
+    await waitForFixtureFile(ownerPath);
+    const ownerPid = Number(readFileSync(ownerPath, 'utf8'));
+    owned = [processRecord(ownerPid)];
+    assert.ok(owned[0], 'detached supervisor must be alive');
+    await waitForFixtureFile(ready);
+    const pids = JSON.parse(readFileSync(ready, 'utf8'));
+    owned.push(processRecord(pids.parent), processRecord(pids.grandchild));
+    assert.ok(owned.every(Boolean), 'owned command and detached grandchild must be live');
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    writeFileSync(leave, 'exit without signalling supervisor');
+    assert.deepEqual(await controllerExit, { code: 0, signal: null });
+    await waitForFixtureFile(receipt, 6500);
+    const result = JSON.parse(readFileSync(receipt, 'utf8'));
+    assert.deepEqual(result, { status: 1, signal: null, remaining: [], cleanupUnknown: false });
+    assert.equal(existsSync(signalMarker), false, 'no signal may cause supervisor cleanup');
+    assert.match(
+      readFileSync(logPath, 'utf8'),
+      /supervising parent \d+ exited or changed; owned-process cleanup completed/,
+    );
+    for (const record of owned.slice(1))
+      assert.equal(processRecord(record.pid), null, 'owned detached work survived parent loss');
+    assert.ok(processRecord(sentinel.pid), 'an unrelated sibling must remain alive');
+    console.log('supervisor parent loss cleans owned detached work without a delivered signal');
+  } finally {
+    for (const record of owned.reverse()) {
+      const current = processRecord(record?.pid);
+      if (!current || current.identity !== record.identity) continue;
+      try {
+        process.kill(record.pid, 'SIGKILL');
+      } catch {}
+    }
+    controller?.kill('SIGKILL');
+    sentinel?.kill('SIGKILL');
+  }
 }
 
 function processRecord(pid) {
@@ -146,8 +334,12 @@ function processRecord(pid) {
         .split(/\s+/);
       return fields[0] === 'Z' ? null : { pid, identity: fields[19], group: Number(fields[2]) };
     }
-    process.kill(pid, 0);
-    return { pid, identity: null };
+    const text = spawnSync('ps', ['-p', String(pid), '-o', 'lstart=,stat='], {
+      encoding: 'utf8',
+      timeout: 1000,
+    }).stdout?.trim();
+    const match = text?.match(/^(.+?)\s+(\S+)$/);
+    return match && !match[2].startsWith('Z') ? { pid, identity: match[1] } : null;
   } catch {
     return null;
   }

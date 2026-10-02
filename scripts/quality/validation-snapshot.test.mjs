@@ -17,6 +17,7 @@ import {
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { createValidationSnapshot } from './validation-snapshot.mjs';
 
 const repo = mkdtempSync(join(tmpdir(), 'varve-validation-snapshot-'));
@@ -136,7 +137,7 @@ try {
     const resolveDependency = createRequire(join(snapshotClient, 'package.json'));
     assert.equal(
       realpathSync(resolveDependency.resolve('@fixture/shared')),
-      join(snapshot.path, 'packages', 'shared', 'index.cjs'),
+      realpathSync(join(snapshot.path, 'packages', 'shared', 'index.cjs')),
       'workspace imports must resolve inside the exact snapshot, never the dirty checkout',
     );
     assert.equal(
@@ -217,4 +218,26 @@ try {
   console.log('validation snapshot tests passed');
 } finally {
   rmSync(repo, { recursive: true, force: true });
+}
+
+// macOS /var is an alias of /private/var. Reproduce that same physical-versus-
+// logical root on POSIX hosts, including workspace .bin rebasing; comparing
+// only the resolved package import would miss a dirty caller CLI escaping.
+if (process.platform !== 'win32' && !process.argv.includes('--tmp-alias-fixture')) {
+  const directory = mkdtempSync(join(tmpdir(), 'varve-snapshot-temp-alias-'));
+  const physical = join(directory, 'physical');
+  const alias = join(directory, 'alias');
+  mkdirSync(physical);
+  symlinkSync(physical, alias, 'dir');
+  try {
+    execFileSync(process.execPath, [fileURLToPath(import.meta.url), '--tmp-alias-fixture'], {
+      env: { ...process.env, TMPDIR: alias },
+      encoding: 'utf8',
+      stdio: 'pipe',
+      timeout: 60_000,
+    });
+    console.log('symlinked temporary-root snapshot tests passed');
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
 }

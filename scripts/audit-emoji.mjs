@@ -12,9 +12,10 @@
  * Run: `pnpm audit:emoji` (also wired into the Cascade Review `gates` recipe).
  */
 import { readdir, readFile } from 'node:fs/promises';
-import { extname, join, relative } from 'node:path';
+import { extname, join, relative, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const ROOT = new URL('../', import.meta.url).pathname;
+const ROOT = fileURLToPath(new URL('../', import.meta.url));
 
 // Pictographic emoji — scanned across .ts/.tsx/.css/.html files.
 // Covers: Regional Indicators (flags), Misc Symbols + Dingbats, Misc Symbols
@@ -63,7 +64,11 @@ async function walk(dir, out = []) {
     if (e.isDirectory()) {
       const isGeneratedPlaywrightResults =
         e.name === 'test-results' || e.name.startsWith('test-results-');
+      // The ignored root reports directory contains third-party report UI.
+      // Nested authored directories named reports remain source-audited.
+      const isGeneratedRootReports = dir === ROOT && e.name === 'reports';
       if (
+        !isGeneratedRootReports &&
         !SKIP_DIRS.has(e.name) &&
         !isGeneratedPlaywrightResults &&
         !e.name.startsWith('.worktrees')
@@ -81,6 +86,7 @@ const offenders = [];
 
 for (const f of files) {
   const ext = extname(f);
+  const sourcePath = relative(ROOT, f).split(sep).join('/');
   const text = await readFile(f, 'utf8');
   const lines = text.split('\n');
 
@@ -94,7 +100,7 @@ for (const f of files) {
     // pass skipping comments.
     if (f.endsWith('.fuzz.test.ts')) continue;
     if (EMOJI_RE.test(line)) {
-      offenders.push(`EMOJI: ${relative(ROOT, f)}:${i + 1}: ${line.trim().slice(0, 100)}`);
+      offenders.push(`EMOJI: ${sourcePath}:${i + 1}: ${line.trim().slice(0, 100)}`);
       continue;
     }
 
@@ -104,7 +110,7 @@ for (const f of files) {
       const isComment =
         trimmed.startsWith('//') || trimmed.startsWith('*') || trimmed.startsWith('/*');
       if (!isComment) {
-        offenders.push(`ICON:  ${relative(ROOT, f)}:${i + 1}: ${line.trim().slice(0, 100)}`);
+        offenders.push(`ICON:  ${sourcePath}:${i + 1}: ${line.trim().slice(0, 100)}`);
       }
     }
   }

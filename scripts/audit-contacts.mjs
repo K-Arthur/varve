@@ -31,9 +31,10 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { readdir } from 'node:fs/promises';
-import { join, relative, resolve } from 'node:path';
+import { join, relative } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const ROOT = resolve(new URL('../', import.meta.url).pathname);
+const ROOT = fileURLToPath(new URL('../', import.meta.url));
 
 /** Built output is scanned too — a leak can appear only after bundling. */
 const EXTRA_DIRS = ['apps/website/dist', 'apps/website/dist-pages', 'apps/desktop/dist'];

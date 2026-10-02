@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { runCommitCheckpoint, selectCommitCommands } from './commit-checkpoint.mjs';
 
 const stagedFiles = [
@@ -55,5 +56,33 @@ const failed = withoutCiEnvironment(() =>
   }),
 );
 assert.equal(failed, 1);
+
+// The actual checkpoint must use the guarded .cmd adapter; inject only the
+// native spawn boundary to exercise Windows parsing without a Windows host.
+const windowsSource = `
+  import assert from 'node:assert/strict';
+  import cp from 'node:child_process';
+  import { syncBuiltinESMExports } from 'node:module';
+  Object.defineProperty(process, 'platform', { value: 'win32' });
+  const calls=[];
+  cp.spawnSync=(command,args,options)=>{calls.push({command,args,options});return {status:7,signal:null,error:undefined}};
+  syncBuiltinESMExports();
+  const {execute}=await import(${JSON.stringify(new URL('./commit-checkpoint.mjs', import.meta.url).href)});
+  assert.equal(execute(['fixture.cmd','literal & (parentheses)']),7);
+  assert.equal(calls.length,1);
+  assert.match(calls[0].command,/cmd\\.exe$/i);
+  assert.equal(calls[0].options.shell,false);
+  assert.equal(calls[0].options.windowsVerbatimArguments,true);
+  assert.ok(calls[0].args.at(-1).includes('^&'));
+  for(const bad of ['line\\nbreak','line\\rbreak','nul\\0break']) assert.equal(execute(['fixture.cmd',bad]),1);
+  assert.equal(calls.length,1,'unsafe batch argv cannot reach native spawn');
+`;
+const windows = spawnSync(process.execPath, ['--input-type=module', '-e', windowsSource], {
+  encoding: 'utf8',
+  timeout: 5000,
+});
+assert.equal(windows.error, undefined, windows.error?.message);
+assert.equal(windows.status, 0, windows.stderr);
+assert.match(windows.stderr, /Windows batch command arguments cannot contain line breaks or NUL/);
 
 console.log('commit-checkpoint.test.mjs: all assertions passed');

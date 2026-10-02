@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { delimiter, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs, runLane } from './pre-push.mjs';
 import {
@@ -177,7 +177,7 @@ try {
       encoding: 'utf8',
       env: {
         ...process.env,
-        PATH: `${hookDir}:${process.env.PATH ?? ''}`,
+        PATH: [hookDir, process.env.PATH ?? ''].join(delimiter),
         CI: '',
         HOOK_LOG: logPath,
         VARVE_TEST_PUSH_STATUS: checkpointStatus,

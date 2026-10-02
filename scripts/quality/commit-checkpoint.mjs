@@ -14,6 +14,8 @@ import { existsSync } from 'node:fs';
 import { availableParallelism, freemem, totalmem } from 'node:os';
 import { delimiter, join } from 'node:path';
 
+import { spawnValidationCommandSync } from './heavy-lease.mjs';
+
 const ROOT = process.cwd();
 const DEFAULT_TIMEOUT_MS = 120_000;
 const DIRECT_TEST_TIMEOUT_MS = 180_000;
@@ -45,7 +47,7 @@ function resourceSummary() {
 export function execute(argv, { dryRun = false, timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
   console.log(`    $ ${describe(argv)}`);
   if (dryRun) return 0;
-  const result = spawnSync(argv[0], argv.slice(1), {
+  const result = spawnValidationCommandSync(argv, {
     ...commandEnvironment(),
     stdio: 'inherit',
     timeout: timeoutMs,
@@ -201,7 +203,10 @@ export function selectCommitCommands(stagedFiles) {
 }
 
 function commandAvailable(name) {
-  const result = spawnSync(name, ['--version'], { ...commandEnvironment(), stdio: 'ignore' });
+  const result = spawnValidationCommandSync([name, '--version'], {
+    ...commandEnvironment(),
+    stdio: 'ignore',
+  });
   return !result.error && result.status === 0;
 }
 

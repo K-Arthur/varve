@@ -111,23 +111,32 @@ architecture audit to verify architectural metrics haven't regressed:
 node scripts/audit-architecture.mjs --ci
 ```
 
-These numbers drift with everyday merges — treat this table as orientation
-and the audit output plus the committed baselines as the source of truth.
-Enforced by `audit-architecture.mjs --ci` against `.architecture-baseline.json`
-(live values 2026-08-22):
+These numbers drift with everyday merges — treat the recorded values as
+orientation and inspect the audit output plus the committed baselines.
+`audit-architecture.mjs --ci` enforces cycle identities and the global
+`max_cycles` and `max_layer_violations` ceilings. The stored instability and
+unused-export thresholds are currently reported only, as documented in the
+[August 25 baseline commit](https://github.com/K-Arthur/varve/commit/1266f7fc3647c9e03ac142516e5d6c07f2b2d1d5).
 
-| Metric | Live (2026-08-22) | Enforced ceiling |
-|--------|-------------------|------------------|
-| Dependency cycles (madge, total distinct) | 15 | 19 (`max_cycles`) |
-| Unstable modules (I > 0.9, all packages) | 49 | 49 (`max_unstable`) — at ceiling; a new unstable module fails the gate |
-| Layer violations | 0 | 0 (`max_layer_violations`) |
-| Unused exports | 0 | 10 (`max_unused_exports`) |
+| Metric | Recorded (2026-08-22) | Current CI treatment |
+|--------|----------------------|----------------------|
+| Dependency cycles (madge, total distinct) | 15 | Enforced: cycle identities and 17 (`max_cycles`) |
+| Unstable modules (I > 0.9, all packages) | 49 | Reported only; stored ceiling 55 (`max_unstable`) |
+| Layer violations | 0 | Enforced: 0 (`max_layer_violations`) |
+| Unused exports | 0 | Reported only; stored ceiling 10 (`max_unused_exports`) |
 
-Reported but not enforced by `--ci`: per-package average/max cyclomatic
-complexity (editor avg 27.9 on 2026-08-22; `complexity` in the architecture
-baseline is intentionally empty), and per-hub import budgets — Shell (56),
-Menubar (18), and context (76) print OVER BUDGET warnings against the
-script's hardcoded budgets. Hub line/import *enforcement* lives in the
+The [0.5.0 architecture comparison](docs/quality/validation-strategy.md#architecture-audit-finding)
+records 75 unstable modules at committed SHA `dde0141d1` and in the pending
+interface repairs, with identical module identities. This existing excess
+remains architecture debt; a passing audit does not establish compliance with
+the stored instability ceiling. Keep the ceilings unchanged, add regression
+coverage for the omitted checks, and reduce the excess before enabling their
+enforcement. This finding grants no release-certification exemption.
+
+Also reported but not enforced by `--ci`: per-package average/max cyclomatic
+complexity and per-hub import budgets — Shell (56), Menubar (18), and context
+(76) print OVER BUDGET warnings against the script's hardcoded budgets. Hub
+line/import *enforcement* lives in the
 pre-commit health gate (`.health-baseline.json` via
 `scripts/audit-health.mjs --staged`). Function-level complexity ceilings for
 over-ceiling files (context.tsx 847, CanvasArea 630, …) live in

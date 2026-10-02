@@ -11,6 +11,7 @@ import { IMPACT_CONFIG } from '../../validation-impact.config.mjs';
 import { loadPackages } from './affected-plan.mjs';
 import { createExecutionReport, writeExecutionReport } from './ci-execution-report.mjs';
 import { validateCiPlan } from './ci-plan.mjs';
+import { spawnValidationCommandSync } from './heavy-lease.mjs';
 import { laneArgv, packageDirs } from './validation-lanes.mjs';
 import { CI_CATEGORIES, computePolicyHash } from './validation-policy.mjs';
 
@@ -180,7 +181,7 @@ export function runCategoryDetailed(
 function runCommand(argv, { dryRun = false, timeoutMs = 45 * 60 * 1000 } = {}) {
   console.log(`    $ ${describe(argv)}`);
   if (dryRun) return 0;
-  const result = spawnSync(argv[0], argv.slice(1), {
+  const result = spawnValidationCommandSync(argv, {
     ...commandEnvironment(),
     stdio: 'inherit',
     timeout: timeoutMs,

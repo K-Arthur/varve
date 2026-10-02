@@ -145,25 +145,32 @@ function linkCargoCache(sourceRoot, snapshotRoot) {
 
 export function createValidationSnapshot({ sha, root = process.cwd() } = {}) {
   if (!SHA.test(String(sha ?? ''))) throw new Error(`invalid validation target SHA '${sha}'`);
+  // Node resolves installed links physically. Use that same caller root for
+  // workspace rebasing, Git operations, and Cargo cache ownership; /var on
+  // macOS and a symlinked TMPDIR must not turn workspace CLIs into dirty links.
+  const sourceRoot = realpathSync(root);
   const parent = mkdtempSync(join(tmpdir(), 'varve-validation-tree-'));
   const path = join(parent, 'tree');
-  const add = runGit(['worktree', 'add', '--detach', '--no-checkout', '--quiet', path, sha], root);
+  const add = runGit(
+    ['worktree', 'add', '--detach', '--no-checkout', '--quiet', path, sha],
+    sourceRoot,
+  );
   if (add.status !== 0) {
     rmSync(parent, { recursive: true, force: true });
     throw new Error(add.stderr.trim() || `could not create validation worktree for ${sha}`);
   }
   const reset = runGit(['reset', '--hard', '--quiet', sha], path);
   if (reset.status !== 0) {
-    runGit(['worktree', 'remove', '--force', path], root);
+    runGit(['worktree', 'remove', '--force', path], sourceRoot);
     rmSync(parent, { recursive: true, force: true });
     throw new Error(reset.stderr.trim() || `could not materialize validation tree for ${sha}`);
   }
   let cargoCache;
   try {
-    linkDependencies(root, path);
-    cargoCache = linkCargoCache(root, path);
+    linkDependencies(sourceRoot, path);
+    cargoCache = linkCargoCache(sourceRoot, path);
   } catch (error) {
-    runGit(['worktree', 'remove', '--force', path], root);
+    runGit(['worktree', 'remove', '--force', path], sourceRoot);
     rmSync(parent, { recursive: true, force: true });
     throw new Error(`could not link validation build inputs: ${error.message}`);
   }
@@ -179,7 +186,7 @@ export function createValidationSnapshot({ sha, root = process.cwd() } = {}) {
     cleanup() {
       if (cleaned) return;
       cleaned = true;
-      const remove = runGit(['worktree', 'remove', '--force', path], root);
+      const remove = runGit(['worktree', 'remove', '--force', path], sourceRoot);
       if (remove.status !== 0) {
         cleaned = false;
         throw new Error(remove.stderr.trim() || `could not clean validation worktree for ${sha}`);

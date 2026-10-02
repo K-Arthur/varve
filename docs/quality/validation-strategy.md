@@ -86,6 +86,12 @@ push explicitly defers those helper lanes to exact-SHA integration and
 candidate Rust certification; other selected crate checks remain local.
 The generic local deadline and 12-minute planning budget stay unchanged.
 A successful local push checkpoint does not certify deferred native work.
+Command supervisors also watch their original POSIX parent while executing
+owned work. If that launcher exits without forwarding a signal, the supervisor
+cleans up only its owned descendants and returns failure; a delivered SIGTERM
+still returns 143. Keep the launcher alive for the duration of a validation
+attempt. Windows command shims use the pinned adapter, native PATH delimiters,
+and a fail-closed guard for batch arguments containing line breaks or NUL.
 The 10K layer drop-target benchmark warms the resolver and uses
 the fastest of three full sweeps; its 150ms ceiling remains unchanged.
 

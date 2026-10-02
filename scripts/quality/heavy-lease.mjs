@@ -44,6 +44,7 @@ import {
 import { constants, freemem, homedir, platform, tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import crossSpawn from 'cross-spawn';
 
 const MAX_WAIT_MS = Number(process.env.VARVE_LEASE_TIMEOUT ?? 600000);
 // Below this, a freshly-launched Chromium (~300-500MB RSS to first paint)
@@ -260,6 +261,14 @@ function processInfo(pid) {
   }
 }
 
+/** An unreadable identity is not evidence that a supervisor died. */
+function supervisorParentLost(parent) {
+  if (!parent?.identity) return false;
+  if (process.ppid !== parent.pid) return true;
+  const current = processInfo(parent.pid);
+  return current ? current.zombie || current.identity !== parent.identity : false;
+}
+
 function childPids(pid) {
   if (process.platform === 'linux') {
     try {
@@ -392,6 +401,27 @@ async function stopCommandTree(child, refresh, ended, signal, { windows, graceMs
   return { remaining, cleanupUnknown };
 }
 
+// The pinned adapter handles Windows .cmd shims and shebangs without
+// shell:true. Its cmd escaping does not cover line breaks (upstream #179),
+// so both execution modes reject them before crossing the shell boundary.
+function assertSafeBatchArgv(argv, options) {
+  const parsed = crossSpawn._parse(argv[0], argv.slice(1), options);
+  if (parsed.options.windowsVerbatimArguments && argv.some((part) => /[\0\r\n]/.test(String(part))))
+    throw new RangeError('Windows batch command arguments cannot contain line breaks or NUL');
+}
+
+/** Synchronous lightweight checkpoints share the same safe shim adapter.
+ * This helper preserves caller deadlines and never acquires a lease. */
+export function spawnValidationCommandSync(argv, options = {}) {
+  try {
+    const spawnOptions = { shell: false, ...options };
+    assertSafeBatchArgv(argv, spawnOptions);
+    return crossSpawn.sync(argv[0], argv.slice(1), spawnOptions);
+  } catch (error) {
+    return { status: null, signal: null, error, stdout: null, stderr: null };
+  }
+}
+
 /** Run only this command's descendants; cancellation and optional deadlines
  * never scan by name or kill the invoking terminal's process group. Resolve
  * after bounded cleanup, with surviving identities reported so a lease cannot
@@ -408,14 +438,22 @@ export async function runValidationCommand(argv, options = {}) {
     throw new RangeError('validation timeoutMs must be a positive safe integer');
   const deadline = timeoutMs === undefined ? null : Date.now() + timeoutMs;
   const windows = targetPlatform === 'win32';
+  // A terminal or pnpm parent can disappear without signalling this detached
+  // supervisor. Capture its identity before launching any owned command.
+  const supervisorParent =
+    !windows && (process.platform === 'linux' || process.platform === 'darwin')
+      ? processInfo(process.ppid)
+      : null;
   let child;
   try {
-    child = spawn(argv[0], argv.slice(1), {
+    const childOptions = {
       stdio: 'inherit',
       shell: false,
       ...spawnOptions,
       detached: !windows,
-    });
+    };
+    assertSafeBatchArgv(argv, childOptions);
+    child = crossSpawn(argv[0], argv.slice(1), childOptions);
   } catch (error) {
     console.error(`validation: failed to spawn ${argv[0]}: ${error.message}`);
     return { status: 1, signal: null, remaining: [], cleanupUnknown: false };
@@ -425,6 +463,7 @@ export async function runValidationCommand(argv, options = {}) {
   let childSignal = null;
   let receivedSignal = null;
   let timedOut = false;
+  let parentLost = false;
   let spawnError = null;
   const refresh = windows || !child.pid ? () => [] : ownedProcesses(child.pid);
   const listeners = ['SIGINT', 'SIGTERM', 'SIGHUP'].map((signal) => {
@@ -446,18 +485,19 @@ export async function runValidationCommand(argv, options = {}) {
   try {
     refresh();
     let lastRefresh = Date.now();
-    while (!ended && !receivedSignal && !timedOut) {
+    while (!ended && !receivedSignal && !timedOut && !parentLost) {
       await pause(25);
       timedOut = !ended && deadline !== null && Date.now() >= deadline;
       if (Date.now() - lastRefresh >= 250) {
         refresh();
+        parentLost = supervisorParentLost(supervisorParent);
         lastRefresh = Date.now();
       }
     }
     let remaining = refresh();
     const orphaned = ended && remaining.length > 0;
     let cleanupUnknown = false;
-    if (receivedSignal || timedOut || orphaned) {
+    if (receivedSignal || timedOut || parentLost || orphaned) {
       const result = await stopCommandTree(
         child,
         refresh,
@@ -472,6 +512,13 @@ export async function runValidationCommand(argv, options = {}) {
     if (receivedSignal)
       console.error(
         `validation: cancelled by ${receivedSignal}; owned-process cleanup ${remaining.length || cleanupUnknown ? 'incomplete' : 'completed'}`,
+      );
+    if (parentLost && !receivedSignal)
+      console.error(
+        'validation: supervising parent ' +
+          supervisorParent.pid +
+          ' exited or changed; owned-process cleanup ' +
+          (remaining.length || cleanupUnknown ? 'incomplete' : 'completed'),
       );
     if (timedOut && !receivedSignal)
       console.error(
@@ -491,10 +538,10 @@ export async function runValidationCommand(argv, options = {}) {
         ? signalStatus(receivedSignal)
         : timedOut
           ? 124
-          : spawnError || orphaned || remaining.length || cleanupUnknown
+          : spawnError || parentLost || orphaned || remaining.length || cleanupUnknown
             ? 1
             : (code ?? signalStatus(childSignal)),
-      signal: receivedSignal ?? (timedOut ? null : childSignal),
+      signal: receivedSignal ?? (timedOut || parentLost ? null : childSignal),
       remaining,
       cleanupUnknown,
     };

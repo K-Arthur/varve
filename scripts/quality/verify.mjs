@@ -26,6 +26,7 @@
  */
 
 import { existsSync } from 'node:fs';
+import { delimiter, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { IMPACT_CONFIG } from '../../validation-impact.config.mjs';
 import {
@@ -58,13 +59,13 @@ for (const [name, p] of Object.entries(loadPackages())) {
 async function commandResult(argv) {
   // Resolve pnpm-managed binaries and pnpm itself (user-local install).
   const PATH = [
-    `${ROOT}/node_modules/.bin`,
-    process.env.PNPM_HOME ? `${process.env.PNPM_HOME}/bin` : null,
-    `${process.env.HOME}/.local/share/pnpm/bin`,
+    join(ROOT, 'node_modules', '.bin'),
+    process.env.PNPM_HOME ? join(process.env.PNPM_HOME, 'bin') : null,
+    process.env.HOME ? join(process.env.HOME, '.local', 'share', 'pnpm', 'bin') : null,
     process.env.PATH ?? '',
   ]
     .filter(Boolean)
-    .join(':');
+    .join(delimiter);
   return runValidationCommand(argv, { cwd: ROOT, env: { ...process.env, PATH } });
 }
 

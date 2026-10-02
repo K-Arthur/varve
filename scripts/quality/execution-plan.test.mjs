@@ -12,8 +12,9 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { delimiter, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import crossSpawn from 'cross-spawn';
 import {
   broadBrowserArgv,
   buildExecutionPlan,
@@ -154,6 +155,15 @@ try {
   writeFileSync(join(bin, 'biome'), `#!/usr/bin/env node\n${recordImport}\n${record}\n`);
   chmodSync(join(bin, 'pnpm'), 0o755);
   chmodSync(join(bin, 'biome'), 0o755);
+  if (process.platform === 'win32') {
+    for (const command of ['pnpm', 'biome']) {
+      writeFileSync(join(bin, `${command}.mjs`), readFileSync(join(bin, command)));
+      writeFileSync(
+        join(bin, `${command}.cmd`),
+        `@echo off\r\n"${process.execPath}" "%~dp0${command}.mjs" %*\r\n`,
+      );
+    }
+  }
   // Only the throwaway fixture replaces the lease wrapper with an argv
   // recorder. The production verifier still invokes its real lease wrapper.
   writeFileSync(join(repo, 'scripts/quality/heavy-lease.mjs'), `${recordImport}\n${record}\n`);
@@ -179,7 +189,7 @@ try {
       encoding: 'utf8',
       env: {
         ...process.env,
-        PATH: `${bin}:${process.env.PATH}`,
+        PATH: [bin, process.env.PATH ?? ''].join(delimiter),
         CI: '1',
         TEST_COMMAND_LOG: commandsPath,
         VARVE_E2E_WORKERS: '1',
@@ -194,56 +204,75 @@ try {
       .map(JSON.parse);
     return { ...result, recorded };
   };
-  const cancelMarker = join(repo, 'cancel-owned-pids.json');
-  const cancelled = spawn(process.execPath, [verifier, 'quick', '--staged'], {
-    cwd: repo,
-    stdio: 'ignore',
-    env: {
-      ...process.env,
-      PATH: `${bin}:${process.env.PATH}`,
-      TEST_COMMAND_LOG: commandsPath,
-      TEST_CANCEL_MARKER: cancelMarker,
-    },
-  });
-  const cancelledExit = new Promise((resolve) =>
-    cancelled.once('exit', (code, signal) => resolve({ code, signal })),
-  );
-  let ownedPids;
-  try {
-    const deadline = Date.now() + 5000;
-    while (!existsSync(cancelMarker) && Date.now() < deadline)
-      await new Promise((resolve) => setTimeout(resolve, 5));
-    assert.ok(existsSync(cancelMarker), 'actual verifier compiler fixture did not start');
-    ownedPids = JSON.parse(readFileSync(cancelMarker, 'utf8'));
-    cancelled.kill('SIGTERM');
-    const result = await Promise.race([
-      cancelledExit,
-      new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('verifier cancellation was not bounded')), 4000).unref(),
-      ),
-    ]);
-    assert.equal(result.code, 143, 'actual verifier must preserve cancellation status');
-    assert.equal(result.signal, null);
-    for (const pid of Object.values(ownedPids)) {
-      let state;
-      try {
-        const stat = readFileSync(`/proc/${pid}/stat`, 'utf8');
-        state = stat.slice(stat.lastIndexOf(')') + 2).split(' ')[0];
-      } catch {
-        state = null;
-      }
+  // POSIX signals can be handled cooperatively; Windows SIGTERM force-kills
+  // the target instead. Native Windows deadline/tree cleanup has its own fixture.
+  if (process.platform !== 'win32') {
+    const cancelMarker = join(repo, 'cancel-owned-pids.json');
+    const cancelled = spawn(process.execPath, [verifier, 'quick', '--staged'], {
+      cwd: repo,
+      stdio: ['ignore', 'ignore', 'pipe'],
+      env: {
+        ...process.env,
+        PATH: [bin, process.env.PATH ?? ''].join(delimiter),
+        TEST_COMMAND_LOG: commandsPath,
+        TEST_CANCEL_MARKER: cancelMarker,
+      },
+    });
+    let cancellationStderr = '';
+    cancelled.stderr.on('data', (chunk) => {
+      cancellationStderr += chunk;
+    });
+    const cancelledExit = new Promise((resolve) =>
+      cancelled.once('exit', (code, signal) => resolve({ code, signal })),
+    );
+    let ownedPids;
+    try {
+      const deadline = Date.now() + 5000;
+      while (!existsSync(cancelMarker) && Date.now() < deadline)
+        await new Promise((resolve) => setTimeout(resolve, 5));
       assert.ok(
-        state === null || state === 'Z',
-        'actual verifier left an owned detached compiler descendant running',
+        existsSync(cancelMarker),
+        `actual verifier compiler fixture did not start: ${cancellationStderr}`,
       );
+      ownedPids = JSON.parse(readFileSync(cancelMarker, 'utf8'));
+      cancelled.kill('SIGTERM');
+      const result = await Promise.race([
+        cancelledExit,
+        new Promise((_, reject) =>
+          setTimeout(
+            () => reject(new Error('verifier cancellation was not bounded')),
+            4000,
+          ).unref(),
+        ),
+      ]);
+      assert.equal(result.code, 143, 'actual verifier must preserve cancellation status');
+      assert.equal(result.signal, null);
+      for (const pid of Object.values(ownedPids)) {
+        let state;
+        try {
+          if (process.platform === 'linux') {
+            const stat = readFileSync(`/proc/${pid}/stat`, 'utf8');
+            state = stat.slice(stat.lastIndexOf(')') + 2).split(' ')[0];
+          } else {
+            process.kill(pid, 0);
+            state = 'live';
+          }
+        } catch {
+          state = null;
+        }
+        assert.ok(
+          state === null || state === 'Z',
+          'actual verifier left an owned detached compiler descendant running',
+        );
+      }
+    } finally {
+      for (const pid of Object.values(ownedPids ?? {})) {
+        try {
+          process.kill(pid, 'SIGKILL');
+        } catch {}
+      }
+      cancelled.kill('SIGKILL');
     }
-  } finally {
-    for (const pid of Object.values(ownedPids ?? {})) {
-      try {
-        process.kill(pid, 'SIGKILL');
-      } catch {}
-    }
-    cancelled.kill('SIGKILL');
   }
 
   const triage = execute('triage');
@@ -325,7 +354,7 @@ try {
     }),
   );
   const [command, ...args] = broadBrowserArgv('website-e2e', discovery);
-  const result = spawnSync(command, args, { cwd: forwardingRepo, encoding: 'utf8' });
+  const result = crossSpawn.sync(command, args, { cwd: forwardingRepo, encoding: 'utf8' });
   assert.equal(result.status, 0, result.stderr);
   assert.equal(
     (result.stdout.match(/fixture build \[\]/g) ?? []).length,
