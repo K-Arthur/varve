@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -48,6 +48,49 @@ test('review captures refuse canonical and published screenshot paths', () => {
   assert.doesNotThrow(() =>
     assertReviewDirectorySafe(join(tmpdir(), 'varve-review'), [canonical, published]),
   );
+});
+
+test('workflow CLI rejects protected review directories before changing media', () => {
+  const root = fileURLToPath(new URL('../..', import.meta.url));
+  for (const directory of ['docs/screenshots/product', 'apps/website/public/screenshots']) {
+    const poster = join(root, directory, 'workflow-poster.png');
+    const before = readFileSync(poster);
+    const result = spawnSync(
+      process.execPath,
+      ['scripts/screenshots/workflow.mjs', '--review-dir', directory],
+      { cwd: root, encoding: 'utf8', timeout: 15_000 },
+    );
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /outside the canonical and published screenshot directories/);
+    assert.deepEqual(readFileSync(poster), before);
+  }
+});
+
+test('workflow CLI refuses an occupied port before recording or replacing media', async () => {
+  const root = fileURLToPath(new URL('../..', import.meta.url));
+  const directory = mkdtempSync(join(tmpdir(), 'varve-workflow-port-'));
+  const server = createServer();
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const port = server.address().port;
+  try {
+    const result = spawnSync(
+      process.execPath,
+      ['scripts/screenshots/workflow.mjs', '--review-dir', directory],
+      {
+        cwd: root,
+        encoding: 'utf8',
+        timeout: 15_000,
+        env: { ...process.env, VARVE_SHOT_PORT: String(port) },
+      },
+    );
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /already occupied/);
+    assert.equal(existsSync(join(directory, 'workflow-provenance.json')), false);
+    assert.equal(existsSync(join(directory, 'workflow.webm')), false);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+    rmSync(directory, { recursive: true, force: true });
+  }
 });
 
 test('copied producer captures retain historical provenance unless their bytes changed', () => {

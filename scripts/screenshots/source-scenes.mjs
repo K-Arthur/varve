@@ -4,8 +4,8 @@ export const SOURCE_SCENES = [
     file: 'comic-lettering-light.png',
     captureFile: 'comic-lettering-balloon-inspector.png',
     producer: 'tests/e2e/canvas/comic-lettering.spec.ts',
-    alt: 'A speech balloon selected in Varve with editable dialogue and the Comic balloon inspector showing fit, line-shape, and tail controls',
-    caption: 'Editable comic lettering with contour-aware wrapping and tail controls',
+    alt: 'A selected speech balloon in Varve with editable dialogue and one continuous outer outline joining the body to its tail',
+    caption: 'Editable comic lettering with a joined body and tail outline',
     feature: 'comic-lettering',
     theme: 'light',
     kind: 'full',
@@ -95,7 +95,7 @@ export const SOURCE_SCENES = [
     file: 'illustration-clipped-shading.png',
     captureFile: 'illustration-clipped-flats-shading.png',
     producer: 'tests/e2e/canvas/raster-magic-wand.spec.ts',
-    alt: 'Varve Design workspace with red shading clipped inside a blue painted shape on a separate Shading layer',
+    alt: 'Varve Draw workspace with teal shading clipped inside red apple flats on a separate Shading layer',
     caption:
       'The separate Shading layer stays within the source raster alpha across undo, save/reopen, and transparent PNG export.',
     feature: 'strokes',
@@ -178,7 +178,7 @@ export const SOURCE_SCENES = [
     file: 'tonal-curves-light.png',
     captureFile: '01-curves-light.png',
     producer: 'tests/e2e/effects/tonal-workflows.spec.ts',
-    alt: 'An imported photographic fixture with the Curves graph, retained channel selector and precise point controls in Varve',
+    alt: 'An imported photographic fixture with the Curves graph, upstream histogram and precise point controls in Varve',
     caption:
       'Precise point curves on an editable adjustment layer, with an upstream histogram and source preview.',
     feature: 'tonal-adjustments',

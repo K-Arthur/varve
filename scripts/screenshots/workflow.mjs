@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
 /**
  * Deterministic workflow video capture.
  *
@@ -8,6 +9,8 @@ import { spawn } from 'node:child_process';
  *
  *   pnpm screenshots:workflow              — record workflow video
  *   pnpm screenshots:workflow -- --no-mp4  — skip ffmpeg transcode
+ *   pnpm screenshots:workflow -- --review-dir reports/workflow-review
+ *     — isolate output for visual review; canonical media stays untouched
  *
  * Output:
  *   docs/screenshots/product/workflow.webm  — canonical video
@@ -38,18 +41,29 @@ import { spawn } from 'node:child_process';
  * time instead of a hardcoded guess.
  */
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from '@playwright/test';
+import { assertPortAvailable, assertReviewDirectorySafe } from './capture-safety.mjs';
+import { captureSourceIdentity } from './producer-capture.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
-const OUT_DIR = join(ROOT, 'docs', 'screenshots', 'product');
-const PUBLIC_DIR = join(ROOT, 'apps', 'website', 'public', 'screenshots');
-const PORT = Number(process.env.VARVE_SHOT_PORT ?? 1430);
-const BASE = `http://localhost:${PORT}`;
-
+const CANONICAL_DIR = join(ROOT, 'docs', 'screenshots', 'product');
+const PUBLISHED_DIR = join(ROOT, 'apps', 'website', 'public', 'screenshots');
 const args = process.argv.slice(2);
 const skipMp4 = args.includes('--no-mp4');
+const reviewFlag = args.indexOf('--review-dir');
+if (reviewFlag !== -1 && (!args[reviewFlag + 1] || args[reviewFlag + 1].startsWith('--'))) {
+  throw new Error('--review-dir requires an output directory');
+}
+const reviewDir = reviewFlag === -1 ? null : resolve(ROOT, args[reviewFlag + 1]);
+if (reviewDir) assertReviewDirectorySafe(reviewDir, [CANONICAL_DIR, PUBLISHED_DIR]);
+const OUT_DIR = reviewDir ?? CANONICAL_DIR;
+const PUBLIC_DIR = reviewDir ?? PUBLISHED_DIR;
+const PORT = Number(process.env.VARVE_SHOT_PORT ?? 1430);
+const BASE = `http://localhost:${PORT}`;
+const sourceBefore = captureSourceIdentity(ROOT);
+const digest = (bytes) => createHash('sha256').update(bytes).digest('hex');
 
 const VIDEO_FILE = 'workflow.webm';
 const VIDEO_PATH = join(OUT_DIR, VIDEO_FILE);
@@ -70,6 +84,7 @@ mkdirSync(PUBLIC_DIR, { recursive: true });
 /* ------------------------------------------------------------------ */
 
 async function startServer() {
+  await assertPortAvailable(PORT);
   const child = spawn(
     'pnpm',
     ['--filter', '@varve/desktop', 'exec', 'vite', '--port', String(PORT), '--strictPort'],
@@ -77,15 +92,17 @@ async function startServer() {
       cwd: ROOT,
       env: { ...process.env },
       stdio: 'ignore',
-      detached: false,
+      detached: process.platform !== 'win32',
     },
   );
   const deadline = Date.now() + 150000;
   while (Date.now() < deadline) {
+    if (child.exitCode !== null)
+      throw new Error(`Vite exited with ${child.exitCode} before readiness`);
     if (await probe()) return child;
     await new Promise((r) => setTimeout(r, 1000));
   }
-  child.kill();
+  await stopServer(child);
   throw new Error(`Vite dev server did not come up on :${PORT} within 150s`);
 }
 
@@ -103,7 +120,8 @@ function probe() {
 
 async function stopServer(child) {
   try {
-    child.kill('SIGTERM');
+    if (process.platform === 'win32') child.kill('SIGTERM');
+    else process.kill(-child.pid, 'SIGTERM');
   } catch {}
 }
 
@@ -134,17 +152,43 @@ const SEED_FIRST_RUN_STATE = () => {
 
 async function openDemoDocument(page, name) {
   const fixture = join(ROOT, 'scripts', 'screenshots', 'fixtures', `${name}.varve`);
+  const document = JSON.parse(readFileSync(fixture, 'utf8'));
   await page.setInputFiles('#file-open-input', fixture);
-  await page.waitForTimeout(1500);
-  await page.locator('.layers-panel').waitFor({ timeout: 30000 });
+  await page.waitForFunction(
+    (expected) =>
+      document.querySelector('.editor-shell h1.sr-only')?.textContent?.trim().startsWith(expected),
+    basename(fixture),
+    { timeout: 30000 },
+  );
+  await page.locator('.editor-canvas').waitFor({ state: 'visible', timeout: 30000 });
+  await page.evaluate(() => document.fonts.ready);
+  const families = [
+    ...new Set(
+      Object.values(document.nodes)
+        .map((node) => node.fontFamily)
+        .filter(Boolean),
+    ),
+  ];
+  for (const family of families) {
+    await page.waitForFunction(
+      (expected) =>
+        [...document.fonts].some(
+          (face) => face.family.replace(/["']/g, '') === expected && face.status === 'loaded',
+        ),
+      family,
+      { timeout: 5000 },
+    );
+  }
 }
 
 async function selectLayer(page, pattern) {
   const item = page.getByRole('treeitem').filter({ hasText: pattern }).first();
-  if (await item.isVisible({ timeout: 4000 }).catch(() => false)) {
-    await item.click({ timeout: 5000 }).catch(() => undefined);
-    await page.waitForTimeout(500);
-  }
+  await item.waitFor({ state: 'visible', timeout: 5000 });
+  await item.click({ timeout: 5000 });
+  await page.waitForFunction(
+    (element) => element.getAttribute('aria-selected') === 'true',
+    await item.elementHandle(),
+  );
 }
 
 async function openCleanEditor(page) {
@@ -245,13 +289,17 @@ async function runWorkflow(page, onContentReady) {
   await selectLayer(page, /^Poster — A3$/);
   await page.waitForTimeout(500);
 
-  const exportTab = page
-    .locator('[role="tablist"] button[role="tab"]')
-    .filter({ hasText: /^export$/i });
-  if (!(await exportTab.isVisible({ timeout: 4000 }).catch(() => false))) {
-    throw new Error('Export tab unavailable for the selected frame');
+  const inspector = page.getByRole('region', { name: 'Inspector', exact: true });
+  const exportTab = inspector.getByRole('tab', { name: 'Export', exact: true });
+  if (await exportTab.isVisible()) {
+    await exportTab.click();
+  } else {
+    await inspector.getByRole('button', { name: /^More inspector tabs/ }).click();
+    await page
+      .getByRole('menu', { name: 'More inspector tabs', exact: true })
+      .getByRole('menuitem', { name: 'Export', exact: true })
+      .click();
   }
-  await exportTab.click();
   await page.waitForTimeout(500);
   const advancedBtn = page.getByRole('button', { name: /Open advanced export/ });
   if (!(await advancedBtn.isVisible({ timeout: 4000 }).catch(() => false))) {
@@ -367,8 +415,14 @@ function probeDuration(path) {
 /* Main                                                                */
 /* ------------------------------------------------------------------ */
 
-const browser = await chromium.launch();
 const server = await startServer();
+let browser;
+try {
+  browser = await chromium.launch();
+} catch (error) {
+  await stopServer(server);
+  throw error;
+}
 
 // Warm the dev server (same pattern as product.mjs)
 async function warmUp() {
@@ -395,6 +449,8 @@ try {
   // Delete any previous workflow video and poster
   rmSync(VIDEO_PATH, { force: true });
   rmSync(VIDEO_PUBLIC, { force: true });
+  rmSync(VIDEO_PATH.replace(/\.webm$/, '.mp4'), { force: true });
+  rmSync(VIDEO_PUBLIC.replace(/\.webm$/, '.mp4'), { force: true });
   rmSync(POSTER_PATH, { force: true });
   rmSync(POSTER_PUBLIC, { force: true });
 
@@ -424,6 +480,8 @@ try {
       trimStart = (Date.now() - startTime) / 1000;
       console.log(`content ready at ${trimStart.toFixed(1)}s — trimming setup before this point`);
     });
+    const theme = await page.evaluate(() => document.documentElement.dataset.theme);
+    if (theme !== 'light') throw new Error(`Workflow requires light theme, received ${theme}`);
   } catch (err) {
     console.error(`workflow failed: ${err instanceof Error ? err.message : err}`);
     exitCode = 1;
@@ -439,7 +497,11 @@ try {
   // Move the recorded video from the temp location to the canonical path
   // Playwright saves videos with a hash-based name in the context's dir
   const videoPath = await video.path();
-  if (videoPath && existsSync(videoPath)) {
+  if (exitCode === 0 && videoPath && existsSync(videoPath)) {
+    const sourceAfter = captureSourceIdentity(ROOT);
+    if (JSON.stringify(sourceBefore) !== JSON.stringify(sourceAfter)) {
+      throw new Error('Source changed during workflow recording; rerun from a stable tree');
+    }
     const ffmpegAvailable = await hasFfmpeg();
     const mp4Path = VIDEO_PATH.replace(/\.webm$/, '.mp4');
     const mp4Public = VIDEO_PUBLIC.replace(/\.webm$/, '.mp4');
@@ -500,8 +562,34 @@ try {
         console.warn(`WARN ${label} is ${mb} MB (warn threshold 5 MB)`);
       }
     }
+    if (exitCode === 0) {
+      const files = ['workflow.webm', 'workflow.mp4', POSTER_FILE].filter((file) =>
+        existsSync(join(OUT_DIR, file)),
+      );
+      writeFileSync(
+        join(OUT_DIR, 'workflow-provenance.json'),
+        `${JSON.stringify(
+          {
+            schemaVersion: 1,
+            capturedAt: new Date().toISOString(),
+            provenance: sourceBefore,
+            captureTool: `Playwright ${JSON.parse(readFileSync(join(ROOT, 'node_modules/@playwright/test/package.json'), 'utf8')).version} / Chromium ${browser.version()}`,
+            viewport: { width: 1440, height: 900 },
+            deviceScaleFactor: 1,
+            theme: 'light',
+            files: files.map((file) => ({
+              file,
+              sha256: digest(readFileSync(join(OUT_DIR, file))),
+              bytes: statSync(join(OUT_DIR, file)).size,
+            })),
+          },
+          null,
+          2,
+        )}\n`,
+      );
+    }
   } else {
-    console.error('FAIL video file not found after recording');
+    console.error('FAIL workflow recording or output unavailable; no new capture approved');
     exitCode = 1;
   }
 } finally {

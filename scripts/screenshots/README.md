@@ -11,7 +11,7 @@ deterministic states.
 | `pnpm screenshots:product` | Capture every scene into `docs/screenshots/product/`, sync a copy into `apps/website/public/screenshots/`, and rewrite `apps/website/src/data/screenshot-manifest.json` |
 | `node scripts/screenshots/product.mjs --normalize` | Re-derive the manifest's *measurable* metadata (dimensions, hashes, kind, crop, viewport) from the already-published files without recapturing anything |
 | `pnpm screenshots:og` | Render the 1200x630 social-card image from `scripts/screenshots/og-template.html` into `apps/website/public/og-image.png` |
-| `pnpm screenshots:workflow` | Record a 10-20s deterministic editing workflow as WebM (+ optional MP4 via ffmpeg) |
+| `pnpm screenshots:workflow` | Record a 10-20s deterministic editing workflow as WebM (+ optional MP4 via ffmpeg); use `-- --review-dir reports/workflow-review` to inspect before replacing public media |
 | `pnpm screenshots:website` | Build the website and validate the manifest (fails on broken/missing references) |
 | `pnpm screenshots:update` | Capture + OG + workflow + build + strict validation (fails if any scene cannot be captured) |
 | `node scripts/screenshots/sync-plugin-scenes.mjs <e2e-output-dir>` | Sync visually reviewed plugin-manager captures from a completed E2E run and update only the four plugin scenes in the manifest |
@@ -21,7 +21,7 @@ Strict mode: `pnpm screenshots:product -- --strict` (exit non-zero on any skip)
 
 `--normalize` exists because a metadata change should not re-shoot every image:
 screenshots are dependency-aware evidence, so adding a `kind` field re-measures
-the files rather than churning 34 committed binaries. It refuses to write a
+the files rather than churning the committed captures. It refuses to write a
 `capturedAt` or `lastValidatedAgainst` for a scene it did not capture, and marks
 such records `provenanceUnknown: true` instead of backfilling a guessed date or
 revision. Legacy records therefore stay visibly unverified until they are
@@ -94,6 +94,15 @@ plugins and tonal workflows. Compatibility plugin/tonal sync commands use
 this same schema-2, receipt-checked import path and accept reviewed captures
 beneath `test-results/`. Patterns has one producer, so its review cannot be overwritten by a second
 workflow copying older published bytes.
+
+Workflow recordings also accept an isolated `--review-dir`. They reject occupied
+ports before launching a browser, verify the loaded document and its fonts,
+and select Export through the Inspector overflow when necessary. A successful
+recording writes `workflow-provenance.json` with its actual source revision,
+browser, viewport, theme, and hashes. Inspect the poster and the delivered video
+before promoting their exact bytes to both canonical directories; retain that
+receipt with the review evidence. A failed workflow does not produce an approval
+receipt.
 
 ## Source of truth
 
