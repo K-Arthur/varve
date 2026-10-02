@@ -15,6 +15,7 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, symlinkSync } 
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { createGitAdapter } from './history-policy.mjs';
+import { commonGitDirectory } from './validation-receipts.mjs';
 
 const SHA = /^[0-9a-f]{40}$/;
 
@@ -54,6 +55,22 @@ function linkDependencies(sourceRoot, snapshotRoot) {
   }
 }
 
+function linkCargoCache(sourceRoot, snapshotRoot) {
+  const target = join(snapshotRoot, 'target');
+  // Never replace anything supplied by the committed tree. Cargo's own
+  // fingerprints and artifact locks govern reuse; this is a build cache,
+  // not a passing validation receipt or a source overlay.
+  if (!existsSync(join(snapshotRoot, 'Cargo.toml')) || existsSync(target)) return null;
+  const cache = join(
+    commonGitDirectory({ git: createGitAdapter(sourceRoot), cwd: sourceRoot }),
+    'varve-validation',
+    'cargo-target',
+  );
+  mkdirSync(cache, { recursive: true });
+  symlinkSync(cache, target, process.platform === 'win32' ? 'junction' : 'dir');
+  return cache;
+}
+
 export function createValidationSnapshot({ sha, root = process.cwd() } = {}) {
   if (!SHA.test(String(sha ?? ''))) throw new Error(`invalid validation target SHA '${sha}'`);
   const parent = mkdtempSync(join(tmpdir(), 'varve-validation-tree-'));
@@ -69,17 +86,20 @@ export function createValidationSnapshot({ sha, root = process.cwd() } = {}) {
     rmSync(parent, { recursive: true, force: true });
     throw new Error(reset.stderr.trim() || `could not materialize validation tree for ${sha}`);
   }
+  let cargoCache;
   try {
     linkDependencies(root, path);
+    cargoCache = linkCargoCache(root, path);
   } catch (error) {
     runGit(['worktree', 'remove', '--force', path], root);
     rmSync(parent, { recursive: true, force: true });
-    throw new Error(`could not link validation dependencies: ${error.message}`);
+    throw new Error(`could not link validation build inputs: ${error.message}`);
   }
   let cleaned = false;
   return {
     path,
     sha,
+    cargoCache,
     cleanup() {
       if (cleaned) return;
       cleaned = true;

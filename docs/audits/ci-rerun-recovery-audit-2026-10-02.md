@@ -99,6 +99,17 @@ commit rather than another attempt of the old run.
    A memory deadline must report failure rather than launch a browser below
    the configured floor; the documented explicit parallelism opt-out remains
    available. These local controls complement remote attempt-bound receipts.
+10. **A cold build repeated after every local push timeout.** The isolated
+    outgoing-tree checkpoint discarded Cargo artifacts when it removed its
+    temporary worktree. A 300-second attempt compiled dependencies without
+    reaching the selected tests, then deleted that work. Retain a dedicated
+    repository-local Cargo target cache under the common Git directory across
+    snapshots. Committed source still comes from the exact detached tree;
+    Cargo fingerprints and artifact locks govern reuse, and every selected
+    check still executes. Keep the existing timeout. The snapshot regression
+    verifies cache survival and dirty-source exclusion; its `--cargo` probe
+    builds two different committed programs offline through the same cache
+    and verifies that the second program executes the changed source.
 
 ## Validation evidence and boundaries
 
