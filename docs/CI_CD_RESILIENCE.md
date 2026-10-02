@@ -192,6 +192,43 @@ compiled C/C++ output is cached in this repository; if a native CMake target is
 added, cache only the package-manager/download directory and key it by runner,
 compiler, architecture, and the lockfile—not `build/` or `target/` outputs.
 
+## Failure classes seen in this repository
+
+Measured, not theorised. Each entry is a class that has actually produced a
+red run here, with the class of fix that addresses it. Use this before
+reaching for a retry: retrying is a genuine fix for exactly one of these
+(transient infrastructure), and for the rest it erases the evidence that would
+have identified the cause.
+
+| Class | What it looks like here | Fix that addresses it |
+|---|---|---|
+| Test/assertion race | A `findByRole`/`findBy*` query that races a portal or animation mount. Fixed in `Menubar.test.tsx` by awaiting the same rendered state the open menu shows — not by raising the timeout. | Wait on the real condition, not a fixed delay. |
+| Environment drift (fonts) | Emoji glyphs rasterise from the host's `NotoColorEmoji.ttf`. CachyOS ships v2.051 (2024) and the Ubuntu runner ships a newer build, so the `multilingual-text` visual fixture renders visibly older OpenMoji artwork locally while staying within tolerance. | Keep that fixture's tolerance scoped to it (`tests/e2e/visual/replay.spec.ts`) and treat `visual-baselines.yml` on the runner as the only place baselines are regenerated. |
+| Carrier-shape drift | A test that builds a synthetic snapshot and then asserts on imports resolving *inside* it (`workspace imports must resolve inside the exact snapshot, never the dirty checkout`). It passes locally over a stale `dist` and fails on a clean runner checkout. | Assert on the carrier the test itself constructs; do not rely on a prebuilt artifact surviving into a temp snapshot. |
+| Configuration duplication drift | `pnpm/action-setup` pins `version: 11.9.0` in every job that installs dependencies (28 occurrences). Drift between those blocks versus `packageManager` changes installer behaviour between jobs with no obvious cause. | Keep one version source; if you must edit one, grep the whole tree. `scripts/validate-workflows.mjs` is the place to add a consistency assertion. |
+| Cache poisoning / staleness | A cache keyed on something weaker than what actually affects compatibility serves incompatible content. pnpm caches here embed the lockfile hash in the key, which is sound; do not shorten those keys. | Key on OS, architecture, language version and lockfile hash; never restore across them. |
+| Diagnostics gap | A failing job whose own log GitHub cannot serve yet renders `Job concluded as null but no log text was downloaded.` — true, unhelpful, and it reads as a data bug. Now replaced by `jobUnavailableLogText` in `scripts/ci-debug.mjs`, which names the state and the next action. | Say what is actually known and what to do next; never emit a bare `null`. |
+| Untrusted metadata in trusted output | The PR commenter embeds `run.head_branch`, which is attacker-controlled for a fork PR, inside a Markdown code span posted with `issues: write`. Fixed by `sanitizeInlineCode` in `scripts/pr-debug-comment.mjs`. | Sanitise and bound before interpolation; never interpolate raw event fields into shell or Markdown. |
+| Windows/macOS parity | Bash-only fixtures, path and shell assumptions that pass on Linux and fail on the other two matrix legs (`scripts/quality/execution-plan.test.mjs` uses a real POSIX signal fixture on `process.platform !== 'win32'`). | Guard platform-specific fixtures explicitly; do not let one OS's test body run on another. |
+
+### Cross-repository context
+
+GitHub's own measurement puts flaky-caused failures at roughly 9% of commits;
+Atlassian reports 15-21% of build failures and Google about 16% of tests
+showing some flakiness ([FlowVerify summary](https://www.flowverify.co/blog/flaky-tests-six-root-causes),
+[Luo et al. 2014 category split](https://www.flowverify.co/blog/flaky-tests-six-root-causes)).
+A large-scale GitHub Actions rerun study ([arXiv 2602.02307](https://arxiv.org/html/2602.02307v1),
+1,960 Java projects) found 3.2% of builds rerun, of which 67.7% were flaky,
+with flaky tests, network issues and dependency resolution the three most
+prevalent categories. The practical consequence for this repository: at
+~21,800 tests, a test that is individually fine 999 times in 1,000 still fails
+often enough to be seen, so per-test flake rate matters more than a pipeline
+pass-rate average.
+
+`fail-on-flaky-tests` is already set on the browser gates here, and retries are
+`0` on the visual and website gates. Both are deliberate: a gate that retries
+its way to green cannot tell you which of the classes above you are looking at.
+
 ## Infrastructure blocks: billing / runner outages
 
 The 2026-08-01..04 outage was not a code failure: GitHub refused to start any
@@ -376,7 +413,9 @@ The pipeline tooling is covered by TDD assertions that run as part of `pnpm test
 - `node scripts/ci-health.test.mjs` — pipeline-health classifier aggregates.
 - `node scripts/pin-github-actions.test.mjs` — pin-table integrity + fabricated-SHA regression.
 - `node scripts/security/dependency-hardening.test.mjs` — transitive security overrides,
-  the patched archive extractor, and lockfile patch integrity.
+  the patched archive extractor, and lockfile patch integrity; it runs
+  `scripts/security/extract-zip-containment.test.mjs`, which extracts malicious
+  archives against the patched module and proves an outside canary is untouched.
 - `bash scripts/test-ci-shell-scripts.sh` — shell assertions on `ci-local-run.sh` dispatch, act-missing detection, secrets stub, and `bash -n` syntax for every CI shell script and git hook.
 - The same shell suite rejects `act` versions below 0.2.89 and verifies that `--check` reports the Node 24 compatibility requirement.
 
@@ -387,12 +426,19 @@ pnpm test:ci:tools
 ```
 
 `pnpm audit --prod` is the production dependency gate. The frozen pnpm graph
-pins `adm-zip` 0.6.0 and `brace-expansion` v5 5.0.9. `extract-zip@2.0.1` is
-locally patched to reject absolute or out-of-tree symlink targets because no
+pins `adm-zip` 0.6.1 and `brace-expansion` v5 5.0.12. `extract-zip@2.0.1` is
+locally patched to reject absolute or out-of-tree symlink targets and to
+refuse writing a regular entry through an existing symlink leaf, because no
 patched upstream npm release exists. The generic `pnpm audit` command may still
 report that original development-only advisory because its scanner does not
-evaluate local patch files; the dependency-hardening test verifies the
-effective lockfile and patch contract instead of hiding the advisory.
+evaluate local patch files; the dependency-hardening contract test and the
+`extract-zip-containment` runtime test verify the effective lockfile and
+containment behaviour instead of hiding the advisory.
+
+`cargo audit` is not wired into CI. Run it manually from both the repository
+root (the `crates/` workspace) and `apps/desktop/src-tauri/` — they are
+independent Cargo workspaces with separate lockfiles, and the Tauri/gtk-rs
+stack exists only in the latter — before a release.
 
 ## Pre-commit / pre-push hooks
 
