@@ -125,6 +125,11 @@ jobs:
       - name: Install JS dependencies
         run: pnpm install --frozen-lockfile
 
+      # Real Windows command dispatch and macOS path aliases need their own
+      # native tooling check before spending time on TypeScript or Rust builds.
+      - name: CI tooling portability preflight
+        run: pnpm test:ci:tools
+
       - name: Typecheck
         env:
           # The editor project exceeds Node's 2 GiB default heap on macOS arm64.
@@ -138,7 +143,7 @@ jobs:
         run: node scripts/cargo-with-generative-bindgen.mjs clippy --workspace --all-targets -- -D warnings
 
       - name: JS tests
-        run: pnpm test
+        run: pnpm exec vitest run
 
       - name: Rust tests
         run: node scripts/cargo-with-generative-bindgen.mjs test --workspace --all-targets

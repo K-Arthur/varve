@@ -317,6 +317,35 @@ assert.equal(
   'a selected visual consumer cannot be silently skipped',
 );
 
+// Native tooling must fail before the expensive per-platform compile work.
+// Linux-only policy validation did not expose Windows .cmd or macOS /var
+// alias failures; run the same tooling checks in each existing build cell.
+const nativeBuild = load(readFileSync('.github/workflows/build.yml', 'utf8')).jobs.build;
+const nativeSteps = nativeBuild.steps;
+const installIndex = nativeSteps.findIndex((step) => step.name === 'Install JS dependencies');
+const toolsIndex = nativeSteps.findIndex((step) => step.run === 'pnpm test:ci:tools');
+assert.ok(toolsIndex > installIndex, 'native tooling preflight follows frozen dependency install');
+assert.equal(nativeSteps[toolsIndex].if, undefined, 'tooling runs on every selected native OS');
+assert.equal(
+  nativeSteps[toolsIndex]['continue-on-error'],
+  undefined,
+  'tooling failure blocks build',
+);
+for (const name of ['Typecheck', 'Lint (Rust)', 'Rust tests', 'Tauri build (release, no bundle)']) {
+  const index = nativeSteps.findIndex((step) => step.name === name);
+  assert.ok(index > toolsIndex, `${name} must follow native tooling preflight`);
+}
+assert.equal(
+  nativeSteps.find((step) => step.name === 'JS tests').run,
+  'pnpm exec vitest run',
+  'the Vitest suite still runs after tooling, without repeating the preflight',
+);
+assert.equal(
+  JSON.parse(readFileSync('package.json', 'utf8')).scripts.test,
+  'pnpm test:ci:tools && vitest run',
+  'splitting native workflow steps must preserve the complete pnpm test contract',
+);
+
 // Every category has at least one concrete workflow consumer, and the stable
 // aggregator names every possible job. This catches the old failure mode where
 // a newly added category was selected by policy but never ran in CI.

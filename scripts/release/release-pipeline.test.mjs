@@ -30,6 +30,50 @@ import { buildUpdaterConfig } from './write-updater-config.mjs';
 const releaseWorkflow = readFileSync('.github/workflows/release.yml', 'utf8');
 const websiteWorkflow = readFileSync('.github/workflows/website-deploy.yml', 'utf8');
 const visualWorkflow = readFileSync('.github/workflows/visual-baselines.yml', 'utf8');
+const candidateWorkflow = readFileSync('.github/workflows/release-candidate.yml', 'utf8');
+const integrationWorkflow = readFileSync('.github/workflows/ci.yml', 'utf8');
+const verifierSource = readFileSync('scripts/quality/verify.mjs', 'utf8');
+const strictBrowserFlags = [
+  '--workers=1',
+  '--retries=0',
+  '--update-snapshots=none',
+  '--fail-on-flaky-tests',
+  '--trace=retain-on-failure',
+];
+function workflowJob(source, id) {
+  const start = source.indexOf(`\n  ${id}:`);
+  assert.ok(start >= 0, `missing job ${id}`);
+  const next = source.slice(start + 1).search(/\n {2}[a-z][a-z0-9-]*:/);
+  return source.slice(start, next < 0 ? source.length : start + 1 + next);
+}
+for (const id of ['e2e', 'e2e-visual']) {
+  const job = workflowJob(candidateWorkflow, id);
+  assert.match(job, /needs: \[changes, pipeline-validate, wasm\]/);
+  assert.doesNotMatch(job, /needs:.*rust/, 'independent browsers must not wait on native targets');
+}
+assert.match(workflowJob(candidateWorkflow, 'desktop-e2e'), /needs:.*rust/);
+assert.match(workflowJob(candidateWorkflow, 'certification'), /needs:.*rust/);
+const candidateBrowserCommands = candidateWorkflow
+  .split('\n')
+  .filter((line) => /^\s*pnpm (?:exec playwright test|e2e:visual)/.test(line));
+assert.equal(candidateBrowserCommands.length, 6, 'triage and final for all three browser lanes');
+for (const command of candidateBrowserCommands) {
+  for (const flag of strictBrowserFlags) assert.ok(command.includes(flag), command);
+}
+const directIntegrationBrowserCommands = integrationWorkflow
+  .split('\n')
+  .filter((line) => /run: pnpm exec playwright test/.test(line));
+assert.equal(directIntegrationBrowserCommands.length, 3);
+for (const command of directIntegrationBrowserCommands) {
+  for (const flag of strictBrowserFlags) assert.ok(command.includes(flag), command);
+}
+assert.match(verifierSource, /broadBrowserArgv\('e2e:all', \{ strict: true \}\)/);
+assert.match(verifierSource, /'e2e:visual', \.\.\.playwrightRunOptions\(\{ strict: true \}\)/);
+assert.match(
+  JSON.parse(readFileSync('package.json', 'utf8')).scripts['e2e:visual'],
+  /--project=chromium-visual-3x/,
+  'full final visual gate keeps all three DPR tiers',
+);
 
 // Local version readiness must report the next actual release gate. A dirty
 // or unpublished candidate cannot be mistaken for a published release.

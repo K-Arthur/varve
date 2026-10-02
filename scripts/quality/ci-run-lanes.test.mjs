@@ -27,6 +27,34 @@ const e2e = commandsForCategory(plan, 'e2e');
 assert.ok(e2e.some((entry) => entry.argv.includes('tests/e2e/canvas')));
 assert.ok(e2e.every((entry) => !entry.argv.includes('sh')));
 
+const strictFlags = [
+  '--workers=1',
+  '--retries=0',
+  '--update-snapshots=none',
+  '--fail-on-flaky-tests',
+  '--trace=retain-on-failure',
+];
+for (const lane of ['e2e:all', 'e2e:canvas', 'e2e:file:tests/e2e/canvas/tools.spec.ts']) {
+  const [command] = commandsForCategory({ ...plan, selectedLanes: [lane] }, 'e2e');
+  for (const flag of strictFlags) assert.ok(command.argv.includes(flag), `${lane}: ${flag}`);
+}
+const website = commandsForCategory(
+  { ...plan, selectedLanes: ['website-unit', 'website-e2e'] },
+  'website',
+);
+assert.deepEqual(website[0].argv, ['pnpm', 'test:website']);
+for (const flag of strictFlags) assert.ok(website[1].argv.includes(flag));
+assert.equal(
+  runCategory(plan, 'e2e', {
+    execute: (argv) => {
+      for (const flag of strictFlags) assert.ok(argv.includes(flag));
+      return 1;
+    },
+  }),
+  1,
+  'a first-attempt browser failure remains blocking rather than a success receipt',
+);
+
 const executed = [];
 assert.equal(
   runCategory(plan, 'js', {

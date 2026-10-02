@@ -100,7 +100,19 @@ assert.deepEqual(
 assert.deepEqual(separate.lanes, [external, traversed, 'e2e:custom', 'website-e2e', 'e2e:all']);
 
 const discovery = { workers: '1', maxFailures: '5', triage: true };
-const bounds = ['--workers', '1', '--max-failures', '5', '--retries=0'];
+const strictFlags = [
+  '--retries=0',
+  '--update-snapshots=none',
+  '--fail-on-flaky-tests',
+  '--trace=retain-on-failure',
+];
+const bounds = ['--workers', '1', '--max-failures', '5', ...strictFlags];
+assert.deepEqual(playwrightRunOptions({ strict: true }), ['--workers=1', ...strictFlags]);
+for (const lane of ['e2e:all', 'e2e:visual', 'website-e2e']) {
+  const argv = broadBrowserArgv(lane, { strict: true });
+  assert.ok(argv.includes('--workers=1'));
+  for (const flag of strictFlags) assert.equal(argv.filter((arg) => arg === flag).length, 1);
+}
 assert.deepEqual(playwrightRunOptions(discovery), bounds);
 assert.deepEqual(broadBrowserArgv('e2e:all', discovery), [
   'pnpm',
@@ -298,7 +310,7 @@ try {
         '1',
         '--max-failures',
         '3',
-        '--retries=0',
+        ...strictFlags,
       ],
     ],
     'the real executor performs one bounded whole-suite command through its lease, without repeated exact specs',

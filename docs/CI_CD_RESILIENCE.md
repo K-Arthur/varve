@@ -106,6 +106,13 @@ the exact plan/preflight and then runs:
 
 This job would have caught the 2026-08-01 outage, where every workflow was pinned to fabricated SHAs.
 
+The `Build + Package` matrix also runs the complete CI tooling suite on each
+selected native OS immediately after its frozen dependency install, before
+TypeScript and Rust compilation. This catches Windows command-dispatch and
+macOS path-alias regressions that a Linux-only preflight cannot prove. Its
+later JavaScript step runs the unchanged Vitest suite without repeating the
+tooling checks; a failed native preflight stops that cell.
+
 ## Automated failure-debug report
 
 `scripts/ci-debug.mjs` is the failure-debug engine. It can be run locally:

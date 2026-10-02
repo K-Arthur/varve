@@ -301,9 +301,13 @@ async function main() {
       },
       {
         label: 'Chromium E2E',
-        argv: ['pnpm', 'exec', 'playwright', 'test', '--project=chromium'],
+        argv: [...broadBrowserArgv('e2e:all', { strict: true }), '--project=chromium'],
       },
-      { label: 'Visual E2E', argv: ['pnpm', 'e2e:visual'] },
+      {
+        label: 'Visual E2E',
+        // Preserve the package script's full DPR 1/2/3 matrix.
+        argv: ['pnpm', 'e2e:visual', ...playwrightRunOptions({ strict: true })],
+      },
     ];
     const result = await runFullGate(
       [

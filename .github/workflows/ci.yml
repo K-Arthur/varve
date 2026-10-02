@@ -491,7 +491,7 @@ jobs:
       - name: Install Playwright browsers
         run: pnpm exec playwright install --with-deps chromium
       - name: Website E2E (both modes)
-        run: pnpm exec playwright test -c playwright.website.config.ts
+        run: pnpm exec playwright test -c playwright.website.config.ts --workers=1 --retries=0 --update-snapshots=none --fail-on-flaky-tests --trace=retain-on-failure
       - name: Write website execution receipt
         if: always()
         env:
@@ -641,12 +641,12 @@ jobs:
       - name: Visual regression (canvas replay)
         env:
           VARVE_VISUAL_HARNESS_ONLY: '1'
-        run: pnpm exec playwright test --project=chromium-visual-1x --project=chromium-visual-2x --project=chromium-visual-3x
+        run: pnpm exec playwright test --project=chromium-visual-1x --project=chromium-visual-2x --project=chromium-visual-3x --workers=1 --retries=0 --update-snapshots=none --fail-on-flaky-tests --trace=retain-on-failure
       - name: Visual regression (GPU-backed Chromium)
         env:
           VARVE_VISUAL_HARNESS_ONLY: '1'
           VARVE_VISUAL_GPU: '1'
-        run: pnpm exec playwright test --project=chromium-visual-gpu
+        run: pnpm exec playwright test --project=chromium-visual-gpu --workers=1 --retries=0 --update-snapshots=none --fail-on-flaky-tests --trace=retain-on-failure
       - name: Build visual diff report
         if: failure()
         run: node scripts/build-visual-diff-manifest.mjs

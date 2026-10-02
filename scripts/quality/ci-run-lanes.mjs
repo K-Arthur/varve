@@ -11,6 +11,7 @@ import { IMPACT_CONFIG } from '../../validation-impact.config.mjs';
 import { loadPackages } from './affected-plan.mjs';
 import { createExecutionReport, writeExecutionReport } from './ci-execution-report.mjs';
 import { validateCiPlan } from './ci-plan.mjs';
+import { playwrightRunOptions } from './execution-plan.mjs';
 import { spawnValidationCommandSync } from './heavy-lease.mjs';
 import { laneArgv, packageDirs } from './validation-lanes.mjs';
 import { CI_CATEGORIES, computePolicyHash } from './validation-policy.mjs';
@@ -137,6 +138,8 @@ export function commandsForCategory(plan, category, { shard = null } = {}) {
   for (const lane of lanes) {
     const argv = e2eArgv(lane, shard) ?? laneArgv(lane, { files: plan.files ?? [] });
     if (!argv) throw new Error(`no executable command for selected ${category} lane '${lane}'`);
+    if (lane.startsWith('e2e:') || lane === 'website-e2e')
+      argv.push(...playwrightRunOptions({ strict: true }));
     commands.push({ lane, argv });
   }
   if (commands.length === 0) {

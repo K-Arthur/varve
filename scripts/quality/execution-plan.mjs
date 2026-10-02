@@ -61,11 +61,25 @@ export function formatExecutionPlan(execution) {
 }
 
 /** Apply the same discovery bounds to exact, domain, and broad browser runs. */
-export function playwrightRunOptions({ workers, maxFailures, triage = false } = {}) {
+export function playwrightRunOptions({
+  workers,
+  maxFailures,
+  triage = false,
+  strict = false,
+} = {}) {
   const args = [];
   if (workers) args.push('--workers', workers);
+  else if (triage || strict) args.push('--workers=1');
   if (maxFailures) args.push('--max-failures', maxFailures);
-  if (triage) args.push('--retries=0');
+  // Gate attempts must expose the first failure instead of paying for
+  // configured diagnostic retries. Retain its trace without needing a retry.
+  if (triage || strict)
+    args.push(
+      '--retries=0',
+      '--update-snapshots=none',
+      '--fail-on-flaky-tests',
+      '--trace=retain-on-failure',
+    );
   return args;
 }
 
