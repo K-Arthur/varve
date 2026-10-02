@@ -275,6 +275,23 @@ and `audit:sizing`. Each selected lane must resolve in both the compatibility
 inspector and interface stylesheet fixtures so local and CI planning cannot
 select an unregistered audit.
 
+## Architecture audit finding
+
+The 0.5.0 release architecture comparison measured 75 modules with instability
+above 0.9 at committed `master` SHA `dde0141d1` and in the pending interface
+changes, with identical module identities. The August 25 baseline commit
+`1266f7fc3` measured 50 and stores a ceiling of 55 in
+`.architecture-baseline.json`; the current drawer repairs did not add to this
+existing excess. Inspection of `scripts/audit-architecture.mjs --ci` found that
+it enforces cycle allowlists, the global cycle limit, and layer violations,
+but does not compare the reported instability or unused-export counts against
+the stored `max_unstable` and `max_unused_exports` thresholds. A passing audit
+therefore leaves those two metrics as reported architecture debt. The next
+action is to add regression tests for both omitted threshold checks and reduce
+the measured excess before enabling their enforcement. Keep the committed
+ceilings unchanged; this finding does not grant a baseline increase or a
+release-certification exemption.
+
 ## Multi-agent coordination
 
 Heavy tasks (full vitest, Playwright, cargo workspace tests, desktop

@@ -258,7 +258,7 @@ serve a file whose hash does not match the manifest — the pinned hash is the
 only provenance guarantee these binaries have.
 
 The capture browser enables the Vulkan path for renderer/WebGPU diagnostics,
-but the bundled Depth-Anything model is INT8 and is deliberately catalogued as
+but the optional Depth-Anything model is INT8 and is deliberately catalogued as
 CPU/WASM-only. Inference therefore still takes **minutes rather than seconds**
 on this path. Each scene allows up to fifteen minutes before giving up; that
 ceiling exists to catch a genuinely stuck run, not to bound normal work.

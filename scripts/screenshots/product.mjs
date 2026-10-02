@@ -1586,7 +1586,7 @@ const SCENES = [
       // checked, so it cannot be the inference completion signal. The
       // persistent subsection label appears as soon as generation succeeds.
       const ready = section.getByText(/^Depth Map Preview$/);
-      // The bundled INT8 model is CPU/WASM-preferred even though the capture
+      // The optional INT8 model is CPU/WASM-preferred even though the capture
       // browser uses Vulkan for renderer/WebGPU diagnostics: minutes, not
       // seconds.
       const result = await waitForInferenceResult(ready, section, 900000);
@@ -2156,7 +2156,7 @@ try {
   for (const scene of SCENES) {
     if (onlyScenes.size > 0 && !onlyScenes.has(scene.id)) continue;
     // Scenes that need on-device inference are opt-in. Their models are a
-    // local prerequisite (gitignored), and the bundled INT8 model runs on CPU
+    // local prerequisite (gitignored), and the optional INT8 model runs on CPU
     // through WASM even though model-mode Chromium enables Vulkan. A default
     // run must neither block on them nor fail --strict for skipping them.
     // Opting out drops the manifest entry entirely rather than leaving a
