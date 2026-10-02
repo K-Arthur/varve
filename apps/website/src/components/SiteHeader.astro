@@ -705,7 +705,21 @@ function linkClass(href: string): string[] {
   .mobile-nav-child { padding-inline-start: var(--space-5); }
 
   .mobile-nav-download { padding: var(--space-3) var(--space-4) var(--space-5); border-block-start: 1px solid var(--border-default); }
-  .mobile-nav-download :global(.download-cta) { display: flex; justify-content: center; min-block-size: var(--touch-target-min); }
+  .mobile-nav-download :global(.download-cta) {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    inline-size: 100%;
+    max-inline-size: 100%;
+    min-block-size: var(--touch-target-min);
+    box-sizing: border-box;
+    white-space: normal;
+  }
+  .mobile-nav-download :global(.download-cta-label) {
+    min-inline-size: 0;
+    min-width: 0;
+    white-space: normal;
+  }
   .mobile-theme-toggle { display: none; }
   .desktop-theme-toggle { display: none; }
   :global(html[data-theme-ready]) .desktop-theme-toggle { display: block; }

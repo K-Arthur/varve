@@ -34,7 +34,9 @@ for (const variant of [
     await expect(
       page.getByRole('link', { name: /dated interoperability evidence and consumer probe/ }),
     ).toBeVisible();
-    const artwork = page.getByRole('img', { name: /blue rectangle with its fill linked/ });
+    const artwork = page.getByRole('img', {
+      name: /blue rectangle whose fill is linked to the semantic\.brand\.curlyAlias token/,
+    });
     await expect(artwork).toBeVisible();
     await expect
       .poll(() => artwork.evaluate((image: HTMLImageElement) => image.naturalWidth))

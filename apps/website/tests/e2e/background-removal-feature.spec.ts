@@ -6,7 +6,13 @@ test('background-removal feature page is accurate and usable on mobile', async (
   await page.goto('/features/background-removal');
 
   await expect(page.getByRole('heading', { name: /cut out subjects/i })).toBeVisible();
-  await expect(page.locator('.mode-grid')).toHaveCount(1);
+  const modeGrid = page.locator('.mode-grid');
+  await expect(modeGrid).toHaveCount(1);
+  expect(
+    await modeGrid.evaluate(
+      (element) => getComputedStyle(element).gridTemplateColumns.split(' ').length,
+    ),
+  ).toBe(1);
   await expect(page.getByRole('heading', { name: 'Fast' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Auto' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'High quality' })).toBeVisible();
@@ -20,9 +26,15 @@ test('background-removal guidance is readable on a light desktop', async ({ page
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.emulateMedia({ colorScheme: 'light', reducedMotion: 'reduce' });
   await page.goto('/features/background-removal');
+  const modeGrid = page.locator('.mode-grid');
   await expect(
     page.getByRole('heading', { name: 'Keep fine details under your control' }),
   ).toBeVisible();
+  expect(
+    await modeGrid.evaluate(
+      (element) => getComputedStyle(element).gridTemplateColumns.split(' ').length,
+    ),
+  ).toBe(2);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await expect(page).toHaveScreenshot('background-removal-feature-desktop-light.png', {
     fullPage: true,

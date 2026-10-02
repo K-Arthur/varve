@@ -8,10 +8,18 @@ import { expect, test } from '@playwright/test';
  */
 async function waitForImages(page: import('@playwright/test').Page) {
   await page.evaluate(() => document.fonts.ready);
-  await page.waitForFunction(() => {
-    const imgs = [...document.querySelectorAll('img')];
-    return imgs.every((img) => img.complete && img.naturalWidth > 0);
+  await page.evaluate(() => {
+    for (const img of document.images) img.loading = 'eager';
   });
+  await page.waitForFunction(() => [...document.images].every((img) => img.complete), undefined, {
+    timeout: 15_000,
+  });
+  const brokenImages = await page.evaluate(() =>
+    [...document.images]
+      .filter((img) => img.naturalWidth === 0)
+      .map((img) => img.currentSrc || img.src),
+  );
+  expect(brokenImages, 'all page images load before visual capture').toEqual([]);
   await page.evaluate(async () => {
     const imgs = [...document.querySelectorAll('img')];
     await Promise.all(
@@ -132,7 +140,7 @@ test.beforeEach(async ({ page }) => {
 const THEMES = [
   { name: 'light', colorScheme: 'light' as const },
   { name: 'dark', colorScheme: 'dark' as const },
-];
+] as const;
 
 async function expectCurrentHomepageCopy(page: import('@playwright/test').Page) {
   await expect(page.locator('.hero-title')).toContainText('Design locally.');
@@ -350,7 +358,16 @@ test('product showcase light', async ({ page }) => {
   await waitForImages(page);
   const showcase = page.locator('.showcase');
   await expect(showcase).toBeVisible();
-  await showcase.scrollIntoViewIfNeeded();
+  // Align the beginning of this tall section with the viewport before taking
+  // its element screenshot. `scrollIntoViewIfNeeded()` may align the bottom
+  // instead, placing the fixed site header halfway down the stitched image.
+  await showcase.evaluate((element) => element.scrollIntoView({ block: 'start' }));
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+      ),
+  );
   await expect(showcase).toHaveScreenshot('showcase-light.png', {
     maxDiffPixelRatio: 0.02,
   });

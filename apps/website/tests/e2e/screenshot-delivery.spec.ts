@@ -42,7 +42,15 @@ const manifest = JSON.parse(
 async function assertNotCropped(img: ReturnType<import('@playwright/test').Page['locator']>) {
   // Lazily loaded images below the fold may not have started loading yet;
   // decoding first means this asserts about a real image, not a pending one.
+  await img.evaluate((element: HTMLImageElement) => {
+    element.loading = 'eager';
+  });
   await img.scrollIntoViewIfNeeded();
+  await expect
+    .poll(() => img.evaluate((element: HTMLImageElement) => element.complete), {
+      timeout: 15_000,
+    })
+    .toBe(true);
   await img.evaluate((element: HTMLImageElement) => element.decode().catch(() => undefined));
   const geometry = await img.evaluate((element: HTMLImageElement) => {
     const rect = element.getBoundingClientRect();
@@ -121,7 +129,9 @@ test.describe('screenshot delivery', () => {
       const showcase = page.locator('.showcase');
       await showcase.scrollIntoViewIfNeeded();
       await expect(showcase).toBeVisible();
-      const images = showcase.locator('img');
+      // Ignore the duplicate full-size image inside each closed zoom dialog;
+      // only the image actually delivered inline belongs to this layout check.
+      const images = showcase.locator('.screenshot-image > img');
       const count = await images.count();
       expect(count).toBeGreaterThan(0);
       for (let index = 0; index < count; index += 1) {
@@ -157,6 +167,7 @@ test.describe('screenshot delivery', () => {
     for (const [route, sceneId] of cases) {
       const scene = manifest.scenes[sceneId];
       expect(scene?.status, `${sceneId} is captured`).toBe('captured');
+      if (!scene) throw new Error(`${sceneId} is missing from the screenshot manifest`);
       await page.goto(route);
       const img = page.locator(`img[src$="/${scene.file}"]`).first();
       await img.waitFor({ state: 'visible', timeout: 15000 });

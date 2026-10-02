@@ -28,20 +28,34 @@ for (const theme of ['light', 'dark'] as const) {
       await expect(page.locator('.hero-subtitle')).toContainText('no account, no subscription');
       await page.evaluate(async () => {
         await document.fonts.ready;
-        window.scrollTo(0, document.body.scrollHeight);
-        await new Promise<void>((resolve) =>
-          requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+        for (const image of document.images) image.loading = 'eager';
+        const pendingImages = [...document.images].filter((image) => !image.complete);
+        await Promise.all(
+          pendingImages.map(
+            (image) =>
+              new Promise<void>((resolve) => {
+                let timer: number | undefined;
+                const finish = () => {
+                  if (timer !== undefined) window.clearTimeout(timer);
+                  resolve();
+                };
+                image.addEventListener('load', finish, { once: true });
+                image.addEventListener('error', finish, { once: true });
+                timer = window.setTimeout(finish, 15_000);
+                if (image.complete) finish();
+              }),
+          ),
+        );
+        const brokenImages = [...document.images]
+          .filter((image) => image.naturalWidth === 0)
+          .map((image) => image.currentSrc || image.src);
+        if (brokenImages.length > 0) {
+          throw new Error(`Images failed before base-path capture: ${brokenImages.join(', ')}`);
+        }
+        await Promise.all(
+          [...document.images].map((image) => image.decode().catch(() => undefined)),
         );
         window.scrollTo(0, 0);
-        await Promise.all(
-          [...document.images].map(async (image) => {
-            if (!image.complete)
-              await new Promise((resolve) =>
-                image.addEventListener('load', resolve, { once: true }),
-              );
-            await image.decode().catch(() => undefined);
-          }),
-        );
       });
       const overflow = await page.evaluate(
         () => document.documentElement.scrollWidth - document.documentElement.clientWidth,

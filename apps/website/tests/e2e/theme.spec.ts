@@ -449,7 +449,7 @@ test.describe('hero visibility', () => {
   test('product showcase renders real screenshots with captions and alt text', async ({ page }) => {
     await page.emulateMedia({ colorScheme: 'light', reducedMotion: 'reduce' });
     await freshPage(page);
-    const imgs = page.locator('.showcase img');
+    const imgs = page.locator('.showcase .screenshot-image img');
     const count = await imgs.count();
     expect(count).toBeGreaterThanOrEqual(2);
     for (let i = 0; i < count; i++) {

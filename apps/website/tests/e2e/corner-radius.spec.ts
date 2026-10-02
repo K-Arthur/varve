@@ -42,7 +42,7 @@ test.describe('corner radius system', () => {
         return {
           primaryButton: read('.hero .btn-default'),
           navDownload: read('.nav-download-cta'),
-          navTry: read('.nav-try-cta'),
+          navTry: read('.nav-demo-link'),
         };
       });
 
@@ -95,7 +95,7 @@ test.describe('corner radius system', () => {
       const violations = await page.evaluate(() => {
         const controls = [
           ...document.querySelectorAll<HTMLElement>('.btn:not(.btn-pill):not(.btn-pill-outline)'),
-          ...document.querySelectorAll<HTMLElement>('.nav-try-cta'),
+          ...document.querySelectorAll<HTMLElement>('.nav-demo-link'),
           ...document.querySelectorAll<HTMLElement>('.nav-download-cta'),
         ];
         return controls

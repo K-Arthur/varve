@@ -16,13 +16,19 @@ import { defineConfig, devices } from '@playwright/test';
 // used" and the only way out is killing the developer's own dev server.
 const GH_PAGES_PORT = Number(process.env.VARVE_WEBSITE_E2E_PORT ?? 4321);
 const CUSTOM_PORT = Number(process.env.VARVE_WEBSITE_E2E_PORT_ROOT ?? 4322);
+const workers = Number(process.env.VARVE_E2E_WORKERS ?? (process.env.CI ? '1' : '4'));
+if (!Number.isInteger(workers) || workers < 1) {
+  throw new Error(`VARVE_E2E_WORKERS must be a positive integer; received ${workers}`);
+}
+const outputSuffix = process.env.VARVE_E2E_OUTPUT_DIR ?? `website-${process.pid}-${GH_PAGES_PORT}`;
 
 export default defineConfig({
   testDir: './apps/website/tests/e2e',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
-  workers: process.env.CI ? 1 : 4,
+  workers,
+  outputDir: `test-results/${outputSuffix}`,
   reporter: 'list',
   timeout: 45000,
   expect: { timeout: 10000 },

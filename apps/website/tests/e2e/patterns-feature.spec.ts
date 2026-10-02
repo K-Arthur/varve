@@ -25,7 +25,7 @@ test('pattern feature shows the real workflow capture and fits a phone viewport'
   );
   await expect(page.getByText('Current boundaries')).toBeVisible();
   const image = page.getByRole('img', {
-    name: /orange vector ellipse repeats across a teal rectangle/i,
+    name: /reusable dotted vector pattern applied to a selected shape/i,
   });
   await expect(image).toBeVisible();
   await expect

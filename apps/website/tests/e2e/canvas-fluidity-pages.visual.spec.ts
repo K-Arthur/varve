@@ -56,16 +56,32 @@ test('settings guide remains readable at narrow width and 200% text size', async
   await menuToggle.click();
   await expect(menuToggle).toHaveAttribute('aria-expanded', 'true');
   await expect(page.locator('.mobile-nav-sheet')).toBeVisible();
-  const menuCta = page.locator('.mobile-nav-footer .download-cta-large');
+  const menuCta = page.locator('.mobile-nav-download .download-cta');
   await expect(menuCta).toBeVisible();
   const menuCtaWidths = await menuCta.evaluate((element) => ({
     content: element.clientWidth,
     scroll: element.scrollWidth,
+    label: element
+      .querySelector<HTMLElement>('.download-cta-label')
+      ?.getBoundingClientRect()
+      .toJSON(),
+    labelScroll: element.querySelector<HTMLElement>('.download-cta-label')?.scrollWidth,
+    beta: element
+      .querySelector<HTMLElement>('.download-cta-beta')
+      ?.getBoundingClientRect()
+      .toJSON(),
+    buttonPadding: getComputedStyle(element).paddingInline,
+    labelWhiteSpace: getComputedStyle(element.querySelector<HTMLElement>('.download-cta-label')!)
+      .whiteSpace,
   }));
-  expect(menuCtaWidths.scroll).toBeLessThanOrEqual(menuCtaWidths.content + 2);
+  expect(
+    menuCtaWidths.scroll,
+    `mobile CTA contents must wrap without overflow: ${JSON.stringify(menuCtaWidths)}`,
+  ).toBeLessThanOrEqual(menuCtaWidths.content + 2);
   const menuLinks = page.locator('.mobile-nav-links');
-  const navFooter = page.locator('.mobile-nav-footer');
-  const menuBounds = await menuLinks.evaluate((element) => ({
+  const navScroll = page.locator('.mobile-nav-scroll');
+  const navFooter = page.locator('.mobile-nav-download');
+  const menuBounds = await navScroll.evaluate((element) => ({
     bottom: element.getBoundingClientRect().bottom,
     scrollHeight: element.scrollHeight,
     clientHeight: element.clientHeight,
@@ -94,7 +110,7 @@ test('settings guide dark theme keeps performance details visible', async ({ pag
   const performance = page.locator('[data-testid="navigation-settings-help"]');
   await expect(performance.getByText(/500\s*ms for ordinary work/i)).toBeVisible();
   await expect(performance.getByText(/cold image or font readiness/i)).toBeVisible();
-  const screenshot = page.getByRole('img', { name: /Performance settings tab/ });
+  const screenshot = page.getByRole('img', { name: /Performance settings dialog/ });
   await screenshot.scrollIntoViewIfNeeded();
   await expect(screenshot).toBeVisible();
   await expect
@@ -128,7 +144,7 @@ test('settings guide remains readable in OS forced-colors mode', async ({ page }
     .toBe(true);
   const performance = page.locator('[data-testid="navigation-settings-help"]');
   await expect(performance.getByText(/Full resolution while navigating/i)).toBeVisible();
-  await expect(page.getByRole('img', { name: /Performance settings tab/ })).toBeVisible();
+  await expect(page.getByRole('img', { name: /Performance settings dialog/ })).toBeVisible();
   await page.screenshot({
     path: info.outputPath('settings-high-contrast-performance-guidance.png'),
     fullPage: true,
