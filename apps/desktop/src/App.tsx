@@ -368,6 +368,9 @@ export function App() {
   }, [handleOsFileOpen]);
 
   const handleBackToHome = useCallback(() => {
+    // The duplicate-open guard belongs to the current editor session. A
+    // document returned to the library must be available to reopen.
+    lastOpenIdRef.current = null;
     setEditorReady(false);
     setView('home');
   }, []);

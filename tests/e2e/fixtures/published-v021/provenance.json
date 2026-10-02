@@ -1,0 +1,35 @@
+{
+  "sourceTag": "v0.2.1",
+  "sourceRevision": "d47cea2b9ba15e3a0d824dfc3e979eb68afe8375",
+  "sourceDocument": {
+    "path": "scripts/screenshots/fixtures/poster.varve",
+    "sha256": "2ccc4c9fdeeb92748b7e0c4bf4dc8bf1136f6038835fdd04647f4dda71d80e6b"
+  },
+  "sourceSchema": "2.21",
+  "factories": [
+    {
+      "path": "packages/scene/src/assets.ts",
+      "sha256": "b86932a42d7ecb74ff347f807fdb3b7cdb20dfbc93a78b8cfc5965fb657a465d",
+      "functions": ["hashContent", "decodedDataUrlByteLength", "createEmbeddedAsset"]
+    },
+    {
+      "path": "packages/scene/src/fills.ts",
+      "sha256": "7571802ef258d6674e5a4fac3c40359b28921f9e2b7bd86e614bd98126b5d2da",
+      "functions": ["imageFill"]
+    },
+    {
+      "path": "packages/scene/src/document.ts",
+      "sha256": "27db52fc024fcfabb59f169fc37a6e546344219dd233e9cdf935d7dbff089641",
+      "functions": ["makeShapeNode"]
+    }
+  ],
+  "syntheticAsset": {
+    "description": "16x16 opaque blue/amber quadrants generated locally; no external image",
+    "sha256": "31242a9b425bc72414cf53a0751c1d9cf5b1ae03db4f3a96741593d55a61985c",
+    "assetId": "asset-ca2aceaaa125b46e"
+  },
+  "fixture": {
+    "file": "poster-embedded.varve",
+    "sha256": "a184911ee0cfb992db1be40e1d30333bd0a6f74c4479a129e9921d2721fbe53b"
+  }
+}

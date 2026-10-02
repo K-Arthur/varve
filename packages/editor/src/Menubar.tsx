@@ -2483,355 +2483,361 @@ export function Menubar({
   );
 
   return (
-    <div className="editor-menubar" data-testid="menubar">
+    <>
       <OfflineBanner />
-      <div className="editor-menubar__side">
-        <Tooltip label="Home" shortcut={formatShortcut(getEffectiveBinding('home'))}>
-          <button
-            type="button"
-            className="editor-menubar__home"
-            aria-label="Home"
-            onClick={() => onBackToHome?.()}
-          >
-            <VarveLogo size={16} />
-          </button>
-        </Tooltip>
-        <div
-          className="editor-menubar__left"
-          ref={menuRef}
-          role="menubar"
-          aria-label="Application"
-          onKeyDown={handleMenuKeyDown}
-        >
-          {menus.map((menu, i) => (
+      <div className="editor-menubar" data-testid="menubar">
+        <div className="editor-menubar__side">
+          <Tooltip label="Home" shortcut={formatShortcut(getEffectiveBinding('home'))}>
             <button
-              key={menu.id}
-              ref={(el) => {
-                topLevelRefs.current[i] = el;
-              }}
-              role="menuitem"
-              className="editor-menubar__item"
-              aria-haspopup="menu"
-              aria-expanded={openMenu === menu.id}
-              tabIndex={focusedIndex === i ? 0 : -1}
               type="button"
-              onClick={() => {
-                setOpenMenu(openMenu === menu.id ? null : menu.id);
-                setFocusedIndex(i);
-                setActiveItemIndex(0);
-              }}
-              onMouseEnter={() => {
-                if (openMenu && openMenu !== menu.id) {
-                  setOpenMenu(menu.id);
+              className="editor-menubar__home"
+              aria-label="Home"
+              onClick={() => onBackToHome?.()}
+            >
+              <VarveLogo size={16} />
+            </button>
+          </Tooltip>
+          <div
+            className="editor-menubar__left"
+            ref={menuRef}
+            role="menubar"
+            aria-label="Application"
+            onKeyDown={handleMenuKeyDown}
+          >
+            {menus.map((menu, i) => (
+              <button
+                key={menu.id}
+                ref={(el) => {
+                  topLevelRefs.current[i] = el;
+                }}
+                role="menuitem"
+                className="editor-menubar__item"
+                aria-haspopup="menu"
+                aria-expanded={openMenu === menu.id}
+                tabIndex={focusedIndex === i ? 0 : -1}
+                type="button"
+                onClick={() => {
+                  setOpenMenu(openMenu === menu.id ? null : menu.id);
+                  setFocusedIndex(i);
+                  setActiveItemIndex(0);
+                }}
+                onMouseEnter={() => {
+                  if (openMenu && openMenu !== menu.id) {
+                    setOpenMenu(menu.id);
+                    setOpenSubmenu(null);
+                    setActiveItemIndex(0);
+                    setActiveSubmenuIndex(0);
+                  }
+                }}
+              >
+                {menu.id}
+              </button>
+            ))}
+            {openMenu && openMenuIndex >= 0 && (
+              <FloatingPortal
+                key={openMenu}
+                anchorRef={openMenuAnchorRef}
+                anchor={
+                  topLevelRefs.current[openMenuIndex]
+                    ? elementAnchor(topLevelRefs.current[openMenuIndex]!)
+                    : undefined
+                }
+                open
+                insideRefs={[submenuRef]}
+                kind="menubar-menu"
+                dismissOnEscape={false}
+                onClose={() => {
+                  setOpenMenu(null);
                   setOpenSubmenu(null);
                   setActiveItemIndex(0);
                   setActiveSubmenuIndex(0);
-                }
-              }}
-            >
-              {menu.id}
-            </button>
-          ))}
-          {openMenu && openMenuIndex >= 0 && (
-            <FloatingPortal
-              key={openMenu}
-              anchorRef={openMenuAnchorRef}
-              anchor={
-                topLevelRefs.current[openMenuIndex]
-                  ? elementAnchor(topLevelRefs.current[openMenuIndex]!)
-                  : undefined
-              }
-              open
-              insideRefs={[submenuRef]}
-              kind="menubar-menu"
-              dismissOnEscape={false}
-              onClose={() => {
-                setOpenMenu(null);
-                setOpenSubmenu(null);
-                setActiveItemIndex(0);
-                setActiveSubmenuIndex(0);
-              }}
-              className="editor-menubar__menu"
-            >
-              <div
-                ref={dropdownMenuRef}
-                role="menu"
-                aria-label={openMenu}
-                onKeyDown={(event) => {
-                  // The portal remains a logical child of the menubar in
-                  // React's event tree. Stop here so a dropdown key is not
-                  // processed a second time by the menubar container (which
-                  // would turn `e` into `ee` for type-ahead).
-                  event.stopPropagation();
-                  handleMenuKeyDown(event);
                 }}
+                className="editor-menubar__menu"
               >
-                {/* activeItemIndex counts only focusable items (separators
+                <div
+                  ref={dropdownMenuRef}
+                  role="menu"
+                  aria-label={openMenu}
+                  onKeyDown={(event) => {
+                    // The portal remains a logical child of the menubar in
+                    // React's event tree. Stop here so a dropdown key is not
+                    // processed a second time by the menubar container (which
+                    // would turn `e` into `ee` for type-ahead).
+                    event.stopPropagation();
+                    handleMenuKeyDown(event);
+                  }}
+                >
+                  {/* activeItemIndex counts only focusable items (separators
                     excluded), matching menubarKeynav and the MENU_ITEM_SELECTOR
                     NodeList it focuses through. Comparing it against the raw
                     config index put tabIndex=0 on the wrong item — or on no
                     item at all — as soon as a separator preceded the active
                     one. Track the focusable index alongside the config index. */}
-                {(() => {
-                  let focusableIdx = -1;
-                  return menus[openMenuIndex]?.items.map((item, itemIdx) => {
-                    if (item.label === '---') {
-                      return (
-                        <hr
-                          key={separatorKey(menus[openMenuIndex]?.items ?? [], item, openMenu)}
-                          className="editor-menubar__menu-sep"
-                          tabIndex={-1}
-                        />
+                  {(() => {
+                    let focusableIdx = -1;
+                    return menus[openMenuIndex]?.items.map((item, itemIdx) => {
+                      if (item.label === '---') {
+                        return (
+                          <hr
+                            key={separatorKey(menus[openMenuIndex]?.items ?? [], item, openMenu)}
+                            className="editor-menubar__menu-sep"
+                            tabIndex={-1}
+                          />
+                        );
+                      }
+                      focusableIdx += 1;
+                      const itemFocusableIdx = focusableIdx;
+                      const role = menubarItemRole(item);
+                      const isChecked = menubarItemAriaChecked(
+                        item,
+                        state,
+                        currentTheme,
+                        toolbarPlacement,
                       );
-                    }
-                    focusableIdx += 1;
-                    const itemFocusableIdx = focusableIdx;
-                    const role = menubarItemRole(item);
-                    const isChecked = menubarItemAriaChecked(
-                      item,
-                      state,
-                      currentTheme,
-                      toolbarPlacement,
-                    );
-                    const isActive =
-                      (item.action?.startsWith('theme:') &&
-                        currentTheme === item.action.slice(6)) ||
-                      isChecked;
-                    const hasSubmenu = !!item.items;
-                    const isSubmenuOpen = openSubmenu === itemIdx;
-                    const submenuAnchorKey = `${openMenu}:${item.action ?? item.label}`;
-                    let submenuAnchorRef = submenuAnchorRefs.current.get(submenuAnchorKey);
-                    if (!submenuAnchorRef) {
-                      submenuAnchorRef = { current: null };
-                      submenuAnchorRefs.current.set(submenuAnchorKey, submenuAnchorRef);
-                    }
-                    return (
-                      <div
-                        key={item.label}
-                        role="none"
-                        className="editor-menubar__menu-item-wrapper"
-                        onMouseEnter={() => {
-                          if (hasSubmenu && !item.disabled) {
-                            // Pointer-opening a flyout must still establish
-                            // the owning parent item for Escape/Left focus
-                            // restoration; hover must not itself steal focus.
-                            setActiveItemIndex(itemFocusableIdx);
-                            setOpenSubmenu(itemIdx);
-                            setActiveSubmenuIndex(0);
-                          } else {
-                            // A plain command row closes any open flyout.
-                            // Previously the child stayed open over an
-                            // unrelated row until an outside click or Escape,
-                            // which read as a stuck menu.
-                            setOpenSubmenu(null);
-                          }
-                        }}
-                      >
-                        {/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-checked is emitted only when the runtime role is menuitemradio/menuitemcheckbox */}
-                        <button
-                          ref={hasSubmenu ? submenuAnchorRef : undefined}
-                          role={hasSubmenu ? 'menuitem' : role}
-                          type="button"
-                          aria-haspopup={hasSubmenu ? 'menu' : undefined}
-                          aria-expanded={hasSubmenu ? isSubmenuOpen : undefined}
-                          aria-checked={
-                            !hasSubmenu && (role === 'menuitemradio' || role === 'menuitemcheckbox')
-                              ? isChecked
-                              : undefined
-                          }
-                          aria-keyshortcuts={item.ariaKeyshortcut}
-                          disabled={item.disabled}
-                          tabIndex={activeItemIndex === itemFocusableIdx ? 0 : -1}
-                          className={`editor-menubar__menu-item${isActive ? ' editor-menubar__menu-item--active' : ''}${hasSubmenu ? ' editor-menubar__menu-item--submenu' : ''}`}
-                          onMouseDown={(event) => {
-                            // The menu owns a scrollable viewport when its
-                            // commands exceed the available height. Native
-                            // pointer focus can scroll that viewport between
-                            // mouse-down and mouse-up, retargeting a click on
-                            // the last visible row to its neighbor. Keyboard
-                            // focus already follows the roving tabindex.
-                            if (event.button === 0) event.preventDefault();
-                          }}
-                          onClick={() => {
-                            if (hasSubmenu) {
-                              if (item.disabled) return;
-                              setOpenSubmenu(isSubmenuOpen ? null : itemIdx);
+                      const isActive =
+                        (item.action?.startsWith('theme:') &&
+                          currentTheme === item.action.slice(6)) ||
+                        isChecked;
+                      const hasSubmenu = !!item.items;
+                      const isSubmenuOpen = openSubmenu === itemIdx;
+                      const submenuAnchorKey = `${openMenu}:${item.action ?? item.label}`;
+                      let submenuAnchorRef = submenuAnchorRefs.current.get(submenuAnchorKey);
+                      if (!submenuAnchorRef) {
+                        submenuAnchorRef = { current: null };
+                        submenuAnchorRefs.current.set(submenuAnchorKey, submenuAnchorRef);
+                      }
+                      return (
+                        <div
+                          key={item.label}
+                          role="none"
+                          className="editor-menubar__menu-item-wrapper"
+                          onMouseEnter={() => {
+                            if (hasSubmenu && !item.disabled) {
+                              // Pointer-opening a flyout must still establish
+                              // the owning parent item for Escape/Left focus
+                              // restoration; hover must not itself steal focus.
+                              setActiveItemIndex(itemFocusableIdx);
+                              setOpenSubmenu(itemIdx);
                               setActiveSubmenuIndex(0);
                             } else {
-                              handleAction(item.action ?? '');
+                              // A plain command row closes any open flyout.
+                              // Previously the child stayed open over an
+                              // unrelated row until an outside click or Escape,
+                              // which read as a stuck menu.
+                              setOpenSubmenu(null);
                             }
                           }}
                         >
-                          <span className="editor-menubar__menu-label">{item.label}</span>
-                          {hasSubmenu && (
-                            /* A right chevron, not a filled "play" triangle:
-                             * the triangle glyph was font-dependent (weight
-                             * and baseline moved with the face), read as a
-                             * media control, and contradicted the stroke-icon
-                             * system. Sized in em so it tracks the item text. */
-                            <span className="editor-menubar__menu-submenu-arrow" aria-hidden="true">
-                              <Icon name="ChevronRight" size="1em" />
-                            </span>
-                          )}
-                          {!hasSubmenu && item.shortcut && (
-                            <span className="editor-menubar__menu-shortcut">{item.shortcut}</span>
-                          )}
-                        </button>
-                        {hasSubmenu && isSubmenuOpen && item.items && !item.disabled && (
-                          <MenubarSubmenu
-                            items={item.items}
-                            parentLabel={item.label}
-                            open
-                            activeSubmenuIndex={activeSubmenuIndex}
-                            anchorRef={submenuAnchorRef}
-                            submenuRef={submenuRef}
-                            currentTheme={currentTheme}
-                            state={state}
-                            onKeyDown={handleMenuKeyDown}
-                            onClose={() => {
-                              setOpenSubmenu(null);
-                              setActiveSubmenuIndex(0);
-                              // Return focus to the parent item when the submenu
-                              // had it (outside-click close).
-                              const active =
-                                submenuRef.current?.ownerDocument.activeElement ?? null;
-                              if (active && submenuRef.current?.contains(active)) {
-                                const parentItems =
-                                  dropdownMenuRef.current?.querySelectorAll<HTMLButtonElement>(
-                                    MENU_ITEM_SELECTOR,
-                                  );
-                                parentItems?.[activeItemIndex]?.focus();
+                          {/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-checked is emitted only when the runtime role is menuitemradio/menuitemcheckbox */}
+                          <button
+                            ref={hasSubmenu ? submenuAnchorRef : undefined}
+                            role={hasSubmenu ? 'menuitem' : role}
+                            type="button"
+                            aria-haspopup={hasSubmenu ? 'menu' : undefined}
+                            aria-expanded={hasSubmenu ? isSubmenuOpen : undefined}
+                            aria-checked={
+                              !hasSubmenu &&
+                              (role === 'menuitemradio' || role === 'menuitemcheckbox')
+                                ? isChecked
+                                : undefined
+                            }
+                            aria-keyshortcuts={item.ariaKeyshortcut}
+                            disabled={item.disabled}
+                            tabIndex={activeItemIndex === itemFocusableIdx ? 0 : -1}
+                            className={`editor-menubar__menu-item${isActive ? ' editor-menubar__menu-item--active' : ''}${hasSubmenu ? ' editor-menubar__menu-item--submenu' : ''}`}
+                            onMouseDown={(event) => {
+                              // The menu owns a scrollable viewport when its
+                              // commands exceed the available height. Native
+                              // pointer focus can scroll that viewport between
+                              // mouse-down and mouse-up, retargeting a click on
+                              // the last visible row to its neighbor. Keyboard
+                              // focus already follows the roving tabindex.
+                              if (event.button === 0) event.preventDefault();
+                            }}
+                            onClick={() => {
+                              if (hasSubmenu) {
+                                if (item.disabled) return;
+                                setOpenSubmenu(isSubmenuOpen ? null : itemIdx);
+                                setActiveSubmenuIndex(0);
+                              } else {
+                                handleAction(item.action ?? '');
                               }
                             }}
-                            handleAction={handleAction}
-                          />
-                        )}
-                      </div>
-                    );
-                  });
-                })()}
-              </div>
-            </FloatingPortal>
-          )}
+                          >
+                            <span className="editor-menubar__menu-label">{item.label}</span>
+                            {hasSubmenu && (
+                              /* A right chevron, not a filled "play" triangle:
+                               * the triangle glyph was font-dependent (weight
+                               * and baseline moved with the face), read as a
+                               * media control, and contradicted the stroke-icon
+                               * system. Sized in em so it tracks the item text. */
+                              <span
+                                className="editor-menubar__menu-submenu-arrow"
+                                aria-hidden="true"
+                              >
+                                <Icon name="ChevronRight" size="1em" />
+                              </span>
+                            )}
+                            {!hasSubmenu && item.shortcut && (
+                              <span className="editor-menubar__menu-shortcut">{item.shortcut}</span>
+                            )}
+                          </button>
+                          {hasSubmenu && isSubmenuOpen && item.items && !item.disabled && (
+                            <MenubarSubmenu
+                              items={item.items}
+                              parentLabel={item.label}
+                              open
+                              activeSubmenuIndex={activeSubmenuIndex}
+                              anchorRef={submenuAnchorRef}
+                              submenuRef={submenuRef}
+                              currentTheme={currentTheme}
+                              state={state}
+                              onKeyDown={handleMenuKeyDown}
+                              onClose={() => {
+                                setOpenSubmenu(null);
+                                setActiveSubmenuIndex(0);
+                                // Return focus to the parent item when the submenu
+                                // had it (outside-click close).
+                                const active =
+                                  submenuRef.current?.ownerDocument.activeElement ?? null;
+                                if (active && submenuRef.current?.contains(active)) {
+                                  const parentItems =
+                                    dropdownMenuRef.current?.querySelectorAll<HTMLButtonElement>(
+                                      MENU_ITEM_SELECTOR,
+                                    );
+                                  parentItems?.[activeItemIndex]?.focus();
+                                }
+                              }}
+                              handleAction={handleAction}
+                            />
+                          )}
+                        </div>
+                      );
+                    });
+                  })()}
+                </div>
+              </FloatingPortal>
+            )}
+          </div>
         </div>
-      </div>
 
-      {/* ── Center: Document name ── */}
-      <div className="editor-menubar__center">
-        <div className="editor-menubar__doc-name">
-          {editingName ? (
-            <input
-              ref={nameInputRef}
-              className="editor-menubar__doc-name-input"
-              value={nameDraft}
-              onChange={(e) => setNameDraft(e.target.value)}
-              onBlur={commitName}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') commitName();
-                if (e.key === 'Escape') stopNameEdit();
-              }}
-              aria-label="Document name"
-            />
-          ) : (
-            <Tooltip label="Rename document">
-              <button
-                ref={nameButtonRef}
-                type="button"
-                className="editor-menubar__doc-name-text"
-                onClick={startNameEdit}
-              >
-                {state.document.name || 'Untitled'}
-              </button>
-            </Tooltip>
-          )}
+        {/* ── Center: Document name ── */}
+        <div className="editor-menubar__center">
+          <div className="editor-menubar__doc-name">
+            {editingName ? (
+              <input
+                ref={nameInputRef}
+                className="editor-menubar__doc-name-input"
+                value={nameDraft}
+                onChange={(e) => setNameDraft(e.target.value)}
+                onBlur={commitName}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') commitName();
+                  if (e.key === 'Escape') stopNameEdit();
+                }}
+                aria-label="Document name"
+              />
+            ) : (
+              <Tooltip label="Rename document">
+                <button
+                  ref={nameButtonRef}
+                  type="button"
+                  className="editor-menubar__doc-name-text"
+                  onClick={startNameEdit}
+                >
+                  {state.document.name || 'Untitled'}
+                </button>
+              </Tooltip>
+            )}
+          </div>
         </div>
-      </div>
 
-      {/* ── Right: Workspace tabs + Undo/Redo ──
+        {/* ── Right: Workspace tabs + Undo/Redo ──
           No zoom field here: the status-bar zoom chip is the single owner
           (editor.css documents the duplication this removes, and the portrait
           rule that used to hide this copy as a workaround). Zoom stays in the
           View menu and on its shortcuts. */}
-      <div className="editor-menubar__controls">
-        <WorkspaceTabs />
-        <span aria-hidden className="editor-menubar__zoom-divider">
-          |
-        </span>
-        <IconButton
-          icon={SOLID_CHROME_ICONS.undo}
-          label={state.undoLabel}
-          size="sm"
-          solid
-          onClick={undo}
-          disabled={!state.canUndo}
+        <div className="editor-menubar__controls">
+          <WorkspaceTabs />
+          <span aria-hidden className="editor-menubar__zoom-divider">
+            |
+          </span>
+          <IconButton
+            icon={SOLID_CHROME_ICONS.undo}
+            label={state.undoLabel}
+            size="sm"
+            solid
+            onClick={undo}
+            disabled={!state.canUndo}
+          />
+          <IconButton
+            icon={SOLID_CHROME_ICONS.redo}
+            label={state.redoLabel}
+            size="sm"
+            solid
+            onClick={redo}
+            disabled={!state.canRedo}
+          />
+        </div>
+
+        <AlertDialog
+          open={missingFileDialog !== null}
+          onClose={() => setMissingFileDialog(null)}
+          onConfirm={() => {
+            const entryId = missingFileDialog?.entryId;
+            setMissingFileDialog(null);
+            if (entryId) removeRecent(entryId);
+          }}
+          title="File Not Found"
+          description={missingFileDialog?.message ?? ''}
+          confirmLabel="Remove from List"
+          cancelLabel="Keep in List"
+          variant="destructive"
         />
-        <IconButton
-          icon={SOLID_CHROME_ICONS.redo}
-          label={state.redoLabel}
-          size="sm"
-          solid
-          onClick={redo}
-          disabled={!state.canRedo}
+
+        <RasterizeDialog
+          open={rasterizeDialogOpen}
+          selectionCount={state.selection.length}
+          onClose={() => setRasterizeDialogOpen(false)}
+          onRasterize={handleRasterize}
+        />
+
+        <ArchiveDialog
+          open={showArchiveDialog}
+          onClose={() => setShowArchiveDialog(false)}
+          document={state.document as ArchiveDialogProps['document']}
+          platform={platform}
+          onCreateArchive={(result) => {
+            // Desktop: native Save dialog + the atomic write_binary_file
+            // command. Browser: no filesystem access, so a plain download is
+            // the only option and the browser itself handles it atomically.
+            if (platform?.kind === 'tauri') {
+              void platform.saveBinaryFile(
+                result.fileName.replace(/\.zip$/, ''),
+                result.bytes,
+                'application/zip',
+                '.zip',
+              );
+              return;
+            }
+            const blob = new Blob([new Uint8Array(result.bytes)], { type: 'application/zip' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = result.fileName;
+            a.click();
+            URL.revokeObjectURL(url);
+          }}
+          onRestoreArchive={(result) => {
+            if (result.document) {
+              loadDocument(JSON.stringify(result.document), {
+                name: result.document.name,
+                keepIdentity: true,
+              });
+            }
+          }}
         />
       </div>
-
-      <AlertDialog
-        open={missingFileDialog !== null}
-        onClose={() => setMissingFileDialog(null)}
-        onConfirm={() => {
-          const entryId = missingFileDialog?.entryId;
-          setMissingFileDialog(null);
-          if (entryId) removeRecent(entryId);
-        }}
-        title="File Not Found"
-        description={missingFileDialog?.message ?? ''}
-        confirmLabel="Remove from List"
-        cancelLabel="Keep in List"
-        variant="destructive"
-      />
-
-      <RasterizeDialog
-        open={rasterizeDialogOpen}
-        selectionCount={state.selection.length}
-        onClose={() => setRasterizeDialogOpen(false)}
-        onRasterize={handleRasterize}
-      />
-
-      <ArchiveDialog
-        open={showArchiveDialog}
-        onClose={() => setShowArchiveDialog(false)}
-        document={state.document as ArchiveDialogProps['document']}
-        platform={platform}
-        onCreateArchive={(result) => {
-          // Desktop: native Save dialog + the atomic write_binary_file
-          // command. Browser: no filesystem access, so a plain download is
-          // the only option and the browser itself handles it atomically.
-          if (platform?.kind === 'tauri') {
-            void platform.saveBinaryFile(
-              result.fileName.replace(/\.zip$/, ''),
-              result.bytes,
-              'application/zip',
-              '.zip',
-            );
-            return;
-          }
-          const blob = new Blob([new Uint8Array(result.bytes)], { type: 'application/zip' });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = result.fileName;
-          a.click();
-          URL.revokeObjectURL(url);
-        }}
-        onRestoreArchive={(result) => {
-          if (result.document) {
-            loadDocument(JSON.stringify(result.document), {
-              name: result.document.name,
-              keepIdentity: true,
-            });
-          }
-        }}
-      />
-    </div>
+    </>
   );
 }

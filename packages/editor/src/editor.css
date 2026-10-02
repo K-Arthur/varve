@@ -251,12 +251,11 @@ input[type="number"] {
 
 /* ── Offline banner ──────────────────────────────────── */
 .editor-offline-banner {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: var(--z-overlay);
-  display: flex;
+  position: relative;
+  display: none;
+  flex: 0 0 auto;
+  min-width: 0;
+  box-sizing: border-box;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
@@ -264,16 +263,13 @@ input[type="number"] {
   background: var(--color-feedback-warning);
   color: var(--color-text-primary);
   font-size: var(--font-size-sm);
-  transform: translateY(-100%);
-  transition: transform var(--duration-fast) var(--ease-default);
-  pointer-events: none;
 }
 .editor-offline-banner--visible {
-  transform: translateY(0);
-  pointer-events: auto;
+  display: flex;
 }
 .editor-offline-banner__text {
   flex: 1;
+  min-width: 0;
 }
 .editor-offline-banner__close {
   display: flex;
@@ -296,15 +292,23 @@ input[type="number"] {
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 2px;
 }
-@media (prefers-reduced-motion: reduce) {
-  .editor-offline-banner {
-    transition: none;
+@media (max-width: 640px) {
+  /* Keep the essential local-first status brief at small heights. The
+   * online convenience boundary remains available to screen readers. */
+  .editor-offline-banner__detail {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
 }
 
 /* ── Editor shell layout ────────────────────────────── */
 
 .editor-shell {
+  --editor-offline-notice-height: 0px;
   display: grid;
   /* position:relative is load-bearing, not decorative: CSS Grid only lets a
    * position:absolute grid item (e.g. .floating-toolbar's grid-area:canvas)
@@ -332,6 +336,7 @@ input[type="number"] {
    * Used by responsive panel drawers (<=899px) so they start below the header
    * instead of covering the context control bar. */
   --menubar-total-height: calc(
+    var(--editor-offline-notice-height) +
     var(--topbar-height) +
     var(--space-2) +
     var(--toolbar-height) +
@@ -3206,6 +3211,7 @@ html[data-layout-mode="tablet"] .editor-menubar .workspace-dock {
 @media (max-width: 899px) and (orientation: portrait) {
   .editor-shell {
     --menubar-total-height: calc(
+      var(--editor-offline-notice-height) +
       var(--topbar-height) +
       var(--space-2) +
       var(--touch-target-min) +
