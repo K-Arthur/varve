@@ -1,0 +1,5 @@
+/* Element crops include the scene behind rounded dialog corners. Keep that
+   backdrop deterministic while preserving all dialog and photograph pixels. */
+dialog.varve-dialog--caf::backdrop {
+  background: var(--color-surface-app);
+}

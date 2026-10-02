@@ -1,4 +1,6 @@
 import { expect, test } from '@playwright/test';
+import { selectInspectorTab } from '../helpers/inspector-tabs';
+import { resizePanelTo } from '../helpers/panel-resize';
 import { addLayerEffect, dragOnCanvas, navigateToEditor } from '../shared';
 
 async function openEffectsSection(page: import('@playwright/test').Page) {
@@ -58,7 +60,7 @@ test.describe('Layer Effects — real editor workflow', () => {
 
     // Painted raster layers carry the complete editable surface in the
     // Adjustments tab; the Design composition is the vector-object surface.
-    await page.getByRole('tab', { name: 'Adjustments', exact: true }).click();
+    await selectInspectorTab(page, 'Adjustments');
 
     const canvas = page.locator('canvas.editor-canvas__content-layer');
     const before = await canvas.screenshot({
@@ -364,7 +366,7 @@ test.describe('Layer Effects — real editor workflow', () => {
  * suite, because hover/antialiasing variance made the whole serial tail skip.
  */
 test.describe('Layer Effects — row chrome baseline', () => {
-  test('three staged effects render the documented row chrome', async ({ page }) => {
+  test('three staged effects render the documented row chrome', async ({ page }, testInfo) => {
     await navigateToEditor(page);
     await page.getByRole('tab', { name: 'Design', exact: true }).click();
     await page.keyboard.press('r');
@@ -375,13 +377,66 @@ test.describe('Layer Effects — row chrome baseline', () => {
     await addEffect(page, section, 'Outer Glow');
     await addEffect(page, section, 'Layer Blur');
     await expect(section.locator('.insp-effect-row')).toHaveCount(3);
+    await expectEffectRowLayout(section);
 
     // Move the pointer off the rows so hover-revealed controls are not frozen
     // into the baseline; the row's reveal state is intentionally dynamic.
     await page.mouse.move(4, 4);
     await page.waitForTimeout(200);
-    await expect(section).toHaveScreenshot('layer-effects-stage-order.png', {
+    await expect.soft(section).toHaveScreenshot('layer-effects-stage-order.png', {
       maxDiffPixels: 1200,
     });
+
+    await resizePanelTo(page, 'inspector', 'minimum');
+    await expectEffectRowLayout(section);
+    const radius = section.getByRole('spinbutton', { name: 'Layer Blur radius', exact: true });
+    await radius.fill('8');
+    await radius.press('Tab');
+    await expect(radius).toHaveValue('8');
+    await section.screenshot({ path: testInfo.outputPath('layer-effects-minimum-panel.png') });
   });
 });
+
+async function expectEffectRowLayout(section: import('@playwright/test').Locator) {
+  const layouts = await section.locator('.insp-effect-row').evaluateAll((rows) =>
+    rows.map((row) => {
+      const header = row.querySelector<HTMLElement>('.insp-effect-row__header')!;
+      const name = row.querySelector<HTMLElement>('.insp-effect-row__name')!;
+      const bounds = header.getBoundingClientRect();
+      const pieces = Array.from(header.children)
+        .filter((element) => element instanceof HTMLElement && element.offsetWidth > 0)
+        .map((element) => element.getBoundingClientRect());
+      const inside = pieces.every(
+        (rect) =>
+          rect.left >= bounds.left - 1 &&
+          rect.right <= bounds.right + 1 &&
+          rect.top >= bounds.top - 1 &&
+          rect.bottom <= bounds.bottom + 1,
+      );
+      const overlap = pieces.some((rect, index) =>
+        pieces
+          .slice(index + 1)
+          .some(
+            (other) =>
+              Math.min(rect.right, other.right) - Math.max(rect.left, other.left) > 1 &&
+              Math.min(rect.bottom, other.bottom) - Math.max(rect.top, other.top) > 1,
+          ),
+      );
+      return {
+        label: name.textContent,
+        labelWidth: name.clientWidth,
+        labelContentWidth: name.scrollWidth,
+        inside,
+        overlap,
+      };
+    }),
+  );
+  expect(layouts.map((row) => row.label)).toEqual(['Drop Shadow', 'Outer Glow', 'Layer Blur']);
+  for (const row of layouts) {
+    expect(row.labelWidth, `${row.label} is fully readable`).toBeGreaterThanOrEqual(
+      row.labelContentWidth,
+    );
+    expect(row.inside, `${row.label} controls remain inside their header`).toBe(true);
+    expect(row.overlap, `${row.label} controls do not overlap`).toBe(false);
+  }
+}

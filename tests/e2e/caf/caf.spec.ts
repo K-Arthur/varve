@@ -496,8 +496,14 @@ test.describe('Content-Aware Fill dialog', () => {
       await expect(dialog.getByRole('button', { name: 'Use Layer Mask' })).toBeVisible();
       await expect(dialog.getByRole('button', { name: 'Use Image Alpha' })).toBeVisible();
       await expect(dialog.locator('canvas.caf-dialog__mask-canvas')).toBeVisible();
-      await expect(dialog).toHaveScreenshot(`generative-edit-${fixture.slug}.png`, {
+      // The element crop includes pixels outside the rounded dialog corners.
+      // Keep the screenshot backdrop opaque so changing canvas/status content
+      // behind this modal cannot change the dialog's own visual baseline.
+      // Soft assertions audit every photograph while retaining a failed test
+      // for any changed or missing snapshot.
+      await expect.soft(dialog).toHaveScreenshot(`generative-edit-${fixture.slug}.png`, {
         animations: 'disabled',
+        stylePath: path.join(__dirname, 'caf-screenshot.css'),
       });
       await dialog.getByRole('button', { name: /^cancel$/i }).click();
       await expect(dialog).not.toBeVisible();
