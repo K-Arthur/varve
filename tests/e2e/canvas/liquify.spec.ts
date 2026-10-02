@@ -90,6 +90,19 @@ async function diff(page: Page, a: { data: number[] }, b: { data: number[] }) {
   ] as const);
 }
 
+async function forceAuthoritativeRedraw(page: Page): Promise<void> {
+  const result = await page.evaluate(async () => {
+    const perf = (
+      window as unknown as {
+        __varvePerf?: { forceFullRedraw: () => Promise<{ authoritative: boolean }> };
+      }
+    ).__varvePerf;
+    if (!perf) throw new Error('Full-redraw oracle is unavailable');
+    return perf.forceFullRedraw();
+  });
+  expect(result.authoritative).toBe(true);
+}
+
 async function openEditorWithRetouchFixture(page: Page): Promise<void> {
   await navigateToEditor(page, '/?perf=1', { startupTimeout: 300_000 });
   const applied = await page.evaluate(() => window.__varvePerf?.fixtures.apply('retouch-raster'));
@@ -105,14 +118,17 @@ test.describe('liquify', () => {
   test('a push drag deforms, undo restores, and redo re-applies', async ({ page }, testInfo) => {
     await openEditorWithRetouchFixture(page);
     await installPixelProbe(page);
-    await page
-      .locator('.layers-panel')
-      .getByText(/raster layer/i)
-      .first()
-      .click();
+    const rasterLayer = page
+      .getByRole('treeitem')
+      .filter({ hasText: /Raster Layer/i })
+      .first();
+    await rasterLayer.click();
+    await expect(rasterLayer).toHaveAttribute('aria-selected', 'true');
+    // A freshly seeded origin layer can be clipped behind the dock. Fit the
+    // selected artwork before capturing or dragging; the canvas midpoint is
+    // otherwise blank and can produce a valid but invisible deformation.
+    await page.getByRole('button', { name: 'Fit selection to viewport', exact: true }).click();
     await page.waitForTimeout(500);
-    const before = await capture(page);
-
     // Activate Liquify (Y) and confirm the real tool + overlay are live.
     await page.keyboard.press('y');
     const options = page.getByRole('dialog', { name: /Liquify tool options/i });
@@ -122,12 +138,33 @@ test.describe('liquify', () => {
     await expect(page.getByTestId('liquify-options')).toBeVisible();
     await expect(options.getByRole('button', { name: /Reset deformation/i })).toBeEnabled();
 
+    // Capture with this tool and selection's contextual bar geometry. History
+    // restores the revision's selection, which can differ from the later click.
+    await forceAuthoritativeRedraw(page);
+    const before = await capture(page);
+    await testInfo.attach('liquify-before', {
+      body: await page.getByTestId('editor-canvas').screenshot(),
+      contentType: 'image/png',
+    });
+
     // Drag horizontally across the fixture's textured area.
     const canvas = page.getByTestId('editor-canvas');
     const box = await canvas.boundingBox();
     expect(box).not.toBeNull();
     const startX = box!.x + box!.width * 0.5;
     const startY = box!.y + box!.height * 0.5;
+    const sourceAlpha = await canvas.evaluate((element) => {
+      const surface = element as HTMLCanvasElement;
+      const context = surface.getContext('2d');
+      if (!context) throw new Error('Missing artwork canvas context');
+      return context.getImageData(
+        Math.floor(surface.width / 2),
+        Math.floor(surface.height / 2),
+        1,
+        1,
+      ).data[3];
+    });
+    expect(sourceAlpha, 'The real drag must begin on opaque fixture texture').toBeGreaterThan(200);
     await page.mouse.move(startX, startY);
     await page.mouse.down();
     for (let step = 1; step <= 10; step++) {
@@ -135,8 +172,7 @@ test.describe('liquify', () => {
     }
     await page.mouse.up();
     await page.waitForTimeout(900);
-    await page.evaluate(() => window.__varvePerf?.forceFullRedraw());
-    await page.waitForTimeout(400);
+    await forceAuthoritativeRedraw(page);
     const deformed = await capture(page);
     const deformation = await diff(page, before, deformed);
     await testInfo.attach('liquify-deformed', {
@@ -150,18 +186,34 @@ test.describe('liquify', () => {
     // One undo restores the exact source frame.
     await page.keyboard.press('Control+z');
     await page.waitForTimeout(900);
-    await page.evaluate(() => window.__varvePerf?.forceFullRedraw());
-    await page.waitForTimeout(400);
+    // The fixture revision predates its selection. Reselect the same existing
+    // layer without changing the artwork or camera, keeping the viewport fixed.
+    await rasterLayer.click();
+    await expect(rasterLayer).toHaveAttribute('aria-selected', 'true');
+    await forceAuthoritativeRedraw(page);
     const undone = await capture(page);
+    expect({ width: undone.width, height: undone.height }).toEqual({
+      width: before.width,
+      height: before.height,
+    });
+    await testInfo.attach('liquify-undone', {
+      body: await page.getByTestId('editor-canvas').screenshot(),
+      contentType: 'image/png',
+    });
     const undoMetrics = await diff(page, before, undone);
     expect(undoMetrics.mean).toBeLessThan(0.1);
 
     // Redo re-applies the same deformation.
     await page.keyboard.press('Control+Shift+z');
     await page.waitForTimeout(900);
-    await page.evaluate(() => window.__varvePerf?.forceFullRedraw());
-    await page.waitForTimeout(400);
+    await rasterLayer.click();
+    await expect(rasterLayer).toHaveAttribute('aria-selected', 'true');
+    await forceAuthoritativeRedraw(page);
     const redone = await capture(page);
+    expect({ width: redone.width, height: redone.height }).toEqual({
+      width: deformed.width,
+      height: deformed.height,
+    });
     const redoMetrics = await diff(page, deformed, redone);
     expect(redoMetrics.mean).toBeLessThan(0.1);
   });

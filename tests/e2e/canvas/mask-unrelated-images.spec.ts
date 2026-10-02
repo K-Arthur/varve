@@ -33,6 +33,23 @@ interface BBox {
 
 const SIZE = 120;
 
+async function readMaskFrame(page: Page) {
+  return page.evaluate(() => {
+    const perf = (window as unknown as { __varvePerf?: { getLast: () => unknown } }).__varvePerf;
+    const canvas = document.querySelector(
+      'canvas.editor-canvas__content-layer',
+    ) as HTMLCanvasElement;
+    return {
+      frame: perf?.getLast(),
+      canvas: {
+        width: canvas.width,
+        height: canvas.height,
+        rect: canvas.getBoundingClientRect().toJSON(),
+      },
+    };
+  });
+}
+
 function makeTargetImage(page: Page): Promise<string> {
   return page.evaluate(
     ({ size }) => {
@@ -125,8 +142,8 @@ async function colorBBox(page: Page, color: Rgb): Promise<BBox | null> {
     let maxX = -Infinity;
     let maxY = -Infinity;
     let count = 0;
-    for (let y = 0; y < height; y += 2) {
-      for (let x = 0; x < width; x += 2) {
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
         const i = (y * width + x) * 4;
         const dr = Math.abs(data[i]! - r);
         const dg = Math.abs(data[i + 1]! - g);
@@ -175,6 +192,31 @@ async function fullCanvasHash(page: Page): Promise<string> {
   return regionHash(page, { x: 0, y: 0, w: 1e9, h: 1e9 });
 }
 
+async function countColor(page: Page, box: BBox, color: Rgb): Promise<number> {
+  return page.evaluate(
+    ({ box, color }) => {
+      const canvas = document.querySelector(
+        'canvas.editor-canvas__content-layer',
+      ) as HTMLCanvasElement;
+      const context = canvas.getContext('2d');
+      if (!context) throw new Error('content canvas has no readable 2D surface');
+      const pixels = context.getImageData(box.x, box.y, box.w, box.h).data;
+      let count = 0;
+      for (let i = 0; i < pixels.length; i += 4) {
+        if (
+          pixels[i + 3]! > 64 &&
+          Math.abs(pixels[i]! - color.r) < 28 &&
+          Math.abs(pixels[i + 1]! - color.g) < 28 &&
+          Math.abs(pixels[i + 2]! - color.b) < 28
+        )
+          count++;
+      }
+      return count;
+    },
+    { box, color },
+  );
+}
+
 async function waitForColor(page: Page, color: Rgb, label: string): Promise<BBox> {
   await expect
     .poll(async () => colorBBox(page, color), { timeout: 20000, message: `${label} should appear` })
@@ -182,6 +224,19 @@ async function waitForColor(page: Page, color: Rgb, label: string): Promise<BBox
   const box = await colorBBox(page, color);
   if (!box) throw new Error(`${label} never appeared on the canvas`);
   return box;
+}
+
+async function forceAuthoritativeRedraw(page: Page): Promise<void> {
+  const result = await page.evaluate(async () => {
+    const perf = (
+      window as unknown as {
+        __varvePerf?: { forceFullRedraw: () => Promise<{ authoritative: boolean }> };
+      }
+    ).__varvePerf;
+    if (!perf) throw new Error('Full-redraw oracle is unavailable');
+    return perf.forceFullRedraw();
+  });
+  expect(result.authoritative).toBe(true);
 }
 
 async function selectImageAt(page: Page, box: BBox): Promise<void> {
@@ -229,15 +284,42 @@ test.describe('raster mask must not disturb unrelated canvas content', () => {
     await page.waitForTimeout(2500);
 
     const aBox = await waitForColor(page, COLORS.aSubject, 'A subject (orange-red)');
-    // The drop centers the image on the drop point, so A's placed rect is
-    // exactly (dropX - SIZE/2, dropY - SIZE/2, SIZE, SIZE). The subject
-    // bbox alone is useless for change detection: the mask keeps the subject
-    // opaque, so only A's background pixels change.
-    const aRect = { x: 420 - SIZE / 2, y: 100 - SIZE / 2, w: SIZE, h: SIZE };
-    expect(aRect.x).toBe(360);
-    const bBox = await waitForColor(page, COLORS.blue, 'B (blue)');
+    // Selection chrome can move the surface between drops. Measure the real
+    // background bounds; the kept subject alone cannot prove mask changes.
+    const aRect = await waitForColor(page, COLORS.aBg, 'A background (teal)');
+    expect(aRect.w).toBe(SIZE);
+    expect(aRect.h).toBe(SIZE);
+    const bColorBounds = await waitForColor(page, COLORS.blue, 'B (blue)');
+    // A partially covers B. B's total visible-color bounds can enclose pixels
+    // belonging to A (a top strip plus the right-hand rectangle). Hash only
+    // the substantial exposed B strip; hash C/D in full and test the covered
+    // overlap separately so intentional transparency cannot count as damage.
+    const bLeft = Math.max(bColorBounds.x, aRect.x + aRect.w) + 2;
+    const bBox = {
+      x: bLeft,
+      y: bColorBounds.y + 2,
+      w: bColorBounds.x + bColorBounds.w - bLeft - 2,
+      h: bColorBounds.h - 4,
+    };
+    expect(bBox.w).toBeGreaterThan(32);
+    expect(bBox.h).toBeGreaterThan(32);
+    expect(await countColor(page, bBox, COLORS.blue)).toBe(bBox.w * bBox.h);
+    const overlap = {
+      x: Math.max(aRect.x, bColorBounds.x),
+      y: Math.max(aRect.y, bColorBounds.y),
+      w:
+        Math.min(aRect.x + aRect.w, bColorBounds.x + bColorBounds.w) -
+        Math.max(aRect.x, bColorBounds.x),
+      h:
+        Math.min(aRect.y + aRect.h, bColorBounds.y + bColorBounds.h) -
+        Math.max(aRect.y, bColorBounds.y),
+    };
+    expect(overlap.w).toBeGreaterThan(0);
+    expect(overlap.h).toBeGreaterThan(0);
+    const blueBeforeMask = await countColor(page, overlap, COLORS.blue);
     const cBox = await waitForColor(page, COLORS.green, 'C (green)');
     const dBox = await waitForColor(page, COLORS.amber, 'D (amber)');
+    const beforeMaskFrame = await readMaskFrame(page);
 
     const bBefore = await regionHash(page, bBox);
     const cBefore = await regionHash(page, cBox);
@@ -248,26 +330,7 @@ test.describe('raster mask must not disturb unrelated canvas content', () => {
 
     // ── Apply background removal to A ────────────────────────────────
     const aBeforeMask = await regionHash(page, aRect);
-    const tealBefore = await page.evaluate(() => {
-      const canvas = document.querySelector('canvas.editor-canvas__content-layer') as
-        | HTMLCanvasElement
-        | undefined;
-      if (!canvas) return -1;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return -1;
-      const data = ctx.getImageData(360, 40, 120, 120).data;
-      let count = 0;
-      for (let i = 0; i < data.length; i += 4) {
-        if (
-          data[i + 3]! > 64 &&
-          Math.abs(data[i]! - 0x00) < 28 &&
-          Math.abs(data[i + 1]! - 0xa3) < 28 &&
-          Math.abs(data[i + 2]! - 0xcc) < 28
-        )
-          count++;
-      }
-      return count;
-    });
+    const tealBefore = await countColor(page, aRect, COLORS.aBg);
     expect(tealBefore).toBeGreaterThan(1000);
     await selectImageAt(page, aBox);
     const quickBar = page.getByTestId('selection-quick-bar');
@@ -293,6 +356,22 @@ test.describe('raster mask must not disturb unrelated canvas content', () => {
       .not.toBe(aBeforeMask);
     await page.waitForTimeout(1200);
     await page.screenshot({ path: testInfo.outputPath('mask-applied.png'), fullPage: false });
+    const maskDiagnostic = {
+      before: beforeMaskFrame,
+      after: await readMaskFrame(page),
+      boxes: {
+        before: { aRect, bColorBounds, bBox, cBox, dBox, overlap, blueBeforeMask },
+        after: {
+          bBox: await colorBBox(page, COLORS.blue),
+          cBox: await colorBBox(page, COLORS.green),
+          dBox: await colorBBox(page, COLORS.amber),
+        },
+      },
+    };
+    fs.writeFileSync(
+      testInfo.outputPath('mask-frame-diagnostic.json'),
+      `${JSON.stringify(maskDiagnostic, null, 2)}\n`,
+    );
 
     // …but B/C/D must be byte-identical in their regions.
     await expect.poll(async () => regionHash(page, bBox), { timeout: 10000 }).toBe(bBefore);
@@ -304,35 +383,13 @@ test.describe('raster mask must not disturb unrelated canvas content', () => {
 
     // Oracle: what the canvas shows must equal a forced full redraw.
     const h1 = await fullCanvasHash(page);
-    await page.evaluate(() => {
-      (
-        window as unknown as { __varvePerf?: { forceFullRedraw: () => void } }
-      ).__varvePerf?.forceFullRedraw();
-    });
-    await page.waitForTimeout(800);
+    await forceAuthoritativeRedraw(page);
     const h2 = await fullCanvasHash(page);
     expect(h2).toBe(h1);
 
-    // Reveal check: the overlap strip (440..480, 40..160) is covered by A and
-    // belongs to B; after A's background is removed, blue must be visible there.
-    const overlapBlue = await page.evaluate(() => {
-      const canvas = document.querySelector('canvas.editor-canvas__content-layer') as
-        | HTMLCanvasElement
-        | undefined;
-      if (!canvas) return 0;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return 0;
-      const data = ctx.getImageData(440, 40, 40, 120).data;
-      let count = 0;
-      for (let i = 0; i < data.length; i += 4) {
-        const dr = Math.abs(data[i]! - 0x3b);
-        const dg = Math.abs(data[i + 1]! - 0x82);
-        const db = Math.abs(data[i + 2]! - 0xf6);
-        if (data[i + 3]! > 64 && dr < 28 && dg < 28 && db < 28) count++;
-      }
-      return count;
-    });
-    expect(overlapBlue).toBeGreaterThan(0);
+    // Previously covered B pixels must actually appear after masking.
+    const overlapBlue = await countColor(page, overlap, COLORS.blue);
+    expect(overlapBlue - blueBeforeMask).toBeGreaterThan(100);
 
     // ── Edit mask + paint stroke ─────────────────────────────────────
     await selectImageAt(page, aRect);
@@ -364,12 +421,7 @@ test.describe('raster mask must not disturb unrelated canvas content', () => {
 
     // Mask edit must actually change A's pixels.
     const aAfterStroke = await regionHash(page, aRect);
-    await page.evaluate(() => {
-      (
-        window as unknown as { __varvePerf?: { forceFullRedraw: () => void } }
-      ).__varvePerf?.forceFullRedraw();
-    });
-    await page.waitForTimeout(800);
+    await forceAuthoritativeRedraw(page);
     const aAfterOracle = await regionHash(page, aRect);
     expect(aAfterOracle).toBe(aAfterStroke);
 

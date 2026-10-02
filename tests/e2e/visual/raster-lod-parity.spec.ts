@@ -39,7 +39,7 @@ type RasterLodPerf = {
     enabled: () => boolean;
     diagnostics: () => RasterLodDiagnostics;
   };
-  forceFullRedraw: () => void;
+  forceFullRedraw: () => Promise<{ authoritative: boolean }>;
 };
 
 async function openEditorWithFixture(page: import('@playwright/test').Page): Promise<void> {
@@ -56,7 +56,7 @@ async function openEditorWithFixture(page: import('@playwright/test').Page): Pro
     .click();
   await page.locator('.layers-panel').waitFor({ timeout: 10000 });
   const applied = await page.evaluate(() => {
-    const perf = (window as Window & { __varvePerf?: RasterLodPerf }).__varvePerf;
+    const perf = (window as unknown as { __varvePerf?: RasterLodPerf }).__varvePerf;
     return perf?.fixtures.apply('paint-raster-lod');
   });
   expect(applied?.ok).toBe(true);
@@ -79,43 +79,65 @@ test('pyramid tiles are seam-free and parity-bounded at 25% zoom', async ({ page
 
   // Park the camera at 25% zoom: L2 tiles, 4x minification.
   await page.evaluate(() => {
-    const perf = (window as Window & { __varvePerf?: RasterLodPerf }).__varvePerf;
-    perf?.camera.setZoom(0.25);
+    const perf = (window as unknown as { __varvePerf?: RasterLodPerf }).__varvePerf;
+    if (!perf) throw new Error('Raster LOD performance controls are unavailable');
+    // The product keeps this experimental spatial path opt-in. Enable both
+    // realms before waiting for actual pyramid generation.
+    perf.rasterLod.enable();
+    perf.camera.setZoom(0.25);
   });
   await page.waitForTimeout(400);
+  const initialFrame = await page.evaluate(async () => {
+    const perf = (window as unknown as { __varvePerf?: RasterLodPerf }).__varvePerf;
+    if (!perf) throw new Error('Raster LOD performance controls are unavailable');
+    // Residency diagnostics belong to the main realm. Request its real replay
+    // so this corpus measures the spatial renderer rather than worker-only
+    // caches that those diagnostics cannot see.
+    return perf.forceFullRedraw();
+  });
+  expect(initialFrame.authoritative).toBe(true);
 
   // Wait for the pyramid to generate the visible tiles.
-  await page
-    .waitForFunction(
-      () => {
-        const perf = (window as Window & { __varvePerf?: RasterLodPerf }).__varvePerf;
-        const d = perf?.rasterLod.diagnostics();
-        return !!d && d.residency.residentTiles > 0 && d.scheduler.queued === 0;
-      },
-      undefined,
-      { timeout: 60000 },
-    )
-    .catch(() => {
-      // Generation may finish before the first poll; any residency is fine.
-    });
+  await page.waitForFunction(
+    () => {
+      const perf = (window as unknown as { __varvePerf?: RasterLodPerf }).__varvePerf;
+      const d = perf?.rasterLod.diagnostics();
+      return (
+        !!d &&
+        d.residency.residentTiles > 0 &&
+        d.scheduler.queued === 0 &&
+        d.scheduler.running === 0
+      );
+    },
+    undefined,
+    { timeout: 60000 },
+  );
   await page.waitForTimeout(500);
+  const tiledFrame = await page.evaluate(async () => {
+    const perf = (window as unknown as { __varvePerf?: RasterLodPerf }).__varvePerf;
+    if (!perf) throw new Error('Raster LOD performance controls are unavailable');
+    return perf.forceFullRedraw();
+  });
+  expect(tiledFrame.authoritative).toBe(true);
 
   const pyramidShot = await screenshotCanvas(page);
   const pyramidDiag = await page.evaluate(() => {
-    const perf = (window as Window & { __varvePerf?: RasterLodPerf }).__varvePerf;
+    const perf = (window as unknown as { __varvePerf?: RasterLodPerf }).__varvePerf;
     return perf?.rasterLod.diagnostics();
   });
 
   // Retained arm: disable the pyramid in both realms and force a full redraw.
-  await page.evaluate(() => {
-    const perf = (window as Window & { __varvePerf?: RasterLodPerf }).__varvePerf;
-    perf?.rasterLod.disable();
-    perf?.forceFullRedraw();
+  const retainedFrame = await page.evaluate(async () => {
+    const perf = (window as unknown as { __varvePerf?: RasterLodPerf }).__varvePerf;
+    if (!perf) throw new Error('Raster LOD performance controls are unavailable');
+    perf.rasterLod.disable();
+    return perf.forceFullRedraw();
   });
+  expect(retainedFrame.authoritative).toBe(true);
   await page.waitForTimeout(500);
   const retainedShot = await screenshotCanvas(page);
   await page.evaluate(() => {
-    const perf = (window as Window & { __varvePerf?: RasterLodPerf }).__varvePerf;
+    const perf = (window as unknown as { __varvePerf?: RasterLodPerf }).__varvePerf;
     perf?.rasterLod.enable();
   });
 
