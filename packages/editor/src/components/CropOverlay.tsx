@@ -455,6 +455,7 @@ export function CropOverlay({ tool, screenBounds, onDone, onCancel }: CropOverla
       ref={overlayRef}
       role="dialog"
       aria-label="Crop image"
+      data-editor-shortcut-scope="crop"
       className="crop-overlay"
       data-testid="crop-overlay"
       onKeyDown={onKeyDown}

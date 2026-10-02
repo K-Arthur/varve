@@ -38,7 +38,7 @@ import {
   recordInteractionEventSample,
   recordInteractionSpan,
 } from '../performance/interactionTrace';
-import { shouldIgnoreShortcutTarget } from '../shortcuts/ShortcutManager';
+import { shouldIgnoreCropShortcutTarget } from '../shortcuts/ShortcutManager';
 import type { ToolContext, ToolManager } from '../tools';
 import { computeEdgeVelocity } from '../tools/autoPan';
 import { refreshDrawingInputSettings } from '../tools/drawingInputRuntime';
@@ -2037,7 +2037,11 @@ export function useCanvasInputs({
   useEffect(() => {
     const handleModalCropKey = (e: KeyboardEvent) => {
       if (stateRef.current.tool !== 'crop') return;
-      if (e.defaultPrevented || e.isComposing || shouldIgnoreShortcutTarget(e.target as Element)) {
+      if (
+        e.defaultPrevented ||
+        e.isComposing ||
+        shouldIgnoreCropShortcutTarget(e.target as Element)
+      ) {
         return;
       }
       const tmInst = tmRef.current;

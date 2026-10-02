@@ -262,6 +262,7 @@ export function WorkspaceTabs() {
           className="workspace-dock__group"
           role="radiogroup"
           aria-label="Workspace"
+          data-editor-shortcut-scope="workspace-switcher"
         >
           {layout.visible.map((mode) => {
             const isActive = state.workspaceMode === mode;

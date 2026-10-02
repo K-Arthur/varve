@@ -7,11 +7,38 @@ import {
   isNativeActivationKeyTarget,
   SHORTCUT_DEFS,
   shortcutFromEvent,
+  shouldIgnoreCropShortcutTarget,
   shouldIgnoreHistoryShortcutTarget,
   shouldIgnoreShortcutTarget,
 } from './ShortcutManager';
 
 describe('shouldIgnoreShortcutTarget', () => {
+  it('keeps tool and history shortcuts live on the editor workspace mode radios', () => {
+    document.body.innerHTML = `
+      <div role="radiogroup" data-editor-shortcut-scope="workspace-switcher">
+        <button role="radio" aria-checked="true"><span id="target">Draw</span></button>
+      </div>
+    `;
+    const target = document.getElementById('target');
+    expect(shouldIgnoreShortcutTarget(target)).toBe(false);
+    expect(shouldIgnoreHistoryShortcutTarget(target)).toBe(false);
+  });
+
+  it.each([
+    '<div role="radiogroup"><button role="radio" id="target">Setting</button></div>',
+    '<div role="radiogroup" data-editor-shortcut-scope="workspace-switcher"><input id="target" /></div>',
+    '<div role="radiogroup" data-editor-shortcut-scope="workspace-switcher"><button role="radio"><span role="textbox" id="target">Text</span></button></div>',
+    '<div role="radiogroup" data-editor-shortcut-scope="workspace-switcher" data-shortcut-ignore><button role="radio" id="target">Reserved</button></div>',
+    '<div role="listbox"><div role="radiogroup" data-editor-shortcut-scope="workspace-switcher"><button role="radio" id="target">Nested</button></div></div>',
+    '<dialog open><div role="radiogroup" data-editor-shortcut-scope="workspace-switcher"><button role="radio" id="target">Dialog</button></div></dialog>',
+    '<div role="dialog"><div role="radiogroup" data-editor-shortcut-scope="workspace-switcher"><button role="radio" id="target">Dialog</button></div></div>',
+  ])('preserves widget/dialog ownership outside workspace mode buttons: %s', (markup) => {
+    document.body.innerHTML = markup;
+    const target = document.getElementById('target');
+    expect(shouldIgnoreShortcutTarget(target)).toBe(true);
+    expect(shouldIgnoreHistoryShortcutTarget(target)).toBe(true);
+  });
+
   it('does not ignore a Layers-panel treeitem, so tool shortcuts still fire after selecting a layer', () => {
     document.body.innerHTML = `
       <div role="tree" aria-label="Layers">
@@ -128,6 +155,55 @@ describe('shouldIgnoreShortcutTarget', () => {
     document.body.innerHTML = `<canvas id="c"></canvas>`;
     expect(shouldIgnoreShortcutTarget(document.getElementById('c'))).toBe(false);
     expect(shouldIgnoreShortcutTarget(document.body)).toBe(false);
+  });
+});
+
+describe('shouldIgnoreCropShortcutTarget', () => {
+  it('delegates consumed tool keys from the crop overlay and handles without enabling app keys', () => {
+    document.body.innerHTML = `
+      <div role="dialog" data-editor-shortcut-scope="crop" id="overlay">
+        <button id="handle">Resize crop e</button>
+      </div>
+    `;
+    for (const id of ['overlay', 'handle']) {
+      const target = document.getElementById(id);
+      expect(shouldIgnoreCropShortcutTarget(target)).toBe(false);
+      expect(shouldIgnoreShortcutTarget(target)).toBe(true);
+      expect(shouldIgnoreHistoryShortcutTarget(target)).toBe(true);
+    }
+  });
+
+  it.each([
+    '<input id="target" />',
+    '<textarea id="target"></textarea>',
+    '<select id="target"><option>Fit</option></select>',
+    '<div role="combobox"><span id="target">Fit</span></div>',
+    '<div role="slider"><span id="target">Angle</span></div>',
+    '<div role="radiogroup"><button role="radio" id="target">Ratio</button></div>',
+    '<div role="textbox"><span id="target">Name</span></div>',
+    '<div role="dialog"><button id="target">Confirm</button></div>',
+    '<div data-shortcut-ignore><button id="target">Reserved</button></div>',
+  ])('keeps crop inputs and nested widgets/dialogs protected: %s', (control) => {
+    document.body.innerHTML = `<div role="dialog" data-editor-shortcut-scope="crop">${control}</div>`;
+    expect(shouldIgnoreCropShortcutTarget(document.getElementById('target'))).toBe(true);
+  });
+
+  it('preserves editable crop text ownership', () => {
+    document.body.innerHTML =
+      '<div role="dialog" data-editor-shortcut-scope="crop"><span id="target" contenteditable="true">Name</span></div>';
+    const target = document.getElementById('target')!;
+    Object.defineProperty(target, 'isContentEditable', { value: true });
+    expect(shouldIgnoreCropShortcutTarget(target)).toBe(true);
+  });
+
+  it.each([
+    '<dialog open><div role="dialog" data-editor-shortcut-scope="crop"><button id="target">Crop</button></div></dialog>',
+    '<div role="dialog"><div role="dialog" data-editor-shortcut-scope="crop"><button id="target">Crop</button></div></div>',
+    '<div role="alertdialog" aria-modal="true"><div role="dialog" data-editor-shortcut-scope="crop"><button id="target">Crop</button></div></div>',
+    '<div role="dialog"><button id="target">Settings</button></div>',
+  ])('does not delegate tool keys through another dialog: %s', (markup) => {
+    document.body.innerHTML = markup;
+    expect(shouldIgnoreCropShortcutTarget(document.getElementById('target'))).toBe(true);
   });
 });
 

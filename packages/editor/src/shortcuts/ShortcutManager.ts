@@ -893,7 +893,10 @@ const SHORTCUT_IGNORE_SELECTOR =
  * 5. Elements opted out via `data-shortcut-ignore`
  * 6. During IME composition
  */
-export function shouldIgnoreShortcutTarget(target: Element | null): boolean {
+function shouldIgnoreShortcutTargetInScope(
+  target: Element | null,
+  toolDialog: Element | null,
+): boolean {
   if (!target) return false;
 
   // Fast-path tag check
@@ -906,8 +909,23 @@ export function shouldIgnoreShortcutTarget(target: Element | null): boolean {
   if (activeEl && isIMEComposing(activeEl)) return true;
 
   // Walk up to nearest widget that signals keyboard-input ownership
-  const widget = target.closest?.(`${SHORTCUT_IGNORE_SELECTOR},[data-shortcut-ignore]`);
-  if (widget) return true;
+  const widgetSelector = `${SHORTCUT_IGNORE_SELECTOR},[data-shortcut-ignore]`;
+  const widget = target.closest?.(widgetSelector);
+  // Workspace mode buttons use the APG radio pattern for selection, but are
+  // not typing contexts. Their own arrow/activation handlers retain focus;
+  // subsequent tool and history commands must still reach the editor.
+  const workspaceRadio = target.closest?.('button[role="radio"]');
+  const workspaceScope = workspaceRadio?.closest(
+    '[role="radiogroup"][data-editor-shortcut-scope="workspace-switcher"]',
+  );
+  if (
+    widget &&
+    (widget !== workspaceScope ||
+      widget.hasAttribute('data-shortcut-ignore') ||
+      widget.parentElement?.closest(widgetSelector))
+  ) {
+    return true;
+  }
 
   // Real dialogs own keyboard input, including non-modal find/replace. The
   // responsive Layers drawer also has role=dialog for focus containment, but
@@ -917,13 +935,27 @@ export function shouldIgnoreShortcutTarget(target: Element | null): boolean {
   if (target.closest?.('dialog[open]')) return true;
   const dialog = target.closest?.('[role="dialog"]');
   if (dialog) {
+    const outerDialog = dialog.parentElement?.closest('[role="dialog"],[role="alertdialog"]');
+    // Only the modal tool dispatcher may delegate crop's consumed keys to
+    // its own overlay. Global app shortcuts still treat this as a dialog,
+    // and nested dialogs/typing widgets remain protected above.
+    if (dialog === toolDialog && !outerDialog) return false;
     const row = target.closest?.('[role="treeitem"][data-node-id]');
     const scope = target.closest?.('[data-editor-shortcut-scope="layers-tree"]');
-    const outerDialog = dialog.parentElement?.closest('[role="dialog"],[role="alertdialog"]');
     return !row || scope !== dialog || Boolean(outerDialog) || isNativeActivationKeyTarget(target);
   }
 
   return false;
+}
+
+export function shouldIgnoreShortcutTarget(target: Element | null): boolean {
+  return shouldIgnoreShortcutTargetInScope(target, null);
+}
+
+/** Crop's own modal keys remain active on its overlay, never other dialogs. */
+export function shouldIgnoreCropShortcutTarget(target: Element | null): boolean {
+  const cropDialog = target?.closest('[role="dialog"][data-editor-shortcut-scope="crop"]');
+  return shouldIgnoreShortcutTargetInScope(target, cropDialog ?? null);
 }
 
 /**

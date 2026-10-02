@@ -83,7 +83,9 @@ test.describe('Image crop — interactive tool', () => {
     test.setTimeout(60000);
     await createImageAndSelect(page);
     await page.keyboard.press('c');
-    await expect(page.locator('[data-testid="crop-overlay"]')).toBeVisible({ timeout: 5000 });
+    const cropOverlay = page.getByRole('dialog', { name: 'Crop image', exact: true });
+    await expect(cropOverlay).toBeVisible({ timeout: 5000 });
+    await expect(cropOverlay).toBeFocused();
 
     // Imports preserve their chosen image fit. Cycle from the actual current
     // value rather than assuming every importer starts in crop mode.
@@ -97,6 +99,12 @@ test.describe('Image crop — interactive tool', () => {
       await page.keyboard.press('f');
       await expect(badge).toHaveText(fitCycle[(initialIndex + step) % fitCycle.length]!);
     }
+
+    // Crop's native controls keep their own keyboard input; focusing one
+    // must not cycle the image or exit the modal edit accidentally.
+    await cropOverlay.getByRole('slider', { name: 'Straighten angle' }).press('f');
+    await expect(badge).toHaveText(initialFit);
+    await expect(cropOverlay).toBeVisible();
   });
 
   test('Done button commits crop', async ({ page }) => {
