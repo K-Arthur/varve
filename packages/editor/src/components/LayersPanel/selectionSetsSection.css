@@ -26,7 +26,7 @@
   align-items: center;
   justify-content: center;
   width: var(--space-5);
-  height: var(--space-5);
+  height: var(--component-compact-height);
   min-width: var(--target-min-compact);
   min-height: var(--target-min-compact);
   padding: 0;
@@ -145,7 +145,7 @@
   align-items: center;
   justify-content: center;
   width: var(--space-5);
-  height: var(--space-5);
+  height: var(--component-compact-height);
   min-width: var(--target-min-compact);
   min-height: var(--target-min-compact);
   padding: 0;

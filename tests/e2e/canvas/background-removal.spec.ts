@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { expect, type Locator, type TestInfo, test } from '@playwright/test';
+import { panelResizeHandle } from '../helpers/panel-resize';
 import { navigateToEditor } from '../shared';
 
 async function attachShineVisual(testInfo: TestInfo, locator: Locator, name: string) {
@@ -251,7 +252,7 @@ test.describe('Background removal — all modes', () => {
     });
 
     const inspector = page.locator('[data-panel="inspector"]');
-    const inspectorResize = page.getByRole('separator', { name: 'Resize inspector panel' });
+    const inspectorResize = panelResizeHandle(page, 'inspector');
     const inspectorWidthBefore = (await inspector.boundingBox())?.width ?? 0;
     await inspectorResize.focus();
     await inspectorResize.press('ArrowLeft');

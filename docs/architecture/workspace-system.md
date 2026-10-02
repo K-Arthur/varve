@@ -51,7 +51,14 @@ gated by `statusBar`/`tabStrip`/`floatingToolbar` chrome preferences: a
 workspace that hides the status bar still needs a way to open a hidden panel,
 and a hidden panel is never the only route to the feature behind it.
 
-Panel width persistence separates the user's **desired** width from the
+The desktop dock tree owns panel geometry and its splitters persist split
+ratios. Its active splitters are the resize controls; the legacy grid-width
+splitters are hidden while this geometry is active. Home and End move a split
+to its constrained endpoints, with the canvas and neighboring panels keeping
+their registered minimum sizes. For the right-hand Inspector, End minimizes
+the Inspector because that panel is the split's second child.
+
+The grid fallback's panel width persistence separates the user's **desired** width from the
 **displayed** width. Only the desired value (panel min/max clamped) is
 persisted; the displayed value additionally yields to `CANVAS_MIN_WIDTH`.
 Opening a narrow window therefore cannot permanently overwrite the desktop

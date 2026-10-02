@@ -245,8 +245,11 @@ export function useEditorDockGeometry(
       // the tab strip; row 2 is `canvas`. Focus mode collapses the template to
       // a single `canvas` row, where the dock starts at the shell's top edge.
       const top = gridRows.length >= 2 ? rowHeight(0) + rowHeight(1) : 0;
+      // Only fixed shell chrome may bound the dock. Page Navigator is itself
+      // positioned by this hook: using its output top as the next input height
+      // alternated between the desktop dock and its minimum-size fallback,
+      // continually moving publishing tabs and preventing pointer input.
       const bottomCandidates = [
-        shell.querySelector<HTMLElement>('.page-nav-container'),
         shell.querySelector<HTMLElement>('.selection-info-bar'),
         shell.querySelector<HTMLElement>('.editor-status'),
       ]

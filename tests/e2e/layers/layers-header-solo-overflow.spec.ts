@@ -17,6 +17,7 @@
  * narrows past 340px.
  */
 import { expect, test } from '@playwright/test';
+import { panelResizeHandle } from '../helpers/panel-resize';
 import { navigateToEditor, seedLayers } from '../shared';
 
 async function soloFirstNode(page: import('@playwright/test').Page, nodeId: string) {
@@ -70,7 +71,7 @@ test.describe('Layers header overflow during solo', () => {
     await expect(exitSolo).toBeVisible();
 
     // Drive the panel to its documented minimum width.
-    const handle = page.getByRole('separator', { name: 'Resize layers panel' });
+    const handle = panelResizeHandle(page, 'layers');
     await handle.focus();
     await handle.press('Home');
     await page.waitForTimeout(150);

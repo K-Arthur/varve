@@ -127,11 +127,14 @@ export function PanelResizeHandle({
   side,
   width,
   onResize,
+  visible = true,
 }: {
   side: PanelSide;
   /** Current width in px, or null when the default clamp() width applies. */
   width: number | null;
   onResize: (width: number | null) => void;
+  /** The grid fallback uses pixel widths; the dock tree owns its splitters. */
+  visible?: boolean;
 }) {
   const [dragging, setDragging] = useState(false);
 
@@ -199,6 +202,8 @@ export function PanelResizeHandle({
     },
     [isLayers, measurePanel, onResize, side, width],
   );
+
+  if (!visible) return null;
 
   return (
     <Tooltip label="Drag to resize — double-click to reset">

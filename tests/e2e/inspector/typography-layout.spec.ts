@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { resizePanelTo } from '../helpers/panel-resize';
 import { navigateToEditor } from '../shared';
 
 test('typography inspector uses readable labels and aligned controls at both panel widths', async ({
@@ -20,10 +21,8 @@ test('typography inspector uses readable labels and aligned controls at both pan
       (value) => document.documentElement.setAttribute('data-theme', value),
       theme,
     );
-    const splitter = page.getByRole('separator', { name: 'Resize inspector panel' });
     for (const width of ['expanded', 'minimum']) {
-      await splitter.focus();
-      await splitter.press(width === 'expanded' ? 'End' : 'Home');
+      await resizePanelTo(page, 'inspector', width === 'expanded' ? 'expanded' : 'minimum');
       const family = section.getByRole('combobox', { name: 'Font family' });
       await family.scrollIntoViewIfNeeded();
       const browse = section.getByRole('button', { name: 'Browse fonts' });

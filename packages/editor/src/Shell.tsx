@@ -769,6 +769,7 @@ function ShellInner({
             </ErrorBoundary>
             <PanelResizeHandle
               side="layers"
+              visible={dockGeometry.canvasStyle.position !== 'absolute'}
               width={widths.layers}
               onResize={(w) => setWidth('layers', w)}
             />
@@ -800,6 +801,7 @@ function ShellInner({
             </ErrorBoundary>
             <PanelResizeHandle
               side="inspector"
+              visible={dockGeometry.canvasStyle.position !== 'absolute'}
               width={widths.inspector}
               onResize={(w) => setWidth('inspector', w)}
             />

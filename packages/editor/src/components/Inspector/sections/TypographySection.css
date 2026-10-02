@@ -11,6 +11,10 @@
   min-width: 0;
 }
 
+.typography__family-field .font-selector__input {
+  height: var(--insp-row-height, var(--component-compact-height));
+}
+
 .typography__family-field .font-selector__label {
   font-family: var(--type-interface-label-family);
   font-size: var(--type-interface-label-size);

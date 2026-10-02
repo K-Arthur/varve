@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { panelResizeHandle } from '../helpers/panel-resize';
 import { navigateToEditor } from '../shared';
 
 test.describe('docked pane resizing', () => {
@@ -8,7 +9,7 @@ test.describe('docked pane resizing', () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await navigateToEditor(page);
 
-    const handle = page.getByRole('separator', { name: 'Resize inspector panel' });
+    const handle = panelResizeHandle(page, 'inspector');
     const canvas = page.getByTestId('editor-canvas');
     await expect(handle).toBeVisible();
     await expect(canvas).toBeVisible();

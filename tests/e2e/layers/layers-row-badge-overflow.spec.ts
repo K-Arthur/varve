@@ -17,6 +17,7 @@
  * visually truncates its own badges) before the toggles are displaced.
  */
 import { expect, test } from '@playwright/test';
+import { panelResizeHandle } from '../helpers/panel-resize';
 import { navigateToEditor, seedLayers } from '../shared';
 
 /**
@@ -129,7 +130,7 @@ test.describe('Layers row badge overflow', () => {
     expect(initialIdentity).not.toBeNull();
     expect(initialIdentity!.width).toBeGreaterThan(32);
 
-    const handle = page.getByRole('separator', { name: 'Resize layers panel' });
+    const handle = panelResizeHandle(page, 'layers');
     await handle.focus();
     await handle.press('End');
     await page.waitForTimeout(150);
@@ -165,7 +166,7 @@ test.describe('Layers row badge overflow', () => {
 
     // Drive the panel to its documented minimum width (APG window-splitter:
     // Home jumps to PANEL_LIMITS.layers.min).
-    const handle = page.getByRole('separator', { name: 'Resize layers panel' });
+    const handle = panelResizeHandle(page, 'layers');
     await handle.focus();
     await handle.press('Home');
     await page.waitForTimeout(150);
@@ -234,7 +235,7 @@ test.describe('Layers row badge overflow', () => {
     await expect(effects).toHaveAttribute('aria-label', /Layer Effect/);
 
     // Drive the panel to its documented minimum width.
-    const handle = page.getByRole('separator', { name: 'Resize layers panel' });
+    const handle = panelResizeHandle(page, 'layers');
     await handle.focus();
     await handle.press('Home');
     await page.waitForTimeout(150);

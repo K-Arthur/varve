@@ -33,6 +33,19 @@ describe('resolveDisplayWidths', () => {
 });
 
 describe('PanelResizeHandle semantics', () => {
+  it('removes the grid-only splitter while the dock tree owns resizing', () => {
+    const onResize = vi.fn();
+    const { rerender } = render(
+      <PanelResizeHandle side="layers" width={180} onResize={onResize} visible={false} />,
+    );
+    expect(screen.queryByRole('separator')).toBeNull();
+    rerender(<PanelResizeHandle side="layers" width={180} onResize={onResize} />);
+    fireEvent.keyDown(screen.getByRole('separator'), { key: 'ArrowRight' });
+    expect(onResize).toHaveBeenCalledWith(196);
+    rerender(<PanelResizeHandle side="layers" width={196} onResize={onResize} visible={false} />);
+    expect(screen.queryByRole('separator')).toBeNull();
+  });
+
   it('exposes the default width when no persisted width exists', () => {
     render(<PanelResizeHandle side="layers" width={null} onResize={vi.fn()} />);
 
