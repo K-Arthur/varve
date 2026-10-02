@@ -3,6 +3,7 @@ import {
   createEmbeddedAsset,
   makeImageShapeNode,
   type ShapeNode,
+  setLiveTraceParams,
 } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import {
@@ -10,6 +11,7 @@ import {
   insertTraceGroup,
   replaceImageShapeContent,
   restoreImageShapeContent,
+  sameTraceSource,
   selectedImageShape,
 } from './imageOperations';
 
@@ -31,6 +33,33 @@ describe('selectedImageShape', () => {
     const doc = imageDoc();
 
     expect(selectedImageShape(doc, ['missing', 'img1'])?.id).toBe('img1');
+  });
+});
+
+describe('sameTraceSource', () => {
+  it('accepts live-trace parameter bookkeeping without accepting raster changes', () => {
+    const doc = imageDoc();
+    const source = doc.nodes.img1 as ShapeNode;
+    const withParams = setLiveTraceParams(doc, 'img1', { maxPaths: 750 });
+    expect(sameTraceSource(source, withParams.nodes.img1)).toBe(true);
+    const replaced = replaceImageShapeContent(withParams, 'img1', {
+      dataUrl: 'data:image/png;base64,CHANGED',
+      assetId: 'changed',
+      width: 20,
+      height: 10,
+    });
+    expect(sameTraceSource(source, replaced.nodes.img1)).toBe(false);
+  });
+
+  it('rejects deletion and changes to geometry, placement, effects, or identity', () => {
+    const source = imageDoc().nodes.img1 as ShapeNode;
+    expect(sameTraceSource(source, undefined)).toBe(false);
+    expect(sameTraceSource(source, { ...source, id: 'different' })).toBe(false);
+    expect(sameTraceSource(source, { ...source, transform: [1, 0, 0, 1, 100, 50] })).toBe(false);
+    expect(
+      sameTraceSource(source, { ...source, shape: { kind: 'rect', x: 0, y: 0, w: 40, h: 10 } }),
+    ).toBe(false);
+    expect(sameTraceSource(source, { ...source, effects: [] })).toBe(false);
   });
 });
 

@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
+import { selectInspectorTab } from '../helpers/inspector-tabs';
 import { navigateToEditor, switchWorkspace } from '../shared';
 
 /**
@@ -24,6 +25,9 @@ test.describe('Image & Vector — numeric fields', () => {
       await dismissChecklist.click();
     }
     await page.getByRole('treeitem').first().click();
+    await selectInspectorTab(page, 'Adjustments');
+    const imageVector = page.getByRole('button', { name: 'Image & Vector', exact: true });
+    if ((await imageVector.getAttribute('aria-expanded')) !== 'true') await imageVector.click();
   });
 
   test('Max paths clamps out-of-range drafts on commit and preserves valid ones', async ({
@@ -47,6 +51,14 @@ test.describe('Image & Vector — numeric fields', () => {
     // A normal in-range value commits exactly.
     await maxPaths.fill('750');
     await maxPaths.blur();
+    await expect(maxPaths).toHaveValue('750');
+
+    // The newest real trace must settle after numeric commits; a stale-result
+    // notice is not trace-success evidence even when clamping itself works.
+    await expect(page.getByText('Auto trace active', { exact: true })).toBeVisible({
+      timeout: 15000,
+    });
+    await expect(page.getByText(/stale-result: source changed/)).toBeHidden();
     await expect(maxPaths).toHaveValue('750');
 
     const screenshot = await page
@@ -91,6 +103,19 @@ test.describe('Image & Vector — numeric fields', () => {
     // `pending` is set synchronously in the click handler before the async
     // trace call, so the disabled state is visible for a real window.
     await expect(colorCount).toBeDisabled({ timeout: 2000 });
+    // A successful one-shot trace selects the new vector group. Return to
+    // its retained source to inspect the editable image controls again.
+    await expect(page.getByRole('treeitem', { name: /^test-image\.png trace, Group/ })).toBeVisible(
+      { timeout: 15000 },
+    );
+    await page.getByRole('treeitem', { name: /^test-image\.png, Raster image/ }).click();
+    await selectInspectorTab(page, 'Adjustments');
+    const imageVector = page.getByRole('button', { name: 'Image & Vector', exact: true });
+    if ((await imageVector.getAttribute('aria-expanded')) !== 'true') await imageVector.click();
+    // Selecting the source remounts the one-shot controls with their default
+    // mode. Show Colors again before checking that processing released it.
+    await page.getByLabel('Trace mode').click();
+    await page.getByRole('option', { name: 'Color' }).click();
     await expect(colorCount).toBeEnabled({ timeout: 15000 });
   });
 });

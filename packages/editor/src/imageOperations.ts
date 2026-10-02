@@ -23,6 +23,7 @@ import {
   type NodeId,
   nextNodeId,
   removeNode,
+  type SceneNode,
   type ShapeNode,
   type TraceMetadata,
 } from '@varve/scene';
@@ -34,6 +35,22 @@ export function selectedImageShape(doc: Document, selection: NodeId[]): ShapeNod
     if (node?.kind === 'shape' && isImageShape(node)) return node;
   }
   return null;
+}
+
+/** Parameter/status bookkeeping does not change the raster being traced.
+ * Keep all other immutable node fields guarded, including pixels, geometry,
+ * placement, and effects; deletion or a different node is always stale. */
+export function sameTraceSource(
+  source: ShapeNode,
+  current: SceneNode | undefined,
+): current is ShapeNode {
+  if (current?.kind !== 'shape' || current.id !== source.id) return false;
+  if (current === source) return true;
+  const before = source as unknown as Record<string, unknown>;
+  const after = current as unknown as Record<string, unknown>;
+  return [...new Set([...Object.keys(before), ...Object.keys(after)])].every(
+    (key) => key === 'liveTrace' || Object.is(before[key], after[key]),
+  );
 }
 
 /** All image shapes in the current selection, in selection order. */

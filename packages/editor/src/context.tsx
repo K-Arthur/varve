@@ -553,6 +553,7 @@ import {
   insertDerivedImageShape,
   insertLiveTraceGroup,
   insertTraceGroup,
+  sameTraceSource,
   selectedImageShape,
 } from './imageOperations';
 import { getActionTracker } from './intelligence/actionTracker';
@@ -10020,7 +10021,7 @@ export function EditorProvider({
           announcerRef.current?.announce(`Image upscaling failed: ${normalized.message}`);
           throw normalized;
         } finally {
-          if (processingImageNodeRef.current === processingNodeId) {
+          if (imageProcessingAbortRef.current === controller) {
             imageProcessingAbortRef.current = null;
             processingImageNodeRef.current = null;
           }
@@ -10158,7 +10159,7 @@ export function EditorProvider({
           announcerRef.current?.announce(`Image resize failed: ${message}`);
           throw error instanceof Error ? error : new Error(message);
         } finally {
-          if (processingImageNodeRef.current === request.nodeId) {
+          if (imageProcessingAbortRef.current === controller) {
             imageProcessingAbortRef.current = null;
             processingImageNodeRef.current = null;
           }
@@ -10166,7 +10167,7 @@ export function EditorProvider({
       },
 
       traceSelectedImage: async (options) => {
-        const imageNode = selectedImageShape(state.document, state.selection);
+        const imageNode = selectedImageShape(stateRef.current.document, stateRef.current.selection);
         if (!imageNode) {
           announcerRef.current?.announce('Select an image layer first');
           return;
@@ -10207,7 +10208,7 @@ export function EditorProvider({
           const current = stateRef.current;
           if (
             !current.selection.includes(processingNodeId) ||
-            current.document.nodes[processingNodeId] !== imageNode
+            !sameTraceSource(imageNode, current.document.nodes[processingNodeId])
           )
             throw new Error('stale-result: source changed before processing completed');
 
@@ -10267,7 +10268,7 @@ export function EditorProvider({
           announcerRef.current?.announce(`Image tracing failed: ${message}`);
           throw error;
         } finally {
-          if (processingImageNodeRef.current === processingNodeId) {
+          if (imageProcessingAbortRef.current === controller) {
             imageProcessingAbortRef.current = null;
             processingImageNodeRef.current = null;
           }
