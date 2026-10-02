@@ -40,7 +40,11 @@ function filesUnder(root, relativePath) {
 
 function runtimeInputPaths(root) {
   const paths = ['node_modules/.modules.yaml', 'node_modules/.pnpm/lock.yaml'];
-  for (const dir of ['apps/desktop/public/wasm', 'apps/desktop/public/models']) {
+  for (const dir of [
+    'apps/desktop/public/wasm',
+    'apps/desktop/public/ort-wasm',
+    'apps/desktop/public/models',
+  ]) {
     try {
       paths.push(...filesUnder(root, dir));
     } catch (error) {

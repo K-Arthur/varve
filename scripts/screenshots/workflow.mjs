@@ -301,9 +301,9 @@ async function runWorkflow(page, onContentReady) {
       .click();
   }
   await page.waitForTimeout(500);
-  const advancedBtn = page.getByRole('button', { name: /Open advanced export/ });
+  const advancedBtn = inspector.getByRole('button', { name: 'Open export workspace', exact: true });
   if (!(await advancedBtn.isVisible({ timeout: 4000 }).catch(() => false))) {
-    throw new Error('"Open advanced export" control unavailable for the selected frame');
+    throw new Error('"Open export workspace" control unavailable for the selected frame');
   }
   await advancedBtn.click();
   const dialog = page.getByRole('dialog', { name: 'Export' });

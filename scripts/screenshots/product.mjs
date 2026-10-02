@@ -1082,10 +1082,20 @@ const SCENES = [
       }
       await typography.evaluate((el) => el.scrollIntoView({ block: 'start' }));
       await page.waitForTimeout(600);
-      await typography
+      // Keep the section heading above its fields. Scrolling the first label
+      // to the rail's top would put it behind the sticky disclosure header.
+      const familyClearOfHeader = await typography
         .getByText(/^Font family$/)
         .first()
-        .evaluate((element) => element.scrollIntoView({ block: 'start' }));
+        .evaluate((label) => {
+          const header = label
+            .closest('.insp-disclosure')
+            ?.querySelector('.insp-disclosure__header');
+          return (
+            header && label.getBoundingClientRect().top >= header.getBoundingClientRect().bottom
+          );
+        });
+      if (!familyClearOfHeader) throw new Error('Font family is covered by the typography header');
       // Assert the controls the alt text promises are really on screen.
       // NumberField renders its label with the unit appended ("Size (px)"),
       // so these match on prefix rather than exact text.
@@ -1371,6 +1381,8 @@ const SCENES = [
       }
       const firstStop = dialog.getByRole('button', { name: /^Stop 1 at.*249d94/i });
       await firstStop.click();
+      await options.click();
+      await expect(options).toHaveAttribute('aria-expanded', 'false');
       await dialog.locator('.insp-picker-dialog__body').evaluate((element) => {
         element.scrollTop = 0;
       });
@@ -1653,7 +1665,7 @@ const SCENES = [
         const detail = typeof result === 'object' ? ` — error: ${result.error || 'unknown'}` : '';
         throw new Error(`depth map never rendered${detail} — panel read: ${state}`);
       }
-      const previewToggle = section.getByRole('checkbox', { name: /preview depth/i });
+      const previewToggle = section.getByRole('switch', { name: /preview depth/i });
       await expect(previewToggle).toBeVisible();
       await previewToggle.check();
       await ready.evaluate((element) => element.scrollIntoView({ block: 'start' }));
@@ -1690,7 +1702,9 @@ const SCENES = [
       await expect(
         page.getByRole('button', { name: 'Open Effect Studio', exact: true }),
       ).toBeInViewport();
-      await expect(page.getByRole('button', { name: /^Natural Detail/ })).toBeInViewport();
+      await expect(
+        page.getByRole('button', { name: 'Apply photo preset Natural Detail', exact: true }),
+      ).toBeInViewport();
       await page.waitForTimeout(700);
     },
   },

@@ -26,7 +26,10 @@ try {
   git(['init', '-q']);
   git(['config', 'user.name', 'Varve full-gate fixture']);
   git(['config', 'user.email', 'full-gate@example.invalid']);
-  writeFileSync(join(root, '.gitignore'), 'node_modules/\napps/desktop/public/wasm/\n');
+  writeFileSync(
+    join(root, '.gitignore'),
+    'node_modules/\napps/desktop/public/wasm/\napps/desktop/public/ort-wasm/\n',
+  );
   writeFileSync(join(root, 'source.js'), 'export const value = 1;\n');
   git(['add', '.']);
   git(['commit', '-qm', 'candidate']);
@@ -160,6 +163,17 @@ try {
   writeFileSync(join(root, 'apps/desktop/public/wasm/varve.wasm'), 'wasm bytes');
   await assertBothRun();
   writeFileSync(join(root, 'apps/desktop/public/wasm/varve.wasm'), 'new wasm bytes');
+  await assertBothRun();
+
+  mkdirSync(join(root, 'apps/desktop/public/ort-wasm'), { recursive: true });
+  writeFileSync(join(root, 'apps/desktop/public/ort-wasm/ort.mjs'), 'runtime companion');
+  assert.equal(git(['status', '--porcelain']), '', 'ignored runtime changes keep Git clean');
+  await assertBothRun();
+  writeFileSync(join(root, 'apps/desktop/public/ort-wasm/ort.mjs'), 'changed companion');
+  await assertBothRun();
+  writeFileSync(join(root, 'apps/desktop/public/ort-wasm/ort.wasm'), 'runtime wasm');
+  await assertBothRun();
+  writeFileSync(join(root, 'apps/desktop/public/ort-wasm/ort.wasm'), 'changed runtime wasm');
   await assertBothRun();
 
   writeFileSync(join(root, 'source.js'), 'export const value = 2;\n');
