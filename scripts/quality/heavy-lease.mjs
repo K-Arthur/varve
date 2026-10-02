@@ -401,6 +401,56 @@ async function stopCommandTree(child, refresh, ended, signal, { windows, graceMs
   return { remaining, cleanupUnknown };
 }
 
+/** Own a long-lived child from launch through bounded descendant cleanup.
+ * Capture servers use this before readiness so detached grandchildren are
+ * still known if their launcher exits first. This never acquires a lease. */
+export function observeValidationChild(
+  child,
+  {
+    graceMs = 1000,
+    platform: targetPlatform = process.platform,
+    windowsKill = killWindowsTree,
+  } = {},
+) {
+  if (!Number.isSafeInteger(graceMs) || graceMs <= 0)
+    throw new RangeError('validation graceMs must be a positive safe integer');
+  const windows = targetPlatform === 'win32';
+  const refresh = windows || !child.pid ? () => [] : ownedProcesses(child.pid);
+  let ended = child.exitCode !== null || child.signalCode !== null;
+  const onEnd = () => {
+    ended = true;
+  };
+  child.once('exit', onEnd);
+  child.once('error', onEnd);
+  refresh();
+  const timer = setInterval(refresh, 250);
+  timer.unref();
+  let stopping;
+  return () =>
+    (stopping ??= (async () => {
+      try {
+        const launcherExitedBeforeStop = windows && Boolean(child.pid) && ended;
+        const result = await stopCommandTree(child, refresh, () => ended, 'SIGTERM', {
+          windows,
+          graceMs,
+          windowsKill,
+        });
+        // taskkill cannot establish descendant cleanup after its root PID
+        // has already disappeared. No PID on spawn error means no tree existed.
+        if (launcherExitedBeforeStop) result.cleanupUnknown = true;
+        if (result.remaining.length || result.cleanupUnknown)
+          throw new Error(
+            `Capture server cleanup incomplete: ${result.remaining.length} owned process(es), unknown=${result.cleanupUnknown}`,
+          );
+        return result;
+      } finally {
+        clearInterval(timer);
+        child.off('exit', onEnd);
+        child.off('error', onEnd);
+      }
+    })());
+}
+
 // The pinned adapter handles Windows .cmd shims and shebangs without
 // shell:true. Its cmd escaping does not cover line breaks (upstream #179),
 // so both execution modes reject them before crossing the shell boundary.
@@ -523,6 +573,11 @@ export async function runValidationCommand(argv, options = {}) {
     if (timedOut && !receivedSignal)
       console.error(
         `validation: command timed out after ${timeoutMs / 1000}s; owned-process cleanup ${remaining.length || cleanupUnknown ? 'incomplete' : 'completed'}`,
+      );
+    if (orphaned && !receivedSignal && !timedOut && !parentLost)
+      console.error(
+        'validation: command exited with owned processes still running; owned-process cleanup ' +
+          (remaining.length || cleanupUnknown ? 'incomplete' : 'completed'),
       );
     if (spawnError) console.error(`validation: failed to spawn ${argv[0]}: ${spawnError.message}`);
     if (cleanupUnknown)

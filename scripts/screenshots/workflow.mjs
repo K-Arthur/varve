@@ -44,6 +44,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } 
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from '@playwright/test';
+import { observeValidationChild } from '../quality/heavy-lease.mjs';
 import { assertPortAvailable, assertReviewDirectorySafe } from './capture-safety.mjs';
 import { captureSourceIdentity } from './producer-capture.mjs';
 
@@ -83,6 +84,8 @@ mkdirSync(PUBLIC_DIR, { recursive: true });
 /* Dev server (shared with product.mjs)                                */
 /* ------------------------------------------------------------------ */
 
+const serverCleanup = new WeakMap();
+
 async function startServer() {
   await assertPortAvailable(PORT);
   const child = spawn(
@@ -95,6 +98,7 @@ async function startServer() {
       detached: process.platform !== 'win32',
     },
   );
+  serverCleanup.set(child, observeValidationChild(child));
   const deadline = Date.now() + 150000;
   while (Date.now() < deadline) {
     if (child.exitCode !== null)
@@ -119,10 +123,7 @@ function probe() {
 }
 
 async function stopServer(child) {
-  try {
-    if (process.platform === 'win32') child.kill('SIGTERM');
-    else process.kill(-child.pid, 'SIGTERM');
-  } catch {}
+  if (child) await serverCleanup.get(child)?.();
 }
 
 /* ------------------------------------------------------------------ */

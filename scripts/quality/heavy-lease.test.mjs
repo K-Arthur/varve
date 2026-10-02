@@ -9,11 +9,12 @@
 
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
+import { EventEmitter } from 'node:events';
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { runValidationCommand } from './heavy-lease.mjs';
+import { observeValidationChild, runValidationCommand } from './heavy-lease.mjs';
 
 const SCRIPT = fileURLToPath(new URL('./heavy-lease.mjs', import.meta.url));
 
@@ -517,3 +518,74 @@ for (const throws of [false, true]) {
 
 await import('./heavy-lease-acquisition.test.mjs');
 console.log('heavy-lease.test.mjs: all assertions passed');
+
+// A capture launcher can exit before its detached server worker. Observe the
+// tree from launch, wait for cooperative termination or force the owned leaf,
+// and preserve an unrelated live process. The old fire-and-exit cleanup only
+// signalled the launcher group and left this worker behind.
+if (process.platform !== 'win32') {
+  for (const cooperate of [true, false]) {
+    const directory = mkdtempSync(join(tmpdir(), 'varve-capture-drain-'));
+    const ready = join(directory, 'worker.json');
+    let child;
+    let sentinel;
+    let worker;
+    let stop;
+    try {
+      const workerCode = `const fs=require('node:fs');process.on('SIGTERM',()=>{if(${cooperate})setTimeout(()=>process.exit(0),80)});fs.writeFileSync(process.argv[1],JSON.stringify({pid:process.pid}));setInterval(()=>{},1000);`;
+      const launcherCode = `const {spawn}=require('node:child_process');spawn(process.execPath,['-e',${JSON.stringify(workerCode)},process.argv[1]],{detached:true,stdio:'ignore'});process.on('SIGTERM',()=>process.exit(0));setInterval(()=>{},1000);`;
+      sentinel = spawn(process.execPath, ['-e', 'setInterval(()=>{},1000)'], { stdio: 'ignore' });
+      child = spawn(process.execPath, ['-e', launcherCode, ready], {
+        detached: true,
+        stdio: 'ignore',
+      });
+      stop = observeValidationChild(child, { graceMs: 200 });
+      await waitForFile(ready);
+      worker = JSON.parse(readFileSync(ready, 'utf8')).pid;
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      const exit = waitForExit(child);
+      process.kill(-child.pid, 'SIGTERM');
+      await exit;
+      assert.equal(
+        activeProcess(worker),
+        true,
+        'negative control: signalling only the launcher leaves its detached worker alive',
+      );
+      const firstStop = stop();
+      assert.equal(stop(), firstStop, 'repeated cleanup shares one bounded operation');
+      const result = await firstStop;
+      assert.deepEqual(result, { remaining: [], cleanupUnknown: false });
+      assert.equal(
+        activeProcess(worker),
+        false,
+        'server worker must stop before capture owner exits',
+      );
+      assert.equal(activeProcess(sentinel.pid), true, 'unrelated process is never cleaned up');
+    } finally {
+      await stop?.().catch(() => {});
+      for (const pid of [child?.pid, worker, sentinel?.pid].filter(Boolean)) {
+        try {
+          process.kill(pid, 'SIGKILL');
+        } catch {}
+      }
+      rmSync(directory, { recursive: true, force: true });
+    }
+  }
+}
+// Windows taskkill cannot prove descendant cleanup when the launched root
+// already exited. This injectable branch is separate from native Windows CI.
+{
+  const child = Object.assign(new EventEmitter(), { pid: 12345, exitCode: 0, signalCode: null });
+  let calls = 0;
+  const stop = observeValidationChild(child, {
+    platform: 'win32',
+    graceMs: 10,
+    windowsKill: async () => {
+      calls += 1;
+      return true;
+    },
+  });
+  await assert.rejects(stop(), /cleanup incomplete.*unknown=true/);
+  assert.equal(calls, 0, 'a nonexistent root cannot truthfully certify its descendants');
+}
+console.log('capture server descendant drain regressions passed');

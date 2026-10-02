@@ -40,6 +40,7 @@ import {
 import { basename, dirname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, expect } from '@playwright/test';
+import { observeValidationChild } from '../quality/heavy-lease.mjs';
 import {
   assertPortAvailable,
   assertReviewDirectorySafe,
@@ -204,6 +205,8 @@ function pngSize(buf) {
 /* Dev server                                                          */
 /* ------------------------------------------------------------------ */
 
+const serverCleanup = new WeakMap();
+
 async function startServer() {
   await assertPortAvailable(PORT);
   let serverOutput = '';
@@ -244,6 +247,7 @@ async function startServer() {
   child.stderr?.on('data', (chunk) => {
     serverOutput += chunk.toString();
   });
+  serverCleanup.set(child, observeValidationChild(child));
   const deadline = Date.now() + 150000;
   while (Date.now() < deadline) {
     if (await probe()) return child;
@@ -275,32 +279,12 @@ function probe() {
 /**
  * Terminate the dev server and everything it spawned.
  *
- * SIGTERM to the process group first (Vite is a grandchild of `pnpm`), then to
- * the direct child as a fallback. Without the group signal the dev server
- * survived the capture and held the port.
+ * Observe process identities from launch and wait for bounded tree cleanup.
+ * Vite is a grandchild of pnpm; a launcher's exit alone does not prove the
+ * server has stopped or released its port.
  */
 async function stopServer(child) {
-  if (!child || child.exitCode !== null) return;
-  try {
-    process.kill(-child.pid, 'SIGTERM');
-  } catch {
-    try {
-      child.kill('SIGTERM');
-    } catch {}
-  }
-  // Give it a moment to release the port before the process exits, so the next
-  // run does not race a still-listening socket.
-  for (let attempt = 0; attempt < 20; attempt += 1) {
-    if (child.exitCode !== null || child.signalCode !== null) return;
-    await new Promise((r) => setTimeout(r, 100));
-  }
-  try {
-    process.kill(-child.pid, 'SIGKILL');
-  } catch {
-    try {
-      child.kill('SIGKILL');
-    } catch {}
-  }
+  if (child) await serverCleanup.get(child)?.();
 }
 
 /* ------------------------------------------------------------------ */
@@ -1402,6 +1386,14 @@ const SCENES = [
       await dialog.locator('.insp-picker-dialog__body').evaluate((element) => {
         element.scrollTop = 0;
       });
+      // Both stop handles and the edited Hex field fit in the bounded
+      // scroll body when it is framed to the field's bottom edge. Keeping
+      // scrollTop at zero clips Hex despite the control being usable.
+      const hex = dialog.getByRole('textbox', { name: 'Hex color' });
+      const hexBottom = await hex.evaluate((element) => element.getBoundingClientRect().bottom);
+      await dialog.locator('.insp-picker-dialog__body').evaluate((element, bottom) => {
+        element.scrollTop += Math.max(0, bottom - element.getBoundingClientRect().bottom + 8);
+      }, hexBottom);
       await expect(firstStop).toBeInViewport({ ratio: 1 });
       await expect(dialog.getByRole('button', { name: /^Stop 2 at.*e28c3c/i })).toBeInViewport({
         ratio: 1,
