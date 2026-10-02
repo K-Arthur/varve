@@ -701,6 +701,36 @@ describe('TransformCache', () => {
 });
 
 describe('transformCache getWorldBounds group handling', () => {
+  it('refreshes bounds when a moved node transform is read before its bounds', () => {
+    const original = addNode(
+      createDocument('cache-read-order', true),
+      makeShapeNode(
+        'moving',
+        { kind: 'rect', x: 0, y: 0, w: 40, h: 30 },
+        {
+          transform: [1, 0, 0, 1, 100, 50],
+        },
+      ),
+    );
+    const cache = createTransformCache();
+    expect(getCachedWorldBounds(cache, original, 'moving')).toEqual({
+      x: 100,
+      y: 50,
+      w: 40,
+      h: 30,
+    });
+    const moved = {
+      ...original,
+      nodes: {
+        ...original.nodes,
+        moving: { ...original.nodes.moving!, transform: [1, 0, 0, 1, 137, 79] as Affine },
+      },
+    };
+    invalidateNodes(cache, ['moving']);
+    expect(getCachedWorldTransform(cache, moved, 'moving')).toEqual([1, 0, 0, 1, 137, 79]);
+    expect(getCachedWorldBounds(cache, moved, 'moving')).toEqual({ x: 137, y: 79, w: 40, h: 30 });
+  });
+
   it('returns child-union bounds for a group (matches nodeWorldBounds)', () => {
     const doc = createDocument('g', true);
     const gId = 'g1';

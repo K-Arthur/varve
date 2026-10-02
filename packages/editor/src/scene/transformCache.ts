@@ -130,6 +130,10 @@ export function getWorldTransform(cache: TransformCache, doc: Document, nodeId: 
     return cached;
   }
 
+  // One dirty marker invalidates both views of a node. Reading its transform
+  // first must not make its previously cached bounds appear current (snap
+  // features read the transform before asking for the live bounds).
+  if (cache.dirty.has(nodeId)) cache.worldBounds.delete(nodeId);
   const result = computeWorldTransform(cache, doc, nodeId);
   cache.worldTransform.set(nodeId, result);
   cache.dirty.delete(nodeId);
