@@ -13,7 +13,8 @@
  *
  * Four checks, each exit-failing:
  *   1. MAILBOX  — no consumer-mailbox address (gmail/outlook/yahoo/proton/...)
- *                 appears anywhere in the scanned surfaces.
+ *                 appears in a Varve contact surface. Reviewed upstream
+ *                 copyright notices retain their original attribution.
  *   2. NAMING   — no `@strata.*` contact address survives in an active
  *                 surface; the product was renamed 2026-08-04.
  *   3. DOMAIN   — every Varve-looking role address uses exactly
@@ -221,6 +222,31 @@ const CHECKS = [
   },
 ];
 
+/**
+ * Preserve reviewed upstream attribution byte-for-byte. Exceptions cover
+ * little_exif's exact first-line copyright and bindgen's original Cargo
+ * authors block, not vendor contacts, new addresses, or built output.
+ */
+function isUpstreamAttribution(relPath, text, check, matchIndex) {
+  if (check.id !== 'MAILBOX') return false;
+  if (relPath === 'vendor/bindgen/Cargo.toml') {
+    const authors =
+      'authors = [\n' +
+      '    "Jyun-Yan You <jyyou.tw@gmail.com>",\n' +
+      '    "Emilio Cobos Álvarez <emilio@crisal.io>",\n' +
+      '    "Nick Fitzgerald <fitzgen@gmail.com>",\n' +
+      '    "The Servo project developers",\n]';
+    const start = text.indexOf(authors);
+    return start !== -1 && matchIndex >= start && matchIndex < start + authors.length;
+  }
+  if (!relPath.startsWith('vendor/little_exif/src/') || !relPath.endsWith('.rs')) return false;
+  const firstLineEnd = text.indexOf('\n');
+  if (firstLineEnd === -1 || matchIndex >= firstLineEnd) return false;
+  return /^\/\/ Copyright © 20\d{2}(?:(?:-|, )20\d{2})? Tobias J\. Prisching <tobias\.prisching@icloud\.com> and CONTRIBUTORS\r?$/.test(
+    text.slice(0, firstLineEnd),
+  );
+}
+
 function allowedFor(relPath) {
   return ALLOW.find((entry) => entry.path === relPath);
 }
@@ -280,6 +306,7 @@ function scan(relPath, violations) {
     if (check.historicalExempt && historical) continue;
     check.re.lastIndex = 0;
     for (const match of text.matchAll(check.re)) {
+      if (isUpstreamAttribution(relPath, text, check, match.index)) continue;
       const line = text.slice(0, match.index).split('\n').length;
       violations.push({
         check: check.id,

@@ -15,7 +15,7 @@
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { targetFor } from './targets.mjs';
 
@@ -80,29 +80,44 @@ function rustComponents() {
 
     const metadata = JSON.parse(raw);
     for (const pkg of metadata.packages) {
-      // Path dependencies are first-party Varve crates, not third-party supply
-      // chain. They are recorded, but flagged so a consumer can tell them apart.
-      const isLocal = (pkg.source ?? null) === null;
       const key = `${pkg.name}@${pkg.version}`;
       if (seen.has(key)) continue;
 
-      seen.set(key, {
-        type: 'library',
-        'bom-ref': `pkg:cargo/${purlEncode(pkg.name)}@${pkg.version}`,
-        name: pkg.name,
-        version: pkg.version,
-        purl: `pkg:cargo/${purlEncode(pkg.name)}@${pkg.version}`,
-        ...(pkg.description ? { description: pkg.description.slice(0, 400) } : {}),
-        ...(pkg.license ? { licenses: licenseEntries(pkg.license) } : {}),
-        ...(pkg.repository ? { externalReferences: [{ type: 'vcs', url: pkg.repository }] } : {}),
-        properties: [
-          { name: 'varve:ecosystem', value: 'cargo' },
-          { name: 'varve:origin', value: isLocal ? 'first-party' : 'registry' },
-        ],
-      });
+      seen.set(key, rustComponentFromPackage(pkg));
     }
   }
   return [...seen.values()];
+}
+
+/** Local patches retain their upstream identity and third-party license. */
+export function rustComponentFromPackage(pkg, root = repoRoot) {
+  const isLocal = (pkg.source ?? null) === null;
+  const vendorPath = pkg.manifest_path
+    ? relative(resolve(root, 'vendor'), resolve(pkg.manifest_path))
+    : null;
+  const isVendored =
+    isLocal &&
+    vendorPath !== null &&
+    vendorPath !== '..' &&
+    !vendorPath.startsWith(`..${process.platform === 'win32' ? '\\' : '/'}`) &&
+    !isAbsolute(vendorPath);
+  return {
+    type: 'library',
+    'bom-ref': `pkg:cargo/${purlEncode(pkg.name)}@${pkg.version}`,
+    name: pkg.name,
+    version: pkg.version,
+    purl: `pkg:cargo/${purlEncode(pkg.name)}@${pkg.version}`,
+    ...(pkg.description ? { description: pkg.description.slice(0, 400) } : {}),
+    ...(pkg.license ? { licenses: licenseEntries(pkg.license) } : {}),
+    ...(pkg.repository ? { externalReferences: [{ type: 'vcs', url: pkg.repository }] } : {}),
+    properties: [
+      { name: 'varve:ecosystem', value: 'cargo' },
+      {
+        name: 'varve:origin',
+        value: isVendored ? 'vendored-source' : isLocal ? 'first-party' : 'registry',
+      },
+    ],
+  };
 }
 
 /**
@@ -418,9 +433,11 @@ function main() {
   }
 }
 
-try {
-  main();
-} catch (err) {
-  process.stderr.write(`SBOM generation failed: ${err.message}\n`);
-  process.exit(1);
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  try {
+    main();
+  } catch (err) {
+    process.stderr.write(`SBOM generation failed: ${err.message}\n`);
+    process.exit(1);
+  }
 }

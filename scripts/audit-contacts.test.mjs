@@ -165,6 +165,61 @@ test('fails when a file documents a concrete forwarding destination', () => {
   );
 });
 
+const UPSTREAM_NOTICE =
+  '// Copyright © 2022-2026 Tobias J. Prisching <tobias.prisching@icloud.com> and CONTRIBUTORS\n';
+
+test('preserves the reviewed upstream source copyright attribution', () => {
+  withTrackedFixture('vendor/little_exif/src/__contact_fixture__.rs', UPSTREAM_NOTICE, () => {
+    const { code, output } = runAudit();
+    assert.equal(code, 0, `upstream attribution must remain intact, got:\n${output}`);
+  });
+});
+
+test('still rejects a Varve contact added below an upstream copyright notice', () => {
+  withTrackedFixture(
+    'vendor/little_exif/src/__contact_fixture__.rs',
+    `${UPSTREAM_NOTICE}// Varve support: varve.support@gmail.com\n`,
+    () => {
+      const { code, output } = runAudit();
+      assert.equal(code, 1);
+      assert.match(output, /__contact_fixture__\.rs:2/);
+    },
+  );
+});
+
+test('does not exempt copyright notices in application source or vendor lookalikes', () => {
+  for (const path of [
+    'packages/shared/src/__contact_fixture__.ts',
+    'vendor/little_exif/src-lookalike/__contact_fixture__.rs',
+  ]) {
+    withTrackedFixture(path, UPSTREAM_NOTICE, () => {
+      assert.equal(runAudit().code, 1, `${path} must stay protected`);
+    });
+  }
+});
+
+test('does not exempt contacts or forwarding destinations in vendor documentation', () => {
+  withTrackedFixture(
+    'vendor/little_exif/__contact_fixture__.md',
+    'Varve support forwards to operator.mailbox@fastmail.com.\n',
+    () => {
+      const { code, output } = runAudit();
+      assert.equal(code, 1);
+      assert.match(output, /ROUTING/);
+    },
+  );
+});
+
+test('does not exempt an altered copyright notice with another mailbox', () => {
+  withTrackedFixture(
+    'vendor/little_exif/src/__contact_fixture__.rs',
+    UPSTREAM_NOTICE.replace('and CONTRIBUTORS', 'and CONTRIBUTORS <operator@gmail.com>'),
+    () => {
+      assert.equal(runAudit().code, 1);
+    },
+  );
+});
+
 if (failures > 0) {
   console.error(`\naudit-contacts.test.mjs — ${failures} failing test(s).`);
   process.exit(1);

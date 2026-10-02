@@ -238,10 +238,13 @@ with code 2 (not a pass/fail) unless `VARVE_FULL_GATE=1` or
 
 The full gate runs workspace Cargo tests and Clippy through
 `scripts/cargo-with-generative-bindgen.mjs`, matching the affected Rust lanes
-and desktop helper build. That wrapper supplies the repository's stdio shim
-to bindgen so Clang 22 does not emit invalid layouts for glibc's private
-`_IO_FILE` type. Keep full-gate Rust commands on this wrapper instead of
-invoking raw `cargo test` or `cargo clippy`.
+and desktop checks. The workspace's `vendor/bindgen` patch backports the
+upstream Clang 22 forward-declaration fix while preserving the native runtime
+and generated layout assertions. Its focused regressions generate and compile
+C, C++, and genuine Linux stdio bindings. Both Cargo wrappers preserve caller
+Clang flags and use system headers. The validation wrapper excludes
+packaged-only resources during desktop `check`, `test`, and `clippy`, so keep
+full-gate commands on it.
 
 The full gate builds the baseline, SIMD, and colour WASM artifacts with
 `just wasm-build-all` before browser validation, as CI does. These binaries
@@ -299,8 +302,9 @@ builds, WASM builds, visual suites) acquire an exclusive **heavy-task
 lease** keyed by the repository's common git directory, so separate
 worktrees coordinate on the same lock. The lease lives under
 `$XDG_RUNTIME_DIR|/tmp/varve-leases/`, carries owner PID/timestamp, waits
-bounded time (default 10 min), reclaims stale leases (dead PID or >30 min
-old), and never kills unrelated processes. Each lease has an owner ID so a
+bounded time (default 10 min), reclaims a lease only after its owner PID
+exits, and never kills unrelated processes. Elapsed time alone does not make
+a live build's lease stale. Each lease has an owner ID so a
 reclaimed task cannot remove its successor's lock when it eventually exits.
 Opt out deliberately with `VARVE_HEAVY_TASK_PARALLELISM=0`.
 Black-box tests for the lease give child processes a private

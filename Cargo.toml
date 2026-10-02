@@ -29,6 +29,11 @@ members = [
 # pinned stable-diffusion.cpp revision remain resolved from Cargo.lock.
 [patch.crates-io]
 diffusion-rs = { path = "vendor/diffusion-rs" }
+# little_exif 0.6.23 has no upstream release using the fixed XML parser.
+# Keep its EXIF API/source and upgrade quick-xml for RUSTSEC-2026-0194/0195.
+little_exif = { path = "vendor/little_exif" }
+# Backport rust-bindgen#3278 for Clang 22+ without changing the runtime/sys API.
+bindgen = { path = "vendor/bindgen" }
 
 [workspace.package]
 version = "0.5.0"

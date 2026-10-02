@@ -149,6 +149,21 @@ diffusion-rs (MIT)
   Vendored at 0.1.20 with a narrowly scoped Varve image-guidance API patch.
   Licensed under MIT License.
 
+little_exif (MIT OR Apache-2.0)
+  Copyright (c) 2022-2026 Tobias J. Prisching and contributors
+  https://github.com/TechnikTobi/little_exif
+  Vendored at 0.6.23 with quick-xml updated to 0.41.0 for security fixes.
+  Upstream production source is unchanged; archive provenance is recorded in
+  vendor/little_exif/PATCHES.md. Both upstream license files are retained.
+  Licensed under MIT OR Apache-2.0 (dual).
+
+bindgen (BSD-3-Clause, build tooling)
+  Copyright (c) The rust-bindgen contributors
+  https://github.com/rust-lang/rust-bindgen
+  Vendored at 0.71.1 with the upstream Clang 22 type-definition fix (#3278).
+  Source archive and patch provenance are recorded in vendor/bindgen/PATCHES.md.
+  The upstream BSD-3-Clause license is retained in vendor/bindgen/LICENSE.
+
 stable-diffusion.cpp (MIT)
   Copyright (c) 2023 leejet and contributors
   https://github.com/leejet/stable-diffusion.cpp

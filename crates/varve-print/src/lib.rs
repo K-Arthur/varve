@@ -1685,8 +1685,6 @@ fn render_fills(
                         offset_y,
                         alignment,
                         opacity,
-                        blend_mode: _,
-                        visible: _,
                         ..
                     } => {
                         buf.extend_from_slice(b"q\n");
