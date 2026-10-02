@@ -452,3 +452,12 @@ This is not a cache of old passes: every code change still receives direct
 validation, and the final gates re-execute the relevant broad suite against
 the exact frozen commit. It removes duplicate work without weakening release
 evidence.
+
+Ordinary app browser actions have a 45-second deadline, separate from the
+180-second test budget and 10-second assertion deadline. Cold navigation and
+real model inference retain their explicit longer deadlines. A missing control
+must surface as an action failure rather than consuming the entire test budget
+on every retry. Use zero retries for bounded discovery of deterministic
+failures; retain the final gate's retry policy and review reported flaky passes.
+Playwright documents these independent budgets in its
+[timeout reference](https://playwright.dev/docs/test-timeouts).

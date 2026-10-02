@@ -53,6 +53,32 @@ commit rather than another attempt of the old run.
    not outrank the current compiler failure. Recommendations use the planner
    and exact failing lane, and a long queue is reported as observed delay
    rather than proof of a runner outage.
+6. **Cancelled jobs concealing executed failures.** At the 14:15 UTC inspection,
+   four cancelled browser shards in run
+   [37007931934](https://github.com/K-Arthur/varve/actions/runs/37007931934)
+   contained 30 completed Playwright failure summaries before cancellation,
+   plus interrupted retries. Diagnostics now inspect cancelled jobs with
+   recorded execution and retain their cancellation outcome while exposing
+   executed assertion, timeout, or visual failure evidence and exact test
+   locations. Clean or never-started cancellations acquire no fabricated
+   assertion, governed exemption, or automatic retry recommendation. These
+   observed failures came from the older `fe5ec0e99` source and require focused
+   confirmation against the repaired candidate; they are not 30 independently
+   proven product defects. The probe writes an explicit report decision only
+   after successful classification; an API/probe error leaves that decision
+   unknown and still attempts diagnostics rather than claiming no evidence.
+   Debug artifact names include the source run and reporting run/attempt;
+   the PR consumer requires a nonempty immutable artifact ID before downloading.
+7. **Bounded recovery for a verified upstream setup race.** Dependabot PR 58
+   proposed two action updates. The reviewed
+   [rust-toolchain change](https://github.com/dtolnay/rust-toolchain/commit/7e38f4b43b4db5c8dd498af069a4f6196df1d067)
+   retries installation only when rustup reports both a failed checksum and
+   an ongoing update of the official release server. All eleven uses now pin
+   this revision. Five attempts, separated by 30 seconds, still enforce
+   checksums; other failures and the final failed attempt exit unsuccessfully.
+   The install-action update changes tool manifests unused by Varve's pinned
+   tools and remains deferred. Neither update was identified as a security
+   advisory fix; this is a reviewed setup reliability improvement.
 
 ## Validation evidence and boundaries
 
@@ -68,6 +94,13 @@ commit rather than another attempt of the old run.
 - Workflow policy and diagnostics have direct regressions. YAML parsing and
   the separately installed checksum-verified actionlint validate workflow
   structure and expressions; YAML parsing alone is insufficient.
+- Cancelled-job diagnostics cover the actual per-job log collection branch,
+  ANSI/timestamp normalization, credential redaction, clean and zero-step
+  cancellations, and exact spec/line reproduction through the browser lease
+  with one worker. Compiler causes retain their owning crate or desktop check;
+  absent failure evidence falls back to the impact planner rather than a
+  broad test suite. Assertions and screenshot failures take precedence over
+  incidental download words in their context.
 - The verified wasm-pack Linux archive receipt is local diagnostic evidence,
   not a remote CI or cross-platform release certification.
 - Real browser performance validation passed 48 full-redraw pixel oracles

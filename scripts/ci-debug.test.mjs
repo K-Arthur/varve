@@ -5,10 +5,15 @@
  * Run: node scripts/ci-debug.test.mjs
  */
 import assert from 'node:assert';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { load } from 'js-yaml';
 import {
   buildDebugFailureManifest,
   classifyJobFailure,
   classifyRunFailures,
+  collectJobFailureLogs,
   extractFailures,
   formatReport,
   githubFetch,
@@ -21,6 +26,8 @@ import {
   normalizeLogSource,
   rankLine,
   redactSensitive,
+  shouldInspectJobLogs,
+  writeProbeDecision,
 } from './ci-debug.mjs';
 
 function assertTrue(condition, message) {
@@ -552,5 +559,225 @@ assert.ok(
   completedInfra.includes('gh run rerun 5 --failed'),
   'completed confirmed infra can be retried after repair',
 );
+
+const cancelledJob = {
+  id: 110845742342,
+  name: 'E2E (Playwright) 2/8',
+  conclusion: 'cancelled',
+  steps: [
+    { name: 'Set up job', conclusion: 'success' },
+    { name: 'E2E (chromium)', conclusion: 'cancelled' },
+  ],
+};
+const cleanCancelledJob = { ...cancelledJob, id: 110845742334, name: 'E2E (Playwright) 5/8' };
+const zeroStepCancellation = { ...cancelledJob, id: 100, name: 'Never started', steps: [] };
+assert.equal(shouldInspectJobLogs(cancelledJob), true);
+assert.equal(shouldInspectJobLogs(zeroStepCancellation), false);
+const cancelledProbe = classifyRunFailures([cancelledJob, zeroStepCancellation], new Map());
+assert.deepStrictEqual(
+  cancelledProbe.real,
+  [],
+  'cancelled metadata alone proves no source failure',
+);
+assert.deepStrictEqual(cancelledProbe.inspectionNeeded, [cancelledJob.name]);
+const probeFixture = mkdtempSync(join(tmpdir(), 'varve-debug-probe-'));
+try {
+  const output = join(probeFixture, 'github-output');
+  assert.equal(writeProbeDecision(cancelledProbe, output), true);
+  assert.equal(writeProbeDecision({ real: [], inspectionNeeded: [] }, output), false);
+  assert.equal(readFileSync(output, 'utf8'), 'report_required=true\nreport_required=false\n');
+  assert.throws(() => writeProbeDecision({ error: signedUrl }, output), /remains unknown/);
+  assert.equal(readFileSync(output, 'utf8'), 'report_required=true\nreport_required=false\n');
+  assert.equal(readFileSync(output, 'utf8').includes(urlCanary), false);
+} finally {
+  rmSync(probeFixture, { recursive: true, force: true });
+}
+
+const cancellationSources = {};
+cancellationSources['0_E2E (Playwright) 2/8'] = extractFailures(
+  '##[error]The operation was canceled.',
+);
+const downloadedJobIds = [];
+const signedQuery = `https://example.invalid/archive?token=${urlCanary}`;
+const cancelledTestLog = [
+  `${color}[31m2026-10-02T14:08:00Z ##[error] 1) [chromium] › tests/e2e/canvas/crop.spec.ts:82:7 › F key cycles fit mode${color}[0m`,
+  `E2E\tTest\t2026-10-02T14:08:01Z Error: expect(locator).toHaveText(expected) failed ${signedQuery}`,
+  '2026-10-02T14:08:02Z ##[error]The operation was canceled.',
+].join('\n');
+await collectJobFailureLogs({
+  jobs: [cancelledJob, cleanCancelledJob, zeroStepCancellation],
+  failuresBySource: cancellationSources,
+  download: async (job) => {
+    downloadedJobIds.push(job.id);
+    return job.id === cancelledJob.id
+      ? cancelledTestLog
+      : '2026-10-02T14:08:02Z ##[error]The operation was canceled.';
+  },
+});
+assert.deepStrictEqual(downloadedJobIds, [cancelledJob.id, cleanCancelledJob.id]);
+assert.equal(cancellationSources[zeroStepCancellation.name], undefined);
+const cancelledManifest = buildDebugFailureManifest({
+  run: nativeRun,
+  jobs: [cancelledJob, cleanCancelledJob, zeroStepCancellation],
+  failuresBySource: cancellationSources,
+});
+const executedFailure = cancelledManifest.failures[0];
+assert.equal(executedFailure.conclusion, 'cancelled');
+assert.equal(executedFailure.category, 'product-or-test-regression');
+assert.deepStrictEqual(executedFailure.testIds, ['tests/e2e/canvas/crop.spec.ts:82']);
+assert.ok(executedFailure.localReproductionCommand.includes('crop.spec.ts:82'));
+assert.ok(executedFailure.localReproductionCommand.includes('--workers=1'));
+assert.ok(!JSON.stringify(cancelledManifest).includes(urlCanary));
+assert.ok(!JSON.stringify(cancelledManifest).includes(color));
+for (const entry of cancelledManifest.failures.slice(1)) {
+  assert.equal(entry.category, 'cancellation');
+  assert.equal(entry.executedFailure, null);
+  assert.deepStrictEqual(entry.testIds, []);
+}
+const unexecutedCompiler = buildDebugFailureManifest({
+  jobs: [{ ...zeroStepCancellation, name: 'Rust (macos-latest)' }],
+  failuresBySource: { 'Rust (macos-latest)': nativeHits },
+}).failures[0];
+assert.equal(unexecutedCompiler.category, 'cancellation');
+assert.equal(unexecutedCompiler.executedFailure, null);
+assert.equal(unexecutedCompiler.firstUsefulError, '');
+assert.equal(
+  unexecutedCompiler.localReproductionCommand,
+  'pnpm verify:affected',
+  'associated compiler text cannot override proof that the cancelled job never executed',
+);
+const cancelledReport = formatReport(
+  'K-Arthur/varve',
+  nativeRun,
+  [cancelledJob],
+  cancellationSources,
+);
+assert.ok(cancelledReport.includes('**E2E (Playwright) 2/8** (cancelled)'));
+assert.ok(cancelledReport.includes('crop.spec.ts:82'));
+assert.ok(
+  !cancelledReport.includes('gh run rerun'),
+  'source failures never imply an automatic restart',
+);
+const cleanCancellationReport = formatReport('K-Arthur/varve', nativeRun, [cleanCancelledJob], {
+  [cleanCancelledJob.name]: cancellationSources[cleanCancelledJob.name],
+});
+assert.ok(
+  !cleanCancellationReport.includes('playwright test'),
+  'clean cancellation supplies no exact failed-test command',
+);
+
+const warnings = [];
+await collectJobFailureLogs({
+  jobs: [cancelledJob],
+  failuresBySource: {},
+  download: async () => {
+    throw new Error(`Download failed ${signedQuery}`);
+  },
+  warn: (message) => warnings.push(message),
+});
+assert.equal(warnings.length, 1);
+assert.ok(!warnings[0].includes(urlCanary));
+const preservedArchive = { [cancelledJob.name]: extractFailures(cancelledTestLog) };
+const preservedHits = preservedArchive[cancelledJob.name];
+await collectJobFailureLogs({
+  jobs: [cancelledJob],
+  failuresBySource: preservedArchive,
+  download: async () => {
+    throw new Error('Job log unavailable');
+  },
+});
+assert.strictEqual(
+  preservedArchive[cancelledJob.name],
+  preservedHits,
+  'an unavailable per-job endpoint must not overwrite valid archive evidence',
+);
+
+function debugWorkflowContract(doc) {
+  const expr = (body) => `\${{ ${body} }}`;
+  const producer = doc.jobs['debug-report'];
+  const consumer = doc.jobs['post-pr-comment'];
+  const upload = producer.steps.find((step) => step.id === 'upload-report');
+  const generate = producer.steps.find((step) => step.name === 'Generate debug report');
+  const skip = producer.steps.find((step) => step.name.startsWith('Skip report'));
+  const download = consumer.steps.find((step) =>
+    step.uses?.startsWith('actions/download-artifact@'),
+  );
+  assert.deepStrictEqual(doc.on.workflow_run.types, ['completed']);
+  assert.deepStrictEqual(
+    producer.if
+      .split('||')
+      .map((part) => part.trim())
+      .sort(),
+    ['failure', 'timed_out', 'cancelled']
+      .map((value) => `github.event.workflow_run.conclusion == '${value}'`)
+      .sort(),
+  );
+  assert.equal(producer.outputs.artifact_id, expr('steps.upload-report.outputs.artifact-id'));
+  assert.equal(
+    upload.with.name,
+    `ci-debug-report-${expr('github.event.workflow_run.id')}-${expr('github.run_id')}-attempt-${expr('github.run_attempt')}`,
+  );
+  assert.equal(download.with['artifact-ids'], expr('needs.debug-report.outputs.artifact_id'));
+  assert.equal(download.with['run-id'], expr('github.run_id'));
+  assert.equal(download.with['github-token'], expr('github.token'));
+  assert.equal(download.with.name ?? download.with.pattern, undefined);
+  assert.equal(generate.if, "steps.probe.outputs.report_required != 'false'");
+  assert.equal(skip.if, "steps.probe.outputs.report_required == 'false'");
+  assert.equal(upload.if, "always() && steps.probe.outputs.report_required != 'false'");
+  assert.deepStrictEqual(
+    consumer.if
+      .split('&&')
+      .map((part) => part.trim())
+      .sort(),
+    [
+      "needs.debug-report.result == 'success'",
+      "needs.debug-report.outputs.artifact_id != ''",
+      "github.event.workflow_run.event == 'pull_request'",
+    ].sort(),
+  );
+}
+const debugWorkflow = load(readFileSync('.github/workflows/ci-debug.yml', 'utf8'));
+debugWorkflowContract(debugWorkflow);
+for (const breakContract of [
+  (doc) => {
+    doc.jobs['debug-report'].if = "github.event.workflow_run.conclusion == 'failure'";
+  },
+  (doc) => {
+    doc.jobs['debug-report'].outputs.artifact_id = 'mutable-name';
+  },
+  (doc) => {
+    doc.jobs['debug-report'].steps.find((step) => step.id === 'upload-report').with.name =
+      'ci-debug-report';
+  },
+  (doc) => {
+    doc.jobs['post-pr-comment'].steps.find((step) =>
+      step.uses?.startsWith('actions/download-artifact@'),
+    ).with['artifact-ids'] = 'old-artifact';
+  },
+  (doc) => {
+    delete doc.jobs['post-pr-comment'].steps.find((step) =>
+      step.uses?.startsWith('actions/download-artifact@'),
+    ).with['run-id'];
+  },
+  (doc) => {
+    doc.jobs['post-pr-comment'].if =
+      "needs.debug-report.result == 'success' && github.event.workflow_run.event == 'pull_request'";
+  },
+  (doc) => {
+    doc.jobs['debug-report'].steps.find((step) => step.name === 'Generate debug report').if =
+      "steps.probe.outcome == 'success'";
+  },
+  (doc) => {
+    doc.jobs['debug-report'].steps.find((step) => step.name.startsWith('Skip report')).if =
+      "steps.probe.outcome == 'failure'";
+  },
+]) {
+  const broken = structuredClone(debugWorkflow);
+  breakContract(broken);
+  assert.throws(
+    () => debugWorkflowContract(broken),
+    'broken publication/evidence boundary must fail the contract',
+  );
+}
 
 console.log('ci-debug extraction tests passed.');

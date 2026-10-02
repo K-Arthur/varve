@@ -156,7 +156,23 @@ and run, profile, failed job/step, test IDs, first useful error, category,
 artifacts, local reproduction command, retry suitability, and known-failure
 status. Categories include product defect, test/stale assertion,
 visual-review-required, timeout/resource, setup/dependency, runner/billing,
-and cancellation. A temporary entry in `ci-known-failures.json` must contain
+and cancellation. Cancelled jobs with recorded execution are inspected for
+failures that happened before cancellation. Their original job/step conclusion
+remains recorded; `terminationCategory` identifies cancellation, while
+`executedFailure` and the primary category expose proven assertion, timeout,
+or visual failure evidence. Clean and never-started cancellations have no
+fabricated test IDs or assertion, and cancelled attempts receive neither an
+automatic retry recommendation nor a governed exemption. Raw logs are
+normalized and redacted before manifest serialization. Reproduction commands
+target the failing spec and line through the browser lease with one worker,
+or the owning compiler check; missing evidence selects the impact planner.
+The probe writes `report_required` only after successful classification.
+An unavailable probe leaves the decision unknown and still attempts the
+report; only explicit `false` skips it. Reports use immutable artifact IDs
+from an upload named for the source run and reporting run/attempt. The PR
+consumer skips when no report artifact was produced.
+
+A temporary entry in `ci-known-failures.json` must contain
 an exact test ID, issue/reference, owner, platforms, creation/expiry dates,
 and an expected signature; a changed signature or expired entry blocks.
 
@@ -191,8 +207,10 @@ Note on GitHub's data model: jobs that never started are reported with
 `conclusion: "cancelled"` and zero steps — the check-run annotation is the
 **only** signal that distinguishes infra cancellation from a user/concurrency
 cancel. The classifiers use the annotation, not the conclusion, to make that
-call. User-cancelled runs (newer push superseding an older one via
-`concurrency`) stay unclassified.
+call. Cancellation alone does not prove a source failure. The debug probe
+records executed cancellations as `inspectionNeeded`, distinct from
+`realFailures`, so their logs can establish whether tests failed earlier.
+Zero-step cancellations without a confirming annotation remain unclassified.
 
 `ci-debug.mjs` fetches check-run annotations for failed jobs and, on a billing
 block, emits an **Infrastructure block detected** section at the top of the

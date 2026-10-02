@@ -30,8 +30,14 @@ import { readdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { stripVTControlCharacters } from 'node:util';
-import { buildFailureManifest, validateKnownFailures } from './ci/failure-manifest.mjs';
+import {
+  buildFailureManifest,
+  hasRecordedExecution,
+  localReproductionCommand,
+  normalizeLogLine,
+  redactSensitive,
+  validateKnownFailures,
+} from './ci/failure-manifest.mjs';
 
 const API_BASE = 'https://api.github.com';
 const API_TIMEOUT_MS = 30_000;
@@ -164,14 +170,79 @@ function classifyJobFailure(job, annotations, nowMs = Date.now()) {
  * @returns {{real: string[], infra: {jobName: string, kind: string}[]}}
  */
 function classifyRunFailures(jobs, annotationsByJob) {
-  const result = { real: [], infra: [] };
+  const result = { real: [], infra: [], inspectionNeeded: [] };
   for (const job of jobs) {
     const annotations = annotationsByJob.get(job.id) || [];
     const kind = classifyJobFailure(job, annotations);
     if (kind === 'real-failure') result.real.push(job.name);
     else if (kind) result.infra.push({ jobName: job.name, kind });
+    else if (isExecutedCancellation(job)) result.inspectionNeeded.push(job.name);
   }
   return result;
+}
+
+export function writeProbeDecision(classified, outputPath = process.env.GITHUB_OUTPUT) {
+  if (!Array.isArray(classified?.real) || !Array.isArray(classified?.inspectionNeeded)) {
+    throw new Error('Probe classification is incomplete; report_required remains unknown');
+  }
+  const required = classified.real.length > 0 || classified.inspectionNeeded.length > 0;
+  if (outputPath) appendFileSync(outputPath, `report_required=${required ? 'true' : 'false'}\n`);
+  return required;
+}
+
+function isExecutedCancellation(job) {
+  return ['cancelled', 'canceled'].includes(job.conclusion) && hasRecordedExecution(job);
+}
+
+function shouldInspectJobLogs(job) {
+  return (
+    ['failure', 'timed_out'].includes(job.conclusion) ||
+    hasFailedStep(job) ||
+    isExecutedCancellation(job)
+  );
+}
+
+export async function collectJobFailureLogs({
+  jobs,
+  failuresBySource,
+  download,
+  context = 2,
+  warn = () => {},
+}) {
+  for (const job of jobs) {
+    if (!shouldInspectJobLogs(job)) continue;
+    const existingSource = hasFailureSourceForJob(failuresBySource, job.name);
+    // An archive containing only the final cancellation line is not evidence
+    // that earlier assertions passed. Inspect that executed job's own log too.
+    if (existingSource && !isExecutedCancellation(job)) continue;
+    if (hasRecordedExecution(job)) {
+      try {
+        const hits = extractFailures(await download(job), context);
+        failuresBySource[job.name] = hits.length
+          ? hits
+          : [
+              {
+                line: 0,
+                rank: 0,
+                text: `Job log downloaded, but no known failure pattern matched for ${job.name}.`,
+                snippet: '',
+              },
+            ];
+        continue;
+      } catch (error) {
+        warn(`Per-job log download failed for ${job.name}: ${redactSensitive(error.message)}`);
+      }
+    }
+    if (existingSource) continue;
+    failuresBySource[job.name] = [
+      {
+        line: 0,
+        rank: 0,
+        text: `Job concluded as ${job.conclusion} but no log text was downloaded.`,
+        snippet: '',
+      },
+    ];
+  }
 }
 
 function parseArgs() {
@@ -430,100 +501,6 @@ function commandExists(cmd) {
   return !result.error && result.status === 0;
 }
 
-/**
- * Redact credential-shaped strings before they reach a debug report or a PR
- * comment. GitHub masks registered secrets in the served logs, but values
- * that were never registered as secrets (signing intermediates, ad-hoc
- * tokens, keychain material echoed by build tools) can appear verbatim in a
- * failing step's output — and this report is uploaded as an artifact and
- * posted publicly to PRs. Structural redaction is the last line of defence:
- * known token formats, private-key blocks and high-value environment
- * assignments are replaced before any snippet is embedded.
- */
-const REDACT_PATTERNS = [
-  { id: 'github-pat', re: /\b(ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{36,}\b/g, sample: 'ghp_<redacted>' },
-  {
-    id: 'fine-grained-pat',
-    re: /\bgithub_pat_[A-Za-z0-9_]{40,}\b/g,
-    sample: 'github_pat_<redacted>',
-  },
-  { id: 'npm-token', re: /\bnpm_[A-Za-z0-9]{36}\b/g, sample: 'npm_<redacted>' },
-  {
-    id: 'aws-key',
-    re: /\b(AKIA|ASIA|AGPA|AIDA|AROA|AIPA|ANPA|ANVA)[0-9A-Z]{16}\b/g,
-    sample: 'AKIA<redacted>',
-  },
-  {
-    id: 'aws-secret',
-    re: /\baws[_A-Z]*secret[_A-Z]*['"]?\s*[:=]\s*['"][A-Za-z0-9/+=]{40}['"]/gi,
-    sample: 'aws_secret=<redacted>',
-  },
-  {
-    id: 'slack-webhook',
-    re: /https:\/\/hooks\.slack\.com\/services\/T[A-Z0-9]{8,10}\/B[A-Z0-9]{8,12}\/[A-Za-z0-9]{20,}/g,
-    sample: 'https://hooks.slack.com/<redacted>',
-  },
-  // The private-key block pattern is assembled from fragments so the scanner
-  // does not flag this very file for containing the literal marker.
-  ...buildPrivateKeyPatterns(),
-  { id: 'stripe-key', re: /\b(?:sk|rk|pk)_live_[A-Za-z0-9]{16,}\b/g, sample: 'sk_live_<redacted>' },
-  { id: 'openai-key', re: /\bsk-(?:proj-)?[A-Za-z0-9]{24,}\b/g, sample: 'sk-<redacted>' },
-  {
-    id: 'jwt',
-    re: /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/g,
-    sample: 'eyJ<redacted>',
-  },
-  {
-    id: 'signing-env-value',
-    re: /\b(APPLE_CERTIFICATE|APPLE_API_KEY_P8_BASE64|AZURE_CLIENT_SECRET|AZURE_SIGNING_CLIENT_SECRET|TAURI_SIGNING_PRIVATE_KEY|AWS_SECRET_ACCESS_KEY|PORKBUN_[A-Z_]*KEY|PORKBUN_[A-Z_]*SECRET)=[^\s]{8,}/g,
-    sample: '$1=<redacted>',
-  },
-  { id: 'basic-auth-url', re: /https?:\/\/[^\s/:@]+:[^\s/@]{6,}@/g, sample: 'https://<redacted>@' },
-];
-
-function buildPrivateKeyPatterns() {
-  // Assembled from fragments so the scanner does not flag this very file for
-  // containing the literal PEM marker. The fragments concatenate to
-  // -----BEGIN (?:RSA |EC |DSA |OPENSSH |PGP )?PRIVATE KEY(?: BLOCK)?-----
-  const kind = '(?:RSA |EC |DSA |OPENSSH |PGP )?';
-  const begin = `-----BEGIN ${kind}PRIVATE KEY(?: BLOCK)?-----`;
-  const end = `-----END ${kind}PRIVATE KEY(?: BLOCK)?-----`;
-  return [
-    {
-      id: 'private-key-block',
-      re: new RegExp(`${begin}[\\s\\S]*?${end}`, 'g'),
-      sample: `${begin}<redacted>${end}`,
-    },
-  ];
-}
-
-function redactCredentialUrl(value) {
-  try {
-    const url = new URL(value);
-    const sensitive = [...url.searchParams.keys()].some((key) =>
-      /(?:token|signature|credential|secret|password|authorization|api[-_]?key)|^(?:sig|auth|key)$/i.test(
-        key,
-      ),
-    );
-    if (!sensitive && !url.username && !url.password) return value;
-    return `${url.protocol}//${url.host}${url.pathname}${sensitive ? '?<redacted>' : ''}`;
-  } catch {
-    return value;
-  }
-}
-
-export function redactSensitive(text) {
-  let out = text.replace(/https?:\/\/[^\s<>"'`]+/g, redactCredentialUrl);
-  for (const rule of REDACT_PATTERNS) {
-    if (rule.id === 'signing-env-value') {
-      out = out.replace(rule.re, (_m, name) => `${name}=<redacted>`);
-    } else {
-      out = out.replace(rule.re, rule.sample);
-    }
-  }
-  return out;
-}
-
 async function* walkTextFiles(dir) {
   const entries = await readdir(dir, { withFileTypes: true }).catch(() => []);
   for (const entry of entries) {
@@ -534,15 +511,6 @@ async function* walkTextFiles(dir) {
       yield fullPath;
     }
   }
-}
-
-function normalizeLogLine(line) {
-  const clean = stripVTControlCharacters(line);
-  // gh run view may prefix the archive timestamp with tab-separated job/step names.
-  const timestamp = /^(?:[^\t]*\t)*\s*\d{4}-\d{2}-\d{2}T[\d:.]+Z\s*/;
-  let normalized = clean;
-  while (timestamp.test(normalized)) normalized = normalized.replace(timestamp, '');
-  return normalized;
 }
 
 function isFailureLine(line) {
@@ -709,37 +677,6 @@ function failuresForJob(failuresBySource, job) {
     .sort((a, b) => a.rank - b.rank || a.line - b.line);
 }
 
-function localReproductionCommand(job, hits = [], testIds = []) {
-  const text = hits.map((hit) => `${hit.text}\n${hit.snippet}`).join('\n');
-  const path = testIds
-    .find((id) => /^[A-Za-z0-9_./-]+\.(?:spec|test)\.[jt]sx?(?::\d+)?$/.test(id))
-    ?.replace(/:\d+$/, '');
-  if (path?.includes('.spec.')) {
-    const website = path.startsWith('apps/website/');
-    const config = website
-      ? '-c playwright.website.config.ts --project=ghpages'
-      : '--project=chromium';
-    return `${website ? '' : 'pnpm typecheck:e2e\n'}node scripts/quality/heavy-lease.mjs "e2e: exact CI failure" -- pnpm exec playwright test ${path} ${config} --workers=1 --reporter=list --update-snapshots=none`;
-  }
-  if (path)
-    return `node scripts/quality/heavy-lease.mjs "unit: exact CI failure" -- pnpm exec vitest run ${path} --maxWorkers=1`;
-  const rust = /error\[E\d+\]|cargo|rust/i.test(`${job.name}\n${text}`);
-  if (rust) {
-    const crate = text.replaceAll('\\', '/').match(/crates\/(varve-[a-z0-9-]+)\/src\//)?.[1];
-    if (crate) {
-      const clippy =
-        hits.some((hit) => hit.diagnosticKind === 'rust-clippy') || /clippy/i.test(text);
-      return clippy
-        ? `cargo clippy -p ${crate} --all-targets -- -D warnings`
-        : `cargo check -p ${crate}`;
-    }
-    if (/desktop|build|varve-desktop/i.test(`${job.name}\n${text}`)) {
-      return 'cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml';
-    }
-  }
-  return 'pnpm verify:affected';
-}
-
 function buildDebugFailureManifest(input) {
   const sources = Object.fromEntries(
     input.jobs.map((job) => [job.name, failuresForJob(input.failuresBySource, job)]),
@@ -750,15 +687,38 @@ function buildDebugFailureManifest(input) {
       name: entry.failedJob,
     };
     const hits = sources[entry.failedJob] ?? [];
-    entry.localReproductionCommand = localReproductionCommand(job, hits, entry.testIds);
+    const cleanCancellation =
+      entry.terminationCategory === 'cancellation' && !entry.executedFailure;
+    entry.localReproductionCommand = cleanCancellation
+      ? 'pnpm verify:affected'
+      : localReproductionCommand(job, hits, entry.testIds);
     // Compiler diagnostics are product/dependency errors, never a download retry.
-    if (hits.some((hit) => /^error(?:\[[A-Z]\d+\]|\s+TS\d+):/i.test(hit.text))) {
+    if (
+      !cleanCancellation &&
+      hits.some((hit) => /^error(?:\[[A-Z]\d+\]|\s+TS\d+):/i.test(hit.text))
+    ) {
       entry.category = 'product-or-test-regression';
       entry.retryWithoutCode = false;
     }
     entry.logSources = [...new Set(hits.map((hit) => hit.source))];
   }
   return manifest;
+}
+
+function appendLocalReproductions(lines, run, jobs, failuresBySource) {
+  const manifest = buildDebugFailureManifest({ run, jobs, failuresBySource });
+  for (const entry of manifest.failures) {
+    const job = jobs.find((candidate) => (candidate.id ?? null) === entry.jobId);
+    if (!job || !hasRecordedExecution(job) || entry.category === 'cancellation') continue;
+    lines.push(
+      '',
+      `**${entry.failedJob}** — use the same OS/toolchain as the failed job.`,
+      '',
+      '```bash',
+      entry.localReproductionCommand,
+      '```',
+    );
+  }
 }
 
 function formatReport(repo, run, jobs, failuresBySource, infraBlocks = [], { maxHits = 10 } = {}) {
@@ -778,17 +738,17 @@ function formatReport(repo, run, jobs, failuresBySource, infraBlocks = [], { max
 
   lines.push(...formatInfraBlockSection(infraBlocks, run, jobs));
 
-  lines.push('## Failed jobs', '');
+  lines.push('## Failed or cancelled jobs', '');
 
   const failedJobs = jobs.filter(
-    (j) => j.conclusion === 'failure' || j.conclusion === 'timed_out' || hasFailedStep(j),
+    (j) => shouldInspectJobLogs(j) || ['cancelled', 'canceled'].includes(j.conclusion),
   );
   if (failedJobs.length === 0) {
     lines.push('- No failed jobs detected in run metadata.');
   } else {
     for (const job of failedJobs) {
-      const failedSteps = (job.steps || []).filter(
-        (s) => s.conclusion === 'failure' || s.conclusion === 'timed_out',
+      const failedSteps = (job.steps || []).filter((s) =>
+        ['failure', 'timed_out', 'cancelled', 'canceled'].includes(s.conclusion),
       );
       const neverStarted = (job.steps || []).length === 0 ? ' (never started)' : '';
       const conclusion = job.conclusion || job.status || 'in progress';
@@ -833,22 +793,7 @@ function formatReport(repo, run, jobs, failuresBySource, infraBlocks = [], { max
     'pnpm verify:plan',
     '```',
   );
-  for (const job of failedJobs.filter((candidate) => (candidate.steps || []).length > 0)) {
-    const hits = failuresForJob(failuresBySource, job);
-    const ids = hits.flatMap(
-      (hit) =>
-        `${hit.text}\n${hit.snippet}`.match(/[A-Za-z0-9_./-]+\.(?:spec|test)\.[jt]sx?(?::\d+)?/g) ??
-        [],
-    );
-    lines.push(
-      '',
-      `**${job.name}** — use the same OS/toolchain as the failed job.`,
-      '',
-      '```bash',
-      localReproductionCommand(job, hits, ids),
-      '```',
-    );
-  }
+  appendLocalReproductions(lines, run, failedJobs, failuresBySource);
   lines.push(
     '',
     'Run `pnpm verify:full` only for a planner-selected escalation or final release checkpoint, with an explicit `VARVE_FULL_GATE_REASON`. Keep successful unchanged-input lanes and rerun the repaired spec/lane.',
@@ -920,16 +865,17 @@ async function main() {
   }
 
   if (args.probe) {
-    // Probe mode: exit 0 when the run contains at least one real (code-level)
-    // failure worth a debug report; exit 1 when every failure is
-    // infrastructure (billing / runner / stuck queue). Used by ci-debug.yml
-    // to skip jobs without executed code failures; queue causes remain unconfirmed.
+    // Executed cancellations need log inspection: their metadata alone cannot
+    // prove whether assertions failed before cancellation. They are not placed
+    // in realFailures until logs establish a cause, nor automatically restarted.
     const classified = classifyRunFailures(jobs, annotationsByJob);
+    const reportRequired = writeProbeDecision(classified);
     console.log(
       JSON.stringify(
         {
           runId: args.runId,
           realFailures: classified.real,
+          inspectionNeeded: classified.inspectionNeeded,
           infraBlocks: classified.infra,
           stuckQueued: isStuckQueued(run),
         },
@@ -937,7 +883,7 @@ async function main() {
         2,
       ),
     );
-    process.exit(classified.real.length > 0 ? 0 : 1);
+    process.exit(reportRequired ? 0 : 1);
   }
 
   console.log(`Downloading logs for run ${args.runId} (${run.name || ''})...`);
@@ -964,44 +910,13 @@ async function main() {
   // The run archive is occasionally unavailable or omits a job log while the
   // per-job endpoint still works. Prefer that endpoint before reporting a
   // missing log, so a transient archive problem never hides the root cause.
-  for (const job of jobs) {
-    if (job.conclusion === 'failure' || job.conclusion === 'timed_out' || hasFailedStep(job)) {
-      if (hasFailureSourceForJob(failuresBySource, job.name)) continue;
-
-      if ((job.steps || []).length > 0) {
-        try {
-          const text = await downloadJobLog(args.repo, job.id, token);
-          const hits = extractFailures(text, args.context);
-          if (hits.length > 0) {
-            failuresBySource[job.name] = hits;
-            continue;
-          }
-          failuresBySource[job.name] = [
-            {
-              line: 0,
-              rank: 0,
-              text: `Job log downloaded, but no known failure pattern matched for ${job.name}.`,
-              snippet: '',
-            },
-          ];
-          continue;
-        } catch (error) {
-          console.warn(
-            `Per-job log download failed for ${job.name}: ${redactSensitive(error.message)}`,
-          );
-        }
-      }
-
-      failuresBySource[job.name] = [
-        {
-          line: 0,
-          rank: 0,
-          text: `Job concluded as ${job.conclusion} but no log text was downloaded.`,
-          snippet: '',
-        },
-      ];
-    }
-  }
+  await collectJobFailureLogs({
+    jobs,
+    failuresBySource,
+    download: (job) => downloadJobLog(args.repo, job.id, token),
+    context: args.context,
+    warn: console.warn,
+  });
 
   const report = formatReport(args.repo, run, jobs, failuresBySource, infraBlocks, {
     maxHits: args.maxHits,
@@ -1056,4 +971,6 @@ export {
   normalizeLogLine,
   normalizeLogSource,
   rankLine,
+  redactSensitive,
+  shouldInspectJobLogs,
 };

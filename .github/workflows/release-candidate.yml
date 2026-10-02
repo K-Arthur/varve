@@ -197,7 +197,7 @@ jobs:
         with:
           ref: ${{ needs.changes.outputs.commit_sha }}
           persist-credentials: false
-      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067
         with:
           toolchain: 1.97.1
           components: rustfmt, clippy
@@ -234,7 +234,7 @@ jobs:
         with:
           ref: ${{ needs.changes.outputs.commit_sha }}
           persist-credentials: false
-      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067
         with:
           toolchain: 1.97.1
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
@@ -301,9 +301,9 @@ jobs:
       - name: Website E2E (candidate)
         run: |
           if [[ '${{ inputs.mode }}' == 'triage' ]]; then
-            pnpm exec playwright test -c playwright.website.config.ts --max-failures=5
+            pnpm exec playwright test -c playwright.website.config.ts --max-failures=5 --retries=0 --update-snapshots=none
           else
-            pnpm exec playwright test -c playwright.website.config.ts
+            pnpm exec playwright test -c playwright.website.config.ts --update-snapshots=none
           fi
         env:
           VARVE_VALIDATION_PROFILE: candidate
@@ -367,9 +367,9 @@ jobs:
       - name: Browser E2E (candidate)
         run: |
           if [[ '${{ inputs.mode }}' == 'triage' ]]; then
-            pnpm exec playwright test --project=chromium --shard=${{ matrix.shard }}/8 --max-failures=5
+            pnpm exec playwright test --project=chromium --shard=${{ matrix.shard }}/8 --max-failures=5 --retries=0 --update-snapshots=none
           else
-            pnpm exec playwright test --project=chromium --shard=${{ matrix.shard }}/8
+            pnpm exec playwright test --project=chromium --shard=${{ matrix.shard }}/8 --update-snapshots=none
           fi
       - name: Upload browser diagnostics
         if: always()
@@ -427,7 +427,7 @@ jobs:
       - name: Visual E2E (candidate)
         run: |
           if [[ '${{ inputs.mode }}' == 'triage' ]]; then
-            pnpm exec playwright test --project=chromium-visual-1x --project=chromium-visual-2x --max-failures=5
+            pnpm exec playwright test --project=chromium-visual-1x --project=chromium-visual-2x --max-failures=5 --retries=0 --update-snapshots=none
           else
             pnpm e2e:visual
           fi
@@ -484,7 +484,7 @@ jobs:
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
-      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067
         with:
           toolchain: 1.97.1
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6

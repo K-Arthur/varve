@@ -27,9 +27,11 @@ concurrency:
 jobs:
   debug-report:
     name: Debug Report
-    if: github.event.workflow_run.conclusion == 'failure' || github.event.workflow_run.conclusion == 'timed_out'
+    if: github.event.workflow_run.conclusion == 'failure' || github.event.workflow_run.conclusion == 'timed_out' || github.event.workflow_run.conclusion == 'cancelled'
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    outputs:
+      artifact_id: ${{ steps.upload-report.outputs.artifact-id }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -40,12 +42,11 @@ jobs:
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
 
-      # Probe first: when every failure in the triggering run is
-      # infrastructure (billing block, runner never acquired, job stuck in
-      # queue during an Actions outage), generating a debug report adds
-      # nothing but another job to an already-starved runner pool. The probe
-      # exits 0 only when at least one real (code-level) failure exists.
-      - name: Probe for real (code-level) failures
+      # Probe first. Executed steps in cancelled jobs require log inspection:
+      # cancellation may have interrupted a run after assertions failed.
+      # A zero-step cancellation or confirmed startup block supplies no
+      # executed product failure. Queue age alone does not prove an outage.
+      - name: Probe for failures or interrupted execution needing inspection
         id: probe
         continue-on-error: true
         env:
@@ -57,15 +58,18 @@ jobs:
             --run-id ${{ github.event.workflow_run.id }} \
             --repo ${{ github.repository }}
 
-      - name: Skip report (infrastructure-only failure)
-        if: steps.probe.outcome == 'failure'
+      - name: Skip report (no executed failure evidence to inspect)
+        if: steps.probe.outputs.report_required == 'false'
         run: |
-          echo "All failures in run ${{ github.event.workflow_run.id }} are infrastructure"
-          echo "(billing / runner starvation / stuck queue) — no debug report generated."
-          echo "Check https://www.githubstatus.com and rerun when GitHub Actions recovers."
+          echo "Run ${{ github.event.workflow_run.id }} has no executed failure evidence requiring a report."
+          echo "Inspect the probe classification and job annotations before choosing recovery."
+
+      - name: Record unavailable probe classification
+        if: steps.probe.outputs.report_required == ''
+        run: echo "Probe classification was unavailable; attempting the full diagnostic fetch."
 
       - name: Generate debug report
-        if: steps.probe.outcome == 'success'
+        if: steps.probe.outputs.report_required != 'false'
         env:
           GITHUB_TOKEN: ${{ github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
@@ -81,10 +85,11 @@ jobs:
             --manifest ci-failure-manifest.json
 
       - name: Upload debug report
-        if: always() && steps.probe.outcome == 'success'
+        id: upload-report
+        if: always() && steps.probe.outputs.report_required != 'false'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: ci-debug-report-${{ github.event.workflow_run.id }}
+          name: ci-debug-report-${{ github.event.workflow_run.id }}-${{ github.run_id }}-attempt-${{ github.run_attempt }}
           path: |
             ci-debug-report.md
             ci-failure-manifest.json
@@ -98,6 +103,7 @@ jobs:
     needs: debug-report
     if: >-
       needs.debug-report.result == 'success' &&
+      needs.debug-report.outputs.artifact_id != '' &&
       github.event.workflow_run.event == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -115,7 +121,9 @@ jobs:
       - name: Download generated debug report
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
-          name: ci-debug-report-${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+          run-id: ${{ github.run_id }}
+          artifact-ids: ${{ needs.debug-report.outputs.artifact_id }}
           path: .
       - name: Post debug report to PR
         env:

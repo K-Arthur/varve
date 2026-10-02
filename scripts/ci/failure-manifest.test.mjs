@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import {
   buildFailureManifest,
   classifyFailure,
+  hasRecordedExecution,
   validateKnownFailures,
 } from './failure-manifest.mjs';
 
@@ -148,5 +149,92 @@ assert.ok(
 assert.ok(
   validateKnownFailures([{ ...known, signature: '' }]).some((error) => error.includes('signature')),
 );
+
+const cancelledJob = {
+  id: 10,
+  name: 'E2E (Playwright) 2/8',
+  conclusion: 'cancelled',
+  steps: [
+    { name: 'Set up job', status: 'completed', conclusion: 'success' },
+    { name: 'E2E (chromium)', status: 'completed', conclusion: 'cancelled' },
+  ],
+};
+const ansiEscape = String.fromCharCode(27);
+const credential = `ghp_${'C'.repeat(36)}`;
+const signedUrlCredential = 'credential-canary-value';
+const cancelledLog = [
+  `2026-10-02T14:08:00Z ${ansiEscape}[31m##[error] 1) [chromium] › tests/e2e/canvas/crop.spec.ts:82:7 › F key cycles fit mode${ansiEscape}[0m`,
+  `2026-10-02T14:08:00Z Error: expect(locator).toHaveText(expected) failed ${credential}`,
+  'E2E\tTest\t2026-10-02T14:08:01Z at tests/e2e/helpers/crop.test.ts:12:4',
+  `2026-10-02T14:08:01Z https://example.invalid/download?X-Amz-Signature=${signedUrlCredential}`,
+  '2026-10-02T14:08:02Z ##[error]The operation was canceled.',
+].join('\n');
+const interrupted = buildFailureManifest({
+  jobs: [cancelledJob],
+  failuresBySource: { [cancelledJob.name]: cancelledLog },
+  knownFailureIds: ['tests/e2e/canvas/crop.spec.ts:82'],
+}).failures[0];
+assert.equal(interrupted.conclusion, 'cancelled');
+assert.equal(interrupted.jobConclusion, 'cancelled');
+assert.equal(interrupted.terminationCategory, 'cancellation');
+assert.equal(interrupted.category, 'product-or-test-regression');
+assert.equal(interrupted.executedFailure.category, 'product-or-test-regression');
+assert.deepEqual(interrupted.testIds, ['tests/e2e/canvas/crop.spec.ts:82']);
+assert.match(interrupted.firstUsefulError, /^Error: expect\(/);
+assert.equal(interrupted.retryWithoutCode, false);
+assert.equal(interrupted.governedKnownFailure, false);
+assert.match(
+  interrupted.localReproductionCommand,
+  /heavy-lease\.mjs.*crop\.spec\.ts:82.*--workers=1/,
+);
+for (const secret of [credential, signedUrlCredential, ansiEscape]) {
+  assert.equal(JSON.stringify(interrupted).includes(secret), false);
+}
+
+for (const job of [cancelledJob, { ...cancelledJob, steps: [] }]) {
+  const clean = buildFailureManifest({
+    jobs: [job],
+    failuresBySource: { [job.name]: '2026-10-02T14:08:02Z ##[error]The operation was canceled.' },
+  }).failures[0];
+  assert.equal(clean.category, 'cancellation');
+  assert.equal(clean.executedFailure, null);
+  assert.deepEqual(clean.testIds, []);
+  assert.equal(clean.firstUsefulError, '');
+  assert.equal(clean.retryWithoutCode, false);
+}
+const neverStarted = buildFailureManifest({
+  jobs: [{ ...cancelledJob, steps: [] }],
+  failuresBySource: { [cancelledJob.name]: cancelledLog },
+}).failures[0];
+assert.equal(neverStarted.executedFailure, null, 'unexecuted metadata cannot prove an assertion');
+assert.deepEqual(neverStarted.testIds, []);
+assert.equal(
+  hasRecordedExecution({ steps: [{ status: 'completed', conclusion: 'skipped' }] }),
+  false,
+);
+assert.equal(
+  hasRecordedExecution({ steps: [{ status: 'completed', conclusion: 'cancelled' }] }),
+  false,
+);
+
+const compiler = buildFailureManifest({
+  jobs: [{ id: 11, name: 'Rust', conclusion: 'failure' }],
+  failuresBySource: {
+    Rust: 'error: redundant pattern\n --> crates/varve-print/src/lib.rs:1688:25\n = note: clippy::unneeded_wildcard_pattern',
+  },
+}).failures[0];
+assert.equal(
+  compiler.localReproductionCommand,
+  'cargo clippy -p varve-print --all-targets -- -D warnings',
+);
+assert.equal(compiler.retryWithoutCode, false);
+for (const name of ['Website E2E', 'Rust', 'E2E', 'JS']) {
+  const unknown = buildFailureManifest({ jobs: [{ name, conclusion: 'failure' }] }).failures[0];
+  assert.equal(
+    unknown.localReproductionCommand,
+    'pnpm verify:affected',
+    'missing evidence never selects a broad suite',
+  );
+}
 
 console.log('failure manifest tests passed');

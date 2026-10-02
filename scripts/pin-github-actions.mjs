@@ -52,7 +52,7 @@ const ACTION_SHAS = {
   'actions/upload-pages-artifact': '56afc609e74202658d3ffba0e8f6dda462b719fa', // v3.0.1
   'actions/deploy-pages': 'd6db90164ac5ed86f2b6aed7e0febac5b3c0c03e', // v4.0.5
   'actions/setup-python': '42375524e23c412d93fb67b49958b491fce71c38', // v5.4.0
-  'dtolnay/rust-toolchain': '4cda84d5c5c54efe2404f9d843567869ab1699d4', // stable branch head
+  'dtolnay/rust-toolchain': '7e38f4b43b4db5c8dd498af069a4f6196df1d067', // reviewed checksum-race retry, 2026-10-02
   'Swatinem/rust-cache': '3cf7f8cc28d1b4e7d01e3783be10a97d55d483c8', // v2.7.1
   'taiki-e/install-action': '6a1bd70eaac3c8bdf093356838d7ee09fda951cf', // v2
   'softprops/action-gh-release': 'c95fe1489396fe8a9eb87c0abf8aa5b2ef267fda', // v2.2.1

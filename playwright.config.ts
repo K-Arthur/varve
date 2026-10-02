@@ -33,6 +33,9 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
+  // Release validation must fail on absent or changed baselines. Explicit,
+  // reviewed baseline updates may override this through the dedicated CLI.
+  updateSnapshots: 'none',
   workers: e2eWorkers,
   outputDir: `test-results/${outputSuffix}`,
   // 180s: measured cold first-paint on a fresh vite transform cache is ~100s
@@ -45,6 +48,10 @@ export default defineConfig({
   expect: { timeout: 10000 },
   use: {
     baseURL: e2eBaseUrl,
+    // A missing UI control must not consume the entire 180s test budget on
+    // every CI retry. Cold navigation and inference retain their explicit
+    // longer deadlines; assertions retain the separate 10s budget above.
+    actionTimeout: 45000,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
