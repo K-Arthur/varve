@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "note": "GENERATED FILE — do not hand-edit. Written by scripts/screenshots/product.mjs and validated by scripts/screenshots/validate.mjs. Each scene maps one canonical screenshot consumed by the website and documentation. status: 'captured' when the pipeline produced the file, 'skipped' when the scene could not be produced (reason required).",
-  "generatedAt": "2026-10-02T00:43:29.385Z",
+  "generatedAt": "2026-10-02T03:20:02.419Z",
   "scenes": {
     "workspace": {
       "file": "workspace-light.png",
@@ -69,25 +69,25 @@
         "width": 1280,
         "height": 720
       },
-      "lastValidatedAgainst": "677a614636ae7233d34f00bad535bc4a864fe91b",
+      "lastValidatedAgainst": "304f233b115fed1fc42a6c708eee0ba1d285c85e",
       "provenanceUnknown": false,
-      "sha256": "de50aeede1bdfa10b98f58c7db0e6eb3afe1743a68203016390663be9ee5c277",
-      "capturedAt": "2026-10-02T00:38:02.811Z",
+      "sha256": "7328674432a188f3e876d2ceb6faa0498ebbf59cf0e2ca8ae92e63d7635415cb",
+      "capturedAt": "2026-10-02T03:18:20.751Z",
       "provenance": {
-        "runId": "run-4048262-5590",
+        "runId": "release-comic-clean",
         "runtime": "Chromium headless Playwright E2E",
         "captureTool": "Playwright 1.62.1 / Chromium revision 1234",
-        "sourceRevision": "677a614636ae7233d34f00bad535bc4a864fe91b",
-        "sourceDirty": true,
-        "sourceDigest": "28b107256eadf1ee8b6e6f8b383c5a86cb9b6baa1245898d5f1c2c5e8feb0cbf",
+        "sourceRevision": "304f233b115fed1fc42a6c708eee0ba1d285c85e",
+        "sourceDirty": false,
+        "sourceDigest": "36ceb5ae9421141c0ae02bf8d4f1a3f15926c6076672b92b9dd1b9b6c768630f",
         "viewport": {
           "width": 1280,
           "height": 720
         },
         "deviceScaleFactor": 1,
         "theme": "light",
-        "promotedFrom": "2026-10-02T00-43-09-746Z-4050122",
-        "promotedAt": "2026-10-02T00:43:29.385Z"
+        "promotedFrom": "2026-10-02T03-18-45-004Z-4126830",
+        "promotedAt": "2026-10-02T03:20:02.419Z"
       }
     },
     "typography": {
