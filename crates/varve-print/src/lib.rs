@@ -1722,9 +1722,7 @@ fn render_fills(
                                     || mirror_y.unwrap_or(false)
                                     || offset_x.unwrap_or(0.0) != 0.0
                                     || offset_y.unwrap_or(0.0) != 0.0
-                                    || alignment
-                                        .as_deref()
-                                        .is_some_and(|value| value != "object")
+                                    || alignment.as_deref().is_some_and(|value| value != "object")
                                     || gap_x < 0.0
                                     || gap_y < 0.0
                                     || *rotation != 0.0;
@@ -4656,7 +4654,9 @@ mod tests {
         // PDF keeps the old object-aligned grid subset. Document alignment
         // must fail closed until PDF can preserve the page-space phase.
         let Some(FillIR::Pattern {
-            rotation, alignment, ..
+            rotation,
+            alignment,
+            ..
         }) = node.fills.as_mut().and_then(|fills| fills.first_mut())
         else {
             panic!("expected pattern fill");
@@ -4674,7 +4674,10 @@ mod tests {
             false,
         );
         let s = String::from_utf8_lossy(&content);
-        assert!(!s.contains("/Pat"), "document alignment must not be exported with an object-relative phase: {s}");
+        assert!(
+            !s.contains("/Pat"),
+            "document alignment must not be exported with an object-relative phase: {s}"
+        );
         assert!(s.contains("WARNING: pattern layout is unsupported"), "{s}");
     }
 
