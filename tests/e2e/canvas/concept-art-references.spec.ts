@@ -22,7 +22,7 @@ const VIEWPORT = { width: 1280, height: 800 };
 
 const REFERENCE_FIXTURE = join(process.cwd(), 'tests/e2e/fixtures/real-life-beech-forest.jpg');
 
-async function contentHash(page: import('@playwright/test').Page): Promise<string> {
+async function rawContentHash(page: import('@playwright/test').Page): Promise<string> {
   return page.locator('canvas.editor-canvas__content-layer').evaluate((element) => {
     const canvas = element as HTMLCanvasElement;
     const context = canvas.getContext('2d');
@@ -33,6 +33,25 @@ async function contentHash(page: import('@playwright/test').Page): Promise<strin
         Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join(''),
       );
   });
+}
+
+async function contentHash(page: import('@playwright/test').Page): Promise<string> {
+  let previous = '';
+  let unchanged = 0;
+  // Fit Selection animates for 300ms. Compare settled pixels so a metadata
+  // toggle is not compared with an intermediate camera-animation frame.
+  await expect
+    .poll(
+      async () => {
+        const current = await rawContentHash(page);
+        unchanged = current === previous ? unchanged + 1 : 0;
+        previous = current;
+        return unchanged;
+      },
+      { timeout: 15000, intervals: [100] },
+    )
+    .toBeGreaterThanOrEqual(3);
+  return previous;
 }
 
 async function coloredPixels(page: import('@playwright/test').Page): Promise<number> {

@@ -8,6 +8,7 @@ import { captureProducerScreenshot } from '../../../scripts/screenshots/producer
 
 import { Buffer } from 'node:buffer';
 import { expect, type Page, test } from '@playwright/test';
+import { selectInspectorTab } from '../helpers/inspector-tabs';
 import { navigateToCleanEditor } from '../helpers/nav';
 import { dragOnCanvas } from '../shared';
 
@@ -15,15 +16,9 @@ async function ensureEffectStudioLauncher(page: Page) {
   const launcher = page.getByTestId('open-effect-studio');
   if (await launcher.isVisible().catch(() => false)) return;
 
-  // Raster selections expose Image Tuning under Adjustments, but Effect Studio
-  // stays in the Design/Appearance surface. Try both contextual inspector tabs
-  // so this helper does not assume the same launch surface for every node kind.
-  for (const label of ['Design', 'Adjustments']) {
-    const tab = page.getByRole('tab', { name: label, exact: true });
-    if (!(await tab.isVisible().catch(() => false))) continue;
-    await tab.click();
-    if (await launcher.isVisible().catch(() => false)) return;
-  }
+  // The current Adjustments surface owns the launcher; its tab can be in the
+  // responsive overflow even for an eligible vector selection.
+  await selectInspectorTab(page, 'Adjustments');
   await expect(launcher).toBeVisible({ timeout: 30_000 });
 }
 
