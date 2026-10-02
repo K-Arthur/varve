@@ -29,7 +29,7 @@ overrides:
   sharp: 0.35.5
 
 patchedDependencies:
-  extract-zip@2.0.1: b919fbb48a2616a1fcda8c35dc7a6d252a87d11ac3270fabd85ed58d781d453d
+  extract-zip@2.0.1: be6a52b47b68a28a08db1a720a187a7f7090ba4bb0bc6eebd597341e00b537e1
   jsdom@30.0.1: c1fbc7747d25c1bda478526476bf792e8f1d1ebf018b7b5f4e2e391ea9e9728f
 
 importers:
@@ -8603,7 +8603,7 @@ snapshots:
   '@puppeteer/browsers@2.13.2':
     dependencies:
       debug: 4.4.3(supports-color@8.1.1)
-      extract-zip: 2.0.1(patch_hash=b919fbb48a2616a1fcda8c35dc7a6d252a87d11ac3270fabd85ed58d781d453d)
+      extract-zip: 2.0.1(patch_hash=be6a52b47b68a28a08db1a720a187a7f7090ba4bb0bc6eebd597341e00b537e1)
       progress: 2.0.3
       proxy-agent: 6.5.0
       semver: 7.8.5
@@ -10672,7 +10672,7 @@ snapshots:
 
   extend@3.0.2: {}
 
-  extract-zip@2.0.1(patch_hash=b919fbb48a2616a1fcda8c35dc7a6d252a87d11ac3270fabd85ed58d781d453d):
+  extract-zip@2.0.1(patch_hash=be6a52b47b68a28a08db1a720a187a7f7090ba4bb0bc6eebd597341e00b537e1):
     dependencies:
       debug: 4.4.3(supports-color@8.1.1)
       get-stream: 5.2.0

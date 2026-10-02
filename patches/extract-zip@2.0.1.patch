@@ -1,8 +1,8 @@
 diff --git a/index.js b/index.js
-index 23384ea16bb848616886f356d8d69f94325535bf..f096d4e3aab39d5d3b6badf895d37a0d0d6d6ab3 100644
+index 23384ea16bb848616886f356d8d69f94325535bf..d1c5eb857d43689e185a119069b42f529816af35 100644
 --- a/index.js
 +++ b/index.js
-@@ -126,6 +126,16 @@ class Extractor {
+@@ -126,9 +126,24 @@
  
      if (symlink) {
        const link = await getStream(readStream)
@@ -19,3 +19,11 @@ index 23384ea16bb848616886f356d8d69f94325535bf..f096d4e3aab39d5d3b6badf895d37a0d
        debug('creating symlink', link, dest)
        await fs.symlink(link, dest)
      } else {
++      const existing = await fs.lstat(dest).catch(() => null)
++      if (existing && existing.isSymbolicLink()) {
++        throw new Error(`Out of bound path "${dest}" found while processing file ${entry.fileName}`)
++      }
++
+       await pipeline(readStream, createWriteStream(dest, { mode: procMode }))
+     }
+   }
