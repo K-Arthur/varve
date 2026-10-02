@@ -15,6 +15,24 @@ import {
 import { readProducerCaptureReceipt } from './producer-capture.mjs';
 import { SOURCE_SCENES } from './source-scenes.mjs';
 
+test('owning browser specs can load the producer helper through Playwright', () => {
+  const root = fileURLToPath(new URL('../..', import.meta.url));
+  const result = spawnSync(
+    'pnpm',
+    [
+      'exec',
+      'playwright',
+      'test',
+      'tests/e2e/canvas/comic-lettering.spec.ts',
+      '--project=chromium',
+      '--list',
+    ],
+    { cwd: root, encoding: 'utf8', timeout: 30_000 },
+  );
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  assert.match(result.stdout, /Total: [1-9]\d* tests? in 1 file/);
+});
+
 test('review captures refuse canonical and published screenshot paths', () => {
   const canonical = join(tmpdir(), 'varve', 'docs', 'screenshots', 'product');
   const published = join(tmpdir(), 'varve', 'apps', 'website', 'public', 'screenshots');

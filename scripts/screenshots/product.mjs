@@ -207,9 +207,14 @@ function pngSize(buf) {
 async function startServer() {
   await assertPortAvailable(PORT);
   let serverOutput = '';
+  // Match the browser-test server workaround for Node 26's V8 deoptimizer.
+  const viteCommand =
+    Number(process.versions.node.split('.')[0]) >= 26
+      ? ['node', '--no-turbofan', 'node_modules/vite/bin/vite.js']
+      : ['vite'];
   const child = spawn(
     'pnpm',
-    ['--filter', '@varve/desktop', 'exec', 'vite', '--port', String(PORT), '--strictPort'],
+    ['--filter', '@varve/desktop', 'exec', ...viteCommand, '--port', String(PORT), '--strictPort'],
     {
       cwd: ROOT,
       // Inference scenes need crossOriginIsolated: it gates SharedArrayBuffer

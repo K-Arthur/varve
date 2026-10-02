@@ -2,10 +2,11 @@ import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { basename, relative, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { analyseImage } from './lib/image-analysis.mjs';
 
-const ROOT = fileURLToPath(new URL('../..', import.meta.url));
+// Producer specs run from the repository root. Keep this helper usable by
+// Playwright's CommonJS transform as well as the standalone ESM capture CLI.
+const ROOT = process.cwd();
 const SOURCE_PATHS = [
   'packages',
   'apps/desktop',
