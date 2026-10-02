@@ -1,8 +1,16 @@
 /** Dependency-light scheduling regressions; browser commands are recorded, never run. */
 
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { spawn, spawnSync } from 'node:child_process';
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -137,9 +145,11 @@ try {
   const recordImport = 'import { appendFileSync } from "node:fs";';
   const record =
     'appendFileSync(process.env.TEST_COMMAND_LOG, JSON.stringify(process.argv.slice(2)) + "\\n");';
+  const compilerDescendant = `process.on('SIGTERM',()=>{});require('node:fs').writeFileSync(process.argv[1],JSON.stringify({parent:process.ppid,grandchild:process.pid}));setInterval(()=>{},1000);`;
+  const compilerFixture = `if (process.argv[2] === 'typecheck:e2e' && process.env.TEST_CANCEL_MARKER) { const {spawn}=await import('node:child_process'); process.on('SIGTERM',()=>{}); const child=spawn(process.execPath,['-e',${JSON.stringify(compilerDescendant)},process.env.TEST_CANCEL_MARKER],{detached:true,stdio:'ignore'}); child.on('exit',()=>process.exit(0)); setInterval(()=>{},1000); }`;
   writeFileSync(
     join(bin, 'pnpm'),
-    `#!/usr/bin/env node\n${recordImport}\nif (process.argv[2] === 'm') { console.log('[]'); } else { ${record} if (process.argv[2] === 'typecheck:e2e' && process.env.TEST_COMPILER_FAILURE === '1') process.exit(9); }\n`,
+    `#!/usr/bin/env node\n${recordImport}\nif (process.argv[2] === 'm') { console.log('[]'); } else { ${record} ${compilerFixture} if (process.argv[2] === 'typecheck:e2e' && process.env.TEST_COMPILER_FAILURE === '1') process.exit(9); }\n`,
   );
   writeFileSync(join(bin, 'biome'), `#!/usr/bin/env node\n${recordImport}\n${record}\n`);
   chmodSync(join(bin, 'pnpm'), 0o755);
@@ -184,6 +194,58 @@ try {
       .map(JSON.parse);
     return { ...result, recorded };
   };
+  const cancelMarker = join(repo, 'cancel-owned-pids.json');
+  const cancelled = spawn(process.execPath, [verifier, 'quick', '--staged'], {
+    cwd: repo,
+    stdio: 'ignore',
+    env: {
+      ...process.env,
+      PATH: `${bin}:${process.env.PATH}`,
+      TEST_COMMAND_LOG: commandsPath,
+      TEST_CANCEL_MARKER: cancelMarker,
+    },
+  });
+  const cancelledExit = new Promise((resolve) =>
+    cancelled.once('exit', (code, signal) => resolve({ code, signal })),
+  );
+  let ownedPids;
+  try {
+    const deadline = Date.now() + 5000;
+    while (!existsSync(cancelMarker) && Date.now() < deadline)
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    assert.ok(existsSync(cancelMarker), 'actual verifier compiler fixture did not start');
+    ownedPids = JSON.parse(readFileSync(cancelMarker, 'utf8'));
+    cancelled.kill('SIGTERM');
+    const result = await Promise.race([
+      cancelledExit,
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('verifier cancellation was not bounded')), 4000).unref(),
+      ),
+    ]);
+    assert.equal(result.code, 143, 'actual verifier must preserve cancellation status');
+    assert.equal(result.signal, null);
+    for (const pid of Object.values(ownedPids)) {
+      let state;
+      try {
+        const stat = readFileSync(`/proc/${pid}/stat`, 'utf8');
+        state = stat.slice(stat.lastIndexOf(')') + 2).split(' ')[0];
+      } catch {
+        state = null;
+      }
+      assert.ok(
+        state === null || state === 'Z',
+        'actual verifier left an owned detached compiler descendant running',
+      );
+    }
+  } finally {
+    for (const pid of Object.values(ownedPids ?? {})) {
+      try {
+        process.kill(pid, 'SIGKILL');
+      } catch {}
+    }
+    cancelled.kill('SIGKILL');
+  }
+
   const triage = execute('triage');
   assert.equal(triage.status, 0, `${triage.stdout}\n${triage.stderr}`);
   assert.match(triage.stdout, /Final full gate required after triage/);
@@ -217,7 +279,7 @@ try {
       triage.recorded.findIndex((args) => args.includes('playwright')),
   );
   const failed = execute('triage', { TEST_COMPILER_FAILURE: '1' });
-  assert.equal(failed.status, 1);
+  assert.equal(failed.status, 9, 'the exact compiler failure code is retained');
   assert.equal(
     failed.recorded.filter((args) => args.includes('playwright')).length,
     0,

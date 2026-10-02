@@ -41,6 +41,8 @@ export const POLICY_FILES = [
   'scripts/quality/aggregate-ci.mjs',
   'scripts/quality/ci-preflight.mjs',
   'scripts/quality/verify.mjs',
+  'scripts/quality/execution-plan.mjs',
+  'scripts/quality/heavy-lease.mjs',
   'scripts/quality/full-gate.mjs',
   'scripts/ci/failure-manifest.mjs',
   'scripts/release/certification.mjs',

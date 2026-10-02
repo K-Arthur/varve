@@ -21,10 +21,10 @@
  *   VARVE_HEAVY_TASK_PARALLELISM=0   opt out of heavy-task lease
  *   VARVE_FULL_GATE=1        permit full-suite execution without a reason
  *
- * Exit codes: 0 all passed, 1 failures, 2 full gate skipped (no reason).
+ * Exit codes: 0 all passed, 2 full gate skipped (no reason); command failure
+ * and cancellation statuses are retained (for example SIGTERM = 143).
  */
 
-import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { IMPACT_CONFIG } from '../../validation-impact.config.mjs';
@@ -43,6 +43,7 @@ import {
   playwrightRunOptions,
 } from './execution-plan.mjs';
 import { runFullGate } from './full-gate.mjs';
+import { runValidationCommand } from './heavy-lease.mjs';
 import { LANES, laneCommand, packageDirs } from './validation-lanes.mjs';
 
 const _PLAN_URL = fileURLToPath(new URL('./affected-plan.mjs', import.meta.url));
@@ -54,7 +55,7 @@ for (const [name, p] of Object.entries(loadPackages())) {
   packageDirs[name] = p.dir;
 }
 
-function cmd(argv) {
+async function commandResult(argv) {
   // Resolve pnpm-managed binaries and pnpm itself (user-local install).
   const PATH = [
     `${ROOT}/node_modules/.bin`,
@@ -64,17 +65,11 @@ function cmd(argv) {
   ]
     .filter(Boolean)
     .join(':');
-  const res = spawnSync(argv[0], argv.slice(1), {
-    cwd: ROOT,
-    stdio: 'inherit',
-    shell: false,
-    env: { ...process.env, PATH },
-  });
-  if (res.error) {
-    console.error(`verify: failed to spawn ${argv[0]}: ${res.error.message}`);
-    return 1;
-  }
-  return res.status ?? 1;
+  return runValidationCommand(argv, { cwd: ROOT, env: { ...process.env, PATH } });
+}
+
+async function cmd(argv) {
+  return (await commandResult(argv)).status;
 }
 
 function shCmd(str) {
@@ -160,7 +155,7 @@ function biomeTouchedFiles() {
   );
 }
 
-function runLane(lane) {
+async function runLane(lane) {
   const t0 = Date.now();
   const isHeavy =
     HEAVY.has(lane) || lane.startsWith('rust-test:') || lane.startsWith('rust-clippy:');
@@ -174,29 +169,29 @@ function runLane(lane) {
       const args = ['biome', 'check', ...files, '--no-errors-on-unmatched'];
       if (lane === 'format:touched')
         args.push('--formatter-enabled=true', '--linter-enabled=false');
-      status = cmd(args);
+      status = await cmd(args);
     }
   } else if (lane.startsWith('js-unit:file:')) {
-    status = runVitestFiles([lane.slice('js-unit:file:'.length)]);
+    status = await runVitestFiles([lane.slice('js-unit:file:'.length)]);
   } else if (lane.startsWith('e2e:file:')) {
-    status = runE2ePaths([lane.slice('e2e:file:'.length)]);
+    status = await runE2ePaths([lane.slice('e2e:file:'.length)]);
   } else if (lane.startsWith('e2e:') && lane !== 'e2e:all' && lane !== 'e2e:visual') {
-    status = runE2eDomains([lane.slice('e2e:'.length)]);
+    status = await runE2eDomains([lane.slice('e2e:'.length)]);
   } else if (lane === 'js-unit:all') {
     const args = ['pnpm', 'exec', 'vitest', 'run'];
     if (process.env.VARVE_TEST_WORKERS) args.push('--maxWorkers', process.env.VARVE_TEST_WORKERS);
-    status = cmd(args);
+    status = await cmd(args);
   } else if (lane === 'typecheck:all') {
-    status = cmd(['pnpm', 'typecheck']);
+    status = await cmd(['pnpm', 'typecheck']);
   } else if (lane === 'e2e:all' || lane === 'e2e:visual' || lane === 'website-e2e') {
-    status = runLeasedPlaywright(broadBrowserArgv(lane, browserOptions), lane);
+    status = await runLeasedPlaywright(broadBrowserArgv(lane, browserOptions), lane);
   } else if (lane === 'bench:render' || lane === 'bench:table' || lane === 'bench:table-layout') {
     const benchCmd = {
       'bench:render': 'pnpm bench:canvas',
       'bench:table': 'pnpm bench:table',
       'bench:table-layout': 'pnpm bench:table-layout',
     }[lane];
-    status = shCmd(benchCmd);
+    status = await shCmd(benchCmd);
   } else {
     // Resolve the lane to a real command: dynamic package/crate lanes first
     // (js-unit:<pkg>, typecheck:<pkg>, rust-test:<crate>, rust-clippy:<crate>),
@@ -207,9 +202,9 @@ function runLane(lane) {
       return 1;
     }
     if (isHeavy) {
-      status = cmd(['node', 'scripts/quality/heavy-lease.mjs', lane, '--', 'sh', '-c', base]);
+      status = await cmd(['node', 'scripts/quality/heavy-lease.mjs', lane, '--', 'sh', '-c', base]);
     } else {
-      status = shCmd(base);
+      status = await shCmd(base);
     }
   }
   const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
@@ -217,7 +212,7 @@ function runLane(lane) {
   return status;
 }
 
-function main() {
+async function main() {
   const runStart = Date.now();
   const args = process.argv.slice(2);
   const mode = args[0];
@@ -309,7 +304,7 @@ function main() {
       },
       { label: 'Visual E2E', argv: ['pnpm', 'e2e:visual'] },
     ];
-    const result = runFullGate(
+    const result = await runFullGate(
       [
         ...cheap,
         ...heavy.map(({ label, argv, producesRuntime }) => ({
@@ -318,7 +313,7 @@ function main() {
           argv: ['node', 'scripts/quality/heavy-lease.mjs', label, '--', ...argv],
         })),
       ],
-      { root: ROOT, execute: cmd, resume: args.includes('--resume') },
+      { root: ROOT, execute: commandResult, resume: args.includes('--resume') },
     );
     if (result.status !== 0) {
       if (result.message) console.error(result.message);
@@ -356,7 +351,8 @@ function main() {
   if (mode === 'quick') {
     // Tier 0 + Tier 1 only
     for (const l of execution.lanes) {
-      if (runLane(l) !== 0) process.exit(1);
+      const status = await runLane(l);
+      if (status !== 0) process.exit(status);
     }
   } else if (mode === 'affected' || mode === 'triage') {
     if (mode === 'triage') {
@@ -374,7 +370,8 @@ function main() {
       );
     }
     for (const l of execution.lanes) {
-      if (runLane(l) !== 0) process.exit(1);
+      const status = await runLane(l);
+      if (status !== 0) process.exit(status);
     }
   } else {
     console.error(`verify: unknown mode '${mode}'. Use: quick | triage | affected | full | plan`);
@@ -385,4 +382,4 @@ function main() {
   console.log(`\nTotal: ${tAll.toFixed(1)}s`);
 }
 
-main();
+await main();

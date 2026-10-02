@@ -32,7 +32,7 @@ try {
   git(['commit', '-qm', 'candidate']);
 
   let called = [];
-  const first = runFullGate(lanes, {
+  const first = await runFullGate(lanes, {
     ...options,
     execute: (argv) => {
       called.push(argv[0]);
@@ -43,7 +43,7 @@ try {
   assert.deepEqual(called, ['unit-test', 'browser-test']);
 
   called = [];
-  const resumed = runFullGate(lanes, {
+  const resumed = await runFullGate(lanes, {
     ...options,
     resume: true,
     execute: (argv) => {
@@ -58,6 +58,32 @@ try {
     'only the failed lane is repeated at unchanged inputs',
   );
   assert.equal(resumed.outcomes[0].reused, true);
+
+  let completeLane;
+  const pending = runFullGate(lanes, {
+    ...options,
+    execute: () =>
+      new Promise((resolve) => {
+        completeLane = resolve;
+      }),
+  });
+  assert.equal(typeof completeLane, 'function', 'the async lane is actually executing');
+  completeLane({ status: 143, signal: 'SIGTERM' });
+  const cancelled = await pending;
+  assert.equal(cancelled.status, 143, 'signal status must not become generic failure or success');
+  assert.equal(cancelled.outcomes[0].signal, 'SIGTERM');
+  assert.equal(JSON.parse(readFileSync(cancelled.operationPath, 'utf8')).status, 'cancelled');
+  assert.equal(cancelled.outcomes.length, 1, 'no next lane starts after cancellation');
+  called = [];
+  await runFullGate(lanes, {
+    ...options,
+    resume: true,
+    execute: async (argv) => {
+      called.push(argv[0]);
+      return 0;
+    },
+  });
+  assert.deepEqual(called, ['unit-test'], 'a cancelled lane cannot reuse a green receipt');
 
   const receiptDir = join(root, '.git/varve-validation/full-gate-receipts');
   const receiptPath = readdirSync(receiptDir).map((name) => join(receiptDir, name))[0];
@@ -75,9 +101,9 @@ try {
   );
 
   // A new fresh attempt supersedes old green evidence, even if it fails.
-  runFullGate(lanes, { ...options, execute: () => 1 });
+  await runFullGate(lanes, { ...options, execute: () => 1 });
   called = [];
-  runFullGate(lanes, {
+  await runFullGate(lanes, {
     ...options,
     resume: true,
     execute: (argv) => {
@@ -89,7 +115,7 @@ try {
 
   // A process interruption leaves a running lane, which cannot be resumed as
   // green; the earlier green evidence has already been invalidated.
-  assert.throws(
+  await assert.rejects(
     () =>
       runFullGate(lanes, {
         ...options,
@@ -100,7 +126,7 @@ try {
     /interrupted/,
   );
   called = [];
-  runFullGate(lanes, {
+  await runFullGate(lanes, {
     ...options,
     resume: true,
     execute: (argv) => {
@@ -110,9 +136,9 @@ try {
   });
   assert.deepEqual(called, ['unit-test']);
 
-  const assertBothRun = (overrides = {}) => {
+  const assertBothRun = async (overrides = {}) => {
     called = [];
-    const result = runFullGate(lanes, {
+    const result = await runFullGate(lanes, {
       ...options,
       resume: true,
       ...overrides,
@@ -124,26 +150,26 @@ try {
     assert.equal(result.status, 0);
     assert.deepEqual(called, ['unit-test', 'browser-test']);
   };
-  assertBothRun({ tools: { node: 'different', playwright: 'fixture' } });
-  assertBothRun({ environment: { ...options.environment, FIXTURE: 'changed' } });
+  await assertBothRun({ tools: { node: 'different', playwright: 'fixture' } });
+  await assertBothRun({ environment: { ...options.environment, FIXTURE: 'changed' } });
 
   mkdirSync(join(root, 'node_modules/.pnpm'), { recursive: true });
   writeFileSync(join(root, 'node_modules/.pnpm/lock.yaml'), 'different installed dependency graph');
-  assertBothRun();
+  await assertBothRun();
   mkdirSync(join(root, 'apps/desktop/public/wasm'), { recursive: true });
   writeFileSync(join(root, 'apps/desktop/public/wasm/varve.wasm'), 'wasm bytes');
-  assertBothRun();
+  await assertBothRun();
   writeFileSync(join(root, 'apps/desktop/public/wasm/varve.wasm'), 'new wasm bytes');
-  assertBothRun();
+  await assertBothRun();
 
   writeFileSync(join(root, 'source.js'), 'export const value = 2;\n');
-  assertBothRun(); // dirty trees never reuse clean-source passes
+  await assertBothRun(); // dirty trees never reuse clean-source passes
   git(['add', 'source.js']);
   git(['commit', '-qm', 'new candidate']);
-  assertBothRun(); // a different exact candidate SHA never aliases the old one
+  await assertBothRun(); // a different exact candidate SHA never aliases the old one
 
   currentTime += 7 * 60 * 60 * 1000;
-  assertBothRun();
+  await assertBothRun();
   const buildLanes = [
     { label: 'wasm', argv: ['wasm-build'], producesRuntime: true },
     { label: 'browser', argv: ['browser-test'] },
@@ -156,9 +182,9 @@ try {
       return 0;
     },
   };
-  assert.equal(runFullGate(buildLanes, buildOptions).status, 0);
+  assert.equal((await runFullGate(buildLanes, buildOptions)).status, 0);
   called = [];
-  const buildResume = runFullGate(buildLanes, {
+  const buildResume = await runFullGate(buildLanes, {
     ...options,
     resume: true,
     execute: (argv) => {
@@ -172,7 +198,7 @@ try {
     [],
     'a production WASM build records its resulting bytes for later resume',
   );
-  const changedRuntime = runFullGate(lanes, {
+  const changedRuntime = await runFullGate(lanes, {
     ...options,
     execute: () => {
       writeFileSync(join(root, 'apps/desktop/public/wasm/varve.wasm'), 'unexpected change');
@@ -181,7 +207,7 @@ try {
   });
   assert.equal(changedRuntime.status, 1);
   assert.match(changedRuntime.message, /runtime inputs changed/);
-  const changedWhileRunning = runFullGate(lanes, {
+  const changedWhileRunning = await runFullGate(lanes, {
     ...options,
     execute: () => {
       writeFileSync(join(root, 'source.js'), 'changed mid-run');

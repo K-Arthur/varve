@@ -31,11 +31,19 @@
  * for hours, so wall-clock age alone never makes an active owner stale.
  */
 
-import { execSync, spawn } from 'node:child_process';
+import { execSync, spawn, spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
-import { freemem, homedir, platform, tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs';
+import { constants, freemem, homedir, platform, tmpdir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const MAX_WAIT_MS = Number(process.env.VARVE_LEASE_TIMEOUT ?? 600000);
 // Below this, a freshly-launched Chromium (~300-500MB RSS to first paint)
@@ -67,23 +75,37 @@ function memAvailableMB() {
 async function waitForMemoryHeadroom(label) {
   const deadline = Date.now() + MAX_WAIT_MS;
   let warned = false;
-  while (Date.now() < deadline) {
-    const availableMB = memAvailableMB();
-    if (availableMB >= MIN_MEM_MB) {
-      if (warned) console.log(`heavy-lease: memory recovered (${availableMB}MB available)`);
-      return;
+  let cancelled = null;
+  const listeners = ['SIGINT', 'SIGTERM', 'SIGHUP'].map((signal) => {
+    const listener = () => {
+      cancelled ??= signal;
+    };
+    process.on(signal, listener);
+    return [signal, listener];
+  });
+  try {
+    while (Date.now() < deadline && !cancelled) {
+      const availableMB = memAvailableMB();
+      if (availableMB >= MIN_MEM_MB) {
+        if (warned) console.log(`heavy-lease: memory recovered (${availableMB}MB available)`);
+        return;
+      }
+      if (!warned) {
+        console.warn(
+          `heavy-lease: ${availableMB}MB available, below the ${MIN_MEM_MB}MB floor for ${label} — waiting rather than risk an OOM kill or a browser crash mid-run.`,
+        );
+        warned = true;
+      }
+      const wake = Math.min(deadline, Date.now() + MEM_POLL_MS);
+      while (!cancelled && Date.now() < wake) await pause(Math.min(25, wake - Date.now()));
     }
-    if (!warned) {
-      console.warn(
-        `heavy-lease: ${availableMB}MB available, below the ${MIN_MEM_MB}MB floor for ${label} — waiting rather than risk an OOM kill or a browser crash mid-run.`,
-      );
-      warned = true;
-    }
-    await new Promise((r) => setTimeout(r, MEM_POLL_MS));
+    const message = cancelled
+      ? `heavy-lease: cancelled by ${cancelled} while waiting for memory; command not launched`
+      : `heavy-lease: memory still under ${MIN_MEM_MB}MB after ${MAX_WAIT_MS / 1000}s; command not launched (deadline reached)`;
+    throw Object.assign(new Error(message), { exitCode: cancelled ? signalStatus(cancelled) : 1 });
+  } finally {
+    for (const [signal, listener] of listeners) process.off(signal, listener);
   }
-  console.error(
-    `heavy-lease: memory still under ${MIN_MEM_MB}MB after ${MAX_WAIT_MS / 1000}s — proceeding anyway (deadline reached). Consider closing other applications, or set VARVE_LEASE_MIN_MEM_MB lower if this is a low-memory machine by design.`,
-  );
 }
 
 function commonGitDir() {
@@ -103,7 +125,13 @@ function lockPath() {
 
 function readLease(path) {
   try {
-    return JSON.parse(readFileSync(path, 'utf-8'));
+    const record = JSON.parse(readFileSync(path, 'utf-8'));
+    return record &&
+      typeof record === 'object' &&
+      Number.isSafeInteger(record.pid) &&
+      record.pid > 0
+      ? record
+      : null;
   } catch {
     return null;
   }
@@ -118,42 +146,79 @@ function pidAlive(pid) {
   }
 }
 
+function hasLiveLeaseOwner(lease) {
+  if (lease.cleanupUnknown)
+    throw new Error(
+      'heavy-lease: previous command tree cleanup is unverified; refusing to reclaim its lease',
+    );
+  return (
+    pidAlive(lease.pid) ||
+    (lease.cleanupRemaining ?? []).some((item) => {
+      if (item.identity === null) return pidAlive(item.pid);
+      const current = processInfo(item.pid);
+      return current && !current.zombie && current.identity === item.identity;
+    })
+  );
+}
+
+function acquireTransaction(path, label) {
+  const mutex = `${path}.acquire`;
+  try {
+    writeFileSync(mutex, JSON.stringify({ pid: process.pid }), { flag: 'wx' });
+  } catch (error) {
+    if (error.code !== 'EEXIST') throw error;
+    const owner = readLease(mutex);
+    if (!owner) return { waiting: { pid: 'unknown', label: 'incomplete acquisition metadata' } };
+    if (!pidAlive(owner.pid))
+      throw new Error(
+        `heavy-lease: acquisition mutex has an unknown or stopped owner; refusing to overwrite ${mutex}`,
+      );
+    return { waiting: owner };
+  }
+  try {
+    const lease = readLease(path);
+    if ((!lease || typeof lease.leaseId !== 'string' || !lease.leaseId) && existsSync(path))
+      throw new Error(
+        `heavy-lease: invalid lease metadata; refusing to delete an unknown owner at ${path}`,
+      );
+    if (lease && hasLiveLeaseOwner(lease)) return { waiting: lease };
+    if (lease) {
+      console.warn(`heavy-lease: reclaiming stale lease (${JSON.stringify(lease)})`);
+      // All acquirers hold this short mutex while reading/reclaiming/creating.
+      // A second stale reader cannot unlink a newly acquired replacement.
+      unlinkSync(path);
+    }
+    const me = {
+      pid: process.pid,
+      leaseId: randomUUID(),
+      label,
+      startedAt: Date.now(),
+      hostname: homedir(),
+      tool: 'varve-verify',
+    };
+    writeFileSync(path, JSON.stringify(me, null, 2), { flag: 'wx' });
+    return { acquired: me };
+  } finally {
+    // No contender reclaims acquisition mutexes. Its creating process alone
+    // unlinks it; a crash fails closed rather than racing another owner.
+    unlinkSync(mutex);
+  }
+}
+
 async function acquire(label) {
   const path = lockPath();
   mkdirSync(dirname(path), { recursive: true });
   const deadline = Date.now() + MAX_WAIT_MS;
   while (Date.now() < deadline) {
-    const lease = readLease(path);
-    if (!lease) {
-      const me = {
-        pid: process.pid,
-        leaseId: randomUUID(),
-        label,
-        startedAt: Date.now(),
-        hostname: homedir(),
-        tool: 'varve-verify',
-      };
-      try {
-        writeFileSync(path, JSON.stringify(me, null, 2));
-        return me;
-      } catch {
-        /* lost the race; loop */
-      }
-    } else {
-      if (!pidAlive(lease.pid)) {
-        console.warn(`heavy-lease: reclaiming stale lease (${JSON.stringify(lease)})`);
-        try {
-          unlinkSync(path);
-        } catch {
-          /* another agent reclaimed; loop */
-        }
-        continue;
-      }
-      console.log(
-        `heavy-lease: waiting for ${lease.label} (pid ${lease.pid}, started ${new Date(lease.startedAt).toISOString()})...`,
-      );
-      await new Promise((r) => setTimeout(r, 5000));
-    }
+    const result = acquireTransaction(path, label);
+    if (result.acquired) return result.acquired;
+    const lease = result.waiting;
+    console.log(
+      `heavy-lease: waiting for ${lease.label ?? 'acquisition transaction'} (pid ${lease.pid}, started ${lease.startedAt ? new Date(lease.startedAt).toISOString() : 'just now'})...`,
+    );
+    await new Promise((resolve) =>
+      setTimeout(resolve, Math.min(5000, Math.max(1, deadline - Date.now()))),
+    );
   }
   console.error(`heavy-lease: deadline reached after ${MAX_WAIT_MS / 1000}s`);
   process.exit(1);
@@ -169,51 +234,308 @@ function release(path, leaseId) {
   }
 }
 
+// Linux identities use kernel start ticks, so a recycled PID cannot become
+// an owned descendant. Other POSIX hosts use ps start time; Windows delegates
+// its live command tree to taskkill /T and does not claim POSIX group support.
+function processInfo(pid) {
+  try {
+    if (process.platform === 'linux') {
+      const stat = readFileSync(`/proc/${pid}/stat`, 'utf8');
+      const fields = stat
+        .slice(stat.lastIndexOf(')') + 2)
+        .trim()
+        .split(/\s+/);
+      return { pid, identity: fields[19], parent: Number(fields[1]), zombie: fields[0] === 'Z' };
+    }
+    const text = spawnSync('ps', ['-p', String(pid), '-o', 'ppid=,lstart=,stat='], {
+      encoding: 'utf8',
+      timeout: 1000,
+    }).stdout?.trim();
+    const match = text?.match(/^(\d+)\s+(.+?)\s+(\S+)$/);
+    return match
+      ? { pid, parent: Number(match[1]), identity: match[2], zombie: match[3].startsWith('Z') }
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function childPids(pid) {
+  if (process.platform === 'linux') {
+    try {
+      return readdirSync(`/proc/${pid}/task`).flatMap((tid) => {
+        try {
+          return readFileSync(`/proc/${pid}/task/${tid}/children`, 'utf8')
+            .trim()
+            .split(/\s+/)
+            .filter(Boolean)
+            .map(Number);
+        } catch {
+          return [];
+        }
+      });
+    } catch {
+      return [];
+    }
+  }
+  const text =
+    spawnSync('ps', ['-eo', 'pid=,ppid='], { encoding: 'utf8', timeout: 1000 }).stdout ?? '';
+  return text
+    .trim()
+    .split('\n')
+    .flatMap((line) => {
+      const [child, parent] = line.trim().split(/\s+/).map(Number);
+      return parent === pid ? [child] : [];
+    });
+}
+
+function ownedProcesses(rootPid) {
+  const known = new Map();
+  const refresh = () => {
+    const visited = new Set();
+    const visit = (pid, depth) => {
+      if (visited.has(pid)) return;
+      visited.add(pid);
+      const current = processInfo(pid);
+      if (
+        !current ||
+        current.zombie ||
+        (known.has(pid) && known.get(pid).identity !== current.identity)
+      )
+        return;
+      known.set(pid, { ...current, depth });
+      for (const child of childPids(pid)) visit(child, depth + 1);
+    };
+    visit(rootPid, 0);
+    // Remember detached descendants after an intermediate parent exits.
+    for (const old of [...known.values()]) visit(old.pid, old.depth);
+    return [...known.values()].filter((old) => {
+      const current = processInfo(old.pid);
+      return current && !current.zombie && current.identity === old.identity;
+    });
+  };
+  return refresh;
+}
+
+const signalStatus = (signal) =>
+  signal && constants.signals[signal] ? 128 + constants.signals[signal] : 1;
+const pause = (ms) => new Promise((done) => setTimeout(done, ms));
+
+async function killWindowsTree(pid, graceMs) {
+  return new Promise((resolve) => {
+    const killer = spawn('taskkill.exe', ['/PID', String(pid), '/T', '/F'], {
+      stdio: 'ignore',
+      windowsHide: true,
+    });
+    const timer = setTimeout(() => {
+      killer.kill();
+      resolve(false);
+    }, graceMs);
+    killer.once('error', () => {
+      clearTimeout(timer);
+      resolve(false);
+    });
+    killer.once('exit', (code) => {
+      clearTimeout(timer);
+      resolve(code === 0);
+    });
+  });
+}
+
+async function forceOwnedLeaves(refresh, deadline) {
+  for (const item of refresh().sort((a, b) => b.depth - a.depth)) {
+    if (refresh().some((other) => other.depth > item.depth)) continue;
+    const current = processInfo(item.pid);
+    if (!current || current.identity !== item.identity || current.zombie) continue;
+    try {
+      process.kill(item.pid, 'SIGKILL');
+    } catch (error) {
+      if (error.code !== 'ESRCH') console.error(`validation cleanup: ${error.message}`);
+    }
+    while (Date.now() < deadline && refresh().some((live) => live.pid === item.pid))
+      await pause(10);
+  }
+}
+
+async function stopCommandTree(child, refresh, ended, signal, { windows, graceMs, windowsKill }) {
+  let cleanupUnknown = false;
+  if (windows && child.pid && !ended()) {
+    try {
+      cleanupUnknown = !(await windowsKill(child.pid, graceMs));
+    } catch {
+      cleanupUnknown = true;
+    }
+    if (cleanupUnknown) {
+      try {
+        child.kill(signal);
+      } catch {}
+    }
+  } else {
+    for (const item of refresh().sort((a, b) => b.depth - a.depth)) {
+      const current = processInfo(item.pid);
+      if (!current || current.zombie || current.identity !== item.identity) continue;
+      try {
+        process.kill(item.pid, signal);
+      } catch (error) {
+        if (error.code !== 'ESRCH') console.error(`validation cleanup: ${error.message}`);
+      }
+    }
+  }
+  const graceDeadline = Date.now() + graceMs;
+  while (Date.now() < graceDeadline && (!ended() || refresh().length)) await pause(10);
+  const killDeadline = Date.now() + graceMs;
+  if (!windows) await forceOwnedLeaves(refresh, killDeadline);
+  while (!ended() && Date.now() < killDeadline) await pause(10);
+  const remaining = refresh();
+  if (windows && !ended() && child.pid)
+    remaining.push({ pid: child.pid, identity: null, depth: 0 });
+  return { remaining, cleanupUnknown };
+}
+
+/** Run only this command's descendants; cancellation never scans by name or
+ * kills the invoking terminal's process group. Resolve after bounded cleanup,
+ * with surviving identities reported so a lease cannot be released early. */
+export async function runValidationCommand(argv, options = {}) {
+  const {
+    graceMs = 1500,
+    platform: targetPlatform = process.platform,
+    windowsKill = killWindowsTree,
+    ...spawnOptions
+  } = options;
+  const windows = targetPlatform === 'win32';
+  let child;
+  try {
+    child = spawn(argv[0], argv.slice(1), {
+      stdio: 'inherit',
+      shell: false,
+      ...spawnOptions,
+      detached: !windows,
+    });
+  } catch (error) {
+    console.error(`validation: failed to spawn ${argv[0]}: ${error.message}`);
+    return { status: 1, signal: null, remaining: [], cleanupUnknown: false };
+  }
+  let ended = false;
+  let code = null;
+  let childSignal = null;
+  let receivedSignal = null;
+  let spawnError = null;
+  const refresh = windows || !child.pid ? () => [] : ownedProcesses(child.pid);
+  const listeners = ['SIGINT', 'SIGTERM', 'SIGHUP'].map((signal) => {
+    const listener = () => {
+      receivedSignal ??= signal;
+    };
+    process.on(signal, listener);
+    return [signal, listener];
+  });
+  child.once('exit', (status, signal) => {
+    ended = true;
+    code = status;
+    childSignal = signal;
+  });
+  child.once('error', (error) => {
+    ended = true;
+    spawnError = error;
+  });
+  try {
+    refresh();
+    let lastRefresh = Date.now();
+    while (!ended && !receivedSignal) {
+      await pause(25);
+      if (Date.now() - lastRefresh >= 250) {
+        refresh();
+        lastRefresh = Date.now();
+      }
+    }
+    let remaining = refresh();
+    const orphaned = ended && remaining.length > 0;
+    let cleanupUnknown = false;
+    if (receivedSignal || orphaned) {
+      const result = await stopCommandTree(
+        child,
+        refresh,
+        () => ended,
+        receivedSignal ?? 'SIGTERM',
+        { windows, graceMs, windowsKill },
+      );
+      remaining = result.remaining;
+      cleanupUnknown = result.cleanupUnknown;
+    }
+
+    if (receivedSignal)
+      console.error(
+        `validation: cancelled by ${receivedSignal}; owned-process cleanup ${remaining.length || cleanupUnknown ? 'incomplete' : 'completed'}`,
+      );
+    if (spawnError) console.error(`validation: failed to spawn ${argv[0]}: ${spawnError.message}`);
+    if (cleanupUnknown)
+      console.error('validation: Windows command tree cleanup is unverified; retaining the lease');
+    if (remaining.length)
+      console.error(`validation: cleanup incomplete; ${remaining.length} owned process(es) remain`);
+    // If bounded cleanup cannot finish, report the live owner and let the
+    // supervising CLI exit with its failure evidence rather than hang forever.
+    // The lease retains these identities (or unknown Windows tree state).
+    if (!ended && (remaining.length || cleanupUnknown)) child.unref();
+    return {
+      status: receivedSignal
+        ? signalStatus(receivedSignal)
+        : spawnError || orphaned || remaining.length || cleanupUnknown
+          ? 1
+          : (code ?? signalStatus(childSignal)),
+      signal: receivedSignal ?? childSignal,
+      remaining,
+      cleanupUnknown,
+    };
+  } finally {
+    for (const [signal, listener] of listeners) process.off(signal, listener);
+  }
+}
+
+function retainOrRelease(path, leaseId, remaining, cleanupUnknown) {
+  if (!remaining.length && !cleanupUnknown) return release(path, leaseId);
+  const lease = readLease(path);
+  if (lease?.leaseId === leaseId)
+    writeFileSync(
+      path,
+      JSON.stringify({ ...lease, cleanupRemaining: remaining, cleanupUnknown }, null, 2),
+    );
+}
+
 async function main() {
   const args = process.argv.slice(2);
   const dashIdx = args.indexOf('--');
-
-  if (process.env.VARVE_HEAVY_TASK_PARALLELISM === '0') {
-    if (dashIdx === -1) {
+  const optOut = process.env.VARVE_HEAVY_TASK_PARALLELISM === '0';
+  if (dashIdx === -1) {
+    if (optOut) {
       console.log(
         `heavy-lease: parallelism opt-out, not acquiring lease for ${args[0] ?? 'unknown'}`,
       );
       return;
     }
-    const rest = args.slice(dashIdx + 1);
-    if (!rest.length) return;
-    const child = spawn(rest[0], rest.slice(1), { stdio: 'inherit', shell: false });
-    child.on('exit', (code) => process.exit(code ?? 1));
-    child.on('error', (err) => {
-      console.error(`heavy-lease: failed to spawn ${rest[0]}: ${err.message}`);
-      process.exit(1);
-    });
-    return;
-  }
-
-  if (dashIdx === -1) {
-    // pure label: acquire + release immediately (lease smoke test)
     const lease = await acquire(args[0] ?? 'unknown');
     release(lockPath(), lease.leaseId);
     return;
   }
-
   const label = args.slice(0, dashIdx).join(' ');
   const rest = args.slice(dashIdx + 1);
-  const lease = await acquire(label);
-  // Re-check right before spawning: the lease wait above may have taken a
-  // while, and memory pressure is independent of who holds the lease.
-  await waitForMemoryHeadroom(label);
-  const child = spawn(rest[0], rest.slice(1), { stdio: 'inherit', shell: false });
-  child.on('exit', (code) => {
-    release(lockPath(), lease.leaseId);
-    process.exit(code ?? 1);
-  });
-  child.on('error', (err) => {
-    console.error(`heavy-lease: failed to spawn ${rest[0]}: ${err.message}`);
-    release(lockPath(), lease.leaseId);
-    process.exit(1);
-  });
+  if (!rest.length) {
+    console.error('heavy-lease: missing command after --');
+    process.exitCode = 2;
+    return;
+  }
+  const lease = optOut ? null : await acquire(label);
+  if (lease) {
+    try {
+      await waitForMemoryHeadroom(label);
+    } catch (error) {
+      release(lockPath(), lease.leaseId);
+      console.error(error.message);
+      process.exitCode = error.exitCode ?? 1;
+      return;
+    }
+  }
+  const result = await runValidationCommand(rest);
+  if (lease) retainOrRelease(lockPath(), lease.leaseId, result.remaining, result.cleanupUnknown);
+  process.exitCode = result.status;
 }
 
-main();
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) await main();

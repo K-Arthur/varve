@@ -79,6 +79,26 @@ commit rather than another attempt of the old run.
    The install-action update changes tool manifests unused by Varve's pinned
    tools and remains deferred. Neither update was identified as a security
    advisory fix; this is a reviewed setup reliability improvement.
+8. **Cancelled local validation leaving expensive processes alive.** Stopping
+   one affected run left its detached Editor Vitest descendants running for
+   eleven minutes. Their output descriptors identified the stopped run;
+   cleanup was limited to that process tree. The synchronous command runner
+   blocked JavaScript signal handling, consistent with the
+   [Node child-process contract](https://nodejs.org/api/child_process.html).
+   Replace it with asynchronous execution that tracks only owned process
+   identities, terminates descendants within a bounded grace period, and
+   preserves cancellation status. Keep the lease while cleanup is incomplete.
+   Full-gate journals distinguish cancellation from a completed failure;
+   interrupted lanes cannot reuse an earlier passing receipt.
+9. **Concurrent admission and unsafe memory recovery.** The local lease used
+   a read-then-write sequence without exclusive creation. Exclusive creation
+   alone still leaves a race when two contenders reclaim the same dead owner.
+   Serialize the whole read/reclaim/create transaction, retain owner identity
+   on release, and refuse malformed or ambiguous ownership metadata. Real
+   parallel free-lease and stale-lease fixtures reproduce both previous races.
+   A memory deadline must report failure rather than launch a browser below
+   the configured floor; the documented explicit parallelism opt-out remains
+   available. These local controls complement remote attempt-bound receipts.
 
 ## Validation evidence and boundaries
 
@@ -101,6 +121,13 @@ commit rather than another attempt of the old run.
   absent failure evidence falls back to the impact planner rather than a
   broad test suite. Assertions and screenshot failures take precedence over
   incidental download words in their context.
+- Local cancellation tests launch real detached grandchildren and an unrelated
+  sentinel, check that cancellation stops the owned tree while preserving the
+  sentinel, and verify that no following validation lane starts. Admission
+  tests run actual concurrent wrapper processes; scheduling barriers reproduce
+  the earlier races without fabricating filesystem results. Windows process
+  cleanup requires separate native certification; injected failure handling
+  does not establish Windows installation or GUI behavior.
 - The verified wasm-pack Linux archive receipt is local diagnostic evidence,
   not a remote CI or cross-platform release certification.
 - Real browser performance validation passed 48 full-redraw pixel oracles

@@ -116,7 +116,7 @@ export function readFullGateReceipt(path, identity, now = Date.now()) {
   }
 }
 
-function writeReceipt(path, identity, outcome, now, durationMs = null) {
+function writeReceipt(path, identity, outcome, now, durationMs = null, termination = {}) {
   const temp = `${path}.${process.pid}.${randomUUID()}.tmp`;
   writeFileSync(
     temp,
@@ -126,6 +126,7 @@ function writeReceipt(path, identity, outcome, now, durationMs = null) {
         identity,
         outcome,
         durationMs,
+        ...termination,
         recordedAt: new Date(now).toISOString(),
         note: 'Local full-gate receipt only; not integration, candidate, signing or release evidence.',
       },
@@ -137,7 +138,7 @@ function writeReceipt(path, identity, outcome, now, durationMs = null) {
   renameSync(temp, path);
 }
 
-export function runFullGate(
+export async function runFullGate(
   lanes,
   {
     root = process.cwd(),
@@ -168,7 +169,7 @@ export function runFullGate(
   const outcomes = [];
   const finish = (status, message = null) => {
     finishOperation(operation.path, {
-      status: status === 0 ? 'completed' : 'failed',
+      status: status === 0 ? 'completed' : outcomes.at(-1)?.signal ? 'cancelled' : 'failed',
       exitCode: status,
       result: { outcomes, message, commitSha: initialSource.commitSha, policyHash },
       now: now(),
@@ -201,14 +202,24 @@ export function runFullGate(
     // interruption of the same inputs must not leave a reusable earlier pass.
     if (initialSource.clean) writeReceipt(path, identity, 'running', started);
     let status;
+    let signal = null;
     try {
-      status = execute(lane.argv);
+      const result = await execute(lane.argv);
+      status = typeof result === 'number' ? result : result.status;
+      signal = typeof result === 'number' ? null : result.signal;
+      if (!Number.isInteger(status) || status < 0 || status > 255)
+        throw new Error('full-gate executor returned an invalid exit status');
     } catch (error) {
       finish(1, error.message);
       throw error;
     }
     const durationMs = now() - started;
-    outcomes.push({ lane: lane.label, status, reused: false, durationMs });
+    outcomes.push({ lane: lane.label, status, signal, reused: false, durationMs });
+    if (signal) {
+      if (initialSource.clean)
+        writeReceipt(path, identity, 'cancelled', now(), durationMs, { exitCode: status, signal });
+      return finish(status, `Lane ${lane.label} ended with ${signal}.`);
+    }
     const after = frozenSource(root);
     if (initialSource.clean && (!after.clean || after.commitSha !== initialSource.commitSha))
       return finish(1, 'Source changed during full gate; no receipt was accepted for this lane.');
@@ -225,9 +236,10 @@ export function runFullGate(
       writeReceipt(
         receiptPath(dir, recordedIdentity),
         recordedIdentity,
-        status === 0 ? 'passed' : 'failed',
+        status === 0 ? 'passed' : signal ? 'cancelled' : 'failed',
         now(),
         durationMs,
+        { exitCode: status, signal },
       );
     }
     console.log(

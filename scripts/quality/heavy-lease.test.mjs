@@ -12,6 +12,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { runValidationCommand } from './heavy-lease.mjs';
 
 const SCRIPT = new URL('./heavy-lease.mjs', import.meta.url).pathname;
 
@@ -72,23 +73,93 @@ function waitForExit(child) {
   assert.doesNotMatch(out, /below the 0MB floor/);
 }
 
-// An impossible floor (larger than total system RAM) must still wait, warn
-// exactly once, hit its deadline, and then run the command anyway rather
-// than hang forever or silently skip it.
+// An impossible memory floor fails closed at its deadline: no command starts,
+// the diagnostic survives, and the acquired lease is released safely.
 {
-  const out = run(
-    {
-      VARVE_LEASE_MIN_MEM_MB: '999999999',
-      VARVE_LEASE_TIMEOUT: '3000',
-      VARVE_LEASE_MEM_POLL_MS: '1000',
-    },
-    ['test-deadline', '--', 'node', '-e', 'console.log("ran-after-deadline")'],
-  );
-  assert.match(out, /below the 999999999MB floor for test-deadline/);
-  assert.match(out, /proceeding anyway \(deadline reached\)/);
-  assert.match(out, /ran-after-deadline/);
-  const warnCount = (out.match(/below the 999999999MB floor/g) ?? []).length;
-  assert.equal(warnCount, 1, 'should warn once, not once per poll tick');
+  const runtimeDirectory = mkdtempSync(join(tmpdir(), 'varve-heavy-memory-deadline-'));
+  const marker = join(runtimeDirectory, 'unexpected-command');
+  try {
+    const result = spawnSync(
+      process.execPath,
+      [
+        SCRIPT,
+        'test-deadline',
+        '--',
+        process.execPath,
+        '-e',
+        `require('node:fs').writeFileSync(${JSON.stringify(marker)},'launched')`,
+      ],
+      {
+        encoding: 'utf8',
+        timeout: 2000,
+        env: {
+          ...process.env,
+          XDG_RUNTIME_DIR: runtimeDirectory,
+          VARVE_LEASE_MIN_MEM_MB: '999999999',
+          VARVE_LEASE_TIMEOUT: '80',
+          VARVE_LEASE_MEM_POLL_MS: '20',
+        },
+      },
+    );
+    assert.equal(result.error, undefined);
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /command not launched \(deadline reached\)/);
+    assert.equal((result.stderr.match(/below the 999999999MB floor/g) ?? []).length, 1);
+    assert.equal(existsSync(marker), false);
+    assert.deepEqual(readdirSync(join(runtimeDirectory, 'varve-leases')), []);
+  } finally {
+    rmSync(runtimeDirectory, { recursive: true, force: true });
+  }
+}
+
+// Cancellation during memory admission returns its exact signal exit and
+// releases the lease without ever starting the wrapped command.
+{
+  const runtimeDirectory = mkdtempSync(join(tmpdir(), 'varve-heavy-memory-cancel-'));
+  const marker = join(runtimeDirectory, 'unexpected-command');
+  let owner;
+  try {
+    owner = spawn(
+      process.execPath,
+      [
+        SCRIPT,
+        'memory-cancel',
+        '--',
+        process.execPath,
+        '-e',
+        `require('node:fs').writeFileSync(${JSON.stringify(marker)},'launched')`,
+      ],
+      {
+        stdio: ['ignore', 'pipe', 'pipe'],
+        env: {
+          ...process.env,
+          XDG_RUNTIME_DIR: runtimeDirectory,
+          VARVE_LEASE_MIN_MEM_MB: '999999999',
+          VARVE_LEASE_TIMEOUT: '5000',
+          VARVE_LEASE_MEM_POLL_MS: '1000',
+        },
+      },
+    );
+    const exit = waitForExit(owner);
+    let output = '';
+    owner.stderr.setEncoding('utf8').on('data', (chunk) => {
+      output += chunk;
+    });
+    const record = await waitForLease(runtimeDirectory, 'memory-cancel');
+    const deadline = Date.now() + 2000;
+    while (!output.includes('below the') && Date.now() < deadline)
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    assert.match(output, /below the/);
+    owner.kill('SIGTERM');
+    const result = await exit;
+    assert.equal(result.code, 143);
+    assert.match(output, /cancelled by SIGTERM while waiting for memory; command not launched/);
+    assert.equal(existsSync(marker), false);
+    assert.equal(existsSync(record.path), false);
+  } finally {
+    owner?.kill('SIGKILL');
+    rmSync(runtimeDirectory, { recursive: true, force: true });
+  }
 }
 
 // VARVE_HEAVY_TASK_PARALLELISM=0 bypasses the memory gate entirely, same as
@@ -211,4 +282,139 @@ function waitForExit(child) {
   assert.match(meminfo, /^MemAvailable:\s+\d+\s*kB/m, 'expected Linux /proc/meminfo format');
 }
 
+function activeProcess(pid) {
+  try {
+    const text = readFileSync(`/proc/${pid}/stat`, 'utf8');
+    return text.slice(text.lastIndexOf(')') + 2).split(' ')[0] !== 'Z';
+  } catch {
+    return false;
+  }
+}
+
+async function waitForFile(path) {
+  const deadline = Date.now() + 3000;
+  while (!existsSync(path) && Date.now() < deadline)
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  assert.ok(existsSync(path), `fixture did not become ready: ${path}`);
+}
+
+// Real detached grandchildren model pnpm's separate process groups. A lease
+// stays held through cooperative cleanup; an unrelated sibling is untouched.
+for (const cooperate of [true, false]) {
+  const runtimeDirectory = mkdtempSync(join(tmpdir(), 'varve-heavy-cancel-'));
+  const ready = join(runtimeDirectory, 'ready.json');
+  const signalled = join(runtimeDirectory, 'signalled');
+  const finish = join(runtimeDirectory, 'finish');
+  let owner;
+  let sentinel;
+  let pids;
+  try {
+    const grandchild = `const fs=require('node:fs');process.on('SIGTERM',()=>fs.writeFileSync(process.argv[2],'signal'));fs.writeFileSync(process.argv[1],JSON.stringify({parent:Number(process.argv[4]),grandchild:process.pid}));setInterval(()=>{if(${cooperate}&&fs.existsSync(process.argv[3]))process.exit(0)},5);`;
+    const parent = `const {spawn}=require('node:child_process');process.on('SIGTERM',()=>{});const child=spawn(process.execPath,['-e',${JSON.stringify(grandchild)},...process.argv.slice(1),String(process.pid)],{detached:true,stdio:'ignore'});child.on('exit',()=>process.exit(0));setInterval(()=>{},1000);`;
+    sentinel = spawn(process.execPath, ['-e', 'setInterval(()=>{},1000)'], { stdio: 'ignore' });
+    owner = spawn(
+      process.execPath,
+      [SCRIPT, 'cancel-owned', '--', process.execPath, '-e', parent, ready, signalled, finish],
+      {
+        env: { ...process.env, XDG_RUNTIME_DIR: runtimeDirectory, VARVE_LEASE_MIN_MEM_MB: '0' },
+        stdio: 'ignore',
+      },
+    );
+    const exit = waitForExit(owner);
+    const record = await waitForLease(runtimeDirectory, 'cancel-owned');
+    await waitForFile(ready);
+    pids = JSON.parse(readFileSync(ready, 'utf8'));
+    owner.kill('SIGTERM');
+    await waitForFile(signalled);
+    assert.equal(existsSync(record.path), true, 'lease must remain while a descendant is alive');
+    assert.equal(activeProcess(pids.grandchild), true);
+    assert.equal(activeProcess(sentinel.pid), true, 'unrelated process must remain alive');
+    if (cooperate) writeFileSync(finish, 'release');
+    const result = await Promise.race([
+      exit,
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('bounded cancellation did not finish')), 4000).unref(),
+      ),
+    ]);
+    assert.equal(result.code, 143);
+    assert.equal(result.signal, null, 'wrapper records the signal as an explicit nonzero exit');
+    assert.equal(activeProcess(pids.parent), false);
+    assert.equal(
+      activeProcess(pids.grandchild),
+      false,
+      'detached grandchild may not survive cancellation',
+    );
+    assert.equal(activeProcess(sentinel.pid), true);
+    assert.equal(
+      existsSync(record.path),
+      false,
+      'lease is released only after all owned work stops',
+    );
+  } finally {
+    for (const pid of Object.values(pids ?? {})) {
+      try {
+        process.kill(pid, 'SIGKILL');
+      } catch {}
+    }
+    owner?.kill('SIGKILL');
+    sentinel?.kill('SIGKILL');
+    rmSync(runtimeDirectory, { recursive: true, force: true });
+  }
+}
+
+// Windows contract injection exercises failure and thrown-taskkill paths on
+// this POSIX host. It does not certify native Windows process-tree behavior.
+for (const throws of [false, true]) {
+  const directory = mkdtempSync(join(tmpdir(), 'varve-windows-cleanup-'));
+  const ready = join(directory, 'ready');
+  const receipt = join(directory, 'receipt.json');
+  let ownedPid;
+  try {
+    const source = `import {runValidationCommand} from ${JSON.stringify(new URL('./heavy-lease.mjs', import.meta.url).href)};import fs from 'node:fs';const ready=${JSON.stringify(ready)};const task=runValidationCommand([process.execPath,'-e',"const fs=require('node:fs');process.on('SIGTERM',()=>{});fs.writeFileSync(process.argv[1],String(process.pid));setInterval(()=>{},1000)",ready],{platform:'win32',graceMs:30,windowsKill:async()=>{${throws ? "throw Error('taskkill unavailable')" : 'return false'}}});while(!fs.existsSync(ready))await new Promise(r=>setTimeout(r,5));process.kill(process.pid,'SIGTERM');const result=await task;fs.writeFileSync(${JSON.stringify(receipt)},JSON.stringify(result));process.exitCode=result.status;`;
+    const runner = spawn(process.execPath, ['--input-type=module', '-e', source], {
+      stdio: 'ignore',
+    });
+    const result = await Promise.race([
+      waitForExit(runner),
+      new Promise((_, reject) =>
+        setTimeout(
+          () => reject(new Error('Windows failure contract did not finish')),
+          3000,
+        ).unref(),
+      ),
+    ]);
+    ownedPid = Number(readFileSync(ready, 'utf8'));
+    const evidence = JSON.parse(readFileSync(receipt, 'utf8'));
+    assert.equal(result.code, 143);
+    assert.equal(evidence.cleanupUnknown, true, 'unverified taskkill cannot release the lease');
+    assert.deepEqual(evidence.remaining, [{ pid: ownedPid, identity: null, depth: 0 }]);
+    assert.equal(activeProcess(ownedPid), true, 'the still-live root must be retained as evidence');
+  } finally {
+    if (!ownedPid && existsSync(ready)) ownedPid = Number(readFileSync(ready, 'utf8'));
+    if (ownedPid) {
+      try {
+        process.kill(ownedPid, 'SIGKILL');
+      } catch {}
+    }
+    rmSync(directory, { recursive: true, force: true });
+  }
+}
+
+// Synchronous spawn validation errors and asynchronous ENOENT leave no
+// cancellation listener behind and return a nonzero command result.
+{
+  const before = ['SIGINT', 'SIGTERM', 'SIGHUP'].map((signal) => process.listenerCount(signal));
+  for (const argv of [[null], ['/varve-fixture-missing-command']]) {
+    const result = await runValidationCommand(argv, { stdio: 'ignore' });
+    assert.equal(result.status, 1);
+    assert.deepEqual(result.remaining, []);
+    assert.equal(result.cleanupUnknown, false);
+  }
+  assert.deepEqual(
+    ['SIGINT', 'SIGTERM', 'SIGHUP'].map((signal) => process.listenerCount(signal)),
+    before,
+  );
+}
+
+await import('./heavy-lease-acquisition.test.mjs');
 console.log('heavy-lease.test.mjs: all assertions passed');
