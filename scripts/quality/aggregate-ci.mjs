@@ -5,6 +5,7 @@
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { browserEvidenceErrors, browserLane } from './ci-execution-report.mjs';
 import { CI_CATEGORIES, CI_CATEGORY_LANES } from './validation-policy.mjs';
 
 export const REQUIRED_CI_JOBS = Object.freeze({
@@ -198,6 +199,9 @@ export function validateExecutionEvidence({
         identityErrors.push('workflow repository mismatch');
       if (workflow.runId && String(report?.workflow?.runId) !== String(workflow.runId))
         identityErrors.push('workflow run mismatch');
+      identityErrors.push(
+        ...browserEvidenceErrors(report.playwright, [...expected].filter(browserLane)),
+      );
       if (report?.status !== 'success')
         identityErrors.push(`execution status ${report?.status ?? 'missing'}`);
       if (identityErrors.length) {
@@ -249,6 +253,16 @@ export function validateExecutionEvidence({
         attempt: report.workflow.runAttempt,
       })),
       coveredLanes: [...covered],
+      // Keep the final summary bounded; per-case history remains in producer receipts.
+      browserReports: valid.flatMap((report) =>
+        (report.playwright?.reports ?? []).map((browser) => ({
+          cell: reportKey(report),
+          lane: browser.lane,
+          sha256: browser.sha256,
+          historySha256: browser.historySha256,
+          stats: browser.stats,
+        })),
+      ),
     });
   }
   return { passed: failures.length === 0, failures, evidence, superseded: current.superseded };

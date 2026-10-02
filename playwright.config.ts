@@ -71,6 +71,9 @@ export default defineConfig({
   // both are always on in CI.
   reporter: [
     ['list'],
+    ...(process.env.VARVE_CI_PLAYWRIGHT_REPORT
+      ? [['json', { outputFile: process.env.VARVE_CI_PLAYWRIGHT_REPORT }] as const]
+      : []),
     ...(process.env.CI ? [['github'] as const] : []),
     ['html', { outputFolder: `playwright-report/${outputSuffix}`, open: 'never' }],
   ],
@@ -124,9 +127,7 @@ export default defineConfig({
       use: {
         ...devices['Desktop Chrome'],
         channel: 'chromium',
-        retries: process.env.CI ? 3 : 1,
         launchOptions: {
-          pipe: false,
           ignoreDefaultArgs: ['--no-startup-window'],
           args: [
             '--enable-unsafe-webgpu',
@@ -148,7 +149,6 @@ export default defineConfig({
               deviceScaleFactor: 1,
               channel: 'chromium' as const,
               launchOptions: {
-                pipe: false,
                 ignoreDefaultArgs: ['--no-startup-window'],
                 args: [
                   '--enable-unsafe-webgpu',
@@ -185,7 +185,7 @@ export default defineConfig({
         // Firefox's headless slow-script watchdog on software-rendered CI.
         // Keep the watchdog enabled, but give real pointer workflows enough
         // time to finish. Production performance is covered separately.
-        firefoxUserPrefs: { 'dom.max_script_run_time': 30 },
+        launchOptions: { firefoxUserPrefs: { 'dom.max_script_run_time': 30 } },
       },
     },
     // Safari/WebKit requires macOS for full testing — runs basic smoke tests on Linux

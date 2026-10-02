@@ -93,8 +93,6 @@ async function sectionTitles(page: Page): Promise<string[]> {
 }
 
 test.describe('contextual Inspector order', () => {
-  test.describe.configure({ retries: 1 });
-
   test('puts Typography first for a real selected text layer', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await seedDocument(page);

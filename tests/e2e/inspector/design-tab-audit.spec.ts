@@ -249,8 +249,6 @@ async function collectMetrics(page: Page): Promise<DesignTabMetrics> {
 const NODE_ORDER = ['image', 'text', 'rectangle', 'frame'] as const;
 
 test.describe('Design tab real-world audit', () => {
-  test.describe.configure({ retries: 1 });
-
   test('every Design section expands, scrolls, and keeps its controls legible', async ({
     page,
   }, testInfo) => {
@@ -638,8 +636,6 @@ test.describe('Design tab real-world audit', () => {
 });
 
 test.describe('Design tab follow-up (2026-09-16)', () => {
-  test.describe.configure({ retries: 1 });
-
   test('Selection Colors stays hidden for a single object with one colour', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await seedRealWorldDocument(page);
@@ -766,8 +762,6 @@ test.describe('Design tab follow-up (2026-09-16)', () => {
 const PAINT_EVIDENCE_DIR = 'reports/inspector-review/paint-rows';
 
 test.describe('Design tab paint rows (fill / stroke pass)', () => {
-  test.describe.configure({ retries: 1 });
-
   test('Fill row states its value and changes type through the labelled select', async ({
     page,
   }) => {

@@ -11,9 +11,10 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { copyFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import ts from 'typescript';
 import { candidateNextAction } from './release.mjs';
 import { parseChecksums, selectRelease, verifyReleaseIntegrity } from './verify-release-data.mjs';
 import { incrementVersion } from './version.mjs';
@@ -851,3 +852,49 @@ assert.throws(
 }
 
 process.stdout.write('release-pipeline.test.mjs: all assertions passed\n');
+
+// CLI retry=0 can be overridden by spec-local configuration. Parse real code,
+// not comments, and reject nonzero or dynamic overrides in release-selected specs.
+function retryOverrides(source) {
+  const file = ts.createSourceFile('spec.ts', source, ts.ScriptTarget.Latest, true);
+  const violations = [];
+  const visit = (node) => {
+    if (
+      ts.isPropertyAssignment(node) &&
+      node.name.getText(file).replace(/^['"]|['"]$/g, '') === 'retries'
+    ) {
+      if (!ts.isNumericLiteral(node.initializer) || node.initializer.text !== '0') {
+        const location = file.getLineAndCharacterOfPosition(node.getStart(file));
+        violations.push(location.line + 1);
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(file);
+  return violations;
+}
+assert.equal(retryOverrides('test.describe.configure({ retries: 1 });').length, 1);
+assert.equal(
+  retryOverrides('test.describe.configure({ retries: process.env.CI ? 1 : 0 });').length,
+  1,
+);
+assert.equal(retryOverrides('test.use({ "retries": 2 });').length, 1);
+assert.deepEqual(retryOverrides('// retries: 3\ntest.describe.configure({ retries: 0 });'), []);
+function gateSpecs(directory) {
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(directory, entry.name);
+    return entry.isDirectory()
+      ? gateSpecs(path)
+      : /\.(spec|test)\.[cm]?[jt]sx?$/.test(entry.name)
+        ? [path]
+        : [];
+  });
+}
+for (const path of [...gateSpecs('tests/e2e'), ...gateSpecs('apps/website/tests/e2e')]) {
+  assert.deepEqual(
+    retryOverrides(readFileSync(path, 'utf8')),
+    [],
+    `${path}: positive/dynamic spec retry override bypasses the strict global gate`,
+  );
+}
+console.log('release-selected specs have no positive retry overrides');

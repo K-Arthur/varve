@@ -477,6 +477,10 @@ export function spawnValidationCommandSync(argv, options = {}) {
  * after bounded cleanup, with surviving identities reported so a lease cannot
  * be released early. */
 export async function runValidationCommand(argv, options = {}) {
+  if ('onStdout' in options || 'onStderr' in options)
+    throw new TypeError(
+      'runValidationCommand does not support output callbacks; use stdio streams or file descriptors',
+    );
   const {
     graceMs = 1500,
     timeoutMs,

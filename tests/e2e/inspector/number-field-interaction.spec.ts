@@ -41,18 +41,12 @@ function xField(page: Page): Locator {
 }
 
 function xLabel(page: Page): Locator {
-  return positionSizeGroup(page).locator('label.insp-field__label', { hasText: 'X (px)' });
+  return positionSizeGroup(page).locator('label.insp-field__label', { hasText: /^X$/ });
 }
 
 async function readValue(field: Locator): Promise<number> {
   return Number.parseFloat(await field.inputValue());
 }
-
-// Real-photo imports and model-free imaging work make first navigation
-// expensive; the shared dev-server warm-up occasionally exceeds the 60s
-// canvas wait under concurrent heavy tasks. One retry absorbs that without
-// masking a product failure (the assertions still run on every attempt).
-test.describe.configure({ retries: 1 });
 
 test.describe('Inspector numeric field integrity (real photo)', () => {
   test('wheel over the focused X field steps the value without scrolling the inspector', async ({

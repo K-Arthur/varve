@@ -3,13 +3,19 @@
 /** Execute the concrete lanes selected by the canonical CI plan. */
 
 import { spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { availableParallelism, freemem, totalmem } from 'node:os';
 import { delimiter, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { IMPACT_CONFIG } from '../../validation-impact.config.mjs';
 import { loadPackages } from './affected-plan.mjs';
-import { createExecutionReport, writeExecutionReport } from './ci-execution-report.mjs';
+import {
+  browserEvidenceErrors,
+  browserLane,
+  collectBrowserEvidence,
+  createExecutionReport,
+  writeExecutionReport,
+} from './ci-execution-report.mjs';
 import { validateCiPlan } from './ci-plan.mjs';
 import { playwrightRunOptions } from './execution-plan.mjs';
 import { spawnValidationCommandSync } from './heavy-lease.mjs';
@@ -151,41 +157,61 @@ export function commandsForCategory(plan, category, { shard = null } = {}) {
 export function runCategory(
   plan,
   category,
-  { execute = runCommand, shard = null, dryRun = false } = {},
+  { execute = runCommand, shard = null, dryRun = false, browserReportDir = null } = {},
 ) {
-  return runCategoryDetailed(plan, category, { execute, shard, dryRun }).status;
+  return runCategoryDetailed(plan, category, { execute, shard, dryRun, browserReportDir }).status;
 }
 
 export function runCategoryDetailed(
   plan,
   category,
-  { execute = runCommand, shard = null, dryRun = false } = {},
+  { execute = runCommand, shard = null, dryRun = false, browserReportDir = null } = {},
 ) {
   const outcomes = [];
+  const browserReports = [];
+  let browserEvidence = collectBrowserEvidence([]);
   for (const { lane, argv } of commandsForCategory(plan, category, { shard })) {
     console.log(`CI ${category}: ${lane}`);
     const startedAt = Date.now();
-    const status = execute(argv, { dryRun, timeoutMs: 45 * 60 * 1000 });
-    const code = typeof status === 'number' ? status : (status?.status ?? 1);
+    const browserReportPath =
+      browserReportDir && browserLane(lane)
+        ? join(browserReportDir, `${process.pid}-${category}-${outcomes.length}.json`)
+        : null;
+    if (browserReportPath) {
+      mkdirSync(browserReportDir, { recursive: true });
+      if (existsSync(browserReportPath)) throw new Error('browser report output already exists');
+      browserReports.push({ lane, path: browserReportPath });
+    }
+    const status = execute(argv, { dryRun, browserReportPath, timeoutMs: 45 * 60 * 1000 });
+    let code = typeof status === 'number' ? status : (status?.status ?? 1);
+    if (browserReportPath) {
+      browserEvidence = collectBrowserEvidence(browserReports, { root: ROOT });
+      if (browserEvidenceErrors(browserEvidence, [lane]).length) code = code || 1;
+    }
     outcomes.push({
       lane,
       argv,
       status: code === 0 ? 'success' : 'failure',
-      exitCode: typeof status === 'number' ? code : (status?.status ?? code),
+      exitCode: typeof status === 'number' ? status : (status?.status ?? code),
       signal: typeof status === 'number' ? null : (status?.signal ?? null),
       timedOut: typeof status === 'number' ? false : status?.timedOut === true,
       durationMs: Date.now() - startedAt,
     });
-    if (code !== 0) return { status: code, outcomes };
+    if (code !== 0) return { status: code, outcomes, browserEvidence };
   }
-  return { status: 0, outcomes };
+  return { status: 0, outcomes, browserEvidence };
 }
 
-function runCommand(argv, { dryRun = false, timeoutMs = 45 * 60 * 1000 } = {}) {
+function runCommand(
+  argv,
+  { dryRun = false, browserReportPath = null, timeoutMs = 45 * 60 * 1000 } = {},
+) {
   console.log(`    $ ${describe(argv)}`);
   if (dryRun) return 0;
+  const environment = commandEnvironment();
+  if (browserReportPath) environment.env.VARVE_CI_PLAYWRIGHT_REPORT = browserReportPath;
   const result = spawnValidationCommandSync(argv, {
-    ...commandEnvironment(),
+    ...environment,
     stdio: 'inherit',
     timeout: timeoutMs,
   });
@@ -222,6 +248,12 @@ function main() {
   const result = runCategoryDetailed(plan, flags.category, {
     shard: flags.shard,
     dryRun: flags.dryRun,
+    browserReportDir: flags.dryRun
+      ? null
+      : join(
+          'test-results',
+          `ci-browser-${process.env.GITHUB_RUN_ID ?? 'local'}-${process.env.GITHUB_RUN_ATTEMPT ?? '1'}`,
+        ),
   });
   if (flags.report) {
     const report = createExecutionReport({
@@ -230,6 +262,7 @@ function main() {
       profile: flags.profile,
       status: result.status === 0 ? 'success' : 'failure',
       laneOutcomes: result.outcomes,
+      browserEvidence: result.browserEvidence,
       shard: flags.shard,
       matrix: flags.matrix,
       durationMs: Date.now() - startedAt,

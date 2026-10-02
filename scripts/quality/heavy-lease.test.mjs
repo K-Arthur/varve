@@ -589,3 +589,31 @@ if (process.platform !== 'win32') {
   assert.equal(calls, 0, 'a nonexistent root cannot truthfully certify its descendants');
 }
 console.log('capture server descendant drain regressions passed');
+
+// An unsupported output callback used to be silently passed to spawn, losing
+// durable progress logs. Refuse it before launching any command.
+{
+  const directory = mkdtempSync(join(tmpdir(), 'varve-output-contract-'));
+  const marker = join(directory, 'must-not-launch');
+  try {
+    for (const key of ['onStdout', 'onStderr']) {
+      await assert.rejects(
+        runValidationCommand(
+          [
+            process.execPath,
+            '-e',
+            `require('node:fs').writeFileSync(${JSON.stringify(marker)},'launched')`,
+          ],
+          {
+            [key]: () => {},
+          },
+        ),
+        /does not support output callbacks; use stdio/,
+      );
+      assert.equal(existsSync(marker), false, 'unsupported capture must fail before launch');
+    }
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+}
+console.log('output capture contract regressions passed');

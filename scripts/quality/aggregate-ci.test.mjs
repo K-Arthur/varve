@@ -3,6 +3,7 @@
 /** Stable-check and canonical category consumer regression tests. */
 
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { load } from 'js-yaml';
 import {
@@ -202,9 +203,39 @@ assert.equal(
   false,
   'every platform must execute its promised lanes independently',
 );
+const browserCases = [
+  {
+    caseId: 'd'.repeat(64),
+    status: 'expected',
+    expectedStatus: 'passed',
+    attempts: [{ retry: 0, status: 'passed' }],
+  },
+];
+const browserEvidence = {
+  schema: 1,
+  errors: [],
+  reports: [
+    {
+      lane: 'e2e:all',
+      sha256: 'c'.repeat(64),
+      historySha256: createHash('sha256').update(JSON.stringify(browserCases)).digest('hex'),
+      stats: { expected: 1, unexpected: 0, flaky: 0, skipped: 0 },
+      runner: {
+        workers: 1,
+        updateSnapshots: 'none',
+        failOnFlakyTests: true,
+        trace: 'retain-on-failure',
+        projects: [{ retries: 0 }],
+      },
+      globalErrorCount: 0,
+      cases: browserCases,
+    },
+  ],
+};
 const e2eReports = [1, 2].map((shard) => ({
   ...pipelineExecution,
   category: 'e2e',
+  playwright: browserEvidence,
   source: pipelineExecution.source,
   matrix: 'ubuntu-latest',
   shard: `${shard}/2`,
@@ -476,3 +507,44 @@ for (const job of Object.keys(REQUIRED_CI_JOBS))
   assert.match(ci, new RegExp(`- ${job}(?:\n|\r)`), `${job} missing from CI aggregation needs`);
 
 console.log('aggregate CI tests passed');
+
+for (const badEvidence of [
+  null,
+  { ...browserEvidence, errors: ['flaky case'] },
+  {
+    ...browserEvidence,
+    reports: [
+      {
+        ...browserEvidence.reports[0],
+        stats: { expected: 0, unexpected: 0, flaky: 1, skipped: 0 },
+      },
+    ],
+  },
+]) {
+  assert.equal(
+    validateExecutionEvidence({
+      reports: [
+        pipelineExecution,
+        ...e2eReports.map((report) => ({ ...report, playwright: badEvidence })),
+      ],
+      plan: e2ePlan,
+    }).passed,
+    false,
+    'consumer rejects a green receipt with missing or contradictory browser history',
+  );
+}
+const compactBrowserSummary = validateExecutionEvidence({
+  reports: [pipelineExecution, ...e2eReports],
+  plan: e2ePlan,
+}).evidence.find((item) => item.category === 'e2e');
+assert.equal(compactBrowserSummary.browserReports.length, 2);
+assert.ok(
+  compactBrowserSummary.browserReports.every(
+    (report) => report.historySha256 && report.stats.expected === 1,
+  ),
+);
+assert.ok(
+  compactBrowserSummary.browserReports.every((report) => !Object.hasOwn(report, 'cases')),
+  'final summary must not duplicate per-case histories',
+);
+console.log('aggregate browser evidence and bounded history summary tests passed');

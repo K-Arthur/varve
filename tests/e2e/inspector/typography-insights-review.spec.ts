@@ -118,8 +118,6 @@ async function expandSubsection(section: Locator, title: string): Promise<void> 
 }
 
 test.describe('Typography section review', () => {
-  test.describe.configure({ retries: 1 });
-
   test('keeps the common spine visible and compresses rare controls', async ({
     page,
   }, testInfo) => {
@@ -246,8 +244,6 @@ test.describe('Typography section review', () => {
 });
 
 test.describe('Insights section review', () => {
-  test.describe.configure({ retries: 1 });
-
   test('uses human tab labels and hides tabs the selection cannot use', async ({
     page,
   }, testInfo) => {

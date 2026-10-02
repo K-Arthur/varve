@@ -7,7 +7,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { commandsForCategory, runCategory } from './ci-run-lanes.mjs';
+import { commandsForCategory, runCategory, runCategoryDetailed } from './ci-run-lanes.mjs';
 
 const plan = {
   profile: 'integration',
@@ -131,3 +131,71 @@ try {
 }
 
 console.log('ci-run-lanes tests passed');
+
+const browserJson = {
+  config: {
+    workers: 1,
+    updateSnapshots: 'none',
+    failOnFlakyTests: true,
+    argv: ['--trace=retain-on-failure'],
+    projects: [{ name: 'chromium', retries: 0 }],
+  },
+  errors: [],
+  stats: { expected: 1, unexpected: 0, flaky: 0, skipped: 0 },
+  suites: [
+    {
+      title: 'fixture.spec.ts',
+      file: 'fixture.spec.ts',
+      specs: [
+        {
+          id: 'playwright-source-id',
+          file: 'fixture.spec.ts',
+          title: 'keeps failure evidence',
+          line: 7,
+          tests: [
+            {
+              projectName: 'chromium',
+              expectedStatus: 'passed',
+              status: 'expected',
+              results: [
+                {
+                  status: 'passed',
+                  retry: 0,
+                  duration: 10,
+                  errors: [],
+                  startTime: '2026-10-02T00:00:00Z',
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+  ],
+};
+// Exit-code drift cannot produce a success receipt when JSON contradicts it.
+const browserLaneDirectory = mkdtempSync(join(tmpdir(), 'varve-ci-lane-browser-'));
+try {
+  const runBrowser = (name, json, exitCode = 0) =>
+    runCategoryDetailed(plan, 'e2e', {
+      browserReportDir: join(browserLaneDirectory, name),
+      execute: (_argv, { browserReportPath }) => {
+        if (json) writeFileSync(browserReportPath, JSON.stringify(json));
+        return exitCode;
+      },
+    });
+  assert.equal(runBrowser('pass', browserJson).status, 0);
+  const flaky = structuredClone(browserJson);
+  flaky.stats.expected = 0;
+  flaky.stats.flaky = 1;
+  flaky.suites[0].specs[0].tests[0].status = 'flaky';
+  const rejected = runBrowser('flaky-exit-zero', flaky);
+  assert.equal(rejected.status, 1);
+  assert.equal(rejected.outcomes[0].exitCode, 0, 'preserve original command exit code');
+  assert.equal(rejected.outcomes[0].status, 'failure', 'reject contradictory producer output');
+  assert.equal(runBrowser('missing-exit-zero', null).status, 1);
+  assert.equal(runBrowser('command-exit-failed', browserJson, 7).status, 7);
+} finally {
+  rmSync(browserLaneDirectory, { recursive: true, force: true });
+}
+console.log('CI lane actual browser report guards passed');

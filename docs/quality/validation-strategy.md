@@ -120,6 +120,8 @@ The frozen candidate check is the extended release evidence for one SHA.
 | `pnpm workflow:report` | Export the sanitized operation journal as JSON | Attach to review/incident evidence |
 | `pnpm verify:commit` | Staged format/lint, cheap policy audits, changed unit tests, and E2E typechecking when staged | Normal pre-commit hook |
 | `pnpm verify:full` | Full repository gate (Tier 5) | Release checkpoints, explicit request, high-risk changes |
+| `pnpm verify:full --remote` | Verify existing full exact-SHA integration and final candidate artifacts, then run the three missing local audits | Clean, committed, accepted `master`; requires the same full-gate reason |
+| `pnpm verify:full --remote --status` | Inspect the same remote evidence without running audits; always returns a non-pass status | Diagnose pending, incomplete, or blocked certification |
 | `pnpm verify:full -- --resume` | Resume previously passed local full-gate lanes for the same clean candidate and unchanged inputs | Interrupted or failed full gate after repairing an external condition |
 | `pnpm release:prepare <version>` | Validate clean release state, set canonical version, verify changelog, and print the proposed tag | Before a release commit |
 | `pnpm release:status` | Print exact HEAD, version/changelog agreement, and current policy hash | Freeze/review a candidate |
@@ -137,6 +139,20 @@ files do not change a branch or CI plan. A changed Playwright baseline under
 owner spec. If that spec is absent, the planner retains the domain-wide E2E
 fallback. Changes to the shared Playwright global setup select the complete
 browser suite.
+
+The remote full gate reuses completed GitHub Actions work instead of duplicating
+compiler, unit, Rust, and browser lanes locally. It requires full integration
+and final candidate plans for the accepted `master` SHA, all ten categories,
+eight browser shards, every promised platform and lane, and the current policy.
+It verifies the actual immutable plan and certification archive bytes, their
+digests and expiry, and the latest producer runs and attempts. A newer queued
+or failed run prevents adoption of an older green check. The local complement
+contains only Emoji, Health, and Architecture audits; `--resume` reuses their
+unchanged receipts. Source and remote identities are checked again afterward.
+This command never dispatches, reruns, tags, publishes, or deploys. Exit 2 means
+pending, incomplete, or status-only; exit 3 means an external startup/API block;
+executed failures and invalid evidence fail with exit 1. Each attempt is
+recorded in the durable operation journal.
 
 `pnpm workflow:status` is read-only. Its structured output distinguishes
 `up-to-date`, `ahead-only`, `behind-only`, `diverged`, `missing-upstream`, and

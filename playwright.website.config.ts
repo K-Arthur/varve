@@ -29,7 +29,12 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   workers,
   outputDir: `test-results/${outputSuffix}`,
-  reporter: 'list',
+  reporter: [
+    ['list'],
+    ...(process.env.VARVE_CI_PLAYWRIGHT_REPORT
+      ? [['json', { outputFile: process.env.VARVE_CI_PLAYWRIGHT_REPORT }] as const]
+      : []),
+  ],
   timeout: 45000,
   expect: { timeout: 10000 },
   webServer: [

@@ -11,11 +11,197 @@
  */
 
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
-import { dirname } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 export const EXECUTION_REPORT_SCHEMA = 1;
+
+const BROWSER_STATUSES = new Set(['expected', 'unexpected', 'flaky', 'skipped']);
+const ATTEMPT_STATUSES = new Set(['passed', 'failed', 'timedOut', 'skipped', 'interrupted']);
+const COUNT_KEYS = ['expected', 'unexpected', 'flaky', 'skipped'];
+
+export function browserLane(lane) {
+  return lane?.startsWith('e2e:') || lane === 'website-e2e';
+}
+
+function digest(value) {
+  return createHash('sha256').update(value).digest('hex');
+}
+
+/** Stable across source line movement; retain Playwright's own source-specific ID too. */
+function browserCases(suites, parents = [], collected = []) {
+  if (!Array.isArray(suites)) throw new Error('suites must be an array');
+  for (const suite of suites) {
+    if (!Array.isArray(suite.specs)) throw new Error('suite specs must be an array');
+    const titles = [...parents, suite.title];
+    for (const spec of suite.specs) {
+      if (
+        typeof spec.file !== 'string' ||
+        typeof spec.title !== 'string' ||
+        !Array.isArray(spec.tests)
+      )
+        throw new Error('invalid browser spec');
+      for (const test of spec.tests) {
+        if (
+          typeof test.projectName !== 'string' ||
+          !BROWSER_STATUSES.has(test.status) ||
+          !Array.isArray(test.results)
+        )
+          throw new Error('invalid browser case');
+        const titlePath = [...titles, spec.title];
+        collected.push({
+          caseId: digest(
+            JSON.stringify([spec.file.replaceAll('\\', '/'), titlePath, test.projectName]),
+          ),
+          playwrightSpecId: spec.id ?? null,
+          file: spec.file.replaceAll('\\', '/'),
+          titlePath,
+          project: test.projectName,
+          line: spec.line ?? null,
+          expectedStatus: test.expectedStatus,
+          status: test.status,
+          attempts: test.results.map((result) => ({
+            retry: result.retry,
+            status: result.status,
+            durationMs: result.duration,
+            startedAt: result.startTime ?? null,
+            // Do not copy credential-bearing stdout, stderr or error text into receipts.
+            errorFingerprints: (result.errors ?? []).map((error) =>
+              digest(String(error.message ?? '')),
+            ),
+          })),
+        });
+      }
+    }
+    browserCases(suite.suites ?? [], titles, collected);
+  }
+  return collected;
+}
+
+export function browserReportErrors(report) {
+  const errors = [];
+  if (!/^[a-f0-9]{64}$/.test(report?.sha256 ?? '')) errors.push('missing report digest');
+  const stats = report?.stats;
+  if (!stats || !COUNT_KEYS.every((key) => Number.isSafeInteger(stats[key]) && stats[key] >= 0))
+    errors.push('invalid browser counts');
+  else if (stats.unexpected || stats.flaky) errors.push('unexpected or flaky browser cases');
+  if (
+    report?.runner?.workers !== 1 ||
+    report?.runner?.updateSnapshots !== 'none' ||
+    report?.runner?.failOnFlakyTests !== true ||
+    report?.runner?.trace !== 'retain-on-failure'
+  )
+    errors.push('browser execution policy drift');
+  if (
+    !Array.isArray(report?.runner?.projects) ||
+    !report.runner.projects.length ||
+    report.runner.projects.some((project) => project?.retries !== 0)
+  )
+    errors.push('browser retry policy drift');
+  if (!Number.isSafeInteger(report?.globalErrorCount) || report.globalErrorCount !== 0)
+    errors.push('browser runner errors');
+  if (!Array.isArray(report?.cases) || report.cases.length === 0)
+    errors.push('missing or empty case history');
+  else {
+    if (report.historySha256 !== digest(JSON.stringify(report.cases)))
+      errors.push('case history digest mismatch');
+    const counts = Object.fromEntries(COUNT_KEYS.map((key) => [key, 0]));
+    const ids = new Set();
+    for (const test of report.cases) {
+      if (!test || typeof test !== 'object') {
+        errors.push('invalid case history entry');
+        continue;
+      }
+      if (
+        !BROWSER_STATUSES.has(test.status) ||
+        !/^[a-f0-9]{64}$/.test(test.caseId ?? '') ||
+        ids.has(test.caseId)
+      )
+        errors.push('invalid or duplicate case identity');
+      ids.add(test.caseId);
+      if (test.status in counts) counts[test.status]++;
+      if (
+        !Array.isArray(test.attempts) ||
+        test.attempts.some(
+          (attempt) => attempt?.retry !== 0 || !ATTEMPT_STATUSES.has(attempt?.status),
+        )
+      )
+        errors.push('invalid or retried case attempt');
+      if (
+        test.status === 'expected' &&
+        test.attempts?.some((attempt) => attempt?.status !== test.expectedStatus)
+      )
+        errors.push('case expectation mismatch');
+      if (test.status !== 'skipped' && test.attempts?.length !== 1)
+        errors.push('incomplete or repeated case history');
+    }
+    if (stats && COUNT_KEYS.some((key) => counts[key] !== stats[key]))
+      errors.push('case/count mismatch');
+  }
+  return [...new Set(errors)];
+}
+
+/** Keep failed/missing evidence as data so cancellation cannot fabricate a green receipt. */
+export function collectBrowserEvidence(descriptors = [], { root = process.cwd() } = {}) {
+  const reports = [];
+  const errors = [];
+  for (const descriptor of descriptors) {
+    try {
+      const bytes = readFileSync(resolve(root, descriptor.path));
+      const json = JSON.parse(bytes.toString('utf8'));
+      if (!Array.isArray(json.errors)) throw new Error('runner errors must be an array');
+      const report = {
+        lane: descriptor.lane,
+        path: descriptor.path,
+        sha256: digest(bytes),
+        stats: json.stats,
+        runner: {
+          workers: json.config?.workers,
+          updateSnapshots: json.config?.updateSnapshots,
+          failOnFlakyTests: json.config?.failOnFlakyTests,
+          trace: json.config?.argv?.includes('--trace=retain-on-failure')
+            ? 'retain-on-failure'
+            : null,
+          projects: json.config?.projects?.map((project) => ({
+            name: project.name,
+            retries: project.retries,
+          })),
+        },
+        globalErrorCount: json.errors.length,
+        cases: browserCases(json.suites),
+      };
+      report.historySha256 = digest(JSON.stringify(report.cases));
+      reports.push(report);
+      errors.push(...browserReportErrors(report).map((error) => `${descriptor.lane}: ${error}`));
+    } catch (error) {
+      // Do not expose an untrusted JSON value or its parser excerpt in logs.
+      errors.push(
+        `${descriptor.lane}: missing or malformed browser report (${error.code ?? error.name})`,
+      );
+    }
+  }
+  return { schema: 1, reports, errors: [...new Set(errors)] };
+}
+
+export function browserEvidenceErrors(evidence, requiredLanes = []) {
+  if (!requiredLanes.length) return [];
+  if (
+    evidence?.schema !== 1 ||
+    !Array.isArray(evidence?.reports) ||
+    !Array.isArray(evidence?.errors)
+  )
+    return ['missing browser execution evidence'];
+  const errors = [...evidence.errors];
+  for (const lane of requiredLanes) {
+    const reports = evidence.reports.filter((report) => report?.lane === lane);
+    if (!reports.length) errors.push(`${lane}: missing browser report`);
+    for (const report of reports)
+      errors.push(...browserReportErrors(report).map((error) => `${lane}: ${error}`));
+  }
+  return [...new Set(errors)];
+}
 
 function gitValue(args, root) {
   const result = spawnSync('git', args, {
@@ -84,6 +270,8 @@ export function createExecutionReport({
   status = process.env.VARVE_CI_STATUS ?? 'success',
   declaredLanes = [],
   laneOutcomes = [],
+  browserReports = [],
+  browserEvidence = null,
   shard = null,
   matrix = process.env.VARVE_CI_MATRIX ?? process.env.RUNNER_OS ?? process.platform,
   commitSha = plan?.commitSha ?? process.env.VARVE_CI_COMMIT_SHA ?? null,
@@ -110,11 +298,26 @@ export function createExecutionReport({
     durationMs: Number.isFinite(outcome.durationMs) ? outcome.durationMs : null,
   }));
   const declared = parseList(declaredLanes);
+  const requiredBrowserLanes = [
+    ...new Set(
+      [...declared, ...normalizedOutcomes.map((outcome) => outcome.lane)].filter(browserLane),
+    ),
+  ];
+  const playwright = browserEvidence ?? collectBrowserEvidence(browserReports, { root });
+  const evidenceErrors = browserEvidenceErrors(playwright, requiredBrowserLanes);
+  for (const outcome of normalizedOutcomes) {
+    if (browserLane(outcome.lane) && browserEvidenceErrors(playwright, [outcome.lane]).length)
+      outcome.status = 'failure';
+  }
+  const executionStatus =
+    normalizeExecutionStatus(status) === 'success' && evidenceErrors.length
+      ? 'failure'
+      : normalizeExecutionStatus(status);
   const executed = normalizedOutcomes.length
     ? normalizedOutcomes
         .filter((outcome) => outcome.status === 'success')
         .map((outcome) => outcome.lane)
-    : normalizeExecutionStatus(status) === 'success'
+    : executionStatus === 'success'
       ? declared
       : [];
   return {
@@ -122,7 +325,8 @@ export function createExecutionReport({
     category,
     profile: effectiveProfile,
     candidateMode: effectiveCandidateMode,
-    status: normalizeExecutionStatus(status),
+    status: executionStatus,
+    playwright: requiredBrowserLanes.length ? { ...playwright, errors: evidenceErrors } : null,
     source: {
       commitSha: identity.commitSha,
       treeSha: identity.treeSha,
@@ -175,9 +379,20 @@ function main() {
     declaredLanes: value(args, '--lanes'),
     shard: value(args, '--shard'),
     matrix: value(args, '--matrix'),
+    browserReports: args.flatMap((arg, index) => {
+      if (arg !== '--playwright-report') return [];
+      const descriptor = args[index + 1] ?? '';
+      const separator = descriptor.indexOf('=');
+      if (separator < 1) throw new Error('--playwright-report requires lane=path');
+      return [{ lane: descriptor.slice(0, separator), path: descriptor.slice(separator + 1) }];
+    }),
   });
   const output = value(args, '--output');
   writeExecutionReport(report, output);
+  if (report.playwright?.errors.length) {
+    console.error(`Browser execution evidence rejected: ${report.playwright.errors.join('; ')}`);
+    process.exitCode = 1;
+  }
   console.log(
     `CI execution report: ${report.status} ${report.category} ${report.matrix}${report.shard ? ` shard ${report.shard}` : ''}`,
   );

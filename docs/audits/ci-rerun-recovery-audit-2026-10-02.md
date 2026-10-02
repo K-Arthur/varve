@@ -222,3 +222,102 @@ the [candidate runbook](../release/release-candidate-runbook.md) to find the
 current state and required evidence. Publish only after exact-SHA certification
 and actual draft verification; recover Pages from the already verified
 published tag without republishing the release.
+
+## Retry amplification and failure history
+
+Integration run [37068845264](https://github.com/K-Arthur/varve/actions/runs/37068845264)
+ran source `3b846efa63476def3935c8d5f762ca6e380c780f`. All eight browser
+shards reached their configured 40-minute budget. The retained logs contain
+94 cases with completed failure evidence and four observed retry passes;
+unfinished cases remain uncertified. These are observations from that source,
+not 94 independently diagnosed defects or proof that all four retry passes
+were caused by the same problem. The previous two-retry configuration repeated
+assertion, locator, and baseline failures before collecting the next case.
+
+Strict integration, candidate, and local final browser commands now specify
+one worker, zero retries, unchanged snapshots, failure on flaky tests, and
+first-attempt failure traces. A real browser-free Playwright fixture confirms
+that an initial failure followed by a retry pass was previously exit 0, while
+the strict command fails. A separate explicit diagnostic retry also fails
+under `--fail-on-flaky-tests`. A local `describe.configure` retry override can
+still supersede the global zero-retry CLI setting; a TypeScript source guard now prohibits
+positive or dynamic overrides in release-selected specs, and producer evidence
+rejects observed retry attempts. Independent browser lanes await their actual WASM and
+pipeline prerequisites, while final certification still requires every native
+Rust matrix cell.
+
+The receipt extension consumes actual Playwright JSON reports, keeps
+stable case identities and per-attempt status, retry index, duration, and error
+fingerprints with the existing SHA/run/attempt receipt, and verifies counts
+against the case history. Missing, malformed, unexpected, flaky, retried, or
+policy-drift evidence cannot become successful certification even if a command
+returns 0. Raw error/stdout text is not copied into the compact receipt.
+Cancelled runs retain their outcome and incomplete evidence; valid GPU skips
+remain explicit. Producer, runner, and consumer regression checks passed, including real
+retained Playwright reports with exit-0 retry passes. The current targeted
+35-case report also exercised the parser: its 34 passes and one failed case
+correctly remain failed evidence.
+
+[Google's 2016 flaky-test report](https://testing.googleblog.com/2016/05/flaky-tests-at-google-and-how-we.html?m=1)
+describes the cost of recurring false alarms and discusses retries,
+quarantine, and detecting changes in flakiness. Varve applies the diagnostic
+part through durable attempt history rather than treating a retry pass as a
+release success. Stable IDs permit comparisons across commits, but a single
+pass or failure is not enough to establish a change in flakiness; a commit is
+a candidate association, not proven cause. No automatic quarantine is enabled.
+Any future noncritical diagnostic quarantine requires an explicit owner,
+reason, expiry, and continued visible execution. Release blockers stay blocking.
+
+## Additional primary-source lessons
+
+| Evidence | Failure mechanism | Concrete application and limits |
+| --- | --- | --- |
+| [Slack's flaky-test investigation](https://slack.engineering/handling-flaky-tests-at-scale-auto-detection-suppression/) | Blind retries cost time and can conceal defects; an early automatic suppression approach was rolled back after genuinely failing new tests reached the main branch. | Keep failure history and separate diagnostic attempts; do not suppress a release-selected assertion or infer flakiness from one retry pass. The strict gate and report guard address the demonstrated Varve gap. |
+| [Slack's circuit-breaker report](https://slack.engineering/circuit-breakers/) | Repeated CI requests amplified queues, and scaling executors overloaded downstream search capacity. | The implemented lease, memory admission floor, bounded owned-process cleanup, and first-failure collection constrain work before launch. Retry only a classified, resolved transient condition; avoid increasing local worker count or repeatedly submitting active work. Varve does not need Slack's distributed service architecture. |
+| [GitHub's March 2024 availability report](https://github.blog/news-insights/company-news/github-availability-report-march-2024/) | A production SQL proxy rejected syntax missed by misconfigured development/CI environments; separate network rollback failed because a required configuration field was absent. | Retain the demonstrated Windows command-shim and macOS path-alias negative fixtures, plus native matrix certification. Portable simulations and source checks do not certify installer launch or native GPU behavior. |
+| [GitHub's May 2024 availability report](https://github.blog/news-insights/company-news/github-availability-report-may-2024/) | Uneven cluster traffic delayed Actions run updates even when runner work had completed, leaving stale UI state and a backlog. | This is an operator classification lesson: inspect recorded steps, current attempt, and receipt identity before retrying. Queue duration alone proves neither billing failure nor code failure. No workflow patch can repair an account block or provider outage. |
+| [GitLab's January 2017 recovery postmortem](https://about.gitlab.com/blog/postmortem-of-database-outage-of-january-31/) | A backup tool/server version mismatch stopped backups; failed notifications concealed the absence of usable recovery data. | Validate actual recovery paths and failure receipts rather than the presence of a backup command. Varve's restoration, parent-loss, stale receipt, and package-selection negative controls exercise these contracts; this is not a proposal for an unrelated database backup service. |
+| [AWS's February 2017 S3 incident](https://aws.amazon.com/message/41926/) | An operational tool allowed excessive capacity removal, large-scale recovery took longer than expected, and the status administration path depended on the impaired service. | Preserve admission floors, bounded cleanup, and independent local journals/diagnostics. A provider outage does not authorize publication without certification; operator recovery uses retained evidence and the existing release-bound Pages path. |
+| [CrowdStrike's July 2024 root-cause analysis](https://www.crowdstrike.com/content/dam/crowdstrike/www/en-us/wp/2024/08/Channel-File-291-Incident-Root-Cause-Analysis-08.06.2024.pdf) | Validator and runtime assumptions disagreed about input counts; wildcard test data failed to exercise the relevant mismatched input. | Test actual runtime/producer output as well as static command policy. The report guard deliberately tests an exit-0 flaky result, missing JSON, inconsistent counts, and real local retry overrides. Existing installed-package, asset, and native validation requirements remain in force. |
+| [Slack's agentic testing investigation](https://slack.engineering/agentic-testing-where-agents-fit-in-the-e2e-testing-stack/) | Exploratory agents supplement deterministic checks rather than becoming the repeated CI assertion oracle. | Keep owning E2E tests deterministic and use agents for bounded failure diagnosis and visual exploration; encode demonstrated gaps as real assertions. Root remains the single staging owner, and the independently inspected 22 UI captures complement actual passing test receipts. Agent statements do not certify release behavior. |
+| [Slack's long-running agent context investigation](https://slack.engineering/managing-context-in-long-run-agentic-applications/) | Long tasks need curated durable state and output-aware review; unverified agent conclusions can obscure missing evidence. | Preserve decisions, findings, hypotheses, and evidence separately in the existing operation history and failure queue. Independent review checks actual outputs. The next three evidence gaps are final exact-SHA certification, complete native package qualification, and published release/site verification; none becomes complete through a progress estimate. |
+| [Slack's E2E speed investigation](https://slack.engineering/speedup-e2e-testing/) | Rebuilding equivalent frontend assets repeated work; reuse depended on identifying equivalent change/build inputs. | Reuse only valid unchanged evidence whose complete source/policy/input identity still matches. Existing affected planning and exact-SHA receipts provide this boundary. Do not promise Slack's measured speedup or add a cross-SHA cache without a complete dependency/input closure and digest. |
+
+These findings complement the existing supply-chain and attempt-identity
+repairs above. They do not waive the final exact-SHA gate, native package
+qualification, signing policy, screenshot review, or post-publication checks.
+
+## Reuse the certified full gate
+
+`pnpm verify:full --remote` adopts existing full integration and final candidate
+evidence for clean local `master` at the accepted remote tip. It reads the actual
+immutable archives and validates their SHA256 digests, expiry, complete plans,
+platform/shard execution, and latest producer identities. It then runs only the
+missing local Emoji, Health, and Architecture audits, with unchanged receipt
+reuse available through `--resume`. It rechecks source and remote identities
+before passing. The adapter never starts or reruns a workflow; pending,
+incomplete, and external startup blocks remain distinct non-pass outcomes.
+Its focused regressions cover stale runs, partial plans, missing matrix
+cells, expiry, corrupt archives, credential isolation, and a newer queued
+dispatch appearing during verification. A real historical GitHub plan archive
+also passed digest verification and decoding; that reader check does not
+certify the historical failed source.
+
+[GitHub's rerun documentation](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/re-run-workflows-and-jobs)
+supports keeping unchanged successful jobs and rerunning failed jobs after a
+resolved infrastructure condition. Code repairs require a new SHA.
+[Concurrency groups](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency)
+do not deduplicate equivalent requests, so one release owner adopts existing
+runs and controls any dispatch. [Artifact metadata and downloads](https://docs.github.com/en/rest/actions/artifacts?apiVersion=2022-11-28)
+provide immutable IDs, digests, expiry, and signed redirects; matching names
+alone are insufficient proof. The reader permits only bounded JSON entries,
+never extracts paths, and never forwards the GitHub token to signed storage.
+
+Frontend production-preview substitution remains unimplemented: current app
+tests use development-only diagnostics and some model parity tests import
+actual Vite `/@fs` source. The existing exact-SHA WASM artifact is shared across
+browser lanes. A future dependency-optimizer cache needs compatible tool,
+source, lockfile, configuration, and environment inputs plus measured benefit.
+[Slack's cache lessons](https://slack.engineering/keep-webpack-fast-a-field-guide-for-better-build-performance/)
+include failures from stale or incompatible intermediates; its reported speed
+improvements are not Varve measurements.

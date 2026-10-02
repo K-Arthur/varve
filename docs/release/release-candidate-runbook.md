@@ -89,7 +89,7 @@ it does not infer publication from a prepared version or a green local test.
 The upstream counts describe the locally fetched remote ref, so refresh the
 remote before using them to freeze a candidate.
 
-Keep the product work stable before the final local full gate. When a gate is
+Keep the product work stable before the final full gate. When a local gate is
 interrupted or an external condition fails without changing source, retain
 the same reason and use `pnpm verify:full -- --resume`. Its passed lanes are
 reused only for the same clean commit, policy, command, tool/environment and
@@ -118,6 +118,23 @@ The final evidence artifact is named
 `varve-release-candidate-<sha>-<policy-hash>-run-<run_id>-attempt-<attempt>`.
 A candidate from any other SHA
 or policy is invalid, even when its tests were green.
+
+When full integration and final candidate validation have already run in
+GitHub Actions, complete the full checkpoint without repeating those lanes
+locally:
+
+```bash
+VARVE_FULL_GATE_REASON="0.5.0 release checkpoint and planner-selected infrastructure/runtime escalation" pnpm verify:full --remote
+```
+
+This requires clean local `master` at the accepted remote tip. The adapter
+reads and verifies the actual complete certification artifacts, then runs the
+missing local Emoji, Health, and Architecture audits. It rechecks the source,
+policy, accepted tip, and newest producer identities before passing. Pending,
+cancelled, expired, partial, superseded, or failed evidence cannot pass.
+`--status` performs read-only diagnosis and returns a non-pass status;
+`--resume` can reuse unchanged local audit receipts. Neither option starts or
+reruns a workflow.
 
 Only after the final candidate check is green may an authorized maintainer
 create and push the tag. This work does not create tags or change GitHub

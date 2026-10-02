@@ -307,6 +307,7 @@ jobs:
           fi
         env:
           VARVE_VALIDATION_PROFILE: candidate
+          VARVE_CI_PLAYWRIGHT_REPORT: test-results/ci-browser/website.json
       - name: Upload website diagnostics
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
@@ -324,7 +325,7 @@ jobs:
           VARVE_CI_POLICY_HASH: ${{ needs.changes.outputs.policy_hash }}
           VARVE_CI_STATUS: ${{ job.status }}
           VARVE_VALIDATION_PROFILE: candidate
-        run: node scripts/quality/ci-execution-report.mjs --category website --lanes website-unit,website-e2e --matrix ubuntu-latest --status "${{ job.status }}" --output ci-execution/website.json
+        run: node scripts/quality/ci-execution-report.mjs --category website --lanes website-unit,website-e2e --matrix ubuntu-latest --status "${{ job.status }}" --output ci-execution/website.json --playwright-report website-e2e=test-results/ci-browser/website.json
       - name: Upload website execution receipt
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
@@ -342,6 +343,8 @@ jobs:
       fail-fast: false
       matrix:
         shard: [1, 2, 3, 4, 5, 6, 7, 8]
+    env:
+      VARVE_CI_PLAYWRIGHT_REPORT: test-results/ci-browser/e2e.json
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -388,7 +391,7 @@ jobs:
           VARVE_CI_POLICY_HASH: ${{ needs.changes.outputs.policy_hash }}
           VARVE_CI_STATUS: ${{ job.status }}
           VARVE_VALIDATION_PROFILE: candidate
-        run: node scripts/quality/ci-execution-report.mjs --category e2e --lanes e2e:all --matrix ubuntu-latest --shard "${{ matrix.shard }}/8" --status "${{ job.status }}" --output "ci-execution/e2e-${{ matrix.shard }}.json"
+        run: node scripts/quality/ci-execution-report.mjs --category e2e --lanes e2e:all --matrix ubuntu-latest --shard "${{ matrix.shard }}/8" --status "${{ job.status }}" --output "ci-execution/e2e-${{ matrix.shard }}.json" --playwright-report e2e:all=test-results/ci-browser/e2e.json
       - name: Upload browser execution receipt
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
@@ -402,6 +405,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 35
     needs: [changes, pipeline-validate, wasm]
+    env:
+      VARVE_CI_PLAYWRIGHT_REPORT: test-results/ci-browser/visual.json
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -449,7 +454,7 @@ jobs:
           VARVE_CI_POLICY_HASH: ${{ needs.changes.outputs.policy_hash }}
           VARVE_CI_STATUS: ${{ job.status }}
           VARVE_VALIDATION_PROFILE: candidate
-        run: node scripts/quality/ci-execution-report.mjs --category visual --lanes e2e:visual --matrix ubuntu-latest --status "${{ job.status }}" --output ci-execution/visual.json
+        run: node scripts/quality/ci-execution-report.mjs --category visual --lanes e2e:visual --matrix ubuntu-latest --status "${{ job.status }}" --output ci-execution/visual.json --playwright-report e2e:visual=test-results/ci-browser/visual.json
       - name: Upload visual execution receipt
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a

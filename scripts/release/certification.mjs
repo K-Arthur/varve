@@ -134,6 +134,7 @@ export function buildCandidateEvidence({
 
 async function githubJson(path, token) {
   const response = await fetch(`https://api.github.com${path}`, {
+    signal: AbortSignal.timeout(30_000),
     headers: {
       Accept: 'application/vnd.github+json',
       'X-GitHub-Api-Version': '2022-11-28',

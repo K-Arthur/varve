@@ -12,6 +12,8 @@
  *                            stops E2E after a bounded number of failures
  *   pnpm verify:affected     Tiers 0–4, risk-aware
  *   pnpm verify:full         full repository gate (Tier 5)
+ *   pnpm verify:full --remote  adopt exact-SHA full CI/final candidate + audit complement
+ *   pnpm verify:full --remote --status  read-only remote status (never a full-gate pass)
  *   pnpm verify:plan         print the plan without running anything
  *
  * Environment:
@@ -22,7 +24,8 @@
  *   VARVE_FULL_GATE=1        permit full-suite execution without a reason
  *
  * Exit codes: 0 all passed, 2 full gate skipped (no reason); command failure
- * and cancellation statuses are retained (for example SIGTERM = 143).
+ * and cancellation statuses are retained (for example SIGTERM = 143). Remote
+ * mode uses 2 for pending/status-only and 3 for external startup/API blocks.
  */
 
 import { existsSync } from 'node:fs';
@@ -45,6 +48,7 @@ import {
 } from './execution-plan.mjs';
 import { runFullGate } from './full-gate.mjs';
 import { runValidationCommand } from './heavy-lease.mjs';
+import { runRemoteFullGate } from './remote-full-gate.mjs';
 import { LANES, laneCommand, packageDirs } from './validation-lanes.mjs';
 
 const _PLAN_URL = fileURLToPath(new URL('./affected-plan.mjs', import.meta.url));
@@ -260,6 +264,20 @@ async function main() {
       process.exit(2);
     }
     if (reason) console.log(`Full gate reason: ${reason}`);
+    if (args.includes('--remote')) {
+      const result = await runRemoteFullGate({ root: ROOT, args, execute: commandResult });
+      console.log(result.message ?? `Remote full gate: ${result.classification}`);
+      if (result.status !== 0) {
+        for (const error of result.errors ?? []) console.error(error);
+        for (const [profile, run] of Object.entries(result.runs ?? {})) {
+          console.log(
+            `${profile}: run ${run.id}, attempt ${run.attempt}, ${run.status}/${run.conclusion ?? 'pending'}`,
+          );
+        }
+      }
+      console.log(`Full-gate operation history: ${result.operationPath}`);
+      process.exit(result.status);
+    }
     console.log('Running full repository gate (Tier 5)...');
     // Order: cheap → heavy
     const cheap = [
