@@ -125,8 +125,14 @@ fn available_memory_bytes_impl() -> Option<u64> {
     let available_pages = u64::from(statistics.free_count)
         .checked_add(u64::from(statistics.inactive_count))?
         .checked_add(u64::from(statistics.speculative_count))?;
-    let page_size = unsafe { u64::from(libc::vm_page_size) };
-    available_pages.checked_mul(page_size)
+    // SAFETY: Darwin initializes this system page-size value before app startup.
+    let page_size = unsafe { libc::vm_page_size };
+    memory_bytes_from_pages(available_pages, page_size)
+}
+
+#[cfg(any(target_os = "macos", test))]
+fn memory_bytes_from_pages(available_pages: u64, page_size: usize) -> Option<u64> {
+    available_pages.checked_mul(u64::try_from(page_size).ok()?)
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "windows", target_os = "macos")))]
@@ -280,11 +286,25 @@ mod tests {
     use super::{
         cgroup_available_memory, estimated_required_memory_bytes,
         estimated_required_memory_bytes_for_model, measured_available_memory,
-        memory_measurement_error, memory_shortage_error, parse_cgroup_memory_value,
-        parse_linux_available_memory, resource_tier, NativeResourceSnapshot, BYTES_PER_MIB,
+        memory_bytes_from_pages, memory_measurement_error, memory_shortage_error,
+        parse_cgroup_memory_value, parse_linux_available_memory, resource_tier,
+        NativeResourceSnapshot, BYTES_PER_MIB,
     };
 
     const GIB: u64 = 1024 * 1024 * 1024;
+
+    #[test]
+    fn converts_native_word_sized_page_counts_without_overflow() {
+        assert_eq!(
+            memory_bytes_from_pages(512, 4096_usize),
+            Some(2 * BYTES_PER_MIB)
+        );
+        assert_eq!(
+            memory_bytes_from_pages(512, 16384_usize),
+            Some(8 * BYTES_PER_MIB)
+        );
+        assert_eq!(memory_bytes_from_pages(u64::MAX, 16384_usize), None);
+    }
 
     #[test]
     fn parses_linux_mem_available_without_confusing_total_memory() {

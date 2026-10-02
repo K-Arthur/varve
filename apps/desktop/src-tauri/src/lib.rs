@@ -471,7 +471,7 @@ fn clipboard_operation_cancelled(operation_id: &str) -> bool {
         NATIVE_CLIPBOARD_CANCELLATIONS
             .lock()
             .map(|cancelled| cancelled.contains(operation_id))
-            .unwrap_or(true);
+            .unwrap_or(true)
     }
 }
 
@@ -6500,6 +6500,22 @@ mod tests {
             .lock()
             .expect("cancellation state")
             .remove(&operation_id);
+    }
+
+    #[test]
+    fn clipboard_cancellation_tracks_only_the_registered_operation() {
+        let operation_id = format!("clipboard-state-check-{}", uuid());
+        assert!(!clipboard_operation_cancelled(&operation_id));
+        NATIVE_CLIPBOARD_CANCELLATIONS
+            .lock()
+            .expect("cancellation state")
+            .insert(operation_id.clone());
+        assert!(clipboard_operation_cancelled(&operation_id));
+        NATIVE_CLIPBOARD_CANCELLATIONS
+            .lock()
+            .expect("cancellation state")
+            .remove(&operation_id);
+        assert!(!clipboard_operation_cancelled(&operation_id));
     }
     use varve_core::EngineColor;
 
