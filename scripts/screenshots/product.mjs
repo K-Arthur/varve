@@ -758,22 +758,6 @@ async function clipFromLocator(page, { selector, top, bottom, padding = 0, maxHe
   return { x, y, width, height };
 }
 
-/**
- * Crop windows for the detail scenes, in 1440x900 viewport coordinates.
- *
- * The website shows these at roughly a third of the page width, where a
- * scaled-down full application frame is an unreadable grey smear. Cropping
- * at capture time keeps the pixels 1:1 and lets each thumbnail show one
- * thing: the canvas artwork, a panel, a tool state.
- */
-const CROP = {
-  canvas: { x: 288, y: 100, width: 832, height: 620 },
-  inspector: { x: 1120, y: 100, width: 320, height: 620 },
-  // Full inspector column: starts below the tab strip and stops above the
-  // status bar, so a long stack of sections is not clipped mid-row.
-  inspectorTall: { x: 1120, y: 122, width: 320, height: 722 },
-};
-
 /* ------------------------------------------------------------------ */
 /* Scenes                                                              */
 /* ------------------------------------------------------------------ */
@@ -940,7 +924,7 @@ const SCENES = [
     feature: 'tablet-editing',
     viewport: { width: 1200, height: 750 },
     hasTouch: true,
-    alt: 'The Varve poster workspace in tablet presentation, with the Inspector beside the canvas and a touch popover for keyboardless editing actions',
+    alt: 'The Varve poster workspace in tablet presentation, with the Inspector beside the canvas and touch controls along the bottom toolbar',
     caption: 'Touch-sized controls and keyboardless editing actions beside the canvas',
     async run(page) {
       await openCleanEditor(page);
@@ -959,7 +943,6 @@ const SCENES = [
     feature: 'tablet-editing',
     viewport: { width: 1200, height: 750 },
     hasTouch: true,
-    clip: { x: 380, y: 70, width: 800, height: 600 },
     alt: 'Tablet editing controls for modifiers, multi-selection, alignment, and layer order beside a Varve poster canvas',
     caption:
       'Constrain, draw from centre, bypass snapping, duplicate, align, and reorder without a keyboard',
@@ -1034,7 +1017,7 @@ const SCENES = [
     file: 'typography-light.png',
     theme: 'light',
     feature: 'typography',
-    clip: CROP.canvas,
+    clipFrom: { selector: '.editor-canvas' },
     alt: 'A type specimen in Varve showing a display character, a character set, a subhead and a body paragraph',
     caption: 'A type hierarchy set on the canvas',
     async run(page) {
@@ -1082,7 +1065,7 @@ const SCENES = [
     file: 'typography-panel-light.png',
     theme: 'light',
     feature: 'typography',
-    clip: CROP.inspectorTall,
+    clipFrom: { selector: '.editor__inspector-panel' },
     alt: 'The Varve properties inspector showing typography controls: font family, weight, style, size, line height and letter spacing',
     caption: 'Type controls for the selected text',
     async run(page) {
@@ -1099,6 +1082,10 @@ const SCENES = [
       }
       await typography.evaluate((el) => el.scrollIntoView({ block: 'start' }));
       await page.waitForTimeout(600);
+      await typography
+        .getByText(/^Font family$/)
+        .first()
+        .evaluate((element) => element.scrollIntoView({ block: 'start' }));
       // Assert the controls the alt text promises are really on screen.
       // NumberField renders its label with the unit appended ("Size (px)"),
       // so these match on prefix rather than exact text.
@@ -1110,9 +1097,9 @@ const SCENES = [
         /^Letter spacing/,
       ]) {
         const row = typography.getByText(label).first();
-        if (!(await row.isVisible({ timeout: 3000 }).catch(() => false))) {
-          throw new Error(`Typography control ${label} not visible in the captured crop`);
-        }
+        await expect(row, `Typography control ${label} must appear in the capture`).toBeInViewport({
+          ratio: 1,
+        });
       }
     },
   },
@@ -1218,7 +1205,7 @@ const SCENES = [
     feature: 'motion',
     clipFrom: { selector: '.timeline-panel' },
     alt: 'The Varve timeline panel with a track for the selected layer',
-    caption: 'The timeline panel in the motion workspace',
+    caption: 'An editable position track and keyframe in the shared timeline panel',
     async run(page) {
       await openCleanEditor(page);
       await openDemoDocument(page, 'poster');
@@ -1253,8 +1240,10 @@ const SCENES = [
           'timeline has no tracks: the Alt+P keyframe shortcut did not author a track, so the scene would misrepresent the motion workspace',
         );
       }
-      await expect(panel.locator('.timeline-track-row').first()).toBeVisible();
-      await expect(panel.locator('.timeline-track-row__keyframe').first()).toBeVisible();
+      await expect(panel.locator('.timeline-track-row').first()).toBeInViewport({ ratio: 1 });
+      await expect(panel.locator('.timeline-track-row__keyframe').first()).toBeInViewport({
+        ratio: 1,
+      });
     },
   },
   {
@@ -1262,9 +1251,8 @@ const SCENES = [
     file: 'palette-inspector-light.png',
     theme: 'light',
     feature: 'color-effects',
-    alt: 'Varve showing a NASA Earth-observation photo on the canvas with the Palette Inspector open, including extracted swatches, generated harmonies, and WCAG contrast pairs',
-    caption:
-      'Extract an image palette, explore derived harmonies, and review contrast pairs in the Inspector.',
+    alt: 'Varve showing a NASA Earth-observation photo beside its extracted palette, with HEX swatches and controls to save swatches or color tokens',
+    caption: 'Extract an image palette locally, review the swatches, and save colors for reuse.',
     async run(page) {
       await openCleanEditor(page);
       await importImage(page, 'earth.jpg');
@@ -1306,6 +1294,16 @@ const SCENES = [
           'palette extraction did not produce "Extracted colors" for the photo fixture',
         );
       }
+      const result = paletteSection.locator('.palette-section__result');
+      await result.evaluate((element) => element.scrollIntoView({ block: 'start' }));
+      const swatches = paletteSection.getByRole('list', { name: 'Extracted colors' });
+      await expect(swatches).toBeInViewport({ ratio: 1 });
+      await expect(
+        paletteSection.getByRole('button', { name: 'Save extracted swatches' }),
+      ).toBeInViewport();
+      await expect(
+        paletteSection.getByRole('button', { name: 'Save as color tokens' }),
+      ).toBeInViewport();
     },
   },
   {
@@ -1334,9 +1332,8 @@ const SCENES = [
     file: 'gradient-picker-light.png',
     theme: 'light',
     feature: 'color-effects',
-    alt: 'Varve showing the shared gradient picker with a selected gradient stop, stop bar, color controls, and expanded Gradient options',
-    caption:
-      'Edit a gradient stop in the same floating panel, then reveal interpolation and geometry options.',
+    alt: 'Varve showing teal and sand gradient stops in the shared picker, with the selected stop color controls and live gradient handles on the headline',
+    caption: 'Edit gradient stops with shared color controls and live handles on the artwork.',
     async run(page) {
       await openCleanEditor(page);
       await openDemoDocument(page, 'poster');
@@ -1351,7 +1348,40 @@ const SCENES = [
       await swatch.click();
       const dialog = page.getByRole('dialog', { name: /pick fill gradient/i });
       await dialog.waitFor({ state: 'visible', timeout: 8000 });
-      await dialog.getByRole('button', { name: 'Gradient options', exact: true }).click();
+      const options = dialog.getByRole('button', { name: 'Gradient options', exact: true });
+      await options.click();
+      await expect(options).toHaveAttribute('aria-expanded', 'true');
+      const interpolation = dialog.getByRole('combobox', { name: 'Gradient interpolation space' });
+      await interpolation.scrollIntoViewIfNeeded();
+      await expect(interpolation).toBeInViewport();
+      // Author distinguishable colors through the real fields, then frame the
+      // stop bar and current color. The scrollable options cannot all appear
+      // in this bounded picker at once, so the caption describes the visible
+      // controls rather than promising the options below the capture fold.
+      for (const [index, color] of [
+        [1, '#249d94'],
+        [2, '#e28c3c'],
+      ]) {
+        await dialog.getByRole('button', { name: new RegExp(`^Stop ${index} at`) }).click();
+        const hex = dialog.getByRole('textbox', { name: 'Hex color' });
+        await hex.fill(color);
+        await hex.press('Enter');
+        await hex.evaluate((input) => input.blur());
+        await expect(hex).toHaveValue(new RegExp(`^${color}$`, 'i'));
+      }
+      const firstStop = dialog.getByRole('button', { name: /^Stop 1 at.*249d94/i });
+      await firstStop.click();
+      await dialog.locator('.insp-picker-dialog__body').evaluate((element) => {
+        element.scrollTop = 0;
+      });
+      await expect(firstStop).toBeInViewport({ ratio: 1 });
+      await expect(dialog.getByRole('button', { name: /^Stop 2 at.*e28c3c/i })).toBeInViewport({
+        ratio: 1,
+      });
+      await expect(dialog.getByRole('slider', { name: /^Gradient stop bar/ })).toBeInViewport({
+        ratio: 1,
+      });
+      await expect(dialog.getByRole('textbox', { name: 'Hex color' })).toBeInViewport({ ratio: 1 });
     },
   },
   {
@@ -1581,7 +1611,9 @@ const SCENES = [
       }
       const reviewPanel = section.getByRole('region', { name: 'Background removal review' });
       await reviewPanel.evaluate((element) => element.scrollIntoView({ block: 'center' }));
-      await expect(reviewPanel.getByAltText('Isolated subject preview')).toBeVisible();
+      await expect(reviewPanel.getByAltText('Isolated subject preview')).toBeInViewport({
+        ratio: 1,
+      });
       await expect(reviewPanel.getByRole('button', { name: /apply/i })).toBeInViewport();
       await page.waitForTimeout(1200);
     },
@@ -1622,11 +1654,15 @@ const SCENES = [
         throw new Error(`depth map never rendered${detail} — panel read: ${state}`);
       }
       const previewToggle = section.getByRole('checkbox', { name: /preview depth/i });
-      if (await previewToggle.isVisible({ timeout: 5000 }).catch(() => false)) {
-        await previewToggle.check();
-      }
+      await expect(previewToggle).toBeVisible();
+      await previewToggle.check();
       await ready.evaluate((element) => element.scrollIntoView({ block: 'start' }));
-      await expect(section.locator('.insp-depth-preview__canvas')).toBeInViewport();
+      await expect(section.locator('.insp-depth-heatmap__canvas')).toBeInViewport({ ratio: 1 });
+      for (const label of ['Blur amount', 'Focal distance', 'Transition range']) {
+        await expect(section.getByRole('slider', { name: label, exact: true })).toBeInViewport({
+          ratio: 1,
+        });
+      }
       await page.waitForTimeout(1200);
     },
   },
@@ -1635,10 +1671,9 @@ const SCENES = [
     file: 'image-tools-panel-light.png',
     theme: 'light',
     feature: 'visual-awareness',
-    clip: CROP.inspectorTall,
-    alt: 'The Varve image tools inspector for a selected photo, stacking Image Enhance, Vectorize, Object Selection, Background Removal, Colorize, AI Denoise and Depth Blur sections',
-    caption:
-      'Image tools for a selected photo — enhance, vectorize, object selection, background removal, depth blur. All run on-device.',
+    clipFrom: { selector: '.editor__inspector-panel' },
+    alt: 'The Varve Photo Adjustments inspector with an Effect Studio link, Image Tuning guidance, and photo treatment presets for the selected image',
+    caption: 'Review photo treatment presets or open Effect Studio for the selected image.',
     async run(page) {
       await openCleanEditor(page);
       await importImage(page, 'earth.jpg');
@@ -1652,12 +1687,10 @@ const SCENES = [
       // The panel is lazy-loaded; wait for real controls rather than the tab
       // click alone, or the crop can land on a loading fallback.
       await page.locator('.insp-disclosure').first().waitFor({ state: 'visible', timeout: 15000 });
-      const bgSection = page.locator('.insp-disclosure').filter({ hasText: /Background Removal/ });
-      if (!(await bgSection.isVisible({ timeout: 5000 }).catch(() => false))) {
-        throw new Error(
-          'Background Removal section missing — panel would misrepresent image tools',
-        );
-      }
+      await expect(
+        page.getByRole('button', { name: 'Open Effect Studio', exact: true }),
+      ).toBeInViewport();
+      await expect(page.getByRole('button', { name: /^Natural Detail/ })).toBeInViewport();
       await page.waitForTimeout(700);
     },
   },

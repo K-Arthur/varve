@@ -223,7 +223,7 @@ modes and a real type hierarchy.
 | `workspace-dark` | dark | full | Same document, dark theme |
 | `vector` | light | canvas | Path in node-edit mode — anchors and Bézier handles |
 | `typography` | light | canvas | Type specimen: display, character set, subhead, body |
-| `typography-panel` | light | inspector | Font family, weight, size, line height, tracking |
+| `typography-panel` | light | measured inspector | Font family, weight, size, line height, tracking |
 | `font-toolbar` | light | full | Compact text toolbar with font picker open |
 | `font-browser` | light | full | Family browser with editable local specimen |
 | `layers` | light | layers | Named layers with blend-mode and opacity badges |
@@ -235,7 +235,7 @@ modes and a real type hierarchy.
 | `print-production` | light | full | Bleed guides on canvas and the Page Print inspector |
 | `vectorize` | light | full | Vectorize dialog in colour mode on an imported photo |
 | `effects` | light | full | Effects inspector with a real drop shadow added to a shape |
-| `image-tools` | light | inspectorTall | Enhance, Vectorize, Object Selection, Background Removal, Depth Blur |
+| `image-tools` | light | inspectorTall | Photo Adjustments with Image Tuning and Effect Studio presets |
 | `workspaces` | light | full | Print workspace active — Masters, Pages, and Spreads panels |
 | `workspace-shared-workflows` | light | 936×900 compact | Design with Logo project controls and shared Code output beside the same poster document |
 
@@ -271,10 +271,10 @@ Still without a scene:
 | `asset-search` | an embedding index built over a document's assets |
 | `asset-similarity` | the same index |
 
-The `image-tools` scene covers the **entry points** for these — the inspector
-sections a user opens to reach them — which is capturable without a model and
-honest about what it shows. `local-first` has no single panel that depicts it;
-its evidence is the absence of an account, not a screen.
+The `image-tools` scene shows Photo Adjustments and presets; it does not
+demonstrate the uncaptured model workflows listed above. `local-first` has no
+single panel that depicts offline persistence; save/reopen tests provide that
+evidence.
 
 `SCENES` in `product.mjs` is the source of truth for what exists. A newly
 added scene seeds its own manifest entry, and an entry whose scene has been
