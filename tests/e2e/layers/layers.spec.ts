@@ -175,7 +175,7 @@ test.describe('Layers Panel - APG Tree View', () => {
 
     const groupButton = page.locator('.layers-bulk-bar__btn[aria-label="Group"]');
     await expect(groupButton).toBeVisible();
-    await groupButton.click({ force: true });
+    await groupButton.click();
 
     const group = page
       .getByRole('treeitem')

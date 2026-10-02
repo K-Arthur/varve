@@ -139,6 +139,7 @@ test.describe('Layers Panel — real-world document', () => {
   });
 
   test('container rows with content render a bounded content preview', async ({ page }) => {
+    await navigateToEditor(page);
     await importFixture(page, SVG_APP, 35);
 
     // A group with drawable descendants shows the 28×28 content preview…

@@ -98,18 +98,13 @@ test.describe('Layers Panel - Multi-Selection', () => {
     await items.nth(1).click({ modifiers: ['Control'] });
     await page.waitForTimeout(50);
 
-    // Click bulk lock button.
-    // Use force:true because the onboarding checklist "Group your shapes" /
-    // "Add your first shape" labels overlay the bulk bar and intercept clicks.
+    // A normal click scrolls the rail to the control and verifies it receives
+    // input. A forced click can hit different chrome at its clipped position.
     const lockBtn = page.locator('.layers-bulk-bar__btn[aria-label="Lock all"]');
-    if ((await lockBtn.count()) > 0) {
-      await lockBtn.click({ force: true, timeout: 5000 });
-      await page.waitForTimeout(100);
-
-      // Both items should now be locked
-      await expect(items.nth(0)).toHaveClass(/layers-row--locked/);
-      await expect(items.nth(1)).toHaveClass(/layers-row--locked/);
-    }
+    await expect(lockBtn).toBeVisible();
+    await lockBtn.click();
+    await expect(items.nth(0)).toHaveClass(/layers-row--locked/);
+    await expect(items.nth(1)).toHaveClass(/layers-row--locked/);
   });
 
   test('bulk hide hides all selected layers', async ({ page }) => {
