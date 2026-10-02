@@ -1,4 +1,5 @@
 import { expect, type Page, test } from '@playwright/test';
+import { resizePanelToWidth } from '../helpers/panel-resize';
 import { navigateToEditor } from '../shared';
 
 async function drawRectangle(page: Page): Promise<void> {
@@ -25,7 +26,7 @@ async function openRectangleInspector(page: Page): Promise<void> {
   await expect(page.locator('#insp-tabpanel-properties')).toBeVisible({ timeout: 10_000 });
 }
 
-test('keeps Appearance and per-fill opacity geometry aligned across inspector rails', async ({
+test('keeps opacity controls readable in their row tracks across inspector rails', async ({
   page,
 }, testInfo) => {
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -88,10 +89,7 @@ test('keeps Appearance and per-fill opacity geometry aligned across inspector ra
   });
 
   for (const width of [240, 320, 480, 640]) {
-    await page.locator('.editor-shell').evaluate((shell, nextWidth) => {
-      shell.style.setProperty('--inspector-width', `${nextWidth}px`);
-    }, width);
-    await expect(page.locator('.editor__inspector-panel')).toHaveCSS('width', `${width}px`);
+    await resizePanelToWidth(page, 'inspector', width);
 
     const railMetrics = await page.evaluate(() => {
       const appearance = document.querySelector('[aria-label="Opacity (%)"]');
@@ -104,11 +102,30 @@ test('keeps Appearance and per-fill opacity geometry aligned across inspector ra
         const rect = element.getBoundingClientRect();
         return { left: rect.left, right: rect.right, width: rect.width, height: rect.height };
       };
+      const controlMetrics = (element: Element) => {
+        const input = element as HTMLInputElement;
+        const control = element.closest('.insp-field__control');
+        if (!control) throw new Error('opacity field has no owning control track');
+        const style = getComputedStyle(input);
+        const context = document.createElement('canvas').getContext('2d')!;
+        context.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+        return {
+          track: read(control),
+          readableWidth:
+            context.measureText(input.value).width +
+            Number.parseFloat(style.paddingLeft) +
+            Number.parseFloat(style.paddingRight) +
+            Number.parseFloat(style.borderLeftWidth) +
+            Number.parseFloat(style.borderRightWidth),
+        };
+      };
       const rowStyle = getComputedStyle(row);
       const cardStyle = getComputedStyle(fillCard);
       return {
         appearance: read(appearance),
         fill: read(fill),
+        appearanceControl: controlMetrics(appearance),
+        fillControl: controlMetrics(fill),
         type: read(type),
         row: { scrollWidth: row.scrollWidth, clientWidth: row.clientWidth },
         rowDisplay: rowStyle.display,
@@ -124,7 +141,18 @@ test('keeps Appearance and per-fill opacity geometry aligned across inspector ra
     });
 
     expect(railMetrics, `missing paint geometry at ${width}px`).not.toBeNull();
-    expect(railMetrics!.appearance.width).toBe(railMetrics!.fill.width);
+    // Appearance fills its inline row column; per-fill opacity has a stacked
+    // label in the paint property's fixed track. Each must fill its own track
+    // and display the complete value, rather than borrowing the other's width.
+    for (const [input, control] of [
+      [railMetrics!.appearance, railMetrics!.appearanceControl],
+      [railMetrics!.fill, railMetrics!.fillControl],
+    ] as const) {
+      expect(Math.abs(input.width - control.track.width)).toBeLessThanOrEqual(2);
+      expect(input.width).toBeGreaterThanOrEqual(control.readableWidth);
+      expect(input.left).toBeGreaterThanOrEqual(control.track.left - 1);
+      expect(input.right).toBeLessThanOrEqual(control.track.right + 1);
+    }
     expect(railMetrics!.appearance.height).toBe(railMetrics!.fill.height);
     const observedGap = railMetrics!.appearance.right - railMetrics!.fill.right;
     expect(Math.abs(observedGap - railMetrics!.cardInsetRight)).toBeLessThanOrEqual(2);

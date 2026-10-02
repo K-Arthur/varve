@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { expect, type Page, test } from '@playwright/test';
+import { resizePanelToWidth } from '../helpers/panel-resize';
 import { addLayerEffect, navigateToEditor } from '../shared';
 
 /**
@@ -42,10 +43,7 @@ async function importPhoto(page: Page) {
 }
 
 async function setInspectorWidth(page: Page, px: number) {
-  await page.evaluate((width) => {
-    const shell = document.querySelector('.editor-shell') as HTMLElement | null;
-    shell?.style.setProperty('--inspector-width', `${width}px`);
-  }, px);
+  await resizePanelToWidth(page, 'inspector', px);
 }
 
 async function addDropShadow(page: Page) {
@@ -209,7 +207,7 @@ test.describe('Export tab — real-world scenarios', () => {
     await expect(suffix).toHaveValue('@2x');
   });
 
-  test('narrow inspector (240px min) keeps every quick-format control reachable', async ({
+  test('narrow inspector (240px) keeps every quick-format control reachable', async ({
     page,
   }, testInfo) => {
     await importPhoto(page);
@@ -410,7 +408,7 @@ test.describe('Export tab — real-world scenarios', () => {
 
   test('export dialog displays redesigned master-detail workspace with search, format filters, and path preview', async ({
     page,
-  }) => {
+  }, testInfo) => {
     await importPhoto(page);
     await selectExportTab(page);
 
@@ -426,11 +424,11 @@ test.describe('Export tab — real-world scenarios', () => {
     // Capture inspector export tab screenshot
     const inspectorPanel = page.locator('.editor__inspector-panel');
     await inspectorPanel.screenshot({
-      path: 'docs/screenshots/export-redesign/export-tab-inspector.png',
+      path: testInfo.outputPath('export-tab-inspector.png'),
     });
 
     // Open batch export workspace
-    const openBtn = page.getByRole('button', { name: /Open advanced export/i });
+    const openBtn = page.getByRole('button', { name: 'Open export workspace', exact: true });
     await openBtn.click();
 
     const dialog = page.locator('dialog.export-dialog');
@@ -455,7 +453,7 @@ test.describe('Export tab — real-world scenarios', () => {
 
     // Capture visual screenshot of the redesigned master-detail dialog
     await dialog.screenshot({
-      path: 'docs/screenshots/export-redesign/export-dialog-workspace.png',
+      path: testInfo.outputPath('export-dialog-workspace.png'),
     });
 
     // Test search filter

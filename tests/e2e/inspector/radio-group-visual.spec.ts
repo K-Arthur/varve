@@ -4,16 +4,12 @@
  * Guards the 2026-09-20 review: inset segment radii (never a square selected
  * chip inside a rounded track), pill concentricity, content-width wrapping in
  * the Inspector, radiogroup role ownership, and the APG keyboard model for
- * purpose-built groups. Captures evidence screenshots under
- * docs/screenshots/2026-09-20-radio-group-review/.
+ * purpose-built groups. Captures evidence screenshots in isolated Playwright test output.
  */
-import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { expect, type Page, test } from '@playwright/test';
+import { resizePanelToWidth } from '../helpers/panel-resize';
 import { navigateToEditor } from '../shared';
-
-const DIR = resolve(__dirname, '../../../docs/screenshots/2026-09-20-radio-group-review');
-mkdirSync(DIR, { recursive: true });
 
 const CIRCLE_RADIUS = 100;
 
@@ -81,7 +77,7 @@ async function drawFrame(page: Page) {
 test.describe('radio-group system', () => {
   test('segments derive their radius from the track and never hard-clip labels', async ({
     page,
-  }) => {
+  }, testInfo) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await navigateToEditor(page);
     await openIsometricGrid(page);
@@ -91,9 +87,7 @@ test.describe('radio-group system', () => {
 
     // The reference rail from the report: the four options wrap into a
     // balanced grid instead of shrinking below their labels.
-    await page.locator('.editor-shell').evaluate((shell) => {
-      (shell as HTMLElement).style.setProperty('--inspector-width', '513px');
-    });
+    await resizePanelToWidth(page, 'inspector', 513);
     await page.waitForTimeout(150);
 
     const geometry = await segmentGeometry(page, 'Active construction plane');
@@ -121,18 +115,16 @@ test.describe('radio-group system', () => {
       document.documentElement.dataset.theme = 'dark';
     });
     await page.locator('.editor-inspector').screenshot({
-      path: resolve(DIR, '01-construction-plane-dark.png'),
+      path: testInfo.outputPath('01-construction-plane-dark.png'),
     });
     await page.evaluate(() => {
       document.documentElement.dataset.theme = 'light';
     });
     await page.waitForTimeout(150);
-    await group.screenshot({ path: resolve(DIR, '02-construction-plane-light.png') });
+    await group.screenshot({ path: testInfo.outputPath('02-construction-plane-light.png') });
 
     // Narrow rail: options wrap instead of clipping; still at least one column.
-    await page.locator('.editor-shell').evaluate((shell) => {
-      (shell as HTMLElement).style.setProperty('--inspector-width', '240px');
-    });
+    await resizePanelToWidth(page, 'inspector', 240);
     await page.waitForTimeout(150);
     const narrow = await segmentGeometry(page, 'Active construction plane');
     expect(narrow.columnCount).toBeGreaterThanOrEqual(1);
@@ -140,10 +132,10 @@ test.describe('radio-group system', () => {
       expect(parseRadius(button.radius)).toBeGreaterThan(0);
       if (button.labelWidth > button.width) expect(button.title).toBeTruthy();
     }
-    await group.screenshot({ path: resolve(DIR, '03-construction-plane-narrow.png') });
+    await group.screenshot({ path: testInfo.outputPath('03-construction-plane-narrow.png') });
   });
 
-  test('pill variant rounds the track and the thumb together', async ({ page }) => {
+  test('pill variant rounds the track and the thumb together', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto('/');
     const pill = page.locator('.varve-segmented--pill').first();
@@ -153,10 +145,12 @@ test.describe('radio-group system', () => {
     for (const button of geometry.buttons) {
       expect(parseRadius(button.radius)).toBeGreaterThanOrEqual(CIRCLE_RADIUS);
     }
-    await pill.screenshot({ path: resolve(DIR, '04-view-mode-pill.png') });
+    await pill.screenshot({ path: testInfo.outputPath('04-view-mode-pill.png') });
   });
 
-  test('alignment and justification are icon pickers with full names', async ({ page }) => {
+  test('alignment and justification are icon pickers with full names', async ({
+    page,
+  }, testInfo) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await navigateToEditor(page);
     await drawFrame(page);
@@ -185,9 +179,7 @@ test.describe('radio-group system', () => {
     // never into one option per row.
     const start = justify.getByRole('radio', { name: 'Justify to start' });
     await expect(start).toHaveAttribute('tabindex', '0');
-    await page.locator('.editor-shell').evaluate((shell) => {
-      (shell as HTMLElement).style.setProperty('--inspector-width', '513px');
-    });
+    await resizePanelToWidth(page, 'inspector', 513);
     await page.waitForTimeout(150);
     const rowCount = async () =>
       justify.evaluate((element) => {
@@ -199,14 +191,10 @@ test.describe('radio-group system', () => {
         return tops.size;
       });
     expect(await rowCount(), 'icon pickers stay on a row at the reference rail').toBe(1);
-    await page.locator('.editor-shell').evaluate((shell) => {
-      (shell as HTMLElement).style.setProperty('--inspector-width', '240px');
-    });
+    await resizePanelToWidth(page, 'inspector', 240);
     await page.waitForTimeout(150);
     expect(await rowCount(), 'icon pickers never stack one per row').toBeLessThan(6);
-    await page.locator('.editor-shell').evaluate((shell) => {
-      (shell as HTMLElement).style.setProperty('--inspector-width', '513px');
-    });
+    await resizePanelToWidth(page, 'inspector', 513);
     await page.waitForTimeout(150);
     await start.focus();
     await page.keyboard.press('ArrowRight');
@@ -218,11 +206,13 @@ test.describe('radio-group system', () => {
     await expect(justify.getByRole('radio', { name: 'Space evenly' })).toBeFocused();
 
     await page.locator('.editor-inspector').screenshot({
-      path: resolve(DIR, '05-layout-icon-pickers-light.png'),
+      path: testInfo.outputPath('05-layout-icon-pickers-light.png'),
     });
   });
 
-  test('purpose-built groups keep radiogroup ownership and arrow keys', async ({ page }) => {
+  test('purpose-built groups keep radiogroup ownership and arrow keys', async ({
+    page,
+  }, testInfo) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await navigateToEditor(page);
 
@@ -287,11 +277,11 @@ test.describe('radio-group system', () => {
       'false',
     );
     await page.locator('.crop-toolbar').screenshot({
-      path: resolve(DIR, '06-crop-toolbar.png'),
+      path: testInfo.outputPath('06-crop-toolbar.png'),
     });
   });
 
-  test('forced colors keep the selected segment distinguishable', async ({ page }) => {
+  test('forced colors keep the selected segment distinguishable', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await navigateToEditor(page);
     await openIsometricGrid(page);
@@ -316,11 +306,15 @@ test.describe('radio-group system', () => {
       };
     });
     expect(contrast.checkedBg).not.toBe(contrast.uncheckedBg);
-    await group.screenshot({ path: resolve(DIR, '07-construction-plane-forced-colors.png') });
+    await group.screenshot({
+      path: testInfo.outputPath('07-construction-plane-forced-colors.png'),
+    });
     await page.emulateMedia({ forcedColors: 'none' });
   });
 
-  test('segmented controls stay contained across viewports and rails', async ({ page }) => {
+  test('segmented controls stay contained across viewports and rails', async ({
+    page,
+  }, testInfo) => {
     test.setTimeout(240_000);
     await page.setViewportSize({ width: 1440, height: 900 });
     await navigateToEditor(page);
@@ -394,14 +388,14 @@ test.describe('radio-group system', () => {
     // Evidence: the smallest phone viewport with the inspector drawer open.
     await page.setViewportSize({ width: 375, height: 667 });
     await page.waitForTimeout(250);
-    await page.screenshot({ path: resolve(DIR, '08-phone-inspector.png') });
+    await page.screenshot({ path: testInfo.outputPath('08-phone-inspector.png') });
   });
 });
 
 test.describe('radio-group touch targets', () => {
   test.use({ hasTouch: true, viewport: { width: 1024, height: 768 } });
 
-  test('coarse pointers raise segments to the shared touch minimum', async ({ page }) => {
+  test('coarse pointers raise segments to the shared touch minimum', async ({ page }, testInfo) => {
     await navigateToEditor(page);
     await openIsometricGrid(page);
     const group = page.getByRole('radiogroup', { name: 'Active construction plane' });
@@ -421,6 +415,6 @@ test.describe('radio-group touch targets', () => {
       expect(size.height).toBeGreaterThanOrEqual(43);
       expect(size.width).toBeGreaterThanOrEqual(43);
     }
-    await group.screenshot({ path: resolve(DIR, '09-touch-targets.png') });
+    await group.screenshot({ path: testInfo.outputPath('09-touch-targets.png') });
   });
 });

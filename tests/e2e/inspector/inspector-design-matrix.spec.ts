@@ -19,6 +19,7 @@
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { expect, type Page, test } from '@playwright/test';
+import { resizePanelToWidth } from '../helpers/panel-resize';
 import { navigateToEditor } from '../shared';
 
 const PHOTO = path.resolve('tests/e2e/fixtures/real-life-still-life.jpg');
@@ -92,11 +93,7 @@ async function openDesignTab(page: Page): Promise<void> {
 }
 
 async function setRail(page: Page, width: number): Promise<void> {
-  await page.locator('.editor-shell').evaluate((shell, nextWidth) => {
-    shell.style.setProperty('--inspector-width', `${nextWidth}px`);
-  }, width);
-  await expect(page.locator('.editor__inspector-panel')).toHaveCSS('width', `${width}px`);
-  await page.waitForTimeout(80);
+  await resizePanelToWidth(page, 'inspector', width);
 }
 
 async function expandAllSections(page: Page): Promise<void> {
@@ -434,6 +431,9 @@ test.describe('Inspector baseline matrix', () => {
     for (const scenario of SCENARIOS) {
       await page.setViewportSize({ width: 1440, height: 900 });
       await setTheme(page, 'light');
+      // Dock ratios persist across documents. Start each artwork scenario on
+      // the same live rail before using canvas-local pointer coordinates.
+      await setRail(page, 320);
       await buildScenario(page, scenario);
       await openDesignTab(page);
       await expandAllSections(page);
@@ -461,6 +461,7 @@ test.describe('Inspector baseline matrix', () => {
       for (const scenario of scenarios) {
         await page.setViewportSize({ width: 1440, height: 900 });
         await setTheme(page, theme);
+        await setRail(page, 320);
         await buildScenario(page, scenario);
         await openDesignTab(page);
         await expandAllSections(page);
@@ -486,6 +487,7 @@ test.describe('Inspector baseline matrix', () => {
       for (const scenario of scenarios) {
         await page.setViewportSize({ width: 2880, height: 1800 });
         await setTheme(page, 'light');
+        await setRail(page, 320);
         await buildScenario(page, scenario);
         await openDesignTab(page);
         await expandAllSections(page);

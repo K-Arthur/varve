@@ -140,14 +140,14 @@ error copy belongs below the group.
 
 ### Semantic compact widths
 
-A numeric field with a finite `min`/`max` (opacity, rotation, grid spacing —
-never position, most sizes) gets an intrinsic width instead of stretching
-across the whole control column: `compactFieldWidthCh(min, max, step)` in
-`NumberField.tsx` computes a `ch`-based width from the value's digit count,
-sign, and decimal precision, applied via `insp-num__control--compact` +
-an inline `flex`/`width: min(Nch, 100%)`. This is the fix for "some input
-boxes are unnecessarily large" — Opacity/Rotation-style fields no longer
-claim full-row width they can never use.
+`NumberField` defaults to intrinsic sizing in floating controls. A finite
+`min`/`max` lets `compactFieldWidthCh(min, max, step)` compute a `ch`-based
+width from the digit count, sign, and decimal precision; unbounded position
+and size fields remain flexible. `FieldSizingContext` selects `fill` within
+Inspector tab panels so the row's grid owns numeric control widths. A field
+in a label/value row fills that value column; a stacked per-fill opacity
+field fills its separate label-sized track. Those two row grammars share
+control heights and trailing alignment, without requiring equal widths.
 
 **Gotcha (found twice in this system, 2026-09-17):** when a field's visible
 *label* is wider than its compact input — e.g. per-fill "Opacity (%)" sits

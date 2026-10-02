@@ -7,6 +7,7 @@
  */
 import path from 'node:path';
 import { expect, type Page, test } from '@playwright/test';
+import { resizePanelToWidth } from '../helpers/panel-resize';
 import { navigateToEditor } from '../shared';
 
 const PHOTO = path.resolve('tests/e2e/fixtures/real-life-still-life.jpg');
@@ -37,11 +38,7 @@ async function openDesign(page: Page): Promise<void> {
 }
 
 async function setRail(page: Page, width: number): Promise<void> {
-  await page.locator('.editor-shell').evaluate((shell, nextWidth) => {
-    shell.style.setProperty('--inspector-width', `${nextWidth}px`);
-  }, width);
-  await expect(page.locator('.editor__inspector-panel')).toHaveCSS('width', `${width}px`);
-  await page.waitForTimeout(80);
+  await resizePanelToWidth(page, 'inspector', width);
 }
 
 async function surfaceMetrics(page: Page) {

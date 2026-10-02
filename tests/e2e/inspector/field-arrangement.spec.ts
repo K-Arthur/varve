@@ -12,6 +12,7 @@
  *    two equal value columns with a compact action gutter between W and H.
  */
 import { expect, type Page, test } from '@playwright/test';
+import { resizePanelToWidth } from '../helpers/panel-resize';
 import { navigateToEditor } from '../shared';
 
 const RAILS = [240, 320, 640] as const;
@@ -21,11 +22,7 @@ function spread(...values: number[]): number {
 }
 
 async function setRail(page: Page, width: number): Promise<void> {
-  await page.locator('.editor-shell').evaluate((shell, nextWidth) => {
-    (shell as HTMLElement).style.setProperty('--inspector-width', `${nextWidth}px`);
-  }, width);
-  await expect(page.locator('.editor__inspector-panel')).toHaveCSS('width', `${width}px`);
-  await page.waitForTimeout(80);
+  await resizePanelToWidth(page, 'inspector', width);
 }
 
 async function openSection(page: Page, title: string): Promise<void> {

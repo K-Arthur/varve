@@ -14,6 +14,7 @@ import { deflateSync } from 'node:zlib';
 import { expect, type Page, test } from '@playwright/test';
 import { selectFillType } from '../helpers/editor-helpers';
 import { navigateToCleanEditor } from '../helpers/nav';
+import { resizePanelToWidth } from '../helpers/panel-resize';
 
 const PHOTO_FIXTURE = path.resolve('tests/e2e/fixtures/photo-fixture.jpg');
 
@@ -166,11 +167,8 @@ test('image colour metadata stays separated in a narrow inspector', async ({ pag
   // Exercise the smallest supported desktop inspector width. The editor shell
   // remains wide enough for the canvas, while the right panel gets the tight
   // layout that exposed the original metadata overlap.
-  await page.locator('.editor-shell').evaluate((shell) => {
-    shell.style.setProperty('--inspector-width', '280px');
-  });
+  await resizePanelToWidth(page, 'inspector', 280);
   const inspector = page.locator('.editor__inspector-panel');
-  await expect(inspector).toHaveCSS('width', '280px');
   await page.waitForTimeout(100);
 
   const detailRows = inspector.locator('.insp-image-fill__color-detail');

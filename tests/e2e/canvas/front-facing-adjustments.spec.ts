@@ -2,6 +2,7 @@ import { mkdirSync } from 'node:fs';
 import path from 'node:path';
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
+import { resizePanelToWidth } from '../helpers/panel-resize';
 import { dragOnCanvas, navigateToEditor } from '../shared';
 
 const REVIEW_DIR = path.resolve('reports/ui-review/front-facing-adjustments');
@@ -169,12 +170,7 @@ test.describe('front-facing adjustment and canvas controls', () => {
     await page.locator('#file-import-input').setInputFiles(IMAGE_FIXTURE);
     await expect(page.getByRole('treeitem')).toHaveCount(1);
     await createAdjustmentLayer(page);
-    await page.evaluate(() => {
-      document
-        .querySelector<HTMLElement>('.editor-shell')
-        ?.style.setProperty('--inspector-width', '280px');
-    });
-    await expect(page.locator('.editor-shell')).toHaveCSS('--inspector-width', '280px');
+    await resizePanelToWidth(page, 'inspector', 280);
 
     for (const name of ['Channel Mixer', 'Halftone', 'Color Balance', 'Shadow / Highlight']) {
       await addAdjustment(page, name);
