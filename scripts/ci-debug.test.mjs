@@ -21,6 +21,7 @@ import {
   hasFailureSourceForJob,
   isFailureLine,
   isStuckQueued,
+  jobUnavailableLogText,
   localReproductionCommand,
   normalizeLogLine,
   normalizeLogSource,
@@ -222,6 +223,57 @@ assertTrue(
 assertTrue(
   !inlineReport.includes('No failed jobs detected in run metadata'),
   'inline report must not claim there are no failed jobs when a step already failed',
+);
+
+// Inline diagnostics run while the failing job is still in progress, so GitHub
+// cannot serve that job's log yet. The report must say so with a next action
+// rather than rendering a bare `null` conclusion, which reads as a data bug.
+const inlineUndownloadableReport = formatReport(
+  'K-Arthur/varve',
+  { id: 123, name: 'CI', conclusion: null, status: 'in_progress' },
+  [
+    {
+      id: 99,
+      name: 'JS (pnpm)',
+      status: 'in_progress',
+      conclusion: null,
+      steps: [{ number: 4, name: 'test', conclusion: 'failure' }],
+    },
+  ],
+  {
+    'JS (pnpm)': [
+      {
+        line: 0,
+        rank: 0,
+        text: jobUnavailableLogText({
+          name: 'JS (pnpm)',
+          conclusion: null,
+          status: 'in_progress',
+        }),
+        snippet: '',
+      },
+    ],
+  },
+);
+assertTrue(
+  inlineUndownloadableReport.includes('run is still in_progress'),
+  'an in-progress job without a downloadable log explains the wait',
+);
+assertTrue(
+  jobUnavailableLogText({ name: 'JS (pnpm)', conclusion: null, status: 'in_progress' }).includes(
+    'node scripts/ci-debug.mjs --run-id <id>',
+  ),
+  'the in-progress notice tells the reader how to fetch the real snippet',
+);
+assertTrue(
+  !inlineUndownloadableReport.includes('concluded as null'),
+  'the report never renders a bare null conclusion',
+);
+assertTrue(
+  jobUnavailableLogText({ name: 'Rust', conclusion: 'failure', status: 'completed' }).includes(
+    'check annotations',
+  ),
+  'a completed job with no downloadable log points at check annotations',
 );
 
 // Runner-unavailable: GitHub never assigned a hosted runner.

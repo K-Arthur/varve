@@ -238,11 +238,30 @@ export async function collectJobFailureLogs({
       {
         line: 0,
         rank: 0,
-        text: `Job concluded as ${job.conclusion} but no log text was downloaded.`,
+        // When this generator runs inside the failing job itself, the run is
+        // still in progress and GitHub cannot serve the job's log yet. Say so
+        // with a next action, instead of the previous `null` conclusion which
+        // read as a data problem and pointed nowhere.
+        text: jobUnavailableLogText(job),
         snippet: '',
       },
     ];
   }
+}
+
+/**
+ * Explain why a job's log was unavailable and what to do next.
+ *
+ * @param {{name?: string, conclusion?: string | null, status?: string}} job
+ * @returns {string}
+ */
+export function jobUnavailableLogText(job) {
+  const name = job?.name || 'unknown job';
+  const conclusion = job?.conclusion ?? null;
+  if (!conclusion) {
+    return `No job log is available yet for ${name}: the run is still ${job?.status ?? 'in progress'}, so GitHub has not finalized the failing job's log. Re-run \`pnpm ci:debug\` (or \`node scripts/ci-debug.mjs --run-id <id>\`) once the run completes for the extracted root-cause snippet.`;
+  }
+  return `Job ${name} concluded ${conclusion}, but neither the run archive nor its per-job log could be downloaded. Inspect the job's check annotations in the Actions UI before assuming a product failure.`;
 }
 
 function parseArgs() {
