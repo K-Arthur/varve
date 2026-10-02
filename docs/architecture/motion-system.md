@@ -206,7 +206,7 @@ E2E tests in `tests/e2e/prototype/prototype-clickthrough.spec.ts` verify the cor
 |---|---|
 | MotionFacade | `packages/editor/src/motion/MotionFacade.test.ts` |
 | Playback integration | `packages/editor/src/motion/playback-integration.test.ts` |
-| Prototype wiring | `packages/editor/src/motion/prototype-integration.test.ts` |
+| Prototype wiring | `packages/editor/src/motion/prototype-integration.test.tsx` |
 | Smart Animate | `packages/prototype/src/smartAnimate.test.ts` |
 | Interactions CRUD | `packages/scene/src/interactions.test.ts` |
 | Motion presets | `packages/scene/src/motion-presets.test.ts` |
@@ -217,7 +217,7 @@ E2E tests in `tests/e2e/prototype/prototype-clickthrough.spec.ts` verify the cor
 | Timeline panel | `packages/editor/src/timeline/TimelinePanel.test.tsx` |
 | Graph editor | `packages/editor/src/timeline/GraphEditor.test.tsx` |
 | Motion path overlay | `packages/editor/src/components/__tests__/MotionPathOverlay.test.tsx` |
-| Interaction section | `packages/editor/src/components/Inspector/sections/InteractionSection.test.ts` |
+| Interaction section | `packages/editor/src/components/Inspector/sections/InteractionSection.test.tsx` |
 | Lottie export | `packages/codegen/src/animation-lottie.test.ts` |
 | CSS export | `packages/codegen/src/animation-css.test.ts` |
 | SVG export | `packages/codegen/src/animation-svg.test.ts` |

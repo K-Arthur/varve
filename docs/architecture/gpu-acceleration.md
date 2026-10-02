@@ -189,7 +189,7 @@ CPU cost scales linearly with pixels while GPU stays under ~71 ms at 2048² —
 so effect-heavy exports are the operation where this consumer matters.
 
 **Integration shape (execution scoped, not yet landed):** an async variant of
-`applyFilterWithCompositing` (packages/engine/filterCompositor.ts:108) that
+`applyFilterWithCompositing` (packages/engine/src/filterCompositor.ts:108) that
 dispatches each live-effect filter through `dispatchLiveEffect` at the point
 the CPU kernel would run, keeping opacity/blend compositing identical,
 falling back per effect on any failure, and recording the serving provider in

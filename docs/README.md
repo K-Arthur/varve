@@ -647,7 +647,7 @@ records; check the current code before acting on their findings.
 
 | Area | Location | Purpose |
 |------|----------|---------|
-| Source code | `apps/website/` | Astro 7 static site (107 routes at the 2026-09-25 build) |
+| Source code | `apps/website/` | Astro 7 static site (116 routes at the 2026-10-02 build) |
 | Local plugin pages | `apps/website/src/pages/features/plugins.astro`, `apps/website/src/pages/docs/plugins.astro` | Source-build feature overview and developer guide |
 | Release manifest | `apps/website/src/data/release-manifest.json` | Download data for the release pages |
 | Deployment workflow | `.github/workflows/website-deploy.yml` | GitHub Pages auto-deploy |

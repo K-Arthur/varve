@@ -123,7 +123,7 @@ Lower:
 
 Directly executed this session:
 
-- `pnpm vitest run packages/scene/src/documentCodec.test.ts packages/scene/src/__tests__/page.test.ts packages/editor/src/components/PageNav/PageNav.test.tsx packages/editor/src/__tests__/pageConfig.test.tsx packages/editor/src/layout/__tests__/cycleDetection.test.ts packages/editor/src/startup/bootManager.test.ts packages/editor/src/startup/startupTimer.test.ts --reporter=verbose`
+- `pnpm vitest run packages/scene/src/documentCodec.test.ts packages/scene/src/__tests__/page.test.ts packages/editor/src/components/PageNav/PageNav.test.tsx packages/editor/src/__tests__/pageConfig.test.tsx packages/layout/src/__tests__/cycleDetection.test.ts packages/editor/src/startup/bootManager.test.ts packages/editor/src/startup/startupTimer.test.ts --reporter=verbose`
 - `pnpm --filter @varve/scene typecheck`
 - `pnpm --filter @varve/editor typecheck`
 - `pnpm typecheck`
