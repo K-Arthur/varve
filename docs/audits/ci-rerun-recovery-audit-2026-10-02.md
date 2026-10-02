@@ -113,6 +113,14 @@ commit rather than another attempt of the old run.
     builds two different committed programs offline through the same cache,
     verifies that the second executes the changed source, and proves an
     unchanged dependency is reused while a changed dependency rebuilds.
+11. **Workspace imports escaped the exact validation tree.** Linking each
+    entire installed `node_modules` directory also preserved pnpm's workspace
+    links to the caller's checkout. A real snapshot resolved `@varve/scene`
+    there, allowing dirty dependency source to influence a supposedly committed
+    target. Build a snapshot-local dependency directory with workspace links
+    pointing to its committed packages; share third-party installations and
+    keep Vite/configuration caches local. A regression resolves and executes a
+    committed dependency while the caller contains a different implementation.
 
 ## Validation evidence and boundaries
 

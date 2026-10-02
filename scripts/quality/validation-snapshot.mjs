@@ -6,14 +6,25 @@
  * Git's pre-push hook runs before the transport updates the remote, and the
  * caller may have unrelated staged/unstaged files or may be pushing another
  * local ref. A validation receipt is only meaningful when commands execute
- * against the target commit's tree. Dependencies are linked read-only from
+ * against the target commit's tree. Third-party dependencies are shared from
  * the caller's installed workspace; source files always come from the clean
- * detached worktree.
+ * detached worktree. Workspace dependency links resolve inside that snapshot;
+ * only installed third-party dependencies are shared with the caller.
  */
 
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, symlinkSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  statSync,
+  symlinkSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { join, relative, sep } from 'node:path';
 import { createGitAdapter } from './history-policy.mjs';
 import { commonGitDirectory } from './validation-receipts.mjs';
 
@@ -45,13 +56,74 @@ function requireDirectoryNames(path) {
   }
 }
 
+function workspacePackages(root) {
+  const packages = new Map();
+  for (const parent of ['apps', 'packages']) {
+    for (const name of requireDirectoryNames(join(root, parent))) {
+      const path = join(root, parent, name);
+      const manifest = join(path, 'package.json');
+      if (existsSync(manifest)) {
+        const pkg = JSON.parse(readFileSync(manifest, 'utf8'));
+        if (typeof pkg.name === 'string') packages.set(pkg.name, path);
+      }
+    }
+  }
+  return packages;
+}
+
+function rebaseWorkspaceDependency(installed, workspace, callerWorkspace) {
+  const resolved = realpathSync(installed);
+  for (const [name, path] of callerWorkspace) {
+    if (resolved !== path && !resolved.startsWith(`${path}${sep}`)) continue;
+    // A third-party installation can live under a workspace's node_modules;
+    // that location is installed dependency storage rather than product source.
+    if (relative(path, resolved).split(sep).includes('node_modules')) return installed;
+    const snapshotPackage = workspace.get(name);
+    if (!snapshotPackage) return null;
+    const rebased = join(snapshotPackage, relative(path, resolved));
+    return existsSync(rebased) ? rebased : null;
+  }
+  return installed;
+}
+
+function linkDependencyEntries(source, target, workspace, callerWorkspace, scope = '') {
+  mkdirSync(target, { recursive: true });
+  for (const entry of readdirSync(source, { withFileTypes: true })) {
+    const installed = join(source, entry.name);
+    const destination = join(target, entry.name);
+    if (existsSync(destination)) continue;
+    if (!scope && (entry.name.startsWith('@') || entry.name === '.bin') && entry.isDirectory()) {
+      linkDependencyEntries(installed, destination, workspace, callerWorkspace, entry.name);
+      continue;
+    }
+    // Vite and tool caches contain per-checkout configuration, so keep them
+    // local to the snapshot rather than sharing generated source with callers.
+    if (entry.name.startsWith('.vite') || entry.name === '.cache') continue;
+    const name = scope.startsWith('@') ? `${scope}/${entry.name}` : entry.name;
+    if (callerWorkspace.has(name) && !workspace.has(name)) continue;
+    const sourcePath =
+      workspace.get(name) ?? rebaseWorkspaceDependency(installed, workspace, callerWorkspace);
+    if (!sourcePath) continue;
+    symlinkSync(
+      sourcePath,
+      destination,
+      process.platform === 'win32'
+        ? statSync(sourcePath).isDirectory()
+          ? 'junction'
+          : 'file'
+        : undefined,
+    );
+  }
+}
+
 function linkDependencies(sourceRoot, snapshotRoot) {
-  for (const relativePath of dependencyPaths(sourceRoot)) {
+  const workspace = workspacePackages(snapshotRoot);
+  const callerWorkspace = workspacePackages(sourceRoot);
+  for (const relativePath of dependencyPaths(snapshotRoot)) {
     const source = join(sourceRoot, relativePath);
     const target = join(snapshotRoot, relativePath);
     if (!existsSync(source) || existsSync(target)) continue;
-    mkdirSync(dirname(target), { recursive: true });
-    symlinkSync(source, target, process.platform === 'win32' ? 'junction' : 'dir');
+    linkDependencyEntries(source, target, workspace, callerWorkspace);
   }
 }
 
