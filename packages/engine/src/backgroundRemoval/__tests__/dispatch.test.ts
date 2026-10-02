@@ -24,8 +24,13 @@ const mockHeuristicResult = {
 };
 
 describe('dispatchBackgroundRemoval', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.resetModules();
+    // These provider-chain cases model a host that can run the optional
+    // quality model. Align admission with that fixture so routing assertions
+    // reach their mocked providers.
+    const platform = await import('@varve/platform');
+    platform.setDerivedWorkMemoryProfile('reference-8gb');
   });
 
   it('rejects zero-size images', async () => {

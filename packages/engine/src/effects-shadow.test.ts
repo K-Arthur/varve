@@ -507,9 +507,8 @@ describe('alpha-aware inner shadow', () => {
     expect(rec.calls.filter((c) => c.startsWith('fill(')).length).toBe(0);
     // Inner shadow composites a pre-computed alpha-masked ring canvas.
     expect(rec.drawImageArgs.length).toBeGreaterThan(0);
-    // The image fill itself is clipped to the primitive before the alpha
-    // silhouette is captured; the inset effect no longer adds a second
-    // geometric clip.
-    expect(rec.calls.filter((c) => c.startsWith('clip('))).toHaveLength(1);
+    // This image exactly fills the rectangular primitive, so the compositor
+    // skips a redundant geometric clip; the inset effect adds none either.
+    expect(rec.calls.filter((c) => c.startsWith('clip('))).toHaveLength(0);
   });
 });

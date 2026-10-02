@@ -89,8 +89,14 @@ const HEURISTIC_RESULT = {
 const navigatorDeviceMemoryDescriptor = Object.getOwnPropertyDescriptor(navigator, 'deviceMemory');
 
 describe('removeBackground dispatch', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.resetModules();
+    // These cases model an 8 GB host (see navigator.deviceMemory below), so
+    // align the shared request gate with the reference profile. Provider
+    // assertions should reach their mocks instead of the unrelated 400 MB
+    // default.
+    const platform = await import('@varve/platform');
+    platform.setDerivedWorkMemoryProfile('reference-8gb');
     mockHeuristic.mockReset().mockResolvedValue(HEURISTIC_RESULT);
     mockMaskToDataUrl.mockClear();
     mockRunPooledInference.mockReset().mockResolvedValue({

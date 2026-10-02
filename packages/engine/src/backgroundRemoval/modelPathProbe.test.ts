@@ -1,3 +1,4 @@
+import { IDBFactory } from 'fake-indexeddb';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
@@ -126,6 +127,11 @@ describe('download local-first probe', () => {
       remoteUrl: 'https://example.com/scunet_color_real_psnr.onnx',
       filename: 'scunet_color_real_psnr.onnx',
     };
+    // downloadModel needs browser storage before it enters its fetch path.
+    // This node-environment test only reaches the remote request, which then
+    // deliberately throws before any IndexedDB operation is attempted.
+    vi.stubGlobal('window', {});
+    vi.stubGlobal('indexedDB', new IDBFactory());
     const seen: string[] = [];
     vi.stubGlobal(
       'fetch',

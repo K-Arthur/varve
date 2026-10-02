@@ -235,8 +235,10 @@ describe('unionComponentMasks', () => {
 describe('maskFromImageData / maskToImageData', () => {
   it('round-trips alpha channel', () => {
     const img = new ImageData(2, 2);
-    img.data[0] = 128;
-    img.data[4] = 64;
+    // Depth masks encode coverage in alpha over white RGB. Set real RGBA
+    // pixels so this tests that representation instead of transparent red.
+    img.data.set([255, 255, 255, 128], 0);
+    img.data.set([255, 255, 255, 64], 4);
     const mask = maskFromImageData(img);
     expect(mask[0]).toBe(128);
     expect(mask[1]).toBe(64);

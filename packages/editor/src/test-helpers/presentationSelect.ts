@@ -1,7 +1,7 @@
 // Shared test helper for the presentation panels' converted Select controls.
 //
 // The presentation surfaces use the shared @varve/ui `Select`, which is a
-// button + listbox rather than a native `<select>`, so a test cannot call
+// button + listbox rather than a native select control, so a test cannot call
 // `user.selectOptions` on it. These helpers keep the same intent — choose by
 // accessible name, then by option value or by option label — through the
 // listbox, and they fail with the option list when a value is not present so a

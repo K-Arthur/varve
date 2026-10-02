@@ -1,3 +1,4 @@
+import { setDerivedWorkMemoryProfile } from '@varve/platform';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const providers = vi.hoisted(() => ({
@@ -21,6 +22,9 @@ const pending = () => new Promise<never>(() => {});
 
 describe('background removal request budget', () => {
   beforeEach(() => {
+    // The 2x2 fixtures exercise deadline behavior on the documented 8 GB
+    // reference profile; the quality reservation must fit before timing out.
+    setDerivedWorkMemoryProfile('reference-8gb');
     vi.useFakeTimers();
     vi.resetAllMocks();
     providers.ready.mockResolvedValue(false);
@@ -31,7 +35,10 @@ describe('background removal request budget', () => {
     providers.native.isAvailable.mockResolvedValue(false);
     providers.cloud.isAvailable.mockResolvedValue(false);
   });
-  afterEach(() => vi.useRealTimers());
+  afterEach(() => {
+    vi.useRealTimers();
+    setDerivedWorkMemoryProfile('unknown-or-4gb');
+  });
 
   it('bounds the entire Auto request and aborts the active attempt', async () => {
     const result = dispatchBackgroundRemoval(new ImageData(2, 2), { method: 'ai-balanced' });
