@@ -7,12 +7,14 @@
  * - FSL crates carry `license.workspace = true` (→ FSL-1.1-MIT)
  * - No open crate depends (directly) on an FSL crate
  * - TypeScript packages carry FSL-1.1-MIT
+ * - Generated wasm-pack package metadata retains the producing Rust crate's license
  *
  * Exit 0 = all checks pass, exit 1 = violation found.
  */
 
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { generatedWasmLicenseViolation } from './generated-wasm-license.mjs';
 
 const ROOT = resolve(import.meta.dirname, '..', '..');
 
@@ -176,7 +178,10 @@ if (existsSync(appsDir)) {
 // apps/desktop/public/wasm/
 const wasmPkg = join(ROOT, 'apps', 'desktop', 'public', 'wasm', 'package.json');
 if (existsSync(wasmPkg)) {
-  checkPackageJson(join(ROOT, 'apps', 'desktop', 'public', 'wasm'));
+  const metadata = JSON.parse(readFileSync(wasmPkg, 'utf-8'));
+  const violation = generatedWasmLicenseViolation(metadata);
+  if (violation) fail(`${wasmPkg}: ${violation}`);
+  else pass(`${metadata.name}: generated WASM package license = "${metadata.license}"`);
 }
 
 // --- Summary ---

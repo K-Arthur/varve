@@ -23,7 +23,7 @@
  *   node scripts/release/check-bundled-assets.mjs --dist     # also check built dist/
  */
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
-import { basename, dirname, join, relative } from 'node:path';
+import { basename, dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -31,9 +31,6 @@ const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const LFS_MAGIC = 'version https://git-lfs.github.com/spec/v1';
 /** An LFS pointer is always well under 1 KB; real models are megabytes. */
 const POINTER_MAX_BYTES = 1024;
-
-const PUBLIC_MODELS = join(repoRoot, 'apps/desktop/public/models');
-const DIST_MODELS = join(repoRoot, 'apps/desktop/dist/models');
 
 function walk(dir) {
   if (!existsSync(dir)) return [];
@@ -74,8 +71,8 @@ function pointerDetails(path) {
  * reliable enough for a consistency check — and a false positive here fails
  * loudly rather than silently, which is the correct direction to be wrong in.
  */
-function catalogBundledFlags() {
-  const path = join(repoRoot, 'packages/engine/src/inference/modelCatalog.ts');
+function catalogBundledFlags(root) {
+  const path = join(root, 'packages/engine/src/inference/modelCatalog.ts');
   if (!existsSync(path)) return new Map();
 
   const text = readFileSync(path, 'utf-8');
@@ -90,8 +87,9 @@ function catalogBundledFlags() {
   return flags;
 }
 
-function main() {
-  const checkDist = process.argv.includes('--dist');
+export function inspectBundledAssets({ root: repositoryRoot = repoRoot, checkDist = false } = {}) {
+  const PUBLIC_MODELS = join(repositoryRoot, 'apps/desktop/public/models');
+  const DIST_MODELS = join(repositoryRoot, 'apps/desktop/dist/models');
   const problems = [];
   const warnings = [];
 
@@ -107,7 +105,7 @@ function main() {
   // one of them is wrong about roughly a gigabyte of installer payload — and
   // which one wins depends on which code path runs first. Fail on the
   // disagreement itself rather than guessing.
-  const catalog = catalogBundledFlags();
+  const catalog = catalogBundledFlags(repositoryRoot);
   for (const model of models) {
     if (!catalog.has(model.id)) continue;
     const catalogSaysBundled = catalog.get(model.id);
@@ -145,7 +143,7 @@ function main() {
   for (const root of roots) {
     for (const path of walk(root)) {
       if (!path.endsWith('.onnx')) continue;
-      const rel = relative(repoRoot, path);
+      const rel = relative(repositoryRoot, path);
       // basename() (not split('/')) — Windows checkouts use backslash paths,
       // and the guard must treat both separators identically.
       const filename = basename(path);
@@ -175,37 +173,52 @@ function main() {
 
       // Real content present. If it is not a bundled model, it is ~1 GB of dead
       // weight that Vite will copy into dist/ and Tauri will embed.
-      if (!bundledFilenames.has(filename) && root === PUBLIC_MODELS) {
+      if (!bundledFilenames.has(filename)) {
         const sizeMb = statSync(path).size / 1_000_000;
         const model = knownFilenames.get(filename);
         problems.push(
           `${rel} is ${sizeMb.toFixed(0)} MB of real content but is marked ` +
             `"bundled": ${model ? model.bundled : 'absent from manifest'}.\n` +
-            `      Everything in public/ is copied into dist/ and embedded in the installer.\n` +
-            `      Fix: move it out of public/ — it is designed to be downloaded at runtime.`,
+            (root === PUBLIC_MODELS
+              ? '      Everything in public/ is copied into dist/ and embedded in the installer.\n' +
+                '      Fix: move it out of public/ — it is designed to be downloaded at runtime.'
+              : '      This file is already in the built installer payload.\n' +
+                '      Fix: remove the stale output and rebuild from a clean public/ model set.'),
         );
       }
     }
   }
 
-  for (const warning of warnings) process.stdout.write(`  warning: ${warning}\n`);
+  return {
+    problems,
+    warnings,
+    checked: roots.flatMap(walk).filter((p) => p.endsWith('.onnx')).length,
+    roots: roots.length,
+    declaredBundled: bundledFilenames.size,
+  };
+}
 
-  if (problems.length > 0) {
+function main() {
+  const result = inspectBundledAssets({ checkDist: process.argv.includes('--dist') });
+  for (const warning of result.warnings) process.stdout.write(`  warning: ${warning}\n`);
+
+  if (result.problems.length > 0) {
     process.stderr.write('Bundled asset check FAILED:\n');
-    for (const problem of problems) process.stderr.write(`  - ${problem}\n`);
+    for (const problem of result.problems) process.stderr.write(`  - ${problem}\n`);
     process.exit(1);
   }
 
-  const checked = roots.flatMap(walk).filter((p) => p.endsWith('.onnx')).length;
   process.stdout.write(
-    `Bundled asset check passed (${checked} .onnx file(s) across ${roots.length} root(s); ` +
-      `${bundledFilenames.size} declared bundled).\n`,
+    `Bundled asset check passed (${result.checked} .onnx file(s) across ${result.roots} root(s); ` +
+      `${result.declaredBundled} declared bundled).\n`,
   );
 }
 
-try {
-  main();
-} catch (err) {
-  process.stderr.write(`${err.message}\n`);
-  process.exit(1);
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  try {
+    main();
+  } catch (err) {
+    process.stderr.write(`${err.message}\n`);
+    process.exit(1);
+  }
 }
