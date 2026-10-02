@@ -52,6 +52,21 @@ function rowByName(page: Page, name: string): Locator {
   return page.locator('[role="treeitem"]').filter({ hasText: name }).first();
 }
 
+async function drawEmptyFrame(page: Page) {
+  const canvas = page.locator('canvas.editor-canvas__content-layer');
+  const box = await canvas.boundingBox();
+  if (!box) throw new Error('canvas not found');
+  // Keep both ends inside the actual surface and clear of the seeded shapes
+  // and floating toolbar. Fixed 760×600 offsets land on chrome after docking.
+  await page.keyboard.press('f');
+  await page.mouse.move(box.x + box.width * 0.76, box.y + box.height * 0.36);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width * 0.96, box.y + box.height * 0.66, { steps: 6 });
+  await page.mouse.up();
+  await expect(rowByName(page, 'Frame')).toBeVisible();
+  await page.keyboard.press('Escape');
+}
+
 function parseCanvasPosition(labels: string[], name: string): [number, number] {
   const label = labels.find((candidate) => candidate.trim().includes(`${name},`));
   const match = label?.match(/at \((-?[\d.]+),\s*(-?[\d.]+)\)/);
@@ -96,7 +111,7 @@ async function dragRowToRow(
   await page.waitForTimeout(120);
   if (screenshotName) {
     await page.getByTestId('layers-panel').screenshot({
-      path: `test-results/${screenshotName}.png`,
+      path: test.info().outputPath(`${screenshotName}.png`),
     });
   }
   if (expectedIndicator) await expect(page.locator(`.${expectedIndicator}`)).toBeVisible();
@@ -164,17 +179,7 @@ test.describe('Layers Panel — real drag & drop', () => {
 
   test('dropping into a frame reparents the layer', async ({ page }) => {
     // Create an empty frame off to the side of the seeded shapes.
-    const canvas = page.locator('canvas.editor-canvas__content-layer');
-    const box = await canvas.boundingBox();
-    if (!box) throw new Error('canvas not found');
-    await page.keyboard.press('f');
-    await page.waitForTimeout(80);
-    await page.mouse.move(box.x + 600, box.y + 480);
-    await page.mouse.down();
-    await page.mouse.move(box.x + 760, box.y + 600);
-    await page.mouse.up();
-    await page.waitForTimeout(250);
-    await page.keyboard.press('Escape');
+    await drawEmptyFrame(page);
 
     const frameRow = rowByName(page, 'Frame');
     await frameRow.waitFor({ timeout: 5000 });
@@ -380,39 +385,52 @@ test.describe('Layers Panel — real drag & drop', () => {
       await page.mouse.up();
       await page.waitForTimeout(100);
     }
-    await expect(page.getByText('43 layers', { exact: true })).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('.layers-panel__count')).toHaveText('43');
+    await expect(
+      page.getByRole('list', { name: 'Canvas objects' }).getByRole('listitem'),
+    ).toHaveCount(43);
     expect(await page.getByRole('treeitem').count()).toBeLessThan(43);
     const tree = page.getByRole('tree', { name: /layers/i });
+    // At shorter heights the outer rail scrolls to preserve the tree's
+    // minimum height. Bring its whole viewport on screen before using its
+    // bottom edge as a pointer target.
+    await tree.scrollIntoViewIfNeeded();
+    // Fractional rail borders can shave a subpixel from the intersection.
+    // Prove the actual inset drop point receives input instead of requiring
+    // the outer border to have a mathematically exact intersection ratio.
+    await expect
+      .poll(() =>
+        tree.evaluate((element) => {
+          const bounds = element.getBoundingClientRect();
+          return element.contains(
+            document.elementFromPoint(bounds.x + bounds.width / 2, bounds.bottom - 4),
+          );
+        }),
+      )
+      .toBe(true);
     const source = page.getByRole('treeitem').first();
-    const sourceBox = await source.boundingBox();
+    const handleBox = await source.locator('.layers-row__drag-handle').boundingBox();
     const treeBox = await tree.boundingBox();
-    if (!sourceBox || !treeBox) throw new Error('virtualized drag geometry unavailable');
+    if (!handleBox || !treeBox) throw new Error('virtualized drag geometry unavailable');
 
-    await page.mouse.move(sourceBox.x + 8, sourceBox.y + sourceBox.height / 2);
+    const startX = handleBox.x + handleBox.width / 2;
+    const startY = handleBox.y + handleBox.height / 2;
+    await page.mouse.move(startX, startY);
     await page.mouse.down();
-    await page.mouse.move(sourceBox.x + 8, sourceBox.y + sourceBox.height / 2 - 12);
+    await page.mouse.move(startX, startY - 12);
     for (let i = 0; i < 18; i++) {
       await page.mouse.move(treeBox.x + treeBox.width / 2, treeBox.y + treeBox.height - 4);
       await page.waitForTimeout(45);
     }
-    expect(await tree.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
+    await expect.poll(async () => tree.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
     await page
       .getByTestId('layers-panel')
-      .screenshot({ path: 'test-results/layers-dnd-visual-autoscroll.png' });
+      .screenshot({ path: test.info().outputPath('layers-dnd-visual-autoscroll.png') });
     await page.mouse.up();
   });
 
   test('rejects a cycle with visible invalid feedback', async ({ page }) => {
-    const canvas = page.locator('canvas.editor-canvas__content-layer');
-    const box = await canvas.boundingBox();
-    if (!box) throw new Error('canvas not found');
-    await page.keyboard.press('f');
-    await page.mouse.move(box.x + 600, box.y + 480);
-    await page.mouse.down();
-    await page.mouse.move(box.x + 760, box.y + 600);
-    await page.mouse.up();
-    await page.waitForTimeout(250);
-    await page.keyboard.press('Escape');
+    await drawEmptyFrame(page);
 
     const frame = rowByName(page, 'Frame');
     await frame.waitFor({ timeout: 5000 });
