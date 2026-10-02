@@ -168,9 +168,14 @@ export function HomeToolbar({
               </div>
             }
           >
-            <Button variant="ghost" aria-label="Workspace filter" aria-haspopup="listbox">
-              <SemanticIcon name="Filter" size="sm" />
-              {currentWsFilterLabel}
+            <Button
+              variant="ghost"
+              aria-label="Workspace filter"
+              aria-haspopup="listbox"
+              title={`Workspace filter: ${currentWsFilterLabel}`}
+            >
+              <SemanticIcon name="Clock" size="sm" />
+              <span className="varve-home__toolbar-label">{currentWsFilterLabel}</span>
             </Button>
           </Popover>
         )}

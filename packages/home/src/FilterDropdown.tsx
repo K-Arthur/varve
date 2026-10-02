@@ -126,9 +126,13 @@ export function FilterDropdown({
         </div>
       }
     >
-      <Button variant="ghost" aria-label={`Filters${count > 0 ? ` (${count} active)` : ''}`}>
+      <Button
+        variant="ghost"
+        aria-label={`Filters${count > 0 ? ` (${count} active)` : ''}`}
+        title={`Filters${count > 0 ? ` (${count} active)` : ''}`}
+      >
         <SemanticIcon name="Filter" size="sm" />
-        Filters
+        <span className="varve-home__toolbar-label">Filters</span>
         {count > 0 && <span className="filter-dropdown__badge">{count}</span>}
       </Button>
     </Popover>

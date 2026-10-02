@@ -108,6 +108,22 @@
     padding: var(--space-1) var(--space-2);
   }
 }
+@media (max-width: 480px) {
+  /* Icon-only filters reclaim space on phones; aria-labels on these controls
+     preserve their names for assistive technology. Use a compact control
+     radius here instead of the large capsule geometry used at desktop sizes. */
+  .varve-home__toolbar-label {
+    display: none;
+  }
+  .varve-home__toolbar .varve-segmented--pill {
+    gap: var(--space-05);
+    padding: var(--space-05);
+    border-radius: var(--radius-control);
+  }
+  .varve-home__toolbar .varve-segmented--pill .varve-segmented__btn {
+    border-radius: var(--radius-control-compact);
+  }
+}
 .varve-home__sidebar {
   grid-row: 1 / 4;
   grid-column: 1;
@@ -3229,6 +3245,16 @@
 @media (max-width: 768px) {
   .varve-home {
     grid-template-columns: 1fr;
+  }
+  /* The desktop shell assigns its toolbar, selection bar, and content to
+     column 2. When the sidebar collapses to a single-column mobile grid,
+     those explicit placements create a new implicit column and leave the
+     viewport's left side empty. Move the remaining grid regions onto the
+     mobile column as well. */
+  .varve-home__toolbar,
+  .varve-home__batch-bar,
+  .varve-home__content {
+    grid-column: 1 / -1;
   }
   .varve-home__sidebar {
     display: none;
