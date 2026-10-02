@@ -90,6 +90,7 @@ pass report in
 | [brand/github-repository-presence.md](brand/github-repository-presence.md) | Canonical GitHub metadata, social preview, and public-content maintenance |
 | [marketing/positioning-and-discovery.md](marketing/positioning-and-discovery.md) | Current positioning, audience/search intent, claim register, and SEO/GEO/AEO contract |
 | [research/design-tool-failure-modes-2026-09-21.md](research/design-tool-failure-modes-2026-09-21.md) | Public complaint research and realistic local-first, export, portability, and trust responses |
+| [research/design-tool-failure-modes-2026-10-02.md](research/design-tool-failure-modes-2026-10-02.md) | 2025–2026 pricing, lock-in, AI, telemetry, signing, accessibility, and licence-trust complaint research; claim-register guardrails |
 | [research/presentation-workflow-2026-09-29.md](research/presentation-workflow-2026-09-29.md) | Dated presentation-product evidence, Varve baseline audit, and implementation decisions |
 | [audits/presentation-workflow-defects-2026-09-29.md](audits/presentation-workflow-defects-2026-09-29.md) | Reproduced Varve defects and presentation regression scenarios |
 | [audits/website-homepage-hero-eyebrow-2026-09-29.md](audits/website-homepage-hero-eyebrow-2026-09-29.md) | Homepage hero eyebrow responsive findings, failure-mode research, screenshots, and validation |

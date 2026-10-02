@@ -1,7 +1,7 @@
 # Varve positioning and discovery brief
 
 **Status:** Current operating brief
-**Last verified:** 2026-09-30
+**Last verified:** 2026-10-02
 **Owner:** Varve project maintainer
 
 This is the source of truth for public-facing positioning, audience priorities,
@@ -136,19 +136,34 @@ The website implements the following technical contract:
 
 ## Claim register
 
+The wording rules below are informed by the sourced complaint research in
+[`research/design-tool-failure-modes-2026-10-02.md`](../research/design-tool-failure-modes-2026-10-02.md).
+When a new phrase is proposed, check it against both lists before it ships.
+
 ### Approved when kept qualified
 
 - “Free” means the current Community Edition has no subscription or feature
   paywall; it does not promise that every future edition will have the same
-  terms.
+  terms. The committed scope is narrower and stronger than a slogan: the
+  Community Edition stays free, and capabilities already in it are not moved
+  behind a future paid tier ([COMMERCIAL.md](../../COMMERCIAL.md)).
 - “Local-first” means no account or mandatory cloud sync is required and core
   editing works offline. Optional model/font downloads, update checks,
   user-configured providers, and consented aggregate measurements remain
   separate network features.
 - “Cross-platform” means the currently published installers and requirements
-  listed on `/download`; macOS is Apple Silicon only.
+  listed on `/download`; macOS is Apple Silicon only. Always pair it with
+  per-platform maturity and signing state, including the unsigned Windows and
+  macOS installers and the macOS Gatekeeper bypass.
 - “Source-available” means FSL-1.1-MIT, not OSI-approved open source. Each
   release converts to MIT after two years under the license terms.
+- “No generative AI on your work” means there is no text-to-image generation
+  layer over the canvas and no model training on user content. Assistive
+  on-device models (tracing, enhancement, background removal, object
+  selection, depth, palette) exist and download only when requested.
+- “No telemetry by default” means no analytics or crash reporting is sent
+  unless the user opts in; name the opt-in aggregate measurement and what it
+  transmits rather than claiming zero.
 - “Print production” means the implemented CMYK/ICC, PDF/X, marks, and
   preflight workflows, with beta caveats and a recommendation to test before
   critical work.
@@ -163,13 +178,29 @@ The website implements the following technical contract:
 - Fabricated release versions, dates, installer sizes, package-manager
   commands, testimonials, customer logos, awards, user counts, or performance
   numbers.
+- “Free forever” as a headline. State the specific, checkable commitment
+  instead; the phrase is the pledge that burned Affinity, Sketch, and Clip
+  Studio users.
 - “Real-time collaboration” as an available capability; current status is
-  single-user with UI scaffolding only.
+  single-user with UI scaffolding only. Do not imply peer-to-peer or
+  collaborate-without-the-cloud sync.
 - “Hosted web app” or “web version” as a download destination; the WASM target
-  exists in the repository, but no hosted web editor is available.
+  exists in the repository, but no hosted web editor is available. The `/try`
+  demo persists in browser storage, not as a user-visible file.
+- “Open source” for the application. FSL-1.1-MIT is source-available; only the
+  separate engine crates are OSI-licensed.
+- “Zero telemetry” or unconditional “no telemetry”; an opt-in aggregate
+  measurement path exists.
+- “AI-free”, “no AI”, or “100% AI-free”; on-device model features ship today.
+- “Fully accessible”, “WCAG 2.2 AA compliant”, or screen-reader claims for the
+  canvas. The token contrast gate is not a product-conformance audit, and the
+  canvas screen-reader gap is published on `/support/known-issues`.
 - Absolute privacy claims such as “nothing ever leaves your machine”; they are
   inaccurate once a user opts into a model download, update check, aggregate
   measurement, or their own provider.
+- Unconditioned performance or fidelity claims (“blazing fast”, “runs 10k
+  shapes smoothly”, “perfect export fidelity”) without a reproducible
+  measurement or a scoped format statement.
 
 ## Measurement and maintenance
 

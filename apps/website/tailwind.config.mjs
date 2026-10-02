@@ -6,7 +6,7 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Use @varve/ui design tokens
+        // Use Strata design tokens from @varve/ui
         accent: {
           DEFAULT: 'var(--color-accent-primary)',
           hover: 'var(--color-accent-hover)',
