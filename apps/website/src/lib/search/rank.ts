@@ -67,7 +67,7 @@ function tokenize(value: string): string[] {
  * Bounded Damerau-Levenshtein distance. Returns -1 once the distance is
  * known to exceed `maxDistance`, so callers never pay full-matrix cost for
  * unrelated words. Mirrors the editor's layer-search implementation
- * (packages/editor/src/components/LayersPanel/fuzzySearch.ts); consolidating
+ * (packages/editor/src/components/LayersPanel/layerSearchIndex.ts); consolidating
  * both into @varve/shared is tracked as follow-up work, not done here to
  * avoid coupling this feature to an actively-changing package.
  */

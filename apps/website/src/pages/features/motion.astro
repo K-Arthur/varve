@@ -20,7 +20,7 @@ import { sitePath } from '../../lib/siteUrl';
       <section class="feature-section">
         <h2>What It Is</h2>
         <p>
-          Varve's motion system provides timeline-based animation with WAAPI timing, Smart Animate for automatic transitions, and prototype interactions. The system supports export to multiple formats including CSS, Lottie, SVG, MP4, and WebM. Document version 1.6 includes the interactions field for motion data.
+          Varve's motion system provides timeline-based animation with WAAPI timing, Smart Animate for automatic transitions, and prototype interactions. The system supports export to multiple formats including CSS, Lottie, and SVG, plus MP4 and WebM where the platform exposes WebCodecs. Prototype interactions are stored on the document as the <code>interactions</code> field.
         </p>
       </section>
 
@@ -58,10 +58,10 @@ import { sitePath } from '../../lib/siteUrl';
       <section class="feature-section">
         <h2>Technical Depth</h2>
         <p>
-          The motion system is implemented with MotionFacade for playback, TimelinePanel in Shell, and Document.interactions v1.6. The TimelineSampler provides sampling capabilities, and the prototype renderer handles prototype screen views. Smart animate is implemented in packages/editor/src/motion/smartAnimate.ts.
+          The motion system is implemented with MotionFacade for playback, TimelinePanel in Shell, and the document's <code>interactions</code> field. The TimelineSampler provides sampling capabilities, and the prototype renderer handles prototype screen views. Smart Animate is implemented in packages/prototype/src/smartAnimate.ts and adapted for the editor in packages/editor/src/motion/smartAnimateBridge.ts.
         </p>
         <p>
-          Interpolation in packages/editor/src/motion/interpolation.ts includes Oklab color interpolation and path morphing. The export system in packages/editor/src/motion/videoExport.ts supports CSS, Lottie, SVG, MP4, and WebM export. Motion presets are defined in packages/editor/src/motion/motion.ts.
+          Interpolation in packages/shared/src/interpolation.ts includes Oklab color interpolation and path morphing. Animation export is implemented in packages/codegen/src/animation-css.ts, animation-lottie.ts, animation-svg.ts, and animation-interactive.ts; MP4 and WebM video export is implemented in packages/engine/src/videoExport.ts (WebCodecs, capability-gated) and bridged to the export dialog in packages/editor/src/motion/videoExportBridge.ts. Motion presets are defined in packages/scene/src/motion.ts.
         </p>
       </section>
 
