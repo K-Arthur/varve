@@ -117,6 +117,8 @@ export class SelectTool extends BaseTool {
   private longPressFired = false;
   /** Selection is deferred until the press resolves as a click or drag. */
   private pointerDownHit: HitTarget | null = null;
+  /** A selected group/frame ancestor used for drag, while clicks retain hit depth. */
+  private pointerDownMoveHit: HitTarget | null = null;
   private pointerDownLocked = false;
   private pointerDownSelection: NodeId[] = [];
   private pointerDownSelectedLeafOverridesHit = false;
@@ -162,6 +164,7 @@ export class SelectTool extends BaseTool {
       this.marqueeActive = false;
       this.isMoveGesture = false;
       this.pointerDownHit = null;
+      this.pointerDownMoveHit = null;
       this.pointerDownLocked = false;
       this.pointerDownSelection = [];
       this.gestureSelectionIds = [];
@@ -251,9 +254,18 @@ export class SelectTool extends BaseTool {
       (normalHit?.nodeId !== selectedLeafHit.nodeId ||
         this.isNestedInEditableContainer(selectedLeafHit.nodeId, ctx));
     const hit = selectedLeafOverridesHit ? selectedLeafHit : normalHit;
+    // Hit testing a grouped shape often returns its child, even while the
+    // group itself is selected. Preserve the child hit for click/deep-select
+    // behavior, but promote an ordinary drag to the selected ancestor so the
+    // group moves as one object.
+    const selectedContainerAncestor =
+      !e.shiftKey && !e.ctrlKey && !e.metaKey && !tapToDeepSelect && normalHit
+        ? this.findSelectedContainerAncestor(normalHit.nodeId, ctx)
+        : null;
 
     this.pointerDownForceMarquee = this.forceMarqueeHeld;
     this.pointerDownHit = this.pointerDownForceMarquee ? null : hit;
+    this.pointerDownMoveHit = this.pointerDownForceMarquee ? null : selectedContainerAncestor;
     this.pointerDownLocked =
       !this.pointerDownForceMarquee && Boolean(hit && ctx.document.nodes[hit.nodeId]?.locked);
     this.pointerDownSelection = [...ctx.selection];
@@ -276,8 +288,9 @@ export class SelectTool extends BaseTool {
   override onDragStart(ctx: ToolContext): void {
     if (this.hasSelectionSurfaceChanged(ctx)) return;
     if (this.pointerDownLocked) return;
-    if (this.pointerDownHit) {
-      this.beginMoveGesture(ctx, this.pointerDownHit);
+    const moveHit = this.pointerDownMoveHit ?? this.pointerDownHit;
+    if (moveHit) {
+      this.beginMoveGesture(ctx, moveHit);
       return;
     }
     this.marqueeActive = !this.pointerDownTouchMulti;
@@ -289,7 +302,11 @@ export class SelectTool extends BaseTool {
     // selection before applying any geometry. Snapshot the old selection
     // before that change so pointer cancellation restores the complete intent.
     ctx.beginTransaction();
-    const selection = this.applyHitSelection(ctx, hit);
+    // A drag on an already-selected container means "move this container".
+    // Depth cycling belongs to a completed click; running it here retargets
+    // the move to the next child as soon as the pointer crosses the drag
+    // threshold, leaving the rest of the group behind.
+    const selection = this.applyHitSelection(ctx, hit, false);
     this.gestureSelectionIds = selection;
     this.marqueeActive = false;
     this.isMoveGesture = true;
@@ -334,7 +351,11 @@ export class SelectTool extends BaseTool {
   }
 
   /** Apply the deferred click semantics and return the effective move set. */
-  private applyHitSelection(ctx: ToolContext, hit: HitTarget): NodeId[] {
+  private applyHitSelection(
+    ctx: ToolContext,
+    hit: HitTarget,
+    allowSelectedHitCycle = true,
+  ): NodeId[] {
     const base = this.pointerDownSelection;
     const baseSet = new Set(base);
     const shift = this.pointerDownShift;
@@ -342,6 +363,7 @@ export class SelectTool extends BaseTool {
     let target = hit;
 
     if (
+      allowSelectedHitCycle &&
       !shift &&
       !deepSelect &&
       !this.pointerDownSelectedLeafOverridesHit &&
@@ -417,6 +439,25 @@ export class SelectTool extends BaseTool {
           candidate.node.kind !== 'group',
       ) ?? null
     );
+  }
+
+  private findSelectedContainerAncestor(nodeId: NodeId, ctx: ToolContext): HitTarget | null {
+    const selectedIds = new Set(ctx.selection);
+    const pageContentRoots = new Set((ctx.document.pages ?? []).map((page) => page.contentRoot));
+    let parentId = getParent(ctx.document, nodeId);
+    while (parentId) {
+      const parent = ctx.document.nodes[parentId];
+      if (
+        parent &&
+        selectedIds.has(parentId) &&
+        (parent.kind === 'frame' || parent.kind === 'group') &&
+        !pageContentRoots.has(parentId)
+      ) {
+        return { nodeId: parentId, node: parent };
+      }
+      parentId = getParent(ctx.document, parentId);
+    }
+    return null;
   }
 
   private isNestedInEditableContainer(nodeId: NodeId, ctx: ToolContext): boolean {
@@ -776,6 +817,7 @@ export class SelectTool extends BaseTool {
     ctx.setSelectionPreview?.(null);
     this.isMoveGesture = false;
     this.pointerDownHit = null;
+    this.pointerDownMoveHit = null;
     this.pointerDownLocked = false;
     this.pointerDownSelection = [];
     this.pointerDownSelectedLeafOverridesHit = false;
@@ -942,6 +984,7 @@ export class SelectTool extends BaseTool {
     this.marqueeActive = false;
     this.isMoveGesture = false;
     this.pointerDownHit = null;
+    this.pointerDownMoveHit = null;
     this.pointerDownLocked = false;
     this.pointerDownSelection = [];
     this.pointerDownSelectedLeafOverridesHit = false;

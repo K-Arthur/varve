@@ -618,6 +618,44 @@ describe('SelectTool — depth-based click cycling', () => {
     // n0 is middle node, n1 (bottom) is below it — should cycle to n1
     expect(ctx.setSelection).toHaveBeenCalledWith('n1');
   });
+
+  it('keeps a selected group as the move target instead of cycling to a child', () => {
+    const tool = new SelectTool();
+    const group = makeGroupNode('g1', { children: ['c1'] });
+    const child = makeShapeNode('c1', { kind: 'rect', x: 20, y: 20, w: 40, h: 40 });
+    const doc = makeDocWithNodes(0);
+    doc.nodes.g1 = group;
+    doc.nodes.c1 = child;
+    (doc.nodes[TEST_CONTENT_ROOT_ID] as any).children = ['g1'];
+    const ctx = makeCtx({
+      document: doc,
+      selection: ['g1'],
+      hitTest: vi.fn(() => ({ nodeId: 'c1', node: child })),
+      getNode: vi.fn((id: string) => doc.nodes[id]),
+    });
+    (tool as any).findNodesAtPoint = vi.fn().mockReturnValue([
+      { nodeId: 'g1', node: group },
+      { nodeId: 'c1', node: child },
+    ]);
+
+    tool.onPointerDown(
+      {
+        clientX: 50,
+        clientY: 50,
+        pointerId: 1,
+        button: 0,
+        shiftKey: false,
+        ctrlKey: false,
+        metaKey: false,
+      } as any,
+      ctx,
+    );
+    expect((tool as any).pointerDownMoveHit?.nodeId).toBe('g1');
+    (tool as any).onDragStart?.(ctx);
+
+    expect(ctx.setSelection).not.toHaveBeenCalledWith('c1');
+    expect(ctx.beginTransaction).toHaveBeenCalledOnce();
+  });
 });
 
 describe('SelectTool — transparent fill click-through', () => {
