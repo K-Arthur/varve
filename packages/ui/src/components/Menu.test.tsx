@@ -253,6 +253,19 @@ describe('Menu', () => {
     expect(items[1]).toHaveAttribute('tabIndex', '0');
   });
 
+  it('keeps keyboard focus when scrolling changes the row under a stationary pointer', async () => {
+    const user = userEvent.setup();
+    render(<TestMenu open onClose={vi.fn()} />);
+    const items = screen.getAllByRole('menuitem', { hidden: true });
+    fireEvent.mouseEnter(items[0]!, { clientX: 20, clientY: 40 });
+    await user.keyboard('{End}');
+    expect(items[1]).toHaveFocus();
+    fireEvent.mouseEnter(items[0]!, { clientX: 20, clientY: 40 });
+    expect(items[1]).toHaveFocus();
+    fireEvent.mouseMove(items[0]!, { clientX: 21, clientY: 40 });
+    expect(items[0]).toHaveFocus();
+  });
+
   it('renders the shared semantic slots and shortcut metadata', () => {
     render(
       <AnchoredMenu
@@ -582,6 +595,31 @@ describe('Menu type-ahead', () => {
 // ---------------------------------------------------------------------------
 
 describe('ContextMenu', () => {
+  it('keeps the styled semantic menu as the only scroll owner', async () => {
+    render(
+      <ContextMenu
+        position={{ x: 24, y: 24 }}
+        items={Array.from({ length: 30 }, (_, index) => ({
+          id: `action-${index}`,
+          label: `Action ${index}`,
+          onAction: vi.fn(),
+        }))}
+        onClose={vi.fn()}
+      />,
+    );
+    const menu = screen.getByRole('menu', { hidden: true });
+    expect(menu).toHaveClass('varve-scrollbar');
+    expect(menu.style.overflowY).toBe('auto');
+    expect(menu.style.maxHeight).toContain('--varve-floating-max-height');
+    await vi.waitFor(() => {
+      expect(menu.parentElement?.style.visibility).toBe('visible');
+      expect(menu.parentElement?.style.overflowY).toBe('visible');
+      expect(menu.parentElement?.style.maxHeight).toBe('');
+    });
+    fireEvent.keyDown(menu, { key: 'End' });
+    expect(screen.getByRole('menuitem', { name: 'Action 29' })).toHaveFocus();
+  });
+
   it('renders at the given position', () => {
     render(
       <ContextMenu

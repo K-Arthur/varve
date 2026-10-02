@@ -349,6 +349,8 @@ function MenuInternal({
     new Map<string, React.MutableRefObject<HTMLButtonElement | null>>(),
   );
   const [focusIdx, setFocusIdx] = useState(0);
+  const pointerPositionRef = useRef<{ x: number; y: number } | null>(null);
+  const keyboardNavigationRef = useRef(false);
   const [openSubmenu, setOpenSubmenu] = useState<string | null>(null);
   // "Show all" expands the truncated list in place. It previously only called
   // closeAll(), so activating it dismissed the menu without ever revealing
@@ -376,6 +378,25 @@ function MenuInternal({
     ownerWindow.clearTimeout(submenuCloseTimerRef.current);
     submenuCloseTimerRef.current = null;
   }, []);
+
+  // Keyboard scrolling can move a row under a stationary pointer and emit
+  // mouseenter. That must not undo Home/End/arrow focus; real pointer movement
+  // restores hover navigation, including opening the hovered submenu.
+  const hoverItem = useCallback(
+    (event: React.MouseEvent, idx: number, disabled?: boolean, submenuId?: string) => {
+      const previous = pointerPositionRef.current;
+      const moved = !previous || previous.x !== event.clientX || previous.y !== event.clientY;
+      if (keyboardNavigationRef.current && (event.type === 'mouseenter' || !moved)) return;
+      pointerPositionRef.current = { x: event.clientX, y: event.clientY };
+      keyboardNavigationRef.current = false;
+      clearSubmenuClose();
+      cancelParentClose?.();
+      if (disabled) return;
+      setFocusIdx(idx);
+      if (submenuId) setOpenSubmenu(submenuId);
+    },
+    [cancelParentClose, clearSubmenuClose],
+  );
 
   const scheduleSubmenuClose = useCallback(() => {
     clearSubmenuClose();
@@ -537,6 +558,7 @@ function MenuInternal({
 
   const handleKey = useCallback(
     (e: KeyboardEvent) => {
+      keyboardNavigationRef.current = true;
       const ownerWindow = menuRef.current?.ownerDocument.defaultView ?? window;
       if (shouldTypeAhead(e, typeaheadRef.current)) {
         ownerWindow.clearTimeout(typeaheadTimerRef.current ?? undefined);
@@ -684,10 +706,13 @@ function MenuInternal({
   // screen with no way to reach them. Submenus render in their own
   // FloatingPortal, so this scroll container cannot clip a child menu.
   const viewportCap = 'calc(var(--visual-viewport-height, 100dvh) - var(--space-8))';
+  // FloatingPortal publishes the actual collision/visual-viewport cap to its
+  // semantic scroll child. Its outer placement node must not scroll as well.
+  const portalCap = `var(--varve-floating-max-height, ${viewportCap})`;
   const scrollStyle: React.CSSProperties = {
     maxHeight: isTruncatable
-      ? `min(${(maxVisibleItems ?? normalizedItems.length) * 32}px, ${viewportCap})`
-      : viewportCap,
+      ? `min(${(maxVisibleItems ?? normalizedItems.length) * 32}px, ${viewportCap}, ${portalCap})`
+      : `min(${viewportCap}, ${portalCap})`,
     overflowY: 'auto',
   };
 
@@ -728,11 +753,8 @@ function MenuInternal({
           onClick={() => {
             if (!entry.disabled) entry.onToggle();
           }}
-          onMouseEnter={() => {
-            clearSubmenuClose();
-            cancelParentClose?.();
-            if (!entry.disabled) setFocusIdx(idx);
-          }}
+          onMouseEnter={(event) => hoverItem(event, idx, entry.disabled)}
+          onMouseMove={(event) => hoverItem(event, idx, entry.disabled)}
         >
           {menuBody(entry, entry.checked ? <Icon name="Check" size="0.85em" /> : null)}
         </button>
@@ -755,11 +777,8 @@ function MenuInternal({
           onClick={() => {
             if (!entry.disabled) entry.onToggle();
           }}
-          onMouseEnter={() => {
-            clearSubmenuClose();
-            cancelParentClose?.();
-            if (!entry.disabled) setFocusIdx(idx);
-          }}
+          onMouseEnter={(event) => hoverItem(event, idx, entry.disabled)}
+          onMouseMove={(event) => hoverItem(event, idx, entry.disabled)}
         >
           {menuBody(
             entry,
@@ -792,18 +811,8 @@ function MenuInternal({
             tabIndex={isCurrent ? 0 : -1}
             data-focusable-idx={idx}
             aria-keyshortcuts={entry.ariaKeyshortcuts}
-            onMouseEnter={() => {
-              clearSubmenuClose();
-              cancelParentClose?.();
-              if (!entry.disabled) {
-                setFocusIdx(idx);
-                // Pointer navigation opens the hovered branch immediately;
-                // the parent-level leave delay below keeps the corridor to a
-                // portaled child usable without making keyboard navigation
-                // wait for a timer.
-                setOpenSubmenu(entry.id);
-              }
-            }}
+            onMouseEnter={(event) => hoverItem(event, idx, entry.disabled, entry.id)}
+            onMouseMove={(event) => hoverItem(event, idx, entry.disabled, entry.id)}
             onClick={() => {
               if (!entry.disabled) {
                 // Pointer entry already opens the branch before click. Keep
@@ -829,6 +838,7 @@ function MenuInternal({
               anchorRef={submenuAnchorRef}
               open
               kind="submenu"
+              scrollOwner="content"
               placement="right-start"
               logicalPlacement={true}
               fallbackPlacements={['left-start']}
@@ -879,11 +889,8 @@ function MenuInternal({
           }
         }}
         onContextMenu={entry.onContextMenu}
-        onMouseEnter={() => {
-          clearSubmenuClose();
-          cancelParentClose?.();
-          if (!entry.disabled) setFocusIdx(idx);
-        }}
+        onMouseEnter={(event) => hoverItem(event, idx, entry.disabled)}
+        onMouseMove={(event) => hoverItem(event, idx, entry.disabled)}
       >
         {menuBody(
           entry,
@@ -909,6 +916,7 @@ function MenuInternal({
       aria-orientation="vertical"
       className={[
         menuClassName,
+        'varve-scrollbar',
         hasLeadingLane ? 'varve-menu--has-leading' : '',
         hasTrailingLane ? 'varve-menu--has-trailing' : '',
       ]
@@ -930,11 +938,8 @@ function MenuInternal({
           className="varve-menu__item varve-menu__show-more"
           tabIndex={showMoreIdx === focusIdx ? 0 : -1}
           data-focusable-idx={showMoreIdx}
-          onMouseEnter={() => {
-            clearSubmenuClose();
-            cancelParentClose?.();
-            setFocusIdx(showMoreIdx);
-          }}
+          onMouseEnter={(event) => hoverItem(event, showMoreIdx)}
+          onMouseMove={(event) => hoverItem(event, showMoreIdx)}
           onClick={() => {
             setShowAllItems(true);
             setFocusIdx(maxVisibleItems ?? normalizedItems.length);
@@ -969,6 +974,7 @@ export function Menu({
       open={open}
       onClose={onClose}
       kind="action-menu"
+      scrollOwner="content"
       placement="bottom-start"
       dismissOnEscape={false}
     >
@@ -1027,6 +1033,7 @@ export function ContextMenu({
       open
       onClose={onClose}
       kind="context-menu"
+      scrollOwner="content"
       placement="bottom-start"
       fallbackPlacements={['top-start', 'bottom-end', 'top-end']}
       offsetDistance={0}

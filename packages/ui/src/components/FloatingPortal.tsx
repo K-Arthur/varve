@@ -88,6 +88,8 @@ export interface FloatingPortalProps {
   offsetDistance?: number;
   /** Optional max height before scroll. The viewport is the default constraint. */
   maxHeight?: number;
+  /** A semantic child may own scrolling and consume the measured height cap. */
+  scrollOwner?: 'portal' | 'content';
   /** Match floating layer width to the anchor element. */
   matchAnchorWidth?: boolean;
   /** Called when user clicks outside the floating layer. */
@@ -234,6 +236,7 @@ export function FloatingPortal({
   fallbackPlacements,
   offsetDistance = 4,
   maxHeight,
+  scrollOwner = 'portal',
   matchAnchorWidth = false,
   onClose,
   insideRefs,
@@ -255,7 +258,9 @@ export function FloatingPortal({
   const positionRef = useRef(onPositionChange);
   const generationRef = useRef(0);
   const [portalRoot, setPortalRoot] = useState<HTMLElement | null>(null);
-  const [posStyle, setPosStyle] = useState<CSSProperties>(() => hiddenStyle(maxHeight, zIndex));
+  const [posStyle, setPosStyle] = useState<CSSProperties>(() =>
+    hiddenStyle(scrollOwner === 'portal' ? maxHeight : undefined, zIndex),
+  );
 
   closeRef.current = onClose;
   positionRef.current = onPositionChange;
@@ -375,7 +380,7 @@ export function FloatingPortal({
 
     const generation = ++generationRef.current;
     let cancelled = false;
-    const hidden = hiddenStyle(maxHeight, zIndex);
+    const hidden = hiddenStyle(scrollOwner === 'portal' ? maxHeight : undefined, zIndex);
     setPosStyle((current) => (sameStyle(current, hidden) ? current : hidden));
     traceOverlayEvent(ownerDocument, {
       event: 'anchor-measured',
@@ -438,7 +443,7 @@ export function FloatingPortal({
               );
               const sizeStyle: Record<string, string> = {
                 boxSizing: 'border-box',
-                overflowY: 'auto',
+                overflowY: scrollOwner === 'content' ? 'visible' : 'auto',
               };
               // jsdom and a hidden owner window can report zero available
               // space while the reference is still a valid test/transition
@@ -450,7 +455,11 @@ export function FloatingPortal({
                   sizeStyle.width = `${Math.min(rects.reference.width, availableWidth)}px`;
                 }
               }
-              if (constrainedHeight > 0) sizeStyle.maxHeight = `${constrainedHeight}px`;
+              if (scrollOwner === 'content') {
+                sizeStyle.maxHeight = '';
+                if (constrainedHeight > 0)
+                  sizeStyle['--varve-floating-max-height'] = `${constrainedHeight}px`;
+              } else if (constrainedHeight > 0) sizeStyle.maxHeight = `${constrainedHeight}px`;
               Object.assign(elements.floating.style, sizeStyle);
             },
           }),
@@ -495,8 +504,12 @@ export function FloatingPortal({
               visualMaxHeight = clampRect.height;
             }
           }
-          const sizeMiddlewareMaxHeight = floating.style.maxHeight
-            ? Number.parseFloat(floating.style.maxHeight)
+          const measuredHeight =
+            scrollOwner === 'content'
+              ? floating.style.getPropertyValue('--varve-floating-max-height')
+              : floating.style.maxHeight;
+          const sizeMiddlewareMaxHeight = measuredHeight
+            ? Number.parseFloat(measuredHeight)
             : undefined;
           const resolvedMaxHeight =
             visualMaxHeight !== undefined
@@ -515,11 +528,17 @@ export function FloatingPortal({
             // otherwise React removes max-height/overflow on the next render
             // and tall context menus can extend below the viewport.
             maxWidth: floating.style.maxWidth || undefined,
-            maxHeight: resolvedMaxHeight === undefined ? undefined : resolvedMaxHeight,
+            maxHeight: scrollOwner === 'content' ? undefined : resolvedMaxHeight,
             overflowY: (floating.style.overflowY || undefined) as CSSProperties['overflowY'],
             visibility: hiddenByReference ? 'hidden' : 'visible',
             pointerEvents: hiddenByReference ? 'none' : 'auto',
             zIndex,
+            ...(scrollOwner === 'content'
+              ? {
+                  '--varve-floating-max-height':
+                    resolvedMaxHeight === undefined ? undefined : `${resolvedMaxHeight}px`,
+                }
+              : {}),
           };
           setPosStyle((current) => (sameStyle(current, nextStyle) ? current : nextStyle));
           positionRef.current?.({
@@ -564,6 +583,12 @@ export function FloatingPortal({
             visibility: 'visible',
             pointerEvents: 'auto',
             zIndex,
+            ...(scrollOwner === 'content'
+              ? {
+                  overflowY: 'visible',
+                  '--varve-floating-max-height': `${Math.max(0, Math.min(maxHeight ?? Infinity, safeViewportRect(ownerDocument, SAFE_VIEWPORT_PADDING).height))}px`,
+                }
+              : {}),
           };
           setPosStyle((current) => (sameStyle(current, fallbackStyle) ? current : fallbackStyle));
           traceOverlayEvent(ownerDocument, {
@@ -636,6 +661,7 @@ export function FloatingPortal({
     stableFallbackPlacements,
     offsetDistance,
     maxHeight,
+    scrollOwner,
     zIndex,
     matchAnchorWidth,
     logicalPlacement,
