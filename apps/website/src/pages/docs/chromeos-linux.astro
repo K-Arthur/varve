@@ -2,6 +2,7 @@
 import Layout from '../../layouts/Layout.astro';
 import { sitePath } from '../../lib/siteUrl';
 import release from '../../data/release-manifest.json';
+import { appImageOnnxPackagingNotice } from '../../lib/release-availability';
 import '../../styles/docs-prose.css';
 
 interface LinuxArtifact {
@@ -27,6 +28,7 @@ function requiredLinuxArtifact(arch: string, format: string): LinuxArtifact {
 const arm64Deb = requiredLinuxArtifact('aarch64', 'deb');
 const x64Deb = requiredLinuxArtifact('x86_64', 'deb');
 const arm64AppImage = requiredLinuxArtifact('aarch64', 'appimage');
+const appImagePackagingNotice = appImageOnnxPackagingNotice();
 ---
 
 <Layout
@@ -82,8 +84,8 @@ const arm64AppImage = requiredLinuxArtifact('aarch64', 'appimage');
             (trixie) both satisfy.
           </li>
           <li>
-            <strong>Leave room.</strong> The ARM64 package is {arm64Deb.size} download and 85 MB
-            installed, plus the WebKitGTK/GTK system dependencies (a few hundred MB) and any
+            <strong>Leave room.</strong> The ARM64 package is {arm64Deb.size} download, plus installed application files
+            and the WebKitGTK/GTK system dependencies (a few hundred MB) and any
             optional AI models you download later. Keep more than 2 GB free in Linux.
           </li>
         </ol>
@@ -126,11 +128,9 @@ const arm64AppImage = requiredLinuxArtifact('aarch64', 'appimage');
         </div>
         <p>
           An AppImage also exists ({arm64AppImage.filename}), but on ChromeOS it needs FUSE2
-          and the host WebKitGTK libraries. The published v{release.version} AppImages are
-          additionally missing the bundled native ONNX Runtime because of a packaging defect
-          (fixed for the next release),
-          so native AI features fall back there. Use the <code>.deb</code>.
+          and the host WebKitGTK libraries. Prefer the <code>.deb</code> on ChromeOS.
         </p>
+        {appImagePackagingNotice && <p>{appImagePackagingNotice}</p>}
       </section>
 
       <section class="docs-section">

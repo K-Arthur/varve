@@ -6,6 +6,7 @@ import FeatureVisual from '../../components/FeatureVisual.astro';
 import { publishedFeatureVersion } from '../../lib/feature-release';
 
 const presentationReleaseVersion = publishedFeatureVersion('0.5.0');
+const workspaceLayoutReleaseVersion = publishedFeatureVersion('0.5.0');
 ---
 
 <Layout
@@ -121,14 +122,17 @@ const presentationReleaseVersion = publishedFeatureVersion('0.5.0');
       <section class="feature-section note">
         <h2>Workspace panels and desktop windows</h2>
         <p>
-          Choose which supported panels are visible in each workspace, resize the Layers, Inspector, and
-          Resources areas, and recover hidden panels from the View menu. Desktop builds can detach Layers,
-          Inspector, Assets, Code, and Logo as individual windows and reattach them to the editor. Browser
-          builds keep panels in the main window; free-form in-window docking is not currently available.
+          {workspaceLayoutReleaseVersion ? `Published v${workspaceLayoutReleaseVersion} includes` : 'The 0.5.0 source-build preview includes'}
+          in-window panel docking, tab groups, splits, and movable floating groups. Resize supported
+          panels, redock floating groups, and recover hidden panels from the View menu. Compact
+          viewports use drawers while retaining the saved wider layout.
         </p>
         <p>
-          These controls preserve one document and editor history across workspaces. Panel windows remain
-          connected to the same document, selection, and undo history.
+          These controls preserve one document and editor history across workspaces. Auxiliary panel
+          windows are a separate host capability: desktop windows and browser popups depend on the
+          runtime and its window policy. Window-transfer round trips still need native verification;
+          in-window docking does not establish that guarantee. The bounded browser demo keeps its
+          documented workspace limits.
         </p>
       </section>
 

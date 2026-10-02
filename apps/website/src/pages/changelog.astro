@@ -3,15 +3,13 @@ import Button from '../components/Button.astro';
 import Layout from '../layouts/Layout.astro';
 import { sitePath } from '../lib/siteUrl';
 import { parseChangelogFile } from '../lib/changelog';
+import { changelogReleaseState } from '../lib/release-availability';
 import { PRODUCT_STATUS } from '@varve/shared';
 import release from '../data/release-manifest.json';
 
 const releases = parseChangelogFile();
 const currentVersion = release.hasRelease ? release.version : null;
 
-// Attach release URLs for versions that have corresponding GitHub releases
-const GITHUB_REPO = 'https://github.com/K-Arthur/varve';
-const releaseUrlFor = (v: string) => `${GITHUB_REPO}/releases/tag/v${v}`;
 // Show Unreleased section at the top if it has content
 const unreleased = releases.find((r) => r.isUnreleased && r.sections.length > 0);
 // Recent releases: everything except Unreleased (which may or may not have content)
@@ -107,9 +105,10 @@ const pageDescription = 'Version history and release notes for Varve. See what c
       )}
 
       {/* Recent releases (fully visible) */}
-      {recentReleases.map((rel, i) => {
-        const isLatest = i === 0 && !unreleased;
-        const ghUrl = releaseUrlFor(rel.version);
+      {recentReleases.map((rel) => {
+        const availability = changelogReleaseState(rel.version);
+        const isLatest = availability.latest;
+        const ghUrl = availability.releaseUrl;
         return (
         <li
           class="changelog-entry"
@@ -130,10 +129,13 @@ const pageDescription = 'Version history and release notes for Varve. See what c
                 {isLatest && (
                   <span class="changelog-badge changelog-badge-latest">Latest</span>
                 )}
-                {rel.version.includes('-') && (
+                {!availability.published && (
+                  <span class="changelog-badge changelog-badge-unreleased">Release preview</span>
+                )}
+                {availability.published && rel.version.includes('-') && (
                   <span class="changelog-badge changelog-badge-prerelease">Prerelease</span>
                 )}
-                {!rel.version.includes('-') && (
+                {availability.published && !rel.version.includes('-') && (
                   <span class={`changelog-badge changelog-badge-${PRODUCT_STATUS.stage}`}>
                     {channelLabel(rel.version)}
                   </span>
@@ -142,7 +144,7 @@ const pageDescription = 'Version history and release notes for Varve. See what c
               <time class="changelog-release-date" datetime={rel.date ?? ''}>
                 {formatDate(rel.date)}
               </time>
-              <a
+              {ghUrl && (<a
                 href={ghUrl}
                 class="changelog-release-github"
                 target="_blank"
@@ -152,7 +154,10 @@ const pageDescription = 'Version history and release notes for Varve. See what c
                 <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                   <path d="M3.5 8.5L8.5 3.5M8.5 3.5H4.5M8.5 3.5V7.5" />
                 </svg>
-              </a>
+              </a>)}
+              {!availability.published && (
+                <p class="changelog-release-date">Prepared source-build notes; installers remain {currentVersion ? `v${currentVersion}` : 'unpublished'}.</p>
+              )}
             </header>
             <div class="changelog-release-body">
               {rel.sections.map((section) => {
@@ -189,7 +194,8 @@ const pageDescription = 'Version history and release notes for Varve. See what c
             </summary>
             <ol class="changelog-timeline changelog-timeline-nested" reversed>
               {olderReleases.map((rel) => {
-                const ghUrl = releaseUrlFor(rel.version);
+                const availability = changelogReleaseState(rel.version);
+                const ghUrl = availability.releaseUrl;
                 return (
                 <li class="changelog-entry" id={rel.anchor}>
                   <article class="changelog-release">
@@ -203,10 +209,13 @@ const pageDescription = 'Version history and release notes for Varve. See what c
                           >#</a>
                           {rel.version}
                         </h2>
-                        {rel.version.includes('-') && (
+                        {!availability.published && (
+                          <span class="changelog-badge changelog-badge-unreleased">Release preview</span>
+                        )}
+                        {availability.published && rel.version.includes('-') && (
                           <span class="changelog-badge changelog-badge-prerelease">Prerelease</span>
                         )}
-                        {!rel.version.includes('-') && (
+                        {availability.published && !rel.version.includes('-') && (
                           <span class={`changelog-badge changelog-badge-${PRODUCT_STATUS.stage}`}>
                             {channelLabel(rel.version)}
                           </span>
@@ -215,7 +224,7 @@ const pageDescription = 'Version history and release notes for Varve. See what c
                       <time class="changelog-release-date" datetime={rel.date ?? ''}>
                         {formatDate(rel.date)}
                       </time>
-                      <a
+                      {ghUrl && (<a
                         href={ghUrl}
                         class="changelog-release-github"
                         target="_blank"
@@ -225,7 +234,10 @@ const pageDescription = 'Version history and release notes for Varve. See what c
                         <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                           <path d="M3.5 8.5L8.5 3.5M8.5 3.5H4.5M8.5 3.5V7.5" />
                         </svg>
-                      </a>
+                      </a>)}
+                      {!availability.published && (
+                        <p class="changelog-release-date">Prepared source-build notes; installers remain {currentVersion ? `v${currentVersion}` : 'unpublished'}.</p>
+                      )}
                     </header>
                     <div class="changelog-release-body">
                       {rel.sections.map((section) => {

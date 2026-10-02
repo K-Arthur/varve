@@ -17,7 +17,11 @@ import { dirname, join } from 'node:path';
 import { candidateNextAction } from './release.mjs';
 import { parseChecksums, selectRelease, verifyReleaseIntegrity } from './verify-release-data.mjs';
 import { incrementVersion } from './version.mjs';
-import { buildWebsiteReleaseData, formatCopy } from './website-release-data.mjs';
+import {
+  buildWebsiteReleaseData,
+  formatCopy,
+  releaseUpdaterAvailability,
+} from './website-release-data.mjs';
 import { buildUpdaterConfig } from './write-updater-config.mjs';
 
 // Platform code-signing and Tauri updater signing are independent. When the
@@ -444,6 +448,96 @@ assert.throws(
 
   const windows = data.platforms.windows[0];
   assert.equal(windows.caveat.length > 0, true, 'unsigned Windows builds need a caveat');
+}
+
+// A retained old feed does not confer availability on a newly selected release.
+{
+  const directory = join(tmpdir(), `varve-retained-updater-${process.pid}`);
+  mkdirSync(directory, { recursive: true });
+  const stablePath = join(directory, 'stable.json');
+  const oldFeed = {
+    version: '0.2.1',
+    platforms: {
+      'linux-x86_64': {
+        url: 'https://example.test/0.2.1.AppImage',
+        signature: 'fixture-signature',
+      },
+    },
+  };
+  writeFileSync(stablePath, JSON.stringify(oldFeed));
+  const oldRelease = {
+    tag_name: 'v0.2.1',
+    draft: false,
+    prerelease: false,
+    assets: [{ name: 'varve-update-stable.json' }],
+  };
+  const newRelease = { tag_name: 'v0.5.0', draft: false, prerelease: false, assets: [] };
+  const selected = selectRelease([oldRelease, newRelease]);
+  assert.equal(selected.tag_name, 'v0.5.0');
+  const retained = JSON.parse(readFileSync(stablePath, 'utf8'));
+  assert.equal(
+    releaseUpdaterAvailability(selected, { stable: retained }),
+    false,
+    'a present old stable.json must not advertise an updater for the new no-feed release',
+  );
+  assert.equal(
+    releaseUpdaterAvailability(selected, {}),
+    false,
+    'no freshly verified feed must stay unavailable despite the retained file',
+  );
+  const manifest = JSON.parse(JSON.stringify(FIXTURE_MANIFEST).replaceAll('0.1.0', '0.5.0'));
+  const data = buildWebsiteReleaseData({
+    repo: 'K-Arthur/varve',
+    tag: selected.tag_name,
+    manifest: { ...manifest, updater: releaseUpdaterAvailability(selected, { stable: retained }) },
+    checksumsText: FIXTURE_CHECKSUMS.replaceAll('0.1.0', '0.5.0'),
+    sbomFilenames: [],
+  });
+  assert.equal(data.version, '0.5.0');
+  assert.equal(
+    data.updater,
+    false,
+    'the website download data must not inherit the older feed claim',
+  );
+  assert.deepEqual(
+    JSON.parse(readFileSync(stablePath, 'utf8')),
+    oldFeed,
+    'availability checks do not delete the previous valid feed',
+  );
+  const withFeed = { ...newRelease, assets: [{ name: 'varve-update-stable.json' }] };
+  assert.equal(
+    releaseUpdaterAvailability(withFeed, { stable: { ...oldFeed, version: '0.5.0' } }),
+    true,
+    'the exact selected stable release with a freshly verified matching feed is available',
+  );
+  assert.equal(
+    releaseUpdaterAvailability(withFeed, { stable: retained }),
+    false,
+    'asset presence alone cannot substitute stale local feed data',
+  );
+  const betaRelease = {
+    tag_name: 'v0.5.0-beta.1',
+    draft: false,
+    prerelease: true,
+    assets: [{ name: 'varve-update-beta.json' }],
+  };
+  assert.equal(
+    releaseUpdaterAvailability(betaRelease, { beta: { ...oldFeed, version: '0.5.0-beta.1' } }),
+    true,
+  );
+  assert.equal(
+    releaseUpdaterAvailability(betaRelease, { stable: { ...oldFeed, version: '0.5.0-beta.1' } }),
+    false,
+    'stable and beta feeds cannot cross channels',
+  );
+  assert.equal(
+    releaseUpdaterAvailability(
+      { ...withFeed, draft: true },
+      { stable: { ...oldFeed, version: '0.5.0' } },
+    ),
+    false,
+  );
+  rmSync(directory, { recursive: true, force: true });
 }
 
 // Combined SBOM fallback when no platform-specific SBOM exists

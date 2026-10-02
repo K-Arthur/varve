@@ -15,6 +15,23 @@
 import { productSlug } from './product.mjs';
 import { ARCHITECTURES, normalizeArchitecture, targetFor } from './targets.mjs';
 
+/** Availability belongs to the selected release and a feed verified in this fetch. */
+export function releaseUpdaterAvailability(release, verifiedFeeds = {}) {
+  if (release?.draft !== false) return false;
+  const channel =
+    release.prerelease === true
+      ? /-beta(?:[.-]|$)/i.test(release.tag_name)
+        ? 'beta'
+        : null
+      : 'stable';
+  if (!channel) return false;
+  const feed = verifiedFeeds[channel];
+  return (
+    feed?.version === String(release.tag_name).replace(/^v/, '') &&
+    (release.assets ?? []).some((asset) => asset.name === `varve-update-${channel}.json`)
+  );
+}
+
 /** Copy for each installer format, keyed by the manifest `format` field. */
 export function formatCopy(product) {
   return {

@@ -168,14 +168,33 @@ test('real CLI returns nonzero for an incomplete recovery before looking up a re
 
 const workflow = load(readFileSync('.github/workflows/website-deploy.yml', 'utf8'));
 
-function selected(condition, eventName, { inputs = {}, event = {}, needs = {} } = {}) {
-  const expression = condition.replaceAll('needs.release-data.', 'needs.releaseData.');
-  const evaluate = new Function('github', 'inputs', 'needs', 'always', `return (${expression});`);
+function selected(condition, eventName, { inputs = {}, event = {}, needs = {}, status = {} } = {}) {
+  // GitHub adds success() unless the condition contains an explicit status function.
+  // A missing job if therefore still rejects deliberately skipped ancestry.
+  const raw = condition ?? 'success()';
+  const explicitStatus = /\b(?:always|cancelled|success|failure)\s*\(/.test(raw);
+  const expression = (explicitStatus ? raw : `success() && (${raw})`)
+    .replaceAll('needs.release-data.', 'needs.releaseData.')
+    .replace(/^\$\{\{\s*/, '')
+    .replace(/\s*\}\}$/, '');
+  const evaluate = new Function(
+    'github',
+    'inputs',
+    'needs',
+    'always',
+    'cancelled',
+    'success',
+    'failure',
+    `return (${expression});`,
+  );
   return evaluate(
     { event_name: eventName, event },
     { release_tag: '', release_sha: '', ...inputs },
     { releaseData: { result: 'skipped', outputs: { published: '' } }, ...needs },
     () => true,
+    () => status.cancelled ?? false,
+    () => status.success ?? true,
+    () => status.failure ?? false,
   );
 }
 
@@ -257,4 +276,63 @@ test('verified recovery builds from publication SHA and pins that release data',
   assert.match(validation.run, /verify-website-publication\.mjs/);
   assert.match(validation.env.ALLOW_UNPUBLISHED, /github\.event_name == 'workflow_run'/);
   assert.equal(workflow.concurrency['cancel-in-progress'], false);
+});
+
+test('successful website builds deploy despite deliberately skipped source or publication ancestry', () => {
+  assert.equal(workflow.jobs.deploy.needs, 'build');
+  const cases = [
+    { eventName: 'push', needs: { test: { result: 'success' } } },
+    {
+      eventName: 'repository_dispatch',
+      needs: {
+        test: { result: 'skipped' },
+        releaseData: { result: 'success', outputs: { published: 'true' } },
+      },
+    },
+    {
+      eventName: 'workflow_dispatch',
+      inputs: { release_tag: options.tag, release_sha: options.commitSha },
+      needs: {
+        test: { result: 'skipped' },
+        releaseData: { result: 'success', outputs: { published: 'true' } },
+      },
+    },
+  ];
+  for (const scenario of cases) {
+    const context = { ...scenario, status: { success: false, cancelled: false } };
+    assert.equal(
+      selected(workflow.jobs.build.if, scenario.eventName, context),
+      true,
+      `${scenario.eventName}: the intended quality/publication gate permits the build`,
+    );
+    assert.equal(
+      selected(workflow.jobs.deploy.if, scenario.eventName, {
+        ...context,
+        needs: { ...scenario.needs, build: { result: 'success' } },
+      }),
+      true,
+      `${scenario.eventName}: a skipped ancestor must not suppress deployment`,
+    );
+  }
+});
+
+test('website deployment refuses failed, skipped or cancelled builds and cancelled workflows', () => {
+  for (const result of ['failure', 'skipped', 'cancelled']) {
+    assert.equal(
+      selected(workflow.jobs.deploy.if, 'push', {
+        needs: { build: { result } },
+        status: { success: false, cancelled: false },
+      }),
+      false,
+      `build ${result} must not deploy`,
+    );
+  }
+  assert.equal(
+    selected(workflow.jobs.deploy.if, 'push', {
+      needs: { build: { result: 'success' } },
+      status: { success: true, cancelled: true },
+    }),
+    false,
+    'a workflow cancelled after its build must not publish',
+  );
 });

@@ -41,12 +41,16 @@
  * strongly recommended: the unauthenticated rate limit (60 req/h) is
  * insufficient for a busy release day.
  */
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { repoSlug } from './product.mjs';
 import { selectRelease, verifyReleaseIntegrity } from './verify-release-data.mjs';
-import { buildWebsiteReleaseData, emptyWebsiteReleaseData } from './website-release-data.mjs';
+import {
+  buildWebsiteReleaseData,
+  emptyWebsiteReleaseData,
+  releaseUpdaterAvailability,
+} from './website-release-data.mjs';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const OUT = join(repoRoot, 'apps/website/src/data/release-manifest.json');
@@ -102,7 +106,7 @@ async function main() {
     process.exit(1);
   }
 
-  await refreshUpdaterFeeds(releases, token);
+  const verifiedUpdaterFeeds = await refreshUpdaterFeeds(releases, token);
 
   const release = selectRelease(releases, pinnedTag);
   if (!release) {
@@ -164,9 +168,9 @@ async function main() {
     tag,
     manifest: {
       ...manifest,
-      // Updater availability: the feed was fetched and written to public/updates/
-      // if refreshUpdaterFeeds found a varve-update-*.json asset on this release.
-      updater: existsSync(join(UPDATE_OUT_DIR, 'stable.json')),
+      // An older committed feed can remain for compatibility, but it cannot
+      // establish updater availability for a new release with no matching feed.
+      updater: releaseUpdaterAvailability(release, verifiedUpdaterFeeds),
     },
     checksumsText,
     sbomFilenames: verified.sbomAssets,
@@ -183,6 +187,7 @@ async function main() {
 }
 
 async function refreshUpdaterFeeds(releases, token) {
+  const verifiedFeeds = {};
   const channels = {
     stable: releases.filter((release) => release.prerelease !== true),
     beta: releases.filter(
@@ -203,8 +208,10 @@ async function refreshUpdaterFeeds(releases, token) {
       throw new Error(`Updater feed for ${release.tag_name} is malformed or version-mismatched`);
     }
     writeFileSync(join(UPDATE_OUT_DIR, `${channel}.json`), `${JSON.stringify(feed, null, 2)}\n`);
+    verifiedFeeds[channel] = feed;
     process.stdout.write(`Updater ${channel} feed refreshed from ${release.tag_name}.\n`);
   }
+  return verifiedFeeds;
 }
 
 try {

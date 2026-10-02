@@ -306,6 +306,10 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     needs: build
+    # Either source quality or release-data validation is deliberately skipped.
+    # Override skipped-ancestor success() while requiring a successful build
+    # and refusing publication after workflow cancellation.
+    if: ${{ !cancelled() && needs.build.result == 'success' }}
     timeout-minutes: 15
     # Pages deployment needs exactly: read the repo, write Pages, and an OIDC
     # token for actions/deploy-pages. Nothing else — no contents write, no

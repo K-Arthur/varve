@@ -1,7 +1,11 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import { sitePath } from '../../lib/siteUrl';
+import { publishedFeatureVersion } from '../../lib/feature-release';
+import release from '../../data/release-manifest.json';
 import '../../styles/docs-prose.css';
+
+const schemaReleaseVersion = publishedFeatureVersion('0.5.0');
 
 const figmaImportFaq = {
   '@context': 'https://schema.org',
@@ -82,7 +86,7 @@ const figmaImportFaq = {
           <li><strong>Color mode</strong> — RGB, CMYK, or Grayscale with profile metadata</li>
         </ul>
         <p>
-          The .varve format is versioned (current document schema 2.33). The published v0.2.1 application used schema 2.21; this release migrates documents through the intervening versions when they are opened. The 2.32-to-2.33 migration removes the unwanted outline across existing pointed comic-balloon tails. The app version (0.5.0) and document schema version (2.33) are separate numbers. Keep a backup before opening important files so you can restore the original if a migration exposes an issue. Files saved with schema 2.33 are not backward-compatible with v0.2.1 or other older builds: those versions may warn that the file is newer and cannot promise to preserve newer features. Use v0.5.0 or later to continue editing a file saved by this release. The <code>Document.variableStore</code> field remains the source of truth for variable data. Documents with the legacy <code>.strata</code> extension (from before the project's rename from Strata to Varve) remain openable through the same migration pipeline.
+          The .varve format is versioned (current document schema 2.33). {schemaReleaseVersion ? `Published v${schemaReleaseVersion} includes these migrations.` : `These migrations are part of the 0.5.0 source-build preview; ${release.hasRelease ? `the latest published installer is v${release.version}` : 'installers are not yet published'}.`} The published v0.2.1 application used schema 2.21; this build migrates documents through the intervening versions when they are opened. The 2.32-to-2.33 migration removes the unwanted outline across existing pointed comic-balloon tails. The app version (0.5.0) and document schema version (2.33) are separate numbers. Keep a backup before opening important files so you can restore the original if a migration exposes an issue. Files saved with schema 2.33 are not backward-compatible with v0.2.1 or other older builds: those versions may warn that the file is newer and cannot promise to preserve newer features. Use a compatible 0.5.0 or later build to continue editing a schema-2.33 file. The <code>Document.variableStore</code> field remains the source of truth for variable data. Documents with the legacy <code>.strata</code> extension (from before the project's rename from Strata to Varve) remain openable through the same migration pipeline.
         </p>
       </section>
 

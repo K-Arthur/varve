@@ -170,9 +170,12 @@ const presentationReleaseVersion = publishedFeatureVersion('0.5.0');
         </p>
         <p>
           Detachment is transactional: the docked panel stays visible until the auxiliary host is
-          ready, and a failed or timed-out transfer rolls back to the primary window. Browser
-          builds keep panels in the main editor window; they do not open browser popups. Pages,
-          Timeline, and History are not currently detachable.
+          ready, and a failed or timed-out transfer rolls back to the primary window. Auxiliary
+          windows depend on the host's window capability; browser hosts can expose popup windows
+          when permitted. Native window-transfer round trips still need verification. In-window
+          docking and floating groups remain a separate layout workflow, with compact layouts
+          projected into drawers. The bounded browser demo keeps its documented workspace limits.
+          Pages, Timeline, and History are not currently detachable.
         </p>
       </section>
 
