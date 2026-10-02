@@ -392,16 +392,21 @@ async function stopCommandTree(child, refresh, ended, signal, { windows, graceMs
   return { remaining, cleanupUnknown };
 }
 
-/** Run only this command's descendants; cancellation never scans by name or
- * kills the invoking terminal's process group. Resolve after bounded cleanup,
- * with surviving identities reported so a lease cannot be released early. */
+/** Run only this command's descendants; cancellation and optional deadlines
+ * never scan by name or kill the invoking terminal's process group. Resolve
+ * after bounded cleanup, with surviving identities reported so a lease cannot
+ * be released early. */
 export async function runValidationCommand(argv, options = {}) {
   const {
     graceMs = 1500,
+    timeoutMs,
     platform: targetPlatform = process.platform,
     windowsKill = killWindowsTree,
     ...spawnOptions
   } = options;
+  if (timeoutMs !== undefined && (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0))
+    throw new RangeError('validation timeoutMs must be a positive safe integer');
+  const deadline = timeoutMs === undefined ? null : Date.now() + timeoutMs;
   const windows = targetPlatform === 'win32';
   let child;
   try {
@@ -419,6 +424,7 @@ export async function runValidationCommand(argv, options = {}) {
   let code = null;
   let childSignal = null;
   let receivedSignal = null;
+  let timedOut = false;
   let spawnError = null;
   const refresh = windows || !child.pid ? () => [] : ownedProcesses(child.pid);
   const listeners = ['SIGINT', 'SIGTERM', 'SIGHUP'].map((signal) => {
@@ -440,8 +446,9 @@ export async function runValidationCommand(argv, options = {}) {
   try {
     refresh();
     let lastRefresh = Date.now();
-    while (!ended && !receivedSignal) {
+    while (!ended && !receivedSignal && !timedOut) {
       await pause(25);
+      timedOut = !ended && deadline !== null && Date.now() >= deadline;
       if (Date.now() - lastRefresh >= 250) {
         refresh();
         lastRefresh = Date.now();
@@ -450,7 +457,7 @@ export async function runValidationCommand(argv, options = {}) {
     let remaining = refresh();
     const orphaned = ended && remaining.length > 0;
     let cleanupUnknown = false;
-    if (receivedSignal || orphaned) {
+    if (receivedSignal || timedOut || orphaned) {
       const result = await stopCommandTree(
         child,
         refresh,
@@ -466,6 +473,10 @@ export async function runValidationCommand(argv, options = {}) {
       console.error(
         `validation: cancelled by ${receivedSignal}; owned-process cleanup ${remaining.length || cleanupUnknown ? 'incomplete' : 'completed'}`,
       );
+    if (timedOut && !receivedSignal)
+      console.error(
+        `validation: command timed out after ${timeoutMs / 1000}s; owned-process cleanup ${remaining.length || cleanupUnknown ? 'incomplete' : 'completed'}`,
+      );
     if (spawnError) console.error(`validation: failed to spawn ${argv[0]}: ${spawnError.message}`);
     if (cleanupUnknown)
       console.error('validation: Windows command tree cleanup is unverified; retaining the lease');
@@ -478,10 +489,12 @@ export async function runValidationCommand(argv, options = {}) {
     return {
       status: receivedSignal
         ? signalStatus(receivedSignal)
-        : spawnError || orphaned || remaining.length || cleanupUnknown
-          ? 1
-          : (code ?? signalStatus(childSignal)),
-      signal: receivedSignal ?? childSignal,
+        : timedOut
+          ? 124
+          : spawnError || orphaned || remaining.length || cleanupUnknown
+            ? 1
+            : (code ?? signalStatus(childSignal)),
+      signal: receivedSignal ?? (timedOut ? null : childSignal),
       remaining,
       cleanupUnknown,
     };

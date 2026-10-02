@@ -79,7 +79,14 @@ covering 801 editor test files took 1,528 seconds with eight workers while an
 ARM64 release build was active (2026-09-24). The lane runner starts each
 command in an isolated process group and terminates its descendants when the
 deadline expires, so a timeout cannot leave Vitest workers running in the
-background. The 10K layer drop-target benchmark warms the resolver and uses
+background. The diffusion helper's separate C++ test and Clippy profiles are
+estimated at 600 seconds each: a test build took 427 seconds, and a cold
+Clippy build exceeded the 300-second local deadline on 2026-10-02. Ordinary
+push explicitly defers those helper lanes to exact-SHA integration and
+candidate Rust certification; other selected crate checks remain local.
+The generic local deadline and 12-minute planning budget stay unchanged.
+A successful local push checkpoint does not certify deferred native work.
+The 10K layer drop-target benchmark warms the resolver and uses
 the fastest of three full sweeps; its 150ms ceiling remains unchanged.
 
 ### Integration certification

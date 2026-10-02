@@ -108,7 +108,14 @@ commit rather than another attempt of the old run.
     spellings cannot invalidate build-script fingerprints. Committed source
     still comes from the exact detached tree;
     Cargo fingerprints and artifact locks govern reuse, and every selected
-    check still executes. Keep the existing timeout. The snapshot regression
+    check still executes. Keep the generic timeout. A later exact-tree push
+    showed that persistent test artifacts do not eliminate the separate cold
+    Clippy C++ build: the helper's tests passed after 289 seconds, then its
+    Clippy profile hit the 300-second deadline. Per-lane helper estimates now
+    account for cold native work and explicitly defer those profiles to
+    required exact-SHA CI, while keeping the selected Print checks local.
+    A local push pass cannot satisfy the deferred native certification.
+    The snapshot regression
     verifies cache survival and dirty-source exclusion; its `--cargo` probe
     builds two different committed programs offline through the same cache,
     verifies that the second executes the changed source, and proves an

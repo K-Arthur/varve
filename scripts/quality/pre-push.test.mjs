@@ -9,7 +9,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs, runLane } from './pre-push.mjs';
-import { PUSH_LANE_TIMEOUT_MS } from './validation-policy.mjs';
+import {
+  LANE_COST_SECONDS,
+  PUSH_LANE_TIMEOUT_MS,
+  PUSH_LIMITS,
+  selectPushValidation,
+} from './validation-policy.mjs';
 
 const since = parseArgs(['--since', 'origin/master', '--dry-run']);
 assert.equal(since.since, 'origin/master');
@@ -87,6 +92,61 @@ const cargoLane = runLane(
   },
 );
 assert.equal(cargoLane.status, 0);
+
+// A C++-backed crate is not cheap merely because only two crates changed.
+// Ordinary push explicitly defers its cold profiles, preserving the smaller
+// print checks and both crate-specific and canonical remote obligations.
+const nativePlan = {
+  tiers: {
+    0: [],
+    1: [],
+    2: [
+      'rust-test:varve-generative-helper',
+      'rust-clippy:varve-generative-helper',
+      'rust-test:varve-print',
+      'rust-clippy:varve-print',
+    ],
+    3: [],
+    4: [],
+  },
+  changed: {
+    js: [],
+    rust: ['crates/varve-generative-helper/src/main.rs', 'crates/varve-print/src/lib.rs'],
+    other: [],
+    app: [],
+  },
+  full: false,
+  reasons: [],
+};
+const nativeFiles = nativePlan.changed.rust;
+const ordinaryNative = selectPushValidation(nativePlan, { files: nativeFiles });
+for (const lane of ['rust-test:varve-generative-helper', 'rust-clippy:varve-generative-helper']) {
+  assert.ok(!ordinaryNative.localBlocking.includes(lane), `${lane} is not a cheap local check`);
+  assert.ok(ordinaryNative.deferred.includes(lane), `${lane} must be explicitly deferred`);
+  assert.ok(ordinaryNative.remoteRequired.includes(lane), `${lane} remains required remotely`);
+  assert.match(ordinaryNative.reasons.join('\n'), new RegExp(`${lane}: cold native compile`));
+  assert.ok(LANE_COST_SECONDS[lane] > PUSH_LANE_TIMEOUT_MS.default / 1000);
+  const singleLane = selectPushValidation(
+    { ...nativePlan, tiers: { ...nativePlan.tiers, 2: [lane] } },
+    { files: nativeFiles },
+  );
+  assert.ok(singleLane.deferred.includes(lane), 'one cold native profile must not evade deferral');
+}
+for (const lane of ['rust-test:varve-print', 'rust-clippy:varve-print']) {
+  assert.ok(ordinaryNative.localBlocking.includes(lane), `${lane} still runs locally`);
+  assert.ok(!ordinaryNative.deferred.includes(lane));
+}
+for (const lane of ['rust-test:all', 'rust-clippy:all']) {
+  assert.ok(ordinaryNative.remoteRequired.includes(lane), `${lane} must certify the exact SHA`);
+  assert.ok(ordinaryNative.promisedIntegrationLanes.includes(lane));
+  assert.ok(ordinaryNative.promisedCandidateLanes.includes(lane));
+}
+assert.equal(PUSH_LANE_TIMEOUT_MS.default, 300_000, 'ordinary local deadlines remain bounded');
+assert.equal(PUSH_LIMITS.maxLocalEstimatedSeconds, 720, 'the push planning budget is unchanged');
+const strictNative = selectPushValidation(nativePlan, { files: nativeFiles, strict: true });
+assert.deepEqual(strictNative.deferred, [], 'explicit strict mode never silently defers checks');
+assert.ok(strictNative.localBlocking.includes('rust-test:varve-generative-helper'));
+assert.ok(strictNative.localBlocking.includes('rust-clippy:varve-generative-helper'));
 
 assert.ok(
   PUSH_LANE_TIMEOUT_MS['js-unit:@varve/editor'] >= 30 * 60 * 1000,

@@ -162,6 +162,12 @@ export const LANE_COST_SECONDS = Object.freeze({
   'typecheck:package': 80,
   'rust-test:crate': 120,
   'rust-clippy:crate': 120,
+  // The diffusion helper compiles C++ for both test and Clippy profiles.
+  // Its test build took 427s locally; a separate cold Clippy build exceeded
+  // the 300s push ceiling on 2026-10-02. Estimate cold work conservatively,
+  // rather than treating either profile as an ordinary 120s Rust crate.
+  'rust-test:varve-generative-helper': 600,
+  'rust-clippy:varve-generative-helper': 600,
   'ci-tools': 120,
   'website-unit': 120,
   'js-unit:all': 900,
@@ -486,8 +492,20 @@ export function selectPushValidation(plan, { files = pathList(plan), strict = fa
     rustClippy.length <= PUSH_LIMITS.maxRustCrates
   ) {
     for (const lane of [...rustTests, ...rustClippy]) {
+      const genericCost = lane.startsWith('rust-clippy:') ? 'rust-clippy:crate' : 'rust-test:crate';
+      const estimatedLaneSeconds = LANE_COST_SECONDS[lane] ?? LANE_COST_SECONDS[genericCost];
+      const localCeilingSeconds =
+        (PUSH_LANE_TIMEOUT_MS[lane] ?? PUSH_LANE_TIMEOUT_MS.default) / 1000;
+      if (!strict && estimatedLaneSeconds > localCeilingSeconds) {
+        deferred.add(lane);
+        remoteRequired.add(lane);
+        localReasons.push(
+          `${lane}: cold native compile estimate ${estimatedLaneSeconds}s exceeds the ${localCeilingSeconds}s local lane ceiling; exact-SHA CI certification required`,
+        );
+        continue;
+      }
       localBlocking.push(lane);
-      estimatedSeconds += LANE_COST_SECONDS['rust-test:crate'];
+      estimatedSeconds += estimatedLaneSeconds;
     }
   } else if (rustTests.length || rustClippy.length) {
     localReasons.push(`Rust crate count exceeds fixed local limit ${PUSH_LIMITS.maxRustCrates}`);
