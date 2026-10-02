@@ -346,6 +346,19 @@ export interface SelectionOverlayProps {
   transformPreviewStore?: TransformPreviewStore;
 }
 
+function selectionHandlesAreInteractive(
+  tool: string,
+  single: boolean,
+  node: SceneNode | undefined,
+  locked: boolean,
+): boolean {
+  if (!single || !node || locked) return false;
+  return (
+    (tool === 'select' || tool === 'nodeEdit' || tool === 'scale') &&
+    (node.kind === 'shape' || node.kind === 'frame' || node.kind === 'text')
+  );
+}
+
 export function SelectionOverlay({ canvasRef, transformPreviewStore }: SelectionOverlayProps = {}) {
   const { state, updateDoc, beginTransaction, commitTransaction } = useEditor();
   // This overlay draws on top of the artwork, so it must convert through the
@@ -457,12 +470,14 @@ export function SelectionOverlay({ canvasRef, transformPreviewStore }: Selection
   const isSingle = sel.length === 1;
   const node = sel[0];
   const isShape = node?.kind === 'shape';
-  const isFrame = node?.kind === 'frame';
-  const isText = node?.kind === 'text';
   const isLockedSelection =
     isSingle && node !== undefined && isNodeEffectivelyLocked(renderDocument, node.id);
-  const hasInteractiveHandles =
-    isSingle && (isShape || isFrame || isText) && node !== undefined && !isLockedSelection;
+  const hasInteractiveHandles = selectionHandlesAreInteractive(
+    state.tool,
+    isSingle,
+    node,
+    isLockedSelection,
+  );
 
   const isLineOrArrow =
     isSingle &&
@@ -1226,7 +1241,7 @@ export function SelectionOverlay({ canvasRef, transformPreviewStore }: Selection
           );
         })()}
 
-      {isLineOrArrow && fromWorld && toWorld && (
+      {hasInteractiveHandles && isLineOrArrow && fromWorld && toWorld && (
         <>
           {/* Endpoint handle: from (start) */}
           {(() => {

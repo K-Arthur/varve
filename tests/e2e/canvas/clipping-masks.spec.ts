@@ -15,6 +15,7 @@ import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { expect, test } from '@playwright/test';
 import { dropImageOnCanvas } from '../helpers/editor-helpers';
+import { selectInspectorTab } from '../helpers/inspector-tabs';
 import { navigateToCleanEditor } from '../helpers/nav';
 import { dragOnCanvas } from '../shared';
 
@@ -57,12 +58,13 @@ async function callEditor(
           walk(fiber.sibling as Record<string, unknown> | null)
         );
       }
-      const ctx = walk(
-        (container as unknown as Record<string, unknown>)[fiberKey] as Record<
-          string,
-          unknown
-        > | null,
-      );
+      const root = (container as unknown as Record<string, unknown>)[fiberKey] as Record<
+        string,
+        unknown
+      >;
+      const current =
+        (root.stateNode as { current?: Record<string, unknown> } | undefined)?.current ?? root;
+      const ctx = walk(current);
       const fn = ctx?.[method] as ((...a: unknown[]) => unknown) | undefined;
       if (typeof fn !== 'function') return null;
       return fn(...(args as unknown[]));
@@ -126,8 +128,28 @@ async function addRect(
   w: number,
   h: number,
 ): Promise<void> {
-  await page.keyboard.press('r');
+  const countBefore = await page.getByRole('treeitem').count();
+  await page.getByRole('button', { name: 'Rectangle', exact: true }).click();
+  const target = await page.locator('canvas.editor-canvas__content-layer').evaluate(
+    (surface, point) => {
+      const bounds = surface.getBoundingClientRect();
+      const hit = document.elementFromPoint(bounds.x + point.x, bounds.y + point.y);
+      return {
+        point,
+        canvas: bounds.toJSON(),
+        tag: hit?.tagName,
+        label: hit?.getAttribute('aria-label'),
+        html: hit?.outerHTML.slice(0, 1000),
+      };
+    },
+    { x, y },
+  );
+  await test.info().attach(`rectangle-${countBefore}-input-target`, {
+    body: JSON.stringify(target),
+    contentType: 'application/json',
+  });
   await dragOnCanvas(page, x, y, x + w, y + h);
+  await expect(page.getByRole('treeitem')).toHaveCount(countBefore + 1);
   await page.keyboard.press('v');
   await page.waitForTimeout(250);
 }
@@ -163,9 +185,13 @@ async function configureAdjustmentMask(page: import('@playwright/test').Page): P
         walk(fiber.sibling as Record<string, unknown> | null)
       );
     }
-    const ctx = walk(
-      (container as unknown as Record<string, unknown>)[fiberKey] as Record<string, unknown> | null,
-    );
+    const root = (container as unknown as Record<string, unknown>)[fiberKey] as Record<
+      string,
+      unknown
+    >;
+    const current =
+      (root.stateNode as { current?: Record<string, unknown> } | undefined)?.current ?? root;
+    const ctx = walk(current);
     const api = ctx as {
       state?: { document?: { nodes?: Record<string, { kind?: string; id?: string }> } };
       beginTransaction?: () => void;
@@ -283,10 +309,14 @@ test.describe('clipping masks', () => {
     await designTab.click();
     await page.waitForTimeout(300);
 
-    // Feather: the mask section exposes a Feather number field.
+    const maskSection = page.getByRole('button', { name: 'Mask', exact: true });
+    if ((await maskSection.getAttribute('aria-expanded')) !== 'true') await maskSection.click();
+
+    // Feather: the shared spinbutton commits its draft on Enter.
     const featherField = page.getByLabel('Feather', { exact: true });
     await expect(featherField).toBeVisible({ timeout: 5000 });
     await featherField.fill('24');
+    await featherField.press('Enter');
     await page.waitForTimeout(500);
     const feathered = await settledHash(page);
     expect(feathered).not.toBe(hardClip);
@@ -409,18 +439,18 @@ test.describe('effect targeting', () => {
     });
     expect(setScope).toBe(true);
 
+    const beforeA = await settledHash(page, { x: 40, y: 40, w: 160, h: 160 });
+    const beforeB = await settledHash(page, { x: 220, y: 40, w: 160, h: 160 });
+    const beforeC = await settledHash(page, { x: 400, y: 40, w: 160, h: 160 });
+
     // Add a deterministic color effect through the Adjustments panel. Bloom
     // intentionally has little or no visible output on a flat matte-colored
     // rectangle, so it is not a reliable scope oracle.
-    const adjustmentsTab = page.getByRole('tab', { name: /Adjustments/i });
-    await expect(adjustmentsTab).toBeVisible({ timeout: 5000 });
-    await adjustmentsTab.click();
+    await selectInspectorTab(page, 'Adjustments');
     await page.locator('button.adj-panel__add-btn').click();
-    await page.locator('.adj-panel__add-menu').waitFor({ state: 'visible', timeout: 5000 });
-    await page
-      .locator('.adj-panel__add-menu-item')
-      .filter({ hasText: /^Brightness$/ })
-      .click();
+    const addMenu = page.getByRole('menu', { name: 'Add adjustment', exact: true });
+    await expect(addMenu).toBeVisible();
+    await addMenu.getByRole('menuitem', { name: 'Brightness', exact: true }).click();
     await page.getByRole('slider', { name: 'Brightness', exact: true }).fill('60');
     await page.waitForTimeout(600);
 
@@ -430,6 +460,9 @@ test.describe('effect targeting', () => {
 
     // B must be untouched by the effect — its region must not match the
     // changed A/C regions (the effect changed A and C, not B).
+    expect(hA).not.toBe(beforeA);
+    expect(hB).toBe(beforeB);
+    expect(hC).not.toBe(beforeC);
     expect(hA).not.toBe(hB);
     expect(hC).not.toBe(hB);
     await page.screenshot({ path: SHOT.canvas('08-targets-ac') });
@@ -452,15 +485,11 @@ test.describe('effect targeting', () => {
     const beforeInside = await settledHash(page, { x: 80, y: 150, w: 160, h: 40 });
     const beforeOutside = await settledHash(page, { x: 80, y: 80, w: 160, h: 40 });
 
-    const adjustmentsTab = page.getByRole('tab', { name: /Adjustments/i });
-    await expect(adjustmentsTab).toBeVisible({ timeout: 5000 });
-    await adjustmentsTab.click();
+    await selectInspectorTab(page, 'Adjustments');
     await page.locator('button.adj-panel__add-btn').click();
-    await page.locator('.adj-panel__add-menu').waitFor({ state: 'visible', timeout: 5000 });
-    await page
-      .locator('.adj-panel__add-menu-item')
-      .filter({ hasText: /^Brightness$/ })
-      .click();
+    const addMenu = page.getByRole('menu', { name: 'Add adjustment', exact: true });
+    await expect(addMenu).toBeVisible();
+    await addMenu.getByRole('menuitem', { name: 'Brightness', exact: true }).click();
     await page.getByRole('slider', { name: 'Brightness', exact: true }).fill('60');
     await page.waitForTimeout(600);
 
@@ -471,10 +500,12 @@ test.describe('effect targeting', () => {
     await page.screenshot({ path: SHOT.canvas('09-masked-adjustment') });
     await page.screenshot({ path: SHOT.layers('09-masked-adjustment') });
 
-    // The spatial mask is also discoverable in the existing Design inspector,
-    // including its stable source picker.
-    const designTab = page.getByRole('tab', { name: /^Design$/ });
-    await designTab.click();
+    // Adjustment layers keep their mask controls in their canonical editor.
+    await selectInspectorTab(page, 'Adjustments');
+    const maskSection = page.getByRole('button', { name: 'Mask', exact: true });
+    if ((await maskSection.getAttribute('aria-expanded')) !== 'true') {
+      await maskSection.click();
+    }
     const maskSource = page.getByRole('combobox', { name: 'Mask source' });
     await maskSource.scrollIntoViewIfNeeded();
     await expect(maskSource).toBeVisible();
@@ -499,14 +530,11 @@ test.describe('effect targeting', () => {
     await page.waitForTimeout(500);
     await configureAdjustmentMask(page);
 
-    const adjustmentsTab = page.getByRole('tab', { name: /Adjustments/i });
-    await adjustmentsTab.click();
+    await selectInspectorTab(page, 'Adjustments');
     await page.locator('button.adj-panel__add-btn').click();
-    await page.locator('.adj-panel__add-menu').waitFor({ state: 'visible', timeout: 5000 });
-    await page
-      .locator('.adj-panel__add-menu-item')
-      .filter({ hasText: /^Brightness$/ })
-      .click();
+    const addMenu = page.getByRole('menu', { name: 'Add adjustment', exact: true });
+    await expect(addMenu).toBeVisible();
+    await addMenu.getByRole('menuitem', { name: 'Brightness', exact: true }).click();
     await page.getByRole('slider', { name: 'Brightness', exact: true }).fill('60');
     await page.waitForTimeout(600);
     await page.screenshot({ path: SHOT.canvas('10-adjustment-mask-before-reopen') });
@@ -564,8 +592,11 @@ test.describe('effect targeting', () => {
       expect.arrayContaining([expect.objectContaining({ kind: 'brightness', value: 60 })]),
     );
 
-    await page.evaluate(() => window.__varvePerf?.forceFullRedraw());
-    await page.waitForTimeout(700);
+    await selectInspectorTab(page, 'Adjustments');
+    const maskSection = page.getByRole('button', { name: 'Mask', exact: true });
+    if ((await maskSection.getAttribute('aria-expanded')) !== 'true') {
+      await maskSection.click();
+    }
     const maskSource = page.getByRole('combobox', { name: 'Mask source' });
     await maskSource.scrollIntoViewIfNeeded();
     await expect(maskSource).toBeVisible();
@@ -683,8 +714,9 @@ test.describe('brush masks', () => {
     await dragOnCanvas(page, 140, 140, 380, 300);
     await page.waitForTimeout(300);
     await page.locator('.layers-panel [role="treeitem"]').first().click();
-    await page.getByRole('tab', { name: 'Appearance' }).click();
-    await page.getByRole('button', { name: 'Mask', exact: true }).click();
+    await selectInspectorTab(page, 'Design');
+    const maskSection = page.getByRole('button', { name: 'Mask', exact: true });
+    if ((await maskSection.getAttribute('aria-expanded')) !== 'true') await maskSection.click();
 
     // The same Inspector entry used for image/raster layers is available for
     // a vector target. Clicking it drives the real brush path below.

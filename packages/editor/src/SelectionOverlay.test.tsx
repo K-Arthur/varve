@@ -79,6 +79,7 @@ function renderOverlay(
   zoom = MOCK_ZOOM,
   contextOverrides: Record<string, unknown> = {},
 ) {
+  const { tool = 'select', ...providerOverrides } = contextOverrides;
   const nodeMap: Record<string, SceneNode> = {};
   for (const n of nodes) {
     nodeMap[n.id] = n;
@@ -91,6 +92,7 @@ function renderOverlay(
       selection: nodes.map((n) => n.id),
       pan,
       zoom,
+      tool,
     },
     selectedNodes: () => nodes,
     setNodePosition: vi.fn(),
@@ -101,7 +103,7 @@ function renderOverlay(
     beginTransaction: vi.fn(),
     commitTransaction: vi.fn(),
     setSelectedRotation: vi.fn(),
-    ...contextOverrides,
+    ...providerOverrides,
   });
 
   // The overlay converts through the viewport context, which is the camera the
@@ -109,7 +111,7 @@ function renderOverlay(
   // mirrors the editor state so these fixtures keep the same camera they always
   // used.
   const mockUseViewport = useViewport as unknown as { mockReturnValue: (v: unknown) => void };
-  mockUseViewport.mockReturnValue({ zoom, pan, cameraRotation: 0, ...contextOverrides });
+  mockUseViewport.mockReturnValue({ zoom, pan, cameraRotation: 0, ...providerOverrides });
 
   const { container } = render(<SelectionOverlay {...props} />);
   return container;
@@ -634,6 +636,37 @@ describe('SelectionOverlay — accessibility', () => {
 });
 
 describe('SelectionOverlay — touch targets', () => {
+  it.each(['rect', 'paint', 'pen', 'text', 'line', 'arrow'])(
+    'does not intercept %s gestures with transform handles',
+    (tool) => {
+      const container = renderOverlay(
+        [makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 200, h: 100 })],
+        {},
+        MOCK_PAN,
+        MOCK_ZOOM,
+        { tool },
+      );
+      const interactive = [...container.querySelectorAll<SVGElement>('[style]')].filter(
+        (target) => target.style.pointerEvents === 'auto',
+      );
+      expect(interactive).toHaveLength(0);
+    },
+  );
+
+  it.each(['select', 'nodeEdit', 'scale'])('retains resize controls in %s', (tool) => {
+    const container = renderOverlay(
+      [makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 200, h: 100 })],
+      {},
+      MOCK_PAN,
+      MOCK_ZOOM,
+      { tool },
+    );
+    const resize = [
+      ...container.querySelectorAll<SVGRectElement>('rect[fill="transparent"]'),
+    ].filter((target) => target.style.pointerEvents === 'auto');
+    expect(resize.length).toBeGreaterThanOrEqual(8);
+  });
+
   it('interactive resize hit areas meet the 24px AA minimum while visuals stay compact', () => {
     const container = renderOverlay([
       makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 200, h: 100 }),
