@@ -7,6 +7,8 @@ export { resolveAppAssetUrl } from '../assets';
 export const REQUIRED_ORT_RUNTIME_FILES = [
   'ort-wasm-simd-threaded.jsep.mjs',
   'ort-wasm-simd-threaded.jsep.wasm',
+  'ort-wasm-simd-threaded.asyncify.mjs',
+  'ort-wasm-simd-threaded.asyncify.wasm',
   'ort-wasm-simd-threaded.mjs',
   'ort-wasm-simd-threaded.wasm',
 ] as const;

@@ -772,9 +772,6 @@ const CROP = {
   // Full inspector column: starts below the tab strip and stops above the
   // status bar, so a long stack of sections is not clipped mid-row.
   inspectorTall: { x: 1120, y: 122, width: 320, height: 722 },
-  // Spans the full width so the track-name column is included, and starts at
-  // the panel's own top edge rather than partway up the canvas above it.
-  timeline: { x: 0, y: 636, width: 1440, height: 264 },
 };
 
 /* ------------------------------------------------------------------ */
@@ -990,7 +987,7 @@ const SCENES = [
     file: 'vector-light.png',
     theme: 'light',
     feature: 'vector-tools',
-    clip: CROP.canvas,
+    clipFrom: { selector: '.editor-canvas' },
     alt: 'A curved vector shape in Varve with its anchor points and Bézier handles shown in node editing mode',
     caption: 'Node editing with live Bézier handles',
     async run(page) {
@@ -1008,7 +1005,28 @@ const SCENES = [
       // Keep the handles above the node-controls tray in this detail crop.
       await page.getByRole('button', { name: 'Zoom out' }).click();
       await page.getByRole('button', { name: 'Zoom out' }).click();
+      await page.getByRole('button', { name: 'Zoom out' }).click();
       await page.waitForTimeout(700);
+    },
+    async verify(page) {
+      const nodes = page.getByTestId('node-edit-overlay').locator('[data-node-anchor]');
+      await expect(nodes.first()).toBeVisible();
+      const bounds = await nodes.evaluateAll((elements) =>
+        elements.map((element) => element.getBoundingClientRect().toJSON()),
+      );
+      const tray = await page.locator('.node-edit-controls').boundingBox();
+      const canvas = await page.locator('.editor-canvas').boundingBox();
+      if (!tray || !canvas || bounds.length === 0) throw new Error('Node editing geometry missing');
+      for (const box of bounds) {
+        if (
+          box.x < canvas.x ||
+          box.x + box.width > canvas.x + canvas.width ||
+          box.y < canvas.y ||
+          box.y + box.height > tray.y - 8
+        ) {
+          throw new Error('A vector anchor or handle is clipped or covered by the node controls');
+        }
+      }
     },
   },
   {
@@ -1198,7 +1216,7 @@ const SCENES = [
     file: 'motion-dark.png',
     theme: 'dark',
     feature: 'motion',
-    clip: CROP.timeline,
+    clipFrom: { selector: '.timeline-panel' },
     alt: 'The Varve timeline panel with a track for the selected layer',
     caption: 'The timeline panel in the motion workspace',
     async run(page) {
@@ -1235,6 +1253,8 @@ const SCENES = [
           'timeline has no tracks: the Alt+P keyframe shortcut did not author a track, so the scene would misrepresent the motion workspace',
         );
       }
+      await expect(panel.locator('.timeline-track-row').first()).toBeVisible();
+      await expect(panel.locator('.timeline-track-row__keyframe').first()).toBeVisible();
     },
   },
   {
@@ -1559,6 +1579,10 @@ const SCENES = [
           `background removal produced no mask preview to review${detail} — panel read: ${state}`,
         );
       }
+      const reviewPanel = section.getByRole('region', { name: 'Background removal review' });
+      await reviewPanel.evaluate((element) => element.scrollIntoView({ block: 'center' }));
+      await expect(reviewPanel.getByAltText('Isolated subject preview')).toBeVisible();
+      await expect(reviewPanel.getByRole('button', { name: /apply/i })).toBeInViewport();
       await page.waitForTimeout(1200);
     },
   },
@@ -1601,6 +1625,8 @@ const SCENES = [
       if (await previewToggle.isVisible({ timeout: 5000 }).catch(() => false)) {
         await previewToggle.check();
       }
+      await ready.evaluate((element) => element.scrollIntoView({ block: 'start' }));
+      await expect(section.locator('.insp-depth-preview__canvas')).toBeInViewport();
       await page.waitForTimeout(1200);
     },
   },
@@ -1762,7 +1788,6 @@ const SCENES = [
     // Leave the pointer in the empty gutter between the page and Inspector so
     // the responsive panel stays open without a hover effect in the capture.
     parkAt: { x: 1435, y: 500 },
-    clip: { x: 700, y: 120, width: 740, height: 650 },
     alt: 'A publishing page outlined by 20 px dashed bleed guides, with the Page Print inspector showing the same value on each edge',
     caption: 'Set equal per-edge bleed and check the print boundary on canvas.',
     async run(page) {
@@ -1781,14 +1806,10 @@ const SCENES = [
 
       const inspector = page.locator('.editor__inspector-panel');
       const showInspector = page.getByRole('button', { name: 'Show inspector panel' });
-      // Choose a calm, legible page scale before opening the responsive
-      // Inspector; focusing this status-bar field after opening a drawer
-      // correctly returns focus out of that drawer and dismisses it.
-      const zoomInput = page.locator('.editor-status__zoom-value');
-      await zoomInput.fill('6');
-      await zoomInput.press('Enter');
-      await expect(zoomInput).toHaveValue('6');
-      await page.waitForTimeout(300);
+      // Fit the actual active page, including its camera center. Changing only
+      // zoom kept the old pan and left the page far outside the screenshot.
+      await page.getByRole('button', { name: 'Fit active page', exact: true }).click();
+      await page.waitForTimeout(600);
 
       if (await showInspector.isVisible().catch(() => false)) {
         // The adjacent responsive FABs can overlap at their edges. Dispatch the
@@ -1847,6 +1868,20 @@ const SCENES = [
       }
       await bleedTop.waitFor({ state: 'visible', timeout: 8000 });
       await expect(bleedTop).toHaveValue('20');
+      await expect(guide).toBeInViewport();
+      const guideBounds = await guide.boundingBox();
+      const canvasBounds = await canvas.boundingBox();
+      if (!guideBounds || !canvasBounds || guideBounds.width < 300 || guideBounds.height < 150) {
+        throw new Error('Bleed guide is not large enough to review on the fitted page');
+      }
+      if (
+        guideBounds.x < canvasBounds.x ||
+        guideBounds.y < canvasBounds.y ||
+        guideBounds.x + guideBounds.width > canvasBounds.x + canvasBounds.width ||
+        guideBounds.y + guideBounds.height > canvasBounds.y + canvasBounds.height
+      ) {
+        throw new Error('Bleed guide extends outside the captured canvas');
+      }
     },
   },
 ];

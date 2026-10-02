@@ -83,6 +83,8 @@ const files = readdirSync(onnxWebDir).filter((f) => f.endsWith('.wasm') || f.end
 const requiredFiles = [
   'ort-wasm-simd-threaded.jsep.mjs',
   'ort-wasm-simd-threaded.jsep.wasm',
+  'ort-wasm-simd-threaded.asyncify.mjs',
+  'ort-wasm-simd-threaded.asyncify.wasm',
   'ort-wasm-simd-threaded.mjs',
   'ort-wasm-simd-threaded.wasm',
 ];
@@ -94,12 +96,11 @@ for (const requiredFile of requiredFiles) {
   }
 }
 
-// Only the required runtime companions are staged. onnxruntime-web ships
-// ~25 variants (asyncify/jspi/webgl/webgpu/bundled loaders) that total
-// ~57 MB over the 4 required files; the app only ever resolves the
-// simd-threaded + jsep builds (ortRuntimeAssets.ts), so copying the whole
-// package silently added ~57 MB of unused bytes to every installer
-// (measured 2026-08-18: 97.1 MB vs 40.4 MB raw in dist/ort-wasm).
+// Only companions selected by the application entry points are staged.
+// The default ORT loader uses JSEP, the WASM-only loader uses threaded, and
+// ORT1.27 webgpu selects asyncify even when its session falls back to CPU.
+// JSPI/training companions are not imported by the app. Keep this contract
+// checked against the installed entry-point loaders in ortRuntimeAssets.test.ts.
 const stagedFiles = requiredFiles;
 
 // The directory is generated and gitignored. Clear it before copying so a

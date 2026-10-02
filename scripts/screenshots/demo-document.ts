@@ -17,6 +17,7 @@
  * are produced on every run and by every contributor.
  */
 import type { Affine, PathPoint } from '../../packages/engine/src/types.ts';
+import { createDesignCanvas } from '../../packages/scene/src/designCanvas.ts';
 import type { Document } from '../../packages/scene/src/document.ts';
 import {
   addChild,
@@ -579,6 +580,11 @@ export function createPresentationDocument(): Document {
     'varve-demo-presentation',
     'Local field notes',
   );
+  // Slides belong to an explicit artwork canvas. Creating the separate layout
+  // canvas below must not make legacy root frames disappear from the active
+  // canvas or put the template on top of the first slide at the same origin.
+  doc = createDesignCanvas(doc, { id: 'presentation-artwork-canvas', name: 'Slide artwork' });
+  const artworkRoot = doc.designCanvases![0].contentRoot;
   const slides = [
     { id: 'field-title', x: 0, title: 'A better story,\nby design.', eyebrow: 'FIELD NOTES · 01' },
     {
@@ -611,7 +617,7 @@ export function createPresentationDocument(): Document {
       fill: ground,
       clipContent: true,
     });
-    doc = addNode(doc, frame);
+    doc = addChild(doc, artworkRoot, frame);
     doc = addChild(
       doc,
       frame.id,

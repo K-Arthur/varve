@@ -68,4 +68,26 @@ describe('demo document fixtures', () => {
       expect(Object.keys(doc.nodes).length, `${name} nodes`).toBeGreaterThan(2);
     }
   });
+
+  it('keeps slide artwork on the active canvas and layout templates on a separate canvas', () => {
+    const document = DEMO_DOCUMENTS.presentation();
+    const artwork = document.designCanvases?.find(
+      (canvas) => canvas.id === document.activeDesignCanvasId,
+    );
+    expect(artwork?.id).toBe('presentation-artwork-canvas');
+    const artworkRoot = document.nodes[artwork!.contentRoot];
+    expect(artworkRoot.kind).toBe('group');
+    if (artworkRoot.kind !== 'group') throw new Error('Slide artwork needs a canvas content root');
+    const frameIds = document.presentation!.decks[0].slides.map((slide) => slide.frameId);
+    expect(artworkRoot.children).toEqual(frameIds);
+    expect(document.rootChildren).not.toEqual(expect.arrayContaining(frameIds));
+    const layouts = document.designCanvases?.find(
+      (canvas) => canvas.id === 'presentation-layouts-canvas',
+    );
+    const layoutRoot = document.nodes[layouts!.contentRoot];
+    expect(layoutRoot.kind).toBe('group');
+    if (layoutRoot.kind !== 'group') throw new Error('Layouts need their own canvas content root');
+    expect(layoutRoot.children).toContain(document.presentation!.layouts[0].frameId);
+    expect(artworkRoot.children).not.toContain(document.presentation!.layouts[0].frameId);
+  });
 });
