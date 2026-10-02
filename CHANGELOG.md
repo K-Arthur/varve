@@ -65,8 +65,8 @@ marked.
   states are explicit, and failed writes retain recovery paths. Confirm a
   save by its successful destination write before closing important work.
 - **Responsive and accessible controls** — Workspace panels, menus, touch
-  targets, focus handling, and enlarged-text layouts have been refined across
-  compact, tablet, and desktop widths.
+  targets, focus handling, home-screen reflow, group dragging, and enlarged-text
+  layouts have been refined across compact, tablet, and desktop widths.
 - **Bounded browser demo** — `/try/` remains a sample-document experience with
   browser-local storage and a limited workspace set; desktop-only print,
   inference, and other capabilities are not implied by the demo.

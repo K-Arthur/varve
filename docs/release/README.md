@@ -3,6 +3,11 @@
 Everything about turning a commit into something a stranger can install and
 trust. Start with the audit; it explains why the rest of these exist.
 
+The [0.5.0 repository inventory and dependency review](../repository-hygiene-progress.md#release-history-and-dependency-review-2026-10-02)
+records retained/deleted files, outgoing-history checks, Dependabot disposition,
+and the generated Flatpak source inventory. It does not certify release
+artifacts; the exact-SHA candidate and publishing gates below still apply.
+
 | Document | What it answers |
 |---|---|---|
 | [release-readiness-audit.md](release-readiness-audit.md) | Can this repository ship today? Evidence-backed findings, severity scorecard, and Phase 1 command results |

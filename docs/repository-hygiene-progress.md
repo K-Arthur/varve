@@ -1,12 +1,13 @@
 # Repository Hygiene Audit — Progress Ledger
 
-**Date:** 2026-07-26 (pass 1, complete) / **2026-08-04 (pass 2, complete) / 2026-08-12 (pass 3, complete) / 2026-08-16 (pass 4, complete) / 2026-08-21 (pass 5, complete) / 2026-08-22 (pass 6, complete) / 2026-08-24 to 2026-08-25 (pass 7, complete) / 2026-09-19 (pass 8, complete) / 2026-10-01 (pass 9, in progress)**
+**Date:** 2026-07-26 (pass 1, complete) / **2026-08-04 (pass 2, complete) / 2026-08-12 (pass 3, complete) / 2026-08-16 (pass 4, complete) / 2026-08-21 (pass 5, complete) / 2026-08-22 (pass 6, complete) / 2026-08-24 to 2026-08-25 (pass 7, complete) / 2026-09-19 (pass 8, complete) / 2026-10-01 to 2026-10-02 (pass 9, inventory complete)**
 **Branch:** master
 
-> Working ledger for hygiene audits. Pass 8 is documented below; pass 1–7
-> history is retained further down.
+> Working ledger for hygiene audits. The release inventory is pass 9;
+> pass 1–8 history is retained further down. Inventory completion does not
+> certify or publish the release.
 
-## Pass 9 (2026-10-01, release inventory)
+## Pass 9 (2026-10-01 to 2026-10-02, release inventory)
 
 Release-bound repository hygiene review of the pre-existing shared worktree.
 The initial index, patches, untracked files, and hashes are preserved outside
@@ -27,7 +28,7 @@ referenced screenshot evidence remain eligible for explicit review and commit.
 | `tests/e2e/canvas/variable-debug.spec.ts` | One-off console logger ending in `expect(true)`; it creates no regression assertion and duplicates the maintained variable workflows | Yes | Delete the diagnostic after replacing the stale Layers-panel helper and repairing the owning dialog/binding tests | Done; source history remains in Git |
 | `.gitignore` duplicate rules | Repeated `.astro/` and `.replay-browser-results.json` entries plus narrow model/GPU rules already covered by the general ONNX and `.tmp-*` rules | Yes | Remove redundant entries while keeping generated outputs, downloads, and local diagnostics ignored by their broader canonical rules | Done |
 | `docs/plans/website-progress-tracker.md` | 533-line task tracker with stale phases, product names, download claims, and deployment status; superseded by the verified release-data and deployment runbook | Yes | Remove the obsolete tracker from the release tree and point current operations to `docs/release/website.md`; preserve the original in the release recovery archive and Git history | Done |
-| `docs/screenshots/pattern-system-2026-09-30/`, dated workspace and GPU evidence | Current feature, QA, or qualification evidence with owning docs/specs | Mixed | Preserve and reconcile staged deletions against restored files; review before inclusion | In progress |
+| `docs/screenshots/pattern-system-2026-09-30/`, dated workspace and GPU evidence | Current feature, QA, or qualification evidence with owning docs/specs | Yes | Preserve the restored implementation and referenced evidence. The pattern directory has 38 tracked captures/exports, referenced by the pattern ownership record, validation report, architecture doc, and maintained E2E specs; no staged pattern deletion remains | Done; integrated in the pattern commits and `20ecad2ba`, with evidence refresh in `06007e102` |
 | Dated audit screenshots and historical plans | Historical review evidence | Yes / mixed | Retain unless a filename-level reference and replacement prove supersession; do not purge by age | Reviewed; retained |
 
 The broad screenshot audit previously retained 62 dated evidence captures after
@@ -35,6 +36,68 @@ reference inspection. This release pass keeps that decision: visual evidence
 is not stale merely because it is dated or no longer copied to the marketing
 gallery. Canonical marketing captures are refreshed separately from archived
 review artifacts.
+
+### Release history and dependency review (2026-10-02)
+
+The existing outgoing-history scanner passed for all 42 commits from
+`origin/master` through `114e4acba`: no detected secrets, prohibited trailers,
+or additions above its 10 MiB threshold. This scans intermediate commits,
+including content subsequently deleted. The normal push checkpoint must
+scan the final outgoing range again.
+
+The license-boundary and bundled-asset scanners both passed against an
+exact Git archive of the required tracked inputs at `c710d7bd9`: zero license
+violations; five real ONNX files matching five declared bundled models;
+no LFS pointers, missing download hashes, or catalog disagreements. In the
+shared working tree, those same scanners exposed a generated-WASM license check that assumed
+all producer metadata was FSL, and 11 ignored optional model downloads under
+`public/models/`. The complete WASM build finishes with the open `varve-colour`
+crate, whose generated metadata must retain `MIT OR Apache-2.0`; the engine
+producer remains `FSL-1.1-MIT`. The validator now checks the actual producer.
+Preserve downloaded models for their owning capture runs, then archive them
+outside `public/`, clean and rebuild the output, and check both source and
+`dist/` before packaging. The tracked-source audit does not
+replace final installer, SBOM, or built-output checks.
+
+Dependency disposition follows actual resolved versions, not PR conflict status:
+
+| Dependabot PRs | Review and release disposition |
+| --- | --- |
+| [47](https://github.com/K-Arthur/varve/pull/47), [46](https://github.com/K-Arthur/varve/pull/46), [48](https://github.com/K-Arthur/varve/pull/48), [57](https://github.com/K-Arthur/varve/pull/57) | Their security updates are superseded by `0c7c90f39`: Astro 7.2.10, Vitest 4.1.11, js-yaml 5.4.2, and Undici 6.29.0. Reconcile PRs and remote alerts after the reviewed master push. |
+| [49](https://github.com/K-Arthur/varve/pull/49) | Six Actions maintenance updates reconciled against current master in `7d5888b9b`, including CI-debug and WebGL2 qualification. All 47 SHA substitutions passed workflow/security checks and upstream pin verification; permissions, commands, and digest policy remain unchanged. Reconcile the PR after the accepted master push. |
+| [30](https://github.com/K-Arthur/varve/pull/30)–[35](https://github.com/K-Arthur/varve/pull/35) | Still pending, not superseded: tsx 4.23.11, knip 6.32.0, Storybook 10.5.7, plugin-react 6.0.5, user-event 14.6.3 remain resolved. These optional tool updates do not remediate the reviewed open alerts. |
+| [50](https://github.com/K-Arthur/varve/pull/50), [55](https://github.com/K-Arthur/varve/pull/55) | Broader tool/runtime groups are optional. The dev group also moves TypeScript to 7 and Vitest to 5; assess those compatibility changes separately from the required security patches. |
+| [38](https://github.com/K-Arthur/varve/pull/38), [39](https://github.com/K-Arthur/varve/pull/39), [52](https://github.com/K-Arthur/varve/pull/52), [53](https://github.com/K-Arthur/varve/pull/53), [56](https://github.com/K-Arthur/varve/pull/56) | Cargo updates remain optional; the reviewed remote alert set contained no open Cargo advisory. |
+
+For PR 49, [download-artifact v8](https://github.com/actions/download-artifact/tree/v8.0.1#v8---whats-new)
+uses Node 24, requires runner 2.327.1 or newer, and fails digest mismatches by
+default. Keep that default. CI-debug uses a named artifact, whose extraction
+path remains unchanged. GitHub-hosted runners are the configured targets.
+[pnpm setup 6.1.0](https://github.com/pnpm/action-setup/releases/tag/v6.1.0)
+adds pnpm 12 support without changing the explicit 11.9 package-manager pin;
+[release 3.0.3](https://github.com/softprops/action-gh-release/releases/tag/v3.0.3)
+improves malformed API-error handling; [Pages 5.0.1](https://github.com/actions/deploy-pages/releases/tag/v5.0.1)
+adds polling backoff and jitter. The composite install-action and Rust-toolchain
+updates retain the existing input contracts; the latter adds cross-device
+copy and non-host-toolchain handling. No blanket major tool upgrade is
+required to resolve the reviewed application dependency advisories.
+
+The generic audit cannot account for Varve's local `extract-zip@2.0.1` patch:
+the upstream symlink advisory has no published fixed version. Keep the patch
+and its direct regression checks; do not describe the raw advisory as an
+upstream fix or silently suppress it.
+
+Flatpak remains an explicitly failing stub and is not a 0.5.0 release target.
+Its stale pnpm source inventory was regenerated with the official
+`flatpak-builder-tools` generator at
+`74697c75b630d7330e77250fc13cb5ea688d9479`, using the existing packaging
+script's pnpm entrypoint in an isolated tool checkout. All 1,425 registry
+tarball SHA-512 values match `pnpm-lock.yaml`; the output has 1,447 sources.
+No artifact hash or release tag was invented, and no AUR metadata was changed.
+The generator input lockfile SHA-256 is
+`1bbd4bec6ae3bc67d7f485bb745e627aab021975f24764b4d666bfeb958b10ba`.
+Flatpak completion, sandbox validation, and installation certification remain
+separate work.
 
 ---
 
