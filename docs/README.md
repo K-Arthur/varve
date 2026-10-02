@@ -413,6 +413,20 @@ pass report in
 | `architecture/multimodal-edit-plan.md` | Multimodal design edit plans and proposal boundary |
 | `architecture/halftone-system.md` | Halftone screening: canonical parameters, coordinates, tone mapping, export parity |
 | `architecture/browser-demo.md` | Public browser demo (`/try`): scope, capability messaging, build path |
+| `architecture/popover-system.md` | Transient anchored non-modal surfaces: focus, dismissal, Tab handoff, and trigger contract |
+| `architecture/separator-system.md` | Quiet structural separator primitive and its noninteractive placement contract |
+| `architecture/frequency-separation-liquify.md` | Source-preserving frequency-separation and liquify retouching systems |
+| `architecture/pattern-selection-fields.md` | Pattern Fill controls shared across a multi-object selection |
+| `architecture/image-format-capability-matrix.md` | Current image format contract backed by the format capability registry |
+| `architecture/native-acceleration.md` | Native GPU device discovery, capability reporting, and offscreen compute (ADR-0237) |
+| `architecture/text-discovery-system.md` | Local text/object discovery inside Object Selection |
+| `architecture/slider-system.md` | Continuous-value control contract: sliders, range inputs, precision companions |
+| `architecture/layer-effects.md` | Layer effect stack in the Canvas2D/editor and structured export paths |
+| `architecture/nudge-and-movement.md` | Keyboard nudge and pointer movement contract |
+| `architecture/shader-system.md` | Shader effect implementation and verification boundary |
+| `architecture/responsive-workspace.md` | Responsive shell and viewport contract across browser and desktop surfaces |
+| `architecture/arrangement-system.md` | Alignment, distribution, spacing, tidy-up, auto layout, and paint-order changes |
+| `architecture/disclosure-system.md` | Collapsible section contract for editor and website surfaces |
 
 ### Dated point-in-time records under `docs/architecture/`
 
@@ -494,6 +508,9 @@ The following dated files were moved from `docs/architecture/` to
 | `design/card-system.md` | Card audit, taxonomy, and beta Card recipe |
 | `design/migration-debt.md` | Design migration debt |
 | `design/icon-system.md` | Semantic icon boundary and Tabler visual-language direction for UI icons |
+| `design/corner-radius-system.md` | Canonical corner-radius scale and its component contract |
+| `design/switch-system.md` | Switch control contract |
+| `design/radio-group-system.md` | Radio-group control contract |
 | `brand-guide.md` | Brand guide (mark, wordmarks, usage) — current |
 | `brand/varve-brand-guide.md` | Superseded v1.0 brand guide (pre-rework mark); retained as a historical record |
 
