@@ -200,6 +200,8 @@ jobs:
     violations.some((v) => v.includes('publish job must declare environment: release-publish')),
     `expected environment violation, got: ${JSON.stringify(violations, null, 2)}`,
   );
+  assert.ok(violations.some((v) => v.includes('configured in repository settings')));
+  assert.ok(violations.every((v) => !v.includes('required reviewers')));
 }
 
 function testPublishGateMissingRejected() {
@@ -532,6 +534,25 @@ jobs:
   );
 }
 
+function testWebsiteRecoveryCheckoutRequiresPublicationVerification() {
+  const reviewed = readFileSync(join(WF_DIR, 'website-deploy.yml'), 'utf8');
+  expectCleanAudit(yamlWebsite(reviewed));
+  for (const unsafe of [
+    reviewed.replace('verify-website-publication.mjs', 'unverified-publication.mjs'),
+    reviewed.replace('--sha "$RELEASE_SHA"', ''),
+    reviewed.replace("needs.release-data.result == 'success'", 'true'),
+    reviewed.replace("needs.release-data.outputs.published == 'true'", 'true'),
+    reviewed.replace("needs.release-data.result == 'skipped'", 'true'),
+    reviewed.replace('--allow-unpublished "$ALLOW_UNPUBLISHED"', '--allow-unpublished "true"'),
+  ]) {
+    const violations = yamlWebsite(unsafe);
+    assert.ok(
+      violations.some((violation) => violation.includes('workflow_run checkout must pin ref')),
+      `unverified recovery checkout must fail the trust boundary: ${JSON.stringify(violations)}`,
+    );
+  }
+}
+
 testPullRequestTargetRejected();
 testSecretsInheritRejected();
 testSigningSecretOutsideReleaseRejected();
@@ -561,5 +582,6 @@ testRealWorkflowsPass();
 testCiCheckoutsDoNotUseJobOutputRefs();
 testPrCommentWriteScope();
 testWorkflowRunCheckoutTrustBoundary();
+testWebsiteRecoveryCheckoutRequiresPublicationVerification();
 
-console.log('workflow-policy tests passed (31 scenarios).');
+console.log('workflow-policy tests passed (32 scenarios).');

@@ -107,7 +107,7 @@ Everything in Alpha, plus:
 - [ ] If the release explicitly requires signed installers, `RELEASE_EXPECT_SIGNED=true` is set
 - [ ] Signing preflight resolved `signed` where required; otherwise the release is explicitly permitted to publish unsigned installers
 - [ ] Windows: installer carries a valid Authenticode signature —
-      `signing-report-windows.json` says `verification: valid`, and the
+      each `signing-report-windows-<arch>.json` says `verification: valid`, and the
       publisher shown in UAC matches the verified legal name
 - [ ] macOS: signed with **Developer ID Application**, notarised, and
       **stapled** — `signing-report-macos.json` shows signed/notarized/stapled

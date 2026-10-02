@@ -71,7 +71,7 @@ Developer ID certificates cannot be renewed — they must be **re-issued**.
       secret after 30 days
 - [ ] **Quarterly smoke:** run one signed Windows build outside a release
       window (or the next prerelease) and confirm
-      `signing-report-windows.json` shows `verification: valid`
+      each `signing-report-windows-<arch>.json` shows `verification: valid`
 
 ### 1.5 Tauri updater minisign key
 

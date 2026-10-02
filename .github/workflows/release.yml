@@ -10,8 +10,8 @@
 #     publishes.
 #   - The tag and the application version must agree before anything is built.
 #   - Signing credentials are validated in `signing-preflight` BEFORE any
-#     platform build starts. A stable release with missing credentials fails
-#     there, never after packaging.
+#     platform build starts. When signing is required, missing credentials fail
+#     there; permitted unsigned builds retain truthful labels.
 #   - An artifact is never labelled signed unless the post-build cryptographic
 #     verification report (verify-windows-signature.ps1 /
 #     verify-macos-signature.sh) confirms it on the actual bytes.
@@ -70,7 +70,7 @@ on:
 concurrency:
   # Never cancel a release build in flight — a half-uploaded draft is worse than
   # a slow one.
-  group: release-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+  group: release-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
   cancel-in-progress: false
 
 permissions:
@@ -776,7 +776,7 @@ jobs:
         run: |
           $exe = Get-ChildItem -Path dist/release -Filter '*.exe' | Select-Object -First 1
           if (-not $exe) { throw 'No .exe installer found in dist/release' }
-          $report = Join-Path (Split-Path $exe.FullName) 'signing-report-windows.json'
+          $report = Join-Path (Split-Path $exe.FullName) 'signing-report-windows-${{ matrix.arch_slug }}.json'
           # Switch parameters do not survive the pwsh -> Windows PowerShell 5.1
           # boundary with a computed value; branch explicitly instead.
           if ($env:EXPECT_SIGNED -eq 'true') {
@@ -1120,7 +1120,9 @@ jobs:
       - name: Download all platform artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
-          pattern: release-*
+          # Match release-OS-ARCH bundles, excluding an earlier release-final
+          # artifact if this workflow's complete job graph is rerun.
+          pattern: release-*-*
           path: staged
           merge-multiple: false
 
@@ -1328,27 +1330,49 @@ jobs:
             echo "Smoke-test the artifacts, then run the \`publish\` job to make it public."
           } >> "$GITHUB_STEP_SUMMARY"
 
-  # ── 5. Publish — double-gated on a human ────────────────────────────────────
-  # Two independent gates, so a misconfiguration of either cannot publish:
-  #   1. This job only runs on an explicit workflow_dispatch with publish=yes.
-  #      A tag push builds a draft and stops; nothing auto-publishes.
-  #   2. The `release-publish` environment must have a required reviewer in
-  #      repo settings (Settings → Environments → release-publish → Required
-  #      reviewers). See docs/release/ci-secrets.md.
+  # ── 6. Publish — explicit authorization and fresh draft verification ──────
+  # A tag push builds a draft and stops. Explicit publish=yes dispatches must
+  # reauthenticate the actual draft assets against the certified tag SHA before
+  # changing draft=false. The named environment adds reviewer approval only
+  # when repository settings configure it; see docs/release/ci-secrets.md.
   publish:
-    name: Publish (manual approval)
+    name: Verify draft and publish (explicit dispatch)
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.publish == 'yes'
     needs: [preflight]
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 30
     environment:
       name: release-publish
     permissions:
       contents: write
+      attestations: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ needs.preflight.outputs.tag }}
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Verify actual draft assets before publication
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_REPOSITORY: ${{ github.repository }}
+          RELEASE_TAG: ${{ needs.preflight.outputs.tag }}
+          RELEASE_SHA: ${{ needs.preflight.outputs.tag_sha }}
+          RELEASE_POLICY_HASH: ${{ needs.preflight.outputs.policy_hash }}
+          RELEASE_CHANNEL: ${{ needs.preflight.outputs.channel }}
+          RELEASE_PLATFORMS: ${{ github.event.inputs.platforms || 'all' }}
+          EXPECT_SIGNED: ${{ vars.RELEASE_EXPECT_SIGNED || 'false' }}
+          UPDATER_REQUIRED: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY != '' }}
+        run: |
+          node scripts/release/verify-draft-release.mjs \
+            --repo "$RELEASE_REPOSITORY" --tag "$RELEASE_TAG" \
+            --sha "$RELEASE_SHA" --policy-hash "$RELEASE_POLICY_HASH" \
+            --channel "$RELEASE_CHANNEL" --platforms "$RELEASE_PLATFORMS" \
+            --expect-signed "$EXPECT_SIGNED" --require-updater "$UPDATER_REQUIRED" \
+            --dir "$RUNNER_TEMP/publish-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
 
       - name: Publish the draft
         env:

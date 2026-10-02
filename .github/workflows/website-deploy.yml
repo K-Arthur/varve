@@ -32,15 +32,26 @@ on:
   repository_dispatch:
     types: [varve-release-published]
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Published release to deploy or recover (leave both release inputs empty for source deployment)'
+        required: false
+        default: ''
+        type: string
+      release_sha:
+        description: 'Exact 40-character source SHA of that published release'
+        required: false
+        default: ''
+        type: string
 
 permissions:
   contents: read
 
 concurrency:
-  # Superseded source pushes may be cancelled before deployment; release/manual
-  # runs are frozen and must finish so an exact published SHA cannot be lost.
+  # A later source push must not cancel an active release/recovery deployment.
+  # GitHub keeps one running and one pending run; pending runs are replaceable.
   group: "pages"
-  cancel-in-progress: ${{ github.event_name == 'push' }}
+  cancel-in-progress: false
 
 env:
   PNPM_VERSION: '11.9.0'
@@ -58,7 +69,9 @@ jobs:
     # A release publication does not change website source. Its release-data
     # path is checked separately below, so do not repeat the complete website
     # functional/a11y/visual corpus for every successful Release run.
-    if: github.event_name != 'workflow_run' && github.event_name != 'repository_dispatch'
+    if: >-
+      github.event_name != 'workflow_run' && github.event_name != 'repository_dispatch' &&
+      !(github.event_name == 'workflow_dispatch' && (inputs.release_tag != '' || inputs.release_sha != ''))
     env:
       # Trust-boundary canary: present on the build steps, then asserted
       # absent from the artifacts (docs/security/trust-boundaries.md
@@ -140,7 +153,8 @@ jobs:
     if: >-
       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' &&
        github.event.workflow_run.event != 'workflow_dispatch') ||
-      github.event_name == 'repository_dispatch'
+      github.event_name == 'repository_dispatch' ||
+      (github.event_name == 'workflow_dispatch' && (inputs.release_tag != '' || inputs.release_sha != ''))
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -155,30 +169,14 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
-          RELEASE_TAG: ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.tag || github.event.workflow_run.head_branch }}
-          RELEASE_SHA: ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.sha || '' }}
+          RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.event_name == 'repository_dispatch' && github.event.client_payload.tag || github.event.workflow_run.head_branch }}
+          RELEASE_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.release_sha || github.event_name == 'repository_dispatch' && github.event.client_payload.sha || github.event.workflow_run.head_sha }}
+          ALLOW_UNPUBLISHED: ${{ github.event_name == 'workflow_run' }}
         run: |
           set -euo pipefail
-          if [[ ! "${RELEASE_TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
-            echo "published=false" >> "$GITHUB_OUTPUT"
-            echo "No published release tag was supplied; this was not a publication event."
-            exit 0
-          fi
-          RELEASE_JSON="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}")"
-          if [[ "$(jq -r '.draft' <<<"${RELEASE_JSON}")" != "false" ]]; then
-            echo "published=false" >> "$GITHUB_OUTPUT"
-            echo "Release ${RELEASE_TAG} is still a draft; Pages deployment is not started."
-            exit 0
-          fi
-          PUBLISHED_SHA="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${RELEASE_TAG}" --jq '.sha')"
-          if [[ -n "${RELEASE_SHA}" && "${PUBLISHED_SHA}" != "${RELEASE_SHA}" ]]; then
-            echo "::error::Publication payload SHA ${RELEASE_SHA} does not match ${RELEASE_TAG} at ${PUBLISHED_SHA}."
-            exit 1
-          fi
-          echo "published=true" >> "$GITHUB_OUTPUT"
-          echo "tag=${RELEASE_TAG}" >> "$GITHUB_OUTPUT"
-          echo "published_sha=${PUBLISHED_SHA}" >> "$GITHUB_OUTPUT"
-          echo "Release ${RELEASE_TAG} is published; release-data deployment may proceed."
+          node scripts/release/verify-website-publication.mjs \
+            --repo "$GITHUB_REPOSITORY" --tag "$RELEASE_TAG" --sha "$RELEASE_SHA" \
+            --allow-unpublished "$ALLOW_UNPUBLISHED"
 
       # This validates the committed no-release/published-release shape. The
       # build job subsequently fetches and verifies the exact published GitHub
@@ -200,10 +198,9 @@ jobs:
     # job must pass; the website source suite has already been certified.
     if: >-
       always() &&
-      (((github.event_name == 'workflow_run' || github.event_name == 'repository_dispatch') &&
-        needs.release-data.result == 'success' &&
+      ((needs.release-data.result == 'success' &&
         needs.release-data.outputs.published == 'true') ||
-       (github.event_name != 'workflow_run' && github.event_name != 'repository_dispatch' &&
+       (needs.release-data.result == 'skipped' &&
         needs.test.result == 'success'))
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -211,14 +208,14 @@ jobs:
           # Source pushes build the event SHA. Release publications build the
           # exact published tag SHA returned by release-data; the two paths
           # cannot silently borrow a newer default-branch checkout.
-          ref: ${{ (github.event_name == 'workflow_run' || github.event_name == 'repository_dispatch') && needs.release-data.outputs.published_sha || github.sha }}
+          ref: ${{ needs.release-data.outputs.published_sha || github.sha }}
           # Nothing in this workflow pushes; never persist the token.
           persist-credentials: false
 
       - name: Verify and record exact build source
         id: source
         env:
-          EXPECTED_SOURCE_SHA: ${{ (github.event_name == 'workflow_run' || github.event_name == 'repository_dispatch') && needs.release-data.outputs.published_sha || github.sha }}
+          EXPECTED_SOURCE_SHA: ${{ needs.release-data.outputs.published_sha || github.sha }}
         run: |
           set -euo pipefail
           ACTUAL_SOURCE_SHA="$(git rev-parse --verify 'HEAD^{commit}')"

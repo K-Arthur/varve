@@ -1,6 +1,6 @@
 # Varve — Website Architecture and Launch Plan
 
-**Last verified:** 2026-09-28
+**Last verified:** 2026-10-02
 **Status:** implemented and deployed at **https://varve.studio** (custom
 domain, registered and DNS at Porkbun, hosted on GitHub Pages). The current
 published release is v0.2.1. See `custom-domain-runbook.md` for the DNS
@@ -123,7 +123,7 @@ both derive everything from real bytes:
 ```
 release.yml  →  dist/release/release-manifest.json + SHA256SUMS.txt + SBOMs
                         │
-                        ├─ CI path (release workflow `completed` → website-deploy.yml)
+                        ├─ CI path (publication dispatch or recovery → website-deploy.yml)
                         │    fetch-website-release.mjs
                         │      • channel policy: latest published STABLE, else
                         │        latest published prerelease; drafts never
@@ -215,6 +215,35 @@ functional/a11y/visual corpus. A guarded `workflow_run` fallback preserves the
 branch-protection architecture and applies the same published-state check.
 With a custom domain later, set `SITE_URL` and `SITE_BASE: /` — no source
 change; see `custom-domain-runbook.md`.
+
+### Recover a website deployment after release publication
+
+Publication and its website dispatch are separate GitHub operations. If the
+release becomes public but the dispatch or Pages deployment fails, recover the
+website directly through its existing workflow. Supply both the published tag
+and its frozen source SHA:
+
+```bash
+release_recovery_sha="$(git rev-parse --verify 'v0.5.0^{commit}')"
+gh workflow run website-deploy.yml --ref master \
+  -f release_tag=v0.5.0 -f "release_sha=$release_recovery_sha"
+```
+
+`scripts/release/verify-website-publication.mjs` reads the release and tag commit
+through authenticated GitHub API calls. It requires a public release, a valid
+publication timestamp, and an exact match with the supplied 40-character SHA.
+Missing inputs, a draft, a withdrawn release, or a moved tag fail before the
+build. The build checks out that verified SHA, fetches release data pinned to
+the same tag, scans its output, deploys, and runs the live smoke check. It uses
+the release-data path without repeating the website source browser corpus.
+This recovery can be repeated for an already-public release and does not
+publish or change the release.
+
+Leaving both release inputs empty retains the ordinary source deployment,
+including its website quality gates. Running Pages deployments are not
+cancelled by subsequent source pushes. GitHub retains only one pending run;
+later runs can replace it, so repeat the recovery command if its pending run
+is superseded. The workflow does not promise FIFO ordering.
 
 GitHub Pages cannot set arbitrary security headers (`_headers` files are
 ignored there — the old `public/_headers` was removed). CSP is enforced via

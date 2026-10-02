@@ -49,7 +49,12 @@ $ErrorActionPreference = 'Stop'
 function Write-Report {
   param([hashtable]$Data, [int]$ExitCode)
   if ($ReportPath) {
-    $Data | ConvertTo-Json -Depth 6 | Set-Content -Path $ReportPath -Encoding utf8
+    # Windows PowerShell 5.1's Set-Content -Encoding utf8 adds a BOM, which
+    # JSON consumers must otherwise strip. Write the same BOM-free UTF-8 on
+    # Windows PowerShell and modern pwsh.
+    $json = $Data | ConvertTo-Json -Depth 6
+    $utf8WithoutBom = New-Object System.Text.UTF8Encoding($false)
+    [System.IO.File]::WriteAllText([System.IO.Path]::GetFullPath($ReportPath), $json + [Environment]::NewLine, $utf8WithoutBom)
   } else {
     $Data | ConvertTo-Json -Depth 6
   }

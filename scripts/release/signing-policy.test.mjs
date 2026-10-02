@@ -557,20 +557,22 @@ const MACOS_OK = {
   const tmp = join(tmpdir(), `varve-reports-${process.pid}`);
   rmSync(tmp, { recursive: true, force: true });
   mkdirSync(join(tmp, 'nested'), { recursive: true });
-  writeFileSync(join(tmp, 'nested', 'signing-report-windows.json'), JSON.stringify(WINDOWS_OK));
+  writeFileSync(
+    join(tmp, 'nested', 'signing-report-windows.json'),
+    `\uFEFF${JSON.stringify(WINDOWS_OK)}`,
+  );
   writeFileSync(join(tmp, 'nested', 'signing-report-macos.json'), JSON.stringify(MACOS_OK));
   writeFileSync(join(tmp, 'nested', 'release-manifest.json'), '{}');
 
   const found = findSigningReports(tmp);
   assert.deepEqual(found.map((f) => f.platform).sort(), ['macos', 'windows'], 'discovers reports');
   const reports = readSigningReports(tmp);
-  assert.equal(reports.windows.signed, true, 'parses report');
+  assert.equal(reports.windows.signed, true, 'parses legacy Windows PowerShell UTF-8 BOM');
   assert.equal(reports.macos.stapled, true, 'parses macos report');
 
-  // A corrupt report must never be treated as signed.
+  // A corrupt report fails loudly rather than being substituted with unsigned metadata.
   writeFileSync(join(tmp, 'nested', 'signing-report-windows.json'), '{not json');
-  const corrupt = readSigningReports(tmp);
-  assert.equal(corrupt.windows.signed, false, 'corrupt report is never signed');
+  assert.throws(() => readSigningReports(tmp), /Unreadable signing report/);
   rmSync(tmp, { recursive: true, force: true });
 }
 

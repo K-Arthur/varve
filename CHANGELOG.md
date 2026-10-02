@@ -10,7 +10,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 build a tag that has no matching section. Write for someone deciding whether to install the
 update, not for someone reading the commit log.
 
-## [0.5.0] - 2026-10-01
+## [0.5.0] - 2026-10-02
 
 Varve remains in public beta. This release adds broad authoring workflows while
 keeping optional, hardware-dependent, and format-limited capabilities clearly
@@ -59,7 +59,7 @@ marked.
   fallback; results depend on the browser, driver, and hardware.
 - **Document compatibility** — The app now writes document schema 2.33;
   published v0.2.1 used schema 2.21. Older documents migrate on open, including
-  the 2.32 callout-tail outline correction, but newer files are not
+  the pointed-balloon outline correction, but newer files are not
   backward-compatible. Back up important `.varve` files before opening them.
 - **Save and recovery feedback** — Saved, Saving, Modified, and Save failed
   states are explicit, and failed writes retain recovery paths. Confirm a

@@ -45,10 +45,11 @@ artifacts; the exact-SHA candidate and publishing gates below still apply.
 | `report-installer-size.mjs` | Decompose NSIS installers (7-Zip), compare against `installer-size-baseline.json`, warn/block on unexplained growth, emit the per-release size report (override: `--override-reason`, wired to the `size_gate_override` dispatch input) |
 | `merge-manifests.mjs` | Merge per-runner manifests (and signing reports), re-hashing from bytes on disk |
 | `verify-artifacts.mjs` | Verify the exact files about to be uploaded |
+| `verify-draft-release.mjs` | Authenticate the actual draft's checksum attestation against the certified source SHA, then recheck every downloaded asset and its release contract before explicit publication |
 | `signing-policy.mjs` | The signing rules: channel policy, secret-presence checks, report normalization, fail-closed trust verification |
 | `resolve-signing-policy.mjs` | CLI used by `signing-preflight`; consumes presence booleans only, prints per-platform modes |
 | `verify-release-trust.mjs` | The trust gate: merge manifests + signing reports, enforce the channel policy, fail closed |
-| `verify-windows-signature.ps1` | Authenticode verification (`Get-AuthenticodeSignature` + `signtool verify /pa`) → JSON report |
+| `verify-windows-signature.ps1` | Authenticode verification (`Get-AuthenticodeSignature` + `signtool verify /pa`) → BOM-free JSON report, retained separately for each architecture |
 | `verify-macos-signature.sh` | `codesign` + `spctl` + `stapler` verification of the DMG/.app → JSON report |
 | `generate-sbom.mjs` | CycloneDX 1.5 from both Cargo workspaces + pnpm + bundled binaries |
 | `release-notes.mjs` | Notes from `CHANGELOG.md` + the manifest (trust section derives from the signing block) |
@@ -76,7 +77,8 @@ freeze exact master SHA
    ├── verify             merge + trust gate + SBOM + FINAL checksums +
    │                      GitHub attestation of the final bytes + notes
    ├── draft              DRAFT release from the verified set; re-verify upload
-   └── publish            manual approval, then public
+   └── publish            explicit dispatch + fresh actual draft verification,
+                          then public (environment approval if configured)
 ```
 
 A tag never publishes anything by itself. See

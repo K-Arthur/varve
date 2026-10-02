@@ -61,8 +61,8 @@ assert.match(
 assert.match(websiteWorkflow, /needs\.release-data\.outputs\.published == 'true'/);
 assert.match(
   websiteWorkflow,
-  /commits\/\$\{RELEASE_TAG\}[\s\S]*PUBLISHED_SHA[\s\S]*RELEASE_SHA/,
-  'publication dispatch must bind the tag to its exact commit SHA',
+  /verify-website-publication\.mjs[\s\S]*--tag "\$RELEASE_TAG" --sha "\$RELEASE_SHA"/,
+  'publication dispatch and recovery must verify the tag against their exact commit SHA',
 );
 assert.match(
   websiteWorkflow,

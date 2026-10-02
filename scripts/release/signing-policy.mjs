@@ -36,6 +36,7 @@
  */
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { normalizeArchitecture } from './targets.mjs';
 
 export const CHANNEL_STABLE = 'stable';
 export const MODE_SIGNED = 'signed';
@@ -223,7 +224,7 @@ export function verifyReleaseTrust({
   reports,
   expectedPublisher = null,
 }) {
-  const problems = [];
+  const problems = signingCoverageProblems(manifest, reports);
   const notes = [];
   const platforms = [...new Set((manifest.artifacts ?? []).map((a) => a.os))];
   // Signing is REQUIRED only when RELEASE_EXPECT_SIGNED=true. Otherwise a
@@ -354,7 +355,7 @@ export function verifyReleaseTrust({
 
 /**
  * Locate signing-report-*.json files under a directory tree.
- * @returns {Array<{platform: string, path: string}>}
+ * @returns {Array<{platform: string, architecture: string|null, path: string}>}
  */
 export function findSigningReports(dir) {
   const out = [];
@@ -362,8 +363,11 @@ export function findSigningReports(dir) {
     for (const entry of readdirSync(current, { withFileTypes: true })) {
       const full = join(current, entry.name);
       if (entry.isDirectory()) walk(full);
-      else if (/^signing-report-([a-z]+)\.json$/.test(entry.name)) {
-        out.push({ platform: entry.name.match(/^signing-report-([a-z]+)\.json$/)[1], path: full });
+      else if (/^signing-report-([a-z]+)(?:-(x86_64|aarch64))?\.json$/.test(entry.name)) {
+        const [, platform, architecture] = entry.name.match(
+          /^signing-report-([a-z]+)(?:-(x86_64|aarch64))?\.json$/,
+        );
+        out.push({ platform, architecture: architecture ?? null, path: full });
       }
     }
   };
@@ -372,17 +376,97 @@ export function findSigningReports(dir) {
 }
 
 export function readSigningReports(dir) {
-  const reports = {};
+  const groups = new Map();
   for (const found of findSigningReports(dir)) {
+    let report;
     try {
-      reports[found.platform] = JSON.parse(readFileSync(found.path, 'utf-8'));
+      report = JSON.parse(readFileSync(found.path, 'utf-8').replace(/^\uFEFF/, ''));
     } catch (err) {
-      reports[found.platform] = {
-        platform: found.platform,
-        signed: false,
-        error: `unreadable report ${found.path}: ${err.message}`,
-      };
+      throw new Error(`Unreadable signing report ${found.path}: ${err.message}`);
     }
+    if (
+      report.platform !== found.platform ||
+      typeof report.signed !== 'boolean' ||
+      report.error ||
+      ['invalid', 'error'].includes(report.verification)
+    )
+      throw new Error(`Unusable signing verification report ${found.path}`);
+    const entries = groups.get(found.platform) ?? [];
+    if (entries.some((entry) => entry.architecture === found.architecture))
+      throw new Error(
+        `Duplicate signing report for ${found.platform}/${found.architecture ?? 'legacy'}`,
+      );
+    entries.push({ ...found, report });
+    groups.set(found.platform, entries);
   }
-  return reports;
+  return Object.fromEntries(
+    [...groups].map(([platform, entries]) => [
+      platform,
+      aggregateSigningReports(platform, entries),
+    ]),
+  );
+}
+
+function aggregateSigningReports(platform, entries) {
+  if (entries.length === 1 && !entries[0].architecture) return entries[0].report;
+  if (platform !== 'windows' || entries.some((entry) => !entry.architecture))
+    throw new Error(`Cannot combine legacy and architecture signing reports for ${platform}`);
+  const reports = entries.map((entry) => entry.report);
+  if (new Set(reports.map((report) => report.signed)).size !== 1)
+    throw new Error('Windows architecture reports disagree about signedness');
+  const shared = (field) =>
+    reports.every((report) => report[field] === reports[0][field]) ? reports[0][field] : null;
+  const signed = reports.every((report) => report.signed);
+  if (signed && !shared('publisher'))
+    throw new Error('Signed Windows architecture reports must name the same publisher');
+  return {
+    platform,
+    signed,
+    verification:
+      signed && reports.every((report) => report.verification === 'valid') ? 'valid' : 'not-signed',
+    publisher: shared('publisher'),
+    timestamped: reports.every((report) => report.timestamped === true),
+    digestAlgorithm: shared('digestAlgorithm'),
+    innerExecutableSigned: reports.every((report) => report.innerExecutableSigned === true),
+    checkedAt:
+      reports
+        .map((report) => report.checkedAt)
+        .filter(Boolean)
+        .sort()
+        .at(-1) ?? null,
+    files: reports.flatMap((report) => report.files ?? []),
+    architectureReports: Object.fromEntries(
+      entries.map((entry) => [entry.architecture, entry.report]),
+    ),
+  };
+}
+
+function signingCoverageProblems(manifest, reports) {
+  const problems = [];
+  const windows = (manifest.artifacts ?? []).filter(
+    (artifact) => artifact.os === 'windows' && artifact.arch,
+  );
+  const architectures = new Set(windows.map((artifact) => normalizeArchitecture(artifact.arch)));
+  const evidence = reports.windows?.architectureReports;
+  if (architectures.size > 1 && !evidence)
+    problems.push(
+      'windows: multi-architecture release requires separate architecture signing reports',
+    );
+  if (!evidence) return problems;
+  for (const artifact of windows) {
+    const report = evidence[normalizeArchitecture(artifact.arch)];
+    if (
+      !report ||
+      (report.artifact && report.artifact !== artifact.filename) ||
+      !report.files?.some((file) => file.filename === artifact.filename)
+    )
+      problems.push(
+        `windows: missing matching architecture signing evidence for ${artifact.filename}`,
+      );
+  }
+  for (const report of Object.values(evidence)) {
+    if (report.signed && report.verification !== 'valid')
+      problems.push('windows: architecture report claims signed without valid verification');
+  }
+  return problems;
 }

@@ -170,15 +170,26 @@ is present, resume requires its artifact set, platforms and hashes to match
 the verified sidecars and preserves its package and signing metadata. Run the
 normal final checksum generation and artifact checks after resuming. The normal release verification still
 performs signing, checksums, SBOM, provenance/attestation, naming, and draft
-integrity checks. Publishing remains a separate human action through the
-protected release environment:
+integrity checks. Publishing remains a separate authorized dispatch. Its
+publish-only path downloads the actual draft again, authenticates the checksum
+attestation against the exact tag SHA, and verifies required package formats,
+policy-bound installer provenance, bytes, SBOM source/version, signing reports,
+installer-size reports and updater signatures. An asset inventory change during
+verification stops publication. The `release-publish` environment provides an
+additional approval only if repository settings configure reviewers (none were
+configured at the 2026-10-02 settings check):
 
 ```bash
-gh workflow run release.yml \
-  -f tag=v0.12.0 -f platforms=all -f publish=yes
+gh workflow run release.yml --ref v0.5.0 \
+  -f tag=v0.5.0 -f platforms=all -f publish=yes
 ```
 
-The publish job emits the protected `varve-release-published` event only after
+Dispatch rebuilds from the immutable tag as well, so the workflow's attestation
+certificate records that source SHA. A later master workflow execution can
+carry a different certificate source digest even when its checkout uses the
+older tag; publication rejects that mismatch.
+
+The publish job emits the authenticated `varve-release-published` event only after
 GitHub reports the release as non-draft. The website workflow excludes the
 publish run's `workflow_run` fallback, preventing a duplicate deployment, and
 binds the event tag to its exact commit before fetching release data.
@@ -187,7 +198,7 @@ binds the event tag to its exact commit before fetching release data.
 
 Website source changes run the normal website unit/functional/a11y/visual
 certification selected by the canonical planner. A successful release
-publication sends a protected `varve-release-published` dispatch with the
+publication sends an authenticated `varve-release-published` dispatch with the
 exact tag and SHA. The guarded `workflow_run` fallback does not repeat that
 complete corpus when the website source is unchanged. Instead it validates the
 published release-data schema, fetches the published release artifacts, builds

@@ -139,25 +139,40 @@ The top-level default is `contents: read`; jobs escalate individually.
 
 `release.yml`'s `publish` job declares `environment: release-publish`.
 
-**Two gates protect publication, and neither depends on the other:**
+Publication requires explicit authorization and fresh artifact verification:
 
 1. **Explicit dispatch input.** The publish job only runs on a manual
    `workflow_dispatch` with `publish=yes`. A tag push always stops at a draft;
-   nothing in the pipeline auto-publishes, even if the environment below is
-   unconfigured.
-2. **Environment approval.** Settings → Environments → `release-publish` →
-   enable **Required reviewers** and add yourself. This is the second,
-   independent human checkpoint (the owner UI step — the REST API returns 404
-   for this rule type with a repo-scoped token).
+   nothing in the pipeline auto-publishes.
+2. **Actual draft verification.** The publish job downloads a fresh copy of
+   every draft asset. It authenticates `SHA256SUMS.txt` through the release
+   workflow's GitHub attestation and its certificate's exact source SHA, then
+   checks the downloaded bytes, required package formats, policy-bound
+   provenance, SBOMs, installer-size reports, platform signing labels and any
+   updater signatures. Changed asset inventories fail before publication.
+   When the updater signing key is configured, its channel feed is required;
+   any feed must cover every requested and included installer target, including
+   `darwin-aarch64`, and point to this tag's matching signed updater bundles.
+
+Windows reports are retained as `signing-report-windows-x86_64.json` and
+`signing-report-windows-aarch64.json`. The reader accepts legacy UTF-8 BOMs and
+fails on unreadable reports; platform signing labels aggregate both verified
+architectures instead of allowing one report to overwrite the other.
+
+The environment adds an approval checkpoint only when **Required reviewers**
+are configured in repository settings. A read-only settings check on
+2026-10-02 found the environment present with no protection rules; publication
+does not currently wait for a reviewer. Adding reviewers is a separate
+repository administration decision, not a prerequisite invented by the workflow.
 
 The exact publish command:
 
 ```sh
-gh workflow run release.yml --ref master \
-  -f tag=v0.1.0 -f platforms=all -f publish=yes
+gh workflow run release.yml --ref v0.5.0 \
+  -f tag=v0.5.0 -f platforms=all -f publish=yes
 ```
 
-Checklist (repo settings):
+Optional additional protection (repo settings):
 
 - [x] Create the `release-publish` environment
 - [ ] Add at least one required reviewer
@@ -170,8 +185,8 @@ attaching `production-signing` to the bundle job would require human approval
 for unsigned prerelease builds too. For a solo maintainer the effective controls
 are: the workflow triggers only on tags / explicit `workflow_dispatch` (never
 `pull_request` — enforced by `scripts/validate-workflows.mjs`), the draft is
-created only after the fail-closed trust gate, and publication requires
-approval in `release-publish`. **Revisit when a second maintainer exists:**
+created only after the fail-closed trust gate, and publication requires an
+explicit dispatch plus verification of the actual draft. **Revisit when a second maintainer exists:**
 move signing secrets into a `production-signing` environment with required
 reviewers and tag restriction, and declare it on the bundle job.
 

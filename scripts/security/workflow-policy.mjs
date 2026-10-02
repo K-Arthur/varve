@@ -167,6 +167,31 @@ function walkSteps(job) {
   return steps;
 }
 
+function hasVerifiedWebsiteSourceFallback(doc) {
+  const publication = doc.jobs?.['release-data'];
+  const build = doc.jobs?.build;
+  const verification = publication?.steps?.find((step) => step.id === 'release-state');
+  const normalized = (value) =>
+    String(value ?? '')
+      .replace(/\\\r?\n/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  return (
+    publication?.outputs?.published === '$' + '{{ steps.release-state.outputs.published }}' &&
+    publication?.outputs?.published_sha ===
+      '$' + '{{ steps.release-state.outputs.published_sha }}' &&
+    verification?.env?.ALLOW_UNPUBLISHED === '$' + "{{ github.event_name == 'workflow_run' }}" &&
+    normalized(verification?.run) ===
+      'set -euo pipefail node scripts/release/verify-website-publication.mjs ' +
+        '--repo "$GITHUB_REPOSITORY" --tag "$RELEASE_TAG" --sha "$RELEASE_SHA" ' +
+        '--allow-unpublished "$ALLOW_UNPUBLISHED"' &&
+    normalized(build?.if) ===
+      "always() && ((needs.release-data.result == 'success' && " +
+        "needs.release-data.outputs.published == 'true') || " +
+        "(needs.release-data.result == 'skipped' && needs.test.result == 'success'))"
+  );
+}
+
 export function auditWorkflow(doc, filename) {
   const errors = [];
   const base = filename.split('/').pop();
@@ -319,6 +344,10 @@ export function auditWorkflow(doc, filename) {
         '$' +
           "{{ (github.event_name == 'workflow_run' || github.event_name == 'repository_dispatch') && needs.release-data.outputs.published_sha || github.sha }}",
       );
+      // Recovery uses the verified release SHA; source deployments may use the
+      // event SHA only after source gates pass and release-data was skipped.
+      if (hasVerifiedWebsiteSourceFallback(doc))
+        trustedRefs.add('$' + '{{ needs.release-data.outputs.published_sha || github.sha }}');
     }
     for (const [name, job] of jobEntries(doc)) {
       if (typeof job !== 'object' || job === null) continue;
@@ -470,7 +499,7 @@ export function auditWorkflow(doc, filename) {
       const envName = publishJob.environment?.name ?? publishJob.environment;
       if (envName !== 'release-publish') {
         errors.push(
-          'release.yml: publish job must declare environment: release-publish (required reviewers)',
+          'release.yml: publish job must declare environment: release-publish (protection rules are configured in repository settings)',
         );
       }
       const ifCond = String(publishJob.if ?? '');

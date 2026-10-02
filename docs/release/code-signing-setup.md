@@ -133,7 +133,7 @@ certificate profile).
 - [ ] Tag a prerelease and confirm `signing-preflight` resolves
       `windows: signed, macos: signed`
 - [ ] On the Windows bundle job, confirm the NSIS installer is signed and
-      `signing-report-windows.json` says `verification: valid`
+      each `signing-report-windows-<arch>.json` says `verification: valid`
 - [ ] On the macOS bundle job, confirm the DMG is signed, notarized AND
       stapled; `signing-report-macos.json` shows all three true
 - [ ] Confirm `release-manifest.json`'s `signing` block matches the reports
