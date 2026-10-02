@@ -1,8 +1,7 @@
 import { expect, test } from '@playwright/test';
-import { navigateToEditor, seedLayers } from '../shared';
+import { navigateToEditor, seedLayers, switchWorkspace } from '../shared';
 
 test.describe('Layers Panel - Context Menu', () => {
-  test.describe.configure({ mode: 'serial' });
   test.beforeEach(async ({ page }) => {
     await navigateToEditor(page);
     await seedLayers(page, 3);
@@ -33,24 +32,127 @@ test.describe('Layers Panel - Context Menu', () => {
 
   test('delete via context menu', async ({ page }) => {
     const items = page.getByRole('treeitem');
-    const count = await items.count();
-    test.skip(count < 1, 'Need at least 1 layer for delete');
-
     const beforeCount = await items.count();
+    expect(beforeCount).toBeGreaterThanOrEqual(3);
+    const targetId = await items.first().getAttribute('data-node-id');
+    expect(targetId).toBeTruthy();
 
     await items.first().click({ button: 'right' });
-    await page.waitForTimeout(100);
-
     const menu = page.locator('.varve-ctxmenu');
     await expect(menu).toBeVisible();
+    await menu.getByRole('menuitem', { name: /^Delete\b/ }).click();
+    await expect(menu).toBeHidden();
+    await expect(page.locator(`[role="treeitem"][data-node-id="${targetId}"]`)).toHaveCount(0);
+    await expect(items).toHaveCount(beforeCount - 1);
+    await page.keyboard.press('Control+z');
+    await expect(items).toHaveCount(beforeCount);
+    await expect(page.locator(`[role="treeitem"][data-node-id="${targetId}"]`)).toBeVisible();
+  });
 
-    const deleteItem = menu.locator('button:has-text("Delete")');
-    if ((await deleteItem.count()) > 0) {
-      await deleteItem.click();
-      await page.waitForTimeout(200);
+  test('delete a painted layer from the compact context menu and undo', async ({ page }) => {
+    await switchWorkspace(page, 'Draw');
+    const options = page.getByRole('button', { name: 'Tool options', exact: true });
+    if ((await options.getAttribute('aria-expanded')) !== 'true') await options.click();
+    const createLayer = page
+      .locator('.tool-options__popover')
+      .getByRole('button', { name: 'Create paint layer', exact: true });
+    await expect(createLayer).toBeVisible({ timeout: 5000 });
+    await createLayer.click();
+    await options.click();
+    const canvas = page.locator('canvas.editor-canvas__content-layer');
+    const box = await canvas.boundingBox();
+    if (!box) throw new Error('Canvas is missing');
+    await page.keyboard.press('b');
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2 + 60, box.y + box.height / 2 + 40, { steps: 8 });
+    await page.mouse.up();
+    const layer = page.locator('[role="treeitem"][data-layer-category="raster"]').first();
+    await expect(layer).toBeVisible();
+    const targetId = await layer.getAttribute('data-node-id');
+    await page.setViewportSize({ width: 754, height: 885 });
+    const layersButton = page.getByRole('button', { name: 'Show layers panel', exact: true });
+    if (await layersButton.isVisible()) await layersButton.click();
+    await layer.click({ button: 'right' });
+    const menu = page.locator('.varve-ctxmenu');
+    await expect(menu).toBeVisible();
+    await menu.getByRole('menuitem', { name: /^Delete\b/ }).click();
+    await expect(page.locator(`[role="treeitem"][data-node-id="${targetId}"]`)).toHaveCount(0);
+    await page.keyboard.press('Control+z');
+    const restored = page.locator(`[role="treeitem"][data-node-id="${targetId}"]`);
+    await expect(restored).toBeVisible();
+    await restored.click();
+    await restored.press('Delete');
+    await expect(restored).toHaveCount(0);
+  });
 
-      const afterCount = await items.count();
-      expect(afterCount).toBeLessThan(beforeCount);
+  test('tall layer menus have one styled scroll region and keep commands reachable', async ({
+    page,
+  }) => {
+    await page.evaluate(() => {
+      const events: unknown[] = [];
+      (window as unknown as { menuFocusTrace: unknown[] }).menuFocusTrace = events;
+      for (const type of ['mouseover', 'mousemove', 'keydown', 'focusin']) {
+        document.addEventListener(
+          type,
+          (event) => {
+            const target = event.target as Element;
+            if (!target.closest?.('.varve-ctxmenu')) return;
+            const pointer = event as MouseEvent;
+            events.push({
+              type,
+              x: pointer.clientX,
+              y: pointer.clientY,
+              key: (event as KeyboardEvent).key,
+              target: target.textContent?.slice(0, 90),
+            });
+            if (events.length > 80) events.shift();
+          },
+          true,
+        );
+      }
+    });
+    for (const viewport of [
+      { width: 754, height: 885 },
+      { width: 600, height: 400 },
+    ]) {
+      await page.setViewportSize(viewport);
+      const layersButton = page.getByRole('button', { name: 'Show layers panel', exact: true });
+      if (await layersButton.isVisible()) await layersButton.click();
+      await page.getByRole('treeitem').first().click({ button: 'right' });
+      const menu = page.locator('.varve-ctxmenu');
+      await expect(menu).toBeVisible();
+      const geometry = await menu.evaluate((element) => {
+        const parent = element.parentElement;
+        if (!parent) throw new Error('Menu portal is missing');
+        return {
+          menu: element.getBoundingClientRect().toJSON(),
+          innerScrolls: element.scrollHeight > element.clientHeight,
+          parentScrolls: parent.scrollHeight > parent.clientHeight + 1,
+          scrollbarWidth: getComputedStyle(element).scrollbarWidth,
+        };
+      });
+      expect(geometry.innerScrolls).toBe(true);
+      expect(geometry.parentScrolls).toBe(false);
+      expect(geometry.scrollbarWidth).toBe('thin');
+      expect(geometry.menu.y).toBeGreaterThanOrEqual(0);
+      expect(geometry.menu.bottom).toBeLessThanOrEqual(viewport.height);
+      await menu.press('End');
+      const lastAction = menu.locator('button[role="menuitem"]').last();
+      await test.info().attach(`menu-focus-${viewport.width}`, {
+        body: JSON.stringify(
+          await page.evaluate(
+            () => (window as unknown as { menuFocusTrace: unknown[] }).menuFocusTrace,
+          ),
+        ),
+        contentType: 'application/json',
+      });
+      await expect(lastAction).toBeFocused();
+      await expect(lastAction).toBeInViewport();
+      await page.screenshot({
+        path: test.info().outputPath(`layer-menu-${viewport.width}x${viewport.height}.png`),
+      });
+      await page.keyboard.press('Escape');
     }
   });
 

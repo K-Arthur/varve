@@ -870,15 +870,15 @@ export function shortcutFromEvent(e: KeyboardEvent): {
 
 /**
  * Selectors for widgets that legitimately consume printable keys for typing
- * or type-ahead (comboboxes, spinbuttons, sliders). `role="tree"` /
- * `role="listbox"` are deliberately excluded: they're selectable lists (e.g.
+ * or type-ahead (comboboxes, spinbuttons, sliders). `role="tree"` is
+ * deliberately excluded: trees are selectable lists (e.g.
  * the Layers panel), not typing contexts, and blocking shortcuts there broke
  * "select a layer, press a tool key" — the most common canvas workflow.
  * Elements that DO need to swallow keys within a tree/listbox (a rename
  * `<input>`) are already caught by the tag/isContentEditable checks below.
  */
 const SHORTCUT_IGNORE_SELECTOR =
-  '[role="combobox"],[role="listbox"],[role="spinbutton"],[role="textbox"],[role="slider"],[role="radiogroup"],dialog[open],[role="dialog"][aria-modal="true"],[role="alertdialog"][aria-modal="true"]';
+  '[role="combobox"],[role="listbox"],[role="spinbutton"],[role="textbox"],[role="slider"],[role="radiogroup"],[role="alertdialog"][aria-modal="true"]';
 
 /**
  * Returns true if a keydown event on `target` should be handled by the widget
@@ -905,16 +905,23 @@ export function shouldIgnoreShortcutTarget(target: Element | null): boolean {
   const activeEl = document.activeElement;
   if (activeEl && isIMEComposing(activeEl)) return true;
 
-  // Any open dialog owns keyboard input, including the non-modal find/replace
-  // panel. Find/replace keeps focus inside itself on purpose, so Escape reaches
-  // its own handler (which closes the panel) instead of being claimed by an
-  // unrelated global binding first. The panel is marked `aria-modal="false"`,
-  // which is also how it identifies itself to this guard.
-  if (target.closest?.('dialog[open],[role="dialog"]')) return true;
-
   // Walk up to nearest widget that signals keyboard-input ownership
   const widget = target.closest?.(`${SHORTCUT_IGNORE_SELECTOR},[data-shortcut-ignore]`);
   if (widget) return true;
+
+  // Real dialogs own keyboard input, including non-modal find/replace. The
+  // responsive Layers drawer also has role=dialog for focus containment, but
+  // its document rows retain Delete, undo/redo and tool shortcuts. Only that
+  // explicitly marked drawer can delegate row keys; its controls and nested
+  // dialogs still own their input.
+  if (target.closest?.('dialog[open]')) return true;
+  const dialog = target.closest?.('[role="dialog"]');
+  if (dialog) {
+    const row = target.closest?.('[role="treeitem"][data-node-id]');
+    const scope = target.closest?.('[data-editor-shortcut-scope="layers-tree"]');
+    const outerDialog = dialog.parentElement?.closest('[role="dialog"],[role="alertdialog"]');
+    return !row || scope !== dialog || Boolean(outerDialog) || isNativeActivationKeyTarget(target);
+  }
 
   return false;
 }

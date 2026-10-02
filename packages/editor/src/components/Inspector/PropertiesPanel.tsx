@@ -101,8 +101,33 @@ const EmailPanel = lazy(() =>
 
 type ExportSubTab = 'format' | 'code';
 
-export function PropertiesPanel() {
+function useResponsiveInspectorDrawer(): boolean {
+  const [responsive, setResponsive] = useState(
+    () =>
+      typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(max-width: 899px)').matches,
+  );
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
+    const query = window.matchMedia('(max-width: 899px)');
+    const update = () => setResponsive(query.matches);
+    update();
+    query.addEventListener?.('change', update);
+    return () => query.removeEventListener?.('change', update);
+  }, []);
+
+  return responsive;
+}
+
+export function PropertiesPanel({
+  onCloseResponsivePanel,
+}: {
+  onCloseResponsivePanel?: () => void;
+} = {}) {
   const { selectedNodes, state, platform, toggleVariablesPanel, toggleRightPanel } = useEditor();
+  const responsiveDrawer = useResponsiveInspectorDrawer();
   const { addPreset, updatePreset, removePreset, setShowExportDialog, groupCompoundOperation } =
     useEditor();
   const effectiveConfig = useEffectiveWorkspaceConfig(state.workspaceMode);
@@ -419,12 +444,28 @@ export function PropertiesPanel() {
             <div className="insp-panel__header-actions">
               <PanelDetachButton />
               {toggleRightPanel && (
-                <Tooltip label="Collapse Inspector (Ctrl+Shift+B)">
+                <Tooltip
+                  label={
+                    responsiveDrawer && onCloseResponsivePanel
+                      ? 'Close Inspector panel'
+                      : 'Collapse Inspector (Ctrl+Shift+B)'
+                  }
+                >
                   <button
                     type="button"
                     className="editor__collapse-btn insp-panel__header-btn"
-                    onClick={() => toggleRightPanel()}
-                    aria-label="Collapse Inspector (Ctrl+Shift+B)"
+                    onClick={() => {
+                      if (responsiveDrawer && onCloseResponsivePanel) {
+                        onCloseResponsivePanel();
+                      } else {
+                        toggleRightPanel();
+                      }
+                    }}
+                    aria-label={
+                      responsiveDrawer && onCloseResponsivePanel
+                        ? 'Close Inspector panel'
+                        : 'Collapse Inspector (Ctrl+Shift+B)'
+                    }
                   >
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                       <rect

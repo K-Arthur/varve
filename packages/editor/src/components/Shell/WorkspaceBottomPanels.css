@@ -85,7 +85,9 @@
 .workspace-dock-move-handle {
   display: grid;
   place-items: center;
-  padding: 0 var(--space-1);
+  min-inline-size: var(--touch-target-min);
+  min-block-size: var(--component-default-height);
+  padding: 0 var(--space-2);
   color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
@@ -96,6 +98,13 @@
   cursor: grab;
   touch-action: none;
   user-select: none;
+}
+
+@media (pointer: coarse), (any-pointer: coarse) {
+  .workspace-dock-move-handle {
+    min-inline-size: var(--touch-target-min);
+    min-block-size: var(--touch-target-min);
+  }
 }
 
 .workspace-dock-move-handle:active {

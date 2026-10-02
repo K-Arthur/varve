@@ -113,9 +113,24 @@
   align-self: center;
   margin-inline: 0;
 }
+.insp-panel__header-actions > .panel-detach-btn {
+  inline-size: var(--component-default-height);
+  min-inline-size: var(--component-default-height);
+  block-size: var(--component-default-height);
+  min-block-size: var(--component-default-height);
+}
 .insp-panel__header-actions .varve-tooltip-trigger {
   display: inline-flex;
   flex: 0 0 auto;
+}
+@media (pointer: coarse), (any-pointer: coarse) {
+  .insp-panel__header-actions > .panel-detach-btn,
+  .insp-panel__header-actions .editor__collapse-btn {
+    inline-size: var(--touch-target-min);
+    min-inline-size: var(--touch-target-min);
+    block-size: var(--touch-target-min);
+    min-block-size: var(--touch-target-min);
+  }
 }
 .insp-panel__tabs::-webkit-scrollbar {
   display: none;
@@ -178,10 +193,10 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  inline-size: max(28px, var(--space-6));
-  block-size: max(28px, var(--space-6));
-  min-inline-size: 28px;
-  min-block-size: 28px;
+  inline-size: var(--component-default-height);
+  block-size: var(--component-default-height);
+  min-inline-size: var(--component-default-height);
+  min-block-size: var(--component-default-height);
   padding: 0;
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-control-compact);

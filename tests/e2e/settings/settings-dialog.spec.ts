@@ -87,6 +87,21 @@ test.describe('Settings dialog', () => {
     const dialogBox = await settingsDialog.boundingBox();
     expect(dialogBox).not.toBeNull();
     await expect(switches).not.toHaveCount(0);
+    const languageRow = settingsDialog.locator('.settings-field-row').first();
+    const [languageLabelBox, languageControlBox] = await Promise.all([
+      languageRow.locator('.settings-field-row__label').boundingBox(),
+      languageRow.locator('.settings-field-row__control').boundingBox(),
+    ]);
+    expect(languageLabelBox).not.toBeNull();
+    expect(languageControlBox).not.toBeNull();
+    expect(languageControlBox!.width).toBeGreaterThan(200);
+    expect(
+      Math.abs(
+        languageLabelBox!.y +
+          languageLabelBox!.height / 2 -
+          (languageControlBox!.y + languageControlBox!.height / 2),
+      ),
+    ).toBeLessThan(2);
     const rendererSelect = settingsDialog.getByRole('combobox', { name: 'Canvas renderer' });
     await expect(rendererSelect).toHaveCount(1);
     const rendererBox = await rendererSelect.boundingBox();
@@ -102,6 +117,44 @@ test.describe('Settings dialog', () => {
     await expect(settingsDialog).toHaveScreenshot('settings-dialog-switch-narrow.png', {
       maxDiffPixels: 300,
     });
+  });
+
+  test('keeps the dialog and its footer reachable in a short viewport', async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width: 390, height: 360 });
+    await navigateToEditor(page);
+    await page.evaluate(() => {
+      const file = [...document.querySelectorAll('button')].find(
+        (element) => element.textContent?.trim() === 'File',
+      );
+      (file as HTMLElement | undefined)?.click();
+    });
+    await page.getByRole('menuitem', { name: /Settings/ }).click();
+
+    const dialog = page.locator('dialog.varve-dialog--settings[open]');
+    const dialogBox = await dialog.boundingBox();
+    const viewport = page.viewportSize();
+    const footerBox = await dialog.locator('.settings-dialog__footer').boundingBox();
+    const content = dialog.locator('.settings-dialog__content');
+    const contentLayout = await content.evaluate((element) => ({
+      clientHeight: element.clientHeight,
+      scrollHeight: element.scrollHeight,
+      clientWidth: element.clientWidth,
+      scrollWidth: element.scrollWidth,
+    }));
+
+    expect(dialogBox).not.toBeNull();
+    expect(viewport).not.toBeNull();
+    expect(dialogBox!.x).toBeGreaterThanOrEqual(0);
+    expect(dialogBox!.y).toBeGreaterThanOrEqual(0);
+    expect(dialogBox!.x + dialogBox!.width).toBeLessThanOrEqual(viewport!.width);
+    expect(dialogBox!.y + dialogBox!.height).toBeLessThanOrEqual(viewport!.height);
+    expect(footerBox).not.toBeNull();
+    expect(footerBox!.y + footerBox!.height).toBeLessThanOrEqual(dialogBox!.y + dialogBox!.height);
+    expect(contentLayout.scrollHeight).toBeGreaterThan(contentLayout.clientHeight);
+    expect(contentLayout.scrollWidth).toBeLessThanOrEqual(contentLayout.clientWidth);
+    await page.screenshot({ path: testInfo.outputPath('settings-short-viewport.png') });
   });
 
   test('opens native-dialog dropdowns and applies settings immediately', async ({ page }) => {

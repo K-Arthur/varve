@@ -177,6 +177,17 @@
   flex: 1 1 auto;
 }
 
+/* Keep a tablet-width canvas from turning the bottom palette into a full row
+ * of tiny controls. A bounded tool lane promotes lower-priority slots into
+ * the existing More tools menu; tool groups retain their token spacing. */
+@media (min-width: 641px) and (max-width: 899px) {
+  .floating-toolbar__row [role="toolbar"] {
+    flex: 0 1 32rem;
+    inline-size: min(100%, 32rem);
+    max-inline-size: 100%;
+  }
+}
+
 /* Compact Pro: the palette row compacts with its 28px controls instead of the
  * viewport-fluid toolbar clamp (which density never changes). Comfortable is
  * pixel-identical to before. The card's own 1px borders complete the border box

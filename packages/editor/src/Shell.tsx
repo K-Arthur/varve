@@ -100,12 +100,15 @@ import { TabStrip } from './TabStrip';
 import {
   editorHeadingLabel,
   getDockPanelA11yProps,
+  getResponsiveDrawerFocusable,
   isPagePanelUserControlled,
+  layersDrawerStyle,
   resolvePageSurfaceVisibility,
   useDetachedPanels,
   useEditorDockGeometry,
   useEffectiveWorkspaceConfig,
   useFitOnFirstDocument,
+  useResponsivePanelClosers,
   useWorkspacePanelWidths,
 } from './workspace/shellHooks';
 
@@ -124,25 +127,6 @@ export interface OpenFileRequest {
   saveHandleName?: string;
   diskContentHash?: string;
   seq: number;
-}
-
-const RESPONSIVE_DRAWER_FOCUSABLE =
-  'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"]):not([disabled])';
-
-function getResponsiveDrawerFocusable(container: HTMLElement): HTMLElement[] {
-  const ownerWindow = container.ownerDocument.defaultView;
-  return Array.from(container.querySelectorAll<HTMLElement>(RESPONSIVE_DRAWER_FOCUSABLE)).filter(
-    (element) => {
-      let current: Element | null = element;
-      while (current && current !== container.parentElement) {
-        const style = ownerWindow?.getComputedStyle(current);
-        if (style?.display === 'none' || style?.visibility === 'hidden') return false;
-        current = current.parentElement;
-      }
-      const rect = element.getBoundingClientRect();
-      return rect.width > 0 && rect.height > 0;
-    },
-  );
 }
 
 export interface ShellProps {
@@ -504,14 +488,17 @@ function ShellInner({
     workspaceMode,
     distractionFreeMode,
   } = editor.state;
-  const closeResponsivePanels = useCallback(() => {
-    if (!layersVisible && !inspectorVisible && !libraryPanelVisible) return;
-    setLayersVisible(false);
-    setInspectorVisible(false);
-    if (libraryPanelVisible) editor.toggleLibraryPanel();
-    const trigger = responsivePanelTriggerRef.current;
-    window.requestAnimationFrame(() => trigger?.focus());
-  }, [editor, inspectorVisible, layersVisible, libraryPanelVisible]);
+  const layersExpanded = leftPanelVisible || layersVisible;
+  const { closeResponsivePanels, closeResponsiveInspector, closeResponsiveLayers } =
+    useResponsivePanelClosers({
+      layersVisible,
+      inspectorVisible,
+      libraryPanelVisible,
+      setLayersVisible,
+      setInspectorVisible,
+      toggleLibraryPanel: editor.toggleLibraryPanel,
+      triggerRef: responsivePanelTriggerRef,
+    });
 
   // Responsive panel drawers (<=899px) are modal surfaces: focus enters the
   // opened drawer, Tab stays inside it, and Escape/backdrop close returns focus
@@ -596,7 +583,7 @@ function ShellInner({
     workspaceMode,
     shellRef,
     {
-      layers: leftPanelVisible && !distractionFreeMode,
+      layers: layersExpanded && !distractionFreeMode,
       inspector: rightPanelVisible && !distractionFreeMode,
       timeline: editor.state.timelinePanelVisible && !distractionFreeMode,
       pagenav: pageSurfaceVisibility.showPageNavigation && !distractionFreeMode,
@@ -756,21 +743,25 @@ function ShellInner({
           <aside
             className="editor__layers-panel editor__panel--glass"
             data-panel="layers"
+            data-editor-shortcut-scope="layers-tree"
             data-testid="layers-panel"
             id="editor-layers-panel"
             data-visible={layersVisible || undefined}
-            style={dockGeometry.panelStyles.layers}
+            style={layersDrawerStyle(dockGeometry.panelStyles.layers, widths.layers, layersPref)}
             role={
               dockGeometry.tabPanelA11y.layers ? 'tabpanel' : layersVisible ? 'dialog' : undefined
             }
             {...getDockPanelA11yProps(dockGeometry.tabPanelA11y.layers)}
             aria-label={layersVisible ? 'Layers' : undefined}
-            data-collapsed={!leftPanelVisible || undefined}
-            {...(!leftPanelVisible ? { inert: true } : {})}
+            data-collapsed={!layersExpanded || undefined}
+            {...(!layersExpanded ? { inert: true } : {})}
           >
             <ErrorBoundary>
               <PresenceIndicator presences={collabPresences} />
-              <MinimapPanel canvasOwnerRef={canvasContainerRef} />
+              <MinimapPanel
+                canvasOwnerRef={canvasContainerRef}
+                onCloseResponsivePanel={closeResponsiveLayers}
+              />
               <MasterPanel />
               {pageSurfaceVisibility.showPagesPanel && <PagesPanel />}
               <SpreadSettings />
@@ -802,7 +793,11 @@ function ShellInner({
             data-collapsed={!rightPanelVisible || undefined}
             {...(!rightPanelVisible ? { inert: true } : {})}
           >
-            <ErrorBoundary>{!isDetached('inspector') && <PropertiesPanel />}</ErrorBoundary>
+            <ErrorBoundary>
+              {!isDetached('inspector') && (
+                <PropertiesPanel onCloseResponsivePanel={closeResponsiveInspector} />
+              )}
+            </ErrorBoundary>
             <PanelResizeHandle
               side="inspector"
               width={widths.inspector}

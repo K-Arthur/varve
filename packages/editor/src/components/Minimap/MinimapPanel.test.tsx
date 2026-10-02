@@ -1,17 +1,52 @@
 import { fireEvent, render } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
-import { EditorProvider } from '../../context';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { EditorProvider, useEditor } from '../../context';
 import { MinimapPanel } from './MinimapPanel';
 
-function renderWithProvider() {
+afterEach(() => vi.restoreAllMocks());
+
+function PanelVisibility() {
+  return (
+    <output data-testid="left-panel-visible">{String(useEditor().state.leftPanelVisible)}</output>
+  );
+}
+
+function renderWithProvider(props: Parameters<typeof MinimapPanel>[0] = {}) {
   return render(
     <EditorProvider>
-      <MinimapPanel />
+      <MinimapPanel {...props} />
+      <PanelVisibility />
     </EditorProvider>,
   );
 }
 
 describe('MinimapPanel', () => {
+  it('dismisses a responsive Layers drawer without changing its desktop visibility preference', () => {
+    const originalMatchMedia = window.matchMedia.bind(window);
+    vi.spyOn(window, 'matchMedia').mockImplementation((query) => ({
+      ...originalMatchMedia(query),
+      matches: query === '(max-width: 899px)',
+    }));
+    const closeDrawer = vi.fn();
+    const { getByRole, getByTestId } = renderWithProvider({ onCloseResponsivePanel: closeDrawer });
+    const previousVisibility = getByTestId('left-panel-visible').textContent;
+    fireEvent.click(getByRole('button', { name: 'Close Layers panel' }));
+    expect(closeDrawer).toHaveBeenCalledOnce();
+    expect(getByTestId('left-panel-visible').textContent).toBe(previousVisibility);
+  });
+
+  it('retains the desktop collapse action when a drawer callback is supplied', () => {
+    const closeDrawer = vi.fn();
+    const { getByRole, getByTestId } = renderWithProvider({ onCloseResponsivePanel: closeDrawer });
+    const previousVisibility = getByTestId('left-panel-visible').textContent;
+    const collapse = getByRole('button', { name: 'Collapse Layers panel (Ctrl+B)' });
+    fireEvent.click(collapse);
+    expect(getByTestId('left-panel-visible').textContent).not.toBe(previousVisibility);
+    expect(closeDrawer).not.toHaveBeenCalled();
+    fireEvent.click(collapse);
+    expect(getByTestId('left-panel-visible').textContent).toBe(previousVisibility);
+  });
+
   it('renders without crashing', () => {
     const { container } = renderWithProvider();
     expect(container.querySelector('canvas')).toBeTruthy();

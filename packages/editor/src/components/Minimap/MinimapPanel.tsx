@@ -61,6 +61,8 @@ import './minimap.css';
 interface MinimapPanelProps {
   /** The actual `.editor-canvas` element that owns the viewport. */
   canvasOwnerRef?: RefObject<HTMLElement | null>;
+  /** Dismiss the responsive drawer without changing the desktop rail preference. */
+  onCloseResponsivePanel?: () => void;
 }
 
 interface PanelMeasurement {
@@ -205,8 +207,27 @@ function useResolvedThemeRevision(existingRevision: number): number {
   return existingRevision + externalRevision;
 }
 
-export function MinimapPanel({ canvasOwnerRef }: MinimapPanelProps) {
+function useResponsiveLayersDrawer(): boolean {
+  const [responsive, setResponsive] = useState(
+    () =>
+      typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(max-width: 899px)').matches,
+  );
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
+    const query = window.matchMedia('(max-width: 899px)');
+    const update = () => setResponsive(query.matches);
+    update();
+    query.addEventListener?.('change', update);
+    return () => query.removeEventListener?.('change', update);
+  }, []);
+  return responsive;
+}
+
+export function MinimapPanel({ canvasOwnerRef, onCloseResponsivePanel }: MinimapPanelProps) {
   const editor = useEditor();
+  const responsiveDrawer = useResponsiveLayersDrawer();
   const minimapVisible = (editor.state as typeof editor.state & { minimapVisible?: boolean })
     .minimapVisible;
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -539,14 +560,21 @@ export function MinimapPanel({ canvasOwnerRef }: MinimapPanelProps) {
   );
 
   const toggleLeftPanel = editor.toggleLeftPanel;
+  const collapseLabel =
+    responsiveDrawer && onCloseResponsivePanel
+      ? 'Close Layers panel'
+      : 'Collapse Layers panel (Ctrl+B)';
 
   const collapseButton = toggleLeftPanel ? (
-    <Tooltip label="Collapse Layers panel (Ctrl+B)">
+    <Tooltip label={collapseLabel}>
       <button
         type="button"
         className="editor__collapse-btn"
-        onClick={() => toggleLeftPanel()}
-        aria-label="Collapse Layers panel (Ctrl+B)"
+        onClick={() => {
+          if (responsiveDrawer && onCloseResponsivePanel) onCloseResponsivePanel();
+          else toggleLeftPanel();
+        }}
+        aria-label={collapseLabel}
       >
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
           <rect

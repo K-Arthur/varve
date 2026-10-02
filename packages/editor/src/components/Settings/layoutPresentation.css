@@ -1,12 +1,13 @@
 /* Tablet controls keep stable, separate hit targets instead of deriving
    placement from panel widths that may change with the inspector. */
 :root[data-layout-mode="tablet"] .editor__fab {
-  width: var(--touch-target-min, 44px);
-  height: var(--touch-target-min, 44px);
+  --editor-panel-launcher-size: var(--touch-target-min, 44px);
+  width: var(--editor-panel-launcher-size);
+  height: var(--editor-panel-launcher-size);
 }
 
 :root[data-layout-mode="tablet"] .editor__fab--library {
-  right: calc(var(--space-3) + var(--touch-target-min, 44px) + var(--space-2));
+  right: calc(var(--space-3) + var(--editor-panel-launcher-size) + var(--space-2));
 }
 
 /* Mirroring changes the floating drawer controls while leaving the document,
@@ -18,7 +19,7 @@
   }
 
   :root[data-layout-mode="tablet"][data-tablet-controls-mirrored="true"] .editor__fab--library {
-    left: calc(var(--space-3) + var(--touch-target-min, 44px) + var(--space-2));
+    left: calc(var(--space-3) + var(--editor-panel-launcher-size) + var(--space-2));
     right: auto;
   }
 }

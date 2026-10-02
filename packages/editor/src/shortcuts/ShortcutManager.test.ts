@@ -32,6 +32,67 @@ describe('shouldIgnoreShortcutTarget', () => {
     expect(shouldIgnoreShortcutTarget(input)).toBe(true);
   });
 
+  it('allows document shortcuts on rows and their labels inside the responsive Layers drawer', () => {
+    document.body.innerHTML = `
+      <aside role="dialog" aria-modal="true" data-editor-shortcut-scope="layers-tree">
+        <div role="tree" aria-label="Layers">
+          <div role="treeitem" data-node-id="rect-1" tabindex="0"><span id="label">Rectangle 1</span></div>
+        </div>
+      </aside>
+    `;
+    for (const target of [
+      document.querySelector('[role="treeitem"]'),
+      document.getElementById('label'),
+    ]) {
+      expect(shouldIgnoreShortcutTarget(target)).toBe(false);
+      expect(shouldIgnoreHistoryShortcutTarget(target)).toBe(false);
+    }
+  });
+
+  it.each([
+    '<input id="target" value="Rectangle 1" />',
+    '<textarea id="target">Rectangle 1</textarea>',
+    '<select id="target"><option>Rectangle 1</option></select>',
+    '<button id="target">Visibility</button>',
+    '<div role="combobox"><span id="target">Font</span></div>',
+    '<div role="slider"><span id="target">Opacity</span></div>',
+    '<span id="target" data-shortcut-ignore>Reserved keys</span>',
+  ])('keeps drawer row controls protected: %s', (control) => {
+    document.body.innerHTML = `
+      <aside role="dialog" aria-modal="true" data-editor-shortcut-scope="layers-tree">
+        <div role="treeitem" data-node-id="rect-1" tabindex="0">${control}</div>
+      </aside>
+    `;
+    expect(shouldIgnoreShortcutTarget(document.getElementById('target'))).toBe(true);
+    expect(shouldIgnoreHistoryShortcutTarget(document.getElementById('target'))).toBe(true);
+  });
+
+  it.each([
+    '<aside role="dialog" aria-modal="true"><div role="treeitem" data-node-id="rect-1" id="target"></div></aside>',
+    '<aside role="dialog" aria-modal="true" data-editor-shortcut-scope="layers-tree"><button id="target">Move</button></aside>',
+    '<aside role="dialog" aria-modal="true" data-editor-shortcut-scope="layers-tree"><div role="treeitem" id="target"></div></aside>',
+    '<dialog open><aside role="dialog" aria-modal="true" data-editor-shortcut-scope="layers-tree"><div role="treeitem" data-node-id="rect-1" id="target"></div></aside></dialog>',
+    '<div role="dialog"><aside role="dialog" aria-modal="true" data-editor-shortcut-scope="layers-tree"><div role="treeitem" data-node-id="rect-1" id="target"></div></aside></div>',
+    '<aside role="dialog" aria-modal="true" data-editor-shortcut-scope="layers-tree"><div role="dialog"><div role="treeitem" data-node-id="rect-1" id="target"></div></div></aside>',
+  ])('does not broaden the exception to real dialogs or non-row drawer targets: %s', (markup) => {
+    document.body.innerHTML = markup;
+    expect(shouldIgnoreShortcutTarget(document.getElementById('target'))).toBe(true);
+    expect(shouldIgnoreHistoryShortcutTarget(document.getElementById('target'))).toBe(true);
+  });
+
+  it('keeps editable drawer row labels protected', () => {
+    document.body.innerHTML = `
+      <aside role="dialog" aria-modal="true" data-editor-shortcut-scope="layers-tree">
+        <div role="treeitem" data-node-id="rect-1"><span id="target" contenteditable="true">Rectangle 1</span></div>
+      </aside>
+    `;
+    const target = document.getElementById('target')!;
+    // jsdom does not implement inherited isContentEditable as browsers do.
+    Object.defineProperty(target, 'isContentEditable', { value: true });
+    expect(shouldIgnoreShortcutTarget(target)).toBe(true);
+    expect(shouldIgnoreHistoryShortcutTarget(target)).toBe(true);
+  });
+
   it('allows history shortcuts from a focused checkbox without allowing other shortcuts', () => {
     document.body.innerHTML = `
       <label role="switch">Show layout guide <input type="checkbox" /></label>

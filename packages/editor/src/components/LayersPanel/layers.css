@@ -82,7 +82,7 @@
 .layers-panel__header-actions {
   display: flex;
   align-items: center;
-  gap: var(--space-05);
+  gap: var(--space-1);
   flex-shrink: 0;
 }
 
@@ -109,10 +109,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: var(--target-min-compact);
-  min-height: var(--target-min-compact);
-  width: var(--component-compact-height);
-  height: var(--component-compact-height);
+  min-width: var(--component-default-height);
+  min-height: var(--component-default-height);
+  width: var(--component-default-height);
+  height: var(--component-default-height);
   border: 1px solid transparent;
   background: none;
   color: var(--color-text-muted);
@@ -145,10 +145,20 @@
 }
 
 .layers-panel__header-actions > .panel-detach-btn {
-  width: var(--space-6);
-  height: var(--component-compact-height);
-  min-width: max(var(--space-6), var(--target-min-compact));
-  min-height: max(var(--space-6), var(--target-min-compact));
+  width: var(--component-default-height);
+  height: var(--component-default-height);
+  min-width: var(--component-default-height);
+  min-height: var(--component-default-height);
+}
+
+@media (pointer: coarse), (any-pointer: coarse) {
+  .layers-panel__header-btn,
+  .layers-panel__header-actions > .panel-detach-btn {
+    width: var(--touch-target-min);
+    height: var(--touch-target-min);
+    min-width: var(--touch-target-min);
+    min-height: var(--touch-target-min);
+  }
 }
 
 .layers-panel__isolation-breadcrumb {

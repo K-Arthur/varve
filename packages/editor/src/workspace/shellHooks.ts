@@ -1,4 +1,89 @@
-import { useEffect, useRef } from 'react';
+import { type CSSProperties, type RefObject, useCallback, useEffect, useRef } from 'react';
+
+/** Keep drawer width independent of the collapsed desktop grid column. */
+export function layersDrawerStyle(
+  dockStyle: CSSProperties | undefined,
+  width: number | null,
+  preferredWidth: string | undefined,
+): CSSProperties {
+  return {
+    ...dockStyle,
+    '--layers-drawer-width': width === null ? preferredWidth : `${width}px`,
+  } as CSSProperties;
+}
+
+const RESPONSIVE_DRAWER_FOCUSABLE =
+  'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"]):not([disabled])';
+
+export function getResponsiveDrawerFocusable(container: HTMLElement): HTMLElement[] {
+  const ownerWindow = container.ownerDocument.defaultView;
+  return Array.from(container.querySelectorAll<HTMLElement>(RESPONSIVE_DRAWER_FOCUSABLE)).filter(
+    (element) => {
+      let current: Element | null = element;
+      while (current && current !== container.parentElement) {
+        const style = ownerWindow?.getComputedStyle(current);
+        if (style?.display === 'none' || style?.visibility === 'hidden') return false;
+        current = current.parentElement;
+      }
+      const rect = element.getBoundingClientRect();
+      return rect.width > 0 && rect.height > 0;
+    },
+  );
+}
+
+type ResponsivePanelClosersOptions = {
+  layersVisible: boolean;
+  inspectorVisible: boolean;
+  libraryPanelVisible: boolean;
+  setLayersVisible: (visible: boolean) => void;
+  setInspectorVisible: (visible: boolean) => void;
+  toggleLibraryPanel: () => void;
+  triggerRef: RefObject<HTMLButtonElement | null>;
+};
+
+/** Close a drawer and restore focus without conflating its close controls. */
+export function useResponsivePanelClosers({
+  layersVisible,
+  inspectorVisible,
+  libraryPanelVisible,
+  setLayersVisible,
+  setInspectorVisible,
+  toggleLibraryPanel,
+  triggerRef,
+}: ResponsivePanelClosersOptions) {
+  const restoreTriggerFocus = useCallback(() => {
+    const trigger = triggerRef.current;
+    window.requestAnimationFrame(() => trigger?.focus());
+  }, [triggerRef]);
+
+  const closeResponsivePanels = useCallback(() => {
+    if (!layersVisible && !inspectorVisible && !libraryPanelVisible) return;
+    setLayersVisible(false);
+    setInspectorVisible(false);
+    if (libraryPanelVisible) toggleLibraryPanel();
+    restoreTriggerFocus();
+  }, [
+    inspectorVisible,
+    layersVisible,
+    libraryPanelVisible,
+    restoreTriggerFocus,
+    setInspectorVisible,
+    setLayersVisible,
+    toggleLibraryPanel,
+  ]);
+
+  const closeResponsiveInspector = useCallback(() => {
+    setInspectorVisible(false);
+    restoreTriggerFocus();
+  }, [restoreTriggerFocus, setInspectorVisible]);
+
+  const closeResponsiveLayers = useCallback(() => {
+    setLayersVisible(false);
+    restoreTriggerFocus();
+  }, [restoreTriggerFocus, setLayersVisible]);
+
+  return { closeResponsivePanels, closeResponsiveInspector, closeResponsiveLayers };
+}
 
 /** E4 (2026-08-10): document-level heading label for SR heading navigation. */
 export function editorHeadingLabel(
