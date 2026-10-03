@@ -16,6 +16,17 @@ on:
   # reviewable change.
   workflow_dispatch:
     inputs:
+      scope:
+        description: "Website snapshot scope (homepage selects the six reviewed home captures)"
+        required: true
+        type: choice
+        options: [all, homepage]
+        default: all
+      reviewed_sha:
+        description: "Exact comparison SHA reviewed for an update (leave empty for comparison)"
+        required: false
+        type: string
+        default: ""
       reviewed:
         description: "I inspected expected, actual, and diff images from a prior run"
         required: true
@@ -42,10 +53,34 @@ jobs:
   regenerate:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      VARVE_WEBSITE_E2E_PORT: 12390
+      VARVE_WEBSITE_E2E_PORT_ROOT: 12391
+      VARVE_E2E_OUTPUT_DIR: visual-baseline-review
+      VARVE_CI_PLAYWRIGHT_REPORT: reports/visual-baseline-review/cases.json
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: master
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Verify immutable source and reviewed update identity
+        env:
+          VARVE_EVENT_SHA: ${{ github.sha }}
+          VARVE_REVIEWED: ${{ inputs.reviewed }}
+          VARVE_REVIEWED_SHA: ${{ inputs.reviewed_sha }}
+          VARVE_UPDATE_SNAPSHOTS: ${{ inputs.update_snapshots }}
+        run: |
+          set -euo pipefail
+          actual_sha="$(git rev-parse --verify 'HEAD^{commit}')"
+          [[ "$VARVE_EVENT_SHA" =~ ^[a-f0-9]{40}$ && "$actual_sha" == "$VARVE_EVENT_SHA" ]] || {
+            echo "Baseline source differs from the immutable event SHA." >&2; exit 1;
+          }
+          if [[ "$VARVE_UPDATE_SNAPSHOTS" == "true" ]]; then
+            [[ "$VARVE_REVIEWED" == "true" && "$VARVE_REVIEWED_SHA" == "$VARVE_EVENT_SHA" ]] || {
+              echo "Update requires review of comparison artifacts from this exact SHA." >&2; exit 1;
+            }
+          fi
 
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413
         with:
@@ -69,28 +104,124 @@ jobs:
       - name: Install Playwright browsers
         run: pnpm exec playwright install --with-deps chromium
 
+      - name: Record source and installed browser/font environment
+        env:
+          VARVE_BASELINE_SCOPE: ${{ inputs.scope }}
+        run: |
+          node --input-type=module <<'JS'
+          import { execFileSync } from 'node:child_process';
+          import { createHash } from 'node:crypto';
+          import { createReadStream, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+          import { createRequire } from 'node:module';
+          import { basename, join } from 'node:path';
+          const require = createRequire(import.meta.url);
+          const command = (name, args) => execFileSync(name, args, { encoding: 'utf8', timeout: 30000, maxBuffer: 16 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+          async function digest(path) {
+            const hash = createHash('sha256');
+            for await (const chunk of createReadStream(path)) hash.update(chunk);
+            return hash.digest('hex');
+          }
+          const sourceSha = command('git', ['rev-parse', '--verify', 'HEAD^{commit}']);
+          if (sourceSha !== process.env.GITHUB_SHA) throw new Error('Baseline source SHA changed');
+          const inventory = command('pnpm', ['exec', 'playwright', 'install', '--dry-run', 'chromium']);
+          const browserInstalls = [];
+          for (const block of inventory.split(/\n\s*\n/)) {
+            if (!/playwright chromium(?:-headless-shell)? v/.test(block)) continue;
+            const location = block.match(/Install location:\s*(.+)/)?.[1];
+            if (!location) throw new Error('Missing installed Chromium location');
+            const executable = readdirSync(location, { recursive: true }).find((file) => ['chrome', 'chrome-headless-shell'].includes(basename(file)));
+            if (!executable) throw new Error('Missing installed Chromium executable');
+            browserInstalls.push({ identity: block.split('\n')[0], executable: join(location, executable), sha256: await digest(join(location, executable)) });
+          }
+          if (browserInstalls.length !== 2) throw new Error('Missing Chromium browser/headless-shell identities');
+          const fonts = [...new Set(command('fc-list', ['-f', '%{file}\n']).split('\n').filter(Boolean))].sort();
+          if (!fonts.length) throw new Error('No font environment identity available');
+          const fontFiles = [];
+          for (const file of fonts) fontFiles.push({ file, sha256: await digest(file) });
+          const bundledFonts = [];
+          for (const directory of ['apps/website/dist', 'apps/website/dist-pages']) {
+            for (const file of readdirSync(directory, { recursive: true }).filter((name) => /\.(?:woff2?|ttf|otf)$/.test(name)).sort()) {
+              bundledFonts.push({ file: join(directory, file), sha256: await digest(join(directory, file)) });
+            }
+          }
+          const sourceFiles = ['pnpm-lock.yaml', 'playwright.website.config.ts', 'apps/website/tests/e2e/visual.spec.ts'];
+          const inputHashes = {};
+          for (const file of sourceFiles) inputHashes[file] = await digest(file);
+          mkdirSync('reports/visual-baseline-review', { recursive: true });
+          writeFileSync('reports/visual-baseline-review/environment.json', JSON.stringify({ schema: 1, reviewOnly: true, certified: false, sourceSha, sourceTree: command('git', ['rev-parse', 'HEAD^{tree}']), scope: process.env.VARVE_BASELINE_SCOPE, runner: { os: readFileSync('/etc/os-release', 'utf8'), image: process.env.ImageVersion ?? null }, node: process.version, playwright: require('@playwright/test/package.json').version, browserIdentityKind: 'installed executables; case execution retained separately', browserInstalls, fontFiles, bundledFonts, inputHashes }, null, 2));
+          JS
+
       - name: Compare or update visual baselines
         env:
           VARVE_REVIEWED: ${{ inputs.reviewed }}
           VARVE_UPDATE_SNAPSHOTS: ${{ inputs.update_snapshots }}
+          VARVE_BASELINE_SCOPE: ${{ inputs.scope }}
         run: |
+          set -euo pipefail
+          scope_args=()
+          case "$VARVE_BASELINE_SCOPE" in
+            all) ;;
+            homepage) scope_args=(--grep '(homepage (mobile )?(light|dark)|hero light|product showcase light)$') ;;
+            *) echo "Unknown website baseline scope." >&2; exit 1 ;;
+          esac
           if [[ "$VARVE_REVIEWED" == "true" && "$VARVE_UPDATE_SNAPSHOTS" == "true" ]]; then
-            echo "Explicit reviewed update mode enabled. The resulting PNGs still require a human-reviewed commit."
-            pnpm exec playwright test -c playwright.website.config.ts \
-              --project=ghpages apps/website/tests/e2e/visual.spec.ts \
-              --update-snapshots
+            echo "Explicit reviewed update mode: artifacts still require inspection and an explicit PNG commit."
+            node scripts/quality/heavy-lease.mjs "website baseline reviewed update" -- \
+              pnpm exec playwright test -c playwright.website.config.ts \
+              --project=ghpages apps/website/tests/e2e/visual.spec.ts "${scope_args[@]}" \
+              --workers=1 --retries=0 --forbid-only --fail-on-flaky-tests \
+              --trace=retain-on-failure --update-snapshots=changed --global-timeout=1200000
           else
-            echo "Comparison mode: inspect expected, actual, and diff images before any update dispatch."
-            pnpm exec playwright test -c playwright.website.config.ts \
-              --project=ghpages apps/website/tests/e2e/visual.spec.ts
+            echo "Comparison mode retains expected, actual, and diff artifacts without snapshot writes."
+            node scripts/quality/heavy-lease.mjs "website baseline comparison" -- \
+              pnpm exec playwright test -c playwright.website.config.ts \
+              --project=ghpages apps/website/tests/e2e/visual.spec.ts "${scope_args[@]}" \
+              --workers=1 --retries=0 --forbid-only --fail-on-flaky-tests \
+              --trace=retain-on-failure --update-snapshots=none --global-timeout=1200000
           fi
+
+      - name: Retain baseline review outcome (never certification)
+        if: always()
+        env:
+          VARVE_BASELINE_STATUS: ${{ job.status }}
+          VARVE_UPDATE_SNAPSHOTS: ${{ inputs.update_snapshots }}
+          VARVE_BASELINE_SCOPE: ${{ inputs.scope }}
+        run: |
+          node --input-type=module <<'JS'
+          import { createHash } from 'node:crypto';
+          import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+          const directory = 'reports/visual-baseline-review';
+          mkdirSync(directory, { recursive: true });
+          const cases = `${directory}/cases.json`;
+          const environment = `${directory}/environment.json`;
+          const { collectBrowserEvidence, browserReportErrors } = await import('./scripts/quality/ci-execution-report.mjs');
+          const evidence = collectBrowserEvidence([{ lane: 'website-e2e', path: cases }]);
+          const updateRequested = process.env.VARVE_UPDATE_SNAPSHOTS === 'true';
+          const expectedSnapshots = updateRequested ? 'changed' : 'none';
+          const reviewErrors = evidence.reports.length === 1 ? [] : ['missing browser report'];
+          for (const report of evidence.reports) {
+            if (report.runner.updateSnapshots !== expectedSnapshots) reviewErrors.push('snapshot mode differs from requested review mode');
+            // Review updates deliberately rewrite snapshots. Validate every other
+            // strict case-history property using the existing consumer; retain
+            // the actual changed mode below, never a certification receipt.
+            reviewErrors.push(...browserReportErrors({ ...report, runner: { ...report.runner, updateSnapshots: 'none' } }));
+            if (report.cases.some((entry) => entry.project !== 'ghpages')) reviewErrors.push('unexpected baseline project');
+            if (report.stats.skipped || report.cases.some((entry) => entry.expectedStatus !== 'passed' || entry.status !== 'expected')) reviewErrors.push('baseline capture did not pass every selected case');
+            if (process.env.VARVE_BASELINE_SCOPE === 'homepage' && report.cases.length !== 6) reviewErrors.push('homepage scope did not execute exactly six cases');
+          }
+          if (!existsSync(environment)) reviewErrors.push('missing source/browser/font identity');
+          const receipt = { schema: 1, reviewOnly: true, certified: false, generationStatus: process.env.VARVE_BASELINE_STATUS, updateRequested, environmentSha256: existsSync(environment) ? createHash('sha256').update(readFileSync(environment)).digest('hex') : null, casesSha256: existsSync(cases) ? createHash('sha256').update(readFileSync(cases)).digest('hex') : null, browserEvidence: evidence, reviewErrors: [...new Set(reviewErrors)] };
+          writeFileSync(`${directory}/outcome.json`, JSON.stringify(receipt, null, 2));
+          if (receipt.reviewErrors.length) process.exitCode = 1;
+          JS
 
       - name: Upload reviewed comparison/update artifacts
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: visual-baseline-review-${{ github.run_id }}
+          name: visual-baseline-review-${{ github.sha }}-${{ github.run_id }}-attempt-${{ github.run_attempt }}
           path: |
+            reports/visual-baseline-review/
             test-results/
             playwright-report/
             apps/website/tests/e2e/visual.spec.ts-snapshots/

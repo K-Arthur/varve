@@ -647,4 +647,260 @@ assert.deepEqual(
   }
 }
 
+// Execute the actual baseline orchestration shell with inert launchers. These
+// controls exercise both modes without launching a browser or changing PNGs.
+{
+  const fs = await import('node:fs');
+  const { spawnSync } = await import('node:child_process');
+  const { createRequire } = await import('node:module');
+  const { tmpdir } = await import('node:os');
+  const { join, delimiter } = await import('node:path');
+  const { pathToFileURL } = await import('node:url');
+  const yaml = createRequire(import.meta.url)('js-yaml');
+  const workflow = yaml.load(fs.readFileSync('.github/workflows/visual-baselines.yml', 'utf8'));
+  const job = workflow.jobs.regenerate;
+  const steps = job.steps;
+  const checkout = steps.find((step) => step.uses?.startsWith('actions/checkout@'));
+  assert.equal(checkout.with.ref, '$' + '{{ github.sha }}');
+  assert.equal(checkout.with['persist-credentials'], false);
+  const sourceGuard = steps.find(
+    (step) => step.name === 'Verify immutable source and reviewed update identity',
+  );
+  const execute = steps.find((step) => step.name === 'Compare or update visual baselines');
+  assert.ok(steps.indexOf(sourceGuard) < steps.indexOf(execute));
+  const temporary = fs.mkdtempSync(join(tmpdir(), 'varve-baseline-workflow-'));
+  const sourceSha = '1234567890abcdef1234567890abcdef12345678';
+  const argvPath = join(temporary, 'argv.txt');
+  try {
+    fs.writeFileSync(
+      join(temporary, 'git'),
+      '#!/bin/sh\nprintf "%s\n" "$VARVE_TEST_SOURCE_SHA"\n',
+      { mode: 0o755 },
+    );
+    const launcher = '#!/bin/sh\nprintf "%s\n" "$@" >> "$VARVE_TEST_ARGV_PATH"\n';
+    fs.writeFileSync(join(temporary, 'node'), launcher, { mode: 0o755 });
+    fs.writeFileSync(join(temporary, 'pnpm'), '#!/bin/sh\nexit 91\n', {
+      mode: 0o755,
+    });
+    function runBaselineMode(overrides = {}) {
+      fs.rmSync(argvPath, { force: true });
+      const environment = {
+        ...process.env,
+        PATH: `${temporary}${delimiter}${process.env.PATH ?? ''}`,
+        VARVE_TEST_SOURCE_SHA: sourceSha,
+        VARVE_TEST_ARGV_PATH: argvPath,
+        VARVE_EVENT_SHA: sourceSha,
+        VARVE_REVIEWED_SHA: '',
+        VARVE_REVIEWED: 'false',
+        VARVE_UPDATE_SNAPSHOTS: 'false',
+        VARVE_BASELINE_SCOPE: 'homepage',
+        ...overrides,
+      };
+      const guard = spawnSync('bash', ['-c', sourceGuard.run], {
+        env: environment,
+        encoding: 'utf8',
+        timeout: 5000,
+      });
+      if (guard.status !== 0) return { status: guard.status, argv: [] };
+      const result = spawnSync('bash', ['-c', execute.run], {
+        env: environment,
+        encoding: 'utf8',
+        timeout: 5000,
+      });
+      return {
+        status: result.status,
+        argv: fs.existsSync(argvPath) ? fs.readFileSync(argvPath, 'utf8').trim().split('\n') : [],
+      };
+    }
+    const comparison = runBaselineMode();
+    assert.equal(comparison.status, 0);
+    assert.equal(comparison.argv[0], 'scripts/quality/heavy-lease.mjs');
+    for (const flag of [
+      '--workers=1',
+      '--retries=0',
+      '--forbid-only',
+      '--fail-on-flaky-tests',
+      '--trace=retain-on-failure',
+      '--update-snapshots=none',
+      '--global-timeout=1200000',
+    ])
+      assert.ok(comparison.argv.includes(flag), `baseline comparison must preserve ${flag}`);
+    assert.ok(
+      !comparison.argv.some(
+        (argument) => argument === '--update-snapshots' || argument === '--ignore-snapshots',
+      ),
+    );
+    const match = new RegExp(comparison.argv[comparison.argv.indexOf('--grep') + 1]);
+    for (const title of [
+      'homepage light',
+      'homepage dark',
+      'homepage mobile light',
+      'homepage mobile dark',
+      'hero light',
+      'product showcase light',
+    ])
+      assert.ok(match.test(`visual.spec.ts ${title}`));
+    assert.ok(
+      !match.test('visual.spec.ts hero eyebrow stays contained across viewport sizes (light)'),
+    );
+    assert.ok(!match.test('visual.spec.ts download page dark'));
+    const update = runBaselineMode({
+      VARVE_UPDATE_SNAPSHOTS: 'true',
+      VARVE_REVIEWED: 'true',
+      VARVE_REVIEWED_SHA: sourceSha,
+    });
+    assert.equal(update.status, 0);
+    assert.equal(update.argv[0], 'scripts/quality/heavy-lease.mjs');
+    assert.ok(update.argv.includes('--update-snapshots=changed'));
+    assert.ok(!update.argv.includes('--update-snapshots=all'));
+    const unreviewed = runBaselineMode({ VARVE_UPDATE_SNAPSHOTS: 'true' });
+    assert.notEqual(unreviewed.status, 0);
+    assert.deepEqual(unreviewed.argv, []);
+    const stale = runBaselineMode({
+      VARVE_UPDATE_SNAPSHOTS: 'true',
+      VARVE_REVIEWED: 'true',
+      VARVE_REVIEWED_SHA: 'a'.repeat(40),
+    });
+    assert.notEqual(stale.status, 0);
+    assert.deepEqual(stale.argv, []);
+    assert.notEqual(runBaselineMode({ VARVE_TEST_SOURCE_SHA: 'b'.repeat(40) }).status, 0);
+    assert.notEqual(runBaselineMode({ VARVE_BASELINE_SCOPE: 'unknown' }).status, 0);
+    const all = runBaselineMode({ VARVE_BASELINE_SCOPE: 'all' });
+    assert.equal(all.status, 0);
+    assert.ok(!all.argv.includes('--grep'));
+    const identity = steps.find(
+      (step) => step.name === 'Record source and installed browser/font environment',
+    );
+    assert.match(identity.run, /sourceSha !== process\.env\.GITHUB_SHA/);
+    assert.match(identity.run, /browserInstalls\.length !== 2/);
+    assert.match(identity.run, /command\('fc-list'/);
+    assert.match(identity.run, /sha256: await digest/);
+    const outcome = steps.find(
+      (step) => step.name === 'Retain baseline review outcome (never certification)',
+    );
+    assert.equal(outcome.if, 'always()');
+    assert.match(outcome.run, /certified: false/);
+    assert.match(outcome.run, /casesSha256/);
+    const outcomeSource = outcome.run
+      .split("<<'JS'\n")[1]
+      .split('\nJS')[0]
+      .replace(
+        "'./scripts/quality/ci-execution-report.mjs'",
+        JSON.stringify(
+          pathToFileURL(join(process.cwd(), 'scripts/quality/ci-execution-report.mjs')).href,
+        ),
+      );
+    const reportDirectory = join(temporary, 'reports/visual-baseline-review');
+    fs.mkdirSync(reportDirectory, { recursive: true });
+    fs.writeFileSync(join(reportDirectory, 'environment.json'), JSON.stringify({ sourceSha }));
+    const caseTitles = [
+      'homepage light',
+      'homepage dark',
+      'homepage mobile light',
+      'homepage mobile dark',
+      'hero light',
+      'product showcase light',
+    ];
+    function retainedOutcome({ mode = 'none', mutate, missing = false } = {}) {
+      const report = {
+        config: {
+          workers: 1,
+          updateSnapshots: mode,
+          failOnFlakyTests: true,
+          argv: ['--trace=retain-on-failure'],
+          projects: [{ name: 'ghpages', retries: 0 }],
+        },
+        errors: [],
+        stats: { expected: 6, unexpected: 0, flaky: 0, skipped: 0 },
+        suites: [
+          {
+            title: '',
+            specs: caseTitles.map((title) => ({
+              file: 'apps/website/tests/e2e/visual.spec.ts',
+              title,
+              tests: [
+                {
+                  projectName: 'ghpages',
+                  expectedStatus: 'passed',
+                  status: 'expected',
+                  results: [{ retry: 0, status: 'passed', duration: 1 }],
+                },
+              ],
+            })),
+          },
+        ],
+      };
+      mutate?.(report);
+      const cases = join(reportDirectory, 'cases.json');
+      if (missing) fs.rmSync(cases, { force: true });
+      else fs.writeFileSync(cases, JSON.stringify(report));
+      const result = spawnSync(process.execPath, ['--input-type=module', '-e', outcomeSource], {
+        cwd: temporary,
+        encoding: 'utf8',
+        timeout: 5000,
+        env: {
+          ...process.env,
+          VARVE_BASELINE_STATUS: 'success',
+          VARVE_UPDATE_SNAPSHOTS: mode === 'changed' ? 'true' : 'false',
+          VARVE_BASELINE_SCOPE: 'homepage',
+        },
+      });
+      assert.equal(result.error, undefined);
+      const receipt = JSON.parse(fs.readFileSync(join(reportDirectory, 'outcome.json'), 'utf8'));
+      assert.equal(receipt.certified, false);
+      assert.equal(receipt.reviewOnly, true);
+      return { status: result.status, receipt };
+    }
+    for (const mode of ['none', 'changed']) {
+      const valid = retainedOutcome({ mode });
+      assert.equal(valid.status, 0);
+      assert.deepEqual(valid.receipt.reviewErrors, []);
+      assert.equal(valid.receipt.browserEvidence.reports[0].runner.updateSnapshots, mode);
+    }
+    const absent = retainedOutcome({ missing: true });
+    assert.notEqual(absent.status, 0);
+    assert.ok(absent.receipt.reviewErrors.includes('missing browser report'));
+    const flaky = retainedOutcome({
+      mutate(report) {
+        report.stats.expected = 5;
+        report.stats.flaky = 1;
+        report.suites[0].specs[0].tests[0].status = 'flaky';
+        report.suites[0].specs[0].tests[0].results.push({
+          retry: 1,
+          status: 'passed',
+          duration: 1,
+        });
+      },
+    });
+    assert.notEqual(flaky.status, 0);
+    assert.ok(flaky.receipt.reviewErrors.includes('invalid or retried case attempt'));
+    const skipped = retainedOutcome({
+      mutate(report) {
+        report.stats.expected = 5;
+        report.stats.skipped = 1;
+        report.suites[0].specs[0].tests[0].status = 'skipped';
+        report.suites[0].specs[0].tests[0].results = [];
+      },
+    });
+    assert.notEqual(skipped.status, 0);
+    assert.ok(
+      skipped.receipt.reviewErrors.includes('baseline capture did not pass every selected case'),
+    );
+    const drift = retainedOutcome({
+      mutate(report) {
+        report.config.workers = 2;
+      },
+    });
+    assert.notEqual(drift.status, 0);
+    assert.ok(drift.receipt.reviewErrors.includes('browser execution policy drift'));
+    const upload = steps.find((step) => step.uses?.startsWith('actions/upload-artifact@'));
+    assert.equal(upload.if, 'always()');
+    assert.ok(upload.with.path.includes('reports/visual-baseline-review/'));
+    assert.ok(upload.with.name.includes('$' + '{{ github.sha }}'));
+    assert.ok(upload.with.name.includes('$' + '{{ github.run_attempt }}'));
+  } finally {
+    fs.rmSync(temporary, { recursive: true, force: true });
+  }
+}
+
 process.stdout.write('validate-workflows.test.mjs: all assertions passed\n');
