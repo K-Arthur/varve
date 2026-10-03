@@ -109,8 +109,26 @@ export function normalizeLogLine(line) {
   return normalized;
 }
 
+/** Only the actual scanner's structured vulnerability summaries establish this cause. */
+export function isDependencyVulnerability(line) {
+  const prefix = 'Dependency advisory:';
+  const normalized = normalizeLogLine(String(line)).trim();
+  if (!normalized.startsWith(prefix)) return false;
+  try {
+    const summary = JSON.parse(normalized.slice(prefix.length));
+    return (
+      ['npm-production', 'cargo-root', 'cargo-desktop'].includes(summary?.id) &&
+      summary.status === 'vulnerable'
+    );
+  } catch {
+    return false;
+  }
+}
+
 export function localReproductionCommand(job, hits = [], testIds = []) {
   const text = hits.map((hit) => `${hit.text}\n${hit.snippet}`).join('\n');
+  if (text.split(/\r?\n/).some(isDependencyVulnerability))
+    return 'node scripts/security/dependency-advisories.mjs';
   const selector = testIds.find((id) =>
     /^[A-Za-z0-9_./-]+\.(?:spec|test)\.[jt]sx?(?::\d+)?$/.test(id),
   );
@@ -186,10 +204,12 @@ function executedFailureText(text) {
           line.trim(),
         ),
     );
-  const failure = lines.some((line) =>
-    /^\s*(?:(?:##\[error\]|::error::)\s*)?(?:error(?:\[E\d+\])?:|AssertionError:|TimeoutError:|TypeError:|ReferenceError:|SyntaxError:|test failed:|thread .*panicked at|\d+\)\s+\[[^\]]+\]\s+›\s+\S+\.spec\.[jt]sx?:\d+)|^\s*Test timeout of \d+ms exceeded|^\s*JavaScript heap out of memory|^\s*ENOMEM\b/i.test(
-      line,
-    ),
+  const failure = lines.some(
+    (line) =>
+      isDependencyVulnerability(line) ||
+      /^\s*(?:(?:##\[error\]|::error::)\s*)?(?:error(?:\[E\d+\])?:|AssertionError:|TimeoutError:|TypeError:|ReferenceError:|SyntaxError:|test failed:|thread .*panicked at|\d+\)\s+\[[^\]]+\]\s+›\s+\S+\.spec\.[jt]sx?:\d+)|^\s*Test timeout of \d+ms exceeded|^\s*JavaScript heap out of memory|^\s*ENOMEM\b/i.test(
+        line,
+      ),
   );
   return failure ? lines.join('\n') : '';
 }
@@ -203,6 +223,8 @@ export function classifyFailure({ jobName = '', stepName = '', conclusion = '', 
     return { ...classification, retryWithoutCode: false };
   }
   const haystack = `${jobName}\n${stepName}\n${normalized}`;
+  if (normalized.split('\n').some(isDependencyVulnerability))
+    return { category: 'dependency-vulnerability', retryWithoutCode: false };
   if (/(?:^|\n)\s*error(?:\[E\d+\]|\s+TS\d+)?:/.test(normalized)) {
     return { category: 'product-or-test-regression', retryWithoutCode: false };
   }
@@ -231,6 +253,11 @@ export function classifyFailure({ jobName = '', stepName = '', conclusion = '', 
   if (/snapshot|screenshot|visual regression|baseline|pixel diff/i.test(haystack)) {
     return { category: 'visual-regression-review-required', retryWithoutCode: false };
   }
+  // An audit with no readable cause is not evidence of a transient install failure.
+  if (
+    /\b(?:npm|pnpm|cargo)\s+audit\b|dependency[- ]advisories|Audit production npm/i.test(haystack)
+  )
+    return { category: 'unknown-requires-triage', retryWithoutCode: false };
   if (
     /install|download|fetch|resolve|cache|dependency|ENOENT|EACCES|EPERM|403|404/i.test(haystack)
   ) {
@@ -259,6 +286,8 @@ function testIds(text) {
 }
 
 function firstUsefulError(text) {
+  const advisory = text.split(/\r?\n/).find(isDependencyVulnerability);
+  if (advisory) return advisory.trim().slice(0, 1000);
   for (const pattern of FIRST_ERROR_PATTERNS) {
     const match = text.match(pattern);
     if (match?.[0]) return match[0].trim().slice(0, 1000);

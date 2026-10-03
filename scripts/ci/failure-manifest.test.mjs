@@ -3,10 +3,12 @@
 /** Failure classification, known-debt governance, and manifest shape tests. */
 
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import {
   buildFailureManifest,
   classifyFailure,
   hasRecordedExecution,
+  isDependencyVulnerability,
   validateKnownFailures,
 } from './failure-manifest.mjs';
 
@@ -238,3 +240,82 @@ for (const name of ['Website E2E', 'Rust', 'E2E', 'JS']) {
 }
 
 console.log('failure manifest tests passed');
+
+// Real 0fc CI 37087003442 failed before browser/native lanes on two npm advisories.
+const advisoryLog = readFileSync(
+  new URL('./fixtures/dependency-advisory-vulnerable.txt', import.meta.url),
+  'utf8',
+);
+const advisoryLine = advisoryLog.split('\n').find(isDependencyVulnerability);
+assert.ok(advisoryLine);
+assert.deepEqual(
+  classifyFailure({
+    stepName: 'Audit production npm and both Cargo dependency graphs',
+    text: advisoryLog,
+  }),
+  { category: 'dependency-vulnerability', retryWithoutCode: false },
+);
+const advisoryManifest = buildFailureManifest({
+  run: { id: 37087003442, name: 'CI', head_sha: '0fc9e2279bcb804b4757a33ec0b85d6cc34d5790' },
+  jobs: [
+    {
+      id: 111099347546,
+      name: 'Pipeline validation (workflow + SHA pins)',
+      conclusion: 'failure',
+      steps: [
+        { name: 'Audit production npm and both Cargo dependency graphs', conclusion: 'failure' },
+      ],
+    },
+  ],
+  failuresBySource: { 'Pipeline validation (workflow + SHA pins)': advisoryLog },
+});
+assert.equal(advisoryManifest.failures[0].category, 'dependency-vulnerability');
+assert.equal(advisoryManifest.failures[0].retryWithoutCode, false);
+assert.match(
+  advisoryManifest.failures[0].firstUsefulError,
+  /"id":"npm-production".*"status":"vulnerable"/,
+);
+assert.equal(
+  advisoryManifest.failures[0].localReproductionCommand,
+  'node scripts/security/dependency-advisories.mjs',
+);
+assert.equal(
+  isDependencyVulnerability(
+    'Dependency advisory: {"id":"cargo-root","status":"pass","warnings":[{"kind":"unsound"}]}',
+  ),
+  false,
+);
+assert.equal(
+  isDependencyVulnerability('Dependency advisory: {"id":"npm-production","status":"vulnerable"'),
+  false,
+);
+assert.equal(
+  isDependencyVulnerability('Dependency advisory: {"id":"unknown","status":"vulnerable"}'),
+  false,
+);
+assert.equal(
+  isDependencyVulnerability(
+    'Dependency advisory: {"id":"cargo-root","status":"vulnerable","vulnerabilities":1}',
+  ),
+  true,
+);
+assert.deepEqual(
+  classifyFailure({
+    stepName: 'Audit production npm and both Cargo dependency graphs',
+    text: 'Process completed with exit code 1.',
+  }),
+  { category: 'unknown-requires-triage', retryWithoutCode: false },
+);
+assert.equal(
+  classifyFailure({ stepName: 'Install pinned advisory scanner', text: 'download failed with 403' })
+    .retryWithoutCode,
+  true,
+);
+assert.equal(
+  classifyFailure({ conclusion: 'cancelled', text: advisoryLog }).category,
+  'dependency-vulnerability',
+);
+assert.equal(
+  classifyFailure({ conclusion: 'cancelled', text: advisoryLog }).retryWithoutCode,
+  false,
+);

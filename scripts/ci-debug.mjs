@@ -33,6 +33,7 @@ import { pathToFileURL } from 'node:url';
 import {
   buildFailureManifest,
   hasRecordedExecution,
+  isDependencyVulnerability,
   localReproductionCommand,
   normalizeLogLine,
   redactSensitive,
@@ -536,11 +537,14 @@ function isFailureLine(line) {
   const normalized = normalizeLogLine(line);
   if (normalized.length === 0) return false;
   if (IGNORED_PATTERNS.some((re) => re.test(normalized))) return false;
-  return FAILURE_PATTERNS.some((re) => re.test(normalized));
+  return (
+    isDependencyVulnerability(normalized) || FAILURE_PATTERNS.some((re) => re.test(normalized))
+  );
 }
 
 function rankLine(line) {
   const normalized = normalizeLogLine(line);
+  if (isDependencyVulnerability(normalized)) return -1;
   // Exit and aggregate summaries describe the consequence, not the cause.
   if (
     /Process completed with exit code|\[ELIFECYCLE\]|could not compile|aborting due to.*previous error|failed to build app/i.test(

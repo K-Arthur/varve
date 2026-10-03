@@ -833,3 +833,48 @@ for (const breakContract of [
 }
 
 console.log('ci-debug extraction tests passed.');
+
+// Preserve the scanner's actual finding even with zero surrounding context.
+const dependencyAdvisoryLog = readFileSync(
+  new URL('./ci/fixtures/dependency-advisory-vulnerable.txt', import.meta.url),
+  'utf8',
+);
+const dependencyAdvisoryHits = extractFailures(dependencyAdvisoryLog, 0);
+assert.match(dependencyAdvisoryHits[0].text, /"id":"npm-production".*"status":"vulnerable"/);
+assert.ok(
+  dependencyAdvisoryHits[0].rank < rankLine('##[error]Process completed with exit code 1.'),
+);
+assert.equal(
+  isFailureLine(
+    'Dependency advisory: {"id":"cargo-root","status":"pass","warnings":[{"kind":"unsound"}]}',
+  ),
+  false,
+);
+assert.equal(
+  isFailureLine('Dependency advisory: {"id":"npm-production","status":"vulnerable"'),
+  false,
+);
+const dependencyAdvisoryDebug = buildDebugFailureManifest({
+  run: { id: 37087003442, name: 'CI', head_sha: '0fc9e2279bcb804b4757a33ec0b85d6cc34d5790' },
+  jobs: [
+    {
+      id: 111099347546,
+      name: 'Pipeline validation (workflow + SHA pins)',
+      conclusion: 'failure',
+      steps: [
+        { name: 'Audit production npm and both Cargo dependency graphs', conclusion: 'failure' },
+      ],
+    },
+  ],
+  failuresBySource: { 'Pipeline validation (workflow + SHA pins)': dependencyAdvisoryHits },
+});
+assert.equal(dependencyAdvisoryDebug.failures[0].category, 'dependency-vulnerability');
+assert.equal(dependencyAdvisoryDebug.failures[0].retryWithoutCode, false);
+assert.match(
+  dependencyAdvisoryDebug.failures[0].firstUsefulError,
+  /"id":"npm-production".*"status":"vulnerable"/,
+);
+assert.equal(
+  dependencyAdvisoryDebug.failures[0].localReproductionCommand,
+  'node scripts/security/dependency-advisories.mjs',
+);
