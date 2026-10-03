@@ -1213,12 +1213,17 @@ const SCENES = [
     file: 'motion-dark.png',
     theme: 'dark',
     feature: 'motion',
-    clipFrom: { selector: '.timeline-panel' },
-    alt: 'The Varve timeline panel with a track for the selected layer',
-    caption: 'An editable position track and keyframe in the shared timeline panel',
+    alt: 'The Varve Motion workspace with the poster document above an editable position track and keyframe in the shared timeline',
+    caption:
+      'Author position tracks and keyframes in the Motion workspace beside the same document.',
     async run(page) {
       await openCleanEditor(page);
       await openDemoDocument(page, 'poster');
+      const motionTab = page
+        .getByRole('radiogroup', { name: 'Workspace' })
+        .getByRole('radio', { name: 'Motion workspace', exact: true });
+      await motionTab.click();
+      await expect(motionTab).toHaveAttribute('aria-checked', 'true');
       await fitContent(page);
       await selectLayer(page, /disc/i);
       const panel = page.locator('.timeline-panel');
@@ -1250,6 +1255,10 @@ const SCENES = [
           'timeline has no tracks: the Alt+P keyframe shortcut did not author a track, so the scene would misrepresent the motion workspace',
         );
       }
+      await expect(panel).toBeInViewport({ ratio: 1 });
+      await expect
+        .poll(async () => (await panel.boundingBox())?.width ?? 0)
+        .toBeGreaterThanOrEqual(600);
       await expect(panel.locator('.timeline-track-row').first()).toBeInViewport({ ratio: 1 });
       await expect(panel.locator('.timeline-track-row__keyframe').first()).toBeInViewport({
         ratio: 1,
