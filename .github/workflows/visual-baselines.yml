@@ -1,7 +1,7 @@
 name: Visual Baselines
 
 on:
-  # Regenerate the website visual test baselines ON runner infrastructure.
+  # Compare or explicitly regenerate selected visual baselines ON runner infrastructure.
   #
   # Why this exists: the committed PNGs are compared against rendering on
   # ubuntu-latest CI runners, and Playwright screenshots are pixel-exact —
@@ -16,6 +16,54 @@ on:
   # reviewable change.
   workflow_dispatch:
     inputs:
+      target:
+        description: "One review target; application captures never update website or GPU baselines"
+        required: true
+        type: choice
+        options: [website, app-replay, app-ui]
+        default: website
+      app_case:
+        description: "One application case (ignored for website); replay owns multilingual CPU1/2/3 only"
+        required: true
+        type: choice
+        options:
+          - multilingual-text
+          - canvas-empty-guidance-light
+          - file-import-svg
+          - micro-hint-rect
+          - enhance-dialog-default
+          - nested-groups-isolated-opacity
+          - all-tools-canvas
+          - email-workspace-tabs-light
+          - email-workspace-tabs-dark
+          - document-settings
+          - document-grid-settings
+          - section-manager
+          - rectangle-properties
+          - mixed-properties
+          - bound-property-field
+          - locked-properties
+          - canonical-properties
+          - frame-tool-context
+          - panel-headers-light
+          - panel-headers-dark
+          - panel-headers-high-contrast
+        default: multilingual-text
+      wasm_run_id:
+        description: "For app-ui: existing CI run that built WASM at this exact SHA"
+        required: false
+        type: string
+        default: ""
+      wasm_artifact_id:
+        description: "For app-ui: exact WASM artifact ID from that CI run"
+        required: false
+        type: string
+        default: ""
+      reviewed_case:
+        description: "Exact application case reviewed for update (leave empty for comparison)"
+        required: false
+        type: string
+        default: ""
       scope:
         description: "Website snapshot scope (homepage selects the six reviewed home captures)"
         required: true
@@ -40,6 +88,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: visual-baselines
@@ -54,6 +103,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
+      VARVE_BASELINE_TARGET: ${{ inputs.target }}
+      VARVE_BASELINE_APP_CASE: ${{ inputs.app_case }}
+      VARVE_E2E_PORT: 12392
       VARVE_WEBSITE_E2E_PORT: 12390
       VARVE_WEBSITE_E2E_PORT_ROOT: 12391
       VARVE_E2E_OUTPUT_DIR: visual-baseline-review
@@ -70,8 +122,20 @@ jobs:
           VARVE_REVIEWED: ${{ inputs.reviewed }}
           VARVE_REVIEWED_SHA: ${{ inputs.reviewed_sha }}
           VARVE_UPDATE_SNAPSHOTS: ${{ inputs.update_snapshots }}
+          VARVE_REVIEWED_CASE: ${{ inputs.reviewed_case }}
+          VARVE_WASM_RUN_ID: ${{ inputs.wasm_run_id }}
+          VARVE_WASM_ARTIFACT_ID: ${{ inputs.wasm_artifact_id }}
         run: |
           set -euo pipefail
+          : "${VARVE_BASELINE_TARGET:=website}"
+          : "${VARVE_BASELINE_APP_CASE:=multilingual-text}"
+          : "${VARVE_REVIEWED_CASE:=}"
+          case "$VARVE_BASELINE_TARGET" in website|app-replay|app-ui) ;; *) echo "Unknown baseline target." >&2; exit 1 ;; esac
+          if [[ "$VARVE_BASELINE_TARGET" == "app-ui" ]]; then
+            [[ "${VARVE_WASM_RUN_ID:-}" =~ ^[1-9][0-9]*$ && "${VARVE_WASM_ARTIFACT_ID:-}" =~ ^[1-9][0-9]*$ ]] || {
+              echo "Application UI review requires the existing exact-SHA CI WASM producer/artifact IDs." >&2; exit 1;
+            }
+          fi
           actual_sha="$(git rev-parse --verify 'HEAD^{commit}')"
           [[ "$VARVE_EVENT_SHA" =~ ^[a-f0-9]{40}$ && "$actual_sha" == "$VARVE_EVENT_SHA" ]] || {
             echo "Baseline source differs from the immutable event SHA." >&2; exit 1;
@@ -80,6 +144,11 @@ jobs:
             [[ "$VARVE_REVIEWED" == "true" && "$VARVE_REVIEWED_SHA" == "$VARVE_EVENT_SHA" ]] || {
               echo "Update requires review of comparison artifacts from this exact SHA." >&2; exit 1;
             }
+            if [[ "$VARVE_BASELINE_TARGET" != "website" ]]; then
+              [[ "$VARVE_REVIEWED_CASE" == "$VARVE_BASELINE_APP_CASE" ]] || {
+                echo "Update requires review of this same explicit application case." >&2; exit 1;
+              }
+            fi
           fi
 
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413
@@ -95,10 +164,108 @@ jobs:
       - name: Install dependencies (frozen)
         run: pnpm install --frozen-lockfile
 
+      - name: Verify reused application WASM producer
+        id: wasm-source
+        if: ${{ inputs.target == 'app-ui' }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          VARVE_WASM_RUN_ID: ${{ inputs.wasm_run_id }}
+          VARVE_WASM_ARTIFACT_ID: ${{ inputs.wasm_artifact_id }}
+        run: |
+          node --input-type=module <<'JS'
+          import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs';
+          const repo = process.env.GITHUB_REPOSITORY;
+          const sha = process.env.GITHUB_SHA;
+          const runId = Number(process.env.VARVE_WASM_RUN_ID);
+          const artifactId = Number(process.env.VARVE_WASM_ARTIFACT_ID);
+          if (!/^[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/.test(repo ?? '') || !/^[a-f0-9]{40}$/.test(sha ?? '') || !Number.isSafeInteger(runId) || runId < 1 || !Number.isSafeInteger(artifactId) || artifactId < 1) throw new Error('Invalid explicit WASM source identity');
+          async function request(path) {
+            const response = await fetch(`https://api.github.com/repos/${repo}${path}`, { headers: { Accept: 'application/vnd.github+json', Authorization: `Bearer ${process.env.GITHUB_TOKEN}`, 'X-GitHub-Api-Version': '2022-11-28' }, signal: AbortSignal.timeout(15000) });
+            if (!response.ok) throw new Error(`WASM metadata request failed (${response.status})`);
+            try { return await response.json(); } catch { throw new Error('Malformed WASM metadata'); }
+          }
+          const run = await request(`/actions/runs/${runId}`);
+          const artifact = await request(`/actions/artifacts/${artifactId}`);
+          if (run.id !== runId || run.head_sha !== sha || run.head_repository?.full_name !== repo || !/^\.github\/workflows\/ci\.yml(?:@|$)/.test(run.path ?? '') || !Number.isSafeInteger(run.run_attempt) || run.run_attempt < 1) throw new Error('WASM workflow source differs from this exact repository/SHA');
+          const jobs = [];
+          let complete = false;
+          for (let page = 1; page <= 10; page++) {
+            const result = await request(`/actions/runs/${runId}/jobs?filter=all&per_page=100&page=${page}`);
+            if (!Array.isArray(result.jobs)) throw new Error('Missing WASM producer inventory');
+            jobs.push(...result.jobs);
+            if (result.jobs.length < 100) { complete = true; break; }
+          }
+          if (!complete) throw new Error('WASM producer inventory exceeded the bounded pagination limit');
+          const producers = jobs.filter((job) => job.name === 'WASM');
+          if (!producers.length || producers.some((job) => job.run_id !== runId || job.head_sha !== sha || !Number.isSafeInteger(job.run_attempt) || job.run_attempt < 1 || job.run_attempt > run.run_attempt)) throw new Error('Missing or invalid WASM producer source');
+          const attempt = Math.max(...producers.map((job) => job.run_attempt));
+          const newest = producers.filter((job) => job.run_attempt === attempt);
+          if (newest.length !== 1 || newest[0].status !== 'completed' || newest[0].conclusion !== 'success') throw new Error('Newest WASM producer did not uniquely pass');
+          if (artifact.id !== artifactId || artifact.name !== `varve-wasm-${runId}-attempt-${attempt}` || artifact.expired !== false || artifact.workflow_run?.id !== runId || artifact.workflow_run?.head_sha !== sha || !Number.isFinite(Date.parse(artifact.expires_at)) || Date.parse(artifact.expires_at) <= Date.now() || !/^sha256:[a-f0-9]{64}$/.test(artifact.digest ?? '')) throw new Error('WASM artifact is stale, expired or differs from the newest exact-source producer');
+          mkdirSync('reports/visual-baseline-review', { recursive: true });
+          writeFileSync('reports/visual-baseline-review/wasm-source.json', JSON.stringify({ schema: 1, reviewOnly: true, certified: false, sourceSha: sha, repository: repo, runId, producerAttempt: attempt, producerJobId: newest[0].id, artifactId, artifactDigest: artifact.digest, artifactDigestKind: 'GitHub artifact metadata (not independent digest certification); extracted file hashes retained separately', expiresAt: artifact.expires_at }, null, 2));
+          appendFileSync(process.env.GITHUB_OUTPUT, `run_id=${runId}\nartifact_id=${artifactId}\n`);
+          JS
+
+      - name: Reuse verified application WASM artifact
+        if: ${{ inputs.target == 'app-ui' }}
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ steps.wasm-source.outputs.run_id }}
+          artifact-ids: ${{ steps.wasm-source.outputs.artifact_id }}
+          path: apps/desktop/public/wasm/
+
+      - name: Resolve one explicit application baseline case
+        id: app-case
+        if: ${{ inputs.target != 'website' }}
+        run: |
+          node --input-type=module <<'JS'
+          import { createHash } from 'node:crypto';
+          import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+          const owners = {
+            "canvas-empty-guidance-light": {"spec": "tests/e2e/canvas/canvas-area-visual.spec.ts", "title": "CanvasArea empty-surface guidance light theme keeps guidance scoped and legible", "snapshots": ["tests/e2e/canvas/canvas-area-visual.spec.ts-snapshots/canvas-empty-guidance-light-chromium-linux.png"]},
+            "file-import-svg": {"spec": "tests/e2e/canvas/file-import.spec.ts", "title": "File → Import Import picker accepts PNG and SVG artwork and renders it in the document", "snapshots": ["tests/e2e/canvas/file-import.spec.ts-snapshots/file-import-svg-chromium-linux.png"]},
+            "micro-hint-rect": {"spec": "tests/e2e/canvas/learning-system-visual.spec.ts", "title": "Learning system visual regression micro-hint — Rectangle tool first use", "snapshots": ["tests/e2e/canvas/learning-system-visual.spec.ts-snapshots/micro-hint-rect-chromium-linux.png"]},
+            "enhance-dialog-default": {"spec": "tests/e2e/canvas/upscale-dialog-visual.spec.ts", "title": "Enhance dialog default (Auto) state", "snapshots": ["tests/e2e/canvas/upscale-dialog-visual.spec.ts-snapshots/enhance-dialog-default-chromium-linux.png"]},
+            "nested-groups-isolated-opacity": {"spec": "tests/e2e/canvas/visual-compositing.spec.ts", "title": "full-editor visual compositing nested groups preserve isolated opacity and container compositing", "snapshots": ["tests/e2e/canvas/visual-compositing.spec.ts-snapshots/nested-groups-isolated-opacity-chromium-linux.png", "tests/e2e/canvas/visual-compositing.spec.ts-snapshots/nested-groups-layer-tree-chromium-linux.png"]},
+            "all-tools-canvas": {"spec": "tests/e2e/canvas/visual.spec.ts", "title": "Canvas visual regression all drawing tools render correctly on canvas", "snapshots": ["tests/e2e/canvas/visual.spec.ts-snapshots/all-tools-canvas-chromium-linux.png"]},
+            "email-workspace-tabs-light": {"spec": "tests/e2e/email/visual.spec.ts", "title": "Email workspace visual — light email workspace tab visible", "snapshots": ["tests/e2e/email/visual.spec.ts-snapshots/email-workspace-tabs-light-chromium-linux.png"]},
+            "email-workspace-tabs-dark": {"spec": "tests/e2e/email/visual.spec.ts", "title": "Email workspace visual — dark email workspace tab visible", "snapshots": ["tests/e2e/email/visual.spec.ts-snapshots/email-workspace-tabs-dark-chromium-linux.png"]},
+            "document-settings": {"spec": "tests/e2e/inspector/ownership.spec.ts", "title": "Inspector feature ownership tabs use one compact row with roving focus and no duplicate overflow items", "snapshots": ["tests/e2e/inspector/ownership.spec.ts-snapshots/document-settings-chromium-linux.png"]},
+            "document-grid-settings": {"spec": "tests/e2e/inspector/ownership.spec.ts", "title": "Inspector feature ownership document-grid numerics use the canonical field grammar", "snapshots": ["tests/e2e/inspector/ownership.spec.ts-snapshots/document-grid-settings-chromium-linux.png"]},
+            "section-manager": {"spec": "tests/e2e/inspector/ownership.spec.ts", "title": "Inspector feature ownership section customization exposes stable ordering controls", "snapshots": ["tests/e2e/inspector/ownership.spec.ts-snapshots/section-manager-chromium-linux.png"]},
+            "rectangle-properties": {"spec": "tests/e2e/inspector/ownership.spec.ts", "title": "Inspector feature ownership a common shape stays within the contextual inspector DOM budget", "snapshots": ["tests/e2e/inspector/ownership.spec.ts-snapshots/rectangle-properties-chromium-linux.png"]},
+            "mixed-properties": {"spec": "tests/e2e/inspector/ownership.spec.ts", "title": "Inspector feature ownership mixed geometry values are explicit and remain visually legible", "snapshots": ["tests/e2e/inspector/ownership.spec.ts-snapshots/mixed-properties-chromium-linux.png"]},
+            "bound-property-field": {"spec": "tests/e2e/inspector/ownership.spec.ts", "title": "Inspector feature ownership bound geometry shows its resolved source and has an explicit recovery path", "snapshots": ["tests/e2e/inspector/ownership.spec.ts-snapshots/bound-property-field-chromium-linux.png"]},
+            "locked-properties": {"spec": "tests/e2e/inspector/ownership.spec.ts", "title": "Inspector feature ownership locked selection stays inspectable with a source-aware restriction notice", "snapshots": ["tests/e2e/inspector/ownership.spec.ts-snapshots/locked-properties-chromium-linux.png"]},
+            "canonical-properties": {"spec": "tests/e2e/inspector/quick-properties.spec.ts", "title": "Inspector canonical properties keeps common selection edits in their canonical sections", "snapshots": ["tests/e2e/inspector/quick-properties.spec.ts-snapshots/canonical-properties-chromium-linux.png"]},
+            "frame-tool-context": {"spec": "tests/e2e/inspector/tool-context.spec.ts", "title": "Inspector tool context Frame tool shows presets that place a frame, then its resize row", "snapshots": ["tests/e2e/inspector/tool-context.spec.ts-snapshots/frame-tool-context-chromium-linux.png"]},
+            "panel-headers-light": {"spec": "tests/e2e/workspace/visual.spec.ts", "title": "Multi-window workspace visual — light panel headers and sidebars", "snapshots": ["tests/e2e/workspace/visual.spec.ts-snapshots/panel-headers-light-chromium-linux.png"]},
+            "panel-headers-dark": {"spec": "tests/e2e/workspace/visual.spec.ts", "title": "Multi-window workspace visual — dark panel headers and sidebars", "snapshots": ["tests/e2e/workspace/visual.spec.ts-snapshots/panel-headers-dark-chromium-linux.png"]},
+            "panel-headers-high-contrast": {"spec": "tests/e2e/workspace/visual.spec.ts", "title": "Multi-window workspace visual — high-contrast panel headers and sidebars", "snapshots": ["tests/e2e/workspace/visual.spec.ts-snapshots/panel-headers-high-contrast-chromium-linux.png"]},
+          };
+          const target = process.env.VARVE_BASELINE_TARGET;
+          const caseName = process.env.VARVE_BASELINE_APP_CASE;
+          const projects = target === 'app-replay' ? ['chromium-visual-1x', 'chromium-visual-2x', 'chromium-visual-3x'] : ['chromium'];
+          const replay = { spec: 'tests/e2e/visual/replay.spec.ts', title: 'replay visual: multilingual-text', snapshots: projects.map((project, index) => `tests/e2e/visual/replay.spec.ts-snapshots/multilingual-text-${index + 1}x-${project}-linux.png`) };
+          const owner = target === 'app-replay' && caseName === 'multilingual-text' ? replay : target === 'app-ui' ? owners[caseName] : null;
+          if (!owner) throw new Error('Unknown application target/case; no broad or cross-namespace update is allowed');
+          const grep = owner.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$';
+          const originalSnapshots = owner.snapshots.map((path) => ({ path, sha256: createHash('sha256').update(readFileSync(path)).digest('hex') }));
+          const selection = { schema: 1, target, caseName, sourceSha: process.env.GITHUB_SHA, spec: owner.spec, title: owner.title, grep, projects, expectedCases: projects.length, originalSnapshots };
+          mkdirSync('reports/visual-baseline-review', { recursive: true });
+          writeFileSync('reports/visual-baseline-review/selection.json', JSON.stringify(selection, null, 2));
+          for (const [name, value] of Object.entries({ VARVE_APP_SPEC: owner.spec, VARVE_APP_GREP: grep, VARVE_APP_PROJECT_ARGS: projects.map((project) => `--project=${project}`).join(' '), VARVE_VISUAL_HARNESS_ONLY: target === 'app-replay' ? '1' : '0' })) appendFileSync(process.env.GITHUB_ENV, `${name}=${value}\n`);
+          appendFileSync(process.env.GITHUB_OUTPUT, `artifact_paths<<VARVE_SELECTED_SNAPSHOTS\n${owner.snapshots.join('\n')}\nVARVE_SELECTED_SNAPSHOTS\n`);
+          JS
+
       - name: Build project-site mode (base /varve)
+        if: ${{ inputs.target == 'website' }}
         run: pnpm build:website:pages
 
       - name: Build custom-domain (root) mode
+        if: ${{ inputs.target == 'website' }}
         run: pnpm build:website
 
       - name: Install Playwright browsers
@@ -113,7 +280,7 @@ jobs:
           import { createHash } from 'node:crypto';
           import { createReadStream, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
           import { createRequire } from 'node:module';
-          import { basename, join } from 'node:path';
+          import { basename, dirname, join } from 'node:path';
           const require = createRequire(import.meta.url);
           const command = (name, args) => execFileSync(name, args, { encoding: 'utf8', timeout: 30000, maxBuffer: 16 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] }).trim();
           async function digest(path) {
@@ -139,19 +306,30 @@ jobs:
           const fontFiles = [];
           for (const file of fonts) fontFiles.push({ file, sha256: await digest(file) });
           const bundledFonts = [];
-          for (const directory of ['apps/website/dist', 'apps/website/dist-pages']) {
+          const target = process.env.VARVE_BASELINE_TARGET ?? 'website';
+          const selection = target === 'website' ? null : JSON.parse(readFileSync('reports/visual-baseline-review/selection.json', 'utf8'));
+          const fontDirectories = target === 'website' ? ['apps/website/dist', 'apps/website/dist-pages'] : [dirname(require.resolve('@fontsource-variable/ibm-plex-sans/package.json', { paths: [join(process.cwd(), 'apps/desktop')] }))];
+          for (const directory of fontDirectories) {
             for (const file of readdirSync(directory, { recursive: true }).filter((name) => /\.(?:woff2?|ttf|otf)$/.test(name)).sort()) {
               bundledFonts.push({ file: join(directory, file), sha256: await digest(join(directory, file)) });
             }
           }
-          const sourceFiles = ['pnpm-lock.yaml', 'playwright.website.config.ts', 'apps/website/tests/e2e/visual.spec.ts'];
+          const sourceFiles = target === 'website' ? ['pnpm-lock.yaml', 'playwright.website.config.ts', 'apps/website/tests/e2e/visual.spec.ts'] : ['pnpm-lock.yaml', 'playwright.config.ts', 'tests/e2e/global-setup.ts', selection.spec, ...(target === 'app-replay' ? ['tests/e2e/visual/fixtures.ts', 'apps/desktop/src/visual-harness-main.ts', 'packages/engine/src/replay.ts'] : ['tests/e2e/shared.ts'])];
+          const runtimeAssets = [];
+          if (target === 'app-ui') {
+            for (const name of ['varve_wasm.js', 'varve_wasm_bg.wasm', 'varve_wasm_simd.js', 'varve_wasm_simd_bg.wasm', 'varve_colour.js', 'varve_colour_bg.wasm']) {
+              const file = join('apps/desktop/public/wasm', name);
+              runtimeAssets.push({ file, sha256: await digest(file) });
+            }
+          }
           const inputHashes = {};
           for (const file of sourceFiles) inputHashes[file] = await digest(file);
           mkdirSync('reports/visual-baseline-review', { recursive: true });
-          writeFileSync('reports/visual-baseline-review/environment.json', JSON.stringify({ schema: 1, reviewOnly: true, certified: false, sourceSha, sourceTree: command('git', ['rev-parse', 'HEAD^{tree}']), scope: process.env.VARVE_BASELINE_SCOPE, runner: { os: readFileSync('/etc/os-release', 'utf8'), image: process.env.ImageVersion ?? null }, node: process.version, playwright: require('@playwright/test/package.json').version, browserIdentityKind: 'installed executables; case execution retained separately', browserInstalls, fontFiles, bundledFonts, inputHashes }, null, 2));
+          writeFileSync('reports/visual-baseline-review/environment.json', JSON.stringify({ schema: 1, reviewOnly: true, certified: false, sourceSha, sourceTree: command('git', ['rev-parse', 'HEAD^{tree}']), target, caseName: selection?.caseName ?? null, scope: process.env.VARVE_BASELINE_SCOPE, runner: { os: readFileSync('/etc/os-release', 'utf8'), image: process.env.ImageVersion ?? null }, node: process.version, playwright: require('@playwright/test/package.json').version, browserIdentityKind: 'installed executables; case execution retained separately', browserInstalls, fontFiles, bundledFonts, runtimeAssets, inputHashes }, null, 2));
           JS
 
       - name: Compare or update visual baselines
+        if: ${{ inputs.target == 'website' }}
         env:
           VARVE_REVIEWED: ${{ inputs.reviewed }}
           VARVE_UPDATE_SNAPSHOTS: ${{ inputs.update_snapshots }}
@@ -180,6 +358,21 @@ jobs:
               --trace=retain-on-failure --update-snapshots=none --global-timeout=1200000
           fi
 
+      - name: Compare or update one application baseline case
+        if: ${{ inputs.target != 'website' }}
+        env:
+          VARVE_REVIEWED: ${{ inputs.reviewed }}
+          VARVE_UPDATE_SNAPSHOTS: ${{ inputs.update_snapshots }}
+        run: |
+          set -euo pipefail
+          snapshot_mode=none
+          if [[ "$VARVE_REVIEWED" == "true" && "$VARVE_UPDATE_SNAPSHOTS" == "true" ]]; then snapshot_mode=changed; fi
+          read -r -a project_args <<< "$VARVE_APP_PROJECT_ARGS"
+          node scripts/quality/heavy-lease.mjs "application baseline $VARVE_BASELINE_TARGET: $VARVE_BASELINE_APP_CASE" -- \
+            pnpm exec playwright test "$VARVE_APP_SPEC" "${project_args[@]}" --grep "$VARVE_APP_GREP" \
+            --workers=1 --retries=0 --forbid-only --fail-on-flaky-tests \
+            --trace=retain-on-failure --update-snapshots="$snapshot_mode" --global-timeout=1200000
+
       - name: Retain baseline review outcome (never certification)
         if: always()
         env:
@@ -188,6 +381,7 @@ jobs:
           VARVE_BASELINE_SCOPE: ${{ inputs.scope }}
         run: |
           node --input-type=module <<'JS'
+          import { execFileSync } from 'node:child_process';
           import { createHash } from 'node:crypto';
           import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
           const directory = 'reports/visual-baseline-review';
@@ -195,7 +389,10 @@ jobs:
           const cases = `${directory}/cases.json`;
           const environment = `${directory}/environment.json`;
           const { collectBrowserEvidence, browserReportErrors } = await import('./scripts/quality/ci-execution-report.mjs');
-          const evidence = collectBrowserEvidence([{ lane: 'website-e2e', path: cases }]);
+          const target = process.env.VARVE_BASELINE_TARGET ?? 'website';
+          const evidence = collectBrowserEvidence([{ lane: target === 'website' ? 'website-e2e' : 'e2e:visual-review', path: cases }]);
+          const selectionPath = `${directory}/selection.json`;
+          const selection = target === 'website' || !existsSync(selectionPath) ? null : JSON.parse(readFileSync(selectionPath, 'utf8'));
           const updateRequested = process.env.VARVE_UPDATE_SNAPSHOTS === 'true';
           const expectedSnapshots = updateRequested ? 'changed' : 'none';
           const reviewErrors = evidence.reports.length === 1 ? [] : ['missing browser report'];
@@ -205,12 +402,28 @@ jobs:
             // strict case-history property using the existing consumer; retain
             // the actual changed mode below, never a certification receipt.
             reviewErrors.push(...browserReportErrors({ ...report, runner: { ...report.runner, updateSnapshots: 'none' } }));
-            if (report.cases.some((entry) => entry.project !== 'ghpages')) reviewErrors.push('unexpected baseline project');
+            if (target === 'website' && report.cases.some((entry) => entry.project !== 'ghpages')) reviewErrors.push('unexpected baseline project');
+            if (target !== 'website') {
+              if (!selection || selection.target !== target || selection.caseName !== process.env.VARVE_BASELINE_APP_CASE || selection.sourceSha !== process.env.GITHUB_SHA) reviewErrors.push('missing or mismatched application selection identity');
+              else if (report.cases.length !== selection.expectedCases || new Set(report.cases.map((entry) => entry.project)).size !== selection.expectedCases || report.cases.some((entry) => !selection.projects.includes(entry.project) || entry.file !== selection.spec.replace('tests/e2e/', '') || !new RegExp(selection.grep).test(entry.titlePath.join(' ')))) reviewErrors.push('application case or project selection drift');
+            }
             if (report.stats.skipped || report.cases.some((entry) => entry.expectedStatus !== 'passed' || entry.status !== 'expected')) reviewErrors.push('baseline capture did not pass every selected case');
-            if (process.env.VARVE_BASELINE_SCOPE === 'homepage' && report.cases.length !== 6) reviewErrors.push('homepage scope did not execute exactly six cases');
+            if (target === 'website' && process.env.VARVE_BASELINE_SCOPE === 'homepage' && report.cases.length !== 6) reviewErrors.push('homepage scope did not execute exactly six cases');
           }
           if (!existsSync(environment)) reviewErrors.push('missing source/browser/font identity');
-          const receipt = { schema: 1, reviewOnly: true, certified: false, generationStatus: process.env.VARVE_BASELINE_STATUS, updateRequested, environmentSha256: existsSync(environment) ? createHash('sha256').update(readFileSync(environment)).digest('hex') : null, casesSha256: existsSync(cases) ? createHash('sha256').update(readFileSync(cases)).digest('hex') : null, browserEvidence: evidence, reviewErrors: [...new Set(reviewErrors)] };
+          const snapshotFiles = [];
+          if (target !== 'website' && selection) {
+            const trackedChanges = execFileSync('git', ['diff', '--name-only', '-z', 'HEAD'], { encoding: 'utf8', timeout: 5000 }).split('\0').filter(Boolean);
+            const untrackedChanges = execFileSync('git', ['ls-files', '--others', '--exclude-standard', '-z'], { encoding: 'utf8', timeout: 5000 }).split('\0').filter(Boolean);
+            const changed = [...trackedChanges, ...untrackedChanges];
+            const allowed = selection.originalSnapshots.map((entry) => entry.path);
+            if (changed.some((path) => !updateRequested || !allowed.includes(path))) reviewErrors.push('application run changed source or an unselected baseline');
+            for (const entry of selection.originalSnapshots) {
+              const sha256 = createHash('sha256').update(readFileSync(entry.path)).digest('hex');
+              snapshotFiles.push({ ...entry, originalSha256: entry.sha256, sha256, changed: sha256 !== entry.sha256 });
+            }
+          }
+          const receipt = { schema: 1, reviewOnly: true, certified: false, generationStatus: process.env.VARVE_BASELINE_STATUS, updateRequested, selection, snapshotFiles, environmentSha256: existsSync(environment) ? createHash('sha256').update(readFileSync(environment)).digest('hex') : null, casesSha256: existsSync(cases) ? createHash('sha256').update(readFileSync(cases)).digest('hex') : null, browserEvidence: evidence, reviewErrors: [...new Set(reviewErrors)] };
           writeFileSync(`${directory}/outcome.json`, JSON.stringify(receipt, null, 2));
           if (receipt.reviewErrors.length) process.exitCode = 1;
           JS
@@ -224,6 +437,6 @@ jobs:
             reports/visual-baseline-review/
             test-results/
             playwright-report/
-            apps/website/tests/e2e/visual.spec.ts-snapshots/
+            ${{ inputs.target == 'website' && 'apps/website/tests/e2e/visual.spec.ts-snapshots/' || steps.app-case.outputs.artifact_paths }}
           if-no-files-found: ignore
           retention-days: 14

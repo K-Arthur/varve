@@ -903,4 +903,466 @@ assert.deepEqual(
   }
 }
 
+// Application review stays in the existing single baseline job/queue. Resolve
+// the actual inline selector and exercise shell argv with inert launchers.
+{
+  const fs = await import('node:fs');
+  const { spawnSync } = await import('node:child_process');
+  const { createRequire } = await import('node:module');
+  const { tmpdir } = await import('node:os');
+  const { join, delimiter } = await import('node:path');
+  const yaml = createRequire(import.meta.url)('js-yaml');
+  const workflow = yaml.load(fs.readFileSync('.github/workflows/visual-baselines.yml', 'utf8'));
+  const inputs = workflow.on.workflow_dispatch.inputs;
+  assert.equal(inputs.target.default, 'website');
+  assert.deepEqual(inputs.target.options, ['website', 'app-replay', 'app-ui']);
+  assert.equal(Object.keys(workflow.jobs).length, 1);
+  assert.equal(workflow.concurrency.group, 'visual-baselines');
+  const steps = workflow.jobs.regenerate.steps;
+  const resolveCase = steps.find(
+    (step) => step.name === 'Resolve one explicit application baseline case',
+  );
+  const execute = steps.find(
+    (step) => step.name === 'Compare or update one application baseline case',
+  );
+  const sourceGuard = steps.find(
+    (step) => step.name === 'Verify immutable source and reviewed update identity',
+  );
+  const outcome = steps.find(
+    (step) => step.name === 'Retain baseline review outcome (never certification)',
+  );
+  const temporary = fs.mkdtempSync(join(tmpdir(), 'varve-app-baseline-workflow-'));
+  const directory = join(temporary, 'reports');
+  const nodeSource = resolveCase.run
+    .split("<<'JS'\n")[1]
+    .split('\nJS')[0]
+    .replaceAll('reports/visual-baseline-review', directory);
+  const sourceSha = '1234567890abcdef1234567890abcdef12345678';
+  const envPath = join(temporary, 'environment.txt');
+  const outputPath = join(temporary, 'outputs.txt');
+  const argvPath = join(temporary, 'argv.txt');
+  try {
+    const selections = [];
+    function selection(target, caseName) {
+      fs.writeFileSync(envPath, '');
+      fs.writeFileSync(outputPath, '');
+      const result = spawnSync(process.execPath, ['--input-type=module', '-e', nodeSource], {
+        encoding: 'utf8',
+        timeout: 5000,
+        env: {
+          ...process.env,
+          GITHUB_SHA: sourceSha,
+          GITHUB_ENV: envPath,
+          GITHUB_OUTPUT: outputPath,
+          VARVE_BASELINE_TARGET: target,
+          VARVE_BASELINE_APP_CASE: caseName,
+        },
+      });
+      if (result.status !== 0) return { status: result.status };
+      const plan = JSON.parse(fs.readFileSync(join(directory, 'selection.json'), 'utf8'));
+      const environment = Object.fromEntries(
+        fs
+          .readFileSync(envPath, 'utf8')
+          .trim()
+          .split('\n')
+          .map((line) => {
+            const index = line.indexOf('=');
+            return [line.slice(0, index), line.slice(index + 1)];
+          }),
+      );
+      return {
+        status: result.status,
+        plan,
+        environment,
+        output: fs.readFileSync(outputPath, 'utf8'),
+      };
+    }
+    for (const caseName of inputs.app_case.options) {
+      const target = caseName === 'multilingual-text' ? 'app-replay' : 'app-ui';
+      const result = selection(target, caseName);
+      assert.equal(result.status, 0, `actual selector must resolve ${caseName}`);
+      assert.equal(result.plan.caseName, caseName);
+      assert.equal(result.plan.sourceSha, sourceSha);
+      assert.equal(result.plan.expectedCases, target === 'app-replay' ? 3 : 1);
+      assert.equal(
+        result.environment.VARVE_VISUAL_HARNESS_ONLY,
+        target === 'app-replay' ? '1' : '0',
+      );
+      assert.ok(new RegExp(result.plan.grep).test(result.plan.title));
+      assert.ok(!new RegExp(result.plan.grep).test(`${result.plan.title} extra case`));
+      for (const snapshot of result.plan.originalSnapshots) {
+        assert.match(snapshot.sha256, /^[a-f0-9]{64}$/);
+        assert.ok(snapshot.path.startsWith(`${result.plan.spec}-snapshots/`));
+        assert.ok(
+          !snapshot.path.includes('gpu') &&
+            !snapshot.path.includes('firefox') &&
+            !snapshot.path.includes('webkit'),
+        );
+        assert.ok(result.output.includes(snapshot.path));
+      }
+      assert.deepEqual(
+        result.plan.projects,
+        target === 'app-replay'
+          ? ['chromium-visual-1x', 'chromium-visual-2x', 'chromium-visual-3x']
+          : ['chromium'],
+      );
+      selections.push(result);
+    }
+    assert.equal(selections.length, 21);
+    assert.equal(
+      selections.find((entry) => entry.plan.caseName === 'nested-groups-isolated-opacity').plan
+        .originalSnapshots.length,
+      2,
+    );
+    for (const [target, caseName] of [
+      ['app-ui', 'multilingual-text'],
+      ['app-replay', 'document-settings'],
+      ['app-ui', 'all'],
+      ['app-ui', '.*'],
+      ['unknown', 'multilingual-text'],
+    ])
+      assert.notEqual(selection(target, caseName).status, 0);
+    fs.writeFileSync(
+      join(temporary, 'git'),
+      '#!/bin/sh\nprintf "%s\\n" "$VARVE_TEST_SOURCE_SHA"\n',
+      { mode: 0o755 },
+    );
+    fs.writeFileSync(
+      join(temporary, 'node'),
+      '#!/bin/sh\nprintf "%s\\n" "$@" > "$VARVE_TEST_ARGV_PATH"\n',
+      { mode: 0o755 },
+    );
+    function capture(plan, overrides = {}) {
+      fs.rmSync(argvPath, { force: true });
+      const environment = {
+        ...process.env,
+        ...plan.environment,
+        PATH: `${temporary}${delimiter}${process.env.PATH ?? ''}`,
+        VARVE_TEST_SOURCE_SHA: sourceSha,
+        VARVE_TEST_ARGV_PATH: argvPath,
+        VARVE_EVENT_SHA: sourceSha,
+        VARVE_REVIEWED_SHA: '',
+        VARVE_REVIEWED_CASE: '',
+        VARVE_REVIEWED: 'false',
+        VARVE_UPDATE_SNAPSHOTS: 'false',
+        VARVE_WASM_RUN_ID: '101',
+        VARVE_WASM_ARTIFACT_ID: '202',
+        VARVE_BASELINE_TARGET: plan.plan.target,
+        VARVE_BASELINE_APP_CASE: plan.plan.caseName,
+        ...overrides,
+      };
+      const guard = spawnSync('bash', ['-c', sourceGuard.run], {
+        env: environment,
+        encoding: 'utf8',
+        timeout: 5000,
+      });
+      if (guard.status !== 0) return { status: guard.status, argv: [] };
+      const result = spawnSync('bash', ['-c', execute.run], {
+        env: environment,
+        encoding: 'utf8',
+        timeout: 5000,
+      });
+      return {
+        status: result.status,
+        argv: fs.existsSync(argvPath) ? fs.readFileSync(argvPath, 'utf8').trim().split('\n') : [],
+      };
+    }
+    for (const selected of [
+      selections[0],
+      selections.find((entry) => entry.plan.caseName === 'enhance-dialog-default'),
+    ]) {
+      const comparison = capture(selected);
+      assert.equal(comparison.status, 0);
+      assert.equal(comparison.argv[0], 'scripts/quality/heavy-lease.mjs');
+      assert.ok(comparison.argv.includes(selected.plan.spec));
+      assert.equal(comparison.argv[comparison.argv.indexOf('--grep') + 1], selected.plan.grep);
+      for (const flag of [
+        '--workers=1',
+        '--retries=0',
+        '--forbid-only',
+        '--fail-on-flaky-tests',
+        '--trace=retain-on-failure',
+        '--update-snapshots=none',
+      ])
+        assert.ok(comparison.argv.includes(flag));
+      assert.deepEqual(
+        comparison.argv.filter((arg) => arg.startsWith('--project=')),
+        selected.plan.projects.map((project) => `--project=${project}`),
+      );
+      assert.notEqual(
+        capture(selected, {
+          VARVE_UPDATE_SNAPSHOTS: 'true',
+          VARVE_REVIEWED: 'true',
+          VARVE_REVIEWED_SHA: sourceSha,
+          VARVE_REVIEWED_CASE: 'different-owner',
+        }).status,
+        0,
+      );
+      const update = capture(selected, {
+        VARVE_UPDATE_SNAPSHOTS: 'true',
+        VARVE_REVIEWED: 'true',
+        VARVE_REVIEWED_SHA: sourceSha,
+        VARVE_REVIEWED_CASE: selected.plan.caseName,
+      });
+      assert.equal(update.status, 0);
+      assert.ok(update.argv.includes('--update-snapshots=changed'));
+      assert.ok(!update.argv.includes('--update-snapshots=all'));
+    }
+    const outcomeSource = outcome.run
+      .split("<<'JS'\n")[1]
+      .split('\nJS')[0]
+      .replace(
+        "const directory = 'reports/visual-baseline-review';",
+        `const directory = ${JSON.stringify(directory)};`,
+      );
+    fs.writeFileSync(join(directory, 'environment.json'), JSON.stringify({ sourceSha }));
+    // Inert Git responds only to source/diff inventories; no Git mutation or PNG
+    // write occurs. The outcome writer reads the actual existing baseline bytes.
+    fs.writeFileSync(
+      join(temporary, 'git'),
+      '#!/bin/sh\nif [ "$1" = diff ]; then\n  if [ -n "$VARVE_TEST_CHANGED_FILE" ]; then printf "%s\\0" "$VARVE_TEST_CHANGED_FILE"; fi\nelif [ "$1" = ls-files ]; then\n  if [ -n "$VARVE_TEST_UNTRACKED_FILE" ]; then printf "%s\\0" "$VARVE_TEST_UNTRACKED_FILE"; fi\nelse\n  printf "%s\\n" "$VARVE_TEST_SOURCE_SHA"\nfi\n',
+      { mode: 0o755 },
+    );
+    function appOutcome(
+      selected,
+      { mode = 'none', mutate, changedFile = '', untrackedFile = '' } = {},
+    ) {
+      fs.writeFileSync(join(directory, 'selection.json'), JSON.stringify(selected.plan));
+      const report = {
+        config: {
+          workers: 1,
+          updateSnapshots: mode,
+          failOnFlakyTests: true,
+          argv: ['--trace=retain-on-failure'],
+          projects: selected.plan.projects.map((name) => ({ name, retries: 0 })),
+        },
+        errors: [],
+        stats: { expected: selected.plan.expectedCases, unexpected: 0, flaky: 0, skipped: 0 },
+        suites: [
+          {
+            title: '',
+            specs: [
+              {
+                file: selected.plan.spec.replace('tests/e2e/', ''),
+                title: selected.plan.title,
+                tests: selected.plan.projects.map((projectName) => ({
+                  projectName,
+                  expectedStatus: 'passed',
+                  status: 'expected',
+                  results: [{ retry: 0, status: 'passed', duration: 1 }],
+                })),
+              },
+            ],
+          },
+        ],
+      };
+      mutate?.(report);
+      fs.writeFileSync(join(directory, 'cases.json'), JSON.stringify(report));
+      const result = spawnSync(process.execPath, ['--input-type=module', '-e', outcomeSource], {
+        encoding: 'utf8',
+        timeout: 5000,
+        env: {
+          ...process.env,
+          PATH: `${temporary}${delimiter}${process.env.PATH ?? ''}`,
+          GITHUB_SHA: sourceSha,
+          VARVE_BASELINE_TARGET: selected.plan.target,
+          VARVE_BASELINE_APP_CASE: selected.plan.caseName,
+          VARVE_BASELINE_STATUS: 'success',
+          VARVE_UPDATE_SNAPSHOTS: mode === 'changed' ? 'true' : 'false',
+          VARVE_TEST_CHANGED_FILE: changedFile,
+          VARVE_TEST_UNTRACKED_FILE: untrackedFile,
+        },
+      });
+      assert.equal(result.error, undefined);
+      const receipt = JSON.parse(fs.readFileSync(join(directory, 'outcome.json'), 'utf8'));
+      assert.equal(receipt.certified, false);
+      assert.equal(receipt.reviewOnly, true);
+      return { status: result.status, receipt };
+    }
+    for (const selected of [
+      selections[0],
+      selections.find((entry) => entry.plan.caseName === 'enhance-dialog-default'),
+    ]) {
+      for (const mode of ['none', 'changed']) {
+        const valid = appOutcome(selected, { mode });
+        assert.equal(valid.status, 0);
+        assert.deepEqual(valid.receipt.reviewErrors, []);
+        assert.equal(valid.receipt.snapshotFiles.length, selected.plan.originalSnapshots.length);
+        assert.equal(valid.receipt.browserEvidence.reports[0].runner.updateSnapshots, mode);
+      }
+      const wrongCase = appOutcome(selected, {
+        mutate(report) {
+          report.suites[0].specs[0].title += ' extra';
+        },
+      });
+      assert.notEqual(wrongCase.status, 0);
+      assert.ok(
+        wrongCase.receipt.reviewErrors.includes('application case or project selection drift'),
+      );
+      const gpu = appOutcome(selected, {
+        mutate(report) {
+          report.suites[0].specs[0].tests[0].projectName = 'chromium-visual-gpu';
+        },
+      });
+      assert.notEqual(gpu.status, 0);
+      assert.ok(gpu.receipt.reviewErrors.includes('application case or project selection drift'));
+      const changed = appOutcome(selected, {
+        mode: 'changed',
+        changedFile: 'packages/editor/src/CanvasArea.tsx',
+      });
+      assert.notEqual(changed.status, 0);
+      assert.ok(
+        changed.receipt.reviewErrors.includes(
+          'application run changed source or an unselected baseline',
+        ),
+      );
+      const newPng = appOutcome(selected, {
+        mode: 'changed',
+        untrackedFile: 'tests/e2e/visual/replay.spec.ts-snapshots/unreviewed-gpu-linux.png',
+      });
+      assert.notEqual(newPng.status, 0);
+      assert.ok(
+        newPng.receipt.reviewErrors.includes(
+          'application run changed source or an unselected baseline',
+        ),
+      );
+      const compareWrite = appOutcome(selected, {
+        changedFile: selected.plan.originalSnapshots[0].path,
+      });
+      assert.notEqual(compareWrite.status, 0);
+      assert.ok(
+        compareWrite.receipt.reviewErrors.includes(
+          'application run changed source or an unselected baseline',
+        ),
+      );
+    }
+    const wasmStep = steps.find((step) => step.name === 'Verify reused application WASM producer');
+    const wasmSource = wasmStep.run
+      .split("<<'JS'\n")[1]
+      .split('\nJS')[0]
+      .replaceAll('reports/visual-baseline-review', directory);
+    const download = steps.find((step) => step.name === 'Reuse verified application WASM artifact');
+    assert.ok(download.uses.startsWith('actions/download-artifact@'));
+    assert.ok(download.with['artifact-ids'].includes('steps.wasm-source.outputs.artifact_id'));
+    const fixtureValue = 'fixture-access';
+    function reusedWasm(mutate) {
+      fs.rmSync(join(directory, 'wasm-source.json'), { force: true });
+      const fixture = {
+        run: {
+          id: 101,
+          head_sha: sourceSha,
+          head_repository: { full_name: 'K-Arthur/varve' },
+          path: '.github/workflows/ci.yml',
+          run_attempt: 2,
+        },
+        artifact: {
+          id: 202,
+          name: 'varve-wasm-101-attempt-1',
+          expired: false,
+          expires_at: new Date(Date.now() + 3600000).toISOString(),
+          digest: `sha256:${'a'.repeat(64)}`,
+          workflow_run: { id: 101, head_sha: sourceSha },
+        },
+        jobs: [
+          {
+            id: 301,
+            name: 'WASM',
+            run_id: 101,
+            head_sha: sourceSha,
+            run_attempt: 1,
+            status: 'completed',
+            conclusion: 'success',
+          },
+          {
+            id: 302,
+            name: 'E2E',
+            run_id: 101,
+            head_sha: sourceSha,
+            run_attempt: 2,
+            status: 'completed',
+            conclusion: 'failure',
+          },
+        ],
+      };
+      mutate?.(fixture);
+      const mocked = `const fixture = ${JSON.stringify(fixture)}; globalThis.fetch = async (url) => ({ ok: true, json: async () => String(url).includes('/jobs?') ? { jobs: fixture.jobs } : String(url).includes('/artifacts/') ? fixture.artifact : fixture.run });\n${wasmSource}`;
+      const result = spawnSync(process.execPath, ['--input-type=module', '-e', mocked], {
+        encoding: 'utf8',
+        timeout: 5000,
+        env: {
+          ...process.env,
+          GITHUB_SHA: sourceSha,
+          GITHUB_REPOSITORY: 'K-Arthur/varve',
+          GITHUB_TOKEN: fixtureValue,
+          GITHUB_OUTPUT: outputPath,
+          VARVE_WASM_RUN_ID: '101',
+          VARVE_WASM_ARTIFACT_ID: '202',
+        },
+      });
+      assert.equal(result.error, undefined);
+      return {
+        status: result.status,
+        receipt: fs.existsSync(join(directory, 'wasm-source.json'))
+          ? JSON.parse(fs.readFileSync(join(directory, 'wasm-source.json'), 'utf8'))
+          : null,
+      };
+    }
+    const unchangedProducer = reusedWasm();
+    assert.equal(
+      unchangedProducer.status,
+      0,
+      'failed-only E2E rerun retains the untouched same-source WASM producer',
+    );
+    assert.equal(unchangedProducer.receipt.producerAttempt, 1);
+    assert.equal(unchangedProducer.receipt.certified, false);
+    for (const mutate of [
+      (fixture) => {
+        fixture.run.head_sha = 'b'.repeat(40);
+      },
+      (fixture) => {
+        fixture.run.head_repository.full_name = 'other/varve';
+      },
+      (fixture) => {
+        fixture.run.path = '.github/workflows/unknown.yml';
+      },
+      (fixture) => {
+        fixture.jobs.push({ ...fixture.jobs[0], id: 303, run_attempt: 2, conclusion: 'failure' });
+      },
+      (fixture) => {
+        fixture.jobs.push({ ...fixture.jobs[0], id: 303, run_attempt: 3 });
+      },
+      (fixture) => {
+        fixture.artifact.expired = true;
+      },
+      (fixture) => {
+        fixture.artifact.workflow_run.head_sha = 'b'.repeat(40);
+      },
+      (fixture) => {
+        fixture.artifact.name = 'varve-wasm-101-attempt-2';
+      },
+      (fixture) => {
+        fixture.artifact.digest = null;
+      },
+    ]) {
+      const invalid = reusedWasm(mutate);
+      assert.notEqual(invalid.status, 0);
+      assert.equal(invalid.receipt, null);
+    }
+    const uiOwner = selections.find((entry) => entry.plan.target === 'app-ui');
+    assert.notEqual(
+      capture(uiOwner, { VARVE_WASM_RUN_ID: '', VARVE_WASM_ARTIFACT_ID: '' }).status,
+      0,
+    );
+    const upload = steps.find((step) => step.uses?.startsWith('actions/upload-artifact@'));
+    assert.ok(upload.with.path.includes('steps.app-case.outputs.artifact_paths'));
+    assert.ok(!upload.with.path.includes('tests/e2e/visual/replay.spec.ts-snapshots/'));
+    assert.match(outcome.run, /application case or project selection drift/);
+    assert.match(outcome.run, /application run changed source or an unselected baseline/);
+    assert.match(outcome.run, /originalSha256/);
+    assert.match(outcome.run, /certified: false/);
+  } finally {
+    fs.rmSync(temporary, { recursive: true, force: true });
+  }
+}
+
 process.stdout.write('validate-workflows.test.mjs: all assertions passed\n');
