@@ -15,14 +15,17 @@ test.describe('canvas object marquee selection', () => {
     const box = await canvas.boundingBox();
     if (!box) throw new Error('editor canvas content surface not found');
 
-    // The seeded rectangles begin at world (100, 100), so this starts in
-    // empty canvas space and encloses all three objects.
-    const start = { x: box.x + 40, y: box.y + 40 };
-    const end = { x: box.x + 520, y: box.y + 420 };
+    // Start in the empty upper-right canvas corner. The lower edge is occupied
+    // by the floating toolbar, and a small top-left inset can overlap a seeded
+    // object's hit target even when it looks just outside its fill. Drag back
+    // across the artwork so the marquee covers every seeded object.
+    const start = { x: box.x + box.width - 48, y: box.y + 40 };
+    const end = { x: box.x + 40, y: box.y + box.height - 80 };
     await page.keyboard.press('v');
     await page.mouse.move(start.x, start.y);
     await page.mouse.down();
     await page.mouse.move((start.x + end.x) / 2, (start.y + end.y) / 2);
+    await page.mouse.move(end.x, end.y);
     await expect
       .poll(async () =>
         page.locator('svg[role="presentation"] rect[stroke-dasharray="3 3"]').count(),
@@ -32,12 +35,6 @@ test.describe('canvas object marquee selection', () => {
       path: testInfo.outputPath('canvas-object-marquee-preview.png'),
       fullPage: false,
     });
-    await page.mouse.move(end.x, end.y);
-    await expect
-      .poll(async () =>
-        page.locator('svg[role="presentation"] rect[stroke-dasharray="3 3"]').count(),
-      )
-      .toBeGreaterThan(0);
     await page.mouse.up();
 
     await expect
@@ -61,11 +58,23 @@ test.describe('canvas object marquee selection', () => {
     await expect(page.locator('[role="treeitem"][aria-selected="true"]')).toHaveCount(0);
 
     // X is a tool-local force chord: pressing over an object still starts an
-    // object marquee instead of entering move mode.
+    // object marquee instead of entering move mode. Derive the drag start from
+    // the selected object's rendered outline instead of fixed canvas offsets;
+    // seeded object positions depend on the responsive canvas geometry.
+    await rows.first().click();
+    const selectedOutline = page
+      .locator('svg[role="presentation"] rect[filter="url(#selection-glow)"]')
+      .first();
+    await expect(selectedOutline).toBeVisible();
+    const outlineBox = await selectedOutline.boundingBox();
+    if (!outlineBox) throw new Error('selected object outline not found');
     await canvas.focus();
     await page.keyboard.down('x');
-    const forcedStart = { x: box.x + 360, y: box.y + 240 };
-    const forcedEnd = { x: box.x + 500, y: box.y + 400 };
+    const forcedStart = {
+      x: outlineBox.x + outlineBox.width / 2,
+      y: outlineBox.y + outlineBox.height / 2,
+    };
+    const forcedEnd = { x: forcedStart.x + 12, y: forcedStart.y + 12 };
     await page.mouse.move(forcedStart.x, forcedStart.y);
     await page.mouse.down();
     await page.mouse.move((forcedStart.x + forcedEnd.x) / 2, (forcedStart.y + forcedEnd.y) / 2);
@@ -74,6 +83,11 @@ test.describe('canvas object marquee selection', () => {
       fullPage: false,
     });
     await page.mouse.move(forcedEnd.x, forcedEnd.y);
+    await expect
+      .poll(async () =>
+        page.locator('svg[role="presentation"] rect[stroke-dasharray="3 3"]').count(),
+      )
+      .toBeGreaterThan(0);
     await page.mouse.up();
     await page.keyboard.up('x');
     await expect(page.locator('[role="treeitem"][aria-selected="true"]')).toHaveCount(1);

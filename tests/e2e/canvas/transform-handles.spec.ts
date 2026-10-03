@@ -36,6 +36,9 @@ test.describe('Selection overlay transform handles', () => {
   test('resizing from a corner handle does not crash the editor and produces the correct size', async ({
     page,
   }) => {
+    // This spec measures the raw pointer-to-size transform. Snapping has its
+    // own coverage and can correctly move the dragged edge to a nearby target.
+    await page.getByRole('button', { name: 'Disable snapping' }).click();
     await page.keyboard.press('r');
     await dragOnCanvas(page, 300, 300, 500, 450);
     await page.keyboard.press('v');
@@ -46,13 +49,13 @@ test.describe('Selection overlay transform handles', () => {
     await expect(wField).toHaveValue('200');
     await expect(hField).toHaveValue('150');
 
-    const canvas = page.locator('canvas.editor-canvas__content-layer');
-    const box = await canvas.boundingBox();
-    if (!box) throw new Error('canvas not found');
-
-    // SE corner handle sits at the shape's bottom-right corner.
-    const seX = box.x + 500;
-    const seY = box.y + 450;
+    // Start from the actual rendered handle. Canvas-local coordinates drift
+    // when the viewport camera is centered/panned, even at 100% zoom.
+    const seHandle = page.getByLabel('Bottom-right resize handle');
+    const handleBox = await seHandle.boundingBox();
+    if (!handleBox) throw new Error('bottom-right resize handle not found');
+    const seX = handleBox.x + handleBox.width / 2;
+    const seY = handleBox.y + handleBox.height / 2;
     await page.mouse.move(seX, seY);
     await page.mouse.down();
     await page.mouse.move(seX + 40, seY + 30);
@@ -68,8 +71,8 @@ test.describe('Selection overlay transform handles', () => {
     const newH = Number(await hField.inputValue());
     expect(newW).toBeGreaterThan(200);
     expect(newH).toBeGreaterThan(150);
-    // A drag of (+80,+60) screen px at 100% zoom should grow by roughly that
-    // much (allow slack for snapping).
+    // Snapping is disabled above, so a drag of (+80,+60) screen px at 100%
+    // zoom should grow the corresponding world dimensions by the same amount.
     expect(newW).toBeCloseTo(280, -1);
     expect(newH).toBeCloseTo(210, -1);
   });

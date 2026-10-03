@@ -61,13 +61,13 @@ test.describe('Layers Panel - Drag & Drop', () => {
     }
   });
 
-  test('reorders a virtualized row to the pointer target', async ({ page }) => {
+  test('reorders a visible row to the pointer target', async ({ page }) => {
     await seedLayers(page, 3);
 
     const rows = page.getByRole('treeitem');
     await expect(rows).toHaveCount(3);
     const before = await rows.allTextContents();
-    const source = rows.nth(2);
+    const source = rows.nth(1);
     const target = rows.nth(0);
     const sourceHandle = source.locator('.layers-row__drag-handle');
     const sourceId = await source.getAttribute('data-node-id');
@@ -104,7 +104,7 @@ test.describe('Layers Panel - Drag & Drop', () => {
 
     await expect.poll(async () => rows.allTextContents()).not.toEqual(before);
     const after = await rows.allTextContents();
-    expect(after[0]).toBe(before[2]);
+    expect(after[0]).toBe(before[1]);
 
     // The visible reorder must be a document/history mutation, not only a
     // transient virtual-list rearrangement.

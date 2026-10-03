@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { openSubmenu } from '../helpers/menu-helpers';
+import { closeMenu, openSubmenu } from '../helpers/menu-helpers';
 import { navigateToEditor } from '../shared';
 
 /**
@@ -45,22 +45,16 @@ test.describe('Logo panel', () => {
     await expect(
       designPanels.getByRole('menuitemcheckbox', { name: /Logo Tools Panel/i }),
     ).toBeVisible();
-    // Close the open View > Panels menus by toggling the trigger; Escape from
-    // menubar focus did not reliably close both layers (the submenu owns its
-    // own dismiss policy).
-    await page.getByRole('menubar').getByRole('menuitem', { name: /^View/ }).click();
-    await expect(page.getByRole('menu')).toHaveCount(0);
+    // Close both nested menu levels before changing workspaces.
+    await closeMenu(page);
 
     // Email has no Logo-specific panel command.
-    await page.getByRole('menubar').getByRole('menuitem', { name: /^View/ }).click();
-    await expect(page.getByRole('menu')).toHaveCount(0);
     await page.keyboard.press('Control+Shift+6');
     const emailPanels = await openPanels();
     await expect(
       emailPanels.getByRole('menuitemcheckbox', { name: /Logo Tools Panel/i }),
     ).toHaveCount(0);
-    await page.getByRole('menubar').getByRole('menuitem', { name: /^View/ }).click();
-    await expect(page.getByRole('menu')).toHaveCount(0);
+    await closeMenu(page);
 
     // The Logo shortcut returns to Design and reveals the tools.
     await page.keyboard.press('Control+Shift+7');

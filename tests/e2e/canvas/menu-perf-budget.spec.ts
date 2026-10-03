@@ -79,11 +79,9 @@ test.describe('Menu performance budgets', () => {
 
       const menu = document.querySelector('[role="menu"]');
       if (!menu) return -1;
-      // Submenu triggers use aria-haspopup="true". The File menu always has
-      // the Logo submenu, while Open Recent is conditional and Export is a
-      // direct action, so the old text-based probe returned -1 on a clean
-      // document.
-      const submenuItem = menu.querySelector('[aria-haspopup="true"]');
+      // The menubar submenu contract uses aria-haspopup="menu". The File
+      // menu always has the Logo submenu, while Open Recent is conditional.
+      const submenuItem = menu.querySelector('[aria-haspopup="menu"]');
       if (!(submenuItem instanceof HTMLElement)) return -1;
       const item = submenuItem;
 

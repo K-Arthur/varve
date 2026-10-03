@@ -44,15 +44,18 @@ export async function openMenu(page: Page, name: string) {
 export async function openSubmenu(page: Page, menuName: string, submenuLabel: string) {
   await openMenu(page, menuName);
   const parent = page.locator(`[role="menu"][aria-label="${menuName}"]`);
-  await parent.locator('[role="menuitem"]', { hasText: submenuLabel }).hover();
+  await parent.getByRole('menuitem', { name: submenuLabel, exact: true }).hover();
   const submenu = page.locator(`[role="menu"][aria-label="${submenuLabel}"]`);
   await expect(submenu).toBeVisible();
   return submenu;
 }
 
 export async function closeMenu(page: Page) {
-  await page.keyboard.press('Escape');
-  await expect(page.locator('[role="menu"]')).toHaveCount(0, { timeout: 2000 });
+  const menus = page.locator('[role="menu"]');
+  for (let attempt = 0; attempt < 3 && (await menus.count()) > 0; attempt++) {
+    await page.keyboard.press('Escape');
+  }
+  await expect(menus).toHaveCount(0, { timeout: 2000 });
 }
 
 export async function assertFocusNotOnBody(page: Page) {

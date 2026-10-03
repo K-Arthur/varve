@@ -54,7 +54,7 @@ test.describe('onboarding and help', () => {
     const welcome = page.getByRole('dialog', { name: /welcome to varve/i });
     await expect(welcome).toBeVisible();
 
-    await page.getByRole('button', { name: /blank canvas/i }).click();
+    await page.getByRole('button', { name: /blank design canvas/i }).click();
     await expect(welcome).toBeHidden({ timeout: 5000 });
 
     // Dismissed state is persisted without forcing a reload, which would
@@ -83,7 +83,7 @@ test.describe('onboarding and help', () => {
   test('help center opens from Help menu', async ({ page }) => {
     await navigateToEditor(page);
 
-    const welcomeClose = page.getByRole('button', { name: /blank canvas/i });
+    const welcomeClose = page.getByRole('button', { name: /blank design canvas/i });
     if (await welcomeClose.isVisible({ timeout: 1000 }).catch(() => false)) {
       await welcomeClose.click();
     }

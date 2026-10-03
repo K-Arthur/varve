@@ -9,6 +9,15 @@ declare global {
   }
 }
 
+async function chooseCustomSelectOption(
+  page: import('@playwright/test').Page,
+  label: string,
+  option: string | RegExp,
+) {
+  await page.getByRole('combobox', { name: label }).click();
+  await page.getByRole('listbox', { name: label }).getByRole('option', { name: option }).click();
+}
+
 test.describe('presentation authoring foundation', () => {
   test('creates a 16:9 deck and opens the Slides navigator in Design mode', async ({
     page,
@@ -62,10 +71,10 @@ test.describe('presentation authoring foundation', () => {
     });
 
     await page.locator('.presentation-layouts > summary').click();
-    await page.getByRole('combobox', { name: 'Built-in layout' }).selectOption('title-section');
+    await chooseCustomSelectOption(page, 'Built-in layout', /Title \/ section/);
     await page.getByRole('button', { name: 'Add editable layout source' }).click();
     const layoutSource = page.getByRole('combobox', { name: 'Layout source' });
-    await expect(layoutSource.locator('option:checked')).toContainText('Title / section');
+    await expect(layoutSource).toContainText('Title / section');
     await expect(page.locator('.presentation-layouts__status')).toContainText('Revision 1');
 
     await page.getByRole('button', { name: 'Present', exact: true }).click();
@@ -148,7 +157,11 @@ test.describe('presentation authoring foundation', () => {
       .locator(':scope > li')
       .first()
       .getByRole('combobox', { name: 'Section for Slide 1' })
-      .selectOption({ label: 'Client pitch' });
+      .click();
+    await page
+      .getByRole('listbox', { name: 'Section for Slide 1' })
+      .getByRole('option', { name: 'Client pitch' })
+      .click();
     await page
       .getByLabel('Speaker notes (private)')
       .first()
@@ -175,7 +188,7 @@ test.describe('presentation authoring foundation', () => {
         .locator(':scope > li')
         .first()
         .getByRole('combobox', { name: 'Section for Slide 1' }),
-    ).toHaveValue(/.+/);
+    ).toContainText('Client pitch');
     await expect(page.getByLabel('Speaker notes (private)').first()).toHaveValue(
       'Client-only agenda: pricing review and launch date.',
     );

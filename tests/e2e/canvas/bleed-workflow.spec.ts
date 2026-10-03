@@ -308,7 +308,7 @@ test.describe('Bleed print workflow', () => {
     // Redo via the toolbar button. Undo/redo run through the persistent
     // revision store (async) whose canRedo flag lags the action, so wait
     // for the button to enable before clicking.
-    const redoBtn = page.getByRole('button', { name: /^Redo$/ });
+    const redoBtn = page.getByRole('button', { name: /^Redo\b/ });
     await expect
       .poll(async () => (await redoBtn.count()) && (await redoBtn.first().isEnabled()), {
         timeout: 15000,
@@ -332,14 +332,25 @@ test.describe('Bleed print workflow', () => {
     // Move the page: the guide follows the placement.
     await activatePageToolAndPage(page);
     await page.keyboard.press('Escape');
+    const canvas = page.locator('canvas.editor-canvas__content-layer');
+    const canvasBox = await canvas.boundingBox();
     const before = await page.locator('.print-bleed-guide').boundingBox();
+    expect(canvasBox && before).toBeTruthy();
     await page.keyboard.press('q');
-    await dragOnCanvas(page, 400, 400, 700, 500); // page tool drag moves the page
+    const start = {
+      x: before!.x + before!.width / 2 - canvasBox!.x,
+      y: before!.y + before!.height / 2 - canvasBox!.y,
+    };
+    const delta = {
+      x: Math.min(120, canvasBox!.width * 0.2),
+      y: Math.min(60, canvasBox!.height * 0.15),
+    };
+    await dragOnCanvas(page, start, { x: start.x + delta.x, y: start.y + delta.y });
     await page.waitForTimeout(400);
     const after = await page.locator('.print-bleed-guide').boundingBox();
     expect(before && after).toBeTruthy();
-    expect(after!.x - before!.x).toBeCloseTo(300, 1);
-    expect(after!.y - before!.y).toBeCloseTo(100, 1);
+    expect(after!.x - before!.x).toBeCloseTo(delta.x, 1);
+    expect(after!.y - before!.y).toBeCloseTo(delta.y, 1);
 
     // Resize the page: bleed distance stays physically constant (still
     // 20px per edge; never a percentage of the new size).
