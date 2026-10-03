@@ -43,6 +43,7 @@ describe('useThumbnail caching', () => {
   afterEach(() => {
     vi.useRealTimers();
     resetImageCache();
+    vi.restoreAllMocks();
   });
 
   it('starts null and renders asynchronously on first mount (cache miss)', async () => {
@@ -140,6 +141,92 @@ describe('useThumbnail caching', () => {
       height: 3000,
     });
     unmount();
+  });
+
+  it.each([0, 0.5, 1])('composes image-fill opacity %s with layer opacity', async (opacity) => {
+    const drawnAlpha: number[] = [];
+    const originalGetContext = OffscreenCanvas.prototype.getContext;
+    // Preserve every getContext overload: Vitest otherwise infers only the
+    // final WebGPU signature, even though the thumbnail renderer requests 2d.
+    const observeContext = function (
+      this: OffscreenCanvas,
+      contextId: string,
+      options?: unknown,
+    ): OffscreenRenderingContext | null {
+      const context = Reflect.apply(originalGetContext, this, [
+        contextId,
+        options,
+      ]) as OffscreenRenderingContext | null;
+      if (contextId === '2d' && context) {
+        const context2d = context as OffscreenCanvasRenderingContext2D;
+        context2d.drawImage = vi.fn(() => drawnAlpha.push(context2d.globalAlpha));
+      }
+      return context;
+    } as OffscreenCanvas['getContext'];
+    vi.spyOn(OffscreenCanvas.prototype, 'getContext').mockImplementation(observeContext);
+    const node = {
+      ...makeShapeNode(`thumb-fill-alpha-${opacity}`),
+      opacity: 0.5,
+      fills: [
+        {
+          type: 'image',
+          image: { src: 'data:image/png;base64,FILL_ALPHA', fit: 'fill', x: 0, y: 0, scale: 1 },
+          opacity,
+          blendMode: 'normal',
+          visible: true,
+        },
+      ],
+    } as unknown as SceneNode;
+    vi.spyOn(thumbnailImageCache, 'loadAtSize').mockResolvedValue({
+      width: 28,
+      height: 28,
+    } as ImageBitmap);
+    const { result, unmount } = renderHook(() => useThumbnail(node));
+    await flushRenderTimer();
+    expect(result.current).not.toBeNull();
+    expect(drawnAlpha).toEqual([opacity * 0.5]);
+    unmount();
+  });
+
+  it('invalidates an existing image thumbnail when its fill opacity changes', async () => {
+    const node = {
+      ...makeShapeNode('thumb-fill-alpha-invalidation'),
+      fills: [
+        {
+          type: 'image',
+          image: {
+            src: 'data:image/png;base64,FILL_ALPHA_CACHE',
+            fit: 'fill',
+            x: 0,
+            y: 0,
+            scale: 1,
+          },
+          opacity: 1,
+          blendMode: 'normal',
+          visible: true,
+        },
+      ],
+    } as unknown as SceneNode;
+    const load = vi
+      .spyOn(thumbnailImageCache, 'loadAtSize')
+      .mockResolvedValue({ width: 28, height: 28 } as ImageBitmap);
+    load.mockClear();
+    const view = renderHook(({ n }: { n: SceneNode }) => useThumbnail(n), {
+      initialProps: { n: node },
+    });
+    await flushRenderTimer();
+    expect(load).toHaveBeenCalledTimes(1);
+    const originalUrl = view.result.current;
+    const faded = {
+      ...node,
+      fills: [{ ...('fills' in node ? node.fills?.[0] : undefined), opacity: 0.5 }],
+    } as SceneNode;
+    view.rerender({ n: faded });
+    expect(view.result.current).toBeNull();
+    await flushRenderTimer();
+    expect(load).toHaveBeenCalledTimes(2);
+    expect(sharedThumbnailCache.get(thumbnailCacheKey(node))).toBe(originalUrl);
+    view.unmount();
   });
 
   it('materializes canonical asset references before loading layer thumbnails', async () => {

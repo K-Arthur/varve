@@ -183,6 +183,9 @@ async function renderNodeToCanvas(
             ? { width: imgFill.image.imageWidth, height: imgFill.image.imageHeight }
             : undefined,
         );
+        // An image fill owns alpha independently of its layer. Compose both
+        // for the preview, using the same bounded 0–1 paint range as the canvas.
+        ctx.globalAlpha *= Math.min(1, Math.max(0, imgFill.opacity ?? 1));
         ctx.drawImage(img, ox, oy, area, area);
       } catch {
         ctx.save();

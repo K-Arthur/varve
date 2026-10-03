@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { expect, test } from '@playwright/test';
+import { selectInspectorTab } from '../helpers/inspector-tabs';
 import { dragOnCanvas } from '../shared';
 
 async function navigateToPortraitEditor(page: import('@playwright/test').Page) {
@@ -23,14 +24,15 @@ async function navigateToPortraitEditor(page: import('@playwright/test').Page) {
 async function openEffectStudio(page: import('@playwright/test').Page) {
   const launcher = page.getByTestId('open-effect-studio');
   if (!(await launcher.isVisible().catch(() => false))) {
-    const collapseLayers = page.getByRole('button', { name: /^Collapse Layers panel/ });
-    if (await collapseLayers.isVisible().catch(() => false)) {
-      await page.keyboard.press('Escape');
+    const layersDrawer = page.getByRole('dialog', { name: 'Layers', exact: true });
+    if (await layersDrawer.isVisible().catch(() => false)) {
+      await layersDrawer.getByRole('button', { name: 'Close Layers panel', exact: true }).click();
+      await expect(layersDrawer).toBeHidden();
       await expect(page.getByRole('button', { name: 'Show layers panel' })).toBeVisible();
     }
     const showInspector = page.getByRole('button', { name: 'Show inspector panel' });
     if (await showInspector.isVisible().catch(() => false)) await showInspector.click();
-    await page.getByRole('tab', { name: /^Adjustments$/i }).click();
+    await selectInspectorTab(page, 'Adjustments');
   }
   await launcher.click();
 }

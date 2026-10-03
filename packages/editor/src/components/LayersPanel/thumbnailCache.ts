@@ -132,6 +132,7 @@ function stableHash(input: string): number {
  *   rx/ry, path points, line tolerance) for ShapeNodes — hashing only `fill`
  *   would leave a stale thumbnail after a resize/reshape that didn't also
  *   touch the fill.
+ * - image-fill opacity, composed with layer opacity by the image renderer.
  * - mask `editRevision`, so editing a raster mask invalidates the thumbnail.
  * - strokes, corner radius, opacity, and rotation, because the renderer draws
  *   all four: a stroke or opacity edit that only reached the dead invalidation
@@ -144,7 +145,7 @@ export function thumbnailCacheKey(
     kind: string;
     fill?: unknown;
     shape?: unknown;
-    fills?: Array<{ type: string; image?: { src: string } }>;
+    fills?: Array<{ type: string; image?: { src: string }; opacity?: number }>;
     strokes?: unknown;
     cornerRadius?: unknown;
     opacity?: number;
@@ -173,13 +174,13 @@ export function thumbnailCacheKey(
   const cornerHash = stableHash(
     node.cornerRadius !== undefined ? JSON.stringify(node.cornerRadius) : 'none',
   );
-  const imageSrcHash = stableHash(
-    node.fills?.find((f) => f.type === 'image' && f.image?.src)?.image?.src ?? 'none',
-  );
+  const imageFill = node.fills?.find((f) => f.type === 'image' && f.image?.src);
+  const imageSrcHash = stableHash(imageFill?.image?.src ?? 'none');
+  const imageOpacity = Math.min(1, Math.max(0, imageFill?.opacity ?? 1));
   const maskRev = node.mask?.rasterMask?.editRevision ?? 0;
   const dims = node.w !== undefined && node.h !== undefined ? `${node.w}x${node.h}` : '';
   const content = contentSignature ? `:content${stableHash(contentSignature)}` : '';
-  return `${docId ?? ''}:${node.id}:${node.kind}:${fillHash}:${shapeHash}:${imageSrcHash}:stroke${strokeHash}:corner${cornerHash}:opacity${node.opacity ?? 1}:rotation${node.rotation ?? 0}:mask${maskRev}:${dims}:${textIdentity(node)}${content}`;
+  return `${docId ?? ''}:${node.id}:${node.kind}:${fillHash}:${shapeHash}:${imageSrcHash}:imageOpacity${imageOpacity}:stroke${strokeHash}:corner${cornerHash}:opacity${node.opacity ?? 1}:rotation${node.rotation ?? 0}:mask${maskRev}:${dims}:${textIdentity(node)}${content}`;
 }
 
 /**

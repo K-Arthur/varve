@@ -270,3 +270,24 @@ test('stale save finishing after a new edit keeps the document dirty', async ({ 
   await page.keyboard.press('v');
   await expect(saveStatus(page)).toHaveText('Modified');
 });
+
+test('Save remains available when a responsive Inspector command has focus', async ({ page }) => {
+  await installSavePickerStub(page);
+  await navigateToCleanEditor(page);
+  await startUnboundDocument(page);
+  await makeDirty(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole('button', { name: 'Show inspector panel', exact: true }).click();
+
+  const inspector = page.getByRole('dialog', { name: 'Inspector', exact: true });
+  await expect(inspector).toBeVisible();
+  const command = inspector.getByRole('button', { name: 'Customize sections', exact: true });
+  await command.focus();
+  await expect(command).toBeFocused();
+  expect(await pickerCalls(page)).toBe(0);
+
+  await page.keyboard.press(mod('s'));
+  await expect(saveStatus(page)).toHaveText('Saved');
+  expect(await pickerCalls(page)).toBe(1);
+  await expect(inspector).toBeVisible();
+});

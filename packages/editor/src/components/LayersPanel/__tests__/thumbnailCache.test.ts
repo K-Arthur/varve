@@ -221,6 +221,23 @@ describe('thumbnailCacheKey', () => {
     );
   });
 
+  it('separates transparent, half-opacity and opaque image fills with the same source', () => {
+    const key = (opacity: number) =>
+      thumbnailCacheKey({
+        id: 'image',
+        kind: 'shape',
+        fills: [{ type: 'image', image: { src: 'asset:shared' }, opacity }],
+      });
+    expect(new Set([key(0), key(0.5), key(1)]).size).toBe(3);
+    expect(key(1)).toBe(
+      thumbnailCacheKey({
+        id: 'image',
+        kind: 'shape',
+        fills: [{ type: 'image', image: { src: 'asset:shared' } }],
+      }),
+    );
+  });
+
   it('produces different key when rotation changes', () => {
     const base = { id: 'n1', kind: 'rect' };
     expect(thumbnailCacheKey({ ...base, rotation: 0 })).not.toBe(

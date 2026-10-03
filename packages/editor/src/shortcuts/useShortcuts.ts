@@ -8,6 +8,7 @@ import {
   isNativeActivationKeyTarget,
   SHORTCUT_DEFS,
   shouldIgnoreHistoryShortcutTarget,
+  shouldIgnoreSaveShortcutTarget,
   shouldIgnoreShortcutTarget,
 } from './ShortcutManager';
 
@@ -95,6 +96,19 @@ export function useShortcuts(
       ref.current.recordAction(`shortcut:${id}`);
       if (id === 'undo') ref.current.undo();
       else ref.current.redo();
+    };
+
+    // The responsive Inspector is a focus-contained dialog. Its ordinary
+    // command buttons still delegate Save without opening all tool shortcuts
+    // or stealing keys from a text field, picker, or nested parameter editor.
+    const scopedSaveShortcut = (e: KeyboardEvent) => {
+      if (!enabledRef.current || e.defaultPrevented || e.isComposing) return;
+      const target = e.target as Element | null;
+      if (!shouldIgnoreShortcutTarget(target) || shouldIgnoreSaveShortcutTarget(target)) return;
+      if (!bindingMatchesEvent(e, getEffectiveBinding('save'))) return;
+      e.preventDefault();
+      ref.current.recordAction('shortcut:save');
+      getHandler('save')?.();
     };
 
     const handler = (e: KeyboardEvent) => {
@@ -214,9 +228,11 @@ export function useShortcuts(
       }
     };
     window.addEventListener('keydown', captureHistoryShortcut, true);
+    window.addEventListener('keydown', scopedSaveShortcut);
     window.addEventListener('keydown', handler);
     return () => {
       window.removeEventListener('keydown', captureHistoryShortcut, true);
+      window.removeEventListener('keydown', scopedSaveShortcut);
       window.removeEventListener('keydown', handler);
     };
   }, [getHandler]);

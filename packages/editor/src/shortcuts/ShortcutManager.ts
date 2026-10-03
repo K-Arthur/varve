@@ -937,7 +937,7 @@ function shouldIgnoreShortcutTargetInScope(
   if (dialog) {
     const outerDialog = dialog.parentElement?.closest('[role="dialog"],[role="alertdialog"]');
     // A scoped dispatcher may delegate its own bindings to this surface:
-    // crop's tool keys or the Inspector drawer's document history. General
+    // crop's tool keys or the Inspector drawer's history and Save. Other
     // app shortcuts still treat both as dialogs; nested dialogs and typing
     // widgets remain protected above.
     if (dialog === delegatingDialog && !outerDialog) return false;
@@ -984,6 +984,21 @@ export function shouldIgnoreHistoryShortcutTarget(target: Element | null): boole
     ? nearestDialog
     : null;
   return shouldIgnoreShortcutTargetInScope(resolved, inspectorDrawer);
+}
+
+/**
+ * Save can leave a non-editing Inspector command focused after a nested
+ * editor closes. Delegate only this drawer; typing widgets and other dialogs
+ * keep their own key ownership, as they do for ordinary global shortcuts.
+ */
+export function shouldIgnoreSaveShortcutTarget(target: Element | null): boolean {
+  const nearestDialog = target?.closest('[role="dialog"],[role="alertdialog"]');
+  const inspectorDrawer = nearestDialog?.matches(
+    '[role="dialog"][data-editor-shortcut-scope="inspector-history"]',
+  )
+    ? nearestDialog
+    : null;
+  return shouldIgnoreShortcutTargetInScope(target, inspectorDrawer);
 }
 
 /**

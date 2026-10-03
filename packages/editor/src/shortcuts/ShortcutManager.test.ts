@@ -9,6 +9,7 @@ import {
   shortcutFromEvent,
   shouldIgnoreCropShortcutTarget,
   shouldIgnoreHistoryShortcutTarget,
+  shouldIgnoreSaveShortcutTarget,
   shouldIgnoreShortcutTarget,
 } from './ShortcutManager';
 
@@ -474,5 +475,42 @@ describe('Knife and Export Region shortcuts', () => {
       ['toolKnife', 'toolSlice'].some((id) => c.id1 === id || c.id2 === id),
     );
     expect(involved).toEqual([]);
+  });
+});
+
+describe('Inspector drawer Save ownership', () => {
+  it.each([
+    '<button id="target">Effect Studio</button>',
+    '<button><span id="target">Customize sections</span></button>',
+  ])('delegates Save from a non-editing drawer command: %s', (control) => {
+    document.body.innerHTML = `<aside role="dialog" data-editor-shortcut-scope="inspector-history">${control}</aside>`;
+    const target = document.getElementById('target');
+    expect(shouldIgnoreShortcutTarget(target)).toBe(true);
+    expect(shouldIgnoreSaveShortcutTarget(target)).toBe(false);
+  });
+
+  it.each([
+    '<input id="target" value="1920" />',
+    '<textarea id="target">Title</textarea>',
+    '<select id="target"><option>Portrait</option></select>',
+    '<div role="combobox"><button id="target">Preset</button></div>',
+    '<div role="slider"><span id="target">Scale</span></div>',
+    '<div data-shortcut-ignore><button id="target">Reserved</button></div>',
+    '<div role="dialog"><button id="target">Confirm</button></div>',
+    '<div role="alertdialog"><button id="target">Confirm</button></div>',
+    '<dialog open><button id="target">Confirm</button></dialog>',
+  ])('preserves native editing and nested widget ownership: %s', (control) => {
+    document.body.innerHTML = `<aside role="dialog" data-editor-shortcut-scope="inspector-history">${control}</aside>`;
+    expect(shouldIgnoreSaveShortcutTarget(document.getElementById('target'))).toBe(true);
+  });
+
+  it.each([
+    '<aside role="dialog"><button id="target">Command</button></aside>',
+    '<dialog open><aside role="dialog" data-editor-shortcut-scope="inspector-history"><button id="target">Command</button></aside></dialog>',
+    '<div role="dialog"><aside role="dialog" data-editor-shortcut-scope="inspector-history"><button id="target">Command</button></aside></div>',
+    '<div role="alertdialog"><aside role="dialog" data-editor-shortcut-scope="inspector-history"><button id="target">Command</button></aside></div>',
+  ])('does not delegate through unmarked or enclosing dialogs: %s', (markup) => {
+    document.body.innerHTML = markup;
+    expect(shouldIgnoreSaveShortcutTarget(document.getElementById('target'))).toBe(true);
   });
 });
