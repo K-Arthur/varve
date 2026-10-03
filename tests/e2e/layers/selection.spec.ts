@@ -6,12 +6,12 @@ test.describe('Layers Panel - Multi-Selection', () => {
   test.beforeEach(async ({ page }) => {
     await navigateToEditor(page);
     await seedLayers(page, 3);
+    await expect(page.getByRole('treeitem')).toHaveCount(3);
   });
 
   test('shift-click selects range of layers', async ({ page }) => {
     const items = page.getByRole('treeitem');
     const count = await items.count();
-    test.skip(count < 2, 'Need at least 2 layers for range select');
 
     // Click first item
     await items.nth(0).click();
@@ -29,8 +29,6 @@ test.describe('Layers Panel - Multi-Selection', () => {
 
   test('ctrl-click toggles individual layer selection', async ({ page }) => {
     const items = page.getByRole('treeitem');
-    const count = await items.count();
-    test.skip(count < 3, 'Need at least 3 layers for ctrl-click test');
 
     // Click first item to select it
     await items.nth(0).click();
@@ -57,8 +55,6 @@ test.describe('Layers Panel - Multi-Selection', () => {
 
     // Create several layers first
     const items = page.getByRole('treeitem');
-    const count = await items.count();
-    test.skip(count < 1, 'Need at least 1 layer for select all');
 
     // Ctrl+A to select all
     await page.keyboard.press('Control+a');
@@ -71,8 +67,6 @@ test.describe('Layers Panel - Multi-Selection', () => {
 
   test('bulk bar appears with 2+ selected', async ({ page }) => {
     const items = page.getByRole('treeitem');
-    const count = await items.count();
-    test.skip(count < 2, 'Need at least 2 layers for bulk bar');
 
     const bulkBar = page.locator('.layers-bulk-bar');
     await expect(bulkBar).not.toBeVisible();
@@ -89,8 +83,6 @@ test.describe('Layers Panel - Multi-Selection', () => {
 
   test('bulk lock locks all selected layers', async ({ page }) => {
     const items = page.getByRole('treeitem');
-    const count = await items.count();
-    test.skip(count < 2, 'Need at least 2 layers for bulk lock');
 
     // Select two items
     await items.nth(0).click();
@@ -109,8 +101,6 @@ test.describe('Layers Panel - Multi-Selection', () => {
 
   test('bulk hide hides all selected layers', async ({ page }) => {
     const items = page.getByRole('treeitem');
-    const count = await items.count();
-    test.skip(count < 2, 'Need at least 2 layers for bulk hide');
 
     // Select two items
     await items.nth(0).click();
@@ -120,20 +110,19 @@ test.describe('Layers Panel - Multi-Selection', () => {
 
     // Click bulk hide button.
     const hideBtn = page.locator('.layers-bulk-bar__btn[aria-label="Hide all"]');
-    if ((await hideBtn.count()) > 0) {
-      await hideBtn.click({ force: true, timeout: 5000 });
-      await page.waitForTimeout(100);
+    await expect(page.locator('[role="treeitem"][aria-selected="true"]')).toHaveCount(2);
+    await expect(hideBtn).toBeVisible();
+    await expect(hideBtn).toBeEnabled();
+    await hideBtn.click();
 
-      // Both items should now be hidden
-      await expect(items.nth(0)).toHaveClass(/layers-row--hidden/);
-      await expect(items.nth(1)).toHaveClass(/layers-row--hidden/);
-    }
+    // Both selected layers are hidden; the unselected layer stays visible.
+    await expect(items.nth(0)).toHaveClass(/layers-row--hidden/);
+    await expect(items.nth(1)).toHaveClass(/layers-row--hidden/);
+    await expect(items.nth(2)).not.toHaveClass(/layers-row--hidden/);
   });
 
   test('bulk group groups selected layers', async ({ page }) => {
     const items = page.getByRole('treeitem');
-    const count = await items.count();
-    test.skip(count < 2, 'Need at least 2 layers for bulk group');
 
     // Select two items
     await items.nth(0).click();
@@ -143,21 +132,19 @@ test.describe('Layers Panel - Multi-Selection', () => {
 
     // Click bulk group button.
     const groupBtn = page.locator('.layers-bulk-bar__btn[aria-label="Group"]');
-    if ((await groupBtn.count()) > 0) {
-      await groupBtn.click({ force: true, timeout: 5000 });
-      await page.waitForTimeout(200);
+    await expect(page.locator('[role="treeitem"][aria-selected="true"]')).toHaveCount(2);
+    await expect(groupBtn).toBeVisible();
+    await expect(groupBtn).toBeEnabled();
+    await groupBtn.click();
 
-      // A new group should appear (items count may change)
-      const itemsAfter = page.getByRole('treeitem');
-      const newGroup = itemsAfter.filter({ hasText: /Group/ });
-      await expect(newGroup.first()).toBeAttached();
-    }
+    // A new group must appear after the real command is activated.
+    const newGroup = page.locator('[role="treeitem"][data-layer-type="group"]');
+    await expect(newGroup).toHaveCount(1);
+    await expect(newGroup).toContainText('Group');
   });
 
   test('bulk delete removes all selected layers', async ({ page }) => {
     const items = page.getByRole('treeitem');
-    const count = await items.count();
-    test.skip(count < 2, 'Need at least 2 layers for bulk delete');
 
     // Select two items
     await items.nth(0).click();
@@ -165,16 +152,26 @@ test.describe('Layers Panel - Multi-Selection', () => {
     await items.nth(1).click({ modifiers: ['Control'] });
     await page.waitForTimeout(50);
 
-    const beforeCount = await items.count();
+    await expect(page.locator('[role="treeitem"][aria-selected="true"]')).toHaveCount(2);
+    const beforeIDs = await items.evaluateAll((rows) =>
+      rows.map((row) => row.getAttribute('data-node-id')),
+    );
+    expect(beforeIDs.every(Boolean)).toBe(true);
 
-    // Click bulk delete button
+    // Delete exactly the selected first two layers, retaining the third.
     const deleteBtn = page.locator('.layers-bulk-bar__btn[aria-label="Delete all"]');
-    if ((await deleteBtn.count()) > 0) {
-      await deleteBtn.click();
-      await page.waitForTimeout(200);
+    await expect(deleteBtn).toBeVisible();
+    await expect(deleteBtn).toBeEnabled();
+    await deleteBtn.click();
+    await expect(items).toHaveCount(1);
+    await expect(items.first()).toHaveAttribute('data-node-id', beforeIDs[2]!);
 
-      const afterCount = await items.count();
-      expect(afterCount).toBeLessThan(beforeCount);
-    }
+    // The bulk operation is one undo entry and restores the same three layers.
+    await page.getByRole('tree', { name: /layers/i }).focus();
+    await page.keyboard.press('Control+z');
+    await expect(items).toHaveCount(3);
+    expect(
+      await items.evaluateAll((rows) => rows.map((row) => row.getAttribute('data-node-id'))),
+    ).toEqual(beforeIDs);
   });
 });
