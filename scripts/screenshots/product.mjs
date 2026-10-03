@@ -44,6 +44,7 @@ import { observeValidationChild } from '../quality/heavy-lease.mjs';
 import {
   assertPortAvailable,
   assertReviewDirectorySafe,
+  reviewedAssemblyMetadata,
   sourceSceneProvenance,
 } from './capture-safety.mjs';
 import { analyseImage, buffersEqual, pngDimensions } from './lib/image-analysis.mjs';
@@ -144,7 +145,8 @@ if (args.includes('--sync-reviewed')) {
   if (!reviewDir || onlyScenes.size === 0) {
     throw new Error('--sync-reviewed requires --review-dir and explicit --scenes');
   }
-  const reviewed = JSON.parse(readFileSync(OUTPUT_MANIFEST, 'utf8'));
+  const reviewedBytes = readFileSync(OUTPUT_MANIFEST);
+  const reviewed = JSON.parse(reviewedBytes.toString('utf8'));
   // The review manifest records the published manifest it was reviewed
   // against. If the published manifest changed since (another capture run, a
   // concurrent agent), promoting now would silently drop that work.
@@ -188,6 +190,17 @@ if (args.includes('--sync-reviewed')) {
     };
   }
   current.generatedAt = new Date().toISOString();
+  Object.assign(
+    current,
+    reviewedAssemblyMetadata({
+      scenes: current.scenes,
+      sourceIdentity: computeSourceIdentity(),
+      assembledAt: current.generatedAt,
+      reviewSha256: sha256Hex(reviewedBytes),
+      reviewedAgainst: sha256Hex(currentBytes),
+      promotedSceneIDs: [...onlyScenes],
+    }),
+  );
   writeFileAtomicSync(MANIFEST_PATH, `${JSON.stringify(current, null, 2)}\n`);
   console.log(`Synced ${approved.length} reviewed captures; other scenes preserved.`);
   process.exit(0);

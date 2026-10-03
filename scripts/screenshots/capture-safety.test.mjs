@@ -1,18 +1,28 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import {
   assertPortAvailable,
   assertReviewDirectorySafe,
+  reviewedAssemblyMetadata,
   sourceSceneProvenance,
 } from './capture-safety.mjs';
-import { readProducerCaptureReceipt } from './producer-capture.mjs';
+import { captureSourceIdentity, readProducerCaptureReceipt } from './producer-capture.mjs';
 import { SOURCE_SCENES } from './source-scenes.mjs';
 
 test('owning browser specs can load the producer helper through Playwright', () => {
@@ -296,4 +306,178 @@ test('capture port preflight rejects an occupied IPv6 localhost port', async (t)
     server.close((error) => (error ? reject(error) : resolve())),
   );
   await assertPortAvailable(address.port);
+});
+
+const assemblyIdentity = {
+  sourceRevision: 'c'.repeat(40),
+  sourceDigest: 'd'.repeat(64),
+  sourceDirty: false,
+};
+const assemblyScene = (revision, hash) => ({
+  status: 'captured',
+  provenanceUnknown: false,
+  file: `${hash}.png`,
+  sha256: hash.repeat(64),
+  capturedAt: '2026-10-02T03:00:00.000Z',
+  lastValidatedAgainst: revision.repeat(40),
+  provenance: {
+    sourceRevision: revision.repeat(40),
+    sourceDigest: hash.repeat(64),
+    sourceDirty: false,
+    captureTool: 'Playwright / Chromium actual producer',
+  },
+});
+const assemblyOptions = (scenes) => ({
+  scenes,
+  sourceIdentity: assemblyIdentity,
+  assembledAt: '2026-10-03T00:00:00.000Z',
+  reviewSha256: 'e'.repeat(64),
+  reviewedAgainst: 'f'.repeat(64),
+  promotedSceneIDs: ['new'],
+});
+
+test('reviewed promotion metadata keeps mixed producer revisions and actual assembly digest', () => {
+  const scenes = { old: assemblyScene('a', '1'), new: assemblyScene('b', '2') };
+  const original = structuredClone(scenes);
+  const result = reviewedAssemblyMetadata(assemblyOptions(scenes));
+  assert.deepEqual(scenes, original);
+  assert.equal(result.sourceRevision, assemblyIdentity.sourceRevision);
+  assert.equal(result.sourceDigest, assemblyIdentity.sourceDigest);
+  assert.deepEqual(result.provenance.capturedSourceRevisions, ['a'.repeat(40), 'b'.repeat(40)]);
+  assert.equal(result.provenance.kind, 'reviewed-mixed-source-assembly');
+  assert.match(result.provenance.runtime, /no new capture/);
+  assert.equal(result.provenance.sourceDirty, undefined);
+  assert.equal(result.provenance.assemblySourceDirty, false);
+  assert.equal(result.provenance.reviewManifestSha256, 'e'.repeat(64));
+});
+
+test('reviewed promotion identity digest responds to changed scene proof and exposes unknown provenance', () => {
+  const scenes = { old: assemblyScene('a', '1'), new: assemblyScene('b', '2') };
+  const before = reviewedAssemblyMetadata(assemblyOptions(scenes));
+  scenes.new.sha256 = '3'.repeat(64);
+  const after = reviewedAssemblyMetadata(assemblyOptions(scenes));
+  assert.notEqual(after.provenance.sceneIdentitySha256, before.provenance.sceneIdentitySha256);
+  scenes.old.provenanceUnknown = true;
+  delete scenes.old.provenance;
+  assert.deepEqual(
+    reviewedAssemblyMetadata(assemblyOptions(scenes)).provenance.provenanceUnknownSceneIDs,
+    ['old'],
+  );
+});
+
+test('reviewed promotion refuses missing actual identity instead of falling back to a normalizer', () => {
+  for (const sourceIdentity of [
+    undefined,
+    {},
+    { ...assemblyIdentity, sourceDigest: '' },
+    { ...assemblyIdentity, sourceDirty: undefined },
+  ]) {
+    assert.throws(
+      () => reviewedAssemblyMetadata({ ...assemblyOptions({}), sourceIdentity }),
+      /actual promotion source identity/,
+    );
+  }
+  assert.equal(
+    reviewedAssemblyMetadata({
+      ...assemblyOptions({}),
+      sourceIdentity: { ...assemblyIdentity, sourceDirty: true },
+    }).provenance.assemblySourceDirty,
+    true,
+  );
+});
+
+test('reviewed promotion CLI replaces dirty normalize aggregate metadata without relabeling producer scenes', () => {
+  const root = fileURLToPath(new URL('../..', import.meta.url));
+  const fixture = mkdtempSync(join(tmpdir(), 'varve-promotion-assembly-'));
+  const actualGitDir = spawnSync('git', ['rev-parse', '--absolute-git-dir'], {
+    cwd: root,
+    encoding: 'utf8',
+  }).stdout.trim();
+  const sourceRoot = spawnSync('git', ['rev-parse', '--show-toplevel'], {
+    cwd: root,
+    encoding: 'utf8',
+  }).stdout.trim();
+  const env = { ...process.env, GIT_DIR: actualGitDir, GIT_WORK_TREE: sourceRoot };
+  const bytes = readFileSync(join(root, 'docs/screenshots/product/comic-lettering-light.png'));
+  const imageHash = createHash('sha256').update(bytes).digest('hex');
+  const scene = (revision, file) => ({ ...assemblyScene(revision, '1'), file, sha256: imageHash });
+  const original = {
+    schemaVersion: 2,
+    sourceRevision: '9'.repeat(40),
+    sourceDigest: '8'.repeat(64),
+    captureTool: 'stale normalizer',
+    provenance: { runtime: 'metadata-only (--normalize; no capture)', sourceDirty: true },
+    scenes: { old: scene('a', 'old.png'), new: scene('a', 'new.png') },
+  };
+  const sourceFiles = [
+    'scripts/screenshots/product.mjs',
+    'scripts/screenshots/capture-safety.mjs',
+    'scripts/screenshots/producer-capture.mjs',
+    'scripts/screenshots/source-scenes.mjs',
+    'scripts/screenshots/lib/image-analysis.mjs',
+    'scripts/quality/heavy-lease.mjs',
+  ];
+  try {
+    for (const file of sourceFiles) {
+      mkdirSync(dirname(join(fixture, file)), { recursive: true });
+      copyFileSync(join(root, file), join(fixture, file));
+    }
+    symlinkSync(join(root, 'node_modules'), join(fixture, 'node_modules'), 'junction');
+    const canonicalManifest = join(fixture, 'apps/website/src/data/screenshot-manifest.json');
+    mkdirSync(dirname(canonicalManifest), { recursive: true });
+    const originalBytes = Buffer.from(`${JSON.stringify(original)}\n`);
+    writeFileSync(canonicalManifest, originalBytes);
+    for (const directory of [
+      'docs/screenshots/product',
+      'apps/website/public/screenshots',
+      'review',
+    ])
+      mkdirSync(join(fixture, directory), { recursive: true });
+    for (const directory of ['docs/screenshots/product', 'apps/website/public/screenshots'])
+      for (const file of ['old.png', 'new.png'])
+        writeFileSync(join(fixture, directory, file), bytes);
+    const reviewed = {
+      reviewedAgainst: createHash('sha256').update(originalBytes).digest('hex'),
+      sourceRevision: '7'.repeat(40),
+      sourceDigest: '6'.repeat(64),
+      provenance: { sourceDirty: true, runtime: 'dirty normalization' },
+      scenes: { new: scene('b', 'new.png') },
+    };
+    const reviewBytes = Buffer.from(JSON.stringify(reviewed));
+    writeFileSync(join(fixture, 'review/manifest.json'), reviewBytes);
+    writeFileSync(join(fixture, 'review/new.png'), bytes);
+    const result = spawnSync(
+      process.execPath,
+      [
+        join(fixture, 'scripts/screenshots/product.mjs'),
+        '--sync-reviewed',
+        '--review-dir',
+        join(fixture, 'review'),
+        '--scenes',
+        'new',
+      ],
+      { cwd: root, env, encoding: 'utf8', timeout: 15_000 },
+    );
+    assert.equal(result.status, 0, result.stderr.slice(0, 3000));
+    const promoted = JSON.parse(readFileSync(canonicalManifest));
+    assert.equal(promoted.sourceRevision, captureSourceIdentity(sourceRoot).sourceRevision);
+    assert.notEqual(promoted.sourceRevision, original.sourceRevision);
+    assert.notEqual(promoted.sourceDigest, original.sourceDigest);
+    assert.notEqual(promoted.sourceDigest, reviewed.sourceDigest);
+    assert.equal(promoted.provenance.kind, 'reviewed-mixed-source-assembly');
+    assert.deepEqual(promoted.scenes.old, original.scenes.old);
+    assert.equal(promoted.scenes.new.provenance.sourceRevision, 'b'.repeat(40));
+    assert.equal(promoted.scenes.new.lastValidatedAgainst, 'b'.repeat(40));
+    assert.equal(promoted.scenes.new.capturedAt, reviewed.scenes.new.capturedAt);
+    assert.equal(
+      promoted.provenance.reviewManifestSha256,
+      createHash('sha256').update(reviewBytes).digest('hex'),
+    );
+    assert.deepEqual(promoted.provenance.capturedSourceRevisions, ['a'.repeat(40), 'b'.repeat(40)]);
+    for (const directory of ['docs/screenshots/product', 'apps/website/public/screenshots'])
+      for (const file of ['old.png', 'new.png'])
+        assert.deepEqual(readFileSync(join(fixture, directory, file)), bytes);
+  } finally {
+    rmSync(fixture, { recursive: true, force: true });
+  }
 });
