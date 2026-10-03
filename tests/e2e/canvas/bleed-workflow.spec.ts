@@ -19,6 +19,16 @@ async function waitForContentCanvas(page: import('@playwright/test').Page) {
     .waitFor({ state: 'attached', timeout: 20000 });
 }
 
+async function openViewPrintMenu(page: import('@playwright/test').Page) {
+  await page
+    .getByRole('menubar')
+    .getByRole('menuitem', { name: /^View$/ })
+    .click();
+  const printMenu = page.getByRole('menuitem', { name: 'Print', exact: true });
+  await printMenu.hover();
+  await expect(printMenu).toHaveAttribute('aria-expanded', 'true');
+}
+
 /**
  * Exact fit-zoom for the active page (1920x1080, padding 40) — the
  * fitBoundsCamera contract the multipage specs reproduce. The status-bar
@@ -189,10 +199,7 @@ test.describe('Bleed print workflow', () => {
     // Toggle visibility from the View menu: setting stays, guide hides.
     await page.keyboard.press('Escape');
     await page.keyboard.press('Escape');
-    await page
-      .getByRole('menubar')
-      .getByRole('menuitem', { name: /^View$/ })
-      .click();
+    await openViewPrintMenu(page);
     await page.getByRole('menuitem', { name: /hide bleed guides/i }).click();
     await expect(page.locator('.print-bleed-guide')).toHaveCount(0);
     // The setting itself is unchanged.
@@ -200,10 +207,7 @@ test.describe('Bleed print workflow', () => {
     expect(await page.getByLabel(/bleed top/i).inputValue()).toBe('20');
     await page.keyboard.press('Escape');
     await page.keyboard.press('Escape');
-    await page
-      .getByRole('menubar')
-      .getByRole('menuitem', { name: /^View$/ })
-      .click();
+    await openViewPrintMenu(page);
     await page.getByRole('menuitem', { name: /show bleed guides/i }).click();
     await expect(page.locator('.print-bleed-guide')).toHaveCount(1);
 

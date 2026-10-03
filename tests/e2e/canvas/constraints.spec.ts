@@ -135,26 +135,35 @@ test.describe('Constraint visual controls and persistence', () => {
 
   test('resizing parent frame propagates constraints to children', async ({ page }) => {
     test.setTimeout(60000);
-    const frameBox = await createFrameAndChild(page);
+    await createFrameAndChild(page);
 
     // Set child to stretch horizontally
     const stretchH = page.getByRole('button', { name: 'Stretch horizontally', exact: true });
     await stretchH.click();
-    await page.waitForTimeout(200);
-
-    // Select the frame (click on frame edge area)
-    await page.keyboard.press('v');
-    await page.waitForTimeout(200);
-    await page.mouse.click(frameBox.x + 100, frameBox.y + 100);
-    await page.waitForTimeout(200);
-
-    // Resize frame via inspector W field
     const wField = page.getByRole('spinbutton', { name: 'W (px)', exact: true });
+    const childWidth = Number(await wField.inputValue());
+
+    // Tool-specific chrome can move the canvas after creation. Select the
+    // authored parent explicitly instead of reusing its old canvas origin.
+    const frame = page.locator('[role="treeitem"][data-layer-type="frame"]');
+    const child = page.locator('[role="treeitem"][data-layer-type="shape"]');
+    await frame.click();
+    await expect(frame).toHaveAttribute('aria-selected', 'true');
+    const frameWidth = Number(await wField.inputValue());
+
+    // Resize the measured parent, preserving its child's opposite edge pins.
     await wField.fill('600');
     await wField.press('Enter');
-    await page.waitForTimeout(300);
+    await expect.poll(async () => Number(await wField.inputValue())).toBe(600);
 
-    // Child should still exist and the constraint section should still work
     await expect(page.getByRole('treeitem')).toHaveCount(2, { timeout: 5000 });
+    await child.click();
+    await expect(child).toHaveAttribute('aria-selected', 'true');
+    await expect
+      .poll(async () => Number(await wField.inputValue()))
+      .toBeCloseTo(childWidth + 600 - frameWidth, 1);
+    await expect(page.getByRole('combobox', { name: 'Horizontal constraint' })).toHaveText(
+      'Left & Right',
+    );
   });
 });

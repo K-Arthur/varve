@@ -111,7 +111,7 @@ test.describe('background-removed image transforms', () => {
       .getByRole('menuitem', { name: /^Undo\b/ })
       .click();
 
-    const redoButton = page.getByRole('button', { name: 'Redo', exact: true });
+    const redoButton = page.getByRole('button', { name: /^Redo\b/ });
     await expect(redoButton).toBeEnabled();
     await redoButton.click();
     await layer.click();

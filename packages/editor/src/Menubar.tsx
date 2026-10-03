@@ -58,6 +58,12 @@ const THEMES: { id: ThemePreference; label: string }[] = [
   { id: 'high-contrast', label: 'High Contrast' },
 ];
 
+/** Keep history direction available even when the revision supplies an action name. */
+function historyActionLabel(direction: 'Undo' | 'Redo', action: string): string {
+  const name = action.trim();
+  return !name || name === direction ? direction : `${direction} ${name}`;
+}
+
 /** Build an aria-keyshortcuts token (platform-independent, e.g. "Control+G"). */
 function ariaShortcut(binding: {
   key: string;
@@ -2764,7 +2770,7 @@ export function Menubar({
           </span>
           <IconButton
             icon={SOLID_CHROME_ICONS.undo}
-            label={state.undoLabel}
+            label={historyActionLabel('Undo', state.undoLabel)}
             size="sm"
             solid
             onClick={undo}
@@ -2772,7 +2778,7 @@ export function Menubar({
           />
           <IconButton
             icon={SOLID_CHROME_ICONS.redo}
-            label={state.redoLabel}
+            label={historyActionLabel('Redo', state.redoLabel)}
             size="sm"
             solid
             onClick={redo}

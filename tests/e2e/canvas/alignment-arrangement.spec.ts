@@ -15,6 +15,27 @@ function layerRow(page: Page, text: string | RegExp): Locator {
   return page.getByRole('treeitem').filter({ hasText: text }).first();
 }
 
+async function selectedLayerGeometry(page: Page): Promise<number[]> {
+  const values = await Promise.all(
+    ['X', 'Y', 'W', 'H'].map((axis) =>
+      page.getByRole('spinbutton', { name: `${axis} (px)`, exact: true }).inputValue(),
+    ),
+  );
+  return values.map(Number);
+}
+
+async function measureLayerGeometry(page: Page, layer: Locator): Promise<number[]> {
+  await layer.click();
+  await expect(layer).toHaveAttribute('aria-selected', 'true');
+  return selectedLayerGeometry(page);
+}
+
+async function expectLayerGeometry(page: Page, layer: Locator, geometry: number[]) {
+  await layer.click();
+  await expect(layer).toHaveAttribute('aria-selected', 'true');
+  await expect.poll(() => selectedLayerGeometry(page)).toEqual(geometry);
+}
+
 async function selectedObjectBounds(page: Page) {
   const selectionRect = page.locator('svg:has(filter#selection-glow) rect').first();
   await expect(selectionRect).toBeVisible();
@@ -209,6 +230,8 @@ test.describe('Alignment and arrangement workflow', () => {
     await seedLayers(page, 2);
 
     const layers = page.getByRole('treeitem');
+    const firstGeometry = await measureLayerGeometry(page, layers.nth(0));
+    const secondGeometry = await measureLayerGeometry(page, layers.nth(1));
     await layers.nth(0).click();
     await layers.nth(1).click({ modifiers: ['Control'] });
 
@@ -242,6 +265,13 @@ test.describe('Alignment and arrangement workflow', () => {
     await expect.poll(() => label.textContent()).not.toBe(initialLabel);
 
     await page.keyboard.press('Control+z');
+    // Persistent Undo restores the parent revision's recorded selection,
+    // which predates this multi-selection. Verify both document transforms
+    // first, then recreate the pair to inspect its restored gap overlay.
+    await expectLayerGeometry(page, layers.nth(0), firstGeometry);
+    await expectLayerGeometry(page, layers.nth(1), secondGeometry);
+    await layers.nth(0).click();
+    await layers.nth(1).click({ modifiers: ['Control'] });
     await expect.poll(() => label.textContent()).toBe(initialLabel);
   });
 

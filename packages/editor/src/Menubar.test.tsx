@@ -11,6 +11,7 @@ let mockWorkspaceMode = 'design';
 let mockLogoPanelVisible = false;
 let mockSelection: string[] = [];
 let mockDocument = createDocument('Test Doc');
+let mockHistoryLabels = { undo: 'Undo', redo: 'Redo' };
 let mockShortcutOverrides: Record<
   string,
   { key: string; ctrl?: boolean; shift?: boolean; alt?: boolean }
@@ -21,8 +22,8 @@ vi.mock('./context', () => ({
     state: {
       canUndo: false,
       canRedo: false,
-      undoLabel: 'Undo',
-      redoLabel: 'Redo',
+      undoLabel: mockHistoryLabels.undo,
+      redoLabel: mockHistoryLabels.redo,
       document: mockDocument,
       zoom: 1,
       canvasMode: 'full',
@@ -342,6 +343,7 @@ afterEach(() => {
   cleanup();
   mockSelection = [];
   mockDocument = createDocument('Test Doc');
+  mockHistoryLabels = { undo: 'Undo', redo: 'Redo' };
   mockShortcutOverrides = {};
   setCapabilityRestrictions(null);
 });
@@ -802,6 +804,19 @@ describe('Menubar disabled states', () => {
 });
 
 describe('Menubar ARIA attributes', () => {
+  it('keeps history direction and revision action in button names', () => {
+    mockHistoryLabels = { undo: 'Genesis', redo: 'Resize image' };
+    render(<Menubar />);
+    expect(screen.getByRole('button', { name: 'Undo Genesis' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Redo Resize image' })).toBeTruthy();
+  });
+
+  it('keeps default history names without repeating the direction', () => {
+    render(<Menubar />);
+    expect(screen.getByRole('button', { name: 'Undo' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Redo' })).toBeTruthy();
+  });
+
   it('workspace items have menuitemradio role', async () => {
     const user = userEvent.setup();
     render(<Menubar />);
