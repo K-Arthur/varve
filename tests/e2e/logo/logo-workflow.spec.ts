@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { openMenu } from '../helpers/menu-helpers';
 import { navigateToEditor } from '../shared';
 
 /**
@@ -28,13 +29,15 @@ test.describe('Logo workflow', () => {
   });
 
   test('geometry menu exposes logo path operations', async ({ page }) => {
-    await page.getByRole('menuitem', { name: /^Object/i }).click();
-    const pathItem = page.getByRole('menuitem', { name: /^Path/ });
-    // Object is taller than the viewport at this size; bring the submenu
-    // trigger into the scrollable menubar surface before opening it.
-    await pathItem.scrollIntoViewIfNeeded();
-    await pathItem.hover();
+    await openMenu(page, 'Object');
+    // The editor menubar supports keyboard type-ahead and ArrowRight for
+    // submenu navigation. Keep this workflow test independent of hover timing
+    // at the bottom edge of the tall Object menu.
+    const pathItem = page.getByRole('menuitem', { name: 'Path', exact: true });
+    await page.keyboard.type('Path');
+    await page.keyboard.press('ArrowRight');
     const pathMenu = page.locator('[role="menu"][aria-label="Path"]');
+    await expect(pathItem).toHaveAttribute('aria-expanded', 'true');
     await expect(
       pathMenu.getByRole('menuitem', { name: /Expand Stroke to Outline/i }),
     ).toBeVisible();

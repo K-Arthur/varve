@@ -87,19 +87,24 @@ async function dragRowToRow(
   const from = rowByName(page, fromName);
   await from.scrollIntoViewIfNeeded();
   const fromHandle = from.locator('.layers-row__drag-handle');
+  const to = rowByName(page, toName);
+  await to.scrollIntoViewIfNeeded();
   const fromBox = await fromHandle.boundingBox();
   if (!fromBox) throw new Error(`source row ${fromName} not visible`);
+  const toBox = await to.boundingBox();
+  if (!toBox) throw new Error(`target row ${toName} not visible`);
   // Grab by the labeled handle; dnd-kit PointerSensor needs >5px travel.
   const startX = fromBox.x + fromBox.width / 2;
   const startY = fromBox.y + fromBox.height / 2;
   await page.mouse.move(startX, startY);
+  const sourceHit = await page.evaluate(
+    ({ x, y }) => Boolean(document.elementFromPoint(x, y)?.closest('.layers-row__drag-handle')),
+    { x: startX, y: startY },
+  );
+  if (!sourceHit) throw new Error(`drag handle for ${fromName} is clipped or covered`);
   await page.mouse.down();
   await page.mouse.move(startX, startY - 12);
 
-  const to = rowByName(page, toName);
-  await to.scrollIntoViewIfNeeded();
-  const toBox = await to.boundingBox();
-  if (!toBox) throw new Error(`target row ${toName} not visible`);
   const targetY = toBox.y + toBox.height * (0.5 + offsetFraction);
   const targetX = toBox.x + toBox.width / 2;
   for (let i = 1; i <= 6; i++) {
@@ -114,7 +119,41 @@ async function dragRowToRow(
       path: test.info().outputPath(`${screenshotName}.png`),
     });
   }
-  if (expectedIndicator) await expect(page.locator(`.${expectedIndicator}`)).toBeVisible();
+  if (expectedIndicator) {
+    const indicator = page.locator(`.${expectedIndicator}`);
+    try {
+      await expect(indicator).toBeVisible({ timeout: 1500 });
+    } catch (error) {
+      const diagnostics = await page.evaluate(
+        ({ x, y }) => {
+          const tree = document.querySelector<HTMLElement>('.layers-panel__tree');
+          const content = tree?.firstElementChild as HTMLElement | null | undefined;
+          const rect = (element: Element | null | undefined) =>
+            element?.getBoundingClientRect().toJSON() ?? null;
+          return {
+            pointer: { x, y },
+            hit: document.elementFromPoint(x, y)?.outerHTML.slice(0, 240) ?? null,
+            tree: rect(tree),
+            content: rect(content),
+            dragOverlay: document.querySelector('.drag-overlay')?.textContent ?? null,
+            rows: Array.from(tree?.querySelectorAll<HTMLElement>('[role="treeitem"]') ?? []).map(
+              (row) => ({
+                name: row.querySelector('.layers-row__name')?.textContent?.trim(),
+                bounds: rect(row),
+                wrapperClass: row.parentElement?.className,
+                wrapperOpacity: row.parentElement
+                  ? getComputedStyle(row.parentElement).opacity
+                  : null,
+              }),
+            ),
+          };
+        },
+        { x: targetX, y: targetY },
+      );
+      console.error(`[layers-dnd] drop-target diagnostics: ${JSON.stringify(diagnostics)}`);
+      throw error;
+    }
+  }
   await page.mouse.up();
 }
 
@@ -204,6 +243,9 @@ test.describe('Layers Panel — real drag & drop', () => {
   });
 
   test('multi-selection drag moves both rows together', async ({ page }) => {
+    // Keep all sibling rows visible for this ordering assertion; virtual-list
+    // auto-scroll while a drag is active has its own dedicated coverage.
+    await page.setViewportSize({ width: 1280, height: 900 });
     const names = await rowNames(page);
     expect(names.length).toBeGreaterThanOrEqual(3);
     const top = names[0];
@@ -215,7 +257,7 @@ test.describe('Layers Panel — real drag & drop', () => {
     await rowByName(page, second).click({ modifiers: ['Control'] });
     await page.waitForTimeout(150);
 
-    await dragRowToRow(page, top, bottom, 0.35);
+    await dragRowToRow(page, top, bottom, 0.35, undefined, 'layers-row--drop-after');
     await page.waitForTimeout(250);
 
     const after = await rowNames(page);
