@@ -156,6 +156,16 @@ Two invariants are load-bearing; violating either blanks part or all of the scen
    replacement is never admitted; an oversized result is caller-owned because it
    may be returned for immediate use without being retained.
 
+   Canvas frames retain sources owned by the active immutable document: embedded
+   assets, inline image and pattern fills, shared paints and colour styles,
+   current pattern-definition previews, private vector motifs, and raster masks.
+   Hidden layers and other pages retain ownership. The source list is memoized
+   by document identity; derived mask, perspective and mockup surfaces are added
+   for the current frame. A completed inline-tile decode therefore survives the
+   repaint it schedules, even when unrelated embedded assets exist. Switching
+   documents releases sources outside the new ownership set, while decoded-cache
+   byte and entry limits still bound residency. Retaining a source does not load it.
+
 3. **Never composite a stale surface unless a fresh one is actually coming.**
    Reusing already-painted pixels — a partial redraw, or a reprojected worker
    bitmap — is only legitimate while a fresh authoritative render is on its way

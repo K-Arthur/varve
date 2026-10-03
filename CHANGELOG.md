@@ -39,7 +39,8 @@ marked.
   illustration and lettering workflows.
 - **Reusable pattern authoring** — Create definitions from copied vector art,
   raster tiles, or recipes; tune repeat and per-fill placement, inspect raster
-  seams, and edit copied vector motifs in a bounded source editor. SVG and PDF
+  seams, and edit copied vector motifs in a bounded source editor. Imported
+  raster tiles now remain rendered alongside other document images. SVG and PDF
   support defined subsets; unsupported PDF layouts are warned and omitted.
 - **Presentation decks** — Order editable Design frames, preview a deck, and
   export slides as a raster screen PDF or numbered PNG archive. PDF output is

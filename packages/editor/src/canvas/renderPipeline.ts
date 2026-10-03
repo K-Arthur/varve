@@ -51,7 +51,6 @@ import {
   resolveBlendEvaluationSpace,
   worldToScreen,
 } from '@varve/shared';
-import { addRasterMaskRenderSources } from '../backgroundRemoval/maskRenderCache';
 import type { EditorContextValue, EditorState } from '../context';
 import { isEditorInteractionActive } from '../performance/editorFrameRuntime';
 import {
@@ -77,6 +76,7 @@ import {
   imageSrcsFromIr,
   workerSourceCapFor,
 } from '../render/collectImageBitmaps';
+import { documentImageSourcesForFrame } from '../render/documentImageSources';
 import {
   applyGroupContentEffects,
   compositeGroupBackdropEffect,
@@ -701,16 +701,12 @@ export function renderContent(deps: RenderContentDeps): void {
     // path, so switching documents cannot leave encoded handles or decoded
     // proxy/full images pinned by global caches.
     retainImageResourceHandles(Object.keys(doc.assets ?? {}));
-    const activeImageSources = new Set<string>();
-    for (const asset of Object.values(doc.assets ?? {})) activeImageSources.add(asset.dataUrl);
-    addRasterMaskRenderSources(activeImageSources, Object.values(doc.rasterMaskAssets ?? {}));
+    const activeImageSources = documentImageSourcesForFrame(s.document);
     for (const source of perspectiveSurfaceCache.sources()) activeImageSources.add(source);
     for (const source of mockupSurfaceCacheRef.current?.sources() ?? []) {
       activeImageSources.add(source);
     }
-    if (doc.assets !== undefined || doc.rasterMaskAssets !== undefined) {
-      getImageCache().retainSources(activeImageSources);
-    }
+    getImageCache().retainSources(activeImageSources);
 
     let boardColor = sunkenColorRef.current;
     {

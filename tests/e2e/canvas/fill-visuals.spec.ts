@@ -9,12 +9,16 @@
  *  fill-visuals/06-grad-editor.png      — GradientEditor with stops
  */
 
+import { writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { deflateSync } from 'node:zlib';
 import { expect, type Page, test } from '@playwright/test';
 import { selectFillType } from '../helpers/editor-helpers';
+import { evidencePath } from '../helpers/evidence-output';
 import { navigateToCleanEditor } from '../helpers/nav';
 import { resizePanelToWidth } from '../helpers/panel-resize';
+import { readEditorState } from '../helpers/tabletControls';
+import { navigateToEditor } from '../shared';
 
 const PHOTO_FIXTURE = path.resolve('tests/e2e/fixtures/photo-fixture.jpg');
 
@@ -77,7 +81,7 @@ const TILE_PNG = png(8, 8, (x, y) => {
   return black ? [20, 20, 20, 255] : [235, 235, 235, 255];
 });
 
-async function createRect(page: Page): Promise<void> {
+async function createRect(page: Page): Promise<{ x: number; y: number }> {
   await page.keyboard.press('r');
   const canvas = page.locator('canvas.editor-canvas__content-layer');
   await canvas.waitFor({ state: 'visible', timeout: 15000 });
@@ -91,13 +95,93 @@ async function createRect(page: Page): Promise<void> {
   await page.keyboard.press('v');
   await page.mouse.click(box.x + 300, box.y + 250);
   await page.waitForTimeout(400);
+  return { x: box.x + 300, y: box.y + 250 };
+}
+
+async function patternPixelSample(page: Page, point: { x: number; y: number }) {
+  return page.evaluate((point) => {
+    const canvas = document.querySelector<HTMLCanvasElement>('canvas.editor-canvas__content-layer');
+    const context = canvas?.getContext('2d');
+    if (!canvas || !context) throw new Error('Content canvas is unavailable');
+    const bounds = canvas.getBoundingClientRect();
+    const scale = canvas.width / bounds.width;
+    const centerX = Math.round((point.x - bounds.x) * scale);
+    const centerY = Math.round((point.y - bounds.y) * (canvas.height / bounds.height));
+    const image = context.getImageData(0, 0, canvas.width, canvas.height);
+    let hash = 2166136261;
+    for (const value of image.data) hash = Math.imul(hash ^ value, 16777619);
+    let dark = 0;
+    let light = 0;
+    for (let y = centerY - 24; y < centerY + 24; y++) {
+      for (let x = centerX - 24; x < centerX + 24; x++) {
+        const offset = (y * canvas.width + x) * 4;
+        const [r, g, b, a] = image.data.subarray(offset, offset + 4);
+        if (r === 20 && g === 20 && b === 20 && a === 255) dark++;
+        if (r === 235 && g === 235 && b === 235 && a === 255) light++;
+      }
+    }
+    const perf = (
+      window as unknown as {
+        __varvePerf?: { getLast: () => { camera: unknown; docVersion: number } | null };
+      }
+    ).__varvePerf;
+    return {
+      hash: `${image.data.length}:${hash >>> 0}`,
+      width: canvas.width,
+      height: canvas.height,
+      dark,
+      light,
+      frame: perf?.getLast() ?? null,
+    };
+  }, point);
+}
+
+async function assertPatternPixelsAndFullRedraw(page: Page, point: { x: number; y: number }) {
+  // UI readiness proves the preview decoded; the canvas must independently
+  // paint both authored colours, rather than pass with the grey fallback.
+  await expect.poll(async () => (await patternPixelSample(page, point)).dark).toBeGreaterThan(500);
+  await expect.poll(async () => (await patternPixelSample(page, point)).light).toBeGreaterThan(500);
+  const before = await patternPixelSample(page, point);
+  const receipt = await page.evaluate(() => {
+    const perf = (
+      window as unknown as {
+        __varvePerf?: { forceFullRedraw: () => Promise<{ authoritative: boolean }> };
+      }
+    ).__varvePerf;
+    if (!perf) throw new Error('Full-redraw oracle is unavailable');
+    return perf.forceFullRedraw();
+  });
+  const after = await patternPixelSample(page, point);
+  const oracle = JSON.stringify({ before, after, receipt }, null, 2);
+  await writeFile(evidencePath('fill-visuals/checker-pattern-full-redraw-oracle.json'), oracle);
+  await test.info().attach('checker-pattern-full-redraw-oracle.json', {
+    body: oracle,
+    contentType: 'application/json',
+  });
+  expect(receipt.authoritative).toBe(true);
+  expect(before.frame?.camera).toBeDefined();
+  expect(after.frame?.camera).toEqual(before.frame?.camera);
+  expect(after.frame?.docVersion).toBe(before.frame?.docVersion);
+  expect({ width: after.width, height: after.height }).toEqual({
+    width: before.width,
+    height: before.height,
+  });
+  expect(after.hash).toBe(before.hash);
+  expect(after.dark).toBeGreaterThan(500);
+  expect(after.light).toBeGreaterThan(500);
 }
 
 test('fill visual evidence set', async ({ page }) => {
   test.setTimeout(240000);
-  await navigateToCleanEditor(page);
-  await createRect(page);
-  await page.screenshot({ path: 'test-results/fill-visuals/01-solid-before.png' });
+  const duplicateAuditRuleWarnings: string[] = [];
+  page.on('console', (message) => {
+    if (message.type() === 'warning' && message.text().startsWith('[audit] Overwriting rule:')) {
+      duplicateAuditRuleWarnings.push(message.text());
+    }
+  });
+  await navigateToEditor(page, '/?perf=1');
+  const point = await createRect(page);
+  await page.screenshot({ path: evidencePath('fill-visuals/01-solid-before.png') });
 
   // Add fill → Linear gradient
   await page
@@ -107,7 +191,7 @@ test('fill visual evidence set', async ({ page }) => {
   await page.waitForTimeout(250);
   await page.getByRole('menuitem', { name: 'Linear gradient' }).click();
   await page.waitForTimeout(800);
-  await page.screenshot({ path: 'test-results/fill-visuals/02-gradient-after.png' });
+  await page.screenshot({ path: evidencePath('fill-visuals/02-gradient-after.png') });
 
   // Gradient controls live in the paint's colour-picker popover; adding the
   // fill preserves the inspector row without automatically opening a dialog.
@@ -119,7 +203,7 @@ test('fill visual evidence set', async ({ page }) => {
   await editor.waitFor({ state: 'visible', timeout: 5000 });
   await editor.scrollIntoViewIfNeeded();
   await page.waitForTimeout(300);
-  await page.screenshot({ path: 'test-results/fill-visuals/06-grad-editor.png' });
+  await page.screenshot({ path: evidencePath('fill-visuals/06-grad-editor.png') });
   await picker.getByRole('button', { name: 'Dismiss colour picker' }).click();
   await expect(picker).toHaveCount(0);
 
@@ -130,7 +214,7 @@ test('fill visual evidence set', async ({ page }) => {
   await page.waitForTimeout(800);
   await page.locator('.insp-image-fill__empty-hint').scrollIntoViewIfNeeded();
   await page.waitForTimeout(300);
-  await page.screenshot({ path: 'test-results/fill-visuals/03-image-empty.png' });
+  await page.screenshot({ path: evidencePath('fill-visuals/03-image-empty.png') });
 
   // Choose image
   const chooserPromise = page.waitForEvent('filechooser');
@@ -138,7 +222,11 @@ test('fill visual evidence set', async ({ page }) => {
   const chooser = await chooserPromise;
   await chooser.setFiles({ name: 'fill-fixture.png', mimeType: 'image/png', buffer: IMAGE_PNG });
   await page.waitForTimeout(1500);
-  await page.screenshot({ path: 'test-results/fill-visuals/04-image-after.png' });
+  await page.screenshot({ path: evidencePath('fill-visuals/04-image-after.png') });
+  const imageDocument = JSON.parse((await readEditorState(page)).serialized) as {
+    assets?: Record<string, unknown>;
+  };
+  expect(Object.keys(imageDocument.assets ?? {}).length).toBeGreaterThan(0);
 
   // Convert to Pattern and choose a tile
   await selectFillType(page, 'Pattern');
@@ -151,8 +239,17 @@ test('fill visual evidence set', async ({ page }) => {
     mimeType: 'image/png',
     buffer: TILE_PNG,
   });
-  await page.waitForTimeout(5000);
-  await page.screenshot({ path: 'test-results/fill-visuals/05-pattern-after.png' });
+  await expect(page.getByText('Imported tile', { exact: true })).toBeVisible();
+  const persisted = JSON.parse((await readEditorState(page)).serialized) as {
+    nodes: Record<string, { fills?: Array<{ type: string; pattern?: { tileSrc: string } }> }>;
+  };
+  const pattern = Object.values(persisted.nodes)
+    .flatMap((node) => node.fills ?? [])
+    .find((fill) => fill.type === 'pattern');
+  expect(pattern?.pattern?.tileSrc).toBe(`data:image/png;base64,${TILE_PNG.toString('base64')}`);
+  await assertPatternPixelsAndFullRedraw(page, point);
+  await page.screenshot({ path: evidencePath('fill-visuals/05-pattern-after.png') });
+  expect(duplicateAuditRuleWarnings).toEqual([]);
 });
 
 test('image colour metadata stays separated in a narrow inspector', async ({ page }, testInfo) => {
@@ -210,6 +307,6 @@ test('image colour metadata stays separated in a narrow inspector', async ({ pag
     contentType: 'image/png',
   });
   await inspector.screenshot({
-    path: 'test-results/fill-visuals/narrow-image-colour-metadata.png',
+    path: evidencePath('fill-visuals/narrow-image-colour-metadata.png'),
   });
 });

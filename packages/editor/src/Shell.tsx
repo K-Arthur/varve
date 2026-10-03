@@ -400,14 +400,34 @@ function ShellInner({
   // Replace), and entry order determines handler priority.
   //
   // Re-runs on every editor state change (the context value is a new object
-  // each update) so handlers close over fresh context; the other registrations
-  // must run exactly once (re-running registerBuiltinRules logged
-  // "[audit] Overwriting rule: <id>" ~28 times per pointer move during a drag).
+  // each update) so action handlers close over fresh context. Static registries
+  // are populated once; repeating registerBuiltinRules on every state update
+  // logged one warning per rule and needlessly rebuilt the registry.
   const staticActionsRegistered = useRef(false);
   useEffect(() => {
     if (!staticActionsRegistered.current) {
       staticActionsRegistered.current = true;
       registerAllShortcuts(() => null);
+      // Populate the audit registry once. Without this, runAudit() (the
+      // IntelligencePanel's Audit tab) silently scans against zero rules.
+      registerBuiltinRules();
+
+      // Dev guard: fail visibly if audit engine starts with zero rules.
+      if (process.env.NODE_ENV !== 'production') {
+        const allRules = getAllRules();
+        if (allRules.length === 0) {
+          console.error(
+            '[audit] FATAL: Audit engine started with zero registered rules. ' +
+              'registerBuiltinRules() did not populate the registry. ' +
+              'Check that auditAdapter.ts creates rules correctly.',
+          );
+        } else {
+          console.info(
+            `[audit] Rule registry: ${allRules.length} rules registered`,
+            allRules.map((r) => r.id),
+          );
+        }
+      }
     }
     registerEditorActions(editor, {
       onBackToHome,
@@ -444,26 +464,6 @@ function ShellInner({
         void exportLayerRef.current?.copySelectionAsPng(scale, selection),
       onExportSvg: () => exportLayerRef.current?.exportSvg(),
     });
-    // Populate the audit rule registry. Without this, runAudit() (the
-    // IntelligencePanel's Audit tab) silently scans against zero rules.
-    registerBuiltinRules();
-
-    // Dev guard: fail visibly if audit engine starts with zero rules
-    if (process.env.NODE_ENV !== 'production') {
-      const allRules = getAllRules();
-      if (allRules.length === 0) {
-        console.error(
-          '[audit] FATAL: Audit engine started with zero registered rules. ' +
-            'registerBuiltinRules() did not populate the registry. ' +
-            'Check that auditAdapter.ts creates rules correctly.',
-        );
-      } else {
-        console.info(
-          `[audit] Rule registry: ${allRules.length} rules registered`,
-          allRules.map((r) => r.id),
-        );
-      }
-    }
   }, [bringAllPanelsToCurrentDisplay, editor, editorHelp, onBackToHome, resetPanelWindowLayout]);
 
   const handlePaletteSelect = useCallback((id: string) => {
