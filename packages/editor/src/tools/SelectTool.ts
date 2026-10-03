@@ -717,7 +717,20 @@ export class SelectTool extends BaseTool {
             const worldBounds = ctx.masterEditId
               ? ctx.nodeWorldBounds(node)
               : nodeWorldBounds(ctx.document, selId);
-            const center = worldCenterOf(ctx.document, selId, worldBounds, ctx.getWorldTransform);
+            // Auto-layout owns flow-child positions during the live preview,
+            // so nodeWorldBounds still reports the original slot even when
+            // the pointer has crossed a sibling. Resolve reorder intent from
+            // the gesture's world-space delta and the captured initial bounds
+            // instead of the layout engine's unchanged preview bounds.
+            const initialBounds = this.initialWorldBounds.get(selId);
+            const dragDelta = this.worldDragDelta(ctx);
+            const center =
+              flowManaged && initialBounds
+                ? {
+                    x: initialBounds.x + initialBounds.w / 2 + dragDelta.dx,
+                    y: initialBounds.y + initialBounds.h / 2 + dragDelta.dy,
+                  }
+                : worldCenterOf(ctx.document, selId, worldBounds, ctx.getWorldTransform);
             const frameId = ctx.findContainingFrame(center);
             if (flowManaged && frameId !== currentParent) continue;
             if (frameId) {

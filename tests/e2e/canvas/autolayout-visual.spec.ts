@@ -479,13 +479,18 @@ test.describe('Auto Layout comprehensive verification', () => {
     const before = await rows.allTextContents();
     expect(before).toHaveLength(2);
 
-    const canvas = await getCanvas(page);
-    const canvasBox = await canvas.boundingBox();
-    if (!canvasBox) throw new Error('canvas not found');
+    // Use the rendered selection outline for the drag origin. Canvas-local
+    // offsets are not world coordinates when the editor camera is centered.
+    await page.getByRole('treeitem', { name: /Rectangle 1, Vector rectangle/ }).click();
+    const outline = page.locator('svg:has(filter#selection-glow) > rect').first();
+    const outlineBox = await outline.boundingBox();
+    if (!outlineBox) throw new Error('selected flow child outline not found');
+    const startX = outlineBox.x + outlineBox.width / 2;
+    const startY = outlineBox.y + outlineBox.height / 2;
     await selectTool(page);
-    await page.mouse.move(canvasBox.x + 120, canvasBox.y + 120);
+    await page.mouse.move(startX, startY);
     await page.mouse.down();
-    await page.mouse.move(canvasBox.x + 400, canvasBox.y + 120, { steps: 8 });
+    await page.mouse.move(startX + 120, startY, { steps: 8 });
     await page.mouse.up();
     await page.waitForTimeout(500);
 
