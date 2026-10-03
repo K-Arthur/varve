@@ -8,7 +8,7 @@ import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { delimiter, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseArgs, runLane } from './pre-push.mjs';
+import { parseArgs, pushLaneArgv, runLane } from './pre-push.mjs';
 import {
   LANE_COST_SECONDS,
   PUSH_LANE_TIMEOUT_MS,
@@ -92,6 +92,56 @@ const cargoLane = runLane(
   },
 );
 assert.equal(cargoLane.status, 0);
+
+// Resource ownership is independent of selected scope and exact-tree cwd.
+// Execute is injected: these assertions never start Vitest, TSC or Cargo.
+for (const lane of [
+  'js-unit:@varve/editor',
+  'js-unit:file:tests/unit/sample.test.ts',
+  'typecheck:@varve/editor',
+  'typecheck:e2e',
+  'rust-test:varve-print',
+  'rust-clippy:varve-print',
+]) {
+  let observed;
+  const outcome = runLane(
+    lane,
+    { union: { paths: [] } },
+    {
+      cwd: '/fixture/exact-snapshot',
+      env: { CARGO_TARGET_DIR: '/fixture/cargo', VARVE_TEST_WORKERS: '2' },
+      executeCommand: (argv, options) => {
+        observed = { argv, options };
+        return 7;
+      },
+    },
+  );
+  assert.equal(outcome.status, 7, `${lane} failures remain blocking`);
+  assert.equal(observed.argv[0], process.execPath);
+  assert.match(observed.argv[1], /scripts[/\\]quality[/\\]heavy-lease\.mjs$/);
+  assert.equal(observed.argv[2], `push: ${lane}`);
+  assert.equal(observed.argv[3], '--');
+  assert.deepEqual(observed.argv.slice(4), outcome.command);
+  assert.equal(observed.options.cwd, '/fixture/exact-snapshot');
+  assert.equal(observed.options.env.CARGO_TARGET_DIR, '/fixture/cargo');
+  assert.equal(
+    observed.options.timeoutMs,
+    PUSH_LANE_TIMEOUT_MS[lane] ?? PUSH_LANE_TIMEOUT_MS.default,
+  );
+  assert.equal(
+    observed.options.env.VARVE_TEST_WORKERS,
+    lane.startsWith('js-unit:file:') ? '1' : '2',
+  );
+}
+for (const lane of [
+  'website-e2e',
+  'website-e2e:file:apps/website/tests/e2e/home.spec.ts',
+  'audit:docs',
+  'workflow-validate',
+]) {
+  const argv = ['fixture', 'command'];
+  assert.equal(pushLaneArgv(lane, argv), argv, `${lane} has no redundant outer lease`);
+}
 
 // A C++-backed crate is not cheap merely because only two crates changed.
 // Ordinary push explicitly defers its cold profiles, preserving the smaller

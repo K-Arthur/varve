@@ -40,6 +40,39 @@ try {
     assert.doesNotMatch(result.stderr, /timed out|cancelled/);
   }
 
+  // A launcher can die before the helper captures process.ppid, which is then
+  // the OS reaper rather than its real parent. The pre-spawn identity closes
+  // that race and prevents starting orphan work against the snapshot.
+  if (process.platform === 'linux' || process.platform === 'darwin') {
+    const admissionMarker = join(tempDir, 'dead-launcher-command');
+    const result = spawnSync(
+      process.execPath,
+      [
+        runner,
+        '1000',
+        tempDir,
+        process.execPath,
+        '-e',
+        `require('node:fs').writeFileSync(${JSON.stringify(admissionMarker)},'launched')`,
+      ],
+      {
+        encoding: 'utf8',
+        timeout: 3000,
+        env: {
+          ...process.env,
+          VARVE_VALIDATION_LAUNCHER: JSON.stringify({
+            pid: 2147483647,
+            identity: 'exited-launcher',
+          }),
+        },
+      },
+    );
+    assert.equal(result.status, 1, result.stderr);
+    assert.match(result.stderr, /original launcher exited before supervisor admission/);
+    assert.equal(existsSync(admissionMarker), false);
+    console.log('pre-spawn launcher identity prevents orphan admission');
+  }
+
   // Exercise the real Windows adapter on this host without starting cmd.exe:
   // only the OS spawn boundary is injected. This is not native Windows proof.
   const adapterFixture = `
@@ -209,7 +242,7 @@ try {
       'bounded deadlines and cancellation clean detached descendants, preserving unrelated work',
     );
     if (process.platform === 'linux' || process.platform === 'darwin')
-      await testSupervisorParentLoss();
+      for (const abrupt of [false, true]) await testSupervisorParentLoss(abrupt);
   }
 } finally {
   rmSync(tempDir, { recursive: true, force: true });
@@ -223,14 +256,15 @@ async function waitForFixtureFile(path, timeoutMs = 3000) {
 }
 
 /** The real parent exits normally; it never signals its detached supervisor. */
-async function testSupervisorParentLoss() {
-  const ready = join(tempDir, 'parent-loss-command.json');
-  const ownerPath = join(tempDir, 'parent-loss-owner');
-  const leave = join(tempDir, 'parent-loss-controller-leave');
-  const receipt = join(tempDir, 'parent-loss-result.json');
-  const signalMarker = join(tempDir, 'parent-loss-supervisor-signal');
-  const logPath = join(tempDir, 'parent-loss.log');
-  const supervisorPath = join(tempDir, 'parent-loss-supervisor.mjs');
+async function testSupervisorParentLoss(abrupt) {
+  const prefix = `parent-loss-${abrupt}`;
+  const ready = join(tempDir, `${prefix}-command.json`);
+  const ownerPath = join(tempDir, `${prefix}-owner`);
+  const leave = join(tempDir, `${prefix}-controller-leave`);
+  const receipt = join(tempDir, `${prefix}-result.json`);
+  const signalMarker = join(tempDir, `${prefix}-supervisor-signal`);
+  const logPath = join(tempDir, `${prefix}.log`);
+  const supervisorPath = join(tempDir, `${prefix}-supervisor.mjs`);
   let controller;
   let sentinel;
   let owned = [];
@@ -296,8 +330,12 @@ async function testSupervisorParentLoss() {
     owned.push(processRecord(pids.parent), processRecord(pids.grandchild));
     assert.ok(owned.every(Boolean), 'owned command and detached grandchild must be live');
     await new Promise((resolve) => setTimeout(resolve, 300));
-    writeFileSync(leave, 'exit without signalling supervisor');
-    assert.deepEqual(await controllerExit, { code: 0, signal: null });
+    if (abrupt) controller.kill('SIGKILL');
+    else writeFileSync(leave, 'exit without signalling supervisor');
+    assert.deepEqual(
+      await controllerExit,
+      abrupt ? { code: null, signal: 'SIGKILL' } : { code: 0, signal: null },
+    );
     await waitForFixtureFile(receipt, 6500);
     const result = JSON.parse(readFileSync(receipt, 'utf8'));
     assert.deepEqual(result, { status: 1, signal: null, remaining: [], cleanupUnknown: false });
@@ -309,7 +347,9 @@ async function testSupervisorParentLoss() {
     for (const record of owned.slice(1))
       assert.equal(processRecord(record.pid), null, 'owned detached work survived parent loss');
     assert.ok(processRecord(sentinel.pid), 'an unrelated sibling must remain alive');
-    console.log('supervisor parent loss cleans owned detached work without a delivered signal');
+    console.log(
+      `supervisor parent ${abrupt ? 'SIGKILL' : 'exit'} cleans owned detached work without a delivered signal`,
+    );
   } finally {
     for (const record of owned.reverse()) {
       const current = processRecord(record?.pid);

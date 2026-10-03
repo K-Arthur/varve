@@ -180,6 +180,9 @@ export const LANE_COST_SECONDS = Object.freeze({
   'audit:tokens': 45,
   'js-unit:file': 45,
   'js-unit:package': 100,
+  // The 801-file editor lane took 1,528s with eight workers in the
+  // 2026-09-24 exact-ref run. It is not an ordinary 100s package check.
+  'js-unit:@varve/editor': 1530,
   'typecheck:package': 80,
   'rust-test:crate': 120,
   'rust-clippy:crate': 120,
@@ -478,8 +481,17 @@ export function selectPushValidation(plan, { files = pathList(plan), strict = fa
     .sort();
   if (packageTestLanes.length <= PUSH_LIMITS.maxPackageTests) {
     for (const lane of packageTestLanes) {
+      const cost = LANE_COST_SECONDS[lane] ?? LANE_COST_SECONDS['js-unit:package'];
+      if (!strict && estimatedSeconds + cost > PUSH_LIMITS.maxLocalEstimatedSeconds) {
+        deferred.add(lane);
+        remoteRequired.add(lane);
+        localReasons.push(
+          `${lane}: package estimate ${cost}s exceeds the remaining local push budget; exact-SHA CI certification required`,
+        );
+        continue;
+      }
       localBlocking.push(lane);
-      estimatedSeconds += LANE_COST_SECONDS['js-unit:package'];
+      estimatedSeconds += cost;
     }
   } else if (packageTestLanes.length > 0) {
     localReasons.push(

@@ -31,13 +31,14 @@
  * for hours, so wall-clock age alone never makes an active owner stale.
  */
 
-import { execSync, spawn, spawnSync } from 'node:child_process';
-import { randomUUID } from 'node:crypto';
+import { execFileSync, spawn, spawnSync } from 'node:child_process';
+import { createHash, randomUUID } from 'node:crypto';
 import {
   existsSync,
   mkdirSync,
   readdirSync,
   readFileSync,
+  realpathSync,
   unlinkSync,
   writeFileSync,
 } from 'node:fs';
@@ -55,6 +56,7 @@ const MAX_WAIT_MS = Number(process.env.VARVE_LEASE_TIMEOUT ?? 600000);
 // process) partway through.
 const MIN_MEM_MB = Number(process.env.VARVE_LEASE_MIN_MEM_MB ?? 1536);
 const MEM_POLL_MS = Number(process.env.VARVE_LEASE_MEM_POLL_MS ?? 5000);
+const LEASE_POLL_MS = Number(process.env.VARVE_LEASE_POLL_MS ?? 1000);
 
 /** MemAvailable in MB — the same figure `free -h`'s "available" column
  * reports (free + reclaimable cache/buffers), not raw freemem(), which
@@ -109,19 +111,30 @@ async function waitForMemoryHeadroom(label) {
   }
 }
 
-function commonGitDir() {
-  try {
-    return execSync('git rev-parse --git-common-dir', { encoding: 'utf8' }).trim();
-  } catch {
-    return process.cwd();
-  }
-}
+const OWNER_ENV = 'VARVE_HEAVY_LEASE_OWNER';
 
-function lockPath() {
-  const gitDir = commonGitDir();
-  const hash = Buffer.from(gitDir).toString('hex').slice(0, 32);
-  const base = process.env.XDG_RUNTIME_DIR || tmpdir();
-  return join(base, 'varve-leases', `${hash}.lock`);
+/** Canonical keys bind all worktrees; legacy aliases bridge older clients. */
+export function leasePaths({
+  cwd = process.cwd(),
+  runtimeDirectory = process.env.XDG_RUNTIME_DIR || tmpdir(),
+} = {}) {
+  let printed;
+  try {
+    printed = execFileSync('git', ['rev-parse', '--git-common-dir'], {
+      cwd,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+  } catch {
+    printed = cwd;
+  }
+  const commonDir = realpathSync(resolve(cwd, printed));
+  const base = join(resolve(runtimeDirectory), 'varve-leases');
+  const primary = join(base, `${createHash('sha256').update(commonDir).digest('hex')}.lock`);
+  const legacy = [...new Set([printed, commonDir, '.git'])].map((value) =>
+    join(base, `${Buffer.from(value).toString('hex').slice(0, 32)}.lock`),
+  );
+  return { commonDir, primary, paths: [...new Set([primary, ...legacy])].sort() };
 }
 
 function readLease(path) {
@@ -162,63 +175,80 @@ function hasLiveLeaseOwner(lease) {
   );
 }
 
-function acquireTransaction(path, label) {
-  const mutex = `${path}.acquire`;
+function acquireTransaction(keys, label) {
+  const ownedMutexes = [];
+  const created = [];
   try {
-    writeFileSync(mutex, JSON.stringify({ pid: process.pid }), { flag: 'wx' });
-  } catch (error) {
-    if (error.code !== 'EEXIST') throw error;
-    const owner = readLease(mutex);
-    if (!owner) return { waiting: { pid: 'unknown', label: 'incomplete acquisition metadata' } };
-    if (!pidAlive(owner.pid))
-      throw new Error(
-        `heavy-lease: acquisition mutex has an unknown or stopped owner; refusing to overwrite ${mutex}`,
-      );
-    return { waiting: owner };
-  }
-  try {
-    const lease = readLease(path);
-    if ((!lease || typeof lease.leaseId !== 'string' || !lease.leaseId) && existsSync(path))
-      throw new Error(
-        `heavy-lease: invalid lease metadata; refusing to delete an unknown owner at ${path}`,
-      );
-    if (lease && hasLiveLeaseOwner(lease)) return { waiting: lease };
-    if (lease) {
-      console.warn(`heavy-lease: reclaiming stale lease (${JSON.stringify(lease)})`);
-      // All acquirers hold this short mutex while reading/reclaiming/creating.
-      // A second stale reader cannot unlink a newly acquired replacement.
+    // Reserve all keys under the same ordered, short transaction. Publishing
+    // aliases without their old mutex permits an old client to race admission.
+    for (const path of keys.paths) {
+      const mutex = `${path}.acquire`;
+      try {
+        writeFileSync(mutex, JSON.stringify({ pid: process.pid }), { flag: 'wx' });
+        ownedMutexes.push(mutex);
+      } catch (error) {
+        if (error.code !== 'EEXIST') throw error;
+        const owner = readLease(mutex);
+        if (!owner)
+          return { waiting: { pid: 'unknown', label: 'incomplete acquisition metadata' } };
+        if (!pidAlive(owner.pid))
+          throw new Error(
+            `heavy-lease: acquisition mutex has an unknown or stopped owner; refusing to overwrite ${mutex}`,
+          );
+        return { waiting: owner };
+      }
+    }
+    for (const path of keys.paths) {
+      const lease = readLease(path);
+      if ((!lease || typeof lease.leaseId !== 'string' || !lease.leaseId) && existsSync(path))
+        throw new Error(
+          `heavy-lease: invalid lease metadata; refusing to delete an unknown owner at ${path}`,
+        );
+      if (lease && hasLiveLeaseOwner(lease)) return { waiting: lease };
+    }
+    for (const path of keys.paths) {
+      if (!existsSync(path)) continue;
+      console.warn(`heavy-lease: reclaiming stale lease (${JSON.stringify(readLease(path))})`);
       unlinkSync(path);
     }
     const me = {
       pid: process.pid,
+      identity: processInfo(process.pid)?.identity ?? null,
       leaseId: randomUUID(),
+      commonDir: keys.commonDir,
+      primary: keys.primary,
       label,
       startedAt: Date.now(),
       hostname: homedir(),
       tool: 'varve-verify',
     };
-    writeFileSync(path, JSON.stringify(me, null, 2), { flag: 'wx' });
+    for (const path of keys.paths) {
+      writeFileSync(path, JSON.stringify(me, null, 2), { flag: 'wx' });
+      created.push({ path, leaseId: me.leaseId });
+    }
     return { acquired: me };
+  } catch (error) {
+    for (const item of created) release(item.path, item.leaseId);
+    throw error;
   } finally {
     // No contender reclaims acquisition mutexes. Its creating process alone
     // unlinks it; a crash fails closed rather than racing another owner.
-    unlinkSync(mutex);
+    for (const mutex of ownedMutexes) unlinkSync(mutex);
   }
 }
 
-async function acquire(label) {
-  const path = lockPath();
-  mkdirSync(dirname(path), { recursive: true });
+async function acquire(label, keys) {
+  mkdirSync(dirname(keys.primary), { recursive: true });
   const deadline = Date.now() + MAX_WAIT_MS;
   while (Date.now() < deadline) {
-    const result = acquireTransaction(path, label);
+    const result = acquireTransaction(keys, label);
     if (result.acquired) return result.acquired;
     const lease = result.waiting;
     console.log(
       `heavy-lease: waiting for ${lease.label ?? 'acquisition transaction'} (pid ${lease.pid}, started ${lease.startedAt ? new Date(lease.startedAt).toISOString() : 'just now'})...`,
     );
     await new Promise((resolve) =>
-      setTimeout(resolve, Math.min(5000, Math.max(1, deadline - Date.now()))),
+      setTimeout(resolve, Math.min(LEASE_POLL_MS, Math.max(1, deadline - Date.now()))),
     );
   }
   console.error(`heavy-lease: deadline reached after ${MAX_WAIT_MS / 1000}s`);
@@ -267,6 +297,73 @@ function supervisorParentLost(parent) {
   if (process.ppid !== parent.pid) return true;
   const current = processInfo(parent.pid);
   return current ? current.zombie || current.identity !== parent.identity : false;
+}
+
+/** Capture the launcher before spawning a supervisor, closing its startup race. */
+export function validationSupervisorIdentity() {
+  return process.platform === 'linux' || process.platform === 'darwin'
+    ? processInfo(process.pid)
+    : null;
+}
+
+function ownerIsAncestor(pid) {
+  if (process.platform === 'win32') {
+    // One bounded CIM query checks the real chain; an unreadable chain cannot
+    // authorize inheritance. PowerShell is part of supported Windows hosts.
+    const result = spawnSync(
+      'powershell.exe',
+      [
+        '-NoProfile',
+        '-NonInteractive',
+        '-Command',
+        `$id=${process.ppid};$seen=@{};$chain=@();while($id -gt 0 -and -not $seen.ContainsKey($id)){$seen[$id]=$true;$chain+=$id;$p=Get-CimInstance Win32_Process -Filter ("ProcessId="+$id);if($null -eq $p){break};$id=[int]$p.ParentProcessId};ConvertTo-Json -Compress -InputObject $chain`,
+      ],
+      { encoding: 'utf8', timeout: 3000, windowsHide: true },
+    );
+    try {
+      return result.status === 0 && JSON.parse(result.stdout).includes(pid);
+    } catch {
+      return false;
+    }
+  }
+  const seen = new Set();
+  let parent = process.ppid;
+  while (parent > 0 && !seen.has(parent)) {
+    if (parent === pid) return true;
+    seen.add(parent);
+    const info = processInfo(parent);
+    if (!info || info.zombie) return false;
+    parent = info.parent;
+  }
+  return false;
+}
+
+function inheritedOwner(keys) {
+  if (!process.env[OWNER_ENV]) return null;
+  try {
+    const token = JSON.parse(process.env[OWNER_ENV]);
+    if (token.primary !== keys.primary || token.commonDir !== keys.commonDir) return null;
+    const lease = readLease(keys.primary);
+    if (
+      !lease ||
+      lease.cleanupUnknown ||
+      token.leaseId !== lease.leaseId ||
+      token.pid !== lease.pid ||
+      token.identity !== lease.identity ||
+      !pidAlive(lease.pid) ||
+      !ownerIsAncestor(lease.pid)
+    )
+      return null;
+    const current = processInfo(lease.pid);
+    if (
+      lease.identity !== null &&
+      (!current || current.zombie || current.identity !== lease.identity)
+    )
+      return null;
+    return token;
+  } catch {
+    return null;
+  }
 }
 
 function childPids(pid) {
@@ -486,6 +583,7 @@ export async function runValidationCommand(argv, options = {}) {
     timeoutMs,
     platform: targetPlatform = process.platform,
     windowsKill = killWindowsTree,
+    expectedParent,
     ...spawnOptions
   } = options;
   if (timeoutMs !== undefined && (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0))
@@ -495,9 +593,16 @@ export async function runValidationCommand(argv, options = {}) {
   // A terminal or pnpm parent can disappear without signalling this detached
   // supervisor. Capture its identity before launching any owned command.
   const supervisorParent =
-    !windows && (process.platform === 'linux' || process.platform === 'darwin')
+    expectedParent ??
+    (!windows && (process.platform === 'linux' || process.platform === 'darwin')
       ? processInfo(process.ppid)
-      : null;
+      : null);
+  if (expectedParent && supervisorParentLost(expectedParent)) {
+    console.error(
+      'validation: original launcher exited before supervisor admission; command not launched',
+    );
+    return { status: 1, signal: null, remaining: [], cleanupUnknown: false };
+  }
   let child;
   try {
     const childOptions = {
@@ -623,6 +728,8 @@ async function main() {
   const args = process.argv.slice(2);
   const dashIdx = args.indexOf('--');
   const optOut = process.env.VARVE_HEAVY_TASK_PARALLELISM === '0';
+  const keys = optOut ? null : leasePaths();
+  const inherited = keys ? inheritedOwner(keys) : null;
   if (dashIdx === -1) {
     if (optOut) {
       console.log(
@@ -630,8 +737,9 @@ async function main() {
       );
       return;
     }
-    const lease = await acquire(args[0] ?? 'unknown');
-    release(lockPath(), lease.leaseId);
+    if (inherited) return;
+    const lease = await acquire(args[0] ?? 'unknown', keys);
+    for (const path of keys.paths) release(path, lease.leaseId);
     return;
   }
   const label = args.slice(0, dashIdx).join(' ');
@@ -641,19 +749,25 @@ async function main() {
     process.exitCode = 2;
     return;
   }
-  const lease = optOut ? null : await acquire(label);
+  const lease = optOut || inherited ? null : await acquire(label, keys);
   if (lease) {
     try {
       await waitForMemoryHeadroom(label);
     } catch (error) {
-      release(lockPath(), lease.leaseId);
+      for (const path of keys.paths) release(path, lease.leaseId);
       console.error(error.message);
       process.exitCode = error.exitCode ?? 1;
       return;
     }
   }
-  const result = await runValidationCommand(rest);
-  if (lease) retainOrRelease(lockPath(), lease.leaseId, result.remaining, result.cleanupUnknown);
+  const token = lease ?? inherited;
+  const env = { ...process.env };
+  if (token) env[OWNER_ENV] = JSON.stringify(token);
+  else delete env[OWNER_ENV];
+  const result = await runValidationCommand(rest, { env });
+  if (lease)
+    for (const path of keys.paths)
+      retainOrRelease(path, lease.leaseId, result.remaining, result.cleanupUnknown);
   process.exitCode = result.status;
 }
 

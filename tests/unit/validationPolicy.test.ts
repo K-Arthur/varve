@@ -266,6 +266,48 @@ describe('validation infrastructure presence', () => {
     expect(validation.deferred).toEqual([]);
   });
 
+  it('defers the measured editor package cost while retaining cheap checks and strict ownership', () => {
+    const plan = {
+      tiers: { 0: [], 1: [], 2: ['js-unit:@varve/editor', 'js-unit:@varve/ui'], 3: [], 4: [] },
+      changed: {
+        js: ['packages/editor/src/components/TextEditOverlay.tsx'],
+        rust: [],
+        other: [],
+        app: [],
+      },
+      full: false,
+      reasons: [],
+    };
+    const files = ['packages/editor/src/components/TextEditOverlay.tsx'];
+    const normal = selectPushValidation(plan, { files });
+    expect(normal.localBlocking).not.toContain('js-unit:@varve/editor');
+    expect(normal.localBlocking).toContain('js-unit:@varve/ui');
+    expect(normal.remoteRequired).toContain('js-unit:@varve/editor');
+    expect(normal.deferred).toContain('js-unit:@varve/editor');
+    expect(normal.reasons.join('\n')).toMatch(/1530s.*budget/);
+    const strict = selectPushValidation(plan, { files, strict: true });
+    expect(strict.localBlocking).toContain('js-unit:@varve/editor');
+    expect(strict.deferred).toEqual([]);
+  });
+
+  it('accounts for earlier direct tests before admitting package work into the push budget', () => {
+    const files = Array.from({ length: 12 }, (_, i) => `packages/ui/src/control${i}.test.tsx`);
+    const plan = {
+      tiers: { 0: [], 1: [], 2: ['js-unit:@varve/ui', 'js-unit:@varve/shared'], 3: [], 4: [] },
+      changed: { js: files, rust: [], other: [], app: [] },
+      full: false,
+      reasons: [],
+    };
+    const result = selectPushValidation(plan, { files });
+    expect(result.localBlocking.filter((lane) => lane.startsWith('js-unit:file:'))).toHaveLength(
+      12,
+    );
+    expect(result.localBlocking).toContain('js-unit:@varve/shared');
+    expect(result.localBlocking).not.toContain('js-unit:@varve/ui');
+    expect(result.remoteRequired).toContain('js-unit:@varve/ui');
+    expect(result.deferred).toContain('js-unit:@varve/ui');
+  });
+
   it('all workspace packages are discoverable', () => {
     const pkgs = pnpmLs()
       .map((p) => p.name)

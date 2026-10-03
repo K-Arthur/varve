@@ -13,12 +13,15 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { leasePaths } from './heavy-lease.mjs';
 
 const script =
   process.env.VARVE_TEST_LEASE_SCRIPT ??
   fileURLToPath(new URL('./heavy-lease.mjs', import.meta.url));
 const gitDir = execFileSync('git', ['rev-parse', '--git-common-dir'], { encoding: 'utf8' }).trim();
-const lockName = `${Buffer.from(gitDir).toString('hex').slice(0, 32)}.lock`;
+const lockName = process.env.VARVE_TEST_LEASE_SCRIPT
+  ? `${Buffer.from(gitDir).toString('hex').slice(0, 32)}.lock`
+  : leasePaths().primary.split(/[/\\]/).at(-1);
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 async function waitFor(predicate) {
   const deadline = Date.now() + 4000;

@@ -44,6 +44,24 @@ from runner queue time and external startup failures.
    Rerun failed hosted cells at the original SHA after diagnosing the cause.
    Source repairs require a new SHA. Aggregation uses the latest cell attempt.
 
+Normal pushes also account for package size. The editor's 801-file lane had
+taken 1,528 seconds with eight workers, but previously inherited a 100-second
+estimate and entered a 720-second local budget. Its conservative estimate is
+now 1,530 seconds. Package work exceeding the remaining budget is explicitly
+remote-required; direct changed tests and cheap checks remain local. Deliberate
+strict execution retains that lane and its timeout. Deferral cannot establish a
+release pass: exact-source hosted coverage is still required.
+
+Local push lanes share the browser/build lease. Its key hashes the canonical
+absolute common Git directory, so the main checkout and detached validation
+worktrees coordinate correctly. During migration, acquisition also reserves
+legacy aliases atomically; the old `.git` alias can conservatively serialize
+different repositories until older clients are retired. Nested commands must
+prove descendant ownership. The bounded launcher records its original parent
+identity and cleans up detached descendants on timeout, cancellation, or parent
+loss, including a killed parent. A live or unverified owner is never reclaimed
+because its run is old.
+
 Discovery runs the same canonical selection with `--list`, without starting a
 browser or web server. Its inventory binds case identities, selected projects,
 source SHA/tree, plan hash, and policy hash. Receipts carry the inventory digest.

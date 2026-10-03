@@ -16,6 +16,7 @@ import { availableParallelism, freemem, totalmem } from 'node:os';
 import { delimiter, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { loadPackages } from './affected-plan.mjs';
+import { validationSupervisorIdentity } from './heavy-lease.mjs';
 import { finishOperation, startOperation } from './operation-history.mjs';
 import {
   buildPushPlan,
@@ -39,6 +40,7 @@ import { createValidationSnapshots } from './validation-snapshot.mjs';
 
 const ROOT = process.cwd();
 const BOUNDED_COMMAND_RUNNER = join(ROOT, 'scripts/quality/run-bounded-command.mjs');
+const HEAVY_COMMAND_RUNNER = join(ROOT, 'scripts/quality/heavy-lease.mjs');
 
 for (const [name, packageInfo] of Object.entries(loadPackages()))
   packageDirs[name] = packageInfo.dir;
@@ -92,12 +94,17 @@ function execute(
 ) {
   console.log(`    $ ${argv.map((part) => JSON.stringify(part)).join(' ')}`);
   if (dryRun) return 0;
+  const launcher = validationSupervisorIdentity();
   const result = spawnSync(
     process.execPath,
     [BOUNDED_COMMAND_RUNNER, String(timeoutMs), cwd, argv[0], ...argv.slice(1)],
     {
       ...commandArgs(cwd),
-      env: { ...commandArgs(cwd).env, ...env },
+      env: {
+        ...commandArgs(cwd).env,
+        ...env,
+        ...(launcher ? { VARVE_VALIDATION_LAUNCHER: JSON.stringify(launcher) } : {}),
+      },
       // The helper terminates the complete process group at timeoutMs and
       // exits after its short forced-kill grace period. This outer timeout is
       // only a fail-safe for a broken helper.
@@ -180,14 +187,31 @@ function runLane(lane, plan, options = {}) {
     return { status: 1, durationMs: 0, command: [] };
   }
   const started = Date.now();
-  const status = executeCommand(argv, {
+  const scopedEnv = { ...options.env };
+  if (lane.startsWith('js-unit:file:') || lane === 'policy') scopedEnv.VARVE_TEST_WORKERS = '1';
+  else if (lane.startsWith('js-unit:') || lane === 'website-unit') {
+    // Preserve explicit host configuration; cap the implicit CPU-sized pool
+    // at the eight-worker setting used by the measured editor deadline.
+    scopedEnv.VARVE_TEST_WORKERS ??=
+      process.env.VARVE_TEST_WORKERS ?? String(Math.min(8, availableParallelism()));
+  }
+  const status = executeCommand(pushLaneArgv(lane, argv), {
     ...options,
     cwd: options.cwd ?? ROOT,
+    env: scopedEnv,
     timeoutMs: PUSH_LANE_TIMEOUT_MS[lane] ?? PUSH_LANE_TIMEOUT_MS.default,
   });
   return { status, durationMs: Date.now() - started, command: argv };
 }
 
+export function pushLaneArgv(lane, argv) {
+  // The website command already owns the lease, including its fresh builds.
+  if (lane === 'website-e2e' || lane.startsWith('website-e2e:file:')) return argv;
+  const heavy =
+    /^(?:js-unit:|typecheck:|rust-test:|rust-clippy:|e2e:|bench:)/.test(lane) ||
+    ['desktop-native', 'website-unit', 'wasm', 'policy', 'ci-tools'].includes(lane);
+  return heavy ? [process.execPath, HEAVY_COMMAND_RUNNER, `push: ${lane}`, '--', ...argv] : argv;
+}
 function writePlanArtifact(plan, commonDir) {
   try {
     const dir = join(commonDir, 'varve-validation', 'plans');

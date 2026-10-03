@@ -617,3 +617,5 @@ console.log('capture server descendant drain regressions passed');
   }
 }
 console.log('output capture contract regressions passed');
+
+await import('./heavy-lease-ownership.test.mjs');
