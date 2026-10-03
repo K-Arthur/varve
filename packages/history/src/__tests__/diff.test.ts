@@ -148,6 +148,21 @@ describe('diffDocuments', () => {
     expect(change?.textRanges?.baseEnd).toBe(3);
   });
 
+  it('retains only a matching prefix and suffix around one replayable text range', () => {
+    const base = baseDoc();
+    const textNode = makeTextNode('t1', 'prefix Initial text suffix');
+    base.nodes.t1 = textNode;
+    const target = clone(base);
+    target.nodes.t1 = { ...textNode, text: 'prefix Independent typography history suffix' };
+    const change = diffDocuments(base, target).changes.find((item) => item.changeType === 'text');
+    expect(change?.textRanges).toEqual({
+      baseStart: 9,
+      baseEnd: 19,
+      targetStart: 9,
+      targetEnd: 37,
+    });
+  });
+
   it('detects document-level scalar changes', () => {
     const base = baseDoc();
     const target = clone(base);

@@ -20,12 +20,14 @@ import {
   installLibrary,
   makeShapeNode,
   makeTableNode,
+  makeTextNode,
   moveNode,
   nextNodeId,
   registerBuiltinOperations,
   removeNode,
   type TransactionCapturePayload,
 } from '@varve/scene';
+import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { diffDocuments } from '../diff';
 
@@ -72,6 +74,48 @@ function expectRoundTrip(before: Document, after: Document): void {
 }
 
 describe('capture round-trip', () => {
+  it('replays replacement text whose LCS matches do not form aligned boundaries', () => {
+    const before = addNode(baseDoc(), makeTextNode('t1', 'Initial text'));
+    const after = patch(before, 't1', 'text', 'Independent typography history');
+    expectRoundTrip(before, after);
+  });
+
+  it.each([
+    ['', 'inserted'],
+    ['deleted', ''],
+    ['aaaa', 'aaXaa'],
+    ['aaaXaaa', 'aaaaaa'],
+    ['ababa', 'babab'],
+    ['A\u{1F642}B', 'A\u{1F680}B'],
+    ['Cafe\u0301', 'Cafe\u0301 \u{1F642}'],
+    ['\u{1F469}\u200d\u{1F4BB} draft', '\u{1F469}\u200d\u{1F4BB} final'],
+  ])('replays grapheme-addressed text replacement from %s to %s', (baseText, targetText) => {
+    const before = addNode(baseDoc(), makeTextNode('t1', baseText));
+    expectRoundTrip(before, patch(before, 't1', 'text', targetText));
+  });
+
+  it('replays a large replacement while retaining repeated matching prefix and suffix', () => {
+    const repeated = 'ab'.repeat(5000);
+    const before = addNode(baseDoc(), makeTextNode('t1', `${repeated} old ${repeated}`));
+    expectRoundTrip(before, patch(before, 't1', 'text', `${repeated} new text ${repeated}`));
+  });
+
+  it('replays arbitrary short ASCII and multi-codepoint text edits exactly', () => {
+    const text = fc
+      .array(
+        fc.constantFrom('a', 'b', ' ', '\n', '\u{1F642}', 'e\u0301', '\u{1F469}\u200d\u{1F4BB}'),
+        { maxLength: 30 },
+      )
+      .map((clusters) => clusters.join(''));
+    fc.assert(
+      fc.property(text, text, (baseText, targetText) => {
+        const before = addNode(baseDoc(), makeTextNode('t1', baseText));
+        expectRoundTrip(before, patch(before, 't1', 'text', targetText));
+      }),
+      { numRuns: 80, seed: 5000 },
+    );
+  });
+
   it('scalar property edit', () => {
     expectRoundTrip(baseDoc(), patch(baseDoc(), 'n1_aaaa', 'opacity', 0.5));
   });

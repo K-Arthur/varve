@@ -12,19 +12,15 @@ import type { CollabUser } from '@varve/collab';
 import type { Adjustment, MeshWarp, SpatialBlurEffect } from '@varve/engine';
 import type { Document, Fill, IsometricGrid, NodeId, SceneNode } from '@varve/scene';
 import {
-  invalidateGlyphAdjustmentsOnTextChange,
   nodeLocalBounds,
-  plainTextToRichText,
-  replaceRichTextContent,
   resolveActiveIsometricGrid,
   resolveAdjustmentScope,
   resolveEditorSceneScope,
-  richTextToPlainText,
 } from '@varve/scene';
 import type { RulerMode } from '@varve/shared';
 import { createWorldRectViewportTest, isWorldRectInViewport } from '@varve/shared';
 import { Button } from '@varve/ui';
-import { useMemo, useSyncExternalStore } from 'react';
+import { useMemo, useRef, useSyncExternalStore } from 'react';
 
 import { CanvasNameLabels } from '../canvas/CanvasNameLabels';
 import { viewportWorldRect } from '../canvas/cameraState';
@@ -74,9 +70,9 @@ import { SpatialFilterOverlay } from './SpatialFilterOverlay';
 import { MeasureOverlay } from './SpecPanel/MeasureOverlay';
 import { TableCellEditor } from './TableEditOverlay/TableCellEditor';
 import { TableEditOverlay } from './TableEditOverlay/TableEditOverlay';
-import { TextEditOverlay } from './TextEditOverlay';
+import { TextEditOverlay, type TextEditOverlayHandle } from './TextEditOverlay';
 import { TextThreadOverlay } from './TextThreadOverlay';
-import { applyTypographyChanges } from './Typography/typographyCommand';
+import { applyTypographyChanges, replaceTextNodeContent } from './Typography/typographyCommand';
 import { VariantBox } from './VariantBox/VariantBox';
 import { WarpOverlay } from './WarpOverlay';
 import { ZoomIndicator } from './ZoomIndicator';
@@ -184,6 +180,7 @@ export function CanvasOverlays({
   onShapeBuilderExit,
 }: CanvasOverlaysProps) {
   const editor = useEditor();
+  const textEditCommitRef = useRef<TextEditOverlayHandle>(null);
   const showOverlays = canvasMode !== 'preview';
   const sceneScope = useMemo(
     () =>
@@ -538,6 +535,7 @@ export function CanvasOverlays({
     return (
       <>
         <TextEditOverlay
+          commitRef={textEditCommitRef}
           node={n}
           zoom={zoom}
           pan={pan}
@@ -550,19 +548,7 @@ export function CanvasOverlays({
           onUpdateText={(text, targetId) =>
             editor.updateNode(targetId, (node) =>
               node.kind === 'text'
-                ? (() => {
-                    const rich = node.richText ?? plainTextToRichText(node.text);
-                    const nextRich = replaceRichTextContent(
-                      rich,
-                      text,
-                      editor.state.pendingFormat ?? undefined,
-                    );
-                    const nextText = richTextToPlainText(nextRich);
-                    const nextNode = node.richText
-                      ? { ...node, text: nextText, richText: nextRich }
-                      : { ...node, text: nextText };
-                    return invalidateGlyphAdjustmentsOnTextChange(node, nextNode);
-                  })()
+                ? replaceTextNodeContent(node, text, editor.state.pendingFormat)
                 : node,
             )
           }
@@ -572,7 +558,8 @@ export function CanvasOverlays({
           selectionRange={editor.state.selectionRange}
           pendingFormat={editor.state.pendingFormat}
           textScreenRect={textScreenRect}
-          onUpdate={(id, changes) =>
+          onUpdate={(id, changes) => {
+            textEditCommitRef.current?.prepareFormatting();
             applyTypographyChanges(
               {
                 selectedIds: editor.state.selection,
@@ -585,14 +572,15 @@ export function CanvasOverlays({
               },
               id,
               changes,
-            )
-          }
-          beginPreview={() => editor.beginTransaction('preview')}
+            );
+          }}
+          beginPreview={() => {
+            textEditCommitRef.current?.prepareFormatting();
+            editor.beginTransaction('preview');
+          }}
           commitPreview={editor.commitTransaction}
           abortPreview={editor.abortTransaction}
-          onClose={() =>
-            finishTextEdit(richTextToPlainText(n.richText ?? plainTextToRichText(n.text)))
-          }
+          onClose={() => textEditCommitRef.current?.commit()}
         />
       </>
     );

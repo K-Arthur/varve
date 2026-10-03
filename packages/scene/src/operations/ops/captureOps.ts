@@ -437,10 +437,9 @@ function applyTextChange(root: Record<string, unknown>, change: CapturedChange):
   const currentText = node.text as string | undefined;
   if (typeof currentText !== 'string') return;
   const { baseStart, baseEnd, targetStart, targetEnd } = change.textRanges;
-  const replacement = (typeof change.after === 'string' ? change.after : '').slice(
-    targetStart,
-    targetEnd,
-  );
+  const replacement = graphemeClusters(typeof change.after === 'string' ? change.after : '')
+    .slice(targetStart, targetEnd)
+    .join('');
   node.text = spliceClusterRange(currentText, baseStart, baseEnd, replacement);
 }
 

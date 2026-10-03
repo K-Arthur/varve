@@ -1,9 +1,12 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import type { TextNode } from '@varve/scene';
+import { addNode, createDocument, makeTextNode } from '@varve/scene';
+import { createRef } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { EditorProvider } from '../context';
+import { EditorProvider, useEditor } from '../context';
 import { type EditorContextValue, EditorCtx } from '../context/types';
-import { TextEditOverlay } from './TextEditOverlay';
+import { TextEditOverlay, type TextEditOverlayHandle } from './TextEditOverlay';
+import { applyTypographyChanges, replaceTextNodeContent } from './Typography/typographyCommand';
 
 afterEach(cleanup);
 
@@ -130,6 +133,74 @@ describe('TextEditOverlay', () => {
     expect(onCommit).toHaveBeenCalledWith('Hello');
   });
 
+  it('flushes native input before an external dismissal and commits exactly once', () => {
+    vi.useFakeTimers();
+    const events: string[] = [];
+    const handle = createRef<TextEditOverlayHandle>();
+    const onCommit = vi.fn((text: string) => events.push(`finish:${text}`));
+    try {
+      render(
+        <EditorCtx.Provider
+          value={
+            {
+              beginTransaction: () => events.push('begin'),
+              commitTransaction: () => events.push('commit'),
+              setSelectionRange: vi.fn(),
+            } as unknown as EditorContextValue
+          }
+        >
+          <TextEditOverlay
+            node={makeNode('')}
+            zoom={1}
+            pan={{ x: 0, y: 0 }}
+            canvasElement={document.createElement('canvas')}
+            commitRef={handle}
+            onCommit={onCommit}
+            onUpdateText={(text) => events.push(`text:${text}`)}
+          />
+        </EditorCtx.Provider>,
+      );
+      fireEvent.input(screen.getByRole('textbox'), { target: { value: 'Buffered text' } });
+      expect(events).toEqual([]);
+      act(() => handle.current?.commit());
+      expect(events).toEqual(['begin', 'text:Buffered text', 'commit', 'finish:Buffered text']);
+      act(() => handle.current?.commit());
+      act(() => vi.advanceTimersByTime(600));
+      expect(onCommit).toHaveBeenCalledTimes(1);
+      expect(events).toHaveLength(4);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('defers external dismissal until the active IME composition finishes', () => {
+    const handle = createRef<TextEditOverlayHandle>();
+    const onCommit = vi.fn();
+    const onUpdateText = vi.fn();
+    render(
+      <EditorProvider>
+        <TextEditOverlay
+          node={makeNode('Hello')}
+          zoom={1}
+          pan={{ x: 0, y: 0 }}
+          canvasElement={document.createElement('canvas')}
+          commitRef={handle}
+          onCommit={onCommit}
+          onUpdateText={onUpdateText}
+        />
+      </EditorProvider>,
+    );
+    const ta = screen.getByRole('textbox');
+    fireEvent.compositionStart(ta);
+    fireEvent.input(ta, { target: { value: 'Hello 世' } });
+    act(() => handle.current?.commit());
+    expect(onCommit).not.toHaveBeenCalled();
+    expect(onUpdateText).not.toHaveBeenCalled();
+    fireEvent.compositionEnd(ta, { data: '世' });
+    expect(onUpdateText).toHaveBeenCalledWith('Hello 世', 't1');
+    expect(onCommit).toHaveBeenCalledExactlyOnceWith('Hello 世');
+  });
+
   it('keeps the edit session alive when a viewport resize blurs the textarea', async () => {
     const onCommit = vi.fn();
     render(
@@ -233,6 +304,40 @@ describe('TextEditOverlay', () => {
     expect(setSelectionRange).toHaveBeenCalledWith({
       start: { paragraphIndex: 1, offset: 0 },
       end: { paragraphIndex: 1, offset: 3 },
+    });
+  });
+
+  it('addresses selected native characters before buffered input reaches the scene', () => {
+    const setSelectionRange = vi.fn();
+    render(
+      <EditorCtx.Provider
+        value={
+          {
+            beginTransaction: vi.fn(),
+            commitTransaction: vi.fn(),
+            setSelectionRange,
+          } as unknown as EditorContextValue
+        }
+      >
+        <TextEditOverlay
+          node={makeNode('Old')}
+          zoom={1}
+          pan={{ x: 0, y: 0 }}
+          canvasElement={document.createElement('canvas')}
+          onCommit={() => {}}
+          onUpdateText={() => {}}
+        />
+      </EditorCtx.Provider>,
+    );
+    const ta = screen.getByRole('textbox') as HTMLTextAreaElement;
+    fireEvent.input(ta, { target: { value: 'First\nNew\u{1F642}' } });
+    act(() => {
+      ta.setSelectionRange(6, 11);
+      fireEvent.select(ta);
+    });
+    expect(setSelectionRange).toHaveBeenCalledWith({
+      start: { paragraphIndex: 1, offset: 0 },
+      end: { paragraphIndex: 1, offset: 5 },
     });
   });
 
@@ -422,6 +527,85 @@ describe('TextEditOverlay', () => {
       expect(events).toEqual(['begin', 'text', 'commit', 'format']);
       expect(onCommit).not.toHaveBeenCalled();
     } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('records pending typing and the following formatting as separate real editor undo steps', () => {
+    vi.useFakeTimers();
+    let editor: ReturnType<typeof useEditor> | undefined;
+    const handle = createRef<TextEditOverlayHandle>();
+    const doc = addNode(createDocument('Text history'), makeTextNode('t1', 'Initial text'));
+    function Harness() {
+      const current = useEditor();
+      editor = current;
+      const node = current.state.document.nodes.t1;
+      if (node?.kind !== 'text') throw new Error('Text fixture missing');
+      return (
+        <>
+          <TextEditOverlay
+            node={node}
+            zoom={1}
+            pan={{ x: 0, y: 0 }}
+            canvasElement={document.createElement('canvas')}
+            commitRef={handle}
+            onCommit={() => {}}
+            onUpdateText={(text, id) =>
+              current.updateNode(id, (item) =>
+                item.kind === 'text' ? replaceTextNodeContent(item, text, null) : item,
+              )
+            }
+          />
+          <button
+            type="button"
+            onClick={() => {
+              handle.current?.prepareFormatting();
+              applyTypographyChanges(
+                {
+                  ...current,
+                  selectedIds: current.state.selection,
+                  selectionRange: current.state.selectionRange,
+                  pendingFormat: current.state.pendingFormat,
+                },
+                node.id,
+                { fontWeight: 700 },
+              );
+            }}
+          >
+            Apply bold
+          </button>
+        </>
+      );
+    }
+    try {
+      render(
+        <EditorProvider initialDocumentJson={JSON.stringify(doc)} disablePersistentHistory>
+          <Harness />
+        </EditorProvider>,
+      );
+      act(() => editor!.setSelection('t1'));
+      const ta = screen.getByRole('textbox') as HTMLTextAreaElement;
+      const text = 'Independent typography history';
+      fireEvent.input(ta, { target: { value: text } });
+      act(() => {
+        ta.setSelectionRange(0, text.length);
+        fireEvent.select(ta);
+      });
+      expect(editor!.state.selectionRange).toEqual({
+        start: { paragraphIndex: 0, offset: 0 },
+        end: { paragraphIndex: 0, offset: text.length },
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'Apply bold' }));
+      const currentText = () => editor!.state.document.nodes.t1 as TextNode;
+      expect(currentText().text).toBe(text);
+      expect(currentText().richText?.paragraphs[0]?.runs[0]?.format?.fontWeight).toBe(700);
+      act(() => editor!.undo());
+      expect(currentText().text).toBe(text);
+      expect(currentText().richText).toBeUndefined();
+      act(() => editor!.undo());
+      expect(currentText().text).toBe('Initial text');
+    } finally {
+      cleanup();
       vi.useRealTimers();
     }
   });

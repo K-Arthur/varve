@@ -1,8 +1,10 @@
 import type { NodeId, RichSelection, SceneNode, TextNode } from '@varve/scene';
+import { makeTextNode, richTextToPlainText } from '@varve/scene';
 import { describe, expect, it, vi } from 'vitest';
 import {
   applyTypographyChanges,
   hasSelectedCharacters,
+  replaceTextNodeContent,
   type TypographyCommandSurface,
   toCharacterFormat,
   typographyDisplayValues,
@@ -27,6 +29,94 @@ function surface(overrides: Partial<TypographyCommandSurface> = {}): TypographyC
 }
 
 describe('typography command adapter', () => {
+  it('shows pending insertion formatting before a plain text node has rich runs', () => {
+    const node = makeTextNode('plain', 'abc', { fontWeight: 400 });
+    const display = typographyDisplayValues(node, range(3, 3), {
+      fontWeight: 700,
+      fontStyle: 'italic',
+      variableFontSettings: { wght: 700 },
+    });
+    expect(display.values).toMatchObject({
+      fontWeight: 700,
+      fontStyle: 'italic',
+      variableAxes: { wght: 700 },
+    });
+    expect(display.effectiveNodes).toHaveLength(1);
+    expect(display.effectiveNodes[0]?.fontWeight).toBe(700);
+    expect(node.fontWeight).toBe(400);
+    expect(node.richText).toBeUndefined();
+  });
+
+  it('does not show pending insertion formatting outside its collapsed caret', () => {
+    const node = makeTextNode('plain', 'abc', { fontWeight: 400 });
+    expect(typographyDisplayValues(node, null, { fontWeight: 700 }).values.fontWeight).toBe(400);
+    expect(typographyDisplayValues(node, range(0, 3), { fontWeight: 700 }).values.fontWeight).toBe(
+      400,
+    );
+  });
+
+  it('promotes a plain node when formatted glyphs are inserted without styling earlier text', () => {
+    const node = makeTextNode('plain', 'Hi', { fontWeight: 400 });
+    const next = replaceTextNodeContent(node, 'Hi!', { fontWeight: 700 });
+    expect(next.text).toBe('Hi!');
+    expect(next.fontWeight).toBe(400);
+    expect(next.richText?.paragraphs[0]?.runs).toEqual([
+      { text: 'Hi' },
+      { text: '!', format: { fontWeight: 700 } },
+    ]);
+    expect(node.text).toBe('Hi');
+    expect(node.richText).toBeUndefined();
+  });
+
+  it('keeps unformatted input plain and does not promote unchanged content', () => {
+    const node = makeTextNode('plain', 'Hi');
+    expect(replaceTextNodeContent(node, 'Hi!', null)).toMatchObject({
+      text: 'Hi!',
+      richText: undefined,
+    });
+    expect(replaceTextNodeContent(node, 'Hi!', {})).toMatchObject({
+      text: 'Hi!',
+      richText: undefined,
+    });
+    expect(replaceTextNodeContent(node, 'Hi', { fontWeight: 700 })).toBe(node);
+  });
+
+  it('preserves existing rich runs when replacing text and inserts only the pending style', () => {
+    const node = makeTextNode('rich', 'Hello world', {
+      richText: {
+        paragraphs: [
+          { runs: [{ text: 'Hello', format: { fontWeight: 700 } }, { text: ' world' }] },
+        ],
+      },
+    });
+    const next = replaceTextNodeContent(node, 'Hello brave world', { fontStyle: 'italic' });
+    expect(next.richText?.paragraphs[0]?.runs).toEqual([
+      { text: 'Hello', format: { fontWeight: 700 } },
+      { text: ' ' },
+      { text: 'brave ', format: { fontStyle: 'italic' } },
+      { text: 'world' },
+    ]);
+    expect(richTextToPlainText(next.richText!)).toBe(next.text);
+  });
+
+  it('invalidates source-indexed glyph adjustments when promoting an edited plain node', () => {
+    const node: TextNode = {
+      ...makeTextNode('plain', 'AB'),
+      glyphAdjustments: {
+        1: { dx: 2, dy: 0, advance: 0, rotation: 0, scaleX: 1, scaleY: 1 },
+      },
+      pairAdjustments: { 0: 3 },
+    };
+    const next = replaceTextNodeContent(node, 'A\u{1F642}B', { fontWeight: 700 });
+    expect(next.text).toBe('A\u{1F642}B');
+    expect(next.glyphAdjustments).toBeUndefined();
+    expect(next.pairAdjustments).toBeUndefined();
+    expect(next.richText?.paragraphs[0]?.runs[1]).toEqual({
+      text: '\u{1F642}',
+      format: { fontWeight: 700 },
+    });
+  });
+
   it('recognizes expanded and collapsed ranges', () => {
     expect(hasSelectedCharacters(range(1, 4))).toBe(true);
     expect(hasSelectedCharacters(range(2, 2))).toBe(false);

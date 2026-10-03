@@ -1,4 +1,10 @@
 import type { CharacterFormat, NodeId, RichSelection, SceneNode, TextNode } from '@varve/scene';
+import {
+  invalidateGlyphAdjustmentsOnTextChange,
+  plainTextToRichText,
+  replaceRichTextContent,
+  richTextToPlainText,
+} from '@varve/scene';
 
 /** The text-node properties exposed by compact typography controls. */
 export type TypographyTextChanges = Partial<
@@ -89,6 +95,54 @@ function paragraphLength(para: { runs: { text: string }[] }): number {
   return para.runs.reduce((total, run) => total + run.text.length, 0);
 }
 
+function withPendingInsertionFormat(
+  display: TypographyDisplayValues,
+  pendingFormat: CharacterFormat | null,
+): TypographyDisplayValues {
+  if (!pendingFormat) return display;
+  const values = { ...display.values };
+  const mixed = { ...display.mixed };
+  for (const field of DISPLAY_FORMAT_FIELDS) {
+    if (!hasOwn(pendingFormat, field.format)) continue;
+    const next = pendingFormat[field.format];
+    (values as Record<string, unknown>)[field.node] =
+      field.node === 'variableAxes' && next ? { ...(next as Record<string, number>) } : next;
+    delete mixed[field.node];
+  }
+  return {
+    values,
+    mixed,
+    effectiveNodes: [
+      {
+        fontFamily: values.fontFamily,
+        fontReference: values.fontReference,
+        fontWeight: values.fontWeight,
+        fontStyle: values.fontStyle,
+        variableAxes: values.variableAxes,
+      },
+    ],
+  };
+}
+
+/** Reconcile native text input, preserving authored runs and pending insertion formatting. */
+export function replaceTextNodeContent(
+  node: TextNode,
+  text: string,
+  pendingFormat: CharacterFormat | null,
+): TextNode {
+  const rich = node.richText ?? plainTextToRichText(node.text);
+  if (richTextToPlainText(rich) === text) return node;
+  const nextRich = replaceRichTextContent(rich, text, pendingFormat ?? undefined);
+  const nextText = richTextToPlainText(nextRich);
+  // Plain nodes remain compact until actual formatted glyphs are inserted.
+  // Discarding the promoted runs here would lose the pending style on input.
+  const keepsRichText = node.richText || (pendingFormat && Object.keys(pendingFormat).length > 0);
+  const nextNode = keepsRichText
+    ? { ...node, text: nextText, richText: nextRich }
+    : { ...node, text: nextText };
+  return invalidateGlyphAdjustmentsOnTextChange(node, nextNode);
+}
+
 /**
  * Resolve the values shown by compact typography controls.
  *
@@ -114,7 +168,10 @@ export function typographyDisplayValues(
   const mixed: Partial<Record<TypographyDisplayField, boolean>> = {};
   const rich = node.richText;
   if (!selectionRange || !rich) {
-    return { values, mixed, effectiveNodes: [] };
+    const display = { values, mixed, effectiveNodes: [] };
+    return selectionRange && !hasSelectedCharacters(selectionRange)
+      ? withPendingInsertionFormat(display, pendingFormat)
+      : display;
   }
 
   const startBeforeEnd =
@@ -152,15 +209,8 @@ export function typographyDisplayValues(
   if (selectedRuns.length === 0) {
     // An empty paragraph or a caret at the end of a story has no run to read;
     // pending formatting still represents the next insertion.
-    if (collapsed && pendingFormat) {
-      for (const field of DISPLAY_FORMAT_FIELDS) {
-        if (!hasOwn(pendingFormat, field.format)) continue;
-        const next = pendingFormat[field.format];
-        (values as Record<string, unknown>)[field.node] =
-          field.node === 'variableAxes' && next ? { ...(next as Record<string, number>) } : next;
-      }
-    }
-    return { values, mixed, effectiveNodes: [] };
+    const display = { values, mixed, effectiveNodes: [] };
+    return collapsed ? withPendingInsertionFormat(display, pendingFormat) : display;
   }
 
   const effectiveNodes: TypographyDisplayNode[] = selectedRuns.map((run) => ({
@@ -188,30 +238,8 @@ export function typographyDisplayValues(
     }
   }
 
-  if (collapsed && pendingFormat) {
-    for (const field of DISPLAY_FORMAT_FIELDS) {
-      if (!hasOwn(pendingFormat, field.format)) continue;
-      const next = pendingFormat[field.format];
-      (values as Record<string, unknown>)[field.node] =
-        field.node === 'variableAxes' && next ? { ...(next as Record<string, number>) } : next;
-      delete mixed[field.node];
-    }
-    return {
-      values,
-      mixed,
-      effectiveNodes: [
-        {
-          fontFamily: values.fontFamily,
-          fontReference: values.fontReference,
-          fontWeight: values.fontWeight,
-          fontStyle: values.fontStyle,
-          variableAxes: values.variableAxes,
-        },
-      ],
-    };
-  }
-
-  return { values, mixed, effectiveNodes };
+  const display = { values, mixed, effectiveNodes };
+  return collapsed ? withPendingInsertionFormat(display, pendingFormat) : display;
 }
 
 /** True when a selection addresses characters rather than a collapsed caret. */

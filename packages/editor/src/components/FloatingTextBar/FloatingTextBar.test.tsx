@@ -93,6 +93,23 @@ describe('FloatingTextBar', () => {
     expect(bold).toHaveAttribute('aria-pressed', 'false');
   });
 
+  it('shows pending bold insertion formatting for a plain text caret', () => {
+    render(
+      <FloatingTextBar
+        {...defaultProps({
+          selectionRange: {
+            start: { paragraphIndex: 0, offset: 5 },
+            end: { paragraphIndex: 0, offset: 5 },
+          },
+          pendingFormat: { fontWeight: 700 },
+        })}
+      />,
+    );
+    expect(screen.getByLabelText('Bold')).toHaveAttribute('aria-pressed', 'true');
+    expect(BASE_TEXT_NODE.richText).toBeUndefined();
+    expect(BASE_TEXT_NODE.fontWeight).toBe(400);
+  });
+
   it('renders italic toggle', () => {
     render(<FloatingTextBar {...defaultProps()} />);
     const italic = screen.getByLabelText('Italic');

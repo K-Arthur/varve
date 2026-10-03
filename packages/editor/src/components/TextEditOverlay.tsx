@@ -19,10 +19,17 @@ import {
   DEFAULT_ARTWORK_FONT_FAMILY,
   multiplyAffine,
 } from '@varve/shared';
-import { useCallback, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
+import { type Ref, useCallback, useEffect, useImperativeHandle, useRef } from 'react';
+import { createPortal, flushSync } from 'react-dom';
 import { useEditor } from '../context';
 import { nodeLocalBounds } from '../scene/world';
+
+export interface TextEditOverlayHandle {
+  /** Finish from the native value, flushing buffered input before closing. */
+  commit: () => void;
+  /** Finish typing before a user formatting event opens its own transaction. */
+  prepareFormatting: () => void;
+}
 
 interface TextEditOverlayProps {
   node: TextNode;
@@ -46,6 +53,8 @@ interface TextEditOverlayProps {
   onCommit: (finalText: string) => void;
   /** Called when content changes. */
   onUpdateText: (text: string, targetId: string) => void;
+  /** Shared dismissal bridge for the floating toolbar that owns this editor. */
+  commitRef?: Ref<TextEditOverlayHandle>;
 }
 
 export function TextEditOverlay({
@@ -59,9 +68,11 @@ export function TextEditOverlay({
   worldTransform,
   onCommit,
   onUpdateText,
+  commitRef,
 }: TextEditOverlayProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const composingRef = useRef(false);
+  const commitAfterCompositionRef = useRef(false);
   const pendingTextRef = useRef<string | null>(null);
   // Keep pending timers attached to the target that created them. React may
   // render a new target before effects flush; routing by this ref prevents a
@@ -197,6 +208,29 @@ export function TextEditOverlay({
     [commitBurst, flushPendingText, onCommit],
   );
 
+  useImperativeHandle(
+    commitRef,
+    () => ({
+      commit: () => {
+        if (composingRef.current) {
+          commitAfterCompositionRef.current = true;
+          return;
+        }
+        commit(textareaRef.current?.value ?? localTextRef.current);
+      },
+      prepareFormatting: () => {
+        // commitTransaction finalizes behind queued document updates. Drain
+        // that finalizer before the formatting event snapshots a new edit;
+        // otherwise it observes the still-open typing transaction and joins it.
+        flushSync(() => {
+          flushPendingText();
+          commitBurst();
+        });
+      },
+    }),
+    [commit, commitBurst, flushPendingText],
+  );
+
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
       if (e.key === 'Escape') {
@@ -232,8 +266,12 @@ export function TextEditOverlay({
     if (ta) {
       flushPendingText();
       notifyUpdateRef.current(ta.value);
+      if (commitAfterCompositionRef.current) {
+        commitAfterCompositionRef.current = false;
+        commit(ta.value);
+      }
     }
-  }, [flushPendingText]);
+  }, [commit, flushPendingText]);
 
   const handleBlur = useCallback(() => {
     if (composingRef.current || committedRef.current) return;
@@ -391,6 +429,7 @@ export function TextEditOverlay({
     sessionNodeIdRef.current = node.id;
     committedRef.current = false;
     composingRef.current = false;
+    commitAfterCompositionRef.current = false;
     awaitingModelTextRef.current = null;
     const nextText = canonicalTextRef.current;
     localTextRef.current = nextText;
@@ -410,8 +449,9 @@ export function TextEditOverlay({
     const end = ta.selectionEnd ?? 0;
     const indexMap = createUnicodeIndexMap(text);
     const normalized = normalizeGraphemeRange(indexMap, start, end);
-    const rich = node.richText ?? plainTextToRichText(node.text);
-    const richIndex = createRichTextIndex(rich);
+    // Selection belongs to the native value, which may still be buffered for
+    // the scene model. Canonical run lengths can truncate a newly typed range.
+    const richIndex = createRichTextIndex(plainTextToRichText(text));
     const startAddress = flatOffsetToRichAddress(richIndex, normalized.start);
     const endAddress = flatOffsetToRichAddress(richIndex, normalized.end);
     const range: RichSelection = {

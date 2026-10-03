@@ -9,9 +9,12 @@
 import type { CapturedChange, Document, TransactionCapturePayload } from '@varve/scene';
 import {
   addChild,
+  addNode,
+  applyOperation,
   canonicalHash,
   createDocument,
   makeShapeNode,
+  makeTextNode,
   registerBuiltinOperations,
   summarizeOperation,
   validatePayload,
@@ -53,6 +56,29 @@ function payload(partial: Partial<TransactionCapturePayload> = {}): TransactionC
     ...partial,
   };
 }
+
+describe('document.transaction-capture text replay', () => {
+  it('slices the target replacement by graphemes rather than UTF-16 code units', () => {
+    const before = addNode(baseDoc(), makeTextNode('t1', 'A\u{1F642}B'));
+    const after = applyOperation(
+      before,
+      'document.transaction-capture',
+      payload({
+        changes: [
+          change({
+            changeType: 'text',
+            entityId: 't1',
+            propertyPath: 'nodes.t1.text',
+            before: 'A\u{1F642}B',
+            after: 'A\u{1F680}B',
+            textRanges: { baseStart: 1, baseEnd: 2, targetStart: 1, targetEnd: 2 },
+          }),
+        ],
+      }),
+    );
+    expect((after.nodes.t1 as { text: string }).text).toBe('A\u{1F680}B');
+  });
+});
 
 describe('document.transaction-capture validation', () => {
   it('accepts a well-formed payload', () => {

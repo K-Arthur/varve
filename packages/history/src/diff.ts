@@ -587,44 +587,26 @@ function compareText(
   if (baseText === targetText) return;
   const baseClusters = graphemeClusters(baseText);
   const targetClusters = graphemeClusters(targetText);
-  const pairs = lcsIndices(baseClusters, targetClusters);
-  const baseMatched = new Set(pairs.map((pair) => pair[0]));
-  const targetMatched = new Set(pairs.map((pair) => pair[1]));
-  let baseStart = baseClusters.length;
-  let baseEnd = -1;
-  let targetStart = targetClusters.length;
-  let targetEnd = -1;
-  for (let i = 0; i < baseClusters.length; i++) {
-    if (baseMatched.has(i)) continue;
-    baseStart = Math.min(baseStart, i);
-    baseEnd = Math.max(baseEnd, i);
+  // A capture carries one contiguous replacement. Internal LCS matches do
+  // not establish compatible splice boundaries: collapsing their unmatched
+  // positions can retain a base prefix/suffix absent from the target. Trim
+  // only equal prefix/suffix clusters so replay is exact, in linear time.
+  // Disjoint edits intentionally include any unchanged middle in this one
+  // replacement range; the recorded full text and replay hash remain exact.
+  let baseStart = 0;
+  const limit = Math.min(baseClusters.length, targetClusters.length);
+  while (baseStart < limit && baseClusters[baseStart] === targetClusters[baseStart]) baseStart++;
+  let baseEnd = baseClusters.length;
+  let targetEnd = targetClusters.length;
+  while (
+    baseEnd > baseStart &&
+    targetEnd > baseStart &&
+    baseClusters[baseEnd - 1] === targetClusters[targetEnd - 1]
+  ) {
+    baseEnd--;
+    targetEnd--;
   }
-  for (let j = 0; j < targetClusters.length; j++) {
-    if (targetMatched.has(j)) continue;
-    targetStart = Math.min(targetStart, j);
-    targetEnd = Math.max(targetEnd, j);
-  }
-  // Ranges are [start, end) — exclusive end, matching splice semantics.
-  if (baseEnd !== -1) baseEnd += 1;
-  if (targetEnd !== -1) targetEnd += 1;
-  // Pure insertion (no unmatched base clusters): the insertion point is
-  // right after the base cluster matched to the target cluster before the
-  // inserted run. Pure deletion is symmetric.
-  if (baseEnd === -1 && targetEnd !== -1) {
-    let insertionPoint = 0;
-    for (const [bi, tj] of pairs) {
-      if (tj < targetStart) insertionPoint = bi + 1;
-    }
-    baseStart = insertionPoint;
-    baseEnd = insertionPoint;
-  } else if (targetEnd === -1 && baseEnd !== -1) {
-    let deletionPoint = 0;
-    for (const [bi, tj] of pairs) {
-      if (bi < baseStart) deletionPoint = tj + 1;
-    }
-    targetStart = deletionPoint;
-    targetEnd = deletionPoint;
-  }
+  const targetStart = baseStart;
   emit(ctx, {
     changeType: 'text',
     entityId,

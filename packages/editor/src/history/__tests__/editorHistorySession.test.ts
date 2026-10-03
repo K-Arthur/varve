@@ -23,6 +23,8 @@ import {
   makePathNode,
   makeRasterLayerNode,
   makeShapeNode,
+  makeTextNode,
+  plainTextToRichText,
   registerBuiltinOperations,
 } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
@@ -98,6 +100,34 @@ describe('EditorHistorySession', () => {
     const segments = await store.listSegments(DOC_ID);
     const sequences = segments.flatMap((s) => s.operations.map((o) => o.logicalSequence));
     expect(sequences).toEqual([1, 2, 3, 4]);
+  });
+
+  it('captures text replacement and rich formatting as independently replayable undo steps', async () => {
+    const store = createMemoryHistoryStore();
+    const session = newSession(store);
+    const before = addNode(baseDoc(), makeTextNode('t1', 'Initial text'));
+    await session.attach(before);
+    const text = 'Independent typography history';
+    const typed = applyOperation(before, 'node.patch', { nodeId: 't1', path: 'text', value: text });
+    const rich = plainTextToRichText(text);
+    rich.paragraphs[0]!.runs[0]!.format = { fontWeight: 700 };
+    const formatted = applyOperation(typed, 'node.patch', {
+      nodeId: 't1',
+      path: 'richText',
+      value: rich,
+    });
+    await session.capture(before, typed, ['t1'], { label: 'Typing', kind: 'modify' });
+    await session.capture(typed, formatted, ['t1'], { label: 'Typography', kind: 'modify' });
+    expect(canonicalHistoryHash((await session.undo())!.document)).toBe(
+      canonicalHistoryHash(typed),
+    );
+    expect(canonicalHistoryHash((await session.redo())!.document)).toBe(
+      canonicalHistoryHash(formatted),
+    );
+    await session.undo();
+    expect(canonicalHistoryHash((await session.undo())!.document)).toBe(
+      canonicalHistoryHash(before),
+    );
   });
 
   it('serializes rapid navigation behind pending capture and reports the next labels', async () => {

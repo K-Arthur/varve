@@ -11,6 +11,13 @@ test('a quick toolbar change undoes separately from the preceding typing', async
   await page.mouse.click(canvas.x + 160, canvas.y + 180);
   const editor = page.getByRole('textbox', { name: /editing text/i });
   await expect(editor).toBeFocused();
+  // Finish the initial creation gesture. This test owns typing and formatting
+  // history on an existing layer; creation + its first burst are one undo step.
+  await page.keyboard.insertText('Initial text');
+  await page.keyboard.press('Escape');
+  await expect(editor).toBeHidden();
+  await page.getByRole('button', { name: 'Edit text', exact: true }).click();
+  await expect(editor).toBeFocused();
   const toolbar = page.getByRole('toolbar', { name: 'Text formatting' });
   const bold = toolbar.getByRole('button', { name: 'Bold', exact: true });
   await expect(bold).toBeVisible();
@@ -20,7 +27,11 @@ test('a quick toolbar change undoes separately from the preceding typing', async
   // Machine speed must not decide whether typing joins the formatting edit.
   await page.clock.install();
   await page.clock.pauseAt(new Date(Date.now() + 1000));
+  await page.keyboard.press('Control+a');
   await page.keyboard.insertText('Independent typography history');
+  // Expanded selection changes authored glyphs and creates a history entry.
+  // A collapsed caret only configures the next insertion and is transient.
+  await page.keyboard.press('Control+a');
   await page.mouse.click(button.x + button.width / 2, button.y + button.height / 2);
   await page.clock.runFor(32);
   await expect(bold).toHaveAttribute('aria-pressed', 'true');

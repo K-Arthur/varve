@@ -43,6 +43,14 @@ for (const theme of ['light', 'dark', 'high-contrast']) {
     for (const state of ['pressed', 'hovered']) {
       if (state === 'hovered') await bold.hover();
       else await page.mouse.move(10, 10);
+      // The primitive transitions from a transparent background. Measure its
+      // settled pressed/hovered colors rather than an intermediate CSS frame.
+      await bold.evaluate(async (element) => {
+        const finiteAnimations = element
+          .getAnimations()
+          .filter((animation) => Number.isFinite(animation.effect?.getComputedTiming().endTime));
+        await Promise.all(finiteAnimations.map((animation) => animation.finished));
+      });
       const measured = await buttonContrast(bold);
       await writeFile(
         testInfo.outputPath(`${theme}-${state}-contrast.json`),
