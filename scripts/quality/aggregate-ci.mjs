@@ -5,8 +5,9 @@
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { inventoryCoverageErrors, inventoryErrors } from './browser-inventory.mjs';
 import { browserEvidenceErrors, browserLane } from './ci-execution-report.mjs';
-import { CI_CATEGORIES, CI_CATEGORY_LANES } from './validation-policy.mjs';
+import { CI_CATEGORIES, CI_CATEGORY_LANES, FULL_BROWSER_SHARDS } from './validation-policy.mjs';
 
 export const REQUIRED_CI_JOBS = Object.freeze({
   changes: 'pipeline',
@@ -66,7 +67,7 @@ function expectedLanes(plan, category) {
 
 function expectedReportCount(plan, category) {
   if (category === 'rust' || category === 'desktop') return 3;
-  if (category === 'e2e') return Number(plan.e2eShardCount ?? 1);
+  if (category === 'e2e') return plan.selectedLanes?.includes('e2e:all') ? FULL_BROWSER_SHARDS : 1;
   return 1;
 }
 
@@ -185,6 +186,7 @@ export function validateExecutionEvidence({
     for (const report of categoryReports) {
       const source = report?.source ?? {};
       const identityErrors = matrixEvidenceErrors(report, profile, expected);
+      if (source.clean === false) identityErrors.push('execution source is not clean');
       if (report?.schema !== 1) identityErrors.push('schema mismatch');
       if (report?.profile !== profile) identityErrors.push('profile mismatch');
       if (profile === 'candidate' && report?.candidateMode !== candidateMode)
@@ -202,6 +204,20 @@ export function validateExecutionEvidence({
       identityErrors.push(
         ...browserEvidenceErrors(report.playwright, [...expected].filter(browserLane)),
       );
+      for (const browser of report.playwright?.reports ?? []) {
+        identityErrors.push(
+          ...inventoryErrors(browser.inventory, {
+            commitSha: plan.commitSha,
+            treeSha: plan.treeSha,
+            planHash: plan.planHash,
+            policyHash: plan.policyHash,
+          }),
+        );
+        if (browser.inventory?.lane !== browser.lane)
+          identityErrors.push('inventory lane mismatch');
+        if (browser.shard !== report.shard)
+          identityErrors.push('inventory shard identity mismatch');
+      }
       if (report?.status !== 'success')
         identityErrors.push(`execution status ${report?.status ?? 'missing'}`);
       if (identityErrors.length) {
@@ -244,6 +260,74 @@ export function validateExecutionEvidence({
           });
       }
     }
+    const browserCoverage = [];
+    for (const lane of [...expected].filter(browserLane)) {
+      const browsers = valid.flatMap((report) =>
+        (report.playwright?.reports ?? []).filter((browser) => browser.lane === lane),
+      );
+      const inventories = new Map();
+      for (const browser of browsers) {
+        const entry = inventories.get(browser.inventory.sha256) ?? {
+          inventory: browser.inventory,
+          cases: [],
+        };
+        entry.cases.push(...browser.cases);
+        inventories.set(browser.inventory.sha256, entry);
+      }
+      if (category === 'e2e' && inventories.size !== 1)
+        failures.push({
+          job: category,
+          category,
+          reason: 'browser shards disagree on complete inventory',
+        });
+      const allIds = new Set();
+      for (const { inventory, cases } of inventories.values()) {
+        const errors = inventoryCoverageErrors(inventory, cases);
+        for (const actual of cases) {
+          if (allIds.has(actual.caseId))
+            errors.push('duplicate executed case across browser inventories');
+          allIds.add(actual.caseId);
+        }
+        if (errors.length)
+          failures.push({
+            job: category,
+            category,
+            reason: `browser inventory coverage rejected (${[...new Set(errors)].join(', ')})`,
+          });
+        browserCoverage.push({
+          lane,
+          inventorySha256: inventory.sha256,
+          caseCount: inventory.caseCount,
+          executedCaseCount: new Set(cases.map((entry) => entry.caseId)).size,
+          projects: inventory.projects,
+          complete: errors.length === 0,
+        });
+      }
+      const projects = [
+        ...new Set(
+          browserCoverage.filter((entry) => entry.lane === lane).flatMap((entry) => entry.projects),
+        ),
+      ].sort();
+      const requiredProjects =
+        lane === 'e2e:all' || lane.startsWith('e2e:file:') || category === 'e2e'
+          ? ['chromium']
+          : lane === 'website-e2e'
+            ? ['custom-domain', 'ghpages', 'touch']
+            : lane === 'e2e:visual'
+              ? [
+                  'chromium-visual-1x',
+                  'chromium-visual-2x',
+                  'chromium-visual-3x',
+                  ...(profile === 'integration' ? ['chromium-visual-gpu'] : []),
+                ].sort()
+              : projects;
+      if (JSON.stringify(projects) !== JSON.stringify(requiredProjects))
+        failures.push({
+          job: category,
+          category,
+          reason: 'browser inventory omits or adds a configured required project',
+        });
+    }
     evidence.push({
       category,
       expectedCount,
@@ -253,6 +337,7 @@ export function validateExecutionEvidence({
         attempt: report.workflow.runAttempt,
       })),
       coveredLanes: [...covered],
+      browserCoverage,
       // Keep the final summary bounded; per-case history remains in producer receipts.
       browserReports: valid.flatMap((report) =>
         (report.playwright?.reports ?? []).map((browser) => ({
@@ -260,6 +345,7 @@ export function validateExecutionEvidence({
           lane: browser.lane,
           sha256: browser.sha256,
           historySha256: browser.historySha256,
+          inventorySha256: browser.inventory.sha256,
           stats: browser.stats,
         })),
       ),

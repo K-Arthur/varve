@@ -15,6 +15,8 @@ import { copyFileSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSy
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import ts from 'typescript';
+import { localBrowserLanes } from '../quality/full-gate-execution.mjs';
+import { FULL_BROWSER_SHARDS } from '../quality/validation-policy.mjs';
 import '../website/demo-dist-validation.test.mjs';
 import { candidateNextAction } from './release.mjs';
 import { parseChecksums, selectRelease, verifyReleaseIntegrity } from './verify-release-data.mjs';
@@ -131,7 +133,21 @@ assert.match(
   /VARVE_DEMO_EXPECTED_SHA: \$\{\{ needs\.release-data\.outputs\.published_sha \|\| github\.sha \}\}/,
 );
 assert.doesNotMatch(websiteWorkflow, /path: \|\n {12}test-results\/\n/);
-assert.match(verifierSource, /broadBrowserArgv\('e2e:all', \{ strict: true \}\)/);
+assert.match(verifierSource, /\.\.\.localBrowserLanes\(\)/);
+const localBrowserGate = localBrowserLanes();
+assert.equal(localBrowserGate.length, FULL_BROWSER_SHARDS);
+assert.deepEqual(
+  localBrowserGate.map(({ argv }) => argv.find((arg) => arg.startsWith('--shard='))),
+  Array.from(
+    { length: FULL_BROWSER_SHARDS },
+    (_, index) => `--shard=${index + 1}/${FULL_BROWSER_SHARDS}`,
+  ),
+);
+for (const { argv } of localBrowserGate) {
+  assert.deepEqual(argv.slice(0, 4), ['pnpm', 'exec', 'playwright', 'test']);
+  for (const flag of [...strictBrowserFlags, '--project=chromium']) assert.ok(argv.includes(flag));
+  assert.doesNotMatch(argv.join(' '), /--(?:grep|last-failed|only-changed|test-list)(?:=|\s|$)/);
+}
 assert.match(verifierSource, /'e2e:visual', \.\.\.playwrightRunOptions\(\{ strict: true \}\)/);
 assert.match(
   JSON.parse(readFileSync('package.json', 'utf8')).scripts['e2e:visual'],

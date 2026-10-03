@@ -10,6 +10,7 @@ import {
   CI_CATEGORIES,
   computePolicyHash,
   deriveCiCategories,
+  FULL_BROWSER_SHARDS,
   impactFlags,
   POLICY_VERSION,
   promisedLanesForCategories,
@@ -133,9 +134,12 @@ export function buildCiPlan({
     releaseCandidateRequired: flags.releaseCandidateRequired,
     localFullRequested: flags.localFullRequested,
     categories: Object.fromEntries(CI_CATEGORIES.map((name) => [name, Boolean(categories[name])])),
-    e2eShards: selectedLanes.includes('e2e:all') ? [1, 2, 3, 4, 5, 6, 7, 8] : [1],
+    e2eShards: Array.from(
+      { length: selectedLanes.includes('e2e:all') ? FULL_BROWSER_SHARDS : 1 },
+      (_, index) => index + 1,
+    ),
     docs: files.some((file) => file.startsWith('docs/') || file.endsWith('.md')),
-    e2eShardCount: selectedLanes.includes('e2e:all') ? 8 : 1,
+    e2eShardCount: selectedLanes.includes('e2e:all') ? FULL_BROWSER_SHARDS : 1,
     selectedLanes,
     deferredLanes,
     policyVersion: POLICY_VERSION,
@@ -150,6 +154,8 @@ export function buildCiPlan({
       categories: result.categories,
       selectedLanes: result.selectedLanes,
       candidateMode: result.candidateMode,
+      e2eShardCount: result.e2eShardCount,
+      e2eShards: result.e2eShards,
       policyHash,
     }),
   );
@@ -171,6 +177,32 @@ export function validateCiPlan(value, { expectedHead = null, expectedPolicyHash 
       errors.push(`category ${category} is not boolean`);
   }
   if (!Array.isArray(value?.selectedLanes)) errors.push('selectedLanes must be an array');
+  const expectedShardCount =
+    Array.isArray(value?.selectedLanes) && value.selectedLanes.includes('e2e:all')
+      ? FULL_BROWSER_SHARDS
+      : 1;
+  if (
+    value?.e2eShardCount !== expectedShardCount ||
+    JSON.stringify(value?.e2eShards) !==
+      JSON.stringify(Array.from({ length: expectedShardCount }, (_, index) => index + 1))
+  )
+    errors.push('browser shard matrix differs from the canonical policy');
+  if (!Array.isArray(value?.files) || sha256(value.files.join('\0')) !== value?.fileHash)
+    errors.push('CI plan file integrity mismatch');
+  const expectedHash = sha256(
+    JSON.stringify({
+      commitSha: value?.commitSha,
+      baseSha: value?.baseSha,
+      fileHash: value?.fileHash,
+      categories: value?.categories,
+      selectedLanes: value?.selectedLanes,
+      candidateMode: value?.candidateMode,
+      e2eShardCount: value?.e2eShardCount,
+      e2eShards: value?.e2eShards,
+      policyHash: value?.policyHash,
+    }),
+  );
+  if (value?.planHash !== expectedHash) errors.push('CI plan integrity hash mismatch');
   return errors;
 }
 

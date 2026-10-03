@@ -125,6 +125,13 @@ artifacts/
 # --- Generated CI plan downloads ---
 ci-plan-artifact/
 candidate-plan/
+# Exact workflow outputs; these are evidence artifacts, never source.
+/ci-plan.json
+/ci-execution/
+/ci-needs.json
+/ci-certification.json
+/candidate-certification.json
+/ci-feedback.json
 
 # --- Downloaded test corpus (restore-system fixtures fetched by scripts) ---
 tests/fixtures/restore-corpus/

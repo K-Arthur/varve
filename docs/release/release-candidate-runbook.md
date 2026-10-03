@@ -89,9 +89,13 @@ it does not infer publication from a prepared version or a green local test.
 The upstream counts describe the locally fetched remote ref, so refresh the
 remote before using them to freeze a candidate.
 
-Keep the product work stable before the final full gate. When a local gate is
-interrupted or an external condition fails without changing source, retain
-the same reason and use `pnpm verify:full -- --resume`. Its passed lanes are
+Keep the product work stable before the final full gate. Use the hosted
+integration and candidate matrices as the normal release execution owners;
+do not run the complete serial local suite before repeating it in GitHub.
+`pnpm verify:full` defaults to verifying that hosted evidence. When an explicit
+`--local` gate is interrupted or an external condition fails without changing
+source, retain the same reason and use `pnpm verify:full --local --resume`.
+Its passed lanes and browser shards are
 reused only for the same clean commit, policy, command, tool/environment and
 dependency/runtime inputs; failed or incomplete lanes run again. A product
 repair changes the candidate and invalidates earlier full-gate lane receipts.
@@ -135,6 +139,10 @@ cancelled, expired, partial, superseded, or failed evidence cannot pass.
 `--status` performs read-only diagnosis and returns a non-pass status;
 `--resume` can reuse unchanged local audit receipts. Neither option starts or
 reruns a workflow.
+
+See [test pipeline efficiency](../quality/test-pipeline-efficiency.md) for the
+measured bottleneck, sharding policy, output isolation, failure recovery, and
+the boundary between diagnostic reports and release certification.
 
 Only after the final candidate check is green may an authorized maintainer
 create and push the tag. This work does not create tags or change GitHub

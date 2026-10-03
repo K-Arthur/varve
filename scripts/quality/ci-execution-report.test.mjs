@@ -6,8 +6,10 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { createBrowserInventory } from './browser-inventory.mjs';
 import {
   browserEvidenceErrors,
+  browserReviewReportErrors,
   checkedOutIdentity,
   collectBrowserEvidence,
   createExecutionReport,
@@ -29,6 +31,7 @@ const plan = {
   policyHash: 'b'.repeat(64),
 };
 const report = createExecutionReport({
+  readSource: () => ({ ...identity, clean: true }),
   plan,
   category: 'js',
   matrix: 'ubuntu-latest',
@@ -53,6 +56,15 @@ assert.equal(report.source.commitSha, identity.commitSha);
 assert.equal(report.source.treeSha, identity.treeSha);
 assert.deepEqual(report.executedLanes, ['typecheck:all']);
 assert.equal(report.laneOutcomes[1].status, 'failure');
+const dirtyReport = createExecutionReport({
+  plan,
+  category: 'js',
+  declaredLanes: ['typecheck:all'],
+  readSource: () => ({ ...identity, clean: false }),
+});
+assert.equal(dirtyReport.status, 'failure', 'a dirty checkout cannot certify committed source');
+assert.equal(dirtyReport.source.clean, false);
+assert.deepEqual(dirtyReport.executedLanes, []);
 
 const directory = mkdtempSync(join(tmpdir(), 'varve-ci-execution-report-'));
 try {
@@ -110,14 +122,57 @@ const browserJson = {
 };
 try {
   const path = join(browserDirectory, 'browser.json');
+  const inventory = createBrowserInventory(browserJson, {
+    lane: 'e2e:all',
+    argv: ['pnpm', 'exec', 'playwright', 'test', '--project=chromium'],
+    source: plan,
+  });
   const evaluate = (json = browserJson) => {
     writeFileSync(path, JSON.stringify(json));
-    const evidence = collectBrowserEvidence([{ lane: 'e2e:all', path }]);
+    const evidence = collectBrowserEvidence([{ lane: 'e2e:all', path, inventory }]);
     return { evidence, errors: browserEvidenceErrors(evidence, ['e2e:all']) };
   };
   const passed = evaluate();
   assert.deepEqual(passed.errors, []);
   assert.equal(passed.evidence.reports[0].cases[0].attempts[0].retry, 0);
+  const review = collectBrowserEvidence([{ lane: 'e2e:all', path }], { reviewOnly: true });
+  assert.deepEqual(review.errors, []);
+  assert.equal(review.reviewOnly, true);
+  assert.equal(review.certified, false);
+  assert.equal(review.reports[0].reviewOnly, true);
+  assert.equal(review.reports[0].certified, false);
+  assert.ok(browserEvidenceErrors(review, ['e2e:all']).length);
+  assert.ok(browserReviewReportErrors(passed.evidence.reports[0]).length);
+  const reviewWithInventory = collectBrowserEvidence([{ lane: 'e2e:all', path, inventory }], {
+    reviewOnly: true,
+  });
+  assert.deepEqual(reviewWithInventory.errors, []);
+  for (const evidence of [
+    reviewWithInventory,
+    { ...reviewWithInventory, reviewOnly: undefined, certified: undefined },
+    { ...reviewWithInventory, reports: passed.evidence.reports },
+  ]) {
+    const rejected = createExecutionReport({
+      plan,
+      category: 'e2e',
+      status: 'success',
+      declaredLanes: ['e2e:all'],
+      browserEvidence: evidence,
+      readSource: () => ({ ...identity, clean: true }),
+    });
+    assert.equal(rejected.status, 'failure', 'review-only evidence cannot certify a lane');
+    assert.deepEqual(rejected.executedLanes, []);
+    assert.ok(rejected.playwright.errors.some((error) => error.includes('review-only')));
+  }
+  const changedReview = structuredClone(browserJson);
+  changedReview.config.updateSnapshots = 'changed';
+  writeFileSync(path, JSON.stringify(changedReview));
+  assert.deepEqual(
+    collectBrowserEvidence([{ lane: 'e2e:all', path }], { reviewOnly: true }).errors,
+    [],
+    'explicit baseline updates retain actual snapshot mode in non-certifying review evidence',
+  );
+  assert.ok(collectBrowserEvidence([{ lane: 'e2e:all', path, inventory }]).errors.length);
   const moved = structuredClone(browserJson);
   moved.suites[0].specs[0].line = 100;
   moved.suites[0].specs[0].id = 'different-source-id';
@@ -175,6 +230,10 @@ try {
     mutate(bad);
     const evidence = evaluate(bad).evidence;
     assert.ok(browserEvidenceErrors(evidence, ['e2e:all']).length);
+    assert.ok(
+      collectBrowserEvidence([{ lane: 'e2e:all', path }], { reviewOnly: true }).errors.length,
+      'baseline review keeps ordinary runner/history/retry/policy failures',
+    );
     const rejected = createExecutionReport({
       category: 'e2e',
       status: 'success',
@@ -213,7 +272,10 @@ try {
   skipped.stats.skipped = 1;
   skipped.suites[0].specs[0].tests[0].status = 'skipped';
   skipped.suites[0].specs[0].tests[0].results = [];
-  assert.deepEqual(evaluate(skipped).errors, [], 'explicit supported GPU skips remain data');
+  assert.ok(
+    evaluate(skipped).errors.length,
+    'all-skipped coverage and unexplained fixture skips cannot certify a lane',
+  );
   const empty = structuredClone(browserJson);
   empty.stats.expected = 0;
   empty.suites = [];

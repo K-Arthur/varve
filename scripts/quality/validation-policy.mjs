@@ -19,7 +19,10 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-export const POLICY_VERSION = '2026-09-08.validation-profiles.v2';
+export const POLICY_VERSION = '2026-10-03.validation-profiles.v3';
+// 1,903 Chromium cases at the release checkpoint: sixteen single-worker
+// hosted jobs retain roughly the case share of the former 1,030-case/8 split.
+export const FULL_BROWSER_SHARDS = 16;
 
 /** Files whose contents define lane selection or execution semantics. */
 export const POLICY_FILES = [
@@ -38,6 +41,10 @@ export const POLICY_FILES = [
   'scripts/quality/ci-plan.mjs',
   'scripts/quality/ci-run-lanes.mjs',
   'scripts/quality/ci-execution-report.mjs',
+  'scripts/quality/browser-inventory.mjs',
+  'scripts/quality/full-gate-execution.mjs',
+  'scripts/quality/playwright-run-output.mjs',
+  'scripts/quality/browser-progress.mjs',
   'scripts/quality/aggregate-ci.mjs',
   'scripts/quality/ci-preflight.mjs',
   'scripts/quality/verify.mjs',

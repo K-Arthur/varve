@@ -3,12 +3,13 @@
 /** Execute the concrete lanes selected by the canonical CI plan. */
 
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { availableParallelism, freemem, totalmem } from 'node:os';
 import { delimiter, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { IMPACT_CONFIG } from '../../validation-impact.config.mjs';
 import { loadPackages } from './affected-plan.mjs';
+import { discoverBrowserInventory } from './browser-inventory.mjs';
 import {
   browserEvidenceErrors,
   browserLane,
@@ -157,15 +158,28 @@ export function commandsForCategory(plan, category, { shard = null } = {}) {
 export function runCategory(
   plan,
   category,
-  { execute = runCommand, shard = null, dryRun = false, browserReportDir = null } = {},
+  {
+    execute = runCommand,
+    shard = null,
+    dryRun = false,
+    browserReportDir = null,
+    discover = discoverBrowserInventory,
+  } = {},
 ) {
-  return runCategoryDetailed(plan, category, { execute, shard, dryRun, browserReportDir }).status;
+  return runCategoryDetailed(plan, category, { execute, shard, dryRun, browserReportDir, discover })
+    .status;
 }
 
 export function runCategoryDetailed(
   plan,
   category,
-  { execute = runCommand, shard = null, dryRun = false, browserReportDir = null } = {},
+  {
+    execute = runCommand,
+    shard = null,
+    dryRun = false,
+    browserReportDir = null,
+    discover = discoverBrowserInventory,
+  } = {},
 ) {
   const outcomes = [];
   const browserReports = [];
@@ -180,7 +194,14 @@ export function runCategoryDetailed(
     if (browserReportPath) {
       mkdirSync(browserReportDir, { recursive: true });
       if (existsSync(browserReportPath)) throw new Error('browser report output already exists');
-      browserReports.push({ lane, path: browserReportPath });
+      const inventoryArgv =
+        lane === 'website-e2e'
+          ? ['pnpm', 'exec', 'playwright', 'test', '--config', 'playwright.website.config.ts']
+          : argv;
+      const inventory = discover({ argv: inventoryArgv, lane, source: plan, root: ROOT });
+      const inventoryPath = `${browserReportPath}.inventory.json`;
+      writeFileSync(inventoryPath, `${JSON.stringify(inventory, null, 2)}\n`);
+      browserReports.push({ lane, path: browserReportPath, inventory });
     }
     const status = execute(argv, { dryRun, browserReportPath, timeoutMs: 45 * 60 * 1000 });
     let code = typeof status === 'number' ? status : (status?.status ?? 1);
@@ -233,7 +254,7 @@ function main() {
   const flags = parseArgs(process.argv.slice(2));
   if (!flags.plan || !flags.category)
     throw new Error(
-      'usage: ci-run-lanes.mjs --plan <ci-plan.json> --category <category> [--shard N/8]',
+      'usage: ci-run-lanes.mjs --plan <ci-plan.json> --category <category> [--shard N/count]',
     );
   const plan = JSON.parse(readFileSync(flags.plan, 'utf8'));
   const identityErrors = validateCiPlan(plan, {

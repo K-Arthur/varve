@@ -136,10 +136,10 @@ describe('validation infrastructure presence', () => {
     expect(verify).toMatch(/Final full gate required after triage\. Continuing/);
   });
 
-  it('builds real WASM artifacts before the full browser lane', () => {
+  it('builds real WASM artifacts before the local full browser shards', () => {
     const verify = readFileSync(join(ROOT, 'scripts/quality/verify.mjs'), 'utf-8');
     const build = verify.indexOf("label: 'WASM browser artifacts'");
-    const browser = verify.indexOf("label: 'Chromium E2E'");
+    const browser = verify.indexOf('...localBrowserLanes()');
     expect(build).toBeGreaterThan(-1);
     expect(verify.slice(build, browser)).toMatch(/argv: \['just', 'wasm-build-all'\]/);
     expect(browser).toBeGreaterThan(build);

@@ -11,6 +11,7 @@ import { validateCiPlan } from './ci-plan.mjs';
 import {
   CI_CATEGORIES,
   CI_CATEGORY_LANES,
+  FULL_BROWSER_SHARDS,
   POLICY_VERSION,
   promisedLanesForCategories,
   sha256,
@@ -77,8 +78,9 @@ export function validateFullPlan(plan, identity, profile) {
     CI_CATEGORIES.some((name) => plan?.categories?.[name] !== true) ||
     JSON.stringify([...(plan?.selectedLanes ?? [])].sort()) !== JSON.stringify(expected) ||
     (plan?.deferredLanes ?? []).length ||
-    plan?.e2eShardCount !== 8 ||
-    JSON.stringify(plan?.e2eShards) !== JSON.stringify([1, 2, 3, 4, 5, 6, 7, 8])
+    plan?.e2eShardCount !== FULL_BROWSER_SHARDS ||
+    JSON.stringify(plan?.e2eShards) !==
+      JSON.stringify(Array.from({ length: FULL_BROWSER_SHARDS }, (_, index) => index + 1))
   )
     errors.push('plan omits a full-gate category, lane, or shard');
   const hash = sha256(
@@ -89,6 +91,8 @@ export function validateFullPlan(plan, identity, profile) {
       categories: plan?.categories,
       selectedLanes: plan?.selectedLanes,
       candidateMode: plan?.candidateMode,
+      e2eShardCount: plan?.e2eShardCount,
+      e2eShards: plan?.e2eShards,
       policyHash: plan?.policyHash,
     }),
   );
@@ -98,7 +102,8 @@ export function validateFullPlan(plan, identity, profile) {
 }
 
 function matrixExecutionErrors(entry, category, profile, runAttempt) {
-  const expectedCount = category === 'e2e' ? 8 : ['rust', 'desktop'].includes(category) ? 3 : 1;
+  const expectedCount =
+    category === 'e2e' ? FULL_BROWSER_SHARDS : ['rust', 'desktop'].includes(category) ? 3 : 1;
   const matrices = expectedExecutionMatrices(category, profile);
   if (
     !Array.isArray(entry?.reports) ||
@@ -116,9 +121,11 @@ function matrixExecutionErrors(entry, category, profile, runAttempt) {
     ) ||
     matrices?.some((matrix) => !entry.reports.includes(`${category}:${matrix}:single`)) ||
     (category === 'e2e' &&
-      Array.from({ length: 8 }, (_, index) => index + 1).some(
+      Array.from({ length: FULL_BROWSER_SHARDS }, (_, index) => index + 1).some(
         (shard) =>
-          !entry.reports.some((cell) => typeof cell === 'string' && cell.endsWith(`:${shard}/8`)),
+          !entry.reports.some(
+            (cell) => typeof cell === 'string' && cell.endsWith(`:${shard}/${FULL_BROWSER_SHARDS}`),
+          ),
       ))
   )
     return [`incomplete ${category} execution matrix or producer attempts`];
@@ -132,13 +139,14 @@ function compactBrowserReportValid(report, cells, lanes) {
     lanes.includes(report?.lane) &&
     /^[a-f0-9]{64}$/.test(report?.sha256 ?? '') &&
     /^[a-f0-9]{64}$/.test(report?.historySha256 ?? '') &&
+    /^[a-f0-9]{64}$/.test(report?.inventorySha256 ?? '') &&
     stats != null &&
     ['expected', 'unexpected', 'flaky', 'skipped'].every(
       (key) => Number.isSafeInteger(stats[key]) && stats[key] >= 0,
     ) &&
     stats.unexpected === 0 &&
     stats.flaky === 0 &&
-    stats.expected + stats.skipped > 0
+    stats.expected > 0
   );
 }
 
@@ -160,6 +168,30 @@ function categoryExecutionErrors(entry, category) {
   }
   if (reports.some((report) => !compactBrowserReportValid(report, cells, browserLanes)))
     errors.push(`invalid ${category} compact browser evidence`);
+  const coverage = entry?.browserCoverage;
+  if (
+    !Array.isArray(coverage) ||
+    !coverage.length ||
+    coverage.some(
+      (item) =>
+        !browserLanes.includes(item?.lane) ||
+        !/^[a-f0-9]{64}$/.test(item?.inventorySha256 ?? '') ||
+        item?.complete !== true ||
+        !Number.isSafeInteger(item?.caseCount) ||
+        item.caseCount < 1 ||
+        item.executedCaseCount !== item.caseCount ||
+        !Array.isArray(item.projects) ||
+        !item.projects.length,
+    )
+  )
+    errors.push(`missing or incomplete ${category} browser inventory coverage`);
+  for (const report of reports)
+    if (
+      !coverage?.some(
+        (item) => item.lane === report.lane && item.inventorySha256 === report.inventorySha256,
+      )
+    )
+      errors.push(`unbound ${category} browser inventory digest`);
   // Multiple CPU/GPU reports may own the same cell/lane. Every required pair
   // must be present, and each contributing compact report must be clean.
   for (const cell of cells)

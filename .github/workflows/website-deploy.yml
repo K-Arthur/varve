@@ -106,6 +106,12 @@ jobs:
       - name: Install dependencies (frozen)
         run: pnpm install --frozen-lockfile
 
+      - name: Plan exact website browser source
+        run: |
+          mkdir -p "test-results/${VARVE_E2E_OUTPUT_DIR}"
+          node scripts/quality/ci-plan.mjs --base "$GITHUB_SHA" --head "$GITHUB_SHA" \
+            --output "test-results/${VARVE_E2E_OUTPUT_DIR}/plan.json"
+
       - name: Type check + unit tests (incl. release-data states)
         run: pnpm test:website
 
@@ -131,6 +137,12 @@ jobs:
       - name: Install Playwright browsers
         run: pnpm exec playwright install --with-deps chromium
 
+      - name: Discover complete website case inventory
+        run: >-
+          node scripts/quality/browser-inventory.mjs --lane website-e2e
+          --config playwright.website.config.ts --plan "test-results/${VARVE_E2E_OUTPUT_DIR}/plan.json"
+          --output "test-results/${VARVE_E2E_OUTPUT_DIR}/browser-inventory.json"
+
       - name: E2E in both modes
         run: >-
           node scripts/quality/heavy-lease.mjs "website deploy: source modes" --
@@ -141,9 +153,11 @@ jobs:
         if: always()
         run: >-
           node scripts/quality/ci-execution-report.mjs --category website --lanes website-e2e
+          --plan "test-results/${VARVE_E2E_OUTPUT_DIR}/plan.json"
           --matrix ubuntu-latest --status "${{ job.status }}"
           --output "test-results/${VARVE_E2E_OUTPUT_DIR}/execution-evidence.json"
           --playwright-report "website-e2e=${VARVE_CI_PLAYWRIGHT_REPORT}"
+          --playwright-inventory "${VARVE_CI_PLAYWRIGHT_REPORT}=test-results/${VARVE_E2E_OUTPUT_DIR}/browser-inventory.json"
 
       # Preserve screenshots, diffs, and Playwright's JSON case history on every
       # outcome. This makes a remote visual regression actionable without

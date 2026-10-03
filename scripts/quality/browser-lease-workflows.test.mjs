@@ -60,7 +60,7 @@ for (const [index, path] of paths.entries()) {
   });
 }
 
-test('candidate branches retain discovery limits, final coverage and existing shard expression', () => {
+test('candidate branches bound red attempts while retaining complete inventory and canonical shard selection', () => {
   const calls = browserCalls(workflows[1]);
   for (const name of [
     'Website E2E (candidate)',
@@ -70,12 +70,18 @@ test('candidate branches retain discovery limits, final coverage and existing sh
     const pair = calls.filter((call) => call.name === name);
     assert.equal(pair.length, 2, name);
     assert.ok(pair[0].command.split(/\s+/).includes('--max-failures=5'), 'Triage remains bounded');
-    assert.ok(!pair[1].command.includes('--max-failures='), 'Final is complete');
+    assert.ok(
+      pair[1].command.split(/\s+/).includes('--max-failures=5'),
+      'Final failures remain bounded; inventory completeness is still required for green',
+    );
   }
   for (const call of calls.filter((call) => call.name === 'Browser E2E (candidate)'))
     assert.ok(
-      call.command.includes('--shard=${{ matrix.shard }}/8'),
-      'Preserve the existing eight-way shard',
+      call.command.includes(
+        // biome-ignore lint/suspicious/noTemplateCurlyInString: Match literal GitHub Actions expressions.
+        '--shard=${{ matrix.shard }}/${{ needs.changes.outputs.e2e_shard_count }}',
+      ),
+      'Use the canonical planner shard count',
     );
   assert.ok(
     calls.find(
@@ -124,4 +130,53 @@ test('browser installation and the already leased lane runner stay outside addit
     laneRuns.every((line) => !line.includes('heavy-lease.mjs')),
     'Avoid nested leases',
   );
+});
+
+function nativeLinuxRoutes(workflow, candidate) {
+  const steps = workflow.jobs['desktop-e2e'].steps;
+  const setup = steps.find((step) => step.name === 'Install Linux system deps (Tauri + WebKitGTK)');
+  assert.equal(setup?.if, "runner.os == 'Linux'", 'Only the Linux cell installs apt dependencies');
+  const dependencies = setup.run
+    .match(/apt-get install -y --no-install-recommends ([\s\S]+)/)?.[1]
+    .replaceAll('\\', '')
+    .split(/\s+/)
+    .filter(Boolean)
+    .sort();
+  for (const name of ['libwebkit2gtk-4.1-dev', 'libgtk-3-dev', 'xvfb', 'dbus-x11'])
+    assert.ok(dependencies?.includes(name), `Linux desktop requires ${name}`);
+  const routes = steps.filter((step) => step.run?.includes('pnpm test:desktop:native'));
+  assert.equal(routes.length, 2, 'Every native OS uses exactly one conditional execution route');
+  const linux = routes.find((step) => step.run.startsWith('dbus-run-session'));
+  const other = routes.find((step) => step.run === 'pnpm test:desktop:native');
+  assert.equal(
+    linux?.run,
+    'dbus-run-session -- xvfb-run --auto-servernum pnpm test:desktop:native',
+  );
+  assert.equal(linux?.if, candidate ? "runner.os == 'Linux'" : 'matrix.xvfb');
+  // biome-ignore lint/suspicious/noTemplateCurlyInString: Match the literal GitHub Actions condition.
+  assert.equal(other?.if, candidate ? "runner.os != 'Linux'" : '${{ !matrix.xvfb }}');
+  assert.ok(
+    steps.indexOf(setup) < steps.indexOf(linux),
+    'Install dependencies before preflight/build',
+  );
+  return dependencies;
+}
+
+test('candidate Linux native setup matches integration and keeps display isolation OS-specific', () => {
+  assert.deepEqual(nativeLinuxRoutes(workflows[1], true), nativeLinuxRoutes(workflows[0], false));
+});
+
+test('negative control: candidate cannot omit Linux dependencies or run unwrapped without display', () => {
+  const missing = structuredClone(workflows[1]);
+  const setup = missing.jobs['desktop-e2e'].steps.find(
+    (step) => step.name === 'Install Linux system deps (Tauri + WebKitGTK)',
+  );
+  setup.run = setup.run.replace(/\b(?:libwebkit2gtk-4\.1-dev|dbus-x11)\b/g, '');
+  assert.throws(() => nativeLinuxRoutes(missing, true), /Linux desktop requires/);
+  const raw = structuredClone(workflows[1]);
+  const linux = raw.jobs['desktop-e2e'].steps.find(
+    (step) => step.name === 'Native desktop smoke (Linux Xvfb)',
+  );
+  linux.run = 'pnpm test:desktop:native';
+  assert.throws(() => nativeLinuxRoutes(raw, true));
 });

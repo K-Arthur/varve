@@ -12,6 +12,7 @@ import {
   expectedExecutionMatrices,
   REQUIRED_CI_JOBS,
 } from './aggregate-ci.mjs';
+import { createBrowserInventory } from './browser-inventory.mjs';
 import { readCertificationArtifact, readEvidenceZip } from './certification-artifact.mjs';
 import { browserLane, collectBrowserEvidence } from './ci-execution-report.mjs';
 import {
@@ -24,6 +25,7 @@ import { REMOTE_FULL_COMPLEMENT, runRemoteFullGate } from './remote-full-gate.mj
 import {
   CI_CATEGORIES,
   CI_CATEGORY_LANES,
+  FULL_BROWSER_SHARDS,
   POLICY_VERSION,
   promisedLanesForCategories,
   sha256,
@@ -216,8 +218,8 @@ function fullPlan(profile) {
     categories,
     selectedLanes: promisedLanesForCategories(categories, profile),
     deferredLanes: [],
-    e2eShardCount: 8,
-    e2eShards: [1, 2, 3, 4, 5, 6, 7, 8],
+    e2eShardCount: FULL_BROWSER_SHARDS,
+    e2eShards: Array.from({ length: FULL_BROWSER_SHARDS }, (_, index) => index + 1),
   };
   plan.planHash = sha256(
     JSON.stringify({
@@ -227,53 +229,82 @@ function fullPlan(profile) {
       categories: plan.categories,
       selectedLanes: plan.selectedLanes,
       candidateMode: plan.candidateMode,
+      e2eShardCount: plan.e2eShardCount,
+      e2eShards: plan.e2eShards,
       policyHash: plan.policyHash,
     }),
   );
   return plan;
 }
 
-function fixtureBrowserEvidence(lanes, cell) {
+function fixtureBrowserEvidence(lanes, _cell, plan, index) {
   const required = lanes.filter(browserLane);
   if (!required.length) return null;
   const folder = mkdtempSync(join(tmpdir(), 'varve-remote-browser-evidence-'));
   try {
-    const descriptors = required.map((lane, index) => {
-      const path = `${index}.json`;
+    const descriptors = required.map((lane, reportIndex) => {
+      const path = `${reportIndex}.json`;
+      const projects =
+        lane === 'website-e2e'
+          ? ['custom-domain', 'ghpages', 'touch']
+          : lane === 'e2e:visual'
+            ? [
+                'chromium-visual-1x',
+                'chromium-visual-2x',
+                'chromium-visual-3x',
+                ...(plan.profile === 'integration' ? ['chromium-visual-gpu'] : []),
+              ]
+            : ['chromium'];
+      const allSuites = Array.from(
+        { length: lane === 'e2e:all' ? FULL_BROWSER_SHARDS : 1 },
+        (_, caseIndex) => ({
+          title: `case ${caseIndex}`,
+          specs: [
+            {
+              file: `fixture-${lane.replaceAll(':', '-')}.spec.ts`,
+              title: `certified ${lane} ${caseIndex}`,
+              id: sha256(`${lane}:${caseIndex}`),
+              line: 1,
+              tests: projects.map((projectName) => ({
+                projectName,
+                expectedStatus: 'passed',
+                status: 'expected',
+                results: [{ retry: 0, status: 'passed', duration: 1, errors: [] }],
+              })),
+            },
+          ],
+        }),
+      );
       const json = {
         config: {
           workers: 1,
           updateSnapshots: 'none',
           failOnFlakyTests: true,
           argv: ['--trace=retain-on-failure'],
-          projects: [{ name: 'chromium', retries: 0 }],
+          projects: projects.map((name) => ({ name, retries: 0 })),
         },
-        stats: { expected: 1, unexpected: 0, flaky: 0, skipped: 0 },
+        stats: { expected: projects.length, unexpected: 0, flaky: 0, skipped: 0 },
         errors: [],
-        suites: [
-          {
-            title: cell,
-            specs: [
-              {
-                file: `tests/e2e/${lane.replaceAll(':', '-')}.spec.ts`,
-                title: `certified ${lane}`,
-                id: sha256(`${cell}:${lane}`),
-                line: 1,
-                tests: [
-                  {
-                    projectName: 'chromium',
-                    expectedStatus: 'passed',
-                    status: 'expected',
-                    results: [{ retry: 0, status: 'passed', duration: 1, errors: [] }],
-                  },
-                ],
-              },
-            ],
-          },
-        ],
+        suites: allSuites,
       };
+      const inventory = createBrowserInventory(json, {
+        lane,
+        source: plan,
+        argv: [
+          'pnpm',
+          'exec',
+          'playwright',
+          'test',
+          ...(lane === 'website-e2e' ? ['--config', 'playwright.website.config.ts'] : []),
+          ...projects.map((name) => `--project=${name}`),
+        ],
+      });
+      if (lane === 'e2e:all') {
+        json.suites = [allSuites[index]];
+        json.config.shard = { current: index + 1, total: FULL_BROWSER_SHARDS };
+      }
       writeFileSync(join(folder, path), JSON.stringify(json));
-      return { lane, path };
+      return { lane, path, inventory };
     });
     return collectBrowserEvidence(descriptors, { root: folder });
   } finally {
@@ -283,7 +314,8 @@ function fixtureBrowserEvidence(lanes, cell) {
 
 function fullAggregate(plan, binding, transformReport = (report) => report) {
   const reports = CI_CATEGORIES.flatMap((category) => {
-    const count = category === 'e2e' ? 8 : ['rust', 'desktop'].includes(category) ? 3 : 1;
+    const count =
+      category === 'e2e' ? FULL_BROWSER_SHARDS : ['rust', 'desktop'].includes(category) ? 3 : 1;
     return Array.from({ length: count }, (_, index) =>
       transformReport({
         schema: 1,
@@ -300,9 +332,14 @@ function fullAggregate(plan, binding, transformReport = (report) => report) {
         },
         workflow: { repository: identity.repo, runId: binding.runId, runAttempt: 1 },
         matrix: expectedExecutionMatrices(category, plan.profile)?.[index] ?? 'ubuntu-latest',
-        shard: category === 'e2e' ? `${index + 1}/8` : null,
+        shard: category === 'e2e' ? `${index + 1}/${FULL_BROWSER_SHARDS}` : null,
         executedLanes: CI_CATEGORY_LANES[category],
-        playwright: fixtureBrowserEvidence(CI_CATEGORY_LANES[category], `${category}:${index}`),
+        playwright: fixtureBrowserEvidence(
+          CI_CATEGORY_LANES[category],
+          `${category}:${index}`,
+          plan,
+          index,
+        ),
       }),
     );
   });
@@ -450,12 +487,15 @@ test('producer JSON browser histories certify compact summaries; missing or cont
   const valid = fullAggregate(plan, binding);
   assert.equal(valid.passed, true);
   const browser = valid.execution.evidence.filter((entry) => entry.browserReports.length);
-  assert.equal(browser.find((entry) => entry.category === 'e2e').browserReports.length, 8);
+  assert.equal(
+    browser.find((entry) => entry.category === 'e2e').browserReports.length,
+    FULL_BROWSER_SHARDS,
+  );
   for (const entry of browser)
     for (const report of entry.browserReports) {
       assert.match(report.sha256, /^[a-f0-9]{64}$/);
       assert.match(report.historySha256, /^[a-f0-9]{64}$/);
-      assert.equal(report.stats.expected, 1);
+      assert.ok(report.stats.expected >= 1);
       assert.equal(Object.hasOwn(report, 'cases'), false);
     }
   for (const mutate of [
@@ -554,7 +594,7 @@ test('compact summary rejects contradictory browser counts, incomplete cells and
     },
     (a) => {
       a.execution.evidence.find((e) => e.category === 'e2e').browserReports[0].cell =
-        'e2e:ubuntu-latest:9/8';
+        `e2e:ubuntu-latest:${FULL_BROWSER_SHARDS + 1}/${FULL_BROWSER_SHARDS}`;
     },
     (a) => {
       a.execution.evidence.find((e) => e.category === 'e2e').browserReports.pop();

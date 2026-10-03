@@ -319,7 +319,8 @@ cleanup tooling, codemods).
 - `pnpm verify:push` — exact outgoing-ref bounded push checkpoint; reports CI deferrals and never invokes the full suite automatically
 - `pnpm workflow:status` / `pnpm workflow:doctor` — inspect synchronization, worktree, hook, and in-progress-operation state without mutating Git
 - `pnpm workflow:history` / `pnpm workflow:report` — inspect or export durable local workflow attempts and sanitized evidence
-- `pnpm verify:full` — explicit full repository gate (Tier 5). Requires `VARVE_FULL_GATE_REASON` or `VARVE_FULL_GATE=1`
+- `pnpm verify:full` — exact-SHA hosted full-gate verification (Tier 5), the default release path. Requires `VARVE_FULL_GATE_REASON` or `VARVE_FULL_GATE=1`; absent remote evidence remains incomplete, never a local fallback.
+- `pnpm verify:full --local` — deliberate local full gate; policy-sized browser shards have separate resumable receipts. Use `--local --resume` only at unchanged inputs. Do not duplicate this with a complete hosted gate during routine release work.
 - `just check-plan` / `just check-quick` / `just check-affected` — just wrappers for the verify commands
 - `just gate-full` — human-facing full gate (requires `VARVE_FULL_GATE_REASON`)
 - `just test` — Rust (`cargo test --workspace`) + JS (`pnpm test` = Vitest). **Full-suite operation — not the default inner loop**

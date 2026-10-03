@@ -1,0 +1,106 @@
+# Test pipeline efficiency and failure recovery
+
+This document records the release checkpoint investigation and execution
+changes. The [validation strategy](validation-strategy.md) remains the
+canonical selection policy; the [candidate runbook](../release/release-candidate-runbook.md)
+owns release operations. Research describes other systems, not Varve defects.
+
+## Measured problem
+
+The 0.5.0 checkpoint discovered **1,903 Chromium cases in 422 files**. The
+previous eight-shard comments described roughly 1,030 cases and had become
+stale. A local serial browser lane ran for about 112 minutes without finishing.
+It exposed 33 failures before interruption, while screenshot producers changed
+three tracked images and invalidated the frozen source. Ten preceding local
+lanes had passed; an incomplete browser run never certified the release.
+
+Test count alone is insufficient. The critical costs include cold application
+transforms, slow case tails, repeated green work, implicit retries, output races,
+and discovering invalid source only at the end. These are measured separately
+from runner queue time and external startup failures.
+
+## Implemented execution contract
+
+1. **Local development:** run the affected planner and its selected closure.
+   Repair each observed failure with compiler checks, direct units, and its
+   exact browser spec. Unknown paths and shared infrastructure keep conservative
+   broader selection. An infrastructure escalation is not permission to spend
+   hours on a serial browser run before pushing the same candidate.
+2. **Hosted integration:** normal pushes use bounded local checks and explicit
+   remote deferrals. Complete Chromium validation uses the policy's **16
+   single-worker shards**, approximately 119 cases each at the measured count.
+   `fullyParallel` distributes individual cases. This reduces the nominal case
+   share; it does not promise equal runtimes or a measured 16-fold speedup.
+3. **Candidate:** freeze one accepted `master` SHA. Final certification requires
+   its integration evidence and the candidate platform, visual, native, and
+   runtime requirements. A triage report cannot certify a candidate.
+4. **Full checkpoint:** `pnpm verify:full` verifies existing hosted evidence and
+   runs its missing local audits. Absent evidence remains incomplete. Deliberate
+   offline execution requires `--local`; browser shards have separate receipts,
+   and `--local --resume` retains only unchanged, complete lanes.
+5. **Failure recovery:** release browser runs have zero retries, no automatic
+   snapshot updates, retained failure traces, and a five-failure bound. A red
+   run stops wasting time; a green run must execute its complete selection.
+   Rerun failed hosted cells at the original SHA after diagnosing the cause.
+   Source repairs require a new SHA. Aggregation uses the latest cell attempt.
+
+Discovery runs the same canonical selection with `--list`, without starting a
+browser or web server. Its inventory binds case identities, selected projects,
+source SHA/tree, plan hash, and policy hash. Receipts carry the inventory digest.
+Aggregation rejects omitted or duplicate cases, overlapping shards, unexpected
+cases, missing projects, altered inventories, runner errors, retries, incomplete
+results, and entirely skipped selections. Existing optional model/hardware
+boundaries need stated reasons; unexplained skips cannot silently pass.
+Discovery and receipts reject dirty source. The shard count is part of the plan
+hash, so eight green jobs cannot satisfy the sixteen-shard policy.
+
+Normal screenshot tests write inside their own test output. Canonical product
+captures require an explicit capture destination and reviewed promotion.
+The coordinator sets a stable execution output name that workers inherit,
+including replacement workers after a failure. Other executions get separate
+directories. Port and output-name validation rejects malformed configuration.
+
+The progress reporter atomically saves active cases, completed attempts, first
+failure, counts, durations, errors, and status during execution. Interruption
+therefore leaves usable diagnostics before the final HTML report exists.
+Reporter write failures and incomplete final execution fail the run. CI feedback
+adds case p50/p95, slowest cases, shard imbalance, missing evidence, and divergent
+outcomes. These reports are diagnostic; they never grant certification.
+
+## Research: gains and failure cases
+
+| Reported problem | Application to Varve |
+| --- | --- |
+| Slack rebuilt unchanged frontend assets; finding coherent reusable artifacts was a separate challenge. [E2E optimization](https://slack.engineering/speedup-e2e-testing/) | Remove duplicate local/hosted execution now. Existing same-run WASM artifacts remain shared. Further frontend/candidate reuse requires complete input identity; branch names and artifact recency are insufficient. |
+| Slack's thousands of blocking tests produced slow feedback, unclear ownership, and cascading service failures. [Safety and velocity](https://slack.engineering/balancing-safety-and-velocity-in-ci-cd-at-slack/) | Preserve affected local checks and hosted release coverage, report failures by case and source, and separate startup blocks from product failures. Do not copy Slack's criticality percentages without measuring Varve selection recall. |
+| Google found retries could multiply failure delay and quarantine could hide races. [Flaky tests](https://testing.googleblog.com/2016/05/flaky-tests-at-google-and-how-we.html?m=1) | Release retries stay zero. Retain the first failure. Divergence opens an investigation; it does not automatically waive a test. |
+| GitHub's simple retry-based flake detection missed most flakes; differentiated timing/process/host investigations found more. [Flaky builds](https://github.blog/engineering/engineering-principles/reducing-flaky-builds-by-18x/) | Feedback identifies divergent outcomes but does not label every divergent case safe. Investigate state isolation, scheduling, hardware, and actual product races separately. |
+| Playwright balances case/file counts rather than observed runtime, and context isolation does not isolate shared files. [Sharding](https://playwright.dev/docs/test-sharding), [parallel isolation](https://playwright.dev/docs/test-parallel) | Use single-worker hosted shards, measure timing skew, and isolate output. Complete inventory coverage proves selection; it does not prove performance balance. |
+| Artifact digest mismatch can produce only a warning; caches permit partial restores. [Artifacts](https://docs.github.com/en/actions/tutorials/store-and-share-data#validating-artifacts), [caching](https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching) | Verify actual certification bytes and hashes independently. A build cache is acceleration, never evidence of a test pass. |
+| Outages can cascade through CI dependencies. [Slack circuit breakers](https://slack.engineering/circuit-breakers/) | Keep billing, never-started jobs, network/model failures, OOM, and executed regressions distinct. Preserve diagnostics and retry the affected cell only after its external condition is resolved. |
+
+## Remaining optimizations and acceptance criteria
+
+Complete integration-to-candidate execution adoption is **not active**. Current
+certificates lack all required command, tool, environment, and generated-runtime
+identities. Safe adoption must extend producers, certificate aggregation,
+candidate preflight, and the remote verifier together. It must reject missing
+metadata, expired artifacts, mismatched bytes, partial coverage, and newer red or
+queued producer runs. Candidate-only native, platform, and visual requirements
+still execute. Recheck adopted producers after candidate execution.
+
+Likewise, replacing development-server browser tests with a shared frontend
+bundle needs equivalence checks for test bridges, harness entry points, optional
+models, WASM/ORT assets, and environment defines. Reusing the public demo would
+test a different capability surface. Measure cold startup and build/upload costs
+before enabling that change.
+
+Use the first complete hosted run to compare setup time, test execution p50/p95,
+slowest shard, runner queue time, runner-minutes, and first-failure latency.
+Increase shard count only when reduced execution time outweighs repeated setup
+and account concurrency limits. Move expensive assertions into lower tiers only
+after proving equivalent coverage; keep real pointer, rendering, persistence,
+migration, export, and security interactions blocking where their risk requires
+them. Maintain explicit owners for persistent failures and an expiry for any
+future approved quarantine. Selection miss measurements and a periodic full
+safety net are prerequisites for further pruning.

@@ -10,7 +10,11 @@ import { join } from 'node:path';
 import { buildCiPlan, validateCiPlan } from './ci-plan.mjs';
 import { preflightCommands } from './ci-preflight.mjs';
 import { laneArgv } from './validation-lanes.mjs';
-import { CI_CATEGORIES, promisedLanesForCategories } from './validation-policy.mjs';
+import {
+  CI_CATEGORIES,
+  FULL_BROWSER_SHARDS,
+  promisedLanesForCategories,
+} from './validation-policy.mjs';
 
 // Linked worktrees have a .git pointer file, not a .git/HEAD path.
 const head = execFileSync('git', ['rev-parse', '--verify', 'HEAD^{commit}'], {
@@ -32,6 +36,21 @@ assert.deepEqual(
 );
 assert.deepEqual(full.selectedLanes, promisedLanesForCategories(full.categories, 'candidate'));
 assert.equal(full.candidateMode, 'final');
+assert.equal(full.e2eShardCount, FULL_BROWSER_SHARDS);
+assert.deepEqual(
+  full.e2eShards,
+  Array.from({ length: FULL_BROWSER_SHARDS }, (_, index) => index + 1),
+);
+assert.ok(
+  validateCiPlan({ ...full, e2eShardCount: 1, e2eShards: [1] }).length,
+  'a shortened full-suite matrix cannot retain certification',
+);
+assert.ok(
+  validateCiPlan({ ...full, selectedLanes: ['e2e:all'] }).includes(
+    'CI plan integrity hash mismatch',
+  ),
+  'a shortened lane list cannot retain the original plan hash',
+);
 assert.deepEqual(
   validateCiPlan(full, { expectedHead: actualHead, expectedPolicyHash: full.policyHash }),
   [],

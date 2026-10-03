@@ -11,7 +11,8 @@
  *   pnpm verify:triage       Tier 0–4 even when a final full gate is required;
  *                            stops E2E after a bounded number of failures
  *   pnpm verify:affected     Tiers 0–4, risk-aware
- *   pnpm verify:full         full repository gate (Tier 5)
+ *   pnpm verify:full         remote-owned full repository gate (Tier 5)
+ *   pnpm verify:full --local explicit local full gate, with resumable browser shards
  *   pnpm verify:full --remote  adopt exact-SHA full CI/final candidate + audit complement
  *   pnpm verify:full --remote --status  read-only remote status (never a full-gate pass)
  *   pnpm verify:plan         print the plan without running anything
@@ -47,6 +48,7 @@ import {
   playwrightRunOptions,
 } from './execution-plan.mjs';
 import { runFullGate } from './full-gate.mjs';
+import { fullGateExecution, localBrowserLanes } from './full-gate-execution.mjs';
 import { runValidationCommand } from './heavy-lease.mjs';
 import { runRemoteFullGate } from './remote-full-gate.mjs';
 import { LANES, laneCommand, packageDirs } from './validation-lanes.mjs';
@@ -270,7 +272,18 @@ async function main() {
       process.exit(2);
     }
     if (reason) console.log(`Full gate reason: ${reason}`);
-    if (args.includes('--remote')) {
+    let execution;
+    try {
+      execution = fullGateExecution(args);
+    } catch (error) {
+      console.error(error.message);
+      process.exit(2);
+    }
+    if (execution.mode === 'remote') {
+      console.log('Full gate owner: exact-SHA hosted integration and candidate certification.');
+      console.log(
+        'Local inner loop: verify:affected / verify:triage; offline full execution: verify:full --local.',
+      );
       const result = await runRemoteFullGate({ root: ROOT, args, execute: commandResult });
       console.log(result.message ?? `Remote full gate: ${result.classification}`);
       if (result.status !== 0) {
@@ -323,10 +336,7 @@ async function main() {
           'warnings',
         ],
       },
-      {
-        label: 'Chromium E2E',
-        argv: [...broadBrowserArgv('e2e:all', { strict: true }), '--project=chromium'],
-      },
+      ...localBrowserLanes(),
       {
         label: 'Visual E2E',
         // Preserve the package script's full DPR 1/2/3 matrix.
@@ -342,7 +352,7 @@ async function main() {
           argv: ['node', 'scripts/quality/heavy-lease.mjs', label, '--', ...argv],
         })),
       ],
-      { root: ROOT, execute: commandResult, resume: args.includes('--resume') },
+      { root: ROOT, execute: commandResult, resume: execution.resume },
     );
     if (result.status !== 0) {
       if (result.message) console.error(result.message);

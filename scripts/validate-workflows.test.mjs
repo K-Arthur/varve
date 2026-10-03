@@ -10,6 +10,7 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { browserEvidenceErrors } from './quality/ci-execution-report.mjs';
 
 function baselineBash(platform = process.platform, environment = process.env) {
   if (platform !== 'win32') return 'bash';
@@ -821,6 +822,7 @@ assert.deepEqual(
     );
     assert.equal(outcome.if, 'always()');
     assert.match(outcome.run, /certified: false/);
+    assert.match(outcome.run, /collectBrowserEvidence\([^\n]*\{ reviewOnly: true \}\)/);
     assert.match(outcome.run, /casesSha256/);
     const outcomeSource = outcome.run
       .split("<<'JS'\n")[1]
@@ -897,6 +899,14 @@ assert.deepEqual(
       assert.equal(valid.status, 0);
       assert.deepEqual(valid.receipt.reviewErrors, []);
       assert.equal(valid.receipt.browserEvidence.reports[0].runner.updateSnapshots, mode);
+      assert.equal(valid.receipt.browserEvidence.reviewOnly, true);
+      assert.equal(valid.receipt.browserEvidence.certified, false);
+      assert.ok(
+        browserEvidenceErrors(valid.receipt.browserEvidence, ['website-e2e']).includes(
+          'review-only browser evidence cannot certify',
+        ),
+        'even a passing comparison is selected review evidence, never certification',
+      );
     }
     const absent = retainedOutcome({ missing: true });
     assert.notEqual(absent.status, 0);
@@ -1206,6 +1216,14 @@ if (value) process.stdout.write(value + '\\0');\n`,
         assert.deepEqual(valid.receipt.reviewErrors, []);
         assert.equal(valid.receipt.snapshotFiles.length, selected.plan.originalSnapshots.length);
         assert.equal(valid.receipt.browserEvidence.reports[0].runner.updateSnapshots, mode);
+        assert.equal(valid.receipt.browserEvidence.reviewOnly, true);
+        assert.equal(valid.receipt.browserEvidence.certified, false);
+        assert.ok(
+          browserEvidenceErrors(valid.receipt.browserEvidence, ['e2e:visual-review']).includes(
+            'review-only browser evidence cannot certify',
+          ),
+          'application comparison/update review cannot certify a browser lane',
+        );
       }
       const wrongCase = appOutcome(selected, {
         mutate(report) {

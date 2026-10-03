@@ -15,13 +15,25 @@ import {
 import { tmpdir } from 'node:os';
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { redactSensitive } from '../ci/failure-manifest.mjs';
+import { createBrowserInventory, readInventorySource } from '../quality/browser-inventory.mjs';
 import { browserEvidenceErrors, collectBrowserEvidence } from '../quality/ci-execution-report.mjs';
+import { computePolicyHash } from '../quality/validation-policy.mjs';
 
 export const DEMO_DIST_OWNERS = [
   'try-demo.spec.ts',
   'try-pwa.spec.ts',
   'try-launch.spec.ts',
   'try-export.spec.ts',
+];
+const DEMO_BROWSER_LANE = 'e2e:demo-dist';
+const DEMO_BROWSER_COMMAND = [
+  'pnpm',
+  'exec',
+  'playwright',
+  'test',
+  '--config',
+  'playwright.demo-dist.config.mts',
 ];
 const REQUIRED_ASSETS = [
   'index.html',
@@ -144,13 +156,39 @@ export function prepareDemoDist(env = process.env, root = process.cwd()) {
   mkdirSync(dirname(receiptPath), { recursive: true });
   writeFileSync(
     receiptPath,
-    `${JSON.stringify({ schema: 1, sourceSha, originalDir, distDir, artifactSha256: inventory.sha256, files: inventory.files, runId: env.GITHUB_RUN_ID ?? null, runAttempt: env.GITHUB_RUN_ATTEMPT ?? null }, null, 2)}\n`,
+    `${JSON.stringify({ schema: 1, sourceSha, originalDir, distDir, artifactSha256: inventory.sha256, validationSource: demoBrowserSource(inputs, inventory.sha256, root), files: inventory.files, runId: env.GITHUB_RUN_ID ?? null, runAttempt: env.GITHUB_RUN_ATTEMPT ?? null }, null, 2)}\n`,
   );
   appendFileSync(
     required(env, 'GITHUB_ENV'),
     `VARVE_DEMO_DIST_DIR=${distDir}\nVARVE_DEMO_INPUT_RECEIPT=${receiptPath}\n`,
   );
   return receiptPath;
+}
+
+/** Bind production-demo discovery to source, policy, origin and the exact upload input. */
+export function demoBrowserSource(inputs, artifactSha256, root = process.cwd()) {
+  if (!/^[a-f0-9]{64}$/.test(artifactSha256 ?? ''))
+    throw new Error('built-demo upload input requires a valid digest');
+  const source = readInventorySource(root);
+  if (source.commitSha !== inputs.sourceSha) throw new Error('built-demo source SHA mismatch');
+  const policyHash = computePolicyHash({ root });
+  const body = {
+    schema: 1,
+    lane: DEMO_BROWSER_LANE,
+    commitSha: source.commitSha,
+    treeSha: source.treeSha,
+    policyHash,
+    command: DEMO_BROWSER_COMMAND,
+    owners: DEMO_DIST_OWNERS,
+    origin: inputs.origin,
+    artifactSha256,
+  };
+  return {
+    commitSha: source.commitSha,
+    treeSha: source.treeSha,
+    policyHash,
+    planHash: createHash('sha256').update(JSON.stringify(body)).digest('hex'),
+  };
 }
 export function verifyUploadInventory(receipt, sourceSha, originalDir) {
   if (
@@ -169,21 +207,53 @@ export function assertUploadUnchanged(env = process.env, root = process.cwd()) {
 }
 export function assertDemoReport(env = process.env, root = process.cwd()) {
   const inputs = demoDistInputs(env, root);
-  const evidence = collectBrowserEvidence([{ lane: 'website-e2e', path: inputs.report }]);
-  const errors = browserEvidenceErrors(evidence, ['website-e2e']);
-  const report = evidence.reports[0];
+  const errors = [];
   const listingPath = join(dirname(inputs.outputDir), 'expected-cases.json');
-  const listing = collectBrowserEvidence([{ lane: 'website-e2e', path: listingPath }]).reports[0];
-  const listJson = JSON.parse(readFileSync(listingPath, 'utf8'));
-  const listArgs = listJson.config?.argv ?? [];
-  const expectedIds = listing?.cases.map((item) => item.caseId).sort() ?? [];
+  let inventory = null;
+  let inputReceipt = null;
+  try {
+    inputReceipt = JSON.parse(readFileSync(required(env, 'VARVE_DEMO_INPUT_RECEIPT'), 'utf8'));
+    const source = demoBrowserSource(inputs, inputReceipt.artifactSha256, root);
+    if (
+      inputReceipt.schema !== 1 ||
+      inputReceipt.sourceSha !== inputs.sourceSha ||
+      inputReceipt.distDir !== inputs.distDir ||
+      JSON.stringify(inputReceipt.validationSource) !== JSON.stringify(source)
+    )
+      throw new Error('built-demo inventory source or upload-input identity mismatch');
+    const listJson = JSON.parse(readFileSync(listingPath, 'utf8'));
+    const listArgs = listJson.config?.argv ?? [];
+    if (
+      !listArgs.includes('--list') ||
+      listArgs.some((arg) =>
+        /^--(?:grep|grep-invert|shard|last-failed|test-list|only-changed|repeat-each)(?:=|$)/.test(
+          arg,
+        ),
+      )
+    )
+      throw new Error('built-demo report does not cover the complete configured case inventory');
+    inventory = createBrowserInventory(listJson, {
+      lane: DEMO_BROWSER_LANE,
+      argv: DEMO_BROWSER_COMMAND,
+      source,
+    });
+    writeFileSync(
+      join(dirname(inputs.outputDir), 'browser-inventory.json'),
+      `${JSON.stringify(inventory, null, 2)}\n`,
+    );
+  } catch (error) {
+    errors.push(
+      `built-demo inventory rejected: ${error instanceof SyntaxError ? 'malformed JSON' : redactSensitive(String(error.message))}`,
+    );
+  }
+  const evidence = collectBrowserEvidence([
+    { lane: DEMO_BROWSER_LANE, path: inputs.report, inventory },
+  ]);
+  errors.push(...browserEvidenceErrors(evidence, [DEMO_BROWSER_LANE]));
+  const report = evidence.reports[0];
+  const expectedIds = inventory?.cases.map((item) => item.caseId).sort() ?? [];
   const actualIds = report?.cases.map((item) => item.caseId).sort() ?? [];
   if (
-    !listArgs.includes('--list') ||
-    listArgs.some((arg) =>
-      /^--(?:grep|grep-invert|shard|last-failed|test-list|only-changed)(?:=|$)/.test(arg),
-    ) ||
-    listJson.errors?.length !== 0 ||
     !expectedIds.length ||
     new Set(expectedIds).size !== expectedIds.length ||
     JSON.stringify(expectedIds) !== JSON.stringify(actualIds)
@@ -199,7 +269,7 @@ export function assertDemoReport(env = process.env, root = process.cwd()) {
   mkdirSync(inputs.outputDir, { recursive: true });
   writeFileSync(
     join(inputs.outputDir, 'execution-evidence.json'),
-    `${JSON.stringify({ sourceSha: inputs.sourceSha, runId: env.GITHUB_RUN_ID ?? null, runAttempt: env.GITHUB_RUN_ATTEMPT ?? null, evidence, errors }, null, 2)}\n`,
+    `${JSON.stringify({ sourceSha: inputs.sourceSha, artifactSha256: inputReceipt?.artifactSha256 ?? null, runId: env.GITHUB_RUN_ID ?? null, runAttempt: env.GITHUB_RUN_ATTEMPT ?? null, evidence, errors }, null, 2)}\n`,
   );
   if (errors.length) throw new Error(errors.join('; '));
 }

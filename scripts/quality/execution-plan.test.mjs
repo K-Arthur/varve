@@ -107,7 +107,12 @@ const strictFlags = [
   '--trace=retain-on-failure',
 ];
 const bounds = ['--workers', '1', '--max-failures', '5', ...strictFlags];
-assert.deepEqual(playwrightRunOptions({ strict: true }), ['--workers=1', ...strictFlags]);
+assert.deepEqual(playwrightRunOptions({ strict: true }), [
+  '--workers=1',
+  '--max-failures',
+  '5',
+  ...strictFlags,
+]);
 for (const lane of ['e2e:all', 'e2e:visual', 'website-e2e']) {
   const argv = broadBrowserArgv(lane, { strict: true });
   assert.ok(argv.includes('--workers=1'));

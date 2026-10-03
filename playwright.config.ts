@@ -1,6 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
+import { resolveRunOutput, validatedE2ePort } from './scripts/quality/playwright-run-output.mjs';
 
-const e2ePort = process.env.VARVE_E2E_PORT ?? '1420';
+const e2ePort = validatedE2ePort(process.env.VARVE_E2E_PORT);
 const e2eBaseUrl = `http://localhost:${e2ePort}`;
 const nodeMajor = Number.parseInt(process.versions.node.split('.')[0] ?? '0', 10);
 // Node 26's V8 fast-API deoptimizer can abort Vite's response path under the
@@ -15,14 +16,14 @@ const viteServerCommand =
 // enough to terminate an unrelated page mid-test. Keep the reliable default
 // serial, while preserving the documented override for capable hosts.
 const e2eWorkers = Number(process.env.VARVE_E2E_WORKERS ?? '1');
+if (!Number.isInteger(e2eWorkers) || e2eWorkers < 1)
+  throw new Error('VARVE_E2E_WORKERS must be a positive integer.');
 
 // Isolated output directories per execution: concurrent agents (or parallel
 // local runs) must never overwrite each other's reports/screenshots. A
 // unique suffix is derived from PID + port when VARVE_E2E_OUTPUT_DIR is not
 // set explicitly (CI sets its own per-run directories).
-const outputSuffix = process.env.VARVE_E2E_OUTPUT_DIR
-  ? process.env.VARVE_E2E_OUTPUT_DIR
-  : `run-${process.pid}-${e2ePort}`;
+const outputSuffix = resolveRunOutput(process.env, { port: e2ePort });
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -32,7 +33,7 @@ export default defineConfig({
   globalSetup: './tests/e2e/global-setup.ts',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
+  retries: 0,
   // Release validation must fail on absent or changed baselines. Explicit,
   // reviewed baseline updates may override this through the dedicated CLI.
   updateSnapshots: 'none',
@@ -52,7 +53,7 @@ export default defineConfig({
     // every CI retry. Cold navigation and inference retain their explicit
     // longer deadlines; assertions retain the separate 10s budget above.
     actionTimeout: 45000,
-    trace: 'on-first-retry',
+    trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },
   // HTML report isolation: each execution writes its own directory so a
@@ -71,6 +72,10 @@ export default defineConfig({
   // both are always on in CI.
   reporter: [
     ['list'],
+    [
+      './scripts/quality/browser-progress.mjs',
+      { outputFile: `test-results/${outputSuffix}/progress.json` },
+    ],
     ...(process.env.VARVE_CI_PLAYWRIGHT_REPORT
       ? [['json', { outputFile: process.env.VARVE_CI_PLAYWRIGHT_REPORT }] as const]
       : []),

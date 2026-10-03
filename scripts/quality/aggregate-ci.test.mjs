@@ -12,9 +12,11 @@ import {
   REQUIRED_CI_JOBS,
   validateExecutionEvidence,
 } from './aggregate-ci.mjs';
+import { browserCaseId, createBrowserInventory } from './browser-inventory.mjs';
 import {
   CI_CATEGORIES,
   CI_CATEGORY_LANES,
+  FULL_BROWSER_SHARDS,
   promisedLanesForCategories,
 } from './validation-policy.mjs';
 
@@ -90,6 +92,14 @@ const strictPassed = aggregateCertification({
 });
 assert.equal(strictPassed.passed, true, 'exact successful execution evidence certifies the plan');
 assert.equal(strictPassed.execution.deferred, undefined);
+assert.equal(
+  validateExecutionEvidence({
+    reports: [{ ...pipelineExecution, source: { ...pipelineExecution.source, clean: false } }],
+    plan: strictPlan,
+  }).passed,
+  false,
+  'dirty-source execution cannot certify a release',
+);
 
 const attemptWorkflow = { repository: 'K-Arthur/varve', runId: '42', runAttempt: '2' };
 const retryReport = (attempt, status = 'success') => ({
@@ -160,7 +170,7 @@ const e2ePlan = {
   ...strictPlan,
   categories: { ...strictPlan.categories, pipeline: false, e2e: true },
   selectedLanes: ['e2e:all'],
-  e2eShardCount: 2,
+  e2eShardCount: FULL_BROWSER_SHARDS,
 };
 const rustPlan = {
   ...strictPlan,
@@ -203,14 +213,44 @@ assert.equal(
   false,
   'every platform must execute its promised lanes independently',
 );
-const browserCases = [
-  {
-    caseId: 'd'.repeat(64),
+const allBrowserCases = Array.from({ length: FULL_BROWSER_SHARDS }, (_, index) => index + 1).map(
+  (index) => ({
+    file: `fixture-${index}.spec.ts`,
+    titlePath: [`fixture-${index}.spec.ts`, 'moves selected objects'],
+    project: 'chromium',
+    caseId: browserCaseId(
+      `fixture-${index}.spec.ts`,
+      [`fixture-${index}.spec.ts`, 'moves selected objects'],
+      'chromium',
+    ),
     status: 'expected',
     expectedStatus: 'passed',
+    annotations: [],
     attempts: [{ retry: 0, status: 'passed' }],
+  }),
+);
+const browserCases = allBrowserCases.slice(0, 1);
+const inventory = createBrowserInventory(
+  {
+    errors: [],
+    config: { projects: [{ name: 'chromium' }] },
+    suites: allBrowserCases.map((entry) => ({
+      title: entry.file,
+      specs: [
+        {
+          file: entry.file,
+          title: entry.titlePath[1],
+          tests: [{ projectName: 'chromium', expectedStatus: 'passed' }],
+        },
+      ],
+    })),
   },
-];
+  {
+    lane: 'e2e:all',
+    argv: ['pnpm', 'exec', 'playwright', 'test', '--project=chromium'],
+    source: strictPlan,
+  },
+);
 const browserEvidence = {
   schema: 1,
   errors: [],
@@ -229,22 +269,55 @@ const browserEvidence = {
       },
       globalErrorCount: 0,
       cases: browserCases,
+      inventory,
+      shard: `1/${FULL_BROWSER_SHARDS}`,
     },
   ],
 };
-const e2eReports = [1, 2].map((shard) => ({
-  ...pipelineExecution,
-  category: 'e2e',
-  playwright: browserEvidence,
-  source: pipelineExecution.source,
-  matrix: 'ubuntu-latest',
-  shard: `${shard}/2`,
-  executedLanes: ['e2e:all'],
-}));
+const e2eReports = Array.from({ length: FULL_BROWSER_SHARDS }, (_, index) => index + 1).map(
+  (shard) => ({
+    ...pipelineExecution,
+    category: 'e2e',
+    playwright: {
+      ...browserEvidence,
+      reports: browserEvidence.reports.map((report) => ({
+        ...report,
+        cases: allBrowserCases.slice(shard - 1, shard),
+        shard: `${shard}/${FULL_BROWSER_SHARDS}`,
+        historySha256: createHash('sha256')
+          .update(JSON.stringify(allBrowserCases.slice(shard - 1, shard)))
+          .digest('hex'),
+      })),
+    },
+    source: pipelineExecution.source,
+    matrix: 'ubuntu-latest',
+    shard: `${shard}/${FULL_BROWSER_SHARDS}`,
+    executedLanes: ['e2e:all'],
+  }),
+);
 assert.equal(
   validateExecutionEvidence({ reports: [pipelineExecution, ...e2eReports], plan: e2ePlan }).passed,
   true,
   'all promised browser shards are required and accepted',
+);
+const repeatedShard = structuredClone(e2eReports);
+repeatedShard[1].playwright.reports[0] = {
+  ...repeatedShard[0].playwright.reports[0],
+  shard: `2/${FULL_BROWSER_SHARDS}`,
+};
+assert.equal(
+  validateExecutionEvidence({ reports: [pipelineExecution, ...repeatedShard], plan: e2ePlan })
+    .passed,
+  false,
+  'distinct shard slots cannot conceal the same repeated case and omitted case',
+);
+const missingInventory = structuredClone(e2eReports);
+delete missingInventory[0].playwright.reports[0].inventory;
+assert.equal(
+  validateExecutionEvidence({ reports: [pipelineExecution, ...missingInventory], plan: e2ePlan })
+    .passed,
+  false,
+  'old green receipts without a discovered inventory fail closed',
 );
 assert.equal(
   validateExecutionEvidence({
@@ -537,7 +610,7 @@ const compactBrowserSummary = validateExecutionEvidence({
   reports: [pipelineExecution, ...e2eReports],
   plan: e2ePlan,
 }).evidence.find((item) => item.category === 'e2e');
-assert.equal(compactBrowserSummary.browserReports.length, 2);
+assert.equal(compactBrowserSummary.browserReports.length, FULL_BROWSER_SHARDS);
 assert.ok(
   compactBrowserSummary.browserReports.every(
     (report) => report.historySha256 && report.stats.expected === 1,

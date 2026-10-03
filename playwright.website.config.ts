@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
+import { resolveRunOutput } from './scripts/quality/playwright-run-output.mjs';
 import { websiteE2ePorts } from './scripts/website/e2e-ports.cjs';
 
 /**
@@ -18,17 +19,21 @@ const workers = Number(process.env.VARVE_E2E_WORKERS ?? '1');
 if (!Number.isInteger(workers) || workers < 1) {
   throw new Error(`VARVE_E2E_WORKERS must be a positive integer; received ${workers}`);
 }
-const outputSuffix = process.env.VARVE_E2E_OUTPUT_DIR ?? `website-${process.pid}-${GH_PAGES_PORT}`;
+const outputSuffix = resolveRunOutput(process.env, { prefix: 'website', port: GH_PAGES_PORT });
 
 export default defineConfig({
   testDir: './apps/website/tests/e2e',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 1 : 0,
+  retries: 0,
   workers,
   outputDir: `test-results/${outputSuffix}`,
   reporter: [
     ['list'],
+    [
+      './scripts/quality/browser-progress.mjs',
+      { outputFile: `test-results/${outputSuffix}/progress.json` },
+    ],
     ...(process.env.VARVE_CI_PLAYWRIGHT_REPORT
       ? [['json', { outputFile: process.env.VARVE_CI_PLAYWRIGHT_REPORT }] as const]
       : []),

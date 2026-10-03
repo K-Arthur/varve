@@ -388,20 +388,21 @@ jobs:
           mkdirSync(directory, { recursive: true });
           const cases = `${directory}/cases.json`;
           const environment = `${directory}/environment.json`;
-          const { collectBrowserEvidence, browserReportErrors } = await import('./scripts/quality/ci-execution-report.mjs');
+          const { collectBrowserEvidence, browserReviewReportErrors } = await import('./scripts/quality/ci-execution-report.mjs');
           const target = process.env.VARVE_BASELINE_TARGET ?? 'website';
-          const evidence = collectBrowserEvidence([{ lane: target === 'website' ? 'website-e2e' : 'e2e:visual-review', path: cases }]);
+          const evidence = collectBrowserEvidence([{ lane: target === 'website' ? 'website-e2e' : 'e2e:visual-review', path: cases }], { reviewOnly: true });
           const selectionPath = `${directory}/selection.json`;
           const selection = target === 'website' || !existsSync(selectionPath) ? null : JSON.parse(readFileSync(selectionPath, 'utf8'));
           const updateRequested = process.env.VARVE_UPDATE_SNAPSHOTS === 'true';
           const expectedSnapshots = updateRequested ? 'changed' : 'none';
-          const reviewErrors = evidence.reports.length === 1 ? [] : ['missing browser report'];
+          const reviewErrors = [...evidence.errors];
+          if (evidence.reports.length !== 1) reviewErrors.push('missing browser report');
           for (const report of evidence.reports) {
             if (report.runner.updateSnapshots !== expectedSnapshots) reviewErrors.push('snapshot mode differs from requested review mode');
-            // Review updates deliberately rewrite snapshots. Validate every other
-            // strict case-history property using the existing consumer; retain
-            // the actual changed mode below, never a certification receipt.
-            reviewErrors.push(...browserReportErrors({ ...report, runner: { ...report.runner, updateSnapshots: 'none' } }));
+            // Explicit selected reviews can rewrite snapshots; they retain strict
+            // case history without claiming a complete certification inventory.
+            // Trusted consumers reject these review-only receipts in both modes.
+            reviewErrors.push(...browserReviewReportErrors(report));
             if (target === 'website' && report.cases.some((entry) => entry.project !== 'ghpages')) reviewErrors.push('unexpected baseline project');
             if (target !== 'website') {
               if (!selection || selection.target !== target || selection.caseName !== process.env.VARVE_BASELINE_APP_CASE || selection.sourceSha !== process.env.GITHUB_SHA) reviewErrors.push('missing or mismatched application selection identity');

@@ -7,12 +7,17 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { createBrowserInventory } from './browser-inventory.mjs';
 import { commandsForCategory, runCategory, runCategoryDetailed } from './ci-run-lanes.mjs';
 
 const plan = {
   profile: 'integration',
   files: ['packages/ui/src/components/Select.tsx', 'tests/e2e/canvas/tools.spec.ts'],
   selectedLanes: ['e2e:canvas', 'js-unit:@varve/ui', 'typecheck:@varve/ui', 'pipeline-validate'],
+  commitSha: 'a'.repeat(40),
+  treeSha: 'b'.repeat(40),
+  planHash: 'c'.repeat(64),
+  policyHash: 'd'.repeat(64),
 };
 
 const js = commandsForCategory(plan, 'js');
@@ -179,6 +184,8 @@ try {
   const runBrowser = (name, json, exitCode = 0) =>
     runCategoryDetailed(plan, 'e2e', {
       browserReportDir: join(browserLaneDirectory, name),
+      discover: ({ argv, lane, source }) =>
+        createBrowserInventory(browserJson, { argv, lane, source }),
       execute: (_argv, { browserReportPath }) => {
         if (json) writeFileSync(browserReportPath, JSON.stringify(json));
         return exitCode;

@@ -11,8 +11,10 @@ implementation audit is [validation-release-system-audit-2026-08-31](../audits/v
 
 ## Why
 
-Varve is a large monorepo: ~20 JS packages, ~2,900 TS/TSX source files,
-~1,177 Vitest files, ~177 Playwright specs, 13 Rust crates. Running the
+Varve is a large monorepo. Discovery at the 0.5.0 checkpoint on 2026-10-02
+listed **1,903 Chromium cases in 422 specs**; the local unit gate ran 1,909
+passing test files. These are measured checkpoint counts, not fixed limits.
+Running the
 entire suite after every localized change consumes CPU, RAM, disk, browser
 processes, CI minutes, and developer feedback latency — and the cost grows
 with the repo. It is also frequently unnecessary: a change to one button
@@ -119,10 +121,11 @@ The frozen candidate check is the extended release evidence for one SHA.
 | `pnpm workflow:history -- --json` | Durable local operation attempts, failures, and incomplete work | After an interrupted operation |
 | `pnpm workflow:report` | Export the sanitized operation journal as JSON | Attach to review/incident evidence |
 | `pnpm verify:commit` | Staged format/lint, cheap policy audits, changed unit tests, and E2E typechecking when staged | Normal pre-commit hook |
-| `pnpm verify:full` | Full repository gate (Tier 5) | Release checkpoints, explicit request, high-risk changes |
+| `pnpm verify:full` | Remote full repository gate (Tier 5); same contract as `--remote` | Normal release checkpoint after hosted integration and candidate certification |
+| `pnpm verify:full --local` | Explicit offline full gate with separate resumable browser shards | Deliberate local certification; no second hosted run is inferred as passed |
 | `pnpm verify:full --remote` | Verify existing full exact-SHA integration and final candidate artifacts, then run the three missing local audits | Clean, committed, accepted `master`; requires the same full-gate reason |
 | `pnpm verify:full --remote --status` | Inspect the same remote evidence without running audits; always returns a non-pass status | Diagnose pending, incomplete, or blocked certification |
-| `pnpm verify:full -- --resume` | Resume previously passed local full-gate lanes for the same clean candidate and unchanged inputs | Interrupted or failed full gate after repairing an external condition |
+| `pnpm verify:full --local --resume` | Resume passed local full-gate lanes and shards for the same clean candidate and unchanged inputs | Interrupted or failed local gate after repairing an external condition |
 | `pnpm release:prepare <version>` | Validate clean release state, set canonical version, verify changelog, and print the proposed tag | Before a release commit |
 | `pnpm release:status` | Print exact HEAD, version/changelog agreement, and current policy hash | Freeze/review a candidate |
 | `pnpm release:certify -- --sha <sha> --mode final` | Print the exact remote candidate-certification request | After integration succeeds |
@@ -152,10 +155,28 @@ and runs one worker with no retries or snapshot updates. Local defaults are
 them independently. A compiler failure prevents the affected website browser
 lane from starting.
 
+The normal release path is bounded local affected validation, a normal push,
+exact-SHA hosted integration, final candidate certification, then
+`pnpm verify:full`. The full command defaults to the remote evidence verifier;
+it never silently launches the serial browser farm when evidence is absent.
+Pending remote work remains incomplete. `--local` is an explicit execution
+choice for offline or native debugging and cannot be combined with `--remote`
+or `--status`. Local browser shards have independent receipts so a failed
+shard does not discard passed shards at unchanged inputs.
+
+The policy currently requires 16 complete Chromium shards. Discovery and
+aggregation verify their exact, disjoint case inventory; a shard count alone
+cannot certify coverage. Release browser runs use no retries or snapshot
+updates and stop after five failures, while complete green coverage remains
+required. See [test pipeline efficiency](test-pipeline-efficiency.md) for the
+measurement, isolation rules, recovery procedure, and research-backed limits
+on further reuse and pruning.
+
 The remote full gate reuses completed GitHub Actions work instead of duplicating
 compiler, unit, Rust, and browser lanes locally. It requires full integration
 and final candidate plans for the accepted `master` SHA, all ten categories,
-eight browser shards, every promised platform and lane, and the current policy.
+the policy's complete browser shard set, every promised platform and lane,
+and the current policy.
 It verifies the actual immutable plan and certification archive bytes, their
 digests and expiry, and the latest producer runs and attempts. A newer queued
 or failed run prevents adoption of an older green check. The local complement
@@ -282,7 +303,7 @@ The planner escalates to Tier 5 automatically when changes touch:
 - High-risk dependency upgrades (React, TypeScript, Vitest, Vite,
   Playwright, Tauri, ONNX runtime, biome, pnpm)
 
-Full-suite execution locally requires a stated reason. `verify:full` exits
+Full-suite verification requires a stated reason. `verify:full` exits
 with code 2 (not a pass/fail) unless `VARVE_FULL_GATE=1` or
 `VARVE_FULL_GATE_REASON` is set. "Just to be safe" is not a reason.
 

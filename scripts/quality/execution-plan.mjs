@@ -74,7 +74,10 @@ export function playwrightRunOptions({
   const args = [];
   if (workers) args.push('--workers', workers);
   else if (triage || strict) args.push('--workers=1');
-  if (maxFailures) args.push('--max-failures', maxFailures);
+  // A red gate cannot certify coverage. Stop collecting repeated failures
+  // after a bounded set; a green gate still executes every selected case.
+  const failureBound = maxFailures ?? (triage || strict ? '5' : undefined);
+  if (failureBound) args.push('--max-failures', failureBound);
   // Gate attempts must expose the first failure instead of paying for
   // configured diagnostic retries. Retain its trace without needing a retry.
   if (triage || strict)

@@ -1,12 +1,13 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import {
   assertDemoReport,
   assertDisposableDemoDist,
+  demoBrowserSource,
   demoDistInputs,
   distInventory,
   prepareDemoDist,
@@ -22,11 +23,13 @@ const sha = execFileSync('git', ['rev-parse', '--verify', 'HEAD^{commit}'], {
 const fixture = join(directory, 'combined');
 const outputSuffix = `demo-dist-fixture-${process.pid}`;
 const reportDir = join(root, 'test-results', outputSuffix);
+const receiptPath = join(reportDir, 'artifact-input.json');
 const environment = {
   VARVE_DEMO_EXPECTED_SHA: sha,
   VARVE_DEMO_DIST_URL: 'http://127.0.0.1:15645',
   VARVE_DEMO_DIST_DIR: fixture,
   VARVE_E2E_OUTPUT_DIR: outputSuffix,
+  VARVE_DEMO_INPUT_RECEIPT: receiptPath,
 };
 function asset(path, bytes = 'fixture') {
   mkdirSync(dirname(path), { recursive: true });
@@ -43,6 +46,22 @@ for (const path of [
 ])
   asset(join(fixture, path));
 try {
+  const deploymentWorkflow = readFileSync('.github/workflows/website-deploy.yml', 'utf8');
+  const sourceJob = deploymentWorkflow.split('\n  test:')[1].split('\n  release-data:')[0];
+  const planStep = sourceJob.indexOf('name: Plan exact website browser source');
+  const inventoryStep = sourceJob.indexOf('name: Discover complete website case inventory');
+  const browserStep = sourceJob.indexOf('name: E2E in both modes');
+  const receiptStep = sourceJob.indexOf('name: Verify website browser evidence');
+  assert.ok(planStep >= 0 && inventoryStep > planStep && browserStep > inventoryStep);
+  assert.ok(receiptStep > browserStep);
+  assert.match(
+    sourceJob.slice(receiptStep),
+    /--plan "test-results\/\$\{VARVE_E2E_OUTPUT_DIR\}\/plan\.json"/,
+  );
+  assert.match(
+    sourceJob.slice(receiptStep),
+    /--playwright-inventory "\$\{VARVE_CI_PLAYWRIGHT_REPORT\}=test-results\/\$\{VARVE_E2E_OUTPUT_DIR\}\/browser-inventory\.json"/,
+  );
   const original = distInventory(fixture).sha256;
   const configPath = resolve(import.meta.dirname, '../../playwright.demo-dist.config.mts');
   const serialized = execFileSync(
@@ -164,11 +183,55 @@ try {
   }
   const all = [...specs, { ...specs[0], title: 'second required save case', id: 'extra-save' }];
   mkdirSync(reportDir, { recursive: true });
-  asset(join(reportDir, 'expected-cases.json'), JSON.stringify(report(all, true)));
+  const inputReceipt = {
+    schema: 1,
+    sourceSha: sha,
+    originalDir: fixture,
+    distDir: fixture,
+    artifactSha256: original,
+    validationSource: demoBrowserSource(demoDistInputs(environment, root), original, root),
+  };
+  asset(receiptPath, JSON.stringify(inputReceipt));
+  const listing = report(all, true);
+  for (const spec of listing.suites[0].specs) {
+    delete spec.tests[0].status;
+    delete spec.tests[0].results;
+  }
+  asset(join(reportDir, 'expected-cases.json'), JSON.stringify(listing));
   asset(join(reportDir, 'playwright.json'), JSON.stringify(report(specs)));
   assert.throws(() => assertDemoReport(environment, root), /complete configured case inventory/);
   asset(join(reportDir, 'playwright.json'), JSON.stringify(report(all)));
   assertDemoReport(environment, root);
+  const proof = JSON.parse(readFileSync(join(reportDir, 'artifacts/execution-evidence.json')));
+  assert.deepEqual(proof.errors, []);
+  assert.equal(proof.artifactSha256, original);
+  assert.equal(proof.evidence.reports[0].lane, 'e2e:demo-dist');
+  assert.deepEqual(proof.evidence.reports[0].inventory.source, {
+    commitSha: inputReceipt.validationSource.commitSha,
+    treeSha: inputReceipt.validationSource.treeSha,
+    planHash: inputReceipt.validationSource.planHash,
+    policyHash: inputReceipt.validationSource.policyHash,
+  });
+  assert.equal(proof.evidence.reviewOnly, undefined);
+  assert.equal(proof.evidence.reports[0].inventory.caseCount, all.length);
+  assert.throws(
+    () => assertDemoReport({ ...environment, VARVE_DEMO_INPUT_RECEIPT: undefined }, root),
+    /VARVE_DEMO_INPUT_RECEIPT/,
+  );
+  assert.throws(
+    () => assertDemoReport({ ...environment, VARVE_DEMO_DIST_URL: 'http://127.0.0.1:15646' }, root),
+    /identity mismatch/,
+  );
+  for (const key of ['commitSha', 'treeSha', 'policyHash', 'planHash']) {
+    const mismatched = structuredClone(inputReceipt);
+    mismatched.validationSource[key] = '0'.repeat(inputReceipt.validationSource[key].length);
+    asset(receiptPath, JSON.stringify(mismatched));
+    assert.throws(() => assertDemoReport(environment, root), /identity mismatch/);
+  }
+  const changedArtifact = { ...inputReceipt, artifactSha256: '0'.repeat(64) };
+  asset(receiptPath, JSON.stringify(changedArtifact));
+  assert.throws(() => assertDemoReport(environment, root), /identity mismatch/);
+  asset(receiptPath, JSON.stringify(inputReceipt));
   const flaky = report(all);
   flaky.stats.expected--;
   flaky.stats.flaky++;

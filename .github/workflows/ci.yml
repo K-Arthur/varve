@@ -506,10 +506,16 @@ jobs:
           node scripts/secret-scan.mjs --dir apps/website/dist-pages --canary "$VARVE_PRIVATE_TEST_CANARY"
       - name: Install Playwright browsers
         run: pnpm exec playwright install --with-deps chromium
+      - name: Discover complete website case inventory
+        env:
+          VARVE_CI_COMMIT_SHA: ${{ needs.changes.outputs.commit_sha }}
+          VARVE_CI_PLAN_HASH: ${{ needs.changes.outputs.plan_hash }}
+          VARVE_CI_POLICY_HASH: ${{ needs.changes.outputs.policy_hash }}
+        run: node scripts/quality/browser-inventory.mjs --lane website-e2e --config playwright.website.config.ts --output test-results/browser-inventory/website.json
       - name: Website E2E (both modes)
         env:
           VARVE_CI_PLAYWRIGHT_REPORT: test-results/ci-browser/website.json
-        run: node scripts/quality/heavy-lease.mjs "CI website E2E" -- pnpm exec playwright test -c playwright.website.config.ts --workers=1 --retries=0 --update-snapshots=none --fail-on-flaky-tests --trace=retain-on-failure
+        run: node scripts/quality/heavy-lease.mjs "CI website E2E" -- pnpm exec playwright test -c playwright.website.config.ts --max-failures=5 --workers=1 --retries=0 --update-snapshots=none --fail-on-flaky-tests --trace=retain-on-failure
       - name: Write website execution receipt
         if: always()
         env:
@@ -517,7 +523,7 @@ jobs:
           VARVE_CI_PLAN_HASH: ${{ needs.changes.outputs.plan_hash }}
           VARVE_CI_POLICY_HASH: ${{ needs.changes.outputs.policy_hash }}
           VARVE_CI_STATUS: ${{ job.status }}
-        run: node scripts/quality/ci-execution-report.mjs --category website --lanes website-unit,website-e2e --matrix ubuntu-latest --status "${{ job.status }}" --output ci-execution/website.json --playwright-report website-e2e=test-results/ci-browser/website.json
+        run: node scripts/quality/ci-execution-report.mjs --category website --lanes website-unit,website-e2e --matrix ubuntu-latest --status "${{ job.status }}" --output ci-execution/website.json --playwright-report website-e2e=test-results/ci-browser/website.json --playwright-inventory test-results/ci-browser/website.json=test-results/browser-inventory/website.json
       - name: Upload website execution receipt
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
@@ -525,33 +531,30 @@ jobs:
           name: varve-ci-execution-${{ github.run_id }}-website-attempt-${{ github.run_attempt }}
           path: ci-execution/
           if-no-files-found: ignore
+      - name: Upload immutable website inventory
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: varve-browser-inventory-${{ github.run_id }}-website-attempt-${{ github.run_attempt }}
+          path: test-results/browser-inventory/
+          if-no-files-found: error
+          retention-days: 14
 
   e2e:
     permissions:
       contents: read
       actions: read
       checks: read
-    # The chromium project is ~1030 tests and playwright.config.ts pins
-    # workers to 1 on purpose (software-rendered canvas + on-device inference
-    # contend badly when run in parallel). Shard across jobs instead of
-    # raising the worker count, which keeps the documented serial-execution
-    # guarantee inside each job.
-    #
-    # Shard count is measured, not guessed. Run 32888711333 sharded 4 ways and
-    # every leg still hit the 30m ceiling; shard 1 was the only one to reach
-    # its summary, at 241 tests in 27.0m — about 6.7s per test, so the whole
-    # project is roughly 115 minutes of serial work. Eight shards puts each
-    # leg near 15m of tests plus ~3m of setup, which leaves real headroom for
-    # the retry cost of a failing test rather than sitting on the limit.
+    # One browser worker per hosted job prevents canvas/model resource contention.
+    # The canonical policy uses sixteen shards for the 1,903-case release suite;
+    # complete discovered inventories prove the disjoint union of every case.
+    # Timing receipts expose skew before it silently consumes the job deadline.
     name: E2E (Playwright) ${{ matrix.shard }}/${{ needs.changes.outputs.e2e_shard_count }}
-    # 40, not 30: a test that exhausts the 180s per-test timeout costs 9
-    # minutes with `retries: 2`, and Playwright shards by file rather than by
-    # runtime, so one such test lands entirely in one shard. In run
-    # 32894540118 that is exactly what happened — six shards finished in
-    # 14.7-20.2m, while shard 5 (warp.spec.ts:168 hanging) was cancelled at
-    # 30.3m with its results one test from the end. The ceiling still catches
-    # a genuine runaway; it no longer throws away a shard's findings because
-    # one known-broken test ate the budget.
+    # Run 32894540118 lost a nearly finished shard at the former 30m ceiling.
+    # Retain 40m for setup and duration skew; current policy splits the complete
+    # suite into sixteen case-level shards, runs without retries, and stops a
+    # red shard after five failures. Inventory union still requires every
+    # selected case on a green certification; no cutoff certifies partial work.
     timeout-minutes: 40
     runs-on: ubuntu-latest
     needs: [changes, pipeline-validate, wasm]
@@ -623,8 +626,16 @@ jobs:
           name: varve-debug-e2e-${{ github.run_id }}-shard${{ matrix.shard }}-attempt-${{ github.run_attempt }}
           path: ci-debug-report.md
           if-no-files-found: ignore
-  # Split out of `e2e` so the snapshot projects run once rather than once per
-  # shard, which would have made four jobs race over the same baselines.
+      - name: Upload immutable complete browser inventory
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: varve-browser-inventory-${{ github.run_id }}-e2e-${{ matrix.shard }}-attempt-${{ github.run_attempt }}
+          path: test-results/ci-browser-${{ github.run_id }}-${{ github.run_attempt }}/*.inventory.json
+          if-no-files-found: error
+          retention-days: 14
+
+  # Split out of e2e so the snapshot projects run once rather than per shard.
   e2e-visual:
     permissions:
       contents: read
@@ -656,17 +667,30 @@ jobs:
           path: apps/desktop/public/wasm/
       - name: Install Playwright browsers
         run: pnpm exec playwright install --with-deps chromium
+      - name: Discover CPU visual case inventory
+        env:
+          VARVE_CI_COMMIT_SHA: ${{ needs.changes.outputs.commit_sha }}
+          VARVE_CI_PLAN_HASH: ${{ needs.changes.outputs.plan_hash }}
+          VARVE_CI_POLICY_HASH: ${{ needs.changes.outputs.policy_hash }}
+        run: node scripts/quality/browser-inventory.mjs --lane e2e:visual --project chromium-visual-1x --project chromium-visual-2x --project chromium-visual-3x --output test-results/browser-inventory/visual-cpu.json
       - name: Visual regression (canvas replay)
         env:
           VARVE_VISUAL_HARNESS_ONLY: '1'
           VARVE_CI_PLAYWRIGHT_REPORT: test-results/ci-browser/visual-cpu.json
-        run: node scripts/quality/heavy-lease.mjs "CI canvas visual E2E" -- pnpm exec playwright test --project=chromium-visual-1x --project=chromium-visual-2x --project=chromium-visual-3x --workers=1 --retries=0 --update-snapshots=none --fail-on-flaky-tests --trace=retain-on-failure
+        run: node scripts/quality/heavy-lease.mjs "CI canvas visual E2E" -- pnpm exec playwright test --project=chromium-visual-1x --project=chromium-visual-2x --project=chromium-visual-3x --max-failures=5 --workers=1 --retries=0 --update-snapshots=none --fail-on-flaky-tests --trace=retain-on-failure
+      - name: Discover GPU visual case inventory
+        env:
+          VARVE_CI_COMMIT_SHA: ${{ needs.changes.outputs.commit_sha }}
+          VARVE_CI_PLAN_HASH: ${{ needs.changes.outputs.plan_hash }}
+          VARVE_CI_POLICY_HASH: ${{ needs.changes.outputs.policy_hash }}
+          VARVE_VISUAL_GPU: '1'
+        run: node scripts/quality/browser-inventory.mjs --lane e2e:visual --project chromium-visual-gpu --output test-results/browser-inventory/visual-gpu.json
       - name: Visual regression (GPU-backed Chromium)
         env:
           VARVE_VISUAL_HARNESS_ONLY: '1'
           VARVE_VISUAL_GPU: '1'
           VARVE_CI_PLAYWRIGHT_REPORT: test-results/ci-browser/visual-gpu.json
-        run: node scripts/quality/heavy-lease.mjs "CI GPU visual E2E" -- pnpm exec playwright test --project=chromium-visual-gpu --workers=1 --retries=0 --update-snapshots=none --fail-on-flaky-tests --trace=retain-on-failure
+        run: node scripts/quality/heavy-lease.mjs "CI GPU visual E2E" -- pnpm exec playwright test --project=chromium-visual-gpu --max-failures=5 --workers=1 --retries=0 --update-snapshots=none --fail-on-flaky-tests --trace=retain-on-failure
       - name: Build visual diff report
         if: failure()
         run: node scripts/build-visual-diff-manifest.mjs
@@ -694,7 +718,7 @@ jobs:
           VARVE_CI_PLAN_HASH: ${{ needs.changes.outputs.plan_hash }}
           VARVE_CI_POLICY_HASH: ${{ needs.changes.outputs.policy_hash }}
           VARVE_CI_STATUS: ${{ job.status }}
-        run: node scripts/quality/ci-execution-report.mjs --category visual --lanes e2e:visual --matrix ubuntu-latest --status "${{ job.status }}" --output ci-execution/visual.json --playwright-report e2e:visual=test-results/ci-browser/visual-cpu.json --playwright-report e2e:visual=test-results/ci-browser/visual-gpu.json
+        run: node scripts/quality/ci-execution-report.mjs --category visual --lanes e2e:visual --matrix ubuntu-latest --status "${{ job.status }}" --output ci-execution/visual.json --playwright-report e2e:visual=test-results/ci-browser/visual-cpu.json --playwright-report e2e:visual=test-results/ci-browser/visual-gpu.json --playwright-inventory test-results/ci-browser/visual-cpu.json=test-results/browser-inventory/visual-cpu.json --playwright-inventory test-results/ci-browser/visual-gpu.json=test-results/browser-inventory/visual-gpu.json
       - name: Upload visual execution receipt
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
@@ -715,6 +739,14 @@ jobs:
           name: varve-debug-e2e-visual-${{ github.run_id }}-attempt-${{ github.run_attempt }}
           path: ci-debug-report.md
           if-no-files-found: ignore
+      - name: Upload immutable visual inventories
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: varve-browser-inventory-${{ github.run_id }}-visual-attempt-${{ github.run_attempt }}
+          path: test-results/browser-inventory/
+          if-no-files-found: error
+          retention-days: 14
 
   desktop-e2e:
     permissions:
@@ -934,6 +966,21 @@ jobs:
             --plan ci-plan-artifact/ci-plan.json \
             --execution-dir ci-execution \
             --output ci-certification.json
+      # Timing telemetry is diagnostic, independent of certification. It must
+      # neither turn failed evidence green nor block recovery when reports are absent.
+      - name: Summarize test timing and shard diagnostics
+        id: test-feedback
+        if: always()
+        continue-on-error: true
+        run: node scripts/quality/test-feedback.mjs ci-execution --summary > ci-feedback.json
+      - name: Upload test feedback diagnostics
+        if: ${{ always() && steps.test-feedback.outcome == 'success' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: varve-test-feedback-${{ github.run_id }}-attempt-${{ github.run_attempt }}
+          path: ci-feedback.json
+          retention-days: 14
+          if-no-files-found: error
       - name: Upload certification summary
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
