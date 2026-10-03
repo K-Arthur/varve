@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { contrastRatio, relativeLuminance } from '@varve/shared';
 import { describe, expect, it } from 'vitest';
 import {
   DEMO_DOCUMENTS,
@@ -89,5 +90,31 @@ describe('demo document fixtures', () => {
     if (layoutRoot.kind !== 'group') throw new Error('Layouts need their own canvas content root');
     expect(layoutRoot.children).toContain(document.presentation!.layouts[0].frameId);
     expect(artworkRoot.children).not.toContain(document.presentation!.layouts[0].frameId);
+  });
+
+  it('keeps all presentation slide text at WCAG AA contrast against its slide', () => {
+    const document = DEMO_DOCUMENTS.presentation();
+    let checkedText = 0;
+
+    for (const slide of document.presentation!.decks[0]!.slides) {
+      const frame = document.nodes[slide.frameId];
+      expect(frame?.kind, `${slide.title} frame`).toBe('frame');
+      if (frame?.kind !== 'frame' || frame.fill.space !== 'rgb') continue;
+
+      for (const childId of frame.children) {
+        const text = document.nodes[childId];
+        if (text?.kind !== 'text' || text.fill.space !== 'rgb') continue;
+        checkedText++;
+        expect(
+          contrastRatio(
+            relativeLuminance(text.fill.r, text.fill.g, text.fill.b),
+            relativeLuminance(frame.fill.r, frame.fill.g, frame.fill.b),
+          ),
+          `${slide.title}: ${text.name}`,
+        ).toBeGreaterThanOrEqual(4.5);
+      }
+    }
+
+    expect(checkedText).toBeGreaterThan(0);
   });
 });

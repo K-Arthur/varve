@@ -42,6 +42,7 @@ function rgb(r: number, g: number, b: number, a = 255): ManagedColor {
 
 const TEAL = rgb(45, 165, 158);
 const TEAL_DEEP = rgb(18, 92, 92);
+const TEAL_MINT = rgb(168, 240, 228);
 const SAND = rgb(226, 140, 60);
 const TERRA = rgb(197, 75, 58);
 const INK = rgb(16, 21, 31);
@@ -627,7 +628,7 @@ export function createPresentationDocument(): Document {
         fontSize: 18,
         fontWeight: 700,
         letterSpacing: 2,
-        fill: index === 1 ? TEAL_DEEP : TEAL,
+        fill: index === 1 ? TEAL_DEEP : index === 2 ? TEAL_MINT : TEAL,
         order: 'a1',
       }),
     );
