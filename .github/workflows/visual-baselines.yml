@@ -336,24 +336,24 @@ jobs:
           VARVE_BASELINE_SCOPE: ${{ inputs.scope }}
         run: |
           set -euo pipefail
-          scope_args=()
+          set --
           case "$VARVE_BASELINE_SCOPE" in
             all) ;;
-            homepage) scope_args=(--grep '(homepage (mobile )?(light|dark)|hero light|product showcase light)$') ;;
+            homepage) set -- --grep '(homepage (mobile )?(light|dark)|hero light|product showcase light)$' ;;
             *) echo "Unknown website baseline scope." >&2; exit 1 ;;
           esac
           if [[ "$VARVE_REVIEWED" == "true" && "$VARVE_UPDATE_SNAPSHOTS" == "true" ]]; then
             echo "Explicit reviewed update mode: artifacts still require inspection and an explicit PNG commit."
             node scripts/quality/heavy-lease.mjs "website baseline reviewed update" -- \
               pnpm exec playwright test -c playwright.website.config.ts \
-              --project=ghpages apps/website/tests/e2e/visual.spec.ts "${scope_args[@]}" \
+              --project=ghpages apps/website/tests/e2e/visual.spec.ts "$@" \
               --workers=1 --retries=0 --forbid-only --fail-on-flaky-tests \
               --trace=retain-on-failure --update-snapshots=changed --global-timeout=1200000
           else
             echo "Comparison mode retains expected, actual, and diff artifacts without snapshot writes."
             node scripts/quality/heavy-lease.mjs "website baseline comparison" -- \
               pnpm exec playwright test -c playwright.website.config.ts \
-              --project=ghpages apps/website/tests/e2e/visual.spec.ts "${scope_args[@]}" \
+              --project=ghpages apps/website/tests/e2e/visual.spec.ts "$@" \
               --workers=1 --retries=0 --forbid-only --fail-on-flaky-tests \
               --trace=retain-on-failure --update-snapshots=none --global-timeout=1200000
           fi

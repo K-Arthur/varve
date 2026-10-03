@@ -7,6 +7,53 @@
  * Wired into the regression suite (pnpm test:ci:tools + CI pipeline-validation).
  */
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
+
+function baselineBash(platform = process.platform, environment = process.env) {
+  if (platform !== 'win32') return 'bash';
+  const directories = [
+    environment.ProgramFiles,
+    environment.ProgramW6432,
+    'C:\\Program Files',
+  ].filter(Boolean);
+  const executable = directories
+    .map((directory) => join(directory, 'Git', 'bin', 'bash.exe'))
+    .find(existsSync);
+  assert.ok(executable, 'Baseline shell fixtures require Git for Windows Bash');
+  return executable;
+}
+
+function runInertBaselineShell(source, environment) {
+  // Shell functions avoid extensionless executable/PATH precedence and native
+  // Windows redirection-path assumptions. All original workflow code still runs.
+  const marker = '\0VARVE_TEST_BASELINE_ARGV\0';
+  const prelude = `git() { printf '%s\\n' "$VARVE_TEST_SOURCE_SHA"; }
+node() { printf '\\0VARVE_TEST_BASELINE_ARGV\\0'; printf '%s\\0' "$@"; }
+pnpm() { printf 'Unexpected unleased pnpm invocation\\n' >&2; return 91; }`;
+  const result = spawnSync(
+    baselineBash(),
+    ['--noprofile', '--norc', '-c', `${prelude}\n${source}`],
+    { env: environment, encoding: 'utf8', timeout: 5000 },
+  );
+  const offset = result.stdout?.indexOf(marker) ?? -1;
+  const argv =
+    offset < 0
+      ? []
+      : result.stdout
+          .slice(offset + marker.length)
+          .split('\0')
+          .slice(0, -1);
+  return {
+    status: result.status,
+    argv,
+    phaseError: result.error?.message ?? null,
+    stderr: result.stderr,
+    stdout: result.stdout,
+  };
+}
+
 import {
   validateRepoInvariants,
   validateVarveRules,
@@ -651,10 +698,9 @@ assert.deepEqual(
 // controls exercise both modes without launching a browser or changing PNGs.
 {
   const fs = await import('node:fs');
-  const { spawnSync } = await import('node:child_process');
   const { createRequire } = await import('node:module');
   const { tmpdir } = await import('node:os');
-  const { join, delimiter } = await import('node:path');
+  const { join } = await import('node:path');
   const { pathToFileURL } = await import('node:url');
   const yaml = createRequire(import.meta.url)('js-yaml');
   const workflow = yaml.load(fs.readFileSync('.github/workflows/visual-baselines.yml', 'utf8'));
@@ -670,25 +716,32 @@ assert.deepEqual(
   assert.ok(steps.indexOf(sourceGuard) < steps.indexOf(execute));
   const temporary = fs.mkdtempSync(join(tmpdir(), 'varve-baseline-workflow-'));
   const sourceSha = '1234567890abcdef1234567890abcdef12345678';
-  const argvPath = join(temporary, 'argv.txt');
   try {
-    fs.writeFileSync(
-      join(temporary, 'git'),
-      '#!/bin/sh\nprintf "%s\n" "$VARVE_TEST_SOURCE_SHA"\n',
-      { mode: 0o755 },
+    const gitBash = join(temporary, 'Program Files', 'Git', 'bin', 'bash.exe');
+    fs.mkdirSync(join(temporary, 'Program Files', 'Git', 'bin'), { recursive: true });
+    fs.writeFileSync(gitBash, 'fixture');
+    assert.equal(
+      baselineBash('win32', { ProgramFiles: join(temporary, 'Program Files') }),
+      gitBash,
     );
-    const launcher = '#!/bin/sh\nprintf "%s\n" "$@" >> "$VARVE_TEST_ARGV_PATH"\n';
-    fs.writeFileSync(join(temporary, 'node'), launcher, { mode: 0o755 });
-    fs.writeFileSync(join(temporary, 'pnpm'), '#!/bin/sh\nexit 91\n', {
-      mode: 0o755,
-    });
+    const inertEnvironment = { ...process.env, VARVE_TEST_SOURCE_SHA: sourceSha };
+    const direct = runInertBaselineShell(
+      'set -euo pipefail; node wrapper.mjs "one two" "" --update-snapshots=none',
+      inertEnvironment,
+    );
+    assert.equal(direct.status, 0, JSON.stringify(direct));
+    assert.deepEqual(direct.argv, ['wrapper.mjs', 'one two', '', '--update-snapshots=none']);
+    const bypass = runInertBaselineShell(
+      'set -euo pipefail; pnpm exec playwright test',
+      inertEnvironment,
+    );
+    assert.equal(bypass.status, 91, JSON.stringify(bypass));
+    assert.deepEqual(bypass.argv, []);
+    assert.match(bypass.stderr, /Unexpected unleased pnpm invocation/);
     function runBaselineMode(overrides = {}) {
-      fs.rmSync(argvPath, { force: true });
       const environment = {
         ...process.env,
-        PATH: `${temporary}${delimiter}${process.env.PATH ?? ''}`,
         VARVE_TEST_SOURCE_SHA: sourceSha,
-        VARVE_TEST_ARGV_PATH: argvPath,
         VARVE_EVENT_SHA: sourceSha,
         VARVE_REVIEWED_SHA: '',
         VARVE_REVIEWED: 'false',
@@ -696,24 +749,12 @@ assert.deepEqual(
         VARVE_BASELINE_SCOPE: 'homepage',
         ...overrides,
       };
-      const guard = spawnSync('bash', ['-c', sourceGuard.run], {
-        env: environment,
-        encoding: 'utf8',
-        timeout: 5000,
-      });
-      if (guard.status !== 0) return { status: guard.status, argv: [] };
-      const result = spawnSync('bash', ['-c', execute.run], {
-        env: environment,
-        encoding: 'utf8',
-        timeout: 5000,
-      });
-      return {
-        status: result.status,
-        argv: fs.existsSync(argvPath) ? fs.readFileSync(argvPath, 'utf8').trim().split('\n') : [],
-      };
+      const guard = runInertBaselineShell(sourceGuard.run, environment);
+      if (guard.status !== 0) return { ...guard, phase: 'source guard' };
+      return { ...runInertBaselineShell(execute.run, environment), phase: 'execution' };
     }
     const comparison = runBaselineMode();
-    assert.equal(comparison.status, 0);
+    assert.equal(comparison.status, 0, JSON.stringify(comparison));
     assert.equal(comparison.argv[0], 'scripts/quality/heavy-lease.mjs');
     for (const flag of [
       '--workers=1',
@@ -749,7 +790,7 @@ assert.deepEqual(
       VARVE_REVIEWED: 'true',
       VARVE_REVIEWED_SHA: sourceSha,
     });
-    assert.equal(update.status, 0);
+    assert.equal(update.status, 0, JSON.stringify(update));
     assert.equal(update.argv[0], 'scripts/quality/heavy-lease.mjs');
     assert.ok(update.argv.includes('--update-snapshots=changed'));
     assert.ok(!update.argv.includes('--update-snapshots=all'));
@@ -766,7 +807,7 @@ assert.deepEqual(
     assert.notEqual(runBaselineMode({ VARVE_TEST_SOURCE_SHA: 'b'.repeat(40) }).status, 0);
     assert.notEqual(runBaselineMode({ VARVE_BASELINE_SCOPE: 'unknown' }).status, 0);
     const all = runBaselineMode({ VARVE_BASELINE_SCOPE: 'all' });
-    assert.equal(all.status, 0);
+    assert.equal(all.status, 0, JSON.stringify(all));
     assert.ok(!all.argv.includes('--grep'));
     const identity = steps.find(
       (step) => step.name === 'Record source and installed browser/font environment',
@@ -907,10 +948,9 @@ assert.deepEqual(
 // the actual inline selector and exercise shell argv with inert launchers.
 {
   const fs = await import('node:fs');
-  const { spawnSync } = await import('node:child_process');
   const { createRequire } = await import('node:module');
   const { tmpdir } = await import('node:os');
-  const { join, delimiter } = await import('node:path');
+  const { join } = await import('node:path');
   const yaml = createRequire(import.meta.url)('js-yaml');
   const workflow = yaml.load(fs.readFileSync('.github/workflows/visual-baselines.yml', 'utf8'));
   const inputs = workflow.on.workflow_dispatch.inputs;
@@ -936,11 +976,10 @@ assert.deepEqual(
   const nodeSource = resolveCase.run
     .split("<<'JS'\n")[1]
     .split('\nJS')[0]
-    .replaceAll('reports/visual-baseline-review', directory);
+    .replaceAll('reports/visual-baseline-review', directory.replaceAll('\\', '/'));
   const sourceSha = '1234567890abcdef1234567890abcdef12345678';
   const envPath = join(temporary, 'environment.txt');
   const outputPath = join(temporary, 'outputs.txt');
-  const argvPath = join(temporary, 'argv.txt');
   try {
     const selections = [];
     function selection(target, caseName) {
@@ -1022,24 +1061,11 @@ assert.deepEqual(
       ['unknown', 'multilingual-text'],
     ])
       assert.notEqual(selection(target, caseName).status, 0);
-    fs.writeFileSync(
-      join(temporary, 'git'),
-      '#!/bin/sh\nprintf "%s\\n" "$VARVE_TEST_SOURCE_SHA"\n',
-      { mode: 0o755 },
-    );
-    fs.writeFileSync(
-      join(temporary, 'node'),
-      '#!/bin/sh\nprintf "%s\\n" "$@" > "$VARVE_TEST_ARGV_PATH"\n',
-      { mode: 0o755 },
-    );
     function capture(plan, overrides = {}) {
-      fs.rmSync(argvPath, { force: true });
       const environment = {
         ...process.env,
         ...plan.environment,
-        PATH: `${temporary}${delimiter}${process.env.PATH ?? ''}`,
         VARVE_TEST_SOURCE_SHA: sourceSha,
-        VARVE_TEST_ARGV_PATH: argvPath,
         VARVE_EVENT_SHA: sourceSha,
         VARVE_REVIEWED_SHA: '',
         VARVE_REVIEWED_CASE: '',
@@ -1051,28 +1077,16 @@ assert.deepEqual(
         VARVE_BASELINE_APP_CASE: plan.plan.caseName,
         ...overrides,
       };
-      const guard = spawnSync('bash', ['-c', sourceGuard.run], {
-        env: environment,
-        encoding: 'utf8',
-        timeout: 5000,
-      });
-      if (guard.status !== 0) return { status: guard.status, argv: [] };
-      const result = spawnSync('bash', ['-c', execute.run], {
-        env: environment,
-        encoding: 'utf8',
-        timeout: 5000,
-      });
-      return {
-        status: result.status,
-        argv: fs.existsSync(argvPath) ? fs.readFileSync(argvPath, 'utf8').trim().split('\n') : [],
-      };
+      const guard = runInertBaselineShell(sourceGuard.run, environment);
+      if (guard.status !== 0) return { ...guard, phase: 'source guard' };
+      return { ...runInertBaselineShell(execute.run, environment), phase: 'execution' };
     }
     for (const selected of [
       selections[0],
       selections.find((entry) => entry.plan.caseName === 'enhance-dialog-default'),
     ]) {
       const comparison = capture(selected);
-      assert.equal(comparison.status, 0);
+      assert.equal(comparison.status, 0, JSON.stringify(comparison));
       assert.equal(comparison.argv[0], 'scripts/quality/heavy-lease.mjs');
       assert.ok(comparison.argv.includes(selected.plan.spec));
       assert.equal(comparison.argv[comparison.argv.indexOf('--grep') + 1], selected.plan.grep);
@@ -1104,7 +1118,7 @@ assert.deepEqual(
         VARVE_REVIEWED_SHA: sourceSha,
         VARVE_REVIEWED_CASE: selected.plan.caseName,
       });
-      assert.equal(update.status, 0);
+      assert.equal(update.status, 0, JSON.stringify(update));
       assert.ok(update.argv.includes('--update-snapshots=changed'));
       assert.ok(!update.argv.includes('--update-snapshots=all'));
     }
@@ -1114,14 +1128,18 @@ assert.deepEqual(
       .replace(
         "const directory = 'reports/visual-baseline-review';",
         `const directory = ${JSON.stringify(directory)};`,
+      )
+      .replaceAll(
+        "execFileSync('git', [",
+        `execFileSync(process.execPath, [${JSON.stringify(join(temporary, 'git-fixture.mjs'))}, `,
       );
     fs.writeFileSync(join(directory, 'environment.json'), JSON.stringify({ sourceSha }));
-    // Inert Git responds only to source/diff inventories; no Git mutation or PNG
-    // write occurs. The outcome writer reads the actual existing baseline bytes.
     fs.writeFileSync(
-      join(temporary, 'git'),
-      '#!/bin/sh\nif [ "$1" = diff ]; then\n  if [ -n "$VARVE_TEST_CHANGED_FILE" ]; then printf "%s\\0" "$VARVE_TEST_CHANGED_FILE"; fi\nelif [ "$1" = ls-files ]; then\n  if [ -n "$VARVE_TEST_UNTRACKED_FILE" ]; then printf "%s\\0" "$VARVE_TEST_UNTRACKED_FILE"; fi\nelse\n  printf "%s\\n" "$VARVE_TEST_SOURCE_SHA"\nfi\n',
-      { mode: 0o755 },
+      join(temporary, 'git-fixture.mjs'),
+      `const kind = process.argv[2];
+const value = kind === 'diff' ? process.env.VARVE_TEST_CHANGED_FILE : process.env.VARVE_TEST_UNTRACKED_FILE;
+if (!['diff', 'ls-files'].includes(kind)) throw new Error('Unexpected Git fixture command');
+if (value) process.stdout.write(value + '\\0');\n`,
     );
     function appOutcome(
       selected,
@@ -1163,7 +1181,6 @@ assert.deepEqual(
         timeout: 5000,
         env: {
           ...process.env,
-          PATH: `${temporary}${delimiter}${process.env.PATH ?? ''}`,
           GITHUB_SHA: sourceSha,
           VARVE_BASELINE_TARGET: selected.plan.target,
           VARVE_BASELINE_APP_CASE: selected.plan.caseName,
@@ -1240,7 +1257,7 @@ assert.deepEqual(
     const wasmSource = wasmStep.run
       .split("<<'JS'\n")[1]
       .split('\nJS')[0]
-      .replaceAll('reports/visual-baseline-review', directory);
+      .replaceAll('reports/visual-baseline-review', directory.replaceAll('\\', '/'));
     const download = steps.find((step) => step.name === 'Reuse verified application WASM artifact');
     assert.ok(download.uses.startsWith('actions/download-artifact@'));
     assert.ok(download.with['artifact-ids'].includes('steps.wasm-source.outputs.artifact_id'));
