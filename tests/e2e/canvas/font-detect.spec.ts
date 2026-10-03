@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
 import { importImageFile, selectImageNode } from '../helpers/editor-helpers';
+import { selectInspectorTab } from '../helpers/inspector-tabs';
 import { navigateToEditor } from '../shared';
 
 test.describe('Font detection', () => {
@@ -130,9 +131,7 @@ test.describe('Font detection', () => {
     await page.getByRole('treeitem').first().click();
 
     const inspector = page.locator('.editor__inspector-panel');
-    const adjustmentsTab = inspector.getByRole('tab', { name: 'Adjustments', exact: true });
-    await expect(adjustmentsTab).toBeVisible({ timeout: 5000 });
-    await adjustmentsTab.click();
+    await selectInspectorTab(page, 'Adjustments');
 
     const trigger = inspector.getByRole('button', { name: 'Identify Font', exact: true });
     await trigger.scrollIntoViewIfNeeded();

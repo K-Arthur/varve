@@ -12,6 +12,13 @@
  */
 
 import { expect, type Page, test } from '@playwright/test';
+import {
+  canvasOracleGeometry,
+  clearCanvasSelection,
+  currentCanvasBox,
+  reserveSelectionPathRow,
+  selectPaintedText,
+} from '../helpers/canvas-oracle-geometry';
 import { dragOnCanvas, navigateToEditor } from '../shared';
 
 interface CanvasImage {
@@ -170,9 +177,11 @@ test.describe('font readiness', () => {
     await page.keyboard.insertText('Typography readiness');
     await page.keyboard.press('Escape');
     await page.keyboard.press('v');
-    await page.mouse.click(box.x + 20, box.y + 20);
+    await reserveSelectionPathRow(page);
+    await clearCanvasSelection(page);
     await settle(page);
 
+    const geometry = await canvasOracleGeometry(page);
     const before = await readCanvas(page);
     await canvas.screenshot({
       animations: 'disabled',
@@ -252,9 +261,10 @@ test.describe('font readiness', () => {
     // And the reported symptom: selecting the object must not be what fixes
     // the typography. Compare glyph pixels either side of the selection.
     const settled = await readCanvas(page);
-    await page.mouse.click(box.x + 240, box.y + 185);
+    await selectPaintedText(page);
     await settle(page);
     const selected = await readCanvas(page);
+    expect(await canvasOracleGeometry(page)).toEqual(geometry);
     await canvas.screenshot({
       animations: 'disabled',
       path: testInfo.outputPath('03-after-selection.png'),
@@ -297,7 +307,7 @@ test.describe('multi-line selection geometry', () => {
 
     await page.mouse.click(box.x + 240, box.y + 168);
     await settle(page);
-    const selection = await selectionRect(page, box);
+    const selection = await selectionRect(page, await currentCanvasBox(page));
     await page.screenshot({
       animations: 'disabled',
       path: testInfo.outputPath('multiline-selection.png'),

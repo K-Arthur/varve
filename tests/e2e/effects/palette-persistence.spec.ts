@@ -1,11 +1,10 @@
-import { mkdirSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
 import { importImageFile } from '../helpers/editor-helpers';
 import { navigateToCleanEditor } from '../helpers/nav';
 
 test('authored palette, matching metric and seed survive save and browser reopen', async ({
   page,
-}) => {
+}, testInfo) => {
   await navigateToCleanEditor(page);
   await importImageFile(page);
   const section = page.getByRole('button', { name: 'Object Filters', exact: true });
@@ -39,8 +38,7 @@ test('authored palette, matching metric and seed survive save and browser reopen
       return count;
     });
   await expect.poll(countPalettePixels).toBeGreaterThan(10);
-  mkdirSync('reports/effects-repair', { recursive: true });
-  await page.screenshot({ path: 'reports/effects-repair/palette-before-reopen.png' });
+  await page.screenshot({ path: testInfo.outputPath('palette-before-reopen.png') });
   await page.keyboard.press('Control+s');
   await expect(page.locator('.save-status')).toHaveText('Saved', { timeout: 30000 });
   await page.reload({ timeout: 120000 });
@@ -57,11 +55,20 @@ test('authored palette, matching metric and seed survive save and browser reopen
   await page.getByRole('treeitem').first().click();
   await section.scrollIntoViewIfNeeded();
   if ((await section.getAttribute('aria-expanded')) !== 'true') await section.click();
+  // Reopening a document restores filter data, while its parameter editor
+  // stays closed until the user explicitly requests it.
+  await page
+    .getByRole('list', { name: 'Object Filter stack', exact: true })
+    .getByRole('button', { name: 'Palette Snap', exact: true })
+    .click();
+  await expect(
+    page.getByRole('dialog', { name: 'Palette Snap parameters', exact: true }),
+  ).toBeVisible();
   await expect(colors).toHaveValue('13 27 219\n240 182 11');
   await expect(seed).toHaveValue('4294967295');
   await expect(page.getByRole('combobox', { name: 'Color metric', exact: true })).toContainText(
     'Lab',
   );
   await expect.poll(countPalettePixels).toBeGreaterThan(10);
-  await page.screenshot({ path: 'reports/effects-repair/palette-after-reopen.png' });
+  await page.screenshot({ path: testInfo.outputPath('palette-after-reopen.png') });
 });

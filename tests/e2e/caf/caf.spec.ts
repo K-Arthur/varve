@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { deflateSync } from 'node:zlib';
 import { expect, test } from '@playwright/test';
+import { selectInspectorTab } from '../helpers/inspector-tabs';
 import { navigateToEditor, switchWorkspace } from '../shared';
 
 const FIXTURES_DIR = path.resolve(__dirname, '..', 'fixtures');
@@ -701,7 +702,7 @@ test.describe('Content-Aware Fill dialog', () => {
     // assertion on the same user-visible route as the AI Tools handoff shown
     // outside that workspace instead of relying on an internal dialog state.
     await switchWorkspace(page, 'Photo');
-    await page.getByRole('tab', { name: 'Adjustments' }).click();
+    await selectInspectorTab(page, 'Adjustments');
     const sectionToggle = page.getByRole('button', { name: 'Generative Edit', exact: true });
     await expect(sectionToggle).toBeVisible({ timeout: 10_000 });
     if ((await sectionToggle.getAttribute('aria-expanded')) !== 'true') {
@@ -752,7 +753,7 @@ test.describe('Content-Aware Fill dialog', () => {
     await dialog.waitFor({ state: 'hidden', timeout: 5000 });
 
     await switchWorkspace(page, 'Photo');
-    await page.getByRole('tab', { name: 'Adjustments' }).click();
+    await selectInspectorTab(page, 'Adjustments');
     await openGenerativeEditFromAdjustments(page);
     const reopened = page.locator('dialog.varve-dialog--caf[open]');
     await expect(reopened).toBeVisible();

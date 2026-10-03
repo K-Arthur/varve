@@ -46,8 +46,12 @@ test('panel tab groups remain accessible and selected after mode changes and rel
   ).toContainText('Layers moved.');
   await dialog.getByRole('button', { name: 'Done' }).click();
 
-  const layersTab = page.getByRole('tab', { name: 'Layers' });
-  const inspectorTab = page.getByRole('tab', { name: 'Inspector' });
+  const layersTab = page
+    .locator('.workspace-dock-tabs')
+    .getByRole('tab', { name: 'Layers', exact: true });
+  const inspectorTab = page
+    .locator('.workspace-dock-tabs')
+    .getByRole('tab', { name: 'Inspector', exact: true });
   await expect(layersTab).toHaveAttribute('aria-selected', 'true');
   await inspectorTab.focus();
   await page.keyboard.press('ArrowLeft');
@@ -101,10 +105,9 @@ test('panel tab groups remain accessible and selected after mode changes and rel
 
   await page.keyboard.press('Control+Shift+6');
   await page.keyboard.press('Control+Shift+1');
-  await expect(page.getByRole('tab', { name: 'Inspector' })).toHaveAttribute(
-    'aria-selected',
-    'true',
-  );
+  await expect(
+    page.locator('.workspace-dock-tabs').getByRole('tab', { name: 'Inspector', exact: true }),
+  ).toHaveAttribute('aria-selected', 'true');
 
   await page.reload();
   try {
@@ -155,8 +158,7 @@ test('panel tab groups remain accessible and selected after mode changes and rel
     });
     throw error;
   }
-  await expect(page.getByRole('tab', { name: 'Inspector' })).toHaveAttribute(
-    'aria-selected',
-    'true',
-  );
+  await expect(
+    page.locator('.workspace-dock-tabs').getByRole('tab', { name: 'Inspector', exact: true }),
+  ).toHaveAttribute('aria-selected', 'true');
 });

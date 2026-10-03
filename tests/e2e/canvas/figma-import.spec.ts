@@ -12,12 +12,11 @@ import { expect, test } from '@playwright/test';
 import { navigateToEditor } from '../shared';
 
 async function dismissImportReport(page: import('@playwright/test').Page): Promise<void> {
-  const report = page.locator('.import-results-overlay');
+  const report = page.getByRole('dialog', { name: 'Import Results', exact: true });
   if (!(await report.isVisible({ timeout: 1000 }).catch(() => false))) return;
-  // The overlay has both an icon-only Close button and a labelled primary
-  // Close action. Use the action that dismisses the report instead of a
-  // broad accessible-name query that matches both controls.
-  await report.locator('button.import-results__btn--primary').click();
+  // Shared Dialog labels the icon Close dialog and the footer Close.
+  // Dismiss the actual native top-layer report before font recovery input.
+  await report.getByRole('button', { name: 'Close', exact: true }).click();
   await expect(report).toHaveCount(0);
 }
 

@@ -8,6 +8,7 @@
 
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
+import { selectInspectorTab } from '../helpers/inspector-tabs';
 import { navigateToEditor } from '../shared';
 
 const FIXTURE = path.resolve(__dirname, '../fixtures/test-image.png');
@@ -25,7 +26,7 @@ test.describe('Background-removal model workflow', () => {
     await page.getByRole('treeitem').first().waitFor({ timeout: 10000 });
     await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10000 });
     await page.getByRole('treeitem').first().click();
-    await page.getByRole('tab', { name: 'Adjustments', exact: true }).click();
+    await selectInspectorTab(page, 'Adjustments');
     await page.getByRole('button', { name: 'Background Removal', exact: true }).click();
   }
 

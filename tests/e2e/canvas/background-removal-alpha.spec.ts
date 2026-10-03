@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
 import { expect, test } from '@playwright/test';
+import { selectInspectorTab } from '../helpers/inspector-tabs';
 import { navigateToEditor } from '../shared';
 
 const requireFromEngine = createRequire(resolve('packages/engine/package.json'));
@@ -104,7 +105,7 @@ test('source transparency survives cutout reconstruction, history and PNG export
   await editorMethod(page, 'loadDocument', saved);
   await expect(page.getByRole('treeitem')).toHaveCount(1);
   await page.getByRole('treeitem').first().click();
-  await page.getByRole('tab', { name: 'Adjustments' }).click();
+  await selectInspectorTab(page, 'Adjustments');
   const backgroundRemovalDisclosure = page.getByRole('button', {
     name: 'Background Removal',
     exact: true,

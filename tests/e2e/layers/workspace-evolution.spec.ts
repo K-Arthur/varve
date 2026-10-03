@@ -15,6 +15,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import AxeBuilder from '@axe-core/playwright';
 import { expect, type Page, test } from '@playwright/test';
+import { selectInspectorTab } from '../helpers/inspector-tabs';
 import { openMenu } from '../helpers/menu-helpers';
 import { navigateToEditor, switchWorkspace } from '../shared';
 
@@ -139,7 +140,7 @@ test.describe('Layers — workspace projection', () => {
 
     // Select the first layer so the Inspector can edit its email semantics.
     await page.locator('.layers-panel__tree [role="treeitem"]:visible').first().click();
-    await page.getByRole('tab', { name: 'Email' }).click();
+    await selectInspectorTab(page, 'Email');
     await page.getByRole('button', { name: 'Enable email template' }).click();
 
     const hideSwitch = page.getByRole('switch', { name: 'Hide on mobile' });

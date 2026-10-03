@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { selectInspectorTab } from '../helpers/inspector-tabs';
 import { navigateToEditor, seedLayers } from '../shared';
 
 test.describe('Inspector feature ownership', () => {
@@ -114,7 +115,7 @@ test.describe('Inspector feature ownership', () => {
 
     await page.getByRole('tab', { name: 'Design' }).click();
     await expect(page.getByRole('button', { name: 'Prototype Interactions' })).toHaveCount(0);
-    await page.getByRole('tab', { name: 'Prototype' }).click();
+    await selectInspectorTab(page, 'Prototype');
     await expect(page.getByRole('button', { name: 'Prototype Interactions' })).toBeVisible();
   });
 

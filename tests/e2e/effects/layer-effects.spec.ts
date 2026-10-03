@@ -4,7 +4,7 @@ import { resizePanelTo } from '../helpers/panel-resize';
 import { addLayerEffect, dragOnCanvas, navigateToEditor } from '../shared';
 
 async function openEffectsSection(page: import('@playwright/test').Page) {
-  const section = page.locator('.insp-disclosure').filter({ hasText: 'Layer Effects' });
+  const section = page.locator('section.insp-disclosure[data-section-id="effects"]');
   await expect(section).toBeVisible({ timeout: 10000 });
   const trigger = section.getByRole('button', { name: 'Layer Effects', exact: true });
   if ((await trigger.getAttribute('aria-expanded')) !== 'true') await trigger.click();
@@ -242,44 +242,82 @@ test.describe('Layer Effects — real editor workflow', () => {
       await expect(page.getByRole('treeitem').filter({ hasText: /text/i }).first()).toBeVisible();
 
       const row = section.locator('.insp-effect-row').filter({ hasText: label }).last();
+      const parameters = page.getByRole('dialog', { name: `${label} parameters`, exact: true });
+      await expect(parameters).toBeVisible();
       // Every effect family must show a live preview tile in its popover; the
       // "editing blind" complaint against modal layer-style dialogs is not
       // allowed to reappear for a single type.
-      await expect(row.getByRole('img', { name: `Preview of ${label}` })).toBeVisible();
+      await expect(parameters.getByRole('img', { name: `Preview of ${label}` })).toBeVisible();
       if (label === 'Chromatic Aberration') {
-        await expect(row.getByLabel('Mix')).toBeVisible();
-        await expect(row.getByLabel('Chromatic channel mode')).toBeVisible();
-        await row.getByLabel('Chromatic channel mode').click();
+        await expect(
+          parameters.getByRole('spinbutton', { name: 'Mix (%)', exact: true }),
+        ).toBeVisible();
+        await expect(
+          parameters.getByRole('combobox', { name: 'Chromatic channel mode', exact: true }),
+        ).toBeVisible();
+        await parameters
+          .getByRole('combobox', { name: 'Chromatic channel mode', exact: true })
+          .click();
         await page.getByRole('option', { name: 'Custom colour split', exact: true }).click();
-        await expect(row.getByLabel('Contribution 1 source')).toBeVisible();
-        await expect(row.getByLabel('Contribution 1 output colour')).toBeVisible();
-        await expect(row.getByLabel('Contribution 2 output colour')).toBeVisible();
-        await expect(row.getByLabel('Contribution 3 output colour')).toBeVisible();
+        await expect(
+          parameters.getByRole('combobox', { name: 'Contribution 1 source', exact: true }),
+        ).toBeVisible();
+        await expect(
+          parameters.getByRole('button', { name: 'Contribution 1 output colour', exact: true }),
+        ).toBeVisible();
+        await expect(
+          parameters.getByRole('button', { name: 'Contribution 2 output colour', exact: true }),
+        ).toBeVisible();
+        await expect(
+          parameters.getByRole('button', { name: 'Contribution 3 output colour', exact: true }),
+        ).toBeVisible();
       }
       if (label === 'Drop Shadow') {
-        await expect(row.getByLabel('Angle')).toBeVisible();
-        await expect(row.getByLabel('Distance')).toBeVisible();
+        await expect(
+          parameters.getByRole('slider', { name: 'Light direction angle', exact: true }),
+        ).toBeVisible();
+        await expect(
+          parameters.getByRole('spinbutton', { name: 'Angle (deg)', exact: true }),
+        ).toBeVisible();
+        await expect(
+          parameters.getByRole('spinbutton', { name: 'Distance', exact: true }),
+        ).toBeVisible();
         // The blend selector offers the full grouped mode list, not a stub.
-        await row.getByRole('combobox', { name: 'Effect blend mode' }).click();
+        await parameters.getByRole('combobox', { name: 'Effect blend mode', exact: true }).click();
         await expect(page.getByRole('option', { name: 'Color Dodge', exact: true })).toBeVisible();
         await expect(page.getByRole('option', { name: 'Luminosity', exact: true })).toBeVisible();
         await page.keyboard.press('Escape');
       }
       if (label === 'Outer Glow') {
-        await expect(row.getByLabel('Glow colour treatment')).toBeVisible();
-        await expect(row.getByLabel('Choke')).toBeVisible();
-        await expect(row.getByLabel('Glow contour')).toBeVisible();
+        await expect(
+          parameters.getByRole('radiogroup', { name: 'Glow colour treatment', exact: true }),
+        ).toBeVisible();
+        await expect(
+          parameters.getByRole('spinbutton', { name: 'Choke (%)', exact: true }),
+        ).toBeVisible();
+        await expect(
+          parameters.getByRole('radiogroup', { name: 'Glow contour', exact: true }),
+        ).toBeVisible();
         // The contour is a segmented choice, not a two-click select.
-        await expect(row.getByRole('radio', { name: 'Linear' })).toBeVisible();
-        await row.getByRole('radio', { name: 'Sharp' }).click();
-        await expect(row.getByRole('radio', { name: 'Sharp' })).toBeChecked();
+        await expect(parameters.getByRole('radio', { name: 'Linear', exact: true })).toBeVisible();
+        await parameters.getByRole('radio', { name: 'Sharp', exact: true }).click();
+        await expect(parameters.getByRole('radio', { name: 'Sharp', exact: true })).toBeChecked();
       }
       if (label === 'Inner Glow') {
-        await expect(row.getByLabel('Inner glow origin')).toBeVisible();
-        await expect(row.getByRole('radio', { name: 'Center' })).toBeVisible();
+        await expect(
+          parameters.getByRole('radiogroup', { name: 'Inner glow origin', exact: true }),
+        ).toBeVisible();
+        await expect(parameters.getByRole('radio', { name: 'Center', exact: true })).toBeVisible();
       }
-      if (label === 'Glitch') await expect(row.getByLabel('Glitch blend mode')).toBeVisible();
+      if (label === 'Glitch')
+        await expect(
+          parameters.getByRole('combobox', { name: 'Glitch blend mode', exact: true }),
+        ).toBeVisible();
 
+      await parameters
+        .getByRole('button', { name: `Close ${label} parameters`, exact: true })
+        .click();
+      await expect(parameters).toBeHidden();
       await row.getByRole('button', { name: 'Remove effect' }).click();
       await expect(section.locator('.insp-effect-row').filter({ hasText: label })).toHaveCount(0);
     }

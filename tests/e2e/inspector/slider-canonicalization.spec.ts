@@ -15,6 +15,7 @@
 import { mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { expect, type Page, test } from '@playwright/test';
+import { selectInspectorTab } from '../helpers/inspector-tabs';
 import { openMenu } from '../helpers/menu-helpers';
 import { navigateToEditor, switchWorkspace } from '../shared';
 
@@ -156,7 +157,7 @@ test.describe('slider contract', () => {
     await navigateToEditor(page);
     await importImage(page);
     await switchWorkspace(page, 'Photo');
-    await page.getByRole('tab', { name: 'Adjustments', exact: true }).click();
+    await selectInspectorTab(page, 'Adjustments');
     await page
       .locator('#insp-tabpanel-adjustments .insp-disclosure')
       .first()

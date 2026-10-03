@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { expect, type Locator, type TestInfo, test } from '@playwright/test';
+import { canvasOracleGeometry, reserveSelectionPathRow } from '../helpers/canvas-oracle-geometry';
 import { panelResizeHandle } from '../helpers/panel-resize';
 import { navigateToEditor } from '../shared';
 
@@ -29,8 +30,11 @@ async function canvasPixelHash(page: import('@playwright/test').Page): Promise<s
 
 test.describe('Background removal — all modes', () => {
   test.describe.configure({ mode: 'serial' });
-  test.beforeEach(async ({ page }) => {
-    await navigateToEditor(page);
+  test.beforeEach(async ({ page }, testInfo) => {
+    await navigateToEditor(
+      page,
+      testInfo.title === 'saved mask history survives browser reload and reopen' ? '/?perf=1' : '/',
+    );
     // Dismiss ALL overlays: Welcome dialog + Getting Started panel
     await page.evaluate(() => {
       document.querySelectorAll('dialog[open]').forEach((d) => {
@@ -177,23 +181,25 @@ test.describe('Background removal — all modes', () => {
     const canvas = page.getByTestId('editor-canvas');
     // Reopening fits the camera anew; compare restoration at this camera.
     await page.getByRole('treeitem').filter({ hasText: /test-/ }).last().click();
-    await expect(page.getByRole('img', { name: 'raster alpha mask' })).toBeVisible();
+    const mask = page.getByRole('img', { name: 'raster alpha mask' });
+    await expect(mask).toBeVisible();
+    await reserveSelectionPathRow(page);
     // Compare authoritative frames at the same camera. This avoids treating a
     // stale worker bitmap as a successful redo after a reload.
     await page.evaluate(() => window.__varvePerf?.forceFullRedraw());
     await page.waitForTimeout(500);
     const masked = await canvas.screenshot();
+    const geometry = await canvasOracleGeometry(page);
     const maskedHash = await canvasPixelHash(page);
     await page.keyboard.press('Control+z');
+    await expect(mask).toBeHidden();
     await expect.poll(() => canvasPixelHash(page)).not.toBe(maskedHash);
     await canvas.screenshot({ path: testInfo.outputPath('reopened-undo.png') });
     await page.keyboard.press('Control+Shift+z');
-    await expect
-      .poll(async () => {
-        await page.evaluate(() => window.__varvePerf?.forceFullRedraw());
-        return await canvasPixelHash(page);
-      })
-      .toBe(maskedHash);
+    await expect(mask).toBeVisible();
+    await page.evaluate(() => window.__varvePerf!.forceFullRedraw());
+    expect(await canvasOracleGeometry(page)).toEqual(geometry);
+    await expect.poll(() => canvasPixelHash(page)).toBe(maskedHash);
     await canvas.screenshot({ path: testInfo.outputPath('reopened-redo.png') });
     await page.screenshot({ path: testInfo.outputPath('reopened-ui.png') });
     await testInfo.attach('reopened-masked', { body: masked, contentType: 'image/png' });

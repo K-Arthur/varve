@@ -70,7 +70,7 @@ test.describe('Motion Mode', () => {
     await switchToMotion(page);
 
     // Timeline panel should be visible
-    await expect(page.locator('.editor__timeline-panel')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('.timeline-panel')).toBeVisible({ timeout: 5000 });
 
     // Layers and inspector panels should still be visible
     await expect(page.locator('.layers-panel')).toBeVisible();
@@ -87,7 +87,7 @@ test.describe('Motion Mode', () => {
 
     // Switch to Motion workspace
     await switchToMotion(page);
-    await expect(page.locator('.editor__timeline-panel')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('.timeline-panel')).toBeVisible({ timeout: 5000 });
 
     // Click "Create timeline" button in empty state
     const createBtn = page.locator('[data-testid="timeline-create-empty"]');
@@ -116,7 +116,7 @@ test.describe('Motion Mode', () => {
 
     // Switch to Motion workspace
     await switchToMotion(page);
-    await expect(page.locator('.editor__timeline-panel')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('.timeline-panel')).toBeVisible({ timeout: 5000 });
     await createTimeline(page);
 
     // Toggle graph editor with G shortcut (only works when not in text input)
@@ -134,7 +134,7 @@ test.describe('Motion Mode', () => {
 
     // Switch to Motion workspace
     await switchToMotion(page);
-    await expect(page.locator('.editor__timeline-panel')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('.timeline-panel')).toBeVisible({ timeout: 5000 });
     await createTimeline(page);
 
     // Verify loop toggle button
@@ -159,13 +159,13 @@ test.describe('Motion Mode', () => {
 
     // Switch to Motion workspace
     await switchToMotion(page);
-    await expect(page.locator('.editor__timeline-panel')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('.timeline-panel')).toBeVisible({ timeout: 5000 });
 
     // Switch back to Design workspace
     await switchWorkspace(page, 'Design');
 
     // Timeline should be hidden in Design workspace
-    await expect(page.locator('.editor__timeline-panel')).not.toBeVisible();
+    await expect(page.locator('.timeline-panel')).not.toBeVisible();
 
     // Layers panel should still be visible
     await expect(page.locator('.layers-panel')).toBeVisible();
@@ -176,7 +176,7 @@ test.describe('Motion Mode', () => {
 
     // Switch to Motion workspace
     await switchToMotion(page);
-    await expect(page.locator('.editor__timeline-panel')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('.timeline-panel')).toBeVisible({ timeout: 5000 });
     await createTimeline(page);
 
     // Verify onion skin toggle button exists
@@ -189,7 +189,7 @@ test.describe('Motion Mode', () => {
 
     // Switch to Motion workspace
     await switchToMotion(page);
-    await expect(page.locator('.editor__timeline-panel')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('.timeline-panel')).toBeVisible({ timeout: 5000 });
 
     // Zoom controls
     const zoomLabel = page.locator('.timeline-panel__zoom-label');
@@ -209,7 +209,7 @@ test.describe('Motion Mode', () => {
     await page.keyboard.press('Control+Shift+5');
 
     // Timeline panel visible
-    await expect(page.locator('.editor__timeline-panel')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('.timeline-panel')).toBeVisible({ timeout: 5000 });
 
     // Verify CSS grid has timeline area
     const shell = page.locator('.editor-shell');

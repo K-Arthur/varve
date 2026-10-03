@@ -1,4 +1,10 @@
 import { expect, test } from '@playwright/test';
+import {
+  canvasOracleGeometry,
+  clearCanvasSelection,
+  reserveSelectionPathRow,
+  selectPaintedText,
+} from '../helpers/canvas-oracle-geometry';
 import { dragOnCanvas, navigateToEditor } from '../shared';
 
 async function canvasPixels(page: import('@playwright/test').Page): Promise<number[]> {
@@ -38,7 +44,7 @@ test.describe('font readiness and multiline text geometry', () => {
   test('font readiness does not require selecting the text to repaint it', async ({
     page,
   }, testInfo) => {
-    await navigateToEditor(page);
+    await navigateToEditor(page, '/?perf=1');
     const { canvas, box } = await editorCanvas(page);
 
     await page.keyboard.press('t');
@@ -46,7 +52,8 @@ test.describe('font readiness and multiline text geometry', () => {
     await page.keyboard.insertText('Bundled Geist typography');
     await page.keyboard.press('Escape');
     await page.keyboard.press('v');
-    await page.mouse.click(box.x + 20, box.y + 20);
+    await reserveSelectionPathRow(page);
+    await clearCanvasSelection(page);
 
     await page.evaluate(async () => {
       await document.fonts.ready;
@@ -55,6 +62,7 @@ test.describe('font readiness and multiline text geometry', () => {
         requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
       );
     });
+    const geometry = await canvasOracleGeometry(page);
     const beforeSelection = await canvas.screenshot({ animations: 'disabled' });
     const beforePixels = await canvasPixels(page);
     await canvas.screenshot({
@@ -66,7 +74,7 @@ test.describe('font readiness and multiline text geometry', () => {
       contentType: 'image/png',
     });
 
-    await page.mouse.click(box.x + 250, box.y + 185);
+    await selectPaintedText(page);
     await page.evaluate(
       () =>
         new Promise<void>((resolve) =>
@@ -75,6 +83,7 @@ test.describe('font readiness and multiline text geometry', () => {
     );
     const afterSelection = await canvas.screenshot({ animations: 'disabled' });
     const afterPixels = await canvasPixels(page);
+    expect(await canvasOracleGeometry(page)).toEqual(geometry);
     await canvas.screenshot({
       animations: 'disabled',
       path: testInfo.outputPath('editor-font-after-selection.png'),

@@ -1,6 +1,7 @@
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
+import { selectInspectorTab } from '../helpers/inspector-tabs';
 import { navigateToEditor } from '../shared';
 
 const requireFromEngine = createRequire(path.resolve('packages/engine/package.json'));
@@ -79,7 +80,7 @@ test.describe('Object Selection draft overlay', () => {
     await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 15000 });
 
     const inspector = page.locator('.editor__inspector-panel');
-    await inspector.getByRole('tab', { name: 'Adjustments' }).click();
+    await selectInspectorTab(page, 'Adjustments');
     await inspector.getByRole('button', { name: 'Object Selection' }).click();
     await inspector.getByRole('button', { name: 'Select Object' }).click();
     await expect(
