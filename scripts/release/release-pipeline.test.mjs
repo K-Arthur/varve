@@ -52,6 +52,30 @@ for (const id of ['e2e', 'e2e-visual']) {
   assert.match(job, /needs: \[changes, pipeline-validate, wasm\]/);
   assert.doesNotMatch(job, /needs:.*rust/, 'independent browsers must not wait on native targets');
 }
+// The installed payload must still exist when its signature is observed.
+// Installer-container verification remains a separate fail-closed gate.
+{
+  const platformSmoke = workflowJob(releaseWorkflow, 'platform-smoke');
+  const windowsStart = platformSmoke.indexOf('      - name: Windows — silent install,');
+  const windowsEnd = platformSmoke.indexOf('      - name: macOS — mount DMG', windowsStart);
+  assert.ok(windowsStart >= 0 && windowsEnd > windowsStart, 'Windows package smoke must exist');
+  const windowsSmoke = platformSmoke.slice(windowsStart, windowsEnd);
+  const install = windowsSmoke.indexOf('Start-Process -FilePath $exe.FullName');
+  const payload = windowsSmoke.indexOf(
+    'Get-AuthenticodeSignature -LiteralPath $installed.FullName',
+  );
+  const uninstall = windowsSmoke.indexOf('Start-Process -FilePath $uninstallKey.UninstallString');
+  assert.ok(
+    install >= 0 && install < payload && payload < uninstall,
+    'observe the installed payload signature after installation and before uninstall',
+  );
+  assert.doesNotMatch(
+    windowsSmoke,
+    /signature check skipped/,
+    'a missing payload must not silently skip observation',
+  );
+}
+
 assert.match(workflowJob(candidateWorkflow, 'desktop-e2e'), /needs:.*rust/);
 assert.match(workflowJob(candidateWorkflow, 'certification'), /needs:.*rust/);
 const candidateBrowserCommands = candidateWorkflow

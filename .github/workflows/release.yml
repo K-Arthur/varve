@@ -1023,7 +1023,7 @@ jobs:
           --sha '${{ needs.preflight.outputs.tag_sha }}' --policy-hash '${{ needs.preflight.outputs.policy_hash }}'
           --targets '${{ steps.artifacts.outputs.targets }}'
 
-      - name: Windows — silent install, launch smoke, uninstall
+      - name: Windows — silent install, payload signature, launch smoke, uninstall
         if: matrix.enabled && runner.os == 'Windows'
         shell: pwsh
         run: |
@@ -1036,6 +1036,15 @@ jobs:
           if (-not $installed) { throw 'varve-desktop.exe not found after silent install' }
           $version = $installed.VersionInfo
           Write-Host "Installed: $($installed.FullName)  product=$($version.ProductName)  version=$($version.FileVersion)"
+          # Observe the actual payload before uninstall removes it. This is a
+          # report, separate from the fail-closed installer signature gate.
+          $sig = Get-AuthenticodeSignature -LiteralPath $installed.FullName
+          Write-Host "Installed executable signature status: $($sig.Status)"
+          if ($sig.Status -eq [System.Management.Automation.SignatureStatus]::Valid) {
+            Write-Host "  Signer: $($sig.SignerCertificate.Subject)"
+          } else {
+            Write-Host '  (expected unsigned for NSIS payloads — see docs/release/signing-decision-record.md)'
+          }
           $proc = Start-Process -FilePath $installed.FullName -PassThru
           Start-Sleep -Seconds 20
           if ($proc.HasExited) { throw "App exited early with code $($proc.ExitCode)" }
@@ -1048,26 +1057,6 @@ jobs:
           Start-Process -FilePath $uninstallKey.UninstallString -ArgumentList '/S' -Wait
           if (Test-Path $installed.DirectoryName) { throw 'Installed files remain after uninstall' }
           Write-Host 'Uninstall PASSED'
-
-      # The installed executable's signature is reported HONESTLY: Tauri's
-      # NSIS bundling signs the installer container, not the payload embedded
-      # in it, so the installed exe is expected to be unsigned. The report is
-      # logged, never faked, and the release metadata records
-      # innerExecutableSigned=false.
-      - name: Windows — verify installed executable signature (honest report)
-        if: matrix.enabled && runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Continue'
-          $installed = Get-ChildItem -Path $env:LOCALAPPDATA -Recurse -Filter 'varve-desktop.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
-          if (-not $installed) { Write-Host '::notice::Installed exe not found — signature check skipped'; exit 0 }
-          $sig = Get-AuthenticodeSignature -LiteralPath $installed.FullName
-          Write-Host "Installed executable signature status: $($sig.Status)"
-          if ($sig.Status -eq [System.Management.Automation.SignatureStatus]::Valid) {
-            Write-Host "  Signer: $($sig.SignerCertificate.Subject)"
-          } else {
-            Write-Host '  (expected unsigned for NSIS payloads — see docs/release/signing-decision-record.md)'
-          }
 
       - name: macOS — mount DMG, structure/arch checks, launch smoke, unmount
         if: matrix.enabled && runner.os == 'macOS'
