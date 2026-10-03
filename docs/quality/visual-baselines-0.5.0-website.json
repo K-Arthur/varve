@@ -1,0 +1,81 @@
+{
+  "schema": 1,
+  "promotedAt": "2026-10-03T02:40:15.153703+00:00",
+  "producerRevision": "0fc9e2279bcb804b4757a33ec0b85d6cc34d5790",
+  "producerRunId": "37087003444",
+  "producerArtifactId": "11261715159",
+  "producerArchiveSha256": "8053b195e7c2e52ccbccdc73493808b0d73b9380784a16538c91d7a49bee68a2",
+  "reviewer": "root; independently reviewed by capture_review_finish",
+  "currentWebsiteRevision": "02203f9e13d2bf4c27158d361751dd93ac835140",
+  "inputProof": "All222 rebuilt website output files are byte-for-byte identical to the preserved local0fc build. The authenticated GitHub artifact separately establishes these eight PNGs were produced by run37087003444 at exact0fc source. Remote built-output bytes were not included in that artifact and were not compared. No local PNG capture promoted.",
+  "captureEnvironment": {
+    "platform": "GitHub ubuntu-latest",
+    "browser": "Chromium, original Playwright website runner",
+    "browserVersion": "not retained in the downloaded report; no version inferred",
+    "viewports": "Original owning visual.spec.ts viewports; dimensions recorded per image",
+    "themes": ["light", "dark"]
+  },
+  "scenes": [
+    {
+      "scene": "home-light",
+      "target": "apps/website/tests/e2e/visual.spec.ts-snapshots/home-light-ghpages-linux.png",
+      "priorSha256": "da623e329ce97b6f522249ffad7184eea23f10de4b30c8b79f06a233721ec7cf",
+      "newSha256": "9857a37a7cf5dbe155f0f5a757c1374eb2c58b0324a0fab57cbc671b458e4767",
+      "dimensions": [1280, 5738]
+    },
+    {
+      "scene": "home-dark",
+      "target": "apps/website/tests/e2e/visual.spec.ts-snapshots/home-dark-ghpages-linux.png",
+      "priorSha256": "4fc9a3cfeff317048f579bc815b4fd4531d33d933cab7edb62e674788c4ec8d7",
+      "newSha256": "cba63acbecd5ffa8fe9e15530829a13b16ea3ae27504db9d25ffa04b80464b72",
+      "dimensions": [1280, 5738]
+    },
+    {
+      "scene": "home-mobile-light",
+      "target": "apps/website/tests/e2e/visual.spec.ts-snapshots/home-mobile-light-ghpages-linux.png",
+      "priorSha256": "962be87c069def1b6a913975fcea0fdaa7670a75e316ee90b7365291dbde7917",
+      "newSha256": "f921934dc72b71798dbf3ef7bbb8d0e48eed1e1430547748f9d6095bfa020fe3",
+      "dimensions": [375, 11700]
+    },
+    {
+      "scene": "home-mobile-dark",
+      "target": "apps/website/tests/e2e/visual.spec.ts-snapshots/home-mobile-dark-ghpages-linux.png",
+      "priorSha256": "074880cfe02913a518b8deefcae14c799de8cff8593b95a42b199c14b7036e54",
+      "newSha256": "a26f6df5eea892549b78d99d84c1266824ce5fafd7c4491d0a096080c15b83aa",
+      "dimensions": [375, 11700]
+    },
+    {
+      "scene": "showcase-light",
+      "target": "apps/website/tests/e2e/visual.spec.ts-snapshots/showcase-light-ghpages-linux.png",
+      "priorSha256": "e490cd35008380bdeb52e6af5b5423a701f9233a1f02b403cc3009c14d3f4bad",
+      "newSha256": "b7e5c0e6a0b36d68fea18fffe876cadbc7dbe6706867f3f586e74018accfdc30",
+      "dimensions": [1280, 1807]
+    },
+    {
+      "scene": "workspaces-docs-light",
+      "target": "apps/website/tests/e2e/visual.spec.ts-snapshots/workspaces-docs-light-ghpages-linux.png",
+      "priorSha256": "54206c0ae1f0c70a58ab81f1fc2158840d37836d826d79d3b6411008e7fbb382",
+      "newSha256": "895adf90bb7b19d7ede04bc32ad37b6525554928e32831f0d9b07745b8664b80",
+      "dimensions": [1280, 4913]
+    },
+    {
+      "scene": "chromeos-linux-light",
+      "target": "apps/website/tests/e2e/visual.spec.ts-snapshots/chromeos-linux-light-ghpages-linux.png",
+      "priorSha256": "eb0557a074f291da3e6e83ddd054e933c36bbfa0cbb3110450fcf852809078bf",
+      "newSha256": "2eced7d106513e4c6d8af1ad464cb9bebe43140995f15acd0e0e975e6d0f547e",
+      "dimensions": [800, 4121]
+    },
+    {
+      "scene": "typography-light",
+      "target": "apps/website/tests/e2e/visual.spec.ts-snapshots/typography-light-ghpages-linux.png",
+      "priorSha256": "ece1a135c1749d5bbeb755074598dd369119f47324517087945ae5cce2fe85d0",
+      "newSha256": "daa9d8bfbf7b808ed1171175f44b22be7b1c1ba85a28516f4f1d61087b3ceb70",
+      "dimensions": [1280, 10741]
+    }
+  ],
+  "limits": [
+    "Only these eight named screenshots may be promoted; no other baselines approved.",
+    "This manifest records screenshot provenance; candidate reflow behavior is enforced separately by apps/website/tests/e2e/reflow.spec.ts."
+  ],
+  "approved": true
+}

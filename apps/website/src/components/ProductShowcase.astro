@@ -200,6 +200,7 @@ const DETAILS = ['vector', 'typography', 'tablet-controls', 'layers', 'motion']
   }
 
   .showcase-tablet__copy {
+    min-width: 0;
     max-width: 46ch;
   }
 
@@ -388,7 +389,7 @@ const DETAILS = ['vector', 'typography', 'tablet-controls', 'layers', 'motion']
     }
 
     .showcase-tablet {
-      grid-template-columns: 1fr;
+      grid-template-columns: minmax(0, 1fr);
     }
   }
 

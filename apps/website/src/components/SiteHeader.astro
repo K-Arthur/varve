@@ -220,7 +220,7 @@ function linkClass(href: string): string[] {
   const menuClose = document.querySelector<HTMLButtonElement>('.mobile-menu-close');
   const homeLink = document.querySelector<HTMLAnchorElement>('.site-logo');
   const desktopDisclosures = [...document.querySelectorAll<HTMLDetailsElement>('[data-nav-details]')];
-  const phoneLayout = window.matchMedia('(max-width: 47.999rem)');
+  const mobileNavigationLayout = window.matchMedia('(max-width: 79.999rem)');
   let previousScrollY = 0;
   let previousBodyStyles: { overflow: string; position: string; top: string; width: string } | null = null;
 
@@ -316,7 +316,7 @@ function linkClass(href: string): string[] {
       previousBodyStyles = null;
     }
     syncMenuToggle();
-    if (!phoneLayout.matches) homeLink?.focus({ preventScroll: true });
+    if (!mobileNavigationLayout.matches) homeLink?.focus({ preventScroll: true });
     else menuToggle?.focus({ preventScroll: true });
     // Native dialog focus restoration can scroll the sticky header back into
     // view after the close event. Restore the saved page offset after that
@@ -324,7 +324,7 @@ function linkClass(href: string): string[] {
     requestAnimationFrame(() => window.scrollTo(0, restoreScrollY));
   });
 
-  phoneLayout.addEventListener('change', (event) => {
+  mobileNavigationLayout.addEventListener('change', (event) => {
     if (!event.matches && menuDialog?.open) menuDialog.close();
   });
 
@@ -772,11 +772,11 @@ function linkClass(href: string): string[] {
     :global(html[data-search-ready]) .nav-search-trigger { display: inline-flex; }
   }
 
-  @media (min-width: 48rem) {
+  @media (min-width: 80rem) {
     .mobile-menu-toggle { display: none; }
   }
 
-  @media (min-width: 48rem) and (max-width: 79.999rem) {
+  @media (min-width: 64rem) and (max-width: 79.999rem) {
     .site-nav { gap: var(--space-2); }
     .nav-links { gap: var(--space-1); }
     .nav-links a,
@@ -788,7 +788,7 @@ function linkClass(href: string): string[] {
     .nav-download-cta :global(.download-cta-label) { min-inline-size: 0; }
   }
 
-  @media (max-width: 47.999rem) {
+  @media (max-width: 79.999rem) {
     .site-nav { min-block-size: var(--component-large-height); padding-block: var(--space-2); }
     .nav-links,
     .desktop-theme-toggle,

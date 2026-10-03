@@ -168,9 +168,36 @@ async function getHeroEyebrowGeometry(page: import('@playwright/test').Page) {
       };
     };
 
+    const documentWidth = document.documentElement.scrollWidth;
+    // Keep transient overflow evidence in the same browser task as the
+    // assertion measurement; a second evaluate can observe a later frame.
+    const immediateOverflow =
+      documentWidth > window.innerWidth + 1
+        ? [...document.body.querySelectorAll('*')]
+            .filter((node) => {
+              const bounds = node.getBoundingClientRect();
+              return bounds.width > 0 && (bounds.left < -1 || bounds.right > window.innerWidth + 1);
+            })
+            .slice(0, 100)
+            .map((node) => ({
+              element: `${node.tagName.toLowerCase()}.${[...node.classList].join('.')}`,
+              ...rect(node),
+              overflowX: getComputedStyle(node).overflowX,
+              transform: getComputedStyle(node).transform,
+              transition: getComputedStyle(node).transition,
+              parent: node.parentElement
+                ? {
+                    element: node.parentElement.className,
+                    ...rect(node.parentElement),
+                    overflowX: getComputedStyle(node.parentElement).overflowX,
+                  }
+                : null,
+            }))
+        : [];
     return {
       viewportWidth: window.innerWidth,
-      documentWidth: document.documentElement.scrollWidth,
+      documentWidth,
+      immediateOverflow,
       fontSize: Number.parseFloat(getComputedStyle(element).fontSize),
       lineHeight: Number.parseFloat(getComputedStyle(element).lineHeight),
       eyebrow: rect(element),
@@ -180,6 +207,61 @@ async function getHeroEyebrowGeometry(page: import('@playwright/test').Page) {
         scrollWidth: copy.scrollWidth,
       },
       status: rect(status),
+    };
+  });
+}
+
+async function getPageHorizontalOverflow(page: import('@playwright/test').Page) {
+  return page.evaluate(() => {
+    const viewportWidth = window.innerWidth;
+    const inspect = (element: Element) => {
+      const rect = element.getBoundingClientRect();
+      const style = getComputedStyle(element);
+      return {
+        element: `${element.tagName.toLowerCase()}${element.id ? `#${element.id}` : ''}${[
+          ...element.classList,
+        ]
+          .slice(0, 4)
+          .map((name) => `.${name}`)
+          .join('')}`,
+        left: rect.left,
+        right: rect.right,
+        width: rect.width,
+        clientWidth: element.clientWidth,
+        scrollWidth: element.scrollWidth,
+        overflowX: style.overflowX,
+        minWidth: style.minWidth,
+        maxWidth: style.maxWidth,
+        boxSizing: style.boxSizing,
+        fontSize: style.fontSize,
+        whiteSpace: style.whiteSpace,
+        overflowWrap: style.overflowWrap,
+      };
+    };
+    const outOfViewport = [...document.body.querySelectorAll('*')].filter((element) => {
+      const rect = element.getBoundingClientRect();
+      return (
+        rect.width > 0 &&
+        rect.height > 0 &&
+        getComputedStyle(element).visibility !== 'hidden' &&
+        (rect.left < -1 || rect.right > viewportWidth + 1)
+      );
+    });
+    return {
+      viewportWidth,
+      documentWidth: document.documentElement.scrollWidth,
+      bodyWidth: document.body.scrollWidth,
+      rootFontSize: getComputedStyle(document.documentElement).fontSize,
+      sections: [...document.querySelectorAll('header, main > section, footer')].map(inspect),
+      totalOutOfViewport: outOfViewport.length,
+      elements: outOfViewport.slice(0, 50).map((element) => {
+        const ancestors = [];
+        let parent = element.parentElement;
+        for (let depth = 0; parent && depth < 6; depth++, parent = parent.parentElement) {
+          ancestors.push(inspect(parent));
+        }
+        return { ...inspect(element), text: element.textContent?.trim().slice(0, 120), ancestors };
+      }),
     };
   });
 }
@@ -410,13 +492,28 @@ for (const theme of THEMES) {
       document.documentElement.style.fontSize = '200%';
     });
     const enlargedGeometry = await getHeroEyebrowGeometry(page);
-    expect(enlargedGeometry.fontSize).toBeGreaterThanOrEqual(24);
-    expectHeroEyebrowContained(enlargedGeometry);
-    expectMobileHeroGutter(await getMobileHeroContentGeometry(page));
+    const enlargedMobileGeometry = await getMobileHeroContentGeometry(page);
+    // Keep the immediately measured geometry when a remote layout fails;
+    // capture diagnostics before the assertion can stop the owning test.
+    await test.info().attach(`hero-mobile-text-200-${theme.name}-geometry`, {
+      body: JSON.stringify(
+        {
+          immediateHeroGeometry: enlargedGeometry,
+          immediateMobileGeometry: enlargedMobileGeometry,
+          overflow: await getPageHorizontalOverflow(page),
+        },
+        null,
+        2,
+      ),
+      contentType: 'application/json',
+    });
     await page.locator('.hero').screenshot({
       path: test.info().outputPath(`hero-mobile-text-200-${theme.name}.png`),
       animations: 'disabled',
     });
+    expect(enlargedGeometry.fontSize).toBeGreaterThanOrEqual(24);
+    expectHeroEyebrowContained(enlargedGeometry);
+    expectMobileHeroGutter(enlargedMobileGeometry);
     if (theme.name === 'light') {
       await expect.soft(eyebrow).toHaveScreenshot('hero-eyebrow-mobile-text-200-light.png', {
         maxDiffPixelRatio: 0.02,

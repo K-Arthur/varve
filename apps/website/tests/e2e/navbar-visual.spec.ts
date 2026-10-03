@@ -44,8 +44,8 @@ test('header and open navigation remain composed across themes, widths, landscap
           layout.bounds.right + 1,
         );
       }
-      expect(await page.locator('.mobile-menu-toggle').isVisible()).toBe(width < 768);
-      expect(await page.locator('.nav-links').isVisible()).toBe(width >= 768);
+      expect(await page.locator('.mobile-menu-toggle').isVisible()).toBe(width < 1280);
+      expect(await page.locator('.nav-links').isVisible()).toBe(width >= 1280);
       expect(await page.locator('.nav-search-trigger').isVisible()).toBe(width >= 1280);
       if (width <= 384) {
         const headerRow = await page.evaluate(() => {
@@ -64,7 +64,7 @@ test('header and open navigation remain composed across themes, widths, landscap
 
       const tag = `${colorScheme}-${width}`;
       await page.screenshot({ path: testInfo.outputPath(`navbar-${tag}-header.png`) });
-      if (width < 768) {
+      if (width < 1280) {
         await page.setViewportSize({ width, height: 620 });
         await page.evaluate(() => window.scrollTo(0, 500));
         await page.locator('.mobile-menu-toggle').click();
