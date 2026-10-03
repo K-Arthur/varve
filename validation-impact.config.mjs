@@ -45,6 +45,40 @@ export const IMPACT_CONFIG = {
   schema: 1,
 
   /**
+   * Screenshot-only website edits can validate through their known consumers
+   * instead of rerunning every unrelated marketing-page interaction. Mixed
+   * website changes retain the broad website lane. The paths and specs are
+   * audited against the checkout so this exception cannot silently decay.
+   */
+  websiteScreenshotValidation: {
+    paths: [
+      'apps/website/public/screenshots/*.png',
+      'apps/website/src/data/screenshot-manifest.json',
+      'docs/screenshots/product/*.png',
+    ],
+    websitePaths: [
+      'apps/website/public/screenshots/*.png',
+      'apps/website/src/data/screenshot-manifest.json',
+    ],
+    specs: [
+      'apps/website/tests/e2e/assets.spec.ts',
+      'apps/website/tests/e2e/axe.spec.ts',
+      'apps/website/tests/e2e/canvas-fluidity-pages.visual.spec.ts',
+      'apps/website/tests/e2e/effect-studio-feature.spec.ts',
+      'apps/website/tests/e2e/image-enhancement-feature.spec.ts',
+      'apps/website/tests/e2e/patterns-feature.spec.ts',
+      'apps/website/tests/e2e/presentations-feature.spec.ts',
+      'apps/website/tests/e2e/reflow.spec.ts',
+      'apps/website/tests/e2e/screenshot-delivery.spec.ts',
+      'apps/website/tests/e2e/stroke-marketing.spec.ts',
+      'apps/website/tests/e2e/strokes-target-copy.spec.ts',
+      'apps/website/tests/e2e/tonal-guide.spec.ts',
+      'apps/website/tests/e2e/typography-workflow.spec.ts',
+      'apps/website/tests/e2e/visual.spec.ts',
+    ],
+  },
+
+  /**
    * Paths that must ALWAYS escalate to full validation (Tier 5) because a
    * change to them can invalidate the selection logic itself or every
    * package's compile/test contract at once.

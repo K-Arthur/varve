@@ -49,8 +49,19 @@ export function buildExecutionPlan(plan, { tiers = AFFECTED_TIERS, e2eDomains = 
   // a browser lane never adds/removes compiler, unit, native, or benchmark work.
   const cheap = remaining.filter(isCheapCheck);
   const checks = remaining.filter((lane) => !isCheapCheck(lane) && !isBrowserLane(lane));
-  const browser = remaining.filter(isBrowserLane);
-  return { selected, covered, lanes: [...cheap, ...checks, ...browser] };
+  const websiteE2eFiles = [];
+  const browser = [];
+  let websiteBatchIndex = -1;
+  for (const lane of remaining.filter(isBrowserLane)) {
+    if (lane.startsWith('website-e2e:file:')) {
+      websiteE2eFiles.push(lane.slice('website-e2e:file:'.length));
+      if (websiteBatchIndex === -1) websiteBatchIndex = browser.length;
+    } else {
+      browser.push(lane);
+    }
+  }
+  if (websiteE2eFiles.length) browser.splice(websiteBatchIndex, 0, 'website-e2e:files');
+  return { selected, covered, lanes: [...cheap, ...checks, ...browser], websiteE2eFiles };
 }
 
 export function formatExecutionPlan(execution) {
@@ -60,7 +71,13 @@ export function formatExecutionPlan(execution) {
       ({ lane, coveredBy }) =>
         `  [COVERAGE] ${coveredBy} includes ${lane}; no separate run. Coverage succeeds only when ${coveredBy} passes.`,
     ),
-    `  Order: ${execution.lanes.join(' -> ')}`,
+    `  Order: ${execution.lanes
+      .map((lane) =>
+        lane === 'website-e2e:files'
+          ? `${lane} (${execution.websiteE2eFiles.length} specs; one build and browser run)`
+          : lane,
+      )
+      .join(' -> ')}`,
   ].join('\n');
 }
 
@@ -108,4 +125,21 @@ export function broadBrowserArgv(lane, options) {
   const argv = commands[lane];
   if (!argv) throw new Error(`No broad browser command for '${lane}'`);
   return [...argv, ...playwrightRunOptions(options)];
+}
+
+/** Batch exact website specs so their shared build/port setup runs once. */
+export function websiteE2eFilesArgv(files, options) {
+  const inScope = (path) => {
+    const normalized = path.replaceAll('\\', '/');
+    return (
+      normalized.startsWith('apps/website/tests/e2e/') &&
+      normalized.endsWith('.spec.ts') &&
+      !normalized.split('/').includes('..')
+    );
+  };
+  if (!files.length || files.some((path) => !inScope(path))) {
+    throw new Error('website E2E batch requires one or more in-scope spec paths');
+  }
+  const broad = broadBrowserArgv('website-e2e', options);
+  return [...broad.slice(0, 2), ...files, ...broad.slice(2)];
 }

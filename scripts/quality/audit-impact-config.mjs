@@ -97,6 +97,30 @@ export function auditImpactConfig({ cwd = ROOT } = {}) {
     if (!globMatchesAny(glob)) errors.push(`sharedContractPaths glob matches nothing: ${glob}`);
   }
 
+  const screenshotValidation = IMPACT_CONFIG.websiteScreenshotValidation;
+  if (!screenshotValidation) {
+    errors.push('websiteScreenshotValidation: missing targeted screenshot validation contract');
+  } else {
+    const screenshotPaths = new Set(screenshotValidation.paths ?? []);
+    for (const glob of screenshotValidation.paths ?? []) {
+      if (!globMatchesAny(glob))
+        errors.push(`websiteScreenshotValidation: path glob matches nothing: ${glob}`);
+    }
+    for (const glob of screenshotValidation.websitePaths ?? []) {
+      if (!screenshotPaths.has(glob))
+        errors.push(`websiteScreenshotValidation: website path is not allowlisted: ${glob}`);
+    }
+    const specs = screenshotValidation.specs ?? [];
+    if (new Set(specs).size !== specs.length)
+      errors.push('websiteScreenshotValidation: duplicate E2E spec path');
+    for (const spec of specs) {
+      if (!existsSync(join(ROOT, spec)) || !spec.startsWith('apps/website/tests/e2e/'))
+        errors.push(`websiteScreenshotValidation: missing or out-of-scope E2E spec: ${spec}`);
+    }
+    if (specs.length === 0)
+      errors.push('websiteScreenshotValidation: at least one consumer E2E spec is required');
+  }
+
   for (const rule of IMPACT_CONFIG.impactRules) {
     if (!rule.id || seen.has(rule.id))
       errors.push(`impact rule id missing/duplicate: ${rule.id ?? '<none>'}`);

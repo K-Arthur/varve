@@ -158,6 +158,8 @@ test.describe('screenshot delivery', () => {
     const cases: [string, string][] = [
       ['/features/motion', 'motion'],
       ['/features/vector-tools', 'vector'],
+      ['/features/vector-tools', 'vectorize'],
+      ['/features/image-trace', 'vectorize'],
       ['/features/canvas', 'layout'],
       ['/features/comic-lettering', 'comic-lettering'],
       ['/features/design-tokens', 'design-tokens-contrast'],

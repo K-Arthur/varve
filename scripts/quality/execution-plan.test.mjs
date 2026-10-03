@@ -20,6 +20,7 @@ import {
   buildExecutionPlan,
   formatExecutionPlan,
   playwrightRunOptions,
+  websiteE2eFilesArgv,
 } from './execution-plan.mjs';
 
 const exact = 'e2e:file:tests/e2e/canvas/direct.spec.ts';
@@ -421,16 +422,45 @@ try {
     ),
     'pnpm forwards bounds only to the final browser command and preserves frozen snapshots',
   );
+  const screenshotSpecs = [
+    'apps/website/tests/e2e/assets.spec.ts',
+    'apps/website/tests/e2e/screenshot-delivery.spec.ts',
+  ];
+  const [batchCommand, ...batchArgs] = websiteE2eFilesArgv(screenshotSpecs, discovery);
+  const batchResult = crossSpawn.sync(batchCommand, batchArgs, {
+    cwd: forwardingRepo,
+    encoding: 'utf8',
+  });
+  assert.equal(batchResult.status, 0, batchResult.stderr);
+  assert.equal(
+    (batchResult.stdout.match(/fixture build \[\]/g) ?? []).length,
+    2,
+    'a multi-spec run builds each website output exactly once',
+  );
+  assert.ok(
+    batchResult.stdout.includes(
+      `fixture browser ${JSON.stringify(['--update-snapshots=none', ...screenshotSpecs, ...bounds])}`,
+    ),
+    'one browser command receives the complete exact spec set and frozen discovery bounds',
+  );
+  assert.throws(
+    () => websiteE2eFilesArgv(['apps/website/tests/e2e/../helpers.ts'], discovery),
+    /in-scope spec paths/,
+    'a batch cannot escape the website spec directory or run helpers as specs',
+  );
 } finally {
   rmSync(forwardingRepo, { recursive: true, force: true });
 }
 
 const websiteExact = 'website-e2e:file:apps/website/tests/e2e/visual.spec.ts';
 const websiteCompiler = 'typecheck:website-e2e';
-assert.deepEqual(buildExecutionPlan({ tiers: { 1: [websiteExact, websiteCompiler] } }).lanes, [
-  websiteCompiler,
-  websiteExact,
-]);
+const websiteSingle = buildExecutionPlan({ tiers: { 1: [websiteExact, websiteCompiler] } });
+assert.deepEqual(websiteSingle.lanes, [websiteCompiler, 'website-e2e:files']);
+assert.deepEqual(websiteSingle.websiteE2eFiles, [websiteExact.slice('website-e2e:file:'.length)]);
+assert.match(
+  formatExecutionPlan(websiteSingle),
+  /website-e2e:files \(1 specs; one build and browser run\)/,
+);
 const websiteBroad = buildExecutionPlan({
   tiers: { 1: [websiteExact, websiteCompiler], 4: ['website-e2e'] },
 });
@@ -440,9 +470,10 @@ const websiteWithApp = buildExecutionPlan({
   tiers: { 1: [websiteExact, websiteCompiler], 4: ['e2e:all'] },
 });
 assert.ok(
-  websiteWithApp.lanes.includes(websiteExact),
+  websiteWithApp.lanes.includes('website-e2e:files'),
   'app suite never covers a website config spec',
 );
+assert.deepEqual(websiteWithApp.websiteE2eFiles, ['apps/website/tests/e2e/visual.spec.ts']);
 assert.deepEqual(websiteWithApp.covered, []);
 
 console.log('execution plan tests passed (no browsers launched)');

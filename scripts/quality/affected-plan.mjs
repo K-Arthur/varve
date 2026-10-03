@@ -372,6 +372,10 @@ function snapshotOwnerSpec(path) {
 function buildPlan(files, { includeReverse = true } = {}) {
   const pkgs = loadPackages();
   const crates = loadCrates();
+  const screenshotValidation = IMPACT_CONFIG.websiteScreenshotValidation;
+  const websiteScreenshotScope =
+    files.some((f) => screenshotValidation.websitePaths.some((g) => matchesGlob(f, g))) &&
+    files.every((f) => screenshotValidation.paths.some((g) => matchesGlob(f, g)));
   const plan = {
     tiers: { 0: [], 1: [], 2: [], 3: [], 4: [] },
     skipped: [],
@@ -382,6 +386,7 @@ function buildPlan(files, { includeReverse = true } = {}) {
     directE2eFiles: [],
     directWebsiteE2eFiles: [],
     unresolvedRustPaths: [],
+    websiteScreenshotScope,
   };
 
   const changedPkgs = new Set();
@@ -421,7 +426,8 @@ function buildPlan(files, { includeReverse = true } = {}) {
     const websiteSnapshotOwner = f.startsWith('apps/website/tests/e2e/')
       ? snapshotOwnerSpec(f)
       : null;
-    if (c.kind === 'js' && !isTestFile) changedPkgs.add(c.name);
+    if (c.kind === 'js' && !isTestFile && !(websiteScreenshotScope && c.name === '@varve/website'))
+      changedPkgs.add(c.name);
     if (c.kind === 'rust') changedCrates.add(c.name);
     if (c.kind === 'app') changedPkgs.add(c.name);
 
@@ -498,6 +504,8 @@ function buildPlan(files, { includeReverse = true } = {}) {
             (lane === 'website-unit' || lane === 'website-e2e')
           )
             continue;
+          if (websiteScreenshotScope && rule.id === 'website-only-light' && lane === 'website-e2e')
+            continue;
           if (lane.startsWith('e2e:')) {
             e2eTypecheckRequired = true;
             e2eDomains.add(lane.slice(4));
@@ -521,6 +529,16 @@ function buildPlan(files, { includeReverse = true } = {}) {
           }
         }
       }
+    }
+  }
+
+  if (websiteScreenshotScope) {
+    // The screenshot manifest and image bytes are consumed by this fixed set
+    // of marketing routes and responsive/accessibility checks. Keep the full
+    // website suite for any mixed source, layout, runner, or other asset edit.
+    websiteE2eTypecheckRequired = true;
+    for (const spec of screenshotValidation.specs) {
+      if (existsSync(join(ROOT, spec))) directWebsiteE2eFiles.add(spec);
     }
   }
 
@@ -665,6 +683,11 @@ function buildPlan(files, { includeReverse = true } = {}) {
   ) {
     plan.skipped.push(
       'other website specs and website unit tests — only explicit website E2E owners changed',
+    );
+  }
+  if (websiteScreenshotScope) {
+    plan.skipped.push(
+      'unrelated website E2E pages — screenshot consumer routes and responsive/accessibility checks are selected explicitly',
     );
   }
   if (![...e2eDomains].includes('visual') && !plan.full) {

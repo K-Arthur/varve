@@ -78,6 +78,25 @@ The coordinator sets a stable execution output name that workers inherit,
 including replacement workers after a failure. Other executions get separate
 directories. Port and output-name validation rejects malformed configuration.
 
+Screenshot-only website changes now have a bounded local path. The impact
+policy allowlists the website screenshot PNGs, their manifest, the matching
+documentation copies, and 14 existing consumer specs. It runs website units,
+the website E2E typecheck, and those consumers in one Playwright invocation, so
+the two static outputs are built once. The set checks screenshot delivery,
+responsive/reflow behavior, accessibility, and the feature pages that display
+the captures. Missing specs or stale globs fail the impact-config audit. Any
+website source/layout/runner change mixed into the same diff keeps the complete
+website E2E suite. Hosted integration, candidate certification, and deployment
+also retain the complete website suite. No test is quarantined or skipped
+because it failed.
+
+The reviewed 14-spec bundle selected 175 cases and took about 277 seconds on
+the local release runner, compared with 652 cases and about 678 seconds for the
+complete website suite (roughly 59% less observed browser time and 73% fewer
+cases). This is a measured local comparison, not a hosted SLA or a guarantee
+of equal setup cost on another runner. Both builds, frozen snapshots, zero
+retries, a single worker, and the release-owned output checks remain in force.
+
 The progress reporter atomically saves active cases, completed attempts, first
 failure, counts, durations, errors, and status during execution. Interruption
 therefore leaves usable diagnostics before the final HTML report exists.

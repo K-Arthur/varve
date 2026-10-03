@@ -46,6 +46,7 @@ import {
   buildExecutionPlan,
   formatExecutionPlan,
   playwrightRunOptions,
+  websiteE2eFilesArgv,
 } from './execution-plan.mjs';
 import { runFullGate } from './full-gate.mjs';
 import { fullGateExecution, localBrowserLanes } from './full-gate-execution.mjs';
@@ -162,7 +163,7 @@ function biomeTouchedFiles() {
   );
 }
 
-async function runLane(lane) {
+async function runLane(lane, { websiteE2eFiles = [] } = {}) {
   const t0 = Date.now();
   const isHeavy =
     HEAVY.has(lane) || lane.startsWith('rust-test:') || lane.startsWith('rust-clippy:');
@@ -180,6 +181,8 @@ async function runLane(lane) {
     }
   } else if (lane.startsWith('js-unit:file:')) {
     status = await runVitestFiles([lane.slice('js-unit:file:'.length)]);
+  } else if (lane === 'website-e2e:files') {
+    status = await cmd(websiteE2eFilesArgv(websiteE2eFiles, browserOptions));
   } else if (lane.startsWith('website-e2e:file:')) {
     const path = lane.slice('website-e2e:file:'.length);
     // The public website script owns the lease, including fresh builds.
@@ -390,7 +393,7 @@ async function main() {
   if (mode === 'quick') {
     // Tier 0 + Tier 1 only
     for (const l of execution.lanes) {
-      const status = await runLane(l);
+      const status = await runLane(l, { websiteE2eFiles: execution.websiteE2eFiles });
       if (status !== 0) process.exit(status);
     }
   } else if (mode === 'affected' || mode === 'triage') {
@@ -409,7 +412,7 @@ async function main() {
       );
     }
     for (const l of execution.lanes) {
-      const status = await runLane(l);
+      const status = await runLane(l, { websiteE2eFiles: execution.websiteE2eFiles });
       if (status !== 0) process.exit(status);
     }
   } else {

@@ -8,6 +8,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { IMPACT_CONFIG } from '../../validation-impact.config.mjs';
 import { buildPlan } from './affected-plan.mjs';
 import { deriveCiCategories, selectedCiLanes, selectPushValidation } from './validation-policy.mjs';
 
@@ -116,6 +117,41 @@ assert.deepEqual(websiteSnapshot.tiers[1], [
   `website-e2e:file:${websiteSpec}`,
 ]);
 assert.ok(!websiteSnapshot.tiers[4].includes('website-e2e'));
+const screenshotOnlyWebsite = buildPlan([
+  'apps/website/public/screenshots/patterns-document-alignment.png',
+  'apps/website/src/data/screenshot-manifest.json',
+  'docs/screenshots/product/patterns-document-alignment.png',
+]);
+assert.equal(screenshotOnlyWebsite.websiteScreenshotScope, true);
+assert.ok(!screenshotOnlyWebsite.tiers[4].includes('website-e2e'));
+assert.ok(screenshotOnlyWebsite.tiers[4].includes('website-unit'));
+assert.ok(!screenshotOnlyWebsite.tiers[2].some((lane) => lane.endsWith('@varve/website')));
+assert.ok(!screenshotOnlyWebsite.tiers[2].includes('typecheck:@varve/website'));
+assert.ok(screenshotOnlyWebsite.tiers[1].includes('typecheck:website-e2e'));
+assert.deepEqual(
+  screenshotOnlyWebsite.directWebsiteE2eFiles,
+  IMPACT_CONFIG.websiteScreenshotValidation.specs,
+  'image-only changes select the reviewed screenshot consumer and layout spec set',
+);
+assert.equal(
+  selectedCiLanes(
+    screenshotOnlyWebsite,
+    deriveCiCategories(screenshotOnlyWebsite, [
+      'apps/website/public/screenshots/patterns-document-alignment.png',
+    ]),
+  ).includes('website-e2e'),
+  true,
+  'hosted CI keeps the full website suite for screenshot changes',
+);
+const mixedScreenshotAndSource = buildPlan([
+  'apps/website/public/screenshots/patterns-document-alignment.png',
+  'apps/website/src/pages/index.astro',
+]);
+assert.equal(mixedScreenshotAndSource.websiteScreenshotScope, false);
+assert.ok(
+  mixedScreenshotAndSource.tiers[4].includes('website-e2e'),
+  'mixed source and screenshot changes keep the full local website suite',
+);
 for (const path of [
   'apps/website/src/pages/index.astro',
   'apps/website/tests/e2e/helpers.ts',
