@@ -71,7 +71,8 @@ async function measureToolbarConsistency(page: Page, toolbar: Locator) {
     const style = getComputedStyle(element);
     return { gap: style.gap, padding: style.padding };
   });
-  const palette = await page.locator('.floating-toolbar__row').evaluate((element) => {
+  // Surface chrome belongs to the card, while its row owns layout only.
+  const palette = await page.locator('.floating-toolbar__card').evaluate((element) => {
     const style = getComputedStyle(element);
     return {
       background: style.backgroundColor,
@@ -143,6 +144,8 @@ async function measureContextFontControls(
     }));
     return {
       height: element.getBoundingClientRect().height,
+      borderBlockWidth:
+        Number.parseFloat(style.borderTopWidth) + Number.parseFloat(style.borderBottomWidth),
       gap: style.gap,
       fontFamily: style.fontFamily,
       fontSize: style.fontSize,
@@ -157,7 +160,13 @@ async function measureContextFontControls(
     contentType: 'application/json',
   });
   expect(measured.height).toBeGreaterThanOrEqual(32);
-  expect(measured.height, 'contextual bar height').toBeCloseTo(paletteHeight, 0);
+  // Context has one bottom separator; the palette row is inside its card's
+  // borders. Compare the exact control lane, preserving border-box evidence.
+  expect(measured.borderBlockWidth, 'context separator').toBe(1);
+  expect(measured.height - measured.borderBlockWidth, 'contextual control lane height').toBeCloseTo(
+    paletteHeight,
+    0,
+  );
   expect(measured.gap).toBe(expected.gap);
   expect(measured.fontFamily).toBe(expected.fontFamily);
   expect(measured.fontSize).toBe(expected.fontSize);

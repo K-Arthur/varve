@@ -218,8 +218,13 @@ test.describe('Auto Layout comprehensive verification', () => {
 
   test('1 - Layout section visible when frame selected', async ({ page }) => {
     test.setTimeout(300000);
-    const box = await drawFrame(page, 100, 100, 400, 300);
-    await selectFrame(page, box);
+    await drawFrame(page, 100, 100, 400, 300);
+    // The old 90px canvas click is outside this frame's 100px start and
+    // deselects it. Authenticate the selected authored frame via Layers.
+    await selectTool(page);
+    const frame = page.getByRole('treeitem', { name: 'Frame 1, Frame', exact: true });
+    await frame.click();
+    await expect(frame).toHaveAttribute('aria-selected', 'true');
     await expect(layoutSection(page)).toBeVisible({ timeout: 5000 });
     await expect(layoutSection(page).getByRole('combobox', { name: 'Layout mode' })).toBeVisible({
       timeout: 3000,

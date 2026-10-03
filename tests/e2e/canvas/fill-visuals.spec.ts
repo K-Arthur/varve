@@ -109,12 +109,19 @@ test('fill visual evidence set', async ({ page }) => {
   await page.waitForTimeout(800);
   await page.screenshot({ path: 'test-results/fill-visuals/02-gradient-after.png' });
 
+  // Gradient controls live in the paint's colour-picker popover; adding the
+  // fill preserves the inspector row without automatically opening a dialog.
+  await page.getByRole('button', { name: 'Fill 2 gradient', exact: true }).click();
+  const picker = page.getByRole('dialog', { name: 'Pick Fill 2 gradient', exact: true });
+  await expect(picker).toBeVisible();
   // Scroll the gradient editor into view for a close-up of stops
   const editor = page.locator('.gradient-editor');
   await editor.waitFor({ state: 'visible', timeout: 5000 });
   await editor.scrollIntoViewIfNeeded();
   await page.waitForTimeout(300);
   await page.screenshot({ path: 'test-results/fill-visuals/06-grad-editor.png' });
+  await picker.getByRole('button', { name: 'Dismiss colour picker' }).click();
+  await expect(picker).toHaveCount(0);
 
   // Undo the added gradient; convert the existing fill to Image (empty)
   await page.keyboard.press('Control+z');

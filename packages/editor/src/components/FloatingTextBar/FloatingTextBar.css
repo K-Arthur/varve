@@ -1,7 +1,7 @@
 /* Match the main floating palette: compact controls, shared spacing and chrome. */
 .floating-text-bar,
 .floating-text-bar__more {
-  --text-toolbar-control-height: var(--component-compact-height);
+  --text-toolbar-control-height: var(--density-control-size, var(--component-compact-height));
   display: flex;
   align-items: center;
   gap: var(--space-toolbar-item);
@@ -197,9 +197,10 @@
   }
 }
 
-[data-theme="high-contrast"] .floating-text-bar__layer,
-[data-theme="high-contrast"] .floating-text-bar__more-layer {
-  outline: 1px solid var(--color-border-subtle);
+[data-theme="high-contrast"] .floating-text-bar,
+[data-theme="high-contrast"] .floating-text-bar__more {
+  border-width: 2px;
+  border-color: var(--color-border-strong);
 }
 
 [data-theme="high-contrast"] .floating-text-bar__btn[aria-pressed="true"] {
