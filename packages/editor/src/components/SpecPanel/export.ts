@@ -258,18 +258,17 @@ function expandSubtreeEffectBounds(
 }
 
 /**
- * An unwarped image shape has a declared raster rectangle. A fractional
- * translation must not turn that rectangle into an extra export row/column:
- * the raster is still the authored image dimensions, merely placed at a
- * fractional world coordinate. Effects, strokes, filters, and warps remain
- * on the conservative floor/ceil path because they can legitimately paint
- * outside the nominal image rectangle.
+ * An unwarped image or whole-pixel rectangle has declared raster extents.
+ * Fractional world placement must not introduce an extra export row/column
+ * with partial alpha. Effects, strokes, filters, warps, fractional geometry,
+ * and resolved IR overflow retain conservative floor/ceil bounds.
  */
-function hasAuthoredRasterBounds(node: SceneNode, doc: SceneDocument): boolean {
+function hasAuthoredRectangleBounds(
+  node: SceneNode,
+  doc: SceneDocument,
+  renderedBounds: { x: number; y: number; w: number; h: number } | null,
+): boolean {
   if (node.kind !== 'shape' || node.shape.kind !== 'rect') return false;
-  if (!node.fills?.some((fill) => fill.type === 'image' && fill.image && fill.visible !== false)) {
-    return false;
-  }
   if (node.strokes?.some((stroke) => stroke.visible !== false)) return false;
   if (node.effects?.some((effect) => effect.visible !== false)) return false;
   if (
@@ -282,7 +281,23 @@ function hasAuthoredRasterBounds(node: SceneNode, doc: SceneDocument): boolean {
 
   const transform = nodeWorldTransform(doc, node.id);
   const epsilon = 1e-9;
-  return Math.abs(transform[1]) <= epsilon && Math.abs(transform[2]) <= epsilon;
+  if (Math.abs(transform[1]) > epsilon || Math.abs(transform[2]) > epsilon) return false;
+  if (node.fills?.some((fill) => fill.type === 'image' && fill.image && fill.visible !== false)) {
+    return true;
+  }
+  const authored = worldBBox(node, doc);
+  // Preserve the existing conservative policy for genuinely fractional sizes.
+  // Compare resolved IR bounds too: a reusable style can add appearance that
+  // is absent from the authored node and still must not be clipped.
+  return (
+    !!renderedBounds &&
+    Math.abs(authored.w - Math.round(authored.w)) <= epsilon &&
+    Math.abs(authored.h - Math.round(authored.h)) <= epsilon &&
+    Math.abs(renderedBounds.x - authored.x) <= epsilon &&
+    Math.abs(renderedBounds.y - authored.y) <= epsilon &&
+    Math.abs(renderedBounds.w - authored.w) <= epsilon &&
+    Math.abs(renderedBounds.h - authored.h) <= epsilon
+  );
 }
 
 /** Bounds of every pixel the resolved render IR may emit. */
@@ -313,12 +328,11 @@ function exportWorldBounds(
     }
   }
   bounds = expandSubtreeEffectBounds(node, doc, bounds);
-  if (hasAuthoredRasterBounds(node, doc)) {
-    // Keep the exact translated image rectangle. Using floor/ceil here would
-    // add a pixel whenever a source image was placed at a fractional world
-    // coordinate, which changes the reviewed export dimensions. The raster
-    // transform can use a fractional origin; only its pixel dimensions need
-    // to be rounded at the requested export scale.
+  if (hasAuthoredRectangleBounds(node, doc, bounds)) {
+    // Keep the exact translated rectangle. The export crop follows authored
+    // artwork rather than its incidental position on the world pixel grid.
+    // The raster transform accepts a fractional origin; only target pixel
+    // dimensions need rounding at the requested export scale.
     const authored = worldBBox(node, doc);
     return {
       x: authored.x,

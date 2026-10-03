@@ -636,7 +636,7 @@ describe('SelectionOverlay — accessibility', () => {
 });
 
 describe('SelectionOverlay — touch targets', () => {
-  it.each(['rect', 'paint', 'pen', 'text', 'line', 'arrow'])(
+  it.each(['rect', 'paint', 'pen', 'text', 'line', 'arrow', 'nodeEdit'])(
     'does not intercept %s gestures with transform handles',
     (tool) => {
       const container = renderOverlay(
@@ -653,7 +653,7 @@ describe('SelectionOverlay — touch targets', () => {
     },
   );
 
-  it.each(['select', 'nodeEdit', 'scale'])('retains resize controls in %s', (tool) => {
+  it.each(['select', 'scale'])('retains resize controls in %s', (tool) => {
     const container = renderOverlay(
       [makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 200, h: 100 })],
       {},
@@ -665,6 +665,34 @@ describe('SelectionOverlay — touch targets', () => {
       ...container.querySelectorAll<SVGRectElement>('rect[fill="transparent"]'),
     ].filter((target) => target.style.pointerEvents === 'auto');
     expect(resize.length).toBeGreaterThanOrEqual(8);
+  });
+
+  it('leaves path anchors on bounding-box edges to the node editing tool', () => {
+    const container = renderOverlay(
+      [
+        makeShapeNode('n1', {
+          kind: 'path',
+          points: [
+            { x: 0, y: 60, handleIn: null, handleOut: null },
+            { x: 100, y: 0, handleIn: null, handleOut: null },
+            { x: 200, y: 80, handleIn: null, handleOut: null },
+          ],
+          closed: false,
+          tolerance: 3,
+        }),
+      ],
+      {},
+      MOCK_PAN,
+      MOCK_ZOOM,
+      { tool: 'nodeEdit' },
+    );
+    // The middle anchor coincides with the top resize/skew hit point.
+    // Retain the visible selection bounds without routing any hit to resize.
+    expect(container.querySelector('svg > rect[fill="none"]')).toBeTruthy();
+    const interactive = [...container.querySelectorAll<SVGElement>('[style]')].filter(
+      (target) => target.style.pointerEvents === 'auto',
+    );
+    expect(interactive).toHaveLength(0);
   });
 
   it('interactive resize hit areas meet the 24px AA minimum while visuals stay compact', () => {

@@ -369,6 +369,91 @@ describe('PenTool', () => {
     expect(ctx.announce).toHaveBeenCalledWith(expect.stringContaining('Point'));
   });
 
+  it.each([0.06, 1, 16])(
+    'rapid spatially distinct clicks retain every anchor at zoom %s',
+    (zoom) => {
+      const tool = new PenTool();
+      const ctx = makeCtx({
+        zoom,
+        canvasToWorld: vi.fn((x, y) => ({ x: x / zoom, y: y / zoom })),
+      });
+      tool.onActivate(ctx);
+      for (const [x, y] of [
+        [100, 100],
+        [260, 140],
+        [430, 230],
+      ]) {
+        const event = makePointerEvent(x!, y!, { detail: 0 });
+        tool.onPointerDown(event, ctx);
+        tool.onPointerUp(event, ctx);
+        vi.advanceTimersByTime(120);
+      }
+      expect(ctx.createShapeAt).not.toHaveBeenCalled();
+      tool.onKeyDown(makeKeyEvent('Enter'), ctx);
+      expect(ctx.createShapeAt).toHaveBeenCalledExactlyOnceWith(
+        { x: 100 / zoom, y: 100 / zoom },
+        undefined,
+        undefined,
+        [
+          { x: 100 / zoom, y: 100 / zoom, handleIn: null, handleOut: null },
+          { x: 260 / zoom, y: 140 / zoom, handleIn: null, handleOut: null },
+          { x: 430 / zoom, y: 230 / zoom, handleIn: null, handleOut: null },
+        ],
+        false,
+      );
+    },
+  );
+
+  it.each([0.06, 1, 16])(
+    'nearby repeated clicks finish without a duplicate anchor at zoom %s',
+    (zoom) => {
+      const tool = new PenTool();
+      const ctx = makeCtx({
+        zoom,
+        canvasToWorld: vi.fn((x, y) => ({ x: x / zoom, y: y / zoom })),
+      });
+      tool.onActivate(ctx);
+      for (const [x, y] of [
+        [100, 100],
+        [260, 140],
+        [264, 143],
+      ]) {
+        const event = makePointerEvent(x!, y!, { detail: 0 });
+        tool.onPointerDown(event, ctx);
+        tool.onPointerUp(event, ctx);
+        vi.advanceTimersByTime(120);
+      }
+      expect(ctx.createShapeAt).toHaveBeenCalledOnce();
+      expect(vi.mocked(ctx.createShapeAt).mock.calls[0]![3]).toHaveLength(2);
+      expect(ctx.announce).toHaveBeenCalledWith('Path finished');
+    },
+  );
+
+  it.each([0.06, 1, 16])(
+    'a repeat beyond the CSS distance threshold adds an anchor at zoom %s',
+    (zoom) => {
+      const tool = new PenTool();
+      const ctx = makeCtx({
+        zoom,
+        canvasToWorld: vi.fn((x, y) => ({ x: x / zoom, y: y / zoom })),
+      });
+      tool.onActivate(ctx);
+      for (const [x, y] of [
+        [100, 100],
+        [260, 140],
+        [269, 140],
+      ]) {
+        const event = makePointerEvent(x!, y!, { detail: 0 });
+        tool.onPointerDown(event, ctx);
+        tool.onPointerUp(event, ctx);
+        vi.advanceTimersByTime(120);
+      }
+      expect(ctx.createShapeAt).not.toHaveBeenCalled();
+      tool.onKeyDown(makeKeyEvent('Enter'), ctx);
+      expect(vi.mocked(ctx.createShapeAt).mock.calls[0]![3]).toHaveLength(3);
+    },
+  );
+
   it('double-click finishes path', () => {
     const tool = new PenTool();
     const ctx = makeCtx();

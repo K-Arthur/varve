@@ -547,6 +547,52 @@ describe('exportNodeAsRaster', () => {
     expect(createRasterSurface).toHaveBeenCalledWith(11, 10, { alpha: true });
   });
 
+  it.each([
+    [0.5, 0.5],
+    [-0.5, -0.5],
+    [371, 99.5],
+    [371.5, 100],
+  ])(
+    'keeps whole-pixel rectangle exports at authored dimensions after translation (%s, %s)',
+    async (x, y) => {
+      const doc = createDocument('Translated rectangle export', true);
+      const node = makeShapeNode(
+        'translated-rectangle',
+        { kind: 'rect', x: 0, y: 0, w: 200, h: 150 },
+        { transform: [1, 0, 0, 1, x, y] },
+      );
+      const translatedDoc = { ...doc, rootChildren: [node.id], nodes: { [node.id]: node } };
+      const eng = await createEngine('stub');
+
+      await exportNodeAsRaster(node, translatedDoc, eng, { format: 'image/png', scale: 1 });
+
+      expect(createRasterSurface).toHaveBeenCalledWith(200, 150, { alpha: true });
+    },
+  );
+
+  it('keeps resolved IR overflow conservative even when an authored rectangle has no effects', async () => {
+    const doc = createDocument('Resolved rectangle export', true);
+    const node = makeShapeNode(
+      'resolved-rectangle',
+      { kind: 'rect', x: 0, y: 0, w: 200, h: 150 },
+      { transform: [1, 0, 0, 1, 0.5, 0.5] },
+    );
+    const resolvedDoc = { ...doc, rootChildren: [node.id], nodes: { [node.id]: node } };
+    const eng = await createEngine('stub');
+    const buildIr = eng.buildIr.bind(eng);
+    vi.spyOn(eng, 'buildIr').mockImplementation(async (scene) =>
+      (await buildIr(scene)).map((item) =>
+        item.primitive.kind === 'rect'
+          ? { ...item, primitive: { ...item.primitive, w: item.primitive.w + 10 } }
+          : item,
+      ),
+    );
+
+    await exportNodeAsRaster(node, resolvedDoc, eng, { format: 'image/png', scale: 1 });
+
+    expect(createRasterSurface).toHaveBeenCalledWith(211, 151, { alpha: true });
+  });
+
   it('keeps an integer-sized translated image export at its authored bounds', async () => {
     const doc = createDocument('Expanded image export', true);
     const baseNode = makeShapeNode(

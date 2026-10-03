@@ -92,6 +92,18 @@ test.describe('Node editing pointer selection', () => {
       })
       .toBe(true);
 
+    // NodeEditTool handles the anchors through real canvas pointer events.
+    // A transform hit target at a bounding-box edge must not steal them.
+    expect(
+      await page.evaluate(
+        (points) =>
+          points.map(({ x, y }) =>
+            document.elementFromPoint(x, y)?.matches('canvas.editor-canvas__content-layer'),
+          ),
+        before,
+      ),
+    ).toEqual([true, true, true]);
+
     const canvas = page.locator('canvas.editor-canvas__content-layer');
     const beforePixels = await canvas.screenshot();
     await page.mouse.click(before[0]!.x, before[0]!.y);

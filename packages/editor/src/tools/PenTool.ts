@@ -13,6 +13,7 @@
 
 import { nodeWorldTransform } from '../scene/world';
 import { BaseTool } from './BaseTool';
+import { worldDistanceForCssPixels } from './inputNormalizer';
 import {
   distanceToPathEndpoint,
   pathPointsLocalToWorld,
@@ -34,6 +35,7 @@ enum PenState {
   Dragging, // currently dragging from last placed point to create handles
 }
 
+const DOUBLE_CLICK_DISTANCE_CSS_PX = 8;
 const HANDLE_DRAG_THRESHOLD = 3; // CSS pixels before handles appear
 
 export class PenTool extends BaseTool {
@@ -115,6 +117,24 @@ export class PenTool extends BaseTool {
     return true;
   }
 
+  private isRepeatedAnchorClick(
+    previous: PenPoint,
+    world: { x: number; y: number },
+    now: number,
+    ctx: ToolContext,
+  ): boolean {
+    // Pointer down detail is zero in conforming browsers, so the early finish
+    // guard cannot use MouseEvent's click count. Fast clicks at distinct
+    // anchors are ordinary construction; only a nearby repeat can finish.
+    // This compares world coordinates, hence the CSS-to-world conversion.
+    return (
+      this.points.length > 1 &&
+      now - this.lastPointTime < 300 &&
+      Math.hypot(world.x - previous.x, world.y - previous.y) <=
+        worldDistanceForCssPixels(DOUBLE_CLICK_DISTANCE_CSS_PX, ctx.zoom)
+    );
+  }
+
   override onPointerDown(e: PointerEvent, ctx: ToolContext): GestureResult {
     if (this.activePointerId !== null && this.activePointerId !== e.pointerId) {
       return { consumed: false };
@@ -150,7 +170,7 @@ export class PenTool extends BaseTool {
       const prev = this.points[this.points.length - 1];
       if (!prev) throw new Error('previous point not found');
       const now = Date.now();
-      if (now - this.lastPointTime < 300 && this.points.length > 1) {
+      if (this.isRepeatedAnchorClick(prev, world, now, ctx)) {
         this.commitPath(ctx, false);
         ctx.announce('Path finished');
         return { consumed: true };

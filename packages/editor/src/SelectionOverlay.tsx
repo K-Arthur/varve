@@ -354,7 +354,9 @@ function selectionHandlesAreInteractive(
 ): boolean {
   if (!single || !node || locked) return false;
   return (
-    (tool === 'select' || tool === 'nodeEdit' || tool === 'scale') &&
+    // Node editing owns every anchor hit, including anchors on box edges.
+    // Transform hit targets there would intercept Shift selection and drags.
+    (tool === 'select' || tool === 'scale') &&
     (node.kind === 'shape' || node.kind === 'frame' || node.kind === 'text')
   );
 }
