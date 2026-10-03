@@ -45,7 +45,7 @@ test('Strokes guidance stays readable across themes, widths, and deploy bases', 
     .poll(() => proofImage.evaluate((image) => (image as HTMLImageElement).naturalWidth))
     .toBeGreaterThan(0);
   const clippedImage = page.getByRole('img', {
-    name: 'Varve Design workspace with red shading clipped inside a blue painted shape on a separate Shading layer',
+    name: 'Varve Draw workspace with teal shading clipped inside red apple flats on a separate Shading layer',
   });
   await expect(clippedImage).toBeVisible();
   await expect

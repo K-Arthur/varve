@@ -14,9 +14,12 @@ test.describe('palette extraction marketing surface', () => {
     // The color page also contains a second feature visual for effects. Select
     // the palette capture by its manifest-owned alt text rather than relying
     // on a page-wide class that is intentionally shared by both visuals.
-    const paletteVisual = page.locator('img[alt*="Palette Inspector"]');
+    const paletteVisual = page.getByRole('img', {
+      name: 'Varve showing a NASA Earth-observation photo beside its extracted palette, with HEX swatches and controls to save swatches or color tokens',
+      exact: true,
+    });
     await expect(paletteVisual).toBeVisible();
-    await expect(paletteVisual).toHaveAttribute('alt', /extracted swatches/i);
+    await expect(paletteVisual).toHaveAttribute('alt', /extracted palette.*HEX swatches/i);
 
     await testInfo.attach('palette-feature-light', {
       body: await page.locator('.feature-page').screenshot(),
