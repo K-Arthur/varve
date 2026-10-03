@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  blockedBandFromRects,
   clampQuickBarLeft,
   padReserveFromRects,
   QUICK_BAR_EDGE_MARGIN,
@@ -103,6 +104,31 @@ describe('resolveQuickBarTop', () => {
     expect(placement.flipped).toBe(false);
   });
 
+  it('keeps Group below the multi-select hint and above the floating palette', () => {
+    const placement = resolveQuickBarTop({
+      selectionTop: 260,
+      selectionBottom: 330,
+      barHeight: 44,
+      containerHeight: 521,
+      reservedBottom: 54,
+      blockedBands: [{ top: 335, bottom: 385 }],
+    });
+    expect(placement).toEqual({ top: 393, flipped: false });
+    expect(placement.top + 44).toBeLessThan(467);
+  });
+
+  it('flips above a hint when it cannot fit between the hint and palette', () => {
+    const placement = resolveQuickBarTop({
+      selectionTop: 260,
+      selectionBottom: 330,
+      barHeight: 44,
+      containerHeight: 430,
+      reservedBottom: 54,
+      blockedBands: [{ top: 335, bottom: 385 }],
+    });
+    expect(placement).toEqual({ top: 208, flipped: true });
+  });
+
   it('stays above the palette band instead of underneath it', () => {
     // Regression: with the palette occupying the bottom 57 px, "below" would put
     // the bar inside it, where the palette (a higher z-level) swallows clicks.
@@ -162,5 +188,21 @@ describe('resolveQuickBarTop', () => {
         expect(placement.top).toBeGreaterThanOrEqual(base.margin);
       }
     }
+  });
+});
+
+describe('blockedBandFromRects', () => {
+  it('converts a hint from viewport coordinates without reserving an entire edge', () => {
+    expect(blockedBandFromRects({ top: 100, bottom: 621 }, { top: 435, bottom: 485 })).toEqual({
+      top: 335,
+      bottom: 385,
+    });
+  });
+
+  it('ignores absent, collapsed and off-canvas hints', () => {
+    const canvas = { top: 100, bottom: 621 };
+    expect(blockedBandFromRects(canvas, null)).toBeNull();
+    expect(blockedBandFromRects(canvas, { top: 150, bottom: 150 })).toBeNull();
+    expect(blockedBandFromRects(canvas, { top: 700, bottom: 740 })).toBeNull();
   });
 });

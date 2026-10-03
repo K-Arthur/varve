@@ -2,7 +2,7 @@
  * SelectionQuickBar — floating icon+label actions for sparse selection kinds.
  */
 import '@testing-library/jest-dom/vitest';
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { QuickBarProfile } from './resolveQuickBarProfile';
 import { SelectionQuickBar } from './SelectionQuickBar';
@@ -309,6 +309,46 @@ describe('SelectionQuickBar', () => {
       palette.remove();
     } finally {
       globalThis.ResizeObserver = originalResizeObserver;
+    }
+  });
+
+  it('responds when a contextual hint appears and disappears after selection', async () => {
+    const shell = document.createElement('div');
+    shell.className = 'editor-shell';
+    const boundary = document.createElement('div');
+    const canvas = document.createElement('div');
+    canvas.className = 'editor-canvas';
+    canvas.getBoundingClientRect = () =>
+      ({ top: 100, bottom: 621, left: 0, right: 740, width: 740, height: 521 }) as DOMRect;
+    boundary.appendChild(canvas);
+    shell.appendChild(boundary);
+    document.body.appendChild(shell);
+    const { container } = render(
+      <SelectionQuickBar
+        profile={{ kind: 'multi', actions: [{ id: 'group', label: 'Group' }] }}
+        screenBounds={{ x: 360, y: 260, w: 100, h: 70 }}
+        containerHeight={521}
+        containerWidth={740}
+        onAction={vi.fn()}
+      />,
+      { container: canvas },
+    );
+    const bar = container.querySelector('.selection-quick-bar') as HTMLElement;
+    expect(bar.style.top).toBe('338px');
+    const hint = document.createElement('div');
+    hint.className = 'micro-hint';
+    hint.getBoundingClientRect = () =>
+      ({ top: 435, bottom: 485, left: 178, right: 518, width: 340, height: 50 }) as DOMRect;
+    try {
+      // Shell sibling outside the canvas/ErrorBoundary, matching production.
+      shell.appendChild(hint);
+      await waitFor(() => expect(bar.style.top).toBe('393px'));
+      expect(screen.getByRole('button', { name: 'Group' })).toBeInTheDocument();
+      hint.remove();
+      await waitFor(() => expect(bar.style.top).toBe('338px'));
+    } finally {
+      hint.remove();
+      shell.remove();
     }
   });
 });

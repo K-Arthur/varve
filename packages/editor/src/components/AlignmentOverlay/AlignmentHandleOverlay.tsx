@@ -7,6 +7,7 @@ import {
   getAlignmentCapabilities,
 } from '../../scene/selectionArrangement';
 import { nodeWorldBounds } from '../../scene/world';
+import { type GapReadoutBox, placeGapReadout } from './gapReadoutPlacement';
 import './alignment-overlay.css';
 
 interface Bounds {
@@ -237,6 +238,8 @@ export function AlignmentHandleOverlay() {
     };
   }, [dragState, finishDrag]);
 
+  const occupiedReadouts: GapReadoutBox[] = [];
+
   const renderHorizontalBars = () => {
     if (sortedH.length < 2) return null;
     return sortedH.slice(0, -1).map((item, i) => {
@@ -267,6 +270,13 @@ export function AlignmentHandleOverlay() {
           : gapsH[i];
       const isActive = dragState?.activeIndex === i && dragState?.axis === 'horizontal';
       const isHovered = hoveredIndex === i;
+      const labelY = midY - (isHovered || isActive ? 10 : 8);
+      const readout = placeGapReadout(
+        { x: midX, y: labelY, text: `${gap}px` },
+        occupiedReadouts,
+        viewport,
+      );
+      if (readout.reserve) occupiedReadouts.push(readout.box);
 
       return (
         <g key={`h-bar-${item.id}-${next.id}`}>
@@ -310,9 +320,19 @@ export function AlignmentHandleOverlay() {
             } pixels`}
             tabIndex={0}
           />
+          {readout.shifted && (
+            <line
+              x1={midX}
+              y1={labelY + 4}
+              x2={readout.x}
+              y2={readout.y + 4}
+              className="alignment-handle__label-leader"
+              focusable="false"
+            />
+          )}
           <text
-            x={midX}
-            y={midY - (isHovered || isActive ? 10 : 8)}
+            x={readout.x}
+            y={readout.y}
             textAnchor="middle"
             className="alignment-handle__label"
             fontSize={isActive ? 11 : 10}
@@ -354,6 +374,13 @@ export function AlignmentHandleOverlay() {
           : gapsV[i];
       const isActive = dragState?.activeIndex === i && dragState?.axis === 'vertical';
       const isHovered = hoveredIndex === sortedH.length + i;
+      const labelY = midY - (isHovered || isActive ? 10 : 8);
+      const readout = placeGapReadout(
+        { x: midX, y: labelY, text: `${gap}px` },
+        occupiedReadouts,
+        viewport,
+      );
+      if (readout.reserve) occupiedReadouts.push(readout.box);
 
       return (
         <g key={`v-bar-${item.id}-${next.id}`}>
@@ -393,9 +420,19 @@ export function AlignmentHandleOverlay() {
             } pixels`}
             tabIndex={0}
           />
+          {readout.shifted && (
+            <line
+              x1={midX}
+              y1={labelY + 4}
+              x2={readout.x}
+              y2={readout.y + 4}
+              className="alignment-handle__label-leader"
+              focusable="false"
+            />
+          )}
           <text
-            x={midX}
-            y={midY - (isHovered || isActive ? 10 : 8)}
+            x={readout.x}
+            y={readout.y}
             textAnchor="middle"
             className="alignment-handle__label"
             fontSize={isActive ? 11 : 10}

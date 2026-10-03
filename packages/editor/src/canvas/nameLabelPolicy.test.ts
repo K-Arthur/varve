@@ -3,6 +3,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
+  NAME_LABEL_MAX,
   NAME_LABEL_ZOOM_THRESHOLD,
   type NameLabelCandidate,
   oneLineLabelName,
@@ -167,5 +168,84 @@ describe('pickNameLabelCandidates', () => {
     expect(picked.map((p) => p.id)).toContain('f1');
     expect(picked.map((p) => p.id)).not.toContain('s1');
     expect(picked.map((p) => p.id)).not.toContain('off');
+  });
+
+  const project = (c: NameLabelCandidate) => ({
+    screenX: c.x,
+    screenY: c.y,
+    screenW: c.w,
+    screenH: c.h,
+  });
+
+  it('keeps every overlapping selected name separate and outside selected artwork', () => {
+    const selected = [
+      { id: 'photo', name: 'photo.png', x: 370, y: 260, w: 1, h: 1 },
+      { id: 'rect', name: 'Rectangle', x: 360, y: 270, w: 100, h: 60 },
+      { id: 'circle', name: 'Circle', x: 386, y: 276, w: 48, h: 48 },
+    ].map((node) => ({ ...node, kind: 'shape', depth: 0, parentId: null, selected: true }));
+    const picked = pickNameLabelCandidates(selected, {
+      zoom: 1,
+      viewportW: 740,
+      viewportH: 521,
+      project,
+    });
+    expect(picked.map((label) => label.fullName)).toEqual(['photo.png', 'Rectangle', 'Circle']);
+    // Vertical gap readouts between tiny targets can extend 22px above the
+    // selection; keeping names outside bodies alone is insufficient.
+    expect(picked.every((label) => label.labelY + 18 < 260 - 22)).toBe(true);
+    expect(new Set(picked.map((label) => label.labelY)).size).toBe(3);
+    // Collision relief must not change the bounds used to identify the node.
+    expect(picked.find((label) => label.id === 'circle')?.screenY).toBe(276);
+  });
+
+  it('places selected names below artwork when no readable row fits above', () => {
+    const selected = ['One', 'Two'].map((name, index) => ({
+      id: `${index}`,
+      name,
+      x: 70,
+      y: 2,
+      w: 40,
+      h: 30,
+      kind: 'shape',
+      depth: 0,
+      parentId: null,
+      selected: true,
+    }));
+    const picked = pickNameLabelCandidates(selected, {
+      zoom: 1,
+      viewportW: 160,
+      viewportH: 120,
+      project,
+    });
+    expect(picked).toHaveLength(2);
+    expect(picked[0]?.labelY).toBe(34);
+    expect(picked[1]?.labelY).toBe(54);
+  });
+
+  it('bounds the crowded no-free-space fallback without dropping selected identities', () => {
+    const selected = Array.from({ length: 1000 }, (_, index) => ({
+      id: `selected-${index}`,
+      name: `Layer ${index}`,
+      x: 20,
+      y: 0,
+      w: 100,
+      h: 40,
+      kind: 'shape',
+      depth: 0,
+      parentId: null,
+      selected: true,
+      paintOrder: index,
+    }));
+    const picked = pickNameLabelCandidates(selected, {
+      zoom: 1,
+      viewportW: 160,
+      viewportH: 40,
+      project,
+    });
+    expect(picked).toHaveLength(NAME_LABEL_MAX);
+    expect(picked.map((label) => label.fullName)).toEqual(
+      selected.slice(0, NAME_LABEL_MAX).map((node) => node.name),
+    );
+    expect(picked.every((label) => Number.isFinite(label.labelY) && label.labelY >= 4)).toBe(true);
   });
 });

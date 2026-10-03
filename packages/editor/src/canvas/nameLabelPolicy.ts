@@ -43,6 +43,9 @@ export interface NameLabelPlacement {
   screenY: number;
   screenW: number;
   screenH: number;
+  /** Label box position, kept separate when active labels need collision relief. */
+  labelX: number;
+  labelY: number;
   kind: string;
   surfaceKey?: string;
   selected: boolean;
@@ -65,6 +68,12 @@ const NAME_LABEL_MAX_WIDTH = 280;
 const NAME_LABEL_OFFSET_Y = 22;
 /** Culling margin around the viewport, in screen px. */
 const NAME_LABEL_CULL_MARGIN = 24;
+const NAME_LABEL_HEIGHT = 18;
+const NAME_LABEL_GAP = 2;
+const NAME_LABEL_EDGE = 4;
+
+type LabelBox = { x: number; y: number; w: number; h: number };
+type ProjectedBounds = Pick<NameLabelPlacement, 'screenX' | 'screenY' | 'screenW' | 'screenH'>;
 
 /** Remove controls/newlines without changing the authored document name. */
 export function oneLineLabelName(name: string): string {
@@ -95,6 +104,49 @@ function overlaps(
   b: { x: number; y: number; w: number; h: number },
 ): boolean {
   return a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+}
+
+/** Active names remain available; move them out of artwork and other names. */
+function placeActiveLabel(
+  preferred: LabelBox,
+  blockers: LabelBox[],
+  viewportW: number,
+  viewportH: number,
+): LabelBox {
+  const initial = {
+    ...preferred,
+    x: Math.max(NAME_LABEL_EDGE, Math.min(preferred.x, viewportW - preferred.w - NAME_LABEL_EDGE)),
+    y: Math.max(NAME_LABEL_EDGE, Math.min(preferred.y, viewportH - preferred.h - NAME_LABEL_EDGE)),
+  };
+  // Each horizontally intersecting blocker forbids an interval of label-top
+  // positions. Sweep these intervals once per direction; repeated collision
+  // filtering made a dense 80-name selection unnecessarily cubic.
+  const intervals = blockers
+    .filter((box) => initial.x < box.x + box.w && box.x < initial.x + initial.w)
+    .map((box) => ({
+      low: box.y - initial.h - NAME_LABEL_GAP,
+      high: box.y + box.h + NAME_LABEL_GAP,
+    }))
+    .sort((a, b) => b.high - a.high);
+  let y = initial.y;
+  for (const interval of intervals) {
+    if (y > interval.low && y < interval.high) y = interval.low;
+  }
+  if (y >= NAME_LABEL_EDGE) return { ...initial, y };
+  // Near the viewport top search below instead, retaining the name.
+  y = initial.y;
+  intervals.sort((a, b) => a.low - b.low);
+  for (const interval of intervals) {
+    if (y > interval.low && y < interval.high) y = interval.high;
+  }
+  if (y + initial.h <= viewportH - NAME_LABEL_EDGE) return { ...initial, y };
+  // An overfilled/short canvas can have no free label row. Keep the name and
+  // its full title reachable; do not silently drop selected identities.
+  return initial;
+}
+
+function projectedObjectBox(p: ProjectedBounds): LabelBox {
+  return { x: p.screenX, y: p.screenY, w: Math.max(0, p.screenW), h: Math.max(0, p.screenH) };
 }
 
 export function shouldShowNameLabel(opts: {
@@ -202,7 +254,7 @@ export function pickNameLabelCandidates(
 ): NameLabelPlacement[] {
   const out: NameLabelPlacement[] = [];
   const sorted = orderedCandidates(candidates);
-  const occupied: Array<{ x: number; y: number; w: number; h: number }> = [];
+  const occupied: LabelBox[] = [];
 
   const viewportBox = {
     x: -NAME_LABEL_CULL_MARGIN,
@@ -211,16 +263,41 @@ export function pickNameLabelCandidates(
     h: opts.viewportH + NAME_LABEL_CULL_MARGIN * 2,
   };
 
+  // Active candidates sort first. Project only their visible prefix once so
+  // names on nested/overlapping selections can avoid every selected body,
+  // including a body encountered later in paint order.
+  const activeBounds = new Map<NameLabelCandidate, ProjectedBounds>();
+  const activeObjects: LabelBox[] = [];
+  let visibleSelectedCount = 0;
+  for (const { candidate: c } of sorted) {
+    if (!(c.selected || c.hovered || c.editing)) break;
+    if (activeObjects.length >= NAME_LABEL_MAX) break;
+    if (opts.mayBeVisible && !opts.mayBeVisible(c)) continue;
+    const projected = opts.project(c);
+    activeBounds.set(c, projected);
+    const box = projectedObjectBox(projected);
+    if (overlaps(box, viewportBox)) {
+      activeObjects.push(box);
+      if (c.selected) visibleSelectedCount++;
+    }
+  }
+  // Gap readouts sit above their spacing handles and can protrude above a
+  // tiny selected node (e.g. the 1px PNG beside imported SVG artwork). Leave
+  // that existing readout band clear as well as the bodies themselves.
+  const activeBlockers =
+    visibleSelectedCount > 1
+      ? activeObjects.map((box) => ({
+          ...box,
+          y: box.y - NAME_LABEL_OFFSET_Y,
+          h: box.h + NAME_LABEL_OFFSET_Y,
+        }))
+      : activeObjects;
+
   for (const { candidate: c } of sorted) {
     if (out.length >= NAME_LABEL_MAX) break;
     if (opts.mayBeVisible && !opts.mayBeVisible(c)) continue;
-    const p = opts.project(c);
-    const objectBox = {
-      x: p.screenX,
-      y: p.screenY,
-      w: Math.max(0, p.screenW),
-      h: Math.max(0, p.screenH),
-    };
+    const p = activeBounds.get(c) ?? opts.project(c);
+    const objectBox = projectedObjectBox(p);
     // Culling includes the label box: a frame just outside the viewport can
     // still have a readable title entering through the edge. The widest label
     // is checked first; the real one starts at the same point and is no
@@ -230,13 +307,13 @@ export function pickNameLabelCandidates(
       x: p.screenX,
       y: p.screenY - NAME_LABEL_OFFSET_Y,
       w: NAME_LABEL_MAX_WIDTH,
-      h: 18,
+      h: NAME_LABEL_HEIGHT,
     };
     const objectVisible = overlaps(objectBox, viewportBox);
     if (!objectVisible && !overlaps(widestLabelBox, viewportBox)) continue;
     const fullName = oneLineLabelName(c.name);
     const displayName = displayLabelName(fullName);
-    const labelBox = { ...widestLabelBox, w: estimatedLabelWidth(displayName, c.kind) };
+    let labelBox = { ...widestLabelBox, w: estimatedLabelWidth(displayName, c.kind) };
     if (!objectVisible && !overlaps(labelBox, viewportBox)) continue;
     const forceShow = Boolean(c.selected || c.hovered || c.editing);
     if (
@@ -252,6 +329,14 @@ export function pickNameLabelCandidates(
     ) {
       continue;
     }
+    if (forceShow && objectVisible) {
+      labelBox = placeActiveLabel(
+        labelBox,
+        [...activeBlockers, ...occupied],
+        opts.viewportW,
+        opts.viewportH,
+      );
+    }
     if (!forceShow && occupied.some((box) => overlaps(box, labelBox))) continue;
     occupied.push(labelBox);
     out.push({
@@ -264,6 +349,8 @@ export function pickNameLabelCandidates(
       screenY: p.screenY,
       screenW: p.screenW,
       screenH: p.screenH,
+      labelX: labelBox.x,
+      labelY: labelBox.y,
       kind: c.kind,
       surfaceKey: c.surfaceKey,
       selected: Boolean(c.selected),

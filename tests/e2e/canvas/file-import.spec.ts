@@ -33,6 +33,32 @@ async function ensureEditor(page: import('@playwright/test').Page): Promise<void
   await layers.waitFor({ state: 'visible', timeout: 30000 });
 }
 
+async function selectionChromeCollisions(page: import('@playwright/test').Page) {
+  return page.evaluate(() => {
+    const overlap = (a: DOMRect, b: DOMRect) =>
+      a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+    const names = Array.from(
+      document.querySelectorAll('.canvas-name-labels text[data-selected="true"]'),
+      (node) => node.getBoundingClientRect(),
+    );
+    const gaps = Array.from(document.querySelectorAll('.alignment-handle__label'), (node) =>
+      node.getBoundingClientRect(),
+    );
+    const hint = document.querySelector('.micro-hint')?.getBoundingClientRect();
+    const actions = document.querySelector('.selection-quick-bar')?.getBoundingClientRect();
+    return {
+      names: names.some((name, index) =>
+        names.slice(index + 1).some((other) => overlap(name, other)),
+      ),
+      gaps: names.some((name) => gaps.some((gap) => overlap(name, gap))),
+      readouts: gaps.some((gap, index) =>
+        gaps.slice(index + 1).some((other) => overlap(gap, other)),
+      ),
+      hint: Boolean(hint && actions && overlap(hint, actions)),
+    };
+  });
+}
+
 test.describe('File → Import', () => {
   test.describe.configure({ mode: 'serial' });
 
@@ -72,6 +98,18 @@ test.describe('File → Import', () => {
     await expect(layers.locator('[role="treeitem"]')).toHaveCount(3, {
       timeout: 30000,
     });
+    await expect(
+      page.getByTestId('selection-quick-bar').getByRole('button', { name: 'Group' }),
+    ).toBeVisible();
+    await expect(page.locator('.canvas-name-labels text[data-selected="true"]')).toHaveCount(3);
+    await expect
+      .poll(() => selectionChromeCollisions(page))
+      .toEqual({
+        names: false,
+        gaps: false,
+        readouts: false,
+        hint: false,
+      });
 
     const canvas = page.locator('canvas.editor-canvas__content-layer');
     await page.evaluate(() => {

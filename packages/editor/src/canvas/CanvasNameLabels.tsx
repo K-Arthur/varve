@@ -221,8 +221,8 @@ export function CanvasNameLabels({
         return (
           <text
             key={label.id}
-            x={label.screenX}
-            y={label.screenY - 6}
+            x={label.labelX}
+            y={label.labelY + 16}
             fill={isFrame ? 'var(--color-text-secondary)' : 'var(--color-text-muted)'}
             fontSize={isFrame ? 11 : 10}
             fontFamily="var(--font-body, system-ui, sans-serif)"

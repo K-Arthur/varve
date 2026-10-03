@@ -44,6 +44,17 @@
   font-size: var(--font-size-2xs);
   font-family: var(--font-mono, monospace);
   pointer-events: none;
+  paint-order: stroke;
+  stroke: var(--color-surface-app);
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+
+.alignment-handle__label-leader {
+  stroke: var(--color-text-muted);
+  stroke-width: 1;
+  stroke-dasharray: 2 2;
+  pointer-events: none;
 }
 
 .alignment-guide-overlay {

@@ -130,6 +130,44 @@ export interface QuickBarVerticalPlacement {
   flipped: boolean;
 }
 
+export interface QuickBarBlockedBand {
+  top: number;
+  bottom: number;
+}
+
+/** Informational canvas chrome is a middle obstacle, not an occupied edge. */
+export function blockedBandFromRects(
+  canvas: { top: number; bottom: number } | null | undefined,
+  obstacle: { top: number; bottom: number } | null | undefined,
+): QuickBarBlockedBand | null {
+  if (!canvas || !obstacle) return null;
+  const top = Math.max(0, obstacle.top - canvas.top);
+  const bottom = Math.min(canvas.bottom - canvas.top, obstacle.bottom - canvas.top);
+  return Number.isFinite(top) && Number.isFinite(bottom) && bottom > top ? { top, bottom } : null;
+}
+
+function freeBarTop(
+  preferred: number,
+  direction: -1 | 1,
+  height: number,
+  usableTop: number,
+  usableBottom: number,
+  bands: readonly QuickBarBlockedBand[],
+  margin: number,
+): number | null {
+  let top = Math.max(usableTop, preferred);
+  for (let attempt = 0; attempt <= bands.length; attempt++) {
+    if (top < usableTop || top + height > usableBottom) return null;
+    const collisions = bands.filter((band) => top < band.bottom && top + height > band.top);
+    if (collisions.length === 0) return top;
+    top =
+      direction > 0
+        ? Math.max(...collisions.map((band) => band.bottom)) + margin
+        : Math.min(...collisions.map((band) => band.top)) - margin - height;
+  }
+  return null;
+}
+
 /**
  * Vertical placement. Preference order: below the selection, above the
  * selection, then as high as possible — never inside a reserved edge band.
@@ -143,6 +181,8 @@ export function resolveQuickBarTop(params: {
   reservedTop?: number;
   /** Chrome pinned to the canvas bottom (see padReserveFromRects). */
   reservedBottom?: number;
+  /** Canvas-local bands occupied by contextual hints, measured independently. */
+  blockedBands?: readonly QuickBarBlockedBand[];
   margin?: number;
 }): QuickBarVerticalPlacement {
   const margin = Math.max(0, params.margin ?? QUICK_BAR_EDGE_MARGIN);
@@ -157,6 +197,19 @@ export function resolveQuickBarTop(params: {
 
   const belowTop = params.selectionBottom + margin;
   const aboveTop = params.selectionTop - margin - height;
+  const bands = (params.blockedBands ?? []).filter(
+    (band) => Number.isFinite(band.top) && Number.isFinite(band.bottom) && band.bottom > band.top,
+  );
+  if (bands.length > 0) {
+    // Keep the usual below-selection preference, moving past a hint when that
+    // leaves room before the tool palette. Raising z-index would hide the hint.
+    const below = freeBarTop(belowTop, 1, height, usableTop, usableBottom, bands, margin);
+    if (below !== null) return { top: below, flipped: false };
+    const above = freeBarTop(aboveTop, -1, height, usableTop, usableBottom, bands, margin);
+    if (above !== null) return { top: above, flipped: true };
+    const fallback = freeBarTop(usableTop, 1, height, usableTop, usableBottom, bands, margin);
+    if (fallback !== null) return { top: fallback, flipped: true };
+  }
   const fitsBelow = belowTop >= usableTop && belowTop + height <= usableBottom;
   const flipped = !fitsBelow;
   const preferred = fitsBelow ? belowTop : Math.max(usableTop, aboveTop);

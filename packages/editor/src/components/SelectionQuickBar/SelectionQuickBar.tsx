@@ -10,9 +10,11 @@ import { Icon, type IconName, Menu, type MenuEntry, Tooltip } from '@varve/ui';
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { QuickBarAction, QuickBarActionId, QuickBarProfile } from './resolveQuickBarProfile';
 import {
+  blockedBandFromRects,
   clampQuickBarLeft,
   padReserveFromRects,
   QUICK_BAR_EDGE_MARGIN,
+  type QuickBarBlockedBand,
   type QuickBarPadReserve,
   resolveQuickBarTop,
 } from './selectionQuickBarPosition';
@@ -20,6 +22,7 @@ import './SelectionQuickBar.css';
 
 /** The floating tool palette; the bar must not place itself under it. */
 const FLOATING_PALETTE_SELECTOR = '[data-testid="toolbar"].floating-toolbar';
+const CONTEXT_HINT_SELECTOR = '.micro-hint';
 
 export { FLOATING_PALETTE_SELECTOR };
 
@@ -116,6 +119,7 @@ export function SelectionQuickBar({
   const [barHeight, setBarHeight] = useState(ESTIMATED_BAR_HEIGHT);
   const [barWidth, setBarWidth] = useState(0);
   const [padReserve, setPadReserve] = useState<QuickBarPadReserve>({ top: 0, bottom: 0 });
+  const [blockedBands, setBlockedBands] = useState<QuickBarBlockedBand[]>([]);
   const pending = useMemo(() => new Set(pendingActionIds), [pendingActionIds]);
   const active = useMemo(() => new Set(activeActionIds), [activeActionIds]);
   const moreActions = profile.moreActions ?? [];
@@ -123,6 +127,9 @@ export function SelectionQuickBar({
   useLayoutEffect(() => {
     const el = barRef.current;
     if (!el) return;
+    const canvas = el.closest('.editor-canvas');
+    const chromeRoot = canvas?.closest('.editor-shell') ?? document.body;
+    let observedHint: Element | null = null;
     const measure = () => {
       const rect = el.getBoundingClientRect();
       setBarHeight(rect.height || ESTIMATED_BAR_HEIGHT);
@@ -134,21 +141,39 @@ export function SelectionQuickBar({
       // `.editor-canvas` (not a descendant), so the lookup is document-scoped;
       // the band is derived from viewport rects, which is correct regardless of
       // where either element sits in the tree.
-      const canvas = el.closest('.editor-canvas');
       const palette = document.querySelector(FLOATING_PALETTE_SELECTOR);
-      setPadReserve(
-        padReserveFromRects(
-          canvas?.getBoundingClientRect() ?? null,
-          palette?.getBoundingClientRect() ?? null,
-        ),
-      );
+      const canvasRect = canvas?.getBoundingClientRect() ?? null;
+      setPadReserve(padReserveFromRects(canvasRect, palette?.getBoundingClientRect() ?? null));
+      const hint = chromeRoot.querySelector(CONTEXT_HINT_SELECTOR);
+      const band = blockedBandFromRects(canvasRect, hint?.getBoundingClientRect() ?? null);
+      setBlockedBands((current) => {
+        const next = band ? [band] : [];
+        return current[0]?.top === next[0]?.top && current[0]?.bottom === next[0]?.bottom
+          ? current
+          : next;
+      });
+      return hint;
     };
-    measure();
-    const observer = new ResizeObserver(measure);
+    const observeChrome = () => {
+      const hint = measure();
+      if (hint === observedHint) return;
+      if (observedHint) observer.unobserve(observedHint);
+      if (hint) observer.observe(hint);
+      observedHint = hint;
+    };
+    const observer = new ResizeObserver(observeChrome);
     observer.observe(el);
+    if (canvas) observer.observe(canvas);
     const palette = document.querySelector(FLOATING_PALETTE_SELECTOR);
     if (palette) observer.observe(palette);
-    return () => observer.disconnect();
+    observeChrome();
+    // Hints appear/dismiss independently of the selected action profile.
+    const mutations = new MutationObserver(observeChrome);
+    mutations.observe(chromeRoot, { childList: true, subtree: true });
+    return () => {
+      observer.disconnect();
+      mutations.disconnect();
+    };
   }, []);
 
   const maxBarWidth = useMemo(() => {
@@ -165,6 +190,7 @@ export function SelectionQuickBar({
       containerHeight,
       reservedTop: padReserve.top,
       reservedBottom: padReserve.bottom,
+      blockedBands,
       margin: PADDING,
     });
     // The canvas is the clipping box (`overflow: hidden`), so the bar must stay
@@ -173,7 +199,15 @@ export function SelectionQuickBar({
       left: clampQuickBarLeft(centeredLeft, barWidth, containerWidth, PADDING),
       top: placement.top,
     };
-  }, [screenBounds, containerHeight, containerWidth, barHeight, barWidth, padReserve]);
+  }, [
+    screenBounds,
+    containerHeight,
+    containerWidth,
+    barHeight,
+    barWidth,
+    padReserve,
+    blockedBands,
+  ]);
 
   const handleAction = useCallback(
     (id: QuickBarActionId) => {
