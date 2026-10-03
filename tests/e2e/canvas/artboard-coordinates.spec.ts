@@ -14,19 +14,21 @@
  *   - undo/redo of the reparent keeps the world pose stable
  *
  * Conventions follow the existing canvas specs (constraints, deep-selection):
- * canvas-relative drags assume the fresh-design camera, Ctrl+click is used
+ * world positions are projected with the live camera before each gesture,
+ * Ctrl+click is used
  * when selecting a child through its containing frame, and inspector X/Y
  * fields are the numeric authority for stored coordinates.
  */
 import { expect, test } from '@playwright/test';
-import { dragOnCanvas, navigateToEditor } from '../shared';
+import { worldToScreen } from '@varve/shared';
+import { navigateToEditor } from '../shared';
 
 test.describe('Artboard-local coordinates', () => {
   test.describe.configure({ mode: 'serial' });
   let autoRevealWasEnabled = false;
 
   test.beforeEach(async ({ page }) => {
-    await navigateToEditor(page);
+    await navigateToEditor(page, '/?perf=1');
     const autoReveal = page.getByRole('button', {
       name: 'Auto-reveal canvas selection',
     });
@@ -41,24 +43,63 @@ test.describe('Artboard-local coordinates', () => {
     if ((await autoReveal.getAttribute('aria-pressed')) === 'false') await autoReveal.click();
   });
 
-  async function plainClick(
+  async function projectWorldPoints(
     page: import('@playwright/test').Page,
-    box: { x: number; y: number },
-    worldX: number,
-    worldY: number,
+    points: readonly { x: number; y: number }[],
   ) {
-    await page.mouse.click(box.x + worldX, box.y + worldY);
+    const view = await page.evaluate(async () => {
+      const perf = (
+        window as unknown as {
+          __varvePerf?: {
+            forceFullRedraw(): Promise<unknown>;
+            getLast(): {
+              camera?: { zoom: number; panX: number; panY: number; rotation: number };
+            } | null;
+          };
+        }
+      ).__varvePerf;
+      const canvas = document.querySelector<HTMLCanvasElement>(
+        'canvas.editor-canvas__content-layer',
+      );
+      const parent = canvas?.parentElement;
+      if (!perf || !canvas || !parent)
+        throw new Error('artboard pointer setup requires a mounted perf canvas');
+      // Finish a current frame after toolbar/breadcrumb geometry changes.
+      // This is setup only; inspector coordinates remain the independent oracle.
+      await perf.forceFullRedraw();
+      const camera = perf.getLast()?.camera;
+      if (!camera) throw new Error('artboard pointer setup has no committed camera');
+      const rect = canvas.getBoundingClientRect();
+      return {
+        camera,
+        viewport: { width: parent.clientWidth, height: parent.clientHeight },
+        left: rect.left,
+        top: rect.top,
+      };
+    });
+    const camera = {
+      zoom: view.camera.zoom,
+      pan: { x: view.camera.panX, y: view.camera.panY },
+      rotation: view.camera.rotation,
+    };
+    return points.map((point) => {
+      const screen = worldToScreen(camera, point.x, point.y, view.viewport);
+      return { x: view.left + screen[0], y: view.top + screen[1] };
+    });
+  }
+
+  async function plainClick(page: import('@playwright/test').Page, worldX: number, worldY: number) {
+    const [point] = await projectWorldPoints(page, [{ x: worldX, y: worldY }]);
+    if (!point) throw new Error('artboard click has no projected point');
+    await page.mouse.click(point.x, point.y);
     await page.waitForTimeout(350);
   }
 
-  async function deepClick(
-    page: import('@playwright/test').Page,
-    box: { x: number; y: number },
-    worldX: number,
-    worldY: number,
-  ) {
+  async function deepClick(page: import('@playwright/test').Page, worldX: number, worldY: number) {
+    const [point] = await projectWorldPoints(page, [{ x: worldX, y: worldY }]);
+    if (!point) throw new Error('artboard deep click has no projected point');
     await page.keyboard.down('Control');
-    await page.mouse.click(box.x + worldX, box.y + worldY);
+    await page.mouse.click(point.x, point.y);
     await page.keyboard.up('Control');
     await page.waitForTimeout(350);
   }
@@ -106,18 +147,45 @@ test.describe('Artboard-local coordinates', () => {
 
   test('child local X/Y is artboard-relative and survives artboard move', async ({ page }) => {
     test.setTimeout(120000);
+    // Park the initial camera so the declared world-space fixture is on the
+    // drawable viewport. Subsequent gestures still resolve the live camera.
+    const parked = await page.evaluate(() =>
+      (
+        window as unknown as {
+          __varvePerf?: {
+            camera: {
+              setState(camera: {
+                zoom: number;
+                pan: { x: number; y: number };
+                rotation: number;
+              }): boolean;
+            };
+          };
+        }
+      ).__varvePerf?.camera.setState({ zoom: 1, pan: { x: 0, y: 0 }, rotation: 0 }),
+    );
+    expect(parked).toBe(true);
     // Artboard at world (50,50) 400x300.
     await page.keyboard.press('f');
-    const box = await dragOnCanvas(page, 50, 50, 450, 350);
+    const [frameStart, frameEnd] = await projectWorldPoints(page, [
+      { x: 50, y: 50 },
+      { x: 450, y: 350 },
+    ]);
+    if (!frameStart || !frameEnd) throw new Error('frame setup has no projected endpoints');
+    await dragAtScreen(page, frameStart.x, frameStart.y, frameEnd.x, frameEnd.y);
     // Child rect at artboard-local (60,60)-(200,150).
     await page.keyboard.press('r');
-    await dragOnCanvas(page, 110, 110, 250, 200);
+    const [childStart, childEnd] = await projectWorldPoints(page, [
+      { x: 110, y: 110 },
+      { x: 250, y: 200 },
+    ]);
+    if (!childStart || !childEnd) throw new Error('child setup has no projected endpoints');
+    await dragAtScreen(page, childStart.x, childStart.y, childEnd.x, childEnd.y);
 
     await page.keyboard.press('v');
     await page.waitForTimeout(300);
-    // Select through the canvas so the layer-panel reveal-to-fit behavior does
-    // not change the camera and invalidate the cached canvas bounding box.
-    await deepClick(page, box, 150, 150);
+    // Resolve the live camera and drawable origin after the tool transition.
+    await deepClick(page, 150, 150);
 
     // Drawn at local (60,60): inspector shows artboard-relative values.
     const xBefore = await readField(page, 'X', 60);
@@ -125,11 +193,18 @@ test.describe('Artboard-local coordinates', () => {
 
     // Move the artboard by dragging its fill at world (80,80) — inside the
     // frame, outside the child — by (+250, +200).
-    await plainClick(page, box, 80, 80);
-    await page.mouse.move(box.x + 80, box.y + 80);
+    await plainClick(page, 80, 80);
+    const [moveStart, moveMid, moveEnd] = await projectWorldPoints(page, [
+      { x: 80, y: 80 },
+      { x: 205, y: 80 },
+      { x: 330, y: 280 },
+    ]);
+    if (!moveStart || !moveMid || !moveEnd)
+      throw new Error('frame move has no projected endpoints');
+    await page.mouse.move(moveStart.x, moveStart.y);
     await page.mouse.down();
-    await page.mouse.move(box.x + 205, box.y + 80, { steps: 6 });
-    await page.mouse.move(box.x + 330, box.y + 280, { steps: 6 });
+    await page.mouse.move(moveMid.x, moveMid.y, { steps: 6 });
+    await page.mouse.move(moveEnd.x, moveEnd.y, { steps: 6 });
     await page.mouse.up();
     await page.waitForTimeout(600);
 
@@ -137,14 +212,14 @@ test.describe('Artboard-local coordinates', () => {
     // position (360,310)-(500,400) selects the CHILD (topmost hit) and its
     // stored local X/Y is unchanged — children are never rewritten by a
     // parent move.
-    await deepClick(page, box, 420, 350);
+    await deepClick(page, 420, 350);
     await readField(page, 'X', xBefore);
     await readField(page, 'Y', yBefore);
 
     // Clicking the frame's fill (now world 300,250..700,550, outside the
     // child) selects the frame at its new placement. The drag's grab point
     // sits a few px off the frame origin, so tolerance is generous.
-    await plainClick(page, box, 330, 280);
+    await plainClick(page, 330, 280);
     await readField(page, 'X', 300, 8); // 50 + 250
     await readField(page, 'Y', 250, 8); // 50 + 200
   });
@@ -163,6 +238,10 @@ test.describe('Artboard-local coordinates', () => {
     await expect(autoReveal).toHaveAttribute('aria-pressed', 'false');
 
     const canvas = page.locator('canvas.editor-canvas__content-layer');
+    await page.keyboard.press('f');
+    // Finish the tool transition before reading geometry. The Frame tool's
+    // contextual row shifts the drawable canvas; its former origin hits a ruler.
+    await projectWorldPoints(page, []);
     const canvasBox = await canvas.boundingBox();
     if (!canvasBox) throw new Error('canvas must have screen bounds before artboard creation');
     const frameWidth = Math.min(300, Math.floor((canvasBox.width - 65) / 2));
@@ -176,45 +255,49 @@ test.describe('Artboard-local coordinates', () => {
     const frameARow = page.locator('[role="treeitem"][data-layer-type="frame"]', {
       hasText: 'Frame 1',
     });
-    await page.keyboard.press('f');
-    await dragAtScreen(
-      page,
-      canvasBox.x + 20,
-      canvasBox.y + 30,
-      canvasBox.x + 20 + frameWidth,
-      canvasBox.y + 30 + frameHeight,
-    );
+    const start = { x: canvasBox.x + 30, y: canvasBox.y + 40 };
+    expect(
+      await canvas.evaluate(
+        (element, point) => document.elementFromPoint(point.x, point.y) === element,
+        start,
+      ),
+    ).toBe(true);
+    await dragAtScreen(page, start.x, start.y, start.x + frameWidth, start.y + frameHeight);
     await page.keyboard.press('v');
     await frameARow.click();
     await expect(frameARow).toHaveAttribute('aria-selected', 'true');
-    const frameABox = await selectedOverlayBounds(page);
     const frameAX = Number(await page.getByRole('spinbutton', { name: 'X (px)' }).inputValue());
+    const frameAY = Number(await page.getByRole('spinbutton', { name: 'Y (px)' }).inputValue());
+    const frameAW = Number(
+      await page.getByRole('spinbutton', { name: 'W (px)', exact: true }).inputValue(),
+    );
+    const frameAH = Number(
+      await page.getByRole('spinbutton', { name: 'H (px)', exact: true }).inputValue(),
+    );
 
     // Draw a real child inside A using A's current overlay bounds. This makes
     // its parent relationship independent of camera origin and zoom.
     await page.keyboard.press('r');
-    await dragAtScreen(
-      page,
-      frameABox.x + frameABox.width * 0.2,
-      frameABox.y + frameABox.height * 0.2,
-      frameABox.x + frameABox.width * 0.58,
-      frameABox.y + frameABox.height * 0.58,
-    );
+    const [childStart, childEnd] = await projectWorldPoints(page, [
+      { x: frameAX + frameAW * 0.2, y: frameAY + frameAH * 0.2 },
+      { x: frameAX + frameAW * 0.58, y: frameAY + frameAH * 0.58 },
+    ]);
+    if (!childStart || !childEnd) throw new Error('child setup has no projected endpoints');
+    await dragAtScreen(page, childStart.x, childStart.y, childEnd.x, childEnd.y);
 
     // Place B beside A using the live on-screen frame bounds, then expand A
     // so selecting its child is independent of whichever frame is selected.
-    const frameBLeft = frameABox.x + frameABox.width + 15;
-    if (frameBLeft + frameWidth > canvasBox.x + canvasBox.width - 8) {
+    await page.keyboard.press('f');
+    const [frameBStart, frameBEnd] = await projectWorldPoints(page, [
+      { x: frameAX + frameAW + 15, y: frameAY },
+      { x: frameAX + frameAW * 2 + 15, y: frameAY + frameAH },
+    ]);
+    if (!frameBStart || !frameBEnd) throw new Error('second frame has no projected endpoints');
+    const liveCanvasBox = await canvas.boundingBox();
+    if (!liveCanvasBox || frameBEnd.x > liveCanvasBox.x + liveCanvasBox.width - 8) {
       throw new Error('canvas does not have room to place the second artboard beside the first');
     }
-    await page.keyboard.press('f');
-    await dragAtScreen(
-      page,
-      frameBLeft,
-      frameABox.y,
-      frameBLeft + frameWidth,
-      frameABox.y + frameHeight,
-    );
+    await dragAtScreen(page, frameBStart.x, frameBStart.y, frameBEnd.x, frameBEnd.y);
     await page.keyboard.press('v');
 
     const frame2Row = page.locator('[role="treeitem"][data-layer-type="frame"]', {
