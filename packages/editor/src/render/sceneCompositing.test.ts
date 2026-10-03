@@ -1,3 +1,4 @@
+import { createLiquifyField } from '@varve/engine';
 import {
   addChild,
   addNode,
@@ -8,6 +9,7 @@ import {
   makeAdjustmentNode,
   makeFrameNode,
   makeGroupNode,
+  makeRasterLayerNode,
   makeShapeNode,
   makeSmartFilter,
   makeTextNode,
@@ -240,6 +242,38 @@ describe('sceneHasImageFills', () => {
 });
 
 describe('sceneCanUseWorkerRenderer', () => {
+  it('keeps a deformed raster on the reference path for exact alpha-edge parity', () => {
+    const raster = makeRasterLayerNode('retouch', { width: 64, height: 64 });
+    const field = createLiquifyField(64, 64, 1, 1);
+    field.displacement[0] = 2;
+    const doc = addNode(createDocument('Liquify parity'), { ...raster, liquify: field });
+
+    expect(sceneCanUseWorkerRenderer(doc, () => true)).toBe(false);
+  });
+
+  it('keeps decoded frequency bands on the reference path', () => {
+    const raster = makeRasterLayerNode('tone', { width: 64, height: 64 });
+    const doc = addNode(createDocument('separation parity'), {
+      ...raster,
+      frequencySeparationRole: { groupId: 'separation', role: 'low' },
+    });
+
+    expect(sceneCanUseWorkerRenderer(doc, () => true)).toBe(false);
+  });
+
+  it('preserves worker eligibility for ordinary rasters and hidden retouch nodes', () => {
+    const plain = makeRasterLayerNode('plain', { width: 64, height: 64 });
+    const doc = addNode(createDocument('ordinary raster'), plain);
+    const hidden = addNode(doc, {
+      ...makeRasterLayerNode('hidden', { width: 64, height: 64 }),
+      visible: false,
+      liquify: createLiquifyField(64, 64),
+    });
+
+    expect(sceneCanUseWorkerRenderer(doc, () => true)).toBe(true);
+    expect(sceneCanUseWorkerRenderer(hidden, () => true)).toBe(true);
+  });
+
   function shapeWithFills(id: string, fills: unknown[]) {
     const node = makeShapeNode(id, { kind: 'rect', x: 0, y: 0, w: 120, h: 120 }, { name: id });
     return { ...node, fills } as typeof node;

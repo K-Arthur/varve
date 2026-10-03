@@ -1,5 +1,5 @@
 import { readFile, writeFile } from 'node:fs/promises';
-import { expect, type Page, test } from '@playwright/test';
+import { expect, type Page, type TestInfo, test } from '@playwright/test';
 import { navigateToEditor } from '../shared';
 
 test.use({ viewport: { width: 1440, height: 900 } });
@@ -73,18 +73,109 @@ async function serializedDocument(page: Page): Promise<string> {
   });
 }
 
-async function canvasHash(page: Page): Promise<string> {
-  return page.locator('canvas.editor-canvas__content-layer').evaluate((element) => {
-    const canvas = element as HTMLCanvasElement;
-    const context = canvas.getContext('2d');
-    if (!context) throw new Error('content canvas has no 2D context');
-    const data = context.getImageData(0, 0, canvas.width, canvas.height).data;
-    let hash = 2166136261;
-    for (const value of data) {
-      hash ^= value;
-      hash = Math.imul(hash, 16777619);
-    }
-    return `${data.length}:${hash >>> 0}`;
+interface OracleFrame {
+  docVersion: number;
+  renderPath: string;
+  frameIndex: number;
+  frameDecision?: string;
+  frameSource?: string;
+  renderRevision?: number;
+  camera?: { zoom: number; panX: number; panY: number; rotation: number };
+}
+interface OracleSample {
+  hash: string;
+  width: number;
+  height: number;
+  frame: OracleFrame | null;
+}
+
+declare global {
+  interface Window {
+    __retouchFullRedrawProbe?: {
+      capture: (id: string) => OracleSample;
+      diff: (
+        firstId: string,
+        secondId: string,
+      ) => {
+        changedPixels: number;
+        changedAlphaPixels: number;
+        maxDelta: number;
+        meanDelta: number;
+        bounds: { x: number; y: number; width: number; height: number } | null;
+      };
+    };
+  }
+}
+
+async function installFullRedrawProbe(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const shots = new Map<string, ImageData>();
+    window.__retouchFullRedrawProbe = {
+      capture: (id) => {
+        const canvas = document.querySelector<HTMLCanvasElement>(
+          'canvas.editor-canvas__content-layer',
+        );
+        const context = canvas?.getContext('2d');
+        if (!canvas || !context) throw new Error('content canvas has no 2D context');
+        const image = context.getImageData(0, 0, canvas.width, canvas.height);
+        shots.set(id, image);
+        let hash = 2166136261;
+        for (const value of image.data) {
+          hash ^= value;
+          hash = Math.imul(hash, 16777619);
+        }
+        const perf = (window as unknown as { __varvePerf?: { getLast: () => OracleFrame | null } })
+          .__varvePerf;
+        return {
+          hash: `${image.data.length}:${hash >>> 0}`,
+          width: canvas.width,
+          height: canvas.height,
+          frame: perf?.getLast() ?? null,
+        };
+      },
+      diff: (firstId, secondId) => {
+        const a = shots.get(firstId);
+        const b = shots.get(secondId);
+        if (!a || !b) throw new Error('Full-redraw samples are missing');
+        if (a.width !== b.width || a.height !== b.height)
+          throw new Error('Full-redraw samples changed canvas dimensions');
+        let changedPixels = 0;
+        let changedAlphaPixels = 0;
+        let maxDelta = 0;
+        let sumDelta = 0;
+        let left = a.width;
+        let top = a.height;
+        let right = -1;
+        let bottom = -1;
+        for (let i = 0; i < a.data.length; i += 4) {
+          let changed = false;
+          for (let channel = 0; channel < 4; channel++) {
+            const delta = Math.abs(a.data[i + channel]! - b.data[i + channel]!);
+            sumDelta += delta;
+            maxDelta = Math.max(maxDelta, delta);
+            changed ||= delta !== 0;
+          }
+          if (a.data[i + 3] !== b.data[i + 3]) changedAlphaPixels++;
+          if (!changed) continue;
+          changedPixels++;
+          const x = (i / 4) % a.width;
+          const y = Math.floor(i / 4 / a.width);
+          left = Math.min(left, x);
+          top = Math.min(top, y);
+          right = Math.max(right, x);
+          bottom = Math.max(bottom, y);
+        }
+        return {
+          changedPixels,
+          changedAlphaPixels,
+          maxDelta,
+          meanDelta: sumDelta / a.data.length,
+          bounds: changedPixels
+            ? { x: left, y: top, width: right - left + 1, height: bottom - top + 1 }
+            : null,
+        };
+      },
+    };
   });
 }
 
@@ -112,13 +203,43 @@ function textHash(value: string): string {
   return `${value.length}:${hash >>> 0}`;
 }
 
-async function assertFullRedrawIsStable(page: Page): Promise<string> {
-  const before = await canvasHash(page);
-  await page.evaluate(() => window.__varvePerf?.forceFullRedraw());
-  await page.waitForTimeout(500);
-  const after = await canvasHash(page);
-  expect(after).toBe(before);
-  return after;
+async function assertFullRedrawIsStable(
+  page: Page,
+  testInfo: TestInfo,
+  label: string,
+): Promise<string> {
+  await installFullRedrawProbe(page);
+  const before = await page.evaluate(() => window.__retouchFullRedrawProbe!.capture('before'));
+  const receipt = await page.evaluate(() => {
+    const perf = (
+      window as unknown as {
+        __varvePerf?: { forceFullRedraw: () => Promise<{ authoritative: boolean }> };
+      }
+    ).__varvePerf;
+    if (!perf) throw new Error('Full-redraw oracle is unavailable');
+    return perf.forceFullRedraw();
+  });
+  const after = await page.evaluate(() => window.__retouchFullRedrawProbe!.capture('after'));
+  const sameDimensions = before.width === after.width && before.height === after.height;
+  const pixels = sameDimensions
+    ? await page.evaluate(() => window.__retouchFullRedrawProbe!.diff('before', 'after'))
+    : null;
+  await testInfo.attach(`${label}-full-redraw-oracle.json`, {
+    body: JSON.stringify({ before, after, receipt, pixels }, null, 2),
+    contentType: 'application/json',
+  });
+  expect(receipt.authoritative).toBe(true);
+  expect({ width: after.width, height: after.height }).toEqual({
+    width: before.width,
+    height: before.height,
+  });
+  expect(before.frame?.camera).toBeDefined();
+  expect(after.frame?.camera).toEqual(before.frame?.camera);
+  expect(after.frame?.docVersion).toBe(before.frame?.docVersion);
+  // Exact bytes at the same camera remain the reference-path contract. The
+  // metrics diagnose the mismatch; they never substitute a looser tolerance.
+  expect(after.hash).toBe(before.hash);
+  return after.hash;
 }
 
 async function selectExportTab(page: Page): Promise<void> {
@@ -256,7 +377,7 @@ test('frequency separation and Liquify survive save/reopen and export', async ({
   expect(interactionSummary?.count).toBeGreaterThan(0);
   expect(interactionSummary?.inputToCommit.count).toBeGreaterThan(0);
   expect(interactionSummary?.inputToCommit.p95).toBeGreaterThanOrEqual(0);
-  const committedHash = await assertFullRedrawIsStable(page);
+  const committedHash = await assertFullRedrawIsStable(page, testInfo, 'committed');
   await page.getByTestId('editor-canvas').screenshot({
     path: testInfo.outputPath('frequency-liquify-after.png'),
   });
@@ -306,7 +427,7 @@ test('frequency separation and Liquify survive save/reopen and export', async ({
   expect(reopened).toContain('liquify');
   expect(reopenedRetouchState).toBe(committedRetouchState);
   await page.waitForTimeout(800);
-  expect(await assertFullRedrawIsStable(page)).toBeTruthy();
+  expect(await assertFullRedrawIsStable(page, testInfo, 'reopened')).toBeTruthy();
   expect(committedHash).toMatch(/^\d+:\d+$/);
   await testInfo.attach('frequency-liquify-reopened.png', {
     body: await page.getByTestId('editor-canvas').screenshot(),

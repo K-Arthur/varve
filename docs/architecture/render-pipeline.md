@@ -183,6 +183,14 @@ Two invariants are load-bearing; violating either blanks part or all of the scen
    or an export diagnostic rather than persisting a degraded surface as
    authored artwork.
 
+6. **Retouch raster replay keeps the reference backdrop.** Visible Liquify
+   rasters and Frequency Separation bands currently use main-thread Canvas2D
+   replay. At fractional zoom, compositing the transparent worker bitmap onto
+   the board produced small channel differences at alpha edges even with an
+   up-to-date worker revision. The same-camera, byte-exact full-redraw oracle
+   remains required; ordinary raster images can still use the worker. Broader
+   worker eligibility requires equivalent backdrop composition first.
+
 ## WebGPU Compositor (2026-07-11; ownership invert 2026-07-13)
 
 The current browser WebGPU route remains opt-in. In the editor,

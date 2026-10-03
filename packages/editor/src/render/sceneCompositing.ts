@@ -140,15 +140,20 @@ const sceneHasUnsupportedWorkerRasterResources = memoizeLastDocument(
 );
 
 /**
- * Visible per-node effects can rasterize slightly differently in OffscreenCanvas
- * than on the authoritative main-thread surface. Keep these scenes on the main
- * path until the worker and oracle are pixel-identical; otherwise a fresh worker
- * revision can still leave a settled image that fails the full-redraw oracle.
+ * Effects and retouch rasters can rasterize slightly differently onto the
+ * transparent worker surface than directly onto the main-thread board. Keep
+ * those demonstrated parity risks on the reference path until the worker has
+ * the same backdrop; even a fresh worker revision can otherwise fail the
+ * same-camera, byte-exact full-redraw oracle.
  */
 const sceneHasWorkerPixelParityRisk = memoizeLastDocument((doc: Document): boolean => {
   for (const node of Object.values(doc.nodes)) {
-    if (!node || node.visible === false || !('effects' in node)) continue;
-    if (node.effects?.some((effect) => effect.visible !== false)) return true;
+    if (!node || node.visible === false) continue;
+    // Fractional-scale Liquify verification found 730 edge pixels differing
+    // by up to two channel levels after the transparent worker bitmap is
+    // composited onto the board. Decoded separation bands use the same path.
+    if (node.kind === 'rasterLayer' && (node.liquify || node.frequencySeparationRole)) return true;
+    if ('effects' in node && node.effects?.some((effect) => effect.visible !== false)) return true;
   }
   return false;
 });
@@ -262,9 +267,9 @@ export function sceneCanUseWorkerRenderer(
   // Reject those scenes instead of silently producing different pixels.
   if (sceneHasUnsupportedWorkerRasterResources(doc)) return false;
   // Full-quality Chromium verification found repeatable OffscreenCanvas versus
-  // main-thread edge differences on visible effects (143k pixels, max channel
-  // delta 5 in the effects-heavy fixture). This is a fidelity gate, not a
-  // capability expansion: keep effect-bearing scenes on the reference path.
+  // main-thread edge differences on visible effects and retouch rasters. This
+  // is a fidelity gate, not a capability expansion: keep those demonstrated
+  // risks on the reference path without disabling ordinary raster workloads.
   if (sceneHasWorkerPixelParityRisk(doc)) return false;
   if (sceneHasBlendedPaint(doc)) return false;
   if (!sceneHasImageFills(doc)) return true;

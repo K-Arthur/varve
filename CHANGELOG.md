@@ -10,7 +10,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 build a tag that has no matching section. Write for someone deciding whether to install the
 update, not for someone reading the commit log.
 
-## [0.5.0] - 2026-10-02
+## [0.5.0] - 2026-10-03
 
 Varve remains in public beta. This release adds broad authoring workflows while
 keeping optional, hardware-dependent, and format-limited capabilities clearly
@@ -61,9 +61,11 @@ marked.
   published v0.2.1 used schema 2.21. Older documents migrate on open, including
   the pointed-balloon outline correction, but newer files are not
   backward-compatible. Back up important `.varve` files before opening them.
-- **Save and recovery feedback** — Saved, Saving, Modified, and Save failed
+- **Save, history, and recovery** — Saved, Saving, Modified, and Save failed
   states are explicit, and failed writes retain recovery paths. Confirm a
   save by its successful destination write before closing important work.
+  Buffered text edits and formatting now replay through undo/redo with exact
+  grapheme boundaries, including emoji and combining characters.
 - **Responsive and accessible controls** — Workspace panels, menus, touch
   targets, focus handling, home-screen reflow, group dragging, and enlarged-text
   layouts have been refined across compact, tablet, and desktop widths.
