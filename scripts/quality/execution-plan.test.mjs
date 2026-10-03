@@ -162,7 +162,7 @@ try {
   const compilerFixture = `if (process.argv[2] === 'typecheck:e2e' && process.env.TEST_CANCEL_MARKER) { const {spawn}=await import('node:child_process'); process.on('SIGTERM',()=>{}); const child=spawn(process.execPath,['-e',${JSON.stringify(compilerDescendant)},process.env.TEST_CANCEL_MARKER],{detached:true,stdio:'ignore'}); child.on('exit',()=>process.exit(0)); setInterval(()=>{},1000); }`;
   writeFileSync(
     join(bin, 'pnpm'),
-    `#!/usr/bin/env node\n${recordImport}\nif (process.argv[2] === 'm') { console.log('[]'); } else { ${record} ${compilerFixture} if (process.argv[2] === 'typecheck:e2e' && process.env.TEST_COMPILER_FAILURE === '1') process.exit(9); }\n`,
+    `#!/usr/bin/env node\n${recordImport}\nif (process.argv[2] === 'm') { console.log('[]'); } else { ${record} ${compilerFixture} if (process.argv[2] === 'typecheck:e2e' && process.env.TEST_COMPILER_FAILURE === '1') process.exit(9); if (process.argv[2] === 'exec' && process.argv[3] === 'tsc' && process.env.TEST_WEBSITE_COMPILER_FAILURE === '1') process.exit(11); }\n`,
   );
   writeFileSync(join(bin, 'biome'), `#!/usr/bin/env node\n${recordImport}\n${record}\n`);
   chmodSync(join(bin, 'pnpm'), 0o755);
@@ -339,6 +339,43 @@ try {
   assert.equal(quickBrowsers.length, 1);
   assert.ok(quickBrowsers[0].includes('tests/e2e/canvas/direct.spec.ts'));
   assert.ok(!quickBrowsers[0].includes('--retries=0'), 'quick keeps ordinary retries');
+  git(['restore', '--staged', 'tests', 'playwright.config.ts']);
+  mkdirSync(join(repo, 'apps/website/tests/e2e'), { recursive: true });
+  const websiteOwner = 'apps/website/tests/e2e/visual.spec.ts';
+  writeFileSync(join(repo, websiteOwner), '// website direct owner\n');
+  git(['add', 'apps']);
+  const exactWebsite = execute('affected');
+  assert.equal(exactWebsite.status, 0, `${exactWebsite.stdout}\n${exactWebsite.stderr}`);
+  const websiteCommands = exactWebsite.recorded.filter((args) => args[0] === 'test:website:e2e');
+  assert.equal(websiteCommands.length, 1);
+  assert.ok(websiteCommands[0].includes(websiteOwner));
+  assert.ok(
+    !websiteCommands[0].includes('--project=chromium'),
+    'website config owns its project matrix',
+  );
+  const compilerIndex = exactWebsite.recorded.findIndex(
+    (args) =>
+      args[0] === 'exec' &&
+      args[1] === 'tsc' &&
+      args.includes('apps/website/tests/e2e/tsconfig.json'),
+  );
+  assert.ok(
+    compilerIndex >= 0 &&
+      compilerIndex < exactWebsite.recorded.findIndex((args) => args[0] === 'test:website:e2e'),
+  );
+  assert.equal(
+    exactWebsite.recorded.filter((args) => args.includes('--') && args.includes('test:website:e2e'))
+      .length,
+    0,
+    'the website public script owns one lease; verifier never nests another',
+  );
+  const failedWebsite = execute('affected', { TEST_WEBSITE_COMPILER_FAILURE: '1' });
+  assert.equal(failedWebsite.status, 11);
+  assert.equal(
+    failedWebsite.recorded.filter((args) => args[0] === 'test:website:e2e').length,
+    0,
+    'failed owning typecheck prevents builds and browser',
+  );
 } finally {
   rmSync(repo, { recursive: true, force: true });
 }
@@ -382,5 +419,25 @@ try {
 } finally {
   rmSync(forwardingRepo, { recursive: true, force: true });
 }
+
+const websiteExact = 'website-e2e:file:apps/website/tests/e2e/visual.spec.ts';
+const websiteCompiler = 'typecheck:website-e2e';
+assert.deepEqual(buildExecutionPlan({ tiers: { 1: [websiteExact, websiteCompiler] } }).lanes, [
+  websiteCompiler,
+  websiteExact,
+]);
+const websiteBroad = buildExecutionPlan({
+  tiers: { 1: [websiteExact, websiteCompiler], 4: ['website-e2e'] },
+});
+assert.deepEqual(websiteBroad.covered, [{ lane: websiteExact, coveredBy: 'website-e2e' }]);
+assert.deepEqual(websiteBroad.lanes, [websiteCompiler, 'website-e2e']);
+const websiteWithApp = buildExecutionPlan({
+  tiers: { 1: [websiteExact, websiteCompiler], 4: ['e2e:all'] },
+});
+assert.ok(
+  websiteWithApp.lanes.includes(websiteExact),
+  'app suite never covers a website config spec',
+);
+assert.deepEqual(websiteWithApp.covered, []);
 
 console.log('execution plan tests passed (no browsers launched)');

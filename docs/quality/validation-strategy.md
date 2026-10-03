@@ -137,8 +137,20 @@ The explicit ref comparison is an exact committed range, so unrelated local
 files do not change a branch or CI plan. A changed Playwright baseline under
 `<spec>.spec.ts-snapshots/` selects E2E typechecking followed by its existing
 owner spec. If that spec is absent, the planner retains the domain-wide E2E
-fallback. Changes to the shared Playwright global setup select the complete
-browser suite.
+fallback. Website spec and snapshot changes select the owning website
+TypeScript check and exact spec through the separate website configuration;
+website source, shared helpers and runner configuration keep the complete
+website scope. Hosted CI retains the complete website suite even when a local
+spec-only plan is narrow. Changes to the shared Playwright global setup select
+the complete app browser suite.
+
+`pnpm test:website:e2e` owns one heavy-task lease and builds both website outputs
+fresh. Do not wrap that command in another lease. It checks both isolated ports
+before building and again after acquiring the lease, rejects occupied servers,
+and runs one worker with no retries or snapshot updates. Local defaults are
+15991 and 15992; `VARVE_WEBSITE_E2E_PORT` and `VARVE_WEBSITE_E2E_PORT_ROOT` override
+them independently. A compiler failure prevents the affected website browser
+lane from starting.
 
 The remote full gate reuses completed GitHub Actions work instead of duplicating
 compiler, unit, Rust, and browser lanes locally. It requires full integration

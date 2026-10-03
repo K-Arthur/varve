@@ -178,6 +178,10 @@ async function runLane(lane) {
     }
   } else if (lane.startsWith('js-unit:file:')) {
     status = await runVitestFiles([lane.slice('js-unit:file:'.length)]);
+  } else if (lane.startsWith('website-e2e:file:')) {
+    const path = lane.slice('website-e2e:file:'.length);
+    // The public website script owns the lease, including fresh builds.
+    status = await cmd([...broadBrowserArgv('website-e2e', browserOptions), path]);
   } else if (lane.startsWith('e2e:file:')) {
     status = await runE2ePaths([lane.slice('e2e:file:'.length)]);
   } else if (lane.startsWith('e2e:') && lane !== 'e2e:all' && lane !== 'e2e:visual') {
@@ -188,7 +192,9 @@ async function runLane(lane) {
     status = await cmd(args);
   } else if (lane === 'typecheck:all') {
     status = await cmd(['pnpm', 'typecheck']);
-  } else if (lane === 'e2e:all' || lane === 'e2e:visual' || lane === 'website-e2e') {
+  } else if (lane === 'website-e2e') {
+    status = await cmd(broadBrowserArgv(lane, browserOptions));
+  } else if (lane === 'e2e:all' || lane === 'e2e:visual') {
     status = await runLeasedPlaywright(broadBrowserArgv(lane, browserOptions), lane);
   } else if (lane === 'bench:render' || lane === 'bench:table' || lane === 'bench:table-layout') {
     const benchCmd = {

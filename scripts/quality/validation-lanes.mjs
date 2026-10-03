@@ -71,6 +71,7 @@ export const LANES = {
   'js-unit:all': 'pnpm exec vitest run',
   'typecheck:all': 'pnpm typecheck',
   'typecheck:e2e': 'pnpm typecheck:e2e',
+  'typecheck:website-e2e': 'pnpm exec tsc -p apps/website/tests/e2e/tsconfig.json --noEmit',
 
   // ── Tier 2/3: package-scoped (filled in dynamically per package) ─────
   // js-unit:<pkg>        -> vitest run packages/<dir>
@@ -116,7 +117,7 @@ export const HEAVY_LANES = new Set([
 ]);
 
 export function laneCommand(lane, pkgDir) {
-  if (lane === 'typecheck:e2e') return LANES[lane];
+  if (lane === 'typecheck:e2e' || lane === 'typecheck:website-e2e') return LANES[lane];
   if (lane.startsWith('js-unit:') && !lane.endsWith(':all')) {
     const name = lane.slice('js-unit:'.length);
     ensurePackageDirs();
@@ -167,6 +168,10 @@ export function laneArgv(lane, { files = [], pkgDir } = {}) {
   if (lane === 'release-version') return ['node', 'scripts/release/version.mjs', 'verify'];
   if (lane === 'product-truth') return ['node', 'scripts/release/verify-product-truth.mjs'];
   if (lane === 'typecheck:e2e') return ['pnpm', 'typecheck:e2e'];
+  if (lane === 'typecheck:website-e2e')
+    return ['pnpm', 'exec', 'tsc', '-p', 'apps/website/tests/e2e/tsconfig.json', '--noEmit'];
+  if (lane.startsWith('website-e2e:file:'))
+    return ['pnpm', 'test:website:e2e', lane.slice('website-e2e:file:'.length)];
   if (lane === 'format:changed') return ['biome', 'format', ...files];
   if (lane === 'lint:changed') return ['biome', 'check', ...files];
   if (lane.startsWith('js-unit:file:')) {

@@ -54,6 +54,9 @@ export const POLICY_FILES = [
   'patches/http-cache-semantics@4.2.0.patch',
   'patches/braces@3.0.3.patch',
   'scripts/website/demo-dist-validation.mjs',
+  'scripts/website/e2e-ports.cjs',
+  'scripts/website/e2e-ports.d.cts',
+  'apps/website/tests/e2e/tsconfig.json',
   'scripts/release/certification.mjs',
   'scripts/release/verify-certification.mjs',
   'scripts/release/resume.mjs',
@@ -163,6 +166,7 @@ export const LANE_COST_SECONDS = Object.freeze({
   'release-version': 10,
   'product-truth': 20,
   'typecheck:e2e': 45,
+  'typecheck:website-e2e': 45,
   policy: 40,
   'audit:docs': 20,
   'audit:emoji': 10,
@@ -417,7 +421,8 @@ export function selectedCiLanes(plan, categories, profile = 'integration') {
   if (categories.wasm) lanes.add('wasm');
   if (categories.website) {
     lanes.add('website-unit');
-    add((lane) => lane === 'website-e2e');
+    // Local spec-only selection does not narrow the hosted website gate.
+    lanes.add('website-e2e');
   }
   if (categories.e2e) {
     add((lane) => lane === 'typecheck:e2e' || (lane.startsWith('e2e:') && lane !== 'e2e:visual'));
@@ -521,9 +526,11 @@ export function selectPushValidation(plan, { files = pathList(plan), strict = fa
     localReasons.push(`Rust crate count exceeds fixed local limit ${PUSH_LIMITS.maxRustCrates}`);
   }
 
-  if (plan?.tiers?.[1]?.includes('typecheck:e2e') && !flags.globalImpact) {
-    localBlocking.push('typecheck:e2e');
-    estimatedSeconds += LANE_COST_SECONDS['typecheck:e2e'];
+  for (const lane of ['typecheck:e2e', 'typecheck:website-e2e']) {
+    if (plan?.tiers?.[1]?.includes(lane) && !flags.globalImpact) {
+      localBlocking.push(lane);
+      estimatedSeconds += LANE_COST_SECONDS[lane];
+    }
   }
   if (plan?.tiers?.[0]?.includes('audit:docs')) localBlocking.push('audit:docs');
   if (plan?.tiers?.[0]?.includes('audit:emoji')) localBlocking.push('audit:emoji');

@@ -60,6 +60,7 @@ function resolveLane(lane) {
   if (lane === 'format:touched' || lane === 'lint:touched') return 'biome (changed files)';
   if (lane.startsWith('js-unit:file:')) return 'vitest <file>';
   if (lane.startsWith('e2e:file:')) return 'playwright <file>';
+  if (lane.startsWith('website-e2e:file:')) return 'website playwright <file>';
   if (lane.startsWith('e2e:') && lane !== 'e2e:all' && lane !== 'e2e:visual')
     return 'playwright <domain paths>';
   if (lane.startsWith('bench:')) return 'pnpm bench:<domain>';

@@ -3,7 +3,7 @@
 const AFFECTED_TIERS = [0, 1, 2, 3, 4];
 
 function isBrowserLane(lane) {
-  return lane.startsWith('e2e:') || lane === 'website-e2e';
+  return lane.startsWith('e2e:') || lane === 'website-e2e' || lane.startsWith('website-e2e:file:');
 }
 
 function isCheapCheck(lane) {
@@ -39,6 +39,10 @@ export function buildExecutionPlan(plan, { tiers = AFFECTED_TIERS, e2eDomains = 
         .filter((lane) => coveredByAppSuite(lane, e2eDomains))
         .map((lane) => ({ lane, coveredBy: 'e2e:all' }))
     : [];
+  if (selected.includes('website-e2e')) {
+    for (const lane of selected)
+      if (lane.startsWith('website-e2e:file:')) covered.push({ lane, coveredBy: 'website-e2e' });
+  }
   const coveredLanes = new Set(covered.map(({ lane }) => lane));
   const remaining = selected.filter((lane) => !coveredLanes.has(lane));
   // Stable partitions preserve relative tier order within each phase. Moving

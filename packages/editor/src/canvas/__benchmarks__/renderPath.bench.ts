@@ -196,10 +196,33 @@ function summarize(samples: number[]) {
   };
 }
 
+const REPEATED_FRAME_WARMUPS = 2;
+// Enough 1% dirty-region samples to touch every cached node once at all tiers.
+const INCREMENTAL_FRAME_SAMPLES = 100;
+
+/** Keep the first cold frame visible while timing repeated frame work consistently. */
+function measureRepeatedFrames(frame: (index: number) => number, sampleCount: number) {
+  const warmupSamplesMs: number[] = [];
+  const samplesMs: number[] = [];
+  for (let index = -REPEATED_FRAME_WARMUPS; index < sampleCount; index++) {
+    const elapsed = frame(index);
+    if (index < 0) warmupSamplesMs.push(elapsed);
+    else samplesMs.push(elapsed);
+  }
+  return {
+    ...summarize(samplesMs),
+    coldSample0Ms: warmupSamplesMs[0]!,
+    warmupFrames: REPEATED_FRAME_WARMUPS,
+    sampleCount: samplesMs.length,
+    warmupSamplesMs,
+    samplesMs,
+  };
+}
+
 const TIERS = [100, 1_000, 10_000, 50_000] as const;
 const results: Record<string, unknown> = {
   measuredAt: new Date().toISOString(),
-  harness: 'js-dispatch-no-call-history',
+  harness: 'js-dispatch-no-call-history-repeated-frame-warmup',
   nodeVersion: process.version,
   vitestVersion: JSON.parse(
     readFileSync(path.join(REPO_ROOT, 'node_modules/vitest/package.json'), 'utf8'),
@@ -271,6 +294,57 @@ describe('render path perf harness', () => {
     expect(recordedDraw).not.toHaveBeenCalled();
   });
 
+  it('retains cold frame evidence and excludes exactly two warmups from repeated samples', () => {
+    const visits: number[] = [];
+    const measured = measureRepeatedFrames((index) => {
+      visits.push(index);
+      return index < 0 ? 100 : index + 1;
+    }, 3);
+    expect(visits).toEqual([-2, -1, 0, 1, 2]);
+    expect(measured).toEqual({
+      p50: 2,
+      p95: 3,
+      min: 1,
+      max: 3,
+      coldSample0Ms: 100,
+      warmupFrames: 2,
+      sampleCount: 3,
+      warmupSamplesMs: [100, 100],
+      samplesMs: [1, 2, 3],
+    });
+    // A warmed p50 cannot be presented as a passing cold-frame measurement.
+    expect(measured.coldSample0Ms).toBeGreaterThan(measured.max);
+  });
+
+  it('executes real dirty-cache invalidation and rebuild for every cold, warm and measured frame', () => {
+    const cache = new SubtreeIrCache();
+    const item = {
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: { space: 'rgb', r: 57, g: 208, b: 198, a: 255 },
+      opacity: 1,
+      blendMode: 'normal',
+      primitive: { kind: 'rect', x: 0, y: 0, w: 20, h: 16 },
+    } as Parameters<SubtreeIrCache['set']>[2];
+    cache.set('n0', 'initial', item);
+    const visited: number[] = [];
+    const replayed: unknown[] = [];
+    const measured = measureRepeatedFrames((index) => {
+      visited.push(index);
+      cache.invalidate('n0');
+      const hash = `frame-${index}`;
+      expect(cache.get('n0', hash)).toBeNull();
+      cache.set('n0', hash, item);
+      replayed.push(item);
+      return 1;
+    }, 5);
+    expect(visited).toEqual([-2, -1, 0, 1, 2, 3, 4]);
+    expect(cache.misses).toBe(7);
+    expect(replayed).toHaveLength(7);
+    expect(cache.get('n0', 'frame-4')).toBe(item);
+    expect(measured.warmupSamplesMs).toEqual([1, 1]);
+    expect(measured.samplesMs).toEqual([1, 1, 1, 1, 1]);
+  });
+
   it('control benchmark (fixed-cost, machine-speed baseline)', () => {
     const samples = [controlBenchmark(), controlBenchmark(), controlBenchmark()];
     (results as { control?: unknown }).control = summarize(samples);
@@ -300,14 +374,13 @@ describe('render path perf harness', () => {
 
       // Full-frame render time.
       const iterations = count >= 10_000 ? 3 : 8;
-      for (let i = 0; i < 2; i++) replayIr(target as Parameters<typeof replayIr>[0], ir as never); // warm up
-      const fullFrameSamples: number[] = [];
-      for (let i = 0; i < iterations; i++) {
-        const t0 = performance.now();
+      const fullFrame = measureRepeatedFrames(() => {
+        const start = performance.now();
         replayIr(target as Parameters<typeof replayIr>[0], ir as never);
-        fullFrameSamples.push(performance.now() - t0);
-      }
-      tierResult.fullFrame = summarize(fullFrameSamples);
+        return performance.now() - start;
+      }, iterations);
+      tierResult.fullFrame = fullFrame;
+      tierResult.coldFullFrame = { sample0Ms: fullFrame.coldSample0Ms };
 
       // Incremental-frame time via SubtreeIrCache: populate the full tree's
       // IR into the cache once (cold), then simulate a small dirty region
@@ -322,9 +395,11 @@ describe('render path perf harness', () => {
         cache.set(seedNode.id, `v0-${seedNode.id}`, irArray[i] as never);
       }
       const dirtyCount = Math.max(1, Math.floor(count * 0.01));
-      const incrementalSamples: number[] = [];
-      for (let i = 0; i < Math.min(iterations, 5); i++) {
-        const t0 = performance.now();
+      const incrementalFrame = measureRepeatedFrames((sampleIndex) => {
+        const start = performance.now();
+        // Warmups perform the same invalidate/miss/rebuild/replay work on
+        // the first dirty region; measured regions retain their old indices.
+        const i = Math.max(0, sampleIndex);
         const dirtyItems: unknown[] = [];
         for (let d = 0; d < dirtyCount; d++) {
           const idx = (i * dirtyCount + d) % nodes.length;
@@ -340,27 +415,37 @@ describe('render path perf harness', () => {
           dirtyItems.push(item);
         }
         replayIr(target as Parameters<typeof replayIr>[0], dirtyItems as never);
-        incrementalSamples.push(performance.now() - t0);
-      }
+        return performance.now() - start;
+      }, INCREMENTAL_FRAME_SAMPLES);
       tierResult.incrementalFrame = {
-        ...summarize(incrementalSamples),
+        ...incrementalFrame,
         dirtyNodeCount: dirtyCount,
         dirtyFraction: 0.01,
       };
+      // This remains explicit cold-path evidence; warmed ratios do not
+      // certify the cold sample or replace the separate TTFP measurement.
+      tierResult.coldIncrementalFrame = { sample0Ms: incrementalFrame.coldSample0Ms };
 
       // Pan/zoom frame time: repeated replay under a changing camera transform.
-      const panZoomSamples: number[] = [];
-      for (let i = 0; i < Math.min(iterations, 5); i++) {
-        const zoom = 1 + i * 0.1;
-        const panX = i * 15;
-        target.save();
-        target.transform(zoom, 0, 0, zoom, panX, 0);
-        const t0 = performance.now();
-        replayIr(target as Parameters<typeof replayIr>[0], ir as never);
-        panZoomSamples.push(performance.now() - t0);
-        target.restore();
-      }
-      tierResult.panZoomFrame = summarize(panZoomSamples);
+      const panZoomFrame = measureRepeatedFrames(
+        (sampleIndex) => {
+          const i = Math.max(0, sampleIndex);
+          const zoom = 1 + i * 0.1;
+          const panX = i * 15;
+          target.save();
+          target.transform(zoom, 0, 0, zoom, panX, 0);
+          // Preserve the existing measured boundary: replay only, with camera
+          // setup/restore executed for every warm and measured frame.
+          const start = performance.now();
+          replayIr(target as Parameters<typeof replayIr>[0], ir as never);
+          const elapsed = performance.now() - start;
+          target.restore();
+          return elapsed;
+        },
+        Math.min(iterations, 5),
+      );
+      tierResult.panZoomFrame = panZoomFrame;
+      tierResult.coldPanZoomFrame = { sample0Ms: panZoomFrame.coldSample0Ms };
 
       // Time to first paint: fresh nodes -> IR -> first replay, end to end.
       const ttfpSamples: number[] = [];

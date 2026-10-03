@@ -361,7 +361,9 @@ function e2eDomainFor(path) {
 
 /** Playwright keeps each spec's baselines in `<spec>.spec.ts-snapshots/`. */
 function snapshotOwnerSpec(path) {
-  const owner = path.match(/^(tests\/e2e\/.+\.spec\.tsx?)-snapshots\/[^/]+$/)?.[1];
+  const owner = path.match(
+    /^((?:tests\/e2e|apps\/website\/tests\/e2e)\/.+\.spec\.tsx?)-snapshots\/[^/]+$/,
+  )?.[1];
   return owner && existsSync(join(ROOT, owner)) ? owner : null;
 }
 
@@ -378,6 +380,7 @@ function buildPlan(files, { includeReverse = true } = {}) {
     changed: { js: [], rust: [], other: [], app: [] },
     directTestFiles: [],
     directE2eFiles: [],
+    directWebsiteE2eFiles: [],
     unresolvedRustPaths: [],
   };
 
@@ -385,6 +388,7 @@ function buildPlan(files, { includeReverse = true } = {}) {
   const changedCrates = new Set();
   const directTestFiles = new Set();
   const directE2eFiles = new Set();
+  const directWebsiteE2eFiles = new Set();
   const e2eDomains = new Set();
   const benchDomains = new Set();
   const audits = new Set();
@@ -392,6 +396,12 @@ function buildPlan(files, { includeReverse = true } = {}) {
   let e2eTypecheckRequired = files.some(
     (f) =>
       (f.startsWith('tests/e2e/') && /\.(ts|tsx|json)$/.test(f)) || f === 'playwright.config.ts',
+  );
+
+  let websiteE2eTypecheckRequired = files.some(
+    (f) =>
+      (f.startsWith('apps/website/tests/e2e/') && /\.(ts|tsx|json)$/.test(f)) ||
+      f === 'playwright.website.config.ts',
   );
 
   const fullEscalation = IMPACT_CONFIG.fullEscalationPaths.some((g) =>
@@ -407,6 +417,10 @@ function buildPlan(files, { includeReverse = true } = {}) {
     plan.changed[c.kind].push(f);
     if (c.unresolvedRust) plan.unresolvedRustPaths.push(f);
     const isTestFile = /\.(test|spec)\.(ts|tsx)$/.test(f);
+    const websiteSpec = f.startsWith('apps/website/tests/e2e/') && /\.spec\.tsx?$/.test(f);
+    const websiteSnapshotOwner = f.startsWith('apps/website/tests/e2e/')
+      ? snapshotOwnerSpec(f)
+      : null;
     if (c.kind === 'js' && !isTestFile) changedPkgs.add(c.name);
     if (c.kind === 'rust') changedCrates.add(c.name);
     if (c.kind === 'app') changedPkgs.add(c.name);
@@ -420,8 +434,9 @@ function buildPlan(files, { includeReverse = true } = {}) {
         // their domain/full-suite blast radius.
         if (existsSync(join(ROOT, f))) directE2eFiles.add(f);
       } else if (f.includes('/tests/e2e/')) {
-        if (f.startsWith('apps/website/')) plan.tiers[4].push('website-e2e');
-        else {
+        if (websiteSpec) {
+          if (existsSync(join(ROOT, f))) directWebsiteE2eFiles.add(f);
+        } else {
           const dom = e2eDomainFor(f);
           if (dom) e2eDomains.add(dom);
         }
@@ -450,6 +465,9 @@ function buildPlan(files, { includeReverse = true } = {}) {
         const dom = e2eDomainFor(f);
         if (dom && dom !== 'loose') e2eDomains.add(dom);
       }
+    } else if (websiteSnapshotOwner) {
+      directWebsiteE2eFiles.add(websiteSnapshotOwner);
+      websiteE2eTypecheckRequired = true;
     } else if (c.kind === 'js' && !f.startsWith('tests/')) {
       // source file: sibling test file, or package tests
       const base = f.replace(/\.(ts|tsx)$/, '');
@@ -475,6 +493,11 @@ function buildPlan(files, { includeReverse = true } = {}) {
           // benchmark rules apply to product changes, not colocated unit
           // tests; shared E2E helpers/fixtures are handled above separately.
           if (isTestFile && (lane.startsWith('e2e:') || lane.startsWith('bench:'))) continue;
+          if (
+            (websiteSpec || websiteSnapshotOwner) &&
+            (lane === 'website-unit' || lane === 'website-e2e')
+          )
+            continue;
           if (lane.startsWith('e2e:')) {
             e2eTypecheckRequired = true;
             e2eDomains.add(lane.slice(4));
@@ -525,6 +548,7 @@ function buildPlan(files, { includeReverse = true } = {}) {
   // compiler check in front of the exact changed spec (or the broadened
   // shared-harness suite) to make feedback both earlier and cheaper.
   if (e2eTypecheckRequired) plan.tiers[1].push('typecheck:e2e');
+  if (websiteE2eTypecheckRequired) plan.tiers[1].push('typecheck:website-e2e');
   for (const f of [...directTestFiles]) {
     if (f.startsWith('tests/e2e/')) continue;
     plan.tiers[1].push(`js-unit:file:${f}`);
@@ -532,6 +556,8 @@ function buildPlan(files, { includeReverse = true } = {}) {
   for (const f of [...directE2eFiles]) {
     plan.tiers[1].push(`e2e:file:${f}`);
   }
+
+  for (const f of directWebsiteE2eFiles) plan.tiers[1].push(`website-e2e:file:${f}`);
 
   // Tier 2: changed packages
   for (const name of changedPkgs) {
@@ -632,6 +658,15 @@ function buildPlan(files, { includeReverse = true } = {}) {
   ) {
     plan.skipped.push('website E2E — website unaffected');
   }
+  if (
+    directWebsiteE2eFiles.size &&
+    !plan.tiers[4].includes('website-e2e') &&
+    !plan.tiers[4].includes('website-unit')
+  ) {
+    plan.skipped.push(
+      'other website specs and website unit tests — only explicit website E2E owners changed',
+    );
+  }
   if (![...e2eDomains].includes('visual') && !plan.full) {
     plan.skipped.push('full visual suite — no global rendering surface affected');
   }
@@ -661,7 +696,8 @@ function buildPlan(files, { includeReverse = true } = {}) {
   for (let t = 0; t <= 4; t++) {
     for (const lane of plan.tiers[t]) {
       if (lane.startsWith('js-unit:file:')) selectedTestFiles += 1;
-      else if (lane.startsWith('e2e:file:')) selectedTestFiles += 1;
+      else if (lane.startsWith('e2e:file:') || lane.startsWith('website-e2e:file:'))
+        selectedTestFiles += 1;
       else if (lane.startsWith('js-unit:')) {
         const name = lane.slice('js-unit:'.length);
         const dir = pkgDirByName.get(name);
@@ -685,6 +721,7 @@ function buildPlan(files, { includeReverse = true } = {}) {
 
   plan.directTestFiles = [...directTestFiles].sort();
   plan.directE2eFiles = [...directE2eFiles].sort();
+  plan.directWebsiteE2eFiles = [...directWebsiteE2eFiles].sort();
   plan.e2eDomains = [...e2eDomains].sort();
   plan.benchDomains = [...benchDomains].sort();
   plan.riskFlags = riskFlags;

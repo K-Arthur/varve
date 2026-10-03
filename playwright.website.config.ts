@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
+import { websiteE2ePorts } from './scripts/website/e2e-ports.cjs';
 
 /**
  * Website E2E configuration.
@@ -11,12 +12,9 @@ import { defineConfig, devices } from '@playwright/test';
  *
  * Both builds are produced by `pnpm test:website:e2e` before the run.
  */
-// Overridable so the suite can run alongside a website dev server, which
-// occupies 4321 by default. Without this the run aborts with "port already
-// used" and the only way out is killing the developer's own dev server.
-const GH_PAGES_PORT = Number(process.env.VARVE_WEBSITE_E2E_PORT ?? 4321);
-const CUSTOM_PORT = Number(process.env.VARVE_WEBSITE_E2E_PORT_ROOT ?? 4322);
-const workers = Number(process.env.VARVE_E2E_WORKERS ?? (process.env.CI ? '1' : '4'));
+// Local defaults avoid Astro's 4321 dev server; explicit environment overrides win.
+const { pages: GH_PAGES_PORT, root: CUSTOM_PORT } = websiteE2ePorts();
+const workers = Number(process.env.VARVE_E2E_WORKERS ?? '1');
 if (!Number.isInteger(workers) || workers < 1) {
   throw new Error(`VARVE_E2E_WORKERS must be a positive integer; received ${workers}`);
 }

@@ -9,6 +9,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildPlan } from './affected-plan.mjs';
+import { deriveCiCategories, selectedCiLanes, selectPushValidation } from './validation-policy.mjs';
 
 const plannerPath = fileURLToPath(new URL('./affected-plan.mjs', import.meta.url));
 const verifierPath = fileURLToPath(new URL('./verify.mjs', import.meta.url));
@@ -80,6 +81,57 @@ assert.deepEqual(canvasBenchPlan.tiers[1], [
 assert.ok(!canvasBenchPlan.tiers[4].includes('e2e:canvas'));
 assert.ok(!canvasBenchPlan.tiers[4].includes('bench:render'));
 assert.ok(buildPlan(['packages/editor/src/canvas/cameraState.ts']).tiers[4].includes('e2e:canvas'));
+
+const websiteSpec = 'apps/website/tests/e2e/visual.spec.ts';
+const websitePlan = buildPlan([websiteSpec]);
+assert.deepEqual(websitePlan.tiers[1], [
+  'typecheck:website-e2e',
+  `website-e2e:file:${websiteSpec}`,
+]);
+assert.deepEqual(websitePlan.tiers[4], []);
+assert.equal(websitePlan.stats.selectedTestFiles, 1);
+const websiteCategories = deriveCiCategories(websitePlan, [websiteSpec]);
+assert.equal(websiteCategories.website, true);
+assert.equal(websiteCategories.e2e, false);
+assert.ok(
+  selectPushValidation(websitePlan, { files: [websiteSpec] }).localBlocking.includes(
+    'typecheck:website-e2e',
+  ),
+  'bounded push retains the owning website compiler',
+);
+assert.ok(
+  selectedCiLanes(websitePlan, websiteCategories).includes('website-e2e'),
+  'hosted CI retains full website E2E for a local exact spec plan',
+);
+assert.deepEqual(websitePlan.directE2eFiles, []);
+assert.deepEqual(websitePlan.directWebsiteE2eFiles, [websiteSpec]);
+assert.ok(
+  !buildPlan(['apps/website/tests/e2e/removed.spec.ts']).tiers[1].some((lane) =>
+    lane.startsWith('website-e2e:file:'),
+  ),
+);
+const websiteSnapshot = buildPlan([`${websiteSpec}-snapshots/scene-ghpages-linux.png`]);
+assert.deepEqual(websiteSnapshot.tiers[1], [
+  'typecheck:website-e2e',
+  `website-e2e:file:${websiteSpec}`,
+]);
+assert.ok(!websiteSnapshot.tiers[4].includes('website-e2e'));
+for (const path of [
+  'apps/website/src/pages/index.astro',
+  'apps/website/tests/e2e/helpers.ts',
+  'apps/website/tests/e2e/tsconfig.json',
+  'playwright.website.config.ts',
+]) {
+  assert.ok(
+    buildPlan([path]).tiers[4].includes('website-e2e'),
+    `${path} retains broad website validation`,
+  );
+}
+assert.ok(
+  buildPlan(['apps/website/tests/e2e/helpers.ts']).tiers[1].includes('typecheck:website-e2e'),
+);
+const mixedWebsite = buildPlan([websiteSpec, 'apps/website/src/pages/index.astro']);
+assert.ok(mixedWebsite.tiers[4].includes('website-e2e'));
 
 const repo = mkdtempSync(join(tmpdir(), 'varve-affected-since-'));
 try {

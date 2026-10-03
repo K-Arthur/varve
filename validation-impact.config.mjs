@@ -288,7 +288,7 @@ export const IMPACT_CONFIG = {
     {
       id: 'website-only-light',
       why: 'Website changes must never drag in Rust/editor validation; website lanes only.',
-      paths: ['apps/website/**'],
+      paths: ['apps/website/**', 'playwright.website.config.ts', 'scripts/website/e2e-ports.*'],
       require: ['website-unit', 'website-e2e'],
     },
     {
