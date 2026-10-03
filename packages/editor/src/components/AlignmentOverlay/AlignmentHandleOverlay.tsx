@@ -7,7 +7,11 @@ import {
   getAlignmentCapabilities,
 } from '../../scene/selectionArrangement';
 import { nodeWorldBounds } from '../../scene/world';
-import { type GapReadoutBox, placeGapReadout } from './gapReadoutPlacement';
+import {
+  type GapReadoutBox,
+  MAX_GAP_READOUT_PLACEMENTS,
+  placeGapReadout,
+} from './gapReadoutPlacement';
 import './alignment-overlay.css';
 
 interface Bounds {
@@ -95,6 +99,32 @@ export function AlignmentHandleOverlay() {
   }, [sel, doc, state.workspaceMode]);
 
   const data = computeData();
+
+  // For ordinary selections, readouts avoid the selected artwork as well as
+  // one another. Keep mass-selection work bounded and retain its existing
+  // compact-placement behavior once the readout budget is exceeded.
+  const selectionObstacles: Array<GapReadoutBox & { id: string }> =
+    data && data.items.length <= MAX_GAP_READOUT_PLACEMENTS
+      ? data.items.map((item) => {
+          const corners = [
+            worldToScreen(camera, item.x, item.y, viewport, origin),
+            worldToScreen(camera, item.x + item.w, item.y, viewport, origin),
+            worldToScreen(camera, item.x, item.y + item.h, viewport, origin),
+            worldToScreen(camera, item.x + item.w, item.y + item.h, viewport, origin),
+          ];
+          const xs = corners.map(([x]) => x);
+          const ys = corners.map(([, y]) => y);
+          const left = Math.min(...xs);
+          const top = Math.min(...ys);
+          return {
+            id: item.id,
+            x: left,
+            y: top,
+            w: Math.max(...xs) - left,
+            h: Math.max(...ys) - top,
+          };
+        })
+      : [];
 
   const { sortedH, sortedV, gapsH, gapsV } = data ?? {
     sortedH: [] as Bounds[],
@@ -275,6 +305,7 @@ export function AlignmentHandleOverlay() {
         { x: midX, y: labelY, text: `${gap}px` },
         occupiedReadouts,
         viewport,
+        selectionObstacles,
       );
       if (readout.reserve) occupiedReadouts.push(readout.box);
 
@@ -379,6 +410,7 @@ export function AlignmentHandleOverlay() {
         { x: midX, y: labelY, text: `${gap}px` },
         occupiedReadouts,
         viewport,
+        selectionObstacles,
       );
       if (readout.reserve) occupiedReadouts.push(readout.box);
 
@@ -454,6 +486,19 @@ export function AlignmentHandleOverlay() {
     // the graphic instead.
     <svg className="alignment-handle-overlay">
       <title>Alignment spacing handles</title>
+      <g pointerEvents="none">
+        {selectionObstacles.map((obstacle) => (
+          <rect
+            key={`selection-obstacle-${obstacle.id}`}
+            data-testid="alignment-artwork-obstacle"
+            x={obstacle.x}
+            y={obstacle.y}
+            width={obstacle.w}
+            height={obstacle.h}
+            fill="transparent"
+          />
+        ))}
+      </g>
       {renderHorizontalBars()}
       {renderVerticalBars()}
     </svg>

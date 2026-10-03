@@ -52,6 +52,23 @@ describe('gap readout placement', () => {
     ).toBe(false);
   });
 
+  it('moves labels clear of selected artwork, including negative overlapping gaps', () => {
+    const artwork: GapReadoutBox[] = [
+      { x: 300, y: 220, w: 100, h: 120 },
+      { x: 370, y: 220, w: 100, h: 120 },
+    ];
+    const readout = placeGapReadout(
+      { x: 385, y: 285, text: '-54px' },
+      [],
+      { width: 740, height: 521 },
+      artwork,
+    );
+
+    expect(readout.shifted).toBe(true);
+    expect(artwork.some((item) => overlaps(readout.box, item))).toBe(false);
+    expect(readout.reserve).toBe(true);
+  });
+
   it('keeps off-screen values at their original position instead of piling them on an edge', () => {
     const readout = placeGapReadout({ x: -500, y: -500, text: '50px' }, [], {
       width: 740,

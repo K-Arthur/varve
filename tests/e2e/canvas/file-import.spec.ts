@@ -44,6 +44,10 @@ async function selectionChromeCollisions(page: import('@playwright/test').Page) 
     const gaps = Array.from(document.querySelectorAll('.alignment-handle__label'), (node) =>
       node.getBoundingClientRect(),
     );
+    const artwork = Array.from(
+      document.querySelectorAll('[data-testid="alignment-artwork-obstacle"]'),
+      (node) => node.getBoundingClientRect(),
+    );
     const hint = document.querySelector('.micro-hint')?.getBoundingClientRect();
     const actions = document.querySelector('.selection-quick-bar')?.getBoundingClientRect();
     return {
@@ -54,6 +58,7 @@ async function selectionChromeCollisions(page: import('@playwright/test').Page) 
       readouts: gaps.some((gap, index) =>
         gaps.slice(index + 1).some((other) => overlap(gap, other)),
       ),
+      artwork: gaps.some((gap) => artwork.some((item) => overlap(gap, item))),
       hint: Boolean(hint && actions && overlap(hint, actions)),
     };
   });
@@ -108,6 +113,7 @@ test.describe('File → Import', () => {
         names: false,
         gaps: false,
         readouts: false,
+        artwork: false,
         hint: false,
       });
 
@@ -192,6 +198,15 @@ test.describe('File → Import', () => {
   });
 
   test('PSD and PSB import real layered documents', async ({ page }) => {
+    const reactFlushWarnings: string[] = [];
+    page.on('console', (message) => {
+      if (
+        message.type() === 'error' &&
+        message.text().includes('flushSync was called from inside a lifecycle method')
+      ) {
+        reactFlushWarnings.push(message.text());
+      }
+    });
     await openImportFromMenu(page);
     const files = await Promise.all(
       ['example.psd', 'example.psb'].map(async (name) => ({
@@ -205,6 +220,7 @@ test.describe('File → Import', () => {
     const layers = page.locator('.layers-panel');
     await expect(layers.locator('[role="treeitem"]').first()).toBeVisible({ timeout: 30000 });
     await expect(page.getByRole('dialog', { name: 'Import results' })).toContainText(/imported/i);
+    expect(reactFlushWarnings).toEqual([]);
     await expect(page.locator('canvas.editor-canvas__content-layer')).toHaveScreenshot(
       'file-import-psd.png',
       { maxDiffPixels: 12000 },
@@ -230,10 +246,16 @@ showpage
 
     const layers = page.locator('.layers-panel');
     await expect(layers.locator('[role="treeitem"]').first()).toBeVisible({ timeout: 30000 });
-    await expect(page.getByRole('dialog', { name: 'Import results' })).toContainText(/imported/i);
+    const importResults = page.getByRole('dialog', { name: 'Import results' });
+    await expect(importResults).toContainText(/imported/i);
+    await expect(page.getByRole('dialog', { name: 'Missing Fonts' })).toHaveCount(0);
     await expect(page.locator('canvas.editor-canvas__content-layer')).toHaveScreenshot(
       'file-import-vector-parsers.png',
       { maxDiffPixels: 12000 },
     );
+    await importResults.getByRole('button', { name: 'Close', exact: true }).click();
+    const missingFonts = page.getByRole('dialog', { name: 'Missing Fonts' });
+    await expect(missingFonts).toBeVisible();
+    await missingFonts.getByRole('button', { name: 'Dismiss' }).click();
   });
 });

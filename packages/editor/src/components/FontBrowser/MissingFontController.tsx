@@ -33,7 +33,12 @@ import {
 } from './missingFontRecovery';
 import { downloadAndApplyOnlineFont } from './useOnlineFontSearch';
 
-export function MissingFontController() {
+interface MissingFontControllerProps {
+  /** Keep automatic recovery prompts behind a higher-priority workflow dialog. */
+  promptSuspended?: boolean;
+}
+
+export function MissingFontController({ promptSuspended = false }: MissingFontControllerProps) {
   const editor = useEditor();
   const [missingFonts, setMissingFonts] = useState<MissingFontInfo[]>([]);
   const [showDialog, setShowDialog] = useState(false);
@@ -194,7 +199,7 @@ export function MissingFontController() {
     );
   }
 
-  if (!showDialog || missingFonts.length === 0) return null;
+  if (promptSuspended || !showDialog || missingFonts.length === 0) return null;
 
   return (
     <MissingFontDialog

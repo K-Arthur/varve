@@ -635,7 +635,7 @@ function ShellInner({
             </ErrorBoundary>
           </main>
         </div>
-        <MissingFontController />
+        <MissingFontController promptSuspended={Boolean(fileImport.report || transferReport)} />
         <CollabCursorOverlay
           users={collabUsers}
           cursors={[]}

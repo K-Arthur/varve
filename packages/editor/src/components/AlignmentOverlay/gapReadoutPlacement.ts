@@ -39,6 +39,7 @@ export function placeGapReadout(
   preferred: { x: number; y: number; text: string },
   occupied: readonly GapReadoutBox[],
   viewport: { width: number; height: number },
+  obstacles: readonly GapReadoutBox[] = [],
 ): { x: number; y: number; box: GapReadoutBox; shifted: boolean; reserve: boolean } {
   // Conservative monospace glyph width plus stroke padding. The readouts are
   // ASCII numbers/units; the 12px estimate covers both passive and active text.
@@ -68,10 +69,10 @@ export function placeGapReadout(
   let box = initial;
   // Keep the usual baseline when space is available. Dense readouts spread
   // horizontally first, then wrap to another row within the visible canvas.
-  for (let row = 0; row <= occupied.length; row++) {
+  for (let row = 0; row <= occupied.length + obstacles.length; row++) {
     const candidate = { ...initial, y: initial.y + row * (HEIGHT + GAP) };
     if (candidate.y + HEIGHT > viewport.height - EDGE) break;
-    const x = freeHorizontalPosition(candidate, occupied, viewport.width);
+    const x = freeHorizontalPosition(candidate, [...obstacles, ...occupied], viewport.width);
     if (x !== null) {
       box = { ...candidate, x };
       break;

@@ -675,6 +675,10 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
     // driven scroll math (jump to index, overscan bounds before remeasure)
     // honest. measureElement below remains the authoritative per-row size.
     estimateSize: () => densityRowHeight,
+    // Dynamic row measurements run from the row's commit-phase ref callback.
+    // TanStack's default flushSync path warns under React 19 in that phase;
+    // normal batching avoids the warning while measured heights still update.
+    useFlushSync: false,
     getItemKey: (i) => {
       const entry = entries[i];
       if (!entry) throw new Error('entry not found');

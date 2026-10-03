@@ -70,6 +70,8 @@ marked.
 - **Responsive and accessible controls** — Workspace panels, menus, touch
   targets, focus handling, home-screen reflow, group dragging, and enlarged-text
   layouts have been refined across compact, tablet, and desktop widths.
+- **Clearer selection and import feedback** — Spacing labels avoid selected
+  artwork, and missing-font recovery opens after the import summary is closed.
 - **Bounded browser demo** — `/try/` remains a sample-document experience with
   browser-local storage and a limited workspace set; desktop-only print,
   inference, and other capabilities are not implied by the demo.
