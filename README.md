@@ -9,18 +9,18 @@
 
 <p align="center">
   <a href="https://github.com/K-Arthur/varve/actions/workflows/ci.yml"><img src="https://github.com/K-Arthur/varve/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
-  <a href="https://github.com/K-Arthur/varve/releases/latest"><img src="https://img.shields.io/github/v/release/K-Arthur/varve?label=release" alt="Latest release"></a>
+  <a href="https://varve.studio/download"><img src="https://img.shields.io/github/v/release/K-Arthur/varve?label=release&amp;filter=v*" alt="Latest application release"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-FSL--1.1--MIT-3b82f6" alt="License: FSL-1.1-MIT"></a>
   <a href="#project-status"><img src="https://img.shields.io/badge/status-public%20beta-C54B3A" alt="Status: public beta"></a>
   <a href="https://github.com/sponsors/K-Arthur"><img src="https://img.shields.io/github/sponsors/K-Arthur?label=sponsors" alt="GitHub Sponsors"></a>
 </p>
 
-> **Public beta.** The latest published application release remains `v0.2.1`
-> while the `0.5.0` release candidate is prepared.
-> Installers are published for Linux, macOS, and Windows. Core workflows are
-> usable today, but the `.varve` document format and interfaces can still
-> change, and Windows/macOS builds are not yet code-signed. The release
-> updater metadata is signed separately for supported updater targets.
+> **Public beta.** This repository contains the `0.5.0` update. The
+> [download page](https://varve.studio/download) lists verified published
+> application installers for Linux, macOS, and Windows, with their signing
+> status. Core workflows are usable today, but the `.varve` document format
+> and interfaces can still change. Platform signing and updater signatures
+> are verified separately; check the download guidance for the chosen build.
 
 <p align="center">
   <a href="https://varve.studio/download"><strong>Download Varve</strong></a> ·

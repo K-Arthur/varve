@@ -2,8 +2,10 @@
 
 **Last verified:** 2026-10-02
 **Status:** implemented and deployed at **https://varve.studio** (custom
-domain, registered and DNS at Porkbun, hosted on GitHub Pages). The current
-published release is v0.2.1. See `custom-domain-runbook.md` for the DNS
+domain, registered and DNS at Porkbun, hosted on GitHub Pages). Published
+application versions and availability come from the verified release data
+described below; check [the download page](https://varve.studio/download) for
+the current installers. See `custom-domain-runbook.md` for the DNS
 records, GitHub configuration and rollback.
 
 The current public-message and discovery contract is maintained separately in
