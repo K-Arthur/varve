@@ -62,6 +62,19 @@ const anySigned = Boolean(manifestSigning.windows?.signed || manifestSigning.mac
       </section>
 
       <section class="security-section">
+        <h2>Software supply chain</h2>
+        <p>
+          Varve's dependencies are monitored with Dependabot across the npm/pnpm
+          workspace, the engine and desktop Cargo workspaces, and GitHub Actions.
+          Resolved dependency graphs are checked with the ecosystem audit tools.
+          Any known advisory that has no upstream fix is recorded with its
+          mitigation in the repository's{' '}
+          <a href="https://github.com/K-Arthur/varve/blob/master/SECURITY.md">security policy</a>{' '}
+          rather than hidden or silently suppressed.
+        </p>
+      </section>
+
+      <section class="security-section">
         <h2>Security documentation</h2>
         <p>
           The repository's <a href="https://github.com/K-Arthur/varve/blob/master/SECURITY.md">security policy</a>{' '}

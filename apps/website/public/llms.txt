@@ -64,6 +64,8 @@
 - [Features overview](features)
 - [Download and install](download)
 - [Documentation](docs)
+- [Browser demo](docs/browser-demo)
+- [Try the browser demo](try)
 - [Getting started](docs/getting-started)
 - [Keyboard shortcuts](docs/keyboard-shortcuts)
 - [File formats](docs/file-formats)

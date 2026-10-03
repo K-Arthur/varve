@@ -1321,8 +1321,8 @@ const SCENES = [
     file: 'solid-picker-light.png',
     theme: 'light',
     feature: 'color-effects',
-    alt: 'Varve showing the shared solid color picker beside the selected headline, with the color area, hue and opacity ramps, aligned fields, and swatches visible',
-    caption: 'A precise solid-color workflow with the full picker hierarchy in reach.',
+    alt: 'Varve showing the shared solid color picker beside the selected headline, with the color area, hue and opacity ramps, and aligned HEX and alpha fields visible',
+    caption: 'Set a solid colour with the colour area, hue and opacity ramps, and precise fields.',
     async run(page) {
       await openCleanEditor(page);
       await openDemoDocument(page, 'poster');

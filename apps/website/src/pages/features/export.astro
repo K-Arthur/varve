@@ -2,6 +2,9 @@
 import Button from '../../components/Button.astro';
 import Layout from '../../layouts/Layout.astro';
 import { sitePath } from '../../lib/siteUrl';
+import { publishedFeatureVersion } from '../../lib/feature-release';
+
+const presentationReleaseVersion = publishedFeatureVersion('0.5.0');
 import manifest from '../../data/screenshot-manifest.json';
 
 type ScreenshotScene = { file: string; alt: string; caption: string; width?: number; height?: number; status?: string };
@@ -38,9 +41,11 @@ const exportShot = scenes.export?.status === 'captured' ? scenes.export : null;
           <a href={sitePath('/features/patterns')}>pattern feature status</a> for current output limits.
         </p>
         <p>
-          Presentation PDF and PNG-sequence delivery are available in the source build, but are not
-          part of a published release. PDF is raster-only and does not contain tagged accessibility
-          structure. See the <a href={sitePath('/features/presentations')}>presentation feature
+          {presentationReleaseVersion
+            ? `Published public beta v${presentationReleaseVersion} includes experimental presentation PDF and PNG-sequence delivery.`
+            : 'Presentation PDF and PNG-sequence delivery are available in the source build and are not included in a published release yet.'}
+          PDF is raster-only and does not contain tagged accessibility structure.
+          See the <a href={sitePath('/features/presentations')}>presentation feature
           status</a> for supported behavior and limits.
         </p>
       </section>
@@ -108,9 +113,9 @@ const exportShot = scenes.export?.status === 'captured' ? scenes.export : null;
         <div class="limitations">
           <p><strong>Current limitations:</strong></p>
           <ul>
-            <li>High-DPI export not implemented</li>
+            <li>Source-build raster exports support 1x, 2x, 3x, custom scale, and PPI settings; oversized output may be reduced with a warning to stay within memory limits</li>
             <li>Print bleed and trim guides are available in the canvas; exported trim and bleed geometry remains the final authority</li>
-            <li>Interactive animation export is a stub (CSS, Lottie, SVG, and video work)</li>
+            <li>Source-build timeline export supports CSS, Lottie, and SVG; video requires a supported WebCodecs runtime. Interactive HTML prototype generation exists as a code API and is not exposed in the app export dialog</li>
           </ul>
         </div>
       </section>
@@ -119,7 +124,7 @@ const exportShot = scenes.export?.status === 'captured' ? scenes.export : null;
         <h2>Status</h2>
         <div class="status-badge built">
           <span class="badge-text">Built</span>
-          <p>Code generation, PDF export, multi-page documents, facing pages, and print guide configuration are functional. High-DPI export remains deferred.</p>
+          <p>Code generation, PDF export, multi-page documents, facing pages, and print guide configuration are functional. The current source build also supports scaled raster output. See the download page for published installer availability.</p>
         </div>
       </section>
 

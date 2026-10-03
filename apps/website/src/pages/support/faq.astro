@@ -105,7 +105,7 @@ const faqSchema = {
       name: 'What export formats does Varve support?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Varve exports to SVG, React/Tailwind, React/CSS-Modules, Flutter, SwiftUI, and PDF with CMYK support.',
+        text: 'Varve exports raster images (PNG, JPEG, and WebP), SVG, React/Tailwind, React/CSS-Modules, Flutter, SwiftUI, and print PDF with CMYK support. Format support and fallback behavior depend on the artwork and workspace.',
       },
     },
     {
@@ -366,7 +366,7 @@ const breadcrumbSchema = {
             <h3 class="faq-item__question-text">What export formats does Varve support?</h3>
           </summary>
           <div class="faq-item__answer">
-            <p>Varve exports to SVG, React/Tailwind, React/CSS-Modules, Flutter, SwiftUI, and PDF with CMYK support. See the <a href={sitePath('/features/export')}>Export & Code Generation</a> page for details.</p>
+            <p>Varve exports raster images (PNG, JPEG, and WebP), SVG, React/Tailwind, React/CSS-Modules, Flutter, SwiftUI, and print PDF with CMYK support. Format support and fallback behavior depend on the artwork and workspace. See the <a href={sitePath('/features/export')}>Export & Code Generation</a> page for details.</p>
           </div>
         </details>
 
