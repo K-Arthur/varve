@@ -125,12 +125,20 @@ release work was neither reverted nor staged.
 | Advisory checks were manual and covered no production npm or dual-Cargo CI gate | Root and desktop lockfiles are separate dependency graphs | Integration and final-candidate preflight now run a bounded read-only production npm audit and both Cargo audits. Real vulnerabilities fail; database/registry errors remain nonpassing; glib and maintenance warnings remain visible in sanitized reports | Implemented; exact-SHA CI qualification pending |
 | Python tooling requirements are not monitored by Dependabot | `scripts/quantize` and `scripts/validate-pipelines` pin `onnxruntime==1.27.0`, `onnx==1.22.0`, etc.; `sieve-replication` and the bench references are looser | Not changed: these are auxiliary, non-shipped tooling environments. Add a `pip` ecosystem entry only if they become part of the release pipeline | Optional |
 
-Open Dependabot PRs were left unmerged. None is a security update — the sole
-open alert has no upstream fix, so Dependabot cannot propose one — and merging
-routine version bumps mid-release would add churn and risk. PRs 30–35 remain
-conflicting but *not* superseded; PRs 38/39/52/53/56 (Cargo), 50/55 (broader
-tooling groups), and 59 (Actions) are optional. All 14 remote Dependabot
-branches still map to an open PR, so there is no orphan branch to clean up.
+The remote inventory was refreshed on 2026-10-03. GitHub has 18 open
+Dependabot PRs and 18 matching branches; no orphan branch was found. Earlier
+PRs 30–35 were closed or superseded by bot-created replacements, including
+PRs 60–69. Two high GitHub alerts remain open: `http-cache-semantics` (#105)
+and development-only `extract-zip` (#46). Neither advisory has an upstream
+fixed release; the local patch and regression evidence are documented above
+and in `SECURITY.md` / `docs/CI_CD_RESILIENCE.md`. Keep both alerts open until
+an upstream fix is available and verified.
+
+The remaining Dependabot PRs are routine updates, not substitutes for the
+reviewed security backports. They are not required for 0.5.0 unless exact-SHA
+compatibility checks show that a specific update is needed; taking unrelated
+version bumps during release certification would add churn without resolving
+the outstanding upstream advisories.
 
 ---
 

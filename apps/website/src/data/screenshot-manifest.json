@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "note": "GENERATED FILE — reviewed mixed-source assembly; no new capture. Top-level identity records the assembly revision and input digest. Per-scene producer provenance remains authoritative for the pixels.",
-  "generatedAt": "2026-10-03T04:00:14.024Z",
+  "generatedAt": "2026-10-03T12:13:22.791Z",
   "scenes": {
     "workspace": {
       "file": "workspace-light.png",
@@ -10,19 +10,19 @@
       "feature": "home-showcase",
       "theme": "light",
       "status": "captured",
-      "lastValidatedAgainst": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+      "lastValidatedAgainst": "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
       "width": 1440,
       "height": 900,
       "sha256": "8489dbac476fb8ff2daff830f140cc6ecdb18cd453b2457f80f184c39676b833",
       "kind": "full",
       "scale": 1,
       "provenanceUnknown": false,
-      "capturedAt": "2026-10-02T20:48:19.529Z",
+      "capturedAt": "2026-10-03T10:45:59.770Z",
       "provenance": {
-        "sourceRevision": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+        "sourceRevision": "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
         "sourceDirty": false,
-        "sourceDigest": "114266b51fd367b0f68eecfc8c435e9db8ed3206ff0c1efb925f238ed434f550",
-        "runId": "2026-10-02T20-47-38-726Z-738590",
+        "sourceDigest": "6cbb305f265656abcb97aa7d8e9181ff63d8447f03595eeef2678860cb1e3571",
+        "runId": "2026-10-03T10-45-24-594Z-1566371",
         "runtime": "chromium-headless (web)",
         "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
         "viewport": {
@@ -31,8 +31,8 @@
         },
         "deviceScaleFactor": 1,
         "theme": "light",
-        "promotedFrom": "release-0.5.0-combined-review",
-        "promotedAt": "2026-10-03T00:56:27.153Z"
+        "promotedFrom": "2026-10-03T10-45-24-594Z-1566371",
+        "promotedAt": "2026-10-03T11:28:22.179Z"
       }
     },
     "workspace-dark": {
@@ -42,19 +42,19 @@
       "feature": "home-showcase",
       "theme": "dark",
       "status": "captured",
-      "lastValidatedAgainst": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+      "lastValidatedAgainst": "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
       "width": 1440,
       "height": 900,
       "sha256": "5e47e9ad5de1ebd5cbd7f6155535e64c1d5b7e92173e292e780035b96b211cdf",
       "kind": "full",
       "scale": 1,
       "provenanceUnknown": false,
-      "capturedAt": "2026-10-02T20:48:33.902Z",
+      "capturedAt": "2026-10-03T10:46:11.214Z",
       "provenance": {
-        "sourceRevision": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+        "sourceRevision": "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
         "sourceDirty": false,
-        "sourceDigest": "114266b51fd367b0f68eecfc8c435e9db8ed3206ff0c1efb925f238ed434f550",
-        "runId": "2026-10-02T20-47-38-726Z-738590",
+        "sourceDigest": "6cbb305f265656abcb97aa7d8e9181ff63d8447f03595eeef2678860cb1e3571",
+        "runId": "2026-10-03T10-45-24-594Z-1566371",
         "runtime": "chromium-headless (web)",
         "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
         "viewport": {
@@ -63,8 +63,8 @@
         },
         "deviceScaleFactor": 1,
         "theme": "dark",
-        "promotedFrom": "release-0.5.0-combined-review",
-        "promotedAt": "2026-10-03T00:56:27.161Z"
+        "promotedFrom": "2026-10-03T10-45-24-594Z-1566371",
+        "promotedAt": "2026-10-03T11:28:22.181Z"
       }
     },
     "vector": {
@@ -76,7 +76,7 @@
       "status": "captured",
       "width": 832,
       "height": 701,
-      "lastValidatedAgainst": "64d461b7bdee49acef7293dfa011f1c541a1b448",
+      "lastValidatedAgainst": "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
       "sha256": "c8f2ac393c0222eddcb8476e65867be2b70a2a436e0aaa423ce119cc3ec17a6b",
       "kind": "detail",
       "crop": {
@@ -87,12 +87,12 @@
       },
       "scale": 1,
       "provenanceUnknown": false,
-      "capturedAt": "2026-10-03T00:38:22.375Z",
+      "capturedAt": "2026-10-03T10:47:35.293Z",
       "provenance": {
-        "sourceRevision": "64d461b7bdee49acef7293dfa011f1c541a1b448",
+        "sourceRevision": "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
         "sourceDirty": false,
-        "sourceDigest": "b734abd2b453a0ce2114ee5180882da4387abd02b52e786ea4729fed2babe1f0",
-        "runId": "2026-10-03T00-37-55-525Z-1069424",
+        "sourceDigest": "6cbb305f265656abcb97aa7d8e9181ff63d8447f03595eeef2678860cb1e3571",
+        "runId": "2026-10-03T10-45-24-594Z-1566371",
         "runtime": "chromium-headless (web)",
         "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
         "viewport": {
@@ -101,8 +101,8 @@
         },
         "deviceScaleFactor": 1,
         "theme": "light",
-        "promotedFrom": "release-0.5.0-combined-review",
-        "promotedAt": "2026-10-03T00:56:27.165Z"
+        "promotedFrom": "2026-10-03T10-45-24-594Z-1566371",
+        "promotedAt": "2026-10-03T11:28:22.213Z"
       }
     },
     "comic-lettering": {
@@ -120,15 +120,15 @@
         "width": 1280,
         "height": 720
       },
-      "lastValidatedAgainst": "b6fe7591409857c23bf8cf6bece419d65bbd9586",
+      "lastValidatedAgainst": "af30bc2b48acb88baf01616a849b8130088433bf",
       "provenanceUnknown": false,
       "sha256": "a5ad6aa8b80113d313bf4f0539dc6f11cb83a3dff96ce40f8103b074b83eb5aa",
-      "capturedAt": "2026-10-02T20:21:52.154Z",
+      "capturedAt": "2026-10-03T11:18:39.754Z",
       "provenance": {
-        "sourceRevision": "b6fe7591409857c23bf8cf6bece419d65bbd9586",
+        "sourceRevision": "af30bc2b48acb88baf01616a849b8130088433bf",
         "sourceDirty": false,
-        "sourceDigest": "690280443d33ce1fbed81e98a72d6bc791afb284538ca157682e917d65a0019d",
-        "runId": "test-results/release-0.5.0-refresh-b6fe759140-owners/canvas-comic-lettering-Com-147e2-ble-balloon-and-reviews-fit-chromium",
+        "sourceDigest": "1bc461f83a4c412d73e4fc0142b2d0b86dbf6fe9fd83e8b9874953d5bd4e9aad",
+        "runId": "test-results/release-0.5.0-owner-captures-final-af30bc2b4/canvas-comic-lettering-Com-147e2-ble-balloon-and-reviews-fit-chromium",
         "runtime": "chromium Playwright E2E",
         "captureTool": "Playwright 1.62.1 / chromium 151.0.7922.34",
         "viewport": {
@@ -137,8 +137,8 @@
         },
         "deviceScaleFactor": 1,
         "theme": "light",
-        "promotedFrom": "release-0.5.0-combined-review",
-        "promotedAt": "2026-10-03T00:56:27.179Z"
+        "promotedFrom": "2026-10-03T11-31-34-211Z-1591158",
+        "promotedAt": "2026-10-03T11:31:48.273Z"
       }
     },
     "typography": {
@@ -148,7 +148,7 @@
       "feature": "typography",
       "theme": "light",
       "status": "captured",
-      "lastValidatedAgainst": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+      "lastValidatedAgainst": "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
       "width": 832,
       "height": 724,
       "sha256": "654a60e149d057f2440374e47a59ae04eb5e2b2b3d218f6abf33280a5fb8786f",
@@ -161,12 +161,12 @@
       },
       "scale": 1,
       "provenanceUnknown": false,
-      "capturedAt": "2026-10-02T20:50:16.435Z",
+      "capturedAt": "2026-10-03T10:47:47.829Z",
       "provenance": {
-        "sourceRevision": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+        "sourceRevision": "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
         "sourceDirty": false,
-        "sourceDigest": "114266b51fd367b0f68eecfc8c435e9db8ed3206ff0c1efb925f238ed434f550",
-        "runId": "2026-10-02T20-47-38-726Z-738590",
+        "sourceDigest": "6cbb305f265656abcb97aa7d8e9181ff63d8447f03595eeef2678860cb1e3571",
+        "runId": "2026-10-03T10-45-24-594Z-1566371",
         "runtime": "chromium-headless (web)",
         "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
         "viewport": {
@@ -175,8 +175,8 @@
         },
         "deviceScaleFactor": 1,
         "theme": "light",
-        "promotedFrom": "release-0.5.0-combined-review",
-        "promotedAt": "2026-10-03T00:56:27.165Z"
+        "promotedFrom": "2026-10-03T10-45-24-594Z-1566371",
+        "promotedAt": "2026-10-03T11:28:22.183Z"
       }
     },
     "motion": {
@@ -186,19 +186,19 @@
       "feature": "motion",
       "theme": "dark",
       "status": "captured",
-      "lastValidatedAgainst": "e4d2d2de9b6467e88977e11a410267f095a3bd77",
+      "lastValidatedAgainst": "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
       "width": 1440,
       "height": 900,
       "sha256": "3410156d734e334573bfb16bb0ceadcfe3a877328c2b6645ab2ea24b9bce8c2b",
       "kind": "full",
       "scale": 1,
       "provenanceUnknown": false,
-      "capturedAt": "2026-10-03T00:52:05.936Z",
+      "capturedAt": "2026-10-03T10:49:00.754Z",
       "provenance": {
-        "sourceRevision": "e4d2d2de9b6467e88977e11a410267f095a3bd77",
+        "sourceRevision": "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
         "sourceDirty": false,
-        "sourceDigest": "463feb0646872a12c1acd814bc5b69ac82bfc31b430aa95929aa4ba4faa8ce6a",
-        "runId": "2026-10-03T00-51-37-970Z-1086222",
+        "sourceDigest": "6cbb305f265656abcb97aa7d8e9181ff63d8447f03595eeef2678860cb1e3571",
+        "runId": "2026-10-03T10-45-24-594Z-1566371",
         "runtime": "chromium-headless (web)",
         "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
         "viewport": {
@@ -207,8 +207,8 @@
         },
         "deviceScaleFactor": 1,
         "theme": "dark",
-        "promotedFrom": "release-0.5.0-combined-review",
-        "promotedAt": "2026-10-03T00:56:27.169Z"
+        "promotedFrom": "2026-10-03T10-45-24-594Z-1566371",
+        "promotedAt": "2026-10-03T11:28:22.185Z"
       }
     },
     "layout": {
@@ -218,19 +218,19 @@
       "feature": "layout",
       "theme": "light",
       "status": "captured",
-      "lastValidatedAgainst": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+      "lastValidatedAgainst": "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
       "width": 1440,
       "height": 900,
       "sha256": "42150c091e37f536088a2afaba5c2de1649be37d38d35d252c4ab402198b2b36",
       "kind": "full",
       "scale": 1,
       "provenanceUnknown": false,
-      "capturedAt": "2026-10-02T20:51:14.236Z",
+      "capturedAt": "2026-10-03T10:48:36.980Z",
       "provenance": {
-        "sourceRevision": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+        "sourceRevision": "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
         "sourceDirty": false,
-        "sourceDigest": "114266b51fd367b0f68eecfc8c435e9db8ed3206ff0c1efb925f238ed434f550",
-        "runId": "2026-10-02T20-47-38-726Z-738590",
+        "sourceDigest": "6cbb305f265656abcb97aa7d8e9181ff63d8447f03595eeef2678860cb1e3571",
+        "runId": "2026-10-03T10-45-24-594Z-1566371",
         "runtime": "chromium-headless (web)",
         "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
         "viewport": {
@@ -239,8 +239,8 @@
         },
         "deviceScaleFactor": 1,
         "theme": "light",
-        "promotedFrom": "release-0.5.0-combined-review",
-        "promotedAt": "2026-10-03T00:56:27.168Z"
+        "promotedFrom": "2026-10-03T10-45-24-594Z-1566371",
+        "promotedAt": "2026-10-03T11:28:22.186Z"
       }
     },
     "typography-panel": {
@@ -250,7 +250,7 @@
       "feature": "typography",
       "theme": "light",
       "status": "captured",
-      "lastValidatedAgainst": "10ebb7d96c87b4e8d7470803bcab2ff9be55cebf",
+      "lastValidatedAgainst": "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
       "width": 293,
       "height": 692,
       "sha256": "3fe3d92e169621dee392b3de94bc1772d38cf7380c8476e7c0a3f505db2a421f",
@@ -263,12 +263,12 @@
       },
       "scale": 1,
       "provenanceUnknown": false,
-      "capturedAt": "2026-10-03T03:55:58.058Z",
+      "capturedAt": "2026-10-03T10:47:59.648Z",
       "provenance": {
-        "sourceRevision": "10ebb7d96c87b4e8d7470803bcab2ff9be55cebf",
+        "sourceRevision": "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
         "sourceDirty": false,
-        "sourceDigest": "8ecd6af5eafb22913e03e72e1affa628680438fe5bdf9c4d6c93f7ab3bbab183",
-        "runId": "2026-10-03T03-55-31-506Z-1270449",
+        "sourceDigest": "6cbb305f265656abcb97aa7d8e9181ff63d8447f03595eeef2678860cb1e3571",
+        "runId": "2026-10-03T10-45-24-594Z-1566371",
         "runtime": "chromium-headless (web)",
         "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
         "viewport": {
@@ -277,8 +277,8 @@
         },
         "deviceScaleFactor": 1,
         "theme": "light",
-        "promotedFrom": "2026-10-03T03-55-31-506Z-1270449",
-        "promotedAt": "2026-10-03T03:57:19.668Z"
+        "promotedFrom": "2026-10-03T10-45-24-594Z-1566371",
+        "promotedAt": "2026-10-03T11:28:22.188Z"
       }
     },
     "layers": {
@@ -290,7 +290,7 @@
       "status": "captured",
       "width": 317,
       "height": 539,
-      "lastValidatedAgainst": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+      "lastValidatedAgainst": "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
       "sha256": "977652f96cbe4a9bd25b8d4375d644429c4c41684b0863a641a0bc6d780d1a7b",
       "kind": "panel",
       "crop": {
@@ -304,12 +304,12 @@
         "width": 1440,
         "height": 1200
       },
-      "capturedAt": "2026-10-02T20:51:25.767Z",
+      "capturedAt": "2026-10-03T10:48:47.787Z",
       "provenance": {
-        "sourceRevision": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+        "sourceRevision": "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
         "sourceDirty": false,
-        "sourceDigest": "114266b51fd367b0f68eecfc8c435e9db8ed3206ff0c1efb925f238ed434f550",
-        "runId": "2026-10-02T20-47-38-726Z-738590",
+        "sourceDigest": "6cbb305f265656abcb97aa7d8e9181ff63d8447f03595eeef2678860cb1e3571",
+        "runId": "2026-10-03T10-45-24-594Z-1566371",
         "runtime": "chromium-headless (web)",
         "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
         "viewport": {
@@ -318,8 +318,8 @@
         },
         "deviceScaleFactor": 1,
         "theme": "light",
-        "promotedFrom": "release-0.5.0-combined-review",
-        "promotedAt": "2026-10-03T00:56:27.168Z"
+        "promotedFrom": "2026-10-03T10-45-24-594Z-1566371",
+        "promotedAt": "2026-10-03T11:28:22.189Z"
       },
       "provenanceUnknown": false
     },
@@ -330,19 +330,19 @@
       "feature": "color-effects",
       "theme": "light",
       "status": "captured",
-      "lastValidatedAgainst": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+      "lastValidatedAgainst": "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
       "width": 1440,
       "height": 900,
       "sha256": "f54119c6b1a9fdd2c9e889ee72af563536da630642d121e01e71110b4bf6c1b9",
       "kind": "full",
       "scale": 1,
       "provenanceUnknown": false,
-      "capturedAt": "2026-10-02T20:51:58.892Z",
+      "capturedAt": "2026-10-03T10:49:20.142Z",
       "provenance": {
-        "sourceRevision": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+        "sourceRevision": "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
         "sourceDirty": false,
-        "sourceDigest": "114266b51fd367b0f68eecfc8c435e9db8ed3206ff0c1efb925f238ed434f550",
-        "runId": "2026-10-02T20-47-38-726Z-738590",
+        "sourceDigest": "6cbb305f265656abcb97aa7d8e9181ff63d8447f03595eeef2678860cb1e3571",
+        "runId": "2026-10-03T10-45-24-594Z-1566371",
         "runtime": "chromium-headless (web)",
         "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
         "viewport": {
@@ -351,8 +351,8 @@
         },
         "deviceScaleFactor": 1,
         "theme": "light",
-        "promotedFrom": "release-0.5.0-combined-review",
-        "promotedAt": "2026-10-03T00:56:27.170Z"
+        "promotedFrom": "2026-10-03T10-45-24-594Z-1566371",
+        "promotedAt": "2026-10-03T11:28:22.190Z"
       }
     },
     "enhance-dialog-auto": {
@@ -362,19 +362,19 @@
       "feature": "image-enhancement",
       "theme": "light",
       "status": "captured",
-      "lastValidatedAgainst": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+      "lastValidatedAgainst": "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
       "width": 1440,
       "height": 900,
-      "sha256": "49b270e6e184aead7d5fb54c5da33af43f62187047e29585e1a153c34c9a42f8",
+      "sha256": "c9185db2a47be7325ce01feae20802f38ffb64ecef126ea60aa1aad7f388b774",
       "kind": "full",
       "scale": 1,
       "provenanceUnknown": false,
-      "capturedAt": "2026-10-02T20:52:44.866Z",
+      "capturedAt": "2026-10-03T10:50:01.079Z",
       "provenance": {
-        "sourceRevision": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+        "sourceRevision": "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
         "sourceDirty": false,
-        "sourceDigest": "114266b51fd367b0f68eecfc8c435e9db8ed3206ff0c1efb925f238ed434f550",
-        "runId": "2026-10-02T20-47-38-726Z-738590",
+        "sourceDigest": "6cbb305f265656abcb97aa7d8e9181ff63d8447f03595eeef2678860cb1e3571",
+        "runId": "2026-10-03T10-45-24-594Z-1566371",
         "runtime": "chromium-headless (web)",
         "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
         "viewport": {
@@ -383,8 +383,8 @@
         },
         "deviceScaleFactor": 1,
         "theme": "light",
-        "promotedFrom": "release-0.5.0-combined-review",
-        "promotedAt": "2026-10-03T00:56:27.173Z"
+        "promotedFrom": "2026-10-03T10-45-24-594Z-1566371",
+        "promotedAt": "2026-10-03T11:28:22.192Z"
       }
     },
     "export": {
@@ -394,19 +394,19 @@
       "feature": "export",
       "theme": "light",
       "status": "captured",
-      "lastValidatedAgainst": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+      "lastValidatedAgainst": "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
       "width": 1440,
       "height": 900,
       "sha256": "f58644c9c5507d83cd916f6f0eccb4bafb4e62c16becf3e60e3ec4450b9e4062",
       "kind": "full",
       "scale": 1,
       "provenanceUnknown": false,
-      "capturedAt": "2026-10-02T20:52:56.825Z",
+      "capturedAt": "2026-10-03T10:50:12.767Z",
       "provenance": {
-        "sourceRevision": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+        "sourceRevision": "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
         "sourceDirty": false,
-        "sourceDigest": "114266b51fd367b0f68eecfc8c435e9db8ed3206ff0c1efb925f238ed434f550",
-        "runId": "2026-10-02T20-47-38-726Z-738590",
+        "sourceDigest": "6cbb305f265656abcb97aa7d8e9181ff63d8447f03595eeef2678860cb1e3571",
+        "runId": "2026-10-03T10-45-24-594Z-1566371",
         "runtime": "chromium-headless (web)",
         "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
         "viewport": {
@@ -415,8 +415,8 @@
         },
         "deviceScaleFactor": 1,
         "theme": "light",
-        "promotedFrom": "release-0.5.0-combined-review",
-        "promotedAt": "2026-10-03T00:56:27.173Z"
+        "promotedFrom": "2026-10-03T10-45-24-594Z-1566371",
+        "promotedAt": "2026-10-03T11:28:22.193Z"
       }
     },
     "print-production": {
@@ -426,19 +426,19 @@
       "feature": "print-production",
       "theme": "light",
       "status": "captured",
-      "lastValidatedAgainst": "10ebb7d96c87b4e8d7470803bcab2ff9be55cebf",
+      "lastValidatedAgainst": "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
       "width": 1440,
       "height": 900,
       "sha256": "4f3b7aac12ff93e009deecfc14b9156f0f025e83717e8f9c07a1ce6739f8cdfe",
       "kind": "full",
       "scale": 1,
       "provenanceUnknown": false,
-      "capturedAt": "2026-10-03T03:57:02.710Z",
+      "capturedAt": "2026-10-03T10:51:44.171Z",
       "provenance": {
-        "sourceRevision": "10ebb7d96c87b4e8d7470803bcab2ff9be55cebf",
+        "sourceRevision": "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
         "sourceDirty": false,
-        "sourceDigest": "8ecd6af5eafb22913e03e72e1affa628680438fe5bdf9c4d6c93f7ab3bbab183",
-        "runId": "2026-10-03T03-55-31-506Z-1270449",
+        "sourceDigest": "6cbb305f265656abcb97aa7d8e9181ff63d8447f03595eeef2678860cb1e3571",
+        "runId": "2026-10-03T10-45-24-594Z-1566371",
         "runtime": "chromium-headless (web)",
         "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
         "viewport": {
@@ -447,8 +447,8 @@
         },
         "deviceScaleFactor": 1,
         "theme": "light",
-        "promotedFrom": "2026-10-03T03-55-31-506Z-1270449",
-        "promotedAt": "2026-10-03T03:57:19.674Z"
+        "promotedFrom": "2026-10-03T10-45-24-594Z-1566371",
+        "promotedAt": "2026-10-03T11:28:22.211Z"
       }
     },
     "vectorize": {
@@ -458,19 +458,19 @@
       "feature": "vector-tools",
       "theme": "light",
       "status": "captured",
-      "lastValidatedAgainst": "10ebb7d96c87b4e8d7470803bcab2ff9be55cebf",
+      "lastValidatedAgainst": "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
       "width": 1440,
       "height": 900,
-      "sha256": "72d5b735702271a0d1a0237705ae9b71302d48b4a29e8eb98a8c607ed987ee9c",
+      "sha256": "c04332bc59a0d5af6e748ea379826ba22203bb2ef781fe51b307678a8d9b9fff",
       "kind": "full",
       "scale": 1,
       "provenanceUnknown": false,
-      "capturedAt": "2026-10-03T03:56:36.979Z",
+      "capturedAt": "2026-10-03T10:50:35.043Z",
       "provenance": {
-        "sourceRevision": "10ebb7d96c87b4e8d7470803bcab2ff9be55cebf",
+        "sourceRevision": "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
         "sourceDirty": false,
-        "sourceDigest": "8ecd6af5eafb22913e03e72e1affa628680438fe5bdf9c4d6c93f7ab3bbab183",
-        "runId": "2026-10-03T03-55-31-506Z-1270449",
+        "sourceDigest": "6cbb305f265656abcb97aa7d8e9181ff63d8447f03595eeef2678860cb1e3571",
+        "runId": "2026-10-03T10-45-24-594Z-1566371",
         "runtime": "chromium-headless (web)",
         "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
         "viewport": {
@@ -479,8 +479,8 @@
         },
         "deviceScaleFactor": 1,
         "theme": "light",
-        "promotedFrom": "2026-10-03T03-55-31-506Z-1270449",
-        "promotedAt": "2026-10-03T03:57:19.672Z"
+        "promotedFrom": "2026-10-03T10-45-24-594Z-1566371",
+        "promotedAt": "2026-10-03T11:28:22.194Z"
       }
     },
     "workspaces": {
@@ -492,17 +492,17 @@
       "width": 1440,
       "height": 900,
       "status": "captured",
-      "lastValidatedAgainst": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+      "lastValidatedAgainst": "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
       "sha256": "4bb29c7f4f864602abd98f740cd13a9f9c845f9722cfa3cd2c1f3902b9b9832d",
       "kind": "full",
       "scale": 1,
       "provenanceUnknown": false,
-      "capturedAt": "2026-10-02T20:54:01.087Z",
+      "capturedAt": "2026-10-03T10:51:19.247Z",
       "provenance": {
-        "sourceRevision": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+        "sourceRevision": "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
         "sourceDirty": false,
-        "sourceDigest": "114266b51fd367b0f68eecfc8c435e9db8ed3206ff0c1efb925f238ed434f550",
-        "runId": "2026-10-02T20-47-38-726Z-738590",
+        "sourceDigest": "6cbb305f265656abcb97aa7d8e9181ff63d8447f03595eeef2678860cb1e3571",
+        "runId": "2026-10-03T10-45-24-594Z-1566371",
         "runtime": "chromium-headless (web)",
         "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
         "viewport": {
@@ -511,8 +511,8 @@
         },
         "deviceScaleFactor": 1,
         "theme": "light",
-        "promotedFrom": "release-0.5.0-combined-review",
-        "promotedAt": "2026-10-03T00:56:27.175Z"
+        "promotedFrom": "2026-10-03T10-45-24-594Z-1566371",
+        "promotedAt": "2026-10-03T11:28:22.198Z"
       }
     },
     "image-tools": {
@@ -524,7 +524,7 @@
       "width": 293,
       "height": 692,
       "status": "captured",
-      "lastValidatedAgainst": "10ebb7d96c87b4e8d7470803bcab2ff9be55cebf",
+      "lastValidatedAgainst": "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
       "sha256": "43e4d3313a78e743590d7db9b1f1681fc94d7d2339b60943e08778460e3d9270",
       "kind": "panel",
       "crop": {
@@ -535,12 +535,12 @@
       },
       "scale": 1,
       "provenanceUnknown": false,
-      "capturedAt": "2026-10-03T03:56:49.898Z",
+      "capturedAt": "2026-10-03T10:51:05.391Z",
       "provenance": {
-        "sourceRevision": "10ebb7d96c87b4e8d7470803bcab2ff9be55cebf",
+        "sourceRevision": "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
         "sourceDirty": false,
-        "sourceDigest": "8ecd6af5eafb22913e03e72e1affa628680438fe5bdf9c4d6c93f7ab3bbab183",
-        "runId": "2026-10-03T03-55-31-506Z-1270449",
+        "sourceDigest": "6cbb305f265656abcb97aa7d8e9181ff63d8447f03595eeef2678860cb1e3571",
+        "runId": "2026-10-03T10-45-24-594Z-1566371",
         "runtime": "chromium-headless (web)",
         "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
         "viewport": {
@@ -549,8 +549,8 @@
         },
         "deviceScaleFactor": 1,
         "theme": "light",
-        "promotedFrom": "2026-10-03T03-55-31-506Z-1270449",
-        "promotedAt": "2026-10-03T03:57:19.673Z"
+        "promotedFrom": "2026-10-03T10-45-24-594Z-1566371",
+        "promotedAt": "2026-10-03T11:28:22.197Z"
       }
     },
     "effects": {
@@ -560,19 +560,19 @@
       "feature": "effects",
       "theme": "light",
       "status": "captured",
-      "lastValidatedAgainst": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+      "lastValidatedAgainst": "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
       "width": 1440,
       "height": 900,
-      "sha256": "74f4aa8bb27a7f637bfea42bc366253a748b209f48fc1218fae08155515ba065",
+      "sha256": "35a9731fb22c7e7505e7003194314ee2bd361ee0847d18d61a31d454b61ec8b6",
       "kind": "full",
       "scale": 1,
       "provenanceUnknown": false,
-      "capturedAt": "2026-10-02T20:53:31.442Z",
+      "capturedAt": "2026-10-03T10:50:52.467Z",
       "provenance": {
-        "sourceRevision": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+        "sourceRevision": "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
         "sourceDirty": false,
-        "sourceDigest": "114266b51fd367b0f68eecfc8c435e9db8ed3206ff0c1efb925f238ed434f550",
-        "runId": "2026-10-02T20-47-38-726Z-738590",
+        "sourceDigest": "6cbb305f265656abcb97aa7d8e9181ff63d8447f03595eeef2678860cb1e3571",
+        "runId": "2026-10-03T10-45-24-594Z-1566371",
         "runtime": "chromium-headless (web)",
         "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
         "viewport": {
@@ -581,8 +581,8 @@
         },
         "deviceScaleFactor": 1,
         "theme": "light",
-        "promotedFrom": "release-0.5.0-combined-review",
-        "promotedAt": "2026-10-03T00:56:27.175Z"
+        "promotedFrom": "2026-10-03T10-45-24-594Z-1566371",
+        "promotedAt": "2026-10-03T11:28:22.196Z"
       }
     },
     "background-removal": {
@@ -658,17 +658,17 @@
       "width": 1440,
       "height": 900,
       "status": "captured",
-      "lastValidatedAgainst": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+      "lastValidatedAgainst": "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
       "sha256": "6066f1cde27e8a791db9a123565273fc6af7a50ac4d5340d9c6ef6277c2d2232",
       "kind": "full",
       "scale": 1,
       "provenanceUnknown": false,
-      "capturedAt": "2026-10-02T20:52:10.492Z",
+      "capturedAt": "2026-10-03T10:49:31.230Z",
       "provenance": {
-        "sourceRevision": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+        "sourceRevision": "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
         "sourceDirty": false,
-        "sourceDigest": "114266b51fd367b0f68eecfc8c435e9db8ed3206ff0c1efb925f238ed434f550",
-        "runId": "2026-10-02T20-47-38-726Z-738590",
+        "sourceDigest": "6cbb305f265656abcb97aa7d8e9181ff63d8447f03595eeef2678860cb1e3571",
+        "runId": "2026-10-03T10-45-24-594Z-1566371",
         "runtime": "chromium-headless (web)",
         "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
         "viewport": {
@@ -677,8 +677,8 @@
         },
         "deviceScaleFactor": 1,
         "theme": "light",
-        "promotedFrom": "release-0.5.0-combined-review",
-        "promotedAt": "2026-10-03T00:56:27.171Z"
+        "promotedFrom": "2026-10-03T10-45-24-594Z-1566371",
+        "promotedAt": "2026-10-03T11:28:22.198Z"
       }
     },
     "gradient-picker": {
@@ -690,17 +690,17 @@
       "width": 1440,
       "height": 900,
       "status": "captured",
-      "lastValidatedAgainst": "10ebb7d96c87b4e8d7470803bcab2ff9be55cebf",
+      "lastValidatedAgainst": "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
       "sha256": "bdf3c38b760dde238219ee642f768935e1156badaa06c9793125e67f85dfea34",
       "kind": "full",
       "scale": 1,
       "provenanceUnknown": false,
-      "capturedAt": "2026-10-03T03:56:11.558Z",
+      "capturedAt": "2026-10-03T10:49:44.204Z",
       "provenance": {
-        "sourceRevision": "10ebb7d96c87b4e8d7470803bcab2ff9be55cebf",
+        "sourceRevision": "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
         "sourceDirty": false,
-        "sourceDigest": "8ecd6af5eafb22913e03e72e1affa628680438fe5bdf9c4d6c93f7ab3bbab183",
-        "runId": "2026-10-03T03-55-31-506Z-1270449",
+        "sourceDigest": "6cbb305f265656abcb97aa7d8e9181ff63d8447f03595eeef2678860cb1e3571",
+        "runId": "2026-10-03T10-45-24-594Z-1566371",
         "runtime": "chromium-headless (web)",
         "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
         "viewport": {
@@ -709,12 +709,12 @@
         },
         "deviceScaleFactor": 1,
         "theme": "light",
-        "promotedFrom": "2026-10-03T03-55-31-506Z-1270449",
-        "promotedAt": "2026-10-03T03:57:19.670Z"
+        "promotedFrom": "2026-10-03T10-45-24-594Z-1566371",
+        "promotedAt": "2026-10-03T11:28:22.200Z"
       }
     },
     "font-toolbar": {
-      "sha256": "23cdfe516b024ce1593baa0624b2943c4d8b2c09ce4e692810953285b9cb2fb7",
+      "sha256": "33eca0107c8d9f12ef7f083a44d64e975f5564da88fb7eb96485412d035896f1",
       "file": "font-toolbar-light.png",
       "alt": "The floating text formatting toolbar with its font family menu open during text editing",
       "caption": "Choose a font while editing text",
@@ -723,16 +723,16 @@
       "width": 1440,
       "height": 900,
       "status": "captured",
-      "lastValidatedAgainst": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+      "lastValidatedAgainst": "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
       "kind": "full",
       "scale": 1,
       "provenanceUnknown": false,
-      "capturedAt": "2026-10-02T20:50:48.458Z",
+      "capturedAt": "2026-10-03T10:48:13.932Z",
       "provenance": {
-        "sourceRevision": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+        "sourceRevision": "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
         "sourceDirty": false,
-        "sourceDigest": "114266b51fd367b0f68eecfc8c435e9db8ed3206ff0c1efb925f238ed434f550",
-        "runId": "2026-10-02T20-47-38-726Z-738590",
+        "sourceDigest": "6cbb305f265656abcb97aa7d8e9181ff63d8447f03595eeef2678860cb1e3571",
+        "runId": "2026-10-03T10-45-24-594Z-1566371",
         "runtime": "chromium-headless (web)",
         "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
         "viewport": {
@@ -741,8 +741,8 @@
         },
         "deviceScaleFactor": 1,
         "theme": "light",
-        "promotedFrom": "release-0.5.0-combined-review",
-        "promotedAt": "2026-10-03T00:56:27.166Z"
+        "promotedFrom": "2026-10-03T10-45-24-594Z-1566371",
+        "promotedAt": "2026-10-03T11:28:22.200Z"
       }
     },
     "font-browser": {
@@ -755,16 +755,16 @@
       "width": 1440,
       "height": 900,
       "status": "captured",
-      "lastValidatedAgainst": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+      "lastValidatedAgainst": "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
       "kind": "full",
       "scale": 1,
       "provenanceUnknown": false,
-      "capturedAt": "2026-10-02T20:51:03.206Z",
+      "capturedAt": "2026-10-03T10:48:25.617Z",
       "provenance": {
-        "sourceRevision": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+        "sourceRevision": "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
         "sourceDirty": false,
-        "sourceDigest": "114266b51fd367b0f68eecfc8c435e9db8ed3206ff0c1efb925f238ed434f550",
-        "runId": "2026-10-02T20-47-38-726Z-738590",
+        "sourceDigest": "6cbb305f265656abcb97aa7d8e9181ff63d8447f03595eeef2678860cb1e3571",
+        "runId": "2026-10-03T10-45-24-594Z-1566371",
         "runtime": "chromium-headless (web)",
         "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
         "viewport": {
@@ -773,12 +773,12 @@
         },
         "deviceScaleFactor": 1,
         "theme": "light",
-        "promotedFrom": "release-0.5.0-combined-review",
-        "promotedAt": "2026-10-03T00:56:27.167Z"
+        "promotedFrom": "2026-10-03T10-45-24-594Z-1566371",
+        "promotedAt": "2026-10-03T11:28:22.200Z"
       }
     },
     "guide-layouts": {
-      "sha256": "8e359c54606ba190afa1385498fe34371fbc7f03919d09294f8fd0a43ab1cdfe",
+      "sha256": "eb9ace8d6b1dc51fcf64d257f52d07774039c9ec5898b250319b0d2377ccfc8b",
       "file": "guide-layouts-light.png",
       "alt": "Varve Guide Layouts dialog previewing a column layout over a frame without moving its content",
       "caption": "Preview columns, rows, and square grids before applying them",
@@ -787,16 +787,16 @@
       "width": 1440,
       "height": 900,
       "status": "captured",
-      "lastValidatedAgainst": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+      "lastValidatedAgainst": "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
       "kind": "full",
       "scale": 1,
       "provenanceUnknown": false,
-      "capturedAt": "2026-10-02T20:48:05.097Z",
+      "capturedAt": "2026-10-03T10:45:48.408Z",
       "provenance": {
-        "sourceRevision": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+        "sourceRevision": "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
         "sourceDirty": false,
-        "sourceDigest": "114266b51fd367b0f68eecfc8c435e9db8ed3206ff0c1efb925f238ed434f550",
-        "runId": "2026-10-02T20-47-38-726Z-738590",
+        "sourceDigest": "6cbb305f265656abcb97aa7d8e9181ff63d8447f03595eeef2678860cb1e3571",
+        "runId": "2026-10-03T10-45-24-594Z-1566371",
         "runtime": "chromium-headless (web)",
         "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
         "viewport": {
@@ -805,8 +805,8 @@
         },
         "deviceScaleFactor": 1,
         "theme": "light",
-        "promotedFrom": "release-0.5.0-combined-review",
-        "promotedAt": "2026-10-03T00:56:27.152Z"
+        "promotedFrom": "2026-10-03T10-45-24-594Z-1566371",
+        "promotedAt": "2026-10-03T11:28:22.178Z"
       }
     },
     "plugin-rename-preview": {
@@ -820,14 +820,14 @@
       "width": 1280,
       "height": 721,
       "sha256": "7b627525ae531a14228cb8e7a4684ef71a5fdf1ba339838bf5b88fc91827ce84",
-      "lastValidatedAgainst": "b6fe7591409857c23bf8cf6bece419d65bbd9586",
+      "lastValidatedAgainst": "af30bc2b48acb88baf01616a849b8130088433bf",
       "kind": "full",
-      "capturedAt": "2026-10-02T20:24:48.118Z",
+      "capturedAt": "2026-10-03T11:23:04.938Z",
       "provenance": {
-        "sourceRevision": "b6fe7591409857c23bf8cf6bece419d65bbd9586",
+        "sourceRevision": "af30bc2b48acb88baf01616a849b8130088433bf",
         "sourceDirty": false,
-        "sourceDigest": "690280443d33ce1fbed81e98a72d6bc791afb284538ca157682e917d65a0019d",
-        "runId": "test-results/release-0.5.0-refresh-b6fe759140-owners/plugins-local-manager-loca-18569-me-then-removes-its-package-chromium",
+        "sourceDigest": "1bc461f83a4c412d73e4fc0142b2d0b86dbf6fe9fd83e8b9874953d5bd4e9aad",
+        "runId": "test-results/release-0.5.0-owner-captures-final-af30bc2b4/plugins-local-manager-loca-18569-me-then-removes-its-package-chromium",
         "runtime": "chromium Playwright E2E",
         "captureTool": "Playwright 1.62.1 / chromium 151.0.7922.34",
         "viewport": {
@@ -836,8 +836,8 @@
         },
         "deviceScaleFactor": 1,
         "theme": "light",
-        "promotedFrom": "release-0.5.0-combined-review",
-        "promotedAt": "2026-10-03T00:56:27.184Z"
+        "promotedFrom": "2026-10-03T11-31-34-211Z-1591158",
+        "promotedAt": "2026-10-03T11:31:48.283Z"
       },
       "provenanceUnknown": false
     },
@@ -852,14 +852,14 @@
       "width": 1024,
       "height": 961,
       "sha256": "2f4bd9a3a34f4819b64b3f4cbb38b7298711f844d3431e3ede608f2fc42887d6",
-      "lastValidatedAgainst": "b6fe7591409857c23bf8cf6bece419d65bbd9586",
+      "lastValidatedAgainst": "af30bc2b48acb88baf01616a849b8130088433bf",
       "kind": "full",
-      "capturedAt": "2026-10-02T20:25:18.827Z",
+      "capturedAt": "2026-10-03T11:23:47.692Z",
       "provenance": {
-        "sourceRevision": "b6fe7591409857c23bf8cf6bece419d65bbd9586",
+        "sourceRevision": "af30bc2b48acb88baf01616a849b8130088433bf",
         "sourceDirty": false,
-        "sourceDigest": "690280443d33ce1fbed81e98a72d6bc791afb284538ca157682e917d65a0019d",
-        "runId": "test-results/release-0.5.0-refresh-b6fe759140-owners/plugins-local-manager-loca-53979-ble-in-a-narrow-dark-window-chromium",
+        "sourceDigest": "1bc461f83a4c412d73e4fc0142b2d0b86dbf6fe9fd83e8b9874953d5bd4e9aad",
+        "runId": "test-results/release-0.5.0-owner-captures-final-af30bc2b4/plugins-local-manager-loca-53979-ble-in-a-narrow-dark-window-chromium",
         "runtime": "chromium Playwright E2E",
         "captureTool": "Playwright 1.62.1 / chromium 151.0.7922.34",
         "viewport": {
@@ -868,8 +868,8 @@
         },
         "deviceScaleFactor": 1,
         "theme": "dark",
-        "promotedFrom": "release-0.5.0-combined-review",
-        "promotedAt": "2026-10-03T00:56:27.185Z"
+        "promotedFrom": "2026-10-03T11-31-34-211Z-1591158",
+        "promotedAt": "2026-10-03T11:31:48.284Z"
       },
       "provenanceUnknown": false
     },
@@ -884,14 +884,14 @@
       "width": 1280,
       "height": 721,
       "sha256": "4dca2d2603acec63e4bde49e0f2f45a7ccff2ac25a4eb7fda196e884eefe1736",
-      "lastValidatedAgainst": "b6fe7591409857c23bf8cf6bece419d65bbd9586",
+      "lastValidatedAgainst": "af30bc2b48acb88baf01616a849b8130088433bf",
       "kind": "full",
-      "capturedAt": "2026-10-02T20:24:28.911Z",
+      "capturedAt": "2026-10-03T11:22:33.901Z",
       "provenance": {
-        "sourceRevision": "b6fe7591409857c23bf8cf6bece419d65bbd9586",
+        "sourceRevision": "af30bc2b48acb88baf01616a849b8130088433bf",
         "sourceDirty": false,
-        "sourceDigest": "690280443d33ce1fbed81e98a72d6bc791afb284538ca157682e917d65a0019d",
-        "runId": "test-results/release-0.5.0-refresh-b6fe759140-owners/plugins-local-manager-loca-fd352--read-only-analysis-package-chromium",
+        "sourceDigest": "1bc461f83a4c412d73e4fc0142b2d0b86dbf6fe9fd83e8b9874953d5bd4e9aad",
+        "runId": "test-results/release-0.5.0-owner-captures-final-af30bc2b4/plugins-local-manager-loca-fd352--read-only-analysis-package-chromium",
         "runtime": "chromium Playwright E2E",
         "captureTool": "Playwright 1.62.1 / chromium 151.0.7922.34",
         "viewport": {
@@ -900,8 +900,8 @@
         },
         "deviceScaleFactor": 1,
         "theme": "light",
-        "promotedFrom": "release-0.5.0-combined-review",
-        "promotedAt": "2026-10-03T00:56:27.185Z"
+        "promotedFrom": "2026-10-03T11-31-34-211Z-1591158",
+        "promotedAt": "2026-10-03T11:31:48.286Z"
       },
       "provenanceUnknown": false
     },
@@ -916,14 +916,14 @@
       "width": 1280,
       "height": 1101,
       "sha256": "414ca0f08e5efaca9f85da9529126fe80fb6c976555d8fb1478ca977a7d109ac",
-      "lastValidatedAgainst": "b6fe7591409857c23bf8cf6bece419d65bbd9586",
+      "lastValidatedAgainst": "af30bc2b48acb88baf01616a849b8130088433bf",
       "kind": "full",
-      "capturedAt": "2026-10-02T20:24:16.807Z",
+      "capturedAt": "2026-10-03T11:22:19.002Z",
       "provenance": {
-        "sourceRevision": "b6fe7591409857c23bf8cf6bece419d65bbd9586",
+        "sourceRevision": "af30bc2b48acb88baf01616a849b8130088433bf",
         "sourceDirty": false,
-        "sourceDigest": "690280443d33ce1fbed81e98a72d6bc791afb284538ca157682e917d65a0019d",
-        "runId": "test-results/release-0.5.0-refresh-b6fe759140-owners/plugins-local-manager-loca-a65c3-pinned-plugins-easy-to-find-chromium",
+        "sourceDigest": "1bc461f83a4c412d73e4fc0142b2d0b86dbf6fe9fd83e8b9874953d5bd4e9aad",
+        "runId": "test-results/release-0.5.0-owner-captures-final-af30bc2b4/plugins-local-manager-loca-a65c3-pinned-plugins-easy-to-find-chromium",
         "runtime": "chromium Playwright E2E",
         "captureTool": "Playwright 1.62.1 / chromium 151.0.7922.34",
         "viewport": {
@@ -932,8 +932,8 @@
         },
         "deviceScaleFactor": 1,
         "theme": "light",
-        "promotedFrom": "release-0.5.0-combined-review",
-        "promotedAt": "2026-10-03T00:56:27.186Z"
+        "promotedFrom": "2026-10-03T11-31-34-211Z-1591158",
+        "promotedAt": "2026-10-03T11:31:48.287Z"
       },
       "provenanceUnknown": false
     },
@@ -945,7 +945,7 @@
       "feature": "workspaces",
       "theme": "light",
       "status": "captured",
-      "lastValidatedAgainst": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+      "lastValidatedAgainst": "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
       "width": 936,
       "height": 900,
       "kind": "detail",
@@ -957,12 +957,12 @@
       },
       "scale": 1,
       "provenanceUnknown": false,
-      "capturedAt": "2026-10-02T20:54:14.373Z",
+      "capturedAt": "2026-10-03T10:51:32.263Z",
       "provenance": {
-        "sourceRevision": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+        "sourceRevision": "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
         "sourceDirty": false,
-        "sourceDigest": "114266b51fd367b0f68eecfc8c435e9db8ed3206ff0c1efb925f238ed434f550",
-        "runId": "2026-10-02T20-47-38-726Z-738590",
+        "sourceDigest": "6cbb305f265656abcb97aa7d8e9181ff63d8447f03595eeef2678860cb1e3571",
+        "runId": "2026-10-03T10-45-24-594Z-1566371",
         "runtime": "chromium-headless (web)",
         "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
         "viewport": {
@@ -971,8 +971,8 @@
         },
         "deviceScaleFactor": 1,
         "theme": "light",
-        "promotedFrom": "release-0.5.0-combined-review",
-        "promotedAt": "2026-10-03T00:56:27.176Z"
+        "promotedFrom": "2026-10-03T10-45-24-594Z-1566371",
+        "promotedAt": "2026-10-03T11:28:22.209Z"
       }
     },
     "tonal-curves": {
@@ -985,19 +985,19 @@
       "width": 1280,
       "height": 720,
       "status": "captured",
-      "sha256": "0c810ba24130a42a590786c099f3155f6fa70f10615c7b2f8d0e683e9a4dee4d",
+      "sha256": "2f57bf3f8cbbe62c1de78d49664027b535ae2d5370380b0d2873b465fb33c9d6",
       "source": "tests/e2e/effects/tonal-workflows.spec.ts",
-      "capturedAt": "2026-10-03T03:51:50.284Z",
-      "lastValidatedAgainst": "10ebb7d96c87b4e8d7470803bcab2ff9be55cebf",
+      "capturedAt": "2026-10-03T11:25:01.135Z",
+      "lastValidatedAgainst": "af30bc2b48acb88baf01616a849b8130088433bf",
       "viewport": {
         "width": 1280,
         "height": 720
       },
       "provenance": {
-        "sourceRevision": "10ebb7d96c87b4e8d7470803bcab2ff9be55cebf",
+        "sourceRevision": "af30bc2b48acb88baf01616a849b8130088433bf",
         "sourceDirty": false,
-        "sourceDigest": "8ecd6af5eafb22913e03e72e1affa628680438fe5bdf9c4d6c93f7ab3bbab183",
-        "runId": "test-results/app-screenshot-owners-10ebb7d96/effects-tonal-workflows-re-9aedb-ows-through-actual-controls-chromium",
+        "sourceDigest": "1bc461f83a4c412d73e4fc0142b2d0b86dbf6fe9fd83e8b9874953d5bd4e9aad",
+        "runId": "test-results/release-0.5.0-owner-captures-final-af30bc2b4/effects-tonal-workflows-re-9aedb-ows-through-actual-controls-chromium",
         "runtime": "chromium Playwright E2E",
         "captureTool": "Playwright 1.62.1 / chromium 151.0.7922.34",
         "viewport": {
@@ -1006,8 +1006,8 @@
         },
         "deviceScaleFactor": 1,
         "theme": "light",
-        "promotedFrom": "2026-10-03T03-54-28-197Z-1269983",
-        "promotedAt": "2026-10-03T03:55:10.590Z"
+        "promotedFrom": "2026-10-03T11-31-34-211Z-1591158",
+        "promotedAt": "2026-10-03T11:31:48.289Z"
       },
       "provenanceUnknown": false
     },
@@ -1023,17 +1023,17 @@
       "status": "captured",
       "sha256": "f9cd0c1fc0cd3edc46f7297b290a730bfa4a9cc32915c15cb7a0687e4ed74f63",
       "source": "tests/e2e/effects/tonal-workflows.spec.ts",
-      "capturedAt": "2026-10-03T03:52:25.051Z",
-      "lastValidatedAgainst": "10ebb7d96c87b4e8d7470803bcab2ff9be55cebf",
+      "capturedAt": "2026-10-03T11:25:28.260Z",
+      "lastValidatedAgainst": "af30bc2b48acb88baf01616a849b8130088433bf",
       "viewport": {
         "width": 1280,
         "height": 720
       },
       "provenance": {
-        "sourceRevision": "10ebb7d96c87b4e8d7470803bcab2ff9be55cebf",
+        "sourceRevision": "af30bc2b48acb88baf01616a849b8130088433bf",
         "sourceDirty": false,
-        "sourceDigest": "8ecd6af5eafb22913e03e72e1affa628680438fe5bdf9c4d6c93f7ab3bbab183",
-        "runId": "test-results/app-screenshot-owners-10ebb7d96/effects-tonal-workflows-wh-9e5a2-it-toning-has-real-controls-chromium",
+        "sourceDigest": "1bc461f83a4c412d73e4fc0142b2d0b86dbf6fe9fd83e8b9874953d5bd4e9aad",
+        "runId": "test-results/release-0.5.0-owner-captures-final-af30bc2b4/effects-tonal-workflows-wh-9e5a2-it-toning-has-real-controls-chromium",
         "runtime": "chromium Playwright E2E",
         "captureTool": "Playwright 1.62.1 / chromium 151.0.7922.34",
         "viewport": {
@@ -1042,8 +1042,8 @@
         },
         "deviceScaleFactor": 1,
         "theme": "light",
-        "promotedFrom": "2026-10-03T03-54-28-197Z-1269983",
-        "promotedAt": "2026-10-03T03:55:10.592Z"
+        "promotedFrom": "2026-10-03T11-31-34-211Z-1591158",
+        "promotedAt": "2026-10-03T11:31:48.289Z"
       },
       "provenanceUnknown": false
     },
@@ -1057,19 +1057,19 @@
       "width": 1200,
       "height": 750,
       "status": "captured",
-      "lastValidatedAgainst": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+      "lastValidatedAgainst": "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
       "kind": "full",
       "viewport": {
         "width": 1200,
         "height": 750
       },
       "scale": 1,
-      "capturedAt": "2026-10-02T20:49:37.411Z",
+      "capturedAt": "2026-10-03T10:47:10.815Z",
       "provenance": {
-        "sourceRevision": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+        "sourceRevision": "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
         "sourceDirty": false,
-        "sourceDigest": "114266b51fd367b0f68eecfc8c435e9db8ed3206ff0c1efb925f238ed434f550",
-        "runId": "2026-10-02T20-47-38-726Z-738590",
+        "sourceDigest": "6cbb305f265656abcb97aa7d8e9181ff63d8447f03595eeef2678860cb1e3571",
+        "runId": "2026-10-03T10-45-24-594Z-1566371",
         "runtime": "chromium-headless (web)",
         "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
         "viewport": {
@@ -1078,8 +1078,8 @@
         },
         "deviceScaleFactor": 1,
         "theme": "light",
-        "promotedFrom": "release-0.5.0-combined-review",
-        "promotedAt": "2026-10-03T00:56:27.164Z"
+        "promotedFrom": "2026-10-03T10-45-24-594Z-1566371",
+        "promotedAt": "2026-10-03T11:28:22.211Z"
       },
       "provenanceUnknown": false
     },
@@ -1093,16 +1093,16 @@
       "width": 920,
       "height": 760,
       "status": "captured",
-      "sha256": "73533372d6a3636af09c13ae8dd8b202f04d5f7d5a9f56430118a29a4a7976d9",
+      "sha256": "cac0a181994efc58282333661924897a88be598dc1d46f4f93b235ef4434cda9",
       "source": "tests/e2e/settings/performance-guidance.visual.spec.ts",
       "provenanceUnknown": false,
-      "capturedAt": "2026-10-02T20:25:32.921Z",
-      "lastValidatedAgainst": "b6fe7591409857c23bf8cf6bece419d65bbd9586",
+      "capturedAt": "2026-10-03T11:24:01.801Z",
+      "lastValidatedAgainst": "af30bc2b48acb88baf01616a849b8130088433bf",
       "provenance": {
-        "sourceRevision": "b6fe7591409857c23bf8cf6bece419d65bbd9586",
+        "sourceRevision": "af30bc2b48acb88baf01616a849b8130088433bf",
         "sourceDirty": false,
-        "sourceDigest": "690280443d33ce1fbed81e98a72d6bc791afb284538ca157682e917d65a0019d",
-        "runId": "test-results/release-0.5.0-refresh-b6fe759140-owners/settings-performance-guida-db911-k-settings-at-200-text-size-chromium",
+        "sourceDigest": "1bc461f83a4c412d73e4fc0142b2d0b86dbf6fe9fd83e8b9874953d5bd4e9aad",
+        "runId": "test-results/release-0.5.0-owner-captures-final-af30bc2b4/settings-performance-guida-db911-k-settings-at-200-text-size-chromium",
         "runtime": "chromium Playwright E2E",
         "captureTool": "Playwright 1.62.1 / chromium 151.0.7922.34",
         "viewport": {
@@ -1111,8 +1111,8 @@
         },
         "deviceScaleFactor": 1,
         "theme": "dark",
-        "promotedFrom": "release-0.5.0-combined-review",
-        "promotedAt": "2026-10-03T00:56:27.180Z"
+        "promotedFrom": "2026-10-03T11-31-34-211Z-1591158",
+        "promotedAt": "2026-10-03T11:31:48.275Z"
       }
     },
     "design-tokens-contrast": {
@@ -1132,13 +1132,13 @@
         "width": 1600,
         "height": 1000
       },
-      "capturedAt": "2026-10-02T20:23:16.667Z",
-      "lastValidatedAgainst": "b6fe7591409857c23bf8cf6bece419d65bbd9586",
+      "capturedAt": "2026-10-03T11:20:51.165Z",
+      "lastValidatedAgainst": "af30bc2b48acb88baf01616a849b8130088433bf",
       "provenance": {
-        "sourceRevision": "b6fe7591409857c23bf8cf6bece419d65bbd9586",
+        "sourceRevision": "af30bc2b48acb88baf01616a849b8130088433bf",
         "sourceDirty": false,
-        "sourceDigest": "690280443d33ce1fbed81e98a72d6bc791afb284538ca157682e917d65a0019d",
-        "runId": "test-results/release-0.5.0-refresh-b6fe759140-owners/inspector-token-binding-ru-ea4e4-ource-edits-through-history-chromium",
+        "sourceDigest": "1bc461f83a4c412d73e4fc0142b2d0b86dbf6fe9fd83e8b9874953d5bd4e9aad",
+        "runId": "test-results/release-0.5.0-owner-captures-final-af30bc2b4/inspector-token-binding-ru-ea4e4-ource-edits-through-history-chromium",
         "runtime": "chromium Playwright E2E",
         "captureTool": "Playwright 1.62.1 / chromium 151.0.7922.34",
         "viewport": {
@@ -1147,12 +1147,12 @@
         },
         "deviceScaleFactor": 1,
         "theme": "light",
-        "promotedFrom": "release-0.5.0-combined-review",
-        "promotedAt": "2026-10-03T00:56:27.180Z"
+        "promotedFrom": "2026-10-03T11-31-34-211Z-1591158",
+        "promotedAt": "2026-10-03T11:31:48.276Z"
       }
     },
     "tablet-controls": {
-      "sha256": "0f0c794ae82e59f87ab35cfdb43f5a662d8daaca91da66d93b72bc50987ba66b",
+      "sha256": "631e39daa64eae8380fba2d5a3859a7949e14719a7864d0ec19e7d592e2f20df",
       "file": "tablet-controls-detail-light.png",
       "alt": "Tablet editing controls for modifiers, multi-selection, alignment, and layer order beside a Varve poster canvas",
       "caption": "Constrain, draw from centre, bypass snapping, duplicate, align, and reorder without a keyboard",
@@ -1167,13 +1167,13 @@
         "height": 750
       },
       "scale": 1,
-      "capturedAt": "2026-10-02T20:49:49.356Z",
-      "lastValidatedAgainst": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+      "capturedAt": "2026-10-03T10:47:23.017Z",
+      "lastValidatedAgainst": "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
       "provenance": {
-        "sourceRevision": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+        "sourceRevision": "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
         "sourceDirty": false,
-        "sourceDigest": "114266b51fd367b0f68eecfc8c435e9db8ed3206ff0c1efb925f238ed434f550",
-        "runId": "2026-10-02T20-47-38-726Z-738590",
+        "sourceDigest": "6cbb305f265656abcb97aa7d8e9181ff63d8447f03595eeef2678860cb1e3571",
+        "runId": "2026-10-03T10-45-24-594Z-1566371",
         "runtime": "chromium-headless (web)",
         "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
         "viewport": {
@@ -1182,13 +1182,13 @@
         },
         "deviceScaleFactor": 1,
         "theme": "light",
-        "promotedFrom": "release-0.5.0-combined-review",
-        "promotedAt": "2026-10-03T00:56:27.165Z"
+        "promotedFrom": "2026-10-03T10-45-24-594Z-1566371",
+        "promotedAt": "2026-10-03T11:28:22.211Z"
       },
       "provenanceUnknown": false
     },
     "presentation-navigator": {
-      "sha256": "d6399febd966d321a57caff8106ca0011db02bfa615778ef777135cc07cbdf68",
+      "sha256": "231a6ecfa65107749e4ab827abaa87dce91572ca57959d9a17a9257f59118215",
       "file": "presentation-navigator-light.png",
       "alt": "Varve Design showing an ordered three-slide presentation in the Slides navigator beside the editable canvas",
       "caption": "An explicit slide sequence beside the editable Design canvas",
@@ -1199,13 +1199,13 @@
       "height": 900,
       "status": "captured",
       "scale": 1,
-      "capturedAt": "2026-10-02T20:48:46.175Z",
-      "lastValidatedAgainst": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+      "capturedAt": "2026-10-03T12:10:53.387Z",
+      "lastValidatedAgainst": "7599fcc198910b86ba477fa2ed102d4137bf941b",
       "provenance": {
-        "sourceRevision": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+        "sourceRevision": "7599fcc198910b86ba477fa2ed102d4137bf941b",
         "sourceDirty": false,
-        "sourceDigest": "114266b51fd367b0f68eecfc8c435e9db8ed3206ff0c1efb925f238ed434f550",
-        "runId": "2026-10-02T20-47-38-726Z-738590",
+        "sourceDigest": "a2f89b0c65d62bec75224d9ee146b38ece6e66bae3511204106cfdd7beb548d7",
+        "runId": "2026-10-03T12-10-33-136Z-1643607",
         "runtime": "chromium-headless (web)",
         "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
         "viewport": {
@@ -1214,13 +1214,13 @@
         },
         "deviceScaleFactor": 1,
         "theme": "light",
-        "promotedFrom": "release-0.5.0-combined-review",
-        "promotedAt": "2026-10-03T00:56:27.162Z"
+        "promotedFrom": "2026-10-03T12-10-33-136Z-1643607",
+        "promotedAt": "2026-10-03T12:13:22.789Z"
       },
       "provenanceUnknown": false
     },
     "presentation-slide": {
-      "sha256": "42c0a1734ed010afd7179975056f1b606b8b6031a59cd0bf27406a2b98a5197a",
+      "sha256": "febb2360a8c53a45c13b6959182e4744d4341abf309cfbb52c7a98aac6677fc9",
       "file": "presentation-slide-light.png",
       "alt": "An editable title slide on the Varve Design canvas, with layered teal, sand, and terracotta bars",
       "caption": "Each slide remains an editable frame on the Design canvas",
@@ -1231,13 +1231,13 @@
       "height": 900,
       "status": "captured",
       "scale": 1,
-      "capturedAt": "2026-10-02T20:48:57.210Z",
-      "lastValidatedAgainst": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+      "capturedAt": "2026-10-03T12:11:03.695Z",
+      "lastValidatedAgainst": "7599fcc198910b86ba477fa2ed102d4137bf941b",
       "provenance": {
-        "sourceRevision": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+        "sourceRevision": "7599fcc198910b86ba477fa2ed102d4137bf941b",
         "sourceDirty": false,
-        "sourceDigest": "114266b51fd367b0f68eecfc8c435e9db8ed3206ff0c1efb925f238ed434f550",
-        "runId": "2026-10-02T20-47-38-726Z-738590",
+        "sourceDigest": "a2f89b0c65d62bec75224d9ee146b38ece6e66bae3511204106cfdd7beb548d7",
+        "runId": "2026-10-03T12-10-33-136Z-1643607",
         "runtime": "chromium-headless (web)",
         "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
         "viewport": {
@@ -1246,13 +1246,13 @@
         },
         "deviceScaleFactor": 1,
         "theme": "light",
-        "promotedFrom": "release-0.5.0-combined-review",
-        "promotedAt": "2026-10-03T00:56:27.162Z"
+        "promotedFrom": "2026-10-03T12-10-33-136Z-1643607",
+        "promotedAt": "2026-10-03T12:13:22.790Z"
       },
       "provenanceUnknown": false
     },
     "presentation-layout-revision": {
-      "sha256": "d02c10545c6aa2e9134b5fe77119cf6ab1fbe5e3afa0e7cbc3d208f06b5a97c3",
+      "sha256": "8d6a24d2d36f138882e3406fa6e1576fc7e003444db534367cfdde393611ae55",
       "file": "presentation-layout-revision-tablet-dark.png",
       "alt": "Varve showing a preview of reusable presentation layout geometry before applying the revision",
       "caption": "Review compatible layout geometry before reapplying it to a slide",
@@ -1267,13 +1267,13 @@
         "height": 750
       },
       "scale": 1,
-      "capturedAt": "2026-10-02T20:49:06.824Z",
-      "lastValidatedAgainst": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+      "capturedAt": "2026-10-03T12:11:13.580Z",
+      "lastValidatedAgainst": "7599fcc198910b86ba477fa2ed102d4137bf941b",
       "provenance": {
-        "sourceRevision": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+        "sourceRevision": "7599fcc198910b86ba477fa2ed102d4137bf941b",
         "sourceDirty": false,
-        "sourceDigest": "114266b51fd367b0f68eecfc8c435e9db8ed3206ff0c1efb925f238ed434f550",
-        "runId": "2026-10-02T20-47-38-726Z-738590",
+        "sourceDigest": "a2f89b0c65d62bec75224d9ee146b38ece6e66bae3511204106cfdd7beb548d7",
+        "runId": "2026-10-03T12-10-33-136Z-1643607",
         "runtime": "chromium-headless (web)",
         "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
         "viewport": {
@@ -1282,8 +1282,8 @@
         },
         "deviceScaleFactor": 1,
         "theme": "dark",
-        "promotedFrom": "release-0.5.0-combined-review",
-        "promotedAt": "2026-10-03T00:56:27.163Z"
+        "promotedFrom": "2026-10-03T12-10-33-136Z-1643607",
+        "promotedAt": "2026-10-03T12:13:22.790Z"
       },
       "provenanceUnknown": false
     },
@@ -1299,13 +1299,13 @@
       "height": 900,
       "status": "captured",
       "scale": 1,
-      "capturedAt": "2026-10-02T20:49:16.362Z",
-      "lastValidatedAgainst": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+      "capturedAt": "2026-10-03T12:11:23.194Z",
+      "lastValidatedAgainst": "7599fcc198910b86ba477fa2ed102d4137bf941b",
       "provenance": {
-        "sourceRevision": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+        "sourceRevision": "7599fcc198910b86ba477fa2ed102d4137bf941b",
         "sourceDirty": false,
-        "sourceDigest": "114266b51fd367b0f68eecfc8c435e9db8ed3206ff0c1efb925f238ed434f550",
-        "runId": "2026-10-02T20-47-38-726Z-738590",
+        "sourceDigest": "a2f89b0c65d62bec75224d9ee146b38ece6e66bae3511204106cfdd7beb548d7",
+        "runId": "2026-10-03T12-10-33-136Z-1643607",
         "runtime": "chromium-headless (web)",
         "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
         "viewport": {
@@ -1314,13 +1314,13 @@
         },
         "deviceScaleFactor": 1,
         "theme": "light",
-        "promotedFrom": "release-0.5.0-combined-review",
-        "promotedAt": "2026-10-03T00:56:27.163Z"
+        "promotedFrom": "2026-10-03T12-10-33-136Z-1643607",
+        "promotedAt": "2026-10-03T12:13:22.791Z"
       },
       "provenanceUnknown": false
     },
     "presentation-export": {
-      "sha256": "b1f168525f3869bc5727d2b0a0346b08a4e4f05bc0e8166cf6c35c5ad9aea9d0",
+      "sha256": "9a3cc22aafb3a3d62a88e86cc5d1bdedcdf8216c21489cf152af437c39d4bfa0",
       "file": "presentation-export-light.png",
       "alt": "Varve presentation export dialog showing raster PDF and ordered PNG sequence output options",
       "caption": "Export an ordered raster PDF or PNG sequence from the local deck",
@@ -1331,13 +1331,13 @@
       "height": 900,
       "status": "captured",
       "scale": 1,
-      "capturedAt": "2026-10-02T20:49:25.884Z",
-      "lastValidatedAgainst": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+      "capturedAt": "2026-10-03T12:11:32.495Z",
+      "lastValidatedAgainst": "7599fcc198910b86ba477fa2ed102d4137bf941b",
       "provenance": {
-        "sourceRevision": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+        "sourceRevision": "7599fcc198910b86ba477fa2ed102d4137bf941b",
         "sourceDirty": false,
-        "sourceDigest": "114266b51fd367b0f68eecfc8c435e9db8ed3206ff0c1efb925f238ed434f550",
-        "runId": "2026-10-02T20-47-38-726Z-738590",
+        "sourceDigest": "a2f89b0c65d62bec75224d9ee146b38ece6e66bae3511204106cfdd7beb548d7",
+        "runId": "2026-10-03T12-10-33-136Z-1643607",
         "runtime": "chromium-headless (web)",
         "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
         "viewport": {
@@ -1346,8 +1346,8 @@
         },
         "deviceScaleFactor": 1,
         "theme": "light",
-        "promotedFrom": "release-0.5.0-combined-review",
-        "promotedAt": "2026-10-03T00:56:27.164Z"
+        "promotedFrom": "2026-10-03T12-10-33-136Z-1643607",
+        "promotedAt": "2026-10-03T12:13:22.791Z"
       },
       "provenanceUnknown": false
     },
@@ -1368,13 +1368,13 @@
         "height": 900
       },
       "provenanceUnknown": false,
-      "capturedAt": "2026-10-02T20:47:28.587Z",
-      "lastValidatedAgainst": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+      "capturedAt": "2026-10-03T11:24:22.807Z",
+      "lastValidatedAgainst": "af30bc2b48acb88baf01616a849b8130088433bf",
       "provenance": {
-        "sourceRevision": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+        "sourceRevision": "af30bc2b48acb88baf01616a849b8130088433bf",
         "sourceDirty": false,
-        "sourceDigest": "114266b51fd367b0f68eecfc8c435e9db8ed3206ff0c1efb925f238ed434f550",
-        "runId": "test-results/capture-owner-r52-clean/workspace-effect-studio-Ef-e4262--responsive-viewport-matrix-chromium",
+        "sourceDigest": "1bc461f83a4c412d73e4fc0142b2d0b86dbf6fe9fd83e8b9874953d5bd4e9aad",
+        "runId": "test-results/release-0.5.0-owner-captures-final-af30bc2b4/workspace-effect-studio-Ef-e4262--responsive-viewport-matrix-chromium",
         "runtime": "chromium Playwright E2E",
         "captureTool": "Playwright 1.62.1 / chromium 151.0.7922.34",
         "viewport": {
@@ -1383,8 +1383,8 @@
         },
         "deviceScaleFactor": 1,
         "theme": "light",
-        "promotedFrom": "release-0.5.0-combined-review",
-        "promotedAt": "2026-10-03T00:56:27.181Z"
+        "promotedFrom": "2026-10-03T11-31-34-211Z-1591158",
+        "promotedAt": "2026-10-03T11:31:48.277Z"
       }
     },
     "effect-studio-mobile-light": {
@@ -1397,20 +1397,20 @@
       "width": 390,
       "height": 844,
       "status": "captured",
-      "sha256": "55ca8289adfcfcc4a4fb71768dac15c644a9cee2209bd1db091db8bd85c07038",
+      "sha256": "bcdd14091c36dbe8746e11d5f9e12f59e2c0902f4a920c4f243eaf566d4db9d2",
       "source": "tests/e2e/workspace/effect-studio.spec.ts",
       "viewport": {
         "width": 390,
         "height": 844
       },
       "provenanceUnknown": false,
-      "capturedAt": "2026-10-02T20:47:30.689Z",
-      "lastValidatedAgainst": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+      "capturedAt": "2026-10-03T11:24:25.968Z",
+      "lastValidatedAgainst": "af30bc2b48acb88baf01616a849b8130088433bf",
       "provenance": {
-        "sourceRevision": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+        "sourceRevision": "af30bc2b48acb88baf01616a849b8130088433bf",
         "sourceDirty": false,
-        "sourceDigest": "114266b51fd367b0f68eecfc8c435e9db8ed3206ff0c1efb925f238ed434f550",
-        "runId": "test-results/capture-owner-r52-clean/workspace-effect-studio-Ef-e4262--responsive-viewport-matrix-chromium",
+        "sourceDigest": "1bc461f83a4c412d73e4fc0142b2d0b86dbf6fe9fd83e8b9874953d5bd4e9aad",
+        "runId": "test-results/release-0.5.0-owner-captures-final-af30bc2b4/workspace-effect-studio-Ef-e4262--responsive-viewport-matrix-chromium",
         "runtime": "chromium Playwright E2E",
         "captureTool": "Playwright 1.62.1 / chromium 151.0.7922.34",
         "viewport": {
@@ -1419,8 +1419,8 @@
         },
         "deviceScaleFactor": 1,
         "theme": "light",
-        "promotedFrom": "release-0.5.0-combined-review",
-        "promotedAt": "2026-10-03T00:56:27.181Z"
+        "promotedFrom": "2026-10-03T11-31-34-211Z-1591158",
+        "promotedAt": "2026-10-03T11:31:48.278Z"
       }
     },
     "illustration-linework-flats": {
@@ -1433,19 +1433,19 @@
       "width": 1280,
       "height": 800,
       "status": "captured",
-      "sha256": "f9a791d4c8096ff2697c458168979578f60eaceccf77f4cfbe0c9cbaa851c452",
+      "sha256": "8f614bda44a951a9baa30225f6ed3dd99a691c83e64a659554652ec9ff4dc72a",
       "source": "tests/e2e/canvas/raster-magic-wand.spec.ts",
-      "capturedAt": "2026-10-03T03:50:54.339Z",
-      "lastValidatedAgainst": "10ebb7d96c87b4e8d7470803bcab2ff9be55cebf",
+      "capturedAt": "2026-10-03T11:19:59.947Z",
+      "lastValidatedAgainst": "af30bc2b48acb88baf01616a849b8130088433bf",
       "viewport": {
         "width": 1280,
         "height": 800
       },
       "provenance": {
-        "sourceRevision": "10ebb7d96c87b4e8d7470803bcab2ff9be55cebf",
+        "sourceRevision": "af30bc2b48acb88baf01616a849b8130088433bf",
         "sourceDirty": false,
-        "sourceDigest": "8ecd6af5eafb22913e03e72e1affa628680438fe5bdf9c4d6c93f7ab3bbab183",
-        "runId": "test-results/app-screenshot-owners-10ebb7d96/canvas-raster-magic-wand-h-61831-ding-then-saves-and-reopens-chromium",
+        "sourceDigest": "1bc461f83a4c412d73e4fc0142b2d0b86dbf6fe9fd83e8b9874953d5bd4e9aad",
+        "runId": "test-results/release-0.5.0-owner-captures-final-af30bc2b4/canvas-raster-magic-wand-h-61831-ding-then-saves-and-reopens-chromium",
         "runtime": "chromium Playwright E2E",
         "captureTool": "Playwright 1.62.1 / chromium 151.0.7922.34",
         "viewport": {
@@ -1454,8 +1454,8 @@
         },
         "deviceScaleFactor": 1,
         "theme": "light",
-        "promotedFrom": "2026-10-03T03-54-28-197Z-1269983",
-        "promotedAt": "2026-10-03T03:55:10.586Z"
+        "promotedFrom": "2026-10-03T11-31-34-211Z-1591158",
+        "promotedAt": "2026-10-03T11:31:48.279Z"
       },
       "provenanceUnknown": false
     },
@@ -1469,19 +1469,19 @@
       "width": 1280,
       "height": 800,
       "status": "captured",
-      "sha256": "d176a6219f65f3d5d13692fc37f997d50f526e37a85b2f33d9431023fad61585",
+      "sha256": "4df689d9d60bc43134a584c4b95819fcb5f6657f972783192c37cdea1e4d4021",
       "source": "tests/e2e/canvas/raster-magic-wand.spec.ts",
-      "capturedAt": "2026-10-03T03:51:01.802Z",
-      "lastValidatedAgainst": "10ebb7d96c87b4e8d7470803bcab2ff9be55cebf",
+      "capturedAt": "2026-10-03T11:20:09.999Z",
+      "lastValidatedAgainst": "af30bc2b48acb88baf01616a849b8130088433bf",
       "viewport": {
         "width": 1280,
         "height": 800
       },
       "provenance": {
-        "sourceRevision": "10ebb7d96c87b4e8d7470803bcab2ff9be55cebf",
+        "sourceRevision": "af30bc2b48acb88baf01616a849b8130088433bf",
         "sourceDirty": false,
-        "sourceDigest": "8ecd6af5eafb22913e03e72e1affa628680438fe5bdf9c4d6c93f7ab3bbab183",
-        "runId": "test-results/app-screenshot-owners-10ebb7d96/canvas-raster-magic-wand-h-61831-ding-then-saves-and-reopens-chromium",
+        "sourceDigest": "1bc461f83a4c412d73e4fc0142b2d0b86dbf6fe9fd83e8b9874953d5bd4e9aad",
+        "runId": "test-results/release-0.5.0-owner-captures-final-af30bc2b4/canvas-raster-magic-wand-h-61831-ding-then-saves-and-reopens-chromium",
         "runtime": "chromium Playwright E2E",
         "captureTool": "Playwright 1.62.1 / chromium 151.0.7922.34",
         "viewport": {
@@ -1490,8 +1490,8 @@
         },
         "deviceScaleFactor": 1,
         "theme": "light",
-        "promotedFrom": "2026-10-03T03-54-28-197Z-1269983",
-        "promotedAt": "2026-10-03T03:55:10.587Z"
+        "promotedFrom": "2026-10-03T11-31-34-211Z-1591158",
+        "promotedAt": "2026-10-03T11:31:48.280Z"
       },
       "provenanceUnknown": false
     },
@@ -1505,20 +1505,20 @@
       "width": 1440,
       "height": 900,
       "status": "captured",
-      "sha256": "0033fed9364da5398904e658d9b24ce2039cb501477cbd3bedf2287b7e052cda",
+      "sha256": "8291d718e38eb3b5d4c54af840a993564d69544c0edec6ffadc07e143baed38c",
       "source": "tests/e2e/paint/clipped-vector-texture.spec.ts",
       "viewport": {
         "width": 1440,
         "height": 900
       },
       "provenanceUnknown": false,
-      "capturedAt": "2026-10-02T20:23:53.836Z",
-      "lastValidatedAgainst": "b6fe7591409857c23bf8cf6bece419d65bbd9586",
+      "capturedAt": "2026-10-03T11:21:45.119Z",
+      "lastValidatedAgainst": "af30bc2b48acb88baf01616a849b8130088433bf",
       "provenance": {
-        "sourceRevision": "b6fe7591409857c23bf8cf6bece419d65bbd9586",
+        "sourceRevision": "af30bc2b48acb88baf01616a849b8130088433bf",
         "sourceDirty": false,
-        "sourceDigest": "690280443d33ce1fbed81e98a72d6bc791afb284538ca157682e917d65a0019d",
-        "runId": "test-results/release-0.5.0-refresh-b6fe759140-owners/paint-clipped-vector-textu-04fe5--survive-SVG-and-PDF-export-chromium",
+        "sourceDigest": "1bc461f83a4c412d73e4fc0142b2d0b86dbf6fe9fd83e8b9874953d5bd4e9aad",
+        "runId": "test-results/release-0.5.0-owner-captures-final-af30bc2b4/paint-clipped-vector-textu-04fe5--survive-SVG-and-PDF-export-chromium",
         "runtime": "chromium Playwright E2E",
         "captureTool": "Playwright 1.62.1 / chromium 151.0.7922.34",
         "viewport": {
@@ -1527,8 +1527,8 @@
         },
         "deviceScaleFactor": 1,
         "theme": "light",
-        "promotedFrom": "release-0.5.0-combined-review",
-        "promotedAt": "2026-10-03T00:56:27.182Z"
+        "promotedFrom": "2026-10-03T11-31-34-211Z-1591158",
+        "promotedAt": "2026-10-03T11:31:48.280Z"
       }
     },
     "concept-art-reference-workflow": {
@@ -1541,20 +1541,20 @@
       "width": 1440,
       "height": 1000,
       "status": "captured",
-      "sha256": "9e5ec96453e52592d435e7c8b4f0dd3456db8b5cf259eb1f58150dab32809f5c",
+      "sha256": "426fa526eb659486f6cb69424f98388b7ad954f217b3af7050e8537abfcd3404",
       "source": "tests/e2e/canvas/concept-art-references.spec.ts",
       "viewport": {
         "width": 1440,
         "height": 1000
       },
       "provenanceUnknown": false,
-      "capturedAt": "2026-10-02T20:47:04.502Z",
-      "lastValidatedAgainst": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+      "capturedAt": "2026-10-03T11:19:01.642Z",
+      "lastValidatedAgainst": "af30bc2b48acb88baf01616a849b8130088433bf",
       "provenance": {
-        "sourceRevision": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+        "sourceRevision": "af30bc2b48acb88baf01616a849b8130088433bf",
         "sourceDirty": false,
-        "sourceDigest": "114266b51fd367b0f68eecfc8c435e9db8ed3206ff0c1efb925f238ed434f550",
-        "runId": "test-results/capture-owner-r52-clean/canvas-concept-art-referen-5862e-mpling-and-saves-the-opt-in-chromium",
+        "sourceDigest": "1bc461f83a4c412d73e4fc0142b2d0b86dbf6fe9fd83e8b9874953d5bd4e9aad",
+        "runId": "test-results/release-0.5.0-owner-captures-final-af30bc2b4/canvas-concept-art-referen-5862e-mpling-and-saves-the-opt-in-chromium",
         "runtime": "chromium Playwright E2E",
         "captureTool": "Playwright 1.62.1 / chromium 151.0.7922.34",
         "viewport": {
@@ -1563,8 +1563,8 @@
         },
         "deviceScaleFactor": 1,
         "theme": "light",
-        "promotedFrom": "release-0.5.0-combined-review",
-        "promotedAt": "2026-10-03T00:56:27.184Z"
+        "promotedFrom": "2026-10-03T11-31-34-211Z-1591158",
+        "promotedAt": "2026-10-03T11:31:48.283Z"
       }
     },
     "patterns": {
@@ -1582,15 +1582,15 @@
         "width": 1280,
         "height": 720
       },
-      "lastValidatedAgainst": "10ebb7d96c87b4e8d7470803bcab2ff9be55cebf",
+      "lastValidatedAgainst": "af30bc2b48acb88baf01616a849b8130088433bf",
       "provenanceUnknown": false,
-      "sha256": "4cec09a517c16f43c7601834d127a0817299b299c3326b22b2f6ecaf6fbde4c4",
-      "capturedAt": "2026-10-03T03:50:34.789Z",
+      "sha256": "0633e68e86c7eae3170f3df678b4033db81322b29959caf523b2b89a57679382",
+      "capturedAt": "2026-10-03T11:19:31.917Z",
       "provenance": {
-        "sourceRevision": "10ebb7d96c87b4e8d7470803bcab2ff9be55cebf",
+        "sourceRevision": "af30bc2b48acb88baf01616a849b8130088433bf",
         "sourceDirty": false,
-        "sourceDigest": "8ecd6af5eafb22913e03e72e1affa628680438fe5bdf9c4d6c93f7ab3bbab183",
-        "runId": "test-results/app-screenshot-owners-10ebb7d96/canvas-pattern-document-al-a7b94-its-anchor-in-the-inspector-chromium",
+        "sourceDigest": "1bc461f83a4c412d73e4fc0142b2d0b86dbf6fe9fd83e8b9874953d5bd4e9aad",
+        "runId": "test-results/release-0.5.0-owner-captures-final-af30bc2b4/canvas-pattern-document-al-a7b94-its-anchor-in-the-inspector-chromium",
         "runtime": "chromium Playwright E2E",
         "captureTool": "Playwright 1.62.1 / chromium 151.0.7922.34",
         "viewport": {
@@ -1599,26 +1599,32 @@
         },
         "deviceScaleFactor": 1,
         "theme": "light",
-        "promotedFrom": "2026-10-03T03-54-28-197Z-1269983",
-        "promotedAt": "2026-10-03T03:55:10.584Z"
+        "promotedFrom": "2026-10-03T11-31-34-211Z-1591158",
+        "promotedAt": "2026-10-03T11:31:48.274Z"
       }
     }
   },
   "provenance": {
     "kind": "reviewed-mixed-source-assembly",
     "runtime": "metadata-only reviewed assembly; no new capture",
-    "assemblyRevision": "10ebb7d96c87b4e8d7470803bcab2ff9be55cebf",
-    "assemblySourceDigest": "8ecd6af5eafb22913e03e72e1affa628680438fe5bdf9c4d6c93f7ab3bbab183",
+    "assemblyRevision": "7599fcc198910b86ba477fa2ed102d4137bf941b",
+    "assemblySourceDigest": "a2f89b0c65d62bec75224d9ee146b38ece6e66bae3511204106cfdd7beb548d7",
     "assemblySourceDirty": false,
-    "assembledAt": "2026-10-03T04:00:14.024Z",
-    "reviewManifestSha256": "8e0211bda7be69f35b54340f8153f83188c98cf8306dd7e8ce7822a5fdfe7422",
-    "reviewedAgainst": "94234764f0e9ac84064ca511ab937bdee24b8f9d04ffb83a94eca9adadddd1cb",
-    "promotedSceneIDs": ["depth-blur"],
+    "assembledAt": "2026-10-03T12:13:22.791Z",
+    "reviewManifestSha256": "e7e5b57e206158fecf417ba5e6c12e247a42f19d8d652105b3ff340eeb328a19",
+    "reviewedAgainst": "ed18459beea9d4755c3d236db7054eb93ac8f956cb85cc774cc43d639531a1ba",
+    "promotedSceneIDs": [
+      "presentation-navigator",
+      "presentation-slide",
+      "presentation-layout-revision",
+      "presentation-preview",
+      "presentation-export"
+    ],
     "capturedSourceRevisions": [
       "10ebb7d96c87b4e8d7470803bcab2ff9be55cebf",
-      "64d461b7bdee49acef7293dfa011f1c541a1b448",
-      "b6fe7591409857c23bf8cf6bece419d65bbd9586",
-      "e4d2d2de9b6467e88977e11a410267f095a3bd77",
+      "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
+      "7599fcc198910b86ba477fa2ed102d4137bf941b",
+      "af30bc2b48acb88baf01616a849b8130088433bf",
       "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767"
     ],
     "captureTools": [
@@ -1626,9 +1632,9 @@
       "Playwright 1.62.1 / chromium 151.0.7922.34"
     ],
     "provenanceUnknownSceneIDs": [],
-    "sceneIdentitySha256": "8269cd35d537390c164933f6f650446d3745136d44f81e7bcb7fe7731897d7c9"
+    "sceneIdentitySha256": "91daa02c89dabdcad4bdf6648df2500bfe7d2f81621174ed47fecefd3f4f6864"
   },
-  "sourceRevision": "10ebb7d96c87b4e8d7470803bcab2ff9be55cebf",
-  "sourceDigest": "8ecd6af5eafb22913e03e72e1affa628680438fe5bdf9c4d6c93f7ab3bbab183",
+  "sourceRevision": "7599fcc198910b86ba477fa2ed102d4137bf941b",
+  "sourceDigest": "a2f89b0c65d62bec75224d9ee146b38ece6e66bae3511204106cfdd7beb548d7",
   "captureTool": "reviewed assembly; original capture and browser versions are recorded per scene"
 }

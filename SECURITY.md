@@ -84,6 +84,23 @@ vulnerabilities, `cargo audit` reported no Rust vulnerabilities in either
 Cargo workspace, and GitHub reported one open development-only advisory
 (extract-zip), which has no upstream fixed release and is mitigated locally.
 
+### Current release review (2026-10-03)
+
+The release review found two high npm findings with no published upstream
+fixed versions: `http-cache-semantics@4.2.0` and `braces@3.0.3`, both in the
+website build dependency graph, and two open high GitHub Dependabot alerts:
+`http-cache-semantics` (alert #105) and development-only `extract-zip@2.0.1`
+(alert #46). The repository carries reviewed local mitigations for all three
+packages. Runtime and consumer regression tests cover those mitigations;
+the raw advisories and GitHub alerts remain visible and are not described as
+upstream-resolved. See the detailed scanner, patch, and test contract in
+[`docs/CI_CD_RESILIENCE.md`](docs/CI_CD_RESILIENCE.md).
+
+The desktop Cargo audit still reports the unsound `glib@0.18.5`
+`VariantStrIter` advisory through the Linux GTK stack, plus unmaintained
+dependency warnings. It remains visible as a release risk; a clean scanner
+exit is not evidence that these upstream warnings are fixed.
+
 Two Cargo workspaces exist and must be audited separately: the root
 `Cargo.lock` covers `crates/`, while `apps/desktop/src-tauri/Cargo.lock` is a
 standalone workspace that carries the Tauri, wry, tao, and gtk-rs stack.
