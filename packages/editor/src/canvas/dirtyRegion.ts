@@ -6,6 +6,7 @@
  * parent transform, clip, mask, or isolation change can affect descendants.
  */
 
+import { hasLiveWarps } from '@varve/engine';
 import type { Document, NodeId, RasterLayerNode } from '@varve/scene';
 import {
   findAllCompositingDependents,
@@ -14,6 +15,7 @@ import {
   parseTileKey,
   resolveAllStyles,
   TILE_SIZE,
+  warpsOnNode,
 } from '@varve/scene';
 import type { Rect } from '@varve/shared';
 import { committedParentIndex } from '../scene/parentIndexCache';
@@ -399,6 +401,14 @@ function evaluateDocumentDirtyRegion(
     }
 
     if (before && after) {
+      // Canvas2D antialiases the tessellated edge of live warp paths slightly
+      // differently when that edge is painted through a partial clip. The
+      // same-state redraw oracle observed channel-level edge changes after a
+      // warp drag, so retain correctness until warped-path partial replay can
+      // prove byte-identical output.
+      if (hasLiveWarps(warpsOnNode(before)) || hasLiveWarps(warpsOnNode(after))) {
+        return { kind: 'full' };
+      }
       previousParents ??= committedParentIndex(previous);
       nextParents ??= nextParentIndex ?? committedParentIndex(next);
       const beforeBounds = nodeVisualWorldBounds(previous, id, previousStyles, previousParents);

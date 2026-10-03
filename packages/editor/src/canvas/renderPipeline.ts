@@ -898,6 +898,12 @@ export function renderContent(deps: RenderContentDeps): void {
     // One profile per frame (pre-loop) so pruning, worker and paint agree.
     const profile = computeProfile(getAverageFrameTime(), getOverBudgetCount(), entries.length);
     const cacheMultiplier = profile.cacheMultiplier;
+    // Active warp handles update nonlinear path geometry on every pointer
+    // sample. Keep those frames on the main-thread renderer: Chromium's
+    // OffscreenCanvas worker and the authoritative main-thread replay differed
+    // by one channel value on a small set of warped edge pixels, which made
+    // the displayed frame fail the same-state pixel oracle.
+    const activeWarpEdit = s.warpEdit !== null;
     // WebGL2 is an explicit compositor trial. Letting the worker bitmap path
     // win first would render every frame through its Canvas2D worker and make
     // the WebGL2 preference a no-op. An unavailable WebGL2 request resolves to
@@ -910,6 +916,7 @@ export function renderContent(deps: RenderContentDeps): void {
     const workerWillRender =
       Boolean(renderWorkerRef.current) &&
       !workerFailedRef.current &&
+      !activeWarpEdit &&
       profileCanUseWorker &&
       !oracleFullRedraw &&
       !documentHasPerspectiveImage(doc) &&
@@ -2171,6 +2178,7 @@ export function renderContent(deps: RenderContentDeps): void {
     const workerReady =
       workerImageRefusal === null &&
       workerFallbackRevisionRef.current !== renderRevision &&
+      !activeWarpEdit &&
       compositorRef.current?.id !== 'webgl2' &&
       !documentHasPerspectiveImage(doc) &&
       sceneCanUseWorkerRenderer(doc, (src) => getImageCache().isLoaded(src)) &&

@@ -85,6 +85,20 @@ async function surfaceHash(page: Page): Promise<number> {
   });
 }
 
+async function forceAuthoritativeRedraw(page: Page): Promise<void> {
+  const result = await page.evaluate(async () => {
+    return (
+      window as unknown as {
+        __varvePerf?: {
+          forceFullRedraw?: () => Promise<{ authoritative: boolean; renderPath: string }>;
+        };
+      }
+    ).__varvePerf?.forceFullRedraw?.();
+  });
+  expect(result, 'full-redraw oracle must be installed').toBeTruthy();
+  expect(result?.authoritative, 'oracle must wait for a committed full redraw').toBe(true);
+}
+
 const CORNER = '[aria-label^="Envelope top right corner"]';
 const CAGE = '[aria-label$="warp cage"]';
 
@@ -96,8 +110,8 @@ async function cornerCenter(page: Page): Promise<{ x: number; y: number }> {
 
 async function activeTool(page: Page): Promise<string | null> {
   return page.evaluate(() => {
-    const el = document.querySelector('[data-tool][class*="--active"]');
-    return (el as HTMLElement | null)?.dataset.tool ?? null;
+    const el = document.querySelector<HTMLElement>('[data-tool][aria-pressed="true"]');
+    return el?.dataset.tool ?? null;
   });
 }
 
@@ -163,12 +177,7 @@ test.describe('warp: direct manipulation latency', () => {
     // equals an authoritative full redraw (no stale-pixel freeze).
     const liveHash = await surfaceHash(page);
     expect(liveHash, 'warp drag must change the painted artwork').not.toBe(beforeHash);
-    await page.evaluate(() => {
-      (
-        window as unknown as { __varvePerf?: { forceFullRedraw?: () => void } }
-      ).__varvePerf?.forceFullRedraw?.();
-    });
-    await page.waitForTimeout(700);
+    await forceAuthoritativeRedraw(page);
     expect(await surfaceHash(page), 'live surface must equal a full redraw').toBe(liveHash);
 
     // The burst result equals a slow deliberate drag to the same endpoint:

@@ -1,3 +1,4 @@
+import { makeWarpPreset } from '@varve/engine';
 import {
   addNode,
   addPage,
@@ -34,6 +35,18 @@ describe('computeDocumentDirtyRegion', () => {
       bounds: { x: 10, y: 15, w: 60, h: 40 },
       rectCount: 2,
     });
+  });
+
+  it('uses an authoritative redraw when a live-warped leaf changes', () => {
+    let before = createDocument('Warp dirty', true);
+    before = addNode(before, makeShapeNode('shape', { kind: 'rect', x: 0, y: 0, w: 20, h: 10 }));
+    const shape = before.nodes.shape!;
+    const after = {
+      ...before,
+      nodes: { ...before.nodes, shape: { ...shape, warps: [makeWarpPreset('four-edge')] } },
+    };
+
+    expect(computeDocumentDirtyRegion(before, after)).toEqual({ kind: 'full' });
   });
 
   it('requires a full redraw for structural container changes', () => {
