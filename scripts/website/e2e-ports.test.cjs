@@ -1,8 +1,17 @@
 const assert = require('node:assert/strict');
-const { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } = require('node:fs');
+const {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} = require('node:fs');
+const { execFileSync } = require('node:child_process');
 const { createServer } = require('node:net');
 const { tmpdir } = require('node:os');
-const { dirname, join } = require('node:path');
+const { dirname, join, relative, sep, resolve } = require('node:path');
+const { pathToFileURL } = require('node:url');
 const { test } = require('node:test');
 const crossSpawn = require('cross-spawn');
 const { preflightWebsitePorts, websiteE2ePorts } = require('./e2e-ports.cjs');
@@ -25,6 +34,68 @@ async function availablePair() {
 const envFor = (ports) => ({
   VARVE_WEBSITE_E2E_PORT: String(ports.pages),
   VARVE_WEBSITE_E2E_PORT_ROOT: String(ports.root),
+});
+
+test('Playwright cleanup cannot erase website certification plans or reports', () => {
+  const sourceRoot = join(__dirname, '../..');
+  const suffix = 'website-output-safety-fixture';
+  const configPath = join(sourceRoot, 'playwright.website.config.ts');
+  const serialized = execFileSync(
+    process.execPath,
+    [
+      '--experimental-strip-types',
+      '--input-type=module',
+      '-e',
+      `const {default:c}=await import(${JSON.stringify(pathToFileURL(configPath).href)});console.log(JSON.stringify({outputDir:c.outputDir,reporter:c.reporter}))`,
+    ],
+    {
+      cwd: sourceRoot,
+      env: {
+        ...process.env,
+        VARVE_E2E_OUTPUT_DIR: suffix,
+        VARVE_CI_PLAYWRIGHT_REPORT: join('test-results', suffix, 'playwright.json'),
+      },
+      encoding: 'utf8',
+    },
+  );
+  const config = JSON.parse(serialized.trim());
+  const runDir = resolve(sourceRoot, 'test-results', suffix);
+  const outputDir = resolve(sourceRoot, config.outputDir);
+  assert.equal(relative(runDir, outputDir), join('playwright-output'));
+
+  const workflow = readFileSync(join(sourceRoot, '.github/workflows/website-deploy.yml'), 'utf8');
+  const durableEvidence = [
+    'plan.json',
+    'browser-inventory.json',
+    'execution-evidence.json',
+    'playwright.json',
+    'progress.json',
+  ];
+  for (const filename of durableEvidence) {
+    const path = join(runDir, filename);
+    const fromOutput = relative(outputDir, path);
+    assert.equal(fromOutput.split(sep)[0], '..', `${filename} must be outside outputDir`);
+    if (filename === 'playwright.json') {
+      assert.match(
+        workflow,
+        /VARVE_CI_PLAYWRIGHT_REPORT:\s*test-results\/website-deploy-\$\{\{ github\.sha \}\}-\$\{\{ github\.run_id \}\}-\$\{\{ github\.run_attempt \}\}\/playwright\.json/,
+        'the JSON case history must use the workflow run directory',
+      );
+    } else if (filename !== 'progress.json') {
+      assert.ok(
+        workflow.includes(`test-results/\${VARVE_E2E_OUTPUT_DIR}/${filename}`),
+        `${filename} must use the workflow's durable run directory`,
+      );
+    }
+  }
+  const progressReporter = config.reporter.find(
+    (reporter) => Array.isArray(reporter) && reporter[0].includes('browser-progress.mjs'),
+  );
+  assert.equal(progressReporter?.[1]?.outputFile, join('test-results', suffix, 'progress.json'));
+  const jsonReporter = config.reporter.find(
+    (reporter) => Array.isArray(reporter) && reporter[0] === 'json',
+  );
+  assert.equal(jsonReporter?.[1]?.outputFile, join('test-results', suffix, 'playwright.json'));
 });
 
 test('isolated defaults avoid Astro development ports and explicit overrides win independently', () => {

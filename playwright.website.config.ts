@@ -27,7 +27,10 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: 0,
   workers,
-  outputDir: `test-results/${outputSuffix}`,
+  // Keep Playwright's auto-cleaned directory separate from the plan,
+  // inventory, and reports that certify the run. Playwright deletes
+  // outputDir before execution, so it must contain only run artifacts.
+  outputDir: `test-results/${outputSuffix}/playwright-output`,
   reporter: [
     ['list'],
     [

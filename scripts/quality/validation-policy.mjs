@@ -19,7 +19,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-export const POLICY_VERSION = '2026-10-03.validation-profiles.v4';
+export const POLICY_VERSION = '2026-10-03.validation-profiles.v5';
 // 1,903 Chromium cases at the release checkpoint: sixteen single-worker
 // hosted jobs retain roughly the case share of the former 1,030-case/8 split.
 export const FULL_BROWSER_SHARDS = 16;
@@ -63,6 +63,7 @@ export const POLICY_FILES = [
   'scripts/website/demo-dist-validation.mjs',
   'scripts/website/demo-dist-validation.test.mjs',
   'scripts/website/e2e-ports.cjs',
+  'scripts/website/e2e-ports.test.cjs',
   'scripts/website/e2e-ports.d.cts',
   'apps/website/tests/e2e/tsconfig.json',
   'scripts/release/certification.mjs',
