@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { expect, type Locator, type TestInfo, test } from '@playwright/test';
 import { canvasOracleGeometry, reserveSelectionPathRow } from '../helpers/canvas-oracle-geometry';
+import { selectInspectorTab } from '../helpers/inspector-tabs';
 import { panelResizeHandle } from '../helpers/panel-resize';
 import { navigateToEditor } from '../shared';
 
@@ -347,7 +348,7 @@ test.describe('Background removal — all modes', () => {
 
   test('Inspector — AI Balanced bg removal', async ({ page }) => {
     await importTestImage(page);
-    await page.getByRole('tab', { name: 'Adjustments' }).click();
+    await selectInspectorTab(page, 'Adjustments');
     const backgroundRemovalSection = page.getByRole('button', { name: 'Background Removal' });
     if ((await backgroundRemovalSection.getAttribute('aria-expanded')) === 'false') {
       await backgroundRemovalSection.click();

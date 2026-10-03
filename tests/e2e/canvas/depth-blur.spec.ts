@@ -8,6 +8,7 @@
  * (pixel_values -> predicted_depth, dims [1, 518, 518]) so the editor's
  * dims handling is exercised for real.
  */
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
@@ -15,6 +16,9 @@ import { selectInspectorTab } from '../helpers/inspector-tabs';
 import { navigateToEditor } from '../shared';
 
 const DEPTH_MODEL_ID = 'depth-anything-v2-small';
+const SYNTHETIC_MODEL_BYTES = Buffer.from([1]);
+const SYNTHETIC_MODEL_SHA256 = createHash('sha256').update(SYNTHETIC_MODEL_BYTES).digest('hex');
+const SYNTHETIC_MODEL_PATH = '/__e2e__/depth-model.onnx';
 
 function installWorkerStub() {
   return `
@@ -69,70 +73,60 @@ function installWorkerStub() {
   `;
 }
 
-/**
- * The worker is stubbed below, so the test only needs a model-shaped entry in
- * IndexedDB. CI serves the real manifest, whose checksum correctly rejects
- * the 1-byte placeholder. Remove the checksum for this one synthetic model
- * while preserving every other manifest field and model's production checks.
- */
-function installSyntheticManifestStub() {
-  return `
-    (() => {
-      const realFetch = window.fetch.bind(window);
-      window.fetch = async (input, init) => {
-        const url = input instanceof Request ? input.url : String(input);
-        if (new URL(url, window.location.href).pathname !== '/models/manifest.json') {
-          return realFetch(input, init);
-        }
-        const response = await realFetch(input, init);
-        if (!response.ok) return response;
-        const manifest = await response.clone().json();
-        const depthModel = manifest.models?.find(
-          (model) => model.id === '${DEPTH_MODEL_ID}',
-        );
-        if (depthModel) depthModel.sha256 = null;
-        return new Response(JSON.stringify(manifest), {
-          status: response.status,
-          statusText: response.statusText,
-          headers: { 'content-type': 'application/json' },
-        });
-      };
-    })();
-  `;
+/** Keep the synthetic model and its manifest consistent at the network boundary. */
+async function installSyntheticModelRoutes(context: import('@playwright/test').BrowserContext) {
+  const manifest = JSON.parse(
+    fs.readFileSync(path.resolve('apps/desktop/public/models/manifest.json'), 'utf8'),
+  );
+  const depthModel = manifest.models.find((model: { id: string }) => model.id === DEPTH_MODEL_ID);
+  expect(depthModel, 'The production manifest must still declare the depth model').toBeDefined();
+  depthModel.sha256 = SYNTHETIC_MODEL_SHA256;
+  depthModel.remoteUrl = SYNTHETIC_MODEL_PATH;
+  await context.route('**/models/manifest.json', async (route) => {
+    await route.fulfill({ status: 200, contentType: 'application/json', json: manifest });
+  });
+  // If availability checks choose acquisition, exercise the real verified writer
+  // with the same synthetic bytes instead of downloading the optional 27 MB model.
+  await context.route(`**${SYNTHETIC_MODEL_PATH}`, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/octet-stream',
+      headers: { 'content-length': String(SYNTHETIC_MODEL_BYTES.length) },
+      body: SYNTHETIC_MODEL_BYTES,
+    });
+  });
 }
 
-function seedModelStore() {
-  return `
-    (() => {
-      const put = () => new Promise((resolve, reject) => {
-        const request = indexedDB.open('varve-model-store', 3);
-        request.onupgradeneeded = () => {
-          if (!request.result.objectStoreNames.contains('models')) {
-            request.result.createObjectStore('models');
-          }
-          if (!request.result.objectStoreNames.contains('partials')) {
-            request.result.createObjectStore('partials');
-          }
+function seedModelStore(modelId: string) {
+  // A typed init function keeps fixture syntax inside the compiler's scope;
+  // the old generated string's missing Promise delimiter survived typecheck.
+  const target = window as unknown as { __varveSeedDepthModel: () => Promise<void> };
+  target.__varveSeedDepthModel = () =>
+    new Promise<void>((resolve, reject) => {
+      const request = indexedDB.open('varve-model-store');
+      request.onupgradeneeded = () => {
+        if (!request.result.objectStoreNames.contains('models')) {
+          request.result.createObjectStore('models');
+        }
+        if (!request.result.objectStoreNames.contains('partials')) {
+          request.result.createObjectStore('partials');
+        }
+      };
+      request.onerror = () => reject(request.error ?? new Error('Failed to seed model store'));
+      request.onsuccess = () => {
+        const db = request.result;
+        const tx = db.transaction('models', 'readwrite');
+        tx.objectStore('models').put(new Blob([new Uint8Array([1])]), modelId);
+        tx.oncomplete = () => {
+          db.close();
+          resolve();
         };
-        request.onerror = () => reject(request.error ?? new Error('Failed to seed model store'));
-        request.onsuccess = () => {
-          const db = request.result;
-          const tx = db.transaction('models', 'readwrite');
-          // modelStore stores raw Blobs keyed by model id.
-          tx.objectStore('models').put(new Blob([new Uint8Array([1])]), '${DEPTH_MODEL_ID}');
-          tx.oncomplete = () => {
-            db.close();
-            resolve();
-          };
-          tx.onerror = () => {
-            db.close();
-            reject(tx.error ?? new Error('Failed to write seeded model'));
-          };
+        tx.onerror = () => {
+          db.close();
+          reject(tx.error ?? new Error('Failed to write seeded model'));
         };
       };
-      window.__varveSeedDepthModel = put;
-    })();
-  `;
+    });
 }
 
 /**
@@ -142,10 +136,38 @@ function seedModelStore() {
  */
 async function navigateWithSeededModel(page: import('@playwright/test').Page) {
   await navigateToEditor(page);
-  await page.evaluate(() => {
-    return (
-      window as unknown as { __varveSeedDepthModel?: () => Promise<void> }
-    ).__varveSeedDepthModel?.();
+  const fixture = await page.evaluate(async (modelId) => {
+    const seed = (window as unknown as { __varveSeedDepthModel?: () => Promise<void> })
+      .__varveSeedDepthModel;
+    if (!seed) throw new Error('Depth fixture seed was not installed');
+    await seed();
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open('varve-model-store');
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const blob = await new Promise<Blob>((resolve, reject) => {
+      const request = db.transaction('models').objectStore('models').get(modelId);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    db.close();
+    if (!(blob instanceof Blob)) throw new Error('Depth fixture did not persist a model Blob');
+    const sha256 = Array.from(
+      new Uint8Array(await crypto.subtle.digest('SHA-256', await blob.arrayBuffer())),
+      (byte) => byte.toString(16).padStart(2, '0'),
+    ).join('');
+    const manifest = await (await fetch('/models/manifest.json')).json();
+    return {
+      sizeBytes: blob.size,
+      sha256,
+      manifestSha256: manifest.models.find((model: { id: string }) => model.id === modelId)?.sha256,
+    };
+  }, DEPTH_MODEL_ID);
+  expect(fixture).toEqual({
+    sizeBytes: SYNTHETIC_MODEL_BYTES.length,
+    sha256: SYNTHETIC_MODEL_SHA256,
+    manifestSha256: SYNTHETIC_MODEL_SHA256,
   });
   await page.reload({ timeout: 120000 });
   await page.getByRole('button', { name: /^new$/i }).waitFor({ state: 'visible', timeout: 60000 });
@@ -260,10 +282,10 @@ async function generateDepthMap(
 }
 
 test.describe('Depth Blur workflow', () => {
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ page, context }) => {
+    await installSyntheticModelRoutes(context);
     await page.addInitScript(installWorkerStub());
-    await page.addInitScript(installSyntheticManifestStub());
-    await page.addInitScript(seedModelStore());
+    await page.addInitScript(seedModelStore, DEPTH_MODEL_ID);
     await navigateWithSeededModel(page);
   });
 

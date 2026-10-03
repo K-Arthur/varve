@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
+import { selectInspectorTab } from '../helpers/inspector-tabs';
 import { navigateToEditor } from '../shared';
 
 test.describe('Colorize production workflow', () => {
@@ -34,7 +35,7 @@ test.describe('Colorize production workflow', () => {
     await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 30000 });
 
     const inspector = page.locator('.editor__inspector-panel');
-    await inspector.getByRole('tab', { name: 'Adjustments', exact: true }).click();
+    await selectInspectorTab(page, 'Adjustments');
     const colorizeTrigger = inspector
       .locator('button.insp-disclosure__trigger')
       .filter({ hasText: 'Colorize' })

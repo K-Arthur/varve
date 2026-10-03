@@ -440,7 +440,7 @@ test.describe('fill stack semantics', () => {
 
     // Bottom fill = solid teal, top = gradient. Hide the top gradient → teal
     // reappears (per-fill visibility works).
-    await page.getByRole('button', { name: /^hide fill 2$/i }).click();
+    await page.getByRole('switch', { name: /^hide fill 2$/i }).uncheck();
     await page.waitForTimeout(600);
     const hidden = await samplePixels(page, [left]);
     expect(pixelCloseTo(hidden[0]!, TEAL, 18)).toBe(true);

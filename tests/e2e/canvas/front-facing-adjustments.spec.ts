@@ -35,6 +35,25 @@ async function addAdjustment(page: import('@playwright/test').Page, name: string
   await expect(page.getByText(name, { exact: true }).last()).toBeVisible();
 }
 
+async function importNeutralSample(page: import('@playwright/test').Page) {
+  const image = await page.evaluate(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 100;
+    canvas.height = 100;
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('Neutral image fixture needs Canvas2D');
+    // Opaque, unclipped, low-chroma evidence with a known warm cast.
+    context.fillStyle = 'rgb(138, 131, 126)';
+    context.fillRect(0, 0, 100, 100);
+    return canvas.toDataURL('image/png').split(',')[1]!;
+  });
+  await page.locator('#file-import-input').setInputFiles({
+    name: 'warm-neutral.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from(image, 'base64'),
+  });
+}
+
 test.describe('front-facing adjustment and canvas controls', () => {
   test('exposes hue ranges, channel histograms, curves histogram, and auto controls', async ({
     page,
@@ -43,7 +62,7 @@ test.describe('front-facing adjustment and canvas controls', () => {
     mkdirSync(REVIEW_DIR, { recursive: true });
     await navigateToAdjustmentEditor(page);
 
-    await page.locator('#file-import-input').setInputFiles(IMAGE_FIXTURE);
+    await importNeutralSample(page);
     await expect(page.getByRole('treeitem')).toHaveCount(1);
     await createAdjustmentLayer(page);
 
@@ -51,7 +70,20 @@ test.describe('front-facing adjustment and canvas controls', () => {
     await expect(autoWhiteBalance).toBeVisible();
     await expect(autoWhiteBalance).toBeEnabled();
     await autoWhiteBalance.click();
-    await expect(page.getByText('Color Balance', { exact: true }).last()).toBeVisible();
+    await expect(page.getByText('White Balance', { exact: true }).last()).toBeVisible();
+    await expect
+      .poll(async () =>
+        Number(await page.getByRole('spinbutton', { name: 'red gain', exact: true }).inputValue()),
+      )
+      .toBeLessThan(1);
+    await expect
+      .poll(async () =>
+        Number(await page.getByRole('spinbutton', { name: 'blue gain', exact: true }).inputValue()),
+      )
+      .toBeGreaterThan(1);
+    await expect(
+      page.getByRole('status').filter({ hasText: /^Applied relative white balance/ }),
+    ).toBeVisible();
 
     await addAdjustment(page, 'Hue / Saturation');
     const range = page.getByRole('combobox', { name: 'Hue/Saturation range' });
@@ -79,6 +111,22 @@ test.describe('front-facing adjustment and canvas controls', () => {
     await page.screenshot({ path: path.join(REVIEW_DIR, '03-curves-histogram.png') });
   });
 
+  test('preserves the adjustment stack when automatic white balance has no neutral evidence', async ({
+    page,
+  }) => {
+    test.setTimeout(120000);
+    await navigateToEditor(page);
+    await page.locator('#file-import-input').setInputFiles(IMAGE_FIXTURE);
+    await expect(page.getByRole('treeitem')).toHaveCount(1);
+    await createAdjustmentLayer(page);
+    await page.getByRole('button', { name: 'Auto White Balance', exact: true }).click();
+    await expect(
+      page.getByRole('status').filter({ hasText: /^Insufficient neutral evidence/ }),
+    ).toBeVisible();
+    await expect(page.getByText('White Balance', { exact: true })).toHaveCount(0);
+    await expect(page.locator('.adj-panel__item')).toHaveCount(0);
+  });
+
   test('keeps a newly-created layer inactive when nothing is selected', async ({ page }) => {
     test.setTimeout(120000);
     mkdirSync(REVIEW_DIR, { recursive: true });
@@ -103,12 +151,22 @@ test.describe('front-facing adjustment and canvas controls', () => {
     mkdirSync(REVIEW_DIR, { recursive: true });
     await navigateToEditor(page);
 
+    const toolbar = page.getByTestId('toolbar');
+    const pixelProbe = toolbar.locator('[data-tool="pixelProbe"]');
+    if (await pixelProbe.isVisible()) {
+      await pixelProbe.click();
+    } else {
+      await toolbar.getByRole('button', { name: /More tools/ }).click();
+      await page.locator('.varve-ctxmenu').getByText('Inspect', { exact: true }).click();
+      await page
+        .getByRole('menu', { name: 'Inspect submenu', exact: true })
+        .getByRole('menuitem', { name: 'Pixel Info', exact: true })
+        .click();
+    }
+
     const canvas = page.locator('canvas.editor-canvas__content-layer');
     const box = await canvas.boundingBox();
     if (!box) throw new Error('content canvas is not measurable');
-
-    await expect(page.locator('[data-tool="pixelProbe"]')).toBeVisible();
-    await page.locator('[data-tool="pixelProbe"]').click();
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
     await expect(page.getByTestId('pixel-probe-overlay')).toBeVisible();
     await expect(page.getByTestId('pixel-probe-overlay')).toContainText('Pixel Info');
@@ -278,17 +336,26 @@ test.describe('front-facing adjustment and canvas controls', () => {
     await expect(rows.nth(1)).toContainText('Contrast');
     await expect(page.getByRole('button', { name: 'Move Contrast up' })).toBeVisible();
 
+    // Adding a filter opens its focused parameter editor, which overlaps the
+    // inspector handle at this viewport. Close it through the product action
+    // before issuing raw pointer input so the drag reaches the actual handle.
+    await page.getByRole('button', { name: 'Close Contrast parameters', exact: true }).click();
+    await expect(
+      page.getByRole('dialog', { name: 'Contrast parameters', exact: true }),
+    ).not.toBeVisible();
     const sourceHandle = rows.nth(1).locator('.smart-filters__drag-handle');
+    await sourceHandle.scrollIntoViewIfNeeded();
     const sourceBox = await sourceHandle.boundingBox();
+    const targetBox = await rows.nth(0).boundingBox();
     if (!sourceBox) throw new Error('Object Filter drag handle is not measurable');
+    if (!targetBox) throw new Error('Object Filter target is not measurable');
     const startX = sourceBox.x + sourceBox.width / 2;
     const startY = sourceBox.y + sourceBox.height / 2;
     await page.mouse.move(startX, startY);
     await page.mouse.down();
     await page.mouse.move(startX, startY - 12);
-    const targetBox = await rows.nth(0).boundingBox();
-    if (!targetBox) throw new Error('Object Filter target is not measurable');
-    await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height / 2, {
+    await expect(rows.nth(1)).toHaveClass(/varve-sortable-item--dragging/);
+    await page.mouse.move(startX, targetBox.y + targetBox.height / 2, {
       steps: 6,
     });
     await page.mouse.up();

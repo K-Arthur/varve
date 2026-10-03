@@ -19,9 +19,57 @@ async function addEffect(
   await addLayerEffect(page, section, label);
 }
 
-test.describe('Layer Effects — real editor workflow', () => {
-  test.describe.configure({ mode: 'serial' });
+async function compoundPaintSamples(
+  page: import('@playwright/test').Page,
+  bounds?: { x: number; y: number; w: number; h: number },
+) {
+  return page.evaluate((knownBounds) => {
+    const canvas = document.querySelector<HTMLCanvasElement>('canvas.editor-canvas__content-layer');
+    const ctx = canvas?.getContext('2d');
+    if (!canvas || !ctx) throw new Error('Compound-path canvas is unavailable');
+    let paint = knownBounds;
+    if (!paint) {
+      const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+      let minX = canvas.width;
+      let minY = canvas.height;
+      let maxX = -1;
+      let maxY = -1;
+      // Find the actual imported blue ring rather than trusting layer-list
+      // presence or a screenshot captured before the renderer has painted it.
+      for (let y = 0; y < canvas.height; y++) {
+        for (let x = 0; x < canvas.width; x++) {
+          const i = (y * canvas.width + x) * 4;
+          if (
+            data[i + 3]! > 250 &&
+            Math.abs(data[i]! - 37) <= 2 &&
+            Math.abs(data[i + 1]! - 99) <= 2 &&
+            Math.abs(data[i + 2]! - 235) <= 2
+          ) {
+            minX = Math.min(minX, x);
+            minY = Math.min(minY, y);
+            maxX = Math.max(maxX, x);
+            maxY = Math.max(maxY, y);
+          }
+        }
+      }
+      if (maxX < minX || maxY < minY) return null;
+      paint = { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 };
+    }
+    const scaleX = paint.w / 180;
+    const centerY = Math.round(paint.y + paint.h / 2);
+    const centerX = Math.round(paint.x + paint.w / 2);
+    // Authored hole starts at x70 while the outer ring starts at x20. Sample
+    // two source pixels inside its left painted edge, at the same camera/DPR.
+    const edgeX = Math.round(paint.x + 48 * scaleX);
+    const edge = Array.from(ctx.getImageData(edgeX, centerY, 1, 1).data);
+    const hole = ctx.getImageData(centerX - 2, centerY - 2, 5, 5).data;
+    let holeMaxAlpha = 0;
+    for (let i = 3; i < hole.length; i += 4) holeMaxAlpha = Math.max(holeMaxAlpha, hole[i]!);
+    return { bounds: paint, width: canvas.width, height: canvas.height, edge, holeMaxAlpha };
+  }, bounds);
+}
 
+test.describe('Layer Effects — real editor workflow', () => {
   test.beforeEach(async ({ page }) => {
     await navigateToEditor(page);
     await page.getByRole('tab', { name: 'Design', exact: true }).click();
@@ -121,13 +169,19 @@ test.describe('Layer Effects — real editor workflow', () => {
     await expect(page.getByRole('treeitem').first()).toContainText(/transparent-cutout/i);
   });
 
-  // Pre-existing failure, unrelated to this pass: the compound-SVG import +
-  // Inner Glow pixel assertion fails on its own and, in a serial describe,
-  // skipped the remaining functional tail. Quarantined here so the rest of
-  // the workflow suite still runs; diagnose separately.
-  test.fixme('keeps transparent holes in a compound SVG vector when painting effects', async ({
+  test('keeps transparent holes in a compound SVG vector when painting effects', async ({
     page,
   }, testInfo) => {
+    // The default theme board is opaque. Configure a transparent document
+    // board through the product picker so canvas alpha measures path coverage
+    // rather than the background painted beneath the imported vector.
+    await page.getByRole('button', { name: 'Canvas background', exact: true }).click();
+    const backgroundPicker = page.getByRole('dialog', { name: /pick canvas background/i });
+    await expect(backgroundPicker).toBeVisible();
+    await backgroundPicker.getByLabel('Hex color').fill('#00000000');
+    await backgroundPicker.getByLabel('Hex color').press('Enter');
+    await backgroundPicker.getByRole('button', { name: 'Dismiss colour picker' }).click();
+    await expect(backgroundPicker).toBeHidden();
     const compoundSvg = `
       <svg xmlns="http://www.w3.org/2000/svg" width="220" height="180" viewBox="0 0 220 180">
         <path fill="#2563eb" fill-rule="evenodd"
@@ -142,16 +196,31 @@ test.describe('Layer Effects — real editor workflow', () => {
     await page.getByRole('treeitem').first().click();
 
     const canvas = page.locator('canvas.editor-canvas__content-layer');
-    const before = await canvas.screenshot({
+    await expect.poll(async () => (await compoundPaintSamples(page))?.edge[3]).toBe(255);
+    const before = await compoundPaintSamples(page);
+    if (!before) throw new Error('Imported compound path did not paint');
+    expect(before.edge).toEqual([37, 99, 235, 255]);
+    expect(before.holeMaxAlpha).toBe(0);
+    await canvas.screenshot({
       path: testInfo.outputPath('compound-vector-before-effect.png'),
     });
     const section = await openEffectsSection(page);
     await addEffect(page, section, 'Inner Glow');
-    await page.waitForTimeout(750);
-    const after = await canvas.screenshot({
+    // Inner Glow must tint the painted side of the internal contour. Sampling
+    // fixed backing-store coordinates excludes canvas resize or selection UI
+    // changes from satisfying the effect assertion.
+    await expect
+      .poll(async () => (await compoundPaintSamples(page, before.bounds))?.edge[0])
+      .toBeGreaterThan(before.edge[0]! + 2);
+    const after = await compoundPaintSamples(page, before.bounds);
+    if (!after) throw new Error('Compound-path effect samples unavailable');
+    expect([after.width, after.height]).toEqual([before.width, before.height]);
+    expect(after.edge[1]).toBeGreaterThan(before.edge[1]!);
+    expect(after.edge[3]).toBe(255);
+    expect(after.holeMaxAlpha).toBe(0);
+    await canvas.screenshot({
       path: testInfo.outputPath('compound-vector-after-effect.png'),
     });
-    expect(Buffer.compare(before, after)).not.toBe(0);
     await expect(
       section.locator('.insp-effect-row').filter({ hasText: 'Inner Glow' }),
     ).toContainText('Inner Glow');
