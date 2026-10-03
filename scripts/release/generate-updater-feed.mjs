@@ -8,6 +8,7 @@
  */
 import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { isMainModule } from '../is-main-module.mjs';
 
 const TARGETS = [
   { key: 'linux-x86_64', filename: (v) => `Varve-${v}-linux-x86_64.AppImage` },
@@ -92,7 +93,7 @@ function main() {
   );
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   try {
     main();
   } catch (error) {

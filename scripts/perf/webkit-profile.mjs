@@ -20,6 +20,7 @@
  */
 import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { isMainModule } from '../is-main-module.mjs';
 
 const ROOT = new URL('../../', import.meta.url).pathname;
 
@@ -212,9 +213,7 @@ export function buildPerfCommand({ pids, durationSeconds, output, frequency = 19
 // Guarded so the exported helpers above can be unit-tested without a profiler
 // installed and without the CLI running (and exiting) on import.
 
-const isMain =
-  process.argv[1] !== undefined && import.meta.url === new URL(`file://${process.argv[1]}`).href;
-if (!isMain) {
+if (!isMainModule(import.meta.url)) {
   // Imported as a library: stop before any CLI side effect.
 } else {
   const capabilities = detectCapabilities();

@@ -119,17 +119,17 @@ product page.
 <p align="center">Bleed and trim guides for print production</p>
 </td>
 <td width="50%">
-<img src="docs/screenshots/product/workspaces-light.png" alt="The Varve menubar workspace switcher with the Print workspace selected, showing the Masters, Pages and Spreads panels it applies" width="100%">
+<img src="docs/screenshots/product/workspaces-light.png" alt="The Varve menubar workspace switcher with Print selected, showing its publishing-page and Spreads controls beside the poster document" width="100%">
 <p align="center">Workspaces swap panels for the task</p>
 </td>
 </tr>
 <tr>
 <td width="50%">
-<img src="docs/screenshots/product/vectorize-dialog-light.png" alt="The Varve Vectorize dialog in colour mode, tracing an imported photo into editable vector paths with colour count and path-fitting controls" width="100%">
+<img src="docs/screenshots/product/vectorize-dialog-light.png" alt="The Varve Vectorize dialog tracing an imported photograph into editable vector paths, with the overlay preview, path, point and hole diagnostics, and source, prepared and vector view tabs" width="100%">
 <p align="center">Trace an image into editable paths</p>
 </td>
 <td width="50%">
-<img src="docs/screenshots/product/export-dialog-light.png" alt="The Varve advanced export dialog showing a destination, filename template and format options" width="100%">
+<img src="docs/screenshots/product/export-dialog-light.png" alt="The Varve Inspector Export tab showing Format and Code sub-tabs, quick export options, and saved export configuration controls" width="100%">
 <p align="center">Export to SVG, PNG, WebP, or PDF</p>
 </td>
 </tr>
@@ -155,8 +155,8 @@ product page.
 ## Download
 
 **[varve.studio/download](https://varve.studio/download)** — the website
-renders every download link and checksum directly from the published release
-manifest, so it never goes stale. You can also get the same installers from
+renders installer links and checksums from the verified published release
+manifest. You can also get the same installers from
 [GitHub Releases](https://github.com/K-Arthur/varve/releases) (look for a
 release named `Varve vX.Y.Z` — a separate `Varve optional AI models` release
 also exists on that page for on-demand model assets and is not an application
@@ -320,7 +320,7 @@ compete commercially with Varve. Each release automatically converts to the
 plain MIT license two years after it ships. See <a href="LICENSE">LICENSE</a>.
 
 Several engine crates (<code>varve-core</code>, <code>varve-colour</code>,
-<code>varve-trace</code>, and others) are published separately under
+<code>varve-trace</code>, and others) are licensed separately under
 <strong>MIT OR Apache-2.0</strong> — genuine OSI-approved open source. See
 <a href="docs/licensing/mixed-license-model.md">docs/licensing/mixed-license-model.md</a>.
 </details>

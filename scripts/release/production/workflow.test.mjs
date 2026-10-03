@@ -57,8 +57,33 @@ assert.ok(
     windows.indexOf('Start-Process -FilePath $uninstallKey.UninstallString'),
 );
 assert.match(windows, /Actual Windows native profile changed during upgrade/);
+assert.match(
+  windows,
+  /verify-license-payload\.mjs --resource-root \$installed\.DirectoryName\n\s+if \(\$LASTEXITCODE -ne 0\)/,
+  'the installed Windows resource payload is checked and failure remains fatal',
+);
 assert.match(mac, /ditto "\$OLD_APP" "\$INSTALL"/);
 assert.match(mac, /ditto "\$APP" "\$INSTALL"/);
+assert.match(
+  mac,
+  /verify-license-payload\.mjs \\\n\s+--resource-root "\$INSTALL\/Contents\/Resources"/,
+  'the installed macOS DMG payload is checked',
+);
+assert.match(
+  mac,
+  /python scripts\/release\/extract_updater_archive\.py "\$\{UPDATER_ARCHIVE\}" "\$\{UPDATER_TMP\}"/,
+  'the macOS updater archive is safely extracted with a Bash 3.2-compatible runner command',
+);
+assert.match(
+  mac,
+  /verify-license-payload\.mjs \\\n\s+--resource-root "\$\{UPDATER_APP\}\/Contents\/Resources"/,
+  'the updater archive resource payload is checked',
+);
+assert.match(
+  linux,
+  /verify-license-payload\.mjs \\\n\s+--resource-root "\$\{EXTRACT_ROOT\}\/squashfs-root\/usr\/lib\/Varve"/,
+  'the post-prune AppImage payload is extracted and checked',
+);
 assert.ok(
   mac.indexOf('Published macOS production disk seed') <
     mac.indexOf('Actual upgraded macOS production qualification'),

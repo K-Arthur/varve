@@ -102,6 +102,7 @@ test('bounded gate runs all three graphs once and retains only sanitized diagnos
   try {
     const summary = await runAdvisoryGate({
       root,
+      log: () => {},
       run: async (argv, options) => {
         calls.push(argv);
         assert.equal(options.timeoutMs, 180000);
@@ -245,6 +246,7 @@ test('raw npm report bytes survive unchanged while an unverified known mitigatio
   try {
     const summary = await runAdvisoryGate({
       root,
+      log: () => {},
       run: async (_argv, options) => {
         calls++;
         writeFileSync(options.stdio[1], calls === 1 ? bytes : JSON.stringify(cargo()));

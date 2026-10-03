@@ -44,6 +44,33 @@ from runner queue time and external startup failures.
    Rerun failed hosted cells at the original SHA after diagnosing the cause.
    Source repairs require a new SHA. Aggregation uses the latest cell attempt.
 
+## Measured cross-platform duplication
+
+The exact-SHA `Build + Package` run on 2026-10-03 ran the same host-independent
+TypeScript workspace/E2E checks, Biome lint, and complete Vitest suite in both
+Ubuntu and macOS matrix cells. The two cells spent 7m11s on typechecking, 33s
+on JS lint, and 46m21s on Vitest: **54m05s of duplicated runner time**. The
+Linux unit lane stopped after one Menubar test failed; the macOS lane completed
+the same suite successfully. A separate `CI / certification` workflow already
+owns the planned JS checks for integration, and `Release Candidate` owns them
+for the frozen release SHA.
+
+`Build + Package` therefore keeps host-specific command portability checks,
+Rust lint/tests, and Tauri compile/build in its OS matrix, while the canonical
+CI and candidate jobs remain responsible for TypeScript, JS lint, unit tests,
+and shared audits. This avoids spending native-runner time on a duplicate JS
+failure and still requires the canonical JS check to pass before an accepted
+integration or release candidate. The first run after this split should be
+compared with the baseline by job queue time, wall time, and runner-minutes; a
+change in job structure alone is not evidence of improved wall-clock latency.
+
+Frontend build output is **not** shared between platform cells yet. Tauri hook
+environment, webview target, generated WASM/model/helper assets, and the Rust
+context macro all affect build inputs. Cross-cell reuse needs a same-SHA
+artifact contract that verifies every relevant input and output digest, plus
+an equivalence check on each target platform. A mutable cache hit or a recent
+branch artifact is not proof that those inputs match.
+
 Normal pushes also account for package size. The editor's 801-file lane had
 taken 1,528 seconds with eight workers, but previously inherited a 100-second
 estimate and entered a 720-second local budget. Its conservative estimate is

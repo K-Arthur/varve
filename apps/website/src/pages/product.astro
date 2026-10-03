@@ -148,7 +148,7 @@ import ClosingCTA from '../components/ClosingCTA.astro';
           visible and offscreen sources may use different cached representations.
         </p>
         <p>
-          AI-assisted operations are optional and on-device. Nothing is uploaded, core editing never requires a model download, and unsupported acceleration shows an honest unavailable state instead of silently switching to a server.
+          AI-assisted operations are optional. Local workflows run on-device without uploading artwork; an enabled cloud background-removal provider sends the image to the endpoint you configure. Core editing never requires a model download, and unsupported acceleration shows an honest unavailable state instead of silently switching to a server.
         </p>
         <p>
           On desktop, non-AI image resampling can run on the machine's GPU through a native Vulkan, Metal, or D3D12 path. The native offscreen effect provider is also available to explicit asynchronous consumers; the current interactive preview and export replay remain on the authoritative software path. A device is only used after it is discovered through the OS graphics stack and passes a bounded self-test; software renderers are declined, and every accelerated operation keeps a working CPU fallback. Canvas presentation stays in the webview either way. On-device AI inference can use a verified GPU execution provider when the optional WebGPU runtime component is present and the model has been verified for it; otherwise it runs on the CPU, and every result reports which provider actually ran.

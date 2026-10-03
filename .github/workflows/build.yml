@@ -126,35 +126,16 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       # Real Windows command dispatch and macOS path aliases need their own
-      # native tooling check before spending time on TypeScript or Rust builds.
+      # native tooling check before spending time on Rust builds. Keep this on
+      # each selected OS; the canonical CI workflow owns shared JS validation.
       - name: CI tooling portability preflight
         run: pnpm test:ci:tools
-
-      - name: Typecheck
-        env:
-          # The editor project exceeds Node's 2 GiB default heap on macOS arm64.
-          NODE_OPTIONS: --max-old-space-size=4096
-        run: pnpm typecheck
-
-      - name: Lint (JS)
-        run: pnpm lint
 
       - name: Lint (Rust)
         run: node scripts/cargo-with-generative-bindgen.mjs clippy --workspace --all-targets -- -D warnings
 
-      - name: JS tests
-        run: pnpm exec vitest run
-
       - name: Rust tests
         run: node scripts/cargo-with-generative-bindgen.mjs test --workspace --all-targets
-
-      - name: Token gate
-        if: runner.os == 'Linux'
-        run: pnpm audit:tokens
-
-      - name: Emoji gate
-        if: runner.os == 'Linux'
-        run: pnpm audit:emoji
 
       - name: Download wasm artifact
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c

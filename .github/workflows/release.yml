@@ -986,6 +986,14 @@ jobs:
             exit 1
           fi
           chmod +x "${IMG}"
+          EXTRACT_ROOT="$(mktemp -d "${RUNNER_TEMP:-/tmp}/varve-appimage-resources.XXXXXX")"
+          trap 'rm -rf "${EXTRACT_ROOT}"' EXIT
+          (
+            cd "${EXTRACT_ROOT}"
+            "${IMG}" --appimage-extract >/dev/null
+          )
+          node scripts/release/verify-license-payload.mjs \
+            --resource-root "${EXTRACT_ROOT}/squashfs-root/usr/lib/Varve"
           LOG="$(mktemp)"
           echo "Launching ${IMG} headlessly for a bounded smoke test..."
           dbus-run-session -- xvfb-run --auto-servernum \
@@ -1066,6 +1074,14 @@ jobs:
         if: matrix.enabled
         with:
           ref: ${{ needs.preflight.outputs.tag }}
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        if: matrix.enabled && runner.os == 'macOS'
+        with:
+          python-version: '3.12'
+      - name: Verify safe macOS updater archive extraction
+        if: matrix.enabled && runner.os == 'macOS'
+        run: python scripts/release/test_extract_updater_archive.py
 
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413
         if: matrix.enabled
@@ -1154,6 +1170,8 @@ jobs:
           Start-Process -FilePath $exe.FullName -ArgumentList '/S' -Wait
           $installed = Get-ChildItem -Path $env:LOCALAPPDATA -Recurse -Filter 'varve-desktop.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
           if (-not $installed) { throw 'varve-desktop.exe not found after silent install' }
+          node scripts/release/verify-license-payload.mjs --resource-root $installed.DirectoryName
+          if ($LASTEXITCODE -ne 0) { throw 'Installed Windows license payload verification failed' }
           $version = $installed.VersionInfo
           Write-Host "Installed: $($installed.FullName)  product=$($version.ProductName)  version=$($version.FileVersion)"
           # Observe the actual payload before uninstall removes it. This is a
@@ -1211,6 +1229,20 @@ jobs:
           # Replace the old app at the same installation path; preserve real app data.
           rm -rf "$INSTALL"
           ditto "$APP" "$INSTALL"
+          node scripts/release/verify-license-payload.mjs \
+            --resource-root "$INSTALL/Contents/Resources"
+          UPDATER_TMP="$(mktemp -d /tmp/varve-updater-license.XXXXXX)"
+          trap 'rm -rf "${UPDATER_TMP}"' EXIT
+          UPDATER_ARCHIVE="$(find staged -type f -name '*.app.tar.gz' -print -quit)"
+          if [[ -n "${UPDATER_ARCHIVE}" ]]; then
+            UPDATER_APP="$(python scripts/release/extract_updater_archive.py "${UPDATER_ARCHIVE}" "${UPDATER_TMP}")"
+            node scripts/release/verify-license-payload.mjs \
+              --resource-root "${UPDATER_APP}/Contents/Resources"
+          else
+            echo 'No macOS updater archive was staged; manual-download release mode is checked by the final trust gate.'
+          fi
+          rm -rf "${UPDATER_TMP}"
+          trap - EXIT
           node scripts/quality/run-bounded-command.mjs 720000 "$PWD" node scripts/quality/heavy-lease.mjs "Actual upgraded macOS production qualification" -- bash scripts/release/production/macos-session.sh "$INSTALL" "$QUALIFIED/current-document" '${{ needs.preflight.outputs.version }}' "$QUALIFIED/old-document/functional/Migrated save β.varve" 2.33 false
           node --input-type=module -e 'import assert from "node:assert/strict";import{readFileSync}from"node:fs";const[a,b]=process.argv.slice(1).map(p=>JSON.parse(readFileSync(p)));assert.equal(a.appDataDirectory,b.appDataDirectory,"Native macOS profile changed during upgrade");' "$QUALIFIED/old-document/functional/qualification.json" "$QUALIFIED/current-document/functional/qualification.json"
           BIN="${APP}/Contents/MacOS/varve-desktop"

@@ -421,9 +421,9 @@ assert.equal(
   'a selected visual consumer cannot be silently skipped',
 );
 
-// Native tooling must fail before the expensive per-platform compile work.
-// Linux-only policy validation did not expose Windows .cmd or macOS /var
-// alias failures; run the same tooling checks in each existing build cell.
+// Keep native tooling checks on every selected OS, but don't repeat shared JS
+// gates in the platform matrix. The CI and candidate jobs own those gates once
+// on Linux; this matrix adds host-specific Rust and Tauri evidence.
 const nativeBuild = load(readFileSync('.github/workflows/build.yml', 'utf8')).jobs.build;
 const nativeSteps = nativeBuild.steps;
 const installIndex = nativeSteps.findIndex((step) => step.name === 'Install JS dependencies');
@@ -435,15 +435,20 @@ assert.equal(
   undefined,
   'tooling failure blocks build',
 );
-for (const name of ['Typecheck', 'Lint (Rust)', 'Rust tests', 'Tauri build (release, no bundle)']) {
+for (const name of ['Lint (Rust)', 'Rust tests', 'Tauri build (release, no bundle)']) {
   const index = nativeSteps.findIndex((step) => step.name === name);
   assert.ok(index > toolsIndex, `${name} must follow native tooling preflight`);
 }
-assert.equal(
-  nativeSteps.find((step) => step.name === 'JS tests').run,
-  'pnpm exec vitest run',
-  'the Vitest suite still runs after tooling, without repeating the preflight',
-);
+for (const name of ['Typecheck', 'Lint (JS)', 'JS tests', 'Token gate', 'Emoji gate']) {
+  assert.equal(
+    nativeSteps.some((step) => step.name === name),
+    false,
+    `${name} is shared source validation and must not repeat per native OS`,
+  );
+}
+for (const file of ['.github/workflows/ci.yml', '.github/workflows/release-candidate.yml']) {
+  assert.ok(load(readFileSync(file, 'utf8')).jobs.js, `${file} owns shared JS validation`);
+}
 assert.equal(
   JSON.parse(readFileSync('package.json', 'utf8')).scripts.test,
   'pnpm test:ci:tools && vitest run',

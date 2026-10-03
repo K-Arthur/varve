@@ -11,6 +11,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { isMainModule } from '../is-main-module.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -382,8 +383,7 @@ async function run() {
   }
 }
 
-const isMain = process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).href;
-if (isMain) {
+if (isMainModule(import.meta.url)) {
   run().catch((error) => {
     console.error(
       `native-workflow-soak: ${error instanceof Error ? error.message : String(error)}`,

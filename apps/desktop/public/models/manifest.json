@@ -1837,8 +1837,13 @@
       },
       "notes": "Font classifier — identifies font families from text region images. EfficientNet B3 finetuned on 3473 Google Fonts. ~64MB. MIT license. Input: 300x300 RGB (ImageNet normalization). Output: 3473 class logits. Includes fonts_mapping.yaml for Google Fonts filename resolution.",
       "acquisition": {
-        "kind": "bundled",
-        "assetPath": "/models/font-classify.onnx",
+        "kind": "remote",
+        "sources": [
+          {
+            "url": "https://huggingface.co/storia/font-classify-onnx/resolve/main/model.onnx",
+            "sha256": "44aa3d46804aa55b7841a0eb6dcc9bb72badd6d01645e5c7448a70525655b7b6"
+          }
+        ],
         "sha256": "44aa3d46804aa55b7841a0eb6dcc9bb72badd6d01645e5c7448a70525655b7b6"
       }
     },

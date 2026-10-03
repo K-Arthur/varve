@@ -2,11 +2,12 @@ Third-Party Notices for Varve
 ================================
 
 This file contains attribution and licence information for third-party
-software distributed with or used by Varve.
-
-Where a licence requires a copy of its text to be included, the full
-licence text is available in the standard SPDX repository at
-https://spdx.org/licenses/ or from the original project.
+software distributed with or used by Varve. The full standard licence texts
+used by redistributed dependencies and assets are included in
+THIRD_PARTY_LICENSES/ (SPDX License List v3.29.0). The BSD-2-Clause file uses
+the upstream rav1e text so its required copyright notice is present. Varve's
+FSL-1.1-MIT text is in LICENSE; project-specific attribution and copyright
+notices are listed below.
 
 -----------------------------------------------------------------------------
 Runtime Dependencies (npm)
@@ -118,6 +119,18 @@ image (MIT OR Apache-2.0)
   Copyright (c) The image-rs contributors
   Licensed under MIT OR Apache-2.0 (dual).
 
+av1-grain, rav1e, v_frame (BSD-2-Clause)
+  Copyright (c) 2022-2022, the rav1e contributors (av1-grain).
+  Copyright (c) 2017-2023, the rav1e contributors (rav1e).
+  Copyright (c) 2017-2022, the rav1e contributors (v_frame).
+  The complete BSD-2-Clause text is in THIRD_PARTY_LICENSES/BSD-2-Clause.txt.
+
+zerocopy, zerocopy-derive (MIT OR Apache-2.0 OR BSD-2-Clause)
+  Copyright (c) 2018-2023, The Fuchsia Authors (zerocopy).
+  Copyright (c) 2019-2023, The Fuchsia Authors (zerocopy-derive).
+  Varve selects the MIT option; its full text is in
+  THIRD_PARTY_LICENSES/MIT.txt.
+
 chrono (MIT OR Apache-2.0)
   Copyright (c) The chrono authors
   Licensed under MIT OR Apache-2.0 (dual).
@@ -200,7 +213,8 @@ font-classify.onnx (MIT)
   Source: https://huggingface.co/storia/font-classify-onnx
   EfficientNet-B3 finetuned on 3,473 Google Fonts.
   Licensed under MIT License.
-  Bundled with the application.
+  Downloaded on demand after the user invokes font identification. It is not
+  bundled with the application; the manifest pins and verifies its SHA-256.
   Powers the font identification feature.
 
 ddcolor.onnx / ddcolor-tiny.onnx (Apache-2.0)
@@ -208,14 +222,10 @@ ddcolor.onnx / ddcolor-tiny.onnx (Apache-2.0)
   Copyright (c) DAMO Academy, Alibaba Group
   Licensed under Apache License 2.0.
   Exported to ONNX from the official weights; see tools/ddcolor-export/.
+  Downloaded on demand after the user invokes AI colorization. Neither model
+  is bundled with the application; the manifest pins and verifies both
+  SHA-256 digests. Together the optional models are about 1.14 GB.
   Powers AI colorization of grayscale images.
-
-  NOTE: whether these two ship inside the installer is currently
-  inconsistent between apps/desktop/public/models/manifest.json and
-  packages/engine/src/inference/modelCatalog.ts. They are attributed here
-  because over-attribution is harmless and omission is not. See
-  docs/release/release-readiness-audit.md (RB-1) — this must be reconciled
-  before release, since it is a ~1.2 GB difference in installer size.
 
 depth-anything-v2-small (Apache-2.0)
   Source: Depth Anything V2 (https://github.com/DepthAnything/Depth-Anything-V2),

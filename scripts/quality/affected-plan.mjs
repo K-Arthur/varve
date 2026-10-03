@@ -22,6 +22,7 @@ import { execFileSync, execSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 import { IMPACT_CONFIG } from '../../validation-impact.config.mjs';
+import { isMainModule } from '../is-main-module.mjs';
 
 const ROOT = process.cwd();
 const _PKGS = join(ROOT, 'packages');
@@ -859,6 +860,6 @@ export function main() {
   console.log(formatPlan(plan, opts));
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   main();
 }

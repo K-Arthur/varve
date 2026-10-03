@@ -23,6 +23,7 @@
  */
 import { execFileSync, spawn } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { isMainModule } from '../is-main-module.mjs';
 
 const ROOT = new URL('../../', import.meta.url).pathname;
 
@@ -56,8 +57,7 @@ const BINARY = args.get('binary') ?? null;
  * True only when executed as a CLI. The helpers below are exported for unit
  * testing, so importing this module must not start a soak run.
  */
-const isMain =
-  process.argv[1] !== undefined && import.meta.url === new URL(`file://${process.argv[1]}`).href;
+const isMain = isMainModule(import.meta.url);
 
 if (isMain && DURATION_MS === null && MAX_ITERATIONS === null) {
   console.error('native-soak: pass --duration (e.g. 4h) or --iterations');

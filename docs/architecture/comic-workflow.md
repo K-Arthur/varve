@@ -10,8 +10,9 @@ The shared preset registry provides `comic-print-a4`, `manga-a5`, and
 `webtoon-vertical`. Creating a document from one of these presets records an
 advisory `workflowProfile`, `paintingPpi`, `readingDirection`, and
 `publishingTarget`. The profile supplies defaults for new documents; it never
-changes existing artwork or hides tools. The document codec now advances to
-schema 2.29; all comic fields are optional for legacy files.
+changes existing artwork or hides tools. Comic metadata was introduced in
+document schema 2.29; the current schema is 2.33. All comic fields remain
+optional for legacy files.
 
 `comic-print` starts at A4, RGB, and 300 PPI. `manga` starts at A5, grayscale,
 RTL reading, and 600 PPI. `webtoon-vertical` starts at a 1600 × 8000 source

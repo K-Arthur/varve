@@ -15,6 +15,7 @@ import { execSync, spawnSync } from 'node:child_process';
 import { readdirSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
+import { isMainModule } from './is-main-module.mjs';
 
 const require = createRequire(import.meta.url);
 
@@ -753,7 +754,7 @@ function main() {
   process.exit(0);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   try {
     main();
   } catch (err) {

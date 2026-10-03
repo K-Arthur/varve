@@ -171,6 +171,7 @@ export async function runAdvisoryGate({
   root = process.cwd(),
   output = join(root, 'reports/dependency-advisories'),
   run = runValidationCommand,
+  log = console.log,
 } = {}) {
   mkdirSync(output, { recursive: true });
   const scratch = mkdtempSync(join(tmpdir(), 'varve-advisory-gate-'));
@@ -293,8 +294,8 @@ export async function runAdvisoryGate({
       }
       writeFileSync(join(output, `${specification.id}.stderr.log`), diagnostic);
       if (entry.effectiveStatus === 'locally-mitigated') {
-        console.log(`Raw dependency advisory: ${JSON.stringify(safeReport(entry))}`);
-        console.log(
+        log(`Raw dependency advisory: ${JSON.stringify(safeReport(entry))}`);
+        log(
           `Dependency advisory effective: ${JSON.stringify(
             safeReport({
               id: entry.id,
@@ -308,7 +309,7 @@ export async function runAdvisoryGate({
             }),
           )}`,
         );
-      } else console.log(`Dependency advisory: ${JSON.stringify(safeReport(entry))}`);
+      } else log(`Dependency advisory: ${JSON.stringify(safeReport(entry))}`);
     }
   } finally {
     rmSync(scratch, { recursive: true, force: true });

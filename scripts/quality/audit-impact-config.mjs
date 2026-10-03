@@ -16,6 +16,7 @@
 import { existsSync, globSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { IMPACT_CONFIG } from '../../validation-impact.config.mjs';
+import { isMainModule } from '../is-main-module.mjs';
 
 const ROOT = process.cwd();
 
@@ -156,7 +157,7 @@ function _statSyncSafe(p) {
   }
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   const { ok, errors } = auditImpactConfig();
   for (const e of errors) console.error(`  ✗ ${e}`);
   if (!ok) {

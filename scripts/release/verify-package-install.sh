@@ -101,10 +101,21 @@ stage_artifact() {
   printf '%s' "${dest}"
 }
 
+verify_staged_license_payload() {
+  local dir="$1"
+  if node "${REPO_ROOT}/scripts/release/verify-license-payload.mjs" --resource-root "${dir}"; then
+    pass "installed license payload matches source"
+  else
+    fail "installed license payload is incomplete or changed"
+  fi
+}
+
 # ── The container-side script. Kept as one heredoc per format so the whole
 #    check runs in a single container start rather than a dozen. ──────────────
 run_deb_test() {
   local deb="$1"
+  local license_output="${STAGE}/deb-license-payload"
+  mkdir -p "${license_output}"
   echo
   echo "══ .deb on ${DEB_IMAGE} (glibc baseline) ══"
   info "$(basename "${deb}")"
@@ -112,6 +123,7 @@ run_deb_test() {
   local out
   out=$("${RUNTIME}" run --rm -i \
     -v "$(stage_artifact "${deb}" pkg.deb):/tmp/pkg.deb:ro" \
+    -v "${license_output}:/license-output" \
     "${DEB_IMAGE}" bash -s <<'CONTAINER'
 set -uo pipefail
 export DEBIAN_FRONTEND=noninteractive
@@ -132,6 +144,28 @@ else
   tail -20 /tmp/install.log | sed 's/^/    | /'
   exit 1
 fi
+
+# Tauri installs resources under /usr/lib/<productName> on Linux and maps each
+# `..` source path segment to `_up_` in the resource directory. Copy the actual
+# installed payload out so the host verifier checks the exact packaged path.
+RESOURCE_ROOT=/usr/lib/Varve
+LICENSE_DIR="$RESOURCE_ROOT/_up_/_up_/_up_"
+if [ ! -d "$LICENSE_DIR" ]; then
+  say license-payload-staged "FAIL: missing $LICENSE_DIR"
+  exit 1
+fi
+mkdir -p /license-output/_up_/_up_/_up_/THIRD_PARTY_LICENSES
+for file in LICENSE NOTICE THIRD_PARTY_NOTICES; do
+  if ! cp "$LICENSE_DIR/$file" /license-output/_up_/_up_/_up_/; then
+    say license-payload-staged "FAIL: missing $LICENSE_DIR/$file"
+    exit 1
+  fi
+done
+if ! cp -R "$LICENSE_DIR/THIRD_PARTY_LICENSES/." /license-output/_up_/_up_/_up_/THIRD_PARTY_LICENSES/; then
+  say license-payload-staged "FAIL: missing $LICENSE_DIR/THIRD_PARTY_LICENSES"
+  exit 1
+fi
+say license-payload-staged PASS
 
 BIN=$(dpkg -L "$(dpkg-deb -f /tmp/pkg.deb Package)" 2>/dev/null | grep -E '/usr/bin/' | head -1)
 [ -n "$BIN" ] && say binary-path "$BIN" || say binary-path MISSING
@@ -165,10 +199,13 @@ CONTAINER
   )
 
   parse_marks "$out"
+  verify_staged_license_payload "${license_output}"
 }
 
 run_rpm_test() {
   local rpm="$1"
+  local license_output="${STAGE}/rpm-license-payload"
+  mkdir -p "${license_output}"
   echo
   echo "══ .rpm on ${RPM_IMAGE} ══"
   info "$(basename "${rpm}")"
@@ -176,6 +213,7 @@ run_rpm_test() {
   local out
   out=$("${RUNTIME}" run --rm -i \
     -v "$(stage_artifact "${rpm}" pkg.rpm):/tmp/pkg.rpm:ro" \
+    -v "${license_output}:/license-output" \
     "${RPM_IMAGE}" bash -s <<'CONTAINER'
 set -uo pipefail
 say() { echo "MARK|$1|$2"; }
@@ -190,6 +228,25 @@ else
   tail -20 /tmp/install.log | sed 's/^/    | /'
   exit 1
 fi
+
+RESOURCE_ROOT=/usr/lib/Varve
+LICENSE_DIR="$RESOURCE_ROOT/_up_/_up_/_up_"
+if [ ! -d "$LICENSE_DIR" ]; then
+  say license-payload-staged "FAIL: missing $LICENSE_DIR"
+  exit 1
+fi
+mkdir -p /license-output/_up_/_up_/_up_/THIRD_PARTY_LICENSES
+for file in LICENSE NOTICE THIRD_PARTY_NOTICES; do
+  if ! cp "$LICENSE_DIR/$file" /license-output/_up_/_up_/_up_/; then
+    say license-payload-staged "FAIL: missing $LICENSE_DIR/$file"
+    exit 1
+  fi
+done
+if ! cp -R "$LICENSE_DIR/THIRD_PARTY_LICENSES/." /license-output/_up_/_up_/_up_/THIRD_PARTY_LICENSES/; then
+  say license-payload-staged "FAIL: missing $LICENSE_DIR/THIRD_PARTY_LICENSES"
+  exit 1
+fi
+say license-payload-staged PASS
 
 PKG=$(rpm -qp --qf '%{NAME}' /tmp/pkg.rpm 2>/dev/null)
 BIN=$(rpm -ql "$PKG" 2>/dev/null | grep -E '/usr/bin/' | head -1)
@@ -214,6 +271,7 @@ CONTAINER
   )
 
   parse_marks "$out"
+  verify_staged_license_payload "${license_output}"
 }
 
 parse_marks() {

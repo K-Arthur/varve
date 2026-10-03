@@ -9,6 +9,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { extractFailures, isFailureLine, rankLine } from './ci-debug.mjs';
+import { isMainModule } from './is-main-module.mjs';
 
 const TEST_DIR = mkdtempSync(join(tmpdir(), 'varve-ci-debug-test-'));
 const TEST_LOG = join(TEST_DIR, 'test-failure.log');
@@ -195,6 +196,6 @@ function main() {
   }
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   main();
 }

@@ -104,7 +104,14 @@
     "active": true,
     "createUpdaterArtifacts": true,
     "targets": ["appimage", "deb", "rpm", "nsis", "dmg"],
-    "resources": ["onnxruntime-libs/**/*", "../../../target/release/varve-generative-helper*"],
+    "resources": [
+      "onnxruntime-libs/**/*",
+      "../../../target/release/varve-generative-helper*",
+      "../../../LICENSE",
+      "../../../NOTICE",
+      "../../../THIRD_PARTY_NOTICES",
+      "../../../THIRD_PARTY_LICENSES/**/*"
+    ],
     "fileAssociations": [
       {
         "ext": ["varve"],
