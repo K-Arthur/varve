@@ -2308,7 +2308,8 @@ input[type="number"] {
     bottom: calc(
       var(--space-3) +
       var(--floating-toolbar-height, var(--toolbar-height)) +
-      var(--space-2)
+      var(--space-2) +
+      var(--keyboard-inset-bottom, 0px)
     );
   }
 }
