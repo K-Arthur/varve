@@ -75,7 +75,7 @@ directory at `varve-validation/overrides.ndjson`; an override cannot bypass
 Run from a clean normal branch:
 
 ```bash
-pnpm release:prepare 0.12.0
+pnpm release:prepare 0.5.0
 # review and commit the version/changelog change
 pnpm release:status
 pnpm release:certify -- --sha "$(git rev-parse HEAD)" --mode triage
@@ -141,8 +141,8 @@ create and push the tag. This work does not create tags or change GitHub
 settings:
 
 ```bash
-git tag -a v0.12.0 <certified-master-sha> -m "Varve 0.12.0"
-git push origin master refs/tags/v0.12.0
+git tag -a v0.5.0 <certified-master-sha> -m "Varve 0.5.0"
+git push origin master refs/tags/v0.5.0
 ```
 
 The local pre-push driver also requires release-tag provenance and matching
@@ -160,6 +160,24 @@ calls `scripts/release/verify-certification.mjs`. If either exact stable check,
 policy-bound integration evidence, or matching unexpired candidate evidence is
 absent, it fails before large dependency installation and prints the recovery
 action. It does not rerun the ordinary product suite.
+
+The existing Linux and Windows/macOS smoke jobs also qualify the installed
+production application before draft verification. Each target installs the
+verified published 0.2.1 package, saves a schema-2.21 document on disk, upgrades
+while retaining the same native profile, then requires 0.5.0 save/reopen,
+Inspector editing and undo, and actual PNG/SVG/PDF output. Image export checks
+compare embedded-asset pixels; saved bytes must retain text, curves and assets
+at schema 2.33. Platform execution and receipts, rather than harness unit tests,
+establish these results.
+
+Linux uses external Tauri/WebKit WebDriver, Windows uses WebView2 CDP, and
+macOS uses external XCTest Accessibility through Mac2. Linux and Windows
+substitute only a one-shot Save dialog selection; native filesystem and export
+commands remain genuine, so these routes do not certify the native chooser UI.
+macOS drives its actual native chooser. Driver, permission, selector or product
+failures fail the job and retain logs, screenshots and available accessibility
+source. A process staying alive, a successful capability probe, or a debug app
+check cannot replace this installed-production gate.
 
 Platform jobs write artifacts and an exact-SHA provenance sidecar containing:
 

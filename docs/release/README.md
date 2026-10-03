@@ -31,7 +31,9 @@ artifacts; the exact-SHA candidate and publishing gates below still apply.
 
 ## Tooling
 
-`scripts/release/` — all zero-dependency Node, all runnable locally:
+Identity, artifact and trust helpers under `scripts/release/` use Node built-ins.
+Installed-product qualification under `production/` uses the frozen workspace
+automation dependencies and runs on each matching native runner:
 
 | Script | Purpose |
 |---|---|
@@ -58,6 +60,7 @@ artifacts; the exact-SHA candidate and publishing gates below still apply.
 | `product.mjs` | Product identity constants shared by the release scripts |
 | `publish-model-assets.mjs` | Upload on-demand AI models to the models release |
 | `verify-package-install.sh` | Install-test `.deb`/`.rpm` in clean Ubuntu/Fedora containers |
+| `production/` | Qualify installed release payloads: published 0.2.1 disk seed, same-profile upgrade, save/reopen, edit/undo and PNG/SVG/PDF exports; external Linux WebDriver, Windows WebView2 and macOS Accessibility |
 
 Signing policy and trust-gate logic is unit-tested by
 `scripts/release/signing-policy.test.mjs` (wired into `pnpm test:ci:tools`).
@@ -73,8 +76,8 @@ freeze exact master SHA
    ├── bundle             native runners; sign when configured; verify the
    │                      artifact bytes (signing-report-*.json); collect; hash;
    │                      report installer size (Windows, gate v. baseline)
-   ├── package-smoke      clean-container install + headless launch (Linux)
-   ├── platform-smoke     install/mount + launch + uninstall (Win/macOS)
+   ├── package-smoke      container install + native production/upgrade (Linux)
+   ├── platform-smoke     native production/upgrade + package trust (Win/macOS)
    ├── verify             merge + trust gate + SBOM + FINAL checksums +
    │                      GitHub attestation of the final bytes + notes
    ├── draft              DRAFT release from the verified set; re-verify upload
