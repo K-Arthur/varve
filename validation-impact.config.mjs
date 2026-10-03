@@ -37,6 +37,7 @@
  *   models                  model manifest/checksum validation
  *   audit:tokens|emoji|docs|health|architecture
  *   ci-tools                scripts/*.test.mjs + shell script tests
+ *   demo-dist-validation    macOS-safe disposable web demo containment test
  *   policy                  validation-policy.test.ts (this system's own tests)
  *   full                    everything (Tier 5)
  */
@@ -165,6 +166,15 @@ export const IMPACT_CONFIG = {
    * cross-language contracts). Each rule states why.
    */
   impactRules: [
+    {
+      id: 'demo-dist-portability-validation',
+      why: 'The built-demo CI preflight must reject canonical output overlap even when the host resolves temporary paths through aliases such as macOS /var -> /private/var.',
+      paths: [
+        'scripts/website/demo-dist-validation.mjs',
+        'scripts/website/demo-dist-validation.test.mjs',
+      ],
+      require: ['demo-dist-validation'],
+    },
     {
       id: 'canvas-renderer-e2e',
       why: 'The canvas renderer is exercised through the real DOM/E2E corpus; unit tests cannot see compositing order, camera projection, or overlay layout bugs.',

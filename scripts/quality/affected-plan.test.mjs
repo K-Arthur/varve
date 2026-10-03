@@ -73,6 +73,17 @@ assert.ok(setupPlan.tiers[4].includes('e2e:all'));
 const fixturePlan = buildPlan(['tests/e2e/fixtures/real-life-portrait.jpg']);
 assert.ok(fixturePlan.tiers[4].includes('e2e:all'));
 
+const demoDistPlan = buildPlan(['scripts/website/demo-dist-validation.mjs']);
+assert.ok(demoDistPlan.tiers[4].includes('demo-dist-validation'));
+assert.ok(!demoDistPlan.tiers[4].includes('ci-tools'));
+assert.ok(!demoDistPlan.full, 'a bounded demo-path test does not force a local full gate');
+assert.ok(
+  selectPushValidation(demoDistPlan, {
+    files: ['scripts/website/demo-dist-validation.mjs'],
+  }).localBlocking.includes('demo-dist-validation'),
+  'the small portability regression test remains in the push checkpoint',
+);
+
 const canvasBenchPlan = buildPlan([
   'packages/editor/src/canvas/__tests__/cacheSystem.bench.test.ts',
 ]);

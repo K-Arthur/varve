@@ -40,6 +40,7 @@ const STATIC_LANES = new Set([
   'desktop-native',
   'website-unit',
   'website-e2e',
+  'demo-dist-validation',
   'bench:render',
   'bench:table',
   'bench:table-layout',

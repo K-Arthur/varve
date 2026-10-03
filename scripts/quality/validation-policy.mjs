@@ -19,7 +19,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-export const POLICY_VERSION = '2026-10-03.validation-profiles.v3';
+export const POLICY_VERSION = '2026-10-03.validation-profiles.v4';
 // 1,903 Chromium cases at the release checkpoint: sixteen single-worker
 // hosted jobs retain roughly the case share of the former 1,030-case/8 split.
 export const FULL_BROWSER_SHARDS = 16;
@@ -61,6 +61,7 @@ export const POLICY_FILES = [
   'patches/http-cache-semantics@4.2.0.patch',
   'patches/braces@3.0.3.patch',
   'scripts/website/demo-dist-validation.mjs',
+  'scripts/website/demo-dist-validation.test.mjs',
   'scripts/website/e2e-ports.cjs',
   'scripts/website/e2e-ports.d.cts',
   'apps/website/tests/e2e/tsconfig.json',
@@ -193,6 +194,7 @@ export const LANE_COST_SECONDS = Object.freeze({
   'rust-test:varve-generative-helper': 600,
   'rust-clippy:varve-generative-helper': 600,
   'ci-tools': 120,
+  'demo-dist-validation': 20,
   'website-unit': 120,
   'js-unit:all': 900,
   'typecheck:all': 500,
@@ -554,6 +556,10 @@ export function selectPushValidation(plan, { files = pathList(plan), strict = fa
   if (plan?.tiers?.[0]?.includes('audit:docs')) localBlocking.push('audit:docs');
   if (plan?.tiers?.[0]?.includes('audit:emoji')) localBlocking.push('audit:emoji');
   if (plan?.tiers?.[0]?.includes('audit:tokens')) localBlocking.push('audit:tokens');
+  if (plan?.tiers?.[4]?.includes('demo-dist-validation')) {
+    localBlocking.push('demo-dist-validation');
+    estimatedSeconds += LANE_COST_SECONDS['demo-dist-validation'];
+  }
   if (
     files.some(
       (file) => file.startsWith('scripts/quality/') || file === 'validation-impact.config.mjs',

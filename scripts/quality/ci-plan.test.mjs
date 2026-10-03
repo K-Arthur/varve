@@ -104,6 +104,10 @@ assert.deepEqual(laneArgv('format:changed', { files: ['package.json'] }), [
   'format',
   'package.json',
 ]);
+assert.deepEqual(laneArgv('demo-dist-validation'), [
+  'node',
+  'scripts/website/demo-dist-validation.test.mjs',
+]);
 const unusualRoot = mkdtempSync(join(tmpdir(), 'varve-preflight-paths-'));
 try {
   writeFileSync(join(unusualRoot, 'path with spaces-[odd].ts'), 'export {}\n');

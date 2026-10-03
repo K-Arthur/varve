@@ -13,7 +13,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
+import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { redactSensitive } from '../ci/failure-manifest.mjs';
 import { createBrowserInventory, readInventorySource } from '../quality/browser-inventory.mjs';
@@ -68,6 +68,17 @@ function contains(parent, child) {
       !isAbsolute(value))
   );
 }
+function resolveThroughExistingParent(path) {
+  const suffix = [];
+  let existing = resolve(path);
+  while (!existsSync(existing)) {
+    const parent = dirname(existing);
+    if (parent === existing) break;
+    suffix.unshift(basename(existing));
+    existing = parent;
+  }
+  return resolve(realpathSync(existing), ...suffix);
+}
 export function distInventory(directory) {
   const files = [];
   function visit(dir) {
@@ -89,14 +100,15 @@ export function distInventory(directory) {
   return { files, sha256: createHash('sha256').update(JSON.stringify(files)).digest('hex') };
 }
 export function assertDisposableDemoDist(distDir, root) {
+  const disposablePath = resolveThroughExistingParent(distDir);
   for (const canonical of [
     'apps/website/dist',
     'apps/website/dist-pages',
     'apps/desktop/dist-try',
   ]) {
     const canonicalPath = resolve(root, canonical);
-    const original = existsSync(canonicalPath) ? realpathSync(canonicalPath) : canonicalPath;
-    if (contains(original, distDir) || contains(distDir, original))
+    const original = resolveThroughExistingParent(canonicalPath);
+    if (contains(original, disposablePath) || contains(disposablePath, original))
       throw new Error(
         'built-demo validation requires a disposable dist copy outside canonical outputs',
       );

@@ -1,6 +1,15 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -137,6 +146,24 @@ try {
     mkdirSync(canonical, { recursive: true });
     for (const candidate of [canonical, join(canonical, 'nested'), fakeRoot])
       assert.throws(() => assertDisposableDemoDist(candidate, fakeRoot), /disposable/);
+  }
+  const symlinkedRoot = join(directory, 'synthetic-root-link');
+  try {
+    symlinkSync(fakeRoot, symlinkedRoot, 'dir');
+  } catch (error) {
+    if (!['EPERM', 'EACCES', 'ENOSYS'].includes(error.code)) throw error;
+  }
+  if (symlinkedRoot !== fakeRoot && existsSync(symlinkedRoot)) {
+    assert.throws(
+      () => assertDisposableDemoDist(symlinkedRoot, fakeRoot),
+      /disposable/,
+      'a symlinked alias of the project temp root cannot hide canonical output overlap',
+    );
+    assert.throws(
+      () => assertDisposableDemoDist(join(symlinkedRoot, 'apps/website/dist/nested'), fakeRoot),
+      /disposable/,
+      'nonexistent descendants are checked through their real parent path',
+    );
   }
   const overlapping = join(root, 'test-results', outputSuffix, 'served');
   mkdirSync(overlapping, { recursive: true });

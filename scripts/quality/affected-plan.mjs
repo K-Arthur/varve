@@ -520,6 +520,7 @@ function buildPlan(files, { includeReverse = true } = {}) {
             lane === 'wasm' ||
             lane === 'models' ||
             lane === 'desktop-native' ||
+            lane === 'demo-dist-validation' ||
             lane === 'website-unit' ||
             lane === 'website-e2e'
           ) {
