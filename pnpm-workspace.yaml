@@ -73,6 +73,10 @@ minimumReleaseAgeExclude:
   - '@testing-library/jest-dom@7.0.1'
 
 patchedDependencies:
+  # No upstream fixes published for GHSA-ch52-4w7c-c8xp / GHSA-vfj7-8cjw-p6xm.
+  # Keep the raw advisories visible and verify these exact runtime backports.
+  http-cache-semantics@4.2.0: patches/http-cache-semantics@4.2.0.patch
+  braces@3.0.3: patches/braces@3.0.3.patch
   extract-zip@2.0.1: patches/extract-zip@2.0.1.patch
   jsdom@30.0.1: patches/jsdom@30.0.1.patch
 

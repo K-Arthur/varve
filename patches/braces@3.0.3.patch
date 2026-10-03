@@ -1,0 +1,16 @@
+--- a/lib/parse.js
++++ b/lib/parse.js
+@@ -55,6 +55,13 @@
+ 
+   const advance = () => input[index++];
+   const push = node => {
++    // GHSA-vfj7-8cjw-p6xm: bound the actual AST container depth before
++    // compile/expand/stringify can recurse. Escaped and quoted braces remain
++    // ordinary text, and parentheses count because they also create AST nodes.
++    if (node.nodes && stack.length > 100) {
++      throw new SyntaxError('AST nesting exceeds the maximum depth of 100');
++    }
++
+     if (node.type === 'text' && prev.type === 'dot') {
+       prev.type = 'text';
+     }

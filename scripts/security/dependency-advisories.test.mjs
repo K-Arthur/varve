@@ -206,3 +206,63 @@ test('partial or empty graph/database reports and disabled warning categories ca
   hiddenWarnings.settings.informational_warnings = ['unmaintained'];
   assert.equal(analyzeAudit('cargo', cleanExit, hiddenWarnings).status, 'invalid');
 });
+
+test('raw npm report bytes survive unchanged while an unverified known mitigation remains blocking', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'varve-raw-advisory-'));
+  const fs = await import('node:fs');
+  fs.mkdirSync(join(root, 'apps/desktop/src-tauri'), { recursive: true });
+  for (const lockfile of ['pnpm-lock.yaml', 'Cargo.lock', 'apps/desktop/src-tauri/Cargo.lock'])
+    writeFileSync(join(root, lockfile), lockfile);
+  writeFileSync(join(root, 'pnpm-workspace.yaml'), 'packages: []\n');
+  writeFileSync(join(root, 'package.json'), '{}\n');
+  const { REVIEWED_MITIGATIONS } = await import('./verify-build-advisory-mitigations.mjs');
+  const report = npm();
+  report.metadata.vulnerabilities.high = 2;
+  report.advisories = Object.fromEntries(
+    REVIEWED_MITIGATIONS.map((item) => [
+      item.id,
+      {
+        id: item.id,
+        module_name: item.package,
+        github_advisory_id: item.advisory,
+        severity: 'high',
+        vulnerable_versions: `<=${item.version}`,
+        url: `https://github.com/advisories/${item.advisory}`,
+        findings: [
+          {
+            version: item.version,
+            paths: [...item.paths],
+            dev: false,
+            optional: false,
+            bundled: false,
+          },
+        ],
+      },
+    ]),
+  );
+  const bytes = `\n${JSON.stringify(report, null, 3)}\n\n`;
+  let calls = 0;
+  try {
+    const summary = await runAdvisoryGate({
+      root,
+      run: async (_argv, options) => {
+        calls++;
+        writeFileSync(options.stdio[1], calls === 1 ? bytes : JSON.stringify(cargo()));
+        return { ...cleanExit, status: calls === 1 ? 1 : 0 };
+      },
+    });
+    assert.equal(calls, 3);
+    assert.equal(summary.status, 'fail');
+    assert.equal(summary.effectiveStatus, 'blocked');
+    assert.equal(summary.scopes[0].status, 'vulnerable');
+    assert.equal(summary.rawVulnerabilities, 2);
+    assert.equal(summary.rawHigh, 2);
+    assert.equal(summary.localMitigations, 0);
+    assert.equal(
+      readFileSync(join(root, 'reports/dependency-advisories/npm-production.json'), 'utf8'),
+      bytes,
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});

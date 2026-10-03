@@ -440,10 +440,29 @@ Integration CI and release-candidate preflight run
 `pnpm-lock.yaml`, then Cargo audits against both `Cargo.lock` and
 `apps/desktop/src-tauri/Cargo.lock`. These are independent dependency graphs;
 the Tauri/gtk-rs stack exists only in the desktop graph. Real vulnerability
-findings and incomplete or failed scans block the gate. The scanner retains
+findings and incomplete or failed scans block the gate unless the exact reviewed
+local mitigation below is verified. The scanner retains
 maintenance and glib unsoundness warnings without advisory ignores, and the
 local `extract-zip` mitigation remains covered by its separate containment
 test. A passing scan does not mean every upstream alert or warning is fixed.
+
+The 0.5.0 website build also carries reviewed pnpm patches for
+`http-cache-semantics@4.2.0` ([GHSA-ch52-4w7c-c8xp](https://github.com/advisories/GHSA-ch52-4w7c-c8xp))
+and `braces@3.0.3` ([GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm)).
+At the recorded 2026-10-03 upstream review, neither had a published fixed version.
+The patches enforce shared-cache revalidation for private cookie responses and
+bound parser nesting before recursive brace processing. They preserve ordinary
+cache and pattern behavior, verified through fourteen real consumer regressions.
+
+Raw audit reports retain both HIGH findings. The separate effective result is
+`locally-mitigated` only when the complete finding set and five consumer paths,
+committed patch and runtime-test hashes, frozen lockfile, installed sources, and
+all fourteen first-attempt regressions match. Additional findings, missing inputs,
+skips, timeouts, or modified sources fail closed. Cargo scans remain independent.
+The evidence includes the review timestamp and primary advisory/registry URLs;
+it does not claim the upstream advisories are resolved. Replace these patches
+with verified upstream fixes when available, reviewing the dependency graph and
+rerunning the regressions before removing either mitigation.
 
 ## Pre-commit / pre-push hooks
 

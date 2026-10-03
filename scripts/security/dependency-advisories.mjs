@@ -18,6 +18,7 @@ import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { redactSensitive } from '../ci/failure-manifest.mjs';
 import { runValidationCommand } from '../quality/heavy-lease.mjs';
+import { verifyBuildAdvisoryMitigations } from './verify-build-advisory-mitigations.mjs';
 
 const yaml = createRequire(import.meta.url)('js-yaml');
 
@@ -232,10 +233,12 @@ export async function runAdvisoryGate({
         closeSync(stdout);
         closeSync(stderr);
       }
+      let rawText = null;
       let report = null;
       let parseFailure = null;
       try {
-        report = JSON.parse(boundedText(stdoutPath));
+        rawText = boundedText(stdoutPath);
+        report = JSON.parse(rawText);
       } catch {
         parseFailure = 'missing, malformed, or oversized report';
       }
@@ -249,11 +252,38 @@ export async function runAdvisoryGate({
         exitCode: result.status,
         ...outcome,
         parseFailure,
+        rawReportSha256:
+          rawText === null ? null : createHash('sha256').update(rawText).digest('hex'),
       };
+      const rawSafe = JSON.stringify(safeReport(report)) === JSON.stringify(report);
+      if (specification.kind === 'npm' && outcome.status === 'vulnerable') {
+        const mitigation = rawSafe
+          ? await verifyBuildAdvisoryMitigations({
+              root,
+              report,
+              result,
+              rawSha256: entry.rawReportSha256,
+              output,
+            })
+          : { effectiveStatus: 'blocked', reason: 'raw audit required credential redaction' };
+        entry.effectiveStatus = mitigation.effectiveStatus;
+        entry.rawVulnerabilities = outcome.vulnerabilities;
+        entry.rawHigh = report?.metadata?.vulnerabilities?.high ?? null;
+        entry.localMitigations = mitigation.localMitigations ?? 0;
+        entry.upstreamUnfixed = mitigation.upstreamUnfixed ?? null;
+        entry.upstreamReview = mitigation.upstreamReview ?? null;
+        writeFileSync(
+          join(output, 'npm-local-mitigations.json'),
+          `${JSON.stringify(safeReport(mitigation), null, 2)}\n`,
+        );
+      }
       summary.scopes.push(entry);
       writeFileSync(
         join(output, `${specification.id}.json`),
-        `${JSON.stringify(safeReport(report), null, 2)}\n`,
+        specification.kind === 'npm' && rawSafe && rawText !== null
+          ? rawText
+          : `${JSON.stringify(safeReport(report), null, 2)}\n`,
+        { mode: 0o600 },
       );
       let diagnostic;
       try {
@@ -262,7 +292,23 @@ export async function runAdvisoryGate({
         diagnostic = 'diagnostic omitted: bounded size exceeded\n';
       }
       writeFileSync(join(output, `${specification.id}.stderr.log`), diagnostic);
-      console.log(`Dependency advisory: ${JSON.stringify(safeReport(entry))}`);
+      if (entry.effectiveStatus === 'locally-mitigated') {
+        console.log(`Raw dependency advisory: ${JSON.stringify(safeReport(entry))}`);
+        console.log(
+          `Dependency advisory effective: ${JSON.stringify(
+            safeReport({
+              id: entry.id,
+              effectiveStatus: entry.effectiveStatus,
+              rawStatus: entry.status,
+              rawVulnerabilities: entry.rawVulnerabilities,
+              rawHigh: entry.rawHigh,
+              localMitigations: entry.localMitigations,
+              upstreamUnfixed: entry.upstreamUnfixed,
+              upstreamReview: entry.upstreamReview,
+            }),
+          )}`,
+        );
+      } else console.log(`Dependency advisory: ${JSON.stringify(safeReport(entry))}`);
     }
   } finally {
     rmSync(scratch, { recursive: true, force: true });
@@ -271,6 +317,25 @@ export async function runAdvisoryGate({
       summary.scopes.every((scope) => scope.status === 'pass')
         ? 'pass'
         : 'fail';
+    summary.effectiveStatus =
+      summary.status === 'pass'
+        ? 'pass'
+        : summary.scopes.length === specifications.length &&
+            summary.scopes.every(
+              (scope) =>
+                scope.status === 'pass' ||
+                (scope.id === 'npm-production' &&
+                  scope.status === 'vulnerable' &&
+                  scope.effectiveStatus === 'locally-mitigated'),
+            )
+          ? 'locally-mitigated'
+          : 'blocked';
+    const npm = summary.scopes.find((scope) => scope.id === 'npm-production');
+    summary.rawVulnerabilities = npm?.status === 'pass' ? 0 : (npm?.vulnerabilities ?? null);
+    summary.rawHigh = npm?.status === 'pass' ? 0 : (npm?.rawHigh ?? null);
+    summary.localMitigations = npm?.localMitigations ?? 0;
+    summary.upstreamUnfixed = npm?.status === 'pass' ? false : (npm?.upstreamUnfixed ?? null);
+    summary.upstreamReview = npm?.upstreamReview ?? null;
     writeFileSync(
       join(output, 'summary.json'),
       `${JSON.stringify(safeReport(summary), null, 2)}\n`,
@@ -282,7 +347,7 @@ export async function runAdvisoryGate({
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   try {
     const summary = await runAdvisoryGate();
-    process.exitCode = summary.status === 'pass' ? 0 : 1;
+    process.exitCode = ['pass', 'locally-mitigated'].includes(summary.effectiveStatus) ? 0 : 1;
   } catch {
     console.error('Dependency advisory gate failed; inspect sanitized retained reports.');
     process.exitCode = 1;
