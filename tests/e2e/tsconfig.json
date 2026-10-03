@@ -12,5 +12,9 @@
     },
     "types": ["node"]
   },
-  "include": ["./**/*.ts", "../../packages/compositor/node_modules/@webgpu/types/dist/index.d.ts"]
+  "include": [
+    "./**/*.ts",
+    "../../playwright.demo-dist.config.mts",
+    "../../packages/compositor/node_modules/@webgpu/types/dist/index.d.ts"
+  ]
 }

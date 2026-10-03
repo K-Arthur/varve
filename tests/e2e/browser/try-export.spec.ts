@@ -13,6 +13,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { expect, type Page, test } from '@playwright/test';
+import { selectInspectorTab } from '../helpers/inspector-tabs';
 
 const DEMO_DIST_URL = process.env.VARVE_DEMO_DIST_URL?.replace(/\/+$/, '');
 
@@ -23,7 +24,7 @@ async function gotoDemo(page: Page): Promise<void> {
 
 async function openExportTab(page: Page, nodeName: string): Promise<void> {
   await page.getByRole('treeitem').filter({ hasText: nodeName }).first().click();
-  await page.getByRole('tab', { name: 'Export' }).click();
+  await selectInspectorTab(page, 'Export');
   // The suggested quick format differs by node type; wait for whichever
   // export action is offered before switching formats deliberately.
   await page.getByRole('button', { name: /Download (PNG|SVG|JPEG|WebP)/ }).waitFor({
@@ -36,7 +37,10 @@ async function downloadWithFormat(
   formatLabel: 'PNG' | 'SVG' | 'JPEG' | 'WebP',
   savePath: string,
 ): Promise<void> {
-  await page.getByRole('button', { name: formatLabel, exact: true }).first().click();
+  await page
+    .getByRole('radiogroup', { name: 'Export format', exact: true })
+    .getByRole('radio', { name: formatLabel, exact: true })
+    .check();
   const downloadButton = page.getByRole('button', {
     name: new RegExp(`Download ${formatLabel}`, 'i'),
   });
@@ -102,7 +106,7 @@ test.describe('browser demo export acceptance (built artifact)', () => {
     await gotoDemo(page);
     await openExportTab(page, 'Sun');
 
-    const svgPath = '/tmp/varve-e2e-export-sun.svg';
+    const svgPath = test.info().outputPath('export-sun.svg');
     await downloadWithFormat(page, 'SVG', svgPath);
     const svg = readFileSync(svgPath, 'utf8');
 
@@ -116,7 +120,7 @@ test.describe('browser demo export acceptance (built artifact)', () => {
     await gotoDemo(page);
     await openExportTab(page, 'Sun');
 
-    const jpegPath = '/tmp/varve-e2e-export-sun.jpg';
+    const jpegPath = test.info().outputPath('export-sun.jpg');
     await downloadWithFormat(page, 'JPEG', jpegPath);
     const bytes = readFileSync(jpegPath);
     // JPEG magic bytes: every exported file must be a real encoded image.
@@ -140,7 +144,7 @@ test.describe('browser demo export acceptance (built artifact)', () => {
     await gotoDemo(page);
     await openExportTab(page, 'Poster');
 
-    const pngPath = '/tmp/varve-e2e-export-poster.png';
+    const pngPath = test.info().outputPath('export-poster.png');
     await downloadWithFormat(page, 'PNG', pngPath);
     const bytes = readFileSync(pngPath);
 

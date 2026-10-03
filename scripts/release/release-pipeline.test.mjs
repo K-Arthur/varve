@@ -15,6 +15,7 @@ import { copyFileSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSy
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import ts from 'typescript';
+import '../website/demo-dist-validation.test.mjs';
 import { candidateNextAction } from './release.mjs';
 import { parseChecksums, selectRelease, verifyReleaseIntegrity } from './verify-release-data.mjs';
 import { incrementVersion } from './version.mjs';
@@ -80,18 +81,56 @@ assert.match(workflowJob(candidateWorkflow, 'desktop-e2e'), /needs:.*rust/);
 assert.match(workflowJob(candidateWorkflow, 'certification'), /needs:.*rust/);
 const candidateBrowserCommands = candidateWorkflow
   .split('\n')
-  .filter((line) => /^\s*pnpm (?:exec playwright test|e2e:visual)/.test(line));
+  .filter((line) => /\bpnpm (?:exec playwright test|e2e:visual)/.test(line));
 assert.equal(candidateBrowserCommands.length, 6, 'triage and final for all three browser lanes');
 for (const command of candidateBrowserCommands) {
+  assert.match(command, /node scripts\/quality\/heavy-lease\.mjs/);
   for (const flag of strictBrowserFlags) assert.ok(command.includes(flag), command);
 }
 const directIntegrationBrowserCommands = integrationWorkflow
   .split('\n')
-  .filter((line) => /run: pnpm exec playwright test/.test(line));
+  .filter((line) => /run: .*\bpnpm exec playwright test/.test(line));
 assert.equal(directIntegrationBrowserCommands.length, 3);
 for (const command of directIntegrationBrowserCommands) {
+  assert.match(command, /node scripts\/quality\/heavy-lease\.mjs/);
   for (const flag of strictBrowserFlags) assert.ok(command.includes(flag), command);
 }
+const websiteBrowserSteps = websiteWorkflow
+  .split(/\n {6}- name:/)
+  .filter((step) => /pnpm exec playwright test/.test(step));
+assert.equal(websiteBrowserSteps.length, 3, 'source modes, full built inventory, full built demo');
+for (const step of websiteBrowserSteps) {
+  assert.match(step, /node scripts\/quality\/heavy-lease\.mjs/);
+  for (const flag of strictBrowserFlags) assert.ok(step.includes(flag), step);
+  assert.doesNotMatch(step, /--(?:grep|shard|last-failed|only-changed|test-list)(?:=|\s)/);
+}
+const websiteBuild = workflowJob(websiteWorkflow, 'build');
+const websiteStage = websiteBuild.indexOf('node scripts/website/stage-demo.mjs');
+const websitePrepare = websiteBuild.indexOf(
+  'node scripts/website/demo-dist-validation.mjs prepare',
+);
+const websiteDemo = websiteBuild.indexOf('name: Validate built production demo');
+const websiteReport = websiteBuild.indexOf(
+  'node scripts/website/demo-dist-validation.mjs verify-report',
+);
+const websiteUnchanged = websiteBuild.indexOf(
+  'node scripts/website/demo-dist-validation.mjs assert-unchanged',
+);
+const websiteUpload = websiteBuild.indexOf('uses: actions/upload-pages-artifact@');
+assert.ok(
+  websiteStage >= 0 &&
+    websitePrepare > websiteStage &&
+    websiteDemo > websitePrepare &&
+    websiteReport > websiteDemo &&
+    websiteUnchanged > websiteReport &&
+    websiteUpload > websiteUnchanged,
+  'built artifact and complete browser evidence must precede upload',
+);
+assert.match(
+  websiteBuild,
+  /VARVE_DEMO_EXPECTED_SHA: \$\{\{ needs\.release-data\.outputs\.published_sha \|\| github\.sha \}\}/,
+);
+assert.doesNotMatch(websiteWorkflow, /path: \|\n {12}test-results\/\n/);
 assert.match(verifierSource, /broadBrowserArgv\('e2e:all', \{ strict: true \}\)/);
 assert.match(verifierSource, /'e2e:visual', \.\.\.playwrightRunOptions\(\{ strict: true \}\)/);
 assert.match(

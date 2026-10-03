@@ -1,14 +1,15 @@
 /**
  * Public browser demo (/try) — E2E smoke and visual verification.
  *
- * Runs against the Vite dev server with the ?try=1 query param (no build
- * required) to verify the demo-mode wiring, sample document seeding,
+ * Runs against production /try/ when VARVE_DEMO_DIST_URL is set, otherwise
+ * the Vite dev server with ?try=1, to verify the demo-mode wiring, sample document seeding,
  * persistence, limitation banner, and capability-gating behaviour.
  */
 import { expect, type Page, test } from '@playwright/test';
 import { dragOnCanvas } from '../shared';
 
-const DEMO_URL = '/?try=1';
+const DEMO_DIST_URL = process.env.VARVE_DEMO_DIST_URL?.replace(/\/+$/, '');
+const DEMO_URL = DEMO_DIST_URL ? `${DEMO_DIST_URL}/try/` : '/?try=1';
 
 /** Dismiss the crash-recovery dialog if present. */
 async function dismissRecoveryDialog(page: Page): Promise<void> {
@@ -285,11 +286,14 @@ test.describe('browser demo (/try)', () => {
     await dismissRecoveryDialog(page);
 
     // Simulate the post-deploy state: a hashed chunk the shell references is gone.
-    await page.evaluate(() => {
-      const script = document.createElement('script');
-      script.src = '/assets/chunk-removed-by-a-deploy.js';
-      document.head.appendChild(script);
-    });
+    await page.evaluate(
+      (assetPath) => {
+        const script = document.createElement('script');
+        script.src = assetPath;
+        document.head.appendChild(script);
+      },
+      `${DEMO_DIST_URL ? '/try' : ''}/assets/chunk-removed-by-a-deploy.js`,
+    );
 
     const banner = page.locator('.varve-stale-asset-banner');
     await expect(banner).toBeVisible({ timeout: 10000 });
@@ -369,9 +373,10 @@ test.describe('browser demo (/try)', () => {
     await page.goto(DEMO_URL, { timeout: 120000, waitUntil: 'domcontentloaded' });
     await waitForEditorReady(page);
 
-    await page.screenshot({ path: 'reports/try-demo/light.png', fullPage: true });
+    const capturePath = test.info().outputPath('demo-light.png');
+    await page.screenshot({ path: capturePath, fullPage: true });
     await test.info().attach('demo-light.png', {
-      path: 'reports/try-demo/light.png',
+      path: capturePath,
       contentType: 'image/png',
     });
   });
@@ -418,9 +423,10 @@ test.describe('browser demo (/try)', () => {
     // The PNG plus the SVG's rect land on top of the sample document.
     await expect(page.getByRole('treeitem')).toHaveCount(before + 2, { timeout: 30000 });
 
-    await page.screenshot({ path: 'reports/try-demo/import.png', fullPage: true });
+    const capturePath = test.info().outputPath('demo-import.png');
+    await page.screenshot({ path: capturePath, fullPage: true });
     await test.info().attach('demo-import.png', {
-      path: 'reports/try-demo/import.png',
+      path: capturePath,
       contentType: 'image/png',
     });
   });

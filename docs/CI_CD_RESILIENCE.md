@@ -435,10 +435,15 @@ evaluate local patch files; the dependency-hardening contract test and the
 `extract-zip-containment` runtime test verify the effective lockfile and
 containment behaviour instead of hiding the advisory.
 
-`cargo audit` is not wired into CI. Run it manually from both the repository
-root (the `crates/` workspace) and `apps/desktop/src-tauri/` — they are
-independent Cargo workspaces with separate lockfiles, and the Tauri/gtk-rs
-stack exists only in the latter — before a release.
+Integration CI and release-candidate preflight run
+`scripts/security/dependency-advisories.mjs`: a production npm audit against
+`pnpm-lock.yaml`, then Cargo audits against both `Cargo.lock` and
+`apps/desktop/src-tauri/Cargo.lock`. These are independent dependency graphs;
+the Tauri/gtk-rs stack exists only in the desktop graph. Real vulnerability
+findings and incomplete or failed scans block the gate. The scanner retains
+maintenance and glib unsoundness warnings without advisory ignores, and the
+local `extract-zip` mitigation remains covered by its separate containment
+test. A passing scan does not mean every upstream alert or warning is fixed.
 
 ## Pre-commit / pre-push hooks
 

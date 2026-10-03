@@ -370,3 +370,19 @@ Target WCAG 2.2 AA — enforced by the CI website e2e gate.
 - [x] Every checksum on the page matches the published artifact
 - [x] Privacy, licence and security pages re-read for accuracy
 - [x] Post-deployment smoke check wired into the workflow (`scripts/website/smoke-pages.mjs`)
+
+### Production demo browser gate
+
+The deployment tests source website modes through the heavy-task lease with one
+worker, zero retries, failure traces, and snapshot updates disabled. Diagnostics
+include JSON case histories and the source SHA, run ID, and run attempt.
+
+After building and staging `/try/`, the same build job serves a disposable copy
+of the combined Pages artifact. The four existing browser-demo owners cover
+boot/WASM, save and reload, capability boundaries, offline setup and updates,
+file launch, and SVG/raster export. The config requires an exact checked-out SHA,
+loopback origin, explicit disposable directory, and the required worker/WASM
+assets. A configured `--list` inventory must match every executed case, with no
+skips or retry passes. The service-worker update test may rewrite only the copy;
+a full hash inventory verifies that the original upload artifact stayed intact.
+Dev-server `?try=1` checks and post-deployment HTTP smoke remain separate evidence.
