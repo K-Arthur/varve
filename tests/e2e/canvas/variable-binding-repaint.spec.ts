@@ -19,7 +19,9 @@
  * the current Variables and tokens dialog, which owns both VariablePanel and
  * Token Sync.
  */
+
 import { expect, type Locator, type Page, test } from '@playwright/test';
+import { evidencePath } from '../helpers/evidence-output';
 import { dragOnCanvas, navigateToEditor } from '../shared';
 
 const RED = { r: 255, g: 0, b: 127 };
@@ -159,7 +161,7 @@ test('fill binding paints on a fills-stack layer and repaints on variable edit',
   expect(bound.red).toBeGreaterThan(bound.blue);
 
   await page.screenshot({
-    path: 'docs/screenshots/token-binding-repaint/01-bound-red.png',
+    path: evidencePath('token-binding-repaint/01-bound-red.png'),
     fullPage: false,
   });
 
@@ -179,7 +181,7 @@ test('fill binding paints on a fills-stack layer and repaints on variable edit',
   );
 
   await page.screenshot({
-    path: 'docs/screenshots/token-binding-repaint/02-edited-blue.png',
+    path: evidencePath('token-binding-repaint/02-edited-blue.png'),
     fullPage: false,
   });
 

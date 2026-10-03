@@ -1,13 +1,12 @@
-import { mkdirSync } from 'node:fs';
-import path from 'node:path';
 import { expect, test } from '@playwright/test';
+import { evidencePath } from '../helpers/evidence-output';
 import { dragOnCanvas, navigateToEditor } from '../shared';
 
 /**
  * In-app WebGPU capture: drives the real editor with the WebGPU renderer
  * preference enabled, draws solid rect + ellipse content through the real
  * tools, and captures the canvas, the status bar label, and the Performance
- * settings tab into docs/screenshots/gpu-acceleration/.
+ * settings tab into isolated test output (VARVE_GPU_SHOT_DIR opts into review capture).
  *
  * On a machine whose browser exposes a hardware WebGPU adapter this exercises
  * the GPU scene path end to end. On SwiftShader-only environments (CI, most
@@ -16,7 +15,7 @@ import { dragOnCanvas, navigateToEditor } from '../shared';
  * Either way the assertions only accept the honest status labels.
  */
 
-const SHOT_DIR = process.env.VARVE_GPU_SHOT_DIR ?? 'docs/screenshots/gpu-acceleration';
+const SHOT_DIR = process.env.VARVE_GPU_SHOT_DIR;
 
 test.use({
   launchOptions: {
@@ -73,14 +72,16 @@ async function selectWebGpuRenderer(page: import('@playwright/test').Page): Prom
 }
 
 test('captures the WebGPU renderer preference and its truthful status', async ({ page }) => {
-  mkdirSync(SHOT_DIR, { recursive: true });
   await navigateToEditor(page);
   const hardware = await hasHardwareAdapter(page);
 
   // Baseline: default Canvas2D path draws the same content.
   await drawShapes(page);
   await page.waitForTimeout(500);
-  await page.screenshot({ path: path.join(SHOT_DIR, 'app-canvas-canvas2d.png'), fullPage: false });
+  await page.screenshot({
+    path: evidencePath(`gpu-acceleration/app-canvas-canvas2d.png`, SHOT_DIR),
+    fullPage: false,
+  });
   const canvas2dStatus = await page.locator('.editor-status__diagnostic').textContent();
   expect(canvas2dStatus ?? '').toMatch(/Canvas2D/);
 
@@ -93,7 +94,7 @@ test('captures the WebGPU renderer preference and its truthful status', async ({
 
   const status = (await page.locator('.editor-status__diagnostic').textContent()) ?? '';
   await page.screenshot({
-    path: path.join(SHOT_DIR, 'app-canvas-prefer-webgpu.png'),
+    path: evidencePath(`gpu-acceleration/app-canvas-prefer-webgpu.png`, SHOT_DIR),
     fullPage: false,
   });
 
@@ -126,7 +127,7 @@ test('captures the WebGPU renderer preference and its truthful status', async ({
   await expect(probeStat).toBeVisible();
   await page.waitForTimeout(300);
   await page.screenshot({
-    path: path.join(SHOT_DIR, 'app-settings-performance.png'),
+    path: evidencePath(`gpu-acceleration/app-settings-performance.png`, SHOT_DIR),
     fullPage: false,
   });
 });

@@ -6,10 +6,12 @@
  * repaired (a fresh document that could never import, a preview keyed by
  * file name, an announce that fired on a no-op) are invisible to unit tests.
  */
+
 import { expect, type Page, test } from '@playwright/test';
+import { evidencePath } from '../helpers/evidence-output';
 import { navigateToEditor } from '../shared';
 
-const SCREENSHOT_DIR = 'docs/screenshots/token-sync-import';
+const SCREENSHOT_DIR = 'token-sync-import';
 
 const TOKENS_JSON = JSON.stringify(
   {
@@ -73,7 +75,7 @@ test.describe('Token Sync import workflow', () => {
 
     await importTokens(page);
     await expect(dialog.getByText(/4 tokens ready to import/)).toBeVisible();
-    await dialog.screenshot({ path: `${SCREENSHOT_DIR}/import-preview.png` });
+    await dialog.screenshot({ path: evidencePath(`${SCREENSHOT_DIR}/import-preview.png`) });
 
     await dialog.getByRole('button', { name: 'Apply import' }).click();
 
@@ -82,7 +84,7 @@ test.describe('Token Sync import workflow', () => {
     await expect(sourceRow(page, 'brand.tokens.json')).toBeVisible();
     await expect(dialog.getByText(/4 tokens/).first()).toBeVisible();
     await expect(dialog.getByText(/revision/i)).toBeHidden();
-    await dialog.screenshot({ path: `${SCREENSHOT_DIR}/import-applied.png` });
+    await dialog.screenshot({ path: evidencePath(`${SCREENSHOT_DIR}/import-applied.png`) });
 
     // One coherent undo transaction removes everything the import created.
     await page.keyboard.press('ControlOrMeta+z');

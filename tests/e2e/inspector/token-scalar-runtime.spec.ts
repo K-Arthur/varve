@@ -1,10 +1,10 @@
 /** Real UI coverage for scalar DTCG tokens projected onto scene properties. */
-import { mkdirSync } from 'node:fs';
-import { resolve } from 'node:path';
+
 import { expect, type Locator, type Page, test } from '@playwright/test';
+import { evidencePath } from '../helpers/evidence-output';
 import { dragOnCanvas, navigateToEditor } from '../shared';
 
-const SCREENSHOT_DIR = resolve('docs/screenshots/dtcg-scalar-2026-09-25');
+const SCREENSHOT_DIR = 'dtcg-scalar-2026-09-25';
 const SOURCE = JSON.stringify(
   {
     foundation: {
@@ -182,7 +182,6 @@ async function compareAuthoritativeRedraw(
 test('px dimensions and number tokens drive corner radius and opacity through Variables edits', async ({
   page,
 }) => {
-  mkdirSync(SCREENSHOT_DIR, { recursive: true });
   await page.setViewportSize({ width: 1600, height: 1000 });
   await navigateToEditor(page, '/?perf=1');
 
@@ -199,7 +198,7 @@ test('px dimensions and number tokens drive corner radius and opacity through Va
       .locator('.token-sync-panel__source')
       .filter({ hasText: 'scalar-foundations.tokens.json' }),
   ).toContainText('3 tokens');
-  await dialog.screenshot({ path: resolve(SCREENSHOT_DIR, 'scalar-source-imported.png') });
+  await dialog.screenshot({ path: evidencePath(`${SCREENSHOT_DIR}/scalar-source-imported.png`) });
   await dialog.getByRole('button', { name: 'Close dialog' }).click();
 
   // Draw/select a real shape; no document state is seeded by the test.
@@ -241,7 +240,9 @@ test('px dimensions and number tokens drive corner radius and opacity through Va
   await expect(remOption).toHaveCount(1);
   await expect(remOption).toHaveAttribute('aria-disabled', 'true');
   await expect(remOption).toHaveAttribute('title', /length-valued property|ratio/i);
-  await page.screenshot({ path: resolve(SCREENSHOT_DIR, 'rem-dimension-opacity-explanation.png') });
+  await page.screenshot({
+    path: evidencePath(`${SCREENSHOT_DIR}/rem-dimension-opacity-explanation.png`),
+  });
   await page.keyboard.press('Escape');
 
   await chooseBinding(page, 'Opacity (%)', 'foundation.opacity.surface');
@@ -250,7 +251,7 @@ test('px dimensions and number tokens drive corner radius and opacity through Va
 
   await expectBlendedOpacity(page, center, opaqueFillRgb, backgroundRgb, 0.5);
   await expectPixelDifferentFrom(page, roundedEdge, backgroundRgb);
-  await page.screenshot({ path: resolve(SCREENSHOT_DIR, 'scalar-bindings-applied.png') });
+  await page.screenshot({ path: evidencePath(`${SCREENSHOT_DIR}/scalar-bindings-applied.png`) });
 
   // Edit the imported foundations through the Variables table. Numeric text
   // retains the source dimension's explicit px unit.
@@ -294,7 +295,7 @@ test('px dimensions and number tokens drive corner radius and opacity through Va
   // small edge fraction; the scalar sample and the rest of the surface agree.
   expect(redraw.diff.maxChannelDelta).toBeLessThanOrEqual(1);
   expect(redraw.diff.differingPixelRatio).toBeLessThan(0.0001);
-  await page.screenshot({ path: resolve(SCREENSHOT_DIR, 'scalar-foundations-edited.png') });
+  await page.screenshot({ path: evidencePath(`${SCREENSHOT_DIR}/scalar-foundations-edited.png`) });
 
   await page.keyboard.press('ControlOrMeta+z');
   await expect(opacity).toHaveValue('50');
@@ -302,5 +303,5 @@ test('px dimensions and number tokens drive corner radius and opacity through Va
   await page.keyboard.press('ControlOrMeta+z');
   await expect(radius).toHaveValue('8');
   await expectPixelDifferentFrom(page, roundedEdge, backgroundRgb);
-  await page.screenshot({ path: resolve(SCREENSHOT_DIR, 'scalar-foundations-undone.png') });
+  await page.screenshot({ path: evidencePath(`${SCREENSHOT_DIR}/scalar-foundations-undone.png`) });
 });

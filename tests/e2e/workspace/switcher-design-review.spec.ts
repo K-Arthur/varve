@@ -27,15 +27,12 @@
  *     env VARVE_E2E_PORT=1533 npx playwright test \
  *     tests/e2e/workspace/switcher-design-review.spec.ts --project=chromium --workers=1
  */
-import { mkdirSync } from 'node:fs';
-import { join } from 'node:path';
+
 import { expect, type Page, test } from '@playwright/test';
+import { evidencePath } from '../helpers/evidence-output';
 import { navigateToEditor } from '../shared';
 
-const OUT_DIR =
-  process.env.VARVE_SWITCHER_DESIGN_DIR ??
-  join(process.cwd(), 'docs/screenshots/2026-09-29-workspace-switcher-design-review');
-mkdirSync(OUT_DIR, { recursive: true });
+const OUT_DIR = process.env.VARVE_SWITCHER_DESIGN_DIR;
 
 const MODES = ['design', 'print', 'drawing', 'image', 'motion', 'email'] as const;
 const THEMES = ['light', 'dark', 'high-contrast'] as const;
@@ -241,7 +238,10 @@ test.describe('workspace switcher design review', () => {
     );
 
     await page.screenshot({
-      path: join(OUT_DIR, '01-desktop-1920-light-menubar.png'),
+      path: evidencePath(
+        `2026-09-29-workspace-switcher-design-review/01-desktop-1920-light-menubar.png`,
+        OUT_DIR,
+      ),
       clip: { x: 0, y: 0, width: 1920, height: 52 },
       animations: 'disabled',
     });
@@ -282,7 +282,10 @@ test.describe('workspace switcher design review', () => {
       });
       expect(pill, `${vp.name} lost its accent pill`).not.toBe('rgba(0, 0, 0, 0)');
       await page.screenshot({
-        path: join(OUT_DIR, `04-${vp.name}-switcher.png`),
+        path: evidencePath(
+          `2026-09-29-workspace-switcher-design-review/04-${vp.name}-switcher.png`,
+          OUT_DIR,
+        ),
         clip: { x: 0, y: 0, width: vp.width, height: 140 },
         animations: 'disabled',
       });
@@ -337,14 +340,20 @@ test.describe('workspace switcher design review', () => {
         }
         if (theme === 'light') {
           await page.screenshot({
-            path: join(OUT_DIR, `02-pill-${mode}-light.png`),
+            path: evidencePath(
+              `2026-09-29-workspace-switcher-design-review/02-pill-${mode}-light.png`,
+              OUT_DIR,
+            ),
             clip: { x: 1450, y: 0, width: 470, height: 48 },
             animations: 'disabled',
           });
         }
       }
       await page.screenshot({
-        path: join(OUT_DIR, `03-desktop-1920-${theme}-menubar.png`),
+        path: evidencePath(
+          `2026-09-29-workspace-switcher-design-review/03-desktop-1920-${theme}-menubar.png`,
+          OUT_DIR,
+        ),
         clip: { x: 0, y: 0, width: 1920, height: 52 },
         animations: 'disabled',
       });
@@ -450,7 +459,10 @@ test.describe('workspace switcher design review', () => {
         await page.keyboard.press('Escape');
       }
       await page.screenshot({
-        path: join(OUT_DIR, `05-menubar-${vp.name}.png`),
+        path: evidencePath(
+          `2026-09-29-workspace-switcher-design-review/05-menubar-${vp.name}.png`,
+          OUT_DIR,
+        ),
         clip: { x: 0, y: 0, width: vp.width, height: 110 },
         animations: 'disabled',
       });

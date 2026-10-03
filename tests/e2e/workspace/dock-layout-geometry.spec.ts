@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { evidencePath } from '../helpers/evidence-output';
 import { navigateToEditor } from '../shared';
 
 const WORKSPACES = [
@@ -90,7 +91,7 @@ test('projects the six workspace dock defaults around the shared canvas', async 
     }
 
     await page.screenshot({
-      path: `docs/screenshots/workspace-dock-layout/${workspace.mode}-light.png`,
+      path: evidencePath(`workspace-dock-layout/${workspace.mode}-light.png`),
       animations: 'disabled',
     });
   }
@@ -103,7 +104,7 @@ test('projects the six workspace dock defaults around the shared canvas', async 
     await expect(page.locator('.workspace-dock__item[data-shortcut-key]')).toHaveCount(6);
     await expect(page.locator('.workspace-dock__shortcut')).toHaveCount(0);
     await page.screenshot({
-      path: `docs/screenshots/workspace-dock-layout/switcher-${theme}.png`,
+      path: evidencePath(`workspace-dock-layout/switcher-${theme}.png`),
       clip: { x: 0, y: 0, width: 1440, height: 56 },
       animations: 'disabled',
     });
@@ -142,7 +143,7 @@ test('resizes dock splits with keyboard and pointer controls', async ({ page }) 
   expect(final).toBeGreaterThan(initial + 2);
   await expect(splitter).toHaveAttribute('aria-valuetext', `${final} percent`);
   await page.screenshot({
-    path: 'docs/screenshots/workspace-dock-layout/splitters-light.png',
+    path: evidencePath('workspace-dock-layout/splitters-light.png'),
     animations: 'disabled',
   });
 
@@ -229,7 +230,7 @@ test('moves a docked panel by pointer with a visible drop preview', async ({ pag
   });
   expect(storedLayout?.windows?.[0]?.dockRoot).toBeDefined();
   await page.screenshot({
-    path: 'docs/screenshots/workspace-dock-layout/dock-drag-layers-below-inspector.png',
+    path: evidencePath('workspace-dock-layout/dock-drag-layers-below-inspector.png'),
     animations: 'disabled',
   });
 });

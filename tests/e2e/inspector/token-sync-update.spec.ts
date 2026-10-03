@@ -7,9 +7,10 @@
  * the real file input, the real preview, and the real document transaction.
  */
 import { expect, type Page, test } from '@playwright/test';
+import { evidencePath } from '../helpers/evidence-output';
 import { navigateToEditor } from '../shared';
 
-const SCREENSHOT_DIR = 'docs/screenshots/token-sync-import';
+const SCREENSHOT_DIR = 'token-sync-import';
 
 const BASE_TOKENS_JSON = JSON.stringify(
   {
@@ -97,14 +98,14 @@ test.describe('Token Sync external update workflow', () => {
     // compositor a committed frame so the captured image matches the asserted
     // state instead of the frame before it.
     await page.waitForTimeout(600);
-    await dialog.screenshot({ path: `${SCREENSHOT_DIR}/update-preview.png` });
+    await dialog.screenshot({ path: evidencePath(`${SCREENSHOT_DIR}/update-preview.png`) });
 
     await dialog.getByRole('button', { name: 'Apply update' }).click();
     // Preview consumed, source reflects the deletion.
     await expect(dialog.getByText(/revision/i)).toBeHidden();
     await expect(dialog.getByText(/3 tokens/).first()).toBeVisible();
     await page.waitForTimeout(600);
-    await dialog.screenshot({ path: `${SCREENSHOT_DIR}/update-applied.png` });
+    await dialog.screenshot({ path: evidencePath(`${SCREENSHOT_DIR}/update-applied.png`) });
 
     // Structured-data proof: the exported bytes must show the upstream edit
     // and the upstream deletion, and must keep the metadata.
@@ -143,6 +144,6 @@ test.describe('Token Sync external update workflow', () => {
       'aria-disabled',
       'true',
     );
-    await dialog.screenshot({ path: `${SCREENSHOT_DIR}/update-noop.png` });
+    await dialog.screenshot({ path: evidencePath(`${SCREENSHOT_DIR}/update-noop.png`) });
   });
 });

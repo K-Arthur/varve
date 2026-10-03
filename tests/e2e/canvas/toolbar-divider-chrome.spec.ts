@@ -1,4 +1,5 @@
 import { expect, type Page, test } from '@playwright/test';
+import { evidencePath } from '../helpers/evidence-output';
 import { navigateToEditor, switchWorkspace } from '../shared';
 
 /**
@@ -23,7 +24,7 @@ import { navigateToEditor, switchWorkspace } from '../shared';
  */
 
 const PALETTE = '[data-testid="toolbar"]';
-const OUT = 'docs/screenshots/toolbar-design-review-2026-09-29';
+const OUT = 'toolbar-design-review-2026-09-29';
 
 interface DividerReport {
   present: boolean;
@@ -152,7 +153,7 @@ test.describe('toolbar divider and surface review', () => {
     // Nothing to separate before the first rendered slot.
     expect(report.leadingIndex).toBe(false);
 
-    await palette.screenshot({ path: `${OUT}/after-design-divider-1440.png` });
+    await palette.screenshot({ path: evidencePath(`${OUT}/after-design-divider-1440.png`) });
     const zoom = await page.evaluate(() => {
       const el = document.querySelector('.floating-toolbar [role="toolbar"]') as HTMLElement;
       const first = el.querySelector('[data-tool]') as HTMLElement;
@@ -300,7 +301,7 @@ test.describe('toolbar divider and surface review', () => {
     expect(geometry.shadows).toBe(1);
 
     await page.locator('[data-testid="toolbar"]').screenshot({
-      path: `${OUT}/after-drawing-one-card-1440.png`,
+      path: evidencePath(`${OUT}/after-drawing-one-card-1440.png`),
     });
   });
 
@@ -348,6 +349,8 @@ test.describe('toolbar divider and surface review', () => {
     // the card instead of overflowing it, so no tool is clipped out of reach.
     expect(Math.abs(geometry!.scrollMax - geometry!.rowClient)).toBeLessThanOrEqual(2);
 
-    await page.locator(PALETTE).screenshot({ path: `${OUT}/after-narrow-centred-480.png` });
+    await page
+      .locator(PALETTE)
+      .screenshot({ path: evidencePath(`${OUT}/after-narrow-centred-480.png`) });
   });
 });

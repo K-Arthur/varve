@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { evidencePath } from '../helpers/evidence-output';
 import { navigateToCleanEditor } from '../helpers/nav';
 
 async function createEllipse(page: import('@playwright/test').Page): Promise<void> {
@@ -95,6 +96,6 @@ test('embedded vector pattern definition and applied fill reopen offline', async
   await reopenedEditor.getByRole('button', { name: 'Cancel', exact: true }).click();
   await expect(reopenedEditor).toBeHidden();
   await page.screenshot({
-    path: 'docs/screenshots/pattern-system-2026-09-30/app-pattern-offline-reopen.png',
+    path: evidencePath('pattern-system-2026-09-30/app-pattern-offline-reopen.png'),
   });
 });

@@ -17,7 +17,9 @@
  * 4. Visual Evidence Capture:
  *    - Capturing screenshots of the redesigned inspector panel, elevation presets, and light pad.
  */
+
 import { expect, test } from '@playwright/test';
+import { evidencePath } from '../helpers/evidence-output';
 import { addLayerEffect, navigateToEditor } from '../shared';
 
 async function drawCard(page: import('@playwright/test').Page) {
@@ -132,7 +134,7 @@ test.describe('Inspector — Real-World Layer Effects Workflows', () => {
 
     // Capture visual screenshot of the Shadow Studio Popover
     await page.screenshot({
-      path: 'docs/screenshots/effects-redesign/shadow-studio-popover.png',
+      path: evidencePath('effects-redesign/shadow-studio-popover.png'),
       fullPage: false,
     });
   });
@@ -192,7 +194,7 @@ test.describe('Inspector — Real-World Layer Effects Workflows', () => {
 
     // Capture visual screenshot of the Blur Studio Popover with chips
     await page.screenshot({
-      path: 'docs/screenshots/effects-redesign/blur-studio-popover.png',
+      path: evidencePath('effects-redesign/blur-studio-popover.png'),
       fullPage: false,
     });
   });
@@ -231,7 +233,7 @@ test.describe('Inspector — Real-World Layer Effects Workflows', () => {
 
     // Capture visual screenshot of multiple effects composition
     await page.screenshot({
-      path: 'docs/screenshots/effects-redesign/multi-effects-composition.png',
+      path: evidencePath('effects-redesign/multi-effects-composition.png'),
       fullPage: false,
     });
   });

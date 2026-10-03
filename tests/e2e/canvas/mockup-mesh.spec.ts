@@ -12,13 +12,14 @@
  *      dimensions plus non-uniform content (folded artwork, not a flat
  *      rectangle).
  *
- * Evidence screenshots land in docs/screenshots/mockup-mesh/.
+ * Evidence screenshots use isolated test output by default.
  */
 
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
 import { expect, type Page, test } from '@playwright/test';
+import { evidencePath } from '../helpers/evidence-output';
 import { navigateToEditor } from '../shared';
 
 const requireFromEngine = createRequire(resolve('packages/engine/package.json'));
@@ -26,7 +27,7 @@ const { PNG } = requireFromEngine('pngjs') as {
   PNG: { sync: { read(input: Buffer): { width: number; height: number; data: Buffer } } };
 };
 
-const evidenceDir = 'docs/screenshots/mockup-mesh';
+const evidenceDir = 'mockup-mesh';
 
 async function createFrame(page: Page, x: number, y: number): Promise<void> {
   const canvas = page.locator('canvas.editor-canvas__content-layer');
@@ -121,7 +122,6 @@ test('mesh mockup workflow: apply folded fabric, edit a vertex, persist, export'
     if (msg.type() === 'error') consoleErrors.push(msg.text());
   });
 
-  mkdirSync(evidenceDir, { recursive: true });
   await navigateToEditor(page);
 
   // 1. Source frame + apply the fabric template.
@@ -144,7 +144,7 @@ test('mesh mockup workflow: apply folded fabric, edit a vertex, persist, export'
   // 2. The canvas paints the composed mockup (not a blank frame).
   const colorCount = await sampleCanvasColorCount(page);
   expect(colorCount).toBeGreaterThan(8);
-  await page.screenshot({ path: `${evidenceDir}/01-applied.png` });
+  await page.screenshot({ path: evidencePath(`${evidenceDir}/01-applied.png`) });
 
   // 3. Select the fabric surface chip, then drag one grid vertex.
   const chip = page.locator('.mockup-overlay__chip', { hasText: 'Banner fabric' });
@@ -160,7 +160,7 @@ test('mesh mockup workflow: apply folded fabric, edit a vertex, persist, export'
 
   const handleBox = await handle.boundingBox();
   expect(handleBox).not.toBeNull();
-  await page.screenshot({ path: `${evidenceDir}/02-vertex-before.png` });
+  await page.screenshot({ path: evidencePath(`${evidenceDir}/02-vertex-before.png`) });
   await page.mouse.move(handleBox!.x + handleBox!.width / 2, handleBox!.y + handleBox!.height / 2);
   await page.mouse.down();
   await page.mouse.move(
@@ -172,7 +172,7 @@ test('mesh mockup workflow: apply folded fabric, edit a vertex, persist, export'
   );
   await page.mouse.up();
   await page.waitForTimeout(400);
-  await page.screenshot({ path: `${evidenceDir}/03-vertex-after.png` });
+  await page.screenshot({ path: evidencePath(`${evidenceDir}/03-vertex-after.png`) });
 
   // The gesture is one transaction: the inspector reflects the edited grid...
   await expect(section.getByText('Reset mesh')).toBeVisible({ timeout: 5000 });
@@ -218,7 +218,7 @@ test('mesh mockup workflow: apply folded fabric, edit a vertex, persist, export'
   await surfaceRow.click();
   await page.waitForTimeout(500);
   await expect(reopenedSection.getByText('Reset mesh')).toBeVisible({ timeout: 5000 });
-  await page.screenshot({ path: `${evidenceDir}/04-inspector-reopened.png` });
+  await page.screenshot({ path: evidencePath(`${evidenceDir}/04-inspector-reopened.png`) });
 
   // 5. Export PNG through the real dialog; decode and inspect.
   await openInspectorTab(page, 'Export');
@@ -253,7 +253,7 @@ test('mesh mockup workflow: apply folded fabric, edit a vertex, persist, export'
   // A composed folded mockup is richly coloured; a bare frame is not.
   expect(opaque).toBeGreaterThan(200);
   expect(seen.size).toBeGreaterThan(12);
-  writeFileSync(`${evidenceDir}/05-export.png`, bytes);
+  writeFileSync(evidencePath(`${evidenceDir}/05-export.png`), bytes);
 
   expect(consoleErrors.filter((text) => !text.includes('favicon'))).toEqual([]);
 });

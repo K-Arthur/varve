@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { selectFillType } from '../helpers/editor-helpers';
+import { evidencePath } from '../helpers/evidence-output';
 import { navigateToCleanEditor } from '../helpers/nav';
 
 test('pattern placement shows mixed values and applies absolute versus relative edits', async ({
@@ -61,7 +62,7 @@ test('pattern placement shows mixed values and applies absolute versus relative 
   await expect(page.getByText(/Preview shows the first selected fill/)).toBeVisible();
   await rotation.scrollIntoViewIfNeeded();
   await page.screenshot({
-    path: 'docs/screenshots/pattern-system-2026-09-30/app-multiselect-placement.png',
+    path: evidencePath('pattern-system-2026-09-30/app-multiselect-placement.png'),
   });
 
   await phase.fill('-6');

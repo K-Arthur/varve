@@ -1,6 +1,6 @@
-import { mkdirSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
 import { importImageFile } from '../helpers/editor-helpers';
+import { evidencePath } from '../helpers/evidence-output';
 import { navigateToEditor } from '../shared';
 
 /**
@@ -9,9 +9,9 @@ import { navigateToEditor } from '../shared';
  * Covers the workflow half of the comic system: importing a photo, laying out
  * panels, wrapping dialogue in a burst balloon, applying an SFX text-effect
  * preset, and editing a balloon's dialogue by double-clicking the balloon
- * itself. Captures land in docs/screenshots/comic-workflow/.
+ * itself. Captures use isolated test output; VARVE_E2E_CAPTURE_ROOT enables an explicit review capture.
  */
-const SHOT_DIR = 'docs/screenshots/comic-workflow';
+const SHOT_DIR = 'comic-workflow';
 
 async function activatePanelTool(page: import('@playwright/test').Page) {
   const toolbar = page.getByTestId('toolbar');
@@ -85,10 +85,6 @@ async function chooseOption(
 }
 
 test.describe('Comic workflow over a real photograph', () => {
-  test.beforeAll(() => {
-    mkdirSync(SHOT_DIR, { recursive: true });
-  });
-
   test('a photo becomes a paged comic panel layout with lettering and SFX', async ({ page }) => {
     test.setTimeout(240000);
     await navigateToEditor(page);
@@ -120,7 +116,10 @@ test.describe('Comic workflow over a real photograph', () => {
     // The hidden file input keeps focus after import; return it to the canvas.
     await page.mouse.click(box.x + 60, box.y + 60);
 
-    await page.screenshot({ path: `${SHOT_DIR}/01-panels-from-photo.png`, fullPage: false });
+    await page.screenshot({
+      path: evidencePath(`${SHOT_DIR}/01-panels-from-photo.png`),
+      fullPage: false,
+    });
 
     // Dialogue wrapped into a balloon, then switched to a burst shape. Placed
     // on open canvas beside the grid so the render is not panel-clipped.
@@ -144,7 +143,10 @@ test.describe('Comic workflow over a real photograph', () => {
     await chooseOption(page, /text effect preset/i, 'Sound effect');
     await page.waitForTimeout(200);
 
-    await page.screenshot({ path: `${SHOT_DIR}/02-burst-balloon-and-sfx.png`, fullPage: false });
+    await page.screenshot({
+      path: evidencePath(`${SHOT_DIR}/02-burst-balloon-and-sfx.png`),
+      fullPage: false,
+    });
     await expect(page.getByRole('combobox', { name: /text effect preset/i })).toBeVisible();
     await expect(page.getByRole('treeitem', { name: /burst outline/i }).first()).toBeVisible();
   });
@@ -176,7 +178,7 @@ test.describe('Comic workflow over a real photograph', () => {
     await expect(editor).toBeVisible({ timeout: 10000 });
     await expect(editor).toHaveValue('We leave at dawn.');
     await page.screenshot({
-      path: `${SHOT_DIR}/03-double-click-edit-balloon.png`,
+      path: evidencePath(`${SHOT_DIR}/03-double-click-edit-balloon.png`),
       fullPage: false,
     });
   });

@@ -7,21 +7,19 @@
  * traversal, the no-JS-magnification hover contract, and the one-document
  * invariant across all six workspaces.
  *
- * Evidence screenshots default to the 2026-09-15 review directory. Set
- * VARVE_SWITCHER_VISUAL_QA_DIR to keep a new review separate from that baseline.
+ * Evidence screenshots use isolated test output by default. Set
+ * VARVE_SWITCHER_VISUAL_QA_DIR for an explicit review capture directory.
  *
  * Run:
  *   VARVE_E2E_PORT=1441 npx playwright test tests/e2e/workspace/switcher-review.spec.ts --project=chromium
  */
-import { mkdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+
+import { writeFileSync } from 'node:fs';
 import { expect, type Page, test } from '@playwright/test';
+import { evidencePath } from '../helpers/evidence-output';
 import { navigateToEditor } from '../shared';
 
-const OUT_ROOT =
-  process.env.VARVE_SWITCHER_VISUAL_QA_DIR ??
-  join(process.cwd(), 'docs/screenshots/2026-09-27-workspace-layouts/after');
-mkdirSync(OUT_ROOT, { recursive: true });
+const OUT_ROOT = process.env.VARVE_SWITCHER_VISUAL_QA_DIR;
 
 const MODES = [
   ['design', 'Design'],
@@ -333,7 +331,12 @@ test.describe('Workspace switcher contract', () => {
     for (const [, label] of MODES) {
       await group.getByRole('radio', { name: `${label} workspace` }).click();
       await page.waitForTimeout(80);
-      await page.screenshot({ path: join(OUT_ROOT, `mode-${label.toLowerCase()}.png`) });
+      await page.screenshot({
+        path: evidencePath(
+          `2026-09-27-workspace-layouts/after/mode-${label.toLowerCase()}.png`,
+          OUT_ROOT,
+        ),
+      });
     }
     await expect(page.locator('.workspace-dock__item--active')).toHaveAttribute(
       'data-mode',
@@ -388,7 +391,9 @@ test.describe('Workspace switcher contract', () => {
     expect(after.labelClippedHorizontally).toBe(false);
     expect(after.pillHeight).toBeGreaterThanOrEqual(after.labelHeight);
     expect(after.pillHeight).toBeGreaterThanOrEqual(before.pillHeight);
-    await page.screenshot({ path: join(OUT_ROOT, 'email-200-percent-text.png') });
+    await page.screenshot({
+      path: evidencePath(`2026-09-27-workspace-layouts/after/email-200-percent-text.png`, OUT_ROOT),
+    });
 
     // Every mode is still reachable after the text-size change: the visible
     // radios plus the overflow menu must cover all six.
@@ -485,7 +490,9 @@ test.describe('Workspace switcher contract', () => {
     expect(forced.checkedName).toBe('Design workspace');
     expect(forced.borderStyle).not.toBe('none');
     expect(forced.borderTopWidth).toBeGreaterThanOrEqual(1);
-    await page.screenshot({ path: join(OUT_ROOT, 'forced-colors-480.png') });
+    await page.screenshot({
+      path: evidencePath(`2026-09-27-workspace-layouts/after/forced-colors-480.png`, OUT_ROOT),
+    });
     await page.emulateMedia({ forcedColors: 'none' });
     expect(errors).toEqual([]);
   });
@@ -497,13 +504,15 @@ test.describe('Workspace switcher contract', () => {
       await page.setViewportSize({ width: 1920, height: 1080 });
       await navigateToEditor(page);
       const dock = page.locator('.workspace-dock');
-      await dock.screenshot({ path: join(OUT_ROOT, 'dock-1920-3x.png') });
+      await dock.screenshot({
+        path: evidencePath(`2026-09-27-workspace-layouts/after/dock-1920-3x.png`, OUT_ROOT),
+      });
       await page.screenshot({
-        path: join(OUT_ROOT, 'menubar-right-3x.png'),
+        path: evidencePath(`2026-09-27-workspace-layouts/after/menubar-right-3x.png`, OUT_ROOT),
         clip: { x: 1380, y: 0, width: 540, height: 46 },
       });
       await page.screenshot({
-        path: join(OUT_ROOT, 'menubar-full-3x.png'),
+        path: evidencePath(`2026-09-27-workspace-layouts/after/menubar-full-3x.png`, OUT_ROOT),
         clip: { x: 0, y: 0, width: 1920, height: 46 },
       });
 
@@ -514,15 +523,21 @@ test.describe('Workspace switcher contract', () => {
         .getByRole('menuitem', { name: 'View', exact: true });
       await view.click();
       await page.waitForTimeout(200);
-      await page.screenshot({ path: join(OUT_ROOT, 'menu-view-open-3x.png') });
+      await page.screenshot({
+        path: evidencePath(`2026-09-27-workspace-layouts/after/menu-view-open-3x.png`, OUT_ROOT),
+      });
       const submenuParent = page
         .getByRole('menu', { name: 'View' })
         .getByRole('menuitem', { name: /^Workspace/ });
       await submenuParent.hover();
       await page.waitForTimeout(300);
-      await page.screenshot({ path: join(OUT_ROOT, 'menu-view-submenu-3x.png') });
+      await page.screenshot({
+        path: evidencePath(`2026-09-27-workspace-layouts/after/menu-view-submenu-3x.png`, OUT_ROOT),
+      });
       const arrow = submenuParent.locator('.editor-menubar__menu-submenu-arrow');
-      await arrow.screenshot({ path: join(OUT_ROOT, 'submenu-arrow-3x.png') });
+      await arrow.screenshot({
+        path: evidencePath(`2026-09-27-workspace-layouts/after/submenu-arrow-3x.png`, OUT_ROOT),
+      });
 
       // The shared Menu primitive (canvas context menu) renders the same
       // affordance; capture its arrow too so both recipes have evidence.
@@ -541,20 +556,29 @@ test.describe('Workspace switcher contract', () => {
         const submenuItem = contextMenu.locator('button[aria-haspopup="menu"]').first();
         if (await submenuItem.isVisible({ timeout: 1500 }).catch(() => false)) {
           const sharedArrow = submenuItem.locator('.varve-menu__submenu-arrow');
-          await sharedArrow.screenshot({ path: join(OUT_ROOT, 'shared-menu-arrow-3x.png') });
+          await sharedArrow.screenshot({
+            path: evidencePath(
+              `2026-09-27-workspace-layouts/after/shared-menu-arrow-3x.png`,
+              OUT_ROOT,
+            ),
+          });
         }
       }
     });
   });
 
   test('captures review evidence', async ({ page }) => {
-    mkdirSync(OUT_ROOT, { recursive: true });
     const dock = page.locator('.workspace-dock');
     for (const theme of THEMES) {
       await setTheme(page, theme);
-      await dock.screenshot({ path: join(OUT_ROOT, `dock-1920-${theme}.png`) });
+      await dock.screenshot({
+        path: evidencePath(`2026-09-27-workspace-layouts/after/dock-1920-${theme}.png`, OUT_ROOT),
+      });
       await page.screenshot({
-        path: join(OUT_ROOT, `menubar-1920-${theme}.png`),
+        path: evidencePath(
+          `2026-09-27-workspace-layouts/after/menubar-1920-${theme}.png`,
+          OUT_ROOT,
+        ),
         clip: { x: 0, y: 0, width: 1920, height: 60 },
       });
     }
@@ -562,20 +586,32 @@ test.describe('Workspace switcher contract', () => {
     const group = await workspaceGroup(page);
     await group.getByRole('radio', { name: 'Email workspace' }).click();
     await page.waitForTimeout(200);
-    await dock.screenshot({ path: join(OUT_ROOT, 'dock-1920-email.png') });
+    await dock.screenshot({
+      path: evidencePath(`2026-09-27-workspace-layouts/after/dock-1920-email.png`, OUT_ROOT),
+    });
 
     await page.setViewportSize({ width: 1024, height: 768 });
     await page.waitForTimeout(400);
     await group.getByRole('radio', { name: 'Design workspace' }).click();
     await page.waitForTimeout(200);
-    await dock.screenshot({ path: join(OUT_ROOT, 'dock-1024-light.png') });
+    await dock.screenshot({
+      path: evidencePath(`2026-09-27-workspace-layouts/after/dock-1024-light.png`, OUT_ROOT),
+    });
     const more = page.getByRole('button', { name: /more workspaces/i });
     await more.click();
     await page.waitForTimeout(250);
-    await page.screenshot({ path: join(OUT_ROOT, 'overflow-menu-1024-light.png') });
+    await page.screenshot({
+      path: evidencePath(
+        `2026-09-27-workspace-layouts/after/overflow-menu-1024-light.png`,
+        OUT_ROOT,
+      ),
+    });
 
     const snapshot = await page.locator('.workspace-dock').ariaSnapshot();
-    writeFileSync(join(OUT_ROOT, 'aria-snapshot.txt'), `${snapshot}\n`);
+    writeFileSync(
+      evidencePath(`2026-09-27-workspace-layouts/after/aria-snapshot.txt`, OUT_ROOT),
+      `${snapshot}\n`,
+    );
     await expect(page.getByRole('menu', { name: 'More workspaces' })).toBeVisible();
   });
 });

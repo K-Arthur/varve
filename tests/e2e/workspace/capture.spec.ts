@@ -2,19 +2,15 @@
  * Multi-window workspace screenshot capture — for human visual review.
  *
  * Captures screenshots of every multi-window workspace UI surface and
- * saves them to docs/screenshots/multi-window/ so a human reviewer can
+ * saves them in isolated test output so a human reviewer can
  * inspect them. Unlike visual.spec.ts (golden comparison), this spec
  * is for review only — it never fails on pixel diffs.
  *
  * Run: npx playwright test tests/e2e/workspace/capture.spec.ts --project=chromium
  */
 
-import { mkdirSync } from 'node:fs';
-import { join } from 'node:path';
 import { test } from '@playwright/test';
-
-const OUT_DIR = join(process.cwd(), 'docs', 'screenshots', 'multi-window');
-mkdirSync(OUT_DIR, { recursive: true });
+import { evidencePath } from '../helpers/evidence-output';
 
 const THEMES = ['light', 'dark', 'high-contrast'] as const;
 
@@ -54,7 +50,7 @@ for (const theme of THEMES) {
     await navigateToEditor(page, theme);
     await page.waitForTimeout(1500);
     await page.screenshot({
-      path: join(OUT_DIR, `01-full-editor-${theme}.png`),
+      path: evidencePath(`multi-window/01-full-editor-${theme}.png`),
       fullPage: false,
     });
   });
@@ -64,12 +60,14 @@ for (const theme of THEMES) {
     await page.waitForTimeout(1000);
     const header = page.locator('.layers-panel__header');
     if (await header.isVisible().catch(() => false)) {
-      await header.screenshot({ path: join(OUT_DIR, `02-layers-header-${theme}.png`) });
+      await header.screenshot({ path: evidencePath(`multi-window/02-layers-header-${theme}.png`) });
     }
     // Detach button
     const detachBtn = page.locator('[data-testid="detach-layers"]');
     if (await detachBtn.isVisible().catch(() => false)) {
-      await detachBtn.screenshot({ path: join(OUT_DIR, `03-layers-detach-btn-${theme}.png`) });
+      await detachBtn.screenshot({
+        path: evidencePath(`multi-window/03-layers-detach-btn-${theme}.png`),
+      });
     }
   });
 
@@ -78,7 +76,9 @@ for (const theme of THEMES) {
     await page.waitForTimeout(1000);
     const tabs = page.locator('.insp-panel__tabs');
     if (await tabs.isVisible().catch(() => false)) {
-      await tabs.screenshot({ path: join(OUT_DIR, `04-inspector-header-${theme}.png`) });
+      await tabs.screenshot({
+        path: evidencePath(`multi-window/04-inspector-header-${theme}.png`),
+      });
     }
   });
 
@@ -111,7 +111,7 @@ for (const theme of THEMES) {
       document.body.appendChild(overlay);
     });
     await page.waitForTimeout(500);
-    await page.screenshot({ path: join(OUT_DIR, `05-detach-overlay-${theme}.png`) });
+    await page.screenshot({ path: evidencePath(`multi-window/05-detach-overlay-${theme}.png`) });
     await page.evaluate(() => document.getElementById('review-detach-overlay')?.remove());
   });
 }

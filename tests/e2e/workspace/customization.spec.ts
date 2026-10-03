@@ -12,6 +12,7 @@
  */
 
 import { expect, type Page, test } from '@playwright/test';
+import { evidencePath } from '../helpers/evidence-output';
 import { navigateToEditor } from '../shared';
 
 test.use({ viewport: { width: 1440, height: 900 } });
@@ -92,10 +93,10 @@ test.describe('workspace customization', () => {
       .first()
       .evaluate((element) => element.scrollTo({ top: 0 }));
     await page.screenshot({
-      path: 'docs/screenshots/workspace-dock-layout/custom-move-controls-light.png',
+      path: evidencePath('workspace-dock-layout/custom-move-controls-light.png'),
     });
     await dialog.getByRole('button', { name: 'Done' }).click();
-    await page.screenshot({ path: 'docs/screenshots/workspace-dock-layout/custom-move-light.png' });
+    await page.screenshot({ path: evidencePath('workspace-dock-layout/custom-move-light.png') });
 
     const stored = await page.evaluate(() => localStorage.getItem('varve-workspace-preferences'));
     expect(stored).toContain('dockLayout');
@@ -174,7 +175,7 @@ test.describe('workspace customization', () => {
       float.getByRole('button', { name: /Resize floating Layers group/i }),
     ).toBeVisible();
     await page.screenshot({
-      path: 'docs/screenshots/workspace-dock-layout/float-controls-light.png',
+      path: evidencePath('workspace-dock-layout/float-controls-light.png'),
     });
 
     const stored = await page.evaluate(() => localStorage.getItem('varve-workspace-preferences'));
@@ -243,7 +244,7 @@ test.describe('workspace customization', () => {
     await propertiesTab.click();
     await expect(propertiesTab).toHaveAttribute('aria-selected', 'true');
     await page.screenshot({
-      path: 'docs/screenshots/workspace-dock-layout/float-inspector-controls-light.png',
+      path: evidencePath('workspace-dock-layout/float-inspector-controls-light.png'),
       animations: 'disabled',
     });
   });
@@ -402,7 +403,7 @@ test.describe('workspace customization', () => {
     expect(exitBounds!.x + exitBounds!.width).toBeLessThanOrEqual(760);
     expect(exitBounds!.y + exitBounds!.height).toBeLessThanOrEqual(900);
     await page.screenshot({
-      path: 'docs/screenshots/workspace-dock-layout/focus-canvas-narrow-light.png',
+      path: evidencePath('workspace-dock-layout/focus-canvas-narrow-light.png'),
     });
     await exitFocus.click();
     const layersFab = page.getByRole('button', { name: /Show layers panel/i });
@@ -418,7 +419,7 @@ test.describe('workspace customization', () => {
     expect(layersBounds!.width).toBeGreaterThanOrEqual(220);
     expect(layersBounds!.x + layersBounds!.width).toBeLessThanOrEqual(760);
     await page.screenshot({
-      path: 'docs/screenshots/workspace-dock-layout/focus-recovered-narrow-light.png',
+      path: evidencePath('workspace-dock-layout/focus-recovered-narrow-light.png'),
     });
   });
 });

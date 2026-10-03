@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { evidencePath } from '../helpers/evidence-output';
 import { dragOnCanvas, navigateToEditor } from '../shared';
 
 test.describe('Canvas minimap', () => {
@@ -118,7 +119,7 @@ test.describe('Canvas minimap', () => {
     const minimap = page.getByTestId('minimap-panel');
     const stage = minimap.locator('.minimap-panel__stage');
     const canvas = minimap.locator('canvas.minimap-panel__canvas');
-    const out = 'docs/screenshots/minimap-design-review-2026-09-29';
+    const out = 'minimap-design-review-2026-09-29';
 
     // Populate the surface with a mixed set of objects.
     await page.keyboard.press('r');
@@ -156,7 +157,7 @@ test.describe('Canvas minimap', () => {
       }, theme);
       await page.waitForTimeout(500);
 
-      await minimap.screenshot({ path: `${out}/01-${theme}-1440.png` });
+      await minimap.screenshot({ path: evidencePath(`${out}/01-${theme}-1440.png`) });
 
       // The overview must show more than a flat field: ink, backplate, and the
       // viewfinder outline are all present at distinct tones.
@@ -172,7 +173,7 @@ test.describe('Canvas minimap', () => {
         return colors.size;
       });
       expect(tones, `minimap renders as a flat field in ${theme}`).toBeGreaterThan(4);
-      await minimap.screenshot({ path: `${out}/02-${theme}-panel.png` });
+      await minimap.screenshot({ path: evidencePath(`${out}/02-${theme}-panel.png`) });
     }
 
     await page.evaluate(() => {
@@ -213,7 +214,7 @@ test.describe('Canvas minimap', () => {
       expect(sized.canvasWidth).toBeGreaterThan(0);
       expect(sized.canvasHeight).toBeGreaterThan(0);
       widthsSeen[name] = sized.canvasWidth;
-      await minimap.screenshot({ path: `${out}/03-${name}.png` });
+      await minimap.screenshot({ path: evidencePath(`${out}/03-${name}.png`) });
     }
     // The overview scales with its rail instead of being pinned to a fixed
     // pixel size, which is how a small overview becomes a permanently small
@@ -230,7 +231,7 @@ test.describe('Canvas minimap', () => {
       await zoomIn.click({ timeout: 4000 }).catch(() => undefined);
     }
     await page.waitForTimeout(700);
-    await minimap.screenshot({ path: `${out}/04-high-zoom-minimum-viewfinder.png` });
+    await minimap.screenshot({ path: evidencePath(`${out}/04-high-zoom-minimum-viewfinder.png`) });
     const highZoom = await canvas.evaluate((node) => {
       const htmlCanvas = node as HTMLCanvasElement;
       const context = htmlCanvas.getContext('2d');
@@ -291,7 +292,7 @@ test.describe('Canvas minimap', () => {
     // object appears.
     await expect(minimap.locator('canvas.minimap-panel__canvas')).toBeVisible();
     await minimap.screenshot({
-      path: 'docs/screenshots/minimap-design-review-2026-09-29/05-empty-state.png',
+      path: evidencePath('minimap-design-review-2026-09-29/05-empty-state.png'),
     });
 
     await page.keyboard.press('r');

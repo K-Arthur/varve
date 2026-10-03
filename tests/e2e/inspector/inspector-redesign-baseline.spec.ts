@@ -10,14 +10,15 @@
  *
  * Companion audit: docs/audits/inspector-systems-redesign-2026-09-17.md
  */
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+
+import { writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { expect, type Page, test } from '@playwright/test';
+import { evidencePath } from '../helpers/evidence-output';
 import { navigateToEditor } from '../shared';
 
 const PHOTO = path.resolve('tests/e2e/fixtures/real-life-still-life.jpg');
-const REPORT_DIR = path.resolve('reports/inspector-redesign/baseline');
-const SHOT_DIR = path.resolve('docs/screenshots/2026-09-17-inspector-review');
+const SHOT_DIR = '2026-09-17-inspector-review';
 
 const SECTION_TRIGGER = '.insp-disclosure__trigger';
 
@@ -152,9 +153,9 @@ async function captureScenario(
   expect(remaining, `scenario ${scenario} fully expanded`).toBe(0);
   const m = await measurePanel(page, scenario);
   metrics.push(m);
-  if (!existsSync(SHOT_DIR)) mkdirSync(SHOT_DIR, { recursive: true });
+
   await page.screenshot({
-    path: path.join(SHOT_DIR, `baseline-${scenario}.png`),
+    path: evidencePath(`${SHOT_DIR}/baseline-${scenario}.png`),
     fullPage: false,
   });
 }
@@ -164,7 +165,6 @@ test.describe('Inspector redesign baseline', () => {
 
   test.beforeEach(async () => {
     metrics = [];
-    if (!existsSync(REPORT_DIR)) mkdirSync(REPORT_DIR, { recursive: true });
   });
 
   test.afterEach(async () => {
@@ -174,7 +174,7 @@ test.describe('Inspector redesign baseline', () => {
     const info = test.info();
     if (metrics.length > 0) {
       writeFileSync(
-        path.join(REPORT_DIR, `${info.title.replace(/\W+/g, '-')}.json`),
+        evidencePath(`inspector-redesign/${info.title.replace(/\W+/g, '-')}.json`),
         JSON.stringify(metrics, null, 2),
       );
     }
@@ -186,7 +186,7 @@ test.describe('Inspector redesign baseline', () => {
     await openDesignTab(page);
     const m = await measurePanel(page, 'no-selection');
     metrics.push(m);
-    await page.screenshot({ path: path.join(SHOT_DIR, 'baseline-no-selection.png') });
+    await page.screenshot({ path: evidencePath(`${SHOT_DIR}/baseline-no-selection.png`) });
     expect(m.sectionCount).toBeGreaterThan(0);
   });
 

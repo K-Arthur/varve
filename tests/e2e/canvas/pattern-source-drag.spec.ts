@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { evidencePath } from '../helpers/evidence-output';
 import { navigateToCleanEditor } from '../helpers/nav';
 
 async function createEllipse(page: import('@playwright/test').Page): Promise<void> {
@@ -66,10 +67,10 @@ test('dragging a motif from a repeated neighbor edits the canonical source', asy
   await session.evaluate((element) => element.scrollIntoView({ block: 'start' }));
   await page.mouse.move(24, 24);
   await page.screenshot({
-    path: 'docs/screenshots/pattern-system-2026-09-30/app-source-ghost-drag-desktop.png',
+    path: evidencePath('pattern-system-2026-09-30/app-source-ghost-drag-desktop.png'),
   });
   await preview.screenshot({
-    path: 'docs/screenshots/pattern-system-2026-09-30/app-source-ghost-preview.png',
+    path: evidencePath('pattern-system-2026-09-30/app-source-ghost-preview.png'),
   });
 
   await session.getByRole('button', { name: 'Cancel', exact: true }).click();
