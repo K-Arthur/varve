@@ -24,6 +24,8 @@ const repo = mkdtempSync(join(tmpdir(), 'varve-validation-snapshot-'));
 const git = (args) => execFileSync('git', args, { cwd: repo, encoding: 'utf8' }).trim();
 try {
   git(['init', '-q', '-b', 'master']);
+  // Exercise the Windows checkout behavior on every host, not just CI.
+  git(['config', 'core.autocrlf', 'true']);
   git(['config', 'user.email', 'varve-tests@example.invalid']);
   git(['config', 'user.name', 'Varve snapshot tests']);
   const shared = join(repo, 'packages', 'shared');
@@ -130,7 +132,13 @@ try {
     return execFileSync(join(cache, 'debug', binaryName), { encoding: 'utf8' }).trim();
   };
   try {
-    assert.equal(readFileSync(join(snapshot.path, 'tracked.txt'), 'utf8'), 'committed tree\n');
+    // Git may materialize the committed LF blob as CRLF when core.autocrlf is
+    // enabled (the default on many Windows hosts). Snapshot fidelity is the
+    // committed text content, independent of that checkout representation.
+    assert.equal(
+      readFileSync(join(snapshot.path, 'tracked.txt'), 'utf8').replace(/\r\n/g, '\n'),
+      'committed tree\n',
+    );
     assert.equal(readFileSync(join(repo, 'tracked.txt'), 'utf8'), 'dirty caller state\n');
     assert.equal(existsSync(join(snapshot.path, 'untracked.txt')), false);
     const snapshotClient = join(snapshot.path, 'apps', 'client');
