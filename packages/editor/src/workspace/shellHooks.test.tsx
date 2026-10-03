@@ -2,6 +2,7 @@ import { act, cleanup, renderHook } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   layersDrawerStyle,
+  useFitOnFirstDocument,
   useResponsiveDrawerFocus,
   useResponsivePanelClosers,
 } from './shellHooks';
@@ -294,5 +295,105 @@ describe('responsive drawer focus lifetime', () => {
     expect(controls.panel.getAttribute('tabindex')).toBe('-1');
     controls.unmount();
     expect(controls.panel.hasAttribute('tabindex')).toBe(false);
+  });
+});
+
+function setupInitialFit() {
+  const wrapper = document.createElement('section');
+  wrapper.className = 'editor-canvas';
+  Object.defineProperties(wrapper, { clientWidth: { value: 832 }, clientHeight: { value: 650 } });
+  const canvas = document.createElement('canvas');
+  canvas.className = 'editor-canvas__content-layer';
+  wrapper.append(canvas);
+  document.body.append(wrapper);
+  const geometry = { left: 288, top: 120, width: 832, height: 650 };
+  Object.defineProperties(canvas, {
+    clientWidth: { get: () => geometry.width },
+    clientHeight: { get: () => geometry.height },
+  });
+  vi.spyOn(canvas, 'getBoundingClientRect').mockImplementation(
+    () => new DOMRect(geometry.left, geometry.top, geometry.width, geometry.height),
+  );
+  const frames = new Map<number, FrameRequestCallback>();
+  let nextId = 0;
+  vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+    frames.set(++nextId, callback);
+    return nextId;
+  });
+  vi.spyOn(window, 'cancelAnimationFrame').mockImplementation((id) => frames.delete(id));
+  const fitAll = vi.fn();
+  const initialProps = { enabled: true, fitAll, nodes: { poster: {} } };
+  const hook = renderHook(
+    ({ enabled, fitAll: fit, nodes }) =>
+      useFitOnFirstDocument({ state: { document: { nodes } }, fitAll: fit }, enabled),
+    { initialProps },
+  );
+  const frame = () =>
+    act(() => {
+      const callbacks = [...frames.values()];
+      frames.clear();
+      for (const callback of callbacks) callback(0);
+    });
+  return { ...hook, initialProps, fitAll, frame, frames, geometry, wrapper, canvas };
+}
+
+describe('first document fit waits for the real canvas geometry', () => {
+  it('fits once after two unchanged frame measurements, rather than racing the initial resize', () => {
+    const controls = setupInitialFit();
+    controls.frame();
+    expect(controls.fitAll).not.toHaveBeenCalled();
+    controls.frame();
+    expect(controls.fitAll).not.toHaveBeenCalled();
+    controls.frame();
+    expect(controls.fitAll).toHaveBeenCalledOnce();
+    controls.frame();
+    expect(controls.fitAll).toHaveBeenCalledOnce();
+  });
+
+  it('restarts settling when a dock changes size or position', () => {
+    const controls = setupInitialFit();
+    controls.frame();
+    controls.frame();
+    controls.geometry.left += 20;
+    controls.geometry.width -= 20;
+    controls.frame();
+    controls.frame();
+    expect(controls.fitAll).not.toHaveBeenCalled();
+    controls.frame();
+    expect(controls.fitAll).toHaveBeenCalledOnce();
+  });
+
+  it('does not accept a measurable wrapper while the actual content canvas is hidden', () => {
+    const controls = setupInitialFit();
+    controls.geometry.width = 0;
+    controls.frame();
+    controls.frame();
+    controls.frame();
+    expect(controls.fitAll).not.toHaveBeenCalled();
+    controls.geometry.width = 832;
+    controls.frame();
+    controls.frame();
+    controls.frame();
+    expect(controls.fitAll).toHaveBeenCalledOnce();
+  });
+
+  it('uses the latest fit handler without restarting the settling lifetime', () => {
+    const controls = setupInitialFit();
+    controls.frame();
+    const fitAll = vi.fn();
+    controls.rerender({ ...controls.initialProps, fitAll });
+    controls.frame();
+    controls.frame();
+    expect(controls.fitAll).not.toHaveBeenCalled();
+    expect(fitAll).toHaveBeenCalledOnce();
+  });
+
+  it('cancels its queued frame when the editor unmounts', () => {
+    const controls = setupInitialFit();
+    controls.frame();
+    controls.unmount();
+    expect(controls.frames.size).toBe(0);
+    controls.frame();
+    expect(controls.fitAll).not.toHaveBeenCalled();
   });
 });

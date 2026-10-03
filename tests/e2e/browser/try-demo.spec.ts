@@ -102,6 +102,56 @@ test.describe('browser demo (/try)', () => {
     expect(box!.height).toBeGreaterThan(0);
   });
 
+  for (const viewport of [
+    { width: 1440, height: 900 },
+    { width: 390, height: 844 },
+  ]) {
+    test(`fresh demo automatically fits the full Poster at ${viewport.width}x${viewport.height}`, async ({
+      page,
+    }) => {
+      await page.setViewportSize(viewport);
+      await page.goto(DEMO_URL, { timeout: 120000, waitUntil: 'domcontentloaded' });
+      await waitForEditorReady(page);
+      // Read the actual product camera and its drawable canvas. No Fit all
+      // command: this must prove the first automatic camera survives startup.
+      await expect
+        .poll(
+          () =>
+            page.evaluate(() => {
+              const canvas = document.querySelector<HTMLCanvasElement>(
+                'canvas.editor-canvas__content-layer',
+              );
+              const zoom = document.querySelector<HTMLInputElement>('#status-zoom');
+              if (!canvas || !zoom) return false;
+              const expectedPercent =
+                Math.round(
+                  Math.min((canvas.clientWidth - 80) / 1200, (canvas.clientHeight - 80) / 800) *
+                    10000,
+                ) / 100;
+              return Number(zoom.value) === expectedPercent;
+            }),
+          { timeout: 20000 },
+        )
+        .toBe(true);
+
+      const showLayers = page.getByRole('button', { name: /show layers panel/i });
+      if (await showLayers.isVisible()) await showLayers.click();
+      await page.getByRole('treeitem').filter({ hasText: 'Poster' }).first().click();
+      const closeLayers = page.getByRole('button', { name: 'Close Layers panel', exact: true });
+      if (await closeLayers.isVisible()) await closeLayers.click();
+      const canvas = await page.locator('canvas.editor-canvas__content-layer').boundingBox();
+      const outline = await page
+        .locator('svg[role="presentation"] > rect[filter="url(#selection-glow)"]')
+        .boundingBox();
+      expect(canvas).not.toBeNull();
+      expect(outline).not.toBeNull();
+      expect(outline!.x).toBeGreaterThanOrEqual(canvas!.x - 1);
+      expect(outline!.y).toBeGreaterThanOrEqual(canvas!.y - 1);
+      expect(outline!.x + outline!.width).toBeLessThanOrEqual(canvas!.x + canvas!.width + 1);
+      expect(outline!.y + outline!.height).toBeLessThanOrEqual(canvas!.y + canvas!.height + 1);
+    });
+  }
+
   test('remembers an explicit analytics choice and does not ask again', async ({ page }) => {
     await page.goto(DEMO_URL, { timeout: 120000, waitUntil: 'domcontentloaded' });
     await waitForEditorReady(page);

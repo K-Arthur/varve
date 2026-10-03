@@ -200,12 +200,28 @@ export function useFitOnFirstDocument(editor: FitEditor, enabled: boolean): void
     if (!enabled || fittedRef.current || !hasNodes) return;
     let frame = 0;
     let attempts = 0;
+    let previousGeometry = '';
+    let stableReads = 0;
     const tryFit = () => {
-      const canvas = document.querySelector<HTMLElement>('.editor-canvas');
+      const canvas = document.querySelector<HTMLCanvasElement>(
+        'canvas.editor-canvas__content-layer',
+      );
       if (canvas && canvas.clientWidth > 0 && canvas.clientHeight > 0) {
-        fittedRef.current = true;
-        fitAllRef.current();
-        return;
+        const rect = canvas.getBoundingClientRect();
+        const geometry = `${rect.left}:${rect.top}:${canvas.clientWidth}:${canvas.clientHeight}`;
+        // Canvas geometry settles after two unchanged animation-frame reads.
+        // Fitting during the initial dock resize lets its pending anchor
+        // commit restore the camera sampled before this first fit.
+        stableReads = geometry === previousGeometry ? stableReads + 1 : 0;
+        previousGeometry = geometry;
+        if (stableReads >= 2) {
+          fitAllRef.current();
+          fittedRef.current = true;
+          return;
+        }
+      } else {
+        previousGeometry = '';
+        stableReads = 0;
       }
       if (++attempts > 300) return;
       frame = requestAnimationFrame(tryFit);
