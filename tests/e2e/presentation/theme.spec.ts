@@ -17,6 +17,10 @@ async function openFixture(page: import('@playwright/test').Page) {
   await expect(page.locator('.editor-shell h1.sr-only')).toContainText('presentation.varve', {
     timeout: 30000,
   });
+  // The sample deck is also used in marketing captures. Keep its initial
+  // slides free of document-health errors and warnings before showcasing it.
+  await page.waitForTimeout(900);
+  await expect(page.locator('.document-health-badge')).toHaveCount(0);
   await page.getByRole('tab', { name: 'Slides' }).click();
 }
 
@@ -36,12 +40,10 @@ test.describe('presentation themes', () => {
 
     // Map two roles by hand — this slide has no layout binding, so the panel's
     // own mapping is what should drive theming.
-    await theme
-      .getByRole('combobox', { name: 'Slide object for theme role title' })
-      .selectOption({ label: 'Headline' });
-    await theme
-      .getByRole('combobox', { name: 'Slide object for theme role accent' })
-      .selectOption({ label: 'Stratum 1' });
+    await theme.getByRole('combobox', { name: 'Slide object for theme role title' }).click();
+    await page.getByRole('option', { name: 'Headline', exact: true }).click();
+    await theme.getByRole('combobox', { name: 'Slide object for theme role accent' }).click();
+    await page.getByRole('option', { name: 'Stratum 1', exact: true }).click();
     await theme.getByRole('button', { name: 'Create theme from this slide' }).click();
 
     // The slide's layout roles are the theme's mapping, so they link at once.
