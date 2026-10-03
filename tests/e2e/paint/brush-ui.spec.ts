@@ -372,7 +372,14 @@ test.describe('paint UI in the running app', () => {
     await expect(sourceRow).toBeVisible();
     await sourceRow.click();
     const paintOptions = await openToolOptions(page);
-    await paintOptions.getByRole('button', { name: 'Create clipped paint layer' }).click();
+    const createClippedPaintLayer = paintOptions.getByRole('button', {
+      name: 'Create clipped paint layer',
+    });
+    await createClippedPaintLayer.click();
+    // The real regression was Ctrl+Z while this nonmodal popover command still
+    // owned focus, so keep that target explicit instead of relying on canvas
+    // focus for the history assertions below.
+    await expect(createClippedPaintLayer).toBeFocused();
     await expect(
       page.getByRole('treeitem').filter({ hasText: /Brush Layer clipped paint/ }),
     ).toBeVisible();

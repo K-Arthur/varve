@@ -47,10 +47,10 @@ test.describe
       await importImage(page);
       await openEnhanceDialog(page);
 
-      await page
-        .getByRole('radiogroup', { name: 'Output behavior' })
-        .getByText('Replace source', { exact: true })
-        .click();
+      const outputBehavior = page.getByRole('radiogroup', { name: 'Output behavior' });
+      const replaceSource = outputBehavior.getByRole('radio', { name: 'Replace source' });
+      await replaceSource.check();
+      await expect(replaceSource).toBeChecked();
       await expect(page.getByText('Output 200x200px', { exact: false })).toBeVisible();
       await page.getByRole('button', { name: 'Upscale image' }).click();
       await expect(page.getByRole('dialog', { name: 'Enhance image' })).not.toBeVisible({

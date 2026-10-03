@@ -328,23 +328,37 @@ test.describe('Navigation to finding', () => {
   });
 
   test('navigates reliably when the Layers panel is virtualised', async ({ page }) => {
-    // Create enough nodes to trigger virtualisation
-    await seedLayers(page, 20);
-    await expect(page.getByRole('treeitem')).toHaveCount(20, { timeout: 10000 });
-
-    // Select the last node (likely scrolled out of view)
-    const lastItem = page.getByRole('treeitem').last();
-    await lastItem.scrollIntoViewIfNeeded();
-    await lastItem.click();
-    await page.waitForTimeout(200);
-
-    // Now select the first node (scrolling back up)
+    // DOM rows are virtualized, so the tree's logical sibling metadata is the
+    // stable count contract. End/Home move focus and scroll the actual logical
+    // endpoints into the mounted window before Enter selects them.
+    await seedLayers(page, 40);
+    const tree = page.getByRole('tree');
     const firstItem = page.getByRole('treeitem').first();
-    await firstItem.scrollIntoViewIfNeeded();
-    await firstItem.click();
-    await page.waitForTimeout(200);
+    await expect(firstItem).toHaveAttribute('aria-setsize', '40', { timeout: 10000 });
 
-    await expect(firstItem).toHaveAttribute('aria-selected', 'true');
+    await firstItem.focus();
+    await page.keyboard.press('End');
+    const lastItem = page.locator('[role="treeitem"][tabindex="0"]');
+    await expect(lastItem).toHaveAttribute('aria-posinset', '40', { timeout: 5000 });
+    const lastNodeId = await lastItem.getAttribute('data-node-id');
+    expect(lastNodeId).toBeTruthy();
+    await page.keyboard.press('Enter');
+    await expect(page.locator(`[role="treeitem"][data-node-id="${lastNodeId}"]`)).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+
+    await tree.focus();
+    await page.keyboard.press('Home');
+    const returnedFirst = page.locator('[role="treeitem"][tabindex="0"]');
+    await expect(returnedFirst).toHaveAttribute('aria-posinset', '1', { timeout: 5000 });
+    const firstNodeId = await returnedFirst.getAttribute('data-node-id');
+    expect(firstNodeId).toBeTruthy();
+    await page.keyboard.press('Enter');
+    await expect(page.locator(`[role="treeitem"][data-node-id="${firstNodeId}"]`)).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
   });
 
   test('focus remains in the active pane after navigation and keyboard is usable', async ({

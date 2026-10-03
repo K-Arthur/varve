@@ -26,9 +26,20 @@ async function openRectangleInspector(page: Page): Promise<void> {
   await expect(page.locator('#insp-tabpanel-properties')).toBeVisible({ timeout: 10_000 });
 }
 
+function expectPointerCenterInViewport(
+  center: { x: number; y: number },
+  viewport: { width: number; height: number },
+  description: string,
+): void {
+  expect(center.x, `${description} center x`).toBeGreaterThanOrEqual(0);
+  expect(center.x, `${description} center x`).toBeLessThan(viewport.width);
+  expect(center.y, `${description} center y`).toBeGreaterThanOrEqual(0);
+  expect(center.y, `${description} center y`).toBeLessThan(viewport.height);
+}
+
 test('keeps opacity controls readable in their row tracks across inspector rails', async ({
   page,
-}, testInfo) => {
+}) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await openRectangleInspector(page);
 
@@ -40,53 +51,6 @@ test('keeps opacity controls readable in their row tracks across inspector rails
     .getByRole('spinbutton', { name: 'Fill opacity (%)' });
   await expect(appearanceOpacity).toBeVisible();
   await expect(fillOpacity).toBeVisible();
-
-  const metrics = await page.evaluate(() => {
-    const read = (element: Element) => {
-      const rect = element.getBoundingClientRect();
-      const style = getComputedStyle(element);
-      return {
-        width: rect.width,
-        height: rect.height,
-        left: rect.left,
-        right: rect.right,
-        flex: style.flex,
-      };
-    };
-    const appearance = document.querySelector('[aria-label="Opacity (%)"], [aria-label="Opacity"]');
-    const fill = document.querySelector('[aria-label="Fill opacity (%)"]');
-    const properties = document.querySelector('.insp-fill-row__properties');
-    const ancestors = (element: Element | null) => {
-      const result: Array<Record<string, unknown>> = [];
-      let current = element;
-      for (let depth = 0; current && depth < 5; depth += 1, current = current.parentElement) {
-        const rect = current.getBoundingClientRect();
-        const style = getComputedStyle(current);
-        result.push({
-          tag: current.tagName,
-          className: current.className,
-          rect: { left: rect.left, right: rect.right, width: rect.width },
-          paddingInline: `${style.paddingLeft} ${style.paddingRight}`,
-          display: style.display,
-          gridTemplateColumns: style.gridTemplateColumns,
-        });
-      }
-      return result;
-    };
-    return {
-      appearance: appearance ? read(appearance) : null,
-      fill: fill ? read(fill) : null,
-      properties: properties ? read(properties) : null,
-      fillAncestors: ancestors(fill),
-      appearanceAncestors: ancestors(appearance),
-    };
-  });
-  console.log(`paint geometry baseline: ${JSON.stringify(metrics)}`);
-
-  await page.screenshot({
-    path: testInfo.outputPath('paint-geometry-baseline.png'),
-    fullPage: false,
-  });
 
   for (const width of [240, 320, 480, 640]) {
     await resizePanelToWidth(page, 'inspector', width);
@@ -161,7 +125,7 @@ test('keeps opacity controls readable in their row tracks across inspector rails
   }
 });
 
-test('supports real fill-stack reorder, keyboard/menu fallback, and overflow removal', async ({
+test('supports pointer and keyboard fill-stack reorder plus fill removal', async ({
   page,
 }, testInfo) => {
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -186,16 +150,22 @@ test('supports real fill-stack reorder, keyboard/menu fallback, and overflow rem
   // pointer sensor. The row's semantic value is the observable order.
   const firstHandle = handles.nth(0);
   const secondHandle = handles.nth(1);
+  await secondHandle.scrollIntoViewIfNeeded();
   const source = await secondHandle.boundingBox();
   const destination = await firstHandle.boundingBox();
   if (!source || !destination) throw new Error('fill drag handles not measurable');
-  await page.mouse.move(source.x + source.width / 2, source.y + source.height / 2);
+  const viewport = page.viewportSize();
+  if (!viewport) throw new Error('browser viewport size unavailable');
+  const sourceCenter = { x: source.x + source.width / 2, y: source.y + source.height / 2 };
+  const destinationCenter = {
+    x: destination.x + destination.width / 2,
+    y: destination.y + destination.height / 2,
+  };
+  expectPointerCenterInViewport(sourceCenter, viewport, 'source handle');
+  expectPointerCenterInViewport(destinationCenter, viewport, 'destination handle');
+  await page.mouse.move(sourceCenter.x, sourceCenter.y);
   await page.mouse.down();
-  await page.mouse.move(
-    destination.x + destination.width / 2,
-    destination.y + destination.height / 2 - 10,
-    { steps: 8 },
-  );
+  await page.mouse.move(destinationCenter.x, destinationCenter.y - 10, { steps: 8 });
   await page.mouse.up();
 
   await expect(rows.nth(0).locator('.insp-swatch__value')).toHaveText('Gradient');
@@ -207,39 +177,32 @@ test('supports real fill-stack reorder, keyboard/menu fallback, and overflow rem
   await page.keyboard.press('Control+Shift+z');
   await expect(rows.nth(0).locator('.insp-swatch__value')).toHaveText('Gradient');
 
-  // The same move remains available from the labelled menu for keyboard and
-  // users who do not discover direct manipulation.
-  await rows.nth(0).getByRole('button', { name: 'Fill actions' }).click();
-  await expect(page.getByRole('menuitem', { name: /Move fill down/i })).toBeVisible();
-  await page.getByRole('menuitem', { name: /Move fill down/i }).click();
+  // The direct row controls provide a non-drag path for pointer, keyboard,
+  // and touch users; they must produce the same single-step stack update.
+  await rows.nth(0).getByRole('button', { name: 'Move fill down' }).click();
   await expect(rows.nth(0).locator('.insp-swatch__value')).toHaveText(/^#[0-9A-F]{6}$/);
   await expect(rows.nth(1).locator('.insp-swatch__value')).toHaveText('Gradient');
+  await page.keyboard.press('Control+z');
+  await expect(rows.nth(0).locator('.insp-swatch__value')).toHaveText('Gradient');
+  await page.keyboard.press('Control+Shift+z');
+  await expect(rows.nth(1).locator('.insp-swatch__value')).toHaveText('Gradient');
 
-  // Removal is intentionally in the same labelled overflow menu, so the
-  // primary row has one action policy and no destructive icon duplication.
-  await rows.nth(1).getByRole('button', { name: 'Fill 2 actions' }).click();
-  await page.getByRole('menuitem', { name: /Remove fill 2/i }).click();
+  // Removal remains an explicit, named row action; the low-frequency Fill
+  // actions menu contains blend/link/harmony commands, not stack reordering.
+  await rows.nth(1).getByRole('button', { name: 'Remove fill 2' }).click();
   await expect(rows).toHaveCount(1);
 
-  // Removal is also a single reversible operation, including when invoked
-  // from the destructive overflow command.
+  // Removal is a single reversible document operation.
   await page.keyboard.press('Control+z');
   await expect(rows).toHaveCount(2);
   await page.keyboard.press('Control+Shift+z');
   await expect(rows).toHaveCount(1);
 
-  // Keyboard sensor parity: Space starts the handle gesture, ArrowUp moves
-  // within the stack, and Space commits the same document transaction.
+  // The named row action is keyboard-accessible as well as pointer-accessible.
   await addFill('Linear gradient');
-  const keyboardHandles = page.getByRole('button', { name: /drag fill(?: 2)? to reorder/i });
-  await keyboardHandles.nth(1).focus();
-  await page.keyboard.press('Space');
-  // dnd-kit attaches the keyboard sensor listeners on the next task after
-  // activation; give that listener a turn before sending the move key.
-  await page.waitForTimeout(50);
-  await page.keyboard.press('ArrowUp');
-  await page.waitForTimeout(50);
-  await page.keyboard.press('Space');
+  const moveDown = rows.nth(0).getByRole('button', { name: 'Move fill down' });
+  await moveDown.focus();
+  await page.keyboard.press('Enter');
   await expect(rows.nth(0).locator('.insp-swatch__value')).toHaveText('Gradient');
 
   const opacity = rows.nth(0).getByRole('spinbutton', { name: 'Fill opacity (%)' });

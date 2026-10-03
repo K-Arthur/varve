@@ -29,18 +29,29 @@ async function openFixture(page: import('@playwright/test').Page) {
   await page.getByRole('tab', { name: 'Slides' }).click();
 }
 
+/** The shared Select renders an accessible combobox and listbox, not a native <select>. */
+async function chooseSelectOption(
+  page: import('@playwright/test').Page,
+  label: string,
+  optionName: string,
+) {
+  await page.getByRole('combobox', { name: label }).click();
+  await page
+    .getByRole('listbox', { name: label })
+    .getByRole('option', { name: optionName, exact: true })
+    .click();
+}
+
 /** Choose a layout, map each role to a distinct compatible object, apply it. */
 async function applyLayout(page: import('@playwright/test').Page) {
   await page.locator('.presentation-layouts > summary').click();
-  await page.getByRole('combobox', { name: 'Layout source' }).selectOption('field-layout-title');
+  await chooseSelectOption(page, 'Layout source', 'Title / section');
   for (const [role, objectName] of [
     ['accent', 'Stratum 1'],
     ['title', 'Headline'],
     ['subtitle', 'Supporting copy'],
   ] as const) {
-    await page
-      .getByRole('combobox', { name: `Slide object for ${role}` })
-      .selectOption({ label: objectName });
+    await chooseSelectOption(page, `Slide object for ${role}`, objectName);
   }
   await page.getByRole('button', { name: 'Preview and reapply…' }).click();
   const dialog = page.getByRole('dialog', { name: 'Review layout changes' });

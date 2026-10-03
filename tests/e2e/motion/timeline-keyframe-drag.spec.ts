@@ -20,10 +20,14 @@ test.describe('Timeline keyframe editing', () => {
     const ruler = page.getByRole('slider', { name: 'Timeline ruler' });
     await ruler.focus();
     for (let i = 0; i < 5; i += 1) await ruler.press('Shift+ArrowRight');
-    await page.mouse.click(box.x + 240, box.y + 220);
-    await page.mouse.move(box.x + 240, box.y + 220);
+    // Opening the timeline can resize the docked canvas; use its live bounds
+    // after the panel has settled instead of the pre-timeline rectangle.
+    const currentCanvasBounds = await canvas.boundingBox();
+    if (!currentCanvasBounds) throw new Error('content canvas not laid out after opening timeline');
+    await page.mouse.click(currentCanvasBounds.x + 240, currentCanvasBounds.y + 220);
+    await page.mouse.move(currentCanvasBounds.x + 240, currentCanvasBounds.y + 220);
     await page.mouse.down();
-    await page.mouse.move(box.x + 320, box.y + 180, { steps: 8 });
+    await page.mouse.move(currentCanvasBounds.x + 320, currentCanvasBounds.y + 180, { steps: 8 });
     await page.mouse.up();
     await page.keyboard.press('Alt+p');
 

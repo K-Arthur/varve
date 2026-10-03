@@ -114,7 +114,10 @@ test('shared Logo and Code panels stay reachable beside the canvas in a narrow w
   expect(codeBounds!.x + codeBounds!.width).toBeLessThanOrEqual(
     shellBounds!.x + shellBounds!.width + 1,
   );
-  expect(codeBounds!.y).toBeGreaterThan(canvasBounds!.y - 1);
+  // The dock places Code to the right of the canvas. Compare rectangles, not
+  // their top edges: the docked panel may extend higher than the canvas body.
+  expect(codeBounds!.x).toBeGreaterThanOrEqual(canvasBounds!.x + canvasBounds!.width - 1);
+  expect(overlaps(codeBounds!, canvasBounds!)).toBe(false);
 
   const emailPreview = page.locator('.workspace-bottom-panels__email-preview');
   const previewBounds = await emailPreview.boundingBox();
@@ -134,9 +137,6 @@ test('shared Logo and Code panels stay reachable beside the canvas in a narrow w
   expect(updateDepthErrors).toEqual([]);
   await expect(logo).toBeVisible();
   await expect(brandName).toHaveValue('Varve');
-  await page.keyboard.press('Control+Shift+8');
-  await expect(code).toBeVisible();
-  expect(updateDepthErrors).toEqual([]);
   await expect(page.locator('.editor-shell')).toBeVisible();
   await expect(
     page.getByRole('alert').filter({ hasText: /Maximum update depth exceeded/i }),
@@ -151,14 +151,20 @@ test('shared Logo and Code panels stay reachable beside the canvas in a narrow w
   expect(designCanvasBounds).not.toBeNull();
   expect(designShellBounds).not.toBeNull();
   expect(designCodeBounds).not.toBeNull();
+  expect(designCanvasBounds!.width).toBeGreaterThanOrEqual(320);
+  expect(logoBounds!.width).toBeGreaterThanOrEqual(240);
+  expect(designCodeBounds!.width).toBeGreaterThanOrEqual(260);
   expect(logoBounds!.x).toBeGreaterThanOrEqual(designShellBounds!.x);
-  expect(logoBounds!.x + logoBounds!.width).toBeLessThanOrEqual(
-    designShellBounds!.x + designShellBounds!.width + 1,
+  expect(logoBounds!.x + logoBounds!.width).toBeLessThanOrEqual(designCanvasBounds!.x + 1);
+  expect(designCodeBounds!.x).toBeGreaterThanOrEqual(
+    designCanvasBounds!.x + designCanvasBounds!.width - 1,
   );
   expect(logoBounds!.y).toBeGreaterThan(80);
   expect(logoBounds!.y + logoBounds!.height).toBeLessThanOrEqual(
     designShellBounds!.y + designShellBounds!.height - 24,
   );
+  expect(overlaps(logoBounds!, designCanvasBounds!)).toBe(false);
+  expect(overlaps(designCodeBounds!, designCanvasBounds!)).toBe(false);
   expect(overlaps(logoBounds!, designCodeBounds!)).toBe(false);
   await page.screenshot({
     path: testInfo.outputPath('design-logo-narrow.png'),

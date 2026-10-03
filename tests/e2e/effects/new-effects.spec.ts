@@ -1,5 +1,5 @@
 /**
- * E2E tests for the four new adjustment effects: Duotone, Black & White,
+ * E2E tests for four object-local filter effects: Duotone, Black & White,
  * Posterize, and Threshold.
  *
  * Covers: UI controls, live preview, enable/disable, undo/redo, save/reopen,
@@ -7,9 +7,10 @@
  */
 import { readFile } from 'node:fs/promises';
 import { expect, test } from '@playwright/test';
+import { selectInspectorTab } from '../helpers/inspector-tabs';
 import { dragOnCanvas, navigateToEditor } from '../shared';
 
-test.describe('New Adjustment Effects', () => {
+test.describe('Object Filter Effects', () => {
   test.describe.configure({ mode: 'serial' });
   test.beforeEach(async ({ page }) => {
     // Headless Chromium exposes the File System Access picker but cannot
@@ -24,93 +25,32 @@ test.describe('New Adjustment Effects', () => {
     await navigateToEditor(page);
   });
 
-  async function createAdjustmentLayer(page: import('@playwright/test').Page): Promise<boolean> {
-    return page.evaluate(() => {
-      try {
-        const container = document.getElementById('root');
-        if (!container) return false;
-        const fiberKey = Object.keys(container).find(
-          (k) => k.startsWith('__reactFiber$') || k.startsWith('__reactContainer$'),
-        );
-        if (!fiberKey) return false;
-        function walk(fiber: Record<string, unknown> | null): Record<string, unknown> | null {
-          if (!fiber) return null;
-          const mp = fiber.memoizedProps as Record<string, unknown> | undefined;
-          if (
-            mp?.value &&
-            typeof mp.value === 'object' &&
-            'createAdjustmentLayer' in (mp.value as Record<string, unknown>)
-          ) {
-            return mp.value as Record<string, unknown>;
-          }
-          const pp = fiber.pendingProps as Record<string, unknown> | undefined;
-          if (
-            pp?.value &&
-            typeof pp.value === 'object' &&
-            'createAdjustmentLayer' in (pp.value as Record<string, unknown>)
-          ) {
-            return pp.value as Record<string, unknown>;
-          }
-          return (
-            walk(fiber.child as Record<string, unknown> | null) ||
-            walk(fiber.sibling as Record<string, unknown> | null)
-          );
-        }
-        const ctx = walk(
-          (container as unknown as Record<string, unknown>)[fiberKey] as Record<
-            string,
-            unknown
-          > | null,
-        );
-        if (ctx && typeof ctx.createAdjustmentLayer === 'function') {
-          (ctx.createAdjustmentLayer as () => void)();
-          return true;
-        }
-        return false;
-      } catch {
-        return false;
-      }
-    });
-  }
-
-  async function addAdjustment(
+  async function addObjectFilter(
     page: import('@playwright/test').Page,
     name: string,
-  ): Promise<boolean> {
-    const addAdjBtn = page.locator('button.adj-panel__add-btn');
-    await expect(addAdjBtn).toBeVisible({ timeout: 3000 });
-    await addAdjBtn.click();
-    await page.waitForTimeout(200);
-    const menuItem = page.getByRole('menuitem', { name, exact: true });
-    if (await menuItem.isVisible()) {
-      await menuItem.click();
-      await page.waitForTimeout(300);
-      return true;
-    }
-    return false;
-  }
-
-  async function drawShape(page: import('@playwright/test').Page): Promise<void> {
+  ): Promise<void> {
     await page.keyboard.press('r');
     await dragOnCanvas(page, 150, 150, 400, 350);
-    await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10000 });
+    await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10_000 });
+    await selectInspectorTab(page, 'Adjustments');
+
+    const panel = page.locator('#insp-tabpanel-adjustments');
+    const section = panel.getByRole('button', { name: 'Object Filters', exact: true });
+    await expect(section).toBeVisible({ timeout: 10_000 });
+    if ((await section.getAttribute('aria-expanded')) !== 'true') await section.click();
+    const picker = panel.getByRole('combobox', { name: 'Add Object Filter' });
+    await expect(picker).toBeVisible();
+    await picker.click();
+    await page.getByRole('option', { name, exact: true }).click();
+    await expect(
+      panel.locator('.smart-filters__row').filter({ hasText: name }).first(),
+    ).toBeVisible({ timeout: 5_000 });
   }
 
   // ── Duotone ────────────────────────────────────────────────────────────
 
   test('duotone: UI controls are present', async ({ page }) => {
-    await drawShape(page);
-    const created = await createAdjustmentLayer(page);
-    if (!created) {
-      test.skip();
-      return;
-    }
-    await page.waitForTimeout(500);
-    const added = await addAdjustment(page, 'Duotone');
-    if (!added) {
-      test.skip();
-      return;
-    }
+    await addObjectFilter(page, 'Duotone');
 
     await expect(page.locator('input[aria-label="Shadow point"]')).toBeVisible({ timeout: 5000 });
     await expect(page.locator('input[aria-label="Highlight point"]')).toBeVisible({
@@ -123,18 +63,7 @@ test.describe('New Adjustment Effects', () => {
   });
 
   test('duotone: controls change value', async ({ page }) => {
-    await drawShape(page);
-    const created = await createAdjustmentLayer(page);
-    if (!created) {
-      test.skip();
-      return;
-    }
-    await page.waitForTimeout(500);
-    const added = await addAdjustment(page, 'Duotone');
-    if (!added) {
-      test.skip();
-      return;
-    }
+    await addObjectFilter(page, 'Duotone');
 
     const shadowSlider = page.locator('input[aria-label="Shadow point"]');
     await expect(shadowSlider).toBeVisible({ timeout: 5000 });
@@ -146,42 +75,16 @@ test.describe('New Adjustment Effects', () => {
   });
 
   test('duotone: enable/disable toggle', async ({ page }) => {
-    await drawShape(page);
-    const created = await createAdjustmentLayer(page);
-    if (!created) {
-      test.skip();
-      return;
-    }
-    await page.waitForTimeout(500);
-    const added = await addAdjustment(page, 'Duotone');
-    if (!added) {
-      test.skip();
-      return;
-    }
+    await addObjectFilter(page, 'Duotone');
 
-    const visibilityToggle = page
-      .getByRole('treeitem')
-      .filter({ hasText: /Adjustment/i })
-      .getByRole('button', { name: /^(Hide|Show) / })
-      .first();
-    await expect(visibilityToggle).toBeVisible({ timeout: 5000 });
+    const visibilityToggle = page.getByRole('button', { name: 'Disable Duotone' });
+    await expect(visibilityToggle).toBeVisible({ timeout: 5_000 });
     await visibilityToggle.click();
-    await page.waitForTimeout(200);
+    await expect(page.getByRole('button', { name: 'Enable Duotone' })).toBeVisible();
   });
 
   test('duotone: undo and redo changes', async ({ page }) => {
-    await drawShape(page);
-    const created = await createAdjustmentLayer(page);
-    if (!created) {
-      test.skip();
-      return;
-    }
-    await page.waitForTimeout(500);
-    const added = await addAdjustment(page, 'Duotone');
-    if (!added) {
-      test.skip();
-      return;
-    }
+    await addObjectFilter(page, 'Duotone');
 
     const shadowSlider = page.locator('input[aria-label="Shadow point"]');
     await expect(shadowSlider).toBeVisible({ timeout: 5000 });
@@ -198,18 +101,7 @@ test.describe('New Adjustment Effects', () => {
   // ── Black & White ──────────────────────────────────────────────────────
 
   test('blackAndWhite: UI controls are present', async ({ page }) => {
-    await drawShape(page);
-    const created = await createAdjustmentLayer(page);
-    if (!created) {
-      test.skip();
-      return;
-    }
-    await page.waitForTimeout(500);
-    const added = await addAdjustment(page, 'Black & White');
-    if (!added) {
-      test.skip();
-      return;
-    }
+    await addObjectFilter(page, 'Black & White');
 
     await expect(page.locator('input[aria-label="Reds"]')).toBeVisible({ timeout: 5000 });
     await expect(page.locator('input[aria-label="Yellows"]')).toBeVisible({ timeout: 3000 });
@@ -221,18 +113,7 @@ test.describe('New Adjustment Effects', () => {
   });
 
   test('blackAndWhite: slider changes value', async ({ page }) => {
-    await drawShape(page);
-    const created = await createAdjustmentLayer(page);
-    if (!created) {
-      test.skip();
-      return;
-    }
-    await page.waitForTimeout(500);
-    const added = await addAdjustment(page, 'Black & White');
-    if (!added) {
-      test.skip();
-      return;
-    }
+    await addObjectFilter(page, 'Black & White');
 
     const redsSlider = page.locator('input[aria-label="Reds"]');
     await expect(redsSlider).toBeVisible({ timeout: 5000 });
@@ -243,61 +124,28 @@ test.describe('New Adjustment Effects', () => {
   });
 
   test('blackAndWhite: enable/disable toggle', async ({ page }) => {
-    await drawShape(page);
-    const created = await createAdjustmentLayer(page);
-    if (!created) {
-      test.skip();
-      return;
-    }
-    await page.waitForTimeout(500);
-    const added = await addAdjustment(page, 'Black & White');
-    if (!added) {
-      test.skip();
-      return;
-    }
+    await addObjectFilter(page, 'Black & White');
 
-    const visibilityToggle = page
-      .locator('.adj-panel__adjustment-row button[aria-label*="toggle"]')
-      .first();
+    const visibilityToggle = page.getByRole('button', { name: 'Disable Black & White' });
     await expect(visibilityToggle).toBeVisible({ timeout: 5000 });
     await visibilityToggle.click();
-    await page.waitForTimeout(200);
+    await expect(page.getByRole('button', { name: 'Enable Black & White' })).toBeVisible();
   });
 
   // ── Posterize ──────────────────────────────────────────────────────────
 
   test('posterize: UI controls are present', async ({ page }) => {
-    await drawShape(page);
-    const created = await createAdjustmentLayer(page);
-    if (!created) {
-      test.skip();
-      return;
-    }
-    await page.waitForTimeout(500);
-    const added = await addAdjustment(page, 'Posterize');
-    if (!added) {
-      test.skip();
-      return;
-    }
+    await addObjectFilter(page, 'Posterize');
 
-    await expect(page.locator('input[aria-label="Levels"]')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByRole('slider', { name: 'Posterize levels' })).toBeVisible({
+      timeout: 5000,
+    });
   });
 
   test('posterize: level slider changes value', async ({ page }) => {
-    await drawShape(page);
-    const created = await createAdjustmentLayer(page);
-    if (!created) {
-      test.skip();
-      return;
-    }
-    await page.waitForTimeout(500);
-    const added = await addAdjustment(page, 'Posterize');
-    if (!added) {
-      test.skip();
-      return;
-    }
+    await addObjectFilter(page, 'Posterize');
 
-    const levelsSlider = page.locator('input[aria-label="Levels"]');
+    const levelsSlider = page.getByRole('slider', { name: 'Posterize levels' });
     await expect(levelsSlider).toBeVisible({ timeout: 5000 });
     await levelsSlider.fill('8');
     await page.waitForTimeout(200);
@@ -306,20 +154,9 @@ test.describe('New Adjustment Effects', () => {
   });
 
   test('posterize: enable/disable and undo/redo', async ({ page }) => {
-    await drawShape(page);
-    const created = await createAdjustmentLayer(page);
-    if (!created) {
-      test.skip();
-      return;
-    }
-    await page.waitForTimeout(500);
-    const added = await addAdjustment(page, 'Posterize');
-    if (!added) {
-      test.skip();
-      return;
-    }
+    await addObjectFilter(page, 'Posterize');
 
-    const levelsSlider = page.locator('input[aria-label="Levels"]');
+    const levelsSlider = page.getByRole('slider', { name: 'Posterize levels' });
     await expect(levelsSlider).toBeVisible({ timeout: 5000 });
     await levelsSlider.fill('6');
     await page.waitForTimeout(200);
@@ -334,37 +171,17 @@ test.describe('New Adjustment Effects', () => {
   // ── Threshold ──────────────────────────────────────────────────────────
 
   test('threshold: UI controls are present', async ({ page }) => {
-    await drawShape(page);
-    const created = await createAdjustmentLayer(page);
-    if (!created) {
-      test.skip();
-      return;
-    }
-    await page.waitForTimeout(500);
-    const added = await addAdjustment(page, 'Threshold');
-    if (!added) {
-      test.skip();
-      return;
-    }
+    await addObjectFilter(page, 'Threshold');
 
-    await expect(page.locator('input[aria-label="Level"]')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByRole('slider', { name: 'Threshold level' })).toBeVisible({
+      timeout: 5000,
+    });
   });
 
   test('threshold: level slider changes value', async ({ page }) => {
-    await drawShape(page);
-    const created = await createAdjustmentLayer(page);
-    if (!created) {
-      test.skip();
-      return;
-    }
-    await page.waitForTimeout(500);
-    const added = await addAdjustment(page, 'Threshold');
-    if (!added) {
-      test.skip();
-      return;
-    }
+    await addObjectFilter(page, 'Threshold');
 
-    const levelSlider = page.locator('input[aria-label="Level"]');
+    const levelSlider = page.getByRole('slider', { name: 'Threshold level' });
     await expect(levelSlider).toBeVisible({ timeout: 5000 });
     await levelSlider.fill('200');
     await page.waitForTimeout(200);
@@ -373,42 +190,18 @@ test.describe('New Adjustment Effects', () => {
   });
 
   test('threshold: enable/disable toggle', async ({ page }) => {
-    await drawShape(page);
-    const created = await createAdjustmentLayer(page);
-    if (!created) {
-      test.skip();
-      return;
-    }
-    await page.waitForTimeout(500);
-    const added = await addAdjustment(page, 'Threshold');
-    if (!added) {
-      test.skip();
-      return;
-    }
+    await addObjectFilter(page, 'Threshold');
 
-    const visibilityToggle = page
-      .locator('.adj-panel__adjustment-row button[aria-label*="toggle"]')
-      .first();
+    const visibilityToggle = page.getByRole('button', { name: 'Disable Threshold' });
     await expect(visibilityToggle).toBeVisible({ timeout: 5000 });
     await visibilityToggle.click();
-    await page.waitForTimeout(200);
+    await expect(page.getByRole('button', { name: 'Enable Threshold' })).toBeVisible();
   });
 
   test('threshold: undo and redo', async ({ page }) => {
-    await drawShape(page);
-    const created = await createAdjustmentLayer(page);
-    if (!created) {
-      test.skip();
-      return;
-    }
-    await page.waitForTimeout(500);
-    const added = await addAdjustment(page, 'Threshold');
-    if (!added) {
-      test.skip();
-      return;
-    }
+    await addObjectFilter(page, 'Threshold');
 
-    const levelSlider = page.locator('input[aria-label="Level"]');
+    const levelSlider = page.getByRole('slider', { name: 'Threshold level' });
     await expect(levelSlider).toBeVisible({ timeout: 5000 });
     await levelSlider.fill('64');
     await page.waitForTimeout(200);
@@ -423,20 +216,7 @@ test.describe('New Adjustment Effects', () => {
   // ── SVG Export (verifies flattening works) ─────────────────────────────
 
   test('svg export succeeds without adjustment warning after flattening', async ({ page }) => {
-    await drawShape(page);
-    const created = await createAdjustmentLayer(page);
-    if (!created) {
-      test.skip();
-      return;
-    }
-    await page.waitForTimeout(500);
-    const added = await addAdjustment(page, 'Posterize');
-    if (!added) {
-      test.skip();
-      return;
-    }
-
-    await page.waitForTimeout(500);
+    await addObjectFilter(page, 'Posterize');
 
     // Exercise the user-facing File > Export SVG command. The former test
     // dispatched a `strata:*` event that no application listener handled, so

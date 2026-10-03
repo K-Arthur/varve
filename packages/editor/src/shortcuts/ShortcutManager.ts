@@ -960,10 +960,10 @@ export function shouldIgnoreCropShortcutTarget(target: Element | null): boolean 
 }
 
 /**
- * Undo and redo stay available on non-editing Inspector controls, including
- * commands inside its responsive drawer and native checkbox/radio inputs.
- * Text-entry widgets keep native history, while other global shortcuts remain
- * suppressed in the drawer.
+ * Undo and redo stay available on non-editing Inspector and tool-options
+ * controls, including commands inside their nonmodal surfaces and native
+ * checkbox/radio inputs. Text-entry widgets keep native history, while other
+ * global shortcuts remain suppressed in those surfaces.
  */
 export function shouldIgnoreHistoryShortcutTarget(target: Element | null): boolean {
   if (!target) return false;
@@ -978,12 +978,12 @@ export function shouldIgnoreHistoryShortcutTarget(target: Element | null): boole
     return tag === 'input' || tag === 'textarea';
   }
   const nearestDialog = resolved.closest?.('[role="dialog"],[role="alertdialog"]');
-  const inspectorDrawer = nearestDialog?.matches(
-    '[role="dialog"][data-editor-shortcut-scope="inspector-history"]',
+  const delegatingHistoryDialog = nearestDialog?.matches(
+    '[role="dialog"][data-editor-shortcut-scope="inspector-history"], [role="dialog"][data-editor-shortcut-scope="tool-options-history"]',
   )
     ? nearestDialog
     : null;
-  return shouldIgnoreShortcutTargetInScope(resolved, inspectorDrawer);
+  return shouldIgnoreShortcutTargetInScope(resolved, delegatingHistoryDialog);
 }
 
 /**

@@ -15,7 +15,7 @@ test.describe('Canvas name labels', () => {
     await page.mouse.move(box.x + 420, box.y + 340);
     await page.mouse.up();
 
-    const zoom = page.locator('.editor-menubar__zoom-input');
+    const zoom = page.getByRole('spinbutton', { name: /^Zoom / });
     await zoom.fill('20');
     await zoom.press('Enter');
 

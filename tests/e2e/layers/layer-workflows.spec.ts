@@ -236,10 +236,23 @@ test.describe('layer workflows', () => {
   });
 
   test('locked layer prevents canvas drag interaction', async ({ page }) => {
-    // Select the first layer.
+    // This spec leaves the Rect tool active after seeding. Switch to Select,
+    // select a known seeded row, and use its rendered selection bounds for
+    // the drag so the pointer starts on that layer's actual canvas geometry.
+    await page.keyboard.press('v');
     const firstRow = page.getByRole('treeitem').first();
+    const firstNodeId = await firstRow.getAttribute('data-node-id');
+    expect(firstNodeId).toBeTruthy();
     await firstRow.click();
     await page.waitForTimeout(200);
+    await expect(firstRow).toHaveAttribute('aria-selected', 'true');
+
+    const selectionOutline = page.locator('svg:has(filter#selection-glow) > rect').first();
+    await expect(selectionOutline).toBeVisible({ timeout: 3000 });
+    const selectionBounds = await selectionOutline.boundingBox();
+    expect(selectionBounds).toBeTruthy();
+    expect(selectionBounds!.width).toBeGreaterThan(0);
+    expect(selectionBounds!.height).toBeGreaterThan(0);
 
     // Lock it via keyboard shortcut or context menu.
     const lockBtn = firstRow.locator('.layers-row__toggle--locked-off');
@@ -261,15 +274,13 @@ test.describe('layer workflows', () => {
     const lockedBtn = firstRow.locator('.layers-row__toggle--locked-on');
     await expect(lockedBtn).toBeVisible({ timeout: 3000 });
 
-    // Try to drag the locked shape on the canvas.
-    const canvas = page.locator('canvas.editor-canvas__content-layer');
-    const box = await canvas.boundingBox();
-    expect(box).toBeTruthy();
-
+    // Try to drag the locked shape from the centre of its measured selection.
     const hashBefore = await canvasHash(page);
-    await page.mouse.move(box!.x + 200, box!.y + 200);
+    const startX = selectionBounds!.x + selectionBounds!.width / 2;
+    const startY = selectionBounds!.y + selectionBounds!.height / 2;
+    await page.mouse.move(startX, startY);
     await page.mouse.down();
-    await page.mouse.move(box!.x + 300, box!.y + 300, { steps: 5 });
+    await page.mouse.move(startX + 80, startY + 80, { steps: 5 });
     await page.mouse.up();
     await waitForRender(page);
 
@@ -422,6 +433,8 @@ test.describe('layer states (Varve-native, not Photoshop Layer Comps)', () => {
     await callCtx(page, 'captureLayerState', 'State A');
     await page.waitForTimeout(200);
 
+    await page.getByRole('button', { name: 'Show layer states' }).click();
+
     // The section should now list the captured state.
     const stateItem = page.locator('.layer-states__item').first();
     await expect(stateItem).toBeVisible({ timeout: 3000 });
@@ -454,6 +467,8 @@ test.describe('layer states (Varve-native, not Photoshop Layer Comps)', () => {
     await callCtx(page, 'captureLayerState', 'Keep Me');
     await page.waitForTimeout(200);
 
+    await page.getByRole('button', { name: 'Show layer states' }).click();
+
     const stateItem = page.locator('.layer-states__item').first();
     await expect(stateItem).toBeVisible({ timeout: 3000 });
 
@@ -484,6 +499,8 @@ test.describe('layer states (Varve-native, not Photoshop Layer Comps)', () => {
     await page.waitForTimeout(150);
     await callCtx(page, 'captureLayerState', 'Reachable After Deselect');
     await page.waitForTimeout(200);
+
+    await page.getByRole('button', { name: 'Show layer states' }).click();
 
     const stateItem = page.locator('.layer-states__item').first();
     await expect(stateItem).toBeVisible({ timeout: 3000 });

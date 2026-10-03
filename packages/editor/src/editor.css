@@ -7295,6 +7295,112 @@ dialog.varve-dialog--settings[open] {
     width: min(340px, calc(50vw - 160px));
   }
 
+  /* When the saved dock tree exceeds the window width, the shared workflow
+   * panel still gets its own column. The previous fallback put Code/Logo on
+   * top of the full-width canvas; moving the artwork underneath the panel
+   * made right-side content and tools impossible to reach. These compact
+   * tracks keep the registered 320px canvas floor and give Inspector and the
+   * active shared panel their own minimum-width columns. Layers and Resources
+   * remain dismissible drawers in this constrained desktop layout. */
+  .editor-shell:not(:has(.editor-shell__canvas-dock[style*="position: absolute"])):has(
+    .editor__codegen-panel
+  ):not(:has(.editor__logo-panel)),
+  .editor-shell:not(:has(.editor-shell__canvas-dock[style*="position: absolute"])):has(
+    .editor__logo-panel
+  ):not(:has(.editor__codegen-panel)) {
+    grid-template-columns:
+      0
+      minmax(320px, 1fr)
+      minmax(240px, min(300px, 30vw))
+      minmax(240px, min(340px, 36vw));
+  }
+
+  .editor-shell:not(:has(.editor-shell__canvas-dock[style*="position: absolute"])):has(
+      .editor__codegen-panel
+    ):not(:has(.editor__logo-panel))
+    .editor__codegen-panel,
+  .editor-shell:not(:has(.editor-shell__canvas-dock[style*="position: absolute"])):has(
+      .editor__logo-panel
+    ):not(:has(.editor__codegen-panel))
+    .editor__logo-panel {
+    grid-area: unset;
+    grid-column: 4;
+    grid-row: 3;
+    position: relative;
+    align-self: stretch;
+    justify-self: stretch;
+    width: auto;
+    max-width: none;
+    min-width: 0;
+    overflow: auto;
+    z-index: var(--elevation-z-raised);
+  }
+
+  /* Code is shared across workspaces, so a user can have it open while the
+   * Design-only Logo workflow is visible. In that case use both side tracks;
+   * the canvas stays between them instead of sitting under two overlays. */
+  .editor-shell:not(:has(.editor-shell__canvas-dock[style*="position: absolute"])):has(
+    .editor__codegen-panel
+  ):has(.editor__logo-panel) {
+    grid-template-columns:
+      minmax(240px, min(320px, 28vw))
+      minmax(320px, 1fr)
+      0
+      minmax(260px, min(340px, 36vw));
+  }
+
+  .editor-shell:not(:has(.editor-shell__canvas-dock[style*="position: absolute"])):has(
+      .editor__codegen-panel
+    ):has(.editor__logo-panel)
+    .editor__logo-panel {
+    grid-area: unset;
+    grid-column: 1;
+    grid-row: 3;
+    position: relative;
+    align-self: stretch;
+    justify-self: stretch;
+    width: auto;
+    max-width: none;
+    min-width: 0;
+    overflow: auto;
+    z-index: var(--elevation-z-raised);
+  }
+
+  .editor-shell:not(:has(.editor-shell__canvas-dock[style*="position: absolute"])):has(
+      .editor__codegen-panel
+    ):has(.editor__logo-panel)
+    .editor__codegen-panel {
+    grid-area: unset;
+    grid-column: 4;
+    grid-row: 3;
+    position: relative;
+    align-self: stretch;
+    justify-self: stretch;
+    width: auto;
+    max-width: none;
+    min-width: 0;
+    overflow: auto;
+    z-index: var(--elevation-z-raised);
+  }
+
+  .editor-shell:not(:has(.editor-shell__canvas-dock[style*="position: absolute"])):has(
+      .editor__codegen-panel
+    ):not(:has(.editor__logo-panel))
+    .editor__inspector-panel,
+  .editor-shell:not(:has(.editor-shell__canvas-dock[style*="position: absolute"])):has(
+      .editor__logo-panel
+    ):not(:has(.editor__codegen-panel))
+    .editor__inspector-panel {
+    position: relative;
+    inset: auto;
+    grid-area: inspector;
+    margin: 0;
+    width: auto;
+    height: auto;
+    transform: none;
+    z-index: var(--elevation-z-raised);
+  }
+
   /* The <=899px breakpoint is not the only path to a drawer: the nested dock
    * can also project panels when its registered minimums exceed a wider
    * window. Keep the same launch controls reachable in that fallback. */

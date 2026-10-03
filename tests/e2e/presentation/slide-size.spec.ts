@@ -26,14 +26,27 @@ async function openFixture(page: import('@playwright/test').Page) {
   await page.getByRole('tab', { name: 'Slides' }).click();
 }
 
+/** The shared Select is a button/listbox control, not a native <select>. */
+async function chooseSelectOption(
+  page: import('@playwright/test').Page,
+  label: string,
+  optionName: RegExp,
+) {
+  await page.getByRole('combobox', { name: label }).click();
+  await page
+    .getByRole('listbox', { name: label })
+    .getByRole('option', { name: optionName })
+    .click();
+}
+
 test.describe('presentation slide size', () => {
   test('converts 16:9 to 4:3 after a preview and restores the deck on undo', async ({ page }) => {
     await openFixture(page);
     await expect(page.locator(SIZE_SUMMARY)).toContainText('1280 x 720');
 
     await page.locator('.presentation-navigator__size > summary').click();
-    await page.getByRole('combobox', { name: 'Slide size preset' }).selectOption('classic');
-    await page.getByRole('combobox', { name: 'Slide size mode' }).selectOption('fit');
+    await chooseSelectOption(page, 'Slide size preset', /^Classic 4:3/);
+    await chooseSelectOption(page, 'Slide size mode', /^Fit inside/);
     await page.getByRole('button', { name: 'Review slide size change…' }).click();
 
     const dialog = page.getByRole('dialog', { name: 'Review slide size change' });
@@ -71,8 +84,8 @@ test.describe('presentation slide size', () => {
   }) => {
     await openFixture(page);
     await page.locator('.presentation-navigator__size > summary').click();
-    await page.getByRole('combobox', { name: 'Slide size preset' }).selectOption('vertical');
-    await page.getByRole('combobox', { name: 'Slide size mode' }).selectOption('reflow');
+    await chooseSelectOption(page, 'Slide size preset', /^Vertical 9:16/);
+    await chooseSelectOption(page, 'Slide size mode', /^Stretch to fill/);
     await page.getByRole('button', { name: 'Review slide size change…' }).click();
 
     const dialog = page.getByRole('dialog', { name: 'Review slide size change' });

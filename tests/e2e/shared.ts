@@ -287,9 +287,25 @@ export async function seedLayers(page: Page, count: number) {
   await canvas.waitFor({ state: 'visible', timeout: 15_000 });
   const box = await canvas.boundingBox();
   if (!box) throw new Error('canvas not found');
+  // Use the measured canvas bounds instead of advancing fixed coordinates.
+  // The old x += 120 loop eventually clicked outside narrow canvases, silently
+  // seeding fewer layers than requested and masking virtualization coverage.
+  // The canvas element includes the top and left ruler strips; keep pointer
+  // drags beyond those non-artwork hit targets as well as inside its bounds.
+  const margin = 48;
+  const columns = Math.max(1, Math.ceil(Math.sqrt(count)));
+  const rows = Math.ceil(count / columns);
+  const availableWidth = Math.max(1, box.width - margin * 2);
+  const availableHeight = Math.max(1, box.height - margin * 2);
+  const cellWidth = Math.min(96, availableWidth / columns);
+  const cellHeight = Math.min(88, availableHeight / Math.max(rows, 1));
+  const dragSize = Math.max(8, Math.min(40, cellWidth - 8, cellHeight - 8));
+  const initialLayers = await page.getByRole('treeitem').count();
   for (let i = 0; i < count; i++) {
-    const x1 = 100 + i * 120;
-    const y1 = 100 + i * 60;
+    const column = i % columns;
+    const row = Math.floor(i / columns);
+    const x1 = margin + column * cellWidth;
+    const y1 = margin + row * cellHeight;
     await page.keyboard.press('r');
     await page.waitForTimeout(100);
     // Move to start, then drag step by step crossing the 3px threshold
@@ -298,10 +314,16 @@ export async function seedLayers(page: Page, count: number) {
     // Move in two stages to cross the 3px drag threshold without
     // the overhead of steps= events that can trigger PointerEvent
     // coalescing backpressure under parallel workers.
-    await page.mouse.move(box.x + x1 + 40, box.y + y1 + 40);
-    await page.mouse.move(box.x + x1 + 80, box.y + y1 + 80);
+    await page.mouse.move(box.x + x1 + dragSize / 2, box.y + y1 + dragSize / 2);
+    await page.mouse.move(box.x + x1 + dragSize, box.y + y1 + dragSize);
     await page.mouse.up();
-    await page.waitForTimeout(100);
+    // Wait for each document mutation before issuing the next shortcut. A
+    // fixed 100ms delay let slow runs silently drop later pointer creations.
+    await expect(page.getByRole('treeitem').first()).toHaveAttribute(
+      'aria-setsize',
+      String(initialLayers + i + 1),
+      { timeout: 5000 },
+    );
   }
   await page.getByRole('treeitem').first().waitFor({ timeout: 5000 });
 }

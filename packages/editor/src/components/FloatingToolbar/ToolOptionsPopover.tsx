@@ -498,6 +498,7 @@ export function ToolOptionsPopover() {
           ref={popoverRef}
           className="tool-options__content insp-panel"
           role="dialog"
+          data-editor-shortcut-scope="tool-options-history"
           aria-label={`${toolLabel(state.tool)} tool options`}
         >
           <Suspense

@@ -223,6 +223,45 @@ describe('Inspector drawer history ownership', () => {
   });
 });
 
+describe('Tool options popover history ownership', () => {
+  it('delegates history shortcuts from non-editing controls without enabling other shortcuts', () => {
+    document.body.innerHTML = `
+      <div role="dialog" data-editor-shortcut-scope="tool-options-history">
+        <button id="target">Create clipped paint layer</button>
+      </div>
+    `;
+    const target = document.getElementById('target');
+    expect(shouldIgnoreHistoryShortcutTarget(target)).toBe(false);
+    expect(shouldIgnoreShortcutTarget(target)).toBe(true);
+  });
+
+  it.each([
+    '<input id="target" value="Brush name" />',
+    '<textarea id="target">Brush name</textarea>',
+    '<select id="target"><option>Brush</option></select>',
+    '<div role="combobox"><button id="target">Preset</button></div>',
+    '<div role="dialog"><button id="target">Nested action</button></div>',
+  ])('preserves editing and nested dialog ownership: %s', (control) => {
+    document.body.innerHTML = `
+      <div role="dialog" data-editor-shortcut-scope="tool-options-history">
+        ${control}
+      </div>
+    `;
+    expect(shouldIgnoreHistoryShortcutTarget(document.getElementById('target'))).toBe(true);
+  });
+
+  it('does not delegate history through an enclosing dialog', () => {
+    document.body.innerHTML = `
+      <div role="dialog">
+        <div role="dialog" data-editor-shortcut-scope="tool-options-history">
+          <button id="target">Create clipped paint layer</button>
+        </div>
+      </div>
+    `;
+    expect(shouldIgnoreHistoryShortcutTarget(document.getElementById('target'))).toBe(true);
+  });
+});
+
 describe('shouldIgnoreCropShortcutTarget', () => {
   it('delegates consumed tool keys from the crop overlay and handles without enabling app keys', () => {
     document.body.innerHTML = `

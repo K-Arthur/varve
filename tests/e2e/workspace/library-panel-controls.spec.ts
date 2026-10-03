@@ -1,6 +1,18 @@
 import { expect, test } from '@playwright/test';
 import { navigateToEditor } from '../shared';
 
+function overlaps(
+  first: { x: number; y: number; width: number; height: number },
+  second: { x: number; y: number; width: number; height: number },
+) {
+  return (
+    first.x < second.x + second.width &&
+    first.x + first.width > second.x &&
+    first.y < second.y + second.height &&
+    first.y + first.height > second.y
+  );
+}
+
 test('installed library selection and uninstall stay separate keyboard controls', async ({
   page,
 }) => {
@@ -51,16 +63,18 @@ test('installed library selection and uninstall stay separate keyboard controls'
     const panel = document.querySelector<HTMLElement>('.editor__library-panel');
     const toolbar = document.querySelector<HTMLElement>('.floating-toolbar');
     if (!panel || !toolbar) throw new Error('Resources panel or floating toolbar is missing');
+    const rect = (element: HTMLElement) => {
+      const { x, y, width, height } = element.getBoundingClientRect();
+      return { x, y, width, height };
+    };
     return {
-      panelRight: panel.getBoundingClientRect().right,
-      toolbarLeft: toolbar.getBoundingClientRect().left,
+      panel: rect(panel),
+      toolbar: rect(toolbar),
       panelZ: getComputedStyle(panel).zIndex,
       toolbarZ: getComputedStyle(toolbar).zIndex,
     };
   });
-  expect(geometry.toolbarLeft, JSON.stringify(geometry)).toBeGreaterThanOrEqual(
-    geometry.panelRight - 1,
-  );
+  expect(overlaps(geometry.toolbar, geometry.panel), JSON.stringify(geometry)).toBe(false);
   expect(
     await version.evaluate((element) => {
       const rect = element.getBoundingClientRect();
@@ -79,15 +93,20 @@ test('installed library selection and uninstall stay separate keyboard controls'
   await resize.focus();
   await page.keyboard.press('Shift+ArrowRight');
   await expect
-    .poll(() =>
-      page.evaluate(() => {
+    .poll(async () => {
+      const bounds = await page.evaluate(() => {
         const panel = document.querySelector<HTMLElement>('.editor__library-panel');
         const toolbar = document.querySelector<HTMLElement>('.floating-toolbar');
         if (!panel || !toolbar) throw new Error('Resources panel or floating toolbar is missing');
-        return toolbar.getBoundingClientRect().left - panel.getBoundingClientRect().right;
-      }),
-    )
-    .toBeGreaterThanOrEqual(-1);
+        const rect = (element: HTMLElement) => {
+          const { x, y, width, height } = element.getBoundingClientRect();
+          return { x, y, width, height };
+        };
+        return { panel: rect(panel), toolbar: rect(toolbar) };
+      });
+      return !overlaps(bounds.toolbar, bounds.panel);
+    })
+    .toBe(true);
 
   await uninstall.focus();
   await page.keyboard.press('Space');

@@ -3,7 +3,7 @@
  *
  * Runs against the real editor, creates a real document, and drives the real
  * dock: rendered-color contrast for every mode in every theme, radiogroup
- * ownership, overflow reachability and mode switching, APG radio keyboard
+ * ownership, compact-width reachability and mode switching, APG radio keyboard
  * traversal, the no-JS-magnification hover contract, and the one-document
  * invariant across all six workspaces.
  *
@@ -187,7 +187,7 @@ test.describe('Workspace switcher contract', () => {
     expect(failures, `Contrast failures:\n${failures.join('\n')}`).toEqual([]);
   });
 
-  test('the radiogroup owns only radios and the overflow trigger is outside it', async ({
+  test('the compact radiogroup keeps all six workspace radios reachable at 1024px', async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1024, height: 768 });
@@ -197,44 +197,27 @@ test.describe('Workspace switcher contract', () => {
       [...el.children].map((c) => c.getAttribute('role') ?? c.tagName.toLowerCase()),
     );
     expect(children.every((role) => role === 'radio')).toBe(true);
-
-    const more = page.getByRole('button', { name: /more workspaces/i });
-    await expect(more).toBeVisible();
-    const outside = await more.evaluate((el) => !el.closest('[role="radiogroup"]'));
-    expect(outside).toBe(true);
-    await expect(more).toHaveAttribute('aria-label', /More workspaces \(\d+ hidden\)/);
+    await expect(group.getByRole('radio')).toHaveCount(MODES.length);
+    for (const [, label] of MODES) {
+      await expect(group.getByRole('radio', { name: `${label} workspace` })).toBeVisible();
+    }
+    await expect(group.locator('.workspace-dock__label')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /more workspaces/i })).toHaveCount(0);
   });
 
-  test('overflow menu reaches every hidden mode and switches for real', async ({ page }) => {
+  test('the compact controls switch to every workspace for real', async ({ page }) => {
     await page.setViewportSize({ width: 1024, height: 768 });
     await page.waitForTimeout(400);
     const group = await workspaceGroup(page);
-    const visibleLabels = await group.evaluate((el) =>
-      [...el.querySelectorAll('[role="radio"]')].map((r) => r.getAttribute('aria-label')),
-    );
-    const hidden = MODES.filter(([, label]) => !visibleLabels.includes(`${label} workspace`));
-    expect(hidden.length).toBeGreaterThan(0);
-
-    const more = page.getByRole('button', { name: /more workspaces/i });
-    await more.click();
-    const menu = page.getByRole('menu', { name: 'More workspaces' });
-    await expect(menu).toBeVisible();
-    for (const [, label] of hidden) {
-      await expect(menu.getByRole('menuitemradio', { name: label })).toBeVisible();
+    for (const [mode, label] of MODES) {
+      const radio = group.getByRole('radio', { name: `${label} workspace` });
+      await radio.click();
+      await expect(radio).toHaveAttribute('aria-checked', 'true');
+      await expect(page.locator('.workspace-dock__item--active')).toHaveAttribute(
+        'data-mode',
+        mode,
+      );
     }
-    // Switching from the menu must change the real editor state, and the
-    // activated mode must become the visible checked tab.
-    const [targetMode, targetLabel] = hidden[0]!;
-    await menu.getByRole('menuitemradio', { name: targetLabel }).click();
-    await page.waitForTimeout(300);
-    await expect(group.getByRole('radio', { name: `${targetLabel} workspace` })).toHaveAttribute(
-      'aria-checked',
-      'true',
-    );
-    await expect(page.locator(`.workspace-dock__item--active`)).toHaveAttribute(
-      'data-mode',
-      targetMode,
-    );
   });
 
   test('keyboard traversal follows the APG radio contract', async ({ page }) => {
@@ -597,21 +580,16 @@ test.describe('Workspace switcher contract', () => {
     await dock.screenshot({
       path: evidencePath(`2026-09-27-workspace-layouts/after/dock-1024-light.png`, OUT_ROOT),
     });
-    const more = page.getByRole('button', { name: /more workspaces/i });
-    await more.click();
-    await page.waitForTimeout(250);
-    await page.screenshot({
-      path: evidencePath(
-        `2026-09-27-workspace-layouts/after/overflow-menu-1024-light.png`,
-        OUT_ROOT,
-      ),
-    });
+    await expect(group.getByRole('radio')).toHaveCount(MODES.length);
+    await expect(page.getByRole('button', { name: /more workspaces/i })).toHaveCount(0);
 
     const snapshot = await page.locator('.workspace-dock').ariaSnapshot();
     writeFileSync(
       evidencePath(`2026-09-27-workspace-layouts/after/aria-snapshot.txt`, OUT_ROOT),
       `${snapshot}\n`,
     );
-    await expect(page.getByRole('menu', { name: 'More workspaces' })).toBeVisible();
+    for (const [, label] of MODES) {
+      expect(snapshot).toContain(`${label} workspace`);
+    }
   });
 });
