@@ -48,6 +48,7 @@ export const POLICY_FILES = [
   'scripts/quality/remote-full-evidence.mjs',
   'scripts/quality/certification-artifact.mjs',
   'scripts/ci/failure-manifest.mjs',
+  'scripts/security/dependency-advisories.mjs',
   'scripts/release/certification.mjs',
   'scripts/release/verify-certification.mjs',
   'scripts/release/resume.mjs',

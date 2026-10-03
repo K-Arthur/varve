@@ -31,6 +31,14 @@ referenced screenshot evidence remain eligible for explicit review and commit.
 | `docs/screenshots/pattern-system-2026-09-30/`, dated workspace and GPU evidence | Current feature, QA, or qualification evidence with owning docs/specs | Yes | Preserve the restored implementation and referenced evidence. The pattern directory has 38 tracked captures/exports, referenced by the pattern ownership record, validation report, architecture doc, and maintained E2E specs; no staged pattern deletion remains | Done; integrated in the pattern commits and `20ecad2ba`, with evidence refresh in `06007e102` |
 | Dated audit screenshots and historical plans | Historical review evidence | Yes / mixed | Retain unless a filename-level reference and replacement prove supersession; do not purge by age | Reviewed; retained |
 
+Current local `install-arch.sh` and `sieve-replication/` copies are preserved
+in place and excluded by `.git/info/exclude`; they are not release inputs.
+Generated logs and reports remain covered by the existing ignore rules. The
+model ignore rule covers nested ONNX downloads, with explicit exceptions for
+the five checksum-pinned bundled weights. Optional downloaded weights remain
+in place until their owning captures finish, then move to recovery storage
+before packaging.
+
 The broad screenshot audit previously retained 62 dated evidence captures after
 reference inspection. This release pass keeps that decision: visual evidence
 is not stale merely because it is dated or no longer copied to the marketing
@@ -98,6 +106,27 @@ The generator input lockfile SHA-256 is
 `1bbd4bec6ae3bc67d7f485bb745e627aab021975f24764b4d666bfeb958b10ba`.
 Flatpak completion, sandbox validation, and installation certification remain
 separate work.
+
+### Dependency-security follow-up (2026-10-02)
+
+Independent Dependabot/dependency-graph audit run against the same shared
+worktree. Only security-relevant dependency files were staged; concurrent
+release work was neither reverted nor staged.
+
+| Finding | Evidence | Action | Status |
+| --- | --- | --- | --- |
+| GHSA-7pqw-9j4j-h8q3 (CVE-2026-19693) is a second advisory against the unpatched `extract-zip@2.0.1`, alongside the already-dismissed GHSA-jmr9-qjv8-65gv | Alert 46 open; `pnpm why extract-zip` resolves exactly one copy; `first_patched_version: null` | Strengthened `patches/extract-zip@2.0.1.patch` with the upstream PR #160 leaf guard (refuse to write a regular entry through an existing symlink) in addition to the existing out-of-bounds-symlink rejection. Added `scripts/security/extract-zip-containment.test.mjs`, a runtime test that builds the malicious archives, loads the lockfile-resolved module, and asserts an outside canary is untouched. The behaviour test fails against unpatched and against the old symlink-only patch, so it has real teeth. Left alert 46 open: runtime containment is a local mitigation, not an upstream fixed release. Alert 37 was previously dismissed | Mitigated; upstream fix pending |
+| Dependabot had no Cargo entry for the desktop app's dependencies | `apps/desktop/src-tauri/Cargo.toml` declares a standalone `[workspace]` with its own 203 KB `Cargo.lock`; the root `Cargo.lock` contains no `tauri`. The `directory: /` Cargo entry only covers `crates/` | Added a second Cargo Dependabot entry for `/apps/desktop/src-tauri`; corrected the file header comment that wrongly claimed the root entry covered both | Done |
+| Tauri/gtk-rs advisories (e.g. glib GHSA-wrw7-89jp-8q8g) were invisible to a root-only `cargo audit` | `cargo audit` at the root reports 4 unmaintained warnings and no glib; from `apps/desktop/src-tauri` it reports 10 warnings including `glib` RUSTSEC-2024-0429 | Documented the two-workspace audit requirement in `SECURITY.md` and `docs/CI_CD_RESILIENCE.md` | Documented |
+| Advisory checks were manual and covered no production npm or dual-Cargo CI gate | Root and desktop lockfiles are separate dependency graphs | Integration and final-candidate preflight now run a bounded read-only production npm audit and both Cargo audits. Real vulnerabilities fail; database/registry errors remain nonpassing; glib and maintenance warnings remain visible in sanitized reports | Implemented; exact-SHA CI qualification pending |
+| Python tooling requirements are not monitored by Dependabot | `scripts/quantize` and `scripts/validate-pipelines` pin `onnxruntime==1.27.0`, `onnx==1.22.0`, etc.; `sieve-replication` and the bench references are looser | Not changed: these are auxiliary, non-shipped tooling environments. Add a `pip` ecosystem entry only if they become part of the release pipeline | Optional |
+
+Open Dependabot PRs were left unmerged. None is a security update — the sole
+open alert has no upstream fix, so Dependabot cannot propose one — and merging
+routine version bumps mid-release would add churn and risk. PRs 30–35 remain
+conflicting but *not* superseded; PRs 38/39/52/53/56 (Cargo), 50/55 (broader
+tooling groups), and 59 (Actions) are optional. All 14 remote Dependabot
+branches still map to an open PR, so there is no orphan branch to clean up.
 
 ---
 

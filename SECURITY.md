@@ -79,21 +79,51 @@ fix is available.
 ## Known dependency advisories and mitigations
 
 The repository is checked against the GitHub Dependabot API and the resolved
-dependency graphs. On 2026-08-22, GitHub reported no Dependabot alerts,
-`cargo audit` reported no Rust vulnerabilities, and `pnpm audit` reported one
-remaining development-only advisory. The remaining advisory is mitigated
-locally because its upstream package has not published a fixed release.
+dependency graphs. On 2026-10-02, `pnpm audit --prod` reported no production
+vulnerabilities, `cargo audit` reported no Rust vulnerabilities in either
+Cargo workspace, and GitHub reported one open development-only advisory
+(extract-zip), which has no upstream fixed release and is mitigated locally.
 
-- **GHSA-jmr9-qjv8-65gv — extract-zip 2.0.1 (npm, dev-only)**. Unvalidated
-  symlink path traversal during archive extraction. No patched release
-  exists on npm (2.0.1 remains the latest published version).
-  Pulled in only by `@wdio/utils -> @puppeteer/browsers` for downloading
-  official browser binaries in the dev/test toolchain — archives are
-  trusted, downloads are pinned by checksum, and the code path never runs
-  in production. A pnpm patch rejects absolute and out-of-tree symlink
-  targets before extraction; the lockfile and
-  `scripts/security/dependency-hardening.test.mjs` enforce that patch.
-  Tracked upstream; re-check on each alert review.
+Two Cargo workspaces exist and must be audited separately: the root
+`Cargo.lock` covers `crates/`, while `apps/desktop/src-tauri/Cargo.lock` is a
+standalone workspace that carries the Tauri, wry, tao, and gtk-rs stack.
+Neither is a subset of the other. `.github/dependabot.yml` has a Cargo entry
+for each directory; run `cargo audit` from each root before a release.
+
+CI and the final release candidate run the read-only dependency advisory gate
+inside their existing preflight jobs. It checks production npm dependencies,
+including optional dependencies, and both Cargo lockfiles. Reported
+vulnerabilities fail the gate; registry/database failures remain nonpassing
+external blockers. RustSec informational warnings, including the unresolved
+glib unsoundness and unmaintained crates below, are retained in the sanitized
+reports and logs rather than ignored or described as fixes. These warnings
+remain dependency risk for release review.
+
+- **[GHSA-7pqw-9j4j-h8q3](https://github.com/advisories/GHSA-7pqw-9j4j-h8q3) (CVE-2026-19693) and GHSA-jmr9-qjv8-65gv —
+  extract-zip 2.0.1 (npm, dev-only)**. A crafted archive plants a symlink and
+  then writes a later entry through it, escaping the destination directory
+  (path traversal, CWE-22; CVSS 8.1 for the CVE). No patched release exists
+  on npm — 2.0.1 remains the latest published version — so the mitigation is a
+  pnpm patch, `patches/extract-zip@2.0.1.patch`. It rejects absolute and
+  out-of-tree symlink targets on creation and refuses to write a regular entry
+  through an existing symlink leaf (matching upstream PR #160).
+
+  Exposure is development-only. The package enters solely through
+  `@wdio/utils -> @puppeteer/browsers`, which the dev/test toolchain uses to
+  download official browser binaries. This is tooling exposure, and the code
+  path is not used in a shipped application. Official download endpoints do
+  not replace archive containment checks. Enforcement has two layers:
+  `scripts/security/dependency-hardening.test.mjs` pins the lockfile patch
+  hash and the contract of the patch text;
+  `scripts/security/extract-zip-containment.test.mjs` builds the malicious
+  archives in memory, loads the exact module the lockfile resolves, and
+  asserts an outside canary is never touched (with positive controls so the
+  patch cannot over-block ordinary archives). Alert 46 remains open because
+  the local mitigation is not an upstream fix; alert 37 was previously
+  dismissed as a tolerable risk. Re-check on each alert review and on any `@wdio/*` or
+  `@puppeteer/browsers` upgrade. Note that a bare `pnpm audit` still reports
+  this package: its scanner does not evaluate local patch files. That is
+  expected and must not be described as an upstream fix.
 
 - **GHSA-ggr8-5vv4-36mx — deepmerge-ts 7.1.5 (npm, dev-only)**. Recursive
   object graphs can exhaust the stack. WDIO still declares the vulnerable
@@ -101,12 +131,13 @@ locally because its upstream package has not published a fixed release.
   a documented override. The resolved graph no longer contains 7.x; remove
   the override when WDIO widens its dependency range.
 
-- **GHSA-wrw7-89jp-8q8g — glib 0.18.x (cargo, desktop runtime)**.
+- **[RUSTSEC-2024-0429](https://rustsec.org/advisories/RUSTSEC-2024-0429.html) (GHSA-wrw7-89jp-8q8g) — glib 0.18.x (cargo, desktop runtime)**.
   Unsoundness in `Iterator`/`DoubleEndedIterator` impls for
   `glib::VariantStrIter`; fixed in glib 0.20.0. The whole gtk-rs 0.18 stack
   (gtk/gdk/gio/pango/atk, pulled by `tao`, `wry`, `tray-icon`, `tauri`)
-  is still pinned by Tauri 2.11.x — the latest release — so a fix is
-  blocked upstream. Exploitability here is minimal: GVariant string
-  iteration is not reachable from user-controlled IPC data (Tauri IPC uses
-  its own serialization, not GVariant). Re-evaluate when Tauri migrates to
-  the gtk-rs 0.20 line.
+  remains in the resolved Tauri 2.11.x dependency chain. Replacing this stack
+  requires a compatible upstream migration and native validation. It lives
+  in the `apps/desktop/src-tauri` workspace, not the root `crates/` graph, and
+  remains an unsoundness warning in the audit. Varve has no direct
+  `VariantStrIter` calls; that alone does not prove the absence of indirect
+  dependency exposure. Re-evaluate when Tauri adopts a compatible fixed stack.

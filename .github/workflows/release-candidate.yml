@@ -113,6 +113,22 @@ jobs:
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
+      - name: Install pinned advisory scanner (verified)
+        uses: taiki-e/install-action@9983c65e42da123ff25d1f78505eb6de315aa172
+        with:
+          tool: cargo-audit@0.22.2
+          checksum: true
+          fallback: none
+      - name: Audit production npm and both Cargo dependency graphs
+        run: node scripts/security/dependency-advisories.mjs
+      - name: Upload sanitized dependency advisory reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: varve-dependency-advisories-${{ github.run_id }}-attempt-${{ github.run_attempt }}
+          path: reports/dependency-advisories/
+          if-no-files-found: ignore
+          retention-days: 14
       - name: Validate workflows and action pins
         run: |
           node scripts/validate-workflows.mjs

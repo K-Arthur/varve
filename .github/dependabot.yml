@@ -2,7 +2,9 @@
 #
 # Ecosystem coverage:
 #   - npm/pnpm monorepo (root + apps + packages; pnpm-lock.yaml drives it)
-#   - Cargo workspace (crates/ + apps/desktop/src-tauri)
+#   - Cargo workspace (crates/ — root Cargo.lock)
+#   - Cargo workspace for the desktop app (apps/desktop/src-tauri — its own
+#     standalone workspace and Cargo.lock; tauri/wry/tao/gtk live only here)
 #   - GitHub Actions (version bumps land as full-SHA pin updates; reviewers
 #     must re-run `just pin-actions-fix`-style verification — the CI pin
 #     validator enforces the SHA format on every PR)
@@ -53,6 +55,21 @@ updates:
       time: '06:00'
       timezone: UTC
     open-pull-requests-limit: 8
+    labels:
+      - dependencies
+
+  # The Tauri app is a standalone Cargo workspace with its own Cargo.lock, so
+  # the `directory: /` entry above (root crates/) never sees tauri, wry, tao,
+  # or the gtk-rs stack. Without this entry those native dependencies — the
+  # ones that carry the glib advisory — had no update monitoring at all.
+  - package-ecosystem: cargo
+    directory: /apps/desktop/src-tauri
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: UTC
+    open-pull-requests-limit: 4
     labels:
       - dependencies
 

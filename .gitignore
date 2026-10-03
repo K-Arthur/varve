@@ -164,15 +164,19 @@ scripts/perf/dump*.mjs
 .act-secrets
 
 # --- Non-bundled downloaded ONNX models (fetched on demand; never commit) ---
-apps/desktop/public/models/*.onnx
+apps/desktop/public/models/**/*.onnx
 # MODNet portrait is a runtime download (26 MB), served from a per-model
 # directory so a local download cache cannot be committed accidentally.
 apps/desktop/public/models/modnet-portrait/
 # Grounding DINO Tiny is a 194 MB runtime download with a tokenizer sidecar.
 apps/desktop/public/models/grounding-dino/
-# YuNet is a bundled, checksum-pinned model used by face-aware crop and must
-# remain in the release payload; all other top-level ONNX files are downloads.
+# The five checksum-pinned bundled models in manifest.json remain tracked.
+# Optional downloads stay ignored; never ship a warm local model cache.
+!apps/desktop/public/models/u2netp.onnx
+!apps/desktop/public/models/realesr-general-x4v3.onnx
 !apps/desktop/public/models/yunet-face-detect.onnx
+!apps/desktop/public/models/quantized/u2netp-int8.onnx
+!apps/desktop/public/models/quantized/realesr-general-x4v3-int8.onnx
 
 # Browser-demo build output (apps/desktop/dist-try) — the bare `dist` rule
 # above does not match it, and a warm local ONNX model cache makes this
