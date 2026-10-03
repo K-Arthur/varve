@@ -29,15 +29,19 @@ referenced screenshot evidence remain eligible for explicit review and commit.
 | `.gitignore` duplicate rules | Repeated `.astro/` and `.replay-browser-results.json` entries plus narrow model/GPU rules already covered by the general ONNX and `.tmp-*` rules | Yes | Remove redundant entries while keeping generated outputs, downloads, and local diagnostics ignored by their broader canonical rules | Done |
 | `docs/plans/website-progress-tracker.md` | 533-line task tracker with stale phases, product names, download claims, and deployment status; superseded by the verified release-data and deployment runbook | Yes | Remove the obsolete tracker from the release tree and point current operations to `docs/release/website.md`; preserve the original in the release recovery archive and Git history | Done |
 | `docs/screenshots/pattern-system-2026-09-30/`, dated workspace and GPU evidence | Current feature, QA, or qualification evidence with owning docs/specs | Yes | Preserve the restored implementation and referenced evidence. The pattern directory has 38 tracked captures/exports, referenced by the pattern ownership record, validation report, architecture doc, and maintained E2E specs; no staged pattern deletion remains | Done; integrated in the pattern commits and `20ecad2ba`, with evidence refresh in `06007e102` |
+| `apps/website/public/screenshots/workflows/` (60 files, 55.6 MB) and unused `CaptureVideo.astro` | Unreferenced August UI recordings and component | Yes | Preserve dated canonical documentation media and manifests; record their exact hashes in the archive registry, preserve website copies externally, and remove unused published copies. Active workflow media still requires matching website copies | Done |
 | Dated audit screenshots and historical plans | Historical review evidence | Yes / mixed | Retain unless a filename-level reference and replacement prove supersession; do not purge by age | Reviewed; retained |
 
 Current local `install-arch.sh` and `sieve-replication/` copies are preserved
 in place and excluded by `.git/info/exclude`; they are not release inputs.
 Generated logs and reports remain covered by the existing ignore rules. The
 model ignore rule covers nested ONNX downloads, with explicit exceptions for
-the five checksum-pinned bundled weights. Optional downloaded weights remain
-in place until their owning captures finish, then move to recovery storage
-before packaging.
+the five checksum-pinned bundled weights. The 11 optional downloaded weights
+(1,046,088,264 bytes) were moved to recovery storage after their owning captures
+completed; every source and preserved copy matched its declared checksum. They
+are outside `public/` before packaging. The optional Grounding DINO tokenizer
+(231,508 bytes) is also preserved externally; its bytes match the pinned catalog
+checksum and it is no longer copied into the release by the static asset build.
 
 The broad screenshot audit previously retained 62 dated evidence captures after
 reference inspection. This release pass keeps that decision: visual evidence

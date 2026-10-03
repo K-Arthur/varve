@@ -1,20 +1,20 @@
 # Workflow capture pipeline
 
-Seven deterministic feature videos, each demonstrating one Varve workflow
-through the real application. They are separate clips on purpose: the website,
-README, docs and launch material all want a single capability at a time, not
-one long screencast.
+The workflow harness has seven registered feature commands and retains twenty
+August 2026 recordings as dated documentation history. Those older clips show
+earlier application UI and are excluded from the website release. Their original
+capture manifests and media remain unchanged.
 
 This sits alongside `scripts/screenshots/`, which captures still product
 screenshots and the single short `workflow.webm` embedded on the product page.
-That pipeline is unchanged; this one reuses its determinism contract and adds
-verification of the delivered file.
+That current product media has its own review and provenance contract; the
+historical clips are not part of its 47-scene promotion set.
 
 ## Commands
 
 ```bash
 pnpm capture:workflow <slug>                       # record one workflow
-pnpm capture:group interaction                     # record a group
+pnpm capture:group vector                          # record a group
 pnpm capture:all                                   # record all seven
 pnpm capture:encode                                # encode verified WebM masters to MP4
 pnpm capture:verify                                # verify canonical media without recording
@@ -63,19 +63,35 @@ Each produces, in `docs/screenshots/workflows/`:
 ```
 <slug>.webm            VP9
 <slug>.mp4             H.264, yuv420p, +faststart
-<slug>-poster.png      first frame of the delivered cut
+<slug>-poster.png      frame extracted from the delivered cut
 <slug>.capture.json    manifest: commit, fixture, durations, assertions, verification
 ```
 
-Website copies land in `apps/website/public/screenshots/workflows/`. That
-subdirectory matters: `scripts/screenshots/validate.mjs` treats any loose PNG
-directly in `public/screenshots/` as an orphan.
+`docs/screenshots/workflows/archive.json` explicitly records the twenty dated
+archive clips and the existing SHA-256 hashes of their manifests, WebM, MP4 and
+posters. Archived clips must keep those exact canonical bytes and must have no
+copies in `apps/website/public/screenshots/workflows/`. These hashes preserve
+historical file identity; they do not add missing original clean-state or source
+input receipts, certify current behavior, or turn a local debug build into a
+published installer.
 
-`pnpm capture:verify` checks each canonical clip before release: WebM/MP4 are
-warned at 5 MB and rejected at 10 MB, posters are warned at 1 MB and rejected
-at 2 MB, every poster is 1440×900, and canonical and website copies must be
-byte-identical. GIF workflow outputs are rejected; use the WebM master and the
-MP4 fallback instead. The canonical workflow set has a 60 MB ceiling.
+Unlisted clips are active deliverables. `pnpm capture:verify` requires all three
+website copies for each active clip and checks that they are byte-identical to
+its canonical media. A missing or invalid archive registry fails verification;
+missing active copies are never treated as archived automatically. Removing an
+archive entry makes that clip active again and requires a newly reviewed current
+capture and website use. Recording or encoding an archived slug is rejected
+before directories, browsers or media encoders start. The recording harness, native Linux capture
+and MP4 encoder reload the archive decision before replacing canonical files.
+Review a deliberate publication decision first; do not rerun a dated archive
+and discover changed hashes after its original files have been overwritten.
+
+Both archived and active media retain the existing codec, duration, verification,
+PNG dimension and size checks: WebM/MP4 are warned at 5 MB and rejected at 10 MB,
+posters are warned at 1 MB and rejected at 2 MB, every poster is 1440×900, and
+GIF outputs are rejected. The canonical workflow set retains its 60 MB ceiling.
+The publication-policy regression fixtures run without recording or probing media:
+`node --test scripts/capture/core/publication.test.mjs`.
 
 ## Product truth
 

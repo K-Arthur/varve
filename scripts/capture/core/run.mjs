@@ -22,6 +22,7 @@ import { chromium } from '@playwright/test';
 import { SEED_FIRST_RUN_STATE } from './editor.mjs';
 import { hasFfmpeg, posterFrom, probe, toMp4, toWebm } from './ffmpeg.mjs';
 import { writeManifest } from './manifest.mjs';
+import { assertActiveWorkflow, loadArchive } from './publication.mjs';
 import { capturePort, startServer, stopServer } from './server.mjs';
 import { frameFindings, sampleFrames, verifyClip } from './verify.mjs';
 
@@ -96,6 +97,7 @@ function privacyFindings(text, label) {
  *        starts there. Returns the product assertions it verified.
  */
 export async function capture(spec) {
+  assertActiveWorkflow(loadArchive(join(OUT_DIR, 'archive.json')), spec.slug);
   const args = process.argv.slice(2);
   const keepSource = args.includes('--keep-source');
   const skipMp4 = args.includes('--no-mp4');
@@ -375,6 +377,7 @@ export async function capture(spec) {
     );
 
     if (verification.pass) {
+      assertActiveWorkflow(loadArchive(join(OUT_DIR, 'archive.json')), spec.slug);
       const lock = join(OUT_DIR, `.${spec.slug}.publish.lock`);
       try {
         mkdirSync(lock);

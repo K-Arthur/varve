@@ -1,12 +1,14 @@
 #!/usr/bin/env node
-/** Verify every shipped workflow deliverable without recording another run. */
+/** Verify canonical archives and active website workflows without recording another run. */
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { probe } from './core/ffmpeg.mjs';
+import { archiveInventoryFindings, loadArchive, publicationFindings } from './core/publication.mjs';
 
 const root = join(import.meta.dirname, '..', '..');
 const out = join(root, 'docs', 'screenshots', 'workflows');
 const publicOut = join(root, 'apps', 'website', 'public', 'screenshots', 'workflows');
+const archive = loadArchive(join(out, 'archive.json'));
 const slugs = readdirSync(out)
   .filter((fileName) => fileName.endsWith('.capture.json'))
   .map((fileName) => fileName.slice(0, -'.capture.json'.length))
@@ -47,21 +49,8 @@ function checkPng(slug, path) {
   }
 }
 
-function checkWebsiteCopy(slug, fileName, canonicalPath) {
-  const publicPath = join(publicOut, fileName);
-  if (!existsSync(publicPath)) {
-    console.error(`[${slug}] website copy missing ${fileName}`);
-    failed = true;
-    return;
-  }
-  if (!readFileSync(canonicalPath).equals(readFileSync(publicPath))) {
-    console.error(`[${slug}] website copy differs from canonical ${fileName}`);
-    failed = true;
-  }
-}
-
 for (const dir of [out, publicOut]) {
-  for (const fileName of readdirSync(dir)) {
+  for (const fileName of existsSync(dir) ? readdirSync(dir) : []) {
     if (fileName.endsWith('.gif')) {
       console.error(`[media] GIF workflow output is not allowed: ${join(dir, fileName)}`);
       failed = true;
@@ -71,6 +60,10 @@ for (const dir of [out, publicOut]) {
 
 if (slugs.length === 0) {
   console.error(`[media] no capture manifests found in ${out}`);
+  failed = true;
+}
+for (const finding of archiveInventoryFindings(archive, slugs)) {
+  console.error(`[media] ${finding}`);
   failed = true;
 }
 
@@ -91,10 +84,12 @@ for (const slug of slugs) {
   checkBudget(slug, 'MP4', mp4Path, VIDEO_WARN, VIDEO_FAIL);
   checkBudget(slug, 'poster', posterPath, POSTER_WARN, POSTER_FAIL);
   checkPng(slug, posterPath);
-  checkWebsiteCopy(slug, `${slug}.webm`, webmPath);
-  checkWebsiteCopy(slug, `${slug}.mp4`, mp4Path);
-  checkWebsiteCopy(slug, `${slug}-poster.png`, posterPath);
-  const findings = [];
+  const findings = publicationFindings({
+    slug,
+    canonicalDir: out,
+    websiteDir: publicOut,
+    archive,
+  });
   if (webm.codec !== 'vp9') findings.push(`webm codec ${webm.codec}`);
   if (mp4.codec !== 'h264') findings.push(`mp4 codec ${mp4.codec}`);
   if (webm.width !== 1440 || webm.height !== 900)
@@ -134,7 +129,8 @@ for (const slug of slugs) {
     console.error(`[${slug}] ${findings.join('; ')}`);
     failed = true;
   } else {
-    console.log(`[${slug}] OK ${webm.duration.toFixed(2)}s, 1440x900, 30fps`);
+    const status = Object.hasOwn(archive.clips, slug) ? 'ARCHIVE OK' : 'PUBLISHED OK';
+    console.log(`[${slug}] ${status} ${webm.duration.toFixed(2)}s, 1440x900, 30fps`);
   }
 }
 if (canonicalBytes > TOTAL_FAIL) {

@@ -1,0 +1,166 @@
+{
+  "schemaVersion": 1,
+  "reason": "August 2026 workflow recordings retained as dated documentation history. No active website page imports these clips; current product media is reviewed separately.",
+  "clips": {
+    "60-seconds-inside-varve": {
+      "manifestSha256": "5057b7e15ed96e7874a7214b6c88799c1a9d9cb5c47e055301ff82f1968f6473",
+      "assets": {
+        "webm": "bd3d1c714b41a9c30a1e9baf68b1e4e176052c0b7fa937aa1464e2c16ceba535",
+        "mp4": "86ef2cfab28a82b41a716a6f251bb8fc128dafc5207c226e5c81d960c4e0ec51",
+        "poster": "d87aefcaf59bd90a6d5212588b1a52e3a3d39c3207b52505c499cc025fff3624"
+      }
+    },
+    "auto-layout": {
+      "manifestSha256": "34f8b5256a534e03631c00afadebbd50570a4b6da99372fccd5b76f6c9583f70",
+      "assets": {
+        "webm": "a692f856e3b61a0d6724bac7fdfa8116e4a6cddfbe79f9b8767fdd835c4e6aa1",
+        "mp4": "88ec828f8df0baf3e901795d5d9574d5116541c115dc4c9042ead0fc14e33d69",
+        "poster": "427381bdf014e49b8eab0aead5cb3227c93212e14fc6ee990edc82d6e28f382b"
+      }
+    },
+    "background-removal": {
+      "manifestSha256": "3e950d7215f54de3925e6e33e23ad6b22d015945c1a94200ad6b71c8e16cb47c",
+      "assets": {
+        "webm": "e4403ff41f015f8123172d675c49c658d045af701bb16b71bef9563c4b846fa2",
+        "mp4": "31985ccf29c36261be6671dc2bce9ba12d95b70e6d3e5c0bdaf559077b832da1",
+        "poster": "188b58c99ca7e888cc3512a4a6740d8986ab37247eee6d521fdbf1dec7f97edf"
+      }
+    },
+    "bezier-node-edit": {
+      "manifestSha256": "0ff1eb7d85cfe814e34695c40053291fbadd8f07e64bcd6b64638b98249523e4",
+      "assets": {
+        "webm": "cd174c33e91e3c30b060dbae56800686821e8352a02165492f48d3bc295a4927",
+        "mp4": "979bc1e35f6b4b7101f8342142094c94a834be0bb35a1a9a06a3a8139336cd22",
+        "poster": "17bc545bb4e843c7185532aef88390b7cf18a46bee0b9ffd7509ea2d3f386a04"
+      }
+    },
+    "component-variants": {
+      "manifestSha256": "78754a6aad426a3dd60b0d5d7de08454538e16c9677e8dd7c071a83f7e502aea",
+      "assets": {
+        "webm": "780cb37c136936e57798e24f59e61569fcbe2b6f7e75b19ec1d7ff508ff62981",
+        "mp4": "93d69e0a0c65420dbdc91234c315194d311068310577bcdd5fb1c131e76a78a4",
+        "poster": "dd56e20ac273d2dfff6dfd043b432043aad9696d53cb1a2c3e1feb84b0b4b12b"
+      }
+    },
+    "current-limitations": {
+      "manifestSha256": "9d13fc5252dd7ae8a964420d5b365ce388eb9fb8e9002e1768a95f68bbdc01f4",
+      "assets": {
+        "webm": "54d91d6374fd9650f81f8d44f175eafc4a82cf801916a3f44b584b4a0eddb780",
+        "mp4": "83f4c6e2f944dd2ef37dca235a27149a1606c255b11e4bba020e387e80918f95",
+        "poster": "fea85e7001ea9821826d7eb316ed21d82208837a3cc60309eb589b6ab351244b"
+      }
+    },
+    "effects-stack": {
+      "manifestSha256": "6e85d2ec89bde0c6cac43399ab2a7dbd46eea0541f91e99128bc11f5f78b0ec4",
+      "assets": {
+        "webm": "f3dea810a28b9c58196825eb34ac4eeae93142f5ae050714296caefd67cfa01f",
+        "mp4": "d0927c8aade99b5f0ec1fb99e63f6bec0197341ece3282645c19229c0cc99876",
+        "poster": "e93bade7d97ecedcbbf0f6cad63a7ac3c469b9daa49c53253f3b2f00233fefc3"
+      }
+    },
+    "export-react": {
+      "manifestSha256": "d7fc09d52182ea1174a8907bd29663e6e5678a0c1992660b9d81c15b10b2768e",
+      "assets": {
+        "webm": "6b1ad6cd4fe0b575babbed753d2517c4b8b5d0e5c1562ea96e6e347dc053b1b3",
+        "mp4": "32db2cdada0c0f178dca8ac1667ad148e43116d503f215d15a4f276ba852a0d9",
+        "poster": "89b912c390df7a86e1536515fa8ded11638e3b34f5d72745472fef21799ac5f2"
+      }
+    },
+    "export-svg": {
+      "manifestSha256": "170cb9e8a510825e9b6065038d034ffd22ce68448b5eda88a64e363c6695d0cf",
+      "assets": {
+        "webm": "a92af320acf4ef7d5ba8b21e736c5d616b029e87040bc20e1513a797c7cc15ca",
+        "mp4": "706792089fca5e2442c152f871d77f1b2840fe715f752ea3a316f819bbb1633d",
+        "poster": "21119d775069897dd79c9204f4b4cbd71dfb08ab4a7d4ac06462974662968dbf"
+      }
+    },
+    "light-dark-ui": {
+      "manifestSha256": "90848bf14088ba0fe4ea49ab8d3d42e9defbc69fb7aa2fc410ac21010162cf9e",
+      "assets": {
+        "webm": "0f418e118e6ccece1fc9314f2eb75be9f5a76b5d52a164ea41c1041138b10620",
+        "mp4": "05e21f0ccf8f2bd4ec7f3dfa9246aa08476b8e50a5969934223e6ae5c18e5f51",
+        "poster": "dd4e6a7f4ca12aceebda25cf2cc10f800732bd2297f5ad9e4b2549809695f0ea"
+      }
+    },
+    "linux-first-document": {
+      "manifestSha256": "5c4681a45e12a25e7218104df1e0cb9d9d9ea4ebdc18d927a6b2d966d73dd626",
+      "assets": {
+        "webm": "0dd298d03eb8cc19956172bb18ea712a3e662a107fd274504527324ee1d37e07",
+        "mp4": "6d8ba12efd01b48bc7c573904666f806837837dbe404f0da18d6a582933f4a50",
+        "poster": "ac6957e7273da9ad5e14c175b7d9d02118367592d78818fb289d81f561aa610e"
+      }
+    },
+    "motion-timeline": {
+      "manifestSha256": "31953e8f37d10c56c1ed098cbd749ffa6e52b382a5d97e42cdc03c416e432688",
+      "assets": {
+        "webm": "dd5718b9bb41979083934ec3da7d476984b03574311957569dbbfef9323f40c8",
+        "mp4": "e0e00d68762e3287d407417976021b0a2cb7199e268fc12ba703293d7681b8de",
+        "poster": "8e048be90c7f8f279a9a7a4f60cee9be36fd225e29626e111e26384b27f94c59"
+      }
+    },
+    "poster-to-print": {
+      "manifestSha256": "358bf50ae6b7181e8dfb19640dbf932a029e81f0a7e413f10b072d0f11f9bb02",
+      "assets": {
+        "webm": "cf7991f160da924af0cf1df389fe406d60b7fcb7126fd1bbd20f75c8e446c73f",
+        "mp4": "dc188884e7873b74f8864376e93aaba7a3955ca65893b96642d682fa9926b5ae",
+        "poster": "967f59f75f58733ea8745909c20342f3c0c21f48eb07916fa4e14dadb184f299"
+      }
+    },
+    "prototype-interaction": {
+      "manifestSha256": "51cb0cbcbf45a92b8c08bd8607cb0d778509a77b724b3d9c53ee51476ed92c15",
+      "assets": {
+        "webm": "07ca499eadd92ffa97679129c68c858982480613d45afa06f9cbe0f1697e4ba1",
+        "mp4": "4d174b208f031cad511fd188163aa9fce19dfb4b5cb975e3b07dcdc63e415e6f",
+        "poster": "e880c990d2e0cb5bf24bad0f9feb40e57c52e624d0dc925f12b2ec00c19af393"
+      }
+    },
+    "raster-to-vector": {
+      "manifestSha256": "e68f602703f0d709f4e398c3a79c3a1f16d3e6e1e846f407b9b17b9a1b0ae704",
+      "assets": {
+        "webm": "3fc5a2e4208915185e00528f507158a82fc5b795e8811e5d2a5b75c1d8942a3d",
+        "mp4": "1f25e88ff51d96fa2eabdc315b08c2667b049af2c1aad13fe70b06fca7b9939e",
+        "poster": "eb71ac16ddb9e766a5b3da5e74bdce76fc189b17b6bcce07dd0f2d3c0bbaf393"
+      }
+    },
+    "render-one-frame": {
+      "manifestSha256": "0bad3780b3fccf48123ef46c10bb0f14dc3114fd830594aa5d030024f5a05e0c",
+      "assets": {
+        "webm": "372a8e051f4135d935d1ebe0b984eba7405f65a054a852060ef1003e1e75fd3b",
+        "mp4": "63f34b44195865bdf99761f581aae006c0bc1950f9d14dc3a21a59073f3e6032",
+        "poster": "56e8f7d799e3dfe25cd965f1f8f619dd1965c61df03894b02ca55379f815e60f"
+      }
+    },
+    "rgb-to-cmyk": {
+      "manifestSha256": "11797db6381c3f7af4416f85214dcd846a7f8ecfecec127762c83d683b9288a5",
+      "assets": {
+        "webm": "c7c11448b5b62579d20c5d313baa93073c1b7eb4b4c32f679f1a8568e27a3fe5",
+        "mp4": "4ee85f7b1719136beceaf3a4a08f4450e9380e49db28be37a2156900d04d7700",
+        "poster": "7440020482dbfd596cad6e54df92eeaf9dfcd8aeb347f31379c907dadf7b29d1"
+      }
+    },
+    "smart-animate": {
+      "manifestSha256": "23f26df43165e0aee687b09328d7394cba66a848ba3157bf1dc6f81e070ae9d8",
+      "assets": {
+        "webm": "93fb7400a76f10c465d885a2c7fa171b0a26d5dc9a8e221bd13caefa2a9088a3",
+        "mp4": "532c325d130ca6d6302cf1baecd44f267d40753882b3d47b10637277cce4c20c",
+        "poster": "72dbe69ecf2d7105b2a1828a44c13c7a03337a33a1ae627c761782d4eea79b86"
+      }
+    },
+    "text-on-path": {
+      "manifestSha256": "4826db1a1b29e04f63208480efc16d2aa7ab3bb190938eb867fc2087a9f6bdfb",
+      "assets": {
+        "webm": "46820f00aa7837b4cfa765808ac4b4e34268ea2bc68219329d7f999c67e07dd8",
+        "mp4": "4e8fa4283a82a25f2ad2fdc4f25b8c675f6c2df46266a5b3815752efa93ec21a",
+        "poster": "7c173a67ded8eac5cfa8c6dad2db7b564a78ec29c7aa8d55c6c5a6a26d651063"
+      }
+    },
+    "variable-font": {
+      "manifestSha256": "54f711596869b3cfd46d8a667fa6651acc990abd0d6a5cd87951e5e73c282675",
+      "assets": {
+        "webm": "9b526aabc95c5441bd1f1371b44b412ecabff18d44dbfd2912651cf6606bf149",
+        "mp4": "5b206968e64c7250e92f738505b3a615f9ffa19e7ddc65bdf8f9091bbfbe28fc",
+        "poster": "6ff9bbf6afea8148cf4449f2394425dd52b000288bc07bec47758bc5e734e5df"
+      }
+    }
+  }
+}

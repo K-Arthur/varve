@@ -19,10 +19,13 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 import { hasFfmpeg, posterFrom, probe, toMp4, toWebm } from './core/ffmpeg.mjs';
+import { assertActiveWorkflow, loadArchive } from './core/publication.mjs';
 import { ROOT } from './core/run.mjs';
 import { frameFindings, sampleFrames, verifyClip } from './core/verify.mjs';
 
 const slug = 'linux-first-document';
+const archivePath = join(ROOT, 'docs', 'screenshots', 'workflows', 'archive.json');
+assertActiveWorkflow(loadArchive(archivePath), slug);
 const binary = process.env.VARVE_DESKTOP_BINARY
   ? process.env.VARVE_DESKTOP_BINARY
   : join(ROOT, 'apps', 'desktop', 'src-tauri', 'target', 'debug', 'varve-desktop');
@@ -244,6 +247,7 @@ try {
     ],
     verification,
   };
+  assertActiveWorkflow(loadArchive(archivePath), slug);
   const manifestPath = join(stage, `${slug}.capture.json`);
   const lock = join(outDir, `.${slug}.publish.lock`);
   mkdirSync(lock);

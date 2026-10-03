@@ -11,6 +11,7 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 import { probe, toMp4 } from './core/ffmpeg.mjs';
+import { assertActiveWorkflow, loadArchive } from './core/publication.mjs';
 
 const root = join(import.meta.dirname, '..', '..');
 const out = join(root, 'docs', 'screenshots', 'workflows');
@@ -24,6 +25,8 @@ const slugs = [
   'text-on-path',
   'export-svg',
 ];
+const archivePath = join(out, 'archive.json');
+for (const slug of slugs) assertActiveWorkflow(loadArchive(archivePath), slug);
 const stage = join(root, `.capture-tmp-encode-${process.pid}-${Date.now()}`);
 mkdirSync(stage, { recursive: true });
 
@@ -73,6 +76,7 @@ try {
       copyFileSync(source, temporary);
       renameSync(temporary, destination);
     };
+    assertActiveWorkflow(loadArchive(archivePath), slug);
     publish(mp4Stage, join(out, `${slug}.mp4`));
     publish(manifestStage, manifestPath);
     mkdirSync(publicOut, { recursive: true });
