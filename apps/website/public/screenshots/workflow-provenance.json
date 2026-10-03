@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-10-03T00:39:45.460Z",
+  "provenance": {
+    "sourceRevision": "64d461b7bdee49acef7293dfa011f1c541a1b448",
+    "sourceDirty": false,
+    "sourceDigest": "b734abd2b453a0ce2114ee5180882da4387abd02b52e786ea4729fed2babe1f0"
+  },
+  "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "deviceScaleFactor": 1,
+  "theme": "light",
+  "files": [
+    {
+      "file": "workflow.webm",
+      "sha256": "b1e6f077139df7da077d67158608e2897c527b89ade10e6eb124d14e8ad7b8ac",
+      "bytes": 534442
+    },
+    {
+      "file": "workflow.mp4",
+      "sha256": "b8b9c706741d3d2033adb226d954a7315e8d9f8d4c79b26915e408e989aa95ae",
+      "bytes": 462266
+    },
+    {
+      "file": "workflow-poster.png",
+      "sha256": "baa75255699c5fe4c355d8c0801f4b8dbeb5ea41cbeb9f4b484593d085b76e7f",
+      "bytes": 463951
+    }
+  ]
+}

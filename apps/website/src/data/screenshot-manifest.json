@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
-  "note": "GENERATED FILE — do not hand-edit. Written by scripts/screenshots/product.mjs and validated by scripts/screenshots/validate.mjs. Each scene maps one canonical screenshot consumed by the website and documentation. status: 'captured' when the pipeline produced the file, 'skipped' when the scene could not be produced (reason required).",
-  "generatedAt": "2026-10-02T03:20:02.419Z",
+  "note": "GENERATED FILE — reviewed mixed-source assembly; no new capture. Top-level identity records the assembly revision and input digest. Each scene retains its genuine capture revision, timestamp, hash, browser and clean-state provenance, which remain authoritative for its pixels.",
+  "generatedAt": "2026-10-03T00:56:27.187Z",
   "scenes": {
     "workspace": {
       "file": "workspace-light.png",
@@ -10,13 +10,30 @@
       "feature": "home-showcase",
       "theme": "light",
       "status": "captured",
-      "lastValidatedAgainst": null,
+      "lastValidatedAgainst": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
       "width": 1440,
       "height": 900,
-      "sha256": "121c56bd2d810c112de32c09c36874e9837d2e48bef7736801c77fdbc0a8b9d2",
+      "sha256": "8489dbac476fb8ff2daff830f140cc6ecdb18cd453b2457f80f184c39676b833",
       "kind": "full",
       "scale": 1,
-      "provenanceUnknown": true
+      "provenanceUnknown": false,
+      "capturedAt": "2026-10-02T20:48:19.529Z",
+      "provenance": {
+        "sourceRevision": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+        "sourceDirty": false,
+        "sourceDigest": "114266b51fd367b0f68eecfc8c435e9db8ed3206ff0c1efb925f238ed434f550",
+        "runId": "2026-10-02T20-47-38-726Z-738590",
+        "runtime": "chromium-headless (web)",
+        "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "deviceScaleFactor": 1,
+        "theme": "light",
+        "promotedFrom": "release-0.5.0-combined-review",
+        "promotedAt": "2026-10-03T00:56:27.153Z"
+      }
     },
     "workspace-dark": {
       "file": "workspace-dark.png",
@@ -25,13 +42,30 @@
       "feature": "home-showcase",
       "theme": "dark",
       "status": "captured",
-      "lastValidatedAgainst": null,
+      "lastValidatedAgainst": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
       "width": 1440,
       "height": 900,
-      "sha256": "b96635620a4066dd331d5af9c7940b16f9241323fed44d4ca93bfb31d48a44b7",
+      "sha256": "5e47e9ad5de1ebd5cbd7f6155535e64c1d5b7e92173e292e780035b96b211cdf",
       "kind": "full",
       "scale": 1,
-      "provenanceUnknown": true
+      "provenanceUnknown": false,
+      "capturedAt": "2026-10-02T20:48:33.902Z",
+      "provenance": {
+        "sourceRevision": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+        "sourceDirty": false,
+        "sourceDigest": "114266b51fd367b0f68eecfc8c435e9db8ed3206ff0c1efb925f238ed434f550",
+        "runId": "2026-10-02T20-47-38-726Z-738590",
+        "runtime": "chromium-headless (web)",
+        "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "deviceScaleFactor": 1,
+        "theme": "dark",
+        "promotedFrom": "release-0.5.0-combined-review",
+        "promotedAt": "2026-10-03T00:56:27.161Z"
+      }
     },
     "vector": {
       "file": "vector-light.png",
@@ -41,23 +75,40 @@
       "theme": "light",
       "status": "captured",
       "width": 832,
-      "height": 620,
-      "lastValidatedAgainst": null,
-      "sha256": "a15630994ced57e748d30e7d92730fac381a6a346e023b8332f68b39b8feed7b",
+      "height": 701,
+      "lastValidatedAgainst": "64d461b7bdee49acef7293dfa011f1c541a1b448",
+      "sha256": "c8f2ac393c0222eddcb8476e65867be2b70a2a436e0aaa423ce119cc3ec17a6b",
       "kind": "detail",
       "crop": {
-        "x": 288,
-        "y": 100,
+        "x": 316,
+        "y": 145,
         "width": 832,
-        "height": 620
+        "height": 701
       },
       "scale": 1,
-      "provenanceUnknown": true
+      "provenanceUnknown": false,
+      "capturedAt": "2026-10-03T00:38:22.375Z",
+      "provenance": {
+        "sourceRevision": "64d461b7bdee49acef7293dfa011f1c541a1b448",
+        "sourceDirty": false,
+        "sourceDigest": "b734abd2b453a0ce2114ee5180882da4387abd02b52e786ea4729fed2babe1f0",
+        "runId": "2026-10-03T00-37-55-525Z-1069424",
+        "runtime": "chromium-headless (web)",
+        "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "deviceScaleFactor": 1,
+        "theme": "light",
+        "promotedFrom": "release-0.5.0-combined-review",
+        "promotedAt": "2026-10-03T00:56:27.165Z"
+      }
     },
     "comic-lettering": {
       "file": "comic-lettering-light.png",
-      "alt": "A speech balloon selected in Varve with editable dialogue and the Comic balloon inspector showing fit, line-shape, and tail controls",
-      "caption": "Editable comic lettering with contour-aware wrapping and tail controls",
+      "alt": "A selected speech balloon in Varve with editable dialogue and one continuous outer outline joining the body to its tail",
+      "caption": "Editable comic lettering with a joined body and tail outline",
       "feature": "comic-lettering",
       "theme": "light",
       "kind": "full",
@@ -69,25 +120,25 @@
         "width": 1280,
         "height": 720
       },
-      "lastValidatedAgainst": "304f233b115fed1fc42a6c708eee0ba1d285c85e",
+      "lastValidatedAgainst": "b6fe7591409857c23bf8cf6bece419d65bbd9586",
       "provenanceUnknown": false,
-      "sha256": "7328674432a188f3e876d2ceb6faa0498ebbf59cf0e2ca8ae92e63d7635415cb",
-      "capturedAt": "2026-10-02T03:18:20.751Z",
+      "sha256": "a5ad6aa8b80113d313bf4f0539dc6f11cb83a3dff96ce40f8103b074b83eb5aa",
+      "capturedAt": "2026-10-02T20:21:52.154Z",
       "provenance": {
-        "runId": "release-comic-clean",
-        "runtime": "Chromium headless Playwright E2E",
-        "captureTool": "Playwright 1.62.1 / Chromium revision 1234",
-        "sourceRevision": "304f233b115fed1fc42a6c708eee0ba1d285c85e",
+        "sourceRevision": "b6fe7591409857c23bf8cf6bece419d65bbd9586",
         "sourceDirty": false,
-        "sourceDigest": "36ceb5ae9421141c0ae02bf8d4f1a3f15926c6076672b92b9dd1b9b6c768630f",
+        "sourceDigest": "690280443d33ce1fbed81e98a72d6bc791afb284538ca157682e917d65a0019d",
+        "runId": "test-results/release-0.5.0-refresh-b6fe759140-owners/canvas-comic-lettering-Com-147e2-ble-balloon-and-reviews-fit-chromium",
+        "runtime": "chromium Playwright E2E",
+        "captureTool": "Playwright 1.62.1 / chromium 151.0.7922.34",
         "viewport": {
           "width": 1280,
           "height": 720
         },
         "deviceScaleFactor": 1,
         "theme": "light",
-        "promotedFrom": "2026-10-02T03-18-45-004Z-4126830",
-        "promotedAt": "2026-10-02T03:20:02.419Z"
+        "promotedFrom": "release-0.5.0-combined-review",
+        "promotedAt": "2026-10-03T00:56:27.179Z"
       }
     },
     "typography": {
@@ -97,40 +148,68 @@
       "feature": "typography",
       "theme": "light",
       "status": "captured",
-      "lastValidatedAgainst": null,
+      "lastValidatedAgainst": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
       "width": 832,
-      "height": 620,
-      "sha256": "3856eb666ebb79fb89db4506bfbd67fa6fc127a19371d5e02a84b50bc0df4b8e",
+      "height": 724,
+      "sha256": "654a60e149d057f2440374e47a59ae04eb5e2b2b3d218f6abf33280a5fb8786f",
       "kind": "detail",
       "crop": {
-        "x": 288,
-        "y": 100,
+        "x": 316,
+        "y": 122,
         "width": 832,
-        "height": 620
+        "height": 724
       },
       "scale": 1,
-      "provenanceUnknown": true
+      "provenanceUnknown": false,
+      "capturedAt": "2026-10-02T20:50:16.435Z",
+      "provenance": {
+        "sourceRevision": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+        "sourceDirty": false,
+        "sourceDigest": "114266b51fd367b0f68eecfc8c435e9db8ed3206ff0c1efb925f238ed434f550",
+        "runId": "2026-10-02T20-47-38-726Z-738590",
+        "runtime": "chromium-headless (web)",
+        "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "deviceScaleFactor": 1,
+        "theme": "light",
+        "promotedFrom": "release-0.5.0-combined-review",
+        "promotedAt": "2026-10-03T00:56:27.165Z"
+      }
     },
     "motion": {
       "file": "motion-dark.png",
-      "alt": "The Varve timeline panel with a track for the selected layer",
-      "caption": "The timeline panel in the motion workspace",
+      "alt": "The Varve Motion workspace with the poster document above an editable position track and keyframe in the shared timeline",
+      "caption": "Author position tracks and keyframes in the Motion workspace beside the same document.",
       "feature": "motion",
       "theme": "dark",
       "status": "captured",
-      "lastValidatedAgainst": null,
+      "lastValidatedAgainst": "e4d2d2de9b6467e88977e11a410267f095a3bd77",
       "width": 1440,
-      "height": 264,
-      "sha256": "4eb76efbe018ff9b0865deb1c6ab6b73ac22f423c8ed40e8d52ba96ed81a0f14",
-      "kind": "wide",
-      "crop": {
-        "x": 0,
-        "y": 636,
-        "width": 1440,
-        "height": 264
-      },
+      "height": 900,
+      "sha256": "3410156d734e334573bfb16bb0ceadcfe3a877328c2b6645ab2ea24b9bce8c2b",
+      "kind": "full",
       "scale": 1,
-      "provenanceUnknown": true
+      "provenanceUnknown": false,
+      "capturedAt": "2026-10-03T00:52:05.936Z",
+      "provenance": {
+        "sourceRevision": "e4d2d2de9b6467e88977e11a410267f095a3bd77",
+        "sourceDirty": false,
+        "sourceDigest": "463feb0646872a12c1acd814bc5b69ac82bfc31b430aa95929aa4ba4faa8ce6a",
+        "runId": "2026-10-03T00-51-37-970Z-1086222",
+        "runtime": "chromium-headless (web)",
+        "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "deviceScaleFactor": 1,
+        "theme": "dark",
+        "promotedFrom": "release-0.5.0-combined-review",
+        "promotedAt": "2026-10-03T00:56:27.169Z"
+      }
     },
     "layout": {
       "file": "layout-light.png",
@@ -139,13 +218,30 @@
       "feature": "layout",
       "theme": "light",
       "status": "captured",
-      "lastValidatedAgainst": null,
+      "lastValidatedAgainst": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
       "width": 1440,
       "height": 900,
-      "sha256": "2625b37f676e9367a7b867c499d48f10727678dcd1ffc0f6ca29b67bb4bc8c58",
+      "sha256": "42150c091e37f536088a2afaba5c2de1649be37d38d35d252c4ab402198b2b36",
       "kind": "full",
       "scale": 1,
-      "provenanceUnknown": true
+      "provenanceUnknown": false,
+      "capturedAt": "2026-10-02T20:51:14.236Z",
+      "provenance": {
+        "sourceRevision": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+        "sourceDirty": false,
+        "sourceDigest": "114266b51fd367b0f68eecfc8c435e9db8ed3206ff0c1efb925f238ed434f550",
+        "runId": "2026-10-02T20-47-38-726Z-738590",
+        "runtime": "chromium-headless (web)",
+        "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "deviceScaleFactor": 1,
+        "theme": "light",
+        "promotedFrom": "release-0.5.0-combined-review",
+        "promotedAt": "2026-10-03T00:56:27.168Z"
+      }
     },
     "typography-panel": {
       "file": "typography-panel-light.png",
@@ -154,19 +250,36 @@
       "feature": "typography",
       "theme": "light",
       "status": "captured",
-      "lastValidatedAgainst": null,
-      "width": 320,
-      "height": 722,
-      "sha256": "a71be39a896ba3f0441560b65ec3b1452d0648532f898971cc32c607bafd155b",
+      "lastValidatedAgainst": "66ea9476e05768bef3a5bcab93252068ce82b809",
+      "width": 293,
+      "height": 692,
+      "sha256": "3fe3d92e169621dee392b3de94bc1772d38cf7380c8476e7c0a3f505db2a421f",
       "kind": "panel",
       "crop": {
-        "x": 1120,
-        "y": 122,
-        "width": 320,
-        "height": 722
+        "x": 1147,
+        "y": 153,
+        "width": 293,
+        "height": 692
       },
       "scale": 1,
-      "provenanceUnknown": true
+      "provenanceUnknown": false,
+      "capturedAt": "2026-10-02T22:54:31.270Z",
+      "provenance": {
+        "sourceRevision": "66ea9476e05768bef3a5bcab93252068ce82b809",
+        "sourceDirty": false,
+        "sourceDigest": "d0fcdd4a86df85780dcaca8e64b848f3f5bae9187fd7c1ad6e224d9724d6a98f",
+        "runId": "2026-10-02T22-54-04-186Z-874041",
+        "runtime": "chromium-headless (web)",
+        "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "deviceScaleFactor": 1,
+        "theme": "light",
+        "promotedFrom": "release-0.5.0-combined-review",
+        "promotedAt": "2026-10-03T00:56:27.165Z"
+      }
     },
     "layers": {
       "file": "layers-light.png",
@@ -176,41 +289,71 @@
       "theme": "light",
       "status": "captured",
       "width": 317,
-      "height": 640,
-      "lastValidatedAgainst": "85ae7714588e6e3827ed6437f48dd4d519684a05",
-      "sha256": "f456acb00c03e5eb39742e3853c04767c75ec3b367c301acaaed1f01d349db20",
+      "height": 539,
+      "lastValidatedAgainst": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+      "sha256": "977652f96cbe4a9bd25b8d4375d644429c4c41684b0863a641a0bc6d780d1a7b",
       "kind": "panel",
       "crop": {
         "x": 0,
-        "y": 472,
+        "y": 569,
         "width": 317,
-        "height": 640
+        "height": 539
       },
       "scale": 1,
       "viewport": {
         "width": 1440,
         "height": 1200
       },
-      "capturedAt": "2026-09-29T09:47:24.867Z",
+      "capturedAt": "2026-10-02T20:51:25.767Z",
       "provenance": {
-        "promotedFrom": "2026-09-29T09-46-42-693Z-717123",
-        "promotedAt": "2026-09-29T09:47:52.890Z"
-      }
+        "sourceRevision": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+        "sourceDirty": false,
+        "sourceDigest": "114266b51fd367b0f68eecfc8c435e9db8ed3206ff0c1efb925f238ed434f550",
+        "runId": "2026-10-02T20-47-38-726Z-738590",
+        "runtime": "chromium-headless (web)",
+        "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
+        "viewport": {
+          "width": 1440,
+          "height": 1200
+        },
+        "deviceScaleFactor": 1,
+        "theme": "light",
+        "promotedFrom": "release-0.5.0-combined-review",
+        "promotedAt": "2026-10-03T00:56:27.168Z"
+      },
+      "provenanceUnknown": false
     },
     "palette-inspector": {
       "file": "palette-inspector-light.png",
-      "alt": "Varve showing a NASA Earth-observation photo on the canvas with the Palette Inspector open, including extracted swatches, generated harmonies, and WCAG contrast pairs",
-      "caption": "Extract an image palette, explore derived harmonies, and review contrast pairs in the Inspector.",
+      "alt": "Varve showing a NASA Earth-observation photo beside its extracted palette, with HEX swatches and controls to save swatches or color tokens",
+      "caption": "Extract an image palette locally, review the swatches, and save colors for reuse.",
       "feature": "color-effects",
       "theme": "light",
       "status": "captured",
-      "lastValidatedAgainst": null,
+      "lastValidatedAgainst": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
       "width": 1440,
       "height": 900,
-      "sha256": "5aef2dbb2832fc63b39c1d23fc4356e6c812580c22c05aef983244522e52bb06",
+      "sha256": "f54119c6b1a9fdd2c9e889ee72af563536da630642d121e01e71110b4bf6c1b9",
       "kind": "full",
       "scale": 1,
-      "provenanceUnknown": true
+      "provenanceUnknown": false,
+      "capturedAt": "2026-10-02T20:51:58.892Z",
+      "provenance": {
+        "sourceRevision": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+        "sourceDirty": false,
+        "sourceDigest": "114266b51fd367b0f68eecfc8c435e9db8ed3206ff0c1efb925f238ed434f550",
+        "runId": "2026-10-02T20-47-38-726Z-738590",
+        "runtime": "chromium-headless (web)",
+        "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "deviceScaleFactor": 1,
+        "theme": "light",
+        "promotedFrom": "release-0.5.0-combined-review",
+        "promotedAt": "2026-10-03T00:56:27.170Z"
+      }
     },
     "enhance-dialog-auto": {
       "file": "enhance-dialog-auto.png",
@@ -219,13 +362,30 @@
       "feature": "image-enhancement",
       "theme": "light",
       "status": "captured",
-      "lastValidatedAgainst": null,
+      "lastValidatedAgainst": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
       "width": 1440,
       "height": 900,
-      "sha256": "5d593dc2b1eeb6262214ef171c6387a36e7fbebecc1b5718516dd5985e02bea4",
+      "sha256": "49b270e6e184aead7d5fb54c5da33af43f62187047e29585e1a153c34c9a42f8",
       "kind": "full",
       "scale": 1,
-      "provenanceUnknown": true
+      "provenanceUnknown": false,
+      "capturedAt": "2026-10-02T20:52:44.866Z",
+      "provenance": {
+        "sourceRevision": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+        "sourceDirty": false,
+        "sourceDigest": "114266b51fd367b0f68eecfc8c435e9db8ed3206ff0c1efb925f238ed434f550",
+        "runId": "2026-10-02T20-47-38-726Z-738590",
+        "runtime": "chromium-headless (web)",
+        "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "deviceScaleFactor": 1,
+        "theme": "light",
+        "promotedFrom": "release-0.5.0-combined-review",
+        "promotedAt": "2026-10-03T00:56:27.173Z"
+      }
     },
     "export": {
       "file": "export-dialog-light.png",
@@ -234,28 +394,62 @@
       "feature": "export",
       "theme": "light",
       "status": "captured",
-      "lastValidatedAgainst": null,
+      "lastValidatedAgainst": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
       "width": 1440,
       "height": 900,
-      "sha256": "836206d38a330fae310b5a9f27f75d238d5414cf405a3e6be64fb8a5208bd2b6",
+      "sha256": "f58644c9c5507d83cd916f6f0eccb4bafb4e62c16becf3e60e3ec4450b9e4062",
       "kind": "full",
       "scale": 1,
-      "provenanceUnknown": true
+      "provenanceUnknown": false,
+      "capturedAt": "2026-10-02T20:52:56.825Z",
+      "provenance": {
+        "sourceRevision": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+        "sourceDirty": false,
+        "sourceDigest": "114266b51fd367b0f68eecfc8c435e9db8ed3206ff0c1efb925f238ed434f550",
+        "runId": "2026-10-02T20-47-38-726Z-738590",
+        "runtime": "chromium-headless (web)",
+        "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "deviceScaleFactor": 1,
+        "theme": "light",
+        "promotedFrom": "release-0.5.0-combined-review",
+        "promotedAt": "2026-10-03T00:56:27.173Z"
+      }
     },
     "print-production": {
       "file": "print-production-light.png",
-      "alt": "The default page on the Varve canvas with a dashed bleed guide beyond the trim edge and the Page Print inspector showing per-edge bleed values",
-      "caption": "Bleed and trim guides render on canvas as you set them in the Page Print inspector.",
+      "alt": "A publishing page outlined by 20 px dashed bleed guides, with the Page Print inspector showing the same value on each edge",
+      "caption": "Set equal per-edge bleed and check the print boundary on canvas.",
       "feature": "print-production",
       "theme": "light",
       "status": "captured",
-      "lastValidatedAgainst": null,
+      "lastValidatedAgainst": "66ea9476e05768bef3a5bcab93252068ce82b809",
       "width": 1440,
       "height": 900,
-      "sha256": "7770ed9b869e6082c7e84f7642c305426d0a4b23af12feb810dadd278a48916a",
+      "sha256": "4f3b7aac12ff93e009deecfc14b9156f0f025e83717e8f9c07a1ce6739f8cdfe",
       "kind": "full",
       "scale": 1,
-      "provenanceUnknown": true
+      "provenanceUnknown": false,
+      "capturedAt": "2026-10-02T22:55:43.456Z",
+      "provenance": {
+        "sourceRevision": "66ea9476e05768bef3a5bcab93252068ce82b809",
+        "sourceDirty": false,
+        "sourceDigest": "d0fcdd4a86df85780dcaca8e64b848f3f5bae9187fd7c1ad6e224d9724d6a98f",
+        "runId": "2026-10-02T22-54-04-186Z-874041",
+        "runtime": "chromium-headless (web)",
+        "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "deviceScaleFactor": 1,
+        "theme": "light",
+        "promotedFrom": "release-0.5.0-combined-review",
+        "promotedAt": "2026-10-03T00:56:27.176Z"
+      }
     },
     "vectorize": {
       "file": "vectorize-dialog-light.png",
@@ -264,13 +458,30 @@
       "feature": "vector-tools",
       "theme": "light",
       "status": "captured",
-      "lastValidatedAgainst": null,
+      "lastValidatedAgainst": "66ea9476e05768bef3a5bcab93252068ce82b809",
       "width": 1440,
       "height": 900,
-      "sha256": "8298cda0ce1e8b152ae710a30b4e128f5467ddc7e43fba3cb447323e380c8128",
+      "sha256": "72d5b735702271a0d1a0237705ae9b71302d48b4a29e8eb98a8c607ed987ee9c",
       "kind": "full",
       "scale": 1,
-      "provenanceUnknown": true
+      "provenanceUnknown": false,
+      "capturedAt": "2026-10-02T22:55:17.163Z",
+      "provenance": {
+        "sourceRevision": "66ea9476e05768bef3a5bcab93252068ce82b809",
+        "sourceDirty": false,
+        "sourceDigest": "d0fcdd4a86df85780dcaca8e64b848f3f5bae9187fd7c1ad6e224d9724d6a98f",
+        "runId": "2026-10-02T22-54-04-186Z-874041",
+        "runtime": "chromium-headless (web)",
+        "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "deviceScaleFactor": 1,
+        "theme": "light",
+        "promotedFrom": "release-0.5.0-combined-review",
+        "promotedAt": "2026-10-03T00:56:27.174Z"
+      }
     },
     "workspaces": {
       "file": "workspaces-light.png",
@@ -281,32 +492,66 @@
       "width": 1440,
       "height": 900,
       "status": "captured",
-      "lastValidatedAgainst": null,
-      "sha256": "24c922d04265b81c5ef59b9002d11b793bf147150971b65edf55e10b85097f54",
+      "lastValidatedAgainst": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+      "sha256": "4bb29c7f4f864602abd98f740cd13a9f9c845f9722cfa3cd2c1f3902b9b9832d",
       "kind": "full",
       "scale": 1,
-      "provenanceUnknown": true
+      "provenanceUnknown": false,
+      "capturedAt": "2026-10-02T20:54:01.087Z",
+      "provenance": {
+        "sourceRevision": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+        "sourceDirty": false,
+        "sourceDigest": "114266b51fd367b0f68eecfc8c435e9db8ed3206ff0c1efb925f238ed434f550",
+        "runId": "2026-10-02T20-47-38-726Z-738590",
+        "runtime": "chromium-headless (web)",
+        "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "deviceScaleFactor": 1,
+        "theme": "light",
+        "promotedFrom": "release-0.5.0-combined-review",
+        "promotedAt": "2026-10-03T00:56:27.175Z"
+      }
     },
     "image-tools": {
       "file": "image-tools-panel-light.png",
-      "alt": "The Varve image tools inspector for a selected photo, stacking Image Enhance, Vectorize, Object Selection, Background Removal, Colorize, AI Denoise and Depth Blur sections",
-      "caption": "Image tools for a selected photo — enhance, vectorize, object selection, background removal, depth blur. All run on-device.",
+      "alt": "The Varve Photo Adjustments inspector with an Effect Studio link, Image Tuning guidance, and photo treatment presets for the selected image",
+      "caption": "Review photo treatment presets or open Effect Studio for the selected image.",
       "feature": "visual-awareness",
       "theme": "light",
-      "width": 320,
-      "height": 722,
+      "width": 293,
+      "height": 692,
       "status": "captured",
-      "lastValidatedAgainst": null,
-      "sha256": "93542eacf7d1c9bfdf951b69f4e1ce0a93aae21376ccd1c683c1976920e1ced0",
+      "lastValidatedAgainst": "66ea9476e05768bef3a5bcab93252068ce82b809",
+      "sha256": "43e4d3313a78e743590d7db9b1f1681fc94d7d2339b60943e08778460e3d9270",
       "kind": "panel",
       "crop": {
-        "x": 1120,
-        "y": 122,
-        "width": 320,
-        "height": 722
+        "x": 1147,
+        "y": 154,
+        "width": 293,
+        "height": 692
       },
       "scale": 1,
-      "provenanceUnknown": true
+      "provenanceUnknown": false,
+      "capturedAt": "2026-10-02T22:55:30.568Z",
+      "provenance": {
+        "sourceRevision": "66ea9476e05768bef3a5bcab93252068ce82b809",
+        "sourceDirty": false,
+        "sourceDigest": "d0fcdd4a86df85780dcaca8e64b848f3f5bae9187fd7c1ad6e224d9724d6a98f",
+        "runId": "2026-10-02T22-54-04-186Z-874041",
+        "runtime": "chromium-headless (web)",
+        "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "deviceScaleFactor": 1,
+        "theme": "light",
+        "promotedFrom": "release-0.5.0-combined-review",
+        "promotedAt": "2026-10-03T00:56:27.175Z"
+      }
     },
     "effects": {
       "file": "effects-light.png",
@@ -315,28 +560,62 @@
       "feature": "effects",
       "theme": "light",
       "status": "captured",
-      "lastValidatedAgainst": null,
+      "lastValidatedAgainst": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
       "width": 1440,
       "height": 900,
-      "sha256": "321fc8318074c9208fcb229aed72fc835f3b36668f66b2f3e41cedd0edfeb871",
+      "sha256": "74f4aa8bb27a7f637bfea42bc366253a748b209f48fc1218fae08155515ba065",
       "kind": "full",
       "scale": 1,
-      "provenanceUnknown": true
+      "provenanceUnknown": false,
+      "capturedAt": "2026-10-02T20:53:31.442Z",
+      "provenance": {
+        "sourceRevision": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+        "sourceDirty": false,
+        "sourceDigest": "114266b51fd367b0f68eecfc8c435e9db8ed3206ff0c1efb925f238ed434f550",
+        "runId": "2026-10-02T20-47-38-726Z-738590",
+        "runtime": "chromium-headless (web)",
+        "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "deviceScaleFactor": 1,
+        "theme": "light",
+        "promotedFrom": "release-0.5.0-combined-review",
+        "promotedAt": "2026-10-03T00:56:27.175Z"
+      }
     },
     "background-removal": {
       "file": "background-removal-light.png",
-      "alt": "The Varve background removal inspector after generating a cutout mask on an imported photo, with the mask shown on a checkerboard and confidence reported before applying",
+      "alt": "The Varve background removal inspector after generating a cutout mask on an imported photo, with the mask shown on a checkerboard and its algorithm score reported before applying",
       "caption": "Generate a cutout locally, review the mask on a checkerboard, then apply it.",
       "feature": "background-removal",
       "theme": "light",
       "width": 1440,
       "height": 900,
       "status": "captured",
-      "lastValidatedAgainst": null,
-      "sha256": "44063aaa58d82785cb21b8276e2f9643f3b5dd192030f382b3492d5855293b1c",
+      "lastValidatedAgainst": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+      "sha256": "72f52642c47b8fa286f8900ca28b3a318ec761f4ca3da19b33d80ffd2b268860",
       "kind": "full",
       "scale": 1,
-      "provenanceUnknown": true
+      "provenanceUnknown": false,
+      "capturedAt": "2026-10-02T20:55:04.655Z",
+      "provenance": {
+        "sourceRevision": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+        "sourceDirty": false,
+        "sourceDigest": "114266b51fd367b0f68eecfc8c435e9db8ed3206ff0c1efb925f238ed434f550",
+        "runId": "2026-10-02T20-54-29-777Z-744013",
+        "runtime": "chromium-headless (web)",
+        "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "deviceScaleFactor": 1,
+        "theme": "light",
+        "promotedFrom": "release-0.5.0-combined-review",
+        "promotedAt": "2026-10-03T00:56:27.177Z"
+      }
     },
     "depth-blur": {
       "file": "depth-blur-light.png",
@@ -347,59 +626,127 @@
       "width": 1440,
       "height": 900,
       "status": "captured",
-      "lastValidatedAgainst": null,
-      "sha256": "d72b1ce8584939a181c9c7667b76247a204a4ea4395def2f57e93747b4b8a078",
+      "lastValidatedAgainst": "66ea9476e05768bef3a5bcab93252068ce82b809",
+      "sha256": "ef7a6695b7f4a707df01c2f059b4ef9f68e5ccc9b56a26358a629f876d0f9401",
       "kind": "full",
       "scale": 1,
-      "provenanceUnknown": true
+      "provenanceUnknown": false,
+      "capturedAt": "2026-10-02T22:56:38.285Z",
+      "provenance": {
+        "sourceRevision": "66ea9476e05768bef3a5bcab93252068ce82b809",
+        "sourceDirty": false,
+        "sourceDigest": "d0fcdd4a86df85780dcaca8e64b848f3f5bae9187fd7c1ad6e224d9724d6a98f",
+        "runId": "2026-10-02T22-55-54-106Z-876193",
+        "runtime": "chromium-headless (web)",
+        "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "deviceScaleFactor": 1,
+        "theme": "light",
+        "promotedFrom": "release-0.5.0-combined-review",
+        "promotedAt": "2026-10-03T00:56:27.178Z"
+      }
     },
     "solid-picker": {
       "file": "solid-picker-light.png",
-      "alt": "Varve showing the shared solid color picker beside the selected headline, with the color area, hue and opacity ramps, aligned fields, and swatches visible",
-      "caption": "A precise solid-color workflow with the full picker hierarchy in reach.",
+      "alt": "Varve showing the shared solid color picker beside the selected headline, with the color area, hue and opacity ramps, and aligned HEX and alpha fields visible",
+      "caption": "Set a solid colour with the colour area, hue and opacity ramps, and precise fields.",
       "feature": "color-effects",
       "theme": "light",
       "width": 1440,
       "height": 900,
       "status": "captured",
-      "lastValidatedAgainst": null,
-      "sha256": "dde6cb0f831959a608ad1e68ce3d67fd48984064db80f0b040a8a8f7fffa2ddb",
+      "lastValidatedAgainst": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+      "sha256": "6066f1cde27e8a791db9a123565273fc6af7a50ac4d5340d9c6ef6277c2d2232",
       "kind": "full",
       "scale": 1,
-      "provenanceUnknown": true
+      "provenanceUnknown": false,
+      "capturedAt": "2026-10-02T20:52:10.492Z",
+      "provenance": {
+        "sourceRevision": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+        "sourceDirty": false,
+        "sourceDigest": "114266b51fd367b0f68eecfc8c435e9db8ed3206ff0c1efb925f238ed434f550",
+        "runId": "2026-10-02T20-47-38-726Z-738590",
+        "runtime": "chromium-headless (web)",
+        "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "deviceScaleFactor": 1,
+        "theme": "light",
+        "promotedFrom": "release-0.5.0-combined-review",
+        "promotedAt": "2026-10-03T00:56:27.171Z"
+      }
     },
     "gradient-picker": {
       "file": "gradient-picker-light.png",
-      "alt": "Varve showing the shared gradient picker with a selected gradient stop, stop bar, color controls, and expanded Gradient options",
-      "caption": "Edit a gradient stop in the same floating panel, then reveal interpolation and geometry options.",
+      "alt": "Varve showing teal and sand gradient stops in the shared picker, with the selected stop color controls and live gradient handles on the headline",
+      "caption": "Edit gradient stops with shared color controls and live handles on the artwork.",
       "feature": "color-effects",
       "theme": "light",
       "width": 1440,
       "height": 900,
       "status": "captured",
-      "lastValidatedAgainst": null,
-      "sha256": "61a5392d16fe4eaeff24caf0a56b9b814cd551d57e365d304cfece202062b778",
+      "lastValidatedAgainst": "64d461b7bdee49acef7293dfa011f1c541a1b448",
+      "sha256": "bdf3c38b760dde238219ee642f768935e1156badaa06c9793125e67f85dfea34",
       "kind": "full",
       "scale": 1,
-      "provenanceUnknown": true
+      "provenanceUnknown": false,
+      "capturedAt": "2026-10-03T00:38:35.518Z",
+      "provenance": {
+        "sourceRevision": "64d461b7bdee49acef7293dfa011f1c541a1b448",
+        "sourceDirty": false,
+        "sourceDigest": "b734abd2b453a0ce2114ee5180882da4387abd02b52e786ea4729fed2babe1f0",
+        "runId": "2026-10-03T00-37-55-525Z-1069424",
+        "runtime": "chromium-headless (web)",
+        "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "deviceScaleFactor": 1,
+        "theme": "light",
+        "promotedFrom": "release-0.5.0-combined-review",
+        "promotedAt": "2026-10-03T00:56:27.172Z"
+      }
     },
     "font-toolbar": {
-      "sha256": "25f5f34152290e45a6c1af9fca2bc73cdcd91d98102f773da725ba1a22121579",
+      "sha256": "23cdfe516b024ce1593baa0624b2943c4d8b2c09ce4e692810953285b9cb2fb7",
       "file": "font-toolbar-light.png",
-      "alt": "The compact text toolbar with its font family menu open above editable text",
+      "alt": "The floating text formatting toolbar with its font family menu open during text editing",
       "caption": "Choose a font while editing text",
       "feature": "typography",
       "theme": "light",
       "width": 1440,
       "height": 900,
       "status": "captured",
-      "lastValidatedAgainst": null,
+      "lastValidatedAgainst": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
       "kind": "full",
       "scale": 1,
-      "provenanceUnknown": true
+      "provenanceUnknown": false,
+      "capturedAt": "2026-10-02T20:50:48.458Z",
+      "provenance": {
+        "sourceRevision": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+        "sourceDirty": false,
+        "sourceDigest": "114266b51fd367b0f68eecfc8c435e9db8ed3206ff0c1efb925f238ed434f550",
+        "runId": "2026-10-02T20-47-38-726Z-738590",
+        "runtime": "chromium-headless (web)",
+        "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "deviceScaleFactor": 1,
+        "theme": "light",
+        "promotedFrom": "release-0.5.0-combined-review",
+        "promotedAt": "2026-10-03T00:56:27.166Z"
+      }
     },
     "font-browser": {
-      "sha256": "03d9272dd046141a3b5b6e99179bf03c19a7761cbde37678f220245675fac956",
+      "sha256": "66d457b5cda7f504379ed030dbbbc2668d8ccc78a37ddd45de7d573e8e4b5c3c",
       "file": "font-browser-light.png",
       "alt": "Browse fonts with a family list and a local specimen alongside font details",
       "caption": "Browse families and inspect a local specimen",
@@ -408,13 +755,30 @@
       "width": 1440,
       "height": 900,
       "status": "captured",
-      "lastValidatedAgainst": null,
+      "lastValidatedAgainst": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
       "kind": "full",
       "scale": 1,
-      "provenanceUnknown": true
+      "provenanceUnknown": false,
+      "capturedAt": "2026-10-02T20:51:03.206Z",
+      "provenance": {
+        "sourceRevision": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+        "sourceDirty": false,
+        "sourceDigest": "114266b51fd367b0f68eecfc8c435e9db8ed3206ff0c1efb925f238ed434f550",
+        "runId": "2026-10-02T20-47-38-726Z-738590",
+        "runtime": "chromium-headless (web)",
+        "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "deviceScaleFactor": 1,
+        "theme": "light",
+        "promotedFrom": "release-0.5.0-combined-review",
+        "promotedAt": "2026-10-03T00:56:27.167Z"
+      }
     },
     "guide-layouts": {
-      "sha256": "f440a17a43afea538544f213b971f82132de18d91da6481fa9e0442dfccd5fc9",
+      "sha256": "8e359c54606ba190afa1385498fe34371fbc7f03919d09294f8fd0a43ab1cdfe",
       "file": "guide-layouts-light.png",
       "alt": "Varve Guide Layouts dialog previewing a column layout over a frame without moving its content",
       "caption": "Preview columns, rows, and square grids before applying them",
@@ -423,10 +787,27 @@
       "width": 1440,
       "height": 900,
       "status": "captured",
-      "lastValidatedAgainst": null,
+      "lastValidatedAgainst": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
       "kind": "full",
       "scale": 1,
-      "provenanceUnknown": true
+      "provenanceUnknown": false,
+      "capturedAt": "2026-10-02T20:48:05.097Z",
+      "provenance": {
+        "sourceRevision": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+        "sourceDirty": false,
+        "sourceDigest": "114266b51fd367b0f68eecfc8c435e9db8ed3206ff0c1efb925f238ed434f550",
+        "runId": "2026-10-02T20-47-38-726Z-738590",
+        "runtime": "chromium-headless (web)",
+        "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "deviceScaleFactor": 1,
+        "theme": "light",
+        "promotedFrom": "release-0.5.0-combined-review",
+        "promotedAt": "2026-10-03T00:56:27.152Z"
+      }
     },
     "plugin-rename-preview": {
       "file": "plugins-rename-preview-light.png",
@@ -438,9 +819,27 @@
       "source": "tests/e2e/plugins/local-manager.spec.ts",
       "width": 1280,
       "height": 721,
-      "sha256": "caeb10f3beb0b8da921f1524751e5dba06585a4ceffc4060e8ec4c1a6b876cad",
-      "lastValidatedAgainst": "04abd6a16124a710eb9499bd68d6947c0262732a",
-      "kind": "full"
+      "sha256": "7b627525ae531a14228cb8e7a4684ef71a5fdf1ba339838bf5b88fc91827ce84",
+      "lastValidatedAgainst": "b6fe7591409857c23bf8cf6bece419d65bbd9586",
+      "kind": "full",
+      "capturedAt": "2026-10-02T20:24:48.118Z",
+      "provenance": {
+        "sourceRevision": "b6fe7591409857c23bf8cf6bece419d65bbd9586",
+        "sourceDirty": false,
+        "sourceDigest": "690280443d33ce1fbed81e98a72d6bc791afb284538ca157682e917d65a0019d",
+        "runId": "test-results/release-0.5.0-refresh-b6fe759140-owners/plugins-local-manager-loca-18569-me-then-removes-its-package-chromium",
+        "runtime": "chromium Playwright E2E",
+        "captureTool": "Playwright 1.62.1 / chromium 151.0.7922.34",
+        "viewport": {
+          "width": 1280,
+          "height": 720
+        },
+        "deviceScaleFactor": 1,
+        "theme": "light",
+        "promotedFrom": "release-0.5.0-combined-review",
+        "promotedAt": "2026-10-03T00:56:27.184Z"
+      },
+      "provenanceUnknown": false
     },
     "plugin-permission-review": {
       "file": "plugins-permission-review-dark.png",
@@ -452,9 +851,27 @@
       "source": "tests/e2e/plugins/local-manager.spec.ts",
       "width": 1024,
       "height": 961,
-      "sha256": "4382020910d6847e28d9b208829a0011fe024c64e3b427e2f0e354721905f2d7",
-      "lastValidatedAgainst": "04abd6a16124a710eb9499bd68d6947c0262732a",
-      "kind": "full"
+      "sha256": "2f4bd9a3a34f4819b64b3f4cbb38b7298711f844d3431e3ede608f2fc42887d6",
+      "lastValidatedAgainst": "b6fe7591409857c23bf8cf6bece419d65bbd9586",
+      "kind": "full",
+      "capturedAt": "2026-10-02T20:25:18.827Z",
+      "provenance": {
+        "sourceRevision": "b6fe7591409857c23bf8cf6bece419d65bbd9586",
+        "sourceDirty": false,
+        "sourceDigest": "690280443d33ce1fbed81e98a72d6bc791afb284538ca157682e917d65a0019d",
+        "runId": "test-results/release-0.5.0-refresh-b6fe759140-owners/plugins-local-manager-loca-53979-ble-in-a-narrow-dark-window-chromium",
+        "runtime": "chromium Playwright E2E",
+        "captureTool": "Playwright 1.62.1 / chromium 151.0.7922.34",
+        "viewport": {
+          "width": 1024,
+          "height": 960
+        },
+        "deviceScaleFactor": 1,
+        "theme": "dark",
+        "promotedFrom": "release-0.5.0-combined-review",
+        "promotedAt": "2026-10-03T00:56:27.185Z"
+      },
+      "provenanceUnknown": false
     },
     "plugin-inspector-analysis": {
       "file": "plugins-inspector-analysis-light.png",
@@ -466,9 +883,27 @@
       "source": "tests/e2e/plugins/local-manager.spec.ts",
       "width": 1280,
       "height": 721,
-      "sha256": "6e884e3499321cd558dd525eab3bdc5fb3f0dc3ececccce1c1b24dddc463c652",
-      "lastValidatedAgainst": "04abd6a16124a710eb9499bd68d6947c0262732a",
-      "kind": "full"
+      "sha256": "4dca2d2603acec63e4bde49e0f2f45a7ccff2ac25a4eb7fda196e884eefe1736",
+      "lastValidatedAgainst": "b6fe7591409857c23bf8cf6bece419d65bbd9586",
+      "kind": "full",
+      "capturedAt": "2026-10-02T20:24:28.911Z",
+      "provenance": {
+        "sourceRevision": "b6fe7591409857c23bf8cf6bece419d65bbd9586",
+        "sourceDirty": false,
+        "sourceDigest": "690280443d33ce1fbed81e98a72d6bc791afb284538ca157682e917d65a0019d",
+        "runId": "test-results/release-0.5.0-refresh-b6fe759140-owners/plugins-local-manager-loca-fd352--read-only-analysis-package-chromium",
+        "runtime": "chromium Playwright E2E",
+        "captureTool": "Playwright 1.62.1 / chromium 151.0.7922.34",
+        "viewport": {
+          "width": 1280,
+          "height": 720
+        },
+        "deviceScaleFactor": 1,
+        "theme": "light",
+        "promotedFrom": "release-0.5.0-combined-review",
+        "promotedAt": "2026-10-03T00:56:27.185Z"
+      },
+      "provenanceUnknown": false
     },
     "plugin-manager-discovery": {
       "file": "plugins-manager-discovery-light.png",
@@ -480,19 +915,37 @@
       "source": "tests/e2e/plugins/local-manager.spec.ts",
       "width": 1280,
       "height": 1101,
-      "sha256": "f4e551eb6b04be3ccea4db0a1490a218f325b1f29c169dbc505e994e8c65b394",
-      "lastValidatedAgainst": "04abd6a16124a710eb9499bd68d6947c0262732a",
-      "kind": "full"
+      "sha256": "414ca0f08e5efaca9f85da9529126fe80fb6c976555d8fb1478ca977a7d109ac",
+      "lastValidatedAgainst": "b6fe7591409857c23bf8cf6bece419d65bbd9586",
+      "kind": "full",
+      "capturedAt": "2026-10-02T20:24:16.807Z",
+      "provenance": {
+        "sourceRevision": "b6fe7591409857c23bf8cf6bece419d65bbd9586",
+        "sourceDirty": false,
+        "sourceDigest": "690280443d33ce1fbed81e98a72d6bc791afb284538ca157682e917d65a0019d",
+        "runId": "test-results/release-0.5.0-refresh-b6fe759140-owners/plugins-local-manager-loca-a65c3-pinned-plugins-easy-to-find-chromium",
+        "runtime": "chromium Playwright E2E",
+        "captureTool": "Playwright 1.62.1 / chromium 151.0.7922.34",
+        "viewport": {
+          "width": 1280,
+          "height": 1100
+        },
+        "deviceScaleFactor": 1,
+        "theme": "light",
+        "promotedFrom": "release-0.5.0-combined-review",
+        "promotedAt": "2026-10-03T00:56:27.186Z"
+      },
+      "provenanceUnknown": false
     },
     "workspace-shared-workflows": {
-      "sha256": "ecd9ca3b3affe10680a11cd8a8d7fcb857c3d68d116f7db4fda1adf2415a3f89",
+      "sha256": "6ebca68077862fcef592e90dd0141b558a59118bed45ef343c0210a48fec64e1",
       "file": "workspace-shared-workflows-light.png",
       "alt": "The Design workspace with Logo project controls and generated Code output open beside the same poster document",
       "caption": "Logo tools stay in Design; the shared Code panel remains available alongside the same document.",
       "feature": "workspaces",
       "theme": "light",
       "status": "captured",
-      "lastValidatedAgainst": null,
+      "lastValidatedAgainst": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
       "width": 936,
       "height": 900,
       "kind": "detail",
@@ -503,58 +956,132 @@
         "height": 900
       },
       "scale": 1,
-      "provenanceUnknown": true
+      "provenanceUnknown": false,
+      "capturedAt": "2026-10-02T20:54:14.373Z",
+      "provenance": {
+        "sourceRevision": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+        "sourceDirty": false,
+        "sourceDigest": "114266b51fd367b0f68eecfc8c435e9db8ed3206ff0c1efb925f238ed434f550",
+        "runId": "2026-10-02T20-47-38-726Z-738590",
+        "runtime": "chromium-headless (web)",
+        "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "deviceScaleFactor": 1,
+        "theme": "light",
+        "promotedFrom": "release-0.5.0-combined-review",
+        "promotedAt": "2026-10-03T00:56:27.176Z"
+      }
     },
     "tonal-curves": {
       "file": "tonal-curves-light.png",
-      "alt": "An imported photographic fixture with the Curves graph, retained channel selector and precise point controls in Varve",
+      "alt": "An imported photographic fixture with the Curves graph, upstream histogram and precise point controls in Varve",
       "caption": "Precise point curves on an editable adjustment layer, with an upstream histogram and source preview.",
-      "width": 1280,
-      "height": 720,
-      "sha256": "b8351d9fe2fdc6c66aa11adf58917fb5a77ae9ea29fbebb281e8f6603ef99dc6",
       "feature": "tonal-adjustments",
       "theme": "light",
+      "kind": "full",
+      "width": 1280,
+      "height": 720,
       "status": "captured",
+      "sha256": "0c810ba24130a42a590786c099f3155f6fa70f10615c7b2f8d0e683e9a4dee4d",
       "source": "tests/e2e/effects/tonal-workflows.spec.ts",
-      "lastValidatedAgainst": null,
-      "kind": "full"
+      "capturedAt": "2026-10-02T23:04:56.106Z",
+      "lastValidatedAgainst": "66ea9476e05768bef3a5bcab93252068ce82b809",
+      "viewport": {
+        "width": 1280,
+        "height": 720
+      },
+      "provenance": {
+        "sourceRevision": "66ea9476e05768bef3a5bcab93252068ce82b809",
+        "sourceDirty": false,
+        "sourceDigest": "d0fcdd4a86df85780dcaca8e64b848f3f5bae9187fd7c1ad6e224d9724d6a98f",
+        "runId": "test-results/release-0.5.0-targeted-66ea9476e0-clean-r2-tonal/effects-tonal-workflows-re-9aedb-ows-through-actual-controls-chromium",
+        "runtime": "chromium Playwright E2E",
+        "captureTool": "Playwright 1.62.1 / chromium 151.0.7922.34",
+        "viewport": {
+          "width": 1280,
+          "height": 720
+        },
+        "deviceScaleFactor": 1,
+        "theme": "light",
+        "promotedFrom": "release-0.5.0-combined-review",
+        "promotedAt": "2026-10-03T00:56:27.187Z"
+      },
+      "provenanceUnknown": false
     },
     "tonal-split-tone": {
       "file": "tonal-split-tone-light.png",
       "alt": "Split Toning shadow and highlight controls beside a synthetic neutral ramp and color reference in Varve",
       "caption": "Editable shadow and highlight toning on a synthetic reference that makes color shifts easy to compare.",
-      "width": 1280,
-      "height": 720,
-      "sha256": "ff899a7fb96c10ebb443e8332589e3102681a40c3d05c76c3ab26502313bc960",
       "feature": "tonal-adjustments",
       "theme": "light",
+      "kind": "full",
+      "width": 1280,
+      "height": 720,
       "status": "captured",
+      "sha256": "136503fb2186ba9c8913bfa8f210bb10c909e86e006b4f4b3992f40d6d3d06b0",
       "source": "tests/e2e/effects/tonal-workflows.spec.ts",
-      "lastValidatedAgainst": null,
-      "kind": "full"
+      "capturedAt": "2026-10-02T23:05:24.828Z",
+      "lastValidatedAgainst": "66ea9476e05768bef3a5bcab93252068ce82b809",
+      "viewport": {
+        "width": 1280,
+        "height": 720
+      },
+      "provenance": {
+        "sourceRevision": "66ea9476e05768bef3a5bcab93252068ce82b809",
+        "sourceDirty": false,
+        "sourceDigest": "d0fcdd4a86df85780dcaca8e64b848f3f5bae9187fd7c1ad6e224d9724d6a98f",
+        "runId": "test-results/release-0.5.0-targeted-66ea9476e0-clean-r2-tonal/effects-tonal-workflows-wh-9e5a2-it-toning-has-real-controls-chromium",
+        "runtime": "chromium Playwright E2E",
+        "captureTool": "Playwright 1.62.1 / chromium 151.0.7922.34",
+        "viewport": {
+          "width": 1280,
+          "height": 720
+        },
+        "deviceScaleFactor": 1,
+        "theme": "light",
+        "promotedFrom": "release-0.5.0-combined-review",
+        "promotedAt": "2026-10-03T00:56:27.187Z"
+      },
+      "provenanceUnknown": false
     },
     "tablet-workspace": {
-      "sha256": "b074217b275e9de713c4c66811b2c090c2b314ef16550948218443e813c3f583",
+      "sha256": "ca9b0b7e11b0985ec385314de43692b79a6f7672c591aeb5217d2d66073615ea",
       "file": "tablet-workspace-light.png",
-      "alt": "The Varve poster workspace in tablet presentation, with the Inspector beside the canvas and a touch popover for keyboardless editing actions",
+      "alt": "The Varve poster workspace in tablet presentation, with the Inspector beside the canvas and touch controls along the bottom toolbar",
       "caption": "Touch-sized controls and keyboardless editing actions beside the canvas",
       "feature": "tablet-editing",
       "theme": "light",
       "width": 1200,
       "height": 750,
       "status": "captured",
-      "lastValidatedAgainst": "576b7e4ff82c1aff01bc2daaf1b3c15b14002dac",
+      "lastValidatedAgainst": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
       "kind": "full",
       "viewport": {
         "width": 1200,
         "height": 750
       },
       "scale": 1,
-      "capturedAt": "2026-09-29T12:51:04.602Z",
+      "capturedAt": "2026-10-02T20:49:37.411Z",
       "provenance": {
-        "promotedFrom": "2026-09-29T12-50-30-639Z-1062473",
-        "promotedAt": "2026-09-29T12:53:06.004Z"
-      }
+        "sourceRevision": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+        "sourceDirty": false,
+        "sourceDigest": "114266b51fd367b0f68eecfc8c435e9db8ed3206ff0c1efb925f238ed434f550",
+        "runId": "2026-10-02T20-47-38-726Z-738590",
+        "runtime": "chromium-headless (web)",
+        "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
+        "viewport": {
+          "width": 1200,
+          "height": 750
+        },
+        "deviceScaleFactor": 1,
+        "theme": "light",
+        "promotedFrom": "release-0.5.0-combined-review",
+        "promotedAt": "2026-10-03T00:56:27.164Z"
+      },
+      "provenanceUnknown": false
     },
     "performance-settings": {
       "file": "performance-settings-dark.png",
@@ -566,9 +1093,27 @@
       "width": 920,
       "height": 760,
       "status": "captured",
-      "sha256": "9bab6e48984a8fca8e02b2e42d31aeb17eca5667ec47aaf62fda1b1b7c8b364c",
+      "sha256": "73533372d6a3636af09c13ae8dd8b202f04d5f7d5a9f56430118a29a4a7976d9",
       "source": "tests/e2e/settings/performance-guidance.visual.spec.ts",
-      "provenanceUnknown": true
+      "provenanceUnknown": false,
+      "capturedAt": "2026-10-02T20:25:32.921Z",
+      "lastValidatedAgainst": "b6fe7591409857c23bf8cf6bece419d65bbd9586",
+      "provenance": {
+        "sourceRevision": "b6fe7591409857c23bf8cf6bece419d65bbd9586",
+        "sourceDirty": false,
+        "sourceDigest": "690280443d33ce1fbed81e98a72d6bc791afb284538ca157682e917d65a0019d",
+        "runId": "test-results/release-0.5.0-refresh-b6fe759140-owners/settings-performance-guida-db911-k-settings-at-200-text-size-chromium",
+        "runtime": "chromium Playwright E2E",
+        "captureTool": "Playwright 1.62.1 / chromium 151.0.7922.34",
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "deviceScaleFactor": 1,
+        "theme": "dark",
+        "promotedFrom": "release-0.5.0-combined-review",
+        "promotedAt": "2026-10-03T00:56:27.180Z"
+      }
     },
     "design-tokens-contrast": {
       "file": "design-tokens-alias-bound-light.png",
@@ -580,41 +1125,70 @@
       "width": 1600,
       "height": 1000,
       "status": "captured",
-      "sha256": "dbf4e906876270f5a4dd73ffdd9a9c8fb2368253b74197993fa2a71cd9e3cd5d",
+      "sha256": "ae210852cb91db2d9cbe4077f5f5614d8917b8c3b524e6db60bd802e49c7f2d7",
       "source": "tests/e2e/inspector/token-binding-runtime.spec.ts",
-      "provenanceUnknown": true
+      "provenanceUnknown": false,
+      "viewport": {
+        "width": 1600,
+        "height": 1000
+      },
+      "capturedAt": "2026-10-02T20:23:16.667Z",
+      "lastValidatedAgainst": "b6fe7591409857c23bf8cf6bece419d65bbd9586",
+      "provenance": {
+        "sourceRevision": "b6fe7591409857c23bf8cf6bece419d65bbd9586",
+        "sourceDirty": false,
+        "sourceDigest": "690280443d33ce1fbed81e98a72d6bc791afb284538ca157682e917d65a0019d",
+        "runId": "test-results/release-0.5.0-refresh-b6fe759140-owners/inspector-token-binding-ru-ea4e4-ource-edits-through-history-chromium",
+        "runtime": "chromium Playwright E2E",
+        "captureTool": "Playwright 1.62.1 / chromium 151.0.7922.34",
+        "viewport": {
+          "width": 1600,
+          "height": 1000
+        },
+        "deviceScaleFactor": 1,
+        "theme": "light",
+        "promotedFrom": "release-0.5.0-combined-review",
+        "promotedAt": "2026-10-03T00:56:27.180Z"
+      }
     },
     "tablet-controls": {
-      "sha256": "cedf7a0bae3fa4d5fe4512df73add6849e6ef77d663bff10374c624afe560c1a",
+      "sha256": "0f0c794ae82e59f87ab35cfdb43f5a662d8daaca91da66d93b72bc50987ba66b",
       "file": "tablet-controls-detail-light.png",
       "alt": "Tablet editing controls for modifiers, multi-selection, alignment, and layer order beside a Varve poster canvas",
       "caption": "Constrain, draw from centre, bypass snapping, duplicate, align, and reorder without a keyboard",
       "feature": "tablet-editing",
       "theme": "light",
-      "kind": "detail",
-      "width": 800,
-      "height": 600,
+      "kind": "full",
+      "width": 1200,
+      "height": 750,
       "status": "captured",
-      "crop": {
-        "x": 380,
-        "y": 70,
-        "width": 800,
-        "height": 600
-      },
       "viewport": {
         "width": 1200,
         "height": 750
       },
       "scale": 1,
-      "capturedAt": "2026-09-29T12:51:21.495Z",
-      "lastValidatedAgainst": "576b7e4ff82c1aff01bc2daaf1b3c15b14002dac",
+      "capturedAt": "2026-10-02T20:49:49.356Z",
+      "lastValidatedAgainst": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
       "provenance": {
-        "promotedFrom": "2026-09-29T12-50-30-639Z-1062473",
-        "promotedAt": "2026-09-29T12:53:06.008Z"
-      }
+        "sourceRevision": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+        "sourceDirty": false,
+        "sourceDigest": "114266b51fd367b0f68eecfc8c435e9db8ed3206ff0c1efb925f238ed434f550",
+        "runId": "2026-10-02T20-47-38-726Z-738590",
+        "runtime": "chromium-headless (web)",
+        "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
+        "viewport": {
+          "width": 1200,
+          "height": 750
+        },
+        "deviceScaleFactor": 1,
+        "theme": "light",
+        "promotedFrom": "release-0.5.0-combined-review",
+        "promotedAt": "2026-10-03T00:56:27.165Z"
+      },
+      "provenanceUnknown": false
     },
     "presentation-navigator": {
-      "sha256": "19257391559c832453a5ddbcc50ae35b516d283da8fdd2a4902b22b02ea46693",
+      "sha256": "d6399febd966d321a57caff8106ca0011db02bfa615778ef777135cc07cbdf68",
       "file": "presentation-navigator-light.png",
       "alt": "Varve Design showing an ordered three-slide presentation in the Slides navigator beside the editable canvas",
       "caption": "An explicit slide sequence beside the editable Design canvas",
@@ -625,15 +1199,28 @@
       "height": 900,
       "status": "captured",
       "scale": 1,
-      "capturedAt": "2026-09-29T13:26:31.989Z",
-      "lastValidatedAgainst": "5b57dec3eadda3ee1364b81e93f542382b8d5c45",
+      "capturedAt": "2026-10-02T20:48:46.175Z",
+      "lastValidatedAgainst": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
       "provenance": {
-        "promotedFrom": "2026-09-29T13-25-49-039Z-1109652",
-        "promotedAt": "2026-09-29T13:29:30.324Z"
-      }
+        "sourceRevision": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+        "sourceDirty": false,
+        "sourceDigest": "114266b51fd367b0f68eecfc8c435e9db8ed3206ff0c1efb925f238ed434f550",
+        "runId": "2026-10-02T20-47-38-726Z-738590",
+        "runtime": "chromium-headless (web)",
+        "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "deviceScaleFactor": 1,
+        "theme": "light",
+        "promotedFrom": "release-0.5.0-combined-review",
+        "promotedAt": "2026-10-03T00:56:27.162Z"
+      },
+      "provenanceUnknown": false
     },
     "presentation-slide": {
-      "sha256": "3fd15d46d50e563567b98b1c7628b2eefc14ddabc973da47a683b4ca304181c9",
+      "sha256": "42c0a1734ed010afd7179975056f1b606b8b6031a59cd0bf27406a2b98a5197a",
       "file": "presentation-slide-light.png",
       "alt": "An editable title slide on the Varve Design canvas, with layered teal, sand, and terracotta bars",
       "caption": "Each slide remains an editable frame on the Design canvas",
@@ -644,15 +1231,28 @@
       "height": 900,
       "status": "captured",
       "scale": 1,
-      "capturedAt": "2026-09-29T13:26:50.550Z",
-      "lastValidatedAgainst": "5b57dec3eadda3ee1364b81e93f542382b8d5c45",
+      "capturedAt": "2026-10-02T20:48:57.210Z",
+      "lastValidatedAgainst": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
       "provenance": {
-        "promotedFrom": "2026-09-29T13-25-49-039Z-1109652",
-        "promotedAt": "2026-09-29T13:29:30.328Z"
-      }
+        "sourceRevision": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+        "sourceDirty": false,
+        "sourceDigest": "114266b51fd367b0f68eecfc8c435e9db8ed3206ff0c1efb925f238ed434f550",
+        "runId": "2026-10-02T20-47-38-726Z-738590",
+        "runtime": "chromium-headless (web)",
+        "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "deviceScaleFactor": 1,
+        "theme": "light",
+        "promotedFrom": "release-0.5.0-combined-review",
+        "promotedAt": "2026-10-03T00:56:27.162Z"
+      },
+      "provenanceUnknown": false
     },
     "presentation-layout-revision": {
-      "sha256": "eb02bf94ad981cd4d197f54c36d2ff6fa58a4dcb088f06e1c070f8464497387d",
+      "sha256": "d02c10545c6aa2e9134b5fe77119cf6ab1fbe5e3afa0e7cbc3d208f06b5a97c3",
       "file": "presentation-layout-revision-tablet-dark.png",
       "alt": "Varve showing a preview of reusable presentation layout geometry before applying the revision",
       "caption": "Review compatible layout geometry before reapplying it to a slide",
@@ -667,15 +1267,28 @@
         "height": 750
       },
       "scale": 1,
-      "capturedAt": "2026-09-29T14:47:21.718Z",
-      "lastValidatedAgainst": "cbb1cb3d149152257c3ea159d33a25faa134dc66",
+      "capturedAt": "2026-10-02T20:49:06.824Z",
+      "lastValidatedAgainst": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
       "provenance": {
-        "promotedFrom": "2026-09-29T14-46-58-165Z-1202287",
-        "promotedAt": "2026-09-29T14:47:44.083Z"
-      }
+        "sourceRevision": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+        "sourceDirty": false,
+        "sourceDigest": "114266b51fd367b0f68eecfc8c435e9db8ed3206ff0c1efb925f238ed434f550",
+        "runId": "2026-10-02T20-47-38-726Z-738590",
+        "runtime": "chromium-headless (web)",
+        "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
+        "viewport": {
+          "width": 1200,
+          "height": 750
+        },
+        "deviceScaleFactor": 1,
+        "theme": "dark",
+        "promotedFrom": "release-0.5.0-combined-review",
+        "promotedAt": "2026-10-03T00:56:27.163Z"
+      },
+      "provenanceUnknown": false
     },
     "presentation-preview": {
-      "sha256": "09d7238cace8936f324353f0e5db80925e6bd4c2665e3cf1d44d188072753c0b",
+      "sha256": "980be75389a78531f1f5e368f3ad625d936250bfe861406391b6431dc26c8c59",
       "file": "presentation-preview-light.png",
       "alt": "Audience preview displaying a Varve presentation slide without editor dock controls",
       "caption": "Audience preview hides the editing docks; speaker notes stay private",
@@ -686,15 +1299,28 @@
       "height": 900,
       "status": "captured",
       "scale": 1,
-      "capturedAt": "2026-09-29T13:27:20.914Z",
-      "lastValidatedAgainst": "5b57dec3eadda3ee1364b81e93f542382b8d5c45",
+      "capturedAt": "2026-10-02T20:49:16.362Z",
+      "lastValidatedAgainst": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
       "provenance": {
-        "promotedFrom": "2026-09-29T13-25-49-039Z-1109652",
-        "promotedAt": "2026-09-29T13:29:30.330Z"
-      }
+        "sourceRevision": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+        "sourceDirty": false,
+        "sourceDigest": "114266b51fd367b0f68eecfc8c435e9db8ed3206ff0c1efb925f238ed434f550",
+        "runId": "2026-10-02T20-47-38-726Z-738590",
+        "runtime": "chromium-headless (web)",
+        "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "deviceScaleFactor": 1,
+        "theme": "light",
+        "promotedFrom": "release-0.5.0-combined-review",
+        "promotedAt": "2026-10-03T00:56:27.163Z"
+      },
+      "provenanceUnknown": false
     },
     "presentation-export": {
-      "sha256": "e48c49240f70c1baa439a38c8c5e0a2ad222eddc151a7363322993b1b9f9a25b",
+      "sha256": "b1f168525f3869bc5727d2b0a0346b08a4e4f05bc0e8166cf6c35c5ad9aea9d0",
       "file": "presentation-export-light.png",
       "alt": "Varve presentation export dialog showing raster PDF and ordered PNG sequence output options",
       "caption": "Export an ordered raster PDF or PNG sequence from the local deck",
@@ -705,12 +1331,25 @@
       "height": 900,
       "status": "captured",
       "scale": 1,
-      "capturedAt": "2026-09-29T13:27:41.004Z",
-      "lastValidatedAgainst": "5b57dec3eadda3ee1364b81e93f542382b8d5c45",
+      "capturedAt": "2026-10-02T20:49:25.884Z",
+      "lastValidatedAgainst": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
       "provenance": {
-        "promotedFrom": "2026-09-29T13-25-49-039Z-1109652",
-        "promotedAt": "2026-09-29T13:29:30.332Z"
-      }
+        "sourceRevision": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+        "sourceDirty": false,
+        "sourceDigest": "114266b51fd367b0f68eecfc8c435e9db8ed3206ff0c1efb925f238ed434f550",
+        "runId": "2026-10-02T20-47-38-726Z-738590",
+        "runtime": "chromium-headless (web)",
+        "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "deviceScaleFactor": 1,
+        "theme": "light",
+        "promotedFrom": "release-0.5.0-combined-review",
+        "promotedAt": "2026-10-03T00:56:27.164Z"
+      },
+      "provenanceUnknown": false
     },
     "effect-studio-desktop-light": {
       "file": "effect-studio-desktop-light.png",
@@ -722,13 +1361,31 @@
       "width": 1440,
       "height": 900,
       "status": "captured",
-      "sha256": "6b4d3379f72c1002a1afe83838a32bc91fa93968e4585fbeac3396326fb80bce",
+      "sha256": "5288bbf5eb65c26110212b5b46589299672b8cad61ee5bfbe93357c2d863e2b9",
       "source": "tests/e2e/workspace/effect-studio.spec.ts",
       "viewport": {
         "width": 1440,
         "height": 900
       },
-      "provenanceUnknown": true
+      "provenanceUnknown": false,
+      "capturedAt": "2026-10-02T20:47:28.587Z",
+      "lastValidatedAgainst": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+      "provenance": {
+        "sourceRevision": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+        "sourceDirty": false,
+        "sourceDigest": "114266b51fd367b0f68eecfc8c435e9db8ed3206ff0c1efb925f238ed434f550",
+        "runId": "test-results/capture-owner-r52-clean/workspace-effect-studio-Ef-e4262--responsive-viewport-matrix-chromium",
+        "runtime": "chromium Playwright E2E",
+        "captureTool": "Playwright 1.62.1 / chromium 151.0.7922.34",
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "deviceScaleFactor": 1,
+        "theme": "light",
+        "promotedFrom": "release-0.5.0-combined-review",
+        "promotedAt": "2026-10-03T00:56:27.181Z"
+      }
     },
     "effect-studio-mobile-light": {
       "file": "effect-studio-mobile-light.png",
@@ -740,13 +1397,31 @@
       "width": 390,
       "height": 844,
       "status": "captured",
-      "sha256": "d42d8b87993ab42c5debcca8011cdc2d19005c2ea204b019dd07419870607d0a",
+      "sha256": "55ca8289adfcfcc4a4fb71768dac15c644a9cee2209bd1db091db8bd85c07038",
       "source": "tests/e2e/workspace/effect-studio.spec.ts",
       "viewport": {
         "width": 390,
         "height": 844
       },
-      "provenanceUnknown": true
+      "provenanceUnknown": false,
+      "capturedAt": "2026-10-02T20:47:30.689Z",
+      "lastValidatedAgainst": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+      "provenance": {
+        "sourceRevision": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+        "sourceDirty": false,
+        "sourceDigest": "114266b51fd367b0f68eecfc8c435e9db8ed3206ff0c1efb925f238ed434f550",
+        "runId": "test-results/capture-owner-r52-clean/workspace-effect-studio-Ef-e4262--responsive-viewport-matrix-chromium",
+        "runtime": "chromium Playwright E2E",
+        "captureTool": "Playwright 1.62.1 / chromium 151.0.7922.34",
+        "viewport": {
+          "width": 390,
+          "height": 844
+        },
+        "deviceScaleFactor": 1,
+        "theme": "light",
+        "promotedFrom": "release-0.5.0-combined-review",
+        "promotedAt": "2026-10-03T00:56:27.181Z"
+      }
     },
     "illustration-linework-flats": {
       "file": "illustration-linework-flats.png",
@@ -758,31 +1433,67 @@
       "width": 1280,
       "height": 800,
       "status": "captured",
-      "sha256": "685ec43c866c5a4eb7a4ebd01b903e4ec87eb068c27fcf85159f743a500671bc",
-      "source": "tests/e2e/canvas/strokes.spec.ts",
+      "sha256": "4f8f8223826508b2704e0545f4b97ddf8d16ef0b03d3ac42a570746ba426cc61",
+      "source": "tests/e2e/canvas/raster-magic-wand.spec.ts",
+      "capturedAt": "2026-10-02T23:03:29.258Z",
+      "lastValidatedAgainst": "66ea9476e05768bef3a5bcab93252068ce82b809",
       "viewport": {
         "width": 1280,
         "height": 800
       },
-      "provenanceUnknown": true
+      "provenance": {
+        "sourceRevision": "66ea9476e05768bef3a5bcab93252068ce82b809",
+        "sourceDirty": false,
+        "sourceDigest": "d0fcdd4a86df85780dcaca8e64b848f3f5bae9187fd7c1ad6e224d9724d6a98f",
+        "runId": "test-results/release-0.5.0-targeted-66ea9476e0-clean-r2-illustration/canvas-raster-magic-wand-h-61831-ding-then-saves-and-reopens-chromium",
+        "runtime": "chromium Playwright E2E",
+        "captureTool": "Playwright 1.62.1 / chromium 151.0.7922.34",
+        "viewport": {
+          "width": 1280,
+          "height": 800
+        },
+        "deviceScaleFactor": 1,
+        "theme": "light",
+        "promotedFrom": "release-0.5.0-combined-review",
+        "promotedAt": "2026-10-03T00:56:27.181Z"
+      },
+      "provenanceUnknown": false
     },
     "illustration-clipped-shading": {
       "file": "illustration-clipped-shading.png",
-      "alt": "Varve Design workspace with red shading clipped inside a blue painted shape on a separate Shading layer",
+      "alt": "Varve Draw workspace with teal shading clipped inside red apple flats on a separate Shading layer",
       "caption": "The separate Shading layer stays within the source raster alpha across undo, save/reopen, and transparent PNG export.",
       "feature": "strokes",
       "theme": "light",
       "kind": "full",
-      "width": 1440,
-      "height": 900,
+      "width": 1280,
+      "height": 800,
       "status": "captured",
-      "sha256": "60391bb50efaefa1ebf72e7bf7faf7a7a1f3758dcbf271209a1204c1834c460c",
-      "source": "tests/e2e/canvas/strokes.spec.ts",
+      "sha256": "46d196fcca094314b2e873276cae7a7bbcc532449c43f0f9f93e2602ca8365b5",
+      "source": "tests/e2e/canvas/raster-magic-wand.spec.ts",
+      "capturedAt": "2026-10-02T23:03:37.136Z",
+      "lastValidatedAgainst": "66ea9476e05768bef3a5bcab93252068ce82b809",
       "viewport": {
-        "width": 1440,
-        "height": 900
+        "width": 1280,
+        "height": 800
       },
-      "provenanceUnknown": true
+      "provenance": {
+        "sourceRevision": "66ea9476e05768bef3a5bcab93252068ce82b809",
+        "sourceDirty": false,
+        "sourceDigest": "d0fcdd4a86df85780dcaca8e64b848f3f5bae9187fd7c1ad6e224d9724d6a98f",
+        "runId": "test-results/release-0.5.0-targeted-66ea9476e0-clean-r2-illustration/canvas-raster-magic-wand-h-61831-ding-then-saves-and-reopens-chromium",
+        "runtime": "chromium Playwright E2E",
+        "captureTool": "Playwright 1.62.1 / chromium 151.0.7922.34",
+        "viewport": {
+          "width": 1280,
+          "height": 800
+        },
+        "deviceScaleFactor": 1,
+        "theme": "light",
+        "promotedFrom": "release-0.5.0-combined-review",
+        "promotedAt": "2026-10-03T00:56:27.182Z"
+      },
+      "provenanceUnknown": false
     },
     "illustration-vector-clipped-texture": {
       "file": "illustration-vector-clipped-texture.png",
@@ -794,13 +1505,31 @@
       "width": 1440,
       "height": 900,
       "status": "captured",
-      "sha256": "6fb0773352732b8214480a1f49d1f19aae1434423d4497d8a8f588dac87be8e9",
-      "source": "tests/e2e/canvas/strokes.spec.ts",
+      "sha256": "0033fed9364da5398904e658d9b24ce2039cb501477cbd3bedf2287b7e052cda",
+      "source": "tests/e2e/paint/clipped-vector-texture.spec.ts",
       "viewport": {
         "width": 1440,
         "height": 900
       },
-      "provenanceUnknown": true
+      "provenanceUnknown": false,
+      "capturedAt": "2026-10-02T20:23:53.836Z",
+      "lastValidatedAgainst": "b6fe7591409857c23bf8cf6bece419d65bbd9586",
+      "provenance": {
+        "sourceRevision": "b6fe7591409857c23bf8cf6bece419d65bbd9586",
+        "sourceDirty": false,
+        "sourceDigest": "690280443d33ce1fbed81e98a72d6bc791afb284538ca157682e917d65a0019d",
+        "runId": "test-results/release-0.5.0-refresh-b6fe759140-owners/paint-clipped-vector-textu-04fe5--survive-SVG-and-PDF-export-chromium",
+        "runtime": "chromium Playwright E2E",
+        "captureTool": "Playwright 1.62.1 / chromium 151.0.7922.34",
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "deviceScaleFactor": 1,
+        "theme": "light",
+        "promotedFrom": "release-0.5.0-combined-review",
+        "promotedAt": "2026-10-03T00:56:27.182Z"
+      }
     },
     "concept-art-reference-workflow": {
       "file": "concept-art-reference-workflow.png",
@@ -812,13 +1541,31 @@
       "width": 1440,
       "height": 1000,
       "status": "captured",
-      "sha256": "dbb2787cd196c64ce6816315f0fd55a869c2c13a21134f6e100587688b8b3451",
+      "sha256": "9e5ec96453e52592d435e7c8b4f0dd3456db8b5cf259eb1f58150dab32809f5c",
       "source": "tests/e2e/canvas/concept-art-references.spec.ts",
       "viewport": {
         "width": 1440,
         "height": 1000
       },
-      "provenanceUnknown": true
+      "provenanceUnknown": false,
+      "capturedAt": "2026-10-02T20:47:04.502Z",
+      "lastValidatedAgainst": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+      "provenance": {
+        "sourceRevision": "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767",
+        "sourceDirty": false,
+        "sourceDigest": "114266b51fd367b0f68eecfc8c435e9db8ed3206ff0c1efb925f238ed434f550",
+        "runId": "test-results/capture-owner-r52-clean/canvas-concept-art-referen-5862e-mpling-and-saves-the-opt-in-chromium",
+        "runtime": "chromium Playwright E2E",
+        "captureTool": "Playwright 1.62.1 / chromium 151.0.7922.34",
+        "viewport": {
+          "width": 1440,
+          "height": 1000
+        },
+        "deviceScaleFactor": 1,
+        "theme": "light",
+        "promotedFrom": "release-0.5.0-combined-review",
+        "promotedAt": "2026-10-03T00:56:27.184Z"
+      }
     },
     "patterns": {
       "file": "patterns-document-alignment.png",
@@ -835,37 +1582,51 @@
         "width": 1280,
         "height": 720
       },
-      "lastValidatedAgainst": "66cc3626020787266191131287de4b859eb10a05",
+      "lastValidatedAgainst": "b6fe7591409857c23bf8cf6bece419d65bbd9586",
       "provenanceUnknown": false,
-      "sha256": "665c4c8eacf1f2440fb9bd0dd14751668c543b16873d310471b1aa904aff3569",
-      "capturedAt": "2026-10-01T23:24:00.748Z",
+      "sha256": "5029f1b6a8053d38e3fe1f7d593d95f68bd9c54bc90385848fddebaaf5dea940",
+      "capturedAt": "2026-10-02T20:22:17.886Z",
       "provenance": {
-        "runId": "pattern-affected-e2e-2026-10-01",
-        "runtime": "Chromium headless Playwright E2E",
-        "captureTool": "Playwright 1.62.1 / Chromium revision 1234",
-        "sourceRevision": "66cc3626020787266191131287de4b859eb10a05",
+        "sourceRevision": "b6fe7591409857c23bf8cf6bece419d65bbd9586",
         "sourceDirty": false,
-        "sourceDigest": "42b7d2597e05e73fb11e894a76b0ae6f84395f288c63891128082bd5526de308",
+        "sourceDigest": "690280443d33ce1fbed81e98a72d6bc791afb284538ca157682e917d65a0019d",
+        "runId": "test-results/release-0.5.0-refresh-b6fe759140-owners/canvas-pattern-document-al-a7b94-its-anchor-in-the-inspector-chromium",
+        "runtime": "chromium Playwright E2E",
+        "captureTool": "Playwright 1.62.1 / chromium 151.0.7922.34",
         "viewport": {
           "width": 1280,
           "height": 720
         },
         "deviceScaleFactor": 1,
         "theme": "light",
-        "promotedFrom": "e2e-visual-review-66cc36260",
-        "promotedAt": "2026-10-01T23:29:36.680Z"
+        "promotedFrom": "release-0.5.0-combined-review",
+        "promotedAt": "2026-10-03T00:56:27.179Z"
       }
     }
   },
   "provenance": {
-    "runId": "2026-09-29T09-42-43-562Z-704791",
-    "runtime": "metadata-only (--normalize; no capture)",
-    "captureTool": "playwright 1.62.1",
-    "sourceRevision": "85ae7714588e6e3827ed6437f48dd4d519684a05",
-    "sourceDirty": true,
-    "sourceDigest": "a891847f7f07a0cffecfded4711d8332b93eb25c8598534d4c2d4d6b2114e2e7"
+    "kind": "reviewed-mixed-source-assembly",
+    "runtime": "metadata-only reviewed assembly; no new capture",
+    "assemblyRevision": "e4d2d2de9b6467e88977e11a410267f095a3bd77",
+    "assemblySourceDigest": "463feb0646872a12c1acd814bc5b69ac82bfc31b430aa95929aa4ba4faa8ce6a",
+    "assembledAt": "2026-10-03T00:56:29.107Z",
+    "capturedSourceRevisions": [
+      "64d461b7bdee49acef7293dfa011f1c541a1b448",
+      "66ea9476e05768bef3a5bcab93252068ce82b809",
+      "b6fe7591409857c23bf8cf6bece419d65bbd9586",
+      "e4d2d2de9b6467e88977e11a410267f095a3bd77",
+      "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767"
+    ],
+    "captureTools": [
+      "Playwright 1.62.1 / Chromium 151.0.7922.34",
+      "Playwright 1.62.1 / chromium 151.0.7922.34"
+    ],
+    "promotionReceiptSha256": "e2ba5aeb14fe03ffaa2424e07f7334a580a919b5af979cdbeb40e11d8e18266d",
+    "assemblyEvidenceSha256": "7209a419fd426643703a5eff39869705e1dc02fba2b7c116aa8f606788af9642",
+    "promotedManifestSha256": "72b31eafb253197a6323f5854b06e5395cd2809279aa19d8ac23adc69c4f225b",
+    "identityScope": "Assembly metadata only; per-scene producer provenance is authoritative."
   },
-  "sourceRevision": "85ae7714588e6e3827ed6437f48dd4d519684a05",
-  "sourceDigest": "a891847f7f07a0cffecfded4711d8332b93eb25c8598534d4c2d4d6b2114e2e7",
-  "captureTool": "playwright 1.62.1"
+  "sourceRevision": "e4d2d2de9b6467e88977e11a410267f095a3bd77",
+  "sourceDigest": "463feb0646872a12c1acd814bc5b69ac82bfc31b430aa95929aa4ba4faa8ce6a",
+  "captureTool": "reviewed assembly; original Playwright and browser versions are recorded per scene"
 }
