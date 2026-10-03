@@ -72,8 +72,8 @@ const LOW_CONTRAST_FIXTURE = {
  * returns true.
  */
 async function enableFindingsOverlay(page: import('@playwright/test').Page) {
-  await page.evaluate(() => {
-    const key = 'strata-editor-settings';
+  await page.addInitScript(() => {
+    const key = 'varve-editor-settings';
     const raw = localStorage.getItem(key);
     const settings = raw ? JSON.parse(raw) : {};
     if (!settings.features) settings.features = {};

@@ -153,6 +153,7 @@ function buildMenus(
     workspaceMode: string;
     colorBlindnessView: string;
     softProofEnabled: boolean;
+    findingsOverlayVisible: boolean;
     timelinePanelVisible: boolean;
     graphEditorVisible: boolean;
     stateMachinePanelVisible: boolean;
@@ -990,6 +991,16 @@ function buildMenus(
             },
           ],
         },
+        ...(loadSettings().features.findingsOverlay
+          ? [
+              {
+                label: state.findingsOverlayVisible
+                  ? 'Hide Findings Overlay'
+                  : 'Show Findings Overlay',
+                action: 'toggleFindingsOverlay',
+              },
+            ]
+          : []),
         {
           label: 'Print',
           items: [
@@ -1943,6 +1954,7 @@ export function Menubar({
       state.workspaceMode,
       state.colorBlindnessView,
       state.softProofEnabled,
+      state.findingsOverlayVisible,
       state.timelinePanelVisible,
       state.graphEditorVisible,
       state.stateMachinePanelVisible,

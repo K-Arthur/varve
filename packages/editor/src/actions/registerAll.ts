@@ -353,6 +353,12 @@ export function registerEditorActions(
   reg('togglePixelGrid', 'Toggle Pixel Grid', 'canvas', () =>
     ctx.setPixelGridEnabled(!ctx.state.pixelGridEnabled),
   );
+  reg(
+    'toggleFindingsOverlay',
+    'Toggle Findings Overlay',
+    'canvas',
+    handlers.toggleFindingsOverlay ?? (() => {}),
+  );
   reg('toggleGrid', 'Toggle Grid', 'canvas', () => {
     const dg = ctx.state.documentGrid;
     ctx.setDocumentGrid({ ...dg, visible: !dg.visible });
