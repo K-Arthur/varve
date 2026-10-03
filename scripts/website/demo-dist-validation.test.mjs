@@ -6,6 +6,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  realpathSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -54,6 +55,7 @@ for (const path of [
   ]),
 ])
   asset(join(fixture, path));
+const canonicalFixture = realpathSync(fixture);
 try {
   const deploymentWorkflow = readFileSync('.github/workflows/website-deploy.yml', 'utf8');
   const sourceJob = deploymentWorkflow.split('\n  test:')[1].split('\n  release-data:')[0];
@@ -105,7 +107,7 @@ try {
   assert.equal(config.globalTimeout, 900000);
   assert.equal(config.use.trace, 'retain-on-failure');
   assert.equal(config.webServer.reuseExistingServer, false);
-  assert.ok(config.webServer.command.includes(fixture));
+  assert.ok(config.webServer.command.includes(canonicalFixture));
   assert.equal(config.globalSetup, undefined);
   assert.equal(config.projects.length, 1);
   assert.equal(config.projects[0].name, 'chromium');
@@ -213,8 +215,8 @@ try {
   const inputReceipt = {
     schema: 1,
     sourceSha: sha,
-    originalDir: fixture,
-    distDir: fixture,
+    originalDir: canonicalFixture,
+    distDir: canonicalFixture,
     artifactSha256: original,
     validationSource: demoBrowserSource(demoDistInputs(environment, root), original, root),
   };
