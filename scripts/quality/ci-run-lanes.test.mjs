@@ -8,7 +8,12 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createBrowserInventory } from './browser-inventory.mjs';
-import { commandsForCategory, runCategory, runCategoryDetailed } from './ci-run-lanes.mjs';
+import {
+  commandExecutorForCategory,
+  commandsForCategory,
+  runCategory,
+  runCategoryDetailed,
+} from './ci-run-lanes.mjs';
 
 const plan = {
   profile: 'integration',
@@ -206,3 +211,32 @@ try {
   rmSync(browserLaneDirectory, { recursive: true, force: true });
 }
 console.log('CI lane actual browser report guards passed');
+
+// Rust runners execute only native Node/Cargo commands and must not load the
+// pnpm-only cross-spawn adapter. Non-Rust lanes continue to use that adapter.
+let secureRunnerLoads = 0;
+const rustExecutor = await commandExecutorForCategory('rust', {
+  loadSecureRunner: async () => {
+    secureRunnerLoads += 1;
+    throw new Error('Rust lanes must not load the pnpm-only command adapter');
+  },
+});
+assert.equal(rustExecutor(['node', '-e', 'process.exit(0)'], { timeoutMs: 5000 }).status, 0);
+assert.equal(secureRunnerLoads, 0);
+let secureCommand;
+const generalExecutor = await commandExecutorForCategory('js', {
+  loadSecureRunner: async () => {
+    secureRunnerLoads += 1;
+    return {
+      spawnValidationCommandSync: (argv, options) => {
+        secureCommand = { argv, options };
+        return { status: 0, signal: null, error: null };
+      },
+    };
+  },
+});
+assert.equal(generalExecutor(['pnpm', 'test'], { timeoutMs: 1234 }).status, 0);
+assert.deepEqual(secureCommand.argv, ['pnpm', 'test']);
+assert.equal(secureCommand.options.timeout, 1234);
+assert.equal(secureRunnerLoads, 1);
+console.log('CI lane command runner selection passed');

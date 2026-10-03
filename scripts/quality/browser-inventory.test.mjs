@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
   createBrowserInventory,
@@ -16,6 +17,19 @@ const source = {
   policyHash: 'd'.repeat(64),
 };
 const cleanSource = () => ({ ...source, clean: true });
+
+// GitHub artifact downloads omit hidden files by default. Keep downloaded
+// WASM artifacts ignored even when apps/desktop/public/wasm/.gitignore is absent.
+const wasmIgnoreRule = execFileSync(
+  'git',
+  ['check-ignore', '--no-index', '--verbose', '--', 'apps/desktop/public/wasm/varve_wasm_bg.wasm'],
+  { encoding: 'utf8' },
+);
+assert.match(
+  wasmIgnoreRule,
+  /^\.gitignore:\d+:apps\/desktop\/public\/wasm\/\s/m,
+  'downloaded WASM artifacts must be ignored by the root rule when nested hidden files are absent',
+);
 const argv = [
   'pnpm',
   'exec',

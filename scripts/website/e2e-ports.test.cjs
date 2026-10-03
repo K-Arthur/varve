@@ -10,7 +10,7 @@ const {
 const { execFileSync } = require('node:child_process');
 const { createServer } = require('node:net');
 const { tmpdir } = require('node:os');
-const { dirname, join, relative, sep, resolve } = require('node:path');
+const { dirname, join, normalize, relative, sep, resolve } = require('node:path');
 const { pathToFileURL } = require('node:url');
 const { test } = require('node:test');
 const crossSpawn = require('cross-spawn');
@@ -91,11 +91,17 @@ test('Playwright cleanup cannot erase website certification plans or reports', (
   const progressReporter = config.reporter.find(
     (reporter) => Array.isArray(reporter) && reporter[0].includes('browser-progress.mjs'),
   );
-  assert.equal(progressReporter?.[1]?.outputFile, join('test-results', suffix, 'progress.json'));
+  assert.equal(
+    normalize(progressReporter?.[1]?.outputFile ?? ''),
+    join('test-results', suffix, 'progress.json'),
+  );
   const jsonReporter = config.reporter.find(
     (reporter) => Array.isArray(reporter) && reporter[0] === 'json',
   );
-  assert.equal(jsonReporter?.[1]?.outputFile, join('test-results', suffix, 'playwright.json'));
+  assert.equal(
+    normalize(jsonReporter?.[1]?.outputFile ?? ''),
+    join('test-results', suffix, 'playwright.json'),
+  );
 });
 
 test('isolated defaults avoid Astro development ports and explicit overrides win independently', () => {

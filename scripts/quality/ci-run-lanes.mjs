@@ -19,7 +19,6 @@ import {
 } from './ci-execution-report.mjs';
 import { validateCiPlan } from './ci-plan.mjs';
 import { playwrightRunOptions } from './execution-plan.mjs';
-import { spawnValidationCommandSync } from './heavy-lease.mjs';
 import { laneArgv, packageDirs } from './validation-lanes.mjs';
 import { CI_CATEGORIES, computePolicyHash } from './validation-policy.mjs';
 
@@ -159,7 +158,7 @@ export function runCategory(
   plan,
   category,
   {
-    execute = runCommand,
+    execute,
     shard = null,
     dryRun = false,
     browserReportDir = null,
@@ -174,13 +173,15 @@ export function runCategoryDetailed(
   plan,
   category,
   {
-    execute = runCommand,
+    execute,
     shard = null,
     dryRun = false,
     browserReportDir = null,
     discover = discoverBrowserInventory,
   } = {},
 ) {
+  if (typeof execute !== 'function')
+    throw new TypeError('CI lane execution requires an explicitly selected command runner');
   const outcomes = [];
   const browserReports = [];
   let browserEvidence = collectBrowserEvidence([]);
@@ -223,34 +224,58 @@ export function runCategoryDetailed(
   return { status: 0, outcomes, browserEvidence };
 }
 
-function runCommand(
-  argv,
-  { dryRun = false, browserReportPath = null, timeoutMs = 45 * 60 * 1000 } = {},
-) {
-  console.log(`    $ ${describe(argv)}`);
-  if (dryRun) return 0;
-  const environment = commandEnvironment();
-  if (browserReportPath) environment.env.VARVE_CI_PLAYWRIGHT_REPORT = browserReportPath;
-  const result = spawnValidationCommandSync(argv, {
-    ...environment,
-    stdio: 'inherit',
-    timeout: timeoutMs,
-  });
-  if (result.error) {
-    const reason =
-      result.error.code === 'ETIMEDOUT'
-        ? `timeout after ${timeoutMs / 1000}s`
-        : result.error.message;
-    console.error(
-      `    command failed: ${reason}; resources: ${availableParallelism()} CPUs, ${Math.round(freemem() / 1024 / 1024)} MiB free / ${Math.round(totalmem() / 1024 / 1024)} MiB total`,
-    );
-    return { status: 1, timedOut: result.error.code === 'ETIMEDOUT' };
-  }
-  if (result.signal) return { status: 1, signal: result.signal };
-  return { status: result.status ?? 1 };
+function createCommandExecutor(spawnCommand) {
+  return function runCommand(
+    argv,
+    { dryRun = false, browserReportPath = null, timeoutMs = 45 * 60 * 1000 } = {},
+  ) {
+    console.log(`    $ ${describe(argv)}`);
+    if (dryRun) return 0;
+    const environment = commandEnvironment();
+    if (browserReportPath) environment.env.VARVE_CI_PLAYWRIGHT_REPORT = browserReportPath;
+    const result = spawnCommand(argv, {
+      ...environment,
+      stdio: 'inherit',
+      timeout: timeoutMs,
+    });
+    if (result.error) {
+      const reason =
+        result.error.code === 'ETIMEDOUT'
+          ? `timeout after ${timeoutMs / 1000}s`
+          : result.error.message;
+      console.error(
+        `    command failed: ${reason}; resources: ${availableParallelism()} CPUs, ${Math.round(freemem() / 1024 / 1024)} MiB free / ${Math.round(totalmem() / 1024 / 1024)} MiB total`,
+      );
+      return { status: 1, timedOut: result.error.code === 'ETIMEDOUT' };
+    }
+    if (result.signal) return { status: 1, signal: result.signal };
+    return { status: result.status ?? 1 };
+  };
 }
 
-function main() {
+/**
+ * Select the smallest command runner needed by a lane category. Rust lanes
+ * invoke only native `node` and `cargo` executables, so they do not require the
+ * pnpm-installed cross-spawn adapter. Other categories retain the validated
+ * Windows shim handling from heavy-lease.
+ */
+export async function commandExecutorForCategory(
+  category,
+  { dryRun = false, loadSecureRunner = () => import('./heavy-lease.mjs') } = {},
+) {
+  if (dryRun) return createCommandExecutor(() => ({ status: 0 }));
+  if (category === 'rust') {
+    return createCommandExecutor((argv, options) => {
+      if (!['node', 'cargo'].includes(argv[0]))
+        throw new Error(`Rust lane attempted a non-native command '${argv[0]}'`);
+      return spawnSync(argv[0], argv.slice(1), { ...options, shell: false });
+    });
+  }
+  const { spawnValidationCommandSync } = await loadSecureRunner();
+  return createCommandExecutor((argv, options) => spawnValidationCommandSync(argv, options));
+}
+
+async function main() {
   const flags = parseArgs(process.argv.slice(2));
   if (!flags.plan || !flags.category)
     throw new Error(
@@ -265,8 +290,10 @@ function main() {
     throw new Error(`CI plan identity check failed: ${identityErrors.join('; ')}`);
   if (plan.profile && flags.profile !== plan.profile && flags.profile !== 'integration')
     throw new Error(`plan profile ${plan.profile} does not match requested ${flags.profile}`);
+  const execute = await commandExecutorForCategory(flags.category, { dryRun: flags.dryRun });
   const startedAt = Date.now();
   const result = runCategoryDetailed(plan, flags.category, {
+    execute,
     shard: flags.shard,
     dryRun: flags.dryRun,
     browserReportDir: flags.dryRun
@@ -294,12 +321,10 @@ function main() {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  try {
-    main();
-  } catch (error) {
+  main().catch((error) => {
     console.error(`CI lane execution failed: ${error.message}`);
     process.exitCode = 1;
-  }
+  });
 }
 
 export { e2eArgv, lanesForCategory, parseArgs };

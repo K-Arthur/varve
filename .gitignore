@@ -149,6 +149,11 @@ tests/fixtures/restore-corpus/
 # --- Generated ONNX Runtime Web WASM artifacts ---
 apps/desktop/public/ort-wasm/
 
+# --- Downloaded Varve WASM build artifacts ---
+# Artifact downloads may omit the nested hidden .gitignore, so CI source-cleanliness
+# checks must ignore these generated files from the repository root.
+apps/desktop/public/wasm/
+
 # --- Fetched native ONNX Runtime shared libraries (scripts/fetch-onnxruntime.mjs) ---
 apps/desktop/src-tauri/onnxruntime-libs/
 
