@@ -113,6 +113,33 @@ async function waitForMemoryHeadroom(label) {
 
 const OWNER_ENV = 'VARVE_HEAVY_LEASE_OWNER';
 
+/**
+ * Canonical identity for a filesystem path used as a lease key.
+ *
+ * `realpathSync` expands Windows 8.3 short names (`RUNNER~1`) and returns the
+ * path's stored casing, while `git rev-parse --git-common-dir` prints a
+ * differently-shaped spelling for the same directory. Hashing those raw forms
+ * produced two keys for one repository, so the main checkout and a detached
+ * worktree failed to serialize (CI run 37213756356, windows-latest,
+ * `heavy-lease-ownership.test.mjs`).
+ *
+ * Normalise with `toLowerCase()` (mirroring `git rev-parse --path-format`-style
+ * canonicalisation) *and* `realpathSync.native`, which expands short names that
+ * the JS implementation leaves alone. Both `.native` and the JS version are
+ * tried so a transient Windows failure cannot make the key unstable.
+ */
+export function canonicalPathKey(value) {
+  const absolute = resolve(value).toLowerCase();
+  for (const realpath of [realpathSync.native, realpathSync]) {
+    try {
+      return realpath(absolute).toLowerCase();
+    } catch {
+      // Fall through to the next implementation, then to the absolute form.
+    }
+  }
+  return absolute;
+}
+
 /** Canonical keys bind all worktrees; legacy aliases bridge older clients. */
 export function leasePaths({
   cwd = process.cwd(),
@@ -128,13 +155,16 @@ export function leasePaths({
   } catch {
     printed = cwd;
   }
-  const commonDir = realpathSync(resolve(cwd, printed));
+  // Bind every spelling of the same directory to one key: `.git` is relative,
+  // Git may print a short or differently-cased form, and realpath may expand
+  // it. All of them must hash identically or two clients claim one repository.
+  const canonical = canonicalPathKey(resolve(cwd, printed));
   const base = join(resolve(runtimeDirectory), 'varve-leases');
-  const primary = join(base, `${createHash('sha256').update(commonDir).digest('hex')}.lock`);
-  const legacy = [...new Set([printed, commonDir, '.git'])].map((value) =>
+  const primary = join(base, `${createHash('sha256').update(canonical).digest('hex')}.lock`);
+  const legacy = [...new Set([printed, resolve(cwd, printed), '.git'])].map((value) =>
     join(base, `${Buffer.from(value).toString('hex').slice(0, 32)}.lock`),
   );
-  return { commonDir, primary, paths: [...new Set([primary, ...legacy])].sort() };
+  return { commonDir: canonical, primary, paths: [...new Set([primary, ...legacy])].sort() };
 }
 
 function readLease(path) {
