@@ -43,7 +43,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { constants, freemem, homedir, platform, tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import crossSpawn from 'cross-spawn';
 
@@ -426,6 +426,32 @@ function ownedProcesses(rootPid) {
 const signalStatus = (signal) =>
   signal && constants.signals[signal] ? 128 + constants.signals[signal] : 1;
 const pause = (ms) => new Promise((done) => setTimeout(done, ms));
+const ORPHAN_DRAIN_MS = 500;
+
+function processName(pid) {
+  try {
+    const command =
+      process.platform === 'linux'
+        ? readFileSync(`/proc/${pid}/comm`, 'utf8').trim()
+        : spawnSync('ps', ['-p', String(pid), '-o', 'comm='], {
+            encoding: 'utf8',
+            timeout: 1000,
+          }).stdout?.trim();
+    return command ? basename(command) : 'unknown';
+  } catch {
+    return 'unknown';
+  }
+}
+
+async function drainExitedCommandDescendants(refresh) {
+  const deadline = Date.now() + ORPHAN_DRAIN_MS;
+  let remaining = refresh();
+  while (remaining.length && Date.now() < deadline) {
+    await pause(Math.min(25, deadline - Date.now()));
+    remaining = refresh();
+  }
+  return remaining;
+}
 
 async function killWindowsTree(pid, graceMs) {
   return new Promise((resolve) => {
@@ -654,6 +680,12 @@ export async function runValidationCommand(argv, options = {}) {
       }
     }
     let remaining = refresh();
+    // Some launchers (notably WebKit/desktop test runners) exit just before
+    // their short-lived renderer/helper children. Let ordinary shutdown drain
+    // briefly; a descendant still alive after this bounded window remains a
+    // failure and is cleaned up below.
+    if (ended && !receivedSignal && !timedOut && !parentLost && remaining.length)
+      remaining = await drainExitedCommandDescendants(refresh);
     const orphaned = ended && remaining.length > 0;
     let cleanupUnknown = false;
     if (receivedSignal || timedOut || parentLost || orphaned) {
@@ -687,6 +719,12 @@ export async function runValidationCommand(argv, options = {}) {
       console.error(
         'validation: command exited with owned processes still running; owned-process cleanup ' +
           (remaining.length || cleanupUnknown ? 'incomplete' : 'completed'),
+      );
+    if (orphaned && !receivedSignal && !timedOut && !parentLost)
+      console.error(
+        `validation: remaining descendants: ${remaining
+          .map((item) => `${item.pid}(${processName(item.pid)})@depth${item.depth}`)
+          .join(', ')}`,
       );
     if (spawnError) console.error(`validation: failed to spawn ${argv[0]}: ${spawnError.message}`);
     if (cleanupUnknown)

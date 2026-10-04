@@ -40,6 +40,24 @@ try {
     assert.doesNotMatch(result.stderr, /timed out|cancelled/);
   }
 
+  // Desktop launchers can exit a fraction before their renderer/helper child
+  // shuts down naturally. A short drain window avoids reporting that normal
+  // teardown as an orphan while persistent descendants still fail closed.
+  const drainingDescendant = [
+    "const { spawn } = require('node:child_process');",
+    `spawn(process.execPath, ['-e', 'setTimeout(() => process.exit(0), 600)'], { detached: true, stdio: 'ignore' });`,
+    'setTimeout(() => process.exit(0), 350);',
+  ].join('\n');
+  const drainResult = spawnSync(
+    process.execPath,
+    [runner, '3000', tempDir, process.execPath, '-e', drainingDescendant],
+    { encoding: 'utf8', timeout: 5000 },
+  );
+  assert.equal(drainResult.error, undefined, drainResult.error?.message);
+  assert.equal(drainResult.status, 0, drainResult.stderr);
+  assert.doesNotMatch(drainResult.stderr, /owned processes still running/);
+  console.log('bounded command allows natural descendant shutdown after launcher exit');
+
   // A launcher can die before the helper captures process.ppid, which is then
   // the OS reaper rather than its real parent. The pre-spawn identity closes
   // that race and prevents starting orphan work against the snapshot.

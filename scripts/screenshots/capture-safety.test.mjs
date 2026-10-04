@@ -418,9 +418,35 @@ test('reviewed promotion CLI replaces dirty normalize aggregate metadata without
     'scripts/quality/heavy-lease.mjs',
   ];
   try {
+    // The fixture points Git metadata at the live worktree so its provenance
+    // revision is real. Mirror untracked capture inputs too: source identity
+    // hashes those bytes, and a temporary fixture that omits a new test file
+    // would otherwise fail with ENOENT while unrelated work is in progress.
+    const untrackedSource = spawnSync(
+      'git',
+      [
+        'ls-files',
+        '--others',
+        '--exclude-standard',
+        '-z',
+        '--',
+        'packages',
+        'apps/desktop',
+        'tests/e2e',
+        'scripts/screenshots',
+      ],
+      { cwd: root, encoding: 'utf8' },
+    );
+    assert.equal(untrackedSource.status, 0, untrackedSource.stderr);
     for (const file of sourceFiles) {
       mkdirSync(dirname(join(fixture, file)), { recursive: true });
       copyFileSync(join(root, file), join(fixture, file));
+    }
+    for (const file of untrackedSource.stdout.split('\0').filter(Boolean)) {
+      const source = join(root, file);
+      const destination = join(fixture, file);
+      mkdirSync(dirname(destination), { recursive: true });
+      copyFileSync(source, destination);
     }
     symlinkSync(join(root, 'node_modules'), join(fixture, 'node_modules'), 'junction');
     const canonicalManifest = join(fixture, 'apps/website/src/data/screenshot-manifest.json');
