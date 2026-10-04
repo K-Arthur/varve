@@ -154,15 +154,9 @@ product page.
 
 ## Download
 
-**[varve.studio/download](https://varve.studio/download)** — the website
-renders installer links and checksums from the verified published release
-manifest. You can also get the same installers from
-[GitHub Releases](https://github.com/K-Arthur/varve/releases) (look for a
-release named `Varve vX.Y.Z` — a separate `Varve optional AI models` release
-also exists on that page for on-demand model assets and is not an application
-release). GitHub's
-[latest-release shortcut](https://github.com/K-Arthur/varve/releases/latest)
-points to the latest Varve application release, not the model artifacts.
+Get application installers from the [Varve download page](https://varve.studio/download/)
+or the [Varve v0.2.1 release](https://github.com/K-Arthur/varve/releases/tag/v0.2.1).
+Optional AI models are published as separate releases.
 
 ## Platform support
 
