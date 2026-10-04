@@ -14,19 +14,19 @@ async function enableAnalyticsFixture(page: Page): Promise<void> {
       const response = await route.fetch();
       const html = await response.text();
       expect(html).toContain('data-analytics-enabled=');
-      await route.fulfill({
-        response,
-        body: html
-          .replace(/data-analytics-enabled="[^"]*"/, 'data-analytics-enabled="true"')
-          .replace(
-            /data-analytics-domain="[^"]*"/,
-            'data-analytics-domain="varvestudio.goatcounter.com"',
-          )
-          .replace(
-            /connect-src 'self'[^;]*/,
-            "connect-src 'self' https://varvestudio.goatcounter.com",
-          ),
-      });
+      // Astro serializes the disabled domain as a bare empty attribute.
+      const enabledHtml = html
+        .replace(/data-analytics-enabled="[^"]*"/, 'data-analytics-enabled="true"')
+        .replace(
+          /data-analytics-domain(?:="[^"]*")?/,
+          'data-analytics-domain="varvestudio.goatcounter.com"',
+        )
+        .replace(
+          /connect-src 'self'[^;]*/,
+          "connect-src 'self' https://varvestudio.goatcounter.com",
+        );
+      expect(enabledHtml).toContain('data-analytics-domain="varvestudio.goatcounter.com"');
+      await route.fulfill({ response, body: enabledHtml });
     },
   );
 }
