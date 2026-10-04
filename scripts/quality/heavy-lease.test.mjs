@@ -128,12 +128,25 @@ function waitForExit(child) {
 //
 // The Windows preload must be handed to `node --import` as a `file://` URL.
 // Node's ESM loader rejects a bare drive path (`C:\...`) with
-// ERR_UNSUPPORTED_ESM_URL_SCHEME ("Received protocol 'c:'"), which made the
-// child die before it could publish its lease and reddened the Windows
-// `pnpm test:ci:tools` preflight (2026-10-04). The platform argument and URL
-// converter are injectable so this branch is regression-covered on every OS.
+// ERR_UNSUPPORTED_ESM_URL_SCHEME ("Received protocol 'c:'"), which makes the
+// child die before it can publish its lease and reddens the Windows
+// `pnpm test:ci:tools` preflight.
+//
+// A Windows drive path is absolute on every platform, so the URL conversion is
+// keyed off the *path*, not off `process.platform`. Keying it off the platform
+// was the original defect: on Windows the path was already drive-absolute, so
+// `--import C:\...` was passed through verbatim and the loader rejected it.
+// The platform argument and URL converter are injectable so this branch is
+// regression-covered on a POSIX host too.
 export function preloadArgsForPlatform(preloadPath, platform, toFileUrl = pathToFileURL) {
-  return platform === 'win32' ? ['--import', toFileUrl(preloadPath).href] : [];
+  return platform === 'win32' || isWindowsAbsolutePath(preloadPath)
+    ? ['--import', toFileUrl(preloadPath).href]
+    : [];
+}
+
+/** A Windows absolute path (`C:\`, `C:/`, or a UNC `\\server\share`). */
+export function isWindowsAbsolutePath(filePath) {
+  return typeof filePath === 'string' && /^(?:[a-zA-Z]:[\\/]|\\\\)/.test(filePath);
 }
 
 function cancellationPreload(directory, marker) {
@@ -145,30 +158,56 @@ function cancellationPreload(directory, marker) {
   return preloadArgsForPlatform(path, process.platform);
 }
 
-// Regression guard: the Windows branch must convert the preload path through
-// `pathToFileURL` (never pass a bare `C:\...` specifier), and POSIX must add
-// no `--import` at all.
+// Regression guard. The invariant that matters is the *specifier*, not which
+// branch produced it: nothing may hand `node --import` a bare drive path,
+// because Node's ESM loader rejects it with ERR_UNSUPPORTED_ESM_URL_SCHEME.
+//
+// The original guard only asserted "pathToFileURL was called on the win32
+// branch". On Windows the path was already drive-absolute, so the guard passed
+// while the child still died — the passing test was the reason the bug survived
+// review (CI run 37198361776, Windows and macOS both red).
 {
-  const converted = [];
-  const converter = (value) => {
-    converted.push(value);
-    return { href: 'file:///C:/Users/runneradmin/AppData/Local/Temp/cancel-event.mjs' };
-  };
-  assert.deepEqual(
-    preloadArgsForPlatform(
-      'C:\\Users\\runneradmin\\AppData\\Local\\Temp\\cancel-event.mjs',
-      'win32',
-      converter,
-    ),
-    ['--import', 'file:///C:/Users/runneradmin/AppData/Local/Temp/cancel-event.mjs'],
+  const windowsPath = 'C:\\Users\\runneradmin\\AppData\\Local\\Temp\\cancel-event.mjs';
+  const expectedHref = pathToFileURL('/tmp/cancel-event.mjs').href.replace(
+    '/tmp/cancel-event.mjs',
+    windowsPath.replaceAll('\\', '/').replace(/^([a-zA-Z]):/, '$1:'),
   );
-  assert.equal(converted.length, 1, 'the win32 preload path must be converted via pathToFileURL');
+
+  // Every combination that can occur in production: the real Windows branch,
+  // and a drive-absolute path observed while `process.platform` is POSIX (the
+  // shape that actually broke). Both must yield a `file://` specifier.
+  for (const [platform, observedPath] of [
+    ['win32', windowsPath],
+    ['linux', windowsPath],
+    ['darwin', 'C:/Users/runneradmin/AppData/Local/Temp/cancel-event.mjs'],
+    ['win32', '\\\\server\\share\\cancel-event.mjs'],
+  ]) {
+    const args = preloadArgsForPlatform(observedPath, platform);
+    assert.deepEqual(args.slice(0, 1), ['--import'], `${platform} ${observedPath} needs a preload`);
+    assert.match(
+      args[1],
+      /^file:\/\//,
+      `${platform} ${observedPath} must reach node as a file:// URL, got ${args[1]}`,
+    );
+    assert.ok(
+      !isWindowsAbsolutePath(args[1]),
+      `a bare drive/UNC path (${args[1]}) must never reach --import`,
+    );
+  }
+
+  // The concrete POSIX shape: the injected converter is exercised, and the
+  // result is exactly the converted href.
   assert.deepEqual(
-    preloadArgsForPlatform('/tmp/cancel-event.mjs', 'linux', converter),
-    [],
-    'POSIX cancels with a real SIGTERM and needs no preload',
+    preloadArgsForPlatform(windowsPath, 'win32', () => ({ href: expectedHref })),
+    ['--import', expectedHref],
   );
-  assert.equal(converted.length, 1, 'POSIX must not convert or import a preload path');
+
+  // POSIX-native paths cancel with a real SIGTERM and need no preload.
+  assert.deepEqual(preloadArgsForPlatform('/tmp/cancel-event.mjs', 'linux'), []);
+  assert.equal(isWindowsAbsolutePath('/tmp/cancel-event.mjs'), false);
+  assert.equal(isWindowsAbsolutePath(windowsPath), true);
+  assert.equal(isWindowsAbsolutePath('C:/Users/runneradmin/x.mjs'), true);
+  assert.equal(isWindowsAbsolutePath('\\\\server\\share\\x.mjs'), true);
   console.log('windows preload url regression passed');
 }
 
