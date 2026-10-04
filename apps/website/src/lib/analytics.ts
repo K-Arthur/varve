@@ -1,27 +1,13 @@
 import {
   AnalyticsClient,
   type AnalyticsConsentState,
-  type AnalyticsEvent,
-  type AnalyticsEventMap,
-  type AnalyticsProvider,
   sanitizeAnalyticsContext,
 } from '@varve/shared';
 
-const CONSENT_KEY = 'varve:website-analytics-consent';
-const PLAUSIBLE_SCRIPT = 'https://plausible.io/js/pa-9Rpt-MZjJts8awPbiRZl3.js';
+import { GoatCounterProvider, safeGoatCounterDomain, websiteReferrer } from './goatcounter';
 
-type PlausibleEventOptions = {
-  props?: Record<string, string>;
-  u?: string;
-  interactive?: boolean;
-};
-
-type PlausibleClient = ((name: string, options?: PlausibleEventOptions) => void) & {
-  init?: (options?: Record<string, unknown>) => void;
-  l?: boolean;
-  o?: Record<string, unknown>;
-  q?: Array<[string, PlausibleEventOptions?]>;
-};
+const CONSENT_KEY = 'varve:website-analytics-consent:goatcounter-v1';
+const LEGACY_CONSENT_KEY = 'varve:website-analytics-consent';
 
 interface WebsiteAnalyticsOptions {
   domain: string;
@@ -30,7 +16,6 @@ interface WebsiteAnalyticsOptions {
 
 interface AnalyticsWindow extends Window {
   __varveWebsiteAnalytics?: WebsiteAnalyticsController;
-  plausible?: PlausibleClient;
 }
 
 interface DownloadTarget extends HTMLElement {
@@ -47,7 +32,9 @@ interface DownloadTarget extends HTMLElement {
 function readConsent(): AnalyticsConsentState {
   try {
     const value = window.localStorage.getItem(CONSENT_KEY);
-    return value === 'granted' || value === 'denied' ? value : 'unknown';
+    if (value === 'granted' || value === 'denied') return value;
+    // Keep prior refusals; a grant to the previous provider does not transfer.
+    return window.localStorage.getItem(LEGACY_CONSENT_KEY) === 'denied' ? 'denied' : 'unknown';
   } catch {
     return 'unknown';
   }
@@ -94,10 +81,6 @@ function normalizedRoute(
   return '/';
 }
 
-function safeDomain(domain: string): string | null {
-  return /^[A-Za-z0-9.-]{1,253}$/.test(domain) ? domain : null;
-}
-
 function platform(value: string | undefined): 'linux' | 'windows' | 'macos' | 'unknown' {
   return value === 'linux' || value === 'windows' || value === 'macos' ? value : 'unknown';
 }
@@ -122,102 +105,17 @@ function releaseChannel(value: string | undefined): 'beta' | 'stable' | 'prerele
   return value === 'stable' || value === 'prerelease' ? value : 'beta';
 }
 
-class PlausibleEventsProvider implements AnalyticsProvider {
-  private readonly domain: string;
-  private readonly pending: AnalyticsEvent[] = [];
-
-  constructor(domain: string) {
-    this.domain = domain;
-  }
-
-  async initialize(): Promise<void> {
-    const win = window as AnalyticsWindow;
-    if (win.plausible?.l) return;
-
-    let plausible = win.plausible;
-    if (!plausible) {
-      const queued: Array<[string, PlausibleEventOptions?]> = [];
-      plausible = ((...args: [string, PlausibleEventOptions?]) => {
-        queued.push(args);
-      }) as PlausibleClient;
-      plausible.q = queued;
-    }
-    plausible.q ??= [];
-    plausible.init ??= (options) => {
-      plausible.o = options;
-    };
-    plausible.init({
-      domain: this.domain,
-      autoCapturePageviews: false,
-      fileDownloads: false,
-      outboundLinks: false,
-      formSubmissions: false,
-    });
-    win.plausible = plausible;
-
-    if (!document.querySelector(`script[data-varve-plausible="true"]`)) {
-      const script = document.createElement('script');
-      script.async = true;
-      script.src = PLAUSIBLE_SCRIPT;
-      script.dataset.varvePlausible = 'true';
-      document.head.appendChild(script);
-    }
-  }
-
-  track(event: AnalyticsEvent): void {
-    if (this.pending.length < 25) this.pending.push(event);
-  }
-
-  async flush(): Promise<void> {
-    if (this.pending.length === 0) return;
-    const plausible = (window as AnalyticsWindow).plausible;
-    if (!plausible) return;
-    const events = this.pending.splice(0, this.pending.length);
-    for (const event of events) {
-      const pagePayload = event.payload as AnalyticsEventMap['website_page_viewed'];
-      const route =
-        event.name === 'website_page_viewed'
-          ? pagePayload.route
-          : normalizedRoute(window.location.pathname);
-      const props =
-        event.name === 'website_download_started'
-          ? (() => {
-              const payload = event.payload as AnalyticsEventMap['website_download_started'];
-              return {
-                release: payload.release,
-                platform: payload.platform,
-                architecture: payload.architecture,
-                package_type: payload.packageType,
-                release_channel: payload.releaseChannel,
-              };
-            })()
-          : event.name === 'website_outbound_clicked'
-            ? {
-                destination: (event.payload as AnalyticsEventMap['website_outbound_clicked'])
-                  .destination,
-              }
-            : undefined;
-      plausible(event.name === 'website_page_viewed' ? 'pageview' : event.name, {
-        props,
-        u: new URL(route, window.location.origin).toString(),
-        interactive: false,
-      });
-    }
-  }
-
-  async shutdown(): Promise<void> {
-    this.pending.length = 0;
-  }
-}
-
 export class WebsiteAnalyticsController {
   private readonly client: AnalyticsClient;
   private readonly banner: HTMLElement | null;
   private readonly blockedBySignal: boolean;
+  private consent: AnalyticsConsentState;
+  private pageviewSent = false;
 
   constructor(domain: string, banner: HTMLElement | null) {
     this.banner = banner;
     this.blockedBySignal = privacySignalBlocks();
+    this.consent = this.blockedBySignal ? 'denied' : readConsent();
     const context = sanitizeAnalyticsContext({
       appVersion: 'website',
       platform: 'unknown',
@@ -232,11 +130,16 @@ export class WebsiteAnalyticsController {
         releaseChannel: 'production',
       },
       consent: {
-        website: this.blockedBySignal ? 'denied' : readConsent(),
+        website: this.consent,
         usage: 'denied',
         diagnostics: 'denied',
       },
-      provider: new PlausibleEventsProvider(domain),
+      provider: new GoatCounterProvider({
+        domain,
+        canSend: () => this.consent === 'granted' && !privacySignalBlocks(),
+        route: () => normalizedRoute(window.location.pathname),
+        referrer: () => websiteReferrer(document.referrer, window.location.origin),
+      }),
       maxQueueSize: 25,
     });
   }
@@ -254,6 +157,8 @@ export class WebsiteAnalyticsController {
   }
 
   choose(value: 'granted' | 'denied'): void {
+    if (this.blockedBySignal || privacySignalBlocks()) value = 'denied';
+    this.consent = value;
     writeConsent(value);
     this.client.updateConsent({ website: value, usage: 'denied', diagnostics: 'denied' });
     this.hideBanner();
@@ -264,6 +169,7 @@ export class WebsiteAnalyticsController {
   }
 
   withdraw(): void {
+    this.consent = 'denied';
     writeConsent('denied');
     this.client.updateConsent({ website: 'denied', usage: 'denied', diagnostics: 'denied' });
     this.showBanner();
@@ -274,12 +180,14 @@ export class WebsiteAnalyticsController {
   }
 
   private trackPageView(): void {
+    if (this.pageviewSent || this.consent !== 'granted' || privacySignalBlocks()) return;
+    this.pageviewSent = true;
     this.client.track('website_page_viewed', { route: normalizedRoute(window.location.pathname) });
     void this.client.flush();
   }
 
   trackDownload(element: DownloadTarget): void {
-    if (readConsent() !== 'granted' || this.blockedBySignal) return;
+    if (this.consent !== 'granted' || privacySignalBlocks()) return;
     this.client.track('website_download_started', {
       release: element.dataset.analyticsRelease ?? 'unknown',
       platform: platform(element.dataset.analyticsPlatform),
@@ -291,7 +199,7 @@ export class WebsiteAnalyticsController {
   }
 
   trackOutbound(destination: 'github' | 'docs' | 'community'): void {
-    if (readConsent() !== 'granted' || this.blockedBySignal) return;
+    if (this.consent !== 'granted' || privacySignalBlocks()) return;
     this.client.track('website_outbound_clicked', { destination });
     void this.client.flush();
   }
@@ -299,19 +207,19 @@ export class WebsiteAnalyticsController {
   trackContact(
     channel: 'general' | 'support' | 'feedback' | 'security' | 'privacy' | 'press' | 'partnerships',
   ): void {
-    if (readConsent() !== 'granted' || this.blockedBySignal) return;
+    if (this.consent !== 'granted' || privacySignalBlocks()) return;
     this.client.track('website_contact_clicked', { channel });
     void this.client.flush();
   }
 
   trackDemoLaunch(entry: 'website' | 'direct'): void {
-    if (readConsent() !== 'granted' || this.blockedBySignal) return;
+    if (this.consent !== 'granted' || privacySignalBlocks()) return;
     this.client.track('browser_demo_launched', { entry });
     void this.client.flush();
   }
 
   trackDemoDownload(element: DownloadTarget): void {
-    if (readConsent() !== 'granted' || this.blockedBySignal) return;
+    if (this.consent !== 'granted' || privacySignalBlocks()) return;
     this.client.track('browser_demo_desktop_download', {
       release: element.dataset.analyticsRelease ?? 'unknown',
       platform: platform(element.dataset.analyticsPlatform),
@@ -332,9 +240,10 @@ export class WebsiteAnalyticsController {
 
 export function initWebsiteAnalytics(options: WebsiteAnalyticsOptions): void {
   if (!options.enabled) return;
-  const domain = safeDomain(options.domain);
+  const domain = safeGoatCounterDomain(options.domain);
   if (!domain) return;
   const win = window as AnalyticsWindow;
+  if (win.__varveWebsiteAnalytics) return;
   const controller = new WebsiteAnalyticsController(
     domain,
     document.getElementById('website-analytics-consent'),

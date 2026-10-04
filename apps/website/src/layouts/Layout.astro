@@ -168,14 +168,19 @@ if (!noindex) {
 
 // Empty unless deliberately configured at build time. The default build makes
 // no analytics requests and renders no consent prompt.
-const analyticsDomain = import.meta.env.ANALYTICS_DOMAIN ?? '';
+// Preserve the existing website-domain deployment switch. This one public
+// account was owner-created and verified with aggregate-only privacy settings.
+// A missing/different website domain keeps the transport disabled.
+const analyticsDomain = import.meta.env.ANALYTICS_DOMAIN === 'varve.studio'
+  ? 'varvestudio.goatcounter.com'
+  : '';
 
 const csp = [
   "default-src 'self'",
-  `script-src 'self' 'unsafe-inline'${analyticsDomain ? ' https://plausible.io' : ''}`,
+  "script-src 'self' 'unsafe-inline'",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data:",
-  `connect-src 'self'${analyticsDomain ? ' https://plausible.io' : ''}`,
+  `connect-src 'self'${analyticsDomain ? ` https://${analyticsDomain}` : ''}`,
   "font-src 'self'",
   "frame-ancestors 'none'",
   "base-uri 'self'",
