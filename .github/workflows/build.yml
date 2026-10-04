@@ -176,20 +176,9 @@ jobs:
         working-directory: apps/desktop
         run: pnpm tauri build --debug --no-bundle --config src-tauri/tauri.test.conf.json --features wdio,custom-protocol
 
-      - name: Automated failure debug
-        if: failure()
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
-        run: node scripts/ci-debug.mjs --run-id ${{ github.run_id }} --output ci-debug-report.md || true
-
-      - name: Upload debug report
-        if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        with:
-          name: varve-debug-${{ matrix.os }}-${{ github.run_id }}
-          path: ci-debug-report.md
-          if-no-files-found: ignore
+      # Failure diagnostics are produced once per failed run by the ci-debug.yml
+      # workflow_run, which sees every job's finalized logs; a per-job copy was
+      # a partial duplicate of that report.
 
       # No bundle directory is produced here any more (see --no-bundle above);
       # this workflow proves the build compiles, release.yml produces the

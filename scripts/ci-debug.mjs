@@ -744,6 +744,63 @@ function appendLocalReproductions(lines, run, jobs, failuresBySource) {
   }
 }
 
+/**
+ * Actionable category for the dominant failure signatures in a log archive.
+ *
+ * Extraction first, interpretation second: this only names the observable
+ * pattern and the remediation its evidence supports. It is deliberately
+ * conservative — an unrecognised signature stays uncategorised rather than
+ * being guessed at, so the report never invents a root cause.
+ */
+export function classifyFailureSnippets(failuresBySource) {
+  const categories = {
+    'Playwright screenshot baseline mismatch': {
+      signatures: new Set(),
+      guidance:
+        'Committed PNGs are compared pixel-exactly and must be produced on the platform that compares them (ubuntu-latest). Do not regenerate on a workstation and do not add a blanket maxDiffPixels. Dispatch the Visual Baselines workflow (compare, review, reviewed update, commit); see docs/CI_CD_RESILIENCE.md.',
+    },
+    'Missing or ambiguous UI control': {
+      signatures: new Set(),
+      guidance:
+        'A locator did not resolve or matched several elements. Confirm the control still renders for the current workspace/selection and that the locator is scoped to one node; this is usually a product regression, not a test-environment problem.',
+    },
+    'Timeout waiting for a control or action': {
+      signatures: new Set(),
+      guidance:
+        'Check runner load and the selector before changing any timeout. A deterministic timeout is a hang or a missing precondition, not slowness.',
+    },
+  };
+  for (const hits of Object.values(failuresBySource ?? {})) {
+    for (const hit of hits ?? []) {
+      const text = `${hit?.text ?? ''}\n${hit?.snippet ?? ''}`;
+      // The same failure is reprinted by the reporter, the HTML report and
+      // every per-job log download. Count distinct signatures (first snippet
+      // line carries the snapshot name / locator), never raw log repeats.
+      const signature = `${(hit?.text ?? '').trim()}|${(hit?.snippet ?? '').split('\n')[0]?.trim() ?? ''}`;
+      let category;
+      if (
+        /toHaveScreenshot\([^)]*\) failed/.test(text) ||
+        /Expected an image \d+px by \d+px, received \d+px by \d+px/.test(text) ||
+        /pixels \(ratio [\d.]+ of all image pixels\) are different/.test(text)
+      ) {
+        category = 'Playwright screenshot baseline mismatch';
+      } else if (
+        /strict mode violation|Unable to find (?:an )?(?:accessible )?element/.test(text) ||
+        /toBeVisible\(\) failed/.test(text)
+      ) {
+        category = 'Missing or ambiguous UI control';
+      } else if (/Timeout \d+ms exceeded/.test(text)) {
+        category = 'Timeout waiting for a control or action';
+      }
+      if (category) categories[category].signatures.add(signature);
+    }
+  }
+  return Object.entries(categories)
+    .filter(([, value]) => value.signatures.size > 0)
+    .map(([label, value]) => ({ label, count: value.signatures.size, guidance: value.guidance }))
+    .sort((a, b) => b.count - a.count);
+}
+
 function formatReport(repo, run, jobs, failuresBySource, infraBlocks = [], { maxHits = 10 } = {}) {
   const runUrl = run.html_url || `https://github.com/${repo}/actions/runs/${run.id}`;
   const lines = [
@@ -779,6 +836,16 @@ function formatReport(repo, run, jobs, failuresBySource, infraBlocks = [], { max
       for (const step of failedSteps) {
         lines.push(`  - ${step.number}. ${step.name}: ${step.conclusion}`);
       }
+    }
+  }
+
+  const categories = classifyFailureSnippets(failuresBySource);
+  if (categories.length > 0) {
+    lines.push('', '## Probable category', '');
+    for (const category of categories) {
+      const evidence =
+        category.count === 1 ? '1 distinct signature' : `${category.count} distinct signatures`;
+      lines.push(`- **${category.label}** (${evidence}) — ${category.guidance}`);
     }
   }
 

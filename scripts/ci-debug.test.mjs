@@ -11,6 +11,7 @@ import { join } from 'node:path';
 import { load } from 'js-yaml';
 import {
   buildDebugFailureManifest,
+  classifyFailureSnippets,
   classifyJobFailure,
   classifyRunFailures,
   collectJobFailureLogs,
@@ -829,6 +830,98 @@ for (const breakContract of [
   assert.throws(
     () => debugWorkflowContract(broken),
     'broken publication/evidence boundary must fail the contract',
+  );
+}
+
+// ── Probable-category classification ────────────────────────────────────
+// Categories name observable evidence and the remediation it supports; an
+// unrecognised signature must stay uncategorised rather than be guessed at.
+{
+  const baselineHits = {
+    'E2E (Playwright) 4/16': [
+      {
+        line: 42,
+        rank: 1,
+        text: 'Error: expect(locator).toHaveScreenshot(expected) failed',
+        snippet:
+          'Expected an image 740px by 544px, received 690px by 544px. 4296 pixels (ratio 0.02 of all image pixels) are different.\nSnapshot: guides-overlay-light.png',
+      },
+    ],
+  };
+  const baseline = classifyFailureSnippets(baselineHits);
+  assert.equal(baseline.length, 1);
+  assert.equal(baseline[0].label, 'Playwright screenshot baseline mismatch');
+  assert.match(baseline[0].guidance, /Visual Baselines workflow/);
+
+  assert.equal(
+    classifyFailureSnippets({
+      'E2E (Playwright) 9/16': [
+        {
+          line: 7,
+          rank: 1,
+          text: 'TestingLibraryElementError: Unable to find an accessible element with the role "menuitem"',
+          snippet: 'strict mode violation: getByText("poster-red.png") resolved to 2 elements',
+        },
+      ],
+    })[0].label,
+    'Missing or ambiguous UI control',
+  );
+
+  assert.equal(
+    classifyFailureSnippets({
+      'E2E (Playwright) 1/16': [
+        {
+          line: 3,
+          rank: 1,
+          text: 'TimeoutError: locator.click: Timeout 45000ms exceeded.',
+          snippet: '',
+        },
+      ],
+    })[0].label,
+    'Timeout waiting for a control or action',
+  );
+
+  assert.deepEqual(classifyFailureSnippets({}), []);
+  assert.deepEqual(
+    classifyFailureSnippets({
+      'JS (pnpm)': [{ line: 1, rank: 1, text: 'Error: render exploded', snippet: '' }],
+    }),
+    [],
+    'an unrecognised signature must not invent a category',
+  );
+
+  const categorized = formatReport(
+    'K-Arthur/varve',
+    { id: 42, name: 'CI', conclusion: 'failure' },
+    [
+      {
+        id: 1,
+        name: 'E2E (Playwright) 4/16',
+        conclusion: 'failure',
+        steps: [{ number: 9, name: 'E2E (chromium)', conclusion: 'failure' }],
+      },
+    ],
+    baselineHits,
+  );
+  assert.match(categorized, /## Probable category/);
+  assert.match(categorized, /Playwright screenshot baseline mismatch/);
+
+  const uncategorized = formatReport(
+    'K-Arthur/varve',
+    { id: 43, name: 'CI', conclusion: 'failure' },
+    [
+      {
+        id: 2,
+        name: 'JS (pnpm)',
+        conclusion: 'failure',
+        steps: [{ number: 7, name: 'lanes', conclusion: 'failure' }],
+      },
+    ],
+    { 'JS (pnpm)': [{ line: 1, rank: 1, text: 'Error: render exploded', snippet: '' }] },
+  );
+  assertTrue(
+    !uncategorized.includes('## Probable category'),
+    'a report with only unrecognised evidence must omit the category section',
   );
 }
 

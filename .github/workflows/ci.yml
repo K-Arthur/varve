@@ -198,19 +198,11 @@ jobs:
       - name: Rust coverage (ratchet floor)
         if: runner.os == 'Linux' && needs.changes.outputs.full == 'true'
         run: node scripts/audit-rust-coverage.mjs --ci
-      - name: Automated failure debug
-        if: failure()
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
-        run: node scripts/ci-debug.mjs --run-id ${{ github.run_id }} --output ci-debug-report.md || true
-      - name: Upload debug report
-        if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        with:
-          name: varve-debug-rust-${{ matrix.os }}-${{ github.run_id }}-attempt-${{ github.run_attempt }}
-          path: ci-debug-report.md
-          if-no-files-found: ignore
+      # Failure diagnostics are produced once per failed run by the ci-debug.yml
+      # workflow_run, which sees every job's finalized logs. Generating the
+      # report inside each job duplicated the whole-run log download (16 copies
+      # for the sharded E2E lane) and every copy was partial because sibling
+      # shards were still running.
 
   # WASM is a first-class producer. Keeping it separate from the three-OS Rust
   # matrix makes the artifact dependency explicit and lets browser/native jobs
@@ -267,19 +259,7 @@ jobs:
           name: varve-ci-execution-${{ github.run_id }}-wasm-attempt-${{ github.run_attempt }}
           path: ci-execution/
           if-no-files-found: ignore
-      - name: Automated failure debug
-        if: failure()
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
-        run: node scripts/ci-debug.mjs --run-id ${{ github.run_id }} --output ci-debug-report.md || true
-      - name: Upload debug report
-        if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        with:
-          name: varve-debug-wasm-${{ github.run_id }}-attempt-${{ github.run_attempt }}
-          path: ci-debug-report.md
-          if-no-files-found: ignore
+      # Diagnostics come from ci-debug.yml (workflow_run) — see the Rust job.
 
   pipeline-validate:
     name: Pipeline validation (workflow + SHA pins)
@@ -453,19 +433,8 @@ jobs:
           name: varve-ci-execution-${{ github.run_id }}-js-attempt-${{ github.run_attempt }}
           path: ci-execution/
           if-no-files-found: ignore
-      - name: Automated failure debug
-        if: failure()
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
-        run: node scripts/ci-debug.mjs --run-id ${{ github.run_id }} --output ci-debug-report.md || true
-      - name: Upload debug report
-        if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        with:
-          name: varve-debug-js-${{ github.run_id }}-attempt-${{ github.run_attempt }}
-          path: ci-debug-report.md
-          if-no-files-found: ignore
+      # Diagnostics come from ci-debug.yml (workflow_run) — see the Rust job.
+
   website-e2e:
     name: Website E2E (dual deployment modes)
     timeout-minutes: 30
@@ -613,19 +582,9 @@ jobs:
             test-results/
           retention-days: 7
           if-no-files-found: ignore
-      - name: Automated failure debug
-        if: failure()
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
-        run: node scripts/ci-debug.mjs --run-id ${{ github.run_id }} --output ci-debug-report.md || true
-      - name: Upload debug report
-        if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        with:
-          name: varve-debug-e2e-${{ github.run_id }}-shard${{ matrix.shard }}-attempt-${{ github.run_attempt }}
-          path: ci-debug-report.md
-          if-no-files-found: ignore
+      # Diagnostics come from ci-debug.yml (workflow_run), not per shard — see
+      # the Rust job for why.
+
       - name: Upload immutable complete browser inventory
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
@@ -726,19 +685,8 @@ jobs:
           name: varve-ci-execution-${{ github.run_id }}-visual-attempt-${{ github.run_attempt }}
           path: ci-execution/
           if-no-files-found: ignore
-      - name: Automated failure debug
-        if: failure()
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
-        run: node scripts/ci-debug.mjs --run-id ${{ github.run_id }} --output ci-debug-report.md || true
-      - name: Upload debug report
-        if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        with:
-          name: varve-debug-e2e-visual-${{ github.run_id }}-attempt-${{ github.run_attempt }}
-          path: ci-debug-report.md
-          if-no-files-found: ignore
+      # Diagnostics come from ci-debug.yml (workflow_run) — see the Rust job.
+
       - name: Upload immutable visual inventories
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
@@ -824,19 +772,7 @@ jobs:
           name: varve-ci-execution-${{ github.run_id }}-desktop-${{ matrix.name }}-attempt-${{ github.run_attempt }}
           path: ci-execution/
           if-no-files-found: ignore
-      - name: Automated failure debug
-        if: failure()
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
-        run: node scripts/ci-debug.mjs --run-id ${{ github.run_id }} --output ci-debug-report.md || true
-      - name: Upload debug report
-        if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        with:
-          name: varve-debug-desktop-e2e-${{ matrix.name }}-${{ github.run_id }}-attempt-${{ github.run_attempt }}
-          path: ci-debug-report.md
-          if-no-files-found: ignore
+      # Diagnostics come from ci-debug.yml (workflow_run) — see the Rust job.
       - name: Upload native GUI artifacts
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a

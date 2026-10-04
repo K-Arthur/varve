@@ -136,22 +136,33 @@ The script:
 4. Falls back to the per-job logs API when the archive is expired, unavailable, or missing a job. Requests are bounded at 30 seconds so a GitHub API incident cannot hang the debug job indefinitely.
 5. Extracts high-priority failure patterns (errors, panics, test failures, exit codes, `##[error]` annotations, unresolvable action refs, etc.) and redacts credential-shaped values.
 6. Ignores shell source lines that merely print `::error::` templates, writes a Markdown report, appends the same report to `GITHUB_STEP_SUMMARY`, and includes local reproduction commands. Indexed archive filenames are matched to job metadata so a valid log is never mislabeled as missing.
+7. Prints a **Probable category** section when the collected evidence matches a
+   known signature. It counts *distinct* signatures, not raw log repeats
+   (reporter output, the HTML report, and every per-job download reprint the
+   same failure). Categories are deliberately conservative: the screenshot
+   baseline, missing/ambiguous UI control, and timeout signatures carry the
+   remediation their evidence supports, and anything unrecognised stays
+   uncategorised rather than being guessed at.
 
-In CI, failure-debug coverage is layered: `build.yml`, `ci-smoke.yml`, and
-`e2e-keyboard-nav.yml` run `scripts/ci-debug.mjs` inline (`if: failure()`)
-and upload `ci-debug-report.md`; the separate `ci-debug.yml` workflow
-triggers on `workflow_run` of the tracked pipelines to produce a
-consolidated report. `ci-debug.yml` is intentionally dependency-free (no
-`pnpm install`) — the script uses only Node builtins, so a broken dependency
-tree cannot prevent the debug report from being produced.
+`ci-debug.yml` is the single report producer for tracked pipelines. It triggers
+on `workflow_run` completion, so it sees every job's finalized logs; the
+workflow_run checkout is the trusted default branch, which is why PR comments
+are posted from there and never from the untrusted pull-request jobs.
+Jobs do **not** run their own `ci-debug.mjs`. An earlier design did, and it was
+both wasteful and misleading: every shard of the sharded E2E lane downloaded the
+entire run's logs (16 identical copies), each copy was partial because sibling
+shards were still running, and each one re-printed every other job's failures.
+`ci-smoke.yml` keeps an inline report because it is a single cheap manual job
+whose whole purpose is to check pipeline health in place.
 
-Inline debug steps receive the workflow's `${{ github.token }}` explicitly and
-the workflow grants `actions: read`; this avoids a misleading empty report when
-the runner has no `gh` login configured. They do not post PR comments because
-the current PR checkout is untrusted. The completed-run workflow checks out
-the default branch before running the commenter, and grants `issues: write`
-only to that job. The `--context N` and `--max-hits N`
-options reduce output for large logs, for example:
+The debug job receives the workflow's `${{ github.token }}` explicitly and the
+workflow grants `actions: read`; this avoids a misleading empty report when the
+runner has no `gh` login configured. Its `workflow_run` checkout is the
+default branch precisely because the current PR checkout is untrusted, which is
+how PR comments can be posted safely: the commenter is checked out from the
+default branch and `issues: write` is granted to that one job only. The
+`--context N` and `--max-hits N` options reduce output for large logs, for
+example:
 
 ```bash
 node scripts/ci-debug.mjs --run-id <RUN_ID> --context 3 --max-hits 5
