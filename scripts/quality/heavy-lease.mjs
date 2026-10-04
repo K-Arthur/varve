@@ -155,13 +155,21 @@ export function leasePaths({
   } catch {
     printed = cwd;
   }
-  // Bind every spelling of the same directory to one key: `.git` is relative,
-  // Git may print a short or differently-cased form, and realpath may expand
-  // it. All of them must hash identically or two clients claim one repository.
+  // Canonical admission must bind every spelling of one directory: Git may
+  // print a relative `.git`, a short (`RUNNER~1`) name, or different casing,
+  // and `realpath` may expand it. All of them hash identically now, or two
+  // clients would claim the same repository.
   const canonical = canonicalPathKey(resolve(cwd, printed));
   const base = join(resolve(runtimeDirectory), 'varve-leases');
   const primary = join(base, `${createHash('sha256').update(canonical).digest('hex')}.lock`);
-  const legacy = [...new Set([printed, resolve(cwd, printed), '.git'])].map((value) =>
+  // Legacy aliases must stay BYTE-EXACT to what older clients compute,
+  // including its 32-byte truncation: `Buffer.from(value).toString('hex')
+  // .slice(0, 32)` keeps only the first 16 bytes of the encoded path, which
+  // truncates mid-component. Those clients are the whole point of the bridge,
+  // so the derivation is frozen here and must not be "tidied" — resolving the
+  // path changes its length and therefore produces a different truncated hex
+  // string, silently breaking compatibility (macOS CI run 37218481496).
+  const legacy = [...new Set([printed, canonical, '.git'])].map((value) =>
     join(base, `${Buffer.from(value).toString('hex').slice(0, 32)}.lock`),
   );
   return { commonDir: canonical, primary, paths: [...new Set([primary, ...legacy])].sort() };
