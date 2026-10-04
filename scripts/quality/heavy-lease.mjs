@@ -140,6 +140,23 @@ export function canonicalPathKey(value) {
   return absolute;
 }
 
+/**
+ * Derive compatibility lock paths from historical path spellings. Older
+ * Windows clients may hash a slash-separated path while the canonical path
+ * returned by Node uses backslashes. Keep both byte-exact aliases so the main
+ * checkout and linked worktrees admit the same set of legacy owners.
+ */
+export function legacyLeasePaths(base, printed, canonical) {
+  const spellings = (value) =>
+    /^[a-z]:[\\/]/i.test(value) || value.startsWith('\\\\') || value.startsWith('//')
+      ? [value, value.replaceAll('\\', '/'), value.replaceAll('/', '\\')]
+      : [value];
+  const candidates = [...spellings(printed), ...spellings(canonical), '.git'];
+  return [...new Set(candidates)].map((value) =>
+    join(base, `${Buffer.from(value).toString('hex').slice(0, 32)}.lock`),
+  );
+}
+
 /** Canonical keys bind all worktrees; legacy aliases bridge older clients. */
 export function leasePaths({
   cwd = process.cwd(),
@@ -169,9 +186,7 @@ export function leasePaths({
   // so the derivation is frozen here and must not be "tidied" — resolving the
   // path changes its length and therefore produces a different truncated hex
   // string, silently breaking compatibility (macOS CI run 37218481496).
-  const legacy = [...new Set([printed, canonical, '.git'])].map((value) =>
-    join(base, `${Buffer.from(value).toString('hex').slice(0, 32)}.lock`),
-  );
+  const legacy = legacyLeasePaths(base, printed, canonical);
   return { commonDir: canonical, primary, paths: [...new Set([primary, ...legacy])].sort() };
 }
 

@@ -210,6 +210,10 @@ export function collectBrowserEvidence(
         shard: json.config?.shard
           ? `${json.config.shard.current}/${json.config.shard.total}`
           : null,
+        // A complete, unsharded lane can be owned by one browser matrix cell
+        // without claiming that Playwright itself used --shard. Keep the two
+        // identities separate so per-case coverage remains complete.
+        executionShard: descriptor.executionShard ?? null,
         inventory:
           descriptor.inventory ??
           (descriptor.inventoryPath
@@ -371,17 +375,16 @@ export function createExecutionReport({
   const evidenceErrors = browserEvidenceErrors(playwright, requiredBrowserLanes);
   if (identity.clean !== true) evidenceErrors.push('execution source is not clean');
   for (const browser of playwright.reports ?? []) {
-    evidenceErrors.push(
-      ...inventoryErrors(browser.inventory, {
-        commitSha: identity.commitSha,
-        treeSha: identity.treeSha,
-        planHash,
-        policyHash,
-      }),
-    );
+    const expectedInventorySource = {
+      commitSha: identity.commitSha,
+      treeSha: identity.treeSha,
+      policyHash,
+      ...(browser.lane === 'e2e:demo-dist' ? {} : { planHash }),
+    };
+    evidenceErrors.push(...inventoryErrors(browser.inventory, expectedInventorySource));
     if (browser.inventory?.lane !== browser.lane)
       evidenceErrors.push('browser inventory lane mismatch');
-    if (browser.shard !== (shard ? String(shard) : null))
+    if ((browser.executionShard ?? browser.shard) !== (shard ? String(shard) : null))
       evidenceErrors.push('browser inventory shard mismatch');
   }
   for (const outcome of normalizedOutcomes) {
@@ -472,9 +475,19 @@ function main() {
           arg === '--playwright-inventory' ? [args[index + 1] ?? ''] : [],
         );
         const match = inventories.find((entry) => entry.startsWith(`${descriptor.path}=`));
-        return match
-          ? { ...descriptor, inventoryPath: match.slice(descriptor.path.length + 1) }
-          : descriptor;
+        const assignedShards = args.flatMap((arg, index) =>
+          arg === '--playwright-shard' ? [args[index + 1] ?? ''] : [],
+        );
+        const shardAssignment = assignedShards.find((entry) =>
+          entry.startsWith(`${descriptor.lane}=`),
+        );
+        return {
+          ...descriptor,
+          ...(match ? { inventoryPath: match.slice(descriptor.path.length + 1) } : {}),
+          ...(shardAssignment
+            ? { executionShard: shardAssignment.slice(descriptor.lane.length + 1) }
+            : {}),
+        };
       }),
   });
   const output = value(args, '--output');

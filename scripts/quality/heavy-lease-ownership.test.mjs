@@ -5,7 +5,7 @@ import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSy
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { leasePaths } from './heavy-lease.mjs';
+import { leasePaths, legacyLeasePaths } from './heavy-lease.mjs';
 
 const script = fileURLToPath(new URL('./heavy-lease.mjs', import.meta.url));
 const directory = mkdtempSync(join(tmpdir(), 'varve-lease-ownership-'));
@@ -50,6 +50,20 @@ function ownerCommand(ready, finish) {
 }
 
 try {
+  const windowsLeaseBase = join(directory, 'windows-path-fixture');
+  const forwardSlashAliases = legacyLeasePaths(
+    windowsLeaseBase,
+    'C:/Users/runnera',
+    'c:\\users\\runnera',
+  ).sort();
+  const backslashAliases = legacyLeasePaths(
+    windowsLeaseBase,
+    'C:\\Users\\runnera',
+    'c:\\users\\runnera',
+  ).sort();
+  assert.deepEqual(forwardSlashAliases, backslashAliases);
+  assert.equal(forwardSlashAliases.length, 5);
+
   // A genuine nested invocation authenticates the inherited owner and must
   // not wait on itself or replace/release the parent's canonical lease.
   const inner = `const fs=require('node:fs');const token=JSON.parse(process.env.VARVE_HEAVY_LEASE_OWNER);const record=JSON.parse(fs.readFileSync(token.primary));if(record.leaseId!==token.leaseId||record.pid!==token.pid)process.exit(8);console.log('inherited:'+record.leaseId);process.exit(7);`;

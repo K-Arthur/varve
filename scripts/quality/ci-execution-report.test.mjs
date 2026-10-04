@@ -135,6 +135,46 @@ try {
   const passed = evaluate();
   assert.deepEqual(passed.errors, []);
   assert.equal(passed.evidence.reports[0].cases[0].attempts[0].retry, 0);
+  const demoSource = { ...plan, planHash: 'f'.repeat(64) };
+  const demoInventory = createBrowserInventory(browserJson, {
+    lane: 'e2e:demo-dist',
+    argv: ['pnpm', 'exec', 'playwright', 'test', '--config', 'playwright.demo-dist.config.mts'],
+    source: demoSource,
+  });
+  const demoEvidence = collectBrowserEvidence(
+    [{ lane: 'e2e:demo-dist', path, inventory: demoInventory, executionShard: '1/16' }],
+    { root: browserDirectory },
+  );
+  const demoReceipt = createExecutionReport({
+    plan,
+    category: 'e2e',
+    status: 'success',
+    declaredLanes: ['e2e:demo-dist'],
+    browserEvidence: demoEvidence,
+    shard: '1/16',
+    readSource: () => ({ ...identity, clean: true }),
+  });
+  assert.equal(demoReceipt.status, 'success');
+  assert.equal(demoReceipt.playwright.reports[0].shard, null);
+  assert.equal(demoReceipt.playwright.reports[0].executionShard, '1/16');
+  assert.deepEqual(
+    createExecutionReport({
+      plan,
+      category: 'e2e',
+      status: 'success',
+      declaredLanes: ['e2e:demo-dist'],
+      browserEvidence: collectBrowserEvidence(
+        [{ lane: 'e2e:demo-dist', path, inventory: demoInventory }],
+        {
+          root: browserDirectory,
+        },
+      ),
+      shard: '1/16',
+      readSource: () => ({ ...identity, clean: true }),
+    }).executedLanes,
+    [],
+    'a complete unsharded report cannot be attached to a different shard without an explicit execution-cell binding',
+  );
   const review = collectBrowserEvidence([{ lane: 'e2e:all', path }], { reviewOnly: true });
   assert.deepEqual(review.errors, []);
   assert.equal(review.reviewOnly, true);

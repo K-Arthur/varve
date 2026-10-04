@@ -193,11 +193,18 @@ function categoryExecutionErrors(entry, category) {
     )
       errors.push(`unbound ${category} browser inventory digest`);
   // Multiple CPU/GPU reports may own the same cell/lane. Every required pair
-  // must be present, and each contributing compact report must be clean.
-  for (const cell of cells)
-    for (const lane of browserLanes)
+  // must be present, and each contributing compact report must be clean. The
+  // production-demo lane is one complete unsharded run owned by E2E shard 1.
+  for (const lane of browserLanes) {
+    const laneCells =
+      lane === 'e2e:demo-dist'
+        ? cells.filter((cell) => cell.endsWith(`:1/${FULL_BROWSER_SHARDS}`))
+        : cells;
+    if (!laneCells.length) errors.push(`missing ${category} browser cell/lane evidence`);
+    for (const cell of laneCells)
       if (!reports.some((report) => report?.cell === cell && report?.lane === lane))
         errors.push(`missing ${category} browser cell/lane evidence`);
+  }
   return errors;
 }
 

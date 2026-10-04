@@ -141,6 +141,7 @@ const HEAVY = new Set([
   'js-unit:all',
   'typecheck:all',
   'e2e:all',
+  'e2e:demo-dist',
   'e2e:visual',
   'desktop-native',
   'website-e2e',
@@ -187,6 +188,11 @@ async function runLane(lane, { websiteE2eFiles = [] } = {}) {
     const path = lane.slice('website-e2e:file:'.length);
     // The public website script owns the lease, including fresh builds.
     status = await cmd([...broadBrowserArgv('website-e2e', browserOptions), path]);
+  } else if (lane === 'e2e:demo-dist') {
+    status = await runLeasedPlaywright(
+      [process.execPath, 'scripts/quality/run-demo-dist-e2e.mjs'],
+      lane,
+    );
   } else if (lane.startsWith('e2e:file:')) {
     status = await runE2ePaths([lane.slice('e2e:file:'.length)]);
   } else if (lane.startsWith('e2e:') && lane !== 'e2e:all' && lane !== 'e2e:visual') {

@@ -15,12 +15,18 @@ export function fullGateExecution(args) {
 
 /** All shards are required; a failure stops the gate and leaves green shards resumable. */
 export function localBrowserLanes() {
-  return Array.from({ length: LOCAL_BROWSER_SHARDS }, (_, index) => ({
-    label: `Chromium E2E ${index + 1}/${LOCAL_BROWSER_SHARDS}`,
-    argv: [
-      ...broadBrowserArgv('e2e:all', { strict: true }),
-      '--project=chromium',
-      `--shard=${index + 1}/${LOCAL_BROWSER_SHARDS}`,
-    ],
-  }));
+  return [
+    ...Array.from({ length: LOCAL_BROWSER_SHARDS }, (_, index) => ({
+      label: `Chromium E2E ${index + 1}/${LOCAL_BROWSER_SHARDS}`,
+      argv: [
+        ...broadBrowserArgv('e2e:all', { strict: true }),
+        '--project=chromium',
+        `--shard=${index + 1}/${LOCAL_BROWSER_SHARDS}`,
+      ],
+    })),
+    {
+      label: 'Production demo E2E',
+      argv: [process.execPath, 'scripts/quality/run-demo-dist-e2e.mjs'],
+    },
+  ];
 }

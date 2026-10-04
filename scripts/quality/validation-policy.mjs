@@ -19,7 +19,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-export const POLICY_VERSION = '2026-10-03.validation-profiles.v5';
+export const POLICY_VERSION = '2026-10-04.validation-profiles.v6';
 // 1,903 Chromium cases at the release checkpoint: sixteen single-worker
 // hosted jobs retain roughly the case share of the former 1,030-case/8 split.
 export const FULL_BROWSER_SHARDS = 16;
@@ -43,6 +43,7 @@ export const POLICY_FILES = [
   'scripts/quality/ci-execution-report.mjs',
   'scripts/quality/browser-inventory.mjs',
   'scripts/quality/full-gate-execution.mjs',
+  'scripts/quality/run-demo-dist-e2e.mjs',
   'scripts/quality/playwright-run-output.mjs',
   'scripts/quality/browser-progress.mjs',
   'scripts/quality/aggregate-ci.mjs',
@@ -129,7 +130,7 @@ export const CI_CATEGORY_LANES = Object.freeze({
   rust: ['rust-test:all', 'rust-clippy:all', 'cargo-fmt'],
   wasm: ['wasm'],
   website: ['website-unit', 'website-e2e'],
-  e2e: ['e2e:all'],
+  e2e: ['e2e:all', 'e2e:demo-dist'],
   visual: ['e2e:visual'],
   desktop: ['desktop-native'],
   models: ['models'],
@@ -142,6 +143,7 @@ export const HEAVY_PUSH_LANES = Object.freeze([
   'rust-test:all',
   'rust-clippy:all',
   'e2e:all',
+  'e2e:demo-dist',
   'e2e:visual',
   'website-e2e',
   'desktop-native',
@@ -196,6 +198,7 @@ export const LANE_COST_SECONDS = Object.freeze({
   'rust-clippy:varve-generative-helper': 600,
   'ci-tools': 120,
   'demo-dist-validation': 20,
+  'e2e:demo-dist': 900,
   'website-unit': 120,
   'js-unit:all': 900,
   'typecheck:all': 500,
@@ -330,7 +333,10 @@ export function deriveCiCategories(plan, files = pathList(plan)) {
   const tierLanes = Object.values(plan?.tiers ?? {}).flat();
   const directBrowser = Boolean(
     (plan?.directE2eFiles ?? []).some((file) => !file.startsWith('tests/e2e/visual/')) ||
-      tierLanes.some((lane) => lane.startsWith('e2e:file:') && !lane.includes('/visual/')),
+      tierLanes.some(
+        (lane) =>
+          lane === 'e2e:demo-dist' || (lane.startsWith('e2e:file:') && !lane.includes('/visual/')),
+      ),
   );
   const hasFile = (predicate) => files.some(predicate);
   const category = {

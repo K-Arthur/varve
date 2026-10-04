@@ -234,6 +234,7 @@ function main() {
     candidate: String(plan.releaseCandidateRequired),
     e2e_shards: JSON.stringify(plan.e2eShards),
     e2e_shard_count: String(plan.e2eShardCount),
+    demo_dist: String(plan.selectedLanes.includes('e2e:demo-dist')),
     docs: String(plan.docs),
     plan_hash: plan.planHash,
     policy_hash: plan.policyHash,

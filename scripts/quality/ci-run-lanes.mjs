@@ -5,9 +5,10 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { availableParallelism, freemem, totalmem } from 'node:os';
-import { delimiter, join } from 'node:path';
+import { delimiter, dirname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { IMPACT_CONFIG } from '../../validation-impact.config.mjs';
+import { demoDistInputs } from '../website/demo-dist-validation.mjs';
 import { loadPackages } from './affected-plan.mjs';
 import { discoverBrowserInventory } from './browser-inventory.mjs';
 import {
@@ -86,15 +87,13 @@ function e2eArgv(lane, shard) {
     return argv;
   }
   if (lane.startsWith('e2e:file:')) {
-    return [
-      'pnpm',
-      'exec',
-      'playwright',
-      'test',
-      lane.slice('e2e:file:'.length),
-      '--project=chromium',
-    ];
+    const selectedFile = lane.slice('e2e:file:'.length).replaceAll('\\', '/');
+    if (IMPACT_CONFIG.demoDistE2eOwners.includes(selectedFile))
+      throw new Error(`${selectedFile} requires the dedicated e2e:demo-dist lane`);
+    return ['pnpm', 'exec', 'playwright', 'test', selectedFile, '--project=chromium'];
   }
+  if (lane === 'e2e:demo-dist')
+    return ['pnpm', 'exec', 'playwright', 'test', '--config', 'playwright.demo-dist.config.mts'];
   if (lane.startsWith('e2e:')) {
     return [
       'pnpm',
@@ -142,6 +141,10 @@ export function commandsForCategory(plan, category, { shard = null } = {}) {
   const lanes = lanesForCategory(plan, category);
   const commands = [];
   for (const lane of lanes) {
+    // The production-demo owners form one complete unsharded inventory. Run
+    // that full lane once in the first cell of a broad matrix; other cells
+    // still certify their assigned e2e:all cases.
+    if (lane === 'e2e:demo-dist' && shard && Number(shard.split('/')[0]) !== 1) continue;
     const argv = e2eArgv(lane, shard) ?? laneArgv(lane, { files: plan.files ?? [] });
     if (!argv) throw new Error(`no executable command for selected ${category} lane '${lane}'`);
     if (lane.startsWith('e2e:') || lane === 'website-e2e')
@@ -190,23 +193,52 @@ export function runCategoryDetailed(
     const startedAt = Date.now();
     const browserReportPath =
       browserReportDir && browserLane(lane)
-        ? join(browserReportDir, `${process.pid}-${category}-${outcomes.length}.json`)
+        ? lane === 'e2e:demo-dist'
+          ? demoDistInputs(process.env, ROOT).report
+          : join(browserReportDir, `${process.pid}-${category}-${outcomes.length}.json`)
         : null;
     if (browserReportPath) {
-      mkdirSync(browserReportDir, { recursive: true });
+      mkdirSync(dirname(browserReportPath), { recursive: true });
       if (existsSync(browserReportPath)) throw new Error('browser report output already exists');
       const inventoryArgv =
         lane === 'website-e2e'
           ? ['pnpm', 'exec', 'playwright', 'test', '--config', 'playwright.website.config.ts']
           : argv;
-      const inventory = discover({ argv: inventoryArgv, lane, source: plan, root: ROOT });
+      const source =
+        lane === 'e2e:demo-dist'
+          ? JSON.parse(readFileSync(process.env.VARVE_DEMO_INPUT_RECEIPT, 'utf8')).validationSource
+          : plan;
+      const inventory = discover({ argv: inventoryArgv, lane, source, root: ROOT });
       const inventoryPath = `${browserReportPath}.inventory.json`;
       writeFileSync(inventoryPath, `${JSON.stringify(inventory, null, 2)}\n`);
-      browserReports.push({ lane, path: browserReportPath, inventory });
+      browserReports.push({
+        lane,
+        path: browserReportPath,
+        inventory,
+        ...(lane === 'e2e:demo-dist' && shard ? { executionShard: String(shard) } : {}),
+      });
     }
     const status = execute(argv, { dryRun, browserReportPath, timeoutMs: 45 * 60 * 1000 });
     let code = typeof status === 'number' ? status : (status?.status ?? 1);
     if (browserReportPath) {
+      if (lane === 'e2e:demo-dist' && !dryRun) {
+        for (const command of ['verify-report', 'assert-unchanged']) {
+          const audit = execute(
+            [process.execPath, 'scripts/website/demo-dist-validation.mjs', command],
+            { browserReportPath, timeoutMs: 45 * 60 * 1000 },
+          );
+          const auditCode = typeof audit === 'number' ? audit : (audit?.status ?? 1);
+          if (auditCode !== 0) code = code || auditCode;
+        }
+        const artifactInventory = join(dirname(browserReportPath), 'browser-inventory.json');
+        if (existsSync(artifactInventory)) {
+          const inventory = JSON.parse(readFileSync(artifactInventory, 'utf8'));
+          const inventoryPath = `${browserReportPath}.inventory.json`;
+          writeFileSync(inventoryPath, `${JSON.stringify(inventory, null, 2)}\n`);
+          const descriptor = browserReports.find((browser) => browser.lane === lane);
+          if (descriptor) descriptor.inventory = inventory;
+        }
+      }
       browserEvidence = collectBrowserEvidence(browserReports, { root: ROOT });
       if (browserEvidenceErrors(browserEvidence, [lane]).length) code = code || 1;
     }

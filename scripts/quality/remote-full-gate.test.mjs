@@ -295,7 +295,11 @@ function fixtureBrowserEvidence(lanes, _cell, plan, index) {
           'exec',
           'playwright',
           'test',
-          ...(lane === 'website-e2e' ? ['--config', 'playwright.website.config.ts'] : []),
+          ...(lane === 'website-e2e'
+            ? ['--config', 'playwright.website.config.ts']
+            : lane === 'e2e:demo-dist'
+              ? ['--config', 'playwright.demo-dist.config.mts']
+              : []),
           ...projects.map((name) => `--project=${name}`),
         ],
       });
@@ -304,7 +308,12 @@ function fixtureBrowserEvidence(lanes, _cell, plan, index) {
         json.config.shard = { current: index + 1, total: FULL_BROWSER_SHARDS };
       }
       writeFileSync(join(folder, path), JSON.stringify(json));
-      return { lane, path, inventory };
+      return {
+        lane,
+        path,
+        inventory,
+        ...(lane === 'e2e:demo-dist' ? { executionShard: `1/${FULL_BROWSER_SHARDS}` } : {}),
+      };
     });
     return collectBrowserEvidence(descriptors, { root: folder });
   } finally {
@@ -316,8 +325,12 @@ function fullAggregate(plan, binding, transformReport = (report) => report) {
   const reports = CI_CATEGORIES.flatMap((category) => {
     const count =
       category === 'e2e' ? FULL_BROWSER_SHARDS : ['rust', 'desktop'].includes(category) ? 3 : 1;
-    return Array.from({ length: count }, (_, index) =>
-      transformReport({
+    return Array.from({ length: count }, (_, index) => {
+      const executedLanes =
+        category === 'e2e' && index > 0
+          ? CI_CATEGORY_LANES[category].filter((lane) => lane !== 'e2e:demo-dist')
+          : CI_CATEGORY_LANES[category];
+      return transformReport({
         schema: 1,
         category,
         profile: plan.profile,
@@ -333,15 +346,10 @@ function fullAggregate(plan, binding, transformReport = (report) => report) {
         workflow: { repository: identity.repo, runId: binding.runId, runAttempt: 1 },
         matrix: expectedExecutionMatrices(category, plan.profile)?.[index] ?? 'ubuntu-latest',
         shard: category === 'e2e' ? `${index + 1}/${FULL_BROWSER_SHARDS}` : null,
-        executedLanes: CI_CATEGORY_LANES[category],
-        playwright: fixtureBrowserEvidence(
-          CI_CATEGORY_LANES[category],
-          `${category}:${index}`,
-          plan,
-          index,
-        ),
-      }),
-    );
+        executedLanes,
+        playwright: fixtureBrowserEvidence(executedLanes, `${category}:${index}`, plan, index),
+      });
+    });
   });
   return aggregateCertification({
     ...plan,
@@ -489,7 +497,7 @@ test('producer JSON browser histories certify compact summaries; missing or cont
   const browser = valid.execution.evidence.filter((entry) => entry.browserReports.length);
   assert.equal(
     browser.find((entry) => entry.category === 'e2e').browserReports.length,
-    FULL_BROWSER_SHARDS,
+    FULL_BROWSER_SHARDS + 1,
   );
   for (const entry of browser)
     for (const report of entry.browserReports) {

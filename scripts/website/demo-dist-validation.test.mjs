@@ -73,6 +73,67 @@ try {
     sourceJob.slice(receiptStep),
     /--playwright-inventory "\$\{VARVE_CI_PLAYWRIGHT_REPORT\}=test-results\/\$\{VARVE_E2E_OUTPUT_DIR\}\/browser-inventory\.json"/,
   );
+
+  const ciWorkflow = readFileSync('.github/workflows/ci.yml', 'utf8');
+  assert.match(ciWorkflow, /demo_dist: \$\{\{ steps\.lanes\.outputs\.demo_dist \}\}/);
+  const ciE2e = ciWorkflow.split('\n  e2e:\n')[1].split('\n  e2e-visual:\n')[0];
+  const ciDemoSteps = [
+    'name: Build website for production-demo E2E',
+    'name: Build production browser demo for E2E',
+    'name: Stage production demo for E2E',
+    'name: Prepare disposable production-demo dist',
+    'name: List complete production-demo inventory',
+    'name: E2E (chromium)',
+    'name: Verify complete production-demo browser evidence',
+    'name: Verify production-demo source artifact unchanged',
+  ];
+  const ciDemoPositions = ciDemoSteps.map((step) => ciE2e.indexOf(step));
+  assert.ok(ciDemoPositions.every((position) => position >= 0));
+  assert.deepEqual(
+    [...ciDemoPositions].sort((left, right) => left - right),
+    ciDemoPositions,
+    'generic CI stages the production artifact before and verifies it after its dedicated browser lane',
+  );
+  assert.match(ciE2e, /needs\.changes\.outputs\.demo_dist == 'true'/);
+  assert.match(ciE2e, /playwright\.demo-dist\.config\.mts/);
+  assert.match(ciE2e, /demo-dist-validation\.mjs prepare/);
+  assert.match(ciE2e, /demo-dist-validation\.mjs verify-report/);
+  assert.match(ciE2e, /demo-dist-validation\.mjs assert-unchanged/);
+  assert.match(ciE2e, /VARVE_DEMO_EXPECTED_SHA: \$\{\{ needs\.changes\.outputs\.commit_sha \}\}/);
+  assert.match(ciE2e, /VARVE_DEMO_DIST_URL: http:\/\/127\.0\.0\.1:15645/);
+  assert.match(ciE2e, /matrix\.shard == 1/);
+  assert.match(ciE2e, /playwright\.json\.inventory\.json/);
+
+  const candidateWorkflow = readFileSync('.github/workflows/release-candidate.yml', 'utf8');
+  assert.match(candidateWorkflow, /ref: \$\{\{ needs\.changes\.outputs\.commit_sha \}\}/);
+  const candidateE2e = candidateWorkflow.split('\n  e2e:\n')[1].split('\n  e2e-visual:\n')[0];
+  const candidateDemoSteps = [
+    'name: Build website for production-demo E2E',
+    'name: Build production browser demo for E2E',
+    'name: Stage production demo for E2E',
+    'name: Prepare disposable production-demo dist',
+    'name: List complete production-demo inventory',
+    'name: Production-demo E2E (candidate)',
+    'name: Verify complete production-demo browser evidence',
+    'name: Verify production-demo source artifact unchanged',
+  ];
+  const candidateDemoPositions = candidateDemoSteps.map((step) => candidateE2e.indexOf(step));
+  assert.ok(candidateDemoPositions.every((position) => position >= 0));
+  assert.deepEqual(
+    [...candidateDemoPositions].sort((left, right) => left - right),
+    candidateDemoPositions,
+    'candidate triage and final both build, list, execute, and verify the exact-SHA production artifact',
+  );
+  const candidateReceipt = candidateE2e.split('name: Write browser execution receipt')[1];
+  assert.match(candidateReceipt, /--lanes e2e:all,e2e:demo-dist/);
+  assert.match(candidateReceipt, /--playwright-report e2e:demo-dist=/);
+  assert.match(candidateReceipt, /--playwright-inventory .*browser-inventory\.json/);
+  assert.match(candidateReceipt, /--playwright-shard e2e:demo-dist=/);
+  assert.match(candidateE2e, /name: Upload immutable candidate production-demo inventory/);
+  assert.match(candidateE2e, /if: matrix\.shard == 1/);
+  const defaultPlaywrightConfig = readFileSync('playwright.config.ts', 'utf8');
+  assert.match(defaultPlaywrightConfig, /IMPACT_CONFIG\.demoDistE2eOwners/);
+  assert.match(defaultPlaywrightConfig, /testIgnore: \[\/visual/);
   const original = distInventory(fixture).sha256;
   const configPath = resolve(import.meta.dirname, '../../playwright.demo-dist.config.mts');
   const serialized = execFileSync(

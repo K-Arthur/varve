@@ -53,7 +53,7 @@ const strictFlags = [
 for (const [index, path] of paths.entries()) {
   test(`${path}: every direct browser command uses the lease and retains strict execution`, () => {
     const calls = browserCalls(workflows[index]);
-    assert.equal(calls.length, index === 0 ? 3 : 6, 'Cover every existing direct branch');
+    assert.equal(calls.length, index === 0 ? 4 : 8, 'Cover every existing direct branch');
     for (const { command } of calls) {
       for (const flag of strictFlags) assert.ok(command.split(/\s+/).includes(flag), flag);
     }

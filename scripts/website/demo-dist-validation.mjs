@@ -15,18 +15,14 @@ import {
 import { tmpdir } from 'node:os';
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { IMPACT_CONFIG } from '../../validation-impact.config.mjs';
 import { redactSensitive } from '../ci/failure-manifest.mjs';
 import { createBrowserInventory, readInventorySource } from '../quality/browser-inventory.mjs';
 import { browserEvidenceErrors, collectBrowserEvidence } from '../quality/ci-execution-report.mjs';
 import { computePolicyHash } from '../quality/validation-policy.mjs';
 
-export const DEMO_DIST_OWNERS = [
-  'try-demo.spec.ts',
-  'try-pwa.spec.ts',
-  'try-launch.spec.ts',
-  'try-export.spec.ts',
-  'try-undock.spec.ts',
-];
+export const DEMO_DIST_OWNER_PATHS = IMPACT_CONFIG.demoDistE2eOwners;
+export const DEMO_DIST_OWNERS = DEMO_DIST_OWNER_PATHS.map((path) => basename(path));
 const DEMO_BROWSER_LANE = 'e2e:demo-dist';
 const DEMO_BROWSER_COMMAND = [
   'pnpm',
@@ -136,7 +132,10 @@ export function demoDistInputs(env = process.env, root = process.cwd()) {
   for (const asset of REQUIRED_ASSETS)
     if (!lstatSync(join(distDir, asset)).isFile())
       throw new Error(`built-demo required asset missing: ${asset}`);
-  const outputSuffix = env.VARVE_E2E_OUTPUT_DIR || `demo-dist-${process.pid}-${url.port}`;
+  const outputSuffix =
+    env.VARVE_DEMO_E2E_OUTPUT_DIR ||
+    env.VARVE_E2E_OUTPUT_DIR ||
+    `demo-dist-${process.pid}-${url.port}`;
   if (!/^[a-zA-Z0-9][a-zA-Z0-9._/-]*$/.test(outputSuffix) || outputSuffix.split('/').includes('..'))
     throw new Error('invalid isolated built-demo output suffix');
   const reportDir = resolve(root, 'test-results', outputSuffix);

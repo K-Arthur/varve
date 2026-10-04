@@ -394,6 +394,7 @@ function buildPlan(files, { includeReverse = true } = {}) {
   const changedCrates = new Set();
   const directTestFiles = new Set();
   const directE2eFiles = new Set();
+  let directDemoDistOwner = false;
   const directWebsiteE2eFiles = new Set();
   const e2eDomains = new Set();
   const benchDomains = new Set();
@@ -439,7 +440,10 @@ function buildPlan(files, { includeReverse = true } = {}) {
         // Keep it at Tier 1 instead of expanding to every spec in its
         // directory; renderer, config, and helper changes below retain
         // their domain/full-suite blast radius.
-        if (existsSync(join(ROOT, f))) directE2eFiles.add(f);
+        if (existsSync(join(ROOT, f))) {
+          if (IMPACT_CONFIG.demoDistE2eOwners.includes(f)) directDemoDistOwner = true;
+          else directE2eFiles.add(f);
+        }
       } else if (f.includes('/tests/e2e/')) {
         if (websiteSpec) {
           if (existsSync(join(ROOT, f))) directWebsiteE2eFiles.add(f);
@@ -569,6 +573,7 @@ function buildPlan(files, { includeReverse = true } = {}) {
   // shared-harness suite) to make feedback both earlier and cheaper.
   if (e2eTypecheckRequired) plan.tiers[1].push('typecheck:e2e');
   if (websiteE2eTypecheckRequired) plan.tiers[1].push('typecheck:website-e2e');
+  if (directDemoDistOwner) plan.tiers[1].push('e2e:demo-dist');
   for (const f of [...directTestFiles]) {
     if (f.startsWith('tests/e2e/')) continue;
     plan.tiers[1].push(`js-unit:file:${f}`);
@@ -717,6 +722,15 @@ function buildPlan(files, { includeReverse = true } = {}) {
     countTests('tests/unit') +
     countTests('tests/e2e');
   const pkgDirByName = new Map(Object.entries(pkgs).map(([n, p]) => [n, p.dir]));
+  // The broad app suite deliberately excludes tests that must run against the
+  // staged production /try artifact. Preserve that coverage whenever a change
+  // selects the broad suite, including runner/config and renderer escalations.
+  if (
+    Object.values(plan.tiers).some((lanes) => lanes.includes('e2e:all')) &&
+    !Object.values(plan.tiers).some((lanes) => lanes.includes('e2e:demo-dist'))
+  )
+    plan.tiers[4].push('e2e:demo-dist');
+
   let selectedTestFiles = 0;
   for (let t = 0; t <= 4; t++) {
     for (const lane of plan.tiers[t]) {
@@ -729,7 +743,9 @@ function buildPlan(files, { includeReverse = true } = {}) {
         if (dir) selectedTestFiles += countTests(dir);
       } else if (lane.startsWith('e2e:')) {
         const dom = lane.slice('e2e:'.length);
-        if (dom === 'all') selectedTestFiles += countTests('tests/e2e');
+        if (dom === 'all')
+          selectedTestFiles += countTests('tests/e2e') - IMPACT_CONFIG.demoDistE2eOwners.length;
+        else if (dom === 'demo-dist') selectedTestFiles += IMPACT_CONFIG.demoDistE2eOwners.length;
         else if (dom === 'visual') selectedTestFiles += countTests('tests/e2e/visual');
         else selectedTestFiles += countTests(`tests/e2e/${dom}`);
       } else if (lane === 'website-unit') {
@@ -752,7 +768,11 @@ function buildPlan(files, { includeReverse = true } = {}) {
   plan.riskFlags = riskFlags;
   plan.globalImpact = plan.full;
   plan.integrationRequired =
-    plan.full || plan.tiers[2].length > 0 || plan.tiers[3].length > 0 || plan.tiers[4].length > 0;
+    plan.full ||
+    plan.tiers[2].length > 0 ||
+    plan.tiers[3].length > 0 ||
+    plan.tiers[4].length > 0 ||
+    plan.tiers[1].includes('e2e:demo-dist');
   plan.releaseCandidateRequired =
     plan.full || plan.tiers[4].length > 0 || plan.changed.rust.length > 0;
 

@@ -1,5 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
 import { resolveRunOutput, validatedE2ePort } from './scripts/quality/playwright-run-output.mjs';
+import { IMPACT_CONFIG } from './validation-impact.config.mjs';
 
 const e2ePort = validatedE2ePort(process.env.VARVE_E2E_PORT);
 const e2eBaseUrl = `http://localhost:${e2ePort}`;
@@ -24,6 +25,13 @@ if (!Number.isInteger(e2eWorkers) || e2eWorkers < 1)
 // unique suffix is derived from PID + port when VARVE_E2E_OUTPUT_DIR is not
 // set explicitly (CI sets its own per-run directories).
 const outputSuffix = resolveRunOutput(process.env, { port: e2ePort });
+const demoDistOwnerNames = IMPACT_CONFIG.demoDistE2eOwners.map((path) =>
+  path
+    .split('/')
+    .at(-1)
+    .replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
+);
+const demoDistOwnerIgnore = new RegExp(`(?:^|[/\\\\])(?:${demoDistOwnerNames.join('|')})$`);
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -91,7 +99,7 @@ export default defineConfig({
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'], permissions: ['clipboard-read', 'clipboard-write'] },
-      testIgnore: /visual\/replay\.spec\.ts/,
+      testIgnore: [/visual\/replay\.spec\.ts/, demoDistOwnerIgnore],
     },
     {
       name: 'chromium-snapshot',

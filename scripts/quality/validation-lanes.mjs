@@ -82,6 +82,7 @@ export const LANES = {
   // ── Tier 4: domain integration ───────────────────────────────────────
   'e2e:visual': 'pnpm e2e:visual',
   'e2e:all': 'pnpm e2e:all',
+  'e2e:demo-dist': 'node scripts/quality/run-demo-dist-e2e.mjs',
   'desktop-native': 'pnpm test:desktop:native',
   'website-unit': 'pnpm test:website',
   'website-e2e': 'pnpm test:website:e2e',
@@ -180,6 +181,9 @@ export function laneArgv(lane, { files = [], pkgDir } = {}) {
   }
   if (lane.startsWith('e2e:file:')) {
     return ['pnpm', 'exec', 'playwright', 'test', lane.slice('e2e:file:'.length)];
+  }
+  if (lane === 'e2e:demo-dist') {
+    return ['node', 'scripts/quality/run-demo-dist-e2e.mjs'];
   }
   if (lane.startsWith('js-unit:') && !lane.endsWith(':all')) {
     const name = lane.slice('js-unit:'.length);

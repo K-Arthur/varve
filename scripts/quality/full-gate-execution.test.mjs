@@ -13,16 +13,21 @@ test('release full gates default to remote ownership; offline execution is delib
 
 test('local gates preserve all policy shards as distinct, bounded resumable lanes', () => {
   const lanes = localBrowserLanes();
-  assert.equal(lanes.length, FULL_BROWSER_SHARDS);
-  assert.equal(new Set(lanes.map(({ label }) => label)).size, FULL_BROWSER_SHARDS);
+  assert.equal(lanes.length, FULL_BROWSER_SHARDS + 1);
+  assert.equal(
+    new Set(lanes.slice(0, FULL_BROWSER_SHARDS).map(({ label }) => label)).size,
+    FULL_BROWSER_SHARDS,
+  );
   assert.deepEqual(
-    lanes.map(({ argv }) => argv.find((arg) => arg.startsWith('--shard='))),
+    lanes
+      .slice(0, FULL_BROWSER_SHARDS)
+      .map(({ argv }) => argv.find((arg) => arg.startsWith('--shard='))),
     Array.from(
       { length: FULL_BROWSER_SHARDS },
       (_, index) => `--shard=${index + 1}/${FULL_BROWSER_SHARDS}`,
     ),
   );
-  for (const { argv } of lanes) {
+  for (const { argv } of lanes.slice(0, FULL_BROWSER_SHARDS)) {
     assert.ok(argv.includes('--project=chromium'));
     assert.ok(argv.includes('--workers=1'));
     assert.ok(argv.includes('--retries=0'));
@@ -31,4 +36,8 @@ test('local gates preserve all policy shards as distinct, bounded resumable lane
     assert.equal(argv[argv.indexOf('--max-failures') + 1], '5');
     assert.ok(!argv.some((arg) => /grep|last-failed|test-list/.test(arg)));
   }
+  assert.deepEqual(lanes.at(-1), {
+    label: 'Production demo E2E',
+    argv: [process.execPath, 'scripts/quality/run-demo-dist-e2e.mjs'],
+  });
 });

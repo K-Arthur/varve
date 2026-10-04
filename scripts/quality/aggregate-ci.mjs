@@ -209,20 +209,22 @@ export function validateExecutionEvidence({
       if (workflow.runId && String(report?.workflow?.runId) !== String(workflow.runId))
         identityErrors.push('workflow run mismatch');
       identityErrors.push(
-        ...browserEvidenceErrors(report.playwright, [...expected].filter(browserLane)),
+        ...browserEvidenceErrors(
+          report.playwright,
+          [...expected].filter((lane) => browserLane(lane) && report.executedLanes?.includes(lane)),
+        ),
       );
       for (const browser of report.playwright?.reports ?? []) {
-        identityErrors.push(
-          ...inventoryErrors(browser.inventory, {
-            commitSha: plan.commitSha,
-            treeSha: plan.treeSha,
-            planHash: plan.planHash,
-            policyHash: plan.policyHash,
-          }),
-        );
+        const expectedInventorySource = {
+          commitSha: plan.commitSha,
+          treeSha: plan.treeSha,
+          policyHash: plan.policyHash,
+          ...(browser.lane === 'e2e:demo-dist' ? {} : { planHash: plan.planHash }),
+        };
+        identityErrors.push(...inventoryErrors(browser.inventory, expectedInventorySource));
         if (browser.inventory?.lane !== browser.lane)
           identityErrors.push('inventory lane mismatch');
-        if (browser.shard !== report.shard)
+        if ((browser.executionShard ?? browser.shard) !== report.shard)
           identityErrors.push('inventory shard identity mismatch');
       }
       if (report?.status !== 'success')

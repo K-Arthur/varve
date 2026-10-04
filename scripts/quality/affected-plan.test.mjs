@@ -72,6 +72,17 @@ assert.ok(setupPlan.tiers[4].includes('e2e:all'));
 
 const fixturePlan = buildPlan(['tests/e2e/fixtures/real-life-portrait.jpg']);
 assert.ok(fixturePlan.tiers[4].includes('e2e:all'));
+assert.ok(
+  fixturePlan.tiers[4].includes('e2e:demo-dist'),
+  'the broad app browser closure also runs owners excluded from the development-server suite',
+);
+assert.ok(
+  selectedCiLanes(
+    fixturePlan,
+    deriveCiCategories(fixturePlan, ['tests/e2e/fixtures/real-life-portrait.jpg']),
+  ).includes('e2e:demo-dist'),
+  'broad affected browser changes must reach the dedicated production-demo CI lane',
+);
 
 const demoDistPlan = buildPlan(['scripts/website/demo-dist-validation.mjs']);
 assert.ok(demoDistPlan.tiers[4].includes('demo-dist-validation'));
@@ -83,6 +94,19 @@ assert.ok(
   }).localBlocking.includes('demo-dist-validation'),
   'the small portability regression test remains in the push checkpoint',
 );
+
+for (const owner of IMPACT_CONFIG.demoDistE2eOwners) {
+  const ownerPlan = buildPlan([owner]);
+  assert.deepEqual(ownerPlan.tiers[1], ['typecheck:e2e', 'e2e:demo-dist']);
+  assert.deepEqual(ownerPlan.directE2eFiles, []);
+  assert.equal(ownerPlan.integrationRequired, true);
+  const categories = deriveCiCategories(ownerPlan, [owner]);
+  assert.equal(categories.e2e, true);
+  assert.ok(
+    selectedCiLanes(ownerPlan, categories).includes('e2e:demo-dist'),
+    `${owner} must reach the staged production-demo lane`,
+  );
+}
 
 const canvasBenchPlan = buildPlan([
   'packages/editor/src/canvas/__tests__/cacheSystem.bench.test.ts',

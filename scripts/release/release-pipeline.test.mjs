@@ -83,8 +83,14 @@ assert.match(workflowJob(candidateWorkflow, 'desktop-e2e'), /needs:.*rust/);
 assert.match(workflowJob(candidateWorkflow, 'certification'), /needs:.*rust/);
 const candidateBrowserCommands = candidateWorkflow
   .split('\n')
-  .filter((line) => /\bpnpm (?:exec playwright test|e2e:visual)/.test(line));
-assert.equal(candidateBrowserCommands.length, 6, 'triage and final for all three browser lanes');
+  .filter(
+    (line) => /\bpnpm (?:exec playwright test|e2e:visual)/.test(line) && !line.includes('--list'),
+  );
+assert.equal(
+  candidateBrowserCommands.length,
+  7,
+  'triage/final plus the single production-demo owner run',
+);
 for (const command of candidateBrowserCommands) {
   assert.match(command, /node scripts\/quality\/heavy-lease\.mjs/);
   for (const flag of strictBrowserFlags) assert.ok(command.includes(flag), command);
@@ -135,19 +141,25 @@ assert.match(
 assert.doesNotMatch(websiteWorkflow, /path: \|\n {12}test-results\/\n/);
 assert.match(verifierSource, /\.\.\.localBrowserLanes\(\)/);
 const localBrowserGate = localBrowserLanes();
-assert.equal(localBrowserGate.length, FULL_BROWSER_SHARDS);
+assert.equal(localBrowserGate.length, FULL_BROWSER_SHARDS + 1);
 assert.deepEqual(
-  localBrowserGate.map(({ argv }) => argv.find((arg) => arg.startsWith('--shard='))),
+  localBrowserGate
+    .slice(0, FULL_BROWSER_SHARDS)
+    .map(({ argv }) => argv.find((arg) => arg.startsWith('--shard='))),
   Array.from(
     { length: FULL_BROWSER_SHARDS },
     (_, index) => `--shard=${index + 1}/${FULL_BROWSER_SHARDS}`,
   ),
 );
-for (const { argv } of localBrowserGate) {
+for (const { argv } of localBrowserGate.slice(0, FULL_BROWSER_SHARDS)) {
   assert.deepEqual(argv.slice(0, 4), ['pnpm', 'exec', 'playwright', 'test']);
   for (const flag of [...strictBrowserFlags, '--project=chromium']) assert.ok(argv.includes(flag));
   assert.doesNotMatch(argv.join(' '), /--(?:grep|last-failed|only-changed|test-list)(?:=|\s|$)/);
 }
+assert.deepEqual(localBrowserGate.at(-1), {
+  label: 'Production demo E2E',
+  argv: [process.execPath, 'scripts/quality/run-demo-dist-e2e.mjs'],
+});
 assert.match(verifierSource, /'e2e:visual', \.\.\.playwrightRunOptions\(\{ strict: true \}\)/);
 assert.match(
   JSON.parse(readFileSync('package.json', 'utf8')).scripts['e2e:visual'],

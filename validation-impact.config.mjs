@@ -446,4 +446,16 @@ export const IMPACT_CONFIG = {
       'tests/e2e/gradient-map/import-workflow.spec.ts',
     ],
   },
+
+  /**
+   * Specs that exercise the production `/try/` base path and must run only
+   * against the staged combined Pages artifact, never the root dev server.
+   */
+  demoDistE2eOwners: [
+    'tests/e2e/browser/try-demo.spec.ts',
+    'tests/e2e/browser/try-pwa.spec.ts',
+    'tests/e2e/browser/try-launch.spec.ts',
+    'tests/e2e/browser/try-export.spec.ts',
+    'tests/e2e/browser/try-undock.spec.ts',
+  ],
 };

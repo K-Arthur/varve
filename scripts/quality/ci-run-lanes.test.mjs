@@ -4,9 +4,14 @@
 
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import {
+  demoBrowserSource,
+  demoDistInputs,
+  distInventory,
+} from '../website/demo-dist-validation.mjs';
 import { createBrowserInventory } from './browser-inventory.mjs';
 import {
   commandExecutorForCategory,
@@ -44,6 +49,36 @@ const strictFlags = [
   '--fail-on-flaky-tests',
   '--trace=retain-on-failure',
 ];
+const [demoDistCommand] = commandsForCategory({ ...plan, selectedLanes: ['e2e:demo-dist'] }, 'e2e');
+assert.deepEqual(demoDistCommand.argv.slice(0, 6), [
+  'pnpm',
+  'exec',
+  'playwright',
+  'test',
+  '--config',
+  'playwright.demo-dist.config.mts',
+]);
+for (const flag of strictFlags) assert.ok(demoDistCommand.argv.includes(flag));
+const broadE2ePlan = { ...plan, selectedLanes: ['e2e:all', 'e2e:demo-dist'] };
+assert.deepEqual(
+  commandsForCategory(broadE2ePlan, 'e2e', { shard: '1/16' }).map(({ lane }) => lane),
+  ['e2e:all', 'e2e:demo-dist'],
+  'the first broad-suite shard owns the additional complete production-demo lane',
+);
+assert.deepEqual(
+  commandsForCategory(broadE2ePlan, 'e2e', { shard: '2/16' }).map(({ lane }) => lane),
+  ['e2e:all'],
+  'the unsharded production-demo lane runs only once in a full browser matrix',
+);
+assert.throws(
+  () =>
+    commandsForCategory(
+      { ...plan, selectedLanes: ['e2e:file:tests/e2e/browser/try-undock.spec.ts'] },
+      'e2e',
+    ),
+  /requires the dedicated e2e:demo-dist lane/,
+  'a production-demo owner cannot fall back to the root development runner',
+);
 for (const lane of ['e2e:all', 'e2e:canvas', 'e2e:file:tests/e2e/canvas/tools.spec.ts']) {
   const [command] = commandsForCategory({ ...plan, selectedLanes: [lane] }, 'e2e');
   for (const flag of strictFlags) assert.ok(command.argv.includes(flag), `${lane}: ${flag}`);
@@ -211,6 +246,150 @@ try {
   rmSync(browserLaneDirectory, { recursive: true, force: true });
 }
 console.log('CI lane actual browser report guards passed');
+
+// The production-demo lane binds its execution receipt to the staged dist's
+// dedicated reporter path instead of the ordinary dev-server report folder.
+const demoFixture = mkdtempSync(join(tmpdir(), 'varve-ci-demo-lane-'));
+const demoDist = join(demoFixture, 'combined');
+const demoSuffix = `ci-demo-lane-${process.pid}`;
+const demoReportPath = join(process.cwd(), 'test-results', demoSuffix, 'playwright.json');
+const demoSource = execFileSync('git', ['rev-parse', '--verify', 'HEAD^{commit}'], {
+  encoding: 'utf8',
+}).trim();
+const demoTree = execFileSync('git', ['rev-parse', '--verify', 'HEAD^{tree}'], {
+  encoding: 'utf8',
+}).trim();
+const demoEnvNames = [
+  'VARVE_DEMO_EXPECTED_SHA',
+  'VARVE_DEMO_DIST_URL',
+  'VARVE_DEMO_DIST_DIR',
+  'VARVE_DEMO_E2E_OUTPUT_DIR',
+  'VARVE_DEMO_INPUT_RECEIPT',
+  'VARVE_CI_PLAYWRIGHT_REPORT',
+];
+const previousDemoEnv = Object.fromEntries(demoEnvNames.map((name) => [name, process.env[name]]));
+for (const asset of [
+  'index.html',
+  'try/index.html',
+  'try/varve-demo-sw.js',
+  ...['varve_wasm', 'varve_wasm_simd', 'varve_colour'].flatMap((name) => [
+    `try/wasm/${name}.js`,
+    `try/wasm/${name}_bg.wasm`,
+  ]),
+]) {
+  const path = join(demoDist, asset);
+  mkdirSync(join(path, '..'), { recursive: true });
+  writeFileSync(path, 'fixture');
+}
+process.env.VARVE_DEMO_EXPECTED_SHA = demoSource;
+process.env.VARVE_DEMO_DIST_URL = 'http://127.0.0.1:15645';
+process.env.VARVE_DEMO_DIST_DIR = demoDist;
+process.env.VARVE_DEMO_E2E_OUTPUT_DIR = demoSuffix;
+process.env.VARVE_CI_PLAYWRIGHT_REPORT = demoReportPath;
+const demoReceiptPath = join(demoFixture, 'artifact-input.json');
+process.env.VARVE_DEMO_INPUT_RECEIPT = demoReceiptPath;
+const demoInputs = demoDistInputs(process.env, process.cwd());
+const demoArtifactSha = distInventory(demoDist).sha256;
+const demoValidationSource = demoBrowserSource(demoInputs, demoArtifactSha, process.cwd());
+writeFileSync(
+  demoReceiptPath,
+  JSON.stringify({
+    schema: 1,
+    sourceSha: demoSource,
+    originalDir: demoDist,
+    distDir: demoDist,
+    artifactSha256: demoArtifactSha,
+    validationSource: demoValidationSource,
+  }),
+);
+const demoOwners = [
+  'try-demo.spec.ts',
+  'try-pwa.spec.ts',
+  'try-launch.spec.ts',
+  'try-export.spec.ts',
+  'try-undock.spec.ts',
+];
+const demoSpecs = demoOwners.map((owner) => ({
+  file: `tests/e2e/browser/${owner}`,
+  title: `certified owner ${owner}`,
+  id: owner,
+  line: 1,
+  tests: [
+    {
+      projectName: 'chromium',
+      expectedStatus: 'passed',
+      status: 'expected',
+      results: [{ retry: 0, status: 'passed', duration: 1, errors: [] }],
+    },
+  ],
+}));
+const demoBrowserJson = {
+  config: {
+    workers: 1,
+    updateSnapshots: 'none',
+    failOnFlakyTests: true,
+    argv: ['--trace=retain-on-failure'],
+    projects: [{ name: 'chromium', retries: 0 }],
+  },
+  errors: [],
+  stats: { expected: demoSpecs.length, unexpected: 0, flaky: 0, skipped: 0 },
+  suites: [{ title: 'production-demo fixtures', specs: demoSpecs }],
+};
+const demoListing = structuredClone(demoBrowserJson);
+demoListing.config.argv = ['--list', '--trace=retain-on-failure'];
+for (const spec of demoListing.suites[0].specs) {
+  delete spec.tests[0].status;
+  delete spec.tests[0].results;
+}
+mkdirSync(join(process.cwd(), 'test-results', demoSuffix), { recursive: true });
+writeFileSync(
+  join(process.cwd(), 'test-results', demoSuffix, 'expected-cases.json'),
+  JSON.stringify(demoListing),
+);
+try {
+  const demoPlan = {
+    ...plan,
+    commitSha: demoSource,
+    treeSha: demoTree,
+    selectedLanes: ['e2e:demo-dist'],
+  };
+  const result = runCategoryDetailed(demoPlan, 'e2e', {
+    browserReportDir: join(browserLaneDirectory, 'demo-dist'),
+    discover: ({ argv, lane, source }) => {
+      assert.equal(lane, 'e2e:demo-dist');
+      assert.ok(argv.includes('playwright.demo-dist.config.mts'));
+      assert.equal(source.planHash, demoValidationSource.planHash);
+      return createBrowserInventory(demoBrowserJson, { argv, lane, source });
+    },
+    execute: (argv, { browserReportPath }) => {
+      if (argv.some((argument) => argument.endsWith('demo-dist-validation.mjs'))) {
+        if (argv.at(-1) === 'verify-report') {
+          execFileSync(argv[0], argv.slice(1), {
+            env: { ...process.env, VARVE_CI_PLAYWRIGHT_REPORT: browserReportPath },
+          });
+        }
+        return 0;
+      }
+      assert.ok(argv.includes('playwright.demo-dist.config.mts'));
+      assert.equal(browserReportPath, demoReportPath);
+      writeFileSync(browserReportPath, JSON.stringify(demoBrowserJson));
+      return 0;
+    },
+  });
+  assert.equal(result.status, 0);
+  assert.equal(result.outcomes[0].lane, 'e2e:demo-dist');
+  assert.equal(
+    result.browserEvidence.reports[0].inventory.source.planHash,
+    demoValidationSource.planHash,
+  );
+} finally {
+  for (const [name, value] of Object.entries(previousDemoEnv)) {
+    if (value === undefined) delete process.env[name];
+    else process.env[name] = value;
+  }
+  rmSync(demoFixture, { recursive: true, force: true });
+  rmSync(join(process.cwd(), 'test-results', demoSuffix), { recursive: true, force: true });
+}
 
 // Rust runners execute only native Node/Cargo commands and must not load the
 // pnpm-only cross-spawn adapter. Non-Rust lanes continue to use that adapter.

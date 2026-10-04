@@ -520,6 +520,9 @@ for (const workflowText of [ci, candidate]) {
           });
           // Non-matrix jobs have one writer, irrespective of shard fixtures.
           if (!matrix && cell.shard === 2) continue;
+          // The candidate demo-dist inventory is intentionally uploaded only
+          // by shard 1; model the workflow condition when checking uniqueness.
+          if (step.if?.includes('matrix.shard == 1') && Number(cell.shard) !== 1) continue;
           assert.ok(!names.has(name), `${jobId}: immutable upload conflict ${name}`);
           names.add(name);
         }
