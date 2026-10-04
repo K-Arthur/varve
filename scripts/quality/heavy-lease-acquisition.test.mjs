@@ -12,7 +12,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { leasePaths } from './heavy-lease.mjs';
 
 const script =
@@ -23,10 +23,17 @@ const lockName = process.env.VARVE_TEST_LEASE_SCRIPT
   ? `${Buffer.from(gitDir).toString('hex').slice(0, 32)}.lock`
   : leasePaths().primary.split(/[/\\]/).at(-1);
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+// The barrier coordinates separate Node processes and Git path lookups. Keep
+// enough room for cold hosted Windows startup without weakening the one-owner
+// and non-overlap assertions below.
+const SCHEDULING_BARRIER_TIMEOUT_MS = 15_000;
 async function waitFor(predicate) {
-  const deadline = Date.now() + 4000;
+  const deadline = Date.now() + SCHEDULING_BARRIER_TIMEOUT_MS;
   while (!predicate() && Date.now() < deadline) await delay(5);
-  assert.ok(predicate(), 'parallel lease fixture did not reach its scheduling barrier');
+  assert.ok(
+    predicate(),
+    `parallel lease fixture did not reach its scheduling barrier within ${SCHEDULING_BARRIER_TIMEOUT_MS}ms`,
+  );
 }
 
 for (const stale of process.env.VARVE_TEST_LEASE_CASE === 'stale' ? [true] : [false, true]) {
@@ -59,7 +66,7 @@ for (const stale of process.env.VARVE_TEST_LEASE_CASE === 'stale' ? [true] : [fa
       preload,
       `import fs from 'node:fs'; import {syncBuiltinESMExports} from 'node:module';
 const original={read:fs.readFileSync,write:fs.writeFileSync,unlink:fs.unlinkSync,mkdir:fs.mkdirSync};const directory=${JSON.stringify(directory)};let admitted=false,read=false,wrote=false;
-const wait=(predicate)=>{const deadline=Date.now()+3000;while(!predicate()){if(Date.now()>deadline)throw Error('admission barrier timed out');Atomics.wait(new Int32Array(new SharedArrayBuffer(4)),0,0,5)}};
+const wait=(predicate)=>{const deadline=Date.now()+${SCHEDULING_BARRIER_TIMEOUT_MS};while(!predicate()){if(Date.now()>deadline)throw Error('admission barrier timed out');Atomics.wait(new Int32Array(new SharedArrayBuffer(4)),0,0,5)}};
 const count=(prefix)=>fs.readdirSync(directory).filter(p=>p.startsWith(prefix)).length;
 globalThis.setTimeout=((actual)=>(callback,ms,...args)=>actual(callback,ms>1000&&ms<=5000?20:ms,...args))(globalThis.setTimeout);
 fs.mkdirSync=function(path,...args){const result=original.mkdir.call(this,path,...args);if(!admitted&&String(path).endsWith('varve-leases')){admitted=true;original.write(directory+'/admitted-'+process.pid,'ready');wait(()=>count('admitted-')===2)}return result};
@@ -76,7 +83,19 @@ fs.writeFileSync=function(path,...args){const result=original.write.call(this,pa
     for (let index = 0; index < 2; index++) {
       const owner = spawn(
         process.execPath,
-        ['--import', preload, script, `parallel-${index}`, '--', process.execPath, '-e', source],
+        // Must be a file: URL: `node --import` rejects a bare Windows drive
+        // path with ERR_UNSUPPORTED_ESM_URL_SCHEME, which killed the child
+        // before it could reach its scheduling barrier.
+        [
+          '--import',
+          pathToFileURL(preload).href,
+          script,
+          `parallel-${index}`,
+          '--',
+          process.execPath,
+          '-e',
+          source,
+        ],
         {
           stdio: ['ignore', 'pipe', 'pipe'],
           env: {
