@@ -103,6 +103,20 @@ test.describe('screenshot delivery', () => {
       const img = details.nth(index).locator('img').first();
       await expect(img).toHaveAttribute('loading', 'lazy');
       await assertNotCropped(img);
+      const contentFit = await img.evaluate((element: HTMLImageElement) => {
+        const frame = element.closest('.screenshot-image')?.getBoundingClientRect();
+        const frameRatio = frame ? frame.width / frame.height : 0;
+        const imageRatio = element.naturalWidth / element.naturalHeight;
+        return {
+          kind: element.closest('.screenshot-image')?.getAttribute('data-kind'),
+          visibleWidthFraction: Math.min(1, imageRatio / frameRatio),
+        };
+      });
+      // The homepage row is for landscape detail crops. A narrow panel image
+      // technically fits in `object-fit: contain`, but becomes a tiny strip
+      // surrounded by empty space at desktop card widths.
+      expect(contentFit.kind).toBe('detail');
+      expect(contentFit.visibleWidthFraction).toBeGreaterThan(0.72);
       // The figure must contain the whole image: no clipping by the frame.
       const overflow = await details.nth(index).evaluate((figure) => {
         const image = figure.querySelector('img') as HTMLImageElement;
@@ -176,7 +190,7 @@ test.describe('screenshot delivery', () => {
     });
   }
 
-  for (const width of [390, 768, 1024, 1280, 1366]) {
+  for (const width of [390, 768, 1024, 1280, 1366, 1440]) {
     test(`homepage detail cards align and the image viewer fits ${width}px`, async ({
       page,
     }, testInfo) => {
@@ -184,6 +198,15 @@ test.describe('screenshot delivery', () => {
       await page.goto('/');
       const details = page.locator('.showcase-detail');
       await expect(details.first()).toBeVisible();
+      const initialLayout = await page.evaluate(() => {
+        const header = document.querySelector('[data-site-header]')?.getBoundingClientRect();
+        const grid = document.querySelector('.showcase-details')?.getBoundingClientRect();
+        return { headerBottom: header?.bottom ?? 0, gridTop: grid?.top ?? 0 };
+      });
+      // At page load the sticky header occupies its own flow position. The
+      // overlap in a previous mobile artifact came from locator.screenshot()
+      // pinning that header over a grid scrolled all the way to viewport y=0.
+      expect(initialLayout.gridTop).toBeGreaterThan(initialLayout.headerBottom);
 
       const cards = await details.evaluateAll((figures) =>
         figures.map((figure) => {
@@ -218,6 +241,26 @@ test.describe('screenshot delivery', () => {
         .toBeLessThanOrEqual(width);
       const detailGrid = page.locator('.showcase-details');
       await detailGrid.scrollIntoViewIfNeeded();
+      if (width <= 720) {
+        await page.evaluate(() => {
+          const header = document.querySelector('[data-site-header]')?.getBoundingClientRect();
+          const grid = document.querySelector('.showcase-details')?.getBoundingClientRect();
+          if (!header || !grid) throw new Error('Homepage screenshot layout is incomplete');
+          // Leave the normal sticky header visible, but keep it outside the
+          // isolated element screenshot so the first card is not obscured.
+          const gridDocumentTop = grid.top + window.scrollY;
+          window.scrollTo({
+            top: Math.max(0, gridDocumentTop - header.bottom - 16),
+            behavior: 'instant',
+          });
+        });
+        const captureLayout = await page.evaluate(() => {
+          const header = document.querySelector('[data-site-header]')?.getBoundingClientRect();
+          const grid = document.querySelector('.showcase-details')?.getBoundingClientRect();
+          return { headerBottom: header?.bottom ?? 0, gridTop: grid?.top ?? 0 };
+        });
+        expect(captureLayout.gridTop).toBeGreaterThanOrEqual(captureLayout.headerBottom + 15);
+      }
       await detailGrid.screenshot({
         path: testInfo.outputPath(`homepage-detail-cards-${width}px.png`),
         animations: 'disabled',

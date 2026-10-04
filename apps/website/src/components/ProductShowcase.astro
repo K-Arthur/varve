@@ -25,15 +25,18 @@ const captured = (key: string): ScreenshotScene | null => getScene(key);
 const PRIMARY = captured('workspace');
 const TABLET = captured('tablet-workspace');
 const presentationReleaseVersion = publishedFeatureVersion('0.5.0');
-// Cropped details, each showing one thing: canvas artwork, type, panel state.
+// Curated detail crops, each showing one thing: vector editing, typography,
+// and the shared-workflow surface. Avoid narrow panel crops in this row: a
+// portrait panel centered inside a landscape card reads like a broken image
+// on desktop, even though it technically fits without being cropped.
 // A *full* application frame is deliberately excluded: at a third of the page
 // width a 1200x750 window scales to about 18% and its text is unreadable, which
 // is the reason detail scenes are cropped at capture time in the first place.
 // Whatever the pipeline could not capture simply drops out of the row.
-const DETAILS = ['vector', 'typography', 'tablet-controls', 'layers', 'motion']
+const DETAILS = ['vector', 'typography', 'workspace-shared-workflows']
   .map(captured)
   .filter((s): s is ScreenshotScene => s !== null)
-  .filter((s) => (s.kind ?? 'full') !== 'full')
+  .filter((s) => s.kind === 'detail')
   .slice(0, 3);
 ---
 
