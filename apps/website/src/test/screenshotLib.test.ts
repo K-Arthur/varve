@@ -42,6 +42,18 @@ describe('screenshot fit policy', () => {
     }
   });
 
+  it('contains full scene pixels in a shared card frame without cropping or upscaling panels', () => {
+    const full = scene({ file: 'detail.png', width: 832, height: 701, kind: 'detail' });
+    const panel = scene({ file: 'layers.png', width: 317, height: 539, kind: 'panel' });
+
+    expect(sceneFitStyle(full, 'contain')).toBe(
+      'position: absolute; inset: 0; width: 100%; height: 100%; max-width: 100%; object-fit: contain;',
+    );
+    expect(sceneFitStyle(panel, 'contain')).toBe(
+      'position: absolute; inset: 0; width: 100%; height: 100%; max-width: min(100%, 317px); object-fit: contain;',
+    );
+  });
+
   it('defaults a scene with no recorded kind to a full frame', () => {
     expect(sceneKind(scene({ file: 'unknown.png', width: 1440, height: 900 }))).toBe('full');
   });

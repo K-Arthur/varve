@@ -17,15 +17,23 @@ interface Props {
   loading?: 'lazy' | 'eager';
   fetchpriority?: 'high' | 'auto' | 'low';
   class?: string;
+  fit?: 'scene' | 'contain';
 }
 
-const { scene, sizes, loading = 'lazy', fetchpriority = 'auto', class: className } = Astro.props;
+const {
+  scene,
+  sizes,
+  loading = 'lazy',
+  fetchpriority = 'auto',
+  class: className,
+  fit = 'scene',
+} = Astro.props;
 const picture = scenePicture(scene, { sizes, loading, fetchpriority });
-const fit = sceneFitStyle(scene);
+const fitStyle = sceneFitStyle(scene, fit);
 const kind = scene.kind ?? 'full';
 ---
 
-<picture class:list={['screenshot-image', className]} data-kind={kind}>
+<picture class:list={['screenshot-image', className]} data-kind={kind} data-fit={fit}>
   {
     picture.srcset && (
       <source
@@ -43,7 +51,7 @@ const kind = scene.kind ?? 'full';
     loading={picture.loading}
     decoding={picture.decoding}
     fetchpriority={picture.fetchpriority}
-    style={fit}
+    style={fitStyle}
   />
 </picture>
 
@@ -57,5 +65,10 @@ const kind = scene.kind ?? 'full';
     height: auto;
     /* audit-spacing: allow intrinsic screenshot centring within its frame */
     margin: 0 auto;
+  }
+
+  .screenshot-image[data-fit='contain'] {
+    position: relative;
+    overflow: hidden;
   }
 </style>

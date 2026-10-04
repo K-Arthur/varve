@@ -38,7 +38,7 @@ const manifest = JSON.parse(
   >;
 };
 
-/** Rendered box vs intrinsic box: must match, or something is cropping. */
+/** Compare natural sizing, except when the element intentionally uses contain. */
 async function assertNotCropped(img: ReturnType<import('@playwright/test').Page['locator']>) {
   // Lazily loaded images below the fold may not have started loading yet;
   // decoding first means this asserts about a real image, not a pending one.
@@ -61,10 +61,12 @@ async function assertNotCropped(img: ReturnType<import('@playwright/test').Page[
       naturalHeight: element.naturalHeight,
       complete: element.complete,
       currentSrc: element.currentSrc,
+      objectFit: getComputedStyle(element).objectFit,
     };
   });
   expect(geometry.complete, 'image finished loading').toBe(true);
   expect(geometry.naturalWidth, 'image decoded to a real size').toBeGreaterThan(0);
+  if (geometry.objectFit === 'contain') return;
   expect(
     Math.abs(geometry.renderedRatio - geometry.naturalRatio),
     `rendered aspect ${geometry.renderedRatio.toFixed(3)} must match the capture's ${geometry.naturalRatio.toFixed(3)} (${geometry.currentSrc})`,
@@ -104,21 +106,41 @@ test.describe('screenshot delivery', () => {
       // The figure must contain the whole image: no clipping by the frame.
       const overflow = await details.nth(index).evaluate((figure) => {
         const image = figure.querySelector('img') as HTMLImageElement;
+        const frame = figure.querySelector('.screenshot-image') as HTMLElement;
         const figureBox = figure.getBoundingClientRect();
+        const frameBox = frame.getBoundingClientRect();
         const imageBox = image.getBoundingClientRect();
+        const style = getComputedStyle(image);
         return {
-          left: imageBox.left >= figureBox.left - 1,
-          right: imageBox.right <= figureBox.right + 1,
-          top: imageBox.top >= figureBox.top - 1,
-          bottom: imageBox.bottom <= figureBox.bottom + 1,
+          frameFitsCard:
+            frameBox.left >= figureBox.left - 1 &&
+            frameBox.right <= figureBox.right + 1 &&
+            frameBox.top >= figureBox.top - 1 &&
+            frameBox.bottom <= figureBox.bottom + 1,
+          imageFitsFrame:
+            imageBox.left >= frameBox.left - 1 &&
+            imageBox.right <= frameBox.right + 1 &&
+            imageBox.top >= frameBox.top - 1 &&
+            imageBox.bottom <= frameBox.bottom + 1,
+          frame: { x: frameBox.x, y: frameBox.y, width: frameBox.width, height: frameBox.height },
+          image: { x: imageBox.x, y: imageBox.y, width: imageBox.width, height: imageBox.height },
+          computed: {
+            width: style.width,
+            height: style.height,
+            maxWidth: style.maxWidth,
+            maxHeight: style.maxHeight,
+          },
+          intrinsic: { width: image.naturalWidth, height: image.naturalHeight },
         };
       });
-      expect(overflow, `detail ${index} is not clipped by its frame`).toEqual({
-        left: true,
-        right: true,
-        top: true,
-        bottom: true,
-      });
+      expect(
+        overflow.frameFitsCard,
+        `detail ${index} media frame exceeds its card: ${JSON.stringify(overflow)}`,
+      ).toBe(true);
+      expect(
+        overflow.imageFitsFrame,
+        `detail ${index} image exceeds its frame: ${JSON.stringify(overflow)}`,
+      ).toBe(true);
     }
   });
 
@@ -151,6 +173,97 @@ test.describe('screenshot delivery', () => {
           `image ${index} at ${width}px is ${state.width.toFixed(0)}px wide but only has ${state.naturalWidth}px of data (max-width: ${state.maxWidth})`,
         ).toBeLessThanOrEqual(state.naturalWidth + 1);
       }
+    });
+  }
+
+  for (const width of [390, 1280]) {
+    test(`homepage detail cards align and the image viewer fits ${width}px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto('/');
+      const details = page.locator('.showcase-detail');
+      await expect(details.first()).toBeVisible();
+
+      const cards = await details.evaluateAll((figures) =>
+        figures.map((figure) => {
+          const rect = figure.getBoundingClientRect();
+          const frame = figure.querySelector('.screenshot-image')?.getBoundingClientRect();
+          return {
+            x: rect.x,
+            y: rect.y,
+            width: rect.width,
+            height: rect.height,
+            frameWidth: frame?.width ?? 0,
+            frameHeight: frame?.height ?? 0,
+          };
+        }),
+      );
+      expect(cards.length).toBeGreaterThanOrEqual(3);
+      for (const card of cards) {
+        expect(card.frameWidth).toBeGreaterThan(0);
+        expect(Math.abs(card.frameWidth / card.frameHeight - 4 / 3)).toBeLessThan(0.02);
+        expect(card.width).toBeLessThanOrEqual(width);
+      }
+      expect(
+        Math.max(...cards.map((card) => card.height)) -
+          Math.min(...cards.map((card) => card.height)),
+      ).toBeLessThan(2);
+      if (width <= 720) {
+        const rows = [...new Set(cards.map((card) => Math.round(card.y)))];
+        expect(rows.length).toBe(cards.length);
+      }
+      await expect
+        .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
+        .toBeLessThanOrEqual(width);
+      const detailGrid = page.locator('.showcase-details');
+      await detailGrid.scrollIntoViewIfNeeded();
+      await test.info().attach(`homepage-detail-cards-${width}px.png`, {
+        body: await detailGrid.screenshot({ animations: 'disabled' }),
+        contentType: 'image/png',
+      });
+
+      const trigger = details.first().getByRole('button', { name: 'View full size' });
+      await trigger.click();
+      const dialog = page.locator('.screenshot-zoom__dialog[open]');
+      await expect(dialog).toBeVisible();
+      const image = dialog.locator('img');
+      await expect
+        .poll(() =>
+          image.evaluate(
+            (element: HTMLImageElement) => element.complete && element.naturalWidth > 0,
+          ),
+        )
+        .toBe(true);
+      const viewer = await dialog.evaluate((element) => {
+        const dialogRect = element.getBoundingClientRect();
+        const imageRect = element.querySelector('img')?.getBoundingClientRect();
+        const viewport = { width: window.innerWidth, height: window.innerHeight };
+        return {
+          left: dialogRect.left,
+          right: dialogRect.right,
+          top: dialogRect.top,
+          bottom: dialogRect.bottom,
+          imageRight: imageRect?.right ?? Infinity,
+          imageBottom: imageRect?.bottom ?? Infinity,
+          imageRatio: (imageRect?.width ?? 0) / (imageRect?.height ?? 1),
+          naturalRatio:
+            ((element.querySelector('img') as HTMLImageElement).naturalWidth || 0) /
+            ((element.querySelector('img') as HTMLImageElement).naturalHeight || 1),
+          viewport,
+        };
+      });
+      expect(viewer.left).toBeGreaterThanOrEqual(-1);
+      expect(viewer.right).toBeLessThanOrEqual(viewer.viewport.width + 1);
+      expect(viewer.top).toBeGreaterThanOrEqual(-1);
+      expect(viewer.bottom).toBeLessThanOrEqual(viewer.viewport.height + 1);
+      expect(viewer.imageRight).toBeLessThanOrEqual(viewer.right + 1);
+      expect(viewer.imageBottom).toBeLessThanOrEqual(viewer.bottom + 1);
+      expect(Math.abs(viewer.imageRatio - viewer.naturalRatio)).toBeLessThan(0.02);
+      await expect(dialog.getByRole('link', { name: 'Open original' })).toBeVisible();
+      await expect(dialog.getByRole('button', { name: 'Close' })).toBeVisible();
+      await test.info().attach(`homepage-image-viewer-${width}px.png`, {
+        body: await page.screenshot({ animations: 'disabled' }),
+        contentType: 'image/png',
+      });
     });
   }
 

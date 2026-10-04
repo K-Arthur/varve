@@ -9,10 +9,9 @@
  *
  * The important rule lives in `sceneFitStyle`: a captured scene's *kind*
  * decides how it is displayed, and a scene is never scaled larger than the
- * pixels it actually has. The previous markup applied one
- * `aspect-ratio: 4/3; object-fit: cover` to every detail crop, which silently
- * cut half the layer panel out of a portrait crop — a screenshot that no
- * longer showed what its caption described.
+ * pixels it actually has. Showcase detail cards may request a shared frame;
+ * those images use `contain`, while ordinary placements retain their own
+ * captured aspect ratio.
  */
 import manifest from '../data/screenshot-manifest.json';
 
@@ -69,7 +68,15 @@ export function sceneKind(scene: ScreenshotScene): SceneKind {
  * pixel width so a 288-pixel crop is never stretched across a phone screen,
  * which is what "readable at the size the site shows it" actually requires.
  */
-export function sceneFitStyle(scene: ScreenshotScene): string {
+export function sceneFitStyle(scene: ScreenshotScene, fit: 'scene' | 'contain' = 'scene'): string {
+  if (fit === 'contain') {
+    const maxWidth =
+      sceneKind(scene) === 'panel' && scene.width ? `min(100%, ${scene.width}px)` : '100%';
+    // Percentage max-heights do not constrain a replaced image when its
+    // parent's height comes from aspect-ratio. Put the image over a definite
+    // card frame and let object-fit contain the complete capture inside it.
+    return `position: absolute; inset: 0; width: 100%; height: 100%; max-width: ${maxWidth}; object-fit: contain;`;
+  }
   if (sceneKind(scene) === 'panel' && scene.width) {
     return `max-width: ${scene.width}px; width: 100%;`;
   }

@@ -10,9 +10,9 @@ import ScreenshotZoom from './ScreenshotZoom.astro';
  * than by hand. Missing or skipped scenes degrade to a clear placeholder
  * instead of a broken image or a silently stale screenshot.
  *
- * Fit policy: each scene is displayed at its own aspect ratio. A scene is
- * never forced into a shared crop window, because doing so cut away the part
- * of a panel its caption described (see `lib/screenshot.ts`).
+ * Detail cards share a consistent frame so the row reads as a balanced set;
+ * each image is contained inside that frame, never cropped. The main workspace
+ * and other placements retain each scene's intrinsic aspect ratio.
  */
 import { sitePath } from '../lib/siteUrl';
 import { PRODUCT_STATUS } from '@varve/shared';
@@ -105,6 +105,7 @@ const DETAILS = ['vector', 'typography', 'tablet-controls', 'layers', 'motion']
                 loading="lazy"
                 sizes="(min-width: 980px) 30vw, 100vw"
                 label="View full size"
+                fit="contain"
               />
               {scene.caption && <figcaption>{scene.caption}</figcaption>}
             </figure>
@@ -346,12 +347,10 @@ const DETAILS = ['vector', 'typography', 'tablet-controls', 'layers', 'motion']
   .showcase-details {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-auto-rows: 1fr;
     gap: var(--space-5);
     margin-top: var(--space-6);
-    /* Caption rows sit at different heights because the crops have genuinely
-       different shapes. Aligning to the top keeps each image at its own aspect
-       ratio; forcing a shared ratio is what previously cropped content away. */
-    align-items: start;
+    align-items: stretch;
   }
 
   .showcase-detail {
@@ -360,23 +359,41 @@ const DETAILS = ['vector', 'typography', 'tablet-controls', 'layers', 'motion']
     overflow: hidden;
     border: 1px solid var(--border-default);
     background: var(--surface-card);
-    /* Panel crops are narrower than their column on small screens; centre them
-       at their intrinsic size rather than stretching them past 1:1. */
     display: flex;
     flex-direction: column;
-    align-items: center;
+    min-width: 0;
   }
 
-  .showcase-detail :global(.screenshot-image),
-  .showcase-detail :global(.screenshot-image img) {
-    display: block;
+  .showcase-detail :global(.screenshot-zoom) {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .showcase-detail :global(.screenshot-image) {
+    display: grid;
+    place-items: center;
+    width: 100%;
+    box-sizing: border-box;
+    aspect-ratio: 4 / 3;
+    overflow: hidden;
+    background: var(--surface-sunken);
+  }
+
+  .showcase-detail :global(.screenshot-zoom__trigger) {
+    align-self: flex-start;
+    margin-inline: var(--space-2);
   }
 
   .showcase-detail figcaption {
     font-size: var(--type-interface-caption-size);
+    line-height: var(--type-interface-caption-line-height);
     color: var(--text-muted);
     padding: var(--space-3) var(--space-4);
     width: 100%;
+    min-height: 4.5em;
   }
 
   @media (max-width: 980px) {
