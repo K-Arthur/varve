@@ -667,6 +667,14 @@ test.describe('paint UI in the running app', () => {
     // The attempt must be refused, with no change to the already-painted
     // raster and no third layer silently created in the background.
     await activatePaint(page);
+    // Selecting Paint opens its options dialog. Close it before drawing so the
+    // canvas gesture is not delivered to the popover when their rectangles
+    // overlap at this viewport.
+    const toolOptionsTrigger = page.getByRole('button', { name: 'Tool options' });
+    if ((await toolOptionsTrigger.getAttribute('aria-expanded')) === 'true') {
+      await page.keyboard.press('Escape');
+      await expect(toolOptionsTrigger).toHaveAttribute('aria-expanded', 'false');
+    }
     await page.waitForTimeout(250);
     const before = await contentCanvasHash(page);
     await page.mouse.move(box.x + box.width * 0.72, y);

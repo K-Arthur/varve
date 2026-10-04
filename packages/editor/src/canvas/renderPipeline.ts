@@ -48,6 +48,7 @@ import {
   managedColorToCss,
   managedColorToRgba,
   multiplyAffine,
+  type Rect,
   resolveBlendEvaluationSpace,
   worldToScreen,
 } from '@varve/shared';
@@ -63,6 +64,8 @@ import {
   selectRasterRepresentation,
 } from '../render/adaptiveResidency';
 import {
+  applyCalloutRenderOverride,
+  calloutRenderOverrideForNode,
   collectImageBitmaps,
   type RenderWorkerHost,
   sceneCanUseWorkerRenderer,
@@ -258,6 +261,16 @@ function workerImageSourceCapsForFrame(
  * immutable edits keep the cache warm.
  */
 let _mockupCacheDocId: string | null = null;
+
+function unionWorldBounds(left: Rect | null, right: Rect | null): Rect | null {
+  if (!left) return right;
+  if (!right) return left;
+  const x = Math.min(left.x, right.x);
+  const y = Math.min(left.y, right.y);
+  const maxX = Math.max(left.x + left.w, right.x + right.w);
+  const maxY = Math.max(left.y + left.h, right.y + right.h);
+  return { x, y, w: maxX - x, h: maxY - y };
+}
 
 export function toEngineNode(node: SceneNode, doc: Document): EngineNode {
   return sceneNodeToEngineNode(
@@ -999,6 +1012,13 @@ export function renderContent(deps: RenderContentDeps): void {
       n = applyBindingsToNode(n, variableStore);
       let world = getCachedWorldTransform(cache, doc, id);
       let worldBounds = getCachedWorldBounds(cache, doc, id);
+      const calloutOverride = calloutRenderOverrideForNode(doc, id, cache.parentIndex);
+      if (calloutOverride?.role === 'body') {
+        worldBounds = unionWorldBounds(
+          worldBounds,
+          getCachedWorldBounds(cache, doc, calloutOverride.contour.tailNodeId),
+        );
+      }
       if (entry.masterPlacement) {
         world = offsetWorldTransform(world, entry.masterPlacement);
         worldBounds = offsetWorldBounds(worldBounds, entry.masterPlacement);
@@ -1028,10 +1048,15 @@ export function renderContent(deps: RenderContentDeps): void {
         continue;
       }
 
-      let engineNode = canMemoEngineNodes ? engineMemo.get(entry.instanceId, n, world) : undefined;
+      const hasCalloutOverride = calloutOverride !== undefined;
+      let engineNode =
+        canMemoEngineNodes && !hasCalloutOverride
+          ? engineMemo.get(entry.instanceId, n, world)
+          : undefined;
       if (!engineNode) {
         let built = toEngineNode(n, doc);
         if (styleOverrides) built = applyStyleOverrides(built, styleOverrides);
+        built = applyCalloutRenderOverride(built, calloutOverride);
         // Resolve path shape for text-on-path rendering. This reads a
         // *different* node's geometry and patches the shared shape object, so
         // these nodes are never memoized: the memo key cannot observe the path
@@ -1054,7 +1079,7 @@ export function renderContent(deps: RenderContentDeps): void {
           }
         }
         engineNode = { ...built, transform: world };
-        if (canMemoEngineNodes && !isPathText) {
+        if (canMemoEngineNodes && !isPathText && !hasCalloutOverride) {
           engineMemo.set(entry.instanceId, n, world, engineNode);
         }
       }

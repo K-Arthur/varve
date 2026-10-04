@@ -28,6 +28,7 @@ import {
   activeSmartFilters,
   applyBindingsToNode,
   buildAllVariantCaches,
+  calloutOuterContourForRender,
   createVariableStore,
   getEffectiveNode,
   isExportRegion,
@@ -51,6 +52,90 @@ import { decodedSeparationTilesForRender } from './frequencySeparationRenderCach
 import { warpedTilesForRender } from './liquifyRenderCache';
 import { pathShapeInTextSpace } from './pathTextGeometry';
 import { compileTableToEngineNode } from './tableCompile';
+
+type RenderCalloutContour = NonNullable<ReturnType<typeof calloutOuterContourForRender>>;
+export interface CalloutRenderNodeOverride {
+  contour: RenderCalloutContour;
+  role: 'body' | 'tail';
+}
+
+interface CachedCalloutContour {
+  bodyNode: SceneNode;
+  tailNode: SceneNode;
+  contour: RenderCalloutContour;
+}
+
+const calloutContourCache = new WeakMap<
+  Extract<SceneNode, { kind: 'group' }>,
+  CachedCalloutContour
+>();
+
+function cachedCalloutContour(
+  document: Document,
+  group: Extract<SceneNode, { kind: 'group' }>,
+): RenderCalloutContour | null {
+  const cached = calloutContourCache.get(group);
+  if (cached) {
+    if (
+      document.nodes[cached.contour.bodyNodeId] === cached.bodyNode &&
+      document.nodes[cached.contour.tailNodeId] === cached.tailNode
+    ) {
+      return cached.contour;
+    }
+  }
+  const contour = calloutOuterContourForRender(document, group);
+  if (!contour) return null;
+  const bodyNode = document.nodes[contour.bodyNodeId];
+  const tailNode = document.nodes[contour.tailNodeId];
+  if (!bodyNode || !tailNode) return null;
+  calloutContourCache.set(group, { bodyNode, tailNode, contour });
+  return contour;
+}
+
+/** Lookup for supplemental/dirty replay paths that convert only a few nodes. */
+export function calloutRenderOverrideForNode(
+  document: Document,
+  nodeId: NodeId,
+  parentIndex: ReadonlyMap<NodeId, NodeId | null> | null | undefined,
+): CalloutRenderNodeOverride | undefined {
+  const parentId = parentIndex?.get(nodeId);
+  if (!parentId) return undefined;
+  const parent = document.nodes[parentId];
+  if (parent?.kind !== 'group' || !parent.callout) return undefined;
+  const contour = cachedCalloutContour(document, parent);
+  if (!contour) return undefined;
+  if (contour.bodyNodeId === nodeId) return { contour, role: 'body' };
+  if (contour.tailNodeId === nodeId) return { contour, role: 'tail' };
+  return undefined;
+}
+
+/** Apply a cached joined callout contour after normal paint/style resolution. */
+export function applyCalloutRenderOverride(
+  engineNode: EngineNode,
+  override?: CalloutRenderNodeOverride,
+): EngineNode {
+  if (!override) return engineNode;
+  if (override.role === 'body') {
+    return {
+      ...engineNode,
+      shape: { kind: 'path', points: override.contour.points, closed: true, tolerance: 4 },
+      // Miter joins protrude back into the balloon at the two acute tail-root
+      // corners. A round join keeps the derived single contour clean while
+      // leaving the editable body's stored stroke style unchanged.
+      strokes: engineNode.strokes?.map((stroke) => ({ ...stroke, join: 'round' })),
+      cornerRadius: undefined,
+      cornerSmoothing: undefined,
+    };
+  }
+  return {
+    ...engineNode,
+    fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 0 },
+    fills: [],
+    strokes: [],
+    effects: [],
+    filters: [],
+  };
+}
 
 export interface SceneNodeConversionOptions {
   /** Preview-only bypass for comparing a background-removal source image. */
@@ -584,7 +669,7 @@ export function flattenSceneToEngine(
   const ids: NodeId[] = [];
   const nodes: EngineNode[] = [];
 
-  const visit = (id: NodeId): void => {
+  const visit = (id: NodeId, parentCallout?: RenderCalloutContour): void => {
     const raw = document.nodes[id];
     if (!raw || raw.visible === false) return;
 
@@ -633,6 +718,13 @@ export function flattenSceneToEngine(
       };
       const styleOverrides = resolvedStyles.get(id);
       if (styleOverrides) engineNode = applyStyleOverrides(engineNode, styleOverrides);
+      const renderOverride =
+        parentCallout?.bodyNodeId === id
+          ? { contour: parentCallout, role: 'body' as const }
+          : parentCallout?.tailNodeId === id
+            ? { contour: parentCallout, role: 'tail' as const }
+            : undefined;
+      engineNode = applyCalloutRenderOverride(engineNode, renderOverride);
 
       if (
         engineNode.pathTextSettings?.pathNodeId &&
@@ -656,7 +748,13 @@ export function flattenSceneToEngine(
     }
 
     if ('children' in raw) {
-      for (const childId of raw.children) visit(childId);
+      // Resolve callout geometry only for groups inside this requested scene
+      // closure. Scanning the entire document here penalizes every frame (and
+      // export) even when no callout is visible in the current roots.
+      const callout =
+        raw.kind === 'group' && raw.callout ? cachedCalloutContour(document, raw) : undefined;
+      const childCallout = callout ?? parentCallout;
+      for (const childId of raw.children) visit(childId, childCallout);
     }
   };
 

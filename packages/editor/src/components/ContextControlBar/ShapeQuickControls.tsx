@@ -23,7 +23,7 @@ import type {
   ShapeNode,
   Stroke,
 } from '@varve/scene';
-import { createStrokeId, defaultStroke, resolveNodePaints } from '@varve/scene';
+import { canPaintFills, createStrokeId, defaultStroke, resolveNodePaints } from '@varve/scene';
 import { managedColorToRgba } from '@varve/shared';
 import { Icon, Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -78,11 +78,15 @@ export function ShapeQuickControls({
   const primaryFill = fills[0];
   const fillColor = primaryFill?.type === 'solid' ? (primaryFill.color ?? null) : null;
   const sharedPaint = Boolean(node.paintRefs?.length);
-  const fillDisabledReason = sharedPaint
-    ? 'This object uses a shared paint. Detach it in the Inspector before editing its fill.'
-    : primaryFill && primaryFill.type !== 'solid'
-      ? `The primary fill is ${primaryFill.type}; edit it in the Inspector.`
-      : undefined;
+  const fillDisabledReason = !canPaintFills(node)
+    ? 'This object does not support fills; edit its stroke instead.'
+    : sharedPaint
+      ? 'This object uses a shared paint. Detach it in the Inspector before editing its fill.'
+      : !primaryFill
+        ? 'No editable fill is available. Add a fill in the Inspector.'
+        : primaryFill.type !== 'solid'
+          ? `The primary fill is ${primaryFill.type}; edit it in the Inspector.`
+          : undefined;
   const strokes = useMemo(() => strokesOf(node), [node]);
   const stroke = strokes[0];
   const strokeColor = stroke && !stroke.gradient ? stroke.color : null;

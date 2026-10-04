@@ -237,7 +237,10 @@ export function resolveNodeFills(node: { fill: ManagedColor; fills?: Fill[] }): 
  * inspector hides itself and the registry excludes them from availability.
  */
 export function canPaintFills(node: SceneNode): boolean {
-  if (node.kind === 'text' || node.kind === 'frame') return true;
+  // Legacy PathNode still compiles to a path primitive and its fill stack is
+  // rendered by the engine. Keep old documents editable through the same fill
+  // controls as modern ShapeNode(kind: 'path') documents.
+  if (node.kind === 'path' || node.kind === 'text' || node.kind === 'frame') return true;
   if (node.kind !== 'shape') return false;
   return node.shape.kind !== 'line' && node.shape.kind !== 'arrow';
 }

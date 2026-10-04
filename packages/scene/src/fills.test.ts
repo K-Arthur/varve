@@ -4,9 +4,12 @@
  */
 
 import {
+  canPaintFills,
   fillToColor,
   gradientFill,
   imageFill,
+  makePathNode,
+  makeShapeNode,
   patternFill,
   patternRepeatParams,
   primaryColor,
@@ -222,5 +225,21 @@ describe('resolveNodeFills', () => {
     expect(resolved).toHaveLength(1);
     expect(resolved[0]?.type).toBe('solid');
     expect(resolved[0]?.color).toEqual({ space: 'rgb' as const, r: 0, g: 0, b: 255, a: 255 });
+  });
+});
+
+describe('canPaintFills', () => {
+  it('keeps serialized legacy PathNodes editable while excluding stroke-only lines', () => {
+    expect(canPaintFills(makePathNode('legacy-path', { closed: true }))).toBe(true);
+    expect(
+      canPaintFills(
+        makeShapeNode('line', {
+          kind: 'line',
+          from: [0, 0],
+          to: [10, 10],
+          tolerance: 1,
+        }),
+      ),
+    ).toBe(false);
   });
 });

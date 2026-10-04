@@ -11,7 +11,11 @@ export {
   sceneNeedsMainThreadTypography,
   sceneNeedsStructuralCompositing,
 } from './sceneCompositing';
-export { sceneNodeToEngineNode } from './sceneToEngine';
+export {
+  applyCalloutRenderOverride,
+  calloutRenderOverrideForNode,
+  sceneNodeToEngineNode,
+} from './sceneToEngine';
 export { workerBitmapDelta } from './workerCamera';
 export {
   createRenderWorkerHost,

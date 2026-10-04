@@ -186,6 +186,30 @@ function tailBaseWidth(w: number, override?: number): number {
   return Math.max(12, Math.min(32, w * 0.16));
 }
 
+function hasCalloutRenderModifiers(node: SceneNode): boolean {
+  if (node.mask || node.warps?.length || node.smartFilters?.length) return true;
+  return node.kind === 'shape' && Boolean(node.backgroundRemoval || node.liveTrace);
+}
+
+function samePathPointGeometry(left: PathPoint, right: PathPoint): boolean {
+  return (
+    left.x === right.x &&
+    left.y === right.y &&
+    JSON.stringify(left.handleIn ?? null) === JSON.stringify(right.handleIn ?? null) &&
+    JSON.stringify(left.handleOut ?? null) === JSON.stringify(right.handleOut ?? null)
+  );
+}
+
+function samePathGeometry(left: PathPoint[], right: PathPoint[]): boolean {
+  return (
+    left.length === right.length &&
+    left.every((point, index) => {
+      const expected = right[index];
+      return expected !== undefined && samePathPointGeometry(point, expected);
+    })
+  );
+}
+
 /**
  * Control point for a bent tail: perpendicular to the base→endpoint axis at
  * its midpoint. `curve` is a fraction of the tail length so the bend survives
@@ -211,14 +235,14 @@ function pointedTailPoints(
   w: number,
   h: number,
   endpoint: { x: number; y: number },
-  options?: { baseWidth?: number; curve?: number; strokeWeight?: number },
+  options?: { baseWidth?: number; curve?: number; strokeWeight?: number; baseInset?: number },
 ): PathPoint[] {
   const base = tailBaseWidth(w, options?.baseWidth);
   const cx = w / 2;
   // Start the white fill inside the balloon far enough to cover its
   // antialiased bottom stroke. Without this overlap, that stroke remains as a
   // hairline across the pointer even though the tail outline itself is open.
-  const baseY = Math.max(0, h - (options?.strokeWeight ?? 2) - 1);
+  const baseY = Math.max(0, h - (options?.baseInset ?? (options?.strokeWeight ?? 2) + 1));
   const left = point(cx - base / 2, baseY);
   const right = point(cx + base / 2, baseY);
   const tip = point(endpoint.x, endpoint.y);
@@ -237,6 +261,161 @@ function pointedTailPoints(
   // Keeping that edge out of the stroke leaves only the two outer pointer
   // lines, as a single comic balloon contour.
   return [left, tip, right];
+}
+
+/**
+ * Derive one ordinary pointed callout's outer contour for rendering. The
+ * serialized body and tail remain separate editable nodes; the renderer uses
+ * this union contour only for their shared fill/stroke so Canvas does not
+ * rasterize two round rectangle/tail strokes at the base join.
+ */
+export function calloutOuterContourForRender(
+  doc: Document,
+  group: GroupNode,
+): { bodyNodeId: NodeId; tailNodeId: NodeId; points: PathPoint[] } | null {
+  const recipe = group.callout;
+  if (!recipe?.parametric || isShapedCalloutKind(recipe.kind)) return null;
+  const tails = calloutTails({ ...group, callout: recipe });
+  if (tails.length !== 1 || tails[0]?.style !== 'pointed' || tails[0].nodeIds.length !== 1) {
+    return null;
+  }
+  const body = doc.nodes[recipe.bodyNodeId];
+  const tail = doc.nodes[tails[0].nodeIds[0]!];
+  if (
+    body?.kind !== 'shape' ||
+    body.shape.kind !== 'rect' ||
+    body.shape.x !== 0 ||
+    body.shape.y !== 0 ||
+    (body.cornerRadius !== undefined && typeof body.cornerRadius !== 'number') ||
+    (body.cornerSmoothing ?? 0) > 0 ||
+    tail?.kind !== 'path' ||
+    tail.points.length !== 3 ||
+    tail.closed ||
+    body.visible === false ||
+    tail.visible === false ||
+    hasCalloutRenderModifiers(body) ||
+    hasCalloutRenderModifiers(tail) ||
+    body.transform.some((value, index) => value !== tail.transform[index])
+  ) {
+    return null;
+  }
+
+  // A single contour can only preserve appearance while body and tail share
+  // their paint model. If a user has styled either editable child separately,
+  // retain the ordinary two-node rendering rather than silently dropping one
+  // node's independent style.
+  const sharedStyle = (node: ShapeNode | Extract<SceneNode, { kind: 'path' }>) =>
+    JSON.stringify([
+      node.fill,
+      node.fills,
+      node.paintRefs,
+      node.strokes,
+      node.effects,
+      node.opacity,
+      node.blendMode,
+      node.rotation,
+      node.styleId,
+      node.styleOverrides,
+      node.bindings,
+    ]);
+  if (sharedStyle(body) !== sharedStyle(tail)) return null;
+
+  const tip = calloutTailTip(tail);
+  if (!tip) return null;
+  const bodyShape = body.shape;
+  const generatedTail = pointedTailPoints(
+    bodyShape.w,
+    bodyShape.h,
+    { x: tip.x, y: tip.y },
+    { ...tails[0], strokeWeight: calloutStyle(recipe.kind).strokeWeight },
+  );
+  if (!samePathGeometry(tail.points, generatedTail)) return null;
+  const radius = Math.max(
+    0,
+    Math.min(
+      typeof body.cornerRadius === 'number' ? body.cornerRadius : 0,
+      bodyShape.w / 2,
+      bodyShape.h / 2,
+    ),
+  );
+  const control = (4 * (Math.SQRT2 - 1)) / 3;
+  const points = pointedTailPoints(
+    bodyShape.w,
+    bodyShape.h,
+    { x: tip.x, y: tip.y },
+    { ...tails[0], baseInset: 0 },
+  );
+  const [leftBase, tailTip, rightBase] = points;
+  if (!leftBase || !tailTip || !rightBase) return null;
+
+  const corner = (
+    startX: number,
+    startY: number,
+    endX: number,
+    endY: number,
+    out: [number, number],
+    incoming: [number, number],
+  ) => {
+    const start = point(startX, startY);
+    start.handleOut = out;
+    const end = point(endX, endY);
+    end.handleIn = incoming;
+    return [start, end] as const;
+  };
+  const bottomRight = corner(
+    bodyShape.w - radius,
+    bodyShape.h,
+    bodyShape.w,
+    bodyShape.h - radius,
+    [radius * control, 0],
+    [0, radius * control],
+  );
+  const topRight = corner(
+    bodyShape.w,
+    radius,
+    bodyShape.w - radius,
+    0,
+    [0, -radius * control],
+    [radius * control, 0],
+  );
+  const topLeft = corner(radius, 0, 0, radius, [-radius * control, 0], [0, -radius * control]);
+  const bottomLeft = corner(
+    0,
+    bodyShape.h - radius,
+    radius,
+    bodyShape.h,
+    [0, radius * control],
+    [-radius * control, 0],
+  );
+
+  const contour: PathPoint[] =
+    radius === 0
+      ? [
+          leftBase,
+          tailTip,
+          rightBase,
+          point(bodyShape.w, bodyShape.h),
+          point(bodyShape.w, 0),
+          point(0, 0),
+          point(0, bodyShape.h),
+        ]
+      : [
+          leftBase,
+          tailTip,
+          rightBase,
+          bottomRight[0],
+          bottomRight[1],
+          topRight[0],
+          topRight[1],
+          topLeft[0],
+          topLeft[1],
+          bottomLeft[0],
+          bottomLeft[1],
+        ];
+  // Closing the path returns from the body's lower-left corner to the left
+  // tail base along the balloon's outside edge. There is no segment across
+  // the pointer base, so the body and tail share only the outer silhouette.
+  return { bodyNodeId: body.id, tailNodeId: tail.id, points: contour };
 }
 
 /** Tip point for a generated callout tail, including legacy closed geometry. */

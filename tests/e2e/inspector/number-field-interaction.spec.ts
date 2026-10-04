@@ -167,6 +167,11 @@ test.describe('Inspector numeric field integrity (real photo)', () => {
     await expect(undoItem).toBeEnabled();
     await undoItem.click();
 
+    // The persistent history session restores document content but does not
+    // guarantee that the current layer selection remains active. Re-select the
+    // photo before reading its inspector field so this assertion measures the
+    // restored document value rather than an empty selection state.
+    await page.getByRole('treeitem', { name: /real-life-still-life\.jpg/ }).click();
     await expect.poll(async () => readValue(field), { timeout: 5000 }).toBe(start);
   });
 

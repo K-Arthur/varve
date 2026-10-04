@@ -17,7 +17,7 @@ import { expect, test } from '@playwright/test';
 import { dropImageOnCanvas } from '../helpers/editor-helpers';
 import { selectInspectorTab } from '../helpers/inspector-tabs';
 import { navigateToCleanEditor } from '../helpers/nav';
-import { dragOnCanvas } from '../shared';
+import { dragOnCanvas, navigateToEditor } from '../shared';
 
 const REVIEW_DIR = resolve(__dirname, '../../../reports/masking-review');
 
@@ -25,6 +25,7 @@ const SHOT = {
   canvas: (name: string) => resolve(REVIEW_DIR, `${name}-canvas.png`),
   layers: (name: string) => resolve(REVIEW_DIR, `${name}-layers.png`),
 };
+const VECTOR_MASK_UNDO_REGION = { x: 200, y: 200, w: 120, h: 60 };
 
 /** Invoke a context method inside the browser (functions never cross the
  *  evaluate boundary — passing the context object as an arg strips them). */
@@ -708,7 +709,10 @@ test.describe('brush masks', () => {
     page,
   }) => {
     mkdirSync(REVIEW_DIR, { recursive: true });
-    await navigateToCleanEditor(page);
+    // The full-redraw oracle below is exposed only in the explicit perf
+    // diagnostics mode. Keep the document and camera fixed while comparing
+    // the retained canvas with an authoritative replay after undo.
+    await navigateToEditor(page, '/?perf=1');
 
     await page.keyboard.press('r');
     await dragOnCanvas(page, 140, 140, 380, 300);
@@ -722,8 +726,31 @@ test.describe('brush masks', () => {
     // a vector target. Clicking it drives the real brush path below.
     const paintMask = page.getByRole('button', { name: /paint mask with the brush tool/i });
     await expect(paintMask).toBeVisible();
-    const plain = await settledHash(page);
+    const beforeCanvasSize = await page
+      .locator('canvas.editor-canvas__content-layer')
+      .evaluate((element) => {
+        const canvas = element as HTMLCanvasElement;
+        return {
+          width: canvas.width,
+          height: canvas.height,
+          clientWidth: canvas.clientWidth,
+          clientHeight: canvas.clientHeight,
+        };
+      });
+    const beforePaintJson = (await callEditor(page, 'serializeDocument')) as string | null;
+    expect(beforePaintJson).toBeTruthy();
+    const beforePaintDocument = JSON.parse(beforePaintJson!) as {
+      nodes: Record<string, { kind?: string; shape?: { kind?: string } }>;
+      rasterMaskAssets?: Record<string, unknown>;
+    };
+    const originalVector = Object.values(beforePaintDocument.nodes).find(
+      (node) => node.kind === 'shape' && node.shape?.kind === 'rect',
+    );
+    const beforeTool = await settledHash(page, VECTOR_MASK_UNDO_REGION);
     await paintMask.click();
+    // Tool activation can change selection/presentation state. Capture the
+    // no-stroke baseline after that transition so undo compares like states.
+    const plain = await settledHash(page, VECTOR_MASK_UNDO_REGION);
 
     const box = await page.locator('canvas.editor-canvas__content-layer').boundingBox();
     if (!box) throw new Error('content canvas not found');
@@ -733,7 +760,7 @@ test.describe('brush masks', () => {
     await page.mouse.up();
     await page.waitForTimeout(600);
 
-    const masked = await settledHash(page);
+    const masked = await settledHash(page, VECTOR_MASK_UNDO_REGION);
     expect(masked).not.toBe(plain);
     await page.screenshot({ path: SHOT.canvas('14-vector-pixel-mask') });
 
@@ -747,22 +774,98 @@ test.describe('brush masks', () => {
         {
           kind?: string;
           shape?: { kind?: string };
-          mask?: { rasterMask?: { coordinateSpace?: string } };
+          mask?: { rasterMask?: { assetId?: string; coordinateSpace?: string } };
         }
       >;
+      rasterMaskAssets?: Record<string, unknown>;
     };
     const vector = Object.values(serialized.nodes).find(
       (node) =>
         node.kind === 'shape' && node.mask?.rasterMask?.coordinateSpace === 'node-local-pixels',
     );
     expect(vector?.shape?.kind).toBe('rect');
+    const paintedMaskAssetId = vector?.mask?.rasterMask?.assetId;
+    expect(paintedMaskAssetId).toBeTruthy();
+    expect(serialized.rasterMaskAssets?.[paintedMaskAssetId!]).toBeTruthy();
 
     await page.keyboard.press('Control+z');
     await page.waitForTimeout(500);
-    expect(await settledHash(page)).toBe(plain);
+    const afterUndoJson = (await callEditor(page, 'serializeDocument')) as string | null;
+    expect(afterUndoJson).toBeTruthy();
+    const afterUndoDocument = JSON.parse(afterUndoJson!) as {
+      nodes: Record<
+        string,
+        { kind?: string; shape?: { kind?: string }; mask?: { rasterMask?: { assetId?: string } } }
+      >;
+      rasterMaskAssets?: Record<string, unknown>;
+    };
+    const afterUndoVector = Object.values(afterUndoDocument.nodes).find(
+      (node) => node.kind === 'shape' && node.shape?.kind === 'rect',
+    );
+    const afterUndoCanvasSize = await page
+      .locator('canvas.editor-canvas__content-layer')
+      .evaluate((element) => {
+        const canvas = element as HTMLCanvasElement;
+        return {
+          width: canvas.width,
+          height: canvas.height,
+          clientWidth: canvas.clientWidth,
+          clientHeight: canvas.clientHeight,
+        };
+      });
+    const undoHash = await settledHash(page, VECTOR_MASK_UNDO_REGION);
+    const redraw = await page.evaluate(async () => {
+      const perf = (
+        window as unknown as {
+          __varvePerf?: {
+            forceFullRedraw?: () => Promise<{ authoritative: boolean; docVersion: number }>;
+            getLast?: () => { camera?: unknown } | null;
+          };
+        }
+      ).__varvePerf;
+      if (typeof perf?.forceFullRedraw !== 'function') {
+        throw new Error('The authoritative redraw oracle is unavailable; load with ?perf=1.');
+      }
+      const beforeCamera = perf.getLast?.()?.camera;
+      const receipt = await perf.forceFullRedraw();
+      return { beforeCamera, afterCamera: perf.getLast?.()?.camera, receipt };
+    });
+    const redrawnHash = await settledHash(page, VECTOR_MASK_UNDO_REGION);
+    const undoEvidence = {
+      beforeTool,
+      plain,
+      masked,
+      undoHash,
+      redrawnHash,
+      hashRegion: VECTOR_MASK_UNDO_REGION,
+      beforeCanvasSize,
+      afterUndoCanvasSize,
+      beforeCamera: redraw.beforeCamera,
+      afterCamera: redraw.afterCamera,
+      authoritative: redraw.receipt.authoritative,
+      originalVector,
+      undoVector: afterUndoVector,
+      originalMaskAssetIds: Object.keys(beforePaintDocument.rasterMaskAssets ?? {}),
+      undoMask: afterUndoVector?.mask?.rasterMask ?? null,
+      undoMaskAssetIds: Object.keys(afterUndoDocument.rasterMaskAssets ?? {}),
+    };
+    await test.info().attach('vector-mask-undo-redraw-evidence', {
+      body: JSON.stringify(undoEvidence, null, 2),
+      contentType: 'application/json',
+    });
+    expect(redraw.receipt.authoritative).toBe(true);
+    expect(redraw.afterCamera).toEqual(redraw.beforeCamera);
+    expect(afterUndoVector).toEqual(originalVector);
+    expect(Object.keys(afterUndoDocument.rasterMaskAssets ?? {})).toEqual(
+      Object.keys(beforePaintDocument.rasterMaskAssets ?? {}),
+    );
+    expect(afterUndoVector?.mask?.rasterMask).toBeUndefined();
+    expect(afterUndoDocument.rasterMaskAssets?.[paintedMaskAssetId!]).toBeUndefined();
+    expect(undoHash).toBe(plain);
+    expect(redrawnHash).toBe(plain);
     await page.keyboard.press('Control+Shift+z');
     await page.waitForTimeout(500);
-    expect(await settledHash(page)).toBe(masked);
+    expect(await settledHash(page, VECTOR_MASK_UNDO_REGION)).toBe(masked);
   });
 
   test('paint a brush mask on a frame: create, undo, redo, persist', async ({ page }) => {

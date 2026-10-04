@@ -20,7 +20,11 @@ import {
   type VariableStore,
 } from '@varve/scene';
 import { pathShapeInTextSpace } from '../render/pathTextGeometry';
-import { sceneNodeToEngineNode } from '../render/sceneToEngine';
+import {
+  applyCalloutRenderOverride,
+  calloutRenderOverrideForNode,
+  sceneNodeToEngineNode,
+} from '../render/sceneToEngine';
 import { getWorldTransform, type TransformCache } from '../scene/transformCache';
 import { expandReplayDependencies } from './dirtyQuery';
 import type { EngineNodeMemo } from './engineNodeMemo';
@@ -53,6 +57,8 @@ export function appendReplayDependencies(args: AppendReplayDependenciesArgs): {
     const bound = applyBindingsToNode(n, variableStore);
     const world = getWorldTransform(cache, doc, id);
     const styleOverrides = resolvedStyles.get(id);
+    const calloutOverride = calloutRenderOverrideForNode(doc, id, cache.parentIndex);
+    const hasCalloutOverride = calloutOverride !== undefined;
     let built = sceneNodeToEngineNode(
       bound,
       {
@@ -62,6 +68,7 @@ export function appendReplayDependencies(args: AppendReplayDependenciesArgs): {
       doc,
     );
     if (styleOverrides) built = applyStyleOverrides(built, styleOverrides);
+    built = applyCalloutRenderOverride(built, calloutOverride);
     const pathNodeId = built.pathTextSettings?.pathNodeId;
     const isPathText =
       !!pathNodeId && (built as { shape?: { kind?: string } }).shape?.kind === 'text';
@@ -77,7 +84,7 @@ export function appendReplayDependencies(args: AppendReplayDependenciesArgs): {
       }
     }
     const engineNode: EngineNode = { ...built, transform: world };
-    if (args.canMemoEngineNodes && !isPathText) {
+    if (args.canMemoEngineNodes && !isPathText && !hasCalloutOverride) {
       engineMemo.set(id, n, world, engineNode);
     }
     nodeIds.push(id);

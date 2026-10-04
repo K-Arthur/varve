@@ -1,6 +1,14 @@
 import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
-import { defaultStroke, makePaint, makeShapeNode, solidFill } from '@varve/scene';
+import * as Scene from '@varve/scene';
+import {
+  defaultStroke,
+  makePaint,
+  makePathNode,
+  makeShapeNode,
+  type SceneNode,
+  solidFill,
+} from '@varve/scene';
 import type { CSSProperties, ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useEditor } from '../../context';
@@ -46,7 +54,7 @@ const nextColor = { space: 'rgb' as const, r: 12, g: 34, b: 56, a: 255 };
 const originalColor = { space: 'rgb' as const, r: 1, g: 2, b: 3, a: 255 };
 
 function makeHarness(
-  node = makeShapeNode('shape', { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }),
+  node: SceneNode = makeShapeNode('shape', { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }),
   paints: Record<string, ReturnType<typeof makePaint>> = {},
 ) {
   const updateNode = vi.fn();
@@ -79,7 +87,10 @@ function makeHarness(
 }
 
 describe('ShapeQuickControls actions', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    vi.clearAllMocks();
+  });
 
   it('updates the visible first inline fill instead of the ignored legacy fill field', () => {
     const firstFill = { ...solidFill(originalColor), opacity: 0.6, blendMode: 'multiply' as const };
@@ -132,6 +143,69 @@ describe('ShapeQuickControls actions', () => {
     fireEvent.click(fillButton);
     expect(setSelectedFill).not.toHaveBeenCalled();
     expect(updateSelectedFillAt).not.toHaveBeenCalled();
+  });
+
+  it('disables the fill swatch when the selected object has no editable fill', () => {
+    const shape = makeShapeNode('shape', { kind: 'rect', x: 0, y: 0, w: 10, h: 10 });
+    const { setSelectedFill, updateSelectedFillAt } = makeHarness(shape);
+    vi.spyOn(Scene, 'resolveNodePaints').mockReturnValue([]);
+
+    render(
+      <ShapeQuickControls node={shape} setSelectedFlipH={vi.fn()} setSelectedFlipV={vi.fn()} />,
+    );
+    const fillButton = screen.getByRole('button', { name: 'Fill colour' });
+
+    expect(fillButton).toBeDisabled();
+    expect(fillButton).toHaveAttribute(
+      'title',
+      'No editable fill is available. Add a fill in the Inspector.',
+    );
+    fireEvent.click(fillButton);
+    expect(setSelectedFill).not.toHaveBeenCalled();
+    expect(updateSelectedFillAt).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['line', makeShapeNode('line', { kind: 'line', from: [0, 0], to: [10, 10], tolerance: 1 })],
+    [
+      'arrow',
+      makeShapeNode('arrow', {
+        kind: 'arrow',
+        from: [0, 0],
+        to: [10, 10],
+        tolerance: 1,
+        arrowheadSize: 5,
+      }),
+    ],
+  ] as const)('disables unsupported fill editing for %s nodes', (_name, node) => {
+    const { setSelectedFill, updateSelectedFillAt } = makeHarness(node);
+    vi.spyOn(Scene, 'resolveNodePaints').mockReturnValue([solidFill(originalColor)]);
+
+    render(
+      <ShapeQuickControls node={node} setSelectedFlipH={vi.fn()} setSelectedFlipV={vi.fn()} />,
+    );
+    const fillButton = screen.getByRole('button', { name: 'Fill colour' });
+
+    expect(fillButton).toBeDisabled();
+    expect(fillButton).toHaveAttribute('title', expect.stringContaining('does not support fills'));
+    fireEvent.click(fillButton);
+    expect(setSelectedFill).not.toHaveBeenCalled();
+    expect(updateSelectedFillAt).not.toHaveBeenCalled();
+  });
+
+  it('updates the inline fill stack of a legacy PathNode', () => {
+    const firstFill = solidFill(originalColor);
+    const path = { ...makePathNode('path', { closed: true }), fills: [firstFill] };
+    const { updateSelectedFillAt, setSelectedFill, groupCompoundOperation } = makeHarness(path);
+
+    render(
+      <ShapeQuickControls node={path} setSelectedFlipH={vi.fn()} setSelectedFlipV={vi.fn()} />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Fill colour' }));
+
+    expect(groupCompoundOperation).toHaveBeenCalledWith('Change fill color', expect.any(Function));
+    expect(updateSelectedFillAt).toHaveBeenCalledWith(0, { ...firstFill, color: nextColor });
+    expect(setSelectedFill).not.toHaveBeenCalled();
   });
 
   it('edits stroke colour in the existing first stroke and preserves its other settings', () => {

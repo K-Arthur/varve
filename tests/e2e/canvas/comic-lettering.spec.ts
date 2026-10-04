@@ -25,10 +25,9 @@ async function startBalloonFromSelectedText(page: import('@playwright/test').Pag
 }
 
 /**
- * Sample the rendered body/tail join in the committed canvas pixels. The
- * default tail spans 16% of the body width, clamped to 12–32 world units. The
- * center 40% strip excludes both diagonal outlines while catching the body's
- * horizontal bottom stroke if it bleeds through the pointer fill.
+ * Sample the rendered body/tail join in committed canvas pixels. The center
+ * strip catches a horizontal base seam; the two inset probes catch the round
+ * caps that used to leave black nubs above each tail/body join.
  */
 async function expectNoSpeechBalloonBaseSeam(page: import('@playwright/test').Page) {
   const bodyLayer = page.locator(
@@ -90,14 +89,21 @@ async function expectNoSpeechBalloonBaseSeam(page: import('@playwright/test').Pa
     if (!hooks) throw new Error('comic canvas pixel inspection hook is unavailable');
     const bodyBottomLocalY = selectedBody.shape.y! + selectedBody.shape.h!;
     const tailBaseWidth = Math.max(12, Math.min(32, selectedBody.shape.w! * 0.16));
-    const baseScreenPoints = [0.3, 0.4, 0.5, 0.6, 0.7].map((fraction) => {
-      const localX =
-        selectedBody.shape.x! + selectedBody.shape.w! / 2 + (fraction - 0.5) * tailBaseWidth;
+    const centerX = selectedBody.shape.x! + selectedBody.shape.w! / 2;
+    const screenForLocalPoint = (localX: number, localY: number) => {
       const matrix = selectedBody.worldTransform;
-      const worldX = matrix[0]! * localX + matrix[2]! * bodyBottomLocalY + matrix[4]!;
-      const worldY = matrix[1]! * localX + matrix[3]! * bodyBottomLocalY + matrix[5]!;
+      const worldX = matrix[0]! * localX + matrix[2]! * localY + matrix[4]!;
+      const worldY = matrix[1]! * localX + matrix[3]! * localY + matrix[5]!;
       return hooks.worldToScreen(worldX, worldY);
-    });
+    };
+    const baseScreenPoints = [0.3, 0.4, 0.5, 0.6, 0.7].map((fraction) =>
+      screenForLocalPoint(centerX + (fraction - 0.5) * tailBaseWidth, bodyBottomLocalY),
+    );
+    const oldBaseInset = 3; // speech stroke weight (2 px) plus the 1 px overlap
+    const joinScreenPoints = [
+      screenForLocalPoint(centerX - tailBaseWidth / 2, bodyBottomLocalY - oldBaseInset - 1),
+      screenForLocalPoint(centerX + tailBaseWidth / 2, bodyBottomLocalY - oldBaseInset - 1),
+    ];
     const viewport = document.querySelector('.editor-canvas');
     const canvas = document.querySelector<HTMLCanvasElement>('canvas.editor-canvas__content-layer');
     if (!viewport || !canvas) throw new Error('speech-balloon canvas surface is unavailable');
@@ -107,6 +113,14 @@ async function expectNoSpeechBalloonBaseSeam(page: import('@playwright/test').Pa
     const viewportRect = viewport.getBoundingClientRect();
     const canvasRect = canvas.getBoundingClientRect();
     const pixelPoints = baseScreenPoints.map((screen) => ({
+      x: Math.round(
+        ((viewportRect.left + screen.x - canvasRect.left) * canvas.width) / canvasRect.width,
+      ),
+      y: Math.round(
+        ((viewportRect.top + screen.y - canvasRect.top) * canvas.height) / canvasRect.height,
+      ),
+    }));
+    const joinPixelPoints = joinScreenPoints.map((screen) => ({
       x: Math.round(
         ((viewportRect.left + screen.x - canvasRect.left) * canvas.width) / canvasRect.width,
       ),
@@ -130,6 +144,9 @@ async function expectNoSpeechBalloonBaseSeam(page: import('@playwright/test').Pa
     let total = 0;
     let count = 0;
     let darkPixels = 0;
+    let joinDarkPixels = 0;
+    const joinPerSample: Array<{ x: number; y: number; darkPixels: number }> = [];
+    const joinDarkCoordinates: Array<{ x: number; y: number; brightness: number }> = [];
     const perSample: Array<{ x: number; y: number; darkPixels: number }> = [];
     for (const point of pixelPoints) {
       let sampleDarkPixels = 0;
@@ -155,7 +172,43 @@ async function expectNoSpeechBalloonBaseSeam(page: import('@playwright/test').Pa
       }
       perSample.push({ ...point, darkPixels: sampleDarkPixels });
     }
-    return { darkest, average: count > 0 ? total / count : 0, darkPixels, perSample };
+    for (const point of joinPixelPoints) {
+      const left = Math.max(0, point.x - radius);
+      const top = Math.max(0, point.y - radius);
+      const right = Math.min(canvas.width, point.x + radius + 1);
+      const bottom = Math.min(canvas.height, point.y + radius + 1);
+      const pixels = context.getImageData(left, top, right - left, bottom - top);
+      let sampleDarkPixels = 0;
+      for (let offset = 0; offset < pixels.data.length; offset += 4) {
+        const brightness = Math.min(
+          pixels.data[offset] ?? 0,
+          pixels.data[offset + 1] ?? 0,
+          pixels.data[offset + 2] ?? 0,
+        );
+        if (brightness <= 120) {
+          joinDarkPixels++;
+          sampleDarkPixels++;
+          joinDarkCoordinates.push({
+            x: left + ((offset / 4) % pixels.width),
+            y: top + Math.floor(offset / 4 / pixels.width),
+            brightness,
+          });
+        }
+      }
+      joinPerSample.push({ ...point, darkPixels: sampleDarkPixels });
+    }
+    return {
+      darkest,
+      average: count > 0 ? total / count : 0,
+      darkPixels,
+      joinDarkPixels,
+      perSample,
+      joinPixelPoints,
+      joinPerSample,
+      joinDarkCoordinates,
+      joinScreenPoints,
+      radius,
+    };
   }, bodyGeometry);
 
   expect(
@@ -170,6 +223,10 @@ async function expectNoSpeechBalloonBaseSeam(page: import('@playwright/test').Pa
     sample.average,
     `speech-balloon base should be filled ${JSON.stringify(sample)}`,
   ).toBeGreaterThan(235);
+  expect(
+    sample.joinDarkPixels,
+    `black pixels at speech-balloon tail joins ${JSON.stringify(sample)}`,
+  ).toBe(0);
 }
 
 /**
