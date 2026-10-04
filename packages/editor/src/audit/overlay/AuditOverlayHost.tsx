@@ -1,3 +1,4 @@
+import type { Document } from '@varve/scene';
 import { type RefObject, useCallback, useLayoutEffect, useMemo, useState } from 'react';
 import { useEditor } from '../../context';
 import { isFeatureEnabled } from '../../features';
@@ -110,11 +111,21 @@ export function AuditOverlayHost({ canvasRef }: AuditOverlayHostProps) {
   );
 }
 
-function resolveNodeIdFromFinding(findingId: string, _doc: unknown): string | null {
-  const parts = findingId.split('-');
-  if (parts.length >= 2) {
-    const maybeNodeId = parts.slice(1).join('-');
-    if (maybeNodeId.startsWith('n')) return maybeNodeId;
-  }
-  return null;
+function resolveNodeIdFromFinding(findingId: string, doc: Document): string | null {
+  // Node IDs are not required to share a prefix (`text1`, legacy IDs, and IDs
+  // containing hyphens are valid). Match a whole ID token against the current
+  // document instead of guessing from the first character after the provider
+  // prefix; some providers append a qualifier after the node ID.
+  return (
+    Object.keys(doc.nodes)
+      .filter((nodeId) => {
+        if (findingId === nodeId) return true;
+        const token = `-${nodeId}`;
+        const index = findingId.indexOf(token);
+        if (index < 0) return false;
+        const tokenEnd = index + token.length;
+        return tokenEnd === findingId.length || findingId[tokenEnd] === '-';
+      })
+      .sort((a, b) => b.length - a.length)[0] ?? null
+  );
 }

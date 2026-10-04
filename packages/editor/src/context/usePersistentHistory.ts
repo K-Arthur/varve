@@ -113,6 +113,10 @@ export function usePersistentHistory(options: UsePersistentHistoryOptions): Pers
   const sessionRef = useRef<EditorHistorySession | null>(null);
   const activeDocumentRef = useRef(documentId);
   const navigationGenerationRef = useRef(0);
+  // A user can request Undo as soon as an edit appears on screen, while its
+  // IndexedDB capture is still pending. Keep the React bridge's captures and
+  // history navigation in the same order as EditorHistorySession's queue.
+  const captureQueueRef = useRef<Promise<void>>(Promise.resolve());
   if (activeDocumentRef.current !== documentId) {
     activeDocumentRef.current = documentId;
     navigationGenerationRef.current += 1;
@@ -268,6 +272,35 @@ export function usePersistentHistory(options: UsePersistentHistoryOptions): Pers
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [documentId, stores]);
 
+  const enqueueCapture = useCallback(
+    (
+      before: Document,
+      after: Document,
+      selectionAtEdit: NodeId[],
+      label: string,
+      kind: string,
+    ): Promise<void> => {
+      const run = async () => {
+        try {
+          await attachPromiseRef.current;
+          const session = sessionRef.current;
+          if (!session || session.documentId !== before.id || after.id !== before.id) return;
+          await session.capture(before, after, selectionAtEdit, { label, kind });
+          bump();
+        } catch (err) {
+          console.warn('[history] capture failed', err);
+        }
+      };
+      const queued = captureQueueRef.current.then(run, run);
+      captureQueueRef.current = queued.then(
+        () => undefined,
+        () => undefined,
+      );
+      return queued;
+    },
+    [],
+  );
+
   /**
    * Document watcher: captures EVERY document reference change into the
    * persistent log, no matter which mutation path produced it (updateDoc
@@ -294,20 +327,9 @@ export function usePersistentHistory(options: UsePersistentHistoryOptions): Pers
     if (inTransactionRef.current) return;
     const label = captureLabelFor(before, currentDocument);
     const capturedSelection = [...selectionRef.current];
-    const attachment = attachPromiseRef.current;
-    void Promise.resolve(attachment)
-      .then(() => {
-        const session = sessionRef.current;
-        if (!session || session.documentId !== documentId) return;
-        return session.capture(before, currentDocument, capturedSelection, {
-          label,
-          kind: 'modify',
-        });
-      })
-      .then(() => bump())
-      .catch((err) => console.warn('[history] watcher capture failed', err));
+    void enqueueCapture(before, currentDocument, capturedSelection, label, 'modify');
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [document, documentId, inTransactionRef, historySkipRef]);
+  }, [document, documentId, enqueueCapture, inTransactionRef, historySkipRef]);
 
   /** Deterministic step label: best single change summary from the diff. */
   function captureLabelFor(before: Document, after: Document): string {
@@ -362,24 +384,18 @@ export function usePersistentHistory(options: UsePersistentHistoryOptions): Pers
     [],
   );
 
-  const capture = useCallback((before: Document, after: Document, label: string, kind: string) => {
-    const run = async () => {
-      try {
-        await attachPromiseRef.current;
-        const session = sessionRef.current;
-        if (!session || session.documentId !== before.id || after.id !== before.id) return;
-        await session.capture(before, after, selectionRef.current, { label, kind });
-        bump();
-      } catch (err) {
-        console.warn('[history] capture failed', err);
-      }
-    };
-    void run();
-  }, []);
+  const capture = useCallback(
+    (before: Document, after: Document, label: string, kind: string) => {
+      void enqueueCapture(before, after, selectionRef.current, label, kind);
+    },
+    [enqueueCapture],
+  );
 
   const undo = useCallback(async (): Promise<boolean> => {
-    const session = sessionRef.current;
     const generation = navigationGenerationRef.current;
+    await captureQueueRef.current;
+    if (generation !== navigationGenerationRef.current) return false;
+    const session = sessionRef.current;
     if (!session?.attached) return false;
     await attachPromiseRef.current;
     const result = await session.undo();
@@ -395,8 +411,10 @@ export function usePersistentHistory(options: UsePersistentHistoryOptions): Pers
   }, [applyLoadedRevision]);
 
   const redo = useCallback(async (): Promise<boolean> => {
-    const session = sessionRef.current;
     const generation = navigationGenerationRef.current;
+    await captureQueueRef.current;
+    if (generation !== navigationGenerationRef.current) return false;
+    const session = sessionRef.current;
     if (!session?.attached) return false;
     await attachPromiseRef.current;
     const result = await session.redo();
@@ -413,8 +431,10 @@ export function usePersistentHistory(options: UsePersistentHistoryOptions): Pers
 
   const undoTo = useCallback(
     async (revisionId: string): Promise<boolean> => {
-      const session = sessionRef.current;
       const generation = navigationGenerationRef.current;
+      await captureQueueRef.current;
+      if (generation !== navigationGenerationRef.current) return false;
+      const session = sessionRef.current;
       if (!session?.attached) return false;
       await attachPromiseRef.current;
       const result = await session.undoToRevision(revisionId);
@@ -433,8 +453,10 @@ export function usePersistentHistory(options: UsePersistentHistoryOptions): Pers
 
   const checkout = useCallback(
     async (revisionId: string): Promise<boolean> => {
-      const session = sessionRef.current;
       const generation = navigationGenerationRef.current;
+      await captureQueueRef.current;
+      if (generation !== navigationGenerationRef.current) return false;
+      const session = sessionRef.current;
       if (!session?.attached) return false;
       await attachPromiseRef.current;
       const result = await session.checkout(revisionId);
@@ -453,8 +475,10 @@ export function usePersistentHistory(options: UsePersistentHistoryOptions): Pers
 
   const switchBranch = useCallback(
     async (branchId: string): Promise<boolean> => {
-      const session = sessionRef.current;
       const generation = navigationGenerationRef.current;
+      await captureQueueRef.current;
+      if (generation !== navigationGenerationRef.current) return false;
+      const session = sessionRef.current;
       if (!session?.attached) return false;
       await attachPromiseRef.current;
       const result = await session.switchBranch(branchId);
@@ -478,6 +502,7 @@ export function usePersistentHistory(options: UsePersistentHistoryOptions): Pers
   }, []);
 
   const steps = useCallback(async (): Promise<HistoryStepView[]> => {
+    await captureQueueRef.current;
     const session = sessionRef.current;
     if (!session?.attached) return [];
     return session.steps();

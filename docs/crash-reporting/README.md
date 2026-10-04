@@ -67,9 +67,19 @@ same redaction → queue → consent path.
 
 ## UX screenshots
 
-`docs/crash-reporting/screenshots/` (captured from the running app by
-`screenshots.spec.ts`): crash-recovery dialog, review-before-send,
-report-id receipt, safe-mode screen, and Privacy & Diagnostics settings.
+`screenshots.spec.ts` captures the crash-recovery dialog, review-before-send,
+report receipt, safe-mode screen, and Privacy & Diagnostics settings into that
+run's isolated Playwright output. It never overwrites reviewed documentation
+images during an ordinary test run. To deliberately refresh those images,
+provide an explicit capture root, inspect the resulting screenshots, then
+commit only the reviewed files:
+
+```bash
+VARVE_E2E_CAPTURE_ROOT=docs/crash-reporting/screenshots \
+  node scripts/quality/heavy-lease.mjs "capture crash UX screenshots" -- \
+  pnpm exec playwright test tests/e2e/crash/screenshots.spec.ts \
+    --project=chromium --workers=1 --update-snapshots=none
+```
 
 ## Performance and memory budgets
 

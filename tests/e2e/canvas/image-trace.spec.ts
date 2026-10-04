@@ -213,11 +213,11 @@ test.describe('Image Trace', () => {
     const choosePreviewView = (label: string) =>
       page
         .getByRole('radiogroup', { name: 'Preview view' })
-        .getByText(label, { exact: true })
-        .click();
+        .getByRole('radio', { name: label, exact: true })
+        .check();
 
     // 1:1 zoom makes canvas device pixels correspond to prepared-source pixels.
-    await page.getByRole('button', { name: '1:1' }).click();
+    await page.getByRole('dialog').getByRole('button', { name: '1:1' }).click();
     await choosePreviewView('Vector');
 
     const sample = () =>
@@ -339,15 +339,15 @@ test.describe('Image Trace', () => {
       .waitFor({ timeout: 10000 });
     await page.locator('.vectorize__diagnostics').waitFor({ timeout: 20000 });
 
-    const dir = path.join('reports', 'trace-review');
+    const dir = testInfo.outputPath('trace-review');
     fs.mkdirSync(dir, { recursive: true });
     const dialog = page.getByRole('dialog');
     const preview = page.locator('.vectorize__preview');
     const choosePreviewView = (label: string) =>
       page
         .getByRole('radiogroup', { name: 'Preview view' })
-        .getByText(label, { exact: true })
-        .click();
+        .getByRole('radio', { name: label, exact: true })
+        .check();
     const capture = async (name: string) => {
       await preview.scrollIntoViewIfNeeded();
       await page.waitForTimeout(250);

@@ -585,6 +585,11 @@ test.describe('hybrid illustration Magic Wand workflow', () => {
       const point = hook.worldToScreen(240, 210);
       return { x: rect.left + point.x, y: rect.top + point.y };
     });
+    const wandOptionsTrigger = page.getByRole('button', { name: 'Tool options' });
+    if ((await wandOptionsTrigger.getAttribute('aria-expanded')) === 'true') {
+      await wandOptionsTrigger.click();
+    }
+    await page.getByTestId('magicwand-options').waitFor({ state: 'hidden' });
     await page.screenshot({ path: testInfo.outputPath('hybrid-linework-before-fill.png') });
     await page.mouse.click(clickPoint.x, clickPoint.y);
 
@@ -788,17 +793,23 @@ test.describe('hybrid illustration Magic Wand workflow', () => {
     const exported = await readFile(exportPath);
     expect(exported.subarray(0, 8)).toEqual(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
     const exportedPng = PNG.sync.read(exported);
-    expect(exportedPng.width).toBe(4096);
-    expect(exportedPng.height).toBe(4096);
+    // Outward rounding may add a single pixel when imported selection bounds
+    // land fractionally off the integer grid; a smaller export would crop the
+    // source edge, while a larger one would indicate a real bounds error.
+    expect(exportedPng.width).toBeGreaterThanOrEqual(4096);
+    expect(exportedPng.width).toBeLessThanOrEqual(4097);
+    expect(exportedPng.height).toBeGreaterThanOrEqual(4096);
+    expect(exportedPng.height).toBeLessThanOrEqual(4097);
     expect(opaqueBlackPixels(exported)).toBeGreaterThan(100);
     expect(opaqueRedPixels(exported)).toBeGreaterThan(5000);
     expect(opaqueCyanPixels(exported)).toBeGreaterThan(1000);
-    for (const [x, y] of [
+    const edgeSamples: ReadonlyArray<readonly [number, number]> = [
       [8, 8],
-      [4087, 8],
-      [8, 4087],
-      [4087, 4087],
-    ] as const) {
+      [exportedPng.width - 9, 8],
+      [8, exportedPng.height - 9],
+      [exportedPng.width - 9, exportedPng.height - 9],
+    ];
+    for (const [x, y] of edgeSamples) {
       const offset = (y * exportedPng.width + x) * 4;
       const opaqueBlack =
         (exportedPng.data[offset + 3] ?? 0) > 200 &&

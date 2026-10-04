@@ -150,6 +150,7 @@ test('denied consent stays silent even when a report would be sent', async ({ pa
 test('crash loop triggers the safe-mode recovery screen, which is reversible', async ({ page }) => {
   // Seed three recorded startup failures before the app boots.
   await page.addInitScript(() => {
+    localStorage.setItem('strata-clean-shutdown', 'false');
     const now = Date.now();
     localStorage.setItem(
       'varve:crash-loop',

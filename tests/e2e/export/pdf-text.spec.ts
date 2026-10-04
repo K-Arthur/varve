@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises';
 import { expect, test } from '@playwright/test';
 import { navigateToEditor } from '../shared';
 
@@ -10,54 +11,21 @@ interface PdfSummary {
 test.describe('PDF text export', () => {
   test.describe.configure({ mode: 'serial' });
   test.beforeEach(async ({ page }) => {
-    await page.addInitScript(() => {
-      const win = window as unknown as Record<string, unknown>;
-      Object.defineProperty(win, 'showSaveFilePicker', {
-        configurable: true,
-        writable: true,
-        value: async () => ({
-          createWritable: async () => ({
-            write: async (data: unknown) => {
-              const bytes =
-                data instanceof Blob
-                  ? new Uint8Array(await data.arrayBuffer())
-                  : data instanceof ArrayBuffer
-                    ? new Uint8Array(data)
-                    : data instanceof Uint8Array
-                      ? data
-                      : new Uint8Array();
-              win.__varvePdfSummary = {
-                length: bytes.length,
-                header: new TextDecoder('latin1').decode(bytes.slice(0, 8)),
-                text: new TextDecoder('latin1').decode(bytes),
-              };
-            },
-            close: async () => {},
-          }),
-        }),
-      });
-    });
     await navigateToEditor(page);
   });
 
   async function exportPdf(page: import('@playwright/test').Page) {
+    const downloadPromise = page.waitForEvent('download');
     await page.getByRole('button', { name: /download/i }).click();
-    await expect
-      .poll(
-        () =>
-          page.evaluate(
-            () =>
-              (window as unknown as { __varvePdfSummary?: PdfSummary }).__varvePdfSummary?.length ??
-              0,
-          ),
-        { timeout: 30000 },
-      )
-      .toBeGreaterThan(100);
-    return page.evaluate(() => {
-      const summary = (window as unknown as { __varvePdfSummary?: PdfSummary }).__varvePdfSummary;
-      if (!summary) throw new Error('PDF export did not produce bytes');
-      return summary;
-    });
+    const download = await downloadPromise;
+    expect(download.suggestedFilename()).toMatch(/\.pdf$/i);
+    const path = await download.path();
+    if (!path) throw new Error('PDF export download has no file path');
+    const bytes = await readFile(path);
+    const text = bytes.toString('latin1');
+    const summary: PdfSummary = { length: bytes.length, header: text.slice(0, 8), text };
+    expect(summary.length, 'PDF download should contain bytes').toBeGreaterThan(100);
+    return summary;
   }
 
   async function selectExportTab(page: import('@playwright/test').Page) {

@@ -516,7 +516,7 @@ test.describe('Workspace switcher contract', () => {
       });
       const submenuParent = page
         .getByRole('menu', { name: 'View' })
-        .getByRole('menuitem', { name: /^Workspace/ });
+        .getByRole('menuitem', { name: 'Workspace', exact: true });
       await submenuParent.hover();
       await page.waitForTimeout(300);
       await page.screenshot({

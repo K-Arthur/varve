@@ -221,7 +221,7 @@ test.describe('Zoom camera stability', () => {
     // back inside the viewport while its parent's own bounds remain offscreen.
     await childRow.click();
     const childX = page.getByRole('spinbutton', { name: /^x(?: \(ab\))? \(px\)$/i });
-    await childX.fill('700');
+    await childX.fill('850');
     await childX.press('Enter');
 
     await frameRow.click();

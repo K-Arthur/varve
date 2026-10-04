@@ -20,7 +20,7 @@ const SHOT_DIR = 'test-results/halftone-visual';
 // Robust navigation: the shared helper's actionability checks can race with
 // the new-design dialog's card label overlay and the slow editor cold-mount.
 async function navigateToEditor(page: Page) {
-  await page.goto('/', { timeout: 120000, waitUntil: 'domcontentloaded' });
+  await page.goto('/?isoTest=1', { timeout: 120000, waitUntil: 'domcontentloaded' });
   const newBtn = page.getByRole('button', { name: /^new$/i });
   await newBtn.waitFor({ state: 'visible', timeout: 45000 });
   await newBtn.click({ force: true, timeout: 15000 });
@@ -605,48 +605,100 @@ test.describe('Halftone visual verification', () => {
     // Small rect so it stays fully visible at the moderate zoom used below.
     await drawRect(page, 250, 200, 450, 350);
     await addHalftoneAdjustment(page);
-
     const canvas = page.locator('canvas.editor-canvas__content-layer');
     const box = await canvas.boundingBox();
     if (!box) throw new Error('content canvas not found');
+    const artworkWorldBounds = await page.evaluate((canvasBox) => {
+      const hook = (
+        window as Window & {
+          __varveIsoTest?: {
+            screenToWorld: (x: number, y: number) => { x: number; y: number };
+          };
+        }
+      ).__varveIsoTest;
+      const surface = document.querySelector<HTMLElement>('.editor-canvas');
+      if (!hook || !surface) throw new Error('canvas projection helper is unavailable');
+      const surfaceRect = surface.getBoundingClientRect();
+      const offset = { x: canvasBox.x - surfaceRect.left, y: canvasBox.y - surfaceRect.top };
+      const start = hook.screenToWorld(offset.x + 250, offset.y + 200);
+      const end = hook.screenToWorld(offset.x + 450, offset.y + 350);
+      return { left: start.x, top: start.y, right: end.x, bottom: end.y };
+    }, box);
 
-    // The canvas background is ~(235,239,244) while the rect interior is pure
-    // white (255) with black (0) dots. Pure-white pixels (g > 250) only exist
-    // inside the artwork, so the first/last white pixel on an interior row
-    // locate the artwork span at any zoom; transitions count the dots.
+    // Measure multiple scanlines inside the known artwork bounds at each
+    // camera scale. The adjustment layer is selected here, so a selection
+    // overlay is not available as a measurement boundary.
     const scan = async (): Promise<{ transitions: number; span: number }> =>
-      page.evaluate(() => {
+      page.evaluate((worldBounds) => {
         const el = document.querySelector<HTMLCanvasElement>('canvas.editor-canvas__content-layer');
         if (!el) return { transitions: -1, span: 0 };
         const ctx = el.getContext('2d');
         if (!ctx) return { transitions: -1, span: 0 };
-        const data = ctx.getImageData(0, 0, el.width, el.height).data;
-        // The rect spans doc y 200..350 in an ~645px canvas; sample a row
-        // safely inside the artwork at every zoom.
-        const rowY = Math.floor(el.height * 0.42);
-        const grayAt = (x: number): number => {
-          const i = (rowY * el.width + x) * 4;
-          return 0.299 * data[i]! + 0.587 * data[i + 1]! + 0.114 * data[i + 2]!;
-        };
-        let firstWhite = -1;
-        let lastWhite = -1;
-        for (let x = 0; x < el.width; x++) {
-          if (grayAt(x) > 250) {
-            if (firstWhite < 0) firstWhite = x;
-            lastWhite = x;
+        const hook = (
+          window as Window & {
+            __varveIsoTest?: { worldToScreen: (x: number, y: number) => { x: number; y: number } };
           }
-        }
-        if (firstWhite < 0 || lastWhite < 0) return { transitions: -1, span: 0 };
-        let transitions = 0;
-        let prev: 'dark' | 'light' | null = null;
-        for (let x = firstWhite; x <= lastWhite; x++) {
-          const cur = grayAt(x) < 110 ? 'dark' : 'light';
-          if (prev && cur !== prev) transitions++;
-          prev = cur;
-        }
-        return { transitions, span: lastWhite - firstWhite };
-      });
+        ).__varveIsoTest;
+        const surface = document.querySelector<HTMLElement>('.editor-canvas');
+        if (!hook || !surface) return { transitions: -1, span: 0 };
+        const surfaceRect = surface.getBoundingClientRect();
+        const canvasRect = el.getBoundingClientRect();
+        const scaleX = el.width / canvasRect.width;
+        const scaleY = el.height / canvasRect.height;
+        const start = hook.worldToScreen(worldBounds.left, worldBounds.top);
+        const end = hook.worldToScreen(worldBounds.right, worldBounds.bottom);
+        const screenLeft = surfaceRect.left + Math.min(start.x, end.x);
+        const screenRight = surfaceRect.left + Math.max(start.x, end.x);
+        const screenTop = surfaceRect.top + Math.min(start.y, end.y);
+        const screenBottom = surfaceRect.top + Math.max(start.y, end.y);
+        const left = Math.max(
+          0,
+          Math.ceil((screenLeft - canvasRect.left + (screenRight - screenLeft) * 0.08) * scaleX),
+        );
+        const right = Math.min(
+          el.width,
+          Math.floor((screenRight - canvasRect.left - (screenRight - screenLeft) * 0.08) * scaleX),
+        );
+        const top = Math.max(
+          0,
+          Math.ceil((screenTop - canvasRect.top + (screenBottom - screenTop) * 0.25) * scaleY),
+        );
+        const bottom = Math.min(
+          el.height,
+          Math.floor((screenBottom - canvasRect.top - (screenBottom - screenTop) * 0.25) * scaleY),
+        );
+        if (right <= left || bottom <= top) return { transitions: -1, span: 0 };
+        const data = ctx.getImageData(0, 0, el.width, el.height).data;
+        const rows = [0.25, 0.375, 0.5, 0.625, 0.75].map((fraction) =>
+          Math.floor(top + (bottom - top) * fraction),
+        );
+        const counts = rows.map((rowY) => {
+          let transitions = 0;
+          let previous: 'dark' | 'light' | null = null;
+          for (let x = left; x < right; x++) {
+            const index = (rowY * el.width + x) * 4;
+            const gray = 0.299 * data[index]! + 0.587 * data[index + 1]! + 0.114 * data[index + 2]!;
+            const current = gray < 128 ? 'dark' : 'light';
+            if (previous && current !== previous) transitions++;
+            previous = current;
+          }
+          return transitions;
+        });
+        counts.sort((a, b) => a - b);
+        return {
+          transitions: counts[Math.floor(counts.length / 2)] ?? -1,
+          span: right - left,
+        };
+      }, artworkWorldBounds);
 
+    // Keep a visibility check at the shipped default frequency. The density
+    // comparison uses a lower LPI afterward because the default's near-Nyquist
+    // screen is sensitive to subpixel phase at DPR 1.
+    await setSlider(page, 'frequency', 45);
+    const defaultBefore = await scan();
+    expect(defaultBefore.transitions, 'default 45 LPI must show dots').toBeGreaterThan(0);
+
+    await setSlider(page, 'frequency', 12);
     const before = await scan();
     expect(before.transitions, 'zoom-1 must show dots').toBeGreaterThan(0);
 
@@ -676,12 +728,19 @@ test.describe('Halftone visual verification', () => {
     const after = await scan();
     expect(after.span, 'zoom must have enlarged the artwork span').toBeGreaterThan(before.span);
 
-    // Dot count across the artwork is zoom-invariant: allow ±30% for AA
-    // differences at the higher resolution.
+    // Dot count across the same selected artwork is zoom-invariant within one
+    // sampling row; lower LPI and a median across scanlines reduce aliasing.
     const ratio =
       Math.min(before.transitions, after.transitions) /
       Math.max(before.transitions, after.transitions);
     expect(ratio, 'dot count must be zoom-invariant').toBeGreaterThanOrEqual(0.7);
+
+    await setSlider(page, 'frequency', 45);
+    const defaultAfter = await scan();
+    expect(
+      defaultAfter.transitions,
+      'default 45 LPI must remain visible after zoom',
+    ).toBeGreaterThan(0);
   });
 
   test('13 - SVG export with halftone succeeds (raster fallback parity)', async ({ page }) => {

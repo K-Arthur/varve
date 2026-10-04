@@ -63,6 +63,11 @@ async function openSelectionSources(page: import('@playwright/test').Page) {
 async function createSmallRasterDocument(page: import('@playwright/test').Page): Promise<void> {
   await page.setViewportSize(VIEWPORT);
   await navigateToHome(page);
+  await page.evaluate(() => {
+    const url = new URL(window.location.href);
+    url.searchParams.set('isoTest', '1');
+    window.history.replaceState(window.history.state, '', url);
+  });
   await page.waitForFunction(
     async () =>
       (await indexedDB.databases()).some(
@@ -133,18 +138,45 @@ test.describe('pixel selection refinement', () => {
     await expect(rasterRow).toBeVisible();
     await rasterRow.click();
 
-    await toolbar.locator('[data-tool="marquee"]').click();
-    const surface = page.locator('.editor-canvas');
-    const surfaceBox = await surface.boundingBox();
-    if (!surfaceBox) throw new Error('editor canvas surface not found');
-    const start = {
-      x: surfaceBox.x + surfaceBox.width * 0.52,
-      y: surfaceBox.y + surfaceBox.height * 0.25,
-    };
-    const end = {
-      x: surfaceBox.x + surfaceBox.width * 0.7,
-      y: surfaceBox.y + surfaceBox.height * 0.43,
-    };
+    const marquee = toolbar.locator('[data-tool="marquee"]');
+    if (await marquee.isVisible().catch(() => false)) {
+      await marquee.click();
+    } else {
+      await toolbar.getByRole('button', { name: /More tools/ }).click();
+      await page
+        .getByRole('menu', { name: 'More tools', exact: true })
+        .getByRole('menuitem', { name: 'Selection', exact: true })
+        .click();
+      const selectionMenu = page.getByRole('menu', { name: 'Selection submenu', exact: true });
+      await expect(selectionMenu).toBeVisible();
+      const marqueeItem = selectionMenu.getByRole('menuitem', {
+        name: 'Rectangular Marquee',
+        exact: true,
+      });
+      await expect(marqueeItem).toBeVisible();
+      await marqueeItem.click({ timeout: 5000 });
+    }
+    await expect(marquee).toHaveAttribute('aria-pressed', 'true');
+    const selectionBounds = await page.evaluate(() => {
+      const hook = (
+        window as Window & {
+          __varveIsoTest?: { worldToScreen: (x: number, y: number) => { x: number; y: number } };
+        }
+      ).__varveIsoTest;
+      const surface = document.querySelector<HTMLElement>('.editor-canvas');
+      if (!hook || !surface) throw new Error('canvas projection helper is unavailable');
+      const rect = surface.getBoundingClientRect();
+      // Keep the selection wholly inside the resized 640x480 page. The raster
+      // layer is larger, but the page clip correctly rejects off-page fills.
+      const start = hook.worldToScreen(420, 260);
+      const end = hook.worldToScreen(520, 340);
+      return {
+        start: { x: rect.left + start.x, y: rect.top + start.y },
+        end: { x: rect.left + end.x, y: rect.top + end.y },
+      };
+    });
+    const start = selectionBounds.start;
+    const end = selectionBounds.end;
     await page.mouse.move(start.x, start.y);
     await page.mouse.down();
     await page.mouse.move(end.x, end.y, { steps: 6 });

@@ -700,7 +700,7 @@ export function PatternLibrarySection() {
         {selected.length > 0 && (
           <>
             <input
-              className="insp-num__input"
+              className="insp-pattern-library__name-input"
               aria-label="New pattern name"
               placeholder={`Pattern from ${selected[0]?.name ?? 'selection'}`}
               value={newName}

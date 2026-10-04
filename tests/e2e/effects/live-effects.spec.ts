@@ -15,6 +15,7 @@ import { resolve } from 'node:path';
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 import { dropImageOnCanvas } from '../helpers/editor-helpers';
+import { selectInspectorTab } from '../helpers/inspector-tabs';
 import { navigateToCleanEditor } from '../helpers/nav';
 
 const REVIEW_DIR = resolve(__dirname, '../../../reports/effect-review');
@@ -151,6 +152,16 @@ async function addObjectFilter(page: import('@playwright/test').Page, name: stri
   await page.getByRole('option', { name, exact: true }).click();
   await expect(stack).toHaveCount(stackCount + 1, { timeout: 5000 });
   await page.waitForTimeout(300);
+}
+
+async function closeObjectFilterEditor(
+  page: import('@playwright/test').Page,
+  name: string,
+): Promise<void> {
+  const editor = page.locator('.insp-focused-editor__portal');
+  if (!(await editor.isVisible().catch(() => false))) return;
+  await editor.getByRole('button', { name: `Close ${name} parameters`, exact: true }).click();
+  await expect(editor).toBeHidden();
 }
 
 test.describe('Live effects', () => {
@@ -330,6 +341,9 @@ test.describe('Live effects', () => {
     test('persistence: serialize → reload reproduces params and pixels', async ({ page }) => {
       await addObjectFilter(page, 'Dither');
       await page.getByRole('slider', { name: 'Dither strength' }).fill('0.5');
+      // The inline Dither parameter editor can remain open after a range edit;
+      // dismiss it before the helper switches back to Design to add VHS.
+      await page.keyboard.press('Escape');
       await addObjectFilter(page, 'VHS');
       await page.waitForTimeout(400);
       const before = await canvasRegionHash(page);
@@ -497,14 +511,12 @@ test.describe('Live effects', () => {
       // unit level in compositor.test.ts, including effect bounds expansion
       // and filter application.
       await addObjectFilter(page, 'Bloom');
+      await closeObjectFilterEditor(page, 'Bloom');
       await addObjectFilter(page, 'CRT');
+      await closeObjectFilterEditor(page, 'CRT');
       await page.waitForTimeout(400);
 
-      const exportTab = page.locator('[role="tablist"] button[role="tab"]', {
-        hasText: /^export$/i,
-      });
-      await exportTab.waitFor({ state: 'visible', timeout: 5000 });
-      await exportTab.click();
+      await selectInspectorTab(page, 'Export');
 
       async function downloadPng(): Promise<Buffer> {
         await page.getByRole('radio', { name: 'PNG', exact: true }).click();
@@ -536,7 +548,10 @@ test.describe('Live effects', () => {
     test('palette snap imports a palette file and applies it', async ({ page }) => {
       const source = await canvasRegionHash(page);
       await addObjectFilter(page, 'Palette Snap');
-      const importBtn = page.getByRole('button', { name: /import palette/i });
+      const importBtn = page.getByRole('button', {
+        name: 'Import palette (.gpl .act .ase .aco)',
+        exact: true,
+      });
       await expect(importBtn).toBeVisible({ timeout: 5000 });
 
       const chooserPromise = page.waitForEvent('filechooser');

@@ -9,8 +9,8 @@ const nodeMajor = Number.parseInt(process.versions.node.split('.')[0] ?? '0', 10
 // application and browser code still run with their normal JIT settings.
 const viteServerCommand =
   nodeMajor >= 26
-    ? `pnpm --filter @varve/desktop exec node --no-turbofan node_modules/vite/bin/vite.js --port ${e2ePort}`
-    : `pnpm --filter @varve/desktop exec vite --port ${e2ePort}`;
+    ? `pnpm --filter @varve/desktop exec node --no-turbofan node_modules/vite/bin/vite.js --port ${e2ePort} --strictPort`
+    : `pnpm --filter @varve/desktop exec vite --port ${e2ePort} --strictPort`;
 // Canvas E2E includes software-rendered canvases and on-device model
 // inference. Two local browser workers can contend for those resources hard
 // enough to terminate an unrelated page mid-test. Keep the reliable default

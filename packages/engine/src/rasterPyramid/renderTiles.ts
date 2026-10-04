@@ -221,12 +221,32 @@ export class GutterCanvasCache {
     tileSize: number,
     gutter: number,
   ): HTMLCanvasElement | OffscreenCanvas | null {
+    const size = tileSize + gutter * 2;
+    return this.getWithPixels(key, padTilePixels(pixels, tileSize, gutter), size);
+  }
+
+  /** Cache generated pyramid data that already contains its neighboring gutter texels. */
+  getGuttered(
+    key: string,
+    pixels: Uint8ClampedArray,
+    tileSize: number,
+    gutter: number,
+  ): HTMLCanvasElement | OffscreenCanvas | null {
+    const size = tileSize + gutter * 2;
+    if (pixels.length !== size * size * 4) return null;
+    return this.getWithPixels(key, pixels, size);
+  }
+
+  private getWithPixels(
+    key: string,
+    pixels: Uint8ClampedArray,
+    size: number,
+  ): HTMLCanvasElement | OffscreenCanvas | null {
     const hit = this.canvases.get(key);
     if (hit) {
       hit.lastUsed = ++this.clock;
       return hit.canvas;
     }
-    const size = tileSize + gutter * 2;
     const canvas =
       typeof OffscreenCanvas !== 'undefined'
         ? new OffscreenCanvas(size, size)
@@ -240,9 +260,8 @@ export class GutterCanvasCache {
       | (CanvasRenderingContext2D & OffscreenCanvasRenderingContext2D)
       | null;
     if (!ctx) return null;
-    const padded = padTilePixels(pixels, tileSize, gutter);
     const imageData = ctx.createImageData(size, size);
-    imageData.data.set(padded);
+    imageData.data.set(pixels);
     ctx.putImageData(imageData, 0, 0);
     const bytes = size * size * 4;
     this.canvases.set(key, { canvas, bytes, lastUsed: ++this.clock });
@@ -418,7 +437,7 @@ export function drawRasterLayerLod(
         }
         continue;
       }
-      const canvas = canvasCache.get(entry.key, entry.pixels, tileSize, gutter);
+      const canvas = canvasCache.getGuttered(entry.key, entry.pixels, tileSize, gutter);
       if (!canvas) {
         levelMissing++;
         incomplete = true;
@@ -431,6 +450,13 @@ export function drawRasterLayerLod(
         const ox = col * tileSize * f - gutter * f;
         const oy = row * tileSize * f - gutter * f;
         const span = (tileSize + gutter * 2) * f;
+        // The padded source remains available to the resampler, but only the
+        // tile's core may paint. Letting adjacent gutters overlap composites
+        // translucent pixels more than once under source-over blending.
+        target.save();
+        target.beginPath();
+        target.rect(col * tileSize * f, row * tileSize * f, tileSize * f, tileSize * f);
+        target.clip();
         target.drawImage(
           canvas,
           0,
@@ -442,6 +468,7 @@ export function drawRasterLayerLod(
           span,
           span,
         );
+        target.restore();
         levelDrawn++;
       }
       drawn += levelDrawn;

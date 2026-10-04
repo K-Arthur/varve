@@ -25,6 +25,7 @@ interface AnimationFixtureOptions {
   scale?: number;
   scrollOwner?: 'portal' | 'content';
   rejectPosition?: boolean;
+  matchAnchorWidth?: boolean;
 }
 
 function mountMeasuredPortal({
@@ -35,6 +36,7 @@ function mountMeasuredPortal({
   scale = 0.97,
   scrollOwner = 'portal',
   rejectPosition = false,
+  matchAnchorWidth = false,
 }: AnimationFixtureOptions = {}) {
   const position = vi.mocked(floatingUI.computePosition);
   position.mockImplementation(async (_reference, floating) => {
@@ -44,6 +46,7 @@ function mountMeasuredPortal({
     });
     floating.getBoundingClientRect = () => new DOMRect(0, 0, width * scale, height * scale);
     if (rejectPosition) throw new Error('fixture: placement provider unavailable');
+    if (matchAnchorWidth) floating.style.width = '217.59375px';
     floating.style.overflowY = scrollOwner === 'content' ? 'visible' : 'auto';
     if (scrollOwner === 'content') {
       floating.style.setProperty('--varve-floating-max-height', '600px');
@@ -55,6 +58,7 @@ function mountMeasuredPortal({
       anchor={pointAnchor(viewportPoint(1200, 650), document)}
       open
       scrollOwner={scrollOwner}
+      matchAnchorWidth={matchAnchorWidth}
       className="animated-float"
     >
       <div role="menu">Menu contents</div>
@@ -89,6 +93,12 @@ describe('FloatingPortal entry-animation collision bounds', () => {
     expect(panel.style.maxHeight).toBe('');
     expect(panel.style.getPropertyValue('--varve-floating-max-height')).toBe('404px');
     expect(panel.style.overflowY).toBe('visible');
+  });
+
+  it('retains matched anchor width after the controlled positioning update', async () => {
+    const panel = mountMeasuredPortal({ matchAnchorWidth: true });
+    await positioned(panel);
+    expect(panel.style.width).toBe('217.59375px');
   });
 
   it('falls back to measured rect dimensions when layout sizes are zero', async () => {

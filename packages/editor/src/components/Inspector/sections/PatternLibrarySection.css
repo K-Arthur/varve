@@ -68,6 +68,31 @@
   white-space: nowrap;
 }
 
+.insp-pattern-library__name-input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: max(24px, var(--insp-row-height, var(--component-compact-height)));
+  padding: 0 var(--space-2);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
+  background: var(--color-surface-sunken);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--font-size-xs);
+}
+
+.insp-pattern-library__name-input:hover {
+  border-color: var(--color-border-strong);
+}
+
+.insp-pattern-library__name-input:focus-visible {
+  border-color: var(--color-border-focus);
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -2px;
+  background: var(--color-surface-app);
+}
+
 .insp-pattern-library__list--editing {
   max-height: min(55vh, 420px);
 }

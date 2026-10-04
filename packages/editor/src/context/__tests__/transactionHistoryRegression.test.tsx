@@ -1,4 +1,5 @@
 import { act, render, waitFor } from '@testing-library/react';
+import { createDocument, DocumentCodec, makeShapeNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { EditorProvider, useEditor } from '../../context';
 
@@ -255,5 +256,73 @@ describe('EditorProvider transaction history ordering', () => {
 
     act(() => editor?.undo());
     await waitFor(() => expect(editor?.state.document.nodes[id]?.opacity).toBe(1));
+  });
+
+  it('records style-painter paste in persistent history as one undoable step', async () => {
+    const sourceId = 'style-source';
+    const targetId = 'style-target';
+    const document = createDocument('Style paste history', true);
+    const initialDocument = {
+      ...document,
+      nodes: {
+        ...document.nodes,
+        [sourceId]: makeShapeNode(
+          sourceId,
+          { kind: 'rect', x: 0, y: 0, w: 100, h: 60 },
+          { cornerRadius: 24 },
+        ),
+        [targetId]: makeShapeNode(targetId, {
+          kind: 'rect',
+          x: 150,
+          y: 0,
+          w: 100,
+          h: 60,
+        }),
+      },
+      rootChildren: [...document.rootChildren, sourceId, targetId],
+    };
+    let editor: ReturnType<typeof useEditor> | undefined;
+    function Consumer() {
+      editor = useEditor();
+      return null;
+    }
+    render(
+      <EditorProvider initialDocumentJson={DocumentCodec.encode(initialDocument)}>
+        <Consumer />
+      </EditorProvider>,
+    );
+    await waitFor(() => expect(editor?.persistentHistory.attached).toBe(true));
+    const historyBefore = await editor!.persistentHistory.steps();
+
+    act(() => editor!.setSelection(sourceId));
+    await waitFor(() => expect(editor?.state.selection).toEqual([sourceId]));
+    act(() => editor!.copySelectedProperties());
+    act(() => editor!.setSelection(targetId));
+    await waitFor(() => expect(editor?.state.selection).toEqual([targetId]));
+
+    act(() => editor!.pastePropertiesToSelection());
+    await waitFor(() =>
+      expect(
+        (editor!.state.document.nodes[targetId] as { cornerRadius?: number }).cornerRadius,
+      ).toBe(24),
+    );
+    // Invoke Undo as soon as the document update is visible. History capture
+    // must be ordered ahead of navigation even while its IndexedDB write is
+    // still completing.
+    act(() => editor!.undo());
+    await waitFor(() =>
+      expect(
+        (editor!.state.document.nodes[targetId] as { cornerRadius?: number }).cornerRadius,
+      ).toBeUndefined(),
+    );
+    act(() => editor!.redo());
+    await waitFor(() =>
+      expect(
+        (editor!.state.document.nodes[targetId] as { cornerRadius?: number }).cornerRadius,
+      ).toBe(24),
+    );
+    await waitFor(async () =>
+      expect(await editor!.persistentHistory.steps()).toHaveLength(historyBefore.length + 1),
+    );
   });
 });

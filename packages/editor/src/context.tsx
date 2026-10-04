@@ -8313,18 +8313,23 @@ export function EditorProvider({
           return node && !node.locked;
         });
         if (sel.length === 0) return;
-        updateDoc((doc) => {
-          const nodes = { ...doc.nodes };
-          for (const id of sel) {
-            const node = nodes[id];
-            if (!node) continue;
-            const updated = applyPaintProperties(node, props);
-            if (updated !== node) {
-              nodes[id] = updated;
-              invalidateNodeThumbnail(id);
+        // Style paste must enter the same persistent history used by Undo.
+        // A bare updateDoc only records the legacy in-memory stack; once the
+        // persistent session is attached, Undo would skip this edit.
+        withOwnedDocumentTransaction(inTransactionRef, beginTransaction, commitTransaction, () => {
+          updateDoc((doc) => {
+            const nodes = { ...doc.nodes };
+            for (const id of sel) {
+              const node = nodes[id];
+              if (!node) continue;
+              const updated = applyPaintProperties(node, props);
+              if (updated !== node) {
+                nodes[id] = updated;
+                invalidateNodeThumbnail(id);
+              }
             }
-          }
-          return { ...doc, nodes };
+            return { ...doc, nodes };
+          });
         });
         announcerRef.current?.announce(
           `Properties pasted to ${sel.length} layer${sel.length === 1 ? '' : 's'}`,

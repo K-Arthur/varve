@@ -19,27 +19,54 @@ test.describe('Style painter — copy/paste properties', () => {
     await dragOnCanvas(page, 500, 300, 700, 400);
     await expect(page.getByRole('treeitem')).toHaveCount(2);
 
-    // Give the first rect a corner radius via the inspector.
+    // Give the first rect a corner radius via the current inspector surface.
     await page.getByRole('treeitem').first().click();
-    const radiusInput = page
-      .locator('.properties-panel')
-      .getByLabel('Corner radius', { exact: false })
-      .first();
-    if (await radiusInput.isVisible().catch(() => false)) {
-      await radiusInput.fill('24');
-      await radiusInput.press('Enter');
+    const inspector = page.locator('.editor__inspector-panel');
+    const cornerRadius = inspector.locator(
+      '[data-section-id="corner-radius"] .insp-disclosure__trigger',
+    );
+    await expect(cornerRadius).toBeVisible();
+    if ((await cornerRadius.getAttribute('aria-expanded')) !== 'true') {
+      await cornerRadius.click();
     }
+    const radiusInput = inspector.getByRole('spinbutton', { name: 'Radius (px)', exact: true });
+    await expect(radiusInput).toBeVisible();
+    await radiusInput.fill('24');
+    await radiusInput.press('Enter');
+    await expect(radiusInput).toHaveValue('24');
+    // The shortcut manager intentionally ignores typing shortcuts while a
+    // numeric field owns focus; return focus to the editor before copying.
+    await radiusInput.blur();
 
     // Copy properties from the first rect, paste onto the second.
     await page.keyboard.press('Control+Shift+c');
+    await expect(page.locator('#strata-canvas-announcer-polite')).toHaveText('Properties copied');
     await page.getByRole('treeitem').nth(1).click();
     await page.keyboard.press('Control+Shift+v');
+    await expect(page.locator('#strata-canvas-announcer-polite')).toContainText(
+      'Properties pasted to 1 layer',
+    );
+    await expect(
+      inspector.getByRole('spinbutton', { name: 'Radius (px)', exact: true }),
+    ).toHaveValue('24');
+    await expect(page.getByRole('treeitem')).toHaveCount(2);
 
-    // One undo entry: a single Ctrl+Z reverts the paste.
-    await page.keyboard.press('Control+z');
+    // One undo entry: Undo reverts the pasted style, not the shape.
+    const undo = page.getByRole('button', { name: /^Undo/ });
+    await expect(undo).toBeEnabled();
+    await undo.click();
+    await expect(page.getByRole('treeitem')).toHaveCount(2);
+    // Persistent history restores the selection from the prior revision, so
+    // explicitly reselect the paste target before checking that its style was
+    // undone.
     await page.getByRole('treeitem').nth(1).click();
-    await page.keyboard.press('Control+Shift+z');
-    await expect(page.getByRole('treeitem').nth(1)).toContainText(/rect/i);
+    await expect(
+      inspector.getByRole('spinbutton', { name: 'Radius (px)', exact: true }),
+    ).toHaveValue('0');
+    await page.getByRole('button', { name: /^Redo/ }).click();
+    await expect(
+      inspector.getByRole('spinbutton', { name: 'Radius (px)', exact: true }),
+    ).toHaveValue('24');
   });
 
   test('the canvas context menu exposes Copy/Paste Properties', async ({ page }) => {

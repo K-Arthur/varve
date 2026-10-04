@@ -253,10 +253,10 @@ test.describe('Canvas drawing tools — drag-to-create', () => {
       timeout: 15000,
     });
     const sourceRow = page.getByRole('treeitem', {
-      name: /Rectangle 1, Vector rectangle, clipping mask source/,
+      name: /Ellipse 1, Vector ellipse, clipping mask source/,
     });
     const contentRow = page.getByRole('treeitem', {
-      name: /Ellipse 1, Vector ellipse, clipped content/,
+      name: /drop\.png, Raster image, clipped content/,
     });
     await sourceRow.hover();
     const sourceBadge = sourceRow.locator('[data-mask-role="source"]');

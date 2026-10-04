@@ -149,8 +149,8 @@ test.describe('HDR gain map export', () => {
     expect(parsed.metadataSource).toBe('iso');
     expect(parsed.baseWidth).toBe(64);
     expect(parsed.baseHeight).toBe(48);
-    expect(parsed.gainMapWidth).toBe(16);
-    expect(parsed.gainMapHeight).toBe(12);
+    expect(parsed.gainMapWidth).toBe(32);
+    expect(parsed.gainMapHeight).toBe(24);
     expect(parsed.metadata).not.toBeNull();
     expect(parsed.containerItems?.map((item) => item.semantic)).toEqual(['Primary', 'GainMap']);
 
@@ -167,12 +167,15 @@ test.describe('HDR gain map export', () => {
       const gainIdentify = execFileSync('magick', ['identify', '-format', '%m %wx%h', gainPath], {
         encoding: 'utf8',
       }).trim();
-      expect(gainIdentify).toBe('JPEG 16x12');
+      expect(gainIdentify).toBe('JPEG 32x24');
     }
 
     // Changing the output transform without applying must block a rebuild so
     // the exported base can never silently drift from the reviewed rendition.
-    const outputExposure = hdrSection.getByRole('slider', { name: 'Output exposure', exact: true });
+    const outputExposure = hdrSection.getByRole('slider', {
+      name: 'Tone-map exposure',
+      exact: true,
+    });
     await outputExposure.fill('1');
     await expect(
       gainMap.getByRole('button', { name: 'Prepare gain map JPEG', exact: true }),

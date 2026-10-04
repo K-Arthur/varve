@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { evidencePath } from '../helpers/evidence-output';
 
 test('capture crash UX screenshots', async ({ page }) => {
   await page.goto('/', { waitUntil: 'domcontentloaded' });
@@ -15,11 +16,11 @@ test('capture crash UX screenshots', async ({ page }) => {
   await dialog.waitFor({ timeout: 15000 });
   await page.setViewportSize({ width: 1024, height: 760 });
   await page.waitForTimeout(300);
-  await dialog.screenshot({ path: 'docs/crash-reporting/screenshots/crash-recovery-dialog.png' });
+  await dialog.screenshot({ path: evidencePath('crash-recovery-dialog.png') });
   await page.getByRole('button', { name: 'Review report' }).click();
   const review = page.getByRole('dialog', { name: 'Review crash report' });
   await review.waitFor({ timeout: 5000 });
-  await review.screenshot({ path: 'docs/crash-reporting/screenshots/review-before-send.png' });
+  await review.screenshot({ path: evidencePath('review-before-send.png') });
   await page.getByRole('button', { name: 'Back' }).click();
   // Dev builds have no ingestion endpoint; inject a stub transport so the
   // success receipt is reachable for the screenshot.
@@ -39,8 +40,9 @@ test('capture crash UX screenshots', async ({ page }) => {
   });
   await page.getByRole('button', { name: 'Send report' }).click();
   await page.getByText(/Report sent/).waitFor({ timeout: 8000 });
-  await dialog.screenshot({ path: 'docs/crash-reporting/screenshots/report-receipt.png' });
+  await dialog.screenshot({ path: evidencePath('report-receipt.png') });
   await page.evaluate(() => {
+    localStorage.setItem('strata-clean-shutdown', 'false');
     const now = Date.now();
     localStorage.setItem(
       'varve:crash-loop',
@@ -50,7 +52,7 @@ test('capture crash UX screenshots', async ({ page }) => {
   await page.reload({ waitUntil: 'domcontentloaded' });
   const safe = page.getByRole('alertdialog', { name: 'Varve had trouble starting' });
   await safe.waitFor({ timeout: 15000 });
-  await safe.screenshot({ path: 'docs/crash-reporting/screenshots/safe-mode.png' });
+  await safe.screenshot({ path: evidencePath('safe-mode.png') });
   await safe.getByRole('button', { name: 'Continue normal startup' }).click();
   await page.getByRole('button', { name: /^new$/i }).waitFor({ timeout: 15000 });
   // Privacy settings live in the editor; open a document first.
@@ -71,6 +73,6 @@ test('capture crash UX screenshots', async ({ page }) => {
   await settings.waitFor({ timeout: 8000 });
   await page.getByRole('tab', { name: 'Privacy & Diagnostics' }).click();
   await page.waitForTimeout(300);
-  await settings.screenshot({ path: 'docs/crash-reporting/screenshots/privacy-settings.png' });
+  await settings.screenshot({ path: evidencePath('privacy-settings.png') });
   expect(true).toBe(true);
 });

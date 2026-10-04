@@ -548,6 +548,11 @@ export function FloatingPortal({
             // and tall context menus can extend below the viewport.
             maxWidth: floating.style.maxWidth || undefined,
             maxHeight: scrollOwner === 'content' ? undefined : resolvedMaxHeight,
+            // The size middleware writes matched anchor width before this
+            // state update resolves. Preserve it in React's controlled style
+            // object just like maxWidth/maxHeight; otherwise React drops the
+            // measurement and the floating surface reverts to max-content.
+            width: floating.style.width || undefined,
             overflowY: (floating.style.overflowY || undefined) as CSSProperties['overflowY'],
             visibility: hiddenByReference ? 'hidden' : 'visible',
             pointerEvents: hiddenByReference ? 'none' : 'auto',
@@ -609,6 +614,9 @@ export function FloatingPortal({
             left: fallback.x,
             top: fallback.y,
             boxSizing: 'border-box',
+            width: matchAnchorWidth
+              ? `${Math.min(reference.getBoundingClientRect().width, fallbackBounds.width)}px`
+              : undefined,
             maxWidth: boundedFallback ? fallbackBounds.width : undefined,
             maxHeight: scrollOwner === 'portal' ? fallbackMaxHeight : undefined,
             overflowX: boundedFallback ? 'auto' : undefined,

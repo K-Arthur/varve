@@ -75,9 +75,12 @@ for (const theme of THEMES) {
       });
 
       test('email inspector tab visible', async ({ page }) => {
+        // This inspector panel capture was authored at 1280×800. Pin its
+        // viewport independently from the 1280×720 full-editor page capture.
+        await page.setViewportSize({ width: 1280, height: 800 });
         await navigateToEditor(page, theme);
         await switchToEmailWorkspace(page);
-        await page.getByRole('tab', { name: 'Email' }).click();
+        await page.getByRole('tab', { name: 'Email', exact: true }).click();
         await expect(page.getByTestId('email-panel')).toBeVisible();
         await expect(page.getByRole('button', { name: 'Enable email template' })).toBeVisible();
 
@@ -93,7 +96,7 @@ for (const theme of THEMES) {
       test('full email editor layout', async ({ page }) => {
         await navigateToEditor(page, theme);
         await switchToEmailWorkspace(page);
-        await page.getByRole('tab', { name: 'Email' }).click();
+        await page.getByRole('tab', { name: 'Email', exact: true }).click();
         await page.getByRole('button', { name: 'Enable email template' }).click();
         await expect(page.getByTitle('Email browser preview')).toBeVisible();
 

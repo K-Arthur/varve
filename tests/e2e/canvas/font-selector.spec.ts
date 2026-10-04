@@ -18,24 +18,27 @@ test.describe('Font selector', () => {
     await page.keyboard.insertText('Typography in context');
     await page.waitForTimeout(500);
 
-    // TextTool enters editing mode after the drag, so the floating text bar is
-    // already the active formatting surface. Clicking the canvas here would
-    // commit the editor and hide the very bar this test is exercising.
+    // TextTool enters editing mode after the drag, so formatting moves to the
+    // floating text bar. Scope to that bar because the inspector also contains
+    // a FontSelector for the same text object.
     const treeItems = page.getByRole('treeitem');
     await expect(treeItems.first()).toContainText(/text/i, { timeout: 10000 });
 
-    // Click the floating text bar (font family selector should be visible)
-    const fontSelector = page.locator('.font-selector').first();
-    await fontSelector.waitFor({ state: 'visible', timeout: 5000 });
+    const floatingTextBar = page.getByRole('toolbar', { name: 'Text formatting' });
+    const fontInput = floatingTextBar.getByRole('combobox', { name: 'Font family' });
+    await expect(fontInput).toBeVisible({ timeout: 5000 });
 
-    // Open the font selector dropdown
-    const fontInput = fontSelector.locator('input');
+    // Open the contextual toolbar's font selector dropdown.
     await fontInput.click();
     await page.waitForTimeout(300);
 
     // Verify the dropdown appears
-    const dropdown = page.locator('.font-selector__dropdown');
+    await expect(fontInput).toHaveAttribute('aria-expanded', 'true');
+    const dropdown = page.getByRole('listbox', { name: 'Font families', exact: true });
     await expect(dropdown).toBeVisible({ timeout: 3000 });
+    const listboxId = await dropdown.getAttribute('id');
+    expect(listboxId).toBeTruthy();
+    await expect(fontInput).toHaveAttribute('aria-controls', listboxId!);
     const inputBox = await fontInput.boundingBox();
     const dropdownBox = await dropdown.boundingBox();
     expect(inputBox).not.toBeNull();
@@ -59,7 +62,9 @@ test.describe('Font selector', () => {
     await page.keyboard.insertText('Typography in context');
     await expect(page.getByRole('treeitem').first()).toContainText(/text/i, { timeout: 10000 });
 
-    const fontSelector = page.locator('.font-selector').first();
+    const fontSelector = page
+      .getByRole('toolbar', { name: 'Text formatting' })
+      .locator('.font-selector');
     await fontSelector.waitFor({ state: 'visible', timeout: 5000 });
 
     // Open the font selector
@@ -78,7 +83,9 @@ test.describe('Font selector', () => {
     await dragOnCanvas(page, 120, 160, 360, 220);
     await page.keyboard.insertText('Typography in context');
 
-    const fontSelector = page.locator('.font-selector').first();
+    const fontSelector = page
+      .getByRole('toolbar', { name: 'Text formatting' })
+      .locator('.font-selector');
     await fontSelector.waitFor({ state: 'visible', timeout: 5000 });
 
     const fontInput = fontSelector.locator('input');
@@ -111,7 +118,9 @@ test.describe('Font selector', () => {
     await page.keyboard.insertText('Typography in context');
     await expect(page.getByRole('treeitem').first()).toContainText(/text/i, { timeout: 10000 });
 
-    const fontSelector = page.locator('.font-selector').first();
+    const fontSelector = page
+      .getByRole('toolbar', { name: 'Text formatting' })
+      .locator('.font-selector');
     await fontSelector.waitFor({ state: 'visible', timeout: 5000 });
 
     const fontInput = fontSelector.locator('input');
@@ -135,7 +144,9 @@ test.describe('Font selector', () => {
     await page.keyboard.insertText('Typography in context');
     await expect(page.getByRole('treeitem').first()).toContainText(/text/i, { timeout: 10000 });
 
-    const fontSelector = page.locator('.font-selector').first();
+    const fontSelector = page
+      .getByRole('toolbar', { name: 'Text formatting' })
+      .locator('.font-selector');
     await fontSelector.waitFor({ state: 'visible', timeout: 5000 });
 
     await fontSelector.locator('input').click();
@@ -161,7 +172,9 @@ test.describe('Font selector', () => {
     await page.keyboard.press('t');
     await dragOnCanvas(page, 120, 160, 360, 220);
     await page.keyboard.insertText('Typography in context');
-    const fontSelector = page.locator('.font-selector').first();
+    const fontSelector = page
+      .getByRole('toolbar', { name: 'Text formatting' })
+      .locator('.font-selector');
     await fontSelector.waitFor({ state: 'visible', timeout: 5000 });
     const fontInput = fontSelector.locator('input');
     await fontInput.fill('Inter');
@@ -505,7 +518,9 @@ test.describe('downloaded font restoration', () => {
     await page.keyboard.insertText('Typography in context');
     await expect(page.getByRole('treeitem').first()).toContainText(/text/i, { timeout: 10000 });
 
-    const fontSelector = page.locator('.font-selector').first();
+    const fontSelector = page
+      .getByRole('toolbar', { name: 'Text formatting' })
+      .locator('.font-selector');
     await fontSelector.waitFor({ state: 'visible', timeout: 10000 });
     await fontSelector.locator('input').click();
     await fontSelector.locator('input').fill('Carrois Gothic');

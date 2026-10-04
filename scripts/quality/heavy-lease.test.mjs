@@ -13,7 +13,7 @@ import { EventEmitter } from 'node:events';
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { observeValidationChild, runValidationCommand } from './heavy-lease.mjs';
 
 const SCRIPT = fileURLToPath(new URL('./heavy-lease.mjs', import.meta.url));
@@ -131,7 +131,7 @@ function cancellationPreload(directory, marker) {
     path,
     `import fs from 'node:fs';const timer=setInterval(()=>{if(fs.existsSync(${JSON.stringify(marker)})){clearInterval(timer);process.emit('SIGTERM')}},5);timer.unref();`,
   );
-  return process.platform === 'win32' ? ['--import', path] : [];
+  return process.platform === 'win32' ? ['--import', pathToFileURL(path).href] : [];
 }
 
 // Cancellation during memory admission returns its exact signal exit and

@@ -25,8 +25,10 @@ test.describe('Color picker workflow', () => {
   async function waitForSwatchBackground(page: import('@playwright/test').Page, expected: string) {
     await page.waitForFunction(
       (fragment) => {
-        const el = document.querySelector('.insp-swatch[aria-label="Fill colour"]');
-        return !!el && (el as HTMLElement).style.background.includes(fragment);
+        const face = document.querySelector(
+          '.insp-swatch[aria-label="Fill colour"] .insp-swatch__face',
+        );
+        return !!face && getComputedStyle(face).backgroundColor.includes(fragment);
       },
       expected,
       { timeout: 5000 },
@@ -124,6 +126,10 @@ test.describe('Color picker workflow', () => {
 
   test('rejects invalid hex without corrupting the document color', async ({ page }) => {
     await createRect(page);
+    const swatchFace = page.locator('.insp-swatch[aria-label="Fill colour"] .insp-swatch__face');
+    const originalBackground = await swatchFace.evaluate(
+      (el) => getComputedStyle(el).backgroundColor,
+    );
     const dialog = await openFillPicker(page);
     const hexInput = dialog.getByRole('textbox', { name: 'Hex color' });
 
@@ -135,12 +141,9 @@ test.describe('Color picker workflow', () => {
     // The swatch still shows the previous color (dialog stayed open).
     await expect(page.getByRole('dialog', { name: /pick fill colour/i })).toBeVisible();
     await page.getByRole('button', { name: /^done$/i }).click();
-    await page.locator('.insp-swatch[aria-label="Fill colour"]').evaluate((el) => {
-      const bg = (el as HTMLElement).style.background;
-      if (bg.includes('rgba(255, 0, 0')) {
-        throw new Error('invalid hex corrupted the fill');
-      }
-    });
+    await expect
+      .poll(() => swatchFace.evaluate((el) => getComputedStyle(el).backgroundColor))
+      .toBe(originalBackground);
   });
 
   test('undo groups a slider drag into one step', async ({ page }) => {

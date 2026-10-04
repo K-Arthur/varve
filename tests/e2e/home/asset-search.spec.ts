@@ -11,6 +11,10 @@ import { navigateToHome } from '../shared';
 
 const FIXTURE_IMAGE = 'tests/fixtures/semantic-corpus/img-000.png';
 
+function exactAssetName(page: import('@playwright/test').Page, name: string) {
+  return page.locator('.asset-browser__card-name').and(page.getByText(name, { exact: true }));
+}
+
 async function openAssetBrowser(page: import('@playwright/test').Page) {
   await navigateToHome(page);
   const assetsNav = page.getByRole('button', { name: /assets/i }).first();
@@ -24,7 +28,7 @@ async function importFixture(page: import('@playwright/test').Page, name: string
     mimeType: 'image/png',
     buffer: require('node:fs').readFileSync(FIXTURE_IMAGE),
   });
-  await expect(page.getByText(name)).toBeVisible({ timeout: 15000 });
+  await expect(exactAssetName(page, name)).toBeVisible({ timeout: 15000 });
 }
 
 test('search field renders with the hybrid placeholder', async ({ page }) => {
@@ -39,9 +43,7 @@ test('exact filename search retrieves the asset with the exact-match reason', as
   await importFixture(page, 'sunset-final.png');
   const input = page.getByLabel('Search assets');
   await input.fill('sunset-final.png');
-  await expect(
-    page.locator('.asset-browser__card-name').filter({ hasText: 'sunset-final.png' }),
-  ).toBeVisible();
+  await expect(exactAssetName(page, 'sunset-final.png')).toBeVisible();
   await expect(page.getByText('Exact filename match')).toBeVisible({ timeout: 10000 });
 });
 
@@ -69,9 +71,7 @@ test('model-absent state offers the explicit download and keeps lexical search w
   });
   // Lexical search still works with the model absent.
   await input.fill('poster-red');
-  await expect(
-    page.locator('.asset-browser__card-name').filter({ hasText: 'poster-red.png' }),
-  ).toBeVisible();
+  await expect(exactAssetName(page, 'poster-red.png')).toBeVisible();
   await expect(page.getByText('Exact filename match')).toBeVisible({ timeout: 10000 });
 });
 

@@ -2,7 +2,7 @@
  * Renderer integration: crossover decision, viewport rect math, gutter
  * padding, canvas cache, and the visible-tile draw path.
  */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   ensureGutterTile,
   ensurePyramidTile,
@@ -172,6 +172,40 @@ describe('GutterCanvasCache', () => {
     expect(b).not.toBeNull();
     expect(cache.residentBytes).toBe(2 * 10 * 10 * 4);
   });
+
+  it('preserves an already-guttered tile without padding it again', () => {
+    const size = T + 2;
+    const pixels = new Uint8ClampedArray(size * size * 4);
+    for (let index = 0; index < pixels.length; index += 4) {
+      pixels[index] = index % 251;
+      pixels[index + 1] = 87;
+      pixels[index + 2] = 143;
+      pixels[index + 3] = 128;
+    }
+    const uploaded: Uint8ClampedArray[] = [];
+    class TestCanvas {
+      width = 0;
+      height = 0;
+      getContext() {
+        return {
+          createImageData: (width: number, height: number) => ({
+            data: new Uint8ClampedArray(width * height * 4),
+          }),
+          putImageData: (imageData: { data: Uint8ClampedArray }) => uploaded.push(imageData.data),
+        };
+      }
+    }
+    vi.stubGlobal('OffscreenCanvas', TestCanvas);
+    try {
+      const cache = new GutterCanvasCache(1024);
+      const canvas = cache.getGuttered('guttered', pixels, T, 1);
+      expect(canvas).not.toBeNull();
+      expect(uploaded).toHaveLength(1);
+      expect(uploaded[0]).toEqual(pixels);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
 });
 
 describe('gutter tile generation (integration)', () => {
@@ -234,11 +268,13 @@ describe('gutter tile generation (integration)', () => {
 describe('drawRasterLayerLod coverage', () => {
   function target() {
     const draws: unknown[][] = [];
+    const rects: number[][] = [];
     return {
       draws,
+      rects,
       save() {},
       beginPath() {},
-      rect() {},
+      rect: (...args: number[]) => rects.push(args),
       clip() {},
       restore() {},
       getTransform: () => ({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 }),
@@ -247,7 +283,7 @@ describe('drawRasterLayerLod coverage', () => {
   }
 
   function canvasCache() {
-    return { get: () => ({}) as CanvasImageSource } as unknown as GutterCanvasCache;
+    return { getGuttered: () => ({}) as CanvasImageSource } as unknown as GutterCanvasCache;
   }
 
   function residency() {
@@ -313,6 +349,37 @@ describe('drawRasterLayerLod coverage', () => {
     expect(result.missingTiles).toBe(0);
     expect(surface.draws).toHaveLength(1);
     expect(scheduleCount).toBe(0);
+  });
+
+  it('clips each expanded gutter draw to its non-overlapping tile core', () => {
+    const layer = source(32, 8, [
+      [0, 0, 1],
+      [1, 0, 1],
+      [2, 0, 1],
+      [3, 0, 1],
+    ]);
+    const store = residency();
+    ensureGutterTile(layer, 1, 0, 0, store);
+    ensureGutterTile(layer, 1, 1, 0, store);
+    const surface = target();
+
+    const result = drawRasterLayerLod(
+      surface as unknown as Parameters<typeof drawRasterLayerLod>[0],
+      layer,
+      store,
+      1,
+      { x: 0, y: 0, width: 32, height: 8 },
+      { tileSize: T, canvasCache: canvasCache() },
+    );
+
+    expect(result.drawnTiles).toBe(2);
+    // First rectangle clips the whole layer; the following two clips are
+    // adjacent core areas despite the expanded gutter draw destinations.
+    expect(surface.rects).toEqual([
+      [0, 0, 32, 8],
+      [0, 0, 16, 16],
+      [16, 0, 16, 16],
+    ]);
   });
 
   it('uses a complete coarser resident level when the ideal level is incomplete', () => {

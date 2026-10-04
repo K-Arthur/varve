@@ -341,6 +341,8 @@ vi.mock('@varve/codegen', () => ({
 
 afterEach(() => {
   cleanup();
+  mockWorkspaceMode = 'design';
+  mockLogoPanelVisible = false;
   mockSelection = [];
   mockDocument = createDocument('Test Doc');
   mockHistoryLabels = { undo: 'Undo', redo: 'Redo' };
@@ -773,6 +775,7 @@ describe('Menubar disabled states', () => {
   });
 
   it('disables withheld demo workspaces and background removal', async () => {
+    mockWorkspaceMode = 'design';
     setCapabilityRestrictions({
       restricted: new Set(['inference', 'printProduction']),
       workspaceModes: ['design', 'drawing', 'image'],
