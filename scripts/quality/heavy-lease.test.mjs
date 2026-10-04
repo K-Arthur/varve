@@ -140,13 +140,35 @@ function waitForExit(child) {
 // regression-covered on a POSIX host too.
 export function preloadArgsForPlatform(preloadPath, platform, toFileUrl = pathToFileURL) {
   return platform === 'win32' || isWindowsAbsolutePath(preloadPath)
-    ? ['--import', toFileUrl(preloadPath).href]
+    ? preloadImportArgs(preloadPath, toFileUrl)
     : [];
 }
 
 /** A Windows absolute path (`C:\`, `C:/`, or a UNC `\\server\share`). */
 export function isWindowsAbsolutePath(filePath) {
   return typeof filePath === 'string' && /^(?:[a-zA-Z]:[\\/]|\\\\)/.test(filePath);
+}
+
+/**
+ * Build the argv prefix that loads a scratch preload module.
+ *
+ * `node --import` accepts only `file:`, `data:` and `node:` specifiers, so a
+ * bare Windows drive path is rejected with `ERR_UNSUPPORTED_ESM_URL_SCHEME`
+ * ("Received protocol 'c:'"). That rejected the spawned child before it could
+ * publish its lease, which is what failed the Windows `pnpm test:ci:tools`
+ * preflight.
+ *
+ * Convert whenever the resulting specifier would not already be a valid URL
+ * scheme. Deciding from the *path* rather than from the OS is deliberate: on
+ * Windows the production path is drive-absolute, so an OS-keyed branch skips the
+ * conversion that is actually required. Every `--import` in this file goes
+ * through this helper so a new fixture cannot reintroduce a bare path.
+ */
+export function preloadImportArgs(preloadPath, toFileUrl = pathToFileURL) {
+  const specifier = String(preloadPath);
+  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(specifier) && !isWindowsAbsolutePath(specifier))
+    return ['--import', specifier];
+  return ['--import', toFileUrl(specifier).href];
 }
 
 function cancellationPreload(directory, marker) {
@@ -208,6 +230,46 @@ function cancellationPreload(directory, marker) {
   assert.equal(isWindowsAbsolutePath(windowsPath), true);
   assert.equal(isWindowsAbsolutePath('C:/Users/runneradmin/x.mjs'), true);
   assert.equal(isWindowsAbsolutePath('\\\\server\\share\\x.mjs'), true);
+
+  // preloadImportArgs is the primitive every `--import` site must use: a bare
+  // drive/UNC path and a POSIX path both become file: URLs, while an existing
+  // URL specifier passes through untouched.
+  for (const [input, expected] of [
+    [windowsPath, /^file:\/\//],
+    ['C:/Users/runneradmin/x.mjs', /^file:\/\//],
+    ['\\\\server\\share\\x.mjs', /^file:\/\//],
+    ['/tmp/x.mjs', /^file:\/\//],
+    ['data:text/javascript,1', /^data:/],
+    ['node:fs', /^node:/],
+  ]) {
+    const [flag, specifier] = preloadImportArgs(input);
+    assert.equal(flag, '--import');
+    assert.match(specifier, expected, `${input} must become ${expected}`);
+    assert.ok(
+      !isWindowsAbsolutePath(specifier),
+      `a bare drive/UNC path (${specifier}) must never reach --import`,
+    );
+  }
+
+  // Static guard: no fixture may hand `--import` a path directly. Four separate
+  // fixtures built argv literals this way, so a per-branch unit test kept
+  // missing sites and the Windows legs failed three runs in a row.
+  //
+  // Match argv call sites only: `'--import'` immediately followed by a path
+  // expression. The helper bodies and this guard's own assertions legitimately
+  // name the flag, and anchoring on the following token keeps this precise
+  // instead of accumulating allow-list exceptions.
+  const source = readFileSync(fileURLToPath(import.meta.url), 'utf8');
+  const directImport = [
+    ...source.matchAll(/'--import'\s*,\s*(?![a-zA-Z_$][\w$]*\s*[);])([^,\n]+)/g),
+  ]
+    .map((m) => m[1].trim())
+    .filter((next) => /^(?:pathToFileURL|join|resolve|new URL|`)/.test(next));
+  assert.deepEqual(
+    directImport,
+    [],
+    `every --import must go through preloadImportArgs; found: ${directImport.join(' | ')}`,
+  );
   console.log('windows preload url regression passed');
 }
 
@@ -405,8 +467,7 @@ for (const sample of [
     const result = spawnSync(
       process.execPath,
       [
-        '--import',
-        preload,
+        ...preloadImportArgs(preload),
         SCRIPT,
         'memory-source',
         '--',
@@ -460,6 +521,33 @@ async function waitForFile(path) {
   assert.ok(existsSync(path), `fixture did not become ready: ${path}`);
 }
 
+/**
+ * Wait for a fixture file to hold complete, parseable JSON.
+ *
+ * These fixtures are written by spawned processes, so existence becomes
+ * observable at creation while the bytes land afterwards. Waiting only for
+ * existence let a following `JSON.parse(readFileSync(...))` throw
+ * `SyntaxError: Unexpected end of JSON input` under load — an intermittent
+ * failure of `test:ci:tools` that surfaced on macOS in CI run 37198361776.
+ */
+async function waitForFixtureJson(path, timeoutMs = 3000) {
+  const deadline = Date.now() + timeoutMs;
+  let last = '';
+  for (;;) {
+    try {
+      const raw = readFileSync(path, 'utf8');
+      if (raw.length > 0) return JSON.parse(raw);
+      last = 'empty file';
+    } catch (err) {
+      last = err.message;
+    }
+    if (Date.now() >= deadline) {
+      assert.ok(false, `fixture ${path} never held complete JSON (last: ${last})`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+}
+
 // Real detached grandchildren model pnpm's separate process groups. A lease
 // stays held through cooperative cleanup; an unrelated sibling is untouched.
 // Windows taskkill is forcible; POSIX additionally covers cooperative TERM.
@@ -497,8 +585,10 @@ for (const cooperate of process.platform === 'win32' ? [false] : [true, false]) 
     );
     const exit = waitForExit(owner);
     const record = await waitForLease(runtimeDirectory, 'cancel-owned');
-    await waitForFile(ready);
-    pids = JSON.parse(readFileSync(ready, 'utf8'));
+    // The fixture writes `ready` from the spawned grandchild, so existence is
+    // observable before the bytes land. Waiting only for existence let a read
+    // observe a partial file; wait for parseable JSON instead.
+    pids = await waitForFixtureJson(ready, 3000);
     assert.equal(existsSync(record.path), true, 'lease must remain while a descendant is alive');
     assert.equal(activeProcess(pids.grandchild), true);
     assert.equal(activeProcess(sentinel.pid), true, 'unrelated process must remain alive');
