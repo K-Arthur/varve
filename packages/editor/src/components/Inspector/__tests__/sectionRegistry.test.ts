@@ -271,6 +271,13 @@ describe('Section availability predicates', () => {
     expect(getSectionDefinition('effects')!.isAvailable(mixed)).toBe(false);
   });
 
+  it('offers layer effects for selected groups', () => {
+    const group = makeNode({ id: 'group-effects', kind: 'group', effects: [] });
+    expect(getSectionDefinition('effects')!.isAvailable(baseCtx({ selectedNodes: [group] }))).toBe(
+      true,
+    );
+  });
+
   it('position-size is available when there are selected nodes', () => {
     const def = getSectionDefinition('position-size')!;
     expect(def.isAvailable(baseCtx({ selectionKind: 'empty', selectedNodes: [] }))).toBe(false);

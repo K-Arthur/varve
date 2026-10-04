@@ -104,6 +104,7 @@ interface UseIconAssetsDeps {
     sourceDoc: Document,
     rootId: string,
     adjustRoot: (node: SceneNode) => SceneNode,
+    workspaceMode?: string,
   ) => InsertSubtreeResult | null;
   viewportCenterWorld: (cam: {
     zoom: number;
@@ -299,8 +300,12 @@ export function useIconAssets(deps: UseIconAssetsDeps): IconAssetsAPI {
           pan: stateRef.current.pan,
           cameraRotation: stateRef.current.cameraRotation,
         });
-      const inserted = insertSubtree(doc, sourceDoc, sourceDoc.rootChildren[0]!, (node) =>
-        applyDropPosition(node, target),
+      const inserted = insertSubtree(
+        doc,
+        sourceDoc,
+        sourceDoc.rootChildren[0]!,
+        (node) => applyDropPosition(node, target),
+        stateRef.current.workspaceMode,
       );
       if (!inserted) return null;
       const rootNode = inserted.doc.nodes[inserted.rootId];

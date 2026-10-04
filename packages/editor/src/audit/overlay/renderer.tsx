@@ -9,6 +9,7 @@ interface AuditOverlayRendererProps {
   registry: OverlayRegistry;
   overlayContext: OverlayContext;
   viewportRect: Rect;
+  canvasRect: { x: number; y: number; width: number; height: number };
   maxPrimitives?: number;
   clusterThresholdPx?: number;
   onFindingHover?: (findingId: string | null) => void;
@@ -21,6 +22,7 @@ export function AuditOverlayRenderer({
   registry,
   overlayContext,
   viewportRect,
+  canvasRect,
   maxPrimitives = 2000,
   clusterThresholdPx = 30,
   onFindingHover,
@@ -150,7 +152,7 @@ export function AuditOverlayRenderer({
               role="button"
               aria-label={`Finding: ${p.text}`}
               tabIndex={0}
-              style={{ cursor: 'pointer' }}
+              style={{ cursor: 'pointer', pointerEvents: 'auto' }}
               onPointerEnter={() => handleBadgeEnter(p.findingId)}
               onPointerLeave={handleBadgeLeave}
               onPointerDown={() => handleBadgeClick(p.findingId)}
@@ -234,12 +236,13 @@ export function AuditOverlayRenderer({
     <svg
       role="presentation"
       style={{
-        position: 'absolute',
-        inset: 0,
+        position: 'fixed',
+        left: canvasRect.x,
+        top: canvasRect.y,
         pointerEvents: 'none',
         overflow: 'visible',
-        width: '100%',
-        height: '100%',
+        width: canvasRect.width,
+        height: canvasRect.height,
         touchAction: 'none',
         zIndex: CANVAS_INTERACTIVE_OVERLAY_Z_INDEX + 1,
       }}

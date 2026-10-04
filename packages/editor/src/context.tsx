@@ -9882,98 +9882,110 @@ export function EditorProvider({
             // the node's image fill. Atomic — the old src is only overwritten
             // after the upscaled image is fully produced and stored, so a
             // failure mid-inference never corrupts the source.
-            updateDoc((doc) => {
-              const node = doc.nodes[processingNodeId];
-              if (node?.kind !== 'shape') return doc;
-              const { document: docWithAsset, assetId } = findOrCreateEmbeddedAsset(
-                doc,
-                assetInput,
-              );
-              const imageFill: ImageFillData = {
-                src: dataUrl,
-                assetId,
-                fit: currentFill?.fit ?? 'fill',
-                x: currentFill?.x ?? 0,
-                y: currentFill?.y ?? 0,
-                scale: currentFill?.scale ?? 1,
-                imageWidth: outputImage.width,
-                imageHeight: outputImage.height,
-              };
-              const nextFill: Fill = {
-                type: 'image',
-                opacity: fill?.opacity ?? 1,
-                blendMode: fill?.blendMode ?? 'normal',
-                visible: fill?.visible ?? true,
-                image: imageFill,
-              };
-              return {
-                ...docWithAsset,
-                nodes: {
-                  ...docWithAsset.nodes,
-                  // The cutout is baked into the new pixels, so the node's
-                  // own mask must go with it — leaving it would composite the
-                  // mask a second time, misaligned against the new size.
-                  [processingNodeId]: {
-                    ...node,
-                    fills: [nextFill],
-                    mask: maskDataUrl ? undefined : node.mask,
-                    backgroundRemoval: maskDataUrl ? undefined : node.backgroundRemoval,
-                  },
-                },
-              };
-            });
+            withOwnedDocumentTransaction(
+              inTransactionRef,
+              beginTransaction,
+              commitTransaction,
+              () => {
+                updateDoc((doc) => {
+                  const node = doc.nodes[processingNodeId];
+                  if (node?.kind !== 'shape') return doc;
+                  const { document: docWithAsset, assetId } = findOrCreateEmbeddedAsset(
+                    doc,
+                    assetInput,
+                  );
+                  const imageFill: ImageFillData = {
+                    src: dataUrl,
+                    assetId,
+                    fit: currentFill?.fit ?? 'fill',
+                    x: currentFill?.x ?? 0,
+                    y: currentFill?.y ?? 0,
+                    scale: currentFill?.scale ?? 1,
+                    imageWidth: outputImage.width,
+                    imageHeight: outputImage.height,
+                  };
+                  const nextFill: Fill = {
+                    type: 'image',
+                    opacity: fill?.opacity ?? 1,
+                    blendMode: fill?.blendMode ?? 'normal',
+                    visible: fill?.visible ?? true,
+                    image: imageFill,
+                  };
+                  return {
+                    ...docWithAsset,
+                    nodes: {
+                      ...docWithAsset.nodes,
+                      // The cutout is baked into the new pixels, so the node's
+                      // own mask must go with it — leaving it would composite the
+                      // mask a second time, misaligned against the new size.
+                      [processingNodeId]: {
+                        ...node,
+                        fills: [nextFill],
+                        mask: maskDataUrl ? undefined : node.mask,
+                        backgroundRemoval: maskDataUrl ? undefined : node.backgroundRemoval,
+                      },
+                    },
+                  };
+                });
+              },
+            );
           } else if (options.output === 'non-destructive') {
             // Non-destructive: create upscaled asset, store upscale metadata on fill
-            updateDoc((doc) => {
-              const node = doc.nodes[processingNodeId];
-              if (node?.kind !== 'shape') return doc;
-              const { document: docWithAsset, assetId: upscaleAssetId } = findOrCreateEmbeddedAsset(
-                doc,
-                assetInput,
-              );
-              const sourceAssetId = currentFill?.assetId;
-              const imageFill: ImageFillData = {
-                src: dataUrl,
-                assetId: upscaleAssetId,
-                fit: currentFill?.fit ?? 'fill',
-                x: currentFill?.x ?? 0,
-                y: currentFill?.y ?? 0,
-                scale: currentFill?.scale ?? 1,
-                imageWidth: outputImage.width,
-                imageHeight: outputImage.height,
-                upscale: sourceAssetId
-                  ? {
-                      sourceAssetId,
-                      upscaleAssetId,
-                      mode: options.method ?? 'unknown',
-                      scale: options.scale ?? 2,
-                      modelId: options.modelId,
-                    }
-                  : undefined,
-              };
-              const nextFill: Fill = {
-                type: 'image',
-                opacity: fill?.opacity ?? 1,
-                blendMode: fill?.blendMode ?? 'normal',
-                visible: fill?.visible ?? true,
-                image: imageFill,
-              };
-              return {
-                ...docWithAsset,
-                nodes: {
-                  ...docWithAsset.nodes,
-                  // The cutout is baked into the new pixels, so the node's
-                  // own mask must go with it — leaving it would composite the
-                  // mask a second time, misaligned against the new size.
-                  [processingNodeId]: {
-                    ...node,
-                    fills: [nextFill],
-                    mask: maskDataUrl ? undefined : node.mask,
-                    backgroundRemoval: maskDataUrl ? undefined : node.backgroundRemoval,
-                  },
-                },
-              };
-            });
+            withOwnedDocumentTransaction(
+              inTransactionRef,
+              beginTransaction,
+              commitTransaction,
+              () => {
+                updateDoc((doc) => {
+                  const node = doc.nodes[processingNodeId];
+                  if (node?.kind !== 'shape') return doc;
+                  const { document: docWithAsset, assetId: upscaleAssetId } =
+                    findOrCreateEmbeddedAsset(doc, assetInput);
+                  const sourceAssetId = currentFill?.assetId;
+                  const imageFill: ImageFillData = {
+                    src: dataUrl,
+                    assetId: upscaleAssetId,
+                    fit: currentFill?.fit ?? 'fill',
+                    x: currentFill?.x ?? 0,
+                    y: currentFill?.y ?? 0,
+                    scale: currentFill?.scale ?? 1,
+                    imageWidth: outputImage.width,
+                    imageHeight: outputImage.height,
+                    upscale: sourceAssetId
+                      ? {
+                          sourceAssetId,
+                          upscaleAssetId,
+                          mode: options.method ?? 'unknown',
+                          scale: options.scale ?? 2,
+                          modelId: options.modelId,
+                        }
+                      : undefined,
+                  };
+                  const nextFill: Fill = {
+                    type: 'image',
+                    opacity: fill?.opacity ?? 1,
+                    blendMode: fill?.blendMode ?? 'normal',
+                    visible: fill?.visible ?? true,
+                    image: imageFill,
+                  };
+                  return {
+                    ...docWithAsset,
+                    nodes: {
+                      ...docWithAsset.nodes,
+                      // The cutout is baked into the new pixels, so the node's
+                      // own mask must go with it — leaving it would composite the
+                      // mask a second time, misaligned against the new size.
+                      [processingNodeId]: {
+                        ...node,
+                        fills: [nextFill],
+                        mask: maskDataUrl ? undefined : node.mask,
+                        backgroundRemoval: maskDataUrl ? undefined : node.backgroundRemoval,
+                      },
+                    },
+                  };
+                });
+              },
+            );
           } else {
             // Default: create a new layer beside the non-destructive source.
             const scaleLabel =
@@ -9993,8 +10005,15 @@ export function EditorProvider({
               suffix: scaleLabel,
               maskBakedIn: maskDataUrl !== undefined,
             });
-            updateDoc(() => inserted.doc);
-            patch({ selection: [inserted.nodeId] });
+            withOwnedDocumentTransaction(
+              inTransactionRef,
+              beginTransaction,
+              commitTransaction,
+              () => {
+                updateDoc(() => inserted.doc);
+                patch({ selection: [inserted.nodeId] });
+              },
+            );
           }
           const operationLabel =
             options.operation === 'denoise'

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { registerBuiltinPanels } from '../panelDefinitions';
 import { resetPanelRegistry } from '../panelRegistry';
+import { resolveDockTreeGeometry } from './dockGeometry';
 import { listPanelInstances, validateDockLayout } from './dockOps';
 import type { DockLayout } from './dockTypes';
 import { completeEditorDockLayout, createDefaultEditorDockLayout } from './editorDockLayout';
@@ -19,6 +20,15 @@ describe('editor dock defaults', () => {
       expect(listPanelInstances(primary).map((panel) => panel.panelTypeId)).toContain('layers');
       expect(listPanelInstances(primary).map((panel) => panel.panelTypeId)).toContain('inspector');
     }
+  });
+
+  it('gives the default Inspector enough width for desktop controls', () => {
+    const layout = createDefaultEditorDockLayout('design');
+    const geometry = resolveDockTreeGeometry(layout.windows[0]!.dockRoot, 1280, 720);
+    const inspector = geometry.panels.find((panel) => panel.panelTypeId === 'inspector');
+
+    expect(inspector?.rect.width).toBeCloseTo(310, 0);
+    expect(geometry.canvas?.width).toBeGreaterThanOrEqual(320);
   });
 
   it('adds missing required surfaces to early canvas-only snapshots', () => {

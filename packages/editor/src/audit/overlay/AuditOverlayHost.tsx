@@ -1,15 +1,50 @@
-import { useCallback } from 'react';
+import { type RefObject, useCallback, useLayoutEffect, useMemo, useState } from 'react';
 import { useEditor } from '../../context';
 import { isFeatureEnabled } from '../../features';
 import { AuditOverlayRenderer } from './renderer';
 import { useFindingsOverlay } from './useFindingsOverlay';
 
 interface AuditOverlayHostProps {
-  viewport: { width: number; height: number };
+  canvasRef: RefObject<HTMLDivElement | null>;
 }
 
-export function AuditOverlayHost({ viewport }: AuditOverlayHostProps) {
+export function AuditOverlayHost({ canvasRef }: AuditOverlayHostProps) {
   const editor = useEditor();
+  const [canvasRect, setCanvasRect] = useState({ x: 0, y: 0, width: 0, height: 0 });
+
+  useLayoutEffect(() => {
+    const element = canvasRef.current;
+    if (!element) return;
+
+    const updateCanvasRect = () => {
+      const rect = element.getBoundingClientRect();
+      setCanvasRect((current) => {
+        if (
+          current.x === rect.left &&
+          current.y === rect.top &&
+          current.width === rect.width &&
+          current.height === rect.height
+        ) {
+          return current;
+        }
+        return { x: rect.left, y: rect.top, width: rect.width, height: rect.height };
+      });
+    };
+
+    updateCanvasRect();
+    const observer = new ResizeObserver(updateCanvasRect);
+    observer.observe(element);
+    window.addEventListener('resize', updateCanvasRect);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', updateCanvasRect);
+    };
+  }, [canvasRef]);
+
+  const viewport = useMemo(
+    () => ({ width: canvasRect.width, height: canvasRect.height }),
+    [canvasRect.width, canvasRect.height],
+  );
 
   const { registry, overlayContext } = useFindingsOverlay(viewport);
 
@@ -52,19 +87,23 @@ export function AuditOverlayHost({ viewport }: AuditOverlayHostProps) {
     [overlayContext.document],
   );
 
+  const viewportRect = {
+    x: -viewport.width / 2,
+    y: -viewport.height / 2,
+    w: viewport.width * 2,
+    h: viewport.height * 2,
+  };
+
   if (!isFeatureEnabled('findingsOverlay')) return null;
   if (!editor.state.findingsOverlayVisible) return null;
+  if (viewport.width === 0 || viewport.height === 0) return null;
 
   return (
     <AuditOverlayRenderer
       registry={registry}
       overlayContext={overlayContext}
-      viewportRect={{
-        x: -viewport.width / 2,
-        y: -viewport.height / 2,
-        w: viewport.width * 2,
-        h: viewport.height * 2,
-      }}
+      viewportRect={viewportRect}
+      canvasRect={canvasRect}
       onFindingClick={handleFindingClick}
       onFindingHover={handleFindingHover}
     />

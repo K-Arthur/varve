@@ -4232,8 +4232,8 @@ fieldset.insp-canvas-props,
 }
 .palette-section__count-input {
   width: 100%;
-  min-height: var(--insp-row-height, var(--component-compact-height));
-  height: var(--insp-row-height, var(--component-compact-height));
+  min-height: var(--touch-target-min);
+  height: var(--touch-target-min);
   padding: 0 var(--space-2);
   background: var(--color-surface-sunken);
   border: 1px solid transparent;

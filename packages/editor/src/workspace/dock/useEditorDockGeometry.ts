@@ -216,6 +216,7 @@ export function useEditorDockGeometry(
   useEffect(() => {
     const shell = shellRef.current;
     if (!shell) return;
+    const toolbar = shell.querySelector<HTMLElement>('.floating-toolbar');
     const measure = () => {
       const shellRect = shell.getBoundingClientRect();
       const compact = window.matchMedia?.('(max-width: 899px)').matches ?? window.innerWidth <= 899;
@@ -223,7 +224,6 @@ export function useEditorDockGeometry(
         setBounds((previous) => (previous === null ? previous : null));
         return;
       }
-      const toolbar = shell.querySelector<HTMLElement>('.floating-toolbar');
       // Where the dock area begins: the shell grid's `canvas` row.
       //
       // This was read from `.editor-canvas`'s own top edge. The canvas lives
@@ -289,10 +289,22 @@ export function useEditorDockGeometry(
     )) {
       observer?.observe(element);
     }
+    // The toolbar placement is a workspace preference reflected on a data
+    // attribute. Moving from bottom to top does not change its border-box
+    // size, so ResizeObserver alone never refreshes the inline dock position.
+    const toolbarPlacementObserver =
+      toolbar && typeof MutationObserver !== 'undefined' ? new MutationObserver(measure) : null;
+    if (toolbar) {
+      toolbarPlacementObserver?.observe(toolbar, {
+        attributes: true,
+        attributeFilter: ['data-placement'],
+      });
+    }
     window.addEventListener('resize', measure);
     measure();
     return () => {
       observer?.disconnect();
+      toolbarPlacementObserver?.disconnect();
       window.removeEventListener('resize', measure);
     };
   }, [shellRef]);
@@ -831,8 +843,10 @@ export function useEditorDockGeometry(
     const canvasBox = geometry.canvas;
     const canvasBottom = bounds.top + (canvasBox?.y ?? 0) + (canvasBox?.height ?? 0);
     const toolbarTop = bounds.top + (canvasBox?.y ?? 0);
+    // The canvas grid area begins before the selection-path row. Keep the
+    // top palette below that content-driven row, including enlarged text.
     const verticalPosition = bounds.toolbarAtTop
-      ? `calc(${toolbarTop}px + var(--space-3))`
+      ? `calc(${toolbarTop}px + var(--selection-path-height, 0px) + var(--space-3))`
       : `calc(${canvasBottom}px - var(--space-3) - ${bounds.toolbarHeight}px)`;
     const toolbarStyle: CSSProperties = canvasBox
       ? {

@@ -979,7 +979,7 @@ export function shouldIgnoreHistoryShortcutTarget(target: Element | null): boole
   }
   const nearestDialog = resolved.closest?.('[role="dialog"],[role="alertdialog"]');
   const delegatingHistoryDialog = nearestDialog?.matches(
-    '[role="dialog"][data-editor-shortcut-scope="inspector-history"], [role="dialog"][data-editor-shortcut-scope="tool-options-history"]',
+    '[role="dialog"][data-editor-shortcut-scope="inspector-history"], [role="dialog"][data-editor-shortcut-scope="tool-options-history"], [role="dialog"][data-editor-shortcut-scope="resources-history"]',
   )
     ? nearestDialog
     : null;

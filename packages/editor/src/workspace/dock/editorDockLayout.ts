@@ -72,7 +72,7 @@ export function createDefaultEditorDockLayout(mode: WorkspaceMode): DockLayout {
           }
         : null;
   const center = companion ? split('center-column', 'column', 0.72, canvas(), companion) : canvas();
-  const main = split('center-inspector', 'row', 0.74, center, panel('inspector'));
+  const main = split('center-inspector', 'row', 0.69, center, panel('inspector'));
   const root = split('layers-main', 'row', 0.22, panel('layers'), main);
   return {
     schemaVersion: DOCK_LAYOUT_SCHEMA_VERSION,

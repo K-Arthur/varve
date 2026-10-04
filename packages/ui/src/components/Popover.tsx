@@ -27,7 +27,12 @@ import { OVERLAY_Z_INDEX, OverlayParentContext } from './FloatingPortal';
 import { FocusTrap } from './FocusTrap';
 import { focusAdjacentTabbable, getFocusableElements } from './focusOrder';
 import { type OverlayCloseReason, registerOverlay, traceOverlayEvent } from './OverlayRegistry';
-import { elementAnchor, portalRootForAnchor, safeViewportRect } from './overlayGeometry';
+import {
+  elementAnchor,
+  portalRootForAnchor,
+  resolveCollisionRegion,
+  safeViewportRect,
+} from './overlayGeometry';
 
 export interface PopoverProps {
   children: ReactNode;
@@ -41,6 +46,8 @@ export interface PopoverProps {
   modal?: boolean;
   /** Override the modal focus policy for a rich but nonmodal surface. */
   focusTrap?: boolean;
+  /** Optional element that bounds collision handling inside a workspace region. */
+  collisionBoundary?: Element | null;
   /**
    * Treat the trigger as a listbox/disclosure trigger: ArrowDown/ArrowUp open
    * the popover and move focus to the first/last control. Off by default so a
@@ -87,6 +94,7 @@ export function Popover({
   label,
   modal = false,
   focusTrap,
+  collisionBoundary,
   openOnArrowKeys = false,
 }: PopoverProps) {
   const [internalOpen, setInternalOpen] = useState(false);
@@ -204,6 +212,10 @@ export function Popover({
 
     const generation = ++generationRef.current;
     let cancelled = false;
+    const resizeBoundary =
+      collisionBoundary?.isConnected && collisionBoundary.ownerDocument === ownerDocument
+        ? collisionBoundary
+        : undefined;
     setPosStyle(null);
     setArrowStyle(null);
     traceOverlayEvent(ownerDocument, {
@@ -216,15 +228,21 @@ export function Popover({
 
     const updatePosition = () => {
       if (cancelled || generation !== generationRef.current || !element.isConnected) return;
+      const collisionRegion = resolveCollisionRegion(
+        ownerDocument,
+        collisionBoundary,
+        SAFE_PADDING,
+      );
       computePosition(trigger, element, {
         strategy: 'fixed',
         placement,
         middleware: [
           offset(8),
-          flip({ padding: SAFE_PADDING }),
-          shift({ padding: SAFE_PADDING }),
+          flip({ padding: SAFE_PADDING, boundary: collisionRegion.boundary }),
+          shift({ padding: SAFE_PADDING, boundary: collisionRegion.boundary }),
           size({
             padding: SAFE_PADDING,
+            boundary: collisionRegion.boundary,
             apply({ availableWidth, availableHeight, elements }) {
               Object.assign(elements.floating.style, {
                 boxSizing: 'border-box',
@@ -285,6 +303,10 @@ export function Popover({
 
     updatePosition();
     const cleanup = autoUpdate(trigger, element, updatePosition);
+    const cleanupBoundary =
+      resizeBoundary && resizeBoundary !== trigger
+        ? autoUpdate(resizeBoundary, element, updatePosition)
+        : undefined;
     const ownerWindow = ownerDocument.defaultView;
     const OwnerMutationObserver = ownerWindow?.MutationObserver;
     const observer = OwnerMutationObserver
@@ -306,6 +328,7 @@ export function Popover({
       cancelled = true;
       generationRef.current += 1;
       cleanup();
+      cleanupBoundary?.();
       observer?.disconnect();
       setPosStyle(null);
       setArrowStyle(null);
@@ -316,7 +339,7 @@ export function Popover({
         decision: 'cancelled',
       });
     };
-  }, [isOpen, portalRoot, ownerDocument, overlayId, placement]);
+  }, [isOpen, portalRoot, ownerDocument, overlayId, placement, collisionBoundary]);
 
   // ── Focus management ─────────────────────────────────────────────────────
 

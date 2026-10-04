@@ -18,6 +18,7 @@ function makeState(): EditorState {
     zoom: 1,
     pan: { x: 0, y: 0 },
     cameraRotation: 0,
+    workspaceMode: 'design',
   } as unknown as EditorState;
 }
 
@@ -125,12 +126,19 @@ describe('useIconAssets — insertIconAsset', () => {
       unsupportedCount: 0,
       warnings: [],
     });
-    const { stateRef, updateDoc, patch, announce, api } = setup();
+    const { stateRef, updateDoc, patch, announce, insertSubtree, api } = setup();
 
     const rootId = await act(async () => api.insertIconAsset(REQUEST));
 
     expect(rootId).toBe('icon-root');
     expect(spy).toHaveBeenCalled();
+    expect(insertSubtree).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      'icon-root',
+      expect.any(Function),
+      'design',
+    );
     const input = spy.mock.calls[0]?.[0]?.[0] as { text: string };
     expect(input.text).not.toContain('<script');
     const doc = stateRef.current.document;

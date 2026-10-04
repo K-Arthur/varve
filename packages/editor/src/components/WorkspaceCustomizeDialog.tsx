@@ -7,7 +7,7 @@
  * to built-in defaults (and leaves a recoverable snapshot in Manage Layouts).
  */
 import { Button, Checkbox, Dialog, IconButton, NativeSelect, SearchField } from '@varve/ui';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../context';
 import type { ToolId } from '../tools/toolRegistry';
 import {
@@ -173,6 +173,7 @@ export function WorkspaceCustomizeDialog({
   ]);
   const [confirmResetAll, setConfirmResetAll] = useState(false);
   const [toolSearch, setToolSearch] = useState('');
+  const toolbarSearchRef = useRef<HTMLInputElement>(null);
   const [dockSource, setDockSource] = useState<PanelId>('layers');
   const [dockTarget, setDockTarget] = useState<PanelId>('inspector');
   const [dockPlacement, setDockPlacement] = useState<DockMovePlacement>('tab');
@@ -184,6 +185,16 @@ export function WorkspaceCustomizeDialog({
     () => subscribeWorkspacePersistence(() => setPersistenceError(getWorkspacePersistenceError())),
     [],
   );
+
+  useLayoutEffect(() => {
+    const searchInput = toolbarSearchRef.current;
+    if (searchInput && searchInput.ownerDocument.activeElement === searchInput) {
+      // Filtering can remove enough rows below the field to clamp the body's
+      // scroll position and push the focused search (and its matches) out of
+      // view. Restore the field after each result update while it has focus.
+      searchInput.scrollIntoView?.({ block: 'nearest' });
+    }
+  }, [toolSearch]);
 
   const handleRetrySave = useCallback(async () => {
     setRetryingSave(true);
@@ -502,7 +513,12 @@ export function WorkspaceCustomizeDialog({
   }, [filteredToolbarTools]);
 
   return (
-    <Dialog open={open} onClose={onClose} title={`Customize ${WORKSPACE_LABELS[mode]} workspace`}>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title={`Customize ${WORKSPACE_LABELS[mode]} workspace`}
+      className="varve-dialog--workspace-customize"
+    >
       <div className="workspace-customize">
         <p className="workspace-customize__description">{builtIn.onboarding.description}</p>
 
@@ -673,6 +689,7 @@ export function WorkspaceCustomizeDialog({
             menus, or shortcuts. Select, Hand, and Zoom stay available for recovery.
           </p>
           <SearchField
+            ref={toolbarSearchRef}
             value={toolSearch}
             onChange={setToolSearch}
             placeholder="Search tools..."

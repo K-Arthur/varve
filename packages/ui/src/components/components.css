@@ -1452,6 +1452,10 @@
 /* ── Checkbox (design system refresh) ── */
 .varve-checkbox {
   display: inline-flex;
+  /* Anchor the visually-hidden native control to its own label. Without this
+     containing block, focusing it after a label click can scroll a distant
+     ancestor (including a modal) to the control's static-position target. */
+  position: relative;
   align-items: center;
   gap: var(--space-2);
   cursor: pointer;
@@ -1461,6 +1465,8 @@
 }
 .varve-checkbox__input {
   position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 0;
   width: 1px;
   height: 1px;
   padding: 0;

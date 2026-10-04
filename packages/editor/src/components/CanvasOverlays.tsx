@@ -555,6 +555,7 @@ export function CanvasOverlays({
         />
         <FloatingTextBar
           node={n}
+          canvasBoundary={contentCanvasRef.current}
           selectionRange={editor.state.selectionRange}
           pendingFormat={editor.state.pendingFormat}
           textScreenRect={textScreenRect}

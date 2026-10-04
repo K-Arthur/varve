@@ -32,7 +32,7 @@
    * the text bar visibly shorter than the palette it sits beside. Compact Pro
    * compacts with its controls (override below). */
   min-block-size: calc(var(--toolbar-height) + 2px);
-  max-width: calc(100vw - 24px);
+  max-width: 100%;
   white-space: nowrap;
   overflow-x: auto;
   scrollbar-width: thin;

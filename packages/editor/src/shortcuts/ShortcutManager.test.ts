@@ -223,6 +223,31 @@ describe('Inspector drawer history ownership', () => {
   });
 });
 
+describe('Resources dock history ownership', () => {
+  it('delegates history from ordinary non-modal panel controls only', () => {
+    document.body.innerHTML = `
+      <aside role="dialog" data-editor-shortcut-scope="resources-history">
+        <button id="target">Import File</button>
+      </aside>
+    `;
+    const target = document.getElementById('target');
+    expect(shouldIgnoreHistoryShortcutTarget(target)).toBe(false);
+    expect(shouldIgnoreShortcutTarget(target)).toBe(true);
+  });
+
+  it.each([
+    '<input id="target" type="search" />',
+    '<div role="dialog"><button id="target">Confirm</button></div>',
+  ])('keeps text entry and nested dialog shortcuts protected: %s', (nestedContent) => {
+    document.body.innerHTML = `
+      <aside role="dialog" data-editor-shortcut-scope="resources-history">
+        ${nestedContent}
+      </aside>
+    `;
+    expect(shouldIgnoreHistoryShortcutTarget(document.getElementById('target'))).toBe(true);
+  });
+});
+
 describe('Tool options popover history ownership', () => {
   it('delegates history shortcuts from non-editing controls without enabling other shortcuts', () => {
     document.body.innerHTML = `

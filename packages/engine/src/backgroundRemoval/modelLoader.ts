@@ -555,9 +555,18 @@ class ModelLoader {
             { method: 'HEAD', signal },
             MODEL_PATH_PROBE_TIMEOUT,
           );
-          if (head.ok) {
-            installed = true;
-            source = 'bundled';
+          // Dev servers with an SPA history fallback often answer missing
+          // model paths with the index document and status 200. Keep the
+          // installation list consistent with getModelPath(): a successful
+          // probe only proves the model exists if it is not HTML, and small
+          // responses are checked for an unfetched Git LFS pointer as well.
+          if (head.ok && !isHtmlResponse(head)) {
+            if (couldBeLfsPointer(head) && (await isGitLfsPointer(bundled, signal))) {
+              // Missing Git LFS object; continue to downloaded/native stores.
+            } else {
+              installed = true;
+              source = 'bundled';
+            }
           }
         }
       } catch {

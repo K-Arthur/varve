@@ -189,6 +189,13 @@ export interface SafeViewportRect {
   readonly padding: number;
 }
 
+export interface CollisionRegion {
+  /** A usable element boundary for Floating UI, or undefined for viewport fallback. */
+  readonly boundary: Element | undefined;
+  /** The corresponding padded region in viewport coordinates. */
+  readonly rect: SafeViewportRect;
+}
+
 export function safeViewportRect(ownerDocument: Document, padding = 8): SafeViewportRect {
   const view = ownerDocument.defaultView;
   const rawWidth = view?.innerWidth ?? ownerDocument.documentElement.clientWidth;
@@ -216,11 +223,10 @@ export function safeViewportRect(ownerDocument: Document, padding = 8): SafeView
  * layout viewport, so layout-viewport clamps place popovers under the
  * keyboard. This returns the visible region for post-placement clamping.
  *
- * Scope: only the unzoomed case (`scale` ~ 1, page-level pinch excluded).
- * Under pinch zoom the coordinate space of `getBoundingClientRect` versus
- * `VisualViewport` offsets is browser-defined enough that clamping could
- * misfire; the layout viewport remains the fallback there, and the visual
- * viewport metrics are still published to CSS (`--visual-viewport-height`).
+ * Scope: the unzoomed case (`scale` ~ 1, page-level pinch excluded). When the
+ * keyboard pans the visual viewport, its offsets are part of the client-space
+ * bounds used by fixed overlays. Under pinch zoom, keep the layout viewport
+ * fallback; visual-viewport metrics are still published to CSS.
  */
 export function visualViewportClampRect(ownerDocument: Document, padding = 8): SafeViewportRect {
   const view = ownerDocument.defaultView;
@@ -233,18 +239,74 @@ export function visualViewportClampRect(ownerDocument: Document, padding = 8): S
   const height = Number.isFinite(visual.height) ? Math.max(0, visual.height) : 0;
   if (width <= 0 || height <= 0) return layout;
   const inset = Math.max(0, padding);
-  const left = Math.min(inset, width);
-  const top = Math.min(inset, height);
-  const right = Math.max(left, width - inset);
-  const bottom = Math.max(top, height - inset);
+  const offsetLeft = Number.isFinite(visual.offsetLeft) ? visual.offsetLeft : 0;
+  const offsetTop = Number.isFinite(visual.offsetTop) ? visual.offsetTop : 0;
+  const left = Math.max(layout.left, offsetLeft + inset);
+  const top = Math.max(layout.top, offsetTop + inset);
+  const right = Math.min(layout.right, offsetLeft + width - inset);
+  const bottom = Math.min(layout.bottom, offsetTop + height - inset);
   return {
     left,
     top,
-    right,
-    bottom,
+    right: Math.max(left, right),
+    bottom: Math.max(top, bottom),
     width: Math.max(0, right - left),
     height: Math.max(0, bottom - top),
     padding: inset,
+  };
+}
+
+/**
+ * Resolve a caller boundary only when its padded area intersects the visible
+ * viewport. A tiny, detached, or offscreen boundary falls back to the normal
+ * viewport so Floating UI never receives a zero-area clipping boundary.
+ */
+export function resolveCollisionRegion(
+  ownerDocument: Document,
+  boundary?: Element | null,
+  padding = 8,
+): CollisionRegion {
+  const paddedViewport = visualViewportClampRect(ownerDocument, padding);
+  // When the viewport itself is smaller than its usual safe-area insets,
+  // retain the available pixels instead of manufacturing a zero-area region.
+  const viewport =
+    paddedViewport.width > 0 && paddedViewport.height > 0
+      ? paddedViewport
+      : visualViewportClampRect(ownerDocument, 0);
+  if (!boundary?.isConnected || boundary.ownerDocument !== ownerDocument) {
+    return { boundary: undefined, rect: viewport };
+  }
+
+  const bounds = boundary.getBoundingClientRect();
+  if (
+    !Number.isFinite(bounds.left) ||
+    !Number.isFinite(bounds.top) ||
+    !Number.isFinite(bounds.right) ||
+    !Number.isFinite(bounds.bottom) ||
+    bounds.width <= 0 ||
+    bounds.height <= 0
+  ) {
+    return { boundary: undefined, rect: viewport };
+  }
+
+  const inset = Math.max(0, padding);
+  const left = Math.max(viewport.left, bounds.left + inset);
+  const top = Math.max(viewport.top, bounds.top + inset);
+  const right = Math.min(viewport.right, bounds.right - inset);
+  const bottom = Math.min(viewport.bottom, bounds.bottom - inset);
+  if (right <= left || bottom <= top) return { boundary: undefined, rect: viewport };
+
+  return {
+    boundary,
+    rect: {
+      left,
+      top,
+      right,
+      bottom,
+      width: right - left,
+      height: bottom - top,
+      padding: inset,
+    },
   };
 }
 

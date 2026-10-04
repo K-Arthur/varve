@@ -48,6 +48,19 @@ describe('getModelPath HEAD probe', () => {
     expect(path).toBeNull();
   });
 
+  it('does not list an SPA-fallback HTML page as an installed model', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => htmlResponse()),
+    );
+    vi.stubGlobal('window', undefined);
+    vi.stubGlobal('indexedDB', undefined);
+    const { getModelLoader } = await import('./modelLoader');
+    const models = await getModelLoader().listInstalledModels();
+
+    expect(models.find((model) => model.id === 'modnet-portrait')?.installed).toBe(false);
+  });
+
   it('accepts a genuine model response', async () => {
     vi.stubGlobal(
       'fetch',

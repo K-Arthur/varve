@@ -642,7 +642,7 @@ function ShellInner({
           worldToScreen={(wx, wy) => editor.worldToCanvas(wx, wy)}
         />
         <SoftProofOverlay softProofEnabled={editor.state.softProofEnabled} />
-        <AuditOverlayHost viewport={{ width: window.innerWidth, height: window.innerHeight }} />
+        <AuditOverlayHost canvasRef={canvasContainerRef} />
         {fileImport.progress && (
           <ImportProgress
             current={fileImport.progress.current}
@@ -763,6 +763,9 @@ function ShellInner({
             id="editor-library-panel"
             aria-label="Resources"
             role={dockGeometry.tabPanelA11y.library ? 'tabpanel' : 'dialog'}
+            data-editor-shortcut-scope={
+              dockGeometry.tabPanelA11y.library ? undefined : 'resources-history'
+            }
             {...getDockPanelA11yProps(dockGeometry.tabPanelA11y.library)}
             style={dockGeometry.panelStyles.library}
           >

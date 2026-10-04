@@ -45,11 +45,12 @@ import {
   type OverlayAnchor,
   ownerDocumentForAnchor,
   portalRootForAnchor,
+  resolveCollisionRegion,
   resolvePlacementForDirection,
+  type SafeViewportRect,
   safeViewportRect,
   virtualPointReference,
   virtualRangeReference,
-  visualViewportClampRect,
 } from './overlayGeometry';
 
 const SAFE_VIEWPORT_PADDING = 8;
@@ -92,6 +93,8 @@ export interface FloatingPortalProps {
   scrollOwner?: 'portal' | 'content';
   /** Match floating layer width to the anchor element. */
   matchAnchorWidth?: boolean;
+  /** Optional element that bounds collision handling inside a workspace region. */
+  collisionBoundary?: Element | null;
   /** Called when user clicks outside the floating layer. */
   onClose?: (reason: OverlayCloseReason) => void;
   /** Additional portaled descendants that count as inside for outside-click handling. */
@@ -203,7 +206,7 @@ function fallbackPosition(
   floating: HTMLElement,
   placement: Placement,
   gap: number,
-  ownerDocument: Document,
+  safe: SafeViewportRect,
 ): { x: number; y: number } {
   const referenceRect = reference.getBoundingClientRect();
   const floatingSize = floatingLayoutSize(floating);
@@ -225,7 +228,6 @@ function fallbackPosition(
       : isEnd
         ? referenceRect.bottom - floatingSize.height
         : referenceRect.top;
-  const safe = safeViewportRect(ownerDocument, SAFE_VIEWPORT_PADDING);
   x = Math.min(Math.max(safe.left, x), Math.max(safe.left, safe.right - floatingSize.width));
   y = Math.min(Math.max(safe.top, y), Math.max(safe.top, safe.bottom - floatingSize.height));
   return { x, y };
@@ -247,6 +249,7 @@ export function FloatingPortal({
   maxHeight,
   scrollOwner = 'portal',
   matchAnchorWidth = false,
+  collisionBoundary,
   onClose,
   insideRefs,
   kind = 'popover',
@@ -433,6 +436,11 @@ export function FloatingPortal({
     );
     const update = () => {
       if (cancelled || generation !== generationRef.current || !floating.isConnected) return;
+      const collisionRegion = resolveCollisionRegion(
+        ownerDocument,
+        collisionBoundary,
+        SAFE_VIEWPORT_PADDING,
+      );
       computePosition(reference, floating, {
         strategy: 'fixed',
         placement: resolvedPlacement,
@@ -440,11 +448,13 @@ export function FloatingPortal({
           offset(offsetDistance),
           flip({
             padding: SAFE_VIEWPORT_PADDING,
+            boundary: collisionRegion.boundary,
             fallbackPlacements: resolvedFallbackPlacements,
           }),
-          shift({ padding: SAFE_VIEWPORT_PADDING }),
+          shift({ padding: SAFE_VIEWPORT_PADDING, boundary: collisionRegion.boundary }),
           size({
             padding: SAFE_VIEWPORT_PADDING,
+            boundary: collisionRegion.boundary,
             apply({ availableWidth, availableHeight, rects, elements }) {
               const constrainedHeight = Math.max(
                 0,
@@ -494,7 +504,7 @@ export function FloatingPortal({
           // is the region actually visible when the on-screen keyboard is
           // open, so clamp the computed position into it as a final step and
           // cap the height when the popover is taller than the visible region.
-          const clampRect = visualViewportClampRect(ownerDocument, SAFE_VIEWPORT_PADDING);
+          const clampRect = collisionRegion.rect;
           const floatingSize = floatingLayoutSize(floating);
           let positionedX = result.x;
           let positionedY = result.y;
@@ -577,25 +587,38 @@ export function FloatingPortal({
           if (cancelled || generation !== generationRef.current || !open || !floating.isConnected) {
             return;
           }
+          const fallbackRegion = resolveCollisionRegion(
+            ownerDocument,
+            collisionBoundary,
+            SAFE_VIEWPORT_PADDING,
+          );
           const fallback = fallbackPosition(
             reference,
             floating,
             resolvedPlacement,
             offsetDistance,
-            ownerDocument,
+            fallbackRegion.rect,
           );
+          const fallbackBounds = fallbackRegion.rect;
+          const boundedFallback = Boolean(fallbackRegion.boundary);
+          const fallbackMaxHeight = boundedFallback
+            ? Math.min(fallbackBounds.height, maxHeight ?? Number.POSITIVE_INFINITY)
+            : undefined;
           const fallbackStyle: CSSProperties = {
             position: 'fixed',
             left: fallback.x,
             top: fallback.y,
             boxSizing: 'border-box',
+            maxWidth: boundedFallback ? fallbackBounds.width : undefined,
+            maxHeight: scrollOwner === 'portal' ? fallbackMaxHeight : undefined,
+            overflowX: boundedFallback ? 'auto' : undefined,
+            overflowY: scrollOwner === 'content' ? 'visible' : boundedFallback ? 'auto' : undefined,
             visibility: 'visible',
             pointerEvents: 'auto',
             zIndex,
             ...(scrollOwner === 'content'
               ? {
-                  overflowY: 'visible',
-                  '--varve-floating-max-height': `${Math.max(0, Math.min(maxHeight ?? Infinity, safeViewportRect(ownerDocument, SAFE_VIEWPORT_PADDING).height))}px`,
+                  '--varve-floating-max-height': `${Math.max(0, Math.min(maxHeight ?? Infinity, fallbackBounds.height))}px`,
                 }
               : {}),
           };
@@ -618,7 +641,11 @@ export function FloatingPortal({
         ? autoUpdate(currentAnchor.element, floating, update)
         : currentAnchor.kind === 'range' && currentAnchor.contextElement
           ? autoUpdate(currentAnchor.contextElement, floating, update)
-          : undefined;
+          : currentAnchor.kind === 'point' &&
+              collisionBoundary?.isConnected &&
+              collisionBoundary.ownerDocument === ownerDocument
+            ? autoUpdate(collisionBoundary, floating, update)
+            : undefined;
     const OwnerMutationObserver = ownerDocument.defaultView?.MutationObserver;
     const ownerMutationObserver =
       (currentAnchor.kind === 'element' || currentAnchor.kind === 'range') && OwnerMutationObserver
@@ -673,6 +700,7 @@ export function FloatingPortal({
     scrollOwner,
     zIndex,
     matchAnchorWidth,
+    collisionBoundary,
     logicalPlacement,
     overlayId,
     kind,

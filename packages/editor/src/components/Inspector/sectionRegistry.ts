@@ -222,14 +222,17 @@ function isAllStrokeNodes(nodes: SceneNode[]): boolean {
 }
 
 function isAllEffectNodes(nodes: SceneNode[]): boolean {
-  // The kind list and canHaveLayerEffects together were the effective gate
-  // when the composition re-checked this predicate on top of its own JSX
-  // guard; both halves are kept so rendered availability is unchanged.
+  // Groups support layer effects when selected directly, but remain excluded
+  // from heterogeneous selections per the bulk-edit availability contract.
   return (
     nodes.length > 0 &&
     nodes.every(
       (n) =>
-        (n.kind === 'shape' || n.kind === 'text' || n.kind === 'frame' || n.kind === 'path') &&
+        (n.kind === 'shape' ||
+          n.kind === 'text' ||
+          n.kind === 'frame' ||
+          n.kind === 'path' ||
+          (nodes.length === 1 && n.kind === 'group')) &&
         canHaveLayerEffects(n),
     )
   );

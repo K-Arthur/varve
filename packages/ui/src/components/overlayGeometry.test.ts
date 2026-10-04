@@ -10,6 +10,7 @@ import {
   pointAnchor,
   portalRootForAnchor,
   rangeAnchor,
+  resolveCollisionRegion,
   resolvePlacementForDirection,
   safeViewportRect,
   viewportPoint,
@@ -39,6 +40,75 @@ function withVisualViewport<T>(
 }
 
 describe('overlay geometry contracts', () => {
+  it('uses a usable padded intersection for a workspace collision boundary', () => {
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1024 });
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 768 });
+    const boundary = document.createElement('div');
+    document.body.append(boundary);
+    Object.defineProperty(boundary, 'getBoundingClientRect', {
+      configurable: true,
+      value: () =>
+        ({
+          left: 100,
+          top: 120,
+          right: 500,
+          bottom: 420,
+          width: 400,
+          height: 300,
+        }) as DOMRect,
+    });
+
+    const region = resolveCollisionRegion(document, boundary, 8);
+
+    expect(region.boundary).toBe(boundary);
+    expect(region.rect).toMatchObject({
+      left: 108,
+      top: 128,
+      right: 492,
+      bottom: 412,
+      width: 384,
+      height: 284,
+    });
+  });
+
+  it.each([
+    {
+      name: 'a boundary too small for the padding',
+      rect: { left: 100, top: 100, right: 112, bottom: 300, width: 12, height: 200 },
+    },
+    {
+      name: 'a boundary outside the visible viewport',
+      rect: { left: 1200, top: 900, right: 1400, bottom: 1100, width: 200, height: 200 },
+    },
+  ])('falls back to the viewport for $name', ({ rect: bounds }) => {
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1024 });
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 768 });
+    const boundary = document.createElement('div');
+    document.body.append(boundary);
+    Object.defineProperty(boundary, 'getBoundingClientRect', {
+      configurable: true,
+      value: () => bounds as DOMRect,
+    });
+
+    const region = resolveCollisionRegion(document, boundary, 8);
+
+    expect(region.boundary).toBeUndefined();
+    expect(region.rect).toEqual(visualViewportClampRect(document, 8));
+    expect(region.rect.width).toBeGreaterThan(0);
+    expect(region.rect.height).toBeGreaterThan(0);
+  });
+
+  it('uses the full available viewport when the safe-area inset exceeds its size', () => {
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 12 });
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 10 });
+
+    const region = resolveCollisionRegion(document, document.createElement('div'), 8);
+
+    expect(region.boundary).toBeUndefined();
+    expect(region.rect.width).toBe(12);
+    expect(region.rect.height).toBe(10);
+  });
+
   it('tags client coordinates as viewport coordinates', () => {
     expect(viewportPoint(12, 34)).toEqual({ space: 'viewport', x: 12, y: 34 });
     expect(() => viewportPoint(Number.NaN, 1)).toThrow(RangeError);
@@ -154,6 +224,25 @@ describe('overlay geometry contracts', () => {
       expect(rect.height).toBe(404);
       expect(rect.bottom).toBe(412);
     });
+  });
+
+  it('includes visual viewport offsets when the keyboard pans the visible region', () => {
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1024 });
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 768 });
+    withVisualViewport(
+      { width: 600, height: 500, offsetTop: 80, offsetLeft: 120, scale: 1 },
+      () => {
+        const rect = visualViewportClampRect(document, 8);
+        expect(rect).toMatchObject({
+          left: 128,
+          top: 88,
+          right: 712,
+          bottom: 572,
+          width: 584,
+          height: 484,
+        });
+      },
+    );
   });
 
   it('keeps the layout fallback while the page is pinch-zoomed', () => {

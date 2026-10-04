@@ -34,6 +34,8 @@ export interface FloatingTextBarProps {
   textScreenRect: { x: number; y: number; w: number; h: number };
   selectionRange?: RichSelection | null;
   pendingFormat?: CharacterFormat | null;
+  /** Keep the text controls inside the visible canvas area, clear of docked panels. */
+  canvasBoundary?: HTMLElement | null;
   beginPreview?: () => void;
   commitPreview?: () => void;
   abortPreview?: () => void;
@@ -52,6 +54,7 @@ export function FloatingTextBar({
   textScreenRect,
   selectionRange = null,
   pendingFormat = null,
+  canvasBoundary = null,
   beginPreview,
   commitPreview,
   abortPreview,
@@ -113,8 +116,8 @@ export function FloatingTextBar({
     };
   }, []);
   const textAnchor = useMemo(
-    () => pointAnchor(viewportPoint(textScreenRect.x, textScreenRect.y), document),
-    [textScreenRect.x, textScreenRect.y],
+    () => pointAnchor(viewportPoint(textScreenRect.x, textScreenRect.y), document, canvasBoundary),
+    [canvasBoundary, textScreenRect.x, textScreenRect.y],
   );
 
   // This bar is mounted exactly while the in-canvas text edit session is
@@ -242,6 +245,7 @@ export function FloatingTextBar({
       fallbackPlacements={TOOLBAR_FALLBACKS}
       offsetDistance={8}
       kind="popover"
+      collisionBoundary={canvasBoundary}
       dismissOnEscape={!colorOpen && !suppressResizeEscape}
       // Resizing or reactivating the editor can transiently blur the window;
       // that must not end a text-edit session or discard the quick toolbar.
@@ -320,6 +324,7 @@ export function FloatingTextBar({
 
         <Popover
           placement="top"
+          collisionBoundary={canvasBoundary}
           open={colorOpen}
           onOpenChange={setColorOpen}
           label="Text color picker"
@@ -351,6 +356,7 @@ export function FloatingTextBar({
           open={moreOpen}
           placement="bottom-end"
           kind="popover"
+          collisionBoundary={canvasBoundary}
           className="floating-text-bar__more-layer"
           dismissOnEscape
           dismissOnPointerDown
