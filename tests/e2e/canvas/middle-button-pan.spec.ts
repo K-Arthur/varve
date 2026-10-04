@@ -38,6 +38,17 @@ test.describe('Middle-button viewport pan', () => {
     await canvas.focus();
     const before = await selectionRect(page);
     const nodeCount = await page.getByRole('treeitem').count();
+    await page.evaluate(() => {
+      const testWindow = window as typeof window & { __middleAuxClickPrevented?: boolean };
+      delete testWindow.__middleAuxClickPrevented;
+      window.addEventListener(
+        'auxclick',
+        (event) => {
+          if (event.button === 1) testWindow.__middleAuxClickPrevented = event.defaultPrevented;
+        },
+        { once: true },
+      );
+    });
 
     const box = await canvas.boundingBox();
     if (!box) throw new Error('content canvas not found');
@@ -50,6 +61,22 @@ test.describe('Middle-button viewport pan', () => {
     await page.mouse.move(box.x + 280, box.y + 210, { steps: 6 });
     await page.mouse.up({ button: 'middle' });
     await page.waitForTimeout(300);
+    expect(
+      await page.evaluate(
+        () =>
+          (window as typeof window & { __middleAuxClickPrevented?: boolean })
+            .__middleAuxClickPrevented,
+      ),
+    ).toBe(true);
+
+    // The object under the pointer and the system clipboard must not replace
+    // the active selection when the middle-button gesture finishes. This also
+    // catches Linux auxclick PRIMARY-selection paste, which otherwise makes
+    // the following geometry read measure a newly-pasted object.
+    expect(await page.getByRole('treeitem').count()).toBe(nodeCount);
+    await expect(
+      page.getByRole('treeitem', { name: /Rectangle 1, Vector rectangle/ }),
+    ).toHaveAttribute('aria-selected', 'true');
 
     const after = await selectionRect(page);
     // Content follows the pointer 1:1: a left-up drag moves the artwork
@@ -57,7 +84,6 @@ test.describe('Middle-button viewport pan', () => {
     expect(after.x).toBeLessThan(before.x - 100);
     expect(after.y).toBeLessThan(before.y - 70);
     expect(after.width).toBeCloseTo(before.width, 0);
-    expect(await page.getByRole('treeitem').count()).toBe(nodeCount);
     // The editor keeps hidden <dialog> elements mounted; assert none became
     // visible (no context menu / autoscroll UI from the middle button).
     await expect(page.locator('dialog:visible')).toHaveCount(0);

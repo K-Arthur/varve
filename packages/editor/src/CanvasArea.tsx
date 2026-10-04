@@ -1549,6 +1549,12 @@ export function CanvasArea({
         onPointerUp={input.handlePointerUp}
         onPointerCancel={input.handlePointerCancel}
         onPointerLeave={input.onPointerLeave}
+        onAuxClick={(event) => {
+          // Middle-button pan is owned by the canvas pointer pipeline. Cancel
+          // the follow-up auxclick too: on Linux, its default action can paste
+          // the PRIMARY selection after the pan has already completed.
+          if (event.button === 1) event.preventDefault();
+        }}
       />
       <canvas
         ref={overlayCanvasRef}
