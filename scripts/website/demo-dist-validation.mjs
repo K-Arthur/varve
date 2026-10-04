@@ -168,7 +168,7 @@ export function prepareDemoDist(env = process.env, root = process.cwd()) {
   mkdirSync(dirname(receiptPath), { recursive: true });
   writeFileSync(
     receiptPath,
-    `${JSON.stringify({ schema: 1, sourceSha, originalDir, distDir, artifactSha256: inventory.sha256, validationSource: demoBrowserSource(inputs, inventory.sha256, root), files: inventory.files, runId: env.GITHUB_RUN_ID ?? null, runAttempt: env.GITHUB_RUN_ATTEMPT ?? null }, null, 2)}\n`,
+    `${JSON.stringify({ schema: 1, sourceSha, originalDir, distDir: inputs.distDir, artifactSha256: inventory.sha256, validationSource: demoBrowserSource(inputs, inventory.sha256, root), files: inventory.files, runId: env.GITHUB_RUN_ID ?? null, runAttempt: env.GITHUB_RUN_ATTEMPT ?? null }, null, 2)}\n`,
   );
   appendFileSync(
     required(env, 'GITHUB_ENV'),

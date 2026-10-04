@@ -297,7 +297,9 @@ writeFileSync(
     schema: 1,
     sourceSha: demoSource,
     originalDir: demoDist,
-    distDir: demoDist,
+    // demoDistInputs canonicalizes the path. This matters on macOS, where
+    // tmpdir() paths commonly resolve through /var to /private/var.
+    distDir: demoInputs.distDir,
     artifactSha256: demoArtifactSha,
     validationSource: demoValidationSource,
   }),
