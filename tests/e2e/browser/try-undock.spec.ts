@@ -33,10 +33,17 @@ test('detached panel opens, hydrates and reattaches inside the /try app base', a
   const popup = await popupPage;
 
   await expect.poll(() => new URL(popup.url()).pathname).toBe('/try/index.html');
-  await expect(popup.locator('[data-varve-editor-ready="true"]')).toBeVisible({
+  // Auxiliary windows mount the lightweight AuxiliaryShell, not App.tsx's
+  // editor-ready wrapper. Wait for the real hosted panel and its transferred
+  // document instead of the main-window-only readiness marker.
+  const auxiliaryLayers = popup.locator('section[data-panel-root="layers"]');
+  await expect(auxiliaryLayers).toBeVisible({
     timeout: 90_000,
   });
-  await expect(popup.locator('.layers-panel')).toBeVisible({ timeout: 30_000 });
+  const layerTree = auxiliaryLayers.getByRole('tree', { name: 'Layers' });
+  await expect(layerTree).toBeVisible({ timeout: 30_000 });
+  await expect(layerTree.getByRole('treeitem')).toHaveCount(10);
+  await expect(layerTree.getByRole('treeitem', { name: /Poster/ })).toBeVisible();
   await expect(sourcePanel).toBeHidden({ timeout: 30_000 });
 
   const popupClosed = popup.waitForEvent('close', { timeout: 30_000 });

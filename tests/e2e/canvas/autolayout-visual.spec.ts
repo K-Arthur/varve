@@ -522,8 +522,16 @@ test.describe('Auto Layout comprehensive verification', () => {
     await page.waitForTimeout(200);
     // Inner frame → flex row
     await selectTool(page);
-    await page.mouse.click(outerBox.x + 180, outerBox.y + 170);
-    await page.waitForTimeout(400);
+    // The outer flex layout reflows its children, so the original canvas
+    // point may now hit a child rectangle instead of the inner frame.
+    const innerFrame = page.getByRole('treeitem', { name: 'Frame 2, Frame' });
+    await innerFrame.click();
+    await expect(innerFrame).toHaveAttribute('aria-selected', 'true');
+    await expect(
+      page
+        .getByRole('navigation', { name: 'Selection path' })
+        .getByRole('button', { name: 'Frame: Frame 2. Right-click to enter.' }),
+    ).toBeVisible();
     await selectFromCombobox(page, 'Layout mode', 'Flex');
     await page.waitForTimeout(300);
     await selectFromCombobox(page, 'Layout direction', 'Row');
