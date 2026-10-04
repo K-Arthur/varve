@@ -133,8 +133,8 @@ candidate-plan/
 /candidate-certification.json
 /ci-feedback.json
 
-# --- Downloaded test corpus (restore-system fixtures fetched by scripts) ---
-tests/fixtures/restore-corpus/
+# --- Generated restore degradations (source fixtures and provenance are tracked) ---
+# The corpus-local .gitignore excludes deterministic `*--*.png` derivatives.
 
 # --- Local AI tool config (personal paths, no secrets) ---
 .claude/
@@ -167,7 +167,8 @@ scripts/diagnostics/
 .replay-browser-results.json
 
 # --- Large source models for quantization (hosted on varve-models-v1 release) ---
-models-source/
+models-source/*
+!models-source/README.md
 
 # --- One-off perf debugging dumps (removed 2026-08-04; kept out of future commits) ---
 scripts/perf/dump*.mjs
