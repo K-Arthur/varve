@@ -48,6 +48,7 @@ const ACTION_ICONS: Partial<Record<QuickBarActionId, IconName>> = {
   vectorize: 'Spline',
   flipH: 'FlipHorizontal2',
   flipV: 'FlipVertical2',
+  reversePath: 'ArrowLeftRight',
   fitCycle: 'Expand',
   refineMask: 'Brush',
   showOriginal: 'Eye',

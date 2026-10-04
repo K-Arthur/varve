@@ -138,33 +138,40 @@ export function SelectionQuickBarHost({
             if (!id) return;
             const dependency = findPathTopologyDependency(state.document, id);
             if (dependency) {
-              editor.announce(pathTopologyBlockMessage(dependency));
+              editor.showToast({ message: pathTopologyBlockMessage(dependency), type: 'warning' });
+              return;
+            }
+            if (simplifyPathNode(state.document, id) === state.document) {
+              editor.showToast({
+                message: 'Path is already simplified at the current tolerance.',
+                type: 'info',
+              });
               return;
             }
             editor.beginTransaction();
             editor.updateDoc((doc) => simplifyPathNode(doc, id));
             editor.commitTransaction();
-            editor.announce('Path simplified');
+            editor.showToast({ message: 'Path simplified', type: 'success' });
           },
           reverseSelectedPath: () => {
             const id = state.selection[0];
             if (!id) return;
             const dependency = findPathTopologyDependency(state.document, id);
             if (dependency) {
-              editor.announce(pathTopologyBlockMessage(dependency));
+              editor.showToast({ message: pathTopologyBlockMessage(dependency), type: 'warning' });
               return;
             }
             editor.beginTransaction();
             editor.updateDoc((doc) => reversePathNode(doc, id));
             editor.commitTransaction();
-            editor.announce('Path direction reversed');
+            editor.showToast({ message: 'Path direction reversed', type: 'success' });
           },
           toggleSelectedPathClosed: (closed) => {
             const id = state.selection[0];
             if (!id) return;
             const dependency = findPathTopologyDependency(state.document, id);
             if (dependency) {
-              editor.announce(pathTopologyBlockMessage(dependency));
+              editor.showToast({ message: pathTopologyBlockMessage(dependency), type: 'warning' });
               return;
             }
             editor.beginTransaction();
