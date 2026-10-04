@@ -367,27 +367,21 @@ test.describe('Navigation to finding', () => {
     await seedLayers(page, 3);
     await expect(page.getByRole('treeitem')).toHaveCount(3, { timeout: 5000 });
 
-    // Focus the canvas and select a node via keyboard
-    const canvas = page.locator('canvas.editor-canvas__content-layer');
-    await canvas.focus();
-    await page.waitForTimeout(100);
+    // The editor has several focusable controls between the canvas and the
+    // Layers panel, so one Tab from the canvas does not enter the tree. Start
+    // from its current roving row and verify keyboard navigation stays there.
+    const firstItem = page.locator('[role="treeitem"][tabindex="0"]');
+    await firstItem.focus();
+    await expect(firstItem).toBeFocused();
 
-    // Tab to enter tree navigation
-    await page.keyboard.press('Tab');
-    await page.waitForTimeout(100);
-
-    // The active element should be in the layers tree
-    const activeRole = await page.evaluate(
-      () => document.activeElement?.getAttribute('role') ?? 'null',
-    );
-    expect(activeRole).toBe('treeitem');
-
-    // Arrow keys should navigate within the tree
     await page.keyboard.press('ArrowDown');
-    await page.waitForTimeout(100);
+    const secondItem = page.locator('[role="treeitem"][tabindex="0"]');
+    await expect(secondItem).toHaveAttribute('aria-posinset', '2');
+    await expect(secondItem).toBeFocused();
 
-    // No focus should be lost to <body>
-    const activeTag = await page.evaluate(() => document.activeElement?.tagName ?? 'null');
-    expect(activeTag).not.toBe('BODY');
+    // Enter operates on the focused row and keeps keyboard focus in the pane.
+    await page.keyboard.press('Enter');
+    await expect(secondItem).toHaveAttribute('aria-selected', 'true');
+    await expect(secondItem).toBeFocused();
   });
 });

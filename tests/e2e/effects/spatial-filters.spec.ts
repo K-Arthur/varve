@@ -3,6 +3,7 @@ import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
 import { expect, test } from '@playwright/test';
 import { importImageFile } from '../helpers/editor-helpers';
+import { selectInspectorTab } from '../helpers/inspector-tabs';
 import { navigateToCleanEditor } from '../helpers/nav';
 
 const requireFromEngine = createRequire(resolve('packages/engine/package.json'));
@@ -83,7 +84,7 @@ test('spatial object filters are discoverable, editable, persistent in the stack
   await page.screenshot({ path: `${review}/spatial-filters-inspector.png` });
   await canvas.screenshot({ path: `${review}/spatial-filters-canvas.png` });
 
-  await page.getByRole('tab', { name: 'Export', exact: true }).click();
+  await selectInspectorTab(page, 'Export');
   await page
     .locator('.spec-export__group')
     .getByRole('radio', { name: 'PNG', exact: true })

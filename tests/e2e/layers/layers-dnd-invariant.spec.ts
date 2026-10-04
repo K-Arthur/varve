@@ -310,17 +310,38 @@ test.describe('Layers DnD — preview matches commit', () => {
   });
 
   test('a fast drag across many rows lands where the pointer finished', async ({ page }) => {
+    // Give this large-tree gesture enough vertical space to keep its final
+    // destination inside the Layers tree's clipped pointer target.
+    await page.setViewportSize({ width: 1280, height: 1080 });
     const rows = await seedAndRead(page, 6, 4);
     const source = rows[0]!;
     const target = rows[rows.length - 1]!;
+
+    // The test needs the source and destination to be physically reachable in
+    // one uninterrupted gesture. At the default height, the minimap and Design
+    // Canvases section leave the last of these six rows outside the tree's
+    // clipped viewport; a pointer move there cannot produce a drop preview.
+    // Collapse unrelated Layers chrome so all six rows remain reachable.
+    const layersPanel = page.getByTestId('layers-panel');
+    await layersPanel.getByRole('button', { name: 'Hide minimap', exact: true }).click();
+    await layersPanel
+      .getByRole('button', { name: 'Hide Design Canvases section', exact: true })
+      .click();
+
+    const tree = page.getByRole('tree', { name: /layers/i });
+    const treeBox = await tree.boundingBox();
+    const targetRow = page.locator(`[role="treeitem"][data-node-id="${target.id}"]`);
+    const targetBoxBeforeDrag = await targetRow.boundingBox();
+    if (!treeBox || !targetBoxBeforeDrag) throw new Error('visible tree geometry unavailable');
+    expect(targetBoxBeforeDrag.y + targetBoxBeforeDrag.height).toBeLessThanOrEqual(
+      treeBox.y + treeBox.height,
+    );
 
     await beginDrag(page, source.id);
     // Two samples only: no intermediate rows are entered at all. The final
     // target must still come from the final pointer position rather than from
     // whichever row happened to fire a dnd-kit `over`.
-    const targetBox = await page
-      .locator(`[role="treeitem"][data-node-id="${target.id}"]`)
-      .boundingBox();
+    const targetBox = await targetRow.boundingBox();
     if (!targetBox) throw new Error('target geometry unavailable');
     await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height * 0.85);
 

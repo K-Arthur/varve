@@ -1,4 +1,5 @@
-import { writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
@@ -29,11 +30,128 @@ type PortraitMaskReport = {
   height: number;
   hardPixels: number;
   componentCount: number;
-  personInteriorHardPixels: number;
-  backgroundHardPixels: number;
+  foregroundCoreHardPixels: number;
+  clearBackgroundHardPixels: number;
 };
 
 const HARD_MASK_THRESHOLD = 127;
+const MODNET_MODEL_ID = 'modnet-portrait';
+const SYNTHETIC_MODNET_BYTES = Buffer.from([1]);
+const SYNTHETIC_MODNET_SHA256 = createHash('sha256').update(SYNTHETIC_MODNET_BYTES).digest('hex');
+const SYNTHETIC_MODNET_PATH = '/__e2e__/modnet-portrait.onnx';
+
+async function installSyntheticModnetRoutes(context: import('@playwright/test').BrowserContext) {
+  const manifest = JSON.parse(
+    readFileSync(path.resolve('apps/desktop/public/models/manifest.json'), 'utf8'),
+  ) as {
+    models: Array<{ id: string; sha256: string | null; remoteUrl: string }>;
+  };
+  const model = manifest.models.find((entry) => entry.id === MODNET_MODEL_ID);
+  expect(model, 'The production manifest must still declare optional MODNet').toBeDefined();
+  model!.sha256 = SYNTHETIC_MODNET_SHA256;
+  model!.remoteUrl = SYNTHETIC_MODNET_PATH;
+
+  await context.route('**/models/manifest.json', async (route) => {
+    await route.fulfill({ status: 200, contentType: 'application/json', json: manifest });
+  });
+  await context.route(`**${SYNTHETIC_MODNET_PATH}`, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/octet-stream',
+      headers: { 'content-length': String(SYNTHETIC_MODNET_BYTES.length) },
+      body: SYNTHETIC_MODNET_BYTES,
+    });
+  });
+}
+
+function installModnetWorkerStub() {
+  const modelId = 'modnet-portrait';
+  type InferMessage = {
+    type?: string;
+    requestId?: string;
+    modelId?: string;
+    method?: string;
+    imageData?: { width: number; height: number };
+    requestRevision?: number;
+  };
+  type ModnetWindow = Window & {
+    __varveModnetWorkerMessages: Array<{ phase: string; modelId: string }>;
+  };
+  const testWindow = window as unknown as ModnetWindow;
+  testWindow.__varveModnetWorkerMessages = [];
+  const NativeWorker = window.Worker;
+
+  class ModnetWorkerStub {
+    private readonly messageListeners: Array<(event: MessageEvent) => void> = [];
+
+    addEventListener(type: string, listener: EventListenerOrEventListenerObject) {
+      if (type !== 'message' || typeof listener !== 'function') return;
+      this.messageListeners.push(listener as (event: MessageEvent) => void);
+    }
+
+    removeEventListener() {}
+
+    postMessage(message: InferMessage) {
+      if (message.type !== 'infer' || message.modelId !== modelId) return;
+      const width = message.imageData?.width ?? 0;
+      const height = message.imageData?.height ?? 0;
+      if (width <= 0 || height <= 0 || !message.requestId) return;
+      testWindow.__varveModnetWorkerMessages.push({ phase: 'request', modelId: message.modelId });
+
+      // Deterministic integration mask: a centered foreground ellipse with a
+      // clear top-background region. The separately maintained model-quality
+      // evidence must use a provisioned real artifact, never this fixture.
+      const rawMask = new Uint8Array(width * height);
+      const centerX = width * 0.5;
+      const centerY = height * 0.48;
+      const radiusX = width * 0.25;
+      const radiusY = height * 0.4;
+      for (let y = 0; y < height; y += 1) {
+        for (let x = 0; x < width; x += 1) {
+          const dx = (x - centerX) / radiusX;
+          const dy = (y - centerY) / radiusY;
+          if (dx * dx + dy * dy <= 1) rawMask[y * width + x] = 255;
+        }
+      }
+
+      testWindow.__varveModnetWorkerMessages.push({ phase: 'response', modelId: message.modelId });
+      queueMicrotask(() => {
+        for (const listener of this.messageListeners) {
+          listener({
+            data: {
+              type: 'result',
+              requestId: message.requestId,
+              result: {
+                method: 'portrait',
+                modelId,
+                executionProvider: 'wasm',
+                processingTimeMs: 1,
+                width,
+                height,
+                rawMask,
+                requestRevision: message.requestRevision,
+              },
+            },
+          } as MessageEvent);
+        }
+      });
+    }
+
+    terminate() {}
+  }
+
+  Object.defineProperty(window, 'Worker', {
+    configurable: true,
+    value: new Proxy(NativeWorker, {
+      construct(target, args) {
+        if (String(args[0]).includes('backgroundRemoval/worker')) {
+          return new ModnetWorkerStub();
+        }
+        return Reflect.construct(target, args);
+      },
+    }),
+  });
+}
 
 async function serializeEditorDocument(page: import('@playwright/test').Page): Promise<string> {
   return page.evaluate(() => {
@@ -132,17 +250,15 @@ function inspectPortraitMask(serialized: string): PortraitMaskReport {
     height: png.height,
     hardPixels,
     componentCount: countHardComponents(png.data, png.width, png.height),
-    // Ground-truth review windows for real-life-katharine-hepburn.jpg: the
-    // face/hair interior must be selected, while the clear upper background
-    // must remain untouched. These windows deliberately avoid the soft hair
-    // boundary and the frame edges.
-    personInteriorHardPixels: countHardPixelsInRect(png.data, png.width, {
+    // Deterministic integration-mask windows: the center must be selected,
+    // while the clear upper background remains untouched.
+    foregroundCoreHardPixels: countHardPixelsInRect(png.data, png.width, {
       minX: 430,
       minY: 420,
       maxX: 850,
       maxY: 980,
     }),
-    backgroundHardPixels: countHardPixelsInRect(png.data, png.width, {
+    clearBackgroundHardPixels: countHardPixelsInRect(png.data, png.width, {
       minX: 560,
       minY: 20,
       maxX: 720,
@@ -152,15 +268,13 @@ function inspectPortraitMask(serialized: string): PortraitMaskReport {
 }
 
 /**
- * Real-photo coverage for the model-backed automatic subject estimate.
+ * Automatic subject estimate workflows on photographic content.
  *
- * The bundled U2-Net Light and optional MODNet models run through the real
- * worker/WASM path, so these tests exercise automatic foreground proposals on
- * photographic content: a still life, a portrait with hair, and an interior
- * scene where a foreground estimate is expected to be weak. The specialist
- * portrait lane also decodes the persisted mask and checks target/background
- * review windows; screenshots are retained for visual inspection because a
- * synthetic fixture cannot establish cutout quality.
+ * Fast estimates exercise the real bundled U²-Net Light model. The MODNet
+ * specialist case uses a deterministic optional-model artifact and Worker
+ * stub to verify the install, provider, review, and document-commit workflow
+ * without downloading a large model in generic CI. This mock does not measure
+ * portrait segmentation quality.
  */
 
 async function importPhoto(page: import('@playwright/test').Page, fixture: string) {
@@ -341,10 +455,13 @@ test.describe('Automatic subject estimate on real photographs', () => {
     await expect(canvas).toBeVisible();
   });
 
-  test('portrait specialist: MODNet selects the person and preserves background', async ({
+  test('portrait specialist: MODNet install and proposal workflow stays reviewable', async ({
     page,
+    context,
   }, testInfo) => {
     test.setTimeout(180_000);
+    await installSyntheticModnetRoutes(context);
+    await page.addInitScript(installModnetWorkerStub);
     await resetPhotoGateStartup(page);
     await navigateToEditor(page, '/', { startupTimeout: 180000 });
     await importPhoto(page, 'real-life-katharine-hepburn.jpg');
@@ -356,10 +473,25 @@ test.describe('Automatic subject estimate on real photographs', () => {
     await inspector.getByRole('button', { name: /^Select subject$/ }).click();
 
     const proposals = inspector.getByLabel('Subject proposals');
+    const install = inspector
+      .getByRole('region', { name: 'Optional subject model' })
+      .getByRole('button', { name: /^Download MODNet Portrait$/ });
+    await expect(proposals.or(install)).toBeVisible({ timeout: 120_000 });
+    await expect(install).toBeVisible();
+    await install.click();
     await expect(proposals).toBeVisible({ timeout: 120_000 });
     await expect(proposals.getByText(/MODNet Portrait estimate/)).toBeVisible();
     await expect(proposals.getByText(/portrait-only matte/i)).toBeVisible();
     await expect(proposals.getByText(/Model-free estimate/i)).toHaveCount(0);
+    await expect
+      .poll(() =>
+        page.evaluate(() =>
+          (
+            window as unknown as { __varveModnetWorkerMessages?: Array<{ phase: string }> }
+          ).__varveModnetWorkerMessages?.some((message) => message.phase === 'response'),
+        ),
+      )
+      .toBe(true);
 
     const candidate = proposals.locator('button[aria-label$="percent"]').first();
     await candidate.click();
@@ -375,8 +507,10 @@ test.describe('Automatic subject estimate on real photographs', () => {
     const canvas = page.getByTestId('editor-canvas');
     await page.getByRole('button', { name: 'Fit sel' }).click();
     await page.waitForTimeout(400);
-    await canvas.screenshot({ path: testInfo.outputPath('subject-portrait-modnet-preview.png') });
-    await testInfo.attach('subject-portrait-modnet-preview', {
+    await canvas.screenshot({
+      path: testInfo.outputPath('subject-portrait-modnet-integration-preview.png'),
+    });
+    await testInfo.attach('subject-portrait-modnet-integration-preview', {
       body: await canvas.screenshot(),
       contentType: 'image/png',
     });
@@ -401,19 +535,21 @@ test.describe('Automatic subject estimate on real photographs', () => {
       .toBe(true);
     const maskReport = inspectPortraitMask(await serializeEditorDocument(page));
     writeFileSync(
-      testInfo.outputPath('subject-portrait-modnet-mask-metrics.json'),
+      testInfo.outputPath('subject-portrait-modnet-integration-mask-metrics.json'),
       JSON.stringify(maskReport, null, 2),
     );
-    await testInfo.attach('subject-portrait-modnet-mask-metrics', {
+    await testInfo.attach('subject-portrait-modnet-integration-mask-metrics', {
       body: JSON.stringify(maskReport, null, 2),
       contentType: 'application/json',
     });
     expect(maskReport.width).toBe(1280);
     expect(maskReport.height).toBe(1696);
-    expect(maskReport.personInteriorHardPixels).toBeGreaterThan(20_000);
-    expect(maskReport.backgroundHardPixels).toBe(0);
-    await canvas.screenshot({ path: testInfo.outputPath('subject-portrait-modnet-mask.png') });
-    await testInfo.attach('subject-portrait-modnet-mask', {
+    expect(maskReport.foregroundCoreHardPixels).toBeGreaterThan(20_000);
+    expect(maskReport.clearBackgroundHardPixels).toBe(0);
+    await canvas.screenshot({
+      path: testInfo.outputPath('subject-portrait-modnet-integration-mask.png'),
+    });
+    await testInfo.attach('subject-portrait-modnet-integration-mask', {
       body: await canvas.screenshot(),
       contentType: 'image/png',
     });

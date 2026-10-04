@@ -4,6 +4,9 @@ import { navigateToEditor, seedLayers } from '../shared';
 
 test.describe('Inspector feature ownership', () => {
   test.beforeEach(async ({ page }) => {
+    // Keep visual captures deterministic even if a later test adds its own
+    // responsive viewport override. This is the canonical Desktop Chrome size.
+    await page.setViewportSize({ width: 1280, height: 720 });
     await navigateToEditor(page);
   });
 

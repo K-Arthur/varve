@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { openSubmenu } from '../helpers/menu-helpers';
 import { navigateToEditor } from '../shared';
 
 const VIEWPORT = { width: 1280, height: 800 };
@@ -75,7 +76,7 @@ test.describe('Workspace Mode Switching — Functional Assertions', () => {
   });
 
   test('workspace entries in View menu', async ({ page }) => {
-    await page.getByRole('menuitem', { name: 'View' }).click();
+    await openSubmenu(page, 'View', 'Workspace');
     await expect(page.getByRole('menuitemradio', { name: 'Workspace: Design' })).toBeVisible();
     await expect(page.getByRole('menuitemradio', { name: 'Workspace: Print' })).toBeVisible();
     await expect(page.getByRole('menuitemradio', { name: 'Workspace: Draw' })).toBeVisible();

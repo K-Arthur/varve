@@ -20,15 +20,14 @@ test.describe('Timeline keyframe editing', () => {
     const ruler = page.getByRole('slider', { name: 'Timeline ruler' });
     await ruler.focus();
     for (let i = 0; i < 5; i += 1) await ruler.press('Shift+ArrowRight');
-    // Opening the timeline can resize the docked canvas; use its live bounds
-    // after the panel has settled instead of the pre-timeline rectangle.
-    const currentCanvasBounds = await canvas.boundingBox();
-    if (!currentCanvasBounds) throw new Error('content canvas not laid out after opening timeline');
-    await page.mouse.click(currentCanvasBounds.x + 240, currentCanvasBounds.y + 220);
-    await page.mouse.move(currentCanvasBounds.x + 240, currentCanvasBounds.y + 220);
-    await page.mouse.down();
-    await page.mouse.move(currentCanvasBounds.x + 320, currentCanvasBounds.y + 180, { steps: 8 });
-    await page.mouse.up();
+    await expect(ruler).toHaveAttribute('aria-valuenow', '2500');
+
+    // Author a second position keyframe through the same command used by the
+    // Motion workspace. Dragging an arbitrary canvas point does not create a
+    // keyframe when auto-keyframe is off, and the timeline ruler owns keyboard
+    // input while focused. Return focus to the selected layer before invoking
+    // the editor shortcut.
+    await page.getByRole('treeitem').first().click();
     await page.keyboard.press('Alt+p');
 
     const keyframes = page.locator('.timeline-track-row__keyframe');

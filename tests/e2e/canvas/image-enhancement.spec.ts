@@ -11,6 +11,18 @@ async function selectOperation(page: import('@playwright/test').Page, label: str
   await page.getByRole('option', { name: label, exact: true }).click();
 }
 
+/** Select an option through the native radio that owns the hit target. */
+async function selectSegmentedOption(
+  page: import('@playwright/test').Page,
+  groupName: string,
+  optionName: string,
+) {
+  await page
+    .getByRole('radiogroup', { name: groupName })
+    .getByRole('radio', { name: optionName, exact: true })
+    .check();
+}
+
 async function openEnhanceDialog(page: import('@playwright/test').Page) {
   await navigateToEditor(page);
   await page
@@ -71,10 +83,7 @@ test('denoises with SCUNet before applying a CPU upscale', async ({ page }) => {
     .click();
   await expect(page.getByRole('dialog', { name: DIALOG })).toBeVisible();
   await selectOperation(page, 'Denoise');
-  await page
-    .getByRole('radiogroup', { name: 'Denoise strength' })
-    .getByText('Light', { exact: true })
-    .click();
+  await selectSegmentedOption(page, 'Denoise strength', 'Light');
   const denoiseButton = page.getByRole('button', { name: 'Denoise image' });
   if (await denoiseButton.isDisabled()) {
     // Model downloads are explicit and intentionally not faked with an
@@ -95,10 +104,7 @@ test('keeps explicit no-denoise selection as a no-op', async ({ page }) => {
   test.setTimeout(60000);
   await openEnhanceDialog(page);
   await selectOperation(page, 'Denoise');
-  await page
-    .getByRole('radiogroup', { name: 'Denoise strength' })
-    .getByText('None', { exact: true })
-    .click();
+  await selectSegmentedOption(page, 'Denoise strength', 'None');
 
   await expect(
     page.getByText(/No denoising selected; the source remains unchanged/i),
@@ -173,10 +179,7 @@ test('changes scale factor in the enhance dialog', async ({ page }) => {
   await selectOperation(page, 'Upscale');
 
   // Quality mode (Lanczos-3) is the default; change its scale.
-  await page
-    .getByRole('radiogroup', { name: 'Scale factor' })
-    .getByText('3x', { exact: true })
-    .click();
+  await selectSegmentedOption(page, 'Scale factor', '3x');
   await expect(page.getByText(/Output 48(?:×|x)48px/, { exact: false })).toBeVisible();
 
   await page.getByRole('button', { name: 'Cancel' }).click();
@@ -188,10 +191,7 @@ test('switches output behavior in the enhance dialog', async ({ page }) => {
   await selectOperation(page, 'Upscale');
 
   // Switch to "Replace source" output.
-  await page
-    .getByRole('radiogroup', { name: 'Output behavior' })
-    .getByText('Replace source', { exact: true })
-    .click();
+  await selectSegmentedOption(page, 'Output behavior', 'Replace source');
 
   // Apply — should replace the source, not create a new layer.
   await page.getByRole('button', { name: 'Upscale image' }).click();
@@ -206,10 +206,7 @@ test('keeps the action label, controls, and presets synchronized', async ({ page
   await openEnhanceDialog(page);
 
   await expect(page.getByRole('button', { name: 'Apply recommended' })).toBeVisible();
-  await page
-    .getByRole('radiogroup', { name: 'Quality policy' })
-    .getByText('Balanced', { exact: true })
-    .click();
+  await selectSegmentedOption(page, 'Quality policy', 'Balanced');
   await expect(page.getByRole('combobox', { name: 'Enhancement preset' })).toHaveText(
     'Custom settings',
   );
@@ -248,8 +245,8 @@ test('keeps the action label, controls, and presets synchronized', async ({ page
 
   await page
     .getByRole('radiogroup', { name: 'Quality policy' })
-    .getByText('Faithful', { exact: true })
-    .click();
+    .getByRole('radio', { name: 'Faithful', exact: true })
+    .check();
   await expect(page.getByRole('combobox', { name: 'Enhancement preset' })).toHaveText(
     'Custom settings',
   );

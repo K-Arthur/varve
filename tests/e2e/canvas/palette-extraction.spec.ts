@@ -1,19 +1,20 @@
 import { expect, test } from '@playwright/test';
 import { enterCropMode, importImageFile, selectImageNode } from '../helpers/editor-helpers';
-import { navigateToEditor } from '../shared';
+import { navigateToEditor, switchWorkspace } from '../shared';
 
 test.describe('image palette extraction', () => {
   test('extracts, explains, and saves a palette in the Inspector', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await navigateToEditor(page);
+    await switchWorkspace(page, 'Photo');
     await importImageFile(page);
     await selectImageNode(page);
 
-    await page.getByRole('tab', { name: /^Appearance/i }).click();
-
-    const paletteSection = page.locator('.insp-disclosure').filter({ hasText: /^Palette/ });
+    // Palette extraction is part of the Photo workspace. Appearance is a
+    // disclosure there, not an inspector tab.
+    const paletteSection = page.locator('.insp-disclosure').filter({ hasText: /^Extract Palette/ });
     await expect(paletteSection).toBeVisible({ timeout: 15000 });
-    const paletteTrigger = paletteSection.getByRole('button', { name: /^Palette$/ });
+    const paletteTrigger = paletteSection.getByRole('button', { name: 'Extract Palette' });
     if ((await paletteTrigger.getAttribute('aria-expanded')) === 'false') {
       await paletteTrigger.click();
     }
@@ -68,6 +69,8 @@ test.describe('image palette extraction', () => {
     await expect(paletteSection.getByRole('status')).toContainText('saved as new document colors');
 
     await page.setViewportSize({ width: 640, height: 900 });
+    // Compact portrait layouts present the inspector as an explicit drawer.
+    await page.getByRole('button', { name: 'Show inspector panel' }).click();
     await expect(paletteSection).toBeVisible();
     const overflow = await paletteSection.evaluate((element) => ({
       clientWidth: element.clientWidth,
@@ -78,6 +81,7 @@ test.describe('image palette extraction', () => {
 
   test('palette source follows the visible crop or full image choice', async ({ page }) => {
     await navigateToEditor(page);
+    await switchWorkspace(page, 'Photo');
     await importImageFile(page);
     await selectImageNode(page);
 
@@ -95,10 +99,9 @@ test.describe('image palette extraction', () => {
     await page.keyboard.press('Enter');
     await page.waitForTimeout(300);
 
-    await page.getByRole('tab', { name: /^Appearance/i }).click();
-    const paletteSection = page.locator('.insp-disclosure').filter({ hasText: /^Palette/ });
+    const paletteSection = page.locator('.insp-disclosure').filter({ hasText: /^Extract Palette/ });
     await expect(paletteSection).toBeVisible({ timeout: 15000 });
-    const paletteTrigger = paletteSection.getByRole('button', { name: /^Palette$/ });
+    const paletteTrigger = paletteSection.getByRole('button', { name: 'Extract Palette' });
     if ((await paletteTrigger.getAttribute('aria-expanded')) === 'false') {
       await paletteTrigger.click();
     }

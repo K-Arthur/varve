@@ -201,7 +201,12 @@ test.describe('Workspace switcher contract', () => {
     for (const [, label] of MODES) {
       await expect(group.getByRole('radio', { name: `${label} workspace` })).toBeVisible();
     }
-    await expect(group.locator('.workspace-dock__label')).toHaveCount(0);
+    // At this width all six radios fit. Keep the active mode labelled for
+    // orientation; only inactive modes are icon-only.
+    await expect(group.locator('.workspace-dock__label')).toHaveCount(1);
+    await expect(group.locator('.workspace-dock__item--active .workspace-dock__label')).toHaveText(
+      'Design',
+    );
     await expect(page.getByRole('button', { name: /more workspaces/i })).toHaveCount(0);
   });
 

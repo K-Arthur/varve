@@ -1,5 +1,5 @@
 import { mkdirSync } from 'node:fs';
-import { test } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 
 const DIR = '/tmp/e2e-effects';
 
@@ -141,18 +141,25 @@ async function addAdjustment(page: import('@playwright/test').Page, kind: string
   await page.waitForTimeout(500);
 }
 
+async function addObjectFilter(page: import('@playwright/test').Page, kind: string) {
+  const designTab = page.getByRole('tab', { name: 'Design', exact: true });
+  if (await designTab.isVisible()) await designTab.click();
+
+  const section = page.getByRole('button', { name: 'Object Filters', exact: true });
+  await section.scrollIntoViewIfNeeded();
+  if ((await section.getAttribute('aria-expanded')) !== 'true') await section.click();
+  await page.getByRole('combobox', { name: 'Add Object Filter' }).click();
+  await page.getByRole('option', { name: kind, exact: true }).click();
+  await expect(page.getByRole('button', { name: kind, exact: true })).toBeVisible();
+}
+
 test('tritone on multi-color shape — visual verification', async ({ page }) => {
   await setupWithImage(page);
   await page.screenshot({ path: `${DIR}/tri-01-before.png`, fullPage: true });
 
-  // Create adjustment layer
-  await page.getByRole('menuitem', { name: /^Object$/i }).click();
-  await page.waitForTimeout(300);
-  await page.getByRole('menuitem', { name: /new adjustment layer/i }).click();
-  await page.waitForTimeout(500);
-
-  // Add tritone
-  await addAdjustment(page, 'Tritone');
+  // Tritone is an object-local creative treatment, so add it through the
+  // Object Filters stack instead of the separate Adjustment Layer picker.
+  await addObjectFilter(page, 'Tritone');
   await page.screenshot({ path: `${DIR}/tri-02-tritone-default.png`, fullPage: true });
 
   // Click on the canvas to see the effect rendered

@@ -39,6 +39,9 @@ test.describe('Home context menu', () => {
   });
 
   test('keeps longer file actions readable', async ({ page }) => {
+    // Exercise the scrolling contract at a constrained height instead of
+    // assuming the runner's default viewport is shorter than this menu.
+    await page.setViewportSize({ width: 1280, height: 560 });
     const card = page.locator('.home-grid[role="grid"] [role="gridcell"]').first();
     const count = await page.locator('.home-grid[role="grid"] [role="gridcell"]').count();
     if (count < 1) return;
@@ -94,6 +97,9 @@ test.describe('Home context menu', () => {
           top: menuRect.top,
           right: menuRect.right,
           bottom: menuRect.bottom,
+          clientHeight: menu.clientHeight,
+          scrollHeight: menu.scrollHeight,
+          overflowY: getComputedStyle(menu).overflowY,
         },
         layer: layerRect
           ? {
@@ -114,9 +120,9 @@ test.describe('Home context menu', () => {
     expect(geometry.layer!.top).toBeGreaterThanOrEqual(0);
     expect(geometry.layer!.right).toBeLessThanOrEqual(geometry.viewport.width);
     expect(geometry.layer!.bottom).toBeLessThanOrEqual(geometry.viewport.height);
-    expect(geometry.layer!.clientHeight).toBeGreaterThan(0);
-    expect(geometry.layer!.scrollHeight).toBeGreaterThan(geometry.layer!.clientHeight);
-    expect(geometry.overflowY).toBe('auto');
+    expect(geometry.menu.clientHeight).toBeGreaterThan(0);
+    expect(geometry.menu.scrollHeight).toBeGreaterThan(geometry.menu.clientHeight);
+    expect(geometry.menu.overflowY).toBe('auto');
 
     await page.screenshot({
       path:
@@ -132,21 +138,21 @@ test.describe('Home context menu', () => {
     });
     await finalAction.scrollIntoViewIfNeeded();
     const finalActionGeometry = await finalAction.evaluate((item) => {
-      const layer = item.closest('.varve-floating-layer');
+      const menu = item.closest('.varve-menu');
       const itemRect = item.getBoundingClientRect();
-      const layerRect = layer?.getBoundingClientRect();
-      return layerRect
+      const menuRect = menu?.getBoundingClientRect();
+      return menuRect
         ? {
             itemTop: itemRect.top,
             itemBottom: itemRect.bottom,
-            layerTop: layerRect.top,
-            layerBottom: layerRect.bottom,
+            menuTop: menuRect.top,
+            menuBottom: menuRect.bottom,
           }
         : null;
     });
     expect(finalActionGeometry).not.toBeNull();
-    expect(finalActionGeometry!.itemTop).toBeGreaterThanOrEqual(finalActionGeometry!.layerTop);
-    expect(finalActionGeometry!.itemBottom).toBeLessThanOrEqual(finalActionGeometry!.layerBottom);
+    expect(finalActionGeometry!.itemTop).toBeGreaterThanOrEqual(finalActionGeometry!.menuTop);
+    expect(finalActionGeometry!.itemBottom).toBeLessThanOrEqual(finalActionGeometry!.menuBottom);
     await page.screenshot({
       path:
         process.env.VARVE_MENU_SCROLLED_REVIEW_PATH ??
@@ -180,6 +186,7 @@ test.describe('Home context menu', () => {
           top: menuRect.top,
           right: menuRect.right,
           bottom: menuRect.bottom,
+          overflowY: getComputedStyle(menu).overflowY,
         },
         layer: layerRect
           ? {
@@ -191,7 +198,6 @@ test.describe('Home context menu', () => {
               scrollHeight: layer?.scrollHeight ?? 0,
             }
           : null,
-        overflowY: layer ? getComputedStyle(layer).overflowY : null,
       };
     });
 
@@ -202,25 +208,27 @@ test.describe('Home context menu', () => {
     expect(geometry.layer!.bottom).toBeLessThanOrEqual(geometry.viewport.height);
     expect(geometry.menu.left).toBeGreaterThanOrEqual(0);
     expect(geometry.menu.right).toBeLessThanOrEqual(geometry.viewport.width);
-    expect(geometry.overflowY).toBe('auto');
+    expect(geometry.menu.top).toBeGreaterThanOrEqual(0);
+    expect(geometry.menu.bottom).toBeLessThanOrEqual(geometry.viewport.height);
+    expect(geometry.menu.overflowY).toBe('auto');
     const finalAction = ctxMenu.getByRole('menuitem', { name: /^Move to Trash/ });
     await finalAction.scrollIntoViewIfNeeded();
     const finalActionGeometry = await finalAction.evaluate((item) => {
-      const layer = item.closest('.varve-floating-layer');
+      const menu = item.closest('.varve-menu');
       const itemRect = item.getBoundingClientRect();
-      const layerRect = layer?.getBoundingClientRect();
-      return layerRect
+      const menuRect = menu?.getBoundingClientRect();
+      return menuRect
         ? {
             itemTop: itemRect.top,
             itemBottom: itemRect.bottom,
-            layerTop: layerRect.top,
-            layerBottom: layerRect.bottom,
+            menuTop: menuRect.top,
+            menuBottom: menuRect.bottom,
           }
         : null;
     });
     expect(finalActionGeometry).not.toBeNull();
-    expect(finalActionGeometry!.itemTop).toBeGreaterThanOrEqual(finalActionGeometry!.layerTop);
-    expect(finalActionGeometry!.itemBottom).toBeLessThanOrEqual(finalActionGeometry!.layerBottom);
+    expect(finalActionGeometry!.itemTop).toBeGreaterThanOrEqual(finalActionGeometry!.menuTop);
+    expect(finalActionGeometry!.itemBottom).toBeLessThanOrEqual(finalActionGeometry!.menuBottom);
     await page.screenshot({
       path:
         process.env.VARVE_MENU_EDGE_REVIEW_PATH ??

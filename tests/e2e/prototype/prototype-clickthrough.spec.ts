@@ -120,8 +120,14 @@ test.describe('Prototype interaction click-through', () => {
       .first()
       .click();
     const prototypeTab = page.getByRole('tab', { name: 'Prototype', exact: true });
-    await expect(prototypeTab).toBeVisible();
-    await prototypeTab.click();
+    const overflowTabs = page.getByRole('button', { name: /More inspector tabs/ });
+    if (await overflowTabs.isVisible().catch(() => false)) {
+      await overflowTabs.click();
+      await page.getByRole('menuitem', { name: 'Prototype', exact: true }).click();
+    } else {
+      await expect(prototypeTab).toBeVisible();
+      await prototypeTab.click();
+    }
     await expect(page.getByRole('button', { name: 'Add Interaction' })).toBeVisible();
   });
 

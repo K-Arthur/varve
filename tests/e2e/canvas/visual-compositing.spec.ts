@@ -151,12 +151,27 @@ test.describe('full-editor visual compositing', () => {
     await expect(canvas).toHaveScreenshot('nested-groups-isolated-opacity.png', {
       maxDiffPixels: 350,
     });
-    await expect(page.getByTestId('layers-panel')).toHaveScreenshot(
-      'nested-groups-layer-tree.png',
-      {
-        maxDiffPixels: 180,
-      },
-    );
+    const layersPanel = page.getByTestId('layers-panel');
+    // At the 720px E2E viewport the Layers rail itself scrolls to keep the
+    // tree usable. Clicking a lower selected row can scroll that outer rail,
+    // which otherwise makes this panel golden depend on the selection's
+    // reveal position rather than the panel's canonical top-of-rail layout.
+    await layersPanel.evaluate((panel) => {
+      panel.scrollTop = 0;
+      const tree = panel.querySelector<HTMLElement>('.layers-panel__tree');
+      if (tree) tree.scrollTop = 0;
+    });
+    await expect
+      .poll(async () =>
+        layersPanel.evaluate((panel) => ({
+          rail: panel.scrollTop,
+          tree: panel.querySelector<HTMLElement>('.layers-panel__tree')?.scrollTop ?? 0,
+        })),
+      )
+      .toEqual({ rail: 0, tree: 0 });
+    await expect(layersPanel).toHaveScreenshot('nested-groups-layer-tree.png', {
+      maxDiffPixels: 180,
+    });
   });
 
   test('clip mask is visible in the real canvas and layer hierarchy', async ({ page }) => {

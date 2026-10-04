@@ -190,7 +190,13 @@ test.describe('Canvas drawing tools — drag-to-create', () => {
     if (!box) throw new Error('canvas not found');
     await page.mouse.dblclick(box.x + 270, box.y + 240);
     await expect(page.getByText(/isolating: rectangle.*clip/i)).toBeVisible();
-    await expect(page.getByRole('img', { name: 'Clipping mask source' })).toBeVisible();
+    const sourceRow = page.getByRole('treeitem', {
+      name: /Rectangle 1, Vector rectangle, clipping mask source/,
+    });
+    await sourceRow.hover();
+    const sourceBadge = sourceRow.locator('[data-mask-role="source"]');
+    await expect(sourceBadge).toBeVisible();
+    await expect(sourceBadge).toHaveAttribute('aria-label', 'Clipping mask source');
 
     await page.keyboard.press('Escape');
     await expect(page.getByText(/isolating:/i)).toHaveCount(0);
@@ -246,7 +252,19 @@ test.describe('Canvas drawing tools — drag-to-create', () => {
     await expect(page.getByRole('treeitem').first()).toContainText(/ellipse.*clip/i, {
       timeout: 15000,
     });
-    await expect(page.getByRole('img', { name: 'Clipping mask source' })).toHaveText('mask');
-    await expect(page.getByRole('img', { name: 'Clipped content' })).toHaveText('clipped');
+    const sourceRow = page.getByRole('treeitem', {
+      name: /Rectangle 1, Vector rectangle, clipping mask source/,
+    });
+    const contentRow = page.getByRole('treeitem', {
+      name: /Ellipse 1, Vector ellipse, clipped content/,
+    });
+    await sourceRow.hover();
+    const sourceBadge = sourceRow.locator('[data-mask-role="source"]');
+    await expect(sourceBadge).toHaveText('mask');
+    await expect(sourceBadge).toHaveAttribute('aria-label', 'Clipping mask source');
+    await contentRow.hover();
+    const contentBadge = contentRow.locator('[data-mask-role="content"]');
+    await expect(contentBadge).toHaveText('clipped');
+    await expect(contentBadge).toHaveAttribute('aria-label', 'Clipped content');
   });
 });

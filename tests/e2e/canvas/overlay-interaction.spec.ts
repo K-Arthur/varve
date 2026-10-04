@@ -167,6 +167,10 @@ test.describe('Canvas overlay interaction', () => {
 
   test('hovering a finding marker shows tooltip and highlights it', async ({ page }) => {
     await loadFixture(page, LOW_CONTRAST_FIXTURE);
+    // The imported fixture can inherit the previous viewport camera. Center
+    // its findings in the canvas so the Layers minimap cannot cover the hit
+    // target this pointer test is exercising.
+    await page.getByRole('button', { name: 'Fit all to viewport' }).click();
     await toggleFindingsOverlay(page);
 
     const findingBadge = page.locator('[role="button"][aria-label*="Finding"]').first();

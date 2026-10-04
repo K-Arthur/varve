@@ -29,8 +29,20 @@ test.describe('CanvasArea empty-surface guidance', () => {
       expect(geometry.width).toBeLessThan(geometry.canvasWidth);
       expect(geometry.pointerEvents).toBe('none');
 
+      const shortcutRows = await emptyState
+        .locator('.editor-canvas__empty-state-shortcut')
+        .evaluateAll((elements) =>
+          elements.map((element) => Math.round(element.getBoundingClientRect().top)),
+        );
+      expect(shortcutRows).toHaveLength(4);
+      const rowCounts = [...new Set(shortcutRows)]
+        .map((top) => shortcutRows.filter((item) => item === top).length)
+        .sort();
+      expect(rowCounts).toEqual([2, 2]);
+
       await expect(emptyState).toHaveScreenshot(`canvas-empty-guidance-${theme}.png`, {
         animations: 'disabled',
+        maxDiffPixels: 16,
       });
 
       await page.setViewportSize({ width: 560, height: 600 });
@@ -39,6 +51,11 @@ test.describe('CanvasArea empty-surface guidance', () => {
         (element) => element.getBoundingClientRect().width,
       );
       expect(narrowWidth).toBeLessThan(560);
+      const shortcutsFit = await emptyState.evaluate((element) => {
+        const shortcuts = element.querySelector('.editor-canvas__empty-state-shortcuts');
+        return shortcuts ? shortcuts.scrollWidth <= shortcuts.clientWidth + 1 : false;
+      });
+      expect(shortcutsFit).toBe(true);
     });
   }
 });

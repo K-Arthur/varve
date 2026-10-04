@@ -128,10 +128,29 @@ test.describe('workspace toolbar visual QA', () => {
 
     const search = dialog.getByRole('searchbox', { name: 'Search toolbar tools' });
     await search.fill('pen');
-    await expect(dialog.getByText('Pen')).toBeVisible();
+    const penVisibility = dialog.getByRole('checkbox', {
+      name: /Show Pen in Design workspace/,
+    });
+    const penToggle = penVisibility.locator(
+      'xpath=following-sibling::span[contains(@class, "varve-checkbox__box")]',
+    );
+    await expect(penVisibility).toBeVisible();
+    await expect(search).toBeInViewport();
+    await expect(penToggle).toBeInViewport();
+    const dialogScrollTop = () => dialog.evaluate((element) => element.scrollTop);
+    await expect.poll(dialogScrollTop).toBe(0);
+    const bodyCanScroll = await dialog
+      .locator(':scope > .varve-dialog__body')
+      .evaluate((element) => element.scrollHeight > element.clientHeight);
+    expect(bodyCanScroll).toBe(true);
     await dialog.screenshot({ path: testInfo.outputPath('customize-design-search-pen.png') });
 
-    await dialog.getByRole('checkbox', { name: /Show Pen in Design workspace/ }).uncheck();
+    // The design-system checkbox keeps a clipped native input for keyboard
+    // and assistive-technology semantics. Click its visible box like a user;
+    // clicking the 1px input makes automation scroll the dialog shell.
+    await penToggle.click();
+    await expect(penVisibility).not.toBeChecked();
+    await expect.poll(dialogScrollTop).toBe(0);
     await dialog.getByRole('button', { name: 'Done' }).click();
     await expect(page.locator('[data-tool="pen"]')).not.toBeVisible();
     await expect(page.locator('[data-tool="select"]')).toBeVisible();

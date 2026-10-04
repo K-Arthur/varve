@@ -300,11 +300,16 @@ test.describe('Live effects', () => {
       await expect.poll(() => canvasRegionHash(page), { timeout: 10_000 }).toBe(afterSlider);
 
       // Disable → source appearance returns; re-enable → effect returns.
-      const visButton = page.getByRole('button', { name: 'Disable all Object Filters' });
-      await visButton.click();
+      const disableFilters = page.getByRole('button', { name: 'Disable all Object Filters' });
+      await disableFilters.click();
+      const enableFilters = page.getByRole('button', { name: 'Enable all Object Filters' });
+      await expect(enableFilters).toHaveAttribute('aria-pressed', 'false');
       await forceFullRedraw(page);
       await expect.poll(() => canvasRegionHash(page), { timeout: 10_000 }).toBe(source);
-      await visButton.click();
+      await enableFilters.click();
+      await expect(
+        page.getByRole('button', { name: 'Disable all Object Filters' }),
+      ).toHaveAttribute('aria-pressed', 'true');
       await forceFullRedraw(page);
       await expect.poll(() => canvasRegionHash(page), { timeout: 10_000 }).toBe(afterSlider);
 

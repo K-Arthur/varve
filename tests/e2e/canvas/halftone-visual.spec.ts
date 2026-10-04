@@ -119,8 +119,10 @@ async function openExportTab(page: Page) {
   await page.waitForTimeout(300);
 }
 
-function exportFormatButton(page: Page, format: 'PNG' | 'SVG' | 'JPEG') {
-  return page.locator('.spec-export__group').getByRole('button', { name: format, exact: true });
+function exportFormatOption(page: Page, format: 'PNG' | 'SVG' | 'JPEG') {
+  return page
+    .getByRole('radiogroup', { name: 'Export format' })
+    .getByRole('radio', { name: format, exact: true });
 }
 
 /**
@@ -515,7 +517,7 @@ test.describe('Halftone visual verification', () => {
     await selectFrameForExport(page);
     await openExportTab(page);
 
-    await exportFormatButton(page, 'PNG').click();
+    await exportFormatOption(page, 'PNG').check();
     const downloadPromise = page.waitForEvent('download');
     await page.getByRole('button', { name: /download/i }).click();
     const download = await downloadPromise;
@@ -695,7 +697,7 @@ test.describe('Halftone visual verification', () => {
     await selectFrameForExport(page);
     await openExportTab(page);
 
-    await exportFormatButton(page, 'SVG').click();
+    await exportFormatOption(page, 'SVG').check();
     const svgDownloadPromise = page.waitForEvent('download');
     await page.getByRole('button', { name: /download/i }).click();
     const svgDownload = await svgDownloadPromise;
@@ -728,7 +730,7 @@ test.describe('Halftone visual verification', () => {
     await selectFrameForExport(page);
     await openExportTab(page);
 
-    await exportFormatButton(page, 'JPEG').click();
+    await exportFormatOption(page, 'JPEG').check();
     const jpegDownloadPromise = page.waitForEvent('download');
     await page.getByRole('button', { name: /download/i }).click();
     const jpegDownload = await jpegDownloadPromise;

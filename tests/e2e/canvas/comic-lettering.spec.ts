@@ -25,6 +25,154 @@ async function startBalloonFromSelectedText(page: import('@playwright/test').Pag
 }
 
 /**
+ * Sample the rendered body/tail join in the committed canvas pixels. The
+ * default tail spans 16% of the body width, clamped to 12–32 world units. The
+ * center 40% strip excludes both diagonal outlines while catching the body's
+ * horizontal bottom stroke if it bleeds through the pointer fill.
+ */
+async function expectNoSpeechBalloonBaseSeam(page: import('@playwright/test').Page) {
+  const bodyLayer = page.locator(
+    '.layers-panel__tree [data-layer-type="shape"][data-layer-subtype="rect"]',
+  );
+  await expect(bodyLayer).toBeVisible();
+  await bodyLayer.click();
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const hooks = (
+          window as unknown as {
+            __varveIsoTest?: {
+              getSelectionGeometry: () => Array<{
+                shape: { kind?: string } | null;
+              }>;
+            };
+          }
+        ).__varveIsoTest;
+        return hooks?.getSelectionGeometry()[0]?.shape?.kind;
+      }),
+    )
+    .toBe('rect');
+
+  const bodyGeometry = await page.evaluate(() => {
+    const hooks = (
+      window as unknown as {
+        __varveIsoTest?: {
+          getSelectionGeometry: () => Array<{
+            worldTransform: number[];
+            shape: { kind?: string; x?: number; y?: number; w?: number; h?: number } | null;
+          }>;
+        };
+      }
+    ).__varveIsoTest;
+    if (!hooks) throw new Error('comic canvas pixel inspection hook is unavailable');
+    const body = hooks.getSelectionGeometry()[0];
+    const shape = body?.shape;
+    if (
+      !body ||
+      shape?.kind !== 'rect' ||
+      shape.x === undefined ||
+      shape.y === undefined ||
+      shape.w === undefined ||
+      shape.h === undefined ||
+      body.worldTransform.length < 6
+    ) {
+      throw new Error('selected speech-balloon body geometry is unavailable');
+    }
+    return { worldTransform: body.worldTransform, shape };
+  });
+
+  const sample = await page.evaluate((selectedBody) => {
+    const hooks = (
+      window as unknown as {
+        __varveIsoTest?: { worldToScreen: (x: number, y: number) => { x: number; y: number } };
+      }
+    ).__varveIsoTest;
+    if (!hooks) throw new Error('comic canvas pixel inspection hook is unavailable');
+    const bodyBottomLocalY = selectedBody.shape.y! + selectedBody.shape.h!;
+    const tailBaseWidth = Math.max(12, Math.min(32, selectedBody.shape.w! * 0.16));
+    const baseScreenPoints = [0.3, 0.4, 0.5, 0.6, 0.7].map((fraction) => {
+      const localX =
+        selectedBody.shape.x! + selectedBody.shape.w! / 2 + (fraction - 0.5) * tailBaseWidth;
+      const matrix = selectedBody.worldTransform;
+      const worldX = matrix[0]! * localX + matrix[2]! * bodyBottomLocalY + matrix[4]!;
+      const worldY = matrix[1]! * localX + matrix[3]! * bodyBottomLocalY + matrix[5]!;
+      return hooks.worldToScreen(worldX, worldY);
+    });
+    const viewport = document.querySelector('.editor-canvas');
+    const canvas = document.querySelector<HTMLCanvasElement>('canvas.editor-canvas__content-layer');
+    if (!viewport || !canvas) throw new Error('speech-balloon canvas surface is unavailable');
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('speech-balloon canvas pixels cannot be read');
+
+    const viewportRect = viewport.getBoundingClientRect();
+    const canvasRect = canvas.getBoundingClientRect();
+    const pixelPoints = baseScreenPoints.map((screen) => ({
+      x: Math.round(
+        ((viewportRect.left + screen.x - canvasRect.left) * canvas.width) / canvasRect.width,
+      ),
+      y: Math.round(
+        ((viewportRect.top + screen.y - canvasRect.top) * canvas.height) / canvasRect.height,
+      ),
+    }));
+    const radius = Math.max(1, Math.ceil(canvas.width / canvasRect.width));
+    const minX = Math.max(0, Math.min(...pixelPoints.map((point) => point.x)) - radius);
+    const maxX = Math.min(
+      canvas.width - 1,
+      Math.max(...pixelPoints.map((point) => point.x)) + radius,
+    );
+    const minY = Math.max(0, Math.min(...pixelPoints.map((point) => point.y)) - radius);
+    const maxY = Math.min(
+      canvas.height - 1,
+      Math.max(...pixelPoints.map((point) => point.y)) + radius,
+    );
+    const strip = context.getImageData(minX, minY, maxX - minX + 1, maxY - minY + 1);
+    let darkest = 255;
+    let total = 0;
+    let count = 0;
+    let darkPixels = 0;
+    const perSample: Array<{ x: number; y: number; darkPixels: number }> = [];
+    for (const point of pixelPoints) {
+      let sampleDarkPixels = 0;
+      for (let dy = -radius; dy <= radius; dy++) {
+        for (let dx = -radius; dx <= radius; dx++) {
+          const x = point.x + dx;
+          const y = point.y + dy;
+          if (x < minX || y < minY || x > maxX || y > maxY) continue;
+          const offset = ((y - minY) * strip.width + (x - minX)) * 4;
+          const brightness = Math.min(
+            strip.data[offset] ?? 0,
+            strip.data[offset + 1] ?? 0,
+            strip.data[offset + 2] ?? 0,
+          );
+          darkest = Math.min(darkest, brightness);
+          total += brightness;
+          count++;
+          if (brightness <= 120) {
+            darkPixels++;
+            sampleDarkPixels++;
+          }
+        }
+      }
+      perSample.push({ ...point, darkPixels: sampleDarkPixels });
+    }
+    return { darkest, average: count > 0 ? total / count : 0, darkPixels, perSample };
+  }, bodyGeometry);
+
+  expect(
+    sample.darkPixels,
+    `black pixels across speech-balloon tail base ${JSON.stringify(sample)}`,
+  ).toBe(0);
+  expect(
+    sample.darkest,
+    `dark seam pixel at speech-balloon base ${JSON.stringify(sample)}`,
+  ).toBeGreaterThan(160);
+  expect(
+    sample.average,
+    `speech-balloon base should be filled ${JSON.stringify(sample)}`,
+  ).toBeGreaterThan(235);
+}
+
+/**
  * Create a text node at a canvas point. The text overlay can still be closing
  * from the previous node, so retry the click before failing.
  */
@@ -60,7 +208,7 @@ test.describe('Comic lettering workflow', () => {
     page,
   }, testInfo) => {
     test.setTimeout(180000);
-    await navigateToEditor(page);
+    await navigateToEditor(page, '/?isoTest=1');
 
     const canvas = page.locator('canvas.editor-canvas__content-layer');
     await canvas.waitFor({ state: 'visible', timeout: 15000 });
@@ -107,6 +255,13 @@ test.describe('Comic lettering workflow', () => {
     );
     const fitStatus = page.locator('[data-callout-fit-status]');
     await expect(fitStatus).toContainText(/dialogue fits|close to|exceeds/i);
+
+    await canvas.screenshot({
+      path: testInfo.outputPath('comic-lettering-default-speech-canvas.png'),
+      animations: 'disabled',
+    });
+    await expectNoSpeechBalloonBaseSeam(page);
+    await balloonLayer.click();
 
     const layers = await page
       .getByRole('treeitem')

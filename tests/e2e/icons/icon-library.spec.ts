@@ -164,7 +164,7 @@ test.describe('icon library', () => {
     expect(cached).not.toBeNull();
   });
 
-  test('offline restart: cached icons stay searchable and insertable', async ({ page }) => {
+  test('offline reuse: cached icons stay searchable and insertable', async ({ page }) => {
     await mockIconifyApi(page);
     await navigateToEditor(page);
     await openResourcesPanel(page);
@@ -180,10 +180,12 @@ test.describe('icon library', () => {
     await page.locator('.icon-card').first().click();
     await expect(page.getByRole('button', { name: /^insert$/i })).toBeEnabled({ timeout: 15000 });
     await page.getByRole('button', { name: /^insert$/i }).click();
-    await page
-      .getByText(/Pack: material-symbols/i)
-      .first()
-      .waitFor({ timeout: 15000 });
+    // The Resources panel remains open after insert, so pack metadata is not
+    // an acknowledgement. Wait for the scene to receive the first root before
+    // switching to the offline reuse path.
+    await expect(page.locator('.layers-panel [role="treeitem"]')).toHaveCount(1, {
+      timeout: 15000,
+    });
 
     // Go offline: the provider is unreachable, but the downloaded icon must
     // remain searchable and insertable from the cache.
@@ -199,16 +201,9 @@ test.describe('icon library', () => {
     await page.getByRole('button', { name: /^insert$/i }).click();
 
     // Two icon layers in the document — the offline insert worked end to end.
-    await page.getByRole('button', { name: /downloaded/i }).click();
-    await page.waitForFunction(
-      () => document.querySelectorAll('.icon-card').length >= 1,
-      undefined,
-      { timeout: 15000 },
-    );
-    const layerCount = await page.evaluate(
-      () => document.querySelectorAll('.layers-panel [role="treeitem"]').length,
-    );
-    expect(layerCount).toBeGreaterThanOrEqual(2);
+    await expect(page.locator('.layers-panel [role="treeitem"]')).toHaveCount(2, {
+      timeout: 15000,
+    });
   });
 
   test('pack manager installs the bundled starter pack offline', async ({ page }) => {

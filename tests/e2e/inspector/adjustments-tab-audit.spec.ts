@@ -2,16 +2,14 @@ import { mkdirSync } from 'node:fs';
 import path from 'node:path';
 import AxeBuilder from '@axe-core/playwright';
 import { expect, type Page, test } from '@playwright/test';
+import { selectInspectorTab } from '../helpers/inspector-tabs';
 import { dragOnCanvas, navigateToEditor, switchWorkspace } from '../shared';
 
 const REVIEW_DIR = path.resolve('reports/ui-review/adjustments-tab-2026-09-17');
 const IMAGE_FIXTURE = path.resolve('tests/e2e/fixtures/test-image.png');
 
 async function openAdjustmentsTab(page: Page) {
-  const tab = page.getByRole('tab', { name: 'Adjustments', exact: true });
-  await tab.waitFor({ state: 'visible', timeout: 15000 });
-  await tab.click();
-  await expect(tab).toHaveAttribute('aria-selected', 'true');
+  await selectInspectorTab(page, 'Adjustments');
   // The panel body is lazy-loaded; wait for the section composition to land
   // before measuring or screenshotting, otherwise the Suspense fallback
   // ("Loading adjustments…") is what gets captured.
@@ -67,8 +65,7 @@ test.describe('adjustments tab audit', () => {
     // The Adjustments tab is contextual outside Photo mode: with nothing
     // selected in Design there is no tab to open. Photo mode always exposes it.
     await switchWorkspace(page, 'Photo');
-    await expect(page.getByRole('tab', { name: 'Adjustments', exact: true })).toBeVisible();
-    await page.getByRole('tab', { name: 'Adjustments', exact: true }).click();
+    await selectInspectorTab(page, 'Adjustments');
     // The lazy panel resolves to the empty state here (no sections), so wait
     // for its copy rather than for a disclosure.
     await page

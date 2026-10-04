@@ -65,6 +65,11 @@ test('Enhance dialog default (Auto) state', async ({ page }) => {
   expect(previewBoxes.every(({ width, height }) => width > 100 && height > 100)).toBe(true);
   expect(Math.abs(previewBoxes[0]!.width - previewBoxes[1]!.width)).toBeLessThan(1);
   expect(Math.abs(previewBoxes[0]!.height - previewBoxes[1]!.height)).toBeLessThan(1);
+  const recommendationColumns = await page
+    .locator('.upscale-auto > .insp-hint')
+    .evaluateAll((items) => items.map((item) => item.getBoundingClientRect().width));
+  expect(recommendationColumns.length).toBeGreaterThanOrEqual(3);
+  expect(Math.min(...recommendationColumns)).toBeGreaterThan(140);
   await expect(page.locator('.upscale-preview__overlay')).toHaveAttribute(
     'style',
     /clip-path: inset\(0px 0px 0px 50%\)/,

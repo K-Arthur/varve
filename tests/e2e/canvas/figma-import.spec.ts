@@ -215,11 +215,14 @@ test.describe('Figma import integration', () => {
       buffer: Buffer.from(JSON.stringify(fixture), 'utf8'),
     });
 
+    const report = page.getByRole('dialog', { name: 'Import Results', exact: true });
+    await expect(report).toBeVisible({ timeout: 30000 });
+    await dismissImportReport(page);
+
     const dialog = page.getByRole('dialog', { name: 'Missing Fonts' });
     await expect(dialog).toBeVisible({ timeout: 30000 });
     await expect(dialog).toContainText('Missing Display');
     await expect(dialog).toContainText('rich-text runs');
-    await dismissImportReport(page);
     await page.screenshot({ path: testInfo.outputPath('font-replacement-dialog.png') });
     await expect(dialog.getByRole('button', { name: 'Replace All' })).toBeEnabled();
     await dialog.getByRole('button', { name: 'Replace All' }).click();
@@ -269,12 +272,15 @@ test.describe('Figma import integration', () => {
       buffer: Buffer.from(JSON.stringify(fixture), 'utf8'),
     });
 
+    const report = page.getByRole('dialog', { name: 'Import Results', exact: true });
+    await expect(report).toBeVisible({ timeout: 30000 });
+    await dismissImportReport(page);
+
     const dialog = page.getByRole('dialog', { name: 'Missing Fonts' });
     await expect(dialog).toBeVisible({ timeout: 30000 });
     await expect(dialog).toContainText('Exact family available from Fontsource');
     await expect(dialog).toContainText('700');
     await expect(dialog).toContainText('SIL Open Font License');
-    await dismissImportReport(page);
     await page.screenshot({ path: testInfo.outputPath('fontsource-recovery-dialog.png') });
 
     await dialog.getByRole('button', { name: 'Browse fonts' }).click();

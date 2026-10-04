@@ -63,13 +63,15 @@ for (const theme of THEMES) {
         await navigateToEditor(page, theme);
         await switchToEmailWorkspace(page);
 
-        // Check that the workspace tabs area exists and has content
-        const tabs = page.locator('.workspace-dock');
-        if (await tabs.isVisible({ timeout: 3000 }).catch(() => false)) {
-          await expect(tabs).toHaveScreenshot(`email-workspace-tabs-${theme}.png`, {
-            maxDiffPixels: 200,
-          });
-        }
+        const emailWorkspace = page.getByRole('radio', { name: 'Email workspace' });
+        await expect(emailWorkspace).toBeVisible();
+        await expect(emailWorkspace).toBeChecked();
+
+        // Capture the segmented control itself, not its flex-growing wrapper.
+        const tabs = page.locator('.workspace-dock__bar');
+        await expect(tabs).toHaveScreenshot(`email-workspace-tabs-${theme}.png`, {
+          maxDiffPixels: 200,
+        });
       });
 
       test('email inspector tab visible', async ({ page }) => {

@@ -56,9 +56,30 @@ async function authoritativeCanvasPixelHash(
   page: import('@playwright/test').Page,
 ): Promise<string> {
   await page.evaluate(async () => {
-    const perf = (window as unknown as { __varvePerf?: { forceFullRedraw?: () => void } })
-      .__varvePerf;
-    perf?.forceFullRedraw?.();
+    const perf = (
+      window as unknown as {
+        __varvePerf?: {
+          forceFullRedraw?: () => Promise<{ authoritative: true }>;
+        };
+      }
+    ).__varvePerf;
+    if (!perf?.forceFullRedraw) throw new Error('Full-redraw oracle is unavailable');
+    let authoritative = false;
+    for (let attempt = 0; attempt < 4 && !authoritative; attempt += 1) {
+      try {
+        const receipt = await perf.forceFullRedraw();
+        authoritative = receipt.authoritative;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (!message.includes('invalidated by an intervening state change') || attempt === 3) {
+          throw error;
+        }
+        await new Promise<void>((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+        );
+      }
+    }
+    if (!authoritative) throw new Error('Full-redraw oracle did not commit an authoritative frame');
     await new Promise<void>((resolve) =>
       requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
     );

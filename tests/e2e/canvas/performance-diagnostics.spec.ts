@@ -46,15 +46,22 @@ test.describe('Canvas performance diagnostics', () => {
   }, testInfo) => {
     await navigateToEditor(page, '/?perf=1');
     await seedLayers(page, 1);
-    const canvas = page.locator('canvas.editor-canvas__content-layer');
-    const box = await canvas.boundingBox();
-    if (!box) throw new Error('canvas not found');
-
-    await page.keyboard.press('v');
-    await page.mouse.click(box.x + 140, box.y + 140);
-    await page.mouse.move(box.x + 140, box.y + 140);
+    const selectTool = page.locator('[data-testid="toolbar"] [data-tool="select"]');
+    await selectTool.click();
+    await expect(selectTool).toHaveAttribute('aria-pressed', 'true');
+    const firstLayer = page.getByRole('treeitem').first();
+    await firstLayer.click();
+    await expect(firstLayer).toHaveAttribute('aria-selected', 'true');
+    // Derive the gesture origin from the real selection overlay instead of
+    // assuming that canvas/world coordinates map to a fixed screen offset.
+    const transformOrigin = page.getByLabel('Transform origin');
+    await expect(transformOrigin).toBeVisible();
+    const origin = await transformOrigin.boundingBox();
+    if (!origin) throw new Error('selected object transform origin not found');
+    const start = { x: origin.x + origin.width / 2, y: origin.y + origin.height / 2 };
+    await page.mouse.move(start.x, start.y);
     await page.mouse.down();
-    await page.mouse.move(box.x + 210, box.y + 190);
+    await page.mouse.move(start.x + 70, start.y + 50, { steps: 4 });
     await page.mouse.up();
 
     await expect

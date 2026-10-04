@@ -50,6 +50,16 @@ async function readPixel(page: Page, sx: number, sy: number): Promise<number[]> 
   );
 }
 
+async function selectedObjectCenter(page: Page): Promise<{ x: number; y: number }> {
+  const outline = page
+    .locator('svg[role="presentation"] rect[filter="url(#selection-glow)"]')
+    .first();
+  await expect(outline).toBeVisible();
+  const box = await outline.boundingBox();
+  if (!box) throw new Error('selected object outline not found');
+  return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+}
+
 test('eyedropper applies a canvas sample to the selected layer fill', async ({ page }) => {
   await navigateToEditor(page);
   await seedLayers(page, 1);
@@ -58,13 +68,11 @@ test('eyedropper applies a canvas sample to the selected layer fill', async ({ p
   const box = await canvas.boundingBox();
   if (!box) throw new Error('canvas not found');
 
-  // The seeded rect covers +100..+180 in canvas CSS space; its center is a
-  // solid sample of the current fill. The sample source must be a point that
-  // (a) is outside the rect and (b) actually hits the canvas — the top-left
-  // corner is covered by the selection breadcrumb, so offset well into the
-  // canvas (verified via elementFromPoint in the initial probe run).
-  const rectCenter = { x: box.x + 140, y: box.y + 140 };
-  const samplePoint = { x: box.x + 300, y: box.y + 60 };
+  // Derive the target from the selected object's rendered outline because
+  // seedLayers positions shapes relative to the responsive canvas bounds.
+  const rectCenter = await selectedObjectCenter(page);
+  // The far-right interior is clear of the seeded object and floating toolbar.
+  const samplePoint = { x: box.x + box.width - 32, y: box.y + box.height / 2 };
 
   const before = await readPixel(page, rectCenter.x, rectCenter.y);
   const source = await readPixel(page, samplePoint.x, samplePoint.y);
@@ -88,13 +96,13 @@ test('eyedropper without a selection explains what to do instead of failing sile
   const box = await canvas.boundingBox();
   if (!box) throw new Error('canvas not found');
 
+  const rectCenter = await selectedObjectCenter(page);
   // Deselect everything.
   await page.keyboard.press('Escape');
-  const rectCenter = { x: box.x + 140, y: box.y + 140 };
   const before = await readPixel(page, rectCenter.x, rectCenter.y);
 
   await activateEyedropper(page).click();
-  await page.mouse.click(box.x + 300, box.y + 60);
+  await page.mouse.click(box.x + box.width - 32, box.y + box.height / 2);
 
   await expect(page.locator('#strata-canvas-announcer-polite')).toContainText(
     'Select a layer to apply the sampled color',

@@ -66,6 +66,66 @@ async function contentCanvasFingerprint(canvas: import('@playwright/test').Locat
 }
 
 test.describe('Typography editing workflow', () => {
+  test('keeps the floating text toolbar inside the canvas beside docked panels', async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await navigateToEditor(page);
+    const canvas = page.locator('canvas.editor-canvas__content-layer');
+    await expect(canvas).toBeVisible();
+    const canvasBounds = await canvas.boundingBox();
+    if (!canvasBounds) throw new Error('editor canvas has no bounds');
+
+    await page.keyboard.press('t');
+    await page.mouse.click(canvasBounds.x + canvasBounds.width - 120, canvasBounds.y + 180);
+    const editor = page.getByRole('textbox', { name: /editing text/i });
+    await expect(editor).toBeFocused();
+    await page.keyboard.insertText('Keep text tools clear of the inspector');
+
+    const toolbar = page.getByRole('toolbar', { name: 'Text formatting' });
+    await expect(toolbar).toBeVisible();
+    await page.screenshot({
+      path: testInfo.outputPath('text-toolbar-canvas-boundary.png'),
+      animations: 'disabled',
+    });
+    const toolbarBounds = await toolbar.boundingBox();
+    if (!toolbarBounds) throw new Error('text formatting toolbar has no bounds');
+    expect(toolbarBounds.x).toBeGreaterThanOrEqual(canvasBounds.x);
+    expect(toolbarBounds.x + toolbarBounds.width).toBeLessThanOrEqual(
+      canvasBounds.x + canvasBounds.width + 1,
+    );
+
+    const moreButton = toolbar.getByRole('button', { name: 'More text formatting' });
+    await moreButton.click();
+    const moreDialog = page.getByRole('dialog', { name: 'More text formatting', exact: true });
+    await expect(moreDialog).toBeVisible();
+    const moreBounds = await moreDialog.boundingBox();
+    if (!moreBounds) throw new Error('additional text controls have no bounds');
+    expect(moreBounds.x).toBeGreaterThanOrEqual(canvasBounds.x);
+    expect(moreBounds.x + moreBounds.width).toBeLessThanOrEqual(
+      canvasBounds.x + canvasBounds.width + 1,
+    );
+    await page.keyboard.press('Escape');
+
+    await toolbar.getByRole('button', { name: 'Text color' }).click();
+    const colorPicker = page.getByRole('dialog', { name: 'Text color picker', exact: true });
+    await expect(colorPicker).toBeVisible();
+    const colorBounds = await colorPicker.boundingBox();
+    if (!colorBounds) throw new Error('text color picker has no bounds');
+    expect(colorBounds.x).toBeGreaterThanOrEqual(canvasBounds.x);
+    expect(colorBounds.x + colorBounds.width).toBeLessThanOrEqual(
+      canvasBounds.x + canvasBounds.width + 1,
+    );
+
+    const inspector = page.locator('.editor-shell__inspector-panel');
+    if (await inspector.isVisible()) {
+      const inspectorBounds = await inspector.boundingBox();
+      if (inspectorBounds) {
+        expect(toolbarBounds.x + toolbarBounds.width).toBeLessThanOrEqual(inspectorBounds.x + 1);
+      }
+    }
+  });
+
   test('point text shows immediate input and keeps its toolbar alive', async ({
     page,
   }, testInfo) => {
