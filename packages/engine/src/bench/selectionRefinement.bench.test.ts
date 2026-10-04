@@ -8,7 +8,7 @@
  * assert the documented complexity (radius-independent morphology and a
  * bounded solve) rather than a machine-specific duration.
  */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   cleanupPlane,
   gaussianBlurPlane,
@@ -16,6 +16,14 @@ import {
   signedDistancePlane,
 } from '../areaSelectionMorphology';
 import { solveMattingLaplacian, TRIMap } from '../backgroundRemoval/mattingSolver';
+
+// This baseline runs real 2048²/1024² CPU work inside the ordinary unit suite.
+// It asserts the documented complexity, never an absolute duration, so wall
+// time is not the property under test — but the suite default (30s) is smaller
+// than the same work on a fully loaded CI runner (observed 35.7s, a spurious
+// timeout+retry). Give this file headroom without weakening the timing
+// invariant it actually checks.
+vi.setConfig({ testTimeout: 180_000, hookTimeout: 60_000 });
 
 function coveragePlane(size: number): Uint8Array {
   const plane = new Uint8Array(size * size);

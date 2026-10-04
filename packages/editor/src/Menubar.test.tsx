@@ -802,7 +802,15 @@ describe('Menubar disabled states', () => {
     await user.click(within(screen.getByRole('menubar')).getByRole('menuitem', { name: 'View' }));
     await user.click(within(screen.getByRole('menubar')).getByRole('menuitem', { name: 'Object' }));
     const objectMenu = await screen.findByRole('menu', { name: 'Object' });
-    expect(within(objectMenu).getByRole('menuitem', { name: /Remove Background/ })).toBeDisabled();
+    // The menu renders through FloatingPortal, which keeps the surface
+    // `visibility: hidden` until it has measured its position. A synchronous
+    // getByRole can read that intermediate state on a slow runner and report
+    // "no accessible roles"; await the item instead so the assertion is about
+    // the disabled state, not about portal timing.
+    const removeBackground = await within(objectMenu).findByRole('menuitem', {
+      name: /Remove Background/,
+    });
+    expect(removeBackground).toBeDisabled();
   });
 });
 
