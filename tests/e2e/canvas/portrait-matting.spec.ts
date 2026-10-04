@@ -15,11 +15,25 @@ import { navigateToEditor } from '../shared';
  *
  * Requires the model artifact at apps/desktop/public/models/modnet-portrait/
  * model.onnx (downloaded by the MODNet real-model gate; gitignored).
+ *
+ * The artifact is ~25 MB and is deliberately not provisioned by the browser CI
+ * lane, so this real-model gate follows the same explicit opt-in as the other
+ * on-device model gates (VARVE_SAM2_REAL_MODEL, VARVE_GROUNDING_DINO_REAL_MODEL).
+ * Without the opt-in the suite is skipped — never silently green — and the
+ * inventory records the documented capability gap.
+ *
+ *   VARVE_MODNET_REAL_MODEL=1 pnpm exec playwright test \
+ *     tests/e2e/canvas/portrait-matting.spec.ts --project=chromium
  */
 
 const PORTRAIT_FIXTURE = path.resolve('tests/e2e/fixtures/real-life-katharine-hepburn.jpg');
 
 test.describe('Portrait matting (MODNet) — real editor workflow', () => {
+  test.skip(
+    !process.env.VARVE_MODNET_REAL_MODEL,
+    'Set VARVE_MODNET_REAL_MODEL=1 with apps/desktop/public/models/modnet-portrait/model.onnx downloaded',
+  );
+
   test('applies a portrait matte as an editable mask and undo removes it', async ({
     page,
   }, testInfo) => {

@@ -916,6 +916,56 @@ That leaves two candidate explanations, and they need opposite fixes:
 Distinguish them by checking out `fe04a50b`'s renderer against the current
 runner: identical output means (1), different output means (2).
 
+### `toHaveScreenshot` fails with a different element size (for example 740x544 vs 690x544)
+
+Playwright screenshots are compared pixel-exactly, and the committed baselines
+must be produced by the same platform that compares them (`ubuntu-latest` plus
+`pnpm exec playwright install --with-deps chromium`). A baseline regenerated on
+a developer machine (CachyOS) fails on the runner even for a visually identical
+UI: fontconfig/freetype differences change glyph rasterization, and any panel
+sized by `max-content` changes width with them.
+
+Symptoms that identify this class:
+
+- the reported image sizes differ (not just a handful of pixels), or
+- the diff is confined to glyph edges.
+
+Do **not** regenerate the PNG locally and do **not** add a blanket
+`maxDiffPixels` tolerance. Use the dedicated runner-side review: dispatch the
+`Visual Baselines` workflow (`workflow_dispatch`, target `app-ui`, one explicit
+`app_case`), run it once in comparison mode and inspect the expected/actual/diff
+artifacts, then dispatch a reviewed update and commit the reviewed PNG by hand.
+The workflow header documents the exact inputs; `target: website` and
+`target: app-replay` follow the same compare-then-update cycle.
+
+### Windows `Build (windows-latest)` fails in `CI tooling portability preflight`
+
+`pnpm test:ci:tools` (the heavy-lease tests) died with
+`Error [ERR_UNSUPPORTED_ESM_URL_SCHEME]: ... Received protocol 'c:'` because the
+Windows cancellation preload was spawned as
+`node --import C:\...\cancel-event.mjs`. Node's ESM loader requires a `file://`
+URL for `--import`; a bare drive path is parsed as an unsupported URL scheme and
+the child exits before it can publish its lease. Fixed in
+`scripts/quality/heavy-lease.test.mjs` (`preloadArgsForPlatform` converts through
+`pathToFileURL`) and guarded by an offline assertion that runs on every OS.
+
+### A real-model E2E spec fails in CI with "did not produce a review"
+
+Specs that need a large gitignored ONNX artifact are opt-in, exactly like
+`VARVE_SAM2_REAL_MODEL` and `VARVE_GROUNDING_DINO_REAL_MODEL`. The browser lane
+does not download those models, so such a spec must gate on an explicit env
+opt-in; otherwise it fails on every run. Currently gated:
+`tests/e2e/canvas/portrait-matting.spec.ts` via `VARVE_MODNET_REAL_MODEL`. Run it
+with the MODNet artifact present:
+
+```bash
+VARVE_MODNET_REAL_MODEL=1 pnpm exec playwright test \
+  tests/e2e/canvas/portrait-matting.spec.ts --project=chromium
+```
+
+Skipped cases are recorded in the browser inventory as an explained capability
+gap, never as a green pass.
+
 ### A commit with obvious format or lint errors reached master
 
 The local gate was not running. Check first:
