@@ -50,6 +50,7 @@ interface DetachControlContextValue {
   panelTypeId: PanelTypeId;
   title: string;
   canOpenAuxiliaryWindow: boolean;
+  canShowDetachControl: boolean;
   disabledReason: string;
   transferring: boolean;
   error: string | null;
@@ -72,12 +73,15 @@ export function PanelDetachButton() {
     panelTypeId,
     title,
     canOpenAuxiliaryWindow,
+    canShowDetachControl,
     disabledReason,
     transferring,
     error,
     detachBtnRef,
     requestDetach,
   } = controls;
+
+  if (!canShowDetachControl) return null;
 
   return (
     <TooltipProvider>
@@ -174,6 +178,52 @@ function canDetachWhileActive(): { ok: true } | { ok: false; reason: string } {
   return { ok: true };
 }
 
+/**
+ * Compact/tablet layouts keep panel movement and reordering in the workspace;
+ * a window-detach gesture is not a useful touch interaction there. The editor
+ * publishes its resolved compact/tablet mode from live viewport and pointer
+ * capabilities. Also read the compact CSS breakpoint directly so a user's
+ * explicit desktop preference cannot leave a detach affordance in a narrow
+ * viewport before the presentation controller updates.
+ */
+function readCompactOrTabletLayout(): boolean {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return false;
+  const mode = document.documentElement.dataset.layoutMode;
+  const compactViewport =
+    typeof window.matchMedia === 'function'
+      ? window.matchMedia('(max-width: 899px)').matches
+      : window.innerWidth <= 899;
+  return mode === 'tablet' || mode === 'compact' || compactViewport;
+}
+
+function useCompactOrTabletLayout(): boolean {
+  const [compactOrTablet, setCompactOrTablet] = useState(readCompactOrTabletLayout);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof document === 'undefined') return;
+    const root = document.documentElement;
+    const compactQuery =
+      typeof window.matchMedia === 'function' ? window.matchMedia('(max-width: 899px)') : undefined;
+    const update = () => setCompactOrTablet(readCompactOrTabletLayout());
+    const observer = new MutationObserver(update);
+    observer.observe(root, {
+      attributes: true,
+      attributeFilter: ['data-layout-mode'],
+    });
+    compactQuery?.addEventListener('change', update);
+    window.addEventListener('resize', update);
+    update();
+
+    return () => {
+      observer.disconnect();
+      compactQuery?.removeEventListener('change', update);
+      window.removeEventListener('resize', update);
+    };
+  }, []);
+
+  return compactOrTablet;
+}
+
 export function PanelDragHandle({
   panelTypeId,
   panelInstanceId,
@@ -195,6 +245,8 @@ export function PanelDragHandle({
   const needsWindowPointerFallbackRef = useRef(false);
   const draggingRef = useRef(false);
   const { isAuxiliary } = usePanelHost();
+  const compactOrTabletLayout = useCompactOrTabletLayout();
+  const canShowDetachControl = !compactOrTabletLayout;
   const isDetachable = !isAuxiliary && isPanelDetachable(panelTypeId);
   const canOpenAuxiliaryWindow = getWindowService().capability !== 'single-window';
   const disabledReason =
@@ -212,6 +264,11 @@ export function PanelDragHandle({
 
   const requestDetach = useCallback(async () => {
     if (transferring || !isDetachable) return;
+    if (readCompactOrTabletLayout()) {
+      setError(null);
+      cancelDrag();
+      return;
+    }
     if (!canOpenAuxiliaryWindow) {
       setError(disabledReason);
       return;
@@ -252,6 +309,7 @@ export function PanelDragHandle({
     }
   }, [
     canOpenAuxiliaryWindow,
+    cancelDrag,
     currentWindowId,
     disabledReason,
     isDetachable,
@@ -282,6 +340,10 @@ export function PanelDragHandle({
   const advanceDrag = useCallback(
     (pointerId: number, clientX: number, clientY: number) => {
       if (activePointerIdRef.current !== pointerId) return;
+      if (readCompactOrTabletLayout()) {
+        cancelDrag();
+        return;
+      }
       const start = pointerStartRef.current;
       if (!start || draggingRef.current) return;
       const dx = clientX - start.x;
@@ -306,6 +368,8 @@ export function PanelDragHandle({
     (event: React.PointerEvent<HTMLFieldSetElement>) => {
       if (
         !isDetachable ||
+        readCompactOrTabletLayout() ||
+        !canShowDetachControl ||
         !canOpenAuxiliaryWindow ||
         transferring ||
         activePointerIdRef.current !== null ||
@@ -328,7 +392,7 @@ export function PanelDragHandle({
         needsWindowPointerFallbackRef.current = true;
       }
     },
-    [canOpenAuxiliaryWindow, isDetachable, panelInstanceId, transferring],
+    [canOpenAuxiliaryWindow, canShowDetachControl, isDetachable, panelInstanceId, transferring],
   );
 
   const handlePointerMove = useCallback(
@@ -396,8 +460,17 @@ export function PanelDragHandle({
 
   const closeContextMenu = useCallback(() => setContextMenuAnchor(null), []);
 
+  useEffect(() => {
+    if (!canShowDetachControl) {
+      cancelDrag();
+      closeContextMenu();
+      setError(null);
+    }
+  }, [canShowDetachControl, cancelDrag, closeContextMenu]);
+
   const openContextMenu = useCallback(
     (event: React.MouseEvent<HTMLFieldSetElement>) => {
+      if (readCompactOrTabletLayout() || !canShowDetachControl) return;
       event.preventDefault();
       cancelDrag();
       if (!canOpenAuxiliaryWindow) {
@@ -425,21 +498,24 @@ export function PanelDragHandle({
         ),
       );
     },
-    [canOpenAuxiliaryWindow, cancelDrag, disabledReason, transferring],
+    [canOpenAuxiliaryWindow, canShowDetachControl, cancelDrag, disabledReason, transferring],
   );
 
   const contextMenuItems = useMemo<readonly MenuEntry[]>(
-    () => [
-      {
-        id: `detach-panel-${panelTypeId}`,
-        label: `Detach ${title} Panel`,
-        onAction: () => {
-          closeContextMenu();
-          void requestDetach();
-        },
-      },
-    ],
-    [closeContextMenu, panelTypeId, requestDetach, title],
+    () =>
+      canShowDetachControl
+        ? [
+            {
+              id: `detach-panel-${panelTypeId}`,
+              label: `Detach ${title} Panel`,
+              onAction: () => {
+                closeContextMenu();
+                void requestDetach();
+              },
+            },
+          ]
+        : [],
+    [canShowDetachControl, closeContextMenu, panelTypeId, requestDetach, title],
   );
 
   const detachControls = useMemo<DetachControlContextValue>(
@@ -447,6 +523,7 @@ export function PanelDragHandle({
       panelTypeId,
       title,
       canOpenAuxiliaryWindow,
+      canShowDetachControl,
       disabledReason,
       transferring,
       error,
@@ -455,6 +532,7 @@ export function PanelDragHandle({
     }),
     [
       canOpenAuxiliaryWindow,
+      canShowDetachControl,
       disabledReason,
       error,
       panelTypeId,

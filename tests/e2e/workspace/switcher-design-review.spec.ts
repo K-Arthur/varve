@@ -46,10 +46,14 @@ interface SwitcherGeometry {
     borderRadius: string;
   };
   dockRect: { x: number; y: number; width: number; height: number } | null;
+  dockBarRect: { x: number; y: number; width: number; height: number } | null;
+  railRect: { x: number; y: number; width: number; height: number } | null;
   railClipRight: number | null;
   railScrollable: number | null;
-  /** What the top-bar hit test finds at the menu rail's own clip edge. */
-  railEdgeHitClass: string | null;
+  /** Whether workspace chrome occupies the same 2D area as the menu rail. */
+  railSwitcherOverlap: boolean;
+  /** Visible menu button centers must still hit their own controls. */
+  menuButtonHitResults: Array<{ label: string; visible: boolean; receivesPointer: boolean }>;
   activeLabel: { text: string; width: number; opacity: string; display: string } | null;
   compactActive: boolean;
   itemSizes: Array<{ mode: string | null; width: number; height: number; key: string | null }>;
@@ -91,12 +95,39 @@ async function readGeometry(page: Page): Promise<SwitcherGeometry> {
     }
     const rail = document.querySelector<HTMLElement>('.editor-menubar__left');
     const railBox = rail?.getBoundingClientRect() ?? null;
-    const railEdgeHit = railBox
-      ? document.elementFromPoint(
-          Math.round(railBox.right - 4),
-          Math.round(railBox.top + railBox.height / 2),
-        )
-      : null;
+    const barBox = bar?.getBoundingClientRect() ?? null;
+    const railItems = [...(rail?.querySelectorAll<HTMLElement>('.editor-menubar__item') ?? [])];
+    const menuButtonHitResults = railItems.map((item) => {
+      const rect = item.getBoundingClientRect();
+      const visibleRect = railBox
+        ? {
+            left: Math.max(rect.left, railBox.left),
+            right: Math.min(rect.right, railBox.right),
+            top: Math.max(rect.top, railBox.top),
+            bottom: Math.min(rect.bottom, railBox.bottom),
+          }
+        : null;
+      const visible = Boolean(
+        visibleRect && visibleRect.left < visibleRect.right && visibleRect.top < visibleRect.bottom,
+      );
+      const hit = document.elementFromPoint(
+        Math.round(visibleRect ? (visibleRect.left + visibleRect.right) / 2 : rect.left),
+        Math.round(visibleRect ? (visibleRect.top + visibleRect.bottom) / 2 : rect.top),
+      );
+      return {
+        label: item.innerText,
+        visible,
+        receivesPointer: !visible || hit === item || (hit instanceof Node && item.contains(hit)),
+      };
+    });
+    const railSwitcherOverlap = Boolean(
+      railBox &&
+        barBox &&
+        railBox.left < barBox.right &&
+        railBox.right > barBox.left &&
+        railBox.top < barBox.bottom &&
+        railBox.bottom > barBox.top,
+    );
     return {
       barPresent: bar !== null,
       dockBar: {
@@ -113,11 +144,26 @@ async function readGeometry(page: Page): Promise<SwitcherGeometry> {
             height: dock.getBoundingClientRect().height,
           }
         : null,
+      dockBarRect: bar
+        ? {
+            x: bar.getBoundingClientRect().x,
+            y: bar.getBoundingClientRect().y,
+            width: bar.getBoundingClientRect().width,
+            height: bar.getBoundingClientRect().height,
+          }
+        : null,
+      railRect: railBox
+        ? {
+            x: railBox.x,
+            y: railBox.y,
+            width: railBox.width,
+            height: railBox.height,
+          }
+        : null,
       railClipRight: railBox ? railBox.right : null,
       railScrollable: rail ? rail.scrollWidth - rail.clientWidth : null,
-      railEdgeHitClass: railEdgeHit
-        ? String((railEdgeHit as HTMLElement).className || railEdgeHit.tagName)
-        : null,
+      railSwitcherOverlap,
+      menuButtonHitResults,
       activeLabel: label
         ? {
             text: label.textContent ?? '',
@@ -416,38 +462,45 @@ test.describe('workspace switcher design review', () => {
   });
 
   test('F5 — the switcher never covers or steals the application menu rail', async ({ page }) => {
-    test.setTimeout(600_000);
+    test.setTimeout(300_000);
+    await page.setViewportSize({ width: 641, height: 500 });
+    await navigateToEditor(page);
     for (const vp of [
       { name: 'landscape-641x500', width: 641, height: 500 },
       { name: 'landscape-700x500', width: 700, height: 500 },
       { name: 'landscape-760x500', width: 760, height: 500 },
+      { name: 'compact-760x768', width: 760, height: 768 },
+      { name: 'compact-800x768', width: 800, height: 768 },
       { name: 'landscape-899x600', width: 899, height: 600 },
       { name: 'landscape-900x600', width: 900, height: 600 },
       { name: 'landscape-1024x768', width: 1024, height: 768 },
+      { name: 'laptop-1280x800', width: 1280, height: 800 },
+      { name: 'laptop-1366x768', width: 1366, height: 768 },
     ] as const) {
       await page.setViewportSize({ width: vp.width, height: vp.height });
-      await navigateToEditor(page);
       await expectSwitcherMounted(page, `F5 ${vp.name}`);
       const geometry = await readGeometry(page);
       expect(geometry.dockRect, `${vp.name}: dock missing`).not.toBeNull();
       expect(geometry.railClipRight, `${vp.name}: menu rail missing`).not.toBeNull();
 
-      // The switcher paints from its own box leftward only by its shadow; the
-      // menu rail's *clip box* is what it must not enter.
-      const paintedLeft = geometry.dockRect!.x - (geometry.dockBar.boxShadow === 'none' ? 0 : 8);
+      // At compact portrait sizes the switcher gets its own second row and
+      // may be left-aligned under the full-width menu rail. Compare both axes:
+      // a horizontal-only assertion mistakes this intentional row layout for
+      // overlap (760×768), while a real overlap can still steal menu clicks.
+      expect(geometry.dockBarRect, `${vp.name}: switcher bar missing`).not.toBeNull();
+      expect(geometry.railRect, `${vp.name}: menu rail missing`).not.toBeNull();
       expect(
-        paintedLeft,
-        `${vp.name}: switcher chrome enters the menu rail (${paintedLeft} < ${geometry.railClipRight})`,
-      ).toBeGreaterThanOrEqual(geometry.railClipRight! - 1);
+        geometry.railSwitcherOverlap,
+        `${vp.name}: switcher bar overlaps the application menu rail`,
+      ).toBe(false);
 
-      // And the rail keeps its own hit area: before the fix the rail painted
-      // outside its box and the switcher, being later in the DOM, won the
-      // hit test — at 641×500 a click 4px inside the rail's edge hit a
-      // workspace tab instead of a menu.
+      // Test real menu button centers rather than the rail's far edge. At
+      // portrait compact sizes the rail spans the full first row, so its right
+      // edge can be empty space even though every menu target remains intact.
       expect(
-        geometry.railEdgeHitClass,
-        `${vp.name}: the switcher steals the menu rail's hit area (${geometry.railEdgeHitClass})`,
-      ).toContain('editor-menubar__item');
+        geometry.menuButtonHitResults.filter((item) => item.visible && !item.receivesPointer),
+        `${vp.name}: a menu button center is intercepted by workspace chrome`,
+      ).toEqual([]);
 
       // Every mode is still one interaction away at these widths.
       const more = page.locator('.workspace-dock__more');

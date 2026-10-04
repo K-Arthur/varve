@@ -10,13 +10,20 @@
  *
  * Scope discipline: this is a *convenience* surface over the same commands the
  * Inspector uses (`setSelectedFill`, `updateNode` inside a transaction). It
- * edits the first solid fill and first stroke only; gradients, layered fills,
- * alignment/caps/joins, and per-side weights stay in the Inspector, and the
- * controls stay enabled so the user can open the popover and see the real
- * value.
+ * edits the primary solid fill and first stroke; shared or non-solid fills and
+ * gradient strokes direct users to the Inspector. Other fill-stack and stroke
+ * settings (alignment, caps/joins, per-side weights) remain in the Inspector.
  */
-import type { ManagedColor, NodeId, SceneNode, ShapeNode, Stroke } from '@varve/scene';
-import { createStrokeId, defaultStroke } from '@varve/scene';
+import type {
+  Document,
+  Fill,
+  ManagedColor,
+  NodeId,
+  SceneNode,
+  ShapeNode,
+  Stroke,
+} from '@varve/scene';
+import { createStrokeId, defaultStroke, resolveNodePaints } from '@varve/scene';
 import { managedColorToRgba } from '@varve/shared';
 import { Icon, Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -41,12 +48,8 @@ function toSwatchBackground(color: ManagedColor): string {
   return `rgba(${r}, ${g}, ${b}, ${(a / 255).toFixed(2)})`;
 }
 
-function firstSolidFill(node: SceneNode): ManagedColor | null {
-  const fills = (node as ShapeNode).fills;
-  const first = fills?.[0];
-  if (first && first.type === 'solid' && first.color) return first.color;
-  if (fills && fills.length > 0) return null;
-  return node.fill ?? null;
+function fillsOf(node: SceneNode, document: Document): Fill[] {
+  return resolveNodePaints(node as unknown as Parameters<typeof resolveNodePaints>[0], document);
 }
 
 function strokesOf(node: SceneNode): Stroke[] {
@@ -60,7 +63,10 @@ export function ShapeQuickControls({
   setSelectedFlipV,
 }: ShapeQuickControlsProps) {
   const {
+    state,
     setSelectedFill,
+    updateSelectedFillAt,
+    groupCompoundOperation,
     updateNode,
     beginTransaction,
     commitTransaction,
@@ -68,10 +74,22 @@ export function ShapeQuickControls({
     documentColorMode,
   } = useEditor();
 
-  const fillColor = useMemo(() => firstSolidFill(node), [node]);
+  const fills = useMemo(() => fillsOf(node, state.document), [node, state.document]);
+  const primaryFill = fills[0];
+  const fillColor = primaryFill?.type === 'solid' ? (primaryFill.color ?? null) : null;
+  const sharedPaint = Boolean(node.paintRefs?.length);
+  const fillDisabledReason = sharedPaint
+    ? 'This object uses a shared paint. Detach it in the Inspector before editing its fill.'
+    : primaryFill && primaryFill.type !== 'solid'
+      ? `The primary fill is ${primaryFill.type}; edit it in the Inspector.`
+      : undefined;
   const strokes = useMemo(() => strokesOf(node), [node]);
   const stroke = strokes[0];
   const strokeColor = stroke && !stroke.gradient ? stroke.color : null;
+  const strokeSwatchColor = stroke?.gradient?.stops[0]?.color ?? strokeColor;
+  const strokeDisabledReason = stroke?.gradient
+    ? 'This stroke uses a gradient; edit it in the Inspector.'
+    : undefined;
   const strokeWeight = stroke ? stroke.weight : null;
 
   const [weightDraft, setWeightDraft] = useState(strokeWeight === null ? '' : String(strokeWeight));
@@ -92,6 +110,30 @@ export function ShapeQuickControls({
       commitTransaction();
     },
     [beginTransaction, commitTransaction, node.id, updateNode],
+  );
+
+  const changeFillColor = useCallback(
+    (color: ManagedColor) => {
+      if (sharedPaint || !primaryFill || primaryFill.type !== 'solid') return;
+      if (node.fills && node.fills.length > 0) {
+        // `setSelectedFill` only writes the legacy `fill` field. Inline fill
+        // stacks take precedence over it, so update the visible first row
+        // through the same stack-aware command used by the Inspector.
+        groupCompoundOperation('Change fill color', () =>
+          updateSelectedFillAt(0, { ...primaryFill, color }),
+        );
+        return;
+      }
+      setSelectedFill(color);
+    },
+    [
+      groupCompoundOperation,
+      node.fills,
+      primaryFill,
+      setSelectedFill,
+      sharedPaint,
+      updateSelectedFillAt,
+    ],
   );
 
   const addStroke = useCallback(() => {
@@ -122,9 +164,9 @@ export function ShapeQuickControls({
   const fillStyle = fillColor
     ? { background: toSwatchBackground(fillColor), border: '1px solid var(--color-border-strong)' }
     : NO_STROKE_STYLE;
-  const strokeStyle = strokeColor
+  const strokeStyle = strokeSwatchColor
     ? {
-        background: toSwatchBackground(strokeColor),
+        background: toSwatchBackground(strokeSwatchColor),
         border: '1px solid var(--color-border-strong)',
       }
     : NO_STROKE_STYLE;
@@ -136,13 +178,18 @@ export function ShapeQuickControls({
 
       <span className="ccb__swatch-control">
         <span className="ccb__swatch-label">Fill</span>
-        <Tooltip label={fillColor ? 'Fill colour' : 'Set fill colour'}>
+        <Tooltip
+          label={fillColor ? 'Fill colour' : 'Set fill colour'}
+          disabledReason={fillDisabledReason}
+        >
           <InspectorColorPopover
             label="Fill colour"
             value={fillColor ?? { space: 'rgb', r: 0, g: 0, b: 0, a: 255 }}
-            onChange={(color) => setSelectedFill(color)}
+            onChange={changeFillColor}
             swatchStyle={fillStyle}
             className="ccb__swatch"
+            disabled={Boolean(fillDisabledReason)}
+            tooltipDisabledReason={fillDisabledReason}
             documentColorMode={documentColorMode}
             onEditStart={beginTransaction}
             onEditEnd={commitTransaction}
@@ -156,9 +203,7 @@ export function ShapeQuickControls({
             <span className="ccb__swatch-label">Stroke</span>
             <Tooltip
               label={stroke.gradient ? 'Stroke gradient colour' : 'Stroke colour'}
-              disabledReason={
-                stroke.gradient ? 'Stroke uses a gradient — edit it in the Inspector' : undefined
-              }
+              disabledReason={strokeDisabledReason}
             >
               <InspectorColorPopover
                 label="Stroke colour"
@@ -166,9 +211,8 @@ export function ShapeQuickControls({
                 onChange={(color) => patchStroke((s) => ({ ...s, color, gradient: undefined }))}
                 swatchStyle={strokeStyle}
                 className="ccb__swatch"
-                tooltipDisabledReason={
-                  stroke.gradient ? 'Stroke uses a gradient — edit it in the Inspector' : undefined
-                }
+                disabled={Boolean(strokeDisabledReason)}
+                tooltipDisabledReason={strokeDisabledReason}
                 documentColorMode={documentColorMode}
                 onEditStart={beginTransaction}
                 onEditEnd={commitTransaction}

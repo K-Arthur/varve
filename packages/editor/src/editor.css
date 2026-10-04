@@ -6286,6 +6286,21 @@ dialog.varve-dialog--workspace-customize[open] {
   grid-column: 1 / -1;
   justify-self: end;
 }
+/* The compact editor breakpoint can be triggered by browser sidebars or
+   split-screen use on otherwise desktop-sized hardware. Keep each panel-move
+   select at a comfortable width in that layout instead of squeezing three
+   distinct labels into two narrow columns; the dialog body already owns the
+   vertical scroll at these sizes. */
+@media (max-width: 899px) {
+  .workspace-customize__arrangement-row--dock-move {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .workspace-customize__arrangement-row--dock-move > button {
+    grid-column: 1;
+    justify-self: stretch;
+    width: 100%;
+  }
+}
 .workspace-customize__arrangement-name {
   min-width: 0;
   color: var(--color-text-primary);

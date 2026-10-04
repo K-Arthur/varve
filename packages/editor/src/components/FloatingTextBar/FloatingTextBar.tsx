@@ -324,7 +324,6 @@ export function FloatingTextBar({
 
         <Popover
           placement="top"
-          collisionBoundary={canvasBoundary}
           open={colorOpen}
           onOpenChange={setColorOpen}
           label="Text color picker"

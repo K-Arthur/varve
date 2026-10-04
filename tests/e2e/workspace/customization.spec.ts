@@ -102,6 +102,102 @@ test.describe('workspace customization', () => {
     expect(stored).toContain('dockLayout');
   });
 
+  test('panel location controls fit compact and small-laptop viewports', async ({ page }) => {
+    await page.setViewportSize({ width: 760, height: 768 });
+    await navigateToEditor(page);
+    await runPaletteAction(page, 'Customize Workspace', /^Customize Workspace$/);
+    const dialog = page.getByRole('dialog', { name: /Customize Design workspace/i });
+    const row = dialog.locator('.workspace-customize__arrangement-row--dock-move');
+    await expect(row).toBeVisible();
+
+    for (const viewport of [
+      { width: 760, height: 768 },
+      { width: 800, height: 768 },
+      { width: 1024, height: 768 },
+      { width: 1280, height: 800 },
+      { width: 1366, height: 768 },
+    ]) {
+      await page.setViewportSize(viewport);
+      const geometry = await page.evaluate(() => {
+        const rect = (element: Element | null) => {
+          const box = element?.getBoundingClientRect();
+          return box
+            ? {
+                x: box.x,
+                y: box.y,
+                right: box.right,
+                bottom: box.bottom,
+                width: box.width,
+                height: box.height,
+              }
+            : null;
+        };
+        const dialog = document.querySelector('dialog.varve-dialog--workspace-customize');
+        const moveRow = document.querySelector('.workspace-customize__arrangement-row--dock-move');
+        const controls = moveRow
+          ? [...moveRow.querySelectorAll<HTMLElement>('.varve-native-select, .varve-btn')]
+          : [];
+        return {
+          viewportWidth: window.innerWidth,
+          documentWidth: document.documentElement.scrollWidth,
+          dialog: rect(dialog),
+          moveRow: rect(moveRow),
+          controls: controls.map((element) => ({
+            label: element.getAttribute('aria-label') ?? element.innerText,
+            rect: rect(element),
+          })),
+          columns: moveRow ? getComputedStyle(moveRow).gridTemplateColumns : '',
+        };
+      });
+
+      expect(geometry.documentWidth, `${viewport.width}px document overflow`).toBeLessThanOrEqual(
+        viewport.width,
+      );
+      expect(geometry.dialog, `${viewport.width}px dialog missing`).not.toBeNull();
+      expect(geometry.moveRow, `${viewport.width}px move row missing`).not.toBeNull();
+      expect(geometry.controls, `${viewport.width}px controls missing`).toHaveLength(4);
+      expect(geometry.dialog!.x).toBeGreaterThanOrEqual(0);
+      expect(geometry.dialog!.right).toBeLessThanOrEqual(viewport.width + 1);
+      expect(geometry.moveRow!.x).toBeGreaterThanOrEqual(geometry.dialog!.x);
+      expect(geometry.moveRow!.right).toBeLessThanOrEqual(geometry.dialog!.right);
+      const rowBox = geometry.moveRow!;
+      const controlBoxes = geometry.controls.map(({ rect: controlBox }) => {
+        expect(controlBox, `${viewport.width}px control has no box`).not.toBeNull();
+        return controlBox!;
+      });
+      for (const [index, box] of controlBoxes.entries()) {
+        expect(box.x, `${viewport.width}px control ${index} clips left`).toBeGreaterThanOrEqual(
+          rowBox.x - 1,
+        );
+        expect(box.right, `${viewport.width}px control ${index} clips right`).toBeLessThanOrEqual(
+          rowBox.right + 1,
+        );
+        for (const other of controlBoxes.slice(index + 1)) {
+          const intersects =
+            box.x < other.right &&
+            box.right > other.x &&
+            box.y < other.bottom &&
+            box.bottom > other.y;
+          expect(intersects, `${viewport.width}px move controls overlap`).toBe(false);
+        }
+      }
+
+      if (viewport.width <= 899) {
+        expect(
+          controlBoxes.every((box) => Math.abs(box.x - rowBox.x) < 1),
+          `${viewport.width}px move controls should stack to a single column`,
+        ).toBe(true);
+        expect(controlBoxes[3]!.width).toBeGreaterThan(controlBoxes[0]!.width - 1);
+      }
+
+      if (viewport.width === 760 || viewport.width === 1280) {
+        await page.screenshot({
+          path: evidencePath(`workspace-dock-layout/panel-move-${viewport.width}.png`),
+        });
+      }
+    }
+  });
+
   test('floating groups preview movement, resize, reset and redock accessibly', async ({
     page,
   }) => {

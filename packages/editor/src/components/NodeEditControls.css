@@ -2,7 +2,9 @@
   position: absolute;
   left: var(--space-3);
   bottom: var(--space-3);
-  z-index: var(--z-dropdown, 40);
+  /* This is an active editing surface. Popover elevation keeps it above the
+   * floating tool palette while leaving dialogs and full-screen overlays above. */
+  z-index: var(--z-popover, 200);
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -13,8 +15,38 @@
   background: color-mix(in srgb, var(--color-surface-raised) 94%, transparent);
   color: var(--color-text-primary);
   box-shadow: var(--shadow-md);
-  pointer-events: auto;
+  /* The path editor floats over the canvas, but its card surface and labels
+   * must not swallow a node drag underneath them. Re-enable hit testing only
+   * for actual controls so a canvas pointer gesture can pass through the gaps. */
+  pointer-events: none;
   backdrop-filter: blur(12px);
+}
+
+/* The node editor and bottom toolbar share the canvas area. Reserve the
+ * toolbar's measured height so its opaque card cannot cover path controls. */
+.editor-shell:has(.floating-toolbar:not(.floating-toolbar--top)) .node-edit-controls {
+  bottom: calc(var(--floating-toolbar-height, var(--toolbar-height)) + var(--space-6));
+}
+
+/* Responsive panel launchers share the lower canvas corners. Clear their full
+ * touch target footprint as well as the tool palette so the path footer stays
+ * usable when the inspector/layers/resource launchers are visible. */
+@media (max-width: 899px) {
+  .editor-shell:has(.floating-toolbar:not(.floating-toolbar--top)) .node-edit-controls,
+  .editor-shell:has(.floating-toolbar--top) .node-edit-controls {
+    --node-edit-controls-bottom-clearance: calc(
+      var(--floating-toolbar-height, var(--toolbar-height)) +
+      var(--space-3) +
+      var(--space-2) +
+      var(--touch-target-min, 44px) +
+      var(--space-3)
+    );
+    bottom: var(--node-edit-controls-bottom-clearance);
+    box-sizing: border-box;
+    max-height: max(0px, calc(100% - var(--node-edit-controls-bottom-clearance) - var(--space-3)));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
 }
 
 .node-edit-controls__heading,
@@ -68,6 +100,7 @@
   color: var(--color-text-primary);
   font: inherit;
   cursor: pointer;
+  pointer-events: auto;
 }
 
 .node-edit-controls button:hover:not(:disabled),
@@ -112,6 +145,7 @@
   background: var(--color-surface-sunken);
   color: var(--color-text-primary);
   font: inherit;
+  pointer-events: auto;
 }
 
 .node-edit-controls__field input:focus-visible {
@@ -131,8 +165,8 @@
 
 @media (max-width: 760px) {
   .node-edit-controls {
-    right: var(--space-3);
-    max-width: none;
+    width: min(28rem, calc(100% - var(--space-6)));
+    right: auto;
   }
 
   .node-edit-controls__coordinates {

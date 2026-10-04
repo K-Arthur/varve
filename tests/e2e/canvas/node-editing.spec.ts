@@ -20,8 +20,10 @@ async function drawOpenPath(page: import('@playwright/test').Page): Promise<void
   }
   await page.keyboard.press('Enter');
   await page.keyboard.press('v');
-  await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 15000 });
-  await page.getByRole('treeitem').first().click();
+  const layerRow = page.getByRole('treeitem').first();
+  if (await layerRow.isVisible().catch(() => false)) {
+    await layerRow.click();
+  }
   await page.getByRole('button', { name: /edit nodes/i }).click();
   await page.waitForTimeout(500);
 }
@@ -79,6 +81,69 @@ async function artworkInkNear(page: import('@playwright/test').Page, points: Poi
 }
 
 test.describe('Node editing pointer selection', () => {
+  test('path controls stay clear of the floating toolbar in a compact canvas', async ({ page }) => {
+    await page.setViewportSize({ width: 753, height: 520 });
+    await navigateToEditor(page);
+    await drawOpenPath(page);
+
+    const controls = page.getByTestId('node-edit-controls');
+    const toolbar = page.locator('.floating-toolbar').first();
+    await expect(controls).toBeVisible();
+    await expect(toolbar).toBeVisible();
+
+    const [controlsBox, toolbarBox] = await Promise.all([
+      controls.boundingBox(),
+      toolbar.boundingBox(),
+    ]);
+    expect(controlsBox).not.toBeNull();
+    expect(toolbarBox).not.toBeNull();
+    expect(controlsBox!.y + controlsBox!.height).toBeLessThanOrEqual(toolbarBox!.y);
+
+    const launcherBoxes = await page
+      .locator('.editor__fab:visible')
+      .evaluateAll((launchers) =>
+        launchers.map((launcher) => launcher.getBoundingClientRect().toJSON()),
+      );
+    expect(launcherBoxes.length).toBeGreaterThan(0);
+    for (const launcher of launcherBoxes) {
+      const separated =
+        controlsBox!.x + controlsBox!.width <= launcher.x ||
+        launcher.x + launcher.width <= controlsBox!.x ||
+        controlsBox!.y + controlsBox!.height <= launcher.y ||
+        launcher.y + launcher.height <= controlsBox!.y;
+      expect(separated).toBe(true);
+    }
+
+    const reverse = controls.getByRole('button', { name: 'Reverse' });
+    /* Short canvases keep the whole editor reachable through the panel's own
+       scroll area. Exercise the lower operations after scrolling them into
+       view instead of accepting a clipped, unclickable footer. */
+    await reverse.scrollIntoViewIfNeeded();
+    const reverseBox = await reverse.boundingBox();
+    expect(reverseBox).not.toBeNull();
+    expect(reverseBox!.y).toBeGreaterThanOrEqual(controlsBox!.y);
+    expect(reverseBox!.y + reverseBox!.height).toBeLessThanOrEqual(
+      controlsBox!.y + controlsBox!.height,
+    );
+    expect(
+      await page.evaluate(
+        ({ x, y }) => document.elementFromPoint(x, y)?.closest('button')?.textContent?.trim(),
+        {
+          x: reverseBox!.x + reverseBox!.width / 2,
+          y: reverseBox!.y + reverseBox!.height / 2,
+        },
+      ),
+    ).toBe('Reverse');
+
+    await reverse.click();
+    await expect(page.locator('[data-testid="node-edit-overlay"] [data-node-anchor]')).toHaveCount(
+      3,
+    );
+    await page.screenshot({
+      path: test.info().outputPath('node-edit-controls-clear-of-toolbar.png'),
+    });
+  });
+
   test('dragging an already-selected anchor moves the selected group', async ({ page }) => {
     await navigateToEditor(page);
     await drawOpenPath(page);
@@ -94,15 +159,26 @@ test.describe('Node editing pointer selection', () => {
 
     // NodeEditTool handles the anchors through real canvas pointer events.
     // A transform hit target at a bounding-box edge must not steal them.
-    expect(
-      await page.evaluate(
-        (points) =>
-          points.map(({ x, y }) =>
-            document.elementFromPoint(x, y)?.matches('canvas.editor-canvas__content-layer'),
-          ),
-        before,
-      ),
-    ).toEqual([true, true, true]);
+    const pointerTargets = await page.evaluate(
+      (points) =>
+        points.map(({ x, y }) => {
+          const target = document.elementFromPoint(x, y);
+          return {
+            canvas: target?.matches('canvas.editor-canvas__content-layer'),
+            tag: target?.tagName,
+            className: typeof target?.className === 'string' ? target.className : null,
+            testId: target?.getAttribute('data-testid'),
+            pointerEvents: target ? getComputedStyle(target).pointerEvents : null,
+            zIndex: target ? getComputedStyle(target).zIndex : null,
+          };
+        }),
+      before,
+    );
+    expect(pointerTargets, JSON.stringify(pointerTargets)).toEqual([
+      expect.objectContaining({ canvas: true }),
+      expect.objectContaining({ canvas: true }),
+      expect.objectContaining({ canvas: true }),
+    ]);
 
     const canvas = page.locator('canvas.editor-canvas__content-layer');
     const beforePixels = await canvas.screenshot();

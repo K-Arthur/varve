@@ -19,7 +19,15 @@ import {
   DEFAULT_ARTWORK_FONT_FAMILY,
   multiplyAffine,
 } from '@varve/shared';
-import { type Ref, useCallback, useEffect, useImperativeHandle, useRef } from 'react';
+import {
+  type Ref,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
 import { createPortal, flushSync } from 'react-dom';
 import { useEditor } from '../context';
 import { nodeLocalBounds } from '../scene/world';
@@ -29,6 +37,56 @@ export interface TextEditOverlayHandle {
   commit: () => void;
   /** Finish typing before a user formatting event opens its own transaction. */
   prepareFormatting: () => void;
+}
+
+interface TextEditViewportGeometry {
+  layoutWidth: number;
+  layoutHeight: number;
+  visualWidth: number;
+  visualHeight: number;
+  visualOffsetLeft: number;
+  visualOffsetTop: number;
+  keyboardX: number;
+  keyboardY: number;
+  keyboardWidth: number;
+  keyboardHeight: number;
+}
+
+function readTextEditViewportGeometry(ownerWindow: Window): TextEditViewportGeometry {
+  const visual = ownerWindow.visualViewport;
+  const keyboard = (
+    ownerWindow.navigator as Navigator & { virtualKeyboard?: { boundingRect?: DOMRect } }
+  ).virtualKeyboard?.boundingRect;
+  return {
+    layoutWidth: ownerWindow.innerWidth,
+    layoutHeight: ownerWindow.innerHeight,
+    visualWidth: visual?.width ?? ownerWindow.innerWidth,
+    visualHeight: visual?.height ?? ownerWindow.innerHeight,
+    visualOffsetLeft: visual?.offsetLeft ?? 0,
+    visualOffsetTop: visual?.offsetTop ?? 0,
+    keyboardX: keyboard?.x ?? 0,
+    keyboardY: keyboard?.y ?? 0,
+    keyboardWidth: keyboard?.width ?? 0,
+    keyboardHeight: keyboard?.height ?? 0,
+  };
+}
+
+function sameTextEditViewportGeometry(
+  left: TextEditViewportGeometry,
+  right: TextEditViewportGeometry,
+): boolean {
+  return (
+    left.layoutWidth === right.layoutWidth &&
+    left.layoutHeight === right.layoutHeight &&
+    left.visualWidth === right.visualWidth &&
+    left.visualHeight === right.visualHeight &&
+    left.visualOffsetLeft === right.visualOffsetLeft &&
+    left.visualOffsetTop === right.visualOffsetTop &&
+    left.keyboardX === right.keyboardX &&
+    left.keyboardY === right.keyboardY &&
+    left.keyboardWidth === right.keyboardWidth &&
+    left.keyboardHeight === right.keyboardHeight
+  );
 }
 
 interface TextEditOverlayProps {
@@ -86,10 +144,11 @@ export function TextEditOverlay({
   const hasActiveBurstRef = useRef(false);
   const blurCommitFrameRef = useRef<number | null>(null);
   const blurCommitTimerRef = useRef<number | null>(null);
-  const viewportSizeRef = useRef({ width: 0, height: 0 });
+  const viewportSizeRef = useRef<TextEditViewportGeometry | null>(null);
   const resizeVersionRef = useRef(0);
   const handledResizeVersionRef = useRef(0);
   const resizeEscapeTimerRef = useRef<number | null>(null);
+  const [, setViewportVersion] = useState(0);
   const committedRef = useRef(false);
   const onUpdateTextRef = useRef(onUpdateText);
   onUpdateTextRef.current = onUpdateText;
@@ -315,10 +374,10 @@ export function TextEditOverlay({
                 '[data-text-edit-surface="true"],[data-varve-overlay="true"],.inspector-panel,.inspector',
               ),
             );
-          const viewport = { width: window.innerWidth, height: window.innerHeight };
+          const viewport = readTextEditViewportGeometry(window);
           if (
-            viewport.width !== viewportSizeRef.current.width ||
-            viewport.height !== viewportSizeRef.current.height
+            viewportSizeRef.current === null ||
+            !sameTextEditViewportGeometry(viewport, viewportSizeRef.current)
           ) {
             viewportSizeRef.current = viewport;
             resizeVersionRef.current += 1;
@@ -340,17 +399,15 @@ export function TextEditOverlay({
 
   useEffect(() => {
     const updateViewport = () => {
-      const next = { width: window.innerWidth, height: window.innerHeight };
-      if (viewportSizeRef.current.width === 0 && viewportSizeRef.current.height === 0) {
+      const next = readTextEditViewportGeometry(window);
+      if (viewportSizeRef.current === null) {
         viewportSizeRef.current = next;
         return;
       }
-      if (
-        next.width !== viewportSizeRef.current.width ||
-        next.height !== viewportSizeRef.current.height
-      ) {
+      if (!sameTextEditViewportGeometry(next, viewportSizeRef.current)) {
         viewportSizeRef.current = next;
         resizeVersionRef.current += 1;
+        setViewportVersion((version) => version + 1);
         if (resizeEscapeTimerRef.current !== null) {
           window.clearTimeout(resizeEscapeTimerRef.current);
         }
@@ -361,8 +418,19 @@ export function TextEditOverlay({
       }
     };
     updateViewport();
+    const visualViewport = window.visualViewport;
+    const virtualKeyboard = (navigator as Navigator & { virtualKeyboard?: EventTarget })
+      .virtualKeyboard;
     window.addEventListener('resize', updateViewport);
-    return () => window.removeEventListener('resize', updateViewport);
+    visualViewport?.addEventListener('resize', updateViewport);
+    visualViewport?.addEventListener('scroll', updateViewport);
+    virtualKeyboard?.addEventListener('geometrychange', updateViewport);
+    return () => {
+      window.removeEventListener('resize', updateViewport);
+      visualViewport?.removeEventListener('resize', updateViewport);
+      visualViewport?.removeEventListener('scroll', updateViewport);
+      virtualKeyboard?.removeEventListener('geometrychange', updateViewport);
+    };
   }, []);
 
   useEffect(() => {
@@ -464,10 +532,13 @@ export function TextEditOverlay({
   // Auto-focus on mount without forcing every existing text object into a
   // select-all state. New text objects are empty; existing text keeps a caret
   // at the start until the user clicks or uses a keyboard selection command.
-  useEffect(() => {
+  useLayoutEffect(() => {
     const ta = textareaRef.current;
     if (ta) {
-      ta.focus();
+      // Mounting immediately after a trusted canvas tap preserves the browser's
+      // user-activation window as well as React can. Mobile browsers may refuse
+      // to summon the software keyboard after a passive effect focus.
+      ta.focus({ preventScroll: true });
       ta.setSelectionRange(0, 0);
     }
   }, []);
@@ -485,6 +556,7 @@ export function TextEditOverlay({
       onBlur={handleBlur}
       onSelect={handleSelect}
       dir="auto"
+      inputMode="text"
       style={{
         position: 'fixed',
         left: 0,
@@ -538,7 +610,24 @@ export function TextEditOverlay({
         // and selection behavior. Clip both paint and hit testing in viewport
         // coordinates so a long or rotated edit cannot cover the inspector.
         clipPath: rect
-          ? `inset(${rect.top}px ${Math.max(0, window.innerWidth - rect.right)}px ${Math.max(0, window.innerHeight - rect.bottom)}px ${rect.left}px)`
+          ? (() => {
+              const visual = window.visualViewport;
+              const visibleLeft = Math.max(0, visual?.offsetLeft ?? 0);
+              const visibleTop = Math.max(0, visual?.offsetTop ?? 0);
+              const visibleRight = Math.min(
+                window.innerWidth,
+                visibleLeft + (visual?.width ?? window.innerWidth),
+              );
+              const visibleBottom = Math.min(
+                window.innerHeight,
+                visibleTop + (visual?.height ?? window.innerHeight),
+              );
+              const left = Math.max(0, rect.left, visibleLeft);
+              const top = Math.max(0, rect.top, visibleTop);
+              const right = Math.min(window.innerWidth, rect.right, visibleRight);
+              const bottom = Math.min(window.innerHeight, rect.bottom, visibleBottom);
+              return `inset(${top}px ${Math.max(0, window.innerWidth - right)}px ${Math.max(0, window.innerHeight - bottom)}px ${left}px)`;
+            })()
           : undefined,
       }}
     >

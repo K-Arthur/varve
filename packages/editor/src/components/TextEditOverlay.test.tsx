@@ -39,7 +39,11 @@ function makeNode(text: string, direction: TextNode['direction'] = 'auto'): Text
   } as TextNode;
 }
 
-function renderOverlay(node: TextNode) {
+function renderOverlay(
+  node: TextNode,
+  onCommit: (text: string) => void = () => {},
+  onUpdateText: (text: string, targetId: string) => void = () => {},
+) {
   const canvas = document.createElement('canvas');
   canvas.getBoundingClientRect = () =>
     ({
@@ -61,8 +65,8 @@ function renderOverlay(node: TextNode) {
         zoom={1}
         pan={{ x: 0, y: 0 }}
         canvasElement={canvas}
-        onCommit={() => {}}
-        onUpdateText={() => {}}
+        onCommit={onCommit}
+        onUpdateText={onUpdateText}
       />
     </EditorProvider>,
   );
@@ -226,6 +230,51 @@ describe('TextEditOverlay', () => {
     expect(onCommit).not.toHaveBeenCalled();
     expect(document.activeElement).toBe(ta);
     window.innerWidth = previousWidth;
+  });
+
+  it('keeps tablet text editing alive when only the visual viewport changes', async () => {
+    const onCommit = vi.fn();
+    const visualViewport = new EventTarget() as EventTarget & {
+      width: number;
+      height: number;
+      offsetLeft: number;
+      offsetTop: number;
+      scale: number;
+    };
+    Object.assign(visualViewport, {
+      width: window.innerWidth,
+      height: window.innerHeight,
+      offsetLeft: 0,
+      offsetTop: 0,
+      scale: 1,
+    });
+    const previousVisualViewport = Object.getOwnPropertyDescriptor(window, 'visualViewport');
+    Object.defineProperty(window, 'visualViewport', {
+      configurable: true,
+      value: visualViewport,
+    });
+
+    try {
+      renderOverlay(makeNode('Hello'), onCommit);
+      const ta = screen.getByRole('textbox') as HTMLTextAreaElement;
+      const initialClip = ta.parentElement?.getAttribute('style') ?? '';
+      ta.focus();
+      ta.blur();
+      visualViewport.height = 300;
+      act(() => visualViewport.dispatchEvent(new Event('resize')));
+      await settleBlurCommit();
+
+      expect(onCommit).not.toHaveBeenCalled();
+      expect(document.activeElement).toBe(ta);
+      const resizedClip = ta.parentElement?.getAttribute('style') ?? '';
+      expect(resizedClip).not.toBe(initialClip);
+    } finally {
+      if (previousVisualViewport) {
+        Object.defineProperty(window, 'visualViewport', previousVisualViewport);
+      } else {
+        Reflect.deleteProperty(window, 'visualViewport');
+      }
+    }
   });
 
   it('ignores the Escape delivered by a viewport resize before accepting a later Escape', () => {

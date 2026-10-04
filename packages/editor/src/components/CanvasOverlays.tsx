@@ -756,10 +756,12 @@ export function CanvasOverlays({
             setTargetId={setNodeEditTargetId}
           />
         )}
-      <SelectionOverlay
-        canvasRef={contentCanvasRef}
-        transformPreviewStore={transformPreviewStore}
-      />
+      {tool !== 'nodeEdit' && (
+        <SelectionOverlay
+          canvasRef={contentCanvasRef}
+          transformPreviewStore={transformPreviewStore}
+        />
+      )}
       {retouchBadge && (
         <PaintOverlay
           camera={{ zoom, pan, rotation: cameraRotation ?? 0 }}

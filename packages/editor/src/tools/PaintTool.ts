@@ -283,6 +283,7 @@ export class PaintTool extends BaseTool {
 
     this.ctxRef = ctx;
     ctx.beginTransaction();
+    const startWorld = this.drag.startWorld;
 
     // One resolver decides where paint goes, so a refusal can be explained
     // rather than looking like the tool is broken.
@@ -290,7 +291,7 @@ export class PaintTool extends BaseTool {
       document: ctx.document as never,
       selection: ctx.selection,
       maskEditTarget: ctx.maskEditTarget ?? null,
-      fallbackLayerId: findEditableRasterLayer(ctx),
+      fallbackLayerId: findEditableRasterLayer(ctx, startWorld),
       getWorldTransform: ctx.getWorldTransform,
       designCanvasId: ctx.masterEditId ? null : ctx.designCanvasId,
     });
@@ -317,7 +318,7 @@ export class PaintTool extends BaseTool {
         ctx.abortTransaction();
         return { consumed: false };
       }
-      rasterNodeId = this.findOrCreateRasterLayer(ctx);
+      rasterNodeId = this.findOrCreateRasterLayer(ctx, startWorld);
     }
 
     if (!rasterNodeId) {
@@ -720,13 +721,16 @@ export class PaintTool extends BaseTool {
     });
   }
 
-  private findOrCreateRasterLayer(ctx: ToolContext): string | null {
-    const existing = findEditableRasterLayer(ctx);
+  private findOrCreateRasterLayer(
+    ctx: ToolContext,
+    worldPoint: { x: number; y: number },
+  ): string | null {
+    const existing = findEditableRasterLayer(ctx, worldPoint);
     if (existing) {
       this.lastOwnedLayer = false;
       return existing;
     }
-    const nodeId = createRasterTarget(ctx, this.drag.startWorld);
+    const nodeId = createRasterTarget(ctx, worldPoint);
     this.lastOwnedLayer = nodeId !== null;
     return nodeId;
   }

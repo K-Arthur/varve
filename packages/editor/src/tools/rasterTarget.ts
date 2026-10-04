@@ -1,9 +1,22 @@
 import type { Document, NodeId, RasterLayerNode, SceneNode } from '@varve/scene';
+import { nodeWorldTransform } from '@varve/scene';
 import { applyAffine, invertAffine, tryInvertAffine } from '@varve/shared';
 import type { ToolContext } from './types';
 
-/** Return the selected or nearest editable raster layer in the active page. */
-export function findEditableRasterLayer(ctx: ToolContext): string | null {
+/**
+ * Return the selected raster layer or an editable fallback at the pointer.
+ *
+ * Explicit selection keeps its established semantics: artists can intentionally
+ * paint beyond a selected layer's bounds, including through masks and clipped
+ * paint groups. An unselected fallback is different; choosing a bounded raster
+ * that does not cover the pointer silently routes the stroke into invisible
+ * pixels. When a point is supplied, only fallback layers containing it qualify.
+ * Callers without a point retain the previous first-editable-layer behavior.
+ */
+export function findEditableRasterLayer(
+  ctx: ToolContext,
+  worldPoint?: { x: number; y: number },
+): string | null {
   const doc = ctx.document;
   for (const selectedId of ctx.selection) {
     const selected = doc.nodes[selectedId];
@@ -20,7 +33,12 @@ export function findEditableRasterLayer(ctx: ToolContext): string | null {
     for (const nodeId of ids) {
       const node = doc.nodes[nodeId];
       if (!node || node.visible === false || node.locked) continue;
-      if (isEditableRaster(node)) return nodeId;
+      if (
+        isEditableRaster(node) &&
+        (worldPoint === undefined || rasterContainsWorldPoint(ctx, nodeId, node, worldPoint))
+      ) {
+        return nodeId;
+      }
       if ('children' in node) {
         const nested = visit(node.children);
         if (nested) return nested;
@@ -36,6 +54,31 @@ export function findEditableRasterLayer(ctx: ToolContext): string | null {
     return visit(selectedPanel.children ?? []);
   }
   return visit(candidates);
+}
+
+function rasterContainsWorldPoint(
+  ctx: ToolContext,
+  nodeId: string,
+  node: RasterLayerNode,
+  worldPoint: { x: number; y: number },
+): boolean {
+  let worldTransform: import('@varve/shared').Affine;
+  try {
+    worldTransform = ctx.getWorldTransform?.(nodeId) ?? nodeWorldTransform(ctx.document, nodeId);
+  } catch {
+    return false;
+  }
+  const inverse = tryInvertAffine(worldTransform);
+  if (!inverse) return false;
+  const [x, y] = applyAffine(inverse, [worldPoint.x, worldPoint.y]);
+  return (
+    Number.isFinite(x) &&
+    Number.isFinite(y) &&
+    x >= 0 &&
+    y >= 0 &&
+    x < node.width &&
+    y < node.height
+  );
 }
 
 /** Return the local-pixel scale for a raster layer's world transform. */

@@ -33,7 +33,7 @@ Model A intentionally excludes these capabilities:
 - detached canvas/document views, renderer instances, or independent editors;
 - automatic restoration of a detached relationship after an application crash
   or a new primary-session boot; and
-- treating browser popups as a substitute for native desktop windows.
+- treating browser popups as equivalent to native desktop windows.
 
 The default auxiliary-window limit is eight. This is a resource and recovery
 boundary, not a license to create arbitrary webviews.
@@ -213,12 +213,17 @@ workspace preferences.
 
 ## Accessible interaction
 
-Dragging is optional enhancement, never the only transfer mechanism. Every
-supported primary host supplies a plainly labelled detach button and a
-header-context-menu command, and every auxiliary host supplies a plainly
-labelled reattach button. Button, context-menu, and drag paths all call the
-same transactional coordinator. Registry-provided labels keep the panel name
-in the accessible name.
+Dragging is optional enhancement, never the only transfer mechanism. In a
+desktop presentation, every supported primary host supplies a plainly labelled
+detach button and a header-context-menu command; header dragging is an optional
+shortcut. Every auxiliary host supplies a plainly labelled reattach button.
+Button, context-menu, and drag paths all call the same transactional
+coordinator. Registry-provided labels keep the panel name in the accessible
+name. Compact and tablet presentations suppress the primary detach button,
+header drag-to-detach, and header context-menu command. Panels stay docked or
+in their responsive drawer; an already detached panel keeps its reattach
+control. **Customize Workspace** continues to expose panel location and
+ordering controls.
 
 - Transfer progress, success, and rollback use a live status message; errors
   explain that the source remains docked.
@@ -241,11 +246,20 @@ in the accessible name.
 
 ## Desktop and browser posture
 
-| Runtime capability | Behaviour | Promise we make |
+Runtime capability and presentation mode answer different questions. Runtime
+capability describes which window transport the host can provide; presentation
+mode describes whether window-detach controls fit the current interaction
+surface. The editor resolves compact/tablet mode from viewport width and live
+pointer/touch capabilities, updates it when those capabilities change, and
+does not use user-agent detection. Returning to a desktop presentation restores
+the desktop detach affordances.
+
+| Surface and runtime capability | Behaviour | Promise we make |
 | --- | --- | --- |
-| `native` | Creates a managed Tauri auxiliary webview, supports monitor/placement APIs, and waits for host hydration before showing it. | Desktop panel windows are supported, subject to each OS compositor's placement policy. |
-| `browser-popup` | May open the same auxiliary route after a user gesture. Popup blockers, browser focus rules, and monitor APIs limit it. | Useful for demo/test coverage; it is not equivalent to native multi-monitor support. |
-| `single-window` | Refuses detachment and leaves the panel docked with an honest desktop-only explanation. | No blank source, fake popup, or silent no-op. |
+| Native desktop (`native`) | Creates a managed Tauri auxiliary webview, supports monitor/placement APIs, and waits for host hydration before showing it. Detach button, header context command, and optional header drag are available in desktop presentation. | Desktop panel windows are supported, subject to each OS compositor's placement policy. |
+| Desktop browser (`browser-popup`) | A user gesture can open the same auxiliary route in a browser popup. Detach controls are available in desktop presentation; popup blockers, browser focus rules, and limited monitor APIs still apply. | Useful for the browser demo and testing; it is not equivalent to native multi-monitor support. |
+| Compact or tablet (`native` or `browser-popup`) | Suppresses the detach button, header drag-to-detach, and header context-menu command. Docked panels remain in the main window or responsive drawer; workspace location and ordering controls remain available, and an already detached panel keeps its reattach control. This policy follows the live layout mode and viewport breakpoint, regardless of host transport. | Touch-first and narrow layouts do not offer a window action that is difficult to use there. The controls return dynamically when the app returns to desktop presentation. |
+| `single-window` in desktop presentation | Refuses detachment and leaves the panel docked with an honest desktop-only explanation. | No blank source, fake popup, or silent no-op. |
 
 Browser Playwright coverage validates the UI protocol and fallback semantics;
 it cannot prove native webview lifecycle, display enumeration, operating-system

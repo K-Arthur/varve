@@ -111,6 +111,16 @@
     transform: translateX(0);
     visibility: visible;
   }
+
+  /* The compact-shell projection uses a higher-specificity selector to apply
+     the persisted desktop rail width. Tablet mode can expose the same open
+     panel as either a drawer dialog or a dock tab after a resize, so apply the
+     touch-friendly width to every visible Layers panel. */
+  :root[data-layout-mode="tablet"]
+    .editor-shell:not(:has(.editor-shell__canvas-dock[style*="position: absolute"]))
+    .editor__layers-panel:not([data-collapsed]) {
+    width: min(320px, calc(100vw - var(--space-3) - var(--space-3)));
+  }
 }
 
 @media (max-width: 899px) {

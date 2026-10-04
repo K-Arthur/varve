@@ -694,14 +694,16 @@
   line-height: 1.2;
 }
 
-/* At 220px and above the row can protect a visibly useful identity budget. */
-@container layers (min-width: 220px) {
+/* The panel's inner content is narrower than its outer rail by the row and
+   panel gutters. Protect the 8ch name floor only once the container is wide
+   enough for the actual row body to retain that identity budget. */
+@container layers (min-width: 240px) {
   .layers-row__label {
     min-width: 8ch;
   }
 }
 
-@container layers (max-width: 219px) {
+@container layers (max-width: 239px) {
   /* No floor at the documented 180px minimum: the fixed row controls (type
      icon, drag handle, visibility/lock, gaps) plus the badge cluster's
      1.5rem floor already reach the row's inner width, so even a 4ch name
@@ -2246,6 +2248,17 @@
   .layers-row:focus-within .layers-row__badge-slot[data-badge-pinned="false"] {
     display: none;
   }
+
+  /* Tablet drawers can be narrower than the desktop rail while still using
+     coarse input. Keep the essential visibility and lock controls in the
+     row; yield the supplemental details and unpinned Solo shortcuts before
+     they push the last action outside the clipped tree. Both remain available
+     from the row context menu (details also appears in the panel header for a
+     single selection). */
+  .layers-row__details-trigger,
+  .layers-row [data-row-action="solo"][data-row-action-pinned="false"] {
+    display: none;
+  }
 }
 
 /* At the documented minimum width (180px) the row cannot hold every slot.
@@ -2258,6 +2271,20 @@
     .layers-row [data-row-action="solo"][data-row-action-pinned="false"] {
       display: none;
     }
+  }
+}
+
+/* On a short tablet drawer, the Minimap and workspace summaries can leave the
+   Layers content shorter than its own minimum tree height. Let the content
+   region scroll as a whole so the tree and its stacked rows do not extend
+   underneath its clipped parent. The tree keeps its own scroll for long
+   documents after the lower rows have been brought into view. */
+@media (max-width: 899px) and (max-height: 600px) {
+  :root[data-layout-mode="tablet"] .editor__layers-panel .layers-panel__content {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-color: var(--color-border-strong) transparent;
+    scrollbar-width: thin;
   }
 }
 .layers-filter-bar__quick {
