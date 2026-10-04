@@ -190,11 +190,8 @@ try {
           owner.once('error', reject);
           owner.once('exit', (code, signal) => resolve({ code, signal }));
         });
-        const readyDeadline = Date.now() + 3000;
-        while (!existsSync(ready) && Date.now() < readyDeadline)
-          await new Promise((resolve) => setTimeout(resolve, 5));
-        assert.ok(existsSync(ready), 'detached fixture must start before termination');
-        const pids = JSON.parse(readFileSync(ready, 'utf8'));
+        // Same read-after-create race as the parent-loss fixture test above.
+        const pids = await waitForFixtureJson(ready, 3000);
         owned = [pids.parent, pids.grandchild].map(processRecord);
         assert.ok(owned.every(Boolean), 'both owned processes must be live');
         if (process.platform === 'linux')
@@ -253,6 +250,37 @@ async function waitForFixtureFile(path, timeoutMs = 3000) {
   while (!existsSync(path) && Date.now() < deadline)
     await new Promise((resolve) => setTimeout(resolve, 5));
   assert.ok(existsSync(path), 'parent-loss fixture did not produce ' + path);
+}
+
+/**
+ * Wait for a fixture file to exist *and* hold complete, parseable JSON.
+ *
+ * A fixture file is `writeFileSync`-created by a spawned process, so `exists`
+ * becomes true at creation while the bytes land afterwards. Waiting only for
+ * existence let a later `readFileSync` observe an empty or partial file and
+ * throw `SyntaxError: Unexpected end of JSON input` — an intermittent macOS
+ * failure of `test:ci:tools` in CI run 37198361776 (`Build (macos-latest)`),
+ * which passed 12/12 runs locally because the window is load-dependent.
+ *
+ * This is a synchronisation fix, not a tolerance increase: the value read is
+ * still the fixture's own JSON and every existing assertion is unchanged.
+ */
+async function waitForFixtureJson(path, timeoutMs = 3000) {
+  const deadline = Date.now() + timeoutMs;
+  let last = '';
+  for (;;) {
+    try {
+      const raw = readFileSync(path, 'utf8');
+      if (raw.length > 0) return JSON.parse(raw);
+      last = 'empty file';
+    } catch (err) {
+      last = err.message;
+    }
+    if (Date.now() >= deadline) {
+      assert.ok(false, `fixture ${path} never held complete JSON (last: ${last})`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
 }
 
 /** The real parent exits normally; it never signals its detached supervisor. */
@@ -325,8 +353,7 @@ async function testSupervisorParentLoss(abrupt) {
     const ownerPid = Number(readFileSync(ownerPath, 'utf8'));
     owned = [processRecord(ownerPid)];
     assert.ok(owned[0], 'detached supervisor must be alive');
-    await waitForFixtureFile(ready);
-    const pids = JSON.parse(readFileSync(ready, 'utf8'));
+    const pids = await waitForFixtureJson(ready);
     owned.push(processRecord(pids.parent), processRecord(pids.grandchild));
     assert.ok(owned.every(Boolean), 'owned command and detached grandchild must be live');
     await new Promise((resolve) => setTimeout(resolve, 300));
@@ -336,8 +363,7 @@ async function testSupervisorParentLoss(abrupt) {
       await controllerExit,
       abrupt ? { code: null, signal: 'SIGKILL' } : { code: 0, signal: null },
     );
-    await waitForFixtureFile(receipt, 6500);
-    const result = JSON.parse(readFileSync(receipt, 'utf8'));
+    const result = await waitForFixtureJson(receipt, 6500);
     assert.deepEqual(result, { status: 1, signal: null, remaining: [], cleanupUnknown: false });
     assert.equal(existsSync(signalMarker), false, 'no signal may cause supervisor cleanup');
     assert.match(
