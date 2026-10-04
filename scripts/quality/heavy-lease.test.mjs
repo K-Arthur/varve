@@ -125,13 +125,51 @@ function waitForExit(child) {
 // Windows ChildProcess.kill('SIGTERM') force-kills without running Node's
 // handler. A file-triggered in-process event exercises that handler while the
 // real Windows CLI, lease and command tree remain intact; POSIX uses real TERM.
+//
+// The Windows preload must be handed to `node --import` as a `file://` URL.
+// Node's ESM loader rejects a bare drive path (`C:\...`) with
+// ERR_UNSUPPORTED_ESM_URL_SCHEME ("Received protocol 'c:'"), which made the
+// child die before it could publish its lease and reddened the Windows
+// `pnpm test:ci:tools` preflight (2026-10-04). The platform argument and URL
+// converter are injectable so this branch is regression-covered on every OS.
+export function preloadArgsForPlatform(preloadPath, platform, toFileUrl = pathToFileURL) {
+  return platform === 'win32' ? ['--import', toFileUrl(preloadPath).href] : [];
+}
+
 function cancellationPreload(directory, marker) {
   const path = join(directory, 'cancel-event.mjs');
   writeFileSync(
     path,
     `import fs from 'node:fs';const timer=setInterval(()=>{if(fs.existsSync(${JSON.stringify(marker)})){clearInterval(timer);process.emit('SIGTERM')}},5);timer.unref();`,
   );
-  return process.platform === 'win32' ? ['--import', pathToFileURL(path).href] : [];
+  return preloadArgsForPlatform(path, process.platform);
+}
+
+// Regression guard: the Windows branch must convert the preload path through
+// `pathToFileURL` (never pass a bare `C:\...` specifier), and POSIX must add
+// no `--import` at all.
+{
+  const converted = [];
+  const converter = (value) => {
+    converted.push(value);
+    return { href: 'file:///C:/Users/runneradmin/AppData/Local/Temp/cancel-event.mjs' };
+  };
+  assert.deepEqual(
+    preloadArgsForPlatform(
+      'C:\\Users\\runneradmin\\AppData\\Local\\Temp\\cancel-event.mjs',
+      'win32',
+      converter,
+    ),
+    ['--import', 'file:///C:/Users/runneradmin/AppData/Local/Temp/cancel-event.mjs'],
+  );
+  assert.equal(converted.length, 1, 'the win32 preload path must be converted via pathToFileURL');
+  assert.deepEqual(
+    preloadArgsForPlatform('/tmp/cancel-event.mjs', 'linux', converter),
+    [],
+    'POSIX cancels with a real SIGTERM and needs no preload',
+  );
+  assert.equal(converted.length, 1, 'POSIX must not convert or import a preload path');
+  console.log('windows preload url regression passed');
 }
 
 // Cancellation during memory admission returns its exact signal exit and
