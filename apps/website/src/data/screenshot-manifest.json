@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "note": "GENERATED FILE — reviewed mixed-source assembly; no new capture. Top-level identity records the assembly revision and input digest. Per-scene producer provenance remains authoritative for the pixels.",
-  "generatedAt": "2026-10-03T12:13:22.791Z",
+  "generatedAt": "2026-10-04T14:25:48.523Z",
   "scenes": {
     "workspace": {
       "file": "workspace-light.png",
@@ -492,17 +492,17 @@
       "width": 1440,
       "height": 900,
       "status": "captured",
-      "lastValidatedAgainst": "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
-      "sha256": "4bb29c7f4f864602abd98f740cd13a9f9c845f9722cfa3cd2c1f3902b9b9832d",
+      "lastValidatedAgainst": "d9fff30e56cc4686cb9e5e0cfa3dd504ea000057",
+      "sha256": "3838b7033006df32b20fc89bbd14d2560fa8cc9a545de2164dc33b9c88ba4fbd",
       "kind": "full",
       "scale": 1,
       "provenanceUnknown": false,
-      "capturedAt": "2026-10-03T10:51:19.247Z",
+      "capturedAt": "2026-10-04T14:20:11.153Z",
       "provenance": {
-        "sourceRevision": "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
+        "sourceRevision": "d9fff30e56cc4686cb9e5e0cfa3dd504ea000057",
         "sourceDirty": false,
-        "sourceDigest": "6cbb305f265656abcb97aa7d8e9181ff63d8447f03595eeef2678860cb1e3571",
-        "runId": "2026-10-03T10-45-24-594Z-1566371",
+        "sourceDigest": "464c231271ce0b22cd309e1e9f0cb1d948bc455a97f535a05fd2018f7a73e1ba",
+        "runId": "2026-10-04T14-19-18-944Z-2787694",
         "runtime": "chromium-headless (web)",
         "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
         "viewport": {
@@ -511,8 +511,8 @@
         },
         "deviceScaleFactor": 1,
         "theme": "light",
-        "promotedFrom": "2026-10-03T10-45-24-594Z-1566371",
-        "promotedAt": "2026-10-03T11:28:22.198Z"
+        "promotedFrom": "2026-10-04T14-19-18-944Z-2787694",
+        "promotedAt": "2026-10-04T14:25:48.522Z"
       }
     },
     "image-tools": {
@@ -938,14 +938,14 @@
       "provenanceUnknown": false
     },
     "workspace-shared-workflows": {
-      "sha256": "6ebca68077862fcef592e90dd0141b558a59118bed45ef343c0210a48fec64e1",
+      "sha256": "810c5a968750762b7994109abfb69eda16849d7019f34288c038a15ddd90739b",
       "file": "workspace-shared-workflows-light.png",
       "alt": "The Design workspace with Logo project controls and generated Code output open beside the same poster document",
       "caption": "Logo tools stay in Design; the shared Code panel remains available alongside the same document.",
       "feature": "workspaces",
       "theme": "light",
       "status": "captured",
-      "lastValidatedAgainst": "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
+      "lastValidatedAgainst": "d9fff30e56cc4686cb9e5e0cfa3dd504ea000057",
       "width": 936,
       "height": 900,
       "kind": "detail",
@@ -957,12 +957,12 @@
       },
       "scale": 1,
       "provenanceUnknown": false,
-      "capturedAt": "2026-10-03T10:51:32.263Z",
+      "capturedAt": "2026-10-04T14:20:25.037Z",
       "provenance": {
-        "sourceRevision": "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
+        "sourceRevision": "d9fff30e56cc4686cb9e5e0cfa3dd504ea000057",
         "sourceDirty": false,
-        "sourceDigest": "6cbb305f265656abcb97aa7d8e9181ff63d8447f03595eeef2678860cb1e3571",
-        "runId": "2026-10-03T10-45-24-594Z-1566371",
+        "sourceDigest": "464c231271ce0b22cd309e1e9f0cb1d948bc455a97f535a05fd2018f7a73e1ba",
+        "runId": "2026-10-04T14-19-18-944Z-2787694",
         "runtime": "chromium-headless (web)",
         "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
         "viewport": {
@@ -971,8 +971,8 @@
         },
         "deviceScaleFactor": 1,
         "theme": "light",
-        "promotedFrom": "2026-10-03T10-45-24-594Z-1566371",
-        "promotedAt": "2026-10-03T11:28:22.209Z"
+        "promotedFrom": "2026-10-04T14-19-18-944Z-2787694",
+        "promotedAt": "2026-10-04T14:25:48.523Z"
       }
     },
     "tonal-curves": {
@@ -1048,7 +1048,7 @@
       "provenanceUnknown": false
     },
     "tablet-workspace": {
-      "sha256": "ca9b0b7e11b0985ec385314de43692b79a6f7672c591aeb5217d2d66073615ea",
+      "sha256": "a611772902792164e5557fce293f0203de9cb72a64e8d10941db22c509721d2f",
       "file": "tablet-workspace-light.png",
       "alt": "The Varve poster workspace in tablet presentation, with the Inspector beside the canvas and touch controls along the bottom toolbar",
       "caption": "Touch-sized controls and keyboardless editing actions beside the canvas",
@@ -1057,19 +1057,19 @@
       "width": 1200,
       "height": 750,
       "status": "captured",
-      "lastValidatedAgainst": "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
+      "lastValidatedAgainst": "d9fff30e56cc4686cb9e5e0cfa3dd504ea000057",
       "kind": "full",
       "viewport": {
         "width": 1200,
         "height": 750
       },
       "scale": 1,
-      "capturedAt": "2026-10-03T10:47:10.815Z",
+      "capturedAt": "2026-10-04T14:19:44.616Z",
       "provenance": {
-        "sourceRevision": "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
+        "sourceRevision": "d9fff30e56cc4686cb9e5e0cfa3dd504ea000057",
         "sourceDirty": false,
-        "sourceDigest": "6cbb305f265656abcb97aa7d8e9181ff63d8447f03595eeef2678860cb1e3571",
-        "runId": "2026-10-03T10-45-24-594Z-1566371",
+        "sourceDigest": "464c231271ce0b22cd309e1e9f0cb1d948bc455a97f535a05fd2018f7a73e1ba",
+        "runId": "2026-10-04T14-19-18-944Z-2787694",
         "runtime": "chromium-headless (web)",
         "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
         "viewport": {
@@ -1078,8 +1078,8 @@
         },
         "deviceScaleFactor": 1,
         "theme": "light",
-        "promotedFrom": "2026-10-03T10-45-24-594Z-1566371",
-        "promotedAt": "2026-10-03T11:28:22.211Z"
+        "promotedFrom": "2026-10-04T14-19-18-944Z-2787694",
+        "promotedAt": "2026-10-04T14:25:48.518Z"
       },
       "provenanceUnknown": false
     },
@@ -1152,7 +1152,7 @@
       }
     },
     "tablet-controls": {
-      "sha256": "631e39daa64eae8380fba2d5a3859a7949e14719a7864d0ec19e7d592e2f20df",
+      "sha256": "436746e41e4f66e777535483b4c808a4f612236772e65b0e63c940b9fb7d973c",
       "file": "tablet-controls-detail-light.png",
       "alt": "Tablet editing controls for modifiers, multi-selection, alignment, and layer order beside a Varve poster canvas",
       "caption": "Constrain, draw from centre, bypass snapping, duplicate, align, and reorder without a keyboard",
@@ -1167,13 +1167,13 @@
         "height": 750
       },
       "scale": 1,
-      "capturedAt": "2026-10-03T10:47:23.017Z",
-      "lastValidatedAgainst": "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
+      "capturedAt": "2026-10-04T14:19:56.831Z",
+      "lastValidatedAgainst": "d9fff30e56cc4686cb9e5e0cfa3dd504ea000057",
       "provenance": {
-        "sourceRevision": "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
+        "sourceRevision": "d9fff30e56cc4686cb9e5e0cfa3dd504ea000057",
         "sourceDirty": false,
-        "sourceDigest": "6cbb305f265656abcb97aa7d8e9181ff63d8447f03595eeef2678860cb1e3571",
-        "runId": "2026-10-03T10-45-24-594Z-1566371",
+        "sourceDigest": "464c231271ce0b22cd309e1e9f0cb1d948bc455a97f535a05fd2018f7a73e1ba",
+        "runId": "2026-10-04T14-19-18-944Z-2787694",
         "runtime": "chromium-headless (web)",
         "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
         "viewport": {
@@ -1182,8 +1182,8 @@
         },
         "deviceScaleFactor": 1,
         "theme": "light",
-        "promotedFrom": "2026-10-03T10-45-24-594Z-1566371",
-        "promotedAt": "2026-10-03T11:28:22.211Z"
+        "promotedFrom": "2026-10-04T14-19-18-944Z-2787694",
+        "promotedAt": "2026-10-04T14:25:48.520Z"
       },
       "provenanceUnknown": false
     },
@@ -1607,24 +1607,24 @@
   "provenance": {
     "kind": "reviewed-mixed-source-assembly",
     "runtime": "metadata-only reviewed assembly; no new capture",
-    "assemblyRevision": "7599fcc198910b86ba477fa2ed102d4137bf941b",
-    "assemblySourceDigest": "a2f89b0c65d62bec75224d9ee146b38ece6e66bae3511204106cfdd7beb548d7",
+    "assemblyRevision": "d9fff30e56cc4686cb9e5e0cfa3dd504ea000057",
+    "assemblySourceDigest": "464c231271ce0b22cd309e1e9f0cb1d948bc455a97f535a05fd2018f7a73e1ba",
     "assemblySourceDirty": false,
-    "assembledAt": "2026-10-03T12:13:22.791Z",
-    "reviewManifestSha256": "e7e5b57e206158fecf417ba5e6c12e247a42f19d8d652105b3ff340eeb328a19",
-    "reviewedAgainst": "ed18459beea9d4755c3d236db7054eb93ac8f956cb85cc774cc43d639531a1ba",
+    "assembledAt": "2026-10-04T14:25:48.523Z",
+    "reviewManifestSha256": "8daa39c4ed0ff80484a64fe06f024ccc88eccb16adc7893fd2a4ea782a60070f",
+    "reviewedAgainst": "90a18181777777c6230aaf81b205e677785fdd56348956b5901976687c16f14f",
     "promotedSceneIDs": [
-      "presentation-navigator",
-      "presentation-slide",
-      "presentation-layout-revision",
-      "presentation-preview",
-      "presentation-export"
+      "tablet-workspace",
+      "tablet-controls",
+      "workspaces",
+      "workspace-shared-workflows"
     ],
     "capturedSourceRevisions": [
       "10ebb7d96c87b4e8d7470803bcab2ff9be55cebf",
       "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
       "7599fcc198910b86ba477fa2ed102d4137bf941b",
       "af30bc2b48acb88baf01616a849b8130088433bf",
+      "d9fff30e56cc4686cb9e5e0cfa3dd504ea000057",
       "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767"
     ],
     "captureTools": [
@@ -1632,9 +1632,9 @@
       "Playwright 1.62.1 / chromium 151.0.7922.34"
     ],
     "provenanceUnknownSceneIDs": [],
-    "sceneIdentitySha256": "91daa02c89dabdcad4bdf6648df2500bfe7d2f81621174ed47fecefd3f4f6864"
+    "sceneIdentitySha256": "27839a5674c31eb1c3a2792f5655a2795146c53464e94325b17278012ad38cea"
   },
-  "sourceRevision": "7599fcc198910b86ba477fa2ed102d4137bf941b",
-  "sourceDigest": "a2f89b0c65d62bec75224d9ee146b38ece6e66bae3511204106cfdd7beb548d7",
+  "sourceRevision": "d9fff30e56cc4686cb9e5e0cfa3dd504ea000057",
+  "sourceDigest": "464c231271ce0b22cd309e1e9f0cb1d948bc455a97f535a05fd2018f7a73e1ba",
   "captureTool": "reviewed assembly; original capture and browser versions are recorded per scene"
 }
