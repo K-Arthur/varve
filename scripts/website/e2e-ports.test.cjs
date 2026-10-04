@@ -23,6 +23,30 @@ const listen = (server, port = 0) =>
   });
 const close = (server) =>
   new Promise((accept, reject) => server.close((error) => (error ? reject(error) : accept())));
+
+/**
+ * Remove a scratch tree, tolerating a transient Windows EPERM/EBUSY.
+ *
+ * A spawned pnpm process can still hold a handle on its working directory for a
+ * moment after it exits, which makes an immediate `rmSync` throw `EPERM` on
+ * windows-latest. Retry briefly within a bounded deadline; a persistent failure
+ * still throws so a real leak is never hidden.
+ */
+function removeDirectoryWithRetry(directory, timeoutMs = 5000) {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    try {
+      rmSync(directory, { recursive: true, force: true });
+      return;
+    } catch (error) {
+      if (!['EPERM', 'EBUSY', 'ENOTEMPTY'].includes(error.code) || Date.now() >= deadline)
+        throw error;
+      // Busy-wait deliberately: this runs in a test teardown, and a synchronous
+      // retry keeps the ordering guarantees the assertions above rely on.
+      execFileSync(process.execPath, ['-e', 'setTimeout(()=>{},40)']);
+    }
+  }
+}
 async function availablePair() {
   const pages = createServer();
   const root = createServer();
@@ -199,8 +223,14 @@ test('the actual package script stops on a real collision before either build or
     assert.equal(existsSync(forbidden), false);
     assert.equal(occupied.listening, true);
   } finally {
+    // Remove the tree *before* closing the socket. On Windows the spawned pnpm
+    // tree can still hold a handle on this directory, so rmSync raced the
+    // process teardown and threw EPERM; that failed the whole `test:ci:tools`
+    // chain on windows-latest (CI run 37200374335) even though this assertion
+    // had already passed. Freeing the socket first would also let another
+    // waiter in this file claim the port while this tree is still being removed.
+    removeDirectoryWithRetry(repo);
     await close(occupied);
-    rmSync(repo, { recursive: true, force: true });
   }
 });
 
