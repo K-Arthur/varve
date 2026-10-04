@@ -244,6 +244,38 @@ describe('browser window service: honest popup capability (ADR-0034)', () => {
     open.mockRestore();
   });
 
+  it('opens auxiliary routes below the configured application base path', async () => {
+    vi.stubGlobal('__VARVE_ASSET_BASE__', '/try/');
+    const opened = {
+      close: vi.fn(),
+      focus: vi.fn(),
+      screenX: 20,
+      screenY: 30,
+      outerWidth: 320,
+      outerHeight: 480,
+    } as unknown as Window;
+    const open = vi.spyOn(window, 'open').mockReturnValue(opened);
+    const service = createBrowserWindowService();
+
+    try {
+      await service.createWindow({
+        id: 'panel_layers_123',
+        title: 'Layers — Varve',
+        size: { width: 320, height: 480 },
+        route:
+          '?surface=panel-window&windowId=panel_layers_123&session=session_123&panels=layers&transaction=tx_123&panelInstanceId=layers_primary',
+      });
+
+      const popupUrl = new URL(String(open.mock.calls[0]?.[0]));
+      expect(popupUrl.pathname).toBe('/try/index.html');
+      expect(popupUrl.searchParams.get('surface')).toBe('panel-window');
+      expect(popupUrl.searchParams.get('transaction')).toBe('tx_123');
+    } finally {
+      open.mockRestore();
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('rejects browser popup routes with foreign or unbounded query data', async () => {
     const service = createBrowserWindowService();
     await expect(

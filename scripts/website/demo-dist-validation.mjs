@@ -25,6 +25,7 @@ export const DEMO_DIST_OWNERS = [
   'try-pwa.spec.ts',
   'try-launch.spec.ts',
   'try-export.spec.ts',
+  'try-undock.spec.ts',
 ];
 const DEMO_BROWSER_LANE = 'e2e:demo-dist';
 const DEMO_BROWSER_COMMAND = [

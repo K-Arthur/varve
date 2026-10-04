@@ -144,7 +144,7 @@ test.describe('screenshot delivery', () => {
     }
   });
 
-  for (const width of [360, 390, 768, 1280, 1440]) {
+  for (const width of [360, 390, 768, 1024, 1280, 1366, 1440]) {
     test(`showcase holds together at ${width}px`, async ({ page }) => {
       await page.setViewportSize({ width, height: 900 });
       await page.goto('/');
@@ -176,8 +176,10 @@ test.describe('screenshot delivery', () => {
     });
   }
 
-  for (const width of [390, 1280]) {
-    test(`homepage detail cards align and the image viewer fits ${width}px`, async ({ page }) => {
+  for (const width of [390, 768, 1024, 1280, 1366]) {
+    test(`homepage detail cards align and the image viewer fits ${width}px`, async ({
+      page,
+    }, testInfo) => {
       await page.setViewportSize({ width, height: 900 });
       await page.goto('/');
       const details = page.locator('.showcase-detail');
@@ -216,9 +218,9 @@ test.describe('screenshot delivery', () => {
         .toBeLessThanOrEqual(width);
       const detailGrid = page.locator('.showcase-details');
       await detailGrid.scrollIntoViewIfNeeded();
-      await test.info().attach(`homepage-detail-cards-${width}px.png`, {
-        body: await detailGrid.screenshot({ animations: 'disabled' }),
-        contentType: 'image/png',
+      await detailGrid.screenshot({
+        path: testInfo.outputPath(`homepage-detail-cards-${width}px.png`),
+        animations: 'disabled',
       });
 
       const trigger = details.first().getByRole('button', { name: 'View full size' });
@@ -244,6 +246,8 @@ test.describe('screenshot delivery', () => {
           bottom: dialogRect.bottom,
           imageRight: imageRect?.right ?? Infinity,
           imageBottom: imageRect?.bottom ?? Infinity,
+          centerX: dialogRect.left + dialogRect.width / 2,
+          centerY: dialogRect.top + dialogRect.height / 2,
           imageRatio: (imageRect?.width ?? 0) / (imageRect?.height ?? 1),
           naturalRatio:
             ((element.querySelector('img') as HTMLImageElement).naturalWidth || 0) /
@@ -257,12 +261,14 @@ test.describe('screenshot delivery', () => {
       expect(viewer.bottom).toBeLessThanOrEqual(viewer.viewport.height + 1);
       expect(viewer.imageRight).toBeLessThanOrEqual(viewer.right + 1);
       expect(viewer.imageBottom).toBeLessThanOrEqual(viewer.bottom + 1);
+      expect(Math.abs(viewer.centerX - viewer.viewport.width / 2)).toBeLessThan(2);
+      expect(Math.abs(viewer.centerY - viewer.viewport.height / 2)).toBeLessThan(2);
       expect(Math.abs(viewer.imageRatio - viewer.naturalRatio)).toBeLessThan(0.02);
       await expect(dialog.getByRole('link', { name: 'Open original' })).toBeVisible();
       await expect(dialog.getByRole('button', { name: 'Close' })).toBeVisible();
-      await test.info().attach(`homepage-image-viewer-${width}px.png`, {
-        body: await page.screenshot({ animations: 'disabled' }),
-        contentType: 'image/png',
+      await page.screenshot({
+        path: testInfo.outputPath(`homepage-image-viewer-${width}px.png`),
+        animations: 'disabled',
       });
     });
   }

@@ -23,7 +23,17 @@ import type {
 } from './types';
 import { isWorkspaceWindowId, UnsupportedOperationError } from './types';
 
-const POPUP_BASE_URL = typeof location !== 'undefined' ? location.origin : 'http://localhost:1420';
+declare const __VARVE_ASSET_BASE__: string | undefined;
+
+function applicationBaseUrl(): URL {
+  const currentOrigin = typeof location !== 'undefined' ? location.origin : 'http://localhost:1420';
+  const configuredBase =
+    typeof __VARVE_ASSET_BASE__ !== 'undefined' && __VARVE_ASSET_BASE__
+      ? __VARVE_ASSET_BASE__
+      : '/';
+  const basePath = new URL(configuredBase, `${currentOrigin}/`).pathname;
+  return new URL(basePath.endsWith('/') ? basePath : `${basePath}/`, currentOrigin);
+}
 
 function currentWindowId(): WorkspaceWindowId {
   if (typeof location === 'undefined') return 'main';
@@ -124,11 +134,17 @@ export class BrowserWindowService implements NativeWindowService {
     // while the primary correctly waits forever for a matching host.
     const routeParams = new URLSearchParams(parsedRoute.params);
     if (!routeParams.get('session')) routeParams.set('session', 'current');
-    const url = `${POPUP_BASE_URL}/index.html?${routeParams.toString()}`;
+    // The browser demo is deployed below the marketing site at `/try/`. A
+    // root-relative popup route lands on the site's homepage there, so the
+    // auxiliary host never mounts and the primary transfer eventually times
+    // out. Resolve the app entry from Vite's configured base while keeping the
+    // popup on this origin (the host protocol uses same-origin storage/events).
+    const url = new URL('index.html', applicationBaseUrl());
+    url.search = routeParams.toString();
 
     let win: Window | null = null;
     try {
-      win = window.open(url, name, features);
+      win = window.open(url.href, name, features);
     } catch {
       win = null;
     }

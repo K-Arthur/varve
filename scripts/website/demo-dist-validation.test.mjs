@@ -99,6 +99,7 @@ try {
     'try-pwa.spec.ts',
     'try-launch.spec.ts',
     'try-export.spec.ts',
+    'try-undock.spec.ts',
   ]);
   assert.equal(config.workers, 1);
   assert.equal(config.retries, 0);
