@@ -38,9 +38,12 @@ function run(env, args) {
   }
 }
 
-async function waitForLease(runtimeDirectory, label) {
+async function waitForLease(runtimeDirectory, label, child = null, output = []) {
   const leaseDirectory = join(runtimeDirectory, 'varve-leases');
-  const deadline = Date.now() + 5000;
+  // Keep the outer-process startup window separate from the wrapped command's
+  // 5s memory-admission deadline. Fail immediately with child output if it
+  // exits before publishing its lease, so a startup failure is diagnosable.
+  const deadline = Date.now() + 15000;
   while (Date.now() < deadline) {
     try {
       for (const name of readdirSync(leaseDirectory)) {
@@ -50,9 +53,14 @@ async function waitForLease(runtimeDirectory, label) {
     } catch {
       // The first child may not have created its lease directory yet.
     }
+    if (child && (child.exitCode !== null || child.signalCode !== null)) {
+      throw new Error(
+        `child exited before publishing ${label} lease (exit ${child.exitCode ?? 'none'}, signal ${child.signalCode ?? 'none'})\n${output.join('')}`,
+      );
+    }
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
-  throw new Error(`timed out waiting for ${label} lease`);
+  throw new Error(`timed out after 15s waiting for ${label} lease\n${output.join('')}`);
 }
 
 function waitForExit(child) {
@@ -157,20 +165,25 @@ function cancellationPreload(directory, marker) {
       },
     );
     const exit = waitForExit(owner);
-    let output = '';
-    owner.stderr.setEncoding('utf8').on('data', (chunk) => {
-      output += chunk;
-    });
-    const record = await waitForLease(runtimeDirectory, 'memory-cancel');
+    const output = [];
+    for (const stream of [owner.stdout, owner.stderr]) {
+      stream.setEncoding('utf8').on('data', (chunk) => {
+        output.push(chunk);
+      });
+    }
+    const record = await waitForLease(runtimeDirectory, 'memory-cancel', owner, output);
     const deadline = Date.now() + 2000;
-    while (!output.includes('below the') && Date.now() < deadline)
+    while (!output.join('').includes('below the') && Date.now() < deadline)
       await new Promise((resolve) => setTimeout(resolve, 5));
-    assert.match(output, /below the/);
+    assert.match(output.join(''), /below the/);
     if (process.platform === 'win32') writeFileSync(cancelEvent, 'cancel');
     else owner.kill('SIGTERM');
     const result = await exit;
     assert.equal(result.code, 143);
-    assert.match(output, /cancelled by SIGTERM while waiting for memory; command not launched/);
+    assert.match(
+      output.join(''),
+      /cancelled by SIGTERM while waiting for memory; command not launched/,
+    );
     assert.equal(existsSync(marker), false);
     assert.equal(existsSync(record.path), false);
   } finally {

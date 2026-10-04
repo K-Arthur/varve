@@ -328,6 +328,31 @@ assert.equal(
   'a missing browser shard is incomplete evidence',
 );
 
+const failedShard = structuredClone(e2eReports);
+failedShard[FULL_BROWSER_SHARDS - 1].status = 'failure';
+failedShard[FULL_BROWSER_SHARDS - 1].playwright.reports[0].globalErrorCount = 1;
+const failedShardEvidence = validateExecutionEvidence({
+  reports: [pipelineExecution, ...failedShard],
+  plan: e2ePlan,
+});
+assert.equal(failedShardEvidence.passed, false, 'a failed shard still blocks certification');
+assert.ok(
+  failedShardEvidence.failures.some((entry) => entry.reason.includes('execution status failure')),
+  'the failed shard receipt remains an explicit failure',
+);
+assert.ok(
+  !failedShardEvidence.failures.some(
+    (entry) => entry.reason === `missing shard ${FULL_BROWSER_SHARDS}/${FULL_BROWSER_SHARDS}`,
+  ),
+  'an uploaded failed receipt is not misreported as a missing shard',
+);
+assert.ok(
+  !failedShardEvidence.failures.some((entry) =>
+    entry.reason.startsWith('browser inventory coverage rejected'),
+  ),
+  'partial inventory from a fail-fast shard is not compared as complete execution',
+);
+
 const triage = aggregateCertification({
   needs: { ...allSuccess, js: { result: 'failure' } },
   categories: allCategories,

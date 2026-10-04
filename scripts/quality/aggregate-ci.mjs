@@ -179,6 +179,13 @@ export function validateExecutionEvidence({
   );
   for (const category of selectedCategories) {
     const categoryReports = current.reports.filter((report) => report?.category === category);
+    // Retain the matrix cell identity even when its receipt records a failed
+    // run. A failed shard is present evidence of failure, not an absent job.
+    const reportedShards = new Set(
+      categoryReports
+        .map((report) => report?.shard)
+        .filter((shard) => typeof shard === 'string' && /^\d+\/\d+$/.test(shard)),
+    );
     const expectedCount = expectedReportCount(plan, category);
     const expected = new Set(expectedLanes(plan, category));
     const valid = [];
@@ -250,9 +257,8 @@ export function validateExecutionEvidence({
         failures.push({ job: category, category, reason: `lane '${lane}' was not executed` });
     }
     if (category === 'e2e') {
-      const shards = new Set(valid.map((report) => report.shard).filter(Boolean));
       for (let shard = 1; shard <= expectedCount; shard += 1) {
-        if (!shards.has(`${shard}/${expectedCount}`))
+        if (!reportedShards.has(`${shard}/${expectedCount}`))
           failures.push({
             job: category,
             category,
@@ -261,7 +267,13 @@ export function validateExecutionEvidence({
       }
     }
     const browserCoverage = [];
-    for (const lane of [...expected].filter(browserLane)) {
+    // Aggregate case inventory only from a complete set of successful shard
+    // receipts. A fail-fast shard intentionally records only executed cases;
+    // its failed receipt already blocks certification, while comparing its
+    // partial case list against the whole inventory would add misleading
+    // "missing case" failures and obscure the actual test failures.
+    const canCertifyBrowserCoverage = category !== 'e2e' || valid.length === expectedCount;
+    for (const lane of canCertifyBrowserCoverage ? [...expected].filter(browserLane) : []) {
       const browsers = valid.flatMap((report) =>
         (report.playwright?.reports ?? []).filter((browser) => browser.lane === lane),
       );
