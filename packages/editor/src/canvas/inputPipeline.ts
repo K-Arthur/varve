@@ -81,6 +81,41 @@ import { type PinchBridgePayload, resolvePinchBridgeAction } from './pinchBridge
 import { resolveWheelAction } from './wheelClassifier';
 import { createWheelGestureClassifier } from './wheelGesture';
 
+const NON_TEXT_INPUT_TYPES = new Set([
+  'button',
+  'checkbox',
+  'color',
+  'file',
+  'hidden',
+  'image',
+  'radio',
+  'reset',
+  'submit',
+]);
+
+/** Preserve native clipboard actions in editable controls during the brief
+ * suppression window for a browser-generated middle-click PRIMARY paste. */
+export function shouldSuppressMiddleButtonPaste(guardActive: boolean, target: EventTarget | null) {
+  if (!guardActive) return false;
+  if (typeof HTMLElement !== 'undefined' && target instanceof HTMLElement) {
+    if (target instanceof HTMLTextAreaElement) return target.disabled || target.readOnly;
+    if (target instanceof HTMLInputElement) {
+      return (
+        target.disabled || target.readOnly || NON_TEXT_INPUT_TYPES.has(target.type.toLowerCase())
+      );
+    }
+    // Walk explicit attributes so this also works in DOM test environments
+    // that do not implement inherited `isContentEditable`.
+    for (let ancestor: HTMLElement | null = target; ancestor; ancestor = ancestor.parentElement) {
+      const value = ancestor.getAttribute('contenteditable')?.trim().toLowerCase();
+      if (value === 'false') return true;
+      if (value === '' || value === 'true' || value === 'plaintext-only') return false;
+    }
+    if (target.isContentEditable) return false;
+  }
+  return true;
+}
+
 export interface UseCanvasInputsOptions {
   contentCanvasRef: MutableRefObject<HTMLCanvasElement | null>;
   /** Keyboard context-menu requests are normalized at the canvas boundary. */
@@ -265,6 +300,56 @@ export function useCanvasInputs({
   const pointerEditorInteractionOpen = useRef(false);
   const touchNavigationEditorInteractionOpen = useRef(false);
   const keyboardEditorInteractionOpen = useRef(false);
+  // Linux browsers can dispatch a native `paste` from the PRIMARY selection
+  // for a middle click. Keep that event out of Shell's document paste route
+  // while a canvas middle-button pan is active, even if auxclick cancellation
+  // arrives too late to suppress the browser's paste event.
+  const middleButtonPasteGuardRef = useRef(false);
+  const middleButtonPasteGuardTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clearMiddleButtonPasteGuard = useCallback(() => {
+    middleButtonPasteGuardRef.current = false;
+    if (middleButtonPasteGuardTimerRef.current !== null) {
+      clearTimeout(middleButtonPasteGuardTimerRef.current);
+      middleButtonPasteGuardTimerRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    const expireAfterMiddleButtonRelease = (event: { button: number }) => {
+      if (event.button !== 1 || !middleButtonPasteGuardRef.current) return;
+      if (middleButtonPasteGuardTimerRef.current !== null) {
+        clearTimeout(middleButtonPasteGuardTimerRef.current);
+      }
+      // Keep the guard briefly after release in case the browser queues its
+      // PRIMARY-selection paste after pointerup/auxclick dispatch.
+      middleButtonPasteGuardTimerRef.current = setTimeout(clearMiddleButtonPasteGuard, 250);
+    };
+    const suppressMiddleButtonPaste = (event: ClipboardEvent) => {
+      if (!shouldSuppressMiddleButtonPaste(middleButtonPasteGuardRef.current, event.target)) return;
+      event.preventDefault();
+      clearMiddleButtonPasteGuard();
+    };
+    const allowExplicitKeyboardPaste = (event: KeyboardEvent) => {
+      const key = event.key.toLowerCase();
+      if (
+        ((event.ctrlKey || event.metaKey) && key === 'v') ||
+        (event.shiftKey && key === 'insert')
+      ) {
+        clearMiddleButtonPasteGuard();
+      }
+    };
+    window.addEventListener('pointerup', expireAfterMiddleButtonRelease, true);
+    window.addEventListener('auxclick', expireAfterMiddleButtonRelease, true);
+    window.addEventListener('paste', suppressMiddleButtonPaste, true);
+    window.addEventListener('keydown', allowExplicitKeyboardPaste, true);
+    return () => {
+      window.removeEventListener('pointerup', expireAfterMiddleButtonRelease, true);
+      window.removeEventListener('auxclick', expireAfterMiddleButtonRelease, true);
+      window.removeEventListener('paste', suppressMiddleButtonPaste, true);
+      window.removeEventListener('keydown', allowExplicitKeyboardPaste, true);
+      clearMiddleButtonPasteGuard();
+    };
+  }, [clearMiddleButtonPasteGuard]);
   const pressedKeyboardKeys = useRef(new Set<string>());
   // Rate limiters for the expanded interaction traces (wheel / keyboard /
   // hover bursts) so instrumentation never alters behaviour.
@@ -560,6 +645,18 @@ export function useCanvasInputs({
         clearViewportAnchor();
         return;
       }
+      if (e.pointerType === 'mouse' && e.button === 1) {
+        if (middleButtonPasteGuardTimerRef.current !== null) {
+          clearTimeout(middleButtonPasteGuardTimerRef.current);
+          middleButtonPasteGuardTimerRef.current = null;
+        }
+        middleButtonPasteGuardRef.current = true;
+        // Recover if the platform drops pointerup/auxclick (for example when
+        // the window loses focus during the gesture).
+        middleButtonPasteGuardTimerRef.current = setTimeout(clearMiddleButtonPasteGuard, 5000);
+      } else {
+        clearMiddleButtonPasteGuard();
+      }
       const drawingInput = refreshDrawingInputSettings();
       cancelWheelInertiaRef.current?.();
       const decision = beginPointerContact(
@@ -731,6 +828,7 @@ export function useCanvasInputs({
       stopAutoPan,
       setSnapGuides,
       closePointerEditorInteraction,
+      clearMiddleButtonPasteGuard,
     ],
   );
 

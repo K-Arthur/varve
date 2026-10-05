@@ -92,11 +92,16 @@ describe('ImageTuningSection', () => {
     const second = imageNode('image-2');
 
     render(<ImageTuningSection nodes={[first, second]} />);
-    fireEvent.change(screen.getByRole('slider', { name: 'Fine Texture' }), {
+    const slider = screen.getByRole('slider', { name: 'Fine Texture' });
+    fireEvent.pointerDown(slider);
+    fireEvent.change(slider, {
       target: { value: '34' },
     });
+    fireEvent.pointerUp(slider);
 
     expect(updateNodes).toHaveBeenCalledTimes(1);
+    expect(beginTransaction).toHaveBeenCalledOnce();
+    expect(commitTransaction).toHaveBeenCalledOnce();
     const [nextFirst, nextSecond] = updatedNodes([first, second]);
     expect(nextFirst?.smartFilters).toEqual([
       expect.objectContaining({ id: 'contrast-1', kind: 'contrast', value: 12 }),
@@ -115,6 +120,8 @@ describe('ImageTuningSection', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Apply photo preset Warm Portrait' }));
 
+    expect(beginTransaction).toHaveBeenCalledOnce();
+    expect(commitTransaction).toHaveBeenCalledOnce();
     const [updated] = updatedNodes([node]);
     expect(updated?.smartFilters?.map((filter) => filter.kind)).toEqual([
       'temperature',
@@ -152,6 +159,8 @@ describe('ImageTuningSection', () => {
     render(<ImageTuningSection nodes={[node]} />);
     fireEvent.click(screen.getByRole('button', { name: 'Disable Fine Texture' }));
 
+    expect(beginTransaction).toHaveBeenCalledOnce();
+    expect(commitTransaction).toHaveBeenCalledOnce();
     const [next] = updatedNodes([node]);
     expect(next?.smartFilters).toEqual([
       expect.objectContaining({ id: 'detail-1', kind: 'microDetail', amount: 42, visible: false }),
@@ -167,9 +176,28 @@ describe('ImageTuningSection', () => {
     render(<ImageTuningSection nodes={[node]} />);
     fireEvent.click(screen.getByRole('button', { name: 'Reset Shadows' }));
 
+    expect(beginTransaction).toHaveBeenCalledOnce();
+    expect(commitTransaction).toHaveBeenCalledOnce();
     const [next] = updatedNodes([node]);
     expect(next?.smartFilters).toEqual([
       expect.objectContaining({ id: 'tone-1', shadows: 0, highlights: 36, visible: true }),
+    ]);
+  });
+
+  it('commits a typed treatment value as one undoable edit', () => {
+    const node = imageNode('image-1');
+    render(<ImageTuningSection nodes={[node]} />);
+    const field = screen.getByRole('spinbutton', { name: 'Fine Texture (%)' });
+
+    fireEvent.change(field, { target: { value: '34' } });
+    fireEvent.keyDown(field, { key: 'Enter' });
+
+    expect(beginTransaction).toHaveBeenCalledOnce();
+    expect(commitTransaction).toHaveBeenCalledOnce();
+    expect(updateNodes).toHaveBeenCalledOnce();
+    const [updated] = updatedNodes([node]);
+    expect(updated?.smartFilters).toEqual([
+      expect.objectContaining({ kind: 'microDetail', amount: 34, visible: true }),
     ]);
   });
 
@@ -180,18 +208,58 @@ describe('ImageTuningSection', () => {
 
     fireEvent.pointerDown(slider);
     fireEvent.change(slider, { target: { value: '20' } });
+    fireEvent.change(slider, { target: { value: '28' } });
     fireEvent.pointerUp(slider);
 
     expect(beginTransaction).toHaveBeenCalledTimes(1);
     expect(commitTransaction).toHaveBeenCalledTimes(1);
     expect(abortTransaction).not.toHaveBeenCalled();
-    expect(updateNodes).toHaveBeenCalledTimes(1);
+    expect(updateNodes).toHaveBeenCalledTimes(2);
 
     fireEvent.pointerDown(slider);
     fireEvent.keyDown(slider, { key: 'Escape' });
 
     expect(beginTransaction).toHaveBeenCalledTimes(2);
     expect(abortTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(['Home', 'End', 'PageUp', 'PageDown'])(
+    'commits a keyboard %s slider edit as one undoable action',
+    (key) => {
+      const node = imageNode('image-1');
+      render(<ImageTuningSection nodes={[node]} />);
+      const slider = screen.getByRole('slider', { name: 'Fine Texture' });
+
+      fireEvent.keyDown(slider, { key });
+      fireEvent.change(slider, { target: { value: '36' } });
+      fireEvent.keyUp(slider, { key });
+
+      expect(beginTransaction).toHaveBeenCalledOnce();
+      expect(commitTransaction).toHaveBeenCalledOnce();
+      expect(updateNodes).toHaveBeenCalledOnce();
+      const [updated] = updatedNodes([node]);
+      expect(updated?.smartFilters).toEqual([
+        expect.objectContaining({ kind: 'microDetail', amount: 36, visible: true }),
+      ]);
+    },
+  );
+
+  it('commits an advanced treatment edit on blur as one undoable action', () => {
+    const node = imageNode('image-1');
+    render(<ImageTuningSection nodes={[node]} />);
+    fireEvent.click(screen.getByText('Advanced Grain settings', { exact: true }));
+    const amount = screen.getByRole('spinbutton', { name: 'Grain Amount (%)' });
+
+    fireEvent.change(amount, { target: { value: '28' } });
+    fireEvent.blur(amount);
+
+    expect(beginTransaction).toHaveBeenCalledOnce();
+    expect(commitTransaction).toHaveBeenCalledOnce();
+    expect(updateNodes).toHaveBeenCalledOnce();
+    const [updated] = updatedNodes([node]);
+    expect(updated?.smartFilters).toEqual([
+      expect.objectContaining({ kind: 'grain', strength: 28, visible: true }),
+    ]);
   });
 
   it('uses treatment-scoped semantic groups and avoids bare Finish control names', () => {

@@ -4,6 +4,7 @@ import {
   shouldDeferArrowToSelectedGuide,
   shouldResolveHover,
   shouldSkipCanvasKeydown,
+  shouldSuppressMiddleButtonPaste,
 } from './inputPipeline';
 
 describe('explicit keyboard pan policy', () => {
@@ -16,6 +17,37 @@ describe('explicit keyboard pan policy', () => {
 
   it('does not claim non-navigation keys', () => {
     expect(keyboardPanDelta('Enter')).toBeNull();
+  });
+});
+
+describe('middle-button PRIMARY paste guard', () => {
+  it('suppresses unowned canvas paste but preserves editable clipboard targets', () => {
+    const textInput = document.createElement('input');
+    textInput.type = 'text';
+    const numberInput = document.createElement('input');
+    numberInput.type = 'number';
+    const textArea = document.createElement('textarea');
+    const contentEditable = document.createElement('div');
+    contentEditable.setAttribute('contenteditable', 'true');
+    const nonEditable = document.createElement('button');
+
+    expect(shouldSuppressMiddleButtonPaste(true, document.body)).toBe(true);
+    expect(shouldSuppressMiddleButtonPaste(true, textInput)).toBe(false);
+    expect(shouldSuppressMiddleButtonPaste(true, numberInput)).toBe(false);
+    expect(shouldSuppressMiddleButtonPaste(true, textArea)).toBe(false);
+    expect(shouldSuppressMiddleButtonPaste(true, contentEditable)).toBe(false);
+    expect(shouldSuppressMiddleButtonPaste(true, nonEditable)).toBe(true);
+    expect(shouldSuppressMiddleButtonPaste(false, document.body)).toBe(false);
+  });
+
+  it('does not exempt disabled or read-only text fields from the guard', () => {
+    const disabledInput = document.createElement('input');
+    disabledInput.disabled = true;
+    const readOnlyTextArea = document.createElement('textarea');
+    readOnlyTextArea.readOnly = true;
+
+    expect(shouldSuppressMiddleButtonPaste(true, disabledInput)).toBe(true);
+    expect(shouldSuppressMiddleButtonPaste(true, readOnlyTextArea)).toBe(true);
   });
 });
 

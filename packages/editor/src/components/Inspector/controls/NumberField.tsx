@@ -117,6 +117,13 @@ export interface NumberFieldProps {
   value: number;
   onChange: (value: number) => void;
   /**
+   * Optional replacement for `onChange` when a typed value is committed with
+   * Enter or blur. Consumers can use this path to wrap the discrete edit in a
+   * document transaction while pointer and keyboard gestures keep their own
+   * existing transaction boundaries.
+   */
+  onCommit?: (value: number) => void;
+  /**
    * Relative edit channel for gestures (scrub, arrow/Page steps, wheel).
    *
    * When provided, gestures call `onDelta(increment)` instead of
@@ -201,6 +208,7 @@ export function NumberField({
   label,
   value,
   onChange,
+  onCommit,
   onDelta,
   step = 1,
   shiftStep = 10,
@@ -267,12 +275,14 @@ export function NumberField({
         setError('Not a valid number or expression');
         return false;
       }
-      onChange(clamp(parsed));
+      const next = clamp(parsed);
+      if (onCommit) onCommit(next);
+      else onChange(next);
       setError(null);
       setDirty(null);
       return true;
     },
-    [aliases, clamp, onChange],
+    [aliases, clamp, onChange, onCommit],
   );
 
   const fieldSizing = useContext(FieldSizingContext);

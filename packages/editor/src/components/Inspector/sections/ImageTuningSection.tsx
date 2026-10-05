@@ -331,6 +331,18 @@ export function ImageTuningSection({ nodes }: { nodes: SceneNode[] }) {
     abortTransaction();
   }, [abortTransaction]);
 
+  const runDiscreteEdit = useCallback(
+    (edit: () => void) => {
+      startGesture();
+      try {
+        edit();
+      } finally {
+        finishGesture();
+      }
+    },
+    [finishGesture, startGesture],
+  );
+
   useEffect(() => cancelGesture, [cancelGesture]);
 
   const standardControlsByGroup = useMemo(
@@ -358,39 +370,50 @@ export function ImageTuningSection({ nodes }: { nodes: SceneNode[] }) {
 
   const resetParameter = useCallback(
     (control: TuningControl) => {
-      updateNodes(
-        nodes.map((node) => ({
-          id: node.id,
-          update: (current) => resetTreatmentParameter(current, control),
-        })),
+      runDiscreteEdit(() =>
+        updateNodes(
+          nodes.map((node) => ({
+            id: node.id,
+            update: (current) => resetTreatmentParameter(current, control),
+          })),
+        ),
       );
     },
-    [nodes, updateNodes],
+    [nodes, runDiscreteEdit, updateNodes],
+  );
+
+  const commitParameter = useCallback(
+    (control: TuningControl, value: number) => runDiscreteEdit(() => setParameter(control, value)),
+    [runDiscreteEdit, setParameter],
   );
 
   const toggleKind = useCallback(
     (kind: AdjustmentKind, nextVisible: boolean) => {
-      updateNodes(
-        nodes.map((node) => ({
-          id: node.id,
-          update: (current) => setTreatmentVisibility(current, kind, nextVisible),
-        })),
+      runDiscreteEdit(() =>
+        updateNodes(
+          nodes.map((node) => ({
+            id: node.id,
+            update: (current) => setTreatmentVisibility(current, kind, nextVisible),
+          })),
+        ),
       );
     },
-    [nodes, updateNodes],
+    [nodes, runDiscreteEdit, updateNodes],
   );
 
   const applyPreset = useCallback(
     (preset: SurfacePreset) => {
-      updateNodes(
-        nodes.map((node) => ({
-          id: node.id,
-          update: (current) => applyImagePreset(current, preset),
-        })),
+      runDiscreteEdit(() =>
+        updateNodes(
+          nodes.map((node) => ({
+            id: node.id,
+            update: (current) => applyImagePreset(current, preset),
+          })),
+        ),
       );
       announce(`Applied photo preset ${preset.name}`);
     },
-    [announce, nodes, updateNodes],
+    [announce, nodes, runDiscreteEdit, updateNodes],
   );
 
   if (nodes.length === 0 || !nodes.every(isImageShape)) return null;
@@ -407,7 +430,11 @@ export function ImageTuningSection({ nodes }: { nodes: SceneNode[] }) {
             (event.key === 'ArrowUp' ||
               event.key === 'ArrowDown' ||
               event.key === 'ArrowLeft' ||
-              event.key === 'ArrowRight')
+              event.key === 'ArrowRight' ||
+              event.key === 'Home' ||
+              event.key === 'End' ||
+              event.key === 'PageUp' ||
+              event.key === 'PageDown')
           ) {
             startGesture();
           }
@@ -464,6 +491,7 @@ export function ImageTuningSection({ nodes }: { nodes: SceneNode[] }) {
                   key={control.id}
                   nodes={nodes}
                   onChange={setParameter}
+                  onCommit={commitParameter}
                   onReset={resetParameter}
                   onToggle={toggleKind}
                   onGestureStart={startGesture}
@@ -480,6 +508,7 @@ export function ImageTuningSection({ nodes }: { nodes: SceneNode[] }) {
                       key={control.id}
                       nodes={nodes}
                       onChange={setParameter}
+                      onCommit={commitParameter}
                       onReset={resetParameter}
                       onToggle={toggleKind}
                       onGestureStart={startGesture}
@@ -497,6 +526,7 @@ export function ImageTuningSection({ nodes }: { nodes: SceneNode[] }) {
                   key={schema.id}
                   nodes={nodes}
                   onChange={setParameter}
+                  onCommit={commitParameter}
                   onGestureCancel={cancelGesture}
                   onGestureEnd={finishGesture}
                   onGestureStart={startGesture}
@@ -519,6 +549,7 @@ function ImageTreatmentControlGroup({
   controls,
   nodes,
   onChange,
+  onCommit,
   onReset,
   onToggle,
   onGestureStart,
@@ -529,6 +560,7 @@ function ImageTreatmentControlGroup({
   controls: readonly TuningControl[];
   nodes: readonly SceneNode[];
   onChange: (control: TuningControl, value: number) => void;
+  onCommit: (control: TuningControl, value: number) => void;
   onReset: (control: TuningControl) => void;
   onToggle: (kind: AdjustmentKind, visible: boolean) => void;
   onGestureStart: () => void;
@@ -555,6 +587,7 @@ function ImageTreatmentControlGroup({
           key={control.id}
           nodes={nodes}
           onChange={onChange}
+          onCommit={onCommit}
           onGestureCancel={onGestureCancel}
           onGestureEnd={onGestureEnd}
           onGestureStart={onGestureStart}
@@ -571,6 +604,7 @@ function ImageTreatmentControlGroup({
               key={control.id}
               nodes={nodes}
               onChange={onChange}
+              onCommit={onCommit}
               onGestureCancel={onGestureCancel}
               onGestureEnd={onGestureEnd}
               onGestureStart={onGestureStart}
@@ -588,6 +622,7 @@ function TuningControlRow({
   control,
   nodes,
   onChange,
+  onCommit,
   onReset,
   onToggle,
   onGestureStart,
@@ -597,6 +632,7 @@ function TuningControlRow({
   control: TuningControl;
   nodes: readonly SceneNode[];
   onChange: (control: TuningControl, value: number) => void;
+  onCommit: (control: TuningControl, value: number) => void;
   onReset: (control: TuningControl) => void;
   onToggle: (kind: AdjustmentKind, visible: boolean) => void;
   onGestureStart: () => void;
@@ -676,6 +712,7 @@ function TuningControlRow({
           mixed={mixed}
           disabled={ambiguous}
           onChange={(next) => onChange(control, next)}
+          onCommit={(next) => onCommit(control, next)}
         />
       </div>
       {ambiguous && (
