@@ -65,6 +65,44 @@ async function forceAuthoritativeCanvasFrame(page: import('@playwright/test').Pa
   expect(result?.authoritative, 'oracle must commit a fresh full frame').toBe(true);
 }
 
+/**
+ * Wait until the content canvas stops changing. The dropped JPEG decodes
+ * asynchronously, so the first painted frame can be a partial image; a full
+ * redraw alone cannot advance past that, it just redraws the current IR. Poll
+ * a content hash until two samples ~400ms apart agree.
+ */
+async function waitForStableCanvas(page: import('@playwright/test').Page): Promise<void> {
+  await page.waitForFunction(
+    (selector) => {
+      const canvas = document.querySelector(selector) as HTMLCanvasElement | null;
+      if (!canvas || canvas.width === 0 || canvas.height === 0) return false;
+      const context = canvas.getContext('2d');
+      if (!context) return false;
+      const { data } = context.getImageData(0, 0, canvas.width, canvas.height);
+      let hash = 2166136261;
+      for (let offset = 0; offset < data.length; offset += 4) {
+        hash = Math.imul(hash ^ (data[offset] ?? 0), 16777619);
+        hash = Math.imul(hash ^ (data[offset + 1] ?? 0), 16777619);
+        hash = Math.imul(hash ^ (data[offset + 2] ?? 0), 16777619);
+        hash = Math.imul(hash ^ (data[offset + 3] ?? 0), 16777619);
+      }
+      const state = window as Window & {
+        __varveCanvasHash?: number;
+        __varveCanvasStableSince?: number;
+      };
+      const now = Date.now();
+      if (state.__varveCanvasHash !== hash) {
+        state.__varveCanvasHash = hash;
+        state.__varveCanvasStableSince = now;
+        return false;
+      }
+      return now - (state.__varveCanvasStableSince ?? now) > 400;
+    },
+    CANVAS,
+    { timeout: 20000 },
+  );
+}
+
 async function hideEditorChromeForCanvasCapture(
   page: import('@playwright/test').Page,
 ): Promise<void> {
@@ -170,6 +208,7 @@ test.describe('full-editor visual compositing', () => {
     expect(await callEditor(page, 'setSelectedOpacity', 0.72)).not.toBeNull();
 
     await waitForArtwork(page);
+    await waitForStableCanvas(page);
     await hideEditorChromeForCanvasCapture(page);
     await forceAuthoritativeCanvasFrame(page);
     const canvas = page.locator(CANVAS);
@@ -210,6 +249,7 @@ test.describe('full-editor visual compositing', () => {
     });
     await waitForArtwork(page);
 
+    await waitForStableCanvas(page);
     await hideEditorChromeForCanvasCapture(page);
     await forceAuthoritativeCanvasFrame(page);
     const canvas = page.locator(CANVAS);

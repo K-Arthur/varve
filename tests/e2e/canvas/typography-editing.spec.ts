@@ -116,14 +116,18 @@ test.describe('Typography editing workflow', () => {
     });
     const colorBounds = await colorPicker.boundingBox();
     if (!colorBounds) throw new Error('text color picker has no bounds');
-    expect(colorBounds.x).toBeGreaterThanOrEqual(canvasBounds.x);
-    expect(colorBounds.x + colorBounds.width).toBeLessThanOrEqual(
-      canvasBounds.x + canvasBounds.width + 1,
-    );
-    expect(colorBounds.y).toBeGreaterThanOrEqual(canvasBounds.y);
-    expect(colorBounds.y + colorBounds.height).toBeLessThanOrEqual(
-      canvasBounds.y + canvasBounds.height + 1,
-    );
+    // The rich picker is a transient surface bounded by the visible viewport,
+    // not the canvas: on a short canvas it must be able to extend beyond the
+    // canvas so its controls stay reachable (see the tablet color-picker
+    // regression). The toolbar itself stays inside the canvas below.
+    const viewport = await page.evaluate(() => ({
+      right: window.innerWidth,
+      bottom: window.innerHeight,
+    }));
+    expect(colorBounds.x).toBeGreaterThanOrEqual(-1);
+    expect(colorBounds.x + colorBounds.width).toBeLessThanOrEqual(viewport.right + 1);
+    expect(colorBounds.y).toBeGreaterThanOrEqual(-1);
+    expect(colorBounds.y + colorBounds.height).toBeLessThanOrEqual(viewport.bottom + 1);
 
     const inspector = page.locator('.editor-shell__inspector-panel');
     if (await inspector.isVisible()) {
