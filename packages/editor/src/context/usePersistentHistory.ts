@@ -385,8 +385,8 @@ export function usePersistentHistory(options: UsePersistentHistoryOptions): Pers
   );
 
   const capture = useCallback(
-    (before: Document, after: Document, label: string, kind: string) => {
-      void enqueueCapture(before, after, selectionRef.current, label, kind);
+    (before: Document, after: Document, label: string, kind: string, selection: NodeId[]) => {
+      void enqueueCapture(before, after, selection, label, kind);
     },
     [enqueueCapture],
   );

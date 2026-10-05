@@ -3572,7 +3572,17 @@ export function EditorProvider({
           const persistentNow = persistentHistoryRef.current;
           if (before && persistentNow?.attached) {
             historySkipRef.current = true;
-            persistentNow.capture(before, current.document, transactionLabel, 'modify');
+            // Read selection from the finalized state in this updater. The
+            // hook's render-time selection ref can still describe the prior
+            // render, so using it here loses selections made in the same
+            // transaction (for example, selecting a newly created shape).
+            persistentNow.capture(
+              before,
+              current.document,
+              transactionLabel,
+              'modify',
+              current.selection,
+            );
           }
           if (transactionMode === 'preview' && onMutationRef.current) {
             lastMutatedDocRef.current = {

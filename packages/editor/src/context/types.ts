@@ -164,7 +164,13 @@ export interface PersistentHistoryApi {
   /** Bumped after every history mutation (panel refresh signal). */
   version: number;
   /** Route a committed transaction into the persistent log. */
-  capture: (before: Document, after: Document, label: string, kind: string) => void;
+  capture: (
+    before: Document,
+    after: Document,
+    label: string,
+    kind: string,
+    selection: NodeId[],
+  ) => void;
   /** Persistent undo; returns true when a revision was loaded. */
   undo: () => Promise<boolean>;
   /** Persistent redo; returns true when a revision was loaded. */

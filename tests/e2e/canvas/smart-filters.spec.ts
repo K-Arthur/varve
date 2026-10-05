@@ -336,6 +336,12 @@ test.describe('Object Filters — Invert workflow', () => {
     await addSmartFilter(page, 'Invert');
     await addSmartFilter(page, 'Blur');
 
+    // Adding Blur opens its focused parameter editor. At this inspector width
+    // the portal can cover the row's drag handle, so dismiss it before the
+    // reorder gesture.
+    await page.getByRole('button', { name: 'Close Blur parameters', exact: true }).click();
+    await expect(page.getByRole('dialog', { name: 'Blur parameters' })).toHaveCount(0);
+
     const rows = page.locator('.smart-filters__row');
     await expect(rows).toHaveCount(2);
     await expect(rows.nth(0).locator('.smart-filters__name')).toContainText('Invert');

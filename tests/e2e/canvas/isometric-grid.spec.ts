@@ -134,6 +134,16 @@ async function setSnapTolerance(page: Page, value: number) {
   await tolerance.blur();
 }
 
+/** Keep the Cartesian document grid from masking the isometric snap target. */
+async function disableDocumentGridSnapping(page: Page) {
+  const section = page.getByRole('button', { name: 'Document Grid', exact: true });
+  await section.scrollIntoViewIfNeeded();
+  if ((await section.getAttribute('aria-expanded')) === 'false') await section.click();
+  const documentGridSnap = page.getByRole('switch', { name: 'Snap to document grid' });
+  await documentGridSnap.scrollIntoViewIfNeeded();
+  if (await documentGridSnap.isChecked()) await documentGridSnap.uncheck();
+}
+
 async function grid(page: Page): Promise<GridSnapshot> {
   const value = await page.evaluate(() => window.__varveIsoTest?.getGrid() ?? null);
   expect(value).not.toBeNull();
@@ -322,6 +332,7 @@ test.describe('Isometric construction workflow (real editor)', () => {
   }, testInfo) => {
     await enterIsometricWorkspace(page);
     await setSnapTolerance(page, 32);
+    await disableDocumentGridSnapping(page);
     const snapshot = await grid(page);
     expect(snapshot.snapEnabled).toBe(true);
 

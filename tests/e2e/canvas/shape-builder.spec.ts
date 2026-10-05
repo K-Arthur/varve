@@ -120,7 +120,11 @@ test.describe('Shape Builder workflow', () => {
     // add action lives in the Stroke section header (not inside the collapsed
     // disclosure body).
     await canvas.click({ position: { x: 230, y: 215 } });
-    const addStroke = page.getByRole('button', { name: /add stroke/i });
+    // The canvas quick bar and Inspector both expose Add stroke. This step
+    // intentionally exercises the Inspector's Stroke section.
+    const addStroke = page
+      .getByRole('region', { name: 'Inspector', exact: true })
+      .getByRole('button', { name: 'Add stroke', exact: true });
     await addStroke.scrollIntoViewIfNeeded();
     await expect(addStroke).toBeVisible();
     await addStroke.click();

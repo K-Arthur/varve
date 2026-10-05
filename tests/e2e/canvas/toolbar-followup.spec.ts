@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { type Dialog, expect, type Page, test } from '@playwright/test';
+import { expect, type Page, test } from '@playwright/test';
 import { openMenu } from '../helpers/menu-helpers';
 import { navigateToEditor } from '../shared';
 
@@ -83,38 +83,23 @@ test.describe('Toolbar follow-up — palette placement', () => {
     await page.keyboard.press('Control+z');
     await expect(palette).toHaveAttribute('data-placement', 'top');
 
-    // Persists across a reload (same origin storage), and the per-mode reset
-    // restores the built-in default.
-    //
-    // The app arms a real `beforeunload` guard while the document is unsaved
-    // (LifecycleProvider: `event.preventDefault(); event.returnValue = ''`).
-    // Playwright dismisses unhandled dialogs by default, which cancels the
-    // navigation; `page.reload()` then never commits and burns the whole test
-    // budget waiting for `domcontentloaded`. Accept the dialog from a handler
-    // registered *before* the reload — an `await` placed between the reload
-    // call and the dialog callback deadlocks for the same reason.
-    let reloadDialogType: string | undefined;
-    const handleReloadDialog = async (dialog: Dialog) => {
-      reloadDialogType = dialog.type();
-      if (reloadDialogType === 'beforeunload') {
-        await dialog.accept();
-      } else {
-        await dialog.dismiss();
-      }
-    };
-    page.on('dialog', handleReloadDialog);
-    try {
-      await page.reload({ waitUntil: 'domcontentloaded', timeout: 60_000 });
-    } finally {
-      page.off('dialog', handleReloadDialog);
-    }
-    expect([undefined, 'beforeunload']).toContain(reloadDialogType);
-    await navigateToEditor(page, '/', { startupTimeout: 120000 });
-    await expect(page.locator(PALETTE)).toHaveAttribute('data-placement', 'top');
+    // Verify persistence in a fresh document load sharing this browser
+    // context's origin storage. Opening a second page avoids the editor's
+    // unsaved-document beforeunload prompt obscuring the storage check.
+    const reopenedPage = await page.context().newPage();
+    await reopenedPage.setViewportSize({ width: 1440, height: 900 });
+    await navigateToEditor(reopenedPage, '/', { startupTimeout: 120_000 });
+    const reopenedPalette = reopenedPage.locator(PALETTE);
+    await expect(reopenedPalette).toHaveAttribute('data-placement', 'top', {
+      timeout: 120_000,
+    });
 
-    await openMenu(page, 'View');
-    await page.locator(VIEW_MENU).getByRole('menuitemradio', { name: 'Toolbar at Bottom' }).click();
-    await expect(page.locator(PALETTE)).toHaveAttribute('data-placement', 'bottom');
+    await openMenu(reopenedPage, 'View');
+    await reopenedPage
+      .locator(VIEW_MENU)
+      .getByRole('menuitemradio', { name: 'Toolbar at Bottom' })
+      .click();
+    await expect(reopenedPalette).toHaveAttribute('data-placement', 'bottom');
   });
 });
 

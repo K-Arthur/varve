@@ -140,6 +140,9 @@ try {
 
   // Real main and detached worktrees resolve to one full canonical key and
   // serialize their children, despite Git printing .git versus an absolute path.
+  // Their legacy alias lists may differ: the main checkout can receive `.git`
+  // while a linked worktree receives an absolute path, and those byte-exact
+  // spellings intentionally preserve compatibility with older lease clients.
   const repo = join(directory, 'repo'),
     tree = join(directory, 'tree');
   const git = (args) =>
@@ -164,7 +167,8 @@ try {
   const treeKeys = leasePaths({ cwd: tree, runtimeDirectory: directory });
   assert.equal(mainKeys.primary, treeKeys.primary);
   assert.match(mainKeys.primary, /[/\\][0-9a-f]{64}\.lock$/);
-  assert.deepEqual(mainKeys.paths, treeKeys.paths);
+  assert.ok(mainKeys.paths.includes(mainKeys.primary));
+  assert.ok(treeKeys.paths.includes(treeKeys.primary));
   const mainReady = join(directory, 'main-ready'),
     mainFinish = join(directory, 'main-finish');
   const treeReady = join(directory, 'tree-ready');

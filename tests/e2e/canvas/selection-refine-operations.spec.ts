@@ -17,6 +17,27 @@ import { navigateToEditor, switchWorkspace } from '../shared';
 const FIXTURE = path.resolve(__dirname, '../fixtures/test-image.png');
 const CONTENT_CANVAS = 'canvas.editor-canvas__content-layer';
 
+async function selectMarqueeTool(page: import('@playwright/test').Page): Promise<void> {
+  const toolbar = page.getByTestId('toolbar');
+  const directTool = toolbar.locator('[data-tool="marquee"]');
+  if (await directTool.isVisible().catch(() => false)) {
+    await directTool.click();
+  } else {
+    // The responsive toolbar moves selection tools into the overflow menu at
+    // the default CI viewport. Use the same menu route as a user there.
+    await toolbar.getByRole('button', { name: /More tools/ }).click();
+    await page
+      .getByRole('menu', { name: 'More tools', exact: true })
+      .getByRole('menuitem', { name: 'Selection', exact: true })
+      .click();
+    await page
+      .getByRole('menu', { name: 'Selection submenu', exact: true })
+      .getByRole('menuitem', { name: 'Rectangular Marquee', exact: true })
+      .click();
+  }
+  await expect(directTool).toHaveAttribute('aria-pressed', 'true');
+}
+
 async function importTestImage(page: import('@playwright/test').Page): Promise<void> {
   const importInput = page.locator('#file-import-input');
   await importInput.setInputFiles(FIXTURE);
@@ -85,8 +106,7 @@ test.describe('selection refinement operations', () => {
     await importTestImage(page);
     // The Photo workspace surfaces the pixel-selection tools in the toolbar.
     await switchWorkspace(page, 'Photo');
-    const toolbar = page.locator('[data-testid="toolbar"]');
-    await toolbar.locator('[data-tool="marquee"]').click();
+    await selectMarqueeTool(page);
     const surface = page.locator('.editor-canvas');
     const surfaceBox = await surface.boundingBox();
     if (!surfaceBox) throw new Error('editor canvas surface not found');

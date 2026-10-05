@@ -327,6 +327,7 @@ export function FloatingTextBar({
           open={colorOpen}
           onOpenChange={setColorOpen}
           label="Text color picker"
+          collisionBoundary={canvasBoundary}
           popover={<ColorPicker value={fillColor} onChange={handleColorChange} />}
         >
           <button type="button" className="floating-text-bar__swatch" aria-label="Text color">

@@ -8,7 +8,7 @@
  */
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
-import { navigateToEditor } from '../shared';
+import { navigateToEditor, switchWorkspace } from '../shared';
 
 const FIXTURE = path.resolve(__dirname, '../fixtures/test-image.png');
 const CONTENT_CANVAS = 'canvas.editor-canvas__content-layer';
@@ -46,25 +46,25 @@ async function importTestImage(page: import('@playwright/test').Page): Promise<v
 }
 
 async function selectQuickMethod(page: import('@playwright/test').Page): Promise<void> {
-  const methodSelect = page.locator('select[aria-label="Background removal method"]');
-  const visible = await methodSelect.isVisible({ timeout: 5000 }).catch(() => false);
-  if (visible) {
-    await methodSelect.selectOption('quick');
-  }
+  await switchWorkspace(page, 'Photo');
+  const inspector = page.locator('.editor__inspector-panel');
+  await inspector.getByRole('tab', { name: 'Adjustments' }).click();
+  const section = inspector.getByRole('button', { name: 'Background Removal' });
+  if ((await section.getAttribute('aria-expanded')) === 'false') await section.click();
+
+  const methodSelect = inspector.getByRole('combobox', { name: 'Background removal method' });
+  await methodSelect.waitFor({ state: 'visible', timeout: 10_000 });
+  await methodSelect.click();
+  await page.getByRole('option', { name: /Fast — instant, simple backgrounds/ }).click();
+  await expect(methodSelect).toContainText('Fast — instant, simple backgrounds');
 }
 
 async function clickRemoveBackground(page: import('@playwright/test').Page): Promise<void> {
-  const removeBgBtn = page.getByRole('button', { name: /remove background/i });
-  if (await removeBgBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
-    await removeBgBtn.click();
-    return;
-  }
-  const inspectorRemoveBg = page.getByRole('button', { name: 'Remove background from image' });
-  if (await inspectorRemoveBg.isVisible({ timeout: 3000 }).catch(() => false)) {
-    await inspectorRemoveBg.click();
-    return;
-  }
-  throw new Error('Could not find Remove BG button');
+  const removeBg = page
+    .locator('.editor__inspector-panel')
+    .getByRole('button', { name: 'Remove background from image' });
+  await expect(removeBg).toBeVisible({ timeout: 10_000 });
+  await removeBg.click();
 }
 
 async function applyBackgroundRemovalPreview(page: import('@playwright/test').Page): Promise<void> {

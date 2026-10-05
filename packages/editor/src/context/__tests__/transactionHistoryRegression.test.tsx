@@ -109,6 +109,7 @@ describe('EditorProvider transaction history ordering', () => {
 
     act(() => editor?.undo());
     await waitFor(() => expect(editor?.state.document.nodes[id]?.transform[4]).toBe(initialX));
+    expect(editor?.state.selection).toEqual([id]);
   });
 
   it('restores selection, dirty state, and history after a cancelled selection move', async () => {
