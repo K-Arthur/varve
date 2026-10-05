@@ -21,12 +21,16 @@ export function resolveLayoutPresentation(
     capabilities.anyPointerCoarse ||
     capabilities.maxTouchPoints > 0 ||
     capabilities.observedTouchOrPen === true;
-  if (capabilities.viewportWidth <= 899) return touchCapable ? 'tablet' : 'compact';
-  if (capabilities.viewportWidth <= 1280 && touchCapable) return 'tablet';
-  const coarseOnly =
-    (capabilities.anyPointerCoarse && !capabilities.anyPointerFine) ||
-    capabilities.observedTouchOrPen === true;
-  return coarseOnly ? 'tablet' : 'desktop';
+  // A device that also exposes a fine pointer is a computer with a touchscreen
+  // or a pen display, not a tablet. Touching it, or drawing with a pen, must not
+  // move the user into the tablet layout — that is the classic false positive
+  // that hijacks a desktop session (artists on pen displays, touch laptops,
+  // an iPad with a trackpad that Safari still reports as touch-primary). The
+  // tablet layout is only the automatic answer when touch is the *only* input,
+  // or when the user asks for it with the layout preference.
+  const touchOnly = touchCapable && !capabilities.anyPointerFine;
+  if (capabilities.viewportWidth <= 899) return touchOnly ? 'tablet' : 'compact';
+  return touchOnly ? 'tablet' : 'desktop';
 }
 
 export interface LayoutPresentationController {
@@ -85,6 +89,10 @@ export function createLayoutPresentationController(
     contactStart(pointerId, pointerType) {
       activePointers.add(pointerId);
       if (pointerType === 'touch' || pointerType === 'pen') {
+        // The contact only records that this device has a touch or pen digitizer
+        // the media queries did not advertise. It never selects the tablet
+        // layout on its own: a pen or finger on a fine-pointer device is still a
+        // desktop session.
         observedTouchOrPen = true;
         pending = true;
       }
@@ -154,14 +162,30 @@ export function mountLayoutPresentation(
   document.addEventListener('compositionend', onCompositionEnd, true);
   document.addEventListener('visibilitychange', onVisibilityChange);
   window.addEventListener('resize', onViewportChange);
+  window.addEventListener('orientationchange', onViewportChange);
   window.addEventListener('blur', onBlur);
   const viewport = window.visualViewport;
   viewport?.addEventListener('resize', onViewportChange);
+  // Capability changes are the reliable automatic switch signal: attaching or
+  // removing a mouse/trackpad changes `pointer`/`any-pointer`/`any-hover`, and
+  // the spec requires browsers to re-evaluate them live (a Surface dropping its
+  // type cover, a Bluetooth mouse connecting to a tablet, a ChromeOS
+  // convertible). The layout preference stays available for the cases browsers
+  // cannot report — e.g. ChromeOS treats a connected mouse as primary even in
+  // tablet mode.
   const mediaQueries =
     typeof window.matchMedia === 'function'
-      ? ['(any-pointer: coarse)', '(any-pointer: fine)'].map((query) => window.matchMedia(query))
+      ? [
+          '(any-pointer: coarse)',
+          '(any-pointer: fine)',
+          '(pointer: coarse)',
+          '(pointer: fine)',
+          '(any-hover: hover)',
+        ].map((query) => window.matchMedia(query))
       : [];
   for (const media of mediaQueries) media.addEventListener?.('change', onViewportChange);
+  const orientation = typeof screen !== 'undefined' ? screen.orientation : undefined;
+  orientation?.addEventListener?.('change', onViewportChange);
 
   return () => {
     document.removeEventListener('pointerdown', onPointerDown, true);
@@ -172,9 +196,11 @@ export function mountLayoutPresentation(
     document.removeEventListener('compositionend', onCompositionEnd, true);
     document.removeEventListener('visibilitychange', onVisibilityChange);
     window.removeEventListener('resize', onViewportChange);
+    window.removeEventListener('orientationchange', onViewportChange);
     window.removeEventListener('blur', onBlur);
     viewport?.removeEventListener('resize', onViewportChange);
     for (const media of mediaQueries) media.removeEventListener?.('change', onViewportChange);
+    orientation?.removeEventListener?.('change', onViewportChange);
     if (mountedController === controller) mountedController = null;
   };
 }

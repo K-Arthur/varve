@@ -25,9 +25,25 @@ export interface DocValidationResult {
   errors: string[];
 }
 
+let fallbackIdCounter = 0;
+
 export function cryptoId(): string {
-  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID();
-  return `doc-${Math.random().toString(36).slice(2)}`;
+  const webCrypto = typeof crypto !== 'undefined' ? crypto : undefined;
+  if (webCrypto && typeof webCrypto.randomUUID === 'function') return webCrypto.randomUUID();
+  // Older WebViews lack randomUUID; getRandomValues is the standards-track
+  // fallback. Math.random was used here before, which CodeQL flags
+  // (js/insecure-randomness) and which also makes id collisions on a fast
+  // allocation path more likely than an RNG-backed value.
+  if (webCrypto && typeof webCrypto.getRandomValues === 'function') {
+    const bytes = webCrypto.getRandomValues(new Uint8Array(16));
+    let id = 'doc-';
+    for (const byte of bytes) id += byte.toString(16).padStart(2, '0');
+    return id;
+  }
+  // No Web Crypto at all: a monotonic counter cannot collide within a session,
+  // which is what these identifiers are for.
+  fallbackIdCounter += 1;
+  return `doc-${Date.now().toString(36)}-${fallbackIdCounter.toString(36)}`;
 }
 
 export function makeGroupNode(

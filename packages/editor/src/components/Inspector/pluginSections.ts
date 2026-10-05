@@ -133,8 +133,42 @@ const plugins = new Map<PluginId, PluginState>();
 const listeners = new Set<ContributionListener>();
 
 const ID_RE = /^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$/;
-const SEMVER_RE =
-  /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*))*))?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;
+const CORE_RE = /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/;
+const IDENTIFIER_RE = /^[0-9A-Za-z-]+$/;
+const ONLY_DIGITS_RE = /^[0-9]+$/;
+const NUMERIC_IDENTIFIER_RE = /^(?:0|[1-9]\d*)$/;
+
+/**
+ * SemVer 2.0.0, validated in linear time.
+ *
+ * The reference SemVer regex nests quantifiers inside a repeated group, and
+ * CodeQL flags it as a ReDoS sink (js/redos) reachable from a plugin manifest.
+ * The manifest already caps the string at 128 characters, but that is not a
+ * bound on exponential backtracking, so the identifiers are validated
+ * individually instead.
+ */
+function isSemver(value: string): boolean {
+  const buildIndex = value.indexOf('+');
+  const core = buildIndex === -1 ? value : value.slice(0, buildIndex);
+  if (buildIndex !== -1 && !isIdentifierList(value.slice(buildIndex + 1), false)) return false;
+  const preIndex = core.indexOf('-');
+  const main = preIndex === -1 ? core : core.slice(0, preIndex);
+  if (!CORE_RE.test(main)) return false;
+  if (preIndex === -1) return true;
+  return isIdentifierList(core.slice(preIndex + 1), true);
+}
+
+/** `dot.separated.identifiers`; numeric ones may not carry leading zeros. */
+function isIdentifierList(value: string, numeric: boolean): boolean {
+  if (!value) return false;
+  for (const identifier of value.split('.')) {
+    if (!identifier || !IDENTIFIER_RE.test(identifier)) return false;
+    if (numeric && ONLY_DIGITS_RE.test(identifier) && !NUMERIC_IDENTIFIER_RE.test(identifier)) {
+      return false;
+    }
+  }
+  return true;
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -199,7 +233,7 @@ function validateManifest(manifest: PluginManifest): PluginManifest {
   if (
     typeof manifest.version !== 'string' ||
     manifest.version.length > 128 ||
-    !SEMVER_RE.test(manifest.version)
+    !isSemver(manifest.version)
   ) {
     throw new Error('Plugin version must be valid SemVer');
   }
