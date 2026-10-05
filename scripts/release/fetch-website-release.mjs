@@ -44,6 +44,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { fetchGitHubWithRetry, redactRequestUrl } from './github-fetch.mjs';
 import { repoSlug } from './product.mjs';
 import { selectRelease, verifyReleaseIntegrity } from './verify-release-data.mjs';
 import {
@@ -64,7 +65,7 @@ function parseArgs(argv) {
 }
 
 async function gh(url, token) {
-  const res = await fetch(url, {
+  const res = await fetchGitHubWithRetry(url, {
     headers: {
       Accept: 'application/vnd.github+json',
       'User-Agent': 'varve-release-fetch',
@@ -72,20 +73,26 @@ async function gh(url, token) {
     },
   });
   if (res.status === 403 || res.status === 429) {
-    throw new Error(`GitHub API rate-limited or forbidden (HTTP ${res.status}) fetching ${url}`);
+    throw new Error(
+      `GitHub API rate-limited or forbidden (HTTP ${res.status}) fetching ${redactRequestUrl(url)}`,
+    );
   }
-  if (!res.ok) throw new Error(`GitHub API error ${res.status} fetching ${url}`);
+  if (!res.ok) {
+    throw new Error(`GitHub API error ${res.status} fetching ${redactRequestUrl(url)}`);
+  }
   return res;
 }
 
 async function download(url, token) {
-  const res = await fetch(url, {
+  const res = await fetchGitHubWithRetry(url, {
     headers: {
       'User-Agent': 'varve-release-fetch',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
   });
-  if (!res.ok) throw new Error(`Download failed (HTTP ${res.status}) for ${url}`);
+  if (!res.ok) {
+    throw new Error(`Download failed (HTTP ${res.status}) for ${redactRequestUrl(url)}`);
+  }
   return Buffer.from(await res.arrayBuffer());
 }
 

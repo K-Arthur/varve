@@ -166,6 +166,13 @@ When a release cannot be verified (missing integrity files, hash mismatch,
 unknown artifact types, API outage) the deployment fails — an explicit error
 beats a download page that invents data.
 
+The release-data fetch retries transient transport failures and HTTP 408, 425,
+and 5xx responses at most three times with exponential backoff. A short
+`Retry-After` is honored; a longer delay, rate-limit response (403/429), other
+4xx response, or integrity failure stops the deployment. Retry logs omit URL
+credentials and query strings. This recovers brief GitHub asset-service errors
+without rerunning the website browser suite or weakening release verification.
+
 ### Updater feeds
 
 The same deployment step mirrors the Tauri updater feeds:

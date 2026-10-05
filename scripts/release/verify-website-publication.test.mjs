@@ -4,6 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { load } from 'js-yaml';
+import { fetchGitHubWithRetry } from './github-fetch.mjs';
 import {
   parsePublicationArgs,
   publicationOutputs,
@@ -15,6 +16,119 @@ const options = {
   tag: 'v0.5.0',
   commitSha: 'a'.repeat(40),
 };
+
+function httpResponse(status, headers = {}) {
+  return { ok: status >= 200 && status < 300, status, headers: new Headers(headers) };
+}
+
+test('GitHub GET retries a transient server error and succeeds with bounded backoff', async () => {
+  const responses = [httpResponse(500), httpResponse(200)];
+  const delays = [];
+  let calls = 0;
+  const result = await fetchGitHubWithRetry('https://api.github.com/repos/example/project', {
+    fetchImpl: async () => {
+      calls++;
+      return responses.shift();
+    },
+    sleep: async (delayMs) => delays.push(delayMs),
+    onRetry: () => {},
+    baseDelayMs: 5,
+  });
+
+  assert.equal(result.status, 200);
+  assert.equal(calls, 2);
+  assert.deepEqual(delays, [5]);
+});
+
+test('GitHub GET stops after four server-error attempts and preserves the final response', async () => {
+  const delays = [];
+  let calls = 0;
+  const result = await fetchGitHubWithRetry('https://api.github.com/repos/example/project', {
+    fetchImpl: async () => {
+      calls++;
+      return httpResponse(503);
+    },
+    sleep: async (delayMs) => delays.push(delayMs),
+    onRetry: () => {},
+    baseDelayMs: 5,
+    maxDelayMs: 100,
+  });
+
+  assert.equal(result.status, 503);
+  assert.equal(calls, 4);
+  assert.deepEqual(delays, [5, 10, 20]);
+});
+
+test('GitHub GET returns client errors without retrying or hiding rate limits', async () => {
+  for (const status of [401, 403, 404, 429]) {
+    let calls = 0;
+    const result = await fetchGitHubWithRetry('https://api.github.com/repos/example/project', {
+      fetchImpl: async () => {
+        calls++;
+        return httpResponse(status);
+      },
+      sleep: async () => assert.fail('client errors must not be retried'),
+      onRetry: () => assert.fail('client errors must not be retried'),
+    });
+    assert.equal(result.status, status);
+    assert.equal(calls, 1);
+  }
+});
+
+test('GitHub GET honors a short Retry-After on a transient server response', async () => {
+  const responses = [httpResponse(503, { 'retry-after': '2' }), httpResponse(200)];
+  const delays = [];
+  const result = await fetchGitHubWithRetry('https://api.github.com/repos/example/project', {
+    fetchImpl: async () => responses.shift(),
+    sleep: async (delayMs) => delays.push(delayMs),
+    onRetry: () => {},
+    maxRetryAfterMs: 5_000,
+  });
+
+  assert.equal(result.status, 200);
+  assert.deepEqual(delays, [2_000]);
+});
+
+test('GitHub GET refuses to retry before an excessive Retry-After interval', async () => {
+  let calls = 0;
+  await assert.rejects(
+    fetchGitHubWithRetry('https://api.github.com/repos/example/project', {
+      fetchImpl: async () => {
+        calls++;
+        return httpResponse(503, { 'retry-after': '60' });
+      },
+      sleep: async () => assert.fail('must not retry before the server requested'),
+      onRetry: () => assert.fail('must not retry before the server requested'),
+      maxRetryAfterMs: 100,
+    }),
+    /refusing an early retry/,
+  );
+  assert.equal(calls, 1);
+});
+
+test('GitHub GET retries network errors and redacts signed URL details on exhaustion', async () => {
+  const delays = [];
+  let calls = 0;
+  await assert.rejects(
+    fetchGitHubWithRetry('https://assets.example.test/feed.json?token=secret#fragment', {
+      fetchImpl: async () => {
+        calls++;
+        throw new TypeError('network unavailable');
+      },
+      sleep: async (delayMs) => delays.push(delayMs),
+      onRetry: () => {},
+      maxAttempts: 3,
+      baseDelayMs: 5,
+    }),
+    (error) => {
+      assert.match(error.message, /failed after 3 attempts/);
+      assert.doesNotMatch(error.message, /secret|fragment/);
+      return true;
+    },
+  );
+  assert.equal(calls, 3);
+  assert.deepEqual(delays, [5, 10]);
+});
 
 function githubFixture({ release = {}, sha = options.commitSha } = {}) {
   const calls = [];
