@@ -2681,7 +2681,13 @@ export function Menubar({
                             onClick={() => {
                               if (hasSubmenu) {
                                 if (item.disabled) return;
-                                setOpenSubmenu(isSubmenuOpen ? null : itemIdx);
+                                // Pointer entry opened this branch on hover
+                                // already. Keep activation idempotent so the
+                                // click that follows the hover cannot close the
+                                // submenu it just opened — the same contract the
+                                // shared Menu documents. Dismissal stays with
+                                // Escape / Arrow-Left / moving off the row.
+                                setOpenSubmenu(itemIdx);
                                 setActiveSubmenuIndex(0);
                               } else {
                                 handleAction(item.action ?? '');
