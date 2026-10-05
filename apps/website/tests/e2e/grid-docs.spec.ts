@@ -25,7 +25,10 @@ test.describe('Grid systems marketing documentation', () => {
       () => document.documentElement.scrollWidth > window.innerWidth,
     );
     expect(overflow).toBe(false);
-    await page.screenshot({ path: testInfo.outputPath('grid-docs-mobile.png'), fullPage: true });
+    // The full guide is tall at 375px. The viewport capture is enough for this
+    // responsive diagnostic; full-page capture adds a large raster surface
+    // without improving the overflow/readability assertions above.
+    await page.screenshot({ path: testInfo.outputPath('grid-docs-mobile.png'), fullPage: false });
   });
 
   test('carries the system into the canvas feature page', async ({ page }, testInfo) => {
