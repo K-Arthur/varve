@@ -65,7 +65,10 @@ export class TauriUpdateProvider implements UpdateProvider {
         message: `The ${channel} update channel is not enabled in this build.`,
       };
     }
-    const update = await tauriCheck({ allowDowngrades: false, timeout: 15_000 });
+    // `allowDowngrades` is application configuration, not a per-check argument
+    // (plugin 2.12 removed the webview-settable override so webview code can no
+    // longer relax the comparator). The configured default is false.
+    const update = await tauriCheck({ timeout: 15_000 });
     this.nativeUpdate = update;
     if (!update) return null;
     return {
