@@ -103,6 +103,12 @@ try {
     const keys = leasePaths({ runtimeDirectory: directory });
     const original = readFileSync(keys.primary, 'utf8');
     const marker = join(directory, 'forged-child');
+    // Windows performs a bounded PowerShell ancestry query (up to 3s) before
+    // the fixture reaches its deliberately short lease deadline, so this budget
+    // must exceed the probe, not just the lease. When it is too short the kill
+    // leaves status null and the failure reads as an opaque `null !== 1`
+    // (observed on windows-latest, run 37257162286); name the timeout instead.
+    const siblingBudgetMs = 10_000;
     const rejected = spawnSync(
       process.execPath,
       [
@@ -116,10 +122,13 @@ try {
       {
         env: { ...env, VARVE_HEAVY_LEASE_OWNER: original, VARVE_LEASE_TIMEOUT: '100' },
         encoding: 'utf8',
-        // Windows performs a bounded PowerShell ancestry query (up to 3s)
-        // before the fixture reaches its deliberately short lease deadline.
-        timeout: 10_000,
+        timeout: siblingBudgetMs,
       },
+    );
+    assert.equal(
+      rejected.error,
+      undefined,
+      `unrelated sibling spawn exceeded its ${siblingBudgetMs}ms budget: ${rejected.error?.message ?? ''}`,
     );
     assert.equal(rejected.status, 1, rejected.stderr);
     assert.equal(existsSync(marker), false);
