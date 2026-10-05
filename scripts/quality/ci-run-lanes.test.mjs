@@ -100,6 +100,34 @@ assert.equal(
   'a first-attempt browser failure remains blocking rather than a success receipt',
 );
 
+const independentLaneRuns = [];
+const independentLaneResult = runCategoryDetailed(
+  { ...plan, selectedLanes: ['e2e:all', 'e2e:demo-dist'] },
+  'e2e',
+  {
+    shard: '1/16',
+    execute: (argv) => {
+      const isDemo = argv.includes('playwright.demo-dist.config.mts');
+      independentLaneRuns.push(isDemo ? 'e2e:demo-dist' : 'e2e:all');
+      return isDemo ? 0 : 1;
+    },
+  },
+);
+assert.deepEqual(
+  independentLaneRuns,
+  ['e2e:all', 'e2e:demo-dist'],
+  'a failing broad E2E lane must not suppress the independent production-demo lane',
+);
+assert.equal(independentLaneResult.status, 1, 'any selected lane failure remains blocking');
+assert.deepEqual(
+  independentLaneResult.outcomes.map(({ lane, status }) => [lane, status]),
+  [
+    ['e2e:all', 'failure'],
+    ['e2e:demo-dist', 'success'],
+  ],
+  'the final receipt must retain both lane outcomes',
+);
+
 const executed = [];
 assert.equal(
   runCategory(plan, 'js', {

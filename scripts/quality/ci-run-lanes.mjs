@@ -188,6 +188,7 @@ export function runCategoryDetailed(
   const outcomes = [];
   const browserReports = [];
   let browserEvidence = collectBrowserEvidence([]);
+  let categoryStatus = 0;
   for (const { lane, argv } of commandsForCategory(plan, category, { shard })) {
     console.log(`CI ${category}: ${lane}`);
     const startedAt = Date.now();
@@ -251,9 +252,12 @@ export function runCategoryDetailed(
       timedOut: typeof status === 'number' ? false : status?.timedOut === true,
       durationMs: Date.now() - startedAt,
     });
-    if (code !== 0) return { status: code, outcomes, browserEvidence };
+    // Selected lanes are independent validation evidence. Keep running later
+    // lanes after a failure so a failed app E2E shard does not suppress the
+    // separately-built production demo's report.
+    if (code !== 0 && categoryStatus === 0) categoryStatus = code;
   }
-  return { status: 0, outcomes, browserEvidence };
+  return { status: categoryStatus, outcomes, browserEvidence };
 }
 
 function createCommandExecutor(spawnCommand) {

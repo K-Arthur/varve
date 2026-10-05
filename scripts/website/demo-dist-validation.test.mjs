@@ -137,6 +137,31 @@ try {
   assert.match(candidateReceipt, /--playwright-report e2e:demo-dist=/);
   assert.match(candidateReceipt, /--playwright-inventory .*browser-inventory\.json/);
   assert.match(candidateReceipt, /--playwright-shard e2e:demo-dist=/);
+  const candidateDemoExecution = candidateE2e
+    .split('name: Production-demo E2E (candidate)')[1]
+    ?.split('name: Verify complete production-demo browser evidence')[0];
+  assert.match(candidateDemoExecution ?? '', /id: demo-e2e/);
+  assert.match(
+    candidateDemoExecution ?? '',
+    /if: \$\{\{ !cancelled\(\) && matrix\.shard == 1 && steps\.demo-input\.outcome == 'success' \}\}/,
+    'production-demo E2E must run after the main browser step fails when demo input succeeded',
+  );
+  const candidateDemoEvidence = candidateE2e
+    .split('name: Verify complete production-demo browser evidence')[1]
+    ?.split('name: Verify production-demo source artifact unchanged')[0];
+  const candidateDemoUnchanged = candidateE2e
+    .split('name: Verify production-demo source artifact unchanged')[1]
+    ?.split('name: Upload browser diagnostics')[0];
+  for (const evidenceStep of [candidateDemoEvidence, candidateDemoUnchanged]) {
+    assert.match(evidenceStep ?? '', /steps\.demo-input\.outcome == 'success'/);
+    assert.match(evidenceStep ?? '', /steps\.demo-e2e\.outcome == 'success'/);
+    assert.match(evidenceStep ?? '', /steps\.demo-e2e\.outcome == 'failure'/);
+    assert.match(
+      evidenceStep ?? '',
+      /if: \$\{\{ !cancelled\(\) && matrix\.shard == 1/,
+      'demo evidence checks require successful input and an attempted, non-cancelled E2E lane',
+    );
+  }
   assert.match(candidateE2e, /name: Upload immutable candidate production-demo inventory/);
   assert.match(candidateE2e, /if: matrix\.shard == 1/);
   const defaultPlaywrightConfig = readFileSync('playwright.config.ts', 'utf8');

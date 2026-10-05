@@ -116,7 +116,9 @@ try {
       {
         env: { ...env, VARVE_HEAVY_LEASE_OWNER: original, VARVE_LEASE_TIMEOUT: '100' },
         encoding: 'utf8',
-        timeout: 2000,
+        // Windows performs a bounded PowerShell ancestry query (up to 3s)
+        // before the fixture reaches its deliberately short lease deadline.
+        timeout: 10_000,
       },
     );
     assert.equal(rejected.status, 1, rejected.stderr);
