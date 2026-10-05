@@ -85,6 +85,14 @@ test.describe('Toolbar follow-up — palette placement', () => {
 
     // Persists across a reload (same origin storage), and the per-mode reset
     // restores the built-in default.
+    //
+    // The app arms a real `beforeunload` guard while the document is unsaved
+    // (LifecycleProvider: `event.preventDefault(); event.returnValue = ''`).
+    // Playwright dismisses unhandled dialogs by default, which cancels the
+    // navigation; `page.reload()` then never commits and burns the whole test
+    // budget waiting for `domcontentloaded`. Accept the dialog from a handler
+    // registered *before* the reload — an `await` placed between the reload
+    // call and the dialog callback deadlocks for the same reason.
     let reloadDialogType: string | undefined;
     const handleReloadDialog = async (dialog: Dialog) => {
       reloadDialogType = dialog.type();
@@ -96,7 +104,7 @@ test.describe('Toolbar follow-up — palette placement', () => {
     };
     page.on('dialog', handleReloadDialog);
     try {
-      await page.reload({ waitUntil: 'domcontentloaded' });
+      await page.reload({ waitUntil: 'domcontentloaded', timeout: 60_000 });
     } finally {
       page.off('dialog', handleReloadDialog);
     }
