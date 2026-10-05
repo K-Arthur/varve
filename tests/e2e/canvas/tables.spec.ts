@@ -17,8 +17,8 @@ async function enterTableEditMode(page: Page): Promise<void> {
 }
 
 async function tableCellCenter(page: Page, row: number, column: number) {
-  // The table tool creates a 4×4 table. Read its rendered selection handles
-  // instead of assuming a canvas camera, zoom, or viewport origin.
+  // The table tool creates a 4×4 table. Read the rendered selection handles
+  // instead of assuming a camera, viewport origin, or zoom.
   const handleCenter = async (label: string) => {
     const box = await page.locator(`[aria-label="${label}"]`).boundingBox();
     if (!box) throw new Error(`Table selection handle is missing: ${label}`);
@@ -95,7 +95,8 @@ test.describe('Native tables', () => {
   test('keyboard navigation moves between cells', async ({ page }) => {
     await insertTable(page);
     await enterTableEditMode(page);
-    await page.locator('.table-edit-overlay').click({ position: { x: 300, y: 280 } });
+    const firstCell = await tableCellCenter(page, 0, 0);
+    await page.mouse.click(firstCell.x, firstCell.y);
     const activeCell = page.locator('.table-edit-overlay svg rect').last();
     const [beforeX, beforeY] = await Promise.all([
       activeCell.getAttribute('x'),

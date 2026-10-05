@@ -566,9 +566,8 @@ test.describe('concept-art reference workflow', () => {
       .poll(() => orangePaintPixels(page))
       .toBeGreaterThan(orangePixelsBeforePaintover + 10);
     await page.keyboard.press('Control+z');
-    await expect
-      .poll(() => orangePaintPixels(page))
-      .toBeLessThanOrEqual(orangePixelsBeforePaintover + 1);
+    // Run the authoritative redraw oracle before the pixel assertion so a
+    // stale surface fails with the live-vs-full-redraw evidence attached.
     await expectSurfaceMatchesFullRedraw(page, 'undo');
     await expect
       .poll(() => orangePaintPixels(page))
