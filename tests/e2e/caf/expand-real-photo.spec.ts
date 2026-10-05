@@ -1,5 +1,4 @@
 import { readFileSync } from 'node:fs';
-import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
 import { selectInspectorTab } from '../helpers/inspector-tabs';
@@ -106,7 +105,7 @@ test.describe('real photographic Expand capability boundary', () => {
 
   test('does not offer Fast-quality browser Expand, but AI-quality unlocks it', async ({
     page,
-  }, testInfo) => {
+  }) => {
     await navigateToEditor(page);
     await dropPhotoAndSelect(page);
     await openGenerativeEdit(page);
@@ -127,12 +126,19 @@ test.describe('real photographic Expand capability boundary', () => {
     ).toBeDisabled();
     await expect(dialog.getByRole('button', { name: /^apply$/i })).toBeDisabled();
 
-    const evidenceDir = process.env.VARVE_E2E_OUTPUT_DIR
-      ? path.resolve(process.env.VARVE_E2E_OUTPUT_DIR)
-      : testInfo.outputDir;
-    await mkdir(evidenceDir, { recursive: true });
-    await dialog.screenshot({
-      path: path.join(evidenceDir, 'real-landscape-expand-unavailable.png'),
+    // Capture under Playwright's own output path — already the isolated,
+    // gitignored `test-results/<run>/<spec>` directory.
+    //
+    // This previously resolved `VARVE_E2E_OUTPUT_DIR` against the repository
+    // root. That variable carries a bare directory NAME for report grouping,
+    // not a path, so the capture created an untracked `run-<pid>-<port>/`
+    // directory in the worktree. `browser-inventory.mjs#requireInventorySource`
+    // refuses to discover an inventory on a dirty worktree, so the stray
+    // directory aborted the shard-1 `e2e:demo-dist` lane *after* the E2E cases
+    // had already passed, and the whole shard went red (CI run 37261275694).
+    // Never reintroduce a repository-root write here.
+    await page.screenshot({
+      path: test.info().outputPath('real-landscape-expand-unavailable.png'),
       animations: 'disabled',
     });
 
