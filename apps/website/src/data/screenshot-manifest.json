@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "note": "GENERATED FILE — reviewed mixed-source assembly; no new capture. Top-level identity records the assembly revision and input digest. Per-scene producer provenance remains authoritative for the pixels.",
-  "generatedAt": "2026-10-04T14:25:48.523Z",
+  "generatedAt": "2026-10-05T01:49:52.872Z",
   "scenes": {
     "workspace": {
       "file": "workspace-light.png",
@@ -10,19 +10,19 @@
       "feature": "home-showcase",
       "theme": "light",
       "status": "captured",
-      "lastValidatedAgainst": "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
+      "lastValidatedAgainst": "d584eed7df23a2a9cd0014f1e853409adf87706f",
       "width": 1440,
       "height": 900,
-      "sha256": "8489dbac476fb8ff2daff830f140cc6ecdb18cd453b2457f80f184c39676b833",
+      "sha256": "2f31fc7dd2c4c31f6e071ef2beb3314935288bbfd2700f5d31f4eaa8099d6965",
       "kind": "full",
       "scale": 1,
       "provenanceUnknown": false,
-      "capturedAt": "2026-10-03T10:45:59.770Z",
+      "capturedAt": "2026-10-05T01:44:27.070Z",
       "provenance": {
-        "sourceRevision": "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
+        "sourceRevision": "d584eed7df23a2a9cd0014f1e853409adf87706f",
         "sourceDirty": false,
-        "sourceDigest": "6cbb305f265656abcb97aa7d8e9181ff63d8447f03595eeef2678860cb1e3571",
-        "runId": "2026-10-03T10-45-24-594Z-1566371",
+        "sourceDigest": "1ccf91d373b5e9b9c08a24aa9b7a915de41c4690dedacbcc48c31ffa33953cff",
+        "runId": "2026-10-05T01-44-03-574Z-3180173",
         "runtime": "chromium-headless (web)",
         "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
         "viewport": {
@@ -31,8 +31,8 @@
         },
         "deviceScaleFactor": 1,
         "theme": "light",
-        "promotedFrom": "2026-10-03T10-45-24-594Z-1566371",
-        "promotedAt": "2026-10-03T11:28:22.179Z"
+        "promotedFrom": "2026-10-05T01-44-03-574Z-3180173",
+        "promotedAt": "2026-10-05T01:49:52.868Z"
       }
     },
     "workspace-dark": {
@@ -42,19 +42,19 @@
       "feature": "home-showcase",
       "theme": "dark",
       "status": "captured",
-      "lastValidatedAgainst": "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
+      "lastValidatedAgainst": "d584eed7df23a2a9cd0014f1e853409adf87706f",
       "width": 1440,
       "height": 900,
-      "sha256": "5e47e9ad5de1ebd5cbd7f6155535e64c1d5b7e92173e292e780035b96b211cdf",
+      "sha256": "a189ea5074523fd89e69c6a7235d75bb283af62a6f0ce098a0f2facbfd661c13",
       "kind": "full",
       "scale": 1,
       "provenanceUnknown": false,
-      "capturedAt": "2026-10-03T10:46:11.214Z",
+      "capturedAt": "2026-10-05T01:44:37.525Z",
       "provenance": {
-        "sourceRevision": "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
+        "sourceRevision": "d584eed7df23a2a9cd0014f1e853409adf87706f",
         "sourceDirty": false,
-        "sourceDigest": "6cbb305f265656abcb97aa7d8e9181ff63d8447f03595eeef2678860cb1e3571",
-        "runId": "2026-10-03T10-45-24-594Z-1566371",
+        "sourceDigest": "1ccf91d373b5e9b9c08a24aa9b7a915de41c4690dedacbcc48c31ffa33953cff",
+        "runId": "2026-10-05T01-44-03-574Z-3180173",
         "runtime": "chromium-headless (web)",
         "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
         "viewport": {
@@ -63,8 +63,8 @@
         },
         "deviceScaleFactor": 1,
         "theme": "dark",
-        "promotedFrom": "2026-10-03T10-45-24-594Z-1566371",
-        "promotedAt": "2026-10-03T11:28:22.181Z"
+        "promotedFrom": "2026-10-05T01-44-03-574Z-3180173",
+        "promotedAt": "2026-10-05T01:49:52.869Z"
       }
     },
     "vector": {
@@ -290,7 +290,7 @@
       "status": "captured",
       "width": 317,
       "height": 539,
-      "lastValidatedAgainst": "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
+      "lastValidatedAgainst": "d584eed7df23a2a9cd0014f1e853409adf87706f",
       "sha256": "977652f96cbe4a9bd25b8d4375d644429c4c41684b0863a641a0bc6d780d1a7b",
       "kind": "panel",
       "crop": {
@@ -304,12 +304,12 @@
         "width": 1440,
         "height": 1200
       },
-      "capturedAt": "2026-10-03T10:48:47.787Z",
+      "capturedAt": "2026-10-05T01:44:58.552Z",
       "provenance": {
-        "sourceRevision": "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
+        "sourceRevision": "d584eed7df23a2a9cd0014f1e853409adf87706f",
         "sourceDirty": false,
-        "sourceDigest": "6cbb305f265656abcb97aa7d8e9181ff63d8447f03595eeef2678860cb1e3571",
-        "runId": "2026-10-03T10-45-24-594Z-1566371",
+        "sourceDigest": "1ccf91d373b5e9b9c08a24aa9b7a915de41c4690dedacbcc48c31ffa33953cff",
+        "runId": "2026-10-05T01-44-03-574Z-3180173",
         "runtime": "chromium-headless (web)",
         "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
         "viewport": {
@@ -318,8 +318,8 @@
         },
         "deviceScaleFactor": 1,
         "theme": "light",
-        "promotedFrom": "2026-10-03T10-45-24-594Z-1566371",
-        "promotedAt": "2026-10-03T11:28:22.189Z"
+        "promotedFrom": "2026-10-05T01-44-03-574Z-3180173",
+        "promotedAt": "2026-10-05T01:49:52.872Z"
       },
       "provenanceUnknown": false
     },
@@ -521,26 +521,26 @@
       "caption": "Review photo treatment presets or open Effect Studio for the selected image.",
       "feature": "visual-awareness",
       "theme": "light",
-      "width": 293,
+      "width": 349,
       "height": 692,
       "status": "captured",
-      "lastValidatedAgainst": "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
-      "sha256": "43e4d3313a78e743590d7db9b1f1681fc94d7d2339b60943e08778460e3d9270",
+      "lastValidatedAgainst": "d584eed7df23a2a9cd0014f1e853409adf87706f",
+      "sha256": "a473b4a4c989d6f582751b4c3ee0950e9c683459fa5feeabefc3dd48ee89745e",
       "kind": "panel",
       "crop": {
-        "x": 1147,
+        "x": 1091,
         "y": 154,
-        "width": 293,
+        "width": 349,
         "height": 692
       },
       "scale": 1,
       "provenanceUnknown": false,
-      "capturedAt": "2026-10-03T10:51:05.391Z",
+      "capturedAt": "2026-10-05T01:45:10.444Z",
       "provenance": {
-        "sourceRevision": "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
+        "sourceRevision": "d584eed7df23a2a9cd0014f1e853409adf87706f",
         "sourceDirty": false,
-        "sourceDigest": "6cbb305f265656abcb97aa7d8e9181ff63d8447f03595eeef2678860cb1e3571",
-        "runId": "2026-10-03T10-45-24-594Z-1566371",
+        "sourceDigest": "1ccf91d373b5e9b9c08a24aa9b7a915de41c4690dedacbcc48c31ffa33953cff",
+        "runId": "2026-10-05T01-44-03-574Z-3180173",
         "runtime": "chromium-headless (web)",
         "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
         "viewport": {
@@ -549,8 +549,8 @@
         },
         "deviceScaleFactor": 1,
         "theme": "light",
-        "promotedFrom": "2026-10-03T10-45-24-594Z-1566371",
-        "promotedAt": "2026-10-03T11:28:22.197Z"
+        "promotedFrom": "2026-10-05T01-44-03-574Z-3180173",
+        "promotedAt": "2026-10-05T01:49:52.872Z"
       }
     },
     "effects": {
@@ -938,41 +938,39 @@
       "provenanceUnknown": false
     },
     "workspace-shared-workflows": {
-      "sha256": "810c5a968750762b7994109abfb69eda16849d7019f34288c038a15ddd90739b",
+      "sha256": "c59be705f1b5584ffd6771a4d9d14b6602ce052721f94ed8988b2bee18d89045",
       "file": "workspace-shared-workflows-light.png",
       "alt": "The Design workspace with Logo project controls and generated Code output open beside the same poster document",
       "caption": "Logo tools stay in Design; the shared Code panel remains available alongside the same document.",
       "feature": "workspaces",
       "theme": "light",
       "status": "captured",
-      "lastValidatedAgainst": "d9fff30e56cc4686cb9e5e0cfa3dd504ea000057",
+      "lastValidatedAgainst": "d584eed7df23a2a9cd0014f1e853409adf87706f",
       "width": 936,
-      "height": 900,
+      "height": 702,
       "kind": "detail",
-      "crop": {
-        "x": 0,
-        "y": 0,
-        "width": 936,
-        "height": 900
-      },
       "scale": 1,
       "provenanceUnknown": false,
-      "capturedAt": "2026-10-04T14:20:25.037Z",
+      "capturedAt": "2026-10-05T01:45:22.745Z",
       "provenance": {
-        "sourceRevision": "d9fff30e56cc4686cb9e5e0cfa3dd504ea000057",
+        "sourceRevision": "d584eed7df23a2a9cd0014f1e853409adf87706f",
         "sourceDirty": false,
-        "sourceDigest": "464c231271ce0b22cd309e1e9f0cb1d948bc455a97f535a05fd2018f7a73e1ba",
-        "runId": "2026-10-04T14-19-18-944Z-2787694",
+        "sourceDigest": "1ccf91d373b5e9b9c08a24aa9b7a915de41c4690dedacbcc48c31ffa33953cff",
+        "runId": "2026-10-05T01-44-03-574Z-3180173",
         "runtime": "chromium-headless (web)",
         "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
         "viewport": {
-          "width": 1440,
-          "height": 900
+          "width": 936,
+          "height": 702
         },
         "deviceScaleFactor": 1,
         "theme": "light",
-        "promotedFrom": "2026-10-04T14-19-18-944Z-2787694",
-        "promotedAt": "2026-10-04T14:25:48.523Z"
+        "promotedFrom": "2026-10-05T01-44-03-574Z-3180173",
+        "promotedAt": "2026-10-05T01:49:52.871Z"
+      },
+      "viewport": {
+        "width": 936,
+        "height": 702
       }
     },
     "tonal-curves": {
@@ -1607,23 +1605,25 @@
   "provenance": {
     "kind": "reviewed-mixed-source-assembly",
     "runtime": "metadata-only reviewed assembly; no new capture",
-    "assemblyRevision": "d9fff30e56cc4686cb9e5e0cfa3dd504ea000057",
-    "assemblySourceDigest": "464c231271ce0b22cd309e1e9f0cb1d948bc455a97f535a05fd2018f7a73e1ba",
+    "assemblyRevision": "d584eed7df23a2a9cd0014f1e853409adf87706f",
+    "assemblySourceDigest": "1ccf91d373b5e9b9c08a24aa9b7a915de41c4690dedacbcc48c31ffa33953cff",
     "assemblySourceDirty": false,
-    "assembledAt": "2026-10-04T14:25:48.523Z",
-    "reviewManifestSha256": "8daa39c4ed0ff80484a64fe06f024ccc88eccb16adc7893fd2a4ea782a60070f",
-    "reviewedAgainst": "90a18181777777c6230aaf81b205e677785fdd56348956b5901976687c16f14f",
+    "assembledAt": "2026-10-05T01:49:52.872Z",
+    "reviewManifestSha256": "373705f7fe4642d756fa8e6701c6cf35921fd9e36e3ba58ff0c8f59bcabadc9a",
+    "reviewedAgainst": "a8d149572124c6003d0e6e225d5bfaff3f402fbda62d298cea35724f985cfc85",
     "promotedSceneIDs": [
-      "tablet-workspace",
-      "tablet-controls",
-      "workspaces",
-      "workspace-shared-workflows"
+      "workspace",
+      "workspace-dark",
+      "workspace-shared-workflows",
+      "layers",
+      "image-tools"
     ],
     "capturedSourceRevisions": [
       "10ebb7d96c87b4e8d7470803bcab2ff9be55cebf",
       "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
       "7599fcc198910b86ba477fa2ed102d4137bf941b",
       "af30bc2b48acb88baf01616a849b8130088433bf",
+      "d584eed7df23a2a9cd0014f1e853409adf87706f",
       "d9fff30e56cc4686cb9e5e0cfa3dd504ea000057",
       "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767"
     ],
@@ -1632,9 +1632,9 @@
       "Playwright 1.62.1 / chromium 151.0.7922.34"
     ],
     "provenanceUnknownSceneIDs": [],
-    "sceneIdentitySha256": "27839a5674c31eb1c3a2792f5655a2795146c53464e94325b17278012ad38cea"
+    "sceneIdentitySha256": "d42ca7f344f8e4df531c5e444a6eb7c478f1a77ecf6afa2b736a9c7349ba410e"
   },
-  "sourceRevision": "d9fff30e56cc4686cb9e5e0cfa3dd504ea000057",
-  "sourceDigest": "464c231271ce0b22cd309e1e9f0cb1d948bc455a97f535a05fd2018f7a73e1ba",
+  "sourceRevision": "d584eed7df23a2a9cd0014f1e853409adf87706f",
+  "sourceDigest": "1ccf91d373b5e9b9c08a24aa9b7a915de41c4690dedacbcc48c31ffa33953cff",
   "captureTool": "reviewed assembly; original capture and browser versions are recorded per scene"
 }
