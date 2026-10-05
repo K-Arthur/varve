@@ -11,9 +11,10 @@ import { sitePath } from '../../../lib/siteUrl';
     <article class="analytics-page">
       <h1>Analytics disclosure</h1>
       <p class="lead">
-        Varve measures only a few aggregate product and website questions. Unknown consent fails
-        closed, and no autocapture, session replay, cookie, or fingerprint is used. The Plausible
-        loader is injected only after consent, with its automatic capture features disabled.
+        Website analytics records consented pageviews, referring site origins, and installer-link
+        clicks using GoatCounter. Unknown consent fails closed. No remote tracking script,
+        autocapture, session replay, analytics cookie, or visitor fingerprint is used. Unique
+        visitors are not measured; repeated page loads count again.
       </p>
 
       <h2>Website events</h2>
@@ -21,29 +22,29 @@ import { sitePath } from '../../../lib/siteUrl';
         <thead><tr><th>Event</th><th>Fields</th><th>Purpose</th><th>Status</th></tr></thead>
         <tbody>
           <tr><td>website_page_viewed</td><td>normalized route</td><td>Understand which documentation and product pages are useful.</td><td>emitted</td></tr>
-          <tr><td>website_download_started</td><td>release, platform, architecture, package type, release channel</td><td>Measure the download funnel and platform demand.</td><td>emitted</td></tr>
-          <tr><td>website_outbound_clicked</td><td>destination category</td><td>Understand whether GitHub, documentation, or community links help visitors.</td><td>emitted</td></tr>
-          <tr><td>website_contact_clicked</td><td>channel category</td><td>Understand which support/contact channels are used.</td><td>emitted</td></tr>
+          <tr><td>website_download_started</td><td>release, platform, architecture, package type, release channel</td><td>Count installer-link clicks by route and package; not successful downloads or installations.</td><td>sent as website_download_clicked</td></tr>
+          <tr><td>website_outbound_clicked</td><td>destination category</td><td>Legacy schema category.</td><td>not sent by this website provider</td></tr>
+          <tr><td>website_contact_clicked</td><td>channel category</td><td>Legacy schema category.</td><td>not sent by this website provider</td></tr>
         </tbody>
       </table>
 
       <h2>Desktop events</h2>
       <p>
-        Desktop events attribute to the pseudo-page <code>varve.studio/app</code> so they
-        never mix with website pageviews. A periodic flush timer and a
-        beforeunload handler ensure events reach the provider even if the app
-        shuts down.
+        The existing application event schema is listed below for reference. The website's
+        GoatCounter account does not receive product-usage or diagnostics events. These remain
+        separate application controls and provider configuration; their collection status is
+        not established by the website analytics setup.
       </p>
       <table>
         <thead><tr><th>Event</th><th>Fields</th><th>Purpose</th><th>Status</th></tr></thead>
         <tbody>
-          <tr><td>app_launched</td><td>surface</td><td>Count opted-in product sessions.</td><td>emitted</td></tr>
-          <tr><td>document_created</td><td>blank, template, or import source</td><td>Understand activation without seeing the document.</td><td>emitted</td></tr>
-          <tr><td>feature_used</td><td>closed feature category</td><td>Prioritize features with meaningful adoption.</td><td>emitted (high-signal subset)</td></tr>
-          <tr><td>export_completed / export_failed</td><td>format and coarse duration or error category</td><td>Find export reliability and performance problems.</td><td>emitted</td></tr>
-          <tr><td>renderer_fallback</td><td>from, to, reason</td><td>Find platform-specific renderer fallback issues.</td><td>emitted</td></tr>
-          <tr><td>browser_demo_launched</td><td>entry source</td><td>Count demo sessions from the website.</td><td>emitted</td></tr>
-          <tr><td>browser_demo_desktop_download</td><td>release, platform, architecture, package type</td><td>Measure demo-to-desktop conversion.</td><td>emitted</td></tr>
+          <tr><td>app_launched</td><td>surface</td><td>Count opted-in product sessions.</td><td>separate application configuration</td></tr>
+          <tr><td>document_created</td><td>blank, template, or import source</td><td>Understand activation without seeing the document.</td><td>separate application configuration</td></tr>
+          <tr><td>feature_used</td><td>closed feature category</td><td>Prioritize features with meaningful adoption.</td><td>separate application configuration</td></tr>
+          <tr><td>export_completed / export_failed</td><td>format and coarse duration or error category</td><td>Find export reliability and performance problems.</td><td>separate application configuration</td></tr>
+          <tr><td>renderer_fallback</td><td>from, to, reason</td><td>Find platform-specific renderer fallback issues.</td><td>separate application configuration</td></tr>
+          <tr><td>browser_demo_launched</td><td>entry source</td><td>Legacy usage-consent category.</td><td>not sent by this website provider</td></tr>
+          <tr><td>browser_demo_desktop_download</td><td>release, platform, architecture, package type</td><td>Count installer-link clicks on the website demo route.</td><td>website click only; not product conversion</td></tr>
         </tbody>
       </table>
 
@@ -61,8 +62,14 @@ import { sitePath } from '../../../lib/siteUrl';
         Website consent is separate from desktop usage analytics, diagnostics telemetry, and crash
         reporting. The client uses a bounded in-memory queue, never blocks editing or navigation,
         and discards pending events when consent is revoked or the process ends. The production
-        deployment is configured for the aggregate Plausible site at <code>varve.studio</code>;
-        local and unconfigured builds remain endpoint-free.
+        website deployment maps the existing <code>varve.studio</code> switch to the private
+        <code>varvestudio.goatcounter.com</code> account. Local and unconfigured builds remain
+        endpoint-free. A new provider-specific consent choice is required; old refusals remain
+        respected, and Global Privacy Control or Do Not Track always blocks collection.
+        Session identification, individual-pageview storage, and demographic/device collection
+        are disabled. Only aggregate counts are retained. Normalized routes omit query strings
+        and fragments; some sections share the home category, so that category is not a literal
+        homepage count. Referrers are reduced to site origins.
       </p>
       <p><a href={sitePath('/about/privacy')}>Read the full privacy policy</a>.</p>
     </article>
