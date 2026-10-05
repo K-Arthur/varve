@@ -245,6 +245,7 @@ export function SidebarNav({
 
   const entryMap = new Map(entries.map((e) => [e.id, e]));
   const projectEntries = entries.filter((e) => !SECTION_LEADER_IDS.has(e.id));
+  const showProjectsSection = projectEntries.length > 0 || Boolean(onCreateProject);
 
   const getCount = (id: string) => sectionCounts?.[id] ?? entryMap.get(id)?.count ?? 0;
 
@@ -282,7 +283,7 @@ export function SidebarNav({
       </div>
 
       {/* Projects section — collapsible because it can contain multiple items */}
-      {projectEntries.length > 0 && (
+      {showProjectsSection && (
         <div className="sidebar-group">
           <Disclosure defaultOpen>
             <div className="sidebar-group__header">
@@ -310,7 +311,23 @@ export function SidebarNav({
             </div>
             <DisclosureContent>
               <div id="sidebar-projects-list">
-                {projectEntries.map((entry) => renderEntry(entry, entries.indexOf(entry), true))}
+                {projectEntries.length > 0 ? (
+                  projectEntries.map((entry) => renderEntry(entry, entries.indexOf(entry), true))
+                ) : (
+                  <div className="sidebar-projects-empty">
+                    <p>No projects yet</p>
+                    {onCreateProject && (
+                      <button
+                        type="button"
+                        className="sidebar-item--new-project"
+                        onClick={onCreateProject}
+                      >
+                        <SolidIcon name={SOLID_CHROME_ICONS.plus} label={undefined} size="0.85em" />
+                        Create your first project
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             </DisclosureContent>
           </Disclosure>

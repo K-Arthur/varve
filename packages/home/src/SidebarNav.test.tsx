@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import { fireEvent, render } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { type SidebarEntry, SidebarNav } from './SidebarNav';
 
@@ -79,6 +79,23 @@ describe('SidebarNav', () => {
     const newBtn = container.querySelector('.sidebar-group__add');
     expect(newBtn).toBeTruthy();
     if (newBtn) fireEvent.click(newBtn);
+    expect(onCreateProject).toHaveBeenCalledTimes(1);
+  });
+
+  it('offers an accessible first-project action when the projects list is empty', () => {
+    const onCreateProject = vi.fn();
+    render(
+      <SidebarNav
+        entries={entries}
+        activeId="all"
+        onSelect={vi.fn()}
+        onCreateProject={onCreateProject}
+      />,
+    );
+
+    expect(screen.getByText('No projects yet')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'New project' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Create your first project' }));
     expect(onCreateProject).toHaveBeenCalledTimes(1);
   });
 });
