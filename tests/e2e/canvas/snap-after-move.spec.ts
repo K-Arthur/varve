@@ -108,6 +108,12 @@ async function readXY(page: Page): Promise<{ x: number; y: number }> {
   return { x: Number(await xField.inputValue()), y: Number(await yField.inputValue()) };
 }
 
+async function readWidth(page: Page): Promise<number> {
+  const widthField = page.getByRole('spinbutton', { name: 'W (px)', exact: true });
+  await expect(widthField).toBeAttached({ timeout: 5000 });
+  return Number(await widthField.inputValue());
+}
+
 /** Draw a rect with the rect tool, then return to the select tool. */
 async function drawRect(page: Page, x1: number, y1: number, x2: number, y2: number) {
   // Inspector switches retain form focus; choose the actual tool before
@@ -271,12 +277,14 @@ test.describe('snapping after a target has moved', () => {
 
     await drawRect(page, 640, 500, 740, 600); // created afterwards
     const created = await readXY(page);
+    const createdWidth = await readWidth(page);
     const createdScreen = await selectedScreenRect(page);
     await captureState(page, testInfo, 'snap-after-create-before');
 
     // The newly created rectangle is the top layer; select the original
     // anchor beneath it so the created node is the stationary candidate.
     await selectRect(page, 'Rectangle 1');
+    const anchorWidth = await readWidth(page);
     const anchorScreen = await selectedScreenRect(page);
     await dragScreen(
       page,
@@ -291,7 +299,13 @@ test.describe('snapping after a target has moved', () => {
 
     const after = await readXY(page);
     await captureState(page, testInfo, 'snap-after-create-after');
-    expect(after.x).toBe(created.x);
+    // The nearest valid edge can be either the left or right edge depending
+    // on the pointer approach and object widths. Verify actual snapping while
+    // allowing both alignments; asserting left-to-left rejects right-edge
+    // snaps for unequal-sized objects.
+    const snappedToLeftEdge = Math.abs(after.x - created.x) < 0.05;
+    const snappedToRightEdge = Math.abs(after.x - (created.x + createdWidth - anchorWidth)) < 0.05;
+    expect(snappedToLeftEdge || snappedToRightEdge).toBe(true);
   });
 
   test('snaps a multi-selection as one rigid block without self-targeting', async ({

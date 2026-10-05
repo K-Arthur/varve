@@ -61,7 +61,11 @@ describe('canvas input hover policy', () => {
   });
 });
 
-describe('canvas IME composition guard', () => {
+describe('canvas keydown ownership and IME guards', () => {
+  it('skips keydowns already handled by an owning interaction', () => {
+    expect(shouldSkipCanvasKeydown({ defaultPrevented: true })).toBe(true);
+  });
+
   it('skips keydowns while the IME is composing', () => {
     expect(shouldSkipCanvasKeydown({ isComposing: true })).toBe(true);
     expect(shouldSkipCanvasKeydown({ isComposing: true, keyCode: 65 })).toBe(true);

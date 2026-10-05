@@ -124,6 +124,14 @@ try {
     candidateDemoPositions,
     'candidate triage and final both build, list, execute, and verify the exact-SHA production artifact',
   );
+  const candidatePrepareStep = candidateE2e
+    .split('name: Prepare disposable production-demo dist')[1]
+    ?.split('name: List complete production-demo inventory')[0];
+  assert.match(
+    candidatePrepareStep ?? '',
+    /VARVE_CI_PLAYWRIGHT_REPORT:\s*test-results\/ci-demo-\$\{\{ github\.run_id \}\}-\$\{\{ github\.run_attempt \}\}\/playwright\.json/,
+    'candidate demo preparation uses its isolated report path instead of the shared browser report',
+  );
   const candidateReceipt = candidateE2e.split('name: Write browser execution receipt')[1];
   assert.match(candidateReceipt, /--lanes e2e:all,e2e:demo-dist/);
   assert.match(candidateReceipt, /--playwright-report e2e:demo-dist=/);

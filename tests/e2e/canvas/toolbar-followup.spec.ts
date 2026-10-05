@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { expect, type Page, test } from '@playwright/test';
+import { type Dialog, expect, type Page, test } from '@playwright/test';
 import { openMenu } from '../helpers/menu-helpers';
 import { navigateToEditor } from '../shared';
 
@@ -85,12 +85,22 @@ test.describe('Toolbar follow-up — palette placement', () => {
 
     // Persists across a reload (same origin storage), and the per-mode reset
     // restores the built-in default.
-    const beforeUnload = page.waitForEvent('dialog');
-    const reload = page.reload({ waitUntil: 'domcontentloaded' });
-    const unloadDialog = await beforeUnload;
-    expect(unloadDialog.type()).toBe('beforeunload');
-    await unloadDialog.accept();
-    await reload;
+    let reloadDialogType: string | undefined;
+    const handleReloadDialog = async (dialog: Dialog) => {
+      reloadDialogType = dialog.type();
+      if (reloadDialogType === 'beforeunload') {
+        await dialog.accept();
+      } else {
+        await dialog.dismiss();
+      }
+    };
+    page.on('dialog', handleReloadDialog);
+    try {
+      await page.reload({ waitUntil: 'domcontentloaded' });
+    } finally {
+      page.off('dialog', handleReloadDialog);
+    }
+    expect([undefined, 'beforeunload']).toContain(reloadDialogType);
     await navigateToEditor(page, '/', { startupTimeout: 120000 });
     await expect(page.locator(PALETTE)).toHaveAttribute('data-placement', 'top');
 

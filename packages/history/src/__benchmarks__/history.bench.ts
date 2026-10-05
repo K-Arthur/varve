@@ -11,6 +11,7 @@
 
 import type { Document } from '@varve/scene';
 import {
+  addNode,
   applyOperation,
   canonicalHash,
   createDocument,
@@ -30,6 +31,10 @@ function docWithNodes(count: number): Document {
     ...createDocument(DOC_ID, { flat: true }),
     id: DOC_ID,
   } as Document;
+  let orderCursor = {
+    ...createDocument(DOC_ID, { flat: true }),
+    id: DOC_ID,
+  } as Document;
   for (let i = 0; i < count; i++) {
     const node = makeShapeNode(
       `n${i}_aaaa${i.toString(16).padStart(3, '0')}`,
@@ -42,11 +47,18 @@ function docWithNodes(count: number): Document {
       },
       { name: `Node ${i}` },
     );
-    // This flat fixture has no ownership, references or shared nodes to
-    // reconcile. Assemble it once: replaying N insertions here copies an
-    // ever-growing document N times before any timed benchmark can start.
-    doc.nodes[node.id] = node;
+    // Keep fixture construction linear while preserving the order key that
+    // addNode generates. The one-node cursor is sufficient because each new
+    // fractional key depends only on the previous sibling's key.
+    const ordered = addNode(orderCursor, node).nodes[node.id]!;
+    const indexed = { ...ordered, index: i };
+    doc.nodes[node.id] = indexed;
     doc.rootChildren.push(node.id);
+    orderCursor = {
+      ...orderCursor,
+      rootChildren: [node.id],
+      nodes: { [node.id]: indexed },
+    };
   }
   return doc;
 }

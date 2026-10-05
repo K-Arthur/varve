@@ -2158,14 +2158,11 @@ export function useCanvasInputs({
     (e: React.KeyboardEvent<HTMLCanvasElement>) => {
       const ne = e.nativeEvent as KeyboardEvent;
 
-      // IME composition guard (AGENTS.md: keyboard shortcuts must not fire
-      // while the user is composing text). The global shortcut layer already
-      // checks `isComposing`, but the canvas-local handler does not — with
-      // some IMEs (Windows/IBus) the composition fires keydown events on the
-      // focused element, and Space (spring-load pan), digit zoom presets, or
-      // Tab selection cycling must not interleave with in-progress
-      // composition. `keyCode === 229` is the IME "still composing"
-      // sentinel reported by many engines when `isComposing` is false.
+      // Canvas key ownership guard: do not run canvas shortcuts when another
+      // interaction has already claimed this event, or while the user is
+      // composing text. Some IMEs (Windows/IBus) report keydowns on the
+      // focused element with `isComposing` false while composition continues;
+      // `keyCode === 229` is the "still composing" sentinel many engines use.
       if (shouldSkipCanvasKeydown(ne)) return;
 
       const keyboardKey = ne.code || ne.key;
@@ -2613,18 +2610,19 @@ export function useCanvasInputs({
 }
 
 /**
- * Decide whether a keydown on the canvas must be ignored because an IME
- * composition is in flight.
+ * Decide whether the canvas should ignore a keydown owned by another
+ * interaction or an IME composition.
  *
- * The global shortcut layer already checks `isComposing`, but the canvas
- * handler must too — with some IMEs (Windows/IBus) the composition fires
- * keydown events on the focused element, and Space (spring-load pan), digit
- * zoom presets, or Tab selection cycling must not interleave with in-progress
- * composition. `keyCode === 229` is the IME "still composing" sentinel
- * reported by many engines when `isComposing` is false.
+ * Some IMEs (Windows/IBus) report keydowns on the focused element with
+ * `isComposing` false while composition continues; `keyCode === 229` is the
+ * "still composing" sentinel many engines use.
  */
-export function shouldSkipCanvasKeydown(e: { isComposing?: boolean; keyCode?: number }): boolean {
-  return e.isComposing === true || e.keyCode === 229;
+export function shouldSkipCanvasKeydown(e: {
+  defaultPrevented?: boolean;
+  isComposing?: boolean;
+  keyCode?: number;
+}): boolean {
+  return e.defaultPrevented === true || e.isComposing === true || e.keyCode === 229;
 }
 
 /** Return a screen-space camera delta for explicit keyboard panning. */

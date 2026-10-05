@@ -423,6 +423,7 @@ jobs:
           VARVE_DEMO_EXPECTED_SHA: ${{ needs.changes.outputs.commit_sha }}
           VARVE_DEMO_DIST_URL: http://127.0.0.1:15645
           VARVE_DEMO_E2E_OUTPUT_DIR: ci-demo-${{ github.run_id }}-${{ github.run_attempt }}
+          VARVE_CI_PLAYWRIGHT_REPORT: test-results/ci-demo-${{ github.run_id }}-${{ github.run_attempt }}/playwright.json
       - name: List complete production-demo inventory
         if: matrix.shard == 1
         run: >-
