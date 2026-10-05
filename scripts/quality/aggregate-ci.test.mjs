@@ -92,13 +92,25 @@ const strictPassed = aggregateCertification({
 });
 assert.equal(strictPassed.passed, true, 'exact successful execution evidence certifies the plan');
 assert.equal(strictPassed.execution.deferred, undefined);
-assert.equal(
-  validateExecutionEvidence({
-    reports: [{ ...pipelineExecution, source: { ...pipelineExecution.source, clean: false } }],
-    plan: strictPlan,
-  }).passed,
-  false,
-  'dirty-source execution cannot certify a release',
+const dirtySourceEvidence = validateExecutionEvidence({
+  reports: [
+    {
+      ...pipelineExecution,
+      source: {
+        ...pipelineExecution.source,
+        clean: false,
+        dirtyPaths: ['tests/e2e/fixtures/photo-before-lut.png'],
+      },
+    },
+  ],
+  plan: strictPlan,
+});
+assert.equal(dirtySourceEvidence.passed, false, 'dirty-source execution cannot certify a release');
+assert.ok(
+  dirtySourceEvidence.failures.some((failure) =>
+    failure.reason.includes('tests/e2e/fixtures/photo-before-lut.png'),
+  ),
+  'dirty source evidence should name the changed path to speed up triage',
 );
 
 const attemptWorkflow = { repository: 'K-Arthur/varve', runId: '42', runAttempt: '2' };

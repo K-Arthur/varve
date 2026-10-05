@@ -23,6 +23,7 @@ assert.equal(normalizeExecutionStatus('cancelled'), 'cancelled');
 assert.equal(normalizeExecutionStatus('timed_out'), 'failure');
 
 const identity = checkedOutIdentity();
+const cleanIdentity = { ...identity, clean: true, dirtyPathCount: 0, dirtyPaths: [] };
 const plan = {
   profile: 'integration',
   commitSha: identity.commitSha,
@@ -31,7 +32,7 @@ const plan = {
   policyHash: 'b'.repeat(64),
 };
 const report = createExecutionReport({
-  readSource: () => ({ ...identity, clean: true }),
+  readSource: () => cleanIdentity,
   plan,
   category: 'js',
   matrix: 'ubuntu-latest',
@@ -54,16 +55,28 @@ const report = createExecutionReport({
 });
 assert.equal(report.source.commitSha, identity.commitSha);
 assert.equal(report.source.treeSha, identity.treeSha);
+assert.equal(report.source.dirtyPathCount, 0);
+assert.deepEqual(report.source.dirtyPaths, []);
 assert.deepEqual(report.executedLanes, ['typecheck:all']);
 assert.equal(report.laneOutcomes[1].status, 'failure');
 const dirtyReport = createExecutionReport({
   plan,
   category: 'js',
   declaredLanes: ['typecheck:all'],
-  readSource: () => ({ ...identity, clean: false }),
+  readSource: () => ({
+    ...identity,
+    clean: false,
+    dirtyPathCount: 2,
+    dirtyPaths: ['tests/e2e/fixtures/captured.png', 'reports/local-run.json'],
+  }),
 });
 assert.equal(dirtyReport.status, 'failure', 'a dirty checkout cannot certify committed source');
 assert.equal(dirtyReport.source.clean, false);
+assert.equal(dirtyReport.source.dirtyPathCount, 2);
+assert.deepEqual(dirtyReport.source.dirtyPaths, [
+  'tests/e2e/fixtures/captured.png',
+  'reports/local-run.json',
+]);
 assert.deepEqual(dirtyReport.executedLanes, []);
 
 const directory = mkdtempSync(join(tmpdir(), 'varve-ci-execution-report-'));

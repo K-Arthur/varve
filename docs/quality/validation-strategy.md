@@ -466,7 +466,10 @@ candidate for `master`.
 Each applicable job also uploads a versioned execution receipt. The receipt
 records the checked-out commit and tree, plan/policy hashes, category, actual
 lane, matrix identity, browser shard, runner, workflow run/attempt, command
-outcome, and duration. Certification reconciles those receipts with the plan:
+outcome, duration, and (when the checkout is dirty) a bounded list of
+redacted changed paths. This makes test-generated source changes actionable
+without including file contents in CI evidence. Certification reconciles
+those receipts with the plan:
 all required lanes and platform cells must be present for the exact source;
 missing, duplicate, stale, cancelled, failed, or unexpected receipts block the
 check. The parent job conclusion remains a separate required signal. These

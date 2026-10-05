@@ -70,7 +70,15 @@ try {
   const nested = spawnSync(
     process.execPath,
     [script, 'outer', '--', process.execPath, script, 'inner', '--', process.execPath, '-e', inner],
-    { env, encoding: 'utf8', timeout: 6000 },
+    {
+      env,
+      encoding: 'utf8',
+      // Windows authenticates inherited ownership with a bounded PowerShell
+      // process-tree query. Leave room for that probe, nested Node startup, and
+      // the inner 4s lease deadline so a real rejection surfaces its diagnostic
+      // instead of this outer spawnSync killing the test at 6s.
+      timeout: 15_000,
+    },
   );
   assert.equal(nested.error, undefined);
   assert.equal(nested.status, 7, nested.stderr);

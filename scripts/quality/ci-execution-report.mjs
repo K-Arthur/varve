@@ -273,8 +273,15 @@ function gitValue(args, root) {
 }
 
 export function checkedOutIdentity(root = process.cwd()) {
+  const status = gitValue(['status', '--porcelain=v1', '--untracked-files=all'], root);
+  const dirtyPaths = status
+    .split(/\r?\n/)
+    .filter(Boolean)
+    .map((entry) => redactSensitive(entry.slice(3)).slice(0, 500));
   return {
-    clean: gitValue(['status', '--porcelain=v1', '-z'], root) === '',
+    clean: dirtyPaths.length === 0,
+    dirtyPathCount: dirtyPaths.length,
+    dirtyPaths: dirtyPaths.slice(0, 50),
     commitSha: gitValue(['rev-parse', '--verify', 'HEAD^{commit}'], root),
     treeSha: gitValue(['rev-parse', '--verify', 'HEAD^{tree}'], root),
   };
@@ -411,6 +418,12 @@ export function createExecutionReport({
     playwright: requiredBrowserLanes.length ? { ...playwright, errors: evidenceErrors } : null,
     source: {
       clean: identity.clean === true,
+      dirtyPathCount: Number.isSafeInteger(identity.dirtyPathCount)
+        ? identity.dirtyPathCount
+        : identity.clean === true
+          ? 0
+          : null,
+      dirtyPaths: Array.isArray(identity.dirtyPaths) ? identity.dirtyPaths.slice(0, 50) : [],
       commitSha: identity.commitSha,
       treeSha: identity.treeSha,
       plannedCommitSha: commitSha,

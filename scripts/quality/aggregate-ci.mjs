@@ -5,6 +5,7 @@
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { redactSensitive } from '../ci/failure-manifest.mjs';
 import { inventoryCoverageErrors, inventoryErrors } from './browser-inventory.mjs';
 import { browserEvidenceErrors, browserLane } from './ci-execution-report.mjs';
 import { CI_CATEGORIES, CI_CATEGORY_LANES, FULL_BROWSER_SHARDS } from './validation-policy.mjs';
@@ -193,7 +194,21 @@ export function validateExecutionEvidence({
     for (const report of categoryReports) {
       const source = report?.source ?? {};
       const identityErrors = matrixEvidenceErrors(report, profile, expected);
-      if (source.clean === false) identityErrors.push('execution source is not clean');
+      if (source.clean === false) {
+        const dirtyPaths = Array.isArray(source.dirtyPaths)
+          ? source.dirtyPaths
+              .filter((path) => typeof path === 'string')
+              .slice(0, 8)
+              .map((path) =>
+                redactSensitive(path)
+                  .replace(/[\r\n\t]/g, ' ')
+                  .slice(0, 200),
+              )
+          : [];
+        identityErrors.push(
+          `execution source is not clean${dirtyPaths.length ? `: ${dirtyPaths.join(', ')}` : ''}`,
+        );
+      }
       if (report?.schema !== 1) identityErrors.push('schema mismatch');
       if (report?.profile !== profile) identityErrors.push('profile mismatch');
       if (profile === 'candidate' && report?.candidateMode !== candidateMode)
