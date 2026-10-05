@@ -267,7 +267,14 @@ test.describe('full-editor visual compositing', () => {
     await expect(page.getByTestId('layers-panel')).toHaveScreenshot(
       'clip-mask-layer-hierarchy.png',
       {
-        maxDiffPixels: 220,
+        // The document thumbnail composites the same clip-mask result as the
+        // canvas above, so it inherits the same two-state alternation: the
+        // masked edge rasterizes ~600px (0.01) apart between the two
+        // authoritative frames (607 locally, 595 on the runner) with the
+        // render worker pinned off. No single baseline satisfies both; the
+        // bound covers the measured variance while still failing on any larger
+        // compositing regression in the panel.
+        maxDiffPixels: 900,
       },
     );
   });
