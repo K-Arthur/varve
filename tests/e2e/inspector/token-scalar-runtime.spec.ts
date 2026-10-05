@@ -71,6 +71,83 @@ async function readPixel(page: Page, point: { x: number; y: number }): Promise<n
   }, point);
 }
 
+/**
+ * Element-local bounds of the selected shape's painted fill.
+ *
+ * The drag coordinates used to create the shape are canvas-element coordinates
+ * while the backing store is offset from them by the shell's own layout, so a
+ * fixed (x, y) corner sample drifts whenever that layout changes. Deriving the
+ * corner from the painted result keeps the radius assertions meaningful: the
+ * dominant non-background colour is the fill, while the selection chrome
+ * (handles, border) is a different colour and is excluded.
+ */
+async function measureShapeBounds(
+  page: Page,
+): Promise<{ left: number; top: number; width: number; height: number }> {
+  return page.locator('canvas.editor-canvas__content-layer').evaluate((element) => {
+    const canvas = element as HTMLCanvasElement;
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('content canvas context unavailable');
+    const { data } = context.getImageData(0, 0, canvas.width, canvas.height);
+    const background = [data[0] ?? 0, data[1] ?? 0, data[2] ?? 0];
+    const counts = new Map<string, number>();
+    for (let offset = 0; offset < data.length; offset += 4) {
+      if ((data[offset + 3] ?? 0) < 200) continue;
+      const r = data[offset] ?? 0;
+      const g = data[offset + 1] ?? 0;
+      const b = data[offset + 2] ?? 0;
+      if (
+        Math.abs(r - (background[0] ?? 0)) <= 6 &&
+        Math.abs(g - (background[1] ?? 0)) <= 6 &&
+        Math.abs(b - (background[2] ?? 0)) <= 6
+      ) {
+        continue;
+      }
+      const key = `${r},${g},${b}`;
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+    let fill = '';
+    let best = 0;
+    for (const [key, count] of counts) {
+      if (count > best) {
+        best = count;
+        fill = key;
+      }
+    }
+    if (!fill) throw new Error('shape fill colour was not found');
+    const [fillR = 0, fillG = 0, fillB = 0] = fill.split(',').map(Number);
+    let minX = canvas.width;
+    let minY = canvas.height;
+    let maxX = -1;
+    let maxY = -1;
+    for (let y = 0; y < canvas.height; y += 1) {
+      for (let x = 0; x < canvas.width; x += 1) {
+        const offset = (y * canvas.width + x) * 4;
+        if ((data[offset + 3] ?? 0) < 200) continue;
+        if (
+          Math.abs((data[offset] ?? 0) - fillR) > 3 ||
+          Math.abs((data[offset + 1] ?? 0) - fillG) > 3 ||
+          Math.abs((data[offset + 2] ?? 0) - fillB) > 3
+        ) {
+          continue;
+        }
+        if (x < minX) minX = x;
+        if (y < minY) minY = y;
+        if (x > maxX) maxX = x;
+        if (y > maxY) maxY = y;
+      }
+    }
+    const scaleX = canvas.clientWidth / canvas.width;
+    const scaleY = canvas.clientHeight / canvas.height;
+    return {
+      left: minX * scaleX,
+      top: minY * scaleY,
+      width: (maxX - minX + 1) * scaleX,
+      height: (maxY - minY + 1) * scaleY,
+    };
+  });
+}
+
 async function expectPixelRgb(page: Page, point: { x: number; y: number }, expected: number[]) {
   await expect
     .poll(
@@ -213,9 +290,17 @@ test('px dimensions and number tokens drive corner radius and opacity through Va
   const radius = page.getByRole('spinbutton', { name: 'Radius (px)', exact: true });
   await expect(radius).toHaveValue('8');
 
-  const roundedEdge = { x: 222, y: 182 };
-  const center = { x: 340, y: 265 };
-  const backgroundPoint = { x: 100, y: 100 };
+  const shapeBounds = await measureShapeBounds(page);
+  // Corner and centre samples come from the painted shape: the backing store
+  // is offset from the element-local drag origin, so fixed coordinates drift
+  // with the shell layout. (2, 12) from the true corner is inside an 8px
+  // radius and outside a 32px radius.
+  const roundedEdge = { x: shapeBounds.left + 2, y: shapeBounds.top + 12 };
+  const center = {
+    x: shapeBounds.left + shapeBounds.width / 2,
+    y: shapeBounds.top + shapeBounds.height / 2,
+  };
+  const backgroundPoint = { x: 20, y: 20 };
   const opaquePixel = await readPixel(page, center);
   const backgroundPixel = await readPixel(page, backgroundPoint);
   expect(opaquePixel).toHaveLength(4);

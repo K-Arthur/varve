@@ -55,8 +55,11 @@ test.describe('Inspector section manager — visual', () => {
     expect(labelBox).not.toBeNull();
     expect(itemBox).not.toBeNull();
     // A wrapped two-line label roughly doubles the row height (~34px+ at
-    // this font size); a truncated single-line label stays compact.
-    expect(itemBox!.height).toBeLessThan(28);
+    // this font size); a truncated single-line label stays compact. The
+    // measured single-line height is ~28.3px at the default density, so the
+    // bound sits between one and two lines rather than a fraction above the
+    // single-line metric.
+    expect(itemBox!.height).toBeLessThan(32);
 
     const category = alignRow.locator('.insp-section-manager__category');
     const categoryBox = await category.boundingBox();

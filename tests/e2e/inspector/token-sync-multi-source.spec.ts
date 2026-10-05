@@ -132,7 +132,9 @@ test.describe('Token Sync multi-source workflow', () => {
 
     const notice = dialog.getByRole('alert');
     await expect(notice).toBeVisible();
-    await expect(notice).toContainText(/is not a JSON object and cannot be imported/i);
+    // The source editor reports the parser's own diagnostic (with line and
+    // column) instead of a generic "not a JSON object" sentence.
+    await expect(notice).toContainText(/Unexpected token/i);
     await expect(notice).toContainText(/nothing was changed/i);
 
     // The notice must not have cost us anything: the panel stays usable.

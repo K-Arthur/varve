@@ -156,9 +156,16 @@ test('Position and frame sizing groups keep semantic breathing room', async ({ p
   await page.setViewportSize({ width: 1440, height: 900 });
   await navigateToEditor(page);
   await drawFrame(page);
+  // The frame's object properties render after the layer row is painted; wait
+  // for the two probed sections instead of sampling the inspector mid-update.
+  const sectionContent = '[data-section-id="position-size"] .insp-disclosure__content';
+  await page.locator(sectionContent).waitFor({ state: 'attached', timeout: 10000 });
+  await page.locator('.insp-layout-sizing').waitFor({ state: 'attached', timeout: 10000 });
 
   const metrics = await page.evaluate(() => {
-    const position = document.querySelector<HTMLElement>('.insp-position-size');
+    const position = document.querySelector<HTMLElement>(
+      '[data-section-id="position-size"] .insp-disclosure__content',
+    );
     const sizing = document.querySelector<HTMLElement>('.insp-layout-sizing');
     const select = document.querySelector<HTMLElement>(
       '.insp-layout-sizing .varve-select__trigger',
@@ -180,7 +187,9 @@ test('Position and frame sizing groups keep semantic breathing room', async ({ p
   await page.evaluate(() => document.documentElement.setAttribute('data-density', 'compact'));
   await page.waitForTimeout(100);
   const compact = await page.evaluate(() => {
-    const position = document.querySelector<HTMLElement>('.insp-position-size');
+    const position = document.querySelector<HTMLElement>(
+      '[data-section-id="position-size"] .insp-disclosure__content',
+    );
     const sizing = document.querySelector<HTMLElement>('.insp-layout-sizing');
     const select = document.querySelector<HTMLElement>(
       '.insp-layout-sizing .varve-select__trigger',

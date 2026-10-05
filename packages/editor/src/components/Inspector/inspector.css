@@ -6583,6 +6583,20 @@ fieldset.insp-canvas-props,
   white-space: nowrap;
 }
 
+/* On a coarse pointer the inspector's own `min-inline-size: 0` above must not
+ * defeat the shared touch-target minimum. The wider default inspector rail
+ * fits three options per line, and without this override the first line's
+ * segments shrank to ~32px — below both the 44px token and the 43px floor the
+ * radio-group contract test enforces. Placed after the zeroing rules (and
+ * matching their specificity) so the minimum wins; the group wraps to keep
+ * every option reachable. */
+@media (pointer: coarse) {
+  .editor-inspector .varve-segmented .varve-segmented__btn,
+  .editor-inspector .insp-field__control .varve-segmented > .varve-segmented__btn {
+    min-inline-size: var(--touch-target-min);
+  }
+}
+
 .editor-inspector .insp-field__control > div:has(> .insp-per-side),
 .editor-inspector .insp-field__control > .insp-per-side-grid {
   display: grid;

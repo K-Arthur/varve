@@ -105,7 +105,9 @@ test.describe('Token Sync import workflow', () => {
       buffer: Buffer.from('{ not json', 'utf8'),
     });
     await expect(page.getByText(/revision/i)).toBeVisible({ timeout: 15000 });
-    await expect(page.getByText(/is not a JSON object and cannot be imported/i)).toBeVisible();
+    // The import preview surfaces the parser's own diagnostic (with line and
+    // column) instead of a generic "not a JSON object" sentence.
+    await expect(page.getByText(/Expected a string key/i)).toBeVisible();
     await expect(page.getByRole('button', { name: 'Apply import' })).toHaveAttribute(
       'aria-disabled',
       'true',
