@@ -43,6 +43,28 @@ async function waitForArtwork(page: import('@playwright/test').Page): Promise<vo
   );
 }
 
+/**
+ * Commit an authoritative full frame before a canvas capture.
+ *
+ * Partial (dirty-rect) redraw and the camera-only worker path can leave a
+ * previous frame on the surface; the clip-mask composite has been observed to
+ * alternate between a fully-decoded frame and a partly-composited one. The
+ * oracle redraws the current camera from IR, so the capture is deterministic.
+ * Requires `?perf=1`.
+ */
+async function forceAuthoritativeCanvasFrame(page: import('@playwright/test').Page): Promise<void> {
+  const result = (await page.evaluate(async () => {
+    const perf = (
+      window as Window & {
+        __varvePerf?: { forceFullRedraw?: () => Promise<{ authoritative: boolean }> };
+      }
+    ).__varvePerf;
+    return (await perf?.forceFullRedraw?.()) ?? null;
+  })) as { authoritative: boolean } | null;
+  expect(result, 'full-redraw oracle must be installed (?perf=1)').toBeTruthy();
+  expect(result?.authoritative, 'oracle must commit a fresh full frame').toBe(true);
+}
+
 async function hideEditorChromeForCanvasCapture(
   page: import('@playwright/test').Page,
 ): Promise<void> {
@@ -110,7 +132,7 @@ test.describe('full-editor visual compositing', () => {
   test.describe.configure({ mode: 'default' });
 
   test('nested groups preserve isolated opacity and container compositing', async ({ page }) => {
-    await navigateToCleanEditor(page);
+    await navigateToCleanEditor(page, '?perf=1');
 
     // Overlap the three shapes so group opacity is observable as one isolated
     // surface instead of three independent child alpha operations.
@@ -149,6 +171,7 @@ test.describe('full-editor visual compositing', () => {
 
     await waitForArtwork(page);
     await hideEditorChromeForCanvasCapture(page);
+    await forceAuthoritativeCanvasFrame(page);
     const canvas = page.locator(CANVAS);
     await expect(canvas).toHaveScreenshot('nested-groups-isolated-opacity.png', {
       maxDiffPixels: 350,
@@ -177,7 +200,7 @@ test.describe('full-editor visual compositing', () => {
   });
 
   test('clip mask is visible in the real canvas and layer hierarchy', async ({ page }) => {
-    await navigateToCleanEditor(page);
+    await navigateToCleanEditor(page, '?perf=1');
     await dropImageOnCanvas(page, 'photo-fixture.jpg', 380, 120);
     await createRect(page, 100, 100, 260, 240);
     await page.keyboard.press('Control+a');
@@ -188,6 +211,7 @@ test.describe('full-editor visual compositing', () => {
     await waitForArtwork(page);
 
     await hideEditorChromeForCanvasCapture(page);
+    await forceAuthoritativeCanvasFrame(page);
     const canvas = page.locator(CANVAS);
     await expect(canvas).toHaveScreenshot('clip-mask-canvas-output.png', {
       maxDiffPixels: 650,

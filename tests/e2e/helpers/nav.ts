@@ -1,9 +1,11 @@
 import type { Page } from '@playwright/test';
 
 /** Navigate to a clean editor, deterministically dismissing the crash
- *  recovery dialog that a previously killed run can leave behind. */
-export async function navigateToCleanEditor(page: Page): Promise<void> {
-  await page.goto('/', { timeout: 120000, waitUntil: 'domcontentloaded' });
+ *  recovery dialog that a previously killed run can leave behind. An optional
+ *  `search` is appended to the initial URL (e.g. `?perf=1` to install the
+ *  authoritative full-redraw oracle). */
+export async function navigateToCleanEditor(page: Page, search = ''): Promise<void> {
+  await page.goto(`/${search}`, { timeout: 120000, waitUntil: 'domcontentloaded' });
   // Safe mode (localStorage-backed, left by crashed runs) blocks the whole
   // app: clear its flag and reload.
   const inSafeMode = await page.evaluate(() => localStorage.getItem('varve:safe-mode') !== null);
