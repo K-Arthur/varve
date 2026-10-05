@@ -360,6 +360,10 @@ export function validationSupervisorIdentity() {
 }
 
 function ownerIsAncestor(pid) {
+  // The immediate parent is already a proven ancestor. On Windows this also
+  // avoids starting PowerShell/CIM for the common nested-wrapper case, where
+  // process startup could consume the short lease window before acquisition.
+  if (process.ppid === pid) return true;
   if (process.platform === 'win32') {
     // One bounded CIM query checks the real chain; an unreadable chain cannot
     // authorize inheritance. PowerShell is part of supported Windows hosts.
