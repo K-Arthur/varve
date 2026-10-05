@@ -6,8 +6,10 @@ permissions:
   checks: read
 
 on:
-  push:
-    branches: [master]
+  # Master pushes are already covered by ci.yml (Rust on three OSes, WASM, JS)
+  # and the Native desktop E2E lane. This packaging matrix duplicates them and
+  # is normally cancelled by the next push, so it runs only for pull requests
+  # and explicit dispatch.
   pull_request:
     branches: [master]
   workflow_dispatch:

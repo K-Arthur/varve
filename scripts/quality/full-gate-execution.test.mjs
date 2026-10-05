@@ -32,8 +32,10 @@ test('local gates preserve all policy shards as distinct, bounded resumable lane
     assert.ok(argv.includes('--workers=1'));
     assert.ok(argv.includes('--retries=0'));
     assert.ok(argv.includes('--update-snapshots=none'));
-    assert.ok(argv.includes('--max-failures'));
-    assert.equal(argv[argv.indexOf('--max-failures') + 1], '5');
+    assert.ok(
+      !argv.includes('--max-failures'),
+      'the full gate must report every selected failure, not stop after five',
+    );
     assert.ok(!argv.some((arg) => /grep|last-failed|test-list/.test(arg)));
   }
   assert.deepEqual(lanes.at(-1), {

@@ -103,7 +103,7 @@ async function main() {
     ...preparedEnv,
     VARVE_CI_PLAYWRIGHT_REPORT: join(reportDir, 'playwright.json'),
   };
-  const testStatus = run([...config, ...strict, '--max-failures=5'], testEnv);
+  const testStatus = run([...config, ...strict], testEnv);
   const verifyStatus = run(
     [process.execPath, 'scripts/website/demo-dist-validation.mjs', 'verify-report'],
     testEnv,

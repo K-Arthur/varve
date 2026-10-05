@@ -474,6 +474,13 @@ jobs:
         run: |
           node scripts/secret-scan.mjs --dir apps/website/dist --canary "$VARVE_PRIVATE_TEST_CANARY"
           node scripts/secret-scan.mjs --dir apps/website/dist-pages --canary "$VARVE_PRIVATE_TEST_CANARY"
+      - name: Restore Playwright browsers
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
       - name: Install Playwright browsers
         run: pnpm exec playwright install --with-deps chromium
       - name: Discover complete website case inventory
@@ -485,7 +492,7 @@ jobs:
       - name: Website E2E (both modes)
         env:
           VARVE_CI_PLAYWRIGHT_REPORT: test-results/ci-browser/website.json
-        run: node scripts/quality/heavy-lease.mjs "CI website E2E" -- pnpm exec playwright test -c playwright.website.config.ts --max-failures=5 --workers=1 --retries=0 --update-snapshots=none --fail-on-flaky-tests --trace=retain-on-failure
+        run: node scripts/quality/heavy-lease.mjs "CI website E2E" -- pnpm exec playwright test -c playwright.website.config.ts --workers=1 --retries=0 --update-snapshots=none --fail-on-flaky-tests --trace=retain-on-failure
       - name: Write website execution receipt
         if: always()
         env:
@@ -552,6 +559,13 @@ jobs:
           run-id: ${{ github.run_id }}
           artifact-ids: ${{ needs.wasm.outputs.artifact_id }}
           path: apps/desktop/public/wasm/
+      - name: Restore Playwright browsers
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
       - name: Install Playwright browsers
         run: pnpm exec playwright install --with-deps chromium
       - name: Download canonical CI plan
@@ -682,6 +696,13 @@ jobs:
           run-id: ${{ github.run_id }}
           artifact-ids: ${{ needs.wasm.outputs.artifact_id }}
           path: apps/desktop/public/wasm/
+      - name: Restore Playwright browsers
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
       - name: Install Playwright browsers
         run: pnpm exec playwright install --with-deps chromium
       - name: Discover CPU visual case inventory
@@ -694,7 +715,7 @@ jobs:
         env:
           VARVE_VISUAL_HARNESS_ONLY: '1'
           VARVE_CI_PLAYWRIGHT_REPORT: test-results/ci-browser/visual-cpu.json
-        run: node scripts/quality/heavy-lease.mjs "CI canvas visual E2E" -- pnpm exec playwright test --project=chromium-visual-1x --project=chromium-visual-2x --project=chromium-visual-3x --max-failures=5 --workers=1 --retries=0 --update-snapshots=none --fail-on-flaky-tests --trace=retain-on-failure
+        run: node scripts/quality/heavy-lease.mjs "CI canvas visual E2E" -- pnpm exec playwright test --project=chromium-visual-1x --project=chromium-visual-2x --project=chromium-visual-3x --workers=1 --retries=0 --update-snapshots=none --fail-on-flaky-tests --trace=retain-on-failure
       - name: Discover GPU visual case inventory
         env:
           VARVE_CI_COMMIT_SHA: ${{ needs.changes.outputs.commit_sha }}
@@ -707,7 +728,7 @@ jobs:
           VARVE_VISUAL_HARNESS_ONLY: '1'
           VARVE_VISUAL_GPU: '1'
           VARVE_CI_PLAYWRIGHT_REPORT: test-results/ci-browser/visual-gpu.json
-        run: node scripts/quality/heavy-lease.mjs "CI GPU visual E2E" -- pnpm exec playwright test --project=chromium-visual-gpu --max-failures=5 --workers=1 --retries=0 --update-snapshots=none --fail-on-flaky-tests --trace=retain-on-failure
+        run: node scripts/quality/heavy-lease.mjs "CI GPU visual E2E" -- pnpm exec playwright test --project=chromium-visual-gpu --workers=1 --retries=0 --update-snapshots=none --fail-on-flaky-tests --trace=retain-on-failure
       - name: Build visual diff report
         if: failure()
         run: node scripts/build-visual-diff-manifest.mjs

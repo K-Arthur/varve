@@ -71,8 +71,8 @@ test('candidate branches bound red attempts while retaining complete inventory a
     assert.equal(pair.length, 2, name);
     assert.ok(pair[0].command.split(/\s+/).includes('--max-failures=5'), 'Triage remains bounded');
     assert.ok(
-      pair[1].command.split(/\s+/).includes('--max-failures=5'),
-      'Final failures remain bounded; inventory completeness is still required for green',
+      !pair[1].command.split(/\s+/).includes('--max-failures=5'),
+      'Final candidate cells report the complete failure set; inventory completeness is still required for green',
     );
   }
   for (const call of calls.filter((call) => call.name === 'Browser E2E (candidate)'))

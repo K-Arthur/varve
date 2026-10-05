@@ -91,9 +91,12 @@ export function playwrightRunOptions({
   const args = [];
   if (workers) args.push('--workers', workers);
   else if (triage || strict) args.push('--workers=1');
-  // A red gate cannot certify coverage. Stop collecting repeated failures
-  // after a bounded set; a green gate still executes every selected case.
-  const failureBound = maxFailures ?? (triage || strict ? '5' : undefined);
+  // Local triage stops early so a red investigation stays short. Hosted
+  // integration/candidate cells must report the *complete* failure set: a
+  // five-failure cutoff once hid 69 selected cases in a single shard and
+  // forced extra full re-runs to discover them. The job timeout bounds a red
+  // hosted cell instead.
+  const failureBound = maxFailures ?? (triage ? '5' : undefined);
   if (failureBound) args.push('--max-failures', failureBound);
   // Gate attempts must expose the first failure instead of paying for
   // configured diagnostic retries. Retain its trace without needing a retry.
