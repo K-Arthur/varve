@@ -986,6 +986,25 @@ const SCENES = [
       await page.getByRole('button', { name: 'Zoom out' }).click();
       await page.getByRole('button', { name: 'Zoom out' }).click();
       await page.getByRole('button', { name: 'Zoom out' }).click();
+      // The node controls float over the canvas. Pan the artwork clear of
+      // that tray so this image shows the complete path and its live handles.
+      // Start outside the tray itself and use the persistent Hand tool. Using
+      // Space here is unreliable because toolbar focus can keep the shortcut
+      // outside the canvas input pipeline.
+      const canvas = await page.locator('.editor-canvas').boundingBox();
+      if (!canvas) throw new Error('Vector capture canvas geometry missing');
+      const panStart = {
+        x: canvas.x + canvas.width - 24,
+        y: canvas.y + canvas.height * 0.75,
+      };
+      const toolbar = page.getByTestId('toolbar');
+      await toolbar.locator('[data-tool="hand"]').first().click();
+      await page.mouse.move(panStart.x, panStart.y);
+      await page.mouse.down();
+      await page.mouse.move(panStart.x, panStart.y - 150, { steps: 10 });
+      await page.mouse.up();
+      await toolbar.locator('[data-tool="select"]').first().click();
+      await editNodes.click();
       await page.waitForTimeout(700);
     },
     async verify(page) {
@@ -997,12 +1016,19 @@ const SCENES = [
       const tray = await page.locator('.node-edit-controls').boundingBox();
       const canvas = await page.locator('.editor-canvas').boundingBox();
       if (!tray || !canvas || bounds.length === 0) throw new Error('Node editing geometry missing');
+      const clearance = 8;
       for (const box of bounds) {
+        const overlapsTray =
+          box.x + box.width > tray.x - clearance &&
+          box.x < tray.x + tray.width + clearance &&
+          box.y + box.height > tray.y - clearance &&
+          box.y < tray.y + tray.height + clearance;
         if (
           box.x < canvas.x ||
           box.x + box.width > canvas.x + canvas.width ||
           box.y < canvas.y ||
-          box.y + box.height > tray.y - 8
+          box.y + box.height > canvas.y + canvas.height ||
+          overlapsTray
         ) {
           throw new Error('A vector anchor or handle is clipped or covered by the node controls');
         }
