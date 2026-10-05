@@ -485,6 +485,8 @@ test.describe('Layer Effects — row chrome baseline', () => {
     await addEffect(page, section, 'Layer Blur');
     await expect(section.locator('.insp-effect-row')).toHaveCount(3);
     await expectEffectRowLayout(section);
+    await resizePanelTo(page, 'inspector', 'minimum');
+    await expectEffectRowLayout(section);
 
     // Move the pointer off the rows so hover-revealed controls are not frozen
     // into the baseline; the row's reveal state is intentionally dynamic.
@@ -494,8 +496,6 @@ test.describe('Layer Effects — row chrome baseline', () => {
       maxDiffPixels: 1200,
     });
 
-    await resizePanelTo(page, 'inspector', 'minimum');
-    await expectEffectRowLayout(section);
     const radius = section.getByRole('spinbutton', { name: 'Layer Blur radius', exact: true });
     await radius.fill('8');
     await radius.press('Tab');
