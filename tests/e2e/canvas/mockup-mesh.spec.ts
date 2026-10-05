@@ -83,6 +83,17 @@ async function openInspectorTab(page: Page, label: string): Promise<void> {
 }
 
 async function selectMockupSurface(page: Page, surfaceName: string): Promise<void> {
+  // Undo/redo preserves the current surface-edit selection. In that state the
+  // canvas shows handles and the Done action instead of the surface chips.
+  // Keep the existing selection when it is already the requested surface;
+  // reopening it through a canvas chip would be both redundant and impossible
+  // while the edit toolbar is active.
+  const editToolbar = page.getByRole('toolbar', { name: 'Mockup surface actions' });
+  if (await editToolbar.isVisible().catch(() => false)) {
+    await expect(editToolbar.locator('.mockup-overlay__toolbar-label')).toContainText(surfaceName);
+    return;
+  }
+
   const mockupLayer = page
     .locator('.layers-panel [role="treeitem"]', { hasText: /mockup|banner/i })
     .first();

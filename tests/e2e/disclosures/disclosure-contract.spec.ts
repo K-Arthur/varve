@@ -73,11 +73,20 @@ test.describe('Disclosure contract (rendered)', () => {
     await page.keyboard.press('ArrowRight');
     await expect.poll(async () => Number(await x.inputValue())).toBe(originalX + 1);
     await page.keyboard.press('Control+z');
+    // Undo restores the selection journaled with that document revision.
+    // Re-select the edited object before checking its restored position.
+    await page
+      .getByRole('treeitem')
+      .filter({ hasText: /Rectangle 2/ })
+      .click();
     await expect.poll(async () => Number(await x.inputValue())).toBe(originalX);
     await expect(trigger(page, 'Fill')).toHaveAttribute('aria-expanded', 'false');
 
     // Expanding an unrelated section must not disturb it either.
-    await page.getByRole('treeitem').first().click();
+    await page
+      .getByRole('treeitem')
+      .filter({ hasText: /Rectangle 1/ })
+      .click();
     await setExpanded(page, 'Stroke', false);
     await setExpanded(page, 'Fill', true);
     await expect(trigger(page, 'Stroke')).toHaveAttribute('aria-expanded', 'false');

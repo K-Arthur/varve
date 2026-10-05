@@ -2039,6 +2039,12 @@ export function Menubar({
   }, []);
 
   useEffect(() => {
+    const openRasterizeDialog = () => setRasterizeDialogOpen(true);
+    window.addEventListener('varve:open-rasterize-dialog', openRasterizeDialog);
+    return () => window.removeEventListener('varve:open-rasterize-dialog', openRasterizeDialog);
+  }, []);
+
+  useEffect(() => {
     if (editingName && nameInputRef.current) {
       nameInputRef.current.focus();
       nameInputRef.current.select();

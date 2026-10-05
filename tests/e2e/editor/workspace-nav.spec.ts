@@ -28,10 +28,19 @@ async function expectNoOverlap(page: Page) {
       titleVisible: title ? title.getBoundingClientRect().width > 0 : false,
     };
   });
-  // Title and controls may share space only if there is zero horizontal
-  // overlap at the title's height band.
-  expect(result.overlapPx ?? 0).toBeLessThan(2);
-  expect(result.titleVisible).toBe(true);
+  if (result.titleVisible) {
+    // Title and controls may share space only if there is zero horizontal
+    // overlap at the title's height band.
+    expect(result.overlapPx ?? 0).toBeLessThan(2);
+  } else {
+    // The duplicate menubar title is intentionally hidden on constrained
+    // widths; the open-document tab remains the visible source of its name.
+    await expect(
+      page
+        .getByRole('tablist', { name: 'Open documents' })
+        .locator('.editor-tabs__tab--active .editor-tabs__name'),
+    ).toBeVisible();
+  }
 }
 
 test.describe('Responsive workspace navigation', () => {
@@ -62,7 +71,7 @@ test.describe('Responsive workspace navigation', () => {
   });
 
   test('narrow width: overflow menu exposes hidden workspaces', async ({ page }) => {
-    await page.setViewportSize({ width: 1024, height: 768 });
+    await page.setViewportSize({ width: 390, height: 768 });
     // Give the ResizeObserver a moment to re-layout the strip.
     await page.waitForTimeout(300);
 
@@ -71,37 +80,29 @@ test.describe('Responsive workspace navigation', () => {
     await expect(group.getByRole('radio', { name: /^Design workspace$/ })).toBeVisible();
 
     const more = page.getByRole('button', { name: 'More workspaces' });
-    if (await more.isVisible().catch(() => false)) {
-      await more.click();
-      const menu = page.getByRole('menu', { name: 'More workspaces' });
-      await expect(menu).toBeVisible();
-      // Every hidden workspace is reachable from the overflow menu.
-      const hidden = await page.evaluate(() => {
-        const strip = document.querySelector('.workspace-dock__bar');
-        const visible = new Set(
-          Array.from(strip?.querySelectorAll('[role="radio"]') ?? []).map((r) =>
-            r.getAttribute('aria-label'),
-          ),
-        );
-        return Array.from(visible);
-      });
-      for (const name of ALL_WORKSPACES) {
-        if (!hidden.includes(`${name} workspace`)) {
-          // The overflow entries are radio choices wired to the workspace
-          // group, so they expose role="menuitemradio" — not "menuitem".
-          await expect(menu.getByRole('menuitemradio', { name })).toBeVisible();
-        }
+    await expect(more).toBeVisible();
+    await more.click();
+    const menu = page.getByRole('menu', { name: 'More workspaces' });
+    await expect(menu).toBeVisible();
+    // Every hidden workspace is reachable from the overflow menu.
+    const visible = await page.evaluate(() => {
+      const strip = document.querySelector('.workspace-dock__bar');
+      return Array.from(strip?.querySelectorAll('[role="radio"]') ?? []).map((radio) =>
+        radio.getAttribute('aria-label'),
+      );
+    });
+    for (const name of ALL_WORKSPACES) {
+      if (!visible.includes(`${name} workspace`)) {
+        // The overflow entries are radio choices wired to the workspace
+        // group, so they expose role="menuitemradio" — not "menuitem".
+        await expect(menu.getByRole('menuitemradio', { name })).toBeVisible();
       }
-    } else {
-      // At 1024px the icon-only strip may still fit everything — but the
-      // doc name must not overlap regardless.
-      await expectNoOverlap(page);
     }
     await expectNoOverlap(page);
   });
 
   test('min width: active workspace stays visible, title never overlaps', async ({ page }) => {
-    await page.setViewportSize({ width: 900, height: 600 });
+    await page.setViewportSize({ width: 320, height: 600 });
     await page.waitForTimeout(300);
     const group = await workspaceGroup(page);
     await expect(group.getByRole('radio', { name: /^Design workspace$/ })).toBeVisible();

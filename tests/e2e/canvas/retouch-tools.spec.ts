@@ -518,6 +518,10 @@ test('Dodge Burn adjusts deposited pixels in linear light and honours its mode s
     'Midtones',
   );
   await page.keyboard.press('Escape');
+  if ((await optionsButton.getAttribute('aria-expanded')) === 'true') {
+    await optionsButton.click();
+  }
+  await expect(options).toBeHidden();
 
   async function regionLuminance(): Promise<number> {
     return canvas.evaluate((element) => {
@@ -554,6 +558,10 @@ test('Dodge Burn adjusts deposited pixels in linear light and honours its mode s
   await page.getByRole('option', { name: 'Burn (darken)', exact: true }).click();
   await expect(modeSelect).toContainText('Burn (darken)');
   await page.keyboard.press('Escape');
+  if ((await optionsButton.getAttribute('aria-expanded')) === 'true') {
+    await optionsButton.click();
+  }
+  await expect(burnOptions).toBeHidden();
   await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5);
   await page.mouse.down();
   await page.mouse.move(box.x + box.width * 0.54, box.y + box.height * 0.54);

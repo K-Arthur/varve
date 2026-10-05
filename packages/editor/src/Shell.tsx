@@ -455,6 +455,7 @@ function ShellInner({
       onImportFile: fileImport.openPicker,
       onQuickConvert: () => window.dispatchEvent(new Event('varve:open-quick-convert')),
       onOpenGuideLayouts: () => window.dispatchEvent(new Event('varve:open-guide-layouts')),
+      onOpenRasterizeDialog: () => window.dispatchEvent(new Event('varve:open-rasterize-dialog')),
       onCustomizeWorkspace: () => setWorkspaceCustomizeOpen(true),
       onManageWorkspaceLayouts: () => setManageLayoutsOpen(true),
       onResizeImage: editor.openImageResizeDialog,

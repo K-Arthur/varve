@@ -256,7 +256,8 @@ export async function addGradientMapViaUi(page: Page): Promise<void> {
   await page.waitForTimeout(200);
   await page.locator('button.adj-panel__add-btn').click();
   await page.waitForTimeout(200);
-  const menuItem = page.locator('.adj-panel__add-menu-item').filter({ hasText: 'Gradient Map' });
+  const menuItem = page.getByRole('menuitem', { name: 'Gradient Map', exact: true });
+  await menuItem.scrollIntoViewIfNeeded();
   await menuItem.click();
   await page.waitForTimeout(300);
   await expectGradientMapEditor(page);

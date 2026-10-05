@@ -18,9 +18,9 @@ release-data flow.
 
 ## 1. What already existed
 
-A complete Astro 7 site under `apps/website` — 69 routes covering product,
-features, docs, support, licensing, privacy and security. Reusing it was the
-right call; almost none of it needed rewriting.
+The repository already had a complete Astro 7 site under `apps/website`,
+covering product, features, docs, support, licensing, privacy and security.
+Reusing it was the right call; almost none of it needed rewriting.
 
 Three things made it unshippable, all now fixed:
 

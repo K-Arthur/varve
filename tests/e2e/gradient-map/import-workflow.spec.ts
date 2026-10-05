@@ -95,7 +95,8 @@ async function setupGradientMap(page: import('@playwright/test').Page) {
 
   await page.locator('button.adj-panel__add-btn').click();
   await page.waitForTimeout(200);
-  const menuItem = page.locator('.adj-panel__add-menu-item').filter({ hasText: 'Gradient Map' });
+  const menuItem = page.getByRole('menuitem', { name: 'Gradient Map', exact: true });
+  await menuItem.scrollIntoViewIfNeeded();
   await menuItem.click();
   await page.waitForTimeout(300);
 

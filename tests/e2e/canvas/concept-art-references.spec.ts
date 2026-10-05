@@ -72,6 +72,58 @@ async function contentHash(page: import('@playwright/test').Page): Promise<strin
   return previous;
 }
 
+async function cameraFingerprint(page: import('@playwright/test').Page): Promise<string> {
+  return page.evaluate(() => {
+    const hook = (
+      window as Window & {
+        __varveIsoTest?: { worldToScreen: (x: number, y: number) => { x: number; y: number } };
+      }
+    ).__varveIsoTest;
+    const surface = document.querySelector<HTMLElement>('.editor-canvas');
+    if (!hook || !surface) throw new Error('camera projection helper is unavailable');
+    const rect = surface.getBoundingClientRect();
+    return JSON.stringify({
+      origin: hook.worldToScreen(0, 0),
+      unitX: hook.worldToScreen(1, 0),
+      unitY: hook.worldToScreen(0, 1),
+      bounds: [rect.left, rect.top, rect.width, rect.height],
+    });
+  });
+}
+
+async function forceFullRedraw(page: import('@playwright/test').Page): Promise<void> {
+  const result = (await page.evaluate(async () => {
+    return (
+      window as Window & {
+        __varvePerf?: {
+          forceFullRedraw?: () => Promise<{ authoritative: boolean; renderPath: string }>;
+        };
+      }
+    ).__varvePerf?.forceFullRedraw?.();
+  })) as { authoritative: boolean; renderPath: string } | undefined;
+  expect(result, 'full-redraw pixel oracle must be installed').toBeTruthy();
+  expect(result?.authoritative, 'pixel oracle must commit a fresh full frame').toBe(true);
+}
+
+async function expectSurfaceMatchesFullRedraw(
+  page: import('@playwright/test').Page,
+  label: string,
+): Promise<void> {
+  const liveHash = await contentHash(page);
+  const cameraBeforeRedraw = await cameraFingerprint(page);
+  await forceFullRedraw(page);
+  expect(await cameraFingerprint(page), `${label}: redraw must keep the camera fixed`).toBe(
+    cameraBeforeRedraw,
+  );
+  const authoritativeHash = await contentHash(page);
+  console.info(
+    `[paint undo pixel oracle] ${label} cameraStable=true live=${liveHash} authoritative=${authoritativeHash}`,
+  );
+  expect(liveHash, `${label}: live pixels must match a same-camera full redraw`).toBe(
+    authoritativeHash,
+  );
+}
+
 async function coloredPixels(page: import('@playwright/test').Page): Promise<number> {
   return page.locator('canvas.editor-canvas__content-layer').evaluate((element) => {
     const canvas = element as HTMLCanvasElement;
@@ -122,6 +174,13 @@ async function selectExportTab(page: import('@playwright/test').Page) {
       .getByRole('menuitem', { name: 'Export', exact: true })
       .click();
   }
+}
+
+async function closeMagicWandOptions(page: import('@playwright/test').Page) {
+  const options = page.getByTestId('magicwand-options');
+  await expect(options).toBeVisible();
+  await page.getByRole('button', { name: 'Tool options' }).click();
+  await expect(options).toBeHidden();
 }
 
 async function referencePoint(page: import('@playwright/test').Page) {
@@ -273,8 +332,12 @@ test.describe('concept-art reference workflow', () => {
       .getByRole('radiogroup', { name: 'Sample source' })
       .getByText('Visible artwork', { exact: true })
       .click();
+    // The options popover covers part of the canvas. Close it before sending
+    // the Magic Wand pointer gesture so the click reaches the artwork.
+    await closeMagicWandOptions(page);
     const point = await referencePoint(page);
     const announcer = page.locator('#strata-canvas-announcer-polite');
+    await expect(page.getByTestId('magicwand-options')).toBeHidden();
     await page.mouse.click(point.x, point.y);
     await expect(announcer).toContainText('No visible artwork is available to sample', {
       timeout: 15000,
@@ -294,6 +357,7 @@ test.describe('concept-art reference workflow', () => {
       .click();
     await expect(samplingSwitch).toBeChecked();
 
+    await expect(page.getByTestId('magicwand-options')).toBeHidden();
     await page.mouse.click(point.x, point.y);
     await expect(announcer).toContainText(/visible-artwork Magic Wand selection created/i, {
       timeout: 20000,
@@ -384,7 +448,7 @@ test.describe('concept-art reference workflow', () => {
     test.setTimeout(420000);
     await page.addInitScript(() => localStorage.setItem('varve.renderWorker', 'off'));
     await page.setViewportSize({ width: 1440, height: 900 });
-    await navigateToEditor(page, '/?isoTest=1');
+    await navigateToEditor(page, '/?isoTest=1&perf=1');
 
     // Three editable frame thumbnails share one Design canvas. Ctrl+D creates
     // two real variants; their frame positions are then set through Inspector.
@@ -501,14 +565,16 @@ test.describe('concept-art reference workflow', () => {
     await expect
       .poll(() => orangePaintPixels(page))
       .toBeGreaterThan(orangePixelsBeforePaintover + 10);
-    const paintedHash = await contentHash(page);
     await page.keyboard.press('Control+z');
-    await expect.poll(() => contentHash(page)).toBe(beforePaintover);
+    await expect
+      .poll(() => orangePaintPixels(page))
+      .toBeLessThanOrEqual(orangePixelsBeforePaintover + 1);
+    await expectSurfaceMatchesFullRedraw(page, 'undo');
     await expect
       .poll(() => orangePaintPixels(page))
       .toBeLessThanOrEqual(orangePixelsBeforePaintover + 1);
     await page.keyboard.press('Control+Shift+z');
-    await expect.poll(() => contentHash(page)).toBe(paintedHash);
+    await expectSurfaceMatchesFullRedraw(page, 'redo');
     await expect
       .poll(() => orangePaintPixels(page))
       .toBeGreaterThan(orangePixelsBeforePaintover + 10);

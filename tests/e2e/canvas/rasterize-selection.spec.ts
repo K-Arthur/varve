@@ -17,10 +17,17 @@ test.describe('Selection rasterization', () => {
     await page.getByRole('menuitem', { name: /^Rasterize$/ }).click();
     const dialog = page.getByRole('dialog', { name: 'Rasterize' });
     await expect(dialog).toBeVisible();
+    // Invoking Rasterize must open its options first; the selected vector stays
+    // editable until the user confirms the explicit output settings.
+    await expect(page.getByRole('treeitem')).toHaveCount(1);
+    await expect(createdLayer).toContainText(/Rectangle/i);
     await expect(dialog.getByRole('button', { name: '300 PPI' })).toHaveAttribute(
       'aria-pressed',
       'true',
     );
+    await expect(
+      dialog.getByRole('checkbox', { name: 'Keep original editable layers (hidden)' }),
+    ).toBeChecked();
 
     // The workflow defaults to preserving an editable source. It is hidden
     // while the raster copy is visible, so the result has two layer records.

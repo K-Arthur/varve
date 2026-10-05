@@ -73,14 +73,19 @@ async function dragEffectStack(
 ): Promise<void> {
   const badge = source.locator(`[data-effect-stack-kind="${kind}"]`);
   await expect(badge).toBeVisible();
-  // At short editor heights the target row can sit partly below the Layers
-  // rail's scrollport. Reveal it fully before reading drag geometry/capturing
-  // the hover state so the screenshot reflects a reachable drop target.
-  await target.scrollIntoViewIfNeeded();
-  await expect(target).toBeInViewport({ ratio: 1 });
+  // At this fixed viewport, the target can be partly clipped by the Layers
+  // rail. scrollIntoViewIfNeeded scrolls the whole rail and changes the
+  // canonical hover screenshot, so verify the actual drop point is hit-testable
+  // instead of moving the panel just to satisfy a full-visibility assertion.
   const sourceBox = await badge.boundingBox();
   const targetBox = await target.boundingBox();
   if (!sourceBox || !targetBox) throw new Error('effect stack drag geometry is unavailable');
+  const targetCenterHit = await target.evaluate((row) => {
+    const rect = row.getBoundingClientRect();
+    const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+    return hit === row || (hit instanceof Node && row.contains(hit));
+  });
+  expect(targetCenterHit, 'target row center must be a reachable drop point').toBe(true);
 
   if (mode === 'append' && modifierTiming === 'before-pickup') await page.keyboard.down('Alt');
   try {

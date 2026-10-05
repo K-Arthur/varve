@@ -1666,10 +1666,32 @@
 
 /* ─── Empty state ────────────────────────────────────────────── */
 .layers-panel__empty {
-  padding: var(--space-3);
+  padding: var(--space-1);
   color: var(--color-text-muted);
   font-size: var(--font-size-sm);
   text-align: center;
+}
+
+/* The shared empty state is designed for page-sized surfaces. Inside the
+ * layers tree, its default 8rem illustration box and padding can push the
+ * useful copy below the tree viewport on compact desktop heights (for
+ * example, the Email workspace at 1280×720). Keep the illustration, heading,
+ * and description together in the tree's visible area. */
+.layers-panel__empty .varve-empty {
+  gap: var(--space-1);
+  padding: var(--space-2);
+}
+
+.layers-panel__empty .varve-empty__illustration {
+  width: var(--space-7);
+  height: var(--space-7);
+  margin-bottom: 0;
+}
+
+.layers-panel__empty .varve-empty__illustration svg {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 /* ─── Drag handle ───────────────────────────────────────────── */

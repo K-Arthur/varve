@@ -169,7 +169,10 @@ test.describe('Selection resize edge snapping', () => {
     );
 
     await page.getByRole('button', { name: 'Document Grid' }).click();
-    const pixelSnap = page.getByRole('checkbox', { name: /snap to pixels/i });
+    const pixelSnap = page.getByRole('switch', {
+      name: 'Snap to integer pixels',
+      exact: true,
+    });
     await pixelSnap.check();
     await expect(pixelSnap).toBeChecked();
 

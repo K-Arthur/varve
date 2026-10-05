@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
-import { expect, type Page, type TestInfo, test } from '@playwright/test';
+import { expect, type Locator, type Page, type TestInfo, test } from '@playwright/test';
 import { dragOnCanvas, navigateToEditor } from '../shared';
 
 const requireFromEngine = createRequire(
@@ -58,10 +58,31 @@ async function forceAuthoritativeFrame(page: Page): Promise<void> {
   expect(result.authoritative).toBe(true);
 }
 
-async function positionFixtureAtDeviceEdges(page: Page, deviceOffset = 0): Promise<void> {
+async function expectWebGl2RecoverySettled(status: Locator): Promise<void> {
+  // Recovery immediately schedules an authoritative redraw. Depending on
+  // frame timing, the diagnostic can be sampled before or after that draw.
+  await expect(status).toHaveText(/^WebGL2 (?:ready )?· experimental$/, { timeout: 30000 });
+  if ((await status.textContent()) === 'WebGL2 ready · experimental') {
+    await expect(status).toHaveAttribute('title', /last frame did not report eligible drawing/);
+  } else {
+    await expect(status).toHaveAttribute('title', /[1-9]\d* eligible item\(s\) were submitted/);
+  }
+}
+
+type FixturePosition = { x: number; y: number };
+
+async function positionFixtureAtDeviceEdges(
+  page: Page,
+  deviceOffset = 0,
+  fixturePosition?: FixturePosition,
+): Promise<FixturePosition> {
   const inspector = page.getByRole('region', { name: 'Inspector', exact: true });
-  const x = Number(await inspector.getByLabel('X (px)', { exact: true }).inputValue());
-  const y = Number(await inspector.getByLabel('Y (px)', { exact: true }).inputValue());
+  const x =
+    fixturePosition?.x ??
+    Number(await inspector.getByLabel('X (px)', { exact: true }).inputValue());
+  const y =
+    fixturePosition?.y ??
+    Number(await inspector.getByLabel('Y (px)', { exact: true }).inputValue());
   expect(Number.isFinite(x) && Number.isFinite(y)).toBe(true);
   const expected = await page.evaluate(
     ({ x, y, deviceOffset }) => {
@@ -107,6 +128,7 @@ async function positionFixtureAtDeviceEdges(page: Page, deviceOffset = 0): Promi
       ),
     )
     .toEqual(expected);
+  return { x, y };
 }
 
 async function expectSurfaceMatchesAuthoritativeFrame(page: Page, label: string): Promise<void> {
@@ -205,7 +227,7 @@ test('WebGL2 preference renders an edited document and agrees with the full-redr
   // rasterizer. Selection chrome can also shift the camera by half a pixel;
   // make both fallback and eligible execution deterministic through the real
   // camera controller instead of assuming an old canvas layout.
-  await positionFixtureAtDeviceEdges(page, 0.5);
+  const fixturePosition = await positionFixtureAtDeviceEdges(page, 0.5);
   await expectSurfaceMatchesAuthoritativeFrame(page, 'fractional-fallback');
   await expect(status).toHaveText('WebGL2 ready · experimental');
   await expect(status).toHaveAttribute('title', /last frame did not report eligible drawing/);
@@ -239,6 +261,9 @@ test('WebGL2 preference renders an edited document and agrees with the full-redr
   await expect(page.getByRole('treeitem')).toHaveCount(0, { timeout: 15000 });
   await page.keyboard.press('Control+Shift+z');
   await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 15000 });
+  // Undo/redo restores the scene but may clear the Inspector selection. Reuse
+  // the fixture's captured document coordinates for camera-only recovery so
+  // the test does not create an unrelated selection redraw before context loss.
   await page.waitForTimeout(300);
   const beforeHistoryOracle = await contentFingerprint(page);
   const historyOracle = await page.evaluate(async () => {
@@ -273,12 +298,8 @@ test('WebGL2 preference renders an edited document and agrees with the full-redr
       }
     ).__webgl2TestControls?.restore();
   });
-  // Restoring a context marks the renderer ready; it does not itself submit a
-  // new eligible frame, so the diagnostic remains in the ready state until
-  // the canvas next draws eligible content.
-  await expect(status).toHaveText('WebGL2 ready · experimental', { timeout: 30000 });
-  await expect(status).toHaveAttribute('title', /last frame did not report eligible drawing/);
-  await positionFixtureAtDeviceEdges(page, 1);
+  await expectWebGl2RecoverySettled(status);
+  await positionFixtureAtDeviceEdges(page, 1, fixturePosition);
   await expect(status).toHaveText('WebGL2 · experimental');
   await expect(status).toHaveAttribute('title', /[1-9]\d* eligible item\(s\) were submitted/);
   const beforeRecoveredOracle = await contentFingerprint(page);
@@ -309,8 +330,8 @@ test('WebGL2 preference renders an edited document and agrees with the full-redr
       window as unknown as { __webgl2TestControls?: { restore: () => void } }
     ).__webgl2TestControls?.restore();
   });
-  await expect(status).toHaveText('WebGL2 ready · experimental', { timeout: 30000 });
-  await positionFixtureAtDeviceEdges(page, 2);
+  await expectWebGl2RecoverySettled(status);
+  await positionFixtureAtDeviceEdges(page, 2, fixturePosition);
   await expect(status).toHaveText('WebGL2 · experimental');
   await expect(status).toHaveAttribute('title', /[1-9]\d* eligible item\(s\) were submitted/);
   await page.evaluate(() => {

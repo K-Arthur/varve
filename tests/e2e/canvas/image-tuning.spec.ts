@@ -25,29 +25,6 @@ async function openImageTuning(page: Page): Promise<Locator> {
   return section;
 }
 
-async function dragRangeToValue(page: Page, slider: Locator, value: number): Promise<void> {
-  const geometry = await slider.evaluate((element) => {
-    if (!(element instanceof HTMLInputElement) || element.type !== 'range') {
-      throw new Error('Expected a native range input');
-    }
-    const rect = element.getBoundingClientRect();
-    const thumbWidth =
-      Number.parseFloat(getComputedStyle(element, '::-webkit-slider-thumb').width) || 18;
-    const inset = thumbWidth / 2;
-    const min = Number(element.min);
-    const max = Number(element.max);
-    const current = Number(element.value);
-    const travel = Math.max(0, rect.width - thumbWidth);
-    const xFor = (next: number) => rect.left + inset + ((next - min) / (max - min)) * travel;
-    return { currentX: xFor(current), targetX: xFor(value), y: rect.top + rect.height / 2 };
-  });
-
-  await page.mouse.move(geometry.currentX, geometry.y);
-  await page.mouse.down();
-  await page.mouse.move(geometry.targetX, geometry.y, { steps: 5 });
-  await page.mouse.up();
-}
-
 async function forceFullRedraw(page: Page): Promise<void> {
   await page.evaluate(() => {
     (
@@ -96,6 +73,18 @@ async function expectCanvasToMatch(page: Page, expected: string): Promise<void> 
       message: 'bypassing the treatment should restore the untreated image pixels',
     })
     .toBe(expected);
+}
+
+async function reselectImageAndOpenAdjustments(page: Page): Promise<void> {
+  await page.getByRole('treeitem').first().click();
+  const inspector = page.locator('.editor__inspector-panel');
+  const adjustments = inspector.getByRole('tab', { name: 'Adjustments', exact: true });
+  await expect(adjustments).toBeVisible();
+  await adjustments.click();
+
+  const trigger = inspector.getByRole('button', { name: 'Image Tuning', exact: true });
+  await expect(trigger).toBeVisible();
+  if ((await trigger.getAttribute('aria-expanded')) !== 'true') await trigger.click();
 }
 
 test.describe('Image Tuning', () => {
@@ -164,7 +153,7 @@ test.describe('Image Tuning', () => {
     });
   });
 
-  test('records a tuning edit in undo history', async ({ page }) => {
+  test('records a keyboard tuning edit in undo history', async ({ page }) => {
     test.setTimeout(120000);
     await navigateToEditor(page);
     const section = await openImageTuning(page);
@@ -172,8 +161,9 @@ test.describe('Image Tuning', () => {
     const slider = fineTexture.getByRole('slider', { name: 'Fine Texture', exact: true });
 
     await expect(slider).toHaveValue('0');
-    await dragRangeToValue(page, slider, 40);
-    await expect(slider).toHaveValue('40');
+    await slider.focus();
+    await page.keyboard.press('ArrowRight');
+    await expect(slider).toHaveValue('1');
     await expect(fineTexture.getByRole('button', { name: 'Disable Fine Texture' })).toHaveAttribute(
       'aria-pressed',
       'true',
@@ -181,10 +171,11 @@ test.describe('Image Tuning', () => {
 
     // Re-selecting the image proves the inspector reads the persisted filter
     // entry, not an uncontrolled local slider value.
-    await page.getByRole('treeitem').first().click();
-    await expect(slider).toHaveValue('40');
+    await reselectImageAndOpenAdjustments(page);
+    await expect(slider).toHaveValue('1');
 
     await page.keyboard.press('Control+z');
+    await reselectImageAndOpenAdjustments(page);
     await expect(slider).toHaveValue('0');
     await expect(fineTexture.getByRole('button', { name: 'Disable Fine Texture' })).toHaveAttribute(
       'aria-pressed',
@@ -208,6 +199,7 @@ test.describe('Image Tuning', () => {
     await expect(slider).toHaveValue('34');
 
     await page.keyboard.press('Control+z');
+    await reselectImageAndOpenAdjustments(page);
     await expect(slider).toHaveValue('0');
     await expect(field).toHaveValue('0');
   });

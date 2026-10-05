@@ -137,6 +137,7 @@ export interface ActionHandlerCallbacks {
   onReopenLast?: () => void;
   onFindReplace?: () => void;
   onResizeImage?: () => void;
+  onOpenRasterizeDialog?: () => void;
   onCustomizeWorkspace?: () => void;
   /** Open the named-layout manager (save/apply/import/export). */
   onManageWorkspaceLayouts?: () => void;
@@ -1552,7 +1553,7 @@ export function createActionHandlers(
     removeMask: () => e.removeMaskFromSelected?.(),
     toggleMask: () => e.toggleMask?.(),
     invertMask: () => e.invertMask?.(),
-    rasterizeSelection: () => e.rasterizeSelected?.(1),
+    rasterizeSelection: () => cb.onOpenRasterizeDialog?.(),
     mergeSelected: () => e.mergeSelected?.(),
     createMaster: () => {
       const page = e.state.document.pages?.find(
