@@ -170,6 +170,7 @@ test.describe('full-editor visual compositing', () => {
   test.describe.configure({ mode: 'default' });
 
   test('nested groups preserve isolated opacity and container compositing', async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('varve.renderWorker', 'off'));
     await navigateToCleanEditor(page, '?perf=1');
 
     // Overlap the three shapes so group opacity is observable as one isolated
@@ -239,6 +240,7 @@ test.describe('full-editor visual compositing', () => {
   });
 
   test('clip mask is visible in the real canvas and layer hierarchy', async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('varve.renderWorker', 'off'));
     await navigateToCleanEditor(page, '?perf=1');
     await dropImageOnCanvas(page, 'photo-fixture.jpg', 380, 120);
     await createRect(page, 100, 100, 260, 240);
