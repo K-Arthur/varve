@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "note": "GENERATED FILE — reviewed mixed-source assembly; no new capture. Top-level identity records the assembly revision and input digest. Per-scene producer provenance remains authoritative for the pixels.",
-  "generatedAt": "2026-10-05T01:49:52.872Z",
+  "generatedAt": "2026-10-05T02:14:35.171Z",
   "scenes": {
     "workspace": {
       "file": "workspace-light.png",
@@ -74,25 +74,25 @@
       "feature": "vector-tools",
       "theme": "light",
       "status": "captured",
-      "width": 832,
+      "width": 776,
       "height": 701,
-      "lastValidatedAgainst": "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
-      "sha256": "c8f2ac393c0222eddcb8476e65867be2b70a2a436e0aaa423ce119cc3ec17a6b",
+      "lastValidatedAgainst": "4f8af5b095667142c112b08e75f8a97019401d72",
+      "sha256": "291a462f7fbe06e27a5939727239fbac4336ea8950fa82ea39150e19d1c31f8a",
       "kind": "detail",
       "crop": {
         "x": 316,
         "y": 145,
-        "width": 832,
+        "width": 776,
         "height": 701
       },
       "scale": 1,
       "provenanceUnknown": false,
-      "capturedAt": "2026-10-03T10:47:35.293Z",
+      "capturedAt": "2026-10-05T02:12:49.361Z",
       "provenance": {
-        "sourceRevision": "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
+        "sourceRevision": "4f8af5b095667142c112b08e75f8a97019401d72",
         "sourceDirty": false,
-        "sourceDigest": "6cbb305f265656abcb97aa7d8e9181ff63d8447f03595eeef2678860cb1e3571",
-        "runId": "2026-10-03T10-45-24-594Z-1566371",
+        "sourceDigest": "e079f01cc4c786060d19036da9dde9277ea874256ce7d787b7c476959d911d5a",
+        "runId": "2026-10-05T02-12-26-613Z-3207442",
         "runtime": "chromium-headless (web)",
         "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
         "viewport": {
@@ -101,8 +101,8 @@
         },
         "deviceScaleFactor": 1,
         "theme": "light",
-        "promotedFrom": "2026-10-03T10-45-24-594Z-1566371",
-        "promotedAt": "2026-10-03T11:28:22.213Z"
+        "promotedFrom": "2026-10-05T02-12-26-613Z-3207442",
+        "promotedAt": "2026-10-05T02:14:08.474Z"
       }
     },
     "comic-lettering": {
@@ -120,15 +120,15 @@
         "width": 1280,
         "height": 720
       },
-      "lastValidatedAgainst": "af30bc2b48acb88baf01616a849b8130088433bf",
+      "lastValidatedAgainst": "d584eed7df23a2a9cd0014f1e853409adf87706f",
       "provenanceUnknown": false,
-      "sha256": "a5ad6aa8b80113d313bf4f0539dc6f11cb83a3dff96ce40f8103b074b83eb5aa",
-      "capturedAt": "2026-10-03T11:18:39.754Z",
+      "sha256": "9efc3e794a90ae6c8922d1715238d394ea7722e857117a0604fbc0db4459fd73",
+      "capturedAt": "2026-10-05T01:46:37.926Z",
       "provenance": {
-        "sourceRevision": "af30bc2b48acb88baf01616a849b8130088433bf",
+        "sourceRevision": "d584eed7df23a2a9cd0014f1e853409adf87706f",
         "sourceDirty": false,
-        "sourceDigest": "1bc461f83a4c412d73e4fc0142b2d0b86dbf6fe9fd83e8b9874953d5bd4e9aad",
-        "runId": "test-results/release-0.5.0-owner-captures-final-af30bc2b4/canvas-comic-lettering-Com-147e2-ble-balloon-and-reviews-fit-chromium",
+        "sourceDigest": "1ccf91d373b5e9b9c08a24aa9b7a915de41c4690dedacbcc48c31ffa33953cff",
+        "runId": "test-results/run-3215-1420/canvas-comic-lettering-Com-147e2-ble-balloon-and-reviews-fit-chromium",
         "runtime": "chromium Playwright E2E",
         "captureTool": "Playwright 1.62.1 / chromium 151.0.7922.34",
         "viewport": {
@@ -137,8 +137,8 @@
         },
         "deviceScaleFactor": 1,
         "theme": "light",
-        "promotedFrom": "2026-10-03T11-31-34-211Z-1591158",
-        "promotedAt": "2026-10-03T11:31:48.273Z"
+        "promotedFrom": "2026-10-05T02-14-24-714Z-3208302",
+        "promotedAt": "2026-10-05T02:14:35.168Z"
       }
     },
     "typography": {
@@ -1580,15 +1580,15 @@
         "width": 1280,
         "height": 720
       },
-      "lastValidatedAgainst": "af30bc2b48acb88baf01616a849b8130088433bf",
+      "lastValidatedAgainst": "d584eed7df23a2a9cd0014f1e853409adf87706f",
       "provenanceUnknown": false,
-      "sha256": "0633e68e86c7eae3170f3df678b4033db81322b29959caf523b2b89a57679382",
-      "capturedAt": "2026-10-03T11:19:31.917Z",
+      "sha256": "fc45964741aa75f775315a82a59a48a983b7b2883339da71784680e3f02fc155",
+      "capturedAt": "2026-10-05T01:43:32.201Z",
       "provenance": {
-        "sourceRevision": "af30bc2b48acb88baf01616a849b8130088433bf",
+        "sourceRevision": "d584eed7df23a2a9cd0014f1e853409adf87706f",
         "sourceDirty": false,
-        "sourceDigest": "1bc461f83a4c412d73e4fc0142b2d0b86dbf6fe9fd83e8b9874953d5bd4e9aad",
-        "runId": "test-results/release-0.5.0-owner-captures-final-af30bc2b4/canvas-pattern-document-al-a7b94-its-anchor-in-the-inspector-chromium",
+        "sourceDigest": "1ccf91d373b5e9b9c08a24aa9b7a915de41c4690dedacbcc48c31ffa33953cff",
+        "runId": "test-results/run-3344-1420/canvas-pattern-document-al-a7b94-its-anchor-in-the-inspector-chromium",
         "runtime": "chromium Playwright E2E",
         "captureTool": "Playwright 1.62.1 / chromium 151.0.7922.34",
         "viewport": {
@@ -1597,30 +1597,25 @@
         },
         "deviceScaleFactor": 1,
         "theme": "light",
-        "promotedFrom": "2026-10-03T11-31-34-211Z-1591158",
-        "promotedAt": "2026-10-03T11:31:48.274Z"
+        "promotedFrom": "2026-10-05T02-14-24-714Z-3208302",
+        "promotedAt": "2026-10-05T02:14:35.171Z"
       }
     }
   },
   "provenance": {
     "kind": "reviewed-mixed-source-assembly",
     "runtime": "metadata-only reviewed assembly; no new capture",
-    "assemblyRevision": "d584eed7df23a2a9cd0014f1e853409adf87706f",
-    "assemblySourceDigest": "1ccf91d373b5e9b9c08a24aa9b7a915de41c4690dedacbcc48c31ffa33953cff",
+    "assemblyRevision": "4f8af5b095667142c112b08e75f8a97019401d72",
+    "assemblySourceDigest": "e079f01cc4c786060d19036da9dde9277ea874256ce7d787b7c476959d911d5a",
     "assemblySourceDirty": false,
-    "assembledAt": "2026-10-05T01:49:52.872Z",
-    "reviewManifestSha256": "373705f7fe4642d756fa8e6701c6cf35921fd9e36e3ba58ff0c8f59bcabadc9a",
-    "reviewedAgainst": "a8d149572124c6003d0e6e225d5bfaff3f402fbda62d298cea35724f985cfc85",
-    "promotedSceneIDs": [
-      "workspace",
-      "workspace-dark",
-      "workspace-shared-workflows",
-      "layers",
-      "image-tools"
-    ],
+    "assembledAt": "2026-10-05T02:14:35.171Z",
+    "reviewManifestSha256": "c5c64540bbd742112b14063562d2ca135e4084fd38127b472a8c8685e50946ae",
+    "reviewedAgainst": "eb4a21fac750962f3b9985637211819f4f3fae3ca8d61bec970cf2df7e62d207",
+    "promotedSceneIDs": ["comic-lettering", "patterns"],
     "capturedSourceRevisions": [
       "10ebb7d96c87b4e8d7470803bcab2ff9be55cebf",
       "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
+      "4f8af5b095667142c112b08e75f8a97019401d72",
       "7599fcc198910b86ba477fa2ed102d4137bf941b",
       "af30bc2b48acb88baf01616a849b8130088433bf",
       "d584eed7df23a2a9cd0014f1e853409adf87706f",
@@ -1632,9 +1627,9 @@
       "Playwright 1.62.1 / chromium 151.0.7922.34"
     ],
     "provenanceUnknownSceneIDs": [],
-    "sceneIdentitySha256": "d42ca7f344f8e4df531c5e444a6eb7c478f1a77ecf6afa2b736a9c7349ba410e"
+    "sceneIdentitySha256": "faf08c031fba432b3cf804a9c1c565ecc43a8a2b7dfd3f158dccd10d5152f5f6"
   },
-  "sourceRevision": "d584eed7df23a2a9cd0014f1e853409adf87706f",
-  "sourceDigest": "1ccf91d373b5e9b9c08a24aa9b7a915de41c4690dedacbcc48c31ffa33953cff",
+  "sourceRevision": "4f8af5b095667142c112b08e75f8a97019401d72",
+  "sourceDigest": "e079f01cc4c786060d19036da9dde9277ea874256ce7d787b7c476959d911d5a",
   "captureTool": "reviewed assembly; original capture and browser versions are recorded per scene"
 }
