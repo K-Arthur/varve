@@ -83,6 +83,14 @@ for (const lane of ['e2e:all', 'e2e:canvas', 'e2e:file:tests/e2e/canvas/tools.sp
   const [command] = commandsForCategory({ ...plan, selectedLanes: [lane] }, 'e2e');
   for (const flag of strictFlags) assert.ok(command.argv.includes(flag), `${lane}: ${flag}`);
 }
+for (const lane of ['e2e:canvas', 'e2e:file:tests/e2e/canvas/tools.spec.ts']) {
+  const [command] = commandsForCategory({ ...plan, selectedLanes: [lane] }, 'e2e', {
+    shard: '3/16',
+  });
+  const shardIndex = command.argv.indexOf('--shard');
+  assert.ok(shardIndex >= 0, `${lane}: a sharded cell must pass --shard`);
+  assert.equal(command.argv[shardIndex + 1], '3/16', `${lane}: shard cell identity`);
+}
 const website = commandsForCategory(
   { ...plan, selectedLanes: ['website-unit', 'website-e2e'] },
   'website',

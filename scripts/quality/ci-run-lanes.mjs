@@ -90,12 +90,18 @@ function e2eArgv(lane, shard) {
     const selectedFile = lane.slice('e2e:file:'.length).replaceAll('\\', '/');
     if (IMPACT_CONFIG.demoDistE2eOwners.includes(selectedFile))
       throw new Error(`${selectedFile} requires the dedicated e2e:demo-dist lane`);
-    return ['pnpm', 'exec', 'playwright', 'test', selectedFile, '--project=chromium'];
+    const argv = ['pnpm', 'exec', 'playwright', 'test', selectedFile, '--project=chromium'];
+    // A file/domain lane still runs inside the sharded matrix cell. Passing the
+    // cell's shard keeps the execution receipt's shard identity equal to the
+    // browser evidence (the aggregator compares them); omitting it made every
+    // green file-lane cell uncertifiable.
+    if (shard) argv.push('--shard', shard);
+    return argv;
   }
   if (lane === 'e2e:demo-dist')
     return ['pnpm', 'exec', 'playwright', 'test', '--config', 'playwright.demo-dist.config.mts'];
   if (lane.startsWith('e2e:')) {
-    return [
+    const argv = [
       'pnpm',
       'exec',
       'playwright',
@@ -103,6 +109,8 @@ function e2eArgv(lane, shard) {
       ...pathsForDomain(lane.slice('e2e:'.length)),
       '--project=chromium',
     ];
+    if (shard) argv.push('--shard', shard);
+    return argv;
   }
   return null;
 }
