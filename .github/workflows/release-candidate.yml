@@ -315,13 +315,6 @@ jobs:
       - run: pnpm test:website
       - run: pnpm build:website
       - run: pnpm build:website:pages
-      - name: Restore Playwright browsers
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
-        with:
-          path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ hashFiles('pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-playwright-
       - run: pnpm exec playwright install --with-deps chromium
       - name: Discover complete candidate website inventory
         env:
@@ -405,13 +398,6 @@ jobs:
           run-id: ${{ github.run_id }}
           artifact-ids: ${{ needs.wasm.outputs.artifact_id }}
           path: apps/desktop/public/wasm/
-      - name: Restore Playwright browsers
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
-        with:
-          path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ hashFiles('pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-playwright-
       - run: pnpm exec playwright install --with-deps chromium
       - name: Build website for production-demo E2E
         if: matrix.shard == 1
@@ -567,13 +553,6 @@ jobs:
           run-id: ${{ github.run_id }}
           artifact-ids: ${{ needs.wasm.outputs.artifact_id }}
           path: apps/desktop/public/wasm/
-      - name: Restore Playwright browsers
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
-        with:
-          path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ hashFiles('pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-playwright-
       - run: pnpm exec playwright install --with-deps chromium
       - name: Discover complete candidate visual inventory
         env:
