@@ -105,40 +105,35 @@ test.describe('Layers DnD — browser demo', () => {
     await expect.poll(async () => rows.count(), { timeout: 30_000 }).toBeGreaterThanOrEqual(2);
 
     const before = await readRows(page);
-    // Pick two rows at the same nesting level so the assertion is a plain
-    // sibling reorder rather than a reparent.
-    const level = before[0]!.level;
-    const sameLevel = before.filter((r) => r.level === level);
-    test.skip(sameLevel.length < 2, 'demo document has no sibling pair to reorder');
-    const target = sameLevel[0]!;
-    const treeBox = await page.getByRole('tree', { name: /layers/i }).boundingBox();
-    if (!treeBox) throw new Error('layers tree geometry unavailable');
-    const visibleSiblings: typeof sameLevel = [];
-    for (const row of sameLevel.slice(1)) {
-      const box = await page.locator(`[role="treeitem"][data-node-id="${row.id}"]`).boundingBox();
-      if (box && box.y >= treeBox.y && box.y + box.height <= treeBox.y + treeBox.height) {
-        visibleSiblings.push(row);
-      }
-    }
-    const source = visibleSiblings[visibleSiblings.length - 1];
-    if (!source) throw new Error('no same-level source row is visible');
+    // Pick two adjacent rows at one nesting level so the assertion is a plain
+    // sibling reorder rather than a reparent. Adjacent rows fit the demo
+    // panel's short scroll viewport together, which a wider pick would not —
+    // and a row that is clipped by the viewport cannot receive the pointer.
+    const levels = new Map<number, typeof before>();
+    for (const row of before) levels.set(row.level, [...(levels.get(row.level) ?? []), row]);
+    const siblings = [...levels.values()].find((rows) => rows.length >= 2);
+    if (!siblings) throw new Error('demo document exposes no sibling pair to reorder');
+    const target = siblings[0]!;
+    const source = siblings[1]!;
 
-    const srcBox = await page
-      .locator(`[role="treeitem"][data-node-id="${source.id}"]`)
-      .boundingBox();
-    if (!srcBox) throw new Error('source row geometry unavailable');
-    await page.mouse.move(srcBox.x + 8, srcBox.y + srcBox.height / 2);
-    await page.mouse.down();
-    await page.mouse.move(srcBox.x + 8, srcBox.y + srcBox.height / 2 - 10);
-
-    const tgtBox = await page
-      .locator(`[role="treeitem"][data-node-id="${target.id}"]`)
-      .boundingBox();
+    const sourceRow = page.locator(`[role="treeitem"][data-node-id="${source.id}"]`);
+    const targetRow = page.locator(`[role="treeitem"][data-node-id="${target.id}"]`);
+    // The demo's notice and usage prompt settle asynchronously and reflow the
+    // panel. Bring the source into view and re-measure immediately before
+    // driving the pointer so the coordinates cannot go stale mid-gesture.
+    await sourceRow.scrollIntoViewIfNeeded();
+    const handleBox = await sourceRow.locator('.layers-row__drag-handle').boundingBox();
+    if (!handleBox) throw new Error('source drag handle geometry unavailable');
+    const tgtBox = await targetRow.boundingBox();
     if (!tgtBox) throw new Error('target row geometry unavailable');
-    await page.mouse.move(tgtBox.x + tgtBox.width / 2, tgtBox.y + tgtBox.height * 0.15, {
-      steps: 6,
-    });
-    await page.mouse.move(tgtBox.x + tgtBox.width / 2, tgtBox.y + tgtBox.height * 0.15);
+
+    const startX = handleBox.x + handleBox.width / 2;
+    const startY = handleBox.y + handleBox.height / 2;
+    await page.mouse.move(startX, startY);
+    await page.mouse.down();
+    await page.mouse.move(startX, startY - 8);
+    await page.mouse.move(tgtBox.x + tgtBox.width / 2, tgtBox.y + 2, { steps: 8 });
+    await expect(page.locator('.drag-overlay')).toBeVisible({ timeout: 10_000 });
 
     const preview = await readIndicator(page);
     expect(preview).toEqual({ nodeId: target.id, zone: 'before', invalid: false });

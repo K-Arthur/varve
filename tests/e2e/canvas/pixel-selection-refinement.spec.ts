@@ -15,7 +15,11 @@ const { PNG } = requireFromEngine('pngjs') as {
   PNG: { sync: { read(input: Buffer): { width: number; height: number; data: Buffer } } };
 };
 
-const VIEWPORT = { width: 1280, height: 800 };
+// A wide viewport keeps the Photo tool row expanded, so the marquee is a
+// direct toolbar button instead of a nested responsive-overflow submenu. The
+// overflow route is covered by its own dedicated specs; here it was flaky
+// because the branch can close before the pointer reaches its item.
+const VIEWPORT = { width: 2400, height: 1200 };
 
 function opaqueBlackPixels(input: Buffer): number {
   const image = PNG.sync.read(input);
@@ -139,24 +143,9 @@ test.describe('pixel selection refinement', () => {
     await rasterRow.click();
 
     const marquee = toolbar.locator('[data-tool="marquee"]');
-    if (await marquee.isVisible().catch(() => false)) {
-      await marquee.click();
-    } else {
-      await toolbar.getByRole('button', { name: /More tools/ }).click();
-      await page
-        .getByRole('menu', { name: 'More tools', exact: true })
-        .getByRole('menuitem', { name: 'Selection', exact: true })
-        .click();
-      const selectionMenu = page.getByRole('menu', { name: 'Selection submenu', exact: true });
-      await expect(selectionMenu).toBeVisible();
-      const marqueeItem = selectionMenu.getByRole('menuitem', {
-        name: 'Rectangular Marquee',
-        exact: true,
-      });
-      await expect(marqueeItem).toBeVisible();
-      await marqueeItem.click({ timeout: 5000 });
-    }
-    await expect(marquee).toHaveAttribute('aria-pressed', 'true');
+    await expect(marquee).toBeVisible({ timeout: 10_000 });
+    await marquee.click();
+    await expect(page.locator('[data-testid="marquee-options"]')).toBeVisible({ timeout: 10_000 });
     const selectionBounds = await page.evaluate(() => {
       const hook = (
         window as Window & {
@@ -166,13 +155,41 @@ test.describe('pixel selection refinement', () => {
       const surface = document.querySelector<HTMLElement>('.editor-canvas');
       if (!hook || !surface) throw new Error('canvas projection helper is unavailable');
       const rect = surface.getBoundingClientRect();
-      // Keep the selection wholly inside the resized 640x480 page. The raster
-      // layer is larger, but the page clip correctly rejects off-page fills.
-      const start = hook.worldToScreen(420, 260);
-      const end = hook.worldToScreen(520, 340);
+      // Project the 640x480 page corners, then clamp to the part of the page
+      // that is actually on screen. The camera can push page edges off-canvas,
+      // and a fraction of the unclamped page then lands on the Layers panel or
+      // the Inspector instead of the artwork.
+      const a = hook.worldToScreen(0, 0);
+      const b = hook.worldToScreen(640, 480);
+      const inset = 8;
+      const left = Math.max(rect.left + Math.min(a.x, b.x), rect.left + inset);
+      const top = Math.max(rect.top + Math.min(a.y, b.y), rect.top + inset);
+      let right = Math.min(rect.left + Math.max(a.x, b.x), rect.right - inset);
+      let bottom = Math.min(rect.top + Math.max(a.y, b.y), rect.bottom - inset);
+      // Keep the marquee out from under the glass panels that float over the
+      // canvas: the Inspector on the right and the floating toolbar along the
+      // bottom. Without this a drag can end on a panel and never reach the
+      // artwork.
+      const inspector = document.querySelector<HTMLElement>('[data-panel="inspector"]');
+      if (inspector) {
+        const panel = inspector.getBoundingClientRect();
+        if (panel.width > 0 && panel.left > rect.left) right = Math.min(right, panel.left - inset);
+      }
+      const toolbar = document.querySelector<HTMLElement>('[data-testid="toolbar"]');
+      if (toolbar) {
+        const panel = toolbar.getBoundingClientRect();
+        if (panel.height > 0 && panel.top > rect.top) bottom = Math.min(bottom, panel.top - inset);
+      }
+      const width = right - left;
+      const height = bottom - top;
+      if (width < 40 || height < 40) {
+        throw new Error(`visible page region too small for a marquee: ${width}x${height}`);
+      }
+      // Lower-left of the visible page: clear of the brush stroke in the
+      // upper-left and of the floating toolbar along the bottom edge.
       return {
-        start: { x: rect.left + start.x, y: rect.top + start.y },
-        end: { x: rect.left + end.x, y: rect.top + end.y },
+        start: { x: left + width * 0.3, y: top + height * 0.4 },
+        end: { x: left + width * 0.72, y: top + height * 0.78 },
       };
     });
     const start = selectionBounds.start;

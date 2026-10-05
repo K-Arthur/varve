@@ -232,11 +232,18 @@ test.describe('Layers Panel - Accessibility', () => {
   });
 
   test('screen reader reads aria-expanded state', async ({ page }) => {
+    // Group two seeded layers so the tree contains a real hierarchy container;
+    // a tree of flat shapes cannot expose expansion state at all.
+    const items = page.getByRole('treeitem');
+    await expect(items.first()).toBeVisible({ timeout: 10_000 });
+    await items.nth(0).click();
+    await items.nth(1).click({ modifiers: ['Control'] });
+    await page.getByRole('tree', { name: /layers/i }).press('Control+g');
+
     // Treeitems only: the row's details disclosure button also carries
     // aria-expanded, and it is not a hierarchy container.
     const container = page.locator('[role="treeitem"][aria-expanded]').first();
-    const count = await container.count();
-    test.skip(count < 1, 'Need at least 1 container with aria-expanded');
+    await expect(container).toBeVisible({ timeout: 10_000 });
 
     // Container should have aria-expanded
     const expanded = await container.getAttribute('aria-expanded');
