@@ -1816,11 +1816,19 @@ const SCENES = [
     file: 'workspace-shared-workflows-light.png',
     theme: 'light',
     feature: 'workspaces',
-    clip: { x: 0, y: 0, width: 936, height: 900 },
+    kind: 'detail',
+    // Capture a native 4:3 compact desktop viewport. The previous 936x900
+    // frame made the homepage card denser than adjacent detail captures; a
+    // real viewport reflows the canvas chrome instead of cropping controls.
+    viewport: { width: 936, height: 702 },
     alt: 'The Design workspace with Logo project controls and generated Code output open beside the same poster document',
     caption:
       'Logo tools stay in Design; the shared Code panel remains available alongside the same document.',
     async run(page) {
+      // Start the document at the canonical desktop size so Fit All remains
+      // available, then switch to the intentionally compact 4:3 capture
+      // viewport after framing.
+      await page.setViewportSize({ width: 1440, height: 900 });
       const trace = (step) => {
         if (process.env.VARVE_SHOT_DEBUG) {
           console.log(`  [workspace-shared-workflows:step] ${step}`);
@@ -1835,7 +1843,7 @@ const SCENES = [
       // At this width the dock min-size guard exercises the same recoverable
       // compact projection used in the responsive E2E, rather than stretching
       // a saved desktop split over the canvas when three task panels are open.
-      await page.setViewportSize({ width: 936, height: 900 });
+      await page.setViewportSize({ width: 936, height: 702 });
       await page.waitForTimeout(250);
       const zoomInput = page.locator('#status-zoom');
       await zoomInput.fill('30');

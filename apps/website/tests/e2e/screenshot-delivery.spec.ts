@@ -110,6 +110,8 @@ test.describe('screenshot delivery', () => {
         return {
           kind: element.closest('.screenshot-image')?.getAttribute('data-kind'),
           visibleWidthFraction: Math.min(1, imageRatio / frameRatio),
+          imageRatio,
+          currentSrc: element.currentSrc,
         };
       });
       // The homepage row is for landscape detail crops. A narrow panel image
@@ -117,6 +119,19 @@ test.describe('screenshot delivery', () => {
       // surrounded by empty space at desktop card widths.
       expect(contentFit.kind).toBe('detail');
       expect(contentFit.visibleWidthFraction).toBeGreaterThan(0.72);
+      if (index === 2) {
+        const workflowScene = manifest.scenes['workspace-shared-workflows'];
+        if (!workflowScene?.file) {
+          throw new Error(
+            'The curated shared-workflow scene is missing from the screenshot manifest',
+          );
+        }
+        expect(contentFit.currentSrc).toContain(workflowScene.file);
+        expect(
+          Math.abs(contentFit.imageRatio - 4 / 3),
+          'the shared-workflow card uses its curated landscape crop, not a full-height editor frame',
+        ).toBeLessThan(0.02);
+      }
       // The figure must contain the whole image: no clipping by the frame.
       const overflow = await details.nth(index).evaluate((figure) => {
         const image = figure.querySelector('img') as HTMLImageElement;
