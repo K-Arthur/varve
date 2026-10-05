@@ -32,10 +32,10 @@ async function canvasPixelHash(page: import('@playwright/test').Page): Promise<s
 test.describe('Background removal — all modes', () => {
   test.describe.configure({ mode: 'serial' });
   test.beforeEach(async ({ page }, testInfo) => {
-    await navigateToEditor(
-      page,
-      testInfo.title === 'saved mask history survives browser reload and reopen' ? '/?perf=1' : '/',
-    );
+    const usesPixelOracle =
+      testInfo.title === 'Quick removal restores exact canvas pixels through Undo and Redo' ||
+      testInfo.title === 'saved mask history survives browser reload and reopen';
+    await navigateToEditor(page, usesPixelOracle ? '/?perf=1' : '/');
     // Dismiss ALL overlays: Welcome dialog + Getting Started panel
     await page.evaluate(() => {
       document.querySelectorAll('dialog[open]').forEach((d) => {
@@ -118,6 +118,9 @@ test.describe('Background removal — all modes', () => {
   }, testInfo) => {
     await importTestImage(page);
     const canvas = page.getByTestId('editor-canvas');
+    await reserveSelectionPathRow(page);
+    const originalGeometry = await canvasOracleGeometry(page);
+    const originalHash = await canvasPixelHash(page);
     const before = await canvas.screenshot();
     await page
       .getByTestId('selection-quick-bar')
@@ -127,23 +130,50 @@ test.describe('Background removal — all modes', () => {
     await expect(review).toBeVisible({ timeout: 15000 });
     await review.getByRole('button', { name: 'Apply result' }).click();
     await expect(review).toBeHidden();
-    await expect.poll(async () => (await canvas.screenshot()).equals(before)).toBe(false);
+    await expect.poll(() => canvasPixelHash(page)).not.toBe(originalHash);
+    const maskedGeometry = await canvasOracleGeometry(page);
+    expect(maskedGeometry).toEqual(originalGeometry);
+    const maskedHash = await canvasPixelHash(page);
     const after = await canvas.screenshot();
     await page.screenshot({ path: testInfo.outputPath('after-apply-ui.png') });
     for (let round = 0; round < 2; round++) {
       await page.keyboard.press('Control+z');
-      await expect
-        .poll(async () => (await canvas.screenshot()).equals(before), {
-          message: 'Undo restores the original image pixels',
-        })
-        .toBe(true);
+      let undoHash = '';
+      try {
+        await expect
+          .poll(
+            async () => {
+              undoHash = await canvasPixelHash(page);
+              return undoHash;
+            },
+            {
+              message: 'Undo restores the original image pixels at the same canvas geometry',
+            },
+          )
+          .toBe(originalHash);
+      } catch (error) {
+        const undoGeometry = await canvasOracleGeometry(page);
+        await testInfo.attach(`undo-pixel-diagnostic-${round}`, {
+          body: JSON.stringify({
+            originalGeometry,
+            originalHash,
+            maskedHash,
+            undoGeometry,
+            undoHash,
+          }),
+          contentType: 'application/json',
+        });
+        throw error;
+      }
       await canvas.screenshot({ path: testInfo.outputPath(`undo-${round}.png`) });
+      expect(await canvasOracleGeometry(page)).toEqual(originalGeometry);
       await page.keyboard.press('Control+Shift+z');
       await expect
-        .poll(async () => (await canvas.screenshot()).equals(after), {
+        .poll(() => canvasPixelHash(page), {
           message: 'Redo restores the committed mask pixels without processing again',
         })
-        .toBe(true);
+        .toBe(maskedHash);
+      expect(await canvasOracleGeometry(page)).toEqual(originalGeometry);
       await canvas.screenshot({ path: testInfo.outputPath(`redo-${round}.png`) });
     }
     await testInfo.attach('before', { body: before, contentType: 'image/png' });

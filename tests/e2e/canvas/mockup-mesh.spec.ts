@@ -82,6 +82,16 @@ async function openInspectorTab(page: Page, label: string): Promise<void> {
   await page.getByRole('menuitem', { name: label, exact: true }).click({ timeout: 10000 });
 }
 
+async function selectMockupSurface(page: Page, surfaceName: string): Promise<void> {
+  const mockupLayer = page
+    .locator('.layers-panel [role="treeitem"]', { hasText: /mockup|banner/i })
+    .first();
+  await mockupLayer.click();
+  const surfaceChip = page.locator('.mockup-overlay__chip', { hasText: surfaceName });
+  await expect(surfaceChip).toBeVisible({ timeout: 8000 });
+  await surfaceChip.click();
+}
+
 /**
  * Sample the visible content canvas and count distinct opaque colours in a
  * central band. A flat unfilled frame would be near-constant; a composed
@@ -180,11 +190,13 @@ test('mesh mockup workflow: apply folded fabric, edit a vertex, persist, export'
   // ...and a single undo returns to the template default.
   await page.keyboard.press('Control+z');
   await page.waitForTimeout(400);
+  await selectMockupSurface(page, 'Banner fabric');
   await expect(section.getByText('Template default')).toBeVisible({ timeout: 5000 });
 
   // Redo re-applies the vertex edit so the persistence half has an override.
   await page.keyboard.press('Control+Shift+z');
   await page.waitForTimeout(400);
+  await selectMockupSurface(page, 'Banner fabric');
   await expect(section.getByText('Reset mesh')).toBeVisible({ timeout: 5000 });
   await expect(section.getByText(/cells/)).toContainText('4 x 2');
 

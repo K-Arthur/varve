@@ -28,7 +28,7 @@ async function importFile(page: Page, name: string, content: string) {
     mimeType: 'application/json',
     buffer: Buffer.from(content, 'utf-8'),
   });
-  await dialog.getByRole('button', { name: /^import \(/i }).click();
+  await dialog.getByRole('button', { name: /^Add to library \(1\)$/i }).click();
   // Import lands the file in the home library; dismiss the results dialog.
   const closeBtn = dialog.getByRole('button', { name: /close/i }).first();
   await closeBtn.click({ timeout: 10000 }).catch(() => undefined);

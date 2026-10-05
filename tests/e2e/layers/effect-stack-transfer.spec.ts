@@ -73,6 +73,11 @@ async function dragEffectStack(
 ): Promise<void> {
   const badge = source.locator(`[data-effect-stack-kind="${kind}"]`);
   await expect(badge).toBeVisible();
+  // At short editor heights the target row can sit partly below the Layers
+  // rail's scrollport. Reveal it fully before reading drag geometry/capturing
+  // the hover state so the screenshot reflects a reachable drop target.
+  await target.scrollIntoViewIfNeeded();
+  await expect(target).toBeInViewport({ ratio: 1 });
   const sourceBox = await badge.boundingBox();
   const targetBox = await target.boundingBox();
   if (!sourceBox || !targetBox) throw new Error('effect stack drag geometry is unavailable');

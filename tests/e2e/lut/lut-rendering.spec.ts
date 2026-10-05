@@ -5,7 +5,7 @@ import { navigateToEditor } from '../shared';
 const PHOTO_FIXTURES = path.resolve(__dirname, '..', 'fixtures');
 const LUT_FIXTURES = path.resolve(__dirname, 'fixtures');
 
-test('LUT changes real photo colors — nature photograph', async ({ page }) => {
+test('LUT changes real photo colors — nature photograph', async ({ page }, testInfo) => {
   await navigateToEditor(page);
 
   // Import a real photo onto the canvas
@@ -17,7 +17,7 @@ test('LUT changes real photo colors — nature photograph', async ({ page }) => 
   await page.waitForTimeout(3000);
 
   // Screenshot BEFORE LUT
-  await page.screenshot({ path: path.join(PHOTO_FIXTURES, 'photo-before-lut.png') });
+  await page.screenshot({ path: testInfo.outputPath('photo-before-lut.png') });
 
   // Read pixel color from the center of the imported image
   const colorBefore = await page.evaluate(() => {
@@ -63,7 +63,7 @@ test('LUT changes real photo colors — nature photograph', async ({ page }) => 
   expect(layersText).toContain('LUT');
 
   // Screenshot AFTER LUT
-  await page.screenshot({ path: path.join(PHOTO_FIXTURES, 'photo-after-lut.png') });
+  await page.screenshot({ path: testInfo.outputPath('photo-after-lut.png') });
 
   // Read pixel color from the same position
   const colorAfter = await page.evaluate(() => {

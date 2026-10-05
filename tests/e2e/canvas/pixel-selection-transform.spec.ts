@@ -32,6 +32,15 @@ async function importAndSelectImage(page: import('@playwright/test').Page) {
   return point;
 }
 
+async function closeMagicWandOptions(page: import('@playwright/test').Page): Promise<void> {
+  const options = page.getByTestId('magicwand-options');
+  await expect(options).toBeVisible();
+  const trigger = page.getByRole('button', { name: 'Tool options' });
+  await expect(trigger).toHaveAttribute('aria-expanded', 'true');
+  await trigger.click();
+  await expect(options).toBeHidden();
+}
+
 async function openPixelSelectionCommand(
   page: import('@playwright/test').Page,
   command: RegExp,
@@ -60,6 +69,9 @@ test.describe('pixel selection transform', () => {
     const wandOptions = page.getByTestId('magicwand-options');
     await expect(wandOptions).toBeVisible({ timeout: 5000 });
     await expect(wandOptions.getByLabel('Colour tolerance')).toBeVisible();
+    // The options popover overlays the middle of the canvas. Close it before
+    // the real pointer gesture so the click reaches the imported image.
+    await closeMagicWandOptions(page);
     await page.mouse.click(point.x, point.y);
 
     const announcer = page.locator('#strata-canvas-announcer-polite');
@@ -83,6 +95,7 @@ test.describe('pixel selection transform', () => {
     const point = await importAndSelectImage(page);
 
     await page.keyboard.press('Shift+W');
+    await closeMagicWandOptions(page);
     await page.mouse.click(point.x, point.y);
     const announcer = page.locator('#strata-canvas-announcer-polite');
     await expect(announcer).toContainText(/Magic Wand selection created/, { timeout: 10000 });

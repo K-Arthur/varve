@@ -17,6 +17,16 @@ import { dragOnCanvas, navigateToEditor } from '../shared';
 
 const SHOT_DIR = process.env.VARVE_GPU_SHOT_DIR;
 
+const RENDERER_STATUS_LABEL =
+  /^(?:Canvas2D|WebGPU \+ Canvas2D|Canvas2D · GPU ready|WebGPU ready|WebGPU unavailable · Canvas2D)$/;
+
+function rendererStatus(page: import('@playwright/test').Page) {
+  // Warning/fallback states use `editor-status__meta--warning`; successful
+  // states use `editor-status__diagnostic`. Select the stable visible label
+  // by its truthful text instead of relying on one presentation class.
+  return page.locator('.editor-status').getByText(RENDERER_STATUS_LABEL);
+}
+
 test.use({
   launchOptions: {
     channel: 'chromium',
@@ -82,7 +92,7 @@ test('captures the WebGPU renderer preference and its truthful status', async ({
     path: evidencePath(`gpu-acceleration/app-canvas-canvas2d.png`, SHOT_DIR),
     fullPage: false,
   });
-  const canvas2dStatus = await page.locator('.editor-status__diagnostic').textContent();
+  const canvas2dStatus = await rendererStatus(page).textContent();
   expect(canvas2dStatus ?? '').toMatch(/Canvas2D/);
 
   await selectWebGpuRenderer(page);
@@ -92,7 +102,7 @@ test('captures the WebGPU renderer preference and its truthful status', async ({
   // Give the compositor a few settled frames before reading the label.
   await page.waitForTimeout(800);
 
-  const status = (await page.locator('.editor-status__diagnostic').textContent()) ?? '';
+  const status = (await rendererStatus(page).textContent()) ?? '';
   await page.screenshot({
     path: evidencePath(`gpu-acceleration/app-canvas-prefer-webgpu.png`, SHOT_DIR),
     fullPage: false,

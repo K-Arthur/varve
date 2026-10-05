@@ -1,6 +1,16 @@
-import { expect, test } from '@playwright/test';
+import { expect, type Locator, type Page, test } from '@playwright/test';
 import { selectInspectorTab } from '../helpers/inspector-tabs';
 import { navigateToEditor, seedLayers } from '../shared';
+
+async function resetInspectorScroll(page: Page, reveal?: Locator): Promise<void> {
+  const content = page.locator('.editor-inspector > .insp-panel');
+  await content.evaluate((element) => {
+    const panel = element as HTMLElement;
+    panel.scrollTop = 0;
+    panel.scrollLeft = 0;
+  });
+  if (reveal) await reveal.scrollIntoViewIfNeeded();
+}
 
 test.describe('Inspector feature ownership', () => {
   test.beforeEach(async ({ page }) => {
@@ -44,6 +54,7 @@ test.describe('Inspector feature ownership', () => {
     await expect(
       page.getByRole('button', { name: 'Canvas background', exact: true }),
     ).toBeVisible();
+    await resetInspectorScroll(page);
     await expect(page.locator('.editor-inspector')).toHaveScreenshot('document-settings.png', {
       animations: 'disabled',
     });
@@ -57,7 +68,7 @@ test.describe('Inspector feature ownership', () => {
     await expect(spacingX).toBeVisible();
     await expect(page.getByRole('spinbutton', { name: 'Subdivisions' })).toBeVisible();
     await expect(page.getByRole('spinbutton', { name: 'Offset Y (px)' })).toBeVisible();
-    await spacingX.scrollIntoViewIfNeeded();
+    await resetInspectorScroll(page, spacingX);
 
     await expect(page.locator('.editor-inspector')).toHaveScreenshot('document-grid-settings.png', {
       animations: 'disabled',
@@ -88,6 +99,7 @@ test.describe('Inspector feature ownership', () => {
     await expect(list).toBeVisible();
     await expect(list.locator('[data-section-id]')).not.toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Reset order' })).toBeVisible();
+    await resetInspectorScroll(page);
     await expect(page.locator('.editor-inspector')).toHaveScreenshot('section-manager.png', {
       animations: 'disabled',
     });
@@ -178,6 +190,7 @@ test.describe('Inspector feature ownership', () => {
       'false',
     );
     await expect(page.getByRole('button', { name: 'Prototype Interactions' })).toHaveCount(0);
+    await resetInspectorScroll(page);
     await expect(page.locator('.editor-inspector')).toHaveScreenshot('rectangle-properties.png', {
       animations: 'disabled',
     });
@@ -197,6 +210,7 @@ test.describe('Inspector feature ownership', () => {
     });
     await expect(x).toHaveValue('Mixed');
     await expect(x).toHaveAttribute('aria-valuetext', 'Mixed values');
+    await resetInspectorScroll(page);
     await expect(page.locator('.editor-inspector')).toHaveScreenshot('mixed-properties.png', {
       animations: 'disabled',
     });
@@ -338,6 +352,7 @@ test.describe('Inspector feature ownership', () => {
     await expect(
       page.getByRole('button', { name: 'Unbind variable Inspector spacing' }),
     ).toBeVisible();
+    await resetInspectorScroll(page, x);
     await expect(x.locator('xpath=../..')).toHaveScreenshot('bound-property-field.png', {
       animations: 'disabled',
     });
@@ -363,6 +378,7 @@ test.describe('Inspector feature ownership', () => {
     await expect(page.getByText(/selection is locked/i)).toBeVisible();
     await expect(page.locator('[data-inspector-restriction="locked"]').first()).toBeVisible();
     await expect(page.getByRole('button', { name: 'Position & Size', exact: true })).toBeVisible();
+    await resetInspectorScroll(page);
     await expect(page.locator('.editor-inspector')).toHaveScreenshot('locked-properties.png', {
       animations: 'disabled',
     });

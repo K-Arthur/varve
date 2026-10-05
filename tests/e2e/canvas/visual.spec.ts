@@ -98,6 +98,13 @@ test.describe('Canvas visual regression', () => {
     // otherwise identical captures.
     await dragOnCanvas(page, 100, 280, 400, 420);
     await page.keyboard.press('t');
+    // Text activation opens its settings popover. Close it before targeting
+    // the canvas so the test doesn't type or click through the overlay.
+    const textOptions = page.getByRole('dialog', { name: 'Text tool options', exact: true });
+    if (await textOptions.isVisible().catch(() => false)) {
+      await page.getByRole('button', { name: 'Tool options', exact: true }).click();
+      await expect(textOptions).toHaveCount(0);
+    }
     const hint = page.locator('.micro-hint');
     if (await hint.isVisible({ timeout: 1000 }).catch(() => false)) {
       // Dismiss the onboarding overlay before placing text so it cannot eat

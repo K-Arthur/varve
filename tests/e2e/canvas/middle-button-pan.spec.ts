@@ -38,13 +38,51 @@ test.describe('Middle-button viewport pan', () => {
     await canvas.focus();
     const before = await selectionRect(page);
     const nodeCount = await page.getByRole('treeitem').count();
+    if (process.platform === 'linux') {
+      // Provide a deterministic PRIMARY selection for Chromium's native
+      // middle-click paste behavior on Linux.
+      await page.evaluate(() => {
+        const fixture = document.createElement('span');
+        fixture.id = 'middle-pan-primary-selection-fixture';
+        fixture.textContent = 'primary-selection-middle-pan-sentinel';
+        Object.assign(fixture.style, {
+          position: 'fixed',
+          left: '4px',
+          top: '4px',
+          zIndex: '2147483647',
+          padding: '2px',
+          color: '#000',
+          background: '#fff',
+        });
+        document.body.append(fixture);
+        const selection = window.getSelection();
+        selection?.removeAllRanges();
+        const range = document.createRange();
+        range.selectNodeContents(fixture);
+        selection?.addRange(range);
+      });
+    }
     await page.evaluate(() => {
-      const testWindow = window as typeof window & { __middleAuxClickPrevented?: boolean };
+      const testWindow = window as typeof window & {
+        __middleAuxClickPrevented?: boolean;
+        __middlePasteSeen?: boolean;
+        __middlePastePrevented?: boolean;
+      };
       delete testWindow.__middleAuxClickPrevented;
+      delete testWindow.__middlePasteSeen;
+      delete testWindow.__middlePastePrevented;
       window.addEventListener(
         'auxclick',
         (event) => {
           if (event.button === 1) testWindow.__middleAuxClickPrevented = event.defaultPrevented;
+        },
+        { once: true },
+      );
+      window.addEventListener(
+        'paste',
+        (event) => {
+          testWindow.__middlePasteSeen = true;
+          testWindow.__middlePastePrevented = event.defaultPrevented;
         },
         { once: true },
       );
@@ -64,15 +102,30 @@ test.describe('Middle-button viewport pan', () => {
     expect(
       await page.evaluate(
         () =>
-          (window as typeof window & { __middleAuxClickPrevented?: boolean })
-            .__middleAuxClickPrevented,
+          (
+            window as typeof window & {
+              __middleAuxClickPrevented?: boolean;
+            }
+          ).__middleAuxClickPrevented,
       ),
     ).toBe(true);
+    const middlePaste = await page.evaluate(() => {
+      const testWindow = window as typeof window & {
+        __middlePasteSeen?: boolean;
+        __middlePastePrevented?: boolean;
+      };
+      return {
+        seen: testWindow.__middlePasteSeen === true,
+        prevented: testWindow.__middlePastePrevented,
+      };
+    });
+    if (process.platform === 'linux') expect(middlePaste.seen).toBe(true);
+    if (middlePaste.seen) expect(middlePaste.prevented).toBe(true);
 
     // The object under the pointer and the system clipboard must not replace
-    // the active selection when the middle-button gesture finishes. This also
-    // catches Linux auxclick PRIMARY-selection paste, which otherwise makes
-    // the following geometry read measure a newly-pasted object.
+    // the active selection when the middle-button gesture finishes. A native
+    // Linux PRIMARY-selection paste must be prevented before the global editor
+    // clipboard handler can turn it into a new document object.
     expect(await page.getByRole('treeitem').count()).toBe(nodeCount);
     await expect(
       page.getByRole('treeitem', { name: /Rectangle 1, Vector rectangle/ }),
@@ -123,5 +176,26 @@ test.describe('Middle-button viewport pan', () => {
     const again = await selectionRect(page);
     expect(again.x).toBeLessThan(settled.x - 80);
     expect(again.y).toBeLessThan(settled.y - 50);
+  });
+
+  test('keyboard paste into a text field still works after a middle-button pan', async ({
+    page,
+  }) => {
+    const canvas = page.locator('canvas.editor-canvas__content-layer');
+    const pastedText = 'explicit keyboard paste after pan';
+    await page.evaluate(async (value) => navigator.clipboard.writeText(value), pastedText);
+    await canvas.focus();
+
+    const box = await canvas.boundingBox();
+    if (!box) throw new Error('content canvas not found');
+    await page.mouse.move(box.x + 500, box.y + 400);
+    await page.mouse.down({ button: 'middle' });
+    await page.mouse.move(box.x + 420, box.y + 340, { steps: 4 });
+    await page.mouse.up({ button: 'middle' });
+
+    const layerFilter = page.getByRole('searchbox', { name: 'Filter layers by name' });
+    await layerFilter.focus();
+    await page.keyboard.press('Control+v');
+    await expect(layerFilter).toHaveValue(pastedText);
   });
 });

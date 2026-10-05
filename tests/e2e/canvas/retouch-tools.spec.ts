@@ -402,9 +402,13 @@ test('Clone Stamp refuses locked and non-pixel targets instead of redirecting th
   await retouchMenu.click();
   await page.getByRole('menuitem', { name: 'Clone Stamp' }).click();
   await expect(page.locator('[data-tool="cloneStamp"]')).toBeVisible();
-  // The tool-options popover opens automatically; close it so canvas clicks
-  // below land on the canvas rather than the popover.
-  await page.keyboard.press('Escape');
+  // The tool-options popover opens automatically and can cover the layer
+  // list at compact desktop sizes. Close it through its visible toolbar
+  // toggle so the next selection and canvas gestures are unambiguous.
+  const options = page.getByRole('dialog', { name: 'Clone Stamp tool options' });
+  await expect(options).toBeVisible();
+  await page.getByRole('button', { name: 'Tool options' }).click();
+  await expect(options).toBeHidden();
   await treeItems.filter({ hasText: 'Photo pixels' }).click();
   const lockedCount = await treeItems.count();
   await page.keyboard.down('Alt');

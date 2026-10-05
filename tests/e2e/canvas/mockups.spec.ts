@@ -463,6 +463,13 @@ test('canvas surface overlay edits geometry and undoes in one step', async ({ pa
 
   await page.keyboard.press('Control+z');
   await page.waitForTimeout(300);
+  const mockupLayer = page
+    .locator('.layers-panel [role="treeitem"]', { hasText: /mockup/i })
+    .first();
+  await mockupLayer.click();
+  const restoredSurface = page.locator('.mockup-overlay__chip', { hasText: 'Screen' });
+  await restoredSurface.click();
+  await xInput.waitFor({ timeout: 5000 });
   expect(Number(await xInput.inputValue())).toBeCloseTo(before, 0);
 });
 

@@ -246,6 +246,11 @@ test.describe('Image crop — pointer-driven with real fixtures', () => {
     await page.keyboard.press('Control+z');
     await page.waitForTimeout(300);
 
+    // Undo clears canvas selection. Re-select the image before re-entering
+    // crop mode to inspect the restored viewport.
+    const image = page.getByRole('treeitem', { name: /test-image\.png/ });
+    await image.click();
+    await expect(image).toHaveAttribute('aria-selected', 'true');
     await page.keyboard.press('c');
     await expect(page.locator('[data-testid="crop-overlay"]')).toBeVisible();
     expect((await cropWindowBox(page)).width).toBeCloseTo(initial.width, 0);

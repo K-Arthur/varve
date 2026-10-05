@@ -89,6 +89,10 @@ test('source transparency survives cutout reconstruction, history and PNG export
   await expect(review).toBeHidden();
   await canvas.screenshot({ path: testInfo.outputPath('applied.png') });
   await page.keyboard.press('Control+z');
+  // History restores the document, but not the canvas selection. Reselect the
+  // source because this inspector action is only rendered for a selected image.
+  await page.getByRole('treeitem', { name: /transparent-subject\.png/ }).click();
+  await selectInspectorTab(page, 'Adjustments');
   await expect(
     page.getByRole('button', { name: 'Remove background from image', exact: true }),
   ).toBeVisible();

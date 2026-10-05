@@ -85,7 +85,12 @@ test.describe('Toolbar follow-up — palette placement', () => {
 
     // Persists across a reload (same origin storage), and the per-mode reset
     // restores the built-in default.
-    await page.reload({ waitUntil: 'domcontentloaded' });
+    const beforeUnload = page.waitForEvent('dialog');
+    const reload = page.reload({ waitUntil: 'domcontentloaded' });
+    const unloadDialog = await beforeUnload;
+    expect(unloadDialog.type()).toBe('beforeunload');
+    await unloadDialog.accept();
+    await reload;
     await navigateToEditor(page, '/', { startupTimeout: 120000 });
     await expect(page.locator(PALETTE)).toHaveAttribute('data-placement', 'top');
 

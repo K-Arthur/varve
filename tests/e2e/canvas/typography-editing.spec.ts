@@ -110,11 +110,19 @@ test.describe('Typography editing workflow', () => {
     await toolbar.getByRole('button', { name: 'Text color' }).click();
     const colorPicker = page.getByRole('dialog', { name: 'Text color picker', exact: true });
     await expect(colorPicker).toBeVisible();
+    await page.screenshot({
+      path: testInfo.outputPath('text-color-picker-canvas-boundary.png'),
+      animations: 'disabled',
+    });
     const colorBounds = await colorPicker.boundingBox();
     if (!colorBounds) throw new Error('text color picker has no bounds');
     expect(colorBounds.x).toBeGreaterThanOrEqual(canvasBounds.x);
     expect(colorBounds.x + colorBounds.width).toBeLessThanOrEqual(
       canvasBounds.x + canvasBounds.width + 1,
+    );
+    expect(colorBounds.y).toBeGreaterThanOrEqual(canvasBounds.y);
+    expect(colorBounds.y + colorBounds.height).toBeLessThanOrEqual(
+      canvasBounds.y + canvasBounds.height + 1,
     );
 
     const inspector = page.locator('.editor-shell__inspector-panel');

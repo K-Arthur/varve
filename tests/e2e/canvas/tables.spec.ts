@@ -16,6 +16,27 @@ async function enterTableEditMode(page: Page): Promise<void> {
   await expect(page.locator('.table-edit-overlay')).toBeVisible({ timeout: 10000 });
 }
 
+async function tableCellCenter(page: Page, row: number, column: number) {
+  // The table tool creates a 4×4 table. Read its rendered selection handles
+  // instead of assuming a canvas camera, zoom, or viewport origin.
+  const handleCenter = async (label: string) => {
+    const box = await page.locator(`[aria-label="${label}"]`).boundingBox();
+    if (!box) throw new Error(`Table selection handle is missing: ${label}`);
+    return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  };
+  const [topLeft, topRight, bottomLeft] = await Promise.all([
+    handleCenter('Top-left resize handle'),
+    handleCenter('Top-right resize handle'),
+    handleCenter('Bottom-left resize handle'),
+  ]);
+  const u = (column + 0.5) / 4;
+  const v = (row + 0.5) / 4;
+  return {
+    x: topLeft.x + (topRight.x - topLeft.x) * u + (bottomLeft.x - topLeft.x) * v,
+    y: topLeft.y + (topRight.y - topLeft.y) * u + (bottomLeft.y - topLeft.y) * v,
+  };
+}
+
 test.describe('Native tables', () => {
   test.describe.configure({ mode: 'serial' });
   test.beforeEach(async ({ page }) => {
@@ -51,14 +72,21 @@ test.describe('Native tables', () => {
   test('header merge commits a spanned cell', async ({ page }) => {
     await insertTable(page);
     await enterTableEditMode(page);
-    const overlay = page.locator('.table-edit-overlay');
-    await overlay.click({ position: { x: 300, y: 280 } });
+    const firstCell = await tableCellCenter(page, 0, 0);
+    const adjacentCell = await tableCellCenter(page, 0, 1);
+    await page.mouse.click(firstCell.x, firstCell.y);
     // Table cell selection is a pointer interaction in the overlay; using a
     // shift-click keeps the test on that interaction path and avoids the
     // global shortcut manager stealing Shift+ArrowRight from the overlay.
-    await overlay.click({ position: { x: 400, y: 280 }, modifiers: ['Shift'] });
+    await page.keyboard.down('Shift');
+    try {
+      await page.mouse.click(adjacentCell.x, adjacentCell.y);
+    } finally {
+      await page.keyboard.up('Shift');
+    }
+    await expect(page.getByText('2 cells selected', { exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Merge cells' }).click();
-    await page.locator('.table-edit-overlay').click({ position: { x: 400, y: 280 } });
+    await page.mouse.click(firstCell.x, firstCell.y);
     await expect(page.getByRole('spinbutton', { name: /column span/i })).toHaveValue('2', {
       timeout: 5000,
     });

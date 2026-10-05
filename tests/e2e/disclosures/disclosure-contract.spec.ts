@@ -66,11 +66,18 @@ test.describe('Disclosure contract (rendered)', () => {
     await expect(trigger(page, 'Fill')).toHaveAttribute('aria-expanded', 'false');
 
     // Document edit + undo: nudge, then undo through the real history.
+    const x = page.getByRole('spinbutton', { name: 'X (px)', exact: true });
+    const originalX = Number(await x.inputValue());
+    const canvas = page.locator('canvas.editor-canvas__content-layer');
+    await canvas.focus();
     await page.keyboard.press('ArrowRight');
+    await expect.poll(async () => Number(await x.inputValue())).toBe(originalX + 1);
     await page.keyboard.press('Control+z');
+    await expect.poll(async () => Number(await x.inputValue())).toBe(originalX);
     await expect(trigger(page, 'Fill')).toHaveAttribute('aria-expanded', 'false');
 
     // Expanding an unrelated section must not disturb it either.
+    await page.getByRole('treeitem').first().click();
     await setExpanded(page, 'Stroke', false);
     await setExpanded(page, 'Fill', true);
     await expect(trigger(page, 'Stroke')).toHaveAttribute('aria-expanded', 'false');

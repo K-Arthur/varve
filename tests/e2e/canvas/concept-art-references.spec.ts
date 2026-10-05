@@ -19,20 +19,38 @@ const { PNG } = requireFromEngine('pngjs') as {
 };
 
 const VIEWPORT = { width: 1280, height: 800 };
+const PIXEL_ORACLE_CSS_SIZE = { width: 640, height: 480 };
 
 const REFERENCE_FIXTURE = join(process.cwd(), 'tests/e2e/fixtures/real-life-beech-forest.jpg');
 
 async function rawContentHash(page: import('@playwright/test').Page): Promise<string> {
-  return page.locator('canvas.editor-canvas__content-layer').evaluate((element) => {
+  return page.locator('canvas.editor-canvas__content-layer').evaluate((element, oracleSize) => {
     const canvas = element as HTMLCanvasElement;
     const context = canvas.getContext('2d');
     if (!context) throw new Error('content canvas context unavailable');
+    const bounds = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / bounds.width;
+    const scaleY = canvas.height / bounds.height;
+    const { width, height } = oracleSize;
+    if (bounds.width < width || bounds.height < height) {
+      throw new Error(`content canvas is smaller than the ${width}x${height} CSS-pixel oracle`);
+    }
+
+    // Read the same top-left viewport crop on every poll. Hashing the complete
+    // backing store makes unrelated canvas-height changes look like artwork
+    // changes even when every sampled pixel is identical.
+    const oracle = document.createElement('canvas');
+    oracle.width = width;
+    oracle.height = height;
+    const oracleContext = oracle.getContext('2d');
+    if (!oracleContext) throw new Error('pixel oracle context unavailable');
+    oracleContext.drawImage(canvas, 0, 0, width * scaleX, height * scaleY, 0, 0, width, height);
     return crypto.subtle
-      .digest('SHA-256', context.getImageData(0, 0, canvas.width, canvas.height).data)
+      .digest('SHA-256', oracleContext.getImageData(0, 0, width, height).data)
       .then((digest) =>
         Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join(''),
       );
-  });
+  }, PIXEL_ORACLE_CSS_SIZE);
 }
 
 async function contentHash(page: import('@playwright/test').Page): Promise<string> {
@@ -232,12 +250,16 @@ test.describe('concept-art reference workflow', () => {
       .locator('[role="menu"][aria-label="Edit"]')
       .getByRole('menuitem', { name: /^Undo/ })
       .click();
+    // History restores document state but clears the active layer selection;
+    // select the reference again before reading its selection-scoped control.
+    await referenceRow.click();
     await expect(referenceSwitch).not.toBeChecked();
     await openMenu(page, 'Edit');
     await page
       .locator('[role="menu"][aria-label="Edit"]')
       .getByRole('menuitem', { name: /^Redo/ })
       .click();
+    await referenceRow.click();
     await expect(referenceSwitch).toBeChecked();
 
     const samplingSwitch = page.getByRole('switch', { name: 'Include in artwork sampling' });

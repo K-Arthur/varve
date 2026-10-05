@@ -164,7 +164,9 @@ test.describe('Selection resize edge snapping', () => {
     const canvas = page.locator('canvas.editor-canvas__content-layer');
     await canvas.focus();
     await page.keyboard.press('Escape');
-    await expect(page.getByRole('heading', { name: 'No selection' })).toBeVisible();
+    await expect(page.locator('.selection-info-bar').getByRole('status')).toContainText(
+      /^No selection\./,
+    );
 
     await page.getByRole('button', { name: 'Document Grid' }).click();
     const pixelSnap = page.getByRole('checkbox', { name: /snap to pixels/i });

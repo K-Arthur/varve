@@ -8,7 +8,10 @@ test.describe('Selection rasterization', () => {
 
     await page.keyboard.press('r');
     await dragOnCanvas(page, 180, 160, 420, 360);
-    await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10000 });
+    const createdLayer = page.getByRole('treeitem');
+    await expect(createdLayer).toHaveCount(1, { timeout: 10000 });
+    await createdLayer.click();
+    await expect(createdLayer).toHaveAttribute('aria-selected', 'true');
 
     await openMenu(page, 'Object');
     await page.getByRole('menuitem', { name: /^Rasterize$/ }).click();

@@ -330,10 +330,13 @@ test('frequency separation and Liquify survive save/reopen and export', async ({
   const options = page.getByRole('dialog', { name: /Liquify tool options/i });
   await expect(options).toBeVisible({ timeout: 15_000 });
   await expect(page.getByTestId('liquify-options')).toContainText(/shared deformation/i);
+  await page.getByRole('button', { name: 'Tool options' }).click();
+  await expect(options).toBeHidden();
 
   const canvas = page.getByTestId('editor-canvas');
   const box = await canvas.boundingBox();
   expect(box).not.toBeNull();
+  const preEditHash = await assertFullRedrawIsStable(page, testInfo, 'pre-liquify');
   const startX = box!.x + box!.width * 0.45;
   const startY = box!.y + box!.height * 0.5;
   await page.mouse.move(startX, startY);
@@ -378,6 +381,7 @@ test('frequency separation and Liquify survive save/reopen and export', async ({
   expect(interactionSummary?.inputToCommit.count).toBeGreaterThan(0);
   expect(interactionSummary?.inputToCommit.p95).toBeGreaterThanOrEqual(0);
   const committedHash = await assertFullRedrawIsStable(page, testInfo, 'committed');
+  expect(committedHash).not.toBe(preEditHash);
   await page.getByTestId('editor-canvas').screenshot({
     path: testInfo.outputPath('frequency-liquify-after.png'),
   });

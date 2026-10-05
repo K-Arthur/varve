@@ -210,6 +210,11 @@ test('fill visual evidence set', async ({ page }) => {
   // Undo the added gradient; convert the existing fill to Image (empty)
   await page.keyboard.press('Control+z');
   await page.waitForTimeout(500);
+  // Undo restores the fill document state and clears canvas selection. The
+  // Fill type control belongs to the selected layer's inspector section.
+  const rectangle = page.getByRole('treeitem', { name: /Rectangle 1/ });
+  await rectangle.click();
+  await expect(rectangle).toHaveAttribute('aria-selected', 'true');
   await selectFillType(page, 'Image');
   await page.waitForTimeout(800);
   await page.locator('.insp-image-fill__empty-hint').scrollIntoViewIfNeeded();

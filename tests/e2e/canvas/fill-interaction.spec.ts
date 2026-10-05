@@ -259,9 +259,16 @@ test.describe('fill creation and conversion', () => {
     // Undo → back to one fill; redo → two fills.
     await page.keyboard.press('Control+z');
     await page.waitForTimeout(500);
+    // History restores the paint but clears the canvas selection; select the
+    // shape before reading its selection-scoped Fill rows.
+    const rectangle = page.getByRole('treeitem', { name: /Rectangle 1/ });
+    await rectangle.click();
+    await expect(rectangle).toHaveAttribute('aria-selected', 'true');
     expect(await fillRowCount(page)).toBe(1);
     await page.keyboard.press('Control+Shift+z');
     await page.waitForTimeout(500);
+    await rectangle.click();
+    await expect(rectangle).toHaveAttribute('aria-selected', 'true');
     expect(await fillRowCount(page)).toBe(2);
   });
 

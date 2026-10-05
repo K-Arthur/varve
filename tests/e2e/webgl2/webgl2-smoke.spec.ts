@@ -273,7 +273,13 @@ test('WebGL2 preference renders an edited document and agrees with the full-redr
       }
     ).__webgl2TestControls?.restore();
   });
-  await expect(status).toHaveText('WebGL2 · experimental', { timeout: 30000 });
+  // Restoring a context marks the renderer ready; it does not itself submit a
+  // new eligible frame, so the diagnostic remains in the ready state until
+  // the canvas next draws eligible content.
+  await expect(status).toHaveText('WebGL2 ready · experimental', { timeout: 30000 });
+  await expect(status).toHaveAttribute('title', /last frame did not report eligible drawing/);
+  await positionFixtureAtDeviceEdges(page, 1);
+  await expect(status).toHaveText('WebGL2 · experimental');
   await expect(status).toHaveAttribute('title', /[1-9]\d* eligible item\(s\) were submitted/);
   const beforeRecoveredOracle = await contentFingerprint(page);
   const recoveredOracle = await page.evaluate(async () => {
@@ -303,7 +309,10 @@ test('WebGL2 preference renders an edited document and agrees with the full-redr
       window as unknown as { __webgl2TestControls?: { restore: () => void } }
     ).__webgl2TestControls?.restore();
   });
-  await expect(status).toHaveText('WebGL2 · experimental', { timeout: 30000 });
+  await expect(status).toHaveText('WebGL2 ready · experimental', { timeout: 30000 });
+  await positionFixtureAtDeviceEdges(page, 2);
+  await expect(status).toHaveText('WebGL2 · experimental');
+  await expect(status).toHaveAttribute('title', /[1-9]\d* eligible item\(s\) were submitted/);
   await page.evaluate(() => {
     (
       window as unknown as { __webgl2TestControls?: { lose: () => void } }

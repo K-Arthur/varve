@@ -147,23 +147,37 @@ test.describe('liquify', () => {
       contentType: 'image/png',
     });
 
-    // Drag horizontally across the fixture's textured area.
+    // The floating options dialog covers the canvas center at this viewport.
+    // Read the actual canvas hit target and opaque pixels before choosing the
+    // stroke location; sampling only the backing canvas can succeed even when
+    // the dialog is intercepting the real pointer drag.
     const canvas = page.getByTestId('editor-canvas');
     const box = await canvas.boundingBox();
     expect(box).not.toBeNull();
-    const startX = box!.x + box!.width * 0.5;
-    const startY = box!.y + box!.height * 0.5;
-    const sourceAlpha = await canvas.evaluate((element) => {
-      const surface = element as HTMLCanvasElement;
-      const context = surface.getContext('2d');
-      if (!context) throw new Error('Missing artwork canvas context');
-      return context.getImageData(
-        Math.floor(surface.width / 2),
-        Math.floor(surface.height / 2),
-        1,
-        1,
-      ).data[3];
+    const dragTarget = await page.evaluate(() => {
+      const surface = document.querySelector<HTMLCanvasElement>('[data-testid="editor-canvas"]');
+      const options = document
+        .querySelector('[data-testid="liquify-options"]')
+        ?.closest<HTMLElement>('[role="dialog"]');
+      const context = surface?.getContext('2d');
+      if (!surface || !options || !context) return null;
+
+      const canvasRect = surface.getBoundingClientRect();
+      const optionsRect = options.getBoundingClientRect();
+      const x = canvasRect.left + canvasRect.width * 0.5;
+      // Keep the complete ±10px brush path above the floating options panel.
+      const highestSafeY = Math.min(canvasRect.bottom - 24, optionsRect.top - 32);
+      for (let y = highestSafeY; y >= canvasRect.top + 24; y -= 3) {
+        if (document.elementFromPoint(x, y) !== surface) continue;
+        const pixelX = Math.floor(((x - canvasRect.left) / canvasRect.width) * surface.width);
+        const pixelY = Math.floor(((y - canvasRect.top) / canvasRect.height) * surface.height);
+        const alpha = context.getImageData(pixelX, pixelY, 1, 1).data[3] ?? 0;
+        if (alpha > 200) return { x, y, alpha };
+      }
+      return null;
     });
+    expect(dragTarget, 'Find opaque artwork exposed above the options dialog').not.toBeNull();
+    const { x: startX, y: startY, alpha: sourceAlpha } = dragTarget!;
     expect(sourceAlpha, 'The real drag must begin on opaque fixture texture').toBeGreaterThan(200);
     await page.mouse.move(startX, startY);
     await page.mouse.down();

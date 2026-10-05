@@ -8,7 +8,7 @@ interface PerfProfileSeam {
     setTierForTesting?: (tier: string) => void;
   };
   camera?: { setZoom?: (zoom: number) => void };
-  forceFullRedraw?: () => boolean;
+  forceFullRedraw?: () => Promise<{ authoritative: boolean }>;
 }
 
 async function canvasGeometry(page: import('@playwright/test').Page) {
@@ -128,10 +128,14 @@ test('interactive previews degrade at the tier scale and settle at full resoluti
   // redraw would produce at the same camera. Paint pixels left over from the
   // preview scale would fail this comparison.
   const settledHash = await canvasHash(page);
-  await page.evaluate(async () => {
-    (window as unknown as { __varvePerf?: PerfProfileSeam }).__varvePerf?.forceFullRedraw?.();
+  const oracle = await page.evaluate(async () => {
+    const perf = (window as unknown as { __varvePerf?: PerfProfileSeam }).__varvePerf;
+    if (!perf?.forceFullRedraw) return null;
+    const result = await perf.forceFullRedraw();
     await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    return result;
   });
+  expect(oracle?.authoritative).toBe(true);
   // The settled surface must match an authoritative full redraw.
   expect(await canvasHash(page)).toBe(settledHash);
 
