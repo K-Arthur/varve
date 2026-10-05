@@ -105,7 +105,9 @@ async function callEditor(
 }
 
 test.describe('full-editor visual compositing', () => {
-  test.describe.configure({ mode: 'serial' });
+  // Each case opens its own editor; keep failures from skipping the rest of
+  // the compositing visual suite.
+  test.describe.configure({ mode: 'default' });
 
   test('nested groups preserve isolated opacity and container compositing', async ({ page }) => {
     await navigateToCleanEditor(page);

@@ -120,7 +120,9 @@ async function dragEffectStack(
 }
 
 test.describe('Layers Panel — effect stack transfer', () => {
-  test.describe.configure({ mode: 'serial' });
+  // Each case opens its own editor; keep failures from skipping the rest of
+  // the Object Filters transfer suite.
+  test.describe.configure({ mode: 'default' });
 
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
@@ -221,6 +223,10 @@ test.describe('Layers Panel — effect stack transfer', () => {
     const layerEffects = page.getByRole('button', { name: 'Layer Effects', exact: true });
     await expect(layerEffects).toBeVisible();
     await expect(layerEffects).toHaveAttribute('aria-expanded', 'true');
-    await expect(page.getByText('Drop Shadow')).toBeVisible();
+    // Scope to the effect row: the canvas live region also announces
+    // "Added Drop Shadow", which makes an unscoped text match ambiguous.
+    await expect(
+      page.locator('.insp-effect-row__name').filter({ hasText: 'Drop Shadow' }),
+    ).toBeVisible();
   });
 });

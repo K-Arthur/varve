@@ -2,7 +2,9 @@ import path from 'node:path';
 import { expect, test } from '@playwright/test';
 import { navigateToEditor } from '../shared';
 
-test.describe.configure({ mode: 'serial' });
+// Each case opens its own editor and dialog; keep failures from skipping the
+// rest of the visual suite (a serial gate hid later baselines from triage).
+test.describe.configure({ mode: 'default' });
 
 async function importTestImage(page: import('@playwright/test').Page) {
   await navigateToEditor(page);

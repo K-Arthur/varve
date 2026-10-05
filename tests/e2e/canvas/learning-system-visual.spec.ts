@@ -30,7 +30,9 @@ async function waitForRectanglePainted(page: import('@playwright/test').Page) {
 }
 
 test.describe('Learning system visual regression', () => {
-  test.describe.configure({ mode: 'serial' });
+  // Each case opens its own editor, so a failing snapshot must not skip the
+  // rest of the visual suite (a serial gate hid later baselines from triage).
+  test.describe.configure({ mode: 'default' });
 
   test('empty canvas — no blocking modals', async ({ page }) => {
     // Clear learning state before navigating

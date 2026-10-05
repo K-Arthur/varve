@@ -57,66 +57,67 @@ async function switchToEmailWorkspace(page: import('@playwright/test').Page): Pr
 }
 
 for (const theme of THEMES) {
-  test.describe
-    .serial(`Email workspace visual — ${theme}`, () => {
-      test('email workspace tab visible', async ({ page }) => {
-        await navigateToEditor(page, theme);
-        await switchToEmailWorkspace(page);
+  // Each case opens its own editor; keep failures from skipping the rest of
+  // the email visual suite (a serial gate hid later baselines from triage).
+  test.describe(`Email workspace visual — ${theme}`, () => {
+    test('email workspace tab visible', async ({ page }) => {
+      await navigateToEditor(page, theme);
+      await switchToEmailWorkspace(page);
 
-        const emailWorkspace = page.getByRole('radio', { name: 'Email workspace' });
-        await expect(emailWorkspace).toBeVisible();
-        await expect(emailWorkspace).toBeChecked();
+      const emailWorkspace = page.getByRole('radio', { name: 'Email workspace' });
+      await expect(emailWorkspace).toBeVisible();
+      await expect(emailWorkspace).toBeChecked();
 
-        // Capture the segmented control itself, not its flex-growing wrapper.
-        const tabs = page.locator('.workspace-dock__bar');
-        await expect(tabs).toHaveScreenshot(`email-workspace-tabs-${theme}.png`, {
-          maxDiffPixels: 200,
-        });
-      });
-
-      test('email inspector tab visible', async ({ page }) => {
-        // This inspector panel capture was authored at 1280×800. Pin its
-        // viewport independently from the 1280×720 full-editor page capture.
-        await page.setViewportSize({ width: 1280, height: 800 });
-        await navigateToEditor(page, theme);
-        await switchToEmailWorkspace(page);
-        await page.getByRole('tab', { name: 'Email', exact: true }).click();
-        await expect(page.getByTestId('email-panel')).toBeVisible();
-        await expect(page.getByRole('button', { name: 'Enable email template' })).toBeVisible();
-
-        // Check the inspector panel is visible
-        const inspector = page.locator('.editor__inspector-panel');
-        if (await inspector.isVisible({ timeout: 3000 }).catch(() => false)) {
-          await expect(inspector).toHaveScreenshot(`email-inspector-${theme}.png`, {
-            maxDiffPixels: 200,
-          });
-        }
-      });
-
-      test('full email editor layout', async ({ page }) => {
-        await navigateToEditor(page, theme);
-        await switchToEmailWorkspace(page);
-        await page.getByRole('tab', { name: 'Email', exact: true }).click();
-        await page.getByRole('button', { name: 'Enable email template' }).click();
-        await expect(page.getByTitle('Email browser preview')).toBeVisible();
-
-        // Full page screenshot
-        await expect(page).toHaveScreenshot(`email-full-editor-${theme}.png`, {
-          maxDiffPixels: 500,
-        });
-      });
-
-      test('email layers panel', async ({ page }) => {
-        await navigateToEditor(page, theme);
-        await switchToEmailWorkspace(page);
-
-        // Check layers panel
-        const layers = page.locator('.editor__layers-panel');
-        if (await layers.isVisible({ timeout: 3000 }).catch(() => false)) {
-          await expect(layers).toHaveScreenshot(`email-layers-${theme}.png`, {
-            maxDiffPixels: 200,
-          });
-        }
+      // Capture the segmented control itself, not its flex-growing wrapper.
+      const tabs = page.locator('.workspace-dock__bar');
+      await expect(tabs).toHaveScreenshot(`email-workspace-tabs-${theme}.png`, {
+        maxDiffPixels: 200,
       });
     });
+
+    test('email inspector tab visible', async ({ page }) => {
+      // This inspector panel capture was authored at 1280×800. Pin its
+      // viewport independently from the 1280×720 full-editor page capture.
+      await page.setViewportSize({ width: 1280, height: 800 });
+      await navigateToEditor(page, theme);
+      await switchToEmailWorkspace(page);
+      await page.getByRole('tab', { name: 'Email', exact: true }).click();
+      await expect(page.getByTestId('email-panel')).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Enable email template' })).toBeVisible();
+
+      // Check the inspector panel is visible
+      const inspector = page.locator('.editor__inspector-panel');
+      if (await inspector.isVisible({ timeout: 3000 }).catch(() => false)) {
+        await expect(inspector).toHaveScreenshot(`email-inspector-${theme}.png`, {
+          maxDiffPixels: 200,
+        });
+      }
+    });
+
+    test('full email editor layout', async ({ page }) => {
+      await navigateToEditor(page, theme);
+      await switchToEmailWorkspace(page);
+      await page.getByRole('tab', { name: 'Email', exact: true }).click();
+      await page.getByRole('button', { name: 'Enable email template' }).click();
+      await expect(page.getByTitle('Email browser preview')).toBeVisible();
+
+      // Full page screenshot
+      await expect(page).toHaveScreenshot(`email-full-editor-${theme}.png`, {
+        maxDiffPixels: 500,
+      });
+    });
+
+    test('email layers panel', async ({ page }) => {
+      await navigateToEditor(page, theme);
+      await switchToEmailWorkspace(page);
+
+      // Check layers panel
+      const layers = page.locator('.editor__layers-panel');
+      if (await layers.isVisible({ timeout: 3000 }).catch(() => false)) {
+        await expect(layers).toHaveScreenshot(`email-layers-${theme}.png`, {
+          maxDiffPixels: 200,
+        });
+      }
+    });
+  });
 }
