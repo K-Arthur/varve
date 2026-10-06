@@ -63,13 +63,24 @@ const strictBrowserFlags = STRICT_BROWSER_FLAGS;
     (step) => step.name === 'Checkout workflow-pinned ARM64 compiler tooling',
   );
   const probe = steps.find((step) => step.name === 'Verify native Windows ARM64 Clang toolchain');
-  assert.equal(checkout.with.ref, '${{ github.workflow_sha }}');
+  assert.equal(checkout.with.ref, `\${{ github.workflow_sha }}`);
   assert.equal(checkout.with['persist-credentials'], false);
   assert.equal(checkout.if, probe.if);
   assert.match(probe.if, /matrix\.name == 'windows-aarch64'/);
   assert.match(probe.if, /REUSE_PLATFORM != 'true'/);
   assert.equal(probe.shell, 'pwsh');
   assert.ok(steps.indexOf(probe) < steps.findIndex((step) => step.name === 'Build frontend'));
+  const rust = steps.find((step) => step.name === 'Verify native Rust linker from build shell');
+  assert.equal(rust.if, probe.if);
+  assert.equal(rust.shell, 'bash', 'probe the actual Tauri build shell, including its POSIX PATH');
+  assert.equal(rust.env.ARM64_COMPILER_PROBE, `\${{ steps.arm64-compiler.outputs.probe_dir }}`);
+  assert.match(rust.run, /cargo run --offline --locked --release/);
+  assert.ok(steps.indexOf(probe) < steps.indexOf(rust));
+  assert.ok(steps.indexOf(rust) < steps.findIndex((step) => step.name === 'Build frontend'));
+  const setup = readFileSync('scripts/release/toolchains/verify-windows-aarch64.ps1', 'utf8');
+  assert.match(setup, /CARGO_TARGET_AARCH64_PC_WINDOWS_MSVC_LINKER = \$linker/);
+  assert.doesNotMatch(setup, /\$env:PATH\.Split\([^\n]*GITHUB_PATH/);
+  assert.match(setup, /rust\/build\.rs/);
   const fixture = mkdtempSync(join(tmpdir(), 'varve-arm64-toolchain-'));
   try {
     const toolchain = join(fixture, 'windows-aarch64.cmake');
@@ -85,6 +96,9 @@ foreach(kind C CXX ASM)
     message(FATAL_ERROR "Upstream MSVC compiler was not replaced for \${kind}")
   endif()
 endforeach()
+if(NOT CMAKE_LINKER STREQUAL expected)
+  message(FATAL_ERROR "Wrong native linker")
+endif()
 if(NOT CMAKE_C_COMPILER_TARGET STREQUAL "aarch64-pc-windows-msvc" OR NOT CMAKE_CXX_COMPILER_TARGET STREQUAL "aarch64-pc-windows-msvc")
   message(FATAL_ERROR "Wrong native target")
 endif()
@@ -102,7 +116,11 @@ endif()
       '-P',
       check,
     ];
-    const env = { ...process.env, VARVE_WINDOWS_ARM64_CLANG: process.execPath };
+    const env = {
+      ...process.env,
+      VARVE_WINDOWS_ARM64_CLANG: process.execPath,
+      CARGO_TARGET_AARCH64_PC_WINDOWS_MSVC_LINKER: process.execPath,
+    };
     execFileSync('cmake', args, { cwd: fixture, env, encoding: 'utf8' });
     assert.throws(
       () =>
@@ -113,9 +131,38 @@ endif()
         }),
       /Verified Windows ARM64 Clang executable is missing/,
     );
+    assert.throws(
+      () =>
+        execFileSync('cmake', args, {
+          cwd: fixture,
+          env: {
+            ...env,
+            CARGO_TARGET_AARCH64_PC_WINDOWS_MSVC_LINKER: join(fixture, 'missing-link.exe'),
+          },
+          stdio: 'pipe',
+        }),
+      /Verified Windows ARM64 Microsoft linker is missing/,
+    );
   } finally {
     rmSync(fixture, { recursive: true, force: true });
   }
+}
+
+// A failed bundle cannot mask qualification on the other successful targets.
+// Artifact selection and final convergence remain strict; this collects failures.
+{
+  const jobs = load(releaseWorkflow).jobs;
+  for (const id of ['package-smoke', 'platform-smoke']) {
+    assert.match(jobs[id].if, /always\(\) && !cancelled\(\)/);
+    assert.match(jobs[id].if, /needs\.preflight\.result == 'success'/);
+    assert.match(jobs[id].if, /github\.event\.inputs\.publish != 'yes'/);
+    assert.ok(jobs[id].needs.includes('bundle'));
+    assert.ok(jobs[id].steps.some((step) => step.name?.startsWith('Select successful')));
+    assert.ok(jobs.verify.needs.includes(id));
+    assert.ok(jobs[id].steps.every((step) => !step['continue-on-error']));
+  }
+  assert.ok(jobs.verify.needs.includes('bundle'));
+  assert.doesNotMatch(jobs.verify.if ?? '', /always\(\)/);
 }
 
 // A published tag is immutable, but a workflow dispatch can recover broken

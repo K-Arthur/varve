@@ -22,6 +22,12 @@ foreach ($line in $environment) {
         [Environment]::SetEnvironmentVariable($Matches[1], $Matches[2], 'Process')
     }
 }
+$msvcBin = Join-Path $env:VCToolsInstallDir 'bin/HostARM64/arm64'
+$linker = Join-Path $msvcBin 'link.exe'
+if (-not (Test-Path $linker)) { throw 'Native ARM64 Microsoft linker is missing' }
+# Git Bash prepends its POSIX link.exe. Bind Cargo explicitly, including native
+# build scripts/procedural macros, rather than relying on shell PATH precedence.
+$env:CARGO_TARGET_AARCH64_PC_WINDOWS_MSVC_LINKER = $linker
 
 $probe = Join-Path $env:RUNNER_TEMP 'varve-arm64-compiler-probe'
 New-Item -ItemType Directory -Path $probe -Force | Out-Null
@@ -43,7 +49,7 @@ int arm64_probe(void) { return vget_lane_s32(vdup_n_s32(0), 0); }
 @'
 #include <string>
 extern "C" int arm64_probe(void);
-static_assert(sizeof(void*) == 8);
+static_assert(sizeof(void*) == 8, "ARM64 pointer width");
 int main() { return std::string("ARM64").size() == 5 ? arm64_probe() : 1; }
 '@ | Set-Content (Join-Path $probe 'main.cpp')
 # Reproduce the dependency's conflicting defaults, including its quoted flag.
@@ -58,10 +64,36 @@ if ([BitConverter]::ToUInt16($bytes, $peOffset + 4) -ne 0xaa64) { throw 'Compile
 & $executable
 if ($LASTEXITCODE -ne 0) { throw 'Native ARM64 C/C++ executable failed' }
 
+# The next Actions step runs this through the same Bash shell as Tauri/Cargo.
+# Its build script also exercises Rust's host linker, not only the final binary.
+New-Item -ItemType Directory -Path "$probe/rust/src" -Force | Out-Null
+@'
+[package]
+name = "varve-arm64-linker-probe"
+version = "0.0.0"
+edition = "2024"
+[workspace]
+'@ | Set-Content "$probe/rust/Cargo.toml"
+@'
+version = 4
+[[package]]
+name = "varve-arm64-linker-probe"
+version = "0.0.0"
+'@ | Set-Content "$probe/rust/Cargo.lock"
+'fn main() { println!("cargo:rerun-if-changed=build.rs"); }' | Set-Content "$probe/rust/build.rs"
+@'
+#[cfg(not(target_arch = "aarch64"))]
+compile_error!("Expected native ARM64 Rust");
+fn main() { assert_eq!(std::mem::size_of::<usize>(), 8); println!("Native ARM64 Rust host and target linker probe passed"); }
+'@ | Set-Content "$probe/rust/src/main.rs"
+"probe_dir=$probe" | Out-File $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
 # Persist only build inputs; do not overwrite Actions' reserved environment.
-foreach ($name in @('VARVE_WINDOWS_ARM64_CLANG', 'CMAKE_TOOLCHAIN_FILE', 'INCLUDE', 'LIB', 'LIBPATH', 'VCINSTALLDIR', 'VCToolsInstallDir', 'WindowsSdkDir', 'WindowsSDKVersion')) {
+foreach ($name in @('VARVE_WINDOWS_ARM64_CLANG', 'CMAKE_TOOLCHAIN_FILE', 'CARGO_TARGET_AARCH64_PC_WINDOWS_MSVC_LINKER', 'INCLUDE', 'LIB', 'LIBPATH', 'VCINSTALLDIR', 'VCToolsInstallDir', 'WindowsSdkDir', 'WindowsSDKVersion')) {
     $value = [Environment]::GetEnvironmentVariable($name)
     if ($value) { "$name=$value" | Out-File $env:GITHUB_ENV -Encoding utf8 -Append }
 }
-$env:PATH.Split(';') | Where-Object { $_ } | Select-Object -Unique | Out-File $env:GITHUB_PATH -Encoding utf8 -Append
+# Export build-tool directories only. Exporting the entire PATH reverses its
+# precedence through GITHUB_PATH and can put Git's POSIX tools ahead of MSVC.
+@($msvcBin, (Split-Path $compiler)) | Out-File $env:GITHUB_PATH -Encoding utf8 -Append
 'Native ARM64 Clang C/C++ compile, SDK link, PE architecture and execution probe passed.' | Out-File $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append

@@ -579,9 +579,18 @@ jobs:
             /scripts/release/toolchains/verify-windows-aarch64.ps1
 
       - name: Verify native Windows ARM64 Clang toolchain
+        id: arm64-compiler
         if: matrix.enabled && matrix.name == 'windows-aarch64' && env.REUSE_PLATFORM != 'true'
         shell: pwsh
         run: ./release-build-tooling/scripts/release/toolchains/verify-windows-aarch64.ps1
+
+      - name: Verify native Rust linker from build shell
+        if: matrix.enabled && matrix.name == 'windows-aarch64' && env.REUSE_PLATFORM != 'true'
+        shell: bash
+        env:
+          ARM64_COMPILER_PROBE: ${{ steps.arm64-compiler.outputs.probe_dir }}
+        run: cargo run --offline --locked --release
+          --manifest-path "$ARM64_COMPILER_PROBE/rust/Cargo.toml"
 
       - name: Install Linux system deps
         if: matrix.enabled && runner.os == 'Linux' && env.REUSE_PLATFORM != 'true'
@@ -1012,7 +1021,12 @@ jobs:
   package-smoke:
     name: Linux package smoke (${{ matrix.name }})
     needs: [preflight, bundle]
-    if: github.event_name != 'workflow_dispatch' || github.event.inputs.publish != 'yes'
+    # A failed target must not hide qualification failures on successful ones.
+    # Each cell's strict artifact selector rejects a failed/missing producer;
+    # the final trust gate still requires the complete bundle and smoke jobs.
+    if: >-
+      always() && !cancelled() && needs.preflight.result == 'success' &&
+      (github.event_name != 'workflow_dispatch' || github.event.inputs.publish != 'yes')
     runs-on: ${{ matrix.os }}
     # Driver install (8m) + old/new production flows (9m each), plus existing package checks.
     timeout-minutes: 45
@@ -1205,7 +1219,9 @@ jobs:
   platform-smoke:
     name: ${{ matrix.name }} runner smoke
     needs: [preflight, bundle]
-    if: github.event_name != 'workflow_dispatch' || github.event.inputs.publish != 'yes'
+    if: >-
+      always() && !cancelled() && needs.preflight.result == 'success' &&
+      (github.event_name != 'workflow_dispatch' || github.event.inputs.publish != 'yes')
     runs-on: ${{ matrix.os }}
     # Pinned driver setup + old/new bounded production GUI/disk flows and existing smoke.
     timeout-minutes: 45
