@@ -20,6 +20,7 @@ const context = vm.createContext({
 const clicked = [];
 const actions = [];
 let blocked = false;
+let clickError = null;
 const driver = {
   execute: async (fn, arg) => vm.runInContext(`(${fn.toString()})`, context)(arg),
   $: async (element) => ({
@@ -29,7 +30,10 @@ const driver = {
       actions.push('clickable');
       if (blocked) throw new Error('Actual pointer target remains obstructed');
     },
-    click: async () => clicked.push(element.id),
+    click: async () => {
+      clicked.push(element.id);
+      if (clickError) throw clickError;
+    },
     isDisplayed: async () => true,
   }),
 };
@@ -66,6 +70,21 @@ await assert.rejects(
   /pointer target remains obstructed/,
 );
 assert.deepEqual(clicked, ['poster-expand', 'png-label'], 'a blocked native click is never forced');
+blocked = false;
+clickError = new Error('WebDriverError: unknown error when running "element/node-123/click"');
+await assert.rejects(
+  page.getByRole('radio', { name: 'PNG', exact: true }).click(),
+  (error) => error === clickError,
+  'ordinary native clicks never ignore terminal transport failures',
+);
+let processExitObserved = false;
+assert.equal(
+  await page.getByRole('radio', { name: 'PNG', exact: true }).clickAndWaitForExit(async () => {
+    processExitObserved = true;
+  }),
+  clickError.message,
+);
+assert.equal(processExitObserved, true);
 
 // Failure diagnostics retain the original failure and still collect the DOM if
 // the screenshot transport fails. The native session stays open until capture.

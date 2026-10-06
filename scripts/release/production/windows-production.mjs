@@ -8,6 +8,7 @@ import { homedir } from 'node:os';
 import { isAbsolute, join, relative, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { captureDomFailure } from './failure-evidence.mjs';
+import { assertRetainedDocument } from './retained-document.mjs';
 
 const { values: v } = parseArgs({
   options: {
@@ -92,20 +93,7 @@ async function until(fn, timeout = 30_000) {
   throw last ?? new Error('Bounded condition deadline expired');
 }
 function retained(doc) {
-  assert.equal(doc.formatVersion, v.schema);
-  assert.equal(doc.nodes['poster-title'].text, original.nodes['poster-title'].text);
-  for (const [key, value] of Object.entries(original.nodes['poster-curve']))
-    assert.deepEqual(doc.nodes['poster-curve'][key], value, `authored curve ${key}`);
-  if (!v.seed)
-    assert.equal(doc.designCanvases.length, 1, 'current migration creates the design canvas');
-  assert.equal(
-    doc.assets['asset-ca2aceaaa125b46e'].dataUrl,
-    original.assets['asset-ca2aceaaa125b46e'].dataUrl,
-  );
-  assert.deepEqual(
-    doc.nodes['published-embedded-image'].transform,
-    original.nodes['published-embedded-image'].transform,
-  );
+  assertRetainedDocument(doc, original, { schema: v.schema, seed: v.seed });
 }
 async function fileAction(name) {
   await page.getByRole('menubar').getByRole('menuitem', { name: 'File', exact: true }).click();

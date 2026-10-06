@@ -1,4 +1,6 @@
 // Thin native WebDriver DOM adapter: queries return real elements; clicks/typing use WebDriver.
+import { clickAndWaitForNativeExit } from './native-quit.mjs';
+
 export function productionDomPage(driver) {
   const selector = (css, role, name, exact) => ({
     css,
@@ -67,13 +69,18 @@ export function productionDomPage(driver) {
     }, query);
     return driver.$(ref);
   };
+  const prepareClick = async (query) => {
+    const element = await visibleElement(query);
+    await element.scrollIntoView({ block: 'center', inline: 'nearest' });
+    await element.waitForStable({ timeout: 15_000, interval: 100 });
+    await element.waitForClickable({ timeout: 15_000, interval: 100 });
+    return element;
+  };
   const locator = (query) => ({
-    click: async () => {
-      const element = await visibleElement(query);
-      await element.scrollIntoView({ block: 'center', inline: 'nearest' });
-      await element.waitForStable({ timeout: 15_000, interval: 100 });
-      await element.waitForClickable({ timeout: 15_000, interval: 100 });
-      await element.click();
+    click: async () => (await prepareClick(query)).click(),
+    clickAndWaitForExit: async (waitForExit) => {
+      const element = await prepareClick(query);
+      return clickAndWaitForNativeExit(() => element.click(), waitForExit);
     },
     isVisible: async () =>
       visibleElement(query).then(

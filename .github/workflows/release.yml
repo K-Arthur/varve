@@ -1096,6 +1096,8 @@ jobs:
         run: |
           node release-qualification-tooling/scripts/release/production/dialog-forwarding.test.mjs
           node release-qualification-tooling/scripts/release/production/webdriver-dom.test.mjs
+          node release-qualification-tooling/scripts/release/production/native-quit.test.mjs
+          node release-qualification-tooling/scripts/release/production/retained-document.test.mjs
           node release-qualification-tooling/scripts/release/production/macos-ax-controls.test.mjs
           node release-qualification-tooling/scripts/release/production/published-upgrade.test.mjs
           node release-qualification-tooling/scripts/release/production/workflow.test.mjs
@@ -1321,6 +1323,8 @@ jobs:
         run: |
           node release-qualification-tooling/scripts/release/production/dialog-forwarding.test.mjs
           node release-qualification-tooling/scripts/release/production/webdriver-dom.test.mjs
+          node release-qualification-tooling/scripts/release/production/native-quit.test.mjs
+          node release-qualification-tooling/scripts/release/production/retained-document.test.mjs
           node release-qualification-tooling/scripts/release/production/macos-ax-controls.test.mjs
           node release-qualification-tooling/scripts/release/production/published-upgrade.test.mjs
           node release-qualification-tooling/scripts/release/production/workflow.test.mjs

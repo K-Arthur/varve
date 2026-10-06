@@ -220,6 +220,8 @@ endif()
       for (const test of [
         'dialog-forwarding',
         'published-upgrade',
+        'retained-document',
+        'native-quit',
         'macos-ax-controls',
         'workflow',
       ]) {

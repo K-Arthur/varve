@@ -7,6 +7,7 @@ import { createRequire } from 'node:module';
 import { homedir } from 'node:os';
 import { isAbsolute, join, relative, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
+import { assertRetainedDocument } from './retained-document.mjs';
 
 const { values: v } = parseArgs({
   options: {
@@ -102,6 +103,20 @@ async function until(fn, timeout = 20_000) {
 function literal(s) {
   return JSON.stringify(s);
 }
+async function hittableElements(predicate, scope = null) {
+  const refs = scope
+    ? await driver.findElementsFromElement(scope.elementId, 'predicate string', predicate)
+    : await driver.findElements('predicate string', predicate);
+  const elements = [];
+  for (const ref of refs) {
+    const element = await driver.$(ref);
+    // Mac2 exposes hittable through its attribute endpoint, not as a native
+    // XCTest snapshot predicate key path. Keep actual pointer readiness.
+    const hittable = await element.getAttribute('hittable');
+    if (hittable === true || hittable === 'true') elements.push(element);
+  }
+  return elements;
+}
 async function one(name, types, starts = false, scope = null) {
   const op = starts ? 'BEGINSWITH' : '==';
   const names = Array.isArray(name) ? name : [name];
@@ -111,16 +126,14 @@ async function one(name, types, starts = false, scope = null) {
         `(label ${op} ${literal(value)} OR title ${op} ${literal(value)} OR amText ${op} ${literal(value)})`,
     )
     .join(' OR ');
-  const predicate = `(${named}) AND amType IN {${types.map(literal).join(',')}} AND hittable == true`;
-  const refs = scope
-    ? await driver.findElementsFromElement(scope.elementId, 'predicate string', predicate)
-    : await driver.findElements('predicate string', predicate);
+  const predicate = `(${named}) AND amType IN {${types.map(literal).join(',')}}`;
+  const refs = await hittableElements(predicate, scope);
   assert.equal(
     refs.length,
     1,
     `Exactly one hittable actual AX control: ${name}; got ${refs.length}`,
   );
-  return driver.$(refs[0]);
+  return refs[0];
 }
 const buttons = [
   'XCUIElementTypeButton',
@@ -134,10 +147,6 @@ async function click(name, starts = false) {
 async function keys(text, modifiers = 0) {
   await driver.execute('macos: keys', { keys: [{ key: text, modifierFlags: modifiers }] });
 }
-async function fileAction(name, starts = false) {
-  await (await until(() => one('File', ['XCUIElementTypeMenuBarItem']))).click();
-  await (await until(() => one(name, ['XCUIElementTypeMenuItem'], starts))).click();
-}
 async function panelPath(path, finalButton) {
   // Real native Open/Save sheet; selection is typed through XCTest, not returned by a stub.
   await until(
@@ -145,12 +154,11 @@ async function panelPath(path, finalButton) {
   );
   await keys('g', COMMAND | SHIFT);
   const field = await until(async () => {
-    const refs = await driver.findElements(
-      'predicate string',
-      "amType == 'XCUIElementTypeTextField' AND amHasKeyboardInputFocus == true AND hittable == true",
+    const refs = await hittableElements(
+      "amType == 'XCUIElementTypeTextField' AND amHasKeyboardInputFocus == true",
     );
     assert.equal(refs.length, 1, 'One actual focused native Go To Folder field');
-    return driver.$(refs[0]);
+    return refs[0];
   });
   await field.click();
   await keys('a', COMMAND);
@@ -162,19 +170,7 @@ async function panelPath(path, finalButton) {
   );
 }
 function retained(doc) {
-  assert.equal(doc.formatVersion, v.schema);
-  assert.equal(doc.nodes['poster-title'].text, original.nodes['poster-title'].text);
-  for (const [key, value] of Object.entries(original.nodes['poster-curve']))
-    assert.deepEqual(doc.nodes['poster-curve'][key], value, `authored curve ${key}`);
-  assert.deepEqual(
-    doc.nodes['published-embedded-image'].transform,
-    original.nodes['published-embedded-image'].transform,
-  );
-  assert.equal(
-    doc.assets['asset-ca2aceaaa125b46e'].dataUrl,
-    original.assets['asset-ca2aceaaa125b46e'].dataUrl,
-  );
-  if (!v.seed) assert.equal(doc.designCanvases.length, 1);
+  assertRetainedDocument(doc, original, { schema: v.schema, seed: v.seed });
 }
 async function evidence(name) {
   writeFileSync(join(out, `${name}.xml`), await driver.getPageSource());
@@ -200,9 +196,24 @@ async function launch() {
   });
   await driver.setTimeout({ implicit: 0 });
   await evidence('native-launch');
+  const updateChoice = await hittableElements(
+    "amType == 'XCUIElementTypeButton' AND title == 'Not now'",
+  );
+  assert.ok(updateChoice.length <= 1, 'First-run update choice must be unambiguous');
+  if (updateChoice.length) {
+    await updateChoice[0].click();
+    receipt.evidence.push({ phase: 'actual first-run update choice', choice: 'Not now' });
+  }
+  // The hosted display is 1024x768; the released app's 1280px default window
+  // starts beyond its edges. Use the actual native Window > Fill control.
+  await (await until(() => one('Window', ['XCUIElementTypeMenuBarItem']))).click();
+  await (await until(() => one('Fill', ['XCUIElementTypeMenuItem']))).click();
+  await evidence('native-ready');
 }
 async function open(path) {
-  await fileAction('Open', true);
+  // Varve's File commands are webview actions; the native macOS File menu
+  // contains only window controls. Exercise the registered Command shortcuts.
+  await keys('o', COMMAND);
   await panelPath(path, 'Open');
   await until(() => one('Fit all to viewport', ['XCUIElementTypeButton']));
 }
@@ -214,10 +225,7 @@ async function selectImage() {
     'XCUIElementTypeButton',
   ];
   // No DOM-id assumptions. Missing/ambiguous AX rows fail with retained source.
-  const refs = await driver.findElements(
-    'predicate string',
-    "label BEGINSWITH 'Published embedded image' AND hittable == true",
-  );
+  const refs = await hittableElements("label BEGINSWITH 'Published embedded image'");
   if (!refs.length) {
     const poster = await one('Poster — A3', types, true);
     const expand = await one('Expand', ['XCUIElementTypeButton'], false, poster);
@@ -226,7 +234,7 @@ async function selectImage() {
   await (await until(() => one('Published embedded image', types, true))).click();
 }
 async function diskSave(predicate = () => true) {
-  await fileAction('Save');
+  await keys('s', COMMAND);
   return until(() => {
     const d = JSON.parse(readFileSync(savedPath, 'utf8'));
     return predicate(d) && d;
@@ -247,8 +255,14 @@ try {
   // Genuine New/Create controls provide UI evidence before opening the migration fixture.
   await click('New');
   await click(['Create', 'Create design']);
+  await evidence('native-new');
+  const welcome = await hittableElements(
+    "amType == 'XCUIElementTypeButton' AND amText == 'Get started'",
+  );
+  assert.ok(welcome.length <= 1, 'First-editor welcome control must be unambiguous');
+  if (welcome.length) await click('Close dialog');
   await open(input);
-  await fileAction('Save As', true);
+  await keys('s', COMMAND | SHIFT);
   await panelPath(savedPath, 'Save');
   const first = await until(() => JSON.parse(readFileSync(savedPath, 'utf8')));
   retained(first);
@@ -273,8 +287,7 @@ try {
       phase: 'real Inspector edit saved on disk',
       x: changed.nodes['published-embedded-image'].transform[4],
     });
-    await (await until(() => one('Edit', ['XCUIElementTypeMenuBarItem']))).click();
-    await click('Undo', true);
+    await keys('z', COMMAND);
     retained(
       await diskSave(
         (d) =>
