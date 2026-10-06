@@ -14,6 +14,7 @@ import { createHash } from 'node:crypto';
 import { copyFileSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { load } from 'js-yaml';
 import ts from 'typescript';
 import { localBrowserLanes } from '../quality/full-gate-execution.mjs';
 import { FULL_BROWSER_SHARDS } from '../quality/validation-policy.mjs';
@@ -44,6 +45,35 @@ const strictBrowserFlags = [
   '--fail-on-flaky-tests',
   '--trace=retain-on-failure',
 ];
+// A published tag is immutable, but a workflow dispatch can recover broken
+// release orchestration. Keep the repaired verifier tied to the workflow SHA
+// and every product/policy identity tied to the approved tag.
+{
+  const expression = (value) => `\${{ ${value} }}`;
+  const jobs = load(releaseWorkflow).jobs;
+  const steps = jobs.preflight.steps;
+  assert.equal(steps[0].with.ref, expression('inputs.tag || github.ref'));
+  const tooling = steps.find((step) => step.name === 'Check out workflow certification tooling');
+  assert.equal(tooling.with.ref, expression('github.workflow_sha'));
+  assert.equal(tooling.with.path, 'release-tooling');
+  assert.equal(tooling.with['persist-credentials'], false);
+  const verify = steps.find((step) => step.id === 'certification');
+  assert.ok(steps.indexOf(tooling) < steps.indexOf(verify));
+  assert.match(verify.run, /git rev-parse "\$\{RELEASE_TAG\}\^\{commit\}"/);
+  assert.match(verify.run, /import\('\.\/scripts\/quality\/validation-policy\.mjs'\)/);
+  assert.match(verify.run, /node release-tooling\/scripts\/release\/verify-certification\.mjs/);
+  assert.match(verify.run, /--sha "\$\{TAG_SHA\}".*--policy-hash "\$\{POLICY_HASH\}"/);
+  assert.equal(jobs.gate.steps[0].with.ref, expression('github.workflow_sha'));
+  assert.match(jobs.gate.steps[1].run, /--sha "\$\{\{ needs\.preflight\.outputs\.tag_sha \}\}"/);
+  assert.match(
+    jobs.gate.steps[1].run,
+    /--policy-hash "\$\{\{ needs\.preflight\.outputs\.policy_hash \}\}"/,
+  );
+  assert.equal(
+    jobs.bundle.steps.find((step) => step.uses?.startsWith('actions/checkout')).with.ref,
+    expression('needs.preflight.outputs.tag'),
+  );
+}
 function workflowJob(source, id) {
   const start = source.indexOf(`\n  ${id}:`);
   assert.ok(start >= 0, `missing job ${id}`);

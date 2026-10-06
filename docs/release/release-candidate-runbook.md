@@ -163,6 +163,31 @@ status.
 
 ## Release workflow and resume
 
+### Recover orchestration for an existing tag
+
+When a certified tag exists but its release verifier is broken, repair the
+workflow and verifier on `master`, validate and push that repair, then dispatch
+the workflow from `master` against the existing tag:
+
+```bash
+gh workflow run release.yml --ref master -f tag=v0.5.0 -f platforms=all -f publish=no
+```
+
+Preflight uses certification tooling pinned to `github.workflow_sha` (the
+immutable revision of the dispatched workflow). Version, changelog, source
+SHA, policy hash, build inputs, and packages still come from the tag. The
+certified-source job rechecks that same tag SHA and policy using the workflow
+tooling. This permits an orchestration repair without moving a release tag.
+GitHub documents the workflow revision in its
+[contexts reference](https://docs.github.com/en/actions/reference/workflows-and-actions/contexts).
+
+For API-created candidate checks, GitHub may normalize `details_url` to
+`/<owner>/<repo>/runs/<check-id>`. The verifier binds the trusted check through
+its `external_id` (`<run-id>:<attempt>`), then verifies the producer workflow,
+source, successful attempt, and matching unexpired artifact. A browser command
+passing does not establish certification: retries or execution-policy drift
+still invalidate its receipt. Repair the cause and keep zero-retry validation.
+
 `release.yml` first verifies tag format/version/changelog/reachability and then
 calls `scripts/release/verify-certification.mjs`. If either exact stable check,
 policy-bound integration evidence, or matching unexpired candidate evidence is

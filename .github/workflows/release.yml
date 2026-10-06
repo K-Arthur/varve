@@ -194,6 +194,22 @@ jobs:
             exit 1
           fi
 
+      # Recovery tooling belongs to this immutable workflow revision. Product
+      # bytes and the certification policy below still come from the tag.
+      # This lets a manual master dispatch repair orchestration without moving
+      # an already-created release tag or using its broken verifier again.
+      - name: Check out workflow certification tooling
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: release-tooling
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /scripts/release/certification.mjs
+            /scripts/release/verify-certification.mjs
+            /scripts/quality/validation-policy.mjs
+
       # This is intentionally before pnpm/Rust setup and before any platform
       # build. A tag is not a release candidate: the exact tag commit must have
       # both required remote certifications and the matching policy hash.
@@ -209,7 +225,7 @@ jobs:
           POLICY_HASH="$(node -e "import('./scripts/quality/validation-policy.mjs').then(({computePolicyHash}) => process.stdout.write(computePolicyHash()))")"
           echo "tag_sha=${TAG_SHA}" >> "$GITHUB_OUTPUT"
           echo "policy_hash=${POLICY_HASH}" >> "$GITHUB_OUTPUT"
-          node scripts/release/verify-certification.mjs --sha "${TAG_SHA}" --repo "${GITHUB_REPOSITORY}" --policy-hash "${POLICY_HASH}"
+          node release-tooling/scripts/release/verify-certification.mjs --sha "${TAG_SHA}" --repo "${GITHUB_REPOSITORY}" --policy-hash "${POLICY_HASH}"
 
   # ── 2. Certified-source gate ────────────────────────────────────────────────
   gate:
@@ -224,7 +240,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: ${{ needs.preflight.outputs.tag }}
+          ref: ${{ github.workflow_sha }}
           persist-credentials: false
       - name: Recheck exact certification identity
         env:
@@ -232,7 +248,7 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           node scripts/release/verify-certification.mjs \
-            --sha "$(git rev-parse "${{ needs.preflight.outputs.tag }}^{commit}")" \
+            --sha "${{ needs.preflight.outputs.tag_sha }}" \
             --repo "${GITHUB_REPOSITORY}" \
             --policy-hash "${{ needs.preflight.outputs.policy_hash }}"
 
