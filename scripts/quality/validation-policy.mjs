@@ -20,9 +20,13 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 export const POLICY_VERSION = '2026-10-04.validation-profiles.v6';
-// 1,903 Chromium cases at the release checkpoint: sixteen single-worker
-// hosted jobs retain roughly the case share of the former 1,030-case/8 split.
-export const FULL_BROWSER_SHARDS = 16;
+// 1,907 Chromium cases at the release checkpoint. Sixteen single-worker hosted
+// jobs ran 30-40 minutes each and the slowest shard twice hit the 40-minute job
+// ceiling (runs 37380722267 and 37391728360 lost shard 11 to a timeout, which
+// fails certification for the missing receipt). Twenty-four shards keep every
+// cell comfortably inside the ceiling and shorten the critical path, since the
+// longest shard — not the sum — decides when the gate finishes.
+export const FULL_BROWSER_SHARDS = 24;
 
 /** Files whose contents define lane selection or execution semantics. */
 export const POLICY_FILES = [
