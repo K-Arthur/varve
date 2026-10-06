@@ -50,38 +50,12 @@ const strictFlags = [
   '--trace=retain-on-failure',
 ];
 
-// The release gate tolerates one retry per case: the suite contains heavy canvas
-// and pointer-timing specs whose frames depend on the shared runner's load, and
-// a case that passes on retry is recorded as flaky in the receipt rather than
-// hidden. A real defect still fails both attempts. Integration CI and candidate
-// triage stay strict so a regression is caught on the first failure there.
-const candidateFinalFlags = [
-  '--workers=1',
-  '--retries=1',
-  '--update-snapshots=none',
-  '--trace=retain-on-failure',
-];
-const candidateFinalForbidden = ['--fail-on-flaky-tests', '--max-failures=5'];
-
 for (const [index, path] of paths.entries()) {
   test(`${path}: every direct browser command uses the lease and retains strict execution`, () => {
     const calls = browserCalls(workflows[index]);
     assert.equal(calls.length, index === 0 ? 4 : 8, 'Cover every existing direct branch');
     for (const { command } of calls) {
-      const parts = command.split(/\s+/);
-      // Candidate cells pair a bounded triage command with a final one; only the
-      // final command is allowed the single retry. Discovery (`--list`) runs no
-      // cases, so it stays strict like the integration lanes.
-      const triage = parts.includes('--max-failures=5');
-      const discovery = parts.includes('--list');
-      if (index === 1 && !triage && !discovery) {
-        for (const flag of candidateFinalFlags)
-          assert.ok(parts.includes(flag), `${command}: ${flag}`);
-        for (const flag of candidateFinalForbidden)
-          assert.ok(!parts.includes(flag), `${command}: must not include ${flag}`);
-        continue;
-      }
-      for (const flag of strictFlags) assert.ok(parts.includes(flag), `${command}: ${flag}`);
+      for (const flag of strictFlags) assert.ok(command.split(/\s+/).includes(flag), flag);
     }
   });
 }

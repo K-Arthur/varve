@@ -44,14 +44,6 @@ const strictBrowserFlags = [
   '--fail-on-flaky-tests',
   '--trace=retain-on-failure',
 ];
-// Candidate final cells tolerate one retry per case and record a pass-on-retry
-// as flaky in the receipt; integration lanes and candidate triage stay strict.
-const candidateFinalBrowserFlags = [
-  '--workers=1',
-  '--retries=1',
-  '--update-snapshots=none',
-  '--trace=retain-on-failure',
-];
 function workflowJob(source, id) {
   const start = source.indexOf(`\n  ${id}:`);
   assert.ok(start >= 0, `missing job ${id}`);
@@ -101,15 +93,7 @@ assert.equal(
 );
 for (const command of candidateBrowserCommands) {
   assert.match(command, /node scripts\/quality\/heavy-lease\.mjs/);
-  // A candidate cell pairs a bounded triage command with a final one; only the
-  // final command is allowed the single retry.
-  const flags = command.includes('--max-failures=5')
-    ? strictBrowserFlags
-    : candidateFinalBrowserFlags;
-  for (const flag of flags) assert.ok(command.includes(flag), command);
-  if (!command.includes('--max-failures=5')) {
-    assert.ok(!command.includes('--fail-on-flaky-tests'), command);
-  }
+  for (const flag of strictBrowserFlags) assert.ok(command.includes(flag), command);
 }
 const directIntegrationBrowserCommands = integrationWorkflow
   .split('\n')
