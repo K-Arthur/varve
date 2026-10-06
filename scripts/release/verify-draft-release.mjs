@@ -2,8 +2,9 @@
 /**
  * Verify the actual GitHub draft immediately before explicit publication.
  * The attested checksum file authenticates all downloaded bytes; its verified
- * signing certificate, rather than a workflow-controlled predicate, binds them
- * to the requested source SHA. This helper never publishes or changes a release.
+ * signing certificate binds them to the tag workflow or an explicitly verified
+ * master recovery run. Authenticated installer sidecars separately bind product
+ * bytes to the certified tag. This helper never publishes or changes a release.
  */
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -69,6 +70,8 @@ function validateOptions({
   platforms,
   expectSigned,
   requireUpdater,
+  buildRunId,
+  trustedWorkflowSha,
 }) {
   if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository ?? ''))
     throw new Error('Invalid repository');
@@ -84,6 +87,65 @@ function validateOptions({
   )
     throw new Error('Signing and updater policy inputs must be booleans');
   requiredTargets(platforms);
+  if (buildRunId !== undefined) {
+    if (!/^[1-9][0-9]*$/.test(String(buildRunId)) || !Number.isSafeInteger(Number(buildRunId)))
+      throw new Error('Expected a positive safe recovery build run ID');
+    if (!/^[0-9a-f]{40}$/.test(trustedWorkflowSha ?? ''))
+      throw new Error('Recovery requires the exact trusted publication workflow SHA');
+  } else if (trustedWorkflowSha !== undefined) {
+    throw new Error('Trusted workflow SHA requires an explicit recovery build run ID');
+  }
+}
+
+/** Recovery is opt-in: API identity and accepted ancestry establish the signer. */
+export function verifyRecoveryBuild(run, options) {
+  const url = `https://github.com/${options.repository}/actions/runs/${options.buildRunId}`;
+  if (
+    run?.id !== Number(options.buildRunId) ||
+    run.head_repository?.full_name !== options.repository ||
+    run.path !== '.github/workflows/release.yml' ||
+    run.event !== 'workflow_dispatch' ||
+    run.head_branch !== 'master' ||
+    !/^[0-9a-f]{40}$/.test(run.head_sha ?? '') ||
+    run.html_url !== url ||
+    !Number.isSafeInteger(run.run_attempt) ||
+    run.run_attempt < 1 ||
+    run.status !== 'completed' ||
+    run.conclusion !== 'success'
+  )
+    throw new Error('Recovery build is not an exact successful master Release run');
+  return {
+    workflowSha: run.head_sha,
+    signerRef: 'refs/heads/master',
+    invocation: `${url}/attempts/${run.run_attempt}`,
+  };
+}
+
+function verifyAncestor(base, head, options, run) {
+  const comparison = JSON.parse(
+    run('gh', ['api', `repos/${options.repository}/compare/${base}...${head}`]),
+  );
+  if (
+    !['ahead', 'identical'].includes(comparison.status) ||
+    comparison.base_commit?.sha !== base ||
+    comparison.merge_base_commit?.sha !== base
+  )
+    throw new Error('Recovery workflow and product must belong to accepted master ancestry');
+}
+
+function loadRecoveryBuild(options, run) {
+  if (options.buildRunId === undefined) return undefined;
+  const build = JSON.parse(
+    run('gh', ['api', `repos/${options.repository}/actions/runs/${options.buildRunId}`]),
+  );
+  const binding = verifyRecoveryBuild(build, options);
+  const master = JSON.parse(run('gh', ['api', `repos/${options.repository}/branches/master`]));
+  if (master.name !== 'master' || !/^[0-9a-f]{40}$/.test(master.commit?.sha ?? ''))
+    throw new Error('Cannot establish accepted master source identity');
+  verifyAncestor(options.commitSha, binding.workflowSha, options, run);
+  verifyAncestor(binding.workflowSha, options.trustedWorkflowSha, options, run);
+  verifyAncestor(options.trustedWorkflowSha, master.commit.sha, options, run);
+  return binding;
 }
 
 export function draftFingerprint(release, tag) {
@@ -124,7 +186,10 @@ export function draftFingerprint(release, tag) {
   return JSON.stringify({ id: release.id, tag, prerelease: release.prerelease, assets });
 }
 
-export function verifyChecksumAttestation(results, { repository, commitSha, checksumsPath }) {
+export function verifyChecksumAttestation(
+  results,
+  { repository, commitSha, checksumsPath, recovery },
+) {
   const digest = sha256(checksumsPath);
   const signer = `https://github.com/${repository}/.github/workflows/release.yml@`;
   const verified =
@@ -134,8 +199,13 @@ export function verifyChecksumAttestation(results, { repository, commitSha, chec
       return (
         certificate?.issuer === 'https://token.actions.githubusercontent.com' &&
         certificate.sourceRepositoryURI === `https://github.com/${repository}` &&
-        certificate.sourceRepositoryDigest === commitSha &&
-        certificate.buildSignerURI?.startsWith(signer) &&
+        certificate.sourceRepositoryDigest === (recovery?.workflowSha ?? commitSha) &&
+        (recovery
+          ? certificate.buildSignerURI === `${signer}${recovery.signerRef}` &&
+            certificate.buildSignerDigest === recovery.workflowSha &&
+            certificate.sourceRepositoryRef === recovery.signerRef &&
+            certificate.runInvocationURI === recovery.invocation
+          : certificate.buildSignerURI?.startsWith(signer)) &&
         verificationResult.statement?.subject?.some(
           (subject) => subject.name === 'SHA256SUMS.txt' && subject.digest?.sha256 === digest,
         )
@@ -300,6 +370,7 @@ function verifyUpdaterFeeds(dir, assetNames, artifacts, options, run) {
       dir,
       '--feed',
       path,
+      ...(options.updaterConfig ? ['--tauri-conf', options.updaterConfig] : []),
     ]);
   }
 }
@@ -347,6 +418,7 @@ export function verifyDraftDirectory(dir, release, options, run = runCommand) {
 
 export function verifyDraftRelease(options, run = runCommand) {
   validateOptions(options);
+  const recovery = loadRecoveryBuild(options, run);
   const endpoint = `repos/${options.repository}/releases/tags/${options.tag}`;
   const release = JSON.parse(run('gh', ['api', endpoint]));
   const fingerprint = draftFingerprint(release, options.tag);
@@ -377,8 +449,10 @@ export function verifyDraftRelease(options, run = runCommand) {
       'json',
     ]),
   );
-  verifyChecksumAttestation(attestation, { ...options, checksumsPath });
+  verifyChecksumAttestation(attestation, { ...options, checksumsPath, recovery });
   const result = verifyDraftDirectory(dir, release, options, run);
+  if (recovery && !isDeepStrictEqual(loadRecoveryBuild(options, run), recovery))
+    throw new Error('Recovery build attempt changed during verification');
   const current = JSON.parse(run('gh', ['api', endpoint]));
   if (draftFingerprint(current, options.tag) !== fingerprint)
     throw new Error(
@@ -398,6 +472,9 @@ export function parseArgs(argv) {
     'expect-signed',
     'require-updater',
     'dir',
+    'build-run-id',
+    'trusted-workflow-sha',
+    'tauri-conf',
   ]);
   const args = {};
   for (let i = 0; i < argv.length; i += 2) {
@@ -428,6 +505,9 @@ function main() {
     expectSigned: args['expect-signed'] === 'true',
     requireUpdater: args['require-updater'] === 'true',
     dir: args.dir,
+    buildRunId: args['build-run-id'],
+    trustedWorkflowSha: args['trusted-workflow-sha'],
+    updaterConfig: args['tauri-conf'],
   });
   process.stdout.write(
     `Verified ${result.installers} installers and ${result.assets} actual draft assets for ${result.commitSha}.\nDownloaded evidence: ${result.dir}\n`,

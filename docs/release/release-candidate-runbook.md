@@ -257,7 +257,8 @@ normal final checksum generation and artifact checks after resuming. The normal 
 performs signing, checksums, SBOM, provenance/attestation, naming, and draft
 integrity checks. Publishing remains a separate authorized dispatch. Its
 publish-only path downloads the actual draft again, authenticates the checksum
-attestation against the exact tag SHA, and verifies required package formats,
+attestation against the tag workflow or an explicitly verified recovery build,
+and verifies required package formats,
 policy-bound installer provenance, bytes, SBOM source/version, signing reports,
 installer-size reports and updater signatures. An asset inventory change during
 verification stops publication. The `release-publish` environment provides an
@@ -269,10 +270,35 @@ gh workflow run release.yml --ref v0.5.0 \
   -f tag=v0.5.0 -f platforms=all -f publish=yes
 ```
 
-Dispatch rebuilds from the immutable tag as well, so the workflow's attestation
-certificate records that source SHA. A later master workflow execution can
-carry a different certificate source digest even when its checkout uses the
-older tag; publication rejects that mismatch.
+For a normal tag build, its attestation certificate records the tag SHA.
+Recovery builds dispatched from `master` legitimately carry the workflow SHA
+in the certificate even though packaging checks out the older product tag.
+Publish such a draft from the repaired workflow with its explicit successful
+build run ID:
+
+```bash
+gh workflow run release.yml --ref master \
+  -f tag=v0.5.0 -f platforms=all -f publish=yes \
+  -f build_run_id=<successful-master-draft-build-run>
+```
+
+Publication tooling is pinned to `github.workflow_sha`; the updater public key
+still comes from the product tag. Recovery verification requires a successful
+`master` Release dispatch in this repository, and proves tag → build workflow
+→ publication workflow → accepted `master` ancestry through GitHub's API.
+The cryptographically verified certificate must identify that exact build
+workflow SHA, signer, master ref, run and attempt, and the downloaded checksum
+digest. Its authenticated checksum inventory then binds installer sidecars to
+the certified product tag and policy. Missing recovery inputs do not silently
+accept a different signer SHA. A newer build attempt or changed asset inventory
+during verification stops publication. No tag moves, certificate spoofing,
+custom predicate assertion, or broad acceptance of arbitrary master signatures
+is involved.
+
+The pinned attestation action uses GitHub's workflow OIDC claims, rather than
+the checked-out repository's HEAD, for source identity. See the official
+[attestation provenance implementation](https://github.com/actions/toolkit/blob/main/packages/attest/src/provenance.ts)
+and [Fulcio certificate identity fields](https://github.com/sigstore/fulcio/blob/main/pkg/identity/github/principal.go).
 
 The publish job emits the authenticated `varve-release-published` event only after
 GitHub reports the release as non-draft. The website workflow excludes the

@@ -30,6 +30,7 @@ import {
   verifyChecksumAttestation,
   verifyDraftDirectory,
   verifyDraftRelease,
+  verifyRecoveryBuild,
 } from './verify-draft-release.mjs';
 
 const options = {
@@ -172,7 +173,7 @@ function fixture(t) {
   return value;
 }
 
-function attestation(path, commitSha = options.commitSha) {
+function attestation(path, commitSha = options.commitSha, recovery) {
   return [
     {
       verificationResult: {
@@ -182,6 +183,14 @@ function attestation(path, commitSha = options.commitSha) {
             sourceRepositoryURI: `https://github.com/${options.repository}`,
             sourceRepositoryDigest: commitSha,
             buildSignerURI: `https://github.com/${options.repository}/.github/workflows/release.yml@refs/tags/v0.5.0`,
+            ...(recovery
+              ? {
+                  buildSignerURI: `https://github.com/${options.repository}/.github/workflows/release.yml@${recovery.signerRef}`,
+                  buildSignerDigest: recovery.workflowSha,
+                  sourceRepositoryRef: recovery.signerRef,
+                  runInvocationURI: recovery.invocation,
+                }
+              : {}),
           },
         },
         statement: {
@@ -213,14 +222,39 @@ function addUpdaterFeed(value, filename = 'varve-update-stable.json') {
   return feed;
 }
 
-function runner(value, { attestationSha, mutateSecondRead } = {}) {
+function runner(
+  value,
+  { attestationSha, mutateSecondRead, recoveryRun, mutateSecondRun, compare } = {},
+) {
   const calls = [];
   let reads = 0;
+  let buildReads = 0;
   const run = (command, args) => {
     calls.push([command, ...args]);
     if (command !== 'gh')
       return execFileSync(command, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
     if (args[0] === 'api') {
+      if (args[1].endsWith('/branches/master'))
+        return JSON.stringify({
+          name: 'master',
+          commit: { sha: recoveryOptions.trustedWorkflowSha },
+        });
+      if (args[1].includes('/actions/runs/')) {
+        buildReads += 1;
+        const build = structuredClone(recoveryRun);
+        if (buildReads === 2 && mutateSecondRun) mutateSecondRun(build);
+        return JSON.stringify(build);
+      }
+      if (args[1].includes('/compare/')) {
+        const base = args[1].split('/compare/')[1].split('...')[0];
+        return JSON.stringify(
+          compare ?? {
+            status: 'ahead',
+            base_commit: { sha: base },
+            merge_base_commit: { sha: base },
+          },
+        );
+      }
       reads += 1;
       const release = structuredClone(value.release);
       if (reads === 2 && mutateSecondRead) mutateSecondRead(release);
@@ -231,7 +265,13 @@ function runner(value, { attestationSha, mutateSecondRead } = {}) {
       return '';
     }
     if (args[0] === 'attestation' && args[1] === 'verify')
-      return JSON.stringify(attestation(args[2], attestationSha));
+      return JSON.stringify(
+        attestation(
+          args[2],
+          attestationSha,
+          recoveryRun ? verifyRecoveryBuild(recoveryRun, recoveryOptions) : undefined,
+        ),
+      );
     throw new Error('Unexpected GitHub mutation or command');
   };
   return { run, calls };
@@ -240,6 +280,132 @@ function runner(value, { attestationSha, mutateSecondRead } = {}) {
 test('actual complete draft passes existing byte, provenance, SBOM and signing validators', (t) => {
   const value = fixture(t);
   assert.equal(verifyDraftDirectory(value.dir, value.release, options).installers, 9);
+});
+
+const recoveryOptions = {
+  ...options,
+  buildRunId: '88',
+  trustedWorkflowSha: 'd'.repeat(40),
+};
+function recoveryBuild() {
+  return {
+    id: 88,
+    head_sha: 'c'.repeat(40),
+    head_branch: 'master',
+    head_repository: { full_name: options.repository },
+    path: '.github/workflows/release.yml',
+    event: 'workflow_dispatch',
+    html_url: `https://github.com/${options.repository}/actions/runs/88`,
+    run_attempt: 1,
+    status: 'completed',
+    conclusion: 'success',
+  };
+}
+
+test('recovery authenticates an explicit successful master build and retains exact tag provenance', (t) => {
+  const value = fixture(t);
+  const fake = runner(value, { recoveryRun: recoveryBuild(), attestationSha: 'c'.repeat(40) });
+  const result = verifyDraftRelease(recoveryOptions, fake.run);
+  t.after(() => rmSync(result.dir, { recursive: true, force: true }));
+  assert.equal(result.commitSha, options.commitSha);
+  assert.equal(result.installers, 9);
+  assert.equal(fake.calls.filter((call) => call[2]?.includes('/actions/runs/88')).length, 2);
+  assert.equal(fake.calls.filter((call) => call[2]?.includes('/compare/')).length, 6);
+});
+
+test('recovery refuses failed, pending, foreign, branch and mismatched run identities', () => {
+  for (const change of [
+    { id: 89 },
+    { head_branch: 'feature' },
+    { head_repository: { full_name: 'other/repo' } },
+    { path: '.github/workflows/ci.yml' },
+    { event: 'pull_request' },
+    { head_sha: '' },
+    { html_url: 'https://example.com/run' },
+    { run_attempt: 0 },
+    { status: 'in_progress' },
+    { conclusion: 'failure' },
+  ]) {
+    assert.throws(
+      () => verifyRecoveryBuild({ ...recoveryBuild(), ...change }, recoveryOptions),
+      /exact successful master Release run/,
+    );
+  }
+});
+
+test('recovery rejects diverged ancestry before downloading any release bytes', (t) => {
+  const value = fixture(t);
+  for (const comparison of [
+    { status: 'diverged' },
+    { status: 'behind' },
+    {
+      status: 'ahead',
+      base_commit: { sha: options.commitSha },
+      merge_base_commit: { sha: 'e'.repeat(40) },
+    },
+  ]) {
+    const fake = runner(value, { recoveryRun: recoveryBuild(), compare: comparison });
+    assert.throws(() => verifyDraftRelease(recoveryOptions, fake.run), /accepted master ancestry/);
+    assert.ok(!fake.calls.some((call) => call.includes('download')));
+  }
+});
+
+test('recovery certificate must bind the exact workflow digest, master ref and run attempt', (t) => {
+  const value = fixture(t);
+  const path = join(value.dir, 'SHA256SUMS.txt');
+  const recovery = verifyRecoveryBuild(recoveryBuild(), recoveryOptions);
+  const proof = attestation(path, recovery.workflowSha, recovery);
+  assert.doesNotThrow(() =>
+    verifyChecksumAttestation(proof, { ...options, checksumsPath: path, recovery }),
+  );
+  for (const key of [
+    'issuer',
+    'sourceRepositoryURI',
+    'sourceRepositoryDigest',
+    'buildSignerURI',
+    'buildSignerDigest',
+    'sourceRepositoryRef',
+    'runInvocationURI',
+  ]) {
+    const invalid = structuredClone(proof);
+    invalid[0].verificationResult.signature.certificate[key] = 'forged';
+    assert.throws(
+      () => verifyChecksumAttestation(invalid, { ...options, checksumsPath: path, recovery }),
+      /requested exact source SHA/,
+    );
+  }
+});
+
+test('recovery stops if a newer build attempt appears during verification', (t) => {
+  const value = fixture(t);
+  const dir = `${value.dir}-download`;
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const fake = runner(value, {
+    recoveryRun: recoveryBuild(),
+    attestationSha: 'c'.repeat(40),
+    mutateSecondRun: (build) => {
+      build.run_attempt = 2;
+    },
+  });
+  assert.throws(
+    () => verifyDraftRelease({ ...recoveryOptions, dir }, fake.run),
+    /Recovery build attempt changed/,
+  );
+});
+
+test('recovery input errors stop before GitHub execution', () => {
+  for (const change of [
+    { buildRunId: '0' },
+    { buildRunId: '9007199254740992' },
+    { trustedWorkflowSha: undefined },
+    { buildRunId: undefined },
+  ]) {
+    assert.throws(
+      () =>
+        verifyDraftRelease({ ...recoveryOptions, ...change }, () => assert.fail('GitHub called')),
+      /recovery build run ID|trusted publication workflow SHA/,
+    );
+  }
 });
 
 test('only read-only GitHub operations are used and assets are rechecked before returning', (t) => {
@@ -690,7 +856,8 @@ test('publish-only workflow verifies actual assets before changing draft=false',
   const text = readFileSync('.github/workflows/release.yml', 'utf8');
   const workflow = text.split('\n  publish:\n')[1];
   assert.ok(workflow);
-  const verifySteps = load(text).jobs.verify.steps;
+  const doc = load(text);
+  const verifySteps = doc.jobs.verify.steps;
   const selection = verifySteps.findIndex((step) => step.id === 'artifacts');
   const download = verifySteps.findIndex((step) =>
     step.uses?.startsWith('actions/download-artifact@'),
@@ -713,6 +880,28 @@ test('publish-only workflow verifies actual assets before changing draft=false',
     /group: release-\$\{\{ github\.event_name == 'workflow_dispatch' && inputs\.tag \|\| github\.ref_name \}\}/,
   );
   assert.match(workflow, /attestations: read/);
+  assert.equal(doc.jobs.publish.permissions.actions, 'read');
+  const publication = doc.jobs.publish.steps;
+  const tooling = publication.find(
+    (step) => step.name === 'Checkout workflow-pinned publication tooling',
+  );
+  assert.equal(tooling.with.ref, '$' + '{{ github.workflow_sha }}');
+  assert.equal(tooling.with.path, 'release-tooling');
+  assert.equal(tooling.with['sparse-checkout'].trim(), '/scripts/release/');
+  assert.equal(publication[0].with.ref, '$' + '{{ needs.preflight.outputs.tag }}');
+  assert.equal(
+    publication[0].with['sparse-checkout'].trim(),
+    '/apps/desktop/src-tauri/tauri.conf.json',
+  );
+  assert.match(workflow, /RECOVERY_BUILD_RUN_ID: \$\{\{ inputs\.build_run_id \}\}/);
+  assert.match(
+    workflow,
+    /--build-run-id "\$RECOVERY_BUILD_RUN_ID" --trusted-workflow-sha "\$TRUSTED_WORKFLOW_SHA"/,
+  );
+  assert.match(
+    workflow,
+    /--tauri-conf "\$GITHUB_WORKSPACE\/apps\/desktop\/src-tauri\/tauri\.conf\.json"/,
+  );
   assert.ok(workflow.indexOf('verify-draft-release.mjs') < workflow.indexOf('gh release edit'));
   assert.match(workflow, /--sha "\$RELEASE_SHA" --policy-hash "\$RELEASE_POLICY_HASH"/);
   assert.match(workflow, /--platforms "\$RELEASE_PLATFORMS"/);

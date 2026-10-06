@@ -146,7 +146,10 @@ Publication requires explicit authorization and fresh artifact verification:
    nothing in the pipeline auto-publishes.
 2. **Actual draft verification.** The publish job downloads a fresh copy of
    every draft asset. It authenticates `SHA256SUMS.txt` through the release
-   workflow's GitHub attestation and its certificate's exact source SHA, then
+   workflow's GitHub attestation and its certificate's exact source SHA. An
+   explicit recovery build additionally requires accepted master ancestry and
+   the certificate's exact workflow, ref, run and attempt; authenticated
+   installer sidecars retain the certified product tag and policy. It then
    checks the downloaded bytes, required package formats, policy-bound
    provenance, SBOMs, installer-size reports, platform signing labels and any
    updater signatures. Changed asset inventories fail before publication.

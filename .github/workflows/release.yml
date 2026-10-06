@@ -54,6 +54,11 @@ on:
         # Quote these values: YAML 1.1 treats bare `no`/`yes` as booleans,
         # which makes GitHub reject the documented `publish=yes` dispatch.
         options: ['no', 'yes']
+      build_run_id:
+        description: 'Successful master recovery build run that produced this draft (required for recovery publication)'
+        required: false
+        default: ''
+        type: string
       # Installer-size gate override. The gate compares the NSIS installer
       # against scripts/release/installer-size-baseline.json and blocks
       # unexplained growth (warn 1.2x / block 1.35x of expected). Provide a
@@ -1642,10 +1647,25 @@ jobs:
     permissions:
       contents: write
       attestations: read
+      actions: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ needs.preflight.outputs.tag }}
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /apps/desktop/src-tauri/tauri.conf.json
+
+      - name: Checkout workflow-pinned publication tooling
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: release-tooling
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /scripts/release/
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
@@ -1662,12 +1682,21 @@ jobs:
           RELEASE_PLATFORMS: ${{ github.event.inputs.platforms || 'all' }}
           EXPECT_SIGNED: ${{ vars.RELEASE_EXPECT_SIGNED || 'false' }}
           UPDATER_REQUIRED: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY != '' }}
+          RECOVERY_BUILD_RUN_ID: ${{ inputs.build_run_id }}
+          TRUSTED_WORKFLOW_SHA: ${{ github.workflow_sha }}
         run: |
-          node scripts/release/verify-draft-release.mjs \
+          set -euo pipefail
+          RECOVERY_ARGS=()
+          if [[ -n "$RECOVERY_BUILD_RUN_ID" ]]; then
+            RECOVERY_ARGS=(--build-run-id "$RECOVERY_BUILD_RUN_ID" --trusted-workflow-sha "$TRUSTED_WORKFLOW_SHA")
+          fi
+          node release-tooling/scripts/release/verify-draft-release.mjs \
             --repo "$RELEASE_REPOSITORY" --tag "$RELEASE_TAG" \
             --sha "$RELEASE_SHA" --policy-hash "$RELEASE_POLICY_HASH" \
             --channel "$RELEASE_CHANNEL" --platforms "$RELEASE_PLATFORMS" \
             --expect-signed "$EXPECT_SIGNED" --require-updater "$UPDATER_REQUIRED" \
+            --tauri-conf "$GITHUB_WORKSPACE/apps/desktop/src-tauri/tauri.conf.json" \
+            "${RECOVERY_ARGS[@]}" \
             --dir "$RUNNER_TEMP/publish-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
 
       - name: Publish the draft

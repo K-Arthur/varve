@@ -55,6 +55,7 @@ The following failures were pipeline defects with concrete evidence:
 | [Release 37452062493](https://github.com/K-Arthur/varve/actions/runs/37452062493): preflight rejected a successful candidate | The verifier expected an Actions run URL; GitHub normalized the API-created check URL to a check ID | Bind the trusted check using its run/attempt `external_id` and validate its producer and artifact independently. Tests retain rejection of wrong source, workflow, attempt, policy, and expired evidence. |
 | Existing immutable `v0.5.0` tag still executed its old verifier | Release preflight checked out product source and used its orchestration tools | A recovery dispatch pins the verifier to the dispatched workflow SHA, while the version, product bytes, certification SHA and policy remain pinned to the tag. Source-isolation guards cover preflight, the repeated gate, and package checkout. |
 | [Recovery 37492438307](https://github.com/K-Arthur/varve/actions/runs/37492438307): certified-source gate timed out during Git fetch | A dependency-free policy job fetched the entire approximately 425 MB tracked source tree inside a five-minute budget | Certification and signing policy jobs use sparse checkout for their complete script dependency closure. A disposable minimal-checkout fixture executes signing resolution; package jobs retain the complete tagged source. |
+| Recovery publication boundary | GitHub's certificate identifies the master workflow revision, while the publication verifier required the checked-out product tag SHA | Explicitly select the successful recovery build; verify accepted ancestry and the certificate's exact workflow SHA, ref, run, attempt and checksum digest. Authenticated sidecars independently retain the certified tag and policy. Negative controls reject forged identity, diverged ancestry and changed attempts. Publication tooling comes from the workflow; updater configuration remains tagged. |
 
 Candidate planning also rejects a workflow revision different from the input
 source SHA. Otherwise a newer workflow can execute settings that the frozen
@@ -75,8 +76,11 @@ matrix or prune artifacts simply because one shard failed.
 
 Sparse checkout uses the pinned action's documented
 [file selection](https://github.com/actions/checkout#fetch-only-a-single-file).
-It reduces policy-job fetch inputs; hosted timing after the repair must establish
-the actual gain. Product preflight initially selects release scripts, the nine
+It reduces policy-job fetch inputs. In [recovery 37494786272](https://github.com/K-Arthur/varve/actions/runs/37494786272),
+the certified-source checkout took three seconds and exact certification
+verification took 25 seconds; the previous gate timed out fetching source
+after five minutes. This measures that job boundary, not total release speed.
+Product preflight initially selects release scripts, the nine
 version manifests and changelog, then materializes every `POLICY_FILES` input
 from the tagged policy module before hashing. A minimal-checkout fixture checks
 version/changelog and proves hash equality with a complete worktree. Full Git

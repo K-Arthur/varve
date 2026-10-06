@@ -51,7 +51,7 @@ automation dependencies and runs on each matching native runner:
 | `report-installer-size.mjs` | Decompose NSIS installers (7-Zip), compare against `installer-size-baseline.json`, warn/block on unexplained growth, emit the per-release size report (override: `--override-reason`, wired to the `size_gate_override` dispatch input) |
 | `merge-manifests.mjs` | Merge per-runner manifests (and signing reports), re-hashing from bytes on disk |
 | `verify-artifacts.mjs` | Verify the exact files about to be uploaded |
-| `verify-draft-release.mjs` | Authenticate the actual draft's checksum attestation against the certified source SHA, then recheck every downloaded asset and its release contract before explicit publication |
+| `verify-draft-release.mjs` | Authenticate draft checksums against the tag workflow or an explicit accepted-master recovery build; independently verify certified-tag installer provenance and every downloaded asset before publication |
 | `signing-policy.mjs` | The signing rules: channel policy, secret-presence checks, report normalization, fail-closed trust verification |
 | `resolve-signing-policy.mjs` | CLI used by `signing-preflight`; consumes presence booleans only, prints per-platform modes |
 | `verify-release-trust.mjs` | The trust gate: merge manifests + signing reports, enforce the channel policy, fail closed |
