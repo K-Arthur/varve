@@ -31,7 +31,9 @@ jobs:
   changes:
     name: Change lanes
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    # Full Git ancestry is required; historical binary blobs are not. Allow
+    # bounded cold checkout time before the dependency-free planner starts.
+    timeout-minutes: 15
     outputs:
       js: ${{ steps.lanes.outputs.js }}
       rust: ${{ steps.lanes.outputs.rust }}
@@ -63,6 +65,7 @@ jobs:
           # in scheduled/manual runs. The generated plan records and validates
           # the exact commit that this checkout resolves to.
           fetch-depth: 0
+          filter: blob:none
       - id: lanes
         env:
           EVENT_NAME: ${{ github.event_name }}

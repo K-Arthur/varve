@@ -105,6 +105,7 @@ jobs:
           # the default branch, which needs real ancestry (a depth-1 clone
           # would reject every valid release tag).
           fetch-depth: 0
+          filter: blob:none
           persist-credentials: false
 
       - name: Resolve tag, version and channel

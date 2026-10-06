@@ -79,6 +79,16 @@ It reduces policy-job fetch inputs; hosted timing after the repair must establis
 the actual gain. Full-history product preflight still verifies tag ancestry and
 the tag's complete policy hash, and native packaging still receives full source.
 
+The first repair's [integration planner](https://github.com/K-Arthur/varve/actions/runs/37492370661)
+also exhausted its five-minute deadline inside full-history Git fetch, before
+running selection. Integration/candidate planning and product preflight now
+use a `blob:none` partial clone with full ancestry and a complete head worktree.
+This avoids transferring historical binary blobs; it does not omit current
+source, change path selection, or replace ancestry validation with a shallow
+clone. Planning jobs allow 15 minutes for a bounded cold checkout; browser and
+assertion deadlines are unchanged. Verify hosted checkout and planner timings
+separately before claiming a measured speedup.
+
 ## Measured cross-platform duplication
 
 The exact-SHA `Build + Package` run on 2026-10-03 ran the same host-independent

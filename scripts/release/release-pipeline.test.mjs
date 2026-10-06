@@ -56,6 +56,16 @@ const strictBrowserFlags = STRICT_BROWSER_FLAGS;
   const jobs = load(releaseWorkflow).jobs;
   const steps = jobs.preflight.steps;
   assert.equal(steps[0].with.ref, expression('inputs.tag || github.ref'));
+  assert.equal(steps[0].with['fetch-depth'], 0);
+  assert.equal(steps[0].with.filter, 'blob:none');
+  for (const source of [candidateWorkflow, integrationWorkflow]) {
+    const planner = load(source).jobs.changes;
+    const checkout = planner.steps.find((step) => step.uses?.startsWith('actions/checkout'));
+    assert.equal(checkout.with['fetch-depth'], 0, 'planning retains all source ancestry');
+    assert.equal(checkout.with.filter, 'blob:none', 'avoid fetching unrelated historical blobs');
+    assert.equal(checkout.with['sparse-checkout'], undefined, 'planner retains its full worktree');
+    assert.equal(planner['timeout-minutes'], 15);
+  }
   const tooling = steps.find((step) => step.name === 'Check out workflow certification tooling');
   assert.equal(tooling.with.ref, expression('github.workflow_sha'));
   assert.equal(tooling.with.path, 'release-tooling');
