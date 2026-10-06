@@ -16,6 +16,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { load } from 'js-yaml';
 import ts from 'typescript';
+import { STRICT_BROWSER_FLAGS } from '../quality/browser-execution-policy.mjs';
 import { localBrowserLanes } from '../quality/full-gate-execution.mjs';
 import { FULL_BROWSER_SHARDS } from '../quality/validation-policy.mjs';
 import '../website/demo-dist-validation.test.mjs';
@@ -38,13 +39,7 @@ const visualWorkflow = readFileSync('.github/workflows/visual-baselines.yml', 'u
 const candidateWorkflow = readFileSync('.github/workflows/release-candidate.yml', 'utf8');
 const integrationWorkflow = readFileSync('.github/workflows/ci.yml', 'utf8');
 const verifierSource = readFileSync('scripts/quality/verify.mjs', 'utf8');
-const strictBrowserFlags = [
-  '--workers=1',
-  '--retries=0',
-  '--update-snapshots=none',
-  '--fail-on-flaky-tests',
-  '--trace=retain-on-failure',
-];
+const strictBrowserFlags = STRICT_BROWSER_FLAGS;
 // A published tag is immutable, but a workflow dispatch can recover broken
 // release orchestration. Keep the repaired verifier tied to the workflow SHA
 // and every product/policy identity tied to the approved tag.

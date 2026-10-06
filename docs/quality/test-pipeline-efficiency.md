@@ -27,10 +27,10 @@ from runner queue time and external startup failures.
    broader selection. An infrastructure escalation is not permission to spend
    hours on a serial browser run before pushing the same candidate.
 2. **Hosted integration:** normal pushes use bounded local checks and explicit
-   remote deferrals. Complete Chromium validation uses the policy's **16
-   single-worker shards**, approximately 119 cases each at the measured count.
+   remote deferrals. Complete Chromium validation uses the policy's **24
+   single-worker shards**, approximately 79 cases each at the 1,907-case checkpoint.
    `fullyParallel` distributes individual cases. This reduces the nominal case
-   share; it does not promise equal runtimes or a measured 16-fold speedup.
+   share; it does not promise equal runtimes or a measured 24-fold speedup.
 3. **Candidate:** freeze one accepted `master` SHA. Final certification requires
    its integration evidence and the candidate platform, visual, native, and
    runtime requirements. A triage report cannot certify a candidate.
@@ -39,10 +39,38 @@ from runner queue time and external startup failures.
    offline execution requires `--local`; browser shards have separate receipts,
    and `--local --resume` retains only unchanged, complete lanes.
 5. **Failure recovery:** release browser runs have zero retries, no automatic
-   snapshot updates, retained failure traces, and a five-failure bound. A red
-   run stops wasting time; a green run must execute its complete selection.
+   snapshot updates, and retained failure traces. Triage stops after five
+   failures per cell; final mode reports the complete failure set. A green run
+   must execute its complete selection.
    Rerun failed hosted cells at the original SHA after diagnosing the cause.
    Source repairs require a new SHA. Aggregation uses the latest cell attempt.
+
+## October 6 orchestration failures and repairs
+
+The following failures were pipeline defects with concrete evidence:
+
+| Evidence | Cause | Repair and regression coverage |
+| --- | --- | --- |
+| [Candidate 37453733595](https://github.com/K-Arthur/varve/actions/runs/37453733595): browser commands passed, all browser receipts failed | Final commands enabled one retry and omitted flaky-failure enforcement, contradicting receipt policy | Restore strict execution. Commands, receipt checks, and workflow guards share `browser-execution-policy.mjs`. Workflow validation rejects missing or conflicting flags before downstream browser jobs start. Negative controls cover the observed retry change and duplicate overrides. |
+| [Release 37452062493](https://github.com/K-Arthur/varve/actions/runs/37452062493): preflight rejected a successful candidate | The verifier expected an Actions run URL; GitHub normalized the API-created check URL to a check ID | Bind the trusted check using its run/attempt `external_id` and validate its producer and artifact independently. Tests retain rejection of wrong source, workflow, attempt, policy, and expired evidence. |
+| Existing immutable `v0.5.0` tag still executed its old verifier | Release preflight checked out product source and used its orchestration tools | A recovery dispatch pins the verifier to the dispatched workflow SHA, while the version, product bytes, certification SHA and policy remain pinned to the tag. Source-isolation guards cover preflight, the repeated gate, and package checkout. |
+
+Candidate planning also rejects a workflow revision different from the input
+source SHA. Otherwise a newer workflow can execute settings that the frozen
+source does not describe, and its producer identity cannot satisfy exact-source
+certification. Freeze accepted `master` before dispatch and keep it stable while
+the final candidate runs. Release recovery is separately supported because it
+verifies an already-certified immutable product tag.
+
+There is no need to delete old receipts to make a failed-job rerun pass.
+Aggregation groups receipts by lane, matrix and shard, retains untouched green
+cells from earlier attempts in the same run, and selects the newest execution
+for each rerun cell. A newer failure cannot fall back to an older success.
+Duplicate current receipts, missing inventory, or source/policy drift fail
+certification. These cases have fixture regression tests in `aggregate-ci.test.mjs`.
+Use `gh run rerun <run-id> --failed` after diagnosing a same-source failure;
+source repairs receive a new SHA and new evidence. Do not restart the entire
+matrix or prune artifacts simply because one shard failed.
 
 ## Measured cross-platform duplication
 
@@ -97,7 +125,7 @@ cases, missing projects, altered inventories, runner errors, retries, incomplete
 results, and entirely skipped selections. Existing optional model/hardware
 boundaries need stated reasons; unexplained skips cannot silently pass.
 Discovery and receipts reject dirty source. The shard count is part of the plan
-hash, so eight green jobs cannot satisfy the sixteen-shard policy.
+hash, so eight or sixteen green jobs cannot satisfy the twenty-four-shard policy.
 
 Normal screenshot tests write inside their own test output. Canonical product
 captures require an explicit capture destination and reviewed promotion.

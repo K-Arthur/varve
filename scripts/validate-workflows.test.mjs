@@ -8,8 +8,9 @@
  */
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { load } from 'js-yaml';
 import { browserEvidenceErrors } from './quality/ci-execution-report.mjs';
 
 function baselineBash(platform = process.platform, environment = process.env) {
@@ -96,6 +97,43 @@ assert.match(
   validateWorkflowStructure(RUST_TOOLCHAIN_BAD, 'rust.yml').errors[0],
   /with\.toolchain/,
 );
+
+// Reproduce the October 6 run that passed browser commands but rejected every
+// receipt. Policy drift must now stop the preflight before any shard starts.
+{
+  const candidate = readFileSync('.github/workflows/release-candidate.yml', 'utf8');
+  assert.deepEqual(validateVarveRules(candidate, 'release-candidate.yml'), []);
+  for (const change of [
+    (source) => source.replace('--retries=0', '--retries=1'),
+    (source) => source.replace('--fail-on-flaky-tests ', ''),
+    (source) => source.replace('--workers=1', '--workers=1 --workers=2'),
+    (source) => source.replace('--update-snapshots=none', '--update-snapshots=all'),
+    (source) => source.replace('--trace=retain-on-failure', '--trace=off'),
+  ]) {
+    assert.ok(
+      validateVarveRules(change(candidate), 'release-candidate.yml').some((error) =>
+        error.includes('certified browser command requires exactly one'),
+      ),
+      'a contradictory command must fail preflight',
+    );
+  }
+  const expression = (value) => `\${{ ${value} }}`;
+  const plan = load(candidate).jobs.changes.steps.find((step) => step.id === 'plan').run;
+  const inertPlan = plan.replaceAll(expression('inputs.mode'), 'final');
+  const sha = 'a'.repeat(40);
+  for (const workflowSha of [sha, 'b'.repeat(40)]) {
+    const result = runInertBaselineShell(inertPlan, {
+      ...process.env,
+      VARVE_TEST_SOURCE_SHA: sha,
+      EXPECTED_SHA: sha,
+      WORKFLOW_SHA: workflowSha,
+      GITHUB_OUTPUT: 'unused-inert-output',
+    });
+    assert.equal(result.phaseError, null);
+    assert.equal(result.status, workflowSha === sha ? 0 : 1);
+    assert.equal(result.argv.length > 0, workflowSha === sha, 'mismatch must stop before planning');
+  }
+}
 
 const RELEASE_GOOD = `name: Release
 on:

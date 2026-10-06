@@ -4,6 +4,10 @@ import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import {
+  certifiedBrowserCommandErrors,
+  STRICT_BROWSER_FLAGS,
+} from './browser-execution-policy.mjs';
 
 const yaml = createRequire(import.meta.url)('js-yaml');
 const root = process.env.VARVE_BROWSER_LEASE_WORKFLOW_ROOT
@@ -42,13 +46,7 @@ function browserCalls(workflow) {
   );
 }
 
-const strictFlags = [
-  '--workers=1',
-  '--retries=0',
-  '--update-snapshots=none',
-  '--fail-on-flaky-tests',
-  '--trace=retain-on-failure',
-];
+const strictFlags = STRICT_BROWSER_FLAGS;
 
 for (const [index, path] of paths.entries()) {
   test(`${path}: every direct browser command uses the lease and retains strict execution`, () => {
@@ -56,6 +54,7 @@ for (const [index, path] of paths.entries()) {
     assert.equal(calls.length, index === 0 ? 4 : 8, 'Cover every existing direct branch');
     for (const { command } of calls) {
       for (const flag of strictFlags) assert.ok(command.split(/\s+/).includes(flag), flag);
+      assert.deepEqual(certifiedBrowserCommandErrors(command), []);
     }
   });
 }

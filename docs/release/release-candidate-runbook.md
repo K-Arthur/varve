@@ -107,10 +107,12 @@ After the exact `master` SHA is frozen, request final certification:
 ```bash
 SHA="$(git rev-parse origin/master)"
 pnpm release:certify -- --sha "$SHA" --mode final
-gh workflow run release-candidate.yml -f sha="$SHA" -f mode=final
+gh workflow run release-candidate.yml --ref master -f sha="$SHA" -f mode=final
 ```
 
-The candidate workflow requires the SHA to be reachable from `master`. A
+The candidate workflow requires the SHA to be reachable from `master` and the
+dispatched workflow revision to match that SHA. Keep accepted `master` frozen
+before dispatch; a mismatch fails planning before expensive jobs start. A
 `triage` dispatch deliberately skips the prior integration-certification
 prerequisite and produces a bounded, non-certifying failure report so it can
 help diagnose a red integration run. A `final` dispatch runs the prior exact-

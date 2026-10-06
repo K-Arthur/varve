@@ -45,6 +45,7 @@ export const POLICY_FILES = [
   'scripts/quality/ci-plan.mjs',
   'scripts/quality/ci-run-lanes.mjs',
   'scripts/quality/ci-execution-report.mjs',
+  'scripts/quality/browser-execution-policy.mjs',
   'scripts/quality/browser-inventory.mjs',
   'scripts/quality/full-gate-execution.mjs',
   'scripts/quality/run-demo-dist-e2e.mjs',

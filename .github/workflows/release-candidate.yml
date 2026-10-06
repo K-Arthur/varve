@@ -53,10 +53,15 @@ jobs:
       - id: plan
         env:
           EXPECTED_SHA: ${{ inputs.sha }}
+          WORKFLOW_SHA: ${{ github.workflow_sha }}
         run: |
           set -euo pipefail
           ACTUAL_SHA="$(git rev-parse --verify 'HEAD^{commit}')"
           test "$ACTUAL_SHA" = "$EXPECTED_SHA"
+          if [[ "$ACTUAL_SHA" != "$WORKFLOW_SHA" ]]; then
+            echo "::error::Candidate source and workflow revision differ. Dispatch from the frozen master SHA; do not combine newer orchestration with older candidate policy."
+            exit 1
+          fi
           git merge-base --is-ancestor "$ACTUAL_SHA" origin/master
           node scripts/quality/ci-plan.mjs --base "$ACTUAL_SHA" --head "$ACTUAL_SHA" \
             --force-full --profile candidate --mode "${{ inputs.mode }}" \

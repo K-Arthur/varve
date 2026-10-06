@@ -16,6 +16,7 @@ import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { redactSensitive } from '../ci/failure-manifest.mjs';
+import { CERTIFIED_BROWSER_POLICY } from './browser-execution-policy.mjs';
 import { browserCaseId, inventoryCoverageErrors, inventoryErrors } from './browser-inventory.mjs';
 
 export const EXECUTION_REPORT_SCHEMA = 1;
@@ -94,16 +95,16 @@ function browserCaseHistoryErrors(report) {
     errors.push('invalid browser counts');
   else if (stats.unexpected || stats.flaky) errors.push('unexpected or flaky browser cases');
   if (
-    report?.runner?.workers !== 1 ||
-    report?.runner?.updateSnapshots !== 'none' ||
-    report?.runner?.failOnFlakyTests !== true ||
-    report?.runner?.trace !== 'retain-on-failure'
+    report?.runner?.workers !== CERTIFIED_BROWSER_POLICY.workers ||
+    report?.runner?.updateSnapshots !== CERTIFIED_BROWSER_POLICY.updateSnapshots ||
+    report?.runner?.failOnFlakyTests !== CERTIFIED_BROWSER_POLICY.failOnFlakyTests ||
+    report?.runner?.trace !== CERTIFIED_BROWSER_POLICY.trace
   )
     errors.push('browser execution policy drift');
   if (
     !Array.isArray(report?.runner?.projects) ||
     !report.runner.projects.length ||
-    report.runner.projects.some((project) => project?.retries !== 0)
+    report.runner.projects.some((project) => project?.retries !== CERTIFIED_BROWSER_POLICY.retries)
   )
     errors.push('browser retry policy drift');
   if (!Number.isSafeInteger(report?.globalErrorCount) || report.globalErrorCount !== 0)

@@ -8,6 +8,9 @@ records retained/deleted files, outgoing-history checks, Dependabot disposition,
 and the generated Flatpak source inventory. It does not certify release
 artifacts; the exact-SHA candidate and publishing gates below still apply.
 
+The [0.5.0 execution log](0.5.0-release-execution.md) records the immutable
+product tag, remote evidence, pipeline recovery and remaining publication checks.
+
 | Document | What it answers |
 |---|---|---|
 | [release-readiness-audit.md](release-readiness-audit.md) | Can this repository ship today? Evidence-backed findings, severity scorecard, and Phase 1 command results |

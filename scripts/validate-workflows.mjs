@@ -16,6 +16,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { isMainModule } from './is-main-module.mjs';
+import { certifiedBrowserCommandErrors } from './quality/browser-execution-policy.mjs';
 
 const require = createRequire(import.meta.url);
 
@@ -266,6 +267,9 @@ function validateVarveRules(content, filename) {
 
   const stepBlocks = extractStepBlocks(content);
 
+  if (name === 'ci.yml' || name === 'release-candidate.yml')
+    errors.push(...validateCertifiedBrowserCommands(stepBlocks, name));
+
   if (name === 'release.yml') {
     const gateSteps = stepBlocks.gate ?? [];
     // Release no longer repeats ordinary JS/Rust certification: the exact-SHA
@@ -347,6 +351,24 @@ function validateVarveRules(content, filename) {
     }
   }
 
+  return errors;
+}
+
+function validateCertifiedBrowserCommands(stepBlocks, name) {
+  const errors = [];
+  for (const [job, steps] of Object.entries(stepBlocks)) {
+    for (const step of steps) {
+      for (const line of step.run.split('\n')) {
+        if (!/\bpnpm (?:exec playwright test|e2e:visual)\b/.test(line) || /--list\b/.test(line))
+          continue;
+        errors.push(
+          ...certifiedBrowserCommandErrors(line).map(
+            (error) => `${name} ${job}/${step.name}: ${error}`,
+          ),
+        );
+      }
+    }
+  }
   return errors;
 }
 

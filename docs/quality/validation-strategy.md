@@ -164,11 +164,12 @@ choice for offline or native debugging and cannot be combined with `--remote`
 or `--status`. Local browser shards have independent receipts so a failed
 shard does not discard passed shards at unchanged inputs.
 
-The policy currently requires 16 complete Chromium shards. Discovery and
+The policy currently requires 24 complete Chromium shards. Discovery and
 aggregation verify their exact, disjoint case inventory; a shard count alone
 cannot certify coverage. Release browser runs use no retries or snapshot
-updates and stop after five failures, while complete green coverage remains
-required. See [test pipeline efficiency](test-pipeline-efficiency.md) for the
+updates. Triage stops after five failures per cell; final candidate mode reports
+the complete failure set. Complete green coverage remains required. See
+[test pipeline efficiency](test-pipeline-efficiency.md) for the
 measurement, isolation rules, recovery procedure, and research-backed limits
 on further reuse and pruning.
 
@@ -535,7 +536,7 @@ Ordinary app browser actions have a 45-second deadline, separate from the
 180-second test budget and 10-second assertion deadline. Cold navigation and
 real model inference retain their explicit longer deadlines. A missing control
 must surface as an action failure rather than consuming the entire test budget
-on every retry. Use zero retries for bounded discovery of deterministic
-failures; retain the final gate's retry policy and review reported flaky passes.
+on repeated attempts. Both triage and final certification use zero retries;
+diagnose the original failure before a targeted same-source job rerun.
 Playwright documents these independent budgets in its
 [timeout reference](https://playwright.dev/docs/test-timeouts).

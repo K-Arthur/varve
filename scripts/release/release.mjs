@@ -131,7 +131,9 @@ export function certify({ sha = head(), mode = 'final' } = {}) {
   if (!cleanState()) throw new Error('release:certify requires a clean worktree');
   console.log(`Candidate ${mode} request for exact SHA ${sha}`);
   console.log(`Policy: ${POLICY_VERSION} (${computePolicyHash({ root: ROOT })})`);
-  console.log(`Run: gh workflow run release-candidate.yml -f sha=${sha} -f mode=${mode}`);
+  console.log(
+    `Run: gh workflow run release-candidate.yml --ref master -f sha=${sha} -f mode=${mode}`,
+  );
   console.log(
     'This command only prints the remote certification request; it does not create a tag.',
   );
