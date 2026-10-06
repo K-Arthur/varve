@@ -180,6 +180,21 @@ async function listChecks(owner, name, commitSha, token) {
   throw new Error('Exact-SHA check history exceeds the certification pagination limit');
 }
 
+/**
+ * GitHub rewrites an API-created check-run's `details_url` to
+ * `https://github.com/<owner>/<repo>/runs/<check_run_id>`, which carries no run
+ * id. That form is trusted; any other unparsable URL is not.
+ */
+function isNormalisedCheckUrl(check, repo) {
+  try {
+    const url = new URL(check.details_url);
+    if (url.origin !== 'https://github.com' || url.search || url.hash) return false;
+    return new RegExp(`^/${repo}/runs/[1-9]\\d*$`, 'i').test(url.pathname);
+  } catch {
+    return false;
+  }
+}
+
 function checkDetails(check, repo) {
   try {
     const url = new URL(check.details_url);
@@ -202,10 +217,10 @@ function checkDetails(check, repo) {
 async function bindSuccessfulCheck(check, { repo, commitSha, token, kind }) {
   if (!check) return null;
   const details = checkDetails(check, repo);
-  if (!details?.runId) return null;
+  let runId = details?.runId ?? null;
   let runAttempt;
   if (kind === 'integration') {
-    if (!details.jobId) return null;
+    if (!details?.runId || !details.jobId) return null;
     const job = await githubJson(`/repos/${repo}/actions/jobs/${details.jobId}`, token);
     if (
       job.id !== details.jobId ||
@@ -220,15 +235,24 @@ async function bindSuccessfulCheck(check, { repo, commitSha, token, kind }) {
       return null;
     runAttempt = positiveId(job.run_attempt);
   } else {
+    // GitHub normalises an API-created check-run's details_url to
+    // https://github.com/<owner>/<repo>/runs/<check_run_id>, which carries no run
+    // id at all. Requiring a parsable /actions/runs/ URL therefore rejected
+    // every candidate certification and no release could ever preflight. Accept
+    // that exact normalised form (and only it) and read the run from the
+    // external_id, cross-checking the URL whenever it does parse.
+    if (!details && !isNormalisedCheckUrl(check, repo)) return null;
     const identity = String(check.external_id ?? '').match(/^([1-9]\d*):([1-9]\d*)$/);
-    if (details.jobId || !identity || positiveId(identity[1]) !== details.runId) return null;
+    if (!identity || details?.jobId) return null;
+    if (details?.runId && positiveId(identity[1]) !== details.runId) return null;
+    runId = positiveId(identity[1]);
     runAttempt = positiveId(identity[2]);
   }
-  if (!runAttempt) return null;
-  const run = await githubJson(`/repos/${repo}/actions/runs/${details.runId}`, token);
+  if (!runId || !runAttempt) return null;
+  const run = await githubJson(`/repos/${repo}/actions/runs/${runId}`, token);
   const workflow = kind === 'integration' ? 'ci.yml' : 'release-candidate.yml';
   if (
-    run.id !== details.runId ||
+    run.id !== runId ||
     run.head_sha !== commitSha ||
     run.run_attempt !== runAttempt ||
     run.status !== 'completed' ||
@@ -237,7 +261,7 @@ async function bindSuccessfulCheck(check, { repo, commitSha, token, kind }) {
     !Number.isFinite(Date.parse(run.run_started_at))
   )
     return null;
-  return { runId: details.runId, runAttempt, runStartedAt: run.run_started_at };
+  return { runId, runAttempt, runStartedAt: run.run_started_at };
 }
 
 export async function verifyRemoteCertification({

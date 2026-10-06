@@ -278,6 +278,27 @@ assert.equal(certified.result.ok, true);
 assert.deepEqual(certified.result.integrationBinding, integrationBinding);
 assert.deepEqual(certified.result.candidateBinding, candidateBinding);
 assert.ok(certified.calls.some((url) => url.includes('filter=all&app_id=15368')));
+
+// GitHub normalises an API-created check-run's details_url to
+// https://github.com/<owner>/<repo>/runs/<check_run_id>, which carries no run id.
+// Requiring a parsable /actions/runs/ URL rejected every candidate
+// certification, so no release could ever preflight. The external_id
+// <run_id>:<run_attempt> binding must resolve the run on its own.
+const normalisedDetails = await remoteResult({
+  checks: [
+    integrationCheck,
+    makeCheck(CANDIDATE_CHECK_NAME, sha, 302, {
+      details_url: `https://github.com/${repo}/runs/302`,
+      external_id: '18:3',
+    }),
+  ],
+});
+assert.equal(
+  normalisedDetails.result.ok,
+  true,
+  'a normalised details_url must still bind the candidate run via external_id',
+);
+assert.deepEqual(normalisedDetails.result.candidateBinding, candidateBinding);
 assert.ok(certified.calls.some((url) => url.endsWith('/actions/jobs/300')));
 
 for (const overrides of [
