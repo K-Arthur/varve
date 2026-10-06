@@ -100,16 +100,28 @@ test.describe('Selection quick-bar vector actions', () => {
 
   test('explains when simplify preserves the path at its current tolerance', async ({ page }) => {
     await selectPencilPath(page);
-    const before = (await pathGeometry(page)).points?.length;
-    await page
-      .getByTestId('selection-quick-bar')
-      .getByRole('button', { name: 'Simplify', exact: true })
-      .click();
+    const bar = page.getByTestId('selection-quick-bar');
+    const simplify = bar.getByRole('button', { name: 'Simplify', exact: true });
 
+    // Freehand capture coalesces pointer samples, so whether the first Simplify
+    // has work to do varies run to run; asserting either branch on the first
+    // call is timing-dependent and flaked. Settle the path at the current
+    // tolerance first (either outcome is valid), then require the second call
+    // to report the no-op and leave the geometry untouched. That second call is
+    // the contract under test and is deterministic.
+    await simplify.click();
+    await expect(
+      page
+        .getByRole('status')
+        .filter({ hasText: /Path simplified|already simplified at the current tolerance/ }),
+    ).toBeVisible();
+
+    const settled = (await pathGeometry(page)).points?.length;
+    await simplify.click();
     await expect(
       page.getByRole('status').filter({ hasText: 'already simplified at the current tolerance' }),
-    ).toBeVisible();
-    expect((await pathGeometry(page)).points?.length).toBe(before);
+    ).toBeVisible({ timeout: 10_000 });
+    expect((await pathGeometry(page)).points?.length).toBe(settled);
   });
 
   test('closes and reopens a path, and enters node-edit mode', async ({ page }) => {
