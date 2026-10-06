@@ -8,6 +8,7 @@ import { homedir } from 'node:os';
 import { isAbsolute, join, relative, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { captureDomFailure } from './failure-evidence.mjs';
+import { clickNativeQuickExport } from './native-export-controls.mjs';
 import { assertRetainedDocument } from './retained-document.mjs';
 
 const { values: v } = parseArgs({
@@ -257,8 +258,7 @@ try {
     for (const format of ['PNG', 'SVG', 'PDF']) {
       const target = join(out, `native-export.${format.toLowerCase()}`);
       await destination(target);
-      await page.getByRole('radio', { name: format, exact: true }).click();
-      await page.getByRole('button', { name: /download/i }).click();
+      await clickNativeQuickExport(page, format);
       const bytes = await until(() => {
         const b = readFileSync(target);
         return b.length > 100 && b;

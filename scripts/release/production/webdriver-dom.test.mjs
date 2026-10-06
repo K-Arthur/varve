@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import vm from 'node:vm';
 import { captureDomFailure } from './failure-evidence.mjs';
+import { NATIVE_QUIT_NAME } from './native-quit.mjs';
 import { productionDomPage } from './webdriver-dom.mjs';
 
 const { JSDOM } = createRequire(join(process.cwd(), 'packages/editor/package.json'))('jsdom');
@@ -85,6 +86,32 @@ assert.equal(
   clickError.message,
 );
 assert.equal(processExitObserved, true);
+
+// Retain the published Linux menu structure observed in hosted failure evidence:
+// its name includes the visible shortcut, unlike the old exact-label fixture.
+const menu = dom.window.document.createElement('div');
+menu.setAttribute('role', 'menu');
+menu.innerHTML =
+  '<button id="native-quit" role="menuitem"><span>Quit Varve</span> <span>Ctrl+Q</span></button><button role="menuitem">Quit Varve unexpectedly</button>';
+dom.window.document.body.append(menu);
+for (const element of [menu, ...menu.querySelectorAll('*')])
+  element.getBoundingClientRect = () => ({ x: 0, y: 0, width: 10, height: 10 });
+await assert.rejects(
+  page.getByRole('menu').getByRole('menuitem', { name: 'Quit Varve', exact: true }).click(),
+  /got 0/,
+  'the prior exact label reproduces the actual shortcut-bearing menu failure',
+);
+processExitObserved = false;
+await page
+  .getByRole('menu')
+  .getByRole('menuitem', { name: NATIVE_QUIT_NAME })
+  .clickAndWaitForExit(async () => {
+    processExitObserved = true;
+  });
+assert.equal(clicked.at(-1), 'native-quit');
+assert.equal(processExitObserved, true);
+for (const wrong of ['Quit Varve unexpectedly', 'Quit Varve Ctrl+W', 'Force Quit Varve'])
+  assert.equal(NATIVE_QUIT_NAME.test(wrong), false, 'unrelated quit/window actions stay rejected');
 
 // Failure diagnostics retain the original failure and still collect the DOM if
 // the screenshot transport fails. The native session stays open until capture.

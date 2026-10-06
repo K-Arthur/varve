@@ -8,6 +8,11 @@ let controls = [],
   requests = [];
 const attributes = [];
 function matches(predicate, parent) {
+  assert.doesNotMatch(
+    predicate,
+    /\bamText\b/,
+    'Pinned Mac2 amText may crash on native menu snapshots with nil values',
+  );
   assert.doesNotMatch(predicate, /\bhittable\b/, 'Mac2 rejects hittable snapshot predicate paths');
   const named = [
     ...predicate.matchAll(/\b(label|title|amText) (==|BEGINSWITH) ("(?:[^"\\]|\\.)*")/g),
@@ -105,11 +110,27 @@ controls = [control('Save', 'XCUIElementTypeButton', { hittable: 'false' })];
 await assert.rejects(context.one('Save', ['XCUIElementTypeButton']), /got 0/);
 controls = [control('Save', 'XCUIElementTypeButton', { hittable: 'true' })];
 assert.equal((await context.one('Save', ['XCUIElementTypeButton'])).elementId, 'Save');
+controls = [
+  control('', 'XCUIElementTypeMenuBarItem', {
+    elementId: 'native-window',
+    title: 'Window',
+    value: null,
+  }),
+];
+assert.equal(
+  (await context.one('Window', ['XCUIElementTypeMenuBarItem'])).elementId,
+  'native-window',
+);
+assert.doesNotMatch(
+  requests.at(-1).predicate,
+  /amText/,
+  'native nil-valued menu snapshots use actual label/title',
+);
 assert.doesNotMatch(source, /AND hittable == true/);
 assert.match(source, /title == 'Not now'/, 'actual first-run update dialog has an explicit choice');
 assert.match(
   source,
-  /amText == 'Get started'/,
+  /label == 'Get started' OR title == 'Get started'/,
   'first-editor welcome uses its actual visible control',
 );
 assert.match(source, /one\('Window', \['XCUIElementTypeMenuBarItem'\]\)/);

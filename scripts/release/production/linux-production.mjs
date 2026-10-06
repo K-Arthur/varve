@@ -8,6 +8,8 @@ import { homedir } from 'node:os';
 import { isAbsolute, join, relative, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { captureDomFailure } from './failure-evidence.mjs';
+import { clickNativeQuickExport } from './native-export-controls.mjs';
+import { NATIVE_QUIT_NAME } from './native-quit.mjs';
 import { assertRetainedDocument } from './retained-document.mjs';
 import { productionDomPage } from './webdriver-dom.mjs';
 
@@ -193,7 +195,7 @@ async function quit() {
   await page.getByRole('menubar').getByRole('menuitem', { name: 'File', exact: true }).click();
   const closedResponse = await page
     .getByRole('menu')
-    .getByRole('menuitem', { name: 'Quit Varve', exact: true })
+    .getByRole('menuitem', { name: NATIVE_QUIT_NAME })
     .clickAndWaitForExit(() => until(() => matchingProcesses().length === 0, 20_000));
   receipt.evidence.push({ phase: 'observed native quit', processesRemaining: 0, closedResponse });
   await driver.deleteSession().catch(() => {});
@@ -252,8 +254,7 @@ try {
     for (const format of ['PNG', 'SVG', 'PDF']) {
       const target = join(out, `native-export.${format.toLowerCase()}`);
       await destination(target);
-      await page.getByRole('radio', { name: format, exact: true }).click();
-      await page.getByRole('button', { name: /download/i }).click();
+      await clickNativeQuickExport(page, format);
       const bytes = await until(() => {
         const b = readFileSync(target);
         return b.length > 100 && b;

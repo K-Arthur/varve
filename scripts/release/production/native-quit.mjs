@@ -1,6 +1,9 @@
 // WebKit can lose the click response when the native Quit action destroys its
 // webview. Accept only that specific terminal click response, and only after
 // the independently observed native process actually exits. Other errors fail.
+// The actual Linux menubar includes the shortcut in its accessible name.
+export const NATIVE_QUIT_NAME = /^Quit Varve(?:\s+Ctrl\+Q)?$/;
+
 export async function clickAndWaitForNativeExit(click, waitForExit) {
   let closedResponse = null;
   try {

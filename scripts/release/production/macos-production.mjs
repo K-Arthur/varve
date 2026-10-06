@@ -7,6 +7,7 @@ import { createRequire } from 'node:module';
 import { homedir } from 'node:os';
 import { isAbsolute, join, relative, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
+import { nativeQuickExportControls } from './native-export-controls.mjs';
 import { assertRetainedDocument } from './retained-document.mjs';
 
 const { values: v } = parseArgs({
@@ -121,10 +122,7 @@ async function one(name, types, starts = false, scope = null) {
   const op = starts ? 'BEGINSWITH' : '==';
   const names = Array.isArray(name) ? name : [name];
   const named = names
-    .map(
-      (value) =>
-        `(label ${op} ${literal(value)} OR title ${op} ${literal(value)} OR amText ${op} ${literal(value)})`,
-    )
+    .map((value) => `(label ${op} ${literal(value)} OR title ${op} ${literal(value)})`)
     .join(' OR ');
   const predicate = `(${named}) AND amType IN {${types.map(literal).join(',')}}`;
   const refs = await hittableElements(predicate, scope);
@@ -257,7 +255,7 @@ try {
   await click(['Create', 'Create design']);
   await evidence('native-new');
   const welcome = await hittableElements(
-    "amType == 'XCUIElementTypeButton' AND amText == 'Get started'",
+    "amType == 'XCUIElementTypeButton' AND (label == 'Get started' OR title == 'Get started')",
   );
   assert.ok(welcome.length <= 1, 'First-editor welcome control must be unambiguous');
   if (welcome.length) await click('Close dialog');
@@ -305,8 +303,7 @@ try {
     await click('Export');
     for (const format of ['PNG', 'SVG', 'PDF']) {
       const path = join(out, `native-export.${format.toLowerCase()}`);
-      await click(format);
-      await click('Download', true);
+      for (const { name } of nativeQuickExportControls(format)) await click(name);
       await panelPath(path, 'Save');
       const bytes = await until(() => {
         const b = readFileSync(path);

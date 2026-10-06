@@ -222,6 +222,7 @@ endif()
         'published-upgrade',
         'retained-document',
         'native-quit',
+        'native-export-controls',
         'macos-ax-controls',
         'workflow',
       ]) {

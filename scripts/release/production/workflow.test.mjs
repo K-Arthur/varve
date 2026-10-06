@@ -29,6 +29,7 @@ for (const slice of [linux, native]) {
   assert.doesNotMatch(slice, /(?:node|bash) scripts\/release\/production\//);
   assert.match(slice, /production\/retained-document\.test\.mjs/);
   assert.match(slice, /production\/native-quit\.test\.mjs/);
+  assert.match(slice, /production\/native-export-controls\.test\.mjs/);
   assert.match(slice, /Select successful .*producer artifact/);
   assert.match(slice, /Verify downloaded .*source and bytes/);
   assert.match(slice, /production\/published-upgrade\.mjs/);
