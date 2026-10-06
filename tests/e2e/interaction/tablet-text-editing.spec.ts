@@ -107,8 +107,15 @@ test.describe('tablet text editing', () => {
     await page.keyboard.insertText('after reflow');
     await expect(editor).toHaveValue('Tablet entry after reflow');
 
+    // The viewport change remounts the native edit surface. Assert the reflow
+    // settles on exactly one surface before committing: matching by role can
+    // resolve to a stale node during the remount, and a surface that never
+    // settles is a real leak worth failing on rather than masking.
+    const editSurfaces = page.locator('[data-text-edit-surface="true"]');
+    await expect(editSurfaces).toHaveCount(1, { timeout: 15_000 });
+
     await page.keyboard.press('Escape');
-    await expect(editor).toBeHidden();
+    await expect(editSurfaces).toHaveCount(0, { timeout: 15_000 });
     await expect
       .poll(async () => {
         const serialized = (await readEditorState(page)).serialized;
