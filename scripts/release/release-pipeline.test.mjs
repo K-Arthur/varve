@@ -69,7 +69,9 @@ const strictBrowserFlags = STRICT_BROWSER_FLAGS;
     materialize.run,
     /import \{ POLICY_FILES \} from "\.\/scripts\/quality\/validation-policy\.mjs"/,
   );
-  assert.match(materialize.run, /git sparse-checkout add --no-cone --stdin/);
+  // `add` inherits non-cone mode; Git 2.55 rejects the `set`-only --no-cone flag.
+  assert.match(materialize.run, /git sparse-checkout add --stdin/);
+  assert.doesNotMatch(materialize.run, /git sparse-checkout add[^\n]*--no-cone/);
   for (const source of [candidateWorkflow, integrationWorkflow]) {
     const planner = load(source).jobs.changes;
     const checkout = planner.steps.find((step) => step.uses?.startsWith('actions/checkout'));
@@ -133,6 +135,31 @@ const strictBrowserFlags = STRICT_BROWSER_FLAGS;
       mkdirSync(dirname(target), { recursive: true });
       copyFileSync(path, target);
     }
+    const git = (argv, options = {}) =>
+      execFileSync('git', argv, { cwd: fixture, encoding: 'utf8', ...options });
+    git(['init', '--quiet']);
+    git(['add', '.']);
+    git([
+      '-c',
+      'user.name=Pipeline fixture',
+      '-c',
+      'user.email=fixture@example.invalid',
+      '-c',
+      'commit.gpgsign=false',
+      '-c',
+      'core.hooksPath=/dev/null',
+      'commit',
+      '--quiet',
+      '-m',
+      'Synthetic release policy inputs',
+    ]);
+    git(['sparse-checkout', 'set', '--no-cone', '--stdin'], {
+      input: steps[0].with['sparse-checkout'],
+    });
+    assert.notEqual(computePolicyHash({ root: fixture }), computePolicyHash());
+    // Execute the actual workflow shell, then compare against a complete tree.
+    execFileSync('bash', ['-c', materialize.run], { cwd: fixture, encoding: 'utf8' });
+    assert.equal(git(['config', '--get', 'core.sparseCheckoutCone']).trim(), 'false');
     assert.equal(computePolicyHash({ root: fixture }), computePolicyHash());
     const currentVersion = JSON.parse(readFileSync('package.json', 'utf8')).version;
     execFileSync(

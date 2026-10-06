@@ -139,7 +139,7 @@ jobs:
         run: |
           set -euo pipefail
           node --input-type=module -e 'import { POLICY_FILES } from "./scripts/quality/validation-policy.mjs"; process.stdout.write(POLICY_FILES.map(path => `/${path}`).join("\n") + "\n");' \
-            | git sparse-checkout add --no-cone --stdin
+            | git sparse-checkout add --stdin
 
       - name: Resolve tag, version and channel
         id: resolve
