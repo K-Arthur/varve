@@ -59,6 +59,16 @@ on:
         required: false
         default: ''
         type: string
+      reuse_run_id:
+        description: 'Completed master Release run whose successful platform artifacts should be retained'
+        required: false
+        default: ''
+        type: string
+      reuse_targets:
+        description: 'Explicit comma-separated successful platform targets to retain from reuse_run_id'
+        required: false
+        default: ''
+        type: string
       # Installer-size gate override. The gate compares the NSIS installer
       # against scripts/release/installer-size-baseline.json and blocks
       # unexplained growth (warn 1.2x / block 1.35x of expected). Provide a
@@ -102,6 +112,8 @@ jobs:
       build_macos: ${{ steps.resolve.outputs.build_macos }}
       tag_sha: ${{ steps.certification.outputs.tag_sha }}
       policy_hash: ${{ steps.certification.outputs.policy_hash }}
+      reuse_run_id: ${{ steps.reuse.outputs.reuse_run_id }}
+      reuse_targets: ${{ steps.reuse.outputs.reuse_targets }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -230,6 +242,8 @@ jobs:
           sparse-checkout: |
             /scripts/release/certification.mjs
             /scripts/release/verify-certification.mjs
+            /scripts/release/select-run-artifacts.mjs
+            /scripts/release/resume.mjs
             /scripts/quality/validation-policy.mjs
 
       # This is intentionally before pnpm/Rust setup and before any platform
@@ -248,6 +262,15 @@ jobs:
           echo "tag_sha=${TAG_SHA}" >> "$GITHUB_OUTPUT"
           echo "policy_hash=${POLICY_HASH}" >> "$GITHUB_OUTPUT"
           node release-tooling/scripts/release/verify-certification.mjs --sha "${TAG_SHA}" --repo "${GITHUB_REPOSITORY}" --policy-hash "${POLICY_HASH}"
+
+      - name: Resolve explicit platform reuse
+        id: reuse
+        env:
+          VARVE_REUSE_RUN_ID: ${{ inputs.reuse_run_id }}
+          VARVE_REUSE_TARGETS: ${{ inputs.reuse_targets }}
+        run: node release-tooling/scripts/release/select-run-artifacts.mjs reuse-inputs
+          --windows '${{ steps.resolve.outputs.build_windows }}'
+          --macos '${{ steps.resolve.outputs.build_macos }}'
 
   # ── 2. Certified-source gate ────────────────────────────────────────────────
   gate:
@@ -443,6 +466,7 @@ jobs:
             enabled: ${{ needs.preflight.outputs.build_macos == 'true' }}
     runs-on: ${{ matrix.os }}
     env:
+      REUSE_PLATFORM: ${{ contains(fromJSON(needs.preflight.outputs.reuse_targets), matrix.name) }}
       # Public build-time configuration. App usage/diagnostics consent remains
       # unknown until the user enables each category in Settings.
       # Trust-boundary canary: present on the frontend build steps, then
@@ -455,7 +479,7 @@ jobs:
       TAURI_BUNDLE_DIR: apps/desktop/src-tauri/target/${{ matrix.rust_target }}/release/bundle
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        if: matrix.enabled
+        if: matrix.enabled && env.REUSE_PLATFORM != 'true'
         with:
           # Bundled models (u2netp.onnx, realesr-general-x4v3.onnx) are
           # committed directly, not Git LFS (LFS was retired 2026-08-20 —
@@ -468,17 +492,80 @@ jobs:
           # committed instead of real content.
           ref: ${{ needs.preflight.outputs.tag }}
 
+      # Reuse is explicit and re-verifies producer identity and actual bytes.
+      # It skips compilation only; installed qualification and final trust run.
+      - name: Checkout workflow-pinned reuse tooling
+        if: matrix.enabled && env.REUSE_PLATFORM == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: release-tooling
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /scripts/release/select-run-artifacts.mjs
+            /scripts/release/resume.mjs
+
+      - name: Set up Node for retained artifacts
+        if: matrix.enabled && env.REUSE_PLATFORM == 'true'
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Select explicit successful reuse producer
+        id: reuse
+        if: matrix.enabled && env.REUSE_PLATFORM == 'true'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node release-tooling/scripts/release/select-run-artifacts.mjs select-reuse
+          --repo '${{ github.repository }}' --run-id '${{ needs.preflight.outputs.reuse_run_id }}'
+          --sha '${{ github.workflow_sha }}' --source-sha '${{ needs.preflight.outputs.tag_sha }}'
+          --targets '${{ matrix.name }}'
+
+      - name: Download retained platform bytes
+        if: matrix.enabled && env.REUSE_PLATFORM == 'true'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          artifact-ids: ${{ steps.reuse.outputs.artifact_ids }}
+          github-token: ${{ github.token }}
+          run-id: ${{ needs.preflight.outputs.reuse_run_id }}
+          path: retained-platform
+
+      - name: Recheck retained producer and tagged bytes
+        if: matrix.enabled && env.REUSE_PLATFORM == 'true'
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          node release-tooling/scripts/release/select-run-artifacts.mjs select-reuse \
+            --repo '${{ github.repository }}' --run-id '${{ needs.preflight.outputs.reuse_run_id }}' \
+            --sha '${{ github.workflow_sha }}' --source-sha '${{ needs.preflight.outputs.tag_sha }}' \
+            --targets '${{ matrix.name }}' --expected-artifact-id '${{ steps.reuse.outputs.artifact_ids }}'
+          node release-tooling/scripts/release/select-run-artifacts.mjs verify \
+            --dir retained-platform --version '${{ needs.preflight.outputs.version }}' \
+            --sha '${{ needs.preflight.outputs.tag_sha }}' --policy-hash '${{ needs.preflight.outputs.policy_hash }}' \
+            --targets '${{ matrix.name }}'
+          mkdir -p dist/release
+          cp -R retained-platform/. dist/release/
+
       - name: Verify no bundled asset is a Git LFS pointer
-        if: matrix.enabled
+        if: matrix.enabled && env.REUSE_PLATFORM != 'true'
         run: node scripts/release/check-bundled-assets.mjs
 
       - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067
-        if: matrix.enabled
+        if: matrix.enabled && env.REUSE_PLATFORM != 'true'
         with:
           toolchain: 1.97.1
+          # diffusion-rs-sys formats generated bindings during compilation.
+          components: rustfmt
+
+      - name: Verify binding generator formatter
+        if: matrix.enabled && env.REUSE_PLATFORM != 'true'
+        run: rustfmt --version
 
       - name: Install Linux system deps
-        if: matrix.enabled && runner.os == 'Linux'
+        if: matrix.enabled && runner.os == 'Linux' && env.REUSE_PLATFORM != 'true'
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
@@ -489,36 +576,36 @@ jobs:
             squashfs-tools xdg-utils
 
       - name: Add Rust target
-        if: matrix.enabled
+        if: matrix.enabled && env.REUSE_PLATFORM != 'true'
         run: rustup target add ${{ matrix.rust_target }}
 
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
-        if: matrix.enabled
+        if: matrix.enabled && env.REUSE_PLATFORM != 'true'
         with:
           key: bundle-${{ matrix.name }}-${{ needs.preflight.outputs.tag }}
 
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413
-        if: matrix.enabled
+        if: matrix.enabled && env.REUSE_PLATFORM != 'true'
         with:
           version: ${{ env.PNPM_VERSION }}
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
-        if: matrix.enabled
+        if: matrix.enabled && env.REUSE_PLATFORM != 'true'
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
 
       - run: pnpm install --frozen-lockfile
-        if: matrix.enabled
+        if: matrix.enabled && env.REUSE_PLATFORM != 'true'
 
       - name: Build frontend
-        if: matrix.enabled
+        if: matrix.enabled && env.REUSE_PLATFORM != 'true'
         run: pnpm build
         working-directory: apps/desktop
 
       - name: Verify built dist has no LFS pointers
-        if: matrix.enabled
+        if: matrix.enabled && env.REUSE_PLATFORM != 'true'
         run: node scripts/release/check-bundled-assets.mjs --dist
 
       # tauri.conf.json bundles onnxruntime-libs/** wholesale. A CI runner only
@@ -527,11 +614,11 @@ jobs:
       # what stops a 74 MB .deb from carrying 53.9 MB of macOS and Windows
       # libraries the way a local build did.
       - name: Fetch ONNX Runtime for target platform
-        if: matrix.enabled
+        if: matrix.enabled && env.REUSE_PLATFORM != 'true'
         run: node scripts/fetch-onnxruntime.mjs
 
       - name: Prune foreign ONNX runtimes
-        if: matrix.enabled
+        if: matrix.enabled && env.REUSE_PLATFORM != 'true'
         run: node scripts/release/prune-foreign-runtimes.mjs
 
       # ── macOS: import the Developer ID certificate into a temp keychain ──
@@ -541,7 +628,7 @@ jobs:
       # "the first codesigning identity in the keychain" — a wrong certificate
       # type (e.g. Apple Development) must fail loudly here.
       - name: Import Apple Developer ID certificate (temporary keychain)
-        if: matrix.enabled && runner.os == 'macOS' && needs.signing-preflight.outputs.macos_mode == 'signed'
+        if: matrix.enabled && runner.os == 'macOS' && needs.signing-preflight.outputs.macos_mode == 'signed' && env.REUSE_PLATFORM != 'true'
         shell: bash
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
@@ -582,7 +669,7 @@ jobs:
       # it is generated in CI from repository variables and merged at build time
       # via `--config`. It is never committed (see .gitignore).
       - name: Prepare Windows signing configuration
-        if: matrix.enabled && runner.os == 'Windows' && needs.signing-preflight.outputs.windows_mode == 'signed'
+        if: matrix.enabled && runner.os == 'Windows' && needs.signing-preflight.outputs.windows_mode == 'signed' && env.REUSE_PLATFORM != 'true'
         shell: bash
         env:
           AZURE_SIGNING_ENDPOINT: ${{ vars.AZURE_SIGNING_ENDPOINT }}
@@ -601,13 +688,13 @@ jobs:
           EOF
 
       - name: Install artifact-signing-cli (crates.io, pinned)
-        if: matrix.enabled && runner.os == 'Windows' && needs.signing-preflight.outputs.windows_mode == 'signed'
+        if: matrix.enabled && runner.os == 'Windows' && needs.signing-preflight.outputs.windows_mode == 'signed' && env.REUSE_PLATFORM != 'true'
         run: cargo install artifact-signing-cli --version 0.11.0 --locked
 
       # The App Store Connect API key (.p8) is decoded to a file BEFORE the
       # build so APPLE_API_KEY_PATH resolves when Tauri notarizes.
       - name: Write App Store Connect API key file
-        if: matrix.enabled && runner.os == 'macOS' && needs.signing-preflight.outputs.macos_mode == 'signed'
+        if: matrix.enabled && runner.os == 'macOS' && needs.signing-preflight.outputs.macos_mode == 'signed' && env.REUSE_PLATFORM != 'true'
         shell: bash
         env:
           APPLE_API_KEY_P8_BASE64: ${{ secrets.APPLE_API_KEY_P8_BASE64 }}
@@ -617,7 +704,7 @@ jobs:
           chmod 600 /tmp/varve-apple-api-key.p8
 
       - name: Prepare updater channel configuration
-        if: matrix.enabled
+        if: matrix.enabled && env.REUSE_PLATFORM != 'true'
         shell: bash
         env:
           CHANNEL: ${{ needs.preflight.outputs.channel }}
@@ -629,7 +716,7 @@ jobs:
             --output apps/desktop/src-tauri/tauri.update.channel.json
 
       - name: Tauri build (signed platforms)
-        if: matrix.enabled && (needs.signing-preflight.outputs.macos_mode == 'signed' || needs.signing-preflight.outputs.windows_mode == 'signed')
+        if: matrix.enabled && (needs.signing-preflight.outputs.macos_mode == 'signed' || needs.signing-preflight.outputs.windows_mode == 'signed') && env.REUSE_PLATFORM != 'true'
         shell: bash
         env:
           # Signing credentials are scoped to THIS step only — nothing is
@@ -673,7 +760,7 @@ jobs:
       # certificate to import, and an empty value would abort the macOS bundle
       # (SecKeychainItemImport).
       - name: Tauri build (unsigned platforms with signed updater)
-        if: matrix.enabled && needs.signing-preflight.outputs.macos_mode != 'signed' && needs.signing-preflight.outputs.windows_mode != 'signed' && needs.signing-preflight.outputs.updater_mode == 'signed'
+        if: matrix.enabled && needs.signing-preflight.outputs.macos_mode != 'signed' && needs.signing-preflight.outputs.windows_mode != 'signed' && needs.signing-preflight.outputs.updater_mode == 'signed' && env.REUSE_PLATFORM != 'true'
         shell: bash
         env:
           # linuxdeploy bundles an old binutils `strip` that cannot parse the
@@ -700,7 +787,7 @@ jobs:
       # build a genuinely manual-download artifact. No signing material is
       # present in this step at all.
       - name: Tauri build (unsigned platforms, manual updates)
-        if: matrix.enabled && needs.signing-preflight.outputs.macos_mode != 'signed' && needs.signing-preflight.outputs.windows_mode != 'signed' && needs.signing-preflight.outputs.updater_mode != 'signed'
+        if: matrix.enabled && needs.signing-preflight.outputs.macos_mode != 'signed' && needs.signing-preflight.outputs.windows_mode != 'signed' && needs.signing-preflight.outputs.updater_mode != 'signed' && env.REUSE_PLATFORM != 'true'
         shell: bash
         env:
           NO_STRIP: '1'
@@ -717,7 +804,7 @@ jobs:
       # This is the definitive client artifact: it must never contain private
       # configuration or the CI canary. Scan it before collection.
       - name: Scan frontend dist (secret + canary)
-        if: matrix.enabled
+        if: matrix.enabled && env.REUSE_PLATFORM != 'true'
         run: |
           node scripts/secret-scan.mjs --dir apps/desktop/dist --canary "$VARVE_PRIVATE_TEST_CANARY"
 
@@ -728,7 +815,7 @@ jobs:
       # reproduction and fix. Prune it BEFORE collection so the artifact,
       # manifest and checksums describe the shipped bytes.
       - name: Prune bundled libraries from AppImage
-        if: matrix.enabled && runner.os == 'Linux'
+        if: matrix.enabled && runner.os == 'Linux' && env.REUSE_PLATFORM != 'true'
         run: |
           node scripts/release/prune-appimage-bundled-libs.mjs \
             --bundle-dir "${TAURI_BUNDLE_DIR}" \
@@ -740,7 +827,7 @@ jobs:
       # Re-sign the pruned AppImage so collect-artifacts.mjs ships a
       # signature that matches the published bytes.
       - name: Re-sign pruned AppImage for updater
-        if: matrix.enabled && runner.os == 'Linux' && needs.signing-preflight.outputs.updater_mode == 'signed'
+        if: matrix.enabled && runner.os == 'Linux' && needs.signing-preflight.outputs.updater_mode == 'signed' && env.REUSE_PLATFORM != 'true'
         shell: bash
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
@@ -759,7 +846,7 @@ jobs:
           fi
 
       - name: Verify native executable architecture
-        if: matrix.enabled
+        if: matrix.enabled && env.REUSE_PLATFORM != 'true'
         shell: bash
         run: |
           node scripts/release/verify-binary-architecture.mjs \
@@ -767,7 +854,7 @@ jobs:
             --architecture ${{ matrix.arch_slug }}
 
       - name: Collect artifacts
-        if: matrix.enabled
+        if: matrix.enabled && env.REUSE_PLATFORM != 'true'
         run: |
           node scripts/release/collect-artifacts.mjs \
             --bundle-dir "${TAURI_BUNDLE_DIR}" \
@@ -784,7 +871,7 @@ jobs:
       # override; the report JSON and baseline live alongside the artifacts
       # and feed the historical trend.
       - name: Report installer size (Windows)
-        if: matrix.enabled && runner.os == 'Windows'
+        if: matrix.enabled && runner.os == 'Windows' && env.REUSE_PLATFORM != 'true'
         shell: bash
         env:
           SIZE_GATE_OVERRIDE: ${{ github.event.inputs.size_gate_override || '' }}
@@ -798,7 +885,7 @@ jobs:
       # ONNX Runtime shared library and models are platform-native), so each
       # runner emits the SBOM for the bytes it actually bundled.
       - name: Generate platform SBOM
-        if: matrix.enabled
+        if: matrix.enabled && env.REUSE_PLATFORM != 'true'
         shell: bash
         run: |
           node scripts/release/generate-sbom.mjs \
@@ -807,7 +894,7 @@ jobs:
             --arch ${{ matrix.arch_slug }}
 
       - name: Validate platform SBOM
-        if: matrix.enabled
+        if: matrix.enabled && env.REUSE_PLATFORM != 'true'
         shell: bash
         run: |
           node scripts/release/validate-sbom.mjs \
@@ -819,7 +906,7 @@ jobs:
       # that will be uploaded. A missing report or a failed verification stops
       # the release in the `verify` trust gate.
       - name: Verify Windows Authenticode signature
-        if: matrix.enabled && runner.os == 'Windows'
+        if: matrix.enabled && runner.os == 'Windows' && env.REUSE_PLATFORM != 'true'
         shell: pwsh
         env:
           EXPECT_SIGNED: ${{ needs.signing-preflight.outputs.windows_mode == 'signed' }}
@@ -838,7 +925,7 @@ jobs:
           }
 
       - name: Verify macOS signature, notarization and staple
-        if: matrix.enabled && runner.os == 'macOS'
+        if: matrix.enabled && runner.os == 'macOS' && env.REUSE_PLATFORM != 'true'
         shell: bash
         env:
           EXPECT_SIGNED: ${{ needs.signing-preflight.outputs.macos_mode == 'signed' }}
@@ -860,7 +947,7 @@ jobs:
       # successful platform artifact only when this identity and its digest
       # still match; missing/failed platforms can then be rebuilt alone.
       - name: Write exact-SHA artifact provenance
-        if: matrix.enabled
+        if: matrix.enabled && env.REUSE_PLATFORM != 'true'
         shell: bash
         run: |
           node scripts/release/write-artifact-provenance.mjs \
@@ -885,7 +972,7 @@ jobs:
       # strip = true, so this is currently of limited value — see
       # docs/release/production-build.md for the debug-symbol plan.
       - name: Upload unstripped binary for crash triage
-        if: matrix.enabled && runner.os == 'Linux'
+        if: matrix.enabled && runner.os == 'Linux' && env.REUSE_PLATFORM != 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: debug-binary-${{ matrix.name }}-attempt-${{ github.run_attempt }}

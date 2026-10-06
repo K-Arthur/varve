@@ -1,12 +1,17 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
+import { pathToFileURL } from 'node:url';
+import { load } from 'js-yaml';
 import {
+  loadReusableRun,
   loadRunArtifacts,
   requestedTargets,
+  resolveReuseInputs,
   selectRunArtifacts,
   verifyDownloadedArtifacts,
 } from './select-run-artifacts.mjs';
@@ -17,6 +22,112 @@ const tagSha = 'b'.repeat(40);
 const policyHash = 'c'.repeat(64);
 const linux = 'linux-x86_64';
 const windows = 'windows-aarch64';
+const workflowSha = 'd'.repeat(40);
+
+test('reuse is opt-in and cannot include a disabled, final or duplicated target', () => {
+  assert.deepEqual(resolveReuseInputs({}), { runId: '', targets: [] });
+  assert.deepEqual(resolveReuseInputs({ runId: '37', targets: linux }), {
+    runId: '37',
+    targets: [linux],
+  });
+  for (const value of [
+    { runId: '37' },
+    { targets: linux },
+    { runId: '0', targets: linux },
+    { runId: '37', targets: 'final' },
+    { runId: '37', targets: `${linux},${linux}` },
+    { runId: '37', targets: windows, windows: 'false' },
+  ])
+    assert.throws(() => resolveReuseInputs(value));
+});
+
+function reusableRun() {
+  return {
+    id: runId,
+    head_sha: runSha,
+    run_attempt: 2,
+    head_branch: 'master',
+    head_repository: { full_name: 'owner/repo' },
+    path: '.github/workflows/release.yml',
+    event: 'workflow_dispatch',
+    status: 'completed',
+    conclusion: 'failure',
+  };
+}
+function reuseRequest({ change = {}, compare, master } = {}) {
+  return async (url, options) => {
+    assert.equal(options.headers.Authorization, 'Bearer fixture-secret');
+    const base = url.split('/compare/')[1]?.split('...')[0];
+    const data = base
+      ? (compare ?? {
+          status: 'ahead',
+          base_commit: { sha: base },
+          merge_base_commit: { sha: base },
+        })
+      : url.endsWith('/branches/master')
+        ? (master ?? { name: 'master', commit: { sha: workflowSha } })
+        : { ...reusableRun(), ...change };
+    return { ok: true, json: async () => data };
+  };
+}
+const reuseOptions = {
+  repository: 'owner/repo',
+  runId,
+  workflowSha,
+  sourceSha: tagSha,
+  token: 'fixture-secret',
+};
+
+test('a failed overall run may retain its successful cells only after accepted source binding', async () => {
+  assert.deepEqual(await loadReusableRun({ ...reuseOptions, request: reuseRequest() }), {
+    runId,
+    runSha,
+    attempt: 2,
+  });
+  // Selection still refuses the failed cell; no old-success fallback is added.
+  assert.throws(
+    () => selectRunArtifacts(evidence({ jobs: [job(linux, 2, 'failure')] })),
+    /not uniquely successful/,
+  );
+});
+
+test('reuse refuses foreign, active, cancelled and incorrect workflow identities', async () => {
+  for (const change of [
+    { id: 38 },
+    { head_branch: 'feature' },
+    { head_repository: { full_name: 'other/repo' } },
+    { path: '.github/workflows/ci.yml' },
+    { event: 'pull_request' },
+    { status: 'in_progress' },
+    { conclusion: 'cancelled' },
+    { run_attempt: 0 },
+    { head_sha: '' },
+  ])
+    await assert.rejects(
+      loadReusableRun({ ...reuseOptions, request: reuseRequest({ change }) }),
+      /completed master Release dispatch/,
+    );
+});
+
+test('reuse refuses diverged or unverifiable product/build/publication ancestry and API failures', async () => {
+  for (const compare of [
+    { status: 'diverged' },
+    { status: 'behind' },
+    { status: 'ahead', base_commit: { sha: tagSha }, merge_base_commit: { sha: runSha } },
+  ])
+    await assert.rejects(
+      loadReusableRun({ ...reuseOptions, request: reuseRequest({ compare }) }),
+      /accepted master ancestry/,
+    );
+  await assert.rejects(
+    loadReusableRun({ ...reuseOptions, request: reuseRequest({ master: {} }) }),
+    /accepted master source/,
+  );
+  await assert.rejects(
+    loadReusableRun({ ...reuseOptions, request: async () => ({ ok: false, status: 403 }) }),
+    /^Error: Reuse evidence API returned HTTP 403$/,
+  );
+});
 
 function job(target, attempt, conclusion = 'success') {
   return {
@@ -329,5 +440,90 @@ test('the release workflow uploads by attempt and downloads explicit selected ID
     4,
   );
   assert.doesNotMatch(workflow, /pattern: release-\*-\*/);
-  assert.equal((workflow.match(/select-run-artifacts\.mjs verify/g) ?? []).length, 4);
+  assert.equal((workflow.match(/select-run-artifacts\.mjs verify/g) ?? []).length, 5);
+});
+
+test('retained bundles verify explicit IDs and tagged bytes while every fresh build installs rustfmt', () => {
+  const workflow = load(readFileSync('.github/workflows/release.yml', 'utf8'));
+  const bundle = workflow.jobs.bundle;
+  assert.equal(
+    bundle.steps.find((step) => step.uses?.startsWith('dtolnay/rust-toolchain')).with.components,
+    'rustfmt',
+  );
+  const upload = bundle.steps.findIndex((step) => step.name === 'Upload release artifacts');
+  const check = bundle.steps.findIndex(
+    (step) => step.name === 'Recheck retained producer and tagged bytes',
+  );
+  const download = bundle.steps.find((step) => step.name === 'Download retained platform bytes');
+  assert.ok(check > 0 && check < upload);
+  assert.equal(download.with['artifact-ids'], '$' + '{{ steps.reuse.outputs.artifact_ids }}');
+  assert.match(bundle.steps[check].run, /--expected-artifact-id/);
+  assert.match(bundle.steps[check].run, /--policy-hash/);
+  assert.ok(
+    bundle.steps[check].run.indexOf('select-run-artifacts.mjs verify') <
+      bundle.steps[check].run.indexOf('cp -R'),
+  );
+  for (const step of bundle.steps) {
+    if (step.name === 'Upload release artifacts') assert.equal(step.if, 'matrix.enabled');
+    else assert.match(step.if, /env\.REUSE_PLATFORM [!=]= 'true'/);
+  }
+  assert.ok(workflow.jobs.verify.needs.includes('package-smoke'));
+  assert.ok(workflow.jobs.verify.needs.includes('platform-smoke'));
+});
+
+test('CLI recheck rejects a changed reuse artifact and never adopts final trust output', (t) => {
+  const dir = mkdtempSync(join(tmpdir(), 'varve-reuse-cli-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const preload = join(dir, 'request.mjs');
+  writeFileSync(
+    preload,
+    `globalThis.fetch=async(url)=>({ok:true,json:async()=>{
+    if(url.includes('/jobs?'))return {jobs:${JSON.stringify([job(linux, 1)])}};
+    if(url.includes('/artifacts?'))return {artifacts:${JSON.stringify([artifact(linux, 1)])}};
+    if(url.endsWith('/branches/master'))return {name:'master',commit:{sha:'${workflowSha}'}};
+    if(url.includes('/compare/')){const base=url.split('/compare/')[1].split('...')[0];return {status:'ahead',base_commit:{sha:base},merge_base_commit:{sha:base}};}
+    return ${JSON.stringify(reusableRun())};}});`,
+  );
+  const selector = join(dir, 'select-run-artifacts.mjs');
+  writeFileSync(selector, readFileSync('scripts/release/select-run-artifacts.mjs'));
+  writeFileSync(join(dir, 'resume.mjs'), readFileSync('scripts/release/resume.mjs'));
+  const argv = [
+    '--import',
+    pathToFileURL(preload).href,
+    selector,
+    'select-reuse',
+    '--repo',
+    'owner/repo',
+    '--run-id',
+    '37',
+    '--sha',
+    workflowSha,
+    '--source-sha',
+    tagSha,
+    '--targets',
+    linux,
+  ];
+  const environment = { ...process.env, GITHUB_TOKEN: 'fixture-secret' };
+  delete environment.GITHUB_OUTPUT;
+  assert.match(
+    execFileSync(process.execPath, [...argv, '--expected-artifact-id', '10'], {
+      env: environment,
+      encoding: 'utf8',
+    }),
+    /artifact_ids=10/,
+  );
+  assert.throws(
+    () =>
+      execFileSync(process.execPath, [...argv, '--expected-artifact-id', '11'], {
+        env: environment,
+        stdio: 'pipe',
+      }),
+    /Reuse producer changed/,
+  );
+  const final = [...argv];
+  final[final.length - 1] = 'final';
+  assert.throws(
+    () => execFileSync(process.execPath, final, { env: environment, stdio: 'pipe' }),
+    /final trust and attestation must run again/,
+  );
 });

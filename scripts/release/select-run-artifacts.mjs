@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/** Select immutable release artifacts from successful attempts of one workflow run. */
+/** Select verified release artifacts from explicit successful workflow producers. */
 import { appendFileSync, lstatSync, readdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -15,6 +15,75 @@ function positiveInteger(value, label) {
   const number = Number(value);
   if (!Number.isSafeInteger(number) || number < 1) throw new Error(`Invalid ${label}`);
   return number;
+}
+
+export function resolveReuseInputs({ runId = '', targets = '', windows = 'true', macos = 'true' }) {
+  if (!runId && !targets) return { runId: '', targets: [] };
+  if (!runId || !targets) throw new Error('Reuse requires both a run ID and explicit target list');
+  const id = positiveInteger(runId, 'reuse run ID');
+  const selected = requestedTargets(targets);
+  const enabled = requestedTargets('all', { windows, macos });
+  if (selected.some((target) => !enabled.includes(target)))
+    throw new Error('Reuse targets must belong to this requested platform selection');
+  return { runId: String(id), targets: selected };
+}
+
+/** Explicit adoption preserves bytes, not trust in a mutable cache or branch. */
+export async function loadReusableRun({
+  repository,
+  runId,
+  workflowSha,
+  sourceSha,
+  token,
+  request = fetch,
+}) {
+  runId = positiveInteger(runId, 'reuse run ID');
+  if (
+    !/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository ?? '') ||
+    !token ||
+    !SHA.test(workflowSha ?? '') ||
+    !SHA.test(sourceSha ?? '')
+  )
+    throw new Error('Reuse requires repository, token and exact workflow/product SHAs');
+  async function get(path) {
+    const response = await request(`https://api.github.com/repos/${repository}/${path}`, {
+      headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json' },
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (!response.ok) throw new Error(`Reuse evidence API returned HTTP ${response.status}`);
+    return response.json();
+  }
+  const run = await get(`actions/runs/${runId}`);
+  if (
+    run.id !== runId ||
+    run.path !== '.github/workflows/release.yml' ||
+    run.head_repository?.full_name !== repository ||
+    run.head_branch !== 'master' ||
+    run.event !== 'workflow_dispatch' ||
+    run.status !== 'completed' ||
+    !['success', 'failure'].includes(run.conclusion) ||
+    !SHA.test(run.head_sha ?? '') ||
+    !Number.isSafeInteger(run.run_attempt) ||
+    run.run_attempt < 1
+  )
+    throw new Error('Reuse requires a completed master Release dispatch in this repository');
+  const master = await get('branches/master');
+  if (master.name !== 'master' || !SHA.test(master.commit?.sha ?? ''))
+    throw new Error('Reuse cannot establish accepted master source');
+  for (const [base, head] of [
+    [sourceSha, run.head_sha],
+    [run.head_sha, workflowSha],
+    [workflowSha, master.commit.sha],
+  ]) {
+    const comparison = await get(`compare/${base}...${head}`);
+    if (
+      !['ahead', 'identical'].includes(comparison.status) ||
+      comparison.base_commit?.sha !== base ||
+      comparison.merge_base_commit?.sha !== base
+    )
+      throw new Error('Reuse source and workflows must belong to accepted master ancestry');
+  }
+  return { runId, runSha: run.head_sha, attempt: run.run_attempt };
 }
 
 export function requestedTargets(value, { windows = 'true', macos = 'true' } = {}) {
@@ -214,6 +283,8 @@ function parseArgs(args) {
     'repo',
     'run-id',
     'attempt',
+    'source-sha',
+    'expected-artifact-id',
   ]);
   for (let index = 0; index < args.length; index += 2) {
     const key = args[index]?.replace(/^--/, '');
@@ -233,6 +304,18 @@ function parseArgs(args) {
 async function main() {
   const [mode, ...argv] = process.argv.slice(2);
   const args = parseArgs(argv);
+  if (mode === 'reuse-inputs') {
+    const reuse = resolveReuseInputs({
+      runId: process.env.VARVE_REUSE_RUN_ID,
+      targets: process.env.VARVE_REUSE_TARGETS,
+      windows: args.windows ?? 'true',
+      macos: args.macos ?? 'true',
+    });
+    const outputs = `reuse_run_id=${reuse.runId}\nreuse_targets=${JSON.stringify(reuse.targets)}\n`;
+    if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, outputs);
+    else process.stdout.write(outputs);
+    return;
+  }
   const targets = requestedTargets(args.targets, {
     windows: args.windows ?? 'true',
     macos: args.macos ?? 'true',
@@ -249,15 +332,34 @@ async function main() {
     );
     return;
   }
-  if (mode !== 'select') throw new Error('Expected select or verify mode');
+  if (!['select', 'select-reuse'].includes(mode))
+    throw new Error('Expected select, select-reuse or verify mode');
+  if (mode === 'select-reuse' && targets.includes('final'))
+    throw new Error('Reuse adopts platform bytes; final trust and attestation must run again');
+  const identity =
+    mode === 'select-reuse'
+      ? await loadReusableRun({
+          repository: args.repo,
+          runId: args['run-id'],
+          workflowSha: args.sha,
+          sourceSha: args['source-sha'],
+          token: process.env.GITHUB_TOKEN,
+        })
+      : { runId: args['run-id'], runSha: args.sha, attempt: args.attempt };
   const evidence = await loadRunArtifacts({
     repository: args.repo,
-    runId: args['run-id'],
-    runSha: args.sha,
-    attempt: args.attempt,
+    ...identity,
     token: process.env.GITHUB_TOKEN,
   });
   const selected = selectRunArtifacts({ ...evidence, targets });
+  if (
+    args['expected-artifact-id'] &&
+    (selected.length !== 1 ||
+      selected[0].id !== positiveInteger(args['expected-artifact-id'], 'expected artifact ID'))
+  )
+    throw new Error(
+      'Reuse producer changed while downloading; select its latest successful bytes again',
+    );
   const outputs = `artifact_ids=${selected.map((artifact) => artifact.id).join(',')}\ntargets=${targets.join(',')}\n`;
   if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, outputs);
   else process.stdout.write(outputs);

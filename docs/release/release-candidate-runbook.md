@@ -228,7 +228,33 @@ Downstream jobs select explicit artifact IDs from the newest successful
 producer attempt for each requested platform. A newer failed producer or a
 missing upload blocks reuse of an older success. Whole-workflow reruns select
 only their new outputs; unrelated runs, source SHAs and expired uploads fail
-the selector.
+the selector. Implicit selection from unrelated runs remains prohibited.
+
+If a workflow/toolchain repair needs a new master dispatch, explicitly retain
+successful platform bytes from a completed master Release run:
+
+```bash
+gh workflow run release.yml --ref master \
+  -f tag=v0.5.0 -f platforms=all -f publish=no \
+  -f reuse_run_id=<completed-master-release-run> \
+  -f reuse_targets=linux-x86_64,linux-aarch64
+```
+
+Only named, enabled platform targets can be retained. The workflow verifies
+repository/workflow/run identity and tag → producer workflow → current
+workflow → accepted master ancestry. It selects each target's newest successful
+producer and exact unexpired upload ID; a newer failed producer blocks reuse.
+After downloading, it rechecks that ID and verifies installer sidecars and
+hashes against the product tag, version and policy before uploading into the
+new run. Final trust output cannot be adopted. Retained platforms skip source
+checkout, dependency installation and compilation, then execute installed
+qualification, signatures, merging, final checksums and attestation normally.
+Other targets build normally. Signing-policy changes can still reject retained
+bytes. No automatic fallback to unverified cached output occurs.
+
+Packaging installs `rustfmt` explicitly and probes it before native dependency
+setup: `diffusion-rs-sys` formats its generated Rust bindings during compilation.
+The Windows ARM runner does not guarantee that component is preinstalled.
 
 The API identity uses the workflow run's head SHA, which can differ from the
 release tag on a manual dispatch. After downloading, installer sidecars and

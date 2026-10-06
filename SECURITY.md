@@ -84,7 +84,30 @@ vulnerabilities, `cargo audit` reported no Rust vulnerabilities in either
 Cargo workspace, and GitHub reported one open development-only advisory
 (extract-zip), which has no upstream fixed release and is mitigated locally.
 
-### Current release review (2026-10-03)
+### Current release review (2026-10-06)
+
+The refreshed API inventory contains three open development-tool alerts:
+`extract-zip` (#46, high), `postcss-selector-parser` (#106, moderate), and
+`smol-toml` (#108, moderate). `http-cache-semantics` now resolves to the upstream
+fix, 4.3.0; its earlier local backport was removed and alert #105 is closed.
+Stylelint resolves the fixed selector parser 7.1.6, and production Astro
+resolves fixed `smol-toml` 1.9.0. `pnpm why --prod smol-toml postcss-selector-parser`
+shows only that fixed TOML parser in the production graph.
+
+The remaining selector parser 6.1.4 belongs to Tailwind 3/postcss-nested website
+build tooling. Older TOML parser 1.7.1 copies belong to Knip and WDIO native
+test tooling. They parse repository-controlled build/test configuration; no
+direct application or website-client import consumes customer selectors or
+TOML through these modules. The [selector advisory](https://github.com/advisories/GHSA-rj75-hqrm-r3gf)
+explicitly excludes ordinary build-time use on trusted sources. The
+[TOML advisory](https://github.com/advisories/GHSA-r4xh-jqrq-34v2)
+requires parsing attacker-supplied TOML. This reviewed exposure does not mean
+the older versions are patched: retain their raw alerts and verify compatibility
+when updating those development consumers. Do not dismiss them or change the
+immutable release's lockfile mid-build. The `extract-zip` containment mitigation
+and its malicious-archive runtime checks remain required.
+
+### Earlier release findings (2026-10-03)
 
 The release review found two high npm findings with no published upstream
 fixed versions: `http-cache-semantics@4.2.0` and `braces@3.0.3`, both in the

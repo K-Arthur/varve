@@ -89,7 +89,17 @@ const strictBrowserFlags = STRICT_BROWSER_FLAGS;
   assert.match(verify.run, /node release-tooling\/scripts\/release\/verify-certification\.mjs/);
   assert.match(verify.run, /--sha "\$\{TAG_SHA\}".*--policy-hash "\$\{POLICY_HASH\}"/);
   assert.equal(jobs.gate.steps[0].with.ref, expression('github.workflow_sha'));
-  assert.equal(jobs.gate.steps[0].with['sparse-checkout'], tooling.with['sparse-checkout']);
+  for (const path of [
+    'certification.mjs',
+    'verify-certification.mjs',
+    '../quality/validation-policy.mjs',
+  ]) {
+    const relative = path.startsWith('../')
+      ? `scripts/${path.slice(3)}`
+      : `scripts/release/${path}`;
+    assert.ok(jobs.gate.steps[0].with['sparse-checkout'].includes(`/${relative}`));
+  }
+  assert.ok(tooling.with['sparse-checkout'].includes('/scripts/release/select-run-artifacts.mjs'));
   assert.match(jobs.gate.steps[1].run, /--sha "\$\{\{ needs\.preflight\.outputs\.tag_sha \}\}"/);
   assert.match(
     jobs.gate.steps[1].run,

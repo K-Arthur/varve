@@ -74,6 +74,7 @@ export const POLICY_FILES = [
   'scripts/release/certification.mjs',
   'scripts/release/verify-certification.mjs',
   'scripts/release/resume.mjs',
+  'scripts/release/select-run-artifacts.mjs',
   'scripts/release/website-release-data-check.mjs',
   'scripts/release/write-artifact-provenance.mjs',
   'scripts/release/write-candidate-evidence.mjs',

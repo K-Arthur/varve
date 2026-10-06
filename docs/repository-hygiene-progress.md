@@ -140,6 +140,15 @@ compatibility checks show that a specific update is needed; taking unrelated
 version bumps during release certification would add churn without resolving
 the outstanding upstream advisories.
 
+The 2026-10-06 refresh supersedes that earlier alert count: `http-cache-semantics`
+is upstream-fixed at 4.3.0 and alert #105 is closed. Three development-tool
+alerts remain: locally mitigated `extract-zip` (#46), Tailwind's 6.x selector
+parser (#106), and Knip/WDIO's older TOML parser (#108). Production Astro and
+Stylelint already resolve the patched parser versions. Their source-controlled
+build/test exposure and remaining upgrade work are recorded in
+[the current security review](../SECURITY.md#current-release-review-2026-10-06).
+No alert was dismissed as part of this release recovery.
+
 ---
 
 ## Pass 8 (2026-09-19)
