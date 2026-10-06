@@ -216,31 +216,46 @@ test('raw npm report bytes survive unchanged while an unverified known mitigatio
     writeFileSync(join(root, lockfile), lockfile);
   writeFileSync(join(root, 'pnpm-workspace.yaml'), 'packages: []\n');
   writeFileSync(join(root, 'package.json'), '{}\n');
-  const { REVIEWED_MITIGATIONS } = await import('./verify-build-advisory-mitigations.mjs');
   const report = npm();
   report.metadata.vulnerabilities.high = 2;
-  report.advisories = Object.fromEntries(
-    REVIEWED_MITIGATIONS.map((item) => [
-      item.id,
-      {
-        id: item.id,
-        module_name: item.package,
-        github_advisory_id: item.advisory,
-        severity: 'high',
-        vulnerable_versions: `<=${item.version}`,
-        url: `https://github.com/advisories/${item.advisory}`,
-        findings: [
-          {
-            version: item.version,
-            paths: [...item.paths],
-            dev: false,
-            optional: false,
-            bundled: false,
-          },
-        ],
-      },
-    ]),
-  );
+  // Two synthetic high advisories: the gate must block a vulnerable production
+  // graph outright, with no local-acceptance path.
+  report.advisories = {
+    1240991: {
+      id: 1240991,
+      module_name: 'http-cache-semantics',
+      github_advisory_id: 'GHSA-ch52-4w7c-c8xp',
+      severity: 'high',
+      vulnerable_versions: '<=4.2.0',
+      url: 'https://github.com/advisories/GHSA-ch52-4w7c-c8xp',
+      findings: [
+        {
+          version: '4.2.0',
+          paths: ['apps__website>astro>http-cache-semantics'],
+          dev: false,
+          optional: false,
+          bundled: false,
+        },
+      ],
+    },
+    1240992: {
+      id: 1240992,
+      module_name: 'braces',
+      github_advisory_id: 'GHSA-vfj7-8cjw-p6xm',
+      severity: 'high',
+      vulnerable_versions: '<=3.0.3',
+      url: 'https://github.com/advisories/GHSA-vfj7-8cjw-p6xm',
+      findings: [
+        {
+          version: '3.0.3',
+          paths: ['apps__website>@astrojs/tailwind>tailwindcss>braces'],
+          dev: false,
+          optional: false,
+          bundled: false,
+        },
+      ],
+    },
+  };
   const bytes = `\n${JSON.stringify(report, null, 3)}\n\n`;
   let calls = 0;
   try {

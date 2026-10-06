@@ -62,7 +62,6 @@ export const POLICY_FILES = [
   'scripts/ci/failure-manifest.mjs',
   'scripts/security/dependency-advisories.mjs',
   'scripts/security/verify-build-advisory-mitigations.mjs',
-  'scripts/security/build-dependency-mitigations.test.mjs',
   'patches/http-cache-semantics@4.2.0.patch',
   'patches/braces@3.0.3.patch',
   'scripts/website/demo-dist-validation.mjs',

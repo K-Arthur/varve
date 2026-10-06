@@ -18,7 +18,6 @@ import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { redactSensitive } from '../ci/failure-manifest.mjs';
 import { runValidationCommand } from '../quality/heavy-lease.mjs';
-import { verifyBuildAdvisoryMitigations } from './verify-build-advisory-mitigations.mjs';
 
 const yaml = createRequire(import.meta.url)('js-yaml');
 
@@ -258,24 +257,31 @@ export async function runAdvisoryGate({
       };
       const rawSafe = JSON.stringify(safeReport(report)) === JSON.stringify(report);
       if (specification.kind === 'npm' && outcome.status === 'vulnerable') {
-        const mitigation = rawSafe
-          ? await verifyBuildAdvisoryMitigations({
-              root,
-              report,
-              result,
-              rawSha256: entry.rawReportSha256,
-              output,
-            })
-          : { effectiveStatus: 'blocked', reason: 'raw audit required credential redaction' };
-        entry.effectiveStatus = mitigation.effectiveStatus;
+        // Production advisories must be fixed, never accepted. The previous
+        // local-backport acceptance path was retired on 2026-10-06: upstream
+        // shipped fixes for the last production backports (http-cache-semantics
+        // 4.3.0, source-map-js 1.2.2) and the remaining backport moved out of
+        // the production graph, so nothing legitimately needs that path and a
+        // vulnerable production graph now always blocks.
+        entry.effectiveStatus = 'blocked';
         entry.rawVulnerabilities = outcome.vulnerabilities;
         entry.rawHigh = report?.metadata?.vulnerabilities?.high ?? null;
-        entry.localMitigations = mitigation.localMitigations ?? 0;
-        entry.upstreamUnfixed = mitigation.upstreamUnfixed ?? null;
-        entry.upstreamReview = mitigation.upstreamReview ?? null;
+        entry.localMitigations = 0;
+        entry.upstreamUnfixed = null;
+        entry.upstreamReview = null;
         writeFileSync(
           join(output, 'npm-local-mitigations.json'),
-          `${JSON.stringify(safeReport(mitigation), null, 2)}\n`,
+          `${JSON.stringify(
+            safeReport({
+              schema: 1,
+              effectiveStatus: 'blocked',
+              localMitigations: 0,
+              reason: 'production advisories must be fixed upstream, not accepted',
+              rawReportSha256: entry.rawReportSha256,
+            }),
+            null,
+            2,
+          )}\n`,
         );
       }
       summary.scopes.push(entry);

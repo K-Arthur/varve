@@ -28,6 +28,19 @@ overrides:
   # brace-expansion DoS advisories affect the WDIO/Stryker minimatch chains.
   "brace-expansion@1": 1.1.21
   "brace-expansion@2": 2.1.7
+  # --- Transitive security remediations (2026-10-06) ---
+  # GHSA-ch52-4w7c-c8xp: max-stale cross-user cache disclosure. Fixed upstream
+  # in 4.3.0, so the runtime backport and its verification entry were removed.
+  "http-cache-semantics": 4.3.0
+  # source-map-js event-loop DoS through indexed source-map section offsets.
+  # Fixed upstream in 1.2.2.
+  "source-map-js": 1.2.2
+  # PostCSS flat-selector CPU exhaustion. Only the 7.x line is overridden: the
+  # patched release is a major bump, and Tailwind 3 (via @astrojs/tailwind)
+  # pins ^6 for its build, where no fix exists. The Tailwind chain is build-time
+  # tooling and now lives in devDependencies, so it is outside the production
+  # advisory scope rather than silently accepted.
+  "postcss-selector-parser@>=7.0.0": 7.1.6
   # GHSA-ggr8-5vv4-36mx: deepmerge-ts stack exhaustion on recursive object
   # graphs. WDIO currently declares ^7, but its usage is compatible with the
   # patched 8.x API. Keep this override until WDIO widens its own range.
@@ -73,9 +86,10 @@ minimumReleaseAgeExclude:
   - '@testing-library/jest-dom@7.0.1'
 
 patchedDependencies:
-  # No upstream fixes published for GHSA-ch52-4w7c-c8xp / GHSA-vfj7-8cjw-p6xm.
-  # Keep the raw advisories visible and verify these exact runtime backports.
-  http-cache-semantics@4.2.0: patches/http-cache-semantics@4.2.0.patch
+  # braces has no published fix: the advisory names >=3.0.4, which does not
+  # exist on the registry (latest is 3.0.3). Keep the reviewed runtime backport
+  # and its verification entry. The http-cache-semantics backport was removed on
+  # 2026-10-06 because 4.3.0 shipped the upstream fix.
   braces@3.0.3: patches/braces@3.0.3.patch
   extract-zip@2.0.1: patches/extract-zip@2.0.1.patch
   jsdom@30.0.1: patches/jsdom@30.0.1.patch

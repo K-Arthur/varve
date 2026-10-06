@@ -15,7 +15,6 @@
     "test:e2e": "playwright test -c ../../playwright.website.config.ts"
   },
   "dependencies": {
-    "@astrojs/tailwind": "^6.0.0",
     "@fontsource-variable/fraunces": "^5.3.0",
     "@fontsource-variable/geist": "^5.3.0",
     "@fontsource-variable/ibm-plex-sans": "^5.3.0",
@@ -25,6 +24,7 @@
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.10",
+    "@astrojs/tailwind": "^6.0.0",
     "typescript": "^6.0.3"
   },
   "license": "FSL-1.1-MIT"
