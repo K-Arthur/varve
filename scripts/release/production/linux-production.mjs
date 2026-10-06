@@ -9,6 +9,7 @@ import { isAbsolute, join, relative, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { captureDomFailure } from './failure-evidence.mjs';
 import { clickNativeQuickExport } from './native-export-controls.mjs';
+import { assertNativePdfArtwork } from './native-pdf.mjs';
 import { NATIVE_QUIT_NAME } from './native-quit.mjs';
 import { assertRetainedDocument } from './retained-document.mjs';
 import { productionDomPage } from './webdriver-dom.mjs';
@@ -283,6 +284,13 @@ try {
         assert.equal(bytes.subarray(0, 5).toString(), '%PDF-');
         assert.match(bytes.toString(), /\/Type\s*\/Page\b/);
         assert.match(bytes.toString(), /%%EOF/);
+        writeFileSync(
+          join(out, 'native-export-pdf-render.png'),
+          await assertNativePdfArtwork(
+            bytes,
+            Buffer.from(original.assets['asset-ca2aceaaa125b46e'].dataUrl.split(',')[1], 'base64'),
+          ),
+        );
       }
       receipt.evidence.push({
         phase: `actual native ${format} output`,

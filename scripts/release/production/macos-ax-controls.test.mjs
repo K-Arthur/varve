@@ -126,6 +126,34 @@ assert.doesNotMatch(
   /amText/,
   'native nil-valued menu snapshots use actual label/title',
 );
+controls = [control('SVG', 'XCUIElementTypeRadioButton'), control('SVG', 'XCUIElementTypeButton')];
+await assert.rejects(
+  context.one('SVG', ['XCUIElementTypeRadioButton', 'XCUIElementTypeButton']),
+  /got 2/,
+  'format radio and Add Configuration button share a name',
+);
+assert.equal(
+  (await context.one('SVG', ['XCUIElementTypeRadioButton'])).amType,
+  'XCUIElementTypeRadioButton',
+);
+assert.match(source, /role === 'radio' \? 'XCUIElementTypeRadioButton' : 'XCUIElementTypeButton'/);
+const openAction = source.slice(
+  source.indexOf('async function open('),
+  source.indexOf('async function selectImage('),
+);
+assert.doesNotMatch(
+  openAction,
+  /keys\('o'/,
+  'Open is selected once through the actual home or in-window menu action',
+);
+assert.match(openAction, /homeOpen\[0\]\.click\(\)/);
+assert.match(openAction, /await click\('File'\);\s+await click\('Open…', true\)/);
+assert.doesNotMatch(
+  source,
+  /keys\('s', COMMAND \| SHIFT\)/,
+  'Save As also selects its actual action once',
+);
+assert.match(source, /await click\('File'\);\s+await click\('Save As…', true\)/);
 assert.doesNotMatch(source, /AND hittable == true/);
 assert.match(source, /title == 'Not now'/, 'actual first-run update dialog has an explicit choice');
 assert.match(
@@ -135,8 +163,6 @@ assert.match(
 );
 assert.match(source, /one\('Window', \['XCUIElementTypeMenuBarItem'\]\)/);
 assert.match(source, /one\('Fill', \['XCUIElementTypeMenuItem'\]\)/);
-assert.match(source, /await keys\('o', COMMAND\)/);
-assert.match(source, /await keys\('s', COMMAND \| SHIFT\)/);
 assert.match(source, /await keys\('z', COMMAND\)/);
 console.log(
   'External AX exact canonical X/AB and Create controls pass strict missing/wrong/ambiguous/type/parent/literal guards; no macOS execution claimed.',

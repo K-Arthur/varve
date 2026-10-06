@@ -223,8 +223,10 @@ endif()
         'retained-document',
         'native-quit',
         'native-export-controls',
+        'native-pdf',
         'macos-ax-controls',
         'workflow',
+        ...(id === 'package-smoke' ? ['appimage-extraction'] : []),
       ]) {
         execFileSync(
           process.execPath,

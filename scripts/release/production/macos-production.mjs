@@ -8,6 +8,7 @@ import { homedir } from 'node:os';
 import { isAbsolute, join, relative, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { nativeQuickExportControls } from './native-export-controls.mjs';
+import { assertNativePdfArtwork } from './native-pdf.mjs';
 import { assertRetainedDocument } from './retained-document.mjs';
 
 const { values: v } = parseArgs({
@@ -209,9 +210,17 @@ async function launch() {
   await evidence('native-ready');
 }
 async function open(path) {
-  // Varve's File commands are webview actions; the native macOS File menu
-  // contains only window controls. Exercise the registered Command shortcuts.
-  await keys('o', COMMAND);
+  // Select the actual in-window action once. Application-wide Command-O can
+  // also activate a native Open panel, obscuring the webview's native sheet.
+  const homeOpen = await hittableElements(
+    "amType == 'XCUIElementTypeButton' AND (label == 'Open…' OR title == 'Open…')",
+  );
+  assert.ok(homeOpen.length <= 1, 'Home Open action must be unambiguous');
+  if (homeOpen.length) await homeOpen[0].click();
+  else {
+    await click('File');
+    await click('Open…', true);
+  }
   await panelPath(path, 'Open');
   await until(() => one('Fit all to viewport', ['XCUIElementTypeButton']));
 }
@@ -260,7 +269,8 @@ try {
   assert.ok(welcome.length <= 1, 'First-editor welcome control must be unambiguous');
   if (welcome.length) await click('Close dialog');
   await open(input);
-  await keys('s', COMMAND | SHIFT);
+  await click('File');
+  await click('Save As…', true);
   await panelPath(savedPath, 'Save');
   const first = await until(() => JSON.parse(readFileSync(savedPath, 'utf8')));
   retained(first);
@@ -303,7 +313,12 @@ try {
     await click('Export');
     for (const format of ['PNG', 'SVG', 'PDF']) {
       const path = join(out, `native-export.${format.toLowerCase()}`);
-      for (const { name } of nativeQuickExportControls(format)) await click(name);
+      for (const { role, name } of nativeQuickExportControls(format))
+        await (
+          await until(() =>
+            one(name, [role === 'radio' ? 'XCUIElementTypeRadioButton' : 'XCUIElementTypeButton']),
+          )
+        ).click();
       await panelPath(path, 'Save');
       const bytes = await until(() => {
         const b = readFileSync(path);
@@ -329,6 +344,13 @@ try {
         assert.equal(bytes.subarray(0, 5).toString(), '%PDF-');
         assert.match(bytes.toString(), /\/Type\s*\/Page\b/);
         assert.match(bytes.toString(), /%%EOF/);
+        writeFileSync(
+          join(out, 'native-export-pdf-render.png'),
+          await assertNativePdfArtwork(
+            bytes,
+            Buffer.from(original.assets['asset-ca2aceaaa125b46e'].dataUrl.split(',')[1], 'base64'),
+          ),
+        );
       }
       receipt.evidence.push({
         phase: `actual native ${format} output`,

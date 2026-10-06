@@ -1098,11 +1098,13 @@ jobs:
           node release-qualification-tooling/scripts/release/production/webdriver-dom.test.mjs
           node release-qualification-tooling/scripts/release/production/native-quit.test.mjs
           node release-qualification-tooling/scripts/release/production/native-export-controls.test.mjs
+          node release-qualification-tooling/scripts/release/production/native-pdf.test.mjs
           node release-qualification-tooling/scripts/release/production/retained-document.test.mjs
           node release-qualification-tooling/scripts/release/production/macos-ax-controls.test.mjs
           node release-qualification-tooling/scripts/release/production/published-upgrade.test.mjs
           node release-qualification-tooling/scripts/release/production/workflow.test.mjs
           node release-qualification-tooling/scripts/release/production/session-options.test.mjs
+          node release-qualification-tooling/scripts/release/production/appimage-extraction.test.mjs
 
       - name: Select successful Linux producer artifact
         if: matrix.enabled
@@ -1188,6 +1190,7 @@ jobs:
             echo "::error::No AppImage found in staged/linux-${{ matrix.arch_slug }}"
             exit 1
           fi
+          IMG="$(realpath "${IMG}")"
           chmod +x "${IMG}"
           EXTRACT_ROOT="$(mktemp -d "${RUNNER_TEMP:-/tmp}/varve-appimage-resources.XXXXXX")"
           trap 'rm -rf "${EXTRACT_ROOT}"' EXIT
@@ -1326,6 +1329,7 @@ jobs:
           node release-qualification-tooling/scripts/release/production/webdriver-dom.test.mjs
           node release-qualification-tooling/scripts/release/production/native-quit.test.mjs
           node release-qualification-tooling/scripts/release/production/native-export-controls.test.mjs
+          node release-qualification-tooling/scripts/release/production/native-pdf.test.mjs
           node release-qualification-tooling/scripts/release/production/retained-document.test.mjs
           node release-qualification-tooling/scripts/release/production/macos-ax-controls.test.mjs
           node release-qualification-tooling/scripts/release/production/published-upgrade.test.mjs

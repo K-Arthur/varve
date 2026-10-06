@@ -14,6 +14,8 @@ function job(id) {
 const linux = job('package-smoke'),
   native = job('platform-smoke'),
   verify = job('verify');
+assert.match(linux, /production\/appimage-extraction\.test\.mjs/);
+assert.doesNotMatch(native, /production\/appimage-extraction\.test\.mjs/);
 assert.match(
   verify,
   /needs: \[preflight, signing-preflight, bundle, package-smoke, platform-smoke\]/,
@@ -30,6 +32,7 @@ for (const slice of [linux, native]) {
   assert.match(slice, /production\/retained-document\.test\.mjs/);
   assert.match(slice, /production\/native-quit\.test\.mjs/);
   assert.match(slice, /production\/native-export-controls\.test\.mjs/);
+  assert.match(slice, /production\/native-pdf\.test\.mjs/);
   assert.match(slice, /Select successful .*producer artifact/);
   assert.match(slice, /Verify downloaded .*source and bytes/);
   assert.match(slice, /production\/published-upgrade\.mjs/);
