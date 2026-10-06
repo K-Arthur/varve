@@ -191,6 +191,11 @@ jobs:
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /scripts/release/verify-website-publication.mjs
+            /scripts/release/website-release-data-check.mjs
+            /apps/website/src/data/release-manifest.json
 
       - name: Verify release-data workflow source
         run: test "$(git rev-parse --verify 'HEAD^{commit}')" = "${{ github.sha }}"

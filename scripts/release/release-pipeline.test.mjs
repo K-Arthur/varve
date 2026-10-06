@@ -13,6 +13,8 @@ import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
   copyFileSync,
+  cpSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
@@ -26,7 +28,11 @@ import { load } from 'js-yaml';
 import ts from 'typescript';
 import { STRICT_BROWSER_FLAGS } from '../quality/browser-execution-policy.mjs';
 import { localBrowserLanes } from '../quality/full-gate-execution.mjs';
-import { FULL_BROWSER_SHARDS } from '../quality/validation-policy.mjs';
+import {
+  computePolicyHash,
+  FULL_BROWSER_SHARDS,
+  POLICY_FILES,
+} from '../quality/validation-policy.mjs';
 import '../website/demo-dist-validation.test.mjs';
 import { candidateNextAction } from './release.mjs';
 import { parseChecksums, selectRelease, verifyReleaseIntegrity } from './verify-release-data.mjs';
@@ -57,7 +63,13 @@ const strictBrowserFlags = STRICT_BROWSER_FLAGS;
   const steps = jobs.preflight.steps;
   assert.equal(steps[0].with.ref, expression('inputs.tag || github.ref'));
   assert.equal(steps[0].with['fetch-depth'], 0);
-  assert.equal(steps[0].with.filter, 'blob:none');
+  assert.equal(steps[0].with['sparse-checkout-cone-mode'], false);
+  const materialize = steps.find((step) => step.name === 'Materialize tagged policy inputs');
+  assert.match(
+    materialize.run,
+    /import \{ POLICY_FILES \} from "\.\/scripts\/quality\/validation-policy\.mjs"/,
+  );
+  assert.match(materialize.run, /git sparse-checkout add --no-cone --stdin/);
   for (const source of [candidateWorkflow, integrationWorkflow]) {
     const planner = load(source).jobs.changes;
     const checkout = planner.steps.find((step) => step.uses?.startsWith('actions/checkout'));
@@ -99,6 +111,45 @@ const strictBrowserFlags = STRICT_BROWSER_FLAGS;
   assert.equal(signing['persist-credentials'], false);
   const fixture = mkdtempSync(join(tmpdir(), 'varve-release-policy-'));
   try {
+    for (const path of steps[0].with['sparse-checkout'].trim().split('\n')) {
+      const relative = path.replace(/^\//, '');
+      const target = join(fixture, relative);
+      mkdirSync(dirname(target), { recursive: true });
+      cpSync(relative, target, { recursive: true });
+    }
+    for (const path of POLICY_FILES) {
+      if (!existsSync(path)) continue;
+      const target = join(fixture, path);
+      mkdirSync(dirname(target), { recursive: true });
+      copyFileSync(path, target);
+    }
+    assert.equal(computePolicyHash({ root: fixture }), computePolicyHash());
+    const currentVersion = JSON.parse(readFileSync('package.json', 'utf8')).version;
+    execFileSync(
+      process.execPath,
+      ['scripts/release/version.mjs', 'verify', `v${currentVersion}`],
+      {
+        cwd: fixture,
+        encoding: 'utf8',
+      },
+    );
+    execFileSync(
+      process.execPath,
+      ['scripts/release/release-notes.mjs', '--check', currentVersion],
+      {
+        cwd: fixture,
+        encoding: 'utf8',
+      },
+    );
+    rmSync(
+      join(
+        fixture,
+        POLICY_FILES.find((path) => existsSync(path)),
+      ),
+      { force: true },
+    );
+    assert.notEqual(computePolicyHash({ root: fixture }), computePolicyHash());
+    rmSync(fixture, { recursive: true, force: true });
     for (const path of signing['sparse-checkout'].trim().split('\n')) {
       const relative = path.replace(/^\//, '');
       const target = join(fixture, relative);
@@ -123,6 +174,29 @@ const strictBrowserFlags = STRICT_BROWSER_FLAGS;
     execFileSync(
       process.execPath,
       ['--input-type=module', '-e', "await import('./scripts/release/verify-certification.mjs')"],
+      { cwd: fixture, encoding: 'utf8' },
+    );
+    const releaseData = load(websiteWorkflow).jobs['release-data'].steps[0].with;
+    assert.equal(releaseData.ref, expression('github.sha'));
+    assert.equal(releaseData['persist-credentials'], false);
+    rmSync(fixture, { recursive: true, force: true });
+    for (const path of releaseData['sparse-checkout'].trim().split('\n')) {
+      const relative = path.replace(/^\//, '');
+      const target = join(fixture, relative);
+      mkdirSync(dirname(target), { recursive: true });
+      copyFileSync(relative, target);
+    }
+    execFileSync(process.execPath, ['scripts/release/website-release-data-check.mjs'], {
+      cwd: fixture,
+      encoding: 'utf8',
+    });
+    execFileSync(
+      process.execPath,
+      [
+        '--input-type=module',
+        '-e',
+        "await import('./scripts/release/verify-website-publication.mjs')",
+      ],
       { cwd: fixture, encoding: 'utf8' },
     );
   } finally {

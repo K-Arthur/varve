@@ -267,7 +267,7 @@ function validateVarveRules(content, filename) {
 
   const stepBlocks = extractStepBlocks(content);
 
-  if (name === 'ci.yml' || name === 'release-candidate.yml')
+  if (['ci.yml', 'release-candidate.yml', 'website-deploy.yml'].includes(name))
     errors.push(...validateCertifiedBrowserCommands(stepBlocks, name));
 
   if (name === 'release.yml') {
@@ -358,7 +358,8 @@ function validateCertifiedBrowserCommands(stepBlocks, name) {
   const errors = [];
   for (const [job, steps] of Object.entries(stepBlocks)) {
     for (const step of steps) {
-      for (const line of step.run.split('\n')) {
+      for (const line of step.run.replace(/\\\r?\n\s*/g, ' ').split('\n')) {
+        if (line.trim().startsWith('#')) continue;
         if (!/\bpnpm (?:exec playwright test|e2e:visual)\b/.test(line) || /--list\b/.test(line))
           continue;
         errors.push(
@@ -554,7 +555,7 @@ export function extractStepBlocks(content) {
       // A `run: |` (or `run: >`) block: capture every following line that is
       // blank or indented deeper than the `run:` key, until a line at the step
       // key depth (a new step or a new step key like `env:`/`if:`).
-      if (/^\s{4,12}run:\s*[|>]\s*$/.test(line) && currentStep) {
+      if (/^\s{4,12}run:\s*[|>][+-]?\s*$/.test(line) && currentStep) {
         const body = [];
         const contentIndent = line.match(/^\s*/)[0].length + 2;
         let j = i + 1;
@@ -570,7 +571,7 @@ export function extractStepBlocks(content) {
             break;
           }
         }
-        currentStep.run = body.join('\n');
+        currentStep.run = body.join(/run:\s*>/.test(line) ? ' ' : '\n');
         i = j - 1;
         continue;
       }

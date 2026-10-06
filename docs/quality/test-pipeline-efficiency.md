@@ -76,18 +76,27 @@ matrix or prune artifacts simply because one shard failed.
 Sparse checkout uses the pinned action's documented
 [file selection](https://github.com/actions/checkout#fetch-only-a-single-file).
 It reduces policy-job fetch inputs; hosted timing after the repair must establish
-the actual gain. Full-history product preflight still verifies tag ancestry and
-the tag's complete policy hash, and native packaging still receives full source.
+the actual gain. Product preflight initially selects release scripts, the nine
+version manifests and changelog, then materializes every `POLICY_FILES` input
+from the tagged policy module before hashing. A minimal-checkout fixture checks
+version/changelog and proves hash equality with a complete worktree. Full Git
+ancestry still verifies tag provenance; native packaging receives full source.
 
 The first repair's [integration planner](https://github.com/K-Arthur/varve/actions/runs/37492370661)
 also exhausted its five-minute deadline inside full-history Git fetch, before
-running selection. Integration/candidate planning and product preflight now
+running selection. Integration/candidate planning now
 use a `blob:none` partial clone with full ancestry and a complete head worktree.
 This avoids transferring historical binary blobs; it does not omit current
 source, change path selection, or replace ancestry validation with a shallow
 clone. Planning jobs allow 15 minutes for a bounded cold checkout; browser and
 assertion deadlines are unchanged. Verify hosted checkout and planner timings
 separately before claiming a measured speedup.
+
+Website release-data validation has the same small-job boundary: select its
+two verifier scripts and committed manifest, retain workflow/source publication
+checks, and use full source for the website/demo build. Its regression fixture
+executes validation from that minimal checkout, preventing a hidden dependency
+from becoming another five-minute publication blocker.
 
 ## Measured cross-platform duplication
 

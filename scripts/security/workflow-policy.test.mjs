@@ -585,13 +585,17 @@ function testWebsiteRecoveryCheckoutRequiresPublicationVerification() {
   const reviewed = readFileSync(join(WF_DIR, 'website-deploy.yml'), 'utf8');
   expectCleanAudit(yamlWebsite(reviewed));
   for (const unsafe of [
-    reviewed.replace('verify-website-publication.mjs', 'unverified-publication.mjs'),
+    reviewed.replace(
+      'node scripts/release/verify-website-publication.mjs',
+      'node scripts/release/unverified-publication.mjs',
+    ),
     reviewed.replace('--sha "$RELEASE_SHA"', ''),
     reviewed.replace("needs.release-data.result == 'success'", 'true'),
     reviewed.replace("needs.release-data.outputs.published == 'true'", 'true'),
     reviewed.replace("needs.release-data.result == 'skipped'", 'true'),
     reviewed.replace('--allow-unpublished "$ALLOW_UNPUBLISHED"', '--allow-unpublished "true"'),
   ]) {
+    assert.notEqual(unsafe, reviewed, 'the negative control must mutate the reviewed workflow');
     const violations = yamlWebsite(unsafe);
     assert.ok(
       violations.some((violation) => violation.includes('workflow_run checkout must pin ref')),

@@ -101,12 +101,28 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ inputs.tag || github.ref }}
-          # Full history: the provenance gate below runs merge-base against
-          # the default branch, which needs real ancestry (a depth-1 clone
-          # would reject every valid release tag).
+          # Keep ancestry for provenance, fetch only tagged release metadata.
           fetch-depth: 0
-          filter: blob:none
           persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /scripts/
+            /package.json
+            /apps/desktop/package.json
+            /apps/desktop/src-tauri/tauri.conf.json
+            /Cargo.toml
+            /apps/desktop/src-tauri/Cargo.toml
+            /README.md
+            /CHANGELOG.md
+            /apps/desktop/src-tauri/linux/dev.varve.desktop.metainfo.xml
+            /packaging/aur/varve-desktop-bin/PKGBUILD
+            /packaging/aur/varve-desktop-bin/.SRCINFO
+
+      - name: Materialize tagged policy inputs
+        run: |
+          set -euo pipefail
+          node --input-type=module -e 'import { POLICY_FILES } from "./scripts/quality/validation-policy.mjs"; process.stdout.write(POLICY_FILES.map(path => `/${path}`).join("\n") + "\n");' \
+            | git sparse-checkout add --no-cone --stdin
 
       - name: Resolve tag, version and channel
         id: resolve

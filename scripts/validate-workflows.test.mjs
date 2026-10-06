@@ -57,6 +57,7 @@ pnpm() { printf 'Unexpected unleased pnpm invocation\\n' >&2; return 91; }`;
 }
 
 import {
+  extractStepBlocks,
   validateRepoInvariants,
   validateVarveRules,
   validateWorkflowStructure,
@@ -133,6 +134,40 @@ assert.match(
     assert.equal(result.status, workflowSha === sha ? 0 : 1);
     assert.equal(result.argv.length > 0, workflowSha === sha, 'mismatch must stop before planning');
   }
+}
+
+// Website deployment uses folded YAML commands; flags on continuation lines
+// must be checked as the command the runner will actually execute.
+{
+  const website = readFileSync('.github/workflows/website-deploy.yml', 'utf8');
+  assert.deepEqual(validateVarveRules(website, 'website-deploy.yml'), []);
+  const steps = extractStepBlocks(website);
+  assert.ok(steps.test.some((step) => step.run.includes('--fail-on-flaky-tests')));
+  const fixture = `name: browser policy fixture
+on: workflow_dispatch
+jobs:
+  e2e:
+    steps:
+      - name: Browser E2E
+        run: >-
+          pnpm exec playwright test
+          --workers=1 --retries=1 --update-snapshots=none
+          --fail-on-flaky-tests --trace=retain-on-failure
+`;
+  assert.ok(
+    validateVarveRules(fixture, 'ci.yml').some((error) => error.includes('--retries=0')),
+    'folded command retry drift fails before execution',
+  );
+  const continued = fixture
+    .replace('run: >-', 'run: |')
+    .replace('playwright test\n', 'playwright test \\\n')
+    .replace('--update-snapshots=none\n', '--update-snapshots=none \\\n');
+  for (const valid of [fixture, continued])
+    assert.deepEqual(validateVarveRules(valid.replace('--retries=1', '--retries=0'), 'ci.yml'), []);
+  assert.ok(
+    validateVarveRules(continued, 'ci.yml').some((error) => error.includes('--retries=0')),
+    'shell continuations cannot hide conflicting retry flags',
+  );
 }
 
 const RELEASE_GOOD = `name: Release

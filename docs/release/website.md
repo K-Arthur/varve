@@ -1,12 +1,19 @@
 # Varve — Website Architecture and Launch Plan
 
-**Last verified:** 2026-10-02
+**Last verified:** 2026-10-06 (release-data workflow inputs)
 **Status:** implemented and deployed at **https://varve.studio** (custom
 domain, registered and DNS at Porkbun, hosted on GitHub Pages). Published
 application versions and availability come from the verified release data
 described below; check [the download page](https://varve.studio/download) for
 the current installers. See `custom-domain-runbook.md` for the DNS
 records, GitHub configuration and rollback.
+
+Release-data validation uses a sparse checkout of its two verification scripts
+and the committed release manifest. It still checks the workflow SHA and the
+actual published tag/source through GitHub before building. A minimal-checkout
+fixture executes the committed-data validator and loads the publication
+verifier. The website/demo build receives the complete published product source;
+the small publication check does not need a full media-bearing repository fetch.
 
 The current public-message and discovery contract is maintained separately in
 [`docs/marketing/positioning-and-discovery.md`](../marketing/positioning-and-discovery.md).
