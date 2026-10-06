@@ -102,7 +102,7 @@ endif()
 if(NOT CMAKE_C_COMPILER_TARGET STREQUAL "aarch64-pc-windows-msvc" OR NOT CMAKE_CXX_COMPILER_TARGET STREQUAL "aarch64-pc-windows-msvc")
   message(FATAL_ERROR "Wrong native target")
 endif()
-if(NOT CMAKE_CXX_FLAGS STREQUAL "/bigobj" OR GGML_NATIVE OR NOT GGML_CPU_ARM_ARCH STREQUAL "armv8-a")
+if(NOT CMAKE_CXX_FLAGS STREQUAL "/bigobj /EHsc" OR GGML_NATIVE OR NOT GGML_CPU_ARM_ARCH STREQUAL "armv8-a")
   message(FATAL_ERROR "Wrong release flags or portable ARM baseline")
 endif()
 `,

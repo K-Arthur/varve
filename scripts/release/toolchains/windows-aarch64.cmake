@@ -20,8 +20,9 @@ endif()
 set(CMAKE_LINKER "${VARVE_ARM64_LINKER}" CACHE FILEPATH "Windows ARM64 Microsoft linker" FORCE)
 set(CMAKE_C_COMPILER_TARGET "aarch64-pc-windows-msvc" CACHE STRING "Native release target" FORCE)
 set(CMAKE_CXX_COMPILER_TARGET "aarch64-pc-windows-msvc" CACHE STRING "Native release target" FORCE)
-# Remove the upstream single-quoted cl.exe flag while retaining large-object support.
-set(CMAKE_CXX_FLAGS "/bigobj" CACHE STRING "Clang MSVC-compatible flags" FORCE)
+# Remove the upstream single-quoted flag. Clang's MSVC driver also requires
+# /EHsc for the dependency's C++ try/throw paths (cl.exe only warns without it).
+set(CMAKE_CXX_FLAGS "/bigobj /EHsc" CACHE STRING "Clang MSVC-compatible flags" FORCE)
 # A distributable binary must not require the build runner's optional ARM features.
 set(GGML_NATIVE OFF CACHE BOOL "Portable CPU instruction baseline" FORCE)
 set(GGML_CPU_ARM_ARCH "armv8-a" CACHE STRING "Windows ARM64 CPU baseline" FORCE)

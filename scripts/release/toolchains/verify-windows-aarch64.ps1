@@ -48,9 +48,15 @@ int arm64_probe(void) { return vget_lane_s32(vdup_n_s32(0), 0); }
 '@ | Set-Content (Join-Path $probe 'probe.c')
 @'
 #include <string>
+#include <stdexcept>
 extern "C" int arm64_probe(void);
 static_assert(sizeof(void*) == 8, "ARM64 pointer width");
-int main() { return std::string("ARM64").size() == 5 ? arm64_probe() : 1; }
+int main() {
+  try { throw std::runtime_error("ARM64"); }
+  catch (const std::runtime_error& error) {
+    return std::string(error.what()) == "ARM64" ? arm64_probe() : 1;
+  }
+}
 '@ | Set-Content (Join-Path $probe 'main.cpp')
 # Reproduce the dependency's conflicting defaults, including its quoted flag.
 & cmake -S $probe -B "$probe/build" -G Ninja "-DCMAKE_TOOLCHAIN_FILE=$toolchain" '-DCMAKE_C_COMPILER=cl.exe' '-DCMAKE_CXX_COMPILER=cl.exe' "-DCMAKE_CXX_FLAGS='/bigobj'" -DCMAKE_BUILD_TYPE=Release
