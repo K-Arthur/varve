@@ -20,7 +20,7 @@
  *
  * Baselines live in `installer-size-baseline.json`; entries are updated in
  * the same commit that intentionally changes installer size (this is the
- * override-at-source process). The v0.1.2 baselines below reflect the two
+ * override-at-source process). The original v0.1.2 estimates reflect the two
  * accepted 2026-08-18 optimisations:
  *   - WebView2 `offlineInstaller` -> `downloadBootstrapper` (-~200 MB x64 /
  *     -~185 MB ARM64, +~2 MB bootstrapper);
@@ -45,19 +45,11 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-const WARN_RATIO = 1.2;
-const BLOCK_RATIO = 1.35;
-
-const DEFAULT_BASELINE = {
-  schemaVersion: 1,
-  note: 'Expected NSIS installer sizes after the 2026-08-18 changes (WebView2 downloadBootstrapper + ort-wasm trim). Derived from the released v0.1.2 bytes: 263,742,332 (x64) / 236,738,619 (arm64) minus the embedded WebView2 standalone installer (202.8 MB / 187.3 MB raw; LZMA-incompressible, so its installer contribution ~ its raw size), minus ~9.8 MB brotli payload trimmed from varve-desktop.exe, plus ~2 MB bootstrapper. Update this file in the same commit as any intentional installer-size change.',
-  warnRatio: WARN_RATIO,
-  blockRatio: BLOCK_RATIO,
-  installers: {
-    'nsis-x86_64': { expectedBytes: 56_000_000 },
-    'nsis-aarch64': { expectedBytes: 44_000_000 },
-  },
-};
+// The adjacent committed file is the single default source. Duplicated
+// constants silently ignored documented baseline updates in the actual CLI.
+const DEFAULT_BASELINE = JSON.parse(
+  readFileSync(join(__dirname, 'installer-size-baseline.json'), 'utf8'),
+);
 
 const WEBVIEW_PATTERN = /MicrosoftEdgeWebView2RuntimeInstaller/i;
 const UNINSTALL_PATTERN = /uninstall\.exe$/i;

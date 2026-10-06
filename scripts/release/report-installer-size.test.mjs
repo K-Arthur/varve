@@ -10,7 +10,8 @@
  * artifact collection on every release).
  */
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { copyFileSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -117,6 +118,56 @@ test('artifacts without a baseline entry are reported without a gate', () => {
     assert.equal(r.expectedBytes, null);
     assert.equal(r.status, 'ok');
   });
+});
+
+test('the actual CLI uses its adjacent JSON baseline and preserves explicit override evidence', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'varve-size-cli-'));
+  try {
+    const script = join(dir, 'report-installer-size.mjs');
+    copyFileSync(new URL('./report-installer-size.mjs', import.meta.url), script);
+    const baseline = {
+      ...DEFAULT_BASELINE,
+      installers: { 'nsis-aarch64': { expectedBytes: 1000 } },
+    };
+    const baselinePath = join(dir, 'installer-size-baseline.json');
+    writeFileSync(baselinePath, JSON.stringify(baseline));
+    const installer = join(dir, 'Varve-0.5.0-windows-aarch64.exe');
+    writeFileSync(installer, Buffer.alloc(1400));
+    const output = join(dir, 'report.json');
+    const args = [script, '--installer', installer, '--out-report', output];
+    const run = (extra = []) =>
+      spawnSync(process.execPath, [...args, ...extra], { encoding: 'utf8' });
+    const readReport = () => JSON.parse(readFileSync(output, 'utf8')).installers[0];
+    const blocked = run();
+    assert.equal(blocked.error, undefined);
+    assert.equal(blocked.status, 1, 'editing the committed JSON must actually affect the gate');
+    assert.equal(readReport().expectedBytes, 1000);
+    assert.equal(readReport().blockBytes, 1350);
+    assert.equal(readReport().status, 'block');
+    const reason = 'measured intentional payload growth';
+    assert.equal(run(['--override-reason', reason]).status, 0);
+    assert.equal(readReport().status, 'block-overridden');
+    assert.equal(readReport().overrideReason, reason);
+    assert.equal(readReport().blockBytes, 1350, 'an exception retains the original ceiling');
+    const explicit = join(dir, 'explicit.json');
+    writeFileSync(
+      explicit,
+      JSON.stringify({ ...baseline, installers: { 'nsis-aarch64': { expectedBytes: 2000 } } }),
+    );
+    assert.equal(run(['--baseline', explicit]).status, 0);
+    assert.equal(readReport().expectedBytes, 2000);
+    assert.equal(readReport().status, 'ok');
+    writeFileSync(baselinePath, '{invalid');
+    const corrupt = run();
+    assert.notEqual(
+      corrupt.status,
+      0,
+      'a corrupt default baseline fails instead of using silent constants',
+    );
+    assert.match(corrupt.stderr, /SyntaxError|JSON/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 function test(name, fn) {
