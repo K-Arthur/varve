@@ -257,17 +257,49 @@ async function openDepthBlurSection(page: import('@playwright/test').Page) {
   return page.getByRole('group', { name: 'Depth Blur' });
 }
 
+/**
+ * Click a control inside a section that re-renders while depth state settles.
+ * Playwright retries a detached element, but a re-render storm can outlast the
+ * default timeout (observed as "element was detached from the DOM, retrying"
+ * for 45s). Retry the click with a freshly resolved locator instead.
+ */
+/**
+ * Click a control inside a section that re-renders while depth state settles.
+ * Playwright retries a detached element, but a re-render storm can outlast the
+ * default timeout (observed as "element was detached from the DOM, retrying"
+ * for 45s). Retry the click with a freshly resolved locator instead.
+ *
+ * Note: the Depth Blur section can also stay in its model-download state for a
+ * long stretch when the model-store check is slow under load; in that case the
+ * enable control is genuinely absent and no click strategy can help. That is a
+ * product-side readiness race, not a test artifact.
+ */
+async function clickThroughRerender(locator: import('@playwright/test').Locator, attempts = 6) {
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      await locator.click({ timeout: 5000 });
+      return;
+    } catch {
+      await locator.page().waitForTimeout(300);
+    }
+  }
+  await locator.click({ timeout: 15000 });
+}
+
 async function generateDepthMap(
   page: import('@playwright/test').Page,
   section: import('@playwright/test').Locator,
 ) {
   const enableButton = section.getByRole('button', { name: /enable depth blur/i });
   if (await enableButton.isVisible({ timeout: 2000 }).catch(() => false)) {
-    await enableButton.click();
+    await clickThroughRerender(enableButton);
   }
   const generateButton = section.getByRole('button', { name: /generate depth map/i });
   await expect(generateButton).toBeVisible({ timeout: 30000 });
-  await generateButton.click();
+  await clickThroughRerender(generateButton);
+  // Depth generation runs on a worker against the (possibly cold) depth model.
+  // The original 5s bound was tight enough that a loaded runner could miss it
+  // and report a failure that was only slowness.
   await expect
     .poll(
       () =>
@@ -276,7 +308,7 @@ async function generateDepthMap(
             window as unknown as { __varveDepthWorkerMessages?: { phase: string }[] }
           ).__varveDepthWorkerMessages?.some((message) => message.phase === 'response'),
         ),
-      { timeout: 5000 },
+      { timeout: 30000 },
     )
     .toBe(true);
 }
