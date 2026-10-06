@@ -553,6 +553,12 @@ test.describe('concept-art reference workflow', () => {
       .first();
     await expect(paintLayer).toHaveAttribute('aria-selected', 'true');
     await optionsTrigger.click();
+    // Settle the surface before capturing the baseline. It is compared exactly
+    // after undo, and on the hosted runner the unsettled read lands 25 orange
+    // pixels low (91 vs the settled 116), which made the restored state look
+    // like it kept extra pixels. The redraw oracle is the same authoritative
+    // check the undo and redo assertions below already use.
+    await expectSurfaceMatchesFullRedraw(page, 'baseline');
     const orangePixelsBeforePaintover = await orangePaintPixels(page);
     const beforePaintover = await contentHash(page);
     const paintStart = await conceptScreenPoint(page, 660, 215);
