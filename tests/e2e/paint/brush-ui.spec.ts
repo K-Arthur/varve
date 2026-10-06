@@ -598,13 +598,6 @@ test.describe('paint UI in the running app', () => {
       await page.waitForTimeout(250);
     };
 
-    await paintGesture();
-    const once = await contentPixelAtScreenPoint(page, point);
-    await page.screenshot({ path: testInfo.outputPath('stroke-opacity-first-gesture.png') });
-    await paintGesture();
-    const twice = await contentPixelAtScreenPoint(page, point);
-    await page.screenshot({ path: testInfo.outputPath('stroke-opacity-second-gesture.png') });
-
     const channelDelta = (from: typeof before, to: typeof before) =>
       Math.max(
         Math.abs(from.r - to.r),
@@ -612,6 +605,19 @@ test.describe('paint UI in the running app', () => {
         Math.abs(from.b - to.b),
         Math.abs(from.a - to.a),
       );
+
+    await paintGesture();
+    // The stroke lands asynchronously; a single read after a fixed delay can
+    // observe the pre-stroke pixel on a loaded runner.
+    await expect
+      .poll(async () => channelDelta(before, await contentPixelAtScreenPoint(page, point)))
+      .toBeGreaterThan(20);
+    const once = await contentPixelAtScreenPoint(page, point);
+    await page.screenshot({ path: testInfo.outputPath('stroke-opacity-first-gesture.png') });
+    await paintGesture();
+    const twice = await contentPixelAtScreenPoint(page, point);
+    await page.screenshot({ path: testInfo.outputPath('stroke-opacity-second-gesture.png') });
+
     expect(channelDelta(before, once)).toBeGreaterThan(20);
     expect(channelDelta(once, twice)).toBeGreaterThan(5);
     if (before.a < 250) {
