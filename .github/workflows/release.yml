@@ -566,6 +566,23 @@ jobs:
         if: matrix.enabled && env.REUSE_PLATFORM != 'true'
         run: rustfmt --version
 
+      - name: Checkout workflow-pinned ARM64 compiler tooling
+        if: matrix.enabled && matrix.name == 'windows-aarch64' && env.REUSE_PLATFORM != 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: release-build-tooling
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /scripts/release/toolchains/windows-aarch64.cmake
+            /scripts/release/toolchains/verify-windows-aarch64.ps1
+
+      - name: Verify native Windows ARM64 Clang toolchain
+        if: matrix.enabled && matrix.name == 'windows-aarch64' && env.REUSE_PLATFORM != 'true'
+        shell: pwsh
+        run: ./release-build-tooling/scripts/release/toolchains/verify-windows-aarch64.ps1
+
       - name: Install Linux system deps
         if: matrix.enabled && runner.os == 'Linux' && env.REUSE_PLATFORM != 'true'
         run: |

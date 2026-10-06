@@ -54,6 +54,70 @@ const candidateWorkflow = readFileSync('.github/workflows/release-candidate.yml'
 const integrationWorkflow = readFileSync('.github/workflows/ci.yml', 'utf8');
 const verifierSource = readFileSync('scripts/quality/verify.mjs', 'utf8');
 const strictBrowserFlags = STRICT_BROWSER_FLAGS;
+
+// Exercise CMake's real cache precedence: CC/CXX cannot override the native
+// dependency's explicit cl.exe defaults. The toolchain must do so before project().
+{
+  const steps = load(releaseWorkflow).jobs.bundle.steps;
+  const checkout = steps.find(
+    (step) => step.name === 'Checkout workflow-pinned ARM64 compiler tooling',
+  );
+  const probe = steps.find((step) => step.name === 'Verify native Windows ARM64 Clang toolchain');
+  assert.equal(checkout.with.ref, '${{ github.workflow_sha }}');
+  assert.equal(checkout.with['persist-credentials'], false);
+  assert.equal(checkout.if, probe.if);
+  assert.match(probe.if, /matrix\.name == 'windows-aarch64'/);
+  assert.match(probe.if, /REUSE_PLATFORM != 'true'/);
+  assert.equal(probe.shell, 'pwsh');
+  assert.ok(steps.indexOf(probe) < steps.findIndex((step) => step.name === 'Build frontend'));
+  const fixture = mkdtempSync(join(tmpdir(), 'varve-arm64-toolchain-'));
+  try {
+    const toolchain = join(fixture, 'windows-aarch64.cmake');
+    copyFileSync('scripts/release/toolchains/windows-aarch64.cmake', toolchain);
+    const check = join(fixture, 'check.cmake');
+    writeFileSync(
+      check,
+      `
+include("${toolchain.replaceAll('\\', '/')}")
+file(TO_CMAKE_PATH "$ENV{VARVE_WINDOWS_ARM64_CLANG}" expected)
+foreach(kind C CXX ASM)
+  if(NOT CMAKE_\${kind}_COMPILER STREQUAL expected)
+    message(FATAL_ERROR "Upstream MSVC compiler was not replaced for \${kind}")
+  endif()
+endforeach()
+if(NOT CMAKE_C_COMPILER_TARGET STREQUAL "aarch64-pc-windows-msvc" OR NOT CMAKE_CXX_COMPILER_TARGET STREQUAL "aarch64-pc-windows-msvc")
+  message(FATAL_ERROR "Wrong native target")
+endif()
+if(NOT CMAKE_CXX_FLAGS STREQUAL "/bigobj" OR GGML_NATIVE OR NOT GGML_CPU_ARM_ARCH STREQUAL "armv8-a")
+  message(FATAL_ERROR "Wrong release flags or portable ARM baseline")
+endif()
+`,
+    );
+    const args = [
+      '-DCMAKE_C_COMPILER=cl.exe',
+      '-DCMAKE_CXX_COMPILER=cl.exe',
+      '-DCMAKE_ASM_COMPILER=cl.exe',
+      "-DCMAKE_CXX_FLAGS='/bigobj'",
+      '-DGGML_NATIVE=ON',
+      '-P',
+      check,
+    ];
+    const env = { ...process.env, VARVE_WINDOWS_ARM64_CLANG: process.execPath };
+    execFileSync('cmake', args, { cwd: fixture, env, encoding: 'utf8' });
+    assert.throws(
+      () =>
+        execFileSync('cmake', args, {
+          cwd: fixture,
+          env: { ...env, VARVE_WINDOWS_ARM64_CLANG: join(fixture, 'missing-clang.exe') },
+          stdio: 'pipe',
+        }),
+      /Verified Windows ARM64 Clang executable is missing/,
+    );
+  } finally {
+    rmSync(fixture, { recursive: true, force: true });
+  }
+}
+
 // A published tag is immutable, but a workflow dispatch can recover broken
 // release orchestration. Keep the repaired verifier tied to the workflow SHA
 // and every product/policy identity tied to the approved tag.

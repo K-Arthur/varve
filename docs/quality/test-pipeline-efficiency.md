@@ -57,6 +57,7 @@ The following failures were pipeline defects with concrete evidence:
 | [Recovery 37492438307](https://github.com/K-Arthur/varve/actions/runs/37492438307): certified-source gate timed out during Git fetch | A dependency-free policy job fetched the entire approximately 425 MB tracked source tree inside a five-minute budget | Certification and signing policy jobs use sparse checkout for their complete script dependency closure. A disposable minimal-checkout fixture executes signing resolution; package jobs retain the complete tagged source. |
 | Recovery publication boundary | GitHub's certificate identifies the master workflow revision, while the publication verifier required the checked-out product tag SHA | Explicitly select the successful recovery build; verify accepted ancestry and the certificate's exact workflow SHA, ref, run, attempt and checksum digest. Authenticated sidecars independently retain the certified tag and policy. Negative controls reject forged identity, diverged ancestry and changed attempts. Publication tooling comes from the workflow; updater configuration remains tagged. |
 | [Recovery 37494786272, Windows ARM64](https://github.com/K-Arthur/varve/actions/runs/37494786272): native helper compilation failed | `diffusion-rs-sys` invokes `rustfmt.exe`, absent from the pinned minimal ARM toolchain | Bundle jobs explicitly install and probe `rustfmt`. An explicit resume dispatch can retain successful platform packages across a workflow repair, with accepted source ancestry, latest-producer/ID checks and tagged byte verification. Native installed qualification and final trust still run for every retained platform. |
+| [Resume 37507587682, Windows ARM64](https://github.com/K-Arthur/varve/actions/runs/37507587682): native helper CMake configuration failed | The native dependency hardcodes MSVC, but its GGML ARM backend requires Clang | Workflow-pinned CMake tooling forces LLVM `clang-cl` for the native ARM64 target and portable ARMv8-A instructions. An early actual C/C++ compile/link/execute and PE architecture probe checks the runner before expensive compilation. Local CMake fixtures reproduce conflicting upstream defaults and reject a missing compiler. Production packaging remains subject to its hosted build and installed qualification. |
 
 Candidate planning also rejects a workflow revision different from the input
 source SHA. Otherwise a newer workflow can execute settings that the frozen
@@ -86,6 +87,16 @@ version manifests and changelog, then materializes every `POLICY_FILES` input
 from the tagged policy module before hashing. A minimal-checkout fixture checks
 version/changelog and proves hash equality with a complete worktree. Full Git
 ancestry still verifies tag provenance; native packaging receives full source.
+
+In [resume 37507587682](https://github.com/K-Arthur/varve/actions/runs/37507587682),
+all four explicit retained packages passed producer/byte verification and the
+Windows/macOS signing checks. The Linux x64 bundle phase took 39 seconds,
+compared with 25 minutes 38 seconds for its original build in 37494786272.
+This comparison excludes installed qualification, final trust and runner queue
+time; it is not a total-release speed or warm-cache guarantee.
+The runner's [documented Windows ARM64 image](https://github.com/actions/runner-images/blob/main/images/windows/Windows11-VS2026-Arm64-Readme.md)
+includes LLVM and the native Visual Studio SDK. The compiler probe checks their
+actual availability rather than assuming the image inventory is sufficient.
 
 The first repair's [integration planner](https://github.com/K-Arthur/varve/actions/runs/37492370661)
 also exhausted its five-minute deadline inside full-history Git fetch, before
