@@ -7,6 +7,7 @@ import { createRequire } from 'node:module';
 import { homedir } from 'node:os';
 import { isAbsolute, join, relative, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
+import { captureDomFailure } from './failure-evidence.mjs';
 import { productionDomPage } from './webdriver-dom.mjs';
 
 const { values: v } = parseArgs({
@@ -194,8 +195,8 @@ async function launch(documentPath) {
   });
 }
 async function selectImage() {
-  const image = page.getByRole('treeitem', { name: /^Published embedded image/ });
-  const poster = page.getByRole('treeitem', { name: /^Poster — A3/ });
+  const image = page.locator('[role="treeitem"][data-node-id="published-embedded-image"]');
+  const poster = page.locator('[role="treeitem"][data-node-id="poster-frame"]');
   if (!(await image.isVisible()))
     await poster.getByRole('button', { name: 'Expand', exact: true }).click();
   await image.click();
@@ -320,6 +321,7 @@ try {
 } catch (error) {
   receipt.error = error.stack ?? String(error);
   process.exitCode = 1;
+  await captureDomFailure(page, out, receipt);
 } finally {
   if (driver) await driver.deleteSession().catch(() => {});
   receipt.finishedAt = new Date().toISOString();

@@ -59,6 +59,30 @@ const strictBrowserFlags = STRICT_BROWSER_FLAGS;
 // dependency's explicit cl.exe defaults. The toolchain must do so before project().
 {
   const steps = load(releaseWorkflow).jobs.bundle.steps;
+  const cache = steps.find((step) => step.uses?.startsWith('Swatinem/rust-cache@'));
+  assert.deepEqual(cache.with.workspaces.trim().split('\n'), [
+    '. -> target',
+    'apps/desktop/src-tauri -> target',
+  ]);
+  assert.equal(cache.with['cache-on-failure'], true);
+  assert.match(
+    cache.with.key,
+    /hashFiles\('release-build-tooling\/scripts\/release\/toolchains\/\*\*'\)/,
+  );
+  assert.equal(cache.with['cache-workspace-crates'], undefined);
+  assert.equal(cache.with['add-rust-environment-hash-key'], undefined);
+  for (const input of [
+    'CARGO',
+    'CC',
+    'CFLAGS',
+    'CXX',
+    'CMAKE',
+    'RUST',
+    'WindowsSDKVersion',
+    'VCToolsInstallDir',
+    'VARVE_WINDOWS_ARM64_CLANG',
+  ])
+    assert.ok(cache.with['env-vars'].split(' ').includes(input));
   const checkout = steps.find(
     (step) => step.name === 'Checkout workflow-pinned ARM64 compiler tooling',
   );
@@ -81,6 +105,14 @@ const strictBrowserFlags = STRICT_BROWSER_FLAGS;
   assert.match(setup, /CARGO_TARGET_AARCH64_PC_WINDOWS_MSVC_LINKER = \$linker/);
   assert.doesNotMatch(setup, /\$env:PATH\.Split\([^\n]*GITHUB_PATH/);
   assert.match(setup, /rust\/build\.rs/);
+  assert.match(setup, /@\('mt\.exe', 'rc\.exe'\)/);
+  assert.match(setup, /Get-Command \$_ -CommandType Application -ErrorAction Stop/);
+  assert.match(setup, /StartsWith\(\$env:WindowsSdkDir/);
+  assert.match(setup, /@\(\$sdkBins\) \| Out-File \$env:GITHUB_PATH/);
+  assert.match(setup, /crate-type = \["cdylib", "rlib"\]/);
+  assert.match(setup, /apps\/desktop\/src-tauri\/windows-app-manifest\.xml/);
+  assert.match(setup, /cargo:rustc-link-arg=\/MANIFEST:EMBED/);
+  assert.match(setup, /cargo:rustc-link-arg=\/MANIFESTINPUT=/);
   const fixture = mkdtempSync(join(tmpdir(), 'varve-arm64-toolchain-'));
   try {
     const toolchain = join(fixture, 'windows-aarch64.cmake');

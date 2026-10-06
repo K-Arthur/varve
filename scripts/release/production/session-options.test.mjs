@@ -80,3 +80,39 @@ for (const name of ['linux', 'macos']) {
 console.log(
   'Actual native session transport, isolated hosted Windows policy and restoration contracts passed.',
 );
+
+// Capture both actual Mac2 launch paths: transport must allow the bounded
+// native XCTest startup to finish, without another session attempt.
+for (const name of ['macos-production', 'macos-ax-probe']) {
+  const source = readFileSync(new URL(`./${name}.mjs`, import.meta.url), 'utf8');
+  const start = source.indexOf('driver = await remote({');
+  const end = source.indexOf('\n  });', start) + '\n  });'.length;
+  let captured;
+  const macContext = vm.createContext({
+    driver: null,
+    server: new URL('http://127.0.0.1:4723'),
+    url: new URL('http://127.0.0.1:4723'),
+    app: '/Applications/Varve.app',
+    values: { app: '/Applications/Varve.app' },
+    resolve: (value) => value,
+    remote: async (options) => {
+      captured = options;
+      throw new Error('captured actual Mac2 session');
+    },
+  });
+  await assert.rejects(
+    vm.runInContext(`(async () => { ${source.slice(start, end)} })()`, macContext),
+    /captured actual Mac2 session/,
+  );
+  assert.equal(captured.connectionRetryCount, 0);
+  const startup = captured.capabilities['appium:serverStartupTimeout'];
+  assert.ok(startup >= 120_000 && startup <= 240_000);
+  assert.ok(captured.connectionRetryTimeout >= startup + 30_000);
+  assert.ok(captured.connectionRetryTimeout <= 300_000);
+  assert.equal(captured.capabilities['appium:showServerLogs'], true);
+  assert.equal(captured.hostname, '127.0.0.1');
+  assert.equal(captured.capabilities['appium:appPath'], '/Applications/Varve.app');
+}
+console.log(
+  'Both actual Mac2 clients retain zero retries, bounded driver startup and XCTest logs.',
+);

@@ -186,7 +186,7 @@ async function launch() {
     port: Number(server.port || 4723),
     path: server.pathname,
     connectionRetryCount: 0,
-    connectionRetryTimeout: 30_000,
+    connectionRetryTimeout: 180_000,
     logLevel: 'warn',
     capabilities: {
       platformName: 'mac',
@@ -194,7 +194,8 @@ async function launch() {
       'appium:bundleId': 'dev.varve.desktop',
       'appium:appPath': app,
       'appium:noReset': true,
-      'appium:serverStartupTimeout': 60_000,
+      'appium:serverStartupTimeout': 120_000,
+      'appium:showServerLogs': true,
     },
   });
   await driver.setTimeout({ implicit: 0 });

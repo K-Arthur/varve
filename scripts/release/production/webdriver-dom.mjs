@@ -68,7 +68,13 @@ export function productionDomPage(driver) {
     return driver.$(ref);
   };
   const locator = (query) => ({
-    click: async () => (await visibleElement(query)).click(),
+    click: async () => {
+      const element = await visibleElement(query);
+      await element.scrollIntoView({ block: 'center', inline: 'nearest' });
+      await element.waitForStable({ timeout: 15_000, interval: 100 });
+      await element.waitForClickable({ timeout: 15_000, interval: 100 });
+      await element.click();
+    },
     isVisible: async () =>
       visibleElement(query).then(
         (e) => e.isDisplayed(),

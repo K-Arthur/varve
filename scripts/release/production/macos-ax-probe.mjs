@@ -38,7 +38,7 @@ try {
     port: Number(url.port || 4723),
     path: url.pathname,
     connectionRetryCount: 0,
-    connectionRetryTimeout: 30_000,
+    connectionRetryTimeout: 180_000,
     logLevel: 'warn',
     capabilities: {
       platformName: 'mac',
@@ -46,7 +46,8 @@ try {
       'appium:bundleId': 'dev.varve.desktop',
       'appium:appPath': resolve(values.app),
       'appium:noReset': true,
-      'appium:serverStartupTimeout': 60_000,
+      'appium:serverStartupTimeout': 120_000,
+      'appium:showServerLogs': true,
     },
   });
   const source = await driver.getPageSource();

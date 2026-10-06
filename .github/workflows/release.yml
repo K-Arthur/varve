@@ -610,7 +610,15 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
         if: matrix.enabled && env.REUSE_PLATFORM != 'true'
         with:
-          key: bundle-${{ matrix.name }}-${{ needs.preflight.outputs.tag }}
+          key: bundle-${{ matrix.name }}-${{ needs.preflight.outputs.tag }}-${{ hashFiles('release-build-tooling/scripts/release/toolchains/**') }}
+          # Tauri is a standalone workspace with its own target directory.
+          # Preserve successfully compiled dependencies even if later linking
+          # or packaging fails; native acceptance still runs on actual bundles.
+          workspaces: |
+            . -> target
+            apps/desktop/src-tauri -> target
+          cache-on-failure: true
+          env-vars: CARGO CC CFLAGS CXX CMAKE RUST WindowsSDKVersion VCToolsInstallDir VARVE_WINDOWS_ARM64_CLANG
 
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413
         if: matrix.enabled && env.REUSE_PLATFORM != 'true'
