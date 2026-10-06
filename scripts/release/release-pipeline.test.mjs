@@ -11,7 +11,15 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { copyFileSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  copyFileSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { load } from 'js-yaml';
@@ -59,6 +67,7 @@ const strictBrowserFlags = STRICT_BROWSER_FLAGS;
   assert.match(verify.run, /node release-tooling\/scripts\/release\/verify-certification\.mjs/);
   assert.match(verify.run, /--sha "\$\{TAG_SHA\}".*--policy-hash "\$\{POLICY_HASH\}"/);
   assert.equal(jobs.gate.steps[0].with.ref, expression('github.workflow_sha'));
+  assert.equal(jobs.gate.steps[0].with['sparse-checkout'], tooling.with['sparse-checkout']);
   assert.match(jobs.gate.steps[1].run, /--sha "\$\{\{ needs\.preflight\.outputs\.tag_sha \}\}"/);
   assert.match(
     jobs.gate.steps[1].run,
@@ -68,6 +77,47 @@ const strictBrowserFlags = STRICT_BROWSER_FLAGS;
     jobs.bundle.steps.find((step) => step.uses?.startsWith('actions/checkout')).with.ref,
     expression('needs.preflight.outputs.tag'),
   );
+  assert.equal(
+    jobs.bundle.steps.find((step) => step.uses?.startsWith('actions/checkout')).with[
+      'sparse-checkout'
+    ],
+    undefined,
+    'package builds retain the complete certified product source',
+  );
+  const signing = jobs['signing-preflight'].steps[0].with;
+  assert.equal(signing.ref, expression('needs.preflight.outputs.tag'));
+  assert.equal(signing['persist-credentials'], false);
+  const fixture = mkdtempSync(join(tmpdir(), 'varve-release-policy-'));
+  try {
+    for (const path of signing['sparse-checkout'].trim().split('\n')) {
+      const relative = path.replace(/^\//, '');
+      const target = join(fixture, relative);
+      mkdirSync(dirname(target), { recursive: true });
+      copyFileSync(relative, target);
+    }
+    const result = execFileSync(process.execPath, ['scripts/release/resolve-signing-policy.mjs'], {
+      cwd: fixture,
+      encoding: 'utf8',
+      env: { CHANNEL: 'stable', EXPECT_SIGNED: 'false', PLATFORMS: 'linux windows macos' },
+    });
+    const policy = JSON.parse(result);
+    assert.equal(policy.windows, 'unsigned');
+    assert.equal(policy.macos, 'unsigned');
+    rmSync(fixture, { recursive: true, force: true });
+    for (const path of tooling.with['sparse-checkout'].trim().split('\n')) {
+      const relative = path.replace(/^\//, '');
+      const target = join(fixture, relative);
+      mkdirSync(dirname(target), { recursive: true });
+      copyFileSync(relative, target);
+    }
+    execFileSync(
+      process.execPath,
+      ['--input-type=module', '-e', "await import('./scripts/release/verify-certification.mjs')"],
+      { cwd: fixture, encoding: 'utf8' },
+    );
+  } finally {
+    rmSync(fixture, { recursive: true, force: true });
+  }
 }
 function workflowJob(source, id) {
   const start = source.indexOf(`\n  ${id}:`);

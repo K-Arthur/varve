@@ -54,6 +54,7 @@ The following failures were pipeline defects with concrete evidence:
 | [Candidate 37453733595](https://github.com/K-Arthur/varve/actions/runs/37453733595): browser commands passed, all browser receipts failed | Final commands enabled one retry and omitted flaky-failure enforcement, contradicting receipt policy | Restore strict execution. Commands, receipt checks, and workflow guards share `browser-execution-policy.mjs`. Workflow validation rejects missing or conflicting flags before downstream browser jobs start. Negative controls cover the observed retry change and duplicate overrides. |
 | [Release 37452062493](https://github.com/K-Arthur/varve/actions/runs/37452062493): preflight rejected a successful candidate | The verifier expected an Actions run URL; GitHub normalized the API-created check URL to a check ID | Bind the trusted check using its run/attempt `external_id` and validate its producer and artifact independently. Tests retain rejection of wrong source, workflow, attempt, policy, and expired evidence. |
 | Existing immutable `v0.5.0` tag still executed its old verifier | Release preflight checked out product source and used its orchestration tools | A recovery dispatch pins the verifier to the dispatched workflow SHA, while the version, product bytes, certification SHA and policy remain pinned to the tag. Source-isolation guards cover preflight, the repeated gate, and package checkout. |
+| [Recovery 37492438307](https://github.com/K-Arthur/varve/actions/runs/37492438307): certified-source gate timed out during Git fetch | A dependency-free policy job fetched the entire approximately 425 MB tracked source tree inside a five-minute budget | Certification and signing policy jobs use sparse checkout for their complete script dependency closure. A disposable minimal-checkout fixture executes signing resolution; package jobs retain the complete tagged source. |
 
 Candidate planning also rejects a workflow revision different from the input
 source SHA. Otherwise a newer workflow can execute settings that the frozen
@@ -71,6 +72,12 @@ certification. These cases have fixture regression tests in `aggregate-ci.test.m
 Use `gh run rerun <run-id> --failed` after diagnosing a same-source failure;
 source repairs receive a new SHA and new evidence. Do not restart the entire
 matrix or prune artifacts simply because one shard failed.
+
+Sparse checkout uses the pinned action's documented
+[file selection](https://github.com/actions/checkout#fetch-only-a-single-file).
+It reduces policy-job fetch inputs; hosted timing after the repair must establish
+the actual gain. Full-history product preflight still verifies tag ancestry and
+the tag's complete policy hash, and native packaging still receives full source.
 
 ## Measured cross-platform duplication
 

@@ -242,6 +242,11 @@ jobs:
         with:
           ref: ${{ github.workflow_sha }}
           persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /scripts/release/certification.mjs
+            /scripts/release/verify-certification.mjs
+            /scripts/quality/validation-policy.mjs
       - name: Recheck exact certification identity
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -272,6 +277,12 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ needs.preflight.outputs.tag }}
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /scripts/release/resolve-signing-policy.mjs
+            /scripts/release/signing-policy.mjs
+            /scripts/release/targets.mjs
 
       - name: Resolve signing policy (presence booleans only)
         id: policy
