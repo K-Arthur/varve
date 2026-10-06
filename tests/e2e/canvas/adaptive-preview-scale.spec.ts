@@ -8,6 +8,11 @@ interface PerfProfileSeam {
     setTierForTesting?: (tier: string) => void;
   };
   camera?: { setZoom?: (zoom: number) => void };
+  getFrames?: (count: number) => Array<Record<string, unknown>>;
+  getLast?: () => {
+    docVersion: number;
+    camera?: { zoom: number; panX: number; panY: number; rotation: number };
+  } | null;
   forceFullRedraw?: () => Promise<{ authoritative: boolean }>;
 }
 
@@ -22,6 +27,39 @@ async function canvasGeometry(page: import('@playwright/test').Page) {
       dpr: window.devicePixelRatio,
     };
   });
+}
+
+async function waitForSettledCamera(page: import('@playwright/test').Page) {
+  await page.evaluate(() => {
+    const target = window as unknown as { __varvePreviewSettling?: unknown };
+    delete target.__varvePreviewSettling;
+  });
+  await page.waitForFunction(
+    () => {
+      const target = window as unknown as {
+        __varvePerf?: PerfProfileSeam;
+        __varvePreviewSettling?: { state: string; since: number };
+      };
+      const frame = target.__varvePerf?.getLast?.();
+      const canvas = document.querySelector<HTMLCanvasElement>(
+        'canvas.editor-canvas__content-layer',
+      );
+      if (!frame?.camera || !canvas) return false;
+      const state = JSON.stringify([frame.docVersion, frame.camera, canvas.width, canvas.height]);
+      const now = performance.now();
+      if (target.__varvePreviewSettling?.state !== state) {
+        target.__varvePreviewSettling = { state, since: now };
+        return false;
+      }
+      return (
+        now - target.__varvePreviewSettling.since >= 500 &&
+        canvas.width === Math.max(1, Math.round(canvas.clientWidth * devicePixelRatio)) &&
+        canvas.height === Math.max(1, Math.round(canvas.clientHeight * devicePixelRatio))
+      );
+    },
+    undefined,
+    { polling: 50, timeout: 10_000 },
+  );
 }
 
 async function canvasHash(page: import('@playwright/test').Page): Promise<number> {
@@ -111,29 +149,44 @@ test('interactive previews degrade at the tier scale and settle at full resoluti
   expect(midDragState.renderScale).toBe(0.75);
   // An open interaction renders the preview at the tier scale.
   expect(midDrag.backingWidth).toBe(Math.max(1, Math.round(midDrag.cssWidth * midDrag.dpr * 0.75)));
-  await page.screenshot({ path: '/tmp/varve-chromeos-stage3-visual/preview-scale-drag.png' });
+  await page.screenshot({ path: testInfo.outputPath('preview-scale-drag.png') });
 
   await page.mouse.move(cx + 260, cy + 150, { steps: 10 });
   await page.mouse.up();
 
-  // The settled refinement requests a promoting frame after the interaction
-  // quiets; 700 ms is well past the 180 ms quiet delay.
-  await page.waitForTimeout(700);
+  // Pointer-up starts HandTool momentum. The 180 ms preview quiet delay is
+  // not evidence that the camera has stopped: the same-state oracle must
+  // wait for observed camera/document stability and full backing resolution.
+  await waitForSettledCamera(page);
   const restored = await canvasGeometry(page);
   // Settled frames return to full resolution.
   expect(restored.backingWidth).toBe(Math.max(1, Math.round(restored.cssWidth * restored.dpr)));
-  await page.screenshot({ path: '/tmp/varve-chromeos-stage3-visual/preview-scale-settled.png' });
+  await page.screenshot({ path: testInfo.outputPath('preview-scale-settled.png') });
 
   // Pixel oracle: the settled surface must equal what an authoritative full
   // redraw would produce at the same camera. Paint pixels left over from the
   // preview scale would fail this comparison.
+  await testInfo.attach('settled-camera-frames', {
+    body: JSON.stringify(
+      await page.evaluate(() =>
+        (window as unknown as { __varvePerf?: PerfProfileSeam }).__varvePerf?.getFrames?.(30),
+      ),
+      null,
+      2,
+    ),
+    contentType: 'application/json',
+  });
   const settledHash = await canvasHash(page);
   const oracle = await page.evaluate(async () => {
     const perf = (window as unknown as { __varvePerf?: PerfProfileSeam }).__varvePerf;
     if (!perf?.forceFullRedraw) return null;
-    const result = await perf.forceFullRedraw();
-    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-    return result;
+    try {
+      const result = await perf.forceFullRedraw();
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      return result;
+    } catch (error) {
+      throw new Error(`${String(error)}; recent frames: ${JSON.stringify(perf.getFrames?.(30))}`);
+    }
   });
   expect(oracle?.authoritative).toBe(true);
   // The settled surface must match an authoritative full redraw.
