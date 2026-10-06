@@ -165,6 +165,50 @@ endif()
   assert.doesNotMatch(jobs.verify.if ?? '', /always\(\)/);
 }
 
+// Recovery qualification must execute the trusted workflow's complete adapter
+// closure, while its installed bytes and fixture stay at the certified tag.
+{
+  const jobs = load(releaseWorkflow).jobs;
+  for (const id of ['package-smoke', 'platform-smoke']) {
+    const steps = jobs[id].steps;
+    const tooling = steps.find(
+      (step) => step.name === 'Checkout workflow-pinned native qualification tooling',
+    );
+    assert.equal(steps[0].with.ref, `\${{ needs.preflight.outputs.tag }}`);
+    assert.equal(tooling.with.ref, `\${{ github.workflow_sha }}`);
+    assert.equal(tooling.with['persist-credentials'], false);
+    const fixture = mkdtempSync(join(tmpdir(), 'varve-native-tooling-'));
+    try {
+      for (const path of tooling.with['sparse-checkout'].trim().split('\n')) {
+        const relative = path.replace(/^\//, '');
+        const target = join(fixture, relative);
+        mkdirSync(dirname(target), { recursive: true });
+        cpSync(relative, target, { recursive: true });
+      }
+      for (const test of [
+        'dialog-forwarding',
+        'published-upgrade',
+        'macos-ax-controls',
+        'workflow',
+      ]) {
+        execFileSync(
+          process.execPath,
+          [join(fixture, `scripts/release/production/${test}.test.mjs`)],
+          {
+            encoding: 'utf8',
+            env: {
+              ...process.env,
+              VARVE_NATIVE_WORKFLOW_FIXTURE: join(fixture, '.github/workflows/release.yml'),
+            },
+          },
+        );
+      }
+    } finally {
+      rmSync(fixture, { recursive: true, force: true });
+    }
+  }
+}
+
 // A published tag is immutable, but a workflow dispatch can recover broken
 // release orchestration. Keep the repaired verifier tied to the workflow SHA
 // and every product/policy identity tied to the approved tag.

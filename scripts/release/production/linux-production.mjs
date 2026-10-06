@@ -167,7 +167,8 @@ async function launch(documentPath) {
     connectionRetryCount: 0,
     connectionRetryTimeout: 30_000,
     capabilities: {
-      browserName: 'wry',
+      // tauri-driver translates only tauri:options on Linux; WebKit rejects
+      // the invented browserName "wry" before launching the installed app.
       'tauri:options': { application: exe, args: [documentPath] },
     },
   });

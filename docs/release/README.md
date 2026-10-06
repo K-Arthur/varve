@@ -36,7 +36,13 @@ product tag, remote evidence, pipeline recovery and remaining publication checks
 
 Identity, artifact and trust helpers under `scripts/release/` use Node built-ins.
 Installed-product qualification under `production/` uses the frozen workspace
-automation dependencies and runs on each matching native runner:
+automation dependencies and runs on each matching native runner. Recovery
+uses workflow-pinned adapters beside the certified product checkout, retaining
+tagged fixtures and actual installer bytes. Windows uses a temporary,
+Varve-specific HKLM debug/profile policy on disposable hosted runners because
+current WebView2 ignores elevated environment overrides; prior values are
+restored after qualification. This policy never enters shipped configuration:
+
 
 | Script | Purpose |
 |---|---|

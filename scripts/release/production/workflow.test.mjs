@@ -20,6 +20,13 @@ assert.match(
   'Both owning native gates remain prerequisites for draft bytes',
 );
 for (const slice of [linux, native]) {
+  assert.match(slice, /Checkout workflow-pinned native qualification tooling/);
+  assert.match(slice, /ref: \$\{\{ github\.workflow_sha \}\}/);
+  assert.match(
+    slice,
+    /VARVE_NATIVE_WORKFLOW_FIXTURE: release-qualification-tooling\/\.github\/workflows\/release\.yml/,
+  );
+  assert.doesNotMatch(slice, /(?:node|bash) scripts\/release\/production\//);
   assert.match(slice, /Select successful .*producer artifact/);
   assert.match(slice, /Verify downloaded .*source and bytes/);
   assert.match(slice, /production\/published-upgrade\.mjs/);
@@ -57,6 +64,7 @@ assert.ok(
     windows.indexOf('Start-Process -FilePath $uninstallKey.UninstallString'),
 );
 assert.match(windows, /Actual Windows native profile changed during upgrade/);
+assert.equal((windows.match(/pwsh -NoProfile -File .*windows-session\.ps1/g) ?? []).length, 2);
 assert.match(
   windows,
   /verify-license-payload\.mjs --resource-root \$installed\.DirectoryName\n\s+if \(\$LASTEXITCODE -ne 0\)/,

@@ -1052,6 +1052,22 @@ jobs:
         with:
           ref: ${{ needs.preflight.outputs.tag }}
 
+      - name: Checkout workflow-pinned native qualification tooling
+        if: matrix.enabled
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: release-qualification-tooling
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /.github/workflows/release.yml
+            /scripts/release/production/
+            /scripts/release/targets.mjs
+            /scripts/release/verify-release-data.mjs
+            /scripts/quality/heavy-lease.mjs
+            /scripts/is-main-module.mjs
+
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413
         if: matrix.enabled
         with:
@@ -1067,12 +1083,15 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Native qualification adapter contracts
         if: matrix.enabled
+        env:
+          VARVE_NATIVE_WORKFLOW_FIXTURE: release-qualification-tooling/.github/workflows/release.yml
         run: |
-          node scripts/release/production/dialog-forwarding.test.mjs
-          node scripts/release/production/webdriver-dom.test.mjs
-          node scripts/release/production/macos-ax-controls.test.mjs
-          node scripts/release/production/published-upgrade.test.mjs
-          node scripts/release/production/workflow.test.mjs
+          node release-qualification-tooling/scripts/release/production/dialog-forwarding.test.mjs
+          node release-qualification-tooling/scripts/release/production/webdriver-dom.test.mjs
+          node release-qualification-tooling/scripts/release/production/macos-ax-controls.test.mjs
+          node release-qualification-tooling/scripts/release/production/published-upgrade.test.mjs
+          node release-qualification-tooling/scripts/release/production/workflow.test.mjs
+          node release-qualification-tooling/scripts/release/production/session-options.test.mjs
 
       - name: Select successful Linux producer artifact
         if: matrix.enabled
@@ -1136,16 +1155,16 @@ jobs:
           QUALIFIED="$HOME/varve-qualified/linux-${{ matrix.arch_slug }}"
           PROFILE="$QUALIFIED/profile"
           mkdir -p "$QUALIFIED"
-          node scripts/release/production/published-upgrade.mjs --repo '${{ github.repository }}' --target 'linux-${{ matrix.arch_slug }}' --format deb --out "$QUALIFIED/old-installer"
+          node release-qualification-tooling/scripts/release/production/published-upgrade.mjs --repo '${{ github.repository }}' --target 'linux-${{ matrix.arch_slug }}' --format deb --out "$QUALIFIED/old-installer"
           OLD="$QUALIFIED/old-installer/Varve-0.2.1-linux-${{ matrix.arch_slug }}.deb"
           sudo apt-get install -y --no-install-recommends "$OLD"
-          node scripts/quality/run-bounded-command.mjs 540000 "$PWD" node scripts/quality/heavy-lease.mjs "Published Linux production disk seed" -- dbus-run-session -- xvfb-run --auto-servernum bash scripts/release/production/linux-session.sh /usr/bin/varve-desktop "$QUALIFIED/old-document" "$PROFILE" 0.2.1 '${{ matrix.node_arch }}' "$PWD/tests/e2e/fixtures/published-v021/poster-embedded.varve" 2.21 true
+          node scripts/quality/run-bounded-command.mjs 540000 "$PWD" node release-qualification-tooling/scripts/quality/heavy-lease.mjs "Published Linux production disk seed" -- dbus-run-session -- xvfb-run --auto-servernum bash release-qualification-tooling/scripts/release/production/linux-session.sh /usr/bin/varve-desktop "$QUALIFIED/old-document" "$PROFILE" 0.2.1 '${{ matrix.node_arch }}' "$PWD/tests/e2e/fixtures/published-v021/poster-embedded.varve" 2.21 true
           mapfile -t PACKAGES < <(find 'staged/linux-${{ matrix.arch_slug }}' -name '*.deb' -type f)
           [[ "${#PACKAGES[@]}" == 1 ]] || { echo 'Exactly one verified current DEB required'; exit 1; }
           CURRENT="$(realpath "${PACKAGES[0]}")"
           # Upgrade over the old installation, retaining the same native XDG profile.
           sudo apt-get install -y --no-install-recommends "$CURRENT"
-          node scripts/quality/run-bounded-command.mjs 540000 "$PWD" node scripts/quality/heavy-lease.mjs "Actual upgraded Linux production qualification" -- dbus-run-session -- xvfb-run --auto-servernum bash scripts/release/production/linux-session.sh /usr/bin/varve-desktop "$QUALIFIED/current-document" "$PROFILE" '${{ needs.preflight.outputs.version }}' '${{ matrix.node_arch }}' "$QUALIFIED/old-document/Migrated save β.varve" 2.33 false
+          node scripts/quality/run-bounded-command.mjs 540000 "$PWD" node release-qualification-tooling/scripts/quality/heavy-lease.mjs "Actual upgraded Linux production qualification" -- dbus-run-session -- xvfb-run --auto-servernum bash release-qualification-tooling/scripts/release/production/linux-session.sh /usr/bin/varve-desktop "$QUALIFIED/current-document" "$PROFILE" '${{ needs.preflight.outputs.version }}' '${{ matrix.node_arch }}' "$QUALIFIED/old-document/Migrated save β.varve" 2.33 false
           node --input-type=module -e 'import assert from "node:assert/strict";import{readFileSync}from"node:fs";const[a,b]=process.argv.slice(1).map(p=>JSON.parse(readFileSync(p)));assert.equal(a.appDataDirectory,b.appDataDirectory,"Actual Linux native profile changed during upgrade");' "$QUALIFIED/old-document/qualification.json" "$QUALIFIED/current-document/qualification.json"
           sudo apt-get remove -y "$(dpkg-deb -f "$CURRENT" Package)"
 
@@ -1258,6 +1277,22 @@ jobs:
         if: matrix.enabled && runner.os == 'macOS'
         run: python scripts/release/test_extract_updater_archive.py
 
+      - name: Checkout workflow-pinned native qualification tooling
+        if: matrix.enabled
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: release-qualification-tooling
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /.github/workflows/release.yml
+            /scripts/release/production/
+            /scripts/release/targets.mjs
+            /scripts/release/verify-release-data.mjs
+            /scripts/quality/heavy-lease.mjs
+            /scripts/is-main-module.mjs
+
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413
         if: matrix.enabled
         with:
@@ -1273,12 +1308,15 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Native qualification adapter contracts
         if: matrix.enabled
+        env:
+          VARVE_NATIVE_WORKFLOW_FIXTURE: release-qualification-tooling/.github/workflows/release.yml
         run: |
-          node scripts/release/production/dialog-forwarding.test.mjs
-          node scripts/release/production/webdriver-dom.test.mjs
-          node scripts/release/production/macos-ax-controls.test.mjs
-          node scripts/release/production/published-upgrade.test.mjs
-          node scripts/release/production/workflow.test.mjs
+          node release-qualification-tooling/scripts/release/production/dialog-forwarding.test.mjs
+          node release-qualification-tooling/scripts/release/production/webdriver-dom.test.mjs
+          node release-qualification-tooling/scripts/release/production/macos-ax-controls.test.mjs
+          node release-qualification-tooling/scripts/release/production/published-upgrade.test.mjs
+          node release-qualification-tooling/scripts/release/production/workflow.test.mjs
+          node release-qualification-tooling/scripts/release/production/session-options.test.mjs
 
       - name: Select successful platform producer artifact
         if: matrix.enabled
@@ -1331,14 +1369,14 @@ jobs:
           if (-not $exe) { throw 'No NSIS installer found in staged/' }
           $qualified = Join-Path $env:USERPROFILE 'varve-qualified/windows-${{ matrix.node_arch }}'
           $profile = Join-Path $qualified 'profile'
-          node scripts/release/production/published-upgrade.mjs --repo '${{ github.repository }}' --target '${{ matrix.artifact }}' --format nsis --out (Join-Path $qualified 'old-installer')
+          node release-qualification-tooling/scripts/release/production/published-upgrade.mjs --repo '${{ github.repository }}' --target '${{ matrix.artifact }}' --format nsis --out (Join-Path $qualified 'old-installer')
           if ($LASTEXITCODE -ne 0) { throw 'Published installer verification failed' }
           $oldInstaller = Get-ChildItem (Join-Path $qualified 'old-installer') -Filter '*.exe'
           if (@($oldInstaller).Count -ne 1) { throw 'Exactly one published NSIS installer required' }
           Start-Process -FilePath $oldInstaller.FullName -ArgumentList '/S' -Wait
           $oldInstalled = Get-ChildItem -Path $env:LOCALAPPDATA -Recurse -Filter 'varve-desktop.exe' -ErrorAction SilentlyContinue
           if (@($oldInstalled).Count -ne 1) { throw 'One actual old installed payload required' }
-          node scripts/quality/run-bounded-command.mjs 540000 $PWD.Path node scripts/quality/heavy-lease.mjs "Published Windows production disk seed" -- node scripts/release/production/windows-production.mjs --exe $oldInstalled.FullName --input tests/e2e/fixtures/published-v021/poster-embedded.varve --out (Join-Path $qualified 'old-document') --profile $profile --version 0.2.1 --schema 2.21 --arch '${{ matrix.node_arch }}' --seed
+          node scripts/quality/run-bounded-command.mjs 540000 $PWD.Path node release-qualification-tooling/scripts/quality/heavy-lease.mjs "Published Windows production disk seed" -- pwsh -NoProfile -File release-qualification-tooling/scripts/release/production/windows-session.ps1 -Exe $oldInstalled.FullName -InputPath tests/e2e/fixtures/published-v021/poster-embedded.varve -Out (Join-Path $qualified 'old-document') -Profile $profile -Version 0.2.1 -Schema 2.21 -Arch '${{ matrix.node_arch }}' -Seed
           if ($LASTEXITCODE -ne 0) { throw 'Old production disk seed failed' }
           # Current installer upgrades the existing install; native profile remains.
           Write-Host "Installing $($exe.Name) silently..."
@@ -1358,7 +1396,7 @@ jobs:
           } else {
             Write-Host '  (expected unsigned for NSIS payloads — see docs/release/signing-decision-record.md)'
           }
-          node scripts/quality/run-bounded-command.mjs 540000 $PWD.Path node scripts/quality/heavy-lease.mjs "Actual upgraded Windows production qualification" -- node scripts/release/production/windows-production.mjs --exe $installed.FullName --input (Join-Path $qualified 'old-document/Migrated save β.varve') --out (Join-Path $qualified 'current-document') --profile $profile --version '${{ needs.preflight.outputs.version }}' --schema 2.33 --arch '${{ matrix.node_arch }}'
+          node scripts/quality/run-bounded-command.mjs 540000 $PWD.Path node release-qualification-tooling/scripts/quality/heavy-lease.mjs "Actual upgraded Windows production qualification" -- pwsh -NoProfile -File release-qualification-tooling/scripts/release/production/windows-session.ps1 -Exe $installed.FullName -InputPath (Join-Path $qualified 'old-document/Migrated save β.varve') -Out (Join-Path $qualified 'current-document') -Profile $profile -Version '${{ needs.preflight.outputs.version }}' -Schema 2.33 -Arch '${{ matrix.node_arch }}'
           if ($LASTEXITCODE -ne 0) { throw 'Current production save/reopen/export/upgrade qualification failed' }
           $oldReceipt = Get-Content (Join-Path $qualified 'old-document/qualification.json') -Raw | ConvertFrom-Json
           $newReceipt = Get-Content (Join-Path $qualified 'current-document/qualification.json') -Raw | ConvertFrom-Json
@@ -1393,14 +1431,14 @@ jobs:
           QUALIFIED="$HOME/varve-qualified/macos-aarch64"
           INSTALL="$QUALIFIED/installed/Varve.app"
           mkdir -p "$QUALIFIED/installed"
-          node scripts/release/production/published-upgrade.mjs --repo '${{ github.repository }}' --target macos-aarch64 --format dmg --out "$QUALIFIED/old-installer"
+          node release-qualification-tooling/scripts/release/production/published-upgrade.mjs --repo '${{ github.repository }}' --target macos-aarch64 --format dmg --out "$QUALIFIED/old-installer"
           OLD_MOUNT="$(mktemp -d /tmp/varve-old-dmg.XXXXXX)"
           hdiutil attach "$QUALIFIED/old-installer/Varve-0.2.1-macos-aarch64.dmg" -nobrowse -mountpoint "$OLD_MOUNT" >/dev/null
           OLD_APP="$(find "$OLD_MOUNT" -maxdepth 1 -name '*.app' | head -1)"
           [[ -n "$OLD_APP" ]] || { echo 'Old DMG must contain actual app'; exit 1; }
           ditto "$OLD_APP" "$INSTALL"
           hdiutil detach "$OLD_MOUNT" >/dev/null
-          node scripts/quality/run-bounded-command.mjs 720000 "$PWD" node scripts/quality/heavy-lease.mjs "Published macOS production disk seed" -- bash scripts/release/production/macos-session.sh "$INSTALL" "$QUALIFIED/old-document" 0.2.1 "$PWD/tests/e2e/fixtures/published-v021/poster-embedded.varve" 2.21 true
+          node scripts/quality/run-bounded-command.mjs 720000 "$PWD" node release-qualification-tooling/scripts/quality/heavy-lease.mjs "Published macOS production disk seed" -- bash release-qualification-tooling/scripts/release/production/macos-session.sh "$INSTALL" "$QUALIFIED/old-document" 0.2.1 "$PWD/tests/e2e/fixtures/published-v021/poster-embedded.varve" 2.21 true
           # Replace the old app at the same installation path; preserve real app data.
           rm -rf "$INSTALL"
           ditto "$APP" "$INSTALL"
@@ -1418,7 +1456,7 @@ jobs:
           fi
           rm -rf "${UPDATER_TMP}"
           trap - EXIT
-          node scripts/quality/run-bounded-command.mjs 720000 "$PWD" node scripts/quality/heavy-lease.mjs "Actual upgraded macOS production qualification" -- bash scripts/release/production/macos-session.sh "$INSTALL" "$QUALIFIED/current-document" '${{ needs.preflight.outputs.version }}' "$QUALIFIED/old-document/functional/Migrated save β.varve" 2.33 false
+          node scripts/quality/run-bounded-command.mjs 720000 "$PWD" node release-qualification-tooling/scripts/quality/heavy-lease.mjs "Actual upgraded macOS production qualification" -- bash release-qualification-tooling/scripts/release/production/macos-session.sh "$INSTALL" "$QUALIFIED/current-document" '${{ needs.preflight.outputs.version }}' "$QUALIFIED/old-document/functional/Migrated save β.varve" 2.33 false
           node --input-type=module -e 'import assert from "node:assert/strict";import{readFileSync}from"node:fs";const[a,b]=process.argv.slice(1).map(p=>JSON.parse(readFileSync(p)));assert.equal(a.appDataDirectory,b.appDataDirectory,"Native macOS profile changed during upgrade");' "$QUALIFIED/old-document/functional/qualification.json" "$QUALIFIED/current-document/functional/qualification.json"
           BIN="${APP}/Contents/MacOS/varve-desktop"
           [[ -x "${BIN}" ]] || { echo "::error::Executable missing in bundle"; exit 1; }

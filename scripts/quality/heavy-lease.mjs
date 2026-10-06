@@ -42,7 +42,7 @@ import {
   unlinkSync,
   writeFileSync,
 } from 'node:fs';
-import { constants, freemem, homedir, platform, tmpdir } from 'node:os';
+import { constants, freemem, homedir, platform, tmpdir, totalmem } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import crossSpawn from 'cross-spawn';
@@ -61,7 +61,9 @@ const LEASE_POLL_MS = Number(process.env.VARVE_LEASE_POLL_MS ?? 1000);
 /** MemAvailable in MB — the same figure `free -h`'s "available" column
  * reports (free + reclaimable cache/buffers), not raw freemem(), which
  * undercounts by treating reclaimable page cache as unavailable. Falls
- * back to freemem() off Linux or if /proc/meminfo is unreadable. */
+ * macOS uses the kernel's read-only memory_pressure query, which includes
+ * reclaimable headroom. Raw free pages can stay low on a healthy cached VM.
+ * Fall back conservatively to freemem() if a native query is unavailable. */
 function memAvailableMB() {
   if (platform() === 'linux') {
     try {
@@ -70,6 +72,21 @@ function memAvailableMB() {
       if (match) return Math.round(Number(match[1]) / 1024);
     } catch {
       /* fall through to freemem() */
+    }
+  }
+  if (platform() === 'darwin') {
+    try {
+      const output = execFileSync('/usr/bin/memory_pressure', ['-Q'], {
+        encoding: 'utf8',
+        timeout: 1000,
+        stdio: ['ignore', 'pipe', 'ignore'],
+        env: { ...process.env, LC_ALL: 'C' },
+      });
+      const match = output.match(/^System-wide memory free percentage:\s*(\d+)%\s*$/m);
+      if (match && Number(match[1]) <= 100)
+        return Math.floor((totalmem() * Number(match[1])) / (100 * 1024 * 1024));
+    } catch {
+      /* fall through to the conservative free-page count */
     }
   }
   return Math.round(freemem() / (1024 * 1024));

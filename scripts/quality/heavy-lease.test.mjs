@@ -455,6 +455,25 @@ for (const sample of [
   { platform: 'linux', meminfo: 'missing available field\n', freeMB: 96, admitted: true },
   { platform: 'win32', meminfo: 'must not read proc\n', freeMB: 96, admitted: true },
   { platform: 'darwin', meminfo: 'must not read proc\n', freeMB: 8, admitted: false },
+  {
+    platform: 'darwin',
+    pressure: 'System-wide memory free percentage: 75%\n',
+    freeMB: 8,
+    admitted: true,
+  },
+  {
+    platform: 'darwin',
+    pressure: 'System-wide memory free percentage: 10%\n',
+    freeMB: 96,
+    admitted: false,
+  },
+  {
+    platform: 'darwin',
+    pressure: 'System-wide memory free percentage: 101%\n',
+    freeMB: 8,
+    admitted: false,
+  },
+  { platform: 'darwin', pressure: 'unrecognized output\n', freeMB: 96, admitted: true },
 ]) {
   const directory = mkdtempSync(join(tmpdir(), 'varve-memory-source-'));
   const marker = join(directory, 'launched');
@@ -462,7 +481,7 @@ for (const sample of [
   try {
     writeFileSync(
       preload,
-      `import fs from 'node:fs';import os from 'node:os';import {syncBuiltinESMExports} from 'node:module';const actual=fs.readFileSync;os.platform=()=>${JSON.stringify(sample.platform)};os.freemem=()=>${sample.freeMB}*1024*1024;fs.readFileSync=function(path,...args){if(String(path)==='/proc/meminfo'){if(${JSON.stringify(sample.platform)}!=='linux')throw Error('non-Linux must not sample proc');return ${JSON.stringify(sample.meminfo)}}return actual.call(this,path,...args)};syncBuiltinESMExports();`,
+      `import fs from 'node:fs';import os from 'node:os';import cp from 'node:child_process';import assert from 'node:assert/strict';import {syncBuiltinESMExports} from 'node:module';const actual=fs.readFileSync;const actualExec=cp.execFileSync;os.totalmem=()=>128*1024*1024;cp.execFileSync=function(file,args,...rest){if(file==='/usr/bin/memory_pressure'){assert.deepEqual(args,['-Q']);if(${JSON.stringify(sample.pressure)}===undefined)throw Error('native query unavailable');return ${JSON.stringify(sample.pressure)}}return actualExec.call(this,file,args,...rest)};os.platform=()=>${JSON.stringify(sample.platform)};os.freemem=()=>${sample.freeMB}*1024*1024;fs.readFileSync=function(path,...args){if(String(path)==='/proc/meminfo'){if(${JSON.stringify(sample.platform)}!=='linux')throw Error('non-Linux must not sample proc');return ${JSON.stringify(sample.meminfo)}}return actual.call(this,path,...args)};syncBuiltinESMExports();`,
     );
     const result = spawnSync(
       process.execPath,
