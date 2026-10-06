@@ -66,9 +66,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
-        run: node scripts/release/verify-certification.mjs --integration-only \
-          --sha "${{ steps.plan.outputs.commit_sha }}" --repo "${GITHUB_REPOSITORY}" \
-          --policy-hash "${{ steps.plan.outputs.policy_hash }}"
+        run: |
+          node scripts/release/verify-certification.mjs --integration-only \
+            --sha "${{ steps.plan.outputs.commit_sha }}" --repo "${GITHUB_REPOSITORY}" \
+            --policy-hash "${{ steps.plan.outputs.policy_hash }}"
       - name: Upload exact candidate plan
         id: upload-plan
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
@@ -814,9 +815,10 @@ jobs:
       - name: Write exact-SHA candidate evidence
         id: evidence
         if: always()
-        run: node scripts/release/write-candidate-evidence.mjs \
-          --plan candidate-plan/ci-plan.json --aggregate ci-certification.json \
-          --output candidate-certification.json
+        run: |
+          node scripts/release/write-candidate-evidence.mjs \
+            --plan candidate-plan/ci-plan.json --aggregate ci-certification.json \
+            --output candidate-certification.json
       - name: Upload immutable candidate evidence
         id: upload-evidence
         if: always()

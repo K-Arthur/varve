@@ -230,10 +230,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
-        run: node scripts/release/verify-certification.mjs \
-          --sha "$(git rev-parse "${{ needs.preflight.outputs.tag }}^{commit}")" \
-          --repo "${GITHUB_REPOSITORY}" \
-          --policy-hash "${{ needs.preflight.outputs.policy_hash }}"
+        run: |
+          node scripts/release/verify-certification.mjs \
+            --sha "$(git rev-parse "${{ needs.preflight.outputs.tag }}^{commit}")" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --policy-hash "${{ needs.preflight.outputs.policy_hash }}"
 
   # ── 2b. Signing preflight: validate credentials BEFORE any build ────────────
   # The fail-closed principle, enforced before a single platform compiles:
