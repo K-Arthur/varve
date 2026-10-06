@@ -63,3 +63,30 @@ check them first.
 - The application is source-available (FSL-1.1-MIT), not OSI open source.
 - The on-device models mean “no AI” is never a truthful claim.
 - The browser demo persists in browser storage, not as a user-visible file.
+
+## Release acceptance follow-up (2026-10-06)
+
+Additional first-person reports reinforce specific release checks, rather than
+supporting claims that Varve cannot lose work or that another application is
+generally unreliable:
+
+- An Affinity Designer user reported a corrupted project despite repeatedly
+  saving ([user report](https://forum.affinity.serif.com/index.php?/topic/162216-the-file-appears-to-be-corrupted-in-affinity-designer/)).
+  Varve's acceptance criterion is a completed destination write plus save,
+  reopen, recovery, and published-file migration coverage. Recovery is a safety
+  net; users should still retain an original copy before a format upgrade.
+- Figma users report an indefinite saving state and fear of discarding changes
+  ([user discussion](https://forum.figma.com/ask-the-community-7/figma-is-saving-closing-your-app-will-discard-changes-11855/index1.html)).
+  Keep Varve's Saving, Modified, Saved, and Save failed states explicit. Do not
+  imply that a browser demo's local storage is a durable file backup.
+- AppImage's own [FUSE troubleshooting guide](https://docs.appimage.org/user-guide/troubleshooting/fuse.html)
+  documents a portability boundary that a one-file download does not remove.
+  Keep FUSE2, the extraction fallback, system WebKitGTK, architecture, and the
+  supported glibc floor visible before installation. Qualification must exercise
+  the actual packaged app, not only the development server.
+
+The 0.5.0 release already includes the save/recovery and schema migration
+contracts above. Publication must preserve its beta label, known limitations,
+actual signing/updater state, and generated download sizes/checksums. Refresh
+release data only from verified published artifacts; do not pre-advertise a
+draft or replace installer evidence with a successful browser test.
