@@ -249,8 +249,10 @@ hashes against the product tag, version and policy before uploading into the
 new run. Final trust output cannot be adopted. Retained platforms skip source
 checkout, dependency installation and compilation, then execute installed
 qualification, signatures, merging, final checksums and attestation normally.
-Other targets build normally. Signing-policy changes can still reject retained
-bytes. No automatic fallback to unverified cached output occurs.
+Windows and macOS signature checks run again on the retained installer bytes
+against the current signing-preflight requirements, before upload. Other targets
+build normally. Signing-policy changes can still reject retained bytes. No
+automatic fallback to unverified cached output occurs.
 
 Packaging installs `rustfmt` explicitly and probes it before native dependency
 setup: `diffusion-rs-sys` formats its generated Rust bindings during compilation.

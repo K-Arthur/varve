@@ -465,8 +465,22 @@ test('retained bundles verify explicit IDs and tagged bytes while every fresh bu
   );
   for (const step of bundle.steps) {
     if (step.name === 'Upload release artifacts') assert.equal(step.if, 'matrix.enabled');
-    else assert.match(step.if, /env\.REUSE_PLATFORM [!=]= 'true'/);
+    else if (
+      step.name?.startsWith('Verify Windows Authenticode') ||
+      step.name?.startsWith('Verify macOS signature')
+    ) {
+      assert.doesNotMatch(step.if, /REUSE_PLATFORM/);
+      assert.match(step.env.EXPECT_SIGNED, /needs\.signing-preflight\.outputs\./);
+      assert.match(step.env.VERIFY_TOOLING, /release-tooling\//);
+      assert.match(step.run, /VERIFY_TOOLING.*scripts\/release\/verify-/);
+      assert.ok(bundle.steps.indexOf(step) < upload);
+    } else assert.match(step.if, /env\.REUSE_PLATFORM [!=]= 'true'/);
   }
+  const closure = bundle.steps.find(
+    (step) => step.name === 'Checkout workflow-pinned reuse tooling',
+  ).with['sparse-checkout'];
+  assert.match(closure, /verify-windows-signature\.ps1/);
+  assert.match(closure, /verify-macos-signature\.sh/);
   assert.ok(workflow.jobs.verify.needs.includes('package-smoke'));
   assert.ok(workflow.jobs.verify.needs.includes('platform-smoke'));
 });

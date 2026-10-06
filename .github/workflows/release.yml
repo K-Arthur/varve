@@ -505,6 +505,8 @@ jobs:
           sparse-checkout: |
             /scripts/release/select-run-artifacts.mjs
             /scripts/release/resume.mjs
+            /scripts/release/verify-windows-signature.ps1
+            /scripts/release/verify-macos-signature.sh
 
       - name: Set up Node for retained artifacts
         if: matrix.enabled && env.REUSE_PLATFORM == 'true'
@@ -905,11 +907,13 @@ jobs:
       # from. They run on the renamed, collected artifact — the exact bytes
       # that will be uploaded. A missing report or a failed verification stops
       # the release in the `verify` trust gate.
+      # Retained bytes are rechecked against CURRENT signing requirements.
       - name: Verify Windows Authenticode signature
-        if: matrix.enabled && runner.os == 'Windows' && env.REUSE_PLATFORM != 'true'
+        if: matrix.enabled && runner.os == 'Windows'
         shell: pwsh
         env:
           EXPECT_SIGNED: ${{ needs.signing-preflight.outputs.windows_mode == 'signed' }}
+          VERIFY_TOOLING: ${{ env.REUSE_PLATFORM == 'true' && 'release-tooling/' || '' }}
         run: |
           $exe = Get-ChildItem -Path dist/release -Filter '*.exe' | Select-Object -First 1
           if (-not $exe) { throw 'No .exe installer found in dist/release' }
@@ -917,18 +921,19 @@ jobs:
           # Switch parameters do not survive the pwsh -> Windows PowerShell 5.1
           # boundary with a computed value; branch explicitly instead.
           if ($env:EXPECT_SIGNED -eq 'true') {
-            powershell -File scripts/release/verify-windows-signature.ps1 `
+            powershell -File "${env:VERIFY_TOOLING}scripts/release/verify-windows-signature.ps1" `
               -Path $exe.FullName -ExpectSigned -ReportPath $report
           } else {
-            powershell -File scripts/release/verify-windows-signature.ps1 `
+            powershell -File "${env:VERIFY_TOOLING}scripts/release/verify-windows-signature.ps1" `
               -Path $exe.FullName -ReportPath $report
           }
 
       - name: Verify macOS signature, notarization and staple
-        if: matrix.enabled && runner.os == 'macOS' && env.REUSE_PLATFORM != 'true'
+        if: matrix.enabled && runner.os == 'macOS'
         shell: bash
         env:
           EXPECT_SIGNED: ${{ needs.signing-preflight.outputs.macos_mode == 'signed' }}
+          VERIFY_TOOLING: ${{ env.REUSE_PLATFORM == 'true' && 'release-tooling/' || '' }}
         run: |
           set -euo pipefail
           DMG="$(find dist/release -name '*.dmg' | head -1)"
@@ -937,9 +942,9 @@ jobs:
             exit 1
           fi
           if [[ "${EXPECT_SIGNED}" == "true" ]]; then
-            bash scripts/release/verify-macos-signature.sh --dmg "${DMG}" --expect-signed --report dist/release/signing-report-macos.json
+            bash "${VERIFY_TOOLING}scripts/release/verify-macos-signature.sh" --dmg "${DMG}" --expect-signed --report dist/release/signing-report-macos.json
           else
-            bash scripts/release/verify-macos-signature.sh --dmg "${DMG}" --report dist/release/signing-report-macos.json
+            bash "${VERIFY_TOOLING}scripts/release/verify-macos-signature.sh" --dmg "${DMG}" --report dist/release/signing-report-macos.json
           fi
 
       # Every platform upload carries a sidecar binding its bytes to the exact
