@@ -27,6 +27,12 @@ for (let y = 0; y < 80; y++)
 const valid = context.exports.makeRasterImagePdf(pixels, 104, 80);
 const rendered = PNG.sync.read(await assertNativePdfArtwork(valid, png));
 assert.deepEqual([rendered.width, rendered.height], [104, 80]);
+const native = JSON.parse(
+  readFileSync(new URL('./fixtures/native-pdf-embedded.json', import.meta.url)),
+);
+const nativeBytes = Buffer.from(native.base64, 'base64');
+assert.equal(createHash('sha256').update(nativeBytes).digest('hex'), native.sha256);
+await assertNativePdfArtwork(nativeBytes, png);
 const observed = JSON.parse(
   readFileSync(new URL('./fixtures/native-pdf-placeholder.json', import.meta.url)),
 );

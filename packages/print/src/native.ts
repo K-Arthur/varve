@@ -56,11 +56,11 @@ export function createNativePrintEngine(): PrintEngine {
       }
 
       const data = await core.invoke(command, {
-        nodes_json: _docJson,
-        page_height: pageHeight,
-        use_cmyk: useCmyk,
-        options_json: optionsJson,
-        manifest_json: _opts.manifestJson ?? null,
+        nodesJson: _docJson,
+        pageHeight,
+        useCmyk,
+        optionsJson,
+        manifestJson: _opts.manifestJson ?? null,
       });
 
       const numbers = Array.isArray(data) ? (data as number[]) : [];
@@ -77,8 +77,8 @@ export function createNativePrintEngine(): PrintEngine {
       const result = String(
         await core.invoke('outline_text', {
           text,
-          font_data: Array.from(fontData),
-          font_size: fontSize,
+          fontData: Array.from(fontData),
+          fontSize,
         }),
       );
       return result;

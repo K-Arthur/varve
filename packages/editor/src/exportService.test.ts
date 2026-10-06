@@ -362,14 +362,14 @@ describe('ExportService', () => {
       // The Rust command deserializes PdfXOptions with rename_all="camelCase";
       // snake_case keys would silently fall back to serde defaults.
       const args = invoke.mock.calls[0]?.[1] as unknown as {
-        options_json: string;
-        page_height: number;
+        optionsJson: string;
+        pageHeight: number;
       };
-      const options = JSON.parse(args.options_json) as Record<string, unknown>;
+      const options = JSON.parse(args.optionsJson) as Record<string, unknown>;
       expect(options.format).toBe('pdf-x4');
       expect(options).toHaveProperty('includeCropMarks');
       expect(options).toHaveProperty('bleedMm');
-      expect(args.page_height).toBe(100);
+      expect(args.pageHeight).toBe(100);
     } finally {
       (window as unknown as Record<string, unknown>).__TAURI__ = undefined;
     }

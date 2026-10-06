@@ -833,7 +833,7 @@ async function rasterizeSubtreeToPdfViaPrintEngine(
   const bytes = (await tauri.core.invoke('export_node_pdf', {
     nodes: subtree.nodes,
     opts,
-    manifest_json: manifestJson ?? null,
+    manifestJson: manifestJson ?? null,
   })) as number[];
   return new Uint8Array(bytes);
 }
@@ -927,7 +927,12 @@ export async function exportNodeAsPdf(
     subsetFonts: fontDataForIpc.length > 0,
     fonts: fontDataForIpc,
   };
-  const bytes = (await tauri.core.invoke('export_node_pdf', { nodes, opts })) as number[];
+  const manifestJson = await buildPrintImageManifestForSrcs(collectImageFillSrcs(nodes));
+  const bytes = (await tauri.core.invoke('export_node_pdf', {
+    nodes,
+    opts,
+    manifestJson: manifestJson ?? null,
+  })) as number[];
   return { bytes: new Uint8Array(bytes), filename };
 }
 
@@ -1041,10 +1046,10 @@ export async function exportNodeAsPdfX(
 
   const command = standard === 'pdf-x1a' ? 'export_pdfx1a' : 'export_pdfx4';
   const bytes = (await tauri.core.invoke(command, {
-    nodes_json: JSON.stringify(nodes),
-    page_height: h,
-    options_json: optionsJson,
-    manifest_json: manifestJson ?? null,
+    nodesJson: JSON.stringify(nodes),
+    pageHeight: h,
+    optionsJson,
+    manifestJson: manifestJson ?? null,
   })) as number[];
 
   return { bytes: new Uint8Array(bytes), filename: buildFilename(node.name, 'pdf') };

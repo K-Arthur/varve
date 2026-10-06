@@ -201,9 +201,9 @@ describe('exportNodeAsRaster', () => {
     await exportNodeAsPdf(node, pdfDoc, 1);
 
     expect(invoke).toHaveBeenCalledTimes(1);
-    const payload = invoke.mock.calls[0]?.[1] as { manifest_json?: string | null };
-    expect(typeof payload.manifest_json).toBe('string');
-    const manifest = JSON.parse(payload.manifest_json as string) as {
+    const payload = invoke.mock.calls[0]?.[1] as { manifestJson?: string | null };
+    expect(typeof payload.manifestJson).toBe('string');
+    const manifest = JSON.parse(payload.manifestJson as string) as {
       images: Array<{ data: string; width: number; height: number; color_space: string }>;
       patterns: unknown[];
     };
@@ -235,9 +235,9 @@ describe('exportNodeAsRaster', () => {
 
     const call = invoke.mock.calls.find(([command]) => command === 'export_pdfx4');
     expect(call).toBeDefined();
-    const payload = call?.[1] as { manifest_json?: string | null };
-    expect(typeof payload.manifest_json).toBe('string');
-    const manifest = JSON.parse(payload.manifest_json as string) as {
+    const payload = call?.[1] as { manifestJson?: string | null };
+    expect(typeof payload.manifestJson).toBe('string');
+    const manifest = JSON.parse(payload.manifestJson as string) as {
       images: Array<{ data: string; width: number; height: number }>;
     };
     expect(manifest.images).toHaveLength(1);

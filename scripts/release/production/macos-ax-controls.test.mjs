@@ -154,6 +154,8 @@ assert.doesNotMatch(
   'Save As also selects its actual action once',
 );
 assert.match(source, /await click\('File'\);\s+await click\('Save As…', true\)/);
+assert.match(source, /await click\('More inspector tabs', true\);\s+await click\('Export'\)/);
+assert.match(source, /OR title BEGINSWITH 'Published embedded image'/);
 assert.doesNotMatch(source, /AND hittable == true/);
 assert.match(source, /title == 'Not now'/, 'actual first-run update dialog has an explicit choice');
 assert.match(

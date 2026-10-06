@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { createDocument, type ExportPreset, makeShapeNode, type SceneNode } from '@varve/scene';
 import { describe, expect, it, vi } from 'vitest';
 import { AssetExportControls } from './AssetExportControls';
+import * as exportHelpers from './export';
 
 describe('AssetExportControls', () => {
   it('saves SVG exports as SVG bytes instead of raster bytes', async () => {
@@ -589,6 +590,44 @@ describe('AssetExportControls', () => {
   });
 
   describe('quick export guards', () => {
+    it.each(['preset', 'custom'] as const)(
+      'preserves authored PDF dimensions after a hidden %s raster scale',
+      async (scaleMode) => {
+        const doc = createDocument('Export', true);
+        const node = bannerNode();
+        const pdf = vi.spyOn(exportHelpers, 'exportNodeAsPdf').mockResolvedValue({
+          bytes: new Uint8Array([37, 80, 68, 70]),
+          filename: 'Banner.pdf',
+        });
+        const saveBinaryFile = vi.fn(async () => '/tmp/Banner.pdf');
+        try {
+          render(
+            <AssetExportControls
+              node={node}
+              doc={{ ...doc, rootChildren: ['n1'], nodes: { n1: node } }}
+              engine={{} as never}
+              platform={{ kind: 'tauri', saveBinaryFile } as never}
+            />,
+          );
+          fireEvent.click(screen.getByRole('radio', { name: 'PNG' }));
+          if (scaleMode === 'preset') fireEvent.click(screen.getByRole('radio', { name: '2x' }));
+          else {
+            fireEvent.click(screen.getByRole('radio', { name: 'Custom' }));
+            fireEvent.change(screen.getByLabelText(/Custom scale multiplier/i), {
+              target: { value: '0.5' },
+            });
+          }
+          fireEvent.click(screen.getByRole('radio', { name: 'PDF' }));
+          expect(screen.queryByRole('radiogroup', { name: 'Export scale' })).toBeNull();
+          fireEvent.click(screen.getByRole('button', { name: 'Export PDF' }));
+          await waitFor(() => expect(saveBinaryFile).toHaveBeenCalledOnce());
+          expect(pdf.mock.calls[0]?.[2]).toBe(1);
+        } finally {
+          pdf.mockRestore();
+        }
+      },
+    );
+
     function bannerNode(): SceneNode {
       return makeShapeNode(
         'n1',

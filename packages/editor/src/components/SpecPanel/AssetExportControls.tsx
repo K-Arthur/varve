@@ -481,7 +481,9 @@ export function AssetExportControls({
       setMessage(customScaleValidation.error ?? 'Enter a valid export scale.');
       return;
     }
-    const exportScale = effectiveScale ?? 1;
+    // PDF has no scale control: retain authored dimensions regardless of the
+    // advisor's raster suggestion or a previous raster export's multiplier.
+    const exportScale = format === 'pdf' ? 1 : (effectiveScale ?? 1);
     setExporting(true);
     setMessage('');
     try {

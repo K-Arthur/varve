@@ -10,7 +10,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 build a tag that has no matching section. Write for someone deciding whether to install the
 update, not for someone reading the commit log.
 
-## [0.5.0] - 2026-10-03
+## [0.5.0] - 2026-10-06
 
 Varve remains in public beta. This release adds broad authoring workflows while
 keeping optional, hardware-dependent, and format-limited capabilities clearly
@@ -55,6 +55,10 @@ marked.
 - **Mockups and exports** — Folded-mesh mockups join planar, perspective, and
   cylindrical surfaces. SVG and PDF export preserve more supported artwork;
   unsupported content can still use raster fallbacks or documented warnings.
+- **PDF artwork and dimensions** — Desktop PDF exports retain embedded images
+  instead of placeholder artwork. Quick screen-PDF output preserves authored
+  dimensions after switching from a scaled raster export. Native PDF/X export
+  and text outlining also receive their required print and font settings.
 - **Experimental rendering options** — Canvas2D remains the default. WebGL2
   and WebGPU are opt-in experiments with capability checks and Canvas2D
   fallback; results depend on the browser, driver, and hardware.

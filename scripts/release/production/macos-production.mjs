@@ -232,7 +232,9 @@ async function selectImage() {
     'XCUIElementTypeButton',
   ];
   // No DOM-id assumptions. Missing/ambiguous AX rows fail with retained source.
-  const refs = await hittableElements("label BEGINSWITH 'Published embedded image'");
+  const refs = await hittableElements(
+    "label BEGINSWITH 'Published embedded image' OR title BEGINSWITH 'Published embedded image'",
+  );
   if (!refs.length) {
     const poster = await one('Poster — A3', types, true);
     const expand = await one('Expand', ['XCUIElementTypeButton'], false, poster);
@@ -310,7 +312,15 @@ try {
   await open(savedPath);
   await selectImage();
   if (!v.seed) {
-    await click('Export');
+    const tabs = await hittableElements(
+      "amType == 'XCUIElementTypeTab' AND (label == 'Export' OR title == 'Export')",
+    );
+    assert.ok(tabs.length <= 1, 'Export tab must be unambiguous');
+    if (tabs.length) await tabs[0].click();
+    else {
+      await click('More inspector tabs', true);
+      await click('Export');
+    }
     for (const format of ['PNG', 'SVG', 'PDF']) {
       const path = join(out, `native-export.${format.toLowerCase()}`);
       for (const { role, name } of nativeQuickExportControls(format))
