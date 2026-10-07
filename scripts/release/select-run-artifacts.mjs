@@ -61,7 +61,7 @@ export async function loadReusableRun({
     run.head_branch !== 'master' ||
     run.event !== 'workflow_dispatch' ||
     run.status !== 'completed' ||
-    !['success', 'failure'].includes(run.conclusion) ||
+    !['success', 'failure', 'cancelled'].includes(run.conclusion) ||
     !SHA.test(run.head_sha ?? '') ||
     !Number.isSafeInteger(run.run_attempt) ||
     run.run_attempt < 1

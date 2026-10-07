@@ -91,7 +91,28 @@ test('a failed overall run may retain its successful cells only after accepted s
   );
 });
 
-test('reuse refuses foreign, active, cancelled and incorrect workflow identities', async () => {
+test('an ended cancelled run can retain only uniquely successful bundle producers', async () => {
+  const binding = await loadReusableRun({
+    ...reuseOptions,
+    request: reuseRequest({ change: { conclusion: 'cancelled' } }),
+  });
+  assert.deepEqual(selectRunArtifacts({ ...evidence(), ...binding }), [
+    { id: 10, name: `release-${linux}-attempt-1`, target: linux, attempt: 1 },
+  ]);
+  for (const conclusion of ['failure', 'cancelled', null]) {
+    assert.throws(
+      () =>
+        selectRunArtifacts({
+          ...evidence({ jobs: [job(linux, 1), job(linux, 2, conclusion)] }),
+          ...binding,
+        }),
+      /not uniquely successful/,
+      'overall cancellation never permits a failed/cancelled/active newest producer',
+    );
+  }
+});
+
+test('reuse refuses foreign, active and incorrect workflow identities', async () => {
   for (const change of [
     { id: 38 },
     { head_branch: 'feature' },
@@ -99,7 +120,7 @@ test('reuse refuses foreign, active, cancelled and incorrect workflow identities
     { path: '.github/workflows/ci.yml' },
     { event: 'pull_request' },
     { status: 'in_progress' },
-    { conclusion: 'cancelled' },
+    { conclusion: 'skipped' },
     { run_attempt: 0 },
     { head_sha: '' },
   ])
