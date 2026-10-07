@@ -238,3 +238,30 @@ migration, export, and security interactions blocking where their risk requires
 them. Maintain explicit owners for persistent failures and an expiry for any
 future approved quarantine. Selection miss measurements and a periodic full
 safety net are prerequisites for further pruning.
+
+## Completed hosted checkpoint timing baseline (October 6–7)
+
+[Integration 37544847541](https://github.com/K-Arthur/varve/actions/runs/37544847541)
+completed all 24 browser shards on source `311140159b5ca8437b9bd452fe983c9f943c8077`.
+This is a measured baseline, not certification for the subsequent panel fix or
+a comparison with a differently provisioned local machine. Its diagnostic
+artifact `11451669761` (`varve-test-feedback-37544847541-attempt-1`) was downloaded
+and independently matched SHA-256
+`7ed0f61f307f742179c3ef5005dd0b96d169000bc07dc375df79883820ae1f99`.
+
+| Observation | Measured value | Practical implication |
+| --- | --- | --- |
+| Browser job wall time | Median 21.01 min; maximum 31.13 min; total 500.62 runner-min | The 40-minute job bound contains this completed sample; it is not a future latency guarantee. |
+| Actual Chromium step | Median 19.27 min; maximum 29.77 min; total 469.03 runner-min | Browser execution dominates these cells. |
+| JS dependency install across 24 cells | Median 0.16 min; total 3.95 runner-min | Another dependency cache alone cannot remove most of this observed cost. |
+| First-to-last browser job start | 19.57 min | Runner starts are staggered. The timestamp spread alone does not identify an account concurrency limit or billing failure. |
+| Completed browser work imbalance | Longest/shortest 2.33; 24/24 observed | Case count balancing does not equal timing balance. |
+| Pooled browser case durations | 2,664 samples; p50 11.962 s; p95 22.847 s | These pool application, production demo, website and visual receipts; they are not application-only percentiles. |
+
+The three slowest cases were in `inspector/inspector-design-matrix.spec.ts`
+(223.925 s, 210.346 s and 186.544 s). This evidence makes those cases and safe
+input-bound integration/candidate adoption better investigation targets than
+another broad cache rewrite. It does not establish that their assertions are
+redundant. Any future duration-aware sharding must preserve the complete unique
+case inventory, per-project coverage, zero retries and newest-attempt rules;
+measure queue time and total runner-minutes alongside the longest cell.

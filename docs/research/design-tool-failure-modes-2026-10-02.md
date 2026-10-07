@@ -90,3 +90,19 @@ contracts above. Publication must preserve its beta label, known limitations,
 actual signing/updater state, and generated download sizes/checksums. Refresh
 release data only from verified published artifacts; do not pre-advertise a
 draft or replace installer evidence with a successful browser test.
+
+## PDF export acceptance follow-up (2026-10-06)
+
+Firsthand [Illustrator blank-PDF reports](https://community.adobe.com/questions-652/adobe-illustrator-export-to-pdf-is-blank-1550334) began February 17, 2026 and include a further report on October 2. One participant could export PNG but not PDF; another used printing as a workaround. These reports establish an experienced failure, not one verified common root cause or the current status of every Illustrator build.
+
+Release implication (our inference): validating PNG or the PDF file structure cannot establish that a user's PDF contains their artwork. Each advertised format needs its own decoded-content checks.
+
+Varve's actual installed Windows/Linux export inspection found an 800-byte PDF whose page/header/EOF were valid but whose source artwork was replaced by a tiny cyan fallback. Repair commit `15ce7b872` fixes the native manifestJson argument and hidden raster-scale leakage into PDF dimensions. A real-browser boundary test captures the embedded image and authored 104-by-80 dimensions; the actual Rust engine produced the corrected PDF, passed the committed PDF.js pixel/dimension oracle, and was independently rendered/viewed with Poppler. Installed-production qualification requires PNG, SVG and PDF separately across all five release targets. The defective native file is a negative regression fixture; a real repaired native PDF is a positive fixture.
+
+Coverage boundary: this embedded-image acceptance fixture does not establish universal PDF transparency, every third-party viewer, ICC/prepress, or arbitrary multipage compatibility. The earlier native bundles remain unsuitable for publishing the fix; final certification and newly built installed-platform outputs are still pending when this note was written.
+
+### Workspace panel recovery and restart acceptance (2026-10-06)
+
+In a [December 2023 Affinity forum report](https://forum.affinity.serif.com/index.php?/topic/195749-how-to-reset-workspace/), a user could no longer restore their panel arrangement and tried reinstalling and deleting app data. The reply directed them to named studio presets. An [earlier panel-recovery thread](https://forum.affinity.serif.com/index.php?/topic/52475-bottom-right-corner-menu/) describes losing the History group, with reloading failing to bring it back; the response explains the panel menu and studio reset. These are user reports of recovery difficulty, not evidence that every current Affinity build has a persistence defect. The search index exposed the dated primary forum text; direct fetches returned HTTP 403 during this follow-up, so no newer resolution status is asserted.
+
+The acceptance inference is that customization must be verified after a fresh editor boot, and recovery should be available through the visible panel controls without reinstalling or deleting user documents. Varve's candidate exposed a distinct local defect: saved History and Timeline overrides were overwritten by hardcoded false values during EditorProvider initialization. Commit `83eecbb4767a0cd17d9e84d3439a8e255251758b` removes those overwrites. Six mounted-provider cases cover explicit true/false preferences and per-mode isolation; the real browser case clicks the visible controls, creates a new document after a full page navigation, and requires both panels to return. Both resulting screenshots were inspected. The 12-lane affected validation passed; exact-source hosted release certification remains separate.

@@ -275,16 +275,34 @@ test.describe('snapping after a target has moved', () => {
     ); // force the index to build
     await page.waitForTimeout(200);
 
-    await drawRect(page, 640, 500, 740, 600); // created afterwards
+    // Keep the complete gesture inside the artwork surface, away from edge
+    // auto-pan and the floating toolbar. The old 640..740 gesture crossed the
+    // Inspector: frame timing changed the created width, and the later drag
+    // could correctly centre-snap instead of exercising the intended edge.
+    await drawRect(page, 450, 420, 550, 520); // created afterwards
     const created = await readXY(page);
     const createdWidth = await readWidth(page);
+    expect(createdWidth, 'the insertion fixture must retain its authored 100px width').toBeCloseTo(
+      100,
+      2,
+    );
     const createdScreen = await selectedScreenRect(page);
+    const canvas = await page.locator('canvas.editor-canvas__content-layer').boundingBox();
+    if (!canvas) throw new Error('insertion fixture has no drawable canvas bounds');
+    expect(createdScreen.x).toBeGreaterThan(canvas.x + 64);
+    expect(createdScreen.y).toBeGreaterThan(canvas.y + 64);
+    expect(createdScreen.x + createdScreen.width).toBeLessThan(canvas.x + canvas.width - 64);
+    expect(createdScreen.y + createdScreen.height).toBeLessThan(canvas.y + canvas.height - 64);
     await captureState(page, testInfo, 'snap-after-create-before');
 
     // The newly created rectangle is the top layer; select the original
     // anchor beneath it so the created node is the stationary candidate.
     await selectRect(page, 'Rectangle 1');
     const anchorWidth = await readWidth(page);
+    expect(anchorWidth, 'both insertion fixtures must have the same authored width').toBeCloseTo(
+      100,
+      2,
+    );
     const anchorScreen = await selectedScreenRect(page);
     await dragScreen(
       page,
@@ -299,10 +317,8 @@ test.describe('snapping after a target has moved', () => {
 
     const after = await readXY(page);
     await captureState(page, testInfo, 'snap-after-create-after');
-    // The nearest valid edge can be either the left or right edge depending
-    // on the pointer approach and object widths. Verify actual snapping while
-    // allowing both alignments; asserting left-to-left rejects right-edge
-    // snaps for unequal-sized objects.
+    // Keep the exact edge oracle. Centre and edge alignment agree for these
+    // equal-width fixtures; the interior margin excludes unintended auto-pan.
     const snappedToLeftEdge = Math.abs(after.x - created.x) < 0.05;
     const snappedToRightEdge = Math.abs(after.x - (created.x + createdWidth - anchorWidth)) < 0.05;
     expect(snappedToLeftEdge || snappedToRightEdge).toBe(true);
