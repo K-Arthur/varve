@@ -23,7 +23,8 @@ const probeContext = vm.createContext({
       probeRequests++;
       assert.equal(using, 'predicate string');
       assert.match(predicate, /amType == "XCUIElementTypeButton"/);
-      assert.match(predicate, /title == "New"/);
+      assert.match(predicate, /title IN \{"New","Not now"\}/);
+      assert.match(predicate, /label IN \{"New","Not now"\}/);
       assert.match(predicate, /amType == "XCUIElementTypeGroup"/);
       assert.match(predicate, /title == "Layers"/);
       assert.doesNotMatch(predicate, /File|MenuBar|MenuItem/);
@@ -35,7 +36,10 @@ vm.runInContext(
   `${probeWait}; globalThis.waitForWebviewControls = waitForWebviewControls;`,
   probeContext,
 );
-await assert.rejects(probeContext.waitForWebviewControls(), /webview Home or Layers/);
+await assert.rejects(
+  probeContext.waitForWebviewControls(),
+  /webview Home, update-consent or Layers/,
+);
 assert.equal(probeTime, 20_000, 'Native menus and an empty webview exhaust the bounded probe');
 probeTime = 0;
 probeRequests = 0;

@@ -37,12 +37,12 @@ async function waitForWebviewControls() {
   while (Date.now() < deadline) {
     const controls = await driver.findElements(
       'predicate string',
-      '(amType == "XCUIElementTypeButton" AND (title == "New" OR label == "New")) OR (amType == "XCUIElementTypeGroup" AND (title == "Layers" OR label == "Layers"))',
+      '(amType == "XCUIElementTypeButton" AND (title IN {"New","Not now"} OR label IN {"New","Not now"})) OR (amType == "XCUIElementTypeGroup" AND (title == "Layers" OR label == "Layers"))',
     );
     if (controls.length) return;
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
-  throw new Error('Actual webview Home or Layers controls never became available');
+  throw new Error('Actual webview Home, update-consent or Layers controls never became available');
 }
 try {
   driver = await remote({
