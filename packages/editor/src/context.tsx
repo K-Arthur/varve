@@ -2787,11 +2787,6 @@ export function EditorProvider({
       distractionFreeMode: false,
       beforeAfterCompare: false,
       logoPreviewDialogOpen: false,
-      // Hidden by default regardless of config — motion/timeline editing is an
-      // opt-in workflow the user reaches via its own toggle, not something
-      // every document should open into.
-      timelinePanelVisible: false,
-      historyPanelVisible: false,
       motion: createInitialMotionState(),
       media: createInitialMediaState(),
       canvasMode: 'full',

@@ -48,19 +48,30 @@ test.describe('workspace customization', () => {
 
     // Editor Chrome is part of the supported surface.
     await expect(dialog.getByText('Editor Chrome')).toBeVisible();
-    // force: the @varve/ui Checkbox draws a visual box over its 1px native
-    // input, so a plain .check() never hits the input (same convention as
-    // tests/e2e/gradient-map/import-workflow.spec.ts).
-    await dialog.getByRole('checkbox', { name: /History/ }).check({ force: true });
-    await expect(page.locator('.editor__history-panel')).toBeVisible();
+    // The native input is clipped to 1px and has a negative margin. Click its
+    // visible label with normal actionability checks, as a pointer user does.
+    const panels = [
+      { name: 'History', selector: '.editor__history-panel' },
+      { name: 'Timeline', selector: '.timeline-panel' },
+    ];
+    for (const { name, selector } of panels) {
+      const toggle = dialog.getByRole('checkbox', { name, exact: true });
+      await expect(toggle).not.toBeChecked();
+      await dialog.getByText(name, { exact: true }).click();
+      await expect(toggle).toBeChecked();
+      await expect(page.locator(selector)).toBeVisible();
+    }
 
-    await page.screenshot({ path: 'test-results/workspace-customize-dialog.png' });
+    await page.screenshot({ path: evidencePath('workspace-customize-dialog.png') });
     await dialog.getByRole('button', { name: 'Done' }).click();
 
-    // The override is in the session mirror this instant; a reload in the
-    // demo harness confirms the boot path re-projects it.
+    // Check the session mirror, then navigate through a new page load and
+    // create another document to exercise preference restoration at boot.
     const stored = await page.evaluate(() => localStorage.getItem('varve-workspace-preferences'));
     expect(stored).toContain('history');
+    await navigateToEditor(page);
+    for (const { selector } of panels) await expect(page.locator(selector)).toBeVisible();
+    await page.screenshot({ path: evidencePath('workspace-customize-restored.png') });
   });
 
   test('keyboard-accessible panel moves update the live canvas and persist', async ({ page }) => {

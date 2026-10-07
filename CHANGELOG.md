@@ -21,7 +21,8 @@ marked.
 - **Six task workspaces and flexible panels** — Design, Print, Draw, Photo,
   Motion, and Email share one document model. Docked, floating, and split panel
   layouts can be adjusted and restored; Logo tools stay in Design and Code
-  export remains a shared panel.
+  export remains a shared panel. Enabled History and Timeline panels remain
+  visible after restarting instead of reverting to hidden at editor startup.
 - **Illustration and tablet controls** — Separate flats and clipped shading
   layers, brush opacity and flow, pressure settings, and one-finger draw or
   navigation controls extend the painting workflow. Check pressure and tilt
