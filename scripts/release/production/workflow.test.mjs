@@ -22,6 +22,11 @@ assert.match(
   'Both owning native gates remain prerequisites for draft bytes',
 );
 for (const slice of [linux, native]) {
+  assert.match(
+    slice,
+    /name: Native qualification adapter contracts\n\s+if: matrix.enabled\n\s+shell: bash/,
+    'adapter regressions run under Bash errexit on every native platform',
+  );
   assert.match(slice, /Checkout workflow-pinned native qualification tooling/);
   assert.match(slice, /ref: \$\{\{ github\.workflow_sha \}\}/);
   assert.match(

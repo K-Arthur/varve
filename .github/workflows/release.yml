@@ -1091,6 +1091,7 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Native qualification adapter contracts
         if: matrix.enabled
+        shell: bash
         env:
           VARVE_NATIVE_WORKFLOW_FIXTURE: release-qualification-tooling/.github/workflows/release.yml
         run: |
@@ -1322,6 +1323,7 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Native qualification adapter contracts
         if: matrix.enabled
+        shell: bash
         env:
           VARVE_NATIVE_WORKFLOW_FIXTURE: release-qualification-tooling/.github/workflows/release.yml
         run: |

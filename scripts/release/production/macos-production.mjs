@@ -141,7 +141,20 @@ const buttons = [
   'XCUIElementTypeTab',
 ];
 async function click(name, starts = false) {
-  await (await until(() => one(name, buttons, starts))).click();
+  const element = await until(() => one(name, buttons, starts));
+  const rect = await driver.getElementRect(element.elementId);
+  assert.ok(
+    [rect.x, rect.y, rect.width, rect.height].every(Number.isFinite) &&
+      rect.width > 0 &&
+      rect.height > 0,
+    'Actual hittable AX control must have a finite, non-empty pointer target',
+  );
+  // XCTest's element.click traverses native NSMenus for role=menuitem. The
+  // in-window webview menus instead need a real pointer gesture at their AX rect.
+  await driver.execute('macos: click', {
+    x: rect.x + rect.width / 2,
+    y: rect.y + rect.height / 2,
+  });
 }
 async function keys(text, modifiers = 0) {
   await driver.execute('macos: keys', { keys: [{ key: text, modifierFlags: modifiers }] });

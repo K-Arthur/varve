@@ -1,13 +1,16 @@
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 // Render the actual file, rather than accepting a valid header and page object.
 // The bounded fixture contains one embedded checker image, exported at 1x.
 export async function assertNativePdfArtwork(bytes, sourcePng) {
   assert.ok(bytes.length < 2 * 1024 * 1024, 'qualification PDF is bounded to 2 MB');
   const importRequire = createRequire(join(process.cwd(), 'packages/import/package.json'));
-  const { getDocument } = await import(importRequire.resolve('pdfjs-dist/legacy/build/pdf.mjs'));
+  const { getDocument } = await import(
+    pathToFileURL(importRequire.resolve('pdfjs-dist/legacy/build/pdf.mjs')).href
+  );
   const engineRequire = createRequire(join(process.cwd(), 'packages/engine/package.json'));
   const { PNG } = engineRequire('pngjs');
   const source = PNG.sync.read(sourcePng);

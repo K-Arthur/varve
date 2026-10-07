@@ -47,9 +47,38 @@ const driver = {
 };
 const context = vm.createContext({ assert, driver });
 vm.runInContext(helper + '; globalThis.one = one;', context);
+const clickHelper = source.slice(
+  source.indexOf('async function click('),
+  source.indexOf('async function keys('),
+);
+let pointerRect = { x: 32, y: 37, width: 33, height: 22 };
+const pointerCalls = [];
+driver.getElementRect = async (id) => {
+  assert.equal(id, 'File');
+  return pointerRect;
+};
+driver.execute = async (command, args) => pointerCalls.push({ command, ...args });
+vm.runInContext(
+  `const buttons = ['XCUIElementTypeMenuItem']; async function until(fn) { return fn(); }\n${clickHelper}; globalThis.click = click;`,
+  context,
+);
 function control(label, amType = 'XCUIElementTypeButton', other = {}) {
   return { elementId: label, label, amText: label, amType, hittable: true, ...other };
 }
+// Observed 0.2.1 AX File menu rectangle on the 1024x768 hosted macOS display.
+// The native menu traversal endpoint must never be used for this webview control.
+controls = [control('File', 'XCUIElementTypeMenuItem')];
+await context.click('File');
+assert.deepEqual(pointerCalls, [{ command: 'macos: click', x: 48.5, y: 48 }]);
+for (const rect of [
+  { x: 32, y: 37, width: 0, height: 22 },
+  { x: NaN, y: 37, width: 33, height: 22 },
+]) {
+  pointerRect = rect;
+  await assert.rejects(context.click('File'), /non-empty pointer target/);
+}
+assert.equal(pointerCalls.length, 1, 'Invalid rectangles must not send a pointer gesture');
+controls = [];
 await assert.rejects(context.one('Save', ['XCUIElementTypeButton']), /got 0/);
 controls = [control('Save'), control('Save', 'XCUIElementTypeButton', { elementId: 'duplicate' })];
 await assert.rejects(context.one('Save', ['XCUIElementTypeButton']), /got 2/);
