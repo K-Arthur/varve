@@ -887,7 +887,7 @@ function buildMenus(
           label: 'Viewport',
           items: [
             {
-              label: 'Fit Active Page',
+              label: 'Fit Active Surface',
               shortcut: shortcutText('fitActivePage'),
               ariaKeyshortcut: ks('fitActivePage'),
               action: 'fitActivePage',

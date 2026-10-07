@@ -287,8 +287,8 @@
   font-family: var(--font-body);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  text-transform: none;
+  letter-spacing: normal;
   cursor: pointer;
   text-align: left;
   border-radius: var(--radius-sm);
@@ -321,7 +321,7 @@
   font-variant-numeric: tabular-nums;
 }
 /* DisclosureTrigger renders its children inside one label span, so the
-   count's margin-left:auto had no flex context and rendered "PROJECTS3"
+   count's margin-left:auto had no flex context and rendered "Projects3"
    jammed together (2026-09-17). Scope a flex context to this header only. */
 .sidebar-section__header .varve-disclosure__label {
   display: flex;
@@ -441,8 +441,10 @@
   gap: var(--space-1);
   padding-right: var(--space-1);
 }
-.sidebar-group__header .sidebar-section__header {
+/* Keep the Home inset when shared disclosure styles load after home.css. */
+.varve-home__sidebar .sidebar-group__header .sidebar-section__header {
   flex: 1;
+  padding-inline: var(--space-3);
 }
 .sidebar-projects-empty {
   display: grid;
@@ -943,6 +945,81 @@
   gap: var(--space-4);
   min-width: 0;
 }
+/* Project and saved-search dialogs share the same named form controls. */
+.varve-home__new-project-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.varve-home__new-project-label {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+.varve-home__new-project-input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: var(--component-default-height);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-sunken);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--font-size-sm);
+}
+.varve-home__new-project-input::placeholder {
+  color: var(--color-text-muted);
+}
+.varve-home__new-project-input:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
+}
+.varve-home__new-project-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+.varve-home__new-project-cancel,
+.varve-home__new-project-confirm {
+  min-height: var(--component-default-height);
+  padding: var(--space-2) var(--component-default-padding-inline);
+  border: none;
+  border-radius: var(--radius-control);
+  font-family: var(--type-interface-control-family);
+  font-size: var(--type-interface-control-size);
+  font-weight: var(--type-interface-control-weight);
+  line-height: var(--type-interface-control-line-height);
+  cursor: pointer;
+}
+.varve-home__new-project-cancel {
+  background: transparent;
+  color: var(--color-text-secondary);
+}
+.varve-home__new-project-cancel:hover {
+  background: var(--color-surface-sunken);
+}
+.varve-home__new-project-confirm {
+  background: var(--color-interactive-default);
+  color: var(--color-text-on-accent);
+}
+.varve-home__new-project-confirm:hover:not(:disabled) {
+  background: var(--color-interactive-hover);
+}
+.varve-home__new-project-confirm:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.varve-home__new-project-cancel:focus-visible,
+.varve-home__new-project-confirm:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
+}
+
 .new-design__name-row {
   display: flex;
   align-items: center;

@@ -1470,9 +1470,13 @@ input[type="number"] {
   min-width: var(--target-min-compact);
   justify-content: center;
 }
-.editor-status__fit-btn:hover {
+.editor-status__fit-btn:hover:not(:disabled) {
   background: var(--color-surface-raised);
   color: var(--color-text-primary);
+}
+.editor-status__fit-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 .editor-status__fit-btn:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);

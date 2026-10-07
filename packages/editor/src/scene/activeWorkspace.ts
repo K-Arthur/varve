@@ -30,6 +30,15 @@ export function isPublishingPageSurface(doc: Document, workspaceMode: string): b
   return workspaceMode === 'print' || (workspaceMode === 'drawing' && Boolean(doc.workflowProfile));
 }
 
+/** Page-only documents retain paper fitting when edited in Photo or Design. */
+export function isPublishingPageFitTarget(doc: Document, workspaceMode: string): boolean {
+  return (
+    isPublishingPageSurface(doc, workspaceMode) ||
+    (!designCanvasContentRoot(doc) &&
+      Boolean(doc.pages?.some((page) => page.id === doc.activePageId)))
+  );
+}
+
 export function addNodeToActiveWorkspace(
   doc: Document,
   node: SceneNode,

@@ -1311,6 +1311,7 @@ function HomeShellContent({
         <Dialog
           open={newProjectOpen}
           title="New Project"
+          focusFirstControl
           onClose={() => {
             setNewProjectOpen(false);
             setNewProjectName('');

@@ -8,12 +8,14 @@
  * implementation both now delegate to.
  */
 import type { Document } from '@varve/scene';
-import { buildParentIndexMap, walkNodes } from '@varve/scene';
+import { buildParentIndexMap, pageBoundsInWorld, walkNodes } from '@varve/scene';
 import {
   animateCamera,
   type Camera,
+  centerBoundsCameraWithRotation,
   clampZoom,
   fitBoundsCameraWithRotation,
+  type Rect,
   stepZoom,
   type Viewport,
   zoomAboutPoint,
@@ -24,6 +26,7 @@ import {
   editorScreenToWorld,
   toCamera,
 } from '../canvas/cameraState';
+import { activeWorkspaceContentRoot, isPublishingPageFitTarget } from '../scene/activeWorkspace';
 import { nodeWorldBounds } from '../scene/world';
 
 type CameraPatch = Pick<EditorCameraState, 'zoom' | 'pan' | 'cameraRotation'>;
@@ -114,6 +117,71 @@ export function getCanvasViewport(): Viewport {
     width: typeof window !== 'undefined' ? window.innerWidth : 1200,
     height: typeof window !== 'undefined' ? window.innerHeight - 120 : 700,
   };
+}
+
+/** Reserve the largest clear canvas rectangle beside the movable tool palette. */
+export function getCanvasFitRegion(viewport: Viewport): Rect {
+  const full = { x: 0, y: 0, w: viewport.width, h: viewport.height };
+  if (typeof document === 'undefined') return full;
+  const canvas = document.querySelector('canvas.editor-canvas__content-layer');
+  const toolbar = document.querySelector('.floating-toolbar[data-testid="toolbar"]');
+  if (!canvas || !toolbar) return full;
+  const surface = canvas.getBoundingClientRect();
+  const palette = toolbar.getBoundingClientRect();
+  if (
+    palette.width <= 0 ||
+    palette.height <= 0 ||
+    palette.right <= surface.left ||
+    palette.left >= surface.right ||
+    palette.bottom <= surface.top ||
+    palette.top >= surface.bottom
+  ) {
+    return full;
+  }
+  const gap = 8;
+  const left = Math.max(0, Math.min(viewport.width, palette.left - surface.left - gap));
+  const right = Math.max(0, Math.min(viewport.width, palette.right - surface.left + gap));
+  const top = Math.max(0, Math.min(viewport.height, palette.top - surface.top - gap));
+  const bottom = Math.max(0, Math.min(viewport.height, palette.bottom - surface.top + gap));
+  const clearRegions = [
+    { x: 0, y: 0, w: viewport.width, h: top },
+    { x: 0, y: bottom, w: viewport.width, h: viewport.height - bottom },
+    { x: 0, y: 0, w: left, h: viewport.height },
+    { x: right, y: 0, w: viewport.width - right, h: viewport.height },
+  ];
+  const clear = clearRegions.reduce((best, region) =>
+    region.w * region.h > best.w * best.h ? region : best,
+  );
+  return clear.w > 0 && clear.h > 0 ? clear : full;
+}
+
+/** Publishing pages fit their trim; unbounded canvases fit their owned artwork. */
+export function computeFitActiveSurfaceCamera(
+  doc: Document,
+  workspaceMode: string,
+  viewport: Viewport,
+  rotation = 0,
+  fitRegion: Rect = { x: 0, y: 0, w: viewport.width, h: viewport.height },
+): Camera | null {
+  const rootId = activeWorkspaceContentRoot(doc, workspaceMode);
+  const bounds = isPublishingPageFitTarget(doc, workspaceMode)
+    ? doc.activePageId
+      ? pageBoundsInWorld(doc, doc.activePageId)
+      : null
+    : rootId
+      ? nodeWorldBounds(doc, rootId, buildParentIndexMap(doc))
+      : null;
+  if (!bounds || bounds.w <= 0 || bounds.h <= 0) return null;
+  const fitted = fitBoundsCameraWithRotation(
+    bounds,
+    { width: fitRegion.w, height: fitRegion.h },
+    rotation,
+    40,
+  );
+  const camera = centerBoundsCameraWithRotation(bounds, viewport, fitted.zoom, rotation);
+  camera.pan.x += fitRegion.x + fitRegion.w / 2 - viewport.width / 2;
+  camera.pan.y += fitRegion.y + fitRegion.h / 2 - viewport.height / 2;
+  return camera;
 }
 
 /**

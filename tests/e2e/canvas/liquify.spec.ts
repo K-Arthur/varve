@@ -4,8 +4,9 @@
  * Verifies that the deformation visibly changes the artwork, that it is
  * non-destructive (undo returns the exact source frame), and that the tool
  * exposes its overlay and real controls while active. Pixel comparison reads
- * the canvas buffer in-page (`getImageData`), which is immune to screenshot
- * timing artifacts under load.
+ * the canvas buffer in-page (`getImageData`) after the original comparison
+ * view is painted. Pixels stay in the browser instead of bloating the trace
+ * with millions of serialized channel values.
  *
  * Run with:
  *   npx playwright test tests/e2e/canvas/liquify.spec.ts --project=chromium --reporter=list
@@ -17,77 +18,96 @@ import { navigateToEditor } from '../shared';
 test.use({ viewport: { width: 1440, height: 900 } });
 test.setTimeout(420_000);
 
-declare global {
-  interface Window {
-    __varvePerf?: {
-      fixtures: {
-        apply: (id: string) => Promise<{ ok: boolean }>;
-      };
-      forceFullRedraw: () => void;
-    };
-    __retouchProbe?: {
-      capture: () => { width: number; height: number; data: number[] } | null;
-      diff: (
-        a: { data: number[] },
-        b: { data: number[] },
-      ) => { mean: number; max: number; changed: number };
-    };
-  }
+interface PixelView {
+  width: number;
+  height: number;
+  camera: { zoom: number; panX: number; panY: number; rotation: number };
+}
+
+interface PixelProbe {
+  capture: (key: string) => PixelView | null;
+  diff: (first: string, second: string) => { mean: number; max: number; changed: number };
 }
 
 async function installPixelProbe(page: Page) {
   await page.evaluate(() => {
-    const canvas = (): HTMLCanvasElement | null =>
-      document.querySelector<HTMLCanvasElement>('[data-testid="editor-canvas"]');
-    window.__retouchProbe = {
-      capture: () => {
-        const el = canvas();
-        const ctx = el?.getContext('2d');
-        if (!el || !ctx) return null;
-        const image = ctx.getImageData(0, 0, el.width, el.height);
-        return { width: image.width, height: image.height, data: Array.from(image.data) };
+    const saved = new Map<string, ImageData>();
+    const probe: PixelProbe = {
+      capture: (key) => {
+        const canvas = document.querySelector<HTMLCanvasElement>('[data-testid="editor-canvas"]');
+        const context = canvas?.getContext('2d');
+        const perf = (
+          window as unknown as {
+            __varvePerf?: { getLast: () => { camera?: PixelView['camera'] } | null };
+          }
+        ).__varvePerf;
+        const camera = perf?.getLast()?.camera;
+        if (!canvas || !context || !camera) return null;
+        const image = context.getImageData(0, 0, canvas.width, canvas.height);
+        let alphaSum = 0;
+        for (let i = 3; i < image.data.length; i += 4 * 97) alphaSum += image.data[i]!;
+        if (alphaSum === 0) return null;
+        saved.set(key, image);
+        return { width: image.width, height: image.height, camera: { ...camera } };
       },
-      diff: (a, b) => {
+      diff: (first, second) => {
+        const a = saved.get(first);
+        const b = saved.get(second);
+        if (!a || !b) throw new Error('Both pixel captures are required');
+        if (a.width !== b.width || a.height !== b.height) {
+          throw new Error('Pixel comparison requires identical backing-store dimensions');
+        }
         let sum = 0;
         let max = 0;
         let changed = 0;
         let count = 0;
-        const len = Math.min(a.data.length, b.data.length);
-        for (let i = 0; i < len; i += 4) {
+        for (let i = 0; i < a.data.length; i += 4) {
           for (let c = 0; c < 3; c++) {
-            const d = Math.abs(a.data[i + c]! - b.data[i + c]!);
-            sum += d;
-            if (d > max) max = d;
-            if (d > 2) changed++;
+            const delta = Math.abs(a.data[i + c]! - b.data[i + c]!);
+            sum += delta;
+            if (delta > max) max = delta;
+            if (delta > 2) changed++;
             count++;
           }
         }
         return { mean: count ? sum / count : 0, max, changed: count ? changed / count : 0 };
       },
     };
+    (window as unknown as { __liquifyPixelProbe: PixelProbe }).__liquifyPixelProbe = probe;
   });
 }
 
-async function capture(page: Page) {
-  // Wait for a painted frame: the first paint after navigation can lag under
-  // load, and a blank buffer would poison every later comparison.
-  for (let attempt = 0; attempt < 40; attempt++) {
-    const shot = await page.evaluate(() => window.__retouchProbe!.capture());
-    if (shot) {
-      let alphaSum = 0;
-      for (let i = 3; i < shot.data.length; i += 4 * 97) alphaSum += shot.data[i]!;
-      if (alphaSum > 0) return shot;
-    }
-    await page.waitForTimeout(250);
-  }
-  throw new Error('canvas never painted');
+async function capture(page: Page, key: string, expected?: PixelView): Promise<PixelView> {
+  let shot: PixelView | null = null;
+  // Undo temporarily changes the contextual bar's geometry. Compare only
+  // after the original camera is painted again, rather than after a fixed
+  // delay. Keep the actual pixels in the browser: transferring millions of
+  // numbers both slows the test and bloats its retained trace.
+  await expect
+    .poll(
+      async () => {
+        await forceAuthoritativeRedraw(page);
+        shot = await page.evaluate((name) => {
+          const probe = (window as unknown as { __liquifyPixelProbe: PixelProbe })
+            .__liquifyPixelProbe;
+          return probe.capture(name);
+        }, key);
+        return expected ? shot : shot !== null;
+      },
+      { timeout: 15_000, message: 'Wait for a painted frame at the comparison view' },
+    )
+    .toEqual(expected ?? true);
+  return shot!;
 }
 
-async function diff(page: Page, a: { data: number[] }, b: { data: number[] }) {
-  return page.evaluate(([first, second]) => window.__retouchProbe!.diff(first!, second!), [
-    a,
-    b,
-  ] as const);
+async function diff(page: Page, first: string, second: string) {
+  return page.evaluate(
+    ([a, b]) => {
+      const probe = (window as unknown as { __liquifyPixelProbe: PixelProbe }).__liquifyPixelProbe;
+      return probe.diff(a!, b!);
+    },
+    [first, second],
+  );
 }
 
 async function forceAuthoritativeRedraw(page: Page): Promise<void> {
@@ -105,7 +125,13 @@ async function forceAuthoritativeRedraw(page: Page): Promise<void> {
 
 async function openEditorWithRetouchFixture(page: Page): Promise<void> {
   await navigateToEditor(page, '/?perf=1', { startupTimeout: 300_000 });
-  const applied = await page.evaluate(() => window.__varvePerf?.fixtures.apply('retouch-raster'));
+  const applied = await page.evaluate(() =>
+    (
+      window as unknown as {
+        __varvePerf?: { fixtures: { apply: (id: string) => Promise<{ ok: boolean }> } };
+      }
+    ).__varvePerf?.fixtures.apply('retouch-raster'),
+  );
   expect(applied?.ok).toBe(true);
   await page
     .locator('.layers-panel')
@@ -140,8 +166,7 @@ test.describe('liquify', () => {
 
     // Capture with this tool and selection's contextual bar geometry. History
     // restores the revision's selection, which can differ from the later click.
-    await forceAuthoritativeRedraw(page);
-    const before = await capture(page);
+    const before = await capture(page, 'before');
     await testInfo.attach('liquify-before', {
       body: await page.getByTestId('editor-canvas').screenshot(),
       contentType: 'image/png',
@@ -186,9 +211,8 @@ test.describe('liquify', () => {
     }
     await page.mouse.up();
     await page.waitForTimeout(900);
-    await forceAuthoritativeRedraw(page);
-    const deformed = await capture(page);
-    const deformation = await diff(page, before, deformed);
+    const deformed = await capture(page, 'deformed', before);
+    const deformation = await diff(page, 'before', 'deformed');
     await testInfo.attach('liquify-deformed', {
       body: await page.getByTestId('editor-canvas').screenshot(),
       contentType: 'image/png',
@@ -204,8 +228,7 @@ test.describe('liquify', () => {
     // layer without changing the artwork or camera, keeping the viewport fixed.
     await rasterLayer.click();
     await expect(rasterLayer).toHaveAttribute('aria-selected', 'true');
-    await forceAuthoritativeRedraw(page);
-    const undone = await capture(page);
+    const undone = await capture(page, 'undone', before);
     expect({ width: undone.width, height: undone.height }).toEqual({
       width: before.width,
       height: before.height,
@@ -214,7 +237,7 @@ test.describe('liquify', () => {
       body: await page.getByTestId('editor-canvas').screenshot(),
       contentType: 'image/png',
     });
-    const undoMetrics = await diff(page, before, undone);
+    const undoMetrics = await diff(page, 'before', 'undone');
     expect(undoMetrics.mean).toBeLessThan(0.1);
 
     // Redo re-applies the same deformation.
@@ -222,13 +245,12 @@ test.describe('liquify', () => {
     await page.waitForTimeout(900);
     await rasterLayer.click();
     await expect(rasterLayer).toHaveAttribute('aria-selected', 'true');
-    await forceAuthoritativeRedraw(page);
-    const redone = await capture(page);
+    const redone = await capture(page, 'redone', deformed);
     expect({ width: redone.width, height: redone.height }).toEqual({
       width: deformed.width,
       height: deformed.height,
     });
-    const redoMetrics = await diff(page, deformed, redone);
+    const redoMetrics = await diff(page, 'deformed', 'redone');
     expect(redoMetrics.mean).toBeLessThan(0.1);
   });
 });

@@ -2,6 +2,13 @@
 
 import '@testing-library/jest-dom/vitest';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import {
+  addChild,
+  createDesignCanvas,
+  createDocument,
+  designCanvasContentRoot,
+  makeShapeNode,
+} from '@varve/scene';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { publishCursorWorldPosition } from './canvas/cursorPosition';
 import { setCompositorDiagnostics } from './render/compositorDiagnosticsStore';
@@ -111,9 +118,50 @@ afterEach(() => {
 });
 
 describe('StatusBar section gating', () => {
+  it('retains the enabled paper control for a page-only Photo document', () => {
+    const editor = baseEditor();
+    Object.assign(editor.state.document, createDocument('Page-only Photo'));
+    editor.state.workspaceMode = 'photo';
+    useEditorMock.mockReturnValue(editor);
+    render(<StatusBar />);
+    const fit = screen.getByRole('button', { name: 'Fit active page' });
+    expect(fit).toBeEnabled();
+    fireEvent.click(fit);
+    expect(editor.fitActivePage).toHaveBeenCalledOnce();
+  });
   beforeEach(() => {
     localStorage.clear();
     resetWorkspacePreferenceCache();
+  });
+
+  it('labels an empty unbounded canvas accurately and enables fit once it owns artwork', () => {
+    const editor = baseEditor();
+    let document = createDesignCanvas(createDocument('Design', true));
+    Object.assign(editor.state.document, document);
+    useEditorMock.mockReturnValue(editor);
+    const view = render(<StatusBar />);
+    expect(screen.getByRole('button', { name: 'Fit active canvas' })).toBeDisabled();
+    document = addChild(
+      document,
+      designCanvasContentRoot(document)!,
+      makeShapeNode('art', { kind: 'rect', x: 0, y: 0, w: 100, h: 100 }),
+    );
+    Object.assign(editor.state.document, document);
+    view.rerender(<StatusBar />);
+    const fit = screen.getByRole('button', { name: 'Fit active canvas' });
+    expect(fit).toBeEnabled();
+    fireEvent.click(fit);
+    expect(editor.fitActivePage).toHaveBeenCalledOnce();
+  });
+
+  it('keeps a blank publishing page fit available in Print', () => {
+    const editor = baseEditor();
+    editor.state.workspaceMode = 'print';
+    Object.assign(editor.state.document, createDocument('Print'));
+    useEditorMock.mockReturnValue(editor);
+    render(<StatusBar />);
+    expect(screen.getByRole('button', { name: 'Fit active page' })).toBeEnabled();
+    expect(screen.queryByRole('button', { name: 'Fit active canvas' })).toBeNull();
   });
 
   it('hides a status section the workspace config declares hidden', () => {

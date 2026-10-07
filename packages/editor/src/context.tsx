@@ -383,6 +383,7 @@ import {
 import type { BackupService } from './backupService';
 import { CanvasAnnouncer } from './canvas/CanvasAnnouncer';
 import {
+  cameraPatch,
   editorScreenToWorld,
   editorWorldToScreen,
   fitBoundsToState,
@@ -520,9 +521,11 @@ import {
 import {
   animateCameraTo,
   cancelCameraTransition,
+  computeFitActiveSurfaceCamera,
   computeFitAllCamera,
   computeZoomStep,
   computeZoomTo,
+  getCanvasFitRegion,
   getCanvasViewport,
 } from './context/viewportOps';
 import {
@@ -9016,15 +9019,15 @@ export function EditorProvider({
         persistViewportPrefs({ ...stateRef.current, gridOverlayMode: mode });
       },
       fitActivePage: () => {
-        const doc = state.document;
-        const pageId = doc.activePageId;
-        const bounds = pageId ? pageBoundsInWorld(doc, pageId) : null;
-        if (!bounds) return;
-        const canvasEl = document.querySelector<HTMLElement>('.editor-canvas');
-        const vp: Viewport = canvasEl
-          ? { width: canvasEl.clientWidth, height: canvasEl.clientHeight }
-          : { width: window.innerWidth, height: window.innerHeight - 120 };
-        patch(fitBoundsToState(bounds, vp, 40, state.cameraRotation));
+        const viewport = getCanvasViewport();
+        const camera = computeFitActiveSurfaceCamera(
+          state.document,
+          state.workspaceMode,
+          viewport,
+          state.cameraRotation,
+          getCanvasFitRegion(viewport),
+        );
+        if (camera) patch(cameraPatch(camera));
       },
       fitActiveFrame: () => {
         const sel = state.selection[0];

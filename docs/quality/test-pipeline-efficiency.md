@@ -419,3 +419,12 @@ rotated parent. These checks complement the
 valid headers and success messages are insufficient evidence of useful artwork.
 That is an acceptance lesson, not a claim that another product shares this
 coordinate defect.
+
+
+## Settled-frame comparison and added Home/fit scope (October 7)
+
+[Integration 37573618607](https://github.com/K-Arthur/varve/actions/runs/37573618607), attempt 1 at `662d358f1c2e5737e6faa9fb5accab8506ec5a4f`, completed 23 of 24 browser shards and every non-browser lane successfully. Shard 7's sole case failure was Liquify undo; the aggregate certificate correctly remained failed. The plan selected the complete 18-lane, 24-shard inventory. No failed certificate was accepted.
+
+The retained images show restored grid geometry displaced vertically in the undo capture. A local diagnostic observed the painted camera move during undo and settle back to its original position; this supports a layout-settlement explanation but does not prove the exact timing on the hosted runner. The old pixel probe also serialized millions of RGBA values into the test trace. The repair keeps images in a browser-side map, requests an authoritative redraw, and polls until the original painted camera and dimensions match. It rejects transparent frames and differing dimensions. Full RGB comparison and the original deformation/undo/redo thresholds remain unchanged. The focused local case passed in 28.5 seconds; this is not a hosted performance measurement. An isolated browser negative check blocked the actual Undo keystroke and failed the original pixel assertion (mean 0.8114 against 0.1), demonstrating that settlement polling does not hide a missing undo.
+
+Subsequent user reports added concrete product scope: Home project casing, sidebar alignment, missing New Project form styles, and active-surface fitting. These require a newly frozen source, rather than rerunning the old SHA. Three themed Home browser cases passed and their actual modal/sidebar images were inspected. A controlled removal of the form rules produced the raw unstyled controls and failed the minimum input-height assertion (24.75 rather than 32 CSS pixels). A pre-repair Design fit case failed because its camera stayed at 25%; a portrait page case independently found approximately fifteen pixels hidden by the floating toolbar. Exact spec and geometry checks precede the selected affected closure; complete hosted integration and final-candidate certification still apply at the release checkpoint.

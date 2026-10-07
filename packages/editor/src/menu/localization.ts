@@ -130,7 +130,7 @@ export const MENU_LABELS: Readonly<Record<string, string>> = {
   'menu.view.zoomOut': 'Zoom Out',
   'menu.view.zoomReset': 'Zoom to 100%',
   'menu.view.fitActiveFrame': 'Fit to Frame',
-  'menu.view.fitActivePage': 'Fit to Page',
+  'menu.view.fitActivePage': 'Fit Active Surface',
   'menu.view.fitSpread': 'Fit Spread',
   'menu.view.fitAllPages': 'Fit All Pages',
   'menu.view.rotateViewCW': 'Rotate View Clockwise',

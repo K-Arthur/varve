@@ -65,6 +65,29 @@ Opening a narrow window therefore cannot permanently overwrite the desktop
 arrangement, and the saved value returns at the next wide viewport.
 
 
+### Fitting the active surface
+
+The status-bar fit control follows the editing surface: **Fit canvas** frames
+the active Design Canvas's artwork, while **Fit page** frames the active
+Publishing Page's placed trim rectangle in Print and comic Draw. Page-only
+documents retain paper fitting in Photo and other modes. When a Design Canvas
+is present, its artwork remains the fit target outside Print and comic Draw.
+An unbounded canvas has no paper size to fit; its control is disabled until it owns artwork.
+A blank Publishing Page still has trim geometry and can still be fitted. Other
+canvases, pasteboard objects, page bleed and artwork outside trim do not enlarge
+this target. Fit All, Fit All Pages and Fit Spread retain their separate scope.
+
+The View menu and Shift+3 shortcut call this **Fit Active Surface**. The existing
+`fitActivePage` action identity is retained for saved shortcut compatibility.
+Camera fitting uses the content canvas's measured viewport, forty CSS pixels
+of padding, and the current view rotation. It centers the target in the largest
+clear rectangle beside the floating toolbar, with an eight CSS pixel gap, so
+portrait trim does not disappear behind the palette. Palette placement is
+measured when fitting is requested, including vertical and moved palettes.
+Scene traversal runs when fitting is requested, rather than on every status-bar render. Direct geometry regressions
+live in `context/viewportOps.test.ts`; real browser acceptance lives in
+`tests/e2e/canvas/fit-surface.spec.ts`.
+
 ## Scope: the workspace is application-global
 
 The active workspace is global to the application. It is **not** stored per

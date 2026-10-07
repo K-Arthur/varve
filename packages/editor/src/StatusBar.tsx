@@ -1,4 +1,4 @@
-import { getImageFill, isImageShape } from '@varve/scene';
+import { getActiveDesignCanvas, getImageFill, isImageShape } from '@varve/scene';
 import { MAX_ZOOM, MIN_ZOOM } from '@varve/shared';
 import { Icon, NumberInput, Select, Tooltip, TooltipProvider } from '@varve/ui';
 import { Fragment, type ReactNode, useRef, useState, useSyncExternalStore } from 'react';
@@ -17,6 +17,7 @@ import {
   getCompositorDiagnosticsSnapshot,
   subscribeCompositorDiagnostics,
 } from './render/compositorDiagnosticsStore';
+import { isPublishingPageFitTarget } from './scene/activeWorkspace';
 import { formatShortcut, getEffectiveBinding } from './shortcuts/ShortcutManager';
 import { useEffectiveWorkspaceConfig } from './workspace/useWorkspaceConfig';
 import { getVisibleStatusSections, type StatusSectionId } from './workspace/workspaceTypes';
@@ -135,6 +136,11 @@ export function StatusBar({ onOpenPalette }: StatusBarProps) {
     clearAllGuides,
   } = useEditor();
   const effectiveConfig = useEffectiveWorkspaceConfig(state.workspaceMode);
+  const fitsPage = isPublishingPageFitTarget(state.document, state.workspaceMode);
+  const canvasRoot = state.document.nodes[getActiveDesignCanvas(state.document)?.contentRoot ?? ''];
+  const canFitSurface = fitsPage
+    ? state.document.pages?.some((page) => page.id === state.document.activePageId)
+    : canvasRoot && 'children' in canvasRoot && canvasRoot.children.length > 0;
   // Publishes the active page surface to the opt-in document-accent
   // controller; inert unless appearance.accentSource is 'document'.
   useDocumentAccent(state.document, state.currentPageId);
@@ -363,14 +369,26 @@ export function StatusBar({ onOpenPalette }: StatusBarProps) {
 
     fit: (
       <span className="editor-status__fit-group">
-        <Tooltip label="Fit page" shortcut={sc('fitActivePage')}>
+        <Tooltip
+          label={
+            canFitSurface
+              ? fitsPage
+                ? 'Fit page trim'
+                : 'Fit canvas artwork'
+              : fitsPage
+                ? 'Add a publishing page to fit'
+                : 'Add artwork to fit this unbounded canvas'
+          }
+          shortcut={sc('fitActivePage')}
+        >
           <button
             type="button"
             onClick={fitActivePage}
-            aria-label="Fit active page"
+            disabled={!canFitSurface}
+            aria-label={fitsPage ? 'Fit active page' : 'Fit active canvas'}
             className="editor-status__fit-btn"
           >
-            Fit page
+            {fitsPage ? 'Fit page' : 'Fit canvas'}
           </button>
         </Tooltip>
         <Tooltip label="Fit all" shortcut={sc('fitAll')}>

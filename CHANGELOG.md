@@ -78,6 +78,14 @@ marked.
   targets, focus handling, home-screen reflow, group dragging, and enlarged-text
   layouts have been refined across compact, tablet, and desktop widths.
   Color-model labels wrap within narrow pickers instead of overlapping.
+  Home project headings retain normal casing and aligned sidebar spacing;
+  the New Project form has themed controls and focuses its name field.
+- **Fit the active surface** — Fit canvas frames the active Design Canvas's
+  artwork. Fit page frames publishing trim in Print and comic Draw, including
+  blank pages. Page-only documents retain paper fitting in other modes.
+  Empty unbounded canvases show a disabled control instead of a
+  enabled button with no target. Fitted artwork and portrait pages stay clear
+  of the floating toolbar.
 - **Document name entry** — Initial selection of a suggested name yields to
   typing and other dialog interactions, preserving entered text when the
   opening animation frame arrives late.

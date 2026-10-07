@@ -1,10 +1,149 @@
-import { createDocument, makeShapeNode } from '@varve/scene';
-import type { Viewport } from '@varve/shared';
+import {
+  addChild,
+  createDesignCanvas,
+  createDocument,
+  designCanvasContentRoot,
+  makeShapeNode,
+  setActiveDesignCanvas,
+  setPagePlacement,
+} from '@varve/scene';
+import { type Viewport, worldToScreen } from '@varve/shared';
 import { describe, expect, it } from 'vitest';
 import type { EditorCameraState } from '../canvas/cameraState';
-import { computeFitAllCamera, computeZoomStep, computeZoomTo } from './viewportOps';
+import {
+  computeFitActiveSurfaceCamera,
+  computeFitAllCamera,
+  computeZoomStep,
+  computeZoomTo,
+  getCanvasFitRegion,
+} from './viewportOps';
 
 const viewport: Viewport = { width: 1000, height: 800 };
+
+describe('getCanvasFitRegion', () => {
+  it.each([
+    ['bottom', [300, 800, 500, 60], { x: 0, y: 0, w: 1000, h: 592 }],
+    ['left', [110, 300, 60, 400], { x: 78, y: 0, w: 922, h: 800 }],
+    ['outside', [1200, 300, 60, 400], { x: 0, y: 0, w: 1000, h: 800 }],
+  ] as const)(
+    'keeps %s palette geometry outside the fitting region',
+    (_name, palette, expected) => {
+      const canvas = document.createElement('canvas');
+      canvas.className = 'editor-canvas__content-layer';
+      const toolbar = document.createElement('div');
+      toolbar.className = 'floating-toolbar';
+      toolbar.dataset.testid = 'toolbar';
+      canvas.getBoundingClientRect = () => new DOMRect(100, 200, 1000, 800);
+      toolbar.getBoundingClientRect = () => new DOMRect(...palette);
+      document.body.append(canvas, toolbar);
+      try {
+        expect(getCanvasFitRegion(viewport)).toEqual(expected);
+      } finally {
+        canvas.remove();
+        toolbar.remove();
+      }
+    },
+  );
+});
+
+describe('computeFitActiveSurfaceCamera', () => {
+  it('fits only the active unbounded canvas, excluding inactive canvases and pages', () => {
+    let doc = createDesignCanvas(createDocument('Mixed surfaces'), { name: 'Active art' });
+    const activeId = doc.activeDesignCanvasId!;
+    doc = addChild(
+      doc,
+      designCanvasContentRoot(doc)!,
+      makeShapeNode(
+        'active-art',
+        { kind: 'rect', x: 0, y: 0, w: 320, h: 180 },
+        { transform: [1, 0, 0, 1, 200, 100] },
+      ),
+    );
+    doc = createDesignCanvas(doc, { name: 'Unrelated large artwork' });
+    doc = addChild(
+      doc,
+      designCanvasContentRoot(doc)!,
+      makeShapeNode('other-art', { kind: 'rect', x: 0, y: 0, w: 10000, h: 10000 }),
+    );
+    doc = setActiveDesignCanvas(doc, activeId);
+    const camera = computeFitActiveSurfaceCamera(doc, 'design', viewport)!;
+    expect(camera.zoom).toBeCloseTo(920 / 320);
+    expect(360 * camera.zoom + camera.pan.x).toBeCloseTo(500);
+    expect(190 * camera.zoom + camera.pan.y).toBeCloseTo(400);
+  });
+
+  it('fits placed publishing trim, including a blank page, rather than its overflowing artwork', () => {
+    let doc = createDocument('Print');
+    const page = doc.pages![0]!;
+    doc = setPagePlacement(doc, page.id, { x: 2100, y: -600 });
+    const blankCamera = computeFitActiveSurfaceCamera(doc, 'print', viewport)!;
+    expect(blankCamera.zoom).toBeCloseTo(920 / 1920);
+    expect(3060 * blankCamera.zoom + blankCamera.pan.x).toBeCloseTo(500);
+    expect(-60 * blankCamera.zoom + blankCamera.pan.y).toBeCloseTo(400);
+    doc = addChild(
+      doc,
+      page.contentRoot,
+      makeShapeNode('overflow', { kind: 'rect', x: -10000, y: -10000, w: 20000, h: 20000 }),
+    );
+    expect(computeFitActiveSurfaceCamera(doc, 'print', viewport)).toEqual(blankCamera);
+  });
+
+  it('uses publishing pages for comic Draw and preserves view rotation', () => {
+    const doc = { ...createDocument('Comic'), workflowProfile: 'comic-print' as const };
+    const camera = computeFitActiveSurfaceCamera(doc, 'drawing', viewport, Math.PI / 4)!;
+    expect(camera.rotation).toBeCloseTo(Math.PI / 4);
+    expect(camera.zoom).toBeCloseTo(720 / ((1920 + 1080) / Math.sqrt(2)));
+  });
+
+  it('does not invent page geometry for an empty Design Canvas or a missing publishing page', () => {
+    const doc = createDesignCanvas(createDocument('Empty', true));
+    expect(computeFitActiveSurfaceCamera(doc, 'design', viewport)).toBeNull();
+    expect(computeFitActiveSurfaceCamera(doc, 'print', viewport)).toBeNull();
+  });
+
+  it('keeps page-only Photo fitting while an explicit empty canvas remains unbounded', () => {
+    const paged = createDocument('Page-only Photo');
+    expect(computeFitActiveSurfaceCamera(paged, 'photo', viewport)).toEqual(
+      computeFitActiveSurfaceCamera(paged, 'print', viewport),
+    );
+    expect(computeFitActiveSurfaceCamera(createDesignCanvas(paged), 'photo', viewport)).toBeNull();
+  });
+
+  it('keeps rotated artwork inside the unobstructed region of the full viewport', () => {
+    let doc = createDesignCanvas(createDocument('Clear canvas', true));
+    doc = addChild(
+      doc,
+      designCanvasContentRoot(doc)!,
+      makeShapeNode(
+        'art',
+        { kind: 'rect', x: 0, y: 0, w: 320, h: 180 },
+        { transform: [1, 0, 0, 1, 200, 100] },
+      ),
+    );
+    const camera = computeFitActiveSurfaceCamera(doc, 'design', viewport, Math.PI / 4, {
+      x: 0,
+      y: 0,
+      w: 1000,
+      h: 600,
+    })!;
+    expect(camera.zoom).toBeCloseTo(520 / ((320 + 180) / Math.sqrt(2)));
+    const [cx, cy] = worldToScreen(camera, 360, 190, viewport);
+    expect(cx).toBeCloseTo(500);
+    expect(cy).toBeCloseTo(300);
+    for (const [x, y] of [
+      [200, 100],
+      [520, 100],
+      [520, 280],
+      [200, 280],
+    ]) {
+      const [sx, sy] = worldToScreen(camera, x!, y!, viewport);
+      expect(sx).toBeGreaterThanOrEqual(39.99);
+      expect(sx).toBeLessThanOrEqual(960.01);
+      expect(sy).toBeGreaterThanOrEqual(39.99);
+      expect(sy).toBeLessThanOrEqual(560.01);
+    }
+  });
+});
 
 // A panned-away-from-origin starting camera — the regression this guards
 // against (EditorProvider's zoomIn anchoring around the viewport center vs.

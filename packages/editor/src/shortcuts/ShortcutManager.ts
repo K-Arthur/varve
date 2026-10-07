@@ -63,7 +63,11 @@ export const SHORTCUT_DEFS = {
   zoomOut: { binding: { key: '-', ctrl: true }, label: 'Zoom Out', category: 'View' },
   fitAll: { binding: { key: '1', shift: true }, label: 'Fit All', category: 'View' },
   fitSelection: { binding: { key: '2', shift: true }, label: 'Fit Selection', category: 'View' },
-  fitActivePage: { binding: { key: '3', shift: true }, label: 'Fit Active Page', category: 'View' },
+  fitActivePage: {
+    binding: { key: '3', shift: true },
+    label: 'Fit Active Surface',
+    category: 'View',
+  },
   fitSpread: { binding: { key: '5', shift: true }, label: 'Fit Spread', category: 'View' },
   fitAllPages: { binding: { key: '6', shift: true }, label: 'Fit All Pages', category: 'View' },
   fitActiveFrame: {

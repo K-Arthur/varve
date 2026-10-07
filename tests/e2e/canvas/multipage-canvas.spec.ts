@@ -3,9 +3,9 @@
  * simultaneously on one pasteboard, content renders at its page's placed
  * position, and content is hit-testable on any page.
  *
- * Camera determinism: every test presses Shift+3 (fit active page), which
- * reproduces `fitBoundsCamera` from @varve/shared exactly; the test
- * re-derives the same world->screen mapping from the canvas size.
+ * Pixel placement uses the actual painted camera after fitting. Fitting may
+ * reserve floating-tool space; this test verifies placed artwork rather than
+ * duplicating a particular viewport-fitting implementation.
  */
 import { expect, test } from '@playwright/test';
 import { dragOnCanvas, navigateToEditor } from '../shared';
@@ -15,17 +15,26 @@ interface Cam {
   pan: { x: number; y: number };
 }
 
-function fitCamera(
-  bounds: { x: number; y: number; w: number; h: number },
-  vp: { width: number; height: number },
-  padding = 40,
-): Cam {
-  const availW = Math.max(1, vp.width - 2 * padding);
-  const availH = Math.max(1, vp.height - 2 * padding);
-  const zoom = Math.min(availW / Math.max(1e-6, bounds.w), availH / Math.max(1e-6, bounds.h));
-  const cx = bounds.x + bounds.w / 2;
-  const cy = bounds.y + bounds.h / 2;
-  return { zoom, pan: { x: vp.width / 2 - cx * zoom, y: vp.height / 2 - cy * zoom } };
+async function paintedCamera(page: import('@playwright/test').Page): Promise<Cam> {
+  const result = await page.evaluate(async () => {
+    const perf = (
+      window as unknown as {
+        __varvePerf?: {
+          forceFullRedraw: () => Promise<{ authoritative: boolean }>;
+          getLast: () => {
+            camera?: { zoom: number; panX: number; panY: number; rotation: number };
+          } | null;
+        };
+      }
+    ).__varvePerf;
+    if (!perf) throw new Error('Painted-camera oracle is unavailable');
+    const frame = await perf.forceFullRedraw();
+    return { authoritative: frame.authoritative, camera: perf.getLast()?.camera };
+  });
+  expect(result.authoritative).toBe(true);
+  expect(result.camera).toBeDefined();
+  expect(result.camera!.rotation).toBe(0);
+  return { zoom: result.camera!.zoom, pan: { x: result.camera!.panX, y: result.camera!.panY } };
 }
 
 function toScreen(wx: number, wy: number, cam: Cam): { x: number; y: number } {
@@ -85,7 +94,7 @@ test.describe('Shared multipage canvas (M5)', () => {
   test.setTimeout(420000);
 
   test.beforeEach(async ({ page }) => {
-    await navigateToEditor(page);
+    await navigateToEditor(page, '/?perf=1');
     // Publishing Pages are exposed in Print; new documents open in Design
     // with Design Canvases as their active surfaces.
     await page.getByRole('radio', { name: 'Print workspace' }).click();
@@ -103,10 +112,9 @@ test.describe('Shared multipage canvas (M5)', () => {
     await page.keyboard.press('Shift+3');
     await page.waitForTimeout(400);
 
-    const vp = await canvasSize(page);
     // Single-page spreads stack vertically with SPREAD_GAP 144; page 1 trim
     // is 1920x1080 at world origin.
-    const cam = fitCamera({ x: 0, y: 0, w: 1920, h: 1080 }, vp);
+    const cam = await paintedCamera(page);
 
     const page1Mid = toScreen(960, 540, cam);
     const gapMid = toScreen(960, 1080 + 72, cam);
@@ -145,7 +153,7 @@ test.describe('Shared multipage canvas (M5)', () => {
 
     const vp = await canvasSize(page);
     // Page 2 sits at world (0, 1224) (1080 + SPREAD_GAP 144).
-    const cam = fitCamera({ x: 0, y: 1224, w: 1920, h: 1080 }, vp);
+    const cam = await paintedCamera(page);
 
     // Draw a rect inside page 2's trim, in page-local world coordinates.
     await page.keyboard.press('r');
