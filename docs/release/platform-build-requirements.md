@@ -39,6 +39,11 @@ adapter creates a real editor after baseline restart and opens its unchanged
 saved file through the native panel. Current 0.5.0 must still pass Home opening,
 native save/reopen, artwork retention, history, exports and profile continuity.
 This baseline compatibility path changes no application or installer bytes.
+The baseline can also lose its native save path after reopening. If Quit opens
+Save As, qualification completes that real save only when the filename matches
+the owned migration document. Replacement confirmation must name that same
+file. Artwork is checked before saving and again after actual process exit.
+Current 0.5.0 receives no historical save-path workaround.
 
 | Dependency | Release contract |
 |---|---|
@@ -107,6 +112,23 @@ no E2E case executed. The bounded configuration follows the image's
 and [APT configuration ordering](https://manpages.ubuntu.com/manpages/noble/man5/apt.conf.5.html).
 This distinguishes setup outages from product test failures without accepting
 an incomplete shard.
+
+Timeouts alone proved insufficient in integration run `37673154574`: four
+browser setup steps still exhausted their eight-minute deadlines before any
+test executed, and the Linux desktop setup consumed its job deadline. The
+shared helper now removes the Azure mirror entry only when the runner already
+provides the official HTTPS Ubuntu archive fallback. It preserves the remaining
+mirror metadata, sources, suites and signing configuration; an absent fallback
+is a fatal error. The browser, Linux compiler and Linux desktop setup steps use
+that helper with an eight-minute bound. Ubuntu ARM package sources are outside
+this x64 helper's scope.
+
+A real Ubuntu 24.04 container probe fetched and verified 33.2 MB of package
+indexes in six seconds using the transformed mirror list. Its missing-fallback
+negative control failed as required. Mirror metadata retains the tab separator
+required by [APT's mirror-list format](https://manpages.ubuntu.com/manpages/noble/man1/apt-transport-mirror.1.html).
+This probe verifies APT behavior; the next exact-revision hosted checkpoint is
+still required to establish that every complete CI lane passes.
 
 ## Native controls, runtime distribution and visual evidence
 

@@ -163,7 +163,9 @@ jobs:
           components: rustfmt, clippy
       - name: Install Linux system deps (Tauri / wgpu)
         if: runner.os == 'Linux'
+        timeout-minutes: 8
         run: |
+          node scripts/ci/configure-ubuntu-browser-apt.mjs
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libssl-dev \
@@ -489,11 +491,7 @@ jobs:
       - name: Install Playwright browsers
         timeout-minutes: 8
         run: |
-          # Keep mirror failover bounded even when the hosted image has older
-          # or overridden apt defaults (runner-images issue 14594).
-          printf '%s\n' 'Acquire::Retries "1";' 'Acquire::http::Timeout "15";' 'Acquire::https::Timeout "15";' \
-            | sudo tee /etc/apt/apt.conf.d/zz-varve-network-bounds >/dev/null
-          apt-config dump Acquire::Retries Acquire::http::Timeout Acquire::https::Timeout
+          node scripts/ci/configure-ubuntu-browser-apt.mjs
           pnpm exec playwright install --with-deps chromium
       - name: Discover complete website case inventory
         env:
@@ -581,11 +579,7 @@ jobs:
       - name: Install Playwright browsers
         timeout-minutes: 8
         run: |
-          # Keep mirror failover bounded even when the hosted image has older
-          # or overridden apt defaults (runner-images issue 14594).
-          printf '%s\n' 'Acquire::Retries "1";' 'Acquire::http::Timeout "15";' 'Acquire::https::Timeout "15";' \
-            | sudo tee /etc/apt/apt.conf.d/zz-varve-network-bounds >/dev/null
-          apt-config dump Acquire::Retries Acquire::http::Timeout Acquire::https::Timeout
+          node scripts/ci/configure-ubuntu-browser-apt.mjs
           pnpm exec playwright install --with-deps chromium
       - name: Download canonical CI plan
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
@@ -725,11 +719,7 @@ jobs:
       - name: Install Playwright browsers
         timeout-minutes: 8
         run: |
-          # Keep mirror failover bounded even when the hosted image has older
-          # or overridden apt defaults (runner-images issue 14594).
-          printf '%s\n' 'Acquire::Retries "1";' 'Acquire::http::Timeout "15";' 'Acquire::https::Timeout "15";' \
-            | sudo tee /etc/apt/apt.conf.d/zz-varve-network-bounds >/dev/null
-          apt-config dump Acquire::Retries Acquire::http::Timeout Acquire::https::Timeout
+          node scripts/ci/configure-ubuntu-browser-apt.mjs
           pnpm exec playwright install --with-deps chromium
       - name: Discover CPU visual case inventory
         env:
@@ -838,7 +828,9 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Install Linux system deps (Tauri + WebKitGTK)
         if: runner.os == 'Linux'
+        timeout-minutes: 8
         run: |
+          node scripts/ci/configure-ubuntu-browser-apt.mjs
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libssl-dev \

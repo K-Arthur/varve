@@ -5,6 +5,10 @@ import { resolve } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import {
+  BROWSER_ACQUIRE_CONFIG,
+  preferOfficialArchive,
+} from '../ci/configure-ubuntu-browser-apt.mjs';
+import {
   certifiedBrowserCommandErrors,
   STRICT_BROWSER_FLAGS,
 } from './browser-execution-policy.mjs';
@@ -138,15 +142,14 @@ function boundedBrowserSetup(workflow) {
   assert.ok(installs.length > 0);
   for (const step of installs) {
     assert.equal(step['timeout-minutes'], 8, 'Browser setup cannot consume the shard deadline');
-    assert.match(step.run, /Acquire::Retries "1";/);
-    assert.match(step.run, /Acquire::http::Timeout "15";/);
-    assert.match(step.run, /Acquire::https::Timeout "15";/);
     assert.doesNotMatch(step.run, /APT::Acquire|continue-on-error|\|\|\s*(?:true|echo)/);
     assert.equal(step['continue-on-error'], undefined, 'Dependency setup failure remains fatal');
-    const config = step.run.indexOf('/etc/apt/apt.conf.d/zz-varve-network-bounds');
-    const diagnostic = step.run.indexOf('apt-config dump');
+    const config = step.run.indexOf('node scripts/ci/configure-ubuntu-browser-apt.mjs');
     const install = step.run.indexOf('pnpm exec playwright install');
-    assert.ok(config >= 0 && config < diagnostic && diagnostic < install);
+    assert.ok(
+      config >= 0 && config < install,
+      'The verified mirror/configuration helper runs first',
+    );
   }
 }
 
@@ -158,7 +161,7 @@ test('browser setup records effective mirror bounds and fails before the whole s
     boundedBrowserSetup(workflow);
 });
 
-test('negative control: missing setup deadline and the ineffective APT acquire key are rejected', () => {
+test('negative control: missing setup deadline or mirror configuration is rejected', () => {
   const unbounded = structuredClone(workflows[0]);
   const step = Object.values(unbounded.jobs)
     .flatMap((job) => job.steps ?? [])
@@ -166,14 +169,46 @@ test('negative control: missing setup deadline and the ineffective APT acquire k
   delete step['timeout-minutes'];
   assert.throws(() => boundedBrowserSetup(unbounded), /cannot consume/);
   step['timeout-minutes'] = 8;
-  step.run = step.run.replace('Acquire::Retries', 'APT::Acquire::Retries');
+  step.run = step.run.replace(
+    'node scripts/ci/configure-ubuntu-browser-apt.mjs',
+    'echo unconfigured',
+  );
   assert.throws(() => boundedBrowserSetup(unbounded));
+});
+
+test('stalled Azure mirror is removed only with an existing official HTTPS archive', () => {
+  const input =
+    'http://azure.archive.ubuntu.com/ubuntu\tpriority:1\nhttps://archive.ubuntu.com/ubuntu\tpriority:2\nhttps://security.ubuntu.com/ubuntu\tpriority:2\n';
+  assert.deepEqual(preferOfficialArchive(input), {
+    changed: true,
+    contents:
+      'https://archive.ubuntu.com/ubuntu\tpriority:2\nhttps://security.ubuntu.com/ubuntu\tpriority:2\n',
+  });
+  assert.throws(
+    () => preferOfficialArchive('http://azure.archive.ubuntu.com/ubuntu\n'),
+    /official HTTPS/,
+  );
+  const ports = 'https://ports.ubuntu.com/ubuntu-ports\n';
+  assert.deepEqual(preferOfficialArchive(ports), { changed: false, contents: ports });
+  assert.deepEqual(preferOfficialArchive('https://archive.ubuntu.com/ubuntu\n'), {
+    changed: false,
+    contents: 'https://archive.ubuntu.com/ubuntu\n',
+  });
+  assert.match(BROWSER_ACQUIRE_CONFIG, /Acquire::Retries "1";/);
+  assert.match(BROWSER_ACQUIRE_CONFIG, /Acquire::http::Timeout "15";/);
+  assert.match(BROWSER_ACQUIRE_CONFIG, /Acquire::https::Timeout "15";/);
+  assert.doesNotMatch(BROWSER_ACQUIRE_CONFIG, /APT::Acquire/);
 });
 
 function nativeLinuxRoutes(workflow, candidate) {
   const steps = workflow.jobs['desktop-e2e'].steps;
   const setup = steps.find((step) => step.name === 'Install Linux system deps (Tauri + WebKitGTK)');
   assert.equal(setup?.if, "runner.os == 'Linux'", 'Only the Linux cell installs apt dependencies');
+  assert.equal(setup['timeout-minutes'], 8);
+  assert.ok(
+    setup.run.indexOf('node scripts/ci/configure-ubuntu-browser-apt.mjs') <
+      setup.run.indexOf('sudo apt-get update'),
+  );
   const dependencies = setup.run
     .match(/apt-get install -y --no-install-recommends ([\s\S]+)/)?.[1]
     .replaceAll('\\', '')
@@ -199,6 +234,16 @@ function nativeLinuxRoutes(workflow, candidate) {
   );
   return dependencies;
 }
+
+test('integration Linux Rust prerequisites use the same bounded official mirror setup', () => {
+  const setup = workflows[0].jobs.rust.steps.find(
+    (step) => step.name === 'Install Linux system deps (Tauri / wgpu)',
+  );
+  assert.equal(setup.if, "runner.os == 'Linux'");
+  assert.equal(setup['timeout-minutes'], 8);
+  assert.ok(setup.run.includes('node scripts/ci/configure-ubuntu-browser-apt.mjs'));
+  assert.doesNotMatch(setup.run, /\|\|\s*(?:true|echo)/);
+});
 
 test('candidate Linux native setup matches integration and keeps display isolation OS-specific', () => {
   assert.deepEqual(nativeLinuxRoutes(workflows[1], true), nativeLinuxRoutes(workflows[0], false));

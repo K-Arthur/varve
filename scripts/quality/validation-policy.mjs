@@ -31,6 +31,7 @@ export const FULL_BROWSER_SHARDS = 24;
 /** Files whose contents define lane selection or execution semantics. */
 export const POLICY_FILES = [
   'validation-impact.config.mjs',
+  'scripts/ci/configure-ubuntu-browser-apt.mjs',
   'scripts/quality/affected-plan.mjs',
   'scripts/quality/validation-lanes.mjs',
   'scripts/quality/validation-policy.mjs',

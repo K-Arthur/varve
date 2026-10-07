@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { basename } from 'node:path';
 import vm from 'node:vm';
 
 const source = readFileSync(new URL('./macos-production.mjs', import.meta.url), 'utf8');
@@ -294,6 +295,156 @@ assert.match(
 assert.match(source, /one\('Window', \['XCUIElementTypeMenuBarItem'\]\)/);
 assert.match(source, /one\('Fill', \['XCUIElementTypeMenuItem'\]\)/);
 assert.match(source, /await keys\('z', COMMAND\)/);
+const savedPath = '/actual/Migrated save β.varve';
+const quitSource = source.slice(source.indexOf('async function quit('), source.indexOf('\ntry {'));
+function quitCase({
+  seed = true,
+  name = 'Migrated save β',
+  fieldCount = 1,
+  exits = true,
+  delayedReplacement = false,
+} = {}) {
+  const events = [];
+  let saved = false;
+  let replaced = !delayedReplacement;
+  const context = vm.createContext({
+    assert,
+    basename,
+    savedPath,
+    v: { seed },
+    receipt: { evidence: [] },
+    driver: {
+      execute: async () => (saved && exits && replaced ? 1 : 4),
+      $: async () => ({ elementId: 'actual-save-panel' }),
+      deleteSession: async () => events.push('session-closed'),
+    },
+    one: async () => ({ click: async () => events.push('app-menu') }),
+    click: async (name) => events.push(name),
+    filePanels: async () => (saved ? [] : [{ elementId: 'actual-save-panel' }]),
+    hittableElements: async (_predicate, panel) => {
+      assert.equal(panel.elementId, 'actual-save-panel');
+      return Array.from({ length: fieldCount }, () => ({ getAttribute: async () => name }));
+    },
+    readFileSync: (path) => {
+      assert.equal(path, savedPath);
+      return '{"retained":true}';
+    },
+    retained: (document) => {
+      assert.equal(document.retained, true);
+      events.push('artwork-checked');
+    },
+    evidence: async (phase) => events.push(phase),
+    confirmSavedFileReplacement: async (path) => {
+      assert.equal(path, savedPath);
+      events.push('owned-replacement-polled');
+      replaced = true;
+    },
+    panelPath: async (path, action) => {
+      assert.equal(path, savedPath);
+      assert.equal(action, 'Save');
+      saved = true;
+      events.push('actual-save');
+    },
+    until: async (condition) => {
+      for (let i = 0; i < 4; i++) {
+        const result = await condition();
+        if (result) return result;
+      }
+      throw new Error('Native process remains running');
+    },
+  });
+  vm.runInContext(`${quitSource}; globalThis.quit = quit;`, context);
+  return { context, events };
+}
+const savedQuit = quitCase();
+await savedQuit.context.quit();
+assert.deepEqual(savedQuit.events.slice(-4), [
+  'actual-save',
+  'artwork-checked',
+  'artwork-checked',
+  'session-closed',
+]);
+assert.equal(savedQuit.events.filter((event) => event === 'artwork-checked').length, 3);
+const delayedQuit = quitCase({ delayedReplacement: true });
+await delayedQuit.context.quit();
+assert.ok(delayedQuit.events.includes('owned-replacement-polled'));
+assert.equal(delayedQuit.events.at(-1), 'session-closed');
+for (const options of [{ name: 'Unrelated document' }, { fieldCount: 2 }]) {
+  const refused = quitCase(options);
+  await assert.rejects(refused.context.quit(), /reopened qualification document|One actual native/);
+  assert.ok(!refused.events.includes('actual-save'));
+}
+const currentQuit = quitCase({ seed: false });
+await assert.rejects(currentQuit.context.quit(), /process remains running/);
+assert.ok(
+  !currentQuit.events.includes('actual-save'),
+  'Current app never receives the historical save-path workaround',
+);
+const runningQuit = quitCase({ exits: false });
+await assert.rejects(runningQuit.context.quit(), /process remains running/);
+assert.ok(
+  !runningQuit.events.includes('session-closed'),
+  'Completing Save cannot stand in for actual process exit',
+);
+
+const replacementSource = source.slice(
+  source.indexOf('async function confirmSavedFileReplacement('),
+  source.indexOf('async function panelPath('),
+);
+function replacementCase({ count = 1, messageCount = 1 } = {}) {
+  const calls = [];
+  const context = vm.createContext({
+    assert,
+    basename,
+    savedPath,
+    literal: JSON.stringify,
+    driver: {
+      findElements: async (using, xpath) => {
+        assert.equal(using, 'xpath');
+        assert.match(xpath, /not\(\.\/\/\*/);
+        return Array.from({ length: count }, () => ({ elementId: 'replace-leaf' }));
+      },
+      $: async (element) => element,
+      findElementsFromElement: async (id, using, predicate) => {
+        assert.equal(id, 'replace-leaf');
+        assert.equal(using, 'predicate string');
+        assert.ok(predicate.includes('Migrated save β.varve'));
+        assert.doesNotMatch(predicate, /amText/);
+        return Array.from({ length: messageCount }, () => ({}));
+      },
+    },
+    click: async (name, starts, panel) => calls.push({ name, starts, id: panel.elementId }),
+  });
+  vm.runInContext(
+    `${replacementSource}; globalThis.replace = confirmSavedFileReplacement;`,
+    context,
+  );
+  return { context, calls };
+}
+const matchingReplacement = replacementCase();
+await matchingReplacement.context.replace(savedPath);
+assert.deepEqual(matchingReplacement.calls, [
+  { name: 'Replace', starts: false, id: 'replace-leaf' },
+]);
+for (const options of [{ count: 2 }, { messageCount: 0 }]) {
+  const refused = replacementCase(options);
+  await assert.rejects(
+    refused.context.replace(savedPath),
+    /unambiguous|actual saved qualification file/,
+  );
+  assert.equal(refused.calls.length, 0);
+}
+const otherFile = replacementCase();
+await assert.rejects(
+  otherFile.context.replace('/actual/other.varve'),
+  /Only this qualification document/,
+);
+assert.equal(otherFile.calls.length, 0);
+assert.ok(
+  source.lastIndexOf('await quit();') <
+    source.indexOf("phase: 'native process restart and disk reopen'"),
+  'Receipt hashes the final disk bytes after the actual process exits, including baseline Save As',
+);
 console.log(
   'External AX exact canonical X/AB and Create controls pass strict missing/wrong/ambiguous/type/parent/literal guards; no macOS execution claimed.',
 );

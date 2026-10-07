@@ -5,7 +5,7 @@ import { createHash } from 'node:crypto';
 import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { homedir } from 'node:os';
-import { isAbsolute, join, relative, resolve } from 'node:path';
+import { basename, isAbsolute, join, relative, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { nativeQuickExportControls } from './native-export-controls.mjs';
 import { assertNativePdfArtwork } from './native-pdf.mjs';
@@ -170,6 +170,26 @@ async function filePanels(finalButton) {
   assert.ok(refs.length <= 1, 'Actual native Open/Save panel must be unambiguous');
   return refs;
 }
+async function confirmSavedFileReplacement(path) {
+  const modal =
+    'self::XCUIElementTypeAlert or self::XCUIElementTypeDialog or self::XCUIElementTypeSheet';
+  const replace = './/XCUIElementTypeButton[@title="Replace" or @label="Replace"]';
+  const refs = await driver.findElements(
+    'xpath',
+    `//*[${modal}][${replace}][not(.//*[${modal}][${replace}])]`,
+  );
+  assert.ok(refs.length <= 1, 'Native replacement confirmation must be unambiguous');
+  if (!refs.length) return;
+  assert.equal(path, savedPath, 'Only this qualification document may be replaced');
+  const panel = await driver.$(refs[0]);
+  const names = await driver.findElementsFromElement(
+    panel.elementId,
+    'predicate string',
+    `amType IN {"XCUIElementTypeStaticText"} AND (value CONTAINS ${literal(basename(path))} OR title CONTAINS ${literal(basename(path))})`,
+  );
+  assert.ok(names.length > 0, 'Replacement message must name the actual saved qualification file');
+  await click('Replace', false, panel);
+}
 async function panelPath(path, finalButton) {
   // Cocoa may expose the real Open/Save panel as a dialog or sheet. Retain its
   // native identity and scope the final control to it; never return a picker stub.
@@ -190,7 +210,10 @@ async function panelPath(path, finalButton) {
   await field.setValue(path);
   await keys('XCUIKeyboardKeyReturn');
   await click(finalButton, false, panel);
-  await until(async () => (await filePanels(finalButton)).length === 0);
+  await until(async () => {
+    if (finalButton === 'Save' && path === savedPath) await confirmSavedFileReplacement(path);
+    return (await filePanels(finalButton)).length === 0;
+  });
 }
 function retained(doc) {
   assertRetainedDocument(doc, original, { schema: v.schema, seed: v.seed });
@@ -294,10 +317,40 @@ async function diskSave(predicate = () => true) {
 async function quit() {
   await (await until(() => one('Varve', ['XCUIElementTypeMenuBarItem']))).click();
   await click('Quit Varve');
-  await until(
-    async () =>
-      (await driver.execute('macos: queryAppState', { bundleId: 'dev.varve.desktop' })) === 1,
-  );
+  let completedBaselineSave = false;
+  await until(async () => {
+    if ((await driver.execute('macos: queryAppState', { bundleId: 'dev.varve.desktop' })) === 1)
+      return true;
+    if (v.seed && completedBaselineSave) await confirmSavedFileReplacement(savedPath);
+    // Published 0.2.1 can reopen its disk file without retaining the native
+    // save path. Quit then opens Save As. Complete that actual save, scoped to
+    // our reopened document; current 0.5.0 must exit without this workaround.
+    if (v.seed && !completedBaselineSave) {
+      const refs = await filePanels('Save');
+      if (refs.length) {
+        const panel = await driver.$(refs[0]);
+        const names = await hittableElements(
+          'amType IN {"XCUIElementTypeTextField"} AND identifier == "saveAsNameTextField"',
+          panel,
+        );
+        assert.equal(names.length, 1, 'One actual native Save As filename');
+        assert.ok(
+          [basename(savedPath), basename(savedPath, '.varve')].includes(
+            await names[0].getAttribute('value'),
+          ),
+          'Baseline quit save must belong to the reopened qualification document',
+        );
+        retained(JSON.parse(readFileSync(savedPath, 'utf8')));
+        await evidence('native-baseline-quit-save');
+        await panelPath(savedPath, 'Save');
+        retained(JSON.parse(readFileSync(savedPath, 'utf8')));
+        receipt.evidence.push({ phase: 'actual baseline quit save completed', path: savedPath });
+        completedBaselineSave = true;
+      }
+    }
+    return false;
+  });
+  if (v.seed && completedBaselineSave) retained(JSON.parse(readFileSync(savedPath, 'utf8')));
   await driver.deleteSession().catch(() => {});
   driver = null;
 }
@@ -415,11 +468,11 @@ try {
   retained(await diskSave());
   assert.equal(hash(readFileSync(input)), hash(sourceBytes));
   await evidence('native-reopened');
+  await quit();
   receipt.evidence.push({
     phase: 'native process restart and disk reopen',
     savedSha256: hash(readFileSync(savedPath)),
   });
-  await quit();
   receipt.passed = true;
 } catch (error) {
   receipt.error = error.stack ?? String(error);
