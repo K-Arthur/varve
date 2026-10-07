@@ -409,7 +409,9 @@ jobs:
       actions: read
       checks: read
     name: JS (pnpm)
-    timeout-minutes: 30
+    # Full JS tests took 23m36s; a ~5m checkout left no time for typechecking.
+    # Keep the complete lane and a finite budget for setup, checks and receipts.
+    timeout-minutes: 45
     needs: [changes, pipeline-validate]
     if: ${{ needs.changes.outputs.js == 'true' || needs.changes.outputs.full == 'true' }}
     runs-on: ubuntu-latest

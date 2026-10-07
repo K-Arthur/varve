@@ -317,15 +317,13 @@ async function diskSave(predicate = () => true) {
 async function quit() {
   await (await until(() => one('Varve', ['XCUIElementTypeMenuBarItem']))).click();
   await click('Quit Varve');
-  let completedBaselineSave = false;
-  await until(async () => {
+  const outcome = await until(async () => {
     if ((await driver.execute('macos: queryAppState', { bundleId: 'dev.varve.desktop' })) === 1)
-      return true;
-    if (v.seed && completedBaselineSave) await confirmSavedFileReplacement(savedPath);
+      return 'exited';
     // Published 0.2.1 can reopen its disk file without retaining the native
     // save path. Quit then opens Save As. Complete that actual save, scoped to
     // our reopened document; current 0.5.0 must exit without this workaround.
-    if (v.seed && !completedBaselineSave) {
+    if (v.seed) {
       const refs = await filePanels('Save');
       if (refs.length) {
         const panel = await driver.$(refs[0]);
@@ -345,12 +343,22 @@ async function quit() {
         await panelPath(savedPath, 'Save');
         retained(JSON.parse(readFileSync(savedPath, 'utf8')));
         receipt.evidence.push({ phase: 'actual baseline quit save completed', path: savedPath });
-        completedBaselineSave = true;
+        // Native AX navigation can outlast this discovery poll's budget.
+        // Finish the action, then start a fresh bounded exit observation.
+        return 'saved';
       }
     }
     return false;
   });
-  if (v.seed && completedBaselineSave) retained(JSON.parse(readFileSync(savedPath, 'utf8')));
+  if (outcome === 'saved') {
+    await until(async () => {
+      if ((await driver.execute('macos: queryAppState', { bundleId: 'dev.varve.desktop' })) === 1)
+        return true;
+      await confirmSavedFileReplacement(savedPath);
+      return false;
+    });
+    retained(JSON.parse(readFileSync(savedPath, 'utf8')));
+  }
   await driver.deleteSession().catch(() => {});
   driver = null;
 }

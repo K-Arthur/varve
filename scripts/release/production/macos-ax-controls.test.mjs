@@ -303,8 +303,10 @@ function quitCase({
   fieldCount = 1,
   exits = true,
   delayedReplacement = false,
+  slowNativeSave = false,
 } = {}) {
   const events = [];
+  let clock = 0;
   let saved = false;
   let replaced = !delayedReplacement;
   const context = vm.createContext({
@@ -343,12 +345,15 @@ function quitCase({
       assert.equal(path, savedPath);
       assert.equal(action, 'Save');
       saved = true;
+      if (slowNativeSave) clock += 40_000;
       events.push('actual-save');
     },
     until: async (condition) => {
-      for (let i = 0; i < 4; i++) {
+      const end = clock + 20_000;
+      for (let i = 0; i < 4 && clock < end; i++) {
         const result = await condition();
         if (result) return result;
+        clock += 250;
       }
       throw new Error('Native process remains running');
     },
@@ -369,6 +374,14 @@ const delayedQuit = quitCase({ delayedReplacement: true });
 await delayedQuit.context.quit();
 assert.ok(delayedQuit.events.includes('owned-replacement-polled'));
 assert.equal(delayedQuit.events.at(-1), 'session-closed');
+// Actual hosted Save As/Replace consumed ~40 seconds: observing exit must
+// start after that bounded action, rather than inherit an expired 20s poll.
+for (const delayedReplacement of [false, true]) {
+  const slowQuit = quitCase({ slowNativeSave: true, delayedReplacement });
+  await slowQuit.context.quit();
+  assert.equal(slowQuit.events.at(-1), 'session-closed');
+  assert.equal(slowQuit.events.filter((event) => event === 'Quit Varve').length, 1);
+}
 for (const options of [{ name: 'Unrelated document' }, { fieldCount: 2 }]) {
   const refused = quitCase(options);
   await assert.rejects(refused.context.quit(), /reopened qualification document|One actual native/);
@@ -380,7 +393,7 @@ assert.ok(
   !currentQuit.events.includes('actual-save'),
   'Current app never receives the historical save-path workaround',
 );
-const runningQuit = quitCase({ exits: false });
+const runningQuit = quitCase({ exits: false, slowNativeSave: true });
 await assert.rejects(runningQuit.context.quit(), /process remains running/);
 assert.ok(
   !runningQuit.events.includes('session-closed'),

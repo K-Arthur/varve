@@ -52,6 +52,13 @@ function browserCalls(workflow) {
 
 const strictFlags = STRICT_BROWSER_FLAGS;
 
+test('complete JavaScript lanes retain setup and certification time', () => {
+  for (const workflow of workflows) {
+    assert.equal(workflow.jobs.js['timeout-minutes'], 45);
+    assert.ok(workflow.jobs.js.steps.some((step) => step.name?.includes('execution receipt')));
+  }
+});
+
 for (const [index, path] of paths.entries()) {
   test(`${path}: every direct browser command uses the lease and retains strict execution`, () => {
     const calls = browserCalls(workflows[index]);

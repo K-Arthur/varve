@@ -173,7 +173,8 @@ jobs:
   js:
     name: Candidate JS and unit certification
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    # Same complete JS workload and setup allowance as integration CI.
+    timeout-minutes: 45
     needs: [changes, pipeline-validate]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
