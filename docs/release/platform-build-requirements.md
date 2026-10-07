@@ -45,6 +45,17 @@ the owned migration document. Replacement confirmation must name that same
 file. Artwork is checked before saving and again after actual process exit.
 Current 0.5.0 receives no historical save-path workaround.
 
+The published Mac baseline closes the saved window through the editor's
+File > Close Window command before selecting native Quit. Both actual window
+closure and process exit are required; a pending Save or a still-open window
+fails. Muda's predefined AppKit Quit can bypass the historical frontend
+finalizers, as described in the
+[Tauri termination report](https://github.com/tauri-apps/tauri/issues/12978).
+Current 0.5.0 is still tested through standard native Quit directly. Before
+and after session diagnostics read only three recovery markers from Varve's
+own WebKit databases; they never clear or rewrite recovery state, and missing
+diagnostics cannot certify an installed flow.
+
 | Dependency | Release contract |
 |---|---|
 | Node | `26.10.0` in integration, candidate, build, release and website workflows; verify both version and native architecture before packaging. |
@@ -81,6 +92,12 @@ records runtime/product/workflow identities and executes the qualification
 adapter regressions, including real rendered PDF positives and negatives.
 Wrong Node version/architecture fails without producing an acceptance receipt.
 Any failed contract blocks expensive compilation and artifact reuse.
+
+Windows x64, Windows ARM64 and Mac qualification each use a separate hosted
+runner. Their matrix allows all three concurrently while retaining
+`fail-fast: false`. The previous limit of two delayed Mac by six minutes in
+recovery `37696845577`; Linux's independent matrix was already running in
+parallel. Runner availability and account concurrency still govern startup.
 
 The later installed gates still require the published 0.2.1 baseline,
 same-profile 0.5.0 upgrade, edit/undo, disk save/reopen, pixel-correct PNG/SVG/PDF,

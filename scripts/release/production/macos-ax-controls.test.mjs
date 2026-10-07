@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { basename } from 'node:path';
 import vm from 'node:vm';
@@ -351,11 +352,13 @@ function saveQuitCase({
   exits = true,
   obstructed = false,
   saveFails = false,
+  closesWindow = true,
 } = {}) {
   const events = [];
   let picker = false;
   let saved = false;
   let requestedQuit = false;
+  let windowClosed = false;
   const context = vm.createContext({
     assert,
     basename,
@@ -364,6 +367,12 @@ function saveQuitCase({
     v: { seed },
     receipt: { evidence: [] },
     driver: {
+      findElements: async (using, predicate) => {
+        assert.equal(using, 'predicate string');
+        assert.equal(predicate, 'amType == "XCUIElementTypeWindow"');
+        events.push('window-state-checked');
+        return windowClosed ? [] : [{ elementId: 'still-open-window' }];
+      },
       execute: async () => (requestedQuit && exits ? 1 : 4),
       $: async () => ({ elementId: 'actual-save-panel' }),
       deleteSession: async () => events.push('session-closed'),
@@ -375,8 +384,9 @@ function saveQuitCase({
     },
     one: async () => ({ click: async () => events.push('app-menu') }),
     click: async (name) => {
-      assert.equal(name, 'Quit Varve');
-      requestedQuit = true;
+      assert.ok(['File', 'Close Window', 'Quit Varve'].includes(name));
+      if (name === 'Close Window') windowClosed = closesWindow;
+      if (name === 'Quit Varve') requestedQuit = true;
       events.push(name);
     },
     filePanels: async () => (picker || obstructed ? [{ elementId: 'actual-save-panel' }] : []),
@@ -430,6 +440,17 @@ assert.ok(
 );
 assert.equal(savedQuit.events.filter((event) => event === 'Quit Varve').length, 1);
 assert.equal(savedQuit.events.at(-1), 'session-closed');
+assert.ok(savedQuit.events.indexOf('Close Window') < savedQuit.events.indexOf('app-menu'));
+assert.ok(
+  savedQuit.events.indexOf('window-state-checked') < savedQuit.events.indexOf('Quit Varve'),
+);
+const blockedClose = saveQuitCase({ closesWindow: false });
+await blockedClose.context.diskSave();
+await assert.rejects(blockedClose.context.quit(), /process remains running/);
+assert.ok(
+  !blockedClose.events.includes('Quit Varve'),
+  'Incomplete baseline finalization cannot become Quit',
+);
 for (const options of [{ name: 'Unrelated document' }, { fieldCount: 2 }, { saveFails: true }]) {
   const refused = saveQuitCase(options);
   await assert.rejects(
@@ -444,6 +465,10 @@ await currentQuit.context.quit();
 assert.ok(
   !currentQuit.events.includes('actual-save-completed'),
   'Current app gets no historical Save As workaround',
+);
+assert.ok(
+  !currentQuit.events.includes('Close Window'),
+  'Current standard Quit has no historical close workaround',
 );
 for (const seed of [true, false]) {
   const obstructedQuit = saveQuitCase({ seed, obstructed: true });
@@ -519,3 +544,7 @@ assert.ok(
 console.log(
   'External AX exact canonical X/AB and Create controls pass strict missing/wrong/ambiguous/type/parent/literal guards; no macOS execution claimed.',
 );
+if (process.platform === 'darwin')
+  execFileSync('python3', [new URL('./test_macos_profile_snapshot.py', import.meta.url).pathname], {
+    stdio: 'inherit',
+  });

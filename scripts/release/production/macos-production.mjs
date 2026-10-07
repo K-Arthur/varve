@@ -341,6 +341,19 @@ async function diskSave(predicate = () => true) {
 }
 async function quit() {
   assert.equal((await filePanels('Save')).length, 0, 'Quit requires no pending native file picker');
+  if (v.seed) {
+    // Published 0.2.1's AppKit Quit bypasses its termination coordinator.
+    // Close the saved window through the actual editor command first, so
+    // finalization completes before the remaining native app is quit.
+    await click('File');
+    await click('Close Window');
+    await until(
+      async () =>
+        (await driver.findElements('predicate string', 'amType == "XCUIElementTypeWindow"'))
+          .length === 0,
+    );
+    receipt.evidence.push({ phase: 'actual baseline window close before native Quit' });
+  }
   await (await until(() => one('Varve', ['XCUIElementTypeMenuBarItem']))).click();
   await click('Quit Varve');
   await until(
