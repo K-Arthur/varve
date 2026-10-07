@@ -2,7 +2,7 @@ import { VARVE_URLS } from '@varve/shared';
 import release from '../data/release-manifest.json';
 import { publishedFeatureVersion } from './feature-release';
 
-type PublishedRelease = { hasRelease: boolean; version?: string };
+type PublishedRelease = { hasRelease: boolean; version?: string; updater?: boolean };
 
 /** Prepared changelog notes do not establish installer or release-link availability. */
 export function changelogReleaseState(version: string, manifest: PublishedRelease = release) {
@@ -18,4 +18,12 @@ export function changelogReleaseState(version: string, manifest: PublishedReleas
 export function appImageOnnxPackagingNotice(manifest: PublishedRelease = release): string | null {
   if (!manifest.hasRelease || manifest.version !== '0.2.1') return null;
   return 'Published v0.2.1 AppImages omit the bundled native ONNX Runtime because of a packaging defect, so native AI features fall back there. Use the .deb on ChromeOS.';
+}
+
+/** Pruning invalidated the published 0.2.1 signatures; later feeds require fresh verification. */
+export function appImageUpdaterSignatureNotice(
+  manifest: PublishedRelease = release,
+): string | null {
+  if (!manifest.hasRelease || !manifest.updater || manifest.version !== '0.2.1') return null;
+  return 'Published v0.2.1 AppImage updater signatures do not match the files.';
 }

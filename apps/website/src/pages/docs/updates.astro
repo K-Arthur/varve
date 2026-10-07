@@ -2,7 +2,10 @@
 import Layout from '../../layouts/Layout.astro';
 import { sitePath } from '../../lib/siteUrl';
 import release from '../../data/release-manifest.json';
+import { appImageUpdaterSignatureNotice } from '../../lib/release-availability';
 import '../../styles/docs-prose.css';
+
+const appImageSignatureNotice = appImageUpdaterSignatureNotice();
 ---
 
 <Layout
@@ -22,7 +25,7 @@ import '../../styles/docs-prose.css';
       </p>
 
       <aside class="docs-note">
-        <strong>Current release note (v{release.version}):</strong> {release.updater ? 'An updater feed exists. Windows NSIS and installed macOS copies can update in-app; Linux AppImage updates are manual until the signature fix ships.' : 'No updater feed is published for this release.'} See the platform status below.
+        <strong>Current release note (v{release.version}):</strong> {release.updater ? 'A signed updater feed is published. In-app availability depends on the installed package and whether the feed includes its platform and architecture.' : 'No updater feed is published for this release.'} See the platform status below.
       </aside>
 
       <section class="docs-section">
@@ -58,18 +61,17 @@ import '../../styles/docs-prose.css';
         <h2>Which installs can update in the app?</h2>
         <ul>
           <li>
-            <strong>Windows NSIS:</strong> fully working. The updater artifact is verified before
+            <strong>Windows NSIS:</strong> available for compatible installed builds included in the feed. The updater artifact is verified before
             installation, which happens only after you approve the download and install action.
           </li>
           <li>
-            <strong>Linux AppImage:</strong> the updater feed exists but the published signature
-            does not verify against the artifact (a post-build pruning step invalidated it).
-            Download the new AppImage from the{' '}
+            <strong>Linux AppImage:</strong> {appImageSignatureNotice ?? 'Check Settings → Updates for availability in your installed copy. Downloaded updates must pass signature verification before installation.'}{' '}
+            For manual replacement, download the new AppImage from the{' '}
             <a href={sitePath('/releases')}>release page</a>{' '}
-            and replace the current file. A fix is in progress.
+            and replace the current file.
           </li>
           <li>
-            <strong>macOS:</strong> available for installed copies. The updater verifies a
+            <strong>macOS:</strong> available for installed copies when the feed includes a matching update archive. The updater verifies a
             signed <code>.app.tar.gz</code> bundle before replacing the installed app.
             A mounted DMG or Gatekeeper-translocated copy must be moved into Applications
             first. If you see a Gatekeeper warning, use System Settings &gt; Privacy &amp; Security

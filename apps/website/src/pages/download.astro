@@ -4,7 +4,10 @@ import release from '../data/release-manifest.json';
 import Layout from '../layouts/Layout.astro';
 import { sitePath, siteUrl } from '../lib/siteUrl';
 import { primaryFormatFor } from '../lib/download-detection';
+import { appImageUpdaterSignatureNotice } from '../lib/release-availability';
 import { PRODUCT_STATUS, type ProductStatusStage } from '@varve/shared';
+
+const appImageSignatureNotice = appImageUpdaterSignatureNotice();
 
 /**
  * SoftwareApplication JSON-LD for the download page itself. The homepage
@@ -737,10 +740,8 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                 </p>
                 <ul>
                   <li>
-                    <strong>AppImage:</strong> in-app automatic updates are temporarily unavailable
-                    in published builds due to a signing pipeline issue (see{' '}
-                    <a href={sitePath('/docs/updates')}>Updates guide</a>). Download the new
-                    AppImage from the{' '}
+                    <strong>AppImage:</strong> {appImageSignatureNotice ?? 'Use Settings → Updates to check whether your installed AppImage can update in the app. A downloaded update must pass signature verification before you approve installation.'}{' '}
+                    For manual replacement, download the new AppImage from the{' '}
                     <a href={sitePath('/releases')}>release page</a>{' '}
                     and replace the current file.
                   </li>

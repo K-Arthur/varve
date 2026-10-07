@@ -1,8 +1,34 @@
 import { describe, expect, it } from 'vitest';
-import { appImageOnnxPackagingNotice, changelogReleaseState } from '../lib/release-availability';
+import {
+  appImageOnnxPackagingNotice,
+  appImageUpdaterSignatureNotice,
+  changelogReleaseState,
+} from '../lib/release-availability';
 
 const previousRelease = { hasRelease: true, version: '0.2.1' };
 const publishedCandidate = { hasRelease: true, version: '0.5.0' };
+
+describe('version-specific AppImage updater guidance', () => {
+  it('identifies the verified 0.2.1 signature defect for the manual-update guidance', () => {
+    const notice = appImageUpdaterSignatureNotice({ ...previousRelease, updater: true });
+    expect(notice).toContain('v0.2.1 AppImage updater signatures do not match');
+    expect(notice).toBe('Published v0.2.1 AppImage updater signatures do not match the files.');
+  });
+
+  it('does not carry the old signature defect into later verified release data', () => {
+    expect(appImageUpdaterSignatureNotice({ ...publishedCandidate, updater: true })).toBeNull();
+    expect(
+      appImageUpdaterSignatureNotice({ hasRelease: true, version: '0.6.0', updater: true }),
+    ).toBeNull();
+  });
+
+  it('does not imply a defective published updater when no release feed is available', () => {
+    expect(appImageUpdaterSignatureNotice({ ...previousRelease, updater: false })).toBeNull();
+    expect(
+      appImageUpdaterSignatureNotice({ hasRelease: false, version: '0.2.1', updater: true }),
+    ).toBeNull();
+  });
+});
 
 describe('prepared notes versus published installers', () => {
   it('keeps prepared 0.5.0 notes unlinked while 0.2.1 remains the latest published release', () => {
