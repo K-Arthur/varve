@@ -15,7 +15,7 @@ function matches(predicate, parent) {
   );
   assert.doesNotMatch(predicate, /\bhittable\b/, 'Mac2 rejects hittable snapshot predicate paths');
   const named = [
-    ...predicate.matchAll(/\b(label|title|amText) (==|BEGINSWITH) ("(?:[^"\\]|\\.)*")/g),
+    ...predicate.matchAll(/\b(label|title|identifier|amText) (==|BEGINSWITH) ("(?:[^"\\]|\\.)*")/g),
   ].map((m) => ({ field: m[1], starts: m[2] === 'BEGINSWITH', value: JSON.parse(m[3]) }));
   const types = JSON.parse(`[${/amType IN \{([^}]*)\}/.exec(predicate)[1]}]`);
   return controls.filter(
@@ -62,6 +62,11 @@ vm.runInContext(
   `const buttons = ['XCUIElementTypeMenuItem']; async function until(fn) { return fn(); }\n${clickHelper}; globalThis.click = click;`,
   context,
 );
+const panelHelper = source.slice(
+  source.indexOf('async function filePanels('),
+  source.indexOf('async function panelPath('),
+);
+vm.runInContext(`${panelHelper}; globalThis.filePanels = filePanels;`, context);
 function control(label, amType = 'XCUIElementTypeButton', other = {}) {
   return { elementId: label, label, amText: label, amType, hittable: true, ...other };
 }
@@ -78,6 +83,21 @@ for (const rect of [
   await assert.rejects(context.click('File'), /non-empty pointer target/);
 }
 assert.equal(pointerCalls.length, 1, 'Invalid rectangles must not send a pointer gesture');
+controls = [];
+for (const type of ['XCUIElementTypeDialog', 'XCUIElementTypeSheet']) {
+  controls = [
+    control('', type, { elementId: 'native-open', identifier: 'open-panel', title: 'Open' }),
+    control('Open', 'XCUIElementTypeButton'),
+    control('New document', 'XCUIElementTypeDialog'),
+  ];
+  assert.equal((await context.filePanels('Open'))[0].elementId, 'native-open');
+}
+controls = [control('Save', 'XCUIElementTypeDialog', { identifier: 'save-panel' })];
+assert.equal((await context.filePanels('Save')).length, 1);
+controls.push(control('Save', 'XCUIElementTypeSheet', { identifier: 'save-panel' }));
+await assert.rejects(context.filePanels('Save'), /must be unambiguous/);
+controls = [control('New document', 'XCUIElementTypeDialog')];
+assert.equal((await context.filePanels('Open')).length, 0);
 controls = [];
 await assert.rejects(context.one('Save', ['XCUIElementTypeButton']), /got 0/);
 controls = [control('Save'), control('Save', 'XCUIElementTypeButton', { elementId: 'duplicate' })];

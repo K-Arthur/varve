@@ -1,7 +1,15 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import {
+  copyFileSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -50,10 +58,20 @@ try {
     const directory = join(urlFixture, 'packages', name);
     mkdirSync(directory, { recursive: true });
     writeFileSync(join(directory, 'package.json'), '{}');
-    symlinkSync(
-      resolve('packages', name, 'node_modules'),
-      join(directory, 'node_modules'),
-      'junction',
+  }
+  // Copy the two actual renderer modules rather than preserving pnpm's package
+  // junction aliases across Windows drives. Native dependencies use normal
+  // canonical resolution; the renderer itself still has a literal '#' path.
+  const rendererDirectory = join(
+    urlFixture,
+    'packages/import/node_modules/pdfjs-dist/legacy/build',
+  );
+  mkdirSync(rendererDirectory, { recursive: true });
+  const rendererRequire = createRequire(resolve('packages/import/package.json'));
+  for (const name of ['pdf.mjs', 'pdf.worker.mjs']) {
+    copyFileSync(
+      rendererRequire.resolve(`pdfjs-dist/legacy/build/${name}`),
+      join(rendererDirectory, name),
     );
   }
   const script = `
@@ -64,7 +82,7 @@ try {
     await assertNativePdfArtwork(Buffer.from(fixture.base64, 'base64'),
       Buffer.from(original.assets['asset-ca2aceaaa125b46e'].dataUrl.split(',')[1], 'base64'));
   `;
-  execFileSync(process.execPath, ['--preserve-symlinks', '--input-type=module', '-e', script], {
+  execFileSync(process.execPath, ['--input-type=module', '-e', script], {
     cwd: urlFixture,
     timeout: 60000,
     stdio: 'pipe',

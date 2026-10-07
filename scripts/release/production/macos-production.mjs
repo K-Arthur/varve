@@ -140,8 +140,8 @@ const buttons = [
   'XCUIElementTypeRadioButton',
   'XCUIElementTypeTab',
 ];
-async function click(name, starts = false) {
-  const element = await until(() => one(name, buttons, starts));
+async function click(name, starts = false, scope = null) {
+  const element = await until(() => one(name, buttons, starts, scope));
   const rect = await driver.getElementRect(element.elementId);
   assert.ok(
     [rect.x, rect.y, rect.width, rect.height].every(Number.isFinite) &&
@@ -159,11 +159,21 @@ async function click(name, starts = false) {
 async function keys(text, modifiers = 0) {
   await driver.execute('macos: keys', { keys: [{ key: text, modifierFlags: modifiers }] });
 }
-async function panelPath(path, finalButton) {
-  // Real native Open/Save sheet; selection is typed through XCTest, not returned by a stub.
-  await until(
-    async () => (await driver.findElements('class name', 'XCUIElementTypeSheet')).length > 0,
+async function filePanels(finalButton) {
+  const refs = await driver.findElements(
+    'predicate string',
+    `amType IN {"XCUIElementTypeSheet","XCUIElementTypeDialog"} AND (identifier == "open-panel" OR identifier == "save-panel" OR title == ${literal(finalButton)})`,
   );
+  assert.ok(refs.length <= 1, 'Actual native Open/Save panel must be unambiguous');
+  return refs;
+}
+async function panelPath(path, finalButton) {
+  // Cocoa may expose the real Open/Save panel as a dialog or sheet. Retain its
+  // native identity and scope the final control to it; never return a picker stub.
+  const panel = await until(async () => {
+    const refs = await filePanels(finalButton);
+    return refs.length === 1 && driver.$(refs[0]);
+  });
   await keys('g', COMMAND | SHIFT);
   const field = await until(async () => {
     const refs = await hittableElements(
@@ -176,10 +186,8 @@ async function panelPath(path, finalButton) {
   await keys('a', COMMAND);
   await field.setValue(path);
   await keys('XCUIKeyboardKeyReturn');
-  await click(finalButton);
-  await until(
-    async () => (await driver.findElements('class name', 'XCUIElementTypeSheet')).length === 0,
-  );
+  await click(finalButton, false, panel);
+  await until(async () => (await filePanels(finalButton)).length === 0);
 }
 function retained(doc) {
   assertRetainedDocument(doc, original, { schema: v.schema, seed: v.seed });
