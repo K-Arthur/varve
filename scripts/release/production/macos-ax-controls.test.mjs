@@ -296,109 +296,124 @@ assert.match(source, /one\('Window', \['XCUIElementTypeMenuBarItem'\]\)/);
 assert.match(source, /one\('Fill', \['XCUIElementTypeMenuItem'\]\)/);
 assert.match(source, /await keys\('z', COMMAND\)/);
 const savedPath = '/actual/Migrated save β.varve';
+const saveSource = source.slice(
+  source.indexOf('async function diskSave('),
+  source.indexOf('async function quit('),
+);
 const quitSource = source.slice(source.indexOf('async function quit('), source.indexOf('\ntry {'));
-function quitCase({
+function saveQuitCase({
   seed = true,
   name = 'Migrated save β',
   fieldCount = 1,
   exits = true,
-  delayedReplacement = false,
-  slowNativeSave = false,
+  obstructed = false,
+  saveFails = false,
 } = {}) {
   const events = [];
-  let clock = 0;
+  let picker = false;
   let saved = false;
-  let replaced = !delayedReplacement;
+  let requestedQuit = false;
   const context = vm.createContext({
     assert,
     basename,
     savedPath,
+    COMMAND: 16,
     v: { seed },
     receipt: { evidence: [] },
     driver: {
-      execute: async () => (saved && exits && replaced ? 1 : 4),
+      execute: async () => (requestedQuit && exits ? 1 : 4),
       $: async () => ({ elementId: 'actual-save-panel' }),
       deleteSession: async () => events.push('session-closed'),
     },
+    keys: async (key) => {
+      assert.equal(key, 's');
+      events.push('save-requested');
+      picker = seed;
+    },
     one: async () => ({ click: async () => events.push('app-menu') }),
-    click: async (name) => events.push(name),
-    filePanels: async () => (saved ? [] : [{ elementId: 'actual-save-panel' }]),
+    click: async (name) => {
+      assert.equal(name, 'Quit Varve');
+      requestedQuit = true;
+      events.push(name);
+    },
+    filePanels: async () => (picker || obstructed ? [{ elementId: 'actual-save-panel' }] : []),
     hittableElements: async (_predicate, panel) => {
       assert.equal(panel.elementId, 'actual-save-panel');
       return Array.from({ length: fieldCount }, () => ({ getAttribute: async () => name }));
     },
+    // A preexisting valid file deliberately exists before this Save request.
     readFileSync: (path) => {
       assert.equal(path, savedPath);
+      events.push(saved ? 'new-file-read' : 'old-file-read');
       return '{"retained":true}';
     },
-    retained: (document) => {
-      assert.equal(document.retained, true);
-      events.push('artwork-checked');
-    },
+    retained: (document) => assert.equal(document.retained, true),
     evidence: async (phase) => events.push(phase),
-    confirmSavedFileReplacement: async (path) => {
-      assert.equal(path, savedPath);
-      events.push('owned-replacement-polled');
-      replaced = true;
-    },
     panelPath: async (path, action) => {
       assert.equal(path, savedPath);
       assert.equal(action, 'Save');
+      assert.ok(!requestedQuit, 'Complete the native Save before requesting Quit');
+      if (saveFails) throw new Error('Native save failed');
+      // Simulate a slow native Save As/Replace, independent of discovery/exit.
+      await new Promise((resolve) => setTimeout(resolve, 1));
+      picker = false;
       saved = true;
-      if (slowNativeSave) clock += 40_000;
-      events.push('actual-save');
+      events.push('actual-save-completed');
     },
     until: async (condition) => {
-      const end = clock + 20_000;
-      for (let i = 0; i < 4 && clock < end; i++) {
+      for (let i = 0; i < 4; i++) {
         const result = await condition();
         if (result) return result;
-        clock += 250;
       }
       throw new Error('Native process remains running');
     },
   });
-  vm.runInContext(`${quitSource}; globalThis.quit = quit;`, context);
+  vm.runInContext(
+    `${saveSource}; ${quitSource}; globalThis.diskSave = diskSave; globalThis.quit = quit;`,
+    context,
+  );
   return { context, events };
 }
-const savedQuit = quitCase();
+const savedQuit = saveQuitCase();
+await savedQuit.context.diskSave();
+assert.equal(
+  savedQuit.events.at(-1),
+  'new-file-read',
+  'Existing bytes cannot complete a pending Save',
+);
 await savedQuit.context.quit();
-assert.deepEqual(savedQuit.events.slice(-4), [
-  'actual-save',
-  'artwork-checked',
-  'artwork-checked',
-  'session-closed',
-]);
-assert.equal(savedQuit.events.filter((event) => event === 'artwork-checked').length, 3);
-const delayedQuit = quitCase({ delayedReplacement: true });
-await delayedQuit.context.quit();
-assert.ok(delayedQuit.events.includes('owned-replacement-polled'));
-assert.equal(delayedQuit.events.at(-1), 'session-closed');
-// Actual hosted Save As/Replace consumed ~40 seconds: observing exit must
-// start after that bounded action, rather than inherit an expired 20s poll.
-for (const delayedReplacement of [false, true]) {
-  const slowQuit = quitCase({ slowNativeSave: true, delayedReplacement });
-  await slowQuit.context.quit();
-  assert.equal(slowQuit.events.at(-1), 'session-closed');
-  assert.equal(slowQuit.events.filter((event) => event === 'Quit Varve').length, 1);
-}
-for (const options of [{ name: 'Unrelated document' }, { fieldCount: 2 }]) {
-  const refused = quitCase(options);
-  await assert.rejects(refused.context.quit(), /reopened qualification document|One actual native/);
-  assert.ok(!refused.events.includes('actual-save'));
-}
-const currentQuit = quitCase({ seed: false });
-await assert.rejects(currentQuit.context.quit(), /process remains running/);
 assert.ok(
-  !currentQuit.events.includes('actual-save'),
-  'Current app never receives the historical save-path workaround',
+  savedQuit.events.indexOf('actual-save-completed') < savedQuit.events.indexOf('Quit Varve'),
 );
-const runningQuit = quitCase({ exits: false, slowNativeSave: true });
-await assert.rejects(runningQuit.context.quit(), /process remains running/);
+assert.equal(savedQuit.events.filter((event) => event === 'Quit Varve').length, 1);
+assert.equal(savedQuit.events.at(-1), 'session-closed');
+for (const options of [{ name: 'Unrelated document' }, { fieldCount: 2 }, { saveFails: true }]) {
+  const refused = saveQuitCase(options);
+  await assert.rejects(
+    refused.context.diskSave(),
+    /reopened qualification document|One actual native|Native save failed/,
+  );
+  assert.ok(!refused.events.includes('Quit Varve'));
+}
+const currentQuit = saveQuitCase({ seed: false });
+await currentQuit.context.diskSave();
+await currentQuit.context.quit();
 assert.ok(
-  !runningQuit.events.includes('session-closed'),
-  'Completing Save cannot stand in for actual process exit',
+  !currentQuit.events.includes('actual-save-completed'),
+  'Current app gets no historical Save As workaround',
 );
+for (const seed of [true, false]) {
+  const obstructedQuit = saveQuitCase({ seed, obstructed: true });
+  await assert.rejects(obstructedQuit.context.quit(), /no pending native file picker/);
+  assert.ok(!obstructedQuit.events.includes('Quit Varve'));
+  const runningQuit = saveQuitCase({ seed, exits: false });
+  await runningQuit.context.diskSave();
+  await assert.rejects(runningQuit.context.quit(), /process remains running/);
+  assert.ok(
+    !runningQuit.events.includes('session-closed'),
+    'Saved bytes cannot stand in for actual exit',
+  );
+}
 
 const replacementSource = source.slice(
   source.indexOf('async function confirmSavedFileReplacement('),

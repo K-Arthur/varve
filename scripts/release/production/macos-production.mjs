@@ -309,56 +309,42 @@ async function selectImage() {
 }
 async function diskSave(predicate = () => true) {
   await keys('s', COMMAND);
+  if (v.seed) {
+    // Published 0.2.1 loses its native save path when reopening. Its actual
+    // Save opens Save As; existing disk bytes cannot prove that request ended.
+    const panel = await until(async () => {
+      const refs = await filePanels('Save');
+      return refs.length === 1 && driver.$(refs[0]);
+    });
+    const names = await hittableElements(
+      'amType IN {"XCUIElementTypeTextField"} AND identifier == "saveAsNameTextField"',
+      panel,
+    );
+    assert.equal(names.length, 1, 'One actual native Save As filename');
+    assert.ok(
+      [basename(savedPath), basename(savedPath, '.varve')].includes(
+        await names[0].getAttribute('value'),
+      ),
+      'Baseline save must belong to the reopened qualification document',
+    );
+    retained(JSON.parse(readFileSync(savedPath, 'utf8')));
+    await evidence('native-baseline-reopened-save');
+    await panelPath(savedPath, 'Save');
+    receipt.evidence.push({ phase: 'actual baseline reopened save completed', path: savedPath });
+  }
   return until(() => {
     const d = JSON.parse(readFileSync(savedPath, 'utf8'));
     return predicate(d) && d;
   });
 }
 async function quit() {
+  assert.equal((await filePanels('Save')).length, 0, 'Quit requires no pending native file picker');
   await (await until(() => one('Varve', ['XCUIElementTypeMenuBarItem']))).click();
   await click('Quit Varve');
-  const outcome = await until(async () => {
-    if ((await driver.execute('macos: queryAppState', { bundleId: 'dev.varve.desktop' })) === 1)
-      return 'exited';
-    // Published 0.2.1 can reopen its disk file without retaining the native
-    // save path. Quit then opens Save As. Complete that actual save, scoped to
-    // our reopened document; current 0.5.0 must exit without this workaround.
-    if (v.seed) {
-      const refs = await filePanels('Save');
-      if (refs.length) {
-        const panel = await driver.$(refs[0]);
-        const names = await hittableElements(
-          'amType IN {"XCUIElementTypeTextField"} AND identifier == "saveAsNameTextField"',
-          panel,
-        );
-        assert.equal(names.length, 1, 'One actual native Save As filename');
-        assert.ok(
-          [basename(savedPath), basename(savedPath, '.varve')].includes(
-            await names[0].getAttribute('value'),
-          ),
-          'Baseline quit save must belong to the reopened qualification document',
-        );
-        retained(JSON.parse(readFileSync(savedPath, 'utf8')));
-        await evidence('native-baseline-quit-save');
-        await panelPath(savedPath, 'Save');
-        retained(JSON.parse(readFileSync(savedPath, 'utf8')));
-        receipt.evidence.push({ phase: 'actual baseline quit save completed', path: savedPath });
-        // Native AX navigation can outlast this discovery poll's budget.
-        // Finish the action, then start a fresh bounded exit observation.
-        return 'saved';
-      }
-    }
-    return false;
-  });
-  if (outcome === 'saved') {
-    await until(async () => {
-      if ((await driver.execute('macos: queryAppState', { bundleId: 'dev.varve.desktop' })) === 1)
-        return true;
-      await confirmSavedFileReplacement(savedPath);
-      return false;
-    });
-    retained(JSON.parse(readFileSync(savedPath, 'utf8')));
-  }
+  await until(
+    async () =>
+      (await driver.execute('macos: queryAppState', { bundleId: 'dev.varve.desktop' })) === 1,
+  );
   await driver.deleteSession().catch(() => {});
   driver = null;
 }
