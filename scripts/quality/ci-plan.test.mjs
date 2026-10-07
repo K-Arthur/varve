@@ -7,6 +7,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { forcedCheckboxActions } from './audit-e2e-interactions.mjs';
 import { buildCiPlan, validateCiPlan } from './ci-plan.mjs';
 import { preflightCommands } from './ci-preflight.mjs';
 import { laneArgv } from './validation-lanes.mjs';
@@ -130,5 +131,21 @@ assert.match(ci, /--profile integration/);
 assert.match(ci, /--force-full/);
 assert.match(ci, /commit_sha/);
 assert.match(ci, /fromJSON\(needs\.changes\.outputs\.e2e_shards\)/);
+
+// A late green/red shard divergence must not reintroduce clipped-input clicks.
+for (const method of ['check', 'uncheck', 'setChecked']) {
+  const args = method === 'setChecked' ? 'true, ' : '';
+  assert.equal(forcedCheckboxActions(`input.${method}(${args}{force: true})`).length, 1);
+  assert.equal(forcedCheckboxActions(`input.${method}(${args}{\n 'force': enabled\n})`).length, 1);
+  assert.equal(forcedCheckboxActions(`input.${method}(${args}{force: false})`).length, 0);
+}
+assert.equal(forcedCheckboxActions('// input.check({force: true})\nlabel.click()').length, 0);
+assert.equal(forcedCheckboxActions('input.check({\nforce: true\n})')[0].line, 1);
+assert.throws(() => forcedCheckboxActions('input.check({'), /Invalid E2E syntax/);
+assert.match(ci, /run: node scripts\/quality\/audit-e2e-interactions\.mjs/);
+assert.match(
+  readFileSync('.github/workflows/release-candidate.yml', 'utf8'),
+  /run: node scripts\/quality\/audit-e2e-interactions\.mjs/,
+);
 
 console.log('CI plan tests passed');

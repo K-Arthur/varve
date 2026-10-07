@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { buildTestFeedback, feedbackMarkdown } from './test-feedback.mjs';
+import { buildTestFeedback, feedbackMarkdown, parseFeedbackArgs } from './test-feedback.mjs';
 
 const caseId = 'a'.repeat(64);
 function receipt({
@@ -63,6 +63,48 @@ test('does not infer a flake from different source or profile identity', () => {
   const report = buildTestFeedback([receipt(), other, candidate]);
   assert.equal(report.divergentOutcomeCount, 0);
   assert.equal(report.selectedCellCount, 3);
+  assert.equal(report.checkpointDivergenceCount, 1);
+  assert.equal(report.checkpointComparableCases, 1);
+  assert.deepEqual(report.checkpointDivergences[0].profiles, ['candidate', 'integration']);
+  assert.equal(
+    report.checkpointDivergences[0].classification,
+    'needs-cross-checkpoint-investigation',
+  );
+  assert.equal(report.certifying, false);
+  assert.equal(buildTestFeedback([receipt()]).checkpointComparableCases, 0);
+});
+
+test('cross-checkpoint comparisons reject different policy, tree and runner identities', () => {
+  for (const field of ['policyHash', 'treeSha', 'os', 'arch']) {
+    const candidate = receipt({ status: 'unexpected', runId: '12' });
+    candidate.profile = 'candidate';
+    if (field in candidate.source)
+      candidate.source[field] = 'e'.repeat(candidate.source[field].length);
+    else candidate.runner[field] = 'different';
+    assert.equal(buildTestFeedback([receipt(), candidate]).checkpointDivergenceCount, 0, field);
+  }
+  const unknownRunner = receipt({ status: 'unexpected', runId: '12' });
+  unknownRunner.profile = 'candidate';
+  delete unknownRunner.runner;
+  assert.equal(buildTestFeedback([receipt(), unknownRunner]).checkpointDivergenceCount, 0);
+});
+
+test('comparison input is explicit, bounded to two distinct directories and compatible with summaries', () => {
+  assert.deepEqual(parseFeedbackArgs(['current', '--compare-with', 'previous', '--summary']), {
+    directory: 'current',
+    comparisonDirectory: 'previous',
+    summary: true,
+  });
+  assert.equal(parseFeedbackArgs(['current']).summary, false);
+  for (const args of [
+    [],
+    ['current', '--compare-with'],
+    ['current', '--compare-with', 'current'],
+    ['current', '--summary', '--summary'],
+    ['current', '--compare-with', 'previous', '--compare-with', 'third'],
+  ]) {
+    assert.throws(() => parseFeedbackArgs(args));
+  }
 });
 
 test('duplicate latest receipts do not double count timing or arbitrarily pick a pass', () => {

@@ -91,7 +91,25 @@ test.describe('Bleed canvas behavior', () => {
 
     // Rectangle crossing right and bottom trim (trim is 1920x1080 at origin).
     await page.keyboard.press('r');
-    await dragOnCanvas(page, 300, 300, 2300, 1400);
+    await dragOnCanvas(page, 100, 100, 250, 200);
+    await expect(page.getByRole('treeitem')).toHaveCount(1);
+    // Author the large print rectangle through visible Inspector controls;
+    // a 2300px pointer offset is outside the actual artwork viewport.
+    for (const [axis, value] of [
+      ['X', '300'],
+      ['Y', '300'],
+      ['W', '2000'],
+      ['H', '1100'],
+    ] as const) {
+      const field = page.getByRole('spinbutton', {
+        name: new RegExp(String.raw`^${axis}(?: \(AB\))? \(px\)$`, 'i'),
+      });
+      await field.fill(value);
+      await field.press('Enter');
+      await expect(field).toHaveValue(value);
+    }
+    // Commit the last field, then return keyboard ownership to the canvas.
+    await page.locator('canvas.editor-canvas__content-layer').focus();
     await page.keyboard.press('Escape');
 
     // Print workspace enables bleed guides by default.
@@ -99,6 +117,13 @@ test.describe('Bleed canvas behavior', () => {
     await page.waitForTimeout(400);
 
     await page.keyboard.press('Shift+3');
+    await expect(page.locator('#status-zoom')).toHaveValue(
+      String(
+        Math.round(
+          fitCamera({ x: 0, y: 0, w: 1920, h: 1080 }, await canvasSize(page)).zoom * 10000,
+        ) / 100,
+      ),
+    );
     await page.waitForTimeout(500);
 
     const box = await page.locator('canvas.editor-canvas__content-layer').boundingBox();

@@ -1,5 +1,8 @@
 import { expect, type Page, test } from '@playwright/test';
-import { dragOnCanvas, navigateToEditor } from '../shared';
+import { dragBeyondCanvas, dragOnCanvas, navigateToEditor } from '../shared';
+
+// The largest authored fixture is 600x600; keep its whole gesture visible.
+test.use({ viewport: { width: 1440, height: 1000 } });
 
 /**
  * Activate the Panel tool whether it is directly visible or responsive
@@ -127,7 +130,12 @@ test.describe('Canvas drawing tools — drag-to-create', () => {
     // so crossing a cell boundary moved pixels away from hit-testing and DOM
     // overlays. A long pan must remain continuous under the canonical camera.
     await page.keyboard.press('h');
-    await dragOnCanvas(page, 400, 400, 400 - 900, 400 - 900);
+    await dragBeyondCanvas(
+      page,
+      { x: 400, y: 400 },
+      { x: -500, y: -500 },
+      'Floating-origin regression deliberately pans 900 CSS pixels beyond the canvas.',
+    );
 
     await page.keyboard.press('r');
     const contentCanvas = page.locator('canvas.editor-canvas__content-layer');

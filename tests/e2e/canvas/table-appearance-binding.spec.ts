@@ -7,6 +7,9 @@
 import { expect, test } from '@playwright/test';
 import { activateTableTool, addColorVariable, dragOnCanvas, navigateToEditor } from '../shared';
 
+// Preserve authored geometry while keeping the complete drawing fixture visible.
+test.use({ viewport: { width: 1440, height: 1000 } });
+
 test('table appearance variable binding with modifier', async ({ page }) => {
   await navigateToEditor(page);
 

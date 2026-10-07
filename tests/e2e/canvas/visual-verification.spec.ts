@@ -14,6 +14,9 @@ import {
   openVariablesAndTokensDialog,
 } from '../shared';
 
+// Preserve authored geometry while keeping the complete drawing fixture visible.
+test.use({ viewport: { width: 1440, height: 1000 } });
+
 // Helper to insert a table
 async function insertTable(page: Page): Promise<void> {
   await activateTableTool(page);
@@ -38,6 +41,11 @@ test.describe('Table and modifier visual verification', () => {
 
   test.beforeEach(async ({ page }) => {
     await navigateToEditor(page);
+    await page.getByRole('button', { name: /Customize sections/ }).click();
+    await page
+      .getByRole('dialog', { name: 'Customize sections' })
+      .getByRole('button', { name: 'Show all sections' })
+      .click();
   });
 
   test('Complete table workflow with visual verification', async ({ page }) => {
@@ -68,41 +76,38 @@ test.describe('Table and modifier visual verification', () => {
 
     // Step 5: Modify table properties
     const headerRowsInput = page.getByRole('spinbutton', { name: /header rows/i });
-    if (await headerRowsInput.isVisible()) {
-      await headerRowsInput.fill('1');
-      await headerRowsInput.press('Enter');
-    }
+    await headerRowsInput.fill('1');
+    await headerRowsInput.press('Enter');
+    await expect(headerRowsInput).toHaveValue('1');
 
     const zebraToggle = page.getByRole('switch', { name: /zebra/i });
-    if (await zebraToggle.isVisible()) {
-      await zebraToggle.check();
-    }
+    await zebraToggle.check();
+    await expect(zebraToggle).toBeChecked();
 
     await page.screenshot({ path: 'test-results/visual/04-table-styled.png', fullPage: false });
 
     // Step 6: Add more rows
     const addRowBtn = page.getByRole('button', { name: /add row/i });
-    if (await addRowBtn.isVisible()) {
-      await addRowBtn.click();
-      await addRowBtn.click();
-    }
+    await addRowBtn.click();
+    await addRowBtn.click();
+    await expect(page.getByRole('spinbutton', { name: 'Rows', exact: true })).toHaveValue('6');
 
     await page.screenshot({ path: 'test-results/visual/05-more-rows.png', fullPage: false });
 
     // Step 7: Change density
-    const compactBtn = page.getByRole('button', { name: /compact/i });
-    if (await compactBtn.isVisible()) {
-      await compactBtn.click();
-    }
+    const compact = page
+      .getByRole('radiogroup', { name: 'Density', exact: true })
+      .getByRole('radio', { name: 'Compact', exact: true });
+    await compact.locator('xpath=ancestor::label[1]').click();
+    await expect(compact).toBeChecked();
 
     await page.screenshot({ path: 'test-results/visual/06-compact-density.png', fullPage: false });
 
     // Step 8: Freeze header
     const frozenRowsInput = page.getByRole('spinbutton', { name: /frozen rows/i });
-    if (await frozenRowsInput.isVisible()) {
-      await frozenRowsInput.fill('1');
-      await frozenRowsInput.press('Enter');
-    }
+    await frozenRowsInput.fill('1');
+    await frozenRowsInput.press('Enter');
+    await expect(frozenRowsInput).toHaveValue('1');
 
     await page.screenshot({ path: 'test-results/visual/07-frozen-header.png', fullPage: false });
 

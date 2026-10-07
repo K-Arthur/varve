@@ -13,6 +13,9 @@
 import { expect, type Page, test } from '@playwright/test';
 import { activateTableTool, addColorVariable, dragOnCanvas, navigateToEditor } from '../shared';
 
+// Preserve authored geometry while keeping the complete drawing fixture visible.
+test.use({ viewport: { width: 1440, height: 1000 } });
+
 async function insertTable(page: Page): Promise<void> {
   await activateTableTool(page);
   await dragOnCanvas(page, 200, 160, 700, 460);
@@ -27,6 +30,11 @@ test.describe('Combined table + variable modifier workflow', () => {
 
   test.beforeEach(async ({ page }) => {
     await navigateToEditor(page);
+    await page.getByRole('button', { name: /Customize sections/ }).click();
+    await page
+      .getByRole('dialog', { name: 'Customize sections' })
+      .getByRole('button', { name: 'Show all sections' })
+      .click();
   });
 
   test('Complete workflow: table with themed appearance', async ({ page }) => {
@@ -87,17 +95,13 @@ test.describe('Combined table + variable modifier workflow', () => {
 
     // Step 6: Verify table structure in inspector
     const rowsInput = page.getByRole('spinbutton', { name: 'Rows', exact: true });
-    if (await rowsInput.isVisible()) {
-      // Verify row count
-      await expect(rowsInput).toHaveValue('4');
-    }
+    await expect(rowsInput).toHaveValue('4');
 
     // Step 7: Add more rows
     const addRowBtn = page.getByRole('button', { name: /add row/i });
-    if (await addRowBtn.isVisible()) {
-      await addRowBtn.click();
-      await addRowBtn.click();
-    }
+    await addRowBtn.click();
+    await addRowBtn.click();
+    await expect(page.getByRole('spinbutton', { name: 'Rows', exact: true })).toHaveValue('6');
 
     // Take screenshot with more rows
     await page.screenshot({
@@ -107,9 +111,8 @@ test.describe('Combined table + variable modifier workflow', () => {
 
     // Step 8: Toggle zebra stripes
     const zebraToggle = page.getByRole('switch', { name: /zebra/i });
-    if (await zebraToggle.isVisible()) {
-      await zebraToggle.check();
-    }
+    await zebraToggle.check();
+    await expect(zebraToggle).toBeChecked();
 
     // Take screenshot with zebra stripes
     await page.screenshot({
@@ -118,10 +121,11 @@ test.describe('Combined table + variable modifier workflow', () => {
     });
 
     // Step 9: Change density
-    const compactBtn = page.getByRole('button', { name: /compact/i });
-    if (await compactBtn.isVisible()) {
-      await compactBtn.click();
-    }
+    const compact = page
+      .getByRole('radiogroup', { name: 'Density', exact: true })
+      .getByRole('radio', { name: 'Compact', exact: true });
+    await compact.locator('xpath=ancestor::label[1]').click();
+    await expect(compact).toBeChecked();
 
     // Take screenshot with compact density
     await page.screenshot({
@@ -131,10 +135,9 @@ test.describe('Combined table + variable modifier workflow', () => {
 
     // Step 10: Freeze header row
     const frozenRowsInput = page.getByRole('spinbutton', { name: /frozen rows/i });
-    if (await frozenRowsInput.isVisible()) {
-      await frozenRowsInput.fill('1');
-      await frozenRowsInput.press('Enter');
-    }
+    await frozenRowsInput.fill('1');
+    await frozenRowsInput.press('Enter');
+    await expect(frozenRowsInput).toHaveValue('1');
 
     // Take screenshot with frozen header
     await page.screenshot({
@@ -168,17 +171,26 @@ test.describe('Combined table + variable modifier workflow', () => {
   });
 
   test('Table import from CSV and visual verification', async ({ page }) => {
-    // Step 1: Open import dialog
-    // This would be triggered from a menu or toolbar button
-
-    // Take screenshot of import dialog
+    await activateTableTool(page);
+    await page.getByRole('button', { name: 'Table from data' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Create table from data' });
+    await expect(dialog).toBeVisible();
     await page.screenshot({
       path: 'test-results/combined/10-import-dialog.png',
       fullPage: false,
     });
-
-    // Step 2: Paste CSV data (would interact with the import dialog UI)
-    // For now, just take screenshot after import
+    await dialog.locator('textarea').fill('Product,Price\nWidget,$9.99\nGadget,$19.99');
+    await dialog.getByRole('button', { name: 'Create table' }).click();
+    await expect(dialog).not.toBeVisible();
+    await expect(page.getByRole('treeitem')).toHaveCount(1);
+    await expect(page.getByRole('treeitem')).toContainText(/table/i);
+    await expect(page.getByRole('spinbutton', { name: 'Rows', exact: true })).toHaveValue('3');
+    await expect(page.getByRole('spinbutton', { name: 'Columns', exact: true })).toHaveValue('2');
+    // Imported geometry starts at the document origin; reveal it for review.
+    await page.locator('canvas.editor-canvas__content-layer').focus();
+    await page.keyboard.press('Shift+2');
+    await expect(page.getByLabel('Top-left resize handle')).toBeVisible();
+    await expect(page.getByLabel('Bottom-right resize handle')).toBeVisible();
     await page.screenshot({
       path: 'test-results/combined/11-after-import.png',
       fullPage: false,
@@ -242,9 +254,8 @@ test.describe('Combined table + variable modifier workflow', () => {
 
     // Step 3: Enable zebra stripes
     const zebraToggle = page.getByRole('switch', { name: /zebra/i });
-    if (await zebraToggle.isVisible()) {
-      await zebraToggle.check();
-    }
+    await zebraToggle.check();
+    await expect(zebraToggle).toBeChecked();
 
     // Take screenshot with alternating rows
     await page.screenshot({

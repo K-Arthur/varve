@@ -124,6 +124,7 @@ export function selectCommitCommands(stagedFiles) {
     command('audit:emoji', ['pnpm', 'audit:emoji']),
     command('audit:health:staged', ['node', 'scripts/audit-health.mjs', '--staged']),
     command('audit:impact-config', ['node', 'scripts/quality/audit-impact-config.mjs']),
+    command('audit:e2e-interactions', ['node', 'scripts/quality/audit-e2e-interactions.mjs']),
     command('secrets:staged', ['node', 'scripts/secret-scan.mjs', '--staged']),
     command('audit:contacts', ['node', 'scripts/audit-contacts.mjs']),
   ];

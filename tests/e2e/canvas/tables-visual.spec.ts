@@ -14,6 +14,9 @@
 import { expect, type Page, test } from '@playwright/test';
 import { activateTableTool, dragOnCanvas, navigateToEditor } from '../shared';
 
+// Preserve authored geometry while keeping the complete drawing fixture visible.
+test.use({ viewport: { width: 1440, height: 1000 } });
+
 async function insertTable(page: Page, _rows = 4, _cols = 4): Promise<void> {
   await activateTableTool(page);
   await dragOnCanvas(page, 200, 160, 700, 460);
@@ -26,11 +29,33 @@ async function enterTableEditMode(page: Page): Promise<void> {
   await expect(page.locator('.table-edit-overlay')).toBeVisible({ timeout: 10000 });
 }
 
+/** Use rendered selection geometry so the same cell is reachable after fitting/reopening. */
+async function openFirstCellText(page: Page) {
+  const handle = page.locator('[aria-label="Top-left resize handle"]');
+  await expect(handle).toBeVisible();
+  const box = await handle.boundingBox();
+  if (!box) throw new Error('Selected table has no top-left handle');
+  const x = box.x + box.width / 2 + 12;
+  const y = box.y + box.height / 2 + 12;
+  await page.mouse.dblclick(x, y);
+  await expect(page.locator('.table-edit-overlay')).toBeVisible();
+  await page.mouse.click(x, y);
+  await page.keyboard.press('Enter');
+  const editor = page.locator('textarea.table-cell-editor');
+  await expect(editor).toBeVisible();
+  return editor;
+}
+
 test.describe('Native tables - visual verification', () => {
   test.describe.configure({ mode: 'serial' });
 
   test.beforeEach(async ({ page }) => {
     await navigateToEditor(page);
+    await page.getByRole('button', { name: /Customize sections/ }).click();
+    await page
+      .getByRole('dialog', { name: 'Customize sections' })
+      .getByRole('button', { name: 'Show all sections' })
+      .click();
   });
 
   test('1. Insert table and verify visual rendering', async ({ page }) => {
@@ -167,10 +192,9 @@ test.describe('Native tables - visual verification', () => {
 
     // Find and click the add row button
     const addRowBtn = page.getByRole('button', { name: /add row/i });
-    if (await addRowBtn.isVisible()) {
-      await addRowBtn.click();
-      await addRowBtn.click();
-    }
+    await addRowBtn.click();
+    await addRowBtn.click();
+    await expect(page.getByRole('spinbutton', { name: 'Rows', exact: true })).toHaveValue('6');
 
     // Take screenshot after adding rows
     await page.screenshot({
@@ -190,9 +214,8 @@ test.describe('Native tables - visual verification', () => {
 
     // Toggle zebra stripes
     const zebraToggle = page.getByRole('switch', { name: /zebra/i });
-    if (await zebraToggle.isVisible()) {
-      await zebraToggle.check();
-    }
+    await zebraToggle.check();
+    await expect(zebraToggle).toBeChecked();
 
     // Take screenshot with zebra
     await page.screenshot({
@@ -211,10 +234,11 @@ test.describe('Native tables - visual verification', () => {
     });
 
     // Change to compact density
-    const compactBtn = page.getByRole('button', { name: /compact/i });
-    if (await compactBtn.isVisible()) {
-      await compactBtn.click();
-    }
+    const compact = page
+      .getByRole('radiogroup', { name: 'Density', exact: true })
+      .getByRole('radio', { name: 'Compact', exact: true });
+    await compact.locator('xpath=ancestor::label[1]').click();
+    await expect(compact).toBeChecked();
 
     // Take screenshot of compact density
     await page.screenshot({
@@ -223,10 +247,11 @@ test.describe('Native tables - visual verification', () => {
     });
 
     // Change to spacious density
-    const spaciousBtn = page.getByRole('button', { name: /spacious/i });
-    if (await spaciousBtn.isVisible()) {
-      await spaciousBtn.click();
-    }
+    const spacious = page
+      .getByRole('radiogroup', { name: 'Density', exact: true })
+      .getByRole('radio', { name: 'Spacious', exact: true });
+    await spacious.locator('xpath=ancestor::label[1]').click();
+    await expect(spacious).toBeChecked();
 
     // Take screenshot of spacious density
     await page.screenshot({
@@ -246,10 +271,9 @@ test.describe('Native tables - visual verification', () => {
 
     // Set frozen rows to 1
     const frozenRowsInput = page.getByRole('spinbutton', { name: /frozen rows/i });
-    if (await frozenRowsInput.isVisible()) {
-      await frozenRowsInput.fill('1');
-      await frozenRowsInput.press('Enter');
-    }
+    await frozenRowsInput.fill('1');
+    await frozenRowsInput.press('Enter');
+    await expect(frozenRowsInput).toHaveValue('1');
 
     // Take screenshot after freezing
     await page.screenshot({
@@ -278,20 +302,25 @@ test.describe('Native tables - visual verification', () => {
     });
   });
 
-  test('11. Save and reload - verify persistence', async ({ page }) => {
+  test('11. Save and reload - verify persistence', async ({ page }, testInfo) => {
     await insertTable(page);
-    await enterTableEditMode(page);
 
-    // Enter text
-    await page.locator('.table-edit-overlay').click({ position: { x: 300, y: 280 } });
-    await page.keyboard.press('Enter');
-    const editor = page.locator('textarea.table-cell-editor');
+    const editor = await openFirstCellText(page);
+    await expect(editor).toHaveValue('');
     await editor.fill('Persistent Text');
+    await editor.press('Enter');
+    await expect(editor).toHaveCount(0);
+    // Read committed content through the real editor before saving; filling a
+    // textarea alone does not establish that the document mutation succeeded.
     await page.keyboard.press('Enter');
+    await expect(editor).toHaveValue('Persistent Text');
+    await editor.press('Escape');
+    await page.locator('canvas.editor-canvas__content-layer').focus();
+    await page.keyboard.press('Escape');
 
     // Take screenshot before reload
     await page.screenshot({
-      path: 'test-results/tables/19-before-reload.png',
+      path: testInfo.outputPath('table-content-before-reload.png'),
       fullPage: false,
     });
 
@@ -308,10 +337,18 @@ test.describe('Native tables - visual verification', () => {
       .dblclick();
     await page.locator('.layers-panel').waitFor({ timeout: 15000 });
     await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10000 });
+    await page.getByRole('treeitem').first().click();
+    await page.locator('canvas.editor-canvas__content-layer').focus();
+    await page.keyboard.press('Shift+2');
+    const reopenedEditor = await openFirstCellText(page);
+    await expect(reopenedEditor).toHaveValue('Persistent Text');
+    await reopenedEditor.press('Escape');
+    await page.locator('canvas.editor-canvas__content-layer').focus();
+    await page.keyboard.press('Escape');
 
     // Take screenshot after reload
     await page.screenshot({
-      path: 'test-results/tables/20-after-reload.png',
+      path: testInfo.outputPath('table-content-after-reload.png'),
       fullPage: false,
     });
   });

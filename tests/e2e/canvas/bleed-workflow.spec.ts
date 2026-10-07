@@ -32,7 +32,7 @@ async function openViewPrintMenu(page: import('@playwright/test').Page) {
 /**
  * Exact fit-zoom for the active page (1920x1080, padding 40) — the
  * fitBoundsCamera contract the multipage specs reproduce. The status-bar
- * zoom readout rounds to an integer percent, which is too coarse for
+ * zoom readout rounds to two decimal places, which is too coarse for
  * pixel-exact geometry assertions.
  */
 async function fitZoom(page: import('@playwright/test').Page): Promise<number> {
@@ -46,28 +46,22 @@ async function fitZoom(page: import('@playwright/test').Page): Promise<number> {
   });
 }
 
-/** Fit the active page and wait until the camera actually settles. */
+/** Fit the active page and observe its zoom; exact guide geometry is checked separately. */
 async function fitActivePage(page: import('@playwright/test').Page) {
-  await expect
-    .poll(
-      async () => {
-        await page.keyboard.press('Shift+3');
-        await page.waitForTimeout(250);
-        return (await fitZoom(page)) < 0.95;
-      },
-      { timeout: 25000 },
-    )
-    .toBe(true);
+  await page.locator('canvas.editor-canvas__content-layer').focus();
+  await page.keyboard.press('Shift+3');
+  await expect(page.locator('#status-zoom')).toHaveValue(
+    String(Math.round((await fitZoom(page)) * 10000) / 100),
+  );
   await page.waitForTimeout(300);
 }
 
 /** Click the page with the page tool: the page centre after fit, or the
  * rendered guide's centre when the page has been moved (the guide is
- * concentric with the trim). Blurs any focused inspector field FIRST via
- * the DOM — a 'q' keystroke while a NumberField holds focus lands in the
- * field (staged as dirty text) and the tool never switches. */
+ * concentric with the trim). Return keyboard ownership to the canvas FIRST:
+ * Escape must clear the node selection before q activates the Page tool. */
 async function activatePageToolAndPage(page: import('@playwright/test').Page) {
-  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  await page.locator('canvas.editor-canvas__content-layer').focus();
   await page.keyboard.press('Escape');
   await page.keyboard.press('q');
   const canvas = page.locator('canvas.editor-canvas__content-layer');
@@ -169,7 +163,24 @@ async function seedPrintDocument(page: import('@playwright/test').Page) {
   await page.waitForTimeout(400);
   await waitForContentCanvas(page);
   await page.keyboard.press('r');
-  await dragOnCanvas(page, 300, 300, 2300, 1400);
+  await dragOnCanvas(page, 100, 100, 250, 200);
+  await expect(page.getByRole('treeitem')).toHaveCount(1);
+  // Author the large print rectangle through visible Inspector controls;
+  // a 2300px pointer offset is outside the actual artwork viewport.
+  for (const [axis, value] of [
+    ['X', '300'],
+    ['Y', '300'],
+    ['W', '2000'],
+    ['H', '1100'],
+  ] as const) {
+    const field = page.getByRole('spinbutton', {
+      name: new RegExp(String.raw`^${axis}(?: \(AB\))? \(px\)$`, 'i'),
+    });
+    await field.fill(value);
+    await field.press('Enter');
+    await expect(field).toHaveValue(value);
+  }
+  await page.locator('canvas.editor-canvas__content-layer').focus();
   await page.keyboard.press('Escape');
   await page.keyboard.press('Control+Shift+2');
   await page.waitForTimeout(400);

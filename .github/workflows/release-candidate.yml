@@ -149,6 +149,8 @@ jobs:
           node scripts/security/workflow-policy.mjs
       - name: CI tooling regression suite
         run: pnpm test:ci:tools
+      - name: Audit browser interaction contracts before scheduling shards
+        run: node scripts/quality/audit-e2e-interactions.mjs
       - name: Validation policy regression tests
         run: pnpm exec vitest run tests/unit/validationPolicy.test.ts --maxWorkers=1
       - name: Write pipeline execution receipt

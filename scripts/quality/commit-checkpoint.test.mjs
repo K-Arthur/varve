@@ -26,6 +26,7 @@ const lanes = selection.commands.map((entry) => entry.lane);
 assert.ok(lanes.includes('format-lint:staged'));
 assert.ok(lanes.includes('import-boundaries'));
 assert.ok(lanes.includes('typecheck:e2e'));
+assert.ok(lanes.includes('audit:e2e-interactions'));
 assert.ok(lanes.includes('direct-unit'));
 assert.ok(!selection.commands.some((entry) => entry.argv.includes('playwright')));
 assert.ok(!selection.commands.some((entry) => entry.argv.includes('cargo')));

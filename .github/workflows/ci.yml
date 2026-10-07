@@ -351,6 +351,8 @@ jobs:
         # includes the push-plan, receipt, aggregator, release, workflow, and
         # security regression tests without starting product/browser suites.
         run: pnpm test:ci:tools
+      - name: Audit browser interaction contracts before scheduling shards
+        run: node scripts/quality/audit-e2e-interactions.mjs
       - name: Validation policy regression tests
         # The policy lane is intentionally explicit: it is a TypeScript test
         # and is not part of the dependency-light Node tooling suite above.

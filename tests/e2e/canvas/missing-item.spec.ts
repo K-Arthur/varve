@@ -1,6 +1,9 @@
 import { expect, test } from '@playwright/test';
 import { dragOnCanvas, navigateToEditor } from '../shared';
 
+// Preserve authored geometry while keeping the complete drawing fixture visible.
+test.use({ viewport: { width: 1440, height: 1000 } });
+
 test.describe('Missing-item canvas regression', () => {
   test.describe.configure({ mode: 'serial' });
   test.beforeEach(async ({ page }) => {

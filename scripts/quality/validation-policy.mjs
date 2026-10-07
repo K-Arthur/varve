@@ -37,6 +37,7 @@ export const POLICY_FILES = [
   'scripts/quality/push-plan.mjs',
   'scripts/quality/pre-push.mjs',
   'scripts/quality/commit-checkpoint.mjs',
+  'scripts/quality/audit-e2e-interactions.mjs',
   'scripts/quality/run-bounded-command.mjs',
   'scripts/quality/history-policy.mjs',
   'scripts/quality/validation-receipts.mjs',

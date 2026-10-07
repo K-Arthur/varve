@@ -4,6 +4,9 @@
 import { expect, type Page, test } from '@playwright/test';
 import { activateTableTool, dragOnCanvas, navigateToEditor } from '../shared';
 
+// Preserve authored geometry while keeping the complete drawing fixture visible.
+test.use({ viewport: { width: 1440, height: 1000 } });
+
 async function insertTable(page: Page): Promise<void> {
   await activateTableTool(page);
   await dragOnCanvas(page, 200, 160, 700, 460);

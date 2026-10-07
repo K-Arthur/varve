@@ -1,4 +1,17 @@
 import { expect, type Locator, type Page } from '@playwright/test';
+import { assertCanvasGesture, type CanvasPoint } from './helpers/canvasGesture';
+
+/** Click the visible label rather than the clipped native checkbox input. */
+export async function setVisibleCheckbox(control: Locator, checked: boolean): Promise<void> {
+  await expect(control).toBeAttached();
+  if ((await control.isChecked()) !== checked) {
+    const label = control.locator('xpath=ancestor::label[1]');
+    await expect(label).toBeVisible();
+    await label.click();
+  }
+  if (checked) await expect(control).toBeChecked();
+  else await expect(control).not.toBeChecked();
+}
 
 /**
  * Navigate from the home screen to the editor.
@@ -329,8 +342,9 @@ export async function seedLayers(page: Page, count: number) {
 }
 
 /**
- * Drag on the canvas at world-space coordinates (relative to the artboard
- * origin).  Intermediate midpoint ensures the 3px drag threshold is crossed.
+ * Drag within the owned canvas at canvas-relative CSS-pixel coordinates.
+ * Document/world coordinates must first be transformed with the actual camera.
+ * Intermediate midpoint ensures the 3px drag threshold is crossed.
  *
  * @returns the canvas bounding box at the time of the drag, for assertions.
  */
@@ -353,63 +367,33 @@ export async function dragOnCanvas(
   maybeToX?: number,
   maybeToY?: number,
 ) {
-  const fromWorld = typeof fromOrX === 'number' ? { x: fromOrX, y: toOrY as number } : fromOrX;
-  const toWorld =
+  const from = typeof fromOrX === 'number' ? { x: fromOrX, y: toOrY as number } : fromOrX;
+  const to =
     typeof fromOrX === 'number'
       ? { x: maybeToX as number, y: maybeToY as number }
       : (toOrY as { x: number; y: number });
-  const coordinates = [fromWorld.x, fromWorld.y, toWorld.x, toWorld.y];
-  if (!coordinates.every(Number.isFinite)) {
-    throw new TypeError(`Canvas drag coordinates must be finite: ${coordinates.join(', ')}`);
-  }
+  return dragCanvasGesture(page, from, to);
+}
 
-  // Hidden thumbnail/offscreen canvases may mount before the editor surface.
-  // Always target the owned artwork layer so browser-specific DOM timing does
-  // not select a zero-sized auxiliary canvas.
-  // Use 'attached' not 'visible' — the canvas may render off-screen after
-  // extreme pan (floating-origin test pans -900px in both axes). As long as
-  // it exists in the DOM we can compute screen-space coordinates from its
-  // bounding box.
+/** A deliberate pointer-captured pan may end outside; drawing must remain inside. */
+export async function dragBeyondCanvas(
+  page: Page,
+  from: CanvasPoint,
+  to: CanvasPoint,
+  reason: string,
+) {
+  return dragCanvasGesture(page, from, to, reason);
+}
+
+async function dragCanvasGesture(page: Page, from: CanvasPoint, to: CanvasPoint, reason?: string) {
   const canvas = page.locator('canvas.editor-canvas__content-layer');
   await canvas.waitFor({ state: 'attached', timeout: 15_000 });
   const box = await canvas.boundingBox();
-  if (!box) {
-    // Fallback: try the any-visible-canvas strategy for panned views
-    const anyCanvas = page.locator('canvas').first();
-    const fallbackBox = await anyCanvas.boundingBox();
-    if (!fallbackBox) throw new Error('canvas not found');
-    return dragOnCanvasFallback(page, fallbackBox, fromWorld, toWorld);
-  }
-
-  const sx = box.x + fromWorld.x;
-  const sy = box.y + fromWorld.y;
-  const ex = box.x + toWorld.x;
-  const ey = box.y + toWorld.y;
-
-  await page.mouse.move(sx, sy);
-  await page.mouse.down();
-  await page.mouse.move(Math.round((sx + ex) / 2), Math.round((sy + ey) / 2));
-  await page.mouse.move(ex, ey);
-  await page.mouse.up();
-
-  return box;
-}
-
-/**
- * Fallback drag helper used when the primary canvas has no bounding box
- * (e.g. after extreme pan).  Uses any available canvas and its bounding
- * box to compute screen coordinates.
- */
-async function dragOnCanvasFallback(
-  page: Page,
-  box: NonNullable<Awaited<ReturnType<ReturnType<Page['locator']>['boundingBox']>>>,
-  fromWorld: { x: number; y: number },
-  toWorld: { x: number; y: number },
-) {
-  const sx = box.x + fromWorld.x;
-  const sy = box.y + fromWorld.y;
-  const ex = box.x + toWorld.x;
-  const ey = box.y + toWorld.y;
+  assertCanvasGesture(box, from, to, reason);
+  const sx = box.x + from.x;
+  const sy = box.y + from.y;
+  const ex = box.x + to.x;
+  const ey = box.y + to.y;
 
   await page.mouse.move(sx, sy);
   await page.mouse.down();

@@ -16,14 +16,14 @@ function percentile(values, fraction) {
   return ordered[Math.max(0, Math.ceil(ordered.length * fraction) - 1)];
 }
 
-function sourceKey(report) {
+function sourceKey(report, { includeProfile = true } = {}) {
   const { source, workflow, runner } = report;
   return JSON.stringify([
     workflow.repository,
     source.commitSha,
     source.treeSha,
     source.policyHash,
-    report.profile,
+    includeProfile ? report.profile : null,
     runner?.os ?? null,
     runner?.arch ?? null,
   ]);
@@ -103,6 +103,7 @@ export function buildTestFeedback(reports, { limit = 20 } = {}) {
     throw new Error('limit must be an integer from 1 to 100');
   const cells = new Map();
   const histories = new Map();
+  const checkpointHistories = new Map();
   let invalidReceipts = 0;
   let invalidCases = 0;
   const conflicts = new Set();
@@ -127,6 +128,30 @@ export function buildTestFeedback(reports, { limit = 20 } = {}) {
       history.outcomes.add(test.status);
       history.samples++;
       histories.set(historyKey, history);
+      // Different profiles remain separate execution cells. Compare their
+      // outcomes only as diagnostic evidence, with source/policy/runner bound.
+      if (typeof report.runner?.os === 'string' && typeof report.runner?.arch === 'string') {
+        const checkpointKey = JSON.stringify([
+          sourceKey(report, { includeProfile: false }),
+          test.caseId,
+        ]);
+        const checkpoint = checkpointHistories.get(checkpointKey) ?? {
+          ...test,
+          outcomes: new Set(),
+          profiles: new Set(),
+          observations: new Map(),
+        };
+        checkpoint.outcomes.add(test.status);
+        checkpoint.profiles.add(report.profile);
+        const observation = {
+          profile: report.profile,
+          runId: String(report.workflow.runId),
+          runAttempt: Number(report.workflow.runAttempt),
+          status: test.status,
+        };
+        checkpoint.observations.set(JSON.stringify(observation), observation);
+        checkpointHistories.set(checkpointKey, checkpoint);
+      }
     }
   }
   const selected = [...cells.entries()].filter(([key]) => !conflicts.has(key));
@@ -193,6 +218,21 @@ export function buildTestFeedback(reports, { limit = 20 } = {}) {
       samples,
       classification: 'needs-runtime-environment-investigation',
     }));
+  const checkpointDivergences = [...checkpointHistories.values()]
+    .filter(
+      (history) =>
+        history.profiles.size > 1 &&
+        history.outcomes.has('expected') &&
+        history.outcomes.has('unexpected'),
+    )
+    .map(({ caseId, file, project, profiles, observations }) => ({
+      caseId,
+      file,
+      project,
+      profiles: [...profiles].sort(),
+      observations: [...observations.values()],
+      classification: 'needs-cross-checkpoint-investigation',
+    }));
   return {
     schema: 1,
     certifying: false,
@@ -214,6 +254,11 @@ export function buildTestFeedback(reports, { limit = 20 } = {}) {
     slowestCases: [...caseSamples].sort((a, b) => b.durationMs - a.durationMs).slice(0, limit),
     divergentOutcomes: divergences.slice(0, limit),
     divergentOutcomeCount: divergences.length,
+    checkpointDivergences: checkpointDivergences.slice(0, limit),
+    checkpointDivergenceCount: checkpointDivergences.length,
+    checkpointComparableCases: [...checkpointHistories.values()].filter(
+      (history) => history.profiles.size > 1,
+    ).length,
   };
 }
 
@@ -256,6 +301,7 @@ export function feedbackMarkdown(report) {
     `Selected cells: ${report.selectedCellCount}; case samples: ${report.caseSamples}.`,
     `Case p50: ${seconds(report.caseDurationMs.p50)}; p95: ${seconds(report.caseDurationMs.p95)}; summed browser work: ${seconds(report.caseDurationMs.total)}.`,
     `Malformed receipts/cases: ${report.invalidReceipts}/${report.invalidCases}; ambiguous cells: ${report.conflictingCells}; divergent outcomes needing investigation: ${report.divergentOutcomeCount}.`,
+    `Cross-checkpoint comparison: ${report.checkpointComparableCases} comparable cases supplied; ${report.checkpointDivergenceCount} differences need investigation. A single-profile report supplies no cross-checkpoint comparison. These observations are not flake diagnoses or certification.`,
     '',
     '| Category | Observed/expected shards | Complete | Max/min browser work |',
     '| --- | --- | --- | --- |',
@@ -270,13 +316,35 @@ export function feedbackMarkdown(report) {
   return lines.join('\n');
 }
 
+export function parseFeedbackArgs(args) {
+  const [directory, ...flags] = args;
+  if (!directory || directory.startsWith('--'))
+    throw new Error('An execution receipt directory is required');
+  let comparisonDirectory;
+  let summary = false;
+  for (let index = 0; index < flags.length; index++) {
+    if (flags[index] === '--summary' && !summary) summary = true;
+    else if (flags[index] === '--compare-with' && comparisonDirectory === undefined) {
+      comparisonDirectory = flags[++index];
+      if (!comparisonDirectory || comparisonDirectory.startsWith('--'))
+        throw new Error('--compare-with requires a receipt directory');
+      if (resolve(comparisonDirectory) === resolve(directory))
+        throw new Error('Comparison directories must be distinct');
+    } else
+      throw new Error(
+        'usage: test-feedback.mjs <receipt-directory> [--compare-with <directory>] [--summary]',
+      );
+  }
+  return { directory, comparisonDirectory, summary };
+}
+
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   try {
-    const args = process.argv.slice(2);
-    if (args.length !== 1 && !(args.length === 2 && args[1] === '--summary'))
-      throw new Error('usage: test-feedback.mjs <execution-receipt-directory> [--summary]');
-    const report = buildTestFeedback(readReports(args[0]));
-    if (args.includes('--summary')) {
+    const args = parseFeedbackArgs(process.argv.slice(2));
+    const reports = readReports(args.directory);
+    if (args.comparisonDirectory) reports.push(...readReports(args.comparisonDirectory));
+    const report = buildTestFeedback(reports);
+    if (args.summary) {
       if (!process.env.GITHUB_STEP_SUMMARY) throw new Error('GITHUB_STEP_SUMMARY is required');
       appendFileSync(process.env.GITHUB_STEP_SUMMARY, feedbackMarkdown(report));
     }

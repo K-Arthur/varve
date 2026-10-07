@@ -265,3 +265,61 @@ another broad cache rewrite. It does not establish that their assertions are
 redundant. Any future duration-aware sharding must preserve the complete unique
 case inventory, per-project coverage, zero retries and newest-attempt rules;
 measure queue time and total runner-minutes alongside the longest cell.
+
+## Cross-checkpoint inconsistency and interaction preflight
+
+A green shard can conceal an invalid fixture. The October 6 workspace case
+used a forced action on a clipped checkbox and did not assert the requested
+live panel state. The subsequent snapping failure used a drawing gesture
+outside the artwork viewport; timing-dependent auto-pan changed the fixture's
+width. A passing earlier run did not establish either precondition. These
+findings justify repairing the shared interaction contract, rather than
+increasing retries or accepting the most recent green result.
+
+`dragOnCanvas` now accepts only finite canvas-relative CSS coordinates inside
+the nonzero owned artwork canvas. It never substitutes a thumbnail or other
+auxiliary canvas. An intentional pointer-captured pan uses `dragBeyondCanvas`
+with a documented reason; its start must still be inside. World coordinates
+require the actual camera transform. Authored table fixtures use an explicit
+viewport large enough for their complete gestures. Print fixtures author large
+world geometry through Inspector fields, then return keyboard focus to the
+canvas. The print fit assertion observes the real zoom readout rather than
+merely calculating what the zoom should be.
+
+`setVisibleCheckbox` clicks a visible enclosing label when a state change is
+needed and asserts the resulting native checked state. The inexpensive
+`audit-e2e-interactions.mjs` syntax scan runs at the commit checkpoint and in
+both hosted pipeline preflights before browser shards can start. It rejects
+literal options containing `force` other than `false` on `check`, `uncheck`
+and `setChecked`. It does not infer aliased/spread options or audit all forced
+clicks. The six previous forced checkbox calls were detected by a negative
+control against committed source; the migrated corpus has none. Runtime
+canvas guards and real-browser negative tests complement this limited syntax
+scan. Shared helper changes still require complete hosted browser coverage.
+
+Previous feedback grouped execution histories by profile, so an integration
+pass and candidate failure did not count as a within-profile divergence. The
+new diagnostic comparison preserves those execution cells while comparing
+case identities across profiles only when repository, commit, tree, policy,
+runner OS and architecture match. Missing runner identity is not comparable.
+Different outcomes require investigation, not automatic flake classification,
+execution reuse or certification. A single-profile summary explicitly reports
+that it supplies no cross-checkpoint comparison.
+
+Supply both downloaded execution-receipt directories explicitly:
+
+```sh
+node scripts/quality/test-feedback.mjs current-receipts \
+  --compare-with previous-receipts
+```
+
+The command accepts at most two distinct directories, with existing bounded
+file/depth/size reading. Workflows do not automatically retrieve historical
+receipts. Actual downloaded shard-23 archives from integration `37544847541`
+and candidate `37550031395` independently matched their GitHub SHA-256 digests
+(`45acf4f15e7b1b1370c0446e4ca0d8d8692ab10386e03d079f4f3565e1127f8f`
+and `13dde14be8cdd76a969854e6fd7c2feaa8f9738152f94e96a344cdd5d4926da4`).
+Their comparison found 80 comparable cases and one difference in
+`workspace/customization.spec.ts`, with zero malformed receipts. That confirms
+the comparison can expose the observed problem; it does not certify the later
+panel or harness repairs.

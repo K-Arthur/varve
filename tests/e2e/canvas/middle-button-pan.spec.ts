@@ -144,7 +144,7 @@ test.describe('Middle-button viewport pan', () => {
     // The Select tool still owns the primary button after the pan: a fresh
     // drag draws nothing new and selection stays a selection (no marquee
     // artefact), and the layer count is unchanged.
-    await dragOnCanvas(page, 500, 500, 560, 540);
+    await dragOnCanvas(page, 100, 350, 160, 390);
     expect(await page.getByRole('treeitem').count()).toBe(nodeCount);
   });
 

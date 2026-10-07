@@ -16,6 +16,7 @@ import { readFile } from 'node:fs/promises';
 import { expect, type Locator, type Page, test } from '@playwright/test';
 import { selectFillType } from '../helpers/editor-helpers';
 import { navigateToCleanEditor } from '../helpers/nav';
+import { setVisibleCheckbox } from '../shared';
 
 async function createRect(page: Page): Promise<{ box: { x: number; y: number } }> {
   await page.keyboard.press('r');
@@ -674,11 +675,9 @@ test.describe('pattern repeat', () => {
     expect(rerolled, 'Randomize must choose a new seed').not.toBe(before);
 
     // Toggling an unrelated control (mirror) must not re-roll the artwork.
-    // `force` is required because the styled checkbox paints its own box over
-    // the visually-hidden native input; the input is still the real control.
-    await page.getByRole('checkbox', { name: /mirror across/i }).check({ force: true });
+    await setVisibleCheckbox(page.getByRole('checkbox', { name: /mirror across/i }), true);
     await page.waitForTimeout(900);
-    await page.getByRole('checkbox', { name: /mirror across/i }).uncheck({ force: true });
+    await setVisibleCheckbox(page.getByRole('checkbox', { name: /mirror across/i }), false);
     await page.waitForTimeout(900);
     const afterToggle = await regionSignature(page, box);
     expect(afterToggle, 'an unrelated edit must not reroll the seed').toBe(rerolled);

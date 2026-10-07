@@ -191,7 +191,7 @@ test.describe('many-image canvas rendering', () => {
 
   test('paints every image after fit-all when the document exceeds the worker transfer budget', async ({
     page,
-  }) => {
+  }, testInfo) => {
     // `?perf=1` exposes `__varvePerf.forceFullRedraw`, the oracle below.
     await page.setViewportSize(VIEWPORT);
     await navigateToEditor(page, '/?perf=1');
@@ -206,9 +206,29 @@ test.describe('many-image canvas rendering', () => {
 
     // Add an unrelated frame after the images already exist. This must not
     // blank the image working set or capture a distant root-level sibling.
+    const creationBox = await canvas.boundingBox();
+    if (!creationBox) throw new Error('content canvas has no frame-creation bounds');
+    await expect(page.getByRole('treeitem')).toHaveCount(OVER_BUDGET_COUNT);
     await page.keyboard.press('f');
-    await dragOnCanvas(page, 1040, 620, 1180, 760);
-    await page.waitForTimeout(1000);
+    // Draw in the lower fit-all gutter, inside the actual artwork viewport.
+    // The former 1040..1180 offsets were outside this 1280px layout and did
+    // not require the claimed frame creation to happen at all.
+    await dragOnCanvas(
+      page,
+      creationBox.width - 160,
+      creationBox.height - 120,
+      creationBox.width - 96,
+      creationBox.height - 64,
+    );
+    await expect(page.getByRole('treeitem')).toHaveCount(OVER_BUDGET_COUNT + 1);
+    await expect(page.getByRole('treeitem', { name: /Frame 1/ })).toHaveAttribute(
+      'aria-level',
+      '1',
+    );
+    await expect(page.locator('[role="treeitem"][aria-level="1"]')).toHaveCount(
+      OVER_BUDGET_COUNT + 1,
+    );
+    await page.screenshot({ path: testInfo.outputPath('many-images-with-root-frame.png') });
 
     const painted = await surfaceState(page);
 

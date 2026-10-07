@@ -10,7 +10,7 @@
 import { resolve } from 'node:path';
 import { expect, test } from '@playwright/test';
 import { navigateToEditorWithRetry } from '../helpers/gradient-map-helpers';
-import { dragOnCanvas } from '../shared';
+import { dragOnCanvas, setVisibleCheckbox } from '../shared';
 
 const TWO_STOP_GRD = resolve(
   __dirname,
@@ -144,7 +144,7 @@ test.describe('Gradient map import workflow', () => {
     await expect(dialog.getByText('Black to White', { exact: true })).toBeVisible();
 
     // Select it and import into the library.
-    await dialog.getByRole('checkbox', { name: /Select Black to White/ }).check({ force: true });
+    await setVisibleCheckbox(dialog.getByRole('checkbox', { name: /Select Black to White/ }), true);
     const importButton = dialog.getByRole('button', { name: /import.*preset/i });
     await importButton.click();
 
@@ -171,7 +171,7 @@ test.describe('Gradient map import workflow', () => {
     await expect(dialog.getByText(/noise gradient/i)).toBeVisible({ timeout: 5000 });
 
     // Select it anyway (read-only import) and confirm.
-    await dialog.getByRole('checkbox', { name: /Select Noise Ramp/ }).check({ force: true });
+    await setVisibleCheckbox(dialog.getByRole('checkbox', { name: /Select Noise Ramp/ }), true);
     await dialog.getByRole('button', { name: /import.*preset/i }).click();
     const search = page.getByPlaceholder('Search presets');
     await search.fill('Noise Ramp');
@@ -190,7 +190,7 @@ test.describe('Gradient map import workflow', () => {
     await expect(dialog.getByText('Sunset', { exact: true })).toBeVisible();
 
     // Select only "Sunset" and import it.
-    await dialog.getByRole('checkbox', { name: /Select Sunset/ }).check({ force: true });
+    await setVisibleCheckbox(dialog.getByRole('checkbox', { name: /Select Sunset/ }), true);
     await dialog.getByRole('button', { name: /import.*preset/i }).click();
 
     const search = page.getByPlaceholder('Search presets');
@@ -205,7 +205,7 @@ test.describe('Gradient map import workflow', () => {
     await importGrd(page, TWO_STOP_GRD);
 
     const dialog = page.getByRole('dialog');
-    await dialog.getByRole('checkbox', { name: /Select Black to White/ }).check({ force: true });
+    await setVisibleCheckbox(dialog.getByRole('checkbox', { name: /Select Black to White/ }), true);
     await dialog.getByRole('button', { name: /import.*preset/i }).click();
 
     const search = page.getByPlaceholder('Search presets');
