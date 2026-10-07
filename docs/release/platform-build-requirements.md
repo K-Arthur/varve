@@ -93,6 +93,15 @@ adapter regressions, including real rendered PDF positives and negatives.
 Wrong Node version/architecture fails without producing an acceptance receipt.
 Any failed contract blocks expensive compilation and artifact reuse.
 
+Changes to native adapters or the release workflow also select the local
+`native-adapter-contracts` lane. It runs the ten common hosted adapter checks
+plus Linux extraction, verifies that all three owning hosted steps match,
+and rejects missing or duplicated checks. The affected and bounded push
+checkpoints both enforce it before deferring the full hosted gate. Mac
+webview menu titles can include a keyboard shortcut; the regression retains
+the actual old-version title and hidden AppKit entry. Native Mac lifecycle
+behavior remains a required installed test.
+
 Windows x64, Windows ARM64 and Mac qualification each use a separate hosted
 runner. Their matrix allows all three concurrently while retaining
 `fail-fast: false`. The previous limit of two delayed Mac by six minutes in

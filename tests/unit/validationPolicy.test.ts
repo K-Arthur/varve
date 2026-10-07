@@ -155,6 +155,13 @@ describe('validation infrastructure presence', () => {
   it('every declared lane in the registry resolves to a command', () => {
     for (const [lane, cmd] of Object.entries(LANES)) {
       expect(cmd, `lane ${lane} has no command`).toBeTruthy();
+      // Touched formatting/lint have dedicated changed-file execution.
+      // Every other declared lane must also work in the argv push executor.
+      if (!['format:touched', 'lint:touched'].includes(lane)) {
+        expect(laneArgv(lane), `lane ${lane} has no executable push argv`).toEqual(
+          expect.any(Array),
+        );
+      }
     }
   });
 
@@ -165,6 +172,7 @@ describe('validation infrastructure presence', () => {
       'format:changed',
       'lint:changed',
       'cargo-fmt',
+      'native-adapter-contracts',
     ]) {
       const command = laneArgv(lane, { files: ['path with spaces/[odd].ts'] });
       expect(command, lane).toBeTruthy();

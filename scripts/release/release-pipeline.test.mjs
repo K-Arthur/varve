@@ -34,6 +34,7 @@ import {
   POLICY_FILES,
 } from '../quality/validation-policy.mjs';
 import '../website/demo-dist-validation.test.mjs';
+import './production/contracts.test.mjs';
 import { candidateNextAction } from './release.mjs';
 import { parseChecksums, selectRelease, verifyReleaseIntegrity } from './verify-release-data.mjs';
 import { incrementVersion } from './version.mjs';
@@ -54,6 +55,7 @@ const candidateWorkflow = readFileSync('.github/workflows/release-candidate.yml'
 const integrationWorkflow = readFileSync('.github/workflows/ci.yml', 'utf8');
 const verifierSource = readFileSync('scripts/quality/verify.mjs', 'utf8');
 const strictBrowserFlags = STRICT_BROWSER_FLAGS;
+assert.ok(POLICY_FILES.includes('scripts/release/production/contracts.test.mjs'));
 
 // Execute the actual early native dependency probe: wrong architectures and
 // runtime versions must fail before producing an acceptance receipt.

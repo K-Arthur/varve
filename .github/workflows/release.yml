@@ -304,8 +304,9 @@ jobs:
 
   # ── 2b. Signing preflight: validate credentials BEFORE any build ────────────
   # The fail-closed principle, enforced before a single platform compiles:
-  # a stable release (or any release with RELEASE_EXPECT_SIGNED=true) whose
-  # signing credentials are missing stops HERE, not after packaging.
+  # RELEASE_EXPECT_SIGNED=true makes platform certificates mandatory. Without
+  # that opt-in, stable and prerelease installers may ship explicitly unsigned;
+  # updater integrity signatures remain a separate requirement.
   # Only PRESENCE BOOLEANS reach this job — secret values never enter it.
   signing-preflight:
     name: Signing preflight

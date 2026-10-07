@@ -80,6 +80,7 @@ export const POLICY_FILES = [
   'scripts/release/website-release-data-check.mjs',
   'scripts/release/write-artifact-provenance.mjs',
   'scripts/release/write-candidate-evidence.mjs',
+  'scripts/release/production/contracts.test.mjs',
   'scripts/validate-workflows.mjs',
   'justfile',
   'Cargo.toml',
@@ -190,6 +191,7 @@ export const LANE_COST_SECONDS = Object.freeze({
   'audit:emoji': 10,
   'audit:tokens': 45,
   'js-unit:file': 45,
+  'native-adapter-contracts': 30,
   'js-unit:package': 100,
   // The 801-file editor lane took 1,528s with eight workers in the
   // 2026-09-24 exact-ref run. It is not an ordinary 100s package check.
@@ -461,6 +463,13 @@ export function selectedCiLanes(plan, categories, profile = 'integration') {
   return [...lanes].sort();
 }
 
+function nativeAdapterPushSelection(plan) {
+  const lanes = [...new Set(plan?.tiers?.[1] ?? [])].filter(
+    (lane) => lane === 'native-adapter-contracts',
+  );
+  return { lanes, estimatedSeconds: lanes.length * LANE_COST_SECONDS['native-adapter-contracts'] };
+}
+
 /**
  * Select the bounded local push checkpoint.  It never infers a full local
  * suite from commit count.  Once the fixed limits are reached, the remaining
@@ -477,6 +486,10 @@ export function selectPushValidation(plan, { files = pathList(plan), strict = fa
     (sum, lane) => sum + (LANE_COST_SECONDS[lane] ?? 60),
     0,
   );
+
+  const nativeContracts = nativeAdapterPushSelection(plan);
+  localBlocking.push(...nativeContracts.lanes);
+  estimatedSeconds += nativeContracts.estimatedSeconds;
 
   const directTests = files.filter((file) => /\.(test|spec)\.(ts|tsx)$/.test(file));
   if (directTests.length <= PUSH_LIMITS.maxDirectTestFiles) {

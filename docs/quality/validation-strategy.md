@@ -1,5 +1,18 @@
 # Varve Validation Strategy — Bounded Checkpoints and Exact-SHA Certification
 
+Native release adapter changes and `.github/workflows/release.yml` select the
+cheap `native-adapter-contracts` lane before the hosted full checkpoint. It
+executes the same ten common Node regressions as every owning native contract
+step, adds the extraction regression on Linux, and rejects coverage drift between
+those steps. This closes the gap where
+standalone `.mjs` adapter tests were not discovered by the TypeScript/Vitest
+direct-test selector. The regressions cover modal forwarding, actual source
+configuration, preserved Mac sessions, delayed consent/readiness, native
+Save/Quit ordering, retained data and real export-byte controls. They do not
+claim installed GUI qualification; actual old-version/profile upgrade flows
+remain required on all five native targets. `pnpm test:ci:tools` also executes
+the guard through the release-pipeline regression owner.
+
 Canonical policy for how Varve validates changes. This document is the
 source of truth; `AGENTS.md` carries the condensed agent protocol. The measured
 implementation audit is [validation-release-system-audit-2026-08-31](../audits/validation-release-system-audit-2026-08-31.md).

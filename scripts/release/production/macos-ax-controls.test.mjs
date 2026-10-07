@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { basename } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
 
 const source = readFileSync(new URL('./macos-production.mjs', import.meta.url), 'utf8');
@@ -176,6 +177,24 @@ controls = [control('New document', 'XCUIElementTypeDialog')];
 assert.equal((await context.filePanels('Open')).length, 0);
 controls = [];
 await assert.rejects(context.one('Save', ['XCUIElementTypeButton']), /got 0/);
+// Observed hosted 0.2.1 snapshot: webview menu items include their shortcut
+// in title; the exact native AppKit entry is hidden with a zero-size rect.
+controls = [
+  control('', 'XCUIElementTypeMenuItem', {
+    elementId: 'webview-close-window',
+    title: 'Close Window ⌘⇧W',
+  }),
+  control('', 'XCUIElementTypeMenuItem', {
+    elementId: 'hidden-appkit-close',
+    title: 'Close Window',
+    hittable: false,
+  }),
+];
+assert.equal(
+  (await context.one('Close Window', ['XCUIElementTypeMenuItem'], true)).elementId,
+  'webview-close-window',
+);
+await assert.rejects(context.one('Close Window', ['XCUIElementTypeMenuItem']), /got 0/);
 controls = [control('Save'), control('Save', 'XCUIElementTypeButton', { elementId: 'duplicate' })];
 await assert.rejects(context.one('Save', ['XCUIElementTypeButton']), /got 2/);
 controls = [control('Save "As"')];
@@ -383,9 +402,12 @@ function saveQuitCase({
       picker = seed;
     },
     one: async () => ({ click: async () => events.push('app-menu') }),
-    click: async (name) => {
+    click: async (name, starts = false) => {
       assert.ok(['File', 'Close Window', 'Quit Varve'].includes(name));
-      if (name === 'Close Window') windowClosed = closesWindow;
+      if (name === 'Close Window') {
+        assert.equal(starts, true, 'Historical webview title includes its shortcut');
+        windowClosed = closesWindow;
+      }
       if (name === 'Quit Varve') requestedQuit = true;
       events.push(name);
     },
@@ -544,7 +566,11 @@ assert.ok(
 console.log(
   'External AX exact canonical X/AB and Create controls pass strict missing/wrong/ambiguous/type/parent/literal guards; no macOS execution claimed.',
 );
-if (process.platform === 'darwin')
-  execFileSync('python3', [new URL('./test_macos_profile_snapshot.py', import.meta.url).pathname], {
-    stdio: 'inherit',
-  });
+if (['darwin', 'linux'].includes(process.platform))
+  execFileSync(
+    'python3',
+    [fileURLToPath(new URL('./test_macos_profile_snapshot.py', import.meta.url))],
+    {
+      stdio: 'inherit',
+    },
+  );

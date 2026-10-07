@@ -72,6 +72,7 @@ export const LANES = {
   'typecheck:all': 'pnpm typecheck',
   'typecheck:e2e': 'pnpm typecheck:e2e',
   'typecheck:website-e2e': 'pnpm exec tsc -p apps/website/tests/e2e/tsconfig.json --noEmit',
+  'native-adapter-contracts': 'node scripts/release/production/contracts.test.mjs',
 
   // ── Tier 2/3: package-scoped (filled in dynamically per package) ─────
   // js-unit:<pkg>        -> vitest run packages/<dir>
@@ -215,6 +216,7 @@ export function laneArgv(lane, { files = [], pkgDir } = {}) {
     ];
   }
   const staticArgv = {
+    'native-adapter-contracts': ['node', 'scripts/release/production/contracts.test.mjs'],
     policy: ['pnpm', 'exec', 'vitest', 'run', 'tests/unit/validationPolicy.test.ts'],
     'typecheck:e2e': ['pnpm', 'typecheck:e2e'],
     'js-unit:all': ['pnpm', 'exec', 'vitest', 'run'],
@@ -272,6 +274,7 @@ export function laneArgv(lane, { files = [], pkgDir } = {}) {
     'audit:architecture': ['node', 'scripts/audit-architecture.mjs', '--ci'],
     'audit:typecheck-regression': ['node', 'scripts/audit-typecheck-regression.mjs'],
     'lint:all': ['biome', 'check', '.'],
+    'lint:css': ['pnpm', 'lint:css'],
   };
   return staticArgv[lane] ?? null;
 }

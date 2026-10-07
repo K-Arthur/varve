@@ -370,6 +370,15 @@ function snapshotOwnerSpec(path) {
 
 // ── plan construction ──────────────────────────────────────────────────────
 
+function nativeAdapterLanes(files) {
+  return files.some(
+    (file) =>
+      file === '.github/workflows/release.yml' || file.startsWith('scripts/release/production/'),
+  )
+    ? ['native-adapter-contracts']
+    : [];
+}
+
 function buildPlan(files, { includeReverse = true } = {}) {
   const pkgs = loadPackages();
   const crates = loadCrates();
@@ -565,6 +574,10 @@ function buildPlan(files, { includeReverse = true } = {}) {
       }
     }
   }
+
+  // Standalone native adapters are Node programs, not Vitest-discovered TS.
+  // Keep their exact local/hosted contract closure in the cheap inner loop.
+  plan.tiers[1].push(...nativeAdapterLanes(files));
 
   // Tier 1: direct related test files
   // Playwright discovers TypeScript tests at runtime, so it does not catch

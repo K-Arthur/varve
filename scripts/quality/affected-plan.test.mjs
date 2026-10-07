@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url';
 import { IMPACT_CONFIG } from '../../validation-impact.config.mjs';
 import { buildPlan } from './affected-plan.mjs';
 import { e2eArgv } from './ci-run-lanes.mjs';
+import { laneArgv } from './validation-lanes.mjs';
 import { deriveCiCategories, selectedCiLanes, selectPushValidation } from './validation-policy.mjs';
 
 const plannerPath = fileURLToPath(new URL('./affected-plan.mjs', import.meta.url));
@@ -28,6 +29,36 @@ assert.throws(
 );
 
 const removedCrate = buildPlan(['crates/removed-crate/src/lib.rs']);
+for (const path of [
+  'scripts/release/production/macos-production.mjs',
+  'scripts/release/production/macos-ax-controls.test.mjs',
+  'scripts/release/production/macos-session.sh',
+  'scripts/release/production/macos-profile-snapshot.py',
+  '.github/workflows/release.yml',
+]) {
+  const plan = buildPlan([path]);
+  assert.ok(
+    plan.tiers[1].includes('native-adapter-contracts'),
+    `${path}: cheap native regressions cannot be deferred to the full gate`,
+  );
+  assert.equal(plan.full, true, 'Native infrastructure still requires its hosted final checkpoint');
+  assert.ok(
+    selectPushValidation(plan, { files: [path] }).localBlocking.includes(
+      'native-adapter-contracts',
+    ),
+    'The push checkpoint also runs cheap native regressions, even when a full hosted gate is required',
+  );
+  assert.deepEqual(
+    laneArgv('native-adapter-contracts'),
+    ['node', 'scripts/release/production/contracts.test.mjs'],
+    'A selected push lane must resolve through the real argv executor, not only the affected shell registry',
+  );
+}
+assert.ok(
+  !buildPlan(['docs/release/signing-decision-record.md']).tiers[1].includes(
+    'native-adapter-contracts',
+  ),
+);
 assert.deepEqual(removedCrate.unresolvedRustPaths, ['crates/removed-crate/src/lib.rs']);
 assert.equal(
   removedCrate.full,

@@ -346,7 +346,7 @@ async function quit() {
     // Close the saved window through the actual editor command first, so
     // finalization completes before the remaining native app is quit.
     await click('File');
-    await click('Close Window');
+    await click('Close Window', true);
     await until(
       async () =>
         (await driver.findElements('predicate string', 'amType == "XCUIElementTypeWindow"'))

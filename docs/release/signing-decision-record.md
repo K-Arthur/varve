@@ -1,5 +1,14 @@
 # Varve — Code Signing Decision Record
 
+**Current 0.5.0 policy:** paid Windows publisher signing and Apple Developer ID
+signing/notarization are optional. The release ships an unsigned public beta
+when those credentials are absent, on the stable download channel as well.
+The paid-service evaluation below describes a possible signed distribution
+path; it is not a prerequisite for publishing 0.5.0. Explicitly setting
+`RELEASE_EXPECT_SIGNED=true` would require those credentials before a build.
+Tauri updater signatures use Varve's existing key pair independently of OS
+publisher certificates; see [Tauri's updater signing documentation](https://v2.tauri.app/plugin/updater/#signing-updates).
+
 **Date:** 2026-08-08
 **Status:** Decision — implementation shipped certificate-ready; acquisition is
 the only remaining step.
@@ -137,7 +146,7 @@ package".
 
 | Item | Year 1 | Year 2+ | Notes |
 |---|---|---|---|
-| Apple Developer Program | $99 | $99 | Recurring; required for any macOS distribution |
+| Apple Developer Program | $99 | $99 | Recurring; required for the Developer ID signed/notarized path, optional for the unsigned beta |
 | Azure Artifact Signing Basic | ~$120 | ~$120 | Monthly SKU (5,000 sigs/mo — Varve uses a handful) |
 | Azure subscription hosting | $0–~$5/mo | same | Pay-as-you-go subscription; the Artifact Signing account is the only paid resource. A free/trial subscription is ineligible |
 | GitHub | $0 | $0 | Public repo |
