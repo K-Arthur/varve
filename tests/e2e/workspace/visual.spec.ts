@@ -41,6 +41,11 @@ async function navigateToEditor(page: import('@playwright/test').Page, theme?: s
   ) {
     await welcomeClose.first().click();
   }
+  // The HC Create button ends at x=970, inside the Inspector splitter's
+  // eventual hit area. Capture idle chrome with the pointer clear of controls,
+  // rather than preserving an incidental hover after the modal disappears.
+  await page.mouse.move(0, 0);
+  await expect(page.locator('.workspace-dock-splitter:hover')).toHaveCount(0);
 }
 
 for (const theme of THEMES) {
@@ -81,6 +86,9 @@ for (const theme of THEMES) {
       test('full editor layout', async ({ page }) => {
         await navigateToEditor(page, theme);
         await expect(page.locator('.editor-canvas__empty-state')).toBeVisible();
+        await expect(
+          page.getByRole('button', { name: 'Fit active canvas', exact: true }),
+        ).toBeDisabled();
         await expect(page).toHaveScreenshot(`full-editor-${theme}.png`, {
           maxDiffPixels: 500,
         });

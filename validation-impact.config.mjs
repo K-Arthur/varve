@@ -167,6 +167,19 @@ export const IMPACT_CONFIG = {
    */
   impactRules: [
     {
+      id: 'editor-chrome-visual',
+      why: 'Whole-editor screenshots include status controls, panel geometry, and menu chrome even when their specs belong to canvas, Email, or workspace domains; renderer-only goldens cannot detect these implicit CSS dependencies.',
+      paths: [
+        'packages/editor/src/StatusBar.tsx',
+        'packages/editor/src/Menubar.tsx',
+        'packages/editor/src/editor.css',
+        'packages/editor/src/components/Inspector/inspector.css',
+        'packages/editor/src/components/Shell/WorkspaceBottomPanels.css',
+        'packages/editor/src/workspace/dock/editorDockLayout.ts',
+      ],
+      require: ['e2e:editor-chrome-visual'],
+    },
+    {
       id: 'demo-dist-portability-validation',
       why: 'The built-demo CI preflight must reject canonical output overlap even when the host resolves temporary paths through aliases such as macOS /var -> /private/var.',
       paths: [
@@ -410,6 +423,12 @@ export const IMPACT_CONFIG = {
    * at the top level.
    */
   e2eDomains: {
+    'editor-chrome-visual': [
+      'tests/e2e/canvas/overlay-alignment.spec.ts',
+      'tests/e2e/canvas/upscale-dialog-visual.spec.ts',
+      'tests/e2e/email/visual.spec.ts',
+      'tests/e2e/workspace/visual.spec.ts',
+    ],
     canvas: ['tests/e2e/canvas/**'],
     settings: ['tests/e2e/settings/**'],
     menus: ['tests/e2e/menus/**'],

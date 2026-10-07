@@ -4,12 +4,13 @@
 
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { IMPACT_CONFIG } from '../../validation-impact.config.mjs';
 import { buildPlan } from './affected-plan.mjs';
+import { e2eArgv } from './ci-run-lanes.mjs';
 import { deriveCiCategories, selectedCiLanes, selectPushValidation } from './validation-policy.mjs';
 
 const plannerPath = fileURLToPath(new URL('./affected-plan.mjs', import.meta.url));
@@ -59,6 +60,69 @@ assert.deepEqual(
   'multiple changed baselines select their existing owner once, after E2E typechecking',
 );
 assert.ok(!snapshotPlan.tiers[4].includes('e2e:canvas'));
+
+const chromeOwners = [
+  'tests/e2e/canvas/overlay-alignment.spec.ts',
+  'tests/e2e/canvas/upscale-dialog-visual.spec.ts',
+  'tests/e2e/email/visual.spec.ts',
+  'tests/e2e/workspace/visual.spec.ts',
+];
+assert.deepEqual(IMPACT_CONFIG.e2eDomains['editor-chrome-visual'], chromeOwners);
+assert.deepEqual(
+  e2eArgv('e2e:editor-chrome-visual', '1/1'),
+  ['pnpm', 'exec', 'playwright', 'test', ...chromeOwners, '--project=chromium', '--shard', '1/1'],
+  'the hosted runner resolves the domain to real owners and retains its shard identity',
+);
+function fullEditorScreenshotOwners(directory) {
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const path = `${directory}/${entry.name}`;
+    if (entry.isDirectory()) return fullEditorScreenshotOwners(path);
+    return entry.name.endsWith('.spec.ts') &&
+      /expect\(\s*page\s*\)\s*\.toHaveScreenshot\(/.test(readFileSync(path, 'utf8'))
+      ? [path]
+      : [];
+  });
+}
+assert.deepEqual(
+  [...IMPACT_CONFIG.e2eDomains['editor-chrome-visual']].sort(),
+  fullEditorScreenshotOwners('tests/e2e').sort(),
+  'new whole-editor screenshot owners must join chrome selection before they can drift',
+);
+const chromeRule = IMPACT_CONFIG.impactRules.find((rule) => rule.id === 'editor-chrome-visual');
+assert.ok(chromeRule);
+for (const source of chromeRule.paths) {
+  const chromePlan = buildPlan([source]);
+  assert.ok(
+    chromePlan.tiers[1].includes('typecheck:e2e'),
+    `${source} compiles browser specs first`,
+  );
+  assert.ok(
+    chromePlan.tiers[4].includes('e2e:editor-chrome-visual'),
+    `${source} selects every chrome screenshot owner`,
+  );
+  assert.ok(
+    !chromePlan.tiers[4].includes('e2e:workspace'),
+    `${source} does not run unrelated workspace interactions`,
+  );
+  assert.ok(
+    !chromePlan.tiers[4].includes('e2e:all'),
+    `${source} does not force the entire browser corpus`,
+  );
+  assert.ok(
+    selectedCiLanes(chromePlan, deriveCiCategories(chromePlan, [source])).includes(
+      'e2e:editor-chrome-visual',
+    ),
+    `${source} reaches hosted selection`,
+  );
+}
+for (const spec of chromeOwners) {
+  const baselinePlan = buildPlan([`${spec}-snapshots/changed-chrome-chromium-linux.png`]);
+  assert.deepEqual(baselinePlan.tiers[1], ['typecheck:e2e', `e2e:file:${spec}`]);
+  assert.ok(
+    !baselinePlan.tiers[4].includes('e2e:editor-chrome-visual'),
+    'a baseline update keeps its exact owner scope',
+  );
+}
 
 const missingOwner = buildPlan([
   'tests/e2e/canvas/deleted.spec.ts-snapshots/deleted-chromium-linux.png',
